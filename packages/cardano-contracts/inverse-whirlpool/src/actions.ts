@@ -28,9 +28,10 @@ export const init_merkle = async (API: Blaze<U5C, HotWallet>) => {
   const utxo = utxos_user[0];
 
   // Transfer Token Contract - Mint Receipt Redeemer
-  const paramScript_Merkle_Minter = new plutus.WhirlMerkleMint({
-    transactionId: utxo.input().transactionId(), outputIndex: utxo.input().index()
-  })
+  // const paramScript_Merkle_Minter = new plutus.WhirlMerkleMint({
+  //   transactionId: utxo.input().transactionId(), outputIndex: utxo.input().index()
+  // })
+  const paramScript_Merkle_Minter = new plutus.TrueAlways()
   fs.writeFileSync('data/param_script.json', JSON.stringify({'validator': paramScript_Merkle_Minter.toCbor()}), { encoding: 'utf-8' });
 
   // Contract Addresses
@@ -47,11 +48,14 @@ export const init_merkle = async (API: Blaze<U5C, HotWallet>) => {
 
   // Mint Action: InitMerkle (ref: validation.ak)
   const mintRedeemer = Data.to('InitMerkle', plutus.WhirlMerkleMint.rdmr); 
-  const scriptDatum = Data.to({
-    Merkle: {
-      root: "0000000000000000000000000000000000000000000000000000000000000000", 
-      ownHash: policyId_Merkle_Minter
-    }}, plutus.WhirlMerkleSpend.datum)
+  // const scriptDatum = Data.to({
+  //   Merkle: {
+  //     root: "0000000000000000000000000000000000000000000000000000000000000000", 
+  //     ownHash: policyId_Merkle_Minter
+  //   }}, plutus.WhirlMerkleSpend.datum)
+
+    const scriptDatum = Data.to('',)
+  
 
   // Token 2 - Token with scriptDataHash as the asset name
   const quantity_token = 1 

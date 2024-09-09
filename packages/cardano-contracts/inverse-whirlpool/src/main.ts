@@ -1,12 +1,14 @@
 
 import 'dotenv/config';
 //import contract from "../plutus.json" assert {type: 'json'};
-import { HotWallet, Core, Blaze, U5C} from "@blaze-cardano/sdk";
+import { HotWallet, Core, Blaze} from "@blaze-cardano/sdk";
+import { Kupmios } from "@blaze-cardano/query";
+import { Unwrapped } from "@blaze-cardano/ogmios";
+import { U5C} from "@utxorpc/blaze-provider";
 import { Command, Option } from '@commander-js/extra-typings';
 //import { mint_token, burn_token, update_token, init_merkle, create_account } from './actions.js';
 import { init_merkle } from './actions.js';
 import { api_blockfrost, getValidators } from './util.js';
-import { generateSeedPhrase } from "lucid-cardano";
 import fs from 'fs';
 
 // Config: Flags ---------------------------------------------------------------

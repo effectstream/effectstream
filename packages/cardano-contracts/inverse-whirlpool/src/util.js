@@ -1,11 +1,4 @@
 import 'dotenv/config';
-import {
-  Blockfrost, 
-  Lucid, 
-  fromText,
-  Data,
-  Constr
-} from "lucid-cardano";
 
 // Initialize Lucid ------------------------------------------------------------
 export const api_blockfrost = async (network) => {
