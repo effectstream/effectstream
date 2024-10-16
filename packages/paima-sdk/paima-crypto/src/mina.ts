@@ -24,7 +24,7 @@ export class MinaCrypto implements IVerify {
         return false;
       }
 
-      const Client = (await import('mina-signer')).default;
+      const { default: Client } = await import('mina-signer');
 
       const signerClient = new Client({ network: network as NetworkId });
 

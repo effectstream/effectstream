@@ -23,18 +23,17 @@
     "build": "tsc --build tsconfig.build.json",
     "test": "vitest run"
   },
-  "devDependencies": {},
   "dependencies": {
-    "web3": "1.10.0",
-    "web3-utils": "1.10.0",
     "@cardano-foundation/cardano-verify-datasignature": "^1.0.11",
-    "algosdk": "^2.3.0",
-    "tweetnacl": "^1.0.3",
+    "@paima/utils": "5.0.0",
     "@polkadot/util": "^12.6.2",
     "@polkadot/util-crypto": "^12.6.2",
+    "algosdk": "^2.3.0",
     "bech32": "^2.0.0",
-    "@paima/utils": "5.0.0",
-    "mina-signer": "^2.1.1",
-    "bs58check": "^4.0.0"
+    "bs58check": "^4.0.0",
+    "mina-signer": "^3.0.7",
+    "tweetnacl": "^1.0.3",
+    "web3": "1.10.0",
+    "web3-utils": "1.10.0"
   }
 }
