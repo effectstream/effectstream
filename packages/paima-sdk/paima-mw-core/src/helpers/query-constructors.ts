@@ -21,15 +21,13 @@ export function buildBackendQuery(endpoint: string, options: QueryOptions): stri
 }
 
 export function buildQuery(endpoint: string, options: QueryOptions): string {
-  const optStrings: string[] = [];
-  for (let opt in options) {
-    const valString = queryValueToString(options[opt]);
-    optStrings.push(`${opt}=${valString}`);
-  }
-  if (optStrings.length === 0) {
+  const queryString = new URLSearchParams(
+    Object.entries(options).map(([k, v]) => [k, queryValueToString(v)])
+  ).toString();
+  if (queryString.length === 0) {
     return endpoint;
   } else {
-    return `${endpoint}?${optStrings.join('&')}`;
+    return `${endpoint}?${queryString}`;
   }
 }
 
