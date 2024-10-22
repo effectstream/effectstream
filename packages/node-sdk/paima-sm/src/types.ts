@@ -192,7 +192,7 @@ interface CdeDatumDynamicEvmPrimitivePayload {
   targetConfig:
     | {
         type: CdeEntryTypeName.ERC721;
-        scheduledPrefix: string;
+        scheduledPrefix?: string | undefined;
         burnScheduledPrefix?: string | undefined;
       }
     | {
@@ -246,7 +246,7 @@ export interface CdeErc721MintDatum extends CdeEvmDatumBase {
   cdeDatumType: ChainDataExtensionDatumType.ERC721Mint;
   payload: CdeDatumErc721MintPayload;
   contractAddress: string;
-  scheduledPrefix: string;
+  scheduledPrefix: string | undefined;
 }
 
 export interface CdeErc20DepositDatum extends CdeEvmDatumBase {
@@ -405,7 +405,7 @@ export const ChainDataExtensionErc721Config = Type.Intersect([
   Type.Object({
     type: Type.Literal(CdeEntryTypeName.ERC721),
     contractAddress: EvmAddress,
-    scheduledPrefix: Type.String(),
+    scheduledPrefix: Type.Optional(Type.String()),
     burnScheduledPrefix: Type.Optional(Type.String()),
   }),
 ]);
