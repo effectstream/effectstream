@@ -29,7 +29,7 @@ export async function getMainAddress(
   _address: string,
   DBConn: IDatabaseConnection
 ): Promise<WalletDelegate> {
-  const address = _address.toLocaleLowerCase();
+  const address = _address.toLowerCase();
   let addressMapping: WalletDelegate | undefined = addressCache.get(address);
   if (useAddressCache && addressMapping) return addressMapping;
 
@@ -61,7 +61,7 @@ export async function getRelatedWallets(
   to: IGetDelegationsToWithAddressResult[];
   id: number;
 }> {
-  const address = _address.toLocaleLowerCase();
+  const address = _address.toLowerCase();
   const [addressResult] = await getAddressFromAddress.run({ address }, DBConn);
   if (!addressResult) {
     return { from: [], to: [], id: NO_USER_ID };

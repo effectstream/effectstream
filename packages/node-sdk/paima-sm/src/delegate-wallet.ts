@@ -76,7 +76,7 @@ export class DelegateWallet {
 
   /* Generate Plaintext Message */
   private generateMessage(internalMessage: string = ''): string {
-    return `${DelegateWallet.DELEGATE_WALLET_PREFIX}${DelegateWallet.SEP}${internalMessage.toLocaleLowerCase()}`;
+    return `${DelegateWallet.DELEGATE_WALLET_PREFIX}${DelegateWallet.SEP}${internalMessage.toLowerCase()}`;
   }
 
   private validateSender(to: string, from: string, realAddress: string): void {
@@ -305,7 +305,7 @@ export class DelegateWallet {
             this.verifySignature(from, this.generateMessage(to), from_signature),
             this.verifySignature(to, this.generateMessage(from), to_signature),
           ]);
-          await this.cmdDelegate(from.toLocaleLowerCase(), to.toLocaleLowerCase());
+          await this.cmdDelegate(from.toLowerCase(), to.toLowerCase());
           doLog(`Delegate Wallet ${from.substring(0, 8)}... -> ${to.substring(0, 8)}...`);
           return true;
         }
@@ -319,14 +319,14 @@ export class DelegateWallet {
             this.verifySignature(from, this.generateMessage(to), from_signature),
             this.verifySignature(to, this.generateMessage(from), to_signature),
           ]);
-          await this.cmdMigrate(from.toLocaleLowerCase(), to.toLocaleLowerCase());
+          await this.cmdMigrate(from.toLowerCase(), to.toLowerCase());
 
           doLog(`Migrate Wallet ${from.substring(0, 8)}... -> ${to.substring(0, 8)}...`);
           return true;
         }
         case 'cancelDelegations': {
           const { to } = parsed.args;
-          await this.cmdCancelDelegations(userAddress.toLocaleLowerCase(), to.toLocaleLowerCase());
+          await this.cmdCancelDelegations(userAddress.toLowerCase(), to.toLowerCase());
           doLog(
             `Cancel Delegate ${userAddress.substring(0, 8)}... -> ${to ? to.substring(0, 8) + '...' : '*'}`
           );

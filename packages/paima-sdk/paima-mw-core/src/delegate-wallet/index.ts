@@ -106,7 +106,7 @@ export class WalletConnectHelper {
   private static readonly SEP = ':';
 
   public buildMessageToSign(subMessage: string): string {
-    return `${WalletConnectHelper.DELEGATE_WALLET_PREFIX}${WalletConnectHelper.SEP}${subMessage.toLocaleLowerCase()}`;
+    return `${WalletConnectHelper.DELEGATE_WALLET_PREFIX}${WalletConnectHelper.SEP}${subMessage.toLowerCase()}`;
   }
 
   private getProvider(walletType: AddressType): IProvider<unknown> {

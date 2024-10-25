@@ -21,7 +21,7 @@ export default async function processErc721Datum(
   const { to, tokenId, from } = cdeDatum.payload;
   const toAddr = to.toLowerCase();
 
-  const isBurn = Boolean(toAddr.toLocaleLowerCase().match(/^0x0+(dead)?$/g));
+  const isBurn = Boolean(toAddr.toLowerCase().match(/^0x0+(dead)?$/g));
 
   const updateList: SQLUpdate[] = [];
   try {
