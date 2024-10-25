@@ -9,7 +9,7 @@ import {
   getDelegationsToWithAddress,
   getMainAddressFromAddress,
 } from './sql/wallet-delegation.queries.js';
-import type { PoolClient, Notification, Client } from 'pg';
+import type { Notification, Client } from 'pg';
 import type { IDatabaseConnection } from '@pgtyped/runtime/lib/tag';
 
 export type WalletDelegate = { address: string; id: number };
@@ -55,7 +55,7 @@ export async function getMainAddress(
 
 export async function getRelatedWallets(
   _address: string,
-  DBConn: PoolClient
+  DBConn: IDatabaseConnection
 ): Promise<{
   from: IGetDelegationsFromWithAddressResult[];
   to: IGetDelegationsToWithAddressResult[];
