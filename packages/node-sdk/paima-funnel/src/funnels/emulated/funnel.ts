@@ -286,7 +286,7 @@ export class EmulatedBlocksFunnel extends BaseFunnel {
         processingQueue[processingQueue.length - 1]?.blockNumber ?? 0
       ),
       latestFetchedTimestamp: Math.max(
-        parseInt(res.second_timestamp, 10),
+        Number(res.second_timestamp),
         processingQueue[processingQueue.length - 1]?.timestamp ?? 0
       ),
     };
