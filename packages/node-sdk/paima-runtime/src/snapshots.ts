@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 
-import { exec } from 'child_process';
-import type { ExecException } from 'child_process';
+import { execFile } from 'child_process';
+import type { ExecFileException } from 'child_process';
 import { doLog, logError } from '@paima/utils';
 
 const SNAPSHOT_INTERVAL = 21600;
@@ -42,18 +42,19 @@ async function getNewestFilename(dir: string): Promise<string> {
 }
 
 async function saveSnapshot(blockHeight: number): Promise<void> {
-  const username = process.env.DB_USER;
-  const password = process.env.DB_PW;
-  const database = process.env.DB_NAME;
-  const host = process.env.DB_HOST;
-  const port = process.env.DB_PORT || '5432';
   const fileName = `paima-snapshot-${blockHeight}.sql`;
   doLog(`[paima-runtime::snapshots] Saving Snapshot: ${fileName}`);
-  exec(
-    `pg_dump --dbname=postgresql://${username}:${password}@${host}:${port}/${database} -f ${snapshotPath(
-      fileName
-    )}`,
-    (error: ExecException | null, stdout: string, stderr: string) => {
+  const url = Object.assign(new URL('postgresql://'), {
+    hostname: process.env.DB_HOST,
+    port: process.env.DB_PORT || '5432',
+    username: process.env.DB_USER,
+    password: process.env.DB_PW,
+    pathname: process.env.DB_NAME,
+  } satisfies Partial<URL>).toString();
+  execFile(
+    'pg_dump',
+    [`--dbname=${url}`, '-f', snapshotPath(fileName)],
+    (error: ExecFileException | null, stdout: string, stderr: string) => {
       if (error) {
         doLog(`[paima-runtime::snapshots] Error saving snapshot: ${stderr}`);
       }
