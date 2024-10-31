@@ -212,7 +212,9 @@ export async function postConciselyEncodedData(
   }
 }
 
-async function getAdjustedHeight(deploymentChainBlockHeight: number): Promise<number> {
+async function getAdjustedHeight(deploymentChainBlockHeight: number): Promise<Result<number>> {
+  const errorFxn = buildEndpointErrorFxn('getAdjustedHeight');
+
   const emulatedActive =
     getEmulatedBlocksActive() ??
     (await emulatedBlocksActiveOnBackend().then(
@@ -221,17 +223,22 @@ async function getAdjustedHeight(deploymentChainBlockHeight: number): Promise<nu
 
   if (emulatedActive) {
     const BLOCK_DELAY = 1000;
+    // -1 here means the block isn't part of the chain yet so we can't know the mapping
+    const BLOCK_NOT_PART_OF_CHAIN_YET = -1;
 
-    while (true) {
+    for (let i = 0; i < BATCHER_RETRIES; ++i) {
       const remote = await deploymentChainBlockHeightToEmulated(deploymentChainBlockHeight);
-      // TODO: magic number. -1 here means the block isn't part of the chain yet so we can't know the mapping
-      if (!(remote.success === false || remote.result === -1)) {
-        return remote.result;
+      if (remote.success === true && remote.result !== BLOCK_NOT_PART_OF_CHAIN_YET) {
+        return remote;
       }
       await wait(BLOCK_DELAY);
     }
+    return errorFxn(
+      PaimaMiddlewareErrorCode.ERROR_POSTING_TO_BATCHER,
+      "emulated block didn't succeed in time"
+    );
   } else {
-    return deploymentChainBlockHeight;
+    return { success: true, result: deploymentChainBlockHeight };
   }
 }
 
@@ -250,10 +257,7 @@ async function postString(
       TX_VERIFICATION_RETRY_DELAY,
       TX_VERIFICATION_RETRY_COUNT
     );
-    return {
-      success: true,
-      result: await getAdjustedHeight(deploymentChainBlockHeight),
-    };
+    return await getAdjustedHeight(deploymentChainBlockHeight);
   } catch (err) {
     return errorFxn(PaimaMiddlewareErrorCode.ERROR_POSTING_TO_CHAIN, err);
   }
@@ -342,10 +346,7 @@ async function verifyBatcherSubmission(inputHash: string): Promise<Result<number
           FE_ERR_BATCHER_REJECTED_INPUT
         );
       } else if (status.status === 'posted') {
-        return {
-          success: true,
-          result: await getAdjustedHeight(status.block_height),
-        };
+        return await getAdjustedHeight(status.block_height);
       }
     } catch (err) {
       errorFxn(PaimaMiddlewareErrorCode.INVALID_RESPONSE_FROM_BATCHER, err);
