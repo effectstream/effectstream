@@ -12,6 +12,6 @@ INSERT INTO achievement_progress (wallet, name, completed_date, progress, total)
 VALUES (:wallet!, :name!, :completed_date, :progress, :total)
 ON CONFLICT (wallet, name)
 DO UPDATE SET
-  completed_date = EXCLUDED.completed_date,
+  completed_date = LEAST(achievement_progress.completed_date, EXCLUDED.completed_date::TIMESTAMP),
   progress = EXCLUDED.progress,
   total = EXCLUDED.total;

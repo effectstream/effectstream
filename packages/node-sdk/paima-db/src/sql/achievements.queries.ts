@@ -55,7 +55,7 @@ export interface ISetAchievementProgressQuery {
   result: ISetAchievementProgressResult;
 }
 
-const setAchievementProgressIR: any = {"usedParamSet":{"wallet":true,"name":true,"completed_date":true,"progress":true,"total":true},"params":[{"name":"wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":89,"b":96}]},{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":99,"b":104}]},{"name":"completed_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":107,"b":121}]},{"name":"progress","required":false,"transform":{"type":"scalar"},"locs":[{"a":124,"b":132}]},{"name":"total","required":false,"transform":{"type":"scalar"},"locs":[{"a":135,"b":140}]}],"statement":"INSERT INTO achievement_progress (wallet, name, completed_date, progress, total)\nVALUES (:wallet!, :name!, :completed_date, :progress, :total)\nON CONFLICT (wallet, name)\nDO UPDATE SET\n  completed_date = EXCLUDED.completed_date,\n  progress = EXCLUDED.progress,\n  total = EXCLUDED.total"};
+const setAchievementProgressIR: any = {"usedParamSet":{"wallet":true,"name":true,"completed_date":true,"progress":true,"total":true},"params":[{"name":"wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":89,"b":96}]},{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":99,"b":104}]},{"name":"completed_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":107,"b":121}]},{"name":"progress","required":false,"transform":{"type":"scalar"},"locs":[{"a":124,"b":132}]},{"name":"total","required":false,"transform":{"type":"scalar"},"locs":[{"a":135,"b":140}]}],"statement":"INSERT INTO achievement_progress (wallet, name, completed_date, progress, total)\nVALUES (:wallet!, :name!, :completed_date, :progress, :total)\nON CONFLICT (wallet, name)\nDO UPDATE SET\n  completed_date = LEAST(achievement_progress.completed_date, EXCLUDED.completed_date::TIMESTAMP),\n  progress = EXCLUDED.progress,\n  total = EXCLUDED.total"};
 
 /**
  * Query generated from SQL:
@@ -64,7 +64,7 @@ const setAchievementProgressIR: any = {"usedParamSet":{"wallet":true,"name":true
  * VALUES (:wallet!, :name!, :completed_date, :progress, :total)
  * ON CONFLICT (wallet, name)
  * DO UPDATE SET
- *   completed_date = EXCLUDED.completed_date,
+ *   completed_date = LEAST(achievement_progress.completed_date, EXCLUDED.completed_date::TIMESTAMP),
  *   progress = EXCLUDED.progress,
  *   total = EXCLUDED.total
  * ```
