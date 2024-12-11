@@ -15,11 +15,24 @@ A token is minted using the `true.mint` validator where the token name is encode
 
 To compile the contract, execute the following command in the root directory of this project:
 
+For testnet:
 ```sh
-aiken build
+aiken b -t verbose --env preview \
+&& aiken blueprint convert -v always > src/scripts/true.json \
+&& aiken blueprint convert -v merkle > src/scripts/whirl.json \
+&& aiken blueprint convert -v paima_mint > src/scripts/paima.json
+
 ```
 
-A `plutus.json` file will be generated.
+For mainnet
+```sh
+aiken b --env mainnet & 
+&& aiken blueprint convert -v always > src/scripts/true.json \
+&& aiken blueprint convert -v merkle > src/scripts/whirl.json \
+&& aiken blueprint convert -v paima_mint > src/scripts/paima.json
+```
+
+A `plutus.json` file will be generated along with a set of scripts in `src/scripts`
 
 ## Testing
 
@@ -50,7 +63,9 @@ The set of actions:
 
 ### Set Up
 
-First, run `npm install` to install the required `node` packages for the CLI application. Next, set up a `.env` file with API keys for a provider. Not all variables must be defined, only at minimum the provider you choose to work with. The default provider Blockfrost. Your `.env` may look like so:
+#### Installation
+
+Make sure you first the contract scripts in the previous section, next, run `pnpm install` to install the required `node` packages for the CLI application. Next, set up a `.env` file with API keys for a provider. Not all variables must be defined, only at minimum the provider you choose to work with. The default provider Blockfrost. Your `.env` may look like so:
 ```
 DEMETER=<Demeter API Key>
 KUPO_URL="https://<network>.<Kupo URL>"
@@ -61,25 +76,31 @@ A provider is used to broadcast the transaction to the network. API keys may be 
 * [Demeter](https://demeter.run/)
 * [Blockfrost](https://blockfrost.io/)
 
+#### Wallet
 
-Additionally, the off-chain code expects a `seed.txt` file in the `src` directory with sufficient funds. If no existing wallet is provided, you may generate one with the following command:
+To set up a wallet for this command, replacing `<wallet-name>` with the name of your wallet.
+``` bash
+pnpm run execute wallet-new <wallet-name>
 ```
-npm run execute init
-```
-And if on the testnet, you may fund it with this [faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/).
+or alternatively execute the `tests/Setup.sh` script where it will guide you on funding with `tAda` and will default the name to `user_1` as the expected wallet name for test case execution.
+
+Testnet may be obtained at this [faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/).
 
 
 ### Initialization
 
 To instantiate the contract, execute the following command:
 
-```
-npm run execute init_contract
+``` bash
+pnpm run execute init_contract
 ```
 
 This mints a null assetname token into the contract with the policy ID of the merkle minter validator.
 
 Contract uniqueness is enforced through using the spent eUTXO as a parameter input for the contract. The contract parameters are saved in `data/param_script.json` for convenience and the merkle tree is stored in `data/merkle_forest_db`
+
+
+
 
 ### Creating an Account
 
@@ -89,51 +110,51 @@ A record is inserted
 
 
 ```
-npm run execute create_account
+pnpm run execute create_account
 ```
 
 
 ### Minting
 To mint an initial token, you can define metadata in the `metadata.json` file, and execute the following command. A sample `metadata.json` file is provided.
 ```
-npm run execute mint
+pnpm run execute mint
 ```
 You can append a `-p` or `--preview` flag to the command to execute on the test network.
 ```
-npm run execute mint -p
+pnpm run execute mint -p
 ```
 
 
 ### Minting
 To mint an initial token, you can define metadata in the `metadata.json` file, and execute the following command. A sample `metadata.json` file is provided.
 ```
-npm run execute mint
+pnpm run execute mint
 ```
 You can append a `-p` or `--preview` flag to the command to execute on the test network.
 ```
-npm run execute mint -p
+pnpm run execute mint -p
 ```
 
 ### Burning
 
 You may burn your token
 ```
-npm run execute burn
+pnpm run execute burn
 ```
 You can append a `-p` or `--preview` flag to the command to execute on the test network.
 ```
-npm run execute burn -p
+pnpm run execute burn -p
 ```
 
 ### Updating metadata
 
 You may update the token metadata by changing the default `metadata.json` file, or creating a new metadata file and pointing to it with the `-m` or `--metadata` flag.
 ```
-npm run execute update
+pnpm run execute update
 ```
 You can append a `-p` or `--preview` flag to the command to execute on the test network.
 ```
-npm run execute update -p
+pnpm run execute update -p
 ```
 
 ## Resources
