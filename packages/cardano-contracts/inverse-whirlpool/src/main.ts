@@ -1,239 +1,273 @@
-
 import 'dotenv/config';
-//import contract from "../plutus.json" assert {type: 'json'};
-import { HotWallet, Core, Blaze} from "@blaze-cardano/sdk";
-import { Kupmios } from "@blaze-cardano/query";
-import { Unwrapped } from "@blaze-cardano/ogmios";
-import { U5C} from "@utxorpc/blaze-provider";
 import { Command, Option } from '@commander-js/extra-typings';
-//import { mint_token, burn_token, update_token, init_merkle, create_account } from './actions.js';
-import { init_merkle } from './actions.js';
-import { api_blockfrost, getValidators } from './util.js';
+import { Lucid, Blockfrost, Kupmios, PROTOCOL_PARAMETERS_DEFAULT, generateSeedPhrase, scriptFromNative, paymentCredentialOf } from "@lucid-evolution/lucid";
+import { init_merkle, create_account, mint_root_token } from './actions';
+import { getValidators } from './util';
 import fs from 'fs';
+import dotenv from 'dotenv';
+dotenv.config();
 
-// Config: Flags ---------------------------------------------------------------
+const VERBOSE = true;
+const WALLET_DIR = 'wallets';
 
-// Network
+// Ensure wallet directory exists
+if (!fs.existsSync(WALLET_DIR)) {
+  console.log('Creating wallet directory...');
+  fs.mkdirSync(WALLET_DIR);
+}
+
+// Config: Option Flags --------------------------------------------------------
 const previewOption = new Option('-p, --preview', 'Use testnet').default(true);
-
-// Provider
 const kupoUrlOption = new Option('-k, --kupo-url <string>', 'Kupo URL')
   .env('KUPO_URL')
   .makeOptionMandatory(false);
 const ogmiosUrlOption = new Option('-o, --ogmios-url <string>', 'Ogmios URL')
   .env('OGMIOS_URL')
   .makeOptionMandatory(false);
-const blockfrostUrlOption = new Option('-b, --blockfrost-url <string>', 'Blockfrost URL')
-  .env('BLOCKFROST_URL')
-  .makeOptionMandatory(false);
-const utxoRPCOption = new Option('-u, --utxorpc-url <string>', 'UTXORPC URL')
-  .env('UTXORPC_URL')
-  .makeOptionMandatory(false);
-const utxoRPCOptionKey = new Option('-k, --utxorpc-key <string>', 'UTXORPC KEY')
-  .env('UTXORPC_KEY')
-  .makeOptionMandatory(false);
+const addressOption = new Option('-a, --address <address>', 'Contract Address')
+  .makeOptionMandatory();
+const datumOption = new Option('-d, --datum <path>', 'Path to datum.json file');
+const walletOption = new Option('-w, --wallet <name>', 'Wallet to use')
+  .makeOptionMandatory();
 
+// Wallet management functions
+const generateWallet = async (name: string) => {
+  const seed = generateSeedPhrase();
+  const walletPath = `${WALLET_DIR}/${name}.json`;
+  
+  if (fs.existsSync(walletPath)) {
+    throw new Error(`Wallet ${name} already exists`);
+  }
+  
+  fs.writeFileSync(walletPath, JSON.stringify({ seed }));
+  return seed;
+};
 
-// Extra
-const txHash = new Option('-tx, --tx-hash', 'Transaction Hash')
-  .env('tx_hash')
-  .makeOptionMandatory(false);
+const loadWallet = async (API: any, name: string) => {
+  const walletPath = `${WALLET_DIR}/${name}.json`;
+  if (!fs.existsSync(walletPath)) {
+    throw new Error(`Wallet ${name} not found`);
+  }
+  
+  const { seed } = JSON.parse(fs.readFileSync(walletPath, 'utf-8'));
+  API.selectWallet.fromSeed(seed);
+  return API.wallet().address();
+};
+
+export const loadContract = async (address: string) => {
+  const dir_contract = 'data/contracts/' + address;
+  const parameterized_script = await JSON.parse(fs.readFileSync(dir_contract+'/param_script.json', { encoding: 'utf-8' }))
+  const state = await JSON.parse(fs.readFileSync(dir_contract+'/state.json', { encoding: 'utf-8' }))
+  return {'script': parameterized_script, 'state': state}
+}
 
 // App -------------------------------------------------------------------------
 const app = new Command();
 app.name('minter').description('Inverse Whirlpool Minter').version('0.0.1');
 
-// App Command: Init -----------------------------------------------------------
+
+// App Command: Generate Wallet ----------------------------------------------
 app
-  .command('init_contract')
-  .description('Initializes Contract')
-  .addOption(previewOption)            // Network
-  .addOption(utxoRPCOption)            // Provider Option
-  .addOption(utxoRPCOptionKey)            // Provider Option
-  .action(async ({ preview, utxorpcUrl, utxorpcKey }) => {
-
-    // Provider Selection
-    const provider = new U5C({
-      url: utxorpcUrl!,
-      headers: {
-        "dmtr-api-key": utxorpcKey!
-      }
-    });
-
-    console.log('Loading Wallet')
-
-    const mnemonic = fs.readFileSync('seed.txt', { encoding: 'utf-8' })
-    const entropy = Core.mnemonicToEntropy(mnemonic, Core.wordlist);
-    const masterkey = Core.Bip32PrivateKey.fromBip39Entropy(Buffer.from(entropy), "");
+.command('wallet-new')
+.description('Generate a new wallet')
+.argument('<name>', 'Name of the wallet')
+.action(async (name) => {
+  try {
+    const seed = await generateWallet(name);
+    console.log(`Wallet ${name} created successfully`);
     
-    const wallet = await HotWallet.fromMasterkey(masterkey.hex(), provider);
-    const blaze = await Blaze.from(provider, wallet);
-
-    // Try to execute the TX
-    try {
-      const tx_info = await init_merkle(blaze)
-    } catch (e) {
-      console.log(e);
-    }
-  });
-
-// App Command: Create Account -----------------------------------------------------------
-app
-  .command('create_account')
-  .description('Creates an Account')
-  .addOption(previewOption)            // Network
-  .addOption(blockfrostUrlOption)      // Provider Option
-  .addOption(kupoUrlOption)            // Provider Option
-  .addOption(ogmiosUrlOption)          // Provider Option
-  .action(async ({ preview }) => {
-
-    // Set up wallet API and provider API to broadcast the built TX
-    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await api_blockfrost(preview ? 'Preview' : 'Mainnet' )
-    await lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
-
-    // Try to the parameterized contract code
-    let parameterized_validator;
-    try {
-      parameterized_validator = await JSON.parse(fs.readFileSync('./data/param_script.json',{ encoding: 'utf-8' }));
-    } catch (e) {
-      console.log(e);
-      console.log("No parameterized script in src/data found. Make sure to initialize the contract with init_contract first");
-    }
-    // Try to execute the TX
-    try {
-      const tx_info = await create_account(lucid, parameterized_validator)
-    } catch (e) {
-      console.log(e);
-    }
-  });
-
-// App Command: Mint -----------------------------------------------------------
-app
-  .command('mint')
-  .description('Mints a token with a verifiable metadata hash')
-  .addOption(previewOption)            // Network
-  .addOption(blockfrostUrlOption)      // Provider Option
-  .addOption(kupoUrlOption)            // Provider Option
-  .addOption(ogmiosUrlOption)          // Provider Option
-  .action(async ({ preview }) => {
-
-    // Try to the the built contract code
-    let Validators;
-    try {
-      const contract = JSON.parse(fs.readFileSync('../plutus.json',{ encoding: 'utf-8' }));
-      Validators = getValidators(contracts, contract);
-    } catch (e) {
-      console.log(e);
-      console.log("No contract script found, ensure you've compiled the aiken code.");
-      return
-    }
-    // Try to the parameterized contract code
-    let parameterized_validator;
-    try {
-      parameterized_validator = await JSON.parse(fs.readFileSync('./data/param_script.json',{ encoding: 'utf-8' }));
-    } catch (e) {
-      console.log(e);
-      console.log("No parameterized script in src/data found. Make sure to initialize the contract with init_contract first");
-    }
-
-    // Set up wallet API and provider API to broadcast the built TX
-    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await api_blockfrost(preview ? 'Preview' : 'Mainnet' )
-    await lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
-   
-    // Initialize Lucid ----------------------------------------------------------
-
-    // Try to execute the TX
-    try {
-      const tx_info = await mint_token(lucid, Validators, parameterized_validator)
-    } catch (e) {
-      console.log(e);
-    }
-  });
-
-// App Command: Burn -----------------------------------------------------------
-app
-  .command('burn')
-  .description('Burns a token')
-  .addOption(previewOption)            // Network
-  .addOption(blockfrostUrlOption)      // Provider Option
-  .addOption(kupoUrlOption)            // Provider Option
-  .addOption(ogmiosUrlOption)          // Provider Option
-  .action(async ({ preview }) => {
-
-    // Set up wallet API and provider API to broadcast the built TX
-    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await api_blockfrost(preview ? 'Preview' : 'Mainnet' )
-    await lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
-
-    // Try to execute the TX
-    try {
-      const tx_info = await burn_token(lucid)
-    } catch (e) {
-      console.log(e);
-    }
-  });
-
-
-// App Command: Update -----------------------------------------------------------
-app
-  .command('update')
-  .description("Updates a token's metadata")
-  .addOption(previewOption)            // Network
-  .addOption(blockfrostUrlOption)      // Provider Option
-  .addOption(kupoUrlOption)            // Provider Option
-  .addOption(ogmiosUrlOption)          // Provider Option
-  .action(async ({ preview }) => {
-
-    // Set up wallet API and provider API to broadcast the built TX
-    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await api_blockfrost(preview ? 'Preview' : 'Mainnet' )
-    await lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
-
-    // Try to execute the TX
-    try {
-      const tx_info = await update_token(lucid)
-    } catch (e) {
-      console.log(e);
-    }
-  });
-
-// App Command: Watches for TX Settlement ----------------------------------------------
-app
-  .command('checkTX')
-  .addOption(previewOption)            // Network
-  .addOption(blockfrostUrlOption)      // Provider Option
-  .addOption(kupoUrlOption)            // Provider Option
-  .addOption(ogmiosUrlOption)          // Provider Option
-  .addOption(txHash)                   // Transaction Hash
-  .description('Waits for a TX to settle on the blockchain')
-  .action(async ({ options, preview }) => {
+    // Initialize API to get address
+    const API = await Lucid(
+      new Kupmios(
+        process.env.KUPO_ENDPOINT_PREVIEW,
+        process.env.OGMIOS_ENDPOINT_PREVIEW
+      ),    
+      "Preview"
+    );
     
-    // Set up wallet API and provider API to broadcast the built TX
-    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    console.log('Option info: ', txHash)
+    API.selectWallet.fromSeed(seed);
+    const address = await API.wallet().address();
+    console.log(`Address: ${address}`);
+  } catch (e) {
+    console.log(e);
+  }
+});
 
-    console.log('Awaiting transaction settlement for hash: ', options)
-    const lucid = await api_blockfrost(preview ? 'Preview' : 'Mainnet' )
-    //const txSuccess = await lucid.awaitTx(txHash)
-
-  });
-
-// App Command: Initialize Wallet ----------------------------------------------
-// Generates a new wallet
+// App Command: List Wallets -----------------------------------------------
 app
-  .command('init')
-  .description('Initialize a minting ')
-  .action(() => {
+.command('wallet-list')
+.description('List all wallets')
+.action(() => {
+  const wallets = fs.readdirSync(WALLET_DIR)
+    .filter(file => file.endsWith('.json'))
+    .map(file => file.replace('.json', ''));
+  console.log('Available wallets:');
+  wallets.forEach(wallet => console.log(`- ${wallet}`));
+});
 
-    console.log(`Generating seed phrase...`);
-    const seed = generateSeedPhrase();
+// App Command: Init Contract ------------------------------------------------
+app
+.command('init_contract')
+.description('Initializes Contract')
+.addOption(previewOption)
+.addOption(kupoUrlOption)
+.addOption(ogmiosUrlOption)
+.addOption(walletOption)
+.action(async ({ preview, wallet }) => {
+  const API = await Lucid(
+    new Kupmios(
+      process.env.KUPO_ENDPOINT_PREVIEW,
+      process.env.OGMIOS_ENDPOINT_PREVIEW
+    ),    
+    "Preview"
+  );
+  
+  console.log('Loading Wallet...')
+  const userAddress = await loadWallet(API, wallet);
+  console.log('User Address:', userAddress)  
 
-    fs.writeFileSync('seed.txt', seed, { encoding: 'utf-8' });
+  try {
 
-    console.log(`Minting wallet initialized and saved to seed.txt`);  
-    console.log(`For testnet faucet, visit: https://docs.cardano.org/cardano-testnets/tools/faucet/`);
-  });
+    // Execute Transaction
+    const tx_info = await init_merkle(API);
+    console.log(`Contract Successfully Initialized
+      \nContract data stored at: data/contracts/${tx_info.address}
+      \nContract Address: ${tx_info.address}
+      \nContract Policy: ${tx_info.policy_id}`
+    )
+
+    // Await Settlement
+    console.log(`Awaiting TX Settlement...`);
+    const settled = await API.awaitTx(tx_info.tx_id);
+    console.log(`TX Settled: ${settled}`);
+
+  } catch (e) {
+    console.log(e);
+  }
+});
+
+// App Command: Create Account ----------------------------------------------
+app
+.command('create_account')
+.description('Creates an Account')
+.addOption(previewOption)
+.addOption(addressOption)
+.addOption(walletOption)
+.action(async ({ preview, address, wallet }) => {
+  const API = await Lucid(
+    new Kupmios(
+      process.env.KUPO_ENDPOINT_PREVIEW,
+      process.env.OGMIOS_ENDPOINT_PREVIEW
+    ),    
+    "Preview"
+  );
+
+  console.log('Loading Wallet...')
+  const userAddress = await loadWallet(API, wallet);
+  console.log('User Address:', userAddress)  
+
+  console.log('Loading Contract...')
+  const contract = await loadContract(address)
+  console.log('Contract Address:', address)
+
+  try {
+    const tx_info = await create_account(API, contract);
+    const settled = await API.awaitTx(tx_info.tx_id);
+    console.log(`TX Settled: ${settled}`);
+  } catch (e) {
+    console.log(e);
+  }
+});
+
+// App Command: Mint Token -------------------------------------------------
+app
+.command('mint')
+.description('Mints a token with a verifiable metadata hash')
+.addOption(previewOption)
+.addOption(walletOption)
+.addOption(addressOption)
+.action(async ({ preview, address, wallet }) => {
+  const API = await Lucid(
+    new Kupmios(
+      process.env.KUPO_ENDPOINT_PREVIEW,
+      process.env.OGMIOS_ENDPOINT_PREVIEW
+    ),    
+    "Preview"
+  );
+
+  console.log('Loading Wallet...')
+  const userAddress = await loadWallet(API, wallet);
+  console.log('User Address:', userAddress)  
+
+  console.log('Loading Contracts...')
+  const contract_merkle_minter_paramed = await loadContract(address)
+  const contract_always_true = await loadContract(address)
+  const contract_metadata_minter = await loadContract(address)
+  console.log('Contract Address:', address)
+
+  try {
+    const tx_info = await mint_root_token(API, contract_merkle_minter_paramed);
+    const settled = await API.awaitTx(tx_info.tx_id);
+    console.log(`TX Settled: ${settled}`);
+  } catch (e) {
+    console.log(e);
+  }
+});
+
+// App Command: Burn Token -------------------------------------------------
+app
+.command('burn')
+.description('Burns a token')
+.addOption(previewOption)
+.action(async ({ preview }) => {
+  const API = await Lucid(
+    new Kupmios(
+      process.env.KUPO_ENDPOINT_PREVIEW,
+      process.env.OGMIOS_ENDPOINT_PREVIEW
+    ),    
+    "Preview"
+  );
+
+  console.log('Loading Wallet...');
+  await API.selectWallet.fromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+  const address = await API.wallet().address();
+  console.log('User Address:', address);
+
+  try {
+    const tx_info = await burn_token(API);
+    const settled = await API.awaitTx(tx_info.tx_id);
+    console.log(`TX Settled: ${settled}`);
+  } catch (e) {
+    console.log(e);
+  }
+});
+
+// App Command: Update Token ----------------------------------------------
+app
+.command('update')
+.description("Updates a token's metadata")
+.addOption(previewOption)
+.action(async ({ preview }) => {
+  const API = await Lucid(
+    new Kupmios(
+      process.env.KUPO_ENDPOINT_PREVIEW,
+      process.env.OGMIOS_ENDPOINT_PREVIEW
+    ),    
+    "Preview"
+  );
+
+  console.log('Loading Wallet...');
+  await API.selectWallet.fromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+  const address = await API.wallet().address();
+  console.log('User Address:', address);
+
+  try {
+    const tx_info = await update_token(API);
+    const settled = await API.awaitTx(tx_info.tx_id);
+    console.log(`TX Settled: ${settled}`);
+  } catch (e) {
+    console.log(e);
+  }
+});
 
 app.parse();

@@ -59,12 +59,12 @@ export  const buildPseudoTX = async (API, Validator_AlwaysTrue, metadata, script
   if (VERBOSE) { console.log("INFO: Building the Pseudo TX"); }
   const script_data_hash = await (async () => {
     const tx = await API.newTx()
-    .payToAddressWithData(
+    .pay.ToAddressWithData(
       Address_Contract_AlwaysTrue, 
       {inline: scriptDatum},
       {},
     ) 
-    .payToAddress(
+    .pay.ToAddress(
       userAddress, 
       {[asset_token]: BigInt(quantity_token)},
     ) 
