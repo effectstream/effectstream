@@ -22,5 +22,5 @@ source = "github"
 
 [[dependencies]]
 name = "aiken-lang/merkle-patricia-forestry"
-version = "main"
+version = "2.0.0"
 source = "github"

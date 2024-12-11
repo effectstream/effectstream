@@ -1,3 +1,38 @@
+use inverse_whirlpool/conversion.{
+  convert_extra_signatories, convert_fee, convert_inputs, convert_mint,
+  convert_outputs,
+}
+
+// test convert_extra_signatories_1() {
+//   let extra_signatories =
+//   let expected_result = #"abc"
+//   expected_result == convert_extra_signatories(extra_signatories)
+// }
+
+// test convert_fee_1() {
+//   let fee = 
+//   let expected_result = #"abc"
+//   expected_result == convert_fee(fee)
+// }
+
+// test convert_inputs_1() {
+//   let inputs = 
+//   let expected_result = #"abc"
+//   expected_result == convert_inputs(extra_signatories)
+// }
+
+// test convert_mint_1() {
+//   let mint = 
+//   let expected_result = #"abc"
+//   expected_result == convert_mint(mint)
+// }
+
+// test convert_outputs_1() {
+//   let outputs = 
+//   let expected_result = #"abc"
+//   expected_result == convert_outputs(outputs)
+// }
+
 // test foo() {
 //   trace cbor.diagnostic(#"aabbccddeeff")
 //   trace cbor.serialise(#"aabbccddeeff") |> bytearray.to_hex()

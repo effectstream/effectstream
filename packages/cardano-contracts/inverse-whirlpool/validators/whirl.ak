@@ -86,17 +86,17 @@ validator merkle(init_ref: OutputReference) {
             |> assets.tokens(own_policy)
             |> dict.to_pairs
 
-        trace concat(@"Account Hash: ", account_hash |> bytearray.to_hex())
-        trace concat(@"Minted Token: ", minted_token |> bytearray.to_hex())
+        // trace concat(@"Account Hash: ", account_hash |> bytearray.to_hex())
+        // trace concat(@"Minted Token: ", minted_token |> bytearray.to_hex())
 
-        // trace concat(@"Own output_address: ", output_address)
-        // trace concat(@"Own expected_address: ", expected_address |> bytearray.to_hex())
-        trace concat(@"Own Hash: ", own_hash |> bytearray.to_hex())
-        trace concat(@"Own Policy: ", own_policy |> bytearray.to_hex())
+        // // trace concat(@"Own output_address: ", output_address)
+        // // trace concat(@"Own expected_address: ", expected_address |> bytearray.to_hex())
+        // trace concat(@"Own Hash: ", own_hash |> bytearray.to_hex())
+        // trace concat(@"Own Policy: ", own_policy |> bytearray.to_hex())
 
-        trace concat(@"input_root: ", input_root |> bytearray.to_hex())
-        trace concat(@"account_hash: ", account_hash |> bytearray.to_hex())
-        trace concat(@"Outputroot: ", output_root |> bytearray.to_hex())
+        // trace concat(@"input_root: ", input_root |> bytearray.to_hex())
+        // trace concat(@"account_hash: ", account_hash |> bytearray.to_hex())
+        // trace concat(@"Outputroot: ", output_root |> bytearray.to_hex())
 
         and {
           // Verify new and old merkle roots
@@ -109,16 +109,12 @@ validator merkle(init_ref: OutputReference) {
           // Verify utxo is preserved
           assets.without_lovelace(input_value) == expected_value,
           output_address == expected_address,
-          // Fairly Positive this is GOOD
           assets.without_lovelace(output_value) == expected_value,
           own_hash == own_policy,
-          // GOOD
           // Verify account token is created
           minted_token == account_hash,
-          // GOOD
           // Verify account utxo is created
           account_address.payment_credential == Script(own_policy),
-          // Fairly Positive this is GOOD
           assets.without_lovelace(account_value) == expected_account_value,
           account_data == InlineDatum(Account(account, 1)),
         }
@@ -149,7 +145,7 @@ validator merkle(init_ref: OutputReference) {
         // Depend on the execution of the mint contract to ensure spend validation
         expect Some(Merkle(_, policy_id)) = datum
 
-        trace concat(@"Policy ID: ", policy_id |> bytearray.to_hex())
+        // trace concat(@"Policy ID: ", policy_id |> bytearray.to_hex())
 
         expect [Pair(_, amount)] =
           transaction.mint
@@ -193,7 +189,6 @@ validator merkle(init_ref: OutputReference) {
           output_data == InlineDatum(Account(credential, current_amount + 1)),
         }
       }
-
       DestroyAccount -> {
         trace @"DestroyAcc"
         // Depend on the execution of the mint contract to ensure spend validation
@@ -247,7 +242,7 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
     // Inputs, Outputs, Inline Datum, and a list of Minted Tokens
     trace @"Mint Preamble Complete"
 
-    trace cbor.diagnostic(action)
+    // trace cbor.diagnostic(action)
 
     expect action: MintActionType = action
 
