@@ -169,7 +169,7 @@ async function getPresyncStartBlockheight(
     const caip2 = caip2PrefixFor(config[network]);
     result[caip2] = freshPresyncStart;
 
-    const latestPresyncBlockheight = await gameStateMachine.getPresyncBlockHeight(network);
+    const latestPresyncBlockheight = await gameStateMachine.getPresyncBlockHeight(caip2);
 
     if (latestPresyncBlockheight > 0) {
       result[caip2] = latestPresyncBlockheight + 1;
