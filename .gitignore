@@ -1,11 +1,2 @@
-node_modules
-bin
-.nx
-**/dist
-**/build
-**/*.tsbuildinfo
-
-# logs
-*.log
-
-.idea/
+**/node_modules
+forge-std

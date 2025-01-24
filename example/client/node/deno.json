@@ -1,0 +1,15 @@
+{
+  "name": "@example/node",
+  "version": "0.3.0",
+  "exports": "./src/main.ts",
+  "tasks": {
+    // separate from node:start so we can type-check before starting other services
+    "check": "deno check src/main.ts",
+    "node:start": "deno run --unstable-node-globals -A src/main.ts",
+    "dev": "deno task -f @example/cardano-contracts devkit:kill && NODE_ENV=development deno run --unstable-node-globals -A --check scripts/start.ts"
+  },
+  "imports": {
+    "viem": "npm:viem@^2.21.3",
+    "effection": "npm:effection@^3.1.0"
+  }
+}

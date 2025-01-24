@@ -1,0 +1,11 @@
+{
+  "name": "@paima/runtime",
+  "version": "0.3.0",
+  "exports": "./src/mod.ts",
+  "imports": {
+    "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "npm:@opentelemetry/auto-instrumentations-node@^0.54.0",
+    "@opentelemetry/sdk-node": "npm:@opentelemetry/sdk-node@^0.56.0",
+    "jsonc-parser": "npm:jsonc-parser@^3.3.1"
+  }
+}

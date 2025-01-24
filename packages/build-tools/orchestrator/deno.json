@@ -1,0 +1,13 @@
+{
+  "name": "@paima/orchestrator",
+  "version": "0.3.0",
+  "exports": "./src/mod.ts",
+  "tasks": {
+    "db:up": "deno task -f @paima/db db:up",
+    "node:wait": "deno task -f @paima/db db:wait && deno task -f @example/evm-contracts chain:wait"
+  },
+  "imports": {
+    "jsonc-parser": "npm:jsonc-parser@^3.3.1",
+    "@opentelemetry/sdk-node": "npm:@opentelemetry/sdk-node@^0.56.0"
+  }
+}

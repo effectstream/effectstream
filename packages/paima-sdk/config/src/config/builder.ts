@@ -1,0 +1,239 @@
+import { NetworkBuilder, type NetworkBuilderData } from "./parts/network.ts";
+import {
+  DeployedAddressBuilder,
+  type DeployedAddressesBuilderData,
+  type DeployedAddressesList,
+} from "./parts/deployedAddresses.ts";
+import {
+  type NetworkSyncProtocols,
+  type PostBuildSyncProtocolBuilderData,
+  SyncProtocolBuilder,
+} from "./parts/syncProtocols.ts";
+import {
+  PrimitiveBuilder,
+  type PrimitiveBuilderData,
+} from "./parts/primitive.ts";
+import {
+  type PostBuildSecurityNamespaceData,
+  SecurityNamespaceBuilder,
+} from "./parts/securityNamespace.ts";
+import { onlyOnce, onlyValue } from "./utils.ts";
+// import { bound } from "@paima/utils";
+
+type ConfigBuilderData<
+  Namespace extends
+    | undefined
+    | Readonly<PostBuildSecurityNamespaceData>["securityNamespace"],
+  Networks extends undefined | NetworkBuilderData,
+  DeployedAddresses extends
+    | undefined
+    | DeployedAddressesBuilderData["deployedAddresses"],
+  SyncProtocols extends undefined | PostBuildSyncProtocolBuilderData,
+  Primitives extends undefined | PrimitiveBuilderData["primitives"],
+> = Readonly<{
+  securityNamespace: Namespace;
+  allNetworks: Networks;
+  deployedAddresses: DeployedAddresses;
+  syncProtocols: SyncProtocols;
+  primitives: Primitives;
+}>;
+
+export class ConfigBuilder<
+  // unfortunately, we have to repeat the arguments here for Typescript to work properly
+  const Namespace extends
+    | undefined
+    | Readonly<PostBuildSecurityNamespaceData>["securityNamespace"] = undefined,
+  const Networks extends undefined | NetworkBuilderData = undefined,
+  const Deployments extends
+    | undefined
+    | DeployedAddressesBuilderData["deployedAddresses"] = undefined,
+  const SyncProtocols extends undefined | PostBuildSyncProtocolBuilderData =
+    undefined,
+  const Primitives extends undefined | PrimitiveBuilderData["primitives"] =
+    undefined,
+> {
+  data: ConfigBuilderData<
+    Namespace,
+    Networks,
+    Deployments,
+    SyncProtocols,
+    Primitives
+  >;
+
+  constructor() {
+    this.data = {
+      securityNamespace: undefined,
+      allNetworks: undefined,
+      deployedAddresses: undefined,
+      syncProtocols: undefined,
+      primitives: undefined,
+    } as any;
+  }
+
+  setNamespace = onlyOnce({
+    key: () => this.data.securityNamespace,
+    name: "setNamespace",
+    build: <const NewNamespace extends PostBuildSecurityNamespaceData>(
+      namespace: (
+        builder: SecurityNamespaceBuilder,
+      ) => { build: () => NewNamespace },
+    ): ConfigBuilder<
+      Readonly<NewNamespace>["securityNamespace"],
+      Networks,
+      Deployments,
+      SyncProtocols,
+      Primitives
+    > => {
+      const builder = new SecurityNamespaceBuilder();
+      (this.data.securityNamespace as any) =
+        namespace(builder).build().securityNamespace;
+      return this as any;
+    },
+  });
+
+  buildNetworks = onlyValue({
+    value: () =>
+      ({}) as [
+        Namespace,
+        Networks,
+      ],
+    target: () => ({}) as readonly [NonNullable<Namespace>, undefined],
+    name: "buildNetworks and/or setNamespace",
+    build: <const NewNetworks extends NetworkBuilderData>(
+      networks: (builder: NetworkBuilder) => { build: () => NewNetworks },
+    ): ConfigBuilder<
+      Namespace,
+      Readonly<NewNetworks>,
+      Deployments,
+      SyncProtocols,
+      Primitives
+    > => {
+      const builder = new NetworkBuilder();
+      (this.data.allNetworks as any) = networks(builder).build();
+      return this as any;
+    },
+  });
+
+  buildDeployments = onlyValue({
+    value: () =>
+      ({}) as [
+        Networks,
+        Deployments,
+      ],
+    target: () => ({}) as readonly [NonNullable<Networks>, undefined],
+    name: "buildDeployments and/or buildNetworks",
+    build: <
+      NewDeployments extends DeployedAddressesBuilderData<
+        NonNullable<Networks>["networks"],
+        DeployedAddressesList<NonNullable<Networks>["networks"]>
+      >,
+    >(
+      deployments: (
+        builder: DeployedAddressBuilder<
+          NonNullable<Networks>["networks"],
+          DeployedAddressesList<NonNullable<Networks>["networks"]>
+        >,
+      ) => { build: () => NewDeployments },
+    ): ConfigBuilder<
+      Namespace,
+      Networks,
+      NewDeployments["deployedAddresses"],
+      SyncProtocols,
+      Primitives
+    > => {
+      const builder = new DeployedAddressBuilder(this.data.allNetworks as any);
+      (this.data.deployedAddresses as any) =
+        deployments(builder).build().deployedAddresses;
+      return this as any;
+    },
+  });
+
+  buildSyncProtocols = onlyValue({
+    value: () =>
+      ({}) as [
+        Deployments,
+        SyncProtocols,
+      ],
+    target: () => ({}) as readonly [NonNullable<Deployments>, undefined],
+    name: "buildSyncProtocols and/or buildDeployments",
+    build: <
+      NewSyncProtocols extends PostBuildSyncProtocolBuilderData<
+        NonNullable<Networks>["networks"]
+      >,
+    >(
+      syncProtocols: (
+        builder: SyncProtocolBuilder<
+          NonNullable<Networks>["networks"],
+          NonNullable<Deployments>
+        >,
+      ) => { build: () => NewSyncProtocols },
+    ): ConfigBuilder<
+      Namespace,
+      Networks,
+      Deployments,
+      NewSyncProtocols,
+      Primitives
+    > => {
+      const builder = new SyncProtocolBuilder(
+        this.data.allNetworks as any,
+        { deployedAddresses: this.data.deployedAddresses as any },
+      );
+      (this.data.syncProtocols as any) = syncProtocols(builder as any).build();
+      return this as any;
+    },
+  });
+
+  buildPrimitives = onlyValue({
+    value: () =>
+      ({}) as [
+        SyncProtocols,
+        Primitives,
+      ],
+    target: () => ({}) as readonly [NonNullable<SyncProtocols>, undefined],
+    name: "buildPrimitives and/or buildSyncProtocols",
+    build: <
+      NewPrimitives extends PrimitiveBuilderData<
+        NonNullable<Networks>["networks"],
+        NetworkSyncProtocols<NonNullable<SyncProtocols>>
+      >,
+    >(
+      primitives: (
+        builder: PrimitiveBuilder<
+          NonNullable<Networks>["networks"],
+          NonNullable<Deployments>,
+          NetworkSyncProtocols<NonNullable<SyncProtocols>>
+        >,
+      ) => { build: () => NewPrimitives },
+    ): ConfigBuilder<
+      Namespace,
+      Networks,
+      Deployments,
+      SyncProtocols,
+      NewPrimitives["primitives"]
+    > => {
+      const syncProtocols = this.data.syncProtocols as any as NonNullable<
+        SyncProtocols
+      >;
+      const builder = new PrimitiveBuilder(
+        this.data.allNetworks as any,
+        { deployedAddresses: this.data.deployedAddresses as any },
+        {
+          ...({
+            [syncProtocols.main.syncProtocol.name]: syncProtocols.main,
+          }),
+          ...syncProtocols.parallel,
+        },
+      );
+      (this.data.primitives as any) =
+        primitives(builder as any).build().primitives;
+      return this as any;
+    },
+  });
+
+  build = onlyValue({
+    value: () => ({}) as Primitives,
+    target: () => ({}) as NonNullable<Primitives>,
+    name: "builder",
+    build: (): typeof this.data => this.data,
+  });
+}

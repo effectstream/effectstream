@@ -1,0 +1,20 @@
+{
+  "name": "@paima/db",
+  "version": "0.3.0",
+  "exports": "./src/mod.ts",
+  "tasks": {
+    "db:up": "deno run --allow-read --allow-net ./scripts/start-pglite.js",
+    "db:wait": "wait-on tcp:5432",
+    "pgtyped:internal": "deno task db:wait && pgtyped -w -c ./pgtypedconfig.json",
+    "pgtyped:update": "concurrently --kill-others \"deno task db:up\" \"deno task pgtyped:internal\""
+  },
+  "imports": {
+    "@coderspirit/nominal": "npm:@coderspirit/nominal@^4.1.1",
+    "@pgtyped/runtime": "npm:@pgtyped/runtime@2.3.0",
+    "@pgtyped/parser": "npm:@pgtyped/parser@2.3.0",
+    "gensync": "npm:gensync@1.0.0-beta.2",
+    "pg": "npm:pg@^8.11.3",
+    "pg-tx": "npm:pg-tx@^1.0.1"
+    // note: in `package.json` we fork @pgtyped/cli because of https://github.com/adelsz/pgtyped/pull/595
+  }
+}

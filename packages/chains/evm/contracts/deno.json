@@ -1,0 +1,36 @@
+{
+  "name": "@paima/evm-contracts",
+  "version": "0.3.0",
+  "exports": {
+    "./plugin": "./build/plugin/index.js",
+    // note: these globs don't actually work due to https://github.com/denoland/deno/issues/26693#issuecomment-2543460644
+    "./abi/*": "./build/abi/*",
+    "./contracts/*": "./build/contracts/*",
+    "./companion-abi/*": "./build/companion-abi/*"
+  },
+  "imports": {
+    "@ignored/hardhat-vnext": "npm:@ignored/hardhat-vnext@3.0.0-next.16",
+    "@ignored/hardhat-vnext-viem": "npm:@ignored/hardhat-vnext-viem@3.0.0-next.11",
+    // TODO: this is just used so I can replace the package contents manually with @paima/hardhat-abi-exporter
+    "hardhat-abi-exporter": "npm:hardhat-abi-exporter"
+  },
+  "tasks": {
+    // deno doesn't support installing packages from Github (https://github.com/denoland/deno/issues/18478)
+    // we can't easily use file: dependency as that isn't supported either (https://github.com/denoland/deno/issues/18478)
+    // so instead we symlink to a local copy of the project
+    "link:forge": "bash -c 'if ! [ -L ../../../../node_modules/forge-std ]; then ln -s ../forge-std ../../../../node_modules/forge-std; fi'",
+
+    // TODO: update `hardhat docgen` to Hardhat v3
+    // note: this should be `deno run hardhat3 compile`, but Deno doesn't like that so we have to use the full name
+    "build:contracts": "forge build && deno run -A npm:@ignored/hardhat-vnext@3.0.0-next.16 compile",
+    "build:publish": "./prepare.sh",
+    "prebuild": "rm -rf ./build",
+    "build": "deno task prebuild && deno task build:contracts && deno task build:publish",
+
+    "clean": "rm -rf ./artifacts && rm -rf ./cache && rm -rf ./build",
+    "test": "forge test",
+
+    // TODO: how to integrate Prettier plugin with deno and/or forge?
+    "prettier": "prettier --write '**/*.{sol,js,ts}' --ignore-path .gitignore"
+  }
+}

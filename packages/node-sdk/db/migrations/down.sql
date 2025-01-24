@@ -1,0 +1,14 @@
+DROP TABLE paima_blocks;
+DROP TABLE rollup_inputs;
+DROP TABLE rollup_input_future_block;
+DROP TABLE rollup_input_future_timestamp;
+DROP TABLE rollup_input_result;
+DROP TABLE rollup_input_origin;
+DROP TABLE nonces;
+DROP TABLE sync_protocol_pagination;
+DROP TABLE primitive_config;
+DROP TABLE addresses;
+DROP TABLE delegations;
+DROP TABLE achievement_progress;
+DROP TABLE event;
+DROP TABLE registered_event;

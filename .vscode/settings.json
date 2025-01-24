@@ -1,23 +1,13 @@
 {
-  "editor.tabSize": 2,
+  "deno.enable": true,
+  "deno.lint": true,
   "editor.formatOnSave": true,
+  "editor.defaultFormatter": "denoland.vscode-deno",
   "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "denoland.vscode-deno"
   },
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "[javascript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
   },
-  "[solidity]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "files.associations": {
-    ".env.*": "properties"
-  },
-  "[sql]": {
-    "editor.formatOnSave": false
-  },
-  "[json][jsonc][json5]": {
-    "editor.formatOnSave": true
-  },
-  "eslint.experimental.useFlatConfig": true,
+  "[markdown]": { "editor.defaultFormatter": null }
 }

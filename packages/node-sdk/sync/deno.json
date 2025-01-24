@@ -1,0 +1,14 @@
+{
+  "name": "@paima/sync",
+  "version": "0.3.0",
+  "exports": "./src/mod.ts",
+  "imports": {
+    "viem": "npm:viem@^2.21.3",
+    "denque": "npm:denque@^2.1.0",
+    "effection": "npm:effection@^3.1.0",
+    "pg": "npm:pg@^8.11.3",
+    "json-stable-stringify": "npm:json-stable-stringify@^1.0.2",
+    "@utxorpc/sdk": "npm:@utxorpc/sdk@^0.6.4",
+    "@utxorpc/spec": "npm:@utxorpc/spec@^0.14.0"
+  }
+}
