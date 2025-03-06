@@ -9,7 +9,8 @@
     // - allow-read is used by tslog to read the CWD for logging (https://github.com/fullstack-build/tslog/issues/309)
     // - allow-net is used to run the collector server
     // - allow-sys is required to run servers on localhost
-    "start": "deno run --unstable-temporal --allow-env --allow-read --allow-net --allow-sys src/mod.ts"
+    "start": "deno run --unstable-temporal --allow-env --allow-read --allow-net --allow-sys src/mod.ts",
+    "wait": "wait-on tcp:4318"
   },
   "imports": {
     "fastify": "npm:fastify@^5.1.0",

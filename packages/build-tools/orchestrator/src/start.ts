@@ -23,17 +23,28 @@ export async function start(): Promise<void> {
     ]);
 
     // start the collector before any other process since it's the one that captures logs
-    // TODO: only start one if there isn't one already running
-    const otlpCollector = $({
-      args: ["task", "-f", "@paima/collector", "start"],
-      signal: AbortControllers.chain,
-      // collector always has to post logs directly to console
-      // otherwise, it gets stuck in an infinite loop of sending to itself
-      log: rawLogHandler,
-      component: ComponentNames.COLLECTOR,
-    });
-    void Promise.all([otlpCollector.status]);
-    setCollectorStarted();
+    {
+      // TODO: only start one if there isn't one already running
+      const otlpCollector = $({
+        args: ["task", "-f", "@paima/collector", "start"],
+        signal: AbortControllers.chain,
+        // collector always has to post logs directly to console
+        // otherwise, it gets stuck in an infinite loop of sending to itself
+        log: rawLogHandler,
+        component: ComponentNames.COLLECTOR,
+      });
+      void Promise.all([otlpCollector.status]);
+      const waitOtlp = $({
+        args: ["task", "-f", "@paima/collector", "wait"],
+        signal: AbortControllers.chain,
+        // collector always has to post logs directly to console
+        // otherwise, it gets stuck in an infinite loop of sending to itself
+        log: rawLogHandler,
+        component: ComponentNames.COLLECTOR,
+      });
+      await Promise.all([waitOtlp.status]);
+      setCollectorStarted();
+    }
 
     await Promise.all([
       startDb(),
@@ -69,10 +80,6 @@ async function startEvm(): Promise<Deno.CommandStatus> {
     .status;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 async function startCardano(): Promise<Deno.CommandStatus> {
   const yaciDevkit = $({
     args: ["task", "-f", "@example/cardano-contracts", "devkit:start"],
@@ -87,8 +94,6 @@ async function startCardano(): Promise<Deno.CommandStatus> {
   })
     .status;
 
-  await sleep(10_000);
-
   const dolos = $({
     args: ["task", "-f", "@example/cardano-contracts", "dolos:start"],
     signal: AbortControllers.chain,
@@ -98,29 +103,10 @@ async function startCardano(): Promise<Deno.CommandStatus> {
   });
   void dolos.status; // need to await sub-service start below
 
-  console.log("===========");
-  console.log("===========");
-  console.log("===========");
-  console.log("===========");
-  console.log("===========");
-  console.log("===========");
-  console.log("===========");
-  console.log("===========");
-
-  const foo = await $({
+  return await $({
     args: ["task", "-f", "@example/cardano-contracts", "dolos:wait"],
   })
     .status;
-
-  console.log("-----------");
-  console.log("-----------");
-  console.log("-----------");
-  console.log("-----------");
-  console.log("-----------");
-  console.log("-----------");
-  console.log("-----------");
-  console.log("-----------");
-  return foo;
 }
 
 async function startDb(): Promise<Deno.CommandStatus> {
