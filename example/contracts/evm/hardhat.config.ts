@@ -1,13 +1,17 @@
-import type { HardhatUserConfig } from "@ignored/hardhat-vnext/config";
+import type { HardhatUserConfig } from "hardhat/config";
 
 import util from "node:util";
-import HardhatViem from "@ignored/hardhat-vnext-viem";
-import HardhatAbiExporter from "hardhat-abi-exporter";
-import { task } from "@ignored/hardhat-vnext/config";
-import { ArgumentType } from "@ignored/hardhat-vnext/types/arguments";
-import { JsonRpcServer } from "hardhat/internal/hardhat-network/jsonrpc/server.js";
+import HardhatViem from "@nomicfoundation/hardhat-viem";
+// import HardhatAbiExporter from "hardhat-abi-exporter";
+import { overrideTask, task } from "hardhat/config";
+import { ArgumentType } from "hardhat/types/arguments";
+// required for https://github.com/NomicFoundation/hardhat/issues/6472
+import {
+  type JsonRpcServer,
+  JsonRpcServerImplementation,
+} from "./json-rpc-server/json-rpc/server.ts";
 import fs from "node:fs";
-import type { NetworkConfig } from "@ignored/hardhat-vnext/types/config";
+import type { NetworkConfig } from "hardhat/types/config";
 import waitOn from "wait-on";
 import {
   ComponentNames,
@@ -57,21 +61,11 @@ function getNetworkList(networks: Record<string, NetworkConfig>) {
   );
 }
 
-const nodeTask = task("node")
-  .addOption({
-    name: "port",
-    type: ArgumentType.INT,
-    defaultValue: 8545,
-  })
-  .addOption({
-    name: "hostname",
-    type: ArgumentType.STRING,
-    defaultValue: "127.0.0.1",
-  })
+const nodeTask = overrideTask("node")
   .setAction(
     async (args, hre): Promise<void> => {
       const hostname = (() => {
-        if (args.hostname !== "127.0.0.1") {
+        if (args.hostname !== "127.0.0.1" && args.hostname !== "") {
           return args.hostname;
         }
         const insideDocker = fs.existsSync("/.dockerenv");
@@ -92,11 +86,11 @@ const nodeTask = task("node")
         }
         const connection = await hre.network.connect(name, network.chainType);
 
-        const server = new JsonRpcServer({
+        const server = new JsonRpcServerImplementation({
           hostname,
           port,
           provider: connection.provider,
-        });
+        }, (msg) => logNetwork(name, msg));
         port++; // increase port so next network has a unique port number
 
         const publicClient = await connection.viem.getPublicClient();
@@ -124,6 +118,7 @@ const nodeTask = task("node")
           name,
           `Started HTTP and WebSocket JSON-RPC server at ${address}:${actualPort}\n`,
         );
+
         connections.push(server);
 
         logNetwork(name, "Accounts for", name);
@@ -177,16 +172,20 @@ const config: HardhatUserConfig = {
       type: "edr",
       chainType: "l1",
       chainId: 31337,
-      automine: true,
-      intervalMining: 250, // Arbitrum (250ms)
+      mining: {
+        auto: true,
+        interval: 250, // Arbitrum (250ms)
+      },
       allowBlocksWithSameTimestamp: true,
     },
     evmParallel: {
       type: "edr",
       chainType: "l1",
       chainId: 31338,
-      automine: true,
-      intervalMining: 1 * 1000, // 10s
+      mining: {
+        auto: true,
+        interval: 1 * 1000, // 10s
+      },
     },
   },
   paths: {
@@ -199,26 +198,26 @@ const config: HardhatUserConfig = {
   ],
   plugins: [
     HardhatViem,
-    HardhatAbiExporter,
+    // HardhatAbiExporter,
   ],
   solidity: {
     version: "0.8.22",
-    dependenciesToCompile: [
-      // TODO
-    ],
+    // dependenciesToCompile: [
+    //   // TODO
+    // ],
     remappings: [
       "remapped/=npm/@openzeppelin/contracts@5.1.0/access/",
       // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
       "forge-std/=npm/forge-std@local/src/",
     ],
   },
-  abiExporter: {
-    path: "./build/abi",
-    runOnCompile: true,
-    clear: true,
-    flat: false,
-    tsWrapper: true,
-  },
+  // abiExporter: {
+  //   path: "./build/abi",
+  //   runOnCompile: true,
+  //   clear: true,
+  //   flat: false,
+  //   tsWrapper: true,
+  // },
 };
 
 export default config;

@@ -3,7 +3,7 @@ import { CHECKSUM_ERROR_MSG, MALFORMED_ERROR_MSG } from "./utils.ts";
 import { MiniCborReader } from "./minicbor.ts";
 import bs58 from "bs58";
 import { bech32 } from "bech32";
-import { Buffer } from "buffer";
+import { Buffer } from "node:buffer";
 
 const CHECKSUM_ADDRESS_ERROR_MSG = CHECKSUM_ERROR_MSG("address");
 

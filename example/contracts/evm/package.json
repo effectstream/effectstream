@@ -7,7 +7,7 @@
   "devDependencies": {
     "jsonc-parser": "3.3.1",
     "@opentelemetry/sdk-node": "^0.56.0",
-    "hardhat": "2.22.16",
+    "hardhat": "3.0.0-next.1",
     "wait-on": "8.0.1"
   }
 }

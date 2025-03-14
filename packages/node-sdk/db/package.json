@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "@paima/pgtyped-cli": "^2.3.2",
+    "@pgtyped/cli": "^2.4.2",
     "@electric-sql/pglite": "^0.2.12",
     "pg-gateway": "^0.3.0-beta.3",
     "wait-on": "8.0.1",

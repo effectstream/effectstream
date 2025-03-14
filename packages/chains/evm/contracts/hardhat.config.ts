@@ -1,4 +1,4 @@
-import type { HardhatUserConfig } from "@ignored/hardhat-vnext/config";
+import type { HardhatUserConfig } from "hardhat/config";
 
 import { defaultHardhatConfig } from "./src/recommendedHardhat.ts";
 

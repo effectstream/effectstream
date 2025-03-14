@@ -9,7 +9,7 @@
  * This file is 3kb when compressing with gzip
  */
 
-import { Buffer } from "buffer";
+import { Buffer } from "node:buffer";
 
 type HexBlob = string;
 
@@ -263,7 +263,7 @@ export class MiniCborReader {
       const payloadSize = bytesRead + Number(chunkLength);
 
       concat = Buffer.concat([
-        concat,
+        concat as any, // TODO: remove `as any` once @types/node gets updated properly
         data.slice(i + (payloadSize - chunkLength), i + payloadSize),
       ]);
 

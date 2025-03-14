@@ -1,7 +1,7 @@
-import type { HardhatUserConfig } from "@ignored/hardhat-vnext/config";
-import HardhatViem from "@ignored/hardhat-vnext-viem";
+import type { HardhatUserConfig } from "hardhat/config";
+import HardhatViem from "@nomicfoundation/hardhat-viem";
 // import "hardhat-interact";
-import HardhatAbiExporter from "hardhat-abi-exporter";
+// import HardhatAbiExporter from "hardhat-abi-exporter";
 
 export function defaultHardhatConfig(config: {
   outDir: string;
@@ -17,7 +17,7 @@ export function defaultHardhatConfig(config: {
     tasks: [],
     plugins: [
       HardhatViem,
-      HardhatAbiExporter,
+      // HardhatAbiExporter,
     ],
     solidity: {
       version: "0.8.22",
@@ -28,13 +28,13 @@ export function defaultHardhatConfig(config: {
         "forge-std/=npm/forge-std@local/src/",
       ],
     },
-    abiExporter: {
-      path: `${config.outDir}/abi`,
-      runOnCompile: true,
-      tsWrapper: true,
-      clear: true,
-      flat: false,
-    },
+    // abiExporter: {
+    //   path: `${config.outDir}/abi`,
+    //   runOnCompile: true,
+    //   tsWrapper: true,
+    //   clear: true,
+    //   flat: false,
+    // },
   };
 
   return defaultConfig;

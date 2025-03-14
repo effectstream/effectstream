@@ -8,10 +8,11 @@
     "devkit:start": "deno run -A --node-modules-dir npm:@bloxbean/yaci-devkit up",
     "devkit:wait": "wait-on tcp:3001",
     // rm -rf is required because of this issue: https://github.com/txpipe/dolos/issues/398
-    "dolos:start": "rm -rf ./data && rm -rf ./dolos.socket && dolos bootstrap relay && dolos daemon",
+    "dolos:start": "rm -rf ./data && rm -rf ./dolos.socket && deno run -A --node-modules-dir npm:@txpipe/dolos bootstrap relay && deno run -A --node-modules-dir npm:@txpipe/dolos daemon",
     "dolos:wait": "wait-on tcp:50051" // utxorpc port
   },
   "dependencies": {
-    "@bloxbean/yaci-devkit": "npm:@bloxbean/yaci-devkit@0.10.0-preview5"
+    "@bloxbean/yaci-devkit": "npm:@bloxbean/yaci-devkit@0.10.0-preview5",
+    "@txpipe/dolos": "npm:@txpipe/dolos@0.19.1"
   }
 }

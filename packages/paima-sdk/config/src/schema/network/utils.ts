@@ -4,7 +4,7 @@ import assertNever from "assert-never";
 import { registry, toChainId } from "@dcspark/cip34-js";
 import { ConfigNetworkType } from "./types.ts";
 import type { ConfigNetworkAll } from "./all.ts";
-import { Buffer } from "buffer";
+import { Buffer } from "node:buffer";
 
 function networkToCip34(
   config: MergeIntersects<

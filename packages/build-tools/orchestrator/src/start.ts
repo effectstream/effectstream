@@ -6,8 +6,17 @@ import {
   rawLogHandler,
   setCollectorStarted,
 } from "./logging.ts";
-import { $, AbortControllers } from "./process.ts";
+import {
+  $,
+  AbortControllers,
+  AbortProcessStart,
+  processes,
+} from "./process.ts";
 import { ComponentNames } from "@paima/log";
+
+export async function awaitShutdown(): Promise<void> {
+  await Promise.all(processes.map((process) => process[Symbol.asyncDispose]()));
+}
 
 export async function start(): Promise<void> {
   initTelemetry();
@@ -17,7 +26,6 @@ export async function start(): Promise<void> {
     await Promise.all([
       $({
         args: ["task", "check"],
-        signal: AbortControllers.chain,
         log: logHandler,
       }).status,
     ]);
@@ -27,7 +35,7 @@ export async function start(): Promise<void> {
       // TODO: only start one if there isn't one already running
       const otlpCollector = $({
         args: ["task", "-f", "@paima/collector", "start"],
-        signal: AbortControllers.chain,
+        signal: AbortControllers.otel,
         // collector always has to post logs directly to console
         // otherwise, it gets stuck in an infinite loop of sending to itself
         log: rawLogHandler,
@@ -36,7 +44,7 @@ export async function start(): Promise<void> {
       void Promise.all([otlpCollector.status]);
       const waitOtlp = $({
         args: ["task", "-f", "@paima/collector", "wait"],
-        signal: AbortControllers.chain,
+        signal: AbortControllers.otel,
         // collector always has to post logs directly to console
         // otherwise, it gets stuck in an infinite loop of sending to itself
         log: rawLogHandler,
@@ -60,7 +68,11 @@ export async function start(): Promise<void> {
       namespace: [], // these should get a "paima" namespace added to them automatically
     }).status;
   } catch (e) {
-    console.error(e);
+    if (!(e instanceof AbortProcessStart)) {
+      console.error(e);
+    }
+    await awaitShutdown();
+    Deno.exit(1);
   }
 }
 
@@ -83,7 +95,7 @@ async function startEvm(): Promise<Deno.CommandStatus> {
 async function startCardano(): Promise<Deno.CommandStatus> {
   const yaciDevkit = $({
     args: ["task", "-f", "@example/cardano-contracts", "devkit:start"],
-    signal: AbortControllers.chain,
+    signal: AbortControllers.node,
     log: logHandler,
     component: ComponentNames.YACI_DEVKIT,
   });
