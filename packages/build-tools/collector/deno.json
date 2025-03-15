@@ -13,8 +13,8 @@
     "wait": "wait-on tcp:4318"
   },
   "imports": {
-    "fastify": "npm:fastify@^5.1.0",
-    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.11",
+    "fastify": "npm:fastify@^5.2.1",
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "@opentelemetry/otlp-transformer": "npm:@opentelemetry/otlp-transformer@^0.56.0"
   },
   "lint": {

@@ -3,7 +3,7 @@
   "nodeModulesDir": "auto",
   "imports": {
     // "@deno/dnt": "jsr:@deno/dnt@^0.41.3",
-    "effection": "npm:effection@^3.1.0",
+    "effection": "npm:effection@^3.3.0",
     "@ebreness/is-even": "jsr:@ebreness/is-even@1.0.3"
   },
   "lint": {

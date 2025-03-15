@@ -13,7 +13,7 @@
     "dolos:wait": "wait-on tcp:50051" // utxorpc port
   },
   "imports": {
-    "@bloxbean/yaci-devkit": "npm:@bloxbean/yaci-devkit@0.10.0-preview5",
+    "@bloxbean/yaci-devkit": "npm:@bloxbean/yaci-devkit@0.10.2",
     "@txpipe/dolos": "npm:@txpipe/dolos@0.19.1",
     "toml": "jsr:@std/toml"
   }

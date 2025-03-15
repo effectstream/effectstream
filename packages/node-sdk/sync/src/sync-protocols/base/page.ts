@@ -62,7 +62,7 @@ export function genOnDemandPageRequests<
         `Block out of range. ${page} not in [${fromPage}, ${toPage}]`,
       );
     }
-    const jsonKey: string = stableStringify(page);
+    const jsonKey: string = stableStringify(page)!;
     if (promises[jsonKey] != null) {
       return await promises[jsonKey];
     }

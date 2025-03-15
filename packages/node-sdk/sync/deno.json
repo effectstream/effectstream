@@ -5,10 +5,10 @@
   "imports": {
     "viem": "npm:viem@^2.21.3",
     "denque": "npm:denque@^2.1.0",
-    "effection": "npm:effection@^3.1.0",
-    "pg": "npm:pg@^8.11.3",
-    "json-stable-stringify": "npm:json-stable-stringify@^1.0.2",
-    "@utxorpc/sdk": "npm:@utxorpc/sdk@^0.6.4",
-    "@utxorpc/spec": "npm:@utxorpc/spec@^0.14.0"
+    "effection": "npm:effection@^3.3.0",
+    "pg": "npm:pg@^8.14.0",
+    "json-stable-stringify": "npm:json-stable-stringify@^1.2.1",
+    "@utxorpc/sdk": "npm:@utxorpc/sdk@^0.6.7",
+    "@utxorpc/spec": "npm:@utxorpc/spec@^0.16.0"
   }
 }

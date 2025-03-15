@@ -10,6 +10,6 @@
   },
   "imports": {
     "viem": "npm:viem@^2.21.3",
-    "effection": "npm:effection@^3.1.0"
+    "effection": "npm:effection@^3.3.0"
   }
 }
