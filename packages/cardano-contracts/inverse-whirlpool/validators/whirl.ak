@@ -17,13 +17,12 @@ use inverse_whirlpool/conversion.{
 }
 use inverse_whirlpool/types/actions.{
   BurnToken, MintActionType, MintToken, TransactionBodyPieces,
+  BurnAccount, CreateAccount, DestroyAccount, IncrementAccount,
+  InitMerkle, MintActions, SpendMerkleRoot, ValidateActions
 }
+use inverse_whirlpool/types/state.{Account, Merkle, State}
 use inverse_whirlpool/utils.{get_inline_datum, list_at, skip_to}
-use inverse_whirlpool/validation.{
-  Account, BurnAccount, CreateAccount, DestroyAccount, IncrementAccount,
-  InitMerkle, Merkle, MintActions, SpendMerkleRoot, State, ValidateActions,
-  init_merkle,
-}
+use inverse_whirlpool/validation.{init_merkle}
 
 validator merkle(init_ref: OutputReference) {
   mint(rdmr: MintActions, own_policy: PolicyId, tx: Transaction) {
@@ -256,6 +255,8 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
           },
         )
       MintToken(input_ref, tx_body, metadata) -> {
+
+        trace @"1"
         let TransactionBodyPieces {
           collateral_inputs,
           collateral_output,
@@ -263,6 +264,7 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
           metadata_hash,
         } = tx_body
 
+        trace @"2"
         expect [Pair(script_data_hash, 1), ..] =
           mint // this is the script hash of true.mint
             // WARNING: this has to be updated if the true.mint compiled code changes
@@ -271,6 +273,7 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
                 #"9fc33a6ffaa8d1f600c161aa383739d5af37807ed83347cc133521c9",
               )
             |> dict.to_pairs
+        trace @"3"
 
         let inputs_cbor = convert_inputs(inputs) |> bytearray.concat(#"00", _)
         let outputs_cbor =
@@ -285,12 +288,14 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
           convert_extra_signatories(extra_signatories)
             |> bytearray.concat(#"0e", _)
 
+        trace @"4"
         // let _ref_inputs_cbor =
         //  convert_inputs(reference_inputs) |> bytearray.concat(#"12", _)
         let collateral_inputs_cbor = bytearray.concat(#"0d", collateral_inputs)
 
         let collateral_output_cbor = bytearray.concat(#"10", collateral_output)
         let collateral_fee_cbor = bytearray.concat(#"11", collateral_fee)
+        trace @"5"
 
         let tx_cbor =
           #"a9"

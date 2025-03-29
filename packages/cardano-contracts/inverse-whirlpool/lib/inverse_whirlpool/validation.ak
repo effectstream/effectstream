@@ -1,31 +1,10 @@
 use aiken/collection/dict
 use aiken/collection/list
-use aiken/merkle_patricia_forestry.{Proof}
 use aiken/merkle_patricia_forestry/merkling.{null_hash}
-use cardano/address.{Address, Credential}
+use cardano/address.{Address}
 use cardano/assets.{PolicyId, Value}
 use cardano/transaction.{InlineDatum, Output, OutputReference, Transaction}
-
-pub type MintActions {
-  InitMerkle
-  CreateAccount {
-    account: Credential,
-    merkle_proof_block: Proof,
-    output_index: Int,
-  }
-  BurnAccount
-}
-
-pub type ValidateActions {
-  SpendMerkleRoot
-  IncrementAccount(Int)
-  DestroyAccount
-}
-
-pub type State {
-  Merkle { root: ByteArray, own_hash: PolicyId }
-  Account(Credential, Int)
-}
+use inverse_whirlpool/types/state.{Merkle}
 
 pub fn init_merkle(
   init_ref: OutputReference,
@@ -56,6 +35,9 @@ pub fn init_merkle(
     datum: actual_data,
     ..
   } = first_output
+
+  trace actual_data
+  trace expected_data
 
   and {
     actual_address == expected_address,

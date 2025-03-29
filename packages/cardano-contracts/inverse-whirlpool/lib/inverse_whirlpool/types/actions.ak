@@ -1,5 +1,26 @@
 use cardano/transaction.{OutputReference}
+use aiken/merkle_patricia_forestry.{Proof}
+use cardano/address.{Credential}
 
+// Validator: Whirl
+pub type MintActions {
+  InitMerkle
+  CreateAccount {
+    account: Credential,
+    merkle_proof_block: Proof,
+    output_index: Int,
+  }
+  BurnAccount
+}
+
+pub type ValidateActions {
+  SpendMerkleRoot
+  IncrementAccount(Int)
+  DestroyAccount
+}
+
+
+// Validator: Paima
 pub type MintActionType {
   MintToken(OutputReference, TransactionBodyPieces, Metadata)
   BurnToken
