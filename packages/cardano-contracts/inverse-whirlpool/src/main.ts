@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { Command, Option } from '@commander-js/extra-typings';
 import { Lucid, Blockfrost, Kupmios, PROTOCOL_PARAMETERS_DEFAULT, generateSeedPhrase, scriptFromNative, paymentCredentialOf } from "@lucid-evolution/lucid";
 import { init_merkle, create_account, mint_root_token } from './actions';
-import { getValidators } from './util';
+import { colors } from './util';
 import fs from 'fs';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -44,6 +44,8 @@ const generateWallet = async (name: string) => {
 };
 
 const loadWallet = async (API: any, name: string) => {
+
+  console.log(`${colors.cyan}INFO${colors.reset}: Loading Wallet...`);
   const walletPath = `${WALLET_DIR}/${name}.json`;
   if (!fs.existsSync(walletPath)) {
     throw new Error(`Wallet ${name} not found`);
@@ -51,13 +53,28 @@ const loadWallet = async (API: any, name: string) => {
   
   const { seed } = JSON.parse(fs.readFileSync(walletPath, 'utf-8'));
   API.selectWallet.fromSeed(seed);
-  return API.wallet().address();
-};
+
+  let address = await API.wallet().address()
+  console.log(`${colors.magenta}User Address${colors.reset}:`, address);
+  console.log(`${colors.magenta}Payment Credential${colors.reset}: ${await paymentCredentialOf(address).hash}`);
+
+  return address;
+}
 
 export const loadContract = async (address: string) => {
+  console.log(`${colors.cyan}INFO${colors.reset}: Loading Contract...`);
+
   const dir_contract = 'data/contracts/' + address;
   const parameterized_script = await JSON.parse(fs.readFileSync(dir_contract+'/param_script.json', { encoding: 'utf-8' }))
   const state = await JSON.parse(fs.readFileSync(dir_contract+'/state.json', { encoding: 'utf-8' }))
+
+  console.log(`${colors.magenta}Contract Address${colors.reset}:`, address);
+
+  if (VERBOSE) {
+    console.log(colors.yellow + "Current Contract State" + colors.reset+":");
+    console.dir(state, { depth: null });
+  }
+
   return {'script': parameterized_script, 'state': state}
 }
 
@@ -122,24 +139,21 @@ app
     "Preview"
   );
   
-  console.log('Loading Wallet...')
   const userAddress = await loadWallet(API, wallet);
-  console.log('User Address:', userAddress)  
 
   try {
 
     // Execute Transaction
     const tx_info = await init_merkle(API);
-    console.log(`Contract Successfully Initialized
-      \nContract data stored at: data/contracts/${tx_info.address}
-      \nContract Address: ${tx_info.address}
-      \nContract Policy: ${tx_info.policy_id}`
-    )
-
+    console.log(`${colors.green}Contract Successfully Initialized${colors.reset}
+      Contract data stored at: ${colors.yellow}data/contracts/${tx_info.address}${colors.reset}
+      ${colors.magenta}Contract Address${colors.reset}: ${tx_info.address}
+      ${colors.magenta}Contract Policy${colors.reset}: ${tx_info.policy_id}`);
+      
     // Await Settlement
-    console.log(`Awaiting TX Settlement...`);
+    console.log(`${colors.cyan}INFO${colors.reset}: Awaiting TX Settlement...`);
     const settled = await API.awaitTx(tx_info.tx_id);
-    console.log(`TX Settled: ${settled}`);
+    console.log(`TX Settled: ${settled ? colors.green + settled + colors.reset : colors.red + settled + colors.reset}`);
 
   } catch (e) {
     console.log(e);
@@ -162,18 +176,18 @@ app
     "Preview"
   );
 
-  console.log('Loading Wallet...')
   const userAddress = await loadWallet(API, wallet);
-  console.log('User Address:', userAddress)  
 
-  console.log('Loading Contract...')
   const contract = await loadContract(address)
-  console.log('Contract Address:', address)
 
   try {
     const tx_info = await create_account(API, contract);
+    
+    // Await Settlement
+    console.log(`${colors.cyan}INFO${colors.reset}: Awaiting TX Settlement...`);
     const settled = await API.awaitTx(tx_info.tx_id);
-    console.log(`TX Settled: ${settled}`);
+    console.log(`TX Settled: ${settled ? colors.green + settled + colors.reset : colors.red + settled + colors.reset}`);
+
   } catch (e) {
     console.log(e);
   }

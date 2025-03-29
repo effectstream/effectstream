@@ -1,5 +1,14 @@
 import 'dotenv/config';
 
+export const colors = {
+  cyan: '\x1b[36m',
+  magenta: '\x1b[35m',
+  red: '\x1b[31m',
+  yellow: '\x1b[33m',
+  green: '\x1b[32m',
+  reset: '\x1b[0m'
+};
+
 // Initialize Lucid ------------------------------------------------------------
 export const api_blockfrost = async (network) => {
 
@@ -21,20 +30,6 @@ export const api_blockfrost = async (network) => {
   );
 
   return api;
-}
-
-// Retrieve validators from plutus.json ----------------------------------------
-export function getValidators(endpoints, contract)  {
-
-  var Validators = {}
-
-  endpoints.forEach(function (endpoint) {
-    Validators[endpoint.alias] =  {
-      type: "PlutusV3",
-      script: contract.validators.find((v) => v.title === endpoint.validator).compiledCode,
-    }
-  });
-  return Validators
 }
 
 // Build pseudo-TX -------------------------------------------------------------
@@ -81,4 +76,12 @@ export  const buildPseudoTX = async (API, Validator_AlwaysTrue, metadata, script
   return script_data_hash
 }
 
+// Helper
+
+export const bigIntReplacer = (key: string, value: any) => {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  return value;
+};
 

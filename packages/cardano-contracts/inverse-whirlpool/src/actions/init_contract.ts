@@ -12,35 +12,18 @@ import {
 } from "@lucid-evolution/lucid";
 import fs from 'fs';
 import { Store, Trie } from '@aiken-lang/merkle-patricia-forestry';
+import {colors, bigIntReplacer} from "../util.ts"
 
 const VERBOSE = true;
-
-const bigIntReplacer = (key: string, value: any) => {
-  if (typeof value === 'bigint') {
-    return value.toString();
-  }
-  return value;
-};
 
 // #############################################################################
 // ## MINT MERKLE INIT
 // #############################################################################
 export const init_merkle = async (API, VERBOSE = true) => {
-  // Initialize Lucid ------------------------------------------------------------
-  const userAddress = await API.wallet().address();
-  const paymentCredentialHash = paymentCredentialOf(userAddress).hash;
   
-  if (VERBOSE) {
-    console.log({
-      'User Address:': userAddress,
-      'Payment Credential:': paymentCredentialHash
-    });
-  }
-
-  // Contract Initialization ---------------------------------------------------
-  if (VERBOSE) { console.log("INFO: Parameterizing Contracts"); }
 
   // Get the User's UTXOs ------------------------------------------------------
+  const userAddress = await API.wallet().address();
   const utxos_user = await API.utxosAt(userAddress);
   const utxo = utxos_user[0];
   const consumingUserUTXO = new Constr(0, [
@@ -52,6 +35,10 @@ export const init_merkle = async (API, VERBOSE = true) => {
     throw new Error("No UTXOs found for user address");
   }
 
+  // Parameterizing Contract
+  if (VERBOSE) {
+    console.log(`${colors.cyan}INFO${colors.reset}: Parameterizing Contract`);
+  }
   const Script_Parameterized_Merkle = {
     type: "PlutusV3",
     script: applyParamsToScript(
@@ -59,7 +46,11 @@ export const init_merkle = async (API, VERBOSE = true) => {
       [consumingUserUTXO]
     ),
   };
-  console.log('Script_Parameterized', consumingUserUTXO)
+  if (VERBOSE) {
+    console.log(`${colors.magenta}Script_Parameterized${colors.reset}:`);
+    console.log(consumingUserUTXO)
+  }
+
   // console.log('Script_Parameterized', Script_Parameterized)
   const policyId_Script =  validatorToScriptHash(Script_Parameterized_Merkle)
   const Address_Script =  validatorToAddress("Preview", Script_Parameterized_Merkle)
@@ -79,7 +70,9 @@ export const init_merkle = async (API, VERBOSE = true) => {
   }), { encoding: 'utf-8' });
 
   // Configure Script Datum and Redeemer ----------------------------------------
-  if (VERBOSE) { console.log("INFO: Configuring Datum"); }
+  if (VERBOSE) {
+    console.log(`${colors.cyan}INFO${colors.reset}: Configuring Datum`);
+  }
 
   // Create the merkle datum structure
   const merkleState = {
@@ -99,7 +92,9 @@ export const init_merkle = async (API, VERBOSE = true) => {
   const asset = `${policyId_Script}${assetName}`;
 
   // Build the TX ------------------------------------------------------------
-  if (VERBOSE) { console.log("INFO: Building the TX"); }
+  if (VERBOSE) {
+    console.log(`${colors.cyan}INFO${colors.reset}: Building the TX`);
+  }
 
   const tx = await API.newTx()
     .pay.ToContract(
@@ -118,11 +113,15 @@ export const init_merkle = async (API, VERBOSE = true) => {
     .complete({localUPLCEval: false});
 
   // Request User Signature --------------------------------------------------
-  console.log("INFO: Requesting TX signature");
+  if (VERBOSE) {
+    console.log(`${colors.cyan}INFO${colors.reset}: Requesting TX signature`);
+  }
   const signedTx = await tx.sign.withWallet().complete();
 
   // Submit the TX -----------------------------------------------------------
-  console.log("INFO: Attempting to submit the transaction");
+  if (VERBOSE) {
+    console.log(`${colors.cyan}INFO${colors.reset}: Attempting to submit the transaction`);
+  }
   const txHash = await signedTx.submit();
 
   if (!txHash) {
@@ -139,7 +138,8 @@ export const init_merkle = async (API, VERBOSE = true) => {
   }
 
   // Return with TX hash -----------------------------------------------------
-  console.log(`TX Hash: ${txHash}`);
+  console.log(`${colors.magenta}TX Hash${colors.reset}: ${txHash}`);
+
   return {
     tx_id: txHash,
     address: Address_Script,
