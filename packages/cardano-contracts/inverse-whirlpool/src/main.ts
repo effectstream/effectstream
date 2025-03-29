@@ -27,6 +27,7 @@ const ogmiosUrlOption = new Option('-o, --ogmios-url <string>', 'Ogmios URL')
 const addressOption = new Option('-a, --address <address>', 'Contract Address')
   .makeOptionMandatory();
 const datumOption = new Option('-d, --datum <path>', 'Path to datum.json file');
+const metadatumOption = new Option('-m, --metadatum <path>', 'Path to metadatum.json file').default('data/metadata.json');
 const walletOption = new Option('-w, --wallet <name>', 'Wallet to use')
   .makeOptionMandatory();
 
@@ -77,6 +78,15 @@ export const loadContract = async (address: string) => {
 
   return {'script': parameterized_script, 'state': state}
 }
+
+
+export const loadMetadata= async (path: string) => {
+  console.log(`${colors.cyan}INFO${colors.reset}: Loading Metadata...`);
+  console.log(`${colors.magenta}from path${colors.reset}:`, path);
+  const metadata = await JSON.parse(fs.readFileSync(path, { encoding: 'utf-8' }))
+  return metadata
+}
+
 
 // App -------------------------------------------------------------------------
 const app = new Command();
@@ -182,7 +192,7 @@ app
 
   try {
     const tx_info = await create_account(API, contract);
-    
+
     // Await Settlement
     console.log(`${colors.cyan}INFO${colors.reset}: Awaiting TX Settlement...`);
     const settled = await API.awaitTx(tx_info.tx_id);
@@ -200,7 +210,8 @@ app
 .addOption(previewOption)
 .addOption(walletOption)
 .addOption(addressOption)
-.action(async ({ preview, address, wallet }) => {
+.addOption(metadatumOption)
+.action(async ({ preview, address, wallet, metadatum }) => {
   const API = await Lucid(
     new Kupmios(
       process.env.KUPO_ENDPOINT_PREVIEW,
@@ -209,20 +220,20 @@ app
     "Preview"
   );
 
-  console.log('Loading Wallet...')
-  const userAddress = await loadWallet(API, wallet);
-  console.log('User Address:', userAddress)  
 
-  console.log('Loading Contracts...')
+  await loadWallet(API, wallet);
+
   const contract_merkle_minter_paramed = await loadContract(address)
-  const contract_always_true = await loadContract(address)
-  const contract_metadata_minter = await loadContract(address)
-  console.log('Contract Address:', address)
+  //const contract_metadata_minter = await loadContract(address)
+  const metadata = await loadMetadata(metadatum)
 
   try {
-    const tx_info = await mint_root_token(API, contract_merkle_minter_paramed);
+    const tx_info = await mint_root_token(API, 
+      contract_merkle_minter_paramed,
+      metadata
+    );
     const settled = await API.awaitTx(tx_info.tx_id);
-    console.log(`TX Settled: ${settled}`);
+    console.log(`TX Settled: ${settled ? colors.green + settled + colors.reset : colors.red + settled + colors.reset}`);
   } catch (e) {
     console.log(e);
   }

@@ -51,18 +51,16 @@ echo "$address" > temp_address
 address=$(cat temp_address)
 
 # Creating Account on Contract
-print_header "Creating Account on Contract"
+print_header "Creating Account on Contract - Spending Root Token and Minting Account Token"
 execute_step "$REPORT_FILE" "pnpm run execute create_account -p --address \"$address\" -w user_1" "Create Account" "true"
 
-pnpm run execute create_account -p -w user_1 --address "$address"
-
-# # Mint a Token
-# print_header "Minting a Token"
-# pnpm run execute mint -p -w user_1 -d tests/data/T1-metadatum-A.json
+# Mint a Token
+print_header "Minting a Token"
+execute_step "$REPORT_FILE" "pnpm run execute mint -p --address \"$address\" -w user_1 -m tests/data/T1-metadatum-A.json" "Mint New Token" "true"
 
 # # Update Token Metadata
 # print_header "Updating Token Metadatum"
-# pnpm run execute update -p -w user_1 -d tests/data/T1-metadatum-B.json
+# execute_step "$REPORT_FILE" "pnpm run execute mint -p --address \"$address\" -w user_1 -m tests/data/T1-metadatum-B.json" "Mint New Token" "true"
 
 # print_header "Test Complete"
 # echo "Default claim processed successfully"

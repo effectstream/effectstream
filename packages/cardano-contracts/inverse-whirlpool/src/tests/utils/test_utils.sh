@@ -35,11 +35,11 @@ init_report() {
     local test_name="$2"
     echo "Test Report - $(date)" > "$report_file"
     echo "Test Scenario: $test_name" >> "$report_file"
-    echo "----------------------------------------" >> "$report_file"
+    echo "------------------------------------------------------------------------------" >> "$report_file"
     echo "Test Summary:" >> "$report_file"
     echo "Status: Running" >> "$report_file"
     echo "Steps:" >> "$report_file"
-    echo "----------------------------------------" >> "$report_file"
+    echo "------------------------------------------------------------------------------" >> "$report_file"
 }
 
 # Add to report
@@ -60,7 +60,7 @@ add_to_report() {
         if [ -n "$details" ]; then
             echo "Details: $details"
         fi
-        echo "----------------------------------------"
+        echo "------------------------------------------------------------------------------"
     } >> "$report_file"
 }
 
@@ -83,11 +83,11 @@ update_test_summary() {
     # Write updated report
     {
         sed -n '1,2p' "$report_file"
-        echo "----------------------------------------"
+        echo "------------------------------------------------------------------------------"
         echo "Test Summary:"
         echo "Status: $overall_status"
         echo -e "Steps:$summary"
-        echo "----------------------------------------"
+        echo "------------------------------------------------------------------------------"
         sed '1,/^----------------------------------------$/d' "$report_file"
     } > "$temp_file"
     
@@ -186,9 +186,9 @@ print_warning() {
 
 print_header() {
     echo
-    echo -e "${BLUE}----------------------------------------------${NC}"
+    echo -e "${BLUE}------------------------------------------------------------------------------${NC}"
     echo -e "${BLUE}$1${NC}"
-    echo -e "${BLUE}----------------------------------------------${NC}"
+    echo -e "${BLUE}------------------------------------------------------------------------------${NC}"
 }
 
 setup_cleanup() {

@@ -82,20 +82,28 @@ export const create_account = async (API, contract) => {
 
   let accountSerialized =  Data.to(new Constr(0, [paymentCredentialHash]))
   let accountHashed = blake2b(32).update(fromHex(accountSerialized)).digest('hex')
+  let accountHashed2 = blake2b(32).update(fromHex(accountHashed)).digest('hex')
   
+  console.log(`${colors.magenta}User PKH${colors.reset}: ${paymentCredentialHash}`);  
   console.log(`${colors.magenta}Serialized Account${colors.reset}: ${accountSerialized}`);  
   console.log(`${colors.magenta}Blake2b Account Hash${colors.reset}: ${accountHashed}`);  
+  console.log(`${colors.magenta}2x Blake2b Account Hash${colors.reset}: ${accountHashed2}`);  
 
   let merkle_tree = await new Trie(new Store(dir_contract+'/merkle_forest_db'));
-  await merkle_tree.insert(accountHashed, accountHashed);
-  //merkle_tree = await merkle_tree.insert("abc", "def");
-  // await merkle_tree.save()
+
+  console.dir(merkle_tree, { depth: null });
+  console.log(merkle_tree);
+  await merkle_tree.insert(accountHashed2, accountHashed);
+  await merkle_tree.save()
   console.log(colors.magenta + "Merkle Tree" + colors.reset+":");
   console.dir(merkle_tree, { depth: null });
+  console.log(merkle_tree);
 
   const merkle_tree_hash = await merkle_tree.hash;
-  const merkle_tree_proof = await merkle_tree.prove(accountHashed)
+  const merkle_tree_proof = await merkle_tree.prove(accountHashed2)
   const merkle_tree_proof_hex = await merkle_tree_proof.toCBOR().toString('hex');
+  const merkle_tree_proof_json = await merkle_tree_proof.toJSON();
+  console.dir(merkle_tree_proof_json, { depth: null });
 
   if (VERBOSE) {
     console.log(`${colors.magenta}Merkle Tree Proof Hex${colors.reset}: ${merkle_tree_proof_hex}`);  
@@ -114,13 +122,14 @@ export const create_account = async (API, contract) => {
   }
 
   const mintRedeemer = Data.to(
-    new Constr(1, [new Constr(0, [paymentCredentialHash]), Data.from(merkle_tree_proof_hex), output_index])
+    new Constr(1, [new Constr(0, [paymentCredentialHash]), [], output_index])
   ); 
   const spendRedeemer = Data.to(
-    new Constr(1, [new Constr(0, [])])
+    new Constr(0, [])
   ); 
 
   if (VERBOSE) {  
+    console.log(`${colors.cyan}Redeemers${colors.reset}:`);
     console.log(`${colors.magenta}Mint Redeemer${colors.reset}: ${mintRedeemer}`);  
     console.log(`${colors.magenta}Spend Redeemer${colors.reset}: ${spendRedeemer}`);  
   }
@@ -178,11 +187,18 @@ export const create_account = async (API, contract) => {
   const txHash = await signedTx.submit();
 
   if (txHash) {
-    // fs.writeFileSync(
-    //   dir_contract+'/state.json',
-    //   JSON.stringify(state, bigIntReplacer, 2),
-    //   { encoding: 'utf-8' }
-    // );
+    const contract_state = {root: merkle_tree_hash, ownHash: policyId_Merkle_Minter}
+    const account_state = {credential: paymentCredentialHash, index: 1}    
+    fs.writeFileSync(
+      dir_contract+'/state.json',
+      JSON.stringify(contract_state, bigIntReplacer, 2),
+      { encoding: 'utf-8' }
+    );
+    fs.writeFileSync(
+      dir_contract+'/account-state-'+paymentCredentialHash+'.json',
+      JSON.stringify(account_state, bigIntReplacer, 2),
+      { encoding: 'utf-8' }
+    );
   }
 
   // Return with TX hash -------------------------------------------------------

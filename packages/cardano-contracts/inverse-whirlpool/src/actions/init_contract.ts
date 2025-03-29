@@ -92,9 +92,7 @@ export const init_merkle = async (API, VERBOSE = true) => {
   const asset = `${policyId_Script}${assetName}`;
 
   // Build the TX ------------------------------------------------------------
-  if (VERBOSE) {
-    console.log(`${colors.cyan}INFO${colors.reset}: Building the TX`);
-  }
+  if (VERBOSE) {console.log(`${colors.cyan}INFO${colors.reset}: Building the TX`);}
 
   const tx = await API.newTx()
     .pay.ToContract(
@@ -113,15 +111,11 @@ export const init_merkle = async (API, VERBOSE = true) => {
     .complete({localUPLCEval: false});
 
   // Request User Signature --------------------------------------------------
-  if (VERBOSE) {
-    console.log(`${colors.cyan}INFO${colors.reset}: Requesting TX signature`);
-  }
+  if (VERBOSE) { console.log(`${colors.cyan}INFO${colors.reset}: Requesting TX signature`);}
   const signedTx = await tx.sign.withWallet().complete();
 
   // Submit the TX -----------------------------------------------------------
-  if (VERBOSE) {
-    console.log(`${colors.cyan}INFO${colors.reset}: Attempting to submit the transaction`);
-  }
+  if (VERBOSE) {console.log(`${colors.cyan}INFO${colors.reset}: Attempting to submit the transaction`);}
   const txHash = await signedTx.submit();
 
   if (!txHash) {

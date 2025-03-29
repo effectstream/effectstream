@@ -32,7 +32,6 @@ export  const buildPseudoTX = async (API, metadata, scriptDatum, VERBOSE=true) =
 
   // Build the First TX --------------------------------------------------------
   // build a tx just to be able to compute what the script data hash will be
-  if (VERBOSE) { console.log("INFO: Building the Pseudo TX"); }
   const script_data_hash = await (async () => {
     const tx = await API.newTx()
     .pay.ToAddressWithData(
@@ -49,8 +48,6 @@ export  const buildPseudoTX = async (API, metadata, scriptDatum, VERBOSE=true) =
     .attachMetadata(721n, metadata)
     .addSigner(userAddress)
     .complete({localUPLCEval: false});
-    if (VERBOSE) { console.log("INFO: Raw Pseudo TX", tx.toString()); }
-    console.log("INFO: Raw Pseudo TX", await tx.toJSON())
     
     return tx.toJSON().body.script_data_hash
   })();

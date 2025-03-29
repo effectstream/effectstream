@@ -7,6 +7,7 @@ import {
   Constr,
   Data,
   fromText,
+  fromHex,
   applyParamsToScript,
   validatorToScriptHash,
   validatorToAddress,
@@ -32,10 +33,9 @@ function formatValue(value: { lovelace: bigint }) {
 // #############################################################################
 // ## MINT TOKEN
 // #############################################################################
-export const mint_root_token = async (API, Contract_Merkle_Minter, VERBOSE=true) => {
+export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VERBOSE=true) => {
 
   // Contract Initialization ---------------------------------------------------
-  if (VERBOSE) { console.log("INFO: Parameterizing Contracts"); }
 
   // User Address
   const userAddress = await API.wallet().address()
@@ -43,7 +43,30 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, VERBOSE=true)
 
   // Policy IDs
   const policyId_Merkle_Minter = Contract_Merkle_Minter.script.hash
+  
+  // Acount Token
+  let accountHashed = blake2b(32).update(fromHex( Data.to(new Constr(0, [paymentCredentialHash])) )).digest('hex')
+  const asset_token_account = `${policyId_Merkle_Minter}${accountHashed}`
+  const quantity_token_account = 1
+  if (VERBOSE) {
+    console.log(`${colors.cyan}Account Token${colors.reset}:`);
+    const output = {
+      name: accountHashed,
+      policy: policyId_Merkle_Minter,
+      asset: asset_token_account,
+      quantity: quantity_token_account
+    };
+    
+    // Format each property with color
+    Object.entries(output).forEach(([key, value]) => {
+      console.log(`${colors.magenta}${key}${colors.reset}: ${value}`);
+    });
+  }
 
+  // Parameterizing Contract ---------------------------------------------------
+  if (VERBOSE) {
+    console.log(`${colors.cyan}INFO${colors.reset}: Parameterizing Metadata Minting Contract`);
+  }
   const Script_Parameterized_Metadata = {
     type: "PlutusV3",
     script: applyParamsToScript(
@@ -57,70 +80,76 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, VERBOSE=true)
   // Contract Addresses
   const Address_Contract_Merkle_Minter = Contract_Merkle_Minter.script.address;
 
-  if (VERBOSE) { 
-    console.log({
-      "Contract Address - Merkle-Minter:": Address_Contract_Merkle_Minter,
-      "Contract Address - Metadata-Minter:": Address_Contract_Metadata_Minter,
-      "Policy ID - Merkle-Minter:": policyId_Merkle_Minter,
-      "Policy ID - Metadata-Minter:": policyId_Metadata_Minter,
-    })
+  // Get Relevant TX UTXO References -------------------------------------------
+  if (VERBOSE) {
+    console.log(`${colors.cyan}INFO${colors.reset}: Querying UTXO inputs`);
+  } 
+  const scriptUtxos = await API.utxosAt(Address_Contract_Merkle_Minter)
+  const accountUtxos = scriptUtxos.filter((object) => {
+    return Object.keys(object.assets).includes(asset_token_account);
+  });
+  if (!accountUtxos[0]) {
+    console.log(colors.red + "ERROR" + colors.reset+":" + ` Root Asset ${asset_token_account} not found at Contract Address: ${Address_Contract_Merkle_Minter}`);
+    return
+  }
+  const account_token_index = accountUtxos[0].outputIndex
+
+  const input_ref = new Constr(0, [
+    fromText(accountUtxos[0].txHash),
+    BigInt(account_token_index),
+  ]);
+  if (VERBOSE) {
+    console.log(colors.magenta + "Account Asset UTXO (Script)" + colors.reset+":");
+    console.dir(accountUtxos, { depth: null });
   }
 
   // Configure Script Datum --------------------------------------------------
-  if (VERBOSE) { console.log("INFO: Configuring Datum"); }
-
-  const scriptDatumStructure = Data.Object({
-    credential: Data.Bytes(),
-    amnt: Data.Integer(),
-  })
-  const scriptDatum = Data.to({
-    credential: paymentCredentialHash, 
-    amnt: BigInt(1)
-  }, scriptDatumStructure)
+  if (VERBOSE) { console.log(`${colors.cyan}INFO${colors.reset}: Configuring Datum`); }
+  // Increment datum
+  var incrementedAccountDatum = Data.from(accountUtxos[0].datum)
+  incrementedAccountDatum.fields[1] = incrementedAccountDatum.fields[1] + 1n;
+  incrementedAccountDatum = Data.to(incrementedAccountDatum)
 
   // Build the First TX for script data hash ---------------------------------
-  if (VERBOSE) { console.log("INFO: Building pseudo transaction") };
-  const script_data_hash = await buildPseudoTX(API, metadata, scriptDatum)
+  if (VERBOSE) { console.log(`${colors.cyan}INFO${colors.reset}: Building pseudo transaction`); }
+  const script_data_hash = await buildPseudoTX(API, metadata, incrementedAccountDatum)
 
   // Define Token Information -----------------------------------------------
-  if (VERBOSE) { console.log("INFO: Defining Asset from Script Data Hash of Pseudo TX") };
+  if (VERBOSE) { console.log(`${colors.cyan}INFO${colors.reset}: Defining Asset from Script Data Hash of Pseudo TX`); }
 
+  // Asset
   const quantity_token = 1 
   const asset_token = `${policyId_Metadata_Minter}${script_data_hash}`
 
-  if (VERBOSE) { 
-    console.log('Minting Token:', {
-      "Asset": asset_token,
-      "Quantity": quantity_token,
-    })
-  }
-
-  // Set up redeemer components ---------------------------------------------
-  // 1. Get contract UTxO for input reference
-  const utxos_contract = await API.utxosAt(Address_Contract_Merkle_Minter)
-  if (!utxos_contract.length) {
-    throw new Error("No UTXOs found at contract address")
-  }
-  const utxo = utxos_contract[0];
-
-  // Create input reference for redeemer
-  const input_ref = new Constr(0, [
-    fromText(utxo.txHash),
-    BigInt(utxo.outputIndex),
-  ]);
-
-  // 2. Process metadata
+  // Metadata
   const metadata_obj = Data.fromJson(metadata)
-  if (VERBOSE) { 
-    console.log("Metadata:", metadata);
-    console.log("Metadata Object:", metadata_obj);
-  }
-  
   const metadata_bytes = Data.to(metadata_obj)
   const metadata_hash = fromText(
     blake2b(32).update(Buffer.from(Data.to(metadata_obj))).digest('hex')
   )
 
+  // Log Token Info to Console
+  if (VERBOSE) {
+    console.log(`${colors.cyan}Minting Token${colors.reset}:`);
+    const output = {
+      name: script_data_hash,
+      policy: policyId_Metadata_Minter,
+      asset: asset_token,
+      quantity: quantity_token,
+      metadata_hash: metadata_hash
+    };
+    
+    // Format each property with color
+    Object.entries(output).forEach(([key, value]) => {
+      console.log(`${colors.magenta}${key}${colors.reset}: ${value}`);
+    });
+
+    console.log(colors.yellow + "Token Metadata" + colors.reset+":");
+    console.dir(metadata, { depth: null });
+  }
+
+  // Set up redeemer components ---------------------------------------------
+  
   // 3. Handle collateral
   const userUtxos = await API.utxosAt(userAddress);
   const collateralUtxos = userUtxos.filter(utxo => {
@@ -136,16 +165,14 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, VERBOSE=true)
 
   // Create TransactionBodyPieces following Aiken type
   const tx_body = new Constr(0, [
-    metadata_hash,                                    // metadata_hash: ByteArray
-    fromText(Data.to(convertInputToCbor(collateralInput))), // collateral_inputs: ByteArray
-    fromText(Data.to(                                // collateral_output: ByteArray
-      new Constr(0, [
-        fromText(userAddress),
-        formatValue({ lovelace: BigInt(collateralInput.assets.lovelace - 5000000n) }),
-        new Constr(0, [])
-      ])
-    )),
-    fromText(Data.to(BigInt(5000000)))              // collateral_fee: ByteArray
+    metadata_hash,                        // metadata_hash: ByteArray
+    convertInputToCbor(collateralInput),  // collateral_inputs (direct Constr, not serialized text)
+    new Constr(0, [                       // collateral_output (direct Constr, not serialized text)
+      fromText(userAddress),
+      formatValue({ lovelace: BigInt(collateralInput.assets.lovelace - 5000000n) }),
+      new Constr(0, [])
+    ]),
+    BigInt(5000000)                       // collateral_fee (BigInt, not serialized text)
   ]);
 
   // Construct final MintToken redeemer
@@ -156,46 +183,58 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, VERBOSE=true)
       metadata_bytes    // Metadata (ByteArray)
     ])
   );
+  const spendRedeemer = Data.to(
+    new Constr(1, [BigInt(0n)])
+  ); 
 
-  if (VERBOSE) { 
-    console.log("Redeemer Components:", {
-      input_ref: Data.from(Data.to(input_ref)),
-      tx_body: Data.from(Data.to(tx_body)),
-      metadata: Data.from(metadata_bytes)
-    })
+  if (VERBOSE) {
+    console.log(`${colors.cyan}Redeemer Parameters${colors.reset}:`);
+    const output = {
+      'input_ref':  Data.from(Data.to(input_ref)),
+      'tx_body': Data.from(Data.to(tx_body)),
+      'metadata': Data.from(metadata_bytes)
+    };
+    // Format each property with color
+    Object.entries(output).forEach(([key, value]) => {
+      console.log(`${colors.magenta}${key}${colors.reset}: ${value}`);
+    });
   }
 
   // Build the Final TX -----------------------------------------------------
-  if (VERBOSE) { console.log("INFO: Building the Secondary TX"); }
+  if (VERBOSE) {console.log(`${colors.cyan}INFO${colors.reset}: Building the Secondary (actual) TX`);}
+  if (VERBOSE) {
+    console.log(`${colors.cyan}Final TX Body${colors.reset}:`);
+    console.dir(Data.from(Data.to(tx_body)), { depth: null });
+    console.log(`${colors.cyan}Final Metadata${colors.reset}:`);
+    console.dir(Data.from(metadata_bytes), { depth: null });
+  }
   const tx = await API.newTx()
-    .pay.ToAddressWithData(
-      Address_Contract_Metadata_Minter, 
-      { kind: "inline", value: scriptDatum },
-      {},
+    .collectFrom(accountUtxos, spendRedeemer)
+    .pay.ToContract(
+      accountUtxos[0].address, 
+      { kind: "inline", value: incrementedAccountDatum },
+      accountUtxos[0].assets,
     ) 
+    .mintAssets({[asset_token]: BigInt(quantity_token)}, mintRedeemer)
     .pay.ToAddress(
       userAddress, 
       {[asset_token]: BigInt(quantity_token)},
     ) 
-    .mintAssets({[asset_token]: BigInt(quantity_token)}, mintRedeemer)
+    // .attachMetadata(721n, metadata)
+    // .selectCollateral([collateralInput])
     .attach.MintingPolicy(Script_Parameterized_Metadata)
-    .attachMetadata(721n, metadata)
+    .attach.SpendingValidator(Contract_Merkle_Minter.script.Validator)
     .addSigner(userAddress)
-    .selectCollateral([collateralInput])
-    .complete({localUPLCEval: false});
+   .complete();
 
-  if (VERBOSE) { console.log("INFO: Raw TX", tx.toString()); }
+  // if (VERBOSE) { console.log(`${colors.cyan}Raw TX${colors.reset}: ${tx.toString()}`);}
 
   // Sign and Submit ------------------------------------------------------
-  if (VERBOSE) {
-    console.log(`${colors.cyan}INFO${colors.reset}: Requesting TX signature`);
-  }
-  const signedTx = await tx.sign().complete();
+  if (VERBOSE) { console.log(`${colors.cyan}INFO${colors.reset}: Requesting TX signature`);}
+  const signedTx = await tx.sign.withWallet().complete();
 
   // Submit the TX -----------------------------------------------------------
-  if (VERBOSE) {
-    console.log(`${colors.cyan}INFO${colors.reset}: Attempting to submit the transaction`);
-  }
+  if (VERBOSE) {console.log(`${colors.cyan}INFO${colors.reset}: Attempting to submit the transaction`);}
   const txHash = await signedTx.submit();
 
   // Return with TX hash -----------------------------------------------------
