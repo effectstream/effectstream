@@ -205,32 +205,6 @@ export class BufferedRpc {
     }
     return undefined;
   };
-
-  // *storedBlocks(
-  //   lastPage: undefined | BlockNumber,
-  // ): Operation<{ from: Page; to: Page }> {
-  //   // wait until we have at least once block
-  //   let back = this.buffer.peekBack();
-  //   const minBlock = lastPage ?? 0;
-  //   while (
-  //     back == null || Number(back.output.block.header!.height) <= minBlock
-  //   ) {
-  //     yield* this.newDataCondVar.wait();
-  //     back = this.buffer.peekBack();
-  //   }
-  //   do {
-  //     const first = this.buffer.peekFront();
-  //     if (first != null) {
-  //       break;
-  //     }
-  //     yield* this.newDataCondVar.wait();
-  //   } while (true);
-
-  //   return {
-  //     from: toPage(this.buffer.peekFront()!.output.block),
-  //     to: toPage(this.buffer.peekBack()!.output.block),
-  //   };
-  // }
 }
 
 function toPage(block: cardano.Block): Page {

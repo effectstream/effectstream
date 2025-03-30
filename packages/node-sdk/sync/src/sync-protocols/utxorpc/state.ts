@@ -22,7 +22,7 @@ export class UtxoRpcSyncState extends SyncState<
   UtxoRpcFetcher
 > {
   constructor(
-    lastPage: LastPage<Page, RootPage>,
+    lastPage: undefined | LastPage<Page, RootPage>,
     readonly config: Extract<
       SyncProtocolWithNetwork,
       { networkType: ConfigNetworkType.CARDANO }
@@ -87,6 +87,7 @@ export class UtxoRpcSyncState extends SyncState<
           storedBlocks.to.height,
           // TODO: this should be a height and not a slot number
           //       either we need to resolve the actual block at that slot
+          //       (blocked by https://github.com/utxorpc/spec/issues/148)
           //       or we need to guess and refine if wrong
           this.config.syncProtocol.startSlot - 1,
         ),

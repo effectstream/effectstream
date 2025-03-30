@@ -41,7 +41,8 @@ export function conditionVariable<T>(): CondVar<T> {
     const oldVal = continuations;
     continuations = [];
     for (const continuation of oldVal) {
-      continuation.scope.run(function* () {
+      // note: we explicitly do not await here
+      void continuation.scope.run(function* () {
         continuation.resolve(val);
       });
     }

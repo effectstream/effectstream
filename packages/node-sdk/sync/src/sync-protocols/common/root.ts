@@ -7,7 +7,8 @@ export type ChainBlock = {
   timestamp: TimestampMs;
   primitives: {
     source: string;
-  }[]; // TODO
+    // TODO: other fields
+  }[];
 };
 
 export const chainPageRelation: PageRelation<ChainPage> = {
