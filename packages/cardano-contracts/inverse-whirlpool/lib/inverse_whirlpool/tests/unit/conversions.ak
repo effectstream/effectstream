@@ -2,6 +2,8 @@ use inverse_whirlpool/conversion.{
   convert_extra_signatories, convert_fee, convert_inputs, convert_mint,
   convert_outputs,
 }
+use cardano/assets.{from_asset}
+use cardano/transaction.{Transaction}
 
 // test convert_extra_signatories_1() {
 //   let extra_signatories =
@@ -9,22 +11,27 @@ use inverse_whirlpool/conversion.{
 //   expected_result == convert_extra_signatories(extra_signatories)
 // }
 
-// test convert_fee_1() {
-//   let fee = 
-//   let expected_result = #"abc"
-//   expected_result == convert_fee(fee)
-// }
+test convert_fee_1() {
+  let fee = 1600783
+  let expected_result = #"1a00186d0f"
+  expected_result == convert_fee(fee)
+}
+
+test convert_mint_1() {
+
+  let quantity = 1
+  let name = #"38ee9d2bf53d64cacba05f102e7a50034c55a3efc66630d194db26d67f70da02"
+  let policy = #"0456fff7a6cf924bf8b99fc3753f46e312d710a628a540dca444b14c"
+  let asset = from_asset(policy, name, quantity)
+
+  let expected_result = #"a1581c0456fff7a6cf924bf8b99fc3753f46e312d710a628a540dca444b14ca1582038ee9d2bf53d64cacba05f102e7a50034c55a3efc66630d194db26d67f70da0201"
+  expected_result == convert_mint(asset)
+}
 
 // test convert_inputs_1() {
 //   let inputs = 
 //   let expected_result = #"abc"
 //   expected_result == convert_inputs(extra_signatories)
-// }
-
-// test convert_mint_1() {
-//   let mint = 
-//   let expected_result = #"abc"
-//   expected_result == convert_mint(mint)
 // }
 
 // test convert_outputs_1() {
