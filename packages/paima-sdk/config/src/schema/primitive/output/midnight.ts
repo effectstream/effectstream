@@ -1,4 +1,8 @@
-import { type Satisfies, TypeboxHelpers } from "@paima/utils";
+import {
+  type MidnightEncodedStateJson,
+  type Satisfies,
+  TypeboxHelpers,
+} from "@paima/utils";
 import {
   ConfigPrimitiveType,
   type MidnightPrimitivesToSyncProtocol,
@@ -11,8 +15,13 @@ import type { EncodedStateValue } from "@midnight-ntwrk/onchain-runtime";
 // Contract state
 // ==============
 
+const MidnightEncodedStateJsonSchema = Type.Unsafe<
+  MidnightEncodedStateJson
+>(Type.String());
 export const PrimitiveMidnightContractStatePayload = TypeboxHelpers
-  .JsonUnsafeCast<EncodedStateValue>();
+  .JsonUnsafeCast<EncodedStateValue, typeof MidnightEncodedStateJsonSchema>(
+    MidnightEncodedStateJsonSchema,
+  );
 export const PrimitiveMidnightContractStateSyncProtocolResponse = Type.Object({
   primitive: Type.Literal(ConfigPrimitiveType.MidnightContractState),
   payloadType: Type.Literal(ConfigPrimitivePayloadType.Event),

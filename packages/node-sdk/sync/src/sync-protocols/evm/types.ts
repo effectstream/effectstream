@@ -1,8 +1,18 @@
-import type { BlockNumber, TimestampMs } from "@paima/utils";
+import type { BlockNumber, EvmRpcPageJson, TimestampMs } from "@paima/utils";
+import { TypeboxHelpers } from "@paima/utils";
 import type { Chain, GetBlockReturnType } from "viem";
 import type { PageSyncRange } from "../common/page-helpers.ts";
+import { Type } from "@sinclair/typebox";
 
 export type Page = BlockNumber;
+const PageJsonSchema = Type.Unsafe<
+  EvmRpcPageJson
+>(Type.String());
+export const PageSchema = TypeboxHelpers.JsonUnsafeCast<
+  Page,
+  typeof PageJsonSchema
+>(PageJsonSchema);
+
 // TODO
 export type PrimitiveType = {
   value: number;

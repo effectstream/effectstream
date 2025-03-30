@@ -11,6 +11,10 @@ export type LastPage<Page, RootPage> = {
   own: Page;
   root: RootPage;
 };
+/**
+ * Since it's always possible for code to fail,
+ * we avoid applying any modifications to data until AFTER the block is applied
+ */
 export type CacheCleanup = () => void;
 export type OutputAndCleanup<Output> = {
   output: Output;
@@ -74,6 +78,13 @@ export abstract class SyncState<
   abstract toRootPage(data: Output): RootPage;
   abstract toRootOutput(data: Output): RootOutput;
   abstract getNamespace(): string[];
+
+  /**
+   * Start any process that is meant to fetch data asynchronously
+   * By default, this is a no-op, but other classes can override it
+   */
+  *startAsync(): Operation<void> {
+  }
 
   /**
    * Stateless function that defines how to merge a single data point into the root

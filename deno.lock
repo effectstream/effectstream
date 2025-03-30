@@ -4,8 +4,8 @@
     "jsr:@ebreness/is-even@1.0.3": "1.0.3",
     "jsr:@std/collections@^1.0.9": "1.0.10",
     "jsr:@std/toml@*": "1.0.2",
-    "npm:@bloxbean/yaci-devkit@*": "0.10.0-preview4",
-    "npm:@bloxbean/yaci-devkit@0.10.2": "0.10.2",
+    "npm:@bloxbean/yaci-devkit@*": "0.10.5",
+    "npm:@bloxbean/yaci-devkit@0.10.5": "0.10.5",
     "npm:@coderspirit/nominal@^4.1.1": "4.1.1",
     "npm:@dcspark/carp-client@^3.3.0": "3.3.0",
     "npm:@dcspark/cip34-js@3.0.1": "3.0.1",
@@ -42,6 +42,7 @@
     "npm:@txpipe/dolos@0.19.1": "0.19.1",
     "npm:@types/node@*": "22.5.4",
     "npm:@types/react@18.3.13": "18.3.13",
+    "npm:@utxorpc/sdk@*": "0.6.7_@connectrpc+connect@1.4.0__@bufbuild+protobuf@1.10.0",
     "npm:@utxorpc/sdk@~0.6.7": "0.6.7_@connectrpc+connect@1.4.0__@bufbuild+protobuf@1.10.0",
     "npm:@utxorpc/spec@0.16": "0.16.0",
     "npm:abitype@^1.0.8": "1.0.8_typescript@5.6.3",
@@ -105,30 +106,17 @@
         "is-fullwidth-code-point@4.0.0"
       ]
     },
-    "@bloxbean/yaci-devkit-linux-x64@0.10.0-preview4": {
-      "integrity": "sha512-Jhzb9Yc/DNTkG04u94miJfZk02J49+N2JDPiVdQ7MPMkesqSwnKsfIzhLqRELhaoazYF45g99mZvIFcIdacHPQ=="
+    "@bloxbean/yaci-devkit-linux-x64@0.10.5": {
+      "integrity": "sha512-6GL4IGWs/XWBCWDA8G3+Xw+4kp60wFWDPjt/CiwVGL1mKF0J9H6E7am7Q8z4P1632LwzgvAUkE/pmDQvEZL1cA=="
     },
-    "@bloxbean/yaci-devkit-linux-x64@0.10.2": {
-      "integrity": "sha512-+ABRoAJTjZ/NX92HOaP9fdcuLKyySK7OgpYZ111sFMzERM+wYc+qIdorH7grViPVo1MkXwq6ZNHUKCgPXYL+QA=="
+    "@bloxbean/yaci-devkit-macos-arm64@0.10.5": {
+      "integrity": "sha512-qfFnzJgGfQm/Ii0BZqxIBDIepu9ZUHgi+k5jkgM+7L4I7b42cDSGK3WAQJIFY4Sm838nSI8r6miqGil4GlD4xw=="
     },
-    "@bloxbean/yaci-devkit-macos-arm64@0.10.0-preview4": {
-      "integrity": "sha512-G2ba3I4IP0uvzRP4jmtdbMUSXo8Awo/EKtrDjKrarI6jFhudZrV7Uknauj0kWEy4rMAbbYfh2JLfVQq0vTE1yQ=="
-    },
-    "@bloxbean/yaci-devkit-macos-arm64@0.10.2": {
-      "integrity": "sha512-LrKZ2vhQHQ28bE7uQ3L3fq5NWt2/Ruzk/IIK872SxXyzNT/moSP9XMlzET4eOgXT7xXPyCW3DCALUN/Ea91o1g=="
-    },
-    "@bloxbean/yaci-devkit@0.10.0-preview4": {
-      "integrity": "sha512-LIL1/R2MbtiavBbMTPDTG/tliexr8Jm3b92PZ7YnPbkT6kqj6DBjJ7V7YGdIWTthgQCyUuyN2DL8/mJFNE/i6Q==",
+    "@bloxbean/yaci-devkit@0.10.5": {
+      "integrity": "sha512-pWBqMNu70EVOOpAdHmslRBbpo6TbGAsPZjwrb92piYBv/xjG/5BYguT+GvsNssAez8cbA4eWQIykA9nYVaS/NA==",
       "dependencies": [
-        "@bloxbean/yaci-devkit-linux-x64@0.10.0-preview4",
-        "@bloxbean/yaci-devkit-macos-arm64@0.10.0-preview4"
-      ]
-    },
-    "@bloxbean/yaci-devkit@0.10.2": {
-      "integrity": "sha512-LTiWAA9W2n7tb/SsNRxblY4cQDGCH9FVHTp0P4XPu1ONnd9PtI+nGrTiQVuo//mJ3mL67LsdUxeJ7JsWukuu6Q==",
-      "dependencies": [
-        "@bloxbean/yaci-devkit-linux-x64@0.10.2",
-        "@bloxbean/yaci-devkit-macos-arm64@0.10.2"
+        "@bloxbean/yaci-devkit-linux-x64",
+        "@bloxbean/yaci-devkit-macos-arm64"
       ]
     },
     "@bufbuild/protobuf@1.10.0": {
@@ -3269,7 +3257,7 @@
       "example/contracts/cardano": {
         "dependencies": [
           "jsr:@std/toml@*",
-          "npm:@bloxbean/yaci-devkit@0.10.2",
+          "npm:@bloxbean/yaci-devkit@0.10.5",
           "npm:@txpipe/dolos@0.19.1"
         ],
         "packageJson": {
@@ -3367,6 +3355,7 @@
       },
       "packages/node-sdk/sync": {
         "dependencies": [
+          "npm:@sinclair/typebox@~0.34.30",
           "npm:@utxorpc/sdk@~0.6.7",
           "npm:@utxorpc/spec@0.16",
           "npm:denque@^2.1.0",

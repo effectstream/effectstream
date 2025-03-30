@@ -18,6 +18,10 @@ import {
   ConfigSyncProtocolSchemaCardanoCarpParallel,
 } from "./cardano/carp.ts";
 import {
+  CommonResponseCardanoUtxoRpcParallel,
+  ConfigSyncProtocolSchemaCardanoUtxoRpcParallel,
+} from "./cardano/utxorpc.ts";
+import {
   CommonResponseMinaDbParallel,
   ConfigSyncProtocolSchemaMinaParallel,
 } from "./mina.ts";
@@ -45,9 +49,12 @@ export type ConfigSyncProtocolMappingMain = ToMapping<
 >;
 
 export const parallelSyncProtocolTypes = {
-  [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: ConfigSyncProtocolSchemaEvmParallel,
+  [ConfigSyncProtocolType.EVM_RPC_PARALLEL]:
+    ConfigSyncProtocolSchemaEvmParallel,
   [ConfigSyncProtocolType.CARDANO_CARP_PARALLEL]:
-  ConfigSyncProtocolSchemaCardanoCarpParallel,
+    ConfigSyncProtocolSchemaCardanoCarpParallel,
+  [ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL]:
+    ConfigSyncProtocolSchemaCardanoUtxoRpcParallel,
   [ConfigSyncProtocolType.MINA_PARALLEL]: ConfigSyncProtocolSchemaMinaParallel,
   [ConfigSyncProtocolType.AVAIL_PARALLEL]:
     ConfigSyncProtocolSchemaAvailParallel,
@@ -59,7 +66,10 @@ export const syncProtocolCommonResponse = {
   [ConfigSyncProtocolType.EVM_RPC_MAIN]: CommonResponseEvmRpcMain,
   [ConfigSyncProtocolType.AVAIL_MAIN]: CommonResponseAvailRpcMain,
   [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: CommonResponseEvmRpcParallel,
-  [ConfigSyncProtocolType.CARDANO_CARP_PARALLEL]: CommonResponseCardanoCarpParallel,
+  [ConfigSyncProtocolType.CARDANO_CARP_PARALLEL]:
+    CommonResponseCardanoCarpParallel,
+  [ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL]:
+    CommonResponseCardanoUtxoRpcParallel,
   [ConfigSyncProtocolType.MINA_PARALLEL]: CommonResponseMinaDbParallel,
   [ConfigSyncProtocolType.AVAIL_PARALLEL]: CommonResponseAvailRpcParallel,
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]:

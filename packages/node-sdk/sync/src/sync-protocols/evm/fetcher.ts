@@ -1,12 +1,16 @@
-import { BaseDataFetcher, type DataFetched } from "../base/fetcher.ts";
+import {
+  BaseDataFetcher,
+  type DataFetched,
+  type PaginatedFetcher,
+} from "../base/fetcher.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Chain, GetBlockReturnType, PublicClient } from "viem";
 import type { Operation } from "effection";
 import { all, call } from "effection";
-import { bound, keysOf } from "@paima/utils";
+import { bound, type EvmRpcPageJson, keysOf } from "@paima/utils";
 import { blockNumberRelation } from "../common/utils.ts";
 import type { Input, Output, Page, PrimitiveType } from "./types.ts";
-import { toMsTimestamp } from "./types.ts";
+import { PageSchema, toMsTimestamp } from "./types.ts";
 import {
   fetchNewestPage,
   genImmediatePageRequests,
@@ -18,11 +22,13 @@ import type { PrimitiveFetcher } from "../base/primitive.ts";
 import type { RootConversion } from "../base/state.ts";
 import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
 import { ConfigSyncProtocolType } from "@paima/config";
+import { Value } from "@sinclair/typebox/value";
 
 export class EvmFetcher
   extends BaseDataFetcher<Input, Output, RootOutput, Page, RootPage>
   implements
-    PrimitiveFetcher<Input, Page, GetBlockReturnType<Chain>, PrimitiveType> {
+    PrimitiveFetcher<Input, Page, GetBlockReturnType<Chain>, PrimitiveType>,
+    PaginatedFetcher<Page> {
   constructor(
     readonly config: Extract<
       SyncProtocolWithNetwork,
@@ -67,10 +73,11 @@ export class EvmFetcher
       const [output, lastPage] = yield* all(
         [
           all(
-            keysOf(groupedByPage).map(function* (page) {
+            keysOf(groupedByPage).map(function* (pageJson) {
+              const page = Value.Decode(PageSchema, pageJson);
               return {
                 raw: yield* call(() => pageFetcher(page)),
-                primitives: groupedByPage[page],
+                primitives: groupedByPage[pageJson],
               };
             }),
           ),
@@ -82,12 +89,12 @@ export class EvmFetcher
       return {
         output: output.map((o) => ({
           output: o,
-          cleanup: () => {},
+          cleanup: () => {}, // no cleanup required
         })),
         lastPage: {
           own: Number(data.to),
           root: rootConversion.toRootPage({
-            primitives: [],
+            primitives: [], // unused in toRootPage
             raw: lastPage,
           }),
         },
@@ -98,21 +105,22 @@ export class EvmFetcher
           { length: data.to - data.from + 1 },
           (_, i) => i + data.from,
         ).map(function* (page: Page) {
+          const key = Value.Encode(PageSchema, page);
           return {
             raw: yield* call(() => pageFetcher(page)),
-            primitives: groupedByPage[page] ?? [],
+            primitives: groupedByPage[key] ?? [],
           };
         }),
       );
       return {
         output: output.map((o) => ({
           output: o,
-          cleanup: () => {},
+          cleanup: () => {}, // no cleanup required
         })),
         lastPage: {
           own: Number(data.to),
           root: rootConversion.toRootPage({
-            primitives: [],
+            primitives: [], // unused in toRootPage
             raw: (yield* call(() => pageFetcher(Number(data.to)))),
           }),
         },
@@ -121,11 +129,16 @@ export class EvmFetcher
   }
 
   @bound
-  groupByPage(primitives: PrimitiveType[]): Record<Page, PrimitiveType[]> {
+  groupByPage(
+    primitives: PrimitiveType[],
+  ): Record<EvmRpcPageJson, PrimitiveType[]> {
     return primitives.reduce((acc, primitive) => {
-      (acc[Number(primitive.block.number)] ??= []).push(primitive);
+      const key = Value.Encode(PageSchema, Number(primitive.block.number));
+      (acc[key] ??= []).push(
+        primitive,
+      );
       return acc;
-    }, {} as Record<Page, PrimitiveType[]>);
+    }, {} as Record<EvmRpcPageJson, PrimitiveType[]>);
   }
 
   @bound
@@ -153,15 +166,24 @@ export class EvmFetcher
   }
 
   @bound
-  override *getLatestPage(
+  *getLatestPage(
     knownLastPage: undefined | Page,
   ): Operation<Page> {
-    // TODO: implement `confirmationDepth`
     return yield* fetchNewestPage<Page>(
       blockNumberRelation,
       // override Viem's cache logic with out own
       () =>
-        call(() => this.client.getBlockNumber({ cacheTime: 0 }).then(Number)),
+        call(() =>
+          this.client.getBlockNumber({ cacheTime: 0 }).then(Number).then(
+            (height) => {
+              const config = this.config.syncProtocol;
+              if ("confirmationDepth" in config) {
+                return height - config.confirmationDepth;
+              }
+              return height;
+            },
+          )
+        ),
       knownLastPage,
       this.config.syncProtocol.pollingInterval,
     );

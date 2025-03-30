@@ -7,6 +7,7 @@ const deployedEvmAddresses = {
 } as const;
 import {
   ConfigBuilder,
+  ConfigNetworkType,
   ConfigPrimitiveType,
   ConfigSyncProtocolType,
   getEvmEvent,
@@ -43,6 +44,12 @@ export const localhostConfig = new ConfigBuilder()
         },
         id: 31338, // taken from hardhat.config.ts
       })
+      .addNetwork({
+        name: "yaci",
+        type: ConfigNetworkType.CARDANO,
+        nodeUrl: "http://127.0.0.1:10000", // yaci-devkit default URL
+        network: "yaci",
+      })
   )
   .buildDeployments((builder) =>
     builder.addDeployment(
@@ -70,6 +77,15 @@ export const localhostConfig = new ConfigBuilder()
           delayMs: parallelBlockTime * 6,
           startBlockHeight: 1 as BlockNumber,
           confirmationDepth: 2, // TODO: test this
+        }),
+      )
+      .addParallel(
+        (networks) => networks.yaci,
+        (network, deployments) => ({
+          name: "parallelUtxoRpc",
+          type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
+          rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
+          startSlot: 1,
         }),
       )
   )

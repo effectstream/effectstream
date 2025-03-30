@@ -1,8 +1,9 @@
-import { FormatRegistry, Type } from "@sinclair/typebox";
+import { FormatRegistry, Kind, Type } from "@sinclair/typebox";
 import type {
   NumberOptions,
   RegExpOptions,
   SchemaOptions,
+  Static,
   StaticDecode,
   TNull,
   TObject,
@@ -229,10 +230,15 @@ export const TypeboxHelpers = {
     schema: T,
     options?: SchemaOptions,
   ): TUnion<[T, TNull]> => Type.Union([schema, Type.Null()], options),
-  JsonUnsafeCast: <T>(): TTransform<TString, T> =>
-    Type.Transform(Type.String())
-      .Decode((x) => JSON.parse(x) as T)
-      .Encode((x: T) => JSON.stringify(x)),
+  JsonUnsafeCast: <
+    T,
+    StringSchema extends TSchema & { [Kind]: string } = TString,
+  >(
+    schema: StringSchema,
+  ): TTransform<StringSchema, T> =>
+    Type.Transform(schema)
+      .Decode((x) => JSON.parse(x as string) as T)
+      .Encode((x: T) => JSON.stringify(x) as Static<StringSchema>),
   // TODO: maybe improve with a typebox-specific EVM ABI wrapper
   //       abitype library comes with a ZOD verifier, and that can be ported to typebox
   EvmAbiEvent: Type.Unsafe<AbiEvent>(Type.Any()),

@@ -3,7 +3,7 @@ import type { PageRequest } from "./page.ts";
 
 export interface PrimitiveFetcher<
   Input,
-  Page extends number | string,
+  Page,
   RawData,
   PrimitiveType,
 > {
@@ -12,5 +12,7 @@ export interface PrimitiveFetcher<
     pageRequest: PageRequest<Page, RawData>,
   ): Operation<PrimitiveType[]>;
 
-  groupByPage(primitives: PrimitiveType[]): Record<Page, PrimitiveType[]>;
+  groupByPage<T extends string>(
+    primitives: PrimitiveType[],
+  ): Record<T, PrimitiveType[]>;
 }

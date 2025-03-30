@@ -88,3 +88,10 @@ export type WalletAddress =
   | EvmAddress
   | MidnightAddress
   | MinaAddress;
+
+export type EvmRpcPageJson = FastFlavor<string, "EvmRpcPageJson">;
+export type CarpCursorJson = FastFlavor<string, "CarpCursorJson">;
+export type MidnightEncodedStateJson = FastFlavor<
+  string,
+  "MidnightEncodedStateJson"
+>;

@@ -12,7 +12,7 @@ export const CardanoNetwork = Type.Union([
   Type.Literal("preview"),
   Type.Literal("preprod"),
   Type.Literal("mainnet"),
-  // TODO: support custom networks
+  Type.Literal("yaci"),
 ]);
 
 // ===========

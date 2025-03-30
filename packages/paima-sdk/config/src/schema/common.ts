@@ -29,7 +29,7 @@ export const StartStopBlockheight = new ConfigSchema({
 
 export const StartStopSlot = new ConfigSchema({
   required: Type.Object({
-    TypeboxHelpers: TypeboxHelpers.AbsoluteSlotNumber(),
+    startSlot: TypeboxHelpers.AbsoluteSlotNumber(),
   }),
   optional: Type.Object({
     stopSlot: TypeboxHelpers.Nullable(TypeboxHelpers.AbsoluteSlotNumber(), {

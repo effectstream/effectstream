@@ -29,6 +29,14 @@ function networkToCip34(
         networkId: registry.Preview.NetworkId,
         networkMagic: registry.Preview.NetworkMagic,
       });
+    case "yaci":
+      // TODO: dynamically fetch (but it should probably be added inside `config` directly instead of fetched here)
+      //       see: https://github.com/utxorpc/spec/pull/147#discussion_r2013805908
+      return toChainId({
+        // default values for yaci-devkit
+        networkId: 0,
+        networkMagic: 42,
+      });
     default:
       assertNever.default(config.network);
   }

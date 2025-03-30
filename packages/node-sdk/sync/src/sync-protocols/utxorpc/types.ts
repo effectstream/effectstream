@@ -1,14 +1,27 @@
 import type {
   AbsoluteSlotNumber,
+  BlockNumber,
   CardanoBlockHash,
   TimestampMs,
 } from "@paima/utils";
-import type { PageSyncRange } from "../common/page-helpers.ts";
+import type { PageRelation } from "../base/page.ts";
 import type { cardano } from "@utxorpc/spec";
+import type { PageSyncRange } from "../common/page-helpers.ts";
 
-// based on ChainPoint from `@utxorpc/sdk`
+/**
+ * Cardano blocks don't contain an explicit timestamp
+ * So we have to manage the mapping
+ *
+ * Note: this is no longer required if this is merged: https://github.com/utxorpc/spec/issues/150
+ */
+export type BlockAndTimestamp = {
+  block: cardano.Block;
+  timestamp: TimestampMs;
+};
+
 export type Page = {
   slot: AbsoluteSlotNumber;
+  height: BlockNumber;
   hash: CardanoBlockHash;
 };
 // TODO: blocked on https://github.com/utxorpc/spec/issues/135
@@ -17,9 +30,9 @@ export type PrimitiveType = {
   block: cardano.Block;
   timestamp: TimestampMs;
 };
-export type Input = PageSyncRange<Page>;
+export type Input = PageSyncRange<BlockNumber>;
 export type Output = {
-  raw: cardano.Block;
+  raw: BlockAndTimestamp;
   primitives: PrimitiveType[];
 };
 

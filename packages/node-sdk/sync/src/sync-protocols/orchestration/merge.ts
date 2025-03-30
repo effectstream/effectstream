@@ -1,6 +1,11 @@
 import type { Operation } from "effection";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import type { AllSyncProtocols, RootOutput, RootPage } from "../types.ts";
+import type {
+  AllSyncProtocols,
+  ISyncProtocol,
+  RootOutput,
+  RootPage,
+} from "../types.ts";
 import type { PageRelation } from "../base/page.ts";
 import type Deque from "denque";
 import type { ChainBlock } from "../common/root.ts";
@@ -70,14 +75,16 @@ export type MergeResult<RootOutput> = {
  *
  * @param value the data being constructed. `undefined` if this is the first piece of data in the chain
  */
-export function* mergeIntoRoot(
-  state: AllSyncProtocols,
+export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
+  state: SyncProtocol,
   rootInfo: {
     value: undefined | RootOutput;
     toPage: (data: RootOutput) => RootPage;
     comparePage: PageRelation<RootPage>;
   },
 ): Operation<MergeResult<RootOutput>> {
+  const iState = state as ISyncProtocol;
+
   // 1) If we've never made a single query yet, wait
   while (state.lastPage == null) {
     log.remote(
@@ -112,8 +119,8 @@ export function* mergeIntoRoot(
         (log) => log("Merge unblocked (missing main data): got data"),
       );
     }
-    const output = state.bufferedData.peekAt(0)!;
-    const newRoot = state.toRootOutput(output.output);
+    const output = iState.bufferedData.peekAt(0)!;
+    const newRoot = iState.toRootOutput(output.output);
     return {
       updateCache: () => {
         output.cleanup();
@@ -137,7 +144,6 @@ export function* mergeIntoRoot(
       SeverityNumber.DEBUG,
       (log) => log("Merge blocked (missing parallel data): waiting for data"),
     );
-    console.log(state.lastPage.root, rootInfo.toPage(rootInfo.value));
     yield* state.newPageCondVar.wait();
     log.remote(
       ComponentNames.PAIMA_SYNC,
@@ -148,15 +154,15 @@ export function* mergeIntoRoot(
   }
   const cleanups = getFromBuffer(
     {
-      data: state.bufferedData,
-      toPage: state.toRootPage,
+      data: iState.bufferedData,
+      toPage: iState.toRootPage,
     },
     {
       data: rootInfo.value,
       toPage: rootInfo.toPage,
     },
     rootInfo.comparePage,
-    state.mergeDatum,
+    iState.mergeDatum,
   );
 
   return {

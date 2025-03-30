@@ -11,6 +11,7 @@ import {
 import {
   type CardanoBlockHash,
   type CardanoTxHash,
+  type CarpCursorJson,
   type IntervalMs,
   type MergeIntersects,
   TypeboxHelpers,
@@ -20,10 +21,11 @@ import {
 // Utils
 // =====
 
+const CarpCursorJsonSchema = Type.Unsafe<CarpCursorJson>(Type.String());
 export const CarpCursor = TypeboxHelpers.JsonUnsafeCast<{
   block: CardanoBlockHash;
   tx: CardanoTxHash;
-}>();
+}, typeof CarpCursorJsonSchema>(CarpCursorJsonSchema);
 
 // ===========
 // Base schema
@@ -73,7 +75,7 @@ const blockTimeMs: IntervalMs = 20 * 1000;
 const finalityDepth = 5;
 
 export const ConfigSyncProtocolSchemaCardanoCarpParallel =
-ConfigSyncProtocolSchemaCardanoCarpBase
+  ConfigSyncProtocolSchemaCardanoCarpBase
     .cloneMerge({
       required: Type.Object({
         type: Type.Literal(ConfigSyncProtocolType.CARDANO_CARP_PARALLEL),

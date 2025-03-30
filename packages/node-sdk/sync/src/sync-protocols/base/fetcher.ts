@@ -1,7 +1,7 @@
 import type { Channel, Operation } from "effection";
 import { createChannel } from "effection";
 import type { PageRange } from "./page.ts";
-import type { OutputAndCleanup, LastPage, RootConversion } from "./state.ts";
+import type { LastPage, OutputAndCleanup, RootConversion } from "./state.ts";
 
 export type DataFetched<Output, Page, RootPage> = {
   output: OutputAndCleanup<Output>[];
@@ -27,10 +27,15 @@ export abstract class BaseDataFetcher<
     data: Input,
     rootConversion: RootConversion<Output, RootOutput, RootPage>,
   ): Operation<DataFetched<Output, Page, RootPage>>;
-  abstract getLatestPage(knownLastPage: undefined | Page): Operation<Page>;
+}
 
-  // TODO: maybe these three should go in a separate interface
-  abstract previousInterval(nextIntervalStart: Page): PageRange<Page>;
-  abstract nextInterval(prevIntervalEnd: Page): PageRange<Page>;
-  abstract intervalFromStart(start: Page): PageRange<Page>;
+/**
+ * Useful interface when pagination is done in fixed predictable chunks
+ */
+export interface PaginatedFetcher<Page> {
+  getLatestPage(knownLastPage: undefined | Page): Operation<Page>;
+
+  previousInterval(nextIntervalStart: Page): PageRange<Page>;
+  nextInterval(prevIntervalEnd: Page): PageRange<Page>;
+  intervalFromStart(start: Page): PageRange<Page>;
 }

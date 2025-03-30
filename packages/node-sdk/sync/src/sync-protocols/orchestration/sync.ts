@@ -1,26 +1,36 @@
-import type { Operation, Yielded } from "effection";
+import type { Operation } from "effection";
 import { sleep, spawn } from "effection";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import type { AllSyncProtocols } from "../types.ts";
+import type { AllSyncProtocols, ISyncProtocol } from "../types.ts";
+import { tryYield } from "@paima/utils";
 
 export function* startSync(
   state: AllSyncProtocols,
 ): Operation<void> {
+  const iState = state as ISyncProtocol;
+
+  // spawn async task
+  yield* spawn(function* () {
+    yield* iState.startAsync();
+  });
+
+  // spawn polling task
   yield* spawn(function* () {
     while (true) {
-      const input = yield* state.stateToInput();
+      const input = yield* iState.stateToInput();
+      const { config } = state.fetcher;
       if (input == null) {
-        yield* sleep(state.fetcher.config.syncProtocol.pollingInterval);
+        if ("pollingInterval" in config.syncProtocol) {
+          yield* sleep(config.syncProtocol.pollingInterval);
+        }
         continue;
       }
 
-      let data: Yielded<ReturnType<typeof state.fetcher.readData>>;
-      try {
-        data = yield* state.fetcher.readData(input, state);
-      } catch (e) {
+      const result = yield* tryYield(iState.fetcher.readData(input, iState));
+      if (result.error != null) {
         console.error(
           `${self.name}`,
-          e,
+          result.error,
         );
         continue;
       }
@@ -28,11 +38,11 @@ export function* startSync(
         ComponentNames.PAIMA_SYNC,
         [...state.getNamespace(), "data"],
         SeverityNumber.TRACE,
-        (log) => log(data),
+        (log) => log(result.data),
       );
-      yield* state.updateState(input, data);
-      for (const datum of data.output) {
-        yield* state.fetcher.producerChannel.send(datum.output);
+      yield* iState.updateState(input, result.data);
+      for (const datum of result.data.output) {
+        yield* iState.fetcher.producerChannel.send(datum.output);
       }
     }
   });

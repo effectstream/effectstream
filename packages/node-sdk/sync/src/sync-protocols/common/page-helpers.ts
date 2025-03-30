@@ -2,7 +2,7 @@ import type { Operation } from "effection";
 import type { PageRange } from "../base/page.ts";
 import { narrowResult } from "@paima/utils";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import type { AllSyncProtocols } from "../types.ts";
+import type { PaginatedSyncProtocols } from "../types.ts";
 import type { PageTypeOf } from "../base/state.ts";
 
 type ConfigSubset<Page> = {
@@ -15,8 +15,8 @@ type ConfigSubset<Page> = {
 
 export type PageSyncRange<Page> = PageRange<Page> & { isPresync: boolean };
 
-export function* genInputRange<SyncProtocol extends AllSyncProtocols>(
-  state: AllSyncProtocols,
+export function* genInputRange<SyncProtocol extends PaginatedSyncProtocols>(
+  state: SyncProtocol,
   genesisPage: PageTypeOf<SyncProtocol>,
   config: ConfigSubset<PageTypeOf<SyncProtocol>>,
   namespace: string[],
@@ -50,13 +50,13 @@ export function* genInputRange<SyncProtocol extends AllSyncProtocols>(
   );
   return {
     from: narrowResult<
-      PageTypeOf<AllSyncProtocols>,
-      PageTypeOf<AllSyncProtocols>,
+      PageTypeOf<PaginatedSyncProtocols>,
+      PageTypeOf<PaginatedSyncProtocols>,
       PageTypeOf<SyncProtocol>
     >(nextPage),
     to: narrowResult<
-      PageTypeOf<AllSyncProtocols>,
-      PageTypeOf<AllSyncProtocols>,
+      PageTypeOf<PaginatedSyncProtocols>,
+      PageTypeOf<PaginatedSyncProtocols>,
       PageTypeOf<SyncProtocol>
     >(clampedMax),
     isPresync,

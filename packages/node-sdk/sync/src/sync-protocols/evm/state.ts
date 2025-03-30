@@ -37,7 +37,10 @@ export class EvmSyncState extends SyncState<
     return {
       blockNumber: Number(data.raw.number),
       timestamp: this.toRootPage(data),
-      primitives: data.primitives,
+      primitives: data.primitives.map((p) => ({
+        ...p,
+        source: this.config.syncProtocol.name,
+      })),
     };
   }
 
@@ -56,7 +59,7 @@ export class EvmSyncState extends SyncState<
   @bound
   override *stateToInput(): Operation<Input | undefined> {
     return yield* genInputRange(
-      this,
+      this as EvmSyncState,
       1, // TODO: do we skip block 0 for EVM?
       {
         name: this.config.syncProtocol.name,
@@ -79,7 +82,10 @@ export class EvmSyncState extends SyncState<
     ourOutput: Output,
     rootOutput: RootOutput,
   ): void {
-    rootOutput.primitives.push(...ourOutput.primitives);
+    rootOutput.primitives.push({
+      ...ourOutput.primitives,
+      source: this.config.syncProtocol.name,
+    });
   }
 
   @bound

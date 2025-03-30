@@ -5,7 +5,9 @@ export type ChainPage = TimestampMs;
 export type ChainBlock = {
   blockNumber: BlockNumber;
   timestamp: TimestampMs;
-  primitives: any[]; // TODO
+  primitives: {
+    source: string;
+  }[]; // TODO
 };
 
 export const chainPageRelation: PageRelation<ChainPage> = {

@@ -24,19 +24,18 @@ import {
 // Base schema
 // ===========
 
-export const ConfigSyncProtocolSchemaCardanoUtxoRpcBase = NameField.cloneMerge(
-  PollingSyncProtocol,
-).cloneMerge(
-  StartStopSlot,
-).cloneMerge({
-  required: Type.Object({
-    name: Type.String(),
-    rpcUrl: Type.String(),
-  }),
-  optional: Type.Object({}),
-});
+export const ConfigSyncProtocolSchemaCardanoUtxoRpcBase = NameField
+  .cloneMerge(
+    StartStopSlot,
+  ).cloneMerge({
+    required: Type.Object({
+      name: Type.String(),
+      rpcUrl: Type.String(),
+    }),
+    optional: Type.Object({}),
+  });
 
-export const CommonResponseCardanoCarpBase = {
+export const CommonResponseCardanoUtxoRpcBase = {
   internal: {},
   payload: {
     primitiveName: Type.String(),
@@ -62,11 +61,11 @@ const blockTimeMs: IntervalMs = 20 * 1000;
  */
 const finalityDepth = 5;
 
-export const ConfigSyncProtocolSchemaCardanoCarpParallel =
+export const ConfigSyncProtocolSchemaCardanoUtxoRpcParallel =
   ConfigSyncProtocolSchemaCardanoUtxoRpcBase
     .cloneMerge({
       required: Type.Object({
-        type: Type.Literal(ConfigSyncProtocolType.CARDANO_CARP_PARALLEL),
+        type: Type.Literal(ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL),
       }),
       optional: Type.Object({
         // blocks are only approximately, but could be much longer so we add an extra delay
@@ -79,12 +78,12 @@ export const ConfigSyncProtocolSchemaCardanoCarpParallel =
 export type ConfigSyncProtocolCardanoParallel = MergeIntersects<
   Static<
     ReturnType<
-      typeof ConfigSyncProtocolSchemaCardanoCarpParallel.allProperties<true>
+      typeof ConfigSyncProtocolSchemaCardanoUtxoRpcParallel.allProperties<true>
     >
   >
 >;
 
-export const CommonResponseCardanoCarpParallel = genCommonResponse(
+export const CommonResponseCardanoUtxoRpcParallel = genCommonResponse(
   CommonResponseParallelSyncProtocol,
-  CommonResponseCardanoCarpBase,
+  CommonResponseCardanoUtxoRpcBase,
 );

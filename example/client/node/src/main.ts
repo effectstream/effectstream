@@ -1,7 +1,10 @@
 import { init, start } from "@paima/runtime";
 import { main, suspend } from "effection";
 import { localhostConfig } from "@example/data-types";
-import { withPaimaStaticConfig } from "@paima/config";
+import {
+  type SyncProtocolWithNetwork,
+  withPaimaStaticConfig,
+} from "@paima/config";
 
 main(function* () {
   yield* init();
@@ -22,13 +25,17 @@ main(function* () {
         },
         ...Object.values(localhostConfig.syncProtocols.parallel).map((
           protocol,
-        ) => ({
-          networkType: localhostConfig.allNetworks
-            .networks[localhostConfig.syncProtocols.main.network].type,
-          syncProtocolType: protocol.syncProtocol.type,
-          syncProtocol: protocol.syncProtocol,
-          network: localhostConfig.allNetworks.networks[protocol.network],
-        })),
+        ) => {
+          const network =
+            localhostConfig.allNetworks.networks[protocol.network];
+          const result = {
+            networkType: network.type,
+            syncProtocolType: protocol.syncProtocol.type,
+            syncProtocol: protocol.syncProtocol,
+            network,
+          };
+          return result as SyncProtocolWithNetwork;
+        }),
         // TODO: decorator funnels
       ],
     );

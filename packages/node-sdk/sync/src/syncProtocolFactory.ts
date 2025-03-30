@@ -5,7 +5,15 @@ import type { PoolClient } from "pg";
 import type { AllSyncProtocols } from "./sync-protocols/types.ts";
 import { createViemPublicClient } from "@paima/utils";
 import type { SyncProtocolWithNetwork } from "@paima/config";
-import { ConfigNetworkType, getViemNetwork } from "@paima/config";
+import {
+  ConfigNetworkType,
+  ConfigSyncProtocolType,
+  getViemNetwork,
+} from "@paima/config";
+import { CardanoSyncClient } from "@utxorpc/sdk";
+import { BufferedRpc } from "./sync-protocols/utxorpc/BufferedRpc.ts";
+import { UtxoRpcFetcher } from "./sync-protocols/utxorpc/fetcher.ts";
+import { UtxoRpcSyncState } from "./sync-protocols/utxorpc/state.ts";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -24,6 +32,31 @@ export function* genSyncProtocols(
         }),
       );
       const state = yield* EvmSyncState.restoreState(
+        dbConn,
+        entry,
+        fetcher,
+      );
+      result.push(state);
+    } else if (
+      entry.networkType === ConfigNetworkType.CARDANO
+    ) {
+      if (
+        entry.syncProtocol.type === ConfigSyncProtocolType.CARDANO_CARP_PARALLEL
+      ) {
+        throw new Error("CARP not supported yet");
+      }
+      const client = new CardanoSyncClient({
+        uri: entry.syncProtocol.rpcUrl,
+      });
+      const bufferedRpc = new BufferedRpc(
+        client,
+        entry.syncProtocol.confirmationDepth,
+      );
+      const fetcher = new UtxoRpcFetcher(
+        entry,
+        bufferedRpc,
+      );
+      const state = yield* UtxoRpcSyncState.restoreState(
         dbConn,
         entry,
         fetcher,
