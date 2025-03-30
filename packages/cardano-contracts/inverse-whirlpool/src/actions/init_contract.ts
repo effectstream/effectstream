@@ -53,7 +53,7 @@ export const init_merkle = async (API, VERBOSE = true) => {
 
   // console.log('Script_Parameterized', Script_Parameterized)
   const policyId_Script =  validatorToScriptHash(Script_Parameterized_Merkle)
-  const Address_Script =  validatorToAddress("Preview", Script_Parameterized_Merkle)
+  const Address_Script =  validatorToAddress(await API.config().network, Script_Parameterized_Merkle)
 
   // Save the parameterized validator
   const dir_contract = 'data/contracts/' + Address_Script;
@@ -66,7 +66,7 @@ export const init_merkle = async (API, VERBOSE = true) => {
   fs.writeFileSync(dir_contract+'/param_script.json', JSON.stringify({
     'Validator': Script_Parameterized_Merkle,
     'hash': validatorToScriptHash(Script_Parameterized_Merkle),
-    'address': validatorToAddress("Preview", Script_Parameterized_Merkle)
+    'address': validatorToAddress(await API.config().network, Script_Parameterized_Merkle)
   }), { encoding: 'utf-8' });
 
   // Configure Script Datum and Redeemer ----------------------------------------

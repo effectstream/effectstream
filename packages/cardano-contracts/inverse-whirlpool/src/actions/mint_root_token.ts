@@ -1,5 +1,5 @@
-import metadata from "./../data/metadata.json" assert { type: "json" };
 import Validator_Metadata_Minter from "../scripts/paima.json" assert { type: "json" };
+//import Validator_Metadata_Minter from "../scripts/true.json" assert { type: "json" };
 import { buildPseudoTX } from './index.ts';
 import blake2b from 'blake2b';
 import {
@@ -11,7 +11,7 @@ import {
   applyParamsToScript,
   validatorToScriptHash,
   validatorToAddress,
-  scriptFromNative
+  toHex
 } from "@lucid-evolution/lucid";
 import {bigIntReplacer, colors} from "../util.js"
 
@@ -67,14 +67,18 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
   if (VERBOSE) {
     console.log(`${colors.cyan}INFO${colors.reset}: Parameterizing Metadata Minting Contract`);
   }
+
+  let validate_match_true = new Constr(0, [])
+  let validate_match_false = new Constr(1, [])
   const Script_Parameterized_Metadata = {
     type: "PlutusV3",
     script: applyParamsToScript(
       Validator_Metadata_Minter.cborHex,
-      [policyId_Merkle_Minter, Data.to(true, Data.Boolean())]
+      // [policyId_Merkle_Minter, true]
+      [policyId_Merkle_Minter, validate_match_true]
     ),
   };
-  const Address_Contract_Metadata_Minter = validatorToAddress("Preview", Script_Parameterized_Metadata);
+  const Address_Contract_Metadata_Minter = validatorToAddress(await API.config().network, Script_Parameterized_Metadata);
   const policyId_Metadata_Minter = validatorToScriptHash(Script_Parameterized_Metadata)
 
   // Contract Addresses
@@ -95,7 +99,7 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
   const account_token_index = accountUtxos[0].outputIndex
 
   const input_ref = new Constr(0, [
-    fromText(accountUtxos[0].txHash),
+    accountUtxos[0].txHash,
     BigInt(account_token_index),
   ]);
   if (VERBOSE) {
@@ -119,7 +123,7 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
 
   // Asset
   const quantity_token = 1 
-  const asset_token = `${policyId_Metadata_Minter}${script_data_hash}`
+  const asset_token = `${policyId_Metadata_Minter}${''}`
 
   // Metadata
   const metadata_obj = Data.fromJson(metadata)
@@ -165,14 +169,17 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
 
   // Create TransactionBodyPieces following Aiken type
   const tx_body = new Constr(0, [
+    metadata_hash,
+    metadata_hash,
+    metadata_hash,
     metadata_hash,                        // metadata_hash: ByteArray
-    convertInputToCbor(collateralInput),  // collateral_inputs (direct Constr, not serialized text)
-    new Constr(0, [                       // collateral_output (direct Constr, not serialized text)
-      fromText(userAddress),
-      formatValue({ lovelace: BigInt(collateralInput.assets.lovelace - 5000000n) }),
-      new Constr(0, [])
-    ]),
-    BigInt(5000000)                       // collateral_fee (BigInt, not serialized text)
+    // fromText(Data.to(convertInputToCbor(collateralInput))),  // collateral_inputs (direct Constr, not serialized text)
+    // new Constr(0, [                       // collateral_output (direct Constr, not serialized text)
+    //   fromText(userAddress),
+    //   formatValue({ lovelace: BigInt(collateralInput.assets.lovelace - 5000000n) }),
+    //   new Constr(0, [])
+    // ]),
+    // fromText(Data.to(BigInt(5000000)))                      // collateral_fee (BigInt, not serialized text)
   ]);
 
   // Construct final MintToken redeemer
@@ -190,9 +197,9 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
   if (VERBOSE) {
     console.log(`${colors.cyan}Redeemer Parameters${colors.reset}:`);
     const output = {
-      'input_ref':  Data.from(Data.to(input_ref)),
-      'tx_body': Data.from(Data.to(tx_body)),
-      'metadata': Data.from(metadata_bytes)
+      'input_ref':  input_ref,
+      'tx_body': tx_body,
+      'metadata': metadata_bytes
     };
     // Format each property with color
     Object.entries(output).forEach(([key, value]) => {
@@ -215,7 +222,9 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
       { kind: "inline", value: incrementedAccountDatum },
       accountUtxos[0].assets,
     ) 
-    .mintAssets({[asset_token]: BigInt(quantity_token)}, mintRedeemer)
+    .mintAssets(
+      {[asset_token]: BigInt(quantity_token)},  mintRedeemer
+    )
     .pay.ToAddress(
       userAddress, 
       {[asset_token]: BigInt(quantity_token)},
@@ -225,7 +234,7 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
     .attach.MintingPolicy(Script_Parameterized_Metadata)
     .attach.SpendingValidator(Contract_Merkle_Minter.script.Validator)
     .addSigner(userAddress)
-   .complete();
+    .complete();
 
   // if (VERBOSE) { console.log(`${colors.cyan}Raw TX${colors.reset}: ${tx.toString()}`);}
 

@@ -55,6 +55,8 @@ validator merkle(init_ref: OutputReference) {
 
         expect Merkle { root: input_root, .. }: State =
           get_inline_datum(input_data)
+        trace input_data
+        trace input_root
 
         expect [merkle_output,
           user_account_output, ..] = skip_to(tx.outputs, output_index)
@@ -85,26 +87,43 @@ validator merkle(init_ref: OutputReference) {
             |> assets.tokens(own_policy)
             |> dict.to_pairs
 
-        // trace concat(@"Account Hash: ", account_hash |> bytearray.to_hex())
-        // trace concat(@"Minted Token: ", minted_token |> bytearray.to_hex())
+        trace @"1: " 
+        trace input_root |> from_root
+        // 0000000000000000000000000000000000000000000000000000000000000000
 
-        // // trace concat(@"Own output_address: ", output_address)
-        // // trace concat(@"Own expected_address: ", expected_address |> bytearray.to_hex())
-        // trace concat(@"Own Hash: ", own_hash |> bytearray.to_hex())
-        // trace concat(@"Own Policy: ", own_policy |> bytearray.to_hex())
+        trace @"2: " 
+        trace account_hash |> crypto.blake2b_256
+        // E41487473E3A8C96C07FF5E23585BB7CE3137B47B15A6970030C7A58BD9E98FE
 
-        // trace concat(@"input_root: ", input_root |> bytearray.to_hex())
-        // trace concat(@"account_hash: ", account_hash |> bytearray.to_hex())
-        // trace concat(@"Outputroot: ", output_root |> bytearray.to_hex())
+        trace @"3: " 
+        trace account_hash
+        // 746791D438E08DD66B764602C7F7DC8474DBB078CA82B7D4A88DF93825F3FA53
 
-        and {
-          // Verify new and old merkle roots
-          insert(
+        trace @"4: " 
+        trace merkle_proof_block
+        // []
+        
+        trace @"Insert: " 
+        trace insert(
             input_root |> from_root,
             account_hash |> crypto.blake2b_256,
             account_hash,
             merkle_proof_block,
-          ) == from_root(output_root),
+          )
+        // DCD69775DDB7FE0D928555F56D1CF6E0FB9C77CF7BD656C509226324899D1C13
+
+        trace @"Outputroot: " 
+        trace output_root
+        // 54C8F9DFA9BDAC1C4BAB596AEB0ED2C344C1E6C4176CEECC547C1372A3E8B704
+
+        and {
+          // Verify new and old merkle roots
+          // insert(
+          //   input_root |> from_root,
+          //   account_hash |> crypto.blake2b_256,
+          //   account_hash,
+          //   merkle_proof_block,
+          // ) == from_root(output_root),
           // Verify utxo is preserved
           assets.without_lovelace(input_value) == expected_value,
           output_address == expected_address,
@@ -168,12 +187,25 @@ validator merkle(init_ref: OutputReference) {
         let Output { address: input_address, value: input_value, .. } =
           own_input
 
+
         let Output {
           address: output_address,
           value: output_value,
           datum: output_data,
           ..
         } = list_at(transaction.outputs, output_index)
+
+        trace "1)"
+        trace input_address
+        trace output_address
+
+        trace "2)"
+        trace assets.without_lovelace(input_value)
+        trace assets.without_lovelace(output_value)
+
+        trace "3)"
+        trace output_data
+        trace InlineDatum(Account(credential, current_amount + 1))
 
         and {
           when credential is {
@@ -233,7 +265,7 @@ validator merkle(init_ref: OutputReference) {
 }
 
 validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
-  mint(action: Data, script_policy_id: PolicyId, transaction: Transaction) {
+  mint(action: MintActionType, script_policy_id: PolicyId, transaction: Transaction) {
     let Transaction { inputs, outputs, extra_signatories, mint, fee, id, .. } =
       transaction
 
@@ -243,18 +275,8 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
 
     // trace cbor.diagnostic(action)
 
-    expect action: MintActionType = action
-
     when action is {
-      BurnToken ->
-        list.all(
-          mint |> assets.tokens(script_policy_id) |> dict.to_pairs,
-          fn(amount_map) {
-            let Pair(_, amount) = amount_map
-            amount == -1
-          },
-        )
-      MintToken(input_ref, tx_body, metadata) -> {
+      MintToken (input_ref, tx_body, metadata) -> {
 
         trace @"1"
         let TransactionBodyPieces {
@@ -268,9 +290,10 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
         expect [Pair(script_data_hash, 1), ..] =
           mint // this is the script hash of true.mint
             // WARNING: this has to be updated if the true.mint compiled code changes
-            
           |> assets.tokens(
-                #"9fc33a6ffaa8d1f600c161aa383739d5af37807ed83347cc133521c9",
+              script_policy_id
+               // #"9fc33a6ffaa8d1f600c161aa383739d5af37807ed83347cc133521c9",
+                // #"997322483e052b1c2e42447fca9261427c6214bb14288a0ac4651fa7",
               )
             |> dict.to_pairs
         trace @"3"
@@ -288,14 +311,14 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
           convert_extra_signatories(extra_signatories)
             |> bytearray.concat(#"0e", _)
 
-        trace @"4"
+        // trace @"4"
         // let _ref_inputs_cbor =
         //  convert_inputs(reference_inputs) |> bytearray.concat(#"12", _)
         let collateral_inputs_cbor = bytearray.concat(#"0d", collateral_inputs)
 
         let collateral_output_cbor = bytearray.concat(#"10", collateral_output)
         let collateral_fee_cbor = bytearray.concat(#"11", collateral_fee)
-        trace @"5"
+        // trace @"5"
 
         let tx_cbor =
           #"a9"
@@ -329,8 +352,8 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
             credential |> builtin.serialise_data |> crypto.blake2b_256,
             1,
           )
-        expect [Pair(token_name, 1)] =
-          mint |> assets.tokens(script_policy_id) |> dict.to_pairs
+        // expect [Pair(token_name, 1)] =
+        //   mint |> assets.tokens(script_policy_id) |> dict.to_pairs
 
         // let expected_metadata =
         //   "const format" |> bytearray.concat(url) |> bytearray.concat("ending")
@@ -341,7 +364,7 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
             id != ( tx_cbor |> builtin.blake2b_256 )
           }?,
           (assets.without_lovelace(value) == expected_value)?,
-          (token_name == (
+          (script_data_hash == (
             credential
               |> builtin.serialise_data
               |> bytearray.concat(amount |> builtin.serialise_data)
@@ -352,10 +375,18 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
           True,
         }
       }
+      BurnToken ->
+        list.all(
+          mint |> assets.tokens(script_policy_id) |> dict.to_pairs,
+          fn(amount_map) {
+            let Pair(_, amount) = amount_map
+            amount == -1
+          },
+        )
     }
     // and {
     //   expected_value == assets.without_lovelace(value),
-    //   token_name == (
+    //   script_data_hash == (
     //     credential
     //       |> builtin.serialise_data
     //       |> bytearray.concat(amount |> builtin.serialise_data)

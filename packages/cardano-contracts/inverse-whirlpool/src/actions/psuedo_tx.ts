@@ -7,6 +7,7 @@ import {
   scriptFromNative
 } from "@lucid-evolution/lucid";
 import Validator_AlwaysTrue from "../scripts/true.json" assert { type: "json" };
+import {colors} from "../util.js"
 
 // Build pseudo-TX -------------------------------------------------------------
 export  const buildPseudoTX = async (API, metadata, scriptDatum, VERBOSE=true) => {
@@ -24,7 +25,8 @@ export  const buildPseudoTX = async (API, metadata, scriptDatum, VERBOSE=true) =
   const assetName_token = "SampleTokenName"
   const quantity_token = 1 
   const asset_token = `${policyId_AlwaysTrue}${fromText(assetName_token)}`
-
+  if (VERBOSE) { console.log(`${colors.cyan}AlwaysTrue Script Policy ID${colors.reset}: ${policyId_AlwaysTrue}`); }
+  
   // Mint Action: InitMerkle (ref: validation.ak)
   const mintRedeemer = Data.to(
     new Constr(0, [])
