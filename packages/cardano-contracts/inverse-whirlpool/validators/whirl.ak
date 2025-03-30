@@ -278,7 +278,6 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
     when action is {
       MintToken (input_ref, tx_body, metadata) -> {
 
-        trace @"1"
         let TransactionBodyPieces {
           collateral_inputs,
           collateral_output,
@@ -286,39 +285,58 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
           metadata_hash,
         } = tx_body
 
-        trace @"2"
         expect [Pair(script_data_hash, 1), ..] =
           mint // this is the script hash of true.mint
             // WARNING: this has to be updated if the true.mint compiled code changes
           |> assets.tokens(
               script_policy_id
-               // #"9fc33a6ffaa8d1f600c161aa383739d5af37807ed83347cc133521c9",
-                // #"997322483e052b1c2e42447fca9261427c6214bb14288a0ac4651fa7",
+              // #"9fc33a6ffaa8d1f600c161aa383739d5af37807ed83347cc133521c9",
+              // #"997322483e052b1c2e42447fca9261427c6214bb14288a0ac4651fa7",
               )
             |> dict.to_pairs
-        trace @"3"
 
         let inputs_cbor = convert_inputs(inputs) |> bytearray.concat(#"00", _)
+        // trace "inputs_cbor"
+        // trace inputs_cbor
+
         let outputs_cbor =
           convert_outputs(outputs) |> bytearray.concat(#"01", _)
+        // trace "outputs_cbor"
+        // trace outputs_cbor
+
         let fee_cbor = convert_fee(fee) |> bytearray.concat(#"02", _)
+        // trace "fee_cbor"
+        // trace fee_cbor
+
         let mint_cbor = convert_mint(mint) |> bytearray.concat(#"09", _)
+        // trace "mint_cbor"
+        // trace mint_cbor
 
         let script_data_hash_cbor =
           builtin.serialise_data(script_data_hash) |> bytearray.concat(#"0b", _)
+        // trace "script_data_hash_cbor"
+        // trace script_data_hash_cbor
 
         let extra_signatories_cbor =
           convert_extra_signatories(extra_signatories)
             |> bytearray.concat(#"0e", _)
+        // trace "extra_signatories_cbor"
+        // trace extra_signatories_cbor
 
         // trace @"4"
         // let _ref_inputs_cbor =
         //  convert_inputs(reference_inputs) |> bytearray.concat(#"12", _)
         let collateral_inputs_cbor = bytearray.concat(#"0d", collateral_inputs)
+        // trace "collateral_inputs_cbor"
+        // trace collateral_inputs_cbor
 
         let collateral_output_cbor = bytearray.concat(#"10", collateral_output)
+        // trace "collateral_output_cbor"
+        // trace collateral_output_cbor
+
         let collateral_fee_cbor = bytearray.concat(#"11", collateral_fee)
-        // trace @"5"
+        // trace "collateral_fee_cbor"
+        // trace collateral_fee_cbor
 
         let tx_cbor =
           #"a9"
@@ -337,6 +355,7 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
 
         trace tx_cbor |> builtin.blake2b_256 |> bytearray.to_hex
 
+        trace "ID"
         trace bytearray.to_hex(id)
 
         expect Some(input) =
@@ -357,19 +376,29 @@ validator paima_mint(merkle_policy: ByteArray, validate_match: Bool) {
 
         // let expected_metadata =
         //   "const format" |> bytearray.concat(url) |> bytearray.concat("ending")
+        trace True
+        trace "3)"
+        trace script_data_hash == (
+            credential
+              |> builtin.serialise_data
+              |> bytearray.concat(amount |> builtin.serialise_data)
+              |> crypto.blake2b_256
+          )
+        trace "4)"
+        trace blake2b_256(metadata) == metadata_hash
         and {
           if validate_match {
             id == ( tx_cbor |> builtin.blake2b_256 )
           } else {
             id != ( tx_cbor |> builtin.blake2b_256 )
-          }?,
-          (assets.without_lovelace(value) == expected_value)?,
+          }?, // True
+          (assets.without_lovelace(value) == expected_value)?, // True
           (script_data_hash == (
             credential
               |> builtin.serialise_data
               |> bytearray.concat(amount |> builtin.serialise_data)
               |> crypto.blake2b_256
-          ))?,
+          ))?, // ?
           (blake2b_256(metadata) == metadata_hash)?,
           // Metadata validation here
           True,

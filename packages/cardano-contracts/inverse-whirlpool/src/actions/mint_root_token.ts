@@ -45,7 +45,7 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
   const policyId_Merkle_Minter = Contract_Merkle_Minter.script.hash
   
   // Acount Token
-  let accountHashed = blake2b(32).update(fromHex( Data.to(new Constr(0, [paymentCredentialHash])) )).digest('hex')
+  let accountHashed = await blake2b(32).update(fromHex( Data.to(new Constr(0, [paymentCredentialHash])) )).digest('hex')
   const asset_token_account = `${policyId_Merkle_Minter}${accountHashed}`
   const quantity_token_account = 1
   if (VERBOSE) {
@@ -123,7 +123,7 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
 
   // Asset
   const quantity_token = 1 
-  const asset_token = `${policyId_Metadata_Minter}${''}`
+  const asset_token = `${policyId_Metadata_Minter}${script_data_hash}`
 
   // Metadata
   const metadata_obj = Data.fromJson(metadata)
@@ -165,21 +165,16 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
     throw new Error("No suitable collateral UTXOs found. Need UTXOs with only ADA and at least 5 ADA");
   }
   
-  const collateralInput = collateralUtxos[0];
+  const collateral_inputs = fromText(Data.to(convertInputToCbor(collateralUtxos[0])))
+  const collateral_output = metadata_hash // <-- FIX
+  const collateral_fee = fromText(Data.to(BigInt(5000000)))
 
   // Create TransactionBodyPieces following Aiken type
   const tx_body = new Constr(0, [
+    collateral_inputs,
+    collateral_output,
+    collateral_fee,
     metadata_hash,
-    metadata_hash,
-    metadata_hash,
-    metadata_hash,                        // metadata_hash: ByteArray
-    // fromText(Data.to(convertInputToCbor(collateralInput))),  // collateral_inputs (direct Constr, not serialized text)
-    // new Constr(0, [                       // collateral_output (direct Constr, not serialized text)
-    //   fromText(userAddress),
-    //   formatValue({ lovelace: BigInt(collateralInput.assets.lovelace - 5000000n) }),
-    //   new Constr(0, [])
-    // ]),
-    // fromText(Data.to(BigInt(5000000)))                      // collateral_fee (BigInt, not serialized text)
   ]);
 
   // Construct final MintToken redeemer
@@ -221,21 +216,24 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
       accountUtxos[0].address, 
       { kind: "inline", value: incrementedAccountDatum },
       accountUtxos[0].assets,
-    ) 
+    )
     .mintAssets(
       {[asset_token]: BigInt(quantity_token)},  mintRedeemer
     )
     .pay.ToAddress(
       userAddress, 
       {[asset_token]: BigInt(quantity_token)},
-    ) 
-    // .attachMetadata(721n, metadata)
+    )
+    .attachMetadata(721n, metadata)
     // .selectCollateral([collateralInput])
     .attach.MintingPolicy(Script_Parameterized_Metadata)
     .attach.SpendingValidator(Contract_Merkle_Minter.script.Validator)
     .addSigner(userAddress)
     .complete();
 
+  if (VERBOSE) { console.log(`${colors.cyan}Raw TX${colors.reset}: ${tx.toCBOR()}`);}
+  // if (VERBOSE) { console.log(tx);}
+  // if (VERBOSE) { console.log(tx.rawConfig());}
   // if (VERBOSE) { console.log(`${colors.cyan}Raw TX${colors.reset}: ${tx.toString()}`);}
 
   // Sign and Submit ------------------------------------------------------
