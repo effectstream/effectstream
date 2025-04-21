@@ -29,6 +29,22 @@ strip_ansi_codes() {
         -e 's/\\x1B\[[0-9;]*[mGK]//g'
 }
 
+# Function to parse and format script execution traces
+parse_script_traces() {
+    local error_message="$1"
+    
+    # Check if there are traces in the error message
+    if [[ "$error_message" == *"Trace"* ]]; then
+        echo -e "${YELLOW}Script Execution Traces:${NC}"
+        echo -e "${YELLOW}-----------------------${NC}"
+        # Extract all trace messages and add newlines between them
+        echo "$error_message" | grep -o "Trace [^T]*" | sed 's/Trace //' | sed '/^$/d' | while read -r trace_line; do
+            echo -e "${YELLOW}$trace_line${NC}"
+        done
+        echo -e "${YELLOW}-----------------------${NC}"
+    fi
+}
+
 # Initialize report with summary section
 init_report() {
     local report_file="$1"
@@ -94,16 +110,6 @@ update_test_summary() {
     mv "$temp_file" "$report_file"
 }
 
-# Execute step with validation expectation
-# execute_step() {
-#     local report_file="$1"
-#     local cmd="$2"
-#     local step_name="$3"
-#     local should_validate="$4"
-#     local attempt=1
-#     local output=""
-#     local result=0
-
 execute_step() {
     local report_file="$1"
     local cmd="$2"
@@ -114,13 +120,18 @@ execute_step() {
     while [ $attempt -le $MAX_RETRIES ]; do
         echo "Attempt $attempt of $MAX_RETRIES"
         output=$(eval "$cmd" 2>&1 | grep -v "^> src\|^> tsx")
-        # output=$(eval "$cmd" 2>&1)
         result=$?
         
         echo "$output"  # Show output on console
 
         # Strip ANSI codes for log file
         clean_output=$(echo "$output" | sed 's/\x1B\[[0-9;]*[mGK]//g')
+        
+        # Parse traces if this is a script execution failure
+        if [[ "$output" == *"(FiberFailure) TxBuilderError"* ]]; then
+            parse_script_traces "$output"
+            echo ""
+        fi
         
         if [ $result -ne 0 ]; then
             if [ $attempt -lt $MAX_RETRIES ]; then
@@ -129,12 +140,21 @@ execute_step() {
                 attempt=$((attempt + 1))
                 continue
             fi
+            
+            # Output the failed command for easy rerunning
+            print_error "Failed Command (copy to rerun):"
+            echo -e "${RED}$cmd${NC}"
+            
             add_to_report "$report_file" "$step_name" "FAILED" "$clean_output" "Exit code: $result"
             return $result
         fi
         
         if echo "$clean_output" | grep -q "Validator returned false"; then
             if [ "$should_validate" = "true" ]; then
+                # Output the failed command for easy rerunning
+                print_error "Failed Command (copy to rerun):"
+                echo -e "${RED}$cmd${NC}"
+                
                 add_to_report "$report_file" "$step_name" "FAILED" "$clean_output" "Unexpected validator failure"
                 return 1
             fi
@@ -151,6 +171,10 @@ execute_step() {
                 add_to_report "$report_file" "$step_name" "SUCCESS" "$clean_output" "Transaction completed successfully"
                 return 0
             fi
+            # Output the failed command for easy rerunning (validation failed)
+            print_error "Failed Command (copy to rerun):"
+            echo -e "${RED}$cmd${NC}"
+            
             add_to_report "$report_file" "$step_name" "FAILED" "$clean_output" "Expected rejection did not occur"
             return 1
         fi
@@ -167,6 +191,10 @@ execute_step() {
         attempt=$((attempt + 1))
         [ $attempt -le $MAX_RETRIES ] && sleep $RETRY_DELAY
     done
+    
+    # Output the failed command for easy rerunning (max retries)
+    print_error "Failed Command (copy to rerun):"
+    echo -e "${RED}$cmd${NC}"
     
     add_to_report "$report_file" "$step_name" "FAILED" "$clean_output" "Max retries exceeded"
     return 1

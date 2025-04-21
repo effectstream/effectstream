@@ -55,7 +55,6 @@ validator merkle(init_ref: OutputReference) {
 
         expect Merkle { root: input_root, .. }: State =
           get_inline_datum(input_data)
-        trace input_data
         trace input_root
 
         expect [merkle_output,
@@ -92,12 +91,12 @@ validator merkle(init_ref: OutputReference) {
         // 0000000000000000000000000000000000000000000000000000000000000000
 
         trace @"2: " 
-        trace account_hash |> crypto.blake2b_256
-        // E41487473E3A8C96C07FF5E23585BB7CE3137B47B15A6970030C7A58BD9E98FE
-
-        trace @"3: " 
         trace account_hash
         // 746791D438E08DD66B764602C7F7DC8474DBB078CA82B7D4A88DF93825F3FA53
+
+        trace @"3: " 
+        trace account_hash |> crypto.blake2b_256
+        // E41487473E3A8C96C07FF5E23585BB7CE3137B47B15A6970030C7A58BD9E98FE
 
         trace @"4: " 
         trace merkle_proof_block
@@ -106,7 +105,8 @@ validator merkle(init_ref: OutputReference) {
         trace @"Insert: " 
         trace insert(
             input_root |> from_root,
-            account_hash |> crypto.blake2b_256,
+            account_hash,
+            // account_hash |> crypto.blake2b_256,
             account_hash,
             merkle_proof_block,
           )
@@ -118,12 +118,13 @@ validator merkle(init_ref: OutputReference) {
 
         and {
           // Verify new and old merkle roots
-          // insert(
-          //   input_root |> from_root,
-          //   account_hash |> crypto.blake2b_256,
-          //   account_hash,
-          //   merkle_proof_block,
-          // ) == from_root(output_root),
+          insert(
+            input_root |> from_root,
+            // account_hash |> crypto.blake2b_256,
+            account_hash,
+            account_hash,
+            merkle_proof_block,
+          ) == from_root(output_root),
           // Verify utxo is preserved
           assets.without_lovelace(input_value) == expected_value,
           output_address == expected_address,

@@ -1,5 +1,8 @@
 use aiken/merkle_patricia_forestry.{Proof, Branch}
 use aiken/merkle_patricia_forestry.{from_root, insert}
+use aiken/merkle_patricia_forestry/merkling.{
+  merkle_16, null_hash, sparse_merkle_16,
+}
 
 test insert_bitcoin_block_845602() {
   let trie =
@@ -50,9 +53,9 @@ fn proof_bitcoin_845602() -> Proof {
 
 
 test insert_new_account() {
-  let null_tree =
+  let null_tree = 
     from_root(
-      #"0000000000000000000000000000000000000000000000000000000000000000",
+      null_hash,
     )
   
   let account_hash = #"746791D438E08DD66B764602C7F7DC8474DBB078CA82B7D4A88DF93825F3FA53"

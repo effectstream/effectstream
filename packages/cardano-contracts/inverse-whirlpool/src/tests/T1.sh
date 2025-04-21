@@ -13,8 +13,15 @@ source utils/test_utils.sh
 # Exit on error
 set -e
 
-# Change to parent directory
-cd ..
+# Change to root directory
+cd ../..
+
+aiken b -t verbose --env preview \
+&& aiken blueprint convert -v always > src/scripts/true.json \
+&& aiken blueprint convert -v merkle > src/scripts/whirl.json \
+&& aiken blueprint convert -v paima_mint > src/scripts/paima.json
+
+cd src
 
 # Create reports directory if it doesn't exist
 mkdir -p tests/reports

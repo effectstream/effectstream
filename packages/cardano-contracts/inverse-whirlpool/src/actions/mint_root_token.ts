@@ -165,15 +165,15 @@ export const mint_root_token = async (API, Contract_Merkle_Minter, metadata, VER
     throw new Error("No suitable collateral UTXOs found. Need UTXOs with only ADA and at least 5 ADA");
   }
   
-  const collateral_inputs = fromText(Data.to(convertInputToCbor(collateralUtxos[0])))
-  const collateral_output = metadata_hash // <-- FIX
-  const collateral_fee = fromText(Data.to(BigInt(5000000)))
+  const inputs = fromText(Data.to(convertInputToCbor(collateralUtxos[0])))
+  const output = metadata_hash // <-- FIX
+  const fee = fromText(Data.to(BigInt(5000000)))
 
   // Create TransactionBodyPieces following Aiken type
   const tx_body = new Constr(0, [
-    collateral_inputs,
-    collateral_output,
-    collateral_fee,
+    inputs,
+    output,
+    fee,
     metadata_hash,
   ]);
 

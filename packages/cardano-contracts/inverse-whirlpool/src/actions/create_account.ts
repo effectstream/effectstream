@@ -83,24 +83,31 @@ export const create_account = async (API, contract) => {
   let accountSerialized =  Data.to(new Constr(0, [paymentCredentialHash]))
   let accountHashed = blake2b(32).update(fromHex(accountSerialized)).digest('hex')
   let accountHashed2 = blake2b(32).update(fromHex(accountHashed)).digest('hex')
+  let accountHashed3 = blake2b(32).update(fromHex(accountHashed2)).digest('hex')
   
   console.log(`${colors.magenta}User PKH${colors.reset}: ${paymentCredentialHash}`);  
+  // c3f71d786db12c7358710c46e48311c03e4626da09f865eed7470a94
   console.log(`${colors.magenta}Serialized Account${colors.reset}: ${accountSerialized}`);  
+  // d8799f581cc3f71d786db12c7358710c46e48311c03e4626da09f865eed7470a94ff
   console.log(`${colors.magenta}Blake2b Account Hash${colors.reset}: ${accountHashed}`);  
+  // 746791d438e08dd66b764602c7f7dc8474dbb078ca82b7d4a88df93825f3fa53
   console.log(`${colors.magenta}2x Blake2b Account Hash${colors.reset}: ${accountHashed2}`);  
+  // e41487473e3a8c96c07ff5e23585bb7ce3137b47b15a6970030c7a58bd9e98fe
+  console.log(`${colors.magenta}3x Blake2b Account Hash${colors.reset}: ${accountHashed3}`);  
+  // 2169e785265a08c0de650616ea3ea1f5e02f603b2f89d0b37115ca17b43b8a12
 
   let merkle_tree = await new Trie(new Store(dir_contract+'/merkle_forest_db'));
 
   console.dir(merkle_tree, { depth: null });
   console.log(merkle_tree);
-  await merkle_tree.insert(accountHashed2, accountHashed);
+  await merkle_tree.insert(accountHashed2, accountHashed2);
   await merkle_tree.save()
   console.log(colors.magenta + "Merkle Tree" + colors.reset+":");
   console.dir(merkle_tree, { depth: null });
   console.log(merkle_tree);
 
-  const merkle_tree_hash = await merkle_tree.hash;
   const merkle_tree_proof = await merkle_tree.prove(accountHashed2)
+  const merkle_tree_hash = await merkle_tree.hash;
   const merkle_tree_proof_hex = await merkle_tree_proof.toCBOR().toString('hex');
   const merkle_tree_proof_json = await merkle_tree_proof.toJSON();
   console.dir(merkle_tree_proof_json, { depth: null });
@@ -146,6 +153,12 @@ export const create_account = async (API, contract) => {
       Account(Credential, Int)
     }
   */
+  if (VERBOSE) {  
+    console.log(`${colors.cyan}Datum${colors.reset}:`);
+    console.log(`${colors.magenta}OutputRoot${colors.reset}: ${toHex(merkle_tree_hash)}`);  
+    console.log(`${colors.magenta}OwnHash${colors.reset}: ${policyId_Merkle_Minter}`);  
+  }
+
 
   // Define Account Token ------------------------------------------------------
   const asset_token_account = `${policyId_Merkle_Minter}${accountHashed}`
