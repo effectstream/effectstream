@@ -1,4 +1,4 @@
-import type { Operation } from "effection";
+import type { Channel, Operation } from "effection";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
 import type {
   AllSyncProtocols,
@@ -14,7 +14,8 @@ import type { CacheCleanup, OutputAndCleanup } from "../base/state.ts";
 
 export function* startMerge(
   syncProtocols: AllSyncProtocols[],
-): Operation<void> {
+  finalizedBlockStream: Channel<ChainBlock, void>,
+): Operation<ChainBlock> {
   while (true) {
     let newBlock: ChainBlock | undefined = undefined;
 
@@ -42,6 +43,7 @@ export function* startMerge(
         );
       }
     }
+    if (newBlock == null) continue;
     log.remote(
       ComponentNames.PAIMA_SYNC,
       "block-merge",
@@ -49,7 +51,8 @@ export function* startMerge(
       (log) => log(`finalizing block ${newBlock?.blockNumber}`),
     );
 
-    // TODO: save data into a database (but not when using a localhost network that also started with Paima)
+    yield* finalizedBlockStream.send(newBlock);
+
     for (const fn of cleanup) {
       fn();
     }

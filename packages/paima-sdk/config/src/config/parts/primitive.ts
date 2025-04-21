@@ -3,7 +3,7 @@ import type { StaticDecode } from "@sinclair/typebox";
 import {
   ConfigPrimitiveAll,
   type PrimitivesForSyncProtocol,
-} from "../../schema/index.ts";
+} from "../../schema/mod.ts";
 import type { NetworkBuilderData, NetworkList } from "./network.ts";
 import type {
   DeployedAddressesBuilderData,
@@ -96,7 +96,7 @@ export class PrimitiveBuilder<
       NewPrimitive["name"],
       PrimitiveEntry<
         SyncProtocol["syncProtocol"]["name"],
-        NewPrimitive
+        NewPrimitive & PrimitiveConfig<true>
       >
     >
   > {

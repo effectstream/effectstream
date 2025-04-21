@@ -21,6 +21,7 @@ import {
 } from "@paima/log";
 import { parse } from "jsonc-parser";
 import { NodeSDK } from "@opentelemetry/sdk-node";
+import HardhatIgnitionViem from "@nomicfoundation/hardhat-ignition-viem";
 
 const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
 
@@ -198,10 +199,19 @@ const config: HardhatUserConfig = {
   ],
   plugins: [
     HardhatViem,
+    HardhatIgnitionViem,
     // HardhatAbiExporter,
   ],
   solidity: {
-    version: "0.8.22",
+    profiles: {
+      /*
+       * The default profile is used when no profile is defined or specified
+       * in the CLI or by the tasks you are running.
+       */
+      default: {
+        version: "0.8.28",
+      },
+    },
     // dependenciesToCompile: [
     //   // TODO
     // ],
@@ -219,5 +229,25 @@ const config: HardhatUserConfig = {
   //   tsWrapper: true,
   // },
 };
+
+// avoid the user having to manually run contracts when using the localhost network as it's tedious
+// if ((process.env["NETWORK"] ?? "localhost") === "localhost") {
+//   defaultDeployment(__dirname, outDir, {
+//     modulePath: path.resolve(
+//       __dirname,
+//       "src",
+//       "ignition",
+//       "modules",
+//       "deploy.ts",
+//     ),
+//     parameters: path.resolve(__dirname, "src", "ignition", "parameters.json5"),
+//     reset: false,
+//     verify: false, // likely you want this to true for mainnet
+//     strategy: "basic", // change if you want create2
+//     deploymentId: undefined,
+//     defaultSender: undefined,
+//     writeLocalhostDeployment: true,
+//   });
+// }
 
 export default config;

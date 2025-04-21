@@ -94,7 +94,7 @@ export const localhostConfig = new ConfigBuilder()
       (syncProtocols) => syncProtocols.mainEvmRPC,
       (network, deployments, syncProtocol) => ({
         name: "TransferEvent",
-        type: ConfigPrimitiveType.EvmGeneric,
+        type: ConfigPrimitiveType.EvmRpcGeneric,
 
         startBlockHeight: 0,
         contractAddress: deployments["mock"],

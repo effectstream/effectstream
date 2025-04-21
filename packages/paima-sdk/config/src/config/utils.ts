@@ -1,4 +1,11 @@
 import type { Satisfies, Stringifiable, TypeErrorMessage } from "@paima/utils";
+import type { SyncProtocolWithNetwork } from "../schema/sync-protocols/types.ts";
+import { ConfigBuilderData } from "./builder.ts";
+import { PostBuildSecurityNamespaceData } from "./parts/securityNamespace.ts";
+import { NetworkBuilderData, NetworkConfig } from "./parts/network.ts";
+import { DeployedAddressesBuilderData } from "./parts/deployedAddresses.ts";
+import { PostBuildSyncProtocolBuilderData } from "./parts/syncProtocols.ts";
+import { PrimitiveBuilderData } from "./parts/primitive.ts";
 
 export type ErrorIfDefined<
   T,
@@ -70,4 +77,42 @@ export function onlyValue<
   build: Func;
 }): ErrorIfFalse<Satisfies<Target, Value>, Func, Value, Target, Name> {
   return param.build as any;
+}
+
+export function toSyncProtocolWithNetwork<
+  Data extends ConfigBuilderData<
+    Readonly<PostBuildSecurityNamespaceData>["securityNamespace"],
+    NetworkBuilderData<Record<string, NetworkConfig>>,
+    DeployedAddressesBuilderData["deployedAddresses"],
+    PostBuildSyncProtocolBuilderData<Record<string, NetworkConfig>>,
+    PrimitiveBuilderData["primitives"]
+  >,
+>(
+  data: Data,
+): SyncProtocolWithNetwork[] {
+  return [
+    // TODO: clean up this code so it's more readable
+    {
+      networkType: data.allNetworks
+        .networks[data.syncProtocols.main.network].type,
+      syncProtocolType: data.syncProtocols.main.syncProtocol.type,
+      syncProtocol: data.syncProtocols.main.syncProtocol,
+      network: data.allNetworks
+        .networks[data.syncProtocols.main.network],
+    } as SyncProtocolWithNetwork,
+    ...Object.values(data.syncProtocols.parallel).map((
+      protocol,
+    ) => {
+      const network = data.allNetworks
+        .networks[protocol.network];
+      const result = {
+        networkType: network.type,
+        syncProtocolType: protocol.syncProtocol.type,
+        syncProtocol: protocol.syncProtocol,
+        network,
+      };
+      return result as SyncProtocolWithNetwork;
+    }),
+    // TODO: decorator syncProtocols
+  ];
 }

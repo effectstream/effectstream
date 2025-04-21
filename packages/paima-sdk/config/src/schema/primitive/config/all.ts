@@ -8,20 +8,21 @@ import {
   PrimitiveErc721Config,
   PrimitiveEvmGenericConfig,
   PrimitiveEvmPaimaL2Config,
-} from "./evm.ts";
+} from "./evm/rpc.ts";
 import {
   PrimitiveCardanoDelayedAssetConfig,
   PrimitiveCardanoDelegationConfig,
   PrimitiveCardanoMintBurnConfig,
   PrimitiveCardanoProjectedNFTConfig,
   PrimitiveCardanoTransferConfig,
-} from "./cardano.ts";
+} from "./cardano/carp.ts";
+import { PrimitiveCardanoUtxorpcMatchTxConfig } from "./cardano/utxorpc.ts";
 import {
   PrimitiveMinaActionGenericConfig,
   PrimitiveMinaEventGenericConfig,
 } from "./mina.ts";
 import { PrimitiveMidnightContractStateConfig } from "./midnight.ts";
-import type { ToKeyedUnion } from "../../index.ts";
+import type { ToKeyedUnion } from "../../mod.ts";
 import { PrimitiveAvailPaimaL2Config } from "./avail.ts";
 
 const ConfigPrimitives = <Bool extends boolean>(
@@ -41,6 +42,7 @@ const ConfigPrimitives = <Bool extends boolean>(
     PrimitiveCardanoDelayedAssetConfig.allProperties(requireOptional),
     PrimitiveCardanoTransferConfig.allProperties(requireOptional),
     PrimitiveCardanoMintBurnConfig.allProperties(requireOptional),
+    PrimitiveCardanoUtxorpcMatchTxConfig.allProperties(requireOptional),
     PrimitiveMinaEventGenericConfig.allProperties(requireOptional),
     PrimitiveMinaActionGenericConfig.allProperties(requireOptional),
     PrimitiveDynamicEvmPrimitiveConfig.allProperties(requireOptional),

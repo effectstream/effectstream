@@ -7,6 +7,12 @@ import type {
 import type { PageRelation } from "../base/page.ts";
 import type { cardano } from "@utxorpc/spec";
 import type { PageSyncRange } from "../common/page-helpers.ts";
+import type {
+  ConfigPrimitivePayloadType,
+  ConfigPrimitiveType,
+  ConfigSyncProtocolType,
+  FlattenSyncProtocolIOFor,
+} from "@paima/config";
 
 /**
  * Cardano blocks don't contain an explicit timestamp
@@ -24,12 +30,13 @@ export type Page = {
   height: BlockNumber;
   hash: CardanoBlockHash;
 };
+
 // TODO: blocked on https://github.com/utxorpc/spec/issues/135
-export type PrimitiveType = {
-  value: number;
-  block: cardano.Block;
-  timestamp: TimestampMs;
-};
+export type PrimitiveType = FlattenSyncProtocolIOFor<
+  ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
+  ConfigPrimitiveType,
+  ConfigPrimitivePayloadType
+>;
 export type Input = PageSyncRange<BlockNumber>;
 export type Output = {
   raw: BlockAndTimestamp;

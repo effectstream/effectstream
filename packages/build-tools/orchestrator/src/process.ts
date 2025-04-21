@@ -50,6 +50,7 @@ export const $ = (params: {
     stdout: "piped",
     env: { FORCE_COLOR: "true" },
   }).spawn();
+  process.ref(); // wait until all child processes die before killing parent
 
   processes.push(process);
 

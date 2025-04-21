@@ -1,9 +1,9 @@
-import { genSyncProtocols } from "@paima/sync";
+import { ChainBlock, genSyncProtocols } from "@paima/sync";
 import { getConnection } from "@paima/db";
 import { startMerge, startSync } from "@paima/sync";
 import type { SyncProtocolWithNetwork } from "@paima/config";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import { spawn } from "effection";
+import { createChannel, each, type Operation, spawn } from "effection";
 import { initTelemetry } from "./telemetry.ts";
 
 // TODO: figure out how to setup env vars instead of relying on defaults
@@ -22,7 +22,7 @@ export function* init() {
 
 export function* start(
   syncInfo: SyncProtocolWithNetwork[],
-) {
+): Operation<void> {
   const dbConn = getConnection(poolConfig);
   // TODO: this should be a db transaction that closes right afterwards
   const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
@@ -49,5 +49,12 @@ export function* start(
   //   yield* startMerge(syncProtocols);
   //   while (true) {}
   // });
-  yield* spawn(() => startMerge(syncProtocols));
+  const finalizedBlockStream = createChannel<ChainBlock>();
+  yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
+
+  for (let value of yield* each(finalizedBlockStream)) {
+    // TODO: save data into a database
+    // console.log("got value:", value);
+    yield* each.next();
+  }
 }

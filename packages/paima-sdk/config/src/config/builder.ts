@@ -20,7 +20,7 @@ import {
 import { onlyOnce, onlyValue } from "./utils.ts";
 // import { bound } from "@paima/utils";
 
-type ConfigBuilderData<
+export type ConfigBuilderData<
   Namespace extends
     | undefined
     | Readonly<PostBuildSecurityNamespaceData>["securityNamespace"],

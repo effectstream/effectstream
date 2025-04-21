@@ -133,7 +133,10 @@ export class EvmFetcher
     primitives: PrimitiveType[],
   ): Record<EvmRpcPageJson, PrimitiveType[]> {
     return primitives.reduce((acc, primitive) => {
-      const key = Value.Encode(PageSchema, Number(primitive.block.number));
+      const key = Value.Encode(
+        PageSchema,
+        Number(primitive.output.syncProtocol.payload.ownChain.blockNumber),
+      );
       (acc[key] ??= []).push(
         primitive,
       );
@@ -146,7 +149,7 @@ export class EvmFetcher
     data: Input,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
   ): Operation<PrimitiveType[]> {
-    // TODO: need to have multiple primitives as part of the config
+    // TODO: use real primitives (blocked on hardhat contract deployment working)
     // TODO: dynamic primitives
 
     const primitives = [] as (() => Operation<PrimitiveType>)[];
@@ -155,10 +158,20 @@ export class EvmFetcher
         primitives.push(function* () {
           const block = yield* call(() => pageRequest(i));
           return {
+            // TODO: real type later
             value: Math.random(),
             block,
             timestamp: toMsTimestamp(block.timestamp),
-          };
+            output: {
+              syncProtocol: {
+                payload: {
+                  ownChain: {
+                    blockNumber: Number(block.number),
+                  },
+                },
+              },
+            },
+          } as any;
         });
       }
     }

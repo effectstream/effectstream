@@ -1,0 +1,9 @@
+{
+  "name": "@paima/concise",
+  "version": "0.3.0",
+  "exports": "./src/mod.ts",
+  "imports": {
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "js-sha3": "npm:js-sha3@^0.9.3"
+  }
+}

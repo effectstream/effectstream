@@ -4,7 +4,7 @@ import {
   ConfigNetworkAll,
   type MapNetworkTypes,
   viemToConfigNetwork,
-} from "../../schema/index.ts";
+} from "../../schema/mod.ts";
 import type { Chain, ChainFormatters } from "viem";
 import { Value } from "@sinclair/typebox/value";
 // import { bound } from "@paima/utils";

@@ -29,6 +29,7 @@ export class UtxoRpcFetcher
     const outputs: OutputAndCleanup<Output>[] = [];
     const blocks = this.client.fetchBlocks(data.from, data.to);
     for (const block of blocks) {
+      console.log(block.output.block.toJson({ emitDefaultValues: true }));
       outputs.push({
         output: {
           raw: block.output,
@@ -38,7 +39,7 @@ export class UtxoRpcFetcher
             value: Math.round(Math.random() * 1000000),
             block: block.output.block,
             timestamp: block.output.timestamp,
-          }],
+          } as any],
         },
         cleanup: block.cleanup,
       });

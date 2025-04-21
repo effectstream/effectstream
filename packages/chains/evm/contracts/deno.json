@@ -9,8 +9,8 @@
     "./companion-abi/*": "./build/companion-abi/*"
   },
   "imports": {
-    "hardhat": "npm:hardhat@3.0.0-next.1",
-    "@nomicfoundation/hardhat-viem": "npm:@nomicfoundation/hardhat-viem@3.0.0-next.1"
+    "hardhat": "npm:hardhat@3.0.0-next.3",
+    "@nomicfoundation/hardhat-viem": "npm:@nomicfoundation/hardhat-viem@3.0.0-next.3"
   },
   "tasks": {
     // deno doesn't support installing packages from Github (https://github.com/denoland/deno/issues/18478)
@@ -20,7 +20,7 @@
 
     // TODO: update `hardhat docgen` to Hardhat v3
     // note: this should be `deno run hardhat3 compile`, but Deno doesn't like that so we have to use the full name
-    "build:contracts": "forge build && deno run -A npm:hardhat@3.0.0-next.1 compile",
+    "build:contracts": "forge build && deno run -A npm:hardhat@3.0.0-next.3 compile",
     "build:publish": "./prepare.sh",
     "prebuild": "rm -rf ./build",
     "build": "deno task prebuild && deno task build:contracts && deno task build:publish",

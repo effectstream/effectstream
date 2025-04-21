@@ -123,7 +123,8 @@ async function startCardano(): Promise<Deno.CommandStatus> {
 
 async function startDb(): Promise<Deno.CommandStatus> {
   const paimaDb = $({
-    args: ["task", "-f", "@paima/db", "db:up"],
+    // TODO: run pgtyped:up only depending on parameters?
+    args: ["task", "-f", "@paima/db", "pgtyped:update"],
     signal: AbortControllers.db,
     log: logHandler,
     component: ComponentNames.PAIMA_DB,

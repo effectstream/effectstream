@@ -6,7 +6,7 @@ import {
   ConfigSyncProtocolMain,
   ConfigSyncProtocolParallel,
   type SyncProtocolFromNetwork,
-} from "../../schema/index.ts";
+} from "../../schema/mod.ts";
 import { Value } from "@sinclair/typebox/value";
 import type { NetworkBuilderData, NetworkList } from "./network.ts";
 import type {

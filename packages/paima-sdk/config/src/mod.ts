@@ -1,2 +1,2 @@
-export * from "./config/index.ts";
-export * from "./schema/index.ts";
+export * from "./config/mod.ts";
+export * from "./schema/mod.ts";

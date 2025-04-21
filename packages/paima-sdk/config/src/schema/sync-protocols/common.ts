@@ -58,7 +58,7 @@ export const CommonResponseParallelSyncProtocol = {
      * Note: fields here do not exist during the presync stage
      * Exception: when the sync protocol is the same as the main one
      *            but this depends on the exact sync protocol
-     *            ex: eth_getLogs doesn't return timestamps
+     *            (ex: `eth_getLogs` doesn't return timestamps)
      */
     mainchain: Type.Object({
       blockNumber: TypeboxHelpers.Nullable(TypeboxHelpers.BlockNumber()),

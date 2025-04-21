@@ -41,6 +41,15 @@ CREATE TABLE rollup_input_origin (
   contract_address TEXT
 );
 
+CREATE TABLE primitive_accounting (
+  primitive_name TEXT NOT NULL,
+  id SERIAL,
+  paima_block_height INTEGER NOT NULL,
+  payload_type TEXT NOT NULL,
+  payload JSON NOT NULL,
+  PRIMARY KEY (primitive_name, id)
+);
+
 CREATE TABLE nonces (
   nonce TEXT PRIMARY KEY,
   block_height INTEGER NOT NULL

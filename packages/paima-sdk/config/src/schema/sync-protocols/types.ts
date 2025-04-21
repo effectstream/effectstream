@@ -1,5 +1,5 @@
 import type { FlipObject } from "@paima/utils";
-import { ConfigNetworkType } from "../network/index.ts";
+import { ConfigNetworkType } from "../network/mod.ts";
 import type { ConfigSyncProtocolDecoratorType } from "./decorators/types.ts";
 import type { NetworkConfig } from "../../config/parts/network.ts";
 import type { ConfigSyncProtocolMapping } from "./all.ts";
