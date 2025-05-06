@@ -2,9 +2,6 @@
   "workspace": ["./packages/**/*", "./example/**/*"],
   "nodeModulesDir": "auto",
   "imports": {
-    // "@deno/dnt": "jsr:@deno/dnt@^0.41.3",
-    "effection": "npm:effection@^3.3.0",
-    "@ebreness/is-even": "jsr:@ebreness/is-even@1.0.3"
   },
   "lint": {
     "rules": {
@@ -17,8 +14,7 @@
         "no-explicit-any",
         "ban-types", // `Function` and `{}` are occasionally useful
         "no-unused-vars", // maybe enable this at some point
-        "no-slow-types", // would be nice to have, but this is a lot of work
-        "no-node-globals" // unfortunately used by pgtyped
+        "no-slow-types" // would be nice to have, but this is a lot of work
       ]
     }
   }

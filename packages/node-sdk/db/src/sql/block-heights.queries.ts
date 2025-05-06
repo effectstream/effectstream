@@ -1,6 +1,8 @@
 /** Types generated for queries found in "src/sql/block-heights.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
+import type { Buffer } from 'node:buffer';
+
 export type DateOrString = Date | string;
 
 /** 'GetLatestProcessedBlockHeight' parameters type */

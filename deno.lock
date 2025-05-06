@@ -1,7 +1,6 @@
 {
   "version": "4",
   "specifiers": {
-    "jsr:@ebreness/is-even@1.0.3": "1.0.3",
     "jsr:@std/collections@^1.0.9": "1.0.10",
     "jsr:@std/toml@*": "1.0.2",
     "npm:@bloxbean/yaci-devkit@*": "0.10.5",
@@ -35,8 +34,8 @@
     "npm:@opentelemetry/semantic-conventions@^1.28.0": "1.28.0",
     "npm:@openzeppelin/contracts-upgradeable@^5.1.0": "5.1.0_@openzeppelin+contracts@5.1.0",
     "npm:@openzeppelin/contracts@5.1.0": "5.1.0",
-    "npm:@pgtyped/cli@2.4.3": "2.4.3_typescript@5.6.3_fp-ts@2.16.9_io-ts@2.2.22__fp-ts@2.16.9",
-    "npm:@pgtyped/cli@^2.4.3": "2.4.3_typescript@5.6.3_fp-ts@2.16.9_io-ts@2.2.22__fp-ts@2.16.9",
+    "npm:@paima/pgtyped-cli@2.4.5": "2.4.5_typescript@5.6.3_fp-ts@2.16.10_io-ts@2.2.22__fp-ts@2.16.10_chokidar@4.0.3",
+    "npm:@paima/pgtyped-cli@^2.4.5": "2.4.5_typescript@5.6.3_fp-ts@2.16.10_io-ts@2.2.22__fp-ts@2.16.10_chokidar@4.0.3",
     "npm:@pgtyped/parser@2.4.2": "2.4.2",
     "npm:@pgtyped/runtime@2.4.2": "2.4.2",
     "npm:@sinclair/typebox@~0.34.30": "0.34.30",
@@ -86,9 +85,6 @@
     "npm:ws@8.18.1": "8.18.1"
   },
   "jsr": {
-    "@ebreness/is-even@1.0.3": {
-      "integrity": "a6d992c60683a346763857c81ea616b2a61755bcec358f415cc978cdf03dbe0a"
-    },
     "@std/collections@1.0.10": {
       "integrity": "903af106a3d92970d74e20f7ebff77d9658af9bef4403f1dc42a7801c0575899"
     },
@@ -1615,8 +1611,8 @@
     "@openzeppelin/contracts@5.1.0": {
       "integrity": "sha512-p1ULhl7BXzjjbha5aqst+QMLY+4/LCWADXOCsmLHRM77AqiPjnd9vvUN9sosUfhL9JGKpZ0TjEGxgvnizmWGSA=="
     },
-    "@pgtyped/cli@2.4.3_typescript@5.6.3_fp-ts@2.16.9_io-ts@2.2.22__fp-ts@2.16.9": {
-      "integrity": "sha512-1O16j7ngJYSDdUl6PHmmzveDJUV7ftmojV8IY9kx1oi7TJGqGLaAwgGM+eiMXPu/VuWiUfhYqQI4Bc98pMhlBw==",
+    "@paima/pgtyped-cli@2.4.5_typescript@5.6.3_fp-ts@2.16.10_io-ts@2.2.22__fp-ts@2.16.10_chokidar@4.0.3": {
+      "integrity": "sha512-ykz6PlCOfXQL8CyaSWebMtFERM1xsmKmfCVYgZUd+8A85OSEKQNkad9AoZdKC7jKLmvE2Z5i2xkop/xVqKJO/g==",
       "dependencies": [
         "@pgtyped/parser",
         "@pgtyped/query",
@@ -1627,7 +1623,7 @@
         "debug",
         "fp-ts",
         "fs-extra",
-        "glob@11.0.1",
+        "glob@11.0.2",
         "io-ts",
         "io-ts-reporters",
         "minimatch@10.0.1",
@@ -2525,8 +2521,8 @@
     "forwarded-parse@2.1.2": {
       "integrity": "sha512-alTFZZQDKMporBH77856pXgzhEzaUVmLCDk+egLgIgHst3Tpndzz8MnKe+GzRJRfvVdn69HhpW7cmXzvtLvJAw=="
     },
-    "fp-ts@2.16.9": {
-      "integrity": "sha512-+I2+FnVB+tVaxcYyQkHUq7ZdKScaBlX53A41mxQtpIccsfyv8PzdzP7fzp2AY832T4aoK6UZ5WRX/ebGd8uZuQ=="
+    "fp-ts@2.16.10": {
+      "integrity": "sha512-vuROzbNVfCmUkZSUbnWSltR1sbheyQbTzug7LB/46fEa1c0EucLeBaCEUE0gF3ZGUGBt9lVUiziGOhhj6K1ORA=="
     },
     "fs-extra@11.3.0": {
       "integrity": "sha512-Z4XaCL6dUDHfP/jT25jJKMmtxvuwbkrD1vNSMFlo9lNLY2c5FHYSQgHPRZUjAB26TpDEoW9HCOgplrdbaPV/ew==",
@@ -2604,8 +2600,8 @@
         "path-scurry@1.11.1"
       ]
     },
-    "glob@11.0.1": {
-      "integrity": "sha512-zrQDm8XPnYEKawJScsnM0QzobJxlT/kHOOlRTio8IH/GrmxRE5fjllkzdaHclIuNjUQTJYH2xHNIGfdpJkDJUw==",
+    "glob@11.0.2": {
+      "integrity": "sha512-YT7U7Vye+t5fZ/QMkBFrTJ7ZQxInIUjwyAjVj84CYXqgBdv30MFUPGnBR6sQaVq6Is15wYJUsnzTuWaGRBhBAQ==",
       "dependencies": [
         "foreground-child",
         "jackspeak@4.1.0",
@@ -2735,7 +2731,7 @@
         "yoga-wasm-web"
       ]
     },
-    "io-ts-reporters@2.0.1_fp-ts@2.16.9_io-ts@2.2.22__fp-ts@2.16.9": {
+    "io-ts-reporters@2.0.1_fp-ts@2.16.10_io-ts@2.2.22__fp-ts@2.16.10": {
       "integrity": "sha512-RVpLstYBsmTGgCW9wJ5KVyN/eRnRUDp87Flt4D1O3aJ7oAnd8csq8aXuu7ZeNK8qEDKmjUl9oUuzfwikaNAMKQ==",
       "dependencies": [
         "@scarf/scarf",
@@ -2743,7 +2739,7 @@
         "io-ts"
       ]
     },
-    "io-ts@2.2.22_fp-ts@2.16.9": {
+    "io-ts@2.2.22_fp-ts@2.16.10": {
       "integrity": "sha512-FHCCztTkHoV9mdBsHpocLpdTAfh956ZQcIkWQxxS0U5HT53vtrcuYdQneEJKH6xILaLNzXVl2Cvwtoy8XNN0AA==",
       "dependencies": [
         "fp-ts"
@@ -2908,8 +2904,8 @@
     "lru-cache@10.4.3": {
       "integrity": "sha512-JNAzZcXrCt42VGLuYz0zfAzDfAvJWW6AfYlDBQyDV5DClI2m5sAmK+OIO7s59XfsRsWHp02jAJrRadPRGTt6SQ=="
     },
-    "lru-cache@11.0.2": {
-      "integrity": "sha512-123qHRfJBmo2jXDbo/a5YOQrJoHF/GNQTLzQ5+IdK5pWpceK17yRc6ozlWd25FxvGKQbIUs91fDFkXmDHTKcyA=="
+    "lru-cache@11.1.0": {
+      "integrity": "sha512-QIXZUBJUx+2zHUdQujWejBkcD9+cs94tLn0+YL8UrCh+D5sCXZ4c7LaEH48pNwRY3MLDgqUFyhlCyjJPf1WP0A=="
     },
     "material-chalk@1.1.1_chalk@5.3.0": {
       "integrity": "sha512-GDO/69mS1vLQfX9T4THPCJb1vu0renYxfn4rtYDzldrKsXuXSZOin5VZTTlO5U4dDMRnXqPp0WdY320v6iwcdw==",
@@ -3006,11 +3002,12 @@
         "whatwg-url"
       ]
     },
-    "nunjucks@3.2.4": {
+    "nunjucks@3.2.4_chokidar@4.0.3": {
       "integrity": "sha512-26XRV6BhkgK0VOxfbU5cQI+ICFUtMLixv1noZn1tGU38kQH5A5nmmbk/O45xdyBhD1esk47nKrY0mvQpZIhRjQ==",
       "dependencies": [
         "a-sync-waterfall",
         "asap",
+        "chokidar",
         "commander"
       ]
     },
@@ -3070,7 +3067,7 @@
     "path-scurry@2.0.0": {
       "integrity": "sha512-ypGJsmGtdXUOeM5u93TyeIEfEhM6s+ljAhrk5vAvSx8uyY/02OvrZnA0YNGUrPXfpJMgI1ODd3nwz8Npx4O4cg==",
       "dependencies": [
-        "lru-cache@11.0.2",
+        "lru-cache@11.1.0",
         "minipass"
       ]
     },
@@ -3173,8 +3170,8 @@
         "thread-stream"
       ]
     },
-    "piscina@4.8.0": {
-      "integrity": "sha512-EZJb+ZxDrQf3dihsUL7p42pjNyrNIFJCrRHPMgxu/svsj+P3xS3fuEWp7k2+rfsavfl1N0G29b1HGs7J0m8rZA==",
+    "piscina@4.9.2": {
+      "integrity": "sha512-Fq0FERJWFEUpB4eSY59wSNwXD4RYqR+nR/WiEVcZW8IWfVBxJJafcgTEZDQo8k3w0sUarJ8RyVbbUF4GQ2LGbQ==",
       "dependencies": [
         "@napi-rs/nice"
       ]
@@ -3717,10 +3714,6 @@
     "https://deno.land/x/effection@3.0.3/mod.ts": "ffae461c16d4a1bf24c2179582ab8d5c81ad0df61e4ae2fba51ef5e5bdf90345"
   },
   "workspace": {
-    "dependencies": [
-      "jsr:@ebreness/is-even@1.0.3",
-      "npm:effection@^3.3.0"
-    ],
     "members": {
       "example/client/node": {
         "dependencies": [
@@ -3814,7 +3807,7 @@
         "packageJson": {
           "dependencies": [
             "npm:@electric-sql/pglite@~0.2.17",
-            "npm:@pgtyped/cli@^2.4.3",
+            "npm:@paima/pgtyped-cli@^2.4.5",
             "npm:concurrently@9.1.2",
             "npm:pg-gateway@~0.3.0-beta.4",
             "npm:wait-on@8.0.3"
@@ -3826,6 +3819,7 @@
           "npm:@opentelemetry/api@^1.9.0",
           "npm:@opentelemetry/auto-instrumentations-node@0.54",
           "npm:@opentelemetry/sdk-node@0.56",
+          "npm:effection@^3.3.0",
           "npm:jsonc-parser@^3.3.1"
         ]
       },
@@ -3869,6 +3863,7 @@
           "npm:abitype@^1.0.8",
           "npm:assert-never@^1.4.0",
           "npm:buffer@^6.0.3",
+          "npm:effection@^3.3.0",
           "npm:viem@^2.21.3"
         ]
       },
@@ -3895,9 +3890,15 @@
           "npm:@opentelemetry/sdk-trace-base@^1.29.0",
           "npm:@opentelemetry/semantic-conventions@^1.28.0",
           "npm:chalk@5.4.1",
+          "npm:effection@^3.3.0",
           "npm:material-chalk@1.1.1",
           "npm:superjson@^2.2.1",
           "npm:tslog@^4.9.3"
+        ]
+      },
+      "packages/paima-sdk/precompile": {
+        "dependencies": [
+          "npm:js-sha3@~0.9.3"
         ]
       },
       "packages/paima-sdk/utils": {

@@ -20,7 +20,7 @@
   },
   "tasks": {
     // deno doesn't support installing packages from Github (https://github.com/denoland/deno/issues/18478)
-    // we can't easily use file: dependency as that isn't supported either (https://github.com/denoland/deno/issues/18478)
+    // we can't easily use file: dependency as that isn't supported either (https://github.com/denoland/deno/issues/18474)
     // so instead we symlink to a local copy of the project
     "link:forge": "bash -c 'if ! [ -L ../../../node_modules/forge-std ]; then ln -s ../forge-std ../../../node_modules/forge-std; fi'",
 
