@@ -1,6 +1,8 @@
 /** Types generated for queries found in "src/sql/statistics.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
+import type { Buffer } from 'node:buffer';
+
 /** 'GetInputsTotal' parameters type */
 export type IGetInputsTotalParams = void;
 

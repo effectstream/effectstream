@@ -10,14 +10,19 @@ import { fromNodeSocket } from "pg-gateway/node";
 //       (ex: see `loadDataMigrations`)
 //       trick: paima-engine needs to follow the same folder structure for migrations as Paima apps
 const migration = readFileSync("./migrations/up.sql", "utf-8");
-const db = new PGlite(undefined, {
-  username: "postgres",
-  database: "postgres",
-});
+const db = new PGlite(
+  "memory://", // TODO: use different values for in-browser & production builds
+  {
+    username: "postgres",
+    database: "postgres",
+  },
+);
 
 await db.exec(migration);
 
 {
+  // TODO: consider switching to pglite-socket once it works
+  //       https://discord.com/channels/933657521581858818/1371976702674075780/1371992712076595250
   const server = net.createServer(async (socket) => {
     await fromNodeSocket(socket, {
       serverVersion: "16.3",

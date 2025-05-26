@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "exports": "./src/mod.ts",
   "tasks": {
-    "db:up": "deno run --allow-read --allow-net ./scripts/start-pglite.js",
+    "db:up": "deno run --allow-read --allow-env --allow-net ./scripts/start-pglite.js",
     "db:wait": "wait-on tcp:5432",
     "pgtyped:internal": "deno task db:wait && pgtyped -w -c ./pgtypedconfig.json",
     "pgtyped:update": "concurrently --raw --kill-others \"deno task db:up\" \"deno task pgtyped:internal\""
