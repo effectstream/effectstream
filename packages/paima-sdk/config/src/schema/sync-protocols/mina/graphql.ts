@@ -1,17 +1,17 @@
 import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
-import { ConfigSyncProtocolType } from "./types.ts";
+import { ConfigSyncProtocolType } from "../types.ts";
 import {
   NameField,
   PollingSyncProtocol,
   StartStopBlockheight,
-} from "../common.ts";
+} from "../../common.ts";
 import {
   CommonResponseParallelSyncProtocol,
   type ConfigSyncProtocolCommonResponse,
   genCommonResponse,
   waitingPeriodFromDepth,
-} from "./common.ts";
+} from "../common.ts";
 import {
   type IntervalMs,
   type MergeIntersects,

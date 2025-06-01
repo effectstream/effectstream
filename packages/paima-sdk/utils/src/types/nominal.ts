@@ -69,8 +69,8 @@ export type EvmAddress = FastFlavor<HexString0x, "EvmAddress">;
 export type EvmSelector = FastFlavor<HexString0x, "EvmSelector">;
 export type Evm4ByteSelector = FastFlavor<HexString0x, "Evm4ByteSelector">;
 
-export type MidnightBlockHash = FastFlavor<UnknownFormat, "MidnightBlockHash">;
-export type MidnightTxHash = FastFlavor<UnknownFormat, "MidnightTxHash">;
+export type MidnightBlockHash = FastFlavor<HexString0x, "MidnightBlockHash">;
+export type MidnightTxHash = FastFlavor<HexString0x, "MidnightTxHash">;
 export type MidnightAddress = FastFlavor<string, "MidnightAddress">;
 
 export type MinaBlockHash = FastFlavor<UnknownFormat, "MinaBlockHash">;

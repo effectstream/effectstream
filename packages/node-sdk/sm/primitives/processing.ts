@@ -1,7 +1,6 @@
 import processErc20TransferDatum from "./evm/rpc/erc20-transfer.ts";
 import processErc721TransferDatum from "./evm/rpc/erc721-transfer.ts";
 import processErc721MintDatum from "./evm/rpc/erc721-mint.ts";
-import processErc20DepositDatum from "./evm/rpc/erc20-deposit.ts";
 import processErc6551RegistryDatum from "./evm/rpc/erc6551-registry.ts";
 import processErc1155TransferDatum from "./evm/rpc/erc1155-transfer.ts";
 import processGenericDatum from "./generic.ts";
@@ -55,13 +54,6 @@ export function* primitiveTransitionFunction(
           return yield* processErc721TransferDatum(primitive);
         case ConfigPrimitivePayloadType.Mint:
           return yield* processErc721MintDatum(primitive);
-        default:
-          assertNever.default(primitive);
-      }
-    case ConfigPrimitiveType.EvmRpcERC20Deposit:
-      switch (primitive.payloadType) {
-        case ConfigPrimitivePayloadType.Deposit:
-          return yield* processErc20DepositDatum(primitive);
         default:
           assertNever.default(primitive);
       }

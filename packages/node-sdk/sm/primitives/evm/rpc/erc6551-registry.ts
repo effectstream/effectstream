@@ -1,14 +1,19 @@
-import type {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
-  ConfigSyncProtocolType,
-  FlattenSyncProtocolIOFor,
+import {
+  ConfigPrimitiveAccountingPayloadType,
+  type ConfigPrimitivePayloadType,
+  type ConfigPrimitiveType,
+  type ConfigSyncProtocolType,
+  type FlattenSyncProtocolIOFor,
+  type PayloadOf,
+  type PrimitiveEvmRpcErc6551RegistryAccounting,
 } from "@paima/config";
-import { primitiveErc6551InsertRegistry } from "@paima/db";
 import type { StateUpdateStream } from "@paima/coroutine";
 import { World } from "@paima/coroutine";
+import { insertPrimitiveAccounting } from "@paima/db";
+import type { BlockNumber } from "@paima/utils";
 
 export default function* processErc6551SyncProtocolResponse(
+  paima_block_height: BlockNumber,
   response: FlattenSyncProtocolIOFor<
     | ConfigSyncProtocolType.EVM_RPC_MAIN
     | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
@@ -16,14 +21,13 @@ export default function* processErc6551SyncProtocolResponse(
     ConfigPrimitivePayloadType.Registry
   >,
 ): StateUpdateStream<void> {
-  yield* World.resolve(primitiveErc6551InsertRegistry, {
-    primitive_name: response.output.syncProtocol.payload.primitiveName,
-    block_height: response.output.syncProtocol.payload.ownChain.blockNumber,
-    account_created: response.output.payload.accountCreated,
-    implementation: response.output.payload.implementation,
-    token_contract: response.output.payload.tokenContract,
-    token_id: response.output.payload.tokenId.toString(),
-    chain_id: response.output.payload.chainId.toString(),
-    salt: response.output.payload.salt.toString(),
+  const primitiveName = response.output.syncProtocol.payload.primitiveName;
+  yield* World.resolve(insertPrimitiveAccounting, {
+    primitive_name: primitiveName,
+    paima_block_height: paima_block_height,
+    payload_type: ConfigPrimitiveAccountingPayloadType.Transfer,
+    payload: response.output.payload satisfies PayloadOf<
+      typeof PrimitiveEvmRpcErc6551RegistryAccounting
+    >,
   });
 }

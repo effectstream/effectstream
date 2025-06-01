@@ -1,16 +1,27 @@
-import { SCHEDULED_DATA_ADDRESS } from "@paima/utils";
-import { createScheduledData, primitiveCardanoTransferInsert } from "@paima/db";
+import { createScheduledData, insertPrimitiveAccounting } from "@paima/db";
 import type { StateUpdateStream } from "@paima/coroutine";
 import { World } from "@paima/coroutine";
 import type {
   ConfigPrimitivePayloadType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
+  PayloadOf,
+  PrimitiveCardanoCarpTransferAccounting,
 } from "@paima/config";
-import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
-import { ConfigPrimitiveType } from "@paima/config";
+import {
+  BuiltinTransitions,
+  CardanoCarpTransferPrecompile,
+  generateRawStmInput,
+} from "@paima/concise";
+import {
+  ConfigPrimitiveAccountingPayloadType,
+  ConfigPrimitiveType,
+} from "@paima/config";
+import type { BlockNumber } from "@paima/utils";
+import { getScheduleBlockHeight } from "../../utils.ts";
 
 export default function* processCardanoTransferSyncProtocolResponse(
+  paima_block_height: BlockNumber,
   response: FlattenSyncProtocolIOFor<
     ConfigSyncProtocolType.CARDANO_CARP_PARALLEL,
     ConfigPrimitiveType.CardanoCarpTransfer,
@@ -24,9 +35,6 @@ export default function* processCardanoTransferSyncProtocolResponse(
   const inputCredentials = response.output.payload.inputCredentials;
   const outputs = response.output.payload.outputs;
   const metadata = response.output.payload.metadata;
-
-  const scheduledBlockHeight =
-    response.output.syncProtocol.payload.mainchain.blockNumber;
 
   if (prefix != null) {
     const scheduledInputData = generateRawStmInput(
@@ -43,22 +51,30 @@ export default function* processCardanoTransferSyncProtocolResponse(
     );
     yield* createScheduledData(
       JSON.stringify(scheduledInputData),
-      { blockHeight: scheduledBlockHeight },
+      {
+        blockHeight: getScheduleBlockHeight(
+          response.output.syncProtocol.payload,
+          paima_block_height,
+        ),
+      },
       {
         primitiveName: response.output.syncProtocol.payload.primitiveName,
-        txHash: response.output.syncProtocol.payload.transactionHash,
+        txHash: response.output.syncProtocol.payload
+          .transactionHash as string,
         caip2: response.output.syncProtocol.payload.caip2,
-        // TODO: this could either be inputCredentials.join(), a built-in precompile or a metadata standard
-        fromAddress: SCHEDULED_DATA_ADDRESS,
+        // TODO: a metadata standard could be used to refine this to something better
+        fromAddress: CardanoCarpTransferPrecompile,
         contractAddress: undefined,
       },
     );
   }
 
-  yield* World.resolve(primitiveCardanoTransferInsert, {
+  yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,
-    tx_id: txId,
-    raw_tx: rawTx,
-    metadata: metadata,
+    paima_block_height: paima_block_height,
+    payload_type: ConfigPrimitiveAccountingPayloadType.Transfer,
+    payload: response.output.payload satisfies PayloadOf<
+      typeof PrimitiveCardanoCarpTransferAccounting
+    >,
   });
 }

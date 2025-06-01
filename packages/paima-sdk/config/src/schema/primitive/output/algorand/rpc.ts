@@ -1,6 +1,6 @@
 import type { Satisfies } from "@paima/utils";
 import type { Static } from "@sinclair/typebox";
-import type { AlgorandPrimitivesToSyncProtocol } from "../config/types.ts";
+import type { AlgorandPrimitivesToSyncProtocol } from "../../config/types.ts";
 
 // ===
 // All

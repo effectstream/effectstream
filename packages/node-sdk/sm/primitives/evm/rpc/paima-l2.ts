@@ -7,12 +7,7 @@ import type {
 import type { StateUpdateStream } from "@paima/coroutine";
 import { findNonce, mainAddressGenerator } from "@paima/db";
 import { World } from "@paima/coroutine";
-import {
-  createScheduledData,
-  primitiveErc20DepositGetTotalDeposited,
-  primitiveErc20DepositInsertTotalDeposited,
-  primitiveErc20DepositUpdateTotalDeposited,
-} from "@paima/db";
+import { createScheduledData } from "@paima/db";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
 import { ConfigPrimitiveType } from "@paima/config";
 import { DelegateWallet } from "../../../delegate-wallet.ts";

@@ -1,6 +1,9 @@
 {
   "workspace": ["./packages/**/*", "./example/**/*"],
   "nodeModulesDir": "auto",
+  "tasks": {
+    "check": "deno check"
+  },
   "imports": {
   },
   "lint": {

@@ -35,7 +35,7 @@ export const PrimitiveCardanoCarpDelegationSyncProtocolResponse = Type.Object({
 // =============
 
 export const PrimitiveCardanoCarpProjectedNFTPayload = Type.Object({
-  ownerAddress: TypeboxHelpers.Nullable(TypeboxHelpers.Cardano.Address),
+  ownerAddress: TypeboxHelpers.Cardano.Address,
   actionTxId: TypeboxHelpers.Cardano.TxHash,
   actionOutputIndex: TypeboxHelpers.Nullable(Type.Number()),
   previousTxHash: TypeboxHelpers.Nullable(TypeboxHelpers.Cardano.TxHash),

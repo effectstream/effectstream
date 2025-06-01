@@ -1,14 +1,20 @@
-import { createScheduledData } from "@paima/db";
-import type { StateUpdateStream } from "@paima/coroutine";
+import { createScheduledData, insertPrimitiveAccounting } from "@paima/db";
+import { type StateUpdateStream, World } from "@paima/coroutine";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
 import {
-  ConfigPrimitivePayloadType,
+  ConfigPrimitiveAccountingPayloadType,
+  type ConfigPrimitivePayloadType,
   ConfigPrimitiveType,
-  ConfigSyncProtocolType,
+  type ConfigSyncProtocolType,
   type FlattenSyncProtocolIOFor,
+  type PayloadOf,
+  type PrimitiveMidnightGraphqlContractStateAccounting,
 } from "@paima/config";
+import type { BlockNumber } from "@paima/utils";
+import { getScheduleBlockHeight } from "../utils.ts";
 
 export default function* processMidnightContractStateSyncProtocolResponse(
+  paima_block_height: BlockNumber,
   response: FlattenSyncProtocolIOFor<
     ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
     ConfigPrimitiveType.MidnightContractState,
@@ -18,8 +24,6 @@ export default function* processMidnightContractStateSyncProtocolResponse(
   const { scheduledPrefix } = response.input;
   const { payload } = response.output;
 
-  const scheduledBlockHeight =
-    response.output.syncProtocol.payload.mainchain.blockNumber;
   const scheduledInputData = generateRawStmInput(
     BuiltinTransitions[ConfigPrimitiveType.MidnightContractState]
       .scheduledPrefix,
@@ -28,7 +32,12 @@ export default function* processMidnightContractStateSyncProtocolResponse(
   );
   yield* createScheduledData(
     JSON.stringify(scheduledInputData),
-    { blockHeight: scheduledBlockHeight },
+    {
+      blockHeight: getScheduleBlockHeight(
+        response.output.syncProtocol.payload,
+        paima_block_height,
+      ),
+    },
     {
       primitiveName: response.output.syncProtocol.payload.primitiveName,
       txHash: response.output.syncProtocol.payload.transactionHash,
@@ -37,4 +46,13 @@ export default function* processMidnightContractStateSyncProtocolResponse(
       contractAddress: response.input.contractAddress,
     },
   );
+
+  yield* World.resolve(insertPrimitiveAccounting, {
+    primitive_name: response.output.syncProtocol.payload.primitiveName,
+    paima_block_height: paima_block_height,
+    payload_type: ConfigPrimitiveAccountingPayloadType.Event,
+    payload: response.output.payload satisfies PayloadOf<
+      typeof PrimitiveMidnightGraphqlContractStateAccounting
+    >,
+  });
 }

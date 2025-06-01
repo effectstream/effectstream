@@ -1,23 +1,23 @@
-import { doLog, type EvmAddress } from "@paima/utils";
 import type {
   ConfigPrimitivePayloadType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
+  PayloadOf,
+  PrimitiveEvmRpcErc721TransferAccounting,
 } from "@paima/config";
-import {
-  createScheduledData,
-  primitiveErc721BurnInsert,
-  primitiveErc721Delete,
-  primitiveErc721GetOwner,
-  primitiveErc721InsertOwner,
-  primitiveErc721UpdateOwner,
-} from "@paima/db";
+import { createScheduledData, insertPrimitiveAccounting } from "@paima/db";
 import type { StateUpdateStream } from "@paima/coroutine";
 import { World } from "@paima/coroutine";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
-import { ConfigPrimitiveType } from "@paima/config";
+import {
+  ConfigPrimitiveAccountingPayloadType,
+  ConfigPrimitiveType,
+} from "@paima/config";
+import { getScheduleBlockHeight } from "../../utils.ts";
+import type { BlockNumber } from "@paima/utils";
 
 export default function* processErc721SyncProtocolResponse(
+  paima_block_height: BlockNumber,
   response: FlattenSyncProtocolIOFor<
     | ConfigSyncProtocolType.EVM_RPC_MAIN
     | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
@@ -31,62 +31,45 @@ export default function* processErc721SyncProtocolResponse(
 
   const isBurn = Boolean(toAddr.toLocaleLowerCase().match(/^0x0+(dead)?$/g));
 
-  try {
-    const ownerRow = yield* World.resolve(primitiveErc721GetOwner, {
-      primitive_name: primitiveName,
-      token_id: tokenId.toString(),
-    });
-    const newOwnerData = {
-      primitive_name: primitiveName,
-      token_id: tokenId.toString(),
-      nft_owner: toAddr,
-    };
-    if (ownerRow.length > 0) {
-      if (isBurn) {
-        if (response.input.burnScheduledPrefix) {
-          const scheduledInputData = generateRawStmInput(
-            BuiltinTransitions[ConfigPrimitiveType.ERC721].burnScheduledPrefix,
-            response.input.burnScheduledPrefix,
-            {
-              owner: ownerRow[0].nft_owner as EvmAddress,
-              tokenId,
-            },
-          );
+  // TODO: ivm to track owner
 
-          const scheduledBlockHeight =
-            response.output.syncProtocol.payload.mainchain.blockNumber;
+  if (isBurn) {
+    if (response.input.burnScheduledPrefix) {
+      const scheduledInputData = generateRawStmInput(
+        BuiltinTransitions[ConfigPrimitiveType.EvmRpcERC721]
+          .burnScheduledPrefix,
+        response.input.burnScheduledPrefix,
+        {
+          owner: from,
+          tokenId,
+        },
+      );
 
-          yield* createScheduledData(
-            JSON.stringify(scheduledInputData),
-            { blockHeight: scheduledBlockHeight },
-            {
-              primitiveName: response.output.syncProtocol.payload.primitiveName,
-              txHash: response.output.syncProtocol.payload.transactionHash,
-              caip2: response.output.syncProtocol.payload.caip2,
-              fromAddress: from.toLowerCase(),
-              contractAddress: response.input.contractAddress.toLowerCase(),
-            },
-          );
-        }
-
-        // we do this to keep track of the owner before the asset is sent to the
-        // burn address
-        yield* World.resolve(primitiveErc721BurnInsert, {
-          primitive_name: primitiveName,
-          token_id: tokenId.toString(),
-          nft_owner: ownerRow[0].nft_owner,
-        });
-        yield* World.resolve(primitiveErc721Delete, {
-          primitive_name: primitiveName,
-          token_id: tokenId.toString(),
-        });
-      } else {
-        yield* World.resolve(primitiveErc721UpdateOwner, newOwnerData);
-      }
-    } else {
-      yield* World.resolve(primitiveErc721InsertOwner, newOwnerData);
+      yield* createScheduledData(
+        JSON.stringify(scheduledInputData),
+        {
+          blockHeight: getScheduleBlockHeight(
+            response.output.syncProtocol.payload,
+            paima_block_height,
+          ),
+        },
+        {
+          primitiveName: response.output.syncProtocol.payload.primitiveName,
+          txHash: response.output.syncProtocol.payload.transactionHash,
+          caip2: response.output.syncProtocol.payload.caip2,
+          fromAddress: from.toLowerCase(),
+          contractAddress: response.input.contractAddress.toLowerCase(),
+        },
+      );
     }
-  } catch (err) {
-    doLog(`[paima-sm] error while processing erc721 datum: ${err}`);
   }
+
+  yield* World.resolve(insertPrimitiveAccounting, {
+    primitive_name: primitiveName,
+    paima_block_height: paima_block_height,
+    payload_type: ConfigPrimitiveAccountingPayloadType.Transfer,
+    payload: response.output.payload satisfies PayloadOf<
+      typeof PrimitiveEvmRpcErc721TransferAccounting
+    >,
+  });
 }

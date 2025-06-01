@@ -104,11 +104,13 @@ function forceUppercase<T extends TString | TRegExp>(schema: T): TTransform<T> {
     .Encode((value) => value.toUpperCase());
 }
 export const TypeboxHelpers = {
-  Uint256: Type.BigInt({
+  Uint256: Type.Transform(Type.BigInt({
     maximum:
       115792089237316195423570985008687907853269984665640564039457584007913129639935n,
     minimum: 0n,
-  }),
+  }))
+    .Decode((value) => value.toString())
+    .Encode((value) => BigInt(value)),
   BlockNumber: (options?: NumberOptions) =>
     Type.Unsafe<Nominal.BlockNumber>(Type.Number(options)),
   AbsoluteSlotNumber: (options?: NumberOptions) =>
@@ -223,7 +225,9 @@ export const TypeboxHelpers = {
     Type.Unsafe<Nominal.HexStringNo0x>(Type.RegExp(/^[a-fA-F0-9]+$/, options)),
   UnknownFormat: Type.Unsafe<Nominal.UnknownFormat>(Type.String()),
   Lowercase: forceLowercase(Type.String()),
-  TrueOrFalse: Type.Transform(Type.String())
+  TrueOrFalse: Type.Transform(
+    Type.Union([Type.Literal("T"), Type.Literal("F")]),
+  )
     .Decode((value) => value === "T")
     .Encode((value) => (value ? "T" : "F")),
   Nullable: <T extends TSchema>(

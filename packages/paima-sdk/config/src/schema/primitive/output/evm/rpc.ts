@@ -12,7 +12,6 @@ export const AbiMap = {
   [ConfigPrimitiveType.EvmRpcPaimaL2]: { contract: mockAbi },
   [ConfigPrimitiveType.EvmRpcERC20]: { contract: mockAbi },
   [ConfigPrimitiveType.EvmRpcERC721]: { contract: mockAbi, paima: mockAbi },
-  [ConfigPrimitiveType.EvmRpcERC20Deposit]: { contract: mockAbi },
   [ConfigPrimitiveType.EvmRpcERC1155]: { contract: mockAbi },
   [ConfigPrimitiveType.EvmRpcGeneric]: { contract: mockAbi },
   [ConfigPrimitiveType.EvmRpcERC6551Registry]: { contract: mockAbi },
@@ -55,17 +54,6 @@ export const PrimitiveEvmRpcErc20TransferSyncProtocolResponse = Type.Object({
   primitive: Type.Literal(ConfigPrimitiveType.EvmRpcERC20),
   payloadType: Type.Literal(ConfigPrimitivePayloadType.Transfer),
   payload: PrimitiveEvmRpcErc20TransferPayload,
-});
-
-export const PrimitiveEvmRpcErc20DepositPayload = Type.Object({
-  from: TypeboxHelpers.Evm.Address,
-  value: TypeboxHelpers.Uint256,
-});
-
-export const PrimitiveEvmRpcErc20DepositSyncProtocolResponse = Type.Object({
-  primitive: Type.Literal(ConfigPrimitiveType.EvmRpcERC20Deposit),
-  payloadType: Type.Literal(ConfigPrimitivePayloadType.Deposit),
-  payload: PrimitiveEvmRpcErc20DepositPayload,
 });
 
 // ======
@@ -189,7 +177,6 @@ export const PrimitiveEvmRpcDynamicPrimitiveSyncProtocolResponse = Type
 export const syncProtocolResponsesEvmRpc = [
   PrimitiveEvmRpcPaimaL2SyncProtocolResponse,
   PrimitiveEvmRpcErc20TransferSyncProtocolResponse,
-  PrimitiveEvmRpcErc20DepositSyncProtocolResponse,
   PrimitiveEvmRpcErc721TransferSyncProtocolResponse,
   PrimitiveEvmRpcErc721MintSyncProtocolResponse,
   PrimitiveEvmRpcErc1155TransferSyncProtocolResponse,

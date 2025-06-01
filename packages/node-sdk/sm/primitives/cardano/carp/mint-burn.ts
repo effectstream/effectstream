@@ -18,6 +18,7 @@ import {
   ConfigPrimitiveAccountingPayloadType,
   ConfigPrimitiveType,
 } from "@paima/config";
+import { getScheduleBlockHeight } from "../../utils.ts";
 
 export default function* processCardanoMintBurnSyncProtocolResponse(
   paima_block_height: BlockNumber,
@@ -35,9 +36,6 @@ export default function* processCardanoMintBurnSyncProtocolResponse(
   const inputAddresses = response.output.payload.inputAddresses;
   const outputAddresses = response.output.payload.outputAddresses;
 
-  const scheduledBlockHeight =
-    response.output.syncProtocol.payload.mainchain.blockNumber;
-
   if (prefix != null) {
     const scheduledInputData = generateRawStmInput(
       BuiltinTransitions[ConfigPrimitiveType.CardanoCarpMintBurn]
@@ -52,21 +50,26 @@ export default function* processCardanoMintBurnSyncProtocolResponse(
       },
     );
 
-    if (scheduledBlockHeight != null) {
-      yield* createScheduledData(
-        JSON.stringify(scheduledInputData),
-        { blockHeight: scheduledBlockHeight },
-        {
-          primitiveName: response.output.syncProtocol.payload.primitiveName,
-          txHash: response.output.syncProtocol.payload
-            .transactionHash as string,
-          caip2: response.output.syncProtocol.payload.caip2,
-          fromAddress: CardanoCarpMintBurnPrecompile,
-          contractAddress: undefined,
-        },
-      );
-    }
+    yield* createScheduledData(
+      JSON.stringify(scheduledInputData),
+      {
+        blockHeight: getScheduleBlockHeight(
+          response.output.syncProtocol.payload,
+          paima_block_height,
+        ),
+      },
+      {
+        primitiveName: response.output.syncProtocol.payload.primitiveName,
+        txHash: response.output.syncProtocol.payload
+          .transactionHash as string,
+        caip2: response.output.syncProtocol.payload.caip2,
+        fromAddress: CardanoCarpMintBurnPrecompile,
+        contractAddress: undefined,
+      },
+    );
   }
+
+  // TODO: register a current supply ivm
 
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,

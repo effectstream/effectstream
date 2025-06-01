@@ -14,6 +14,7 @@ import {
   ConfigPrimitiveType,
 } from "@paima/config";
 import type { BlockNumber } from "@paima/utils";
+import { getScheduleBlockHeight } from "../../utils.ts";
 
 export default function* processCardanoDelegateSyncProtocolResponse(
   paima_block_height: BlockNumber,
@@ -29,8 +30,6 @@ export default function* processCardanoDelegateSyncProtocolResponse(
   const pool = response.output.payload.pool;
   const epoch = response.output.payload.epoch;
 
-  const scheduledBlockHeight =
-    response.output.syncProtocol.payload.mainchain.blockNumber;
   const scheduledInputData = generateRawStmInput(
     BuiltinTransitions[ConfigPrimitiveType.CardanoCarpDelegation]
       .scheduledPrefix,
@@ -42,19 +41,22 @@ export default function* processCardanoDelegateSyncProtocolResponse(
     },
   );
 
-  if (scheduledBlockHeight != null) {
-    yield* createScheduledData(
-      JSON.stringify(scheduledInputData),
-      { blockHeight: scheduledBlockHeight },
-      {
-        primitiveName: response.output.syncProtocol.payload.primitiveName,
-        txHash: response.output.syncProtocol.payload.transactionHash as string,
-        caip2: response.output.syncProtocol.payload.caip2,
-        fromAddress: address,
-        contractAddress: undefined,
-      },
-    );
-  }
+  yield* createScheduledData(
+    JSON.stringify(scheduledInputData),
+    {
+      blockHeight: getScheduleBlockHeight(
+        response.output.syncProtocol.payload,
+        paima_block_height,
+      ),
+    },
+    {
+      primitiveName: response.output.syncProtocol.payload.primitiveName,
+      txHash: response.output.syncProtocol.payload.transactionHash as string,
+      caip2: response.output.syncProtocol.payload.caip2,
+      fromAddress: address,
+      contractAddress: undefined,
+    },
+  );
   // TODO: we should register indices for this
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,

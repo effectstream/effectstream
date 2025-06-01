@@ -6,9 +6,9 @@ import {
 import {
   ConfigPrimitiveType,
   type MidnightPrimitivesToSyncProtocol,
-} from "../config/types.ts";
+} from "../../config/types.ts";
 import { type Static, Type } from "@sinclair/typebox";
-import { ConfigPrimitivePayloadType } from "./types.ts";
+import { ConfigPrimitivePayloadType } from "../types.ts";
 import type { EncodedStateValue } from "@midnight-ntwrk/onchain-runtime";
 
 // ==============

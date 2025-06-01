@@ -4,6 +4,9 @@ export enum ConfigPrimitiveAccountingPayloadType {
   Transfer = "transfer",
   Delegate = "delegate",
   MintOrBurn = "mint-or-burn",
+  ProjectedNft = "projected-nft",
+  Registry = "registry",
+  Event = "event",
 }
 
 export type PayloadOf<T> = T extends

@@ -23,6 +23,8 @@ export default function* processCardanoAssetUtxoSyncProtocolResponse(
   const primitiveName = response.output.syncProtocol.payload.primitiveName;
 
   // TODO: we should register indices for this
+  // TODO: register a current balance ivm
+
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,
     paima_block_height: paima_block_height,

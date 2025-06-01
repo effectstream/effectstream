@@ -3,9 +3,9 @@ import type { Static } from "@sinclair/typebox";
 import {
   type AvailPrimitivesToSyncProtocol,
   ConfigPrimitiveType,
-} from "../config/types.ts";
+} from "../../config/types.ts";
 import { Type } from "@sinclair/typebox";
-import { ConfigPrimitivePayloadType } from "./types.ts";
+import { ConfigPrimitivePayloadType } from "../types.ts";
 
 // ========
 // Paima L2

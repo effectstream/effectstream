@@ -1,4 +1,5 @@
 import {
+  Static,
   type TIntersect,
   type TLiteral,
   type TObject,
@@ -12,7 +13,7 @@ import {
   CommonResponseEvmRpcParallel,
   ConfigSyncProtocolSchemaEvmMain,
   ConfigSyncProtocolSchemaEvmParallel,
-} from "./evm.ts";
+} from "./evm/rpc.ts";
 import {
   CommonResponseCardanoCarpParallel,
   ConfigSyncProtocolSchemaCardanoCarpParallel,
@@ -24,17 +25,17 @@ import {
 import {
   CommonResponseMinaDbParallel,
   ConfigSyncProtocolSchemaMinaParallel,
-} from "./mina.ts";
+} from "./mina/graphql.ts";
 import {
   CommonResponseAvailRpcMain,
   CommonResponseAvailRpcParallel,
   ConfigSyncProtocolSchemaAvailMain,
   ConfigSyncProtocolSchemaAvailParallel,
-} from "./avail.ts";
+} from "./avail/rpc.ts";
 import {
   CommonResponseMidnightGraphqlParallel,
   ConfigSyncProtocolSchemaMidnightParallel,
-} from "./midnight.ts";
+} from "./midnight/graphql.ts";
 import type { ToMapping } from "../utils.ts";
 import { ConfigSyncProtocolDecorator } from "./decorators/all.ts";
 
@@ -133,3 +134,13 @@ export const ConfigSyncProtocolAll = <Bool extends boolean>(
     ConfigSyncProtocolParallel(requireOptional),
     ConfigSyncProtocolDecorator(requireOptional),
   ]);
+
+export function getMainchainInfo<
+  T extends keyof typeof ConfigSyncProtocolCommonResponseAll,
+>(
+  payload: Static<typeof ConfigSyncProtocolCommonResponseAll[T]>,
+) {
+  return "mainchain" in payload.payload
+    ? payload.payload.mainchain
+    : payload.payload.ownChain;
+}

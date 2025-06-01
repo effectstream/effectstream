@@ -32,16 +32,6 @@ export const PrimitiveErc20Config = PrimitiveConfigBaseEvm.cloneMerge({
   optional: Type.Object({}),
 });
 
-export const PrimitiveErc20DepositConfig = PrimitiveConfigBaseEvm.cloneMerge({
-  required: Type.Object({
-    type: Type.Literal(ConfigPrimitiveType.EvmRpcERC20Deposit),
-    contractAddress: TypeboxHelpers.Evm.Address,
-    scheduledPrefix: Type.String(),
-    depositAddress: TypeboxHelpers.Evm.Address,
-  }),
-  optional: Type.Object({}),
-});
-
 // ======
 // ERC721
 // ======

@@ -7,7 +7,6 @@ export enum ConfigPrimitiveType {
   EvmRpcGeneric = "evm-rpc-generic",
   EvmRpcPaimaL2 = "evm-rpc-paima-l2",
   EvmRpcERC20 = "evm-rpc-erc20",
-  EvmRpcERC20Deposit = "evm-rpc-erc20-deposit",
   EvmRpcERC721 = "evm-rpc-erc721",
   EvmRpcERC6551Registry = "evm-rpc-erc6551-registry",
   EvmRpcERC1155 = "evm-rpc-erc1155",
@@ -66,10 +65,6 @@ export const EvmPrimitivesToSyncProtocol = {
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   ],
   [ConfigPrimitiveType.EvmRpcERC20]: [
-    ConfigSyncProtocolType.EVM_RPC_MAIN,
-    ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-  ],
-  [ConfigPrimitiveType.EvmRpcERC20Deposit]: [
     ConfigSyncProtocolType.EVM_RPC_MAIN,
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   ],

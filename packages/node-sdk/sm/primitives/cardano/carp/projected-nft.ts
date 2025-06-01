@@ -2,18 +2,22 @@ import type {
   ConfigPrimitivePayloadType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
+  PayloadOf,
+  PrimitiveCardanoCarpProjectedNFTAccounting,
 } from "@paima/config";
-import {
-  createScheduledData,
-  primitiveCardanoProjectedNftInsertData,
-  primitiveCardanoProjectedNftUpdateData,
-} from "@paima/db";
+import type { BlockNumber } from "@paima/utils";
+import { createScheduledData, insertPrimitiveAccounting } from "@paima/db";
 import type { StateUpdateStream } from "@paima/coroutine";
 import { World } from "@paima/coroutine";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
-import { ConfigPrimitiveType } from "@paima/config";
+import {
+  ConfigPrimitiveAccountingPayloadType,
+  ConfigPrimitiveType,
+} from "@paima/config";
+import { getScheduleBlockHeight } from "../../utils.ts";
 
 export default function* processCardanoProjectedNftSyncProtocolResponse(
+  paima_block_height: BlockNumber,
   response: FlattenSyncProtocolIOFor<
     ConfigSyncProtocolType.CARDANO_CARP_PARALLEL,
     ConfigPrimitiveType.CardanoCarpProjectedNFT,
@@ -31,11 +35,7 @@ export default function* processCardanoProjectedNftSyncProtocolResponse(
   const policyId = response.output.payload.policyId;
   const assetName = response.output.payload.assetName;
   const status = response.output.payload.status;
-  const datum = response.output.payload.plutusDatum;
   const forHowLong = response.output.payload.forHowLong;
-
-  const scheduledBlockHeight =
-    response.output.syncProtocol.payload.mainchain.blockNumber;
 
   if (prefix != null) {
     const scheduledInputData = generateRawStmInput(
@@ -53,15 +53,22 @@ export default function* processCardanoProjectedNftSyncProtocolResponse(
         forHowLong,
         currentTxHash,
         currentOutputIndex,
+        // TODO: include datum?
       },
     );
 
     yield* createScheduledData(
       JSON.stringify(scheduledInputData),
-      { blockHeight: scheduledBlockHeight },
+      {
+        blockHeight: getScheduleBlockHeight(
+          response.output.syncProtocol.payload,
+          paima_block_height,
+        ),
+      },
       {
         primitiveName: response.output.syncProtocol.payload.primitiveName,
-        txHash: response.output.syncProtocol.payload.transactionHash,
+        txHash: response.output.syncProtocol.payload
+          .transactionHash as string,
         caip2: response.output.syncProtocol.payload.caip2,
         fromAddress: ownerAddress,
         contractAddress: undefined, // TODO: we should be able to know this
@@ -69,33 +76,12 @@ export default function* processCardanoProjectedNftSyncProtocolResponse(
     );
   }
 
-  if (previousTxHash === undefined || previousTxOutputIndex === undefined) {
-    yield* World.resolve(primitiveCardanoProjectedNftInsertData, {
-      primitive_name: primitiveName,
-      owner_address: ownerAddress,
-      current_tx_hash: currentTxHash,
-      current_tx_output_index: currentOutputIndex,
-      policy_id: policyId,
-      asset_name: assetName,
-      amount: amount,
-      status: status,
-      plutus_datum: datum,
-      for_how_long: forHowLong,
-    });
-    return;
-  }
-  yield* World.resolve(primitiveCardanoProjectedNftUpdateData, {
+  yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,
-    owner_address: ownerAddress,
-    new_tx_hash: currentTxHash,
-    new_tx_output_index: currentOutputIndex,
-    previous_tx_hash: previousTxHash,
-    previous_tx_output_index: previousTxOutputIndex,
-    policy_id: policyId,
-    asset_name: assetName,
-    amount: amount,
-    status: status,
-    plutus_datum: datum,
-    for_how_long: forHowLong,
+    paima_block_height: paima_block_height,
+    payload_type: ConfigPrimitiveAccountingPayloadType.ProjectedNft,
+    payload: response.output.payload satisfies PayloadOf<
+      typeof PrimitiveCardanoCarpProjectedNFTAccounting
+    >,
   });
 }
