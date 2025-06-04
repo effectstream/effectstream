@@ -7,6 +7,7 @@ interface Process {
   pid: number;
   alive: boolean;
   args: string[];
+  date: string;
 }
 
 interface ProcessResponse {
@@ -90,13 +91,27 @@ export const ProcessesSection = () => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data: ProcessResponse = await response.json();
-        setProcesses(data.processes);
+
+        // Filter processes: show alive processes immediately, and finished processes only after 10 seconds
+        const now = new Date().getTime();
+        const filteredProcesses = data.processes.filter((process: Process) => {
+          if (process.alive) {
+            return true; // Show alive processes immediately
+          }
+
+          // For finished processes, only show after 10 seconds
+          const processDate = new Date(process.date).getTime();
+          const timeSinceFinished = now - processDate;
+          return timeSinceFinished >= 10000; // 10 seconds in milliseconds
+        });
+
+        setProcesses(filteredProcesses);
         setError(null);
         setLastUpdated(new Date().toLocaleTimeString());
 
         // Reset selected index if it's out of bounds
-        if (selectedIndex >= data.processes.length) {
-          setSelectedIndex(Math.max(0, data.processes.length - 1));
+        if (selectedIndex >= filteredProcesses.length) {
+          setSelectedIndex(Math.max(0, filteredProcesses.length - 1));
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");

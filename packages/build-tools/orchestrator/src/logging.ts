@@ -70,6 +70,16 @@ export const rawLogHandler: LogHandler = (
 ) => {
   if (currentOutput === "default") {
     Deno[source].write(chunk);
+  } else if (currentOutput === "tui" && namespace === "dolos") {
+    // This is a temporal hack to pass the dolos logs to the TUI through the collector.
+    let i = decoder.decode(chunk);
+    i = i.replace(/\x1B[[(?);]{0,2}(;?\d)*./g, "");
+    log.remote(
+      component,
+      namespace,
+      source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
+      (log) => log(i),
+    );
   }
 };
 export const localLogHandler: LogHandler = (

@@ -8,6 +8,7 @@ export type ProcessComponent = {
   component: ValueOf<typeof ComponentNames>;
   args: string[];
   alive: boolean;
+  date: string;
 };
 
 export const AbortControllers = {
@@ -67,6 +68,7 @@ export const $ = (params: {
     process,
     args: params.args,
     alive: true,
+    date: new Date().toISOString(),
     component: params.component ?? "unknown",
   };
   processes.push(processComponent);
@@ -93,6 +95,7 @@ export const $ = (params: {
   // note: don't block on this
   void process.status.then((status) => {
     processComponent.alive = false;
+    processComponent.date = new Date().toISOString();
     if (!status.success) {
       if (!failed) {
         // usually if a :wait command fails, it because another command failed first

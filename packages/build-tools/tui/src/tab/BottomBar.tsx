@@ -1,7 +1,7 @@
 import { Box, Text } from "ink";
 
 // Define available sections
-export type Section = "processes" | "setup" | "status";
+export type Section = "processes" | "setup" | "status" | "logs";
 
 export interface SectionOption {
   key: string;
@@ -14,6 +14,7 @@ export const SECTIONS: SectionOption[] = [
   { key: "s", label: "System", section: "status", displayKey: "[S]" },
   { key: "p", label: "Processes", section: "processes", displayKey: "[P]" },
   { key: "e", label: "Environment", section: "setup", displayKey: "[E]" },
+  { key: "l", label: "Logs", section: "logs", displayKey: "[L]" },
 ];
 
 // Define section order for arrow key navigation
@@ -21,6 +22,7 @@ export const SECTION_ORDER: Section[] = [
   "status",
   "processes",
   "setup",
+  "logs",
 ];
 
 // Bottom Navigation Bar

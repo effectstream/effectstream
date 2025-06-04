@@ -4,6 +4,7 @@ import BigText from "ink-big-text";
 import { ProcessesSection } from "./tab/ProcessesSection.tsx";
 import { SetupSection } from "./tab/SetupSection.tsx";
 import { StatusSection } from "./tab/StatusSection.tsx";
+import { LogsSection } from "./tab/LogsSection.tsx";
 import {
   BottomBar,
   type Section,
@@ -57,6 +58,8 @@ const App = () => {
         return <SetupSection />;
       case "status":
         return <StatusSection />;
+      case "logs":
+        return <LogsSection />;
       default:
         return <ProcessesSection />;
     }
