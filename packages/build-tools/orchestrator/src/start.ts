@@ -135,7 +135,8 @@ async function startCardano(): Promise<[ProcessComponent, ProcessComponent]> {
     args: ["task", "-f", "@example/cardano-contracts", "dolos:start"],
     signal: AbortControllers.chain,
     // use this until Dolos supports otel: https://github.com/txpipe/dolos/issues/399
-    log: rawLogHandler,
+    log: (chunk) =>
+      rawLogHandler(chunk, "stdout", ComponentNames.DOLOS, "dolos"),
     component: ComponentNames.DOLOS,
   });
   void dolos.process.status; // need to await sub-service start below
