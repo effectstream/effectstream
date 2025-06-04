@@ -14,7 +14,7 @@ import {
   type Namespace,
   SeverityNumber,
 } from "@paima/log";
-
+import { exportData } from "./exporters.ts";
 // this file is based on https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
 
 // TODO: maybe this should run on a different port and then forward to 4318
@@ -39,7 +39,6 @@ function printError(e: any, namespace: string, request: any) {
 
 // DANGER: these endpoints only support JSON and reject other OpenTelemetry data formats
 //         in the future, we can support protobuf using `otlp-transformer` once it has a stable release
-
 server.post("/v1/traces", async (request: any, reply: any) => {
   try {
     const parsed = Value.Parse(TExportTraceServiceRequest, request.body);
@@ -59,14 +58,14 @@ server.post("/v1/traces", async (request: any, reply: any) => {
           );
           const duration = start.until(end);
           const seconds = duration.total("seconds");
-          logger.local(
-            scope.name,
-            [span.name],
-            SeverityNumber.DEBUG,
+          exportData({
+            component: scope.name,
+            namespace: [span.name],
+            level: SeverityNumber.DEBUG,
             // toFixed(3) means we can display up to ms precision
             // adding more tends to lead to outputs like 0.30000000000000004
-            (log) => log(`ended (${seconds.toFixed(3)}s)`),
-          );
+            message: [`ended (${seconds.toFixed(3)}s)`],
+          });
         }
       }
     }
@@ -91,12 +90,13 @@ server.post("/v1/metrics", async (request: any, reply: any) => {
         for (const metric of scopeMetric.metrics) {
           // trying to figure out how to print all of these to console is non-trivial
           // especially since a lot of it is very metric-specific like parsing attributes
-          logger.local(
-            scope.name,
-            [metric.name],
-            SeverityNumber.TRACE,
-            (log) => log("updated"),
-          );
+
+          exportData({
+            component: scope.name,
+            namespace: [metric.name],
+            level: SeverityNumber.TRACE,
+            message: ["updated"],
+          });
         }
       }
     }
@@ -123,12 +123,8 @@ server.post("/v1/logs", async (request: any, reply: any) => {
             if (parts == null) {
               continue;
             }
-            logger.local(
-              parts.component,
-              parts.namespace,
-              parts.level,
-              (log) => log(...parts.message),
-            );
+
+            exportData(parts);
             return;
           }
           // TODO: replace the `tslog` timestamp with timeUnixNano
@@ -141,17 +137,14 @@ server.post("/v1/logs", async (request: any, reply: any) => {
             }
             return JSON.parse(otelStringify(attrNamespace));
           })();
-          logger.local(
-            scope.name,
-            namespace,
-            (logRecord.severityNumber as unknown as SeverityNumber) ??
+
+          exportData({
+            component: scope.name,
+            namespace: namespace,
+            level: (logRecord.severityNumber as unknown as SeverityNumber) ??
               SeverityNumber.UNSPECIFIED,
-            (log) => {
-              const target = JSON.parse(otelStringify(logRecord.body));
-              // console.log(2,4) gets turned into an array [2,4] so we re-spread it)
-              return Array.isArray(target) ? log(...target) : log(target);
-            },
-          );
+            message: [JSON.parse(otelStringify(logRecord.body))],
+          });
         }
       }
     }

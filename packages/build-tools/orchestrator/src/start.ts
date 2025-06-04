@@ -1,6 +1,8 @@
 #!/usr/bin/env -S deno run --allow-all
+import "./http-server.ts";
 
 import {
+  getCurrentOutput,
   initTelemetry,
   logHandler,
   rawLogHandler,
@@ -10,12 +12,15 @@ import {
   $,
   AbortControllers,
   AbortProcessStart,
+  type ProcessComponent,
   processes,
 } from "./process.ts";
 import { ComponentNames } from "@paima/log";
 
 export async function awaitShutdown(): Promise<void> {
-  await Promise.all(processes.map((process) => process[Symbol.asyncDispose]()));
+  await Promise.all(
+    processes.map((process) => process.process[Symbol.asyncDispose]()),
+  );
 }
 
 export async function start(): Promise<void> {
@@ -27,7 +32,7 @@ export async function start(): Promise<void> {
       $({
         args: ["task", "check"],
         log: logHandler,
-      }).status,
+      }).process.status,
     ]);
 
     // start the collector before any other process since it's the one that captures logs
@@ -41,7 +46,8 @@ export async function start(): Promise<void> {
         log: rawLogHandler,
         component: ComponentNames.COLLECTOR,
       });
-      void Promise.all([otlpCollector.status]);
+      void Promise.all([otlpCollector.process.status]);
+
       const waitOtlp = $({
         args: ["task", "-f", "@paima/collector", "wait"],
         signal: AbortControllers.otel,
@@ -50,11 +56,12 @@ export async function start(): Promise<void> {
         log: rawLogHandler,
         component: ComponentNames.COLLECTOR,
       });
-      await Promise.all([waitOtlp.status]);
+      await Promise.all([waitOtlp.process.status]);
       setCollectorStarted();
     }
 
     await Promise.all([
+      startTUI(),
       startDb(),
       startCardano(),
       startEvm(),
@@ -66,7 +73,7 @@ export async function start(): Promise<void> {
       log: logHandler,
       component: ComponentNames.PAIMA_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically
-    }).status;
+    }).process.status;
   } catch (e) {
     if (!(e instanceof AbortProcessStart)) {
       console.error(e);
@@ -76,7 +83,24 @@ export async function start(): Promise<void> {
   }
 }
 
-async function startEvm(): Promise<Deno.CommandStatus> {
+async function startTUI(): Promise<ProcessComponent> {
+  const tui = $({
+    args: ["task", "-f", "@paima/tui", "dev"],
+    signal: AbortControllers.node,
+    log: (
+      chunk: Uint8Array,
+    ) => {
+      if (getCurrentOutput() === "tui") {
+        Deno.stdout.write(chunk);
+      }
+    },
+    component: ComponentNames.TUI,
+  });
+  await Promise.all([tui.process.status]);
+  return tui;
+}
+
+async function startEvm(): Promise<ProcessComponent> {
   // TODO: some way to specify which chains should be used for a project
   const hardhat = $({
     args: ["task", "-f", "@example/evm-contracts", "chain:start"],
@@ -84,27 +108,28 @@ async function startEvm(): Promise<Deno.CommandStatus> {
     log: logHandler,
     component: ComponentNames.HARDHAT,
   });
-  void hardhat.status; // need to await sub-service start below
+  void hardhat.process.status; // need to await sub-service start below
 
-  return await $({
+  await $({
     args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
-  })
-    .status;
+  }).process.status;
+
+  return hardhat;
 }
 
-async function startCardano(): Promise<Deno.CommandStatus> {
+async function startCardano(): Promise<[ProcessComponent, ProcessComponent]> {
   const yaciDevkit = $({
     args: ["task", "-f", "@example/cardano-contracts", "devkit:start"],
     signal: AbortControllers.node,
     log: logHandler,
     component: ComponentNames.YACI_DEVKIT,
   });
-  void yaciDevkit.status; // need to await sub-service start below
+  void yaciDevkit.process.status; // need to await sub-service start below
 
   await $({
     args: ["task", "-f", "@example/cardano-contracts", "devkit:wait"],
   })
-    .status;
+    .process.status;
 
   const dolos = $({
     args: ["task", "-f", "@example/cardano-contracts", "dolos:start"],
@@ -113,15 +138,17 @@ async function startCardano(): Promise<Deno.CommandStatus> {
     log: rawLogHandler,
     component: ComponentNames.DOLOS,
   });
-  void dolos.status; // need to await sub-service start below
+  void dolos.process.status; // need to await sub-service start below
 
-  return await $({
+  await $({
     args: ["task", "-f", "@example/cardano-contracts", "dolos:wait"],
   })
-    .status;
+    .process.status;
+
+  return [yaciDevkit, dolos];
 }
 
-async function startDb(): Promise<Deno.CommandStatus> {
+async function startDb(): Promise<ProcessComponent> {
   const paimaDb = $({
     // TODO: run pgtyped:up only depending on parameters?
     args: ["task", "-f", "@paima/db", "pgtyped:update"],
@@ -129,9 +156,11 @@ async function startDb(): Promise<Deno.CommandStatus> {
     log: logHandler,
     component: ComponentNames.PAIMA_DB,
   });
-  void paimaDb.status; // need to await sub-service start below
+  void paimaDb.process.status; // need to await sub-service start below
 
-  return await $({
+  await $({
     args: ["task", "-f", "@paima/db", "db:wait"],
-  }).status;
+  }).process.status;
+
+  return paimaDb;
 }

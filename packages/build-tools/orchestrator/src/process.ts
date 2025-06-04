@@ -3,6 +3,13 @@ import type { Namespace } from "@paima/log";
 import { ComponentNames } from "@paima/log";
 import type { ValueOf } from "@paima/utils";
 
+export type ProcessComponent = {
+  process: Deno.ChildProcess;
+  component: ValueOf<typeof ComponentNames>;
+  args: string[];
+  alive: boolean;
+};
+
 export const AbortControllers = {
   chain: new AbortController(),
   otel: new AbortController(),
@@ -25,12 +32,16 @@ export function shutdown(): void {
     // shutdown otel last we may have some error logs to write
     .filter((key) => key !== "otel");
   nonOtel.forEach((key) => {
-    AbortControllers[key].abort();
+    try {
+      AbortControllers[key].abort();
+    } catch {
+      // do nothing
+    }
   });
 }
 
 let failed = false;
-export const processes: Deno.ChildProcess[] = [];
+export const processes: ProcessComponent[] = [];
 
 export const $ = (params: {
   // recall: ["exec", ...] to run arbitrary code
@@ -39,7 +50,7 @@ export const $ = (params: {
   log?: LogHandler;
   component?: ValueOf<typeof ComponentNames>;
   namespace?: Namespace;
-}): Deno.ChildProcess => {
+}): ProcessComponent => {
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
   }
@@ -52,7 +63,13 @@ export const $ = (params: {
   }).spawn();
   process.ref(); // wait until all child processes die before killing parent
 
-  processes.push(process);
+  const processComponent = {
+    process,
+    args: params.args,
+    alive: true,
+    component: params.component ?? "unknown",
+  };
+  processes.push(processComponent);
 
   if (params.log != null) {
     process.stdout.pipeTo(
@@ -75,6 +92,7 @@ export const $ = (params: {
 
   // note: don't block on this
   void process.status.then((status) => {
+    processComponent.alive = false;
     if (!status.success) {
       if (!failed) {
         // usually if a :wait command fails, it because another command failed first
@@ -89,5 +107,5 @@ export const $ = (params: {
     }
   });
 
-  return process;
+  return processComponent;
 };

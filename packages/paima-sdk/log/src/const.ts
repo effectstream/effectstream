@@ -9,6 +9,7 @@ export const PaimaComponents = {
   PAIMA_DB: "db",
   ORCHESTRATOR: "orchestrator",
   COLLECTOR: "collector",
+  TUI: "tui",
 };
 const ExternalComponents = {
   HARDHAT: "hardhat",

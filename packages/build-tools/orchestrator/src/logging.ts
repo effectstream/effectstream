@@ -27,6 +27,17 @@ export function streamTo(
   });
 }
 
+export type CurrentOutput = "none" | "default" | "tui";
+// Start with default to start with logs
+let currentOutput = "tui";
+
+export const setCurrentOutput = (value: CurrentOutput) => {
+  currentOutput = value;
+};
+export const getCurrentOutput = () => {
+  return currentOutput;
+};
+
 // TODO: instead of starting at false,
 // we should check if there is a collector running on the otel port
 // since that's the logic we'll need to decide if we run our own collector or not
@@ -51,24 +62,45 @@ const decoder = new TextDecoder();
  * Print the string as-is directly to console
  * This is to avoid a formatting loop where @paima/collector wraps its own logs
  */
-export const rawLogHandler: LogHandler = (chunk, source, component, namespace) => {
-  Deno[source].write(chunk);
+export const rawLogHandler: LogHandler = (
+  chunk,
+  source,
+  component,
+  namespace,
+) => {
+  if (currentOutput === "default") {
+    // Deno[source].write(chunk);
+  }
 };
-export const localLogHandler: LogHandler = (chunk, source, component, namespace) => {
-  log.local(
-    component,
-    namespace,
-    source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
-    (log) => log(decoder.decode(chunk)),
-  );
+export const localLogHandler: LogHandler = (
+  chunk,
+  source,
+  component,
+  namespace,
+) => {
+  if (currentOutput === "default") {
+    log.local(
+      component,
+      namespace,
+      source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
+      (log) => log(decoder.decode(chunk)),
+    );
+  }
 };
-export const remoteLogHandler: LogHandler = (chunk, source, component, namespace) => {
-  log.remote(
-    component,
-    namespace,
-    source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
-    (log) => log(decoder.decode(chunk)),
-  );
+export const remoteLogHandler: LogHandler = (
+  chunk,
+  source,
+  component,
+  namespace,
+) => {
+  if (currentOutput === "default") {
+    log.remote(
+      component,
+      namespace,
+      source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
+      (log) => log(decoder.decode(chunk)),
+    );
+  }
 };
 
 export function initTelemetry(): void {
