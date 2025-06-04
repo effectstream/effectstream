@@ -69,7 +69,7 @@ export const rawLogHandler: LogHandler = (
   namespace,
 ) => {
   if (currentOutput === "default") {
-    // Deno[source].write(chunk);
+    Deno[source].write(chunk);
   }
 };
 export const localLogHandler: LogHandler = (
@@ -93,14 +93,12 @@ export const remoteLogHandler: LogHandler = (
   component,
   namespace,
 ) => {
-  if (currentOutput === "default") {
-    log.remote(
-      component,
-      namespace,
-      source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
-      (log) => log(decoder.decode(chunk)),
-    );
-  }
+  log.remote(
+    component,
+    namespace,
+    source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
+    (log) => log(decoder.decode(chunk)),
+  );
 };
 
 export function initTelemetry(): void {
