@@ -52,14 +52,6 @@ export const SetupSection = () => {
         <Text color="yellow">No setup data available</Text>
       )}
       <Text></Text>
-      {
-        /* <Text color="cyan">Static Configuration:</Text>
-      <Text>🔧 Environment: Development</Text>
-      <Text>📦 Package Manager: npm</Text>
-      <Text>🗄️  Database: PostgreSQL</Text>
-      <Text>🌐 Network: Local</Text>
-      <Text>⚙️  Config File: paima.config.js</Text> */
-      }
     </Box>
   );
 };
