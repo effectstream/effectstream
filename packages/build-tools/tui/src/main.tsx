@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Box, render, Text, useInput, useStdin } from "ink";
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import BigText from "ink-big-text";
 import { ProcessesSection } from "./tab/ProcessesSection.tsx";
 import { SetupSection } from "./tab/SetupSection.tsx";
@@ -54,67 +53,60 @@ const App = () => {
   const renderCurrentSection = () => {
     switch (currentSection) {
       case "processes":
-        return _jsx(ProcessesSection, {});
+        return <ProcessesSection />;
       case "setup":
-        return _jsx(SetupSection, {});
+        return <SetupSection />;
       case "logs":
-        return _jsx(LogsSection, {});
+        return <LogsSection />;
       case "status":
-        return _jsx(StatusSection, {});
+        return <StatusSection />;
       default:
-        return _jsx(ProcessesSection, {});
+        return <ProcessesSection />;
     }
   };
 
-  return _jsxs(Box, {
-    flexDirection: "column",
-    height: "100%",
-    children: [
-      // Header
-      _jsx(Box, {
-        flexDirection: "column",
-        alignItems: "center",
-        borderStyle: "single",
-        borderBottom: true,
-        paddingX: 0,
-        paddingY: 0,
-        justifyContent: "center",
-        children: [
-          _jsx(BigText, {
-            text: "Paima Engine",
-            font: "tiny",
-            colors: ["green"],
-          }, "header0"),
-          _jsx(Text, {
-            color: "gray",
-            children: "Terminal UI - Version 0.1.0",
-          }, "header1"),
-        ],
-      }),
+  return (
+    <Box flexDirection="column" height="100%">
+      {/* Header */}
+      <Box
+        flexDirection="column"
+        alignItems="center"
+        borderStyle="single"
+        borderBottom={true}
+        paddingX={0}
+        paddingY={0}
+        justifyContent="center"
+      >
+        <BigText
+          text="Paima Engine"
+          font="tiny"
+          colors={["green"]}
+        />
+        <Text color="gray">
+          Terminal UI - Version 0.1.0
+        </Text>
+      </Box>
 
-      // Main Content Area
-      _jsx(Box, {
-        flexGrow: 1,
-        children: renderCurrentSection(),
-      }),
+      {/* Main Content Area */}
+      <Box flexGrow={1}>
+        {renderCurrentSection()}
+      </Box>
 
-      // Bottom Navigation Bar
-      _jsx(BottomBar, { currentSection }),
+      {/* Bottom Navigation Bar */}
+      <BottomBar currentSection={currentSection} />
 
-      // Help text
-      _jsx(Box, {
-        paddingX: 1,
-        children: _jsx(Text, {
-          color: "gray",
-          children: "Press ←→ arrows to navigate tabs, ESC to exit",
-        }),
-      }),
-    ],
-  });
+      {/* Help text */}
+      <Box paddingX={1}>
+        <Text color="gray">
+          Press ←→ arrows to navigate tabs, ESC to exit
+        </Text>
+      </Box>
+    </Box>
+  );
 };
 
 export function start(): void {
-  render(_jsx(App, {}));
+  render(<App />);
 }
 
 start();

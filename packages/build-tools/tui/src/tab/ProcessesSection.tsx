@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 
 interface Process {
   name: string;
@@ -109,66 +108,60 @@ export const ProcessesSection = () => {
     return () => clearInterval(interval);
   }, [selectedIndex]);
 
-  return _jsxs(Box, {
-    flexDirection: "column",
-    padding: 1,
-    children: [
-      _jsx(Text, { color: "cyan", children: "=== Running Processes ===" }),
-      _jsx(Text, { children: "" }),
-      error ? _jsx(Text, { color: "red", children: `Error: ${error}` }) : null,
-      _jsx(Text, { color: "gray", children: `Last updated: ${lastUpdated}` }),
-      _jsx(Text, { children: "" }),
-      showConfirmation
-        ? _jsxs(Box, {
-          flexDirection: "column",
-          borderStyle: "single",
-          padding: 1,
-          children: [
-            _jsx(Text, {
-              color: "yellow",
-              children:
-                `Restart process: ${processToRestart?.name} (PID: ${processToRestart?.pid})?`,
-            }),
-            _jsx(Text, {
-              color: "white",
-              children: "Press 'y' to confirm, 'n' or ESC to cancel",
-            }),
-          ],
-        })
-        : null,
-      ...(showConfirmation ? [] : [
-        _jsx(Text, {
-          color: "white",
-          bold: true,
-          children: "PID      Name                 Args",
-        }),
-        _jsx(Text, { color: "white", bold: true, children: "─".repeat(80) }),
-        ...processes.map((process: Process, index: number) =>
-          _jsx(Text, {
-            children: `${process.pid.toString().padEnd(8)} ${
-              process.name.padEnd(20)
-            } ${process.args.join(" ")}`,
-            color: !process.alive
-              ? "red"
-              : process.name === "unknown"
-              ? "yellow"
-              : "green",
-            backgroundColor: index === selectedIndex ? "blue" : undefined,
-            bold: index === selectedIndex,
-          }, index)
-        ),
-        processes.length === 0 && !error
-          ? _jsx(Text, { color: "yellow", children: "No processes found" })
-          : null,
-        processes.length > 0
-          ? _jsx(Text, {
-            color: "gray",
-            children: `Use ↑↓ arrows to navigate, ENTER to restart (${
-              selectedIndex + 1
-            }/${processes.length})`,
-          })
-          : null,
-      ]),
-    ].filter(Boolean),
-  });
+  return (
+    <Box flexDirection="column" padding={1}>
+      <Text color="cyan">=== Running Processes ===</Text>
+      <Text></Text>
+      {error && <Text color="red">Error: {error}</Text>}
+      <Text color="gray">Last updated: {lastUpdated}</Text>
+      <Text></Text>
+      {showConfirmation
+        ? (
+          <Box flexDirection="column" borderStyle="single" padding={1}>
+            <Text color="yellow">
+              Restart process: {processToRestart?.name} (PID:{" "}
+              {processToRestart?.pid})?
+            </Text>
+            <Text color="white">
+              Press 'y' to confirm, 'n' or ESC to cancel
+            </Text>
+          </Box>
+        )
+        : (
+          <>
+            <Text color="white" bold={true}>
+              PID Name Args
+            </Text>
+            <Text color="white" bold={true}>
+              {"─".repeat(80)}
+            </Text>
+            {processes.map((process: Process, index: number) => (
+              <Text
+                key={index}
+                color={!process.alive
+                  ? "red"
+                  : process.name === "unknown"
+                  ? "yellow"
+                  : "green"}
+                backgroundColor={index === selectedIndex ? "blue" : undefined}
+                bold={index === selectedIndex}
+              >
+                {`${process.pid.toString().padEnd(8)} ${
+                  process.name.padEnd(20)
+                } ${process.args.join(" ")}`}
+              </Text>
+            ))}
+            {processes.length === 0 && !error && (
+              <Text color="yellow">No processes found</Text>
+            )}
+            {processes.length > 0 && (
+              <Text color="gray">
+                Use ↑↓ arrows to navigate, ENTER to restart ({selectedIndex +
+                  1}/{processes.length})
+              </Text>
+            )}
+          </>
+        )}
+    </Box>
+  );
 };

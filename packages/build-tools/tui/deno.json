@@ -4,7 +4,7 @@
   "exports": "./src/mod.ts",
   "tasks": {
     "check": "echo 'no check'",
-    "dev": "deno run -A src/main.ts"
+    "dev": "deno run -A src/main.tsx"
   },
   "imports": {
     "ink": "npm:ink@5.1.0",

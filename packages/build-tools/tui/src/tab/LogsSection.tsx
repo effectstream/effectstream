@@ -1,6 +1,5 @@
 import React from "react";
 import { Box, Text, useStdout } from "ink";
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 
 type LogData = {
   component: string;
@@ -57,18 +56,15 @@ export const LogsSection = () => {
     };
   }, [write]);
 
-  return _jsxs(Box, {
-    flexDirection: "column",
-    padding: 1,
-    children: [
-      _jsx(Text, { color: "magenta", children: "=== System Logs ===" }),
-      _jsx(Text, { children: "" }),
-      _jsx(Text, {
-        color: "gray",
-        children: "Real-time logs from collector...",
-      }),
-    ],
-  });
+  return (
+    <Box flexDirection="column" padding={1}>
+      <Text color="magenta">=== System Logs ===</Text>
+      <Text></Text>
+      <Text color="gray">
+        Real-time logs from collector...
+      </Text>
+    </Box>
+  );
 };
 
 // Helper function to convert severity numbers to readable names

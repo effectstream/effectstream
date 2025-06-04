@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Box, Text } from "ink";
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 
 export const SetupSection = () => {
   const [setupData, setSetupData] = useState<Record<string, string>>({});
@@ -32,33 +31,35 @@ export const SetupSection = () => {
     return () => clearInterval(interval);
   }, []);
 
-  return _jsxs(Box, {
-    flexDirection: "column",
-    padding: 1,
-    children: [
-      _jsx(Text, { color: "green", children: "=== Setup Configuration ===" }),
-      _jsx(Text, { children: "" }),
-      error ? _jsx(Text, { color: "red", children: `Error: ${error}` }) : null,
-      _jsx(Text, { color: "gray", children: `Last updated: ${lastUpdated}` }),
-      _jsx(Text, { children: "" }),
-      _jsx(Text, { color: "yellow", children: "Environment Variables:" }),
-      _jsx(Text, { children: "" }),
-      ...Object.entries(setupData).map(([key, value]) =>
-        _jsx(Text, {
-          children: `${key.padEnd(20)}: ${value}`,
-          color: value === "undefined" ? "red" : "white",
-        }, key)
-      ),
-      Object.keys(setupData).length === 0 && !error
-        ? _jsx(Text, { color: "yellow", children: "No setup data available" })
-        : null,
-      _jsx(Text, { children: "" }),
-      // _jsx(Text, { color: "cyan", children: "Static Configuration:" }),
-      // _jsx(Text, { children: "🔧 Environment: Development" }),
-      // _jsx(Text, { children: "📦 Package Manager: npm" }),
-      // _jsx(Text, { children: "🗄️  Database: PostgreSQL" }),
-      // _jsx(Text, { children: "🌐 Network: Local" }),
-      // _jsx(Text, { children: "⚙️  Config File: paima.config.js" }),
-    ],
-  });
+  return (
+    <Box flexDirection="column" padding={1}>
+      <Text color="green">=== Setup Configuration ===</Text>
+      <Text></Text>
+      {error && <Text color="red">Error: {error}</Text>}
+      <Text color="gray">Last updated: {lastUpdated}</Text>
+      <Text></Text>
+      <Text color="yellow">Environment Variables:</Text>
+      <Text></Text>
+      {Object.entries(setupData).map(([key, value]) => (
+        <Text
+          key={key}
+          color={value === "undefined" ? "red" : "white"}
+        >
+          {`${key.padEnd(20)}: ${value}`}
+        </Text>
+      ))}
+      {Object.keys(setupData).length === 0 && !error && (
+        <Text color="yellow">No setup data available</Text>
+      )}
+      <Text></Text>
+      {
+        /* <Text color="cyan">Static Configuration:</Text>
+      <Text>🔧 Environment: Development</Text>
+      <Text>📦 Package Manager: npm</Text>
+      <Text>🗄️  Database: PostgreSQL</Text>
+      <Text>🌐 Network: Local</Text>
+      <Text>⚙️  Config File: paima.config.js</Text> */
+      }
+    </Box>
+  );
 };

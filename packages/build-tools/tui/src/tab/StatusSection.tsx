@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Box, Text } from "ink";
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 
 export const StatusSection = () => {
   const [evmCounter1, setEvmCounter1] = useState<number>(0);
@@ -37,26 +36,21 @@ export const StatusSection = () => {
     };
   }, []);
 
-  return _jsxs(Box, {
-    flexDirection: "column",
-    padding: 1,
-    children: [
-      _jsx(Text, { color: "blue", children: "=== Chain Status ===" }),
-      _jsx(Text, { children: "" }),
-      _jsx(Text, { color: "gray", children: `Last updated: ${lastUpdated}` }),
-      _jsx(Text, { children: "" }),
-      _jsx(Text, {
-        color: "green",
-        children: `EVM #1 latest block ${evmCounter1.toLocaleString()}`,
-      }),
-      _jsx(Text, {
-        color: "green",
-        children: `EVM #2 latest block ${evmCounter2.toLocaleString()}`,
-      }),
-      _jsx(Text, {
-        color: "green",
-        children: `Cardano #1 latest block ${cardanoCounter.toLocaleString()}`,
-      }),
-    ],
-  });
+  return (
+    <Box flexDirection="column" padding={1}>
+      <Text color="blue">=== Chain Status ===</Text>
+      <Text></Text>
+      <Text color="gray">Last updated: {lastUpdated}</Text>
+      <Text></Text>
+      <Text color="green">
+        EVM #1 latest block {evmCounter1.toLocaleString()}
+      </Text>
+      <Text color="green">
+        EVM #2 latest block {evmCounter2.toLocaleString()}
+      </Text>
+      <Text color="green">
+        Cardano #1 latest block {cardanoCounter.toLocaleString()}
+      </Text>
+    </Box>
+  );
 };
