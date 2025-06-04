@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { Box, Text } from "ink";
+import { useLogs } from "../hooks/useLogs.tsx";
 
 export const StatusSection = () => {
+  // Enable logs in this section
+  useLogs();
+
   const [evmCounter1, setEvmCounter1] = useState<number>(0);
   const [evmCounter2, setEvmCounter2] = useState<number>(0);
   const [cardanoCounter, setCardanoCounter] = useState<number>(0);
@@ -37,20 +41,41 @@ export const StatusSection = () => {
   }, []);
 
   return (
-    <Box flexDirection="column" padding={1}>
+    <Box flexDirection="column" padding={0}>
       <Text color="blue">=== Chain Status ===</Text>
       <Text></Text>
       <Text color="gray">Last updated: {lastUpdated}</Text>
       <Text></Text>
-      <Text color="green">
-        EVM #1 latest block {evmCounter1.toLocaleString()}
-      </Text>
-      <Text color="green">
-        EVM #2 latest block {evmCounter2.toLocaleString()}
-      </Text>
-      <Text color="green">
-        Cardano #1 latest block {cardanoCounter.toLocaleString()}
-      </Text>
+
+      {/* Header row */}
+      <Box flexDirection="row" gap={3}>
+        <Box width={15}>
+          <Text color="yellow" bold>EVM #1</Text>
+        </Box>
+        <Text color="gray">|</Text>
+        <Box width={15}>
+          <Text color="yellow" bold>EVM #2</Text>
+        </Box>
+        <Text color="gray">|</Text>
+        <Box width={15}>
+          <Text color="yellow" bold>Cardano #1</Text>
+        </Box>
+      </Box>
+
+      {/* Values row */}
+      <Box flexDirection="row" gap={3}>
+        <Box width={15}>
+          <Text color="green">{evmCounter1.toLocaleString()}</Text>
+        </Box>
+        <Text color="gray">|</Text>
+        <Box width={15}>
+          <Text color="green">{evmCounter2.toLocaleString()}</Text>
+        </Box>
+        <Text color="gray">|</Text>
+        <Box width={15}>
+          <Text color="green">{cardanoCounter.toLocaleString()}</Text>
+        </Box>
+      </Box>
     </Box>
   );
 };

@@ -4,7 +4,6 @@ import BigText from "ink-big-text";
 import { ProcessesSection } from "./tab/ProcessesSection.tsx";
 import { SetupSection } from "./tab/SetupSection.tsx";
 import { StatusSection } from "./tab/StatusSection.tsx";
-import { LogsSection } from "./tab/LogsSection.tsx";
 import {
   BottomBar,
   type Section,
@@ -14,7 +13,7 @@ import {
 
 // Main App Component
 const App = () => {
-  const [currentSection, setCurrentSection] = useState<Section>("logs");
+  const [currentSection, setCurrentSection] = useState<Section>("status");
 
   const { setRawMode } = useStdin();
   setRawMode(true);
@@ -56,8 +55,6 @@ const App = () => {
         return <ProcessesSection />;
       case "setup":
         return <SetupSection />;
-      case "logs":
-        return <LogsSection />;
       case "status":
         return <StatusSection />;
       default:
@@ -66,7 +63,10 @@ const App = () => {
   };
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box
+      flexDirection="column"
+      height="100%"
+    >
       {/* Header */}
       <Box
         flexDirection="column"
@@ -77,13 +77,21 @@ const App = () => {
         paddingY={0}
         justifyContent="center"
       >
-        <BigText
-          text="Paima Engine"
-          font="tiny"
-          colors={["green"]}
-        />
+        <Text
+          color="green"
+          bold={true}
+        >
+          Paima Engine
+        </Text>
         <Text color="gray">
           Terminal UI - Version 0.1.0
+        </Text>
+      </Box>
+
+      {/* Help text */}
+      <Box paddingX={1}>
+        <Text color="gray">
+          Press ←→ arrows to navigate tabs, ESC to exit
         </Text>
       </Box>
 
@@ -94,13 +102,6 @@ const App = () => {
 
       {/* Bottom Navigation Bar */}
       <BottomBar currentSection={currentSection} />
-
-      {/* Help text */}
-      <Box paddingX={1}>
-        <Text color="gray">
-          Press ←→ arrows to navigate tabs, ESC to exit
-        </Text>
-      </Box>
     </Box>
   );
 };

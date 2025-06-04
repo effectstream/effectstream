@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
+import { useLogs } from "../hooks/useLogs.tsx";
 
 interface Process {
   name: string;
@@ -13,6 +14,9 @@ interface ProcessResponse {
 }
 
 export const ProcessesSection = () => {
+  // Enable logs in this section
+  useLogs();
+
   const [processes, setProcesses] = useState<Process[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>("");

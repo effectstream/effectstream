@@ -64,7 +64,7 @@ server.post("/v1/traces", async (request: any, reply: any) => {
             level: SeverityNumber.DEBUG,
             // toFixed(3) means we can display up to ms precision
             // adding more tends to lead to outputs like 0.30000000000000004
-            message: [`ended (${seconds.toFixed(3)}s)`],
+            message: `ended (${seconds.toFixed(3)}s)`,
           });
         }
       }
@@ -95,7 +95,7 @@ server.post("/v1/metrics", async (request: any, reply: any) => {
             component: scope.name,
             namespace: [metric.name],
             level: SeverityNumber.TRACE,
-            message: ["updated"],
+            message: "updated",
           });
         }
       }
@@ -143,7 +143,7 @@ server.post("/v1/logs", async (request: any, reply: any) => {
             namespace: namespace,
             level: (logRecord.severityNumber as unknown as SeverityNumber) ??
               SeverityNumber.UNSPECIFIED,
-            message: [JSON.parse(otelStringify(logRecord.body))],
+            message: JSON.parse(otelStringify(logRecord.body)),
           });
         }
       }

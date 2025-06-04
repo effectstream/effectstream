@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { Box, Text } from "ink";
+import { useLogs } from "../hooks/useLogs.tsx";
 
 export const SetupSection = () => {
+  // Enable logs in this section
+  useLogs();
+
   const [setupData, setSetupData] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>("");

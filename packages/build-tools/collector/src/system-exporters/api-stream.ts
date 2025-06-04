@@ -1,6 +1,30 @@
 import type { Namespace, SeverityNumber } from "@paima/log";
 import { fastify, type FastifyInstance } from "fastify";
-import type { ExportData } from "../exporters.ts";
+
+export interface TsLogExported {
+  "0": string;
+  _meta: Meta;
+}
+
+export interface Meta {
+  runtime: string;
+  runtimeVersion: string;
+  hostname: string;
+  date: Date;
+  logLevelId: number;
+  logLevelName: string;
+  path: Path;
+}
+
+export interface Path {
+  fullFilePath: string;
+  fileName: string;
+  fileNameWithLine: string;
+  fileColumn: string;
+  fileLine: string;
+  filePath: string;
+  filePathWithLine: string;
+}
 
 //
 // This exporter exposes the lastest 1000 logs.
@@ -10,9 +34,9 @@ import type { ExportData } from "../exporters.ts";
 //
 const MAX_DATA_ITEMS = 1000;
 
-const dataStore: ExportData[] = [];
+const dataStore: TsLogExported[] = [];
 
-export function addData(item: ExportData) {
+export function addData(item: TsLogExported) {
   dataStore.push(item);
   // Keep only the latest 1000 items
   if (dataStore.length > MAX_DATA_ITEMS) {
