@@ -59,9 +59,11 @@ export async function start(): Promise<void> {
       await Promise.all([waitOtlp.process.status]);
       setCollectorStarted();
     }
+    // Do now wait for the TUI process to finish,
+    // as it's a long-running process.
+    startTUI();
 
     await Promise.all([
-      startTUI(),
       startDb(),
       startCardano(),
       startEvm(),

@@ -3,7 +3,7 @@ import { Box, Text, useInput } from "ink";
 import { useLogs } from "../hooks/useLogs.tsx";
 
 interface Process {
-  name: string;
+  name?: string;
   pid: number;
   alive: boolean;
   args: string[];
@@ -159,14 +159,14 @@ export const ProcessesSection = () => {
                 key={index}
                 color={!process.alive
                   ? "red"
-                  : process.name === "unknown"
+                  : !process.name
                   ? "yellow"
                   : "green"}
                 backgroundColor={index === selectedIndex ? "blue" : undefined}
                 bold={index === selectedIndex}
               >
                 {`${process.pid.toString().padEnd(8)} ${
-                  process.name.padEnd(20)
+                  (process.name ?? "noname").padEnd(20)
                 } ${process.args.join(" ")}`}
               </Text>
             ))}

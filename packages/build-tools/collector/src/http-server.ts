@@ -9,12 +9,17 @@ import {
 import { Value } from "@sinclair/typebox/value";
 import { otelStringify, parseFixed64 } from "./parse.ts";
 import {
+  attachTransport,
   ComponentNames,
   log as logger,
   type Namespace,
   SeverityNumber,
 } from "@paima/log";
-import { exportData } from "./exporters.ts";
+import {
+  exportToApiStream,
+  type TsLogExported,
+} from "./system-exporters/api-stream.ts";
+
 // this file is based on https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
 
 // TODO: maybe this should run on a different port and then forward to 4318
@@ -36,6 +41,27 @@ function printError(e: any, namespace: string, request: any) {
     (log) => log(e, requestBody),
   );
 }
+
+function exportData(data: {
+  component: string;
+  namespace: Namespace;
+  level: SeverityNumber;
+  message: string | string[];
+}) {
+  logger.local(
+    data.component,
+    data.namespace,
+    data.level,
+    (log) => {
+      Array.isArray(data.message) ? log(...data.message) : log(data.message);
+    },
+  );
+}
+
+// Add a tsLog hook to export the logs to the API stream
+attachTransport((logObj) => {
+  exportToApiStream(logObj as unknown as TsLogExported);
+});
 
 // DANGER: these endpoints only support JSON and reject other OpenTelemetry data formats
 //         in the future, we can support protobuf using `otlp-transformer` once it has a stable release
@@ -90,7 +116,6 @@ server.post("/v1/metrics", async (request: any, reply: any) => {
         for (const metric of scopeMetric.metrics) {
           // trying to figure out how to print all of these to console is non-trivial
           // especially since a lot of it is very metric-specific like parsing attributes
-
           exportData({
             component: scope.name,
             namespace: [metric.name],

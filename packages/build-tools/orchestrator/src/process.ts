@@ -5,7 +5,7 @@ import type { ValueOf } from "@paima/utils";
 
 export type ProcessComponent = {
   process: Deno.ChildProcess;
-  component: ValueOf<typeof ComponentNames>;
+  component?: ValueOf<typeof ComponentNames>;
   args: string[];
   alive: boolean;
   date: string;
@@ -69,7 +69,7 @@ export const $ = (params: {
     args: params.args,
     alive: true,
     date: new Date().toISOString(),
-    component: params.component ?? "unknown",
+    component: params.component,
   };
   processes.push(processComponent);
 

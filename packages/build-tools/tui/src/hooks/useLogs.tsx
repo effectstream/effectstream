@@ -1,6 +1,7 @@
 import React from "react";
 import { useStdout } from "ink";
 import type { TsLogExported } from "@paima/collector";
+import { DefaultLogLevels } from "@paima/log";
 
 // Singleton to store namespaces and their enabled state globally
 class NamespaceStore {
@@ -189,19 +190,19 @@ export const useLogs = () => {
 // Helper function to convert severity numbers to readable names
 function getSeverityName(severity: number): string {
   switch (severity) {
-    case 0:
+    case DefaultLogLevels.SILLY:
       return "SILLY";
-    case 1:
+    case DefaultLogLevels.TRACE:
       return "TRACE";
-    case 2:
+    case DefaultLogLevels.DEBUG:
       return "DEBUG";
-    case 3:
+    case DefaultLogLevels.INFO:
       return "INFO";
-    case 4:
+    case DefaultLogLevels.WARN:
       return "WARN";
-    case 5:
+    case DefaultLogLevels.ERROR:
       return "ERROR";
-    case 6:
+    case DefaultLogLevels.FATAL:
       return "FATAL";
     default:
       return severity.toString();
