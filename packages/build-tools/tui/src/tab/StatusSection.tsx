@@ -48,7 +48,8 @@ export const StatusSection = () => {
       <Text></Text>
 
       {/* Header row */}
-      <Box flexDirection="row" gap={3}>
+      {
+        /* <Box flexDirection="row" gap={3}>
         <Box width={15}>
           <Text color="yellow" bold>EVM #1</Text>
         </Box>
@@ -60,10 +61,12 @@ export const StatusSection = () => {
         <Box width={15}>
           <Text color="yellow" bold>Cardano #1</Text>
         </Box>
-      </Box>
+      </Box> */
+      }
 
       {/* Values row */}
-      <Box flexDirection="row" gap={3}>
+      {
+        /* <Box flexDirection="row" gap={3}>
         <Box width={15}>
           <Text color="green">{evmCounter1.toLocaleString()}</Text>
         </Box>
@@ -75,7 +78,8 @@ export const StatusSection = () => {
         <Box width={15}>
           <Text color="green">{cardanoCounter.toLocaleString()}</Text>
         </Box>
-      </Box>
+      </Box> */
+      }
     </Box>
   );
 };

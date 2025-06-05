@@ -47,6 +47,7 @@ export function shutdown(): void {
       return true;
     })
     .forEach((process) => {
+      // console.log("Shutting down process", process.component);
       process.abortController.abort();
     });
 
@@ -120,6 +121,12 @@ export const $ = (params: {
     if (processComponent._allow_restart) {
       processComponent._allow_restart = false;
       return;
+    }
+    if (processComponent.component === ComponentNames.TUI) {
+      shutdown();
+      awaitShutdown().then(() => {
+        Deno.exit(0);
+      });
     }
     if (!status.success) {
       if (!failed) {
