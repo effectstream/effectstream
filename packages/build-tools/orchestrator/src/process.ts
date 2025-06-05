@@ -1,4 +1,9 @@
-import { type LogHandler, streamTo, systemLog } from "./logging.ts";
+import {
+  type LogHandler,
+  setCurrentOutput,
+  streamTo,
+  systemLog,
+} from "./logging.ts";
 import type { Namespace } from "@paima/log";
 import { ComponentNames } from "@paima/log";
 import type { ValueOf } from "@paima/utils";
@@ -24,6 +29,14 @@ export class AbortProcessStart extends Error {
 }
 
 export function shutdown(): void {
+  processes.filter((p) => p.alive && p.component === ComponentNames.TUI)
+    .forEach((p) => {
+      p.abortController.abort();
+    });
+
+  // Switch to stdout, as we are shutting down the TUI
+  setCurrentOutput("stdout");
+
   processes
     .filter((p) => {
       if (!p.alive) return false;
@@ -36,12 +49,9 @@ export function shutdown(): void {
     .forEach((process) => {
       process.abortController.abort();
     });
+
   processes
-    .filter((p) =>
-      p.alive &&
-      (p.component === ComponentNames.ORCHESTRATOR ||
-        p.component === ComponentNames.TUI)
-    )
+    .filter((p) => p.alive && p.component === ComponentNames.ORCHESTRATOR)
     .forEach((p) => {
       p.abortController.abort();
     });
@@ -121,8 +131,6 @@ export const $ = (params: {
 
         console.error("Shutdown caused by ", params.args);
         shutdown();
-        awaitShutdown();
-        Deno.exit(1);
       }
       failed = true;
     }

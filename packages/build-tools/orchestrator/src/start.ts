@@ -1,9 +1,8 @@
 #!/usr/bin/env -S deno run --allow-all
-import { ValueOf } from "@paima/utils";
+import type { ValueOf } from "@paima/utils";
 import "./http-server.ts";
 
 import {
-  getCurrentOutput,
   initTelemetry,
   logHandler,
   rawLogHandler,
@@ -14,10 +13,26 @@ import {
   AbortProcessStart,
   type ProcessComponent,
   processes,
+  shutdown,
 } from "./process.ts";
 import { ComponentNames } from "@paima/log";
 
+Deno.addSignalListener("SIGINT", async () => {
+  shutdown();
+  await awaitShutdown();
+  Deno.exit(0);
+});
+
 export async function awaitShutdown(): Promise<void> {
+  const wait = (n: number) =>
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, n);
+    });
+
+  while (processes.some((p) => p.alive)) {
+    await wait(100);
+  }
+
   await Promise.all(
     processes.map((process) => process.process[Symbol.asyncDispose]()),
   );
@@ -52,6 +67,7 @@ export async function start(): Promise<void> {
     if (!(e instanceof AbortProcessStart)) {
       console.error(e);
     }
+    shutdown();
     await awaitShutdown();
     Deno.exit(1);
   }
@@ -108,12 +124,9 @@ export const startProcess: Record<
   [ComponentNames.TUI]: async (): Promise<ProcessComponent> => {
     const tui = $({
       args: ["task", "-f", "@paima/tui", "dev"],
-      log: (
-        chunk: Uint8Array,
-      ) => {
-        if (getCurrentOutput() === "tui") {
-          Deno.stdout.write(chunk);
-        }
+      log: (chunk: Uint8Array) => {
+        // The TUI writes directly to stdout.
+        Deno.stdout.write(chunk);
       },
       component: ComponentNames.TUI,
     });

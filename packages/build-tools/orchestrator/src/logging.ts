@@ -27,9 +27,9 @@ export function streamTo(
   });
 }
 
-export type CurrentOutput = "none" | "default" | "tui";
-// Start with default to start with logs
-let currentOutput = "tui";
+export type CurrentOutput = "otel" | "stdout";
+// By default we pass the logs to the OTel collector.
+let currentOutput: CurrentOutput = "otel";
 
 export const setCurrentOutput = (value: CurrentOutput) => {
   currentOutput = value;
@@ -77,11 +77,11 @@ export const rawLogHandler: LogHandler = (
   component,
   namespace,
 ) => {
-  if (currentOutput === "default") {
+  if (currentOutput === "stdout") {
     Deno[source].write(chunk);
-  } else if (currentOutput === "tui" && namespace === "dolos") {
-    // TODO: remove this once dolos uses otel
-    // This is a temporal hack to pass the dolos logs to the TUI through the collector.
+  } else {
+    // This passes non-otel format logs to the collector.
+    // We try to avoid this as much as possible.
     log.remote(
       component,
       namespace,
@@ -98,27 +98,31 @@ export const localLogHandler: LogHandler = (
   component,
   namespace,
 ) => {
-  if (currentOutput === "default") {
-    log.local(
-      component,
-      namespace,
-      source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
-      (log) => log(decoder.decode(chunk)),
-    );
-  }
+  log.local(
+    component,
+    namespace,
+    source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
+    (log) => log(decoder.decode(chunk)),
+  );
 };
+
 export const remoteLogHandler: LogHandler = (
   chunk,
   source,
   component,
   namespace,
 ) => {
-  log.remote(
-    component,
-    namespace,
-    source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
-    (log) => log(decoder.decode(chunk)),
-  );
+  if (currentOutput === "otel") {
+    log.remote(
+      component,
+      namespace,
+      source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
+      (log) => log(decoder.decode(chunk)),
+    );
+  } else {
+    // Fallback to local log handler
+    localLogHandler(chunk, source, component, namespace);
+  }
 };
 
 export function initTelemetry(): void {
