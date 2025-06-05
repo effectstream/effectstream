@@ -9,16 +9,25 @@ export const PaimaComponents = {
   PAIMA_DB: "db",
   ORCHESTRATOR: "orchestrator",
   COLLECTOR: "collector",
-  TUI: "tui",
 };
 const ExternalComponents = {
   HARDHAT: "hardhat",
   YACI_DEVKIT: "yaci-devkit",
   DOLOS: "dolos",
 };
+const ToolsComponents = {
+  CHECKER: "checker",
+  TUI: "tui",
+  DOLOS_WAIT: "dolos-wait",
+  YACI_DEVKIT_WAIT: "yaci-devkit-wait",
+  HARDHA_WAIT: "hardhat-wait",
+  COLLECTOR_WAIT: "collector-wait",
+  PAIMA_DB_WAIT: "db-wait",
+};
 export const ComponentNames = {
   ...PaimaComponents,
   ...ExternalComponents,
+  ...ToolsComponents,
 };
 
 // TODO: this try some ENV var before defaulting to INFO

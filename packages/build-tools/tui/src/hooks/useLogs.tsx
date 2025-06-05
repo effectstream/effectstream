@@ -179,7 +179,7 @@ export const useLogs = () => {
     // Poll for new logs every 500ms
     const timer = setInterval(() => {
       fetchLogs();
-    }, 500);
+    }, 300);
 
     return () => {
       clearInterval(timer);

@@ -31,6 +31,8 @@ export const ProcessesSection = () => {
     if (showConfirmation) {
       // Handle confirmation input
       if (input.toLowerCase() === "y") {
+        // Hide confirmation immediately and restart in background
+        setShowConfirmation(false);
         handleRestart();
       } else if (input.toLowerCase() === "n" || key.escape) {
         setShowConfirmation(false);
@@ -78,7 +80,6 @@ export const ProcessesSection = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown restart error");
     } finally {
-      setShowConfirmation(false);
       setProcessToRestart(null);
     }
   };
@@ -92,17 +93,23 @@ export const ProcessesSection = () => {
         }
         const data: ProcessResponse = await response.json();
 
-        // Filter processes: show alive processes immediately, and finished processes only after 10 seconds
+        // Filter processes: show alive processes immediately, and finished processes for 10 seconds before disappearing
         const now = new Date().getTime();
         const filteredProcesses = data.processes.filter((process: Process) => {
           if (process.alive) {
             return true; // Show alive processes immediately
           }
 
-          // For finished processes, only show after 10 seconds
-          const processDate = new Date(process.date).getTime();
-          const timeSinceFinished = now - processDate;
-          return timeSinceFinished >= 10000; // 10 seconds in milliseconds
+          // For finished processes, show for 10 seconds after they finish
+          // Only use date for dead processes (it should represent termination time)
+          if (process.date) {
+            const processDate = new Date(process.date).getTime();
+            const timeSinceFinished = now - processDate;
+            return timeSinceFinished < 10000; // 10 seconds in milliseconds
+          }
+
+          // If no date for dead process, don't show it
+          return false;
         });
 
         setProcesses(filteredProcesses);

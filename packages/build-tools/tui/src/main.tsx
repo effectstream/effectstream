@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Box, render, Text, useInput, useStdin } from "ink";
-import BigText from "ink-big-text";
 import { ProcessesSection } from "./tab/ProcessesSection.tsx";
 import { SetupSection } from "./tab/SetupSection.tsx";
 import { StatusSection } from "./tab/StatusSection.tsx";
@@ -20,10 +19,6 @@ const App = () => {
   setRawMode(true);
 
   useInput((input, key) => {
-    if (key.escape) {
-      Deno.exit();
-    }
-
     // Handle left/right arrow keys for tab navigation
     if (key.leftArrow) {
       const currentIndex = SECTION_ORDER.indexOf(currentSection);
@@ -94,7 +89,7 @@ const App = () => {
       {/* Help text */}
       <Box paddingX={1}>
         <Text color="gray">
-          Press ←→ arrows to navigate tabs, ESC to exit
+          Press ←→ arrows to navigate tabs, Ctrl+C to exit
         </Text>
       </Box>
 

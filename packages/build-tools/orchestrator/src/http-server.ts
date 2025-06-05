@@ -1,5 +1,7 @@
 import fastify from "fastify";
 import { processes } from "./process.ts";
+import { startProcess } from "./start.ts";
+import { systemLog } from "./logging.ts";
 
 // This file is a HTTP server to expose process information to the TUI.
 
@@ -12,6 +14,7 @@ server.get("/processes", function handler() {
       pid: p.process.pid,
       alive: p.alive,
       args: p.args,
+      date: p.date,
     })),
   };
 });
@@ -23,7 +26,7 @@ server.get("/setup", function handler() {
   return obj;
 });
 
-server.post("/restart", function handler(request) {
+server.post("/restart", async function handler(request) {
   const { pid } = request.body as { pid: number };
   const process = processes.find((p) => p.process.pid === pid);
   if (!process) {
@@ -31,7 +34,27 @@ server.post("/restart", function handler(request) {
   }
 
   try {
-    process.process.kill();
+    const wait = (n: number) =>
+      new Promise((resolve) => setTimeout(resolve, n));
+    systemLog("Terminating process...");
+
+    process._allow_restart = true;
+    process.process.kill("SIGINT");
+    let maxWait = 10000;
+    while (process.alive && maxWait > 0) {
+      await wait(100);
+      maxWait -= 100;
+    }
+    // If SIGINT does not finish the process, kill it with SIGKILL
+    if (process.alive) {
+      process.process.kill("SIGKILL");
+    }
+    if (process.component) {
+      systemLog("Starting new process...");
+      const p = await startProcess[process.component]();
+      systemLog("Started Process " + p.process.pid);
+    }
+
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

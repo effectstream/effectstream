@@ -1,7 +1,7 @@
 import { parse } from "jsonc-parser";
 import fs from "node:fs";
 import { NodeSDK } from "@opentelemetry/sdk-node";
-import { type ComponentNames, defaultOtelSetup } from "@paima/log";
+import { ComponentNames, defaultOtelSetup } from "@paima/log";
 import { log, type Namespace, SeverityNumber } from "@paima/log";
 import type { ValueOf } from "@paima/utils";
 
@@ -46,6 +46,15 @@ let collectorStarted = false;
 export function setCollectorStarted() {
   collectorStarted = true;
 }
+
+export const systemLog = (string: string) => {
+  logHandler(
+    new TextEncoder().encode(string),
+    "stdout",
+    ComponentNames.ORCHESTRATOR,
+    "",
+  );
+};
 
 export const logHandler: LogHandler = (chunk, source, component, namespace) => {
   // if the log collector hasn't started yet, there is no point sending logs to it

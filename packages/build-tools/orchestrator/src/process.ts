@@ -1,22 +1,19 @@
-import { type LogHandler, streamTo } from "./logging.ts";
+import { type LogHandler, streamTo, systemLog } from "./logging.ts";
 import type { Namespace } from "@paima/log";
 import { ComponentNames } from "@paima/log";
 import type { ValueOf } from "@paima/utils";
+import { awaitShutdown } from "./start.ts";
 
 export type ProcessComponent = {
+  abortController: AbortController;
   process: Deno.ChildProcess;
-  component?: ValueOf<typeof ComponentNames>;
+  component: ValueOf<typeof ComponentNames>;
   args: string[];
   alive: boolean;
   date: string;
-};
-
-export const AbortControllers = {
-  chain: new AbortController(),
-  otel: new AbortController(),
-  db: new AbortController(),
-  node: new AbortController(),
-  shortLived: new AbortController(),
+  // This is internal temporal flag to notify that the next
+  // "restart" is intended, so we do not stop paima-engine.
+  _allow_restart?: boolean;
 };
 
 export class AbortProcessStart extends Error {
@@ -27,18 +24,27 @@ export class AbortProcessStart extends Error {
 }
 
 export function shutdown(): void {
-  const nonOtel = (Object.keys(
-    AbortControllers,
-  ) as (keyof typeof AbortControllers)[])
-    // shutdown otel last we may have some error logs to write
-    .filter((key) => key !== "otel");
-  nonOtel.forEach((key) => {
-    try {
-      AbortControllers[key].abort();
-    } catch {
-      // do nothing
-    }
-  });
+  processes
+    .filter((p) => {
+      if (!p.alive) return false;
+      // shutdown otel last we may have some error logs to write
+      if (p.component === ComponentNames.COLLECTOR) return false;
+      // shutdown tui last so we can show messages
+      if (p.component === ComponentNames.TUI) return false;
+      return true;
+    })
+    .forEach((process) => {
+      process.abortController.abort();
+    });
+  processes
+    .filter((p) =>
+      p.alive &&
+      (p.component === ComponentNames.ORCHESTRATOR ||
+        p.component === ComponentNames.TUI)
+    )
+    .forEach((p) => {
+      p.abortController.abort();
+    });
 }
 
 let failed = false;
@@ -47,25 +53,26 @@ export const processes: ProcessComponent[] = [];
 export const $ = (params: {
   // recall: ["exec", ...] to run arbitrary code
   args: string[]; // parsing string->string[] automatically is blocked on https://github.com/denoland/deno_task_shell/pull/137
-  signal?: AbortController;
   log?: LogHandler;
-  component?: ValueOf<typeof ComponentNames>;
+  component: ValueOf<typeof ComponentNames>;
   namespace?: Namespace;
 }): ProcessComponent => {
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
   }
+  const abortController = new AbortController();
   const process = new Deno.Command("deno", {
     args: params.args,
-    signal: (params.signal ?? AbortControllers.shortLived).signal,
+    signal: abortController.signal,
     stderr: "piped",
     stdout: "piped",
     env: { FORCE_COLOR: "true" },
   }).spawn();
   process.ref(); // wait until all child processes die before killing parent
 
-  const processComponent = {
+  const processComponent: ProcessComponent = {
     process,
+    abortController,
     args: params.args,
     alive: true,
     date: new Date().toISOString(),
@@ -94,8 +101,16 @@ export const $ = (params: {
 
   // note: don't block on this
   void process.status.then((status) => {
+    systemLog(
+      "Process " + processComponent.process.pid + " finished. " +
+        JSON.stringify(status) + " --- " + processComponent._allow_restart,
+    );
     processComponent.alive = false;
     processComponent.date = new Date().toISOString();
+    if (processComponent._allow_restart) {
+      processComponent._allow_restart = false;
+      return;
+    }
     if (!status.success) {
       if (!failed) {
         // usually if a :wait command fails, it because another command failed first
@@ -103,8 +118,11 @@ export const $ = (params: {
         if (params.args[params.args.length - 1].endsWith(":wait")) {
           return;
         }
-        shutdown();
+
         console.error("Shutdown caused by ", params.args);
+        shutdown();
+        awaitShutdown();
+        Deno.exit(1);
       }
       failed = true;
     }

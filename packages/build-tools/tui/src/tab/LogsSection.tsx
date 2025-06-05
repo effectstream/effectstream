@@ -33,16 +33,40 @@ export const LogsSection = () => {
 
   // Handle keyboard input for navigation and toggling
   useInput((input, key) => {
-    if (key.upArrow && selectedIndex > 0) {
-      setSelectedIndex(selectedIndex - 1);
-    } else if (key.downArrow && selectedIndex < logStreams.length - 1) {
-      setSelectedIndex(selectedIndex + 1);
+    if (key.upArrow) {
+      if (selectedIndex > 0) {
+        setSelectedIndex(selectedIndex - 1);
+      } else {
+        // Overflow to end when at the beginning
+        setSelectedIndex(logStreams.length - 1);
+      }
+    } else if (key.downArrow) {
+      if (selectedIndex < logStreams.length - 1) {
+        setSelectedIndex(selectedIndex + 1);
+      } else {
+        // Overflow to start when at the end
+        setSelectedIndex(0);
+      }
     } else if (input === " " || key.return) {
       // Toggle the selected stream in global state
       if (logStreams[selectedIndex]) {
         const stream = logStreams[selectedIndex];
         toggleNamespace(stream.namespace, !stream.enabled);
       }
+    } else if (input === "x" || input === "X") {
+      // Disable all streams
+      logStreams.forEach((stream) => {
+        if (stream.enabled) {
+          toggleNamespace(stream.namespace, false);
+        }
+      });
+    } else if (input === "z" || input === "Z") {
+      // Enable all streams
+      logStreams.forEach((stream) => {
+        if (!stream.enabled) {
+          toggleNamespace(stream.namespace, true);
+        }
+      });
     }
   });
 
@@ -53,7 +77,7 @@ export const LogsSection = () => {
       </Text>
       <Text></Text>
       <Text color="gray">
-        Use ↑↓ to navigate, SPACE or ENTER to toggle
+        Use ↑↓ to navigate [ENTER] toggle [X] disable all [Z] enable all
       </Text>
       <Text></Text>
 
