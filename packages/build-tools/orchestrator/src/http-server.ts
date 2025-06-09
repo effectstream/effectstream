@@ -16,6 +16,7 @@ server.get("/processes", function handler() {
   };
 });
 
+// TODO: Move this to the env/config loader.
 const env: (string | { name: string; isSecret?: boolean })[] = [
   "DB_HOST",
   "DB_NAME",

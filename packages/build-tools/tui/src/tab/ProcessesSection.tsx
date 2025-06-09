@@ -19,67 +19,22 @@ export const ProcessesSection = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
-  const [showConfirmation, setShowConfirmation] = useState<boolean>(false);
   const [processToRestart, setProcessToRestart] = useState<Process | null>(
     null,
   );
 
   useInput((input, key) => {
-    if (showConfirmation) {
-      // Handle confirmation input
-      if (input.toLowerCase() === "y") {
-        // Hide confirmation immediately and restart in background
-        setShowConfirmation(false);
-        handleRestart();
-      } else if (input.toLowerCase() === "n" || key.escape) {
-        setShowConfirmation(false);
-        setProcessToRestart(null);
-      }
-    } else {
-      // Handle normal navigation
-      if (key.upArrow && processes.length > 0) {
-        setSelectedIndex((
-          prev,
-        ) => (prev > 0 ? prev - 1 : processes.length - 1));
-      } else if (key.downArrow && processes.length > 0) {
-        setSelectedIndex((
-          prev,
-        ) => (prev < processes.length - 1 ? prev + 1 : 0));
-      } else if (key.return && processes.length > 0) {
-        // Enter key pressed - show confirmation
-        // const selectedProcess = processes[selectedIndex];
-        // setProcessToRestart(selectedProcess);
-        // setShowConfirmation(true);
-      }
+    // Handle normal navigation
+    if (key.upArrow && processes.length > 0) {
+      setSelectedIndex((
+        prev,
+      ) => (prev > 0 ? prev - 1 : processes.length - 1));
+    } else if (key.downArrow && processes.length > 0) {
+      setSelectedIndex((
+        prev,
+      ) => (prev < processes.length - 1 ? prev + 1 : 0));
     }
   });
-
-  const handleRestart = async () => {
-    if (!processToRestart) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/restart`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ pid: processToRestart.pid }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      if (!result.success) {
-        setError(`Restart failed: ${result.error}`);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown restart error");
-    } finally {
-      setProcessToRestart(null);
-    }
-  };
 
   useEffect(() => {
     const fetchProcesses = async () => {
@@ -138,54 +93,35 @@ export const ProcessesSection = () => {
       {error && <Text color="red">Error: {error}</Text>}
       <Text color="gray">Last updated: {lastUpdated}</Text>
       <Text></Text>
-      {showConfirmation
-        ? (
-          <Box flexDirection="column" borderStyle="single" padding={1}>
-            <Text color="yellow">
-              Restart process: {processToRestart?.name} (PID:{" "}
-              {processToRestart?.pid})?
-            </Text>
-            <Text color="white">
-              Press 'y' to confirm, 'n' or ESC to cancel
-            </Text>
-          </Box>
-        )
-        : (
-          <>
-            <Text color="white" bold={true}>
-              PID Name Args
-            </Text>
-            <Text color="white" bold={true}>
-              {"─".repeat(80)}
-            </Text>
-            {processes.map((process: Process, index: number) => (
-              <Text
-                wrap="truncate"
-                key={index}
-                color={!process.alive
-                  ? "red"
-                  : !process.name
-                  ? "yellow"
-                  : "green"}
-                backgroundColor={index === selectedIndex ? "blue" : undefined}
-                bold={index === selectedIndex}
-              >
-                {`${process.pid.toString().padEnd(8)} ${
-                  (process.name ?? "noname").padEnd(20)
-                } ${process.args.join(" ")}`}
-              </Text>
-            ))}
-            {processes.length === 0 && !error && (
-              <Text color="yellow">No processes found</Text>
-            )}
-            {processes.length > 0 && (
-              <Text color="gray">
-                Use ↑↓ arrows to navigate ({selectedIndex +
-                  1}/{processes.length})
-              </Text>
-            )}
-          </>
-        )}
+
+      <Text color="white" bold={true}>
+        PID Name Args
+      </Text>
+      <Text color="white" bold={true}>
+        {"─".repeat(80)}
+      </Text>
+      {processes.map((process: Process, index: number) => (
+        <Text
+          wrap="truncate"
+          key={index}
+          color={!process.alive ? "red" : !process.name ? "yellow" : "green"}
+          backgroundColor={index === selectedIndex ? "blue" : undefined}
+          bold={index === selectedIndex}
+        >
+          {`${process.pid.toString().padEnd(8)} ${
+            (process.name ?? "noname").padEnd(20)
+          } ${process.args.join(" ")}`}
+        </Text>
+      ))}
+      {processes.length === 0 && !error && (
+        <Text color="yellow">No processes found</Text>
+      )}
+      {processes.length > 0 && (
+        <Text color="gray">
+          Use ↑↓ arrows to navigate ({selectedIndex +
+            1}/{processes.length})
+        </Text>
+      )}
     </Box>
   );
 };
