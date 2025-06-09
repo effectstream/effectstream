@@ -23,7 +23,6 @@ Deno.addSignalListener("SIGINT", () => {
 
 export async function start(): Promise<void> {
   initTelemetry();
-  startTmux();
   try {
     // fast-fail if there are type errors in the project
     await startProcess[ComponentNames.CHECKER]();
@@ -53,9 +52,6 @@ export async function start(): Promise<void> {
     await shutdown(1);
   }
 }
-
-const startTmux = async () => {
-};
 
 export const startProcess: Record<
   ValueOf<typeof ComponentNames>,
