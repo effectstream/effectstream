@@ -1,5 +1,5 @@
-import type { Namespace, SeverityNumber } from "@paima/log";
-import { fastify, type FastifyInstance } from "fastify";
+import { fastify } from "fastify";
+import { Type } from "@sinclair/typebox";
 
 //
 // This API exposes the latest 1000 otel logs using.
@@ -8,6 +8,32 @@ import { fastify, type FastifyInstance } from "fastify";
 // This is used by the TUI to display the latest logs.
 //
 const MAX_DATA_ITEMS = 1000;
+
+// Typebox schemas for validation
+const PathSchema = Type.Object({
+  fullFilePath: Type.String(),
+  fileName: Type.String(),
+  fileNameWithLine: Type.String(),
+  fileColumn: Type.String(),
+  fileLine: Type.String(),
+  filePath: Type.String(),
+  filePathWithLine: Type.String(),
+});
+
+const MetaSchema = Type.Object({
+  runtime: Type.String(),
+  runtimeVersion: Type.String(),
+  hostname: Type.String(),
+  date: Type.String({ format: "date-time" }),
+  logLevelId: Type.Number(),
+  logLevelName: Type.String(),
+  path: PathSchema,
+});
+
+const TsLogExportedSchema = Type.Object({
+  "0": Type.String(),
+  _meta: MetaSchema,
+});
 
 export interface TsLogExported {
   "0": string;
@@ -89,9 +115,9 @@ class RingBuffer<T> {
 
 const dataStore = new RingBuffer<TsLogExported>(MAX_DATA_ITEMS);
 
-export function exportToApiStream(item: TsLogExported) {
-  dataStore.push(item);
-}
+// export function exportToApiStream(item: TsLogExported) {
+//   dataStore.push(item);
+// }
 
 function getData() {
   const copy = dataStore.toArray();
@@ -105,14 +131,32 @@ const PORT = Deno.env.get("COLLECTOR_LOG_PORT")
 
 const server = fastify();
 
-server.get("/v1/data", async (request: any, reply: any) => {
+server.post("/v1/data", {
+  schema: {
+    body: TsLogExportedSchema,
+  },
+}, (request: any, reply: any) => {
+  try {
+    dataStore.push(request.body as TsLogExported);
+    reply.status(200).send({ success: true });
+  } catch (error) {
+    reply.status(500).send({ error: "Failed to store log data" });
+  }
+});
+
+server.get("/v1/data", (request: any, reply: any) => {
   const copy = getData();
   reply.status(200).send(copy);
 });
 
-try {
-  await server.listen({ port: PORT });
-} catch (err) {
-  server.log.error(err);
-  Deno.exit(1);
+export async function startServer() {
+  try {
+    await server.listen({ port: PORT });
+    console.log(`🔍 Starting logs server on port ${PORT}`);
+  } catch (err) {
+    console.log(`❌ Failed to start logs server on port ${PORT}`);
+    console.error(err);
+    Deno.exit(1);
+  }
+  return server;
 }

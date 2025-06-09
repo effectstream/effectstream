@@ -15,10 +15,6 @@ import {
   type Namespace,
   SeverityNumber,
 } from "@paima/log";
-import {
-  exportToApiStream,
-  type TsLogExported,
-} from "./system-exporters/api-stream.ts";
 
 // this file is based on https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
 
@@ -59,8 +55,19 @@ function exportData(data: {
 }
 
 // Add a tsLog hook to export the logs to the API stream
-attachTransport((logObj) => {
-  exportToApiStream(logObj as unknown as TsLogExported);
+const API_LOG_URL = Deno.env.get("API_LOG_URL") ?? "http://localhost:11033";
+attachTransport(async (logObj) => {
+  try {
+    await fetch(API_LOG_URL + "/v1/data", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(logObj),
+    });
+  } catch {
+    // ignore, server might be not running yet
+  }
 });
 
 // DANGER: these endpoints only support JSON and reject other OpenTelemetry data formats

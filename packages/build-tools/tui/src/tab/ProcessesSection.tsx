@@ -180,7 +180,7 @@ export const ProcessesSection = () => {
             )}
             {processes.length > 0 && (
               <Text color="gray">
-                Use ↑↓ arrows to navigate, ENTER to restart ({selectedIndex +
+                Use ↑↓ arrows to navigate ({selectedIndex +
                   1}/{processes.length})
               </Text>
             )}

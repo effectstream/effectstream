@@ -1,4 +1,5 @@
 import { API_LOG_URL } from "./config.ts";
+import { startServer } from "./logs-server.ts";
 
 // This is a standalone script that can be used to view logs from the collector.
 // Its purpose is to be used in a tmux session, and not as a part of the TUI.
@@ -27,7 +28,7 @@ interface LogEntry {
 class LogsViewer {
   private readonly apiUrl = API_LOG_URL + "/v1/data";
   private readonly pollInterval = 300; // ms
-  private isRunning = false;
+  public isRunning = false;
 
   async fetchLogs(): Promise<LogEntry[]> {
     try {
@@ -66,7 +67,8 @@ class LogsViewer {
     }
   }
 
-  start(): void {
+  async start(): Promise<void> {
+    await startServer();
     console.log("🔍 Starting log viewer...");
     console.log(`📡 Polling ${this.apiUrl} every ${this.pollInterval}ms`);
     console.log("Press Ctrl+C to stop\n");
@@ -79,24 +81,36 @@ class LogsViewer {
       const logs = await this.fetchLogs();
       this.displayLogs(logs);
 
-      setTimeout(poll, this.pollInterval);
+      await new Promise((resolve) => setTimeout(resolve, this.pollInterval));
+      poll();
     };
 
     // Start polling
     poll();
-
-    // Handle graceful shutdown
-    Deno.addSignalListener("SIGINT", () => {
-      console.log("\n👋 Stopping log viewer...");
-      this.isRunning = false;
-      if (Deno.env.get("TMUX")) {
-        const cmd = new Deno.Command("tmux", { args: ["kill-session"] });
-        cmd.spawn();
-      }
-      Deno.exit(0);
-    });
   }
 }
 
 const viewer = new LogsViewer();
-viewer.start();
+
+const killTmux = () => {
+  if (Deno.env.get("TMUX")) {
+    const cmd = new Deno.Command("tmux", { args: ["kill-session"] });
+    cmd.spawn();
+  }
+};
+
+// Handle graceful shutdown
+Deno.addSignalListener("SIGINT", () => {
+  console.log("\n👋 Stopping log viewer...");
+  viewer.isRunning = false;
+  killTmux();
+  Deno.exit(0);
+});
+
+viewer.start().then(() => {
+  console.log("🔍 Log viewer started");
+}).catch((error) => {
+  console.error(error);
+  killTmux();
+  Deno.exit(1);
+});
