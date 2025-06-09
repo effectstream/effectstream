@@ -99,7 +99,10 @@ function getData() {
   return copy;
 }
 
-const PORT = 11033;
+const PORT = Deno.env.get("COLLECTOR_LOG_PORT")
+  ? Number(Deno.env.get("COLLECTOR_LOG_PORT"))
+  : 11033;
+
 const server = fastify();
 
 server.get("/v1/data", async (request: any, reply: any) => {

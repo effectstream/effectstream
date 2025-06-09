@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { useLogs } from "../hooks/useLogs.tsx";
+import { API_BASE_URL } from "../config.ts";
 
 interface Process {
   name?: string;
@@ -15,9 +15,6 @@ interface ProcessResponse {
 }
 
 export const ProcessesSection = () => {
-  // Enable logs in this section
-  useLogs();
-
   const [processes, setProcesses] = useState<Process[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>("");
@@ -50,9 +47,9 @@ export const ProcessesSection = () => {
         ) => (prev < processes.length - 1 ? prev + 1 : 0));
       } else if (key.return && processes.length > 0) {
         // Enter key pressed - show confirmation
-        const selectedProcess = processes[selectedIndex];
-        setProcessToRestart(selectedProcess);
-        setShowConfirmation(true);
+        // const selectedProcess = processes[selectedIndex];
+        // setProcessToRestart(selectedProcess);
+        // setShowConfirmation(true);
       }
     }
   });
@@ -61,7 +58,7 @@ export const ProcessesSection = () => {
     if (!processToRestart) return;
 
     try {
-      const response = await fetch("http://localhost:3000/restart", {
+      const response = await fetch(`${API_BASE_URL}/restart`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -87,7 +84,7 @@ export const ProcessesSection = () => {
   useEffect(() => {
     const fetchProcesses = async () => {
       try {
-        const response = await fetch("http://localhost:3000/processes");
+        const response = await fetch(`${API_BASE_URL}/processes`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -163,6 +160,7 @@ export const ProcessesSection = () => {
             </Text>
             {processes.map((process: Process, index: number) => (
               <Text
+                wrap="truncate"
                 key={index}
                 color={!process.alive
                   ? "red"

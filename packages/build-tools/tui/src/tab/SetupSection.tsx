@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
 import { Box, Text } from "ink";
-import { useLogs } from "../hooks/useLogs.tsx";
+import { API_BASE_URL } from "../config.ts";
 
 export const SetupSection = () => {
-  // Enable logs in this section
-  useLogs();
-
   const [setupData, setSetupData] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>("");
@@ -13,7 +10,7 @@ export const SetupSection = () => {
   useEffect(() => {
     const fetchSetup = async () => {
       try {
-        const response = await fetch("http://localhost:3000/setup");
+        const response = await fetch(`${API_BASE_URL}/setup`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

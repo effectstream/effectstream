@@ -1,9 +1,8 @@
-import { useState } from "react";
-import { Box, render, Text, useInput, useStdin } from "ink";
+import { useEffect, useState } from "react";
+import { Box, render, Text, useInput, useStdin, useStdout } from "ink";
 import { ProcessesSection } from "./tab/ProcessesSection.tsx";
 import { SetupSection } from "./tab/SetupSection.tsx";
-import { StatusSection } from "./tab/StatusSection.tsx";
-import { LogsSection } from "./tab/LogsSection.tsx";
+import { HelpSection } from "./tab/HelpSection.tsx";
 import {
   BottomBar,
   type Section,
@@ -13,12 +12,33 @@ import {
 
 // Main App Component
 const App = () => {
-  const [currentSection, setCurrentSection] = useState<Section>("status");
+  const [currentSection, setCurrentSection] = useState<Section>("processes");
+  const { stdout } = useStdout();
+  const [width, setWidth] = useState(() => stdout.columns);
+  const [height, setHeight] = useState(() => stdout.rows);
 
   const { setRawMode } = useStdin();
   setRawMode(true);
-
+  useEffect(() => {
+    const handleTerminalResize = () => {
+      const { columns, rows } = Deno.consoleSize();
+      setWidth(() => columns);
+      setHeight(() => rows);
+    };
+    Deno.addSignalListener("SIGWINCH", handleTerminalResize);
+    return () => {
+      Deno.removeSignalListener("SIGWINCH", handleTerminalResize);
+    };
+  }, []);
   useInput((input, key) => {
+    if (input === "c" && key.ctrl) {
+      if (Deno.env.get("TMUX")) {
+        const cmd = new Deno.Command("tmux", { args: ["kill-session"] });
+        cmd.spawn();
+      }
+      Deno.exit(0);
+      return;
+    }
     // Handle left/right arrow keys for tab navigation
     if (key.leftArrow) {
       const currentIndex = SECTION_ORDER.indexOf(currentSection);
@@ -51,10 +71,8 @@ const App = () => {
         return <ProcessesSection />;
       case "setup":
         return <SetupSection />;
-      case "status":
-        return <StatusSection />;
-      case "logs":
-        return <LogsSection />;
+      case "help":
+        return <HelpSection />;
       default:
         return <ProcessesSection />;
     }
@@ -63,7 +81,8 @@ const App = () => {
   return (
     <Box
       flexDirection="column"
-      height="100%"
+      height={height}
+      width={width}
     >
       {/* Header */}
       <Box
@@ -105,7 +124,7 @@ const App = () => {
 };
 
 export function start(): void {
-  render(<App />);
+  render(<App />, { exitOnCtrlC: false });
 }
 
 start();

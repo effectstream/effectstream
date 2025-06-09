@@ -12,35 +12,18 @@ import {
   $,
   AbortProcessStart,
   type ProcessComponent,
-  processes,
   shutdown,
 } from "./process.ts";
 import { ComponentNames } from "@paima/log";
+import { installTmux, Tmux } from "./tmux/tmux.ts";
 
-Deno.addSignalListener("SIGINT", async () => {
-  shutdown();
-  await awaitShutdown();
-  Deno.exit(0);
+Deno.addSignalListener("SIGINT", () => {
+  shutdown(0);
 });
-
-export async function awaitShutdown(): Promise<void> {
-  const wait = (n: number) =>
-    new Promise<void>((resolve) => {
-      setTimeout(resolve, n);
-    });
-
-  while (processes.some((p) => p.alive)) {
-    await wait(100);
-  }
-
-  await Promise.all(
-    processes.map((process) => process.process[Symbol.asyncDispose]()),
-  );
-}
 
 export async function start(): Promise<void> {
   initTelemetry();
-
+  startTmux();
   try {
     // fast-fail if there are type errors in the project
     await startProcess[ComponentNames.CHECKER]();
@@ -49,7 +32,7 @@ export async function start(): Promise<void> {
     await startProcess[ComponentNames.COLLECTOR]();
 
     // Do now wait for the TUI process to finish as it's a long-running process.
-    startProcess[ComponentNames.TUI]();
+    await startProcess[ComponentNames.TMUX]();
 
     // Start processes in parallel
     await Promise.all([
@@ -67,16 +50,37 @@ export async function start(): Promise<void> {
     if (!(e instanceof AbortProcessStart)) {
       console.error(e);
     }
-    shutdown();
-    await awaitShutdown();
-    Deno.exit(1);
+    await shutdown(1);
   }
 }
+
+const startTmux = async () => {
+};
 
 export const startProcess: Record<
   ValueOf<typeof ComponentNames>,
   () => Promise<ProcessComponent>
 > = {
+  [ComponentNames.TMUX]: async (): Promise<ProcessComponent> => {
+    await installTmux();
+    const session_name = "paima-" + Date.now();
+
+    const tm = new Tmux({});
+    await tm.newSession(session_name);
+
+    // We can pass a custom launch json file to the tmux instance
+    await tm.readLaunchJson(session_name);
+
+    const tmux = $({
+      ...tm.getAttachSessionCommand(session_name),
+      component: ComponentNames.TMUX,
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+
+    return tmux;
+  },
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
     // TODO: only start one if there isn't one already running
     const otlpCollector = $({

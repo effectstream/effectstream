@@ -7,7 +7,6 @@ import {
 import type { Namespace } from "@paima/log";
 import { ComponentNames } from "@paima/log";
 import type { ValueOf } from "@paima/utils";
-import { awaitShutdown } from "./start.ts";
 
 export type ProcessComponent = {
   abortController: AbortController;
@@ -28,55 +27,69 @@ export class AbortProcessStart extends Error {
   }
 }
 
-export function shutdown(): void {
-  processes.filter((p) => p.alive && p.component === ComponentNames.TUI)
-    .forEach((p) => {
-      p.abortController.abort();
-    });
+const wait = (n: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, n));
 
-  // Switch to stdout, as we are shutting down the TUI
+let shutdownCalled = false;
+export async function shutdown(exitCode: number = 0): Promise<void> {
+  if (shutdownCalled) {
+    return;
+  }
+  shutdownCalled = true;
+  // We are shutting down the processes, so redirect logs to the stdout
+  // So we see the shutdown messages.
   setCurrentOutput("stdout");
-
   processes
-    .filter((p) => {
-      if (!p.alive) return false;
-      // shutdown otel last we may have some error logs to write
-      if (p.component === ComponentNames.COLLECTOR) return false;
-      // shutdown tui last so we can show messages
-      if (p.component === ComponentNames.TUI) return false;
-      return true;
-    })
-    .forEach((process) => {
-      // console.log("Shutting down process", process.component);
-      process.abortController.abort();
-    });
-
-  processes
-    .filter((p) => p.alive && p.component === ComponentNames.ORCHESTRATOR)
     .forEach((p) => {
       p.abortController.abort();
     });
+
+  await awaitShutdown();
+  Deno.exit(exitCode);
+}
+
+async function awaitShutdown(): Promise<void> {
+  let maxWait = 5000;
+  while (processes.some((p) => p.alive && maxWait > 0)) {
+    await wait(100);
+    maxWait -= 100;
+  }
+
+  for (const p of processes) {
+    if (p.alive) {
+      console.log("Force killing process", p.process.pid);
+      p.process.kill();
+    }
+  }
+
+  await Promise.all(
+    processes.map((process) => process.process[Symbol.asyncDispose]()),
+  );
 }
 
 let failed = false;
 export const processes: ProcessComponent[] = [];
 
 export const $ = (params: {
-  // recall: ["exec", ...] to run arbitrary code
+  command?: string;
   args: string[]; // parsing string->string[] automatically is blocked on https://github.com/denoland/deno_task_shell/pull/137
   log?: LogHandler;
   component: ValueOf<typeof ComponentNames>;
   namespace?: Namespace;
+  stdin?: "inherit" | "piped" | "null" | undefined;
+  stdout?: "inherit" | "piped" | "null" | undefined;
+  stderr?: "inherit" | "piped" | "null" | undefined;
 }): ProcessComponent => {
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
   }
   const abortController = new AbortController();
-  const process = new Deno.Command("deno", {
+  const process = new Deno.Command(params.command ?? "deno", {
     args: params.args,
     signal: abortController.signal,
-    stderr: "piped",
-    stdout: "piped",
+    stderr: params.stderr ?? "piped",
+    stdout: params.stdout ?? "piped",
+    stdin: params.stdin ?? "inherit",
     env: { FORCE_COLOR: "true" },
   }).spawn();
   process.ref(); // wait until all child processes die before killing parent
@@ -113,8 +126,7 @@ export const $ = (params: {
   // note: don't block on this
   void process.status.then((status) => {
     systemLog(
-      "Process " + processComponent.process.pid + " finished. " +
-        JSON.stringify(status) + " --- " + processComponent._allow_restart,
+      `Process ${processComponent.component} (${processComponent.process.pid}) finished.\n`,
     );
     processComponent.alive = false;
     processComponent.date = new Date().toISOString();
@@ -122,11 +134,9 @@ export const $ = (params: {
       processComponent._allow_restart = false;
       return;
     }
-    if (processComponent.component === ComponentNames.TUI) {
-      shutdown();
-      awaitShutdown().then(() => {
-        Deno.exit(0);
-      });
+    if (processComponent.component === ComponentNames.TMUX) {
+      shutdown(0);
+      return;
     }
     if (!status.success) {
       if (!failed) {
@@ -136,8 +146,10 @@ export const $ = (params: {
           return;
         }
 
-        console.error("Shutdown caused by ", params.args);
-        shutdown();
+        if (!shutdownCalled) {
+          console.error("Shutdown caused by ", params.args);
+        }
+        shutdown(1);
       }
       failed = true;
     }

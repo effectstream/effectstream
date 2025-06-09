@@ -23,6 +23,7 @@ const ToolsComponents = {
   HARDHA_WAIT: "hardhat-wait",
   COLLECTOR_WAIT: "collector-wait",
   PAIMA_DB_WAIT: "db-wait",
+  TMUX: "tmux",
 };
 export const ComponentNames = {
   ...PaimaComponents,

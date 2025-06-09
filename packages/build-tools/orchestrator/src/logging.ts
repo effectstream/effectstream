@@ -98,12 +98,16 @@ export const localLogHandler: LogHandler = (
   component,
   namespace,
 ) => {
-  log.local(
-    component,
-    namespace,
-    source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
-    (log) => log(decoder.decode(chunk)),
-  );
+  if (currentOutput === "otel") {
+    log.local(
+      component,
+      namespace,
+      source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
+      (log) => log(decoder.decode(chunk)),
+    );
+  } else {
+    Deno[source].write(chunk);
+  }
 };
 
 export const remoteLogHandler: LogHandler = (

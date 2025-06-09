@@ -3,7 +3,8 @@
   "version": "0.3.0",
   "exports": "./src/mod.ts",
   "tasks": {
-    "dev": "deno run -A src/main.tsx"
+    "dev": "deno run -A src/main.tsx",
+    "logs": "deno run -A src/logs-standalone.ts"
   },
   "imports": {
     "ink": "npm:ink@5.1.0",
