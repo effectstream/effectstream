@@ -48,12 +48,12 @@ class LogsViewer {
 
   formatLogEntry(entry: LogEntry): string {
     const timestamp = new Date(entry._meta.date).toLocaleTimeString();
-    const level = entry._meta.logLevelName.padEnd(5);
+    const level = entry._meta.logLevelName;
     // The log message is in the "0" field and contains ANSI color codes
     const message = entry["0"];
     const grey = (m: string) => `\x1b[90m${m}\x1b[0m`;
 
-    return `[${grey(timestamp)}] ${level} ${message}`;
+    return `${grey(timestamp)} ${level} ${message}`;
   }
 
   displayLogs(logs: LogEntry[]): void {
