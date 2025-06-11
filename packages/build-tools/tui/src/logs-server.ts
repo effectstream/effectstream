@@ -1,5 +1,7 @@
-import { fastify } from "fastify";
-import { Type } from "@sinclair/typebox";
+import { fastify, type FastifyRequest } from "fastify";
+import { type Static, Type } from "@sinclair/typebox";
+import { Value } from "@sinclair/typebox/value";
+import { API_LOG_URL } from "./config.ts";
 
 //
 // This API exposes the latest 1000 otel logs using.
@@ -9,7 +11,7 @@ import { Type } from "@sinclair/typebox";
 //
 const MAX_DATA_ITEMS = 1000;
 
-// Typebox schemas for validation
+// This is the output format of the tsLog.attachTransport(...)
 const PathSchema = Type.Object({
   fullFilePath: Type.String(),
   fileName: Type.String(),
@@ -24,7 +26,7 @@ const MetaSchema = Type.Object({
   runtime: Type.String(),
   runtimeVersion: Type.String(),
   hostname: Type.String(),
-  date: Type.String({ format: "date-time" }),
+  date: Type.String(),
   logLevelId: Type.Number(),
   logLevelName: Type.String(),
   path: PathSchema,
@@ -35,30 +37,7 @@ const TsLogExportedSchema = Type.Object({
   _meta: MetaSchema,
 });
 
-export interface TsLogExported {
-  "0": string;
-  _meta: Meta;
-}
-
-export interface Meta {
-  runtime: string;
-  runtimeVersion: string;
-  hostname: string;
-  date: Date;
-  logLevelId: number;
-  logLevelName: string;
-  path: Path;
-}
-
-export interface Path {
-  fullFilePath: string;
-  fileName: string;
-  fileNameWithLine: string;
-  fileColumn: string;
-  fileLine: string;
-  filePath: string;
-  filePathWithLine: string;
-}
+export type TsLogExported = Static<typeof TsLogExportedSchema>;
 
 //
 // Ring buffer implementation for storing the latest logs
@@ -113,50 +92,66 @@ class RingBuffer<T> {
   }
 }
 
-const dataStore = new RingBuffer<TsLogExported>(MAX_DATA_ITEMS);
+class LogServer {
+  private dataStore = new RingBuffer<TsLogExported>(MAX_DATA_ITEMS);
+  public port = Deno.env.get("COLLECTOR_LOG_PORT")
+    ? Number(Deno.env.get("COLLECTOR_LOG_PORT"))
+    : 11033;
+  private server = fastify();
 
-// export function exportToApiStream(item: TsLogExported) {
-//   dataStore.push(item);
-// }
+  private getData() {
+    const copy = this.dataStore.toArray();
+    this.dataStore.clear();
+    return copy;
+  }
 
-function getData() {
-  const copy = dataStore.toArray();
-  dataStore.clear();
-  return copy;
+  public async init() {
+    this.server.post("/v1/data", {
+      schema: {
+        body: TsLogExportedSchema,
+      },
+    }, (request: FastifyRequest<{ Body: TsLogExported }>, reply) => {
+      try {
+        this.dataStore.push(request.body);
+        reply.status(200).send({ success: true });
+      } catch (error) {
+        reply.status(500).send({ error: "Failed to store log data" });
+      }
+    });
+
+    this.server.get("/v1/data", (request: any, reply: any) => {
+      const copy = this.getData();
+      reply.status(200).send(copy);
+    });
+
+    await this.server.listen({ port: this.port });
+  }
 }
 
-const PORT = Deno.env.get("COLLECTOR_LOG_PORT")
-  ? Number(Deno.env.get("COLLECTOR_LOG_PORT"))
-  : 11033;
-
-const server = fastify();
-
-server.post("/v1/data", {
-  schema: {
-    body: TsLogExportedSchema,
-  },
-}, (request: any, reply: any) => {
-  try {
-    dataStore.push(request.body as TsLogExported);
-    reply.status(200).send({ success: true });
-  } catch (error) {
-    reply.status(500).send({ error: "Failed to store log data" });
-  }
-});
-
-server.get("/v1/data", (request: any, reply: any) => {
-  const copy = getData();
-  reply.status(200).send(copy);
-});
-
 export async function startServer() {
+  const server = new LogServer();
   try {
-    await server.listen({ port: PORT });
-    console.log(`🔍 Starting logs server on port ${PORT}`);
+    await server.init();
+    console.log(`🔍 Starting logs server on port ${server.port}`);
   } catch (err) {
-    console.log(`❌ Failed to start logs server on port ${PORT}`);
+    console.log(`❌ Failed to start logs server on port ${server.port}`);
     console.error(err);
     Deno.exit(1);
   }
-  return server;
+}
+
+export async function fetchLogs(): Promise<TsLogExported[]> {
+  try {
+    const response = await fetch(API_LOG_URL + "/v1/data");
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return Value.Parse(Type.Array(TsLogExportedSchema), data);
+  } catch (error) {
+    console.error(
+      `Failed to fetch logs: ${error instanceof Error ? error.message : error}`,
+    );
+    return [];
+  }
 }

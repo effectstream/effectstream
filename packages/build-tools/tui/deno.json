@@ -3,9 +3,11 @@
   "version": "0.3.0",
   "exports": "./src/mod.ts",
   "tasks": {
+    "clean": "rm -rf logs",
     "dev": "deno run -A src/main.tsx",
     "logs": "deno run -A src/logs-standalone.ts"
   },
+  "strict": true,
   "imports": {
     "fastify": "npm:fastify@^5.2.1",
     "ink": "npm:ink@5.1.0",
