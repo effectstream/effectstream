@@ -22,11 +22,11 @@ Deno.addSignalListener("SIGINT", () => {
 });
 
 export async function start(): Promise<void> {
+  // fast-fail if there are type errors in the project
+  await startProcess[ComponentNames.CHECKER]();
+
   initTelemetry();
   try {
-    // fast-fail if there are type errors in the project
-    await startProcess[ComponentNames.CHECKER]();
-
     // start the collector before any other process since it's the one that captures logs
     await startProcess[ComponentNames.COLLECTOR]();
 
@@ -103,8 +103,9 @@ export const startProcess: Record<
   [ComponentNames.CHECKER]: async (): Promise<ProcessComponent> => {
     const checker = $({
       args: ["task", "check"],
-      log: logHandler,
       component: ComponentNames.CHECKER,
+      stdout: "inherit",
+      stderr: "inherit",
     });
     await Promise.all([checker.process.status]);
     return checker;
