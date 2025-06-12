@@ -22,10 +22,10 @@ import {
 // =====
 
 const CarpCursorJsonSchema = Type.Unsafe<CarpCursorJson>(Type.String());
-export const CarpCursor = TypeboxHelpers.JsonUnsafeCast<{
+export const CarpCursor = TypeboxHelpers.SerializeObjAsJson<{
   block: CardanoBlockHash;
   tx: CardanoTxHash;
-}, typeof CarpCursorJsonSchema>(CarpCursorJsonSchema);
+}, typeof CarpCursorJsonSchema>();
 
 // ===========
 // Base schema

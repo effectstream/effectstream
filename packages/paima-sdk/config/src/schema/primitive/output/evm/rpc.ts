@@ -106,7 +106,7 @@ export const PrimitiveEvmRpcErc1155TransferSyncProtocolResponse = Type.Object({
 // Generic
 // =======
 
-// TODO: should this be a string and/or JsonUnsafeCast?
+// TODO: should this be a string and/or SerializeObjAsJson?
 export const PrimitiveEvmRpcGenericPayload = Type.Any();
 
 export const PrimitiveEvmRpcGenericSyncProtocolResponse = Type.Object({

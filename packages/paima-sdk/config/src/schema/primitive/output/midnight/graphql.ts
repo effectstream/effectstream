@@ -19,9 +19,10 @@ const MidnightEncodedStateJsonSchema = Type.Unsafe<
   MidnightEncodedStateJson
 >(Type.String());
 export const PrimitiveMidnightContractStatePayload = TypeboxHelpers
-  .JsonUnsafeCast<EncodedStateValue, typeof MidnightEncodedStateJsonSchema>(
-    MidnightEncodedStateJsonSchema,
-  );
+  .SerializeObjAsJson<
+    EncodedStateValue,
+    typeof MidnightEncodedStateJsonSchema
+  >();
 export const PrimitiveMidnightContractStateSyncProtocolResponse = Type.Object({
   primitive: Type.Literal(ConfigPrimitiveType.MidnightContractState),
   payloadType: Type.Literal(ConfigPrimitivePayloadType.Event),

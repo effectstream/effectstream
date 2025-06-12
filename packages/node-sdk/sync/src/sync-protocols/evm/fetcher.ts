@@ -74,7 +74,7 @@ export class EvmFetcher
         [
           all(
             keysOf(groupedByPage).map(function* (pageJson) {
-              const page = Value.Decode(PageSchema, pageJson);
+              const page = Value.Encode(PageSchema, pageJson);
               return {
                 raw: yield* call(() => pageFetcher(page)),
                 primitives: groupedByPage[pageJson],
@@ -105,7 +105,7 @@ export class EvmFetcher
           { length: data.to - data.from + 1 },
           (_, i) => i + data.from,
         ).map(function* (page: Page) {
-          const key = Value.Encode(PageSchema, page);
+          const key = Value.Decode(PageSchema, page);
           return {
             raw: yield* call(() => pageFetcher(page)),
             primitives: groupedByPage[key] ?? [],
@@ -133,7 +133,7 @@ export class EvmFetcher
     primitives: PrimitiveType[],
   ): Record<EvmRpcPageJson, PrimitiveType[]> {
     return primitives.reduce((acc, primitive) => {
-      const key = Value.Encode(
+      const key = Value.Decode(
         PageSchema,
         Number(primitive.output.syncProtocol.payload.ownChain.blockNumber),
       );
