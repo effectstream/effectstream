@@ -53,6 +53,13 @@ export async function start(): Promise<void> {
   }
 }
 
+export const abortControllers = {
+  // Abort controller for all critical processes
+  system: new AbortController(),
+  // Abort controller for all non-critical processes
+  noncritical: new AbortController(),
+};
+
 export const startProcess: Record<
   ValueOf<typeof ComponentNames>,
   () => Promise<ProcessComponent>
@@ -73,6 +80,7 @@ export const startProcess: Record<
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
+      abortController: abortControllers.noncritical,
     });
 
     return tmux;
@@ -85,6 +93,7 @@ export const startProcess: Record<
       // otherwise, it gets stuck in an infinite loop of sending to itself
       log: rawLogHandler,
       component: ComponentNames.COLLECTOR,
+      abortController: abortControllers.noncritical,
     });
     void Promise.all([otlpCollector.process.status]);
 
@@ -94,6 +103,7 @@ export const startProcess: Record<
       // otherwise, it gets stuck in an infinite loop of sending to itself
       log: rawLogHandler,
       component: ComponentNames.COLLECTOR_WAIT,
+      abortController: abortControllers.noncritical,
     });
     await Promise.all([waitOtlp.process.status]);
     setCollectorStarted();
@@ -106,6 +116,7 @@ export const startProcess: Record<
       component: ComponentNames.CHECKER,
       stdout: "inherit",
       stderr: "inherit",
+      abortController: abortControllers.noncritical,
     });
     await Promise.all([checker.process.status]);
     return checker;
@@ -117,6 +128,7 @@ export const startProcess: Record<
       log: logHandler,
       component: ComponentNames.PAIMA_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically
+      abortController: abortControllers.system,
     });
     await Promise.all([node.process.status]);
     return node;
@@ -130,6 +142,7 @@ export const startProcess: Record<
         Deno.stdout.write(chunk);
       },
       component: ComponentNames.TUI,
+      abortController: abortControllers.noncritical,
     });
     await Promise.all([tui.process.status]);
     return tui;
@@ -141,12 +154,14 @@ export const startProcess: Record<
       args: ["task", "-f", "@example/evm-contracts", "chain:start"],
       log: logHandler,
       component: ComponentNames.HARDHAT,
+      abortController: abortControllers.system,
     });
     void hardhat.process.status; // need to await sub-service start below
 
     await $({
       args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
       component: ComponentNames.HARDHA_WAIT,
+      abortController: abortControllers.noncritical,
     }).process.status;
 
     return hardhat;
@@ -157,12 +172,14 @@ export const startProcess: Record<
       args: ["task", "-f", "@example/cardano-contracts", "devkit:start"],
       log: logHandler,
       component: ComponentNames.YACI_DEVKIT,
+      abortController: abortControllers.system,
     });
     void yaciDevkit.process.status; // need to await sub-service start below
 
     await $({
       args: ["task", "-f", "@example/cardano-contracts", "devkit:wait"],
       component: ComponentNames.YACI_DEVKIT_WAIT,
+      abortController: abortControllers.noncritical,
     })
       .process.status;
     return yaciDevkit;
@@ -175,12 +192,14 @@ export const startProcess: Record<
       log: (chunk) =>
         rawLogHandler(chunk, "stdout", ComponentNames.DOLOS, "dolos"),
       component: ComponentNames.DOLOS,
+      abortController: abortControllers.system,
     });
     void dolos.process.status; // need to await sub-service start below
 
     await $({
       args: ["task", "-f", "@example/cardano-contracts", "dolos:wait"],
       component: ComponentNames.DOLOS_WAIT,
+      abortController: abortControllers.noncritical,
     })
       .process.status;
 
@@ -193,12 +212,14 @@ export const startProcess: Record<
       args: ["task", "-f", "@paima/db", "pgtyped:update"],
       log: logHandler,
       component: ComponentNames.PAIMA_DB,
+      abortController: abortControllers.system,
     });
     void paimaDb.process.status; // need to await sub-service start below
 
     await $({
       args: ["task", "-f", "@paima/db", "db:wait"],
       component: ComponentNames.PAIMA_DB_WAIT,
+      abortController: abortControllers.noncritical,
     }).process.status;
 
     return paimaDb;

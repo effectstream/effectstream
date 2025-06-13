@@ -7,6 +7,7 @@ import {
 import type { Namespace } from "@paima/log";
 import { ComponentNames } from "@paima/log";
 import type { ValueOf } from "@paima/utils";
+import { abortControllers } from "./start.ts";
 
 export type ProcessComponent = {
   abortController: AbortController;
@@ -38,12 +39,9 @@ export async function shutdown(exitCode: number = 0): Promise<void> {
   shutdownCalled = true;
   // We are shutting down the processes, so redirect logs to the stdout
   // So we see the shutdown messages.
-  setCurrentOutput("stdout");
-  processes
-    .forEach((p) => {
-      p.abortController.abort();
-    });
-
+  setCurrentOutput(["otel", "stdout"]);
+  abortControllers.system.abort();
+  abortControllers.noncritical.abort();
   await awaitShutdown();
   Deno.exit(exitCode);
 }
@@ -76,6 +74,7 @@ export const $ = (params: {
   log?: LogHandler;
   component: ValueOf<typeof ComponentNames>;
   namespace?: Namespace;
+  abortController: AbortController;
   stdin?: "inherit" | "piped" | "null" | undefined;
   stdout?: "inherit" | "piped" | "null" | undefined;
   stderr?: "inherit" | "piped" | "null" | undefined;
@@ -83,10 +82,9 @@ export const $ = (params: {
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
   }
-  const abortController = new AbortController();
   const process = new Deno.Command(params.command ?? "deno", {
     args: params.args,
-    signal: abortController.signal,
+    signal: params.abortController.signal,
     stderr: params.stderr ?? "piped",
     stdout: params.stdout ?? "piped",
     stdin: params.stdin ?? "inherit",
@@ -96,7 +94,7 @@ export const $ = (params: {
 
   const processComponent: ProcessComponent = {
     process,
-    abortController,
+    abortController: params.abortController,
     args: params.args,
     alive: true,
     date: new Date().toISOString(),

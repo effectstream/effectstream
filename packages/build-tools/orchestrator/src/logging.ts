@@ -27,15 +27,15 @@ export function streamTo(
   });
 }
 
-export type CurrentOutput = "otel" | "stdout";
+export type LogSystemOutputs = "otel" | "stdout";
 // By default we pass the logs to the OTel collector.
-let currentOutput: CurrentOutput = "otel";
+let currentOutputs: LogSystemOutputs[] = ["otel"];
 
-export const setCurrentOutput = (value: CurrentOutput) => {
-  currentOutput = value;
+export const setCurrentOutput = (value: LogSystemOutputs[]) => {
+  currentOutputs = value;
 };
-export const getCurrentOutput = () => {
-  return currentOutput;
+export const getCurrentOutput = (): LogSystemOutputs[] => {
+  return currentOutputs;
 };
 
 // TODO: instead of starting at false,
@@ -77,9 +77,10 @@ export const rawLogHandler: LogHandler = (
   component,
   namespace,
 ) => {
-  if (currentOutput === "stdout") {
+  if (currentOutputs.includes("stdout")) {
     Deno[source].write(chunk);
-  } else {
+  }
+  if (currentOutputs.includes("otel")) {
     // This passes non-otel format logs to the collector.
     // We try to avoid this as much as possible.
     log.remote(
@@ -98,15 +99,13 @@ export const localLogHandler: LogHandler = (
   component,
   namespace,
 ) => {
-  if (currentOutput === "otel") {
+  if (currentOutputs.includes("stdout")) {
     log.local(
       component,
       namespace,
       source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
       (log) => log(decoder.decode(chunk)),
     );
-  } else {
-    Deno[source].write(chunk);
   }
 };
 
@@ -116,15 +115,15 @@ export const remoteLogHandler: LogHandler = (
   component,
   namespace,
 ) => {
-  if (currentOutput === "otel") {
+  if (currentOutputs.includes("otel")) {
     log.remote(
       component,
       namespace,
       source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
       (log) => log(decoder.decode(chunk)),
     );
-  } else {
-    // Fallback to local log handler
+  }
+  if (currentOutputs.includes("stdout")) {
     localLogHandler(chunk, source, component, namespace);
   }
 };
