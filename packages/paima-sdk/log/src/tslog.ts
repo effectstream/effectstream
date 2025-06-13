@@ -66,7 +66,6 @@ function padLeft(
 }
 
 const log: Logger<ILogObj> = new Logger({
-  type: "hidden",
   minLevel: mapSeverity(defaultSeverity),
   overwrite: {
     formatMeta: (meta?: IMeta) => {
