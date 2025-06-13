@@ -9,7 +9,6 @@ import {
 import { Value } from "@sinclair/typebox/value";
 import { otelStringify, parseFixed64 } from "./parse.ts";
 import {
-  attachTransport,
   ComponentNames,
   log as logger,
   type Namespace,
@@ -38,37 +37,27 @@ function printError(e: any, namespace: string, request: any) {
   );
 }
 
+const API_LOG_URL = Deno.env.get("API_LOG_URL") ?? "http://localhost:11033";
+
 function exportData(data: {
   component: string;
   namespace: Namespace;
   level: SeverityNumber;
   message: string | string[];
 }) {
-  logger.local(
-    data.component,
-    data.namespace,
-    data.level,
-    (log) => {
-      Array.isArray(data.message) ? log(...data.message) : log(data.message);
+  fetch(API_LOG_URL + "/v1/data", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({
+      component: data.component,
+      namespace: data.namespace,
+      level: data.level,
+      message: Array.isArray(data.message) ? data.message : [data.message],
+    }),
+  }).catch(() => {});
 }
-
-// Add a tsLog hook to export the logs to the API stream
-const API_LOG_URL = Deno.env.get("API_LOG_URL") ?? "http://localhost:11033";
-attachTransport(async (logObj) => {
-  try {
-    await fetch(API_LOG_URL + "/v1/data", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(logObj),
-    });
-  } catch {
-    // ignore, server might be not running yet
-  }
-});
 
 // DANGER: these endpoints only support JSON and reject other OpenTelemetry data formats
 //         in the future, we can support protobuf using `otlp-transformer` once it has a stable release

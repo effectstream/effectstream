@@ -9,13 +9,15 @@
   },
   "strict": true,
   "imports": {
+    "tslog": "npm:tslog@^4.9.3",
     "fastify": "npm:fastify@^5.2.1",
     "ink": "npm:ink@5.1.0",
     "ink-big-text": "npm:ink-big-text@^2.0.0",
     "react": "npm:react@18.3.1",
     "react-dom": "npm:react-dom@18.3.1",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
-    "@opentelemetry/otlp-transformer": "npm:@opentelemetry/otlp-transformer@^0.56.0"
+    "@opentelemetry/otlp-transformer": "npm:@opentelemetry/otlp-transformer@^0.56.0",
+    "rotating-file-stream": "npm:rotating-file-stream@^3.2.6"
   },
   "compilerOptions": {
     "types": [

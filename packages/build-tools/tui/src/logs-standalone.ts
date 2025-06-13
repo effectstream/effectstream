@@ -1,4 +1,7 @@
-import { fetchLogs, startServer, type TsLogExported } from "./logs-server.ts";
+import { attachTransport, log } from "@paima/log";
+import { fetchLogs, type OTelLog, startServer } from "./logs-server.ts";
+import { createStream, type RotatingFileStream } from "rotating-file-stream";
+import type { ILogObj } from "npm:tslog@^4.9.3";
 
 // This is a standalone script that can be used to view logs from the collector.
 // Its purpose is to be used in a tmux session, and not as a part of the TUI.
@@ -6,44 +9,33 @@ class LogsViewer {
   private readonly pollInterval = 300; // ms
   public isRunning = false;
 
-  formatLogEntry(entry: TsLogExported): string {
-    const timestamp = new Date(entry._meta.date).toLocaleTimeString();
-    const level = entry._meta.logLevelName;
-    // The log message is in the "0" field and contains ANSI color codes
-    const message = entry["0"];
-    const grey = (m: string) => `\x1b[90m${m}\x1b[0m`;
-
-    return `${grey(timestamp)} ${level} ${message}`;
+  private streams: Record<string, RotatingFileStream> = {};
+  private getStream(
+    namespace: string,
+  ): { isNew: boolean; stream: RotatingFileStream } {
+    if (this.streams[namespace]) {
+      return { isNew: false, stream: this.streams[namespace] };
+    }
+    this.streams[namespace] = createStream(`./logs/${namespace}.log`, {
+      size: "10M", // rotate every 10 MegaBytes written
+      interval: "1d", // rotate daily
+      compress: "gzip", // compress rotated files
+    });
+    return { isNew: true, stream: this.streams[namespace] };
   }
 
-  async displayAndSaveLogs(logs: TsLogExported[]): Promise<void> {
-    // Only show new logs since last fetch\
-    const ddmmyyyy = new Date().toISOString().split("T")[0];
-    const fileBuffer: Record<string, string[]> = {};
-    for (const log of logs) {
-      const formatedLog = this.formatLogEntry(log);
-      const cleanLog = formatedLog.replace(this.ansiRegex(), "");
-      const namespace =
-        log["0"].replace(this.ansiRegex(), "").match(/^([\w-]+):\s/)?.[1] ??
-          "unknown";
-
-      // Write output to console.
-      console.log(formatedLog);
-      if (!fileBuffer[namespace]) {
-        fileBuffer[namespace] = [];
-      }
-      fileBuffer[namespace].push(cleanLog);
-    }
-
-    // Write output to file.
-    for (const [namespace, buffer] of Object.entries(fileBuffer)) {
-      await Deno.writeFile(
-        `./logs/${namespace}-${ddmmyyyy}.log`,
-        new TextEncoder().encode(buffer.join("\n") + "\n"),
-        { append: true },
+  displayLogs(logs: OTelLog[]): void {
+    // Only show new logs since last fetch
+    for (const logEntry of logs) {
+      log.local(
+        logEntry.component,
+        logEntry.namespace,
+        logEntry.level,
+        (log) => {
+          log(...logEntry.message);
+        },
       );
     }
-    return;
   }
 
   ansiRegex({ onlyFirst = false } = {}) {
@@ -69,10 +61,23 @@ class LogsViewer {
     } catch (error) {
       Deno.mkdirSync("./logs", { recursive: true });
     }
+
+    attachTransport((logObj: ILogObj) => {
+      const message = logObj[0] as string;
+      const cleanMessage = message.replace(this.ansiRegex(), "");
+      const date = (logObj._meta as any).date as Date;
+      const namespace = cleanMessage.match(/^([\w-]+):\s/)?.[1] ??
+        "no-namespace";
+      const { stream } = this.getStream(namespace);
+      stream.write(
+        `${date.toISOString()} ${cleanMessage}\n`,
+      );
+    });
+
     const poll = async () => {
       if (!this.isRunning) return;
       const logs = await fetchLogs();
-      await this.displayAndSaveLogs(logs);
+      this.displayLogs(logs);
       await new Promise((resolve) => setTimeout(resolve, this.pollInterval));
       poll();
     };

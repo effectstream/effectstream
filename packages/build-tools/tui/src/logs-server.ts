@@ -11,34 +11,13 @@ import { API_LOG_URL } from "./config.ts";
 //
 const MAX_DATA_ITEMS = 1000;
 
-// This is the output format of the tsLog.attachTransport(...)
-const PathSchema = Type.Object({
-  fullFilePath: Type.String(),
-  fileName: Type.String(),
-  fileNameWithLine: Type.String(),
-  fileColumn: Type.String(),
-  fileLine: Type.String(),
-  filePath: Type.String(),
-  filePathWithLine: Type.String(),
+export const OTelLogSchema = Type.Object({
+  component: Type.String(),
+  namespace: Type.String(),
+  level: Type.Number(),
+  message: Type.Array(Type.String()),
 });
-
-const MetaSchema = Type.Object({
-  runtime: Type.String(),
-  runtimeVersion: Type.String(),
-  hostname: Type.String(),
-  date: Type.String(),
-  logLevelId: Type.Number(),
-  logLevelName: Type.String(),
-  path: PathSchema,
-});
-
-const TsLogExportedSchema = Type.Object({
-  "0": Type.String(),
-  _meta: MetaSchema,
-});
-
-export type TsLogExported = Static<typeof TsLogExportedSchema>;
-
+export type OTelLog = Static<typeof OTelLogSchema>;
 //
 // Ring buffer implementation for storing the latest logs
 // This provides O(1) insertion and maintains a fixed size efficiently
@@ -93,7 +72,7 @@ class RingBuffer<T> {
 }
 
 class LogServer {
-  private dataStore = new RingBuffer<TsLogExported>(MAX_DATA_ITEMS);
+  private dataStore = new RingBuffer<OTelLog>(MAX_DATA_ITEMS);
   public port = Deno.env.get("COLLECTOR_LOG_PORT")
     ? Number(Deno.env.get("COLLECTOR_LOG_PORT"))
     : 11033;
@@ -108,9 +87,9 @@ class LogServer {
   public async init() {
     this.server.post("/v1/data", {
       schema: {
-        body: TsLogExportedSchema,
+        body: OTelLogSchema,
       },
-    }, (request: FastifyRequest<{ Body: TsLogExported }>, reply) => {
+    }, (request: FastifyRequest<{ Body: OTelLog }>, reply) => {
       try {
         this.dataStore.push(request.body);
         reply.status(200).send({ success: true });
@@ -140,14 +119,14 @@ export async function startServer() {
   }
 }
 
-export async function fetchLogs(): Promise<TsLogExported[]> {
+export async function fetchLogs(): Promise<OTelLog[]> {
   try {
     const response = await fetch(API_LOG_URL + "/v1/data");
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     const data = await response.json();
-    return Value.Parse(Type.Array(TsLogExportedSchema), data);
+    return Value.Parse(Type.Array(OTelLogSchema), data);
   } catch (error) {
     console.error(
       `Failed to fetch logs: ${error instanceof Error ? error.message : error}`,
