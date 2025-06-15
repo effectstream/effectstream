@@ -1,6 +1,11 @@
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import { type ILogObj, type IMeta, Logger } from "tslog";
-import { defaultSeverity, type LogFunc, PaimaComponents } from "./const.ts";
+import {
+  defaultSeverity,
+  type LogFunc,
+  type Namespace,
+  PaimaComponents,
+} from "./const.ts";
 import { chainedMessage, Format, matchColor } from "material-chalk";
 import chalk from "chalk";
 import { toString } from "./utils.ts";
@@ -81,6 +86,12 @@ const log: Logger<ILogObj> = new Logger({
   },
 });
 
+export function attachTransport(callback: (logObj: ILogObj) => void) {
+  log.attachTransport((logObj) => {
+    callback(logObj);
+  });
+}
+
 function getLogMethod(level: SeverityNumber) {
   if (level === SeverityNumber.UNSPECIFIED) {
     const level = mapSeverity(defaultSeverity);
@@ -110,6 +121,17 @@ function getLogMethod(level: SeverityNumber) {
 
 export type TslogLogFunc = LogFunc;
 
+const formatMessage = (
+  namespaces: Namespace,
+  ...data: unknown[]
+): string => {
+  return chainedMessage(
+    chalk,
+    namespaces,
+    ...data.map(toString),
+  );
+};
+
 export const tslogLog: TslogLogFunc = (
   component,
   namespace,
@@ -125,11 +147,7 @@ export const tslogLog: TslogLogFunc = (
   })();
   doLog((...data: unknown[]) =>
     getLogMethod(level)(
-      chainedMessage(
-        chalk,
-        namespaces,
-        ...data.map(toString),
-      ),
+      formatMessage(namespaces, ...data),
     )
   );
 };

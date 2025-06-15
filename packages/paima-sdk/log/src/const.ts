@@ -15,9 +15,20 @@ const ExternalComponents = {
   YACI_DEVKIT: "yaci-devkit",
   DOLOS: "dolos",
 };
+const ToolsComponents = {
+  CHECKER: "checker",
+  TUI: "tui",
+  DOLOS_WAIT: "dolos-wait",
+  YACI_DEVKIT_WAIT: "yaci-devkit-wait",
+  HARDHA_WAIT: "hardhat-wait",
+  COLLECTOR_WAIT: "collector-wait",
+  PAIMA_DB_WAIT: "db-wait",
+  TMUX: "tmux",
+};
 export const ComponentNames = {
   ...PaimaComponents,
   ...ExternalComponents,
+  ...ToolsComponents,
 };
 
 // TODO: this try some ENV var before defaulting to INFO

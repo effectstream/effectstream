@@ -3,25 +3,34 @@
   "version": "0.3.0",
   "exports": "./src/mod.ts",
   "tasks": {
-    "dev": "deno run --unstable-node-globals -A --check src/main.ts"
+    "clean": "rm -rf logs",
+    "dev": "deno run -A src/main.tsx",
+    "logs": "deno run -A src/logs-standalone.ts"
   },
+  "strict": true,
   "imports": {
+    "tslog": "npm:tslog@^4.9.3",
+    "fastify": "npm:fastify@^5.2.1",
     "ink": "npm:ink@5.1.0",
-    "react": "npm:react@18.3.1"
+    "ink-big-text": "npm:ink-big-text@^2.0.0",
+    "react": "npm:react@18.3.1",
+    "react-dom": "npm:react-dom@18.3.1",
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "@opentelemetry/otlp-transformer": "npm:@opentelemetry/otlp-transformer@^0.56.0",
+    "rotating-file-stream": "npm:rotating-file-stream@^3.2.6"
+  },
+  "compilerOptions": {
+    "types": [
+      "react",
+      "react-dom",
+      "@types/react"
+    ],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "deno.ns"
+    ],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   }
-  // enable once this is merged: https://github.com/denoland/deno/pull/27009
-  // "compilerOptions": {
-  //   "types": [
-  //     "react",
-  //     "react-dom",
-  //     "@types/react"
-  //   ],
-  //   "lib": [
-  //     "dom",
-  //     "dom.iterable",
-  //     "deno.ns"
-  //   ],
-  //   "jsx": "react-jsx",
-  //   "jsxImportSource": "react"
-  // }
 }
