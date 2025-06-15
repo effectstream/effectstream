@@ -12,6 +12,7 @@ import type {
   TString,
   TTransform,
   TUnion,
+  TUnsafe,
 } from "@sinclair/typebox";
 import { Value, ValueErrorType } from "@sinclair/typebox/value";
 import type { AbiEvent } from "abitype";
@@ -234,7 +235,14 @@ export const TypeboxHelpers = {
     schema: T,
     options?: SchemaOptions,
   ): TUnion<[T, TNull]> => Type.Union([schema, Type.Null()], options),
-  JsonUnsafeCast: <
+  SerializeObjAsJson: <
+    T,
+    StringSchema extends TSchema & { [Kind]: string } = TString,
+  >(): TTransform<TUnsafe<T>, Static<StringSchema>> =>
+    Type.Transform(Type.Unsafe<T>(Type.Any()))
+      .Decode((x) => JSON.stringify(x) as Static<StringSchema>)
+      .Encode((x) => JSON.parse(x as string) as T),
+  SerializeJsonAsObj: <
     T,
     StringSchema extends TSchema & { [Kind]: string } = TString,
   >(

@@ -14,10 +14,10 @@ export type Page = BlockNumber;
 const PageJsonSchema = Type.Unsafe<
   EvmRpcPageJson
 >(Type.String());
-export const PageSchema = TypeboxHelpers.JsonUnsafeCast<
+export const PageSchema = TypeboxHelpers.SerializeObjAsJson<
   Page,
   typeof PageJsonSchema
->(PageJsonSchema);
+>();
 
 export type PrimitiveType = FlattenSyncProtocolIOFor<
   ConfigSyncProtocolType.EVM_RPC_MAIN | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
