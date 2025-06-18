@@ -1,15 +1,18 @@
 import type { Operation } from "effection";
 import type { PageRequest } from "./page.ts";
+import type { ConfigSyncProtocolType, PrimitiveEntry } from "@paima/config";
 
 export interface PrimitiveFetcher<
   Input,
   Page,
   RawData,
   PrimitiveType,
+  NetworkType extends ConfigSyncProtocolType,
 > {
   readPrimitives(
     data: Input,
     pageRequest: PageRequest<Page, RawData>,
+    primitives: PrimitiveEntry<NetworkType>[],
   ): Operation<PrimitiveType[]>;
 
   groupByPage<T extends string>(

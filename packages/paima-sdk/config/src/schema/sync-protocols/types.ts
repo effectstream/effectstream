@@ -3,6 +3,7 @@ import { ConfigNetworkType } from "../network/mod.ts";
 import type { ConfigSyncProtocolDecoratorType } from "./decorators/types.ts";
 import type { NetworkConfig } from "../../config/parts/network.ts";
 import type { ConfigSyncProtocolMapping } from "./all.ts";
+import type { PrimitivesForSyncProtocol } from "../primitive/config/types.ts";
 
 export enum ConfigSyncProtocolType {
   EVM_RPC_MAIN = "evm-rpc-main",
@@ -34,6 +35,19 @@ export type SyncProtocolFromNetwork<T extends ConfigNetworkType> =
     ? FlipObject<typeof SyncProtocolToNetwork>[T]
     : never;
 
+export type PrimitiveEntry<
+  SyncProtocol extends ConfigSyncProtocolType = ConfigSyncProtocolType,
+  Primitive extends PrimitivesForSyncProtocol<SyncProtocol> =
+    PrimitivesForSyncProtocol<SyncProtocol>,
+> = {
+  /** The sync protocol this primitive belongs to */
+  syncProtocol: SyncProtocol;
+  /** The primitive configuration */
+  primitive: Primitive;
+  /** Custom identifier for the primitive */
+  id: string;
+};
+
 export type NetworkFromSyncProtocol<
   T extends ConfigSyncProtocolType | ConfigSyncProtocolDecoratorType,
 > = T extends ConfigSyncProtocolType
@@ -46,5 +60,6 @@ export type SyncProtocolWithNetwork = {
     syncProtocolType: ConfigSyncProtocolMapping[K]["type"];
     syncProtocol: ConfigSyncProtocolMapping[K];
     network: NetworkFromSyncProtocol<K>;
+    primitives: PrimitiveEntry<K, PrimitivesForSyncProtocol<K>>[];
   };
 }[keyof typeof SyncProtocolToNetwork];

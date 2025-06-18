@@ -7,7 +7,7 @@ import type { RootOutput, RootPage } from "../types.ts";
 import type { Chain, GetBlockReturnType, PublicClient } from "viem";
 import type { Operation } from "effection";
 import { all, call } from "effection";
-import { bound, type EvmRpcPageJson, keysOf } from "@paima/utils";
+import { AddressType, bound, type EvmRpcPageJson, keysOf } from "@paima/utils";
 import { blockNumberRelation } from "../common/utils.ts";
 import type { Input, Output, Page, PrimitiveType } from "./types.ts";
 import { PageSchema, toMsTimestamp } from "./types.ts";
@@ -20,14 +20,30 @@ import {
 } from "../base/page.ts";
 import type { PrimitiveFetcher } from "../base/primitive.ts";
 import type { RootConversion } from "../base/state.ts";
-import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
-import { ConfigSyncProtocolType } from "@paima/config";
+import type {
+  ConfigNetworkType,
+  FlattenSyncProtocolIOFor,
+  PrimitiveEntry,
+  SyncProtocolWithNetwork,
+} from "@paima/config";
+import {
+  ConfigPrimitivePayloadType,
+  ConfigPrimitiveType,
+  ConfigSyncProtocolType,
+} from "@paima/config";
 import { Value } from "@sinclair/typebox/value";
 
 export class EvmFetcher
   extends BaseDataFetcher<Input, Output, RootOutput, Page, RootPage>
   implements
-    PrimitiveFetcher<Input, Page, GetBlockReturnType<Chain>, PrimitiveType>,
+    PrimitiveFetcher<
+      Input,
+      Page,
+      GetBlockReturnType<Chain>,
+      PrimitiveType,
+      | ConfigSyncProtocolType.EVM_RPC_MAIN
+      | ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    >,
     PaginatedFetcher<Page> {
   constructor(
     readonly config: Extract<
@@ -66,7 +82,11 @@ export class EvmFetcher
 
     // TODO: if we expect multiple primitives per block
     //       it can, depending on the chain, be faster to just download the full block and parse it locally
-    const primitives = yield* this.readPrimitives(data, pageFetcher);
+    const primitives = yield* this.readPrimitives(
+      data,
+      pageFetcher,
+      this.config.primitives,
+    );
     const groupedByPage = this.groupByPage(primitives);
 
     if (isParallel) {
@@ -144,38 +164,118 @@ export class EvmFetcher
     }, {} as Record<EvmRpcPageJson, PrimitiveType[]>);
   }
 
+  fetchLogsAndExtractPrimitiveData = function* (
+    blockNumber: number,
+    client: PublicClient<any, Chain, any, any>,
+    primitive: PrimitiveEntry<
+      | ConfigSyncProtocolType.EVM_RPC_MAIN
+      | ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    >,
+    pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
+  ): Operation<
+    PrimitiveType[]
+  > {
+    const block = yield* call(() => pageRequest(blockNumber));
+    const logs = yield* call(() =>
+      client.getLogs({
+        // TODO We need to correctly pass the ABI here
+        // abi: primitive.primitive.abi,
+        address: primitive.primitive.contractAddress,
+        event: primitive.primitive.abi,
+        fromBlock: BigInt(block.number),
+        toBlock: BigInt(block.number),
+      })
+    );
+
+    // TODO What is the correct type?
+    const primitiveResponse: FlattenSyncProtocolIOFor<
+      | ConfigSyncProtocolType.EVM_RPC_MAIN
+      | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+      ConfigPrimitiveType,
+      ConfigPrimitivePayloadType
+    >[] = logs.map((
+      log,
+    ) => {
+      const payloadType =
+        (primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC20)
+          ? ConfigPrimitivePayloadType.Transfer
+          : (primitive.primitive.type ===
+              ConfigPrimitiveType.EvmRpcPaimaL2)
+          ? ConfigPrimitivePayloadType.Event
+          : primitive.primitive.abi.type;
+
+      const primitiveResponse: FlattenSyncProtocolIOFor<
+        | ConfigSyncProtocolType.EVM_RPC_MAIN
+        | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+        ConfigPrimitiveType,
+        ConfigPrimitivePayloadType
+      > = {
+        // value: log.args,
+        // block,
+        // timestamp: toMsTimestamp(block.timestamp),
+        input: primitive.primitive as any,
+        output: {
+          payloadType: payloadType as any,
+          primitive: primitive.primitive.type as any,
+          payload: ({
+            ...log.args,
+            realAddress: {
+              type: AddressType.EVM,
+              address: log.address,
+            },
+          } as any),
+          syncProtocol: {
+            type: primitive.primitive.type as any,
+            name: primitive.primitive.name,
+            internal: {},
+            payload: ({
+              primitiveName: primitive.primitive.name,
+              transactionHash: log.transactionHash,
+              caip2: "eip155:1",
+              // fromAddress: log.address,
+              ownChain: {
+                blockNumber: Number(block.number),
+              },
+            } as any),
+          },
+        },
+        primitiveType: primitive.primitive.type,
+        // TODO Where do we get the payloadType from?
+        payloadType: payloadType as any,
+      };
+
+      return primitiveResponse;
+    });
+
+    return primitiveResponse;
+  };
+
   @bound
   *readPrimitives(
     data: Input,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
+    primitives: PrimitiveEntry<
+      | ConfigSyncProtocolType.EVM_RPC_MAIN
+      | ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    >[],
   ): Operation<PrimitiveType[]> {
-    // TODO: use real primitives (blocked on hardhat contract deployment working)
-    // TODO: dynamic primitives
+    const client = this.client;
+    const allOperations: Operation<PrimitiveType[]>[] = [];
 
-    const primitives = [] as (() => Operation<PrimitiveType>)[];
-    for (let i = data.from; i <= data.to; i++) {
-      if (Math.random() < 0.5) {
-        primitives.push(function* () {
-          const block = yield* call(() => pageRequest(i));
-          return {
-            // TODO: real type later
-            value: Math.random(),
+    for (const primitive of primitives) {
+      for (let block = data.from; block <= data.to; block++) {
+        allOperations.push(
+          this.fetchLogsAndExtractPrimitiveData(
             block,
-            timestamp: toMsTimestamp(block.timestamp),
-            output: {
-              syncProtocol: {
-                payload: {
-                  ownChain: {
-                    blockNumber: Number(block.number),
-                  },
-                },
-              },
-            },
-          } as any;
-        });
+            client,
+            primitive,
+            pageRequest,
+          ),
+        );
       }
     }
-    return yield* all(primitives.map((p) => p()));
+
+    return (yield* all(allOperations)).flat();
   }
 
   @bound

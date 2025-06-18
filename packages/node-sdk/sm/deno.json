@@ -1,9 +1,8 @@
 {
   "name": "@paima/sm",
   "version": "0.3.0",
-  "exports": "./src/mod.ts",
-  "tasks": {
-  },
+  "exports": "./mod.ts",
+  "tasks": {},
   "imports": {
     "pg": "npm:pg@^8.14.0",
     "pg-tx": "npm:pg-tx@^1.0.1",

@@ -14,6 +14,7 @@ import {
   PrimitiveCardanoCarpProjectedNFTPayload,
   PrimitiveCardanoCarpTransferPayload,
   PrimitiveEvmRpcErc1155TransferPayload,
+  PrimitiveEvmRpcErc20TransferPayload,
   PrimitiveEvmRpcErc721MintPayload,
   PrimitiveEvmRpcErc721TransferPayload,
   PrimitiveEvmRpcGenericPayload,
@@ -35,7 +36,11 @@ export const CardanoCarpTransferPrecompile = generatePrecompile(
  * Builtins where the prefix is user-determined
  */
 export const BuiltinTransitions = {
-  [ConfigPrimitiveType.EvmRpcERC20]: {},
+  [ConfigPrimitiveType.EvmRpcERC20]: {
+    transferScheduledPrefix: pickAll(["from", "to", "value"]).from(
+      PrimitiveEvmRpcErc20TransferPayload,
+    ),
+  },
   [ConfigPrimitiveType.EvmRpcERC721]: {
     mintScheduledPrefix: pickAll(["from", "tokenId", "mintData"]).from(
       PrimitiveEvmRpcErc721MintPayload,

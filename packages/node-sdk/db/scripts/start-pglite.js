@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { PGlite } from "@electric-sql/pglite";
+// TODO This is not working, so we load the pg_ivm extension from the node_modules folder
+// import { pg_ivm } from "@electric-sql/pglite/pg_ivm";
 import { readFileSync } from "node:fs";
 import net from "node:net";
 import { fromNodeSocket } from "pg-gateway/node";
@@ -15,8 +17,15 @@ const db = new PGlite(
   {
     username: "postgres",
     database: "postgres",
+    extensions: {
+      pg_ivm: new URL(
+        "../../../../node_modules/@electric-sql/pglite/dist/pg_ivm.tar.gz",
+        import.meta.url,
+      ),
+    },
   },
 );
+await db.exec("CREATE EXTENSION IF NOT EXISTS pg_ivm;");
 
 await db.exec(migration);
 

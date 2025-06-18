@@ -8,7 +8,7 @@
     "npm:@coderspirit/nominal@^4.1.1": "4.1.1",
     "npm:@dcspark/carp-client@^3.3.0": "3.3.0",
     "npm:@dcspark/cip34-js@3.0.1": "3.0.1",
-    "npm:@electric-sql/pglite@~0.3.2": "0.3.2",
+    "npm:@electric-sql/pglite@~0.3.3": "0.3.3",
     "npm:@foxglove/crc@^1.0.1": "1.0.1",
     "npm:@midnight-ntwrk/onchain-runtime@~0.2.6": "0.2.6",
     "npm:@noble/hashes@1.5.0": "1.5.0",
@@ -78,6 +78,7 @@
     "npm:pg@^8.14.0": "8.14.0",
     "npm:react-dom@18.3.1": "18.3.1_react@18.3.1",
     "npm:react@18.3.1": "18.3.1",
+    "npm:rotating-file-stream@^3.2.6": "3.2.6",
     "npm:superjson@^2.2.1": "2.2.2",
     "npm:tslog@^4.9.3": "4.9.3",
     "npm:tsx@^4.19.2": "4.19.3",
@@ -174,8 +175,8 @@
     "@dcspark/cip34-js@3.0.1": {
       "integrity": "sha512-xUChOH4fDAuAPImnRQs/5XXzBF6oWeLsRcwjjL5mFC2CXFAxhJrOavijQpbl67IcYUypOVSLg+8c2FCJonfH3Q=="
     },
-    "@electric-sql/pglite@0.3.2": {
-      "integrity": "sha512-zfWWa+V2ViDCY/cmUfRqeWY1yLto+EpxjXnZzenB1TyxsTiXaTWeZFIZw6mac52BsuQm0RjCnisjBtdBaXOI6w=="
+    "@electric-sql/pglite@0.3.3": {
+      "integrity": "sha512-JrvHOx9q0yvKEby0bK8qzGTVw6K+yEg8enxDWb2IwNKr5XZxRrBb+GNIqoAIP7yXyhRg5jcENWmdHmtnAT87vA=="
     },
     "@esbuild/aix-ppc64@0.25.2": {
       "integrity": "sha512-wCIboOL2yXZym2cgm6mlA742s9QeJ8DjGVaL39dLN4rRwrOgOyYSnOaFPhKZGLb2ngj4EyfAFjsNJwPXZvseag==",
@@ -3526,6 +3527,9 @@
       ],
       "bin": true
     },
+    "rotating-file-stream@3.2.6": {
+      "integrity": "sha512-r8yShzMWUvWXkRzbOXDM1fEaMpc3qo2PzK7bBH/0p0Nl/uz8Mud/Y+0XTQxe3kbSnDF7qBH2tSe83WDKA7o3ww=="
+    },
     "rxjs@7.8.2": {
       "integrity": "sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==",
       "dependencies": [
@@ -4045,7 +4049,9 @@
           "npm:ink-big-text@2",
           "npm:ink@5.1.0",
           "npm:react-dom@18.3.1",
-          "npm:react@18.3.1"
+          "npm:react@18.3.1",
+          "npm:rotating-file-stream@^3.2.6",
+          "npm:tslog@^4.9.3"
         ]
       },
       "packages/chains/evm/contracts": {
@@ -4069,7 +4075,7 @@
         ],
         "packageJson": {
           "dependencies": [
-            "npm:@electric-sql/pglite@~0.3.2",
+            "npm:@electric-sql/pglite@~0.3.3",
             "npm:@paima/pgtyped-cli@^2.4.5",
             "npm:concurrently@9.1.2",
             "npm:pg-gateway@~0.3.0-beta.4",

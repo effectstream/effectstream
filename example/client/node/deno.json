@@ -5,7 +5,8 @@
   "tasks": {
     // separate from node:start so we can type-check before starting other services
     "check": "deno check src/main.ts",
-    "node:start": "deno run -A src/main.ts",
+    // Open chrome://inspect to see the inspector
+    "node:start": "deno run -A --inspect src/main.ts",
     "dev": "deno task -f @example/cardano-contracts devkit:kill && NODE_ENV=development deno run -A --check scripts/start.ts"
   },
   "imports": {

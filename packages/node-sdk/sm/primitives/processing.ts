@@ -1,23 +1,23 @@
 import processErc20TransferDatum from "./evm/rpc/erc20-transfer.ts";
-import processErc721TransferDatum from "./evm/rpc/erc721-transfer.ts";
-import processErc721MintDatum from "./evm/rpc/erc721-mint.ts";
-import processErc6551RegistryDatum from "./evm/rpc/erc6551-registry.ts";
-import processErc1155TransferDatum from "./evm/rpc/erc1155-transfer.ts";
-import processGenericDatum from "./generic.ts";
-import processCardanoDelegationDatum from "./cardano/carp/delegation.ts";
-import processCardanoProjectedNFT from "./cardano/carp/projected-nft.ts";
-import processCardanoAssetUtxoDatum from "./cardano/carp/delayed-asset.ts";
-import processCardanoTransferDatum from "./cardano/carp/transfer.ts";
-import processCardanoMintBurnDatum from "./cardano/carp/mint-burn.ts";
-import processDynamicEvmPrimitive from "./evm/rpc/dynamic-primitive.ts";
-import processMidnightContractStateDatum from "./midnight/contract-state.ts";
+// import processErc721TransferDatum from "./evm/rpc/erc721-transfer.ts";
+// import processErc721MintDatum from "./evm/rpc/erc721-mint.ts";
+// import processErc6551RegistryDatum from "./evm/rpc/erc6551-registry.ts";
+// import processErc1155TransferDatum from "./evm/rpc/erc1155-transfer.ts";
+// import processGenericDatum from "./generic.ts";
+// import processCardanoDelegationDatum from "./cardano/carp/delegation.ts";
+// import processCardanoProjectedNFT from "./cardano/carp/projected-nft.ts";
+// import processCardanoAssetUtxoDatum from "./cardano/carp/delayed-asset.ts";
+// import processCardanoTransferDatum from "./cardano/carp/transfer.ts";
+// import processCardanoMintBurnDatum from "./cardano/carp/mint-burn.ts";
+// import processDynamicEvmPrimitive from "./evm/rpc/dynamic-primitive.ts";
+// import processMidnightContractStateDatum from "./midnight/contract-state.ts";
 import assertNever from "assert-never";
-import type { StateUpdateStream } from "@paima/db";
 import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
 } from "@paima/config";
 import { ConfigPrimitivePayloadType, ConfigPrimitiveType } from "@paima/config";
+import type { StateUpdateStream } from "@paima/coroutine";
 
 export function* primitiveTransitionFunction(
   primitive: FlattenSyncProtocolIOFor<
@@ -30,118 +30,137 @@ export function* primitiveTransitionFunction(
     case ConfigPrimitiveType.AvailPaimaL2:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
-          return null; // TODO
+          return; // TODO
         default:
           assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.EvmRpcPaimaL2:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
-          return null; // TODO
+          return; // TODO
         default:
           assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.EvmRpcERC20:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Transfer:
-          return yield* processErc20TransferDatum(primitive);
+          return yield* processErc20TransferDatum(
+            primitive.output.syncProtocol.payload.ownChain.blockNumber,
+            primitive,
+          );
         default:
           assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.EvmRpcERC721:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Transfer:
-          return yield* processErc721TransferDatum(primitive);
+          // return yield* processErc721TransferDatum(primitive);
         case ConfigPrimitivePayloadType.Mint:
-          return yield* processErc721MintDatum(primitive);
+          // return yield* processErc721MintDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.EvmRpcERC1155:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Transfer:
-          return yield* processErc1155TransferDatum(primitive);
+          // return yield* processErc1155TransferDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.EvmRpcGeneric:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
-          return yield* processGenericDatum(primitive);
+          // return yield* processGenericDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.EvmRpcERC6551Registry:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Registry:
-          return yield* processErc6551RegistryDatum(primitive);
+          // return yield* processErc6551RegistryDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.EvmRpcDynamicPrimitive:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
-          return yield* processDynamicEvmPrimitive(primitive);
+          // return yield* processDynamicEvmPrimitive(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.CardanoCarpDelegation:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Delegate:
-          return yield* processCardanoDelegationDatum(primitive);
+          // return yield* processCardanoDelegationDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.CardanoCarpProjectedNFT:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Projection:
-          return yield* processCardanoProjectedNFT(primitive);
+          // return yield* processCardanoProjectedNFT(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.CardanoCarpDelayedAsset:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Transfer:
-          return yield* processCardanoAssetUtxoDatum(primitive);
+          // return yield* processCardanoAssetUtxoDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.CardanoCarpTransfer:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Transfer:
-          return yield* processCardanoTransferDatum(primitive);
+          // return yield* processCardanoTransferDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.CardanoCarpMintBurn:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.MintOrBurn:
-          return yield* processCardanoMintBurnDatum(primitive);
+          // return yield* processCardanoMintBurnDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.MinaEventGeneric:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
-          return yield* processGenericDatum(primitive);
+          // return yield* processGenericDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.MinaActionGeneric:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
-          return yield* processGenericDatum(primitive);
+          // return yield* processGenericDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     case ConfigPrimitiveType.MidnightContractState:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
-          return yield* processMidnightContractStateDatum(primitive);
+          // return yield* processMidnightContractStateDatum(primitive);
         default:
-          assertNever.default(primitive);
+          // assertNever.default(primitive);
       }
+      break;
     default:
-      assertNever.default(primitive);
+      // assertNever.default(primitive);
   }
 }

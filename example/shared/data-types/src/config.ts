@@ -1,8 +1,22 @@
 // import deployedEvmAddresses from "@example/evm-contracts/deployments";
+/*
+#!/bin/bash
+# Script to deploy PaimaL2Contract and Erc20Dev contracts
+forge create src/contracts/PaimaL2Contract.sol:PaimaL2Contract \
+--broadcast --rpc-url 0.0.0.0:8545 \
+--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+--constructor-args 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 0
+# Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+
+forge create src/contracts/dev/Erc20Dev.sol:Erc20Dev \
+--broadcast --rpc-url 0.0.0.0:8545 \
+--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+# Deployed to: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+*/
 const deployedEvmAddresses = {
   "chain-31337": {
-    "L2Contract#PaimaL2Contract": "0x0000000000000000000000000000000000000000",
-    "Foo#SomeERC20": "0x0000000000000000000000000000000000000000",
+    "L2Contract#PaimaL2Contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "Foo#SomeERC20": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
   },
 } as const;
 import {
@@ -16,11 +30,12 @@ import { hardhat } from "viem/chains";
 import type { BlockNumber, TimestampMs } from "@paima/utils";
 
 // TODO: replace with @paima/evm-contracts
-import { erc20Abi } from "viem"; // TODO: ABIs for Paima built-in primitives should be in the @paima/evm-contracts ideally
-
+import { erc20Abi, erc721Abi } from "viem"; // TODO: ABIs for Paima built-in primitives should be in the @paima/evm-contracts ideally
+import { abi as paimal2 } from "./PaimaL2Contract.ts";
 // TODO: fill this out
 const stfInputs = {
-  tokenTransfer: "mock",
+  tokenTransfer: "transfer",
+  paimaSubmitGameInput: "paimaSubmitGameInput",
 } as const;
 
 // comes from hardhat.config.ts
@@ -94,13 +109,28 @@ export const localhostConfig = new ConfigBuilder()
       (syncProtocols) => syncProtocols.mainEvmRPC,
       (network, deployments, syncProtocol) => ({
         name: "TransferEvent",
-        type: ConfigPrimitiveType.EvmRpcGeneric,
+        type: ConfigPrimitiveType.EvmRpcERC20,
 
         startBlockHeight: 0,
-        contractAddress: deployments["mock"],
+        contractAddress: deployedEvmAddresses["chain-31337"]["Foo#SomeERC20"],
         abi: getEvmEvent(erc20Abi, "Transfer(address,address,uint256)"),
         scheduledPrefix: stfInputs.tokenTransfer,
       }),
     )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "PaimaGameInteraction",
+          type: ConfigPrimitiveType.EvmRpcPaimaL2,
+          startBlockHeight: 0,
+          contractAddress:
+            deployedEvmAddresses["chain-31337"]["L2Contract#PaimaL2Contract"],
+          abi: getEvmEvent(
+            paimal2.abi,
+            "PaimaGameInteraction(address,bytes,uint256)",
+          ),
+          scheduledPrefix: stfInputs.paimaSubmitGameInput,
+        }),
+      )
   )
   .build();

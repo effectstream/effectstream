@@ -3,8 +3,11 @@ import { getConnection } from "@paima/db";
 import { startMerge, startSync } from "@paima/sync";
 import type { SyncProtocolWithNetwork } from "@paima/config";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import { createChannel, each, type Operation, spawn } from "effection";
+import { call, createChannel, each, type Operation, spawn } from "effection";
 import { initTelemetry } from "./telemetry.ts";
+import { Pool } from "npm:pg@^8.14.0";
+import { primitiveTransitionFunction } from "@paima/sm";
+import { PreparedQuery } from "npm:@pgtyped/runtime@2.4.2";
 
 // TODO: figure out how to setup env vars instead of relying on defaults
 const poolConfig = {
@@ -52,9 +55,36 @@ export function* start(
   const finalizedBlockStream = createChannel<ChainBlock>();
   yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
 
-  for (let value of yield* each(finalizedBlockStream)) {
+  for (const value of yield* each(finalizedBlockStream)) {
     // TODO: save data into a database
     // console.log("got value:", value);
+    yield* processFinalizedBlock(value, dbConn);
     yield* each.next();
+  }
+}
+
+// Where shoud we move this? Before emitting finalizedBlockStream?
+function* processFinalizedBlock(
+  value: ChainBlock,
+  dbConn: Pool,
+): Operation<void> {
+  // TODO for this example process only evm primitives
+  if (
+    value.primitives.length > 0 &&
+    value.primitives[0].source !== "parallelUtxoRpc"
+  ) {
+    for (const primitive of value.primitives) {
+      const primitiveTransition = primitiveTransitionFunction(primitive as any);
+      let next = primitiveTransition.next();
+      while (!next.done) {
+        // TODO this if can be removed. We are only testing pass async operators.
+        if (next.value && Array.isArray(next.value)) {
+          const [queryIR, params] = next.value as [any, any];
+          const query = new PreparedQuery(queryIR);
+          yield* call(() => query.run(params, dbConn));
+        }
+        next = primitiveTransition.next();
+      }
+    }
   }
 }
