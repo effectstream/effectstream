@@ -105,3 +105,35 @@ CREATE TABLE registered_event (
   topic TEXT NOT NULL,
   PRIMARY KEY(name, topic)
 );
+
+-- Example ERC20 balance view
+SELECT pgivm.create_immv('erc_balance',
+    'SELECT
+    primitive_name,
+    address,
+    SUM(token_diff) AS balance
+FROM (
+    SELECT
+        primitive_name,
+        -- Coalesce either the ''to'' or ''from'' field into a single ''address'' column
+        CASE
+            WHEN payload->>''to'' IS NOT NULL AND payload->>''to'' != '''' THEN payload->>''to''
+            ELSE payload->>''from''
+        END AS address,
+        -- Positive for ''to'', negative for ''from'', 0 otherwise
+        CASE
+            WHEN payload->>''to'' IS NOT NULL AND payload->>''to'' != '''' 
+                THEN (payload->>''value'')::integer
+            WHEN payload->>''from'' IS NOT NULL 
+                 AND payload->>''from'' != '''' 
+                 AND payload->>''from'' != ''0x0000000000000000000000000000000000000000''
+                THEN -(payload->>''value'')::integer
+            ELSE 0
+        END AS token_diff
+    FROM primitive_accounting
+    WHERE payload_type = ''transfer''
+      AND primitive_name = ''TransferEvent''
+) AS token_changes
+WHERE address IS NOT NULL AND address != ''''
+GROUP BY primitive_name, address;
+');
