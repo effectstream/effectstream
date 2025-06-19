@@ -58,6 +58,8 @@ export const abortControllers = {
   system: new AbortController(),
   // Abort controller for all non-critical processes
   noncritical: new AbortController(),
+  // Abort controller for Developer UI
+  developerUI: new AbortController(),
 };
 
 export const startProcess: Record<
@@ -80,8 +82,9 @@ export const startProcess: Record<
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
-      abortController: abortControllers.noncritical,
+      abortController: abortControllers.developerUI,
     });
+    tmux.process.unref();
 
     return tmux;
   },

@@ -37,9 +37,6 @@ export async function shutdown(exitCode: number = 0): Promise<void> {
     return;
   }
   shutdownCalled = true;
-  // We are shutting down the processes, so redirect logs to the stdout
-  // So we see the shutdown messages.
-  setCurrentOutput(["otel", "stdout"]);
   abortControllers.system.abort();
   abortControllers.noncritical.abort();
   await awaitShutdown();
@@ -54,14 +51,15 @@ async function awaitShutdown(): Promise<void> {
   }
 
   for (const p of processes) {
-    if (p.alive) {
+    if (p.alive && p.component !== ComponentNames.TMUX) {
       console.log("Force killing process", p.process.pid);
       p.process.kill();
     }
   }
 
   await Promise.all(
-    processes.map((process) => process.process[Symbol.asyncDispose]()),
+    processes.filter((p) => p.component !== ComponentNames.TMUX)
+      .map((process) => process.process[Symbol.asyncDispose]()),
   );
 }
 
