@@ -1,7 +1,6 @@
 {
   "name": "@example/state-transition",
   "version": "0.3.0",
-  "exports": "./src/mod.ts",
-  "imports": {
-  }
+  "exports": "./mod.ts",
+  "imports": {}
 }

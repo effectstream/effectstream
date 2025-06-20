@@ -25,13 +25,12 @@ export async function start(): Promise<void> {
   // fast-fail if there are type errors in the project
   await startProcess[ComponentNames.CHECKER]();
 
+  await startProcess[ComponentNames.TMUX]();
+
   initTelemetry();
   try {
     // start the collector before any other process since it's the one that captures logs
     await startProcess[ComponentNames.COLLECTOR]();
-
-    // Do now wait for the TUI process to finish as it's a long-running process.
-    await startProcess[ComponentNames.TMUX]();
 
     // Start processes in parallel
     await Promise.all([

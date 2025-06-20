@@ -1,4 +1,5 @@
 import processErc20TransferDatum from "./evm/rpc/erc20-transfer.ts";
+import processPaimaL2Event from "./evm/rpc/paima-l2.ts";
 // import processErc721TransferDatum from "./evm/rpc/erc721-transfer.ts";
 // import processErc721MintDatum from "./evm/rpc/erc721-mint.ts";
 // import processErc6551RegistryDatum from "./evm/rpc/erc6551-registry.ts";
@@ -38,7 +39,7 @@ export function* primitiveTransitionFunction(
     case ConfigPrimitiveType.EvmRpcPaimaL2:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
-          return; // TODO
+          return yield* processPaimaL2Event(primitive);
         default:
           assertNever.default(primitive);
       }

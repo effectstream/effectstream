@@ -7,6 +7,16 @@ export const grammar = {
     ["playerId", Type.Integer()],
     ["moveId", Type.Integer()],
   ],
+  transfer: [
+    [
+      "payload",
+      Type.Object({
+        to: Type.String(),
+        from: Type.String(),
+        amount: Type.Number(),
+      }),
+    ],
+  ],
   switchMap: [["mapId", Type.String()]],
   ...mapPrimitivesToGrammar(localhostConfig.primitives),
 } as const satisfies GrammarDefinition;

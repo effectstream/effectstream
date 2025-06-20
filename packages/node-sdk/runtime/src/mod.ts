@@ -3,12 +3,20 @@ import { getConnection } from "@paima/db";
 import { startMerge, startSync } from "@paima/sync";
 import type { SyncProtocolWithNetwork } from "@paima/config";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import { call, createChannel, each, type Operation, spawn } from "effection";
+import {
+  call,
+  createChannel,
+  each,
+  type Operation,
+  run,
+  spawn,
+  until,
+} from "effection";
 import { initTelemetry } from "./telemetry.ts";
 import { Pool } from "npm:pg@^8.14.0";
 import { primitiveTransitionFunction } from "@paima/sm";
 import { PreparedQuery } from "npm:@pgtyped/runtime@2.4.2";
-
+// import { gameStateTransitionRouter } from "@example/state-transition";
 // TODO: figure out how to setup env vars instead of relying on defaults
 const poolConfig = {
   host: Deno.env.get("DB_HOST") || "localhost",
@@ -63,6 +71,38 @@ export function* start(
   }
 }
 
+function* consumeGeneratorWithDelay<T, R>(
+  generator: Generator<T, R, unknown>,
+  dbConn: Pool,
+): Operation<R> {
+  let result = generator.next();
+
+  while (!result.done) {
+    // We resolve promises here.
+    // Generators cannot execute promises.
+    // The PaimaL2 returns the state machine promise to resolve.
+    if (
+      result.value &&
+      typeof result.value === "object" &&
+      "type" in result.value &&
+      result.value.type === "promise" &&
+      "promise" in result.value
+    ) {
+      const promiseResult = yield* until((result.value as any).promise);
+      const stateMachineQuery = (promiseResult as any).stateTransitions;
+      for (const [queryIR, params] of stateMachineQuery) {
+        yield* call(() => queryIR.run(params, dbConn));
+      }
+    } else if (result.value && Array.isArray(result.value)) {
+      const [queryIR, params] = result.value as [any, any];
+      const query = new PreparedQuery(queryIR);
+      yield* call(() => query.run(params, dbConn));
+    }
+    result = generator.next();
+  }
+  return result.value;
+}
+
 // Where shoud we move this? Before emitting finalizedBlockStream?
 function* processFinalizedBlock(
   value: ChainBlock,
@@ -74,17 +114,8 @@ function* processFinalizedBlock(
     value.primitives[0].source !== "parallelUtxoRpc"
   ) {
     for (const primitive of value.primitives) {
-      const primitiveTransition = primitiveTransitionFunction(primitive as any);
-      let next = primitiveTransition.next();
-      while (!next.done) {
-        // TODO this if can be removed. We are only testing pass async operators.
-        if (next.value && Array.isArray(next.value)) {
-          const [queryIR, params] = next.value as [any, any];
-          const query = new PreparedQuery(queryIR);
-          yield* call(() => query.run(params, dbConn));
-        }
-        next = primitiveTransition.next();
-      }
+      const generator = primitiveTransitionFunction(primitive as any);
+      yield* consumeGeneratorWithDelay(generator, dbConn);
     }
   }
 }
