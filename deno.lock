@@ -59,7 +59,7 @@
     "npm:chalk@^5.3.0": "5.3.0",
     "npm:concurrently@9.1.2": "9.1.2",
     "npm:denque@^2.1.0": "2.1.0",
-    "npm:effection@^3.3.0": "3.5.0",
+    "npm:effection@3.5.0": "3.5.0",
     "npm:effection@^3.5.0": "3.5.0",
     "npm:fastify@^5.2.1": "5.3.3",
     "npm:hardhat@3.0.0-next.3": "3.0.0-next.3_zod@3.24.2",
@@ -4108,7 +4108,7 @@
           "npm:@utxorpc/sdk@~0.6.7",
           "npm:@utxorpc/spec@0.16",
           "npm:denque@^2.1.0",
-          "npm:effection@^3.3.0",
+          "npm:effection@3.5.0",
           "npm:json-stable-stringify@^1.2.1",
           "npm:pg@^8.14.0",
           "npm:viem@^2.21.3"
@@ -4134,7 +4134,7 @@
           "npm:abitype@^1.0.8",
           "npm:assert-never@^1.4.0",
           "npm:buffer@^6.0.3",
-          "npm:effection@^3.3.0",
+          "npm:effection@^3.5.0",
           "npm:viem@^2.21.3"
         ]
       },
@@ -4161,7 +4161,7 @@
           "npm:@opentelemetry/sdk-trace-base@^1.29.0",
           "npm:@opentelemetry/semantic-conventions@^1.28.0",
           "npm:chalk@5.4.1",
-          "npm:effection@^3.3.0",
+          "npm:effection@3.5.0",
           "npm:material-chalk@1.1.1",
           "npm:superjson@^2.2.1",
           "npm:tslog@^4.9.3"
