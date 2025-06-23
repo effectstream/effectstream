@@ -209,6 +209,7 @@ async function getDBConnection(): Promise<Client> {
   }
 }
 
+let testCount = 1;
 // Run a query, as we don't know when the Paima Engine chain has
 // included and processed the data, we run a query until some
 // condition is met, then we chech against the expected data.
@@ -219,6 +220,10 @@ async function awaitAndCheckDBQuery(
   waitUntil: (res: QueryResult<any>) => boolean,
   check: (res: QueryResult<any>) => boolean,
 ): Promise<QueryResult<any>> {
+  console.log(
+    `%c🔍 [Running test] ${testCount++}: ${testName}`,
+    "color: green; background-color: black; font-weight: bold",
+  );
   let maxMillis = 10000;
   while (maxMillis > 0) {
     const res = await db.query(query);
@@ -229,7 +234,7 @@ async function awaitAndCheckDBQuery(
       maxMillis -= 100;
       if (maxMillis <= 0) {
         console.error("Data in DB:", res.rows);
-        console.error(`❌ ${testName ?? "Test"} failed`);
+        console.error(`❌ Test failed`);
         return res;
       }
       continue;
@@ -240,11 +245,11 @@ async function awaitAndCheckDBQuery(
       if (!check(res)) {
         throw new Error("CHECK_ERROR");
       }
-      console.log(`✅ ${testName ?? "Test"} passed`);
+      console.log(`✅ Test passed`);
       return res;
     } catch (e) {
       console.error("Data in DB:", res.rows);
-      console.error(`❌ ${testName ?? "Test"} failed`);
+      console.error(`❌ Test failed`);
       if (e instanceof Error && e.message !== "CHECK_ERROR") {
         console.error(e);
       }
@@ -417,6 +422,32 @@ async function test() {
         return a.balance === "500" && b.balance === "90";
       },
     );
+
+    await awaitAndCheckDBQuery(
+      "Check nonces",
+      db,
+      `SELECT * FROM public.nonces;`,
+      (res) => res.rows.length === 2,
+      (res) => {
+        return res.rows.length === 2;
+      },
+    );
+
+    await awaitAndCheckDBQuery(
+      "Check addresses",
+      db,
+      `SELECT * FROM public.addresses;`,
+      (res) => res.rows.length === 1,
+      (res) => {
+        return res.rows[0].address === deployWallet;
+      },
+    );
+
+    const pauseTime = Deno.env.get("PAIMA_E2E_PAUSE_TIME");
+    if (pauseTime) {
+      console.log("⏳ Pausing for", pauseTime, "seconds");
+      await delay(parseInt(pauseTime, 10) * 1000);
+    }
 
     // Disconnect so the process can exit.
     await disconnect(db);

@@ -1,6 +1,7 @@
 /* @name newAddress */
 INSERT INTO addresses (address) 
-VALUES (:address!); 
+VALUES (:address!)
+RETURNING id;
 
 /* @name newAddressWithId */
 INSERT INTO addresses (address, id) 

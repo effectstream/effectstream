@@ -73,34 +73,42 @@ export function* start(
   }
 }
 
-function* consumeGeneratorWithDelay<T, R>(
+function* executeGeneratorStepByStep<T, R>(
   generator: Generator<T, R, unknown>,
   dbConn: Pool,
 ): Operation<R> {
   let result = generator.next();
 
   while (!result.done) {
-    // We resolve promises here.
+    // We resolve the generators promises here.
     // Generators cannot execute promises.
     // The PaimaL2 returns the state machine promise to resolve.
-    if (
-      result.value &&
+    const operations: any[] = [];
+    const isPromise = result.value &&
       typeof result.value === "object" &&
-      "type" in result.value &&
-      result.value.type === "promise" &&
-      "promise" in result.value
+      "type" in result.value;
+    if (
+      isPromise &&
+      (result.value as any).type === "promise"
     ) {
       const promiseResult = yield* until((result.value as any).promise);
       const stateMachineQuery = (promiseResult as any).stateTransitions;
       for (const [queryIR, params] of stateMachineQuery) {
-        yield* call(() => queryIR.run(params, dbConn));
+        const queryResult = yield* call(() => queryIR.run(params, dbConn));
+        operations.push(queryResult);
       }
+    } else if (isPromise && (result.value as any).type === "nounce") {
+      // This operation has to persist
+      const [query, params] = (result.value as any).promise as [any, any];
+      const queryResult = yield* call(() => query.run(params, dbConn));
+      operations.push(queryResult);
     } else if (result.value && Array.isArray(result.value)) {
       const [queryIR, params] = result.value as [any, any];
       const query = new PreparedQuery(queryIR);
-      yield* call(() => query.run(params, dbConn));
+      const queryResult = yield* call(() => query.run(params, dbConn));
+      operations.push(queryResult);
     }
-    result = generator.next();
+    result = generator.next(operations.flat());
   }
   return result.value;
 }
@@ -124,7 +132,7 @@ function* processFinalizedBlock(
         primitive as any,
         gameStateTransitionRouter,
       );
-      yield* consumeGeneratorWithDelay(generator, dbConn);
+      yield* executeGeneratorStepByStep(generator, dbConn);
     }
   }
 }

@@ -1,18 +1,5 @@
 // import deployedEvmAddresses from "@example/evm-contracts/deployments";
-/*
-#!/bin/bash
-# Script to deploy PaimaL2Contract and Erc20Dev contracts
-forge create src/contracts/PaimaL2Contract.sol:PaimaL2Contract \
---broadcast --rpc-url 0.0.0.0:8545 \
---private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
---constructor-args 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 0
-# Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
 
-forge create src/contracts/dev/Erc20Dev.sol:Erc20Dev \
---broadcast --rpc-url 0.0.0.0:8545 \
---private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-# Deployed to: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
-*/
 const deployedEvmAddresses = {
   "chain-31337": {
     "L2Contract#PaimaL2Contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",

@@ -7,7 +7,9 @@ export interface INewAddressParams {
 }
 
 /** 'NewAddress' return type */
-export type INewAddressResult = void;
+export interface INewAddressResult {
+  id: number;
+}
 
 /** 'NewAddress' query type */
 export interface INewAddressQuery {
@@ -15,13 +17,14 @@ export interface INewAddressQuery {
   result: INewAddressResult;
 }
 
-const newAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":41,"b":49}]}],"statement":"INSERT INTO addresses (address) \nVALUES (:address!)"};
+const newAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":41,"b":49}]}],"statement":"INSERT INTO addresses (address) \nVALUES (:address!)\nRETURNING id"};
 
 /**
  * Query generated from SQL:
  * ```
  * INSERT INTO addresses (address) 
  * VALUES (:address!)
+ * RETURNING id
  * ```
  */
 export const newAddress = new PreparedQuery<INewAddressParams,INewAddressResult>(newAddressIR);
