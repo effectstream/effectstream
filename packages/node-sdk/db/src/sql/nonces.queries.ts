@@ -83,3 +83,31 @@ const insertNonceIR: any = {"usedParamSet":{"nonce":true,"block_height":true},"p
 export const insertNonce = new PreparedQuery<IInsertNonceParams,IInsertNonceResult>(insertNonceIR);
 
 
+/** 'GetLastNonce' parameters type */
+export type IGetLastNonceParams = void;
+
+/** 'GetLastNonce' return type */
+export interface IGetLastNonceResult {
+  block_height: number;
+  nonce: string;
+}
+
+/** 'GetLastNonce' query type */
+export interface IGetLastNonceQuery {
+  params: IGetLastNonceParams;
+  result: IGetLastNonceResult;
+}
+
+const getLastNonceIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM nonces\nORDER BY block_height DESC\nLIMIT 1"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM nonces
+ * ORDER BY block_height DESC
+ * LIMIT 1
+ * ```
+ */
+export const getLastNonce = new PreparedQuery<IGetLastNonceParams,IGetLastNonceResult>(getLastNonceIR);
+
+

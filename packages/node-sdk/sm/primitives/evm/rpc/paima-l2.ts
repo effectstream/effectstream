@@ -8,7 +8,13 @@ import type {
   PrimitiveEvmRpcPaimaL2Accounting,
 } from "@paima/config";
 import type { QueuedUpdate, StateUpdateStream } from "@paima/coroutine";
-import { findNonce, insertPrimitiveAccounting } from "@paima/db";
+import {
+  findNonce,
+  getLastNonce,
+  insertNonce,
+  insertPrimitiveAccounting,
+  newAddress,
+} from "@paima/db";
 import { World } from "@paima/coroutine";
 import { createScheduledData } from "@paima/db";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
@@ -21,6 +27,7 @@ import {
   type BaseStfInput,
   type BaseStfOutput,
   mainAddressGenerator,
+  NO_USER_ID,
 } from "@paima/sm";
 import { call, Channel, Operation } from "npm:effection@^3.5.0";
 import type { AppEvents } from "@paima/sm";
@@ -40,8 +47,6 @@ export default function* processPaimaL2SyncProtocolResponse(
   const nonceData = yield* World.resolve(findNonce, {
     nonce: response.output.payload.inputNonce,
   });
-  console.log("nonceData", nonceData);
-  // Why is this undefined?
   if (nonceData && nonceData.length > 0) {
     log.remote(
       ComponentNames.PAIMA_SYNC,
@@ -56,19 +61,45 @@ export default function* processPaimaL2SyncProtocolResponse(
     );
     return;
   }
-  console.log(
-    "response.output.payload",
-    response.output.payload,
+  const [lastNonceData] = yield* World.resolve(getLastNonce, undefined);
+  const nextNouce = lastNonceData
+    ? Number((lastNonceData as any).nonce) + 1
+    : 0;
+
+  const address = yield* mainAddressGenerator(
+    response.output.payload.realAddress.address,
   );
-  // const address = yield* mainAddressGenerator(
-  //   response.output.payload.realAddress.address,
-  // );
-  let address = {
-    address: response.output.payload.realAddress.address,
-    id: 0,
-  };
 
   const blockHeight = response.output.syncProtocol.payload.ownChain.blockNumber;
+
+  // let success: boolean | undefined = false;
+  try {
+    // Check if internal Concise Command
+    // Internal Concise Commands are prefixed with an ampersand (&)
+    // const delegateWallet = new DelegateWallet(DBConn);
+    // if (response.output.payload.inputData.startsWith("&")) {
+    // const status = await delegateWallet.process(
+    //   inputData.realAddress,
+    //   inputData.userAddress,
+    //   inputData.inputData,
+    // );
+    // if (!status) continue;
+    // } else
+    if (address.id === NO_USER_ID) {
+      // If wallet does not exist in address table: create it.
+      const [newAddressResult] = yield* World.resolve(newAddress, {
+        address: address.address,
+      });
+      address.id = (newAddressResult as any).id;
+    }
+  } catch (err) {
+    log.remote(
+      ComponentNames.PAIMA_SYNC,
+      ["paima-l2"],
+      SeverityNumber.ERROR,
+      (log) => log(`[paima-sm] Error on user input STF call. Skipping`, err),
+    );
+  }
 
   const inputData = {
     ...response.output.payload,
@@ -77,28 +108,8 @@ export default function* processPaimaL2SyncProtocolResponse(
     paimaTxHash: "", // txHash,
   };
 
-  let success: boolean | undefined = false;
-  // try {
-  //   // Check if internal Concise Command
-  //   // Internal Concise Commands are prefixed with an ampersand (&)
-  //   const delegateWallet = new DelegateWallet(DBConn);
-  //   if (inputData.inputData.startsWith(INTERNAL_COMMAND_PREFIX)) {
-  //     const status = await delegateWallet.process(
-  //       inputData.realAddress,
-  //       inputData.userAddress,
-  //       inputData.inputData,
-  //     );
-  //     if (!status) continue;
-  //   } else if (inputData.userId === NO_USER_ID) {
-  //     // If wallet does not exist in address table: create it.
-  //     const newAddress = await delegateWallet.createAddress(
-  //       inputData.userAddress,
-  //     );
-  //     inputData.userId = newAddress.id;
-  //   }
-
   // Trigger STF
-  let sqlQueries: QueuedUpdate[] = [];
+  // let sqlQueries: QueuedUpdate[] = [];
   // let eventsToEmit: EventsToEmit<Events[string][number]> = [];
 
   try {
@@ -133,13 +144,14 @@ export default function* processPaimaL2SyncProtocolResponse(
   //   throw e;
   // } finally {
   // guarantee we run this no matter if there is an error or a continue
-  //   await insertNonce.run(
-  //     {
-  //       nonce: inputData.inputNonce,
-  //       block_height: latestChainData.blockNumber,
-  //     },
-  //     DBConn,
-  //   );
+  yield {
+    type: "nounce",
+    promise: [insertNonce, {
+      nonce: nextNouce,
+      block_height: blockHeight,
+    }],
+  };
+
   //   if (ENV.STORE_HISTORICAL_GAME_INPUTS) {
   //     await newGameInput.run(
   //       {
