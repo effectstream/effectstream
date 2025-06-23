@@ -3,10 +3,12 @@ import type { ValueOf } from "@paima/utils";
 import "./http-server.ts";
 
 import {
+  getCurrentOutput,
   initTelemetry,
   logHandler,
   rawLogHandler,
   setCollectorStarted,
+  setCurrentOutput,
 } from "./logging.ts";
 import {
   $,
@@ -21,16 +23,57 @@ Deno.addSignalListener("SIGINT", () => {
   shutdown(0);
 });
 
-export async function start(): Promise<void> {
+function getOptions(config: {
+  output?: "none" | "stdout" | "development" | "production";
+}) {
+  const output = config.output ?? "development";
+  const enableTUI = output === "development";
+  const enableCollector = output === "development";
+  switch (output) {
+    case "none":
+      setCurrentOutput([]);
+      break;
+    case "stdout":
+      setCurrentOutput(["stdout"]);
+      break;
+    case "development":
+      setCurrentOutput(["otel"]);
+      break;
+    case "production":
+      setCurrentOutput(["otel", "stdout"]);
+      break;
+  }
+  return {
+    enableTUI,
+    enableCollector,
+  };
+}
+
+export async function start(
+  config: {
+    // development : otel + collector + tui (default)
+    // production: otel + stdout
+    // stdout: no collector, only stdout
+    // none: no output
+    output?: "none" | "stdout" | "development" | "production";
+  } = {},
+): Promise<void> {
   // fast-fail if there are type errors in the project
   await startProcess[ComponentNames.CHECKER]();
 
-  await startProcess[ComponentNames.TMUX]();
+  const { enableTUI, enableCollector } = getOptions(config);
 
-  initTelemetry();
+  if (enableTUI) {
+    await startProcess[ComponentNames.TMUX]();
+  }
   try {
+    if (getCurrentOutput().includes("otel")) {
+      initTelemetry();
+    }
     // start the collector before any other process since it's the one that captures logs
-    await startProcess[ComponentNames.COLLECTOR]();
+    if (enableCollector) {
+      await startProcess[ComponentNames.COLLECTOR]();
+    }
 
     // Start processes in parallel
     await Promise.all([

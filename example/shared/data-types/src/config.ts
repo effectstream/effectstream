@@ -31,7 +31,7 @@ import type { BlockNumber, TimestampMs } from "@paima/utils";
 
 // TODO: replace with @paima/evm-contracts
 import { erc20Abi, erc721Abi } from "viem"; // TODO: ABIs for Paima built-in primitives should be in the @paima/evm-contracts ideally
-import { abi as paimal2 } from "./PaimaL2Contract.ts";
+import { paimal2 } from "@example/evm-contracts";
 // TODO: fill this out
 const stfInputs = {
   tokenTransfer: "transfer",

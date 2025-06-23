@@ -1,18 +1,21 @@
 import fastify from "fastify";
-import { processes } from "./process.ts";
+import { type ProcessComponent, processes, shutdown } from "./process.ts";
 // This file is a HTTP server to expose process information to the TUI.
 
 const server = fastify();
 
+function mapProcess(p: ProcessComponent) {
+  return {
+    name: p.component,
+    pid: p.process.pid,
+    alive: p.alive,
+    args: p.args,
+    date: p.date,
+  };
+}
 server.get("/processes", function handler() {
   return {
-    processes: processes.map((p) => ({
-      name: p.component,
-      pid: p.process.pid,
-      alive: p.alive,
-      args: p.args,
-      date: p.date,
-    })),
+    processes: processes.map(mapProcess),
   };
 });
 
@@ -45,6 +48,14 @@ server.get("/setup", function handler() {
     }
   });
   return obj;
+});
+
+server.post("/shutdown", async function handler() {
+  await shutdown(0, "Network shutdown");
+  return {
+    success: true,
+    processes: processes.map(mapProcess),
+  };
 });
 
 // Run the server!

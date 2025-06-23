@@ -1,111 +1,100 @@
-export const abi = {
-  "abi": [
+export const paimal2 = {
+  abi: [
     {
-      "type": "constructor",
-      "inputs": [{
-        "name": "_owner",
-        "type": "address",
-        "internalType": "address",
-      }, { "name": "_fee", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "nonpayable",
+      type: "constructor",
+      inputs: [
+        { name: "_owner", type: "address", internalType: "address" },
+        { name: "_fee", type: "uint256", internalType: "uint256" },
+      ],
+      stateMutability: "nonpayable",
     },
     {
-      "type": "function",
-      "name": "fee",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-      "stateMutability": "view",
+      type: "function",
+      name: "fee",
+      inputs: [],
+      outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+      stateMutability: "view",
     },
     {
-      "type": "function",
-      "name": "owner",
-      "inputs": [],
-      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
-      "stateMutability": "view",
+      type: "function",
+      name: "owner",
+      inputs: [],
+      outputs: [{ name: "", type: "address", internalType: "address" }],
+      stateMutability: "view",
     },
     {
-      "type": "function",
-      "name": "paimaSubmitGameInput",
-      "inputs": [{ "name": "data", "type": "bytes", "internalType": "bytes" }],
-      "outputs": [],
-      "stateMutability": "payable",
+      type: "function",
+      name: "paimaSubmitGameInput",
+      inputs: [{ name: "data", type: "bytes", internalType: "bytes" }],
+      outputs: [],
+      stateMutability: "payable",
     },
     {
-      "type": "function",
-      "name": "setFee",
-      "inputs": [{
-        "name": "newFee",
-        "type": "uint256",
-        "internalType": "uint256",
-      }],
-      "outputs": [],
-      "stateMutability": "nonpayable",
+      type: "function",
+      name: "setFee",
+      inputs: [{ name: "newFee", type: "uint256", internalType: "uint256" }],
+      outputs: [],
+      stateMutability: "nonpayable",
     },
     {
-      "type": "function",
-      "name": "setOwner",
-      "inputs": [{
-        "name": "newOwner",
-        "type": "address",
-        "internalType": "address",
-      }],
-      "outputs": [],
-      "stateMutability": "nonpayable",
+      type: "function",
+      name: "setOwner",
+      inputs: [{ name: "newOwner", type: "address", internalType: "address" }],
+      outputs: [],
+      stateMutability: "nonpayable",
     },
     {
-      "type": "function",
-      "name": "withdrawFunds",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "nonpayable",
+      type: "function",
+      name: "withdrawFunds",
+      inputs: [],
+      outputs: [],
+      stateMutability: "nonpayable",
     },
     {
-      "type": "event",
-      "name": "PaimaGameInteraction",
-      "inputs": [{
-        "name": "userAddress",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address",
-      }, {
-        "name": "data",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes",
-      }, {
-        "name": "value",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256",
-      }],
-      "anonymous": false,
+      type: "event",
+      name: "PaimaGameInteraction",
+      inputs: [
+        {
+          name: "userAddress",
+          type: "address",
+          indexed: true,
+          internalType: "address",
+        },
+        { name: "data", type: "bytes", indexed: false, internalType: "bytes" },
+        {
+          name: "value",
+          type: "uint256",
+          indexed: false,
+          internalType: "uint256",
+        },
+      ],
+      anonymous: false,
     },
-    { "type": "error", "name": "FailedCall", "inputs": [] },
+    { type: "error", name: "FailedCall", inputs: [] },
     {
-      "type": "error",
-      "name": "InsufficientBalance",
-      "inputs": [{
-        "name": "balance",
-        "type": "uint256",
-        "internalType": "uint256",
-      }, { "name": "needed", "type": "uint256", "internalType": "uint256" }],
+      type: "error",
+      name: "InsufficientBalance",
+      inputs: [
+        { name: "balance", type: "uint256", internalType: "uint256" },
+        { name: "needed", type: "uint256", internalType: "uint256" },
+      ],
     },
   ],
-  "bytecode": {
-    "object":
+  bytecode: {
+    object:
       "0x608060405234801561001057600080fd5b50604051610bba380380610bba83398181016040528101906100329190610119565b816000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550806001819055505050610159565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b60006100b082610085565b9050919050565b6100c0816100a5565b81146100cb57600080fd5b50565b6000815190506100dd816100b7565b92915050565b6000819050919050565b6100f6816100e3565b811461010157600080fd5b50565b600081519050610113816100ed565b92915050565b600080604083850312156101305761012f610080565b5b600061013e858286016100ce565b925050602061014f85828601610104565b9150509250929050565b610a52806101686000396000f3fe6080604052600436106100555760003560e01c806313af40351461005a57806324600fc3146100835780633804df031461009a57806369fe0e2d146100b65780638da5cb5b146100df578063ddca3f431461010a575b600080fd5b34801561006657600080fd5b50610081600480360381019061007c91906105a0565b610135565b005b34801561008f57600080fd5b50610098610206565b005b6100b460048036038101906100af9190610632565b6102ec565b005b3480156100c257600080fd5b506100dd60048036038101906100d891906106b5565b610387565b005b3480156100eb57600080fd5b506100f461041f565b60405161010191906106f1565b60405180910390f35b34801561011657600080fd5b5061011f610443565b60405161012c919061071b565b60405180910390f35b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146101c3576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016101ba90610793565b60405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610294576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161028b906107ff565b60405180910390fd5b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905060004790506102e8818373ffffffffffffffffffffffffffffffffffffffff1661044990919063ffffffff16565b5050565b600154341015610331576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161032890610891565b60405180910390fd5b3373ffffffffffffffffffffffffffffffffffffffff167fffa7cf79b6173c04d5ec2b41bce25acc6e48f9cf86349011288bab7da23fc51783833460405161037b9392919061090f565b60405180910390a25050565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610415576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161040c9061098d565b60405180910390fd5b8060018190555050565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b60015481565b804710156104905747816040517fcf4791810000000000000000000000000000000000000000000000000000000081526004016104879291906109ad565b60405180910390fd5b60008273ffffffffffffffffffffffffffffffffffffffff16826040516104b690610a07565b60006040518083038185875af1925050503d80600081146104f3576040519150601f19603f3d011682016040523d82523d6000602084013e6104f8565b606091505b5050905080610533576040517fd6bda27500000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b505050565b600080fd5b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061056d82610542565b9050919050565b61057d81610562565b811461058857600080fd5b50565b60008135905061059a81610574565b92915050565b6000602082840312156105b6576105b5610538565b5b60006105c48482850161058b565b91505092915050565b600080fd5b600080fd5b600080fd5b60008083601f8401126105f2576105f16105cd565b5b8235905067ffffffffffffffff81111561060f5761060e6105d2565b5b60208301915083600182028301111561062b5761062a6105d7565b5b9250929050565b6000806020838503121561064957610648610538565b5b600083013567ffffffffffffffff8111156106675761066661053d565b5b610673858286016105dc565b92509250509250929050565b6000819050919050565b6106928161067f565b811461069d57600080fd5b50565b6000813590506106af81610689565b92915050565b6000602082840312156106cb576106ca610538565b5b60006106d9848285016106a0565b91505092915050565b6106eb81610562565b82525050565b600060208201905061070660008301846106e2565b92915050565b6107158161067f565b82525050565b6000602082019050610730600083018461070c565b92915050565b600082825260208201905092915050565b7f4f6e6c79206f776e65722063616e206368616e6765206f776e65720000000000600082015250565b600061077d601b83610736565b915061078882610747565b602082019050919050565b600060208201905081810360008301526107ac81610770565b9050919050565b7f4f6e6c79206f776e65722063616e2077697468647261772066756e6473000000600082015250565b60006107e9601d83610736565b91506107f4826107b3565b602082019050919050565b60006020820190508181036000830152610818816107dc565b9050919050565b7f53756666696369656e742066756e647320726571756972656420746f2073756260008201527f6d69742067616d6520696e707574000000000000000000000000000000000000602082015250565b600061087b602e83610736565b91506108868261081f565b604082019050919050565b600060208201905081810360008301526108aa8161086e565b9050919050565b600082825260208201905092915050565b82818337600083830152505050565b6000601f19601f8301169050919050565b60006108ee83856108b1565b93506108fb8385846108c2565b610904836108d1565b840190509392505050565b6000604082019050818103600083015261092a8185876108e2565b9050610939602083018461070c565b949350505050565b7f4f6e6c79206f776e65722063616e206368616e67652066656500000000000000600082015250565b6000610977601983610736565b915061098282610941565b602082019050919050565b600060208201905081810360008301526109a68161096a565b9050919050565b60006040820190506109c2600083018561070c565b6109cf602083018461070c565b9392505050565b600081905092915050565b50565b60006109f16000836109d6565b91506109fc826109e1565b600082019050919050565b6000610a12826109e4565b915081905091905056fea2646970667358221220d3b643cf51f30283d998172eb07bf98b7fb31cbeb5dc74618359b0ce136f085664736f6c634300081e0033",
-    "sourceMap":
+    sourceMap:
       "157:1910:87:-:0;;;742:93;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;:::i;:::-;802:6;794:5;;:14;;;;;;;;;;;;;;;;;;824:4;818:3;:10;;;;742:93;;157:1910;;88:117:126;197:1;194;187:12;334:126;371:7;411:42;404:5;400:54;389:65;;334:126;;;:::o;466:96::-;503:7;532:24;550:5;532:24;:::i;:::-;521:35;;466:96;;;:::o;568:122::-;641:24;659:5;641:24;:::i;:::-;634:5;631:35;621:63;;680:1;677;670:12;621:63;568:122;:::o;696:143::-;753:5;784:6;778:13;769:22;;800:33;827:5;800:33;:::i;:::-;696:143;;;;:::o;845:77::-;882:7;911:5;900:16;;845:77;;;:::o;928:122::-;1001:24;1019:5;1001:24;:::i;:::-;994:5;991:35;981:63;;1040:1;1037;1030:12;981:63;928:122;:::o;1056:143::-;1113:5;1144:6;1138:13;1129:22;;1160:33;1187:5;1160:33;:::i;:::-;1056:143;;;;:::o;1205:507::-;1284:6;1292;1341:2;1329:9;1320:7;1316:23;1312:32;1309:119;;;1347:79;;:::i;:::-;1309:119;1467:1;1492:64;1548:7;1539:6;1528:9;1524:22;1492:64;:::i;:::-;1482:74;;1438:128;1605:2;1631:64;1687:7;1678:6;1667:9;1663:22;1631:64;:::i;:::-;1621:74;;1576:129;1205:507;;;;;:::o;157:1910:87:-;;;;;;;",
-    "linkReferences": {},
+    linkReferences: {},
   },
-  "deployedBytecode": {
-    "object":
+  deployedBytecode: {
+    object:
       "0x6080604052600436106100555760003560e01c806313af40351461005a57806324600fc3146100835780633804df031461009a57806369fe0e2d146100b65780638da5cb5b146100df578063ddca3f431461010a575b600080fd5b34801561006657600080fd5b50610081600480360381019061007c91906105a0565b610135565b005b34801561008f57600080fd5b50610098610206565b005b6100b460048036038101906100af9190610632565b6102ec565b005b3480156100c257600080fd5b506100dd60048036038101906100d891906106b5565b610387565b005b3480156100eb57600080fd5b506100f461041f565b60405161010191906106f1565b60405180910390f35b34801561011657600080fd5b5061011f610443565b60405161012c919061071b565b60405180910390f35b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146101c3576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016101ba90610793565b60405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610294576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161028b906107ff565b60405180910390fd5b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905060004790506102e8818373ffffffffffffffffffffffffffffffffffffffff1661044990919063ffffffff16565b5050565b600154341015610331576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161032890610891565b60405180910390fd5b3373ffffffffffffffffffffffffffffffffffffffff167fffa7cf79b6173c04d5ec2b41bce25acc6e48f9cf86349011288bab7da23fc51783833460405161037b9392919061090f565b60405180910390a25050565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610415576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161040c9061098d565b60405180910390fd5b8060018190555050565b60008054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b60015481565b804710156104905747816040517fcf4791810000000000000000000000000000000000000000000000000000000081526004016104879291906109ad565b60405180910390fd5b60008273ffffffffffffffffffffffffffffffffffffffff16826040516104b690610a07565b60006040518083038185875af1925050503d80600081146104f3576040519150601f19603f3d011682016040523d82523d6000602084013e6104f8565b606091505b5050905080610533576040517fd6bda27500000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b505050565b600080fd5b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061056d82610542565b9050919050565b61057d81610562565b811461058857600080fd5b50565b60008135905061059a81610574565b92915050565b6000602082840312156105b6576105b5610538565b5b60006105c48482850161058b565b91505092915050565b600080fd5b600080fd5b600080fd5b60008083601f8401126105f2576105f16105cd565b5b8235905067ffffffffffffffff81111561060f5761060e6105d2565b5b60208301915083600182028301111561062b5761062a6105d7565b5b9250929050565b6000806020838503121561064957610648610538565b5b600083013567ffffffffffffffff8111156106675761066661053d565b5b610673858286016105dc565b92509250509250929050565b6000819050919050565b6106928161067f565b811461069d57600080fd5b50565b6000813590506106af81610689565b92915050565b6000602082840312156106cb576106ca610538565b5b60006106d9848285016106a0565b91505092915050565b6106eb81610562565b82525050565b600060208201905061070660008301846106e2565b92915050565b6107158161067f565b82525050565b6000602082019050610730600083018461070c565b92915050565b600082825260208201905092915050565b7f4f6e6c79206f776e65722063616e206368616e6765206f776e65720000000000600082015250565b600061077d601b83610736565b915061078882610747565b602082019050919050565b600060208201905081810360008301526107ac81610770565b9050919050565b7f4f6e6c79206f776e65722063616e2077697468647261772066756e6473000000600082015250565b60006107e9601d83610736565b91506107f4826107b3565b602082019050919050565b60006020820190508181036000830152610818816107dc565b9050919050565b7f53756666696369656e742066756e647320726571756972656420746f2073756260008201527f6d69742067616d6520696e707574000000000000000000000000000000000000602082015250565b600061087b602e83610736565b91506108868261081f565b604082019050919050565b600060208201905081810360008301526108aa8161086e565b9050919050565b600082825260208201905092915050565b82818337600083830152505050565b6000601f19601f8301169050919050565b60006108ee83856108b1565b93506108fb8385846108c2565b610904836108d1565b840190509392505050565b6000604082019050818103600083015261092a8185876108e2565b9050610939602083018461070c565b949350505050565b7f4f6e6c79206f776e65722063616e206368616e67652066656500000000000000600082015250565b6000610977601983610736565b915061098282610941565b602082019050919050565b600060208201905081810360008301526109a68161096a565b9050919050565b60006040820190506109c2600083018561070c565b6109cf602083018461070c565b9392505050565b600081905092915050565b50565b60006109f16000836109d6565b91506109fc826109e1565b600082019050919050565b6000610a12826109e4565b915081905091905056fea2646970667358221220d3b643cf51f30283d998172eb07bf98b7fb31cbeb5dc74618359b0ce136f085664736f6c634300081e0033",
-    "sourceMap":
+    sourceMap:
       "157:1910:87:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1674:145;;;;;;;;;;;;;;;;;;;;;;;:::i;:::-;;:::i;:::-;;1332:235;;;;;;;;;;;;;:::i;:::-;;999:222;;;;;;;;;;;;;:::i;:::-;;:::i;:::-;;1930:135;;;;;;;;;;;;;;;;;;;;;;;:::i;:::-;;:::i;:::-;;513:20;;;;;;;;;;;;;:::i;:::-;;;;;;;:::i;:::-;;;;;;;;631:18;;;;;;;;;;;;;:::i;:::-;;;;;;;:::i;:::-;;;;;;;;1674:145;1749:5;;;;;;;;;;1735:19;;:10;:19;;;1727:59;;;;;;;;;;;;:::i;:::-;;;;;;;;;1804:8;1796:5;;:16;;;;;;;;;;;;;;;;;;1674:145;:::o;1332:235::-;1396:5;;;;;;;;;;1382:19;;:10;:19;;;1374:61;;;;;;;;;;;;:::i;:::-;;;;;;;;;1445:18;1474:5;;;;;;;;;;;1445:35;;1490:15;1508:21;1490:39;;1539:21;1552:7;1539:2;:12;;;;:21;;;;:::i;:::-;1364:203;;1332:235::o;999:222::-;1096:3;;1083:9;:16;;1075:75;;;;;;;;;;;;:::i;:::-;;;;;;;;;1186:10;1165:49;;;1198:4;;1204:9;1165:49;;;;;;;;:::i;:::-;;;;;;;;999:222;;:::o;1930:135::-;2001:5;;;;;;;;;;1987:19;;:10;:19;;;1979:57;;;;;;;;;;;;:::i;:::-;;;;;;;;;2052:6;2046:3;:12;;;;1930:135;:::o;513:20::-;;;;;;;;;;;;:::o;631:18::-;;;;:::o;1290:349:33:-;1399:6;1375:21;:30;1371:125;;;1455:21;1478:6;1428:57;;;;;;;;;;;;:::i;:::-;;;;;;;;1371:125;1507:12;1525:9;:14;;1547:6;1525:33;;;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1506:52;;;1573:7;1568:65;;1603:19;;;;;;;;;;;;;;1568:65;1361:278;1290:349;;:::o;88:117:126:-;197:1;194;187:12;211:117;320:1;317;310:12;334:126;371:7;411:42;404:5;400:54;389:65;;334:126;;;:::o;466:96::-;503:7;532:24;550:5;532:24;:::i;:::-;521:35;;466:96;;;:::o;568:122::-;641:24;659:5;641:24;:::i;:::-;634:5;631:35;621:63;;680:1;677;670:12;621:63;568:122;:::o;696:139::-;742:5;780:6;767:20;758:29;;796:33;823:5;796:33;:::i;:::-;696:139;;;;:::o;841:329::-;900:6;949:2;937:9;928:7;924:23;920:32;917:119;;;955:79;;:::i;:::-;917:119;1075:1;1100:53;1145:7;1136:6;1125:9;1121:22;1100:53;:::i;:::-;1090:63;;1046:117;841:329;;;;:::o;1176:117::-;1285:1;1282;1275:12;1299:117;1408:1;1405;1398:12;1422:117;1531:1;1528;1521:12;1558:552;1615:8;1625:6;1675:3;1668:4;1660:6;1656:17;1652:27;1642:122;;1683:79;;:::i;:::-;1642:122;1796:6;1783:20;1773:30;;1826:18;1818:6;1815:30;1812:117;;;1848:79;;:::i;:::-;1812:117;1962:4;1954:6;1950:17;1938:29;;2016:3;2008:4;2000:6;1996:17;1986:8;1982:32;1979:41;1976:128;;;2023:79;;:::i;:::-;1976:128;1558:552;;;;;:::o;2116:527::-;2186:6;2194;2243:2;2231:9;2222:7;2218:23;2214:32;2211:119;;;2249:79;;:::i;:::-;2211:119;2397:1;2386:9;2382:17;2369:31;2427:18;2419:6;2416:30;2413:117;;;2449:79;;:::i;:::-;2413:117;2562:64;2618:7;2609:6;2598:9;2594:22;2562:64;:::i;:::-;2544:82;;;;2340:296;2116:527;;;;;:::o;2649:77::-;2686:7;2715:5;2704:16;;2649:77;;;:::o;2732:122::-;2805:24;2823:5;2805:24;:::i;:::-;2798:5;2795:35;2785:63;;2844:1;2841;2834:12;2785:63;2732:122;:::o;2860:139::-;2906:5;2944:6;2931:20;2922:29;;2960:33;2987:5;2960:33;:::i;:::-;2860:139;;;;:::o;3005:329::-;3064:6;3113:2;3101:9;3092:7;3088:23;3084:32;3081:119;;;3119:79;;:::i;:::-;3081:119;3239:1;3264:53;3309:7;3300:6;3289:9;3285:22;3264:53;:::i;:::-;3254:63;;3210:117;3005:329;;;;:::o;3340:118::-;3427:24;3445:5;3427:24;:::i;:::-;3422:3;3415:37;3340:118;;:::o;3464:222::-;3557:4;3595:2;3584:9;3580:18;3572:26;;3608:71;3676:1;3665:9;3661:17;3652:6;3608:71;:::i;:::-;3464:222;;;;:::o;3692:118::-;3779:24;3797:5;3779:24;:::i;:::-;3774:3;3767:37;3692:118;;:::o;3816:222::-;3909:4;3947:2;3936:9;3932:18;3924:26;;3960:71;4028:1;4017:9;4013:17;4004:6;3960:71;:::i;:::-;3816:222;;;;:::o;4044:169::-;4128:11;4162:6;4157:3;4150:19;4202:4;4197:3;4193:14;4178:29;;4044:169;;;;:::o;4219:177::-;4359:29;4355:1;4347:6;4343:14;4336:53;4219:177;:::o;4402:366::-;4544:3;4565:67;4629:2;4624:3;4565:67;:::i;:::-;4558:74;;4641:93;4730:3;4641:93;:::i;:::-;4759:2;4754:3;4750:12;4743:19;;4402:366;;;:::o;4774:419::-;4940:4;4978:2;4967:9;4963:18;4955:26;;5027:9;5021:4;5017:20;5013:1;5002:9;4998:17;4991:47;5055:131;5181:4;5055:131;:::i;:::-;5047:139;;4774:419;;;:::o;5199:179::-;5339:31;5335:1;5327:6;5323:14;5316:55;5199:179;:::o;5384:366::-;5526:3;5547:67;5611:2;5606:3;5547:67;:::i;:::-;5540:74;;5623:93;5712:3;5623:93;:::i;:::-;5741:2;5736:3;5732:12;5725:19;;5384:366;;;:::o;5756:419::-;5922:4;5960:2;5949:9;5945:18;5937:26;;6009:9;6003:4;5999:20;5995:1;5984:9;5980:17;5973:47;6037:131;6163:4;6037:131;:::i;:::-;6029:139;;5756:419;;;:::o;6181:233::-;6321:34;6317:1;6309:6;6305:14;6298:58;6390:16;6385:2;6377:6;6373:15;6366:41;6181:233;:::o;6420:366::-;6562:3;6583:67;6647:2;6642:3;6583:67;:::i;:::-;6576:74;;6659:93;6748:3;6659:93;:::i;:::-;6777:2;6772:3;6768:12;6761:19;;6420:366;;;:::o;6792:419::-;6958:4;6996:2;6985:9;6981:18;6973:26;;7045:9;7039:4;7035:20;7031:1;7020:9;7016:17;7009:47;7073:131;7199:4;7073:131;:::i;:::-;7065:139;;6792:419;;;:::o;7217:168::-;7300:11;7334:6;7329:3;7322:19;7374:4;7369:3;7365:14;7350:29;;7217:168;;;;:::o;7391:148::-;7489:6;7484:3;7479;7466:30;7530:1;7521:6;7516:3;7512:16;7505:27;7391:148;;;:::o;7545:102::-;7586:6;7637:2;7633:7;7628:2;7621:5;7617:14;7613:28;7603:38;;7545:102;;;:::o;7675:314::-;7771:3;7792:70;7855:6;7850:3;7792:70;:::i;:::-;7785:77;;7872:56;7921:6;7916:3;7909:5;7872:56;:::i;:::-;7953:29;7975:6;7953:29;:::i;:::-;7948:3;7944:39;7937:46;;7675:314;;;;;:::o;7995:439::-;8144:4;8182:2;8171:9;8167:18;8159:26;;8231:9;8225:4;8221:20;8217:1;8206:9;8202:17;8195:47;8259:86;8340:4;8331:6;8323;8259:86;:::i;:::-;8251:94;;8355:72;8423:2;8412:9;8408:18;8399:6;8355:72;:::i;:::-;7995:439;;;;;;:::o;8440:175::-;8580:27;8576:1;8568:6;8564:14;8557:51;8440:175;:::o;8621:366::-;8763:3;8784:67;8848:2;8843:3;8784:67;:::i;:::-;8777:74;;8860:93;8949:3;8860:93;:::i;:::-;8978:2;8973:3;8969:12;8962:19;;8621:366;;;:::o;8993:419::-;9159:4;9197:2;9186:9;9182:18;9174:26;;9246:9;9240:4;9236:20;9232:1;9221:9;9217:17;9210:47;9274:131;9400:4;9274:131;:::i;:::-;9266:139;;8993:419;;;:::o;9418:332::-;9539:4;9577:2;9566:9;9562:18;9554:26;;9590:71;9658:1;9647:9;9643:17;9634:6;9590:71;:::i;:::-;9671:72;9739:2;9728:9;9724:18;9715:6;9671:72;:::i;:::-;9418:332;;;;;:::o;9756:147::-;9857:11;9894:3;9879:18;;9756:147;;;;:::o;9909:114::-;;:::o;10029:398::-;10188:3;10209:83;10290:1;10285:3;10209:83;:::i;:::-;10202:90;;10301:93;10390:3;10301:93;:::i;:::-;10419:1;10414:3;10410:11;10403:18;;10029:398;;;:::o;10433:379::-;10617:3;10639:147;10782:3;10639:147;:::i;:::-;10632:154;;10803:3;10796:10;;10433:379;;;:::o",
-    "linkReferences": {},
+    linkReferences: {},
   },
-  "methodIdentifiers": {
+  methodIdentifiers: {
     "fee()": "ddca3f43",
     "owner()": "8da5cb5b",
     "paimaSubmitGameInput(bytes)": "3804df03",
@@ -113,184 +102,166 @@ export const abi = {
     "setOwner(address)": "13af4035",
     "withdrawFunds()": "24600fc3",
   },
-  "rawMetadata":
+  rawMetadata:
     '{"compiler":{"version":"0.8.30+commit.73712a01"},"language":"Solidity","output":{"abi":[{"inputs":[{"internalType":"address","name":"_owner","type":"address"},{"internalType":"uint256","name":"_fee","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[],"name":"FailedCall","type":"error"},{"inputs":[{"internalType":"uint256","name":"balance","type":"uint256"},{"internalType":"uint256","name":"needed","type":"uint256"}],"name":"InsufficientBalance","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"userAddress","type":"address"},{"indexed":false,"internalType":"bytes","name":"data","type":"bytes"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"PaimaGameInteraction","type":"event"},{"inputs":[],"name":"fee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes","name":"data","type":"bytes"}],"name":"paimaSubmitGameInput","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"setFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"setOwner","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"withdrawFunds","outputs":[],"stateMutability":"nonpayable","type":"function"}],"devdoc":{"details":"The main L2 contract for a Paima L2.","errors":{"FailedCall()":[{"details":"A call to an address target failed. The target may have reverted."}],"InsufficientBalance(uint256,uint256)":[{"details":"The ETH balance of the account is not enough to perform the operation."}]},"events":{"PaimaGameInteraction(address,bytes,uint256)":{"details":"Emitted when `paimaSubmitGameInput` function is called with `data`. `userAddress` is the transaction sender and `value` is the transaction value."}},"kind":"dev","methods":{"constructor":{"details":"Sets the contract owner to `_owner` and payment fee to `_fee`."},"paimaSubmitGameInput(bytes)":{"details":"Emits the `PaimaGameInteraction` event, logging the `msg.sender`, `data`, and `msg.value`. Revert if `msg.value` is less than set `fee`."},"setFee(uint256)":{"details":"Sets the `newFee` as the required payment fee. Callable only by the contract owner."},"setOwner(address)":{"details":"Sets the `newOwner` as the contract owner. Callable only by the contract owner."},"withdrawFunds()":{"details":"Withdraws the contract balance to the `owner`. Callable only by the contract owner."}},"stateVariables":{"fee":{"details":"Amount in wei that is required to be paid when calling `paimaSubmitGameInput`."},"owner":{"details":"Contract owner."}},"version":1},"userdoc":{"kind":"user","methods":{},"version":1}},"settings":{"compilationTarget":{"src/contracts/PaimaL2Contract.sol":"PaimaL2Contract"},"evmVersion":"berlin","libraries":{},"metadata":{"bytecodeHash":"ipfs"},"optimizer":{"enabled":false,"runs":200},"remappings":[":@openzeppelin/=../../../../node_modules/@openzeppelin/"]},"sources":{"../../../../node_modules/@openzeppelin/contracts/utils/Address.sol":{"keccak256":"0x9d8da059267bac779a2dbbb9a26c2acf00ca83085e105d62d5d4ef96054a47f5","license":"MIT","urls":["bzz-raw://c78e2aa4313323cecd1ef12a8d6265b96beee1a199923abf55d9a2a9e291ad23","dweb:/ipfs/QmUTs2KStXucZezzFo3EYeqYu47utu56qrF7jj1Gue65vb"]},"../../../../node_modules/@openzeppelin/contracts/utils/Errors.sol":{"keccak256":"0x6afa713bfd42cf0f7656efa91201007ac465e42049d7de1d50753a373648c123","license":"MIT","urls":["bzz-raw://ba1d02f4847670a1b83dec9f7d37f0b0418d6043447b69f3a29a5f9efc547fcf","dweb:/ipfs/QmQ7iH2keLNUKgq2xSWcRmuBE5eZ3F5whYAkAGzCNNoEWB"]},"src/contracts/PaimaL2Contract.sol":{"keccak256":"0xc9f0d61fc0ec62848c6e762c7dcb8a655968144457793e11b20e953418ca4c49","license":"MIT","urls":["bzz-raw://e594b7c747d1240be1e74272b02c675fad80461ae054ad57b3f9925b2101d42d","dweb:/ipfs/QmV13NdAAsbx8k1wfFtBncLm6UcWQzw9KhVEr29h6y6YJ7"]}},"version":1}',
-  "metadata": {
-    "compiler": { "version": "0.8.30+commit.73712a01" },
-    "language": "Solidity",
-    "output": {
-      "abi": [
+  metadata: {
+    compiler: { version: "0.8.30+commit.73712a01" },
+    language: "Solidity",
+    output: {
+      abi: [
         {
-          "inputs": [{
-            "internalType": "address",
-            "name": "_owner",
-            "type": "address",
-          }, { "internalType": "uint256", "name": "_fee", "type": "uint256" }],
-          "stateMutability": "nonpayable",
-          "type": "constructor",
+          inputs: [
+            { internalType: "address", name: "_owner", type: "address" },
+            { internalType: "uint256", name: "_fee", type: "uint256" },
+          ],
+          stateMutability: "nonpayable",
+          type: "constructor",
         },
-        { "inputs": [], "type": "error", "name": "FailedCall" },
+        { inputs: [], type: "error", name: "FailedCall" },
         {
-          "inputs": [{
-            "internalType": "uint256",
-            "name": "balance",
-            "type": "uint256",
-          }, {
-            "internalType": "uint256",
-            "name": "needed",
-            "type": "uint256",
-          }],
-          "type": "error",
-          "name": "InsufficientBalance",
+          inputs: [
+            { internalType: "uint256", name: "balance", type: "uint256" },
+            { internalType: "uint256", name: "needed", type: "uint256" },
+          ],
+          type: "error",
+          name: "InsufficientBalance",
         },
         {
-          "inputs": [{
-            "internalType": "address",
-            "name": "userAddress",
-            "type": "address",
-            "indexed": true,
-          }, {
-            "internalType": "bytes",
-            "name": "data",
-            "type": "bytes",
-            "indexed": false,
-          }, {
-            "internalType": "uint256",
-            "name": "value",
-            "type": "uint256",
-            "indexed": false,
-          }],
-          "type": "event",
-          "name": "PaimaGameInteraction",
-          "anonymous": false,
+          inputs: [
+            {
+              internalType: "address",
+              name: "userAddress",
+              type: "address",
+              indexed: true,
+            },
+            {
+              internalType: "bytes",
+              name: "data",
+              type: "bytes",
+              indexed: false,
+            },
+            {
+              internalType: "uint256",
+              name: "value",
+              type: "uint256",
+              indexed: false,
+            },
+          ],
+          type: "event",
+          name: "PaimaGameInteraction",
+          anonymous: false,
         },
         {
-          "inputs": [],
-          "stateMutability": "view",
-          "type": "function",
-          "name": "fee",
-          "outputs": [{
-            "internalType": "uint256",
-            "name": "",
-            "type": "uint256",
-          }],
+          inputs: [],
+          stateMutability: "view",
+          type: "function",
+          name: "fee",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
         },
         {
-          "inputs": [],
-          "stateMutability": "view",
-          "type": "function",
-          "name": "owner",
-          "outputs": [{
-            "internalType": "address",
-            "name": "",
-            "type": "address",
-          }],
+          inputs: [],
+          stateMutability: "view",
+          type: "function",
+          name: "owner",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
         },
         {
-          "inputs": [{
-            "internalType": "bytes",
-            "name": "data",
-            "type": "bytes",
-          }],
-          "stateMutability": "payable",
-          "type": "function",
-          "name": "paimaSubmitGameInput",
+          inputs: [{ internalType: "bytes", name: "data", type: "bytes" }],
+          stateMutability: "payable",
+          type: "function",
+          name: "paimaSubmitGameInput",
         },
         {
-          "inputs": [{
-            "internalType": "uint256",
-            "name": "newFee",
-            "type": "uint256",
-          }],
-          "stateMutability": "nonpayable",
-          "type": "function",
-          "name": "setFee",
+          inputs: [
+            { internalType: "uint256", name: "newFee", type: "uint256" },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+          name: "setFee",
         },
         {
-          "inputs": [{
-            "internalType": "address",
-            "name": "newOwner",
-            "type": "address",
-          }],
-          "stateMutability": "nonpayable",
-          "type": "function",
-          "name": "setOwner",
+          inputs: [
+            { internalType: "address", name: "newOwner", type: "address" },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+          name: "setOwner",
         },
         {
-          "inputs": [],
-          "stateMutability": "nonpayable",
-          "type": "function",
-          "name": "withdrawFunds",
+          inputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+          name: "withdrawFunds",
         },
       ],
-      "devdoc": {
-        "kind": "dev",
-        "methods": {
-          "constructor": {
-            "details":
+      devdoc: {
+        kind: "dev",
+        methods: {
+          constructor: {
+            details:
               "Sets the contract owner to `_owner` and payment fee to `_fee`.",
           },
           "paimaSubmitGameInput(bytes)": {
-            "details":
+            details:
               "Emits the `PaimaGameInteraction` event, logging the `msg.sender`, `data`, and `msg.value`. Revert if `msg.value` is less than set `fee`.",
           },
           "setFee(uint256)": {
-            "details":
+            details:
               "Sets the `newFee` as the required payment fee. Callable only by the contract owner.",
           },
           "setOwner(address)": {
-            "details":
+            details:
               "Sets the `newOwner` as the contract owner. Callable only by the contract owner.",
           },
           "withdrawFunds()": {
-            "details":
+            details:
               "Withdraws the contract balance to the `owner`. Callable only by the contract owner.",
           },
         },
-        "version": 1,
+        version: 1,
       },
-      "userdoc": { "kind": "user", "methods": {}, "version": 1 },
+      userdoc: { kind: "user", methods: {}, version: 1 },
     },
-    "settings": {
-      "remappings": ["@openzeppelin/=../../../../node_modules/@openzeppelin/"],
-      "optimizer": { "enabled": false, "runs": 200 },
-      "metadata": { "bytecodeHash": "ipfs" },
-      "compilationTarget": {
+    settings: {
+      remappings: ["@openzeppelin/=../../../../node_modules/@openzeppelin/"],
+      optimizer: { enabled: false, runs: 200 },
+      metadata: { bytecodeHash: "ipfs" },
+      compilationTarget: {
         "src/contracts/PaimaL2Contract.sol": "PaimaL2Contract",
       },
-      "evmVersion": "berlin",
-      "libraries": {},
+      evmVersion: "berlin",
+      libraries: {},
     },
-    "sources": {
+    sources: {
       "../../../../node_modules/@openzeppelin/contracts/utils/Address.sol": {
-        "keccak256":
+        keccak256:
           "0x9d8da059267bac779a2dbbb9a26c2acf00ca83085e105d62d5d4ef96054a47f5",
-        "urls": [
+        urls: [
           "bzz-raw://c78e2aa4313323cecd1ef12a8d6265b96beee1a199923abf55d9a2a9e291ad23",
           "dweb:/ipfs/QmUTs2KStXucZezzFo3EYeqYu47utu56qrF7jj1Gue65vb",
         ],
-        "license": "MIT",
+        license: "MIT",
       },
       "../../../../node_modules/@openzeppelin/contracts/utils/Errors.sol": {
-        "keccak256":
+        keccak256:
           "0x6afa713bfd42cf0f7656efa91201007ac465e42049d7de1d50753a373648c123",
-        "urls": [
+        urls: [
           "bzz-raw://ba1d02f4847670a1b83dec9f7d37f0b0418d6043447b69f3a29a5f9efc547fcf",
           "dweb:/ipfs/QmQ7iH2keLNUKgq2xSWcRmuBE5eZ3F5whYAkAGzCNNoEWB",
         ],
-        "license": "MIT",
+        license: "MIT",
       },
       "src/contracts/PaimaL2Contract.sol": {
-        "keccak256":
+        keccak256:
           "0xc9f0d61fc0ec62848c6e762c7dcb8a655968144457793e11b20e953418ca4c49",
-        "urls": [
+        urls: [
           "bzz-raw://e594b7c747d1240be1e74272b02c675fad80461ae054ad57b3f9925b2101d42d",
           "dweb:/ipfs/QmV13NdAAsbx8k1wfFtBncLm6UcWQzw9KhVEr29h6y6YJ7",
         ],
-        "license": "MIT",
+        license: "MIT",
       },
     },
-    "version": 1,
+    version: 1,
   },
-  "id": 87,
+  id: 87,
 } as const;

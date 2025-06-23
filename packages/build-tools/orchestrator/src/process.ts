@@ -12,6 +12,7 @@ import { abortControllers } from "./start.ts";
 export type ProcessComponent = {
   abortController: AbortController;
   process: Deno.ChildProcess;
+  is_piped: { stderr: boolean; stdout: boolean };
   component: ValueOf<typeof ComponentNames>;
   args: string[];
   alive: boolean;
@@ -32,9 +33,15 @@ const wait = (n: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, n));
 
 let shutdownCalled = false;
-export async function shutdown(exitCode: number = 0): Promise<void> {
+export async function shutdown(
+  exitCode: number = 0,
+  errorMessage?: string,
+): Promise<void> {
   if (shutdownCalled) {
     return;
+  }
+  if (errorMessage) {
+    console.error(errorMessage);
   }
   shutdownCalled = true;
   abortControllers.system.abort();
@@ -59,7 +66,15 @@ async function awaitShutdown(): Promise<void> {
 
   await Promise.all(
     processes.filter((p) => p.component !== ComponentNames.TMUX)
-      .map((process) => process.process[Symbol.asyncDispose]()),
+      .map((process) => {
+        if (process.is_piped.stderr) {
+          process.process.stderr.cancel();
+        }
+        if (process.is_piped.stdout) {
+          process.process.stdout.cancel();
+        }
+        process.process[Symbol.asyncDispose]();
+      }),
   );
 }
 
@@ -97,6 +112,10 @@ export const $ = (params: {
     alive: true,
     date: new Date().toISOString(),
     component: params.component,
+    is_piped: {
+      stderr: params.stderr === "piped",
+      stdout: params.stdout === "piped",
+    },
   };
   processes.push(processComponent);
 
@@ -142,10 +161,12 @@ export const $ = (params: {
           return;
         }
 
-        if (!shutdownCalled) {
-          console.error("Shutdown caused by ", params.args);
-        }
-        shutdown(1);
+        shutdown(
+          1,
+          shutdownCalled
+            ? ""
+            : `Shutdown caused by ${params.args.join(" ")}, status ${status}`,
+        );
       }
       failed = true;
     }
