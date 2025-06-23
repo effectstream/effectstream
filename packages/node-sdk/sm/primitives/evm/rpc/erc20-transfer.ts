@@ -16,6 +16,7 @@ import {
 } from "../../../../db/src/mod.ts";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
 import { getScheduleBlockHeight } from "../../utils.ts";
+import type { AppEvents, BaseStfInput, BaseStfOutput } from "../../../types.ts";
 
 export default function* processErc20SyncProtocolResponse(
   paima_block_height: BlockNumber,
@@ -25,7 +26,11 @@ export default function* processErc20SyncProtocolResponse(
     ConfigPrimitiveType.EvmRpcERC20,
     ConfigPrimitivePayloadType.Transfer
   >,
-): StateUpdateStream<void> {
+  gameStateTransitionRouter: (
+    blockHeight: number,
+    input: BaseStfInput,
+  ) => Promise<BaseStfOutput<AppEvents>>,
+): Generator<any, any, any> {
   const prefix = response.input.scheduledPrefix;
   if (!prefix) {
     return;
@@ -45,22 +50,22 @@ export default function* processErc20SyncProtocolResponse(
     payload,
   );
 
-  yield* createScheduledData(
-    JSON.stringify(scheduledInputData),
-    {
-      blockHeight: getScheduleBlockHeight(
-        response.output.syncProtocol.payload,
-        paima_block_height,
-      ),
-    },
-    {
-      primitiveName: response.output.syncProtocol.payload.primitiveName,
-      txHash: response.output.syncProtocol.payload.transactionHash,
-      caip2: response.output.syncProtocol.payload.caip2,
-      fromAddress: response.output.payload.from,
-      contractAddress: response.input.contractAddress.toLowerCase(),
-    },
-  );
+  // yield* createScheduledData(
+  //   JSON.stringify(scheduledInputData),
+  //   {
+  //     blockHeight: getScheduleBlockHeight(
+  //       response.output.syncProtocol.payload,
+  //       paima_block_height,
+  //     ),
+  //   },
+  //   {
+  //     primitiveName: response.output.syncProtocol.payload.primitiveName,
+  //     txHash: response.output.syncProtocol.payload.transactionHash,
+  //     caip2: response.output.syncProtocol.payload.caip2,
+  //     fromAddress: response.output.payload.from,
+  //     contractAddress: response.input.contractAddress.toLowerCase(),
+  //   },
+  // );
 
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,
@@ -70,4 +75,20 @@ export default function* processErc20SyncProtocolResponse(
       typeof PrimitiveEvmRpcErc20TransferAccounting
     >,
   });
+
+  const blockHeight = response.output.syncProtocol.payload.ownChain.blockNumber;
+  yield {
+    type: "promise",
+    promise: gameStateTransitionRouter(blockHeight, {
+      rawInput: {
+        inputData: JSON.stringify([
+          prefix,
+          payload,
+        ]),
+      },
+      parsedInput: {
+        payload,
+      },
+    }),
+  };
 }

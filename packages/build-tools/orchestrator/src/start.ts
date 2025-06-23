@@ -24,7 +24,7 @@ Deno.addSignalListener("SIGINT", () => {
 });
 
 function getOptions(config: {
-  output?: "none" | "stdout" | "development" | "production";
+  output?: "none" | "stdout-err" | "stdout" | "development" | "production";
 }) {
   const output = config.output ?? "development";
   const enableTUI = output === "development";
@@ -32,6 +32,9 @@ function getOptions(config: {
   switch (output) {
     case "none":
       setCurrentOutput([]);
+      break;
+    case "stdout-err":
+      setCurrentOutput(["stderr"]);
       break;
     case "stdout":
       setCurrentOutput(["stdout"]);
@@ -49,13 +52,19 @@ function getOptions(config: {
   };
 }
 
+/*  Config options:
+ *
+ *  | config.output | Terminal     | OTEL   | Collector | TUI    |
+ *  |---------------|--------------|--------|-----------|--------|
+ *  | development   | no           | yes    | yes       | yes    |
+ *  | production    | yes          | yes    | no        | no     |
+ *  | stdout        | yes          | no     | no        | no     |
+ *  | stdout-err    | yes (errors) | no     | no        | no     |
+ *  | none          | no           | no     | no        | no     |
+ */
 export async function start(
   config: {
-    // development : otel + collector + tui (default)
-    // production: otel + stdout
-    // stdout: no collector, only stdout
-    // none: no output
-    output?: "none" | "stdout" | "development" | "production";
+    output?: "development" | "production" | "stdout" | "stdout-err" | "none";
   } = {},
 ): Promise<void> {
   // fast-fail if there are type errors in the project

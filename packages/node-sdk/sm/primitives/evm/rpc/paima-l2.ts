@@ -69,21 +69,6 @@ export default function* processPaimaL2SyncProtocolResponse(
   };
 
   const blockHeight = response.output.syncProtocol.payload.ownChain.blockNumber;
-  yield {
-    type: "promise",
-    promise: gameStateTransitionRouter(blockHeight, {
-      rawInput: {
-        inputData: hexToString(
-          (response.output.payload as any).data,
-        ) as any,
-      },
-      parsedInput: {
-        payload: {
-          ...response.output.payload,
-        },
-      },
-    }),
-  };
 
   const inputData = {
     ...response.output.payload,
@@ -244,4 +229,20 @@ export default function* processPaimaL2SyncProtocolResponse(
       typeof PrimitiveEvmRpcPaimaL2Accounting
     >,
   });
+
+  yield {
+    type: "promise",
+    promise: gameStateTransitionRouter(blockHeight, {
+      rawInput: {
+        inputData: hexToString(
+          (response.output.payload as any).data,
+        ) as any,
+      },
+      parsedInput: {
+        payload: {
+          ...response.output.payload,
+        },
+      },
+    }),
+  };
 }

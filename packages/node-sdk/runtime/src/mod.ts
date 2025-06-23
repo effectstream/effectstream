@@ -64,16 +64,10 @@ export function* start(
     yield* startSync(syncProtocol);
   }
 
-  // yield* spawn(function* (): Generator<void> {
-  //   yield* startMerge(syncProtocols);
-  //   while (true) {}
-  // });
   const finalizedBlockStream = createChannel<ChainBlock>();
   yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
 
   for (const value of yield* each(finalizedBlockStream)) {
-    // TODO: save data into a database
-    // console.log("got value:", value);
     yield* processFinalizedBlock(value, gameStateTransitionRouter, dbConn);
     yield* each.next();
   }

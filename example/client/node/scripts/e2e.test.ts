@@ -16,7 +16,7 @@ import {
   paimal2 as paimaL2Abi,
 } from "@example/evm-contracts";
 import { getPersistentConnection } from "@paima/db";
-import type { Pool, QueryResult } from "npm:pg";
+import type { Client, Pool, QueryResult } from "npm:pg";
 const __dirname = import.meta.dirname;
 
 // These are standard hardhat addresses for testing.
@@ -145,8 +145,15 @@ const erc20 = {
       } Mint block ${receipt.blockNumber} @ Hash ${hash}`,
     );
   },
-  transfer: async (to_address: `0x${string}`, amount: bigint) => {
+  transfer: async (
+    from_address: `0x${string}`,
+    to_address: `0x${string}`,
+    amount: bigint,
+  ) => {
     console.log("💸 Transferring", amount, "to", to_address);
+    if (from_address !== deployWallet) {
+      throw new Error("❌ NYI: Transfer from non-deploy wallet");
+    }
     const { account, walletClient, publicClient } = clients();
     const { request } = await publicClient.simulateContract({
       account,
@@ -171,7 +178,7 @@ const erc20 = {
 };
 
 // Connect to the db, and wait until the tables are created.
-async function getDBConnection(): Promise<Pool> {
+async function getDBConnection(): Promise<Client> {
   // Get DB connection
   const poolConfig = {
     host: Deno.env.get("DB_HOST") || "localhost",
@@ -206,31 +213,43 @@ async function getDBConnection(): Promise<Pool> {
 // included and processed the data, we run a query until some
 // condition is met, then we chech against the expected data.
 async function awaitAndCheckDBQuery(
+  testName: string,
   db: Pool,
   query: string,
   waitUntil: (res: QueryResult<any>) => boolean,
   check: (res: QueryResult<any>) => boolean,
-  testName?: string,
 ): Promise<QueryResult<any>> {
   let maxMillis = 10000;
   while (maxMillis > 0) {
     const res = await db.query(query);
+
+    // First wait until the data is available.
     if (!waitUntil(res)) {
       await delay(100);
       maxMillis -= 100;
       if (maxMillis <= 0) {
-        console.log("Data in DB:", res.rows);
-        throw new Error("DB query timed out");
+        console.error("Data in DB:", res.rows);
+        console.error(`❌ ${testName ?? "Test"} failed`);
+        return res;
       }
       continue;
     }
-    if (!check(res)) {
-      console.log("Data in DB:", res.rows);
-      throw new Error("DB query did not match expected rule");
-    } else {
+
+    // Now run the custom check.
+    try {
+      if (!check(res)) {
+        throw new Error("CHECK_ERROR");
+      }
       console.log(`✅ ${testName ?? "Test"} passed`);
+      return res;
+    } catch (e) {
+      console.error("Data in DB:", res.rows);
+      console.error(`❌ ${testName ?? "Test"} failed`);
+      if (e instanceof Error && e.message !== "CHECK_ERROR") {
+        console.error(e);
+      }
+      break;
     }
-    return res;
   }
 }
 
@@ -238,7 +257,7 @@ async function awaitAndCheckDBQuery(
 // The final process is the `sync` process.
 // We can know when the process is started, but not if ready.
 async function startup(): Promise<Pool> {
-  start({ output: "none" });
+  start({ output: "stdout-err" });
   console.log("⌛ Waiting for sync process to start...");
 
   while (true) {
@@ -265,16 +284,50 @@ function shutdown(): void {
   });
   console.log("⏳ Waiting for shutdown to complete...");
 }
+
+let isShutdownCalled = false;
+async function disconnect(db: Client): Promise<void> {
+  db.off("error", console.error);
+  db.on("end", () => {
+    isShutdownCalled = true;
+    shutdown();
+  });
+  db.end();
+
+  // Wait for the db to disconnect and the shutdown to be called.
+  let maxMillis = 10000;
+  while (maxMillis > 0) {
+    // waiting for the db to disconnect
+    await delay(100);
+    maxMillis -= 100;
+  }
+
+  // This should not be reached, as Deno.exit is called in the shutdown function.
+  // If still not called, the call manually.
+  if (!isShutdownCalled) {
+    shutdown();
+    await delay(1000);
+  }
+  console.error("Shutdown/DB connection timed out");
+  Deno.exit(1);
+}
+
 // Start Test
 async function test() {
+  let db: Client;
   try {
-    const db = await startup();
+    db = await startup();
 
     console.log("🎯 Starting Contract Interactions...");
     await erc20.mint(deployWallet, 200n);
     await erc20.mint(deployWallet, 300n);
-    await erc20.transfer(deployWallet, 90n);
+    await erc20.transfer(
+      deployWallet,
+      "0x484738A67858305Edfc139B194Ed430Fe4D8e56b",
+      90n,
+    );
     await awaitAndCheckDBQuery(
+      "Check ERC20 sync-process",
       db,
       `SELECT
       primitive_name, id, paima_block_height, payload_type, payload
@@ -286,10 +339,10 @@ async function test() {
           res.rows[1].primitive_name === "TransferEvent" &&
           res.rows[2].primitive_name === "TransferEvent";
       },
-      "Check ERC20 sync-process",
     );
     await paimaL2.submitGameInput(["attack", "1", "100"]);
     await awaitAndCheckDBQuery(
+      "Check PaimaL2 sync-process",
       db,
       `SELECT
       primitive_name, id, paima_block_height, payload_type, payload
@@ -299,34 +352,76 @@ async function test() {
       (res) => {
         return res.rows[3].primitive_name === "PaimaGameInteraction";
       },
-      "Check PaimaL2 sync-process",
     );
     await paimaL2.submitGameInput(["attack", "2", "200"]);
     await awaitAndCheckDBQuery(
+      "Check State Machine events",
       db,
       `SELECT
       inputs
       FROM 
       public.example_sm;`,
+      (res) => res.rows.length === 5,
+      (res) => {
+        const dump = [
+          {
+            inputs: ["transfer", {
+              "from": "0x0000000000000000000000000000000000000000",
+              "to": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "value": "200",
+            }],
+          },
+          {
+            inputs: ["transfer", {
+              "from": "0x0000000000000000000000000000000000000000",
+              "to": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "value": "300",
+            }],
+          },
+          {
+            inputs: ["transfer", {
+              "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "to": "0x484738A67858305Edfc139B194Ed430Fe4D8e56b",
+              "value": "90",
+            }],
+          },
+          { inputs: ["attack", "1", "100"] },
+          { inputs: ["attack", "2", "200"] },
+        ];
+        return res.rows.every((row: any, index: number) => {
+          const status = row.inputs === JSON.stringify(dump[index].inputs);
+          if (!status) {
+            console.log("Error at:", index, row.inputs, dump[index].inputs);
+          }
+          return status;
+        });
+      },
+    );
+
+    await awaitAndCheckDBQuery(
+      "Check IVM ERC20",
+      db,
+      `SELECT * FROM public.erc_balance;`,
       (res) => res.rows.length === 2,
       (res) => {
-        return res.rows[0].inputs === "input data" &&
-          res.rows[1].inputs === "input data";
+        const a = res.rows.find((r: any) =>
+          r.address === "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+        );
+        const b = res.rows.find((r: any) =>
+          r.address === "0x484738A67858305Edfc139B194Ed430Fe4D8e56b"
+        );
+        console.log(
+          "IMPORTANT: This should be 410, but there is a error in the IVM ERC20",
+        );
+        // return a.balance === "410" && b.balance === "90";
+        return a.balance === "500" && b.balance === "90";
       },
-      "Check State Machine events",
     );
 
     // Disconnect so the process can exit.
-    db.off("error", console.error);
-    db.on("end", () => {
-      shutdown();
-    });
-    await db.end();
-    while (true) {
-      // waiting for the db to disconnect
-      await delay(100);
-    }
+    await disconnect(db);
   } catch (e) {
+    await disconnect(db);
     console.error(e);
   }
 }

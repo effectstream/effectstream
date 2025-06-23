@@ -59,6 +59,7 @@ export function* primitiveTransitionFunction(
           return yield* processErc20TransferDatum(
             primitive.output.syncProtocol.payload.ownChain.blockNumber,
             primitive,
+            gameStateTransitionRouter,
           );
         default:
           assertNever.default(primitive);

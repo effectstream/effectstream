@@ -165,7 +165,9 @@ export const $ = (params: {
           1,
           shutdownCalled
             ? ""
-            : `Shutdown caused by ${params.args.join(" ")}, status ${status}`,
+            : `Shutdown caused by ${params.args.join(" ")}, status ${
+              JSON.stringify(status)
+            }`,
         );
       }
       failed = true;

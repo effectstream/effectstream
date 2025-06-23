@@ -13,7 +13,7 @@ export const grammar = {
       Type.Object({
         to: Type.String(),
         from: Type.String(),
-        amount: Type.Number(),
+        value: Type.String(),
       }),
     ],
   ],
