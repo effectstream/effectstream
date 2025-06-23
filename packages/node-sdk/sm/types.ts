@@ -1,4 +1,7 @@
-import type { AppEvents } from "@paima/events";
+//import type { AppEvents } from "@paima/events";
+
+// TODO What is AppEvent type?
+export type AppEvents = any;
 
 // TODO: replace any
 export type BaseStfInput = any;

@@ -17,9 +17,13 @@ import {
   ConfigPrimitiveType,
 } from "@paima/config";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import { mainAddressGenerator } from "@paima/sm";
-import { gameStateTransitionRouter } from "@example/state-transition";
+import {
+  type BaseStfInput,
+  type BaseStfOutput,
+  mainAddressGenerator,
+} from "@paima/sm";
 import { call, Channel, Operation } from "npm:effection@^3.5.0";
+import type { AppEvents } from "@paima/sm";
 
 export default function* processPaimaL2SyncProtocolResponse(
   response: FlattenSyncProtocolIOFor<
@@ -28,6 +32,10 @@ export default function* processPaimaL2SyncProtocolResponse(
     ConfigPrimitiveType.EvmRpcPaimaL2,
     ConfigPrimitivePayloadType.Event
   >,
+  gameStateTransitionRouter: (
+    blockHeight: number,
+    input: BaseStfInput,
+  ) => Promise<BaseStfOutput<AppEvents>>,
 ): Generator<any, any, any> {
   const nonceData = yield* World.resolve(findNonce, {
     nonce: response.output.payload.inputNonce,

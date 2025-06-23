@@ -6,7 +6,7 @@ import {
   toFullJsonGrammar,
   toKeyedJsonGrammar,
 } from "@paima/concise";
-import type { AppEvents } from "@paima/events";
+import type { AppEvents } from "./types.ts";
 import type { Static, TSchema } from "@sinclair/typebox";
 import type { BaseStfInput, BaseStfOutput } from "./types.ts";
 

@@ -6,6 +6,7 @@ import {
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
 } from "@paima/config";
+import { gameStateTransitionRouter } from "@example/state-transition";
 
 main(function* () {
   yield* init();
@@ -14,6 +15,7 @@ main(function* () {
   yield* withPaimaStaticConfig(localhostConfig, function* () {
     yield* start(
       toSyncProtocolWithNetwork(localhostConfig),
+      gameStateTransitionRouter,
     );
   });
 

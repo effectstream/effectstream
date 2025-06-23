@@ -1,6 +1,6 @@
 import { PaimaSTM } from "@paima/sm";
 import { grammar } from "@example/data-types";
-import type { BaseStfInput } from "@paima/sm";
+import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import { insertStateMachineInput } from "@paima/db";
 
 type MyEvents = {}; // TODO: replace
@@ -41,7 +41,7 @@ stm.addStateTransition(
 export async function gameStateTransitionRouter(
   blockHeight: number,
   input: BaseStfInput,
-) {
+): Promise<BaseStfOutput<MyEvents>> {
   let result;
   if (blockHeight >= 0) {
     result = await stm.processInput(input);

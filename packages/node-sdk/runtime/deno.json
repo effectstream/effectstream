@@ -3,6 +3,7 @@
   "version": "0.3.0",
   "exports": "./src/mod.ts",
   "imports": {
+    "pg": "npm:pg@^8.14.0",
     "effection": "npm:effection@^3.5.0",
     "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "npm:@opentelemetry/auto-instrumentations-node@^0.54.0",

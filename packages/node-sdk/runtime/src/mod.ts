@@ -2,19 +2,23 @@ import { ChainBlock, genSyncProtocols } from "@paima/sync";
 import { getConnection } from "@paima/db";
 import { startMerge, startSync } from "@paima/sync";
 import type { SyncProtocolWithNetwork } from "@paima/config";
+import type { AppEvents } from "@paima/sm";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
 import {
   call,
   createChannel,
   each,
   type Operation,
-  run,
   spawn,
   until,
 } from "effection";
 import { initTelemetry } from "./telemetry.ts";
-import { Pool } from "npm:pg@^8.14.0";
-import { primitiveTransitionFunction } from "@paima/sm";
+import type { Pool } from "pg";
+import {
+  type BaseStfInput,
+  type BaseStfOutput,
+  primitiveTransitionFunction,
+} from "@paima/sm";
 import { PreparedQuery } from "npm:@pgtyped/runtime@2.4.2";
 // import { gameStateTransitionRouter } from "@example/state-transition";
 // TODO: figure out how to setup env vars instead of relying on defaults
@@ -33,6 +37,10 @@ export function* init() {
 
 export function* start(
   syncInfo: SyncProtocolWithNetwork[],
+  gameStateTransitionRouter: (
+    blockHeight: number,
+    input: BaseStfInput,
+  ) => Promise<BaseStfOutput<AppEvents>>,
 ): Operation<void> {
   const dbConn = getConnection(poolConfig);
   // TODO: this should be a db transaction that closes right afterwards
@@ -66,7 +74,7 @@ export function* start(
   for (const value of yield* each(finalizedBlockStream)) {
     // TODO: save data into a database
     // console.log("got value:", value);
-    yield* processFinalizedBlock(value, dbConn);
+    yield* processFinalizedBlock(value, gameStateTransitionRouter, dbConn);
     yield* each.next();
   }
 }
@@ -106,6 +114,10 @@ function* consumeGeneratorWithDelay<T, R>(
 // Where shoud we move this? Before emitting finalizedBlockStream?
 function* processFinalizedBlock(
   value: ChainBlock,
+  gameStateTransitionRouter: (
+    blockHeight: number,
+    input: BaseStfInput,
+  ) => Promise<BaseStfOutput<AppEvents>>,
   dbConn: Pool,
 ): Operation<void> {
   // TODO for this example process only evm primitives
@@ -114,7 +126,10 @@ function* processFinalizedBlock(
     value.primitives[0].source !== "parallelUtxoRpc"
   ) {
     for (const primitive of value.primitives) {
-      const generator = primitiveTransitionFunction(primitive as any);
+      const generator = primitiveTransitionFunction(
+        primitive as any,
+        gameStateTransitionRouter,
+      );
       yield* consumeGeneratorWithDelay(generator, dbConn);
     }
   }

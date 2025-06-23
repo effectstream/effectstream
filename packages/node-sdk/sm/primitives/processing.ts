@@ -19,6 +19,8 @@ import type {
 } from "@paima/config";
 import { ConfigPrimitivePayloadType, ConfigPrimitiveType } from "@paima/config";
 import type { StateUpdateStream } from "@paima/coroutine";
+import { type BaseStfInput, type BaseStfOutput } from "../types.ts";
+import type { AppEvents } from "@paima/sm";
 
 export function* primitiveTransitionFunction(
   primitive: FlattenSyncProtocolIOFor<
@@ -26,6 +28,10 @@ export function* primitiveTransitionFunction(
     ConfigPrimitiveType,
     ConfigPrimitivePayloadType
   >,
+  gameStateTransitionRouter: (
+    blockHeight: number,
+    input: BaseStfInput,
+  ) => Promise<BaseStfOutput<AppEvents>>,
 ): StateUpdateStream<void> {
   switch (primitive.primitiveType) {
     case ConfigPrimitiveType.AvailPaimaL2:
@@ -39,7 +45,10 @@ export function* primitiveTransitionFunction(
     case ConfigPrimitiveType.EvmRpcPaimaL2:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
-          return yield* processPaimaL2Event(primitive);
+          return yield* processPaimaL2Event(
+            primitive,
+            gameStateTransitionRouter,
+          );
         default:
           assertNever.default(primitive);
       }
