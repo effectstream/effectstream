@@ -196,32 +196,34 @@ export class EvmFetcher
     >[] = logs.map((
       log,
     ) => {
-      const payloadType =
-        (primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC20)
-          ? ConfigPrimitivePayloadType.Transfer
-          : (primitive.primitive.type ===
-              ConfigPrimitiveType.EvmRpcPaimaL2)
-          ? ConfigPrimitivePayloadType.Event
-          : primitive.primitive.abi.type;
+      let payloadType;
+      let realAddress;
+      let primitiveType;
+      switch (primitive.primitive.type) {
+        case ConfigPrimitiveType.EvmRpcERC20:
+          primitiveType = ConfigPrimitiveType.EvmRpcERC20;
+          payloadType = ConfigPrimitivePayloadType.Transfer;
+          realAddress = (log.args as any).to as `0x${string}`;
+          break;
+        case ConfigPrimitiveType.EvmRpcPaimaL2:
+          primitiveType = ConfigPrimitiveType.EvmRpcPaimaL2;
+          payloadType = ConfigPrimitivePayloadType.Event;
+          realAddress = (log.args as any).userAddress as `0x${string}`;
+          break;
+        default:
+          throw new Error("Unknown primitive type");
+      }
 
-      const primitiveResponse: FlattenSyncProtocolIOFor<
-        | ConfigSyncProtocolType.EVM_RPC_MAIN
-        | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-        ConfigPrimitiveType,
-        ConfigPrimitivePayloadType
-      > = {
-        // value: log.args,
-        // block,
-        // timestamp: toMsTimestamp(block.timestamp),
+      const primitiveResponse: PrimitiveType = {
         input: primitive.primitive as any,
         output: {
           payloadType: payloadType as any,
-          primitive: primitive.primitive.type as any,
+          primitive: primitiveType as any,
           payload: ({
             ...log.args,
             realAddress: {
               type: AddressType.EVM,
-              address: log.address,
+              address: realAddress,
             },
           } as any),
           syncProtocol: {
@@ -240,10 +242,8 @@ export class EvmFetcher
           },
         },
         primitiveType: primitive.primitive.type,
-        // TODO Where do we get the payloadType from?
         payloadType: payloadType as any,
       };
-
       return primitiveResponse;
     });
 
