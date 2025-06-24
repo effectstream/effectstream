@@ -8,42 +8,70 @@ import {
   primitiveTransitionFunction,
 } from "@paima/sm";
 import { PreparedQuery } from "npm:@pgtyped/runtime";
+import {
+  NoncePromise,
+  QueuedUpdate,
+  STMExecPromise,
+  SyncStateUpdateStream,
+} from "@paima/coroutine";
 
-function* executeGeneratorStepByStep<T, R>(
-  generator: Generator<T, R, unknown>,
+function isStateMachineExecution(value: any): value is STMExecPromise {
+  return value && typeof value === "object" && value.type === "stm-promise";
+}
+
+function isNoncePromise(value: any): value is NoncePromise {
+  return value && typeof value === "object" && value.type === "nonce";
+}
+
+function isWorldResolve(value: any): value is QueuedUpdate {
+  return value && Array.isArray(value);
+}
+
+function* executeGeneratorStepByStep(
+  generator: SyncStateUpdateStream<void>,
+  gameStateTransitionRouter: (
+    blockHeight: number,
+    input: BaseStfInput,
+  ) => Promise<BaseStfOutput<AppEvents>>,
   dbConn: Pool,
-): Operation<R> {
+): Operation<any> {
   let result = generator.next();
 
+  // NOTE: sync generators cannot execute promises
+  //       so we pause the execution, and resolve them here.
+  // NOTE: there are 3 types of operations we need to handle
+  //       1. state machine executions, these return a series of queries to run.
+  //       2. nonce executions insertions, these do not revert.
+  //       3. world.resolve calls, that are DB queries.
   while (!result.done) {
     // We resolve the generators promises here.
     // Generators cannot execute promises.
-    // The PaimaL2 returns the state machine promise to resolve.
+
     const operations: any[] = [];
-    const isPromise = result.value &&
-      typeof result.value === "object" &&
-      "type" in result.value;
-    if (
-      isPromise &&
-      (result.value as any).type === "promise"
-    ) {
-      const promiseResult = yield* until((result.value as any).promise);
-      const stateMachineQuery = (promiseResult as any).stateTransitions;
+    // const isWorldResolve = result.value && Array.isArray(result.value);
+    // const isNoncePromise = result.value && typeof result.value === "object" &&
+    //   "type" in result.value && result.value.type === "nonce";
+    const value = result.value;
+
+    if (isWorldResolve(value)) {
+      const [queryIR, params] = value;
+      const query = new PreparedQuery(queryIR);
+      const queryResult = yield* call(() => query.run(params, dbConn));
+      operations.push(queryResult);
+    } else if (isStateMachineExecution(value)) {
+      const promiseResult = yield* call(() =>
+        gameStateTransitionRouter(
+          value.data.blockHeight,
+          value.data,
+        )
+      );
+      const stateMachineQuery = promiseResult.stateTransitions;
       for (const [queryIR, params] of stateMachineQuery) {
         const queryResult = yield* call(() => queryIR.run(params, dbConn));
         operations.push(queryResult);
       }
-    } else if (isPromise && (result.value as any).type === "nounce") {
-      // TODO
-      // This operation has to persist
-      const [query, params] = (result.value as any).promise as [
-        PreparedQuery<any, any>,
-        any,
-      ];
-      const queryResult = yield* call(() => query.run(params, dbConn));
-      operations.push(queryResult);
-    } else if (result.value && Array.isArray(result.value)) {
-      const [queryIR, params] = result.value as [any, any];
+    } else if (isNoncePromise(value)) {
+      const [queryIR, params] = value.data;
       const query = new PreparedQuery(queryIR);
       const queryResult = yield* call(() => query.run(params, dbConn));
       operations.push(queryResult);
@@ -63,17 +91,21 @@ export function* processFinalizedBlock(
   ) => Promise<BaseStfOutput<AppEvents>>,
   dbConn: Pool,
 ): Operation<void> {
-  // TODO for this example process only evm primitives
+  // TODO
+  // This "if" for this example process only evm primitives
   if (
     value.primitives.length > 0 &&
     value.primitives[0].source !== "parallelUtxoRpc"
   ) {
     for (const primitive of value.primitives) {
       const generator = primitiveTransitionFunction(
-        primitive as any,
-        gameStateTransitionRouter,
+        primitive,
       );
-      yield* executeGeneratorStepByStep(generator, dbConn);
+      yield* executeGeneratorStepByStep(
+        generator,
+        gameStateTransitionRouter,
+        dbConn,
+      );
     }
   }
 }

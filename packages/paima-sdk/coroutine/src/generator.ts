@@ -71,19 +71,38 @@ type Spread<T> = T extends [] // base case 1: empty list
     ? [StateUpdateStream<A>, ...Spread<Rest>]
   : never;
 
+// Type to resolve a yield of a StateMachine Execution
+export type STMExecPromise = {
+  type: "stm-promise";
+  data: {
+    blockHeight: number;
+    rawInput: {
+      inputData: string;
+    };
+    parsedInput: {};
+  };
+};
+
+// Type to handle a Nonce Insertion.
+// This is a special case because it does not revert.
+export type NoncePromise = {
+  type: "nonce";
+  data: QueuedUpdate;
+};
+
 type NoDistribute<T> = [T] extends [any] ? T : never;
 /**
  * Typically it's better to use StateUpdateStream as a return type since it's more generic
  * But sometimes it helps simplify to only accept non-async inputs to a function operating on generators
  */
 export type SyncStateUpdateStream<Return> = Generator<
-  QueuedUpdate | Spread<any>,
+  QueuedUpdate | Spread<any> | STMExecPromise | NoncePromise,
   Return,
   unknown
 >;
 export type StateUpdateStream<Return> = NoDistribute<Return> extends
   Promise<infer P> ? AsyncGenerator<QueuedUpdate | Spread<any>, P, unknown>
-  : Generator<QueuedUpdate | Spread<any>, Return, unknown>;
+  : SyncStateUpdateStream<Return>;
 
 export function isScheduledByBlock(
   query: QueuedUpdate,

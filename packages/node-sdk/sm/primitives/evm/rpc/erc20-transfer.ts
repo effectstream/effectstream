@@ -26,11 +26,7 @@ export default function* processErc20SyncProtocolResponse(
     ConfigPrimitiveType.EvmRpcERC20,
     ConfigPrimitivePayloadType.Transfer
   >,
-  gameStateTransitionRouter: (
-    blockHeight: number,
-    input: BaseStfInput,
-  ) => Promise<BaseStfOutput<AppEvents>>,
-): Generator<any, any, any> {
+): StateUpdateStream<void> {
   const prefix = response.input.scheduledPrefix;
   if (!prefix) {
     return;
@@ -44,11 +40,11 @@ export default function* processErc20SyncProtocolResponse(
     value: response.output.payload.value.toString(),
   };
 
-  const scheduledInputData = generateRawStmInput(
-    BuiltinTransitions[ConfigPrimitiveType.EvmRpcERC20].transferScheduledPrefix,
-    prefix,
-    payload,
-  );
+  // const scheduledInputData = generateRawStmInput(
+  //   BuiltinTransitions[ConfigPrimitiveType.EvmRpcERC20].transferScheduledPrefix,
+  //   prefix,
+  //   payload,
+  // );
 
   // yield* createScheduledData(
   //   JSON.stringify(scheduledInputData),
@@ -78,8 +74,9 @@ export default function* processErc20SyncProtocolResponse(
 
   const blockHeight = response.output.syncProtocol.payload.ownChain.blockNumber;
   yield {
-    type: "promise",
-    promise: gameStateTransitionRouter(blockHeight, {
+    type: "stm-promise",
+    data: {
+      blockHeight,
       rawInput: {
         inputData: JSON.stringify([
           prefix,
@@ -89,6 +86,6 @@ export default function* processErc20SyncProtocolResponse(
       parsedInput: {
         payload,
       },
-    }),
+    },
   };
 }

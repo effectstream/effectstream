@@ -23,14 +23,8 @@ import {
   ConfigPrimitiveType,
 } from "@paima/config";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import {
-  type BaseStfInput,
-  type BaseStfOutput,
-  mainAddressGenerator,
-  NO_USER_ID,
-} from "@paima/sm";
+import { mainAddressGenerator, NO_USER_ID } from "@paima/sm";
 import { call, Channel, Operation } from "npm:effection@^3.5.0";
-import type { AppEvents } from "@paima/sm";
 
 export default function* processPaimaL2SyncProtocolResponse(
   response: FlattenSyncProtocolIOFor<
@@ -39,11 +33,7 @@ export default function* processPaimaL2SyncProtocolResponse(
     ConfigPrimitiveType.EvmRpcPaimaL2,
     ConfigPrimitivePayloadType.Event
   >,
-  gameStateTransitionRouter: (
-    blockHeight: number,
-    input: BaseStfInput,
-  ) => Promise<BaseStfOutput<AppEvents>>,
-): Generator<any, any, any> {
+): StateUpdateStream<void> {
   const nonceData = yield* World.resolve(findNonce, {
     nonce: response.output.payload.inputNonce,
   });
@@ -145,11 +135,11 @@ export default function* processPaimaL2SyncProtocolResponse(
   // } finally {
   // guarantee we run this no matter if there is an error or a continue
   yield {
-    type: "nounce",
-    promise: [insertNonce, {
+    type: "nonce",
+    data: [(insertNonce as any).queryIR, {
       nonce: nextNouce,
       block_height: blockHeight,
-    }],
+    }] as QueuedUpdate,
   };
 
   //   if (ENV.STORE_HISTORICAL_GAME_INPUTS) {
@@ -243,8 +233,9 @@ export default function* processPaimaL2SyncProtocolResponse(
   });
 
   yield {
-    type: "promise",
-    promise: gameStateTransitionRouter(blockHeight, {
+    type: "stm-promise",
+    data: {
+      blockHeight,
       rawInput: {
         inputData: hexToString(
           (response.output.payload as any).data,
@@ -255,6 +246,6 @@ export default function* processPaimaL2SyncProtocolResponse(
           ...response.output.payload,
         },
       },
-    }),
+    },
   };
 }

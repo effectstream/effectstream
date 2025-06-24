@@ -28,10 +28,6 @@ export function* primitiveTransitionFunction(
     ConfigPrimitiveType,
     ConfigPrimitivePayloadType
   >,
-  gameStateTransitionRouter: (
-    blockHeight: number,
-    input: BaseStfInput,
-  ) => Promise<BaseStfOutput<AppEvents>>,
 ): StateUpdateStream<void> {
   switch (primitive.primitiveType) {
     case ConfigPrimitiveType.AvailPaimaL2:
@@ -47,7 +43,6 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Event:
           return yield* processPaimaL2Event(
             primitive,
-            gameStateTransitionRouter,
           );
         default:
           assertNever.default(primitive);
@@ -59,7 +54,6 @@ export function* primitiveTransitionFunction(
           return yield* processErc20TransferDatum(
             primitive.output.syncProtocol.payload.ownChain.blockNumber,
             primitive,
-            gameStateTransitionRouter,
           );
         default:
           assertNever.default(primitive);
