@@ -1,4 +1,4 @@
-import type { EvmAddress } from "@paima/utils";
+import type { BlockNumber, EvmAddress } from "@paima/utils";
 import { hexToString } from "npm:viem";
 import type {
   ConfigPrimitivePayloadType,
@@ -15,7 +15,7 @@ import {
   insertPrimitiveAccounting,
   newAddress,
 } from "@paima/db";
-import { World } from "@paima/coroutine";
+import { NonceInsertion, StateMachineExecution, World } from "@paima/coroutine";
 import { createScheduledData } from "@paima/db";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
 import {
@@ -27,6 +27,7 @@ import { mainAddressGenerator, NO_USER_ID } from "@paima/sm";
 import { call, Channel, Operation } from "npm:effection@^3.5.0";
 
 export default function* processPaimaL2SyncProtocolResponse(
+  paima_block_height: BlockNumber,
   response: FlattenSyncProtocolIOFor<
     | ConfigSyncProtocolType.EVM_RPC_MAIN
     | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
@@ -59,8 +60,6 @@ export default function* processPaimaL2SyncProtocolResponse(
   const address = yield* mainAddressGenerator(
     response.output.payload.realAddress.address,
   );
-
-  const blockHeight = response.output.syncProtocol.payload.ownChain.blockNumber;
 
   // let success: boolean | undefined = false;
   try {
@@ -134,13 +133,7 @@ export default function* processPaimaL2SyncProtocolResponse(
   //   throw e;
   // } finally {
   // guarantee we run this no matter if there is an error or a continue
-  yield {
-    type: "nonce",
-    data: [(insertNonce as any).queryIR, {
-      nonce: nextNouce,
-      block_height: blockHeight,
-    }] as QueuedUpdate,
-  };
+  yield* NonceInsertion(nextNouce, paima_block_height);
 
   //   if (ENV.STORE_HISTORICAL_GAME_INPUTS) {
   //     await newGameInput.run(
@@ -222,7 +215,6 @@ export default function* processPaimaL2SyncProtocolResponse(
   (inputData as any).tx = JSON.parse(hexToString((inputData as any).data));
   (inputData as any).value = Number((inputData as any).value);
   const primitiveName = response.output.syncProtocol.payload.primitiveName;
-  const paima_block_height = blockHeight;
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,
     paima_block_height: paima_block_height,
@@ -232,20 +224,11 @@ export default function* processPaimaL2SyncProtocolResponse(
     >,
   });
 
-  yield {
-    type: "stm-promise",
-    data: {
-      blockHeight,
-      rawInput: {
-        inputData: hexToString(
-          (response.output.payload as any).data,
-        ) as any,
-      },
-      parsedInput: {
-        payload: {
-          ...response.output.payload,
-        },
-      },
-    },
-  };
+  yield* StateMachineExecution(
+    paima_block_height,
+    hexToString(
+      (response.output.payload as any).data,
+    ),
+    response.output.payload,
+  );
 }

@@ -19,8 +19,10 @@ import type {
 } from "@paima/config";
 import { ConfigPrimitivePayloadType, ConfigPrimitiveType } from "@paima/config";
 import type { StateUpdateStream } from "@paima/coroutine";
+import type { BlockNumber } from "@paima/utils";
 
 export function* primitiveTransitionFunction(
+  paima_block_height: BlockNumber,
   primitive: FlattenSyncProtocolIOFor<
     ConfigSyncProtocolType,
     ConfigPrimitiveType,
@@ -40,6 +42,7 @@ export function* primitiveTransitionFunction(
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
           return yield* processPaimaL2Event(
+            paima_block_height,
             primitive,
           );
         default:
@@ -50,7 +53,7 @@ export function* primitiveTransitionFunction(
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Transfer:
           return yield* processErc20TransferDatum(
-            primitive.output.syncProtocol.payload.ownChain.blockNumber,
+            paima_block_height,
             primitive,
           );
         default:

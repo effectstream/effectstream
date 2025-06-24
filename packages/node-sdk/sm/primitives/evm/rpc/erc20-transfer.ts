@@ -7,7 +7,7 @@ import {
   type PayloadOf,
   type PrimitiveEvmRpcErc20TransferAccounting,
 } from "@paima/config";
-import { World } from "@paima/coroutine";
+import { StateMachineExecution, World } from "@paima/coroutine";
 import type { StateUpdateStream } from "@paima/coroutine";
 import type { BlockNumber } from "@paima/utils";
 import {
@@ -37,6 +37,8 @@ export default function* processErc20SyncProtocolResponse(
   const payload = {
     from: response.output.payload.from,
     to: response.output.payload.to,
+    // TODO: BigInt cannot be serialized to JSON
+    // So we need to convert it to a string
     value: response.output.payload.value.toString(),
   };
 
@@ -72,20 +74,12 @@ export default function* processErc20SyncProtocolResponse(
     >,
   });
 
-  const blockHeight = response.output.syncProtocol.payload.ownChain.blockNumber;
-  yield {
-    type: "stm-promise",
-    data: {
-      blockHeight,
-      rawInput: {
-        inputData: JSON.stringify([
-          prefix,
-          payload,
-        ]),
-      },
-      parsedInput: {
-        payload,
-      },
-    },
-  };
+  yield* StateMachineExecution(
+    paima_block_height,
+    JSON.stringify([
+      prefix,
+      payload,
+    ]),
+    payload,
+  );
 }

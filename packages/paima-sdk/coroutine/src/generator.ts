@@ -1,7 +1,11 @@
 import type { PreparedQuery } from "@pgtyped/runtime";
 import type { WithBrand } from "@coderspirit/nominal";
 import type { SQLQueryIR } from "@pgtyped/parser";
-import { newScheduledHeightData, newScheduledTimestampData } from "@paima/db";
+import {
+  insertNonce,
+  newScheduledHeightData,
+  newScheduledTimestampData,
+} from "@paima/db";
 import type {
   INewScheduledHeightDataParams,
   INewScheduledTimestampDataParams,
@@ -71,6 +75,38 @@ type Spread<T> = T extends [] // base case 1: empty list
     ? [StateUpdateStream<A>, ...Spread<Rest>]
   : never;
 
+export function* StateMachineExecution(
+  paima_block_height: number,
+  inputData: string,
+  payload: Record<string, any>,
+): StateUpdateStream<void> {
+  yield {
+    type: "stm-promise",
+    data: {
+      blockHeight: paima_block_height,
+      rawInput: {
+        inputData,
+      },
+      parsedInput: {
+        payload,
+      },
+    },
+  } satisfies STMExecPromise;
+}
+
+export function* NonceInsertion(
+  nextNouce: number,
+  paima_block_height: number,
+): StateUpdateStream<void> {
+  yield {
+    type: "nonce",
+    data: [(insertNonce as any).queryIR, {
+      nonce: nextNouce,
+      block_height: paima_block_height,
+    }] as QueuedUpdate,
+  } satisfies NoncePromise;
+}
+
 // Type to resolve a yield of a StateMachine Execution
 export type STMExecPromise = {
   type: "stm-promise";
@@ -79,7 +115,7 @@ export type STMExecPromise = {
     rawInput: {
       inputData: string;
     };
-    parsedInput: {};
+    parsedInput: Record<string, any>;
   };
 };
 

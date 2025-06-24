@@ -4,7 +4,13 @@ import {
   type PaginatedFetcher,
 } from "../base/fetcher.ts";
 import type { RootOutput, RootPage } from "../types.ts";
-import type { Chain, GetBlockReturnType, PublicClient } from "viem";
+import {
+  AbiEvent,
+  type Chain,
+  getAbiItem,
+  type GetBlockReturnType,
+  type PublicClient,
+} from "viem";
 import type { Operation } from "effection";
 import { all, call } from "effection";
 import { AddressType, bound, type EvmRpcPageJson, keysOf } from "@paima/utils";
@@ -177,12 +183,11 @@ export class EvmFetcher
   > {
     const logs = yield* call(() =>
       client.getLogs({
-        // TODO We need to correctly pass the ABI here
-        // abi: primitive.primitive.abi,
         address: primitive.primitive.contractAddress,
         event: primitive.primitive.abi,
         fromBlock,
         toBlock,
+        strict: true,
       })
     );
 

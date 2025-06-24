@@ -99,6 +99,7 @@ export function* processFinalizedBlock(
   ) {
     for (const primitive of value.primitives) {
       const generator = primitiveTransitionFunction(
+        value.blockNumber,
         primitive,
       );
       yield* executeGeneratorStepByStep(

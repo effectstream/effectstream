@@ -1,4 +1,4 @@
-import type { Client } from "npm:pg";
+import type { Client } from "pg";
 import { shutdown, startup } from "./e2e-loader.ts";
 import { erc20, paimaL2 } from "./e2e-contracts.ts";
 import { assertSQL } from "./e2e-assert.ts";
