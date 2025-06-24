@@ -57,7 +57,7 @@ export class PaimaSTM<
     let prefix, data;
     try {
       const parsedInput = parseStmInput(
-        input.rawInput.inputData,
+        input.conciseInput,
         this.grammar,
         this.keyedJsonGrammar,
       );
@@ -66,7 +66,7 @@ export class PaimaSTM<
     } catch (_e) {
       console.error(
         `Skipping input with invalid format: `,
-        input.rawInput.inputData,
+        input.conciseInput,
       );
       if (_e instanceof Error) {
         console.error(_e.message);

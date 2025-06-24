@@ -34,13 +34,13 @@ export default function* processErc20SyncProtocolResponse(
 
   const primitiveName = response.output.syncProtocol.payload.primitiveName;
 
-  const payload = {
-    from: response.output.payload.from,
-    to: response.output.payload.to,
-    // TODO: BigInt cannot be serialized to JSON
-    // So we need to convert it to a string
-    value: response.output.payload.value.toString(),
-  };
+  // const payload = {
+  //   from: response.output.payload.from,
+  //   to: response.output.payload.to,
+  //   // TODO: BigInt cannot be serialized to JSON
+  //   // So we need to convert it to a string
+  //   value: response.output.payload.value.toString(),
+  // };
 
   // const scheduledInputData = generateRawStmInput(
   //   BuiltinTransitions[ConfigPrimitiveType.EvmRpcERC20].transferScheduledPrefix,
@@ -65,6 +65,13 @@ export default function* processErc20SyncProtocolResponse(
   //   },
   // );
 
+  const payload = JSON.parse(
+    JSON.stringify(
+      response.output.payload,
+      (_, v) => typeof v === "bigint" ? v.toString() : v,
+    ),
+  );
+
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,
     paima_block_height: paima_block_height,
@@ -76,10 +83,10 @@ export default function* processErc20SyncProtocolResponse(
 
   yield* StateMachineExecution(
     paima_block_height,
-    JSON.stringify([
-      prefix,
-      payload,
-    ]),
-    payload,
+    JSON.stringify([prefix, payload]),
+    undefined,
+    undefined,
+    response.output.syncProtocol.payload.ownChain.blockNumber,
+    response.output.syncProtocol.payload.transactionHash,
   );
 }

@@ -90,31 +90,31 @@ export default function* processPaimaL2SyncProtocolResponse(
     );
   }
 
-  const inputData = {
-    ...response.output.payload,
-    userAddress: address.address,
-    userId: address.id,
-    paimaTxHash: response.output.syncProtocol.payload.transactionHash,
-    value: Number((response.output.payload as any).value),
-    command: JSON.parse(hexToString((response.output.payload as any).data)),
-    paima_block_height,
-  };
+  // const inputData = {
+  //   ...response.output.payload,
+  //   userAddress: address.address,
+  //   userId: address.id,
+  //   paimaTxHash: response.output.syncProtocol.payload.transactionHash,
+  //   value: Number((response.output.payload as any).value),
+  //   command: JSON.parse(hexToString((response.output.payload as any).data)),
+  //   paima_block_height,
+  // };
 
   // Trigger STF
   // let sqlQueries: QueuedUpdate[] = [];
   // let eventsToEmit: EventsToEmit<Events[string][number]> = [];
 
-  try {
-    console.log("inputData", inputData);
-  } catch (err) {
-    // skip inputs where the STF fails
-    log.remote(
-      ComponentNames.PAIMA_SYNC,
-      ["paima-l2"],
-      SeverityNumber.ERROR,
-      (log) => log(`[paima-sm] Error on user input STF call. Skipping`, err),
-    );
-  }
+  // try {
+  //   console.log("inputData", inputData);
+  // } catch (err) {
+  //   // skip inputs where the STF fails
+  //   log.remote(
+  //     ComponentNames.PAIMA_SYNC,
+  //     ["paima-l2"],
+  //     SeverityNumber.ERROR,
+  //     (log) => log(`[paima-sm] Error on user input STF call. Skipping`, err),
+  //   );
+  // }
   // if (sqlQueries.length !== 0) {
   //   // success = await tryOrRollback(DBConn, async () => {
   //     for (const [query, params] of sqlQueries) {
@@ -220,21 +220,31 @@ export default function* processPaimaL2SyncProtocolResponse(
   //   doLog(`[paima-sm] error while processing erc20 datum: ${err}`);
   // }
 
+  const payload = JSON.parse(
+    JSON.stringify(
+      response.output.payload,
+      (_, v) => typeof v === "bigint" ? v.toString() : v,
+    ),
+  );
+
   const primitiveName = response.output.syncProtocol.payload.primitiveName;
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,
     paima_block_height: paima_block_height,
     payload_type: ConfigPrimitiveAccountingPayloadType.Event,
-    payload: inputData satisfies PayloadOf<
+    payload: payload satisfies PayloadOf<
       typeof PrimitiveEvmRpcPaimaL2Accounting
     >,
   });
 
+  // console.error(response);
+
   yield* StateMachineExecution(
     paima_block_height,
-    hexToString(
-      (response.output.payload as any).data,
-    ),
-    inputData,
+    hexToString((response.output.payload as any).data),
+    address.address as `0x${string}`,
+    address.id,
+    response.output.syncProtocol.payload.ownChain.blockNumber,
+    response.output.syncProtocol.payload.transactionHash,
   );
 }

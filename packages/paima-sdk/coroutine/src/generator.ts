@@ -11,6 +11,7 @@ import type {
   INewScheduledTimestampDataParams,
 } from "@paima/db";
 import type { Pool, PoolClient } from "pg";
+import type { BaseStfInput, ParamToData } from "@paima/sm";
 
 /**
  * Two slightly tricky things about how this is set up:
@@ -77,17 +78,23 @@ type Spread<T> = T extends [] // base case 1: empty list
 
 export function* StateMachineExecution(
   paima_block_height: number,
-  inputData: string,
-  payload: Record<string, any>,
+  conciseInput: string,
+  userAddress: `0x${string}` | undefined,
+  userId: number | undefined,
+  ownChainBlockNumber: number,
+  ownChainTransactionHash: string,
 ): StateUpdateStream<void> {
   yield {
     type: "stm-promise",
     data: {
+      conciseInput,
       blockHeight: paima_block_height,
-      rawInput: {
-        inputData,
+      userAddress,
+      userId,
+      chain: {
+        blockNumber: ownChainBlockNumber,
+        transactionHash: ownChainTransactionHash,
       },
-      parsedInput: payload,
     },
   } satisfies STMExecPromise;
 }
@@ -95,13 +102,7 @@ export function* StateMachineExecution(
 // Type to resolve a yield of a StateMachine Execution
 export type STMExecPromise = {
   type: "stm-promise";
-  data: {
-    blockHeight: number;
-    rawInput: {
-      inputData: string;
-    };
-    parsedInput: Record<string, any>;
-  };
+  data: BaseStfInput;
 };
 
 type NoDistribute<T> = [T] extends [any] ? T : never;

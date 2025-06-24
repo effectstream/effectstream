@@ -202,7 +202,7 @@ export class EvmFetcher
         case ConfigPrimitiveType.EvmRpcERC20:
           primitiveType = ConfigPrimitiveType.EvmRpcERC20;
           payloadType = ConfigPrimitivePayloadType.Transfer;
-          realAddress = (log.args as any).to as `0x${string}`;
+          realAddress = undefined;
           break;
         case ConfigPrimitiveType.EvmRpcPaimaL2:
           primitiveType = ConfigPrimitiveType.EvmRpcPaimaL2;
@@ -220,10 +220,12 @@ export class EvmFetcher
           primitive: primitiveType as any,
           payload: ({
             ...log.args,
-            realAddress: {
-              type: AddressType.EVM,
-              address: realAddress,
-            },
+            realAddress: realAddress
+              ? {
+                type: AddressType.EVM,
+                address: realAddress,
+              }
+              : undefined,
           } as any),
           syncProtocol: {
             type: primitive.syncProtocol as any,
