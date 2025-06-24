@@ -19,8 +19,6 @@ import type {
 } from "@paima/config";
 import { ConfigPrimitivePayloadType, ConfigPrimitiveType } from "@paima/config";
 import type { StateUpdateStream } from "@paima/coroutine";
-import { type BaseStfInput, type BaseStfOutput } from "../types.ts";
-import type { AppEvents } from "@paima/sm";
 
 export function* primitiveTransitionFunction(
   primitive: FlattenSyncProtocolIOFor<

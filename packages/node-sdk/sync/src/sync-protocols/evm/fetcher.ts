@@ -165,35 +165,29 @@ export class EvmFetcher
   }
 
   fetchLogsAndExtractPrimitiveData = function* (
-    blockNumber: number,
+    fromBlock: bigint,
+    toBlock: bigint,
     client: PublicClient<any, Chain, any, any>,
     primitive: PrimitiveEntry<
       | ConfigSyncProtocolType.EVM_RPC_MAIN
       | ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,
-    pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
   ): Operation<
     PrimitiveType[]
   > {
-    const block = yield* call(() => pageRequest(blockNumber));
     const logs = yield* call(() =>
       client.getLogs({
         // TODO We need to correctly pass the ABI here
         // abi: primitive.primitive.abi,
         address: primitive.primitive.contractAddress,
         event: primitive.primitive.abi,
-        fromBlock: BigInt(block.number),
-        toBlock: BigInt(block.number),
+        fromBlock,
+        toBlock,
       })
     );
 
     // TODO What is the correct type?
-    const primitiveResponse: FlattenSyncProtocolIOFor<
-      | ConfigSyncProtocolType.EVM_RPC_MAIN
-      | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-      ConfigPrimitiveType,
-      ConfigPrimitivePayloadType
-    >[] = logs.map((
+    const primitiveResponse: PrimitiveType[] = logs.map((
       log,
     ) => {
       let payloadType;
@@ -227,18 +221,24 @@ export class EvmFetcher
             },
           } as any),
           syncProtocol: {
-            type: primitive.primitive.type as any,
+            type: primitive.syncProtocol as any,
             name: primitive.primitive.name,
             internal: {},
             payload: ({
               primitiveName: primitive.primitive.name,
-              transactionHash: log.transactionHash,
-              caip2: "eip155:1",
-              // fromAddress: log.address,
+              caip2: `eip155:${1}`, // TODO: get chain id from config?
               ownChain: {
-                blockNumber: Number(block.number),
+                blockNumber: Number(log.blockNumber),
               },
-            } as any),
+              transactionHash: log.transactionHash,
+              transactionIndex: log.transactionIndex,
+              contractAddress: log.address,
+              logIndex: log.logIndex,
+              // mainchain: {
+              //   blockNumber: Number(log.blockNumber),
+              //   timestamp: toMsTimestamp(0n), // TODO: get timestamp from block?
+              // },
+            }) as any,
           },
         },
         primitiveType: primitive.primitive.type,
@@ -262,17 +262,18 @@ export class EvmFetcher
     const client = this.client;
     const allOperations: Operation<PrimitiveType[]>[] = [];
 
+    const fromBlock = yield* call(() => pageRequest(data.from));
+    const toBlock = yield* call(() => pageRequest(data.to));
+
     for (const primitive of primitives) {
-      for (let block = data.from; block <= data.to; block++) {
-        allOperations.push(
-          this.fetchLogsAndExtractPrimitiveData(
-            block,
-            client,
-            primitive,
-            pageRequest,
-          ),
-        );
-      }
+      allOperations.push(
+        this.fetchLogsAndExtractPrimitiveData(
+          fromBlock.number,
+          toBlock.number,
+          client,
+          primitive,
+        ),
+      );
     }
 
     return (yield* all(allOperations)).flat();
