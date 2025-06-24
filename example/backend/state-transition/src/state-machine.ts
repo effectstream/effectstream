@@ -10,6 +10,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 stm.addStateTransition(
   "attack",
   async (data) => {
+    // console.error(data);
     await sleep(0);
     // This is where game logic is executed.
     return {
@@ -18,7 +19,7 @@ stm.addStateTransition(
           inputs: typeof data.rawInput.inputData === "string"
             ? data.rawInput.inputData
             : JSON.stringify(data.rawInput.inputData),
-          block_height: 0,
+          block_height: data.blockHeight,
         }],
       ],
       events: [],
@@ -29,6 +30,7 @@ stm.addStateTransition(
 stm.addStateTransition(
   "transfer",
   async (data) => {
+    // console.error(data);
     await sleep(0);
     // This is where game logic is executed.
     return {
@@ -37,7 +39,7 @@ stm.addStateTransition(
           inputs: typeof data.rawInput.inputData === "string"
             ? data.rawInput.inputData
             : JSON.stringify(data.rawInput.inputData),
-          block_height: 0,
+          block_height: data.blockHeight,
         }],
       ],
       events: [],

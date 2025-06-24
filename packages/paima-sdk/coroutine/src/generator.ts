@@ -87,24 +87,9 @@ export function* StateMachineExecution(
       rawInput: {
         inputData,
       },
-      parsedInput: {
-        payload,
-      },
+      parsedInput: payload,
     },
   } satisfies STMExecPromise;
-}
-
-export function* NonceInsertion(
-  nextNouce: number,
-  paima_block_height: number,
-): StateUpdateStream<void> {
-  yield {
-    type: "nonce",
-    data: [(insertNonce as any).queryIR, {
-      nonce: nextNouce,
-      block_height: paima_block_height,
-    }] as QueuedUpdate,
-  } satisfies NoncePromise;
 }
 
 // Type to resolve a yield of a StateMachine Execution
@@ -119,20 +104,13 @@ export type STMExecPromise = {
   };
 };
 
-// Type to handle a Nonce Insertion.
-// This is a special case because it does not revert.
-export type NoncePromise = {
-  type: "nonce";
-  data: QueuedUpdate;
-};
-
 type NoDistribute<T> = [T] extends [any] ? T : never;
 /**
  * Typically it's better to use StateUpdateStream as a return type since it's more generic
  * But sometimes it helps simplify to only accept non-async inputs to a function operating on generators
  */
 export type SyncStateUpdateStream<Return> = Generator<
-  QueuedUpdate | Spread<any> | STMExecPromise | NoncePromise,
+  QueuedUpdate | Spread<any> | STMExecPromise,
   Return,
   unknown
 >;

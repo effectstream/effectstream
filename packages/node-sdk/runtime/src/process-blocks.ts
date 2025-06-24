@@ -1,6 +1,6 @@
 import type { ChainBlock } from "@paima/sync";
 import type { AppEvents } from "@paima/sm";
-import { call, type Operation, until } from "effection";
+import { call, type Operation } from "effection";
 import type { Pool } from "pg";
 import {
   type BaseStfInput,
@@ -8,8 +8,7 @@ import {
   primitiveTransitionFunction,
 } from "@paima/sm";
 import { PreparedQuery } from "npm:@pgtyped/runtime";
-import {
-  NoncePromise,
+import type {
   QueuedUpdate,
   STMExecPromise,
   SyncStateUpdateStream,
@@ -17,10 +16,6 @@ import {
 
 function isStateMachineExecution(value: any): value is STMExecPromise {
   return value && typeof value === "object" && value.type === "stm-promise";
-}
-
-function isNoncePromise(value: any): value is NoncePromise {
-  return value && typeof value === "object" && value.type === "nonce";
 }
 
 function isWorldResolve(value: any): value is QueuedUpdate {
@@ -59,6 +54,8 @@ function* executeGeneratorStepByStep(
       const queryResult = yield* call(() => query.run(params, dbConn));
       operations.push(queryResult);
     } else if (isStateMachineExecution(value)) {
+      // TODO Run this in a transaction
+      //      We need to revert if any query fails.
       const promiseResult = yield* call(() =>
         gameStateTransitionRouter(
           value.data.blockHeight,
@@ -70,12 +67,8 @@ function* executeGeneratorStepByStep(
         const queryResult = yield* call(() => queryIR.run(params, dbConn));
         operations.push(queryResult);
       }
-    } else if (isNoncePromise(value)) {
-      const [queryIR, params] = value.data;
-      const query = new PreparedQuery(queryIR);
-      const queryResult = yield* call(() => query.run(params, dbConn));
-      operations.push(queryResult);
     }
+
     result = generator.next(operations.flat());
   }
   return result.value;

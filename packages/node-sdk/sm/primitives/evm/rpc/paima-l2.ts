@@ -15,7 +15,7 @@ import {
   insertPrimitiveAccounting,
   newAddress,
 } from "@paima/db";
-import { NonceInsertion, StateMachineExecution, World } from "@paima/coroutine";
+import { StateMachineExecution, World } from "@paima/coroutine";
 import { createScheduledData } from "@paima/db";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
 import {
@@ -94,7 +94,10 @@ export default function* processPaimaL2SyncProtocolResponse(
     ...response.output.payload,
     userAddress: address.address,
     userId: address.id,
-    paimaTxHash: "", // txHash,
+    paimaTxHash: response.output.syncProtocol.payload.transactionHash,
+    value: Number((response.output.payload as any).value),
+    command: JSON.parse(hexToString((response.output.payload as any).data)),
+    paima_block_height,
   };
 
   // Trigger STF
@@ -133,7 +136,11 @@ export default function* processPaimaL2SyncProtocolResponse(
   //   throw e;
   // } finally {
   // guarantee we run this no matter if there is an error or a continue
-  yield* NonceInsertion(nextNouce, paima_block_height);
+
+  yield* World.resolve(insertNonce, {
+    nonce: String(nextNouce),
+    block_height: paima_block_height,
+  });
 
   //   if (ENV.STORE_HISTORICAL_GAME_INPUTS) {
   //     await newGameInput.run(
@@ -212,8 +219,7 @@ export default function* processPaimaL2SyncProtocolResponse(
   // } catch (err) {
   //   doLog(`[paima-sm] error while processing erc20 datum: ${err}`);
   // }
-  (inputData as any).tx = JSON.parse(hexToString((inputData as any).data));
-  (inputData as any).value = Number((inputData as any).value);
+
   const primitiveName = response.output.syncProtocol.payload.primitiveName;
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,
@@ -229,6 +235,6 @@ export default function* processPaimaL2SyncProtocolResponse(
     hexToString(
       (response.output.payload as any).data,
     ),
-    response.output.payload,
+    inputData,
   );
 }
