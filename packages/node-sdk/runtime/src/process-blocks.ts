@@ -76,30 +76,52 @@ function* executeGeneratorStepByStep(
 
 // TODO
 // Where shoud we move this? Before emitting finalizedBlockStream?
-export function* processFinalizedBlock(
-  value: ChainBlock,
+export function processFinalizedBlock(
   gameStateTransitionRouter: (
     blockHeight: number,
     input: BaseStfInput,
   ) => Promise<BaseStfOutput<AppEvents>>,
   dbConn: Pool,
-): Operation<void> {
-  // TODO
-  // This "if" for this example process only evm primitives
-  if (
-    value.primitives.length > 0 &&
-    value.primitives[0].source !== "parallelUtxoRpc"
-  ) {
-    for (const primitive of value.primitives) {
-      const generator = primitiveTransitionFunction(
-        value.blockNumber,
-        primitive,
-      );
-      yield* executeGeneratorStepByStep(
-        generator,
-        gameStateTransitionRouter,
-        dbConn,
-      );
+  migrations?: (blockHeight: number) => Operation<string | undefined>,
+): (value: ChainBlock) => Operation<void> {
+  return function* (value: ChainBlock): Operation<void> {
+    // First Process the migrations.
+    if (migrations) {
+      yield* processMigrations(value.blockNumber, migrations, dbConn);
     }
+
+    // Second Process the scheduled data.
+    // TODO
+
+    // Third Process the primitives.
+    // This "if" for this example process only evm primitives
+    if (
+      value.primitives.length > 0 &&
+      value.primitives[0].source !== "parallelUtxoRpc"
+    ) {
+      for (const primitive of value.primitives) {
+        const generator = primitiveTransitionFunction(
+          value.blockNumber,
+          primitive,
+        );
+        yield* executeGeneratorStepByStep(
+          generator,
+          gameStateTransitionRouter,
+          dbConn,
+        );
+      }
+    }
+  };
+}
+
+function* processMigrations(
+  blockHeight: number,
+  migrations: (blockHeight: number) => Operation<string | undefined>,
+  dbConn: Pool,
+): Operation<void> {
+  const migrationToApply = yield* migrations(blockHeight);
+  if (migrationToApply) {
+    const migrationQuery: Promise<any[]> = dbConn.query(migrationToApply);
+    yield* call(() => migrationQuery);
   }
 }

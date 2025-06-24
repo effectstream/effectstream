@@ -29,6 +29,18 @@ await db.exec("CREATE EXTENSION IF NOT EXISTS pg_ivm;");
 
 await db.exec(migration);
 
+// User defined migrations path.
+const userMigrations = Deno.env.get("MIGRATIONS");
+if (userMigrations) {
+  const files = Deno.readDirSync(userMigrations);
+  for (const file of files) {
+    if (file.isFile && file.name.endsWith(".sql")) {
+      const migration = readFileSync(`${userMigrations}/${file.name}`, "utf-8");
+      await db.exec(migration);
+    }
+  }
+}
+
 {
   // TODO: consider switching to pglite-socket once it works
   //       https://discord.com/channels/933657521581858818/1371976702674075780/1371992712076595250

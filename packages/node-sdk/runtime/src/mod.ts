@@ -8,7 +8,7 @@ import { createChannel, each, type Operation, spawn } from "effection";
 import { initTelemetry } from "./telemetry.ts";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import { processFinalizedBlock } from "./process-blocks.ts";
-// import { gameStateTransitionRouter } from "@example/state-transition";
+
 // TODO: figure out how to setup env vars instead of relying on defaults
 const poolConfig = {
   host: Deno.env.get("DB_HOST") || "localhost",
@@ -29,6 +29,7 @@ export function* start(
     blockHeight: number,
     input: BaseStfInput,
   ) => Promise<BaseStfOutput<AppEvents>>,
+  migrations?: (blockHeight: number) => Operation<string | undefined>,
 ): Operation<void> {
   const dbConn = getConnection(poolConfig);
   const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
@@ -44,10 +45,15 @@ export function* start(
   }
 
   const finalizedBlockStream = createChannel<ChainBlock>();
+  const processFinalizedBlockFn = processFinalizedBlock(
+    gameStateTransitionRouter,
+    dbConn,
+    migrations,
+  );
   yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
 
   for (const value of yield* each(finalizedBlockStream)) {
-    yield* processFinalizedBlock(value, gameStateTransitionRouter, dbConn);
+    yield* processFinalizedBlockFn(value);
     yield* each.next();
   }
 }

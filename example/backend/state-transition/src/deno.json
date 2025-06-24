@@ -2,5 +2,11 @@
   "name": "@example/state-transition",
   "version": "0.3.0",
   "exports": "./mod.ts",
-  "imports": {}
+  "imports": {
+    "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2"
+  },
+  "tasks": {
+    "my-files": "deno task -f @paima/db db:wait && pgtyped -w -c ./pgtypedconfig.json",
+    "pgtyped:update": "MIGRATIONS=\"`pwd`/migrations/\" concurrently --raw --kill-others \"deno task -f @paima/db db:up\" \"deno task -f @paima/db pgtyped:internal\" \"deno task my-files\""
+  }
 }
