@@ -8,6 +8,7 @@ import { createChannel, each, type Operation, spawn } from "effection";
 import { initTelemetry } from "./telemetry.ts";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import { processFinalizedBlock } from "./process-blocks.ts";
+import { startHttpServer } from "./api/http-server.ts";
 
 // TODO: figure out how to setup env vars instead of relying on defaults
 const poolConfig = {
@@ -43,6 +44,10 @@ export function* start(
   for (const syncProtocol of syncProtocols) {
     yield* startSync(syncProtocol);
   }
+
+  yield* spawn(function* () {
+    yield* startHttpServer(dbConn);
+  });
 
   const finalizedBlockStream = createChannel<ChainBlock>();
   const processFinalizedBlockFn = processFinalizedBlock(

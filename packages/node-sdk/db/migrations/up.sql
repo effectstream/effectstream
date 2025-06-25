@@ -117,17 +117,17 @@ FROM (
         primitive_name,
         -- Coalesce either the ''to'' or ''from'' field into a single ''address'' column
         CASE
-            WHEN payload->>''to'' IS NOT NULL AND payload->>''to'' != '''' THEN payload->>''to''
-            ELSE payload->>''from''
+            WHEN payload->>''to'' IS NOT NULL AND payload->>''to'' != '''' THEN lower(payload->>''to'')
+            ELSE lower(payload->>''from'')
         END AS address,
         -- Positive for ''to'', negative for ''from'', 0 otherwise
         CASE
             WHEN payload->>''to'' IS NOT NULL AND payload->>''to'' != '''' 
-                THEN (payload->>''value'')::integer
+                THEN (payload->>''value'')::bigint
             WHEN payload->>''from'' IS NOT NULL 
                  AND payload->>''from'' != '''' 
                  AND payload->>''from'' != ''0x0000000000000000000000000000000000000000''
-                THEN -(payload->>''value'')::integer
+                THEN -(payload->>''value'')::bigint
             ELSE 0
         END AS token_diff
     FROM primitive_accounting

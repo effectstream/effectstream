@@ -13,6 +13,8 @@ import type {
   STMExecPromise,
   SyncStateUpdateStream,
 } from "@paima/coroutine";
+import { blockHeightDone, saveLastBlock } from "@paima/db";
+import { Buffer } from "node:buffer";
 
 function isStateMachineExecution(value: any): value is STMExecPromise {
   return value && typeof value === "object" && value.type === "stm-promise";
@@ -85,6 +87,20 @@ export function processFinalizedBlock(
   migrations?: (blockHeight: number) => Operation<string | undefined>,
 ): (value: ChainBlock) => Operation<void> {
   return function* (value: ChainBlock): Operation<void> {
+    // TODO: Should this be after the primitves?
+    //       This should not be saved if the process fails.
+    //       But each StateMachineExecution is a transaction.
+    yield* call(() =>
+      saveLastBlock.run({
+        // TODO: Check thses values
+        block_height: value.blockNumber,
+        ver: 0,
+        main_chain_block_hash: Buffer.from(value.blockNumber.toString()),
+        seed: value.blockNumber.toString(),
+        ms_timestamp: new Date(value.timestamp),
+      }, dbConn)
+    );
+
     // First Process the migrations.
     if (migrations) {
       yield* processMigrations(value.blockNumber, migrations, dbConn);
@@ -111,6 +127,15 @@ export function processFinalizedBlock(
         );
       }
     }
+
+    // Fourth, mark the block as done.
+    yield* call(() =>
+      blockHeightDone.run({
+        // TODO Where do we get the block hash from?
+        block_hash: Buffer.from(value.blockNumber.toString()),
+        block_height: value.blockNumber,
+      }, dbConn)
+    );
   };
 }
 

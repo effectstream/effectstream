@@ -1,6 +1,6 @@
+import type { Client, PoolConfig } from "pg";
+import pg from "pg";
 import { start } from "@paima/orchestrator";
-import { getPersistentConnection } from "@paima/db";
-import type { Client, Pool } from "npm:pg";
 import { deployContracts } from "./e2e-contracts.ts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -11,7 +11,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function startup(
   owner: `0x${string}`,
   privateKey: `0x${string}`,
-): Promise<Pool> {
+): Promise<Client> {
   start({ output: "stdout-err" });
   console.log("⌛ Waiting for sync process to start...");
 
@@ -40,8 +40,17 @@ function shutdownProcesses(): void {
   console.log("⏳ Waiting for shutdown to complete...");
 }
 
+const getPersistentConnection = (creds: PoolConfig): Client => {
+  const client = new pg.Client(creds);
+  client.connect(() => {});
+  client.on("error", (err: Error) => {
+    console.error(err);
+  });
+  return client;
+};
+
 // Connect to the db, and wait until the tables are created.
-async function getDBConnection(): Promise<Client> {
+export async function getDBConnection(): Promise<Client> {
   // Get DB connection
   const poolConfig = {
     host: Deno.env.get("DB_HOST") || "localhost",

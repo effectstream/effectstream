@@ -10,7 +10,7 @@
   "strict": true,
   "imports": {
     "tslog": "npm:tslog@^4.9.3",
-    "fastify": "npm:fastify@^5.2.1",
+    "fastify": "npm:fastify@^5.4.0",
     "ink": "npm:ink@5.1.0",
     "ink-big-text": "npm:ink-big-text@^2.0.0",
     "react": "npm:react@18.3.1",
