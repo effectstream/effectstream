@@ -1,4 +1,5 @@
 import __ from "https://deno.land/x/dirname/mod.ts";
+import { ENV } from "@paima/utils";
 const { __dirname } = __(import.meta);
 
 // This is a wrapper around the tmux command.
@@ -36,7 +37,7 @@ export class Tmux {
     this.options = {
       command: "tmux",
       configFile: `${__dirname}/tmux.conf`,
-      shell: Deno.env.get("SHELL"),
+      shell: ENV.SHELL,
       ...options,
     };
   }

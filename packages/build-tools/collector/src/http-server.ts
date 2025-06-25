@@ -14,6 +14,7 @@ import {
   type Namespace,
   SeverityNumber,
 } from "@paima/log";
+import { ENV } from "@paima/utils";
 
 // this file is based on https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
 
@@ -37,7 +38,7 @@ function printError(e: any, namespace: string, request: any) {
   );
 }
 
-const API_LOG_URL = Deno.env.get("API_LOG_URL") ?? "http://localhost:11033";
+const TUI_LOG_URL = ENV.TUI_LOG_URL + ":" + ENV.TUI_LOG_PORT;
 
 function exportData(data: {
   component: string;
@@ -45,7 +46,7 @@ function exportData(data: {
   level: SeverityNumber;
   message: string | string[];
 }) {
-  fetch(API_LOG_URL + "/v1/data", {
+  fetch(TUI_LOG_URL + "/v1/data", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

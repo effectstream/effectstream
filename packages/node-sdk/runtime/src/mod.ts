@@ -9,14 +9,15 @@ import { initTelemetry } from "./telemetry.ts";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import { processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
+import { ENV } from "@paima/utils";
 
 // TODO: figure out how to setup env vars instead of relying on defaults
 const poolConfig = {
-  host: Deno.env.get("DB_HOST") || "localhost",
-  user: Deno.env.get("DB_USER") || "postgres",
-  password: Deno.env.get("DB_PW") || "",
-  database: Deno.env.get("DB_NAME") || "postgres",
-  port: parseInt(Deno.env.get("DB_PORT") || "5432", 10),
+  host: ENV.DB_HOST,
+  user: ENV.DB_USER,
+  password: ENV.DB_PW,
+  database: ENV.DB_NAME,
+  port: ENV.DB_PORT,
 };
 
 export function* init() {

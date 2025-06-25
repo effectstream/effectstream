@@ -2,6 +2,7 @@ import type { Client, PoolConfig } from "pg";
 import pg from "pg";
 import { start } from "@paima/orchestrator";
 import { deployContracts } from "./e2e-contracts.ts";
+import { ENV } from "@paima/utils";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -53,11 +54,11 @@ const getPersistentConnection = (creds: PoolConfig): Client => {
 export async function getDBConnection(): Promise<Client> {
   // Get DB connection
   const poolConfig = {
-    host: Deno.env.get("DB_HOST") || "localhost",
-    user: Deno.env.get("DB_USER") || "postgres",
-    password: Deno.env.get("DB_PW") || "",
-    database: Deno.env.get("DB_NAME") || "postgres",
-    port: parseInt(Deno.env.get("DB_PORT") || "5432", 10),
+    host: ENV.DB_HOST,
+    user: ENV.DB_USER,
+    password: ENV.DB_PW,
+    database: ENV.DB_NAME,
+    port: ENV.DB_PORT,
   };
 
   // We can connect the DB now for doing the tests.

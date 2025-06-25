@@ -51,7 +51,7 @@ export async function assertSQL(
       await delay(100);
       maxMillis -= 100;
       if (maxMillis <= 0) {
-        console.error("[ERROR 0x01] Data in DB:", res.rows);
+        console.error("[TIMEOUT] Data in DB:", res.rows);
         console.error(`❌ Test failed`);
         return res;
       }
@@ -66,7 +66,7 @@ export async function assertSQL(
       console.log(`✅ Test passed`);
       return res;
     } catch (e) {
-      console.error("[ERROR 0x02] Data in DB:", res.rows);
+      console.error("[CHECK_ERROR] Data in DB:", res.rows);
       console.error(`❌ Test failed`);
       if (e instanceof Error && e.message !== "CHECK_ERROR") {
         console.error(e);

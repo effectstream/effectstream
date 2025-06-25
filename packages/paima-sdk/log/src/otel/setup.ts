@@ -21,6 +21,7 @@ import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
 } from "@opentelemetry/semantic-conventions";
+import { env } from "node:process";
 
 /**
  * Note: this is based on `NodeSDKConfiguration`.
@@ -38,18 +39,18 @@ export function defaultOtelSetup(
 ): DefaultOtelSetup {
   const collectorOptions = {
     // override default on dev builds so no logs disappear
-    concurrencyLimit: Deno.env.get("NODE_ENV") === "development"
+    concurrencyLimit: env.NODE_ENV === "development"
       ? Number.MAX_SAFE_INTEGER
       : undefined,
   } as const;
 
   const baseLog = new OTLPLogExporter(collectorOptions);
-  const logProcessor = Deno.env.get("NODE_ENV") === "development"
+  const logProcessor = env.NODE_ENV === "development"
     ? new SimpleLogRecordProcessor(baseLog)
     : new BatchLogRecordProcessor(baseLog);
 
   const baseTrace = new OTLPTraceExporter(collectorOptions);
-  const spanProcessor = Deno.env.get("NODE_ENV") === "development"
+  const spanProcessor = env.NODE_ENV === "development"
     ? new SimpleSpanProcessor(baseTrace)
     : new BatchSpanProcessor(baseTrace);
 
