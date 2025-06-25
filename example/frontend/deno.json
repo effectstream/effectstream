@@ -1,0 +1,7 @@
+{
+  "name": "@example/frontend",
+  "exports": "./index.html",
+  "tasks": {
+    "start": "deno run -A npm:http-server -o --cors"
+  }
+}

@@ -2,6 +2,8 @@ import fastify from "npm:fastify";
 // import { Value } from "npm:@sinclair/typebox/value";
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
 import type { Pool } from "pg";
+import cors from "@fastify/cors";
+import { until } from "effection";
 
 const PORT = 9999; // default port for OTLP HTTP traces
 
@@ -12,6 +14,12 @@ export enum RpcPaths {
 
 export const startHttpServer = function* (dbConn: Pool) {
   const server = fastify();
+  yield* until(
+    server.register(cors, {
+      origin: "*",
+    }),
+  );
+
   const rpcEngine = evmRpcEngine(dbConn);
   server.post(`/${RpcPaths.Root}/${RpcPaths.EVM}`, (request, _) => {
     return rpcEngine.handle(

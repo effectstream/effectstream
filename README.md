@@ -1,8 +1,15 @@
 # Paima Engine
 
-1. `deno install --allow-scripts`
-2. in `example/client/node`: `deno task dev`
+## Install dependencies
+`deno install --allow-scripts`
 
-# Run Test
-1. `deno install --allow-scripts`
-2. in `example/client/node`: `deno task test`
+## Run Example Deployment
+`deno task -f @example/node dev`
+
+## Run Example Webpage
+> NOTE: Example Deployment must be running
+
+`deno task -f @example/frontend start`
+
+# Run Tests
+`deno task -f @example/node test`

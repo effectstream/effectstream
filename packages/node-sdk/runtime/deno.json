@@ -3,6 +3,7 @@
   "version": "0.3.0",
   "exports": "./src/mod.ts",
   "imports": {
+    "@fastify/cors": "npm:@fastify/cors@^11.0.1",
     "@metamask/json-rpc-engine": "npm:@metamask/json-rpc-engine@^10.0.3",
     "pg": "npm:pg@^8.14.0",
     "effection": "npm:effection@^3.5.0",

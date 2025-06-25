@@ -1,6 +1,6 @@
 import type { ChainBlock } from "@paima/sync";
 import type { AppEvents } from "@paima/sm";
-import { call, type Operation } from "effection";
+import { call, type Operation, until } from "effection";
 import type { Pool } from "pg";
 import {
   type BaseStfInput,
@@ -129,10 +129,14 @@ export function processFinalizedBlock(
     }
 
     // Fourth, mark the block as done.
+    // TODO create the hash from the contents (how?)
+    const randomBlockHash = (): string =>
+      "0x" +
+      Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16))
+        .join("");
     yield* call(() =>
       blockHeightDone.run({
-        // TODO Where do we get the block hash from?
-        block_hash: Buffer.from(value.blockNumber.toString()),
+        block_hash: Buffer.from(randomBlockHash()),
         block_height: value.blockNumber,
       }, dbConn)
     );
@@ -147,6 +151,6 @@ function* processMigrations(
   const migrationToApply = yield* migrations(blockHeight);
   if (migrationToApply) {
     const migrationQuery: Promise<any[]> = dbConn.query(migrationToApply);
-    yield* call(() => migrationQuery);
+    yield* until(migrationQuery);
   }
 }

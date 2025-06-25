@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paima Explorer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header Row -->
+        <header class="header">
+            <h1 class="title">Paima Explorer</h1>
+            <div class="block-info">
+                <span>Latest Block: </span>
+                <span id="latest-block">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Columns Container -->
+        <div class="columns-container">
+            <!-- Paima Engine Column (Main) -->
+            <div class="column main-column">
+                <h2 class="column-title">Paima Engine</h2>
+                <div class="block-time">Block Time: <span id="paima-block-time">2s</span></div>
+                <div class="blocks-list" id="paima-blocks"></div>
+            </div>
+
+            <!-- EVM Main Column -->
+            <div class="column">
+                <h2 class="column-title">EVM Main</h2>
+                <div class="block-time">Block Time: <span id="evm-main-block-time">2s</span></div>
+                <div class="blocks-list" id="evm-main-blocks"></div>
+            </div>
+
+            <!-- EVM Parallel Column -->
+            <div class="column">
+                <h2 class="column-title">EVM Parallel</h2>
+                <div class="block-time">Block Time: <span id="evm-parallel-block-time">3s</span></div>
+                <div class="blocks-list" id="evm-parallel-blocks"></div>
+            </div>
+
+            <!-- Cardano Column -->
+            <div class="column">
+                <h2 class="column-title">Cardano</h2>
+                <div class="block-time">Block Time: <span id="cardano-block-time">2s</span></div>
+                <div class="blocks-list" id="cardano-blocks"></div>
+            </div>
+
+            <!-- Midnight Column -->
+            <div class="column">
+                <h2 class="column-title">Midnight</h2>
+                <div class="block-time">Block Time: <span id="midnight-block-time">6s</span></div>
+                <div class="blocks-list" id="midnight-blocks"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
