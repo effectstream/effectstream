@@ -24,6 +24,8 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Start Test
 async function test() {
+  // Do not use this db connection directly.
+  // As PGLite does not support multiple connections.
   let db: Client;
   try {
     // Launch the orchestrator, and wait for the sync process to start.

@@ -48,7 +48,7 @@ export function* startMerge(
       ComponentNames.PAIMA_SYNC,
       "block-merge",
       SeverityNumber.INFO,
-      (log) => log(`finalizing block ${newBlock?.blockNumber}`),
+      (log) => log(`producing block ${newBlock?.blockNumber}`),
     );
 
     yield* finalizedBlockStream.send(newBlock);

@@ -1,5 +1,5 @@
 import { type ChainBlock, genSyncProtocols } from "@paima/sync";
-import { getConnection } from "@paima/db";
+import { aquireDBMutex, getConnection, releaseDBMutex } from "@paima/db";
 import { startMerge, startSync } from "@paima/sync";
 import type { SyncProtocolWithNetwork } from "@paima/config";
 import type { AppEvents } from "@paima/sm";
@@ -59,7 +59,15 @@ export function* start(
   yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
 
   for (const value of yield* each(finalizedBlockStream)) {
+    yield* aquireDBMutex();
     yield* processFinalizedBlockFn(value);
+    log.remote(
+      ComponentNames.PAIMA_SYNC,
+      "block-merge",
+      SeverityNumber.INFO,
+      (log) => log(`finalized block ${value.blockNumber}`),
+    );
+    releaseDBMutex();
     yield* each.next();
   }
 }

@@ -67,9 +67,11 @@ export async function getDBConnection(): Promise<Client> {
   let maxMillis = 10000;
   while (maxMillis > 0) {
     try {
+      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
       await db.query(
         `SELECT id FROM public.primitive_accounting LIMIT 1`,
       );
+      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
       return db;
     } catch (e) {
       console.log("⏳ DB not ready yet");

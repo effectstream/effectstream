@@ -143,6 +143,14 @@ const definitions = {
     defaultValue: 8884,
     description: "MQTT Batcher Broker Port. Example: '8884'",
   },
+  PAIMA_API_PORT: {
+    key: "PAIMA_API_PORT",
+    isSecret: false,
+    type: "number",
+    defaultValue: 9999,
+    description:
+      "Main Paima API Port. Used by developers custom endpoints and RPC endpoints. Example: '9999'",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -199,7 +207,9 @@ export class ENV {
   static get TMUX(): string {
     return ENV.getConfig(definitions.TMUX);
   }
-
+  static get PAIMA_API_PORT(): number {
+    return ENV.getConfig(definitions.PAIMA_API_PORT);
+  }
   static get RECAPTCHA_V3_FRONTEND(): string {
     return ENV.getConfig(definitions.RECAPTCHA_V3_FRONTEND);
   }

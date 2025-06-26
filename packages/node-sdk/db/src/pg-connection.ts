@@ -1,13 +1,53 @@
 import type { Client, PoolClient, PoolConfig } from "pg";
 import pg from "pg";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
+import { type Operation, run, sleep } from "npm:effection@3.5.0";
 
 let readonlyDBConn: pg.Pool | null;
+
+// PGLite does not support multiple connections, so we need to use a mutex to ensure that only one query is executed at a time.
+// * For transactions use yield* aquireDBMutex(); ...Your Operations... releaseDBMutex();
+// * For single queries use await runPreparedQuery(myQuery.run(params, dbConn));
+// IMPORTANT: This is only for PGLite instances, for full pgsql servers, this is not needed.
+const IS_PGLITE = true; // TODO: make this configurable
+
+// TODO This is a very simple mutex implementation.
+//      It releases the mutex randomly, and not in order.
+//      It only works for deno's single-threaded runtime.
+//      pglite exports async-mutex, so we can use that for a proper solution.
+let db_mutex: "free" | "locked" = "free";
+export function* aquireDBMutex(): Operation<void> {
+  if (!IS_PGLITE) return;
+  while (true) {
+    if (db_mutex === "free") {
+      db_mutex = "locked";
+      break;
+    }
+    console.log("waiting for db mutex");
+    yield* sleep(10);
+  }
+}
+
+export function releaseDBMutex() {
+  db_mutex = "free";
+}
+
+export async function runPreparedQuery<T>(p: Promise<T>): Promise<T> {
+  if (IS_PGLITE) {
+    await run(aquireDBMutex);
+  }
+  const result = await p;
+  releaseDBMutex();
+  return result;
+}
 
 export const getConnection = (creds: PoolConfig, readonly = false): pg.Pool => {
   if (readonly && readonlyDBConn) return readonlyDBConn;
 
-  const pool = new pg.Pool(creds);
+  // TODO: make this configurable for non pglite instances
+  const MAX_CONNECTIONS = IS_PGLITE ? 1 : 10;
+
+  const pool = new pg.Pool({ ...creds, max: MAX_CONNECTIONS });
   pool.on("error", (err: unknown) =>
     log.remote(
       ComponentNames.PAIMA_DB,

@@ -23,6 +23,7 @@ const db = new PGlite(
         import.meta.url,
       ),
     },
+    // debug: 1,
   },
 );
 await db.exec("CREATE EXTENSION IF NOT EXISTS pg_ivm;");

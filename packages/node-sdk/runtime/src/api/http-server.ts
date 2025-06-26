@@ -3,9 +3,9 @@ import fastify from "npm:fastify";
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
-import { until } from "effection";
-
-const PORT = 9999; // default port for OTLP HTTP traces
+import { run, until } from "effection";
+import { aquireDBMutex, releaseDBMutex } from "@paima/db";
+import { ENV } from "@paima/utils";
 
 export enum RpcPaths {
   Root = "rpc",
@@ -20,6 +20,22 @@ export const startHttpServer = function* (dbConn: Pool) {
     }),
   );
 
+  // These endpoints:
+  // * /db_aquire_lock
+  // * /db_release_lock
+  // Are only used by the e2e tests to ensure that only one query is executed at a time.
+  // They are not used by the main application.
+  // TODO Disable this totally for production.
+  server.get("/db_aquire_lock", async () => {
+    await run(aquireDBMutex);
+    return "ok";
+  });
+
+  server.get("/db_release_lock", () => {
+    releaseDBMutex();
+    return "ok";
+  });
+
   const rpcEngine = evmRpcEngine(dbConn);
   server.post(`/${RpcPaths.Root}/${RpcPaths.EVM}`, (request, _) => {
     return rpcEngine.handle(
@@ -33,7 +49,7 @@ export const startHttpServer = function* (dbConn: Pool) {
 
   // Start the server
   server.listen(
-    { port: PORT, host: "0.0.0.0" },
+    { port: ENV.PAIMA_API_PORT, host: "0.0.0.0" },
     (err: Error | null, address: string) => {
       if (err) {
         console.error("err", err);

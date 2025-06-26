@@ -130,13 +130,13 @@ export function processFinalizedBlock(
 
     // Fourth, mark the block as done.
     // TODO create the hash from the contents (how?)
-    const randomBlockHash = (): string =>
-      "0x" +
-      Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16))
-        .join("");
+    const randomBlockHash = Array(64).fill(0).map(() =>
+      Math.floor(Math.random() * 16).toString(16)
+    ).join("");
+
     yield* call(() =>
       blockHeightDone.run({
-        block_hash: Buffer.from(randomBlockHash()),
+        block_hash: Buffer.from(`0x${randomBlockHash}`),
         block_height: value.blockNumber,
       }, dbConn)
     );

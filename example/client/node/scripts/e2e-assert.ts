@@ -1,4 +1,5 @@
 import type { Pool, QueryResult } from "npm:pg";
+import { ENV } from "@paima/utils";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -44,7 +45,9 @@ export async function assertSQL(
   );
   let maxMillis = 10000;
   while (maxMillis > 0) {
+    await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
     const res = await db.query(query);
+    await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
 
     // First wait until the data is available.
     if (!waitUntil(res)) {

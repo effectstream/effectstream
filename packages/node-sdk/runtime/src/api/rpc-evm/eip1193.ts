@@ -38,6 +38,7 @@ import {
   strip0x,
 } from "./rpc-utils.ts";
 const { keccak_256 } = sha3;
+import { runPreparedQuery } from "@paima/db";
 
 const ENV = {
   // TODO: Update this
@@ -76,9 +77,11 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
          * ==============
          */
         case "eth_blockNumber": {
-          const [lastBlockHeight] = await getLatestProcessedBlockHeight.run(
-            undefined,
-            dbConn,
+          const [lastBlockHeight] = await runPreparedQuery(
+            getLatestProcessedBlockHeight.run(
+              undefined,
+              dbConn,
+            ),
           );
 
           setResult<typeof evmRpc.method>(
@@ -108,9 +111,9 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
           //   evmRpc.method,
           //   `${evmRpc.method} currently unsupported`,
           // );
-          const [balance] = await getErc20Balance.run({
+          const [balance] = await runPreparedQuery(getErc20Balance.run({
             address: evmRpc.params[0].toLowerCase(),
-          }, dbConn);
+          }, dbConn));
           if (!balance) {
             setResult<typeof evmRpc.method>(`0x0`);
           } else {
@@ -304,10 +307,12 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
             return;
           }
 
-          const [block] = await getLatestProcessedBlockHeight.run(
-            undefined,
-            // { block_hash: Buffer.from(blockHash.slice(2), "hex") },
-            dbConn,
+          const [block] = await runPreparedQuery(
+            getLatestProcessedBlockHeight.run(
+              undefined,
+              // { block_hash: Buffer.from(blockHash.slice(2), "hex") },
+              dbConn,
+            ),
           );
 
           if (!block) {
@@ -358,9 +363,11 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
           try {
             // TODO this should be dynamic
             // TOOD for now just passing the block
-            const [block_] = await getLatestProcessedBlockHeight.run(
-              undefined,
-              dbConn,
+            const [block_] = await runPreparedQuery(
+              getLatestProcessedBlockHeight.run(
+                undefined,
+                dbConn,
+              ),
             );
             block = block_;
             blockHeight = block.block_height;
@@ -440,9 +447,11 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
           //       res.error = createInternalRpcError({}, data.errorMessage);
           //       return;
           //     }
-          const [block] = await getLatestProcessedBlockHeight.run(
-            undefined,
-            dbConn,
+          const [block] = await runPreparedQuery(
+            getLatestProcessedBlockHeight.run(
+              undefined,
+              dbConn,
+            ),
           );
           if (!block) {
             res.error = createInvalidParamsError(
@@ -498,9 +507,11 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
           //       res.error = createInternalRpcError({}, data.errorMessage);
           //       return;
           //     }
-          const [block] = await getLatestProcessedBlockHeight.run(
-            undefined,
-            dbConn,
+          const [block] = await runPreparedQuery(
+            getLatestProcessedBlockHeight.run(
+              undefined,
+              dbConn,
+            ),
           );
           const randomBlockHash = (): string =>
             "0x" +
@@ -522,9 +533,11 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
         case "eth_getTransactionByBlockNumberAndIndex": {
           let blockHeight: number;
           try {
-            const [block] = await getLatestProcessedBlockHeight.run(
-              undefined,
-              dbConn,
+            const [block] = await runPreparedQuery(
+              getLatestProcessedBlockHeight.run(
+                undefined,
+                dbConn,
+              ),
             );
             blockHeight = block.block_height;
             // blockHeight = await toBlockNumber(evmRpc.params[0]);
@@ -553,9 +566,11 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
           //       res.error = createInternalRpcError({}, data.errorMessage);
           //       return;
           //     }
-          const [block] = await getLatestProcessedBlockHeight.run(
-            undefined,
-            dbConn,
+          const [block] = await runPreparedQuery(
+            getLatestProcessedBlockHeight.run(
+              undefined,
+              dbConn,
+            ),
           );
           const randomBlockHash = (): string =>
             "0x" +
@@ -757,9 +772,11 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
 
           //     // TODO: create a version of get_logs for specific transactions
 
-          const [block] = await getLatestProcessedBlockHeight.run(
-            undefined,
-            dbConn,
+          const [block] = await runPreparedQuery(
+            getLatestProcessedBlockHeight.run(
+              undefined,
+              dbConn,
+            ),
           );
 
           if (!block) {
@@ -879,9 +896,11 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
           //   return;
           // }
 
-          const [block] = await getLatestProcessedBlockHeight.run(
-            undefined,
-            dbConn,
+          const [block] = await runPreparedQuery(
+            getLatestProcessedBlockHeight.run(
+              undefined,
+              dbConn,
+            ),
           );
 
           // TODO Updaste this
