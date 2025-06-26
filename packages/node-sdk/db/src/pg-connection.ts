@@ -23,7 +23,6 @@ export function* aquireDBMutex(): Operation<void> {
       db_mutex = "locked";
       break;
     }
-    console.log("waiting for db mutex");
     yield* sleep(10);
   }
 }
