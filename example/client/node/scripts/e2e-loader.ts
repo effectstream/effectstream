@@ -14,7 +14,7 @@ export async function startup(
   privateKey: `0x${string}`,
 ): Promise<Client> {
   const config = {
-    output: "stdout-err",
+    output: Deno.env.get("PAIMA_E2E_LOG_DEBUG") ? "stdout" : "stdout-err",
   } as const;
   start(config);
   console.log("⌛ Waiting for sync process to start...");

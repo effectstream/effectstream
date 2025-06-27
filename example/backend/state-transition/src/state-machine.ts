@@ -2,6 +2,7 @@ import { PaimaSTM } from "@paima/sm";
 import { grammar } from "@example/data-types";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import { insertStateMachineInput } from "@example/state-transition";
+import { createScheduledData } from "@paima/db";
 
 type MyEvents = {}; // TODO: replace
 const stm = new PaimaSTM<typeof grammar, MyEvents>(grammar);
@@ -14,7 +15,8 @@ stm.addStateTransition(
     return {
       stateTransitions: [
         [insertStateMachineInput, {
-          inputs: data.conciseInput,
+          inputs:
+            `attack playerId: ${data.parsedInput.playerId} with moveId: ${data.parsedInput.moveId}`,
           block_height: data.blockHeight,
         }],
       ],
@@ -23,16 +25,29 @@ stm.addStateTransition(
   },
 );
 
+// stm.addStateTransition(
+//   "schedule",
+//   async (data) => {
+//     [createScheduledData, createScheduledDataPayload]
+
+//     return {
+//       stateTransitions: [],
+//       events: [],
+//     };
+//   },
+// );
+
 stm.addStateTransition(
   "transfer",
   async (data) => {
     // console.error(data);
     await sleep(0);
+    const { to, from, value } = data.parsedInput.payload;
     // This is where game logic is executed.
     return {
       stateTransitions: [
         [insertStateMachineInput, {
-          inputs: data.conciseInput,
+          inputs: `transfer ${value} from ${from} to ${to}`,
           block_height: data.blockHeight,
         }],
       ],

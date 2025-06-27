@@ -3,6 +3,10 @@ import { type GrammarDefinition, mapPrimitivesToGrammar } from "@paima/concise";
 import { localhostConfig } from "./config.ts";
 
 export const grammar = {
+  schedule: [
+    ["tick", Type.Integer()],
+    ["message", Type.String()],
+  ],
   attack: [
     ["playerId", Type.Integer()],
     ["moveId", Type.Integer()],

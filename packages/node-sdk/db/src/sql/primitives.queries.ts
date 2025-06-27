@@ -32,34 +32,3 @@ const insertPrimitiveAccountingIR: any = {"usedParamSet":{"primitive_name":true,
 export const insertPrimitiveAccounting = new PreparedQuery<IInsertPrimitiveAccountingParams,IInsertPrimitiveAccountingResult>(insertPrimitiveAccountingIR);
 
 
-/** 'GetErc20Balance' parameters type */
-export interface IGetErc20BalanceParams {
-  address: string;
-}
-
-/** 'GetErc20Balance' return type */
-export interface IGetErc20BalanceResult {
-  __ivm_count__: string | null;
-  __ivm_count_balance__: string | null;
-  address: string | null;
-  balance: string | null;
-  primitive_name: string | null;
-}
-
-/** 'GetErc20Balance' query type */
-export interface IGetErc20BalanceQuery {
-  params: IGetErc20BalanceParams;
-  result: IGetErc20BalanceResult;
-}
-
-const getErc20BalanceIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":42,"b":50}]}],"statement":"SELECT * FROM erc_balance WHERE address = :address!"};
-
-/**
- * Query generated from SQL:
- * ```
- * SELECT * FROM erc_balance WHERE address = :address!
- * ```
- */
-export const getErc20Balance = new PreparedQuery<IGetErc20BalanceParams,IGetErc20BalanceResult>(getErc20BalanceIR);
-
-

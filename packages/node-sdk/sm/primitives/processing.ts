@@ -1,6 +1,6 @@
 import processErc20TransferDatum from "./evm/rpc/erc20-transfer.ts";
 import processPaimaL2Event from "./evm/rpc/paima-l2.ts";
-// import processErc721TransferDatum from "./evm/rpc/erc721-transfer.ts";
+import processErc721TransferDatum from "./evm/rpc/erc721-transfer.ts";
 // import processErc721MintDatum from "./evm/rpc/erc721-mint.ts";
 // import processErc6551RegistryDatum from "./evm/rpc/erc6551-registry.ts";
 // import processErc1155TransferDatum from "./evm/rpc/erc1155-transfer.ts";
@@ -63,9 +63,12 @@ export function* primitiveTransitionFunction(
     case ConfigPrimitiveType.EvmRpcERC721:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Transfer:
-          // return yield* processErc721TransferDatum(primitive);
-        case ConfigPrimitivePayloadType.Mint:
-          // return yield* processErc721MintDatum(primitive);
+          return yield* processErc721TransferDatum(
+            paima_block_height,
+            primitive,
+          );
+        // case ConfigPrimitivePayloadType.Mint:
+        //   return yield* processErc721MintDatum(paima_block_height, primitive);
         default:
           // assertNever.default(primitive);
       }

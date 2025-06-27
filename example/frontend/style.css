@@ -195,21 +195,25 @@ body {
 }
 
 /* Scrollbar Styling */
-.blocks-list::-webkit-scrollbar {
+.blocks-list::-webkit-scrollbar,
+.primitive-table tbody::-webkit-scrollbar {
   width: 6px;
 }
 
-.blocks-list::-webkit-scrollbar-track {
+.blocks-list::-webkit-scrollbar-track,
+.primitive-table tbody::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.1);
   border-radius: 3px;
 }
 
-.blocks-list::-webkit-scrollbar-thumb {
+.blocks-list::-webkit-scrollbar-thumb,
+.primitive-table tbody::-webkit-scrollbar-thumb {
   background: rgba(102, 126, 234, 0.5);
   border-radius: 3px;
 }
 
-.blocks-list::-webkit-scrollbar-thumb:hover {
+.blocks-list::-webkit-scrollbar-thumb:hover,
+.primitive-table tbody::-webkit-scrollbar-thumb:hover {
   background: rgba(102, 126, 234, 0.7);
 }
 
@@ -260,4 +264,187 @@ body {
 
 .block-item.new-block {
   animation: fadeIn 0.25s ease-out;
+}
+
+/* Tables Section */
+.tables-section {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  margin-top: 30px;
+  padding: 30px;
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(45deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 15px;
+}
+
+.primitive-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 25px;
+}
+
+.primitive-table-container {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(31, 38, 135, 0.2);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.primitive-table-container:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(102, 126, 234, 0.3);
+  border-color: rgba(102, 126, 234, 0.4);
+}
+
+.primitive-table-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 15px;
+  text-align: center;
+  padding: 10px;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 8px;
+}
+
+.primitive-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: block;
+}
+
+.primitive-table thead {
+  display: block;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.primitive-table tbody {
+  display: block;
+  max-height: 280px; /* Approximately 6 rows at ~45px each */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.primitive-table thead tr,
+.primitive-table tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.primitive-table th {
+  background: linear-gradient(45deg, #667eea, #764ba2);
+  color: white;
+  font-weight: 600;
+  padding: 12px 15px;
+  text-align: left;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.primitive-table td {
+  background: white;
+  padding: 10px 15px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.85rem;
+  color: #555;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+}
+
+.primitive-table tr:hover td {
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.primitive-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Scroll indicator for tables with many rows */
+.primitive-table-container::after {
+  content: "";
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 3px;
+  background: linear-gradient(45deg, #667eea, #764ba2);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.primitive-table-container.has-scroll::after {
+  opacity: 0.7;
+}
+
+/* Address styling for better readability */
+.primitive-table .address-cell {
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 0.8rem;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* Loading state */
+.table-loading {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-style: italic;
+}
+
+.table-error {
+  text-align: center;
+  padding: 40px;
+  color: #f44336;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .primitive-tables {
+    grid-template-columns: 1fr;
+  }
+
+  .primitive-table {
+    font-size: 0.8rem;
+  }
+
+  .primitive-table th,
+  .primitive-table td {
+    padding: 8px 10px;
+    max-width: 120px; /* Smaller max-width on mobile */
+  }
+
+  .section-title {
+    font-size: 1.6rem;
+  }
 }

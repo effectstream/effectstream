@@ -4,6 +4,9 @@ const deployedEvmAddresses = {
   "chain-31337": {
     "L2Contract#PaimaL2Contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
     "Foo#SomeERC20": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+    "Assets#Erc721Dev": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+    erc20_2: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+    erc721_2: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
   },
 } as const;
 import {
@@ -95,7 +98,7 @@ export const localhostConfig = new ConfigBuilder()
     builder.addPrimitive(
       (syncProtocols) => syncProtocols.mainEvmRPC,
       (network, deployments, syncProtocol) => ({
-        name: "TransferEvent",
+        name: "MyTransferEvent",
         type: ConfigPrimitiveType.EvmRpcERC20,
 
         startBlockHeight: 0,
@@ -116,7 +119,51 @@ export const localhostConfig = new ConfigBuilder()
             paimal2.abi,
             "PaimaGameInteraction(address,bytes,uint256)",
           ),
-          scheduledPrefix: stfInputs.paimaSubmitGameInput,
+          // scheduledPrefix: stfInputs.paimaSubmitGameInput,
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "MyERC721",
+          type: ConfigPrimitiveType.EvmRpcERC721,
+          startBlockHeight: 0,
+          contractAddress:
+            deployedEvmAddresses["chain-31337"]["Assets#Erc721Dev"],
+          abi: getEvmEvent(
+            erc721Abi,
+            "Transfer(address,address,uint256)",
+          ),
+          scheduledPrefix: "transfer-assets",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "AnotherERC721",
+          type: ConfigPrimitiveType.EvmRpcERC721,
+          startBlockHeight: 0,
+          contractAddress: deployedEvmAddresses["chain-31337"]["erc721_2"],
+          abi: getEvmEvent(
+            erc721Abi,
+            "Transfer(address,address,uint256)",
+          ),
+          scheduledPrefix: "transfer-assets",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "AnotherERC20",
+          type: ConfigPrimitiveType.EvmRpcERC20,
+          startBlockHeight: 0,
+          contractAddress: deployedEvmAddresses["chain-31337"]["erc20_2"],
+          abi: getEvmEvent(
+            erc20Abi,
+            "Transfer(address,address,uint256)",
+          ),
+          // TODO this should not be mandatory
+          scheduledPrefix: "transfer-erc20-2",
         }),
       )
   )

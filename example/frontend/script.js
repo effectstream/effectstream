@@ -51,11 +51,21 @@ const chainConfigs = {
 
 // RPC endpoint configuration (legacy - now using individual chain configs)
 const RPC_ENDPOINT = "http://127.0.0.1:9999/rpc/evm";
+const CONFIG_ENDPOINT = "http://127.0.0.1:9999/config";
+const PRIMITIVES_ENDPOINT = "http://127.0.0.1:9999/primitives";
+const TABLES_ENDPOINT = "http://127.0.0.1:9999/tables";
 
 // State management (legacy - now using individual chain configs)
 let latestBlockNumber = 0;
 let previousLatestBlockNumber = 0;
 let isConnected = false;
+
+// Primitive data management
+let primitiveNames = [];
+let primitiveData = {};
+
+// Static table data management
+let staticTableData = {};
 
 // Utility functions
 function generateRandomHash() {
@@ -359,12 +369,21 @@ function init() {
   // Setup RPC polling for RPC chains
   setupRPCPolling();
 
+  // Initialize primitive tables
+  initializePrimitiveTables();
+
+  // Initialize static tables
+  initializeStaticTables();
+
   // Legacy: Fetch latest block immediately (for backward compatibility)
   fetchLatestBlock();
 
   // Legacy: Setup intervals (for backward compatibility)
   setInterval(fetchLatestBlock, 100);
   setInterval(updateConnectionStatus, 1000);
+
+  // Setup data refresh interval
+  setInterval(refreshAllData, 1000); // Refresh every second
 
   console.log("✅ Paima Explorer initialized successfully!");
 }
@@ -413,3 +432,422 @@ document.addEventListener("keydown", (event) => {
     console.log("🔄 Manually refreshed latest block");
   }
 });
+
+// Primitive Tables Functions
+async function fetchConfig() {
+  try {
+    const response = await fetch(CONFIG_ENDPOINT);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const config = await response.json();
+    console.log("📋 Fetched config:", config);
+    return config;
+  } catch (error) {
+    console.error("Error fetching config:", error);
+    return null;
+  }
+}
+
+function extractPrimitiveNames(config) {
+  const names = [];
+  if (!config || !Array.isArray(config)) return names;
+
+  config.forEach((syncProtocolConfig) => {
+    if (
+      syncProtocolConfig.primitives &&
+      Array.isArray(syncProtocolConfig.primitives)
+    ) {
+      syncProtocolConfig.primitives.forEach((primitive) => {
+        if (primitive.primitive && primitive.primitive.name) {
+          names.push(primitive.primitive.name);
+        }
+      });
+    }
+  });
+
+  return [...new Set(names)]; // Remove duplicates
+}
+
+async function fetchPrimitiveData(primitiveName) {
+  try {
+    const response = await fetch(`${PRIMITIVES_ENDPOINT}/${primitiveName}`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`🚫 Primitive ${primitiveName} not found (404)`);
+        return null;
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    console.log(`📊 Fetched data for ${primitiveName}:`, data);
+    return data;
+  } catch (error) {
+    console.error(`Error fetching primitive data for ${primitiveName}:`, error);
+    return null;
+  }
+}
+
+async function fetchTableData(tableName) {
+  try {
+    const response = await fetch(`${TABLES_ENDPOINT}/${tableName}`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`🚫 Table ${tableName} not found (404)`);
+        return null;
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    console.log(`📊 Fetched table data for ${tableName}:`, data);
+    return convertTableDataToPrimitiveFormat(data, tableName);
+  } catch (error) {
+    console.error(`Error fetching table data for ${tableName}:`, error);
+    return null;
+  }
+}
+
+function convertTableDataToPrimitiveFormat(tableData, tableName) {
+  if (!Array.isArray(tableData) || tableData.length === 0) {
+    return null;
+  }
+
+  // Extract field names from the first row
+  const fields = Object.keys(tableData[0]).map((key) => ({
+    name: key,
+    dataTypeID: 25, // Default to text type
+  }));
+
+  return {
+    command: "SELECT",
+    rowCount: tableData.length,
+    rows: tableData,
+    fields: fields,
+  };
+}
+
+function formatCellValue(value, fieldName) {
+  if (value === null || value === undefined) return "";
+
+  // Special handling for inputs field (JSON strings)
+  if (fieldName === "inputs" && typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      // Format JSON in a compact but readable way
+      const formatted = JSON.stringify(parsed, null, 1).replace(/\n/g, "<br>");
+      return `<code style="font-size: 0.75em; background: rgba(0,0,0,0.1); padding: 4px 6px; border-radius: 3px; display: block; white-space: pre-wrap; max-height: 80px; overflow-y: auto;">${formatted}</code>`;
+    } catch (e) {
+      // If not valid JSON, return as is
+      return value.toString();
+    }
+  }
+
+  // Check if this looks like an Ethereum address
+  if (
+    typeof value === "string" && value.startsWith("0x") && value.length === 42
+  ) {
+    return `<span class="address-cell" style="overflow: hidden; text-overflow: ellipsis;" title="${value}">${value}</span>`;
+  }
+
+  // Format large numbers
+  if (typeof value === "string" && /^\d+$/.test(value) && value.length > 10) {
+    const num = BigInt(value);
+    if (fieldName && fieldName.toLowerCase().includes("balance")) {
+      // Format as ETH (assuming 18 decimals for balance fields)
+      const eth = Number(num) / Math.pow(10, 18);
+      return `${eth.toFixed(6)} ETH`;
+    }
+    return num.toString();
+  }
+
+  return value.toString();
+}
+
+function createPrimitiveTable(primitiveName, data) {
+  if (!data || !data.rows || !data.fields) {
+    console.error(`Invalid data structure for ${primitiveName}`);
+    return null;
+  }
+
+  const container = document.createElement("div");
+  container.className = "primitive-table-container";
+
+  const title = document.createElement("h3");
+  title.className = "primitive-table-title";
+  title.textContent = primitiveName;
+
+  const table = document.createElement("table");
+  table.className = "primitive-table";
+
+  // Create header
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+
+  data.fields.forEach((field) => {
+    const th = document.createElement("th");
+    th.textContent = field.name.replace(/_/g, " ").toUpperCase();
+    headerRow.appendChild(th);
+  });
+
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // Create body
+  const tbody = document.createElement("tbody");
+
+  data.rows.forEach((row) => {
+    const tr = document.createElement("tr");
+
+    data.fields.forEach((field) => {
+      const td = document.createElement("td");
+      const value = row[field.name];
+      const formattedValue = formatCellValue(value, field.name);
+      td.innerHTML = formattedValue;
+
+      // Add title attribute for full content on hover (strip HTML for tooltip)
+      const plainTextValue = value ? value.toString() : "";
+      if (plainTextValue.length > 30) {
+        td.title = plainTextValue;
+      }
+
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  container.appendChild(title);
+  container.appendChild(table);
+
+  // Add scroll indicator if table has more than 6 rows
+  if (data.rows.length > 6) {
+    container.classList.add("has-scroll");
+  }
+
+  return container;
+}
+
+function renderPrimitiveTables() {
+  const container = document.getElementById("primitive-tables");
+  if (!container) return;
+
+  // Clear existing content
+  container.innerHTML = "";
+
+  // Check if we have any primitive names configured
+  if (primitiveNames.length === 0) {
+    container.innerHTML =
+      '<div class="table-loading">Loading primitive configuration...</div>';
+    return;
+  }
+
+  // Check if we have tried to fetch data but got no results
+  const hasAnyData = Object.values(primitiveData).some((data) =>
+    data !== null && data !== undefined
+  );
+
+  if (Object.keys(primitiveData).length === 0) {
+    // Haven't fetched data yet
+    container.innerHTML =
+      '<div class="table-loading">Loading primitive data...</div>';
+    return;
+  }
+
+  if (!hasAnyData) {
+    // Fetched data but all primitives returned 404 or no data
+    container.innerHTML =
+      '<div class="table-error">No primitive data available</div>';
+    return;
+  }
+
+  // Create tables for each primitive with data
+  let tablesCreated = 0;
+  Object.entries(primitiveData).forEach(([primitiveName, data]) => {
+    if (data) {
+      const tableElement = createPrimitiveTable(primitiveName, data);
+      if (tableElement) {
+        container.appendChild(tableElement);
+        tablesCreated++;
+      }
+    }
+  });
+
+  // Show message if no tables were actually created
+  if (tablesCreated === 0) {
+    container.innerHTML =
+      '<div class="table-error">No primitive data available</div>';
+  }
+}
+
+function renderStaticTables() {
+  const container = document.getElementById("static-tables");
+  if (!container) return;
+
+  // Clear existing content
+  container.innerHTML = "";
+
+  // Check if we have tried to fetch data but got no results
+  const hasAnyData = Object.values(staticTableData).some((data) =>
+    data !== null && data !== undefined
+  );
+
+  if (Object.keys(staticTableData).length === 0) {
+    // Haven't fetched data yet
+    container.innerHTML =
+      '<div class="table-loading">Loading state machine tables...</div>';
+    return;
+  }
+
+  if (!hasAnyData) {
+    // Fetched data but all tables returned 404 or no data
+    container.innerHTML =
+      '<div class="table-error">No state machine tables available</div>';
+    return;
+  }
+
+  // Create tables for static table data
+  let tablesCreated = 0;
+  Object.entries(staticTableData).forEach(([tableName, data]) => {
+    if (data) {
+      const tableElement = createPrimitiveTable(tableName, data);
+      if (tableElement) {
+        container.appendChild(tableElement);
+        tablesCreated++;
+      }
+    }
+  });
+
+  // Show message if no tables were actually created
+  if (tablesCreated === 0) {
+    container.innerHTML =
+      '<div class="table-error">No state machine tables available</div>';
+  }
+}
+
+async function initializePrimitiveTables() {
+  console.log("📋 Initializing primitive tables...");
+
+  // Show loading state
+  renderPrimitiveTables();
+
+  try {
+    // Fetch configuration
+    const config = await fetchConfig();
+    if (!config) {
+      console.error("Failed to fetch config");
+      return;
+    }
+
+    // Extract primitive names
+    primitiveNames = extractPrimitiveNames(config);
+    console.log("📊 Found primitives:", primitiveNames);
+
+    if (primitiveNames.length === 0) {
+      console.log("No primitives found in config");
+      renderPrimitiveTables();
+      return;
+    }
+
+    // Fetch data for each primitive
+    const fetchPromises = primitiveNames.map(async (primitiveName) => {
+      const data = await fetchPrimitiveData(primitiveName);
+      // Always store the result, even if null (404), so we know we tried to fetch
+      primitiveData[primitiveName] = data;
+    });
+
+    await Promise.all(fetchPromises);
+
+    // Render primitive tables
+    renderPrimitiveTables();
+
+    console.log("✅ Primitive tables initialized");
+  } catch (error) {
+    console.error("Error initializing primitive tables:", error);
+    const container = document.getElementById("primitive-tables");
+    if (container) {
+      container.innerHTML =
+        '<div class="table-error">Error loading primitive data</div>';
+    }
+  }
+}
+
+async function initializeStaticTables() {
+  console.log("📋 Initializing state machine tables...");
+
+  // Show loading state
+  renderStaticTables();
+
+  try {
+    // Fetch static table data
+    const staticTablePromises = [
+      fetchTableData("example_sm").then((data) => {
+        // Always store the result, even if null (404), so we know we tried to fetch
+        staticTableData["example_sm"] = data;
+      }),
+    ];
+
+    await Promise.all(staticTablePromises);
+
+    // Render static tables
+    renderStaticTables();
+
+    console.log("✅ State machine tables initialized");
+  } catch (error) {
+    console.error("Error initializing state machine tables:", error);
+    const container = document.getElementById("static-tables");
+    if (container) {
+      container.innerHTML =
+        '<div class="table-error">Error loading state machine tables</div>';
+    }
+  }
+}
+
+// Function to refresh primitive data
+async function refreshPrimitiveData() {
+  if (primitiveNames.length === 0) return;
+
+  try {
+    // Fetch data for each primitive
+    const fetchPromises = primitiveNames.map(async (primitiveName) => {
+      const data = await fetchPrimitiveData(primitiveName);
+      // Always store the result, even if null (404), so we know we tried to fetch
+      primitiveData[primitiveName] = data;
+    });
+
+    await Promise.all(fetchPromises);
+
+    // Re-render primitive tables with updated data
+    renderPrimitiveTables();
+  } catch (error) {
+    console.error("Error refreshing primitive data:", error);
+  }
+}
+
+// Function to refresh static table data
+async function refreshStaticTableData() {
+  try {
+    // Fetch static table data
+    const staticTablePromises = [
+      fetchTableData("example_sm").then((data) => {
+        // Always store the result, even if null (404), so we know we tried to fetch
+        staticTableData["example_sm"] = data;
+      }),
+    ];
+
+    await Promise.all(staticTablePromises);
+
+    // Re-render static tables with updated data
+    renderStaticTables();
+  } catch (error) {
+    console.error("Error refreshing static table data:", error);
+  }
+}
+
+// Function to refresh all data
+async function refreshAllData() {
+  await Promise.all([
+    refreshPrimitiveData(),
+    refreshStaticTableData(),
+  ]);
+}

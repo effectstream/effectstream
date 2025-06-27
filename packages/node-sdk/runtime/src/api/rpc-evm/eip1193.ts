@@ -11,7 +11,6 @@ import {
 } from "./rpc-types.ts";
 import {
   // getBlockByHash,
-  getErc20Balance,
   getLatestProcessedBlockHeight,
 } from "@paima/db";
 import type { Pool } from "pg";
@@ -106,21 +105,9 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
          */
 
         case "eth_getBalance": {
-          // TODO: support this eventually somehow
-          // res.error = createMethodNotSupportedRpcError(
-          //   evmRpc.method,
-          //   `${evmRpc.method} currently unsupported`,
-          // );
-          const [balance] = await runPreparedQuery(getErc20Balance.run({
-            address: evmRpc.params[0].toLowerCase(),
-          }, dbConn));
-          if (!balance) {
-            setResult<typeof evmRpc.method>(`0x0`);
-          } else {
-            setResult<typeof evmRpc.method>(
-              `${toHex(BigInt(balance.balance ?? 0))}`,
-            );
-          }
+          setResult<typeof evmRpc.method>(
+            `${toHex(BigInt(0))}`,
+          );
           return;
         }
 

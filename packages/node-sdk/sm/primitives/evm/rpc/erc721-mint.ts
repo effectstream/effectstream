@@ -6,7 +6,11 @@ import type {
   PrimitiveEvmRpcErc721MintAccounting,
 } from "@paima/config";
 import { createScheduledData, insertPrimitiveAccounting } from "@paima/db";
-import { type StateUpdateStream, World } from "@paima/coroutine";
+import {
+  StateMachineExecution,
+  type StateUpdateStream,
+  World,
+} from "@paima/coroutine";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
 import {
   ConfigPrimitiveAccountingPayloadType,
@@ -42,21 +46,30 @@ export default function* processErc721SyncProtocolResponse(
       mintData,
     },
   );
-  yield* createScheduledData(
-    JSON.stringify(scheduledInputData),
-    {
-      blockHeight: getScheduleBlockHeight(
-        response.output.syncProtocol.payload,
-        paima_block_height,
-      ),
-    },
-    {
-      primitiveName: response.output.syncProtocol.payload.primitiveName,
-      txHash: response.output.syncProtocol.payload.transactionHash,
-      caip2: response.output.syncProtocol.payload.caip2,
-      fromAddress: response.output.payload.from,
-      contractAddress: response.input.contractAddress.toLowerCase(),
-    },
+  // yield* createScheduledData(
+  //   JSON.stringify(scheduledInputData),
+  //   {
+  //     blockHeight: getScheduleBlockHeight(
+  //       response.output.syncProtocol.payload,
+  //       paima_block_height,
+  //     ),
+  //   },
+  //   {
+  //     primitiveName: response.output.syncProtocol.payload.primitiveName,
+  //     txHash: response.output.syncProtocol.payload.transactionHash,
+  //     caip2: response.output.syncProtocol.payload.caip2,
+  //     fromAddress: response.output.payload.from,
+  //     contractAddress: response.input.contractAddress.toLowerCase(),
+  //   },
+  // );
+
+  yield* StateMachineExecution(
+    paima_block_height,
+    JSON.stringify([prefix, response.output.payload]),
+    undefined,
+    undefined,
+    response.output.syncProtocol.payload.ownChain.blockNumber,
+    response.output.syncProtocol.payload.transactionHash,
   );
 
   yield* World.resolve(insertPrimitiveAccounting, {

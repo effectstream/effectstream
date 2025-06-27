@@ -43,7 +43,12 @@ export async function shutdown(
   if (errorMessage) {
     console.error(errorMessage);
   }
+
   shutdownCalled = true;
+  // This allows for any error logs of different processes to be printed, before we terminate them.
+  console.log("shutdown called...");
+  await wait(2000);
+
   abortControllers.system.abort();
   abortControllers.noncritical.abort();
   await awaitShutdown();

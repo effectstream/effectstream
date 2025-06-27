@@ -1,14 +1,18 @@
 import { type ChainBlock, genSyncProtocols } from "@paima/sync";
 import { aquireDBMutex, getConnection, releaseDBMutex } from "@paima/db";
 import { startMerge, startSync } from "@paima/sync";
-import type { SyncProtocolWithNetwork } from "@paima/config";
+import {
+  ConfigPrimitiveType,
+  type SyncProtocolWithNetwork,
+} from "@paima/config";
 import type { AppEvents } from "@paima/sm";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import { createChannel, each, type Operation, spawn } from "effection";
+import { createChannel, each, type Operation, spawn, until } from "effection";
 import { initTelemetry } from "./telemetry.ts";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import { processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
+import { erc20Ivm, erc721Ivm } from "@paima/db";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -26,6 +30,24 @@ export function* start(
   const dbConn = getConnection();
   const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
 
+  // TODO We only need to do this once, at the beginning.
+  //      We have to distinguish between the start or restart of the node.
+  //      Futher updates need to be managed by the user.
+  for (const syncProtocol of syncProtocols) {
+    for (const primitive of syncProtocol.config.primitives) {
+      switch (primitive.primitive.type) {
+        case ConfigPrimitiveType.EvmRpcERC20:
+          yield* until(dbConn.query(erc20Ivm(primitive.primitive.name)));
+          break;
+        case ConfigPrimitiveType.EvmRpcERC721:
+          yield* until(dbConn.query(erc721Ivm(primitive.primitive.name)));
+          break;
+        default:
+          // No IVM for this primitive type
+      }
+    }
+  }
+
   log.remote(
     ComponentNames.PAIMA_RUNTIME,
     [],
@@ -37,7 +59,7 @@ export function* start(
   }
 
   yield* spawn(function* () {
-    yield* startHttpServer(dbConn);
+    yield* startHttpServer(dbConn, syncProtocols);
   });
 
   const finalizedBlockStream = createChannel<ChainBlock>();

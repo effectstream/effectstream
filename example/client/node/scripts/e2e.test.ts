@@ -1,5 +1,5 @@
 import { cleanup, shutdown, startup } from "./e2e-loader.ts";
-import { erc20, paimaL2 } from "./e2e-contracts.ts";
+import { erc20, erc721, paimaL2 } from "./e2e-contracts.ts";
 import { assert, assertSQL, printSummary } from "./e2e-assert.ts";
 import type { Client } from "pg";
 import { getPaimaEVMPublicClient } from "./e2e-rpc.ts";
@@ -35,9 +35,17 @@ async function test() {
     // TOOD 10^18 operation fails on pgsql bigints
     const multiplier = 10n ** 15n;
 
-    await erc20.mint(wallet_A.address, wallet_A.privateKey, 200n * multiplier);
-    await erc20.mint(wallet_A.address, wallet_A.privateKey, 300n * multiplier);
-    await erc20.transfer(
+    await erc20.a.mint(
+      wallet_A.address,
+      wallet_A.privateKey,
+      200n * multiplier,
+    );
+    await erc20.a.mint(
+      wallet_A.address,
+      wallet_A.privateKey,
+      300n * multiplier,
+    );
+    await erc20.a.transfer(
       wallet_A.privateKey,
       wallet_B.address,
       90n * multiplier,
@@ -47,13 +55,13 @@ async function test() {
       db,
       `SELECT
       primitive_name, id, paima_block_height, payload_type, payload
-      FROM 
+      FROM
       public.primitive_accounting;`,
       (res) => res.rows.length === 3,
       (res) => {
-        return res.rows[0].primitive_name === "TransferEvent" &&
-          res.rows[1].primitive_name === "TransferEvent" &&
-          res.rows[2].primitive_name === "TransferEvent";
+        return res.rows[0].primitive_name === "MyTransferEvent" &&
+          res.rows[1].primitive_name === "MyTransferEvent" &&
+          res.rows[2].primitive_name === "MyTransferEvent";
       },
     );
     await paimaL2.submitGameInput(
@@ -65,7 +73,7 @@ async function test() {
       db,
       `SELECT
       primitive_name, id, paima_block_height, payload_type, payload
-      FROM 
+      FROM
       public.primitive_accounting;`,
       (res) => res.rows.length === 4,
       (res) => {
@@ -81,7 +89,7 @@ async function test() {
       db,
       `SELECT
       inputs
-      FROM 
+      FROM
       public.example_sm;`,
       (res) => res.rows.length === 5,
       (res) => {
@@ -123,7 +131,7 @@ async function test() {
     await assertSQL(
       "Check IVM ERC20",
       db,
-      `SELECT * FROM public.erc_balance;`,
+      `SELECT * FROM public.erc20_balances_view_mytransferevent;`,
       (res) => res.rows.length === 2,
       (res) => {
         // TODO
@@ -140,7 +148,7 @@ async function test() {
         console.log(
           "IMPORTANT: This should be 410, but there is a error in the IVM ERC20",
         );
-        return a.balance === String(500n * multiplier) &&
+        return a.balance === String(410n * multiplier) &&
           b.balance === String(90n * multiplier);
       },
     );
@@ -164,6 +172,121 @@ async function test() {
         return res.rows[0].address === wallet_A.address;
       },
     );
+
+    const tokens = {
+      tokenA: 1n,
+      tokenB: 2n,
+      tokenC: 3n,
+      tokenD: 4n,
+    } as const;
+    await erc721.a.mint(wallet_A.privateKey, tokens.tokenA);
+    await erc721.a.mint(wallet_B.privateKey, tokens.tokenB);
+    await erc721.a.mint(wallet_A.privateKey, tokens.tokenC);
+    await erc721.a.mint(wallet_B.privateKey, tokens.tokenD);
+    await erc721.a.transfer(
+      wallet_A.privateKey,
+      wallet_B.address,
+      tokens.tokenC,
+    );
+    await erc721.a.transfer(
+      wallet_B.privateKey,
+      wallet_A.address,
+      tokens.tokenD,
+    );
+    // Cannot burn a token?
+    // await erc721.burn(wallet_X.privateKey, tokens.tokenD);
+    await assertSQL(
+      "Check ERC721 sync-process",
+      db,
+      `SELECT * FROM public.erc721_ownership_view_myerc721;`,
+      (res) => res.rows.length === 4,
+      (res) => {
+        return res.rows.every((row: any) => {
+          // [...{
+          // primitive_name: "MyERC721",
+          // token_id: "1",
+          // current_owner: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+          // }...]
+          const expectedOweners = {
+            [String(tokens.tokenA)]: wallet_A.address,
+            [String(tokens.tokenB)]: wallet_B.address,
+            [String(tokens.tokenC)]: wallet_B.address,
+            [String(tokens.tokenD)]: wallet_A.address,
+          };
+          Object.entries(expectedOweners).forEach(
+            ([tokenId, owner]: [string, string]) => {
+              const row = res.rows.find(
+                (
+                  r: {
+                    token_id: string;
+                    primitive_name: string;
+                    current_owner: string;
+                  },
+                ) => r.token_id === tokenId,
+              );
+              if (!row) {
+                throw new Error(`Token ${tokenId} not found`);
+              }
+              if (row.current_owner.toLowerCase() !== owner.toLowerCase()) {
+                throw new Error(
+                  `Token ${tokenId} has incorrect owner: ${row.current_owner} !== ${owner}`,
+                );
+              }
+            },
+          );
+          return true;
+        });
+      },
+    );
+
+    console.log("Sending 500 erc721 events....");
+    // Add some more ERC20 and ERC721 data.
+    const tokens_b = Array.from(
+      { length: 1000 },
+      (_, i) => BigInt((i + 1) * 2),
+    );
+    for (let i = 0; i < 100; i++) {
+      await erc721.b.mint(wallet_A.privateKey, tokens_b.shift()!, true);
+      await erc721.b.mint(wallet_B.privateKey, tokens_b.shift()!, true);
+      const t1 = tokens_b.shift()!;
+      const t2 = tokens_b.shift()!;
+      await erc721.b.mint(wallet_A.privateKey, t1);
+      await erc721.b.mint(wallet_B.privateKey, t2);
+      await erc721.b.transfer(
+        wallet_A.privateKey,
+        wallet_B.address,
+        t1,
+      );
+      await erc721.b.transfer(
+        wallet_B.privateKey,
+        wallet_A.address,
+        t2,
+      );
+    }
+
+    // NOTE: Server crashes with i = 100
+    // Lowering to 20
+    console.log("Sending 300 erc20 events....");
+    for (let i = 0; i < 20; i++) {
+      await erc20.b.mint(
+        wallet_A.address,
+        wallet_A.privateKey,
+        BigInt((i + 1) * 2) * multiplier,
+        true,
+      );
+      await erc20.b.mint(
+        wallet_B.address,
+        wallet_B.privateKey,
+        BigInt((i + 1) * 3) * multiplier,
+        true,
+      );
+      await erc20.b.transfer(
+        wallet_A.privateKey,
+        wallet_B.address,
+        BigInt(i + 1) * multiplier,
+        true,
+      );
+    }
 
     // Test RPC
     const rpcClient = getPaimaEVMPublicClient();

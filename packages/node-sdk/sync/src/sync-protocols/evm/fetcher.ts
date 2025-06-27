@@ -209,8 +209,16 @@ export class EvmFetcher
           payloadType = ConfigPrimitivePayloadType.Event;
           realAddress = (log.args as any).userAddress as `0x${string}`;
           break;
+        case ConfigPrimitiveType.EvmRpcERC721:
+          primitiveType = ConfigPrimitiveType.EvmRpcERC721;
+          payloadType = ConfigPrimitivePayloadType.Transfer;
+          realAddress = undefined;
+          break;
         default:
-          throw new Error("Unknown primitive type");
+          primitiveType = primitive.primitive.type;
+          payloadType = ConfigPrimitivePayloadType.Event;
+          realAddress = undefined;
+          break;
       }
 
       const primitiveResponse: PrimitiveType = {

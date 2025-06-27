@@ -1,12 +1,18 @@
-import fastify from "npm:fastify";
+import fastify, { FastifyRequest } from "npm:fastify";
 // import { Value } from "npm:@sinclair/typebox/value";
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
 import { run, until } from "effection";
-import { aquireDBMutex, releaseDBMutex } from "@paima/db";
+import {
+  aquireDBMutex,
+  erc721Ivm,
+  releaseDBMutex,
+  runPreparedQuery,
+} from "@paima/db";
 import { ENV } from "@paima/utils";
-// import type { AllSyncProtocols } from "../../../sync/src/sync-protocols/types.ts";
+import type { AllSyncProtocols } from "../../../sync/src/sync-protocols/types.ts";
+import { ConfigPrimitiveType } from "@paima/config";
 
 export enum RpcPaths {
   Root = "rpc",
@@ -15,8 +21,10 @@ export enum RpcPaths {
 
 export const startHttpServer = function* (
   dbConn: Pool,
-  // syncProtocols: AllSyncProtocols[],
+  syncProtocols: AllSyncProtocols[],
 ) {
+  // Allow any webpage to access the server.
+  // This node is not specific for a specific website.
   const server = fastify();
   yield* until(
     server.register(cors, {
@@ -32,17 +40,75 @@ export const startHttpServer = function* (
 
   // TODO This is dev only endpoint to monitor sync protocols.
   // server.get("/debug/sync-protocols", () => {
-  //   const stringify: typeof JSON.stringify = (value, replacer, space) =>
-  //     JSON.stringify(
-  //       value,
-  //       (key, value_) => {
-  //         const value = typeof value_ === "bigint" ? value_.toString() : value_;
-  //         return typeof replacer === "function" ? replacer(key, value) : value;
-  //       },
-  //       space,
-  //     );
-  //   return JSON.parse(stringify(syncProtocols, null, 2));
+  //   return clearBigInts(syncProtocols);
   // });
+
+  // TODO This is dev only endpoint to monitor sync protocols.
+  server.get("/config", () => {
+    const config = syncProtocols.map((syncProtocol) => syncProtocol.config)
+      .flat();
+    return clearBigInts(config);
+  });
+
+  // TODO How to only select user defined tables?
+  server.get(
+    "/tables/:tableName",
+    async (
+      request: FastifyRequest<{ Params: { tableName: string } }>,
+      reply,
+    ) => {
+      const { tableName } = request.params;
+      try {
+        const result = await runPreparedQuery<{ rows: unknown[] }>(dbConn.query(
+          `SELECT * FROM ${tableName}`,
+        ));
+        return result.rows;
+      } catch (error) {
+        return reply.status(404).send({ error: "Table not found" });
+      }
+    },
+  );
+
+  server.get(
+    "/primitives/:primitiveName",
+    async (
+      request: FastifyRequest<{ Params: { primitiveName: string } }>,
+      reply,
+    ) => {
+      const { primitiveName } = request.params;
+      // TODO map/find the results generated bad TS Types (too hard to represent)
+      const findPrimitive = (syncProtocols: AllSyncProtocols[]) => {
+        for (const syncProtocol of syncProtocols) {
+          for (const primitive of syncProtocol.config.primitives) {
+            if (primitive.primitive.name === primitiveName) {
+              return primitive;
+            }
+          }
+        }
+        return undefined;
+      };
+      const primitive = findPrimitive(syncProtocols);
+      if (!primitive) {
+        return reply.status(404).send({ error: "Primitive not found" });
+      }
+
+      if (primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC20) {
+        return await runPreparedQuery(dbConn.query(
+          `SELECT * FROM erc20_balances_view_${primitive.primitive.name}`,
+        ));
+      } else if (
+        primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC721
+      ) {
+        return await runPreparedQuery(dbConn.query(
+          `SELECT * FROM erc721_ownership_view_${primitive.primitive.name}`,
+        ));
+      }
+
+      return reply.status(404).send({
+        error: "Primitive does not have aggregated data",
+      });
+    },
+  );
 
   // These endpoints:
   // * /db_aquire_lock
@@ -82,3 +148,12 @@ export const startHttpServer = function* (
     },
   );
 };
+
+export function clearBigInts<T>(value: T): T {
+  return JSON.parse(
+    JSON.stringify(
+      value,
+      (_, v) => typeof v === "bigint" ? v.toString() : v,
+    ),
+  );
+}
