@@ -18,3 +18,13 @@ export function getScheduleBlockHeight<
   }
   return blockNumber;
 }
+
+// We cannot insert bigints into the database, or be serialized to JSON.
+export function clearBigInts<T>(value: T): T {
+  return JSON.parse(
+    JSON.stringify(
+      value,
+      (_, v) => typeof v === "bigint" ? v.toString() : v,
+    ),
+  );
+}

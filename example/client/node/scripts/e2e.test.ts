@@ -1,4 +1,4 @@
-import { shutdown, startup } from "./e2e-loader.ts";
+import { cleanup, shutdown, startup } from "./e2e-loader.ts";
 import { erc20, paimaL2 } from "./e2e-contracts.ts";
 import { assert, assertSQL, printSummary } from "./e2e-assert.ts";
 import type { Client } from "pg";
@@ -387,8 +387,12 @@ async function test() {
       return uncle === null;
     });
 
+    // Done testing.
     printSummary();
+    await cleanup(db);
 
+    // Optional pause to allow the user to inspect the DB,
+    // check the logs, send more requests, etc.
     const pauseTime = Deno.env.get("PAIMA_E2E_PAUSE_TIME");
     if (pauseTime) {
       console.log("⏳ Pausing for", pauseTime, "seconds");
@@ -396,10 +400,11 @@ async function test() {
     }
 
     // // Disconnect so the process can exit.
-    await shutdown(db);
+    shutdown();
   } catch (e) {
     console.error(e);
-    await shutdown(db);
+    await cleanup(db);
+    shutdown();
   }
 }
 

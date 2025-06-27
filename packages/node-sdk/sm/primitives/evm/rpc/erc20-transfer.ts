@@ -15,7 +15,7 @@ import {
   insertPrimitiveAccounting,
 } from "../../../../db/src/mod.ts";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
-import { getScheduleBlockHeight } from "../../utils.ts";
+import { clearBigInts, getScheduleBlockHeight } from "../../utils.ts";
 import type { AppEvents, BaseStfInput, BaseStfOutput } from "../../../types.ts";
 
 export default function* processErc20SyncProtocolResponse(
@@ -34,43 +34,9 @@ export default function* processErc20SyncProtocolResponse(
 
   const primitiveName = response.output.syncProtocol.payload.primitiveName;
 
-  // const payload = {
-  //   from: response.output.payload.from,
-  //   to: response.output.payload.to,
-  //   // TODO: BigInt cannot be serialized to JSON
-  //   // So we need to convert it to a string
-  //   value: response.output.payload.value.toString(),
-  // };
-
-  // const scheduledInputData = generateRawStmInput(
-  //   BuiltinTransitions[ConfigPrimitiveType.EvmRpcERC20].transferScheduledPrefix,
-  //   prefix,
-  //   payload,
-  // );
-
-  // yield* createScheduledData(
-  //   JSON.stringify(scheduledInputData),
-  //   {
-  //     blockHeight: getScheduleBlockHeight(
-  //       response.output.syncProtocol.payload,
-  //       paima_block_height,
-  //     ),
-  //   },
-  //   {
-  //     primitiveName: response.output.syncProtocol.payload.primitiveName,
-  //     txHash: response.output.syncProtocol.payload.transactionHash,
-  //     caip2: response.output.syncProtocol.payload.caip2,
-  //     fromAddress: response.output.payload.from,
-  //     contractAddress: response.input.contractAddress.toLowerCase(),
-  //   },
-  // );
-
-  const payload = JSON.parse(
-    JSON.stringify(
-      response.output.payload,
-      (_, v) => typeof v === "bigint" ? v.toString() : v,
-    ),
-  );
+  // We cannot insert bigints into the database, or be serialized to JSON.
+  // payload.value is a bigint
+  const payload = clearBigInts(response.output.payload);
 
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,

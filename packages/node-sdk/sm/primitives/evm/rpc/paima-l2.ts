@@ -25,6 +25,7 @@ import {
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
 import { mainAddressGenerator, NO_USER_ID } from "@paima/sm";
 import { call, Channel, Operation } from "npm:effection@^3.5.0";
+import { clearBigInts } from "../../utils.ts";
 
 export default function* processPaimaL2SyncProtocolResponse(
   paima_block_height: BlockNumber,
@@ -35,10 +36,10 @@ export default function* processPaimaL2SyncProtocolResponse(
     ConfigPrimitivePayloadType.Event
   >,
 ): StateUpdateStream<void> {
-  const nonceData = yield* World.resolve(findNonce, {
+  const [nonceData] = yield* World.resolve(findNonce, {
     nonce: response.output.payload.inputNonce,
   });
-  if (nonceData && nonceData.length > 0) {
+  if (nonceData) {
     log.remote(
       ComponentNames.PAIMA_SYNC,
       ["paima-l2"],
@@ -52,10 +53,31 @@ export default function* processPaimaL2SyncProtocolResponse(
     );
     return;
   }
+
+  // TODO Where does the nonce come from?
   const [lastNonceData] = yield* World.resolve(getLastNonce, undefined);
   const nextNouce = lastNonceData
     ? Number((lastNonceData as any).nonce) + 1
     : 0;
+
+  // guarantee we run this no matter if there is an error or a continue
+  yield* World.resolve(insertNonce, {
+    nonce: String(nextNouce),
+    block_height: paima_block_height,
+  });
+
+  // We cannot insert bigints into the database, or be serialized to JSON.
+  const payload = clearBigInts(response.output.payload);
+
+  const primitiveName = response.output.syncProtocol.payload.primitiveName;
+  yield* World.resolve(insertPrimitiveAccounting, {
+    primitive_name: primitiveName,
+    paima_block_height: paima_block_height,
+    payload_type: ConfigPrimitiveAccountingPayloadType.Event,
+    payload: payload satisfies PayloadOf<
+      typeof PrimitiveEvmRpcPaimaL2Accounting
+    >,
+  });
 
   const address = yield* mainAddressGenerator(
     response.output.payload.realAddress.address,
@@ -89,155 +111,6 @@ export default function* processPaimaL2SyncProtocolResponse(
       (log) => log(`[paima-sm] Error on user input STF call. Skipping`, err),
     );
   }
-
-  // const inputData = {
-  //   ...response.output.payload,
-  //   userAddress: address.address,
-  //   userId: address.id,
-  //   paimaTxHash: response.output.syncProtocol.payload.transactionHash,
-  //   value: Number((response.output.payload as any).value),
-  //   command: JSON.parse(hexToString((response.output.payload as any).data)),
-  //   paima_block_height,
-  // };
-
-  // Trigger STF
-  // let sqlQueries: QueuedUpdate[] = [];
-  // let eventsToEmit: EventsToEmit<Events[string][number]> = [];
-
-  // try {
-  //   console.log("inputData", inputData);
-  // } catch (err) {
-  //   // skip inputs where the STF fails
-  //   log.remote(
-  //     ComponentNames.PAIMA_SYNC,
-  //     ["paima-l2"],
-  //     SeverityNumber.ERROR,
-  //     (log) => log(`[paima-sm] Error on user input STF call. Skipping`, err),
-  //   );
-  // }
-  // if (sqlQueries.length !== 0) {
-  //   // success = await tryOrRollback(DBConn, async () => {
-  //     for (const [query, params] of sqlQueries) {
-  //       await query.run(params, DBConn);
-  //     }
-
-  //     return true;
-  //   // });
-
-  //   if (success) {
-  //     // await sendEventsToBroker<Events[string][number]>(eventsToEmit);
-  //     resultingHashes.successTxHashes.push(txHash);
-  //   } else {
-  //     resultingHashes.failedTxHashes.push(txHash);
-  //   }
-  // }
-  // } catch (e) {
-  //   resultingHashes.failedTxHashes.push(txHash);
-  //   throw e;
-  // } finally {
-  // guarantee we run this no matter if there is an error or a continue
-
-  yield* World.resolve(insertNonce, {
-    nonce: String(nextNouce),
-    block_height: paima_block_height,
-  });
-
-  //   if (ENV.STORE_HISTORICAL_GAME_INPUTS) {
-  //     await newGameInput.run(
-  //       {
-  //         block_height: latestChainData.blockNumber,
-  //         input_data: inputData.inputData,
-  //         from_address: inputData.userAddress,
-  //         success: success ?? false,
-  //         paima_tx_hash: Buffer.from(txHash, "hex"),
-  //         index_in_block: txIndexInBlock,
-  //         origin_tx_hash: Buffer.from(strip0x(inputData.origin.txHash!), "hex"),
-  //         caip2: inputData.origin.caip2!,
-  //         primitive_name: inputData.origin.primitiveName ?? "",
-  //         origin_contract_address: inputData.origin.contractAddress,
-  //       },
-  //       DBConn,
-  //     );
-  //   }
-  //   txIndexInBlock += 1;
-  // }
-
-  // const primitiveName = response.output.syncProtocol.payload.primitiveName;
-  // const { from, value } = response.output.payload;
-
-  // const fromAddr = from.toLowerCase() as EvmAddress;
-
-  // const fromRow = yield* World.resolve(
-  //   primitiveErc20DepositGetTotalDeposited,
-  //   {
-  //     primitive_name: primitiveName,
-  //     wallet_address: fromAddr,
-  //   },
-  // );
-
-  // const numValue = BigInt(value);
-  // const prefix = response.input.scheduledPrefix;
-
-  // try {
-  //   const scheduledInputData = generateRawStmInput(
-  //     BuiltinTransitions[ConfigPrimitiveType.ERC20Deposit].scheduledPrefix,
-  //     prefix,
-  //     {
-  //       from: fromAddr,
-  //       value,
-  //     },
-  //   );
-  //   const scheduledBlockHeight =
-  //     response.output.syncProtocol.payload.mainchain.blockNumber;
-  // yield* createScheduledData(
-  //   JSON.stringify(scheduledInputData),
-  //   { blockHeight: scheduledBlockHeight },
-  //   {
-  //     primitiveName: response.output.syncProtocol.payload.primitiveName,
-  //     txHash: response.output.syncProtocol.payload.transactionHash,
-  //     caip2: response.output.syncProtocol.payload.caip2,
-  //     fromAddress: fromAddr,
-  //     contractAddress: response.input.contractAddress.toLowerCase(),
-  //   },
-  // );
-
-  //   if (fromRow.length > 0) {
-  //     const oldTotal = BigInt(fromRow[0].total_deposited);
-  //     const newTotal = oldTotal + numValue;
-  //     yield* World.resolve(primitiveErc20DepositUpdateTotalDeposited, {
-  //       primitive_name: primitiveName,
-  //       wallet_address: fromAddr,
-  //       total_deposited: newTotal.toString(10),
-  //     });
-  //   } else {
-  //     yield* World.resolve(primitiveErc20DepositInsertTotalDeposited, {
-  //       primitive_name: primitiveName,
-  //       wallet_address: fromAddr,
-  //       total_deposited: value.toString(),
-  //     });
-  //   }
-  // } catch (err) {
-  //   doLog(`[paima-sm] error while processing erc20 datum: ${err}`);
-  // }
-
-  const payload = JSON.parse(
-    JSON.stringify(
-      response.output.payload,
-      (_, v) => typeof v === "bigint" ? v.toString() : v,
-    ),
-  );
-
-  const primitiveName = response.output.syncProtocol.payload.primitiveName;
-  yield* World.resolve(insertPrimitiveAccounting, {
-    primitive_name: primitiveName,
-    paima_block_height: paima_block_height,
-    payload_type: ConfigPrimitiveAccountingPayloadType.Event,
-    payload: payload satisfies PayloadOf<
-      typeof PrimitiveEvmRpcPaimaL2Accounting
-    >,
-  });
-
-  // console.error(response);
 
   yield* StateMachineExecution(
     paima_block_height,

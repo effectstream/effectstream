@@ -37,8 +37,12 @@ export async function startup(
   return await getDBConnection();
 }
 
+export async function cleanup(db: Client): Promise<void> {
+  await db.end();
+}
+
 // Launch the shutdown process, and wait for the sync process to stop.
-function shutdownProcesses(): void {
+export function shutdown(): void {
   console.log("\n🛑 Shutting down...");
   // We don't wait for the endpoint to return.
   // As this process will be killed.
@@ -98,31 +102,4 @@ export async function getDBConnection(): Promise<Client> {
       throw new Error("DB connection timed out");
     }
   }
-}
-
-let isShutdownCalled = false;
-export async function shutdown(db: Client): Promise<void> {
-  db.off("error", console.error);
-  db.on("end", () => {
-    isShutdownCalled = true;
-    shutdownProcesses();
-  });
-  db.end();
-
-  // Wait for the db to disconnect and the shutdown to be called.
-  let maxMillis = 10000;
-  while (maxMillis > 0) {
-    // waiting for the db to disconnect
-    await delay(100);
-    maxMillis -= 100;
-  }
-
-  // This should not be reached, as Deno.exit is called in the shutdown function.
-  // If still not called, the call manually.
-  if (!isShutdownCalled) {
-    shutdownProcesses();
-    await delay(1000);
-  }
-  console.error("Shutdown/DB connection timed out");
-  Deno.exit(1);
 }
