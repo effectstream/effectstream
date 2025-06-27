@@ -3,28 +3,58 @@ import { ENV } from "@paima/utils";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-let testCount = 1;
+const testResults = {
+  count: 0,
+  passed: 0,
+  failed: 0,
+  skipped: 0,
+};
+
+export function printSummary() {
+  console.log(`\n\n🔍 [Summary]`);
+  console.log(`  ${testResults.passed} tests passed`);
+  console.log(`  ${testResults.failed} tests failed`);
+  console.log(`  ${testResults.skipped} tests skipped`);
+}
+
+function testPassed() {
+  testResults.passed++;
+  console.log(`✅ Test passed`);
+}
+
+function testFailed() {
+  testResults.failed++;
+  console.log(`❌ Test failed`);
+}
+
+function testSkipped() {
+  testResults.skipped++;
+  console.log(`⏭️ Test skipped`);
+}
+
+function startTest(testName: string) {
+  console.log(
+    `%c🔍 [Running test] ${testResults.count + 1}: ${testName}`,
+    "color: green; background-color: black; font-weight: bold",
+  );
+  testResults.count++;
+}
 
 export async function assert(
   testName: string,
   check: () => Promise<boolean>,
 ): Promise<boolean> {
-  console.log(
-    `%c🔍 [Running test] ${testCount++}: ${testName}`,
-    "color: green; background-color: black; font-weight: bold",
-  );
+  startTest(testName);
   try {
     const result = await check();
     if (!result) {
-      console.error("Result:", result);
-      console.error(`❌ Test failed`);
-    } else {
-      console.log(`✅ Test passed`);
+      testFailed();
     }
+    testPassed();
     return result;
   } catch (e) {
-    console.error("Error:", e);
-    console.error(`❌ Test failed`);
+    testFailed();
+    console.error("[ERROR]", e);
     return false;
   }
 }
@@ -39,23 +69,28 @@ export async function assertSQL(
   waitUntil: (res: QueryResult<any>) => boolean,
   check: (res: QueryResult<any>) => boolean,
 ): Promise<QueryResult<any>> {
-  console.log(
-    `%c🔍 [Running test] ${testCount++}: ${testName}`,
-    "color: green; background-color: black; font-weight: bold",
-  );
+  startTest(testName);
   let maxMillis = 10000;
   while (maxMillis > 0) {
-    await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
-    const res = await db.query(query);
-    await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
+    let res;
+    let didLock = false;
+    try {
+      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      didLock = true;
+      res = await db.query(query);
+    } finally {
+      if (didLock) {
+        await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
+      }
+    }
 
     // First wait until the data is available.
     if (!waitUntil(res)) {
       await delay(100);
       maxMillis -= 100;
       if (maxMillis <= 0) {
+        testFailed();
         console.error("[TIMEOUT] Data in DB:", res.rows);
-        console.error(`❌ Test failed`);
         return res;
       }
       continue;
@@ -66,11 +101,11 @@ export async function assertSQL(
       if (!check(res)) {
         throw new Error("CHECK_ERROR");
       }
-      console.log(`✅ Test passed`);
+      testPassed();
       return res;
     } catch (e) {
+      testFailed();
       console.error("[CHECK_ERROR] Data in DB:", res.rows);
-      console.error(`❌ Test failed`);
       if (e instanceof Error && e.message !== "CHECK_ERROR") {
         console.error(e);
       }

@@ -7,7 +7,7 @@ import { tryYield } from "@paima/utils";
 export function* startSync(
   state: AllSyncProtocols,
 ): Operation<void> {
-  const iState = state as ISyncProtocol;
+  const iState: ISyncProtocol = state as ISyncProtocol;
 
   // spawn async task
   yield* spawn(function* () {

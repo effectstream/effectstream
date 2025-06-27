@@ -37,6 +37,8 @@ function getOptions(config: {
       setCurrentOutput(["stderr"]);
       break;
     case "stdout":
+      // TODO: This is a hack to force the logs to be printed to stdout.
+      Deno.env.set("PAIMA_LOGS_FORCE_STDOUT", "true");
       setCurrentOutput(["stdout"]);
       break;
     case "development":
@@ -179,7 +181,7 @@ export const startProcess: Record<
   [ComponentNames.PAIMA_SYNC]: async (): Promise<ProcessComponent> => {
     const node = $({
       args: ["task", "node:start"],
-      log: logHandler,
+      log: rawLogHandler,
       component: ComponentNames.PAIMA_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically
       abortController: abortControllers.system,

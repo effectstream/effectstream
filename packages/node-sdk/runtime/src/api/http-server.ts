@@ -6,19 +6,43 @@ import cors from "@fastify/cors";
 import { run, until } from "effection";
 import { aquireDBMutex, releaseDBMutex } from "@paima/db";
 import { ENV } from "@paima/utils";
+// import type { AllSyncProtocols } from "../../../sync/src/sync-protocols/types.ts";
 
 export enum RpcPaths {
   Root = "rpc",
   EVM = "evm",
 }
 
-export const startHttpServer = function* (dbConn: Pool) {
+export const startHttpServer = function* (
+  dbConn: Pool,
+  // syncProtocols: AllSyncProtocols[],
+) {
   const server = fastify();
   yield* until(
     server.register(cors, {
       origin: "*",
     }),
   );
+
+  server.get("/health", () => {
+    return {
+      status: "ok",
+    };
+  });
+
+  // TODO This is dev only endpoint to monitor sync protocols.
+  // server.get("/debug/sync-protocols", () => {
+  //   const stringify: typeof JSON.stringify = (value, replacer, space) =>
+  //     JSON.stringify(
+  //       value,
+  //       (key, value_) => {
+  //         const value = typeof value_ === "bigint" ? value_.toString() : value_;
+  //         return typeof replacer === "function" ? replacer(key, value) : value;
+  //       },
+  //       space,
+  //     );
+  //   return JSON.parse(stringify(syncProtocols, null, 2));
+  // });
 
   // These endpoints:
   // * /db_aquire_lock
@@ -54,7 +78,7 @@ export const startHttpServer = function* (dbConn: Pool) {
       if (err) {
         console.error("err", err);
       }
-      console.log(`in-memory OpenTelemetry Collector running on ${address}`);
+      console.log(`Paima Engine HTTP server running on ${address}`);
     },
   );
 };

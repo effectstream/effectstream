@@ -16,5 +16,7 @@ export const log: {
   remote: OtelLogFunc;
 } = {
   local: tslogLog,
-  remote: otelLog,
+  // TODO This is for paima-sync that write directly to the otel.
+  //      When trying to run directly in the terminal the logs are lost.
+  remote: Deno.env.get("PAIMA_LOGS_FORCE_STDOUT") ? tslogLog : otelLog,
 };

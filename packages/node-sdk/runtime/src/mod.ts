@@ -9,16 +9,6 @@ import { initTelemetry } from "./telemetry.ts";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import { processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
-import { ENV } from "@paima/utils";
-
-// TODO: figure out how to setup env vars instead of relying on defaults
-const poolConfig = {
-  host: ENV.DB_HOST,
-  user: ENV.DB_USER,
-  password: ENV.DB_PW,
-  database: ENV.DB_NAME,
-  port: ENV.DB_PORT,
-};
 
 export function* init() {
   // initialize OpenTelemetry
@@ -33,7 +23,7 @@ export function* start(
   ) => Promise<BaseStfOutput<AppEvents>>,
   migrations?: (blockHeight: number) => Operation<string | undefined>,
 ): Operation<void> {
-  const dbConn = getConnection(poolConfig);
+  const dbConn = getConnection();
   const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
 
   log.remote(
@@ -60,12 +50,12 @@ export function* start(
 
   for (const value of yield* each(finalizedBlockStream)) {
     yield* aquireDBMutex();
-    yield* processFinalizedBlockFn(value);
+    const blockHash = yield* processFinalizedBlockFn(value);
     log.remote(
       ComponentNames.PAIMA_SYNC,
       "block-merge",
       SeverityNumber.INFO,
-      (log) => log(`finalized block ${value.blockNumber}`),
+      (log) => log(`finalized block ${value.blockNumber} @ ${blockHash}`),
     );
     releaseDBMutex();
     yield* each.next();

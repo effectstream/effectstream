@@ -13,16 +13,23 @@ export async function startup(
   owner: `0x${string}`,
   privateKey: `0x${string}`,
 ): Promise<Client> {
-  start({ output: "stdout-err" });
+  const config = {
+    output: "stdout-err",
+  } as const;
+  start(config);
   console.log("⌛ Waiting for sync process to start...");
-
   while (true) {
-    const processes = await fetch("http://localhost:3000/processes");
-    const processesJson = await processes.json();
-    if (processesJson.processes.find((p: any) => p.name === "sync")) {
-      break;
+    try {
+      const processes = await fetch("http://localhost:3000/processes");
+      const processesJson = await processes.json();
+      if (processesJson.processes.find((p: any) => p.name === "sync")) {
+        await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/health`);
+        break;
+      }
+      await delay(100);
+    } catch (e) {
+      await delay(100);
     }
-    await delay(100);
   }
 
   console.log("🔄 Sync process started\n");
@@ -65,18 +72,27 @@ export async function getDBConnection(): Promise<Client> {
   const db = getPersistentConnection(poolConfig);
 
   let maxMillis = 10000;
+
   while (maxMillis > 0) {
+    let didLock = false;
+    let isReady = false;
     try {
       await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      didLock = true;
       await db.query(
         `SELECT id FROM public.primitive_accounting LIMIT 1`,
       );
-      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
-      return db;
-    } catch (e) {
-      console.log("⏳ DB not ready yet");
-      await delay(100);
+      isReady = true;
+    } finally {
+      if (didLock) {
+        await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
+      }
     }
+    if (isReady) {
+      return db;
+    }
+    await delay(100);
+
     maxMillis -= 100;
     if (maxMillis <= 0) {
       throw new Error("DB connection timed out");

@@ -2,6 +2,7 @@ import type { Client, PoolClient, PoolConfig } from "pg";
 import pg from "pg";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
 import { type Operation, run, sleep } from "npm:effection@3.5.0";
+import { ENV } from "@paima/utils";
 
 let readonlyDBConn: pg.Pool | null;
 
@@ -40,7 +41,19 @@ export async function runPreparedQuery<T>(p: Promise<T>): Promise<T> {
   return result;
 }
 
-export const getConnection = (creds: PoolConfig, readonly = false): pg.Pool => {
+export const getConnection = (
+  creds?: PoolConfig,
+  readonly = false,
+): pg.Pool => {
+  if (!creds) {
+    creds = {
+      host: ENV.DB_HOST,
+      user: ENV.DB_USER,
+      password: ENV.DB_PW,
+      database: ENV.DB_NAME,
+      port: ENV.DB_PORT,
+    };
+  }
   if (readonly && readonlyDBConn) return readonlyDBConn;
 
   // TODO: make this configurable for non pglite instances

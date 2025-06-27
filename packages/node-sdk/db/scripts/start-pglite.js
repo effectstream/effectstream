@@ -30,7 +30,7 @@ await db.exec("CREATE EXTENSION IF NOT EXISTS pg_ivm;");
 
 await db.exec(migration);
 
-// User defined migrations path.
+/** This is to genereate the custom pgtyped files in compilation time */
 const userMigrations = Deno.env.get("MIGRATIONS");
 if (userMigrations) {
   const files = Deno.readDirSync(userMigrations);

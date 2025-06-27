@@ -1,6 +1,6 @@
-import { getDBConnection, shutdown, startup } from "./e2e-loader.ts";
-import { deployContracts, erc20, paimaL2 } from "./e2e-contracts.ts";
-import { assert, assertSQL } from "./e2e-assert.ts";
+import { shutdown, startup } from "./e2e-loader.ts";
+import { erc20, paimaL2 } from "./e2e-contracts.ts";
+import { assert, assertSQL, printSummary } from "./e2e-assert.ts";
 import type { Client } from "pg";
 import { getPaimaEVMPublicClient } from "./e2e-rpc.ts";
 
@@ -386,6 +386,8 @@ async function test() {
       });
       return uncle === null;
     });
+
+    printSummary();
 
     const pauseTime = Deno.env.get("PAIMA_E2E_PAUSE_TIME");
     if (pauseTime) {
