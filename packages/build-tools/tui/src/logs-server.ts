@@ -85,11 +85,13 @@ class LogServer {
   public async init() {
     this.server.post("/v1/data", {
       schema: {
-        body: OTelLogSchema,
+        body: Type.Array(OTelLogSchema),
       },
-    }, (request: FastifyRequest<{ Body: OTelLog }>, reply) => {
+    }, (request: FastifyRequest<{ Body: OTelLog[] }>, reply) => {
       try {
-        this.dataStore.push(request.body);
+        for (const log of request.body) {
+          this.dataStore.push(log);
+        }
         reply.status(200).send({ success: true });
       } catch (error) {
         reply.status(500).send({ error: "Failed to store log data" });

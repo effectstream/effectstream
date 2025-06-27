@@ -38,26 +38,34 @@ function printError(e: any, namespace: string, request: any) {
   );
 }
 
+// Export in batches of 50ms to avoid getting in the incorrect order.
 const TUI_LOG_URL = ENV.TUI_LOG_URL + ":" + ENV.TUI_LOG_PORT;
-
-function exportData(data: {
+let lastExportTime = 0;
+type OTelExportData = {
   component: string;
   namespace: Namespace;
   level: SeverityNumber;
   message: string | string[];
-}) {
-  fetch(TUI_LOG_URL + "/v1/data", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      component: data.component,
-      namespace: data.namespace,
-      level: data.level,
-      message: Array.isArray(data.message) ? data.message : [data.message],
-    }),
-  }).catch(() => {});
+};
+const exportBatch: OTelExportData[] = [];
+// Export in batches of 50ms
+function exportData(data: OTelExportData) {
+  exportBatch.push({
+    ...data,
+    message: Array.isArray(data.message) ? data.message : [data.message],
+  });
+  const now = Date.now();
+  if (now - lastExportTime > 50) {
+    fetch(TUI_LOG_URL + "/v1/data", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(exportBatch),
+    }).catch(() => {});
+    exportBatch.length = 0;
+    lastExportTime = now;
+  }
 }
 
 // DANGER: these endpoints only support JSON and reject other OpenTelemetry data formats
