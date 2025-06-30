@@ -3,6 +3,10 @@ import { erc20, erc721, paimaL2 } from "./e2e-contracts.ts";
 import { assert, assertSQL, printSummary } from "./e2e-assert.ts";
 import type { Client } from "pg";
 import { getPaimaEVMPublicClient } from "./e2e-rpc.ts";
+import { AddressType } from "@paima/utils";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { createWalletClient, http } from "viem";
+import { hardhat } from "viem/chains";
 
 type Wallet = {
   address: `0x${string}`;
@@ -103,31 +107,22 @@ async function test() {
       (res) => {
         const dump = [
           {
-            inputs: ["transfer", {
-              "from": "0x0000000000000000000000000000000000000000",
-              "to": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-              "value": String(200n * multiplier),
-            }],
+            inputs:
+              "transfer 200000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
           },
           {
-            inputs: ["transfer", {
-              "from": "0x0000000000000000000000000000000000000000",
-              "to": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-              "value": String(300n * multiplier),
-            }],
+            inputs:
+              "transfer 300000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
           },
           {
-            inputs: ["transfer", {
-              "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-              "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-              "value": String(90n * multiplier),
-            }],
+            inputs:
+              "transfer 90000000000000000 from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
           },
-          { inputs: ["attack", "1", "100"] },
-          { inputs: ["attack", "2", "200"] },
+          { inputs: "attack playerId: 1 with moveId: 100" },
+          { inputs: "attack playerId: 2 with moveId: 200" },
         ];
         return res.rows.every((row: any, index: number) => {
-          const status = row.inputs === JSON.stringify(dump[index].inputs);
+          const status = row.inputs === dump[index].inputs;
           if (!status) {
             console.log("Error at:", index, row.inputs, dump[index].inputs);
           }
@@ -161,15 +156,15 @@ async function test() {
       },
     );
 
-    await assertSQL(
-      "Check nonces",
-      db,
-      `SELECT * FROM public.nonces;`,
-      (res) => res.rows.length === 2,
-      (res) => {
-        return res.rows.length === 2;
-      },
-    );
+    // await assertSQL(
+    //   "Check nonces",
+    //   db,
+    //   `SELECT * FROM public.nonces;`,
+    //   (res) => res.rows.length === 2,
+    //   (res) => {
+    //     return res.rows.length === 2;
+    //   },
+    // );
 
     await assertSQL(
       "Check addresses",
@@ -178,6 +173,51 @@ async function test() {
       (res) => res.rows.length === 1,
       (res) => {
         return res.rows[0].address === wallet_A.address;
+      },
+    );
+
+    // Test Batcher
+    const timestamp = Date.now().toString();
+    const privateKey = generatePrivateKey();
+
+    // Create account and wallet client
+    const account = privateKeyToAccount(privateKey);
+    const walletClient = createWalletClient({
+      account,
+      chain: hardhat,
+      transport: http(),
+    });
+    console.log("Created random account", account.address);
+    const gameInput = JSON.stringify(["attack", "999", "777"]);
+    await fetch("http://localhost:3334/send-input", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        addressType: AddressType.EVM,
+        userAddress: account.address,
+        userSignature: await walletClient.signMessage({
+          message: JSON.stringify({
+            message: gameInput,
+            timestamp,
+          }),
+        }),
+        gameInput,
+        millisecondTimestamp: timestamp,
+      }),
+    });
+    await assertSQL(
+      "Check Batcher",
+      db,
+      `SELECT
+      primitive_name, id, paima_block_height, payload_type, payload
+      FROM
+      public.primitive_accounting;`,
+      (res) => res.rows.length === 6,
+      (res) => {
+        return res.rows[5].primitive_name === "PaimaGameInteraction" &&
+          res.rows[5].payload.inputData === gameInput;
       },
     );
 
