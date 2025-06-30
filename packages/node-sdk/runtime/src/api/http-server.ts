@@ -93,15 +93,17 @@ export const startHttpServer = function* (
       }
 
       if (primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC20) {
-        return await runPreparedQuery(dbConn.query(
+        const result = await runPreparedQuery<{ rows: unknown[] }>(dbConn.query(
           `SELECT * FROM erc20_balances_view_${primitive.primitive.name}`,
         ));
+        return result.rows;
       } else if (
         primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC721
       ) {
-        return await runPreparedQuery(dbConn.query(
+        const result = await runPreparedQuery<{ rows: unknown[] }>(dbConn.query(
           `SELECT * FROM erc721_ownership_view_${primitive.primitive.name}`,
         ));
+        return result.rows;
       }
 
       return reply.status(404).send({

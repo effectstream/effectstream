@@ -1,0 +1,287 @@
+import { useCallback, useEffect, useState } from "react";
+
+interface Block {
+  number: number;
+  hash: string;
+  timestamp: Date;
+}
+
+interface ChainConfig {
+  type: string;
+  name: string;
+  blockTime: number;
+  color: string;
+  blocks: Block[];
+  currentBlock: number;
+  rpcEndpoint?: string;
+  latestBlockNumber?: number;
+  previousLatestBlockNumber?: number;
+  isConnected?: boolean;
+}
+
+type PaimaChains = Record<string, ChainConfig>;
+
+// Initial configuration for each chain
+const initialChainConfigs: PaimaChains = {
+  paima: {
+    type: "EVM",
+    name: "Paima Engine",
+    blockTime: 2000,
+    color: "#667eea",
+    blocks: [],
+    currentBlock: 1000000,
+    rpcEndpoint: "http://127.0.0.1:9999/rpc/evm",
+    latestBlockNumber: 0,
+    previousLatestBlockNumber: 0,
+    isConnected: false,
+  },
+  evmMain: {
+    type: "EVM",
+    name: "EVM Main",
+    blockTime: 2000,
+    color: "#4caf50",
+    blocks: [],
+    currentBlock: 500000,
+    rpcEndpoint: "http://127.0.0.1:8545/rpc/evm",
+    latestBlockNumber: 0,
+    previousLatestBlockNumber: 0,
+    isConnected: false,
+  },
+  evmParallel: {
+    type: "EVM",
+    name: "EVM Parallel",
+    blockTime: 3000,
+    color: "#ff9800",
+    blocks: [],
+    currentBlock: 750000,
+    rpcEndpoint: "http://127.0.0.1:8546/rpc/evm",
+    latestBlockNumber: 0,
+    previousLatestBlockNumber: 0,
+    isConnected: false,
+  },
+  cardano: {
+    type: "Cardano",
+    name: "Cardano",
+    blockTime: 2000,
+    color: "#2196f3",
+    blocks: [],
+    currentBlock: 300000,
+  },
+  midnight: {
+    type: "Midnight",
+    name: "Midnight",
+    blockTime: 6000,
+    color: "#9c27b0",
+    blocks: [],
+    currentBlock: 150000,
+  },
+};
+
+function generateRandomHash() {
+  return "0x" +
+    Array.from(
+      { length: 64 },
+      () => Math.floor(Math.random() * 16).toString(16),
+    ).join("");
+}
+
+export function useBlockchainData() {
+  const [chainConfigs, setChainConfigs] = useState<PaimaChains>(
+    initialChainConfigs,
+  );
+  const [newBlockIndices, setNewBlockIndices] = useState<
+    Record<string, number | undefined>
+  >({});
+
+  // Fetch latest block for RPC chains
+  const fetchLatestBlockForChain = useCallback(async (chainKey: string) => {
+    const config = chainConfigs[chainKey];
+    if (config.type !== "EVM" || !config.rpcEndpoint) return;
+
+    try {
+      const response = await fetch(config.rpcEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "eth_blockNumber",
+          params: [],
+          id: 1,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error.message);
+      }
+
+      const blockNumber = parseInt(data.result, 16);
+
+      setChainConfigs((prev) => {
+        const updated = { ...prev };
+        const chainConfig = updated[chainKey];
+
+        if (blockNumber > (chainConfig.latestBlockNumber || 0)) {
+          chainConfig.previousLatestBlockNumber =
+            chainConfig.latestBlockNumber || 0;
+          chainConfig.latestBlockNumber = blockNumber;
+          chainConfig.isConnected = true;
+
+          // Generate new block when RPC block increments
+          if (chainConfig.previousLatestBlockNumber > 0) {
+            generateBlock(chainKey, updated);
+          }
+        }
+
+        return updated;
+      });
+    } catch (error) {
+      console.error(`Error fetching latest block for ${chainKey}:`, error);
+      setChainConfigs((prev) => ({
+        ...prev,
+        [chainKey]: {
+          ...prev[chainKey],
+          isConnected: false,
+        },
+      }));
+    }
+  }, [chainConfigs]);
+
+  // Generate a new block for a chain
+  const generateBlock = useCallback(
+    (chainKey: string, configs: PaimaChains = chainConfigs) => {
+      const config = configs[chainKey];
+      if (!config) return;
+
+      const blockNumber = config.rpcEndpoint
+        ? (config.latestBlockNumber || 0)
+        : config.currentBlock++;
+      const blockHash = generateRandomHash();
+      const timestamp = new Date();
+
+      const newBlock = {
+        number: blockNumber,
+        hash: blockHash,
+        timestamp: timestamp,
+      };
+
+      setChainConfigs((prev) => {
+        const updated = { ...prev };
+        const chainConfig = updated[chainKey];
+
+        // Add to beginning of array
+        chainConfig.blocks.unshift(newBlock);
+
+        // Keep only last 20 blocks
+        if (chainConfig.blocks.length > 20) {
+          chainConfig.blocks = chainConfig.blocks.slice(0, 20);
+        }
+
+        return updated;
+      });
+
+      // Set new block indicator
+      setNewBlockIndices((prev) => ({
+        ...prev,
+        [chainKey]: 0,
+      }));
+
+      // Clear new block indicator after animation
+      setTimeout(() => {
+        setNewBlockIndices((prev) => ({
+          ...prev,
+          [chainKey]: undefined,
+        }));
+      }, 250);
+    },
+    [chainConfigs],
+  );
+
+  // Initialize chains with dummy blocks
+  const initializeChains = useCallback(() => {
+    setChainConfigs((prev) => {
+      const updated = { ...prev };
+
+      Object.keys(updated).forEach((chainKey) => {
+        const config = updated[chainKey];
+
+        if (config.type === "EVM" && !config.rpcEndpoint) {
+          // Generate 5 initial blocks for non-RPC chains
+          const initialBlocks = [];
+          for (let i = 0; i < 5; i++) {
+            const blockNumber = config.currentBlock - (5 - i);
+            const blockHash = generateRandomHash();
+            const timestamp = new Date(Date.now() - (5 - i) * config.blockTime);
+
+            initialBlocks.push({
+              number: blockNumber,
+              hash: blockHash,
+              timestamp: timestamp,
+            });
+          }
+
+          config.blocks = initialBlocks;
+          config.currentBlock = config.currentBlock + 1;
+        }
+      });
+
+      return updated;
+    });
+  }, []);
+
+  // Setup intervals
+  useEffect(() => {
+    // Initialize chains
+    initializeChains();
+
+    // Setup block generators for non-RPC chains
+    const blockIntervals: any[] = [];
+    Object.keys(chainConfigs).forEach((chainKey) => {
+      const config = chainConfigs[chainKey];
+      if (config.type === "EVM" && !config.rpcEndpoint) {
+        const interval = setInterval(() => {
+          generateBlock(chainKey);
+        }, config.blockTime);
+        blockIntervals.push(interval);
+      }
+    });
+
+    // Setup RPC polling for RPC chains
+    const rpcIntervals: any[] = [];
+    Object.keys(chainConfigs).forEach((chainKey) => {
+      const config = chainConfigs[chainKey];
+      if (config.type === "EVM" && config.rpcEndpoint) {
+        // Fetch immediately
+        fetchLatestBlockForChain(chainKey);
+
+        // Setup polling interval
+        const interval = setInterval(() => {
+          fetchLatestBlockForChain(chainKey);
+        }, 100);
+        rpcIntervals.push(interval);
+      }
+    });
+
+    return () => {
+      [...blockIntervals, ...rpcIntervals].forEach((interval) =>
+        clearInterval(interval)
+      );
+    };
+  }, []); // Empty dependency array since we want this to run once
+
+  // Get Paima chain data for backward compatibility
+  const paimaChain = chainConfigs.paima;
+  const latestBlock = paimaChain?.latestBlockNumber || 0;
+  const isConnected = paimaChain?.isConnected || false;
+
+  return {
+    chainConfigs,
+    newBlockIndices,
+    latestBlock,
+    isConnected,
+  };
+}
