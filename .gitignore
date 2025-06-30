@@ -5,3 +5,6 @@ logs/
 # e2e tests
 /cache
 /out
+
+# Batcher file storage
+batcher-data/

@@ -33,6 +33,7 @@ export function* start(
   // TODO We only need to do this once, at the beginning.
   //      We have to distinguish between the start or restart of the node.
   //      Futher updates need to be managed by the user.
+  // TODO This does not go here. We need to move this.
   for (const syncProtocol of syncProtocols) {
     for (const primitive of syncProtocol.config.primitives) {
       switch (primitive.primitive.type) {

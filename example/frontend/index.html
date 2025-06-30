@@ -66,11 +66,33 @@
         <!-- State Machine Tables Section -->
         <div class="tables-section">
             <h2 class="section-title">State Machine Tables</h2>
+            <div style="margin-bottom: 20px; text-align: center;">
+                <input type="text" id="batcher-input" placeholder='Enter JSON array: ["attack", 5, 10]'
+                    style="padding: 10px; width: 300px; border: 2px solid #667eea; border-radius: 8px; margin-right: 10px;">
+                <button id="send-to-batcher" onclick="handleBatcherSubmit()"
+                    style="padding: 10px 20px; background: linear-gradient(45deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    Send to Batcher
+                </button>
+            </div>
             <div id="static-tables" class="primitive-tables"></div>
         </div>
     </div>
+    <script type="module">
+        import { createClient, createWalletClient, http, parseEther } from 'https://esm.sh/viem'
+        import { privateKeyToAccount, generatePrivateKey } from 'https://esm.sh/viem/accounts'
+        import { hardhat } from 'https://esm.sh/viem/chains'
 
-    <script src="script.js"></script>
+        // Make these available globally for the main script
+        window.viem = {
+            createWalletClient,
+            http,
+            parseEther,
+            privateKeyToAccount,
+            generatePrivateKey,
+            hardhat
+        };
+    </script>
+    <script type="module" src="script.js"></script>
 </body>
 
 </html>

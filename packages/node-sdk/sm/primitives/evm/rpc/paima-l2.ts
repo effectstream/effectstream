@@ -1,5 +1,5 @@
 import type { BlockNumber, EvmAddress } from "@paima/utils";
-import { hexToString } from "npm:viem";
+import { hexToString, stringToHex } from "npm:viem";
 import type {
   ConfigPrimitivePayloadType,
   ConfigSyncProtocolType,
@@ -17,7 +17,15 @@ import {
 } from "@paima/db";
 import { StateMachineExecution, World } from "@paima/coroutine";
 import { createScheduledData } from "@paima/db";
-import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
+import {
+  BuiltinGrammar,
+  BuiltinGrammarPrefix,
+  BuiltinTransitions,
+  extractBatches,
+  generateRawStmInput,
+  KeyedBuiltinGrammar,
+  parseRawStmInput,
+} from "@paima/concise";
 import {
   ConfigPrimitiveAccountingPayloadType,
   ConfigPrimitiveType,
@@ -27,17 +35,22 @@ import { mainAddressGenerator, NO_USER_ID } from "@paima/sm";
 import { call, Channel, Operation } from "npm:effection@^3.5.0";
 import { clearBigInts } from "../../utils.ts";
 
-export default function* processPaimaL2SyncProtocolResponse(
-  paima_block_height: BlockNumber,
-  response: FlattenSyncProtocolIOFor<
-    | ConfigSyncProtocolType.EVM_RPC_MAIN
-    | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-    ConfigPrimitiveType.EvmRpcPaimaL2,
-    ConfigPrimitivePayloadType.Event
-  >,
-): StateUpdateStream<void> {
+function* executePaimaL2Input(input: {
+  paima_block_height: BlockNumber;
+  nonce: string;
+  // inputData: {};
+  ownChain: {
+    blockNumber: number;
+    transactionHash: `0x${string}`;
+  };
+  payload: PayloadOf<
+    typeof PrimitiveEvmRpcPaimaL2Accounting
+  >;
+  primitiveName: string;
+  signerAddress: `0x${string}`;
+}) {
   const [nonceData] = yield* World.resolve(findNonce, {
-    nonce: response.output.payload.inputNonce,
+    nonce: input.nonce,
   });
   if (nonceData) {
     log.remote(
@@ -47,7 +60,7 @@ export default function* processPaimaL2SyncProtocolResponse(
       (log) =>
         log(
           `Skipping inputData with duplicate nonce: ${
-            JSON.stringify(response.output.payload.inputData)
+            JSON.stringify(input.payload)
           }`,
         ),
     );
@@ -56,31 +69,32 @@ export default function* processPaimaL2SyncProtocolResponse(
 
   // TODO Where does the nonce come from?
   const [lastNonceData] = yield* World.resolve(getLastNonce, undefined);
-  const nextNouce = lastNonceData
+  const nextNonce = lastNonceData
     ? Number((lastNonceData as any).nonce) + 1
     : 0;
 
   // guarantee we run this no matter if there is an error or a continue
-  yield* World.resolve(insertNonce, {
-    nonce: String(nextNouce),
-    block_height: paima_block_height,
-  });
+  // yield* World.resolve(insertNonce, {
+  //   nonce: String(nextNonce),
+  //   block_height: input.paima_block_height,
+  // });
 
   // We cannot insert bigints into the database, or be serialized to JSON.
-  const payload = clearBigInts(response.output.payload);
+  // const payload = clearBigInts(payload);
 
-  const primitiveName = response.output.syncProtocol.payload.primitiveName;
+  // const primitiveName = response.output.syncProtocol.payload.primitiveName;
   yield* World.resolve(insertPrimitiveAccounting, {
-    primitive_name: primitiveName,
-    paima_block_height: paima_block_height,
+    primitive_name: input.primitiveName,
+    paima_block_height: input.paima_block_height,
     payload_type: ConfigPrimitiveAccountingPayloadType.Event,
-    payload: payload satisfies PayloadOf<
+    payload: input.payload satisfies PayloadOf<
       typeof PrimitiveEvmRpcPaimaL2Accounting
     >,
   });
 
   const address = yield* mainAddressGenerator(
-    response.output.payload.realAddress.address,
+    input.signerAddress,
+    // response.output.payload.realAddress.address,
   );
 
   // let success: boolean | undefined = false;
@@ -113,11 +127,68 @@ export default function* processPaimaL2SyncProtocolResponse(
   }
 
   yield* StateMachineExecution(
-    paima_block_height,
-    hexToString((response.output.payload as any).data),
+    input.paima_block_height,
+    hexToString((input.payload as any).data),
     address.address as `0x${string}`,
     address.id,
-    response.output.syncProtocol.payload.ownChain.blockNumber,
-    response.output.syncProtocol.payload.transactionHash,
+    input.ownChain.blockNumber,
+    input.ownChain.transactionHash,
   );
+}
+
+export default function* processPaimaL2SyncProtocolResponse(
+  paima_block_height: BlockNumber,
+  response: FlattenSyncProtocolIOFor<
+    | ConfigSyncProtocolType.EVM_RPC_MAIN
+    | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+    ConfigPrimitiveType.EvmRpcPaimaL2,
+    ConfigPrimitivePayloadType.Event
+  >,
+): StateUpdateStream<void> {
+  const outerLayerPayload = clearBigInts(response.output.payload);
+
+  let isBatched = false;
+  try {
+    const message = hexToString((outerLayerPayload as any).data);
+    const batchedMessages = extractBatches(message);
+    isBatched = true;
+    for (const batchedMessage of batchedMessages) {
+      // TODO we need to verify the signature of the batched messages
+      yield* executePaimaL2Input({
+        paima_block_height,
+        nonce: batchedMessage.parsed.userAddress + "-" +
+          batchedMessage.parsed.millisecondTimestamp,
+        ownChain: {
+          blockNumber:
+            response.output.syncProtocol.payload.ownChain.blockNumber,
+          transactionHash: response.output.syncProtocol.payload.transactionHash,
+        },
+        payload: {
+          data: stringToHex(batchedMessage.parsed.gameInput),
+          inputData: batchedMessage.parsed.gameInput,
+        } as any,
+        primitiveName: response.output.syncProtocol.payload.primitiveName,
+        signerAddress: response.output.payload.realAddress
+          .address as `0x${string}`,
+      });
+    }
+  } catch {
+    // Not batched message
+  }
+
+  if (!isBatched) {
+    yield* executePaimaL2Input({
+      paima_block_height,
+      // TODO: where do we get the nonce from?
+      nonce: response.output.payload.inputNonce,
+      ownChain: {
+        blockNumber: response.output.syncProtocol.payload.ownChain.blockNumber,
+        transactionHash: response.output.syncProtocol.payload.transactionHash,
+      },
+      payload: outerLayerPayload,
+      primitiveName: response.output.syncProtocol.payload.primitiveName,
+      signerAddress: response.output.payload.realAddress
+        .address as `0x${string}`,
+    });
+  }
 }

@@ -851,3 +851,137 @@ async function refreshAllData() {
     refreshStaticTableData(),
   ]);
 }
+
+// TODO Get this from the imports
+// Batcher functionality
+const BATCHER_ENDPOINT = "http://localhost:3334/send-input";
+// import from paima/concise
+const AddressType = {
+  EVM: 0, // Assuming EVM address type is 0
+};
+
+// TODO Do this with paima/concise instead
+async function createSignedInput(gameInput) {
+  // Wait for viem to be available
+  while (!window.viem) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  const {
+    createWalletClient,
+    http,
+    privateKeyToAccount,
+    generatePrivateKey,
+    hardhat,
+  } = window.viem;
+
+  // Generate a private key
+  const privateKey = generatePrivateKey();
+
+  // Create account and wallet client
+  const account = privateKeyToAccount(privateKey);
+  const walletClient = createWalletClient({
+    account,
+    chain: hardhat,
+    transport: http(),
+  });
+
+  const timestamp = Date.now().toString();
+  const userAddress = account.address;
+  const addressType = AddressType.EVM;
+
+  // Sign the message
+  const signature = await walletClient.signMessage({
+    message: JSON.stringify({
+      message: gameInput,
+      timestamp,
+    }),
+  });
+
+  return {
+    addressType,
+    userAddress,
+    userSignature: signature,
+    gameInput,
+    millisecondTimestamp: timestamp,
+  };
+}
+
+async function sendInputToBatcher(batchedInput) {
+  const response = await fetch(BATCHER_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(batchedInput),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+async function postToBatcher(jsonArrayString) {
+  try {
+    console.log("🚀 Creating signed input for:", jsonArrayString);
+
+    const signedInput = await createSignedInput(jsonArrayString);
+
+    // TODO This should fail.
+    console.log("✅ Signed input created:", {
+      ...signedInput,
+      userSignature: signedInput.userSignature.slice(0, 10) + "...", // Truncate for display
+    });
+
+    console.log("📤 Sending to batcher...");
+    const result = await sendInputToBatcher(signedInput);
+
+    console.log("🎉 Batcher response:", result);
+    return result;
+  } catch (error) {
+    console.error("❌ Error in postToBatcher:", error);
+    throw error;
+  }
+}
+
+// Handler for the batcher submit button
+async function handleBatcherSubmit() {
+  const input = document.getElementById("batcher-input");
+  const button = document.getElementById("send-to-batcher");
+
+  if (!input.value.trim()) {
+    alert("Please enter a JSON array string");
+    return;
+  }
+
+  // Validate JSON format
+  try {
+    JSON.parse(input.value);
+  } catch (e) {
+    alert(
+      'Invalid JSON format. Please enter a valid JSON array like ["attack", 5, 10]',
+    );
+    return;
+  }
+
+  // Disable button during processing
+  button.disabled = true;
+  button.textContent = "Sending...";
+
+  try {
+    await postToBatcher(input.value);
+    alert("Successfully sent to batcher! Check console for details.");
+    input.value = ""; // Clear input on success
+  } catch (error) {
+    alert(`Error sending to batcher: ${error.message}`);
+  } finally {
+    // Re-enable button
+    button.disabled = false;
+    button.textContent = "Send to Batcher";
+  }
+}
+
+// Make handleBatcherSubmit available globally
+window.handleBatcherSubmit = handleBatcherSubmit;

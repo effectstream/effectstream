@@ -1,0 +1,10 @@
+{
+    "name": "@paima/batcher",
+    "exports": "./src/mod.ts",
+    "description": "Batcher for the Paima Engine",
+    "version": "0.1.0",
+    "tasks": {
+        "check": "deno check ./src/batcher.ts",
+        "standalone": "deno run -A --check ./src/start.ts"
+    }
+}

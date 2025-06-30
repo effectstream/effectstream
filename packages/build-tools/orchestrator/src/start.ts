@@ -88,6 +88,7 @@ export async function start(
 
     // Start processes in parallel
     await Promise.all([
+      startProcess[ComponentNames.PAIMA_BATCHER](),
       startProcess[ComponentNames.PAIMA_DB](),
       startProcess[ComponentNames.YACI_DEVKIT](),
       startProcess[ComponentNames.HARDHAT](),
@@ -188,6 +189,32 @@ export const startProcess: Record<
     });
     await Promise.all([node.process.status]);
     return node;
+  },
+
+  [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
+    // TODO This should be read from the config.
+    const paimaL2Address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    const batcherPrivateKey =
+      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+    const chainName = "hardhat";
+    const batcher = $({
+      args: [
+        "task",
+        "-f",
+        "@paima/batcher",
+        "standalone",
+        `--paimaL2Address=${paimaL2Address}`,
+        `--batcherPrivateKey=${batcherPrivateKey}`,
+        `--chainName=${chainName}`,
+      ],
+      log: rawLogHandler,
+      component: ComponentNames.PAIMA_BATCHER,
+      abortController: abortControllers.system,
+      namespace: [],
+    });
+    // This is a long-lasting service that does not exit.
+    void batcher.process.status;
+    return batcher;
   },
 
   [ComponentNames.TUI]: async (): Promise<ProcessComponent> => {

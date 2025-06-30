@@ -32,6 +32,14 @@ async function test() {
     // The contracts are deployed with the private key.
     db = await startup(wallet_A.address, wallet_A.privateKey);
 
+    // Launch site
+    if (Deno.env.get("PAIMA_E2E_SITE_LAUNCH")) {
+      const command = new Deno.Command(Deno.execPath(), {
+        args: ["task", "-f", "@example/front", "start"],
+      });
+      command.spawn();
+    }
+
     // TOOD 10^18 operation fails on pgsql bigints
     const multiplier = 10n ** 15n;
 

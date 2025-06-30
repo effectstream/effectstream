@@ -14,6 +14,7 @@ const ExternalComponents = {
   HARDHAT: "hardhat",
   YACI_DEVKIT: "yaci-devkit",
   DOLOS: "dolos",
+  PAIMA_BATCHER: "batcher",
 };
 const ToolsComponents = {
   CHECKER: "checker",

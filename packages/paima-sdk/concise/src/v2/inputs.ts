@@ -26,7 +26,7 @@ export function parseRawStmInput<
   Grammar extends GrammarDefinition,
   Prefix extends keyof Grammar & string,
 >(
-  parsedData: any,
+  parsedData: any[],
   grammarDefinition: Grammar,
   keyedJsonGrammar: CommandTuples<Grammar>,
 ): ParseInputResult<Grammar, Prefix> {
