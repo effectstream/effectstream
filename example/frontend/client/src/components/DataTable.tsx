@@ -77,7 +77,7 @@ export function DataTable({ title, data }: DataTableProps) {
           </tr>
         </thead>
         <tbody>
-          {data.rows.map((row, rowIndex) => (
+          {data.rows.slice().reverse().map((row, rowIndex) => (
             <tr key={rowIndex}>
               {data.fields.map((field) => {
                 const value = row[field.name];

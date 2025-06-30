@@ -2,6 +2,7 @@ import { useState } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
+import { grammar } from "@example/data-types";
 
 const BATCHER_ENDPOINT = "http://localhost:3334/send-input";
 const AddressType = {
@@ -70,31 +71,139 @@ async function postToBatcher(jsonArrayString: string) {
 }
 
 export function BatcherInput() {
-  const [input, setInput] = useState("");
+  const [selectedType, setSelectedType] = useState<string>("");
+  const [formData, setFormData] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(false);
 
+  const grammarTypes = Object.keys(grammar);
+
+  const handleTypeChange = (type: string) => {
+    setSelectedType(type);
+    setFormData({});
+  };
+
+  const handleInputChange = (fieldName: string, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      [fieldName]: value,
+    }));
+  };
+
+  const buildJsonArray = () => {
+    if (!selectedType) return null;
+
+    const result: (string | number | object)[] = [selectedType];
+    const typeDefinition = grammar[selectedType as keyof typeof grammar];
+
+    for (const [fieldName, fieldType] of typeDefinition) {
+      const value = formData[fieldName];
+      if (value !== undefined && value !== "") {
+        // Handle different field types
+        if (fieldType.type === "integer") {
+          result.push(parseInt(value) || 0);
+        } else if (fieldType.type === "object") {
+          try {
+            result.push(typeof value === "string" ? JSON.parse(value) : value);
+          } catch {
+            result.push(value);
+          }
+        } else {
+          result.push(value);
+        }
+      }
+    }
+
+    return result;
+  };
+
+  const renderInputField = (fieldName: string, fieldType: any) => {
+    const value = formData[fieldName] || "";
+
+    if (fieldType.type === "integer") {
+      return (
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => handleInputChange(fieldName, e.target.value)}
+          placeholder={`Enter ${fieldName}`}
+          style={{
+            padding: "8px",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            width: "200px",
+          }}
+        />
+      );
+    } else if (fieldType.type === "string") {
+      return (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => handleInputChange(fieldName, e.target.value)}
+          placeholder={`Enter ${fieldName}`}
+          style={{
+            padding: "8px",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            width: "200px",
+          }}
+        />
+      );
+    } else if (fieldType.type === "object") {
+      return (
+        <textarea
+          value={typeof value === "string"
+            ? value
+            : JSON.stringify(value, null, 2)}
+          onChange={(e) => handleInputChange(fieldName, e.target.value)}
+          placeholder={`Enter ${fieldName} as JSON object`}
+          rows={3}
+          style={{
+            padding: "8px",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            width: "300px",
+            fontFamily: "monospace",
+          }}
+        />
+      );
+    }
+
+    return (
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => handleInputChange(fieldName, e.target.value)}
+        placeholder={`Enter ${fieldName}`}
+        style={{
+          padding: "8px",
+          border: "1px solid #ccc",
+          borderRadius: "4px",
+          width: "200px",
+        }}
+      />
+    );
+  };
+
   const handleSubmit = async () => {
-    if (!input.trim()) {
-      alert("Please enter a JSON array string");
+    if (!selectedType) {
+      alert("Please select a type");
       return;
     }
 
-    // Validate JSON format
-    try {
-      JSON.parse(input);
-    } catch (e) {
-      alert(
-        'Invalid JSON format. Please enter a valid JSON array like ["attack", 5, 10]',
-      );
+    const jsonArray = buildJsonArray();
+    if (!jsonArray) {
+      alert("Failed to build JSON array");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      await postToBatcher(input);
+      const jsonArrayString = JSON.stringify(jsonArray);
+      await postToBatcher(jsonArrayString);
       alert("Successfully sent to batcher! Check console for details.");
-      setInput(""); // Clear input on success
+      setFormData({});
     } catch (error) {
       alert(
         `Error sending to batcher: ${
@@ -107,31 +216,114 @@ export function BatcherInput() {
   };
 
   return (
-    <div style={{ marginBottom: "20px" }}>
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder='Enter JSON array: ["attack", 5, 10]'
-        disabled={isLoading}
-        style={{
-          padding: "10px",
-          width: "300px",
-          border: "2px solid #667eea",
-          borderRadius: "8px",
-          marginRight: "10px",
-        }}
-      />
+    <div
+      style={{
+        marginBottom: "20px",
+        padding: "20px",
+        border: "1px solid #ddd",
+        borderRadius: "8px",
+      }}
+    >
+      <h3 style={{ marginTop: 0, color: "#333" }}>Batcher Input</h3>
+
+      {/* Type Selection */}
+      <div style={{ marginBottom: "15px" }}>
+        <label
+          style={{ display: "block", marginBottom: "5px", fontWeight: "600" }}
+        >
+          Select Type:
+        </label>
+        <select
+          value={selectedType}
+          onChange={(e) => handleTypeChange(e.target.value)}
+          disabled={isLoading}
+          style={{
+            padding: "8px",
+            border: "2px solid #667eea",
+            borderRadius: "4px",
+            width: "200px",
+          }}
+        >
+          <option value="">-- Select a type --</option>
+          {grammarTypes.map((type) => (
+            <option key={type} value={type}>
+              {type.charAt(0).toUpperCase() + type.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Dynamic Form Fields */}
+      {selectedType && (
+        <div style={{ marginBottom: "15px" }}>
+          <h4 style={{ color: "#555" }}>Parameters for {selectedType}:</h4>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "15px",
+              alignItems: "flex-end",
+            }}
+          >
+            {grammar[selectedType as keyof typeof grammar].map((
+              [fieldName, fieldType],
+            ) => (
+              <div
+                key={fieldName}
+                style={{ display: "flex", flexDirection: "column" }}
+              >
+                <label
+                  style={{
+                    marginBottom: "5px",
+                    fontWeight: "500",
+                    fontSize: "14px",
+                  }}
+                >
+                  {fieldName} ({fieldType.type}):
+                </label>
+                {renderInputField(fieldName, fieldType)}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Preview */}
+      {selectedType && (
+        <div style={{ marginBottom: "15px" }}>
+          <label
+            style={{ display: "block", marginBottom: "5px", fontWeight: "500" }}
+          >
+            Preview JSON Array:
+          </label>
+          <pre
+            style={{
+              background: "#f5f5f5",
+              padding: "10px",
+              borderRadius: "4px",
+              border: "1px solid #ddd",
+              fontSize: "12px",
+              overflow: "auto",
+            }}
+          >
+            {JSON.stringify(buildJsonArray(), null, 2)}
+          </pre>
+        </div>
+      )}
+
+      {/* Submit Button */}
       <button
         onClick={handleSubmit}
-        disabled={isLoading}
+        disabled={isLoading || !selectedType}
         style={{
           padding: "10px 20px",
-          background: "linear-gradient(45deg, #667eea, #764ba2)",
+          background: selectedType
+            ? "linear-gradient(45deg, #667eea, #764ba2)"
+            : "#ccc",
           color: "white",
           border: "none",
           borderRadius: "8px",
-          cursor: isLoading ? "not-allowed" : "pointer",
+          cursor: isLoading || !selectedType ? "not-allowed" : "pointer",
           fontWeight: "600",
           opacity: isLoading ? 0.6 : 1,
         }}
