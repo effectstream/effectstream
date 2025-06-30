@@ -5,6 +5,7 @@ logs/
 # e2e tests
 /cache
 /out
+.vite
 
 # Batcher file storage
 batcher-data/

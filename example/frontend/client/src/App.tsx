@@ -1,6 +1,43 @@
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { createWalletClient, http } from "viem";
+import { hardhat } from "viem/chains";
+import { useState } from "react";
+import "./App.css";
+
+type PaimaChains = Record<
+  string,
+  {
+    type: "EVM";
+    name: string;
+    blockTime: number;
+    color: string;
+    blocks: any[];
+    currentBlock: number;
+    rpcEndpoint: string;
+    latestBlockNumber: number;
+    previousLatestBlockNumber: number;
+    isConnected: boolean;
+  } | {
+    type: "Cardano";
+    name: string;
+    blockTime: number;
+    color: string;
+    blocks: any[];
+    currentBlock: number;
+  } | {
+    type: "Midnight";
+    name: string;
+    blockTime: number;
+    color: string;
+    blocks: any[];
+    currentBlock: number;
+  }
+>;
+
 // Configuration for each chain
-const chainConfigs = {
+const chainConfigs: PaimaChains = {
   paima: {
+    type: "EVM",
     name: "Paima Engine",
     blockTime: 2000, // This will be dynamically calculated
     color: "#667eea",
@@ -12,6 +49,7 @@ const chainConfigs = {
     isConnected: false,
   },
   evmMain: {
+    type: "EVM",
     name: "EVM Main",
     blockTime: 2000, // This will be dynamically calculated
     color: "#4caf50",
@@ -23,6 +61,7 @@ const chainConfigs = {
     isConnected: false,
   },
   evmParallel: {
+    type: "EVM",
     name: "EVM Parallel",
     blockTime: 3000, // This will be dynamically calculated
     color: "#ff9800",
@@ -34,6 +73,7 @@ const chainConfigs = {
     isConnected: false,
   },
   cardano: {
+    type: "Cardano",
     name: "Cardano",
     blockTime: 2000, // 2 seconds
     color: "#2196f3",
@@ -41,6 +81,7 @@ const chainConfigs = {
     currentBlock: 300000,
   },
   midnight: {
+    type: "Midnight",
     name: "Midnight",
     blockTime: 6000, // 6 seconds
     color: "#9c27b0",
@@ -61,11 +102,11 @@ let previousLatestBlockNumber = 0;
 let isConnected = false;
 
 // Primitive data management
-let primitiveNames = [];
-let primitiveData = {};
+let primitiveNames: string[] = [];
+let primitiveData: Record<string, any> = {};
 
 // Static table data management
-let staticTableData = {};
+let staticTableData: Record<string, any> = {};
 
 // Utility functions
 function generateRandomHash() {
@@ -76,7 +117,7 @@ function generateRandomHash() {
     ).join("");
 }
 
-function formatTimestamp(date) {
+function formatTimestamp(date: Date) {
   return date.toLocaleTimeString("en-US", {
     hour12: false,
     hour: "2-digit",
@@ -85,7 +126,12 @@ function formatTimestamp(date) {
   });
 }
 
-function createBlockElement(blockNumber, blockHash, timestamp, isNew = false) {
+function createBlockElement(
+  blockNumber: number,
+  blockHash: string,
+  timestamp: Date,
+  isNew = false,
+) {
   const blockDiv = document.createElement("div");
   blockDiv.className = `block-item ${isNew ? "new-block" : ""}`;
 
@@ -99,9 +145,9 @@ function createBlockElement(blockNumber, blockHash, timestamp, isNew = false) {
 }
 
 // RPC Functions
-async function fetchLatestBlockForChain(chainKey) {
+async function fetchLatestBlockForChain(chainKey: string) {
   const config = chainConfigs[chainKey];
-  if (!config.rpcEndpoint) return;
+  if (config.type !== "EVM") return;
 
   try {
     const response = await fetch(config.rpcEndpoint, {
@@ -169,7 +215,7 @@ async function fetchLatestBlock() {
 
 function updateLatestBlockDisplay() {
   const latestBlockElement = document.getElementById("latest-block");
-
+  if (!latestBlockElement) return;
   if (isConnected) {
     latestBlockElement.textContent = latestBlockNumber.toLocaleString();
     latestBlockElement.style.backgroundColor = "rgba(76, 175, 80, 0.1)";
@@ -182,13 +228,18 @@ function updateLatestBlockDisplay() {
 }
 
 // Block generation for dummy chains
-function generateBlock(chainKey) {
-  const config = chainConfigs[chainKey];
+function generateBlock(chainKey: string) {
+  const config = chainConfigs[chainKey as keyof typeof chainConfigs];
+
+  if (!config) {
+    console.error(`Chain config not found for ${chainKey}`);
+    return;
+  }
 
   // For RPC chains, use the latest RPC block number; for others, use incrementing counter
-  const blockNumber = config.rpcEndpoint
-    ? config.latestBlockNumber
-    : config.currentBlock++;
+  const blockNumber = (config as any).rpcEndpoint
+    ? (config as any).latestBlockNumber
+    : (config as any).currentBlock++;
   const blockHash = generateRandomHash();
   const timestamp = new Date();
 
@@ -199,7 +250,7 @@ function generateBlock(chainKey) {
   };
 
   // Add to beginning of array
-  config.blocks.unshift(newBlock);
+  (config as any).blocks.unshift(newBlock);
 
   // Keep only last 20 blocks
   if (config.blocks.length > 20) {
@@ -211,29 +262,31 @@ function generateBlock(chainKey) {
 }
 
 // Calculate moving average block time for RPC chains
-function calculateRPCChainBlockTime(chainKey) {
-  const config = chainConfigs[chainKey];
-  const blocks = config.blocks;
+function calculateRPCChainBlockTime(chainKey: string) {
+  const config = chainConfigs[chainKey as keyof typeof chainConfigs];
+  if (config.type === "EVM") {
+    const blocks = config.blocks;
 
-  if (blocks.length < 2) {
-    return 2; // Default to 2 seconds if not enough data
+    if (blocks.length < 2) {
+      return 2; // Default to 2 seconds if not enough data
+    }
+
+    // Calculate time differences between consecutive blocks
+    const timeDiffs = [];
+    for (let i = 0; i < Math.min(blocks.length - 1, 19); i++) {
+      const timeDiff = blocks[i].timestamp - blocks[i + 1].timestamp;
+      timeDiffs.push(timeDiff);
+    }
+
+    if (timeDiffs.length === 0) {
+      return 2;
+    }
+
+    // Calculate average time difference in seconds
+    const avgTimeDiff = timeDiffs.reduce((sum, diff) => sum + diff, 0) /
+      timeDiffs.length;
+    return Math.round(avgTimeDiff / 1000 * 10) / 10; // Round to 1 decimal place
   }
-
-  // Calculate time differences between consecutive blocks
-  const timeDiffs = [];
-  for (let i = 0; i < Math.min(blocks.length - 1, 19); i++) {
-    const timeDiff = blocks[i].timestamp - blocks[i + 1].timestamp;
-    timeDiffs.push(timeDiff);
-  }
-
-  if (timeDiffs.length === 0) {
-    return 2;
-  }
-
-  // Calculate average time difference in seconds
-  const avgTimeDiff = timeDiffs.reduce((sum, diff) => sum + diff, 0) /
-    timeDiffs.length;
-  return Math.round(avgTimeDiff / 1000 * 10) / 10; // Round to 1 decimal place
 }
 
 // Calculate moving average block time for Paima (legacy function for compatibility)
@@ -242,7 +295,7 @@ function calculatePaimaBlockTime() {
 }
 
 // Update RPC chain block time display
-function updateRPCChainBlockTimeDisplay(chainKey) {
+function updateRPCChainBlockTimeDisplay(chainKey: string) {
   const elementId = `${
     chainKey.replace(/([A-Z])/g, "-$1").toLowerCase()
   }-block-time`;
@@ -258,8 +311,9 @@ function updatePaimaBlockTimeDisplay() {
   updateRPCChainBlockTimeDisplay("paima");
 }
 
-function updateChainBlocks(chainKey, isNewBlock = false) {
-  const config = chainConfigs[chainKey];
+function updateChainBlocks(chainKey: string, isNewBlock = false) {
+  const config = chainConfigs[chainKey as keyof typeof chainConfigs];
+  if (config.type !== "EVM") return;
   const containerId = `${
     chainKey.replace(/([A-Z])/g, "-$1").toLowerCase()
   }-blocks`;
@@ -292,24 +346,26 @@ function initializeChains() {
   Object.keys(chainConfigs).forEach((chainKey) => {
     const config = chainConfigs[chainKey];
 
-    // Skip initial block generation for RPC chains - they will generate based on RPC
-    if (config.rpcEndpoint) return;
+    if (config.type === "EVM") {
+      // Skip initial block generation for RPC chains - they will generate based on RPC
+      if (config.rpcEndpoint) return;
 
-    // Generate 5 initial blocks for non-RPC chains
-    for (let i = 0; i < 5; i++) {
-      const blockNumber = config.currentBlock - (5 - i);
-      const blockHash = generateRandomHash();
-      const timestamp = new Date(Date.now() - (5 - i) * config.blockTime);
+      // Generate 5 initial blocks for non-RPC chains
+      for (let i = 0; i < 5; i++) {
+        const blockNumber = config.currentBlock - (5 - i);
+        const blockHash = generateRandomHash();
+        const timestamp = new Date(Date.now() - (5 - i) * config.blockTime);
 
-      config.blocks.push({
-        number: blockNumber,
-        hash: blockHash,
-        timestamp: timestamp,
-      });
+        config.blocks.push({
+          number: blockNumber,
+          hash: blockHash,
+          timestamp: timestamp,
+        });
+      }
+
+      config.currentBlock = config.currentBlock + 1;
+      updateChainBlocks(chainKey);
     }
-
-    config.currentBlock = config.currentBlock + 1;
-    updateChainBlocks(chainKey);
   });
 }
 
@@ -317,13 +373,14 @@ function initializeChains() {
 function setupBlockGenerators() {
   Object.keys(chainConfigs).forEach((chainKey) => {
     const config = chainConfigs[chainKey];
+    if (config.type === "EVM") {
+      // Skip RPC chains - they generate blocks based on RPC block increments
+      if (config.rpcEndpoint) return;
 
-    // Skip RPC chains - they generate blocks based on RPC block increments
-    if (config.rpcEndpoint) return;
-
-    setInterval(() => {
-      generateBlock(chainKey);
-    }, config.blockTime);
+      setInterval(() => {
+        generateBlock(chainKey);
+      }, config.blockTime);
+    }
   });
 }
 
@@ -331,24 +388,25 @@ function setupBlockGenerators() {
 function setupRPCPolling() {
   Object.keys(chainConfigs).forEach((chainKey) => {
     const config = chainConfigs[chainKey];
+    if (config.type === "EVM") {
+      // Only setup polling for RPC chains
+      if (!config.rpcEndpoint) return;
 
-    // Only setup polling for RPC chains
-    if (!config.rpcEndpoint) return;
-
-    // Fetch immediately
-    fetchLatestBlockForChain(chainKey);
-
-    // Setup polling interval
-    setInterval(() => {
+      // Fetch immediately
       fetchLatestBlockForChain(chainKey);
-    }, 100);
+
+      // Setup polling interval
+      setInterval(() => {
+        fetchLatestBlockForChain(chainKey);
+      }, 100);
+    }
   });
 }
 
 // Connection status indicator
 function updateConnectionStatus() {
-  const header = document.querySelector(".header");
-
+  const header: HTMLElement | null = document.querySelector(".header");
+  if (!header) return;
   if (isConnected) {
     header.style.borderLeft = "5px solid #4caf50";
   } else {
@@ -401,20 +459,25 @@ if (document.readyState === "loading") {
 }
 
 // Add some interactive features
-document.addEventListener("click", (event) => {
+document.addEventListener("click", (event: Event) => {
+  if (!event || !(event.target instanceof HTMLElement)) return;
+
   if (event.target.closest(".block-item")) {
-    const blockItem = event.target.closest(".block-item");
-    const blockNumber = blockItem.querySelector(".block-number").textContent;
-    const blockHash = blockItem.querySelector(".block-hash").textContent;
+    const blockItem: HTMLElement | null = event.target.closest(".block-item");
+    const blockNumber = blockItem?.querySelector(".block-number")?.textContent;
+    const blockHash = blockItem?.querySelector(".block-hash")?.textContent;
 
     // Copy block hash to clipboard
-    navigator.clipboard.writeText(blockHash).then(() => {
+    navigator.clipboard.writeText(blockHash || "").then(() => {
       // Visual feedback
-      const originalBg = blockItem.style.backgroundColor;
-      blockItem.style.backgroundColor = "rgba(76, 175, 80, 0.2)";
-
+      const originalBg = blockItem?.style?.backgroundColor;
+      if (blockItem) {
+        blockItem.style.backgroundColor = "rgba(76, 175, 80, 0.2)";
+      }
       setTimeout(() => {
-        blockItem.style.backgroundColor = originalBg;
+        if (blockItem) {
+          blockItem.style.backgroundColor = originalBg || "";
+        }
       }, 300);
 
       console.log(`📋 Copied to clipboard: ${blockHash}`);
@@ -449,8 +512,8 @@ async function fetchConfig() {
   }
 }
 
-function extractPrimitiveNames(config) {
-  const names = [];
+function extractPrimitiveNames(config: any) {
+  const names: any[] = [];
   if (!config || !Array.isArray(config)) return names;
 
   config.forEach((syncProtocolConfig) => {
@@ -458,7 +521,7 @@ function extractPrimitiveNames(config) {
       syncProtocolConfig.primitives &&
       Array.isArray(syncProtocolConfig.primitives)
     ) {
-      syncProtocolConfig.primitives.forEach((primitive) => {
+      syncProtocolConfig.primitives.forEach((primitive: any) => {
         if (primitive.primitive && primitive.primitive.name) {
           names.push(primitive.primitive.name);
         }
@@ -469,7 +532,7 @@ function extractPrimitiveNames(config) {
   return [...new Set(names)]; // Remove duplicates
 }
 
-async function fetchPrimitiveData(primitiveName) {
+async function fetchPrimitiveData(primitiveName: string) {
   try {
     const response = await fetch(`${PRIMITIVES_ENDPOINT}/${primitiveName}`);
     if (!response.ok) {
@@ -488,7 +551,7 @@ async function fetchPrimitiveData(primitiveName) {
   }
 }
 
-async function fetchTableData(tableName) {
+async function fetchTableData(tableName: string) {
   try {
     const response = await fetch(`${TABLES_ENDPOINT}/${tableName}`);
     if (!response.ok) {
@@ -507,7 +570,7 @@ async function fetchTableData(tableName) {
   }
 }
 
-function convertTableDataToPrimitiveFormat(tableData, tableName) {
+function convertTableDataToPrimitiveFormat(tableData: any, tableName: string) {
   if (!Array.isArray(tableData) || tableData.length === 0) {
     return null;
   }
@@ -526,7 +589,7 @@ function convertTableDataToPrimitiveFormat(tableData, tableName) {
   };
 }
 
-function formatCellValue(value, fieldName) {
+function formatCellValue(value: any, fieldName: string) {
   if (value === null || value === undefined) return "";
 
   // Special handling for inputs field (JSON strings)
@@ -563,7 +626,7 @@ function formatCellValue(value, fieldName) {
   return value.toString();
 }
 
-function createPrimitiveTable(primitiveName, data) {
+function createPrimitiveTable(primitiveName: string, data: any) {
   if (!data || !data.rows || !data.fields) {
     console.error(`Invalid data structure for ${primitiveName}`);
     return null;
@@ -583,7 +646,7 @@ function createPrimitiveTable(primitiveName, data) {
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
 
-  data.fields.forEach((field) => {
+  data.fields.forEach((field: any) => {
     const th = document.createElement("th");
     th.textContent = field.name.replace(/_/g, " ").toUpperCase();
     headerRow.appendChild(th);
@@ -595,10 +658,10 @@ function createPrimitiveTable(primitiveName, data) {
   // Create body
   const tbody = document.createElement("tbody");
 
-  data.rows.forEach((row) => {
+  data.rows.forEach((row: any) => {
     const tr = document.createElement("tr");
 
-    data.fields.forEach((field) => {
+    data.fields.forEach((field: any) => {
       const td = document.createElement("td");
       const value = row[field.name];
       const formattedValue = formatCellValue(value, field.name);
@@ -861,20 +924,7 @@ const AddressType = {
 };
 
 // TODO Do this with paima/concise instead
-async function createSignedInput(gameInput) {
-  // Wait for viem to be available
-  while (!window.viem) {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-
-  const {
-    createWalletClient,
-    http,
-    privateKeyToAccount,
-    generatePrivateKey,
-    hardhat,
-  } = window.viem;
-
+async function createSignedInput(gameInput: string) {
   // Generate a private key
   const privateKey = generatePrivateKey();
 
@@ -907,7 +957,7 @@ async function createSignedInput(gameInput) {
   };
 }
 
-async function sendInputToBatcher(batchedInput) {
+async function sendInputToBatcher(batchedInput: any) {
   const response = await fetch(BATCHER_ENDPOINT, {
     method: "POST",
     headers: {
@@ -923,7 +973,7 @@ async function sendInputToBatcher(batchedInput) {
   return await response.json();
 }
 
-async function postToBatcher(jsonArrayString) {
+async function postToBatcher(jsonArrayString: string) {
   try {
     console.log("🚀 Creating signed input for:", jsonArrayString);
 
@@ -948,17 +998,21 @@ async function postToBatcher(jsonArrayString) {
 
 // Handler for the batcher submit button
 async function handleBatcherSubmit() {
-  const input = document.getElementById("batcher-input");
-  const button = document.getElementById("send-to-batcher");
+  const input: HTMLInputElement | null = document.getElementById(
+    "batcher-input",
+  ) as HTMLInputElement;
+  const button: HTMLButtonElement | null = document.getElementById(
+    "send-to-batcher",
+  ) as HTMLButtonElement;
 
-  if (!input.value.trim()) {
+  if (!input || !input.value.trim()) {
     alert("Please enter a JSON array string");
     return;
   }
 
   // Validate JSON format
   try {
-    JSON.parse(input.value);
+    JSON.parse(input.value as string);
   } catch (e) {
     alert(
       'Invalid JSON format. Please enter a valid JSON array like ["attack", 5, 10]',
@@ -975,7 +1029,11 @@ async function handleBatcherSubmit() {
     alert("Successfully sent to batcher! Check console for details.");
     input.value = ""; // Clear input on success
   } catch (error) {
-    alert(`Error sending to batcher: ${error.message}`);
+    alert(
+      `Error sending to batcher: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
+    );
   } finally {
     // Re-enable button
     button.disabled = false;
@@ -983,5 +1041,110 @@ async function handleBatcherSubmit() {
   }
 }
 
-// Make handleBatcherSubmit available globally
-window.handleBatcherSubmit = handleBatcherSubmit;
+function App() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <>
+      <div className="container">
+        {/* Header Row */}
+        <header className="header">
+          <h1 className="title">Paima Explorer</h1>
+          <div className="block-info">
+            <span>Latest Block:</span>
+            <span id="latest-block">Loading...</span>
+          </div>
+        </header>
+
+        {/* <!-- Columns Container --> */}
+        <div className="columns-container">
+          {/* <!-- Paima Engine Column (Main) --> */}
+          <div className="column main-column">
+            <h2 className="column-title">Paima Engine</h2>
+            <div className="block-time">
+              Block Time: <span id="paima-block-time">2s</span>
+            </div>
+            <div className="blocks-list" id="paima-blocks"></div>
+          </div>
+
+          {/* <!-- EVM Main Column --> */}
+          <div className="column">
+            <h2 className="column-title">EVM Main</h2>
+            <div className="block-time">
+              Block Time: <span id="evm-main-block-time">2s</span>
+            </div>
+            <div className="blocks-list" id="evm-main-blocks"></div>
+          </div>
+
+          {/* <!-- EVM Parallel Column --> */}
+          <div className="column">
+            <h2 className="column-title">EVM Parallel</h2>
+            <div className="block-time">
+              Block Time: <span id="evm-parallel-block-time">3s</span>
+            </div>
+            <div className="blocks-list" id="evm-parallel-blocks"></div>
+          </div>
+
+          {/* <!-- Cardano Column --> */}
+          <div className="column">
+            <h2 className="column-title">Cardano</h2>
+            <div className="block-time">
+              Block Time: <span id="cardano-block-time">2s</span>
+            </div>
+            <div className="blocks-list" id="cardano-blocks"></div>
+          </div>
+
+          {/* <!-- Midnight Column --> */}
+          <div className="column">
+            <h2 className="column-title">Midnight</h2>
+            <div className="block-time">
+              Block Time: <span id="midnight-block-time">6s</span>
+            </div>
+            <div className="blocks-list" id="midnight-blocks"></div>
+          </div>
+        </div>
+
+        {/* <!-- Dynamic Tables Section --> */}
+        <div className="tables-section">
+          <h2 className="section-title">Primitive Data</h2>
+          <div id="primitive-tables" className="primitive-tables"></div>
+        </div>
+
+        {/* <!-- State Machine Tables Section --> */}
+        <div className="tables-section">
+          <h2 className="section-title">State Machine Tables</h2>
+          <input
+            type="text"
+            id="batcher-input"
+            placeholder='Enter JSON array: ["attack", 5, 10]'
+            style={{
+              padding: "10px",
+              width: "300px",
+              border: "2px solid #667eea",
+              borderRadius: "8px",
+              marginRight: "10px",
+            }}
+          />
+          <button
+            id="send-to-batcher"
+            onClick={handleBatcherSubmit}
+            style={{
+              padding: "10px 20px",
+              background: "linear-gradient(45deg, #667eea, #764ba2)",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: "600",
+            }}
+          >
+            Send to Batcher
+          </button>
+        </div>
+        <div id="static-tables" className="primitive-tables"></div>
+      </div>
+    </>
+  );
+}
+
+export default App;
