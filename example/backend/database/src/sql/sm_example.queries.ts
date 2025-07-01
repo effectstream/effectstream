@@ -1,4 +1,4 @@
-/** Types generated for queries found in "sql/sm_example.sql" */
+/** Types generated for queries found in "src/sql/sm_example.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
 /** 'InsertStateMachineInput' parameters type */

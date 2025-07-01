@@ -6,7 +6,7 @@ import {
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
 } from "@paima/config";
-import { migrations } from "@example/state-transition";
+import { migrations } from "@example/database";
 
 import { gameStateTransitionRouter } from "@example/state-transition";
 

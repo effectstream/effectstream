@@ -1,7 +1,7 @@
 import { PaimaSTM } from "@paima/sm";
 import { grammar } from "@example/data-types";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
-import { insertStateMachineInput } from "@example/state-transition";
+import { insertStateMachineInput } from "@example/database";
 import { createScheduledData } from "@paima/db";
 
 type MyEvents = {}; // TODO: replace
