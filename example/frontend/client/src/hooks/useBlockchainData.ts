@@ -209,13 +209,14 @@ export function useBlockchainData() {
       Object.keys(updated).forEach((chainKey) => {
         const config = updated[chainKey];
 
-        if (config.type === "EVM" && !config.rpcEndpoint) {
+        if (!config.rpcEndpoint) {
           // Generate 5 initial blocks for non-RPC chains
           const initialBlocks = [];
-          for (let i = 0; i < 5; i++) {
-            const blockNumber = config.currentBlock - (5 - i);
+
+          for (let i = -5; i < 0; i++) {
+            const blockNumber = config.currentBlock + i;
             const blockHash = generateRandomHash();
-            const timestamp = new Date(Date.now() - (5 - i) * config.blockTime);
+            const timestamp = new Date(Date.now() + i * config.blockTime);
 
             initialBlocks.push({
               number: blockNumber,
@@ -224,7 +225,7 @@ export function useBlockchainData() {
             });
           }
 
-          config.blocks = initialBlocks;
+          config.blocks = initialBlocks.reverse();
           config.currentBlock = config.currentBlock + 1;
         }
       });
@@ -242,7 +243,7 @@ export function useBlockchainData() {
     const blockIntervals: any[] = [];
     Object.keys(chainConfigs).forEach((chainKey) => {
       const config = chainConfigs[chainKey];
-      if (config.type === "EVM" && !config.rpcEndpoint) {
+      if (!config.rpcEndpoint) {
         const interval = setInterval(() => {
           generateBlock(chainKey);
         }, config.blockTime);

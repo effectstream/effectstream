@@ -67,6 +67,7 @@ body {
   display: grid;
   grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr;
   gap: 20px;
+  height: 400px;
   margin-top: 20px;
   max-width: 100%;
   overflow: hidden;
@@ -80,7 +81,7 @@ body {
   padding: 20px;
   box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  min-height: 600px;
+  min-height: 300px;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   min-width: 0;
   max-width: 100%;
@@ -200,7 +201,7 @@ body {
   text-align: right;
 }
 
-/* Scrollbar Styling */
+/* Scrollbar mStyling */
 .blocks-list::-webkit-scrollbar,
 .primitive-table tbody::-webkit-scrollbar {
   width: 6px;
@@ -236,7 +237,7 @@ body {
 }
 
 @media (max-width: 768px) {
-  .columns-container {
+  .coluns-container {
     grid-template-columns: 1fr;
     gap: 15px;
   }
@@ -284,16 +285,17 @@ body {
 }
 
 .section-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   background: linear-gradient(45deg, #19b17b, #022418);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-align: center;
-  margin-bottom: 30px;
+  /* margin-bottom: 30px; */
   border-bottom: 2px solid #eee;
-  padding-bottom: 15px;
+  padding-bottom: 10px;
+  margin-top: -20px;
 }
 
 .primitive-tables {
@@ -348,7 +350,7 @@ body {
 
 .primitive-table tbody {
   display: block;
-  max-height: 280px; /* Approximately 6 rows at ~45px each */
+  max-height: 180px; /* Approximately 6 rows at ~45px each */
   overflow-y: auto;
   overflow-x: hidden;
 }
