@@ -36,6 +36,35 @@ body {
   z-index: 1000;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.batcher-api-button {
+  background: linear-gradient(45deg, #19b17b, #022418);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(25, 177, 123, 0.3);
+}
+
+.batcher-api-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(25, 177, 123, 0.5);
+  background: linear-gradient(45deg, #22c48a, #033d2a);
+}
+
+.batcher-api-button:active {
+  transform: translateY(0);
+}
+
 .title {
   /* color: #ffffff; */
   font-size: 2.5rem;
@@ -246,6 +275,13 @@ body {
     flex-direction: column;
     gap: 15px;
     text-align: center;
+    padding: 15px 20px;
+  }
+
+  .header-right {
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
   }
 
   .title {
@@ -254,6 +290,7 @@ body {
 
   .container {
     padding: 15px;
+    padding-top: 140px; /* Increased to accommodate taller header */
   }
 }
 
@@ -454,5 +491,119 @@ body {
 
   .section-title {
     font-size: 1.6rem;
+  }
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  max-width: 90vw;
+  max-height: 90vh;
+  width: 800px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  background: linear-gradient(45deg, #19b17b, #022418);
+  color: white;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.3s ease;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-body {
+  /* padding: 30px; */
+  overflow-y: auto;
+  flex: 1;
+}
+
+.documentation-content {
+  min-height: 400px;
+  height: 100%;
+}
+
+.documentation-iframe {
+  width: 100%;
+  height: 70vh;
+  border: none;
+  border-radius: 8px;
+  background: white;
+}
+
+/* Responsive modal styles */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95vw;
+    max-height: 95vh;
+  }
+
+  .modal-header {
+    padding: 15px 20px;
+  }
+
+  .modal-title {
+    font-size: 1.3rem;
+  }
+
+  .modal-body {
+    padding: 20px;
+  }
+
+  .header-right {
+    gap: 10px;
+  }
+
+  .batcher-api-button {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+
+  .documentation-iframe {
+    height: 400px;
   }
 }

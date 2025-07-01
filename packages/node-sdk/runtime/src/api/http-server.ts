@@ -1,4 +1,4 @@
-import fastify, { FastifyRequest } from "npm:fastify";
+import fastify, { type FastifyRequest } from "fastify";
 // import { Value } from "npm:@sinclair/typebox/value";
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
 import type { Pool } from "pg";

@@ -133,7 +133,44 @@ export function useBlockchainData() {
 
           // Generate new block when RPC block increments
           if (chainConfig.previousLatestBlockNumber > 0) {
-            generateBlock(chainKey, updated);
+            const blockHash = generateRandomHash();
+            const timestamp = new Date();
+
+            const newBlock = {
+              number: blockNumber,
+              hash: blockHash,
+              timestamp: timestamp,
+            };
+
+            // Check if block already exists to prevent duplicates
+            const blockExists = chainConfig.blocks.some(
+              (block) =>
+                block.number === blockNumber && block.hash === blockHash,
+            );
+
+            if (!blockExists) {
+              // Add to beginning of array
+              chainConfig.blocks.unshift(newBlock);
+
+              // Keep only last 20 blocks
+              if (chainConfig.blocks.length > 20) {
+                chainConfig.blocks = chainConfig.blocks.slice(0, 20);
+              }
+
+              // Set new block indicator
+              setNewBlockIndices((prevIndices) => ({
+                ...prevIndices,
+                [chainKey]: 0,
+              }));
+
+              // Clear new block indicator after animation
+              setTimeout(() => {
+                setNewBlockIndices((prevIndices) => ({
+                  ...prevIndices,
+                  [chainKey]: undefined,
+                }));
+              }, 250);
+            }
           }
         }
 
@@ -173,18 +210,25 @@ export function useBlockchainData() {
         const updated = { ...prev };
         const chainConfig = updated[chainKey];
 
-        // Add to beginning of array
-        chainConfig.blocks.unshift(newBlock);
+        // Check if block already exists to prevent duplicates
+        const blockExists = chainConfig.blocks.some(
+          (block) => block.number === blockNumber,
+        );
 
-        // Keep only last 20 blocks
-        if (chainConfig.blocks.length > 20) {
-          chainConfig.blocks = chainConfig.blocks.slice(0, 20);
+        if (!blockExists) {
+          // Add to beginning of array
+          chainConfig.blocks.unshift(newBlock);
+
+          // Keep only last 20 blocks
+          if (chainConfig.blocks.length > 20) {
+            chainConfig.blocks = chainConfig.blocks.slice(0, 20);
+          }
         }
 
         return updated;
       });
 
-      // Set new block indicator
+      // Set new block indicator only if block was added
       setNewBlockIndices((prev) => ({
         ...prev,
         [chainKey]: 0,

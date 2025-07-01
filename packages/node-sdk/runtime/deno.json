@@ -10,6 +10,7 @@
     "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "npm:@opentelemetry/auto-instrumentations-node@^0.54.0",
     "@opentelemetry/sdk-node": "npm:@opentelemetry/sdk-node@^0.56.0",
-    "jsonc-parser": "npm:jsonc-parser@^3.3.1"
+    "jsonc-parser": "npm:jsonc-parser@^3.3.1",
+    "fastify": "npm:fastify@^5.4.0"
   }
 }

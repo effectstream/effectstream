@@ -1,10 +1,15 @@
-import fastify, { type FastifyRequest } from "npm:fastify";
-import cors from "npm:@fastify/cors";
-import { type Operation, run } from "npm:effection";
+import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import cors from "@fastify/cors";
+import { type Operation, run, until } from "effection";
 import type { BatchedSubunit } from "@paima/concise";
-import { Type } from "npm:@sinclair/typebox";
+import { Type } from "@sinclair/typebox";
 import type { Batcher } from "./batcher.ts";
-
+import fastifySwagger, {
+  type FastifyDynamicSwaggerOptions,
+} from "@fastify/swagger";
+import fastifySwaggerUi, {
+  type FastifySwaggerUiOptions,
+} from "@fastify/swagger-ui";
 // TypeBox schema for BatchedSubunit
 const BatchedSubunitSchema = Type.Object({
   addressType: Type.Number(),
@@ -14,23 +19,108 @@ const BatchedSubunitSchema = Type.Object({
   millisecondTimestamp: Type.String(),
 });
 
+function* registerOpenApiDocumentation(
+  server: FastifyInstance,
+  port: number,
+) {
+  // Generate OpenAPI documentation
+  // Documentation is available at /documentation /documentation/json /documentation/yaml
+  const openApiOptions: FastifyDynamicSwaggerOptions = {
+    openapi: {
+      info: {
+        title: "Paima Batcher",
+        description: "Paima Batcher API",
+        version: "0.1.0",
+      },
+      tags: [
+        {
+          name: "batcher",
+          description: "User Batcher related end-points",
+        },
+        {
+          name: "developer",
+          description: "Devops/Status related end-points",
+        },
+      ],
+      servers: [
+        {
+          url: `http://localhost:${port}`,
+          description: "Local server",
+        },
+      ],
+    },
+    hideUntagged: true,
+  };
+
+  const uiOptions: FastifySwaggerUiOptions = {
+    routePrefix: "/documentation",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: false,
+    },
+    uiHooks: {
+      onRequest: function (request, reply, next) {
+        next();
+      },
+      preHandler: function (request, reply, next) {
+        next();
+      },
+    },
+    staticCSP: true,
+    transformStaticCSP: (header) => {
+      return header.replace(/ frame-ancestors 'self';/, "");
+    },
+    transformSpecification: (swaggerObject, request, reply) => {
+      return swaggerObject;
+    },
+    transformSpecificationClone: true,
+    theme: {
+      css: [
+        {
+          filename: "custom.css",
+          content: `
+          .swagger-ui .topbar {
+            display: none;
+          }
+        `,
+        },
+      ],
+    },
+  };
+
+  yield* until(server.register(fastifySwagger, openApiOptions));
+
+  yield* until(server.register(fastifySwaggerUi, uiOptions));
+}
+
 export function* startBatcherHttpServer(
   batcher: Batcher,
   port: number,
 ): Operation<void> {
-  console.log("Starting HTTP server");
+  const server = fastify();
+
+  // OpenAPI Docs
+  yield* registerOpenApiDocumentation(server, port);
+
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.
-  const server = fastify();
-  console.log("Server created");
-
-  server.register(cors, {
+  yield* until(server.register(cors, {
     origin: "*",
-  });
+  }));
 
-  console.log("CORS registered");
   // Health check endpoint
-  server.get("/health", async () => {
+  server.get("/health", {
+    schema: {
+      tags: ["developer"],
+      response: {
+        200: Type.Object({
+          status: Type.String(),
+          isRunning: Type.Boolean(),
+          isProcessingBatch: Type.Boolean(),
+        }),
+      },
+    },
+  }, async () => {
     const stats = await run(() => batcher.getQueueStats());
     return {
       status: "ok",
@@ -40,7 +130,30 @@ export function* startBatcherHttpServer(
   });
 
   // Status endpoint with detailed information
-  server.get("/status", async () => {
+  server.get("/status", {
+    schema: {
+      tags: ["developer"],
+      response: {
+        200: Type.Object({
+          batcher: Type.Object({
+            isRunning: Type.Boolean(),
+            isProcessingBatch: Type.Boolean(),
+            pendingInputs: Type.Number(),
+          }),
+          config: Type.Object({
+            paimaL2Address: Type.String(),
+            batcherAddress: Type.String(),
+            chainName: Type.String(),
+            batchIntervalSeconds: Type.Number(),
+            paimaL2Fee: Type.String(),
+            namespace: Type.String(),
+            maxBatchSize: Type.Number(),
+          }),
+          timestamp: Type.String(),
+        }),
+      },
+    },
+  }, async () => {
     const stats = await run(() => batcher.getQueueStats());
     const config = batcher.getPublicConfig();
     return {
@@ -55,14 +168,33 @@ export function* startBatcherHttpServer(
   });
 
   // Get queue statistics
-  server.get("/queue-stats", async () => {
+  server.get("/queue-stats", {
+    schema: {
+      tags: ["developer"],
+      response: {
+        200: Type.Object({
+          pendingInputs: Type.Number(),
+          processingBatch: Type.Boolean(),
+          lastBatchTimestamp: Type.String(),
+        }),
+      },
+    },
+  }, async () => {
     return await batcher.getQueueStats();
   });
 
   // Add user input to batcher
   server.post("/send-input", {
     schema: {
+      tags: ["batcher"],
       body: BatchedSubunitSchema,
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          message: Type.String(),
+          queueSize: Type.Number(),
+        }),
+      },
     },
   }, async (
     request: FastifyRequest<{ Body: BatchedSubunit }>,
@@ -94,6 +226,7 @@ export function* startBatcherHttpServer(
     }
   });
 
+  // TODO Only in dev mode.
   // Force process current batch (useful for testing/debugging)
   server.post("/force-batch", async (_, reply) => {
     try {
@@ -113,6 +246,7 @@ export function* startBatcherHttpServer(
     }
   });
 
+  // TODO Only in dev mode.
   // Clear all pending inputs (administrative endpoint)
   server.delete("/clear-inputs", async () => {
     try {
@@ -130,8 +264,9 @@ export function* startBatcherHttpServer(
     }
   });
 
+  yield* until(server.ready());
+
   // Start the server
-  console.log("Starting server on port", port);
   server.listen(
     { port, host: "0.0.0.0" },
     (err: Error | null, address: string) => {
