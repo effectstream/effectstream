@@ -65,6 +65,29 @@ body {
   transform: translateY(0);
 }
 
+.node-api-button {
+  background: linear-gradient(45deg, #19b17b, #022418);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(25, 177, 123, 0.3);
+}
+
+.node-api-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(25, 177, 123, 0.5);
+  background: linear-gradient(45deg, #22c48a, #033d2a);
+}
+
+.node-api-button:active {
+  transform: translateY(0);
+}
+
 .title {
   /* color: #ffffff; */
   font-size: 2.5rem;
@@ -107,7 +130,7 @@ body {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   border-radius: 15px;
-  padding: 20px;
+  padding: 20px 5px 20px 5px;
   box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
   border: 1px solid rgba(255, 255, 255, 0.18);
   min-height: 300px;
@@ -115,6 +138,7 @@ body {
   min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 .column:hover {
@@ -598,7 +622,8 @@ body {
     gap: 10px;
   }
 
-  .batcher-api-button {
+  .batcher-api-button,
+  .node-api-button {
     padding: 8px 16px;
     font-size: 0.9rem;
   }

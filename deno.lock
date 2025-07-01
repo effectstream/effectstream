@@ -5641,10 +5641,13 @@
       "packages/node-sdk/runtime": {
         "dependencies": [
           "npm:@fastify/cors@^11.0.1",
+          "npm:@fastify/swagger-ui@^5.2.3",
+          "npm:@fastify/swagger@^9.5.1",
           "npm:@metamask/json-rpc-engine@^10.0.3",
           "npm:@opentelemetry/api@^1.9.0",
           "npm:@opentelemetry/auto-instrumentations-node@0.54",
           "npm:@opentelemetry/sdk-node@0.56",
+          "npm:@sinclair/typebox@~0.34.30",
           "npm:effection@^3.5.0",
           "npm:fastify@^5.4.0",
           "npm:jsonc-parser@^3.3.1",

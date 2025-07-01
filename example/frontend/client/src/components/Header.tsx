@@ -8,6 +8,7 @@ interface HeaderProps {
 
 export function Header({ latestBlock, isConnected }: HeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -15,6 +16,14 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+  };
+
+  const handleOpenNodeModal = () => {
+    setIsNodeModalOpen(true);
+  };
+
+  const handleCloseNodeModal = () => {
+    setIsNodeModalOpen(false);
   };
 
   return (
@@ -27,6 +36,12 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
             onClick={handleOpenModal}
           >
             Batcher API
+          </button>
+          <button
+            className="node-api-button"
+            onClick={handleOpenNodeModal}
+          >
+            Paima Engine Node API
           </button>
           <div className="block-info">
             <span>Latest Block:</span>
@@ -55,6 +70,20 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
             src="http://localhost:3334/documentation"
             className="documentation-iframe"
             title="Batcher API Documentation"
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isNodeModalOpen}
+        onClose={handleCloseNodeModal}
+        title="Paima Engine Node API Documentation"
+      >
+        <div className="documentation-content">
+          <iframe
+            src="http://localhost:9999/documentation"
+            className="documentation-iframe"
+            title="Paima Engine Node API Documentation"
           />
         </div>
       </Modal>

@@ -17,6 +17,12 @@ const IS_PGLITE = true; // TODO: make this configurable
 //      It only works for deno's single-threaded runtime.
 //      pglite exports async-mutex, so we can use that for a proper solution.
 let db_mutex: "free" | "locked" = "free";
+/**
+ * Acquires a mutex to ensure that only one query is executed at a time.
+ * If running in PGLite, it will acquire a mutex to ensure that only one query is executed at a time.
+ * If running in a full pgsql server, it will do nothing.
+ * Always run run `releaseDBMutex()` after the query locks no longer needed, other threads are blocked until the mutex is released.
+ */
 export function* aquireDBMutex(): Operation<void> {
   if (!IS_PGLITE) return;
   while (true) {
@@ -28,16 +34,31 @@ export function* aquireDBMutex(): Operation<void> {
   }
 }
 
+/**
+ * Releases a mutex to allow other queries to be executed.
+ * If running in PGLite, it will release a mutex to allow other queries to be executed.
+ * If running in a full pgsql server, it will do nothing.
+ * Do not call this function if you did not call `aquireDBMutex()` before.
+ */
 export function releaseDBMutex() {
   db_mutex = "free";
 }
 
+/**
+ * Helper function to run a db query in a thread-safe manner.
+ * If running in PGLite, it will acquire a mutex to ensure that only one query is executed at a time.
+ * If running in a full pgsql server, it will run normally.
+ */
 export async function runPreparedQuery<T>(p: Promise<T>): Promise<T> {
-  if (IS_PGLITE) {
-    await run(aquireDBMutex);
+  let result: T;
+  try {
+    if (IS_PGLITE) {
+      await run(aquireDBMutex);
+    }
+    result = await p;
+  } finally {
+    releaseDBMutex();
   }
-  const result = await p;
-  releaseDBMutex();
   return result;
 }
 
