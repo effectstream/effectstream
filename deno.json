@@ -1,11 +1,14 @@
 {
-  "workspace": ["./packages/**/*", "./example/**/*"],
+  "workspace": [
+    "./packages/**/*",
+    "./example/**/*",
+    "./docs/**/*"
+  ],
   "nodeModulesDir": "auto",
   "tasks": {
     "check": "deno check"
   },
-  "imports": {
-  },
+  "imports": {},
   "lint": {
     "rules": {
       "exclude": [

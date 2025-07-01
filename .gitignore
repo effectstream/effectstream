@@ -5,7 +5,12 @@ logs/
 # e2e tests
 /cache
 /out
+
+# Frontend
 .vite
 
 # Batcher file storage
 batcher-data/
+
+# Docusaurus
+.docusaurus/

@@ -1,0 +1,280 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;700&display=swap');
+
+@font-face {
+    font-family: 'Manrope', sans-serif;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+:root {
+  --ifm-code-background: #88A58E4b !important;
+  
+}
+code {
+  border: solid 0.1em #6294672f;
+}
+
+ul.theme-doc-sidebar-menu > li:nth-child(2)::before {
+  color: rgba(25, 177, 123, 0.5);
+  content: "- - - - - - - - - - - - -";
+}
+
+ul.theme-doc-sidebar-menu > li:nth-last-child(5)::before {
+  color: rgba(25, 177, 123, 0.5);
+  content: "- - - - - - - - - - - - -";
+}
+ul.theme-doc-sidebar-menu > li:nth-last-child(3)::before {
+  color: rgba(25, 177, 123, 0.5);
+  content: "- - - - - - - - - - - - -";
+}
+
+.img-center {
+  display: flex;
+  justify-content: center;
+  width: 100%,
+}
+
+/* Style for the multi-line announcement banner */
+.custom-banner {
+  font-size: 1.2rem; /* Increase font size */
+  line-height: 1.8; /* Adjust line spacing */
+  padding: 20px; /* Add padding for more height */
+  text-align: center; /* Center-align the content */
+}
+
+.custom-banner a {
+  color: #1d4ed8; /* Link color */
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+.custom-banner p {
+  margin: 0; /* Remove default paragraph margins for consistency */
+}
+
+:root {
+  --docusaurus-announcement-bar-height: 75px !important;
+  --ifm-color-primary: #356ddb;
+  --ifm-color-primary-dark: #356ddb;
+  --ifm-color-primary-darker: #356ddb;
+  --ifm-color-primary-darkest: #356ddb;
+  --ifm-color-primary-light: #356ddb;
+  --ifm-color-primary-lighter: #356ddb;
+  --ifm-color-primary-lightest: #356ddb;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-spacing-horizontal: 40px;
+  --ifm-font-color-base: #3b454e;
+  --ifm-blockquote-border-left-width: 4px;
+  --ifm-blockquote-color: #5c6975;
+  --ifm-blockquote-padding-horizontal: 20px;
+  --ifm-alert-padding-horizontal: 20px;
+  --ifm-navbar-padding-horizontal: 16px;
+  --tabs-bg-active: white;
+  --tabs-text-inactive: rgb(156 163 175);
+  --ifm-font-family-base: 'Manrope';
+  --ifm-h1-font-size: 3rem !important;
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme="dark"] {
+  --ifm-color-primary: #19B17B;
+  --ifm-color-primary-dark: #19B17B;
+  --ifm-color-primary-darker: #19B17B;
+  --ifm-color-primary-darkest: #19B17B;
+  --ifm-color-primary-light: #19B17B;
+  --ifm-color-primary-lighter: #19B17B;
+  --ifm-color-primary-lightest: #19B17B;
+  --ifm-font-color-base: #fff;
+  --ifm-blockquote-color: #c8c8c8;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --tabs-bg-active: #1c1c1d;
+  --tabs-text-inactive: #bab0b0;
+  --ifm-background-color: #030909 !important;
+}
+
+.navbar {
+    backdrop-filter: none !important;
+}
+
+@media (min-width: 1000px) {
+  nav.navbar.navbar--fixed-top {
+    backdrop-filter: blur(25px);
+    background: var(--ifm-top-menu-color);
+  }
+}
+
+.footer {
+    background: rgb(1, 10, 18, 0.5);
+    backdrop-filter: blur(20px);
+}
+
+
+h1 {
+    background: #19B17B;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: #19b17b;
+    background-clip: text;
+    width: max-content;
+    max-width: 100%;
+    color: transparent;
+}
+
+h2 {
+  color: #19B17B;
+
+}
+
+h3 a {
+  color: #ffffff;
+}
+
+img {
+  @apply mb-3;
+}
+
+code {
+  vertical-align: unset;
+}
+
+.img-full {
+  @apply w-full max-w-full;
+}
+
+.img-card {
+  @apply max-w-[300px] mb-4;
+}
+.img-icon {
+  @apply w-5 mb-0;
+}
+
+.tabs-container [role="tab"] {
+  @apply rounded-t-md rounded-b-none border-[1px] border-solid border-gray-300 py-2 bg-[color:var(--tabs-bg-active)] border-b-0;
+}
+.tabs-container [role="tab"][aria-selected="false"] {
+  @apply bg-[color:var(--tabs-bg)] text-gray-400;
+}
+.tabs-container [role="tabpanel"] {
+  @apply border-[1px] border-solid border-gray-300 p-5 -mt-[17px];
+}
+
+
+.card {
+  background: none;
+}
+
+.alert--info {
+  background-color: #212B34;
+  border: var(--ifm-alert-border-width) solid #3F7EB8;
+  border-left-width: var(--ifm-alert-border-left-width);
+  border-radius: var(--ifm-alert-border-radius);
+  box-shadow: var(--ifm-alert-shadow);
+}
+
+.alert--warning {
+  background-color: #54391A;
+  border: var(--ifm-alert-border-width) solid #F07D00;
+  border-left-width: var(--ifm-alert-border-left-width);
+  border-radius: var(--ifm-alert-border-radius);
+  box-shadow: var(--ifm-alert-shadow);  
+
+}
+
+.alert a {
+  color: #19B17B;
+  text-decoration-color: #19B17B;
+  -webkit-text-decoration-color: rgba(255, 152, 40, 0.4); /* Safari */   
+  text-decoration-color: rgba(255, 152, 40, 0.4);  
+}
+
+.alert .prism-code {
+  background-color: #030909;
+}
+
+.tabs {
+  font-size: 12px;
+}
+
+.tabs-container [role="tab"] {
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  border-bottom-right-radius: 0px;
+  border-bottom-left-radius: 0px;
+  border-width: 1px;
+  border-bottom-width: 0px;
+  border-style: solid;
+  --tw-border-opacity: 1;
+  border-color: #666C73;
+  background-color: var(--ifm-background-color);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.tabs-container [role="tabpanel"] {
+  margin-top: -17px;
+  border-width: 1px;
+  border-style: solid;
+  --tw-border-opacity: 1;
+  border-color: #666C73;
+  padding: 1.25rem;
+  border-top-right-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+  border-bottom-left-radius: 0.375rem;
+}
+
+
+/* .tabs-container [role="tab"] {
+  background-color: var(--tabs-bg);
+  border-bottom-style: none;
+} */
+
+
+/* .tabs-container [role="tab"] {
+  border: solid 1px #666C73;
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  border-bottom-right-radius: 0px;
+  border-bottom-left-radius: 0px;  
+
+} */
+
+[id^="mermaid-svg-"] {
+  background-color: #030909;  /* Change to your desired color */
+  border-radius: 10px;
+  overflow: hidden;  /* To ensure the SVG inside respects the rounded corners */
+}
+
+[id^="mermaid-svg-"] > line[id^="actor"][stroke="#999"] {
+  stroke: grey !important;
+}
+[id^="mermaid-svg-"] > g > line[id^="actor"][stroke="#999"] {
+  stroke: grey !important;
+}
+.statediagram-cluster.statediagram-cluster rect[class=inner] {
+  fill: #2D2836 !important;
+}
+.actor-man > line {
+  stroke: #12271F !important;
+}
+
+.loopLine {
+  stroke: grey !important;
+}
+
+.code-block-alternate-color-line {
+  background-color: #2D2836;
+  display: block;
+  margin: 0 calc(-1 * var(--ifm-pre-padding));
+  padding: 0 var(--ifm-pre-padding);
+}
+
+.code-block-alternate-color-line:nth-child(odd) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
