@@ -1,5 +1,6 @@
 {
   "name": "@example/frontend",
+  "exports": "./server/main.ts",
   "tasks": {
     "dev": "deno run -A --node-modules-dir=auto npm:vite",
     "build": "deno run -A --node-modules-dir=auto npm:vite build",

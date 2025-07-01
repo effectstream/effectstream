@@ -50,54 +50,54 @@ function formatCellValue(value: any, fieldName: string): string {
 }
 
 export function DataTable({ title, data }: DataTableProps) {
-  if (!data || !data.rows || !data.fields) {
-    return (
-      <div className="primitive-table-container">
-        <h3 className="primitive-table-title">{title}</h3>
-        <div className="table-error">No data available</div>
-      </div>
-    );
-  }
+  // Always show the table container with title
+  const hasData = data && data.rows && data.fields && data.rows.length > 0;
+  const fields = data?.fields || [];
+  const rows = data?.rows || [];
 
   return (
     <div
       className={`primitive-table-container ${
-        data.rows.length > 6 ? "has-scroll" : ""
+        rows.length > 6 ? "has-scroll" : ""
       }`}
     >
       <h3 className="primitive-table-title">{title}</h3>
-      <table className="primitive-table">
-        <thead>
-          <tr>
-            {data.fields.map((field) => (
-              <th key={field.name}>
-                {field.name.replace(/_/g, " ").toUpperCase()}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.rows.slice().reverse().map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {data.fields.map((field) => {
-                const value = row[field.name];
-                const formattedValue = formatCellValue(value, field.name);
-                const plainTextValue = value ? value.toString() : "";
+      {!hasData
+        ? <div className="table-error">No data available</div>
+        : (
+          <table className="primitive-table">
+            <thead>
+              <tr>
+                {fields.map((field) => (
+                  <th key={field.name}>
+                    {field.name.replace(/_/g, " ").toUpperCase()}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.slice().reverse().map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {fields.map((field) => {
+                    const value = row[field.name];
+                    const formattedValue = formatCellValue(value, field.name);
+                    const plainTextValue = value ? value.toString() : "";
 
-                return (
-                  <td
-                    key={field.name}
-                    dangerouslySetInnerHTML={{ __html: formattedValue }}
-                    title={plainTextValue.length > 30
-                      ? plainTextValue
-                      : undefined}
-                  />
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                    return (
+                      <td
+                        key={field.name}
+                        dangerouslySetInnerHTML={{ __html: formattedValue }}
+                        title={plainTextValue.length > 30
+                          ? plainTextValue
+                          : undefined}
+                      />
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
     </div>
   );
 }

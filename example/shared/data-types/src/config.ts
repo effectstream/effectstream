@@ -98,7 +98,7 @@ export const localhostConfig = new ConfigBuilder()
     builder.addPrimitive(
       (syncProtocols) => syncProtocols.mainEvmRPC,
       (network, deployments, syncProtocol) => ({
-        name: "MyTransferEvent",
+        name: "Aribitrum_Token",
         type: ConfigPrimitiveType.EvmRpcERC20,
 
         startBlockHeight: 0,
@@ -125,7 +125,7 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
-          name: "MyERC721",
+          name: "Arbitrum_ERC721",
           type: ConfigPrimitiveType.EvmRpcERC721,
           startBlockHeight: 0,
           contractAddress:
@@ -140,7 +140,7 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
-          name: "AnotherERC721",
+          name: "L1_ERC721_Token",
           type: ConfigPrimitiveType.EvmRpcERC721,
           startBlockHeight: 0,
           contractAddress: deployedEvmAddresses["chain-31337"]["erc721_2"],
@@ -154,7 +154,7 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
-          name: "AnotherERC20",
+          name: "ETH_L1_ERC20",
           type: ConfigPrimitiveType.EvmRpcERC20,
           startBlockHeight: 0,
           contractAddress: deployedEvmAddresses["chain-31337"]["erc20_2"],

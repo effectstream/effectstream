@@ -16,12 +16,12 @@ export interface IInsertStateMachineInputQuery {
   result: IInsertStateMachineInputResult;
 }
 
-const insertStateMachineInputIR: any = {"usedParamSet":{"inputs":true,"block_height":true},"params":[{"name":"inputs","required":true,"transform":{"type":"scalar"},"locs":[{"a":57,"b":64}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":67,"b":80}]}],"statement":"INSERT INTO example_sm \n(inputs, block_height) \nVALUES \n(:inputs!, :block_height!)"};
+const insertStateMachineInputIR: any = {"usedParamSet":{"inputs":true,"block_height":true},"params":[{"name":"inputs","required":true,"transform":{"type":"scalar"},"locs":[{"a":66,"b":73}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":76,"b":89}]}],"statement":"INSERT INTO paima_state_machine \n(inputs, block_height) \nVALUES \n(:inputs!, :block_height!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO example_sm 
+ * INSERT INTO paima_state_machine 
  * (inputs, block_height) 
  * VALUES 
  * (:inputs!, :block_height!)

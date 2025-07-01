@@ -71,9 +71,9 @@ async function test() {
       public.primitive_accounting;`,
       (res) => res.rows.length === 3,
       (res) => {
-        return res.rows[0].primitive_name === "MyTransferEvent" &&
-          res.rows[1].primitive_name === "MyTransferEvent" &&
-          res.rows[2].primitive_name === "MyTransferEvent";
+        return res.rows[0].primitive_name === "Aribitrum_Token" &&
+          res.rows[1].primitive_name === "Aribitrum_Token" &&
+          res.rows[2].primitive_name === "Aribitrum_Token";
       },
     );
     await paimaL2.submitGameInput(
@@ -102,7 +102,7 @@ async function test() {
       `SELECT
       inputs
       FROM
-      public.example_sm;`,
+      public.paima_state_machine;`,
       (res) => res.rows.length === 5,
       (res) => {
         const dump = [
@@ -134,7 +134,7 @@ async function test() {
     await assertSQL(
       "Check IVM ERC20",
       db,
-      `SELECT * FROM public.erc20_balances_view_mytransferevent;`,
+      `SELECT * FROM public.erc20_balances_view_aribitrum_token;`,
       (res) => res.rows.length === 2,
       (res) => {
         // TODO
@@ -246,12 +246,12 @@ async function test() {
     await assertSQL(
       "Check ERC721 sync-process",
       db,
-      `SELECT * FROM public.erc721_ownership_view_myerc721;`,
+      `SELECT * FROM public.erc721_ownership_view_arbitrum_erc721;`,
       (res) => res.rows.length === 4,
       (res) => {
         return res.rows.every((row: any) => {
           // [...{
-          // primitive_name: "MyERC721",
+          // primitive_name: "Arbitrum_ERC721",
           // token_id: "1",
           // current_owner: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
           // }...]

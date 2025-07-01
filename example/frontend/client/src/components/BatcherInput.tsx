@@ -363,7 +363,7 @@ export function BatcherInput() {
           onClick={generateNewWallet}
           style={{
             padding: "10px 16px",
-            background: "linear-gradient(45deg, #8b5cf6, #a855f7)",
+            background: "linear-gradient(45deg, #19b17b, #022418)",
             color: "white",
             border: "none",
             borderRadius: "6px",
@@ -419,7 +419,7 @@ export function BatcherInput() {
               disabled={isLoading}
               style={{
                 padding: "8px",
-                border: "2px solid #667eea",
+                border: "2px solid #19b17b",
                 borderRadius: "4px",
                 width: "100%",
               }}
@@ -510,7 +510,7 @@ export function BatcherInput() {
         style={{
           padding: "10px 20px",
           background: (selectedType && wallet)
-            ? "linear-gradient(45deg, #667eea, #764ba2)"
+            ? "linear-gradient(45deg, #19b17b, #022418)"
             : "#ccc",
           color: "white",
           border: "none",

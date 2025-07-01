@@ -2,14 +2,14 @@ import { useEffect } from "react";
 import "./App.css";
 
 // Import components
-import { Header } from "./components/Header";
-import { ColumnsContainer } from "./components/ColumnsContainer";
-import { TableSection } from "./components/TableSection";
-import { BatcherInput } from "./components/BatcherInput";
+import { Header } from "./components/Header.tsx";
+import { ColumnsContainer } from "./components/ColumnsContainer.tsx";
+import { TableSection } from "./components/TableSection.tsx";
+import { BatcherInput } from "./components/BatcherInput.tsx";
 
 // Import hooks
-import { useBlockchainData } from "./hooks/useBlockchainData";
-import { useTableData } from "./hooks/useTableData";
+import { useBlockchainData } from "./hooks/useBlockchainData.ts";
+import { useTableData } from "./hooks/useTableData.ts";
 
 function App() {
   // Use custom hooks for data management
@@ -23,8 +23,6 @@ function App() {
   const {
     primitiveData,
     staticTableData,
-    isLoadingPrimitives,
-    isLoadingStatic,
   } = useTableData();
 
   // Error handling for uncaught promises
@@ -59,8 +57,6 @@ function App() {
     };
   }, []);
 
-  console.log("🚀 Paima Explorer running in React mode");
-
   return (
     <div className="container">
       <Header
@@ -76,13 +72,11 @@ function App() {
       <TableSection
         title="Primitive Data"
         tables={primitiveData}
-        isLoading={isLoadingPrimitives}
       />
 
       <TableSection
         title="State Machine Tables"
         tables={staticTableData}
-        isLoading={isLoadingStatic}
       >
         <BatcherInput />
       </TableSection>

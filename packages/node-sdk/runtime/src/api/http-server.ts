@@ -51,6 +51,20 @@ export const startHttpServer = function* (
   });
 
   // TODO How to only select user defined tables?
+  server.get("/table-schema/:tableName", async (
+    request: FastifyRequest<{ Params: { tableName: string } }>,
+    reply,
+  ) => {
+    const { tableName } = request.params;
+    // TODO This is unsafe.
+    const result = await runPreparedQuery<{ rows: unknown[] }>(dbConn.query(
+      `select column_name, data_type, character_maximum_length, column_default, is_nullable
+from INFORMATION_SCHEMA.COLUMNS where table_name = '${tableName.toLowerCase()}';
+`,
+    ));
+    return result.rows;
+  });
+
   server.get(
     "/tables/:tableName",
     async (
@@ -59,8 +73,9 @@ export const startHttpServer = function* (
     ) => {
       const { tableName } = request.params;
       try {
+        // TODO This is unsafe.
         const result = await runPreparedQuery<{ rows: unknown[] }>(dbConn.query(
-          `SELECT * FROM ${tableName}`,
+          `SELECT * FROM "${tableName.toLowerCase()}"`,
         ));
         return result.rows;
       } catch (error) {
@@ -68,6 +83,52 @@ export const startHttpServer = function* (
       }
     },
   );
+
+  server.get("/primitives-schema/:primitiveName", async (
+    request: FastifyRequest<{ Params: { primitiveName: string } }>,
+    reply,
+  ) => {
+    const { primitiveName } = request.params;
+    // TODO map/find the results generated bad TS Types (too hard to represent)
+    const findPrimitive = (syncProtocols: AllSyncProtocols[]) => {
+      for (const syncProtocol of syncProtocols) {
+        for (const primitive of syncProtocol.config.primitives) {
+          if (primitive.primitive.name === primitiveName) {
+            return primitive;
+          }
+        }
+      }
+      return undefined;
+    };
+    const primitive = findPrimitive(syncProtocols);
+    if (!primitive) {
+      return reply.status(404).send({ error: "Primitive not found" });
+    }
+
+    if (primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC20) {
+      // TODO This is unsafe.
+      const result = await runPreparedQuery<{ rows: unknown[] }>(dbConn.query(
+        `select column_name, data_type, character_maximum_length, column_default, is_nullable
+from INFORMATION_SCHEMA.COLUMNS where table_name = 'erc20_balances_view_${primitive.primitive.name.toLowerCase()}';
+`,
+      ));
+      return result.rows;
+    } else if (
+      primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC721
+    ) {
+      // TODO This is unsafe.
+      const result = await runPreparedQuery<{ rows: unknown[] }>(dbConn.query(
+        `select column_name, data_type, character_maximum_length, column_default, is_nullable
+from INFORMATION_SCHEMA.COLUMNS where table_name = 'erc721_ownership_view_${primitive.primitive.name.toLowerCase()}';
+`,
+      ));
+      return result.rows;
+    }
+
+    return reply.status(404).send({
+      error: "Primitive does not have aggregated data",
+    });
+  });
 
   server.get(
     "/primitives/:primitiveName",
@@ -93,15 +154,17 @@ export const startHttpServer = function* (
       }
 
       if (primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC20) {
+        // TODO This is unsafe.
         const result = await runPreparedQuery<{ rows: unknown[] }>(dbConn.query(
-          `SELECT * FROM erc20_balances_view_${primitive.primitive.name}`,
+          `SELECT * FROM "erc20_balances_view_${primitive.primitive.name.toLowerCase()}"`,
         ));
         return result.rows;
       } else if (
         primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC721
       ) {
+        // TODO This is unsafe.
         const result = await runPreparedQuery<{ rows: unknown[] }>(dbConn.query(
-          `SELECT * FROM erc721_ownership_view_${primitive.primitive.name}`,
+          `SELECT * FROM "erc721_ownership_view_${primitive.primitive.name.toLowerCase()}"`,
         ));
         return result.rows;
       }

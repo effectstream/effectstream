@@ -23,10 +23,10 @@ type PaimaChains = Record<string, ChainConfig>;
 
 // Initial configuration for each chain
 const initialChainConfigs: PaimaChains = {
-  paima: {
+  Paima: {
     type: "EVM",
     name: "Paima Engine",
-    blockTime: 2000,
+    blockTime: 300,
     color: "#667eea",
     blocks: [],
     currentBlock: 1000000,
@@ -37,8 +37,8 @@ const initialChainConfigs: PaimaChains = {
   },
   evmMain: {
     type: "EVM",
-    name: "EVM Main",
-    blockTime: 2000,
+    name: "Arbitrum",
+    blockTime: 300,
     color: "#4caf50",
     blocks: [],
     currentBlock: 500000,
@@ -49,8 +49,8 @@ const initialChainConfigs: PaimaChains = {
   },
   evmParallel: {
     type: "EVM",
-    name: "EVM Parallel",
-    blockTime: 3000,
+    name: "Ethereum L1",
+    blockTime: 12000,
     color: "#ff9800",
     blocks: [],
     currentBlock: 750000,
@@ -62,7 +62,7 @@ const initialChainConfigs: PaimaChains = {
   cardano: {
     type: "Cardano",
     name: "Cardano",
-    blockTime: 2000,
+    blockTime: 20000,
     color: "#2196f3",
     blocks: [],
     currentBlock: 300000,
@@ -261,7 +261,7 @@ export function useBlockchainData() {
         // Setup polling interval
         const interval = setInterval(() => {
           fetchLatestBlockForChain(chainKey);
-        }, 100);
+        }, 1000);
         rpcIntervals.push(interval);
       }
     });
@@ -274,7 +274,7 @@ export function useBlockchainData() {
   }, []); // Empty dependency array since we want this to run once
 
   // Get Paima chain data for backward compatibility
-  const paimaChain = chainConfigs.paima;
+  const paimaChain = chainConfigs.Paima;
   const latestBlock = paimaChain?.latestBlockNumber || 0;
   const isConnected = paimaChain?.isConnected || false;
 

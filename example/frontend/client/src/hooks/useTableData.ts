@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface Field {
   name: string;
@@ -12,9 +12,19 @@ interface TableData {
   fields: Field[];
 }
 
+interface SchemaColumn {
+  column_name: string;
+  data_type: string;
+  character_maximum_length: number | null;
+  column_default: string | null;
+  is_nullable: string;
+}
+
 const CONFIG_ENDPOINT = "http://127.0.0.1:9999/config";
 const PRIMITIVES_ENDPOINT = "http://127.0.0.1:9999/primitives";
 const TABLES_ENDPOINT = "http://127.0.0.1:9999/tables";
+const PRIMITIVES_SCHEMA_ENDPOINT = "http://127.0.0.1:9999/primitives-schema";
+const TABLE_SCHEMA_ENDPOINT = "http://127.0.0.1:9999/table-schema";
 
 export function useTableData() {
   const [primitiveNames, setPrimitiveNames] = useState<string[]>([]);
@@ -24,47 +34,66 @@ export function useTableData() {
   const [staticTableData, setStaticTableData] = useState<
     Record<string, TableData | null>
   >({});
-  const [isLoadingPrimitives, setIsLoadingPrimitives] = useState(true);
-  const [isLoadingStatic, setIsLoadingStatic] = useState(true);
+  const [primitiveSchemas, setPrimitiveSchemas] = useState<
+    Record<string, SchemaColumn[]>
+  >({});
+  const [staticTableSchemas, setStaticTableSchemas] = useState<
+    Record<string, SchemaColumn[]>
+  >({});
 
-  // Convert primitive data (direct array) to TableData format
-  const convertPrimitiveDataToTableFormat = useCallback(
-    (primitiveData: any, primitiveName: string): TableData | null => {
-      if (!Array.isArray(primitiveData) || primitiveData.length === 0) {
-        return null;
-      }
+  // Add ref to track if initial load is complete
+  const isInitialLoadComplete = useRef(false);
 
-      // Extract field names from the first row
-      const fields = Object.keys(primitiveData[0]).map((key) => ({
-        name: key,
-        dataTypeID: 25, // Default to text type
+  // Refs to access current state values in callbacks
+  const primitiveNamesRef = useRef<string[]>([]);
+  const primitiveSchemasRef = useRef<Record<string, SchemaColumn[]>>({});
+  const staticTableSchemasRef = useRef<Record<string, SchemaColumn[]>>({});
+
+  // Update refs whenever state changes
+  useEffect(() => {
+    primitiveNamesRef.current = primitiveNames;
+  }, [primitiveNames]);
+
+  useEffect(() => {
+    primitiveSchemasRef.current = primitiveSchemas;
+  }, [primitiveSchemas]);
+
+  useEffect(() => {
+    staticTableSchemasRef.current = staticTableSchemas;
+  }, [staticTableSchemas]);
+
+  // Convert schema columns to Field format
+  const convertSchemaToFields = useCallback(
+    (schema: SchemaColumn[]): Field[] => {
+      return schema.map((column) => ({
+        name: column.column_name,
+        dataTypeID: 25, // Default to text type - could be mapped from column.data_type if needed
       }));
-
-      return {
-        command: "SELECT",
-        rowCount: primitiveData.length,
-        rows: primitiveData,
-        fields: fields,
-      };
     },
     [],
   );
 
-  // Convert table data to TableData format
-  const convertTableDataToTableFormat = useCallback(
-    (tableData: any, tableName: string): TableData | null => {
-      // Handle new API structure where data has rows field in root
-      const rows = tableData?.rows || tableData;
+  // Convert primitive data (direct array) to TableData format using schema
+  const convertPrimitiveDataToTableFormat = useCallback(
+    (
+      primitiveData: any,
+      primitiveName: string,
+      schema?: SchemaColumn[],
+    ): TableData | null => {
+      const rows = Array.isArray(primitiveData) ? primitiveData : [];
 
-      if (!Array.isArray(rows) || rows.length === 0) {
-        return null;
+      let fields: Field[] = [];
+
+      if (schema && schema.length > 0) {
+        // Use schema if available
+        fields = convertSchemaToFields(schema);
+      } else if (rows.length > 0) {
+        // Fallback to extracting from first row if no schema
+        fields = Object.keys(rows[0]).map((key) => ({
+          name: key,
+          dataTypeID: 25,
+        }));
       }
-
-      // Extract field names from the first row
-      const fields = Object.keys(rows[0]).map((key) => ({
-        name: key,
-        dataTypeID: 25, // Default to text type
-      }));
 
       return {
         command: "SELECT",
@@ -72,6 +101,91 @@ export function useTableData() {
         rows: rows,
         fields: fields,
       };
+    },
+    [convertSchemaToFields],
+  );
+
+  // Convert table data to TableData format using schema
+  const convertTableDataToTableFormat = useCallback(
+    (
+      tableData: any,
+      tableName: string,
+      schema?: SchemaColumn[],
+    ): TableData | null => {
+      const rows = Array.isArray(tableData) ? tableData : [];
+
+      let fields: Field[] = [];
+
+      if (schema && schema.length > 0) {
+        // Use schema if available
+        fields = convertSchemaToFields(schema);
+      } else if (rows.length > 0) {
+        // Fallback to extracting from first row if no schema
+        fields = Object.keys(rows[0]).map((key) => ({
+          name: key,
+          dataTypeID: 25,
+        }));
+      }
+
+      return {
+        command: "SELECT",
+        rowCount: rows.length,
+        rows: rows,
+        fields: fields,
+      };
+    },
+    [convertSchemaToFields],
+  );
+
+  // Fetch schema for primitive
+  const fetchPrimitiveSchema = useCallback(
+    async (primitiveName: string): Promise<SchemaColumn[] | null> => {
+      try {
+        const response = await fetch(
+          `${PRIMITIVES_SCHEMA_ENDPOINT}/${primitiveName}`,
+        );
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(
+              `🚫 Schema for primitive ${primitiveName} not found (404)`,
+            );
+            return null;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const schema = await response.json();
+        console.log(`📋 Fetched schema for ${primitiveName}:`, schema);
+        return schema;
+      } catch (error) {
+        console.error(
+          `Error fetching schema for primitive ${primitiveName}:`,
+          error,
+        );
+        return null;
+      }
+    },
+    [],
+  );
+
+  // Fetch schema for table
+  const fetchTableSchema = useCallback(
+    async (tableName: string): Promise<SchemaColumn[] | null> => {
+      try {
+        const response = await fetch(`${TABLE_SCHEMA_ENDPOINT}/${tableName}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(`🚫 Schema for table ${tableName} not found (404)`);
+            return null;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const schema = await response.json();
+        console.log(`📋 Fetched schema for ${tableName}:`, schema);
+        return schema;
+      } catch (error) {
+        console.error(`Error fetching schema for table ${tableName}:`, error);
+        return null;
+      }
     },
     [],
   );
@@ -103,7 +217,11 @@ export function useTableData() {
         Array.isArray(syncProtocolConfig.primitives)
       ) {
         syncProtocolConfig.primitives.forEach((primitive: any) => {
-          if (primitive.primitive && primitive.primitive.name) {
+          if (
+            primitive.primitive &&
+            primitive.primitive.name &&
+            primitive.primitive.type !== "evm-rpc-paima-l2"
+          ) {
             names.push(primitive.primitive.name);
           }
         });
@@ -114,94 +232,124 @@ export function useTableData() {
   }, []);
 
   // Fetch primitive data
-  const fetchPrimitiveData = useCallback(async (primitiveName: string) => {
-    try {
-      const response = await fetch(`${PRIMITIVES_ENDPOINT}/${primitiveName}`);
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.log(`🚫 Primitive ${primitiveName} not found (404)`);
-          return null;
+  const fetchPrimitiveData = useCallback(
+    async (primitiveName: string, schema?: SchemaColumn[]) => {
+      try {
+        const response = await fetch(`${PRIMITIVES_ENDPOINT}/${primitiveName}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(`🚫 Primitive ${primitiveName} not found (404)`);
+            return null;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      console.log(`📊 Fetched data for ${primitiveName}:`, data);
+        const data = await response.json();
+        console.log(`📊 Fetched data for ${primitiveName}:`, data);
 
-      // Convert primitive data (direct array) to TableData format
-      return convertPrimitiveDataToTableFormat(data, primitiveName);
-    } catch (error) {
-      console.error(
-        `Error fetching primitive data for ${primitiveName}:`,
-        error,
-      );
-      return null;
-    }
-  }, [convertPrimitiveDataToTableFormat]);
+        return convertPrimitiveDataToTableFormat(data, primitiveName, schema);
+      } catch (error) {
+        console.error(
+          `Error fetching primitive data for ${primitiveName}:`,
+          error,
+        );
+        return null;
+      }
+    },
+    [convertPrimitiveDataToTableFormat],
+  );
 
   // Fetch table data
-  const fetchTableData = useCallback(async (tableName: string) => {
-    try {
-      const response = await fetch(`${TABLES_ENDPOINT}/${tableName}`);
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.log(`🚫 Table ${tableName} not found (404)`);
-          return null;
+  const fetchTableData = useCallback(
+    async (tableName: string, schema?: SchemaColumn[]) => {
+      try {
+        const response = await fetch(`${TABLES_ENDPOINT}/${tableName}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(`🚫 Table ${tableName} not found (404)`);
+            return null;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        console.log(`📊 Fetched table data for ${tableName}:`, data);
+
+        return convertTableDataToTableFormat(data, tableName, schema);
+      } catch (error) {
+        console.error(`Error fetching table data for ${tableName}:`, error);
+        return null;
       }
-      const data = await response.json();
-      console.log(`📊 Fetched table data for ${tableName}:`, data);
-      return convertTableDataToTableFormat(data, tableName);
-    } catch (error) {
-      console.error(`Error fetching table data for ${tableName}:`, error);
-      return null;
-    }
-  }, [convertTableDataToTableFormat]);
+    },
+    [convertTableDataToTableFormat],
+  );
 
   // Refresh primitive data
   const refreshPrimitiveData = useCallback(async () => {
-    if (primitiveNames.length === 0) return;
+    // Only refresh if we have primitive names and initial load is complete
+    if (
+      primitiveNamesRef.current.length === 0 || !isInitialLoadComplete.current
+    ) {
+      return;
+    }
 
     try {
-      const fetchPromises = primitiveNames.map(async (primitiveName) => {
-        const data = await fetchPrimitiveData(primitiveName);
-        return { primitiveName, data };
-      });
+      const fetchPromises = primitiveNamesRef.current.map(
+        async (primitiveName) => {
+          const schema = primitiveSchemasRef.current[primitiveName];
+          const data = await fetchPrimitiveData(primitiveName, schema);
+          return { primitiveName, data };
+        },
+      );
 
       const results = await Promise.all(fetchPromises);
 
-      const updatedData: Record<string, TableData | null> = {};
-      results.forEach(({ primitiveName, data }) => {
-        updatedData[primitiveName] = data;
-      });
-
-      setPrimitiveData(updatedData);
+      // Only update data if we got results, preserve existing data
+      if (results.length > 0) {
+        setPrimitiveData((currentData) => {
+          const updatedData = { ...currentData };
+          results.forEach(({ primitiveName, data }) => {
+            // Only update if we got valid data, otherwise keep existing data
+            if (data !== null) {
+              updatedData[primitiveName] = data;
+            }
+          });
+          return updatedData;
+        });
+      }
     } catch (error) {
       console.error("Error refreshing primitive data:", error);
+      // Don't clear data on error, keep existing data
     }
-  }, [primitiveNames, fetchPrimitiveData]);
+  }, [fetchPrimitiveData]);
 
   // Refresh static table data
   const refreshStaticTableData = useCallback(async () => {
+    // Only refresh if initial load is complete
+    if (!isInitialLoadComplete.current) {
+      return;
+    }
+
     try {
-      const data = await fetchTableData("example_sm");
-      setStaticTableData({ "example_sm": data });
+      const schema = staticTableSchemasRef.current["paima_state_machine"];
+      const data = await fetchTableData("paima_state_machine", schema);
+      // Only update if we got valid data
+      if (data !== null) {
+        setStaticTableData({ "paima_state_machine": data });
+      }
     } catch (error) {
       console.error("Error refreshing static table data:", error);
+      // Don't clear data on error, keep existing data
     }
   }, [fetchTableData]);
 
   // Initialize primitive tables
   const initializePrimitiveTables = useCallback(async () => {
     console.log("📋 Initializing primitive tables...");
-    setIsLoadingPrimitives(true);
 
     try {
       // Fetch configuration
       const config = await fetchConfig();
       if (!config) {
         console.error("Failed to fetch config");
-        setIsLoadingPrimitives(false);
         return;
       }
 
@@ -212,13 +360,30 @@ export function useTableData() {
 
       if (names.length === 0) {
         console.log("No primitives found in config");
-        setIsLoadingPrimitives(false);
         return;
       }
 
+      // Fetch schemas first
+      const schemaPromises = names.map(async (primitiveName) => {
+        const schema = await fetchPrimitiveSchema(primitiveName);
+        return { primitiveName, schema };
+      });
+
+      const schemaResults = await Promise.all(schemaPromises);
+
+      // Store schemas
+      const schemas: Record<string, SchemaColumn[]> = {};
+      schemaResults.forEach(({ primitiveName, schema }) => {
+        if (schema) {
+          schemas[primitiveName] = schema;
+        }
+      });
+      setPrimitiveSchemas(schemas);
+
       // Fetch data for each primitive
       const fetchPromises = names.map(async (primitiveName) => {
-        const data = await fetchPrimitiveData(primitiveName);
+        const schema = schemas[primitiveName];
+        const data = await fetchPrimitiveData(primitiveName, schema);
         return { primitiveName, data };
       });
 
@@ -233,49 +398,70 @@ export function useTableData() {
       console.log("✅ Primitive tables initialized");
     } catch (error) {
       console.error("Error initializing primitive tables:", error);
-    } finally {
-      setIsLoadingPrimitives(false);
     }
-  }, [fetchConfig, extractPrimitiveNames, fetchPrimitiveData]);
+  }, [
+    fetchConfig,
+    extractPrimitiveNames,
+    fetchPrimitiveSchema,
+    fetchPrimitiveData,
+  ]);
 
   // Initialize static tables
   const initializeStaticTables = useCallback(async () => {
     console.log("📋 Initializing state machine tables...");
-    setIsLoadingStatic(true);
 
     try {
-      const data = await fetchTableData("example_sm");
-      setStaticTableData({ "example_sm": data });
+      // Fetch schema first
+      const schema = await fetchTableSchema("paima_state_machine");
+      if (schema) {
+        setStaticTableSchemas({ "paima_state_machine": schema });
+      }
+
+      // Then fetch data
+      const data = await fetchTableData(
+        "paima_state_machine",
+        schema || undefined,
+      );
+      setStaticTableData({ "paima_state_machine": data });
       console.log("✅ State machine tables initialized");
     } catch (error) {
       console.error("Error initializing state machine tables:", error);
-    } finally {
-      setIsLoadingStatic(false);
     }
-  }, [fetchTableData]);
+  }, [fetchTableSchema, fetchTableData]);
 
   // Initialize and setup refresh intervals
   useEffect(() => {
-    // Initialize tables
-    initializePrimitiveTables();
-    initializeStaticTables();
+    let refreshInterval: number;
 
-    // Setup refresh interval
-    const refreshInterval = setInterval(() => {
-      refreshPrimitiveData();
-      refreshStaticTableData();
-    }, 1000);
+    const initialize = async () => {
+      // Initialize tables
+      await Promise.all([
+        initializePrimitiveTables(),
+        initializeStaticTables(),
+      ]);
+
+      // Mark initial load as complete
+      isInitialLoadComplete.current = true;
+
+      // Setup refresh interval only after initial load
+      refreshInterval = setInterval(() => {
+        refreshPrimitiveData();
+        refreshStaticTableData();
+      }, 5000);
+    };
+
+    initialize();
 
     return () => {
-      clearInterval(refreshInterval);
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
     };
-  }, []);
+  }, []); // Empty dependency array to prevent re-runs
 
   return {
     primitiveData,
     staticTableData,
-    isLoadingPrimitives,
-    isLoadingStatic,
     refreshPrimitiveData,
     refreshStaticTableData,
   };

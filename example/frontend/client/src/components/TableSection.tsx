@@ -1,4 +1,4 @@
-import { DataTable } from "./DataTable";
+import { DataTable } from "./DataTable.tsx";
 
 interface Field {
   name: string;
@@ -25,36 +25,27 @@ export function TableSection({
   isLoading = false,
   children,
 }: TableSectionProps) {
-  const hasAnyData = Object.values(tables).some((data) =>
-    data !== null && data !== undefined
-  );
+  // Always render tables, even if empty
+  const tableEntries = Object.entries(tables);
 
   return (
     <div className="tables-section">
       <h2 className="section-title">{title}</h2>
       {children}
       <div className="primitive-tables">
-        {isLoading
-          ? (
-            <div className="table-loading">
-              Loading {title.toLowerCase()}...
-            </div>
-          )
-          : !hasAnyData
+        {tableEntries.length === 0
           ? (
             <div className="table-error">
-              No {title.toLowerCase()} available
+              No {title.toLowerCase()} configured
             </div>
           )
           : (
-            Object.entries(tables).map(([tableName, data]) => (
-              data && (
-                <DataTable
-                  key={tableName}
-                  title={tableName}
-                  data={data}
-                />
-              )
+            tableEntries.map(([tableName, data]) => (
+              <DataTable
+                key={tableName}
+                title={tableName}
+                data={data}
+              />
             ))
           )}
       </div>
