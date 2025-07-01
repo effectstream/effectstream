@@ -1,6 +1,7 @@
 import { Application } from "jsr:@oak/oak/application";
 import { Router } from "jsr:@oak/oak/router";
 import routeStaticFilesFrom from "./util/routeStaticFilesFrom.ts";
+import { ENV } from "@paima/utils";
 
 export const app = new Application();
 const router = new Router();
@@ -11,7 +12,10 @@ app.use(routeStaticFilesFrom([
   `${Deno.cwd()}/client/public`,
 ]));
 
+// If this is the entry point, start the server
 if (import.meta.main) {
-  console.log("Server listening on port http://localhost:10599");
-  await app.listen({ port: 10599 });
+  console.log(
+    `Server listening on port http://localhost:${ENV.PAIMA_EXPLORER_PORT}`,
+  );
+  await app.listen({ port: ENV.PAIMA_EXPLORER_PORT });
 }

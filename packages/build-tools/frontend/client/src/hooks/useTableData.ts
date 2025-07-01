@@ -20,6 +20,7 @@ interface SchemaColumn {
   is_nullable: string;
 }
 
+// TODO These must be parametrised
 const CONFIG_ENDPOINT = "http://127.0.0.1:9999/config";
 const PRIMITIVES_ENDPOINT = "http://127.0.0.1:9999/primitives";
 const TABLES_ENDPOINT = "http://127.0.0.1:9999/tables";

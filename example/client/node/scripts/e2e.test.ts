@@ -39,7 +39,7 @@ async function test() {
     // Launch site
     if (Deno.env.get("PAIMA_E2E_SITE_LAUNCH")) {
       const command = new Deno.Command(Deno.execPath(), {
-        args: ["task", "-f", "@example/front", "dev"],
+        args: ["task", "-f", "@paima/explorer", "dev"],
       });
       command.spawn();
     }

@@ -5552,20 +5552,6 @@
           ]
         }
       },
-      "example/frontend": {
-        "dependencies": [
-          "jsr:@oak/oak@^17.1.4",
-          "jsr:@std/assert@^1.0.12",
-          "npm:@deno/vite-plugin@^1.0.4",
-          "npm:@types/react@^19.1.2",
-          "npm:@vitejs/plugin-react@^4.4.1",
-          "npm:react-dom@^19.1.0",
-          "npm:react-router-dom@^7.5.1",
-          "npm:react@^19.1.0",
-          "npm:viem@*",
-          "npm:vite@^6.3.2"
-        ]
-      },
       "example/shared/data-types": {
         "dependencies": [
           "npm:@sinclair/typebox@~0.34.30",
@@ -5577,6 +5563,20 @@
           "npm:@opentelemetry/otlp-transformer@0.56",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:fastify@^5.4.0"
+        ]
+      },
+      "packages/build-tools/frontend": {
+        "dependencies": [
+          "jsr:@oak/oak@^17.1.4",
+          "jsr:@std/assert@^1.0.12",
+          "npm:@deno/vite-plugin@^1.0.4",
+          "npm:@types/react@^19.1.2",
+          "npm:@vitejs/plugin-react@^4.4.1",
+          "npm:react-dom@^19.1.0",
+          "npm:react-router-dom@^7.5.1",
+          "npm:react@^19.1.0",
+          "npm:viem@*",
+          "npm:vite@^6.3.2"
         ]
       },
       "packages/build-tools/orchestrator": {

@@ -151,6 +151,13 @@ const definitions = {
     description:
       "Main Paima API Port. Used by developers custom endpoints and RPC endpoints. Example: '9999'",
   },
+  PAIMA_EXPLORER_PORT: {
+    key: "PAIMA_EXPLORER_PORT",
+    isSecret: false,
+    type: "number",
+    defaultValue: 10599,
+    description: "Explorer Port. Example: '10599'",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -212,6 +219,9 @@ export class ENV {
   }
   static get RECAPTCHA_V3_FRONTEND(): string {
     return ENV.getConfig(definitions.RECAPTCHA_V3_FRONTEND);
+  }
+  static get PAIMA_EXPLORER_PORT(): number {
+    return ENV.getConfig(definitions.PAIMA_EXPLORER_PORT);
   }
 
   static getConfig<T>(config: typeof definitions[keyof typeof definitions]): T {

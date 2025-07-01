@@ -1,5 +1,5 @@
 {
-  "name": "@example/frontend",
+  "name": "@paima/explorer",
   "exports": "./server/main.ts",
   "tasks": {
     "dev": "deno run -A --node-modules-dir=auto npm:vite",

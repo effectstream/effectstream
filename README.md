@@ -12,7 +12,7 @@
 `deno task -f @example/database pgtyped:update`
 
 ## Launch Explorer
-`deno task -f @example/frontend start`
+`deno task -f @paima/explorer start`
 
 # Tests
 # Run Tests
