@@ -1,19 +1,16 @@
 import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
-// import { Value } from "npm:@sinclair/typebox/value";
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
 import { run, until } from "effection";
 import {
   aquireDBMutex,
-  erc721Ivm,
   getTableSchema,
   releaseDBMutex,
   runPreparedQuery,
 } from "@paima/db";
 import { ENV } from "@paima/utils";
 import type { AllSyncProtocols } from "../../../sync/src/sync-protocols/types.ts";
-import { ConfigPrimitiveType } from "@paima/config";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
 } from "@fastify/swagger";
@@ -260,15 +257,7 @@ export const startHttpServer = function* (
     if (!primitive) {
       return undefined;
     }
-
-    if (primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC20) {
-      return "erc20_balances_view_";
-    } else if (
-      primitive.primitive.type === ConfigPrimitiveType.EvmRpcERC721
-    ) {
-      return "erc721_ownership_view_";
-    }
-    return undefined;
+    return getPrimitivePrefix(primitive.primitive.type);
   }
 
   server.get("/primitives-schema/:primitiveName", {
