@@ -1,0 +1,19 @@
+{
+  "name": "npm-avail-node",
+  "version": "1.0.0",
+  "description": "A wrapper for the Avail node binary",
+  "main": "index.js",
+  "bin": {
+    "npm-avail-node": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "linus": "^0.0.6",
+    "tar": "^6.2.0"
+  },
+  "type": "commonjs",
+  "author": "Eduardo Soto Montaner",
+  "license": "ISC"
+}

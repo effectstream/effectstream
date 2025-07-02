@@ -91,10 +91,14 @@ export async function start(
       startProcess[ComponentNames.PAIMA_DB](),
       startProcess[ComponentNames.YACI_DEVKIT](),
       startProcess[ComponentNames.HARDHAT](),
+      startProcess[ComponentNames.AVAIL_NODE](),
+      startProcess[ComponentNames.MIDNIGHT_NODE](),
     ]);
 
     // Start the Dolos process
     await startProcess[ComponentNames.DOLOS]();
+    await startProcess[ComponentNames.AVAIL_CLIENT]();
+    await startProcess[ComponentNames.MIDNIGHT_INDEXER]();
 
     // Start the main process
     await startProcess[ComponentNames.PAIMA_SYNC]();
@@ -260,6 +264,95 @@ export const startProcess: Record<
       .process.status;
 
     return dolos;
+  },
+  [ComponentNames.MIDNIGHT_NODE]: async (): Promise<ProcessComponent> => {
+    const midnightNode = $({
+      args: ["task", "-f", "@example/cardano-contracts", "midnight-node:start"],
+      log: logHandler,
+      component: ComponentNames.MIDNIGHT_NODE,
+      abortController: abortControllers.system,
+    });
+    void midnightNode.process.status; // need to await sub-service start below
+
+    await $({
+      args: ["task", "-f", "@example/cardano-contracts", "midnight-node:wait"],
+      component: ComponentNames.MIDNIGHT_NODE_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return midnightNode;
+  },
+  [ComponentNames.MIDNIGHT_INDEXER]: async (): Promise<ProcessComponent> => {
+    const midnightIndexer = $({
+      args: [
+        "task",
+        "-f",
+        "@example/cardano-contracts",
+        "midnight-indexer:start",
+      ],
+      log: logHandler,
+      component: ComponentNames.MIDNIGHT_INDEXER,
+      abortController: abortControllers.system,
+    });
+    void midnightIndexer.process.status; // need to await sub-service start below
+
+    await $({
+      args: [
+        "task",
+        "-f",
+        "@example/cardano-contracts",
+        "midnight-indexer:wait",
+      ],
+      component: ComponentNames.MIDNIGHT_INDEXER_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return midnightIndexer;
+  },
+  [ComponentNames.AVAIL_NODE]: async (): Promise<ProcessComponent> => {
+    const availNode = $({
+      args: ["task", "-f", "@example/cardano-contracts", "avail-node:start"],
+      log: logHandler,
+      component: ComponentNames.AVAIL_NODE,
+      abortController: abortControllers.system,
+    });
+    void availNode.process.status; // need to await sub-service start below
+
+    await $({
+      args: ["task", "-f", "@example/cardano-contracts", "avail-node:wait"],
+      component: ComponentNames.AVAIL_NODE_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return availNode;
+  },
+
+  [ComponentNames.AVAIL_CLIENT]: async (): Promise<ProcessComponent> => {
+    const availClient = $({
+      args: [
+        "task",
+        "-f",
+        "@example/cardano-contracts",
+        "avail-light-client:start",
+      ],
+      log: logHandler,
+      component: ComponentNames.AVAIL_CLIENT,
+      abortController: abortControllers.system,
+    });
+    void availClient.process.status; // need to await sub-service start below
+
+    await $({
+      args: [
+        "task",
+        "-f",
+        "@example/cardano-contracts",
+        "avail-light-client:wait",
+      ],
+      component: ComponentNames.AVAIL_CLIENT_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return availClient;
   },
 
   [ComponentNames.PAIMA_DB]: async (): Promise<ProcessComponent> => {

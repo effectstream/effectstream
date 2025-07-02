@@ -14,6 +14,10 @@ const ExternalComponents = {
   HARDHAT: "hardhat",
   YACI_DEVKIT: "yaci-devkit",
   DOLOS: "dolos",
+  MIDNIGHT_NODE: "midnight-node",
+  MIDNIGHT_INDEXER: "midnight-indexer",
+  AVAIL_NODE: "avail-node",
+  AVAIL_CLIENT: "avail-light-client",
 };
 const ToolsComponents = {
   CHECKER: "checker",
@@ -21,6 +25,10 @@ const ToolsComponents = {
   DOLOS_WAIT: "dolos-wait",
   YACI_DEVKIT_WAIT: "yaci-devkit-wait",
   HARDHA_WAIT: "hardhat-wait",
+  MIDNIGHT_NODE_WAIT: "midnight-node-wait",
+  MIDNIGHT_INDEXER_WAIT: "midnight-indexer-wait",
+  AVAIL_NODE_WAIT: "avail-node-wait",
+  AVAIL_CLIENT_WAIT: "avail-light-client-wait",
   COLLECTOR_WAIT: "collector-wait",
   PAIMA_DB_WAIT: "db-wait",
   TMUX: "tmux",
