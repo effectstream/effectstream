@@ -9,6 +9,7 @@ interface HeaderProps {
 export function Header({ latestBlock, isConnected }: HeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -24,6 +25,14 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
 
   const handleCloseNodeModal = () => {
     setIsNodeModalOpen(false);
+  };
+
+  const handleOpenDocModal = () => {
+    setIsDocModalOpen(true);
+  };
+
+  const handleCloseDocModal = () => {
+    setIsDocModalOpen(false);
   };
 
   return (
@@ -42,6 +51,12 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
             onClick={handleOpenNodeModal}
           >
             Paima Engine Node API
+          </button>
+          <button
+            className="documentation-button"
+            onClick={handleOpenDocModal}
+          >
+            Documentation
           </button>
           <div className="block-info">
             <span>Latest Block:</span>
@@ -64,6 +79,8 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title="Batcher API Documentation"
+        className="api"
+        url="http://localhost:3334/documentation"
       >
         <div className="documentation-content">
           <iframe
@@ -78,12 +95,30 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
         isOpen={isNodeModalOpen}
         onClose={handleCloseNodeModal}
         title="Paima Engine Node API Documentation"
+        className="api"
+        url="http://localhost:9999/documentation"
       >
         <div className="documentation-content">
           <iframe
             src="http://localhost:9999/documentation"
             className="documentation-iframe"
             title="Paima Engine Node API Documentation"
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        className="docs"
+        isOpen={isDocModalOpen}
+        onClose={handleCloseDocModal}
+        title="Documentation"
+        url="http://127.0.0.1:10600/"
+      >
+        <div className="documentation-content">
+          <iframe
+            src="http://127.0.0.1:10600/"
+            className="documentation-iframe"
+            title="Documentation"
           />
         </div>
       </Modal>

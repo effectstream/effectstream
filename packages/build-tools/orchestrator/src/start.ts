@@ -88,6 +88,7 @@ export async function start(
 
     // Start processes in parallel
     await Promise.all([
+      startProcess[ComponentNames.DOCS](),
       startProcess[ComponentNames.PAIMA_BATCHER](),
       startProcess[ComponentNames.PAIMA_DB](),
       startProcess[ComponentNames.YACI_DEVKIT](),
@@ -142,6 +143,17 @@ export const startProcess: Record<
 
     return tmux;
   },
+
+  [ComponentNames.DOCS]: async (): Promise<ProcessComponent> => {
+    const docs = $({
+      args: ["task", "-f", "@paima/docs", "start"],
+      component: ComponentNames.DOCS,
+      abortController: abortControllers.developerUI,
+    });
+    void docs.process.status;
+    return docs;
+  },
+
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
     // TODO: only start one if there isn't one already running
     const otlpCollector = $({
