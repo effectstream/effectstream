@@ -866,7 +866,9 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
         case "eth_chainId": {
           // TODO: this is not a great thing to return, since every game is its own chain. Not sure what to do about this
           //       maybe the hash of the game name or something?
-          setResult<typeof evmRpc.method>(`0x${ENV.CHAIN_ID.toString(16)}`);
+          setResult<typeof evmRpc.method>(
+            `0x${ENV.PAIMA_CHAIN_ID.toString(16)}`,
+          );
           return;
         }
 

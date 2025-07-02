@@ -10,7 +10,6 @@ import type {
 import type { QueuedUpdate, StateUpdateStream } from "@paima/coroutine";
 import {
   findNonce,
-  getLastNonce,
   insertNonce,
   insertPrimitiveAccounting,
   newAddress,

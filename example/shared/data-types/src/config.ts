@@ -133,6 +133,7 @@ export const localhostConfig = new ConfigBuilder()
             erc721Abi,
             "Transfer(address,address,uint256)",
           ),
+          // TODO This is not defined. Should be a error.
           scheduledPrefix: "transfer-assets",
         }),
       )
@@ -147,6 +148,7 @@ export const localhostConfig = new ConfigBuilder()
             erc721Abi,
             "Transfer(address,address,uint256)",
           ),
+          // TODO This is not defined. Should be a error.
           scheduledPrefix: "transfer-assets",
         }),
       )
@@ -161,7 +163,7 @@ export const localhostConfig = new ConfigBuilder()
             erc20Abi,
             "Transfer(address,address,uint256)",
           ),
-          // TODO this should not be mandatory
+          // TODO This is not defined. Should be a error.
           scheduledPrefix: "transfer-erc20-2",
         }),
       )

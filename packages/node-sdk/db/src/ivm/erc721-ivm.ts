@@ -1,6 +1,8 @@
 // TODO This can be replaced by a function that does the insertions.
 // This will allow to create new tables during migrations.
 
+// TODO The IVM here is not relevant, as the trigger does the work.
+
 /**
  * Creates a new IVM for the ERC721 token with the given name.
  * This will track the current owner of each token.
