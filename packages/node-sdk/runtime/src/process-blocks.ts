@@ -107,6 +107,23 @@ function* executeGeneratorStepByStep(
   return result.value;
 }
 
+/**
+ * This function is used to process the user defined migrations
+ * to be executed at specific block heights.
+ */
+function* processMigrations(
+  blockHeight: number,
+  migrations: (blockHeight: number) => Operation<string | undefined>,
+  dbConn: Pool,
+): Operation<void> {
+  const migrationToApply = yield* migrations(blockHeight);
+  if (migrationToApply) {
+    yield* until(
+      tryOrRollback(dbConn, async () => await dbConn.query(migrationToApply)),
+    );
+  }
+}
+
 // TODO
 // Where shoud we move this? Before emitting finalizedBlockStream?
 /**
@@ -114,14 +131,14 @@ function* executeGeneratorStepByStep(
  * It is called whem a block can be processed and finalized.
  * It runs the entire pipeline in a transaction, with subtransactions for each StateMachineExecution.
  * Process Order:
- * 1. Create a block record
- * 2. Process the migrations
- * 3. Process the scheduled data
- * 4. Process the primitives
- * 4.a Resolve primitives effects
- * 4.b Resolve state machine effects
- * 5. Mark the block as done
- * 6. Committing the transaction
+ * 1. Create a temporal block record
+ * 2. Process the migrations for this block height
+ * 3. Process the scheduled data for this block height
+ * 4. Process the primitives in the block
+ * 4.a Resolve primitives effects (in order of appearance)
+ * 4.b Resolve state machine effects (in order of apperance)
+ * 5. Mark the block as done, and add the hash.
+ * 6. Commit the transaction
  */
 export function processFinalizedBlock(
   gameStateTransitionRouter: (
@@ -205,21 +222,4 @@ export function processFinalizedBlock(
     }
     return blockHash;
   };
-}
-
-/**
- * This function is used to process the user defined migrations
- * to be executed at specific block heights.
- */
-function* processMigrations(
-  blockHeight: number,
-  migrations: (blockHeight: number) => Operation<string | undefined>,
-  dbConn: Pool,
-): Operation<void> {
-  const migrationToApply = yield* migrations(blockHeight);
-  if (migrationToApply) {
-    yield* until(
-      tryOrRollback(dbConn, async () => await dbConn.query(migrationToApply)),
-    );
-  }
 }

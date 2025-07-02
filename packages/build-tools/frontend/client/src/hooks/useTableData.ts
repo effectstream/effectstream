@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  CONFIG_ENDPOINT,
+  PRIMITIVES_ENDPOINT,
+  PRIMITIVES_SCHEMA_ENDPOINT,
+  TABLE_SCHEMA_ENDPOINT,
+  TABLES_ENDPOINT,
+} from "../config.ts";
 
 interface Field {
   name: string;
@@ -19,13 +26,6 @@ interface SchemaColumn {
   column_default: string | null;
   is_nullable: string;
 }
-
-// TODO These must be parametrised
-const CONFIG_ENDPOINT = "http://127.0.0.1:9999/config";
-const PRIMITIVES_ENDPOINT = "http://127.0.0.1:9999/primitives";
-const TABLES_ENDPOINT = "http://127.0.0.1:9999/tables";
-const PRIMITIVES_SCHEMA_ENDPOINT = "http://127.0.0.1:9999/primitives-schema";
-const TABLE_SCHEMA_ENDPOINT = "http://127.0.0.1:9999/table-schema";
 
 export function useTableData() {
   const [primitiveNames, setPrimitiveNames] = useState<string[]>([]);

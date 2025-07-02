@@ -24,6 +24,12 @@ export enum RpcPaths {
   EVM = "evm",
 }
 
+/**
+ * Register the OpenAPI documentation for the Paima Engine HTTP server.
+ * Documentation is available at /documentation /documentation/json /documentation/yaml
+ * @param server - The Fastify instance.
+ * @param port - The port to listen on.
+ */
 function* registerOpenApiDocumentation(
   server: FastifyInstance,
   port: number,
@@ -102,6 +108,12 @@ function* registerOpenApiDocumentation(
   yield* until(server.register(fastifySwaggerUi, uiOptions));
 }
 
+// TODO This should add user defined endpoints.
+/**
+ * Start the Paima Engine HTTP server.
+ * @param dbConn - The database connection.
+ * @param syncProtocols - The sync protocols.
+ */
 export const startHttpServer = function* (
   dbConn: Pool,
   syncProtocols: AllSyncProtocols[],

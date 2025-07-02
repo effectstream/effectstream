@@ -1,5 +1,6 @@
 // import deployedEvmAddresses from "@example/evm-contracts/deployments";
 
+// TODO Read this from the hardhat/ignition deployments.
 const deployedEvmAddresses = {
   "chain-31337": {
     "L2Contract#PaimaL2Contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
@@ -22,10 +23,9 @@ import type { BlockNumber, TimestampMs } from "@paima/utils";
 // TODO: replace with @paima/evm-contracts
 import { erc20Abi, erc721Abi } from "viem"; // TODO: ABIs for Paima built-in primitives should be in the @paima/evm-contracts ideally
 import { paimal2 } from "@example/evm-contracts";
-// TODO: fill this out
+// TODO: This should typed from the grammar types.
 const stfInputs = {
   tokenTransfer: "transfer",
-  paimaSubmitGameInput: "paimaSubmitGameInput",
 } as const;
 
 // comes from hardhat.config.ts
@@ -119,7 +119,6 @@ export const localhostConfig = new ConfigBuilder()
             paimal2.abi,
             "PaimaGameInteraction(address,bytes,uint256)",
           ),
-          // scheduledPrefix: stfInputs.paimaSubmitGameInput,
         }),
       )
       .addPrimitive(

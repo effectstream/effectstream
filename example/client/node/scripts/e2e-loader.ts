@@ -6,9 +6,10 @@ import { ENV } from "@paima/utils";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Launch the orchestrator, and wait for the sync process to start.
-// The final process is the `sync` process.
-// We can know when the process is started, but not if ready.
+/**
+ * Launch the Sync through the orchestrator,
+ * and wait for the sync process to start and be ready.
+ */
 export async function startup(
   owner: `0x${string}`,
   privateKey: `0x${string}`,
@@ -37,11 +38,17 @@ export async function startup(
   return await getDBConnection();
 }
 
+/**
+ * Cleanup for shutdown.
+ * @param db - The database connection.
+ */
 export async function cleanup(db: Client): Promise<void> {
   await db.end();
 }
 
-// Launch the shutdown process, and wait for the sync process to stop.
+/**
+ * Launch the shutdown process, and wait for the sync process to stop.
+ */
 export function shutdown(): void {
   console.log("\n🛑 Shutting down...");
   // We don't wait for the endpoint to return.
@@ -52,6 +59,12 @@ export function shutdown(): void {
   console.log("⏳ Waiting for shutdown to complete...");
 }
 
+/**
+ * Get a persistent connection to the DB.
+ * IMPORTANT: PGLite does not support multiple connections; so we use the network mutex.
+ * @param creds - The database credentials.
+ * @returns The database connection.
+ */
 const getPersistentConnection = (creds: PoolConfig): Client => {
   const client = new pg.Client(creds);
   client.connect(() => {});
@@ -77,6 +90,7 @@ export async function getDBConnection(): Promise<Client> {
 
   let maxMillis = 10000;
 
+  // Wait until the DB is ready and the tables are created.
   while (maxMillis > 0) {
     let didLock = false;
     let isReady = false;

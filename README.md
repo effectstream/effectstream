@@ -15,6 +15,6 @@
 `deno task -f @paima/explorer start`
 
 # Tests
-# Run Tests
+## Run Tests
 `deno task -f @example/node test`
 

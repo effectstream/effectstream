@@ -42,7 +42,7 @@ export function* createDynamicTables(
   }
 }
 
-// TODO This should be part of the ivm/*.ts files.
+// TODO The prefix should be part defined in the ivm/*.ts files.
 /**
  * Returns the prefix for the given primitive name.
  * This is useful to query the table given you know the primitive name.

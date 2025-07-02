@@ -1,3 +1,4 @@
+import type { ChainConfig, PaimaChains } from "../types/index.ts";
 import { BlockColumn } from "./BlockColumn.tsx";
 
 interface Block {
@@ -6,25 +7,13 @@ interface Block {
   timestamp: Date;
 }
 
-interface ChainConfig {
-  type: string;
-  name: string;
-  blockTime: number;
-  color: string;
-  blocks: Block[];
-  currentBlock: number;
-  rpcEndpoint?: string;
-  latestBlockNumber?: number;
-  previousLatestBlockNumber?: number;
-  isConnected?: boolean;
-}
-
 interface ColumnsContainerProps {
-  chainConfigs: Record<string, ChainConfig>;
+  chainConfigs: PaimaChains;
   newBlockIndices: Record<string, number | undefined>;
 }
 
 function calculateBlockTime(chainKey: string, config: ChainConfig): string {
+  // TODO: For now just show a constant block time - so the explorer can be understood.
   // if (
   //   config.type === "EVM" && config.rpcEndpoint && config.blocks.length >= 2
   // ) {

@@ -62,7 +62,7 @@ async function test() {
       wallet_B.address,
       90n * multiplier,
     );
-    await assertSQL(
+    await assertSQL<{ primitive_name: string }>(
       "Check ERC20 sync-process",
       db,
       `SELECT
@@ -80,7 +80,7 @@ async function test() {
       ["attack", "1", "100"],
       wallet_A.privateKey,
     );
-    await assertSQL(
+    await assertSQL<{ primitive_name: string }>(
       "Check PaimaL2 sync-process",
       db,
       `SELECT
@@ -96,7 +96,7 @@ async function test() {
       ["attack", "2", "200"],
       wallet_A.privateKey,
     );
-    await assertSQL(
+    await assertSQL<{ inputs: string }>(
       "Check State Machine events",
       db,
       `SELECT
@@ -131,7 +131,7 @@ async function test() {
       },
     );
 
-    await assertSQL(
+    await assertSQL<{ address: string; balance: string }>(
       "Check IVM ERC20",
       db,
       `SELECT * FROM public.erc20_balances_view_aribitrum_token;`,
@@ -147,26 +147,15 @@ async function test() {
           r.address ===
             "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".toLowerCase()
         );
-        // TODO Fix this.
-        console.log(
-          "IMPORTANT: This should be 410, but there is a error in the IVM ERC20",
-        );
+        if (!a || !b) {
+          throw new Error("Address not found: " + a + " " + b);
+        }
         return a.balance === String(410n * multiplier) &&
           b.balance === String(90n * multiplier);
       },
     );
 
-    // await assertSQL(
-    //   "Check nonces",
-    //   db,
-    //   `SELECT * FROM public.nonces;`,
-    //   (res) => res.rows.length === 2,
-    //   (res) => {
-    //     return res.rows.length === 2;
-    //   },
-    // );
-
-    await assertSQL(
+    await assertSQL<{ address: string }>(
       "Check addresses",
       db,
       `SELECT * FROM public.addresses;`,
@@ -189,6 +178,7 @@ async function test() {
     });
     console.log("Created random account", account.address);
     const gameInput = JSON.stringify(["attack", "999", "777"]);
+    // Send a batched message.
     await fetch("http://localhost:3334/send-input", {
       method: "POST",
       headers: {
@@ -207,7 +197,9 @@ async function test() {
         millisecondTimestamp: timestamp,
       }),
     });
-    await assertSQL(
+    await assertSQL<
+      { primitive_name: string; payload: { inputData: string } }
+    >(
       "Check Batcher",
       db,
       `SELECT
@@ -218,6 +210,17 @@ async function test() {
       (res) => {
         return res.rows[5].primitive_name === "PaimaGameInteraction" &&
           res.rows[5].payload.inputData === gameInput;
+      },
+    );
+
+    // We should have a nonce for the batched message.
+    await assertSQL<{ nonce: string }>(
+      "Check nonces",
+      db,
+      `SELECT * FROM public.nonces;`,
+      (res) => res.rows.length === 1,
+      (res) => {
+        return res.rows.length === 1;
       },
     );
 
@@ -243,7 +246,9 @@ async function test() {
     );
     // Cannot burn a token?
     // await erc721.burn(wallet_X.privateKey, tokens.tokenD);
-    await assertSQL(
+    await assertSQL<
+      { token_id: string; primitive_name: string; current_owner: string }
+    >(
       "Check ERC721 sync-process",
       db,
       `SELECT * FROM public.erc721_ownership_view_arbitrum_erc721;`,
@@ -314,8 +319,21 @@ async function test() {
       );
     }
 
-    // NOTE: Server crashes with i = 100
+    //
+    // TODO: Server crashes with i = 100
     // Lowering to 20
+    //
+    // 2025-06-27T18:55:43.612Z ERROR  paima-db: Error: Dynamic linking error: cannot resolve symbol setTempRet0
+    // at e.<computed> (file:///Users/username/paima-engine/node_modules/.deno/@electric-sql+pglite@0.3.3/node_modules/@electric-sql/pglite/dist/index.js:1:89333)
+    // at <anonymous> (wasm://wasm/0009251e:1:109038)
+    // at invoke_ii (file:///Users/username/paima-engine/node_modules/.deno/@electric-sql+pglite@0.3.3/node_modules/@electric-sql/pglite/dist/index.js:3:238292)
+    // at <anonymous> (wasm://wasm/02190c76:1:922777)
+    // at <anonymous> (wasm://wasm/02190c76:1:2189246)
+    // at <anonymous> (wasm://wasm/02190c76:1:2690420)
+    // at <anonymous> (wasm://wasm/02190c76:1:3728154)
+    // at <anonymous> (wasm://wasm/02190c76:1:987555)
+    // at <anonymous> (wasm://wasm/02190c76:1:3315760)
+    // at <anonymous> (wasm://wasm/02190c76:1:3316014)
     console.log("Sending 300 erc20 events....");
     for (let i = 0; i < 20; i++) {
       await erc20.b.mint(

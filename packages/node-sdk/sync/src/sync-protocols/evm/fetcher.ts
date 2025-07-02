@@ -4,19 +4,13 @@ import {
   type PaginatedFetcher,
 } from "../base/fetcher.ts";
 import type { RootOutput, RootPage } from "../types.ts";
-import {
-  AbiEvent,
-  type Chain,
-  getAbiItem,
-  type GetBlockReturnType,
-  type PublicClient,
-} from "viem";
+import type { Chain, GetBlockReturnType, PublicClient } from "viem";
 import type { Operation } from "effection";
 import { all, call } from "effection";
-import { AddressType, bound, type EvmRpcPageJson, keysOf } from "@paima/utils";
+import { bound, type EvmRpcPageJson, keysOf } from "@paima/utils";
 import { blockNumberRelation } from "../common/utils.ts";
 import type { Input, Output, Page, PrimitiveType } from "./types.ts";
-import { PageSchema, toMsTimestamp } from "./types.ts";
+import { PageSchema } from "./types.ts";
 import {
   fetchNewestPage,
   genImmediatePageRequests,
@@ -28,15 +22,10 @@ import type { PrimitiveFetcher } from "../base/primitive.ts";
 import type { RootConversion } from "../base/state.ts";
 import type {
   ConfigNetworkType,
-  FlattenSyncProtocolIOFor,
   PrimitiveEntry,
   SyncProtocolWithNetwork,
 } from "@paima/config";
-import {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
-  ConfigSyncProtocolType,
-} from "@paima/config";
+import { ConfigSyncProtocolType } from "@paima/config";
 import { Value } from "@sinclair/typebox/value";
 
 export class EvmFetcher
@@ -218,10 +207,6 @@ export class EvmFetcher
               transactionIndex: log.transactionIndex,
               contractAddress: log.address,
               logIndex: log.logIndex,
-              // mainchain: {
-              //   blockNumber: Number(log.blockNumber),
-              //   timestamp: Number(block.timestamp),
-              // },
             },
           },
         } as any,

@@ -29,8 +29,12 @@ export const contractAddresses = {
   erc721_2: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
 } as const;
 
-// TODO
-// This will be deployed by the engine.
+/**
+ * Deploy the contracts.
+ * TODO: This will be deployed by the engine.
+ * @param owner - The owner of the contracts.
+ * @param privateKey - The private key of the owner.
+ */
 export async function deployContracts(
   owner: `0x${string}`,
   privateKey: `0x${string}`,
@@ -135,7 +139,11 @@ export async function deployContracts(
   console.log(new TextDecoder().decode(erc721DevStderr2));
 }
 
-// Viem Client(s)
+/**
+ * Create a viem client.
+ * @param privateKey - The private key of the account.
+ * @returns The account, wallet client and public client.
+ */
 function clients(privateKey: `0x${string}`): {
   account: Account;
   walletClient: WalletClient;
@@ -143,6 +151,7 @@ function clients(privateKey: `0x${string}`): {
 } {
   const account = privateKeyToAccount(privateKey);
   const walletClient = createWalletClient({
+    account,
     chain: hardhat,
     transport: http(),
   });
@@ -153,6 +162,9 @@ function clients(privateKey: `0x${string}`): {
   return { account, walletClient, publicClient };
 }
 
+/**
+ * PaimaL2 Contract Methods.
+ */
 export const paimaL2 = {
   submitGameInput: async (
     input: string[],
@@ -183,6 +195,9 @@ export const paimaL2 = {
   },
 };
 
+/**
+ * Erc721 Contract Methods.
+ */
 function erc721Factory(contractAddress: `0x${string}`) {
   return {
     mint: async (
@@ -288,11 +303,17 @@ function erc721Factory(contractAddress: `0x${string}`) {
   };
 }
 
+/**
+ * Erc721 Contracts Instances.
+ */
 export const erc721 = {
   a: erc721Factory(contractAddresses.erc721),
   b: erc721Factory(contractAddresses.erc721_2),
 };
 
+/**
+ * Erc20 Contract Methods.
+ */
 export const erc20Factory = (contractAddress: `0x${string}`) => {
   return {
     mint: async (
@@ -364,6 +385,9 @@ export const erc20Factory = (contractAddress: `0x${string}`) => {
   };
 };
 
+/**
+ * Erc20 Contracts Instances.
+ */
 export const erc20 = {
   a: erc20Factory(contractAddresses.erc20),
   b: erc20Factory(contractAddresses.erc20_2),

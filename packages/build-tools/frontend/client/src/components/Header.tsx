@@ -1,5 +1,10 @@
 import { useState } from "react";
 import { Modal } from "./Modal.tsx";
+import {
+  BATCHER_OPENAPI_URL,
+  DOCUMENTATION_URL,
+  ENGINE_OPENAPI_URL,
+} from "../config.ts";
 
 interface HeaderProps {
   latestBlock: number;
@@ -80,11 +85,11 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
         onClose={handleCloseModal}
         title="Batcher API Documentation"
         className="api"
-        url="http://localhost:3334/documentation"
+        url={BATCHER_OPENAPI_URL}
       >
         <div className="documentation-content">
           <iframe
-            src="http://localhost:3334/documentation"
+            src={BATCHER_OPENAPI_URL}
             className="documentation-iframe"
             title="Batcher API Documentation"
           />
@@ -96,11 +101,11 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
         onClose={handleCloseNodeModal}
         title="Paima Engine Node API Documentation"
         className="api"
-        url="http://localhost:9999/documentation"
+        url={ENGINE_OPENAPI_URL}
       >
         <div className="documentation-content">
           <iframe
-            src="http://localhost:9999/documentation"
+            src={ENGINE_OPENAPI_URL}
             className="documentation-iframe"
             title="Paima Engine Node API Documentation"
           />
@@ -112,11 +117,11 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
         isOpen={isDocModalOpen}
         onClose={handleCloseDocModal}
         title="Documentation"
-        url="http://127.0.0.1:10600/"
+        url={DOCUMENTATION_URL}
       >
         <div className="documentation-content">
           <iframe
-            src="http://127.0.0.1:10600/"
+            src={DOCUMENTATION_URL}
             className="documentation-iframe"
             title="Documentation"
           />

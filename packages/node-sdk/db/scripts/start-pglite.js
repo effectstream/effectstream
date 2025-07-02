@@ -30,7 +30,12 @@ await db.exec("CREATE EXTENSION IF NOT EXISTS pg_ivm;");
 
 await db.exec(migration);
 
-/** This is to genereate the custom pgtyped files in compilation time */
+/**
+ * This is to genereate the user/custom pgtyped files in compilation time
+ * MIGRATIONS environment variable is used to specify the path to the migrations folder.
+ * Every file in the migrations folder is executed in order.
+ * TODO: Implement how to manage the order of the migrations, e.g. 1.sql, 2.sql, 10.sql, etc.
+ */
 const userMigrations = Deno.env.get("MIGRATIONS");
 if (userMigrations) {
   const files = Deno.readDirSync(userMigrations);

@@ -15,6 +15,7 @@ main(function* () {
   console.log("starting node");
 
   yield* withPaimaStaticConfig(localhostConfig, function* () {
+    // TODO: This should be passed as a configuration object.
     yield* start(
       toSyncProtocolWithNetwork(localhostConfig),
       gameStateTransitionRouter,

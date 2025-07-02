@@ -1,6 +1,14 @@
-import type { Pool, QueryResult } from "npm:pg";
+import type { Pool } from "npm:pg";
 import { ENV } from "@paima/utils";
 
+type QueryResult<RowType> = {
+  rows: RowType[];
+  fields: { name: string; dataTypeId: number }[];
+  rowCount: number;
+  command: string;
+  oid: number;
+  rowsAffected: number;
+};
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const testResults = {
@@ -10,6 +18,7 @@ const testResults = {
   skipped: 0,
 };
 
+/** Print a summary of the test results. */
 export function printSummary() {
   console.log(`\n\n🔍 [Summary]`);
   console.log(`  ${testResults.passed} tests passed`);
@@ -17,21 +26,25 @@ export function printSummary() {
   console.log(`  ${testResults.skipped} tests skipped`);
 }
 
+/** Increment the passed test count and print a success message. */
 function testPassed() {
   testResults.passed++;
   console.log(`✅ Test passed`);
 }
 
+/** Increment the failed test count and print a failure message. */
 function testFailed() {
   testResults.failed++;
   console.log(`❌ Test failed`);
 }
 
+/** Increment the skipped test count and print a skipped message. */
 function testSkipped() {
   testResults.skipped++;
   console.log(`⏭️ Test skipped`);
 }
 
+/** Increment the test count and print the test name. */
 function startTest(testName: string) {
   console.log(
     `%c🔍 [Running test] ${testResults.count + 1}: ${testName}`,
@@ -40,6 +53,12 @@ function startTest(testName: string) {
   testResults.count++;
 }
 
+/**
+ * Run a test and check the result.
+ * @param testName - The name of the test.
+ * @param check - The function to check the result. IMPORTANT: if it returns falsy, or throws an error, the test will be marked as failed.
+ * @returns The result of the check function if passed, false otherwise.
+ */
 export async function assert(
   testName: string,
   check: () => Promise<boolean>,
@@ -59,20 +78,29 @@ export async function assert(
   }
 }
 
-// Run a query, as we don't know when the Paima Engine chain has
-// included and processed the data, we run a query until some
-// condition is met, then we chech against the expected data.
-export async function assertSQL(
+/**
+ * Run Assert as a SQL query.
+ * As we don't know when the Paima Engine chain has
+ * included and processed the data, we run a "waitUntil" query until some
+ * condition is met, then we chech against the expected data.
+ * @param testName - The name of the test.
+ * @param db - The database connection.
+ * @param query - The query to run.
+ * @param waitUntil - The function to check if the data is available. Will retry until it returns true.
+ * @param check - The function to check the result. IMPORTANT: if it returns falsy, or throws an error, the test will be marked as failed.
+ * @returns The result of the query.
+ */
+export async function assertSQL<RowType>(
   testName: string,
   db: Pool,
   query: string,
-  waitUntil: (res: QueryResult<any>) => boolean,
-  check: (res: QueryResult<any>) => boolean,
-): Promise<QueryResult<any>> {
+  waitUntil: (res: QueryResult<RowType>) => boolean,
+  check: (res: QueryResult<RowType>) => boolean,
+): Promise<QueryResult<RowType>> {
   startTest(testName);
   let maxMillis = 10000;
   while (maxMillis > 0) {
-    let res;
+    let res: QueryResult<RowType>;
     let didLock = false;
     try {
       await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
@@ -98,18 +126,28 @@ export async function assertSQL(
 
     // Now run the custom check.
     try {
-      if (!check(res)) {
+      const finalResult: QueryResult<RowType> = await db.query(query);
+      if (!check(finalResult)) {
         throw new Error("CHECK_ERROR");
       }
       testPassed();
-      return res;
+      return finalResult;
     } catch (e) {
       testFailed();
       console.error("[CHECK_ERROR] Data in DB:", res.rows);
       if (e instanceof Error && e.message !== "CHECK_ERROR") {
         console.error(e);
       }
-      break;
+      return res;
     }
   }
+  console.error("[TIMEOUT] Data in DB");
+  return {
+    rows: [],
+    fields: [],
+    rowCount: 0,
+    command: "",
+    oid: 0,
+    rowsAffected: 0,
+  } as QueryResult<RowType>;
 }

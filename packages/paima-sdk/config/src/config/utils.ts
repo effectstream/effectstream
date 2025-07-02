@@ -3,12 +3,12 @@ import type {
   PrimitiveEntry,
   SyncProtocolWithNetwork,
 } from "../schema/sync-protocols/types.ts";
-import { ConfigBuilderData } from "./builder.ts";
-import { PostBuildSecurityNamespaceData } from "./parts/securityNamespace.ts";
-import { NetworkBuilderData, NetworkConfig } from "./parts/network.ts";
-import { DeployedAddressesBuilderData } from "./parts/deployedAddresses.ts";
-import { PostBuildSyncProtocolBuilderData } from "./parts/syncProtocols.ts";
-import { PrimitiveBuilderData } from "./parts/primitive.ts";
+import type { ConfigBuilderData } from "./builder.ts";
+import type { PostBuildSecurityNamespaceData } from "./parts/securityNamespace.ts";
+import type { NetworkBuilderData, NetworkConfig } from "./parts/network.ts";
+import type { DeployedAddressesBuilderData } from "./parts/deployedAddresses.ts";
+import type { PostBuildSyncProtocolBuilderData } from "./parts/syncProtocols.ts";
+import type { PrimitiveBuilderData } from "./parts/primitive.ts";
 
 export type ErrorIfDefined<
   T,

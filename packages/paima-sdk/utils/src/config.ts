@@ -3,6 +3,8 @@
  * which might not be set depending on the framework used for the frontend of an app
  */
 
+// TODO: To register a new config, we need to add it in the defintions, and then add the getter in the ENV class.
+//       Is it possible to do this automatically, or just once?
 const definitions = {
   DB_HOST: {
     key: "DB_HOST",
@@ -158,6 +160,13 @@ const definitions = {
     defaultValue: 10599,
     description: "Explorer Port. Example: '10599'",
   },
+  PAIMA_CHAIN_ID: {
+    key: "PAIMA_CHAIN_ID",
+    isSecret: false,
+    type: "number",
+    defaultValue: 87401284021,
+    description: "Paima Chain ID. Example: '87401284021'",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -222,6 +231,9 @@ export class ENV {
   }
   static get PAIMA_EXPLORER_PORT(): number {
     return ENV.getConfig(definitions.PAIMA_EXPLORER_PORT);
+  }
+  static get PAIMA_CHAIN_ID(): number {
+    return ENV.getConfig(definitions.PAIMA_CHAIN_ID);
   }
 
   static getConfig<T>(config: typeof definitions[keyof typeof definitions]): T {

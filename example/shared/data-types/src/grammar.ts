@@ -11,6 +11,7 @@ export const grammar = {
     ["playerId", Type.Integer()],
     ["moveId", Type.Integer()],
   ],
+  // TODO How do we get this from the known payload types?
   transfer: [
     [
       "payload",

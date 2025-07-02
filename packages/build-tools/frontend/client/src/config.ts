@@ -1,17 +1,4 @@
-export interface ChainConfig {
-  type: string;
-  name: string;
-  blockTime: number;
-  color: string;
-  blocks: Block[];
-  currentBlock: number;
-  rpcEndpoint?: string;
-  latestBlockNumber?: number;
-  previousLatestBlockNumber?: number;
-  isConnected?: boolean;
-}
-
-export type PaimaChains = Record<string, ChainConfig>;
+import type { ChainConfig, PaimaChains } from "./types/index.ts";
 
 // TODO: This should passed through the config
 // Initial configuration for each chain
@@ -69,3 +56,16 @@ export const initialChainConfigs: PaimaChains = {
     currentBlock: 150000,
   },
 };
+
+// TODO These must be parametrised
+export const CONFIG_ENDPOINT = "http://127.0.0.1:9999/config";
+export const PRIMITIVES_ENDPOINT = "http://127.0.0.1:9999/primitives";
+export const TABLES_ENDPOINT = "http://127.0.0.1:9999/tables";
+export const PRIMITIVES_SCHEMA_ENDPOINT =
+  "http://127.0.0.1:9999/primitives-schema";
+export const TABLE_SCHEMA_ENDPOINT =
+  "http://127.0.0.1:9999/table-schemaexport ";
+export const BATCHER_ENDPOINT = "http://localhost:3334/send-input";
+export const BATCHER_OPENAPI_URL = "http://localhost:3334/documentation";
+export const ENGINE_OPENAPI_URL = "http://localhost:9999/documentation";
+export const DOCUMENTATION_URL = "http://127.0.0.1:10600/";

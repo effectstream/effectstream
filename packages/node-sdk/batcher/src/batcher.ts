@@ -41,6 +41,10 @@ interface BatcherConfig {
   port: number;
 }
 
+/**
+ * Batcher class.
+ * This class is responsible for batching user inputs and submitting them to the PaimaL2 contract.
+ */
 export class Batcher {
   /* True while the main loop is running */
   private isRunning = false;
@@ -303,7 +307,7 @@ export class Batcher {
 }
 
 /**
- * Static method to create and start a batcher with graceful shutdown handling
+ * Create and start a new Batcher.
  */
 export function* createAndLaunchBatcher(
   config: BatcherConfig,

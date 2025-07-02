@@ -1,17 +1,13 @@
 import type { PreparedQuery } from "@pgtyped/runtime";
 import type { WithBrand } from "@coderspirit/nominal";
 import type { SQLQueryIR } from "@pgtyped/parser";
-import {
-  insertNonce,
-  newScheduledHeightData,
-  newScheduledTimestampData,
-} from "@paima/db";
+import { newScheduledHeightData, newScheduledTimestampData } from "@paima/db";
 import type {
   INewScheduledHeightDataParams,
   INewScheduledTimestampDataParams,
 } from "@paima/db";
 import type { Pool, PoolClient } from "pg";
-import type { BaseStfInput, ParamToData } from "@paima/sm";
+import type { BaseStfInput } from "@paima/sm";
 
 /**
  * Two slightly tricky things about how this is set up:

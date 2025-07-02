@@ -20,6 +20,13 @@ export function* init() {
   yield* initTelemetry();
 }
 
+/**
+ * Start the node.
+ * TODO: Parameters should be passed as a configuration object.
+ * @param syncInfo - The sync information.
+ * @param gameStateTransitionRouter - The game state transition router.
+ * @param migrations - The migrations.
+ */
 export function* start(
   syncInfo: SyncProtocolWithNetwork[],
   gameStateTransitionRouter: (

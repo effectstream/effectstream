@@ -19,6 +19,13 @@ const BatchedSubunitSchema = Type.Object({
   millisecondTimestamp: Type.String(),
 });
 
+/**
+ * Register the OpenAPI documentation for the batcher server.
+ * Create the OpenAPI specification and the UI.
+ * UI is attached at /documentations
+ * @param server - The Fastify instance.
+ * @param port - The port to listen on.
+ */
 function* registerOpenApiDocumentation(
   server: FastifyInstance,
   port: number,
@@ -93,6 +100,11 @@ function* registerOpenApiDocumentation(
   yield* until(server.register(fastifySwaggerUi, uiOptions));
 }
 
+/**
+ * Start the batcher HTTP server.
+ * @param batcher - Batcher instance.
+ * @param port - The port to listen on.
+ */
 export function* startBatcherHttpServer(
   batcher: Batcher,
   port: number,

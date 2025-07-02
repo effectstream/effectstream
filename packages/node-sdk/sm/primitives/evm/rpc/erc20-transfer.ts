@@ -1,7 +1,7 @@
 import {
   ConfigPrimitiveAccountingPayloadType,
   type ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
+  type ConfigPrimitiveType,
   type ConfigSyncProtocolType,
   type FlattenSyncProtocolIOFor,
   type PayloadOf,
@@ -10,13 +10,8 @@ import {
 import { StateMachineExecution, World } from "@paima/coroutine";
 import type { StateUpdateStream } from "@paima/coroutine";
 import type { BlockNumber } from "@paima/utils";
-import {
-  createScheduledData,
-  insertPrimitiveAccounting,
-} from "../../../../db/src/mod.ts";
-import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
-import { clearBigInts, getScheduleBlockHeight } from "../../utils.ts";
-import type { AppEvents, BaseStfInput, BaseStfOutput } from "../../../types.ts";
+import { insertPrimitiveAccounting } from "../../../../db/src/mod.ts";
+import { clearBigInts } from "../../utils.ts";
 
 export default function* processErc20SyncProtocolResponse(
   paima_block_height: BlockNumber,
@@ -28,9 +23,6 @@ export default function* processErc20SyncProtocolResponse(
   >,
 ): StateUpdateStream<void> {
   const prefix = response.input.scheduledPrefix;
-  if (!prefix) {
-    return;
-  }
 
   const primitiveName = response.output.syncProtocol.payload.primitiveName;
 
@@ -47,12 +39,14 @@ export default function* processErc20SyncProtocolResponse(
     >,
   });
 
-  yield* StateMachineExecution(
-    paima_block_height,
-    JSON.stringify([prefix, payload]),
-    undefined,
-    undefined,
-    response.output.syncProtocol.payload.ownChain.blockNumber,
-    response.output.syncProtocol.payload.transactionHash,
-  );
+  if (prefix) {
+    yield* StateMachineExecution(
+      paima_block_height,
+      JSON.stringify([prefix, payload]),
+      undefined,
+      undefined,
+      response.output.syncProtocol.payload.ownChain.blockNumber,
+      response.output.syncProtocol.payload.transactionHash,
+    );
+  }
 }

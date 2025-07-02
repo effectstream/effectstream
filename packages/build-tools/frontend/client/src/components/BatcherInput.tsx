@@ -3,8 +3,8 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { grammar } from "@example/data-types";
+import { BATCHER_ENDPOINT } from "../config.ts";
 
-const BATCHER_ENDPOINT = "http://localhost:3334/send-input";
 const AddressType = {
   EVM: 0,
 };
@@ -33,6 +33,7 @@ async function createSignedInput(gameInput: string, walletInfo: WalletInfo) {
   const userAddress = account.address;
   const addressType = AddressType.EVM;
 
+  // TODO This should be provided by @paima/* package.
   const signature = await walletClient.signMessage({
     message: JSON.stringify({
       message: gameInput,
@@ -49,6 +50,7 @@ async function createSignedInput(gameInput: string, walletInfo: WalletInfo) {
   };
 }
 
+// TODO This should be provided by @paima/* package.
 async function sendInputToBatcher(batchedInput: any) {
   const response = await fetch(BATCHER_ENDPOINT, {
     method: "POST",
@@ -65,6 +67,7 @@ async function sendInputToBatcher(batchedInput: any) {
   return await response.json();
 }
 
+// TODO This should be provided by @paima/* package.
 async function postToBatcher(jsonArrayString: string, walletInfo: WalletInfo) {
   console.log("🚀 Creating signed input for:", jsonArrayString);
   const signedInput = await createSignedInput(jsonArrayString, walletInfo);

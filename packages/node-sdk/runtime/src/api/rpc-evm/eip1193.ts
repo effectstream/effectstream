@@ -38,12 +38,7 @@ import {
 } from "./rpc-utils.ts";
 const { keccak_256 } = sha3;
 import { runPreparedQuery } from "@paima/db";
-
-const ENV = {
-  // TODO: Update this
-  // 0x145985c1b5
-  CHAIN_ID: 87401284021,
-};
+import { ENV } from "@paima/utils";
 
 export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
   const engine = new JsonRpcEngine();
@@ -56,6 +51,8 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
    * ===============================
    */
 
+  // TODO: Most of these methods are not implemented, or partially implemented.
+  //       Check paima-v1 eip1193.ts for the full implementation details.
   engine.push(
     createAsyncMiddleware(async (req, res) => {
       const evmRpc: typeof req & EIP1193Parameters<PaimaEvmRpcSchema> =
@@ -841,7 +838,9 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
           // eth_chainId should always be used instead, but net_version===eth_chainId in almost all networks
           // the only real notable exception being ETC where these values are not equal
           // learn more: https://medium.com/@pedrouid/chainid-vs-networkid-how-do-they-differ-on-ethereum-eec2ed41635b
-          setResult<typeof evmRpc.method>(`0x${ENV.CHAIN_ID.toString(16)}`);
+          setResult<typeof evmRpc.method>(
+            `0x${ENV.PAIMA_CHAIN_ID.toString(16)}`,
+          );
           return;
         }
         case "net_listening": {

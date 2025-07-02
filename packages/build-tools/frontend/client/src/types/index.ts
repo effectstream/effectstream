@@ -17,6 +17,8 @@ export interface ChainConfig {
   isConnected?: boolean;
 }
 
+export type PaimaChains = Record<string, ChainConfig>;
+
 export interface Field {
   name: string;
   dataTypeID: number;
@@ -28,5 +30,3 @@ export interface TableData {
   rows: any[];
   fields: Field[];
 }
-
-export type PaimaChains = Record<string, ChainConfig>;
