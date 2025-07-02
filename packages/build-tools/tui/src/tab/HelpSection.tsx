@@ -30,6 +30,26 @@ export const HelpSection = () => {
         <Text color="gray">• Press Ctrl+C to exit the application</Text>
         <Text></Text>
 
+        <Text color="white" bold={true}>Log Control</Text>
+        <Text color="gray">
+          • Press [SPACE] in the Processes tab to toggle log display for
+          selected process
+        </Text>
+        <Text color="gray">
+          • Press [L] in the Processes tab to toggle all processes (disable all
+          if any enabled, enable all if all disabled)
+        </Text>
+        <Text color="gray">
+          • Each process can have logs enabled/disabled individually
+        </Text>
+        <Text color="gray">
+          • All processes start with logs enabled by default
+        </Text>
+        <Text color="gray">
+          • Log status shown as [✓] enabled or [✗] disabled per process
+        </Text>
+        <Text></Text>
+
         <Text color="white" bold={true}>Sections</Text>
         <Text color="gray">
           • [P] Processes: View and manage running processes
