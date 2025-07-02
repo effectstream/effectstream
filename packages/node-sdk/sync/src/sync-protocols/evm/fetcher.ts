@@ -178,9 +178,11 @@ export class EvmFetcher
       | ConfigSyncProtocolType.EVM_RPC_MAIN
       | ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,
+    pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
   ): Operation<
     PrimitiveType[]
   > {
+    // Fetch range of eventlogs
     const logs = yield* call(() =>
       client.getLogs({
         address: primitive.primitive.contractAddress,
@@ -191,59 +193,26 @@ export class EvmFetcher
       })
     );
 
-    // TODO What is the correct type?
-    const primitiveResponse: PrimitiveType[] = logs.map((
-      log,
-    ) => {
-      let payloadType;
-      let realAddress;
-      let primitiveType;
-      switch (primitive.primitive.type) {
-        case ConfigPrimitiveType.EvmRpcERC20:
-          primitiveType = ConfigPrimitiveType.EvmRpcERC20;
-          payloadType = ConfigPrimitivePayloadType.Transfer;
-          realAddress = undefined;
-          break;
-        case ConfigPrimitiveType.EvmRpcPaimaL2:
-          primitiveType = ConfigPrimitiveType.EvmRpcPaimaL2;
-          payloadType = ConfigPrimitivePayloadType.Event;
-          realAddress = (log.args as any).userAddress as `0x${string}`;
-          break;
-        case ConfigPrimitiveType.EvmRpcERC721:
-          primitiveType = ConfigPrimitiveType.EvmRpcERC721;
-          payloadType = ConfigPrimitivePayloadType.Transfer;
-          realAddress = undefined;
-          break;
-        default:
-          primitiveType = primitive.primitive.type;
-          payloadType = ConfigPrimitivePayloadType.Event;
-          realAddress = undefined;
-          break;
-      }
-
+    // Create PrimitiveType for each event.
+    const primitiveResponses: PrimitiveType[] = [];
+    for (const log of logs) {
+      const block = yield* call(() => pageRequest(Number(log.blockNumber)));
       const primitiveResponse: PrimitiveType = {
         input: primitive.primitive as any,
         output: {
-          payloadType: payloadType as any,
-          primitive: primitiveType as any,
-          payload: ({
-            ...log.args,
-            realAddress: realAddress
-              ? {
-                type: AddressType.EVM,
-                address: realAddress,
-              }
-              : undefined,
-          } as any),
+          payloadType: primitive.primitive.abi.name as any,
+          primitive: primitive.primitive as any,
+          payload: log.args,
           syncProtocol: {
             type: primitive.syncProtocol as any,
             name: primitive.primitive.name,
             internal: {},
-            payload: ({
+            payload: {
               primitiveName: primitive.primitive.name,
-              caip2: `eip155:${1}`, // TODO: get chain id from config?
+              caip2: `eip155:${client.chain.id}`,
               ownChain: {
                 blockNumber: Number(log.blockNumber),
+                timestamp: Number(block.timestamp),
               },
               transactionHash: log.transactionHash,
               transactionIndex: log.transactionIndex,
@@ -251,18 +220,18 @@ export class EvmFetcher
               logIndex: log.logIndex,
               // mainchain: {
               //   blockNumber: Number(log.blockNumber),
-              //   timestamp: toMsTimestamp(0n), // TODO: get timestamp from block?
+              //   timestamp: Number(block.timestamp),
               // },
-            }) as any,
+            },
           },
-        },
+        } as any,
         primitiveType: primitive.primitive.type,
-        payloadType: payloadType as any,
+        payloadType: primitive.primitive.abi.name as any,
       };
-      return primitiveResponse;
-    });
+      primitiveResponses.push(primitiveResponse as any);
+    }
 
-    return primitiveResponse;
+    return primitiveResponses;
   };
 
   @bound
@@ -287,6 +256,7 @@ export class EvmFetcher
           toBlock.number,
           client,
           primitive,
+          pageRequest,
         ),
       );
     }

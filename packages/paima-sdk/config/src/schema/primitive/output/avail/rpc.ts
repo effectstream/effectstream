@@ -12,8 +12,6 @@ import { ConfigPrimitivePayloadType } from "../types.ts";
 // ========
 
 export const PrimitiveAvailPaimaL2Payload = Type.Object({
-  // recall: any address is possible because of the batcher mechanism
-  realAddress: TypeboxHelpers.WalletAddress(),
   // TODO: this should be Paima concise encoding
   inputData: TypeboxHelpers.UnknownFormat,
   suppliedValue: TypeboxHelpers.Uint256,

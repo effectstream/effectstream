@@ -191,7 +191,9 @@ function erc721Factory(contractAddress: `0x${string}`) {
       silent = false,
     ) => {
       const { account, walletClient, publicClient } = clients(mint_private_key);
-      console.log("⚡ Minting Token #", token_id, "to", account.address);
+      if (!silent) {
+        console.log("⚡ Minting Token #", token_id, "to", account.address);
+      }
 
       const { request } = await publicClient.simulateContract({
         account,
@@ -222,7 +224,9 @@ function erc721Factory(contractAddress: `0x${string}`) {
       tokenId: bigint,
       silent = false,
     ) => {
-      console.log("💸 Transferring Token #", tokenId, "to", to_address);
+      if (!silent) {
+        console.log("💸 Transferring Token #", tokenId, "to", to_address);
+      }
       const { account, walletClient, publicClient } = clients(from_private_key);
       const { request } = await publicClient.simulateContract({
         account,
@@ -253,7 +257,9 @@ function erc721Factory(contractAddress: `0x${string}`) {
       tokenId: bigint,
       silent = false,
     ) => {
-      console.log("🔥 Burning Token #", tokenId);
+      if (!silent) {
+        console.log("🔥 Burning Token #", tokenId);
+      }
       const { account, walletClient, publicClient } = clients(from_private_key);
       const { request } = await publicClient.simulateContract({
         account,
@@ -295,7 +301,9 @@ export const erc20Factory = (contractAddress: `0x${string}`) => {
       amount: bigint,
       silent = false,
     ) => {
-      console.log("⚡ Minting", amount, "to", mint_address);
+      if (!silent) {
+        console.log("⚡ Minting", amount, "to", mint_address);
+      }
       const { account, walletClient, publicClient } = clients(mint_private_key);
       const { request } = await publicClient.simulateContract({
         account,
@@ -326,7 +334,9 @@ export const erc20Factory = (contractAddress: `0x${string}`) => {
       amount: bigint,
       silent = false,
     ) => {
-      console.log("💸 Transferring", amount, "to", to_address);
+      if (!silent) {
+        console.log("💸 Transferring", amount, "to", to_address);
+      }
       const { account, walletClient, publicClient } = clients(from_private_key);
       const { request } = await publicClient.simulateContract({
         account,

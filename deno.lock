@@ -82,6 +82,7 @@
     "npm:@utxorpc/spec@0.16": "0.16.0",
     "npm:@vitejs/plugin-react@^4.4.1": "4.6.0_vite@6.3.5__@types+node@22.5.4__tsx@4.19.3__picomatch@4.0.2_@babel+core@7.27.7_@types+node@22.5.4_tsx@4.19.3",
     "npm:abitype@^1.0.8": "1.0.8_typescript@5.6.3",
+    "npm:assert-never@*": "1.4.0",
     "npm:assert-never@^1.4.0": "1.4.0",
     "npm:autoprefixer@^10.4.16": "10.4.21_postcss@8.5.6",
     "npm:bech32@2": "2.0.0",

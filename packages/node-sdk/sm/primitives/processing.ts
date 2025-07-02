@@ -20,6 +20,7 @@ import type {
 import { ConfigPrimitivePayloadType, ConfigPrimitiveType } from "@paima/config";
 import type { StateUpdateStream } from "@paima/coroutine";
 import type { BlockNumber } from "@paima/utils";
+import { clearBigInts } from "./utils.ts";
 
 export function* primitiveTransitionFunction(
   paima_block_height: BlockNumber,
@@ -35,18 +36,18 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Event:
           return; // TODO
         default:
-          assertNever.default(primitive);
+          assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.EvmRpcPaimaL2:
       switch (primitive.payloadType) {
-        case ConfigPrimitivePayloadType.Event:
+        case ConfigPrimitivePayloadType.PaimaL2Event:
           return yield* processPaimaL2Event(
             paima_block_height,
             primitive,
           );
         default:
-          assertNever.default(primitive);
+          assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.EvmRpcERC20:
@@ -57,7 +58,7 @@ export function* primitiveTransitionFunction(
             primitive,
           );
         default:
-          assertNever.default(primitive);
+          assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.EvmRpcERC721:
@@ -70,7 +71,7 @@ export function* primitiveTransitionFunction(
         // case ConfigPrimitivePayloadType.Mint:
         //   return yield* processErc721MintDatum(paima_block_height, primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.EvmRpcERC1155:
@@ -78,7 +79,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Transfer:
           // return yield* processErc1155TransferDatum(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.EvmRpcGeneric:
@@ -86,7 +87,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Event:
           // return yield* processGenericDatum(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.EvmRpcERC6551Registry:
@@ -94,7 +95,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Registry:
           // return yield* processErc6551RegistryDatum(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.EvmRpcDynamicPrimitive:
@@ -102,7 +103,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Event:
           // return yield* processDynamicEvmPrimitive(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.CardanoCarpDelegation:
@@ -110,7 +111,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Delegate:
           // return yield* processCardanoDelegationDatum(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.CardanoCarpProjectedNFT:
@@ -118,7 +119,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Projection:
           // return yield* processCardanoProjectedNFT(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.CardanoCarpDelayedAsset:
@@ -126,7 +127,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Transfer:
           // return yield* processCardanoAssetUtxoDatum(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.CardanoCarpTransfer:
@@ -134,7 +135,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Transfer:
           // return yield* processCardanoTransferDatum(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.CardanoCarpMintBurn:
@@ -142,7 +143,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.MintOrBurn:
           // return yield* processCardanoMintBurnDatum(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.MinaEventGeneric:
@@ -150,7 +151,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Event:
           // return yield* processGenericDatum(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.MinaActionGeneric:
@@ -158,7 +159,7 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Event:
           // return yield* processGenericDatum(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     case ConfigPrimitiveType.MidnightContractState:
@@ -166,10 +167,10 @@ export function* primitiveTransitionFunction(
         case ConfigPrimitivePayloadType.Event:
           // return yield* processMidnightContractStateDatum(primitive);
         default:
-          // assertNever.default(primitive);
+          // assertNever.default(clearBigInts(primitive));
       }
       break;
     default:
-      // assertNever.default(primitive);
+      // assertNever.default(clearBigInts(primitive));
   }
 }

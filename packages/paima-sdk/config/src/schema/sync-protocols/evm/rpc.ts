@@ -35,6 +35,7 @@ export const CommonResponseEvmRpcBase = {
     caip2: TypeboxHelpers.Caip2,
     ownChain: Type.Object({
       blockNumber: TypeboxHelpers.BlockNumber(),
+      timestamp: TypeboxHelpers.TimestampMs(),
     }),
     transactionHash: TypeboxHelpers.Evm.TxHash,
     transactionIndex: Type.Number(),

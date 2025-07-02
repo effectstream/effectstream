@@ -298,17 +298,19 @@ async function test() {
       await erc721.b.mint(wallet_B.privateKey, tokens_b.shift()!, true);
       const t1 = tokens_b.shift()!;
       const t2 = tokens_b.shift()!;
-      await erc721.b.mint(wallet_A.privateKey, t1);
-      await erc721.b.mint(wallet_B.privateKey, t2);
+      await erc721.b.mint(wallet_A.privateKey, t1, true);
+      await erc721.b.mint(wallet_B.privateKey, t2, true);
       await erc721.b.transfer(
         wallet_A.privateKey,
         wallet_B.address,
         t1,
+        true,
       );
       await erc721.b.transfer(
         wallet_B.privateKey,
         wallet_A.address,
         t2,
+        true,
       );
     }
 

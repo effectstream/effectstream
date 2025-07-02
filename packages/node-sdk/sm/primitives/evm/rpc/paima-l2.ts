@@ -16,29 +16,18 @@ import {
   newAddress,
 } from "@paima/db";
 import { StateMachineExecution, World } from "@paima/coroutine";
-import { createScheduledData } from "@paima/db";
-import {
-  BuiltinGrammar,
-  BuiltinGrammarPrefix,
-  BuiltinTransitions,
-  extractBatches,
-  generateRawStmInput,
-  KeyedBuiltinGrammar,
-  parseRawStmInput,
-} from "@paima/concise";
+import { extractBatches } from "@paima/concise";
 import {
   ConfigPrimitiveAccountingPayloadType,
-  ConfigPrimitiveType,
+  type ConfigPrimitiveType,
 } from "@paima/config";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
 import { mainAddressGenerator, NO_USER_ID } from "@paima/sm";
-import { call, Channel, Operation } from "npm:effection@^3.5.0";
 import { clearBigInts } from "../../utils.ts";
 
 function* executePaimaL2Input(input: {
   paima_block_height: BlockNumber;
-  nonce: string;
-  // inputData: {};
+  nonce: string | undefined;
   ownChain: {
     blockNumber: number;
     transactionHash: `0x${string}`;
@@ -49,52 +38,41 @@ function* executePaimaL2Input(input: {
   primitiveName: string;
   signerAddress: `0x${string}`;
 }) {
-  const [nonceData] = yield* World.resolve(findNonce, {
-    nonce: input.nonce,
-  });
-  if (nonceData) {
-    log.remote(
-      ComponentNames.PAIMA_SYNC,
-      ["paima-l2"],
-      SeverityNumber.INFO,
-      (log) =>
-        log(
-          `Skipping inputData with duplicate nonce: ${
-            JSON.stringify(input.payload)
-          }`,
-        ),
-    );
-    return;
+  // TODO This is only for batched messages?
+  if (input.nonce) {
+    const [nonceData] = yield* World.resolve(findNonce, {
+      nonce: input.nonce,
+    });
+    if (nonceData) {
+      log.remote(
+        ComponentNames.PAIMA_SYNC,
+        ["paima-l2"],
+        SeverityNumber.INFO,
+        (log) =>
+          log(
+            `Skipping inputData with duplicate nonce: ${
+              JSON.stringify(input.payload)
+            }`,
+          ),
+      );
+      return;
+    }
+    // guarantee we run this no matter if there is an error or a continue
+    yield* World.resolve(insertNonce, {
+      nonce: input.nonce,
+      block_height: input.paima_block_height,
+    });
   }
-
-  // TODO Where does the nonce come from?
-  const [lastNonceData] = yield* World.resolve(getLastNonce, undefined);
-  const nextNonce = lastNonceData
-    ? Number((lastNonceData as any).nonce) + 1
-    : 0;
-
-  // guarantee we run this no matter if there is an error or a continue
-  // yield* World.resolve(insertNonce, {
-  //   nonce: String(nextNonce),
-  //   block_height: input.paima_block_height,
-  // });
-
-  // We cannot insert bigints into the database, or be serialized to JSON.
-  // const payload = clearBigInts(payload);
-
   // const primitiveName = response.output.syncProtocol.payload.primitiveName;
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: input.primitiveName,
     paima_block_height: input.paima_block_height,
     payload_type: ConfigPrimitiveAccountingPayloadType.Event,
-    payload: input.payload satisfies PayloadOf<
-      typeof PrimitiveEvmRpcPaimaL2Accounting
-    >,
+    payload: input.payload,
   });
 
   const address = yield* mainAddressGenerator(
     input.signerAddress,
-    // response.output.payload.realAddress.address,
   );
 
   // let success: boolean | undefined = false;
@@ -142,7 +120,7 @@ export default function* processPaimaL2SyncProtocolResponse(
     | ConfigSyncProtocolType.EVM_RPC_MAIN
     | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
     ConfigPrimitiveType.EvmRpcPaimaL2,
-    ConfigPrimitivePayloadType.Event
+    ConfigPrimitivePayloadType.PaimaL2Event
   >,
 ): StateUpdateStream<void> {
   const outerLayerPayload = clearBigInts(response.output.payload);
@@ -168,8 +146,7 @@ export default function* processPaimaL2SyncProtocolResponse(
           inputData: batchedMessage.parsed.gameInput,
         } as any,
         primitiveName: response.output.syncProtocol.payload.primitiveName,
-        signerAddress: response.output.payload.realAddress
-          .address as `0x${string}`,
+        signerAddress: batchedMessage.parsed.userAddress as `0x${string}`,
       });
     }
   } catch {
@@ -180,15 +157,14 @@ export default function* processPaimaL2SyncProtocolResponse(
     yield* executePaimaL2Input({
       paima_block_height,
       // TODO: where do we get the nonce from?
-      nonce: response.output.payload.inputNonce,
+      nonce: undefined,
       ownChain: {
         blockNumber: response.output.syncProtocol.payload.ownChain.blockNumber,
         transactionHash: response.output.syncProtocol.payload.transactionHash,
       },
       payload: outerLayerPayload,
       primitiveName: response.output.syncProtocol.payload.primitiveName,
-      signerAddress: response.output.payload.realAddress
-        .address as `0x${string}`,
+      signerAddress: response.output.payload.userAddress,
     });
   }
 }
