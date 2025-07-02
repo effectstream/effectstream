@@ -5,6 +5,7 @@ import cors from "@fastify/cors";
 import { run, until } from "effection";
 import {
   aquireDBMutex,
+  getPrimitivePrefix,
   getTableSchema,
   releaseDBMutex,
   runPreparedQuery,
@@ -253,7 +254,9 @@ export const startHttpServer = function* (
     },
   );
 
-  function getPrimitivePrefix(primitiveName: string): string | undefined {
+  function getPrimitivePrefixWrapper(
+    primitiveName: string,
+  ): string | undefined {
     // TODO map/find the results generated bad TS Types (too hard to represent)
     const findPrimitive = (syncProtocols: AllSyncProtocols[]) => {
       for (const syncProtocol of syncProtocols) {
@@ -290,7 +293,7 @@ export const startHttpServer = function* (
     reply,
   ) => {
     const { primitiveName } = request.params;
-    const prefix = getPrimitivePrefix(primitiveName);
+    const prefix = getPrimitivePrefixWrapper(primitiveName);
     if (!prefix) {
       return reply.status(404).send({
         error: "Primitive does not have aggregated data",
@@ -320,7 +323,7 @@ export const startHttpServer = function* (
       reply,
     ) => {
       const { primitiveName } = request.params;
-      const prefix = getPrimitivePrefix(primitiveName);
+      const prefix = getPrimitivePrefixWrapper(primitiveName);
       if (!prefix) {
         return reply.status(404).send({
           error: "Primitive does not have aggregated data",

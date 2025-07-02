@@ -63,8 +63,7 @@ export const PRIMITIVES_ENDPOINT = "http://127.0.0.1:9999/primitives";
 export const TABLES_ENDPOINT = "http://127.0.0.1:9999/tables";
 export const PRIMITIVES_SCHEMA_ENDPOINT =
   "http://127.0.0.1:9999/primitives-schema";
-export const TABLE_SCHEMA_ENDPOINT =
-  "http://127.0.0.1:9999/table-schemaexport ";
+export const TABLE_SCHEMA_ENDPOINT = "http://127.0.0.1:9999/table-schema";
 export const BATCHER_ENDPOINT = "http://localhost:3334/send-input";
 export const BATCHER_OPENAPI_URL = "http://localhost:3334/documentation";
 export const ENGINE_OPENAPI_URL = "http://localhost:9999/documentation";
