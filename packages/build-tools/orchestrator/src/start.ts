@@ -95,10 +95,12 @@ export async function start(
       startProcess[ComponentNames.MIDNIGHT_NODE](),
     ]);
 
-    // Start the Dolos process
-    await startProcess[ComponentNames.DOLOS]();
-    await startProcess[ComponentNames.AVAIL_CLIENT]();
-    await startProcess[ComponentNames.MIDNIGHT_INDEXER]();
+    // Start the client rpc processes
+    await Promise.all([
+      startProcess[ComponentNames.DOLOS](),
+      startProcess[ComponentNames.AVAIL_CLIENT](),
+      startProcess[ComponentNames.MIDNIGHT_INDEXER](),
+    ]);
 
     // Start the main process
     await startProcess[ComponentNames.PAIMA_SYNC]();
@@ -267,7 +269,12 @@ export const startProcess: Record<
   },
   [ComponentNames.MIDNIGHT_NODE]: async (): Promise<ProcessComponent> => {
     const midnightNode = $({
-      args: ["task", "-f", "@example/cardano-contracts", "midnight-node:start"],
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-node:start",
+      ],
       log: logHandler,
       component: ComponentNames.MIDNIGHT_NODE,
       abortController: abortControllers.system,
@@ -275,7 +282,7 @@ export const startProcess: Record<
     void midnightNode.process.status; // need to await sub-service start below
 
     await $({
-      args: ["task", "-f", "@example/cardano-contracts", "midnight-node:wait"],
+      args: ["task", "-f", "@example/midnight-contracts", "midnight-node:wait"],
       component: ComponentNames.MIDNIGHT_NODE_WAIT,
       abortController: abortControllers.noncritical,
     }).process.status;
@@ -287,7 +294,7 @@ export const startProcess: Record<
       args: [
         "task",
         "-f",
-        "@example/cardano-contracts",
+        "@example/midnight-contracts",
         "midnight-indexer:start",
       ],
       log: logHandler,
@@ -300,7 +307,7 @@ export const startProcess: Record<
       args: [
         "task",
         "-f",
-        "@example/cardano-contracts",
+        "@example/midnight-contracts",
         "midnight-indexer:wait",
       ],
       component: ComponentNames.MIDNIGHT_INDEXER_WAIT,
@@ -311,7 +318,7 @@ export const startProcess: Record<
   },
   [ComponentNames.AVAIL_NODE]: async (): Promise<ProcessComponent> => {
     const availNode = $({
-      args: ["task", "-f", "@example/cardano-contracts", "avail-node:start"],
+      args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
       log: logHandler,
       component: ComponentNames.AVAIL_NODE,
       abortController: abortControllers.system,
@@ -319,7 +326,7 @@ export const startProcess: Record<
     void availNode.process.status; // need to await sub-service start below
 
     await $({
-      args: ["task", "-f", "@example/cardano-contracts", "avail-node:wait"],
+      args: ["task", "-f", "@example/avail-contracts", "avail-node:wait"],
       component: ComponentNames.AVAIL_NODE_WAIT,
       abortController: abortControllers.noncritical,
     }).process.status;
@@ -332,7 +339,7 @@ export const startProcess: Record<
       args: [
         "task",
         "-f",
-        "@example/cardano-contracts",
+        "@example/avail-contracts",
         "avail-light-client:start",
       ],
       log: logHandler,
@@ -345,7 +352,7 @@ export const startProcess: Record<
       args: [
         "task",
         "-f",
-        "@example/cardano-contracts",
+        "@example/avail-contracts",
         "avail-light-client:wait",
       ],
       component: ComponentNames.AVAIL_CLIENT_WAIT,

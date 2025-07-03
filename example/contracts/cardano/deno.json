@@ -10,15 +10,7 @@
     "dolos:fill-template": "deno run -A ./fill-template.ts",
     // rm -rf is required because of this issue: https://github.com/txpipe/dolos/issues/398
     "dolos:start": "rm -rf ./data && rm -rf ./dolos.socket && deno task dolos:fill-template && deno run -A --node-modules-dir npm:@txpipe/dolos bootstrap relay && deno run -A --node-modules-dir npm:@txpipe/dolos daemon",
-    "dolos:wait": "wait-on tcp:50051", // utxorpc port
-    "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs --node-modules-dir ../../../packages/local-dev/npm-midnight-node/index.js --dev --rpc-port 9955",
-    "midnight-node:wait": "wait-on tcp:9955",
-    "midnight-indexer:start": "LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9955\" APP__INFRA__SECRET=\"A5F07FCAC914A181EC0998CCCA68312DA5F07FCAC914A181EC0998CCCA68312D\" FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9955\" deno run -A --unstable-detect-cjs --node-modules-dir ../../../packages/local-dev/npm-midnight-indexer/index.js --binary",
-    "midnight-indexer:wait": "wait-on tcp:8088",
-    "avail-node:start": "deno run -A --unstable-detect-cjs --node-modules-dir ../../../packages/local-dev/avail-node/index.js --dev",
-    "avail-node:wait": "wait-on tcp:9944",
-    "avail-light-client:start": "deno run -A --unstable-detect-cjs --node-modules-dir ../../../packages/local-dev/npm-avail-light-client/index.js --network local --config ../../../packages/local-dev/npm-avail-light-client/config.yml",
-    "avail-light-client:wait": "wait-on tcp:7007"
+    "dolos:wait": "wait-on tcp:50051" // utxorpc port
   },
   "imports": {
     "@bloxbean/yaci-devkit": "npm:@bloxbean/yaci-devkit@0.10.6",
