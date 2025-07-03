@@ -6,21 +6,21 @@ import {
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
 } from "@paima/config";
-import { migrations } from "@example/database";
-
-import { gameStateTransitionRouter } from "@example/state-transition";
+import { migrationRouter } from "@example/database";
+import { gameStateTransitions } from "@example/state-transition";
+import { apiRouter } from "@example/api";
 
 main(function* () {
   yield* init();
   console.log("starting node");
 
   yield* withPaimaStaticConfig(localhostConfig, function* () {
-    // TODO: This should be passed as a configuration object.
-    yield* start(
-      toSyncProtocolWithNetwork(localhostConfig),
-      gameStateTransitionRouter,
-      migrations,
-    );
+    yield* start({
+      syncInfo: toSyncProtocolWithNetwork(localhostConfig),
+      gameStateTransitions,
+      migrationRouter,
+      apiRouter,
+    });
   });
 
   yield* suspend();

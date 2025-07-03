@@ -6,14 +6,13 @@ import {
   releaseDBMutex,
 } from "@paima/db";
 import { startMerge, startSync } from "@paima/sync";
-import type { SyncProtocolWithNetwork } from "@paima/config";
-import type { AppEvents } from "@paima/sm";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import { createChannel, each, type Operation, spawn } from "effection";
+import { createChannel, each, type Operation, spawn, until } from "effection";
 import { initTelemetry } from "./telemetry.ts";
-import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import { processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
+import type { StartConfig } from "./types.ts";
+import type { Client } from "pg";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -21,20 +20,15 @@ export function* init() {
 }
 
 /**
- * Start the node.
- * TODO: Parameters should be passed as a configuration object.
- * @param syncInfo - The sync information.
- * @param gameStateTransitionRouter - The game state transition router.
- * @param migrations - The migrations.
+ * Main entry point to start the Paima Engine Node.
+ *
+ * This will launch the networks/primitives syncronization sub-processes,
+ * the HTTP server, and the merge and paima-block generation process.
+ *
+ * @param config - Paima Engine Node configuration object.
  */
-export function* start(
-  syncInfo: SyncProtocolWithNetwork[],
-  gameStateTransitionRouter: (
-    blockHeight: number,
-    input: BaseStfInput,
-  ) => Promise<BaseStfOutput<AppEvents>>,
-  migrations?: (blockHeight: number) => Operation<string | undefined>,
-): Operation<void> {
+export function* start(config: StartConfig): Operation<void> {
+  const { syncInfo } = config;
   const dbConn = getConnection();
   const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
 
@@ -54,27 +48,33 @@ export function* start(
   }
 
   yield* spawn(function* () {
-    yield* startHttpServer(dbConn, syncProtocols);
+    yield* startHttpServer(dbConn, syncProtocols, config.apiRouter);
   });
 
   const finalizedBlockStream = createChannel<ChainBlock>();
-  const processFinalizedBlockFn = processFinalizedBlock(
-    gameStateTransitionRouter,
-    dbConn,
-    migrations,
-  );
+
   yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
 
   for (const value of yield* each(finalizedBlockStream)) {
-    yield* aquireDBMutex();
-    const blockHash = yield* processFinalizedBlockFn(value);
+    let blockHash: `0x${string}`;
+    // We request a dbClient for a non-shared dbConn object.
+    // For PGLite, this is not enough, as the can only be one connection at a time.
+    // So we request a DBMutex as well.
+    const dbClient: Client = yield* until(dbConn.connect());
+    try {
+      yield* aquireDBMutex();
+      blockHash = yield* processFinalizedBlock(value, config, dbClient);
+    } finally {
+      releaseDBMutex();
+      dbClient.release();
+    }
+
     log.remote(
       ComponentNames.PAIMA_SYNC,
       "block-merge",
       SeverityNumber.INFO,
       (log) => log(`finalized block ${value.blockNumber} @ ${blockHash}`),
     );
-    releaseDBMutex();
     yield* each.next();
   }
 }

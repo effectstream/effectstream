@@ -10,7 +10,7 @@ import "react-dom";
 export default defineConfig({
   root: "./client",
   server: {
-    port: 3000,
+    port: 4001,
     open: true,
   },
   plugins: [

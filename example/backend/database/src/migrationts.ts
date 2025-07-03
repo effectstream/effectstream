@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { type Operation, until } from "npm:effection@3.5.0";
+import type { StartConfigMigrationRouter } from "@paima/runtime";
 
 const __dirname = import.meta.dirname;
 
@@ -9,12 +9,12 @@ const __dirname = import.meta.dirname;
  * @param blockHeight - The paima block height to get the migration script for.
  * @returns The migration script for the given block height.
  */
-export function* migrations(
+export const migrationRouter: StartConfigMigrationRouter = async function (
   blockHeight: number,
-): Operation<string | undefined> {
+): Promise<string | undefined> {
   switch (blockHeight) {
     case 1:
-      return yield* until(readFile(`${__dirname}/migrations/1.sql`, "utf-8"));
+      return await readFile(`${__dirname}/migrations/1.sql`, "utf-8");
   }
   return undefined;
-}
+};

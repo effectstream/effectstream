@@ -30,3 +30,60 @@ const insertStateMachineInputIR: any = {"usedParamSet":{"inputs":true,"block_hei
 export const insertStateMachineInput = new PreparedQuery<IInsertStateMachineInputParams,IInsertStateMachineInputResult>(insertStateMachineInputIR);
 
 
+/** 'GetStateMachineInput' parameters type */
+export type IGetStateMachineInputParams = void;
+
+/** 'GetStateMachineInput' return type */
+export interface IGetStateMachineInputResult {
+  block_height: number;
+  id: number;
+  inputs: string;
+}
+
+/** 'GetStateMachineInput' query type */
+export interface IGetStateMachineInputQuery {
+  params: IGetStateMachineInputParams;
+  result: IGetStateMachineInputResult;
+}
+
+const getStateMachineInputIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM paima_state_machine"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM paima_state_machine
+ * ```
+ */
+export const getStateMachineInput = new PreparedQuery<IGetStateMachineInputParams,IGetStateMachineInputResult>(getStateMachineInputIR);
+
+
+/** 'GetStateMachineInputByBlockHeight' parameters type */
+export interface IGetStateMachineInputByBlockHeightParams {
+  block_height: number;
+}
+
+/** 'GetStateMachineInputByBlockHeight' return type */
+export interface IGetStateMachineInputByBlockHeightResult {
+  block_height: number;
+  id: number;
+  inputs: string;
+}
+
+/** 'GetStateMachineInputByBlockHeight' query type */
+export interface IGetStateMachineInputByBlockHeightQuery {
+  params: IGetStateMachineInputByBlockHeightParams;
+  result: IGetStateMachineInputByBlockHeightResult;
+}
+
+const getStateMachineInputByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":56,"b":69}]}],"statement":"SELECT * FROM paima_state_machine \nWHERE block_height = :block_height!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM paima_state_machine 
+ * WHERE block_height = :block_height!
+ * ```
+ */
+export const getStateMachineInputByBlockHeight = new PreparedQuery<IGetStateMachineInputByBlockHeightParams,IGetStateMachineInputByBlockHeightResult>(getStateMachineInputByBlockHeightIR);
+
+

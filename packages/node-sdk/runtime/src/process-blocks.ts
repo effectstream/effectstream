@@ -16,6 +16,11 @@ import type {
 import { blockHeightDone, saveLastBlock } from "@paima/db";
 import { Buffer } from "node:buffer";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
+import type {
+  StartConfig,
+  StartConfigGameStateTransitions,
+  StartConfigMigrationRouter,
+} from "./types.ts";
 
 /** Helper to check if a SyncStateUpdateStream object is a StateMachineExecution */
 function isStateMachineExecution(value: any): value is STMExecPromise {
@@ -64,11 +69,8 @@ async function tryOrRollback<T>(
  */
 function* executeGeneratorStepByStep(
   generator: SyncStateUpdateStream<void>,
-  gameStateTransitionRouter: (
-    blockHeight: number,
-    input: BaseStfInput,
-  ) => Promise<BaseStfOutput<AppEvents>>,
   dbConn: Pool,
+  gameStateTransitions?: StartConfigGameStateTransitions,
 ): Operation<any> {
   let result = generator.next();
 
@@ -88,9 +90,9 @@ function* executeGeneratorStepByStep(
       const query = new PreparedQuery(queryIR);
       const queryResult = yield* call(() => query.run(params, dbConn));
       operations.push(queryResult);
-    } else if (isStateMachineExecution(value)) {
+    } else if (isStateMachineExecution(value) && gameStateTransitions) {
       yield* until(tryOrRollback(dbConn, async () => {
-        const stateMachineResult = await gameStateTransitionRouter(
+        const stateMachineResult = await gameStateTransitions(
           value.data.blockHeight,
           value.data,
         );
@@ -113,10 +115,10 @@ function* executeGeneratorStepByStep(
  */
 function* processMigrations(
   blockHeight: number,
-  migrations: (blockHeight: number) => Operation<string | undefined>,
+  migrationsRouter: StartConfigMigrationRouter,
   dbConn: Pool,
 ): Operation<void> {
-  const migrationToApply = yield* migrations(blockHeight);
+  const migrationToApply = yield* until(migrationsRouter(blockHeight));
   if (migrationToApply) {
     yield* until(
       tryOrRollback(dbConn, async () => await dbConn.query(migrationToApply)),
@@ -124,12 +126,11 @@ function* processMigrations(
   }
 }
 
-// TODO
-// Where shoud we move this? Before emitting finalizedBlockStream?
 /**
  * This function is the main entry point for processing a produced block.
  * It is called whem a block can be processed and finalized.
  * It runs the entire pipeline in a transaction, with subtransactions for each StateMachineExecution.
+ *
  * Process Order:
  * 1. Create a temporal block record
  * 2. Process the migrations for this block height
@@ -139,87 +140,86 @@ function* processMigrations(
  * 4.b Resolve state machine effects (in order of apperance)
  * 5. Mark the block as done, and add the hash.
  * 6. Commit the transaction
+ *
+ * IMPORTANT: This function must recieve a non-shared dbConn object.
+ *            as it will be used in a transaction.
  */
-export function processFinalizedBlock(
-  gameStateTransitionRouter: (
-    blockHeight: number,
-    input: BaseStfInput,
-  ) => Promise<BaseStfOutput<AppEvents>>,
+export function* processFinalizedBlock(
+  value: ChainBlock,
+  config: StartConfig,
   dbConn: Pool,
-  migrations?: (blockHeight: number) => Operation<string | undefined>,
-): (value: ChainBlock) => Operation<`0x${string}`> {
-  return function* (value: ChainBlock): Operation<`0x${string}`> {
-    let blockHash: `0x${string}`;
-    try {
-      yield* until(dbConn.query("BEGIN"));
+): Operation<`0x${string}`> {
+  const { gameStateTransitions, migrationRouter } = config;
+  let blockHash: `0x${string}`;
+  try {
+    yield* until(dbConn.query("BEGIN"));
 
-      // TODO: Should this be after the primitves?
-      //       This should not be saved if the process fails.
-      //       But each StateMachineExecution is a transaction.
-      yield* call(() =>
-        saveLastBlock.run({
-          // TODO: Check thses values
-          block_height: value.blockNumber,
-          ver: 0,
-          main_chain_block_hash: Buffer.from(value.blockNumber.toString()),
-          seed: value.blockNumber.toString(),
-          ms_timestamp: new Date(value.timestamp),
-        }, dbConn)
-      );
+    // TODO: Should this be after the primitves?
+    //       This should not be saved if the process fails.
+    //       But each StateMachineExecution is a transaction.
+    yield* call(() =>
+      saveLastBlock.run({
+        // TODO: Check thses values
+        block_height: value.blockNumber,
+        ver: 0,
+        main_chain_block_hash: Buffer.from(value.blockNumber.toString()),
+        seed: value.blockNumber.toString(),
+        ms_timestamp: new Date(value.timestamp),
+      }, dbConn)
+    );
 
-      // First Process the migrations.
-      if (migrations) {
-        yield* processMigrations(value.blockNumber, migrations, dbConn);
-      }
-
-      // TODO:
-      // Second Process the scheduled data.
-
-      // Third Process the primitives.
-      for (const primitive of value.primitives) {
-        // TODO:
-        // This "if" for this example process only evm primitives.
-        if (primitive.source === "parallelUtxoRpc") {
-          continue;
-        }
-        const generator = primitiveTransitionFunction(
-          value.blockNumber,
-          primitive,
-        );
-        yield* executeGeneratorStepByStep(
-          generator,
-          gameStateTransitionRouter,
-          dbConn,
-        );
-      }
-
-      // Fourth, mark the block as done.
-      // TODO create the hash from the contents (how?)
-      blockHash = `0x${
-        Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16))
-          .join("")
-      }`;
-
-      yield* call(() =>
-        blockHeightDone.run({
-          block_hash: Buffer.from(blockHash),
-          block_height: value.blockNumber,
-        }, dbConn)
-      );
-
-      yield* until(dbConn.query("COMMIT"));
-    } catch (err) {
-      yield* until(dbConn.query("ROLLBACK"));
-      log.remote(
-        ComponentNames.PAIMA_SYNC,
-        "block-processing",
-        SeverityNumber.ERROR,
-        (log) =>
-          log(`Error processing block ${value.blockNumber}: ${String(err)}`),
-      );
-      // We cannot recover from this error.
-      throw err;
+    // First Process the migrations.
+    if (migrationRouter) {
+      yield* processMigrations(value.blockNumber, migrationRouter, dbConn);
     }
-    return blockHash;
-  };
+
+    // TODO:
+    // Second Process the scheduled data.
+
+    // Third Process the primitives.
+    for (const primitive of value.primitives) {
+      // TODO:
+      // This "if" for this example process only evm primitives.
+      if (primitive.source === "parallelUtxoRpc") {
+        continue;
+      }
+      const generator = primitiveTransitionFunction(
+        value.blockNumber,
+        primitive,
+      );
+      yield* executeGeneratorStepByStep(
+        generator,
+        dbConn,
+        gameStateTransitions,
+      );
+    }
+
+    // Fourth, mark the block as done.
+    // TODO create the hash from the contents (how?)
+    blockHash = `0x${
+      Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16))
+        .join("")
+    }`;
+
+    yield* call(() =>
+      blockHeightDone.run({
+        block_hash: Buffer.from(blockHash),
+        block_height: value.blockNumber,
+      }, dbConn)
+    );
+
+    yield* until(dbConn.query("COMMIT"));
+  } catch (err) {
+    yield* until(dbConn.query("ROLLBACK"));
+    log.remote(
+      ComponentNames.PAIMA_SYNC,
+      "block-processing",
+      SeverityNumber.ERROR,
+      (log) =>
+        log(`Error processing block ${value.blockNumber}: ${String(err)}`),
+    );
+    // We cannot recover from this error.
+    throw err;
+  }
+  return blockHash;
 }

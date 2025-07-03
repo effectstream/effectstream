@@ -5,6 +5,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import net from "node:net";
 import { fromNodeSocket } from "pg-gateway/node";
+import { ENV } from "@paima/utils";
 
 // TODO: we hardcode the migration file here
 //       but probably have to be smarter about this
@@ -23,7 +24,7 @@ const db = new PGlite(
         import.meta.url,
       ),
     },
-    // debug: 1,
+    debug: ENV.DEBUG_PGLITE,
   },
 );
 await db.exec("CREATE EXTENSION IF NOT EXISTS pg_ivm;");

@@ -224,6 +224,41 @@ async function test() {
       },
     );
 
+    assert("Check User Defined API", async () => {
+      const response = await fetch("http://localhost:9999/api/my-game-state");
+      const data = await response.json();
+      // 3 ERC20 updates
+      // 2 PaimaL2 updates
+      // 1 Batcher update
+      return data.length === 6;
+    });
+
+    assert("Health Check", async () => {
+      const response = await fetch("http://localhost:9999/health");
+      const data = await response.json();
+      return data.status === "ok";
+    });
+
+    assert("Check System API Table Schema", async () => {
+      const response = await fetch(
+        "http://localhost:9999/table-schema/paima_state_machine",
+      );
+      const data = await response.json();
+      return data.every((row: any) =>
+        row.column_name === "id" ||
+        row.column_name === "inputs" ||
+        row.column_name === "block_height"
+      );
+    });
+
+    assert("Check System API Table Data", async () => {
+      const response = await fetch(
+        "http://localhost:9999/tables/paima_state_machine",
+      );
+      const data = await response.json();
+      return data.length === 6;
+    });
+
     const tokens = {
       tokenA: 1n,
       tokenB: 2n,

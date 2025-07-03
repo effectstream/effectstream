@@ -19,6 +19,7 @@ import fastifySwaggerUi, {
   type FastifySwaggerUiOptions,
 } from "@fastify/swagger-ui";
 import { Type } from "@sinclair/typebox";
+import type { StartConfigApiRouter } from "../types.ts";
 
 export enum RpcPaths {
   Root = "rpc",
@@ -118,6 +119,7 @@ function* registerOpenApiDocumentation(
 export const startHttpServer = function* (
   dbConn: Pool,
   syncProtocols: AllSyncProtocols[],
+  apiRouter?: StartConfigApiRouter,
 ) {
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.
@@ -130,6 +132,10 @@ export const startHttpServer = function* (
       origin: "*",
     }),
   );
+
+  if (apiRouter) {
+    yield* until(apiRouter(server, dbConn));
+  }
 
   server.get("/health", {
     schema: {

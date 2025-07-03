@@ -167,6 +167,13 @@ const definitions = {
     defaultValue: 87401284021,
     description: "Paima Chain ID. Example: '87401284021'",
   },
+  DEBUG_PGLITE: {
+    key: "DEBUG_PGLITE",
+    isSecret: false,
+    type: "number",
+    defaultValue: undefined,
+    description: "Enable PGLite Debug/Verbose mode. Example: '1'",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -235,7 +242,9 @@ export class ENV {
   static get PAIMA_CHAIN_ID(): number {
     return ENV.getConfig(definitions.PAIMA_CHAIN_ID);
   }
-
+  static get DEBUG_PGLITE(): number {
+    return ENV.getConfig(definitions.DEBUG_PGLITE);
+  }
   static getConfig<T>(config: typeof definitions[keyof typeof definitions]): T {
     switch (config.type) {
       case "string":

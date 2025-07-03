@@ -2,6 +2,7 @@ import { PaimaSTM } from "@paima/sm";
 import { grammar } from "@example/data-types";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import { insertStateMachineInput } from "@example/database";
+import type { StartConfigGameStateTransitions } from "@paima/runtime";
 // import { createScheduledData } from "@paima/db";
 
 type MyEvents = {}; // TODO: replace
@@ -58,19 +59,25 @@ stm.addStateTransition(
 
 // stm.finalize(); // this avoids people dynamically calling stm.addStateTransition after initialization
 
-// This function allows you to route between different State Transition Functions
-// based on block height. In other words when a new update is pushed for your game
-// that includes new logic, this router allows your game node to cleanly maintain
-// backwards compatibility with the old history before the new update came into effect.
-export async function gameStateTransitionRouter(
-  blockHeight: number,
-  input: BaseStfInput,
-): Promise<BaseStfOutput<MyEvents>> {
-  let result;
-  if (blockHeight >= 0) {
-    result = await stm.processInput(input);
-  } else {
-    result = await stm.processInput(input);
-  }
-  return result;
-}
+/**
+ * This function allows you to route between different State Transition Functions
+ * based on block height. In other words when a new update is pushed for your game
+ * that includes new logic, this router allows your game node to cleanly maintain
+ * backwards compatibility with the old history before the new update came into effect.
+ * @param blockHeight - The block height to process the game state transitions for.
+ * @param input - The input to process the game state transitions for.
+ * @returns The result of the game state transitions.
+ */
+export const gameStateTransitions: StartConfigGameStateTransitions =
+  async function (
+    blockHeight: number,
+    input: BaseStfInput,
+  ): Promise<BaseStfOutput<MyEvents>> {
+    let result;
+    if (blockHeight >= 0) {
+      result = await stm.processInput(input);
+    } else {
+      result = await stm.processInput(input);
+    }
+    return result;
+  };

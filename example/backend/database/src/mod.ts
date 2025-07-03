@@ -1,2 +1,2 @@
-export { insertStateMachineInput } from "./sql/sm_example.queries.ts";
-export { migrations } from "./migrationts.ts";
+export * from "./sql/sm_example.queries.ts";
+export { migrationRouter } from "./migrationts.ts";
