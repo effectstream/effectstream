@@ -1,5 +1,5 @@
 import { cleanup, shutdown, startup } from "./e2e-loader.ts";
-import { erc20, erc721, paimaL2 } from "./e2e-contracts.ts";
+import { chainEvmMain, erc20, erc721, paimaL2 } from "./e2e-contracts.ts";
 import { assert, assertSQL, printSummary } from "./e2e-assert.ts";
 import type { Client } from "pg";
 import { getPaimaEVMPublicClient } from "./e2e-rpc.ts";
@@ -38,10 +38,10 @@ async function test() {
 
     // Launch site
     if (Deno.env.get("PAIMA_E2E_SITE_LAUNCH")) {
-      const command = new Deno.Command(Deno.execPath(), {
-        args: ["task", "-f", "@paima/explorer", "dev"],
-      });
-      command.spawn();
+      // const command = new Deno.Command(Deno.execPath(), {
+      //   args: ["task", "-f", "@paima/explorer", "dev"],
+      // });
+      // command.spawn();
     }
 
     // TOOD 10^18 operation fails on pgsql bigints
@@ -57,11 +57,23 @@ async function test() {
       wallet_A.privateKey,
       300n * multiplier,
     );
+    // try {
+    //   console.log(
+    //     "Balance of A",
+    //     await erc20.a.readBalance(wallet_A.privateKey),
+    //   );
+    //   console.log(
+    //     "Balance of B",
+    //     await erc20.a.readBalance(wallet_B.privateKey),
+    //   );
     await erc20.a.transfer(
       wallet_A.privateKey,
       wallet_B.address,
       90n * multiplier,
     );
+    // } catch (e) {
+    //   console.log(e);
+    // }
     await assertSQL<{ primitive_name: string }>(
       "Check ERC20 sync-process",
       db,
@@ -79,6 +91,7 @@ async function test() {
     await paimaL2.submitGameInput(
       ["attack", "1", "100"],
       wallet_A.privateKey,
+      chainEvmMain,
     );
     await assertSQL<{ primitive_name: string }>(
       "Check PaimaL2 sync-process",
@@ -95,6 +108,7 @@ async function test() {
     await paimaL2.submitGameInput(
       ["attack", "2", "200"],
       wallet_A.privateKey,
+      chainEvmMain,
     );
     await assertSQL<{ inputs: string }>(
       "Check State Machine events",
@@ -224,7 +238,7 @@ async function test() {
       },
     );
 
-    assert("Check User Defined API", async () => {
+    await assert("Check User Defined API", async () => {
       const response = await fetch("http://localhost:9999/api/my-game-state");
       const data = await response.json();
       // 3 ERC20 updates
@@ -233,13 +247,13 @@ async function test() {
       return data.length === 6;
     });
 
-    assert("Health Check", async () => {
+    await assert("Health Check", async () => {
       const response = await fetch("http://localhost:9999/health");
       const data = await response.json();
       return data.status === "ok";
     });
 
-    assert("Check System API Table Schema", async () => {
+    await assert("Check System API Table Schema", async () => {
       const response = await fetch(
         "http://localhost:9999/table-schema/paima_state_machine",
       );
@@ -251,7 +265,7 @@ async function test() {
       );
     });
 
-    assert("Check System API Table Data", async () => {
+    await assert("Check System API Table Data", async () => {
       const response = await fetch(
         "http://localhost:9999/tables/paima_state_machine",
       );

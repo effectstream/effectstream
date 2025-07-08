@@ -1,5 +1,6 @@
 import {
   type Account,
+  type Chain,
   createPublicClient,
   createWalletClient,
   http,
@@ -9,25 +10,38 @@ import {
   type WalletClient,
 } from "npm:viem";
 import { privateKeyToAccount } from "npm:viem/accounts";
-import { hardhat } from "npm:viem/chains";
+import { hardhat as hardhatMain } from "npm:viem/chains";
 import {
   erc20 as erc20Abi,
   erc721abi,
   paimal2 as paimaL2Abi,
 } from "@example/evm-contracts";
 
-const __dirname = import.meta.dirname;
-
+export const chainEvmMain: Chain = hardhatMain;
+chainEvmMain.name = "evmMain";
+export const chainEvmParallel: Chain = JSON.parse(JSON.stringify(hardhatMain));
+chainEvmParallel.id = 31338;
+chainEvmParallel.name = "evmParallel";
+chainEvmParallel.rpcUrls.default.http = ["http://127.0.0.1:8546"];
+console.log(chainEvmParallel);
+console.log(chainEvmMain);
 // These address are given the contract hash + the wallet nonce.
 // As we deploy at the start, there nonce are 0 and 1.
 // So to keep the test stable, deploy contracts at the start.
+import {
+  contractAddressesEvmMain,
+  contractAddressesEvmParallel,
+} from "@my-project/evm-contracts";
 export const contractAddresses = {
-  paimaL2: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  erc20: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-  erc721: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-  erc20_2: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-  erc721_2: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+  paimaL2:
+    contractAddressesEvmMain["PaimaL2ContractModule#PaimaL2ContractModule"],
+  erc20: contractAddressesEvmMain["Erc20DevModule#Erc20DevModule"],
+  erc721: contractAddressesEvmMain["Erc721DevModule#Erc721DevModule"],
+  erc20_2: contractAddressesEvmParallel["Erc20DevModule#Erc20DevModule"],
+  erc721_2: contractAddressesEvmParallel["Erc721DevModule#Erc721DevModule"],
 } as const;
+
+console.log(contractAddresses);
 
 /**
  * Deploy the contracts.
@@ -144,7 +158,7 @@ export async function deployContracts(
  * @param privateKey - The private key of the account.
  * @returns The account, wallet client and public client.
  */
-function clients(privateKey: `0x${string}`): {
+function clients(privateKey: `0x${string}`, chain: Chain): {
   account: Account;
   walletClient: WalletClient;
   publicClient: PublicClient;
@@ -152,12 +166,12 @@ function clients(privateKey: `0x${string}`): {
   const account = privateKeyToAccount(privateKey);
   const walletClient = createWalletClient({
     account,
-    chain: hardhat,
-    transport: http(),
+    // chain,
+    transport: http(chain.rpcUrls.default.http[0]),
   });
   const publicClient = createPublicClient({
-    chain: hardhat,
-    transport: http(),
+    // chain,
+    transport: http(chain.rpcUrls.default.http[0]),
   });
   return { account, walletClient, publicClient };
 }
@@ -169,13 +183,28 @@ export const paimaL2 = {
   submitGameInput: async (
     input: string[],
     privateKey: `0x${string}`,
+    chain: Chain,
   ): Promise<void> => {
     console.log("🎮 Submitting game input", input);
-    const { account, walletClient, publicClient } = clients(privateKey);
+    const { account, walletClient, publicClient } = clients(
+      privateKey,
+      chain,
+    );
+    // const { request } = await publicClient.simulateContract({
+    //   account,
+    //   chain,
+    //   address: contractAddresses.paimaL2,
+    //   abi: paimaL2Abi.metadata.output.abi,
+    //   functionName: "paimaSubmitGameInput",
+    //   args: [
+    //     toHex(JSON.stringify(input)),
+    //   ],
+    //   value: parseEther("0.0000000001"),
+    // });
     const hash = await walletClient.writeContract({
       account,
-      chain: hardhat,
-      address: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      chain,
+      address: contractAddresses.paimaL2,
       abi: paimaL2Abi.metadata.output.abi,
       functionName: "paimaSubmitGameInput",
       args: [
@@ -183,7 +212,6 @@ export const paimaL2 = {
       ],
       value: parseEther("0.0000000001"),
     });
-
     const receipt = await publicClient.waitForTransactionReceipt({
       hash,
     });
@@ -198,21 +226,35 @@ export const paimaL2 = {
 /**
  * Erc721 Contract Methods.
  */
-function erc721Factory(contractAddress: `0x${string}`) {
+function erc721Factory(contractAddress: `0x${string}`, chain: Chain) {
   return {
     mint: async (
       mint_private_key: `0x${string}`,
       token_id: bigint,
       silent = false,
     ) => {
-      const { account, walletClient, publicClient } = clients(mint_private_key);
+      const { account, walletClient, publicClient } = clients(
+        mint_private_key,
+        chain,
+      );
       if (!silent) {
         console.log("⚡ Minting Token #", token_id, "to", account.address);
       }
 
-      const { request } = await publicClient.simulateContract({
+      // const { request } = await publicClient.simulateContract({
+      //   account,
+      //   chain,
+      //   address: contractAddress,
+      //   abi: erc721abi.abi,
+      //   functionName: "mint",
+      //   args: [
+      //     account.address,
+      //     token_id,
+      //   ],
+      // });
+      const hash = await walletClient.writeContract({
         account,
-        // chain: hardhat,
+        chain,
         address: contractAddress,
         abi: erc721abi.abi,
         functionName: "mint",
@@ -221,7 +263,6 @@ function erc721Factory(contractAddress: `0x${string}`) {
           token_id,
         ],
       });
-      const hash = await walletClient.writeContract(request);
       const receipt = await publicClient.waitForTransactionReceipt({
         hash,
       });
@@ -242,10 +283,25 @@ function erc721Factory(contractAddress: `0x${string}`) {
       if (!silent) {
         console.log("💸 Transferring Token #", tokenId, "to", to_address);
       }
-      const { account, walletClient, publicClient } = clients(from_private_key);
-      const { request } = await publicClient.simulateContract({
+      const { account, walletClient, publicClient } = clients(
+        from_private_key,
+        chain,
+      );
+      // const { request } = await publicClient.simulateContract({
+      //   account,
+      //   chain,
+      //   address: contractAddress,
+      //   abi: erc721abi.abi,
+      //   functionName: "transferFrom",
+      //   args: [
+      //     account.address,
+      //     to_address,
+      //     tokenId,
+      //   ],
+      // });
+      const hash = await walletClient.writeContract({
         account,
-        // chain: hardhat,
+        chain,
         address: contractAddress,
         abi: erc721abi.abi,
         functionName: "transferFrom",
@@ -255,7 +311,6 @@ function erc721Factory(contractAddress: `0x${string}`) {
           tokenId,
         ],
       });
-      const hash = await walletClient.writeContract(request);
       const receipt = await publicClient.waitForTransactionReceipt({
         hash,
       });
@@ -275,10 +330,13 @@ function erc721Factory(contractAddress: `0x${string}`) {
       if (!silent) {
         console.log("🔥 Burning Token #", tokenId);
       }
-      const { account, walletClient, publicClient } = clients(from_private_key);
+      const { account, walletClient, publicClient } = clients(
+        from_private_key,
+        chain,
+      );
       const { request } = await publicClient.simulateContract({
         account,
-        // chain: hardhat,
+        chain,
         address: contractAddress,
         abi: erc721abi.abi,
         functionName: "transferFrom",
@@ -307,14 +365,14 @@ function erc721Factory(contractAddress: `0x${string}`) {
  * Erc721 Contracts Instances.
  */
 export const erc721 = {
-  a: erc721Factory(contractAddresses.erc721),
-  b: erc721Factory(contractAddresses.erc721_2),
+  a: erc721Factory(contractAddresses.erc721, chainEvmMain),
+  b: erc721Factory(contractAddresses.erc721_2, chainEvmParallel),
 };
 
 /**
  * Erc20 Contract Methods.
  */
-export const erc20Factory = (contractAddress: `0x${string}`) => {
+export const erc20Factory = (contractAddress: `0x${string}`, chain: Chain) => {
   return {
     mint: async (
       mint_address: `0x${string}`,
@@ -325,10 +383,24 @@ export const erc20Factory = (contractAddress: `0x${string}`) => {
       if (!silent) {
         console.log("⚡ Minting", amount, "to", mint_address);
       }
-      const { account, walletClient, publicClient } = clients(mint_private_key);
-      const { request } = await publicClient.simulateContract({
+      const { account, walletClient, publicClient } = clients(
+        mint_private_key,
+        chain,
+      );
+      // const { request } = await publicClient.simulateContract({
+      //   account,
+      //   chain,
+      //   address: contractAddress,
+      //   abi: erc20Abi.abi,
+      //   functionName: "mint",
+      //   args: [
+      //     mint_address,
+      //     amount,
+      //   ],
+      // });
+      const hash = await walletClient.writeContract({
         account,
-        chain: hardhat,
+        chain,
         address: contractAddress,
         abi: erc20Abi.abi,
         functionName: "mint",
@@ -337,7 +409,6 @@ export const erc20Factory = (contractAddress: `0x${string}`) => {
           amount,
         ],
       });
-      const hash = await walletClient.writeContract(request);
       const receipt = await publicClient.waitForTransactionReceipt({
         hash,
       });
@@ -349,6 +420,24 @@ export const erc20Factory = (contractAddress: `0x${string}`) => {
         );
       }
     },
+    // readBalance: async (
+    //   privateKey: `0x${string}`,
+    //   silent = false,
+    // ) => {
+    //   const { account, publicClient } = clients(privateKey, chain);
+    //   const balance = await publicClient.readContract({
+    //     // chain,
+    //     // account,
+    //     address: contractAddress,
+    //     abi: erc20Abi.abi,
+    //     functionName: "balanceOf",
+    //     args: [account.address],
+    //   });
+    //   if (!silent) {
+    //     console.log("💸 Balance of", account.address, balance);
+    //   }
+    //   return balance;
+    // },
     transfer: async (
       from_private_key: `0x${string}`,
       to_address: `0x${string}`,
@@ -358,19 +447,29 @@ export const erc20Factory = (contractAddress: `0x${string}`) => {
       if (!silent) {
         console.log("💸 Transferring", amount, "to", to_address);
       }
-      const { account, walletClient, publicClient } = clients(from_private_key);
-      const { request } = await publicClient.simulateContract({
+      const { account, walletClient, publicClient } = clients(
+        from_private_key,
+        chain,
+      );
+      // const { request } = await publicClient.simulateContract({
+      //   account,
+      //   // chain,
+      //   address: contractAddress,
+      //   abi: erc20Abi.abi,
+      //   functionName: "transfer",
+      //   args: [
+      //     to_address,
+      //     amount,
+      //   ],
+      // });
+      const hash = await walletClient.writeContract({
         account,
-        chain: hardhat,
+        chain,
         address: contractAddress,
         abi: erc20Abi.abi,
         functionName: "transfer",
-        args: [
-          to_address,
-          amount,
-        ],
+        args: [to_address, amount],
       });
-      const hash = await walletClient.writeContract(request);
       const receipt = await publicClient.waitForTransactionReceipt({
         hash,
       });
@@ -389,6 +488,6 @@ export const erc20Factory = (contractAddress: `0x${string}`) => {
  * Erc20 Contracts Instances.
  */
 export const erc20 = {
-  a: erc20Factory(contractAddresses.erc20),
-  b: erc20Factory(contractAddresses.erc20_2),
+  a: erc20Factory(contractAddresses.erc20, chainEvmMain),
+  b: erc20Factory(contractAddresses.erc20_2, chainEvmParallel),
 };

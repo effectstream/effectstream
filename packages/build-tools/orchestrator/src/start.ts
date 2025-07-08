@@ -1,6 +1,7 @@
 #!/usr/bin/env -S deno run --allow-all
 import type { ValueOf } from "@paima/utils";
 import "./http-server.ts";
+import { contractAddressesEvmMain } from "@my-project/evm-contracts";
 
 import {
   getCurrentOutput,
@@ -92,8 +93,11 @@ export async function start(
       startProcess[ComponentNames.PAIMA_BATCHER](),
       startProcess[ComponentNames.PAIMA_DB](),
       startProcess[ComponentNames.YACI_DEVKIT](),
-      startProcess[ComponentNames.HARDHAT](),
+      // startProcess[ComponentNames.HARDHAT](),
     ]);
+
+    // Deploy the contracts
+    // await startProcess[ComponentNames.DEPLOY]();
 
     // Start the Dolos process
     await startProcess[ComponentNames.DOLOS]();
@@ -154,6 +158,18 @@ export const startProcess: Record<
     return docs;
   },
 
+  [ComponentNames.DEPLOY]: async (): Promise<ProcessComponent> => {
+    const deploy = $({
+      args: ["task", "@my-project/evm-contracts", "deploy"],
+      // cwd: "./../../contracts/evm",
+      component: ComponentNames.DEPLOY,
+      abortController: abortControllers.system,
+    });
+
+    await Promise.all([deploy.process.status]);
+    return deploy;
+  },
+
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
     // TODO: only start one if there isn't one already running
     const otlpCollector = $({
@@ -205,7 +221,8 @@ export const startProcess: Record<
 
   [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
     // TODO This should be read from the config.
-    const paimaL2Address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    const paimaL2Address =
+      contractAddressesEvmMain["PaimaL2ContractModule#PaimaL2ContractModule"];
     const batcherPrivateKey =
       "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
     const chainName = "hardhat";
@@ -246,7 +263,8 @@ export const startProcess: Record<
   [ComponentNames.HARDHAT]: async (): Promise<ProcessComponent> => {
     // TODO: some way to specify which chains should be used for a project
     const hardhat = $({
-      args: ["task", "-f", "@example/evm-contracts", "chain:start"],
+      // TODO This should be read from the config.
+      args: ["task", "-f", "@my-project/evm-contracts", "chain:start"],
       log: logHandler,
       component: ComponentNames.HARDHAT,
       abortController: abortControllers.system,
@@ -254,8 +272,8 @@ export const startProcess: Record<
     void hardhat.process.status; // need to await sub-service start below
 
     await $({
-      args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
-      component: ComponentNames.HARDHA_WAIT,
+      args: ["task", "-f", "@my-project/evm-contracts", "chain:wait"],
+      component: ComponentNames.HARDHAT_WAIT,
       abortController: abortControllers.noncritical,
     }).process.status;
 

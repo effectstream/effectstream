@@ -1,15 +1,11 @@
 // import deployedEvmAddresses from "@example/evm-contracts/deployments";
 
-// TODO Read this from the hardhat/ignition deployments.
-const deployedEvmAddresses = {
-  "chain-31337": {
-    "L2Contract#PaimaL2Contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "Foo#SomeERC20": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    "Assets#Erc721Dev": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-    erc20_2: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-    erc721_2: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-  },
-} as const;
+import {
+  contractAddressesEvmMain,
+  contractAddressesEvmParallel,
+  deploy,
+} from "@my-project/evm-contracts";
+
 import {
   ConfigBuilder,
   ConfigNetworkType,
@@ -57,12 +53,44 @@ export const localhostConfig = new ConfigBuilder()
       })
   )
   .buildDeployments((builder) =>
-    builder.addDeployment(
-      (networks) => networks.evmMain,
-      (_network) => ({
-        "mock": "0x0000000000000000000000000000000000000000",
-      }),
-    )
+    builder
+      .addDeployment(
+        (networks) => networks.evmMain,
+        (_network) => ({
+          name: "Erc20DevModule#Erc20Dev",
+          address: contractAddressesEvmMain["Erc20DevModule#Erc20Dev"],
+        }),
+      )
+      .addDeployment(
+        (networks) => networks.evmMain,
+        (_network) => ({
+          name: "Erc20DevModule#Erc20Dev",
+          address: contractAddressesEvmMain["Erc20DevModule#Erc20Dev"],
+        }),
+      )
+      .addDeployment(
+        (networks) => networks.evmMain,
+        (_network) => ({
+          name: "PaimaL2ContractModule#PaimaL2Contract",
+          address: contractAddressesEvmMain[
+            "PaimaL2ContractModule#PaimaL2Contract"
+          ],
+        }),
+      )
+      .addDeployment(
+        (networks) => networks.evmParallel,
+        (_network) => ({
+          name: "Erc20DevModule#Erc20Dev",
+          address: contractAddressesEvmMain["Erc20DevModule#Erc20Dev"],
+        }),
+      )
+      .addDeployment(
+        (networks) => networks.evmParallel,
+        (_network) => ({
+          name: "Erc20DevModule#Erc20Dev",
+          address: contractAddressesEvmParallel["Erc20DevModule#Erc20Dev"],
+        }),
+      )
   ).buildSyncProtocols((builder) =>
     builder
       .addMain((networks) => networks.evmMain, (network, deployments) => ({
@@ -102,7 +130,7 @@ export const localhostConfig = new ConfigBuilder()
         type: ConfigPrimitiveType.EvmRpcERC20,
 
         startBlockHeight: 0,
-        contractAddress: deployedEvmAddresses["chain-31337"]["Foo#SomeERC20"],
+        contractAddress: contractAddressesEvmMain["Erc20DevModule#Erc20Dev"],
         abi: getEvmEvent(erc20Abi, "Transfer(address,address,uint256)"),
         scheduledPrefix: stfInputs.tokenTransfer,
       }),
@@ -114,7 +142,7 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigPrimitiveType.EvmRpcPaimaL2,
           startBlockHeight: 0,
           contractAddress:
-            deployedEvmAddresses["chain-31337"]["L2Contract#PaimaL2Contract"],
+            contractAddressesEvmMain["PaimaL2ContractModule#PaimaL2Contract"],
           abi: getEvmEvent(
             paimal2.abi,
             "PaimaGameInteraction(address,bytes,uint256)",
@@ -128,7 +156,7 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigPrimitiveType.EvmRpcERC721,
           startBlockHeight: 0,
           contractAddress:
-            deployedEvmAddresses["chain-31337"]["Assets#Erc721Dev"],
+            contractAddressesEvmMain["Erc721DevModule#Erc721Dev"],
           abi: getEvmEvent(
             erc721Abi,
             "Transfer(address,address,uint256)",
@@ -138,12 +166,13 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (syncProtocols) => syncProtocols.parallelEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "L1_ERC721_Token",
           type: ConfigPrimitiveType.EvmRpcERC721,
           startBlockHeight: 0,
-          contractAddress: deployedEvmAddresses["chain-31337"]["erc721_2"],
+          contractAddress:
+            contractAddressesEvmParallel["Erc721DevModule#Erc721Dev"],
           abi: getEvmEvent(
             erc721Abi,
             "Transfer(address,address,uint256)",
@@ -153,12 +182,13 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (syncProtocols) => syncProtocols.parallelEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "ETH_L1_ERC20",
           type: ConfigPrimitiveType.EvmRpcERC20,
           startBlockHeight: 0,
-          contractAddress: deployedEvmAddresses["chain-31337"]["erc20_2"],
+          contractAddress:
+            contractAddressesEvmParallel["Erc20DevModule#Erc20Dev"],
           abi: getEvmEvent(
             erc20Abi,
             "Transfer(address,address,uint256)",

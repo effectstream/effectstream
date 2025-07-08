@@ -1,7 +1,6 @@
 import type { Client, PoolConfig } from "pg";
 import pg from "pg";
 import { start } from "@paima/orchestrator";
-import { deployContracts } from "./e2e-contracts.ts";
 import { ENV } from "@paima/utils";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -34,7 +33,6 @@ export async function startup(
   }
 
   console.log("🔄 Sync process started\n");
-  await deployContracts(owner, privateKey);
   return await getDBConnection();
 }
 

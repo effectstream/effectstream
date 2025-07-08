@@ -23,6 +23,7 @@ import { parse } from "jsonc-parser";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import HardhatIgnitionViem from "@nomicfoundation/hardhat-ignition-viem";
 
+const __dirname: any = import.meta.dirname;
 const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
 
 // TODO: ideally hardhat/edr itself would implement opentelemetry instead of inlining it ourselves
@@ -36,7 +37,7 @@ export function initTelemetry(): void {
 initTelemetry();
 
 function logNetwork(networkName: string, ...msg: any[]) {
-  log.remote(
+  log.local(
     ComponentNames.HARDHAT,
     [networkName],
     SeverityNumber.INFO,
@@ -85,7 +86,7 @@ const nodeTask = overrideTask("node")
         if (name === "hardhat") {
           continue;
         }
-        const connection = await hre.network.connect(name, network.chainType);
+        const connection = await hre.network.connect(name); // , network.chainType);
 
         const server = new JsonRpcServerImplementation({
           hostname,
@@ -93,27 +94,51 @@ const nodeTask = overrideTask("node")
           provider: connection.provider,
         }, (msg) => logNetwork(name, msg));
         port++; // increase port so next network has a unique port number
-
         const publicClient = await connection.viem.getPublicClient();
         publicClient.watchBlocks(
           {
             onBlock: (block) => {
               // there seems to be a bug on block 0 where it triggers watchBlock in an infinite loop
               if (block.number === 0n) return;
-              const txsMessage = block.transactions.length === 0
-                ? ""
-                : `\nTransactions:\n${
-                  block.transactions.map((tx) => tx.hash).join("\n\t")
-                }`;
-              logNetwork(
-                name,
-                `block ${block.number} (${block.hash})`,
-                txsMessage,
-              );
+              block.transactions.forEach((tx) => {
+                logNetwork(name, `Transaction ${tx.hash}`);
+              });
+              // const txsMessage = block.transactions.length === 0
+              //   ? ""
+              //   : `\nTransactions:\n${
+              //     block.transactions.map((tx) => tx.hash).join("\n\t")
+              //   }`;
+              // logNetwork(
+              // name,
+              // `block ${block.number} (${block.hash})`,
+              // txsMessage,
+              // );
             },
             includeTransactions: true,
           },
         );
+
+        publicClient.watchPendingTransactions({
+          onTransactions: (txs) => {
+            logNetwork(name, `Transaction ${txs} pending`);
+          },
+        });
+        publicClient.watchContractEvent({
+          abi: [],
+          onLogs: (logs) => {
+            logNetwork(name, `Event ${logs} emitted`);
+          },
+        });
+        publicClient.watchEvent({
+          onLogs: (logs) => {
+            logNetwork(name, `Event ${logs} emitted`);
+          },
+        });
+        // publicClient.watchBlockNumber({
+        //   onBlockNumber: (blockNumber) => {
+        //     logNetwork(name, `Block number ${blockNumber}`);
+        //   },
+        // });
         const { port: actualPort, address } = await server.listen();
         logNetwork(
           name,
@@ -132,10 +157,10 @@ const nodeTask = overrideTask("node")
             address: wallets[i].account.address,
           });
           const balance = (weiBalance / 10n ** 18n).toString(10);
-          logNetwork(
-            name,
-            `Account #${i}: ${wallets[i].account.address} (${balance} ETH)`,
-          );
+          // logNetwork(
+          //   name,
+          //   `Account #${i}: ${wallets[i].account.address} (${balance} ETH)`,
+          // );
         }
       }
       await Promise.all(
@@ -178,6 +203,7 @@ const config: HardhatUserConfig = {
         interval: 250, // Arbitrum (250ms)
       },
       allowBlocksWithSameTimestamp: true,
+      // url: "http://127.0.0.1:8545",
     },
     evmParallel: {
       type: "edr",
@@ -187,11 +213,13 @@ const config: HardhatUserConfig = {
         auto: true,
         interval: 1 * 1000, // 10s
       },
+      // url: "http://127.0.0.1:8546",
     },
   },
   paths: {
-    artifacts: "./artifacts/hardhat",
-    cache: "./cache/hardhat",
+    sources: [`${__dirname}/src/contracts`],
+    artifacts: `${__dirname}/build/artifacts/hardhat`,
+    cache: `${__dirname}/build/cache/hardhat`,
   },
   tasks: [
     nodeTask,
@@ -202,6 +230,7 @@ const config: HardhatUserConfig = {
     HardhatIgnitionViem,
     // HardhatAbiExporter,
   ],
+
   solidity: {
     profiles: {
       /*
@@ -215,11 +244,11 @@ const config: HardhatUserConfig = {
     // dependenciesToCompile: [
     //   // TODO
     // ],
-    remappings: [
-      "remapped/=npm/@openzeppelin/contracts@5.1.0/access/",
-      // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
-      "forge-std/=npm/forge-std@local/src/",
-    ],
+    // remappings: [
+    //   "remapped/=npm/@openzeppelin/contracts@5.1.0/access/",
+    //   //   // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
+    //   "forge-std/=npm/forge-std@local/src/",
+    // ],
   },
   // abiExporter: {
   //   path: "./build/abi",

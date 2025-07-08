@@ -1,0 +1,144 @@
+<ContractHeader githubLink="https://github.com/PaimaStudios/paima-engine/tree/master/packages/contracts/evm-contracts/{{__item_context.file.absolutePath}}" anchor="{{~anchor~}}">
+    ### {{name}}
+</ContractHeader>
+
+```solidity
+import "@paima/evm-contracts/{{__item_context.file.absolutePath}}";
+```
+
+{{{natspec.dev}}}
+
+{{#if modifiers}}
+<SolidityOutlineBlock
+  type="Modifiers"
+  lists={[
+    {
+      category: "",
+      lines: [
+        {{#each modifiers}}
+        {
+          text: "{{name}}({{names params}})",
+          anchor: "xref-{{anchor~}}"
+        },
+        {{/each}}
+      ]
+    }
+  ]}
+>
+</SolidityOutlineBlock>
+{{/if}}
+
+{{#if has-functions}}
+<SolidityOutlineBlock
+  type="Functions"
+  lists={[
+    {{#each inherited-functions}}
+    {
+      category: "{{#unless @first}}{{contract.name}}{{/unless}}",
+      lines: [
+        {{#each functions}}
+        {
+          text: "{{name}}({{names params}})",
+          anchor: "xref-{{anchor~}}"
+        },
+        {{/each}}
+      ]
+    },
+    {{/each}}
+  ]}
+>
+</SolidityOutlineBlock>
+{{/if}}
+
+{{#if has-events}}
+<SolidityOutlineBlock
+  type="Events"
+  lists={[
+    {{#each inheritance}}
+    {
+      category: "{{#unless @first}}{{name}}{{/unless}}",
+      lines: [
+        {{#each events}}
+        {
+          text: "{{name}}({{names params}})",
+          anchor: "xref-{{anchor~}}"
+        },
+        {{/each}}
+      ]
+    },
+    {{/each}}
+  ]}
+>
+</SolidityOutlineBlock>
+{{/if}}
+
+{{#if has-errors}}
+<SolidityOutlineBlock
+  type="Errors"
+  lists={[
+    {{#each inheritance}}
+    {
+      category: "{{#unless @first}}{{name}}{{/unless}}",
+      lines: [
+        {{#each errors}}
+        {
+          text: "{{name}}({{names params}})",
+          anchor: "xref-{{anchor~}}"
+        },
+        {{/each}}
+      ]
+    },
+    {{/each}}
+  ]}
+>
+</SolidityOutlineBlock>
+{{/if}}
+
+
+{{#each modifiers}}
+<SolidityDetailBlock
+    title="{{name}}"
+    params="({{typed-params params}})"
+    visibility="modifier"
+    anchor="xref-{{anchor}}"
+>
+    {{{escapeChars natspec.dev}}}
+</SolidityDetailBlock>
+
+{{/each}}
+
+{{#each functions}}
+<SolidityDetailBlock
+    title="{{name}}"
+    params="({{typed-params params}}){{#if returns2}} → {{typed-params returns2}}{{/if}}"
+    visibility="{{visibility}}"
+    anchor="xref-{{anchor}}"
+>
+    {{{escapeChars natspec.dev}}}
+</SolidityDetailBlock>
+
+{{/each}}
+
+{{#each events}}
+<SolidityDetailBlock
+    title="{{name}}"
+    params="({{typed-params params}})"
+    visibility="event"
+    anchor="xref-{{anchor}}"
+>
+    {{{escapeChars natspec.dev}}}
+</SolidityDetailBlock>
+
+{{/each}}
+
+{{#each errors}}
+<SolidityDetailBlock
+    title="{{name}}"
+    params="({{typed-params params}})"
+    visibility="error"
+    anchor="xref-{{anchor}}"
+>
+    {{{escapeChars natspec.dev}}}
+</SolidityDetailBlock>
+
+{{/each}}
