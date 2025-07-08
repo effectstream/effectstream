@@ -6,7 +6,13 @@ import type {
   TimestampIso8601,
   TimestampMs,
 } from "@paima/utils";
-import { type ExecutionResult } from "npm:graphql-ws";
+import type { ExecutionResult } from "npm:graphql-ws";
+import type {
+  ConfigPrimitivePayloadType,
+  ConfigPrimitiveType,
+  ConfigSyncProtocolType,
+  FlattenSyncProtocolIOFor,
+} from "@paima/config";
 
 export type CommonFunnelArgs = {
   /**
@@ -137,8 +143,11 @@ export type Page = {
   hash: MidnightBlockHash;
 };
 
-// TODO: what are the primitives for Midnight?
-export type PrimitiveType = any;
+export type PrimitiveType = FlattenSyncProtocolIOFor<
+  ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+  ConfigPrimitiveType.MidnightContractState,
+  ConfigPrimitivePayloadType.Event
+>;
 export type Input = PageSyncRange<BlockNumber>;
 export type Output = {
   raw: Block;
