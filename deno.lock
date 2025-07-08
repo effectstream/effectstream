@@ -69,6 +69,7 @@
     "npm:extract-zip@^2.0.1": "2.0.1",
     "npm:fastify@*": "5.4.0",
     "npm:fastify@^5.4.0": "5.4.0",
+    "npm:graphql-ws@*": "6.0.5_graphql@16.11.0_ws@8.18.0",
     "npm:hardhat@3.0.0-next.3": "3.0.0-next.3_zod@3.24.2",
     "npm:hi-base32@~0.5.1": "0.5.1",
     "npm:ink-big-text@2": "2.0.0_ink@5.1.0__@types+react@18.3.13__react@18.3.1_react@18.3.1_@types+react@18.3.13",
@@ -2901,6 +2902,19 @@
     },
     "graceful-fs@4.2.11": {
       "integrity": "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="
+    },
+    "graphql-ws@6.0.5_graphql@16.11.0_ws@8.18.0": {
+      "integrity": "sha512-HzYw057ch0hx2gZjkbgk1pur4kAtgljlWRP+Gccudqm3BRrTpExjWCQ9OHdIsq47Y6lHL++1lTvuQHhgRRcevw==",
+      "dependencies": [
+        "graphql",
+        "ws@8.18.0"
+      ],
+      "optionalPeers": [
+        "ws@8.18.0"
+      ]
+    },
+    "graphql@16.11.0": {
+      "integrity": "sha512-mS1lbMsxgQj6hge1XZ6p7GPhbrtFwUFYi3wRzXAC/FmYnyXMTvvI3td3rjmQ2u8ewXueaSvRPWaEcgVVOT9Jnw=="
     },
     "hardhat@3.0.0-next.3_zod@3.24.2": {
       "integrity": "sha512-do+hXcRslKphXNutUKO0QIdiUwRt+xq61WQsAnVaBlvEYDHEs1xBFE8hNgJNrQfZrKunPQ3SRCQdpUOGp4et6Q==",

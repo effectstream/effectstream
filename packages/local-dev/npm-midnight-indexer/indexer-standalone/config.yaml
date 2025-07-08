@@ -18,12 +18,12 @@ wallet_indexer_application:
 
 infra:
   node:
-    url: "ws://localhost:9944"
+    url: "ws://localhost:9955"
     reconnect_max_delay: "10s" # 10ms, 100ms, 1s, 10s
     reconnect_max_attempts: 30 # Roughly 5m
 
   storage:
-    cnn_url: "./indexer.sqlite"
+    cnn_url: "./data/indexer.sqlite"
 
   api:
     address: "0.0.0.0"
