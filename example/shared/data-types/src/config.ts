@@ -27,7 +27,10 @@ import {
 } from "@my-project/evm-contracts";
 // TODO: This should typed from the grammar types.
 const stfInputs = {
-  tokenTransfer: "transfer",
+  "schedule": "schedule",
+  "attack": "attack",
+  "transfer": "transfer",
+  "switchMap": "switchMap",
 } as const;
 
 // comes from hardhat.config.ts
@@ -143,7 +146,7 @@ export const localhostConfig = new ConfigBuilder()
         contractAddress:
           contractAddressesEvmMain().chain31337["Erc20DevModule#Erc20Dev"],
         abi: getEvmEvent(erc20dev.abi, "Transfer(address,address,uint256)"),
-        scheduledPrefix: stfInputs.tokenTransfer,
+        scheduledPrefix: stfInputs.transfer,
       }),
     )
       .addPrimitive(
@@ -152,8 +155,9 @@ export const localhostConfig = new ConfigBuilder()
           name: "PaimaGameInteraction",
           type: ConfigPrimitiveType.EvmRpcPaimaL2,
           startBlockHeight: 0,
-          contractAddress: contractAddressesEvmMain()
-            ["chain31337"]["PaimaL2ContractModule#PaimaL2Contract"],
+          contractAddress: contractAddressesEvmMain()["chain31337"][
+            "PaimaL2ContractModule#PaimaL2Contract"
+          ],
           abi: getEvmEvent(
             paimal2contract.abi,
             "PaimaGameInteraction(address,bytes,uint256)",

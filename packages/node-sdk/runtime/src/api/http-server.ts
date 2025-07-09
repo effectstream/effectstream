@@ -26,6 +26,9 @@ export enum RpcPaths {
   EVM = "evm",
 }
 
+// TODO This should be passed into the config somehow.
+import { grammar } from "@example/data-types";
+
 /**
  * Register the OpenAPI documentation for the Paima Engine HTTP server.
  * Documentation is available at /documentation /documentation/json /documentation/yaml
@@ -193,6 +196,17 @@ export const startHttpServer = function* (
     const config = syncProtocols.map((syncProtocol) => syncProtocol.config)
       .flat();
     return clearBigInts(config);
+  });
+
+  server.get("/grammar", {
+    schema: {
+      tags: ["developer"],
+      response: {
+        200: Type.Object({}, { additionalProperties: true }),
+      },
+    },
+  }, () => {
+    return grammar;
   });
 
   // TODO How to only select user defined tables?
