@@ -60,27 +60,8 @@ export async function deploy(): Promise<void> {
       } deployed to ${result.contract.address}`,
     );
   }
-  console.error(messages.join("\n"));
+  console.error("Deployed contracts:\n", messages.join("\n"));
+  // Wait for a block to be minted on the slowest chain.
+  await new Promise((r) => setTimeout(r, 1000 * 2));
 }
 
-// Launch standalone script to build the /ignition/deployments directory
-if (import.meta.main) {
-  console.log("Starting chains...");
-  const startChain = new Deno.Command(Deno.execPath(), {
-    args: ["task", "chain:start"],
-  });
-  const process = startChain.spawn();
-  void process.status;
-
-  console.log("Waiting for chains to start...");
-  const waitChain = new Deno.Command(Deno.execPath(), {
-    args: ["task", "chain:wait"],
-  });
-  const waitProcess = waitChain.spawn();
-  await waitProcess.status;
-
-  console.log("Deploying contracts...");
-  await deploy();
-
-  process.kill();
-}

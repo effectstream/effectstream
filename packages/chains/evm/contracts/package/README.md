@@ -1,3 +1,15 @@
+# Instalation
+
+```sh
+mkdir contracts-evm
+cd contracts-evm
+deno task -f "@paima/evm-contracts" init && \
+deno install && \
+deno task patch-foundry && \
+deno task build:contracts && \
+deno task deploy:standalone
+```
+
 # Deploy
 
 Deploy contracts described in `deploy.ts`
@@ -5,12 +17,13 @@ Deploy contracts described in `deploy.ts`
 `deno task deploy`
 
 # Create and deploy new Contracts
+
 To add your contracts you will need 3 steps:
 
 ## 1. Add new Contract
 
 Add your Solidity Contracts in `/src/contracts/my-contract.ts`  
-and run `deno task build:contracts` 
+and run `deno task build:contracts`
 
 Your contract is compiled and ready to be used.
 
@@ -20,6 +33,7 @@ First create a ignition module at:
 `./ignition/module/my-contract-module.ts`
 
 With a Hardhat-Ignition Module, for example:
+
 ```ts
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
@@ -30,6 +44,7 @@ export default buildModule("MyModuleName", (m) => {
 ```
 
 Then in `./deploy.ts` import your created module and call it with `deploy(...)` as follows:
+
 ```ts
 import myModuleName from './ignition/module/my-contract-module.ts'
 ...
@@ -38,4 +53,5 @@ console.log(`Contract deployed`, (myModuleDeployment.contract as any).address);
 ```
 
 ## 3. Redeploy Contracts
+
 Run `deno task deploy`

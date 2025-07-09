@@ -93,11 +93,11 @@ export async function start(
       startProcess[ComponentNames.PAIMA_BATCHER](),
       startProcess[ComponentNames.PAIMA_DB](),
       startProcess[ComponentNames.YACI_DEVKIT](),
-      // startProcess[ComponentNames.HARDHAT](),
+      startProcess[ComponentNames.HARDHAT](),
     ]);
 
     // Deploy the contracts
-    // await startProcess[ComponentNames.DEPLOY]();
+    await startProcess[ComponentNames.DEPLOY]();
 
     // Start the Dolos process
     await startProcess[ComponentNames.DOLOS]();
@@ -160,9 +160,9 @@ export const startProcess: Record<
 
   [ComponentNames.DEPLOY]: async (): Promise<ProcessComponent> => {
     const deploy = $({
-      args: ["task", "@my-project/evm-contracts", "deploy"],
-      // cwd: "./../../contracts/evm",
+      args: ["task", "-f", "@my-project/evm-contracts", "deploy"],
       component: ComponentNames.DEPLOY,
+      log: rawLogHandler,
       abortController: abortControllers.system,
     });
 
@@ -221,8 +221,8 @@ export const startProcess: Record<
 
   [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
     // TODO This should be read from the config.
-    const paimaL2Address =
-      contractAddressesEvmMain["PaimaL2ContractModule#PaimaL2ContractModule"];
+    const paimaL2Address = contractAddressesEvmMain()
+      ["chain31337"]["PaimaL2ContractModule#PaimaL2Contract"];
     const batcherPrivateKey =
       "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
     const chainName = "hardhat";

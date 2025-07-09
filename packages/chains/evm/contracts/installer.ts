@@ -16,7 +16,7 @@ if (targetDir === packageDir) {
   console.log(
     "Error: Target directory is the same as the package directory.",
   );
-  console.log("Usage `deno task -f @paima/evm-contracts2 init`");
+  console.log("Usage `deno task -f @paima/evm-contracts init`");
   Deno.exit(0);
 }
 

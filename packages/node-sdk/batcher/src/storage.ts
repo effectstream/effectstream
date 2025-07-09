@@ -47,6 +47,7 @@ export class FileStorage implements BatcherStorage {
   private readonly dataDirectory: string;
 
   constructor(dataDirectory: string = "./batcher-data") {
+    Deno.mkdirSync(dataDirectory, { recursive: true });
     this.dataDirectory = dataDirectory;
     this.filePath = join(dataDirectory, "pending-inputs.jsonl");
   }
