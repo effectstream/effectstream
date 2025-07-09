@@ -55,11 +55,14 @@ function getNetworkList(networks: Record<string, NetworkConfig>) {
     if (b[0] === "hardhat") return 1;
     return 0;
   });
-  return networkEntries.filter(([name]) =>
+
+  return networkEntries.filter(([name, network]) =>
     // skip the builtin localhost network, since hardhat node is meant to explicitly not use it
     name !== "localhost" &&
     // hardhat network seems broken and the block number never advances on it
-    name !== "hardhat"
+    name !== "hardhat" &&
+    // if http type, then it already has a JSON-RPC server
+    network.type !== "http"
   );
 }
 
@@ -86,6 +89,11 @@ const nodeTask = overrideTask("node")
         if (name === "hardhat") {
           continue;
         }
+        // if http type, then it already has a JSON-RPC server
+        if (network.type === "http") {
+          continue;
+        }
+
         const connection = await hre.network.connect(name); // , network.chainType);
 
         const server = new JsonRpcServerImplementation({
@@ -183,6 +191,7 @@ const nodeWaitTask = task(["node", "wait"])
         port < args.port + networkEntries.length;
         port++
       ) {
+        console.log(`Waiting for port ${port}`);
         await waitOn({
           resources: [`tcp:${port}`],
         });
@@ -203,7 +212,11 @@ const config: HardhatUserConfig = {
         interval: 250, // Arbitrum (250ms)
       },
       allowBlocksWithSameTimestamp: true,
-      // url: "http://127.0.0.1:8545",
+    },
+    evmMainHttp: {
+      type: "http",
+      chainType: "l1",
+      url: "http://0.0.0.0:8545",
     },
     evmParallel: {
       type: "edr",
@@ -211,9 +224,13 @@ const config: HardhatUserConfig = {
       chainId: 31338,
       mining: {
         auto: true,
-        interval: 1 * 1000, // 10s
+        interval: 1 * 1000, // 1s
       },
-      // url: "http://127.0.0.1:8546",
+    },
+    evmParallelHttp: {
+      type: "http",
+      chainType: "l1",
+      url: "http://0.0.0.0:8546",
     },
   },
   paths: {

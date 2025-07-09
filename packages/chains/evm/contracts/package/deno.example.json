@@ -1,5 +1,5 @@
 {
-    "name": "@my-project/evm-contracts",
+    "name": "@placeholder/evm-contracts",
     "exports": "./mod.ts",
     "version": "0.0.1",
     "imports": {
@@ -16,7 +16,7 @@
     "tasks": {
         "check": "./mod.ts",
         "patch-foundry": "deno run -A patch-foundry.ts",
-        "build:contracts": "forge build && deno run -A npm:hardhat@3.0.0-next.20 compile",
+        "build:contracts": "forge build && deno run -A npm:hardhat@3.0.0-next.20 compile && deno run -A build.mod.ts",
         "deploy": "deno run -A deploy.ts",
         "chain:start": "deno run -A npm:hardhat@3.0.0-next.20 node",
         "chain:wait": "deno run -A npm:hardhat@3.0.0-next.20 node wait"

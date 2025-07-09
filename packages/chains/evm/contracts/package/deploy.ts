@@ -4,122 +4,83 @@ import * as config from "./hardhat.config.ts";
 import Erc20DevModule from "./ignition/modules/erc20dev.ts";
 import PaimaL2ContractModule from "./ignition/modules/paimaL2.ts";
 import Erc721DevModule from "./ignition/modules/erc721dev.ts";
+import type { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
 const __dirname: any = import.meta.dirname;
 
-type DeployedContract = {
-  chain: string;
-  name: string;
-  address: `0x${string}`;
-  abi: {
-    // TODO Improve this type.
-    name: string;
-    inputs?: any[];
-    outputs?: any[];
-    type: string;
-    stateMutability?: string;
-  }[];
-};
-
-/*
+/**
  * Deploy the contracts to the network.
- *
- * Returns a record of the deployed contracts with their addresses and ABIs.
  */
-export async function deploy(): Promise<DeployedContract[]> {
+export async function deploy(): Promise<void> {
   const hre = await createHardhatRuntimeEnvironment(config.default, __dirname);
 
-  // This is the network where the contracts will be deployed.
-  // This value must match the network name in the hardhat.config.ts file:
-  // networks[name]
-  const network = await hre.network.connect("evmMain");
-
-  // Example how to deploy a basic ERC20 contract.
-  // Deploy the Erc20DevModule contract.
-  const erc20Deployment = await (network as any).ignition.deploy(
-    Erc20DevModule,
-  );
-
-  // Example how to deploy a PaimaL2 contract.
-  // This is the native contract that Paima Engine uses to interact with users.
-  const paimaL2Deployment = await (network as any).ignition.deploy(
-    PaimaL2ContractModule,
+  const myDeployments: {
+    module: ReturnType<typeof buildModule>;
+    network: string;
+    parameters?: Record<string, Record<string, any>>;
+  }[] = [
     {
+      module: Erc20DevModule,
+      network: "evmMainHttp",
+    },
+    {
+      module: PaimaL2ContractModule,
+      network: "evmMainHttp",
       parameters: {
         PaimaL2ContractModule: {
-          // IMPORTANT:
-          // This Address is a hardhat test account.
-          // It's private key is publicallty known.
-          // For production use your own key pair.
-          owner: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          owner: "0xEFfE522D441d971dDC7153439a7d10235Ae6301f",
           fee: 0,
         },
       },
     },
-  );
-
-  // Example how to deploy a basic ERC20 contract.
-  // Deploy the Erc20DevModule contract.
-  const erc721Deployment = await (network as any).ignition.deploy(
-    Erc721DevModule,
-  );
-
-  // Deploy to the secunday EVM Network.
-  const network2 = await hre.network.connect("evmParallel");
-
-  // Deploy the Erc20DevModule contract.
-  const erc20Deployment2 = await (network2 as any).ignition.deploy(
-    Erc20DevModule,
-  );
-
-  // Deploy the Erc721DevModule contract.
-  const erc721Deployment2 = await (network2 as any).ignition.deploy(
-    Erc721DevModule,
-  );
-
-  const results: DeployedContract[] = [
     {
-      chain: "evmMain",
-      name: "Erc20DevModule#Erc20Dev",
-      address: (erc20Deployment.contract as any).address,
-      abi: (erc20Deployment.contract as any).abi,
+      module: Erc721DevModule,
+      network: "evmMainHttp",
     },
     {
-      chain: "evmMain",
-      name: "PaimaL2ContractModule#PaimaL2Contract",
-      address: (paimaL2Deployment.contract as any).address,
-      abi: (paimaL2Deployment.contract as any).abi,
+      module: Erc20DevModule,
+      network: "evmParallelHttp",
     },
     {
-      chain: "evmMain",
-      name: "Erc721DevModule#Erc721Dev",
-      address: (erc721Deployment.contract as any).address,
-      abi: (erc721Deployment.contract as any).abi,
-    },
-    {
-      chain: "evmParallel",
-      name: "Erc20DevModule#Erc20Dev",
-      address: (erc20Deployment2.contract as any).address,
-      abi: (erc20Deployment2.contract as any).abi,
-    },
-    {
-      chain: "evmParallel",
-      name: "Erc721DevModule#Erc721Dev",
-      address: (erc721Deployment2.contract as any).address,
-      abi: (erc721Deployment2.contract as any).abi,
+      module: Erc721DevModule,
+      network: "evmParallelHttp",
     },
   ] as const;
 
-  console.error("--------------------------------");
-  console.error("Deployed contracts:");
-  results.forEach((result) => {
-    console.error(`${result.name} @ ${result.address}`);
-  });
-
-  return results;
+  const messages: string[] = [];
+  for (const deployment of myDeployments) {
+    const network = await hre.network.connect(deployment.network);
+    const result = await (network as any).ignition.deploy(
+      deployment.module,
+      deployment.parameters ? { parameters: deployment.parameters } : undefined,
+    );
+    messages.push(
+      `${deployment.module.id.substring(0, 16).padEnd(16)} @ ${
+        deployment.network.substring(0, 16).padEnd(16)
+      } deployed to ${result.contract.address}`,
+    );
+  }
+  console.error(messages.join("\n"));
 }
 
-// if (import.meta.main) {
-await deploy();
-// }
-// console.error("import.meta.main", import.meta.main);
+// Launch standalone script to build the /ignition/deployments directory
+if (import.meta.main) {
+  console.log("Starting chains...");
+  const startChain = new Deno.Command(Deno.execPath(), {
+    args: ["task", "chain:start"],
+  });
+  const process = startChain.spawn();
+  void process.status;
+
+  console.log("Waiting for chains to start...");
+  const waitChain = new Deno.Command(Deno.execPath(), {
+    args: ["task", "chain:wait"],
+  });
+  const waitProcess = waitChain.spawn();
+  await waitProcess.status;
+
+  console.log("Deploying contracts...");
+  await deploy();
+
+  process.kill();
+}

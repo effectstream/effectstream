@@ -55,11 +55,14 @@ function getNetworkList(networks: Record<string, NetworkConfig>) {
     if (b[0] === "hardhat") return 1;
     return 0;
   });
-  return networkEntries.filter(([name]) =>
+
+  return networkEntries.filter(([name, network]) =>
     // skip the builtin localhost network, since hardhat node is meant to explicitly not use it
     name !== "localhost" &&
     // hardhat network seems broken and the block number never advances on it
-    name !== "hardhat"
+    name !== "hardhat" &&
+    // if http type, then it already has a JSON-RPC server
+    network.type !== "http"
   );
 }
 
@@ -86,6 +89,11 @@ const nodeTask = overrideTask("node")
         if (name === "hardhat") {
           continue;
         }
+        // if http type, then it already has a JSON-RPC server
+        if (network.type === "http") {
+          continue;
+        }
+
         const connection = await hre.network.connect(name); // , network.chainType);
 
         const server = new JsonRpcServerImplementation({
@@ -94,7 +102,6 @@ const nodeTask = overrideTask("node")
           provider: connection.provider,
         }, (msg) => logNetwork(name, msg));
         port++; // increase port so next network has a unique port number
-
         const publicClient = await connection.viem.getPublicClient();
         publicClient.watchBlocks(
           {
@@ -109,11 +116,11 @@ const nodeTask = overrideTask("node")
               //   : `\nTransactions:\n${
               //     block.transactions.map((tx) => tx.hash).join("\n\t")
               //   }`;
-              logNetwork(
-                name,
-                `block ${block.number} (${block.hash})`,
-                // txsMessage,
-              );
+              // logNetwork(
+              // name,
+              // `block ${block.number} (${block.hash})`,
+              // txsMessage,
+              // );
             },
             includeTransactions: true,
           },
@@ -158,10 +165,10 @@ const nodeTask = overrideTask("node")
             address: wallets[i].account.address,
           });
           const balance = (weiBalance / 10n ** 18n).toString(10);
-          logNetwork(
-            name,
-            `Account #${i}: ${wallets[i].account.address} (${balance} ETH)`,
-          );
+          // logNetwork(
+          //   name,
+          //   `Account #${i}: ${wallets[i].account.address} (${balance} ETH)`,
+          // );
         }
       }
       await Promise.all(
@@ -184,6 +191,7 @@ const nodeWaitTask = task(["node", "wait"])
         port < args.port + networkEntries.length;
         port++
       ) {
+        console.log(`Waiting for port ${port}`);
         await waitOn({
           resources: [`tcp:${port}`],
         });
@@ -205,14 +213,24 @@ const config: HardhatUserConfig = {
       },
       allowBlocksWithSameTimestamp: true,
     },
+    evmMainHttp: {
+      type: "http",
+      chainType: "l1",
+      url: "http://0.0.0.0:8545",
+    },
     evmParallel: {
       type: "edr",
       chainType: "l1",
       chainId: 31338,
       mining: {
         auto: true,
-        interval: 1 * 1000, // 10s
+        interval: 1 * 1000, // 1s
       },
+    },
+    evmParallelHttp: {
+      type: "http",
+      chainType: "l1",
+      url: "http://0.0.0.0:8546",
     },
   },
   paths: {
@@ -229,6 +247,7 @@ const config: HardhatUserConfig = {
     HardhatIgnitionViem,
     // HardhatAbiExporter,
   ],
+
   solidity: {
     profiles: {
       /*
@@ -244,7 +263,7 @@ const config: HardhatUserConfig = {
     // ],
     // remappings: [
     //   "remapped/=npm/@openzeppelin/contracts@5.1.0/access/",
-    //   // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
+    //   //   // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
     //   "forge-std/=npm/forge-std@local/src/",
     // ],
   },

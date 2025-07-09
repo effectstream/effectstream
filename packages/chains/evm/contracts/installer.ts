@@ -79,11 +79,11 @@ await copySpecialFiles(hardhatConfigSrc, hardhatConfigTarget);
 const name = prompt(
   "Select a namespace for your contracts project (default: @my-project/evm-contracts)",
   "@my-project/evm-contracts",
-) ?? "@my-project/evm-contracts";
+) ?? "";
 const denoJson = await Deno.readTextFile(denoJsonTarget);
 await Deno.writeTextFile(
   denoJsonTarget,
-  denoJson.replaceAll("@example/evm-contracts3", name),
+  denoJson.replaceAll("@placeholder/evm-contracts", name),
 );
 
 console.log(`
