@@ -202,6 +202,10 @@ const nodeWaitTask = task(["node", "wait"])
   .build();
 
 const config: HardhatUserConfig = {
+  // This is an example of two networks.
+  // The first network "evmMain" will automatically start at port 8545 with id=31337, matching the default hardhat setup.
+  // The second network "evmParallel" will automatically start at port 8546 with id=31338.
+  // You can edit this to match your requirements.
   networks: {
     evmMain: {
       type: "edr",
@@ -213,6 +217,7 @@ const config: HardhatUserConfig = {
       },
       allowBlocksWithSameTimestamp: true,
     },
+    // This is a helper network to allow to hardhat/ignition to connect to the network.
     evmMainHttp: {
       type: "http",
       chainType: "l1",
@@ -227,6 +232,7 @@ const config: HardhatUserConfig = {
         interval: 1 * 1000, // 1s
       },
     },
+    // This is a helper network to allow to hardhat/ignition to connect to the network.
     evmParallelHttp: {
       type: "http",
       chainType: "l1",

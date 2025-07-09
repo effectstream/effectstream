@@ -1,5 +1,7 @@
 # Instalation
 
+To create fresh contracts deployment:
+
 ```sh
 mkdir contracts-evm
 cd contracts-evm
@@ -10,11 +12,41 @@ deno task build:contracts && \
 deno task deploy:standalone
 ```
 
+# Setup your Chains
+
+`hardhat.config.ts` has a section with networks, you can edit to match your requirements.
+
+```js
+  networks: {
+    myNetworkName: {
+      type: "edr",
+      chainType: "l1",
+      chainId: 31337,
+      mining: {
+        auto: true,
+        interval: 250,
+      },
+      allowBlocksWithSameTimestamp: true,
+    },
+    myNetworkNameHttp: {
+      type: "http",
+      chainType: "l1",
+      url: "http://0.0.0.0:8547",
+    },
+  },
+
+```
+
+Important:
+
+- You must add two entries for each network. myNetworkName and myNetworkNameHttp.
+- The first network will automatically start at port 8545, 8546 for the second and so forward.
+
 # Deploy
 
 Deploy contracts described in `deploy.ts`
 
-`deno task deploy`
+`deno task deploy:standalone`
 
 # Create and deploy new Contracts
 
@@ -43,13 +75,16 @@ export default buildModule("MyModuleName", (m) => {
 });
 ```
 
-Then in `./deploy.ts` import your created module and call it with `deploy(...)` as follows:
+Then in `./deploy.ts` import your created module.
 
 ```ts
-import myModuleName from './ignition/module/my-contract-module.ts'
-...
-const myModuleDeployment = await network.ignition.deploy(myModuleName);
-console.log(`Contract deployed`, (myModuleDeployment.contract as any).address);
+const myDeployments: Deployment[] = [
+  ...,
+  {
+    module: MyModuleName,
+    network: "evmMainHttp",
+  }
+];
 ```
 
 ## 3. Redeploy Contracts
