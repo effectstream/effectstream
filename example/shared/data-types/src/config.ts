@@ -21,8 +21,7 @@ import { hardhat } from "viem/chains";
 import type { BlockNumber, TimestampMs } from "@paima/utils";
 
 // TODO: replace with @paima/evm-contracts
-import { erc20Abi, erc721Abi } from "viem"; // TODO: ABIs for Paima built-in primitives should be in the @paima/evm-contracts ideally
-import { paimal2 } from "@example/evm-contracts";
+import { erc20dev, erc721dev, paimal2contract } from "@paima/evm-contracts";
 // TODO: This should typed from the grammar types.
 const stfInputs = {
   tokenTransfer: "transfer",
@@ -103,7 +102,7 @@ export const localhostConfig = new ConfigBuilder()
 
         startBlockHeight: 0,
         contractAddress: deployedEvmAddresses["chain-31337"]["Foo#SomeERC20"],
-        abi: getEvmEvent(erc20Abi, "Transfer(address,address,uint256)"),
+        abi: getEvmEvent(erc20dev.abi, "Transfer(address,address,uint256)"),
         scheduledPrefix: stfInputs.tokenTransfer,
       }),
     )
@@ -116,7 +115,7 @@ export const localhostConfig = new ConfigBuilder()
           contractAddress:
             deployedEvmAddresses["chain-31337"]["L2Contract#PaimaL2Contract"],
           abi: getEvmEvent(
-            paimal2.abi,
+            paimal2contract.abi,
             "PaimaGameInteraction(address,bytes,uint256)",
           ),
         }),
@@ -130,7 +129,7 @@ export const localhostConfig = new ConfigBuilder()
           contractAddress:
             deployedEvmAddresses["chain-31337"]["Assets#Erc721Dev"],
           abi: getEvmEvent(
-            erc721Abi,
+            erc721dev.abi,
             "Transfer(address,address,uint256)",
           ),
           // TODO This is not defined. Should be a error.
@@ -145,7 +144,7 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 0,
           contractAddress: deployedEvmAddresses["chain-31337"]["erc721_2"],
           abi: getEvmEvent(
-            erc721Abi,
+            erc721dev.abi,
             "Transfer(address,address,uint256)",
           ),
           // TODO This is not defined. Should be a error.
@@ -160,7 +159,7 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 0,
           contractAddress: deployedEvmAddresses["chain-31337"]["erc20_2"],
           abi: getEvmEvent(
-            erc20Abi,
+            erc20dev.abi,
             "Transfer(address,address,uint256)",
           ),
           // TODO This is not defined. Should be a error.
