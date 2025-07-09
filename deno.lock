@@ -13305,22 +13305,6 @@
         ]
       },
       "packages/chains/evm/contracts": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@openzeppelin/contracts-upgradeable@^5.1.0",
-            "npm:@openzeppelin/contracts@5.1.0"
-          ]
-        }
-      },
-      "packages/chains/evm/contracts/build": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@openzeppelin/contracts-upgradeable@^5.1.0",
-            "npm:@openzeppelin/contracts@5.1.0"
-          ]
-        }
-      },
-      "packages/chains/evm/contracts2": {
         "dependencies": [
           "npm:@nomicfoundation/hardhat-ignition@3.0.0-next.20",
           "npm:@nomicfoundation/hardhat-viem@3.0.0-next.20",
