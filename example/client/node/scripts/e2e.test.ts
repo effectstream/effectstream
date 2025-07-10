@@ -1,5 +1,9 @@
 import { cleanup, shutdown, startup } from "./e2e-loader.ts";
-import { erc20, erc721, paimaL2 } from "./e2e-contracts.ts";
+import {
+  erc20Builder,
+  erc721Builder,
+  paimaL2Builder,
+} from "./e2e-contracts.ts";
 import { assert, assertSQL, printSummary } from "./e2e-assert.ts";
 import type { Client } from "pg";
 import { getPaimaEVMPublicClient } from "./e2e-rpc.ts";
@@ -44,24 +48,60 @@ async function test() {
       command.spawn();
     }
 
+    // Lazy load the contracts.
+    const erc20 = erc20Builder();
+    const erc721 = erc721Builder();
+    const paimaL2 = paimaL2Builder();
+
     // TOOD 10^18 operation fails on pgsql bigints
     const multiplier = 10n ** 15n;
 
+    let primitive_accounting_counter = 0;
+    let paima_state_machine_counter = 0;
+    const address_erc20_balances: Record<"a" | "b", Record<string, bigint>> = {
+      a: {
+        [wallet_A.address]: 0n,
+        [wallet_B.address]: 0n,
+      },
+      b: {
+        [wallet_A.address]: 0n,
+        [wallet_B.address]: 0n,
+      },
+    };
+    const address_erc721_ownership: Record<"a" | "b", Record<string, string>> =
+      {
+        a: {},
+        b: {},
+      };
+
+    const erc20_a = 200n * multiplier;
+    const erc20_b = 300n * multiplier;
+    const erc20_c = 90n * multiplier;
     await erc20.a.mint(
       wallet_A.address,
       wallet_A.privateKey,
-      200n * multiplier,
+      erc20_a,
     );
+    paima_state_machine_counter += 1; // There is a prefix that inserts a row
+    address_erc20_balances.a[wallet_A.address] += erc20_a;
+    primitive_accounting_counter += 1;
     await erc20.a.mint(
       wallet_A.address,
       wallet_A.privateKey,
-      300n * multiplier,
+      erc20_b,
     );
+    paima_state_machine_counter += 1; // There is a prefix that inserts a row
+    address_erc20_balances.a[wallet_A.address] += erc20_b;
+    primitive_accounting_counter += 1;
     await erc20.a.transfer(
       wallet_A.privateKey,
       wallet_B.address,
-      90n * multiplier,
+      erc20_c,
     );
+    paima_state_machine_counter += 1; // There is a prefix that inserts a row
+    address_erc20_balances.a[wallet_A.address] -= erc20_c;
+    address_erc20_balances.a[wallet_B.address] += erc20_c;
+    primitive_accounting_counter += 1;
     await assertSQL<{ primitive_name: string }>(
       "Check ERC20 sync-process",
       db,
@@ -69,7 +109,7 @@ async function test() {
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
       public.primitive_accounting;`,
-      (res) => res.rows.length === 3,
+      (res) => res.rows.length === primitive_accounting_counter,
       (res) => {
         return res.rows[0].primitive_name === "Aribitrum_Token" &&
           res.rows[1].primitive_name === "Aribitrum_Token" &&
@@ -80,6 +120,8 @@ async function test() {
       ["attack", "1", "100"],
       wallet_A.privateKey,
     );
+    paima_state_machine_counter += 1;
+    primitive_accounting_counter += 1;
     await assertSQL<{ primitive_name: string }>(
       "Check PaimaL2 sync-process",
       db,
@@ -87,15 +129,18 @@ async function test() {
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
       public.primitive_accounting;`,
-      (res) => res.rows.length === 4,
+      (res) => res.rows.length === primitive_accounting_counter,
       (res) => {
-        return res.rows[3].primitive_name === "PaimaGameInteraction";
+        return res.rows[primitive_accounting_counter - 1].primitive_name ===
+          "PaimaGameInteraction";
       },
     );
     await paimaL2.submitGameInput(
       ["attack", "2", "200"],
       wallet_A.privateKey,
     );
+    paima_state_machine_counter += 1;
+    primitive_accounting_counter += 1;
     await assertSQL<{ inputs: string }>(
       "Check State Machine events",
       db,
@@ -103,7 +148,7 @@ async function test() {
       inputs
       FROM
       public.paima_state_machine;`,
-      (res) => res.rows.length === 5,
+      (res) => res.rows.length === paima_state_machine_counter,
       (res) => {
         const dump = [
           {
@@ -139,22 +184,27 @@ async function test() {
       (res) => {
         // TODO
         // Should we store the addresses in lowercase?
-        const a = res.rows.find((r: any) =>
+        const firstWallet = res.rows.find((r: any) =>
           r.address ===
             "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".toLowerCase()
         );
-        const b = res.rows.find((r: any) =>
+        const secondWallet = res.rows.find((r: any) =>
           r.address ===
             "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".toLowerCase()
         );
-        if (!a || !b) {
-          throw new Error("Address not found: " + a + " " + b);
+        if (!firstWallet || !secondWallet) {
+          throw new Error(
+            "Address not found: " + firstWallet + " " + secondWallet,
+          );
         }
-        return a.balance === String(410n * multiplier) &&
-          b.balance === String(90n * multiplier);
+        return firstWallet.balance ===
+            String(address_erc20_balances.a[wallet_A.address]) &&
+          secondWallet.balance ===
+            String(address_erc20_balances.a[wallet_B.address]);
       },
     );
 
+    // Only wallet A has sent game inputs
     await assertSQL<{ address: string }>(
       "Check addresses",
       db,
@@ -178,6 +228,7 @@ async function test() {
     });
     console.log("Created random account", account.address);
     const gameInput = JSON.stringify(["attack", "999", "777"]);
+    let nonce_counter = 0;
     // Send a batched message.
     await fetch("http://localhost:3334/send-input", {
       method: "POST",
@@ -197,6 +248,9 @@ async function test() {
         millisecondTimestamp: timestamp,
       }),
     });
+    nonce_counter += 1;
+    primitive_accounting_counter += 1;
+    paima_state_machine_counter += 1;
     await assertSQL<
       { primitive_name: string; payload: { inputData: string } }
     >(
@@ -206,40 +260,82 @@ async function test() {
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
       public.primitive_accounting;`,
-      (res) => res.rows.length === 6,
+      (res) => res.rows.length === primitive_accounting_counter,
       (res) => {
-        return res.rows[5].primitive_name === "PaimaGameInteraction" &&
-          res.rows[5].payload.inputData === gameInput;
+        return res.rows[primitive_accounting_counter - 1].primitive_name ===
+            "PaimaGameInteraction" &&
+          res.rows[primitive_accounting_counter - 1].payload.inputData ===
+            gameInput;
       },
     );
 
-    // We should have a nonce for the batched message.
+    // We should have a single nonce for the batched message.
     await assertSQL<{ nonce: string }>(
       "Check nonces",
       db,
       `SELECT * FROM public.nonces;`,
-      (res) => res.rows.length === 1,
+      (res) => res.rows.length === nonce_counter,
       (res) => {
-        return res.rows.length === 1;
+        return res.rows.length === nonce_counter;
       },
     );
 
-    assert("Check User Defined API", async () => {
+    // Let's test the scheduled data created throught the state machine.
+    await paimaL2.submitGameInput(
+      ["schedule", "1", "block", "111"],
+      wallet_A.privateKey,
+    );
+    paima_state_machine_counter += 1;
+    primitive_accounting_counter += 1;
+    // This should increment the state machine indirectly.
+
+    await assertSQL<{ inputs: string; block_height: number }>(
+      "Check Scheduled Data - block",
+      db,
+      `SELECT inputs, block_height from public.paima_state_machine`,
+      (res) => res.rows.length === paima_state_machine_counter,
+      (res) => {
+        return res.rows[paima_state_machine_counter - 1].inputs ===
+          "attack playerId: 111 with moveId: 1";
+      },
+    );
+
+    // Let's test the scheduled data - timestamp - created throught the state machine.
+    await paimaL2.submitGameInput(
+      ["schedule", "1", "timestamp", "222"],
+      wallet_A.privateKey,
+    );
+    paima_state_machine_counter += 1;
+    primitive_accounting_counter += 1;
+    // This should increment the state machine indirectly.
+
+    await assertSQL<{ inputs: string; block_height: number }>(
+      "Check Scheduled Data - timestamp",
+      db,
+      `SELECT inputs, block_height from public.paima_state_machine`,
+      (res) => res.rows.length === paima_state_machine_counter,
+      (res) => {
+        return res.rows[paima_state_machine_counter - 1].inputs ===
+          "attack playerId: 222 with moveId: 1";
+      },
+    );
+
+    await assert("Check User Defined API", async () => {
       const response = await fetch("http://localhost:9999/api/my-game-state");
       const data = await response.json();
       // 3 ERC20 updates
       // 2 PaimaL2 updates
       // 1 Batcher update
-      return data.length === 6;
+      return data.length === paima_state_machine_counter;
     });
 
-    assert("Health Check", async () => {
+    await assert("Health Check", async () => {
       const response = await fetch("http://localhost:9999/health");
       const data = await response.json();
       return data.status === "ok";
     });
 
-    assert("Check System API Table Schema", async () => {
+    await assert("Check System API Table Schema", async () => {
       const response = await fetch(
         "http://localhost:9999/table-schema/paima_state_machine",
       );
@@ -251,12 +347,12 @@ async function test() {
       );
     });
 
-    assert("Check System API Table Data", async () => {
+    await assert("Check System API Table Data", async () => {
       const response = await fetch(
         "http://localhost:9999/tables/paima_state_machine",
       );
       const data = await response.json();
-      return data.length === 6;
+      return data.length === paima_state_machine_counter;
     });
 
     const tokens = {
@@ -279,6 +375,10 @@ async function test() {
       wallet_A.address,
       tokens.tokenD,
     );
+    address_erc721_ownership.a[String(tokens.tokenC)] = wallet_B.address;
+    address_erc721_ownership.a[String(tokens.tokenD)] = wallet_A.address;
+    address_erc721_ownership.b[String(tokens.tokenA)] = wallet_A.address;
+    address_erc721_ownership.b[String(tokens.tokenB)] = wallet_B.address;
     // Cannot burn a token?
     // await erc721.burn(wallet_X.privateKey, tokens.tokenD);
     await assertSQL<
@@ -295,13 +395,7 @@ async function test() {
           // token_id: "1",
           // current_owner: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
           // }...]
-          const expectedOweners = {
-            [String(tokens.tokenA)]: wallet_A.address,
-            [String(tokens.tokenB)]: wallet_B.address,
-            [String(tokens.tokenC)]: wallet_B.address,
-            [String(tokens.tokenD)]: wallet_A.address,
-          };
-          Object.entries(expectedOweners).forEach(
+          Object.entries(address_erc721_ownership.a).forEach(
             ([tokenId, owner]: [string, string]) => {
               const row = res.rows.find(
                 (
@@ -334,24 +428,38 @@ async function test() {
       (_, i) => BigInt((i + 1) * 2),
     );
     for (let i = 0; i < 100; i++) {
-      await erc721.b.mint(wallet_A.privateKey, tokens_b.shift()!, true);
-      await erc721.b.mint(wallet_B.privateKey, tokens_b.shift()!, true);
       const t1 = tokens_b.shift()!;
       const t2 = tokens_b.shift()!;
+      const t3 = tokens_b.shift()!;
+      const t4 = tokens_b.shift()!;
+
       await erc721.b.mint(wallet_A.privateKey, t1, true);
+      address_erc721_ownership.b[String(t1)] = wallet_A.address;
+
       await erc721.b.mint(wallet_B.privateKey, t2, true);
+      address_erc721_ownership.b[String(t2)] = wallet_B.address;
+
+      await erc721.b.mint(wallet_A.privateKey, t3, true);
+      address_erc721_ownership.b[String(t3)] = wallet_A.address;
+
+      await erc721.b.mint(wallet_B.privateKey, t4, true);
+      address_erc721_ownership.b[String(t4)] = wallet_B.address;
+
       await erc721.b.transfer(
         wallet_A.privateKey,
         wallet_B.address,
         t1,
         true,
       );
+      address_erc721_ownership.b[String(t1)] = wallet_B.address;
+
       await erc721.b.transfer(
         wallet_B.privateKey,
         wallet_A.address,
         t2,
         true,
       );
+      address_erc721_ownership.b[String(t2)] = wallet_A.address;
     }
 
     //
@@ -371,24 +479,31 @@ async function test() {
     // at <anonymous> (wasm://wasm/02190c76:1:3316014)
     console.log("Sending 300 erc20 events....");
     for (let i = 0; i < 20; i++) {
+      const t1 = BigInt((i + 1) * 2) * multiplier;
+      const t2 = BigInt((i + 1) * 3) * multiplier;
+      const tx = BigInt((i + 1) * 1) * multiplier;
       await erc20.b.mint(
         wallet_A.address,
         wallet_A.privateKey,
-        BigInt((i + 1) * 2) * multiplier,
+        t1,
         true,
       );
+      address_erc20_balances.b[wallet_A.address] += t1;
       await erc20.b.mint(
         wallet_B.address,
         wallet_B.privateKey,
-        BigInt((i + 1) * 3) * multiplier,
+        t2,
         true,
       );
+      address_erc20_balances.b[wallet_B.address] += t2;
       await erc20.b.transfer(
         wallet_A.privateKey,
         wallet_B.address,
-        BigInt(i + 1) * multiplier,
+        tx,
         true,
       );
+      address_erc20_balances.b[wallet_A.address] -= tx;
+      address_erc20_balances.b[wallet_B.address] += tx;
     }
 
     // Test RPC

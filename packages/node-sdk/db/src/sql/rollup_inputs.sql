@@ -44,6 +44,21 @@ SELECT (SELECT id FROM new_row), :success!, :paima_tx_hash!::BYTEA, :index_in_bl
 INSERT INTO rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)
 VALUES (:id!, :success!, :paima_tx_hash!::BYTEA, :index_in_block!, :block_height!);
 
+/* @name getAllScheduledData */
+SELECT
+  rollup_inputs.id,
+  rollup_input_future_block.future_block_height,
+  rollup_inputs.input_data,
+  rollup_inputs.from_address,
+  rollup_input_origin.primitive_name,
+  rollup_input_origin.contract_address,
+  rollup_input_origin.caip2,
+  rollup_input_origin.tx_hash as "origin_tx_hash"
+FROM rollup_inputs
+JOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id
+JOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id
+ORDER BY rollup_inputs.id ASC;
+
 /* @name getFutureGameInputByBlockHeight */
 SELECT
   rollup_inputs.id,

@@ -26,26 +26,36 @@ export function printSummary() {
   console.log(`  ${testResults.skipped} tests skipped`);
 }
 
+let isRunning = false;
+
 /** Increment the passed test count and print a success message. */
 function testPassed() {
   testResults.passed++;
+  isRunning = false;
   console.log(`✅ Test passed`);
 }
 
 /** Increment the failed test count and print a failure message. */
 function testFailed() {
   testResults.failed++;
+  isRunning = false;
   console.log(`❌ Test failed`);
 }
 
 /** Increment the skipped test count and print a skipped message. */
 function testSkipped() {
   testResults.skipped++;
+  isRunning = false;
   console.log(`⏭️ Test skipped`);
 }
 
 /** Increment the test count and print the test name. */
 function startTest(testName: string) {
+  if (isRunning) {
+    // By default only one test can run at a time.
+    throw new Error("Test already running");
+  }
+  isRunning = true;
   console.log(
     `%c🔍 [Running test] ${testResults.count + 1}: ${testName}`,
     "color: green; background-color: black; font-weight: bold",
@@ -118,6 +128,7 @@ export async function assertSQL<RowType>(
       maxMillis -= 100;
       if (maxMillis <= 0) {
         testFailed();
+        console.log("Expected", waitUntil.toString());
         console.error("[TIMEOUT] Data in DB:", res.rows);
         return res;
       }

@@ -8,10 +8,13 @@ export type AppEvents = any;
 // TODO: replace any
 export type BaseStfInput = {
   blockHeight: number;
+  blockTimestamp: number;
   conciseInput: string;
   userAddress?: `0x${string}`;
   userId?: number;
   chain: {
+    // What is this?
+    // Is this the origin?
     blockNumber: number;
     transactionHash: string;
   };

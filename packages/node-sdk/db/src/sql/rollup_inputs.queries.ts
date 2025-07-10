@@ -160,6 +160,50 @@ const insertGameInputResultIR: any = {"usedParamSet":{"id":true,"success":true,"
 export const insertGameInputResult = new PreparedQuery<IInsertGameInputResultParams,IInsertGameInputResultResult>(insertGameInputResultIR);
 
 
+/** 'GetAllScheduledData' parameters type */
+export type IGetAllScheduledDataParams = void;
+
+/** 'GetAllScheduledData' return type */
+export interface IGetAllScheduledDataResult {
+  caip2: string | null;
+  contract_address: string | null;
+  from_address: string;
+  future_block_height: number;
+  id: number;
+  input_data: string;
+  origin_tx_hash: Buffer | null;
+  primitive_name: string | null;
+}
+
+/** 'GetAllScheduledData' query type */
+export interface IGetAllScheduledDataQuery {
+  params: IGetAllScheduledDataParams;
+  result: IGetAllScheduledDataResult;
+}
+
+const getAllScheduledDataIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT\n  rollup_inputs.id,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id\nORDER BY rollup_inputs.id ASC"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT
+ *   rollup_inputs.id,
+ *   rollup_input_future_block.future_block_height,
+ *   rollup_inputs.input_data,
+ *   rollup_inputs.from_address,
+ *   rollup_input_origin.primitive_name,
+ *   rollup_input_origin.contract_address,
+ *   rollup_input_origin.caip2,
+ *   rollup_input_origin.tx_hash as "origin_tx_hash"
+ * FROM rollup_inputs
+ * JOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id
+ * JOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id
+ * ORDER BY rollup_inputs.id ASC
+ * ```
+ */
+export const getAllScheduledData = new PreparedQuery<IGetAllScheduledDataParams,IGetAllScheduledDataResult>(getAllScheduledDataIR);
+
+
 /** 'GetFutureGameInputByBlockHeight' parameters type */
 export interface IGetFutureGameInputByBlockHeightParams {
   block_height: number;

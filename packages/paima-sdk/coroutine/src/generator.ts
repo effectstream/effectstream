@@ -74,6 +74,7 @@ type Spread<T> = T extends [] // base case 1: empty list
 
 export function* StateMachineExecution(
   paima_block_height: number,
+  blockTimestamp: number,
   conciseInput: string,
   userAddress: `0x${string}` | undefined,
   userId: number | undefined,
@@ -83,6 +84,7 @@ export function* StateMachineExecution(
   yield {
     type: "stm-promise",
     data: {
+      blockTimestamp,
       conciseInput,
       blockHeight: paima_block_height,
       userAddress,

@@ -5,9 +5,9 @@ import type {
   PayloadOf,
   PrimitiveEvmRpcErc721TransferAccounting,
 } from "@paima/config";
-import { insertPrimitiveAccounting } from "@paima/db";
+import { createScheduledData, insertPrimitiveAccounting } from "@paima/db";
 import type { StateUpdateStream } from "@paima/coroutine";
-import { StateMachineExecution, World } from "@paima/coroutine";
+import { World } from "@paima/coroutine";
 import {
   ConfigPrimitiveAccountingPayloadType,
   type ConfigPrimitiveType,
@@ -42,13 +42,18 @@ export default function* processErc721SyncProtocolResponse(
   });
 
   if (prefix) {
-    yield* StateMachineExecution(
-      paima_block_height,
+    yield* createScheduledData(
       JSON.stringify([prefix, payload]),
-      undefined,
-      undefined,
-      response.output.syncProtocol.payload.ownChain.blockNumber,
-      response.output.syncProtocol.payload.transactionHash,
+      {
+        blockHeight: paima_block_height,
+      },
+      {
+        primitiveName: response.output.syncProtocol.payload.primitiveName,
+        txHash: response.output.syncProtocol.payload.transactionHash,
+        caip2: response.output.syncProtocol.payload.caip2,
+        fromAddress: "0x0",
+        contractAddress: response.input.contractAddress.toLowerCase(),
+      },
     );
   }
 }

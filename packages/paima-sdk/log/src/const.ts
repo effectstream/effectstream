@@ -17,6 +17,7 @@ const ExternalComponents = {
   PAIMA_BATCHER: "batcher",
   DOCS: "docs",
   DEPLOY: "deploy",
+  EXPLORER: "explorer",
 };
 const ToolsComponents = {
   CHECKER: "checker",

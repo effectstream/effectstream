@@ -3,6 +3,7 @@ import {
   CONFIG_ENDPOINT,
   PRIMITIVES_ENDPOINT,
   PRIMITIVES_SCHEMA_ENDPOINT,
+  SCHEDULED_DATA_ENDPOINT,
   TABLE_SCHEMA_ENDPOINT,
   TABLES_ENDPOINT,
 } from "../config.ts";
@@ -27,12 +28,26 @@ interface SchemaColumn {
   is_nullable: string;
 }
 
+interface IGetAllScheduledDataResult {
+  caip2: string | null;
+  contract_address: string | null;
+  from_address: string;
+  future_block_height: number;
+  id: number;
+  input_data: string;
+  origin_tx_hash: string | null;
+  primitive_name: string | null;
+}
+
 export function useTableData() {
   const [primitiveNames, setPrimitiveNames] = useState<string[]>([]);
   const [primitiveData, setPrimitiveData] = useState<
     Record<string, TableData | null>
   >({});
   const [staticTableData, setStaticTableData] = useState<
+    Record<string, TableData | null>
+  >({});
+  const [scheduledData, setScheduledData] = useState<
     Record<string, TableData | null>
   >({});
   const [primitiveSchemas, setPrimitiveSchemas] = useState<
@@ -283,6 +298,43 @@ export function useTableData() {
     [convertTableDataToTableFormat],
   );
 
+  // Fetch scheduled data
+  const fetchScheduledData = useCallback(
+    async (): Promise<TableData | null> => {
+      try {
+        const response = await fetch(SCHEDULED_DATA_ENDPOINT);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data: IGetAllScheduledDataResult[] = await response.json();
+        console.log("📊 Fetched scheduled data:", data);
+
+        // Convert to TableData format
+        const fields = [
+          { name: "id", dataTypeID: 23 },
+          { name: "from_address", dataTypeID: 25 },
+          { name: "input_data", dataTypeID: 25 },
+          { name: "primitive_name", dataTypeID: 25 },
+          { name: "caip2", dataTypeID: 25 },
+          { name: "contract_address", dataTypeID: 25 },
+          { name: "origin_tx_hash", dataTypeID: 25 },
+          { name: "future_block_height", dataTypeID: 23 },
+        ];
+
+        return {
+          command: "SELECT",
+          rowCount: data.length,
+          rows: data,
+          fields: fields,
+        };
+      } catch (error) {
+        console.error("Error fetching scheduled data:", error);
+        return null;
+      }
+    },
+    [],
+  );
+
   // Refresh primitive data
   const refreshPrimitiveData = useCallback(async () => {
     // Only refresh if we have primitive names and initial load is complete
@@ -341,6 +393,25 @@ export function useTableData() {
       // Don't clear data on error, keep existing data
     }
   }, [fetchTableData]);
+
+  // Refresh scheduled data
+  const refreshScheduledData = useCallback(async () => {
+    // Only refresh if initial load is complete
+    if (!isInitialLoadComplete.current) {
+      return;
+    }
+
+    try {
+      const data = await fetchScheduledData();
+      // Only update if we got valid data
+      if (data !== null) {
+        setScheduledData({ "scheduled_data": data });
+      }
+    } catch (error) {
+      console.error("Error refreshing scheduled data:", error);
+      // Don't clear data on error, keep existing data
+    }
+  }, [fetchScheduledData]);
 
   // Initialize primitive tables
   const initializePrimitiveTables = useCallback(async () => {
@@ -430,6 +501,19 @@ export function useTableData() {
     }
   }, [fetchTableSchema, fetchTableData]);
 
+  // Initialize scheduled data
+  const initializeScheduledData = useCallback(async () => {
+    console.log("📋 Initializing scheduled data...");
+
+    try {
+      const data = await fetchScheduledData();
+      setScheduledData({ "scheduled_data": data });
+      console.log("✅ Scheduled data initialized");
+    } catch (error) {
+      console.error("Error initializing scheduled data:", error);
+    }
+  }, [fetchScheduledData]);
+
   // Initialize and setup refresh intervals
   useEffect(() => {
     let refreshInterval: number;
@@ -439,6 +523,7 @@ export function useTableData() {
       await Promise.all([
         initializePrimitiveTables(),
         initializeStaticTables(),
+        initializeScheduledData(),
       ]);
 
       // Mark initial load as complete
@@ -448,6 +533,7 @@ export function useTableData() {
       refreshInterval = setInterval(() => {
         refreshPrimitiveData();
         refreshStaticTableData();
+        refreshScheduledData();
       }, 5000);
     };
 
@@ -463,7 +549,9 @@ export function useTableData() {
   return {
     primitiveData,
     staticTableData,
+    scheduledData,
     refreshPrimitiveData,
     refreshStaticTableData,
+    refreshScheduledData,
   };
 }

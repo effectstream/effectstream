@@ -90,17 +90,24 @@ export async function start(
     // Start processes in parallel
     await Promise.all([
       startProcess[ComponentNames.DOCS](),
-      startProcess[ComponentNames.PAIMA_BATCHER](),
       startProcess[ComponentNames.PAIMA_DB](),
       startProcess[ComponentNames.YACI_DEVKIT](),
       startProcess[ComponentNames.HARDHAT](),
     ]);
 
-    // Deploy the contracts
-    await startProcess[ComponentNames.DEPLOY]();
+    await Promise.all([
+      // Start the Dolos process
+      startProcess[ComponentNames.DOLOS](),
+      // Deploy the contracts
+      startProcess[ComponentNames.DEPLOY](),
+    ]);
 
-    // Start the Dolos process
-    await startProcess[ComponentNames.DOLOS]();
+    // Start the batcher, after the contracts are deployed.
+    await startProcess[ComponentNames.PAIMA_BATCHER]();
+
+    // Start the explorer
+    // This crashes when launching process through Deno.command
+    // await startProcess[ComponentNames.EXPLORER]();
 
     // Start the main process
     await startProcess[ComponentNames.PAIMA_SYNC]();
@@ -146,6 +153,17 @@ export const startProcess: Record<
     tmux.process.unref();
 
     return tmux;
+  },
+
+  [ComponentNames.EXPLORER]: async (): Promise<ProcessComponent> => {
+    const explorer = $({
+      args: ["task", "-f", "@paima/explorer", "dev"],
+      component: ComponentNames.EXPLORER,
+      log: rawLogHandler,
+      abortController: abortControllers.developerUI,
+    });
+    await explorer.process.status;
+    return explorer;
   },
 
   [ComponentNames.DOCS]: async (): Promise<ProcessComponent> => {
@@ -221,8 +239,9 @@ export const startProcess: Record<
 
   [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
     // TODO This should be read from the config.
-    const paimaL2Address = contractAddressesEvmMain()
-      ["chain31337"]["PaimaL2ContractModule#PaimaL2Contract"];
+    const paimaL2Address = contractAddressesEvmMain()["chain31337"][
+      "PaimaL2ContractModule#PaimaL2Contract"
+    ];
     const batcherPrivateKey =
       "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
     const chainName = "hardhat";
