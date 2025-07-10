@@ -13,8 +13,7 @@ export type BaseStfInput = {
   userAddress?: `0x${string}`;
   userId?: number;
   chain: {
-    // What is this?
-    // Is this the origin?
+    // TODO: Should this be the complete Paima Block?
     blockNumber: number;
     transactionHash: string;
   };

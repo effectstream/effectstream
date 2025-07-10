@@ -112,8 +112,10 @@ function* executePaimaL2Input(input: {
     {
       primitiveName: input.primitiveName,
       txHash: input.ownChain.transactionHash,
+      // TODO: Where to get this from, we can asume its eip155:{chainId}
       caip2: "eip155", // input.ownChain.caip2,
       fromAddress: address.address,
+      // TODO Where to get this from?
       contractAddress: "0x0", // response.input.contractAddress.toLowerCase(),
     },
   );

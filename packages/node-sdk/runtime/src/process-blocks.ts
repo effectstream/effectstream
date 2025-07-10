@@ -18,6 +18,7 @@ import {
   deleteScheduled,
   getFutureGameInputByBlockHeight,
   getFutureGameInputByMaxTimestamp,
+  insertGameInputResult,
   saveLastBlock,
 } from "@paima/db";
 import { Buffer } from "node:buffer";
@@ -48,11 +49,12 @@ function isWorldResolve(value: any): value is QueuedUpdate {
 async function tryOrRollback<T>(
   dbTx: Pool,
   func: () => Promise<T>,
-): Promise<undefined | T> {
+): Promise<{ status: "success" | "error"; value: T | undefined }> {
   const checkpointName = `game_state_transition`;
   await dbTx.query(`SAVEPOINT ${checkpointName}`);
   try {
-    return await func();
+    const value = await func();
+    return { status: "success", value };
   } catch (err) {
     await dbTx.query(`ROLLBACK TO SAVEPOINT ${checkpointName}`);
     log.remote(
@@ -62,7 +64,7 @@ async function tryOrRollback<T>(
       (log) =>
         log(`Database error on ${checkpointName}. Rolling back.` + String(err)),
     );
-    return undefined;
+    return { status: "error", value: undefined };
   } finally {
     await dbTx.query(`RELEASE SAVEPOINT ${checkpointName}`);
   }
@@ -211,15 +213,19 @@ export function* processFinalizedBlock(
     /* STEP 5: Process the scheduled data in the State Machine. */
     // TODO What should be the order of the scheduled data - per id?
     const scheduledData = [...scheduledData1, ...scheduledData2];
+    let index_in_block = 0;
     if (gameStateTransitions && scheduledData.length > 0) {
       for (const data of scheduledData) {
-        yield* until(tryOrRollback(dbConn, async () => {
+        const { status } = yield* until(tryOrRollback(dbConn, async () => {
           const input: BaseStfInput = {
             blockTimestamp: value.timestamp,
             blockHeight: value.blockNumber,
             conciseInput: data.input_data,
-            // userAddress: data.from_address as `0x${string}`,
-            // userId:,
+            // TODO This should be the delegated address?
+            //      For contracts what address to use?
+            // userAddress: data.from_address, // rollup_inputs.from_address
+            // TOOD Should we add this field to rollup_inputs
+            // userId:
             chain: {
               blockNumber: value.blockNumber,
               transactionHash: "0x0",
@@ -233,6 +239,22 @@ export function* processFinalizedBlock(
             await queryIR.run(params, dbConn);
           }
         }));
+        const gameInputHash = `0x${
+          Array(64).fill(0).map(() =>
+            Math.floor(Math.random() * 16).toString(16)
+          )
+            .join("")
+        }`;
+        yield* call(() =>
+          insertGameInputResult.run({
+            id: data.id,
+            success: status === "success",
+            paima_tx_hash: Buffer.from(gameInputHash),
+            index_in_block,
+            block_height: value.blockNumber,
+          }, dbConn)
+        );
+        index_in_block++;
 
         // Remove the scheduled data from the database.
         yield* call(() =>
@@ -244,6 +266,7 @@ export function* processFinalizedBlock(
     }
 
     /* STEP 6: Mark the block as done. */
+    // TODO Where does this hash come from?
     blockHash = `0x${
       Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16))
         .join("")

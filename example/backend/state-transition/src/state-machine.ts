@@ -9,17 +9,14 @@ import {
   newScheduledHeightData,
   newScheduledTimestampData,
 } from "@paima/db";
-import { run } from "npm:effection@3.5.0";
 // import { createScheduledData } from "@paima/db";
 
 type MyEvents = {}; // TODO: replace
 const stm = new PaimaSTM<typeof grammar, MyEvents>(grammar);
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 stm.addStateTransition(
   "attack",
   async (data) => {
-    await sleep(0);
     return {
       stateTransitions: [
         [insertStateMachineInput, {
@@ -40,7 +37,6 @@ stm.addStateTransition(
       stateTransitions: [],
       events: [],
     };
-    // data.
     const { tick, message, type } = data.parsedInput;
     const playerId = parseInt(message);
 
@@ -79,10 +75,7 @@ stm.addStateTransition(
 stm.addStateTransition(
   "transfer",
   async (data) => {
-    // console.error(data);
-    await sleep(0);
     const { to, from, value } = data.parsedInput.payload;
-    // This is where game logic is executed.
     return {
       stateTransitions: [
         [insertStateMachineInput, {

@@ -49,6 +49,7 @@ export default function* processErc20SyncProtocolResponse(
         primitiveName: response.output.syncProtocol.payload.primitiveName,
         txHash: response.output.syncProtocol.payload.transactionHash,
         caip2: response.output.syncProtocol.payload.caip2,
+        // TODO: Should we try to infer from the payload contents?
         fromAddress: "0x0",
         contractAddress: response.input.contractAddress.toLowerCase(),
       },
