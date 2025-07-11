@@ -36,24 +36,6 @@ class LogsViewer {
     if (logEntry.component in this.logDisplayStates) {
       return this.logDisplayStates[logEntry.component];
     }
-    // TODO: It might be necessary to check the namespaces as the
-    //       process name will not be available in with a full collector.
-    //
-    // // Try namespace if component doesn't match
-    // if (typeof logEntry.namespace === "string") {
-    //   if (logEntry.namespace in this.logDisplayStates) {
-    //     return this.logDisplayStates[logEntry.namespace];
-    //   }
-    // }
-
-    // // For array namespaces, check each one
-    // else if (Array.isArray(logEntry.namespace)) {
-    //   for (const ns of logEntry.namespace) {
-    //     if (ns in this.logDisplayStates) {
-    //       return this.logDisplayStates[ns];
-    //     }
-    //   }
-    // }
     return true;
   }
 
