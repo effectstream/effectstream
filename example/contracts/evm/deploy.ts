@@ -12,7 +12,7 @@ type Deployment = {
   module: ReturnType<typeof buildModule>;
   network: string;
   parameters?: Record<string, Record<string, any>>;
-}
+};
 
 // This is an example of how to deploy contracts.
 // This is the list of contracts to deploy.
@@ -64,8 +64,7 @@ export async function deploy(): Promise<void> {
       } deployed to ${result.contract.address}`,
     );
   }
-  console.error("Deployed contracts:\n", messages.join("\n"));
+  console.log("Deployed contracts:\n", messages.join("\n"));
   // Wait for a block to be minted on the slowest chain.
   await new Promise((r) => setTimeout(r, 1000 * 2));
 }
-

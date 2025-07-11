@@ -53,8 +53,7 @@ async function test() {
     const erc721 = erc721Builder();
     const paimaL2 = paimaL2Builder();
 
-    // TOOD 10^18 operation fails on pgsql bigints
-    const multiplier = 10n ** 15n;
+    const multiplier = 10n ** 18n;
 
     let primitive_accounting_counter = 0;
     let paima_state_machine_counter = 0;
@@ -153,15 +152,15 @@ async function test() {
         const dump = [
           {
             inputs:
-              "transfer 200000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "transfer 200000000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
           },
           {
             inputs:
-              "transfer 300000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "transfer 300000000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
           },
           {
             inputs:
-              "transfer 90000000000000000 from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "transfer 90000000000000000000 from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
           },
           { inputs: "attack playerId: 1 with moveId: 100" },
           { inputs: "attack playerId: 2 with moveId: 200" },

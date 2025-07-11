@@ -211,7 +211,10 @@ export const startHttpServer = function* (
   });
 
   server.get("/scheduled-data", async () => {
-    const result = await getAllScheduledData.run(undefined, dbConn);
+    const result = await runPreparedQuery(
+      getAllScheduledData.run(undefined, dbConn),
+      "scheduled-data",
+    );
     return result;
   });
 
@@ -236,6 +239,7 @@ export const startHttpServer = function* (
     const { tableName } = request.params;
     const result = await runPreparedQuery(
       getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
+      "table-schema",
     );
     return result;
   });
@@ -253,6 +257,7 @@ export const startHttpServer = function* (
     unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
     const result = await runPreparedQuery<{ rows: unknown[] }>(
       dbConn.query(unsafeQuery),
+      "unsafe-get-table-data",
     );
     return result.rows;
   }
@@ -329,6 +334,7 @@ export const startHttpServer = function* (
       getTableSchema.run({
         tableName: `${prefix}${primitiveName.toLowerCase()}`,
       }, dbConn),
+      "primitives-schema",
     );
     return result;
   });
@@ -375,7 +381,7 @@ export const startHttpServer = function* (
       },
     },
   }, async () => {
-    await run(aquireDBMutex);
+    await run(() => aquireDBMutex("http-server"));
     return "ok";
   });
 

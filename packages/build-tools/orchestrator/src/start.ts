@@ -2,6 +2,7 @@
 import type { ValueOf } from "@paima/utils";
 import "./http-server.ts";
 import { contractAddressesEvmMain } from "@my-project/evm-contracts";
+import { dkill } from "@sylc/dkill";
 
 import {
   getCurrentOutput,
@@ -70,6 +71,19 @@ export async function start(
     output?: "development" | "production" | "stdout" | "stdout-err" | "none";
   } = {},
 ): Promise<void> {
+  // TODO This is a workaround to kill any processes that are still running from a previous run.
+  //
+  // Cardano processes 8090, 10000. Do not terminate cleanly.
+  // Unfortunately required because of https://github.com/bloxbean/yaci-devkit/issues/94
+  //
+  // PGLite 5432. Frequently does not shutdown in some cases.
+  //
+  // Hardhat 8545. Sometimes it does not shutdown cleanly when the node crashes.
+  //
+  // Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
+  //
+  await dkill({ ports: [8090, 10000, 5432, 8545, 3334] });
+
   // fast-fail if there are type errors in the project
   await startProcess[ComponentNames.CHECKER]();
 
@@ -96,10 +110,10 @@ export async function start(
     ]);
 
     await Promise.all([
-      // Start the Dolos process
+      // Start the Dolos process. Depends on YaciDevkit.
       startProcess[ComponentNames.DOLOS](),
-      // Deploy the contracts
-      startProcess[ComponentNames.DEPLOY](),
+      // Deploy the contracts. Depends on Hardhat.
+      startProcess[ComponentNames.DEPLOY_EVM_CONTRACTS](),
     ]);
 
     // Start the batcher, after the contracts are deployed.
@@ -176,10 +190,12 @@ export const startProcess: Record<
     return docs;
   },
 
-  [ComponentNames.DEPLOY]: async (): Promise<ProcessComponent> => {
+  [ComponentNames.DEPLOY_EVM_CONTRACTS]: async (): Promise<
+    ProcessComponent
+  > => {
     const deploy = $({
       args: ["task", "-f", "@my-project/evm-contracts", "deploy"],
-      component: ComponentNames.DEPLOY,
+      component: ComponentNames.DEPLOY_EVM_CONTRACTS,
       log: rawLogHandler,
       abortController: abortControllers.system,
     });
