@@ -1,7 +1,7 @@
 import { fastify, type FastifyRequest } from "fastify";
 import { type Static, Type } from "@sinclair/typebox";
-import { Value } from "@sinclair/typebox/value";
 import { ENV } from "@paima/utils";
+import { RingBuffer } from "./tab/logs-ringbuffer.ts";
 
 //
 // This API exposes the latest 1000 otel logs using.
@@ -18,68 +18,51 @@ export const OTelLogSchema = Type.Object({
   message: Type.Array(Type.String()),
 });
 export type OTelLog = Static<typeof OTelLogSchema>;
-//
-// Ring buffer implementation for storing the latest logs
-// This provides O(1) insertion and maintains a fixed size efficiently
-//
-class RingBuffer<T> {
-  private buffer: T[];
-  private head: number = 0;
-  private tail: number = 0;
-  private size: number = 0;
-  private readonly capacity: number;
 
-  constructor(capacity: number) {
-    this.capacity = capacity;
-    this.buffer = new Array(capacity);
-  }
+// Schema for log display control
+const LogDisplayControlSchema = Type.Object({
+  processName: Type.String(),
+  enabled: Type.Boolean(),
+});
+type LogDisplayControl = Static<typeof LogDisplayControlSchema>;
 
-  push(item: T): void {
-    this.buffer[this.tail] = item;
-    this.tail = (this.tail + 1) % this.capacity;
-
-    if (this.size < this.capacity) {
-      this.size++;
-    } else {
-      // Buffer is full, move head forward (overwrite oldest)
-      this.head = (this.head + 1) % this.capacity;
-    }
-  }
-
-  toArray(): T[] {
-    if (this.size === 0) return [];
-
-    const result: T[] = [];
-    let current = this.head;
-
-    for (let i = 0; i < this.size; i++) {
-      result.push(this.buffer[current]);
-      current = (current + 1) % this.capacity;
-    }
-
-    return result;
-  }
-
-  clear(): void {
-    this.head = 0;
-    this.tail = 0;
-    this.size = 0;
-  }
-
-  getSize(): number {
-    return this.size;
-  }
-}
-
-class LogServer {
+export class LogServer {
   private dataStore = new RingBuffer<OTelLog>(MAX_DATA_ITEMS);
+  private processLogStates: Record<string, boolean> = {}; // Track per-process log display state
+
   public readonly port: number = ENV.TUI_LOG_PORT;
   private server = fastify();
 
-  private getData() {
+  public getData() {
     const copy = this.dataStore.toArray();
     this.dataStore.clear();
     return copy;
+  }
+
+  // Check if logs should be displayed for a specific process
+  public isLogDisplayEnabled(processName: string): boolean {
+    // Default to enabled if not explicitly set
+    return this.processLogStates[processName] ?? true;
+  }
+
+  // Set log display state
+  private setLogDisplayEnabled(
+    processName: string,
+    enabled: boolean,
+  ): void {
+    this.processLogStates[processName] = enabled;
+  }
+
+  // Get all log display states
+  getAllLogDisplayStates(): Record<string, boolean> {
+    return this.processLogStates;
+  }
+
+  // Add logs to buffer
+  private addLogs(logs: OTelLog[]): void {
+    for (const log of logs) {
+      this.dataStore.push(log);
+    }
   }
 
   public async init() {
@@ -89,9 +72,7 @@ class LogServer {
       },
     }, (request: FastifyRequest<{ Body: OTelLog[] }>, reply) => {
       try {
-        for (const log of request.body) {
-          this.dataStore.push(log);
-        }
+        this.addLogs(request.body);
         reply.status(200).send({ success: true });
       } catch (error) {
         reply.status(500).send({ error: "Failed to store log data" });
@@ -103,36 +84,42 @@ class LogServer {
       reply.status(200).send(copy);
     });
 
+    // New endpoint to control log display per process
+    this.server.post("/v1/display-control", {
+      schema: {
+        body: LogDisplayControlSchema,
+      },
+    }, (request: FastifyRequest<{ Body: LogDisplayControl }>, reply) => {
+      try {
+        this.setLogDisplayEnabled(
+          request.body.processName,
+          request.body.enabled,
+        );
+        reply.status(200).send({
+          success: true,
+          processName: request.body.processName,
+          enabled: request.body.enabled,
+        });
+      } catch (error) {
+        reply.status(500).send({ error: "Failed to update display control" });
+      }
+    });
+
+    // New endpoint to get current display state for all processes
+    this.server.get("/v1/display-control", (request: any, reply: any) => {
+      reply.status(200).send(this.getAllLogDisplayStates());
+    });
+
+    // New endpoint to get display state for a specific process
+    this.server.get(
+      "/v1/display-control/:processName",
+      (request: any, reply: any) => {
+        const processName = request.params.processName;
+        const enabled = this.isLogDisplayEnabled(processName);
+        reply.status(200).send({ processName, enabled });
+      },
+    );
+
     await this.server.listen({ port: this.port });
-  }
-}
-
-export async function startServer() {
-  const server = new LogServer();
-  try {
-    await server.init();
-    console.log(`🔍 Starting logs server on port ${server.port}`);
-  } catch (err) {
-    console.log(`❌ Failed to start logs server on port ${server.port}`);
-    console.error(err);
-    Deno.exit(1);
-  }
-}
-
-export async function fetchLogs(): Promise<OTelLog[]> {
-  try {
-    const response = await fetch(
-      `${ENV.TUI_LOG_URL}:${ENV.TUI_LOG_PORT}/v1/data`,
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    const data = await response.json();
-    return Value.Parse(Type.Array(OTelLogSchema), data);
-  } catch (error) {
-    console.error(
-      `Failed to fetch logs: ${error instanceof Error ? error.message : error}`,
-    );
-    return [];
   }
 }
