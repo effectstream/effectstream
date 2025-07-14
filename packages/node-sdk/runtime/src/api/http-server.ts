@@ -12,7 +12,7 @@ import {
   runPreparedQuery,
 } from "@paima/db";
 import { ENV } from "@paima/utils";
-import type { AllSyncProtocols } from "../../../sync/src/sync-protocols/types.ts";
+import type { AllSyncProtocols } from "@paima/sync";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
 } from "@fastify/swagger";

@@ -1,4 +1,5 @@
 import type { ChainConfig, PaimaChains } from "./types/index.ts";
+import { ENV } from "@paima/utils";
 
 // TODO: This should passed through the config
 // Initial configuration for each chain
@@ -10,7 +11,7 @@ export const initialChainConfigs: PaimaChains = {
     color: "#667eea",
     blocks: [],
     currentBlock: 1000000,
-    rpcEndpoint: "http://127.0.0.1:9999/rpc/evm",
+    rpcEndpoint: `http://127.0.0.1:${ENV.PAIMA_API_PORT}/rpc/evm`,
     latestBlockNumber: 0,
     previousLatestBlockNumber: 0,
     isConnected: false,
@@ -57,16 +58,22 @@ export const initialChainConfigs: PaimaChains = {
   },
 };
 
-// TODO These must be parametrised
-export const CONFIG_ENDPOINT = "http://127.0.0.1:9999/config";
-export const PRIMITIVES_ENDPOINT = "http://127.0.0.1:9999/primitives";
-export const TABLES_ENDPOINT = "http://127.0.0.1:9999/tables";
+export const CONFIG_ENDPOINT = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/config`;
+export const PRIMITIVES_ENDPOINT =
+  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/primitives`;
+export const TABLES_ENDPOINT = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/tables`;
+export const GRAMMAR_ENDPOINT =
+  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/grammar`;
+export const SCHEDULED_DATA_ENDPOINT =
+  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/scheduled-data`;
 export const PRIMITIVES_SCHEMA_ENDPOINT =
-  "http://127.0.0.1:9999/primitives-schema";
-export const TABLE_SCHEMA_ENDPOINT = "http://127.0.0.1:9999/table-schema";
-export const BATCHER_ENDPOINT = "http://localhost:3334/send-input";
-export const BATCHER_OPENAPI_URL = "http://localhost:3334/documentation";
-export const ENGINE_OPENAPI_URL = "http://localhost:9999/documentation";
-export const GRAMMAR_ENDPOINT = "http://127.0.0.1:9999/grammar";
-export const SCHEDULED_DATA_ENDPOINT = "http://127.0.0.1:9999/scheduled-data";
-export const DOCUMENTATION_URL = "http://127.0.0.1:10600/";
+  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/primitives-schema`;
+export const TABLE_SCHEMA_ENDPOINT =
+  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/table-schema`;
+export const BATCHER_ENDPOINT =
+  `http://localhost:${ENV.BATCHER_PORT}/send-input`;
+export const BATCHER_OPENAPI_URL =
+  `http://localhost:${ENV.BATCHER_PORT}/documentation`;
+export const ENGINE_OPENAPI_URL =
+  `http://localhost:${ENV.PAIMA_API_PORT}/documentation`;
+export const DOCUMENTATION_URL = `http://127.0.0.1:${ENV.DOCS_PORT}/`;

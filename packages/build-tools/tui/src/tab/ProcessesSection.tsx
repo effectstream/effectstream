@@ -22,8 +22,117 @@ export const ProcessesSection = () => {
   const [processToRestart, setProcessToRestart] = useState<Process | null>(
     null,
   );
+  const [processLogStates, setProcessLogStates] = useState<
+    Record<string, boolean>
+  >({});
+
+  // API call to set log display for a specific process
+  const setLogDisplayEnabled = async (
+    processName: string,
+    enabled: boolean,
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `${ENV.TUI_LOG_URL}:${ENV.TUI_LOG_PORT}/v1/display-control`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ processName, enabled }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return data.enabled;
+    } catch (error) {
+      console.error(
+        `Failed to set log display for ${processName}: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+      return false;
+    }
+  };
+
+  // API call to get all log display states
+  const getAllLogDisplayStates = async (): Promise<Record<string, boolean>> => {
+    try {
+      const response = await fetch(
+        `${ENV.TUI_LOG_URL}:${ENV.TUI_LOG_PORT}/v1/display-control`,
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error(
+        `Failed to get all log display states: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+      return {}; // Default to empty object on error
+    }
+  };
 
   useInput((input, key) => {
+    // Handle individual process log display toggle with space
+    if (input === " ") {
+      if (processes.length > 0 && selectedIndex < processes.length) {
+        const selectedProcess = processes[selectedIndex];
+        const processName = selectedProcess.name ||
+          `pid-${selectedProcess.pid}`;
+        const currentState = processLogStates[processName] ?? true; // Default enabled
+        const newState = !currentState;
+
+        setLogDisplayEnabled(processName, newState).then((result) => {
+          setProcessLogStates((prev) => ({
+            ...prev,
+            [processName]: result,
+          }));
+        }).catch((error) => {
+          console.error(
+            `Failed to toggle log display for ${processName}:`,
+            error,
+          );
+        });
+      }
+      return;
+    }
+
+    // Handle all processes log display toggle with L
+    if (input === "l" || input === "L") {
+      if (processes.length > 0) {
+        const allDisabled = areAllProcessesDisabled();
+        const newState = allDisabled; // If all disabled, enable all; if any enabled, disable all
+
+        // Toggle all processes
+        const togglePromises = processes.map((process) => {
+          const processName = process.name || `pid-${process.pid}`;
+          return setLogDisplayEnabled(processName, newState);
+        });
+
+        Promise.all(togglePromises).then(() => {
+          // Update state for all processes
+          const newStates: Record<string, boolean> = {};
+          processes.forEach((process) => {
+            const processName = process.name || `pid-${process.pid}`;
+            newStates[processName] = newState;
+          });
+          setProcessLogStates((prev) => ({
+            ...prev,
+            ...newStates,
+          }));
+        }).catch((error) => {
+          console.error("Failed to toggle all processes:", error);
+        });
+      }
+      return;
+    }
+
     // Handle normal navigation
     if (key.upArrow && processes.length > 0) {
       setSelectedIndex((
@@ -37,6 +146,13 @@ export const ProcessesSection = () => {
   });
 
   useEffect(() => {
+    // Get initial log display states for all processes
+    getAllLogDisplayStates().then((states) => {
+      setProcessLogStates(states);
+    }).catch((error) => {
+      console.error("Failed to get initial log display states:", error);
+    });
+
     const fetchProcesses = async () => {
       try {
         const response = await fetch(
@@ -88,39 +204,87 @@ export const ProcessesSection = () => {
     return () => clearInterval(interval);
   }, [selectedIndex]);
 
+  const getProcessLogStatus = (process: Process): boolean => {
+    const processName = process.name || `pid-${process.pid}`;
+    return processLogStates[processName] ?? true; // Default enabled
+  };
+
+  const getSelectedProcessLogStatus = (): string => {
+    if (processes.length === 0 || selectedIndex >= processes.length) {
+      return "No process selected";
+    }
+    const selectedProcess = processes[selectedIndex];
+    const isEnabled = getProcessLogStatus(selectedProcess);
+    const processName = selectedProcess.name || `pid-${selectedProcess.pid}`;
+    return `${processName}: ${isEnabled ? "ENABLED" : "DISABLED"}`;
+  };
+
+  const areAllProcessesDisabled = (): boolean => {
+    if (processes.length === 0) return true;
+    return processes.every((process) => {
+      const processName = process.name || `pid-${process.pid}`;
+      return !(processLogStates[processName] ?? true); // Default enabled, so negate to check if disabled
+    });
+  };
+
+  const getAllProcessesStatus = (): string => {
+    if (processes.length === 0) return "No processes";
+    const allDisabled = areAllProcessesDisabled();
+    return allDisabled ? "All DISABLED" : "Some/All ENABLED";
+  };
+
   return (
     <Box flexDirection="column" padding={1}>
       <Text color="cyan">=== Running Processes ===</Text>
       <Text></Text>
       {error && <Text color="red">Error: {error}</Text>}
       <Text color="gray">Last updated: {lastUpdated}</Text>
+      <Text
+        color={processes.length > 0 && selectedIndex < processes.length &&
+            getProcessLogStatus(processes[selectedIndex])
+          ? "green"
+          : "red"}
+      >
+        Selected: {getSelectedProcessLogStatus()} (Press SPACE to toggle)
+      </Text>
+      <Text color={areAllProcessesDisabled() ? "red" : "green"}>
+        All Processes: {getAllProcessesStatus()} (Press L to toggle all)
+      </Text>
       <Text></Text>
 
       <Text color="white" bold={true}>
-        PID Name Args
+        [Log] PID Name Args
       </Text>
       <Text color="white" bold={true}>
         {"─".repeat(80)}
       </Text>
-      {processes.map((process: Process, index: number) => (
-        <Text
-          wrap="truncate"
-          key={index}
-          color={!process.alive ? "red" : !process.name ? "yellow" : "green"}
-          backgroundColor={index === selectedIndex ? "blue" : undefined}
-          bold={index === selectedIndex}
-        >
-          {`${process.pid.toString().padEnd(8)} ${
-            (process.name ?? "noname").padEnd(20)
-          } ${process.args.join(" ")}`}
-        </Text>
-      ))}
+      {processes.map((process: Process, index: number) => {
+        const logEnabled = getProcessLogStatus(process);
+        const logStatus = logEnabled ? "✓" : "✗";
+        const logColor = logEnabled ? "green" : "red";
+
+        return (
+          <Text
+            wrap="truncate"
+            key={index}
+            color={!process.alive ? "red" : !process.name ? "yellow" : "green"}
+            backgroundColor={index === selectedIndex ? "blue" : undefined}
+            bold={index === selectedIndex}
+          >
+            <Text color={logColor}>[{logStatus}]</Text>
+            {` ${process.pid.toString().padEnd(8)} ${
+              (process.name ?? "noname").padEnd(20)
+            } ${process.args.join(" ")}`}
+          </Text>
+        );
+      })}
       {processes.length === 0 && !error && (
         <Text color="yellow">No processes found</Text>
       )}
       {processes.length > 0 && (
         <Text color="gray">
-          Use ↑↓ arrows to navigate ({selectedIndex +
+          Use ↑↓ arrows to navigate, SPACE to toggle selected, L to toggle all
+          ({selectedIndex +
             1}/{processes.length})
         </Text>
       )}

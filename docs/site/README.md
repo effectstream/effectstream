@@ -1,4 +1,4 @@
 ```
-deno instal --allow-scripts
+deno install --allow-scripts
 deno task start
 ```

@@ -185,7 +185,7 @@ export class EvmFetcher
     // Create PrimitiveType for each event.
     const primitiveResponses: PrimitiveType[] = [];
     for (const log of logs) {
-      const block = yield* call(() => pageRequest(Number(log.blockNumber)));
+      // const block = yield* call(() => pageRequest(Number(log.blockNumber)));
       const primitiveResponse: PrimitiveType = {
         input: primitive.primitive as any,
         output: {
@@ -201,7 +201,7 @@ export class EvmFetcher
               caip2: `eip155:${client.chain.id}`,
               ownChain: {
                 blockNumber: Number(log.blockNumber),
-                timestamp: Number(block.timestamp),
+                // timestamp: Number(block.timestamp),
               },
               transactionHash: log.transactionHash,
               transactionIndex: log.transactionIndex,

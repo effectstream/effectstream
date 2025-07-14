@@ -12,7 +12,7 @@ export function getPaimaEVMPublicClient(): PublicClient {
     },
     rpcUrls: {
       default: {
-        http: ["http://localhost:9999/rpc/evm"],
+        http: [`http://localhost:${ENV.PAIMA_API_PORT}/rpc/evm`],
       },
     },
   });

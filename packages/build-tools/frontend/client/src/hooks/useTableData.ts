@@ -382,11 +382,11 @@ export function useTableData() {
     }
 
     try {
-      const schema = staticTableSchemasRef.current["paima_state_machine"];
-      const data = await fetchTableData("paima_state_machine", schema);
+      const schema = staticTableSchemasRef.current["user_state_machine"];
+      const data = await fetchTableData("user_state_machine", schema);
       // Only update if we got valid data
       if (data !== null) {
-        setStaticTableData({ "paima_state_machine": data });
+        setStaticTableData({ "user_state_machine": data });
       }
     } catch (error) {
       console.error("Error refreshing static table data:", error);
@@ -484,17 +484,17 @@ export function useTableData() {
 
     try {
       // Fetch schema first
-      const schema = await fetchTableSchema("paima_state_machine");
+      const schema = await fetchTableSchema("user_state_machine");
       if (schema) {
-        setStaticTableSchemas({ "paima_state_machine": schema });
+        setStaticTableSchemas({ "user_state_machine": schema });
       }
 
       // Then fetch data
       const data = await fetchTableData(
-        "paima_state_machine",
+        "user_state_machine",
         schema || undefined,
       );
-      setStaticTableData({ "paima_state_machine": data });
+      setStaticTableData({ "user_state_machine": data });
       console.log("✅ State machine tables initialized");
     } catch (error) {
       console.error("Error initializing state machine tables:", error);
