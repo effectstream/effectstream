@@ -21,7 +21,9 @@ export async function startup(
   console.log("⌛ Waiting for sync process to start...");
   while (true) {
     try {
-      const processes = await fetch("http://localhost:3000/processes");
+      const processes = await fetch(
+        `http://localhost:${ENV.ORCHESTRATOR_PORT}/processes`,
+      );
       const processesJson = await processes.json();
       if (processesJson.processes.find((p: any) => p.name === "sync")) {
         await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/health`);
@@ -53,7 +55,7 @@ export function shutdown(): void {
   console.log("\n🛑 Shutting down...");
   // We don't wait for the endpoint to return.
   // As this process will be killed.
-  fetch("http://localhost:3000/shutdown", {
+  fetch(`http://localhost:${ENV.ORCHESTRATOR_PORT}/shutdown`, {
     method: "POST",
   });
   console.log("⏳ Waiting for shutdown to complete...");

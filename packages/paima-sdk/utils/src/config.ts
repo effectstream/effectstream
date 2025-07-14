@@ -103,6 +103,13 @@ const definitions = {
     description:
       "ReCaptcha V3 Frontend Key. Used by the Batcher to verify requests. Leave empty to disable. Example: '6Lc123456789012345678901234567890'",
   },
+  BATCHER_PORT: {
+    key: "BATCHER_PORT",
+    isSecret: false,
+    type: "number",
+    defaultValue: 3334,
+    description: "Batcher Port. Example: '3334'",
+  },
   STORE_HISTORICAL_GAME_INPUTS: {
     key: "STORE_HISTORICAL_GAME_INPUTS",
     isSecret: false,
@@ -174,6 +181,20 @@ const definitions = {
     defaultValue: undefined,
     description: "Enable PGLite Debug/Verbose mode. Example: '1'",
   },
+  OTEL_COLLECTOR_PORT: {
+    key: "OTEL_COLLECTOR_PORT",
+    isSecret: false,
+    type: "number",
+    defaultValue: 4318,
+    description: "OTEL Collector Port. Example: '4318'",
+  },
+  DOCS_PORT: {
+    key: "DOCS_PORT",
+    isSecret: false,
+    type: "number",
+    defaultValue: 10600,
+    description: "Docs Port. Example: '10600'",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -236,6 +257,9 @@ export class ENV {
   static get RECAPTCHA_V3_FRONTEND(): string {
     return ENV.getConfig(definitions.RECAPTCHA_V3_FRONTEND);
   }
+  static get BATCHER_PORT(): number {
+    return ENV.getConfig(definitions.BATCHER_PORT);
+  }
   static get PAIMA_EXPLORER_PORT(): number {
     return ENV.getConfig(definitions.PAIMA_EXPLORER_PORT);
   }
@@ -244,6 +268,12 @@ export class ENV {
   }
   static get DEBUG_PGLITE(): number {
     return ENV.getConfig(definitions.DEBUG_PGLITE);
+  }
+  static get OTEL_COLLECTOR_PORT(): number {
+    return ENV.getConfig(definitions.OTEL_COLLECTOR_PORT);
+  }
+  static get DOCS_PORT(): number {
+    return ENV.getConfig(definitions.DOCS_PORT);
   }
   static getConfig<T>(config: typeof definitions[keyof typeof definitions]): T {
     switch (config.type) {
