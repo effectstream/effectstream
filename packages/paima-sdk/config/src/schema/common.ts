@@ -48,3 +48,10 @@ export const StartStopTimestamp = new ConfigSchema({
     }),
   }),
 });
+
+export const AbiField = new ConfigSchema({
+  required: Type.Object({
+    abi: TypeboxHelpers.EvmAbiEvent,
+  }),
+  optional: Type.Object({}),
+});

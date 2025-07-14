@@ -1,11 +1,14 @@
 import type { Satisfies, Stringifiable, TypeErrorMessage } from "@paima/utils";
-import type { SyncProtocolWithNetwork } from "../schema/sync-protocols/types.ts";
-import { ConfigBuilderData } from "./builder.ts";
-import { PostBuildSecurityNamespaceData } from "./parts/securityNamespace.ts";
-import { NetworkBuilderData, NetworkConfig } from "./parts/network.ts";
-import { DeployedAddressesBuilderData } from "./parts/deployedAddresses.ts";
-import { PostBuildSyncProtocolBuilderData } from "./parts/syncProtocols.ts";
-import { PrimitiveBuilderData } from "./parts/primitive.ts";
+import type {
+  PrimitiveEntry,
+  SyncProtocolWithNetwork,
+} from "../schema/sync-protocols/types.ts";
+import type { ConfigBuilderData } from "./builder.ts";
+import type { PostBuildSecurityNamespaceData } from "./parts/securityNamespace.ts";
+import type { NetworkBuilderData, NetworkConfig } from "./parts/network.ts";
+import type { DeployedAddressesBuilderData } from "./parts/deployedAddresses.ts";
+import type { PostBuildSyncProtocolBuilderData } from "./parts/syncProtocols.ts";
+import type { PrimitiveBuilderData } from "./parts/primitive.ts";
 
 export type ErrorIfDefined<
   T,
@@ -79,6 +82,29 @@ export function onlyValue<
   return param.build as any;
 }
 
+/**
+ * Helper function to filter and create PrimitiveEntry objects for a specific sync protocol
+ */
+function getPrimitivesForSyncProtocol<T extends string>(
+  primitives: Record<string, any>,
+  syncProtocolName: T,
+): PrimitiveEntry<any, any>[] {
+  if (!primitives) return [];
+  const result: PrimitiveEntry<any, any>[] = [];
+
+  for (const [primitiveName, primitiveData] of Object.entries(primitives)) {
+    if (primitiveData.syncProtocol === syncProtocolName) {
+      result.push({
+        syncProtocol: primitiveData.syncProtocol,
+        primitive: primitiveData.primitive,
+        id: primitiveName,
+      });
+    }
+  }
+
+  return result;
+}
+
 export function toSyncProtocolWithNetwork<
   Data extends ConfigBuilderData<
     Readonly<PostBuildSecurityNamespaceData>["securityNamespace"],
@@ -99,6 +125,10 @@ export function toSyncProtocolWithNetwork<
       syncProtocol: data.syncProtocols.main.syncProtocol,
       network: data.allNetworks
         .networks[data.syncProtocols.main.network],
+      primitives: getPrimitivesForSyncProtocol(
+        data.primitives,
+        data.syncProtocols.main.syncProtocol.name,
+      ),
     } as SyncProtocolWithNetwork,
     ...Object.values(data.syncProtocols.parallel).map((
       protocol,
@@ -110,6 +140,10 @@ export function toSyncProtocolWithNetwork<
         syncProtocolType: protocol.syncProtocol.type,
         syncProtocol: protocol.syncProtocol,
         network,
+        primitives: getPrimitivesForSyncProtocol(
+          data.primitives,
+          protocol.syncProtocol.name,
+        ),
       };
       return result as SyncProtocolWithNetwork;
     }),

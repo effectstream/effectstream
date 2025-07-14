@@ -70,7 +70,7 @@ const App = () => {
       case "processes":
         return <ProcessesSection />;
       case "setup":
-        return <SetupSection />;
+        return <SetupSection width={width} />;
       case "help":
         return <HelpSection />;
       default:

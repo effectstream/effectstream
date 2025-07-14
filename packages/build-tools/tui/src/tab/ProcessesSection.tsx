@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { API_BASE_URL } from "../config.ts";
+import { ENV } from "@paima/utils";
 
 interface Process {
   name?: string;
@@ -39,7 +39,9 @@ export const ProcessesSection = () => {
   useEffect(() => {
     const fetchProcesses = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/processes`);
+        const response = await fetch(
+          `${ENV.ORCHESTRATOR_URL}:${ENV.ORCHESTRATOR_PORT}/processes`,
+        );
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

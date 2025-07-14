@@ -27,7 +27,7 @@ export function streamTo(
   });
 }
 
-export type LogSystemOutputs = "otel" | "stdout";
+export type LogSystemOutputs = "otel" | "stdout" | "stderr";
 // By default we pass the logs to the OTel collector.
 let currentOutputs: LogSystemOutputs[] = ["otel"];
 
@@ -77,6 +77,9 @@ export const rawLogHandler: LogHandler = (
   component,
   namespace,
 ) => {
+  if (source === "stderr" && currentOutputs.includes("stderr")) {
+    Deno[source].write(chunk);
+  }
   if (currentOutputs.includes("stdout")) {
     Deno[source].write(chunk);
   }
@@ -99,6 +102,9 @@ export const localLogHandler: LogHandler = (
   component,
   namespace,
 ) => {
+  if (source === "stderr" && currentOutputs.includes("stderr")) {
+    Deno[source].write(chunk);
+  }
   if (currentOutputs.includes("stdout")) {
     log.local(
       component,
@@ -115,6 +121,9 @@ export const remoteLogHandler: LogHandler = (
   component,
   namespace,
 ) => {
+  if (source === "stderr" && currentOutputs.includes("stderr")) {
+    Deno[source].write(chunk);
+  }
   if (currentOutputs.includes("otel")) {
     log.remote(
       component,

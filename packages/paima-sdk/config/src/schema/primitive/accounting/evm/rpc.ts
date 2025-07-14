@@ -7,7 +7,14 @@ import {
   PrimitiveEvmRpcErc6551RegistryPayload,
   PrimitiveEvmRpcErc721MintPayload,
   PrimitiveEvmRpcErc721TransferPayload,
+  PrimitiveEvmRpcPaimaL2Payload,
 } from "../../output/evm/rpc.ts";
+
+export const PrimitiveEvmRpcPaimaL2Accounting = Type.Object({
+  primitive: Type.Literal(ConfigPrimitiveType.EvmRpcPaimaL2),
+  payloadType: Type.Literal(ConfigPrimitiveAccountingPayloadType.Event),
+  payload: PrimitiveEvmRpcPaimaL2Payload,
+});
 
 export const PrimitiveEvmRpcErc20TransferAccounting = Type.Object({
   primitive: Type.Literal(ConfigPrimitiveType.EvmRpcERC20),

@@ -44,7 +44,7 @@ CREATE TABLE rollup_input_origin (
 CREATE TABLE primitive_accounting (
   primitive_name TEXT NOT NULL,
   id SERIAL,
-  paima_block_height INTEGER NOT NULL,
+  paima_block_height INTEGER NOT NULL REFERENCES paima_blocks(block_height),
   payload_type TEXT NOT NULL,
   payload JSON NOT NULL,
   PRIMARY KEY (primitive_name, id)
@@ -52,7 +52,7 @@ CREATE TABLE primitive_accounting (
 
 CREATE TABLE nonces (
   nonce TEXT PRIMARY KEY,
-  block_height INTEGER NOT NULL
+  block_height INTEGER NOT NULL REFERENCES paima_blocks(block_height)
 );
 
 CREATE TABLE sync_protocol_pagination (
@@ -105,3 +105,4 @@ CREATE TABLE registered_event (
   topic TEXT NOT NULL,
   PRIMARY KEY(name, topic)
 );
+

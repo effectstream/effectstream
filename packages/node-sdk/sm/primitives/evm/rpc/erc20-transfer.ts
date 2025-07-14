@@ -7,10 +7,11 @@ import {
   type PayloadOf,
   type PrimitiveEvmRpcErc20TransferAccounting,
 } from "@paima/config";
-import { World } from "@paima/coroutine";
+import { StateMachineExecution, World } from "@paima/coroutine";
 import type { StateUpdateStream } from "@paima/coroutine";
 import type { BlockNumber } from "@paima/utils";
 import { insertPrimitiveAccounting } from "../../../../db/src/mod.ts";
+import { clearBigInts } from "../../utils.ts";
 
 export default function* processErc20SyncProtocolResponse(
   paima_block_height: BlockNumber,
@@ -21,19 +22,31 @@ export default function* processErc20SyncProtocolResponse(
     ConfigPrimitivePayloadType.Transfer
   >,
 ): StateUpdateStream<void> {
+  const prefix = response.input.scheduledPrefix;
+
   const primitiveName = response.output.syncProtocol.payload.primitiveName;
 
-  // TODO: register a current balance ivm
-  // TODO: register indicies
-
-  // TODO: register a createScheduledData to listen to transfers?
+  // We cannot insert bigints into the database, or be serialized to JSON.
+  // payload.value is a bigint
+  const payload = clearBigInts(response.output.payload);
 
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: primitiveName,
     paima_block_height: paima_block_height,
     payload_type: ConfigPrimitiveAccountingPayloadType.Transfer,
-    payload: response.output.payload satisfies PayloadOf<
+    payload: payload satisfies PayloadOf<
       typeof PrimitiveEvmRpcErc20TransferAccounting
     >,
   });
+
+  if (prefix) {
+    yield* StateMachineExecution(
+      paima_block_height,
+      JSON.stringify([prefix, payload]),
+      undefined,
+      undefined,
+      response.output.syncProtocol.payload.ownChain.blockNumber,
+      response.output.syncProtocol.payload.transactionHash,
+    );
+  }
 }

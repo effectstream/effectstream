@@ -1,0 +1,18 @@
+{
+    "name": "@paima/batcher",
+    "exports": "./src/mod.ts",
+    "description": "Batcher for the Paima Engine",
+    "version": "0.1.0",
+    "tasks": {
+        "check": "deno check ./src/batcher.ts",
+        "standalone": "deno run -A --check ./src/start.ts"
+    },
+    "imports": {
+        "@fastify/swagger": "npm:@fastify/swagger@^9.5.1",
+        "@fastify/swagger-ui": "npm:@fastify/swagger-ui@^5.2.3",
+        "fastify": "npm:fastify@^5.4.0",
+        "@fastify/cors": "npm:@fastify/cors@^11.0.1",
+        "effection": "npm:effection@^3.5.0",
+        "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
+    }
+}

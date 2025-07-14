@@ -9,6 +9,7 @@ import {
 import { chainedMessage, Format, matchColor } from "material-chalk";
 import chalk from "chalk";
 import { toString } from "./utils.ts";
+import { ENV } from "@paima/utils";
 
 /**
  * https://github.com/fullstack-build/tslog/pull/308
@@ -71,7 +72,7 @@ const log: Logger<ILogObj> = new Logger({
     formatMeta: (meta?: IMeta) => {
       if (meta == null) return "";
       const timestamp = chalk.white.dim((() => {
-        if (Deno.env.get("NODE_ENV") !== "development") {
+        if (ENV.NODE_ENV !== "development") {
           return meta.date.toISOString();
         }
         // use a shorter timestamp locally so it takes less space on the console

@@ -3,10 +3,12 @@ import type { ValueOf } from "@paima/utils";
 import "./http-server.ts";
 
 import {
+  getCurrentOutput,
   initTelemetry,
   logHandler,
   rawLogHandler,
   setCollectorStarted,
+  setCurrentOutput,
 } from "./logging.ts";
 import {
   $,
@@ -21,20 +23,73 @@ Deno.addSignalListener("SIGINT", () => {
   shutdown(0);
 });
 
-export async function start(): Promise<void> {
+function getOptions(config: {
+  output?: "none" | "stdout-err" | "stdout" | "development" | "production";
+}) {
+  const output = config.output ?? "development";
+  const enableTUI = output === "development";
+  const enableCollector = output === "development";
+  switch (output) {
+    case "none":
+      setCurrentOutput([]);
+      break;
+    case "stdout-err":
+      setCurrentOutput(["stderr"]);
+      break;
+    case "stdout":
+      // TODO: This is a hack to force the logs to be printed to stdout.
+      Deno.env.set("PAIMA_LOGS_FORCE_STDOUT", "true");
+      setCurrentOutput(["stdout"]);
+      break;
+    case "development":
+      setCurrentOutput(["otel"]);
+      break;
+    case "production":
+      setCurrentOutput(["otel", "stdout"]);
+      break;
+  }
+  return {
+    enableTUI,
+    enableCollector,
+  };
+}
+
+/*  Config options:
+ *
+ *  | config.output | Terminal     | OTEL   | Collector | TUI    |
+ *  |---------------|--------------|--------|-----------|--------|
+ *  | development   | no           | yes    | yes       | yes    |
+ *  | production    | yes          | yes    | no        | no     |
+ *  | stdout        | yes          | no     | no        | no     |
+ *  | stdout-err    | yes (errors) | no     | no        | no     |
+ *  | none          | no           | no     | no        | no     |
+ */
+export async function start(
+  config: {
+    output?: "development" | "production" | "stdout" | "stdout-err" | "none";
+  } = {},
+): Promise<void> {
   // fast-fail if there are type errors in the project
   await startProcess[ComponentNames.CHECKER]();
 
-  initTelemetry();
-  try {
-    // start the collector before any other process since it's the one that captures logs
-    await startProcess[ComponentNames.COLLECTOR]();
+  const { enableTUI, enableCollector } = getOptions(config);
 
-    // Do now wait for the TUI process to finish as it's a long-running process.
+  if (enableTUI) {
     await startProcess[ComponentNames.TMUX]();
+  }
+  try {
+    if (getCurrentOutput().includes("otel")) {
+      initTelemetry();
+    }
+    // start the collector before any other process since it's the one that captures logs
+    if (enableCollector) {
+      await startProcess[ComponentNames.COLLECTOR]();
+    }
 
     // Start processes in parallel
     await Promise.all([
+      startProcess[ComponentNames.DOCS](),
+      startProcess[ComponentNames.PAIMA_BATCHER](),
       startProcess[ComponentNames.PAIMA_DB](),
       startProcess[ComponentNames.YACI_DEVKIT](),
       startProcess[ComponentNames.HARDHAT](),
@@ -58,6 +113,8 @@ export const abortControllers = {
   system: new AbortController(),
   // Abort controller for all non-critical processes
   noncritical: new AbortController(),
+  // Abort controller for Developer UI
+  developerUI: new AbortController(),
 };
 
 export const startProcess: Record<
@@ -80,11 +137,23 @@ export const startProcess: Record<
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
-      abortController: abortControllers.noncritical,
+      abortController: abortControllers.developerUI,
     });
+    tmux.process.unref();
 
     return tmux;
   },
+
+  [ComponentNames.DOCS]: async (): Promise<ProcessComponent> => {
+    const docs = $({
+      args: ["task", "-f", "@paima/docs", "start"],
+      component: ComponentNames.DOCS,
+      abortController: abortControllers.developerUI,
+    });
+    void docs.process.status;
+    return docs;
+  },
+
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
     // TODO: only start one if there isn't one already running
     const otlpCollector = $({
@@ -125,13 +194,39 @@ export const startProcess: Record<
   [ComponentNames.PAIMA_SYNC]: async (): Promise<ProcessComponent> => {
     const node = $({
       args: ["task", "node:start"],
-      log: logHandler,
+      log: rawLogHandler,
       component: ComponentNames.PAIMA_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically
       abortController: abortControllers.system,
     });
     await Promise.all([node.process.status]);
     return node;
+  },
+
+  [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
+    // TODO This should be read from the config.
+    const paimaL2Address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    const batcherPrivateKey =
+      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+    const chainName = "hardhat";
+    const batcher = $({
+      args: [
+        "task",
+        "-f",
+        "@paima/batcher",
+        "standalone",
+        `--paimaL2Address=${paimaL2Address}`,
+        `--batcherPrivateKey=${batcherPrivateKey}`,
+        `--chainName=${chainName}`,
+      ],
+      log: rawLogHandler,
+      component: ComponentNames.PAIMA_BATCHER,
+      abortController: abortControllers.system,
+      namespace: [],
+    });
+    // This is a long-lasting service that does not exit.
+    void batcher.process.status;
+    return batcher;
   },
 
   [ComponentNames.TUI]: async (): Promise<ProcessComponent> => {

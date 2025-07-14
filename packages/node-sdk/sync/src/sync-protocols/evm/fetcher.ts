@@ -10,7 +10,7 @@ import { all, call } from "effection";
 import { bound, type EvmRpcPageJson, keysOf } from "@paima/utils";
 import { blockNumberRelation } from "../common/utils.ts";
 import type { Input, Output, Page, PrimitiveType } from "./types.ts";
-import { PageSchema, toMsTimestamp } from "./types.ts";
+import { PageSchema } from "./types.ts";
 import {
   fetchNewestPage,
   genImmediatePageRequests,
@@ -20,14 +20,25 @@ import {
 } from "../base/page.ts";
 import type { PrimitiveFetcher } from "../base/primitive.ts";
 import type { RootConversion } from "../base/state.ts";
-import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
+import type {
+  ConfigNetworkType,
+  PrimitiveEntry,
+  SyncProtocolWithNetwork,
+} from "@paima/config";
 import { ConfigSyncProtocolType } from "@paima/config";
 import { Value } from "@sinclair/typebox/value";
 
 export class EvmFetcher
   extends BaseDataFetcher<Input, Output, RootOutput, Page, RootPage>
   implements
-    PrimitiveFetcher<Input, Page, GetBlockReturnType<Chain>, PrimitiveType>,
+    PrimitiveFetcher<
+      Input,
+      Page,
+      GetBlockReturnType<Chain>,
+      PrimitiveType,
+      | ConfigSyncProtocolType.EVM_RPC_MAIN
+      | ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    >,
     PaginatedFetcher<Page> {
   constructor(
     readonly config: Extract<
@@ -66,7 +77,11 @@ export class EvmFetcher
 
     // TODO: if we expect multiple primitives per block
     //       it can, depending on the chain, be faster to just download the full block and parse it locally
-    const primitives = yield* this.readPrimitives(data, pageFetcher);
+    const primitives = yield* this.readPrimitives(
+      data,
+      pageFetcher,
+      this.config.primitives,
+    );
     const groupedByPage = this.groupByPage(primitives);
 
     if (isParallel) {
@@ -144,38 +159,94 @@ export class EvmFetcher
     }, {} as Record<EvmRpcPageJson, PrimitiveType[]>);
   }
 
+  fetchLogsAndExtractPrimitiveData = function* (
+    fromBlock: bigint,
+    toBlock: bigint,
+    client: PublicClient<any, Chain, any, any>,
+    primitive: PrimitiveEntry<
+      | ConfigSyncProtocolType.EVM_RPC_MAIN
+      | ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    >,
+    pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
+  ): Operation<
+    PrimitiveType[]
+  > {
+    // Fetch range of eventlogs
+    const logs = yield* call(() =>
+      client.getLogs({
+        address: primitive.primitive.contractAddress,
+        event: primitive.primitive.abi,
+        fromBlock,
+        toBlock,
+        strict: true,
+      })
+    );
+
+    // Create PrimitiveType for each event.
+    const primitiveResponses: PrimitiveType[] = [];
+    for (const log of logs) {
+      // const block = yield* call(() => pageRequest(Number(log.blockNumber)));
+      const primitiveResponse: PrimitiveType = {
+        input: primitive.primitive as any,
+        output: {
+          payloadType: primitive.primitive.abi.name as any,
+          primitive: primitive.primitive as any,
+          payload: log.args,
+          syncProtocol: {
+            type: primitive.syncProtocol as any,
+            name: primitive.primitive.name,
+            internal: {},
+            payload: {
+              primitiveName: primitive.primitive.name,
+              caip2: `eip155:${client.chain.id}`,
+              ownChain: {
+                blockNumber: Number(log.blockNumber),
+                // timestamp: Number(block.timestamp),
+              },
+              transactionHash: log.transactionHash,
+              transactionIndex: log.transactionIndex,
+              contractAddress: log.address,
+              logIndex: log.logIndex,
+            },
+          },
+        } as any,
+        primitiveType: primitive.primitive.type,
+        payloadType: primitive.primitive.abi.name as any,
+      };
+      primitiveResponses.push(primitiveResponse as any);
+    }
+
+    return primitiveResponses;
+  };
+
   @bound
   *readPrimitives(
     data: Input,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
+    primitives: PrimitiveEntry<
+      | ConfigSyncProtocolType.EVM_RPC_MAIN
+      | ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    >[],
   ): Operation<PrimitiveType[]> {
-    // TODO: use real primitives (blocked on hardhat contract deployment working)
-    // TODO: dynamic primitives
+    const client = this.client;
+    const allOperations: Operation<PrimitiveType[]>[] = [];
 
-    const primitives = [] as (() => Operation<PrimitiveType>)[];
-    for (let i = data.from; i <= data.to; i++) {
-      if (Math.random() < 0.5) {
-        primitives.push(function* () {
-          const block = yield* call(() => pageRequest(i));
-          return {
-            // TODO: real type later
-            value: Math.random(),
-            block,
-            timestamp: toMsTimestamp(block.timestamp),
-            output: {
-              syncProtocol: {
-                payload: {
-                  ownChain: {
-                    blockNumber: Number(block.number),
-                  },
-                },
-              },
-            },
-          } as any;
-        });
-      }
+    const fromBlock = yield* call(() => pageRequest(data.from));
+    const toBlock = yield* call(() => pageRequest(data.to));
+
+    for (const primitive of primitives) {
+      allOperations.push(
+        this.fetchLogsAndExtractPrimitiveData(
+          fromBlock.number,
+          toBlock.number,
+          client,
+          primitive,
+          pageRequest,
+        ),
+      );
     }
-    return yield* all(primitives.map((p) => p()));
+
+    return (yield* all(allOperations)).flat();
   }
 
   @bound

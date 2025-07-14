@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "exports": "./src/mod.ts",
   "imports": {
-    "effection": "npm:effection@^3.3.0",
+    "effection": "npm:effection@3.5.0",
     "superjson": "npm:superjson@^2.2.1",
     "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
     "@opentelemetry/exporter-metrics-otlp-http": "npm:@opentelemetry/exporter-metrics-otlp-http@^0.56.0",

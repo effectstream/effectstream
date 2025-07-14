@@ -120,10 +120,11 @@ export class UtxoRpcSyncState extends SyncState<
     ourOutput: Output,
     rootOutput: RootOutput,
   ): void {
-    rootOutput.primitives.push({
-      ...ourOutput.primitives,
+    const primitives = ourOutput.primitives.map((p) => ({
+      ...p,
       source: this.config.syncProtocol.name,
-    });
+    }));
+    rootOutput.primitives.push(...primitives);
   }
 
   @bound

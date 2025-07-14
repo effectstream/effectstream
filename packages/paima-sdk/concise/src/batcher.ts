@@ -33,12 +33,14 @@ export type BatchedSubunit = ShallowMergeIntersects<
   }
 >;
 
+export type BatcherMessage = string;
+
 /** This is what wallets sign when submitting a batch */
 export function createMessageForBatcher(
   namespace: string,
   inputData: string,
   millisecondTimestamp: TimestampMsStr,
-): string {
+): BatcherMessage {
   return namespace + inputData + millisecondTimestamp;
 }
 
@@ -122,7 +124,7 @@ export function extractBatches(inputData: string): ExtractedBatchSubunit[] {
   for (const input of parsed.data.input) {
     try {
       const subunit = parseRawStmInput(
-        input,
+        JSON.parse(input),
         BatcherInnerGrammar,
         KeyedBuiltinBatcherInnerGrammar,
       );

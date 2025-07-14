@@ -7,6 +7,7 @@ import type {
   INewScheduledTimestampDataParams,
 } from "@paima/db";
 import type { Pool, PoolClient } from "pg";
+import type { BaseStfInput } from "@paima/sm";
 
 /**
  * Two slightly tricky things about how this is set up:
@@ -71,19 +72,48 @@ type Spread<T> = T extends [] // base case 1: empty list
     ? [StateUpdateStream<A>, ...Spread<Rest>]
   : never;
 
+export function* StateMachineExecution(
+  paima_block_height: number,
+  conciseInput: string,
+  userAddress: `0x${string}` | undefined,
+  userId: number | undefined,
+  ownChainBlockNumber: number,
+  ownChainTransactionHash: string,
+): StateUpdateStream<void> {
+  yield {
+    type: "stm-promise",
+    data: {
+      conciseInput,
+      blockHeight: paima_block_height,
+      userAddress,
+      userId,
+      chain: {
+        blockNumber: ownChainBlockNumber,
+        transactionHash: ownChainTransactionHash,
+      },
+    },
+  } satisfies STMExecPromise;
+}
+
+// Type to resolve a yield of a StateMachine Execution
+export type STMExecPromise = {
+  type: "stm-promise";
+  data: BaseStfInput;
+};
+
 type NoDistribute<T> = [T] extends [any] ? T : never;
 /**
  * Typically it's better to use StateUpdateStream as a return type since it's more generic
  * But sometimes it helps simplify to only accept non-async inputs to a function operating on generators
  */
 export type SyncStateUpdateStream<Return> = Generator<
-  QueuedUpdate | Spread<any>,
+  QueuedUpdate | Spread<any> | STMExecPromise,
   Return,
   unknown
 >;
 export type StateUpdateStream<Return> = NoDistribute<Return> extends
   Promise<infer P> ? AsyncGenerator<QueuedUpdate | Spread<any>, P, unknown>
-  : Generator<QueuedUpdate | Spread<any>, Return, unknown>;
+  : SyncStateUpdateStream<Return>;
 
 export function isScheduledByBlock(
   query: QueuedUpdate,

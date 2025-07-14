@@ -9,8 +9,11 @@ import type {
 } from "../../sync-protocols/all.ts";
 import type { SyncProtocolConfig } from "../../../config/parts/syncProtocols.ts";
 
+// TODO
+// Should these match the EVM ABI Events?
 export enum ConfigPrimitivePayloadType {
-  Transfer = "transfer",
+  Transfer = "Transfer",
+  PaimaL2Event = "PaimaGameInteraction",
   Deposit = "deposit",
   Mint = "mint",
   MintOrBurn = "mint-or-burn",

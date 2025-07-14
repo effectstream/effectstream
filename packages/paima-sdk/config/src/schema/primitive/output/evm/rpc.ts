@@ -25,18 +25,18 @@ export const AbiMap = {
 // Paima L2
 // ========
 
-export const PrimitiveEvmRpcPaimaL2Payload = Type.Object({
-  // recall: any address is possible because of the batcher mechanism
-  realAddress: TypeboxHelpers.WalletAddress(),
-  // TODO: this should be Paima concise encoding
-  inputData: TypeboxHelpers.UnknownFormat,
-  suppliedValue: TypeboxHelpers.Uint256,
-  inputNonce: TypeboxHelpers.HexString0x(),
+export const PrimitiveEvmRpcPaimaL2Payload = Type.Object({ // TODO: this should be Paima concise encoding
+  // inputData: TypeboxHelpers.UnknownFormat,
+  // suppliedValue: TypeboxHelpers.Uint256,
+  // inputNonce: TypeboxHelpers.HexString0x(),
+  userAddress: TypeboxHelpers.Evm.Address,
+  data: TypeboxHelpers.HexString0x(),
+  value: TypeboxHelpers.Uint256,
 });
 
 export const PrimitiveEvmRpcPaimaL2SyncProtocolResponse = Type.Object({
   primitive: Type.Literal(ConfigPrimitiveType.EvmRpcPaimaL2),
-  payloadType: Type.Literal(ConfigPrimitivePayloadType.Event),
+  payloadType: Type.Literal(ConfigPrimitivePayloadType.PaimaL2Event),
   payload: PrimitiveEvmRpcPaimaL2Payload,
 });
 

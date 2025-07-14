@@ -1,12 +1,12 @@
 import { Type } from "@sinclair/typebox";
 import type { StaticDecode } from "@sinclair/typebox";
 import { ConfigPrimitiveType } from "../types.ts";
-import { NameField, StartStopBlockheight } from "../../../common.ts";
+import { AbiField, NameField, StartStopBlockheight } from "../../../common.ts";
 import { type MergeIntersects, TypeboxHelpers } from "@paima/utils";
 
 export const PrimitiveConfigBaseEvm = NameField.cloneMerge(
   StartStopBlockheight,
-);
+).cloneMerge(AbiField);
 
 // ========
 // Paima L2
@@ -29,7 +29,9 @@ export const PrimitiveErc20Config = PrimitiveConfigBaseEvm.cloneMerge({
     type: Type.Literal(ConfigPrimitiveType.EvmRpcERC20),
     contractAddress: TypeboxHelpers.Evm.Address,
   }),
-  optional: Type.Object({}),
+  optional: Type.Object({
+    scheduledPrefix: Type.String(),
+  }),
 });
 
 // ======

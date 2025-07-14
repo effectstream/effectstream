@@ -1,7 +1,7 @@
 import { fastify, type FastifyRequest } from "fastify";
 import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import { API_LOG_URL } from "./config.ts";
+import { ENV } from "@paima/utils";
 
 //
 // This API exposes the latest 1000 otel logs using.
@@ -73,9 +73,7 @@ class RingBuffer<T> {
 
 class LogServer {
   private dataStore = new RingBuffer<OTelLog>(MAX_DATA_ITEMS);
-  public port = Deno.env.get("COLLECTOR_LOG_PORT")
-    ? Number(Deno.env.get("COLLECTOR_LOG_PORT"))
-    : 11033;
+  public readonly port: number = ENV.TUI_LOG_PORT;
   private server = fastify();
 
   private getData() {
@@ -87,11 +85,13 @@ class LogServer {
   public async init() {
     this.server.post("/v1/data", {
       schema: {
-        body: OTelLogSchema,
+        body: Type.Array(OTelLogSchema),
       },
-    }, (request: FastifyRequest<{ Body: OTelLog }>, reply) => {
+    }, (request: FastifyRequest<{ Body: OTelLog[] }>, reply) => {
       try {
-        this.dataStore.push(request.body);
+        for (const log of request.body) {
+          this.dataStore.push(log);
+        }
         reply.status(200).send({ success: true });
       } catch (error) {
         reply.status(500).send({ error: "Failed to store log data" });
@@ -121,7 +121,9 @@ export async function startServer() {
 
 export async function fetchLogs(): Promise<OTelLog[]> {
   try {
-    const response = await fetch(API_LOG_URL + "/v1/data");
+    const response = await fetch(
+      `${ENV.TUI_LOG_URL}:${ENV.TUI_LOG_PORT}/v1/data`,
+    );
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }

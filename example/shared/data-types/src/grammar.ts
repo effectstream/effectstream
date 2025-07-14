@@ -3,9 +3,24 @@ import { type GrammarDefinition, mapPrimitivesToGrammar } from "@paima/concise";
 import { localhostConfig } from "./config.ts";
 
 export const grammar = {
+  schedule: [
+    ["tick", Type.Integer()],
+    ["message", Type.String()],
+  ],
   attack: [
     ["playerId", Type.Integer()],
     ["moveId", Type.Integer()],
+  ],
+  // TODO How do we get this from the known payload types?
+  transfer: [
+    [
+      "payload",
+      Type.Object({
+        to: Type.String(),
+        from: Type.String(),
+        value: Type.String(),
+      }),
+    ],
   ],
   switchMap: [["mapId", Type.String()]],
   ...mapPrimitivesToGrammar(localhostConfig.primitives),
