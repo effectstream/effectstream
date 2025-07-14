@@ -16,12 +16,12 @@ export interface IInsertStateMachineInputQuery {
   result: IInsertStateMachineInputResult;
 }
 
-const insertStateMachineInputIR: any = {"usedParamSet":{"inputs":true,"block_height":true},"params":[{"name":"inputs","required":true,"transform":{"type":"scalar"},"locs":[{"a":66,"b":73}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":76,"b":89}]}],"statement":"INSERT INTO paima_state_machine \n(inputs, block_height) \nVALUES \n(:inputs!, :block_height!)"};
+const insertStateMachineInputIR: any = {"usedParamSet":{"inputs":true,"block_height":true},"params":[{"name":"inputs","required":true,"transform":{"type":"scalar"},"locs":[{"a":65,"b":72}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":75,"b":88}]}],"statement":"INSERT INTO user_state_machine \n(inputs, block_height) \nVALUES \n(:inputs!, :block_height!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima_state_machine 
+ * INSERT INTO user_state_machine 
  * (inputs, block_height) 
  * VALUES 
  * (:inputs!, :block_height!)
@@ -46,12 +46,12 @@ export interface IGetStateMachineInputQuery {
   result: IGetStateMachineInputResult;
 }
 
-const getStateMachineInputIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM paima_state_machine"};
+const getStateMachineInputIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM user_state_machine"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima_state_machine
+ * SELECT * FROM user_state_machine
  * ```
  */
 export const getStateMachineInput = new PreparedQuery<IGetStateMachineInputParams,IGetStateMachineInputResult>(getStateMachineInputIR);
@@ -75,12 +75,12 @@ export interface IGetStateMachineInputByBlockHeightQuery {
   result: IGetStateMachineInputByBlockHeightResult;
 }
 
-const getStateMachineInputByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":56,"b":69}]}],"statement":"SELECT * FROM paima_state_machine \nWHERE block_height = :block_height!"};
+const getStateMachineInputByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":55,"b":68}]}],"statement":"SELECT * FROM user_state_machine \nWHERE block_height = :block_height!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima_state_machine 
+ * SELECT * FROM user_state_machine 
  * WHERE block_height = :block_height!
  * ```
  */

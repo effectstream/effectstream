@@ -1,5 +1,5 @@
 import { attachTransport, log } from "@paima/log";
-import { fetchLogs, type OTelLog, startServer } from "./logs-server.ts";
+import { LogServer, type OTelLog } from "./logs-server.ts";
 import { createStream, type RotatingFileStream } from "rotating-file-stream";
 import type { ILogObj } from "npm:tslog@^4.9.3";
 import { ENV } from "@paima/utils";
@@ -9,6 +9,12 @@ import { ENV } from "@paima/utils";
 class LogsViewer {
   private readonly pollInterval = 300; // ms
   public isRunning = false;
+  private logDisplayStates: Record<string, boolean> = {};
+  private logServer: LogServer;
+
+  constructor() {
+    this.logServer = new LogServer();
+  }
 
   private streams: Record<string, RotatingFileStream> = {};
   private getStream(
@@ -25,17 +31,30 @@ class LogsViewer {
     return { isNew: true, stream: this.streams[namespace] };
   }
 
+  private shouldDisplayLog(logEntry: OTelLog): boolean {
+    // Try to match log entry to a process by component name first, then namespace
+    if (logEntry.component in this.logDisplayStates) {
+      return this.logDisplayStates[logEntry.component];
+    }
+    return true;
+  }
+
   displayLogs(logs: OTelLog[]): void {
-    // Only show new logs since last fetch
+    // Update log display states from server memory (no API call)
+    this.logDisplayStates = this.logServer.getAllLogDisplayStates();
+
+    // Only show logs for processes that have display enabled
     for (const logEntry of logs) {
-      log.local(
-        logEntry.component,
-        logEntry.namespace,
-        logEntry.level,
-        (log) => {
-          log(...logEntry.message);
-        },
-      );
+      if (this.shouldDisplayLog(logEntry)) {
+        log.local(
+          logEntry.component,
+          logEntry.namespace,
+          logEntry.level,
+          (log) => {
+            log(...logEntry.message);
+          },
+        );
+      }
     }
   }
 
@@ -51,7 +70,9 @@ class LogsViewer {
   }
 
   async start(): Promise<void> {
-    await startServer();
+    // Do not await, so it runs in the background.
+    this.logServer.init();
+
     console.log("🔍 Starting log viewer...");
     console.log(`📡 Polling every ${this.pollInterval}ms`);
     console.log("Press Ctrl+C to stop\n");
@@ -77,7 +98,7 @@ class LogsViewer {
 
     const poll = async () => {
       if (!this.isRunning) return;
-      const logs = await fetchLogs();
+      const logs = this.logServer.getData();
       this.displayLogs(logs);
       await new Promise((resolve) => setTimeout(resolve, this.pollInterval));
       poll();
