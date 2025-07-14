@@ -11,6 +11,7 @@ import { AddressType } from "@paima/utils";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
+import { ENV } from "@paima/utils";
 
 type Wallet = {
   address: `0x${string}`;
@@ -146,7 +147,7 @@ async function test() {
       `SELECT
       inputs
       FROM
-      public.paima_state_machine;`,
+      public.user_state_machine;`,
       (res) => res.rows.length === paima_state_machine_counter,
       (res) => {
         const dump = [
@@ -229,7 +230,7 @@ async function test() {
     const gameInput = JSON.stringify(["attack", "999", "777"]);
     let nonce_counter = 0;
     // Send a batched message.
-    await fetch("http://localhost:3334/send-input", {
+    await fetch(`http://localhost:${ENV.BATCHER_PORT}/send-input`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -291,7 +292,7 @@ async function test() {
     await assertSQL<{ inputs: string; block_height: number }>(
       "Check Scheduled Data - block",
       db,
-      `SELECT inputs, block_height from public.paima_state_machine`,
+      `SELECT inputs, block_height from public.user_state_machine`,
       (res) => res.rows.length === paima_state_machine_counter,
       (res) => {
         return res.rows[paima_state_machine_counter - 1].inputs ===
@@ -311,7 +312,7 @@ async function test() {
     await assertSQL<{ inputs: string; block_height: number }>(
       "Check Scheduled Data - timestamp",
       db,
-      `SELECT inputs, block_height from public.paima_state_machine`,
+      `SELECT inputs, block_height from public.user_state_machine`,
       (res) => res.rows.length === paima_state_machine_counter,
       (res) => {
         return res.rows[paima_state_machine_counter - 1].inputs ===
@@ -320,7 +321,9 @@ async function test() {
     );
 
     await assert("Check User Defined API", async () => {
-      const response = await fetch("http://localhost:9999/api/my-game-state");
+      const response = await fetch(
+        `http://localhost:${ENV.PAIMA_API_PORT}/api/my-game-state`,
+      );
       const data = await response.json();
       // 3 ERC20 updates
       // 2 PaimaL2 updates
@@ -329,14 +332,16 @@ async function test() {
     });
 
     await assert("Health Check", async () => {
-      const response = await fetch("http://localhost:9999/health");
+      const response = await fetch(
+        `http://localhost:${ENV.PAIMA_API_PORT}/health`,
+      );
       const data = await response.json();
       return data.status === "ok";
     });
 
     await assert("Check System API Table Schema", async () => {
       const response = await fetch(
-        "http://localhost:9999/table-schema/paima_state_machine",
+        `http://localhost:${ENV.PAIMA_API_PORT}/table-schema/user_state_machine`,
       );
       const data = await response.json();
       return data.every((row: any) =>
@@ -348,7 +353,7 @@ async function test() {
 
     await assert("Check System API Table Data", async () => {
       const response = await fetch(
-        "http://localhost:9999/tables/paima_state_machine",
+        `http://localhost:${ENV.PAIMA_API_PORT}/tables/user_state_machine`,
       );
       const data = await response.json();
       return data.length === paima_state_machine_counter;
@@ -668,18 +673,21 @@ async function test() {
     await assert("RPC Eth Syncing", async () => {
       // Use a more direct approach since eth_syncing might not be in the viem type
       try {
-        const syncing = await fetch("http://localhost:9999/rpc/evm", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        const syncing = await fetch(
+          `http://localhost:${ENV.PAIMA_API_PORT}/rpc/evm`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: "eth_syncing",
+              params: [],
+              id: 1,
+            }),
           },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            method: "eth_syncing",
-            params: [],
-            id: 1,
-          }),
-        }).then((res) => res.json());
+        ).then((res) => res.json());
         return syncing.result !== null && typeof syncing.result === "object";
       } catch (error) {
         return false;

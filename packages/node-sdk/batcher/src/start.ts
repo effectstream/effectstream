@@ -6,6 +6,7 @@ import { type Static, Type } from "npm:@sinclair/typebox";
 import { Value } from "npm:@sinclair/typebox/value";
 import * as chains from "npm:viem/chains";
 import { run } from "npm:effection@3.5.0";
+import { ENV } from "@paima/utils";
 
 // Standalone Batcher service start script.
 // Example usage:
@@ -51,7 +52,7 @@ const ArgsSchema = Type.Object({
   }),
   port: Type.String({
     pattern: "^[0-9]+$",
-    description: "Port for the batcher HTTP server.",
+    description: "Port for the batcher HTTP server. Default: 3334",
   }),
 });
 
@@ -76,7 +77,7 @@ try {
         paimaL2Fee: "0",
         namespace: "default",
         maxBatchSize: "1000",
-        port: "3334",
+        port: ENV.BATCHER_PORT,
       },
     }),
   );

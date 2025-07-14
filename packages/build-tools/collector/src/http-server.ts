@@ -19,7 +19,7 @@ import { ENV } from "@paima/utils";
 // this file is based on https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
 
 // TODO: maybe this should run on a different port and then forward to 4318
-const PORT = 4318; // default port for OTLP HTTP traces
+const PORT = ENV.OTEL_COLLECTOR_PORT; // default port for OTLP HTTP traces
 
 const server = fastify();
 

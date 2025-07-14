@@ -6,6 +6,7 @@ import {
   type PublicRpcSchema,
   RpcRequestError,
 } from "npm:viem";
+import { ENV } from "@paima/utils";
 
 export type PaimaEvmRpcSchema = [
   ...PublicRpcSchema,
@@ -37,7 +38,7 @@ export function createRpcRequestError(
 ): RpcRequestError {
   return new RpcRequestError({
     body: data,
-    url: "http://localhost:9999/rpc/evm",
+    url: `http://localhost:${ENV.PAIMA_API_PORT}/rpc/evm`,
     error: {
       code: code,
       message: msg ?? "No additional information provided",
