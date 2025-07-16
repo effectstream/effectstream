@@ -1,10 +1,6 @@
 // import deployedEvmAddresses from "@example/evm-contracts/deployments";
 
-import {
-  contractAddressesEvmMain,
-  // contractAddressesEvmParallel,
-  // deploy,
-} from "@my-project/evm-contracts";
+import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 import {
   ConfigBuilder,
@@ -15,16 +11,7 @@ import {
 } from "@paima/config";
 import { hardhat } from "viem/chains";
 import type { BlockNumber, TimestampMs } from "@paima/utils";
-
-// TODO: replace with @paima/evm-contracts
-// import { erc20Abi, erc721Abi } from "viem"; // TODO: ABIs for Paima built-in primitives should be in the @paima/evm-contracts ideally
-// import { paimal2 } from "@my-project/evm-contracts";
-
-import {
-  erc20dev,
-  erc721dev,
-  paimal2contract,
-} from "@my-project/evm-contracts";
+import { erc20dev, erc721dev, paimal2contract } from "@example/evm-contracts";
 // TODO: This should typed from the grammar types.
 const stfInputs = {
   "schedule": "schedule",
@@ -202,9 +189,8 @@ export const localhostConfig = new ConfigBuilder()
           name: "ETH_L1_ERC20",
           type: ConfigPrimitiveType.EvmRpcERC20,
           startBlockHeight: 0,
-          contractAddress:
-            contractAddressesEvmMain()
-              .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
+          contractAddress: contractAddressesEvmMain()
+            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
           abi: getEvmEvent(
             erc20dev.abi,
             "Transfer(address,address,uint256)",

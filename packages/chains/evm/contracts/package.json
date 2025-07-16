@@ -1,7 +1,6 @@
 {
   "type": "module",
   "dependencies": {
-    "hardhat": "3.0.0-next.20",
     "@openzeppelin/contracts": "5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.1.0"
   }

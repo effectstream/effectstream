@@ -16,7 +16,7 @@ import {
   erc20dev,
   erc721dev,
   paimal2contract,
-} from "@my-project/evm-contracts";
+} from "@example/evm-contracts";
 
 const mainEvm = hardhat;
 const parallelEvm = JSON.parse(JSON.stringify(hardhat));
