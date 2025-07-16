@@ -11,19 +11,59 @@ import type { StateUpdateStream } from "@paima/coroutine";
 import {
   createScheduledData,
   findNonce,
+  getAddressWithAddress,
   insertNonce,
   insertPrimitiveAccounting,
   newAddress,
+  // newDelegation,
 } from "@paima/db";
 import { World } from "@paima/coroutine";
-import { extractBatches, type ExtractedBatchSubunit } from "@paima/concise";
+import {
+  extractBatches,
+  extractDelegateWallet,
+  type ExtractedBatchSubunit,
+} from "@paima/concise";
 import {
   ConfigPrimitiveAccountingPayloadType,
   type ConfigPrimitiveType,
 } from "@paima/config";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import { mainAddressGenerator, NO_USER_ID } from "@paima/sm";
+import {
+  account_createAccount,
+  account_linkAddress,
+  account_unlinkAddress,
+} from "@paima/sm";
 import { clearBigInts } from "../../utils.ts";
+import { BuiltinGrammarPrefix } from "@paima/concise";
+
+function* checkNonce(
+  nonce: string | undefined,
+  block_height: BlockNumber,
+): StateUpdateStream<boolean> {
+  // TODO This is only for batched messages?
+  if (!nonce) return true;
+
+  const [nonceData] = yield* World.resolve(findNonce, { nonce });
+  if (nonceData) {
+    log.remote(
+      ComponentNames.PAIMA_SYNC,
+      ["paima-l2"],
+      SeverityNumber.INFO,
+      (log) =>
+        log(
+          `Skipping inputData with duplicate nonce: ${nonceData.nonce} at block height: ${nonceData.block_height}`,
+        ),
+    );
+    return false;
+  }
+  // guarantee we run this no matter if there is an error or a continue
+  yield* World.resolve(insertNonce, {
+    nonce,
+    block_height,
+  });
+
+  return true;
+}
 
 function* executePaimaL2Input(input: {
   paima_block_height: BlockNumber;
@@ -37,75 +77,73 @@ function* executePaimaL2Input(input: {
   >;
   primitiveName: string;
   signerAddress: `0x${string}`;
-}) {
-  // TODO This is only for batched messages?
-  if (input.nonce) {
-    const [nonceData] = yield* World.resolve(findNonce, {
-      nonce: input.nonce,
-    });
-    if (nonceData) {
-      log.remote(
-        ComponentNames.PAIMA_SYNC,
-        ["paima-l2"],
-        SeverityNumber.INFO,
-        (log) =>
-          log(
-            `Skipping inputData with duplicate nonce: ${
-              JSON.stringify(input.payload)
-            }`,
-          ),
-      );
-      return;
-    }
-    // guarantee we run this no matter if there is an error or a continue
-    yield* World.resolve(insertNonce, {
-      nonce: input.nonce,
-      block_height: input.paima_block_height,
-    });
-  }
-  // const primitiveName = response.output.syncProtocol.payload.primitiveName;
+}): StateUpdateStream<void> {
+  // For EVM we use the lowercase address.
+  const normalizedSignerAddress = input.signerAddress
+    .toLocaleLowerCase() as `0x${string}`;
+  const isNonceValid = yield* checkNonce(input.nonce, input.paima_block_height);
+  if (!isNonceValid) return;
+
+  // This is encoded in the event payload data.
+  const conciseCommandStr = hexToString((input.payload as any).data);
+
+  const safePayload = clearBigInts(input.payload);
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: input.primitiveName,
     paima_block_height: input.paima_block_height,
     payload_type: ConfigPrimitiveAccountingPayloadType.Event,
-    payload: input.payload,
+    payload: safePayload,
   });
 
-  const address = yield* mainAddressGenerator(
-    input.signerAddress,
-  );
+  let [signer_address] = yield* World.resolve(getAddressWithAddress, {
+    address: normalizedSignerAddress,
+  });
 
-  // let success: boolean | undefined = false;
+  if (!signer_address) {
+    // Let's insert a new address.
+    yield* World.resolve(newAddress, {
+      address: normalizedSignerAddress,
+    });
+    [signer_address] = yield* World.resolve(getAddressWithAddress, {
+      address: normalizedSignerAddress,
+    });
+  }
+
+  // parseStmInput<typeof BuiltinGrammar>
   try {
-    // Check if internal Concise Command
-    // Internal Concise Commands are prefixed with an ampersand (&)
-    // const delegateWallet = new DelegateWallet(DBConn);
-    // if (response.output.payload.inputData.startsWith("&")) {
-    // const status = await delegateWallet.process(
-    //   inputData.realAddress,
-    //   inputData.userAddress,
-    //   inputData.inputData,
-    // );
-    // if (!status) continue;
-    // } else
-    if (address.id === NO_USER_ID) {
-      // If wallet does not exist in address table: create it.
-      const [newAddressResult] = yield* World.resolve(newAddress, {
-        address: address.address,
-      });
-      address.id = (newAddressResult as any).id;
+    const delegateWallet = extractDelegateWallet(conciseCommandStr);
+    let status = false;
+    if (delegateWallet.prefix === BuiltinGrammarPrefix.createAccount) {
+      status = yield* account_createAccount(
+        signer_address,
+        delegateWallet,
+      );
+    } else if (delegateWallet.prefix === BuiltinGrammarPrefix.linkAddress) {
+      status =
+        yield* (account_linkAddress(signer_address, delegateWallet)) as any;
+    } else if (delegateWallet.prefix === BuiltinGrammarPrefix.unlinkAddress) {
+      status =
+        yield* (account_unlinkAddress(signer_address, delegateWallet)) as any;
     }
-  } catch (err) {
-    log.remote(
-      ComponentNames.PAIMA_SYNC,
-      ["paima-l2"],
-      SeverityNumber.ERROR,
-      (log) => log(`[paima-sm] Error on user input STF call. Skipping`, err),
-    );
+
+    if (!status) {
+      log.remote(
+        ComponentNames.PAIMA_SYNC,
+        ["paima-l2"],
+        SeverityNumber.ERROR,
+        (log) =>
+          log(`[paima-sm] Error on Delegate Wallet input STF call. Skipping`),
+      );
+      // Do not continue.
+      // Unwind is not needed.
+      return;
+    }
+  } catch {
+    // This is not an error, it's not just a delegate wallet message type.
   }
 
   yield* createScheduledData(
-    hexToString((input.payload as any).data),
+    conciseCommandStr,
     {
       blockHeight: input.paima_block_height,
     },
@@ -114,7 +152,8 @@ function* executePaimaL2Input(input: {
       txHash: input.ownChain.transactionHash,
       // TODO: Where to get this from, we can asume its eip155:{chainId}
       caip2: "eip155", // input.ownChain.caip2,
-      fromAddress: address.address,
+      fromAddress: signer_address.address,
+      // fromAccount: signer_address.account_id,
       // TODO Where to get this from?
       contractAddress: "0x0", // response.input.contractAddress.toLowerCase(),
     },

@@ -29,11 +29,6 @@ import type {
   StartConfigMigrationRouter,
 } from "./types.ts";
 
-/** Helper to check if a SyncStateUpdateStream object is a StateMachineExecution */
-function isStateMachineExecution(value: any): value is STMExecPromise {
-  return value && typeof value === "object" && value.type === "stm-promise";
-}
-
 /** Helper to check if a SyncStateUpdateStream object is a WorldResolve */
 function isWorldResolve(value: any): value is QueuedUpdate {
   return value && Array.isArray(value);
@@ -86,7 +81,7 @@ function* executeGeneratorStepByStep(
   //       so we pause the execution, and resolve them here.
   // NOTE: there are 2 types of operations we need to handle
   //       1. state machine executions, these return a series of queries to run.
-  //       2. world.resolve calls, that are DB queries.
+  //       2. generic promises required in the primitives (e.g., verifySignature)
   while (!result.done) {
     // We resolve the generators promises here.
     // As generators cannot execute promises.
@@ -98,20 +93,14 @@ function* executeGeneratorStepByStep(
       const query = new PreparedQuery(queryIR);
       const queryResult = yield* call(() => query.run(params, dbConn));
       operations.push(queryResult);
-    } else if (isStateMachineExecution(value) && gameStateTransitions) {
-      // TODO Remove everything realted to isStateMachineExecution types.
-      // yield* until(tryOrRollback(dbConn, async () => {
-      //   const stateMachineResult = await gameStateTransitions(
-      //     value.data.blockHeight,
-      //     value.data,
-      //   );
-      //   for (const [queryIR, params] of stateMachineResult.stateTransitions) {
-      //     await queryIR.run(params, dbConn);
-      //   }
-      // }));
+    } else if (value && typeof value === "object" && "promise" in value) {
+      // This means that we have non-database promises in the generator.
+      // Each time yield is called, we catch the intention and resolve it.
+      const queryResult = yield* until((value as any).promise);
+      operations.push(queryResult);
     } else {
-      // This should never happen.
-      throw new Error("Unknown value", { cause: value });
+      console.error("Yielding unhandled type", result);
+      throw new Error("Unhandled type in generator");
     }
     result = generator.next(operations.flat());
   }

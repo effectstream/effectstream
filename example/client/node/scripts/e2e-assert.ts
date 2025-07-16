@@ -162,3 +162,88 @@ export async function assertSQL<RowType>(
     rowsAffected: 0,
   } as QueryResult<RowType>;
 }
+
+/**
+ * Run Assert as a SQL query.
+ * As we don't know when the Paima Engine chain has
+ * included and processed the data, we run a "waitUntil" query until some
+ * condition is met, then we chech against the expected data.
+ * @param testName - The name of the test.
+ * @param db - The database connection.
+ * @param query - The query to run.
+ * @param waitUntil - The function to check if the data is available. Will retry until it returns true.
+ * @param check - The function to check the result. IMPORTANT: if it returns falsy, or throws an error, the test will be marked as failed.
+ * @returns The result of the query.
+ */
+export async function assertSQL2<WaitType, CheckType>(
+  testName: string,
+  db: Pool,
+  waitUntil: { query: string; check: (res: QueryResult<WaitType>) => boolean },
+  check: { query: string; check: (res: QueryResult<CheckType>) => boolean },
+): Promise<QueryResult<WaitType | CheckType>> {
+  startTest(testName);
+  let maxMillis = 10000;
+  while (maxMillis > 0) {
+    let waitUntilResult: QueryResult<WaitType>;
+    let didLock = false;
+    try {
+      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      didLock = true;
+      waitUntilResult = await db.query(waitUntil.query);
+    } finally {
+      if (didLock) {
+        await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
+      }
+    }
+
+    // First wait until the data is available.
+    if (!waitUntil.check(waitUntilResult)) {
+      await delay(100);
+      maxMillis -= 100;
+      if (maxMillis <= 0) {
+        testFailed();
+        console.log("Expected", waitUntil.toString());
+        console.error("[TIMEOUT] Data in DB:", waitUntilResult.rows);
+        return waitUntilResult;
+      }
+      continue;
+    }
+
+    let checkResult: QueryResult<CheckType>;
+    didLock = false;
+    try {
+      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      didLock = true;
+      checkResult = await db.query(check.query);
+    } finally {
+      if (didLock) {
+        await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
+      }
+    }
+
+    // Now run the custom check.
+    try {
+      if (!check.check(checkResult)) {
+        throw new Error("CHECK_ERROR");
+      }
+      testPassed();
+      return checkResult;
+    } catch (e) {
+      testFailed();
+      console.error("[CHECK_ERROR] Data in DB:", checkResult.rows);
+      if (e instanceof Error && e.message !== "CHECK_ERROR") {
+        console.error(e);
+      }
+      return checkResult;
+    }
+  }
+  console.error("[TIMEOUT] Data in DB");
+  return {
+    rows: [],
+    fields: [],
+    rowCount: 0,
+    command: "",
+    oid: 0,
+    rowsAffected: 0,
+  } as QueryResult<WaitType | CheckType>;
+}

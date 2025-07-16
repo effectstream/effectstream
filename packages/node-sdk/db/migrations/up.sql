@@ -70,24 +70,26 @@ CREATE TABLE primitive_config (
   parent_name TEXT -- for dynamic primitives
 );
 
-CREATE TABLE addresses (
+CREATE TABLE accounts (
   id SERIAL PRIMARY KEY,
-  address TEXT NOT NULL UNIQUE
+  primary_address TEXT
 );
 
-CREATE TABLE delegations (
-  from_id INTEGER NOT NULL REFERENCES addresses(id),
-  to_id INTEGER NOT NULL REFERENCES addresses(id),
- PRIMARY KEY (from_id, to_id)
+CREATE TABLE addresses (
+  address TEXT NOT NULL UNIQUE,
+  account_id INTEGER REFERENCES accounts(id)
 );
+create index addresses_account_id_idx on addresses(account_id);
+
+ALTER TABLE accounts ADD CONSTRAINT fk_primary_address_address FOREIGN KEY (primary_address) REFERENCES addresses(address);
 
 CREATE TABLE achievement_progress(
-  wallet INTEGER NOT NULL REFERENCES addresses(id),
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
   name TEXT NOT NULL,
   completed_date TIMESTAMP,
   progress INTEGER,
   total INTEGER,
-  PRIMARY KEY (wallet, name)
+  PRIMARY KEY (account_id, name)
 );
 
 CREATE TABLE event (

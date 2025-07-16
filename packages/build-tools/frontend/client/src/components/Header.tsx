@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal } from "./Modal.tsx";
+import { AddressesTable } from "./AddressesTable.tsx";
 import {
   BATCHER_OPENAPI_URL,
   DOCUMENTATION_URL,
@@ -15,6 +16,7 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -40,28 +42,46 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
     setIsDocModalOpen(false);
   };
 
+  const handleOpenAddressModal = () => {
+    setIsAddressModalOpen(true);
+  };
+
+  const handleCloseAddressModal = () => {
+    setIsAddressModalOpen(false);
+  };
+
   return (
     <>
       <header className="header">
         <h1 className="title">Paima Explorer</h1>
         <div className="header-right">
           <button
+            type="button"
             className="batcher-api-button"
             onClick={handleOpenModal}
           >
             Batcher API
           </button>
           <button
+            type="button"
             className="node-api-button"
             onClick={handleOpenNodeModal}
           >
             Paima Engine Node API
           </button>
           <button
+            type="button"
             className="documentation-button"
             onClick={handleOpenDocModal}
           >
             Documentation
+          </button>
+          <button
+            type="button"
+            className="addresses-button"
+            onClick={handleOpenAddressModal}
+          >
+            Addresses
           </button>
           <div className="block-info">
             <span>Latest Block:</span>
@@ -126,6 +146,15 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
             title="Documentation"
           />
         </div>
+      </Modal>
+
+      <Modal
+        className="addresses"
+        isOpen={isAddressModalOpen}
+        onClose={handleCloseAddressModal}
+        title="Addresses"
+      >
+        <AddressesTable />
       </Modal>
     </>
   );

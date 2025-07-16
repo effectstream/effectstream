@@ -13469,7 +13469,8 @@
       "packages/paima-sdk/concise": {
         "dependencies": [
           "npm:@sinclair/typebox@~0.34.30",
-          "npm:js-sha3@~0.9.3"
+          "npm:js-sha3@~0.9.3",
+          "npm:viem@^2.21.3"
         ]
       },
       "packages/paima-sdk/config": {
@@ -13493,6 +13494,11 @@
           "npm:@sinclair/typebox@~0.34.30",
           "npm:pg-tx@^1.0.1",
           "npm:pg@^8.14.0"
+        ]
+      },
+      "packages/paima-sdk/crypto": {
+        "dependencies": [
+          "npm:viem@^2.21.3"
         ]
       },
       "packages/paima-sdk/log": {

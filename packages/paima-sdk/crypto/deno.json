@@ -1,0 +1,7 @@
+{
+    "name": "@paima/crypto",
+    "exports": "./src/mod.ts",
+    "imports": {
+        "viem": "npm:viem@^2.21.3"
+    }
+}
