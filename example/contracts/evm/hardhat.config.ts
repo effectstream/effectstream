@@ -1,5 +1,4 @@
 import type { HardhatUserConfig } from "hardhat/config";
-
 import util from "node:util";
 import HardhatViem from "@nomicfoundation/hardhat-viem";
 // import HardhatAbiExporter from "hardhat-abi-exporter";
@@ -240,7 +239,9 @@ const config: HardhatUserConfig = {
     },
   },
   paths: {
-    sources: [`${__dirname}/src/contracts`],
+    sources: [
+      `${__dirname}/src/contracts`,
+    ],
     artifacts: `${__dirname}/build/artifacts/hardhat`,
     cache: `${__dirname}/build/cache/hardhat`,
   },
@@ -251,6 +252,7 @@ const config: HardhatUserConfig = {
   plugins: [
     HardhatViem,
     HardhatIgnitionViem,
+    // HardhatFoundry,
     // HardhatAbiExporter,
   ],
 

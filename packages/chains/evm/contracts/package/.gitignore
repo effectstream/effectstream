@@ -1,7 +1,0 @@
-node_modules
-
-# build
-/build
-
-# deployments
-/ignition/deployments

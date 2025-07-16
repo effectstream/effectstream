@@ -5,6 +5,8 @@ import Erc20DevModule from "./ignition/modules/erc20dev.ts";
 import PaimaL2ContractModule from "./ignition/modules/paimaL2.ts";
 import Erc721DevModule from "./ignition/modules/erc721dev.ts";
 import type { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+// import CounterModule from "./ignition/modules/counter.ts";
+// import OpenZeppelinErc20DevModule from "./ignition/modules/oz-erc20dev.ts";
 
 const __dirname: any = import.meta.dirname;
 
@@ -12,7 +14,7 @@ type Deployment = {
   module: ReturnType<typeof buildModule>;
   network: string;
   parameters?: Record<string, Record<string, any>>;
-}
+};
 
 // This is an example of how to deploy contracts.
 // This is the list of contracts to deploy.
@@ -68,4 +70,3 @@ export async function deploy(): Promise<void> {
   // Wait for a block to be minted on the slowest chain.
   await new Promise((r) => setTimeout(r, 1000 * 2));
 }
-

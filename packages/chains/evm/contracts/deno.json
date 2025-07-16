@@ -9,6 +9,6 @@
     "@nomicfoundation/hardhat-viem": "npm:@nomicfoundation/hardhat-viem@3.0.0-next.20"
   },
   "tasks": {
-    "init": "deno run -A installer.ts"
+    "compile": "deno -A npm:hardhat@3.0.0-next.20 compile"
   }
 }

@@ -221,8 +221,10 @@ export const startProcess: Record<
 
   [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
     // TODO This should be read from the config.
-    const paimaL2Address = contractAddressesEvmMain()
-      ["chain31337"]["PaimaL2ContractModule#PaimaL2Contract"];
+    const paimaL2Address =
+      contractAddressesEvmMain()["chain31337"][
+        "PaimaL2ContractModule#MyPaimaL2Contract"
+      ];
     const batcherPrivateKey =
       "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
     const chainName = "hardhat";

@@ -66,42 +66,42 @@ export const localhostConfig = new ConfigBuilder()
       .addDeployment(
         (networks) => networks.evmMain,
         (_network) => ({
-          name: "Erc20DevModule#Erc20Dev",
-          address:
-            contractAddressesEvmMain().chain31337["Erc20DevModule#Erc20Dev"],
+          name: "PaimaErc20DevModule#PaimaErc20Dev",
+          address: contractAddressesEvmMain()
+            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
         }),
       )
       .addDeployment(
         (networks) => networks.evmMain,
         (_network) => ({
-          name: "Erc20DevModule#Erc20Dev",
-          address:
-            contractAddressesEvmMain().chain31337["Erc20DevModule#Erc20Dev"],
+          name: "PaimaErc20DevModule#PaimaErc20Dev",
+          address: contractAddressesEvmMain()
+            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
         }),
       )
       .addDeployment(
         (networks) => networks.evmMain,
         (_network) => ({
-          name: "PaimaL2ContractModule#PaimaL2Contract",
+          name: "PaimaL2ContractModule#MyPaimaL2Contract",
           address: contractAddressesEvmMain().chain31337[
-            "PaimaL2ContractModule#PaimaL2Contract"
+            "PaimaL2ContractModule#MyPaimaL2Contract"
           ],
         }),
       )
       .addDeployment(
         (networks) => networks.evmParallel,
         (_network) => ({
-          name: "Erc20DevModule#Erc20Dev",
-          address:
-            contractAddressesEvmMain().chain31337["Erc20DevModule#Erc20Dev"],
+          name: "PaimaErc20DevModule#PaimaErc20Dev",
+          address: contractAddressesEvmMain()
+            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
         }),
       )
       .addDeployment(
         (networks) => networks.evmParallel,
         (_network) => ({
-          name: "Erc20DevModule#Erc20Dev",
-          address:
-            contractAddressesEvmMain().chain31338["Erc20DevModule#Erc20Dev"],
+          name: "PaimaErc20DevModule#PaimaErc20Dev",
+          address: contractAddressesEvmMain()
+            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
         }),
       )
   ).buildSyncProtocols((builder) =>
@@ -143,8 +143,8 @@ export const localhostConfig = new ConfigBuilder()
         type: ConfigPrimitiveType.EvmRpcERC20,
 
         startBlockHeight: 0,
-        contractAddress:
-          contractAddressesEvmMain().chain31337["Erc20DevModule#Erc20Dev"],
+        contractAddress: contractAddressesEvmMain()
+          .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
         abi: getEvmEvent(erc20dev.abi, "Transfer(address,address,uint256)"),
         scheduledPrefix: stfInputs.transfer,
       }),
@@ -156,7 +156,7 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigPrimitiveType.EvmRpcPaimaL2,
           startBlockHeight: 0,
           contractAddress: contractAddressesEvmMain()["chain31337"][
-            "PaimaL2ContractModule#PaimaL2Contract"
+            "PaimaL2ContractModule#MyPaimaL2Contract"
           ],
           abi: getEvmEvent(
             paimal2contract.abi,
@@ -203,7 +203,8 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigPrimitiveType.EvmRpcERC20,
           startBlockHeight: 0,
           contractAddress:
-            contractAddressesEvmMain().chain31338["Erc20DevModule#Erc20Dev"],
+            contractAddressesEvmMain()
+              .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
           abi: getEvmEvent(
             erc20dev.abi,
             "Transfer(address,address,uint256)",
