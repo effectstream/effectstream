@@ -23,7 +23,12 @@ export type VersionString = `${number}.${number}.${number}`;
 
 // TODO: should probably differentiate between block numbers of different networks
 //       and maybe even Paima block number / emulated block number
-export type BlockNumber = FastFlavor<number, "BlockNumber">;
+export type PaimaBlockNumber = FastFlavor<number, "PaimaBlockNumber">;
+export type EvmBlockNumber = FastFlavor<number, "EvmBlockNumber">;
+export type BlockNumber =
+  | PaimaBlockNumber
+  | EvmBlockNumber;
+
 /**
  * recall: slots may be empty, so absolute slot number is not usually equal to block number
  */
@@ -87,11 +92,11 @@ export type SubstrateAddress = FastFlavor<string, "SubstrateAddress">;
 export type WalletAddress =
   | AlgorandAddress
   | AvailAddress
-  | SubstrateAddress
   | CardanoAddress
   | EvmAddress
   | MidnightAddress
-  | MinaAddress;
+  | MinaAddress
+  | SubstrateAddress;
 
 /**
  * TODO: probably best to make this more granular to different cryptographic schemes
@@ -101,6 +106,28 @@ export type GenericPrivateKey = FastFlavor<string, "GenericPrivateKey">;
 export type PrivateKey =
   | EvmPrivateKey
   | GenericPrivateKey;
+
+export type PaimaTxHash = FastFlavor<HexString0x, "PaimaTxHash">;
+export type TxHash =
+  | AlgorandTxHash
+  | AvailTxHash
+  | CardanoTxHash
+  | EvmTxHash
+  | MidnightTxHash
+  | MinaTxHash
+  | PaimaTxHash;
+// | SubstrateTxHash;
+
+export type PaimaBlockHash = FastFlavor<HexString0x, "PaimaBlockHash">;
+export type BlockHash =
+  | AlgorandBlockHash
+  | AvailBlockHash
+  | CardanoBlockHash
+  | EvmBlockHash
+  | MidnightBlockHash
+  | MinaBlockHash
+  | PaimaBlockHash;
+// | SubstrateBlockHash;
 
 export type EvmRpcPageJson = FastFlavor<string, "EvmRpcPageJson">;
 export type CarpCursorJson = FastFlavor<string, "CarpCursorJson">;

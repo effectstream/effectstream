@@ -6,7 +6,7 @@ import { type Static, Type } from "npm:@sinclair/typebox";
 import { Value } from "npm:@sinclair/typebox/value";
 import * as chains from "npm:viem/chains";
 import { run } from "npm:effection@3.5.0";
-import { ENV } from "@paima/utils";
+import { ENV, TypeboxHelpers } from "@paima/utils";
 
 // Standalone Batcher service start script.
 // Example usage:
@@ -95,8 +95,14 @@ if (!chain) {
 
 await run(() =>
   createAndLaunchBatcher({
-    paimaL2Address: args.paimaL2Address as `0x${string}`,
-    batcherPrivateKey: args.batcherPrivateKey as `0x${string}`,
+    paimaL2Address: Value.Decode(
+      TypeboxHelpers.Evm.Address,
+      args.paimaL2Address,
+    ),
+    batcherPrivateKey: Value.Decode(
+      TypeboxHelpers.Evm.PrivateKey,
+      args.batcherPrivateKey,
+    ),
     chain: chain,
     batchIntervalSeconds: Number(args.batchIntervalSeconds),
     paimaL2Fee: parseEther(args.paimaL2Fee),

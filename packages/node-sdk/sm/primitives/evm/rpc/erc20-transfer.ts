@@ -9,12 +9,12 @@ import {
 } from "@paima/config";
 import { World } from "@paima/coroutine";
 import type { StateUpdateStream } from "@paima/coroutine";
-import type { BlockNumber } from "@paima/utils";
+import type { PaimaBlockNumber } from "@paima/utils";
 import { createScheduledData, insertPrimitiveAccounting } from "@paima/db";
 import { clearBigInts } from "../../utils.ts";
 
 export default function* processErc20SyncProtocolResponse(
-  paima_block_height: BlockNumber,
+  paima_block_height: PaimaBlockNumber,
   response: FlattenSyncProtocolIOFor<
     | ConfigSyncProtocolType.EVM_RPC_MAIN
     | ConfigSyncProtocolType.EVM_RPC_PARALLEL,

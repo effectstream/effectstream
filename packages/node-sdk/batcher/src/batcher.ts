@@ -6,8 +6,6 @@ import {
   http,
   type PublicClient,
   toHex,
-  type Transport,
-  verifyMessage,
   type WalletClient,
 } from "npm:viem";
 import { privateKeyToAccount } from "npm:viem/accounts";
@@ -20,6 +18,7 @@ import { type BatcherStorage, FileStorage } from "./storage.ts";
 import { startBatcherHttpServer } from "./batcher-server.ts";
 import { type Operation, sleep, spawn, until } from "npm:effection@3.5.0";
 import { CryptoManager } from "@paima/crypto";
+import type { EvmAddress, EvmPrivateKey } from "@paima/utils";
 
 // TODO: Import this from the actual ABI package when available
 const paimaL2Abi = [
@@ -33,8 +32,8 @@ const paimaL2Abi = [
 ] as const;
 
 interface BatcherConfig {
-  paimaL2Address: `0x${string}`;
-  batcherPrivateKey: `0x${string}`;
+  paimaL2Address: EvmAddress;
+  batcherPrivateKey: EvmPrivateKey;
   chain: Chain;
   batchIntervalSeconds?: number;
   paimaL2Fee: bigint;
@@ -57,7 +56,7 @@ export class Batcher {
   /* Pending batch interval checks in milliseconds */
   private batchInterval: number;
   /* EVM PaimaL2 contract address */
-  private paimaL2Address: `0x${string}`;
+  private paimaL2Address: EvmAddress;
   /* Viem-EVM Batcher account */
   private account: Account;
   /* Viem-EVM Wallet client */

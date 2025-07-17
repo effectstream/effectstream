@@ -1,5 +1,7 @@
 import {
   type BlockNumber,
+  type PaimaBlockNumber,
+  type TxHash,
   TypeboxHelpers,
   type WalletAddress,
 } from "@paima/utils";
@@ -75,11 +77,11 @@ function* checkNonce(
 }
 
 function* executePaimaL2Input(input: {
-  paima_block_height: BlockNumber;
+  paima_block_height: PaimaBlockNumber;
   nonce: string | undefined;
   ownChain: {
-    blockNumber: number;
-    transactionHash: `0x${string}`;
+    blockNumber: BlockNumber;
+    transactionHash: TxHash;
   };
   payload: PayloadOf<
     typeof PrimitiveEvmRpcPaimaL2Accounting
@@ -170,7 +172,7 @@ function* executePaimaL2Input(input: {
 }
 
 export default function* processPaimaL2SyncProtocolResponse(
-  paima_block_height: BlockNumber,
+  paima_block_height: PaimaBlockNumber,
   response: FlattenSyncProtocolIOFor<
     | ConfigSyncProtocolType.EVM_RPC_MAIN
     | ConfigSyncProtocolType.EVM_RPC_PARALLEL,

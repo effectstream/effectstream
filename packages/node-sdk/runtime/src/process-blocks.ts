@@ -1,5 +1,4 @@
 import type { ChainBlock } from "@paima/sync";
-import type { AppEvents } from "@paima/sm";
 import { call, type Operation, until } from "effection";
 import type { Pool } from "pg";
 import {
@@ -28,6 +27,7 @@ import type {
   StartConfigGameStateTransitions,
   StartConfigMigrationRouter,
 } from "./types.ts";
+import type { EvmBlockHash } from "@paima/utils";
 
 /** Helper to check if a SyncStateUpdateStream object is a WorldResolve */
 function isWorldResolve(value: any): value is QueuedUpdate {
@@ -147,9 +147,9 @@ export function* processFinalizedBlock(
   value: ChainBlock,
   config: StartConfig,
   dbConn: Pool,
-): Operation<`0x${string}`> {
+): Operation<EvmBlockHash> {
   const { gameStateTransitions, migrationRouter } = config;
-  let blockHash: `0x${string}`;
+  let blockHash: EvmBlockHash;
   try {
     /* STEP 0: Start the transaction. */
     yield* until(dbConn.query("BEGIN"));
@@ -258,7 +258,7 @@ export function* processFinalizedBlock(
     blockHash = `0x${
       Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16))
         .join("")
-    }`;
+    }` as EvmBlockHash;
 
     yield* call(() =>
       blockHeightDone.run({

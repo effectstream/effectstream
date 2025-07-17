@@ -1,4 +1,4 @@
-import type { BlockNumber, TimestampMs } from "@paima/utils";
+import type { PaimaBlockNumber, TimestampMs } from "@paima/utils";
 import type { PageRelation } from "../base/page.ts";
 import type {
   ConfigPrimitivePayloadType,
@@ -9,7 +9,7 @@ import type {
 
 export type ChainPage = TimestampMs;
 export type ChainBlock = {
-  blockNumber: BlockNumber;
+  blockNumber: PaimaBlockNumber;
   timestamp: TimestampMs;
   primitives: (
     & FlattenSyncProtocolIOFor<
