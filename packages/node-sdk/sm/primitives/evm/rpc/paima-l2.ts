@@ -115,7 +115,6 @@ function* executePaimaL2Input(input: {
     });
   }
 
-  // parseStmInput<typeof BuiltinGrammar>
   try {
     const delegateWallet = extractDelegateWallet(conciseCommandStr);
     let status = false;
@@ -125,11 +124,15 @@ function* executePaimaL2Input(input: {
         delegateWallet,
       );
     } else if (delegateWallet.prefix === BuiltinGrammarPrefix.linkAddress) {
-      status =
-        yield* (account_linkAddress(signer_address, delegateWallet)) as any;
+      status = yield* (account_linkAddress(
+        signer_address,
+        delegateWallet,
+      )) as any;
     } else if (delegateWallet.prefix === BuiltinGrammarPrefix.unlinkAddress) {
-      status =
-        yield* (account_unlinkAddress(signer_address, delegateWallet)) as any;
+      status = yield* (account_unlinkAddress(
+        signer_address,
+        delegateWallet,
+      )) as any;
     }
 
     if (!status) {

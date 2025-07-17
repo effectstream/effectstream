@@ -17,9 +17,32 @@ import {
   updatePrimaryAddress,
 } from "@paima/db";
 import { verifySignature } from "./verify-signature.ts";
+import {
+  type Signature,
+  TypeboxHelpers,
+  type WalletAddress,
+} from "@paima/utils";
+import { Value } from "@sinclair/typebox/value";
+import { CryptoManager } from "@paima/crypto";
+
+/**
+ * This function guesses the type of the wallet address and formats it.
+ * For now we only support EVM addresses.
+ *
+ * These messages come from unparsed soruces, as the payload is a string format.
+ */
+const formatWalletAddress = (address: string): WalletAddress => {
+  // TODO: Do we send some hint of the type, or do we just guess by the format?
+  return CryptoManager.Evm().verifyAddress(address)
+    ? Value.Decode(TypeboxHelpers.Evm.Address, address)
+    : address;
+};
 
 export function* account_createAccount(
-  signerAddress: IGetAddressByAddressResult,
+  signerAddress: {
+    address: WalletAddress;
+    account_id: number | null;
+  },
   input: ParseInputResult<
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.createAccount
@@ -37,13 +60,13 @@ export function* account_createAccount(
 
     // Create a new account with this address as primary
     const [newAccountResult] = yield* World.resolve(newAccount, {
-      primary_address: signerAddress.address.toLocaleLowerCase(),
+      primary_address: signerAddress.address,
     });
 
     // Update the address to link it to the new account
     yield* World.resolve(updateAddressAccount, {
       account_id: newAccountResult.id,
-      address: signerAddress.address.toLocaleLowerCase(),
+      address: signerAddress.address,
     });
 
     return true;
@@ -54,20 +77,24 @@ export function* account_createAccount(
 }
 
 export function* account_linkAddress(
-  signerAddress: IGetAddressByAddressResult,
+  signerAddress: {
+    address: WalletAddress;
+    account_id: number | null;
+  },
   input: ParseInputResult<
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.linkAddress
   >,
 ) {
   try {
-    const {
-      account_id,
-      signature_from_primary,
-      new_address,
-      signature_from_new_address,
-      is_new_primary,
-    } = input.data;
+    const account_id: number = input.data.account_id;
+    const signature_from_primary: Signature = input.data.signature_from_primary;
+    const new_address: WalletAddress = formatWalletAddress(
+      input.data.new_address,
+    );
+    const signature_from_new_address: Signature =
+      input.data.signature_from_new_address;
+    const is_new_primary: boolean = input.data.is_new_primary;
 
     // Step 1: Get the account by account_id, it must exist
     const [account] = yield* World.resolve(getAccountById, { account_id });
@@ -85,9 +112,10 @@ export function* account_linkAddress(
     // Verify signature from primary address
     const primaryMessage = accountMessages.linkAccount(
       account_id,
-      new_address.toLocaleLowerCase(),
+      new_address,
       is_new_primary,
     );
+
     const primarySignatureValid = yield* verifySignature(
       account.primary_address,
       primaryMessage,
@@ -103,7 +131,7 @@ export function* account_linkAddress(
     // If new_address is different from signer, verify signature from new_address
     const newAddressMessage = accountMessages.linkAccount(
       account_id,
-      account.primary_address.toLocaleLowerCase(),
+      account.primary_address,
       is_new_primary,
     );
     const newAddressSignatureValid = yield* verifySignature(
@@ -118,8 +146,7 @@ export function* account_linkAddress(
     }
 
     // Step 4: Check if target address already exists
-    const targetAddress = (new_address || account.primary_address)
-      .toLowerCase();
+    const targetAddress = new_address || account.primary_address;
     let [existingAddress] = yield* World.resolve(getAddressByAddress, {
       address: targetAddress,
     });
@@ -158,19 +185,24 @@ export function* account_linkAddress(
 }
 
 export function* account_unlinkAddressWithPrimary(
-  signerAddress: IGetAddressByAddressResult,
+  signerAddress: {
+    address: WalletAddress;
+    account_id: number | null;
+  },
   input: ParseInputResult<
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.unlinkAddress
   >,
 ) {
   try {
-    const {
-      account_id,
-      signature_from_primary,
-      account_address,
-      new_primary,
-    } = input.data;
+    const account_id: number = input.data.account_id;
+    const signature_from_primary: Signature = input.data.signature_from_primary;
+    const account_address: WalletAddress = formatWalletAddress(
+      input.data.account_address,
+    );
+    const new_primary: WalletAddress | null = formatWalletAddress(
+      input.data.new_primary,
+    );
 
     // Step 1: Check if account_id exists
     const [account] = yield* World.resolve(getAccountById, { account_id });
@@ -180,8 +212,7 @@ export function* account_unlinkAddressWithPrimary(
     }
 
     // Determine the target address to unlink
-    const targetAddress = (account_address || signerAddress.address)
-      .toLowerCase();
+    const targetAddress = account_address || signerAddress.address;
 
     // Step 2: Signature-based unlinking
     if (!account.primary_address) {
@@ -194,8 +225,8 @@ export function* account_unlinkAddressWithPrimary(
     // Verify signature from primary address
     const primaryMessage = accountMessages.unlinkAccountWithPrimary(
       account_id,
-      targetAddress.toLocaleLowerCase(),
-      new_primary ? new_primary.toLocaleLowerCase() : null,
+      targetAddress,
+      new_primary ? new_primary : null,
     );
 
     const primarySignatureValid = yield* verifySignature(
@@ -232,7 +263,7 @@ export function* account_unlinkAddressWithPrimary(
       const [newPrimaryAddress] = yield* World.resolve(
         getAddressByAddress,
         {
-          address: new_primary.toLowerCase(),
+          address: new_primary,
         },
       );
 
@@ -279,17 +310,20 @@ export function* account_unlinkAddressWithPrimary(
 }
 
 export function* account_unlinkAddressSelf(
-  signerAddress: IGetAddressByAddressResult,
+  signerAddress: {
+    address: WalletAddress;
+    account_id: number | null;
+  },
   input: ParseInputResult<
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.unlinkAddress
   >,
 ) {
   try {
-    const {
-      account_id,
-      account_address,
-    } = input.data;
+    const account_id: number = input.data.account_id;
+    const account_address: WalletAddress = formatWalletAddress(
+      input.data.account_address,
+    );
 
     // Step 1: Check if account_id exists
     const [account] = yield* World.resolve(getAccountById, { account_id });
@@ -304,8 +338,7 @@ export function* account_unlinkAddressSelf(
     }
 
     // Determine the target address to unlink
-    const targetAddress = (account_address || signerAddress.address)
-      .toLowerCase();
+    const targetAddress = account_address || signerAddress.address;
 
     // Check if the address belongs to the account
     if (signerAddress.account_id !== account_id) {
@@ -346,7 +379,10 @@ export function* account_unlinkAddressSelf(
 }
 
 export function* account_unlinkAddress(
-  signerAddress: IGetAddressByAddressResult,
+  signerAddress: {
+    address: WalletAddress;
+    account_id: number | null;
+  },
   input: ParseInputResult<
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.unlinkAddress
