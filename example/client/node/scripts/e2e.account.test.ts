@@ -7,7 +7,11 @@ import {
   BuiltinGrammarPrefix,
   signMessage as internalSignMessage,
 } from "@paima/concise";
-import type { AccountState, SharedState } from "./e2e-shared-state.ts";
+import {
+  type AccountState,
+  addLinkedAddress,
+  type SharedState,
+} from "./e2e-shared-state.ts";
 
 function validateAccountState(
   expectedState: AccountState,
@@ -129,22 +133,17 @@ async function assertAccountState(
 
 // Start Test
 export async function accountTests(db: Client, sharedState: SharedState) {
-  const paimaL2 = paimaL2Builder();
+  const paimaL2 = paimaL2Builder(sharedState);
 
   // wallet-0 is owner
   await paimaL2.submitGameInput(
     await accountPayload.createAccount(),
     wallets[0].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Update expected state: account 1 created with wallet-0 as primary
-  sharedState.account_state.accounts[1] = {
-    primaryAddress: wallets[0].address.toLowerCase(),
-    addresses: new Set([wallets[0].address.toLowerCase()]),
-  };
 
+  addLinkedAddress(sharedState, wallets[0].address, true, 1);
   await assertAccountState(
     db,
     sharedState.account_state,
@@ -164,13 +163,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ),
     wallets[1].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Update expected state: add wallet-1 to account 1
-  sharedState.account_state.accounts[1].addresses.add(
-    wallets[1].address.toLowerCase(),
-  );
+  addLinkedAddress(sharedState, wallets[1].address, false, 1);
 
   await assertAccountState(
     db,
@@ -191,15 +186,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ),
     wallets[2].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
+  addLinkedAddress(sharedState, wallets[2].address, true, 1);
   // Update expected state: add wallet-2 to account 1 and make it primary
-  sharedState.account_state.accounts[1].addresses.add(
-    wallets[2].address.toLowerCase(),
-  );
-  sharedState.account_state.accounts[1].primaryAddress = wallets[2].address
-    .toLowerCase();
 
   await assertAccountState(
     db,
@@ -220,14 +209,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ),
     wallets[2].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Update expected state: add wallet-3 to account 1
-  sharedState.account_state.accounts[1].addresses.add(
-    wallets[3].address.toLowerCase(),
-  );
-
+  addLinkedAddress(sharedState, wallets[3].address, false, 1);
   await assertAccountState(
     db,
     sharedState.account_state,
@@ -245,17 +229,10 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ),
     wallets[0].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Update expected state: remove wallet-3 from account 1 and add to unlinked addresses
-  sharedState.account_state.accounts[1].addresses.delete(
-    wallets[3].address.toLowerCase(),
-  );
-  sharedState.account_state.unlinkedAddresses.add(
-    wallets[3].address.toLowerCase(),
-  );
 
+  addLinkedAddress(sharedState, wallets[3].address, false, null);
   await assertAccountState(
     db,
     sharedState.account_state,
@@ -273,19 +250,10 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ),
     wallets[2].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Update expected state: remove wallet-2 from account 1, add to unlinked addresses, and make wallet-1 primary
-  sharedState.account_state.accounts[1].addresses.delete(
-    wallets[2].address.toLowerCase(),
-  );
-  sharedState.account_state.unlinkedAddresses.add(
-    wallets[2].address.toLowerCase(),
-  );
-  sharedState.account_state.accounts[1].primaryAddress = wallets[1].address
-    .toLowerCase();
-
+  addLinkedAddress(sharedState, wallets[2].address, false, null);
+  addLinkedAddress(sharedState, wallets[1].address, true, 1);
   await assertAccountState(
     db,
     sharedState.account_state,
@@ -300,14 +268,10 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     await accountPayload.createAccount(),
     wallets[4].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Update expected state: account 2 created with wallet-4 as primary
-  sharedState.account_state.accounts[2] = {
-    primaryAddress: wallets[4].address.toLowerCase(),
-    addresses: new Set([wallets[4].address.toLowerCase()]),
-  };
+
+  addLinkedAddress(sharedState, wallets[4].address, true, 2);
 
   await assertAccountState(
     db,
@@ -321,14 +285,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     await accountPayload.createAccount(),
     wallets[5].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Update expected state: account 3 created with wallet-5 as primary
-  sharedState.account_state.accounts[3] = {
-    primaryAddress: wallets[5].address.toLowerCase(),
-    addresses: new Set([wallets[5].address.toLowerCase()]),
-  };
+  addLinkedAddress(sharedState, wallets[5].address, true, 3);
 
   await assertAccountState(
     db,
@@ -342,17 +301,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     await accountPayload.unlinkSelf(1),
     wallets[1].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Update expected state: wallet-1 becomes unlinked, account 1 has no primary
-  sharedState.account_state.accounts[1].addresses.delete(
-    wallets[1].address.toLowerCase(),
-  );
-  sharedState.account_state.accounts[1].primaryAddress = null;
-  sharedState.account_state.unlinkedAddresses.add(
-    wallets[1].address.toLowerCase(),
-  );
+  addLinkedAddress(sharedState, wallets[1].address, false, null);
 
   await assertAccountState(
     db,
@@ -373,8 +324,6 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ),
     wallets[0].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Expected state should remain unchanged: account 1 is permanently unusable (no primary address)
   // and wallet-0 remains unlinked because the link operation should fail
@@ -393,8 +342,6 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     await accountPayload.createAccount(),
     wallets[4].privateKey, // wallet-4 already has account 2
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Expected state should remain unchanged (createAccount should fail)
   await assertAccountState(
@@ -416,8 +363,6 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ),
     wallets[6].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // wallet-6 should be added to unlinked addresses since it's a new address
   sharedState.account_state.unlinkedAddresses.add(
@@ -441,8 +386,6 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ),
     wallets[4].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Expected state should remain unchanged (operation should fail)
   await assertAccountState(
@@ -469,8 +412,6 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ), // valid signature from new address
     "false",
   ], wallets[7].privateKey);
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // wallet-7 should be added to unlinked addresses since it's a new address
   sharedState.account_state.unlinkedAddresses.add(
@@ -496,8 +437,6 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     badSignature, // invalid signature from new address
     "false",
   ], wallets[8].privateKey);
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // wallet-8 should be added to unlinked addresses since it's a new address
   sharedState.account_state.unlinkedAddresses.add(
@@ -519,8 +458,6 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     wallets[4].address, // address to unlink
     "", // no new primary
   ], wallets[4].privateKey);
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Expected state should remain unchanged (operation should fail)
   await assertAccountState(
@@ -545,8 +482,6 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ), // valid signature from new address
     "false",
   ], wallets[9].privateKey);
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // wallet-9 should be added to unlinked addresses since it's a new address
   sharedState.account_state.unlinkedAddresses.add(
@@ -572,8 +507,6 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     ),
     wallets[10].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
   // Update expected state: wallet-10 successfully linked to account 2
   sharedState.account_state.accounts[2].addresses.add(
@@ -595,16 +528,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     await accountPayload.unlinkSelf(2),
     wallets[10].privateKey,
   );
-  sharedState.paima_state_machine_counter += 1;
-  sharedState.primitive_accounting_counter += 1;
 
+  addLinkedAddress(sharedState, wallets[10].address, false, null);
   // Update expected state: wallet-10 becomes unlinked, account 2 keeps wallet-4 as primary
-  sharedState.account_state.accounts[2].addresses.delete(
-    wallets[10].address.toLowerCase(),
-  );
-  sharedState.account_state.unlinkedAddresses.add(
-    wallets[10].address.toLowerCase(),
-  );
 
   await assertAccountState(
     db,

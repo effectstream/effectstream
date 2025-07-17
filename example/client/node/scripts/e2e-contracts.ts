@@ -17,6 +17,11 @@ import {
   erc721dev,
   paimal2contract,
 } from "@my-project/evm-contracts";
+import {
+  type SharedState,
+  updateERC20Balance,
+  updateERC721Ownership,
+} from "./e2e-shared-state.ts";
 
 const mainEvm = hardhat;
 const parallelEvm = JSON.parse(JSON.stringify(hardhat));
@@ -98,7 +103,7 @@ function clients(privateKey: `0x${string}`, chain: Chain): {
 /**
  * PaimaL2 Contract Methods.
  */
-export const paimaL2Builder = () => ({
+export const paimaL2Builder = (sharedState: SharedState) => ({
   submitGameInput: async (
     input: string[],
     privateKey: `0x${string}`,
@@ -130,13 +135,37 @@ export const paimaL2Builder = () => ({
         receipt.status === "success" ? "" : "❌"
       } Submit Game Input block ${receipt.blockNumber} @ Hash ${hash}`,
     );
+
+    // Update shared state
+    sharedState.paima_state_machine_counter += 1;
+    sharedState.primitive_accounting_counter += 1;
+
+    // Add into accounts if not used before.
+    const address = account.address.toLowerCase();
+    let addressExists = sharedState.account_state.unlinkedAddresses.has(
+      address,
+    );
+    if (!addressExists) {
+      Object.values(sharedState.account_state.accounts).forEach((a) => {
+        if (a.addresses.has(address)) {
+          addressExists = true;
+        }
+      });
+    }
+    if (!addressExists) {
+      sharedState.account_state.unlinkedAddresses.add(address);
+    }
   },
 });
 
 /**
  * Erc721 Contract Methods.
  */
-function erc721Factory(contractAddress: `0x${string}`, chain: Chain) {
+function erc721Factory(
+  contractAddress: `0x${string}`,
+  chain: Chain,
+  sharedState: SharedState,
+) {
   return {
     mint: async (
       mint_private_key: `0x${string}`,
@@ -173,6 +202,10 @@ function erc721Factory(contractAddress: `0x${string}`, chain: Chain) {
           } Mint block ${receipt.blockNumber} @ Hash ${hash}`,
         );
       }
+
+      updateERC721Ownership(sharedState, chain.id, account.address, token_id);
+      sharedState.primitive_accounting_counter += 1;
+      sharedState.paima_state_machine_counter += 1;
     },
     transfer: async (
       from_private_key: `0x${string}`,
@@ -210,6 +243,10 @@ function erc721Factory(contractAddress: `0x${string}`, chain: Chain) {
           } Transfer block ${receipt.blockNumber} @ Hash ${hash}`,
         );
       }
+
+      updateERC721Ownership(sharedState, chain.id, to_address, tokenId);
+      sharedState.primitive_accounting_counter += 1;
+      sharedState.paima_state_machine_counter += 1;
     },
     burn: async (
       from_private_key: `0x${string}`,
@@ -246,6 +283,10 @@ function erc721Factory(contractAddress: `0x${string}`, chain: Chain) {
           } Burn block ${receipt.blockNumber} @ Hash ${hash}`,
         );
       }
+
+      updateERC721Ownership(sharedState, chain.id, null, tokenId);
+      sharedState.primitive_accounting_counter += 1;
+      sharedState.paima_state_machine_counter += 1;
     },
   };
 }
@@ -253,7 +294,11 @@ function erc721Factory(contractAddress: `0x${string}`, chain: Chain) {
 /**
  * Erc20 Contract Methods.
  */
-export const erc20Factory = (contractAddress: `0x${string}`, chain: Chain) => {
+export const erc20Factory = (
+  contractAddress: `0x${string}`,
+  chain: Chain,
+  sharedState: SharedState,
+) => {
   return {
     mint: async (
       mint_address: `0x${string}`,
@@ -290,6 +335,12 @@ export const erc20Factory = (contractAddress: `0x${string}`, chain: Chain) => {
           } Mint block ${receipt.blockNumber} @ Hash ${hash}`,
         );
       }
+
+      // Update shared state
+      updateERC20Balance(sharedState, chain.id, mint_address, amount);
+
+      sharedState.primitive_accounting_counter += 1;
+      sharedState.paima_state_machine_counter += 1;
     },
     transfer: async (
       from_private_key: `0x${string}`,
@@ -326,6 +377,13 @@ export const erc20Factory = (contractAddress: `0x${string}`, chain: Chain) => {
           } Transfer block ${receipt.blockNumber} @ Hash ${hash}`,
         );
       }
+
+      // Update shared state
+      updateERC20Balance(sharedState, chain.id, to_address, amount);
+      updateERC20Balance(sharedState, chain.id, account.address, -amount);
+
+      sharedState.primitive_accounting_counter += 1;
+      sharedState.paima_state_machine_counter += 1;
     },
   };
 };
@@ -333,27 +391,35 @@ export const erc20Factory = (contractAddress: `0x${string}`, chain: Chain) => {
 /**
  * Erc20 Contracts Instances.
  */
-export const erc20Builder = () => ({
+export const erc20Builder = (sharedState: SharedState) => ({
   a: erc20Factory(
     contractAddressesEvmMain()["chain31337"]["Erc20DevModule#Erc20Dev"],
     mainEvm,
+    sharedState,
   ),
   b: erc20Factory(
     contractAddressesEvmMain()["chain31338"]["Erc20DevModule#Erc20Dev"],
     parallelEvm,
+    sharedState,
   ),
+  id_a: mainEvm.id,
+  id_b: parallelEvm.id,
 });
 
 /**
  * Erc721 Contracts Instances.
  */
-export const erc721Builder = () => ({
+export const erc721Builder = (sharedState: SharedState) => ({
   a: erc721Factory(
     contractAddressesEvmMain()["chain31337"]["Erc721DevModule#Erc721Dev"],
     mainEvm,
+    sharedState,
   ),
   b: erc721Factory(
     contractAddressesEvmMain()["chain31338"]["Erc721DevModule#Erc721Dev"],
     parallelEvm,
+    sharedState,
   ),
+  id_a: mainEvm.id,
+  id_b: parallelEvm.id,
 });

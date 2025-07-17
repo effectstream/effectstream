@@ -196,16 +196,12 @@ export function* account_unlinkAddressWithPrimary(
       targetAddress.toLocaleLowerCase(),
       new_primary ? new_primary.toLocaleLowerCase() : null,
     );
-    console.error({ input });
-    console.error({ signerAddress });
-    console.error({ primaryMessage });
-    console.error({ account });
+
     const primarySignatureValid = yield* verifySignature(
       account.primary_address,
       primaryMessage,
       signature_from_primary,
     );
-    console.error({ primarySignatureValid });
 
     if (!primarySignatureValid) {
       console.error(">>> Invalid signature from primary");
@@ -343,7 +339,6 @@ export function* account_unlinkAddress(
     typeof BuiltinGrammarPrefix.unlinkAddress
   >,
 ) {
-  console.error(">>> UNLINK ACCOUNT!", input.data);
   const { signature_from_primary } = input.data;
 
   if (signature_from_primary) {

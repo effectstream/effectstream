@@ -1,21 +1,11 @@
 import { cleanup, shutdown, startup } from "./e2e-loader.ts";
-import {
-  erc20Builder,
-  erc721Builder,
-  paimaL2Builder,
-  wallets,
-} from "./e2e-contracts.ts";
-import { assert, assertSQL, printSummary } from "./e2e-assert.ts";
+import { printSummary } from "./e2e-assert.ts";
 import type { Client } from "pg";
-import { getPaimaEVMPublicClient } from "./e2e-rpc.ts";
-import { AddressType } from "@paima/utils";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { createWalletClient, http } from "viem";
-import { hardhat } from "viem/chains";
-import { ENV } from "@paima/utils";
-import { generalTest } from "./e2e.general.ts";
+import { generalTest } from "./e2e.general.test.ts";
 import { accountTests } from "./e2e.account.test.ts";
 import { newSharedState } from "./e2e-shared-state.ts";
+import { tokenTests } from "./e2e.tokens.ts";
+import { RPCTest } from "./e2e.rpc.test.ts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -39,8 +29,10 @@ async function test() {
 
     const sharedState = newSharedState();
 
-    // await generalTest(db, sharedState);
+    await generalTest(db, sharedState);
+    await RPCTest();
     await accountTests(db, sharedState);
+    await tokenTests(db, sharedState);
 
     // Done testing.
     printSummary();
