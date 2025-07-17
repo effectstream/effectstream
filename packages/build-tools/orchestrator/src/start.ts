@@ -88,15 +88,25 @@ export async function start(
 
     // Start processes in parallel
     await Promise.all([
-      startProcess[ComponentNames.DOCS](),
-      startProcess[ComponentNames.PAIMA_BATCHER](),
       startProcess[ComponentNames.PAIMA_DB](),
       startProcess[ComponentNames.YACI_DEVKIT](),
       startProcess[ComponentNames.HARDHAT](),
+      startProcess[ComponentNames.AVAIL_NODE](),
+      startProcess[ComponentNames.MIDNIGHT_NODE](),
     ]);
 
-    // Start the Dolos process
-    await startProcess[ComponentNames.DOLOS]();
+    // Start the client rpc processes
+    await Promise.all([
+      startProcess[ComponentNames.DOLOS](),
+      startProcess[ComponentNames.AVAIL_CLIENT](),
+      startProcess[ComponentNames.MIDNIGHT_INDEXER](),
+      startProcess[ComponentNames.MIDNIGHT_PROOF_SERVER](),
+    ]);
+
+    // Start the contracts
+    await Promise.all([
+      startProcess[ComponentNames.MIDNIGHT_CONTRACT](),
+    ]);
 
     // Start the main process
     await startProcess[ComponentNames.PAIMA_SYNC]();
@@ -143,17 +153,6 @@ export const startProcess: Record<
 
     return tmux;
   },
-
-  [ComponentNames.DOCS]: async (): Promise<ProcessComponent> => {
-    const docs = $({
-      args: ["task", "-f", "@paima/docs", "start"],
-      component: ComponentNames.DOCS,
-      abortController: abortControllers.developerUI,
-    });
-    void docs.process.status;
-    return docs;
-  },
-
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
     // TODO: only start one if there isn't one already running
     const otlpCollector = $({
@@ -201,32 +200,6 @@ export const startProcess: Record<
     });
     await Promise.all([node.process.status]);
     return node;
-  },
-
-  [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
-    // TODO This should be read from the config.
-    const paimaL2Address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-    const batcherPrivateKey =
-      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-    const chainName = "hardhat";
-    const batcher = $({
-      args: [
-        "task",
-        "-f",
-        "@paima/batcher",
-        "standalone",
-        `--paimaL2Address=${paimaL2Address}`,
-        `--batcherPrivateKey=${batcherPrivateKey}`,
-        `--chainName=${chainName}`,
-      ],
-      log: rawLogHandler,
-      component: ComponentNames.PAIMA_BATCHER,
-      abortController: abortControllers.system,
-      namespace: [],
-    });
-    // This is a long-lasting service that does not exit.
-    void batcher.process.status;
-    return batcher;
   },
 
   [ComponentNames.TUI]: async (): Promise<ProcessComponent> => {
@@ -299,6 +272,145 @@ export const startProcess: Record<
       .process.status;
 
     return dolos;
+  },
+  [ComponentNames.MIDNIGHT_NODE]: async (): Promise<ProcessComponent> => {
+    const midnightNode = $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-node:start",
+      ],
+      log: logHandler,
+      component: ComponentNames.MIDNIGHT_NODE,
+      abortController: abortControllers.system,
+    });
+    void midnightNode.process.status; // need to await sub-service start below
+
+    await $({
+      args: ["task", "-f", "@example/midnight-contracts", "midnight-node:wait"],
+      component: ComponentNames.MIDNIGHT_NODE_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return midnightNode;
+  },
+  [ComponentNames.MIDNIGHT_INDEXER]: async (): Promise<ProcessComponent> => {
+    const midnightIndexer = $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-indexer:start",
+      ],
+      log: logHandler,
+      component: ComponentNames.MIDNIGHT_INDEXER,
+      abortController: abortControllers.system,
+    });
+    void midnightIndexer.process.status; // need to await sub-service start below
+
+    await $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-indexer:wait",
+      ],
+      component: ComponentNames.MIDNIGHT_INDEXER_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return midnightIndexer;
+  },
+  [ComponentNames.MIDNIGHT_PROOF_SERVER]: async (): Promise<
+    ProcessComponent
+  > => {
+    const midnightProofServer = $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-proof-server:start",
+      ],
+      log: logHandler,
+      component: ComponentNames.MIDNIGHT_PROOF_SERVER,
+      abortController: abortControllers.system,
+    });
+    void midnightProofServer.process.status; // need to await sub-service start below
+
+    await $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-proof-server:wait",
+      ],
+      component: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return midnightProofServer;
+  },
+  [ComponentNames.MIDNIGHT_CONTRACT]: async (): Promise<ProcessComponent> => {
+    const midnightContract = $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-contract:deploy",
+      ],
+      log: logHandler,
+      component: ComponentNames.MIDNIGHT_CONTRACT,
+      abortController: abortControllers.system,
+    });
+    await midnightContract.process.status;
+
+    return midnightContract;
+  },
+  [ComponentNames.AVAIL_NODE]: async (): Promise<ProcessComponent> => {
+    const availNode = $({
+      args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
+      log: logHandler,
+      component: ComponentNames.AVAIL_NODE,
+      abortController: abortControllers.system,
+    });
+    void availNode.process.status; // need to await sub-service start below
+
+    await $({
+      args: ["task", "-f", "@example/avail-contracts", "avail-node:wait"],
+      component: ComponentNames.AVAIL_NODE_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return availNode;
+  },
+
+  [ComponentNames.AVAIL_CLIENT]: async (): Promise<ProcessComponent> => {
+    const availClient = $({
+      args: [
+        "task",
+        "-f",
+        "@example/avail-contracts",
+        "avail-light-client:start",
+      ],
+      log: logHandler,
+      component: ComponentNames.AVAIL_CLIENT,
+      abortController: abortControllers.system,
+    });
+    void availClient.process.status; // need to await sub-service start below
+
+    await $({
+      args: [
+        "task",
+        "-f",
+        "@example/avail-contracts",
+        "avail-light-client:wait",
+      ],
+      component: ComponentNames.AVAIL_CLIENT_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return availClient;
   },
 
   [ComponentNames.PAIMA_DB]: async (): Promise<ProcessComponent> => {

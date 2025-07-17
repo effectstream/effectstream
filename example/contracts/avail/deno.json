@@ -1,0 +1,12 @@
+{
+    "name": "@example/avail-contracts",
+    "version": "0.3.0",
+    "exports": {},
+    "tasks": {
+        "avail-node:start": "deno run -A --unstable-detect-cjs --node-modules-dir ../../../packages/local-dev/avail-node/index.js --dev",
+        "avail-node:wait": "wait-on tcp:9944",
+        "avail-light-client:start": "deno run -A --unstable-detect-cjs --node-modules-dir ../../../packages/binaries/avail-light-client/index.js --network local --config ../../../packages/binaries/avail-light-client/config.yml",
+        "avail-light-client:wait": "wait-on tcp:7007"
+    },
+    "imports": {}
+}
