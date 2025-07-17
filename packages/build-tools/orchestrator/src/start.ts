@@ -105,7 +105,7 @@ export async function start(
 
     // Start the contracts
     await Promise.all([
-      startProcess[ComponentNames.MIDNIGHT_CONTRACT](),
+      // startProcess[ComponentNames.MIDNIGHT_CONTRACT](),
     ]);
 
     // Start the main process
