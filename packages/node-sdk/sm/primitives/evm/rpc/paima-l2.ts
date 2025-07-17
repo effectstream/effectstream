@@ -127,12 +127,12 @@ function* executePaimaL2Input(input: {
       status = yield* (account_linkAddress(
         signer_address,
         delegateWallet,
-      )) as any;
+      ));
     } else if (delegateWallet.prefix === BuiltinGrammarPrefix.unlinkAddress) {
       status = yield* (account_unlinkAddress(
         signer_address,
         delegateWallet,
-      )) as any;
+      ));
     }
 
     if (!status) {
@@ -229,6 +229,9 @@ export default function* processPaimaL2SyncProtocolResponse(
           primitiveName: response.output.syncProtocol.payload.primitiveName,
           signerAddress:
             // TODO: This is only for EVM at the time.
+            //       How should we handle this?
+            //       Just guess the chain by the format?
+            //       We need to format this, as it's not parsed or validated before.
             CryptoManager.Evm().verifyAddress(batchedMessage.parsed.userAddress)
               ? Value.Decode(
                 TypeboxHelpers.Evm.Address,

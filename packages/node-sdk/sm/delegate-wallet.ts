@@ -1,4 +1,4 @@
-import { World } from "@paima/coroutine";
+import { type SyncStateUpdateStream, World } from "@paima/coroutine";
 import {
   accountMessages,
   type BuiltinGrammar,
@@ -47,7 +47,7 @@ export function* account_createAccount(
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.createAccount
   >,
-) {
+): SyncStateUpdateStream<boolean> {
   try {
     // If signerAddress already has an account, return false
     if (signerAddress.account_id !== null) {
@@ -85,7 +85,7 @@ export function* account_linkAddress(
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.linkAddress
   >,
-) {
+): SyncStateUpdateStream<boolean> {
   try {
     const account_id: number = input.data.account_id;
     const signature_from_primary: Signature = input.data.signature_from_primary;
@@ -193,7 +193,7 @@ export function* account_unlinkAddressWithPrimary(
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.unlinkAddress
   >,
-) {
+): SyncStateUpdateStream<boolean> {
   try {
     const account_id: number = input.data.account_id;
     const signature_from_primary: Signature = input.data.signature_from_primary;
@@ -318,7 +318,7 @@ export function* account_unlinkAddressSelf(
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.unlinkAddress
   >,
-) {
+): SyncStateUpdateStream<boolean> {
   try {
     const account_id: number = input.data.account_id;
     const account_address: WalletAddress = formatWalletAddress(
@@ -387,7 +387,7 @@ export function* account_unlinkAddress(
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.unlinkAddress
   >,
-) {
+): SyncStateUpdateStream<boolean> {
   const { signature_from_primary } = input.data;
 
   if (signature_from_primary) {
