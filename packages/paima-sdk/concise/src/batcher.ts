@@ -40,11 +40,14 @@ export type BatcherMessage = string;
 
 /** This is what wallets sign when submitting a batch */
 export function createMessageForBatcher(
-  namespace: string,
-  inputData: string,
+  namespace: string | null,
   millisecondTimestamp: TimestampMsStr,
+  walletAddress: WalletAddress,
+  inputData: string,
 ): BatcherMessage {
-  return namespace + inputData + millisecondTimestamp;
+  return ((namespace ?? "") + millisecondTimestamp + walletAddress + inputData)
+    .replace(/[^a-zA-Z0-9]/g, "-")
+    .toLocaleLowerCase();
 }
 
 /**

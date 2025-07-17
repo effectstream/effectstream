@@ -12,6 +12,7 @@ import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { ENV } from "@paima/utils";
 import { addLinkedAddress, type SharedState } from "./e2e-shared-state.ts";
+import { createMessageForBatcher } from "@paima/concise";
 
 // Start Test
 export async function generalTest(db: Client, sharedState: SharedState) {
@@ -171,10 +172,20 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     chain: hardhat,
     transport: http(),
   });
+
   console.log("Created random account", account.address);
   const gameInput = JSON.stringify(["attack", "999", "777"]);
   let nonce_counter = 0;
   // Send a batched message.
+  const message = createMessageForBatcher(
+    null,
+    timestamp,
+    account.address,
+    gameInput,
+  );
+  const signature = await walletClient.signMessage({
+    message,
+  });
   await fetch(`http://localhost:${ENV.BATCHER_PORT}/send-input`, {
     method: "POST",
     headers: {
@@ -183,12 +194,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     body: JSON.stringify({
       addressType: AddressType.EVM,
       userAddress: account.address,
-      userSignature: await walletClient.signMessage({
-        message: JSON.stringify({
-          message: gameInput,
-          timestamp,
-        }),
-      }),
+      userSignature: signature,
       gameInput,
       millisecondTimestamp: timestamp,
     }),
@@ -196,7 +202,6 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   nonce_counter += 1;
   sharedState.primitive_accounting_counter += 1;
   sharedState.paima_state_machine_counter += 1;
-
   // Manually add into accouts
   addLinkedAddress(sharedState, account.address, false, null);
 
@@ -204,6 +209,46 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     { primitive_name: string; payload: { inputData: string } }
   >(
     "Check Batcher",
+    db,
+    `SELECT
+      primitive_name, id, paima_block_height, payload_type, payload
+      FROM
+      public.primitive_accounting;`,
+    (res) => res.rows.length === sharedState.primitive_accounting_counter,
+    (res) => {
+      return res.rows[sharedState.primitive_accounting_counter - 1]
+            .primitive_name ===
+          "PaimaGameInteraction" &&
+        res.rows[sharedState.primitive_accounting_counter - 1].payload
+            .inputData ===
+          gameInput;
+    },
+  );
+
+  // Send a batched message.
+  const badSignature = await walletClient.signMessage({
+    message: "bad-message",
+  });
+  await fetch(`http://localhost:${ENV.BATCHER_PORT}/send-input`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      addressType: AddressType.EVM,
+      userAddress: account.address,
+      userSignature: badSignature,
+      gameInput,
+      millisecondTimestamp: timestamp,
+    }),
+  });
+  // This message should not change the state of the database.
+  // If this test fails, it will probably reflected in the next test.
+  // As we cannot wait until the state does not change.
+  await assertSQL<
+    { primitive_name: string; payload: { inputData: string } }
+  >(
+    "Batcher Message with bad signature: should not be processed",
     db,
     `SELECT
       primitive_name, id, paima_block_height, payload_type, payload

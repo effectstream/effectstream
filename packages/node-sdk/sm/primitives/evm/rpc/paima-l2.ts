@@ -19,6 +19,7 @@ import {
 } from "@paima/db";
 import { World } from "@paima/coroutine";
 import {
+  createMessageForBatcher,
   extractBatches,
   extractDelegateWallet,
   type ExtractedBatchSubunit,
@@ -35,6 +36,7 @@ import {
 } from "@paima/sm";
 import { clearBigInts } from "../../utils.ts";
 import { BuiltinGrammarPrefix } from "@paima/concise";
+import { CryptoManager } from "@paima/crypto";
 
 function* checkNonce(
   nonce: string | undefined,
@@ -174,7 +176,7 @@ export default function* processPaimaL2SyncProtocolResponse(
   let isBatched = false;
   let batchedMessages: ExtractedBatchSubunit[] = [];
   try {
-    const message = hexToString((outerLayerPayload as any).data);
+    const message = hexToString(outerLayerPayload.data);
     batchedMessages = extractBatches(message);
     isBatched = true;
   } catch {
@@ -182,23 +184,53 @@ export default function* processPaimaL2SyncProtocolResponse(
   }
   if (isBatched) {
     for (const batchedMessage of batchedMessages) {
-      // TODO we need to verify the signature of the batched messages
-      yield* executePaimaL2Input({
-        paima_block_height,
-        nonce: batchedMessage.parsed.userAddress + "-" +
-          batchedMessage.parsed.millisecondTimestamp,
-        ownChain: {
-          blockNumber:
-            response.output.syncProtocol.payload.ownChain.blockNumber,
-          transactionHash: response.output.syncProtocol.payload.transactionHash,
-        },
-        payload: {
-          data: stringToHex(batchedMessage.parsed.gameInput),
-          inputData: batchedMessage.parsed.gameInput,
-        } as any,
-        primitiveName: response.output.syncProtocol.payload.primitiveName,
-        signerAddress: batchedMessage.parsed.userAddress as `0x${string}`,
-      });
+      const { parsed } = batchedMessage;
+      const { userAddress, millisecondTimestamp, userSignature, gameInput } =
+        parsed;
+      // TODO: We need to setup & configure the namespace.
+      const message = createMessageForBatcher(
+        null,
+        millisecondTimestamp,
+        userAddress,
+        gameInput,
+      );
+      // We yield the promise to the generator caller.
+      // Sync Generators cannot resolve promises.
+      const [validSignature] = (yield {
+        promise: CryptoManager.Evm().verifySignature(
+          // TODO This is only for EVM at the time.
+          //      But the user can sign with other wallets.
+          userAddress as `0x${string}`,
+          message,
+          userSignature as `0x${string}`,
+        ),
+      } as any) as [boolean];
+      if (validSignature) {
+        yield* executePaimaL2Input({
+          paima_block_height,
+          nonce: batchedMessage.parsed.userAddress + "-" +
+            batchedMessage.parsed.millisecondTimestamp,
+          ownChain: {
+            blockNumber:
+              response.output.syncProtocol.payload.ownChain.blockNumber,
+            transactionHash:
+              response.output.syncProtocol.payload.transactionHash,
+          },
+          payload: {
+            data: stringToHex(batchedMessage.parsed.gameInput),
+            inputData: batchedMessage.parsed.gameInput,
+          } as any,
+          primitiveName: response.output.syncProtocol.payload.primitiveName,
+          signerAddress: batchedMessage.parsed.userAddress as `0x${string}`,
+        });
+      } else {
+        log.remote(
+          ComponentNames.PAIMA_SYNC,
+          ["paima-l2"],
+          SeverityNumber.ERROR,
+          (log) => log(`Invalid signature for batched message`),
+        );
+      }
     }
   } else { // !isBatched
     yield* executePaimaL2Input({

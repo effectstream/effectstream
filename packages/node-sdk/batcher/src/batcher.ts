@@ -11,7 +11,11 @@ import {
   type WalletClient,
 } from "npm:viem";
 import { privateKeyToAccount } from "npm:viem/accounts";
-import { type BatchedSubunit, buildBatchData } from "@paima/concise";
+import {
+  type BatchedSubunit,
+  buildBatchData,
+  createMessageForBatcher,
+} from "@paima/concise";
 import { AddressType } from "@paima/utils";
 import { type BatcherStorage, FileStorage } from "./storage.ts";
 import { startBatcherHttpServer } from "./batcher-server.ts";
@@ -131,16 +135,19 @@ export class Batcher {
       console.log("NYI support for address type", batchedSubunit.addressType);
       throw new Error("Address type not supported");
     }
+    // TODO We need to setup & configure the namespace.
+    const message = createMessageForBatcher(
+      null,
+      batchedSubunit.millisecondTimestamp,
+      batchedSubunit.userAddress,
+      batchedSubunit.gameInput,
+    );
 
     const messageVerified = yield* until(verifyMessage({
       address: batchedSubunit.userAddress as `0x${string}`,
-      message: JSON.stringify({
-        message: batchedSubunit.gameInput,
-        timestamp: batchedSubunit.millisecondTimestamp,
-      }),
+      message,
       signature: batchedSubunit.userSignature as `0x${string}`,
     }));
-
     if (!messageVerified) {
       throw new Error("Invalid signature");
     }

@@ -3,6 +3,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { BATCHER_ENDPOINT, GRAMMAR_ENDPOINT } from "../config.ts";
+import { createMessageForBatcher } from "@paima/concise";
 
 const AddressType = {
   EVM: 0,
@@ -33,11 +34,15 @@ async function createSignedInput(gameInput: string, walletInfo: WalletInfo) {
   const addressType = AddressType.EVM;
 
   // TODO This should be provided by @paima/* package.
+  const message = createMessageForBatcher(
+    null,
+    timestamp,
+    userAddress,
+    gameInput,
+  );
+
   const signature = await walletClient.signMessage({
-    message: JSON.stringify({
-      message: gameInput,
-      timestamp,
-    }),
+    message,
   });
 
   return {

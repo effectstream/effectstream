@@ -47,11 +47,11 @@ export const signMessage = async (
   const account = privateKeyToAccount(privateKey);
   const walletClient = createWalletClient({
     account,
+    // Viem requires a transport with URL or chain to be provided.
+    // This transport will not be used.
     transport: http("http://0.0.0.0"),
   });
-  const signature = await walletClient.signMessage({ message });
-  console.error("Signature:", signature, message, account.address);
-  return signature;
+  return await walletClient.signMessage({ message });
 };
 
 export const accountPayload = {

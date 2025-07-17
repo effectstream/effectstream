@@ -1,6 +1,5 @@
 import type { IVerify } from "../IVerify.ts";
-import { createPublicClient, http, isAddress } from "viem";
-import { mainnet } from "viem/chains";
+import { isAddress, verifyMessage } from "viem";
 
 export class EvmCrypto implements IVerify {
   verifyAddress = (address: string): Promise<boolean> => {
@@ -11,16 +10,14 @@ export class EvmCrypto implements IVerify {
     message: string,
     signature: `0x${string}`,
   ): Promise<boolean> => {
-    // Note we will not be using the transport or chain in the operations.
-    const publicClient = createPublicClient({
-      chain: mainnet,
-      transport: http(),
-    });
-
-    return await publicClient.verifyMessage({
-      address: signerAddress,
-      message,
-      signature,
-    });
+    try {
+      return await verifyMessage({
+        address: signerAddress,
+        message,
+        signature,
+      });
+    } catch {
+      return false;
+    }
   };
 }
