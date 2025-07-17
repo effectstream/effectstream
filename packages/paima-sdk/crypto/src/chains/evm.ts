@@ -2,8 +2,8 @@ import type { IVerify } from "../IVerify.ts";
 import { isAddress, verifyMessage } from "viem";
 
 export class EvmCrypto implements IVerify {
-  verifyAddress = (address: string): Promise<boolean> => {
-    return new Promise((resolve) => resolve(isAddress(address)));
+  verifyAddress = (address: string): address is EvmAddress => {
+    return Value.Check(TypeboxHelpers.Evm.Address, address);
   };
   verifySignature = async (
     signerAddress: EvmAddress,
