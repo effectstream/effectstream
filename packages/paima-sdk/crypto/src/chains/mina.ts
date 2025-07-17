@@ -1,24 +1,29 @@
-import { doLog, MinaAddress, Signature, TypeboxHelpers } from '@paima/utils';
-import type { IVerify } from './IVerify.js';
-import type { NetworkId } from 'mina-signer';
-import { Value } from '@sinclair/typebox/value';
+import {
+  type MinaAddress,
+  type Signature,
+  TypeboxHelpers,
+  type WalletAddress,
+} from "@paima/utils";
+import type { IVerify } from "../IVerify.ts";
+import type { NetworkId } from "mina-signer";
+import { Value } from "@sinclair/typebox/value";
 
 export class MinaCrypto implements IVerify {
-  verifyAddress = (address: string): address is MinaAddress => {
+  verifyAddress = (address: WalletAddress): address is MinaAddress => {
     return Value.Check(TypeboxHelpers.Mina.Address, address);
   };
   verifySignature = async (
     userAddress: MinaAddress,
     message: string,
-    sigStruct: Signature
+    sigStruct: Signature,
   ): Promise<boolean> => {
     try {
-      const [field, scalar, network, ...remainder] = sigStruct.split(';');
+      const [field, scalar, network, ...remainder] = sigStruct.split(";");
       if (!field || !scalar || !network || remainder.length > 0) {
         return false;
       }
 
-      const Client = (await import('mina-signer')).default;
+      const Client = (await import("mina-signer")).default;
 
       const signerClient = new Client({ network: network as NetworkId });
 
@@ -32,7 +37,7 @@ export class MinaCrypto implements IVerify {
 
       return verifyResult;
     } catch (err) {
-      doLog('[address-validator] error verifying mina signature:', err);
+      console.error("[address-validator] error verifying mina signature:", err);
       return false;
     }
   };

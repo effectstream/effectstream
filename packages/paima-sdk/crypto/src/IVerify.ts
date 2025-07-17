@@ -1,7 +1,7 @@
 import type { Signature, WalletAddress } from "@paima/utils";
 
 export interface IVerify {
-  verifyAddress(address: WalletAddress): Promise<boolean>;
+  verifyAddress(address: WalletAddress): boolean;
   verifySignature(
     userAddress: WalletAddress,
     message: string,

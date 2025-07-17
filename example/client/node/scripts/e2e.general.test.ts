@@ -177,14 +177,13 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   const gameInput = JSON.stringify(["attack", "999", "777"]);
   let nonce_counter = 0;
   // Send a batched message.
-  const message = createMessageForBatcher(
-    null,
-    timestamp,
-    account.address,
-    gameInput,
-  );
   const signature = await walletClient.signMessage({
-    message,
+    message: createMessageForBatcher(
+      null,
+      timestamp,
+      account.address,
+      gameInput,
+    ),
   });
   await fetch(`http://localhost:${ENV.BATCHER_PORT}/send-input`, {
     method: "POST",

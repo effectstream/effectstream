@@ -143,8 +143,9 @@ export class Batcher {
       batchedSubunit.gameInput,
     );
 
+    // TODO We only support EVM signatures for now.
     const messageVerified = yield* until(verifyMessage({
-      address: batchedSubunit.userAddress as `0x${string}`,
+      address: batchedSubunit.userAddress,
       message,
       signature: batchedSubunit.userSignature as `0x${string}`,
     }));

@@ -363,15 +363,12 @@ function* verifySignature(
   ];
   for (const validator of WALLET_VALIDATORS) {
     try {
+      if (!validator.verifyAddress(walletAddress)) continue;
+
       // IMPORATNT: sync generator cannot resolve promises.
       //            so we pass the promise back to generator caller
       //            and resolves the promise for us.
-      const [valid] = (yield {
-        promise: validator.verifyAddress(walletAddress),
-      }) as [boolean];
-
-      if (!valid) continue;
-
+      // TODO:      We could update SyncStateUpdateStream to support custom promises.
       const [validSignature] = (yield {
         promise: validator.verifySignature(
           walletAddress as `0x${string}`,

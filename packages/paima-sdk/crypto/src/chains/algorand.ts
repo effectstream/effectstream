@@ -1,27 +1,43 @@
-import { CardanoAddress, doLog, Signature, TypeboxHelpers } from '@paima/utils';
-import type { IVerify } from './IVerify.js';
-import { Value } from '@sinclair/typebox/value';
+import {
+  type AlgorandAddress,
+  type Signature,
+  TypeboxHelpers,
+  type WalletAddress,
+} from "@paima/utils";
+import type { IVerify } from "../IVerify.ts";
+import { Value } from "@sinclair/typebox/value";
 
-export class CardanoCrypto implements IVerify {
-  verifyAddress = (address: string): address is CardanoAddress => {
-    return Value.Check(TypeboxHelpers.Cardano.Address, address);
+export class AlgorandCrypto implements IVerify {
+  verifyAddress = (address: WalletAddress): address is AlgorandAddress => {
+    return Value.Check(TypeboxHelpers.Algorand.Address, address);
   };
   verifySignature = async (
-    userAddress: CardanoAddress,
+    userAddress: WalletAddress,
     message: string,
-    sigStruct: Signature
+    sigStruct: Signature,
   ): Promise<boolean> => {
     try {
-      const [signature, key, ...remainder] = sigStruct.split('+');
+      if (!this.verifyAddress(userAddress)) {
+        return false;
+      }
+      const [signature, key, ...remainder] = sigStruct.split("+");
       if (!signature || !key || remainder.length > 0) {
         return false;
       }
       const { default: verifyCardanoDataSignature } = await import(
-        '@cardano-foundation/cardano-verify-datasignature'
+        "npm:@cardano-foundation/cardano-verify-datasignature"
       );
-      return verifyCardanoDataSignature.default(signature, key, message, userAddress);
+      return verifyCardanoDataSignature.default(
+        signature,
+        key,
+        message,
+        userAddress,
+      );
     } catch (err) {
-      doLog('[address-validator] error verifying cardano signature:', err);
+      console.error(
+        "[address-validator] error verifying algorand signature:",
+        err,
+      );
       return false;
     }
   };

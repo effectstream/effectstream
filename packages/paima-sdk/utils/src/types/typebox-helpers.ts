@@ -187,6 +187,9 @@ export const TypeboxHelpers = {
     FullSelector: Type.Unsafe<Nominal.EvmSelector>(
       forceLowercase(Type.RegExp(/^0x[a-fA-F0-9]{64}$/)),
     ),
+    Signature: Type.Unsafe<Nominal.Signature>(
+      Type.RegExp(/^0x[a-fA-F0-9]{130}$/),
+    ),
   },
   Midnight: {
     BlockHash: Type.Unsafe<Nominal.MidnightBlockHash>(

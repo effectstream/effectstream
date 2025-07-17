@@ -2,6 +2,8 @@
     "name": "@paima/crypto",
     "exports": "./src/mod.ts",
     "imports": {
+        "@sinclair/typebox": "npm:@sinclair/typebox@~0.34.30",
+        "mina-signer": "npm:mina-signer@^3.0.7",
         "viem": "npm:viem@^2.21.3"
     }
 }

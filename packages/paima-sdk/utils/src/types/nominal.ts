@@ -13,7 +13,9 @@ export type Caip2 = FastFlavor<string, "Caip2">;
  * TODO: probably best to make this more granular to different cryptographic schemes
  *       esp. since some return 0x and others don't
  */
-export type Signature = FastFlavor<string, "Signature">;
+export type EvmSignature = FastFlavor<HexString0x, "EvmSignature">;
+export type OtherSignature = FastFlavor<string, "OtherSignature">;
+export type Signature = EvmSignature | OtherSignature;
 
 export type VersionString = `${number}.${number}.${number}`;
 
