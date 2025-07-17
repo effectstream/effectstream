@@ -1,45 +1,39 @@
-// import { doLog } from '@paima/utils';
-// import type { IVerify } from './IVerify.js';
-// import bs58check from 'bs58check';
-// import type { NetworkId } from 'mina-signer';
+import { doLog, MinaAddress, Signature, TypeboxHelpers } from '@paima/utils';
+import type { IVerify } from './IVerify.js';
+import type { NetworkId } from 'mina-signer';
+import { Value } from '@sinclair/typebox/value';
 
-// export class MinaCrypto implements IVerify {
-//   verifyAddress = async (address: string): Promise<boolean> => {
-//     try {
-//       bs58check.decode(address);
-//     } catch (e) {
-//       return false;
-//     }
+export class MinaCrypto implements IVerify {
+  verifyAddress = (address: string): address is MinaAddress => {
+    return Value.Check(TypeboxHelpers.Mina.Address, address);
+  };
+  verifySignature = async (
+    userAddress: MinaAddress,
+    message: string,
+    sigStruct: Signature
+  ): Promise<boolean> => {
+    try {
+      const [field, scalar, network, ...remainder] = sigStruct.split(';');
+      if (!field || !scalar || !network || remainder.length > 0) {
+        return false;
+      }
 
-//     return true;
-//   };
-//   verifySignature = async (
-//     userAddress: string,
-//     message: string,
-//     sigStruct: string
-//   ): Promise<boolean> => {
-//     try {
-//       const [field, scalar, network, ...remainder] = sigStruct.split(';');
-//       if (!field || !scalar || !network || remainder.length > 0) {
-//         return false;
-//       }
+      const Client = (await import('mina-signer')).default;
 
-//       const Client = (await import('mina-signer')).default;
+      const signerClient = new Client({ network: network as NetworkId });
 
-//       const signerClient = new Client({ network: network as NetworkId });
+      const verifyBody = {
+        data: message,
+        publicKey: userAddress,
+        signature: { field, scalar },
+      };
 
-//       const verifyBody = {
-//         data: message,
-//         publicKey: userAddress,
-//         signature: { field, scalar },
-//       };
+      const verifyResult = signerClient.verifyMessage(verifyBody);
 
-//       const verifyResult = signerClient.verifyMessage(verifyBody);
-
-//       return verifyResult;
-//     } catch (err) {
-//       doLog('[address-validator] error verifying mina signature:', err);
-//       return false;
-//     }
-//   };
-// }
+      return verifyResult;
+    } catch (err) {
+      doLog('[address-validator] error verifying mina signature:', err);
+      return false;
+    }
+  };
+}
