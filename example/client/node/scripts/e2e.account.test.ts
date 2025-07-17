@@ -301,9 +301,8 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     await accountPayload.unlinkSelf(1),
     wallets[1].privateKey,
   );
-
-  // Update expected state: wallet-1 becomes unlinked, account 1 has no primary
-  addLinkedAddress(sharedState, wallets[1].address, false, null);
+  // This is invalid, as it's the main account and there are still other addresses in the account.
+  // The user should use the unlinkAddressWithPrimary instead, by providing the signature.
 
   await assertAccountState(
     db,
@@ -312,13 +311,61 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     sharedState.primitive_accounting_counter,
   );
 
+  await paimaL2.submitGameInput(
+    await accountPayload.unlinkAddress(
+      wallets[1].privateKey,
+      1,
+      wallets[1].address,
+      wallets[0].address,
+    ),
+    wallets[1].privateKey,
+  );
+  // Update expected state: wallet-1 becomes unlinked, account 1 has no primary
+  addLinkedAddress(sharedState, wallets[1].address, false, null);
+  addLinkedAddress(sharedState, wallets[0].address, true, 1);
+  await assertAccountState(
+    db,
+    sharedState.account_state,
+    "After wallet-1 unlinks itself",
+    sharedState.primitive_accounting_counter,
+  );
+
+  await paimaL2.submitGameInput(
+    await accountPayload.createAccount(),
+    wallets[9].privateKey,
+  );
+  addLinkedAddress(sharedState, wallets[9].address, true, 4);
+  await assertAccountState(
+    db,
+    sharedState.account_state,
+    "After creating account for wallet-9 and making it primary",
+    sharedState.primitive_accounting_counter,
+  );
+
+  await paimaL2.submitGameInput(
+    await accountPayload.unlinkAddress(
+      wallets[9].privateKey,
+      4,
+      wallets[9].address,
+      "",
+    ),
+    wallets[9].privateKey,
+  );
+  addLinkedAddress(sharedState, wallets[9].address, false, null);
+  await assertAccountState(
+    db,
+    sharedState.account_state,
+    "After unlinking wallet-9",
+    sharedState.primitive_accounting_counter,
+  );
+
   // Test 4: Try to link wallet-0 back to account 1 (should fail - account 1 has no primary address)
   await paimaL2.submitGameInput(
     await accountPayload.linkAddress(
-      wallets[0].privateKey,
-      wallets[0].privateKey,
-      wallets[0].address,
-      wallets[0].address,
+      wallets[9].privateKey,
+      wallets[9].privateKey,
+      wallets[9].address,
+      wallets[9].address,
       1,
       true, // make it primary since account 1 has no primary
     ),

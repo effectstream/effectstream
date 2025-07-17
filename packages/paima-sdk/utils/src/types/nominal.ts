@@ -14,8 +14,10 @@ export type Caip2 = FastFlavor<string, "Caip2">;
  *       esp. since some return 0x and others don't
  */
 export type EvmSignature = FastFlavor<HexString0x, "EvmSignature">;
-export type OtherSignature = FastFlavor<string, "OtherSignature">;
-export type Signature = EvmSignature | OtherSignature;
+export type GenericSignature = FastFlavor<string, "OtherSignature">;
+export type Signature =
+  | EvmSignature
+  | GenericSignature;
 
 export type VersionString = `${number}.${number}.${number}`;
 
@@ -90,6 +92,15 @@ export type WalletAddress =
   | EvmAddress
   | MidnightAddress
   | MinaAddress;
+
+/**
+ * TODO: probably best to make this more granular to different cryptographic schemes
+ */
+export type EvmPrivateKey = FastFlavor<HexString0x, "EvmPrivateKey">;
+export type GenericPrivateKey = FastFlavor<string, "GenericPrivateKey">;
+export type PrivateKey =
+  | EvmPrivateKey
+  | GenericPrivateKey;
 
 export type EvmRpcPageJson = FastFlavor<string, "EvmRpcPageJson">;
 export type CarpCursorJson = FastFlavor<string, "CarpCursorJson">;

@@ -11,7 +11,7 @@ import type { StateUpdateStream } from "@paima/coroutine";
 import {
   createScheduledData,
   findNonce,
-  getAddressWithAddress,
+  getAddressByAddress,
   insertNonce,
   insertPrimitiveAccounting,
   newAddress,
@@ -97,7 +97,7 @@ function* executePaimaL2Input(input: {
     payload: safePayload,
   });
 
-  let [signer_address] = yield* World.resolve(getAddressWithAddress, {
+  let [signer_address] = yield* World.resolve(getAddressByAddress, {
     address: normalizedSignerAddress,
   });
 
@@ -106,7 +106,7 @@ function* executePaimaL2Input(input: {
     yield* World.resolve(newAddress, {
       address: normalizedSignerAddress,
     });
-    [signer_address] = yield* World.resolve(getAddressWithAddress, {
+    [signer_address] = yield* World.resolve(getAddressByAddress, {
       address: normalizedSignerAddress,
     });
   }

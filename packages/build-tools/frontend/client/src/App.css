@@ -804,6 +804,106 @@ body {
   max-width: 300px;
 }
 
+.addresses-table .account-id-cell {
+  font-weight: 600;
+  color: #19b17b;
+  text-align: center;
+  vertical-align: top;
+  padding: 15px 10px;
+  border-right: 2px solid rgba(25, 177, 123, 0.2);
+  width: 120px;
+}
+
+.addresses-table .addresses-cell {
+  padding: 10px;
+  vertical-align: top;
+}
+
+.addresses-table .address-item {
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  margin: 4px 0;
+  background: rgba(25, 177, 123, 0.1);
+  border: 1px solid rgba(25, 177, 123, 0.2);
+  border-radius: 6px;
+  word-break: break-all;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.addresses-table .address-item:hover {
+  background: rgba(25, 177, 123, 0.2);
+  border-color: rgba(25, 177, 123, 0.4);
+  transform: translateX(2px);
+}
+
+.addresses-table .address-item:first-child {
+  margin-top: 0;
+}
+
+.addresses-table .address-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Primary address indicators */
+.addresses-table .has-primary-address {
+  background: linear-gradient(
+    135deg,
+    rgba(25, 177, 123, 0.1),
+    rgba(2, 36, 24, 0.05)
+  );
+  border-left: 4px solid #19b17b;
+}
+
+.addresses-table .account-id-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addresses-table .primary-indicator {
+  font-size: 1.2rem;
+  color: #19b17b;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.7;
+  }
+}
+
+.addresses-table .primary-address {
+  background: linear-gradient(
+    135deg,
+    rgba(25, 177, 123, 0.15),
+    rgba(2, 36, 24, 0.1)
+  );
+  border: 2px solid #19b17b;
+  position: relative;
+}
+
+.addresses-table .primary-badge {
+  background: #19b17b;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .addresses-loading {
   display: flex;
   justify-content: center;

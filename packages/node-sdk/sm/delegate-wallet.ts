@@ -8,8 +8,9 @@ import {
 import { CryptoManager } from "@paima/crypto";
 import {
   getAccountById,
-  getAddressWithAddress,
-  type IGetAddressWithAddressResult,
+  getAddressByAccountId,
+  getAddressByAddress,
+  type IGetAddressByAddressResult,
   newAccount,
   newAddressWithId,
   removeAddressAccount,
@@ -18,7 +19,7 @@ import {
 } from "@paima/db";
 
 export function* account_createAccount(
-  signerAddress: IGetAddressWithAddressResult,
+  signerAddress: IGetAddressByAddressResult,
   input: ParseInputResult<
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.createAccount
@@ -53,7 +54,7 @@ export function* account_createAccount(
 }
 
 export function* account_linkAddress(
-  signerAddress: IGetAddressWithAddressResult,
+  signerAddress: IGetAddressByAddressResult,
   input: ParseInputResult<
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.linkAddress
@@ -119,7 +120,7 @@ export function* account_linkAddress(
     // Step 4: Check if target address already exists
     const targetAddress = (new_address || account.primary_address)
       .toLowerCase();
-    let [existingAddress] = yield* World.resolve(getAddressWithAddress, {
+    let [existingAddress] = yield* World.resolve(getAddressByAddress, {
       address: targetAddress,
     });
 
@@ -129,7 +130,7 @@ export function* account_linkAddress(
         address: targetAddress,
         account_id,
       });
-      [existingAddress] = yield* World.resolve(getAddressWithAddress, {
+      [existingAddress] = yield* World.resolve(getAddressByAddress, {
         address: targetAddress,
       });
     }
@@ -157,7 +158,7 @@ export function* account_linkAddress(
 }
 
 export function* account_unlinkAddressWithPrimary(
-  signerAddress: IGetAddressWithAddressResult,
+  signerAddress: IGetAddressByAddressResult,
   input: ParseInputResult<
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.unlinkAddress
@@ -209,7 +210,7 @@ export function* account_unlinkAddressWithPrimary(
     }
 
     // Check if the account_address exists and belongs to the account
-    const [addressToUnlink] = yield* World.resolve(getAddressWithAddress, {
+    const [addressToUnlink] = yield* World.resolve(getAddressByAddress, {
       address: targetAddress,
     });
 
@@ -229,7 +230,7 @@ export function* account_unlinkAddressWithPrimary(
     // Handle new primary address if specified
     if (new_primary) {
       const [newPrimaryAddress] = yield* World.resolve(
-        getAddressWithAddress,
+        getAddressByAddress,
         {
           address: new_primary.toLowerCase(),
         },
@@ -278,7 +279,7 @@ export function* account_unlinkAddressWithPrimary(
 }
 
 export function* account_unlinkAddressSelf(
-  signerAddress: IGetAddressWithAddressResult,
+  signerAddress: IGetAddressByAddressResult,
   input: ParseInputResult<
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.unlinkAddress
@@ -312,18 +313,30 @@ export function* account_unlinkAddressSelf(
       return false;
     }
 
-    // Unlink the address
-    yield* World.resolve(removeAddressAccount, {
-      address: targetAddress,
-    });
-
     // If this was the primary address, set primary to null
     if (account.primary_address === targetAddress) {
+      // Only allow unlinking if there are no other addressses in the account.
+      // The user should use the unlinkAddressWithPrimary instead, by providing the signature.
+      const otherAddresses = yield* World.resolve(getAddressByAccountId, {
+        account_id,
+      });
+      if (otherAddresses.length > 0) {
+        console.error(
+          ">>> Account has other addresses, cannot unlink primary address",
+        );
+        return false;
+      }
+
       yield* World.resolve(updatePrimaryAddress, {
         account_id,
         primary_address: null,
       });
     }
+
+    // Unlink the address
+    yield* World.resolve(removeAddressAccount, {
+      address: targetAddress,
+    });
 
     return true;
   } catch (error) {
@@ -333,7 +346,7 @@ export function* account_unlinkAddressSelf(
 }
 
 export function* account_unlinkAddress(
-  signerAddress: IGetAddressWithAddressResult,
+  signerAddress: IGetAddressByAddressResult,
   input: ParseInputResult<
     typeof BuiltinGrammar,
     typeof BuiltinGrammarPrefix.unlinkAddress

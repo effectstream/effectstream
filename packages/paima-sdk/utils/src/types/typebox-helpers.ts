@@ -190,6 +190,9 @@ export const TypeboxHelpers = {
     Signature: Type.Unsafe<Nominal.Signature>(
       Type.RegExp(/^0x[a-fA-F0-9]{130}$/),
     ),
+    PrivateKey: Type.Unsafe<Nominal.EvmPrivateKey>(
+      Type.RegExp(/^0x[a-fA-F0-9]{64}$/),
+    ),
   },
   Midnight: {
     BlockHash: Type.Unsafe<Nominal.MidnightBlockHash>(

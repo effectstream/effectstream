@@ -26,9 +26,13 @@ UPDATE accounts
 SET primary_address = :primary_address
 WHERE id = :account_id!;
 
-/* @name getAddressWithAddress */
+/* @name getAddressByAddress */
 SELECT * FROM addresses
 WHERE address = :address!;
+
+/* @name getAddressByAccountId */
+SELECT * FROM addresses
+WHERE account_id = :account_id!;
 
 /* @name getAccountById */
 SELECT * FROM accounts
@@ -37,7 +41,8 @@ WHERE id = :account_id!;
 /* @name getAllAddresses */
 SELECT 
     addresses.address as "address", 
-    accounts.primary_address as "primary_address" 
+    addresses.account_id as "account_id",
+    accounts.primary_address as "primary_address"
 FROM addresses
-LEFT JOIN accounts ON accounts.primary_address = addresses.address;
-
+LEFT JOIN accounts ON accounts.primary_address = addresses.address
+ORDER BY addresses.account_id;

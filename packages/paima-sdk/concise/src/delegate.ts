@@ -6,6 +6,14 @@ import {
 } from "@paima/concise";
 import { privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
+import {
+  type EvmAddress,
+  type EvmPrivateKey,
+  type PrivateKey,
+  TypeboxHelpers,
+  type WalletAddress,
+} from "@paima/utils";
+import { Value } from "@sinclair/typebox/value";
 
 export function extractDelegateWallet(inputData: string) {
   const parsed = parseStmInput<
@@ -24,7 +32,7 @@ export function extractDelegateWallet(inputData: string) {
 export const accountMessages = {
   linkAccount: (
     account_id: number,
-    other_address: string,
+    other_address: WalletAddress,
     is_new_primary: boolean,
   ) => {
     return `link:${String(account_id)}:${other_address}:${
@@ -33,17 +41,30 @@ export const accountMessages = {
   },
   unlinkAccountWithPrimary: (
     account_id: number,
-    other_address: string,
-    new_primary?: string | null,
+    other_address: WalletAddress,
+    new_primary?: WalletAddress | null,
   ) => {
     return `unlink:${String(account_id)}:${other_address}:${new_primary ?? ""}`;
   },
 };
 
+const isEvmPrivateKey = (
+  privateKey: PrivateKey,
+): privateKey is EvmPrivateKey => {
+  return Value.Check(TypeboxHelpers.Evm.PrivateKey, privateKey);
+};
+const isEvmAddress = (address: WalletAddress): address is EvmAddress => {
+  return Value.Check(TypeboxHelpers.Evm.Address, address);
+};
+
 export const signMessage = async (
   message: string,
-  privateKey: `0x${string}`,
+  privateKey: PrivateKey,
 ) => {
+  if (!isEvmPrivateKey(privateKey)) {
+    throw new Error("NYI: Private key is not an EVM private key");
+  }
+
   const account = privateKeyToAccount(privateKey);
   const walletClient = createWalletClient({
     account,
@@ -59,10 +80,10 @@ export const accountPayload = {
     return [BuiltinGrammarPrefix.createAccount];
   },
   linkAddress: async (
-    primaryAccountPrivateKey: `0x${string}`,
-    newAccountPrivateKey: `0x${string}`,
-    primaryAddress: `0x${string}`,
-    newAddress: `0x${string}`,
+    primaryAccountPrivateKey: PrivateKey,
+    newAccountPrivateKey: PrivateKey,
+    primaryAddress: WalletAddress,
+    newAddress: WalletAddress,
     accountId: number,
     isNewPrimary: boolean,
   ): Promise<string[]> => {
@@ -72,7 +93,9 @@ export const accountPayload = {
       await signMessage(
         accountMessages.linkAccount(
           accountId,
-          newAddress.toLowerCase(),
+          isEvmAddress(newAddress)
+            ? Value.Decode(TypeboxHelpers.Evm.Address, newAddress)
+            : newAddress,
           isNewPrimary,
         ),
         primaryAccountPrivateKey,
@@ -81,7 +104,9 @@ export const accountPayload = {
       await signMessage(
         accountMessages.linkAccount(
           accountId,
-          primaryAddress.toLowerCase(),
+          isEvmAddress(primaryAddress)
+            ? Value.Decode(TypeboxHelpers.Evm.Address, primaryAddress)
+            : primaryAddress,
           isNewPrimary,
         ),
         newAccountPrivateKey,
@@ -101,10 +126,10 @@ export const accountPayload = {
     ];
   },
   unlinkAddress: async (
-    primaryAccountPrivateKey: `0x${string}`,
+    primaryAccountPrivateKey: PrivateKey,
     accountId: number,
-    accountAddress: string,
-    newPrimary: string,
+    accountAddress: WalletAddress,
+    newPrimary: WalletAddress,
   ): Promise<string[]> => {
     return [
       BuiltinGrammarPrefix.unlinkAddress,
@@ -112,8 +137,12 @@ export const accountPayload = {
       await signMessage(
         accountMessages.unlinkAccountWithPrimary(
           accountId,
-          accountAddress.toLowerCase(),
-          newPrimary.toLowerCase(),
+          isEvmAddress(accountAddress)
+            ? Value.Decode(TypeboxHelpers.Evm.Address, accountAddress)
+            : accountAddress,
+          isEvmAddress(newPrimary)
+            ? Value.Decode(TypeboxHelpers.Evm.Address, newPrimary)
+            : newPrimary,
         ),
         primaryAccountPrivateKey,
       ),

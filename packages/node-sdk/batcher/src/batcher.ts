@@ -16,10 +16,11 @@ import {
   buildBatchData,
   createMessageForBatcher,
 } from "@paima/concise";
-import { AddressType } from "@paima/utils";
+import { AddressType, EvmSignature } from "@paima/utils";
 import { type BatcherStorage, FileStorage } from "./storage.ts";
 import { startBatcherHttpServer } from "./batcher-server.ts";
 import { type Operation, sleep, spawn, until } from "npm:effection@3.5.0";
+import { CryptoManager } from "@paima/crypto";
 
 // TODO: Import this from the actual ABI package when available
 const paimaL2Abi = [
@@ -130,25 +131,21 @@ export class Batcher {
     batchedSubunit: BatchedSubunit,
   ): Operation<boolean> {
     // Verify the signature
-    // TODO: Add support for other address types
-    if (batchedSubunit.addressType !== AddressType.EVM) {
-      console.log("NYI support for address type", batchedSubunit.addressType);
-      throw new Error("Address type not supported");
-    }
-    // TODO We need to setup & configure the namespace.
-    const message = createMessageForBatcher(
-      null,
-      batchedSubunit.millisecondTimestamp,
-      batchedSubunit.userAddress,
-      batchedSubunit.gameInput,
+    // TODO 1: We need to setup & configure the namespace.
+    // TODO 2: We only support EVM signatures for now.
+    //         Should the caller pass the type e.g., EVM of addresses?
+    const messageVerified = yield* until(
+      CryptoManager.Evm().verifySignature(
+        batchedSubunit.userAddress,
+        createMessageForBatcher(
+          null,
+          batchedSubunit.millisecondTimestamp,
+          batchedSubunit.userAddress,
+          batchedSubunit.gameInput,
+        ),
+        batchedSubunit.userSignature,
+      ),
     );
-
-    // TODO We only support EVM signatures for now.
-    const messageVerified = yield* until(verifyMessage({
-      address: batchedSubunit.userAddress,
-      message,
-      signature: batchedSubunit.userSignature as `0x${string}`,
-    }));
     if (!messageVerified) {
       throw new Error("Invalid signature");
     }

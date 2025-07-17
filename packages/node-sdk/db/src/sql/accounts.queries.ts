@@ -1,4 +1,4 @@
-/** Types generated for queries found in "src/sql/wallet-delegation.sql" */
+/** Types generated for queries found in "src/sql/accounts.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
 /** 'NewAddress' parameters type */
@@ -166,24 +166,24 @@ const updatePrimaryAddressIR: any = {"usedParamSet":{"primary_address":true,"acc
 export const updatePrimaryAddress = new PreparedQuery<IUpdatePrimaryAddressParams,IUpdatePrimaryAddressResult>(updatePrimaryAddressIR);
 
 
-/** 'GetAddressWithAddress' parameters type */
-export interface IGetAddressWithAddressParams {
+/** 'GetAddressByAddress' parameters type */
+export interface IGetAddressByAddressParams {
   address: string;
 }
 
-/** 'GetAddressWithAddress' return type */
-export interface IGetAddressWithAddressResult {
+/** 'GetAddressByAddress' return type */
+export interface IGetAddressByAddressResult {
   account_id: number | null;
   address: string;
 }
 
-/** 'GetAddressWithAddress' query type */
-export interface IGetAddressWithAddressQuery {
-  params: IGetAddressWithAddressParams;
-  result: IGetAddressWithAddressResult;
+/** 'GetAddressByAddress' query type */
+export interface IGetAddressByAddressQuery {
+  params: IGetAddressByAddressParams;
+  result: IGetAddressByAddressResult;
 }
 
-const getAddressWithAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":40,"b":48}]}],"statement":"SELECT * FROM addresses\nWHERE address = :address!"};
+const getAddressByAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":40,"b":48}]}],"statement":"SELECT * FROM addresses\nWHERE address = :address!"};
 
 /**
  * Query generated from SQL:
@@ -192,7 +192,36 @@ const getAddressWithAddressIR: any = {"usedParamSet":{"address":true},"params":[
  * WHERE address = :address!
  * ```
  */
-export const getAddressWithAddress = new PreparedQuery<IGetAddressWithAddressParams,IGetAddressWithAddressResult>(getAddressWithAddressIR);
+export const getAddressByAddress = new PreparedQuery<IGetAddressByAddressParams,IGetAddressByAddressResult>(getAddressByAddressIR);
+
+
+/** 'GetAddressByAccountId' parameters type */
+export interface IGetAddressByAccountIdParams {
+  account_id: number;
+}
+
+/** 'GetAddressByAccountId' return type */
+export interface IGetAddressByAccountIdResult {
+  account_id: number | null;
+  address: string;
+}
+
+/** 'GetAddressByAccountId' query type */
+export interface IGetAddressByAccountIdQuery {
+  params: IGetAddressByAccountIdParams;
+  result: IGetAddressByAccountIdResult;
+}
+
+const getAddressByAccountIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":43,"b":54}]}],"statement":"SELECT * FROM addresses\nWHERE account_id = :account_id!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM addresses
+ * WHERE account_id = :account_id!
+ * ```
+ */
+export const getAddressByAccountId = new PreparedQuery<IGetAddressByAccountIdParams,IGetAddressByAccountIdResult>(getAddressByAccountIdIR);
 
 
 /** 'GetAccountById' parameters type */
@@ -229,6 +258,7 @@ export type IGetAllAddressesParams = void;
 
 /** 'GetAllAddresses' return type */
 export interface IGetAllAddressesResult {
+  account_id: number | null;
   address: string;
   primary_address: string | null;
 }
@@ -239,16 +269,18 @@ export interface IGetAllAddressesQuery {
   result: IGetAllAddressesResult;
 }
 
-const getAllAddressesIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT \n    addresses.address as \"address\", \n    accounts.primary_address as \"primary_address\" \nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address"};
+const getAllAddressesIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT \n    addresses.address as \"address\", \n    addresses.account_id as \"account_id\",\n    accounts.primary_address as \"primary_address\"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nORDER BY addresses.account_id"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT 
  *     addresses.address as "address", 
- *     accounts.primary_address as "primary_address" 
+ *     addresses.account_id as "account_id",
+ *     accounts.primary_address as "primary_address"
  * FROM addresses
  * LEFT JOIN accounts ON accounts.primary_address = addresses.address
+ * ORDER BY addresses.account_id
  * ```
  */
 export const getAllAddresses = new PreparedQuery<IGetAllAddressesParams,IGetAllAddressesResult>(getAllAddressesIR);

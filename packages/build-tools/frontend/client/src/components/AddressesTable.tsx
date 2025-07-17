@@ -2,10 +2,16 @@ import { useEffect, useState } from "react";
 import { ADDRESSES_ENDPOINT } from "../config.ts";
 
 interface AddressRow {
-  id: number;
+  account_id: number | null;
   address: string;
-  main_id: number | null;
-  main_address: string | null;
+  primary_address: string | null;
+}
+
+interface GroupedAddress {
+  account_id: number | null;
+  addresses: string[];
+  hasPrimaryAddress: boolean;
+  primaryAddress: string | null;
 }
 
 export function AddressesTable() {
@@ -37,6 +43,35 @@ export function AddressesTable() {
     fetchAddresses();
   }, []);
 
+  // Group addresses by account_id
+  const groupedAddresses = addresses.reduce((groups: GroupedAddress[], row) => {
+    const existingGroup = groups.find((group) =>
+      group.account_id === row.account_id
+    );
+
+    if (existingGroup) {
+      // Add address to existing group if not already present
+      if (!existingGroup.addresses.includes(row.address)) {
+        existingGroup.addresses.push(row.address);
+      }
+      // Update primary address info if this row has a primary address
+      if (row.primary_address) {
+        existingGroup.hasPrimaryAddress = true;
+        existingGroup.primaryAddress = row.primary_address;
+      }
+    } else {
+      // Create new group
+      groups.push({
+        account_id: row.account_id,
+        addresses: [row.address],
+        hasPrimaryAddress: !!row.primary_address,
+        primaryAddress: row.primary_address,
+      });
+    }
+
+    return groups;
+  }, []);
+
   if (loading) {
     return (
       <div className="addresses-loading">
@@ -59,29 +94,47 @@ export function AddressesTable() {
         <table className="addresses-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Address</th>
-              <th>Main ID</th>
-              <th>Main Address</th>
+              <th>Account ID</th>
+              <th>Addresses</th>
             </tr>
           </thead>
           <tbody>
-            {addresses.map((row) => (
-              <tr key={row.id}>
-                <td>{row.id}</td>
-                <td className="address-cell" title={row.address}>
-                  {row.address}
+            {groupedAddresses.map((group, index) => (
+              <tr
+                key={group.account_id ?? `null-${index}`}
+                className={group.hasPrimaryAddress ? "has-primary-address" : ""}
+              >
+                <td className="account-id-cell">
+                  <div className="account-id-content">
+                    {group.account_id ?? "No Account ID"}
+                  </div>
                 </td>
-                <td>{row.main_id || ""}</td>
-                <td className="address-cell" title={row.main_address || ""}>
-                  {row.main_address || ""}
+                <td className="addresses-cell">
+                  {group.addresses.map((address, addrIndex) => (
+                    <div
+                      key={address}
+                      className={`address-item ${
+                        address === group.primaryAddress
+                          ? "primary-address"
+                          : ""
+                      }`}
+                      title={address === group.primaryAddress
+                        ? `${address} (Primary)`
+                        : address}
+                    >
+                      {address}
+                      {address === group.primaryAddress && (
+                        <span className="primary-badge">Primary</span>
+                      )}
+                    </div>
+                  ))}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {addresses.length === 0 && (
+      {groupedAddresses.length === 0 && (
         <div className="no-addresses">
           <div className="no-data-text">No addresses found</div>
         </div>
