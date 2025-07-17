@@ -6,9 +6,9 @@ export class EvmCrypto implements IVerify {
     return new Promise((resolve) => resolve(isAddress(address)));
   };
   verifySignature = async (
-    signerAddress: `0x${string}`,
+    signerAddress: EvmAddress,
     message: string,
-    signature: `0x${string}`,
+    signature: Signature
   ): Promise<boolean> => {
     try {
       return await verifyMessage({
