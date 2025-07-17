@@ -5,7 +5,6 @@ import {
   type BuiltinGrammarPrefix,
   type ParseInputResult,
 } from "@paima/concise";
-import { CryptoManager } from "@paima/crypto";
 import {
   getAccountById,
   getAddressByAccountId,
@@ -17,6 +16,7 @@ import {
   updateAddressAccount,
   updatePrimaryAddress,
 } from "@paima/db";
+import { verifySignature } from "./verify-signature.ts";
 
 export function* account_createAccount(
   signerAddress: IGetAddressByAddressResult,
@@ -29,7 +29,7 @@ export function* account_createAccount(
     // If signerAddress already has an account, return false
     if (signerAddress.account_id !== null) {
       console.error(
-        ">>> Address already has an account:",
+        "Address already has an account:",
         signerAddress.account_id,
       );
       return false;
@@ -48,7 +48,7 @@ export function* account_createAccount(
 
     return true;
   } catch (error) {
-    console.error(">>> CREATE ACCOUNT ERROR!", error);
+    console.error("Create account error:", error);
     return false;
   }
 }
@@ -72,12 +72,12 @@ export function* account_linkAddress(
     // Step 1: Get the account by account_id, it must exist
     const [account] = yield* World.resolve(getAccountById, { account_id });
     if (!account) {
-      console.error(">>> Account not found:", account_id);
+      console.error("Account not found:", account_id);
       return false;
     }
     if (!account.primary_address) {
       // no admin operations are possible without a primary address
-      console.error(">>> Account has no primary address");
+      console.error("Account has no primary address");
       return false;
     }
 
@@ -95,7 +95,7 @@ export function* account_linkAddress(
     );
 
     if (!primarySignatureValid) {
-      console.error(">>> Invalid signature from primary");
+      console.error("Invalid signature from primary");
       return false;
     }
 
@@ -113,7 +113,7 @@ export function* account_linkAddress(
     );
 
     if (!newAddressSignatureValid) {
-      console.error(">>> Invalid signature from new address");
+      console.error("Invalid signature from new address");
       return false;
     }
 
@@ -152,7 +152,7 @@ export function* account_linkAddress(
 
     return true;
   } catch (error) {
-    console.error(">>> LINK ACCOUNT ERROR!", error);
+    console.error("Link account error:", error);
     return false;
   }
 }
@@ -175,7 +175,7 @@ export function* account_unlinkAddressWithPrimary(
     // Step 1: Check if account_id exists
     const [account] = yield* World.resolve(getAccountById, { account_id });
     if (!account) {
-      console.error(">>> Account not found:", account_id);
+      console.error("Account not found:", account_id);
       return false;
     }
 
@@ -186,7 +186,7 @@ export function* account_unlinkAddressWithPrimary(
     // Step 2: Signature-based unlinking
     if (!account.primary_address) {
       console.error(
-        ">>> Account has no primary address for signature verification",
+        "Account has no primary address for signature verification",
       );
       return false;
     }
@@ -205,7 +205,7 @@ export function* account_unlinkAddressWithPrimary(
     );
 
     if (!primarySignatureValid) {
-      console.error(">>> Invalid signature from primary");
+      console.error("Invalid signature from primary");
       return false;
     }
 
@@ -215,13 +215,13 @@ export function* account_unlinkAddressWithPrimary(
     });
 
     if (!addressToUnlink) {
-      console.error(">>> Address to unlink not found:", targetAddress);
+      console.error("Address to unlink not found:", targetAddress);
       return false;
     }
 
     if (addressToUnlink.account_id !== account_id) {
       console.error(
-        ">>> Address does not belong to the account:",
+        "Address does not belong to the account:",
         targetAddress,
       );
       return false;
@@ -237,13 +237,13 @@ export function* account_unlinkAddressWithPrimary(
       );
 
       if (!newPrimaryAddress) {
-        console.error(">>> New primary address not found:", new_primary);
+        console.error("New primary address not found:", new_primary);
         return false;
       }
 
       if (newPrimaryAddress.account_id !== account_id) {
         console.error(
-          ">>> New primary address is already assigned to another account",
+          "New primary address is already assigned to another account",
         );
         return false;
       }
@@ -273,7 +273,7 @@ export function* account_unlinkAddressWithPrimary(
 
     return true;
   } catch (error) {
-    console.error(">>> UNLINK ACCOUNT WITH PRIMARY ERROR!", error);
+    console.error("Unlink account with primary error:", error);
     return false;
   }
 }
@@ -294,12 +294,12 @@ export function* account_unlinkAddressSelf(
     // Step 1: Check if account_id exists
     const [account] = yield* World.resolve(getAccountById, { account_id });
     if (!account) {
-      console.error(">>> Account not found:", account_id);
+      console.error("Account not found:", account_id);
       return false;
     }
 
     if (account_address && account_address !== signerAddress.address) {
-      console.error(">>> Cannot unlink different address without signature");
+      console.error("Cannot unlink different address without signature");
       return false;
     }
 
@@ -309,7 +309,7 @@ export function* account_unlinkAddressSelf(
 
     // Check if the address belongs to the account
     if (signerAddress.account_id !== account_id) {
-      console.error(">>> Signer address does not belong to the account");
+      console.error("Signer address does not belong to the account");
       return false;
     }
 
@@ -322,7 +322,7 @@ export function* account_unlinkAddressSelf(
       });
       if (otherAddresses.length > 0) {
         console.error(
-          ">>> Account has other addresses, cannot unlink primary address",
+          "Account has other addresses, cannot unlink primary address",
         );
         return false;
       }
@@ -340,7 +340,7 @@ export function* account_unlinkAddressSelf(
 
     return true;
   } catch (error) {
-    console.error(">>> UNLINK ACCOUNT SELF ERROR!", error);
+    console.error("Unlink account self error:", error);
     return false;
   }
 }
@@ -359,43 +359,4 @@ export function* account_unlinkAddress(
   } else {
     return yield* account_unlinkAddressSelf(signerAddress, input);
   }
-}
-
-function* verifySignature(
-  walletAddress: string,
-  message: string,
-  signature: string,
-): Generator<{ promise: Promise<boolean> }, boolean, unknown> {
-  if (!walletAddress || !signature) throw new Error("No Signature");
-  // TODO: Add other chains here.
-  const WALLET_VALIDATORS = [
-    CryptoManager.Evm(),
-    // CryptoManager.Cardano(),
-    // CryptoManager.Algorand(),
-    // CryptoManager.Polkadot(),
-  ];
-  for (const validator of WALLET_VALIDATORS) {
-    try {
-      if (!validator.verifyAddress(walletAddress)) continue;
-
-      // IMPORATNT: sync generator cannot resolve promises.
-      //            so we pass the promise back to generator caller
-      //            and resolves the promise for us.
-      // TODO:      We could update SyncStateUpdateStream to support custom promises.
-      const [validSignature] = (yield {
-        promise: validator.verifySignature(
-          walletAddress as `0x${string}`,
-          message,
-          signature as `0x${string}`,
-        ),
-      }) as [boolean];
-      if (validSignature) {
-        return true;
-      }
-    } catch {
-      // do nothing, some validators throw errors if the signature is invalid
-    }
-  }
-  console.error(`Invalid Signature for ${walletAddress} : ${message}`);
-  return false;
 }

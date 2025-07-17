@@ -1,4 +1,8 @@
-import type { BlockNumber, EvmAddress } from "@paima/utils";
+import {
+  type BlockNumber,
+  TypeboxHelpers,
+  type WalletAddress,
+} from "@paima/utils";
 import { hexToString, stringToHex } from "npm:viem";
 import type {
   ConfigPrimitivePayloadType,
@@ -27,15 +31,18 @@ import {
 import {
   ConfigPrimitiveAccountingPayloadType,
   type ConfigPrimitiveType,
+  PrimitiveEvmRpcPaimaL2Payload,
 } from "@paima/config";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
 import {
   account_createAccount,
   account_linkAddress,
   account_unlinkAddress,
+  verifySignature,
 } from "@paima/sm";
 import { clearBigInts } from "../../utils.ts";
 import { BuiltinGrammarPrefix } from "@paima/concise";
+import { Value } from "@sinclair/typebox/value";
 import { CryptoManager } from "@paima/crypto";
 
 function* checkNonce(
@@ -78,11 +85,8 @@ function* executePaimaL2Input(input: {
     typeof PrimitiveEvmRpcPaimaL2Accounting
   >;
   primitiveName: string;
-  signerAddress: `0x${string}`;
+  signerAddress: WalletAddress;
 }): StateUpdateStream<void> {
-  // For EVM we use the lowercase address.
-  const normalizedSignerAddress = input.signerAddress
-    .toLocaleLowerCase() as `0x${string}`;
   const isNonceValid = yield* checkNonce(input.nonce, input.paima_block_height);
   if (!isNonceValid) return;
 
@@ -98,16 +102,16 @@ function* executePaimaL2Input(input: {
   });
 
   let [signer_address] = yield* World.resolve(getAddressByAddress, {
-    address: normalizedSignerAddress,
+    address: input.signerAddress,
   });
 
   if (!signer_address) {
     // Let's insert a new address.
     yield* World.resolve(newAddress, {
-      address: normalizedSignerAddress,
+      address: input.signerAddress,
     });
     [signer_address] = yield* World.resolve(getAddressByAddress, {
-      address: normalizedSignerAddress,
+      address: input.signerAddress,
     });
   }
 
@@ -171,12 +175,15 @@ export default function* processPaimaL2SyncProtocolResponse(
     ConfigPrimitivePayloadType.PaimaL2Event
   >,
 ): StateUpdateStream<void> {
-  const outerLayerPayload = clearBigInts(response.output.payload);
-
+  // At this point we have the response from the fetcher, but the payload has not been decoded or transformed.
+  const outerLayerData = Value.Decode(
+    PrimitiveEvmRpcPaimaL2Payload,
+    response.output.payload,
+  );
   let isBatched = false;
   let batchedMessages: ExtractedBatchSubunit[] = [];
   try {
-    const message = hexToString(outerLayerPayload.data);
+    const message = hexToString(outerLayerData.data);
     batchedMessages = extractBatches(message);
     isBatched = true;
   } catch {
@@ -196,15 +203,11 @@ export default function* processPaimaL2SyncProtocolResponse(
       );
       // We yield the promise to the generator caller.
       // Sync Generators cannot resolve promises.
-      const [validSignature] = (yield {
-        promise: CryptoManager.Evm().verifySignature(
-          // TODO This is only for EVM at the time.
-          //      But the user can sign with other wallets.
-          userAddress as `0x${string}`,
-          message,
-          userSignature as `0x${string}`,
-        ),
-      } as any) as [boolean];
+      const validSignature = yield* verifySignature(
+        userAddress,
+        message,
+        userSignature,
+      );
       if (validSignature) {
         yield* executePaimaL2Input({
           paima_block_height,
@@ -221,7 +224,14 @@ export default function* processPaimaL2SyncProtocolResponse(
             inputData: batchedMessage.parsed.gameInput,
           } as any,
           primitiveName: response.output.syncProtocol.payload.primitiveName,
-          signerAddress: batchedMessage.parsed.userAddress as `0x${string}`,
+          signerAddress:
+            // TODO: This is only for EVM at the time.
+            CryptoManager.Evm().verifyAddress(batchedMessage.parsed.userAddress)
+              ? Value.Decode(
+                TypeboxHelpers.Evm.Address,
+                batchedMessage.parsed.userAddress,
+              )
+              : batchedMessage.parsed.userAddress,
         });
       } else {
         log.remote(
@@ -241,9 +251,9 @@ export default function* processPaimaL2SyncProtocolResponse(
         blockNumber: response.output.syncProtocol.payload.ownChain.blockNumber,
         transactionHash: response.output.syncProtocol.payload.transactionHash,
       },
-      payload: outerLayerPayload,
+      payload: outerLayerData,
       primitiveName: response.output.syncProtocol.payload.primitiveName,
-      signerAddress: response.output.payload.userAddress,
+      signerAddress: outerLayerData.userAddress,
     });
   }
 }

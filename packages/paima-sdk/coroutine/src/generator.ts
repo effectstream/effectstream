@@ -72,35 +72,10 @@ type Spread<T> = T extends [] // base case 1: empty list
     ? [StateUpdateStream<A>, ...Spread<Rest>]
   : never;
 
-export function* StateMachineExecution(
-  paima_block_height: number,
-  blockTimestamp: number,
-  conciseInput: string,
-  userAddress: `0x${string}` | undefined,
-  userId: number | undefined,
-  ownChainBlockNumber: number,
-  ownChainTransactionHash: string,
-): StateUpdateStream<void> {
-  yield {
-    type: "stm-promise",
-    data: {
-      blockTimestamp,
-      conciseInput,
-      blockHeight: paima_block_height,
-      userAddress,
-      userId,
-      chain: {
-        blockNumber: ownChainBlockNumber,
-        transactionHash: ownChainTransactionHash,
-      },
-    },
-  } satisfies STMExecPromise;
-}
-
-// Type to resolve a yield of a StateMachine Execution
-export type STMExecPromise = {
-  type: "stm-promise";
-  data: BaseStfInput;
+// Type to resolve a yield a generic promise execution
+export type ExecPromise = {
+  type: "promise";
+  promise: Promise<any>;
 };
 
 type NoDistribute<T> = [T] extends [any] ? T : never;
@@ -109,7 +84,7 @@ type NoDistribute<T> = [T] extends [any] ? T : never;
  * But sometimes it helps simplify to only accept non-async inputs to a function operating on generators
  */
 export type SyncStateUpdateStream<Return> = Generator<
-  QueuedUpdate | Spread<any> | STMExecPromise,
+  QueuedUpdate | Spread<any> | ExecPromise,
   Return,
   unknown
 >;

@@ -9,8 +9,8 @@ import {
 } from "@paima/sm";
 import { PreparedQuery } from "npm:@pgtyped/runtime";
 import type {
+  ExecPromise,
   QueuedUpdate,
-  STMExecPromise,
   SyncStateUpdateStream,
 } from "@paima/coroutine";
 import {
@@ -32,6 +32,10 @@ import type {
 /** Helper to check if a SyncStateUpdateStream object is a WorldResolve */
 function isWorldResolve(value: any): value is QueuedUpdate {
   return value && Array.isArray(value);
+}
+/** Helper to check if a SyncStateUpdateStream object is a promise */
+function isPromise(value: any): value is ExecPromise {
+  return value && typeof value === "object" && "promise" in value;
 }
 
 /**
@@ -73,7 +77,6 @@ async function tryOrRollback<T>(
 function* executeGeneratorStepByStep(
   generator: SyncStateUpdateStream<void>,
   dbConn: Pool,
-  gameStateTransitions?: StartConfigGameStateTransitions,
 ): Operation<any> {
   let result = generator.next();
 
@@ -93,10 +96,10 @@ function* executeGeneratorStepByStep(
       const query = new PreparedQuery(queryIR);
       const queryResult = yield* call(() => query.run(params, dbConn));
       operations.push(queryResult);
-    } else if (value && typeof value === "object" && "promise" in value) {
+    } else if (isPromise(value)) {
       // This means that we have non-database promises in the generator.
       // Each time yield is called, we catch the intention and resolve it.
-      const queryResult = yield* until((value as any).promise);
+      const queryResult = yield* until(value.promise);
       operations.push(queryResult);
     } else {
       console.error("Yielding unhandled type", result);
@@ -179,11 +182,7 @@ export function* processFinalizedBlock(
         value.blockNumber,
         primitive,
       );
-      yield* executeGeneratorStepByStep(
-        generator,
-        dbConn,
-        gameStateTransitions,
-      );
+      yield* executeGeneratorStepByStep(generator, dbConn);
     }
 
     /* STEP 4: Extract the scheduled data. */

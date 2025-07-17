@@ -16,7 +16,6 @@ import {
   buildBatchData,
   createMessageForBatcher,
 } from "@paima/concise";
-import { AddressType, EvmSignature } from "@paima/utils";
 import { type BatcherStorage, FileStorage } from "./storage.ts";
 import { startBatcherHttpServer } from "./batcher-server.ts";
 import { type Operation, sleep, spawn, until } from "npm:effection@3.5.0";
