@@ -176,7 +176,11 @@ export const $ = (params: {
         if (params.args[params.args.length - 1].endsWith(":wait")) {
           return;
         }
-
+        // Temporary solution to event loop panic on unstable deno cjs module detecttion
+        // TODO: Remove this once we have a stable deno cjs module detection
+        if (params.args.includes("midnight-contract:deploy")) {
+          return;
+        }
         shutdown(
           1,
           shutdownCalled

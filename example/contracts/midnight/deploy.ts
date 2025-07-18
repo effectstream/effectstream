@@ -244,7 +244,9 @@ const deploy = async () => {
   } finally {
     if (wallet) {
       log.info("Closing wallet...");
-      await wallet.close();
+      await wallet.close().catch((e) => {
+        log.error(`Error closing wallet: ${e.message}`);
+      });
       log.info("Wallet closed.");
     }
   }

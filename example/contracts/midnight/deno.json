@@ -12,7 +12,8 @@
         // "midnight-proof-server:start": "docker run --name midnight-proof-server -e LEDGER_NETWORK_ID=Undeployed -e RUST_BACKTRACE=full -e SUBSTRATE_NODE_WS_URL=ws://localhost:9955 -p 6300:6300 midnightnetwork/proof-server",
         "midnight-proof-server:start": "docker start midnight-proof-server",
         "midnight-proof-server:wait": "wait-on tcp:6300",
-        "midnight-contract:deploy": "deno --unstable-detect-cjs -A deploy.ts"
+        "midnight-contract:clean": "rm -rf midnight-level-db && rm -rf contract.json",
+        "midnight-contract:deploy": "deno task midnight-contract:clean && deno --unstable-detect-cjs -A deploy.ts"
     },
     "imports": {
         "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger",

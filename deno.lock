@@ -119,6 +119,7 @@
     "npm:extract-zip@^2.0.1": "2.0.1",
     "npm:fastify@*": "5.4.0",
     "npm:fastify@^5.4.0": "5.4.0",
+    "npm:graphql-ws@*": "6.0.5_graphql@16.11.0_ws@8.18.0",
     "npm:hardhat@3.0.0-next.3": "3.0.0-next.3_zod@3.24.2",
     "npm:hi-base32@~0.5.1": "0.5.1",
     "npm:http-server@*": "14.1.1",
@@ -413,7 +414,7 @@
         "@wry/trie",
         "graphql",
         "graphql-tag",
-        "graphql-ws",
+        "graphql-ws@6.0.5_graphql@16.11.0_ws@8.18.2",
         "hoist-non-react-statics",
         "optimism",
         "prop-types",
@@ -426,7 +427,7 @@
         "zen-observable-ts@1.2.5"
       ],
       "optionalPeers": [
-        "graphql-ws",
+        "graphql-ws@6.0.5_graphql@16.11.0_ws@8.18.2",
         "react@18.3.1",
         "react-dom@18.3.1_react@18.3.1"
       ]
@@ -2939,7 +2940,7 @@
         "buffer@6.0.3",
         "cross-fetch",
         "graphql",
-        "graphql-ws",
+        "graphql-ws@6.0.5_graphql@16.11.0_ws@8.18.2",
         "isomorphic-ws",
         "rxjs@7.8.2",
         "ws@8.18.2",
@@ -8340,6 +8341,16 @@
       "dependencies": [
         "graphql",
         "tslib@2.8.1"
+      ]
+    },
+    "graphql-ws@6.0.5_graphql@16.11.0_ws@8.18.0": {
+      "integrity": "sha512-HzYw057ch0hx2gZjkbgk1pur4kAtgljlWRP+Gccudqm3BRrTpExjWCQ9OHdIsq47Y6lHL++1lTvuQHhgRRcevw==",
+      "dependencies": [
+        "graphql",
+        "ws@8.18.0"
+      ],
+      "optionalPeers": [
+        "ws@8.18.0"
       ]
     },
     "graphql-ws@6.0.5_graphql@16.11.0_ws@8.18.2": {
