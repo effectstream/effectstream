@@ -221,11 +221,11 @@ export function* processFinalizedBlock(
             transactionHash: "0x0",
           },
         };
-        const op = gameStateTransitions(
+        const gameSTFGenerator = gameStateTransitions(
           value.blockNumber,
           input,
         );
-        yield* executeGeneratorStepByStep(op, dbConn);
+        yield* executeGeneratorStepByStep(gameSTFGenerator, dbConn);
         // }));
         const gameInputHash = `0x${
           Array(64).fill(0).map(() =>
