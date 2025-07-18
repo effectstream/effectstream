@@ -32,7 +32,7 @@ export function* verifySignature(
     try {
       if (!validator.verifyAddress(walletAddress)) continue;
 
-      // IMPORATNT: sync generator cannot resolve promises.
+      // IMPORTANT: sync generator cannot resolve promises.
       //            so we pass the promise back to generator caller
       //            and resolves the promise for us.
       const validSignature = yield* World.promise(validator.verifySignature(
