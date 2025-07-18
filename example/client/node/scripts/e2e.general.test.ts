@@ -161,6 +161,17 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     },
   );
 
+  // Test Promises in State Machine
+  // length = number of 'attack' inputs
+  // sums = Array(length).fill(0).map((_, i) => 3 * (i + 1)) => 3,6,9...
+  const attackInputCount = 2;
+  await assertSQL<{ sum: number }>(
+    "Check Promises in State Machine",
+    db,
+    `SELECT * FROM public.another_example_table order by block_height asc;`,
+    (res) => res.rows.length === attackInputCount,
+    (res) => res.rows.every((row, index) => row.sum === 3 * (index + 1)),
+  );
   // Test Batcher
   const timestamp = Date.now().toString();
   const privateKey = generatePrivateKey();

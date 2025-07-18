@@ -34,7 +34,7 @@ function isWorldResolve(value: any): value is QueuedUpdate {
   return value && Array.isArray(value);
 }
 /** Helper to check if a SyncStateUpdateStream object is a promise */
-function isPromise(value: any): value is ExecPromise {
+function isPromise(value: any): value is ExecPromise<any> {
   return value && typeof value === "object" && "promise" in value;
 }
 
@@ -204,29 +204,29 @@ export function* processFinalizedBlock(
     let index_in_block = 0;
     if (gameStateTransitions && scheduledData.length > 0) {
       for (const data of scheduledData) {
-        const { status } = yield* until(tryOrRollback(dbConn, async () => {
-          const input: BaseStfInput = {
-            blockTimestamp: value.timestamp,
-            blockHeight: value.blockNumber,
-            conciseInput: data.input_data,
-            // TODO This should be the delegated address?
-            //      For contracts what address to use?
-            // userAddress: data.from_address, // rollup_inputs.from_address
-            // TOOD Should we add this field to rollup_inputs
-            // userId:
-            chain: {
-              blockNumber: value.blockNumber,
-              transactionHash: "0x0",
-            },
-          };
-          const stateMachineResult = await gameStateTransitions(
-            value.blockNumber,
-            input,
-          );
-          for (const [queryIR, params] of stateMachineResult.stateTransitions) {
-            await queryIR.run(params, dbConn);
-          }
-        }));
+        // TODO: Should we rollback the State Machine execution if it fails?
+        //       Now the developer can see the execution result in the STF.
+        // const { status } = yield* until(tryOrRollback(dbConn, async () => {
+        const input: BaseStfInput = {
+          blockTimestamp: value.timestamp,
+          blockHeight: value.blockNumber,
+          conciseInput: data.input_data,
+          // TODO This should be the delegated address?
+          //      For contracts what address to use?
+          // userAddress: data.from_address, // rollup_inputs.from_address
+          // TOOD Should we add this field to rollup_inputs
+          // userId:
+          chain: {
+            blockNumber: value.blockNumber,
+            transactionHash: "0x0",
+          },
+        };
+        const op = gameStateTransitions(
+          value.blockNumber,
+          input,
+        );
+        yield* executeGeneratorStepByStep(op, dbConn);
+        // }));
         const gameInputHash = `0x${
           Array(64).fill(0).map(() =>
             Math.floor(Math.random() * 16).toString(16)
@@ -236,7 +236,9 @@ export function* processFinalizedBlock(
         yield* call(() =>
           insertGameInputResult.run({
             id: data.id,
-            success: status === "success",
+            // TODO: What does this mean? Should this be used defined?
+            //       For example the STF returning a boolean?
+            success: true, //  status === "success",
             paima_tx_hash: Buffer.from(gameInputHash),
             index_in_block,
             block_height: value.blockNumber,

@@ -5,7 +5,7 @@
   "tasks": {
     "db:up": "deno run --allow-read --allow-env --allow-net ./scripts/start-pglite.js",
     "db:wait": "wait-on tcp:5432",
-    "pgtyped:internal": "deno task db:wait && pgtyped -w -c ./pgtypedconfig.json",
+    "pgtyped:internal": "deno task db:wait && pgtyped -c ./pgtypedconfig.json",
     "pgtyped:update": "concurrently --raw --kill-others \"deno task db:up\" \"deno task pgtyped:internal\""
   },
   "imports": {

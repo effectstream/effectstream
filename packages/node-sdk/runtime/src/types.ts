@@ -3,6 +3,7 @@ import type { SyncProtocolWithNetwork } from "@paima/config";
 import type { AppEvents, BaseStfInput, BaseStfOutput } from "@paima/sm";
 import type { FastifyInstance } from "fastify";
 import type { Pool } from "pg";
+import type { SyncStateUpdateStream } from "@paima/coroutine";
 // These are user type defined objects for launching Paima Engine Node.
 
 /**
@@ -12,7 +13,7 @@ import type { Pool } from "pg";
 export type StartConfigGameStateTransitions = (
   blockHeight: number,
   input: BaseStfInput,
-) => Promise<BaseStfOutput<AppEvents>>;
+) => SyncStateUpdateStream<void>;
 
 /**
  * Type for the migration router function.

@@ -5,14 +5,21 @@ import { localhostConfig } from "./config.ts";
 export const grammar = {
   schedule: [
     ["tick", Type.Integer()],
-    ["type", Type.String()], // Type.Enum(Type.Literal("block"), Type.Literal("timestamp"))],
+    [
+      "type",
+      Type.Union([
+        Type.Literal("block"),
+        Type.Literal("timestamp"),
+      ]),
+    ],
     ["message", Type.String()],
   ],
   attack: [
     ["playerId", Type.Integer()],
     ["moveId", Type.Integer()],
   ],
-  // TODO How do we get this from the known payload types?
+  // TODO: How do we get this from the known payload types?
+  //       This is a ERC20 transfer.
   transfer: [
     [
       "payload",
