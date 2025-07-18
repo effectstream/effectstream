@@ -37,13 +37,15 @@ stm.addStateTransition(
       getLastSumFromExampleTable,
       undefined,
     );
-    const value = lastSum ? lastSum.sum : 0;
-
     // Example 3:
+    // How to use the random generator.
+    const value = lastSum ? lastSum.sum : data.randomGenerator.nextInt(10, 99);
+
+    // Example 4:
     // How to run a custom promise.
     const result = yield* World.promise(sum(value, 3));
 
-    // Example 4:
+    // Example 5:
     // How to write in the DB.
     yield* World.resolve(insertSumIntoExampleTable, {
       sum: result,

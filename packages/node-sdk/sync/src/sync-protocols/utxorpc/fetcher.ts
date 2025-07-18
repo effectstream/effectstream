@@ -32,6 +32,8 @@ export class UtxoRpcFetcher
       console.log(block.output.block.toJson({ emitDefaultValues: true }));
       outputs.push({
         output: {
+          // TODO: What is the correct block hash?
+          blockHashes: [String(block.output.block.header?.hash)],
           raw: block.output,
           // TODO: https://github.com/utxorpc/spec/issues/135
           //       mock data for now
@@ -60,6 +62,7 @@ export class UtxoRpcFetcher
             .toString("hex"),
         },
         root: rootConversion.toRootPage({
+          blockHashes: [],
           primitives: [], // TODO: I think this can be left empty here
           raw: outputs[outputs.length - 1].output.raw,
         }),
