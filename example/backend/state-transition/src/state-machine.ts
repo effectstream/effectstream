@@ -2,9 +2,9 @@ import { PaimaSTM } from "@paima/sm";
 import { grammar } from "@example/data-types";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import {
-  getLastSum,
-  insertAnotherExampleTable,
+  getLastSumFromExampleTable,
   insertStateMachineInput,
+  insertSumIntoExampleTable,
 } from "@example/database";
 import type { StartConfigGameStateTransitions } from "@paima/runtime";
 import { newScheduledHeightData, newScheduledTimestampData } from "@paima/db";
@@ -33,7 +33,10 @@ stm.addStateTransition(
 
     // Example 2:
     // How to read from the DB.
-    const [lastSum] = yield* World.resolve(getLastSum, undefined);
+    const [lastSum] = yield* World.resolve(
+      getLastSumFromExampleTable,
+      undefined,
+    );
     const value = lastSum ? lastSum.sum : 0;
 
     // Example 3:
@@ -42,7 +45,7 @@ stm.addStateTransition(
 
     // Example 4:
     // How to write in the DB.
-    yield* World.resolve(insertAnotherExampleTable, {
+    yield* World.resolve(insertSumIntoExampleTable, {
       sum: result,
       block_height: data.blockHeight,
     });

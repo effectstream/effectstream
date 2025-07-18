@@ -14,13 +14,13 @@ SELECT * FROM user_state_machine
 WHERE block_height = :block_height!
 ;
 
-/* @name getLastSum */
+/* @name getLastSumFromExampleTable */
 SELECT sum FROM another_example_table 
 ORDER BY block_height DESC
 LIMIT 1
 ;
 
-/* @name insertAnotherExampleTable */
+/* @name insertSumIntoExampleTable */
 INSERT INTO another_example_table 
 (sum, block_height) 
 VALUES 

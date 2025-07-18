@@ -87,21 +87,21 @@ const getStateMachineInputByBlockHeightIR: any = {"usedParamSet":{"block_height"
 export const getStateMachineInputByBlockHeight = new PreparedQuery<IGetStateMachineInputByBlockHeightParams,IGetStateMachineInputByBlockHeightResult>(getStateMachineInputByBlockHeightIR);
 
 
-/** 'GetLastSum' parameters type */
-export type IGetLastSumParams = void;
+/** 'GetLastSumFromExampleTable' parameters type */
+export type IGetLastSumFromExampleTableParams = void;
 
-/** 'GetLastSum' return type */
-export interface IGetLastSumResult {
+/** 'GetLastSumFromExampleTable' return type */
+export interface IGetLastSumFromExampleTableResult {
   sum: number;
 }
 
-/** 'GetLastSum' query type */
-export interface IGetLastSumQuery {
-  params: IGetLastSumParams;
-  result: IGetLastSumResult;
+/** 'GetLastSumFromExampleTable' query type */
+export interface IGetLastSumFromExampleTableQuery {
+  params: IGetLastSumFromExampleTableParams;
+  result: IGetLastSumFromExampleTableResult;
 }
 
-const getLastSumIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT sum FROM another_example_table \nORDER BY block_height DESC\nLIMIT 1"};
+const getLastSumFromExampleTableIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT sum FROM another_example_table \nORDER BY block_height DESC\nLIMIT 1"};
 
 /**
  * Query generated from SQL:
@@ -111,25 +111,25 @@ const getLastSumIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT sum
  * LIMIT 1
  * ```
  */
-export const getLastSum = new PreparedQuery<IGetLastSumParams,IGetLastSumResult>(getLastSumIR);
+export const getLastSumFromExampleTable = new PreparedQuery<IGetLastSumFromExampleTableParams,IGetLastSumFromExampleTableResult>(getLastSumFromExampleTableIR);
 
 
-/** 'InsertAnotherExampleTable' parameters type */
-export interface IInsertAnotherExampleTableParams {
+/** 'InsertSumIntoExampleTable' parameters type */
+export interface IInsertSumIntoExampleTableParams {
   block_height: number;
   sum: number;
 }
 
-/** 'InsertAnotherExampleTable' return type */
-export type IInsertAnotherExampleTableResult = void;
+/** 'InsertSumIntoExampleTable' return type */
+export type IInsertSumIntoExampleTableResult = void;
 
-/** 'InsertAnotherExampleTable' query type */
-export interface IInsertAnotherExampleTableQuery {
-  params: IInsertAnotherExampleTableParams;
-  result: IInsertAnotherExampleTableResult;
+/** 'InsertSumIntoExampleTable' query type */
+export interface IInsertSumIntoExampleTableQuery {
+  params: IInsertSumIntoExampleTableParams;
+  result: IInsertSumIntoExampleTableResult;
 }
 
-const insertAnotherExampleTableIR: any = {"usedParamSet":{"sum":true,"block_height":true},"params":[{"name":"sum","required":true,"transform":{"type":"scalar"},"locs":[{"a":65,"b":69}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":72,"b":85}]}],"statement":"INSERT INTO another_example_table \n(sum, block_height) \nVALUES \n(:sum!, :block_height!)"};
+const insertSumIntoExampleTableIR: any = {"usedParamSet":{"sum":true,"block_height":true},"params":[{"name":"sum","required":true,"transform":{"type":"scalar"},"locs":[{"a":65,"b":69}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":72,"b":85}]}],"statement":"INSERT INTO another_example_table \n(sum, block_height) \nVALUES \n(:sum!, :block_height!)"};
 
 /**
  * Query generated from SQL:
@@ -140,6 +140,6 @@ const insertAnotherExampleTableIR: any = {"usedParamSet":{"sum":true,"block_heig
  * (:sum!, :block_height!)
  * ```
  */
-export const insertAnotherExampleTable = new PreparedQuery<IInsertAnotherExampleTableParams,IInsertAnotherExampleTableResult>(insertAnotherExampleTableIR);
+export const insertSumIntoExampleTable = new PreparedQuery<IInsertSumIntoExampleTableParams,IInsertSumIntoExampleTableResult>(insertSumIntoExampleTableIR);
 
 
