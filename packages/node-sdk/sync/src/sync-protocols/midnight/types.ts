@@ -95,6 +95,7 @@ class GraphQLError extends Error {
   }
 }
 
+// TODO: Move this to a midnight client file
 export async function gqlQuery(url: string, query: string): Promise<any> {
   const response = await fetch(url, {
     method: "POST",
@@ -107,6 +108,9 @@ export async function gqlQuery(url: string, query: string): Promise<any> {
   });
   if (!response.ok) {
     // GraphQL syntax errors etc. are 200s, this could be a 503 or similar
+    console.error(`Failed to fetch ${url}`);
+    console.error("Query:", JSON.stringify(query));
+    console.error("Response:", await response.text());
     throw new GraphQLError(
       `Server returned ${response.status} ${response.statusText}`,
     );

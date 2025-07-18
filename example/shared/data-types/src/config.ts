@@ -105,8 +105,8 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
           startBlockHeight: 1,
           pollingInterval: 1000,
-          indexer: "http://127.0.0.1:8088",
-          indexerWs: "ws://127.0.0.1:8088",
+          indexer: "http://127.0.0.1:8088/api/v1/graphql",
+          indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
         }),
       )
   )
