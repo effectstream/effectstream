@@ -54,6 +54,13 @@ stm.addStateTransition(
 );
 
 stm.addStateTransition(
+  "throw_error",
+  function* (data) {
+    throw new Error("This is a test error");
+  },
+);
+
+stm.addStateTransition(
   "schedule",
   function* (data) {
     const { tick, message, type } = data.parsedInput;

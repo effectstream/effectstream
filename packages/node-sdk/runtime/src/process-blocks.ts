@@ -204,53 +204,63 @@ export function* processFinalizedBlock(
     let index_in_block = 0;
     if (gameStateTransitions && scheduledData.length > 0) {
       for (const data of scheduledData) {
-        // TODO: Should we rollback the State Machine execution if it fails?
-        //       Now the developer can see the execution result in the STF.
-        // const { status } = yield* until(tryOrRollback(dbConn, async () => {
-        const input: BaseStfInput = {
-          blockTimestamp: value.timestamp,
-          blockHeight: value.blockNumber,
-          conciseInput: data.input_data,
-          // TODO This should be the delegated address?
-          //      For contracts what address to use?
-          // userAddress: data.from_address, // rollup_inputs.from_address
-          // TOOD Should we add this field to rollup_inputs
-          // userId:
-          chain: {
-            blockNumber: value.blockNumber,
-            transactionHash: "0x0",
-          },
-        };
-        const gameSTFGenerator = gameStateTransitions(
-          value.blockNumber,
-          input,
-        );
-        yield* executeGeneratorStepByStep(gameSTFGenerator, dbConn);
-        // }));
+        let success = true;
+        try {
+          const input: BaseStfInput = {
+            blockTimestamp: value.timestamp,
+            blockHeight: value.blockNumber,
+            conciseInput: data.input_data,
+            // TODO This should be the delegated address?
+            //      For contracts what address to use?
+            // userAddress: data.from_address, // rollup_inputs.from_address
+            // TOOD Should we add this field to rollup_inputs
+            // userId:
+            chain: {
+              blockNumber: value.blockNumber,
+              transactionHash: "0x0",
+            },
+          };
+          const gameSTFGenerator = gameStateTransitions(
+            value.blockNumber,
+            input,
+          );
+          yield* executeGeneratorStepByStep(gameSTFGenerator, dbConn);
+        } catch (err) {
+          success = false;
+          log.remote(
+            ComponentNames.PAIMA_SYNC,
+            "block-processing",
+            SeverityNumber.ERROR,
+            (log) =>
+              log(
+                `Error processing block ${value.blockNumber}: ${
+                  String(err)
+                }. Payload: ${JSON.stringify(data)}`,
+              ),
+          );
+        }
         const gameInputHash = `0x${
           Array(64).fill(0).map(() =>
             Math.floor(Math.random() * 16).toString(16)
           )
             .join("")
         }`;
-        yield* call(() =>
+        yield* until(
           insertGameInputResult.run({
             id: data.id,
-            // TODO: What does this mean? Should this be used defined?
-            //       For example the STF returning a boolean?
-            success: true, //  status === "success",
+            success,
             paima_tx_hash: Buffer.from(gameInputHash),
             index_in_block,
             block_height: value.blockNumber,
-          }, dbConn)
+          }, dbConn),
         );
         index_in_block++;
 
         // Remove the scheduled data from the database.
-        yield* call(() =>
+        yield* until(
           deleteScheduled.run({
             id: data.id,
-          }, dbConn)
+          }, dbConn),
         );
       }
     }

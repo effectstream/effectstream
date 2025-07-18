@@ -184,6 +184,24 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     transport: http(),
   });
 
+  await paimaL2.submitGameInput(
+    ["throw_error"],
+    wallets[0].privateKey,
+  );
+  // This command does not increment the paima_state_machine_counter.
+  sharedState.paima_state_machine_counter -= 1;
+
+  await assertSQL<{ primitive_name: string }>(
+    "Wait for error to be processed",
+    db,
+    `SELECT
+      primitive_name, id, paima_block_height, payload_type, payload
+      FROM
+      public.primitive_accounting;`,
+    (res) => res.rows.length === sharedState.primitive_accounting_counter,
+    (res) => res.rows.length === sharedState.primitive_accounting_counter,
+  );
+
   console.log("Created random account", account.address);
   const gameInput = JSON.stringify(["attack", "999", "777"]);
   let nonce_counter = 0;
