@@ -20,7 +20,7 @@ export class MidnightFetcher extends BaseDataFetcher<
   Page,
   RootPage
 > {
-  private readonly client: MidnightClient;
+  readonly client: MidnightClient;
   constructor(
     readonly config: Extract<
       SyncProtocolWithNetwork,

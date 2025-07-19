@@ -4,10 +4,11 @@ import { type PoolClient } from "npm:pg";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Input, Output, Page } from "./types.ts";
-import { gqlQuery, pageRelation } from "./types.ts";
+import { pageRelation } from "./types.ts";
 import type { MidnightFetcher } from "./fetcher.ts";
 import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
 import { getPage } from "@paima/db";
+import { MidnightClient } from "./MidnightClient.ts";
 
 type LatestBlock = {
   block: {
@@ -32,6 +33,7 @@ export class MidnightSyncState extends SyncState<
       { networkType: ConfigNetworkType.MIDNIGHT }
     >,
     fetcher: MidnightFetcher,
+    private readonly client: MidnightClient,
   ) {
     super(lastPage, fetcher, pageRelation);
     this.url = config.syncProtocol.indexer;
@@ -62,9 +64,7 @@ export class MidnightSyncState extends SyncState<
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
-    const latestBlockQuery = `query { block { height } }`;
-    const latestBlockResult =
-      (yield* call(() => gqlQuery(this.url, latestBlockQuery))) as LatestBlock;
+    const latestBlockResult = yield* call(() => this.client.fetchLatestBlock());
     const latestHeight = latestBlockResult.block.height;
 
     const startHeight = this.lastPage?.own.height ??
@@ -119,6 +119,11 @@ export class MidnightSyncState extends SyncState<
       page,
       config,
       fetcher,
+      new MidnightClient(
+        config.syncProtocol.indexer,
+        config.syncProtocol.indexerWS ??
+          "ws://127.0.0.1:8088/api/v1/graphql/ws",
+      ),
     );
   }
 }

@@ -95,6 +95,15 @@ export class MidnightClient {
     }`;
     return await this.gqlQuery(query);
   }
+
+  async fetchLatestBlock() {
+    const query = `query {
+      block {
+        height
+      }
+    }`;
+    return await this.gqlQuery(query);
+  }
 }
 
 interface GraphQLErrorDetail {

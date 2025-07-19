@@ -43,6 +43,7 @@
     "npm:@midnight-ntwrk/ledger@4.0.0": "4.0.0",
     "npm:@midnight-ntwrk/midnight-js-contracts@2.0.2": "2.0.2",
     "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@2.0.2": "2.0.2",
+    "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@*": "2.0.2_graphql@16.11.0_graphql-ws@6.0.5__graphql@16.11.0__ws@8.18.2_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.2_@types+react@18.3.13",
     "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2": "2.0.2_graphql@16.11.0_graphql-ws@6.0.5__graphql@16.11.0__ws@8.18.2_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.2_@types+react@18.3.13",
     "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@2.0.2": "2.0.2_fp-ts@2.16.10",
     "npm:@midnight-ntwrk/midnight-js-network-id@2.0.2": "2.0.2",
