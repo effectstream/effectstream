@@ -1,8 +1,7 @@
 import type { SyncProtocolWithNetwork } from "@paima/config";
 import { BaseDataFetcher } from "../base/fetcher.ts";
 import type { Input, Output, Page } from "./types.ts";
-import { Block, gqlQuery } from "./types.ts";
-import type { Operation } from "effection";
+import { call, type Operation } from "effection";
 import type { DataFetched } from "../base/fetcher.ts";
 import type {
   LastPage,
@@ -11,12 +10,8 @@ import type {
 } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@paima/utils";
-import { ConfigSyncProtocolType } from "@paima/config";
-import { call } from "effection";
-
-type MidnightGqlBlock = {
-  block: Block;
-};
+import type { ConfigSyncProtocolType } from "@paima/config";
+import { MidnightClient } from "./MidnightClient.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -25,7 +20,7 @@ export class MidnightFetcher extends BaseDataFetcher<
   Page,
   RootPage
 > {
-  private readonly url: string;
+  private readonly client: MidnightClient;
   constructor(
     readonly config: Extract<
       SyncProtocolWithNetwork,
@@ -33,7 +28,10 @@ export class MidnightFetcher extends BaseDataFetcher<
     >,
   ) {
     super(config.syncProtocol.name);
-    this.url = config.syncProtocol.indexer;
+    this.client = new MidnightClient(
+      config.syncProtocol.indexer,
+      config.syncProtocol.indexerWS ?? "ws://127.0.0.1:8088/api/v1/graphql/ws",
+    );
   }
 
   @bound
@@ -43,25 +41,11 @@ export class MidnightFetcher extends BaseDataFetcher<
     lastPage: LastPage<Page, RootPage> | undefined,
   ): Operation<DataFetched<Output, Page, RootPage>> {
     const outputs: OutputAndCleanup<Output>[] = [];
-
+    console.log(
+      `Fetching blocks from ${data.from} to ${data.to}. Presync: ${data.isPresync}`,
+    );
     for (let height = data.from; height <= data.to; height++) {
-      const query = `query {
-  block(offset: { height: ${height} }) {
-    hash
-    height
-    protocolVersion
-    timestamp
-    parent {
-      hash
-    }
-    transactions {
-      hash
-    }
-  }
-}`;
-      const result = (yield* call(
-        () => gqlQuery(this.url, query),
-      )) as MidnightGqlBlock;
+      const result = yield* call(() => this.client.fetchBlock(height));
       if (!result?.block) {
         // Block not found, we can stop here.
         // This can happen if we are at the tip of the chain.

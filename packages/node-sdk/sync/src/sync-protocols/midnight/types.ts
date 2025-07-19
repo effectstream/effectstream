@@ -6,7 +6,6 @@ import type {
   TimestampIso8601,
   TimestampMs,
 } from "@paima/utils";
-import type { ExecutionResult } from "npm:graphql-ws";
 import type {
   ConfigPrimitivePayloadType,
   ConfigPrimitiveType,
@@ -74,70 +73,6 @@ export type CachedBlock = Pick<Block, "height" | "hash" | "timestamp"> & {
     contractCalls: Pick<ContractCall, "address" | "state">[];
   })[];
 };
-
-// ================
-// GraphQL handling
-// ================
-
-interface GraphQLErrorDetail {
-  message: string;
-  locations?: readonly { line: number; column: number }[];
-  path?: readonly (string | number)[];
-  extensions?: object;
-}
-
-class GraphQLError extends Error {
-  errors?: readonly GraphQLErrorDetail[];
-
-  constructor(message: string, errors?: readonly GraphQLErrorDetail[]) {
-    super(message);
-    this.errors = errors;
-  }
-}
-
-// TODO: Move this to a midnight client file
-export async function gqlQuery(url: string, query: string): Promise<any> {
-  const response = await fetch(url, {
-    method: "POST",
-    body: JSON.stringify({
-      query,
-    }),
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-  if (!response.ok) {
-    // GraphQL syntax errors etc. are 200s, this could be a 503 or similar
-    console.error(`Failed to fetch ${url}`);
-    console.error("Query:", JSON.stringify(query));
-    console.error("Response:", await response.text());
-    throw new GraphQLError(
-      `Server returned ${response.status} ${response.statusText}`,
-    );
-  }
-  const body = await response.json();
-  if ("errors" in body) {
-    throw new GraphQLError(
-      "Server returned errors",
-      body.errors as GraphQLErrorDetail[],
-    );
-  }
-  if ("data" in body) {
-    return body.data;
-  }
-  throw new GraphQLError("Server returned nothing");
-}
-
-export function handleGqlWsError<T>(
-  ex: IteratorResult<ExecutionResult<T, unknown>, unknown>,
-): T {
-  if (ex.done) throw new GraphQLError("Subscription ended");
-  if (ex.value.errors) {
-    throw new GraphQLError("Subscription errored", ex.value.errors);
-  }
-  if (!ex.value.data) throw new GraphQLError("Server returned nothing");
-  return ex.value.data;
-}
 
 import type { PageRelation } from "../base/page.ts";
 import type { PageSyncRange } from "../common/page-helpers.ts";

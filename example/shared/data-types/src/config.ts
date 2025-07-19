@@ -142,7 +142,7 @@ export const localhostConfig = new ConfigBuilder()
         (network, deployments, syncProtocol) => ({
           name: "MidnightContractState",
           type: ConfigPrimitiveType.MidnightContractState,
-          startBlockHeight: 0,
+          startBlockHeight: 1,
           contractAddress: readMidnightContract().contractAddress,
           scheduledPrefix: "midnightContractState",
         }),
