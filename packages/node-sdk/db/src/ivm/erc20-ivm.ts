@@ -21,14 +21,14 @@ export function erc20Ivm(name: string) {
     CREATE TABLE erc20_balances_intermediate_${validSQLName} (
         primitive_name TEXT NOT NULL,
         address TEXT NOT NULL,
-        balance BIGINT NOT NULL DEFAULT 0,
+        balance numeric(78,0) DEFAULT 0,
         PRIMARY KEY (primitive_name, address)
     );
     
     -- Trigger function to maintain ERC20 balances
     CREATE OR REPLACE FUNCTION update_erc20_balances_${validSQLName}() RETURNS TRIGGER AS $$
     DECLARE
-        transfer_value BIGINT;
+        transfer_value numeric(78,0);
         from_address TEXT;
         to_address TEXT;
     BEGIN
@@ -37,7 +37,7 @@ export function erc20Ivm(name: string) {
            AND NEW.primitive_name = '${name}'
            AND NEW.payload->>'value' IS NOT NULL THEN
             
-            transfer_value := (NEW.payload->>'value')::bigint;
+            transfer_value := (NEW.payload->>'value')::numeric(78,0);
             from_address := lower(NEW.payload->>'from');
             to_address := lower(NEW.payload->>'to');
             

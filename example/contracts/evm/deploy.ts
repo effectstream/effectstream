@@ -66,7 +66,7 @@ export async function deploy(): Promise<void> {
       } deployed to ${result.contract.address}`,
     );
   }
-  console.error("Deployed contracts:\n", messages.join("\n"));
+  console.log("Deployed contracts:\n", messages.join("\n"));
   // Wait for a block to be minted on the slowest chain.
   await new Promise((r) => setTimeout(r, 1000 * 2));
 }

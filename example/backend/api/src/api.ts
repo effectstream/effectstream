@@ -49,10 +49,12 @@ export const apiRouter: StartConfigApiRouter = async function (
         getStateMachineInputByBlockHeight.run({
           block_height: blockHeight,
         }, dbConn),
+        "getStateMachineInputByBlockHeight",
       );
     } else {
       return await runPreparedQuery(
         getStateMachineInput.run(undefined, dbConn),
+        "getStateMachineInput",
       );
     }
   });

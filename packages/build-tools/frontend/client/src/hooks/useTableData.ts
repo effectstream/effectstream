@@ -33,6 +33,7 @@ interface IGetAllScheduledDataResult {
   contract_address: string | null;
   from_address: string;
   future_block_height: number;
+  future_ms_timestamp: string | null;
   id: number;
   input_data: string;
   origin_tx_hash: string | null;
@@ -319,6 +320,7 @@ export function useTableData() {
           { name: "contract_address", dataTypeID: 25 },
           { name: "origin_tx_hash", dataTypeID: 25 },
           { name: "future_block_height", dataTypeID: 23 },
+          { name: "future_ms_timestamp", dataTypeID: 25 },
         ];
 
         return {
@@ -516,7 +518,9 @@ export function useTableData() {
 
   // Initialize and setup refresh intervals
   useEffect(() => {
-    let refreshInterval: number;
+    let primitiveRefreshInterval: number;
+    let staticTableRefreshInterval: number;
+    let scheduledDataRefreshInterval: number;
 
     const initialize = async () => {
       // Initialize tables
@@ -529,19 +533,40 @@ export function useTableData() {
       // Mark initial load as complete
       isInitialLoadComplete.current = true;
 
-      // Setup refresh interval only after initial load
-      refreshInterval = setInterval(() => {
+      // Setup staggered refresh intervals to distribute server load
+      // Refresh primitive data immediately, then every 5 seconds
+      primitiveRefreshInterval = setInterval(() => {
         refreshPrimitiveData();
-        refreshStaticTableData();
-        refreshScheduledData();
       }, 5000);
+
+      // Refresh static table data after 1.5 seconds, then every 5 seconds
+      setTimeout(() => {
+        refreshStaticTableData();
+        staticTableRefreshInterval = setInterval(() => {
+          refreshStaticTableData();
+        }, 5000);
+      }, 1500);
+
+      // Refresh scheduled data after 3 seconds, then every 5 seconds
+      setTimeout(() => {
+        refreshScheduledData();
+        scheduledDataRefreshInterval = setInterval(() => {
+          refreshScheduledData();
+        }, 5000);
+      }, 3000);
     };
 
     initialize();
 
     return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
+      if (primitiveRefreshInterval) {
+        clearInterval(primitiveRefreshInterval);
+      }
+      if (staticTableRefreshInterval) {
+        clearInterval(staticTableRefreshInterval);
+      }
+      if (scheduledDataRefreshInterval) {
+        clearInterval(scheduledDataRefreshInterval);
       }
     };
   }, []); // Empty dependency array to prevent re-runs

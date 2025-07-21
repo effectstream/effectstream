@@ -16,7 +16,7 @@ const ExternalComponents = {
   DOLOS: "dolos",
   PAIMA_BATCHER: "batcher",
   DOCS: "docs",
-  DEPLOY: "deploy",
+  DEPLOY_EVM_CONTRACTS: "deploy-evm-contracts",
   EXPLORER: "explorer",
 };
 const ToolsComponents = {
