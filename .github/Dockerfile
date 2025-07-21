@@ -48,12 +48,11 @@ WORKDIR /app
 
 # Copy the launch script
 COPY .github/launch.sh /app/launch.sh
+RUN chmod +x /app/launch.sh
+
 
 # Clone the repository
 COPY . .
-
-# Make the script executable
-RUN chmod +x /app/launch.sh
 
 # Ensure the script can run tests properly in Docker
 RUN echo "export DENO_DIR=/tmp/.deno" >> /root/.bashrc
@@ -63,6 +62,9 @@ ENV NODE_ENV=development
 ENV DENO_DIR=/tmp/.deno
 
 RUN npm install -g @bloxbean/yaci-devkit
+RUN yaci-devkit up --port 3002 & 
+# Waiting for port is not working as expected.
+RUN sleep 60
 
 # Set the default command to run the launch script
 CMD ["/app/launch.sh"]
