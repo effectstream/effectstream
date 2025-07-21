@@ -89,7 +89,7 @@ echo "✅ Contracts compiled & deployed"
 # Kill any process with deno in the name:
 # kill -9 `ps aux | grep deno  | awk '{print $2}' | awk NF=NF RS= OFS=" "`;
 echo "🧪 Running tests..."
-deno task -f @example/node test
+PAIMA_E2E_LOG_DEBUG=1 deno task -f @example/node test
 
 # 5. Print project directory
 echo "🎉 Clean install & test completed"
