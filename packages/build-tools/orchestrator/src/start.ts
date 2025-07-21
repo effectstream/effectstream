@@ -100,19 +100,26 @@ export async function start(
     // start the collector before any other process since it's the one that captures logs
     if (enableCollector) {
       await startProcess[ComponentNames.COLLECTOR]();
+      await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
     }
 
     // Start processes in parallel
     // startProcess[ComponentNames.DOCS](),
     await startProcess[ComponentNames.PAIMA_DB]();
+    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
     await startProcess[ComponentNames.YACI_DEVKIT]();
+    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
     await startProcess[ComponentNames.HARDHAT]();
+    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
     // Start the Dolos process. Depends on YaciDevkit.
     await startProcess[ComponentNames.DOLOS]();
+    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
     // Deploy the contracts. Depends on Hardhat.
     await startProcess[ComponentNames.DEPLOY_EVM_CONTRACTS]();
+    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
     // Start the batcher, after the contracts are deployed.
     await startProcess[ComponentNames.PAIMA_BATCHER]();
+    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
 
     // Start the explorer
     // This crashes when launching process through Deno.command
