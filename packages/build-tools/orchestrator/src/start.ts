@@ -109,6 +109,13 @@ export async function start(
     await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
     await startProcess[ComponentNames.YACI_DEVKIT]();
     await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
+
+    await (new Deno.Command("ss", {
+      args: ["-tuln"],
+      stdout: "inherit",
+      stderr: "inherit",
+    }).spawn()).status;
+
     await startProcess[ComponentNames.HARDHAT]();
     await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
     // Start the Dolos process. Depends on YaciDevkit.
