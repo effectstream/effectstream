@@ -15,6 +15,10 @@ RUN apt-get update && apt-get install -y \
     lsb-release \
     unzip \
     sed \
+    # We have some scripts that use lsof
+    lsof \
+    # iproute2 is required for ss command - for dkill.
+    iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js
@@ -36,11 +40,6 @@ RUN curl -L https://github.com/foundry-rs/foundry/releases/download/v1.3.0-rc1/f
     && mv anvil cast chisel forge /usr/local/bin/ \
     && rm -rf foundry.tar.gz
 
-# Create dummy binaries for commands not available in linux
-RUN echo '#!/bin/bash' > /usr/local/bin/lsof && \
-    echo 'echo "lsof: dummy command - no operation performed"' >> /usr/local/bin/lsof && \
-    chmod +x /usr/local/bin/lsof
-
 # Verify Foundry installation
 RUN forge --version && cast --version && anvil --version
 
@@ -48,7 +47,10 @@ RUN forge --version && cast --version && anvil --version
 WORKDIR /app
 
 # Copy the launch script
-COPY launch.sh /app/launch.sh
+COPY .github/launch.sh /app/launch.sh
+
+# Clone the repository
+COPY . .
 
 # Make the script executable
 RUN chmod +x /app/launch.sh

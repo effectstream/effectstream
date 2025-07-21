@@ -11,19 +11,6 @@ forge --version
 node --version
 npm --version
 
-echo "🚀 docStarting Paima Engine Clean Install Script"
-
-# 1. Clone the repo with random name
-echo "📁 Generating random directory name and cloning repository..."
-RANDOM_NAME="paima-$(date +%s)-$((RANDOM % 9000 + 1000))"
-echo "Using directory name: $RANDOM_NAME"
-
-git clone https://github.com/PaimaStudios/paima-engine.git "$RANDOM_NAME"
-cd "$RANDOM_NAME"
-git checkout feature/deployments-v2
-
-echo "✅ Repository cloned and checked out to feature/deployments-v2"
-
 # 2. Install dependencies
 echo "📦 Installing dependencies..."
 deno install --allow-scripts
