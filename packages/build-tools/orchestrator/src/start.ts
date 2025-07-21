@@ -103,7 +103,7 @@ export async function start(
 
     // Start processes in parallel
     await Promise.all([
-      startProcess[ComponentNames.DOCS](),
+      // startProcess[ComponentNames.DOCS](),
       startProcess[ComponentNames.PAIMA_DB](),
       startProcess[ComponentNames.YACI_DEVKIT](),
       startProcess[ComponentNames.HARDHAT](),
