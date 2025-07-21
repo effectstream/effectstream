@@ -7,15 +7,16 @@ import type {
   PayloadOf,
   PrimitiveEvmRpcPaimaL2Accounting,
 } from "@paima/config";
-import type { QueuedUpdate, StateUpdateStream } from "@paima/coroutine";
+import type { StateUpdateStream } from "@paima/coroutine";
 import {
+  createScheduledData,
   findNonce,
   insertNonce,
   insertPrimitiveAccounting,
   newAddress,
 } from "@paima/db";
-import { StateMachineExecution, World } from "@paima/coroutine";
-import { extractBatches } from "@paima/concise";
+import { World } from "@paima/coroutine";
+import { extractBatches, type ExtractedBatchSubunit } from "@paima/concise";
 import {
   ConfigPrimitiveAccountingPayloadType,
   type ConfigPrimitiveType,
@@ -103,13 +104,20 @@ function* executePaimaL2Input(input: {
     );
   }
 
-  yield* StateMachineExecution(
-    input.paima_block_height,
+  yield* createScheduledData(
     hexToString((input.payload as any).data),
-    address.address as `0x${string}`,
-    address.id,
-    input.ownChain.blockNumber,
-    input.ownChain.transactionHash,
+    {
+      blockHeight: input.paima_block_height,
+    },
+    {
+      primitiveName: input.primitiveName,
+      txHash: input.ownChain.transactionHash,
+      // TODO: Where to get this from, we can asume its eip155:{chainId}
+      caip2: "eip155", // input.ownChain.caip2,
+      fromAddress: address.address,
+      // TODO Where to get this from?
+      contractAddress: "0x0", // response.input.contractAddress.toLowerCase(),
+    },
   );
 }
 
@@ -125,10 +133,15 @@ export default function* processPaimaL2SyncProtocolResponse(
   const outerLayerPayload = clearBigInts(response.output.payload);
 
   let isBatched = false;
+  let batchedMessages: ExtractedBatchSubunit[] = [];
   try {
     const message = hexToString((outerLayerPayload as any).data);
-    const batchedMessages = extractBatches(message);
+    batchedMessages = extractBatches(message);
     isBatched = true;
+  } catch {
+    // Not batched message
+  }
+  if (isBatched) {
     for (const batchedMessage of batchedMessages) {
       // TODO we need to verify the signature of the batched messages
       yield* executePaimaL2Input({
@@ -148,11 +161,7 @@ export default function* processPaimaL2SyncProtocolResponse(
         signerAddress: batchedMessage.parsed.userAddress as `0x${string}`,
       });
     }
-  } catch {
-    // Not batched message
-  }
-
-  if (!isBatched) {
+  } else { // !isBatched
     yield* executePaimaL2Input({
       paima_block_height,
       // TODO: where do we get the nonce from?

@@ -56,7 +56,7 @@ function clients(privateKey: `0x${string}`, chain: Chain): {
 /**
  * PaimaL2 Contract Methods.
  */
-export const paimaL2 = {
+export const paimaL2Builder = () => ({
   submitGameInput: async (
     input: string[],
     privateKey: `0x${string}`,
@@ -89,7 +89,7 @@ export const paimaL2 = {
       } Submit Game Input block ${receipt.blockNumber} @ Hash ${hash}`,
     );
   },
-};
+});
 
 /**
  * Erc721 Contract Methods.
@@ -209,20 +209,6 @@ function erc721Factory(contractAddress: `0x${string}`, chain: Chain) {
 }
 
 /**
- * Erc721 Contracts Instances.
- */
-export const erc721 = {
-  a: erc721Factory(
-    contractAddressesEvmMain()["chain31337"]["Erc721DevModule#Erc721Dev"],
-    mainEvm,
-  ),
-  b: erc721Factory(
-    contractAddressesEvmMain()["chain31338"]["Erc721DevModule#Erc721Dev"],
-    parallelEvm,
-  ),
-};
-
-/**
  * Erc20 Contract Methods.
  */
 export const erc20Factory = (contractAddress: `0x${string}`, chain: Chain) => {
@@ -305,7 +291,7 @@ export const erc20Factory = (contractAddress: `0x${string}`, chain: Chain) => {
 /**
  * Erc20 Contracts Instances.
  */
-export const erc20 = {
+export const erc20Builder = () => ({
   a: erc20Factory(
     contractAddressesEvmMain()["chain31337"][
       "PaimaErc20DevModule#PaimaErc20Dev"
@@ -318,4 +304,18 @@ export const erc20 = {
     ],
     parallelEvm,
   ),
-};
+});
+
+/**
+ * Erc721 Contracts Instances.
+ */
+export const erc721Builder = () => ({
+  a: erc721Factory(
+    contractAddressesEvmMain()["chain31337"]["Erc721DevModule#Erc721Dev"],
+    mainEvm,
+  ),
+  b: erc721Factory(
+    contractAddressesEvmMain()["chain31338"]["Erc721DevModule#Erc721Dev"],
+    parallelEvm,
+  ),
+});

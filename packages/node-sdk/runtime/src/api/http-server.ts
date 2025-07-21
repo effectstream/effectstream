@@ -5,6 +5,7 @@ import cors from "@fastify/cors";
 import { run, until } from "effection";
 import {
   aquireDBMutex,
+  getAllScheduledData,
   getPrimitivePrefix,
   getTableSchema,
   releaseDBMutex,
@@ -207,6 +208,11 @@ export const startHttpServer = function* (
     },
   }, () => {
     return grammar;
+  });
+
+  server.get("/scheduled-data", async () => {
+    const result = await getAllScheduledData.run(undefined, dbConn);
+    return result;
   });
 
   // TODO How to only select user defined tables?

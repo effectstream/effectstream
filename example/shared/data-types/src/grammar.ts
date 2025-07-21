@@ -5,6 +5,7 @@ import { localhostConfig } from "./config.ts";
 export const grammar = {
   schedule: [
     ["tick", Type.Integer()],
+    ["type", Type.String()], // Type.Enum(Type.Literal("block"), Type.Literal("timestamp"))],
     ["message", Type.String()],
   ],
   attack: [

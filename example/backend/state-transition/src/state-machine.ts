@@ -3,16 +3,20 @@ import { grammar } from "@example/data-types";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import { insertStateMachineInput } from "@example/database";
 import type { StartConfigGameStateTransitions } from "@paima/runtime";
+import {
+  type INewScheduledHeightDataParams,
+  type INewScheduledTimestampDataParams,
+  newScheduledHeightData,
+  newScheduledTimestampData,
+} from "@paima/db";
 // import { createScheduledData } from "@paima/db";
 
 type MyEvents = {}; // TODO: replace
 const stm = new PaimaSTM<typeof grammar, MyEvents>(grammar);
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 stm.addStateTransition(
   "attack",
   async (data) => {
-    await sleep(0);
     return {
       stateTransitions: [
         [insertStateMachineInput, {
@@ -26,25 +30,52 @@ stm.addStateTransition(
   },
 );
 
-// stm.addStateTransition(
-//   "schedule",
-//   async (data) => {
-//     [createScheduledData, createScheduledDataPayload]
+stm.addStateTransition(
+  "schedule",
+  async (data) => {
+    const response: BaseStfOutput<MyEvents> = {
+      stateTransitions: [],
+      events: [],
+    };
+    const { tick, message, type } = data.parsedInput;
+    const playerId = parseInt(message);
 
-//     return {
-//       stateTransitions: [],
-//       events: [],
-//     };
-//   },
-// );
+    switch (type) {
+      case "block":
+        {
+          const params: INewScheduledHeightDataParams = {
+            // caip2?: string | null | void;
+            from_address: "0x0",
+            future_block_height: data.blockHeight + tick,
+            input_data: JSON.stringify(["attack", playerId, 1]),
+            // origin_contract_address?: string | null | void;
+            // origin_tx_hash?: Buffer | null | void;
+            // primitive_name?: string | null | void;
+          };
+          response.stateTransitions.push([newScheduledHeightData, params]);
+        }
+        break;
+      case "timestamp":
+        {
+          const params2: INewScheduledTimestampDataParams = {
+            from_address: "0x0",
+            future_ms_timestamp: new Date(data.blockTimestamp + tick),
+            input_data: JSON.stringify(["attack", playerId, 1]),
+          };
+          response.stateTransitions.push([newScheduledTimestampData, params2]);
+        }
+        break;
+      default:
+        throw new Error("Invalid type");
+    }
+    return response;
+  },
+);
 
 stm.addStateTransition(
   "transfer",
   async (data) => {
-    // console.error(data);
-    await sleep(0);
     const { to, from, value } = data.parsedInput.payload;
-    // This is where game logic is executed.
     return {
       stateTransitions: [
         [insertStateMachineInput, {

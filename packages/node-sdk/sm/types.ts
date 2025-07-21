@@ -8,10 +8,12 @@ export type AppEvents = any;
 // TODO: replace any
 export type BaseStfInput = {
   blockHeight: number;
+  blockTimestamp: number;
   conciseInput: string;
   userAddress?: `0x${string}`;
   userId?: number;
   chain: {
+    // TODO: Should this be the complete Paima Block?
     blockNumber: number;
     transactionHash: string;
   };
