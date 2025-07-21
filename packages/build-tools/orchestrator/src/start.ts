@@ -82,7 +82,8 @@ export async function start(
   //
   // Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
   //
-  await dkill({ ports: [8090, 10000, 5432, 8545, 3334] });
+  const results = await dkill({ ports: [8090, 10000, 5432, 8545, 8546, 3334] });
+  console.log(results);
 
   // fast-fail if there are type errors in the project
   await startProcess[ComponentNames.CHECKER]();
