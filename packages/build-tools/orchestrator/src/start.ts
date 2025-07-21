@@ -1,8 +1,8 @@
 #!/usr/bin/env -S deno run --allow-all
 import type { ValueOf } from "@paima/utils";
 import "./http-server.ts";
-import { contractAddressesEvmMain } from "@my-project/evm-contracts";
 import { dkill } from "@sylc/dkill";
+import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 import {
   getCurrentOutput,
@@ -194,7 +194,7 @@ export const startProcess: Record<
     ProcessComponent
   > => {
     const deploy = $({
-      args: ["task", "-f", "@my-project/evm-contracts", "deploy"],
+      args: ["task", "-f", "@example/evm-contracts", "deploy"],
       component: ComponentNames.DEPLOY_EVM_CONTRACTS,
       log: rawLogHandler,
       abortController: abortControllers.system,
@@ -256,7 +256,7 @@ export const startProcess: Record<
   [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
     // TODO This should be read from the config.
     const paimaL2Address = contractAddressesEvmMain()["chain31337"][
-      "PaimaL2ContractModule#PaimaL2Contract"
+      "PaimaL2ContractModule#MyPaimaL2Contract"
     ];
     const batcherPrivateKey =
       "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
@@ -299,7 +299,7 @@ export const startProcess: Record<
     // TODO: some way to specify which chains should be used for a project
     const hardhat = $({
       // TODO This should be read from the config.
-      args: ["task", "-f", "@my-project/evm-contracts", "chain:start"],
+      args: ["task", "-f", "@example/evm-contracts", "chain:start"],
       log: logHandler,
       component: ComponentNames.HARDHAT,
       abortController: abortControllers.system,
@@ -307,7 +307,7 @@ export const startProcess: Record<
     void hardhat.process.status; // need to await sub-service start below
 
     await $({
-      args: ["task", "-f", "@my-project/evm-contracts", "chain:wait"],
+      args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
       component: ComponentNames.HARDHAT_WAIT,
       abortController: abortControllers.noncritical,
     }).process.status;
