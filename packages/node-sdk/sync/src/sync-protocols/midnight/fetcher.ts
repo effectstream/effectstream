@@ -1,7 +1,13 @@
-import type { SyncProtocolWithNetwork } from "@paima/config";
+import {
+  ConfigPrimitivePayloadType,
+  ConfigPrimitiveType,
+  ConfigSyncProtocolType,
+  type PrimitiveEntry,
+  type SyncProtocolWithNetwork,
+} from "@paima/config";
 import { BaseDataFetcher } from "../base/fetcher.ts";
-import type { Input, Output, Page } from "./types.ts";
-import { call, type Operation } from "effection";
+import type { Input, Output, Page, PrimitiveType } from "./types.ts";
+import { all, call, type Operation } from "effection";
 import type { DataFetched } from "../base/fetcher.ts";
 import type {
   LastPage,
@@ -10,8 +16,8 @@ import type {
 } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@paima/utils";
-import type { ConfigSyncProtocolType } from "@paima/config";
 import { MidnightClient } from "./MidnightClient.ts";
+import { PageRequest } from "../base/page.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -85,6 +91,75 @@ export class MidnightFetcher extends BaseDataFetcher<
         },
         root: rootConversion.toRootPage(lastOutput),
       },
+    };
+  }
+
+  @bound
+  *readPrimitives(
+    data: Input,
+    // pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
+    primitives: PrimitiveEntry<ConfigSyncProtocolType.MIDNIGHT_PARALLEL>[],
+  ): Operation<PrimitiveType[]> {
+    const client = this.client;
+    const allOperations: Operation<PrimitiveType>[] = [];
+    for (const primitive of primitives) {
+      allOperations.push(
+        this.fetchContractState(
+          BigInt(data.from),
+          BigInt(data.to),
+          client,
+          primitive,
+        ),
+      );
+    }
+    return (yield* all(allOperations)).flat();
+  }
+
+  @bound
+  *fetchContractState(
+    fromBlock: bigint,
+    toBlock: bigint,
+    client: MidnightClient,
+    primitive: PrimitiveEntry<ConfigSyncProtocolType.MIDNIGHT_PARALLEL>,
+  ): Operation<PrimitiveType> {
+    const contractAddress = primitive.primitive.contractAddress;
+    const startBlockHeight = primitive.primitive.startBlockHeight;
+    const state = yield* call(() =>
+      client.fetchContractState(contractAddress, startBlockHeight)
+    );
+    if (!state) {
+      throw new Error(
+        `Contract state not found for ${contractAddress} at block ${startBlockHeight}`,
+      );
+    }
+    return {
+      input: primitive.primitive,
+      output: {
+        primitive: ConfigPrimitiveType.MidnightContractState,
+        payloadType: ConfigPrimitivePayloadType.Event,
+        payload: JSON.stringify(state.data.encode()),
+        syncProtocol: {
+          type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+          name: this.config.syncProtocol.name,
+          internal: {},
+          payload: {
+            primitiveName: primitive.primitive.name,
+            mainchain: {
+              blockNumber: null,
+              timestamp: null,
+            },
+            caip2: "eip155:1",
+            ownChain: {
+              blockNumber: primitive.primitive.startBlockHeight,
+            },
+            // TODO: get transaction hash from the block
+            transactionHash:
+              "0x0000000000000000000000000000000000000000000000000000000000000000",
+          },
+        },
+      },
+      primitiveType: ConfigPrimitiveType.MidnightContractState,
+      payloadType: ConfigPrimitivePayloadType.Event,
     };
   }
 }
