@@ -23,7 +23,7 @@ jobs:
     if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
     steps:
       - name: test
-        run: docker run --rm --name testing_image${{ github.sha }}_${{ github.run_number }}_${{ github.run_attempt }} testing_image:${{ github.sha }}"
+        run: docker run --rm --name testing_image${{ github.sha }}_${{ github.run_number }}_${{ github.run_attempt }} testing_image:${{ github.sha }}
 
   cleanup:
     runs-on: ubuntu-22.04
