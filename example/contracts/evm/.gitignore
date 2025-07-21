@@ -5,3 +5,5 @@ node_modules
 
 # deployments
 /ignition/deployments
+
+remappings.txt
