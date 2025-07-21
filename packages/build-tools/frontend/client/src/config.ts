@@ -62,6 +62,7 @@ export const CONFIG_ENDPOINT = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/config`;
 export const PRIMITIVES_ENDPOINT =
   `http://127.0.0.1:${ENV.PAIMA_API_PORT}/primitives`;
 export const TABLES_ENDPOINT = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/tables`;
+export const GRAMMAR_ENDPOINT = "http://127.0.0.1:9999/grammar";
 export const PRIMITIVES_SCHEMA_ENDPOINT =
   `http://127.0.0.1:${ENV.PAIMA_API_PORT}/primitives-schema`;
 export const TABLE_SCHEMA_ENDPOINT =

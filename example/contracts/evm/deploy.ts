@@ -1,67 +1,72 @@
-import type { Chain } from "npm:viem";
+// import hre from "hardhat";
+import { createHardhatRuntimeEnvironment } from "hardhat/hre";
+import * as config from "./hardhat.config.ts";
+import Erc20DevModule from "./ignition/modules/erc20dev.ts";
+import PaimaL2ContractModule from "./ignition/modules/paimaL2.ts";
+import Erc721DevModule from "./ignition/modules/erc721dev.ts";
+import type { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+// import CounterModule from "./ignition/modules/counter.ts";
+// import OpenZeppelinErc20DevModule from "./ignition/modules/oz-erc20dev.ts";
 
-export type ContractDeployment = {
-  path: string;
-  name: string;
-  args?: string[];
-  chain: Chain;
-};
-const __dirname = import.meta.dirname;
-export const deploy = async function (
-  myContracts: ContractDeployment[],
-  privateKey: string,
-) {
-  const deployedAddresses: Record<string, string> = {};
+const __dirname: any = import.meta.dirname;
 
-  for (const contract of myContracts) {
-    const args = [
-      "create",
-      `${contract.path}:${contract.name}`,
-      "--broadcast",
-      "--rpc-url",
-      contract.chain.rpcUrls.default.http[0],
-      "--private-key",
-      privateKey,
-      contract.args ? "--constructor-args" : undefined,
-      ...(contract.args ?? []),
-    ].filter(Boolean) as string[];
-
-    console.log(`🚀  Deploying ${contract.name}`);
-    const command = new Deno.Command("forge", {
-      args,
-    });
-    const { stdout, stderr } = await command.output();
-    const stdoutText = new TextDecoder().decode(stdout);
-    const stderrText = new TextDecoder().decode(stderr);
-
-    console.log(stdoutText);
-    console.log(stderrText);
-
-    // Parse the deployed address from stdout
-    const deployedToMatch = stdoutText.match(/Deployed to: (0x[a-fA-F0-9]+)/);
-    if (deployedToMatch) {
-      deployedAddresses[contract.name + "-" + contract.chain.id] =
-        deployedToMatch[1];
-    }
-  }
-
-  // Generate the contract.addresses.ts file
-  await generateAddressesFile(deployedAddresses);
+type Deployment = {
+  module: ReturnType<typeof buildModule>;
+  network: string;
+  parameters?: Record<string, Record<string, any>>;
 };
 
-async function generateAddressesFile(addresses: Record<string, string>) {
-  const addressesContent = `export const contractAddresses = {
-${
-    Object.entries(addresses).map(([name, address]) =>
-      `  "${name}": "${address}",`
-    ).join("\n")
-  }
-} as const;
-`;
+// This is an example of how to deploy contracts.
+// This is the list of contracts to deploy.
+// Add or remove contracts as needed.
+const myDeployments: Deployment[] = [
+  {
+    module: Erc20DevModule,
+    network: "evmMainHttp",
+  },
+  {
+    module: PaimaL2ContractModule,
+    network: "evmMainHttp",
+    parameters: {
+      PaimaL2ContractModule: {
+        owner: "0xEFfE522D441d971dDC7153439a7d10235Ae6301f",
+        fee: 0,
+      },
+    },
+  },
+  {
+    module: Erc721DevModule,
+    network: "evmMainHttp",
+  },
+  {
+    module: Erc20DevModule,
+    network: "evmParallelHttp",
+  },
+  {
+    module: Erc721DevModule,
+    network: "evmParallelHttp",
+  },
+] as const;
 
-  await Deno.writeTextFile(
-    __dirname + "/contract.addresses.ts",
-    addressesContent,
-  );
-  console.log("✅ Generated contract.addresses.ts");
+/**
+ * Deploy the contracts to the network.
+ */
+export async function deploy(): Promise<void> {
+  const hre = await createHardhatRuntimeEnvironment(config.default, __dirname);
+  const messages: string[] = [];
+  for (const deployment of myDeployments) {
+    const network = await hre.network.connect(deployment.network);
+    const result = await (network as any).ignition.deploy(
+      deployment.module,
+      deployment.parameters ? { parameters: deployment.parameters } : undefined,
+    );
+    messages.push(
+      `${deployment.module.id.substring(0, 16).padEnd(16)} @ ${
+        deployment.network.substring(0, 16).padEnd(16)
+      } deployed to ${result.contract.address}`,
+    );
+  }
+  console.error("Deployed contracts:\n", messages.join("\n"));
+  // Wait for a block to be minted on the slowest chain.
+  await new Promise((r) => setTimeout(r, 1000 * 2));
 }

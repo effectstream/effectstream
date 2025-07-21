@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
-import { grammar } from "@example/data-types";
-import { BATCHER_ENDPOINT } from "../config.ts";
+import { BATCHER_ENDPOINT, GRAMMAR_ENDPOINT } from "../config.ts";
 
 const AddressType = {
   EVM: 0,
@@ -84,6 +83,20 @@ async function postToBatcher(jsonArrayString: string, walletInfo: WalletInfo) {
   return result;
 }
 
+// Fetch grammar from the endpoint
+async function fetchGrammar() {
+  try {
+    const response = await fetch(GRAMMAR_ENDPOINT);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching grammar:", error);
+    throw error;
+  }
+}
+
 export function BatcherInput() {
   const [selectedType, setSelectedType] = useState<string>("");
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -91,6 +104,44 @@ export function BatcherInput() {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [grammar, setGrammar] = useState<Record<string, any>>({});
+  const [isGrammarLoading, setIsGrammarLoading] = useState(true);
+
+  const showNotification = (
+    type: Notification["type"],
+    title: string,
+    message: string,
+  ) => {
+    const id = Date.now();
+    const notification: Notification = { id, type, title, message };
+    setNotifications((prev) => [...prev, notification]);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }, 5000);
+  };
+
+  // Fetch grammar on component mount
+  useEffect(() => {
+    const loadGrammar = async () => {
+      try {
+        setIsGrammarLoading(true);
+        const grammarData = await fetchGrammar();
+        setGrammar(grammarData);
+      } catch (error) {
+        showNotification(
+          "error",
+          "Grammar Error",
+          "Failed to load grammar from server",
+        );
+      } finally {
+        setIsGrammarLoading(false);
+      }
+    };
+
+    loadGrammar();
+  }, []);
 
   const grammarTypes = Object.keys(grammar);
 
@@ -109,21 +160,6 @@ export function BatcherInput() {
         account.address.slice(-4)
       }`,
     );
-  };
-
-  const showNotification = (
-    type: Notification["type"],
-    title: string,
-    message: string,
-  ) => {
-    const id = Date.now();
-    const notification: Notification = { id, type, title, message };
-    setNotifications((prev) => [...prev, notification]);
-
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    }, 5000);
   };
 
   const removeNotification = (id: number) => {
@@ -375,200 +411,231 @@ export function BatcherInput() {
       {/* Collapsible Content */}
       {!isCollapsed && (
         <>
-          {/* Wallet Generation and Address Display */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "20px",
-              padding: "15px",
-              background: "#f8fafc",
-              borderRadius: "6px",
-              border: "1px solid #e2e8f0",
-            }}
-          >
-            <button
-              onClick={generateNewWallet}
+          {/* Loading State */}
+          {isGrammarLoading && (
+            <div
               style={{
-                padding: "10px 16px",
-                background: "linear-gradient(45deg, #19b17b, #022418)",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontWeight: "600",
-                fontSize: "14px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "40px",
+                color: "#666",
               }}
             >
-              Generate new EVM Wallet
-            </button>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span
-                style={{
-                  fontSize: "14px",
-                  color: "#64748b",
-                  fontWeight: "500",
-                }}
-              >
-                Current Address:
-              </span>
-              <span
-                style={{
-                  fontSize: "14px",
-                  fontFamily: "monospace",
-                  background: wallet ? "#e0f2fe" : "#fef3c7",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  color: wallet ? "#0369a1" : "#92400e",
-                  border: `1px solid ${wallet ? "#bae6fd" : "#fde68a"}`,
-                }}
-              >
-                {wallet
-                  ? `${wallet.address.slice(0, 6)}...${
-                    wallet.address.slice(-4)
-                  }`
-                  : "No wallet generated"}
-              </span>
-            </div>
-          </div>
-
-          {/* Type Selection and Parameters Layout */}
-          <div
-            style={{ display: "flex", gap: "30px", alignItems: "flex-start" }}
-          >
-            {/* Left Side - Type Selection */}
-            <div style={{ flex: "0 0 300px" }}>
-              <div style={{ marginBottom: "15px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "25px",
-                    fontWeight: "600",
-                  }}
-                >
-                  Select Type:
-                </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                  disabled={isLoading}
-                  style={{
-                    padding: "8px",
-                    border: "2px solid #19b17b",
-                    borderRadius: "4px",
-                    width: "100%",
-                  }}
-                >
-                  <option value="">-- Select a type --</option>
-                  {grammarTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </option>
-                  ))}
-                </select>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "16px", marginBottom: "10px" }}>
+                  Loading grammar...
+                </div>
+                <div style={{ fontSize: "14px", opacity: 0.8 }}>
+                  Fetching available input types from server
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Right Side - Parameters */}
-            {selectedType && (
-              <div style={{ flex: "1", minWidth: "0" }}>
-                <div style={{ marginBottom: "15px" }}>
+          {/* Main Content - Only show when grammar is loaded */}
+          {!isGrammarLoading && (
+            <>
+              {/* Wallet Generation and Address Display */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "20px",
+                  padding: "15px",
+                  background: "#f8fafc",
+                  borderRadius: "6px",
+                  border: "1px solid #e2e8f0",
+                }}
+              >
+                <button
+                  onClick={generateNewWallet}
+                  style={{
+                    padding: "10px 16px",
+                    background: "linear-gradient(45deg, #19b17b, #022418)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    fontSize: "14px",
+                  }}
+                >
+                  Generate new EVM Wallet
+                </button>
+
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                >
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      color: "#64748b",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Current Address:
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      fontFamily: "monospace",
+                      background: wallet ? "#e0f2fe" : "#fef3c7",
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      color: wallet ? "#0369a1" : "#92400e",
+                      border: `1px solid ${wallet ? "#bae6fd" : "#fde68a"}`,
+                    }}
+                  >
+                    {wallet
+                      ? `${wallet.address.slice(0, 6)}...${
+                        wallet.address.slice(-4)
+                      }`
+                      : "No wallet generated"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Type Selection and Parameters Layout */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: "30px",
+                  alignItems: "flex-start",
+                }}
+              >
+                {/* Left Side - Type Selection */}
+                <div style={{ flex: "0 0 300px" }}>
+                  <div style={{ marginBottom: "15px" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "25px",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Select Type:
+                    </label>
+                    <select
+                      value={selectedType}
+                      onChange={(e) => handleTypeChange(e.target.value)}
+                      disabled={isLoading}
+                      style={{
+                        padding: "8px",
+                        border: "2px solid #19b17b",
+                        borderRadius: "4px",
+                        width: "100%",
+                      }}
+                    >
+                      <option value="">-- Select a type --</option>
+                      {grammarTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Right Side - Parameters */}
+                {selectedType && (
+                  <div style={{ flex: "1", minWidth: "0" }}>
+                    <div style={{ marginBottom: "15px" }}>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "5px",
+                          fontWeight: "600",
+                        }}
+                      >
+                        Parameters for {selectedType}:
+                      </label>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: "15px",
+                          alignItems: "flex-end",
+                        }}
+                      >
+                        {grammar[selectedType as keyof typeof grammar].map((
+                          [fieldName, fieldType]: [string, any],
+                        ) => (
+                          <div
+                            key={fieldName}
+                            style={{ display: "flex", flexDirection: "column" }}
+                          >
+                            <label
+                              style={{
+                                marginBottom: "5px",
+                                fontWeight: "500",
+                                fontSize: "14px",
+                              }}
+                            >
+                              {fieldName} ({fieldType.type}):
+                            </label>
+                            {renderInputField(fieldName, fieldType)}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Preview */}
+              {selectedType && (
+                <div style={{ marginTop: "20px", marginBottom: "15px" }}>
                   <label
                     style={{
                       display: "block",
                       marginBottom: "5px",
-                      fontWeight: "600",
+                      fontWeight: "500",
                     }}
                   >
-                    Parameters for {selectedType}:
+                    Preview JSON Array:
                   </label>
-                  <div
+                  <pre
                     style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "15px",
-                      alignItems: "flex-end",
+                      background: "#f5f5f5",
+                      padding: "10px",
+                      borderRadius: "4px",
+                      border: "1px solid #ddd",
+                      fontSize: "12px",
+                      overflow: "auto",
                     }}
                   >
-                    {grammar[selectedType as keyof typeof grammar].map((
-                      [fieldName, fieldType],
-                    ) => (
-                      <div
-                        key={fieldName}
-                        style={{ display: "flex", flexDirection: "column" }}
-                      >
-                        <label
-                          style={{
-                            marginBottom: "5px",
-                            fontWeight: "500",
-                            fontSize: "14px",
-                          }}
-                        >
-                          {fieldName} ({fieldType.type}):
-                        </label>
-                        {renderInputField(fieldName, fieldType)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Preview */}
-          {selectedType && (
-            <div style={{ marginTop: "20px", marginBottom: "15px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "5px",
-                  fontWeight: "500",
-                }}
-              >
-                Preview JSON Array:
-              </label>
-              <pre
-                style={{
-                  background: "#f5f5f5",
-                  padding: "10px",
-                  borderRadius: "4px",
-                  border: "1px solid #ddd",
-                  fontSize: "12px",
-                  overflow: "auto",
-                }}
-              >
             {JSON.stringify(buildJsonArray(), null, 2)}
-              </pre>
-            </div>
-          )}
+                  </pre>
+                </div>
+              )}
 
-          {/* Submit Button */}
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading || !selectedType || !wallet}
-            style={{
-              padding: "10px 20px",
-              background: (selectedType && wallet)
-                ? "linear-gradient(45deg, #19b17b, #022418)"
-                : "#ccc",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: (isLoading || !selectedType || !wallet)
-                ? "not-allowed"
-                : "pointer",
-              fontWeight: "600",
-              opacity: isLoading ? 0.6 : 1,
-            }}
-          >
-            {isLoading ? "Sending..." : "Send to Batcher"}
-          </button>
+              {/* Submit Button */}
+              <button
+                onClick={handleSubmit}
+                disabled={isLoading || !selectedType || !wallet}
+                style={{
+                  padding: "10px 20px",
+                  background: (selectedType && wallet)
+                    ? "linear-gradient(45deg, #19b17b, #022418)"
+                    : "#ccc",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: (isLoading || !selectedType || !wallet)
+                    ? "not-allowed"
+                    : "pointer",
+                  fontWeight: "600",
+                  opacity: isLoading ? 0.6 : 1,
+                }}
+              >
+                {isLoading ? "Sending..." : "Send to Batcher"}
+              </button>
 
-          {/* CSS Animation */}
-          <style>
-            {`
+              {/* CSS Animation */}
+              <style>
+                {`
           @keyframes slideIn {
             from {
               transform: translateX(100%);
@@ -580,7 +647,9 @@ export function BatcherInput() {
             }
           }
         `}
-          </style>
+              </style>
+            </>
+          )}
         </>
       )}
     </div>

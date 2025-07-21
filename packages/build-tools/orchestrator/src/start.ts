@@ -1,6 +1,7 @@
 #!/usr/bin/env -S deno run --allow-all
 import type { ValueOf } from "@paima/utils";
 import "./http-server.ts";
+import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 import {
   getCurrentOutput,
@@ -95,6 +96,9 @@ export async function start(
       startProcess[ComponentNames.HARDHAT](),
     ]);
 
+    // Deploy the contracts
+    await startProcess[ComponentNames.DEPLOY]();
+
     // Start the Dolos process
     await startProcess[ComponentNames.DOLOS]();
 
@@ -154,6 +158,18 @@ export const startProcess: Record<
     return docs;
   },
 
+  [ComponentNames.DEPLOY]: async (): Promise<ProcessComponent> => {
+    const deploy = $({
+      args: ["task", "-f", "@example/evm-contracts", "deploy"],
+      component: ComponentNames.DEPLOY,
+      log: rawLogHandler,
+      abortController: abortControllers.system,
+    });
+
+    await Promise.all([deploy.process.status]);
+    return deploy;
+  },
+
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
     // TODO: only start one if there isn't one already running
     const otlpCollector = $({
@@ -205,7 +221,9 @@ export const startProcess: Record<
 
   [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
     // TODO This should be read from the config.
-    const paimaL2Address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    const paimaL2Address = contractAddressesEvmMain()["chain31337"][
+      "PaimaL2ContractModule#MyPaimaL2Contract"
+    ];
     const batcherPrivateKey =
       "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
     const chainName = "hardhat";
@@ -246,6 +264,7 @@ export const startProcess: Record<
   [ComponentNames.HARDHAT]: async (): Promise<ProcessComponent> => {
     // TODO: some way to specify which chains should be used for a project
     const hardhat = $({
+      // TODO This should be read from the config.
       args: ["task", "-f", "@example/evm-contracts", "chain:start"],
       log: logHandler,
       component: ComponentNames.HARDHAT,
@@ -255,7 +274,7 @@ export const startProcess: Record<
 
     await $({
       args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
-      component: ComponentNames.HARDHA_WAIT,
+      component: ComponentNames.HARDHAT_WAIT,
       abortController: abortControllers.noncritical,
     }).process.status;
 

@@ -22,11 +22,11 @@ export function defaultHardhatConfig(config: {
     solidity: {
       version: "0.8.22",
       dependenciesToCompile: [],
-      remappings: [
-        "remapped/=npm/@openzeppelin/contracts@5.1.0/access/",
-        // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
-        "forge-std/=npm/forge-std@local/src/",
-      ],
+      // remappings: [
+      //   "remapped/=npm/@openzeppelin/contracts@5.1.0/access/",
+      //   // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
+      //   "forge-std/=npm/forge-std@local/src/",
+      // ],
     },
     // abiExporter: {
     //   path: `${config.outDir}/abi`,
