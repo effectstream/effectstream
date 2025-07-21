@@ -1,4 +1,9 @@
-import type { BlockNumber, EvmRpcPageJson, TimestampMs } from "@paima/utils";
+import type {
+  BlockNumber,
+  EvmBlockHash,
+  EvmRpcPageJson,
+  TimestampMs,
+} from "@paima/utils";
 import { TypeboxHelpers } from "@paima/utils";
 import type { Chain, GetBlockReturnType } from "viem";
 import type { PageSyncRange } from "../common/page-helpers.ts";
@@ -28,6 +33,7 @@ export type Input = PageSyncRange<Page>;
 export type Output = {
   raw: GetBlockReturnType<Chain>;
   primitives: PrimitiveType[];
+  blockHashes: EvmBlockHash[];
 };
 
 /**

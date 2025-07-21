@@ -16,7 +16,8 @@ import {
   erc20dev,
   erc721dev,
   paimal2contract,
-} from "@my-project/evm-contracts";
+} from "@example/evm-contracts";
+
 import {
   type SharedState,
   updateERC20Balance,
@@ -117,7 +118,7 @@ export const paimaL2Builder = (sharedState: SharedState) => ({
       account,
       chain: mainEvm,
       address: contractAddressesEvmMain()["chain31337"][
-        "PaimaL2ContractModule#PaimaL2Contract"
+        "PaimaL2ContractModule#MyPaimaL2Contract"
       ],
       abi: paimal2contract.metadata.output.abi,
       functionName: "paimaSubmitGameInput",
@@ -393,12 +394,16 @@ export const erc20Factory = (
  */
 export const erc20Builder = (sharedState: SharedState) => ({
   a: erc20Factory(
-    contractAddressesEvmMain()["chain31337"]["Erc20DevModule#Erc20Dev"],
+    contractAddressesEvmMain()["chain31337"][
+      "PaimaErc20DevModule#PaimaErc20Dev"
+    ],
     mainEvm,
     sharedState,
   ),
   b: erc20Factory(
-    contractAddressesEvmMain()["chain31338"]["Erc20DevModule#Erc20Dev"],
+    contractAddressesEvmMain()["chain31338"][
+      "PaimaErc20DevModule#PaimaErc20Dev"
+    ],
     parallelEvm,
     sharedState,
   ),

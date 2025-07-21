@@ -1,11 +1,7 @@
 import type { ChainBlock } from "@paima/sync";
 import { call, type Operation, until } from "effection";
 import type { Pool } from "pg";
-import {
-  type BaseStfInput,
-  type BaseStfOutput,
-  primitiveTransitionFunction,
-} from "@paima/sm";
+import { type BaseStfInput, primitiveTransitionFunction } from "@paima/sm";
 import { PreparedQuery } from "npm:@pgtyped/runtime";
 import type {
   ExecPromise,
@@ -22,12 +18,9 @@ import {
 } from "@paima/db";
 import { Buffer } from "node:buffer";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import type {
-  StartConfig,
-  StartConfigGameStateTransitions,
-  StartConfigMigrationRouter,
-} from "./types.ts";
-import type { EvmBlockHash } from "@paima/utils";
+import type { StartConfig, StartConfigMigrationRouter } from "./types.ts";
+import type { PaimaBlockHash } from "@paima/utils";
+import { generatePaimaBlockHash, Prando } from "@paima/crypto";
 
 /** Helper to check if a SyncStateUpdateStream object is a WorldResolve */
 function isWorldResolve(value: any): value is QueuedUpdate {
@@ -147,9 +140,13 @@ export function* processFinalizedBlock(
   value: ChainBlock,
   config: StartConfig,
   dbConn: Pool,
-): Operation<EvmBlockHash> {
+  previousBlockHash: PaimaBlockHash | null,
+): Operation<PaimaBlockHash> {
   const { gameStateTransitions, migrationRouter } = config;
-  let blockHash: EvmBlockHash;
+  const blockHash: PaimaBlockHash = generatePaimaBlockHash(
+    value,
+    previousBlockHash,
+  );
   try {
     /* STEP 0: Start the transaction. */
     yield* until(dbConn.query("BEGIN"));
@@ -202,66 +199,72 @@ export function* processFinalizedBlock(
     // TODO What should be the order of the scheduled data - per id?
     const scheduledData = [...scheduledData1, ...scheduledData2];
     let index_in_block = 0;
+    const randomGenerator = new Prando(blockHash);
+
     if (gameStateTransitions && scheduledData.length > 0) {
+      randomGenerator.skip();
       for (const data of scheduledData) {
-        // TODO: Should we rollback the State Machine execution if it fails?
-        //       Now the developer can see the execution result in the STF.
-        // const { status } = yield* until(tryOrRollback(dbConn, async () => {
-        const input: BaseStfInput = {
-          blockTimestamp: value.timestamp,
-          blockHeight: value.blockNumber,
-          conciseInput: data.input_data,
-          // TODO This should be the delegated address?
-          //      For contracts what address to use?
-          // userAddress: data.from_address, // rollup_inputs.from_address
-          // TOOD Should we add this field to rollup_inputs
-          // userId:
-          chain: {
-            blockNumber: value.blockNumber,
-            transactionHash: "0x0",
-          },
-        };
-        const gameSTFGenerator = gameStateTransitions(
-          value.blockNumber,
-          input,
-        );
-        yield* executeGeneratorStepByStep(gameSTFGenerator, dbConn);
-        // }));
+        let success = true;
+        try {
+          const input: BaseStfInput = {
+            blockTimestamp: value.timestamp,
+            blockHeight: value.blockNumber,
+            conciseInput: data.input_data,
+            signerAddress: data.from_address,
+            randomGenerator,
+            // TODO: We might want to add this to the scheduled data.
+            //
+            //      Or do we resolve it here. Account might change.
+            //      Should we preserve the original accountId or the signer's
+            //      current accountId?
+            accountId: undefined, // data.accountId,
+          };
+          const gameSTFGenerator = gameStateTransitions(
+            value.blockNumber,
+            input,
+          );
+          yield* executeGeneratorStepByStep(gameSTFGenerator, dbConn);
+        } catch (err) {
+          success = false;
+          log.remote(
+            ComponentNames.PAIMA_SYNC,
+            "block-processing",
+            SeverityNumber.ERROR,
+            (log) =>
+              log(
+                `Error processing block ${value.blockNumber}: ${
+                  String(err)
+                }. Payload: ${JSON.stringify(data)}`,
+              ),
+          );
+        }
         const gameInputHash = `0x${
           Array(64).fill(0).map(() =>
             Math.floor(Math.random() * 16).toString(16)
           )
             .join("")
         }`;
-        yield* call(() =>
+        yield* until(
           insertGameInputResult.run({
             id: data.id,
-            // TODO: What does this mean? Should this be used defined?
-            //       For example the STF returning a boolean?
-            success: true, //  status === "success",
+            success,
             paima_tx_hash: Buffer.from(gameInputHash),
             index_in_block,
             block_height: value.blockNumber,
-          }, dbConn)
+          }, dbConn),
         );
         index_in_block++;
 
         // Remove the scheduled data from the database.
-        yield* call(() =>
+        yield* until(
           deleteScheduled.run({
             id: data.id,
-          }, dbConn)
+          }, dbConn),
         );
       }
     }
 
     /* STEP 6: Mark the block as done. */
-    // TODO Where does this hash come from?
-    blockHash = `0x${
-      Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16))
-        .join("")
-    }` as EvmBlockHash;
-
     yield* call(() =>
       blockHeightDone.run({
         block_hash: Buffer.from(blockHash),

@@ -2,7 +2,8 @@
   "type": "module",
   "dependencies": {
     "@openzeppelin/contracts": "5.1.0",
-    "@openzeppelin/contracts-upgradeable": "^5.1.0"
+    "@openzeppelin/contracts-upgradeable": "^5.1.0",
+    "@paima/evm": "file:./../../../packages/chains/evm/contracts"
   },
   "devDependencies": {
     "jsonc-parser": "3.3.1",

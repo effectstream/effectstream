@@ -18,6 +18,7 @@ export const grammar = {
     ["playerId", Type.Integer()],
     ["moveId", Type.Integer()],
   ],
+  throw_error: [],
   // TODO: How do we get this from the known payload types?
   //       This is a ERC20 transfer.
   transfer: [

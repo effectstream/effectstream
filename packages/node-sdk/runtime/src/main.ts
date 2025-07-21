@@ -13,7 +13,7 @@ import { processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
-import type { EvmBlockHash } from "@paima/utils";
+import type { PaimaBlockHash } from "@paima/utils";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -56,15 +56,20 @@ export function* start(config: StartConfig): Operation<void> {
 
   yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
 
+  let blockHash: PaimaBlockHash | null = null;
   for (const value of yield* each(finalizedBlockStream)) {
-    let blockHash: EvmBlockHash;
     // We request a dbClient for a non-shared dbConn object.
     // For PGLite, this is not enough, as the can only be one connection at a time.
     // So we request a DBMutex as well.
     const dbClient: Client = yield* until(dbConn.connect());
     try {
       yield* aquireDBMutex("processing-blocks");
-      blockHash = yield* processFinalizedBlock(value, config, dbClient);
+      blockHash = yield* processFinalizedBlock(
+        value,
+        config,
+        dbClient,
+        blockHash,
+      );
     } finally {
       releaseDBMutex();
       dbClient.release();
