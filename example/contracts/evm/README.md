@@ -1,18 +1,14 @@
-# Instalation
+# Build Contracts
 
-To create fresh contracts deployment:
+`deno task -f @example/evm-contracts build`
 
-```sh
-mkdir contracts-evm
-cd contracts-evm
-deno task -f "@paima/evm-contracts" init && \
-deno install && \
-deno task patch-foundry && \
-deno task build:contracts && \
-deno task deploy:standalone
-```
+# Deploy Contracts
 
-# Setup your Chains
+`deno task -f @my-project deploy:standalone`
+
+# Setup
+
+## Setup your EVM Chains
 
 `hardhat.config.ts` has a section with networks, you can edit to match your requirements.
 
@@ -42,24 +38,18 @@ Important:
 - You must add two entries for each network. myNetworkName and myNetworkNameHttp.
 - The first network will automatically start at port 8545, 8546 for the second and so forward.
 
-# Deploy
-
-Deploy contracts described in `deploy.ts`
-
-`deno task deploy:standalone`
-
-# Create and deploy new Contracts
+## Create and deploy new Contracts
 
 To add your contracts you will need 3 steps:
 
-## 1. Add new Contract
+### 1. Add new Contract
 
 Add your Solidity Contracts in `/src/contracts/my-contract.ts`  
-and run `deno task build:contracts`
+and run `deno task -f @example/evm-contracts build`
 
 Your contract is compiled and ready to be used.
 
-## 2. Create Ignition Module
+### 2. Create Ignition Module
 
 First create a ignition module at:
 `./ignition/module/my-contract-module.ts`
@@ -87,6 +77,6 @@ const myDeployments: Deployment[] = [
 ];
 ```
 
-## 3. Redeploy Contracts
+### 3. Redeploy Contracts
 
-Run `deno task deploy`
+Run `deno task -f @my-project deploy:standalone`
