@@ -1,5 +1,4 @@
 import type { HardhatUserConfig } from "hardhat/config";
-
 import util from "node:util";
 import HardhatViem from "@nomicfoundation/hardhat-viem";
 // import HardhatAbiExporter from "hardhat-abi-exporter";
@@ -37,7 +36,7 @@ export function initTelemetry(): void {
 initTelemetry();
 
 function logNetwork(networkName: string, ...msg: any[]) {
-  log.local(
+  log.remote(
     ComponentNames.HARDHAT,
     [networkName],
     SeverityNumber.INFO,
@@ -108,45 +107,22 @@ const nodeTask = overrideTask("node")
             onBlock: (block) => {
               // there seems to be a bug on block 0 where it triggers watchBlock in an infinite loop
               if (block.number === 0n) return;
-              block.transactions.forEach((tx) => {
-                logNetwork(name, `Transaction ${tx.hash}`);
-              });
-              // const txsMessage = block.transactions.length === 0
-              //   ? ""
-              //   : `\nTransactions:\n${
-              //     block.transactions.map((tx) => tx.hash).join("\n\t")
-              //   }`;
-              // logNetwork(
-              // name,
-              // `block ${block.number} (${block.hash})`,
-              // txsMessage,
-              // );
+
+              const txsMessage = block.transactions.length === 0
+                ? ""
+                : `\nTransactions:\n${
+                  block.transactions.map((tx) => tx.hash).join("\n\t")
+                }`;
+              logNetwork(
+                name,
+                `block ${block.number} (${block.hash})`,
+                txsMessage,
+              );
             },
             includeTransactions: true,
           },
         );
 
-        publicClient.watchPendingTransactions({
-          onTransactions: (txs) => {
-            logNetwork(name, `Transaction ${txs} pending`);
-          },
-        });
-        publicClient.watchContractEvent({
-          abi: [],
-          onLogs: (logs) => {
-            logNetwork(name, `Event ${logs} emitted`);
-          },
-        });
-        publicClient.watchEvent({
-          onLogs: (logs) => {
-            logNetwork(name, `Event ${logs} emitted`);
-          },
-        });
-        // publicClient.watchBlockNumber({
-        //   onBlockNumber: (blockNumber) => {
-        //     logNetwork(name, `Block number ${blockNumber}`);
-        //   },
-        // });
         const { port: actualPort, address } = await server.listen();
         logNetwork(
           name,
@@ -165,10 +141,10 @@ const nodeTask = overrideTask("node")
             address: wallets[i].account.address,
           });
           const balance = (weiBalance / 10n ** 18n).toString(10);
-          // logNetwork(
-          //   name,
-          //   `Account #${i}: ${wallets[i].account.address} (${balance} ETH)`,
-          // );
+          logNetwork(
+            name,
+            `Account #${i}: ${wallets[i].account.address} (${balance} ETH)`,
+          );
         }
       }
       await Promise.all(
@@ -191,7 +167,6 @@ const nodeWaitTask = task(["node", "wait"])
         port < args.port + networkEntries.length;
         port++
       ) {
-        console.log(`Waiting for port ${port}`);
         await waitOn({
           resources: [`tcp:${port}`],
         });
@@ -240,7 +215,9 @@ const config: HardhatUserConfig = {
     },
   },
   paths: {
-    sources: [`${__dirname}/src/contracts`],
+    sources: [
+      `${__dirname}/src/contracts`,
+    ],
     artifacts: `${__dirname}/build/artifacts/hardhat`,
     cache: `${__dirname}/build/cache/hardhat`,
   },
@@ -251,6 +228,7 @@ const config: HardhatUserConfig = {
   plugins: [
     HardhatViem,
     HardhatIgnitionViem,
+    // HardhatFoundry,
     // HardhatAbiExporter,
   ],
 

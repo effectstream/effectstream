@@ -16,7 +16,7 @@ import {
   erc20dev,
   erc721dev,
   paimal2contract,
-} from "@my-project/evm-contracts";
+} from "@example/evm-contracts";
 
 const mainEvm = hardhat;
 const parallelEvm = JSON.parse(JSON.stringify(hardhat));
@@ -70,7 +70,7 @@ export const paimaL2Builder = () => ({
       account,
       chain: mainEvm,
       address: contractAddressesEvmMain()["chain31337"][
-        "PaimaL2ContractModule#PaimaL2Contract"
+        "PaimaL2ContractModule#MyPaimaL2Contract"
       ],
       abi: paimal2contract.metadata.output.abi,
       functionName: "paimaSubmitGameInput",
@@ -293,11 +293,15 @@ export const erc20Factory = (contractAddress: `0x${string}`, chain: Chain) => {
  */
 export const erc20Builder = () => ({
   a: erc20Factory(
-    contractAddressesEvmMain()["chain31337"]["Erc20DevModule#Erc20Dev"],
+    contractAddressesEvmMain()["chain31337"][
+      "PaimaErc20DevModule#PaimaErc20Dev"
+    ],
     mainEvm,
   ),
   b: erc20Factory(
-    contractAddressesEvmMain()["chain31338"]["Erc20DevModule#Erc20Dev"],
+    contractAddressesEvmMain()["chain31338"][
+      "PaimaErc20DevModule#PaimaErc20Dev"
+    ],
     parallelEvm,
   ),
 });
