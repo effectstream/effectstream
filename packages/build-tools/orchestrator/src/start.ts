@@ -102,20 +102,14 @@ export async function start(
     }
 
     // Start processes in parallel
-    await Promise.all([
-      // startProcess[ComponentNames.DOCS](),
-      startProcess[ComponentNames.PAIMA_DB](),
-      startProcess[ComponentNames.YACI_DEVKIT](),
-      startProcess[ComponentNames.HARDHAT](),
-    ]);
-
-    await Promise.all([
-      // Start the Dolos process. Depends on YaciDevkit.
-      startProcess[ComponentNames.DOLOS](),
-      // Deploy the contracts. Depends on Hardhat.
-      startProcess[ComponentNames.DEPLOY_EVM_CONTRACTS](),
-    ]);
-
+    // startProcess[ComponentNames.DOCS](),
+    await startProcess[ComponentNames.PAIMA_DB]();
+    await startProcess[ComponentNames.YACI_DEVKIT]();
+    await startProcess[ComponentNames.HARDHAT]();
+    // Start the Dolos process. Depends on YaciDevkit.
+    await startProcess[ComponentNames.DOLOS]();
+    // Deploy the contracts. Depends on Hardhat.
+    await startProcess[ComponentNames.DEPLOY_EVM_CONTRACTS]();
     // Start the batcher, after the contracts are deployed.
     await startProcess[ComponentNames.PAIMA_BATCHER]();
 
