@@ -13,6 +13,7 @@
   "imports": {
     "pg": "npm:pg@^8.14.0",
     "viem": "npm:viem@^2.21.3",
-    "effection": "npm:effection@^3.5.0"
+    "effection": "npm:effection@^3.5.0",
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
   }
 }

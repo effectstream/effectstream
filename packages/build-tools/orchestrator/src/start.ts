@@ -1,11 +1,10 @@
 #!/usr/bin/env -S deno run --allow-all
-import type { ValueOf } from "@paima/utils";
+import { ENV, type ValueOf } from "@paima/utils";
 import "./http-server.ts";
 import { dkill } from "@sylc/dkill";
 import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 import {
-  getCurrentOutput,
   initTelemetry,
   logHandler,
   rawLogHandler,
@@ -20,18 +19,97 @@ import {
 } from "./process.ts";
 import { ComponentNames } from "@paima/log";
 import { installTmux, Tmux } from "./tmux/tmux.ts";
+import type { LaunchableComponents } from "@paima/log";
+import { type Static, Type } from "@sinclair/typebox";
 
 Deno.addSignalListener("SIGINT", () => {
   shutdown(0);
 });
 
-function getOptions(config: {
-  output?: "none" | "stdout-err" | "stdout" | "development" | "production";
-}) {
-  const output = config.output ?? "development";
-  const enableTUI = output === "development";
-  const enableCollector = output === "development";
-  switch (output) {
+/**
+ * Orchestrator configurations
+ * logs: log output mode
+ * killProcessesByPort: ports to kill on startup
+ * processes: components to start
+ */
+export const OrchestratorConfig = Type.Object({
+  logs: Type.Union([
+    Type.Literal("none"),
+    Type.Literal("stdout-err"),
+    Type.Literal("stdout"),
+    Type.Literal("development"),
+    Type.Literal("production"),
+  ], { default: "development" }),
+
+  kill: Type.Object({
+    auto: Type.Boolean({ default: true }),
+
+    // External configured ports.
+    hardhat: Type.Array(Type.Number(), {
+      default: [8545, 8546],
+    }),
+    // TODO "kill" is a workaround to kill any processes that are still running from a previous run.
+    //
+    // Cardano processes 8090, 10000. Do not terminate cleanly.
+    // Unfortunately required because of https://github.com/bloxbean/yaci-devkit/issues/94
+    //
+    // PGLite 5432. Frequently does not shutdown in some cases.
+    //
+    // Hardhat 8545. Sometimes it does not shutdown cleanly when the node crashes.
+    //
+    // Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
+    //
+    yaciDevkit: Type.Array(Type.Number(), {
+      default: [8090, 10000, 50051, 3001],
+    }),
+  }, { default: {} }),
+
+  // Batcher options.
+  // Also set: processes[ComponentNames.PAIMA_BATCHER] = true
+  batcher: Type.Optional(Type.Object({
+    paimaL2Address: Type.String(),
+    batcherPrivateKey: Type.String(),
+    chainName: Type.String(),
+  })),
+
+  // Processes to start
+  processes: Type.Object({
+    // Main Processes
+    [ComponentNames.PAIMA_SYNC]: Type.Boolean({ default: true }),
+
+    // Dev Tools
+    [ComponentNames.CHECKER]: Type.Boolean({ default: true }),
+
+    [ComponentNames.PAIMA_DB]: Type.Boolean({ default: false }),
+
+    [ComponentNames.HARDHAT]: Type.Boolean({ default: false }),
+    [ComponentNames.DEPLOY_EVM_CONTRACTS]: Type.Boolean({ default: false }),
+    [ComponentNames.YACI_DEVKIT]: Type.Boolean({ default: false }),
+    [ComponentNames.DOLOS]: Type.Boolean({ default: false }),
+
+    // DevOps
+    [ComponentNames.COLLECTOR]: Type.Boolean({ default: true }),
+    [ComponentNames.PAIMA_BATCHER]: Type.Boolean({ default: true }),
+    [ComponentNames.DOCS]: Type.Boolean({ default: true }),
+    // TODO: Explorer crashes when launching process through Deno.command
+    [ComponentNames.EXPLORER]: Type.Boolean({ default: false }),
+    [ComponentNames.TMUX]: Type.Boolean({ default: true }),
+  }, { default: {} }),
+});
+
+type OrchestratorConfigType = Static<typeof OrchestratorConfig>;
+
+export async function start(
+  config: OrchestratorConfigType,
+): Promise<void> {
+  // Let's setup the output mode
+  // Config options:
+  //   none: no logs
+  //   stdout-err: print only errors to terminal - This mode is used by tests, so only errors are printed
+  //   stdout: print all logs to terminal - This mode is used by test in dev mode.
+  //   development: send only to OTEL collector - Default mode.
+  //   production: send to OTEL collector and print to terminal
+  switch (config.logs) {
     case "none":
       setCurrentOutput([]);
       break;
@@ -45,95 +123,78 @@ function getOptions(config: {
       break;
     case "development":
       setCurrentOutput(["otel"]);
+      initTelemetry();
       break;
     case "production":
       setCurrentOutput(["otel", "stdout"]);
+      initTelemetry();
       break;
   }
-  return {
-    enableTUI,
-    enableCollector,
-  };
-}
 
-/*  Config options:
- *
- *  | config.output | Terminal     | OTEL   | Collector | TUI    |
- *  |---------------|--------------|--------|-----------|--------|
- *  | development   | no           | yes    | yes       | yes    |
- *  | production    | yes          | yes    | no        | no     |
- *  | stdout        | yes          | no     | no        | no     |
- *  | stdout-err    | yes (errors) | no     | no        | no     |
- *  | none          | no           | no     | no        | no     |
- */
-export async function start(
-  config: {
-    output?: "development" | "production" | "stdout" | "stdout-err" | "none";
-  } = {},
-): Promise<void> {
-  // TODO This is a workaround to kill any processes that are still running from a previous run.
-  //
-  // Cardano processes 8090, 10000. Do not terminate cleanly.
-  // Unfortunately required because of https://github.com/bloxbean/yaci-devkit/issues/94
-  //
-  // PGLite 5432. Frequently does not shutdown in some cases.
-  //
-  // Hardhat 8545. Sometimes it does not shutdown cleanly when the node crashes.
-  //
-  // Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
-  //
-  const results = await dkill({ ports: [8090, 10000, 5432, 8545, 8546, 3334] });
-  console.log(results);
-
-  // fast-fail if there are type errors in the project
-  await startProcess[ComponentNames.CHECKER]();
-
-  const { enableTUI, enableCollector } = getOptions(config);
-
-  if (enableTUI) {
-    await startProcess[ComponentNames.TMUX]();
-  }
   try {
-    if (getCurrentOutput().includes("otel")) {
-      initTelemetry();
+    const startProcess = processFactory(config);
+    // This is a 2D array of functions that launch processes.
+    // The outer array is for processes that are launched in sequence.
+    // The inner array is for processes that are launched in parallel.
+    const processesToLaunch: (false | (() => Promise<ProcessComponent>))[][] =
+      [];
+
+    // fast-fail if there are type errors in the project
+    if (config.processes[ComponentNames.CHECKER]) {
+      processesToLaunch.push([startProcess[ComponentNames.CHECKER]]);
     }
-    // start the collector before any other process since it's the one that captures logs
-    if (enableCollector) {
-      await startProcess[ComponentNames.COLLECTOR]();
-      await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
+
+    if (config.processes[ComponentNames.TMUX]) {
+      processesToLaunch.push([startProcess[ComponentNames.TMUX]]);
     }
 
-    // Start processes in parallel
-    // startProcess[ComponentNames.DOCS](),
-    await startProcess[ComponentNames.PAIMA_DB]();
-    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
-    await startProcess[ComponentNames.YACI_DEVKIT]();
-    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
+    if (config.processes[ComponentNames.COLLECTOR]) {
+      processesToLaunch.push([startProcess[ComponentNames.COLLECTOR]]);
+    }
 
-    await (new Deno.Command("ss", {
-      args: ["-tuln"],
-      stdout: "inherit",
-      stderr: "inherit",
-    }).spawn()).status;
+    // First batch of processes that have no other dependencies
+    processesToLaunch.push([
+      config.processes[ComponentNames.DOCS] &&
+      startProcess[ComponentNames.DOCS],
+      config.processes[ComponentNames.PAIMA_DB] &&
+      startProcess[ComponentNames.PAIMA_DB],
+      config.processes[ComponentNames.YACI_DEVKIT] &&
+      startProcess[ComponentNames.YACI_DEVKIT],
+      config.processes[ComponentNames.HARDHAT] &&
+      startProcess[ComponentNames.HARDHAT],
+    ]);
 
-    await startProcess[ComponentNames.HARDHAT]();
-    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
-    // Start the Dolos process. Depends on YaciDevkit.
-    await startProcess[ComponentNames.DOLOS]();
-    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
-    // Deploy the contracts. Depends on Hardhat.
-    await startProcess[ComponentNames.DEPLOY_EVM_CONTRACTS]();
-    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
-    // Start the batcher, after the contracts are deployed.
-    await startProcess[ComponentNames.PAIMA_BATCHER]();
-    await (new Deno.Command("sleep", { args: ["1"] }).spawn()).status;
+    processesToLaunch.push([
+      // Start the Dolos process. Depends on YaciDevkit.
+      config.processes[ComponentNames.DOLOS] &&
+      startProcess[ComponentNames.DOLOS],
+      // Deploy the contracts. Depends on Hardhat.
+      config.processes[ComponentNames.DEPLOY_EVM_CONTRACTS] &&
+      startProcess[ComponentNames.DEPLOY_EVM_CONTRACTS],
+    ]);
+
+    processesToLaunch.push([
+      config.processes[ComponentNames.PAIMA_BATCHER] &&
+      startProcess[ComponentNames.PAIMA_BATCHER],
+    ]);
 
     // Start the explorer
-    // This crashes when launching process through Deno.command
-    // await startProcess[ComponentNames.EXPLORER]();
+    // TODO: This crashes when launching process through Deno.command
+    processesToLaunch.push([
+      config.processes[ComponentNames.EXPLORER] &&
+      startProcess[ComponentNames.EXPLORER],
+    ]);
 
     // Start the main process
-    await startProcess[ComponentNames.PAIMA_SYNC]();
+    processesToLaunch.push([
+      config.processes[ComponentNames.PAIMA_SYNC] &&
+      startProcess[ComponentNames.PAIMA_SYNC],
+    ]);
+
+    // Launch outer processes in sequence, and inner processes in parallel
+    for (const batch of processesToLaunch) {
+      await Promise.all(batch.map((p) => p && p()));
+    }
   } catch (e) {
     if (!(e instanceof AbortProcessStart)) {
       console.error(e);
@@ -151,11 +212,15 @@ export const abortControllers = {
   developerUI: new AbortController(),
 };
 
-export const startProcess: Record<
-  ValueOf<typeof ComponentNames>,
+export const processFactory = (config: OrchestratorConfigType): Record<
+  ValueOf<typeof LaunchableComponents>,
   () => Promise<ProcessComponent>
-> = {
+> => ({
   [ComponentNames.TMUX]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.TUI_LOG_PORT] });
+    }
+
     await installTmux();
     const session_name = "paima-" + Date.now();
 
@@ -179,6 +244,9 @@ export const startProcess: Record<
   },
 
   [ComponentNames.EXPLORER]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.PAIMA_EXPLORER_PORT] });
+    }
     const explorer = $({
       args: ["task", "-f", "@paima/explorer", "dev"],
       component: ComponentNames.EXPLORER,
@@ -190,6 +258,10 @@ export const startProcess: Record<
   },
 
   [ComponentNames.DOCS]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.DOCS_PORT] });
+    }
+
     const docs = $({
       args: ["task", "-f", "@paima/docs", "start"],
       component: ComponentNames.DOCS,
@@ -214,7 +286,10 @@ export const startProcess: Record<
   },
 
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
-    // TODO: only start one if there isn't one already running
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.OTEL_COLLECTOR_PORT] });
+    }
+
     const otlpCollector = $({
       args: ["task", "-f", "@paima/collector", "start"],
       // collector always has to post logs directly to console
@@ -251,6 +326,10 @@ export const startProcess: Record<
   },
 
   [ComponentNames.PAIMA_SYNC]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.PAIMA_API_PORT] });
+    }
+
     const node = $({
       args: ["task", "node:start"],
       log: rawLogHandler,
@@ -263,6 +342,10 @@ export const startProcess: Record<
   },
 
   [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.BATCHER_PORT] });
+    }
+
     // TODO This should be read from the config.
     const paimaL2Address = contractAddressesEvmMain()["chain31337"][
       "PaimaL2ContractModule#MyPaimaL2Contract"
@@ -290,21 +373,11 @@ export const startProcess: Record<
     return batcher;
   },
 
-  [ComponentNames.TUI]: async (): Promise<ProcessComponent> => {
-    const tui = $({
-      args: ["task", "-f", "@paima/tui", "dev"],
-      log: (chunk: Uint8Array) => {
-        // The TUI writes directly to stdout.
-        Deno.stdout.write(chunk);
-      },
-      component: ComponentNames.TUI,
-      abortController: abortControllers.noncritical,
-    });
-    await Promise.all([tui.process.status]);
-    return tui;
-  },
-
   [ComponentNames.HARDHAT]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: config.kill.hardhat });
+    }
+
     // TODO: some way to specify which chains should be used for a project
     const hardhat = $({
       // TODO This should be read from the config.
@@ -325,6 +398,11 @@ export const startProcess: Record<
   },
 
   [ComponentNames.YACI_DEVKIT]: async (): Promise<ProcessComponent> => {
+    // Yaci Devkit Ports
+    if (config.kill.auto) {
+      await dkill({ ports: config.kill.yaciDevkit });
+    }
+
     const yaciDevkit = $({
       args: ["task", "-f", "@example/cardano-contracts", "devkit:start"],
       log: logHandler,
@@ -364,6 +442,10 @@ export const startProcess: Record<
   },
 
   [ComponentNames.PAIMA_DB]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.DB_PORT] });
+    }
+
     const paimaDb = $({
       // TODO: run pgtyped:up only depending on parameters?
       args: ["task", "-f", "@paima/db", "db:up"],
@@ -381,4 +463,4 @@ export const startProcess: Record<
 
     return paimaDb;
   },
-};
+});

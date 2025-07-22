@@ -1,7 +1,10 @@
 import type { Client, PoolConfig } from "pg";
 import pg from "pg";
-import { start } from "@paima/orchestrator";
+import { OrchestratorConfig, start } from "@paima/orchestrator";
 import { ENV } from "@paima/utils";
+import { Value } from "@sinclair/typebox/value";
+import { ComponentNames } from "@paima/log";
+import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -10,9 +13,29 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * and wait for the sync process to start and be ready.
  */
 export async function startup(): Promise<Client> {
-  const config = {
-    output: Deno.env.get("PAIMA_E2E_LOG_DEBUG") ? "stdout" : "stdout-err",
-  } as const;
+  const config = Value.Parse(OrchestratorConfig, {
+    logs: "stdout-err",
+    processes: {
+      [ComponentNames.PAIMA_DB]: true,
+
+      [ComponentNames.TUI]: false,
+      [ComponentNames.TMUX]: false,
+
+      [ComponentNames.HARDHAT]: true,
+      [ComponentNames.DEPLOY_EVM_CONTRACTS]: true,
+      [ComponentNames.YACI_DEVKIT]: true,
+      [ComponentNames.DOLOS]: true,
+    },
+
+    batcher: {
+      paimaL2Address: contractAddressesEvmMain()["chain31337"][
+        "PaimaL2ContractModule#MyPaimaL2Contract"
+      ],
+      batcherPrivateKey:
+        "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+      chainName: "hardhat",
+    },
+  });
   start(config);
   console.log("⌛ Waiting for sync process to start...");
   while (true) {
