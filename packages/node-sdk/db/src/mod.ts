@@ -39,7 +39,7 @@ export type {
 export * from "./sql/statistics.queries.ts";
 export * from "./sql/nonces.queries.ts";
 export * from "./sql/rollup_inputs.queries.ts";
-export * from "./sql/wallet-delegation.queries.ts";
+export * from "./sql/accounts.queries.ts";
 export * from "./sql/events.queries.ts";
 export * from "./sql/sync-protocols/page.queries.ts";
 export * from "./sql/primitives.queries.ts";

@@ -1,59 +1,106 @@
 import { PaimaSTM } from "@paima/sm";
 import { grammar } from "@example/data-types";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
-import { insertStateMachineInput } from "@example/database";
+import {
+  getLastSumFromExampleTable,
+  insertStateMachineInput,
+  insertSumIntoExampleTable,
+} from "@example/database";
 import type { StartConfigGameStateTransitions } from "@paima/runtime";
+import { newScheduledHeightData, newScheduledTimestampData } from "@paima/db";
+import { type SyncStateUpdateStream, World } from "@paima/coroutine";
 // import { createScheduledData } from "@paima/db";
 
 type MyEvents = {}; // TODO: replace
 const stm = new PaimaSTM<typeof grammar, MyEvents>(grammar);
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// Example promise.
+async function sum(a: number, b: number) {
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  return a + b;
+}
+
 stm.addStateTransition(
   "attack",
-  async (data) => {
-    await sleep(0);
-    return {
-      stateTransitions: [
-        [insertStateMachineInput, {
-          inputs:
-            `attack playerId: ${data.parsedInput.playerId} with moveId: ${data.parsedInput.moveId}`,
-          block_height: data.blockHeight,
-        }],
-      ],
-      events: [],
-    };
+  function* (data) {
+    // Example 1:
+    // How to write in the DB.
+    yield* World.resolve(insertStateMachineInput, {
+      inputs:
+        `attack playerId: ${data.parsedInput.playerId} with moveId: ${data.parsedInput.moveId}`,
+      block_height: data.blockHeight,
+    });
+
+    // Example 2:
+    // How to read from the DB.
+    const [lastSum] = yield* World.resolve(
+      getLastSumFromExampleTable,
+      undefined,
+    );
+    // Example 3:
+    // How to use the random generator.
+    const value = lastSum ? lastSum.sum : data.randomGenerator.nextInt(10, 99);
+
+    // Example 4:
+    // How to run a custom promise.
+    const result = yield* World.promise(sum(value, 3));
+
+    // Example 5:
+    // How to write in the DB.
+    yield* World.resolve(insertSumIntoExampleTable, {
+      sum: result,
+      block_height: data.blockHeight,
+    });
+    return;
   },
 );
 
-// stm.addStateTransition(
-//   "schedule",
-//   async (data) => {
-//     [createScheduledData, createScheduledDataPayload]
+stm.addStateTransition(
+  "throw_error",
+  function* (data) {
+    throw new Error("This is a test error");
+  },
+);
 
-//     return {
-//       stateTransitions: [],
-//       events: [],
-//     };
-//   },
-// );
+stm.addStateTransition(
+  "schedule",
+  function* (data) {
+    const { tick, message, type } = data.parsedInput;
+    const playerId = parseInt(message);
+
+    switch (type) {
+      case "block":
+        yield* World.resolve(newScheduledHeightData, {
+          from_address: "0x0",
+          future_block_height: data.blockHeight + tick,
+          input_data: JSON.stringify(["attack", playerId, 1]),
+        });
+        break;
+
+      case "timestamp":
+        yield* World.resolve(newScheduledTimestampData, {
+          from_address: "0x0",
+          future_ms_timestamp: new Date(data.blockTimestamp + tick),
+          input_data: JSON.stringify(["attack", playerId, 1]),
+        });
+
+        break;
+      default:
+        throw new Error("Invalid type");
+    }
+    return;
+  },
+);
 
 stm.addStateTransition(
   "transfer",
-  async (data) => {
-    // console.error(data);
-    await sleep(0);
+  function* (data) {
     const { to, from, value } = data.parsedInput.payload;
-    // This is where game logic is executed.
-    return {
-      stateTransitions: [
-        [insertStateMachineInput, {
-          inputs: `transfer ${value} from ${from} to ${to}`,
-          block_height: data.blockHeight,
-        }],
-      ],
-      events: [],
-    };
+    yield* World.resolve(insertStateMachineInput, {
+      inputs: `transfer ${value} from ${from} to ${to}`,
+      block_height: data.blockHeight,
+    });
+    return;
   },
 );
 
@@ -68,16 +115,14 @@ stm.addStateTransition(
  * @param input - The input to process the game state transitions for.
  * @returns The result of the game state transitions.
  */
-export const gameStateTransitions: StartConfigGameStateTransitions =
-  async function (
-    blockHeight: number,
-    input: BaseStfInput,
-  ): Promise<BaseStfOutput<MyEvents>> {
-    let result;
-    if (blockHeight >= 0) {
-      result = await stm.processInput(input);
-    } else {
-      result = await stm.processInput(input);
-    }
-    return result;
-  };
+export const gameStateTransitions: StartConfigGameStateTransitions = function* (
+  blockHeight: number,
+  input: BaseStfInput,
+): SyncStateUpdateStream<void> {
+  if (blockHeight >= 0) {
+    yield* stm.processInput(input);
+  } else {
+    yield* stm.processInput(input);
+  }
+  return;
+};

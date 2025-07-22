@@ -21,5 +21,6 @@
     "host": "localhost",
     "port": 5432,
     "ssl": false
-  }
+  },
+  "maxWorkerThreads": 1
 }

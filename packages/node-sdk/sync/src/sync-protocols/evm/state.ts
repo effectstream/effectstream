@@ -35,6 +35,10 @@ export class EvmSyncState extends SyncState<
   @bound
   override toRootOutput(data: Output): RootOutput {
     return {
+      blockHashes: data.blockHashes.map((h) => ({
+        source: this.config.syncProtocol.name,
+        blockHashes: h,
+      })),
       blockNumber: Number(data.raw.number),
       timestamp: this.toRootPage(data),
       primitives: data.primitives.map((p) => ({
@@ -86,7 +90,12 @@ export class EvmSyncState extends SyncState<
       ...p,
       source: this.config.syncProtocol.name,
     }));
+    const blockHashes = ourOutput.blockHashes.map((h) => ({
+      source: this.config.syncProtocol.name,
+      blockHashes: h,
+    }));
     rootOutput.primitives.push(...primitives);
+    rootOutput.blockHashes.push(...blockHashes);
   }
 
   @bound

@@ -23,6 +23,7 @@ function App() {
   const {
     primitiveData,
     staticTableData,
+    scheduledData,
   } = useTableData();
 
   // Error handling for uncaught promises
@@ -80,6 +81,11 @@ function App() {
       >
         <BatcherInput />
       </TableSection>
+
+      <TableSection
+        title="Scheduled Data"
+        tables={scheduledData}
+      />
     </div>
   );
 }

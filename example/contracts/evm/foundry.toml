@@ -3,11 +3,8 @@ src = 'src/contracts' # the source directory
 test = 'test/src' # the test directory
 out = 'build/artifacts/forge' # the output directory (for artifacts)
 libs = ['test/lib'] # a list of library directories
-remappings = [ # a list of remappings
-  '@openzeppelin/=../../../../node_modules/@openzeppelin/',
-]
 cache_path = 'build/cache/forge'
-allow_paths = ["../../../../node_modules"]
+allow_paths = ["../../../node_modules"]
 #libraries = []                                                # a list of deployed libraries to link against
 #cache = true                                                  # whether to cache builds or not
 #force = false                                                 # whether to ignore the cache (clean build)
