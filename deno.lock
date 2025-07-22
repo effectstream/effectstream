@@ -48,6 +48,7 @@
     "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@2.0.2": "2.0.2_fp-ts@2.16.10",
     "npm:@midnight-ntwrk/midnight-js-network-id@2.0.2": "2.0.2",
     "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@2.0.2": "2.0.2",
+    "npm:@midnight-ntwrk/midnight-js-types@*": "2.0.2",
     "npm:@midnight-ntwrk/midnight-js-types@2.0.2": "2.0.2",
     "npm:@midnight-ntwrk/onchain-runtime@~0.2.6": "0.2.6",
     "npm:@midnight-ntwrk/wallet-api@5.0.0": "5.0.0_rxjs@7.8.1",
@@ -168,6 +169,7 @@
     "npm:vite@*": "6.3.5_@types+node@22.5.4_tsx@4.19.3_picomatch@4.0.2",
     "npm:vite@^6.3.2": "6.3.5_@types+node@22.5.4_tsx@4.19.3_picomatch@4.0.2",
     "npm:wait-on@8.0.3": "8.0.3",
+    "npm:ws@*": "8.18.0",
     "npm:ws@8.18.0": "8.18.0",
     "npm:ws@8.18.1": "8.18.1"
   },
