@@ -6,7 +6,7 @@ import {
   type SyncProtocolWithNetwork,
 } from "@paima/config";
 import { BaseDataFetcher } from "../base/fetcher.ts";
-import type { Input, Output, Page, PrimitiveType } from "./types.ts";
+import type { Block, Input, Output, Page, PrimitiveType } from "./types.ts";
 import { all, call, type Operation } from "effection";
 import type { DataFetched } from "../base/fetcher.ts";
 import type {
@@ -57,11 +57,16 @@ export class MidnightFetcher extends BaseDataFetcher<
         // This can happen if we are at the tip of the chain.
         break;
       }
-      const block = result.block;
+      const block: Block = result.block;
+      const primitives = yield* this.readPrimitives(
+        height,
+        block,
+        this.config.primitives,
+      );
       outputs.push({
         output: {
           raw: block,
-          primitives: [],
+          primitives,
         },
         cleanup: () => {},
       });
@@ -96,8 +101,8 @@ export class MidnightFetcher extends BaseDataFetcher<
 
   @bound
   *readPrimitives(
-    data: Input,
-    // pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
+    height: number,
+    block: Block,
     primitives: PrimitiveEntry<ConfigSyncProtocolType.MIDNIGHT_PARALLEL>[],
   ): Operation<PrimitiveType[]> {
     const client = this.client;
@@ -105,9 +110,10 @@ export class MidnightFetcher extends BaseDataFetcher<
     for (const primitive of primitives) {
       allOperations.push(
         this.fetchContractState(
-          data.from,
+          height,
           client,
           primitive,
+          block,
         ),
       );
     }
@@ -116,18 +122,18 @@ export class MidnightFetcher extends BaseDataFetcher<
 
   @bound
   *fetchContractState(
-    fromBlock: number,
+    height: number,
     client: MidnightClient,
     primitive: PrimitiveEntry<ConfigSyncProtocolType.MIDNIGHT_PARALLEL>,
+    block: Block,
   ): Operation<PrimitiveType> {
     const contractAddress = primitive.primitive.contractAddress;
-    const startBlockHeight = fromBlock;
     const state = yield* call(() =>
-      client.fetchContractState(contractAddress, startBlockHeight)
+      client.fetchContractState(contractAddress, height)
     );
     if (!state) {
       throw new Error(
-        `Contract state not found for ${contractAddress} at block ${startBlockHeight}`,
+        `Contract state not found for ${contractAddress} at block ${height}`,
       );
     }
     return {
@@ -148,11 +154,13 @@ export class MidnightFetcher extends BaseDataFetcher<
             },
             caip2: `midnight:${this.config.network.networkId}`,
             ownChain: {
-              blockNumber: startBlockHeight,
+              blockNumber: height,
             },
-            // TODO: get transaction hash from the block
             transactionHash:
-              "0x0000000000000000000000000000000000000000000000000000000000000000",
+              block.transactions.find((t) =>
+                t.contractCalls.find((c) => c.address === contractAddress)
+              )?.hash ??
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
           },
         },
       },
