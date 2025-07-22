@@ -244,15 +244,20 @@ const deploy = async () => {
   } finally {
     if (wallet) {
       log.info("Closing wallet...");
-      await wallet.close().catch((e) => {
+      /*await wallet.close().catch((e) => {
         log.error(`Error closing wallet: ${e.message}`);
-      });
+      });*/
       log.info("Wallet closed.");
     }
   }
 };
 
-deploy().catch((e) => {
-  console.error("Unhandled error:", e);
-  Deno.exit(1);
-});
+deploy()
+  .then(() => {
+    console.log("Deployment successful");
+    Deno.exit(0);
+  })
+  .catch((e) => {
+    console.error("Unhandled error:", e);
+    Deno.exit(1);
+  });
