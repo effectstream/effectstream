@@ -105,8 +105,7 @@ export class MidnightFetcher extends BaseDataFetcher<
     for (const primitive of primitives) {
       allOperations.push(
         this.fetchContractState(
-          BigInt(data.from),
-          BigInt(data.to),
+          data.from,
           client,
           primitive,
         ),
@@ -117,13 +116,12 @@ export class MidnightFetcher extends BaseDataFetcher<
 
   @bound
   *fetchContractState(
-    fromBlock: bigint,
-    toBlock: bigint,
+    fromBlock: number,
     client: MidnightClient,
     primitive: PrimitiveEntry<ConfigSyncProtocolType.MIDNIGHT_PARALLEL>,
   ): Operation<PrimitiveType> {
     const contractAddress = primitive.primitive.contractAddress;
-    const startBlockHeight = primitive.primitive.startBlockHeight;
+    const startBlockHeight = fromBlock;
     const state = yield* call(() =>
       client.fetchContractState(contractAddress, startBlockHeight)
     );
@@ -148,9 +146,9 @@ export class MidnightFetcher extends BaseDataFetcher<
               blockNumber: null,
               timestamp: null,
             },
-            caip2: "eip155:1",
+            caip2: `midnight:${this.config.network.networkId}`,
             ownChain: {
-              blockNumber: primitive.primitive.startBlockHeight,
+              blockNumber: startBlockHeight,
             },
             // TODO: get transaction hash from the block
             transactionHash:
