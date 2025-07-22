@@ -22,13 +22,16 @@ const stfInputs = {
 
 // comes from hardhat.config.ts
 const parallelBlockTime: TimestampMs = 10 * 1000;
-
+// TODO: This is a workaround to disable yaci-devkit in linux for testing.
+//       There is a unknown error when launching this process.
+//       error: Text file busy (os error 26)
+const yaci = Deno.env.get("DISABLE_LINUX_YACI") ? false : true;
 export const localhostConfig = new ConfigBuilder()
   .setNamespace(
     (builder) => builder.setSecurityNamespace("asdf"),
   )
-  .buildNetworks((builder) =>
-    builder
+  .buildNetworks((builder) => {
+    let b = builder
       .addViemNetwork({
         ...hardhat,
         name: "evmMain",
@@ -40,14 +43,19 @@ export const localhostConfig = new ConfigBuilder()
           default: { http: ["http://127.0.0.1:8546"] },
         },
         id: 31338, // taken from hardhat.config.ts
-      })
-      .addNetwork({
-        name: "yaci",
-        type: ConfigNetworkType.CARDANO,
-        nodeUrl: "http://127.0.0.1:10000", // yaci-devkit default URL
-        network: "yaci",
-      })
-  )
+      });
+
+    if (yaci) {
+      b = b
+        .addNetwork({
+          name: "yaci",
+          type: ConfigNetworkType.CARDANO,
+          nodeUrl: "http://127.0.0.1:10000", // yaci-devkit default URL
+          network: "yaci",
+        });
+    }
+    return b;
+  })
   .buildDeployments((builder) =>
     builder
       .addDeployment(
@@ -113,10 +121,10 @@ export const localhostConfig = new ConfigBuilder()
         }),
       );
 
-    if (!Deno.env.get("DISABLE_LINUX_YACI")) {
+    if (yaci) {
       result = result
         .addParallel(
-          (networks) => networks.yaci,
+          (networks) => (networks as any).yaci,
           (network, deployments) => ({
             name: "parallelUtxoRpc",
             type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,

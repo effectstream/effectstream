@@ -50,6 +50,9 @@ WORKDIR /app
 COPY .github/launch.sh /app/launch.sh
 RUN chmod +x /app/launch.sh
 
+# Copy the patch script
+COPY .github/patch.sh /app/patch.sh
+RUN chmod +x /app/patch.sh
 
 # Clone the repository
 COPY . .
@@ -60,6 +63,9 @@ RUN echo "export DENO_DIR=/tmp/.deno" >> /root/.bashrc
 # Set environment variables for better script execution
 ENV NODE_ENV=development
 ENV DENO_DIR=/tmp/.deno
+
+RUN deno install --allow-scripts
+RUN /app/patch.sh
 
 # Set the default command to run the launch script
 CMD ["/app/launch.sh"]

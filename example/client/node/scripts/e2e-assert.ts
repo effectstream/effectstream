@@ -27,7 +27,7 @@ export function printSummary() {
 }
 
 export function anyError(): boolean {
-  return testResults.failed > 0;
+  return testResults.count === 0 || testResults.failed > 0;
 }
 
 let isRunning = false;
