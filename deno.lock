@@ -14,6 +14,7 @@
     "jsr:@std/assert@^1.0.12": "1.0.13",
     "jsr:@std/assert@~1.0.6": "1.0.13",
     "jsr:@std/bytes@1": "1.0.6",
+    "jsr:@std/cli@*": "1.0.20",
     "jsr:@std/collections@^1.1.1": "1.1.1",
     "jsr:@std/crypto@1": "1.0.5",
     "jsr:@std/encoding@1": "1.0.10",
@@ -77,6 +78,7 @@
     "npm:@pgtyped/parser@2.4.2": "2.4.2",
     "npm:@pgtyped/runtime@*": "2.4.2",
     "npm:@pgtyped/runtime@2.4.2": "2.4.2",
+    "npm:@sinclair/typebox@*": "0.34.37",
     "npm:@sinclair/typebox@~0.34.30": "0.34.37",
     "npm:@subsquid/ss58-codec@^1.2.3": "1.2.3",
     "npm:@txpipe/dolos@*": "0.19.1",
@@ -100,6 +102,7 @@
     "npm:concurrently@9.1.2": "9.1.2",
     "npm:denque@^2.1.0": "2.1.0",
     "npm:docusaurus-plugin-remote-content@4": "4.0.0_@docusaurus+core@3.8.1__@mdx-js+react@3.1.0___@types+react@19.1.8___react@18.3.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@types+react@19.1.8__webpack@5.99.9__react-router@5.3.4___react@18.3.1__typescript@5.6.3_@mdx-js+react@3.1.0__@types+react@19.1.8__react@18.3.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@19.1.8_typescript@5.6.3",
+    "npm:effection@*": "3.5.0",
     "npm:effection@3.5.0": "3.5.0",
     "npm:effection@^3.5.0": "3.5.0",
     "npm:fastify@^5.4.0": "5.4.0",
@@ -226,6 +229,9 @@
     },
     "@std/bytes@1.0.6": {
       "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
+    },
+    "@std/cli@1.0.20": {
+      "integrity": "a8c384a2c98cec6ec6a2055c273a916e2772485eb784af0db004c5ab8ba52333"
     },
     "@std/collections@1.1.1": {
       "integrity": "eff6443fbd9d5a6697018fb39c5d13d5f662f0045f21392d640693d0008ab2af"
@@ -13379,6 +13385,7 @@
       },
       "example/client/node": {
         "dependencies": [
+          "npm:@sinclair/typebox@~0.34.30",
           "npm:effection@^3.5.0",
           "npm:pg@^8.14.0",
           "npm:viem@^2.21.3"
@@ -13450,6 +13457,7 @@
         "dependencies": [
           "jsr:@sylc/dkill@~0.12.3",
           "npm:@opentelemetry/sdk-node@0.56.0",
+          "npm:@sinclair/typebox@~0.34.30",
           "npm:fastify@^5.4.0",
           "npm:jsonc-parser@^3.3.1"
         ]
