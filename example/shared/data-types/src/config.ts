@@ -91,8 +91,8 @@ export const localhostConfig = new ConfigBuilder()
             .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
         }),
       )
-  ).buildSyncProtocols((builder) =>
-    builder
+  ).buildSyncProtocols((builder) => {
+    let result = builder
       .addMain((networks) => networks.evmMain, (network, deployments) => ({
         name: "mainEvmRPC",
         type: ConfigSyncProtocolType.EVM_RPC_MAIN,
@@ -111,17 +111,23 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1 as BlockNumber,
           confirmationDepth: 2, // TODO: test this
         }),
-      )
-      .addParallel(
-        (networks) => networks.yaci,
-        (network, deployments) => ({
-          name: "parallelUtxoRpc",
-          type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
-          rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
-          startSlot: 1,
-        }),
-      )
-  )
+      );
+
+    if (!Deno.env.get("DISABLE_LINUX_YACI")) {
+      result = result
+        .addParallel(
+          (networks) => networks.yaci,
+          (network, deployments) => ({
+            name: "parallelUtxoRpc",
+            type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
+            rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
+            startSlot: 1,
+          }),
+        );
+    }
+
+    return result;
+  })
   .buildPrimitives((builder) =>
     builder.addPrimitive(
       (syncProtocols) => syncProtocols.mainEvmRPC,

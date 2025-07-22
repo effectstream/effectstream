@@ -374,7 +374,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
   },
 
   [ComponentNames.HARDHAT]: async (): Promise<ProcessComponent> => {
-    if (config.kill.auto) {
+    if (config.kill.auto && config.kill.hardhat.length > 0) {
       await dkill({ ports: config.kill.hardhat });
     }
 
@@ -399,7 +399,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.YACI_DEVKIT]: async (): Promise<ProcessComponent> => {
     // Yaci Devkit Ports
-    if (config.kill.auto) {
+    if (config.kill.auto && config.kill.yaciDevkit.length > 0) {
       await dkill({ ports: config.kill.yaciDevkit });
     }
 

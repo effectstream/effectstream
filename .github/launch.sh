@@ -89,7 +89,14 @@ echo "✅ Contracts compiled & deployed"
 # Kill any process with deno in the name:
 # kill -9 `ps aux | grep deno  | awk '{print $2}' | awk NF=NF RS= OFS=" "`;
 echo "🧪 Running tests..."
-PAIMA_E2E_LOG_DEBUG=1 deno task -f @example/node test
+# TODO: ENV DISABLE_LINUX_YACI is to avoid launching YACI-DEVKIT 
+#       in linux.
+#
+#       At the moment, there is a bug where some processes cannot 
+#       be launched due to "error: Text file busy (os error 26)"
+#
+#       This is a workaround to avoid launching YACI DEVKIT.
+DISABLE_LINUX_YACI=true PAIMA_E2E_LOG_DEBUG=1 deno task -f @example/node test
 
 # 5. Print project directory
 echo "🎉 Clean install & test completed"
