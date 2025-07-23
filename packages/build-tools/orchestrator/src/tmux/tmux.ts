@@ -3,6 +3,7 @@ import { ENV } from "@paima/utils";
 // https://github.com/denoland/deno/issues/29904
 // import launchJson from "./tmux.launch.json" with { type: "text" };
 import { json } from "./tmux.launch.ts";
+import { install } from "./install.ts";
 
 // This is a wrapper around the tmux command.
 // It allows to create an instance of tmux, and execute commands on it.
@@ -232,9 +233,18 @@ export class Tmux {
   }
 }
 
+const __dirname = import.meta.dirname;
 export const installTmux = async () => {
+  const path = __dirname ? __dirname + "/install.sh" : "./install.sh";
+  try {
+    await Deno.stat(path);
+  } catch (e) {
+    // create file
+    await Deno.writeTextFile(path, install);
+  }
+
   const cmd = new Deno.Command("sh", {
-    args: [__dirname + "/install.sh"],
+    args: [path],
     stdout: "piped",
     stderr: "piped",
   });
