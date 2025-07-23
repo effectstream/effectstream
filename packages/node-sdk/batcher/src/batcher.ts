@@ -7,7 +7,7 @@ import {
   type PublicClient,
   toHex,
   type WalletClient,
-} from "npm:viem";
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   type BatchedSubunit,

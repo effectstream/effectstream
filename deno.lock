@@ -13595,6 +13595,7 @@
       },
       "packages/paima-sdk/crypto": {
         "dependencies": [
+          "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:mina-signer@^3.0.7",
           "npm:viem@^2.21.3"
