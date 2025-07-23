@@ -3,7 +3,7 @@
     "description": "Paima documentation",
     "version": "0.3.0",
     "license": "MIT",
-    "exports": "src/mod.ts",
+    "exports": "./src/mod.ts",
     "tasks": {
         "docusaurus": "docusaurus",
         "start": "docusaurus start --port 10600 --no-open",
