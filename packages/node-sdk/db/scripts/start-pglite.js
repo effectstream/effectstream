@@ -37,11 +37,13 @@ await db.exec(migration);
  * Every file in the migrations folder is executed in order.
  * TODO: Implement how to manage the order of the migrations, e.g. 1.sql, 2.sql, 10.sql, etc.
  */
+
 const userMigrations = Deno.env.get("MIGRATIONS");
 if (userMigrations) {
   const files = Deno.readDirSync(userMigrations);
   for (const file of files) {
     if (file.isFile && file.name.endsWith(".sql")) {
+      console.log(`Executing migration: ${file.name}`);
       const migration = readFileSync(`${userMigrations}/${file.name}`, "utf-8");
       await db.exec(migration);
     }

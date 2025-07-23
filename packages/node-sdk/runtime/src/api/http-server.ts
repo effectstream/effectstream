@@ -5,6 +5,8 @@ import cors from "@fastify/cors";
 import { run, until } from "effection";
 import {
   aquireDBMutex,
+  getAllAddresses,
+  getAllScheduledData,
   getPrimitivePrefix,
   getTableSchema,
   releaseDBMutex,
@@ -25,6 +27,9 @@ export enum RpcPaths {
   Root = "rpc",
   EVM = "evm",
 }
+
+// TODO This should be passed into the config somehow.
+import { grammar } from "@example/data-types";
 
 /**
  * Register the OpenAPI documentation for the Paima Engine HTTP server.
@@ -152,6 +157,14 @@ export const startHttpServer = function* (
     };
   });
 
+  server.get("/addresses", async () => {
+    const result = await runPreparedQuery(
+      getAllAddresses.run(undefined, dbConn),
+      "addresses",
+    );
+    return result;
+  });
+
   // TODO This is dev only endpoint to monitor sync protocols.
   server.get("/debug/sync-protocols", {
     schema: {
@@ -195,6 +208,25 @@ export const startHttpServer = function* (
     return clearBigInts(config);
   });
 
+  server.get("/grammar", {
+    schema: {
+      tags: ["developer"],
+      response: {
+        200: Type.Object({}, { additionalProperties: true }),
+      },
+    },
+  }, () => {
+    return grammar;
+  });
+
+  server.get("/scheduled-data", async () => {
+    const result = await runPreparedQuery(
+      getAllScheduledData.run(undefined, dbConn),
+      "scheduled-data",
+    );
+    return result;
+  });
+
   // TODO How to only select user defined tables?
   server.get("/table-schema/:tableName", {
     schema: {
@@ -216,6 +248,7 @@ export const startHttpServer = function* (
     const { tableName } = request.params;
     const result = await runPreparedQuery(
       getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
+      "table-schema",
     );
     return result;
   });
@@ -233,6 +266,7 @@ export const startHttpServer = function* (
     unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
     const result = await runPreparedQuery<{ rows: unknown[] }>(
       dbConn.query(unsafeQuery),
+      "unsafe-get-table-data",
     );
     return result.rows;
   }
@@ -309,6 +343,7 @@ export const startHttpServer = function* (
       getTableSchema.run({
         tableName: `${prefix}${primitiveName.toLowerCase()}`,
       }, dbConn),
+      "primitives-schema",
     );
     return result;
   });
@@ -355,7 +390,7 @@ export const startHttpServer = function* (
       },
     },
   }, async () => {
-    await run(aquireDBMutex);
+    await run(() => aquireDBMutex("http-server"));
     return "ok";
   });
 

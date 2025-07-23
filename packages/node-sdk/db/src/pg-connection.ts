@@ -23,7 +23,7 @@ let db_mutex: "free" | "locked" = "free";
  * If running in a full pgsql server, it will do nothing.
  * Always run run `releaseDBMutex()` after the query locks no longer needed, other threads are blocked until the mutex is released.
  */
-export function* aquireDBMutex(): Operation<void> {
+export function* aquireDBMutex(_: string): Operation<void> {
   if (!IS_PGLITE) return;
   while (true) {
     if (db_mutex === "free") {
@@ -49,11 +49,14 @@ export function releaseDBMutex() {
  * If running in PGLite, it will acquire a mutex to ensure that only one query is executed at a time.
  * If running in a full pgsql server, it will run normally.
  */
-export async function runPreparedQuery<T>(p: Promise<T>): Promise<T> {
+export async function runPreparedQuery<T>(
+  p: Promise<T>,
+  name: string,
+): Promise<T> {
   let result: T;
   try {
     if (IS_PGLITE) {
-      await run(aquireDBMutex);
+      await run(() => aquireDBMutex(`pq:${name}`));
     }
     result = await p;
   } finally {

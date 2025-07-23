@@ -111,6 +111,29 @@ body {
   transform: translateY(0);
 }
 
+.addresses-button {
+  background: linear-gradient(45deg, #19b17b, #022418);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(25, 177, 123, 0.3);
+}
+
+.addresses-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(25, 177, 123, 0.5);
+  background: linear-gradient(45deg, #22c48a, #033d2a);
+}
+
+.addresses-button:active {
+  transform: translateY(0);
+}
+
 .title {
   /* color: #ffffff; */
   font-size: 2.5rem;
@@ -576,6 +599,12 @@ body {
   max-width: 1200px;
 }
 
+.addresses.modal-content {
+  width: 90vw;
+  max-width: 1200px;
+  background: white;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -690,4 +719,212 @@ body {
   .documentation-iframe {
     height: 400px;
   }
+}
+
+/* Addresses Table Styles */
+.addresses-table-container {
+  padding: 20px;
+  height: 100%;
+}
+
+.addresses-table-wrapper {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(31, 38, 135, 0.2);
+  border: 1px solid rgba(25, 177, 123, 0.2);
+  overflow: hidden;
+}
+
+.addresses-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  display: block;
+}
+
+.addresses-table thead {
+  display: block;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.addresses-table tbody {
+  display: block;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.addresses-table thead tr,
+.addresses-table tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.addresses-table th {
+  background: linear-gradient(45deg, #19b17b, #022418);
+  color: white;
+  font-weight: 600;
+  padding: 12px 15px;
+  text-align: left;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.addresses-table td {
+  background: white;
+  padding: 10px 15px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.85rem;
+  color: #555;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+}
+
+.addresses-table tr:hover td {
+  background: rgba(25, 177, 123, 0.05);
+}
+
+.addresses-table tr:last-child td {
+  border-bottom: none;
+}
+
+.addresses-table .address-cell {
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 0.8rem;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 4px 8px;
+  border-radius: 4px;
+  max-width: 300px;
+}
+
+.addresses-table .account-id-cell {
+  font-weight: 600;
+  color: #19b17b;
+  text-align: center;
+  vertical-align: top;
+  padding: 15px 10px;
+  border-right: 2px solid rgba(25, 177, 123, 0.2);
+  width: 120px;
+}
+
+.addresses-table .addresses-cell {
+  padding: 10px;
+  vertical-align: top;
+}
+
+.addresses-table .address-item {
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  margin: 4px 0;
+  background: rgba(25, 177, 123, 0.1);
+  border: 1px solid rgba(25, 177, 123, 0.2);
+  border-radius: 6px;
+  word-break: break-all;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.addresses-table .address-item:hover {
+  background: rgba(25, 177, 123, 0.2);
+  border-color: rgba(25, 177, 123, 0.4);
+  transform: translateX(2px);
+}
+
+.addresses-table .address-item:first-child {
+  margin-top: 0;
+}
+
+.addresses-table .address-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Primary address indicators */
+.addresses-table .has-primary-address {
+  background: linear-gradient(
+    135deg,
+    rgba(25, 177, 123, 0.1),
+    rgba(2, 36, 24, 0.05)
+  );
+  border-left: 4px solid #19b17b;
+}
+
+.addresses-table .account-id-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addresses-table .primary-indicator {
+  font-size: 1.2rem;
+  color: #19b17b;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.7;
+  }
+}
+
+.addresses-table .primary-address {
+  background: linear-gradient(
+    135deg,
+    rgba(25, 177, 123, 0.15),
+    rgba(2, 36, 24, 0.1)
+  );
+  border: 2px solid #19b17b;
+  position: relative;
+}
+
+.addresses-table .primary-badge {
+  background: #19b17b;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.addresses-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #999;
+}
+
+.addresses-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #f44336;
+}
+
+.no-addresses {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #999;
+  font-style: italic;
 }

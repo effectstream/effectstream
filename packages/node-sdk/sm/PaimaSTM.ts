@@ -9,6 +9,7 @@ import {
 import type { AppEvents } from "./types.ts";
 import type { Static, TSchema } from "@sinclair/typebox";
 import type { BaseStfInput, BaseStfOutput } from "./types.ts";
+import type { SyncStateUpdateStream } from "@paima/coroutine";
 
 export type ParamToData<T extends readonly Readonly<[string, TSchema]>[]> = {
   [K in T[number] as K[0]]: Static<K[1]>;
@@ -18,7 +19,7 @@ export type MessageListener<
   Params extends readonly Readonly<[string, TSchema]>[],
 > = (
   input: BaseStfInput & { parsedInput: ParamToData<Params> },
-) => Promise<BaseStfOutput<Events>>;
+) => SyncStateUpdateStream<void>;
 
 export class PaimaSTM<
   Grammar extends GrammarDefinition,
@@ -53,7 +54,7 @@ export class PaimaSTM<
     this.messageListeners.set(prefix, call);
   }
 
-  async processInput(input: BaseStfInput): Promise<BaseStfOutput<Events>> {
+  *processInput(input: BaseStfInput): SyncStateUpdateStream<void> {
     let prefix, data;
     try {
       const parsedInput = parseStmInput(
@@ -71,15 +72,17 @@ export class PaimaSTM<
       if (_e instanceof Error) {
         console.error(_e.message);
       }
-      return { stateTransitions: [], events: [] };
+      return;
     }
     const listener = this.messageListeners.get(prefix);
     if (listener == null) {
       console.error(
         `Prefix found with no corresponding state transition: ${prefix}`,
       );
-      return { stateTransitions: [], events: [] };
+      return;
     }
-    return await listener({ ...input, parsedInput: data });
+
+    yield* listener({ ...input, parsedInput: data });
+    return;
   }
 }

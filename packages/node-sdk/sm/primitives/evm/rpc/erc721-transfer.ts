@@ -5,18 +5,18 @@ import type {
   PayloadOf,
   PrimitiveEvmRpcErc721TransferAccounting,
 } from "@paima/config";
-import { insertPrimitiveAccounting } from "@paima/db";
+import { createScheduledData, insertPrimitiveAccounting } from "@paima/db";
 import type { StateUpdateStream } from "@paima/coroutine";
-import { StateMachineExecution, World } from "@paima/coroutine";
+import { World } from "@paima/coroutine";
 import {
   ConfigPrimitiveAccountingPayloadType,
   type ConfigPrimitiveType,
 } from "@paima/config";
 import { clearBigInts } from "../../utils.ts";
-import type { BlockNumber } from "@paima/utils";
+import type { PaimaBlockNumber } from "@paima/utils";
 
 export default function* processErc721SyncProtocolResponse(
-  paima_block_height: BlockNumber,
+  paima_block_height: PaimaBlockNumber,
   response: FlattenSyncProtocolIOFor<
     | ConfigSyncProtocolType.EVM_RPC_MAIN
     | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
@@ -42,13 +42,19 @@ export default function* processErc721SyncProtocolResponse(
   });
 
   if (prefix) {
-    yield* StateMachineExecution(
-      paima_block_height,
+    yield* createScheduledData(
       JSON.stringify([prefix, payload]),
-      undefined,
-      undefined,
-      response.output.syncProtocol.payload.ownChain.blockNumber,
-      response.output.syncProtocol.payload.transactionHash,
+      {
+        blockHeight: paima_block_height,
+      },
+      {
+        primitiveName: response.output.syncProtocol.payload.primitiveName,
+        txHash: response.output.syncProtocol.payload.transactionHash,
+        caip2: response.output.syncProtocol.payload.caip2,
+        // TODO: Should we try to infer from the payload contents?
+        fromAddress: "0x0",
+        contractAddress: response.input.contractAddress.toLowerCase(),
+      },
     );
   }
 }

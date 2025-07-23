@@ -8,12 +8,15 @@ import type {
 } from "@paima/utils";
 import type { InputDataString } from "@paima/chain-types";
 import {
+  BatcherGrammar,
+  BatcherGrammarPrefix,
   BatcherInnerGrammar,
-  BuiltinGrammar,
-  BuiltinGrammarPrefix,
+  // BuiltinGrammar,
+  // BuiltinGrammarPrefix,
   generateStmInput,
+  KeyedBatcherGrammar,
   KeyedBuiltinBatcherInnerGrammar,
-  KeyedBuiltinGrammar,
+  // KeyedBuiltinGrammar,
   parseRawStmInput,
   parseStmInput,
 } from "./v2/mod.ts";
@@ -37,11 +40,14 @@ export type BatcherMessage = string;
 
 /** This is what wallets sign when submitting a batch */
 export function createMessageForBatcher(
-  namespace: string,
-  inputData: string,
+  namespace: string | null,
   millisecondTimestamp: TimestampMsStr,
+  walletAddress: WalletAddress,
+  inputData: string,
 ): BatcherMessage {
-  return namespace + inputData + millisecondTimestamp;
+  return ((namespace ?? "") + millisecondTimestamp + walletAddress + inputData)
+    .replace(/[^a-zA-Z0-9]/g, "-")
+    .toLocaleLowerCase();
 }
 
 /**
@@ -73,7 +79,7 @@ export function buildBatchData(
   const selectedInputs: BatchedSubunit[] = [];
   const batchedTransaction: string[] = [];
   let remainingSpace = maxSize -
-    `["${BuiltinGrammarPrefix.batcherInput}", []`.length;
+    `["${BatcherGrammarPrefix.batcherInput}", []`.length;
 
   for (const input of inputs) {
     const packed = generateStmInput(
@@ -98,8 +104,8 @@ export function buildBatchData(
   }
 
   const batchedData = generateStmInput(
-    BuiltinGrammar,
-    BuiltinGrammarPrefix.batcherInput,
+    BatcherGrammar,
+    BatcherGrammarPrefix.batcherInput,
     {
       input: batchedTransaction,
     },
@@ -113,12 +119,12 @@ export type ExtractedBatchSubunit = {
 };
 export function extractBatches(inputData: string): ExtractedBatchSubunit[] {
   const parsed = parseStmInput<
-    typeof BuiltinGrammar,
-    typeof BuiltinGrammarPrefix.batcherInput
+    typeof BatcherGrammar,
+    typeof BatcherGrammarPrefix.batcherInput
   >(
     inputData,
-    BuiltinGrammar,
-    KeyedBuiltinGrammar,
+    BatcherGrammar,
+    KeyedBatcherGrammar,
   );
   const result: ExtractedBatchSubunit[] = [];
   for (const input of parsed.data.input) {

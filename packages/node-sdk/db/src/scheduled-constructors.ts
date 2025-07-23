@@ -7,7 +7,7 @@ import {
   removeScheduledBlockData,
   removeScheduledTimestampData,
 } from "./sql/rollup_inputs.queries.ts";
-import type { Caip2, UnknownFormat } from "@paima/utils";
+import type { Caip2, TxHash, UnknownFormat } from "@paima/utils";
 import {
   type BlockNumber,
   type HexString0x,
@@ -36,7 +36,7 @@ export function* createScheduledData(
   source:
     | {
       primitiveName: string;
-      txHash: HexString0x | HexStringNo0x;
+      txHash: TxHash;
       caip2: Caip2;
       fromAddress: WalletAddress;
       contractAddress: undefined | WalletAddress;

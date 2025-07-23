@@ -1,33 +1,54 @@
-// import { types } from 'hardhat/config';
-// import { listDeployments } from '@nomicfoundation/ignition-core';
-// import * as path from 'path';
-// import * as fs from 'fs';
-// import { paimaScope } from './common.js';
-// import * as ts from 'typescript';
-// import * as dom from 'dts-dom';
+// import { types } from "hardhat/config";
+// import { listDeployments } from "@nomicfoundation/ignition-core";
+// import * as path from "path";
+// import * as fs from "fs";
+// import { paimaScope } from "./common.js";
+// import * as ts from "typescript";
+// import * as dom from "dts-dom";
 
 // paimaScope
 //   .task(
-//     'copy-ignition-deployment',
-//     `Copy the hardhat-ignition deployed addresses information to a target folder`
+//     "copy-ignition-deployment",
+//     `Copy the hardhat-ignition deployed addresses information to a target folder`,
 //   )
-//   .addParam('rootDir', `Root directory of your hardhat-ignition project`, undefined, types.string)
-//   .addParam('outDir', `Build output directory to place deployment info`, undefined, types.string)
+//   .addParam(
+//     "rootDir",
+//     `Root directory of your hardhat-ignition project`,
+//     undefined,
+//     types.string,
+//   )
+//   .addParam(
+//     "outDir",
+//     `Build output directory to place deployment info`,
+//     undefined,
+//     types.string,
+//   )
 //   .setAction(async (taskArgs, hre) => {
 //     await copyDeployments(taskArgs.rootDir, taskArgs.outDir);
 //   });
-// export async function copyDeployments(rootDir: string, outDir: string): Promise<void> {
-//   const deploymentDir = path.resolve(rootDir, 'src', 'ignition', 'deployments');
+// export async function copyDeployments(
+//   rootDir: string,
+//   outDir: string,
+// ): Promise<void> {
+//   const deploymentDir = path.resolve(rootDir, "src", "ignition", "deployments");
 //   const deployments = await listDeployments(deploymentDir);
 
 //   const allDeployments: Record<string, Record<string, string>> = {};
 //   for (const deployment of deployments) {
-//     const deployedAddressesPath = path.join(deploymentDir, deployment, 'deployed_addresses.json');
-//     allDeployments[deployment] = JSON.parse(fs.readFileSync(deployedAddressesPath, 'utf8'));
+//     const deployedAddressesPath = path.join(
+//       deploymentDir,
+//       deployment,
+//       "deployed_addresses.json",
+//     );
+//     allDeployments[deployment] = JSON.parse(
+//       fs.readFileSync(deployedAddressesPath, "utf8"),
+//     );
 //   }
-//   const outputTs = `export default ${JSON.stringify(allDeployments, null, 2)} as const;`;
+//   const outputTs = `export default ${
+//     JSON.stringify(allDeployments, null, 2)
+//   } as const;`;
 
-//   const deploymentsOutput = path.join(outDir, 'deployments');
+//   const deploymentsOutput = path.join(outDir, "deployments");
 //   if (!fs.existsSync(deploymentsOutput)) {
 //     fs.mkdirSync(deploymentsOutput, { recursive: true });
 //   }
@@ -40,7 +61,11 @@
 //         target: ts.ScriptTarget.ESNext,
 //       },
 //     });
-//     fs.writeFileSync(path.join(deploymentsOutput, `index.mjs`), result.outputText, { flag: 'w' });
+//     fs.writeFileSync(
+//       path.join(deploymentsOutput, `index.mjs`),
+//       result.outputText,
+//       { flag: "w" },
+//     );
 //   }
 //   // CJS file
 //   {
@@ -50,7 +75,11 @@
 //         target: ts.ScriptTarget.ESNext,
 //       },
 //     });
-//     fs.writeFileSync(path.join(deploymentsOutput, `index.cjs`), result.outputText, { flag: 'w' });
+//     fs.writeFileSync(
+//       path.join(deploymentsOutput, `index.cjs`),
+//       result.outputText,
+//       { flag: "w" },
+//     );
 //   }
 //   // DTS file
 //   {
@@ -84,29 +113,33 @@
 //     // const declaration = emitResult.getFiles()[0].text;
 //     // fs.writeFileSync(path.join(deploymentsOutput, `index.d.ts`), declaration, { flag: 'w' });
 
-//     const changeCase = await import('change-case'); // async import since it's an ESM module, and Hardhat only supports CJS
+//     const changeCase = await import("change-case"); // async import since it's an ESM module, and Hardhat only supports CJS
 //     const file: string[] = [];
 
 //     const genType = (name: string, properties: dom.PropertyDeclaration[]) => {
 //       const type = dom.create.objectType(properties);
-//       const alias = dom.create.alias(changeCase.pascalCase(name), type)
+//       const alias = dom.create.alias(changeCase.pascalCase(name), type);
 
 //       return alias;
-//     }
+//     };
 //     const topLevelProperties: dom.PropertyDeclaration[] = [];
 //     for (const [deploymentName, contracts] of Object.entries(allDeployments)) {
 //       const type = genType(
 //         changeCase.pascalCase(deploymentName),
 //         Object.entries(contracts).map(
-//           ([contractName, contractAddress]) => dom.create.property(contractName, dom.type.stringLiteral(contractAddress))
-//         )
+//           ([contractName, contractAddress]) =>
+//             dom.create.property(
+//               contractName,
+//               dom.type.stringLiteral(contractAddress),
+//             ),
+//         ),
 //       );
 //       file.push(dom.emit(type));
 //       topLevelProperties.push(dom.create.property(deploymentName, type));
 //     }
 //     const topLevelType = genType(
-//       'DeployedContracts',
-//       topLevelProperties
+//       "DeployedContracts",
+//       topLevelProperties,
 //     );
 //     file.push(dom.emit(topLevelType));
 
@@ -114,13 +147,15 @@
 //     file.push(dom.emit(topLevelConst));
 //     const defaultExport = dom.create.exportDefault(topLevelConst.name);
 //     file.push(dom.emit(defaultExport));
-//     const dtsContent = file.join('\n');
+//     const dtsContent = file.join("\n");
 
-//     fs.writeFileSync(path.join(deploymentsOutput, `index.d.ts`), dtsContent, { flag: 'w' });
+//     fs.writeFileSync(path.join(deploymentsOutput, `index.d.ts`), dtsContent, {
+//       flag: "w",
+//     });
 //   }
 // }
 
-// let name = dom.create.property('name', dom.type.string);
-// let age = dom.create.property('age', dom.type.number);
+// let name = dom.create.property("name", dom.type.string);
+// let age = dom.create.property("age", dom.type.number);
 // let type = dom.create.objectType([name, age]);
-// let typeBase = dom.create.alias('typeBase', type)
+// let typeBase = dom.create.alias("typeBase", type);

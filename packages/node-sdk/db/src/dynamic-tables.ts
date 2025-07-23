@@ -21,7 +21,7 @@ export function* createDynamicTables(
   syncProtocols: AllSyncProtocols[],
 ) {
   try {
-    yield* aquireDBMutex();
+    yield* aquireDBMutex("creating-dynamic-tables");
     for (const syncProtocol of syncProtocols) {
       for (const primitive of syncProtocol.config.primitives) {
         switch (primitive.primitive.type) {
