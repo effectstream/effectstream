@@ -1,5 +1,7 @@
 {
     "name": "@paima/crypto",
+    "version": "0.3.0",
+    "license": "MIT",
     "exports": "./src/mod.ts",
     "imports": {
         "@cardano-foundation/cardano-verify-datasignature": "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11",
