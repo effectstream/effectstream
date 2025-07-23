@@ -1,5 +1,4 @@
 import type { HardhatUserConfig } from "hardhat/config";
-
 import util from "node:util";
 import HardhatViem from "@nomicfoundation/hardhat-viem";
 // import HardhatAbiExporter from "hardhat-abi-exporter";
@@ -23,6 +22,7 @@ import { parse } from "jsonc-parser";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import HardhatIgnitionViem from "@nomicfoundation/hardhat-ignition-viem";
 
+const __dirname: any = import.meta.dirname;
 const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
 
 // TODO: ideally hardhat/edr itself would implement opentelemetry instead of inlining it ourselves
@@ -54,11 +54,14 @@ function getNetworkList(networks: Record<string, NetworkConfig>) {
     if (b[0] === "hardhat") return 1;
     return 0;
   });
-  return networkEntries.filter(([name]) =>
+
+  return networkEntries.filter(([name, network]) =>
     // skip the builtin localhost network, since hardhat node is meant to explicitly not use it
     name !== "localhost" &&
     // hardhat network seems broken and the block number never advances on it
-    name !== "hardhat"
+    name !== "hardhat" &&
+    // if http type, then it already has a JSON-RPC server
+    network.type !== "http"
   );
 }
 
@@ -85,7 +88,12 @@ const nodeTask = overrideTask("node")
         if (name === "hardhat") {
           continue;
         }
-        const connection = await hre.network.connect(name, network.chainType);
+        // if http type, then it already has a JSON-RPC server
+        if (network.type === "http") {
+          continue;
+        }
+
+        const connection = await hre.network.connect(name); // , network.chainType);
 
         const server = new JsonRpcServerImplementation({
           hostname,
@@ -93,13 +101,13 @@ const nodeTask = overrideTask("node")
           provider: connection.provider,
         }, (msg) => logNetwork(name, msg));
         port++; // increase port so next network has a unique port number
-
         const publicClient = await connection.viem.getPublicClient();
         publicClient.watchBlocks(
           {
             onBlock: (block) => {
               // there seems to be a bug on block 0 where it triggers watchBlock in an infinite loop
               if (block.number === 0n) return;
+
               const txsMessage = block.transactions.length === 0
                 ? ""
                 : `\nTransactions:\n${
@@ -114,6 +122,7 @@ const nodeTask = overrideTask("node")
             includeTransactions: true,
           },
         );
+
         const { port: actualPort, address } = await server.listen();
         logNetwork(
           name,
@@ -168,6 +177,10 @@ const nodeWaitTask = task(["node", "wait"])
   .build();
 
 const config: HardhatUserConfig = {
+  // This is an example of two networks.
+  // The first network "evmMain" will automatically start at port 8545 with id=31337, matching the default hardhat setup.
+  // The second network "evmParallel" will automatically start at port 8546 with id=31338.
+  // You can edit this to match your requirements.
   networks: {
     evmMain: {
       type: "edr",
@@ -179,19 +192,34 @@ const config: HardhatUserConfig = {
       },
       allowBlocksWithSameTimestamp: true,
     },
+    // This is a helper network to allow to hardhat/ignition to connect to the network.
+    evmMainHttp: {
+      type: "http",
+      chainType: "l1",
+      url: "http://0.0.0.0:8545",
+    },
     evmParallel: {
       type: "edr",
       chainType: "l1",
       chainId: 31338,
       mining: {
         auto: true,
-        interval: 1 * 1000, // 10s
+        interval: 1 * 1000, // 1s
       },
+    },
+    // This is a helper network to allow to hardhat/ignition to connect to the network.
+    evmParallelHttp: {
+      type: "http",
+      chainType: "l1",
+      url: "http://0.0.0.0:8546",
     },
   },
   paths: {
-    artifacts: "./artifacts/hardhat",
-    cache: "./cache/hardhat",
+    sources: [
+      `${__dirname}/src/contracts`,
+    ],
+    artifacts: `${__dirname}/build/artifacts/hardhat`,
+    cache: `${__dirname}/build/cache/hardhat`,
   },
   tasks: [
     nodeTask,
@@ -200,8 +228,10 @@ const config: HardhatUserConfig = {
   plugins: [
     HardhatViem,
     HardhatIgnitionViem,
+    // HardhatFoundry,
     // HardhatAbiExporter,
   ],
+
   solidity: {
     profiles: {
       /*
@@ -215,11 +245,11 @@ const config: HardhatUserConfig = {
     // dependenciesToCompile: [
     //   // TODO
     // ],
-    remappings: [
-      "remapped/=npm/@openzeppelin/contracts@5.1.0/access/",
-      // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
-      "forge-std/=npm/forge-std@local/src/",
-    ],
+    // remappings: [
+    //   "remapped/=npm/@openzeppelin/contracts@5.1.0/access/",
+    //   //   // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
+    //   "forge-std/=npm/forge-std@local/src/",
+    // ],
   },
   // abiExporter: {
   //   path: "./build/abi",

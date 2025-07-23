@@ -3,8 +3,6 @@
   "version": "0.3.0",
   "exports": {},
   "tasks": {
-    // unfortunately required because of https://github.com/bloxbean/yaci-devkit/issues/94
-    "devkit:kill": "sudo kill -9 $(sudo lsof -t -i:8090) 2>/dev/null || true && sudo kill -9 $(sudo lsof -t -i:10000) 2>/dev/null || true",
     "devkit:start": "deno run -A --node-modules-dir npm:@bloxbean/yaci-devkit up",
     "devkit:wait": "wait-on tcp:3001",
     "dolos:fill-template": "deno run -A ./fill-template.ts",

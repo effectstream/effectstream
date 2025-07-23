@@ -101,6 +101,7 @@ export const $ = (params: {
   command?: string;
   args: string[]; // parsing string->string[] automatically is blocked on https://github.com/denoland/deno_task_shell/pull/137
   log?: LogHandler;
+  // cwd?: string;
   component: ValueOf<typeof ComponentNames>;
   namespace?: Namespace;
   abortController: AbortController;

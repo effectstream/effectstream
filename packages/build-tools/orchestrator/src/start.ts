@@ -1,6 +1,8 @@
 #!/usr/bin/env -S deno run --allow-all
 import type { ValueOf } from "@paima/utils";
 import "./http-server.ts";
+import { dkill } from "@sylc/dkill";
+import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 import {
   getCurrentOutput,
@@ -69,6 +71,19 @@ export async function start(
     output?: "development" | "production" | "stdout" | "stdout-err" | "none";
   } = {},
 ): Promise<void> {
+  // TODO This is a workaround to kill any processes that are still running from a previous run.
+  //
+  // Cardano processes 8090, 10000. Do not terminate cleanly.
+  // Unfortunately required because of https://github.com/bloxbean/yaci-devkit/issues/94
+  //
+  // PGLite 5432. Frequently does not shutdown in some cases.
+  //
+  // Hardhat 8545. Sometimes it does not shutdown cleanly when the node crashes.
+  //
+  // Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
+  //
+  await dkill({ ports: [8090, 10000, 5432, 8545, 3334] });
+
   // fast-fail if there are type errors in the project
   await startProcess[ComponentNames.CHECKER]();
 
@@ -88,6 +103,7 @@ export async function start(
 
     // Start processes in parallel
     await Promise.all([
+      startProcess[ComponentNames.DOCS](),
       startProcess[ComponentNames.PAIMA_DB](),
       startProcess[ComponentNames.YACI_DEVKIT](),
       startProcess[ComponentNames.HARDHAT](),
@@ -106,7 +122,15 @@ export async function start(
     // Start the contracts
     await Promise.all([
       // startProcess[ComponentNames.MIDNIGHT_CONTRACT](),
+      startProcess[ComponentNames.DEPLOY_EVM_CONTRACTS](),
     ]);
+
+    // Start the batcher, after the contracts are deployed.
+    await startProcess[ComponentNames.PAIMA_BATCHER]();
+
+    // Start the explorer
+    // This crashes when launching process through Deno.command
+    // await startProcess[ComponentNames.EXPLORER]();
 
     // Start the main process
     await startProcess[ComponentNames.PAIMA_SYNC]();
@@ -153,6 +177,42 @@ export const startProcess: Record<
 
     return tmux;
   },
+
+  [ComponentNames.EXPLORER]: async (): Promise<ProcessComponent> => {
+    const explorer = $({
+      args: ["task", "-f", "@paima/explorer", "dev"],
+      component: ComponentNames.EXPLORER,
+      log: rawLogHandler,
+      abortController: abortControllers.developerUI,
+    });
+    await explorer.process.status;
+    return explorer;
+  },
+
+  [ComponentNames.DOCS]: async (): Promise<ProcessComponent> => {
+    const docs = $({
+      args: ["task", "-f", "@paima/docs", "start"],
+      component: ComponentNames.DOCS,
+      abortController: abortControllers.developerUI,
+    });
+    void docs.process.status;
+    return docs;
+  },
+
+  [ComponentNames.DEPLOY_EVM_CONTRACTS]: async (): Promise<
+    ProcessComponent
+  > => {
+    const deploy = $({
+      args: ["task", "-f", "@example/evm-contracts", "deploy"],
+      component: ComponentNames.DEPLOY_EVM_CONTRACTS,
+      log: rawLogHandler,
+      abortController: abortControllers.system,
+    });
+
+    await Promise.all([deploy.process.status]);
+    return deploy;
+  },
+
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
     // TODO: only start one if there isn't one already running
     const otlpCollector = $({
@@ -202,6 +262,34 @@ export const startProcess: Record<
     return node;
   },
 
+  [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
+    // TODO This should be read from the config.
+    const paimaL2Address = contractAddressesEvmMain()["chain31337"][
+      "PaimaL2ContractModule#MyPaimaL2Contract"
+    ];
+    const batcherPrivateKey =
+      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+    const chainName = "hardhat";
+    const batcher = $({
+      args: [
+        "task",
+        "-f",
+        "@paima/batcher",
+        "standalone",
+        `--paimaL2Address=${paimaL2Address}`,
+        `--batcherPrivateKey=${batcherPrivateKey}`,
+        `--chainName=${chainName}`,
+      ],
+      log: rawLogHandler,
+      component: ComponentNames.PAIMA_BATCHER,
+      abortController: abortControllers.system,
+      namespace: [],
+    });
+    // This is a long-lasting service that does not exit.
+    void batcher.process.status;
+    return batcher;
+  },
+
   [ComponentNames.TUI]: async (): Promise<ProcessComponent> => {
     const tui = $({
       args: ["task", "-f", "@paima/tui", "dev"],
@@ -219,6 +307,7 @@ export const startProcess: Record<
   [ComponentNames.HARDHAT]: async (): Promise<ProcessComponent> => {
     // TODO: some way to specify which chains should be used for a project
     const hardhat = $({
+      // TODO This should be read from the config.
       args: ["task", "-f", "@example/evm-contracts", "chain:start"],
       log: logHandler,
       component: ComponentNames.HARDHAT,
@@ -228,7 +317,7 @@ export const startProcess: Record<
 
     await $({
       args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
-      component: ComponentNames.HARDHA_WAIT,
+      component: ComponentNames.HARDHAT_WAIT,
       abortController: abortControllers.noncritical,
     }).process.status;
 
@@ -416,7 +505,7 @@ export const startProcess: Record<
   [ComponentNames.PAIMA_DB]: async (): Promise<ProcessComponent> => {
     const paimaDb = $({
       // TODO: run pgtyped:up only depending on parameters?
-      args: ["task", "-f", "@paima/db", "pgtyped:update"],
+      args: ["task", "-f", "@paima/db", "db:up"],
       log: logHandler,
       component: ComponentNames.PAIMA_DB,
       abortController: abortControllers.system,

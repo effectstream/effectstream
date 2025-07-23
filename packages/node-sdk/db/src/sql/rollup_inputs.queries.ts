@@ -160,6 +160,74 @@ const insertGameInputResultIR: any = {"usedParamSet":{"id":true,"success":true,"
 export const insertGameInputResult = new PreparedQuery<IInsertGameInputResultParams,IInsertGameInputResultResult>(insertGameInputResultIR);
 
 
+/** 'GetAllScheduledData' parameters type */
+export type IGetAllScheduledDataParams = void;
+
+/** 'GetAllScheduledData' return type */
+export interface IGetAllScheduledDataResult {
+  caip2: string | null;
+  contract_address: string | null;
+  from_address: string | null;
+  future_block_height: number | null;
+  future_ms_timestamp: Date | null;
+  id: number | null;
+  input_data: string | null;
+  origin_tx_hash: Buffer | null;
+  primitive_name: string | null;
+}
+
+/** 'GetAllScheduledData' query type */
+export interface IGetAllScheduledDataQuery {
+  params: IGetAllScheduledDataParams;
+  result: IGetAllScheduledDataResult;
+}
+
+const getAllScheduledDataIR: any = {"usedParamSet":{},"params":[],"statement":"(\nSELECT\n  rollup_inputs.id,\n  NULL AS future_ms_timestamp,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id\nORDER BY rollup_inputs.id ASC\n)\n\tUNION ALL \n(\nSELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  NULL AS \"future_block_height\",\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id\nLEFT OUTER JOIN rollup_input_result\n  ON (rollup_input_result.id = rollup_inputs.id)\nWHERE rollup_input_result.id IS NULL\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC\n)"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * (
+ * SELECT
+ *   rollup_inputs.id,
+ *   NULL AS future_ms_timestamp,
+ *   rollup_input_future_block.future_block_height,
+ *   rollup_inputs.input_data,
+ *   rollup_inputs.from_address,
+ *   rollup_input_origin.primitive_name,
+ *   rollup_input_origin.contract_address,
+ *   rollup_input_origin.caip2,
+ *   rollup_input_origin.tx_hash as "origin_tx_hash"
+ * FROM rollup_inputs
+ * JOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id
+ * JOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id
+ * ORDER BY rollup_inputs.id ASC
+ * )
+ * 	UNION ALL 
+ * (
+ * SELECT
+ *   rollup_inputs.id,
+ *   rollup_input_future_timestamp.future_ms_timestamp,
+ *   NULL AS "future_block_height",
+ *   rollup_inputs.input_data,
+ *   rollup_inputs.from_address,
+ *   rollup_input_origin.primitive_name,
+ *   rollup_input_origin.contract_address,
+ *   rollup_input_origin.caip2,
+ *   rollup_input_origin.tx_hash as "origin_tx_hash"
+ * FROM rollup_inputs
+ * JOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id
+ * JOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id
+ * LEFT OUTER JOIN rollup_input_result
+ *   ON (rollup_input_result.id = rollup_inputs.id)
+ * WHERE rollup_input_result.id IS NULL
+ * ORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC
+ * )
+ * ```
+ */
+export const getAllScheduledData = new PreparedQuery<IGetAllScheduledDataParams,IGetAllScheduledDataResult>(getAllScheduledDataIR);
+
+
 /** 'GetFutureGameInputByBlockHeight' parameters type */
 export interface IGetFutureGameInputByBlockHeightParams {
   block_height: number;

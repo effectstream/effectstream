@@ -5,6 +5,7 @@
 
 // TODO: To register a new config, we need to add it in the defintions, and then add the getter in the ENV class.
 //       Is it possible to do this automatically, or just once?
+import process from "node:process";
 const definitions = {
   DB_HOST: {
     key: "DB_HOST",
@@ -348,6 +349,10 @@ export class ENV {
   private static getEnv(
     key: string,
   ): string | undefined {
-    return Deno.env.get(key);
+    try {
+      return Deno.env.get(key);
+    } catch (error) {
+      return process.env[key];
+    }
   }
 }

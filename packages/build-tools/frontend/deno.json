@@ -19,7 +19,8 @@
     "vite": "npm:vite@^6.3.2",
     "viem": "npm:viem",
     "viem/accounts": "npm:viem/accounts",
-    "viem/chains": "npm:viem/chains"
+    "viem/chains": "npm:viem/chains",
+    "vite-plugin-node-stdlib-browser": "npm:vite-plugin-node-stdlib-browser"
   },
   "compilerOptions": {
     "types": [

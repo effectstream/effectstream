@@ -1,15 +1,7 @@
 // import deployedEvmAddresses from "@example/evm-contracts/deployments";
 
-// TODO Read this from the hardhat/ignition deployments.
-const deployedEvmAddresses = {
-  "chain-31337": {
-    "L2Contract#PaimaL2Contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "Foo#SomeERC20": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    "Assets#Erc721Dev": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-    erc20_2: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-    erc721_2: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-  },
-} as const;
+import { contractAddressesEvmMain } from "@example/evm-contracts";
+
 import {
   ConfigBuilder,
   ConfigNetworkType,
@@ -19,12 +11,13 @@ import {
 } from "@paima/config";
 import { hardhat } from "viem/chains";
 import type { BlockNumber, TimestampMs } from "@paima/utils";
-
-// TODO: replace with @paima/evm-contracts
-import { erc20dev, erc721dev, paimal2contract } from "@paima/evm-contracts";
+import { erc20dev, erc721dev, paimal2contract } from "@example/evm-contracts";
 // TODO: This should typed from the grammar types.
 const stfInputs = {
-  tokenTransfer: "transfer",
+  "schedule": "schedule",
+  "attack": "attack",
+  "transfer": "transfer",
+  "switchMap": "switchMap",
 } as const;
 
 // comes from hardhat.config.ts
@@ -56,12 +49,48 @@ export const localhostConfig = new ConfigBuilder()
       })
   )
   .buildDeployments((builder) =>
-    builder.addDeployment(
-      (networks) => networks.evmMain,
-      (_network) => ({
-        "mock": "0x0000000000000000000000000000000000000000",
-      }),
-    )
+    builder
+      .addDeployment(
+        (networks) => networks.evmMain,
+        (_network) => ({
+          name: "PaimaErc20DevModule#PaimaErc20Dev",
+          address: contractAddressesEvmMain()
+            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
+        }),
+      )
+      .addDeployment(
+        (networks) => networks.evmMain,
+        (_network) => ({
+          name: "PaimaErc20DevModule#PaimaErc20Dev",
+          address: contractAddressesEvmMain()
+            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
+        }),
+      )
+      .addDeployment(
+        (networks) => networks.evmMain,
+        (_network) => ({
+          name: "PaimaL2ContractModule#MyPaimaL2Contract",
+          address: contractAddressesEvmMain().chain31337[
+            "PaimaL2ContractModule#MyPaimaL2Contract"
+          ],
+        }),
+      )
+      .addDeployment(
+        (networks) => networks.evmParallel,
+        (_network) => ({
+          name: "PaimaErc20DevModule#PaimaErc20Dev",
+          address: contractAddressesEvmMain()
+            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
+        }),
+      )
+      .addDeployment(
+        (networks) => networks.evmParallel,
+        (_network) => ({
+          name: "PaimaErc20DevModule#PaimaErc20Dev",
+          address: contractAddressesEvmMain()
+            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
+        }),
+      )
   ).buildSyncProtocols((builder) =>
     builder
       .addMain((networks) => networks.evmMain, (network, deployments) => ({
@@ -101,9 +130,10 @@ export const localhostConfig = new ConfigBuilder()
         type: ConfigPrimitiveType.EvmRpcERC20,
 
         startBlockHeight: 0,
-        contractAddress: deployedEvmAddresses["chain-31337"]["Foo#SomeERC20"],
+        contractAddress: contractAddressesEvmMain()
+          .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
         abi: getEvmEvent(erc20dev.abi, "Transfer(address,address,uint256)"),
-        scheduledPrefix: stfInputs.tokenTransfer,
+        scheduledPrefix: stfInputs.transfer,
       }),
     )
       .addPrimitive(
@@ -112,8 +142,9 @@ export const localhostConfig = new ConfigBuilder()
           name: "PaimaGameInteraction",
           type: ConfigPrimitiveType.EvmRpcPaimaL2,
           startBlockHeight: 0,
-          contractAddress:
-            deployedEvmAddresses["chain-31337"]["L2Contract#PaimaL2Contract"],
+          contractAddress: contractAddressesEvmMain()["chain31337"][
+            "PaimaL2ContractModule#MyPaimaL2Contract"
+          ],
           abi: getEvmEvent(
             paimal2contract.abi,
             "PaimaGameInteraction(address,bytes,uint256)",
@@ -127,7 +158,7 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigPrimitiveType.EvmRpcERC721,
           startBlockHeight: 0,
           contractAddress:
-            deployedEvmAddresses["chain-31337"]["Assets#Erc721Dev"],
+            contractAddressesEvmMain().chain31337["Erc721DevModule#Erc721Dev"],
           abi: getEvmEvent(
             erc721dev.abi,
             "Transfer(address,address,uint256)",
@@ -137,12 +168,13 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (syncProtocols) => syncProtocols.parallelEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "L1_ERC721_Token",
           type: ConfigPrimitiveType.EvmRpcERC721,
           startBlockHeight: 0,
-          contractAddress: deployedEvmAddresses["chain-31337"]["erc721_2"],
+          contractAddress:
+            contractAddressesEvmMain().chain31338["Erc721DevModule#Erc721Dev"],
           abi: getEvmEvent(
             erc721dev.abi,
             "Transfer(address,address,uint256)",
@@ -152,12 +184,13 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (syncProtocols) => syncProtocols.parallelEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "ETH_L1_ERC20",
           type: ConfigPrimitiveType.EvmRpcERC20,
           startBlockHeight: 0,
-          contractAddress: deployedEvmAddresses["chain-31337"]["erc20_2"],
+          contractAddress: contractAddressesEvmMain()
+            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
           abi: getEvmEvent(
             erc20dev.abi,
             "Transfer(address,address,uint256)",

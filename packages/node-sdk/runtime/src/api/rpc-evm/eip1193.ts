@@ -78,6 +78,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
               undefined,
               dbConn,
             ),
+            "eth_blockNumber",
           );
 
           setResult<typeof evmRpc.method>(
@@ -297,6 +298,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
               // { block_hash: Buffer.from(blockHash.slice(2), "hex") },
               dbConn,
             ),
+            "eth_getBlockByHash",
           );
 
           if (!block) {
@@ -352,6 +354,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
                 undefined,
                 dbConn,
               ),
+              "eth_getBlockByNumber",
             );
             block = block_;
             blockHeight = block.block_height;
@@ -436,6 +439,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
               undefined,
               dbConn,
             ),
+            "eth_getTransactionByHash",
           );
           if (!block) {
             res.error = createInvalidParamsError(
@@ -496,6 +500,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
               undefined,
               dbConn,
             ),
+            "eth_getTransactionByBlockHashAndIndex",
           );
           const randomBlockHash = (): string =>
             "0x" +
@@ -522,6 +527,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
                 undefined,
                 dbConn,
               ),
+              "eth_getTransactionByBlockNumberAndIndex",
             );
             blockHeight = block.block_height;
             // blockHeight = await toBlockNumber(evmRpc.params[0]);
@@ -555,6 +561,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
               undefined,
               dbConn,
             ),
+            "eth_getTransactionByBlockNumberAndIndex",
           );
           const randomBlockHash = (): string =>
             "0x" +
@@ -761,6 +768,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
               undefined,
               dbConn,
             ),
+            "eth_getTransactionReceipt",
           );
 
           if (!block) {
@@ -889,6 +897,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
               undefined,
               dbConn,
             ),
+            "eth_syncing",
           );
 
           // TODO Updaste this

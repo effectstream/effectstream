@@ -25,10 +25,7 @@ export const AbiMap = {
 // Paima L2
 // ========
 
-export const PrimitiveEvmRpcPaimaL2Payload = Type.Object({ // TODO: this should be Paima concise encoding
-  // inputData: TypeboxHelpers.UnknownFormat,
-  // suppliedValue: TypeboxHelpers.Uint256,
-  // inputNonce: TypeboxHelpers.HexString0x(),
+export const PrimitiveEvmRpcPaimaL2Payload = Type.Object({
   userAddress: TypeboxHelpers.Evm.Address,
   data: TypeboxHelpers.HexString0x(),
   value: TypeboxHelpers.Uint256,
