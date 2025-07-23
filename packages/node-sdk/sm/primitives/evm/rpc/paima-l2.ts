@@ -5,7 +5,7 @@ import {
   TypeboxHelpers,
   type WalletAddress,
 } from "@paima/utils";
-import { hexToString, stringToHex } from "npm:viem";
+import { hexToString, stringToHex } from "viem";
 import type {
   ConfigPrimitivePayloadType,
   ConfigSyncProtocolType,

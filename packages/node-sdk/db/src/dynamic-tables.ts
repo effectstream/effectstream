@@ -1,4 +1,4 @@
-import { until } from "npm:effection@3.5.0";
+import { until } from "effection";
 import { ConfigPrimitiveType } from "@paima/config";
 import { erc20Ivm } from "./ivm/erc20-ivm.ts";
 import { erc721Ivm } from "./ivm/erc721-ivm.ts";
