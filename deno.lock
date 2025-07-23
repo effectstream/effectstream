@@ -33,6 +33,7 @@
     "npm:@bloxbean/yaci-devkit@*": "0.10.6",
     "npm:@bloxbean/yaci-devkit@0.10.6": "0.10.6",
     "npm:@cardano-foundation/cardano-verify-datasignature@*": "1.0.11",
+    "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11": "1.0.11",
     "npm:@coderspirit/nominal@^4.1.1": "4.1.1_typescript@5.6.3",
     "npm:@dcspark/carp-client@^3.3.0": "3.3.0",
     "npm:@dcspark/cip34-js@3.0.1": "3.0.1",
@@ -13438,7 +13439,7 @@
           "npm:fastify@^5.4.0"
         ]
       },
-      "packages/build-tools/frontend": {
+      "packages/build-tools/explorer": {
         "dependencies": [
           "jsr:@oak/oak@^17.1.4",
           "jsr:@std/assert@^1.0.12",
