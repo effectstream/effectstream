@@ -16,6 +16,7 @@
     "@fastify/swagger-ui": "npm:@fastify/swagger-ui@^5.2.3",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "viem": "npm:viem@^2.21.3",
-    "js-sha3": "npm:js-sha3@^0.9.3"
+    "js-sha3": "npm:js-sha3@^0.9.3",
+    "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2"
   }
 }
