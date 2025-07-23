@@ -2,7 +2,6 @@
 import { ENV, type ValueOf } from "@paima/utils";
 import "./http-server.ts";
 import { dkill } from "@sylc/dkill";
-import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 import {
   initTelemetry,
@@ -348,12 +347,9 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     // TODO This should be read from the config.
-    const paimaL2Address = contractAddressesEvmMain()["chain31337"][
-      "PaimaL2ContractModule#MyPaimaL2Contract"
-    ];
-    const batcherPrivateKey =
-      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-    const chainName = "hardhat";
+    const paimaL2Address = config.batcher?.paimaL2Address;
+    const batcherPrivateKey = config.batcher?.batcherPrivateKey;
+    const chainName = config.batcher?.chainName;
     const batcher = $({
       args: [
         "task",
