@@ -21,6 +21,7 @@ import { ConfigPrimitivePayloadType, ConfigPrimitiveType } from "@paima/config";
 import type { StateUpdateStream } from "@paima/coroutine";
 import type { PaimaBlockNumber } from "@paima/utils";
 import { clearBigInts } from "./utils.ts";
+import processMidnightContractStateDatum from "./midnight/contract-state.ts";
 
 export function* primitiveTransitionFunction(
   paima_block_height: PaimaBlockNumber,
@@ -165,7 +166,10 @@ export function* primitiveTransitionFunction(
     case ConfigPrimitiveType.MidnightContractState:
       switch (primitive.payloadType) {
         case ConfigPrimitivePayloadType.Event:
-          // return yield* processMidnightContractStateDatum(primitive);
+          return yield* processMidnightContractStateDatum(
+            paima_block_height,
+            primitive,
+          );
         default:
           // assertNever.default(clearBigInts(primitive));
       }

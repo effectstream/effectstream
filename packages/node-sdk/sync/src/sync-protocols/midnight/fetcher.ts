@@ -106,7 +106,7 @@ export class MidnightFetcher extends BaseDataFetcher<
     primitives: PrimitiveEntry<ConfigSyncProtocolType.MIDNIGHT_PARALLEL>[],
   ): Operation<PrimitiveType[]> {
     const client = this.client;
-    const allOperations: Operation<PrimitiveType>[] = [];
+    const allOperations: Operation<PrimitiveType | undefined>[] = [];
     for (const primitive of primitives) {
       allOperations.push(
         this.fetchContractState(
@@ -117,7 +117,9 @@ export class MidnightFetcher extends BaseDataFetcher<
         ),
       );
     }
-    return (yield* all(allOperations)).flat();
+    return (yield* all(allOperations)).flat().filter(
+      Boolean,
+    ) as PrimitiveType[];
   }
 
   @bound
@@ -126,15 +128,13 @@ export class MidnightFetcher extends BaseDataFetcher<
     client: MidnightClient,
     primitive: PrimitiveEntry<ConfigSyncProtocolType.MIDNIGHT_PARALLEL>,
     block: Block,
-  ): Operation<PrimitiveType> {
+  ): Operation<PrimitiveType | undefined> {
     const contractAddress = primitive.primitive.contractAddress;
     const state = yield* call(() =>
       client.fetchContractState(contractAddress, height)
     );
     if (!state) {
-      throw new Error(
-        `Contract state not found for ${contractAddress} at block ${height}`,
-      );
+      return undefined;
     }
     return {
       input: primitive.primitive,
@@ -158,7 +158,9 @@ export class MidnightFetcher extends BaseDataFetcher<
             },
             transactionHash:
               block.transactions.find((t) =>
-                t.contractCalls.find((c) => c.address === contractAddress)
+                (t.contractCalls ?? []).find((c) =>
+                  c.address === contractAddress
+                )
               )?.hash ??
                 "0x0000000000000000000000000000000000000000000000000000000000000000",
           },

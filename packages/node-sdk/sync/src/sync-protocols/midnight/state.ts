@@ -1,5 +1,5 @@
 import { call, type Operation } from "effection";
-import { bound, type TimestampMs } from "@paima/utils";
+import { bound, PaimaBlockNumber, type TimestampMs } from "@paima/utils";
 import { type PoolClient } from "npm:pg";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
@@ -50,15 +50,23 @@ export class MidnightSyncState extends SyncState<
 
   @bound
   override toRootPage(data: Output): RootPage {
-    return Date.parse(data.raw.timestamp) as TimestampMs;
+    return data.raw.timestamp as unknown as TimestampMs;
   }
 
   @bound
   override toRootOutput(data: Output): RootOutput {
+    const blockNumber = data.raw.height as PaimaBlockNumber;
     return {
-      blockNumber: data.raw.height,
+      blockHashes: [{
+        source: this.config.syncProtocol.name,
+        blockHashes: data.raw.hash,
+      }],
+      blockNumber,
       timestamp: Date.parse(data.raw.timestamp) as TimestampMs,
-      primitives: [], // TODO: map primitives
+      primitives: data.primitives.map((p) => ({
+        ...p,
+        source: this.config.syncProtocol.name,
+      })),
     };
   }
 

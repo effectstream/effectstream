@@ -56,6 +56,14 @@ stm.addStateTransition(
 );
 
 stm.addStateTransition(
+  "midnightContractState",
+  function* (data) {
+    console.error("🌘🌘🌘🌘🌘🌘midnightContractState", data);
+    return;
+  },
+);
+
+stm.addStateTransition(
   "throw_error",
   function* (data) {
     throw new Error("This is a test error");

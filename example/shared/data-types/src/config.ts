@@ -189,7 +189,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelEvmRPC,
+        (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "Arbitrum_ERC721",
           type: ConfigPrimitiveType.EvmRpcERC721,
@@ -205,7 +205,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelEvmRPC,
+        (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "L1_ERC721_Token",
           type: ConfigPrimitiveType.EvmRpcERC721,
@@ -221,7 +221,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelEvmRPC,
+        (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "ETH_L1_ERC20",
           type: ConfigPrimitiveType.EvmRpcERC20,
