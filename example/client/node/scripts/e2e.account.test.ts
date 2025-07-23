@@ -133,6 +133,9 @@ async function assertAccountState(
 
 // Start Test
 export async function accountTests(db: Client, sharedState: SharedState) {
+  if (Deno.env.get("GITHUB_ACTIONS_SHORT_TEST")) {
+    return;
+  }
   const paimaL2 = paimaL2Builder(sharedState);
 
   // wallet-0 is owner
