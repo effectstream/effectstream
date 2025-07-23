@@ -1,6 +1,7 @@
 {
   "name": "@paima/db",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/mod.ts",
   "tasks": {
     "db:up": "deno run --allow-read --allow-env --allow-net ./scripts/start-pglite.js",

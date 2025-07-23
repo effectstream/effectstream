@@ -1,6 +1,7 @@
 {
   "name": "@paima/runtime",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
     "@fastify/cors": "npm:@fastify/cors@^11.0.1",

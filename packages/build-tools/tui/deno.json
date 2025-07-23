@@ -1,6 +1,7 @@
 {
   "name": "@paima/tui",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/mod.ts",
   "tasks": {
     "clean": "rm -rf logs",

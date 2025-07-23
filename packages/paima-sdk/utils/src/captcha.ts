@@ -1,4 +1,6 @@
-/// <reference lib="dom" />
+// <reference lib="dom" />
+// error[banned-triple-slash-directives]: triple slash directives that modify globals are not allowed
+
 import { ENV } from "./config.ts";
 
 /**

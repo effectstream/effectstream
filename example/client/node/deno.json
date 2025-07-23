@@ -1,6 +1,7 @@
 {
   "name": "@example/node",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/main.ts",
   "tasks": {
     // separate from node:start so we can type-check before starting other services

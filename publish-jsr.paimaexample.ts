@@ -77,15 +77,19 @@ const packagesToPublish = [
   "./packages/build-tools/orchestrator",
 ];
 
+let versionCache: string | null = null;
 async function fetchLatestVersion(): Promise<string> {
   // If manual version is provided, use it
   if (manualVersion) {
     console.log(`Using manual version: ${manualVersion}`);
     return manualVersion;
   }
+  if (versionCache) {
+    return versionCache;
+  }
 
   try {
-    const response = await fetch("https://jsr.io/@paima/sync/meta.json");
+    const response = await fetch("https://jsr.io/@paimaexample/sync/meta.json");
     if (!response.ok) {
       throw new Error(`Failed to fetch version: ${response.statusText}`);
     }
@@ -100,6 +104,7 @@ async function fetchLatestVersion(): Promise<string> {
 
     const newVersion = `${major}.${minor}.${patch + 1}`;
     console.log(`Auto-incremented version: ${newVersion}`);
+    versionCache = newVersion;
     return newVersion;
   } catch (error) {
     console.error("Error fetching version:", error);
@@ -156,6 +161,10 @@ async function walkAndProcess(dir: string, reverse: boolean = false) {
       }
       await walkAndProcess(fullPath, reverse);
     } else if (filePattern.test(entry.name)) {
+      // Skip the script file itself to avoid self-modification
+      if (entry.name === "publish-jsr.paimaexample.ts") {
+        continue;
+      }
       await processFile(fullPath, reverse);
     }
   }
@@ -210,6 +219,9 @@ async function showPublishCommands() {
   for (const packagePath of packagesToPublish) {
     console.log(`cd ${packagePath}`);
     console.log(`deno publish --allow-slow-types --allow-dirty --no-check`);
+    console.log(
+      `cd ${Array(packagePath.split("/").length - 1).fill("..").join("/")}/`,
+    );
     console.log("");
   }
 }

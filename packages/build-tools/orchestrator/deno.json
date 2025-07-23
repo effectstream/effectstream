@@ -1,6 +1,7 @@
 {
   "name": "@paima/orchestrator",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/mod.ts",
   "tasks": {
     "db:up": "deno task -f @paima/db db:up",
