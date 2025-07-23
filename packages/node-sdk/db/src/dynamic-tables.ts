@@ -2,7 +2,7 @@ import { until } from "effection";
 import { ConfigPrimitiveType } from "@paima/config";
 import { erc20Ivm } from "./ivm/erc20-ivm.ts";
 import { erc721Ivm } from "./ivm/erc721-ivm.ts";
-import type { AllSyncProtocols } from "@paima/sync";
+// import type { AllSyncProtocols } from "@paima/sync";
 import type { PoolClient } from "pg";
 import { aquireDBMutex, releaseDBMutex } from "@paima/db";
 
@@ -18,7 +18,7 @@ import { aquireDBMutex, releaseDBMutex } from "@paima/db";
  */
 export function* createDynamicTables(
   dbConn: PoolClient,
-  syncProtocols: AllSyncProtocols[],
+  syncProtocols: any[], //AllSyncProtocols[],
 ) {
   try {
     yield* aquireDBMutex("creating-dynamic-tables");
