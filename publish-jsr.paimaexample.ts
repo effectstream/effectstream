@@ -12,6 +12,8 @@
  *   --publish          Actually publish the packages to JSR (default: dry-run mode)
  *   --reverse          Reverse the namespace replacement (@paimaexample -> @paima)
  *   --version <ver>    Use a specific version instead of auto-incrementing
+ *   --token <token>    Authentication token for JSR publishing
+ *   --dir <path>       Directory to process (default: current working directory)
  *
  * EXAMPLES:
  *   # Dry run - show what would be published
@@ -23,11 +25,14 @@
  *   # Use specific version
  *   deno run -A publish-jsr.paimaexample.ts --publish --version 1.2.3
  *
+ *   # Use authentication token
+ *   deno run -A publish-jsr.paimaexample.ts --publish --token your-token-here
+ *
  *   # Reverse namespace replacement
  *   deno run -A publish-jsr.paimaexample.ts --reverse
  *
  *   # Process specific directory
- *   deno run -A publish-jsr.paimaexample.ts /path/to/directory
+ *   deno run -A publish-jsr.paimaexample.ts --dir /path/to/directory
  *
  * BEHAVIOR:
  * - By default, replaces @paima/ references with @paimaexample/ in all .ts, .js, and .json files
@@ -41,16 +46,10 @@ const shouldPublish = Deno.args.includes("--publish");
 const shouldReverse = Deno.args.includes("--reverse");
 const versionIndex = Deno.args.indexOf("--version");
 const manualVersion = versionIndex !== -1 ? Deno.args[versionIndex + 1] : null;
-
-// Find the first argument that's not a flag and not a version value
-const dirArg = Deno.args.find((arg, index) => {
-  // Skip if it's a flag
-  if (arg.startsWith("--")) return false;
-  // Skip if it's the value after --version
-  if (index > 0 && Deno.args[index - 1] === "--version") return false;
-  return true;
-});
-const rootDir = dirArg || Deno.cwd();
+const tokenIndex = Deno.args.indexOf("--token");
+const authToken = tokenIndex !== -1 ? Deno.args[tokenIndex + 1] : null;
+const dirIndex = Deno.args.indexOf("--dir");
+const rootDir = dirIndex !== -1 ? Deno.args[dirIndex + 1] : Deno.cwd();
 
 const filePattern = /\.(ts|js|json)$/i;
 
@@ -182,8 +181,18 @@ async function publishPackages() {
       Deno.chdir(packagePath);
 
       // Run the publish command
+      const publishArgs = [
+        "publish",
+        "--allow-slow-types",
+        "--allow-dirty",
+        "--no-check",
+      ];
+      if (authToken) {
+        publishArgs.push("--token", authToken);
+      }
+
       const command = new Deno.Command("deno", {
-        args: ["publish", "--allow-slow-types", "--allow-dirty", "--no-check"],
+        args: publishArgs,
         stdout: "inherit",
         stderr: "inherit",
       });
@@ -212,13 +221,19 @@ async function publishPackages() {
 async function showPublishCommands() {
   const version = await fetchLatestVersion();
   console.log(`Version that would be used: ${version}`);
+  if (authToken) {
+    console.log(`Token that would be used: ${authToken.substring(0, 8)}...`);
+  }
   console.log("Publish commands that would be executed:");
   console.log("(Run with --publish flag to actually execute these commands)");
   console.log("");
 
   for (const packagePath of packagesToPublish) {
     console.log(`cd ${packagePath}`);
-    console.log(`deno publish --allow-slow-types --allow-dirty --no-check`);
+    const publishCmd = authToken
+      ? `deno publish --allow-slow-types --allow-dirty --no-check --token ${authToken}`
+      : `deno publish --allow-slow-types --allow-dirty --no-check`;
+    console.log(publishCmd);
     console.log(
       `cd ${Array(packagePath.split("/").length - 1).fill("..").join("/")}/`,
     );
