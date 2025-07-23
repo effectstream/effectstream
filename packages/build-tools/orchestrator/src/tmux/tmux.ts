@@ -1,6 +1,5 @@
-import __ from "https://deno.land/x/dirname/mod.ts";
 import { ENV } from "@paima/utils";
-const { __dirname } = __(import.meta);
+const __dirname = import.meta.dirname;
 
 // This is a wrapper around the tmux command.
 // It allows to create an instance of tmux, and execute commands on it.
