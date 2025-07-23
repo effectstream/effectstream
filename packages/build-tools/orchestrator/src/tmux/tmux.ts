@@ -1,5 +1,7 @@
 import { ENV } from "@paima/utils";
 const __dirname = import.meta.dirname;
+// use --unstable-raw-imports
+import launchJson from "./tmux.launch.json" with { type: "text" };
 
 // This is a wrapper around the tmux command.
 // It allows to create an instance of tmux, and execute commands on it.
@@ -209,10 +211,6 @@ export class Tmux {
   }
 
   public async readLaunchJson(sessionName: string, file?: string) {
-    const launchJson = await Deno.readTextFile(
-      file ??
-        __dirname + "/tmux.launch.json",
-    );
     const data: {
       panes: {
         command?: string;
