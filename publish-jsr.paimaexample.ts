@@ -51,7 +51,7 @@ const authToken = tokenIndex !== -1 ? Deno.args[tokenIndex + 1] : null;
 const dirIndex = Deno.args.indexOf("--dir");
 const rootDir = dirIndex !== -1 ? Deno.args[dirIndex + 1] : Deno.cwd();
 
-const filePattern = /\.(ts|js|json)$/i;
+const filePattern = /\.(ts|js|json|tsx|jsx)$/i;
 
 // Packages to publish in order
 const packagesToPublish = [

@@ -1,7 +1,8 @@
 import { ENV } from "@paima/utils";
-const __dirname = import.meta.dirname;
 // use --unstable-raw-imports
-import launchJson from "./tmux.launch.json" with { type: "text" };
+// https://github.com/denoland/deno/issues/29904
+// import launchJson from "./tmux.launch.json" with { type: "text" };
+import { json } from "./tmux.launch.ts";
 
 // This is a wrapper around the tmux command.
 // It allows to create an instance of tmux, and execute commands on it.
@@ -218,7 +219,7 @@ export class Tmux {
         split_horizontal?: boolean;
         split_vertical?: boolean;
       }[];
-    } = JSON.parse(launchJson);
+    } = json;
     for (const pane of data.panes) {
       if (pane.split_horizontal) {
         await this.splitPane(sessionName, true, pane.command);
