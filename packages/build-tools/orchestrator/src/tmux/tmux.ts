@@ -1,9 +1,14 @@
 import { ENV } from "@paima/utils";
+
 // use --unstable-raw-imports
 // https://github.com/denoland/deno/issues/29904
 // import launchJson from "./tmux.launch.json" with { type: "text" };
+
 import { json } from "./tmux.launch.ts";
 import { install } from "./install.ts";
+
+// dirname is not available in jsr packages
+const __dirname = import.meta.dirname;
 
 // This is a wrapper around the tmux command.
 // It allows to create an instance of tmux, and execute commands on it.
@@ -39,10 +44,20 @@ export class Tmux {
   constructor(options: NodeTmuxOptions) {
     this.options = {
       command: "tmux",
-      configFile: `${__dirname}/tmux.conf`,
       shell: ENV.SHELL,
       ...options,
     };
+  }
+  async init() {
+    const path = __dirname ? __dirname + "/tmux.conf" : "./tmux.conf";
+    try {
+      await Deno.stat(path);
+    } catch (e) {
+      // create file
+      await Deno.writeTextFile(path, `set -g mouse on`);
+    }
+
+    this.options.configFile = path;
   }
 
   /**
@@ -233,7 +248,6 @@ export class Tmux {
   }
 }
 
-const __dirname = import.meta.dirname;
 export const installTmux = async () => {
   const path = __dirname ? __dirname + "/install.sh" : "./install.sh";
   try {

@@ -225,6 +225,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     const session_name = "paima-" + Date.now();
 
     const tm = new Tmux({});
+    await tm.init();
     await tm.newSession(session_name);
 
     // We can pass a custom launch json file to the tmux instance
