@@ -24,31 +24,45 @@ if (isNaN(port)) {
 
 // dirname is not available in jsr packages
 const __dirname = import.meta.dirname;
-// export const startPGlite = async (): Promise<void> => {
 // TODO: we hardcode the migration file here
 //       but probably have to be smarter about this
 //       like accepting a file path and running all migrations according to some logic
 //       (ex: see `loadDataMigrations`)
 //       trick: paima-engine needs to follow the same folder structure for migrations as Paima apps
 // TODO: Update when we have with { type: text } imports
-let migrationsPath = __dirname ? __dirname + "/migrations/up.sql" : "./up.sql";
+let migrationData = "";
 try {
-  Deno.statSync(migrationsPath);
+  Deno.statSync(__dirname + "/migrations/up.sql");
+  migrationData = readFileSync(__dirname + "/migrations/up.sql", "utf-8");
 } catch (e) {
-  migrationsPath = "./up.sql";
-  Deno.writeTextFileSync(migrationsPath, migrations);
+  migrationData = migrations;
 }
 
-const migration = readFileSync(migrationsPath, "utf-8");
+// TODO: find nearest node_modules folder, as import { pg_ivm } is not working
+let nodeModulesPath = Deno.cwd();
+while (true) {
+  try {
+    !Deno.statSync(nodeModulesPath + "/node_modules").isDirectory;
+    break;
+  } catch (e) {
+    if (!nodeModulesPath || nodeModulesPath === "/") {
+      throw new Error("Node modules not found");
+    }
+    nodeModulesPath = nodeModulesPath.split("/").slice(0, -1).join("/");
+  }
+}
+
 const db = new PGlite(
   "memory://", // TODO: use different values for in-browser & production builds
   {
     username: "postgres",
     database: "postgres",
     extensions: {
+      // pg_ivm: pg_ivm,
       pg_ivm: new URL(
-        "../../../../node_modules/@electric-sql/pglite/dist/pg_ivm.tar.gz",
-        import.meta.url,
+        nodeModulesPath +
+          "/node_modules/@electric-sql/pglite/dist/pg_ivm.tar.gz",
+        "file://",
       ),
     },
     debug: (ENV.DEBUG_PGLITE as DebugLevel) || 0,
@@ -56,7 +70,7 @@ const db = new PGlite(
 );
 await db.exec("CREATE EXTENSION IF NOT EXISTS pg_ivm;");
 
-await db.exec(migration);
+await db.exec(migrationData);
 
 /**
  * This is to genereate the user/custom pgtyped files in compilation time
