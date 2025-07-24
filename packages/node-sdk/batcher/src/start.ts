@@ -1,7 +1,7 @@
 import type { Chain } from "viem";
 import { parseEther } from "viem/utils";
 import { createAndLaunchBatcher } from "./batcher.ts";
-import { parseArgs } from "jsr:@std/cli/parse-args";
+import { parseArgs } from "@std/cli/parse-args";
 import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import * as chains from "viem/chains";

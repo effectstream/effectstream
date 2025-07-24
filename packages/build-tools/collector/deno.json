@@ -2,7 +2,10 @@
   "name": "@paima/collector",
   "version": "0.3.0",
   "license": "MIT",
-  "exports": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./start": "./src/start.ts"
+  },
   "tasks": {
     // permissions info:
     // - temporal used for printing metrics

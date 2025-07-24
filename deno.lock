@@ -15,6 +15,7 @@
     "jsr:@std/assert@~1.0.6": "1.0.13",
     "jsr:@std/bytes@1": "1.0.6",
     "jsr:@std/cli@*": "1.0.20",
+    "jsr:@std/cli@^1.0.21": "1.0.21",
     "jsr:@std/collections@^1.1.1": "1.1.2",
     "jsr:@std/crypto@1": "1.0.5",
     "jsr:@std/encoding@1": "1.0.10",
@@ -232,6 +233,9 @@
     },
     "@std/cli@1.0.20": {
       "integrity": "a8c384a2c98cec6ec6a2055c273a916e2772485eb784af0db004c5ab8ba52333"
+    },
+    "@std/cli@1.0.21": {
+      "integrity": "cd25b050bdf6282e321854e3822bee624f07aca7636a3a76d95f77a3a919ca2a"
     },
     "@std/collections@1.1.1": {
       "integrity": "eff6443fbd9d5a6697018fb39c5d13d5f662f0045f21392d640693d0008ab2af"
@@ -13554,7 +13558,12 @@
           "npm:@sinclair/typebox@~0.34.30",
           "npm:fastify@^5.4.0",
           "npm:jsonc-parser@^3.3.1"
-        ]
+        ],
+        "packageJson": {
+          "dependencies": [
+            "npm:wait-on@8.0.3"
+          ]
+        }
       },
       "packages/build-tools/tui": {
         "dependencies": [
@@ -13585,6 +13594,7 @@
       },
       "packages/node-sdk/batcher": {
         "dependencies": [
+          "jsr:@std/cli@^1.0.21",
           "npm:@fastify/cors@^11.0.1",
           "npm:@fastify/swagger-ui@^5.2.3",
           "npm:@fastify/swagger@^9.5.1",

@@ -18,6 +18,8 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.DOLOS]: true,
   },
 
+  packageName: "@paima",
+
   // Launch the Batcher with our PaimaL2 Contract
   batcher: {
     paimaL2Address: contractAddressesEvmMain()["chain31337"][

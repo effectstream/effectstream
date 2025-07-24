@@ -27,6 +27,8 @@ export async function startup(): Promise<Client> {
       [ComponentNames.DOLOS]: true,
     },
 
+    packageName: "@paima",
+
     batcher: {
       paimaL2Address: contractAddressesEvmMain()["chain31337"][
         "PaimaL2ContractModule#MyPaimaL2Contract"

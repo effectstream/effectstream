@@ -71,6 +71,13 @@ export const OrchestratorConfig = Type.Object({
     chainName: Type.String(),
   })),
 
+  // This can be customized for different locations of the packages.
+  // nighly: jsr:@paimaexample
+  // release: jsr:@paima
+  // local development: @paima
+  packageName: Type.String({ default: "jsr:@paima" }),
+  packageVersion: Type.String({ default: "" }),
+
   // Processes to start
   processes: Type.Object({
     // Main Processes
@@ -249,7 +256,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       await dkill({ ports: [ENV.PAIMA_EXPLORER_PORT] });
     }
     const explorer = $({
-      args: ["task", "-f", "@paima/explorer", "dev"],
+      args: ["task", "-f", config.packageName + "/explorer", "dev"],
       component: ComponentNames.EXPLORER,
       log: rawLogHandler,
       abortController: abortControllers.developerUI,
@@ -264,7 +271,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     const docs = $({
-      args: ["task", "-f", "@paima/docs", "start"],
+      args: ["task", "-f", config.packageName + "/docs", "start"],
       component: ComponentNames.DOCS,
       abortController: abortControllers.developerUI,
     });
@@ -292,24 +299,19 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     const otlpCollector = $({
-      args: ["task", "-f", "@paima/collector", "start"],
+      args: ["run", "-A", config.packageName + "/collector/start"],
       // collector always has to post logs directly to console
       // otherwise, it gets stuck in an infinite loop of sending to itself
       log: rawLogHandler,
       component: ComponentNames.COLLECTOR,
       abortController: abortControllers.noncritical,
     });
-    void Promise.all([otlpCollector.process.status]);
+    void otlpCollector.process.status;
 
-    const waitOtlp = $({
-      args: ["task", "-f", "@paima/collector", "wait"],
-      // collector always has to post logs directly to console
-      // otherwise, it gets stuck in an infinite loop of sending to itself
-      log: rawLogHandler,
-      component: ComponentNames.COLLECTOR_WAIT,
-      abortController: abortControllers.noncritical,
-    });
-    await Promise.all([waitOtlp.process.status]);
+    await (new Deno.Command("wait-on", {
+      args: [`tcp:${ENV.OTEL_COLLECTOR_PORT}`],
+    })).spawn().status;
+
     setCollectorStarted();
     return otlpCollector;
   },
@@ -353,10 +355,9 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     const chainName = config.batcher?.chainName;
     const batcher = $({
       args: [
-        "task",
-        "-f",
-        "@paima/batcher",
-        "standalone",
+        "run",
+        "-A",
+        config.packageName + "/batcher/start",
         `--paimaL2Address=${paimaL2Address}`,
         `--batcherPrivateKey=${batcherPrivateKey}`,
         `--chainName=${chainName}`,
@@ -446,18 +447,22 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
     const paimaDb = $({
       // TODO: run pgtyped:up only depending on parameters?
-      args: ["task", "-f", "@paima/db", "db:up"],
+      args: [
+        "run",
+        "-A",
+        config.packageName + "/db/start-pglite",
+        "--port",
+        String(ENV.DB_PORT),
+      ],
       log: logHandler,
       component: ComponentNames.PAIMA_DB,
       abortController: abortControllers.system,
     });
     void paimaDb.process.status; // need to await sub-service start below
 
-    await $({
-      args: ["task", "-f", "@paima/db", "db:wait"],
-      component: ComponentNames.PAIMA_DB_WAIT,
-      abortController: abortControllers.noncritical,
-    }).process.status;
+    await (new Deno.Command("wait-on", {
+      args: [`tcp:${ENV.DB_PORT}`],
+    })).spawn().status;
 
     return paimaDb;
   },
