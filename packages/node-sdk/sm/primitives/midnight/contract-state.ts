@@ -34,9 +34,7 @@ export default function* processMidnightContractStateSyncProtocolResponse(
     primitive_name: response.output.syncProtocol.payload.primitiveName,
     paima_block_height: paima_block_height,
     payload_type: ConfigPrimitiveAccountingPayloadType.Event,
-    payload: response.output.payload satisfies PayloadOf<
-      typeof PrimitiveMidnightGraphqlContractStateAccounting
-    >,
+    payload: JSON.stringify(response.output.payload) as any,
   });
   if (scheduledPrefix) {
     yield* createScheduledData(

@@ -59,6 +59,35 @@ stm.addStateTransition(
   "midnightContractState",
   function* (data) {
     console.error("🌘🌘🌘🌘🌘🌘midnightContractState", data);
+
+    const { payload } = data.parsedInput;
+
+    // Handle different EncodedStateValue variants
+    switch (payload.tag) {
+      case "null":
+        console.log("📭 Contract state is null");
+        break;
+
+      case "cell":
+        console.log("📦 Contract state has cell content:", payload.content);
+        break;
+
+      case "array":
+        console.log(
+          "📚 Contract state is array with",
+          payload.content.length,
+          "items",
+        );
+        break;
+
+      case "map":
+        console.log("🗺️ Contract state is a map:", payload.content);
+        break;
+      default:
+        console.warn("❓ Unknown contract state tag:", payload);
+        break;
+    }
+
     return;
   },
 );

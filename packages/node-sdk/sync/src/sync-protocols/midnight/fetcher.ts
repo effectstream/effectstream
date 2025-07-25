@@ -141,7 +141,7 @@ export class MidnightFetcher extends BaseDataFetcher<
       output: {
         primitive: ConfigPrimitiveType.MidnightContractState,
         payloadType: ConfigPrimitivePayloadType.Event,
-        payload: JSON.stringify(state.data.encode()),
+        payload: state.data.encode() as unknown as any,
         syncProtocol: {
           type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
           name: this.config.syncProtocol.name,
