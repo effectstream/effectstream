@@ -321,7 +321,12 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     const otlpCollector = $({
-      args: ["run", "-A", config.packageName + "/collector/start"],
+      args: [
+        "run",
+        "-A",
+        "--unstable-temporal",
+        config.packageName + "/collector/start",
+      ],
       // collector always has to post logs directly to console
       // otherwise, it gets stuck in an infinite loop of sending to itself
       log: rawLogHandler,
