@@ -272,7 +272,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     await tm.newSession(session_name);
 
     // We can pass a custom launch json file to the tmux instance
-    await tm.readLaunchJson(session_name);
+    await tm.readLaunchJson(config.packageName, session_name);
 
     const tmux = $({
       ...tm.getAttachSessionCommand(session_name),

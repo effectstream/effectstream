@@ -230,7 +230,11 @@ export class Tmux {
     return NAME_FORMAT.test(name);
   }
 
-  public async readLaunchJson(sessionName: string, file?: string) {
+  public async readLaunchJson(
+    packageName: string,
+    sessionName: string,
+    file?: string,
+  ) {
     const data: {
       panes: {
         command?: string;
@@ -239,6 +243,11 @@ export class Tmux {
         split_vertical?: boolean;
       }[];
     } = json;
+
+    for (const pane of data.panes) {
+      pane.command = pane.command?.replace("jsr:@paima/", `${packageName}/`);
+    }
+
     for (const pane of data.panes) {
       if (pane.split_horizontal) {
         await this.splitPane(sessionName, true, pane.command);
