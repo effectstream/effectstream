@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Eduardo Soto",
+  "author": "Paima Studios",
   "license": "ISC",
   "supportedPlatforms": [
     "linux-arm64",
