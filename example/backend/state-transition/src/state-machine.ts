@@ -58,8 +58,6 @@ stm.addStateTransition(
 stm.addStateTransition(
   "midnightContractState",
   function* (data) {
-    console.error("🌘🌘🌘🌘🌘🌘midnightContractState", data);
-
     const { payload } = data.parsedInput;
 
     // Handle different EncodedStateValue variants
