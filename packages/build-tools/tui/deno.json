@@ -5,7 +5,7 @@
   "exports": {
     ".": "./src/mod.ts",
     "./logs": "./src/logs-standalone.ts",
-    "./tui": "./src/main.ts"
+    "./tui": "./src/main.tsx"
   },
   "tasks": {
     "clean": "rm -rf logs",

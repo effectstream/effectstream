@@ -245,7 +245,7 @@ export class Tmux {
     } = json;
 
     for (const pane of data.panes) {
-      pane.command = pane.command?.replace("jsr:@paima/", `${packageName}/`);
+      pane.command = pane.command?.replaceAll("${packageName}", packageName);
     }
 
     for (const pane of data.panes) {

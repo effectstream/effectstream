@@ -97,7 +97,7 @@ async function fetchLatestVersion(): Promise<string> {
   }
 
   try {
-    const response = await fetch("https://jsr.io/@paima/sync/meta.json");
+    const response = await fetch("https://jsr.io/@paimaexample/sync/meta.json");
     if (!response.ok) {
       throw new Error(`Failed to fetch version: ${response.statusText}`);
     }
@@ -170,7 +170,7 @@ async function walkAndProcess(dir: string, reverse: boolean = false) {
       await walkAndProcess(fullPath, reverse);
     } else if (filePattern.test(entry.name)) {
       // Skip the script file itself to avoid self-modification
-      if (entry.name === "publish-jsr.paimaexample.ts") {
+      if (entry.name === "publish-jsr-npm.paimaexample.ts") {
         continue;
       }
       await processFile(fullPath, reverse);
