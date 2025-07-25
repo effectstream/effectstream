@@ -91,7 +91,7 @@ async function fetchLatestVersion(): Promise<string> {
   }
 
   try {
-    const response = await fetch("https://jsr.io/@paima/sync/meta.json");
+    const response = await fetch("https://jsr.io/@paimaexample/sync/meta.json");
     if (!response.ok) {
       throw new Error(`Failed to fetch version: ${response.statusText}`);
     }
