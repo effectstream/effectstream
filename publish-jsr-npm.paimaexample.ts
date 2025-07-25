@@ -54,7 +54,7 @@ const rootDir = dirIndex !== -1 ? Deno.args[dirIndex + 1] : Deno.cwd();
 const filePattern = /\.(ts|js|json|tsx|jsx)$/i;
 
 // Packages to publish in order
-const packagesToPublish = [
+const jsrPackagesToPublish = [
   "./packages/paima-sdk/utils",
   "./docs/site",
   "./packages/paima-sdk/config",
@@ -69,11 +69,14 @@ const packagesToPublish = [
   "./packages/node-sdk/sm",
   "./packages/node-sdk/runtime",
   "./packages/node-sdk/batcher",
-  "./packages/chains/evm/contracts",
+  "./packages/chains/evm-contracts",
   "./packages/build-tools/explorer",
   "./packages/build-tools/tui",
   "./packages/build-tools/collector",
   "./packages/build-tools/orchestrator",
+];
+const npmPackagesToPublish = [
+  "./packages/chains/evm-contracts",
 ];
 
 let versionCache: string | null = null;
@@ -88,7 +91,7 @@ async function fetchLatestVersion(): Promise<string> {
   }
 
   try {
-    const response = await fetch("https://jsr.io/@paimaexample/sync/meta.json");
+    const response = await fetch("https://jsr.io/@paima/sync/meta.json");
     if (!response.ok) {
       throw new Error(`Failed to fetch version: ${response.statusText}`);
     }
@@ -169,10 +172,10 @@ async function walkAndProcess(dir: string, reverse: boolean = false) {
   }
 }
 
-async function publishPackages() {
+async function publishJSRPackages() {
   console.log("Starting package publishing...");
 
-  for (const packagePath of packagesToPublish) {
+  for (const packagePath of jsrPackagesToPublish) {
     try {
       console.log(`Publishing ${packagePath}...`);
 
@@ -218,6 +221,26 @@ async function publishPackages() {
   console.log("All packages published successfully!");
 }
 
+async function publishNPMPackages() {
+  console.log("Starting npm package publishing...");
+  for (const packagePath of npmPackagesToPublish) {
+    console.log(`Publishing ${packagePath}...`);
+    const originalCwd = Deno.cwd();
+    Deno.chdir(packagePath);
+    const command = new Deno.Command("npm", {
+      args: ["publish", "--access", "public"],
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { success } = await command.output();
+    if (!success) {
+      console.error(`Failed to publish ${packagePath}`);
+      Deno.chdir(originalCwd);
+      return;
+    }
+  }
+}
+
 async function showPublishCommands() {
   const version = await fetchLatestVersion();
   console.log(`Version that would be used: ${version}`);
@@ -228,7 +251,7 @@ async function showPublishCommands() {
   console.log("(Run with --publish flag to actually execute these commands)");
   console.log("");
 
-  for (const packagePath of packagesToPublish) {
+  for (const packagePath of jsrPackagesToPublish) {
     console.log(`cd ${packagePath}`);
     const publishCmd = authToken
       ? `deno publish --allow-slow-types --allow-dirty --no-check --token ${authToken}`
@@ -238,6 +261,14 @@ async function showPublishCommands() {
       `cd ${Array(packagePath.split("/").length - 1).fill("..").join("/")}/`,
     );
     console.log("");
+  }
+  for (const packagePath of npmPackagesToPublish) {
+    console.log(`cd ${packagePath}`);
+    const publishCmd = `npm publish --access public`;
+    console.log(publishCmd);
+    console.log(
+      `cd ${Array(packagePath.split("/").length - 1).fill("..").join("/")}/`,
+    );
   }
 }
 
@@ -251,7 +282,8 @@ async function main() {
   }
 
   if (shouldPublish) {
-    await publishPackages();
+    await publishJSRPackages();
+    await publishNPMPackages();
   } else {
     await showPublishCommands();
   }

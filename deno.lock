@@ -13578,7 +13578,7 @@
           "npm:tslog@^4.9.3"
         ]
       },
-      "packages/chains/evm/contracts": {
+      "packages/chains/evm-contracts": {
         "dependencies": [
           "npm:@nomicfoundation/hardhat-ignition@3.0.0-next.20",
           "npm:@nomicfoundation/hardhat-viem@3.0.0-next.20",
