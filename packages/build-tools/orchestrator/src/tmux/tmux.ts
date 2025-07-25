@@ -49,11 +49,14 @@ export class Tmux {
     };
   }
   async init() {
-    const path = __dirname ? __dirname + "/tmux.conf" : "./tmux.conf";
+    let path = __dirname + "/tmux.conf";
+    let cleanup = false;
     try {
       await Deno.stat(path);
     } catch (e) {
       // create file
+      path = "./tmux.conf";
+      cleanup = true;
       await Deno.writeTextFile(path, `set -g mouse on`);
     }
 

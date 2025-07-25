@@ -29,6 +29,55 @@ export async function startup(): Promise<Client> {
 
     packageName: "@paima",
 
+    // Launch my processes
+    processesToLaunch: [{
+      // Start EVM (Hardhat) Chains and deploy contracts.
+      stopProcessAtPort: [8545, 8546],
+      processes: [
+        {
+          name: ComponentNames.HARDHAT,
+          args: ["task", "-f", "@example/evm-contracts", "chain:start"],
+          waitToExit: false,
+          logs: "otel-compatible",
+          type: "system-dependency",
+        },
+        {
+          name: ComponentNames.HARDHAT_WAIT,
+          args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
+        },
+        {
+          name: ComponentNames.DEPLOY_EVM_CONTRACTS,
+          args: ["task", "-f", "@example/evm-contracts", "deploy"],
+          type: "system-dependency",
+        },
+      ],
+    }, {
+      stopProcessAtPort: [8090, 10000, 50051, 3001],
+      processes: [
+        {
+          name: ComponentNames.YACI_DEVKIT,
+          args: ["task", "-f", "@example/cardano-contracts", "devkit:start"],
+          waitToExit: false,
+          logs: "otel-compatible",
+          type: "system-dependency",
+        },
+        {
+          name: ComponentNames.YACI_DEVKIT_WAIT,
+          args: ["task", "-f", "@example/cardano-contracts", "devkit:wait"],
+        },
+        {
+          name: ComponentNames.DOLOS,
+          args: ["task", "-f", "@example/cardano-contracts", "dolos:start"],
+          waitToExit: false,
+          type: "system-dependency",
+        },
+        {
+          name: ComponentNames.DOLOS_WAIT,
+          args: ["task", "-f", "@example/cardano-contracts", "dolos:wait"],
+        },
+      ],
+    }],
+
     batcher: {
       paimaL2Address: contractAddressesEvmMain()["chain31337"][
         "PaimaL2ContractModule#MyPaimaL2Contract"
