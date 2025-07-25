@@ -13,6 +13,7 @@
  *   --reverse          Reverse the namespace replacement (@paimaexample -> @paima)
  *   --version <ver>    Use a specific version instead of auto-incrementing
  *   --token <token>    Authentication token for JSR publishing
+ *   --otp <code>       One-time password for npm publishing (enables npm publishing when used with --publish)
  *   --dir <path>       Directory to process (default: current working directory)
  *
  * EXAMPLES:
@@ -28,6 +29,9 @@
  *   # Use authentication token
  *   deno run -A publish-jsr.paimaexample.ts --publish --token your-token-here
  *
+ *   # Publish with npm OTP (enables npm publishing)
+ *   deno run -A publish-jsr.paimaexample.ts --publish --otp your-otp-code
+ *
  *   # Reverse namespace replacement
  *   deno run -A publish-jsr.paimaexample.ts --reverse
  *
@@ -36,7 +40,7 @@
  *
  * BEHAVIOR:
  * - By default, replaces @paima/ references with @paimaexample/ in all .ts, .js, and .json files
- * - Auto-increments patch version in deno.json files (fetches latest from JSR)
+ * - Auto-increments patch version in deno.json and package.json files (fetches latest from JSR)
  * - Publishes packages in dependency order to ensure proper versioning
  * - Skips node_modules directories
  * - Without --publish flag, shows what commands would be executed
@@ -48,6 +52,8 @@ const versionIndex = Deno.args.indexOf("--version");
 const manualVersion = versionIndex !== -1 ? Deno.args[versionIndex + 1] : null;
 const tokenIndex = Deno.args.indexOf("--token");
 const authToken = tokenIndex !== -1 ? Deno.args[tokenIndex + 1] : null;
+const otpIndex = Deno.args.indexOf("--otp");
+const otpCode = otpIndex !== -1 ? Deno.args[otpIndex + 1] : null;
 const dirIndex = Deno.args.indexOf("--dir");
 const rootDir = dirIndex !== -1 ? Deno.args[dirIndex + 1] : Deno.cwd();
 
@@ -91,7 +97,7 @@ async function fetchLatestVersion(): Promise<string> {
   }
 
   try {
-    const response = await fetch("https://jsr.io/@paimaexample/sync/meta.json");
+    const response = await fetch("https://jsr.io/@paima/sync/meta.json");
     if (!response.ok) {
       throw new Error(`Failed to fetch version: ${response.statusText}`);
     }
@@ -131,8 +137,8 @@ async function processFile(filePath: string, reverse: boolean = false) {
     );
   }
 
-  // If this is a deno.json, update the version (both forward and reverse)
-  if (filePath.endsWith("deno.json")) {
+  // If this is a deno.json or package.json, update the version (both forward and reverse)
+  if (filePath.endsWith("deno.json") || filePath.endsWith("package.json")) {
     const updateVersion = await fetchLatestVersion();
     const versionRegex = /"version":\s*".+?",/;
     if (versionRegex.test(newContent)) {
@@ -228,7 +234,7 @@ async function publishNPMPackages() {
     const originalCwd = Deno.cwd();
     Deno.chdir(packagePath);
     const command = new Deno.Command("npm", {
-      args: ["publish", "--access", "public"],
+      args: ["publish", "--access", "public", "--otp", otpCode!],
       stdout: "inherit",
       stderr: "inherit",
     });
@@ -238,6 +244,9 @@ async function publishNPMPackages() {
       Deno.chdir(originalCwd);
       return;
     }
+    console.log(`Successfully published ${packagePath}`);
+    // Return to original directory
+    Deno.chdir(originalCwd);
   }
 }
 
@@ -246,6 +255,9 @@ async function showPublishCommands() {
   console.log(`Version that would be used: ${version}`);
   if (authToken) {
     console.log(`Token that would be used: ${authToken.substring(0, 8)}...`);
+  }
+  if (otpCode) {
+    console.log(`OTP code that would be used: ${otpCode.substring(0, 4)}...`);
   }
   console.log("Publish commands that would be executed:");
   console.log("(Run with --publish flag to actually execute these commands)");
@@ -264,7 +276,9 @@ async function showPublishCommands() {
   }
   for (const packagePath of npmPackagesToPublish) {
     console.log(`cd ${packagePath}`);
-    const publishCmd = `npm publish --access public`;
+    const publishCmd = otpCode
+      ? `npm publish --access public --otp ${otpCode}`
+      : `npm publish --access public`;
     console.log(publishCmd);
     console.log(
       `cd ${Array(packagePath.split("/").length - 1).fill("..").join("/")}/`,
@@ -283,7 +297,9 @@ async function main() {
 
   if (shouldPublish) {
     await publishJSRPackages();
-    await publishNPMPackages();
+    if (otpCode) {
+      await publishNPMPackages();
+    }
   } else {
     await showPublishCommands();
   }
