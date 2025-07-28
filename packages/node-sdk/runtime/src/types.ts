@@ -4,6 +4,7 @@ import type { AppEvents, BaseStfInput, BaseStfOutput } from "@paima/sm";
 import type { FastifyInstance } from "fastify";
 import type { Pool } from "pg";
 import type { SyncStateUpdateStream } from "@paima/coroutine";
+import type { GrammarDefinition } from "@paima/concise";
 // These are user type defined objects for launching Paima Engine Node.
 
 /**
@@ -45,4 +46,5 @@ export type StartConfig = {
   gameStateTransitions?: StartConfigGameStateTransitions;
   migrationRouter?: StartConfigMigrationRouter;
   apiRouter?: StartConfigApiRouter;
+  grammar?: GrammarDefinition;
 };

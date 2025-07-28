@@ -1,6 +1,7 @@
 {
   "name": "@paima/log",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
     "effection": "npm:effection@3.5.0",

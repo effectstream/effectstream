@@ -1,6 +1,7 @@
 {
   "name": "@example/data-types",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
     "viem": "npm:viem@^2.21.3",
