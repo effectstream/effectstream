@@ -22,12 +22,15 @@ import fastifySwaggerUi, {
 } from "@fastify/swagger-ui";
 import { Type } from "@sinclair/typebox";
 import type { StartConfigApiRouter } from "../types.ts";
-import type { GrammarDefinition } from "@paima/concise";
 
 export enum RpcPaths {
   Root = "rpc",
   EVM = "evm",
 }
+
+// TODO This should be passed into the config somehow.
+import { grammar } from "@example/data-types";
+
 /**
  * Register the OpenAPI documentation for the Paima Engine HTTP server.
  * Documentation is available at /documentation /documentation/json /documentation/yaml
@@ -122,7 +125,6 @@ export const startHttpServer = function* (
   dbConn: Pool,
   syncProtocols: AllSyncProtocols[],
   apiRouter?: StartConfigApiRouter,
-  grammar?: GrammarDefinition,
 ) {
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.

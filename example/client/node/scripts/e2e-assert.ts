@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool } from "npm:pg";
 import { ENV } from "@paima/utils";
 
 type QueryResult<RowType> = {

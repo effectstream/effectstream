@@ -21,9 +21,9 @@ import {
   type RpcError,
   type RpcTransaction,
   toHex,
-} from "viem";
+} from "npm:viem@2.23.10";
 import { Buffer } from "node:buffer";
-import sha3 from "js-sha3";
+import sha3 from "npm:js-sha3";
 import {
   toRpcBlock,
   toRpcLog,

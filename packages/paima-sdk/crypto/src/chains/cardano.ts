@@ -25,7 +25,7 @@ export class CardanoCrypto implements IVerify {
         return false;
       }
       const { default: verifyCardanoDataSignature } = await import(
-        "@cardano-foundation/cardano-verify-datasignature"
+        "npm:@cardano-foundation/cardano-verify-datasignature"
       );
       return verifyCardanoDataSignature.default(
         signature,

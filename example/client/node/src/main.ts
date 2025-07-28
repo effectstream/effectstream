@@ -9,7 +9,6 @@ import {
 import { migrationRouter } from "@example/database";
 import { gameStateTransitions } from "@example/state-transition";
 import { apiRouter } from "@example/api";
-import { grammar } from "@example/data-types";
 
 main(function* () {
   yield* init();
@@ -21,7 +20,6 @@ main(function* () {
       gameStateTransitions,
       migrationRouter,
       apiRouter,
-      grammar,
     });
   });
 

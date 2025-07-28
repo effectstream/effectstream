@@ -5,7 +5,6 @@ import {
   type LogFunc,
   type Namespace,
   PaimaComponents,
-  PaimaToolsComponents,
 } from "./const.ts";
 import { chainedMessage, Format, matchColor } from "material-chalk";
 import chalk from "chalk";
@@ -142,10 +141,7 @@ export const tslogLog: TslogLogFunc = (
 ): void => {
   const namespaces = (() => {
     const subNamespaces = Array.isArray(namespace) ? namespace : [namespace];
-    if (
-      Object.values(PaimaComponents).includes(component as any) ||
-      Object.values(PaimaToolsComponents).includes(component as any)
-    ) {
+    if (Object.values(PaimaComponents).includes(component)) {
       return ["paima", component, ...subNamespaces];
     }
     return [component, ...subNamespaces];

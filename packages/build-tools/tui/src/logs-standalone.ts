@@ -1,7 +1,7 @@
 import { attachTransport, log } from "@paima/log";
 import { LogServer, type OTelLog } from "./logs-server.ts";
 import { createStream, type RotatingFileStream } from "rotating-file-stream";
-import type { ILogObj } from "tslog";
+import type { ILogObj } from "npm:tslog@^4.9.3";
 import { ENV } from "@paima/utils";
 
 // This is a standalone script that can be used to view logs from the collector.

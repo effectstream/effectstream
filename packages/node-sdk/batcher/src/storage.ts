@@ -1,7 +1,7 @@
 import type { BatchedSubunit } from "@paima/concise";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
-import { type Operation, until } from "effection";
+import { type Operation, until } from "npm:effection";
 
 /**
  * Interface for batcher storage operations

@@ -1,5 +1,5 @@
-import type { Next } from "@oak/oak/middleware";
-import type { Context } from "@oak/oak/context";
+import { Next } from "jsr:@oak/oak/middleware";
+import { Context } from "jsr:@oak/oak/context";
 
 // Configure static site routes so that we can serve
 // the Vite build output and the public folder
