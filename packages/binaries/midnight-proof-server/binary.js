@@ -34,7 +34,7 @@ function getBinaryUrl() {
   }
 
   // TODO: Replace placeholder link with real URL once available
-  return `https://example.com/proof-server-standalone-${platform}.zip`;
+  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/midnight-proof-server-${platform}.zip`;
 }
 
 async function downloadAndSaveBinary() {
