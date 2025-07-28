@@ -14,7 +14,7 @@
     "blockchain"
   ],
   "type": "commonjs",
-  "author": "Eduardo Soto Montaner",
+  "author": "Paima Studios",
   "license": "ISC",
   "dependencies": {
     "extract-zip": "^2.0.1",
