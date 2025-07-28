@@ -1,15 +1,17 @@
 {
   "name": "@paima/orchestrator",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/mod.ts",
   "tasks": {
-    "db:up": "deno task -f @paima/db db:up",
+    // "db:up": "deno task -f @paima/db db:up",
     "node:wait": "deno task -f @paima/db db:wait && deno task -f @example/evm-contracts chain:wait"
   },
   "imports": {
     "@sylc/dkill": "jsr:@sylc/dkill@^0.12.3",
     "jsonc-parser": "npm:jsonc-parser@^3.3.1",
     "@opentelemetry/sdk-node": "npm:@opentelemetry/sdk-node@0.56.0",
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "fastify": "npm:fastify@^5.4.0"
   }
 }

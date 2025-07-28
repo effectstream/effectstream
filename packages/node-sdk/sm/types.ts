@@ -1,6 +1,6 @@
 //import type { AppEvents } from "@paima/events";
 
-import type { PreparedQuery } from "npm:@pgtyped/runtime@2.4.2";
+import type { PreparedQuery } from "@pgtyped/runtime";
 import type {
   PaimaBlockNumber,
   TimestampMs,

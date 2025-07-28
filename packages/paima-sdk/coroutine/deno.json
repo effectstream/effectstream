@@ -1,9 +1,9 @@
 {
   "name": "@paima/coroutine",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/mod.ts",
-  "tasks": {
-  },
+  "tasks": {},
   "imports": {
     "@coderspirit/nominal": "npm:@coderspirit/nominal@^4.1.1",
     "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2",

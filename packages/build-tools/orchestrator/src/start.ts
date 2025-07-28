@@ -1,11 +1,9 @@
 #!/usr/bin/env -S deno run --allow-all
-import type { ValueOf } from "@paima/utils";
+import { ENV, type ValueOf } from "@paima/utils";
 import "./http-server.ts";
 import { dkill } from "@sylc/dkill";
-import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 import {
-  getCurrentOutput,
   initTelemetry,
   logHandler,
   rawLogHandler,
@@ -20,18 +18,117 @@ import {
 } from "./process.ts";
 import { ComponentNames } from "@paima/log";
 import { installTmux, Tmux } from "./tmux/tmux.ts";
+import type { LaunchableComponents } from "@paima/log";
+import { type Static, Type } from "@sinclair/typebox";
 
 Deno.addSignalListener("SIGINT", () => {
   shutdown(0);
 });
 
-function getOptions(config: {
-  output?: "none" | "stdout-err" | "stdout" | "development" | "production";
-}) {
-  const output = config.output ?? "development";
-  const enableTUI = output === "development";
-  const enableCollector = output === "development";
-  switch (output) {
+/**
+ * Orchestrator configurations
+ * logs: log output mode
+ * killProcessesByPort: ports to kill on startup
+ * processes: components to start
+ */
+export const OrchestratorConfig = Type.Object({
+  // Log options.
+  logs: Type.Union([
+    // No logs
+    Type.Literal("none"),
+    // Print only errors to terminal
+    Type.Literal("stdout-err"),
+    // Print all logs to terminal
+    Type.Literal("stdout"),
+    // Send only to OTEL collector
+    Type.Literal("development"),
+    // Send to OTEL collector and print to terminal
+    Type.Literal("production"),
+  ], { default: "development" }),
+
+  // This kills default processes that are open in specific ports.
+  kill: Type.Object({
+    // TODO: kill.auto is workaround to kill processes that are still running from a previous run.
+    //       PGLite 5432. Frequently does not shutdown in some cases.
+    //       Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
+    //       And other ports are checked.
+    auto: Type.Boolean({ default: true }),
+  }, { default: {} }),
+
+  // Custom user defined processes to launch.
+  // For example you can launch hardhat evm chains, wait to be ready and deploy contracts.
+  processesToLaunch: Type.Array(
+    Type.Object({
+      description: Type.String({ default: "" }),
+      stopProcessAtPort: Type.Array(Type.Number(), { default: [] }),
+      processes: Type.Array(
+        Type.Object({
+          name: Type.String(),
+          args: Type.Array(Type.String()),
+          waitToExit: Type.Boolean({ default: true }),
+          logs: Type.Union([
+            Type.Literal("otel-compatible"),
+            Type.Literal("raw"),
+          ], { default: "raw" }),
+          type: Type.Union([
+            Type.Literal("system-dependency"),
+            Type.Literal("secondary"),
+          ], { default: "secondary" }),
+        }),
+        { default: [] },
+      ),
+    }),
+    { default: [] },
+  ),
+
+  // This can be customized for different locations of the packages.
+  // nighly: jsr:@paimaexample
+  // release: jsr:@paima
+  // local development: @paima
+  packageName: Type.String({ default: "jsr:@paima" }),
+  packageVersion: Type.String({ default: "" }),
+
+  // Processes to start
+  processes: Type.Object({
+    // Main Processes
+    [ComponentNames.PAIMA_SYNC]: Type.Boolean({ default: true }),
+
+    // Dev Tools
+    [ComponentNames.CHECKER]: Type.Boolean({ default: true }),
+    [ComponentNames.PAIMA_DB]: Type.Boolean({ default: false }),
+    [ComponentNames.TMUX]: Type.Boolean({ default: true }),
+
+    // DevOps
+    [ComponentNames.COLLECTOR]: Type.Boolean({ default: true }),
+    [ComponentNames.PAIMA_BATCHER]: Type.Boolean({ default: true }),
+    [ComponentNames.DOCS]: Type.Boolean({ default: true }),
+
+    // TODO: Explorer crashes when launching process through Deno.command
+    [ComponentNames.EXPLORER]: Type.Boolean({ default: false }),
+  }, { default: {} }),
+
+  // Batcher options.
+  // NOTE: Set processes[ComponentNames.PAIMA_BATCHER] = true to launch the batcher.
+  batcher: Type.Optional(Type.Object({
+    paimaL2Address: Type.String(),
+    batcherPrivateKey: Type.String(),
+    chainName: Type.String(),
+  })),
+});
+
+type OrchestratorConfigType = Static<typeof OrchestratorConfig>;
+
+export async function start(
+  config: OrchestratorConfigType,
+): Promise<void> {
+  // Let's setup the output mode
+  // Config options:
+  //   none: no logs
+  //   stdout-err: print only errors to terminal - This mode is used by tests, so only errors are printed
+  //   stdout: print all logs to terminal - This mode is used by test in dev mode.
+  //   development: send only to OTEL collector - Default mode.
+  //   production: send to OTEL collector and print to terminal
+  switch (config.logs) {
     case "none":
       setCurrentOutput([]);
       break;
@@ -45,94 +142,102 @@ function getOptions(config: {
       break;
     case "development":
       setCurrentOutput(["otel"]);
+      initTelemetry();
       break;
     case "production":
       setCurrentOutput(["otel", "stdout"]);
+      initTelemetry();
       break;
   }
-  return {
-    enableTUI,
-    enableCollector,
-  };
-}
 
-/*  Config options:
- *
- *  | config.output | Terminal     | OTEL   | Collector | TUI    |
- *  |---------------|--------------|--------|-----------|--------|
- *  | development   | no           | yes    | yes       | yes    |
- *  | production    | yes          | yes    | no        | no     |
- *  | stdout        | yes          | no     | no        | no     |
- *  | stdout-err    | yes (errors) | no     | no        | no     |
- *  | none          | no           | no     | no        | no     |
- */
-export async function start(
-  config: {
-    output?: "development" | "production" | "stdout" | "stdout-err" | "none";
-  } = {},
-): Promise<void> {
-  // TODO This is a workaround to kill any processes that are still running from a previous run.
-  //
-  // Cardano processes 8090, 10000. Do not terminate cleanly.
-  // Unfortunately required because of https://github.com/bloxbean/yaci-devkit/issues/94
-  //
-  // PGLite 5432. Frequently does not shutdown in some cases.
-  //
-  // Hardhat 8545. Sometimes it does not shutdown cleanly when the node crashes.
-  //
-  // Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
-  //
-  await dkill({ ports: [8090, 10000, 5432, 8545, 3334] });
-
-  // fast-fail if there are type errors in the project
-  await startProcess[ComponentNames.CHECKER]();
-
-  const { enableTUI, enableCollector } = getOptions(config);
-
-  if (enableTUI) {
-    await startProcess[ComponentNames.TMUX]();
-  }
   try {
-    if (getCurrentOutput().includes("otel")) {
-      initTelemetry();
+    const startProcess = processFactory(config);
+    // This is a 2D array of functions that launch processes.
+    // The outer array is for processes that are launched in sequence.
+    // The inner array is for processes that are launched in parallel.
+    const processesToLaunch: (false | (() => Promise<ProcessComponent>))[][] =
+      [];
+
+    // fast-fail if there are type errors in the project
+    if (config.processes[ComponentNames.CHECKER]) {
+      processesToLaunch.push([startProcess[ComponentNames.CHECKER]]);
     }
-    // start the collector before any other process since it's the one that captures logs
-    if (enableCollector) {
-      await startProcess[ComponentNames.COLLECTOR]();
+
+    if (config.processes[ComponentNames.TMUX]) {
+      processesToLaunch.push([startProcess[ComponentNames.TMUX]]);
     }
 
-    // Start processes in parallel
-    await Promise.all([
-      startProcess[ComponentNames.DOCS](),
-      startProcess[ComponentNames.PAIMA_DB](),
-      startProcess[ComponentNames.YACI_DEVKIT](),
-      startProcess[ComponentNames.HARDHAT](),
-      startProcess[ComponentNames.AVAIL_NODE](),
-      startProcess[ComponentNames.MIDNIGHT_NODE](),
+    if (config.processes[ComponentNames.COLLECTOR]) {
+      processesToLaunch.push([startProcess[ComponentNames.COLLECTOR]]);
+    }
+
+    // First batch of processes that have no other dependencies
+    processesToLaunch.push([
+      config.processes[ComponentNames.DOCS] &&
+      startProcess[ComponentNames.DOCS],
+      config.processes[ComponentNames.PAIMA_DB] &&
+      startProcess[ComponentNames.PAIMA_DB],
     ]);
 
-    // Start the client rpc processes
-    await Promise.all([
-      startProcess[ComponentNames.DOLOS](),
-      startProcess[ComponentNames.AVAIL_CLIENT](),
-      startProcess[ComponentNames.MIDNIGHT_INDEXER](),
-      startProcess[ComponentNames.MIDNIGHT_PROOF_SERVER](),
-    ]);
+    // Al main system dependencies are launched.
+    // Start user defined processes.
+    const pipelines: (() => Promise<ProcessComponent>)[][] = [];
+    for (const processList of config.processesToLaunch) {
+      let first = true;
+      const pipeline: (() => Promise<ProcessComponent>)[] = [];
+      for (const process of processList.processes) {
+        const { name, args, waitToExit, logs, type } = process;
+        pipeline.push(async (): Promise<ProcessComponent> => {
+          if (first && processList.stopProcessAtPort.length > 0) {
+            await dkill({ ports: processList.stopProcessAtPort });
+            first = false;
+          }
+          const processComponent = $({
+            args: args,
+            component: name,
+            log: logs === "otel-compatible" ? logHandler : rawLogHandler,
+            abortController: type === "system-dependency"
+              ? abortControllers.system
+              : abortControllers.noncritical,
+          });
+          if (waitToExit) {
+            await processComponent.process.status;
+          }
+          return processComponent;
+        });
+      }
+      pipelines.push(pipeline);
+    }
+    // Now we transpose the pipelines, to make them run in parallel.
+    const maxLength = Math.max(...pipelines.map((p) => p.length));
+    for (let i = 0; i < maxLength; i++) {
+      const batch: (false | (() => Promise<ProcessComponent>))[] = [];
+      for (const pipeline of pipelines) {
+        batch.push(pipeline[i] ? pipeline[i] : false);
+      }
+      processesToLaunch.push(batch);
+    }
 
-    // Start the contracts
-    await Promise.all([
-      startProcess[ComponentNames.MIDNIGHT_CONTRACT](),
-      startProcess[ComponentNames.DEPLOY_EVM_CONTRACTS](),
-    ]);
     // Start the batcher, after the contracts are deployed.
-    await startProcess[ComponentNames.PAIMA_BATCHER]();
+    processesToLaunch.push([
+      config.processes[ComponentNames.PAIMA_BATCHER] &&
+      startProcess[ComponentNames.PAIMA_BATCHER],
+    ]);
 
-    // Start the explorer
-    // This crashes when launching process through Deno.command
-    // await startProcess[ComponentNames.EXPLORER]();
+    processesToLaunch.push([
+      // Start the explorer
+      // This crashes when launching process through Deno.command
+      config.processes[ComponentNames.EXPLORER] &&
+      startProcess[ComponentNames.EXPLORER],
+      // Start the main process
+      config.processes[ComponentNames.PAIMA_SYNC] &&
+      startProcess[ComponentNames.PAIMA_SYNC],
+    ]);
 
-    // Start the main process
-    await startProcess[ComponentNames.PAIMA_SYNC]();
+    // Launch outer processes in sequence, and inner processes in parallel
+    for (const batch of processesToLaunch) {
+      await Promise.all(batch.map((p) => p && p()));
+    }
   } catch (e) {
     if (!(e instanceof AbortProcessStart)) {
       console.error(e);
@@ -150,19 +255,24 @@ export const abortControllers = {
   developerUI: new AbortController(),
 };
 
-export const startProcess: Record<
-  ValueOf<typeof ComponentNames>,
+export const processFactory = (config: OrchestratorConfigType): Record<
+  ValueOf<typeof LaunchableComponents>,
   () => Promise<ProcessComponent>
-> = {
+> => ({
   [ComponentNames.TMUX]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.TUI_LOG_PORT] });
+    }
+
     await installTmux();
     const session_name = "paima-" + Date.now();
 
     const tm = new Tmux({});
+    await tm.init();
     await tm.newSession(session_name);
 
     // We can pass a custom launch json file to the tmux instance
-    await tm.readLaunchJson(session_name);
+    await tm.readLaunchJson(config.packageName, session_name);
 
     const tmux = $({
       ...tm.getAttachSessionCommand(session_name),
@@ -178,8 +288,11 @@ export const startProcess: Record<
   },
 
   [ComponentNames.EXPLORER]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.PAIMA_EXPLORER_PORT] });
+    }
     const explorer = $({
-      args: ["task", "-f", "@paima/explorer", "dev"],
+      args: ["task", "-f", config.packageName + "/explorer", "dev"],
       component: ComponentNames.EXPLORER,
       log: rawLogHandler,
       abortController: abortControllers.developerUI,
@@ -189,8 +302,12 @@ export const startProcess: Record<
   },
 
   [ComponentNames.DOCS]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.DOCS_PORT] });
+    }
+
     const docs = $({
-      args: ["task", "-f", "@paima/docs", "start"],
+      args: ["task", "-f", config.packageName + "/docs", "start"],
       component: ComponentNames.DOCS,
       abortController: abortControllers.developerUI,
     });
@@ -198,41 +315,30 @@ export const startProcess: Record<
     return docs;
   },
 
-  [ComponentNames.DEPLOY_EVM_CONTRACTS]: async (): Promise<
-    ProcessComponent
-  > => {
-    const deploy = $({
-      args: ["task", "-f", "@example/evm-contracts", "deploy"],
-      component: ComponentNames.DEPLOY_EVM_CONTRACTS,
-      log: rawLogHandler,
-      abortController: abortControllers.system,
-    });
-
-    await Promise.all([deploy.process.status]);
-    return deploy;
-  },
-
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
-    // TODO: only start one if there isn't one already running
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.OTEL_COLLECTOR_PORT] });
+    }
+
     const otlpCollector = $({
-      args: ["task", "-f", "@paima/collector", "start"],
+      args: [
+        "run",
+        "-A",
+        "--unstable-temporal",
+        config.packageName + "/collector/start",
+      ],
       // collector always has to post logs directly to console
       // otherwise, it gets stuck in an infinite loop of sending to itself
       log: rawLogHandler,
       component: ComponentNames.COLLECTOR,
       abortController: abortControllers.noncritical,
     });
-    void Promise.all([otlpCollector.process.status]);
+    void otlpCollector.process.status;
 
-    const waitOtlp = $({
-      args: ["task", "-f", "@paima/collector", "wait"],
-      // collector always has to post logs directly to console
-      // otherwise, it gets stuck in an infinite loop of sending to itself
-      log: rawLogHandler,
-      component: ComponentNames.COLLECTOR_WAIT,
-      abortController: abortControllers.noncritical,
-    });
-    await Promise.all([waitOtlp.process.status]);
+    await (new Deno.Command("wait-on", {
+      args: [`tcp:${ENV.OTEL_COLLECTOR_PORT}`],
+    })).spawn().status;
+
     setCollectorStarted();
     return otlpCollector;
   },
@@ -250,6 +356,10 @@ export const startProcess: Record<
   },
 
   [ComponentNames.PAIMA_SYNC]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.PAIMA_API_PORT] });
+    }
+
     const node = $({
       args: ["task", "node:start"],
       log: rawLogHandler,
@@ -262,19 +372,19 @@ export const startProcess: Record<
   },
 
   [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.BATCHER_PORT] });
+    }
+
     // TODO This should be read from the config.
-    const paimaL2Address = contractAddressesEvmMain()["chain31337"][
-      "PaimaL2ContractModule#MyPaimaL2Contract"
-    ];
-    const batcherPrivateKey =
-      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-    const chainName = "hardhat";
+    const paimaL2Address = config.batcher?.paimaL2Address;
+    const batcherPrivateKey = config.batcher?.batcherPrivateKey;
+    const chainName = config.batcher?.chainName;
     const batcher = $({
       args: [
-        "task",
-        "-f",
-        "@paima/batcher",
-        "standalone",
+        "run",
+        "-A",
+        config.packageName + "/batcher/start",
         `--paimaL2Address=${paimaL2Address}`,
         `--batcherPrivateKey=${batcherPrivateKey}`,
         `--chainName=${chainName}`,
@@ -289,78 +399,6 @@ export const startProcess: Record<
     return batcher;
   },
 
-  [ComponentNames.TUI]: async (): Promise<ProcessComponent> => {
-    const tui = $({
-      args: ["task", "-f", "@paima/tui", "dev"],
-      log: (chunk: Uint8Array) => {
-        // The TUI writes directly to stdout.
-        Deno.stdout.write(chunk);
-      },
-      component: ComponentNames.TUI,
-      abortController: abortControllers.noncritical,
-    });
-    await Promise.all([tui.process.status]);
-    return tui;
-  },
-
-  [ComponentNames.HARDHAT]: async (): Promise<ProcessComponent> => {
-    // TODO: some way to specify which chains should be used for a project
-    const hardhat = $({
-      // TODO This should be read from the config.
-      args: ["task", "-f", "@example/evm-contracts", "chain:start"],
-      log: logHandler,
-      component: ComponentNames.HARDHAT,
-      abortController: abortControllers.system,
-    });
-    void hardhat.process.status; // need to await sub-service start below
-
-    await $({
-      args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
-      component: ComponentNames.HARDHAT_WAIT,
-      abortController: abortControllers.noncritical,
-    }).process.status;
-
-    return hardhat;
-  },
-
-  [ComponentNames.YACI_DEVKIT]: async (): Promise<ProcessComponent> => {
-    const yaciDevkit = $({
-      args: ["task", "-f", "@example/cardano-contracts", "devkit:start"],
-      log: logHandler,
-      component: ComponentNames.YACI_DEVKIT,
-      abortController: abortControllers.system,
-    });
-    void yaciDevkit.process.status; // need to await sub-service start below
-
-    await $({
-      args: ["task", "-f", "@example/cardano-contracts", "devkit:wait"],
-      component: ComponentNames.YACI_DEVKIT_WAIT,
-      abortController: abortControllers.noncritical,
-    })
-      .process.status;
-    return yaciDevkit;
-  },
-
-  [ComponentNames.DOLOS]: async (): Promise<ProcessComponent> => {
-    const dolos = $({
-      args: ["task", "-f", "@example/cardano-contracts", "dolos:start"],
-      // use this until Dolos supports otel: https://github.com/txpipe/dolos/issues/399
-      log: (chunk) =>
-        rawLogHandler(chunk, "stdout", ComponentNames.DOLOS, "dolos"),
-      component: ComponentNames.DOLOS,
-      abortController: abortControllers.system,
-    });
-    void dolos.process.status; // need to await sub-service start below
-
-    await $({
-      args: ["task", "-f", "@example/cardano-contracts", "dolos:wait"],
-      component: ComponentNames.DOLOS_WAIT,
-      abortController: abortControllers.noncritical,
-    })
-      .process.status;
-
-    return dolos;
-  },
   [ComponentNames.MIDNIGHT_NODE]: async (): Promise<ProcessComponent> => {
     const midnightNode = $({
       args: [
@@ -502,21 +540,29 @@ export const startProcess: Record<
   },
 
   [ComponentNames.PAIMA_DB]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [ENV.DB_PORT] });
+    }
+
     const paimaDb = $({
       // TODO: run pgtyped:up only depending on parameters?
-      args: ["task", "-f", "@paima/db", "db:up"],
+      args: [
+        "run",
+        "-A",
+        config.packageName + "/db/start-pglite",
+        "--port",
+        String(ENV.DB_PORT),
+      ],
       log: logHandler,
       component: ComponentNames.PAIMA_DB,
       abortController: abortControllers.system,
     });
     void paimaDb.process.status; // need to await sub-service start below
 
-    await $({
-      args: ["task", "-f", "@paima/db", "db:wait"],
-      component: ComponentNames.PAIMA_DB_WAIT,
-      abortController: abortControllers.noncritical,
-    }).process.status;
+    await (new Deno.Command("wait-on", {
+      args: [`tcp:${ENV.DB_PORT}`],
+    })).spawn().status;
 
     return paimaDb;
   },
-};
+});

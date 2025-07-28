@@ -8,9 +8,9 @@ import {
   type PublicClient,
   toHex,
   type WalletClient,
-} from "npm:viem";
-import { privateKeyToAccount } from "npm:viem/accounts";
-import { hardhat } from "npm:viem/chains";
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { hardhat } from "viem/chains";
 import {
   contractAddressesEvmMain,
   erc20dev,

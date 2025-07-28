@@ -7,8 +7,8 @@ import {
   type PublicClient,
   toHex,
   type WalletClient,
-} from "npm:viem";
-import { privateKeyToAccount } from "npm:viem/accounts";
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import {
   type BatchedSubunit,
   buildBatchData,
@@ -16,7 +16,7 @@ import {
 } from "@paima/concise";
 import { type BatcherStorage, FileStorage } from "./storage.ts";
 import { startBatcherHttpServer } from "./batcher-server.ts";
-import { type Operation, sleep, spawn, until } from "npm:effection@3.5.0";
+import { type Operation, sleep, spawn, until } from "effection";
 import { CryptoManager } from "@paima/crypto";
 import type { EvmAddress, EvmPrivateKey } from "@paima/utils";
 
