@@ -1,6 +1,13 @@
 import type { PreparedQuery } from "@pgtyped/runtime";
 import type { WithBrand } from "@coderspirit/nominal";
 import type { SQLQueryIR } from "@pgtyped/parser";
+import { newScheduledHeightData, newScheduledTimestampData } from "@paima/db";
+import type {
+  INewScheduledHeightDataParams,
+  INewScheduledTimestampDataParams,
+} from "@paima/db";
+import type { Pool, PoolClient } from "pg";
+import type { BaseStfInput } from "@paima/sm";
 
 /**
  * Two slightly tricky things about how this is set up:
@@ -95,31 +102,30 @@ export type StateUpdateStream<Return> = NoDistribute<Return> extends
   Promise<infer P> ? AsyncGenerator<QueuedUpdate | Spread<any>, P, unknown>
   : SyncStateUpdateStream<Return>;
 
-// TODO: Circular dependency for publishing. This was commented out.
-// export function isScheduledByBlock(
-//   query: QueuedUpdate,
-// ): query is QueuedUpdate<INewScheduledHeightDataParams> {
-//   return query[0] === (newScheduledHeightData as any).queryIR;
-// }
-// export function isScheduledByTimestamp(
-//   query: QueuedUpdate,
-// ): query is QueuedUpdate<INewScheduledTimestampDataParams> {
-//   return query[0] === (newScheduledTimestampData as any).queryIR;
-// }
+export function isScheduledByBlock(
+  query: QueuedUpdate,
+): query is QueuedUpdate<INewScheduledHeightDataParams> {
+  return query[0] === (newScheduledHeightData as any).queryIR;
+}
+export function isScheduledByTimestamp(
+  query: QueuedUpdate,
+): query is QueuedUpdate<INewScheduledTimestampDataParams> {
+  return query[0] === (newScheduledTimestampData as any).queryIR;
+}
 
-// export async function execUpdateStateStream<Result>(
-//   stream: StateUpdateStream<Result>,
-//   DBConn: Pool | PoolClient,
-// ): Promise<Result> {
-//   return await Promise.resolve(null as any);
-// let res = stream.next();
-// while (true) {
-//   if (res.done) return res.value;
-//   // TODO: update to support Promise.all
-//   const value = await new PreparedQuery(res.value[0]).run(
-//     res.value[1],
-//     DBConn,
-//   );
-//   res = stream.next(value);
-// }
-// }
+export async function execUpdateStateStream<Result>(
+  stream: StateUpdateStream<Result>,
+  DBConn: Pool | PoolClient,
+): Promise<Result> {
+  return await Promise.resolve(null as any);
+  // let res = stream.next();
+  // while (true) {
+  //   if (res.done) return res.value;
+  //   // TODO: update to support Promise.all
+  //   const value = await new PreparedQuery(res.value[0]).run(
+  //     res.value[1],
+  //     DBConn,
+  //   );
+  //   res = stream.next(value);
+  // }
+}

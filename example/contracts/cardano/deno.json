@@ -1,7 +1,6 @@
 {
   "name": "@example/cardano-contracts",
   "version": "0.3.0",
-  "license": "MIT",
   "exports": {},
   "tasks": {
     "devkit:start": "deno run -A --node-modules-dir npm:@bloxbean/yaci-devkit up",

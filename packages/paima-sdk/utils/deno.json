@@ -1,7 +1,6 @@
 {
   "name": "@paima/utils",
   "version": "0.3.0",
-  "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
     "@coderspirit/nominal": "npm:@coderspirit/nominal@^4.1.1",

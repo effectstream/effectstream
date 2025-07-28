@@ -3,11 +3,7 @@ import { tslogLog, type TslogLogFunc } from "./tslog.ts";
 import { otelLog, type OtelLogFunc } from "./otel/logger.ts";
 import "./brands.ts"; // register material-chalk brands
 export * from "./otel/setup.ts";
-export {
-  ComponentNames,
-  LaunchableComponents,
-  type Namespace,
-} from "./const.ts";
+export { ComponentNames, type Namespace } from "./const.ts";
 export { attachTransport } from "./tslog.ts";
 export { DefaultLogLevels } from "./tslog.ts";
 

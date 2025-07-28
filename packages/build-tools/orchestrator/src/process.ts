@@ -1,4 +1,9 @@
-import { type LogHandler, streamTo, systemLog } from "./logging.ts";
+import {
+  type LogHandler,
+  setCurrentOutput,
+  streamTo,
+  systemLog,
+} from "./logging.ts";
 import type { Namespace } from "@paima/log";
 import { ComponentNames } from "@paima/log";
 import type { ValueOf } from "@paima/utils";

@@ -239,7 +239,7 @@ const config: HardhatUserConfig = {
        * in the CLI or by the tasks you are running.
        */
       default: {
-        version: "0.8.30",
+        version: "0.8.28",
       },
     },
     // dependenciesToCompile: [

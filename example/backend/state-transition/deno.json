@@ -1,7 +1,6 @@
 {
   "name": "@example/state-transition",
   "version": "0.3.0",
-  "license": "MIT",
   "exports": "./src/mod.ts",
   "tasks": {}
 }
