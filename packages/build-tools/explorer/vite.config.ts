@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import deno from "@deno/vite-plugin";
-// import inject from "npm:@rollup/plugin-inject";
 import nodePolyfills from "vite-plugin-node-stdlib-browser";
 
 import "react";

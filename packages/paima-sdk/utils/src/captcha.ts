@@ -1,4 +1,6 @@
-/// <reference lib="dom" />
+// <reference lib="dom" />
+// error[banned-triple-slash-directives]: triple slash directives that modify globals are not allowed
+
 import { ENV } from "./config.ts";
 
 /**
@@ -8,7 +10,7 @@ import { ENV } from "./config.ts";
  * You can manually add this script to your HTML,
  * this method is just a helper to do it programmatically.
  */
-export async function injectReCaptchaToHTML(): Promise<void> {
+export async function injectReCaptchaToHTML(document: any): Promise<void> {
   const reCAPTCHA_site_key = ENV.RECAPTCHA_V3_FRONTEND;
   const url =
     `https://www.google.com/recaptcha/api.js?render=${reCAPTCHA_site_key}`;
