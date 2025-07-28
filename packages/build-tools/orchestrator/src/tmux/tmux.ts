@@ -1,6 +1,14 @@
-import __ from "https://deno.land/x/dirname/mod.ts";
 import { ENV } from "@paima/utils";
-const { __dirname } = __(import.meta);
+
+// use --unstable-raw-imports
+// https://github.com/denoland/deno/issues/29904
+// import launchJson from "./tmux.launch.json" with { type: "text" };
+
+import { json } from "./tmux.launch.ts";
+import { install } from "./install.ts";
+
+// dirname is not available in jsr packages
+const __dirname = import.meta.dirname;
 
 // This is a wrapper around the tmux command.
 // It allows to create an instance of tmux, and execute commands on it.
@@ -36,10 +44,23 @@ export class Tmux {
   constructor(options: NodeTmuxOptions) {
     this.options = {
       command: "tmux",
-      configFile: `${__dirname}/tmux.conf`,
       shell: ENV.SHELL,
       ...options,
     };
+  }
+  async init() {
+    let path = __dirname + "/tmux.conf";
+    let cleanup = false;
+    try {
+      await Deno.stat(path);
+    } catch (e) {
+      // create file
+      path = "./tmux.conf";
+      cleanup = true;
+      await Deno.writeTextFile(path, `set -g mouse on`);
+    }
+
+    this.options.configFile = path;
   }
 
   /**
@@ -209,11 +230,11 @@ export class Tmux {
     return NAME_FORMAT.test(name);
   }
 
-  public async readLaunchJson(sessionName: string, file?: string) {
-    const launchJson = await Deno.readTextFile(
-      file ??
-        __dirname + "/tmux.launch.json",
-    );
+  public async readLaunchJson(
+    packageName: string,
+    sessionName: string,
+    file?: string,
+  ) {
     const data: {
       panes: {
         command?: string;
@@ -221,7 +242,12 @@ export class Tmux {
         split_horizontal?: boolean;
         split_vertical?: boolean;
       }[];
-    } = JSON.parse(launchJson);
+    } = json;
+
+    for (const pane of data.panes) {
+      pane.command = pane.command?.replaceAll("${packageName}", packageName);
+    }
+
     for (const pane of data.panes) {
       if (pane.split_horizontal) {
         await this.splitPane(sessionName, true, pane.command);
@@ -235,8 +261,16 @@ export class Tmux {
 }
 
 export const installTmux = async () => {
+  const path = __dirname ? __dirname + "/install.sh" : "./install.sh";
+  try {
+    await Deno.stat(path);
+  } catch (e) {
+    // create file
+    await Deno.writeTextFile(path, install);
+  }
+
   const cmd = new Deno.Command("sh", {
-    args: [__dirname + "/install.sh"],
+    args: [path],
     stdout: "piped",
     stderr: "piped",
   });

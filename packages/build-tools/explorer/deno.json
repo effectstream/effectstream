@@ -1,6 +1,10 @@
 {
   "name": "@paima/explorer",
-  "exports": "./server/main.ts",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./server/main.ts"
+  },
   "tasks": {
     "dev": "deno run -A --node-modules-dir=auto npm:vite",
     "build": "deno run -A --node-modules-dir=auto npm:vite build",

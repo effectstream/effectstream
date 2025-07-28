@@ -1,35 +1,76 @@
-#!/usr/bin/env node
-import { PGlite } from "@electric-sql/pglite";
+import { type DebugLevel, PGlite } from "@electric-sql/pglite";
 // TODO This is not working, so we load the pg_ivm extension from the node_modules folder
 // import { pg_ivm } from "@electric-sql/pglite/pg_ivm";
 import { readFileSync } from "node:fs";
 import net from "node:net";
 import { fromNodeSocket } from "pg-gateway/node";
 import { ENV } from "@paima/utils";
+import { migrations } from "../migrations/up.ts";
 
+// Get port from arguments.
+const portArgName = "--port";
+const portArgIndex = Deno.args.indexOf(portArgName);
+if (portArgIndex === -1) {
+  throw new Error(`${portArgName} argument not found`);
+}
+const portValue = Deno.args[portArgIndex + 1];
+if (!portValue) {
+  throw new Error(`${portArgName} value not found`);
+}
+const port = parseInt(portValue);
+if (isNaN(port)) {
+  throw new Error(`Port argument ${portArgName} is not a number`);
+}
+
+// dirname is not available in jsr packages
+const __dirname = import.meta.dirname;
 // TODO: we hardcode the migration file here
 //       but probably have to be smarter about this
 //       like accepting a file path and running all migrations according to some logic
 //       (ex: see `loadDataMigrations`)
 //       trick: paima-engine needs to follow the same folder structure for migrations as Paima apps
-const migration = readFileSync("./migrations/up.sql", "utf-8");
+// TODO: Update when we have with { type: text } imports
+let migrationData = "";
+try {
+  Deno.statSync(__dirname + "/migrations/up.sql");
+  migrationData = readFileSync(__dirname + "/migrations/up.sql", "utf-8");
+} catch (e) {
+  migrationData = migrations;
+}
+
+// TODO: find nearest node_modules folder, as import { pg_ivm } is not working
+let nodeModulesPath = Deno.cwd();
+while (true) {
+  try {
+    !Deno.statSync(nodeModulesPath + "/node_modules").isDirectory;
+    break;
+  } catch (e) {
+    if (!nodeModulesPath || nodeModulesPath === "/") {
+      throw new Error("Node modules not found");
+    }
+    nodeModulesPath = nodeModulesPath.split("/").slice(0, -1).join("/");
+  }
+}
+
 const db = new PGlite(
   "memory://", // TODO: use different values for in-browser & production builds
   {
     username: "postgres",
     database: "postgres",
     extensions: {
+      // pg_ivm: pg_ivm,
       pg_ivm: new URL(
-        "../../../../node_modules/@electric-sql/pglite/dist/pg_ivm.tar.gz",
-        import.meta.url,
+        nodeModulesPath +
+          "/node_modules/@electric-sql/pglite/dist/pg_ivm.tar.gz",
+        "file://",
       ),
     },
-    debug: ENV.DEBUG_PGLITE,
+    debug: (ENV.DEBUG_PGLITE as DebugLevel) || 0,
   },
 );
 await db.exec("CREATE EXTENSION IF NOT EXISTS pg_ivm;");
 
-await db.exec(migration);
+await db.exec(migrationData);
 
 /**
  * This is to genereate the user/custom pgtyped files in compilation time
@@ -44,7 +85,10 @@ if (userMigrations) {
   for (const file of files) {
     if (file.isFile && file.name.endsWith(".sql")) {
       console.log(`Executing migration: ${file.name}`);
-      const migration = readFileSync(`${userMigrations}/${file.name}`, "utf-8");
+      const migration = readFileSync(
+        `${userMigrations}/${file.name}`,
+        "utf-8",
+      );
       await db.exec(migration);
     }
   }
@@ -80,7 +124,7 @@ if (userMigrations) {
     });
   });
 
-  server.listen(5432, () => {
-    console.info("database: server listening on port 5432");
+  server.listen(port, () => {
+    console.info(`database: server listening on port ${port}`);
   });
 }

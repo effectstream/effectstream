@@ -1,8 +1,11 @@
 import type { ChainBlock } from "@paima/sync";
 import { call, type Operation, until } from "effection";
 import type { Pool } from "pg";
-import { type BaseStfInput, primitiveTransitionFunction } from "@paima/sm";
-import { PreparedQuery } from "npm:@pgtyped/runtime";
+import {
+  type BaseStfInput,
+  primitiveTransitionFunction,
+} from "@paima/sm";
+import { PreparedQuery } from "@pgtyped/runtime";
 import type {
   ExecPromise,
   QueuedUpdate,
