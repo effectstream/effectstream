@@ -126,6 +126,7 @@
     "npm:js-base64@^3.7.7": "3.7.7",
     "npm:js-sha3@~0.9.3": "0.9.3",
     "npm:js-sha512@0.9": "0.9.0",
+    "npm:js-yaml@^4.1.0": "4.1.0",
     "npm:json-stable-stringify@^1.2.1": "1.3.0",
     "npm:jsonc-parser@3.3.1": "3.3.1",
     "npm:jsonc-parser@^3.3.1": "3.3.1",
@@ -10410,7 +10411,8 @@
       "deprecated": true
     },
     "node-domexception@1.0.0": {
-      "integrity": "sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ=="
+      "integrity": "sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==",
+      "deprecated": true
     },
     "node-emoji@2.2.0": {
       "integrity": "sha512-Z3lTE9pLaJF47NyMhd4ww1yFTAP8YhYI8SleJiHzM46Fgpm5cnNzSl9XfzFNqbaz+VlJrIj3fXQ4DeN1Rjm6cw==",
@@ -14144,7 +14146,8 @@
           "dependencies": [
             "npm:axios-proxy-builder@~0.1.2",
             "npm:axios@^1.10.0",
-            "npm:extract-zip@^2.0.1"
+            "npm:extract-zip@^2.0.1",
+            "npm:js-yaml@^4.1.0"
           ]
         }
       },
