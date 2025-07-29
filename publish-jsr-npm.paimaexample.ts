@@ -83,6 +83,11 @@ const jsrPackagesToPublish = [
 ];
 const npmPackagesToPublish = [
   "./packages/chains/evm-contracts",
+  "./packages/binaries/avail-light-client",
+  "./packages/binaries/avail-node",
+  "./packages/binaries/midnight-indexer",
+  "./packages/binaries/midnight-node",
+  "./packages/binaries/midnight-proof-server",
 ];
 
 let versionCache: string | null = null;

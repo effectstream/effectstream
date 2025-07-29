@@ -1,6 +1,6 @@
 {
-  "name": "npm-midnight-node",
-  "version": "1.0.0",
+  "name": "@paima/npm-midnight-node",
+  "version": "0.3.0",
   "description": "Downloads and starts the binary for Midnight Node",
   "main": "index.js",
   "scripts": {

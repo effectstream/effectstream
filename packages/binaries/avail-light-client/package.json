@@ -1,6 +1,6 @@
 {
-  "name": "npm-avail-light-client",
-  "version": "1.0.0",
+  "name": "@paima/npm-avail-light-client",
+  "version": "0.3.0",
   "description": "A wrapper for the Avail Light Client CLI",
   "main": "index.js",
   "bin": {
