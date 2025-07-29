@@ -3,10 +3,10 @@
     "version": "0.3.0",
     "exports": {},
     "tasks": {
-        "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs --node-modules-dir ../../../packages/binaries/midnight-node/index.js --dev --rpc-port 9944",
+        "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs @paima/npm-midnight-node --dev --rpc-port 9944",
         "midnight-node:wait": "wait-on tcp:9944",
         "midnight-indexer:clean": "rm -rf ../../../packages/binaries/midnight-indexer/indexer-standalone/data/indexer.sqlite",
-        "midnight-indexer:start": "deno task midnight-indexer:clean && LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=\"A5F07FCAC914A181EC0998CCCA68312DA5F07FCAC914A181EC0998CCCA68312D\" FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs --node-modules-dir ../../../packages/binaries/midnight-indexer/index.js --binary",
+        "midnight-indexer:start": "deno task midnight-indexer:clean && LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=\"A5F07FCAC914A181EC0998CCCA68312DA5F07FCAC914A181EC0998CCCA68312D\" FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @paima/npm-midnight-indexer --binary",
         "midnight-indexer:wait": "wait-on tcp:8088",
         // TODO: remove this once we have a proof server binary for macos
         // "midnight-proof-server:start": "docker run --name midnight-proof-server -e LEDGER_NETWORK_ID=Undeployed -e RUST_BACKTRACE=full -e SUBSTRATE_NODE_WS_URL=ws://localhost:9944 -p 6300:6300 midnightnetwork/proof-server",
