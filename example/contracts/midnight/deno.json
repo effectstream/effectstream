@@ -5,7 +5,7 @@
     "tasks": {
         "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs @paima/npm-midnight-node --dev --rpc-port 9944",
         "midnight-node:wait": "wait-on tcp:9944",
-        "midnight-indexer:start": "LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=\"A5F07FCAC914A181EC0998CCCA68312DA5F07FCAC914A181EC0998CCCA68312D\" FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @paima/npm-midnight-indexer --binary --clean",
+        "midnight-indexer:start": "LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @paima/npm-midnight-indexer --binary --clean",
         "midnight-indexer:wait": "wait-on tcp:8088",
         "midnight-proof-server:start": "LEDGER_NETWORK_ID=\"Undeployed\" RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @paima/npm-midnight-proof-server",
         "midnight-proof-server:wait": "wait-on tcp:6300",
