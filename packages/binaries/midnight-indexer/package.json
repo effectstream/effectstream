@@ -1,6 +1,6 @@
 {
-  "name": "npm-midnight-indexer",
-  "version": "1.0.0",
+  "name": "@paima/npm-midnight-indexer",
+  "version": "0.3.0",
   "description": "Downloads and runs the Midnight Indexer. It needs a running Midnight Node",
   "main": "index.js",
   "scripts": {
@@ -19,6 +19,7 @@
   "dependencies": {
     "axios": "^1.10.0",
     "axios-proxy-builder": "^0.1.2",
-    "extract-zip": "^2.0.1"
+    "extract-zip": "^2.0.1",
+    "js-yaml": "^4.1.0"
   }
 }

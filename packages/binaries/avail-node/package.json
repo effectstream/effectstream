@@ -1,6 +1,6 @@
 {
-  "name": "npm-avail-node",
-  "version": "1.0.0",
+  "name": "@paima/npm-avail-node",
+  "version": "0.3.0",
   "description": "A wrapper for the Avail node binary",
   "main": "index.js",
   "bin": {

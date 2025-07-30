@@ -1,0 +1,31 @@
+# Default configuration for avail-light-client
+# For a full list of options, see the official Avail documentation.
+
+log_level="info"
+http_server_host="127.0.0.1"
+http_server_port=7007
+
+# Secret key for libp2p keypair. Can be either set to 'seed' or to 'key'.
+# If set to seed, keypair will be generated from that seed.
+# If 'secret_key' is not set, a random seed will be used.
+# secret_key={ seed: "avail" }
+
+# P2P TCP listener port (default: 37000).
+port=37000
+
+# WebSocket endpoint of a full node.
+full_node_ws = ["ws://127.0.0.1:9944"]
+
+# Application ID. If not set or set to 0, application client is not started.
+app_id=0
+
+# Confidence threshold (default: 92.0).
+confidence=92.0
+
+# File system path where RocksDB used by the light client stores its data.
+# This path is relative to the location of this config file.
+avail_path="avail_path"
+
+# Vector of Light Client bootstrap nodes.
+# This is for a local setup. Replace with public bootstraps for testnet/mainnet.
+bootstraps=["/ip4/127.0.0.1/tcp/39000/p2p/12D3KooWMm1c4pzeLPGkkCJMAgFbsfQ8xmVDusg272icWsaNHWzN"] 

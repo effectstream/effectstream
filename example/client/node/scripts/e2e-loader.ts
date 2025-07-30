@@ -77,7 +77,7 @@ export async function startup(): Promise<Client> {
         },
       ],
     }, {
-      stopProcessAtPort: [9955, 8088, 6300],
+      stopProcessAtPort: [9944, 8088, 6300],
       processes: [
         {
           name: ComponentNames.MIDNIGHT_NODE,
@@ -87,6 +87,7 @@ export async function startup(): Promise<Client> {
             "@example/midnight-contracts",
             "midnight-node:start",
           ],
+          logs: "none",
           waitToExit: false,
           type: "system-dependency",
         },
@@ -149,41 +150,45 @@ export async function startup(): Promise<Client> {
           ],
         }, */
       ],
-    }, {
-      stopProcessAtPort: [9944, 7007],
-      processes: [
-        {
-          name: ComponentNames.AVAIL_NODE,
-          args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
-          waitToExit: false,
-          type: "system-dependency",
-        },
-        {
-          name: ComponentNames.AVAIL_CLIENT,
-          args: [
-            "task",
-            "-f",
-            "@example/avail-contracts",
-            "avail-light-client:start",
-          ],
-          waitToExit: false,
-          type: "system-dependency",
-        },
-        {
-          name: ComponentNames.AVAIL_NODE_WAIT,
-          args: ["task", "-f", "@example/avail-contracts", "avail-node:wait"],
-        },
-        {
-          name: ComponentNames.AVAIL_CLIENT_WAIT,
-          args: [
-            "task",
-            "-f",
-            "@example/avail-contracts",
-            "avail-light-client:wait",
-          ],
-        },
-      ],
-    }],
+    } // // Uncomment to enable Avail Process
+      // // Note: Check ports as 9944 is used by Midnight Node by default in the lace wallet
+      //  {
+      //   stopProcessAtPort: [9944, 7007],
+      //   processes: [
+      //     {
+      //       name: ComponentNames.AVAIL_NODE,
+      //       args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
+      //       waitToExit: false,
+      //       logs: "none",
+      //       type: "system-dependency",
+      //     },
+      //     {
+      //       name: ComponentNames.AVAIL_CLIENT,
+      //       args: [
+      //         "task",
+      //         "-f",
+      //         "@example/avail-contracts",
+      //         "avail-light-client:start",
+      //       ],
+      //       waitToExit: false,
+      //       type: "system-dependency",
+      //     },
+      //     {
+      //       name: ComponentNames.AVAIL_NODE_WAIT,
+      //       args: ["task", "-f", "@example/avail-contracts", "avail-node:wait"],
+      //     },
+      //     {
+      //       name: ComponentNames.AVAIL_CLIENT_WAIT,
+      //       args: [
+      //         "task",
+      //         "-f",
+      //         "@example/avail-contracts",
+      //         "avail-light-client:wait",
+      //       ],
+      //     },
+      //   ],
+      // }
+    ],
 
     batcher: {
       paimaL2Address: contractAddressesEvmMain()["chain31337"][
