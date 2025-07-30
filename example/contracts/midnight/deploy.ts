@@ -37,8 +37,11 @@ import {
   type TransactionId,
 } from "npm:@midnight-ntwrk/ledger@4.0.0";
 import { deployContract } from "npm:@midnight-ntwrk/midnight-js-contracts@2.0.2";
-import { Counter, witnesses } from "./contract/src/index.ts";
-import { type CounterPrivateState } from "./contract/src/index.ts";
+import {
+  Counter,
+  type CounterPrivateState,
+  witnesses,
+} from "./contract/src/index.ts";
 import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2";
 import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@2.0.2";
 import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@2.0.2";
