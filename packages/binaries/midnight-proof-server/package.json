@@ -1,6 +1,6 @@
 {
-    "name": "npm-midnight-proof-server",
-    "version": "1.0.0",
+    "name": "@paima/npm-midnight-proof-server",
+    "version": "0.3.0",
     "description": "A wrapper for the Midnight proof server binary",
     "main": "index.js",
     "bin": {

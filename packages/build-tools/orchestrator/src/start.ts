@@ -69,6 +69,7 @@ export const OrchestratorConfig = Type.Object({
           logs: Type.Union([
             Type.Literal("otel-compatible"),
             Type.Literal("raw"),
+            Type.Literal("none"),
           ], { default: "raw" }),
           type: Type.Union([
             Type.Literal("system-dependency"),
@@ -192,10 +193,22 @@ export async function start(
             await dkill({ ports: processList.stopProcessAtPort });
             first = false;
           }
+          let logHandler_: typeof logHandler;
+          switch (logs) {
+            case "none":
+              logHandler_ = () => {};
+              break;
+            case "otel-compatible":
+              logHandler_ = logHandler;
+              break;
+            case "raw":
+              logHandler_ = rawLogHandler;
+              break;
+          }
           const processComponent = $({
             args: args,
             component: name,
-            log: logs === "otel-compatible" ? logHandler : rawLogHandler,
+            log: logHandler_,
             abortController: type === "system-dependency"
               ? abortControllers.system
               : abortControllers.noncritical,
