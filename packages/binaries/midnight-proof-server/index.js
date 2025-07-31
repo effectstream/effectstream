@@ -46,6 +46,8 @@ async function runWithBinary(env, args) {
   if (!checkIfBinaryExists()) {
     console.log("Binary not found, downloading...");
     await binary();
+  } else {
+    console.log("Using existing binary found in proof-server directory");
   }
   return runMidnightProofServer(env, args);
 }
