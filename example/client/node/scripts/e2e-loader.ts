@@ -23,8 +23,8 @@ export async function startup(): Promise<Client> {
 
       [ComponentNames.HARDHAT]: true,
       [ComponentNames.DEPLOY_EVM_CONTRACTS]: true,
-      [ComponentNames.YACI_DEVKIT]: true,
-      [ComponentNames.DOLOS]: true,
+      [ComponentNames.YACI_DEVKIT]: !Deno.env.get("DISABLE_LINUX_YACI"),
+      [ComponentNames.DOLOS]: !Deno.env.get("DISABLE_LINUX_YACI"),
     },
 
     packageName: "@paima",

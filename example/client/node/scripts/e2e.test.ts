@@ -1,5 +1,5 @@
 import { cleanup, shutdown, startup } from "./e2e-loader.ts";
-import { printSummary } from "./e2e-assert.ts";
+import { anyError, printSummary } from "./e2e-assert.ts";
 import type { Client } from "pg";
 import { generalTest } from "./e2e.general.test.ts";
 import { accountTests } from "./e2e.account.test.ts";
@@ -58,6 +58,10 @@ async function test() {
     console.error(e);
     await cleanup(db);
     shutdown();
+  } finally {
+    if (anyError()) {
+      Deno.exit(1);
+    }
   }
 }
 

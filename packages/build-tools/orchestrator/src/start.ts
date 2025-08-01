@@ -231,12 +231,13 @@ export async function start(
       processesToLaunch.push(batch);
     }
 
-    // Start the batcher, after the contracts are deployed.
     processesToLaunch.push([
       config.processes[ComponentNames.PAIMA_BATCHER] &&
       startProcess[ComponentNames.PAIMA_BATCHER],
     ]);
 
+    // Start the explorer
+    // TODO: This crashes when launching process through Deno.command
     processesToLaunch.push([
       // Start the explorer
       // This crashes when launching process through Deno.command
@@ -434,6 +435,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
     return midnightNode;
   },
+
   [ComponentNames.MIDNIGHT_INDEXER]: async (): Promise<ProcessComponent> => {
     const midnightIndexer = $({
       args: [
@@ -444,6 +446,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       ],
       log: rawLogHandler,
       component: ComponentNames.MIDNIGHT_INDEXER,
+
       abortController: abortControllers.system,
     });
     void midnightIndexer.process.status; // need to await sub-service start below

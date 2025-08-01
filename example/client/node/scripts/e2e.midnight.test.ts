@@ -102,7 +102,7 @@ class StandaloneConfig implements Config {
   logDir = "logs/standalone";
   indexer = "http://127.0.0.1:8088/api/v1/graphql";
   indexerWS = "ws://127.0.0.1:8088/api/v1/graphql/ws";
-  node = "http://127.0.0.1:9955";
+  node = "http://127.0.0.1:9944";
   proofServer = "http://127.0.0.1:6300";
   constructor() {
     setNetworkId("Undeployed" as unknown as any);
@@ -455,7 +455,7 @@ async function joinAndIncrementTest(
   } catch (error) {
     console.error("❌ Error during join and increment process:", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
-    Deno.exit(1);
+    // Deno.exit(1);
   } finally {
     // Clean up wallet
     if (wallet) {
@@ -487,7 +487,7 @@ async function joinAndIncrementTest(
           },
         );
 
-        Deno.exit(0);
+        // Deno.exit(0);
       } catch (error) {
         console.error("❌ Error closing wallet:", error);
       }
