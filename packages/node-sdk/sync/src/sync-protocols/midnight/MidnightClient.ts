@@ -1,6 +1,6 @@
-import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import type { Block } from "./types.ts";
-import type { ExecutionResult } from "npm:graphql-ws/client";
+import type { ExecutionResult } from "graphql-ws/client";
 
 type MidnightGqlBlock = {
   block: Block;

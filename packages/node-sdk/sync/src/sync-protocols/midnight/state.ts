@@ -1,6 +1,6 @@
 import { call, type Operation } from "effection";
 import { bound, PaimaBlockNumber, type TimestampMs } from "@paima/utils";
-import { type PoolClient } from "npm:pg";
+import { type PoolClient } from "pg";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Input, Output, Page } from "./types.ts";
