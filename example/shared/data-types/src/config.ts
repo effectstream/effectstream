@@ -77,14 +77,6 @@ export const localhostConfig = new ConfigBuilder()
       .addDeployment(
         (networks) => networks.evmMain,
         (_network) => ({
-          name: "PaimaErc20DevModule#PaimaErc20Dev",
-          address: contractAddressesEvmMain()
-            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
-        }),
-      )
-      .addDeployment(
-        (networks) => networks.evmMain,
-        (_network) => ({
           name: "PaimaL2ContractModule#MyPaimaL2Contract",
           address: contractAddressesEvmMain().chain31337[
             "PaimaL2ContractModule#MyPaimaL2Contract"
@@ -99,14 +91,6 @@ export const localhostConfig = new ConfigBuilder()
             .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
         }),
       )
-      .addDeployment(
-        (networks) => networks.evmParallel,
-        (_network) => ({
-          name: "PaimaErc20DevModule#PaimaErc20Dev",
-          address: contractAddressesEvmMain()
-            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
-        }),
-      )
   ).buildSyncProtocols((builder) =>
     builder
       .addMain((networks) => networks.evmMain, (network, deployments) => ({
@@ -116,7 +100,7 @@ export const localhostConfig = new ConfigBuilder()
         startBlockHeight: 1,
         pollingInterval: 500, // poll quickly to react fast
       }))
-      /*.addParallel(
+      .addParallel(
         (networks) => networks.evmParallel,
         (network, deployments) => ({
           name: "parallelEvmRPC",
@@ -127,8 +111,8 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1 as BlockNumber,
           confirmationDepth: 2, // TODO: test this
         }),
-      )*/
-      /*.addParallel(
+      )
+      .addParallel(
         (networks) => networks.yaci,
         (network, deployments) => ({
           name: "parallelUtxoRpc",
@@ -136,7 +120,7 @@ export const localhostConfig = new ConfigBuilder()
           rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
           startSlot: 1,
         }),
-      )*/
+      )
       .addParallel(
         (networks) => networks.midnight,
         (network, deployments) => ({
@@ -205,7 +189,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (syncProtocols) => syncProtocols.parallelEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "L1_ERC721_Token",
           type: ConfigPrimitiveType.EvmRpcERC721,
@@ -221,7 +205,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (syncProtocols) => syncProtocols.parallelEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "ETH_L1_ERC20",
           type: ConfigPrimitiveType.EvmRpcERC20,
