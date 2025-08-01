@@ -420,7 +420,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         "@example/midnight-contracts",
         "midnight-node:start",
       ],
-      log: logHandler,
+      log: rawLogHandler,
       component: ComponentNames.MIDNIGHT_NODE,
       abortController: abortControllers.system,
     });
@@ -442,7 +442,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         "@example/midnight-contracts",
         "midnight-indexer:start",
       ],
-      log: logHandler,
+      log: rawLogHandler,
       component: ComponentNames.MIDNIGHT_INDEXER,
       abortController: abortControllers.system,
     });
@@ -471,7 +471,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         "@example/midnight-contracts",
         "midnight-proof-server:start",
       ],
-      log: logHandler,
+      log: rawLogHandler,
       component: ComponentNames.MIDNIGHT_PROOF_SERVER,
       abortController: abortControllers.system,
     });
@@ -498,7 +498,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         "@example/midnight-contracts",
         "midnight-contract:deploy",
       ],
-      log: logHandler,
+      log: rawLogHandler,
       component: ComponentNames.MIDNIGHT_CONTRACT,
       abortController: abortControllers.system,
     });
@@ -509,7 +509,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
   [ComponentNames.AVAIL_NODE]: async (): Promise<ProcessComponent> => {
     const availNode = $({
       args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
-      log: logHandler,
+      log: rawLogHandler,
       component: ComponentNames.AVAIL_NODE,
       abortController: abortControllers.system,
     });
@@ -532,7 +532,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         "@example/avail-contracts",
         "avail-light-client:start",
       ],
-      log: logHandler,
+      log: rawLogHandler,
       component: ComponentNames.AVAIL_CLIENT,
       abortController: abortControllers.system,
     });

@@ -15,5 +15,6 @@ batcher-data/
 # Docusaurus
 .docusaurus/
 
+tmp/
 # System files
 .DS_Store
