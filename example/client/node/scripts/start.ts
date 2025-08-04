@@ -130,7 +130,7 @@ const config = Value.Parse(OrchestratorConfig, {
           "midnight-proof-server:wait",
         ],
       },
-      /* {
+      {
         name: ComponentNames.MIDNIGHT_CONTRACT,
         args: [
           "task",
@@ -138,7 +138,7 @@ const config = Value.Parse(OrchestratorConfig, {
           "@example/midnight-contracts",
           "midnight-contract:deploy",
         ],
-      }, */
+      },
     ],
   } // // Uncomment to enable Avail Process
     // // Note: Check ports as 9944 is used by Midnight Node by default in the lace wallet
