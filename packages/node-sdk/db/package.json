@@ -1,4 +1,13 @@
 {
+  "name": "@paima/db",
+  "version": "0.3.0",
+  "main": "",
+  "scripts": {
+    "db:up": "deno run -A ./src/start-pglite.ts --port 5432",
+    "db:wait": "wait-on tcp:5432",
+    "pgtyped:internal": "deno task db:wait && pgtyped -c ./pgtypedconfig.json",
+    "pgtyped:update": "concurrently --raw --kill-others \"npm run db:up\" \"npm run pgtyped:internal\""
+  },
   "devDependencies": {
     "@paima/pgtyped-cli": "^2.4.5",
     "@electric-sql/pglite": "^0.3.5",
