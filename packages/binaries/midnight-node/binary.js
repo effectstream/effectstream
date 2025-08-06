@@ -6,7 +6,7 @@ const path = require("path");
 
 function getPlatform() {
   let platform = os.platform();
-  const arch = os.arch();
+  let arch = os.arch();
   if (platform === "darwin") platform = "macos";
   if (arch === "x64") arch = "amd64";
   return `${platform}-${arch}`;
@@ -25,13 +25,15 @@ async function downloadAndSaveBinary() {
   const url = getBinaryUrl();
   try {
     const response = await axios.get(url, { responseType: "stream" });
-    const writer = fs.createWriteStream(path.join(__dirname, "midnight-node.zip"));
-    
+    const writer = fs.createWriteStream(
+      path.join(__dirname, "midnight-node.zip"),
+    );
+
     response.data.pipe(writer);
-    
+
     return new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
+      writer.on("finish", resolve);
+      writer.on("error", reject);
     });
   } catch (error) {
     console.error("Error downloading binary:", error);
