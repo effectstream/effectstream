@@ -200,6 +200,7 @@ export const startHttpServer = function* (
       )
       : undefined;
 
+    // countPromise can be undefined – Promise.all treats non-Promises as already resolved
     const [addresses, countResult] = await Promise.all([
       addressesPromise,
       countPromise,
@@ -315,6 +316,7 @@ export const startHttpServer = function* (
       )
       : undefined;
 
+    // countPromise can be undefined – Promise.all treats non-Promises as already resolved
     const [scheduledData, countResult] = await Promise.all([
       scheduledDataPromise,
       countPromise,
