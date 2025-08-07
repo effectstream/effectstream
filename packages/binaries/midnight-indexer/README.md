@@ -1,23 +1,24 @@
 # Midnight Indexer
 
-A Node.js package that downloads and runs the [Midnight](https://midnight.network) Indexer. The indexer requires a running Midnight Node to function properly.
+A Node.js package that downloads and runs the
+[Midnight](https://midnight.network) Indexer. The indexer requires a running
+Midnight Node to function properly.
 
 ## Overview
 
 This package provides flexible execution options for the Midnight Indexer:
 
 - **Docker mode**: Runs the indexer in a Docker container (recommended)
-- **Binary mode**: Downloads and runs the native binary locally (Linux only)
+- **Binary mode**: Downloads and runs the native binary locally (Linux, Windows,
+  macOS arm64)
 
 ### Platform Support
 
 | Platform | Docker | Binary |
-|----------|--------|--------|
-| macOS    | ✅ Yes | ❌ No  |
+| -------- | ------ | ------ |
+| macOS    | ✅ Yes | ✅ Yes |
 | Linux    | ✅ Yes | ✅ Yes |
-| Windows  | ❌ No  | ❌ No  |
-
-> **Note**: On macOS, only Docker execution is supported. Binary execution will automatically fall back to Docker or show an error.
+| Windows  | ❌ No  | ✅ Yes |
 
 ## Installation
 
@@ -28,12 +29,15 @@ npm install npm-midnight-indexer
 ## Prerequisites
 
 ### For Docker Mode
+
 - Docker installed and running
 - `APP__INFRA__SECRET` environment variable (required)
 
 ### For Binary Mode
-- Supported platform (Linux/Windows)
-- Local Midnight Node and Proof Server running on standard ports
+
+- Supported platform (Linux/macOS ARM64)
+- Local Midnight Node and Proof Server running on standard ports. But they can
+  be set using env variables
 - `APP__INFRA__SECRET` environment variable (required)
 
 ## Usage
@@ -45,8 +49,9 @@ node index.js [options] [args...]
 ```
 
 **Options:**
+
 - `--docker` - Force Docker execution
-- `--binary` - Force binary execution (not available on macOS)
+- `--binary` - Force binary execution (available on Linux, Windows, macOS arm64)
 - `--help` - Show help information
 
 **Examples:**
@@ -55,7 +60,7 @@ node index.js [options] [args...]
 # Force Docker usage
 APP__INFRA__SECRET=mysecret node index.js --docker
 
-# Force binary usage (Linux/Windows only)
+# Force binary usage (Linux/Windows/macOS arm64)
 APP__INFRA__SECRET=mysecret node index.js --binary
 
 # Interactive mode - prompts for Docker vs binary choice
@@ -67,16 +72,17 @@ node index.js --help
 
 ## Environment Variables
 
-The indexer supports several environment variables with different defaults based on execution mode:
+The indexer supports several environment variables with different defaults based
+on execution mode:
 
-| Variable | Required | Docker Default | Binary Default | Description |
-|----------|----------|----------------|----------------|-------------|
-| `APP__INFRA__SECRET` | Yes | - | - | Secret key for the application |
-| `LEDGER_NETWORK_ID` | No | `Undeployed` | `Undeployed` | Ledger network identifier |
-| `SUBSTRATE_NODE_WS_URL` | No | `ws://node:9944` | `ws://localhost:9944` | Substrate node WebSocket URL |
-| `FEATURES_WALLET_ENABLED` | No | `true` | `true` | Enable wallet features |
-| `APP__INFRA__PROOF_SERVER__URL` | No | `http://proof-server:6300` | `http://localhost:6300` | Proof server URL |
-| `APP__INFRA__NODE__URL` | No | `ws://node:9944` | `ws://localhost:9944` | Node WebSocket URL |
+| Variable                        | Required | Docker Default             | Binary Default          | Description                    |
+| ------------------------------- | -------- | -------------------------- | ----------------------- | ------------------------------ |
+| `APP__INFRA__SECRET`            | Yes      | -                          | -                       | Secret key for the application |
+| `LEDGER_NETWORK_ID`             | No       | `Undeployed`               | `Undeployed`            | Ledger network identifier      |
+| `SUBSTRATE_NODE_WS_URL`         | No       | `ws://node:9944`           | `ws://localhost:9944`   | Substrate node WebSocket URL   |
+| `FEATURES_WALLET_ENABLED`       | No       | `true`                     | `true`                  | Enable wallet features         |
+| `APP__INFRA__PROOF_SERVER__URL` | No       | `http://proof-server:6300` | `http://localhost:6300` | Proof server URL               |
+| `APP__INFRA__NODE__URL`         | No       | `ws://node:9944`           | `ws://localhost:9944`   | Node WebSocket URL             |
 
 ### Environment Variable Examples
 
@@ -129,31 +135,57 @@ When using binary mode, the indexer:
 2. **Uses localhost URLs** for all service connections
 3. **Runs natively** on the host system
 
+## Path Resolution
+
+The indexer relies on two user-supplied file paths and **both are interpreted
+relative to the process’s current working directory (CWD)** when they are not
+absolute:
+
+| Configuration location             | Purpose                                      | If relative, resolved against                                             |
+| ---------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
+| `CONFIG_FILE` environment variable | Location of the YAML config file             | The directory you launch `node index.js …` from (or the Docker `WORKDIR`) |
+| `infra.storage.cnn_url` in YAML    | SQLite database used by the standalone build | The CWD at runtime of the indexer process                                 |
+
+### Practical tips
+
+1. Prefer absolute paths when you need to be explicit.
+2. In **binary mode** this package sets the CWD to the bundled
+   `indexer-standalone` folder, so a default `cnn_url: "./indexer.sqlite"` ends
+   up next to the binary.
+3. In **Docker mode** the image’s `WORKDIR` is `/opt/indexer-standalone`.
+   Bind-mount volumes accordingly if you want the database file somewhere else.
+
+---
+
 ### Supported Binary Platforms
 
 - Linux ARM64 (`linux-arm64`)
 - Linux AMD64 (`linux-amd64`)
-- macOS ARM64 (`macos-arm64`) - **Docker only**
+- macOS ARM64 (`macos-arm64`)
 
 ## Troubleshooting
 
 ### Common Issues
 
 **"Docker is not installed or not available"**
+
 - Install Docker Desktop or Docker Engine
 - Ensure Docker is running
 - Check Docker is accessible from command line: `docker --version`
 
 **"APP__INFRA__SECRET environment variable is required"**
+
 - Set the secret: `export APP__INFRA__SECRET=your_secret_here`
 - Or pass inline: `APP__INFRA__SECRET=your_secret node index.js --docker`
 - Required for both Docker and binary execution modes
 
-**"Binary execution is not supported on macOS"**
+**"Binary execution is only supported on macOS ARM64"**
+
 - Use `--docker` flag or run without flags to use Docker automatically
 - Install Docker if not already installed
 
 **"Failed to start midnight-indexer"**
+
 - Check if ports 8088, 6300, 9944 are available
 - Verify Midnight Node is running and accessible
 - Check environment variables are correctly set
@@ -161,6 +193,7 @@ When using binary mode, the indexer:
 ### Logs and Debugging
 
 The indexer outputs detailed logs including:
+
 - Download progress for binaries
 - Docker pull progress
 - Process IDs and status
@@ -200,6 +233,7 @@ ISC
 ## Support
 
 For issues related to:
+
 - **This package**: Open an issue in the repository
 - **Midnight Protocol**: Visit [midnight.network](https://midnight.network)
 - **Docker**: Check [Docker documentation](https://docs.docker.com/)
@@ -208,4 +242,4 @@ For issues related to:
 
 - [Midnight Network](https://midnight.network)
 - [Docker Hub - Midnight Indexer](https://hub.docker.com/r/midnightntwrk/indexer-standalone)
-- [Node.js](https://nodejs.org/) 
+- [Node.js](https://nodejs.org/)
