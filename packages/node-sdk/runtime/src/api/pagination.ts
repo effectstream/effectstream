@@ -92,11 +92,13 @@ export function createPaginationMeta(
   if (total !== undefined) {
     meta.total = total;
     meta.hasMore = skip + limit < total;
-  } else if (actualCount !== undefined) {
-    // If we don't have total count, we can infer hasMore by checking if we got a full page of results
-    meta.hasMore = actualCount === limit;
+  } else if (actualCount !== undefined && actualCount < limit) {
+    // We received fewer items than requested, so we know there are no more.
+    meta.hasMore = false;
   }
-
+  // When total is unknown and we received exactly `limit` items we cannot be sure
+  // whether more items exist. In that case `hasMore` is omitted so clients can
+  // decide to perform an additional request to probe for more data.
   return meta;
 }
 
