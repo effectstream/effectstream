@@ -2,6 +2,12 @@ import { fastify, type FastifyRequest } from "fastify";
 import { type Static, Type } from "@sinclair/typebox";
 import { ENV } from "@paima/utils";
 import { RingBuffer } from "./tab/logs-ringbuffer.ts";
+import {
+  createPaginatedResponseSchema,
+  getPaginationParams,
+  paginateArray,
+  PaginationQuerySchema,
+} from "@paima/runtime";
 
 //
 // This API exposes the latest 1000 otel logs using.
@@ -79,9 +85,18 @@ export class LogServer {
       }
     });
 
-    this.server.get("/v1/data", (request: any, reply: any) => {
+    this.server.get("/v1/data", {
+      schema: {
+        querystring: PaginationQuerySchema,
+        response: {
+          200: createPaginatedResponseSchema(OTelLogSchema),
+        },
+      },
+    }, (request: any, reply: any) => {
+      const { limit, skip } = getPaginationParams(request);
       const copy = this.getData();
-      reply.status(200).send(copy);
+      const paginatedResult = paginateArray(copy, limit, skip);
+      reply.status(200).send(paginatedResult);
     });
 
     // New endpoint to control log display per process

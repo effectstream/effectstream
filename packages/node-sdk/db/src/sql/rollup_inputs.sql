@@ -80,7 +80,27 @@ LEFT OUTER JOIN rollup_input_result
   ON (rollup_input_result.id = rollup_inputs.id)
 WHERE rollup_input_result.id IS NULL
 ORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC
-);
+)
+ORDER BY id ASC
+LIMIT COALESCE(:limit, 999999) OFFSET COALESCE(:skip, 0);
+
+/* @name getAllScheduledDataCount */
+SELECT COUNT(*) as total FROM (
+  (
+  SELECT rollup_inputs.id
+  FROM rollup_inputs
+  JOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id
+  )
+  UNION ALL 
+  (
+  SELECT rollup_inputs.id
+  FROM rollup_inputs
+  JOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id
+  LEFT OUTER JOIN rollup_input_result
+    ON (rollup_input_result.id = rollup_inputs.id)
+  WHERE rollup_input_result.id IS NULL
+  )
+) AS scheduled_data;
 
 /* @name getFutureGameInputByBlockHeight */
 SELECT

@@ -1,5 +1,5 @@
 /** Types generated for queries found in "src/sql/accounts.sql" */
-import { PreparedQuery } from '@pgtyped/runtime';
+import { PreparedQuery } from "@pgtyped/runtime";
 
 /** 'NewAddress' parameters type */
 export interface INewAddressParams {
@@ -15,17 +15,28 @@ export interface INewAddressQuery {
   result: INewAddressResult;
 }
 
-const newAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":41,"b":49}]}],"statement":"INSERT INTO addresses (address) \nVALUES (:address!)"};
+const newAddressIR: any = {
+  "usedParamSet": { "address": true },
+  "params": [{
+    "name": "address",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 41, "b": 49 }],
+  }],
+  "statement": "INSERT INTO addresses (address) \nVALUES (:address!)",
+};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO addresses (address) 
+ * INSERT INTO addresses (address)
  * VALUES (:address!)
  * ```
  */
-export const newAddress = new PreparedQuery<INewAddressParams,INewAddressResult>(newAddressIR);
-
+export const newAddress = new PreparedQuery<
+  INewAddressParams,
+  INewAddressResult
+>(newAddressIR);
 
 /** 'NewAddressWithId' parameters type */
 export interface INewAddressWithIdParams {
@@ -42,17 +53,34 @@ export interface INewAddressWithIdQuery {
   result: INewAddressWithIdResult;
 }
 
-const newAddressWithIdIR: any = {"usedParamSet":{"address":true,"account_id":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":53,"b":61}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":64,"b":75}]}],"statement":"INSERT INTO addresses (address, account_id) \nVALUES (:address!, :account_id!)"};
+const newAddressWithIdIR: any = {
+  "usedParamSet": { "address": true, "account_id": true },
+  "params": [{
+    "name": "address",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 53, "b": 61 }],
+  }, {
+    "name": "account_id",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 64, "b": 75 }],
+  }],
+  "statement":
+    "INSERT INTO addresses (address, account_id) \nVALUES (:address!, :account_id!)",
+};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO addresses (address, account_id) 
+ * INSERT INTO addresses (address, account_id)
  * VALUES (:address!, :account_id!)
  * ```
  */
-export const newAddressWithId = new PreparedQuery<INewAddressWithIdParams,INewAddressWithIdResult>(newAddressWithIdIR);
-
+export const newAddressWithId = new PreparedQuery<
+  INewAddressWithIdParams,
+  INewAddressWithIdResult
+>(newAddressWithIdIR);
 
 /** 'NewAccount' parameters type */
 export interface INewAccountParams {
@@ -70,18 +98,30 @@ export interface INewAccountQuery {
   result: INewAccountResult;
 }
 
-const newAccountIR: any = {"usedParamSet":{"primary_address":true},"params":[{"name":"primary_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":48,"b":63}]}],"statement":"INSERT INTO accounts (primary_address) \nVALUES (:primary_address)\nRETURNING id"};
+const newAccountIR: any = {
+  "usedParamSet": { "primary_address": true },
+  "params": [{
+    "name": "primary_address",
+    "required": false,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 48, "b": 63 }],
+  }],
+  "statement":
+    "INSERT INTO accounts (primary_address) \nVALUES (:primary_address)\nRETURNING id",
+};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO accounts (primary_address) 
+ * INSERT INTO accounts (primary_address)
  * VALUES (:primary_address)
  * RETURNING id
  * ```
  */
-export const newAccount = new PreparedQuery<INewAccountParams,INewAccountResult>(newAccountIR);
-
+export const newAccount = new PreparedQuery<
+  INewAccountParams,
+  INewAccountResult
+>(newAccountIR);
 
 /** 'UpdateAddressAccount' parameters type */
 export interface IUpdateAddressAccountParams {
@@ -98,7 +138,22 @@ export interface IUpdateAddressAccountQuery {
   result: IUpdateAddressAccountResult;
 }
 
-const updateAddressAccountIR: any = {"usedParamSet":{"account_id":true,"address":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":34,"b":45}]},{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":63,"b":71}]}],"statement":"UPDATE addresses\nSET account_id = :account_id!\nWHERE address = :address!"};
+const updateAddressAccountIR: any = {
+  "usedParamSet": { "account_id": true, "address": true },
+  "params": [{
+    "name": "account_id",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 34, "b": 45 }],
+  }, {
+    "name": "address",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 63, "b": 71 }],
+  }],
+  "statement":
+    "UPDATE addresses\nSET account_id = :account_id!\nWHERE address = :address!",
+};
 
 /**
  * Query generated from SQL:
@@ -108,8 +163,10 @@ const updateAddressAccountIR: any = {"usedParamSet":{"account_id":true,"address"
  * WHERE address = :address!
  * ```
  */
-export const updateAddressAccount = new PreparedQuery<IUpdateAddressAccountParams,IUpdateAddressAccountResult>(updateAddressAccountIR);
-
+export const updateAddressAccount = new PreparedQuery<
+  IUpdateAddressAccountParams,
+  IUpdateAddressAccountResult
+>(updateAddressAccountIR);
 
 /** 'RemoveAddressAccount' parameters type */
 export interface IRemoveAddressAccountParams {
@@ -125,7 +182,17 @@ export interface IRemoveAddressAccountQuery {
   result: IRemoveAddressAccountResult;
 }
 
-const removeAddressAccountIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":55,"b":63}]}],"statement":"UPDATE addresses\nSET account_id = NULL\nWHERE address = :address!"};
+const removeAddressAccountIR: any = {
+  "usedParamSet": { "address": true },
+  "params": [{
+    "name": "address",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 55, "b": 63 }],
+  }],
+  "statement":
+    "UPDATE addresses\nSET account_id = NULL\nWHERE address = :address!",
+};
 
 /**
  * Query generated from SQL:
@@ -135,8 +202,10 @@ const removeAddressAccountIR: any = {"usedParamSet":{"address":true},"params":[{
  * WHERE address = :address!
  * ```
  */
-export const removeAddressAccount = new PreparedQuery<IRemoveAddressAccountParams,IRemoveAddressAccountResult>(removeAddressAccountIR);
-
+export const removeAddressAccount = new PreparedQuery<
+  IRemoveAddressAccountParams,
+  IRemoveAddressAccountResult
+>(removeAddressAccountIR);
 
 /** 'UpdatePrimaryAddress' parameters type */
 export interface IUpdatePrimaryAddressParams {
@@ -153,7 +222,22 @@ export interface IUpdatePrimaryAddressQuery {
   result: IUpdatePrimaryAddressResult;
 }
 
-const updatePrimaryAddressIR: any = {"usedParamSet":{"primary_address":true,"account_id":true},"params":[{"name":"primary_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":38,"b":53}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":66,"b":77}]}],"statement":"UPDATE accounts\nSET primary_address = :primary_address\nWHERE id = :account_id!"};
+const updatePrimaryAddressIR: any = {
+  "usedParamSet": { "primary_address": true, "account_id": true },
+  "params": [{
+    "name": "primary_address",
+    "required": false,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 38, "b": 53 }],
+  }, {
+    "name": "account_id",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 66, "b": 77 }],
+  }],
+  "statement":
+    "UPDATE accounts\nSET primary_address = :primary_address\nWHERE id = :account_id!",
+};
 
 /**
  * Query generated from SQL:
@@ -163,8 +247,10 @@ const updatePrimaryAddressIR: any = {"usedParamSet":{"primary_address":true,"acc
  * WHERE id = :account_id!
  * ```
  */
-export const updatePrimaryAddress = new PreparedQuery<IUpdatePrimaryAddressParams,IUpdatePrimaryAddressResult>(updatePrimaryAddressIR);
-
+export const updatePrimaryAddress = new PreparedQuery<
+  IUpdatePrimaryAddressParams,
+  IUpdatePrimaryAddressResult
+>(updatePrimaryAddressIR);
 
 /** 'GetAddressByAddress' parameters type */
 export interface IGetAddressByAddressParams {
@@ -183,7 +269,16 @@ export interface IGetAddressByAddressQuery {
   result: IGetAddressByAddressResult;
 }
 
-const getAddressByAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":40,"b":48}]}],"statement":"SELECT * FROM addresses\nWHERE address = :address!"};
+const getAddressByAddressIR: any = {
+  "usedParamSet": { "address": true },
+  "params": [{
+    "name": "address",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 40, "b": 48 }],
+  }],
+  "statement": "SELECT * FROM addresses\nWHERE address = :address!",
+};
 
 /**
  * Query generated from SQL:
@@ -192,8 +287,10 @@ const getAddressByAddressIR: any = {"usedParamSet":{"address":true},"params":[{"
  * WHERE address = :address!
  * ```
  */
-export const getAddressByAddress = new PreparedQuery<IGetAddressByAddressParams,IGetAddressByAddressResult>(getAddressByAddressIR);
-
+export const getAddressByAddress = new PreparedQuery<
+  IGetAddressByAddressParams,
+  IGetAddressByAddressResult
+>(getAddressByAddressIR);
 
 /** 'GetAddressByAccountId' parameters type */
 export interface IGetAddressByAccountIdParams {
@@ -212,7 +309,16 @@ export interface IGetAddressByAccountIdQuery {
   result: IGetAddressByAccountIdResult;
 }
 
-const getAddressByAccountIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":43,"b":54}]}],"statement":"SELECT * FROM addresses\nWHERE account_id = :account_id!"};
+const getAddressByAccountIdIR: any = {
+  "usedParamSet": { "account_id": true },
+  "params": [{
+    "name": "account_id",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 43, "b": 54 }],
+  }],
+  "statement": "SELECT * FROM addresses\nWHERE account_id = :account_id!",
+};
 
 /**
  * Query generated from SQL:
@@ -221,8 +327,10 @@ const getAddressByAccountIdIR: any = {"usedParamSet":{"account_id":true},"params
  * WHERE account_id = :account_id!
  * ```
  */
-export const getAddressByAccountId = new PreparedQuery<IGetAddressByAccountIdParams,IGetAddressByAccountIdResult>(getAddressByAccountIdIR);
-
+export const getAddressByAccountId = new PreparedQuery<
+  IGetAddressByAccountIdParams,
+  IGetAddressByAccountIdResult
+>(getAddressByAccountIdIR);
 
 /** 'GetAccountById' parameters type */
 export interface IGetAccountByIdParams {
@@ -241,7 +349,16 @@ export interface IGetAccountByIdQuery {
   result: IGetAccountByIdResult;
 }
 
-const getAccountByIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":34,"b":45}]}],"statement":"SELECT * FROM accounts\nWHERE id = :account_id!"};
+const getAccountByIdIR: any = {
+  "usedParamSet": { "account_id": true },
+  "params": [{
+    "name": "account_id",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 34, "b": 45 }],
+  }],
+  "statement": "SELECT * FROM accounts\nWHERE id = :account_id!",
+};
 
 /**
  * Query generated from SQL:
@@ -250,11 +367,16 @@ const getAccountByIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"na
  * WHERE id = :account_id!
  * ```
  */
-export const getAccountById = new PreparedQuery<IGetAccountByIdParams,IGetAccountByIdResult>(getAccountByIdIR);
-
+export const getAccountById = new PreparedQuery<
+  IGetAccountByIdParams,
+  IGetAccountByIdResult
+>(getAccountByIdIR);
 
 /** 'GetAllAddresses' parameters type */
-export type IGetAllAddressesParams = void;
+export interface IGetAllAddressesParams {
+  limit?: number;
+  skip?: number;
+}
 
 /** 'GetAllAddresses' return type */
 export interface IGetAllAddressesResult {
@@ -269,20 +391,69 @@ export interface IGetAllAddressesQuery {
   result: IGetAllAddressesResult;
 }
 
-const getAllAddressesIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT \n    addresses.address as \"address\", \n    addresses.account_id as \"account_id\",\n    accounts.primary_address as \"primary_address\"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nORDER BY addresses.account_id"};
+const getAllAddressesIR: any = {
+  "usedParamSet": { "limit": true, "skip": true },
+  "params": [{
+    "name": "limit",
+    "required": false,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 148, "b": 153 }],
+  }, {
+    "name": "skip",
+    "required": false,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 175, "b": 179 }],
+  }],
+  "statement":
+    'SELECT \n    addresses.address as "address", \n    addresses.account_id as "account_id",\n    accounts.primary_address as "primary_address"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nORDER BY addresses.account_id\nLIMIT COALESCE(:limit, 999999) OFFSET COALESCE(:skip, 0)',
+};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT 
- *     addresses.address as "address", 
+ * SELECT
+ *     addresses.address as "address",
  *     addresses.account_id as "account_id",
  *     accounts.primary_address as "primary_address"
  * FROM addresses
  * LEFT JOIN accounts ON accounts.primary_address = addresses.address
  * ORDER BY addresses.account_id
+ * LIMIT :limit! OFFSET :skip!
  * ```
  */
-export const getAllAddresses = new PreparedQuery<IGetAllAddressesParams,IGetAllAddressesResult>(getAllAddressesIR);
+export const getAllAddresses = new PreparedQuery<
+  IGetAllAddressesParams,
+  IGetAllAddressesResult
+>(getAllAddressesIR);
 
+/** 'GetAllAddressesCount' parameters type */
+export type IGetAllAddressesCountParams = void;
 
+/** 'GetAllAddressesCount' return type */
+export interface IGetAllAddressesCountResult {
+  total: number;
+}
+
+/** 'GetAllAddressesCount' query type */
+export interface IGetAllAddressesCountQuery {
+  params: IGetAllAddressesCountParams;
+  result: IGetAllAddressesCountResult;
+}
+
+const getAllAddressesCountIR: any = {
+  "usedParamSet": {},
+  "params": [],
+  "statement": "SELECT COUNT(*) as total\nFROM addresses",
+};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT COUNT(*) as total
+ * FROM addresses
+ * ```
+ */
+export const getAllAddressesCount = new PreparedQuery<
+  IGetAllAddressesCountParams,
+  IGetAllAddressesCountResult
+>(getAllAddressesCountIR);

@@ -14,6 +14,7 @@ function mapProcess(p: ProcessComponent) {
     date: p.date,
   };
 }
+// No pagination implementyed because rarely processes will exceed a reasonable number
 server.get("/processes", function handler() {
   return {
     processes: processes.map(mapProcess),
