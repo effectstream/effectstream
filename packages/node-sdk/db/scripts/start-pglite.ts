@@ -10,13 +10,7 @@ import { migrations } from "../migrations/up.ts";
 // Get port from arguments.
 const portArgName = "--port";
 const portArgIndex = Deno.args.indexOf(portArgName);
-if (portArgIndex === -1) {
-  throw new Error(`${portArgName} argument not found`);
-}
-const portValue = Deno.args[portArgIndex + 1];
-if (!portValue) {
-  throw new Error(`${portArgName} value not found`);
-}
+const portValue = portArgIndex !== -1 ? Deno.args[portArgIndex + 1] : "5432";
 const port = parseInt(portValue);
 if (isNaN(port)) {
   throw new Error(`Port argument ${portArgName} is not a number`);

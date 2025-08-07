@@ -4,13 +4,11 @@
   "license": "MIT",
   "exports": {
     ".": "./src/mod.ts",
-    "./start-pglite": "./src/start-pglite.ts"
-  },
-  "tasks": {
-    "db:up": "deno run -A ./src/start-pglite.ts --port 5432",
-    "db:wait": "wait-on tcp:5432",
-    "pgtyped:internal": "deno task db:wait && pgtyped -c ./pgtypedconfig.json",
-    "pgtyped:update": "concurrently --raw --kill-others \"deno task db:up\" \"deno task pgtyped:internal\""
+    "./start-pglite": "./scripts/start-pglite.ts",
+    "./db-up": "./scripts/start-pglite.ts",
+    "./db-wait": "./scripts/wait-for-db.ts",
+    "./pgtyped-internal": "./scripts/pgtyped-internal.ts",
+    "./pgtyped-update": "./scripts/pgtyped-update.ts"
   },
   "imports": {
     "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2",

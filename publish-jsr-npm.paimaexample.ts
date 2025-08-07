@@ -268,6 +268,17 @@ async function showPublishCommands() {
   console.log("(Run with --publish flag to actually execute these commands)");
   console.log("");
 
+  for (const packagePath of npmPackagesToPublish) {
+    console.log(`cd ${packagePath}`);
+    const publishCmd = otpCode
+      ? `npm publish --access public --otp ${otpCode}`
+      : `npm publish --access public`;
+    console.log(publishCmd);
+    console.log(
+      `cd ${Array(packagePath.split("/").length - 1).fill("..").join("/")}/`,
+    );
+  }
+
   for (const packagePath of jsrPackagesToPublish) {
     console.log(`cd ${packagePath}`);
     const publishCmd = authToken
@@ -278,16 +289,6 @@ async function showPublishCommands() {
       `cd ${Array(packagePath.split("/").length - 1).fill("..").join("/")}/`,
     );
     console.log("");
-  }
-  for (const packagePath of npmPackagesToPublish) {
-    console.log(`cd ${packagePath}`);
-    const publishCmd = otpCode
-      ? `npm publish --access public --otp ${otpCode}`
-      : `npm publish --access public`;
-    console.log(publishCmd);
-    console.log(
-      `cd ${Array(packagePath.split("/").length - 1).fill("..").join("/")}/`,
-    );
   }
 }
 
@@ -301,14 +302,17 @@ async function main() {
   }
 
   if (shouldPublish) {
-    await publishJSRPackages();
     if (otpCode) {
       await publishNPMPackages();
     }
+
+    await publishJSRPackages();
   } else {
     await showPublishCommands();
   }
-
+  console.log(
+    "To revert all changes run `deno -A ./publish-jsr-npm.paimaexample.ts --reverse --version 0.3.0`",
+  );
   console.log("Complete!");
 }
 
