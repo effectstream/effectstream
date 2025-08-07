@@ -247,9 +247,8 @@ export const startHttpServer = function* (
   server.get("/config", {
     schema: {
       tags: ["status"],
-      querystring: PaginationQuerySchema,
       response: {
-        200: createPaginatedResponseSchema(Type.Object({
+        200: Type.Array(Type.Object({
           networkType: Type.String(),
           syncProtocolType: Type.String(),
           syncProtocol: Type.Object({}, { additionalProperties: true }),
@@ -260,12 +259,11 @@ export const startHttpServer = function* (
         }, { additionalProperties: true })),
       },
     },
-  }, (request) => {
-    const { limit, skip } = getPaginationParams(request);
+  }, () => {
     const config = syncProtocols.map((syncProtocol) => syncProtocol.config)
       .flat();
     const cleanedConfig = clearBigInts(config);
-    return paginateArray(cleanedConfig, limit, skip);
+    return cleanedConfig;
   });
 
   server.get("/grammar", {
