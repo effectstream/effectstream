@@ -394,8 +394,9 @@ export function AddressesTable() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      setAddresses(data);
+      const jsonResponse = await response.json();
+      const addrArray = jsonResponse.data ?? [];
+      setAddresses(addrArray);
     } catch (err) {
       console.error("Error fetching addresses:", err);
       setError(err instanceof Error ? err.message : "Unknown error");

@@ -287,8 +287,9 @@ export function useTableData() {
           }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data = await response.json();
-        console.log(`📊 Fetched table data for ${tableName}:`, data);
+        const jsonResponse = await response.json();
+        console.log(`📊 Fetched table data for ${tableName}:`, jsonResponse);
+        const data = jsonResponse.data ?? [];
 
         return convertTableDataToTableFormat(data, tableName, schema);
       } catch (error) {
@@ -307,7 +308,8 @@ export function useTableData() {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data: IGetAllScheduledDataResult[] = await response.json();
+        const jsonResponse = await response.json();
+        const data: IGetAllScheduledDataResult[] = jsonResponse.data ?? [];
         console.log("📊 Fetched scheduled data:", data);
 
         // Convert to TableData format
