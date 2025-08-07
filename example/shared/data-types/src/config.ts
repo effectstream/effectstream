@@ -1,14 +1,5 @@
-// import deployedEvmAddresses from "@example/evm-contracts/deployments";
-
 import { readMidnightContract } from "../../../contracts/midnight/read-contract.ts";
-
-const deployedEvmAddresses = {
-  "chain-31337": {
-    "L2Contract#PaimaL2Contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "Foo#SomeERC20": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-  },
-} as const;
-import { contractAddressesEvmMain } from "@example/evm-contracts";
+import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 
 import {
   ConfigBuilder,
@@ -19,7 +10,7 @@ import {
 } from "@paima/config";
 import { hardhat } from "viem/chains";
 import type { BlockNumber, TimestampMs } from "@paima/utils";
-import { erc20dev, erc721dev, paimal2contract } from "@example/evm-contracts";
+import { erc20dev, erc721dev, paimal2contract } from "@e2e/evm-contracts";
 // TODO: This should typed from the grammar types.
 const stfInputs = {
   "schedule": "schedule",

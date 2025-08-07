@@ -12,8 +12,8 @@ node --version
 npm --version
 
 # Compile Contracts & Deploy Contracts
-deno task -f @example/evm-contracts build
-deno task -f @example/evm-contracts deploy:standalone || true
+deno task -f @e2e/evm-contracts build
+deno task -f @e2e/evm-contracts deploy:standalone || true
 
 echo "✅ Contracts compiled & deployed"
 
@@ -33,5 +33,5 @@ echo "🧪 Running tests..."
 #       At the time the test always get stuck on `Check System API Table Data`
 #       This only happens on Github Actions, not on local machine.
 #
-GITHUB_ACTIONS_SHORT_TEST=1 DISABLE_LINUX_YACI=true PAIMA_E2E_LOG_DEBUG=1 deno task -f @example/node test
+GITHUB_ACTIONS_SHORT_TEST=1 DISABLE_LINUX_YACI=true PAIMA_E2E_LOG_DEBUG=1 deno task -f @e2e/node test
 

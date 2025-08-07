@@ -1,11 +1,11 @@
 import { PaimaSTM } from "@paima/sm";
-import { grammar } from "@example/data-types";
+import { grammar } from "@e2e/data-types";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import {
   getLastSumFromExampleTable,
   insertStateMachineInput,
   insertSumIntoExampleTable,
-} from "@example/database";
+} from "@e2e/database";
 import type { StartConfigGameStateTransitions } from "@paima/runtime";
 import { newScheduledHeightData, newScheduledTimestampData } from "@paima/db";
 import { type SyncStateUpdateStream, World } from "@paima/coroutine";

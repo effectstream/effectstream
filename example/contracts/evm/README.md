@@ -1,6 +1,6 @@
 # Build Contracts
 
-`deno task -f @example/evm-contracts build`
+`deno task -f @e2e/evm-contracts build`
 
 # Deploy Contracts
 
@@ -45,7 +45,7 @@ To add your contracts you will need 3 steps:
 ### 1. Add new Contract
 
 Add your Solidity Contracts in `/src/contracts/my-contract.ts`  
-and run `deno task -f @example/evm-contracts build`
+and run `deno task -f @e2e/evm-contracts build`
 
 Your contract is compiled and ready to be used.
 

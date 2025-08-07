@@ -418,7 +418,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       args: [
         "task",
         "-f",
-        "@example/midnight-contracts",
+        "@e2e/midnight-contracts",
         "midnight-node:start",
       ],
       log: rawLogHandler,
@@ -428,7 +428,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     void midnightNode.process.status; // need to await sub-service start below
 
     await $({
-      args: ["task", "-f", "@example/midnight-contracts", "midnight-node:wait"],
+      args: ["task", "-f", "@e2e/midnight-contracts", "midnight-node:wait"],
       component: ComponentNames.MIDNIGHT_NODE_WAIT,
       abortController: abortControllers.noncritical,
     }).process.status;
@@ -441,7 +441,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       args: [
         "task",
         "-f",
-        "@example/midnight-contracts",
+        "@e2e/midnight-contracts",
         "midnight-indexer:start",
       ],
       log: rawLogHandler,
@@ -455,7 +455,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       args: [
         "task",
         "-f",
-        "@example/midnight-contracts",
+        "@e2e/midnight-contracts",
         "midnight-indexer:wait",
       ],
       component: ComponentNames.MIDNIGHT_INDEXER_WAIT,
@@ -471,7 +471,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       args: [
         "task",
         "-f",
-        "@example/midnight-contracts",
+        "@e2e/midnight-contracts",
         "midnight-proof-server:start",
       ],
       log: rawLogHandler,
@@ -484,7 +484,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       args: [
         "task",
         "-f",
-        "@example/midnight-contracts",
+        "@e2e/midnight-contracts",
         "midnight-proof-server:wait",
       ],
       component: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
@@ -498,7 +498,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       args: [
         "task",
         "-f",
-        "@example/midnight-contracts",
+        "@e2e/midnight-contracts",
         "midnight-contract:deploy",
       ],
       log: rawLogHandler,
@@ -511,7 +511,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
   },
   [ComponentNames.AVAIL_NODE]: async (): Promise<ProcessComponent> => {
     const availNode = $({
-      args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
+      args: ["task", "-f", "@e2e/avail-contracts", "avail-node:start"],
       log: rawLogHandler,
       component: ComponentNames.AVAIL_NODE,
       abortController: abortControllers.system,
@@ -519,7 +519,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     void availNode.process.status; // need to await sub-service start below
 
     await $({
-      args: ["task", "-f", "@example/avail-contracts", "avail-node:wait"],
+      args: ["task", "-f", "@e2e/avail-contracts", "avail-node:wait"],
       component: ComponentNames.AVAIL_NODE_WAIT,
       abortController: abortControllers.noncritical,
     }).process.status;
@@ -532,7 +532,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       args: [
         "task",
         "-f",
-        "@example/avail-contracts",
+        "@e2e/avail-contracts",
         "avail-light-client:start",
       ],
       log: rawLogHandler,
@@ -545,7 +545,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       args: [
         "task",
         "-f",
-        "@example/avail-contracts",
+        "@e2e/avail-contracts",
         "avail-light-client:wait",
       ],
       component: ComponentNames.AVAIL_CLIENT_WAIT,

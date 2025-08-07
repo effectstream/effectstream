@@ -5,7 +5,7 @@ import {
 } from "@paima/orchestrator";
 import { ComponentNames } from "@paima/log";
 import { Value } from "@sinclair/typebox/value";
-import { contractAddressesEvmMain } from "@example/evm-contracts";
+import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
@@ -23,18 +23,18 @@ const config = Value.Parse(OrchestratorConfig, {
     processes: [
       {
         name: ComponentNames.HARDHAT,
-        args: ["task", "-f", "@example/evm-contracts", "chain:start"],
+        args: ["task", "-f", "@e2e/evm-contracts", "chain:start"],
         waitToExit: false,
         logs: "otel-compatible",
         type: "system-dependency",
       },
       {
         name: ComponentNames.HARDHAT_WAIT,
-        args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
+        args: ["task", "-f", "@e2e/evm-contracts", "chain:wait"],
       },
       {
         name: ComponentNames.DEPLOY_EVM_CONTRACTS,
-        args: ["task", "-f", "@example/evm-contracts", "deploy"],
+        args: ["task", "-f", "@e2e/evm-contracts", "deploy"],
         type: "system-dependency",
       },
     ],
@@ -46,24 +46,24 @@ const config = Value.Parse(OrchestratorConfig, {
     processes: [
       {
         name: ComponentNames.YACI_DEVKIT,
-        args: ["task", "-f", "@example/cardano-contracts", "devkit:start"],
+        args: ["task", "-f", "@e2e/cardano-contracts", "devkit:start"],
         waitToExit: false,
         logs: "otel-compatible",
         type: "system-dependency",
       },
       {
         name: ComponentNames.YACI_DEVKIT_WAIT,
-        args: ["task", "-f", "@example/cardano-contracts", "devkit:wait"],
+        args: ["task", "-f", "@e2e/cardano-contracts", "devkit:wait"],
       },
       {
         name: ComponentNames.DOLOS,
-        args: ["task", "-f", "@example/cardano-contracts", "dolos:start"],
+        args: ["task", "-f", "@e2e/cardano-contracts", "dolos:start"],
         waitToExit: false,
         type: "system-dependency",
       },
       {
         name: ComponentNames.DOLOS_WAIT,
-        args: ["task", "-f", "@example/cardano-contracts", "dolos:wait"],
+        args: ["task", "-f", "@e2e/cardano-contracts", "dolos:wait"],
       },
     ],
   }, {
@@ -74,7 +74,7 @@ const config = Value.Parse(OrchestratorConfig, {
         args: [
           "task",
           "-f",
-          "@example/midnight-contracts",
+          "@e2e/midnight-contracts",
           "midnight-node:start",
         ],
         logs: "none",
@@ -86,7 +86,7 @@ const config = Value.Parse(OrchestratorConfig, {
         args: [
           "task",
           "-f",
-          "@example/midnight-contracts",
+          "@e2e/midnight-contracts",
           "midnight-indexer:start",
         ],
         waitToExit: false,
@@ -97,7 +97,7 @@ const config = Value.Parse(OrchestratorConfig, {
         args: [
           "task",
           "-f",
-          "@example/midnight-contracts",
+          "@e2e/midnight-contracts",
           "midnight-proof-server:start",
         ],
         waitToExit: false,
@@ -108,7 +108,7 @@ const config = Value.Parse(OrchestratorConfig, {
         args: [
           "task",
           "-f",
-          "@example/midnight-contracts",
+          "@e2e/midnight-contracts",
           "midnight-node:wait",
         ],
       },
@@ -117,7 +117,7 @@ const config = Value.Parse(OrchestratorConfig, {
         args: [
           "task",
           "-f",
-          "@example/midnight-contracts",
+          "@e2e/midnight-contracts",
           "midnight-indexer:wait",
         ],
       },
@@ -126,7 +126,7 @@ const config = Value.Parse(OrchestratorConfig, {
         args: [
           "task",
           "-f",
-          "@example/midnight-contracts",
+          "@e2e/midnight-contracts",
           "midnight-proof-server:wait",
         ],
       },
@@ -135,7 +135,7 @@ const config = Value.Parse(OrchestratorConfig, {
         args: [
           "task",
           "-f",
-          "@example/midnight-contracts",
+          "@e2e/midnight-contracts",
           "midnight-contract:deploy",
         ],
       },
@@ -147,7 +147,7 @@ const config = Value.Parse(OrchestratorConfig, {
     //   processes: [
     //     {
     //       name: ComponentNames.AVAIL_NODE,
-    //       args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
+    //       args: ["task", "-f", "@e2e/avail-contracts", "avail-node:start"],
     //       waitToExit: false,
     //       logs: "none",
     //       type: "system-dependency",
@@ -157,7 +157,7 @@ const config = Value.Parse(OrchestratorConfig, {
     //       args: [
     //         "task",
     //         "-f",
-    //         "@example/avail-contracts",
+    //         "@e2e/avail-contracts",
     //         "avail-light-client:start",
     //       ],
     //       waitToExit: false,
@@ -165,14 +165,14 @@ const config = Value.Parse(OrchestratorConfig, {
     //     },
     //     {
     //       name: ComponentNames.AVAIL_NODE_WAIT,
-    //       args: ["task", "-f", "@example/avail-contracts", "avail-node:wait"],
+    //       args: ["task", "-f", "@e2e/avail-contracts", "avail-node:wait"],
     //     },
     //     {
     //       name: ComponentNames.AVAIL_CLIENT_WAIT,
     //       args: [
     //         "task",
     //         "-f",
-    //         "@example/avail-contracts",
+    //         "@e2e/avail-contracts",
     //         "avail-light-client:wait",
     //       ],
     //     },

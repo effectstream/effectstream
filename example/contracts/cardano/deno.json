@@ -1,5 +1,5 @@
 {
-  "name": "@example/cardano-contracts",
+  "name": "@e2e/cardano-contracts",
   "version": "0.3.0",
   "license": "MIT",
   "exports": {},

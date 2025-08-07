@@ -16,7 +16,7 @@ import {
   erc20dev,
   erc721dev,
   paimal2contract,
-} from "@example/evm-contracts";
+} from "@e2e/evm-contracts";
 
 import {
   type SharedState,

@@ -4,7 +4,7 @@ import { OrchestratorConfig, start } from "@paima/orchestrator";
 import { ENV } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
 import { ComponentNames } from "@paima/log";
-import { contractAddressesEvmMain } from "@example/evm-contracts";
+import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -20,11 +20,6 @@ export async function startup(): Promise<Client> {
 
       [ComponentNames.TUI]: false,
       [ComponentNames.TMUX]: false,
-
-      [ComponentNames.HARDHAT]: true,
-      [ComponentNames.DEPLOY_EVM_CONTRACTS]: true,
-      [ComponentNames.YACI_DEVKIT]: !Deno.env.get("DISABLE_LINUX_YACI"),
-      [ComponentNames.DOLOS]: !Deno.env.get("DISABLE_LINUX_YACI"),
     },
 
     packageName: "@paima",
@@ -36,18 +31,18 @@ export async function startup(): Promise<Client> {
       processes: [
         {
           name: ComponentNames.HARDHAT,
-          args: ["task", "-f", "@example/evm-contracts", "chain:start"],
+          args: ["task", "-f", "@e2e/evm-contracts", "chain:start"],
           waitToExit: false,
           logs: "otel-compatible",
           type: "system-dependency",
         },
         {
           name: ComponentNames.HARDHAT_WAIT,
-          args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
+          args: ["task", "-f", "@e2e/evm-contracts", "chain:wait"],
         },
         {
           name: ComponentNames.DEPLOY_EVM_CONTRACTS,
-          args: ["task", "-f", "@example/evm-contracts", "deploy"],
+          args: ["task", "-f", "@e2e/evm-contracts", "deploy"],
           type: "system-dependency",
         },
       ],
@@ -56,24 +51,24 @@ export async function startup(): Promise<Client> {
       processes: [
         {
           name: ComponentNames.YACI_DEVKIT,
-          args: ["task", "-f", "@example/cardano-contracts", "devkit:start"],
+          args: ["task", "-f", "@e2e/cardano-contracts", "devkit:start"],
           waitToExit: false,
           logs: "otel-compatible",
           type: "system-dependency",
         },
         {
           name: ComponentNames.YACI_DEVKIT_WAIT,
-          args: ["task", "-f", "@example/cardano-contracts", "devkit:wait"],
+          args: ["task", "-f", "@e2e/cardano-contracts", "devkit:wait"],
         },
         {
           name: ComponentNames.DOLOS,
-          args: ["task", "-f", "@example/cardano-contracts", "dolos:start"],
+          args: ["task", "-f", "@e2e/cardano-contracts", "dolos:start"],
           waitToExit: false,
           type: "system-dependency",
         },
         {
           name: ComponentNames.DOLOS_WAIT,
-          args: ["task", "-f", "@example/cardano-contracts", "dolos:wait"],
+          args: ["task", "-f", "@e2e/cardano-contracts", "dolos:wait"],
         },
       ],
     }, {
@@ -84,7 +79,7 @@ export async function startup(): Promise<Client> {
           args: [
             "task",
             "-f",
-            "@example/midnight-contracts",
+            "@e2e/midnight-contracts",
             "midnight-node:start",
           ],
           logs: "none",
@@ -96,7 +91,7 @@ export async function startup(): Promise<Client> {
           args: [
             "task",
             "-f",
-            "@example/midnight-contracts",
+            "@e2e/midnight-contracts",
             "midnight-indexer:start",
           ],
           waitToExit: false,
@@ -107,7 +102,7 @@ export async function startup(): Promise<Client> {
           args: [
             "task",
             "-f",
-            "@example/midnight-contracts",
+            "@e2e/midnight-contracts",
             "midnight-proof-server:start",
           ],
           waitToExit: false,
@@ -118,7 +113,7 @@ export async function startup(): Promise<Client> {
           args: [
             "task",
             "-f",
-            "@example/midnight-contracts",
+            "@e2e/midnight-contracts",
             "midnight-node:wait",
           ],
         },
@@ -127,7 +122,7 @@ export async function startup(): Promise<Client> {
           args: [
             "task",
             "-f",
-            "@example/midnight-contracts",
+            "@e2e/midnight-contracts",
             "midnight-indexer:wait",
           ],
         },
@@ -136,7 +131,7 @@ export async function startup(): Promise<Client> {
           args: [
             "task",
             "-f",
-            "@example/midnight-contracts",
+            "@e2e/midnight-contracts",
             "midnight-proof-server:wait",
           ],
         },
@@ -145,7 +140,7 @@ export async function startup(): Promise<Client> {
           args: [
             "task",
             "-f",
-            "@example/midnight-contracts",
+            "@e2e/midnight-contracts",
             "midnight-contract:deploy",
           ],
         },
@@ -157,7 +152,7 @@ export async function startup(): Promise<Client> {
       //   processes: [
       //     {
       //       name: ComponentNames.AVAIL_NODE,
-      //       args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
+      //       args: ["task", "-f", "@e2e/avail-contracts", "avail-node:start"],
       //       waitToExit: false,
       //       logs: "none",
       //       type: "system-dependency",
@@ -167,7 +162,7 @@ export async function startup(): Promise<Client> {
       //       args: [
       //         "task",
       //         "-f",
-      //         "@example/avail-contracts",
+      //         "@e2e/avail-contracts",
       //         "avail-light-client:start",
       //       ],
       //       waitToExit: false,
@@ -175,14 +170,14 @@ export async function startup(): Promise<Client> {
       //     },
       //     {
       //       name: ComponentNames.AVAIL_NODE_WAIT,
-      //       args: ["task", "-f", "@example/avail-contracts", "avail-node:wait"],
+      //       args: ["task", "-f", "@e2e/avail-contracts", "avail-node:wait"],
       //     },
       //     {
       //       name: ComponentNames.AVAIL_CLIENT_WAIT,
       //       args: [
       //         "task",
       //         "-f",
-      //         "@example/avail-contracts",
+      //         "@e2e/avail-contracts",
       //         "avail-light-client:wait",
       //       ],
       //     },
