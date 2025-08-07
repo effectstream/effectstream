@@ -71,6 +71,8 @@ export function DataTable(
     (pagination.total == null
       ? rows.length > 0
       : (pagination.skip + pagination.limit) < (pagination.total ?? 0));
+  const hideControls = !!pagination && pagination.skip === 0 &&
+    rows.length < pagination.limit;
 
   return (
     <div
@@ -116,76 +118,61 @@ export function DataTable(
           </table>
         )}
       {/* Pagination Controls */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginTop: 8,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            type="button"
-            onClick={onPrev}
-            disabled={!canGoPrev}
-            style={{
-              padding: "6px 10px",
-              borderRadius: 6,
-              border: "1px solid #ddd",
-              background: canGoPrev ? "white" : "#f3f4f6",
-              cursor: canGoPrev ? "pointer" : "not-allowed",
-            }}
-          >
-            Prev
-          </button>
-          <button
-            type="button"
-            onClick={onNext}
-            disabled={!canGoNext}
-            style={{
-              padding: "6px 10px",
-              borderRadius: 6,
-              border: "1px solid #ddd",
-              background: canGoNext ? "white" : "#f3f4f6",
-              cursor: canGoNext ? "pointer" : "not-allowed",
-            }}
-          >
-            Next
-          </button>
-        </div>
+      {pagination && !hideControls && (
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
-            color: "#555",
+            justifyContent: "space-between",
+            marginTop: 8,
           }}
         >
-          {pagination && (
-            <>
-              <span>
-                Showing {rows.length} · Limit {pagination.limit} · Offset{" "}
-                {pagination.skip}
-                {pagination.total != null ? ` · Total ${pagination.total}` : ""}
-              </span>
-              <select
-                value={pagination.limit}
-                onChange={(e) => onLimitChange?.(parseInt(e.target.value))}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #ddd",
-                }}
-              >
-                {[10, 20, 50, 100].map((n) => (
-                  <option key={n} value={n}>{n} per page</option>
-                ))}
-              </select>
-            </>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              type="button"
+              onClick={onPrev}
+              disabled={!canGoPrev}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #ddd",
+                background: canGoPrev ? "white" : "#f3f4f6",
+                cursor: canGoPrev ? "pointer" : "not-allowed",
+              }}
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              onClick={onNext}
+              disabled={!canGoNext}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #ddd",
+                background: canGoNext ? "white" : "#f3f4f6",
+                cursor: canGoNext ? "pointer" : "not-allowed",
+              }}
+            >
+              Next
+            </button>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "#555",
+            }}
+          >
+            <span>
+              Showing {rows.length} · Limit {pagination.limit} · Offset{" "}
+              {pagination.skip}
+              {pagination.total != null ? ` · Total ${pagination.total}` : ""}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
