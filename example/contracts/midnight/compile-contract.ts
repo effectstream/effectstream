@@ -28,7 +28,7 @@ function getCurrentPlatform(): string {
   throw new Error(`Unsupported platform: ${os} ${arch}`);
 }
 
-// Download and extract compactc binary
+/* Download and extract compactc binary */
 async function downloadAndExtractCompactc(platform: string): Promise<void> {
   const baseUrl =
     "https://d3fazakqrumx6p.cloudfront.net/artifacts/compiler/compactc_0.24.0";
