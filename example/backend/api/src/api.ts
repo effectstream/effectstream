@@ -44,23 +44,18 @@ export const apiRouter: StartConfigApiRouter = async function (
     },
   }, async (request) => {
     const blockHeight = request.params.blockHeight;
-
     if (blockHeight) {
-      const data = await runPreparedQuery(
+      return await runPreparedQuery(
         getStateMachineInputByBlockHeight.run({
           block_height: blockHeight,
         }, dbConn),
         "getStateMachineInputByBlockHeight",
       );
-
-      return data;
     } else {
-      const data = await runPreparedQuery(
+      return await runPreparedQuery(
         getStateMachineInput.run(undefined, dbConn),
         "getStateMachineInput",
       );
-
-      return data;
     }
   });
 };

@@ -223,10 +223,8 @@ export const startHttpServer = function* (
   server.get("/debug/sync-protocols", {
     schema: {
       tags: ["developer"],
-      querystring: PaginationQuerySchema,
       response: {
-        // Simplified representation of the sync protocol.
-        200: createPaginatedResponseSchema(Type.Object({
+        200: Type.Array(Type.Object({
           fetcher: Type.Object({}, { additionalProperties: true }),
           pageRelation: Type.Object({}, { additionalProperties: true }),
           bufferedData: Type.Object({}, { additionalProperties: true }),
@@ -237,10 +235,9 @@ export const startHttpServer = function* (
         }, { additionalProperties: true })),
       },
     },
-  }, (request) => {
-    const { limit, skip } = getPaginationParams(request);
+  }, () => {
     const cleanedProtocols = clearBigInts(syncProtocols);
-    return paginateArray(cleanedProtocols, limit, skip);
+    return cleanedProtocols;
   });
 
   // TODO This is dev only endpoint to monitor sync protocols.
