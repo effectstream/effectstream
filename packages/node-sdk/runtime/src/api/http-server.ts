@@ -341,9 +341,8 @@ export const startHttpServer = function* (
   server.get("/table-schema/:tableName", {
     schema: {
       tags: ["developer"],
-      querystring: PaginationQuerySchema,
       response: {
-        200: createPaginatedResponseSchema(Type.Object({
+        200: Type.Array(Type.Object({
           column_name: Type.String(),
           data_type: Type.String(),
           character_maximum_length: Type.Number({ nullable: true }),
@@ -353,20 +352,17 @@ export const startHttpServer = function* (
       },
     },
   }, async (
-    request: FastifyRequest<
-      { Params: { tableName: string }; Querystring: any }
-    >,
+    request: FastifyRequest<{ Params: { tableName: string } }>,
     _,
   ) => {
     const { tableName } = request.params;
-    const { limit, skip } = getPaginationParams(request);
 
     const result = await runPreparedQuery(
       getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
       "table-schema",
     );
 
-    return paginateArray(result, limit, skip);
+    return result;
   });
 
   // TODO This is a temporary function to allow unsafe SQL queries.
@@ -488,9 +484,8 @@ export const startHttpServer = function* (
   server.get("/primitives-schema/:primitiveName", {
     schema: {
       tags: ["developer"],
-      querystring: PaginationQuerySchema,
       response: {
-        200: createPaginatedResponseSchema(Type.Object({
+        200: Type.Array(Type.Object({
           column_name: Type.String(),
           data_type: Type.String(),
           character_maximum_length: Type.Number({ nullable: true }),
@@ -500,13 +495,10 @@ export const startHttpServer = function* (
       },
     },
   }, async (
-    request: FastifyRequest<
-      { Params: { primitiveName: string }; Querystring: any }
-    >,
+    request: FastifyRequest<{ Params: { primitiveName: string } }>,
     reply,
   ) => {
     const { primitiveName } = request.params;
-    const { limit, skip } = getPaginationParams(request);
     const prefix = getPrimitivePrefixWrapper(primitiveName);
     if (!prefix) {
       return reply.status(404).send({
@@ -519,7 +511,7 @@ export const startHttpServer = function* (
       }, dbConn),
       "primitives-schema",
     );
-    return paginateArray(result, limit, skip);
+    return result;
   });
 
   server.get(
