@@ -6,6 +6,10 @@ import {
 import { ComponentNames } from "@paima/log";
 import { Value } from "@sinclair/typebox/value";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
+import { launchAvail } from "./launch-avail.ts";
+import { launchCardano } from "./launch-cardano.ts";
+import { launchEvm } from "./launch-evm.ts";
+import { launchMidnight } from "./launch-midnight.ts";
 
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
@@ -17,166 +21,12 @@ const config = Value.Parse(OrchestratorConfig, {
   packageName: "@paima",
 
   // Launch my processes
-  processesToLaunch: [{
-    // Start EVM (Hardhat) Chains and deploy contracts.
-    stopProcessAtPort: [8545, 8546],
-    processes: [
-      {
-        name: ComponentNames.HARDHAT,
-        args: ["task", "-f", "@e2e/evm-contracts", "chain:start"],
-        waitToExit: false,
-        logs: "otel-compatible",
-        type: "system-dependency",
-      },
-      {
-        name: ComponentNames.HARDHAT_WAIT,
-        args: ["task", "-f", "@e2e/evm-contracts", "chain:wait"],
-      },
-      {
-        name: ComponentNames.DEPLOY_EVM_CONTRACTS,
-        args: ["task", "-f", "@e2e/evm-contracts", "deploy"],
-        type: "system-dependency",
-      },
-    ],
-  }, {
-    // TODO "stopProcessAtPort" is a workaround to kill any processes that are still running from a previous run.
-    // Cardano processes 8090, 10000. Do not terminate cleanly.
-    // Unfortunately required because of https://github.com/bloxbean/yaci-devkit/issues/94
-    stopProcessAtPort: [8090, 10000, 50051, 3001],
-    processes: [
-      {
-        name: ComponentNames.YACI_DEVKIT,
-        args: ["task", "-f", "@e2e/cardano-contracts", "devkit:start"],
-        waitToExit: false,
-        logs: "otel-compatible",
-        type: "system-dependency",
-      },
-      {
-        name: ComponentNames.YACI_DEVKIT_WAIT,
-        args: ["task", "-f", "@e2e/cardano-contracts", "devkit:wait"],
-      },
-      {
-        name: ComponentNames.DOLOS,
-        args: ["task", "-f", "@e2e/cardano-contracts", "dolos:start"],
-        waitToExit: false,
-        type: "system-dependency",
-      },
-      {
-        name: ComponentNames.DOLOS_WAIT,
-        args: ["task", "-f", "@e2e/cardano-contracts", "dolos:wait"],
-      },
-    ],
-  }, {
-    stopProcessAtPort: [9944, 8088, 6300],
-    processes: [
-      {
-        name: ComponentNames.MIDNIGHT_NODE,
-        args: [
-          "task",
-          "-f",
-          "@e2e/midnight-contracts",
-          "midnight-node:start",
-        ],
-        logs: "none",
-        waitToExit: false,
-        type: "system-dependency",
-      },
-      {
-        name: ComponentNames.MIDNIGHT_INDEXER,
-        args: [
-          "task",
-          "-f",
-          "@e2e/midnight-contracts",
-          "midnight-indexer:start",
-        ],
-        waitToExit: false,
-        type: "system-dependency",
-      },
-      {
-        name: ComponentNames.MIDNIGHT_PROOF_SERVER,
-        args: [
-          "task",
-          "-f",
-          "@e2e/midnight-contracts",
-          "midnight-proof-server:start",
-        ],
-        waitToExit: false,
-        type: "system-dependency",
-      },
-      {
-        name: ComponentNames.MIDNIGHT_NODE_WAIT,
-        args: [
-          "task",
-          "-f",
-          "@e2e/midnight-contracts",
-          "midnight-node:wait",
-        ],
-      },
-      {
-        name: ComponentNames.MIDNIGHT_INDEXER_WAIT,
-        args: [
-          "task",
-          "-f",
-          "@e2e/midnight-contracts",
-          "midnight-indexer:wait",
-        ],
-      },
-      {
-        name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
-        args: [
-          "task",
-          "-f",
-          "@e2e/midnight-contracts",
-          "midnight-proof-server:wait",
-        ],
-      },
-      {
-        name: ComponentNames.MIDNIGHT_CONTRACT,
-        args: [
-          "task",
-          "-f",
-          "@e2e/midnight-contracts",
-          "midnight-contract:deploy",
-        ],
-      },
-    ],
-  } // // Uncomment to enable Avail Process
-    // // Note: Check ports as 9944 is used by Midnight Node by default in the lace wallet
-    //  {
-    //   stopProcessAtPort: [9944, 7007],
-    //   processes: [
-    //     {
-    //       name: ComponentNames.AVAIL_NODE,
-    //       args: ["task", "-f", "@e2e/avail-contracts", "avail-node:start"],
-    //       waitToExit: false,
-    //       logs: "none",
-    //       type: "system-dependency",
-    //     },
-    //     {
-    //       name: ComponentNames.AVAIL_CLIENT,
-    //       args: [
-    //         "task",
-    //         "-f",
-    //         "@e2e/avail-contracts",
-    //         "avail-light-client:start",
-    //       ],
-    //       waitToExit: false,
-    //       type: "system-dependency",
-    //     },
-    //     {
-    //       name: ComponentNames.AVAIL_NODE_WAIT,
-    //       args: ["task", "-f", "@e2e/avail-contracts", "avail-node:wait"],
-    //     },
-    //     {
-    //       name: ComponentNames.AVAIL_CLIENT_WAIT,
-    //       args: [
-    //         "task",
-    //         "-f",
-    //         "@e2e/avail-contracts",
-    //         "avail-light-client:wait",
-    //       ],
-    //     },
-    //   ],
+  processesToLaunch: [
+    launchEvm,
+    launchCardano,
+    launchMidnight,
+    // Uncomment to enable Avail Process
+    // launchAvail
   ],
 
   // Launch the Batcher with our PaimaL2 Contract
