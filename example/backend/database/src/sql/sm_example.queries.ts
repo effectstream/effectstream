@@ -48,10 +48,7 @@ export const insertStateMachineInput = new PreparedQuery<
 >(insertStateMachineInputIR);
 
 /** 'GetStateMachineInput' parameters type */
-export interface IGetStateMachineInputParams {
-  limit?: number;
-  skip?: number;
-}
+export type IGetStateMachineInputParams = void;
 
 /** 'GetStateMachineInput' return type */
 export interface IGetStateMachineInputResult {
@@ -67,20 +64,9 @@ export interface IGetStateMachineInputQuery {
 }
 
 const getStateMachineInputIR: any = {
-  "usedParamSet": { "limit": true, "skip": true },
-  "params": [{
-    "name": "limit",
-    "required": false,
-    "transform": { "type": "scalar" },
-    "locs": [{ "a": 73, "b": 78 }],
-  }, {
-    "name": "skip",
-    "required": false,
-    "transform": { "type": "scalar" },
-    "locs": [{ "a": 100, "b": 104 }],
-  }],
-  "statement":
-    "SELECT * FROM user_state_machine \nORDER BY id ASC\nLIMIT COALESCE(:limit, 999999) OFFSET COALESCE(:skip, 0)",
+  "usedParamSet": {},
+  "params": [],
+  "statement": "SELECT * FROM user_state_machine \nORDER BY id ASC",
 };
 
 /**
@@ -97,8 +83,6 @@ export const getStateMachineInput = new PreparedQuery<
 /** 'GetStateMachineInputByBlockHeight' parameters type */
 export interface IGetStateMachineInputByBlockHeightParams {
   block_height: number;
-  limit?: number;
-  skip?: number;
 }
 
 /** 'GetStateMachineInputByBlockHeight' return type */
@@ -115,25 +99,15 @@ export interface IGetStateMachineInputByBlockHeightQuery {
 }
 
 const getStateMachineInputByBlockHeightIR: any = {
-  "usedParamSet": { "block_height": true, "limit": true, "skip": true },
+  "usedParamSet": { "block_height": true },
   "params": [{
     "name": "block_height",
     "required": true,
     "transform": { "type": "scalar" },
     "locs": [{ "a": 55, "b": 68 }],
-  }, {
-    "name": "limit",
-    "required": false,
-    "transform": { "type": "scalar" },
-    "locs": [{ "a": 106, "b": 111 }],
-  }, {
-    "name": "skip",
-    "required": false,
-    "transform": { "type": "scalar" },
-    "locs": [{ "a": 133, "b": 137 }],
   }],
   "statement":
-    "SELECT * FROM user_state_machine \nWHERE block_height = :block_height!\nORDER BY id ASC\nLIMIT COALESCE(:limit, 999999) OFFSET COALESCE(:skip, 0)",
+    "SELECT * FROM user_state_machine \nWHERE block_height = :block_height!\nORDER BY id ASC",
 };
 
 /**
@@ -147,77 +121,6 @@ export const getStateMachineInputByBlockHeight = new PreparedQuery<
   IGetStateMachineInputByBlockHeightParams,
   IGetStateMachineInputByBlockHeightResult
 >(getStateMachineInputByBlockHeightIR);
-
-/** 'GetStateMachineInputCount' parameters type */
-export type IGetStateMachineInputCountParams = void;
-
-/** 'GetStateMachineInputCount' return type */
-export interface IGetStateMachineInputCountResult {
-  total: number;
-}
-
-/** 'GetStateMachineInputCount' query type */
-export interface IGetStateMachineInputCountQuery {
-  params: IGetStateMachineInputCountParams;
-  result: IGetStateMachineInputCountResult;
-}
-
-const getStateMachineInputCountIR: any = {
-  "usedParamSet": {},
-  "params": [],
-  "statement": "SELECT COUNT(*) as total FROM user_state_machine",
-};
-
-/**
- * Query generated from SQL:
- * ```
- * SELECT COUNT(*) as total FROM user_state_machine
- * ```
- */
-export const getStateMachineInputCount = new PreparedQuery<
-  IGetStateMachineInputCountParams,
-  IGetStateMachineInputCountResult
->(getStateMachineInputCountIR);
-
-/** 'GetStateMachineInputByBlockHeightCount' parameters type */
-export interface IGetStateMachineInputByBlockHeightCountParams {
-  block_height: number;
-}
-
-/** 'GetStateMachineInputByBlockHeightCount' return type */
-export interface IGetStateMachineInputByBlockHeightCountResult {
-  total: number;
-}
-
-/** 'GetStateMachineInputByBlockHeightCount' query type */
-export interface IGetStateMachineInputByBlockHeightCountQuery {
-  params: IGetStateMachineInputByBlockHeightCountParams;
-  result: IGetStateMachineInputByBlockHeightCountResult;
-}
-
-const getStateMachineInputByBlockHeightCountIR: any = {
-  "usedParamSet": { "block_height": true },
-  "params": [{
-    "name": "block_height",
-    "required": true,
-    "transform": { "type": "scalar" },
-    "locs": [{ "a": 55, "b": 68 }],
-  }],
-  "statement":
-    "SELECT COUNT(*) as total FROM user_state_machine \nWHERE block_height = :block_height!",
-};
-
-/**
- * Query generated from SQL:
- * ```
- * SELECT COUNT(*) as total FROM user_state_machine
- * WHERE block_height = :block_height!
- * ```
- */
-export const getStateMachineInputByBlockHeightCount = new PreparedQuery<
-  IGetStateMachineInputByBlockHeightCountParams,
-  IGetStateMachineInputByBlockHeightCountResult
->(getStateMachineInputByBlockHeightCountIR);
 
 /** 'GetLastSumFromExampleTable' parameters type */
 export type IGetLastSumFromExampleTableParams = void;

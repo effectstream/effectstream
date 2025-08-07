@@ -6,26 +6,17 @@ VALUES
 ;
 
 /* @name getStateMachineInput */
-SELECT * FROM user_state_machine 
+SELECT * FROM user_state_machine
 ORDER BY id ASC
-LIMIT COALESCE(:limit, 999999) OFFSET COALESCE(:skip, 0)
 ;
 
 /* @name getStateMachineInputByBlockHeight */
-SELECT * FROM user_state_machine 
+SELECT * FROM user_state_machine
 WHERE block_height = :block_height!
 ORDER BY id ASC
-LIMIT COALESCE(:limit, 999999) OFFSET COALESCE(:skip, 0)
 ;
 
-/* @name getStateMachineInputCount */
-SELECT COUNT(*) as total FROM user_state_machine
-;
 
-/* @name getStateMachineInputByBlockHeightCount */
-SELECT COUNT(*) as total FROM user_state_machine 
-WHERE block_height = :block_height!
-;
 
 /* @name getLastSumFromExampleTable */
 SELECT sum FROM another_example_table 
