@@ -10,9 +10,19 @@ interface TableData {
   fields: Field[];
 }
 
+interface PaginationMeta {
+  limit: number;
+  skip: number;
+  total?: number | null;
+}
+
 interface DataTableProps {
   title: string;
   data: TableData | null;
+  pagination?: PaginationMeta;
+  onPrev?: () => void;
+  onNext?: () => void;
+  onLimitChange?: (limit: number) => void;
 }
 
 function formatCellValue(value: any, fieldName: string): string {
@@ -49,11 +59,18 @@ function formatCellValue(value: any, fieldName: string): string {
   return value.toString();
 }
 
-export function DataTable({ title, data }: DataTableProps) {
+export function DataTable(
+  { title, data, pagination, onPrev, onNext, onLimitChange }: DataTableProps,
+) {
   // Always show the table container with title
   const hasData = data && data.rows && data.fields && data.rows.length > 0;
   const fields = data?.fields || [];
   const rows = data?.rows || [];
+  const canGoPrev = !!pagination && pagination.skip > 0;
+  const canGoNext = !!pagination &&
+    (pagination.total == null
+      ? rows.length > 0
+      : (pagination.skip + pagination.limit) < (pagination.total ?? 0));
 
   return (
     <div
@@ -98,6 +115,77 @@ export function DataTable({ title, data }: DataTableProps) {
             </tbody>
           </table>
         )}
+      {/* Pagination Controls */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginTop: 8,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            onClick={onPrev}
+            disabled={!canGoPrev}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid #ddd",
+              background: canGoPrev ? "white" : "#f3f4f6",
+              cursor: canGoPrev ? "pointer" : "not-allowed",
+            }}
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!canGoNext}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid #ddd",
+              background: canGoNext ? "white" : "#f3f4f6",
+              cursor: canGoNext ? "pointer" : "not-allowed",
+            }}
+          >
+            Next
+          </button>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            color: "#555",
+          }}
+        >
+          {pagination && (
+            <>
+              <span>
+                Showing {rows.length} · Limit {pagination.limit} · Offset{" "}
+                {pagination.skip}
+                {pagination.total != null ? ` · Total ${pagination.total}` : ""}
+              </span>
+              <select
+                value={pagination.limit}
+                onChange={(e) => onLimitChange?.(parseInt(e.target.value))}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
+                }}
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>{n} per page</option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
