@@ -4,7 +4,7 @@ import { erc20Ivm } from "./ivm/erc20-ivm.ts";
 import { erc721Ivm } from "./ivm/erc721-ivm.ts";
 // import type { AllSyncProtocols } from "@paima/sync";
 import type { PoolClient } from "pg";
-import { aquireDBMutex, releaseDBMutex } from "@paima/db";
+import { acquireDBMutex, releaseDBMutex } from "@paima/db";
 
 /**
  * Creates dynamic tables for the given sync protocols.
@@ -21,7 +21,7 @@ export function* createDynamicTables(
   syncProtocols: any[], //AllSyncProtocols[],
 ) {
   try {
-    yield* aquireDBMutex("creating-dynamic-tables");
+    yield* acquireDBMutex("creating-dynamic-tables");
     for (const syncProtocol of syncProtocols) {
       for (const primitive of syncProtocol.config.primitives) {
         switch (primitive.primitive.type) {
@@ -38,7 +38,7 @@ export function* createDynamicTables(
       }
     }
   } finally {
-    releaseDBMutex();
+    releaseDBMutex("creating-dynamic-tables");
   }
 }
 

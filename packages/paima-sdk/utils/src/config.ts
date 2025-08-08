@@ -179,7 +179,7 @@ const definitions = {
     key: "DEBUG_PGLITE",
     isSecret: false,
     type: "number",
-    defaultValue: undefined,
+    defaultValue: 1,
     description: "Enable PGLite Debug/Verbose mode. Example: '1'",
   },
   OTEL_COLLECTOR_PORT: {

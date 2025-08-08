@@ -123,7 +123,11 @@ export async function getDBConnection(): Promise<Client> {
     let didLock = false;
     let isReady = false;
     try {
-      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      console.error("acquiring lock");
+      await fetch(
+        `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=e2e-loader`,
+      );
+      console.error("lock acquired");
       didLock = true;
       await db.query(
         `SELECT id FROM public.primitive_accounting LIMIT 1`,
@@ -131,7 +135,11 @@ export async function getDBConnection(): Promise<Client> {
       isReady = true;
     } finally {
       if (didLock) {
-        await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
+        console.error("releasing lock");
+        await fetch(
+          `http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock?name=e2e-loader`,
+        );
+        console.error("lock released");
       }
     }
     if (isReady) {

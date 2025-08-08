@@ -14105,19 +14105,19 @@
           ]
         }
       },
-      "example/backend/api": {
+      "e2e/backend/api": {
         "dependencies": [
           "npm:@sinclair/typebox@~0.34.30",
           "npm:fastify@^5.4.0",
           "npm:pg@^8.14.0"
         ]
       },
-      "example/backend/database": {
+      "e2e/backend/database": {
         "dependencies": [
           "npm:@pgtyped/runtime@2.4.2"
         ]
       },
-      "example/client/node": {
+      "e2e/client/node": {
         "dependencies": [
           "npm:@sinclair/typebox@~0.34.30",
           "npm:effection@^3.5.0",
@@ -14125,7 +14125,7 @@
           "npm:viem@^2.21.3"
         ]
       },
-      "example/contracts/cardano": {
+      "e2e/contracts/cardano": {
         "dependencies": [
           "jsr:@std/toml@*",
           "npm:@bloxbean/yaci-devkit@0.10.6",
@@ -14137,7 +14137,7 @@
           ]
         }
       },
-      "example/contracts/evm": {
+      "e2e/contracts/evm": {
         "dependencies": [
           "npm:@nomicfoundation/hardhat-errors@3.0.0-next.20",
           "npm:@nomicfoundation/hardhat-ignition-viem@3.0.0-next.20",
@@ -14159,7 +14159,7 @@
           ]
         }
       },
-      "example/contracts/midnight": {
+      "e2e/contracts/midnight": {
         "dependencies": [
           "jsr:@std/fs@*",
           "jsr:@std/path@*",
@@ -14180,7 +14180,7 @@
           "npm:ws@*"
         ]
       },
-      "example/shared/data-types": {
+      "e2e/shared/data-types": {
         "dependencies": [
           "npm:@sinclair/typebox@~0.34.30",
           "npm:viem@^2.21.3"

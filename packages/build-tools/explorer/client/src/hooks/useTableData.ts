@@ -66,6 +66,11 @@ export function useTableData() {
   const primitiveSchemasRef = useRef<Record<string, SchemaColumn[]>>({});
   const staticTableSchemasRef = useRef<Record<string, SchemaColumn[]>>({});
 
+  // Cache primitives whose schema 404s so we never re-request
+  const unavailablePrimitiveSchemasRef = useRef<Set<string>>(new Set());
+  // Cache primitives whose data 404s so we never re-request
+  const unavailablePrimitiveDataRef = useRef<Set<string>>(new Set());
+
   // Update refs whenever state changes
   useEffect(() => {
     primitiveNamesRef.current = primitiveNames;
@@ -158,6 +163,17 @@ export function useTableData() {
   const fetchPrimitiveSchema = useCallback(
     async (primitiveName: string): Promise<SchemaColumn[] | null> => {
       try {
+        // Short-circuit if we already know this primitive has no aggregated data
+        if (unavailablePrimitiveSchemasRef.current.has(primitiveName)) {
+          return null;
+        }
+
+        // Return cached schema if already fetched
+        const cached = primitiveSchemasRef.current[primitiveName];
+        if (cached) {
+          return cached;
+        }
+
         const response = await fetch(
           `${PRIMITIVES_SCHEMA_ENDPOINT}/${primitiveName}`,
         );
@@ -166,6 +182,8 @@ export function useTableData() {
             console.log(
               `🚫 Schema for primitive ${primitiveName} not found (404)`,
             );
+            // Mark as permanently unavailable for this session
+            unavailablePrimitiveSchemasRef.current.add(primitiveName);
             return null;
           }
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -252,10 +270,17 @@ export function useTableData() {
   const fetchPrimitiveData = useCallback(
     async (primitiveName: string, schema?: SchemaColumn[]) => {
       try {
+        // Short-circuit if we already know this primitive has no aggregated data
+        if (unavailablePrimitiveDataRef.current.has(primitiveName)) {
+          return null;
+        }
+
         const response = await fetch(`${PRIMITIVES_ENDPOINT}/${primitiveName}`);
         if (!response.ok) {
           if (response.status === 404) {
             console.log(`🚫 Primitive ${primitiveName} not found (404)`);
+            // Mark as permanently unavailable for this session
+            unavailablePrimitiveDataRef.current.add(primitiveName);
             return null;
           }
           throw new Error(`HTTP error! status: ${response.status}`);
