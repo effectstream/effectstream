@@ -73,6 +73,12 @@ export function DataTable(
       : (pagination.skip + pagination.limit) < (pagination.total ?? 0));
   const hideControls = !!pagination && pagination.skip === 0 &&
     rows.length < pagination.limit;
+  const currentPage = pagination
+    ? Math.floor(pagination.skip / pagination.limit) + 1
+    : 1;
+  const totalPages = pagination?.total != null
+    ? Math.max(1, Math.ceil((pagination.total as number) / pagination.limit))
+    : undefined;
 
   return (
     <div
@@ -166,9 +172,8 @@ export function DataTable(
             }}
           >
             <span>
-              Showing {rows.length} · Limit {pagination.limit} · Offset{" "}
-              {pagination.skip}
-              {pagination.total != null ? ` · Total ${pagination.total}` : ""}
+              Page {String(currentPage).padStart(2, "0")}{" "}
+              {totalPages ? `of ${totalPages}` : ""}
             </span>
           </div>
         </div>

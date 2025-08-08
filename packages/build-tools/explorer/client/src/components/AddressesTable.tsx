@@ -56,6 +56,7 @@ async function createSignedInput(gameInput: string, walletInfo: WalletInfo) {
   );
 
   const signature = await walletClient.signMessage({
+    account,
     message,
   });
 
@@ -280,6 +281,7 @@ export function AddressesTable() {
       String(selectedAccountId)
     }:${unlinkAddress.toString().toLowerCase().trim()}:`;
     const signature = await walletClient.signMessage({
+      account: privateKeyToAccount(selectedWallet.privateKey),
       message,
     });
     try {
@@ -350,11 +352,13 @@ export function AddressesTable() {
       const linkMessage =
         `link:${selectedAccountId}:${selectedLinkWallet.address.toString().toLowerCase().trim()}:false`;
       const primarySignature = await walletClient.signMessage({
+        account: privateKeyToAccount(selectedWallet.privateKey),
         message: linkMessage,
       });
       const newAddressMessage =
         `link:${selectedAccountId}:${selectedWallet.address.toString().toLowerCase().trim()}:false`;
       const newAddressSignature = await linkWalletClient.signMessage({
+        account: privateKeyToAccount(selectedLinkWallet.privateKey),
         message: newAddressMessage,
       });
 
@@ -1333,8 +1337,15 @@ export function AddressesTable() {
               }}
             >
               <span>
-                Showing {addresses.length} · Limit {limit} · Offset {skip}
-                {total != null ? ` · Total ${total}` : ""}
+                {(() => {
+                  const currentPage = Math.floor(skip / limit) + 1;
+                  const totalPages = total != null
+                    ? Math.max(1, Math.ceil(total / limit))
+                    : undefined;
+                  return `Page ${String(currentPage).padStart(2, "0")} ${
+                    totalPages ? `of ${totalPages}` : ""
+                  }`;
+                })()}
               </span>
             </div>
           </div>
