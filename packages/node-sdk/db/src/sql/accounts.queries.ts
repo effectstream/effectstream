@@ -392,20 +392,10 @@ export interface IGetAllAddressesQuery {
 }
 
 const getAllAddressesIR: any = {
-  "usedParamSet": { "limit": true, "skip": true },
-  "params": [{
-    "name": "limit",
-    "required": false,
-    "transform": { "type": "scalar" },
-    "locs": [{ "a": 148, "b": 153 }],
-  }, {
-    "name": "skip",
-    "required": false,
-    "transform": { "type": "scalar" },
-    "locs": [{ "a": 175, "b": 179 }],
-  }],
+  "usedParamSet": {},
+  "params": [],
   "statement":
-    'SELECT \n    addresses.address as "address", \n    addresses.account_id as "account_id",\n    accounts.primary_address as "primary_address"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nORDER BY addresses.account_id\nLIMIT COALESCE(:limit, 999999) OFFSET COALESCE(:skip, 0)',
+    'SELECT \n    addresses.address as "address", \n    addresses.account_id as "account_id",\n    accounts.primary_address as "primary_address"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nORDER BY addresses.account_id',
 };
 
 /**
@@ -418,7 +408,6 @@ const getAllAddressesIR: any = {
  * FROM addresses
  * LEFT JOIN accounts ON accounts.primary_address = addresses.address
  * ORDER BY addresses.account_id
- * LIMIT :limit! OFFSET :skip!
  * ```
  */
 export const getAllAddresses = new PreparedQuery<

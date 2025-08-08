@@ -1,11 +1,14 @@
 #!/usr/bin/env -S deno run -A
 import { waitForDb } from "./wait-for-db.ts";
+import { dirname, join } from "jsr:@std/path@1.1.1";
 
 async function runPgtyped() {
   try {
     console.log("🔄 Running pgtyped...");
+    const __dirname = dirname(import.meta.url.replace("file://", ""));
+    const configPath = join(__dirname, "../pgtypedconfig.json");
     const command = new Deno.Command("npx", {
-      args: ["pgtyped", "-c", "./pgtypedconfig.json"],
+      args: ["pgtyped", "-c", configPath],
       stdout: "inherit",
       stderr: "inherit",
     });

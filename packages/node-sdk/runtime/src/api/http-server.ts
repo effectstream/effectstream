@@ -29,8 +29,6 @@ import {
   createPaginatedResponseSchema,
   createPaginationMeta,
   getPaginationParams,
-  paginateArray,
-  type PaginatedResponse,
   PaginationQuerySchema,
 } from "./pagination.ts";
 
@@ -134,6 +132,7 @@ export const startHttpServer = function* (
   apiRouter?: StartConfigApiRouter,
   grammar?: GrammarDefinition,
 ) {
+  // Use dbConn directly; queries are executed via pgtyped PreparedQuery.run
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.
   const server = fastify();
@@ -179,38 +178,34 @@ export const startHttpServer = function* (
     },
   }, async (request) => {
     const { limit, skip, count } = getPaginationParams(request);
-    const query = request.query as any;
 
-    // Only pass pagination params if they were provided in the request
+    const query = request.query as any;
     const paginationParams =
       (query.limit !== undefined || query.skip !== undefined)
         ? { limit, skip }
         : {};
 
-    // Only run count query if explicitly requested
     const addressesPromise = runPreparedQuery(
-      getAllAddresses.run(paginationParams, dbConn),
+      getAllAddresses.run(paginationParams as any, dbConn as any),
       "addresses",
     );
 
     const countPromise = count
       ? runPreparedQuery(
-        getAllAddressesCount.run(undefined, dbConn),
+        getAllAddressesCount.run(undefined, dbConn as any),
         "addresses-count",
       )
       : undefined;
 
-    // countPromise can be undefined – Promise.all treats non-Promises as already resolved
     const [addresses, countResult] = await Promise.all([
       addressesPromise,
       countPromise,
     ]);
 
-    const total = countResult?.[0]?.total;
     const pagination = createPaginationMeta(
       limit,
       skip,
-      total,
+      countResult?.[0]?.total,
       addresses.length,
     );
 
@@ -295,38 +290,34 @@ export const startHttpServer = function* (
     },
   }, async (request) => {
     const { limit, skip, count } = getPaginationParams(request);
-    const query = request.query as any;
 
-    // Only pass pagination params if they were provided in the request
+    const query = request.query as any;
     const paginationParams =
       (query.limit !== undefined || query.skip !== undefined)
         ? { limit, skip }
         : {};
 
-    // Only run count query if explicitly requested
     const scheduledDataPromise = runPreparedQuery(
-      getAllScheduledData.run(paginationParams, dbConn),
+      getAllScheduledData.run(paginationParams as any, dbConn as any),
       "scheduled-data",
     );
 
     const countPromise = count
       ? runPreparedQuery(
-        getAllScheduledDataCount.run(undefined, dbConn),
+        getAllScheduledDataCount.run(undefined, dbConn as any),
         "scheduled-data-count",
       )
       : undefined;
 
-    // countPromise can be undefined – Promise.all treats non-Promises as already resolved
     const [scheduledData, countResult] = await Promise.all([
       scheduledDataPromise,
       countPromise,
     ]);
 
-    const total = countResult?.[0]?.total;
     const pagination = createPaginationMeta(
       limit,
       skip,
-      total,
+      countResult?.[0]?.total,
       scheduledData.length,
     );
 
@@ -357,7 +348,7 @@ export const startHttpServer = function* (
     const { tableName } = request.params;
 
     const result = await runPreparedQuery(
-      getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
+      getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn as any),
       "table-schema",
     );
 
@@ -507,7 +498,7 @@ export const startHttpServer = function* (
     const result = await runPreparedQuery(
       getTableSchema.run({
         tableName: `${prefix}${primitiveName.toLowerCase()}`,
-      }, dbConn),
+      }, dbConn as any),
       "primitives-schema",
     );
     return result;
