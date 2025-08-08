@@ -1,9 +1,11 @@
 ---
 sidebar_position: 2
-slug: /intro
+slug: /what-is-paima-engine
 ---
 
 # What is Paima Engine?
+
+> NOTE This is from Paima Engine V1 and might need updating.
 
 Paima is a Web3 Engine optimized for games, gamification and autonomous worlds that allows building web3 applications in just days
 
