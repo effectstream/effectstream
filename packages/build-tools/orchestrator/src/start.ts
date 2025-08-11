@@ -178,7 +178,7 @@ export async function start(
       startProcess[ComponentNames.DOCS],
       config.processes[ComponentNames.PAIMA_PGLITE] &&
       startProcess[ComponentNames.PAIMA_PGLITE],
-      // config.processes[ComponentNames.APPLY_MIGRATIONS] &&
+      config.processes[ComponentNames.APPLY_MIGRATIONS] &&
       startProcess[ComponentNames.APPLY_MIGRATIONS],
     ]);
 
