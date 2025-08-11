@@ -96,7 +96,7 @@ export const OrchestratorConfig = Type.Object({
 
     // Dev Tools
     [ComponentNames.CHECKER]: Type.Boolean({ default: true }),
-    [ComponentNames.PAIMA_DB]: Type.Boolean({ default: false }),
+    [ComponentNames.PAIMA_PGLITE]: Type.Boolean({ default: false }),
     [ComponentNames.TMUX]: Type.Boolean({ default: true }),
 
     // DevOps
@@ -176,8 +176,10 @@ export async function start(
     processesToLaunch.push([
       config.processes[ComponentNames.DOCS] &&
       startProcess[ComponentNames.DOCS],
-      config.processes[ComponentNames.PAIMA_DB] &&
-      startProcess[ComponentNames.PAIMA_DB],
+      config.processes[ComponentNames.PAIMA_PGLITE] &&
+      startProcess[ComponentNames.PAIMA_PGLITE],
+      // config.processes[ComponentNames.APPLY_MIGRATIONS] &&
+      startProcess[ComponentNames.APPLY_MIGRATIONS],
     ]);
 
     // Al main system dependencies are launched.
@@ -555,7 +557,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     return availClient;
   },
 
-  [ComponentNames.PAIMA_DB]: async (): Promise<ProcessComponent> => {
+  [ComponentNames.PAIMA_PGLITE]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
       await dkill({ ports: [ENV.DB_PORT] });
     }
@@ -570,7 +572,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         String(ENV.DB_PORT),
       ],
       log: logHandler,
-      component: ComponentNames.PAIMA_DB,
+      component: ComponentNames.PAIMA_PGLITE,
       abortController: abortControllers.system,
     });
     void paimaDb.process.status; // need to await sub-service start below
@@ -580,5 +582,19 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     })).spawn().status;
 
     return paimaDb;
+  },
+
+  [ComponentNames.APPLY_MIGRATIONS]: async (): Promise<ProcessComponent> => {
+    const externalPaimaDb = $({
+      args: [
+        "run",
+        "-A",
+        config.packageName + "/db/apply-migrations",
+      ],
+      component: ComponentNames.APPLY_MIGRATIONS,
+      abortController: abortControllers.system,
+    });
+    await externalPaimaDb.process.status;
+    return externalPaimaDb;
   },
 });

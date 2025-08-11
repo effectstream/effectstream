@@ -9,9 +9,7 @@ let readonlyDBConn: pg.Pool | null;
 // PGLite does not support multiple connections, so we need to use a mutex to ensure that only one query is executed at a time.
 // * For transactions use yield* aquireDBMutex(); ...Your Operations... releaseDBMutex();
 // * For single queries use await runPreparedQuery(myQuery.run(params, dbConn));
-// IMPORTANT: This is only for PGLite instances, for full pgsql servers, this is not needed.
-const IS_PGLITE = true; // TODO: make this configurable
-
+// IMPORTANT: This is only for PGLite instances, for full pgsql servers, this is not needed.0
 // TODO This is a very simple mutex implementation.
 //      It releases the mutex randomly, and not in order.
 //      It only works for deno's single-threaded runtime.
@@ -24,7 +22,7 @@ let db_mutex: "free" | "locked" = "free";
  * Always run run `releaseDBMutex()` after the query locks no longer needed, other threads are blocked until the mutex is released.
  */
 export function* aquireDBMutex(_: string): Operation<void> {
-  if (!IS_PGLITE) return;
+  if (!ENV.PGLITE) return;
   while (true) {
     if (db_mutex === "free") {
       db_mutex = "locked";
@@ -55,7 +53,7 @@ export async function runPreparedQuery<T>(
 ): Promise<T> {
   let result: T;
   try {
-    if (IS_PGLITE) {
+    if (ENV.PGLITE) {
       await run(() => aquireDBMutex(`pq:${name}`));
     }
     result = await p;
@@ -73,7 +71,7 @@ export const getConnection = (
     creds = {
       host: ENV.DB_HOST,
       user: ENV.DB_USER,
-      password: ENV.DB_PW,
+      password: ENV.PGLITE ? undefined : ENV.DB_PW,
       database: ENV.DB_NAME,
       port: ENV.DB_PORT,
     };
@@ -81,12 +79,12 @@ export const getConnection = (
   if (readonly && readonlyDBConn) return readonlyDBConn;
 
   // TODO: make this configurable for non pglite instances
-  const MAX_CONNECTIONS = IS_PGLITE ? 1 : 10;
+  const MAX_CONNECTIONS = ENV.PGLITE ? 1 : 10;
 
   const pool = new pg.Pool({ ...creds, max: MAX_CONNECTIONS });
   pool.on("error", (err: unknown) =>
     log.remote(
-      ComponentNames.PAIMA_DB,
+      ComponentNames.PAIMA_PGLITE,
       ["query"],
       SeverityNumber.ERROR,
       (log) => log(err),
@@ -96,7 +94,7 @@ export const getConnection = (
     // https://github.com/brianc/node-postgres/issues/2499#issuecomment-805477725
     _client.on("error", (err: Error) => {
       log.remote(
-        ComponentNames.PAIMA_DB,
+        ComponentNames.PAIMA_PGLITE,
         ["connect"],
         SeverityNumber.ERROR,
         (log) => log(err),
@@ -122,7 +120,7 @@ export const getPersistentConnection = (creds: PoolConfig): Client => {
   // On each new client initiated, need to register for error(this is a serious bug on pg, the client throw errors although it should not)
   client.on("error", (err: Error) => {
     log.remote(
-      ComponentNames.PAIMA_DB,
+      ComponentNames.PAIMA_PGLITE,
       ["query"],
       SeverityNumber.ERROR,
       (log) => log(err),

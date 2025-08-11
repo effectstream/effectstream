@@ -32,7 +32,7 @@ const definitions = {
     key: "DB_PW",
     isSecret: true,
     type: "string",
-    defaultValue: undefined,
+    defaultValue: "postgres",
     description: "Paima Engine Postgres Password. Example: 'password'",
   },
   DB_USER: {
@@ -175,11 +175,19 @@ const definitions = {
     defaultValue: 87401284021,
     description: "Paima Chain ID. Example: '87401284021'",
   },
+  PGLITE: {
+    key: "PGLITE",
+    isSecret: false,
+    type: "boolean",
+    defaultValue: true,
+    description:
+      "Enable single connection mode and other specific PGLite features. IMPORTANT enable only for development. ('true' or 'false')",
+  },
   DEBUG_PGLITE: {
     key: "DEBUG_PGLITE",
     isSecret: false,
     type: "number",
-    defaultValue: undefined,
+    defaultValue: 1,
     description: "Enable PGLite Debug/Verbose mode. Example: '1'",
   },
   OTEL_COLLECTOR_PORT: {
@@ -266,6 +274,9 @@ export class ENV {
   }
   static get PAIMA_CHAIN_ID(): number {
     return ENV.getConfig(definitions.PAIMA_CHAIN_ID);
+  }
+  static get PGLITE(): boolean {
+    return ENV.getConfig(definitions.PGLITE);
   }
   static get DEBUG_PGLITE(): number {
     return ENV.getConfig(definitions.DEBUG_PGLITE);

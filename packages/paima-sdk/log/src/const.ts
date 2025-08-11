@@ -7,7 +7,8 @@ import { SeverityNumber } from "@opentelemetry/api-logs";
 export const PaimaComponents = {
   PAIMA_SYNC: "sync",
   PAIMA_RUNTIME: "runtime",
-  PAIMA_DB: "db",
+  PAIMA_PGLITE: "pglite",
+  APPLY_MIGRATIONS: "apply-migrations",
 };
 /**
  * External components
