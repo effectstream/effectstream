@@ -11,6 +11,7 @@ interface ProcessInfo {
   name: string;
   command: string;
   args: string[];
+  wait: boolean;
 }
 
 function createPrefix(name: string): string {
@@ -80,18 +81,20 @@ async function runProcess(processInfo: ProcessInfo): Promise<void> {
     }
   })();
 
-  // Wait for process to complete
-  const [status] = await Promise.all([
-    process.status,
-    stdoutPromise,
-    stderrPromise,
-  ]);
+  if (processInfo.wait) {
+    // Wait for process to complete
+    const [status] = await Promise.all([
+      process.status,
+      stdoutPromise,
+      stderrPromise,
+    ]);
 
-  if (status.success) {
-    console.log(`${prefix}✅ Completed successfully`);
-  } else {
-    console.error(`${prefix}❌ Failed with exit code ${status.code}`);
-    throw new Error(`Process ${processInfo.name} failed`);
+    if (status.success) {
+      console.log(`${prefix}✅ Completed successfully`);
+    } else {
+      console.error(`${prefix}❌ Failed with exit code ${status.code}`);
+      throw new Error(`Process ${processInfo.name} failed`);
+    }
   }
 }
 
@@ -101,20 +104,34 @@ async function main() {
       name: "db:up",
       command: "deno",
       args: ["run", "-A", join(__dirname, "start-pglite.ts")],
+      wait: false,
     },
     {
-      name: "pgtyped:internal",
+      name: "db:wait",
       command: "deno",
-      args: ["run", "-A", join(__dirname, "pgtyped-internal.ts")],
+      args: ["run", "-A", join(__dirname, "wait-for-db.ts")],
+      wait: true,
+    },
+    {
+      name: "apply-migrations",
+      command: "deno",
+      args: ["run", "-A", join(__dirname, "apply-migrations.ts")],
+      wait: true,
+    },
+    {
+      name: "pgtyped",
+      command: "npx",
+      args: ["pgtyped", "-c", "./pgtypedconfig.json"],
+      wait: true,
     },
   ];
 
   console.log("🚀 Starting concurrent processes...\n");
 
   try {
-    // Start all processes concurrently
-    const promises = processes.map((p) => runProcess(p));
-    await Promise.all(promises);
+    for (const process of processes) {
+      await runProcess(process);
+    }
     console.log("\n✅ All processes completed successfully");
   } catch (error) {
     console.error("\n❌ One or more processes failed:", error);

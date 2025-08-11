@@ -7,7 +7,7 @@
         "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2"
     },
     "tasks": {
-        "_pgtyped:my-sql": "deno run -A @paima/db/db-wait && pgtyped -c ./pgtypedconfig.json",
-        "pgtyped:update": "MIGRATIONS=\"`pwd`/src/migrations/\" concurrently --raw --kill-others \"deno run -A @paima/db/db-up\" \"deno run -A @paima/db/pgtyped-internal && deno task _pgtyped:my-sql\""
+        "_pgtyped:my-sql": "deno run -A @paima/db/db-wait && deno run -A @paima/db/apply-migrations && pgtyped -c ./pgtypedconfig.json",
+        "pgtyped:update": "MIGRATIONS=\"`pwd`/src/migrations/\" concurrently --raw --kill-others \"deno run -A @paima/db/db-up\" \"deno task _pgtyped:my-sql\""
     }
 }

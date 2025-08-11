@@ -39,4 +39,6 @@ export async function applyMigrations(db: Client) {
 if (import.meta.main) {
   const db = await getConnection();
   await applyMigrations(db);
+  console.log("Migrations applied");
+  Deno.exit(0);
 }

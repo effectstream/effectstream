@@ -100,6 +100,7 @@
     "npm:@opentelemetry/semantic-conventions@1.28.0": "1.28.0",
     "npm:@openzeppelin/contracts-upgradeable@^5.1.0": "5.4.0_@openzeppelin+contracts@5.1.0",
     "npm:@openzeppelin/contracts@5.1.0": "5.1.0",
+    "npm:@paima/pgtyped-cli@2.4.5": "2.4.5_typescript@5.9.2_fp-ts@2.16.10_io-ts@2.2.22__fp-ts@2.16.10_chokidar@4.0.3",
     "npm:@paima/pgtyped-cli@^2.4.5": "2.4.5_typescript@5.9.2_fp-ts@2.16.10_io-ts@2.2.22__fp-ts@2.16.10_chokidar@4.0.3",
     "npm:@paimaexample/evm-contracts@~0.3.11": "0.3.19_@openzeppelin+contracts@5.1.0",
     "npm:@paimaexample/npm-avail-light-client@0.3.19": "0.3.19",
@@ -164,6 +165,7 @@
     "npm:vite@*": "6.3.5_picomatch@4.0.3_@types+node@22.15.15",
     "npm:vite@^6.3.2": "6.3.5_picomatch@4.0.3_@types+node@22.15.15",
     "npm:vitest@^3.2.4": "3.2.4_vite@6.3.5__picomatch@4.0.3_@types+node@22.15.15",
+    "npm:wait-on@*": "8.0.3",
     "npm:wait-on@8.0.3": "8.0.3",
     "npm:ws@8.18.1": "8.18.1",
     "npm:ws@^8.18.3": "8.18.3"
