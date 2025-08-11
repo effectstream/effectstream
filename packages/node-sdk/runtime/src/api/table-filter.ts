@@ -1,5 +1,5 @@
 import type { AllSyncProtocols } from "@paima/sync";
-import { getPrimitivePrefix } from "@paima/db";
+import { getPrimitiveIntermediatePrefix, getPrimitivePrefix } from "@paima/db";
 
 // System tables created by Paima core migrations (see db/migrations/up.sql)
 const SYSTEM_TABLES = new Set<string>([
@@ -47,10 +47,13 @@ function buildDynamicPrimitiveDenySet(
       if (!prefix) continue;
       // Block the view
       deny.add(`${prefix}${primitiveName}`);
-      // And block the corresponding intermediate table
-      // Convention used in ivm/*-ivm.ts: replace 'view_' with 'intermediate_'
-      const intermediatePrefix = prefix.replace("view_", "intermediate_");
-      deny.add(`${intermediatePrefix}${primitiveName}`);
+      // Block the corresponding intermediate table using explicit mapping
+      const intermediatePrefix = getPrimitiveIntermediatePrefix(
+        p.primitive.type,
+      );
+      if (intermediatePrefix) {
+        deny.add(`${intermediatePrefix}${primitiveName}`);
+      }
     }
   }
   return deny;

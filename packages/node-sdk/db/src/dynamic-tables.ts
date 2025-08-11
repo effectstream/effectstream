@@ -61,3 +61,26 @@ export function getPrimitivePrefix(
       return undefined;
   }
 }
+
+/**
+ * @param primitiveType - The type of the primitive.
+ * @returns The intermediate prefix for the given primitive type.
+ *
+ * The intermediate prefix is used to query the intermediate table for the given primitive type.
+ * The intermediate table is used to store the intermediate data for the given primitive type.
+ *
+ * For example for ERC20 it stores the balance for each address.
+ * For ERC721 it stores the token id for each address.
+ */
+export function getPrimitiveIntermediatePrefix(
+  primitiveType: ConfigPrimitiveType,
+): string | undefined {
+  switch (primitiveType) {
+    case ConfigPrimitiveType.EvmRpcERC20:
+      return "erc20_balances_intermediate_";
+    case ConfigPrimitiveType.EvmRpcERC721:
+      return "erc721_ownership_intermediate_";
+    default:
+      return undefined;
+  }
+}
