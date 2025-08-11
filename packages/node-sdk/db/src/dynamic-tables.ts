@@ -50,7 +50,6 @@ export function* createDynamicTables(
   }
 }
 
-// TODO The prefix should be part defined in the ivm/*.ts files.
 /**
  * Returns the prefix for the given primitive name.
  * This is useful to query the table given you know the primitive name.
@@ -71,14 +70,14 @@ export function getPrimitivePrefix(
 }
 
 /**
- * @param primitiveType - The type of the primitive.
- * @returns The intermediate prefix for the given primitive type.
- *
  * The intermediate prefix is used to query the intermediate table for the given primitive type.
  * The intermediate table is used to store the intermediate data for the given primitive type.
  *
  * For example for ERC20 it stores the balance for each address.
  * For ERC721 it stores the token id for each address.
+ *
+ * @param primitiveType - The type of the primitive.
+ * @returns The intermediate prefix for the given primitive type.
  */
 export function getPrimitiveIntermediatePrefix(
   primitiveType: ConfigPrimitiveType,
