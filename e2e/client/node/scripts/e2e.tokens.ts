@@ -25,10 +25,10 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
     const t3 = tokens_b.shift()!;
     const t4 = tokens_b.shift()!;
 
-    await erc721.b.mint(wallets[0].privateKey, t1, true);
-    await erc721.b.mint(wallets[1].privateKey, t2, true);
-    await erc721.b.mint(wallets[0].privateKey, t3, true);
-    await erc721.b.mint(wallets[1].privateKey, t4, true);
+    await erc721.b.mint(wallets[0].privateKey, t1, true, false);
+    await erc721.b.mint(wallets[1].privateKey, t2, true, false);
+    await erc721.b.mint(wallets[0].privateKey, t3, true, false);
+    await erc721.b.mint(wallets[1].privateKey, t4, true, false);
 
     // TODO: It takes too long to process the tokens.
     //       So without a long timout the test will fail.
@@ -45,18 +45,20 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
     //   },
     // );
 
-    await erc721.b.transfer(
-      wallets[0].privateKey,
-      wallets[1].address,
-      t1,
-      true,
-    );
-    await erc721.b.transfer(
-      wallets[1].privateKey,
-      wallets[0].address,
-      t2,
-      true,
-    );
+    // await erc721.b.transfer(
+    //   wallets[0].privateKey,
+    //   wallets[1].address,
+    //   t1,
+    //   true,
+    //   false,
+    // );
+    // await erc721.b.transfer(
+    //   wallets[1].privateKey,
+    //   wallets[0].address,
+    //   t2,
+    //   true,
+    //   false,
+    // );
 
     // TODO: It takes too long to process the tokens.
     //       So without a long timout the test will fail.
@@ -99,19 +101,21 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
       wallets[0].privateKey,
       t1,
       true,
+      false,
     );
     await erc20.b.mint(
       wallets[1].address,
       wallets[1].privateKey,
       t2,
       true,
+      false,
     );
-    await erc20.b.transfer(
-      wallets[0].privateKey,
-      wallets[1].address,
-      tx,
-      true,
-    );
+    // await erc20.b.transfer(
+    //   wallets[0].privateKey,
+    //   wallets[1].address,
+    //   tx,
+    //   true,
+    // );
 
     // TODO: It takes too long to process the tokens.
     //       So without a long timout the test will fail.

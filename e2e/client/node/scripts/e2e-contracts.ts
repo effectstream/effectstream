@@ -172,6 +172,7 @@ function erc721Factory(
       mint_private_key: `0x${string}`,
       token_id: bigint,
       silent = false,
+      wait = true,
     ) => {
       const { account, walletClient, publicClient } = clients(
         mint_private_key,
@@ -193,15 +194,18 @@ function erc721Factory(
         ],
       });
       const hash = await walletClient.writeContract(request);
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-      });
-      if (!silent) {
-        console.log(
-          `  ${
-            receipt.status === "success" ? "" : "❌"
-          } Mint block ${receipt.blockNumber} @ Hash ${hash}`,
-        );
+      if (wait) {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+        });
+
+        if (!silent) {
+          console.log(
+            `  ${
+              receipt.status === "success" ? "" : "❌"
+            } Mint block ${receipt.blockNumber} @ Hash ${hash}`,
+          );
+        }
       }
 
       updateERC721Ownership(sharedState, chain.id, account.address, token_id);
@@ -213,6 +217,7 @@ function erc721Factory(
       to_address: `0x${string}`,
       tokenId: bigint,
       silent = false,
+      wait = true,
     ) => {
       if (!silent) {
         console.log("💸 Transferring Token #", tokenId, "to", to_address);
@@ -234,15 +239,18 @@ function erc721Factory(
         ],
       });
       const hash = await walletClient.writeContract(request);
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-      });
-      if (!silent) {
-        console.log(
-          `  ${
-            receipt.status === "success" ? "" : "❌"
-          } Transfer block ${receipt.blockNumber} @ Hash ${hash}`,
-        );
+      if (wait) {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+        });
+
+        if (!silent) {
+          console.log(
+            `  ${
+              receipt.status === "success" ? "" : "❌"
+            } Transfer block ${receipt.blockNumber} @ Hash ${hash}`,
+          );
+        }
       }
 
       updateERC721Ownership(sharedState, chain.id, to_address, tokenId);
@@ -253,6 +261,7 @@ function erc721Factory(
       from_private_key: `0x${string}`,
       tokenId: bigint,
       silent = false,
+      wait = true,
     ) => {
       if (!silent) {
         console.log("🔥 Burning Token #", tokenId);
@@ -274,15 +283,18 @@ function erc721Factory(
         ],
       });
       const hash = await walletClient.writeContract(request);
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-      });
-      if (!silent) {
-        console.log(
-          `  ${
-            receipt.status === "success" ? "" : "❌"
-          } Burn block ${receipt.blockNumber} @ Hash ${hash}`,
-        );
+      if (wait) {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+        });
+
+        if (!silent) {
+          console.log(
+            `  ${
+              receipt.status === "success" ? "" : "❌"
+            } Burn block ${receipt.blockNumber} @ Hash ${hash}`,
+          );
+        }
       }
 
       updateERC721Ownership(sharedState, chain.id, null, tokenId);
@@ -306,6 +318,7 @@ export const erc20Factory = (
       mint_private_key: `0x${string}`, // TODO: remove this
       amount: bigint,
       silent = false,
+      wait = true,
     ) => {
       if (!silent) {
         console.log("⚡ Minting", amount, "to", mint_address);
@@ -326,15 +339,17 @@ export const erc20Factory = (
         ],
       });
       const hash = await walletClient.writeContract(request);
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-      });
-      if (!silent) {
-        console.log(
-          `  ${
-            receipt.status === "success" ? "" : "❌"
-          } Mint block ${receipt.blockNumber} @ Hash ${hash}`,
-        );
+      if (wait) {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+        });
+        if (!silent) {
+          console.log(
+            `  ${
+              receipt.status === "success" ? "" : "❌"
+            } Mint block ${receipt.blockNumber} @ Hash ${hash}`,
+          );
+        }
       }
 
       // Update shared state
@@ -348,6 +363,7 @@ export const erc20Factory = (
       to_address: `0x${string}`,
       amount: bigint,
       silent = false,
+      wait = true,
     ) => {
       if (!silent) {
         console.log("💸 Transferring", amount, "to", to_address);
@@ -368,15 +384,17 @@ export const erc20Factory = (
         ],
       });
       const hash = await walletClient.writeContract(request);
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-      });
-      if (!silent) {
-        console.log(
-          `  ${
-            receipt.status === "success" ? "" : "❌"
-          } Transfer block ${receipt.blockNumber} @ Hash ${hash}`,
-        );
+      if (wait) {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+        });
+        if (!silent) {
+          console.log(
+            `  ${
+              receipt.status === "success" ? "" : "❌"
+            } Transfer block ${receipt.blockNumber} @ Hash ${hash}`,
+          );
+        }
       }
 
       // Update shared state

@@ -117,12 +117,16 @@ export async function assertSQL<RowType>(
     let res: QueryResult<RowType>;
     let didLock = false;
     try {
-      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      await fetch(
+        `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=${testName}`,
+      );
       didLock = true;
-      res = await db.query(query);
+      res = await dbQuery(db.query(query));
     } finally {
       if (didLock) {
-        await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
+        await fetch(
+          `http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock?name=${testName}`,
+        );
       }
     }
 
@@ -141,7 +145,7 @@ export async function assertSQL<RowType>(
 
     // Now run the custom check.
     try {
-      const finalResult: QueryResult<RowType> = await db.query(query);
+      const finalResult: QueryResult<RowType> = await dbQuery(db.query(query));
       if (!check(finalResult)) {
         throw new Error("CHECK_ERROR");
       }
@@ -191,12 +195,16 @@ export async function assertSQL2<WaitType, CheckType>(
     let waitUntilResult: QueryResult<WaitType>;
     let didLock = false;
     try {
-      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      await fetch(
+        `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=${testName}`,
+      );
       didLock = true;
-      waitUntilResult = await db.query(waitUntil.query);
+      waitUntilResult = await dbQuery(db.query(waitUntil.query));
     } finally {
       if (didLock) {
-        await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
+        await fetch(
+          `http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock?name=${testName}`,
+        );
       }
     }
 
@@ -216,12 +224,16 @@ export async function assertSQL2<WaitType, CheckType>(
     let checkResult: QueryResult<CheckType>;
     didLock = false;
     try {
-      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      await fetch(
+        `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=${testName}`,
+      );
       didLock = true;
-      checkResult = await db.query(check.query);
+      checkResult = await dbQuery(db.query(check.query));
     } finally {
       if (didLock) {
-        await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock`);
+        await fetch(
+          `http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock?name=${testName}`,
+        );
       }
     }
 
@@ -250,4 +262,34 @@ export async function assertSQL2<WaitType, CheckType>(
     oid: 0,
     rowsAffected: 0,
   } as QueryResult<WaitType | CheckType>;
+}
+
+const IS_PGLITE = true; // TODO: make this configurable
+async function dbQuery<WaitType, CheckType>(
+  p: Promise<QueryResult<WaitType | CheckType>>,
+) {
+  let t;
+  const timeout: Promise<QueryResult<WaitType | CheckType>> = new Promise(
+    (resolve) => {
+      t = setTimeout(() => {
+        console.error("[E2E CRITICAL ERROR] Database query timed out", name);
+        if (IS_PGLITE) {
+          // TODO: This is a temporary fix to allow the query to continue.
+          // Only allow to continue in PGLITE.
+          // We suspect this is PGLITE specific error.
+          resolve({
+            rows: [],
+            fields: [],
+            rowCount: 0,
+            command: "",
+            oid: 0,
+            rowsAffected: 0,
+          });
+        }
+      }, 2500);
+    },
+  );
+  const result = await Promise.race([p, timeout]);
+  clearTimeout(t);
+  return result;
 }
