@@ -7,7 +7,7 @@ Paima Engine uses a postgres database.
 And uses PGTyped to convert SQL into Typescript functions.
 
 To convert the SQL for your project:  
-`deno task -f  @example/database pgtyped:update`
+`deno task -f @example/database pgtyped:update`
 
 * SQL Files are located at `/packages/backend/database/src/sql/*.sql`
 * Database creation and migrations files are located at `/packages/backend/database/src/migrations/*.sql`
