@@ -1,7 +1,15 @@
 import { until } from "effection";
 import { ConfigPrimitiveType } from "@paima/config";
-import { erc20Ivm } from "./ivm/erc20-ivm.ts";
-import { erc721Ivm } from "./ivm/erc721-ivm.ts";
+import {
+  ERC20_INTERMEDIATE_PREFIX,
+  ERC20_VIEW_PREFIX,
+  erc20Ivm,
+} from "./ivm/erc20-ivm.ts";
+import {
+  ERC721_INTERMEDIATE_PREFIX,
+  ERC721_VIEW_PREFIX,
+  erc721Ivm,
+} from "./ivm/erc721-ivm.ts";
 // import type { AllSyncProtocols } from "@paima/sync";
 import type { PoolClient } from "pg";
 import { aquireDBMutex, releaseDBMutex } from "@paima/db";
@@ -54,9 +62,9 @@ export function getPrimitivePrefix(
 ): string | undefined {
   switch (primitiveType) {
     case ConfigPrimitiveType.EvmRpcERC20:
-      return "erc20_balances_view_";
+      return ERC20_VIEW_PREFIX;
     case ConfigPrimitiveType.EvmRpcERC721:
-      return "erc721_ownership_view_";
+      return ERC721_VIEW_PREFIX;
     default:
       return undefined;
   }
@@ -77,9 +85,9 @@ export function getPrimitiveIntermediatePrefix(
 ): string | undefined {
   switch (primitiveType) {
     case ConfigPrimitiveType.EvmRpcERC20:
-      return "erc20_balances_intermediate_";
+      return ERC20_INTERMEDIATE_PREFIX;
     case ConfigPrimitiveType.EvmRpcERC721:
-      return "erc721_ownership_intermediate_";
+      return ERC721_INTERMEDIATE_PREFIX;
     default:
       return undefined;
   }
