@@ -331,6 +331,7 @@ export const startHttpServer = function* (
           Type.Object({
             primitiveName: Type.String(),
             primitiveType: Type.String(),
+            address: Type.String(),
             caip2: Type.Optional(Type.String()),
             protocolName: Type.Optional(Type.String()),
             table: Type.Object({
@@ -347,6 +348,7 @@ export const startHttpServer = function* (
     const items: Array<{
       primitiveName: string;
       primitiveType: string;
+      address: string;
       caip2?: string;
       protocolName?: string;
       table: { name: string; dataEndpoint: string; schemaEndpoint: string };
@@ -367,10 +369,13 @@ export const startHttpServer = function* (
         const prefix = getPrimitivePrefix(type);
         if (!prefix) continue; // only list primitives with aggregated data
 
+        const address = prim.contractAddress ?? "";
+
         seen.add(lower);
         items.push({
           primitiveName: name,
           primitiveType: type,
+          address,
           caip2: cfg?.syncProtocol?.caip2,
           protocolName: cfg?.syncProtocol?.name,
           table: {
