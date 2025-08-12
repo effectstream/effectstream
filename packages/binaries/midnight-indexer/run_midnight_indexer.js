@@ -50,10 +50,9 @@ function resolveSqlitePath(env, workingDir) {
 
     console.log(`Found SQLite path from config file: ${cnnUrl}`);
 
-    // If the path is relative, make it relative to the config file location
+    // If the path is relative, resolve it against the binary working directory (indexer-standalone)
     if (!path.isAbsolute(cnnUrl)) {
-      const configDir = path.dirname(configPath);
-      const resolvedPath = path.resolve(configDir, cnnUrl);
+      const resolvedPath = path.resolve(workingDir, cnnUrl);
       console.log(`Resolved relative path to: ${resolvedPath}`);
       return resolvedPath;
     }
