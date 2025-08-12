@@ -6,13 +6,17 @@ VALUES
 ;
 
 /* @name getStateMachineInput */
-SELECT * FROM user_state_machine 
+SELECT * FROM user_state_machine
+ORDER BY id ASC
 ;
 
 /* @name getStateMachineInputByBlockHeight */
-SELECT * FROM user_state_machine 
+SELECT * FROM user_state_machine
 WHERE block_height = :block_height!
+ORDER BY id ASC
 ;
+
+
 
 /* @name getLastSumFromExampleTable */
 SELECT sum FROM another_example_table 

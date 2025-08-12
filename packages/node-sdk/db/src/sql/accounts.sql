@@ -45,4 +45,9 @@ SELECT
     accounts.primary_address as "primary_address"
 FROM addresses
 LEFT JOIN accounts ON accounts.primary_address = addresses.address
-ORDER BY addresses.account_id;
+ORDER BY addresses.account_id
+LIMIT COALESCE(:limit, 1000) OFFSET COALESCE(:skip, 0);
+
+/* @name getAllAddressesCount */
+SELECT COUNT(*) as total
+FROM addresses;

@@ -6,7 +6,9 @@ import { run, until } from "effection";
 import {
   acquireDBMutex,
   getAllAddresses,
+  getAllAddressesCount,
   getAllScheduledData,
+  getAllScheduledDataCount,
   getPrimitivePrefix,
   getTableSchema,
   releaseDBMutex,
@@ -28,6 +30,14 @@ import {
 } from "./table-filter.ts";
 import type { StartConfigApiRouter } from "../types.ts";
 import type { GrammarDefinition } from "@paima/concise";
+import {
+  createPaginatedResponseSchema,
+  createPaginationMeta,
+  getPaginationParams,
+  paginateArray,
+  type PaginatedResponse,
+  PaginationQuerySchema,
+} from "./pagination.ts";
 
 export enum RpcPaths {
   Root = "rpc",
@@ -163,12 +173,59 @@ export const startHttpServer = function* (
     };
   });
 
-  server.get("/addresses", async () => {
-    const result = await runPreparedQuery(
-      getAllAddresses.run(undefined, dbConn),
+  server.get("/addresses", {
+    schema: {
+      tags: ["status"],
+      querystring: PaginationQuerySchema,
+      response: {
+        200: createPaginatedResponseSchema(Type.Object({
+          account_id: Type.Union([Type.Number(), Type.Null()]),
+          address: Type.String(),
+          primary_address: Type.Union([Type.String(), Type.Null()]),
+        })),
+      },
+    },
+  }, async (request) => {
+    const { limit, skip, count } = getPaginationParams(request);
+    const query = request.query as any;
+
+    // Only pass pagination params if they were provided in the request
+    const paginationParams =
+      (query.limit !== undefined || query.skip !== undefined)
+        ? { limit, skip }
+        : {};
+
+    // Only run count query if explicitly requested
+    const addressesPromise = runPreparedQuery(
+      getAllAddresses.run(paginationParams, dbConn),
       "addresses",
     );
-    return result;
+
+    const countPromise = count
+      ? runPreparedQuery(
+        getAllAddressesCount.run(undefined, dbConn),
+        "addresses-count",
+      )
+      : undefined;
+
+    // countPromise can be undefined – Promise.all treats non-Promises as already resolved
+    const [addresses, countResult] = await Promise.all([
+      addressesPromise,
+      countPromise,
+    ]);
+
+    const total = countResult?.[0]?.total;
+    const pagination = createPaginationMeta(
+      limit,
+      skip,
+      total,
+      addresses.length,
+    );
+
+    return {
+      data: addresses,
+      pagination,
+    };
   });
 
   // TODO This is dev only endpoint to monitor sync protocols.
@@ -176,7 +233,6 @@ export const startHttpServer = function* (
     schema: {
       tags: ["developer"],
       response: {
-        // Simplified representation of the sync protocol.
         200: Type.Array(Type.Object({
           fetcher: Type.Object({}, { additionalProperties: true }),
           pageRelation: Type.Object({}, { additionalProperties: true }),
@@ -189,7 +245,8 @@ export const startHttpServer = function* (
       },
     },
   }, () => {
-    return clearBigInts(syncProtocols);
+    const cleanedProtocols = clearBigInts(syncProtocols);
+    return cleanedProtocols;
   });
 
   // TODO This is dev only endpoint to monitor sync protocols.
@@ -211,7 +268,8 @@ export const startHttpServer = function* (
   }, () => {
     const config = syncProtocols.map((syncProtocol) => syncProtocol.config)
       .flat();
-    return clearBigInts(config);
+    const cleanedConfig = clearBigInts(config);
+    return cleanedConfig;
   });
 
   server.get("/grammar", {
@@ -225,12 +283,65 @@ export const startHttpServer = function* (
     return grammar;
   });
 
-  server.get("/scheduled-data", async () => {
-    const result = await runPreparedQuery(
-      getAllScheduledData.run(undefined, dbConn),
+  server.get("/scheduled-data", {
+    schema: {
+      tags: ["status"],
+      querystring: PaginationQuerySchema,
+      response: {
+        200: createPaginatedResponseSchema(Type.Object({
+          caip2: Type.Union([Type.String(), Type.Null()]),
+          contract_address: Type.Union([Type.String(), Type.Null()]),
+          from_address: Type.Union([Type.String(), Type.Null()]),
+          future_block_height: Type.Union([Type.Number(), Type.Null()]),
+          future_ms_timestamp: Type.Union([Type.String(), Type.Null()]), // Date as string
+          id: Type.Union([Type.Number(), Type.Null()]),
+          input_data: Type.Union([Type.String(), Type.Null()]),
+          origin_tx_hash: Type.Union([Type.String(), Type.Null()]), // Buffer as string
+          primitive_name: Type.Union([Type.String(), Type.Null()]),
+        })),
+      },
+    },
+  }, async (request) => {
+    const { limit, skip, count } = getPaginationParams(request);
+    const query = request.query as any;
+
+    // Only pass pagination params if they were provided in the request
+    const paginationParams =
+      (query.limit !== undefined || query.skip !== undefined)
+        ? { limit, skip }
+        : {};
+
+    // Only run count query if explicitly requested
+    const scheduledDataPromise = runPreparedQuery(
+      getAllScheduledData.run(paginationParams, dbConn),
       "scheduled-data",
     );
-    return result;
+
+    const countPromise = count
+      ? runPreparedQuery(
+        getAllScheduledDataCount.run(undefined, dbConn),
+        "scheduled-data-count",
+      )
+      : undefined;
+
+    // countPromise can be undefined – Promise.all treats non-Promises as already resolved
+    const [scheduledData, countResult] = await Promise.all([
+      scheduledDataPromise,
+      countPromise,
+    ]);
+
+    const total = countResult?.[0]?.total;
+    const pagination = createPaginationMeta(
+      limit,
+      skip,
+      total,
+      scheduledData.length,
+    );
+
+    return {
+      data: scheduledData,
+      pagination,
+    };
   });
 
   // TODO How to only select user defined tables?
@@ -252,19 +363,26 @@ export const startHttpServer = function* (
     _,
   ) => {
     const { tableName } = request.params;
+
     const safeName = sanitizeIdentifier(tableName);
     if (!isUserDefinedTable(safeName)) {
       return [];
     }
+
     const result = await runPreparedQuery(
       getTableSchema.run({ tableName: safeName }, dbConn),
       `table-schema:${tableName}`,
     );
+
     return result;
   });
 
   // TODO This is a temporary function to allow unsafe SQL queries.
-  async function unsafeGetTableData(tableName: string): Promise<unknown[]> {
+  async function unsafeGetTableData(
+    tableName: string,
+    limit?: number,
+    skip?: number,
+  ): Promise<unknown[]> {
     let unsafeQuery = `SELECT * FROM ":1"`;
     const unsafeTableName = sanitizeIdentifier(tableName);
     if (!isUserDefinedTable(unsafeTableName)) {
@@ -274,6 +392,11 @@ export const startHttpServer = function* (
       throw new Error("Table name too long");
     }
     unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
+
+    if (limit !== undefined && skip !== undefined && limit > 0 && skip >= 0) {
+      unsafeQuery += ` LIMIT ${limit} OFFSET ${skip}`;
+    }
+
     const result = await runPreparedQuery(
       new Promise<unknown[]>((resolve) => {
         dbConn.query(unsafeQuery, (err: Error, res: { rows: unknown[] }) => {
@@ -289,27 +412,79 @@ export const startHttpServer = function* (
     return result;
   }
 
+  async function unsafeGetTableDataCount(tableName: string): Promise<number> {
+    let unsafeQuery = `SELECT COUNT(*) as total FROM ":1"`;
+    const unsafeTableName = tableName.toLowerCase().replace(
+      /[^a-zA-Z0-9_]/g,
+      "",
+    );
+    if (unsafeTableName.length > 63) {
+      throw new Error("Table name too long");
+    }
+    unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
+    const result = await runPreparedQuery<{ total: number }>(
+      new Promise<{ total: number }[]>((resolve) => {
+        dbConn.query(
+          unsafeQuery,
+          (err: Error, res: { rows: { total: number }[] }) => {
+            if (err) {
+              resolve([]);
+            } else {
+              resolve(res.rows);
+            }
+          },
+        );
+      }),
+      `unsafe-get-table-data-count:${unsafeTableName}`,
+    );
+    return result[0]?.total || 0;
+  }
+
   server.get(
     "/tables/:tableName",
     {
       schema: {
         tags: ["developer"],
+        querystring: PaginationQuerySchema,
         response: {
-          200: Type.Array(Type.Object({}, { additionalProperties: true })),
+          200: createPaginatedResponseSchema(
+            Type.Object({}, { additionalProperties: true }),
+          ),
         },
       },
     },
     async (
-      request: FastifyRequest<{ Params: { tableName: string } }>,
+      request: FastifyRequest<
+        { Params: { tableName: string }; Querystring: any }
+      >,
       reply,
     ) => {
       const { tableName } = request.params;
+      const { limit, skip, count } = getPaginationParams(request);
+
       try {
-        const safeName = sanitizeIdentifier(tableName);
-        if (!isUserDefinedTable(safeName)) {
-          return reply.status(404).send({ error: "Table not found" });
-        }
-        return await unsafeGetTableData(tableName);
+        // Only run count query if explicitly requested
+        const dataPromise = unsafeGetTableData(tableName, limit, skip);
+        const countPromise = count
+          ? unsafeGetTableDataCount(tableName)
+          : undefined;
+
+        const [data, total] = await Promise.all([
+          dataPromise,
+          countPromise,
+        ]);
+
+        const pagination = createPaginationMeta(
+          limit,
+          skip,
+          total,
+          data.length,
+        );
+
+        return {
+          data,
+          pagination,
+        };
       } catch (error) {
         return reply.status(404).send({ error: "Table not found" });
       }
@@ -375,26 +550,59 @@ export const startHttpServer = function* (
     {
       schema: {
         tags: ["developer"],
+        querystring: PaginationQuerySchema,
         response: {
           // TODO
-          200: Type.Array(Type.Object({}, { additionalProperties: true })),
+          200: createPaginatedResponseSchema(
+            Type.Object({}, { additionalProperties: true }),
+          ),
         },
       },
     },
     async (
-      request: FastifyRequest<{ Params: { primitiveName: string } }>,
+      request: FastifyRequest<
+        { Params: { primitiveName: string }; Querystring: any }
+      >,
       reply,
     ) => {
       const { primitiveName } = request.params;
+      const { limit, skip, count } = getPaginationParams(request);
       const prefix = getPrimitivePrefixWrapper(primitiveName);
       if (!prefix) {
         return reply.status(404).send({
           error: "Primitive does not have aggregated data",
         });
       }
-      return await unsafeGetTableData(
-        `${prefix}${primitiveName.toLowerCase()}`,
-      );
+
+      const tableName = `${prefix}${primitiveName.toLowerCase()}`;
+      try {
+        // Only run count query if explicitly requested
+        const dataPromise = unsafeGetTableData(tableName, limit, skip);
+        const countPromise = count
+          ? unsafeGetTableDataCount(tableName)
+          : undefined;
+
+        const [data, total] = await Promise.all([
+          dataPromise,
+          countPromise,
+        ]);
+
+        const pagination = createPaginationMeta(
+          limit,
+          skip,
+          total,
+          data.length,
+        );
+
+        return {
+          data,
+          pagination,
+        };
+      } catch (error) {
+        return reply.status(404).send({
+          error: "Primitive does not have aggregated data",
+        });
+      }
     },
   );
 

@@ -393,11 +393,32 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   });
 
   await assert("Check System API Table Data", async () => {
+    const limit = sharedState.paima_state_machine_counter * 2; // 2x the data length
     const response = await fetch(
-      `http://localhost:${ENV.PAIMA_API_PORT}/tables/user_state_machine`,
+      `http://localhost:${ENV.PAIMA_API_PORT}/tables/user_state_machine?count=true&limit=${limit}`,
     );
-    const data = await response.json();
-    return data.length === sharedState.paima_state_machine_counter;
+    const { data, pagination } = await response.json();
+    const dataLenghtAsserts =
+      data.length === sharedState.paima_state_machine_counter;
+    if (!dataLenghtAsserts) {
+      console.error(
+        "Data length mismatch: Data length",
+        data.length,
+        "expected (sharedState.paima_state_machine_counter)",
+        sharedState.paima_state_machine_counter,
+      );
+    }
+    const paginationAsserts =
+      pagination.total === sharedState.paima_state_machine_counter;
+    if (!paginationAsserts) {
+      console.error(
+        "Pagination total mismatch: Pagination total",
+        pagination.total,
+        "expected (sharedState.paima_state_machine_counter)",
+        sharedState.paima_state_machine_counter,
+      );
+    }
+    return dataLenghtAsserts && paginationAsserts;
   });
 
   const tokens = {
