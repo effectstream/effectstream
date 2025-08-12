@@ -7,7 +7,6 @@ function checkIfBinaryExists() {
   return fs.existsSync(path.join(__dirname, "midnight-node", "midnight-node"));
 }
 
-
 async function main(args) {
   if (!checkIfBinaryExists()) {
     await binary();

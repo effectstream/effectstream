@@ -31,15 +31,7 @@ function getBinaryUrl() {
   if (!supportedPlatforms.includes(platform)) {
     throw new Error(`Unsupported platform: ${platform}`);
   }
-  // Special handling for macOS platforms
-  if (platform.startsWith("macos")) {
-    return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/indexer-standalone-${platform}.zip`;
-  }
-  // For Linux and other platforms, use the existing pattern
-  const split = platform.split("-");
-  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/indexer-standalone-${
-    split[1]
-  }.zip`;
+  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/indexer-standalone-${platform}.zip`;
 }
 
 async function downloadAndSaveBinary() {

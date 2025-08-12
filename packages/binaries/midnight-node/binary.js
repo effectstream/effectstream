@@ -26,32 +26,6 @@ async function downloadAndSaveBinary() {
   try {
     console.error(`Downloading... ${url}`);
 
-    // workaround for missing res
-    if (
-      url ===
-        "https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/midnight-node-linux-amd64.zip"
-    ) {
-      console.error("Apply workaround");
-      const d =
-        "https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/midnight-node-linux-arm64.zip";
-      const response = await axios.get(d, { responseType: "stream" });
-      const writer = fs.createWriteStream(
-        path.join(__dirname, "midnight-node_.zip"),
-      );
-
-      response.data.pipe(writer);
-
-      const p = new Promise((resolve, reject) => {
-        writer.on("finish", resolve);
-        writer.on("error", reject);
-      });
-      await p;
-      await extract(path.join(__dirname, "midnight-node_.zip"), {
-        dir: path.join(__dirname, "midnight-node"),
-      });
-      fs.unlinkSync(path.join(__dirname, "midnight-node.zip_"));
-    }
-
     const response = await axios.get(url, { responseType: "stream" });
     const writer = fs.createWriteStream(
       path.join(__dirname, "midnight-node.zip"),
