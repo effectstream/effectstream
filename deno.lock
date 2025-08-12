@@ -84,10 +84,10 @@
     "npm:@midnight-ntwrk/zswap@*": "4.0.0",
     "npm:@midnight-ntwrk/zswap@4.0.0": "4.0.0",
     "npm:@nomicfoundation/hardhat-errors@3.0.0-next.20": "3.0.0-next.20",
-    "npm:@nomicfoundation/hardhat-ignition-viem@3.0.0-next.20": "3.0.0-next.20_@nomicfoundation+hardhat-ignition@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76_@nomicfoundation+hardhat-viem@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76__viem@2.33.2___typescript@5.6.3___ws@8.18.2__typescript@5.6.3_@nomicfoundation+ignition-core@3.0.0-next.26_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.33.2__typescript@5.6.3__ws@8.18.2_typescript@5.6.3",
+    "npm:@nomicfoundation/hardhat-ignition-viem@3.0.0-next.20": "3.0.0-next.20_@nomicfoundation+hardhat-ignition@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76_@nomicfoundation+hardhat-viem@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76__viem@2.33.3___typescript@5.6.3___ws@8.18.2__typescript@5.6.3_@nomicfoundation+ignition-core@3.0.0-next.26_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.33.3__typescript@5.6.3__ws@8.18.2_typescript@5.6.3",
     "npm:@nomicfoundation/hardhat-ignition@3.0.0-next.20": "3.0.0-next.20_hardhat@3.0.0-next.20__zod@3.25.76",
     "npm:@nomicfoundation/hardhat-utils@3.0.0-next.20": "3.0.0-next.20",
-    "npm:@nomicfoundation/hardhat-viem@3.0.0-next.20": "3.0.0-next.20_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.33.2__typescript@5.6.3__ws@8.18.2_typescript@5.6.3",
+    "npm:@nomicfoundation/hardhat-viem@3.0.0-next.20": "3.0.0-next.20_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.33.3__typescript@5.6.3__ws@8.18.2_typescript@5.6.3",
     "npm:@opentelemetry/api-logs@0.56.0": "0.56.0",
     "npm:@opentelemetry/api@^1.9.0": "1.9.0",
     "npm:@opentelemetry/auto-instrumentations-node@0.54": "0.54.0_@opentelemetry+api@1.9.0",
@@ -103,10 +103,10 @@
     "npm:@opentelemetry/semantic-conventions@1.28.0": "1.28.0",
     "npm:@openzeppelin/contracts-upgradeable@^5.1.0": "5.4.0_@openzeppelin+contracts@5.1.0",
     "npm:@openzeppelin/contracts@5.1.0": "5.1.0",
-    "npm:@paima/pgtyped-cli@2.4.5": "2.4.5_typescript@5.6.3_fp-ts@2.16.10_io-ts@2.2.22__fp-ts@2.16.10_chokidar@4.0.1",
     "npm:@paima/pgtyped-cli@^2.4.5": "2.4.5_typescript@5.6.3_fp-ts@2.16.10_io-ts@2.2.22__fp-ts@2.16.10_chokidar@4.0.1",
     "npm:@pgtyped/parser@2.4.2": "2.4.2",
     "npm:@pgtyped/runtime@2.4.2": "2.4.2",
+    "npm:@pgtyped/runtime@^2.4.2": "2.4.2",
     "npm:@sinclair/typebox@~0.34.30": "0.34.38",
     "npm:@subsquid/ss58-codec@^1.2.3": "1.2.3",
     "npm:@txpipe/dolos@*": "0.19.1",
@@ -174,13 +174,12 @@
     "npm:tar@^6.2.0": "6.2.1",
     "npm:tslog@^4.9.3": "4.9.3",
     "npm:typescript@~5.6.2": "5.6.3",
-    "npm:viem@*": "2.33.2_typescript@5.6.3_ws@8.18.2",
+    "npm:viem@*": "2.33.3_typescript@5.6.3_ws@8.18.2",
     "npm:viem@2.23.10": "2.23.10_typescript@5.6.3_ws@8.18.1",
-    "npm:viem@^2.21.3": "2.33.2_typescript@5.6.3_ws@8.18.2",
+    "npm:viem@^2.21.3": "2.33.3_typescript@5.6.3_ws@8.18.2",
     "npm:vite-plugin-node-stdlib-browser@*": "0.2.1_node-stdlib-browser@1.3.1_vite@6.3.5__picomatch@4.0.3_@types+node@22.15.15",
     "npm:vite@*": "6.3.5_picomatch@4.0.3_@types+node@22.15.15",
     "npm:vite@^6.3.2": "6.3.5_picomatch@4.0.3_@types+node@22.15.15",
-    "npm:wait-on@*": "8.0.3",
     "npm:wait-on@8.0.3": "8.0.3",
     "npm:ws@*": "8.18.1",
     "npm:ws@8.18.1": "8.18.1"
@@ -1924,7 +1923,7 @@
         "@docusaurus/logger",
         "@docusaurus/utils",
         "babel-plugin-dynamic-import-node",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "tslib@2.8.1"
       ]
     },
@@ -1980,7 +1979,7 @@
         "eta",
         "eval",
         "execa",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "html-tags",
         "html-webpack-plugin",
         "leven",
@@ -2035,7 +2034,7 @@
         "escape-html",
         "estree-util-value-to-estree",
         "file-loader",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "image-size",
         "mdast-util-mdx",
         "mdast-util-to-string",
@@ -2078,7 +2077,7 @@
         "@docusaurus/utils-common",
         "@docusaurus/utils-validation",
         "eta",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "lodash",
         "react@18.3.1",
         "react-dom@18.3.1_react@18.3.1",
@@ -2099,7 +2098,7 @@
         "@docusaurus/utils-validation",
         "cheerio@1.0.0-rc.12",
         "feed",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "lodash",
         "react@18.3.1",
         "react-dom@18.3.1_react@18.3.1",
@@ -2125,7 +2124,7 @@
         "@docusaurus/utils-validation",
         "@types/react-router-config",
         "combine-promises",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "js-yaml@4.1.0",
         "lodash",
         "react@18.3.1",
@@ -2144,7 +2143,7 @@
         "@docusaurus/types",
         "@docusaurus/utils",
         "@docusaurus/utils-validation",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "react@18.3.1",
         "react-dom@18.3.1_react@18.3.1",
         "tslib@2.8.1",
@@ -2167,7 +2166,7 @@
         "@docusaurus/core",
         "@docusaurus/types",
         "@docusaurus/utils",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "react@18.3.1",
         "react-dom@18.3.1_react@18.3.1",
         "react-json-view-lite",
@@ -2217,7 +2216,7 @@
         "@docusaurus/utils",
         "@docusaurus/utils-common",
         "@docusaurus/utils-validation",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "react@18.3.1",
         "react-dom@18.3.1_react@18.3.1",
         "sitemap",
@@ -2370,7 +2369,7 @@
         "algoliasearch-helper",
         "clsx@2.1.1",
         "eta",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "lodash",
         "react@18.3.1",
         "react-dom@18.3.1_react@18.3.1",
@@ -2381,7 +2380,7 @@
     "@docusaurus/theme-translations@3.8.1": {
       "integrity": "sha512-OTp6eebuMcf2rJt4bqnvuwmm3NVXfzfYejL+u/Y1qwKhZPrjPoKWfk1CbOP5xH5ZOPkiAsx4dHdQBRJszK3z2g==",
       "dependencies": [
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "tslib@2.8.1"
       ]
     },
@@ -2417,7 +2416,7 @@
         "@docusaurus/logger",
         "@docusaurus/utils",
         "@docusaurus/utils-common",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "joi",
         "js-yaml@4.1.0",
         "lodash",
@@ -2433,7 +2432,7 @@
         "escape-string-regexp@4.0.0",
         "execa",
         "file-loader",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "github-slugger",
         "globby@11.1.0",
         "gray-matter",
@@ -3464,7 +3463,7 @@
         "@nomicfoundation/hardhat-utils@3.0.0-next.26"
       ]
     },
-    "@nomicfoundation/hardhat-ignition-viem@3.0.0-next.20_@nomicfoundation+hardhat-ignition@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76_@nomicfoundation+hardhat-viem@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76__viem@2.33.2___typescript@5.6.3___ws@8.18.2__typescript@5.6.3_@nomicfoundation+ignition-core@3.0.0-next.26_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.33.2__typescript@5.6.3__ws@8.18.2_typescript@5.6.3": {
+    "@nomicfoundation/hardhat-ignition-viem@3.0.0-next.20_@nomicfoundation+hardhat-ignition@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76_@nomicfoundation+hardhat-viem@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76__viem@2.33.3___typescript@5.6.3___ws@8.18.2__typescript@5.6.3_@nomicfoundation+ignition-core@3.0.0-next.26_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.33.3__typescript@5.6.3__ws@8.18.2_typescript@5.6.3": {
       "integrity": "sha512-TxjyvFgGwcxUy9P2pfKivtmgyNIOLDtQy6h7w8LfjJCPZsk/9p4bVrJzCfy5WpjL3xJuB61jjm3dtlhFO/I1Vg==",
       "dependencies": [
         "@nomicfoundation/hardhat-errors@3.0.0-next.20",
@@ -3472,7 +3471,7 @@
         "@nomicfoundation/hardhat-viem",
         "@nomicfoundation/ignition-core",
         "hardhat",
-        "viem@2.33.2_typescript@5.6.3_ws@8.18.2"
+        "viem@2.33.3_typescript@5.6.3_ws@8.18.2"
       ]
     },
     "@nomicfoundation/hardhat-ignition@3.0.0-next.20_hardhat@3.0.0-next.20__zod@3.25.76": {
@@ -3515,13 +3514,13 @@
         "undici@6.21.3"
       ]
     },
-    "@nomicfoundation/hardhat-viem@3.0.0-next.20_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.33.2__typescript@5.6.3__ws@8.18.2_typescript@5.6.3": {
+    "@nomicfoundation/hardhat-viem@3.0.0-next.20_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.33.3__typescript@5.6.3__ws@8.18.2_typescript@5.6.3": {
       "integrity": "sha512-WAdKmGHL7YBwlhw7zrBpGkBtEoYBNAcYlG28/YiB47JFc4iZeKXm5CXq9MmE/WsMfjvHXVVrbx1GiENnC3f90A==",
       "dependencies": [
         "@nomicfoundation/hardhat-errors@3.0.0-next.20",
         "@nomicfoundation/hardhat-utils@3.0.0-next.20",
         "hardhat",
-        "viem@2.33.2_typescript@5.6.3_ws@8.18.2"
+        "viem@2.33.3_typescript@5.6.3_ws@8.18.2"
       ]
     },
     "@nomicfoundation/hardhat-zod-utils@3.0.0-next.26_zod@3.25.76": {
@@ -4295,7 +4294,7 @@
         "chokidar@4.0.1",
         "debug@4.4.1",
         "fp-ts",
-        "fs-extra@11.3.0",
+        "fs-extra@11.3.1",
         "glob@11.0.3",
         "io-ts",
         "io-ts-reporters",
@@ -5395,7 +5394,7 @@
         "picomatch@3.0.1",
         "prettier",
         "typescript",
-        "viem@2.33.2_typescript@5.6.3_zod@3.25.76_ws@8.18.2",
+        "viem@2.33.3_typescript@5.6.3_zod@3.25.76_ws@8.18.2",
         "zod"
       ],
       "optionalPeers": [
@@ -6623,18 +6622,18 @@
         "webpack"
       ]
     },
-    "core-js-compat@3.44.0": {
-      "integrity": "sha512-JepmAj2zfl6ogy34qfWtcE7nHKAJnKsQFRn++scjVS2bZFllwptzw61BZcZFYBPpUznLfAvh0LGhxKppk04ClA==",
+    "core-js-compat@3.45.0": {
+      "integrity": "sha512-gRoVMBawZg0OnxaVv3zpqLLxaHmsubEGyTnqdpI/CEBvX4JadI1dMSHxagThprYRtSVbuQxvi6iUatdPxohHpA==",
       "dependencies": [
         "browserslist"
       ]
     },
-    "core-js-pure@3.44.0": {
-      "integrity": "sha512-gvMQAGB4dfVUxpYD0k3Fq8J+n5bB6Ytl15lqlZrOIXFzxOhtPaObfkQGHtMRdyjIf7z2IeNULwi1jEwyS+ltKQ==",
+    "core-js-pure@3.45.0": {
+      "integrity": "sha512-OtwjqcDpY2X/eIIg1ol/n0y/X8A9foliaNt1dSK0gV3J2/zw+89FcNG3mPK+N8YWts4ZFUPxnrAzsxs/lf8yDA==",
       "scripts": true
     },
-    "core-js@3.44.0": {
-      "integrity": "sha512-aFCtd4l6GvAXwVEh3XbbVqJGHDJt0OZRa+5ePGx3LLwi12WfexqQxcsohb2wgsa/92xtl19Hd66G/L+TaAxDMw==",
+    "core-js@3.45.0": {
+      "integrity": "sha512-c2KZL9lP4DjkN3hk/an4pWn5b5ZefhRJnAc42n6LJ19kSnbeRbdQZE5dSeE2LBol1OwJD3X1BQvFTAsa8ReeDA==",
       "scripts": true
     },
     "core-util-is@1.0.3": {
@@ -7447,8 +7446,8 @@
     "effection@3.5.1": {
       "integrity": "sha512-hwhCDBLHcTgNQSM2diNrorzyrWxegAobbmAI2DomD0kTLc4NJb2Jb2hnToNTpnqjL66iv7DNbhVw02o1U+L70g=="
     },
-    "electron-to-chromium@1.5.194": {
-      "integrity": "sha512-SdnWJwSUot04UR51I2oPD8kuP2VI37/CADR1OHsFOUzZIvfWJBO6q11k5P/uKNyTT3cdOsnyjkrZ+DDShqYqJA=="
+    "electron-to-chromium@1.5.198": {
+      "integrity": "sha512-G5COfnp3w+ydVu80yprgWSfmfQaYRh9DOxfhAxstLyetKaLyl55QrNjx8C38Pc/C+RaDmb1M0Lk8wPEMQ+bGgQ=="
     },
     "elliptic@6.6.1": {
       "integrity": "sha512-RaddvvMatK2LJHqFJ+YA4WysVN5Ita9E35botqIYspQ4TkRAlCicdzKOjlyv/1Za5RyTNn7di//eEV0uTAfe3g==",
@@ -7499,8 +7498,8 @@
         "once"
       ]
     },
-    "enhanced-resolve@5.18.2": {
-      "integrity": "sha512-6Jw4sE1maoRJo3q8MsSIn2onJFbLTOjY9hlx4DZXmOKvLRd1Ok2kXmAGXaafL2+ijsJZ1ClYbl/pmqr9+k4iUQ==",
+    "enhanced-resolve@5.18.3": {
+      "integrity": "sha512-d4lC8xfavMeBjzGr2vECC3fsGXziXZQyJxD868h2M/mBI3PwAuODxAkLkq5HYuvrPYcUtiLzsTo8U3PgX3Ocww==",
       "dependencies": [
         "graceful-fs@4.2.11",
         "tapable"
@@ -8093,8 +8092,8 @@
         "universalify"
       ]
     },
-    "fs-extra@11.3.0": {
-      "integrity": "sha512-Z4XaCL6dUDHfP/jT25jJKMmtxvuwbkrD1vNSMFlo9lNLY2c5FHYSQgHPRZUjAB26TpDEoW9HCOgplrdbaPV/ew==",
+    "fs-extra@11.3.1": {
+      "integrity": "sha512-eXvGGwZ5CL17ZSwHWd3bbgk7UUpF6IFHtP57NYYakPvHOs8GDgDe5KJI36jIJzDkJ6eJjuzRA8eBQb6SkKue0g==",
       "dependencies": [
         "graceful-fs@4.2.11",
         "jsonfile",
@@ -9548,8 +9547,8 @@
     "markdown-table@3.0.4": {
       "integrity": "sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw=="
     },
-    "marked@16.1.1": {
-      "integrity": "sha512-ij/2lXfCRT71L6u0M29tJPhP0bM5shLL3u5BePhFwPELj2blMJ6GDtD7PfJhRLhJ/c2UwrK17ySVcDzy2YHjHQ==",
+    "marked@16.1.2": {
+      "integrity": "sha512-rNQt5EvRinalby7zJZu/mB+BvaAY2oz3wCuCjt1RDrWNpS1Pdf9xqMOeC9Hm5adBdcV/3XZPJpG58eT+WBc0XQ==",
       "bin": true
     },
     "material-chalk@1.1.1_chalk@5.4.1": {
@@ -10299,8 +10298,8 @@
         "js-sha256"
       ]
     },
-    "mini-css-extract-plugin@2.9.2_webpack@5.101.0__acorn@8.15.0": {
-      "integrity": "sha512-GJuACcS//jtq4kCtd5ii/M0SZf7OZRH+BxdqXZHaJfb8TJiVl+NgQRPwiYt2EuqeSkNydn/7vP+bcE27C5mb9w==",
+    "mini-css-extract-plugin@2.9.3_webpack@5.101.0__acorn@8.15.0": {
+      "integrity": "sha512-tRA0+PsS4kLVijnN1w9jUu5lkxBwUk9E8SbgEB5dBJqchE6pVYdawROG6uQtpmAri7tdCK9i7b1bULeVWqS6Ag==",
       "dependencies": [
         "schema-utils@4.3.2_ajv@8.17.1",
         "tapable",
@@ -11917,8 +11916,8 @@
     "react-is@16.13.1": {
       "integrity": "sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ=="
     },
-    "react-json-view-lite@2.4.1_react@18.3.1": {
-      "integrity": "sha512-fwFYknRIBxjbFm0kBDrzgBy1xa5tDg2LyXXBepC5f1b+MY3BUClMCsvanMPn089JbV1Eg3nZcrp0VCuH43aXnA==",
+    "react-json-view-lite@2.4.2_react@18.3.1": {
+      "integrity": "sha512-m7uTsXDgPQp8R9bJO4HD/66+i218eyQPAb+7/dGQpwg8i4z2afTFqtHJPQFHvJfgDCjGQ1HSGlL3HtrZDa3Tdg==",
       "dependencies": [
         "react@18.3.1"
       ]
@@ -13488,8 +13487,8 @@
         "typescript"
       ]
     },
-    "viem@2.33.2_typescript@5.6.3_ws@8.18.2": {
-      "integrity": "sha512-/720OaM4dHWs8vXwNpyet+PRERhPaW+n/1UVSCzyb9jkmwwVfaiy/R6YfCFb4v+XXbo8s3Fapa3DM5yCRSkulA==",
+    "viem@2.33.3_typescript@5.6.3_ws@8.18.2": {
+      "integrity": "sha512-aWDr6i6r3OfNCs0h9IieHFhn7xQJJ8YsuA49+9T5JRyGGAkWhLgcbLq2YMecgwM7HdUZpx1vPugZjsShqNi7Gw==",
       "dependencies": [
         "@noble/curves@1.9.2",
         "@noble/hashes@1.8.0",
@@ -13505,8 +13504,8 @@
         "typescript"
       ]
     },
-    "viem@2.33.2_typescript@5.6.3_zod@3.25.76_ws@8.18.2": {
-      "integrity": "sha512-/720OaM4dHWs8vXwNpyet+PRERhPaW+n/1UVSCzyb9jkmwwVfaiy/R6YfCFb4v+XXbo8s3Fapa3DM5yCRSkulA==",
+    "viem@2.33.3_typescript@5.6.3_zod@3.25.76_ws@8.18.2": {
+      "integrity": "sha512-aWDr6i6r3OfNCs0h9IieHFhn7xQJJ8YsuA49+9T5JRyGGAkWhLgcbLq2YMecgwM7HdUZpx1vPugZjsShqNi7Gw==",
       "dependencies": [
         "@noble/curves@1.9.2",
         "@noble/hashes@1.8.0",
@@ -13918,8 +13917,8 @@
     "yallist@5.0.0": {
       "integrity": "sha512-YgvUTfwqyc7UXVMrB+SImsVYSmTS8X/tSrtdNZMImM+n7+QTriRXyXim0mBrTXNeqzVF0KWGgHPeiyViFFrNDw=="
     },
-    "yaml@2.8.0": {
-      "integrity": "sha512-4lLa/EcQCB0cJkyts+FpIRx5G/llPxfP6VQU5KByHEhLxY3IJCH0f0Hy1MHI8sClTvsIb8qwRJ6R/ZdlDJ/leQ==",
+    "yaml@2.8.1": {
+      "integrity": "sha512-lcYcMxX2PO9XMGvAJkJ3OsNMw+/7FKes7/hgerGUYWIoWu5j/+YQqcZr5JnPZWzOsEBgMbSbiSTn/dv/69Mkpw==",
       "bin": true
     },
     "yargs-parser@21.1.1": {
@@ -14359,6 +14358,7 @@
       },
       "packages/node-sdk/sm": {
         "dependencies": [
+          "npm:@pgtyped/runtime@^2.4.2",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:assert-never@^1.4.0",
           "npm:pg-tx@^1.0.1",
