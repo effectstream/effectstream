@@ -57,6 +57,14 @@ async function unzipBinary() {
   const destDir = path.join(__dirname, "proof-server");
 
   await extract(zipPath, { dir: destDir });
+  const platform = getPlatform();
+  const parts = platform.split("-");
+  if (parts[0] === "linux") {
+    fs.chmodSync(
+      path.join(destDir, `midnight-proof-server-${platform}`),
+      0o755,
+    );
+  }
   fs.unlinkSync(zipPath);
 }
 

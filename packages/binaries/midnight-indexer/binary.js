@@ -68,6 +68,19 @@ async function unzipBinary() {
     dir: path.join(__dirname, "indexer-standalone"),
   });
   fs.unlinkSync(path.join(__dirname, "indexer-standalone.zip"));
+
+  const platform = getPlatform();
+  const parts = platform.split("-");
+  if (parts[0] === "linux") {
+    fs.chmodSync(
+      path.join(
+        __dirname,
+        "indexer-standalone",
+        `indexer-standalone-${parts[1]}`,
+      ),
+      0o755,
+    );
+  }
 }
 
 async function binary() {
@@ -77,4 +90,5 @@ async function binary() {
 
 module.exports = {
   binary,
+  getPlatform,
 };

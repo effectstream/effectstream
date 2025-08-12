@@ -1,5 +1,4 @@
-on:
-  workflow_dispatch:
+on: [push]
 
 name: Paima Engine Test Workflow
 

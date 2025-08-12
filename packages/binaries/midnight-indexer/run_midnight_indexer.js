@@ -2,7 +2,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const yaml = require("js-yaml");
-
+const { getPlatform } = require("./binary");
 /**
  * Resolves the SQLite database path using the midnight-indexer configuration rules
  * @param {Object} env - Environment variables
@@ -110,10 +110,15 @@ function handleCleanFlag(env, workingDir) {
  * @returns {ChildProcess} The spawned child process
  */
 function runMidnightIndexer(env = process.env, args = []) {
+  const platform = getPlatform();
+  const parts = platform.split("-");
+  const binaryName = (parts[0] === "linux")
+    ? `indexer-standalone-${parts[1]}`
+    : "indexer-standalone";
   const binaryPath = path.join(
     __dirname,
     "indexer-standalone",
-    "indexer-standalone",
+    binaryName,
   );
   const workingDir = path.join(__dirname, "indexer-standalone");
 

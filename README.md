@@ -6,8 +6,11 @@
 `deno install --allow-scripts`
 
 ## Build Contracts
-`deno task -f @e2e/evm-contracts build`
-`deno task -f @e2e/evm-contracts deploy:standalone` 
+```sh
+deno task -f @e2e/evm-contracts build
+deno task -f @e2e/evm-contracts deploy:standalone
+deno task -f @e2e/midnight-contracts midnight-contract:compile
+```
 
 ## Run Example Deployment
 `deno task -f @e2e/node dev`

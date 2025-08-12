@@ -58,7 +58,7 @@ replace_in_file "./node_modules/.deno/@utxorpc+sdk@0.6.7/node_modules/@utxorpc/s
     "startToken: !p ? undefined : new sync.BlockRef({"
 
 echo "Updating Solidity version to 0.8.30..."
-replace_in_file "./example/contracts/evm/hardhat.config.ts" \
+replace_in_file "./e2e/contracts/evm/hardhat.config.ts" \
     'version: "0.8.28",' \
     'version: "0.8.30",'
 
