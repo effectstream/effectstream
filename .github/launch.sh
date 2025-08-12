@@ -14,6 +14,7 @@ npm --version
 # Compile Contracts & Deploy Contracts
 deno task -f @e2e/evm-contracts build
 deno task -f @e2e/evm-contracts deploy:standalone || true
+deno task -f @e2e/midnight-contracts midnight-contract:compile
 
 echo "✅ Contracts compiled & deployed"
 
