@@ -24,6 +24,14 @@ function App() {
     primitiveData,
     staticTableData,
     scheduledData,
+    primitivePagination,
+    staticTablePagination,
+    nextPrimitivePage,
+    prevPrimitivePage,
+    setPrimitiveLimit,
+    nextStaticTablePage,
+    prevStaticTablePage,
+    setStaticTableLimit,
   } = useTableData();
 
   // Error handling for uncaught promises
@@ -32,10 +40,10 @@ function App() {
       console.error("Unhandled promise rejection:", event.reason);
     };
 
-    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    globalThis.addEventListener("unhandledrejection", handleUnhandledRejection);
 
     return () => {
-      window.removeEventListener(
+      globalThis.removeEventListener(
         "unhandledrejection",
         handleUnhandledRejection,
       );
@@ -73,11 +81,19 @@ function App() {
       <TableSection
         title="Primitive Data"
         tables={primitiveData}
+        pagination={primitivePagination}
+        onPrev={(name) => prevPrimitivePage(name)}
+        onNext={(name) => nextPrimitivePage(name)}
+        onLimitChange={(name, limit) => setPrimitiveLimit(name, limit)}
       />
 
       <TableSection
         title="State Machine Tables"
         tables={staticTableData}
+        pagination={staticTablePagination}
+        onPrev={(name) => prevStaticTablePage(name)}
+        onNext={(name) => nextStaticTablePage(name)}
+        onLimitChange={(name, limit) => setStaticTableLimit(name, limit)}
       >
         <BatcherInput />
       </TableSection>

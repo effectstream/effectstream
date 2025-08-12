@@ -368,20 +368,10 @@ export interface IGetAllScheduledDataQuery {
 }
 
 const getAllScheduledDataIR: any = {
-  "usedParamSet": { "limit": true, "skip": true },
-  "params": [{
-    "name": "limit",
-    "required": false,
-    "transform": { "type": "scalar" },
-    "locs": [{ "a": 1166, "b": 1171 }],
-  }, {
-    "name": "skip",
-    "required": false,
-    "transform": { "type": "scalar" },
-    "locs": [{ "a": 1193, "b": 1197 }],
-  }],
+  "usedParamSet": {},
+  "params": [],
   "statement":
-    '(\nSELECT\n  rollup_inputs.id,\n  NULL AS future_ms_timestamp,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as "origin_tx_hash"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id\nORDER BY rollup_inputs.id ASC\n)\n\tUNION ALL \n(\nSELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  NULL AS "future_block_height",\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as "origin_tx_hash"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id\nLEFT OUTER JOIN rollup_input_result\n  ON (rollup_input_result.id = rollup_inputs.id)\nWHERE rollup_input_result.id IS NULL\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC\n)\nORDER BY id ASC\nLIMIT COALESCE(:limit, 999999) OFFSET COALESCE(:skip, 0)',
+    '(\nSELECT\n  rollup_inputs.id,\n  NULL AS future_ms_timestamp,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as "origin_tx_hash"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id\nORDER BY rollup_inputs.id ASC\n)\n\tUNION ALL \n(\nSELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  NULL AS "future_block_height",\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as "origin_tx_hash"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id\nLEFT OUTER JOIN rollup_input_result\n  ON (rollup_input_result.id = rollup_inputs.id)\nWHERE rollup_input_result.id IS NULL\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC\n)\nORDER BY id ASC',
 };
 
 /**

@@ -41,6 +41,14 @@ interface IGetAllScheduledDataResult {
 }
 
 export function useTableData() {
+  interface PaginationMeta {
+    limit: number;
+    skip: number;
+    total?: number | null;
+  }
+
+  const DEFAULT_LIMIT = 20;
+
   const [primitiveNames, setPrimitiveNames] = useState<string[]>([]);
   const [primitiveData, setPrimitiveData] = useState<
     Record<string, TableData | null>
@@ -50,6 +58,12 @@ export function useTableData() {
   >({});
   const [scheduledData, setScheduledData] = useState<
     Record<string, TableData | null>
+  >({});
+  const [primitivePagination, setPrimitivePagination] = useState<
+    Record<string, PaginationMeta>
+  >({});
+  const [staticTablePagination, setStaticTablePagination] = useState<
+    Record<string, PaginationMeta>
   >({});
   const [primitiveSchemas, setPrimitiveSchemas] = useState<
     Record<string, SchemaColumn[]>
@@ -65,6 +79,8 @@ export function useTableData() {
   const primitiveNamesRef = useRef<string[]>([]);
   const primitiveSchemasRef = useRef<Record<string, SchemaColumn[]>>({});
   const staticTableSchemasRef = useRef<Record<string, SchemaColumn[]>>({});
+  const primitivePaginationRef = useRef<Record<string, PaginationMeta>>({});
+  const staticTablePaginationRef = useRef<Record<string, PaginationMeta>>({});
 
   // Cache primitives whose schema 404s so we never re-request
   const unavailablePrimitiveSchemasRef = useRef<Set<string>>(new Set());
@@ -83,6 +99,14 @@ export function useTableData() {
   useEffect(() => {
     staticTableSchemasRef.current = staticTableSchemas;
   }, [staticTableSchemas]);
+
+  useEffect(() => {
+    primitivePaginationRef.current = primitivePagination;
+  }, [primitivePagination]);
+
+  useEffect(() => {
+    staticTablePaginationRef.current = staticTablePagination;
+  }, [staticTablePagination]);
 
   // Convert schema columns to Field format
   const convertSchemaToFields = useCallback(
@@ -268,14 +292,29 @@ export function useTableData() {
 
   // Fetch primitive data
   const fetchPrimitiveData = useCallback(
-    async (primitiveName: string, schema?: SchemaColumn[]) => {
+    async (
+      primitiveName: string,
+      schema?: SchemaColumn[],
+      pagination?: PaginationMeta,
+    ) => {
       try {
         // Short-circuit if we already know this primitive has no aggregated data
         if (unavailablePrimitiveDataRef.current.has(primitiveName)) {
           return null;
         }
 
-        const response = await fetch(`${PRIMITIVES_ENDPOINT}/${primitiveName}`);
+        const current = pagination ?? {
+          limit: DEFAULT_LIMIT,
+          skip: 0,
+        };
+        const url = new URL(
+          `${PRIMITIVES_ENDPOINT}/${primitiveName}`,
+        );
+        url.searchParams.set("limit", String(current.limit));
+        url.searchParams.set("skip", String(current.skip));
+        url.searchParams.set("count", "true");
+
+        const response = await fetch(url.toString());
         if (!response.ok) {
           if (response.status === 404) {
             console.log(`🚫 Primitive ${primitiveName} not found (404)`);
@@ -285,7 +324,19 @@ export function useTableData() {
           }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data = await response.json();
+        const json = await response.json();
+        const data = Array.isArray(json) ? json : (json.data ?? []);
+        const paginationMeta: PaginationMeta | undefined = json.pagination;
+        if (paginationMeta) {
+          setPrimitivePagination((prev) => ({
+            ...prev,
+            [primitiveName]: {
+              limit: paginationMeta.limit ?? current.limit,
+              skip: paginationMeta.skip ?? current.skip,
+              total: paginationMeta.total ?? undefined,
+            },
+          }));
+        }
         console.log(`📊 Fetched data for ${primitiveName}:`, data);
 
         return convertPrimitiveDataToTableFormat(data, primitiveName, schema);
@@ -302,9 +353,22 @@ export function useTableData() {
 
   // Fetch table data
   const fetchTableData = useCallback(
-    async (tableName: string, schema?: SchemaColumn[]) => {
+    async (
+      tableName: string,
+      schema?: SchemaColumn[],
+      pagination?: PaginationMeta,
+    ) => {
       try {
-        const response = await fetch(`${TABLES_ENDPOINT}/${tableName}`);
+        const current = pagination ?? {
+          limit: DEFAULT_LIMIT,
+          skip: 0,
+        };
+        const url = new URL(`${TABLES_ENDPOINT}/${tableName}`);
+        url.searchParams.set("limit", String(current.limit));
+        url.searchParams.set("skip", String(current.skip));
+        url.searchParams.set("count", "true");
+
+        const response = await fetch(url.toString());
         if (!response.ok) {
           if (response.status === 404) {
             console.log(`🚫 Table ${tableName} not found (404)`);
@@ -315,6 +379,18 @@ export function useTableData() {
         const jsonResponse = await response.json();
         console.log(`📊 Fetched table data for ${tableName}:`, jsonResponse);
         const data = jsonResponse.data ?? [];
+        const paginationMeta: PaginationMeta | undefined =
+          jsonResponse.pagination;
+        if (paginationMeta) {
+          setStaticTablePagination((prev) => ({
+            ...prev,
+            [tableName]: {
+              limit: paginationMeta.limit ?? current.limit,
+              skip: paginationMeta.skip ?? current.skip,
+              total: paginationMeta.total ?? undefined,
+            },
+          }));
+        }
 
         return convertTableDataToTableFormat(data, tableName, schema);
       } catch (error) {
@@ -377,7 +453,12 @@ export function useTableData() {
       const fetchPromises = primitiveNamesRef.current.map(
         async (primitiveName) => {
           const schema = primitiveSchemasRef.current[primitiveName];
-          const data = await fetchPrimitiveData(primitiveName, schema);
+          const pagination = primitivePaginationRef.current[primitiveName];
+          const data = await fetchPrimitiveData(
+            primitiveName,
+            schema,
+            pagination,
+          );
           return { primitiveName, data };
         },
       );
@@ -411,11 +492,13 @@ export function useTableData() {
     }
 
     try {
-      const schema = staticTableSchemasRef.current["user_state_machine"];
-      const data = await fetchTableData("user_state_machine", schema);
+      const tableName = "user_state_machine";
+      const schema = staticTableSchemasRef.current[tableName];
+      const pagination = staticTablePaginationRef.current[tableName];
+      const data = await fetchTableData(tableName, schema, pagination);
       // Only update if we got valid data
       if (data !== null) {
-        setStaticTableData({ "user_state_machine": data });
+        setStaticTableData({ [tableName]: data });
       }
     } catch (error) {
       console.error("Error refreshing static table data:", error);
@@ -481,10 +564,27 @@ export function useTableData() {
       });
       setPrimitiveSchemas(schemas);
 
+      // Initialize pagination defaults for each primitive
+      setPrimitivePagination((prev) => {
+        const next = { ...prev };
+        names.forEach((name) => {
+          if (!next[name]) next[name] = { limit: DEFAULT_LIMIT, skip: 0 };
+        });
+        return next;
+      });
+
       // Fetch data for each primitive
       const fetchPromises = names.map(async (primitiveName) => {
         const schema = schemas[primitiveName];
-        const data = await fetchPrimitiveData(primitiveName, schema);
+        const pagination = primitivePaginationRef.current[primitiveName] ?? {
+          limit: DEFAULT_LIMIT,
+          skip: 0,
+        };
+        const data = await fetchPrimitiveData(
+          primitiveName,
+          schema,
+          pagination,
+        );
         return { primitiveName, data };
       });
 
@@ -518,12 +618,27 @@ export function useTableData() {
         setStaticTableSchemas({ "user_state_machine": schema });
       }
 
+      // Initialize pagination defaults
+      setStaticTablePagination((prev) => ({
+        ...prev,
+        ["user_state_machine"]: prev["user_state_machine"] ?? {
+          limit: DEFAULT_LIMIT,
+          skip: 0,
+        },
+      }));
+
       // Then fetch data
+      const tableName = "user_state_machine";
+      const pagination = staticTablePaginationRef.current[tableName] ?? {
+        limit: DEFAULT_LIMIT,
+        skip: 0,
+      };
       const data = await fetchTableData(
-        "user_state_machine",
+        tableName,
         schema || undefined,
+        pagination,
       );
-      setStaticTableData({ "user_state_machine": data });
+      setStaticTableData({ [tableName]: data });
       console.log("✅ State machine tables initialized");
     } catch (error) {
       console.error("Error initializing state machine tables:", error);
@@ -605,5 +720,90 @@ export function useTableData() {
     refreshPrimitiveData,
     refreshStaticTableData,
     refreshScheduledData,
+    primitivePagination,
+    staticTablePagination,
+    // Pagination controls for primitives
+    setPrimitiveLimit: async (primitiveName: string, limit: number) => {
+      setPrimitivePagination((prev) => ({
+        ...prev,
+        [primitiveName]: {
+          limit,
+          skip: 0,
+          total: prev[primitiveName]?.total,
+        },
+      }));
+      const schema = primitiveSchemasRef.current[primitiveName];
+      const data = await fetchPrimitiveData(primitiveName, schema, {
+        limit,
+        skip: 0,
+      });
+      setPrimitiveData((prev) => ({ ...prev, [primitiveName]: data }));
+    },
+    nextPrimitivePage: async (primitiveName: string) => {
+      const current = primitivePaginationRef.current[primitiveName] ?? {
+        limit: DEFAULT_LIMIT,
+        skip: 0,
+      };
+      const nextSkip = current.skip + current.limit;
+      const schema = primitiveSchemasRef.current[primitiveName];
+      const data = await fetchPrimitiveData(primitiveName, schema, {
+        limit: current.limit,
+        skip: nextSkip,
+      });
+      setPrimitiveData((prev) => ({ ...prev, [primitiveName]: data }));
+    },
+    prevPrimitivePage: async (primitiveName: string) => {
+      const current = primitivePaginationRef.current[primitiveName] ?? {
+        limit: DEFAULT_LIMIT,
+        skip: 0,
+      };
+      const nextSkip = Math.max(0, current.skip - current.limit);
+      const schema = primitiveSchemasRef.current[primitiveName];
+      const data = await fetchPrimitiveData(primitiveName, schema, {
+        limit: current.limit,
+        skip: nextSkip,
+      });
+      setPrimitiveData((prev) => ({ ...prev, [primitiveName]: data }));
+    },
+    // Pagination controls for static tables
+    setStaticTableLimit: async (tableName: string, limit: number) => {
+      setStaticTablePagination((prev) => ({
+        ...prev,
+        [tableName]: {
+          limit,
+          skip: 0,
+          total: prev[tableName]?.total,
+        },
+      }));
+      const schema = staticTableSchemasRef.current[tableName];
+      const data = await fetchTableData(tableName, schema, { limit, skip: 0 });
+      setStaticTableData((prev) => ({ ...prev, [tableName]: data }));
+    },
+    nextStaticTablePage: async (tableName: string) => {
+      const current = staticTablePaginationRef.current[tableName] ?? {
+        limit: DEFAULT_LIMIT,
+        skip: 0,
+      };
+      const nextSkip = current.skip + current.limit;
+      const schema = staticTableSchemasRef.current[tableName];
+      const data = await fetchTableData(tableName, schema, {
+        limit: current.limit,
+        skip: nextSkip,
+      });
+      setStaticTableData((prev) => ({ ...prev, [tableName]: data }));
+    },
+    prevStaticTablePage: async (tableName: string) => {
+      const current = staticTablePaginationRef.current[tableName] ?? {
+        limit: DEFAULT_LIMIT,
+        skip: 0,
+      };
+      const nextSkip = Math.max(0, current.skip - current.limit);
+      const schema = staticTableSchemasRef.current[tableName];
+      const data = await fetchTableData(tableName, schema, {
+        limit: current.limit,
+        skip: nextSkip,
+      });
+      setStaticTableData((prev) => ({ ...prev, [tableName]: data }));
+    },
   };
 }

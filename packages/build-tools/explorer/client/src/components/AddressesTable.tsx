@@ -56,6 +56,7 @@ async function createSignedInput(gameInput: string, walletInfo: WalletInfo) {
   );
 
   const signature = await walletClient.signMessage({
+    account,
     message,
   });
 
@@ -104,6 +105,9 @@ export function AddressesTable() {
   const [addresses, setAddresses] = useState<AddressRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [limit] = useState<number>(20);
+  const [skip, setSkip] = useState<number>(0);
+  const [total, setTotal] = useState<number | null>(null);
   const [wallets, setWallets] = useState<WalletInfo[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<WalletInfo | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -277,6 +281,7 @@ export function AddressesTable() {
       String(selectedAccountId)
     }:${unlinkAddress.toString().toLowerCase().trim()}:`;
     const signature = await walletClient.signMessage({
+      account: privateKeyToAccount(selectedWallet.privateKey),
       message,
     });
     try {
@@ -347,11 +352,13 @@ export function AddressesTable() {
       const linkMessage =
         `link:${selectedAccountId}:${selectedLinkWallet.address.toString().toLowerCase().trim()}:false`;
       const primarySignature = await walletClient.signMessage({
+        account: privateKeyToAccount(selectedWallet.privateKey),
         message: linkMessage,
       });
       const newAddressMessage =
         `link:${selectedAccountId}:${selectedWallet.address.toString().toLowerCase().trim()}:false`;
       const newAddressSignature = await linkWalletClient.signMessage({
+        account: privateKeyToAccount(selectedLinkWallet.privateKey),
         message: newAddressMessage,
       });
 
@@ -389,7 +396,11 @@ export function AddressesTable() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(ADDRESSES_ENDPOINT);
+      const url = new URL(ADDRESSES_ENDPOINT);
+      url.searchParams.set("limit", String(limit));
+      url.searchParams.set("skip", String(skip));
+      url.searchParams.set("count", "true");
+      const response = await fetch(url.toString());
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -397,6 +408,9 @@ export function AddressesTable() {
       const jsonResponse = await response.json();
       const addrArray = jsonResponse.data ?? [];
       setAddresses(addrArray);
+      if (jsonResponse.pagination) {
+        setTotal(jsonResponse.pagination.total ?? null);
+      }
     } catch (err) {
       console.error("Error fetching addresses:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -407,7 +421,7 @@ export function AddressesTable() {
 
   useEffect(() => {
     fetchAddresses();
-  }, []);
+  }, [limit, skip]);
 
   // Group addresses by account_id
   const groupedAddresses = addresses.reduce((groups: GroupedAddress[], row) => {
@@ -506,6 +520,7 @@ export function AddressesTable() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => removeNotification(notification.id)}
               style={{
                 background: "none",
@@ -564,6 +579,7 @@ export function AddressesTable() {
             {/* Generate New Wallet */}
             <div style={{ marginBottom: "20px" }}>
               <button
+                type="button"
                 onClick={generateNewWallet}
                 style={{
                   padding: "10px 16px",
@@ -653,6 +669,7 @@ export function AddressesTable() {
                         {wallet.address}
                       </span>
                       <button
+                        type="button"
                         onClick={() => removeWallet(wallet.id)}
                         style={{
                           padding: "4px 8px",
@@ -922,6 +939,7 @@ export function AddressesTable() {
                         as the primary address.
                       </p>
                       <button
+                        type="button"
                         onClick={executeCreateAccount}
                         disabled={commandLoading}
                         style={{
@@ -1029,6 +1047,7 @@ export function AddressesTable() {
                         </select>
                       </div>
                       <button
+                        type="button"
                         onClick={executeLinkAddress}
                         disabled={commandLoading || !selectedAccountId ||
                           !selectedLinkWallet}
@@ -1124,6 +1143,7 @@ export function AddressesTable() {
                         />
                       </div>
                       <button
+                        type="button"
                         onClick={executeUnlinkOther}
                         disabled={commandLoading || !selectedAccountId ||
                           !unlinkAddress.trim()}
@@ -1196,6 +1216,7 @@ export function AddressesTable() {
                         </select>
                       </div>
                       <button
+                        type="button"
                         onClick={executeUnlinkSelf}
                         disabled={commandLoading || !selectedAccountId}
                         style={{
@@ -1236,6 +1257,7 @@ export function AddressesTable() {
         >
           <h3 style={{ margin: 0, color: "#333" }}>Addresses</h3>
           <button
+            type="button"
             onClick={fetchAddresses}
             disabled={loading}
             style={{
@@ -1260,6 +1282,74 @@ export function AddressesTable() {
             {loading ? "Refreshing..." : "Refresh Addresses"}
           </button>
         </div>
+        {/* Pagination Controls */}
+        {(skip > 0 || addresses.length >= limit) && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setSkip((s) => Math.max(0, s - limit))}
+                disabled={skip === 0 || loading}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
+                  background: skip > 0 && !loading ? "white" : "#f3f4f6",
+                  cursor: skip > 0 && !loading ? "pointer" : "not-allowed",
+                }}
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setSkip((s) => s + limit)}
+                disabled={loading || (total != null && (skip + limit) >= total)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
+                  background:
+                    (!loading && (total == null || (skip + limit) < total))
+                      ? "white"
+                      : "#f3f4f6",
+                  cursor:
+                    (!loading && (total == null || (skip + limit) < total))
+                      ? "pointer"
+                      : "not-allowed",
+                }}
+              >
+                Next
+              </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                color: "#555",
+              }}
+            >
+              <span>
+                {(() => {
+                  const currentPage = Math.floor(skip / limit) + 1;
+                  const totalPages = total != null
+                    ? Math.max(1, Math.ceil(total / limit))
+                    : undefined;
+                  return `Page ${String(currentPage).padStart(2, "0")} ${
+                    totalPages ? `of ${totalPages}` : ""
+                  }`;
+                })()}
+              </span>
+            </div>
+          </div>
+        )}
         <table className="addresses-table">
           <thead>
             <tr>
