@@ -5,14 +5,12 @@ const extract = require("extract-zip");
 const path = require("path");
 
 function getPlatform() {
-  let platform = os.platform();
+  const platform = os.platform();
   const arch = os.arch();
-  
+
   if (platform === "darwin") {
     // For macOS, return the full platform-arch combination
-    if (arch === "arm64") {
-      return "macos-arm64";
-    } else if (arch === "x64") {
+    if (arch === "x64") {
       return "macos-amd64"; // Will not be in supportedPlatforms, so will fall back to Docker
     } else {
       return `macos-${arch}`;
@@ -20,41 +18,44 @@ function getPlatform() {
   } else {
     // For Linux and other platforms, only arch is needed
     if (arch === "x64") {
-      return "amd64";
+      return `${platform}-amd64`;
     }
-    return arch;
+    return `${platform}-${arch}`;
   }
 }
 
 function getBinaryUrl() {
   const platform = getPlatform();
   const supportedPlatforms = require("./package.json").supportedPlatforms;
-  
   // Check if platform is supported
   if (!supportedPlatforms.includes(platform)) {
     throw new Error(`Unsupported platform: ${platform}`);
   }
-  
   // Special handling for macOS platforms
   if (platform.startsWith("macos")) {
     return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/indexer-standalone-${platform}.zip`;
   }
-  
   // For Linux and other platforms, use the existing pattern
-  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/indexer-standalone-${platform}.zip`;
+  const split = platform.split("-");
+  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/indexer-standalone-${
+    split[1]
+  }.zip`;
 }
 
 async function downloadAndSaveBinary() {
   const url = getBinaryUrl();
   try {
+    console.error(`Downloading... ${url}`);
     const response = await axios.get(url, { responseType: "stream" });
-    const writer = fs.createWriteStream(path.join(__dirname, "indexer-standalone.zip"));
-    
+    const writer = fs.createWriteStream(
+      path.join(__dirname, "indexer-standalone.zip"),
+    );
+
     response.data.pipe(writer);
-    
+
     return new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
+      writer.on("finish", resolve);
+      writer.on("error", reject);
     });
   } catch (error) {
     console.error("Error downloading binary:", error);

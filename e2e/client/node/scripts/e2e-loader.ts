@@ -11,6 +11,10 @@ import { launchMidnight } from "./launch-midnight.ts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
+  ? false
+  : true;
+
 /**
  * Launch the Sync through the orchestrator,
  * and wait for the sync process to start and be ready.
@@ -30,7 +34,7 @@ export async function startup(): Promise<Client> {
     // Launch my processes
     processesToLaunch: [
       launchEvm,
-      launchCardano,
+      yaci_enabled ? launchCardano : {},
       launchMidnight,
       // launchAvail
     ],

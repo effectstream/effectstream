@@ -24,7 +24,10 @@ const parallelBlockTime: TimestampMs = 1 * 1000;
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
-const yaci = Deno.env.get("DISABLE_LINUX_YACI") ? false : true;
+const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
+  ? false
+  : true;
+
 export const localhostConfig = new ConfigBuilder()
   .setNamespace(
     (builder) => builder.setSecurityNamespace("example-e2e-test"),
@@ -52,7 +55,7 @@ export const localhostConfig = new ConfigBuilder()
         nodeUrl: "http://127.0.0.1:9944",
       });
 
-    if (yaci) {
+    if (yaci_enabled) {
       b = b
         .addNetwork({
           name: "yaci",
@@ -123,7 +126,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       );
 
-    if (yaci) {
+    if (yaci_enabled) {
       result = result
         .addParallel(
           (networks) => (networks as any).yaci,

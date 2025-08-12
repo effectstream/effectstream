@@ -19,10 +19,9 @@ function getPlatform() {
   // For macOS return macos-<arch> to allow unsupported detection
   if (platform === "darwin") {
     return `macos-${arch}`;
+  } else {
+    return `${platform}-${arch}`;
   }
-
-  // Assume Linux or other UNIX variants default to arch only (amd64/arm64)
-  return arch;
 }
 
 function getBinaryUrl() {

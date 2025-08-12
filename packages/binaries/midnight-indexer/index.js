@@ -29,7 +29,9 @@ function isBinarySupported() {
   if (platform === "darwin") {
     platformString = arch === "x64" ? "macos-amd64" : `macos-${arch}`;
   } else {
-    platformString = arch === "x64" ? "amd64" : arch;
+    platformString = arch === "x64"
+      ? `${platform}-amd64`
+      : `${platform}-${arch}`;
   }
 
   return supportedPlatforms.includes(platformString);
@@ -227,7 +229,10 @@ async function main(args) {
   if (flags.useBinary) {
     if (!isBinarySupported()) {
       console.error(
-        "Error: Binary execution is not supported on this platform",
+        "Error: Binary execution is not supported on this platform for: " +
+          os.platform() +
+          " " +
+          os.arch(),
       );
       console.log(
         "Please use --docker flag instead, or run without flags to use Docker automatically",
@@ -245,7 +250,10 @@ async function main(args) {
   if (!binarySupported) {
     if (!dockerAvailable) {
       console.error(
-        "Error: Binary execution is not supported on this platform and Docker is not installed or available",
+        "Error: Binary execution is not supported on this platform and Docker is not installed or available. For: " +
+          os.platform() +
+          " " +
+          os.arch(),
       );
       console.log(
         "Please install Docker or ensure your platform is supported for binary execution",

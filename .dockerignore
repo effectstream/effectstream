@@ -1,5 +1,12 @@
 node_modules
+**/node_modules
 .vscode
 cache
 out
 volume
+example-project
+docs/site/.docusaurus
+
+packages/binaries/midnight-node/midnight-node/midnight-node
+packages/binaries/midnight-indexer/indexer-standalone/indexer-standalone
+midnight-proof-server/proof-server/midnight-proof-server-*

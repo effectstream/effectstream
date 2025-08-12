@@ -11,6 +11,10 @@ import { launchCardano } from "./launch-cardano.ts";
 import { launchEvm } from "./launch-evm.ts";
 import { launchMidnight } from "./launch-midnight.ts";
 
+const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
+  ? false
+  : true;
+
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
     // Launch Dev DB & Collector
@@ -23,7 +27,7 @@ const config = Value.Parse(OrchestratorConfig, {
   // Launch my processes
   processesToLaunch: [
     launchEvm,
-    launchCardano,
+    yaci_enabled ? launchCardano : {},
     launchMidnight,
     // Uncomment to enable Avail Process
     // launchAvail
