@@ -22,6 +22,10 @@ import fastifySwaggerUi, {
   type FastifySwaggerUiOptions,
 } from "@fastify/swagger-ui";
 import { Type } from "@sinclair/typebox";
+import {
+  createIsUserDefinedTableFilter,
+  sanitizeIdentifier,
+} from "./table-filter.ts";
 import type { StartConfigApiRouter } from "../types.ts";
 import type { GrammarDefinition } from "@paima/concise";
 
@@ -137,6 +141,9 @@ export const startHttpServer = function* (
     }),
   );
 
+  // Filter that allows only user-defined tables (not system, not dynamic IVM)
+  const isUserDefinedTable = createIsUserDefinedTableFilter(syncProtocols);
+
   if (apiRouter) {
     yield* until(apiRouter(server, dbConn));
   }
@@ -245,8 +252,12 @@ export const startHttpServer = function* (
     _,
   ) => {
     const { tableName } = request.params;
+    const safeName = sanitizeIdentifier(tableName);
+    if (!isUserDefinedTable(safeName)) {
+      return [];
+    }
     const result = await runPreparedQuery(
-      getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
+      getTableSchema.run({ tableName: safeName }, dbConn),
       `table-schema:${tableName}`,
     );
     return result;
@@ -255,10 +266,10 @@ export const startHttpServer = function* (
   // TODO This is a temporary function to allow unsafe SQL queries.
   async function unsafeGetTableData(tableName: string): Promise<unknown[]> {
     let unsafeQuery = `SELECT * FROM ":1"`;
-    const unsafeTableName = tableName.toLowerCase().replace(
-      /[^a-zA-Z0-9_]/g,
-      "",
-    );
+    const unsafeTableName = sanitizeIdentifier(tableName);
+    if (!isUserDefinedTable(unsafeTableName)) {
+      throw new Error("Table access denied");
+    }
     if (unsafeTableName.length > 63) {
       throw new Error("Table name too long");
     }
@@ -294,6 +305,10 @@ export const startHttpServer = function* (
     ) => {
       const { tableName } = request.params;
       try {
+        const safeName = sanitizeIdentifier(tableName);
+        if (!isUserDefinedTable(safeName)) {
+          return reply.status(404).send({ error: "Table not found" });
+        }
         return await unsafeGetTableData(tableName);
       } catch (error) {
         return reply.status(404).send({ error: "Table not found" });
