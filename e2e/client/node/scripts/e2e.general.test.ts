@@ -8,18 +8,12 @@ import { assert, assertSQL } from "./e2e-assert.ts";
 import type { Client } from "pg";
 import { AddressType } from "@paima/utils";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  parseEther,
-  toHex,
-} from "viem";
+import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { ENV } from "@paima/utils";
 import { addLinkedAddress, type SharedState } from "./e2e-shared-state.ts";
 import { createMessageForBatcher } from "@paima/concise";
-import { contractAddressesEvmMain, paimal2contract } from "@e2e/evm-contracts";
+import { paimaL2Builder as makePaimaL2 } from "./e2e-contracts.ts";
 
 // Start Test
 export async function generalTest(db: Client, sharedState: SharedState) {
@@ -378,67 +372,31 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     const acc0 = (beforeAcc.rows?.[0]?.c as number) ?? 0;
     const nonces0 = (beforeNonces.rows?.[0]?.c as number) ?? 0;
 
-    // Prepare clients and contract info
-    const { account, walletClient } = ((): any => {
-      const acct = privateKeyToAccount(wallets[0].privateKey);
-      return {
-        account: acct,
-        walletClient: createWalletClient({
-          account: acct,
-          chain: hardhat,
-          transport: http(),
-        }),
-      };
-    })();
-    const publicClient = createPublicClient({
-      chain: hardhat,
-      transport: http(),
-    });
-
-    // Access the JSON-RPC through the client's transport
-    const rpc = async (method: string, params: unknown[]) =>
-      await (walletClient as any).request({ method, params });
-
-    const addr = contractAddressesEvmMain()["chain31337"][
-      "PaimaL2ContractModule#MyPaimaL2Contract"
-    ] as `0x${string}`;
-    const abi = paimal2contract.metadata.output.abi as any;
-    const dataStr = JSON.stringify(["attack", "314", "2718"]);
-    const argData = toHex(dataStr);
+    const paima2 = makePaimaL2(sharedState);
+    const data = ["attack", "314", "2718"];
 
     // Snapshot current automine state and disable automine
     try {
       // Disable automine to ensure we control the block height
-      await rpc("evm_setAutomine", [false]);
-      // Mine a block to ensure the txs are included
-      await rpc("evm_mine", []);
+      await paima2.setAutomine(false, wallets[0].privateKey);
 
       // Submit the same tx twice, don't wait
-      const tx1 = await walletClient.writeContract({
-        account,
-        chain: hardhat,
-        address: addr,
-        abi,
-        functionName: "paimaSubmitGameInput",
-        args: [argData],
-        value: parseEther("0.0000000001"),
-      });
-      const tx2 = await walletClient.writeContract({
-        account,
-        chain: hardhat,
-        address: addr,
-        abi,
-        functionName: "paimaSubmitGameInput",
-        args: [argData],
-        value: parseEther("0.0000000001"),
-      });
+      const tx1 = await paima2.submitGameInput(
+        data,
+        wallets[0].privateKey,
+        { updateSharedState: false, waitForReceipt: false },
+      );
+      const tx2 = await paima2.submitGameInput(
+        data,
+        wallets[0].privateKey,
+        { updateSharedState: false, waitForReceipt: false },
+      );
 
       // Mine single block to include both
-      await rpc("evm_mine", []);
+      await paima2.mineBlock(wallets[0].privateKey);
 
       // Wait receipts (ensures chain progressed)
-      await publicClient.waitForTransactionReceipt({ hash: tx1 });
-      await publicClient.waitForTransactionReceipt({ hash: tx2 });
+      await paima2.waitForReceipts([tx1, tx2], wallets[0].privateKey);
 
       // Expect exactly one new accounting row
       await assertSQL<{ c: number }>(
@@ -464,8 +422,8 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     } finally {
       // Flush and restore automine
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await rpc("evm_mine", []);
-      await rpc("evm_setAutomine", [true]);
+      await paima2.mineBlock(wallets[0].privateKey);
+      await paima2.setAutomine(true, wallets[0].privateKey);
     }
   }
 
