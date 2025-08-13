@@ -188,9 +188,7 @@ export default function* processPaimaL2SyncProtocolResponse(
   const [blockInfo] = yield* World.resolve(getBlockHeights, {
     block_heights: [paima_block_height],
   });
-  const blockTimestampMs = blockInfo?.ms_timestamp
-    ? (blockInfo.ms_timestamp as Date).getTime()
-    : undefined;
+  const blockTimestampMs = blockInfo!.ms_timestamp.getTime();
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
   let isBatched = false;
   let batchedMessages: ExtractedBatchSubunit[] = [];
