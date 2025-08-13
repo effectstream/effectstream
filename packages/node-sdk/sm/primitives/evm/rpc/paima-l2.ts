@@ -205,24 +205,34 @@ export default function* processPaimaL2SyncProtocolResponse(
       const { userAddress, millisecondTimestamp, userSignature, gameInput } =
         parsed;
       // 24h timestamp validation for batched inputs
-      if (blockTimestampMs !== undefined) {
-        const signedTs = Number(millisecondTimestamp);
-        if (
-          !Number.isFinite(signedTs) ||
-          Math.abs(blockTimestampMs - signedTs) > TWENTY_FOUR_HOURS_MS
-        ) {
-          log.remote(
-            ComponentNames.PAIMA_SYNC,
-            ["paima-l2"],
-            SeverityNumber.INFO,
-            (log) =>
-              log(
-                `Skipping inputData due to timestamp outside 24h window. user=${userAddress} ts=${millisecondTimestamp} blockTs=${blockTimestampMs}`,
-              ),
-          );
-          continue;
-        }
+      const signedTs = Number(millisecondTimestamp);
+      if (!Number.isFinite(signedTs)) {
+        log.remote(
+          ComponentNames.PAIMA_SYNC,
+          ["paima-l2"],
+          SeverityNumber.ERROR,
+          (log) =>
+            log(
+              `Invalid timestamp ${millisecondTimestamp}, skipping batched message`,
+            ),
+        );
+        continue;
       }
+      if (
+        Math.abs(blockTimestampMs - signedTs) > TWENTY_FOUR_HOURS_MS
+      ) {
+        log.remote(
+          ComponentNames.PAIMA_SYNC,
+          ["paima-l2"],
+          SeverityNumber.INFO,
+          (log) =>
+            log(
+              `Skipping inputData due to timestamp outside 24h window. user=${userAddress} ts=${millisecondTimestamp} blockTs=${blockTimestampMs}`,
+            ),
+        );
+        continue;
+      }
+
       // TODO: We need to setup & configure the namespace.
       const message = createMessageForBatcher(
         null,
@@ -277,20 +287,16 @@ export default function* processPaimaL2SyncProtocolResponse(
   } else { // !isBatched
     // Direct (non-batched) nonce as hash of [blockHeight, userAddress, game input]
     let directNonce: string | undefined = undefined;
-    try {
-      const gameInputStr = hexToString(outerLayerData.data);
-      const userAddress =
-        CryptoManager.Evm().verifyAddress(outerLayerData.userAddress)
-          ? Value.Decode(
-            TypeboxHelpers.Evm.Address,
-            outerLayerData.userAddress,
-          )
-          : outerLayerData.userAddress;
-      const toHash = String(paima_block_height) + userAddress + gameInputStr;
-      directNonce = keccak256(stringToHex(toHash));
-    } catch {
-      /* ignore decode failure; skip dedup for this input */
-    }
+    const gameInputStr = hexToString(outerLayerData.data);
+    const userAddress =
+      CryptoManager.Evm().verifyAddress(outerLayerData.userAddress)
+        ? Value.Decode(
+          TypeboxHelpers.Evm.Address,
+          outerLayerData.userAddress,
+        )
+        : outerLayerData.userAddress;
+    const toHash = String(paima_block_height) + userAddress + gameInputStr;
+    directNonce = keccak256(stringToHex(toHash));
 
     yield* executePaimaL2Input({
       paima_block_height,
