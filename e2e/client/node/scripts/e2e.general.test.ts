@@ -267,6 +267,41 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     },
   );
 
+  // Send the exact same batched message again (duplicate) to test nonce deduplication
+  await fetch(`http://localhost:${ENV.BATCHER_PORT}/send-input`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      addressType: AddressType.EVM,
+      userAddress: account.address,
+      userSignature: signature,
+      gameInput,
+      millisecondTimestamp: timestamp,
+    }),
+  });
+  // Give time for batcher to process
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
+  // primitive_accounting count should remain unchanged
+  await assertSQL<{ primitive_name: string }>(
+    "Duplicate batched message should be ignored (no new accounting)",
+    db,
+    `SELECT primitive_name FROM public.primitive_accounting;`,
+    (res) => res.rows.length === sharedState.primitive_accounting_counter,
+    (res) => res.rows.length === sharedState.primitive_accounting_counter,
+  );
+
+  // Nonces table should still only have the original nonce
+  await assertSQL<{ nonce: string }>(
+    "Duplicate batched message should not add a new nonce",
+    db,
+    `SELECT * FROM public.nonces;`,
+    (res) => res.rows.length === nonce_counter,
+    (res) => res.rows.length === nonce_counter,
+  );
+
   // Send a batched message.
   const badSignature = await walletClient.signMessage({
     message: "bad-message",
