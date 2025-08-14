@@ -21,8 +21,9 @@ export type StartConfigGameStateTransitions = (
  * It should return a valid SQL to be executed at a given block height.
  */
 export type StartConfigMigrationRouter = (
-  blockHeight: number,
-) => Promise<string | undefined>;
+  startBlockHeight: number,
+  endBlockHeight: number,
+) => Promise<{ sql: string; blockHeight: number; name: string }[]>;
 
 /**
  * Type for the API router function.

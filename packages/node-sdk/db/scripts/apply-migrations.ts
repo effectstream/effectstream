@@ -1,19 +1,44 @@
 import { getConnection } from "../src/pg-connection.ts";
-import { migrations } from "../migrations/up.ts";
+import { getMigrations } from "../migrations/system-version.ts";
 import type { Client } from "pg";
+import { insertPaimaEngineMigration } from "@paima/db";
 
-export async function applyMigrations(db: Client) {
-  let migrationData = "";
-  try {
-    Deno.statSync(__dirname + "/migrations/up.sql");
-    migrationData = Deno.readTextFileSync(__dirname + "/migrations/up.sql");
-  } catch (e) {
-    migrationData = migrations;
+export async function applyInitialMigrations(db: Client, blockHeight: number) {
+  const migrations = await getMigrations();
+  for (const migration of migrations) {
+    console.log(
+      `Applying system migration: ${migration.version.join(".")}\n`,
+      migration.sql,
+    );
+    await applyMigrations(
+      db,
+      blockHeight,
+      migration.version.join("."),
+      migration.sql,
+      true,
+    );
   }
+}
 
-  await db.query("CREATE EXTENSION IF NOT EXISTS pg_ivm;");
-  await db.query(migrationData);
+export async function applyMigrations(
+  db: Client,
+  blockHeight: number,
+  name: string,
+  sql: string,
+  isSystemMigration: boolean,
+) {
+  await db.query(sql);
+  await insertPaimaEngineMigration.run(
+    {
+      name,
+      blockHeight,
+      isSystemMigration,
+    },
+    db,
+  );
+}
 
+export async function applyUserMigrations(db: Client, blockHeight: number) {
   /**
    * This is to generate the user/custom pgtyped files in compilation time
    * MIGRATIONS environment variable is used to specify the path to the migrations folder.
@@ -26,11 +51,20 @@ export async function applyMigrations(db: Client) {
     const files = Deno.readDirSync(userMigrations);
     for (const file of files) {
       if (file.isFile && file.name.endsWith(".sql")) {
-        console.log(`Executing migration: ${file.name}`);
+        console.log(`Applying user migration: ${file.name}`);
         const migration = Deno.readTextFileSync(
           `${userMigrations}/${file.name}`,
         );
         await db.query(migration);
+
+        await insertPaimaEngineMigration.run(
+          {
+            name: file.name,
+            blockHeight,
+            isSystemMigration: false,
+          },
+          db,
+        );
       }
     }
   }
@@ -38,7 +72,8 @@ export async function applyMigrations(db: Client) {
 
 if (import.meta.main) {
   const db = await getConnection();
-  await applyMigrations(db);
+  await applyInitialMigrations(db, 0);
+  await applyUserMigrations(db, 0);
   console.log("Migrations applied");
   Deno.exit(0);
 }

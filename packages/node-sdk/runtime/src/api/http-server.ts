@@ -213,7 +213,7 @@ export const startHttpServer = function* (
     const pagination = createPaginationMeta(
       limit,
       skip,
-      countResult?.[0]?.total,
+      countResult?.[0]?.total ? parseInt(countResult[0].total, 10) : undefined,
       addresses.length,
     );
 
@@ -325,7 +325,7 @@ export const startHttpServer = function* (
     const pagination = createPaginationMeta(
       limit,
       skip,
-      countResult?.[0]?.total,
+      countResult?.[0]?.total ? parseInt(countResult[0].total, 10) : undefined,
       scheduledData.length,
     );
 

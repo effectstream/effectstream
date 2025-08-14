@@ -90,17 +90,16 @@ const npmPackagesToPublish = [
   "./packages/binaries/midnight-proof-server",
 ];
 
-let versionCache: string | null = null;
 async function fetchLatestVersion(): Promise<string> {
   // If manual version is provided, use it
   if (manualVersion) {
     console.log(`Using manual version: ${manualVersion}`);
     return manualVersion;
   }
-  if (versionCache) {
-    return versionCache;
-  }
+  return JSON.parse(await Deno.readTextFile("./deno.json")).version;
+}
 
+async function fetchNextVersionFromJSR(): Promise<string> {
   try {
     const response = await fetch("https://jsr.io/@paimaexample/sync/meta.json");
     if (!response.ok) {
@@ -117,7 +116,6 @@ async function fetchLatestVersion(): Promise<string> {
 
     const newVersion = `${major}.${minor}.${patch + 1}`;
     console.log(`Auto-incremented version: ${newVersion}`);
-    versionCache = newVersion;
     return newVersion;
   } catch (error) {
     console.error("Error fetching version:", error);
@@ -164,14 +162,25 @@ async function processFile(filePath: string, reverse: boolean = false) {
   }
 }
 
+const skipDirectories = [
+  `${rootDir}/example-project`,
+  `${rootDir}/docs/docs`,
+  `${rootDir}/.github`,
+];
 async function walkAndProcess(dir: string, reverse: boolean = false) {
   for await (const entry of Deno.readDir(dir)) {
     const fullPath = `${dir}/${entry.name}`;
+
     if (entry.isDirectory) {
       // Skip node_modules folder
       if (entry.name === "node_modules") {
         continue;
       }
+
+      if (skipDirectories.includes(fullPath)) {
+        continue;
+      }
+
       await walkAndProcess(fullPath, reverse);
     } else if (filePattern.test(entry.name)) {
       // Skip the script file itself to avoid self-modification

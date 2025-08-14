@@ -1,7 +1,13 @@
-import { readFile } from "node:fs/promises";
 import type { StartConfigMigrationRouter } from "@paima/runtime";
+import firstSql from "./migrations/1.sql" with { type: "text" };
 
-const __dirname = import.meta.dirname;
+const migrationTable = [
+  {
+    blockHeight: 1,
+    name: "1.sql",
+    sql: firstSql,
+  },
+];
 
 /**
  * This function is used by Paima Engine to apply the migration at the correct block heights.
@@ -10,11 +16,12 @@ const __dirname = import.meta.dirname;
  * @returns The migration script for the given block height.
  */
 export const migrationRouter: StartConfigMigrationRouter = async function (
-  blockHeight: number,
-): Promise<string | undefined> {
-  switch (blockHeight) {
-    case 1:
-      return await readFile(`${__dirname}/migrations/1.sql`, "utf-8");
-  }
-  return undefined;
+  startBlockHeight: number,
+  endBlockHeight: number,
+): Promise<{ sql: string; blockHeight: number; name: string }[]> {
+  return migrationTable
+    .filter((migration) =>
+      migration.blockHeight >= startBlockHeight &&
+      migration.blockHeight <= endBlockHeight
+    );
 };

@@ -14,7 +14,7 @@ import { startHttpServer } from "./api/http-server.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
 import type { PaimaBlockHash } from "@paima/utils";
-import { applyMigrations } from "@paima/db/apply-migrations";
+import { executeMigrations } from "./version-migrations.ts";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -35,7 +35,10 @@ export function* start(config: StartConfig): Operation<void> {
   //      We have to distinguish between the start or restart of the node.
   //      Further updates need to be managed by the user.
   const dbConn = getConnection();
-  yield* until(applyMigrations(dbConn));
+
+  // TODO migration router is optional
+  yield* executeMigrations(dbConn, config.migrationRouter!);
+
   const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
   yield* createDynamicTables(dbConn, syncProtocols);
 
