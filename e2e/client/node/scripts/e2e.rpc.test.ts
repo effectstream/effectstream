@@ -4,9 +4,6 @@ import { wallets } from "./e2e-contracts.ts";
 import { getPaimaEVMPublicClient } from "./e2e-rpc.ts";
 
 export async function RPCTest() {
-  if (Deno.env.get("GITHUB_ACTIONS_SHORT_TEST")) {
-    return;
-  }
   // Test RPC
   const rpcClient = getPaimaEVMPublicClient();
 
