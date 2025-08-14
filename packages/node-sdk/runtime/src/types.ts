@@ -7,6 +7,8 @@ import type { SyncStateUpdateStream } from "@paima/coroutine";
 import type { GrammarDefinition } from "@paima/concise";
 // These are user type defined objects for launching Paima Engine Node.
 
+export type VERSION = `${number}.${number}.${number}`;
+
 /**
  * Type for the game state transitions function.
  * For each `prefix` it can return a list of state transitions and events.
@@ -23,7 +25,14 @@ export type StartConfigGameStateTransitions = (
 export type StartConfigMigrationRouter = (
   startBlockHeight: number,
   endBlockHeight: number,
-) => Promise<{ sql: string; blockHeight: number; name: string }[]>;
+) => Promise<DBMigrations[]>;
+
+export type DBMigrations = {
+  versionDependency?: VERSION;
+  blockHeight?: number;
+  name: string;
+  sql: string;
+};
 
 /**
  * Type for the API router function.
@@ -43,6 +52,8 @@ export type StartConfigApiRouter = (
  * @param apiRouter - (optional) API Router.
  */
 export type StartConfig = {
+  appName: string;
+  appVersion: VERSION;
   syncInfo: SyncProtocolWithNetwork[];
   gameStateTransitions?: StartConfigGameStateTransitions;
   migrationRouter?: StartConfigMigrationRouter;

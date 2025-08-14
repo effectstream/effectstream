@@ -1,14 +1,6 @@
 import type { Pool } from "pg";
-import { ENV } from "@paima/utils";
+import { type QueryResult, safeQuery } from "./e2e-db.ts";
 
-type QueryResult<RowType> = {
-  rows: RowType[];
-  fields: { name: string; dataTypeId: number }[];
-  rowCount: number;
-  command: string;
-  oid: number;
-  rowsAffected: number;
-};
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const testResults = {
@@ -112,29 +104,15 @@ export async function assertSQL<RowType>(
   check: (res: QueryResult<RowType>) => boolean,
 ): Promise<QueryResult<RowType>> {
   startTest(testName);
-  let maxMillis = 10000;
-  while (maxMillis > 0) {
-    let res: QueryResult<RowType>;
-    let didLock = false;
-    try {
-      await fetch(
-        `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=${testName}`,
-      );
-      didLock = true;
-      res = await dbQuery(db.query(query));
-    } finally {
-      if (didLock) {
-        await fetch(
-          `http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock?name=${testName}`,
-        );
-      }
-    }
+  let maxMilis = 10000;
+  while (maxMilis > 0) {
+    const res = await safeQuery<RowType>(db, query, testName);
 
     // First wait until the data is available.
     if (!waitUntil(res)) {
       await delay(100);
-      maxMillis -= 100;
-      if (maxMillis <= 0) {
+      maxMilis -= 100;
+      if (maxMilis <= 0) {
         testFailed();
         console.log("Expected", waitUntil.toString());
         console.error("[TIMEOUT] Data in DB:", res.rows);
@@ -145,7 +123,11 @@ export async function assertSQL<RowType>(
 
     // Now run the custom check.
     try {
-      const finalResult: QueryResult<RowType> = await dbQuery(db.query(query));
+      const finalResult: QueryResult<RowType> = await safeQuery<RowType>(
+        db,
+        query,
+        testName,
+      );
       if (!check(finalResult)) {
         throw new Error("CHECK_ERROR");
       }
@@ -190,29 +172,19 @@ export async function assertSQL2<WaitType, CheckType>(
   check: { query: string; check: (res: QueryResult<CheckType>) => boolean },
 ): Promise<QueryResult<WaitType | CheckType>> {
   startTest(testName);
-  let maxMillis = 10000;
-  while (maxMillis > 0) {
-    let waitUntilResult: QueryResult<WaitType>;
-    let didLock = false;
-    try {
-      await fetch(
-        `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=${testName}`,
-      );
-      didLock = true;
-      waitUntilResult = await dbQuery(db.query(waitUntil.query));
-    } finally {
-      if (didLock) {
-        await fetch(
-          `http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock?name=${testName}`,
-        );
-      }
-    }
+  let maxMilis = 10000;
+  while (maxMilis > 0) {
+    const waitUntilResult = await safeQuery<WaitType>(
+      db,
+      waitUntil.query,
+      testName,
+    );
 
     // First wait until the data is available.
     if (!waitUntil.check(waitUntilResult)) {
       await delay(100);
-      maxMillis -= 100;
-      if (maxMillis <= 0) {
+      maxMilis -= 100;
+      if (maxMilis <= 0) {
         testFailed();
         console.log("Expected", waitUntil.toString());
         console.error("[TIMEOUT] Data in DB:", waitUntilResult.rows);
@@ -221,21 +193,7 @@ export async function assertSQL2<WaitType, CheckType>(
       continue;
     }
 
-    let checkResult: QueryResult<CheckType>;
-    didLock = false;
-    try {
-      await fetch(
-        `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=${testName}`,
-      );
-      didLock = true;
-      checkResult = await dbQuery(db.query(check.query));
-    } finally {
-      if (didLock) {
-        await fetch(
-          `http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock?name=${testName}`,
-        );
-      }
-    }
+    const checkResult = await safeQuery<CheckType>(db, check.query, testName);
 
     // Now run the custom check.
     try {
@@ -262,34 +220,4 @@ export async function assertSQL2<WaitType, CheckType>(
     oid: 0,
     rowsAffected: 0,
   } as QueryResult<WaitType | CheckType>;
-}
-
-const IS_PGLITE = true; // TODO: make this configurable
-async function dbQuery<WaitType, CheckType>(
-  p: Promise<QueryResult<WaitType | CheckType>>,
-) {
-  let t;
-  const timeout: Promise<QueryResult<WaitType | CheckType>> = new Promise(
-    (resolve) => {
-      t = setTimeout(() => {
-        console.error("[E2E CRITICAL ERROR] Database query timed out", name);
-        if (IS_PGLITE) {
-          // TODO: This is a temporary fix to allow the query to continue.
-          // Only allow to continue in PGLITE.
-          // We suspect this is PGLITE specific error.
-          resolve({
-            rows: [],
-            fields: [],
-            rowCount: 0,
-            command: "",
-            oid: 0,
-            rowsAffected: 0,
-          });
-        }
-      }, 2500);
-    },
-  );
-  const result = await Promise.race([p, timeout]);
-  clearTimeout(t);
-  return result;
 }

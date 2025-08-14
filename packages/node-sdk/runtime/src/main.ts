@@ -1,4 +1,8 @@
-import { type ChainBlock, genSyncProtocols } from "@paima/sync";
+import {
+  type AllSyncProtocols,
+  type ChainBlock,
+  genSyncProtocols,
+} from "@paima/sync";
 import {
   acquireDBMutex,
   createDynamicTables,
@@ -14,7 +18,9 @@ import { startHttpServer } from "./api/http-server.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
 import type { PaimaBlockHash } from "@paima/utils";
-import { executeMigrations } from "./version-migrations.ts";
+import { applySystemMigrations } from "./version-migrations.ts";
+import { getLastBlockHeight, getVersionInfo } from "@paima/db/version";
+import type { SyncProtocolWithNetwork } from "@paima/config";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -24,23 +30,17 @@ export function* init() {
 /**
  * Main entry point to start the Paima Engine Node.
  *
- * This will launch the networks/primitives syncronization sub-processes,
+ * This will launch the networks/primitives synchronization sub-processes,
  * the HTTP server, and the merge and paima-block generation process.
  *
  * @param config - Paima Engine Node configuration object.
  */
 export function* start(config: StartConfig): Operation<void> {
   const { syncInfo } = config;
-  // TODO We only need to do this once, at the beginning.
-  //      We have to distinguish between the start or restart of the node.
-  //      Further updates need to be managed by the user.
+
   const dbConn = getConnection();
 
-  // TODO migration router is optional
-  yield* executeMigrations(dbConn, config.migrationRouter!);
-
-  const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
-  yield* createDynamicTables(dbConn, syncProtocols);
+  const syncProtocols = yield* startup(dbConn, syncInfo, config);
 
   log.remote(
     ComponentNames.PAIMA_RUNTIME,
@@ -92,4 +92,37 @@ export function* start(config: StartConfig): Operation<void> {
     );
     yield* each.next();
   }
+}
+
+function* startup(
+  dbConn: Client,
+  syncInfo: SyncProtocolWithNetwork[],
+  config: StartConfig,
+): Operation<AllSyncProtocols[]> {
+  const versionInfo = yield* getVersionInfo(dbConn);
+  const lastBlockHeight = yield* getLastBlockHeight(versionInfo, dbConn);
+
+  yield* acquireDBMutex(`startup-node`);
+
+  // When the node is started, we apply system migrations.
+  // Either system initial migrations, or migrations given a Paima Engine Update.
+  yield* applySystemMigrations(
+    config.appVersion,
+    versionInfo,
+    lastBlockHeight,
+    dbConn,
+    config.migrationRouter,
+  );
+
+  const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
+
+  yield* createDynamicTables(
+    versionInfo,
+    lastBlockHeight,
+    dbConn,
+    syncProtocols,
+  );
+
+  releaseDBMutex(`startup-node`);
+  return syncProtocols;
 }

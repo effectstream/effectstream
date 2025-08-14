@@ -10,9 +10,10 @@ import {
   ERC721_VIEW_PREFIX,
   erc721Ivm,
 } from "./ivm/erc721-ivm.ts";
-// import type { AllSyncProtocols } from "@paima/sync";
+import type { AllSyncProtocols } from "@paima/sync";
 import type { PoolClient } from "pg";
-import { acquireDBMutex, releaseDBMutex } from "@paima/db";
+import { applyMigrations } from "@paima/db/apply-migrations";
+import type { VersionInfo } from "@paima/db/version";
 
 /**
  * Creates dynamic tables for the given sync protocols.
@@ -25,28 +26,39 @@ import { acquireDBMutex, releaseDBMutex } from "@paima/db";
  * @param syncProtocols - The sync protocols.
  */
 export function* createDynamicTables(
+  versionInfo: VersionInfo,
+  lastBlockHeight: number,
   dbConn: PoolClient,
-  syncProtocols: any[], //AllSyncProtocols[],
+  syncProtocols: AllSyncProtocols[],
 ) {
-  try {
-    yield* acquireDBMutex("creating-dynamic-tables");
-    for (const syncProtocol of syncProtocols) {
-      for (const primitive of syncProtocol.config.primitives) {
-        switch (primitive.primitive.type) {
-          case ConfigPrimitiveType.EvmRpcERC20:
-            // TODO These dynamic queries can be improved.
-            yield* until(dbConn.query(erc20Ivm(primitive.primitive.name)));
-            break;
-          case ConfigPrimitiveType.EvmRpcERC721:
-            yield* until(dbConn.query(erc721Ivm(primitive.primitive.name)));
-            break;
-          default:
-            // No IVM for this primitive type
-        }
+  // TODO We need to check the database if the dynamic tables already exist.
+  //      This is for when the node restarts, but continues executing from the last block height.
+
+  for (const syncProtocol of syncProtocols) {
+    for (const primitive of syncProtocol.config.primitives) {
+      switch (primitive.primitive.type) {
+        case ConfigPrimitiveType.EvmRpcERC20:
+          yield* until(applyMigrations(
+            dbConn,
+            lastBlockHeight,
+            `dynamic-tables-${primitive.primitive.type}-${primitive.primitive.name}`,
+            erc20Ivm(primitive.primitive.name),
+            true,
+          ));
+          break;
+        case ConfigPrimitiveType.EvmRpcERC721:
+          yield* until(applyMigrations(
+            dbConn,
+            lastBlockHeight,
+            `dynamic-tables-${primitive.primitive.type}-${primitive.primitive.name}`,
+            erc721Ivm(primitive.primitive.name),
+            true,
+          ));
+          break;
+        default:
+          // No IVM for this primitive type
       }
     }
-  } finally {
-    releaseDBMutex("creating-dynamic-tables");
   }
 }
 

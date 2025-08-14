@@ -9,11 +9,10 @@ table_name = :tableName!
 
 /* @name getLatestVersion */
 SELECT 
-version_major, version_minor, version_patch, block_height
+app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height
 FROM 
 paima_engine_version_history
-ORDER BY 
-block_height DESC
+ORDER BY block_height DESC
 LIMIT 1
 ;
 
@@ -33,7 +32,26 @@ VALUES
 
 /* @name insertPaimaEngineVersion */
 INSERT INTO paima_engine_version_history 
-(version_major, version_minor, version_patch, block_height) 
+(app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height) 
 VALUES 
-(:versionMajor!, :versionMinor!, :versionPatch!, :blockHeight!)
+(:appVersionMajor!, :appVersionMinor!, :appVersionPatch!, :engineVersionMajor!, :engineVersionMinor!, :engineVersionPatch!, :blockHeight!)
+;
+
+/* @name findMigrationByName */
+SELECT * FROM paima_engine_migration_history
+WHERE name = :name!
+AND is_system_migration = :isSystemMigration!
+;
+
+/* @name insertEngineExpectedVersion */
+INSERT INTO paima_engine_expected_version 
+(app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height) 
+VALUES 
+(:appVersionMajor!, :appVersionMinor!, :appVersionPatch!, :engineVersionMajor!, :engineVersionMinor!, :engineVersionPatch!, :blockHeight!)
+;
+
+/* @name getExpectedEngineVersion */
+SELECT * FROM paima_engine_expected_version
+ORDER BY block_height DESC
+LIMIT 1
 ;

@@ -17,6 +17,8 @@ main(function* () {
 
   yield* withPaimaStaticConfig(localhostConfig, function* () {
     yield* start({
+      appName: "e2e-client",
+      appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(localhostConfig),
       gameStateTransitions,
       migrationRouter,

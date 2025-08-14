@@ -3,141 +3,159 @@ import {
   applyMigrations,
   getMigrations,
   PAIMA_ENGINE_VERSION,
+  parseVersion,
+  type VersionInfo,
 } from "@paima/db/version";
 import type { Operation } from "effection";
 import { until } from "npm:effection@3.5.0";
-import {
-  getLatestProcessedBlockHeight,
-  getLatestVersion,
-  insertPaimaEngineVersion,
-  tableExists,
-} from "@paima/db";
-import type { StartConfigMigrationRouter } from "@paima/runtime";
+import { insertPaimaEngineVersion } from "@paima/db";
+import type {
+  DBMigrations,
+  StartConfigMigrationRouter,
+  VERSION,
+} from "@paima/runtime";
 
-type VersionInfo = {
-  current_version: string;
-  running_version: string;
-  is_empty: boolean;
-};
-
-type MigrationInfo = {
-  name: string;
+type SystemMigration = {
+  version: VERSION;
   sql: string;
 };
 
-export function* executeMigrations(
+export function* applySystemMigrations(
+  appVersion: VERSION,
+  versionInfo: VersionInfo,
+  lastBlockHeight: number,
   dbConn: Client,
-  migrationRouter: StartConfigMigrationRouter,
-): Operation<VersionInfo> {
-  const versionInfo = yield* getVersionInfo(dbConn);
-  const lastBlockHeight = !versionInfo.is_empty
-    ? yield* until(getLatestProcessedBlockHeight.run(undefined, dbConn))
-    : [{ block_height: 0 }];
+  migrationRouter: StartConfigMigrationRouter | undefined,
+): Operation<void> {
+  if (
+    versionInfo.engine_current_version === versionInfo.engine_previous_version
+  ) {
+    // Nothing to apply.
+    return;
+  }
 
-  const migrations = yield* getAllMigrations(
+  const migrations = yield* getAllSystemMigrations(
     versionInfo,
     migrationRouter,
     dbConn,
   );
 
-  for (const migration of migrations.systemMigrations) {
+  // Apply all missing System Migrations
+  for (const migration of migrations) {
     yield* until(
       applyMigrations(
         dbConn,
-        lastBlockHeight[0].block_height,
-        migration.name,
+        lastBlockHeight,
+        migration.version,
         migration.sql,
         true,
       ),
     );
   }
 
-  if (versionInfo.current_version !== versionInfo.running_version) {
-    yield* until(
-      insertPaimaEngineVersion.run(
-        {
-          versionMajor: parseInt(versionInfo.current_version.split(".")[0], 10),
-          versionMinor: parseInt(versionInfo.current_version.split(".")[1], 10),
-          versionPatch: parseInt(versionInfo.current_version.split(".")[2], 10),
-          blockHeight: lastBlockHeight[0].block_height,
-        },
-        dbConn,
-      ),
-    );
-  }
+  // Update Engine Version
+  const engineVersion = parseVersion(versionInfo.engine_current_version);
+  const appVersionParts = parseVersion(appVersion);
+  yield* until(
+    insertPaimaEngineVersion.run(
+      {
+        appVersionMajor: appVersionParts[0],
+        appVersionMinor: appVersionParts[1],
+        appVersionPatch: appVersionParts[2],
+        engineVersionMajor: engineVersion[0],
+        engineVersionMinor: engineVersion[1],
+        engineVersionPatch: engineVersion[2],
+        blockHeight: lastBlockHeight,
+      },
+      dbConn,
+    ),
+  );
 
-  for (const migration of migrations.userMigrations) {
+  return;
+}
+function* getAllSystemMigrations(
+  config: VersionInfo,
+  migrationRouter: StartConfigMigrationRouter | undefined,
+  blockHeight: number,
+): Operation<SystemMigration[]> {
+  const fromVersion = config.is_empty
+    ? undefined
+    : config.engine_previous_version;
+  const toVersion = config.engine_current_version;
+
+  // Get System Migrations
+  const systemMigrations = fromVersion !== toVersion
+    ? yield* until(getMigrations(fromVersion, toVersion))
+    : [];
+
+  return systemMigrations;
+}
+
+export function* applyUserMigrations(
+  currentBlockHeight: number,
+  dbConn: Client,
+  migrationRouter: StartConfigMigrationRouter,
+): Operation<void> {
+  const migrations = yield* getAllUserMigrations(
+    PAIMA_ENGINE_VERSION,
+    migrationRouter,
+    currentBlockHeight,
+  );
+
+  // Apply all missing User Migrations
+  for (const migration of migrations) {
     yield* until(
       applyMigrations(
         dbConn,
-        lastBlockHeight[0].block_height,
+        currentBlockHeight,
         migration.name,
         migration.sql,
         false,
       ),
     );
   }
-
-  return versionInfo;
 }
 
-function* getVersionInfo(dbConn: Client): Operation<VersionInfo> {
-  // 1. Let's check if the database is empty.
-  const [result] = yield* until(tableExists.run(undefined, dbConn));
-
-  if (!result.exists) {
-    return {
-      current_version: PAIMA_ENGINE_VERSION,
-      running_version: PAIMA_ENGINE_VERSION,
-      is_empty: true,
-    };
-  }
-
-  // So let's check what is the latest version from the `paima_engine_version_history` table.
-  const [latestVersion] = yield* until(getLatestVersion.run(undefined, dbConn));
-  if (!latestVersion) {
-    throw new Error("Internal error: No version found in the database");
-  }
-
-  return {
-    current_version: PAIMA_ENGINE_VERSION,
-    running_version: latestVersion.version_major.toString() + "." +
-      latestVersion.version_minor.toString() + "." +
-      latestVersion.version_patch.toString(),
-    is_empty: false,
-  };
-}
-
-function* getAllMigrations(
-  config: {
-    current_version: string;
-    running_version: string;
-    is_empty: boolean;
-  },
+function* getAllUserMigrations(
+  currentEngineVersion: VERSION,
   migrationRouter: StartConfigMigrationRouter,
   blockHeight: number,
-): Operation<{
-  systemMigrations: MigrationInfo[];
-  userMigrations: MigrationInfo[];
-}> {
-  const fromVersion = config.is_empty ? undefined : config.running_version;
-  const toVersion = config.current_version;
-  if (fromVersion === toVersion) {
-    return { systemMigrations: [], userMigrations: [] };
-  }
-  const userMigrations = yield* until(
-    migrationRouter(blockHeight, blockHeight),
-  );
+): Operation<DBMigrations[]> {
+  // Get User Migrations
+  const userMigrations = migrationRouter
+    ? yield* until(migrationRouter(blockHeight, blockHeight))
+    : [];
 
-  const systemMigrations = yield* until(getMigrations(fromVersion, toVersion));
-  return {
-    systemMigrations: systemMigrations.map((migration) => ({
-      name: migration.version.join("."),
-      sql: migration.sql,
-    })),
-    userMigrations: userMigrations.map((migration) => ({
-      name: migration.name,
-      sql: migration.sql,
-    })),
-  };
+  // Check if User Migrations are compatible with the current version
+  for (const migration of userMigrations) {
+    // If a current version is provided we check if the migration have the correct version dependency
+    if (migration.versionDependency) {
+      if (
+        !isVersionGreaterOrEqual(
+          currentEngineVersion,
+          migration.versionDependency,
+        )
+      ) {
+        throw new Error(`[CRITICAL ERROR] Migration ${migration.name} failed.
+    Paima Engine Version ${migration.versionDependency} required.
+    Current version ${currentEngineVersion} is not compatible.
+    Please update your Paima Engine dependencies.`);
+      }
+    }
+  }
+
+  return userMigrations;
+}
+
+function isVersionGreaterOrEqual(
+  version: VERSION,
+  migrationVersion: VERSION,
+): boolean {
+  const versionParts = parseVersion(version);
+  const migrationVersionParts = parseVersion(migrationVersion);
+  return (
+    versionParts[0] > migrationVersionParts[0] ||
+    (versionParts[0] === migrationVersionParts[0] &&
+      versionParts[1] >= migrationVersionParts[1])
+  );
 }

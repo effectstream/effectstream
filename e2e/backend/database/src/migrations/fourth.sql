@@ -1,0 +1,4 @@
+CREATE TABLE test_4 (
+  id SERIAL PRIMARY KEY,
+  id_3 INTEGER NOT NULL REFERENCES test_3(id)
+);
