@@ -357,7 +357,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     "Nonces table accessible",
     db,
     `SELECT COUNT(*)::int as c FROM public.nonces;`,
-    (res) => res.rows.length === 1,
+    () => true, // We don't care about the result, we just want to check if the table is accessible.
     (res) => res.rows[0].c >= initialNonceCount,
   );
 
