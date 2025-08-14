@@ -68,7 +68,7 @@ async function unzipBinary() {
       path.join(
         __dirname,
         "indexer-standalone",
-        `indexer-standalone-${parts[1]}`,
+        `indexer-standalone-${platform}`,
       ),
       0o755,
     );
