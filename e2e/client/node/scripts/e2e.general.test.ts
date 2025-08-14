@@ -358,7 +358,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     db,
     `SELECT COUNT(*)::int as c FROM public.nonces;`,
     () => true, // We don't care about the result, we just want to check if the table is accessible.
-    (res) => res.rows[0].c >= initialNonceCount,
+    (res) => res.rows[0].c === initialNonceCount,
   );
 
   // Direct (non-batched) duplicate protection test: queue two identical txs in the same block
@@ -369,8 +369,9 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     const beforeNonces = await db.query(
       `SELECT COUNT(*)::int as c FROM public.nonces;`,
     );
-    const acc0 = (beforeAcc.rows?.[0]?.c as number) ?? 0;
-    const nonces0 = (beforeNonces.rows?.[0]?.c as number) ?? 0;
+    const countBeforePrimitiveAccounting = (beforeAcc.rows?.[0]?.c as number) ??
+      0;
+    const countBeforeNonces = (beforeNonces.rows?.[0]?.c as number) ?? 0;
 
     const paima2 = makePaimaL2(sharedState);
     const data = ["attack", "314", "2718"];
@@ -403,8 +404,8 @@ export async function generalTest(db: Client, sharedState: SharedState) {
         "Direct duplicate: accounting increase by 1",
         db,
         `SELECT COUNT(*)::int as c FROM public.primitive_accounting;`,
-        (res) => res.rows[0].c === acc0 + 1,
-        (res) => res.rows[0].c === acc0 + 1,
+        (res) => res.rows[0].c === countBeforePrimitiveAccounting + 1,
+        (res) => res.rows[0].c === countBeforePrimitiveAccounting + 1,
       );
 
       // Expect exactly one new nonce
@@ -412,8 +413,8 @@ export async function generalTest(db: Client, sharedState: SharedState) {
         "Direct duplicate: nonces increase by 1",
         db,
         `SELECT COUNT(*)::int as c FROM public.nonces;`,
-        (res) => res.rows[0].c === nonces0 + 1,
-        (res) => res.rows[0].c === nonces0 + 1,
+        (res) => res.rows[0].c === countBeforeNonces + 1,
+        (res) => res.rows[0].c === countBeforeNonces + 1,
       );
 
       // Keep shared counters in sync for subsequent assertions
