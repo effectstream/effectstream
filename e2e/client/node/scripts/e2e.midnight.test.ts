@@ -117,9 +117,7 @@ const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
 
 // Standalone helper functions
-const counterContractInstance: any = new Counter.Contract(
-  witnesses,
-);
+const counterContractInstance: any = new Counter.Contract(witnesses);
 
 const getCounterLedgerState = async (
   providers: CounterProviders,
