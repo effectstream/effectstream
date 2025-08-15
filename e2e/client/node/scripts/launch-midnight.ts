@@ -70,7 +70,7 @@ export const launchMidnight = {
         "task",
         "-f",
         "@e2e/midnight-contracts",
-        "midnight-contract:deploy",
+        "contract:deploy",
       ],
     },
   ],

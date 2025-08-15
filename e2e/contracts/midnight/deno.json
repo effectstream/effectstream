@@ -11,9 +11,9 @@
         "midnight-indexer:wait": "wait-on tcp:8088",
         "midnight-proof-server:start": "LEDGER_NETWORK_ID=\"Undeployed\" RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @paima/npm-midnight-proof-server",
         "midnight-proof-server:wait": "wait-on tcp:6300",
-        "midnight-contract:compile": "deno -A compile-contract.ts",
-        "midnight-contract:clean": "rm -rf midnight-level-db && rm -rf contract.json",
-        "midnight-contract:deploy": "deno task midnight-contract:clean && deno --unstable-detect-cjs -A deploy.ts"
+        "contract:compile": "deno -A compile-contract.ts",
+        "contract:clean": "rm -rf midnight-level-db && rm -rf contract.json",
+        "contract:deploy": "deno task midnight-contract:clean && deno --unstable-detect-cjs -A deploy.ts"
     },
     "imports": {
         "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger",

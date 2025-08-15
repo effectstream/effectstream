@@ -25,6 +25,7 @@
         "build:forge": "deno task swap:remappings:forge && forge build",
         "build:hardhat": "deno task swap:remappings:hardhat && deno run -A npm:hardhat@3.0.0-next.20 compile && deno run -A build.mod.ts",
         "build": "deno task build:clean && deno task build:forge && deno task build:hardhat && deno task build:mod",
+        "contract:compile": "deno task build",
         "deploy:clean": "rm -rf ignition/deployments || true",
         "deploy:standalone": "deno task deploy:clean && ((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && kill -9 $(lsof -ti tcp:8545)",
         "deploy": "deno task deploy:clean && deno run -A deploy_caller.ts",

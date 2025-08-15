@@ -501,7 +501,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         "task",
         "-f",
         "@e2e/midnight-contracts",
-        "midnight-contract:deploy",
+        "contract:deploy",
       ],
       log: rawLogHandler,
       component: ComponentNames.MIDNIGHT_CONTRACT,
