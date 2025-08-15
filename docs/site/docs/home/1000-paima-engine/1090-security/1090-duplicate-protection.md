@@ -1,8 +1,8 @@
 ---
-id: duplicate-protection
-title: Duplicate Protection in Paima L2
-slug: /paima-engine/duplicate-protection
-sidebar_label: Duplicate Protection
+id: replay-protection
+title: Replay Protection in Paima L2
+slug: /paima-engine/replay-protection
+sidebar_label: Replay Protection
 ---
 
 # Replay Protection in Paima L2 (v2)
