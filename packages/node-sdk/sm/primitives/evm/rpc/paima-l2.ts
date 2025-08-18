@@ -68,7 +68,7 @@ function* checkNonce(
   }
   // guarantee we run this no matter if there is an error or a continue
   yield* World.resolve(insertNonce, {
-    nonce: nonce ?? "",
+    nonce: nonce,
     block_height,
   });
 
