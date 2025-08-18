@@ -62,6 +62,16 @@ export const World = {
     const unwrapped = yield streams as any;
     return unwrapped as any;
   },
+  *promise<const Output>(
+    promise: Promise<Output>,
+  ): Generator<ExecPromise<Output>, Output, unknown> {
+    const call: ExecPromise<Output> = {
+      type: "promise",
+      promise,
+    };
+    const [wrapped] = (yield call) as [Output];
+    return wrapped;
+  },
 };
 
 type Spread<T> = T extends [] // base case 1: empty list
@@ -73,9 +83,9 @@ type Spread<T> = T extends [] // base case 1: empty list
   : never;
 
 // Type to resolve a yield a generic promise execution
-export type ExecPromise = {
+export type ExecPromise<T> = {
   type: "promise";
-  promise: Promise<any>;
+  promise: Promise<T>;
 };
 
 type NoDistribute<T> = [T] extends [any] ? T : never;
@@ -84,7 +94,7 @@ type NoDistribute<T> = [T] extends [any] ? T : never;
  * But sometimes it helps simplify to only accept non-async inputs to a function operating on generators
  */
 export type SyncStateUpdateStream<Return> = Generator<
-  QueuedUpdate | Spread<any> | ExecPromise,
+  QueuedUpdate | Spread<any> | ExecPromise<any>,
   Return,
   unknown
 >;
