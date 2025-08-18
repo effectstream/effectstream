@@ -4,11 +4,6 @@
       "mode": "sql",
       "include": "**/*.sql",
       "emitTemplate": "{{dir}}/{{name}}.queries.ts"
-    },
-    {
-      "mode": "ts",
-      "include": "**/*.ts",
-      "emitTemplate": "{{dir}}/{{name}}.types.ts"
     }
   ],
   "srcDir": "./src/sql",
@@ -21,5 +16,6 @@
     "host": "localhost",
     "port": 5432,
     "ssl": false
-  }
+  },
+  "maxWorkerThreads": 1
 }

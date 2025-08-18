@@ -19,11 +19,11 @@ import type {
 } from "@paima/config";
 import { ConfigPrimitivePayloadType, ConfigPrimitiveType } from "@paima/config";
 import type { StateUpdateStream } from "@paima/coroutine";
-import type { BlockNumber } from "@paima/utils";
+import type { PaimaBlockNumber } from "@paima/utils";
 import { clearBigInts } from "./utils.ts";
 
 export function* primitiveTransitionFunction(
-  paima_block_height: BlockNumber,
+  paima_block_height: PaimaBlockNumber,
   primitive: FlattenSyncProtocolIOFor<
     ConfigSyncProtocolType,
     ConfigPrimitiveType,

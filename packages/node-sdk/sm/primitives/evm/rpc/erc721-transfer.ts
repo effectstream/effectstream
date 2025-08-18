@@ -13,10 +13,10 @@ import {
   type ConfigPrimitiveType,
 } from "@paima/config";
 import { clearBigInts } from "../../utils.ts";
-import type { BlockNumber } from "@paima/utils";
+import type { PaimaBlockNumber } from "@paima/utils";
 
 export default function* processErc721SyncProtocolResponse(
-  paima_block_height: BlockNumber,
+  paima_block_height: PaimaBlockNumber,
   response: FlattenSyncProtocolIOFor<
     | ConfigSyncProtocolType.EVM_RPC_MAIN
     | ConfigSyncProtocolType.EVM_RPC_PARALLEL,

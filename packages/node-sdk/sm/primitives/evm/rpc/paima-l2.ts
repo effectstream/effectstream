@@ -1,4 +1,10 @@
-import type { BlockNumber, EvmAddress } from "@paima/utils";
+import {
+  type BlockNumber,
+  type PaimaBlockNumber,
+  type TxHash,
+  TypeboxHelpers,
+  type WalletAddress,
+} from "@paima/utils";
 import { hexToString, stringToHex } from "npm:viem";
 import type {
   ConfigPrimitivePayloadType,
@@ -11,101 +17,144 @@ import type { StateUpdateStream } from "@paima/coroutine";
 import {
   createScheduledData,
   findNonce,
+  getAddressByAddress,
   insertNonce,
   insertPrimitiveAccounting,
   newAddress,
+  // newDelegation,
 } from "@paima/db";
 import { World } from "@paima/coroutine";
-import { extractBatches, type ExtractedBatchSubunit } from "@paima/concise";
+import {
+  createMessageForBatcher,
+  extractBatches,
+  extractDelegateWallet,
+  type ExtractedBatchSubunit,
+} from "@paima/concise";
 import {
   ConfigPrimitiveAccountingPayloadType,
   type ConfigPrimitiveType,
+  PrimitiveEvmRpcPaimaL2Payload,
 } from "@paima/config";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import { mainAddressGenerator, NO_USER_ID } from "@paima/sm";
+import {
+  account_createAccount,
+  account_linkAddress,
+  account_unlinkAddress,
+  verifySignature,
+} from "@paima/sm";
 import { clearBigInts } from "../../utils.ts";
+import { BuiltinGrammarPrefix } from "@paima/concise";
+import { Value } from "@sinclair/typebox/value";
+import { CryptoManager } from "@paima/crypto";
+
+function* checkNonce(
+  nonce: string | undefined,
+  block_height: BlockNumber,
+): StateUpdateStream<boolean> {
+  // TODO This is only for batched messages?
+  if (!nonce) return true;
+
+  const [nonceData] = yield* World.resolve(findNonce, { nonce });
+  if (nonceData) {
+    log.remote(
+      ComponentNames.PAIMA_SYNC,
+      ["paima-l2"],
+      SeverityNumber.INFO,
+      (log) =>
+        log(
+          `Skipping inputData with duplicate nonce: ${nonceData.nonce} at block height: ${nonceData.block_height}`,
+        ),
+    );
+    return false;
+  }
+  // guarantee we run this no matter if there is an error or a continue
+  yield* World.resolve(insertNonce, {
+    nonce,
+    block_height,
+  });
+
+  return true;
+}
 
 function* executePaimaL2Input(input: {
-  paima_block_height: BlockNumber;
+  paima_block_height: PaimaBlockNumber;
   nonce: string | undefined;
   ownChain: {
-    blockNumber: number;
-    transactionHash: `0x${string}`;
+    blockNumber: BlockNumber;
+    transactionHash: TxHash;
   };
   payload: PayloadOf<
     typeof PrimitiveEvmRpcPaimaL2Accounting
   >;
   primitiveName: string;
-  signerAddress: `0x${string}`;
-}) {
-  // TODO This is only for batched messages?
-  if (input.nonce) {
-    const [nonceData] = yield* World.resolve(findNonce, {
-      nonce: input.nonce,
-    });
-    if (nonceData) {
-      log.remote(
-        ComponentNames.PAIMA_SYNC,
-        ["paima-l2"],
-        SeverityNumber.INFO,
-        (log) =>
-          log(
-            `Skipping inputData with duplicate nonce: ${
-              JSON.stringify(input.payload)
-            }`,
-          ),
-      );
-      return;
-    }
-    // guarantee we run this no matter if there is an error or a continue
-    yield* World.resolve(insertNonce, {
-      nonce: input.nonce,
-      block_height: input.paima_block_height,
-    });
-  }
-  // const primitiveName = response.output.syncProtocol.payload.primitiveName;
+  signerAddress: WalletAddress;
+}): StateUpdateStream<void> {
+  const isNonceValid = yield* checkNonce(input.nonce, input.paima_block_height);
+  if (!isNonceValid) return;
+
+  // This is encoded in the event payload data.
+  const conciseCommandStr = hexToString((input.payload as any).data);
+
+  const safePayload = clearBigInts(input.payload);
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: input.primitiveName,
     paima_block_height: input.paima_block_height,
     payload_type: ConfigPrimitiveAccountingPayloadType.Event,
-    payload: input.payload,
+    payload: safePayload,
   });
 
-  const address = yield* mainAddressGenerator(
-    input.signerAddress,
-  );
+  let [signer_address] = yield* World.resolve(getAddressByAddress, {
+    address: input.signerAddress,
+  });
 
-  // let success: boolean | undefined = false;
+  if (!signer_address) {
+    // Let's insert a new address.
+    yield* World.resolve(newAddress, {
+      address: input.signerAddress,
+    });
+    [signer_address] = yield* World.resolve(getAddressByAddress, {
+      address: input.signerAddress,
+    });
+  }
+
   try {
-    // Check if internal Concise Command
-    // Internal Concise Commands are prefixed with an ampersand (&)
-    // const delegateWallet = new DelegateWallet(DBConn);
-    // if (response.output.payload.inputData.startsWith("&")) {
-    // const status = await delegateWallet.process(
-    //   inputData.realAddress,
-    //   inputData.userAddress,
-    //   inputData.inputData,
-    // );
-    // if (!status) continue;
-    // } else
-    if (address.id === NO_USER_ID) {
-      // If wallet does not exist in address table: create it.
-      const [newAddressResult] = yield* World.resolve(newAddress, {
-        address: address.address,
-      });
-      address.id = (newAddressResult as any).id;
+    const delegateWallet = extractDelegateWallet(conciseCommandStr);
+    let status = false;
+    if (delegateWallet.prefix === BuiltinGrammarPrefix.createAccount) {
+      status = yield* account_createAccount(
+        signer_address,
+        delegateWallet,
+      );
+    } else if (delegateWallet.prefix === BuiltinGrammarPrefix.linkAddress) {
+      status = yield* (account_linkAddress(
+        signer_address,
+        delegateWallet,
+      ));
+    } else if (delegateWallet.prefix === BuiltinGrammarPrefix.unlinkAddress) {
+      status = yield* (account_unlinkAddress(
+        signer_address,
+        delegateWallet,
+      ));
     }
-  } catch (err) {
-    log.remote(
-      ComponentNames.PAIMA_SYNC,
-      ["paima-l2"],
-      SeverityNumber.ERROR,
-      (log) => log(`[paima-sm] Error on user input STF call. Skipping`, err),
-    );
+
+    if (!status) {
+      log.remote(
+        ComponentNames.PAIMA_SYNC,
+        ["paima-l2"],
+        SeverityNumber.ERROR,
+        (log) =>
+          log(`[paima-sm] Error on Delegate Wallet input STF call. Skipping`),
+      );
+      // Do not continue.
+      // Unwind is not needed.
+      return;
+    }
+  } catch {
+    // This is not an error, it's not just a delegate wallet message type.
   }
 
   yield* createScheduledData(
-    hexToString((input.payload as any).data),
+    conciseCommandStr,
     {
       blockHeight: input.paima_block_height,
     },
@@ -114,7 +163,8 @@ function* executePaimaL2Input(input: {
       txHash: input.ownChain.transactionHash,
       // TODO: Where to get this from, we can asume its eip155:{chainId}
       caip2: "eip155", // input.ownChain.caip2,
-      fromAddress: address.address,
+      fromAddress: signer_address.address,
+      // fromAccount: signer_address.account_id,
       // TODO Where to get this from?
       contractAddress: "0x0", // response.input.contractAddress.toLowerCase(),
     },
@@ -122,7 +172,7 @@ function* executePaimaL2Input(input: {
 }
 
 export default function* processPaimaL2SyncProtocolResponse(
-  paima_block_height: BlockNumber,
+  paima_block_height: PaimaBlockNumber,
   response: FlattenSyncProtocolIOFor<
     | ConfigSyncProtocolType.EVM_RPC_MAIN
     | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
@@ -130,12 +180,15 @@ export default function* processPaimaL2SyncProtocolResponse(
     ConfigPrimitivePayloadType.PaimaL2Event
   >,
 ): StateUpdateStream<void> {
-  const outerLayerPayload = clearBigInts(response.output.payload);
-
+  // At this point we have the response from the fetcher, but the payload has not been decoded or transformed.
+  const outerLayerData = Value.Decode(
+    PrimitiveEvmRpcPaimaL2Payload,
+    response.output.payload,
+  );
   let isBatched = false;
   let batchedMessages: ExtractedBatchSubunit[] = [];
   try {
-    const message = hexToString((outerLayerPayload as any).data);
+    const message = hexToString(outerLayerData.data);
     batchedMessages = extractBatches(message);
     isBatched = true;
   } catch {
@@ -143,23 +196,59 @@ export default function* processPaimaL2SyncProtocolResponse(
   }
   if (isBatched) {
     for (const batchedMessage of batchedMessages) {
-      // TODO we need to verify the signature of the batched messages
-      yield* executePaimaL2Input({
-        paima_block_height,
-        nonce: batchedMessage.parsed.userAddress + "-" +
-          batchedMessage.parsed.millisecondTimestamp,
-        ownChain: {
-          blockNumber:
-            response.output.syncProtocol.payload.ownChain.blockNumber,
-          transactionHash: response.output.syncProtocol.payload.transactionHash,
-        },
-        payload: {
-          data: stringToHex(batchedMessage.parsed.gameInput),
-          inputData: batchedMessage.parsed.gameInput,
-        } as any,
-        primitiveName: response.output.syncProtocol.payload.primitiveName,
-        signerAddress: batchedMessage.parsed.userAddress as `0x${string}`,
-      });
+      const { parsed } = batchedMessage;
+      const { userAddress, millisecondTimestamp, userSignature, gameInput } =
+        parsed;
+      // TODO: We need to setup & configure the namespace.
+      const message = createMessageForBatcher(
+        null,
+        millisecondTimestamp,
+        userAddress,
+        gameInput,
+      );
+      // We yield the promise to the generator caller.
+      // Sync Generators cannot resolve promises.
+      const validSignature = yield* verifySignature(
+        userAddress,
+        message,
+        userSignature,
+      );
+      if (validSignature) {
+        yield* executePaimaL2Input({
+          paima_block_height,
+          nonce: batchedMessage.parsed.userAddress + "-" +
+            batchedMessage.parsed.millisecondTimestamp,
+          ownChain: {
+            blockNumber:
+              response.output.syncProtocol.payload.ownChain.blockNumber,
+            transactionHash:
+              response.output.syncProtocol.payload.transactionHash,
+          },
+          payload: {
+            data: stringToHex(batchedMessage.parsed.gameInput),
+            inputData: batchedMessage.parsed.gameInput,
+          } as any,
+          primitiveName: response.output.syncProtocol.payload.primitiveName,
+          signerAddress:
+            // TODO: This is only for EVM at the time.
+            //       How should we handle this?
+            //       Just guess the chain by the format?
+            //       We need to format this, as it's not parsed or validated before.
+            CryptoManager.Evm().verifyAddress(batchedMessage.parsed.userAddress)
+              ? Value.Decode(
+                TypeboxHelpers.Evm.Address,
+                batchedMessage.parsed.userAddress,
+              )
+              : batchedMessage.parsed.userAddress,
+        });
+      } else {
+        log.remote(
+          ComponentNames.PAIMA_SYNC,
+          ["paima-l2"],
+          SeverityNumber.ERROR,
+          (log) => log(`Invalid signature for batched message`),
+        );
+      }
     }
   } else { // !isBatched
     yield* executePaimaL2Input({
@@ -170,9 +259,9 @@ export default function* processPaimaL2SyncProtocolResponse(
         blockNumber: response.output.syncProtocol.payload.ownChain.blockNumber,
         transactionHash: response.output.syncProtocol.payload.transactionHash,
       },
-      payload: outerLayerPayload,
+      payload: outerLayerData,
       primitiveName: response.output.syncProtocol.payload.primitiveName,
-      signerAddress: response.output.payload.userAddress,
+      signerAddress: outerLayerData.userAddress,
     });
   }
 }

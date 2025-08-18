@@ -5,6 +5,7 @@ import cors from "@fastify/cors";
 import { run, until } from "effection";
 import {
   aquireDBMutex,
+  getAllAddresses,
   getAllScheduledData,
   getPrimitivePrefix,
   getTableSchema,
@@ -154,6 +155,14 @@ export const startHttpServer = function* (
     return {
       status: "ok",
     };
+  });
+
+  server.get("/addresses", async () => {
+    const result = await runPreparedQuery(
+      getAllAddresses.run(undefined, dbConn),
+      "addresses",
+    );
+    return result;
   });
 
   // TODO This is dev only endpoint to monitor sync protocols.

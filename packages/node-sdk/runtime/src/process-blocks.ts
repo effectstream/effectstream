@@ -1,5 +1,4 @@
 import type { ChainBlock } from "@paima/sync";
-import type { AppEvents } from "@paima/sm";
 import { call, type Operation, until } from "effection";
 import type { Pool } from "pg";
 import {
@@ -9,8 +8,8 @@ import {
 } from "@paima/sm";
 import { PreparedQuery } from "npm:@pgtyped/runtime";
 import type {
+  ExecPromise,
   QueuedUpdate,
-  STMExecPromise,
   SyncStateUpdateStream,
 } from "@paima/coroutine";
 import {
@@ -28,15 +27,15 @@ import type {
   StartConfigGameStateTransitions,
   StartConfigMigrationRouter,
 } from "./types.ts";
-
-/** Helper to check if a SyncStateUpdateStream object is a StateMachineExecution */
-function isStateMachineExecution(value: any): value is STMExecPromise {
-  return value && typeof value === "object" && value.type === "stm-promise";
-}
+import type { EvmBlockHash } from "@paima/utils";
 
 /** Helper to check if a SyncStateUpdateStream object is a WorldResolve */
 function isWorldResolve(value: any): value is QueuedUpdate {
   return value && Array.isArray(value);
+}
+/** Helper to check if a SyncStateUpdateStream object is a promise */
+function isPromise(value: any): value is ExecPromise {
+  return value && typeof value === "object" && "promise" in value;
 }
 
 /**
@@ -78,7 +77,6 @@ async function tryOrRollback<T>(
 function* executeGeneratorStepByStep(
   generator: SyncStateUpdateStream<void>,
   dbConn: Pool,
-  gameStateTransitions?: StartConfigGameStateTransitions,
 ): Operation<any> {
   let result = generator.next();
 
@@ -86,7 +84,7 @@ function* executeGeneratorStepByStep(
   //       so we pause the execution, and resolve them here.
   // NOTE: there are 2 types of operations we need to handle
   //       1. state machine executions, these return a series of queries to run.
-  //       2. world.resolve calls, that are DB queries.
+  //       2. generic promises required in the primitives (e.g., verifySignature)
   while (!result.done) {
     // We resolve the generators promises here.
     // As generators cannot execute promises.
@@ -98,20 +96,14 @@ function* executeGeneratorStepByStep(
       const query = new PreparedQuery(queryIR);
       const queryResult = yield* call(() => query.run(params, dbConn));
       operations.push(queryResult);
-    } else if (isStateMachineExecution(value) && gameStateTransitions) {
-      // TODO Remove everything realted to isStateMachineExecution types.
-      // yield* until(tryOrRollback(dbConn, async () => {
-      //   const stateMachineResult = await gameStateTransitions(
-      //     value.data.blockHeight,
-      //     value.data,
-      //   );
-      //   for (const [queryIR, params] of stateMachineResult.stateTransitions) {
-      //     await queryIR.run(params, dbConn);
-      //   }
-      // }));
+    } else if (isPromise(value)) {
+      // This means that we have non-database promises in the generator.
+      // Each time yield is called, we catch the intention and resolve it.
+      const queryResult = yield* until(value.promise);
+      operations.push(queryResult);
     } else {
-      // This should never happen.
-      throw new Error("Unknown value", { cause: value });
+      console.error("Yielding unhandled type", result);
+      throw new Error("Unhandled type in generator");
     }
     result = generator.next(operations.flat());
   }
@@ -155,9 +147,9 @@ export function* processFinalizedBlock(
   value: ChainBlock,
   config: StartConfig,
   dbConn: Pool,
-): Operation<`0x${string}`> {
+): Operation<EvmBlockHash> {
   const { gameStateTransitions, migrationRouter } = config;
-  let blockHash: `0x${string}`;
+  let blockHash: EvmBlockHash;
   try {
     /* STEP 0: Start the transaction. */
     yield* until(dbConn.query("BEGIN"));
@@ -190,11 +182,7 @@ export function* processFinalizedBlock(
         value.blockNumber,
         primitive,
       );
-      yield* executeGeneratorStepByStep(
-        generator,
-        dbConn,
-        gameStateTransitions,
-      );
+      yield* executeGeneratorStepByStep(generator, dbConn);
     }
 
     /* STEP 4: Extract the scheduled data. */
@@ -270,7 +258,7 @@ export function* processFinalizedBlock(
     blockHash = `0x${
       Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16))
         .join("")
-    }`;
+    }` as EvmBlockHash;
 
     yield* call(() =>
       blockHeightDone.run({

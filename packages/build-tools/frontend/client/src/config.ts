@@ -77,3 +77,5 @@ export const BATCHER_OPENAPI_URL =
 export const ENGINE_OPENAPI_URL =
   `http://localhost:${ENV.PAIMA_API_PORT}/documentation`;
 export const DOCUMENTATION_URL = `http://127.0.0.1:${ENV.DOCS_PORT}/`;
+export const ADDRESSES_ENDPOINT =
+  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/addresses`;
