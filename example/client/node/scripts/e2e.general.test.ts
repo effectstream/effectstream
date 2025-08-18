@@ -50,15 +50,19 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       public.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
-      return res.rows[0].primitive_name === "Aribitrum_Token" &&
-        res.rows[1].primitive_name === "Aribitrum_Token" &&
-        res.rows[2].primitive_name === "Aribitrum_Token";
+      return res.rows[sharedState.primitive_accounting_counter - 3]
+            .primitive_name === "Aribitrum_Token" &&
+        res.rows[sharedState.primitive_accounting_counter - 2]
+            .primitive_name === "Aribitrum_Token" &&
+        res.rows[sharedState.primitive_accounting_counter - 1]
+            .primitive_name === "Aribitrum_Token";
     },
   );
   await paimaL2.submitGameInput(
     ["attack", "1", "100"],
     wallets[0].privateKey,
   );
+
   await assertSQL<{ primitive_name: string }>(
     "Check PaimaL2 sync-process",
     db,

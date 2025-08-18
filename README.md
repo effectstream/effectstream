@@ -5,6 +5,10 @@
 ## Install dependencies
 `deno install --allow-scripts`
 
+## Build Contracts
+`deno task -f @example/evm-contracts build`
+`deno task -f @example/evm-contracts deploy:standalone` 
+
 ## Run Example Deployment
 `deno task -f @example/node dev`
 

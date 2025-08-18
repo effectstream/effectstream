@@ -5,7 +5,7 @@ import {
   MethodNotSupportedRpcError,
   type PublicRpcSchema,
   RpcRequestError,
-} from "npm:viem";
+} from "viem";
 import { ENV } from "@paima/utils";
 
 export type PaimaEvmRpcSchema = [

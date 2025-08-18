@@ -1,6 +1,7 @@
 {
   "name": "@paima/runtime",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
     "@fastify/cors": "npm:@fastify/cors@^11.0.1",
@@ -14,6 +15,9 @@
     "fastify": "npm:fastify@^5.4.0",
     "@fastify/swagger": "npm:@fastify/swagger@^9.5.1",
     "@fastify/swagger-ui": "npm:@fastify/swagger-ui@^5.2.3",
-    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "viem": "npm:viem@^2.21.3",
+    "js-sha3": "npm:js-sha3@^0.9.3",
+    "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2"
   }
 }

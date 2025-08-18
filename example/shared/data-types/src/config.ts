@@ -1,5 +1,13 @@
 // import deployedEvmAddresses from "@example/evm-contracts/deployments";
 
+import { readMidnightContract } from "../../../contracts/midnight/read-contract.ts";
+
+const deployedEvmAddresses = {
+  "chain-31337": {
+    "L2Contract#PaimaL2Contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "Foo#SomeERC20": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+  },
+} as const;
 import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 import {
@@ -28,7 +36,7 @@ const parallelBlockTime: TimestampMs = 10 * 1000;
 const yaci = Deno.env.get("DISABLE_LINUX_YACI") ? false : true;
 export const localhostConfig = new ConfigBuilder()
   .setNamespace(
-    (builder) => builder.setSecurityNamespace("asdf"),
+    (builder) => builder.setSecurityNamespace("example-e2e-test"),
   )
   .buildNetworks((builder) => {
     let b = builder
@@ -43,6 +51,14 @@ export const localhostConfig = new ConfigBuilder()
           default: { http: ["http://127.0.0.1:8546"] },
         },
         id: 31338, // taken from hardhat.config.ts
+      })
+      .addNetwork({
+        name: "midnight",
+        type: ConfigNetworkType.MIDNIGHT,
+        genesisHash:
+          "0x0000000000000000000000000000000000000000000000000000000000000001",
+        networkId: 0,
+        nodeUrl: "http://127.0.0.1:9944",
       });
 
     if (yaci) {
@@ -69,14 +85,6 @@ export const localhostConfig = new ConfigBuilder()
       .addDeployment(
         (networks) => networks.evmMain,
         (_network) => ({
-          name: "PaimaErc20DevModule#PaimaErc20Dev",
-          address: contractAddressesEvmMain()
-            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
-        }),
-      )
-      .addDeployment(
-        (networks) => networks.evmMain,
-        (_network) => ({
           name: "PaimaL2ContractModule#MyPaimaL2Contract",
           address: contractAddressesEvmMain().chain31337[
             "PaimaL2ContractModule#MyPaimaL2Contract"
@@ -89,14 +97,6 @@ export const localhostConfig = new ConfigBuilder()
           name: "PaimaErc20DevModule#PaimaErc20Dev",
           address: contractAddressesEvmMain()
             .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
-        }),
-      )
-      .addDeployment(
-        (networks) => networks.evmParallel,
-        (_network) => ({
-          name: "PaimaErc20DevModule#PaimaErc20Dev",
-          address: contractAddressesEvmMain()
-            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
         }),
       )
   ).buildSyncProtocols((builder) => {
@@ -118,6 +118,17 @@ export const localhostConfig = new ConfigBuilder()
           delayMs: parallelBlockTime * 6,
           startBlockHeight: 1 as BlockNumber,
           confirmationDepth: 2, // TODO: test this
+        }),
+      )
+      .addParallel(
+        (networks) => networks.midnight,
+        (network, deployments) => ({
+          name: "parallelMidnight",
+          type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+          startBlockHeight: 1,
+          pollingInterval: 1000,
+          indexer: "http://127.0.0.1:8088/api/v1/graphql",
+          indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
         }),
       );
 
@@ -163,6 +174,16 @@ export const localhostConfig = new ConfigBuilder()
             paimal2contract.abi,
             "PaimaGameInteraction(address,bytes,uint256)",
           ),
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.parallelMidnight,
+        (network, deployments, syncProtocol) => ({
+          name: "MidnightContractState",
+          type: ConfigPrimitiveType.MidnightContractState,
+          startBlockHeight: 1,
+          contractAddress: readMidnightContract().contractAddress,
+          scheduledPrefix: "midnightContractState",
         }),
       )
       .addPrimitive(

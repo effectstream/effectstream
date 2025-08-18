@@ -2,6 +2,7 @@
     "name": "@example/evm-contracts",
     "exports": "./mod.ts",
     "version": "0.3.0",
+    "license": "MIT",
     // TODO: how these actually will work will depend on the hardhat v3 viem plugin
     //       See https://github.com/NomicFoundation/hardhat/issues/5978
     "imports": {

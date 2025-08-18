@@ -14,6 +14,7 @@ import { CardanoSyncClient } from "@utxorpc/sdk";
 import { BufferedRpc } from "./sync-protocols/utxorpc/BufferedRpc.ts";
 import { UtxoRpcFetcher } from "./sync-protocols/utxorpc/fetcher.ts";
 import { UtxoRpcSyncState } from "./sync-protocols/utxorpc/state.ts";
+import { MidnightFetcher, MidnightSyncState } from "@paima/sync";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -57,6 +58,16 @@ export function* genSyncProtocols(
         bufferedRpc,
       );
       const state = yield* UtxoRpcSyncState.restoreState(
+        dbConn,
+        entry,
+        fetcher,
+      );
+      result.push(state);
+    } else if (
+      entry.networkType === ConfigNetworkType.MIDNIGHT
+    ) {
+      const fetcher = new MidnightFetcher(entry);
+      const state = yield* MidnightSyncState.restoreState(
         dbConn,
         entry,
         fetcher,

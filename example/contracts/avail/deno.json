@@ -1,0 +1,12 @@
+{
+    "name": "@example/avail-contracts",
+    "version": "0.3.0",
+    "exports": {},
+    "tasks": {
+        "avail-node:start": "deno run -A --unstable-detect-cjs @paima/npm-avail-node --dev",
+        "avail-node:wait": "wait-on tcp:9944",
+        "avail-light-client:start": "deno run -A --unstable-detect-cjs @paima/npm-avail-light-client --network local --config ./config.yml",
+        "avail-light-client:wait": "wait-on tcp:7007"
+    },
+    "imports": {}
+}

@@ -1,11 +1,11 @@
-import type { Chain } from "npm:viem";
-import { parseEther } from "npm:viem/utils";
+import type { Chain } from "viem";
+import { parseEther } from "viem/utils";
 import { createAndLaunchBatcher } from "./batcher.ts";
-import { parseArgs } from "jsr:@std/cli/parse-args";
-import { type Static, Type } from "npm:@sinclair/typebox";
-import { Value } from "npm:@sinclair/typebox/value";
-import * as chains from "npm:viem/chains";
-import { run } from "npm:effection@3.5.0";
+import { parseArgs } from "@std/cli/parse-args";
+import { type Static, Type } from "@sinclair/typebox";
+import { Value } from "@sinclair/typebox/value";
+import * as chains from "viem/chains";
+import { run } from "effection";
 import { ENV, TypeboxHelpers } from "@paima/utils";
 
 // Standalone Batcher service start script.
