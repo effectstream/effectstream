@@ -5,7 +5,7 @@ import {
   TypeboxHelpers,
   type WalletAddress,
 } from "@paima/utils";
-import { hexToString, stringToHex } from "viem";
+import { hexToString, keccak256, stringToHex } from "viem";
 import type {
   ConfigPrimitivePayloadType,
   ConfigSyncProtocolType,
@@ -18,6 +18,7 @@ import {
   createScheduledData,
   findNonce,
   getAddressByAddress,
+  getBlockHeights,
   insertNonce,
   insertPrimitiveAccounting,
   newAddress,
@@ -29,6 +30,7 @@ import {
   extractBatches,
   extractDelegateWallet,
   type ExtractedBatchSubunit,
+  hashBatchSubunit,
 } from "@paima/concise";
 import {
   ConfigPrimitiveAccountingPayloadType,
@@ -48,12 +50,9 @@ import { Value } from "@sinclair/typebox/value";
 import { CryptoManager } from "@paima/crypto";
 
 function* checkNonce(
-  nonce: string | undefined,
+  nonce: string,
   block_height: BlockNumber,
 ): StateUpdateStream<boolean> {
-  // TODO This is only for batched messages?
-  if (!nonce) return true;
-
   const [nonceData] = yield* World.resolve(findNonce, { nonce });
   if (nonceData) {
     log.remote(
@@ -69,7 +68,7 @@ function* checkNonce(
   }
   // guarantee we run this no matter if there is an error or a continue
   yield* World.resolve(insertNonce, {
-    nonce,
+    nonce: nonce,
     block_height,
   });
 
@@ -78,7 +77,7 @@ function* checkNonce(
 
 function* executePaimaL2Input(input: {
   paima_block_height: PaimaBlockNumber;
-  nonce: string | undefined;
+  nonce: string;
   ownChain: {
     blockNumber: BlockNumber;
     transactionHash: TxHash;
@@ -185,6 +184,12 @@ export default function* processPaimaL2SyncProtocolResponse(
     PrimitiveEvmRpcPaimaL2Payload,
     response.output.payload,
   );
+  // Fetch the block timestamp (ms) for 24h validation
+  const [blockInfo] = yield* World.resolve(getBlockHeights, {
+    block_heights: [paima_block_height],
+  });
+  const blockTimestampMs = blockInfo!.ms_timestamp.getTime();
+  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
   let isBatched = false;
   let batchedMessages: ExtractedBatchSubunit[] = [];
   try {
@@ -199,6 +204,35 @@ export default function* processPaimaL2SyncProtocolResponse(
       const { parsed } = batchedMessage;
       const { userAddress, millisecondTimestamp, userSignature, gameInput } =
         parsed;
+      // 24h timestamp validation for batched inputs
+      const signedTs = Number(millisecondTimestamp);
+      if (!Number.isFinite(signedTs)) {
+        log.remote(
+          ComponentNames.PAIMA_SYNC,
+          ["paima-l2"],
+          SeverityNumber.ERROR,
+          (log) =>
+            log(
+              `Invalid timestamp ${millisecondTimestamp}, skipping batched message`,
+            ),
+        );
+        continue;
+      }
+      if (
+        Math.abs(blockTimestampMs - signedTs) > TWENTY_FOUR_HOURS_MS
+      ) {
+        log.remote(
+          ComponentNames.PAIMA_SYNC,
+          ["paima-l2"],
+          SeverityNumber.INFO,
+          (log) =>
+            log(
+              `Skipping inputData due to timestamp outside 24h window. user=${userAddress} ts=${millisecondTimestamp} blockTs=${blockTimestampMs}`,
+            ),
+        );
+        continue;
+      }
+
       // TODO: We need to setup & configure the namespace.
       const message = createMessageForBatcher(
         null,
@@ -216,8 +250,8 @@ export default function* processPaimaL2SyncProtocolResponse(
       if (validSignature) {
         yield* executePaimaL2Input({
           paima_block_height,
-          nonce: batchedMessage.parsed.userAddress + "-" +
-            batchedMessage.parsed.millisecondTimestamp,
+          // Use hash-based nonce for batched inputs
+          nonce: hashBatchSubunit(batchedMessage.parsed),
           ownChain: {
             blockNumber:
               response.output.syncProtocol.payload.ownChain.blockNumber,
@@ -251,10 +285,22 @@ export default function* processPaimaL2SyncProtocolResponse(
       }
     }
   } else { // !isBatched
+    // Direct (non-batched) nonce as hash of [blockHeight, userAddress, game input]
+    let directNonce: string | undefined = undefined;
+    const gameInputStr = hexToString(outerLayerData.data);
+    const userAddress =
+      CryptoManager.Evm().verifyAddress(outerLayerData.userAddress)
+        ? Value.Decode(
+          TypeboxHelpers.Evm.Address,
+          outerLayerData.userAddress,
+        )
+        : outerLayerData.userAddress;
+    const toHash = String(paima_block_height) + userAddress + gameInputStr;
+    directNonce = keccak256(stringToHex(toHash));
+
     yield* executePaimaL2Input({
       paima_block_height,
-      // TODO: where do we get the nonce from?
-      nonce: undefined,
+      nonce: directNonce,
       ownChain: {
         blockNumber: response.output.syncProtocol.payload.ownChain.blockNumber,
         transactionHash: response.output.syncProtocol.payload.transactionHash,

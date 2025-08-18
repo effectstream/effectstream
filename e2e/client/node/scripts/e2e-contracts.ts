@@ -108,7 +108,8 @@ export const paimaL2Builder = (sharedState: SharedState) => ({
   submitGameInput: async (
     input: string[],
     privateKey: `0x${string}`,
-  ): Promise<void> => {
+    options?: { updateSharedState?: boolean; waitForReceipt?: boolean },
+  ): Promise<`0x${string}`> => {
     console.log("🎮 Submitting game input", input);
     const { account, walletClient, publicClient } = clients(
       privateKey,
@@ -127,35 +128,61 @@ export const paimaL2Builder = (sharedState: SharedState) => ({
       ],
       value: parseEther("0.0000000001"),
     });
+    const waitForReceipt = options?.waitForReceipt ?? true;
+    if (waitForReceipt) {
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log(
+        `  ${
+          receipt.status === "success" ? "" : "❌"
+        } Submit Game Input block ${receipt.blockNumber} @ Hash ${hash}`,
+      );
+      if (
+        (options?.updateSharedState ?? true) && receipt.status === "success"
+      ) {
+        sharedState.paima_state_machine_counter += 1;
+        sharedState.primitive_accounting_counter += 1;
 
-    const receipt = await publicClient.waitForTransactionReceipt({
-      hash,
-    });
-    console.log(
-      `  ${
-        receipt.status === "success" ? "" : "❌"
-      } Submit Game Input block ${receipt.blockNumber} @ Hash ${hash}`,
-    );
-
-    // Update shared state
-    sharedState.paima_state_machine_counter += 1;
-    sharedState.primitive_accounting_counter += 1;
-
-    // Add into accounts if not used before.
-    const address = account.address.toLowerCase();
-    let addressExists = sharedState.account_state.unlinkedAddresses.has(
-      address,
-    );
-    if (!addressExists) {
-      Object.values(sharedState.account_state.accounts).forEach((a) => {
-        if (a.addresses.has(address)) {
-          addressExists = true;
+        const address = account.address.toLowerCase();
+        let addressExists = sharedState.account_state.unlinkedAddresses.has(
+          address,
+        );
+        if (!addressExists) {
+          Object.values(sharedState.account_state.accounts).forEach((a) => {
+            if (a.addresses.has(address)) {
+              addressExists = true;
+            }
+          });
         }
-      });
+        if (!addressExists) {
+          sharedState.account_state.unlinkedAddresses.add(address);
+        }
+      }
     }
-    if (!addressExists) {
-      sharedState.account_state.unlinkedAddresses.add(address);
+
+    return hash as `0x${string}`;
+  },
+  waitForReceipts: async (
+    hashes: `0x${string}`[],
+    privateKey: `0x${string}`,
+  ): Promise<void> => {
+    const { account, publicClient } = clients(privateKey, mainEvm);
+    for (const hash of hashes) {
+      await publicClient.waitForTransactionReceipt({ hash });
     }
+  },
+  setAutomine: async (
+    enabled: boolean,
+    privateKey: `0x${string}`,
+  ): Promise<void> => {
+    const { walletClient } = clients(privateKey, mainEvm);
+    await (walletClient as any).request({
+      method: "evm_setAutomine",
+      params: [enabled],
+    });
+  },
+  mineBlock: async (privateKey: `0x${string}`): Promise<void> => {
+    const { walletClient } = clients(privateKey, mainEvm);
+    await (walletClient as any).request({ method: "evm_mine", params: [] });
   },
 });
 

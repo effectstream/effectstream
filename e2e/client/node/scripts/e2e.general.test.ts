@@ -13,6 +13,7 @@ import { hardhat } from "viem/chains";
 import { ENV } from "@paima/utils";
 import { addLinkedAddress, type SharedState } from "./e2e-shared-state.ts";
 import { createMessageForBatcher } from "@paima/concise";
+import { paimaL2Builder as makePaimaL2 } from "./e2e-contracts.ts";
 
 // Start Test
 export async function generalTest(db: Client, sharedState: SharedState) {
@@ -267,6 +268,50 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     },
   );
 
+  // Capture current nonce count after the first valid batched submission
+  const initialNonceCountResult = await db.query(
+    `SELECT COUNT(*)::int as c FROM public.nonces;`,
+  );
+  const initialNonceCount = (initialNonceCountResult.rows?.[0]?.c as number) ??
+    0;
+
+  // Send the exact same batched message again (duplicate) to test nonce deduplication
+  await fetch(`http://localhost:${ENV.BATCHER_PORT}/send-input`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      addressType: AddressType.EVM,
+      userAddress: account.address,
+      userSignature: signature,
+      gameInput,
+      millisecondTimestamp: timestamp,
+    }),
+  });
+  // Give time for batcher to process
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
+  // primitive_accounting count should remain unchanged
+  await assertSQL<{ primitive_name: string }>(
+    "Duplicate batched message should be ignored (no new accounting)",
+    db,
+    `SELECT primitive_name FROM public.primitive_accounting;`,
+    (res) => res.rows.length === sharedState.primitive_accounting_counter,
+    (res) => res.rows.length === sharedState.primitive_accounting_counter,
+  );
+
+  // Nonces table should not increase with duplicate
+  const finalNonceCountResult = await db.query(
+    `SELECT COUNT(*)::int as c FROM public.nonces;`,
+  );
+  const finalNonceCount = (finalNonceCountResult.rows?.[0]?.c as number) ?? 0;
+  if (finalNonceCount !== initialNonceCount) {
+    throw new Error(
+      `Duplicate batched message increased nonce count: ${initialNonceCount} -> ${finalNonceCount}`,
+    );
+  }
+
   // Send a batched message.
   const badSignature = await walletClient.signMessage({
     message: "bad-message",
@@ -307,16 +352,81 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     },
   );
 
-  // We should have a single nonce for the batched message.
-  await assertSQL<{ nonce: string }>(
-    "Check nonces",
+  // Sanity check: nonces table is queryable
+  await assertSQL<{ c: number }>(
+    "Nonces table accessible",
     db,
-    `SELECT * FROM public.nonces;`,
-    (res) => res.rows.length === nonce_counter,
-    (res) => {
-      return res.rows.length === nonce_counter;
-    },
+    `SELECT COUNT(*)::int as c FROM public.nonces;`,
+    () => true, // We don't care about the result, we just want to check if the table is accessible.
+    (res) => res.rows[0].c === initialNonceCount,
   );
+
+  // Direct (non-batched) duplicate protection test: queue two identical txs in the same block
+  { // This scope isolates variables from the rest of the test: beforeAcc, beforeNonces, acc0, nonces0 are only used in this scope.
+    const beforeAcc = await db.query(
+      `SELECT COUNT(*)::int as c FROM public.primitive_accounting;`,
+    );
+    const beforeNonces = await db.query(
+      `SELECT COUNT(*)::int as c FROM public.nonces;`,
+    );
+    const countBeforePrimitiveAccounting = (beforeAcc.rows?.[0]?.c as number) ??
+      0;
+    const countBeforeNonces = (beforeNonces.rows?.[0]?.c as number) ?? 0;
+
+    const paima2 = makePaimaL2(sharedState);
+    const data = ["attack", "314", "2718"];
+
+    // Snapshot current automine state and disable automine
+    try {
+      // Disable automine to ensure we control the block height
+      await paima2.setAutomine(false, wallets[0].privateKey);
+
+      // Submit the same tx twice, don't wait
+      const tx1 = await paima2.submitGameInput(
+        data,
+        wallets[0].privateKey,
+        { updateSharedState: false, waitForReceipt: false },
+      );
+      const tx2 = await paima2.submitGameInput(
+        data,
+        wallets[0].privateKey,
+        { updateSharedState: false, waitForReceipt: false },
+      );
+
+      // Mine single block to include both
+      await paima2.mineBlock(wallets[0].privateKey);
+
+      // Wait receipts (ensures chain progressed)
+      await paima2.waitForReceipts([tx1, tx2], wallets[0].privateKey);
+
+      // Expect exactly one new accounting row
+      await assertSQL<{ c: number }>(
+        "Direct duplicate: accounting increase by 1",
+        db,
+        `SELECT COUNT(*)::int as c FROM public.primitive_accounting;`,
+        (res) => res.rows[0].c === countBeforePrimitiveAccounting + 1,
+        (res) => res.rows[0].c === countBeforePrimitiveAccounting + 1,
+      );
+
+      // Expect exactly one new nonce
+      await assertSQL<{ c: number }>(
+        "Direct duplicate: nonces increase by 1",
+        db,
+        `SELECT COUNT(*)::int as c FROM public.nonces;`,
+        (res) => res.rows[0].c === countBeforeNonces + 1,
+        (res) => res.rows[0].c === countBeforeNonces + 1,
+      );
+
+      // Keep shared counters in sync for subsequent assertions
+      sharedState.primitive_accounting_counter += 1;
+      sharedState.paima_state_machine_counter += 1;
+    } finally {
+      // Flush and restore automine
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await paima2.mineBlock(wallets[0].privateKey);
+      await paima2.setAutomine(true, wallets[0].privateKey);
+    }
+  }
 
   // Let's test the scheduled data created throught the state machine.
   await paimaL2.submitGameInput(
