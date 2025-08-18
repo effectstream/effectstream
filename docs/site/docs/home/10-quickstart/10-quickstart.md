@@ -190,7 +190,7 @@ This is main entry point, once the internal and custom processes are launched, t
 const config = Value.Parse(OrchestratorConfig, {
     processes: {
         // Launch Dev DB & Collector
-        [ComponentNames.PAIMA_DB]: true,
+        [ComponentNames.PAIMA_PGLITE]: true,
         [ComponentNames.COLLECTOR]: true,
     },
 

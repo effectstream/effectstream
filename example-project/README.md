@@ -18,3 +18,9 @@ Launch Node
 ```
 deno task dev
 ```
+
+Launch Web App
+
+```
+deno task frontend
+```

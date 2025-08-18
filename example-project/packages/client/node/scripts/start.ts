@@ -12,7 +12,7 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.TUI]: true,
 
     // Launch Dev DB & Collector
-    [ComponentNames.PAIMA_DB]: true,
+    [ComponentNames.PAIMA_PGLITE]: true,
     [ComponentNames.COLLECTOR]: true,
   },
 

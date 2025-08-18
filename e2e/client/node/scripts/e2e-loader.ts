@@ -19,7 +19,7 @@ export async function startup(): Promise<Client> {
   const config = Value.Parse(OrchestratorConfig, {
     logs: "stdout-err",
     processes: {
-      [ComponentNames.PAIMA_DB]: true,
+      [ComponentNames.PAIMA_PGLITE]: true,
 
       [ComponentNames.TUI]: false,
       [ComponentNames.TMUX]: false,

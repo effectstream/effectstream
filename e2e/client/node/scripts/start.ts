@@ -14,7 +14,7 @@ import { launchMidnight } from "./launch-midnight.ts";
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
     // Launch Dev DB & Collector
-    [ComponentNames.PAIMA_DB]: true,
+    [ComponentNames.PAIMA_PGLITE]: true,
     [ComponentNames.COLLECTOR]: true,
   },
 

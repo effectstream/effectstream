@@ -82,6 +82,7 @@ export interface IGetEvmMidnightByTokenIdParams {
 export interface IGetEvmMidnightByTokenIdResult {
   block_height: number;
   contract_address: string;
+  id: number;
   owner: string | null;
   token_id: string;
 }

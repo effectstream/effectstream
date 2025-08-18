@@ -12,10 +12,10 @@
     "test": "deno run -A --unstable-raw-imports --check scripts/e2e.test.ts"
   },
   "imports": {
-    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.19",
-    "@paimaexample/config": "jsr:@paimaexample/config@0.3.19",
-    "@paimaexample/log": "jsr:@paimaexample/log@0.3.19",
-    "@paimaexample/orchestrator": "jsr:@paimaexample/orchestrator@0.3.19",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.20",
+    "@paimaexample/config": "jsr:@paimaexample/config@0.3.20",
+    "@paimaexample/log": "jsr:@paimaexample/log@0.3.20",
+    "@paimaexample/orchestrator": "jsr:@paimaexample/orchestrator@0.3.20",
     "@paimaexample/runtime": "jsr:@paimaexample/runtime@^0.3.5",
     "@paimaexample/utils": "jsr:@paimaexample/utils@^0.3.5",
     "pg": "npm:pg@^8.14.0",
