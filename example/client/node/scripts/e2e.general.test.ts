@@ -170,7 +170,17 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     db,
     `SELECT * FROM public.another_example_table order by block_height asc;`,
     (res) => res.rows.length === attackInputCount,
-    (res) => res.rows.every((row, index) => row.sum === 3 * (index + 1)),
+    (res) => {
+      // The first value is random - 3;
+      // Between 10 and 99.
+      const initialValue = res.rows[0].sum - 3;
+      if (initialValue < 10 || initialValue > 99) {
+        return false;
+      }
+      return res.rows.every((row, index) =>
+        row.sum === initialValue + 3 * (index + 1)
+      );
+    },
   );
   // Test Batcher
   const timestamp = Date.now().toString();

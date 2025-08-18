@@ -41,6 +41,7 @@ export type Input = PageSyncRange<BlockNumber>;
 export type Output = {
   raw: BlockAndTimestamp;
   primitives: PrimitiveType[];
+  blockHashes: CardanoBlockHash[];
 };
 
 export const chainPointRelation: PageRelation<Page> = {

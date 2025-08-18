@@ -7,7 +7,12 @@ import type { RootOutput, RootPage } from "../types.ts";
 import type { Chain, GetBlockReturnType, PublicClient } from "viem";
 import type { Operation } from "effection";
 import { all, call } from "effection";
-import { bound, type EvmRpcPageJson, keysOf } from "@paima/utils";
+import {
+  type BlockHash,
+  bound,
+  type EvmRpcPageJson,
+  keysOf,
+} from "@paima/utils";
 import { blockNumberRelation } from "../common/utils.ts";
 import type { Input, Output, Page, PrimitiveType } from "./types.ts";
 import { PageSchema } from "./types.ts";
@@ -90,9 +95,12 @@ export class EvmFetcher
           all(
             keysOf(groupedByPage).map(function* (pageJson) {
               const page = Value.Encode(PageSchema, pageJson);
+              const raw = yield* call(() => pageFetcher(page));
+              const blockHashes = [raw.hash];
               return {
-                raw: yield* call(() => pageFetcher(page)),
+                raw,
                 primitives: groupedByPage[pageJson],
+                blockHashes,
               };
             }),
           ),
@@ -109,6 +117,7 @@ export class EvmFetcher
         lastPage: {
           own: Number(data.to),
           root: rootConversion.toRootPage({
+            blockHashes: [],
             primitives: [], // unused in toRootPage
             raw: lastPage,
           }),
@@ -121,9 +130,12 @@ export class EvmFetcher
           (_, i) => i + data.from,
         ).map(function* (page: Page) {
           const key = Value.Decode(PageSchema, page);
+          const raw = yield* call(() => pageFetcher(page));
+          const blockHashes = [raw.hash];
           return {
-            raw: yield* call(() => pageFetcher(page)),
+            raw,
             primitives: groupedByPage[key] ?? [],
+            blockHashes,
           };
         }),
       );
@@ -135,6 +147,7 @@ export class EvmFetcher
         lastPage: {
           own: Number(data.to),
           root: rootConversion.toRootPage({
+            blockHashes: [],
             primitives: [], // unused in toRootPage
             raw: (yield* call(() => pageFetcher(Number(data.to)))),
           }),
