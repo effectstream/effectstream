@@ -157,6 +157,14 @@ export class NtpFetcher
       blockNumberRelation,
       function* (): Operation<Page> {
         const result = yield* until(self.ntpTimeSync.getTime());
+        if (result.offset > 2000) {
+          console.error(
+            `NTP offset is higher than 2[s]. Please check your NTP server & system time configuration.
+NTP time: ${result.now}
+Local time: ${new Date()}
+Offset [ms]: ${result.offset}`,
+          );
+        }
         const diff = result.now.getTime() - self.config.network.startTime;
         const blockNumber = Math.floor(diff / self.config.network.blockTimeMS);
         return blockNumber;
