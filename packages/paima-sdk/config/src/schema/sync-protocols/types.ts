@@ -6,23 +6,21 @@ import type { ConfigSyncProtocolMapping } from "./all.ts";
 import type { PrimitivesForSyncProtocol } from "../primitive/config/types.ts";
 
 export enum ConfigSyncProtocolType {
-  EVM_RPC_MAIN = "evm-rpc-main",
+  NTP_MAIN = "ntp-main",
   EVM_RPC_PARALLEL = "evm-rpc-parallel",
   CARDANO_CARP_PARALLEL = "cardano-carp-parallel",
   CARDANO_UTXORPC_PARALLEL = "cardano-utxorpc-parallel",
   MINA_PARALLEL = "mina-sql-parallel",
-  AVAIL_MAIN = "avail-rpc-main",
   AVAIL_PARALLEL = "avail-rpc-parallel",
   MIDNIGHT_PARALLEL = "midnight-graphql-parallel",
 }
 
 export const SyncProtocolToNetwork = {
-  [ConfigSyncProtocolType.EVM_RPC_MAIN]: ConfigNetworkType.EVM,
+  [ConfigSyncProtocolType.NTP_MAIN]: ConfigNetworkType.NTP,
   [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: ConfigNetworkType.EVM,
   [ConfigSyncProtocolType.CARDANO_CARP_PARALLEL]: ConfigNetworkType.CARDANO,
   [ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL]: ConfigNetworkType.CARDANO,
   [ConfigSyncProtocolType.MINA_PARALLEL]: ConfigNetworkType.MINA,
-  [ConfigSyncProtocolType.AVAIL_MAIN]: ConfigNetworkType.AVAIL,
   [ConfigSyncProtocolType.AVAIL_PARALLEL]: ConfigNetworkType.AVAIL,
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: ConfigNetworkType.MIDNIGHT,
 } satisfies Record<ConfigSyncProtocolType, ConfigNetworkType>;

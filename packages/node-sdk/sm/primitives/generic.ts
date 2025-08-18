@@ -14,8 +14,7 @@ import assertNever from "assert-never";
 export default function* processGenericSyncProtocolResponse(
   response:
     | FlattenSyncProtocolIOFor<
-      | ConfigSyncProtocolType.EVM_RPC_MAIN
-      | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+      ConfigSyncProtocolType.EVM_RPC_PARALLEL,
       ConfigPrimitiveType.EvmRpcGeneric,
       ConfigPrimitivePayloadType.Event
     >

@@ -20,8 +20,7 @@ import type { BlockNumber } from "@paima/utils";
 export default function* processErc1155TransferSyncProtocolResponse(
   paima_block_height: BlockNumber,
   response: FlattenSyncProtocolIOFor<
-    | ConfigSyncProtocolType.EVM_RPC_MAIN
-    | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+    ConfigSyncProtocolType.EVM_RPC_PARALLEL,
     ConfigPrimitiveType.EvmRpcERC1155,
     ConfigPrimitivePayloadType.Transfer
   >,

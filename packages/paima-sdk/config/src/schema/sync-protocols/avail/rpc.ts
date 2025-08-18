@@ -54,28 +54,6 @@ export const CommonResponseAvailRpcBase = {
   },
 } as const satisfies ConfigSyncProtocolCommonResponse;
 
-// ======================
-// Variant 1: main config
-// ======================
-
-export const ConfigSyncProtocolSchemaAvailMain =
-  ConfigSyncProtocolSchemaAvailBase
-    .cloneMerge({
-      required: Type.Object({
-        type: Type.Literal(ConfigSyncProtocolType.AVAIL_MAIN),
-      }),
-      optional: Type.Object({}),
-    });
-export type ConfigSyncProtocolAvailMain = MergeIntersects<
-  Static<
-    ReturnType<typeof ConfigSyncProtocolSchemaAvailMain.allProperties<true>>
-  >
->;
-
-export const CommonResponseAvailRpcMain = genCommonResponse(
-  CommonResponseAvailRpcBase,
-);
-
 // ==========================
 // Variant 2: parallel config
 // ==========================

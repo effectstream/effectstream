@@ -153,6 +153,7 @@
     "npm:linus@^0.0.6": "0.0.6",
     "npm:material-chalk@1.1.1": "1.1.1_chalk@5.4.1",
     "npm:mina-signer@^3.0.7": "3.0.7",
+    "npm:ntp-time-sync@0.5": "0.5.0",
     "npm:path-to-regexp@^6.3.0": "6.3.0",
     "npm:pg-gateway@~0.3.0-beta.4": "0.3.0-beta.4",
     "npm:pg-tx@^1.0.1": "1.0.1",
@@ -10551,6 +10552,15 @@
         "boolbase"
       ]
     },
+    "ntp-packet-parser@0.5.0": {
+      "integrity": "sha512-W18iLyaV17jH4inpvSu2gPep2f1Gs3oABra5NXXzG7MXhLcdHqJrJBO23bTMLkRf4HP9SWHL7FEwwtUf6R1q+g=="
+    },
+    "ntp-time-sync@0.5.0": {
+      "integrity": "sha512-ztb/P8wf6vwyJS2FPJ8i4nnDfbvMqVxs5+WoeVMbGkSGe0TiTsBhsV6qsFDiKXoNFwsBt+MUauwk2pKlgVLLmw==",
+      "dependencies": [
+        "ntp-packet-parser"
+      ]
+    },
     "null-loader@4.0.1_webpack@5.101.1__acorn@8.15.0": {
       "integrity": "sha512-pxqVbi4U6N26lq+LmgIbB5XATP0VdZKOG25DhHi8btMmJJefGArFyDg1yc4U3hWCJbMqSrw0qyrz1UQX+qYXqg==",
       "dependencies": [
@@ -14380,6 +14390,7 @@
           "npm:effection@3.5.0",
           "npm:graphql-ws@^6.0.6",
           "npm:json-stable-stringify@^1.2.1",
+          "npm:ntp-time-sync@0.5",
           "npm:pg@^8.14.0",
           "npm:viem@^2.21.3"
         ]

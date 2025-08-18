@@ -43,25 +43,6 @@ export const CommonResponseEvmRpcBase = {
   },
 } as const satisfies ConfigSyncProtocolCommonResponse;
 
-// ======================
-// Variant 1: main config
-// ======================
-
-export const ConfigSyncProtocolSchemaEvmMain = ConfigSyncProtocolSchemaEvmBase
-  .cloneMerge({
-    required: Type.Object({
-      type: Type.Literal(ConfigSyncProtocolType.EVM_RPC_MAIN),
-    }),
-    optional: Type.Object({}),
-  });
-export type ConfigSyncProtocolEvmMain = MergeIntersects<
-  Static<ReturnType<typeof ConfigSyncProtocolSchemaEvmMain.allProperties<true>>>
->;
-
-export const CommonResponseEvmRpcMain = genCommonResponse(
-  CommonResponseEvmRpcBase,
-);
-
 // ==========================
 // Variant 2: parallel config
 // ==========================

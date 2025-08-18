@@ -11,6 +11,7 @@ import { launchMidnight } from "./launch-midnight.ts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const external_db_enabled = Deno.env.get("EXTERNAL_DB_ENABLED") === "true";
 const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
   ? false
   : true;
@@ -25,7 +26,7 @@ export async function startup(): Promise<Client> {
   const config = Value.Parse(OrchestratorConfig, {
     logs,
     processes: {
-      [ComponentNames.PAIMA_PGLITE]: true,
+      [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
 
       [ComponentNames.TUI]: false,
       [ComponentNames.TMUX]: false,

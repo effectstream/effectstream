@@ -1,4 +1,5 @@
 export enum ConfigNetworkType {
+  NTP = "ntp",
   EVM = "evm",
   CARDANO = "cardano",
   MINA = "mina",

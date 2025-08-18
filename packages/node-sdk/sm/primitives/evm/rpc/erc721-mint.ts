@@ -17,8 +17,7 @@ import { clearBigInts } from "../../utils.ts";
 export default function* processErc721SyncProtocolResponse(
   paima_block_height: BlockNumber,
   response: FlattenSyncProtocolIOFor<
-    | ConfigSyncProtocolType.EVM_RPC_MAIN
-    | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+    ConfigSyncProtocolType.EVM_RPC_PARALLEL,
     ConfigPrimitiveType.EvmRpcERC721,
     ConfigPrimitivePayloadType.Mint
   >,

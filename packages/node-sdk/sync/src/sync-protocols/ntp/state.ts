@@ -1,4 +1,4 @@
-import { applyDelay, blockNumberRelation } from "../common/utils.ts";
+import { blockNumberRelation } from "../common/utils.ts";
 import type { Operation } from "effection";
 import { call } from "effection";
 import { getPage } from "@paima/db";
@@ -6,28 +6,27 @@ import type { PoolClient } from "pg";
 import { bound } from "@paima/utils";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
-import type { EvmFetcher } from "./fetcher.ts";
+import type { NtpFetcher } from "./fetcher.ts";
 import { genInputRange } from "../common/page-helpers.ts";
 import type { Input, Output, Page } from "./types.ts";
 import { toMsTimestamp } from "./types.ts";
 import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
-import { ConfigSyncProtocolType } from "@paima/config";
 
-export class EvmSyncState extends SyncState<
+export class NtpSyncState extends SyncState<
   Input,
   Output,
   Page,
   RootOutput,
   RootPage,
-  EvmFetcher
+  NtpFetcher
 > {
   constructor(
     lastPage: LastPage<Page, RootPage>,
     readonly config: Extract<
       SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.EVM }
+      { networkType: ConfigNetworkType.NTP }
     >,
-    fetcher: EvmFetcher,
+    fetcher: NtpFetcher,
   ) {
     super(lastPage, fetcher, blockNumberRelation);
   }
@@ -39,28 +38,22 @@ export class EvmSyncState extends SyncState<
         source: this.config.syncProtocol.name,
         blockHashes: h,
       })),
-      blockNumber: Number(data.raw.number),
+      blockNumber: Number(data.raw.blockNumber),
       timestamp: this.toRootPage(data),
-      primitives: data.primitives.map((p) => ({
-        ...p,
-        source: this.config.syncProtocol.name,
-      })),
+      primitives: [],
     };
   }
 
   @bound
   override toRootPage(data: Output): RootPage {
-    return applyDelay(
-      toMsTimestamp(data.raw.timestamp),
-      this.config.syncProtocol.delayMs,
-    );
+    return toMsTimestamp(data.raw.timestamp);
   }
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
     return yield* genInputRange(
-      this as EvmSyncState,
-      1, // TODO: do we skip block 0 for EVM?
+      this as NtpSyncState,
+      1, // TODO: do we skip block 0 for NTP?
       {
         name: this.config.syncProtocol.name,
         startPage: this.config.syncProtocol.startBlockHeight,
@@ -82,15 +75,10 @@ export class EvmSyncState extends SyncState<
     ourOutput: Output,
     rootOutput: RootOutput,
   ): void {
-    const primitives = ourOutput.primitives.map((p) => ({
-      ...p,
-      source: this.config.syncProtocol.name,
-    }));
     const blockHashes = ourOutput.blockHashes.map((h) => ({
       source: this.config.syncProtocol.name,
       blockHashes: h,
     }));
-    rootOutput.primitives.push(...primitives);
     rootOutput.blockHashes.push(...blockHashes);
   }
 
@@ -103,10 +91,10 @@ export class EvmSyncState extends SyncState<
     dbConn: PoolClient,
     config: Extract<
       SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.EVM }
+      { networkType: ConfigNetworkType.NTP }
     >,
-    fetcher: EvmFetcher,
-  ): Operation<EvmSyncState> {
+    fetcher: NtpFetcher,
+  ): Operation<NtpSyncState> {
     // TODO: move this DB query into page-helpers?
     const [result] = yield* call(async () =>
       await getPage.run({
@@ -115,7 +103,7 @@ export class EvmSyncState extends SyncState<
     );
     // TODO: this should instead be parsed with typebox with default values
     const page = result as any;
-    return new EvmSyncState(
+    return new NtpSyncState(
       page,
       config,
       fetcher,

@@ -49,6 +49,9 @@ export function caip2PrefixFor(
 
   // see https://github.com/ChainAgnostic/namespaces
   switch (type) {
+    case ConfigNetworkType.NTP:
+      // TODO What to return here
+      return `ntp:${config.name}`;
     case ConfigNetworkType.EVM:
       // https://github.com/ChainAgnostic/namespaces/tree/main/eip155
       return `eip155:${config.chainId}`;

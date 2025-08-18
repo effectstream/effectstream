@@ -25,9 +25,12 @@ export type VersionString = `${number}.${number}.${number}`;
 //       and maybe even Paima block number / emulated block number
 export type PaimaBlockNumber = FastFlavor<number, "PaimaBlockNumber">;
 export type EvmBlockNumber = FastFlavor<number, "EvmBlockNumber">;
+export type NtpBlockNumber = FastFlavor<number, "NtpBlockNumber">;
+
 export type BlockNumber =
   | PaimaBlockNumber
-  | EvmBlockNumber;
+  | EvmBlockNumber
+  | NtpBlockNumber;
 
 /**
  * recall: slots may be empty, so absolute slot number is not usually equal to block number
@@ -72,6 +75,10 @@ export type CardanoCip14Fingerprint = FastFlavor<
 export type CardanoPoolId = FastFlavor<string, "CardanoPoolId">;
 export type CardanoAmountLovelace = FastFlavor<string, "CardanoAmountLovelace">;
 
+export type NtpBlockHash = FastFlavor<string, "NtpBlockHash">;
+export type NtpTxHash = FastFlavor<string, "NtpTxHash">; // TODO: is this needed?
+export type NtpAddress = FastFlavor<string, "NtpAddress">; // TODO: is this needed?
+
 export type EvmBlockHash = FastFlavor<HexString0x, "EvmBlockHash">;
 export type EvmTxHash = FastFlavor<HexString0x, "EvmTxHash">;
 export type EvmAddress = FastFlavor<HexString0x, "EvmAddress">;
@@ -115,7 +122,8 @@ export type TxHash =
   | EvmTxHash
   | MidnightTxHash
   | MinaTxHash
-  | PaimaTxHash;
+  | PaimaTxHash
+  | NtpTxHash;
 // | SubstrateTxHash;
 
 export type PaimaBlockHash = FastFlavor<HexString0x, "PaimaBlockHash">;
@@ -126,9 +134,11 @@ export type BlockHash =
   | EvmBlockHash
   | MidnightBlockHash
   | MinaBlockHash
-  | PaimaBlockHash;
+  | PaimaBlockHash
+  | NtpBlockHash;
 // | SubstrateBlockHash;
 
+export type NtpPageJson = FastFlavor<string, "NTPPageJson">;
 export type EvmRpcPageJson = FastFlavor<string, "EvmRpcPageJson">;
 export type CarpCursorJson = FastFlavor<string, "CarpCursorJson">;
 export type MidnightEncodedStateJson = FastFlavor<

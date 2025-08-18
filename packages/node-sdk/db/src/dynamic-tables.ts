@@ -14,6 +14,7 @@ import type { AllSyncProtocols } from "@paima/sync";
 import type { PoolClient } from "pg";
 import { applyMigrations } from "@paima/db/apply-migrations";
 import type { VersionInfo } from "@paima/db/version";
+import { findMigrationByName } from "@paima/db";
 
 /**
  * Creates dynamic tables for the given sync protocols.
@@ -31,35 +32,51 @@ export function* createDynamicTables(
   dbConn: PoolClient,
   syncProtocols: AllSyncProtocols[],
 ) {
-  // TODO We need to check the database if the dynamic tables already exist.
-  //      This is for when the node restarts, but continues executing from the last block height.
-
   for (const syncProtocol of syncProtocols) {
     for (const primitive of syncProtocol.config.primitives) {
-      switch (primitive.primitive.type) {
-        case ConfigPrimitiveType.EvmRpcERC20:
-          yield* until(applyMigrations(
-            dbConn,
-            lastBlockHeight,
-            `dynamic-tables-${primitive.primitive.type}-${primitive.primitive.name}`,
-            erc20Ivm(primitive.primitive.name),
-            true,
-          ));
-          break;
-        case ConfigPrimitiveType.EvmRpcERC721:
-          yield* until(applyMigrations(
-            dbConn,
-            lastBlockHeight,
-            `dynamic-tables-${primitive.primitive.type}-${primitive.primitive.name}`,
-            erc721Ivm(primitive.primitive.name),
-            true,
-          ));
-          break;
-        default:
-          // No IVM for this primitive type
-      }
+      yield* createDynamicTableForPrimitive(primitive, lastBlockHeight, dbConn);
     }
   }
+}
+
+const primitiveTypeFunctionMap: Record<string, (name: string) => string> = {
+  [ConfigPrimitiveType.EvmRpcERC20]: erc20Ivm,
+  [ConfigPrimitiveType.EvmRpcERC721]: erc721Ivm,
+};
+
+function* createDynamicTableForPrimitive(
+  p: {
+    primitive: {
+      type: ConfigPrimitiveType;
+      name: string;
+    };
+  },
+  lastBlockHeight: number,
+  dbConn: PoolClient,
+) {
+  const type = p.primitive.type;
+  const name = p.primitive.name;
+  const sqlFunction = primitiveTypeFunctionMap[type];
+  if (!sqlFunction) {
+    // This primitive does not have dynamic tables.
+    return;
+  }
+
+  const migrationName = `dynamic-tables-${type}-${name}`;
+  const [migration] = yield* until(findMigrationByName.run({
+    name: migrationName,
+    isSystemMigration: true,
+  }, dbConn));
+  // This particular migration has been applied, so we can skip it.
+  if (migration) return;
+
+  yield* until(applyMigrations(
+    dbConn,
+    lastBlockHeight,
+    migrationName,
+    sqlFunction(name),
+    true,
+  ));
 }
 
 /**

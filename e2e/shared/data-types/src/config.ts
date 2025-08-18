@@ -32,13 +32,24 @@ export const localhostConfig = new ConfigBuilder()
   )
   .buildNetworks((builder) => {
     let b = builder
-      .addViemNetwork({
-        ...hardhat,
-        name: "evmMain",
+      .addNetwork({
+        name: "ntp",
+        type: ConfigNetworkType.NTP,
+        // Initial time for the Paima Engine Node. Unix Timestamp in milliseconds.
+        // Give 2 minutes to the server to start syncing.
+        // In development mode local chains can take a while to start and deploy contracts.
+        startTime: new Date().getTime(),
+        // Block size is milliseconds, this will be used to sync other chains.
+        // Block times will be exact, and not affected by the network latency, or server time.
+        blockTimeMS: 1000,
       })
       .addViemNetwork({
         ...hardhat,
-        name: "evmParallel",
+        name: "evmParallel_fast",
+      })
+      .addViemNetwork({
+        ...hardhat,
+        name: "evmParallel_slow",
         rpcUrls: {
           default: { http: ["http://127.0.0.1:8546"] },
         },
@@ -67,7 +78,7 @@ export const localhostConfig = new ConfigBuilder()
   .buildDeployments((builder) =>
     builder
       .addDeployment(
-        (networks) => networks.evmMain,
+        (networks) => networks.evmParallel_fast,
         (_network) => ({
           name: "PaimaErc20DevModule#PaimaErc20Dev",
           address: contractAddressesEvmMain()
@@ -75,7 +86,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addDeployment(
-        (networks) => networks.evmMain,
+        (networks) => networks.evmParallel_fast,
         (_network) => ({
           name: "PaimaL2ContractModule#MyPaimaL2Contract",
           address: contractAddressesEvmMain().chain31337[
@@ -84,7 +95,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addDeployment(
-        (networks) => networks.evmParallel,
+        (networks) => networks.evmParallel_slow,
         (_network) => ({
           name: "PaimaErc20DevModule#PaimaErc20Dev",
           address: contractAddressesEvmMain()
@@ -94,19 +105,30 @@ export const localhostConfig = new ConfigBuilder()
   ).buildSyncProtocols((builder) => {
     let result = builder
       .addMain(
-        (networks) => networks.evmMain,
+        (networks) => networks.ntp,
         (network, deployments) => ({
-          name: "mainEvmRPC",
-          type: ConfigSyncProtocolType.EVM_RPC_MAIN,
-          chainUri: network.rpcUrls.default.http[0],
+          name: "mainNtp",
+          type: ConfigSyncProtocolType.NTP_MAIN,
+          chainUri: "",
           startBlockHeight: 1,
-          pollingInterval: 500, // poll quickly to react fast
+          pollingInterval: 1000,
         }),
       )
       .addParallel(
-        (networks) => networks.evmParallel,
+        (networks) => networks.evmParallel_fast,
         (network, deployments) => ({
-          name: "parallelEvmRPC",
+          name: "parallelEvmRPC_fast",
+          type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+          chainUri: network.rpcUrls.default.http[0],
+          startBlockHeight: 1,
+          pollingInterval: 500, // poll quickly to react fast
+          confirmationDepth: 1, // TODO: test this
+        }),
+      )
+      .addParallel(
+        (networks) => networks.evmParallel_slow,
+        (network, deployments) => ({
+          name: "parallelEvmRPC_slow",
           type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
           chainUri: network.rpcUrls.default.http[0],
           pollingInterval: 1000, // we can poll slower since it's not a blocker
@@ -145,7 +167,7 @@ export const localhostConfig = new ConfigBuilder()
   })
   .buildPrimitives((builder) =>
     builder.addPrimitive(
-      (syncProtocols) => syncProtocols.mainEvmRPC,
+      (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
       (network, deployments, syncProtocol) => ({
         name: "Aribitrum_Token",
         type: ConfigPrimitiveType.EvmRpcERC20,
@@ -158,7 +180,7 @@ export const localhostConfig = new ConfigBuilder()
       }),
     )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
         (network, deployments, syncProtocol) => ({
           name: "PaimaGameInteraction",
           type: ConfigPrimitiveType.EvmRpcPaimaL2,
@@ -183,7 +205,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
         (network, deployments, syncProtocol) => ({
           name: "Arbitrum_ERC721",
           type: ConfigPrimitiveType.EvmRpcERC721,
@@ -199,7 +221,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelEvmRPC,
+        (syncProtocols) => syncProtocols.parallelEvmRPC_slow,
         (network, deployments, syncProtocol) => ({
           name: "L1_ERC721_Token",
           type: ConfigPrimitiveType.EvmRpcERC721,
@@ -215,7 +237,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelEvmRPC,
+        (syncProtocols) => syncProtocols.parallelEvmRPC_slow,
         (network, deployments, syncProtocol) => ({
           name: "ETH_L1_ERC20",
           type: ConfigPrimitiveType.EvmRpcERC20,

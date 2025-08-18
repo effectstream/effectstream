@@ -4,7 +4,7 @@ import { run } from "effection";
 import { createDynamicTables, getConnection } from "@paima/db";
 import type { Client } from "pg";
 import { applyMigrations } from "@paima/db/version";
-import { SyncProtocolWithNetwork } from "@paima/config";
+import type { SyncProtocolWithNetwork } from "@paima/config";
 
 /**
  * This is to generate the user/custom pgtyped files in compilation time
