@@ -26,6 +26,10 @@ export function printSummary() {
   console.log(`  ${testResults.skipped} tests skipped`);
 }
 
+export function anyError(): boolean {
+  return testResults.count === 0 || testResults.failed > 0;
+}
+
 let isRunning = false;
 
 /** Increment the passed test count and print a success message. */

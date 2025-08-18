@@ -12,7 +12,8 @@
     "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2",
     "@pgtyped/parser": "npm:@pgtyped/parser@2.4.2",
     "pg": "npm:pg@^8.14.0",
-    "pg-tx": "npm:pg-tx@^1.0.1"
+    "pg-tx": "npm:pg-tx@^1.0.1",
     // note: in `package.json` we fork @pgtyped/cli because of https://github.com/adelsz/pgtyped/pull/595
+    "pg-gateway": "^0.3.0-beta.4"
   }
 }

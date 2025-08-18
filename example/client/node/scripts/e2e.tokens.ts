@@ -4,6 +4,10 @@ import type { SharedState } from "./e2e-shared-state.ts";
 
 // Start Test
 export async function tokenTests(db: Client, sharedState: SharedState) {
+  if (Deno.env.get("GITHUB_ACTIONS_SHORT_TEST")) {
+    return;
+  }
+
   const erc20 = erc20Builder(sharedState);
   const erc721 = erc721Builder(sharedState);
 

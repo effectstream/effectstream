@@ -173,14 +173,13 @@ export async function start(
       startProcess[ComponentNames.DEPLOY_EVM_CONTRACTS],
     ]);
 
-    // Start the batcher, after the contracts are deployed.
     processesToLaunch.push([
       config.processes[ComponentNames.PAIMA_BATCHER] &&
       startProcess[ComponentNames.PAIMA_BATCHER],
     ]);
 
     // Start the explorer
-    // This crashes when launching process through Deno.command
+    // TODO: This crashes when launching process through Deno.command
     processesToLaunch.push([
       config.processes[ComponentNames.EXPLORER] &&
       startProcess[ComponentNames.EXPLORER],
@@ -375,7 +374,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
   },
 
   [ComponentNames.HARDHAT]: async (): Promise<ProcessComponent> => {
-    if (config.kill.auto) {
+    if (config.kill.auto && config.kill.hardhat.length > 0) {
       await dkill({ ports: config.kill.hardhat });
     }
 
@@ -400,7 +399,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.YACI_DEVKIT]: async (): Promise<ProcessComponent> => {
     // Yaci Devkit Ports
-    if (config.kill.auto) {
+    if (config.kill.auto && config.kill.yaciDevkit.length > 0) {
       await dkill({ ports: config.kill.yaciDevkit });
     }
 
