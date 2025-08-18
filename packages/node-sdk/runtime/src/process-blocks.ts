@@ -34,7 +34,7 @@ function isWorldResolve(value: any): value is QueuedUpdate {
   return value && Array.isArray(value);
 }
 /** Helper to check if a SyncStateUpdateStream object is a promise */
-function isPromise(value: any): value is ExecPromise {
+function isPromise(value: any): value is ExecPromise<any> {
   return value && typeof value === "object" && "promise" in value;
 }
 
@@ -204,7 +204,8 @@ export function* processFinalizedBlock(
     let index_in_block = 0;
     if (gameStateTransitions && scheduledData.length > 0) {
       for (const data of scheduledData) {
-        const { status } = yield* until(tryOrRollback(dbConn, async () => {
+        let success = true;
+        try {
           const input: BaseStfInput = {
             blockTimestamp: value.timestamp,
             blockHeight: value.blockNumber,
@@ -219,36 +220,47 @@ export function* processFinalizedBlock(
               transactionHash: "0x0",
             },
           };
-          const stateMachineResult = await gameStateTransitions(
+          const gameSTFGenerator = gameStateTransitions(
             value.blockNumber,
             input,
           );
-          for (const [queryIR, params] of stateMachineResult.stateTransitions) {
-            await queryIR.run(params, dbConn);
-          }
-        }));
+          yield* executeGeneratorStepByStep(gameSTFGenerator, dbConn);
+        } catch (err) {
+          success = false;
+          log.remote(
+            ComponentNames.PAIMA_SYNC,
+            "block-processing",
+            SeverityNumber.ERROR,
+            (log) =>
+              log(
+                `Error processing block ${value.blockNumber}: ${
+                  String(err)
+                }. Payload: ${JSON.stringify(data)}`,
+              ),
+          );
+        }
         const gameInputHash = `0x${
           Array(64).fill(0).map(() =>
             Math.floor(Math.random() * 16).toString(16)
           )
             .join("")
         }`;
-        yield* call(() =>
+        yield* until(
           insertGameInputResult.run({
             id: data.id,
-            success: status === "success",
+            success,
             paima_tx_hash: Buffer.from(gameInputHash),
             index_in_block,
             block_height: value.blockNumber,
-          }, dbConn)
+          }, dbConn),
         );
         index_in_block++;
 
         // Remove the scheduled data from the database.
-        yield* call(() =>
+        yield* until(
           deleteScheduled.run({
             id: data.id,
-          }, dbConn)
+          }, dbConn),
         );
       }
     }

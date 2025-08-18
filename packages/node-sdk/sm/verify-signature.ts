@@ -1,6 +1,6 @@
 import { CryptoManager } from "@paima/crypto";
 import type { Signature, WalletAddress } from "@paima/utils";
-import type { SyncStateUpdateStream } from "@paima/coroutine";
+import { type SyncStateUpdateStream, World } from "@paima/coroutine";
 
 /**
  * Verify a signature for a given wallet address and message.
@@ -32,17 +32,14 @@ export function* verifySignature(
     try {
       if (!validator.verifyAddress(walletAddress)) continue;
 
-      // IMPORATNT: sync generator cannot resolve promises.
+      // IMPORTANT: sync generator cannot resolve promises.
       //            so we pass the promise back to generator caller
       //            and resolves the promise for us.
-      const [validSignature] = (yield {
-        type: "promise",
-        promise: validator.verifySignature(
-          walletAddress,
-          message,
-          signature,
-        ),
-      }) as [boolean];
+      const validSignature = yield* World.promise(validator.verifySignature(
+        walletAddress,
+        message,
+        signature,
+      ));
       if (validSignature) {
         return true;
       }

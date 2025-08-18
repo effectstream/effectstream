@@ -357,7 +357,7 @@ export const startProcess: Record<
   [ComponentNames.PAIMA_DB]: async (): Promise<ProcessComponent> => {
     const paimaDb = $({
       // TODO: run pgtyped:up only depending on parameters?
-      args: ["task", "-f", "@paima/db", "pgtyped:update"],
+      args: ["task", "-f", "@paima/db", "db:up"],
       log: logHandler,
       component: ComponentNames.PAIMA_DB,
       abortController: abortControllers.system,
