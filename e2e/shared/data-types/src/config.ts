@@ -20,7 +20,7 @@ const stfInputs = {
 } as const;
 
 // comes from hardhat.config.ts
-const parallelBlockTime: TimestampMs = 10 * 1000;
+const parallelBlockTime: TimestampMs = 1 * 1000;
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
@@ -106,7 +106,7 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
           chainUri: network.rpcUrls.default.http[0],
           pollingInterval: 1000, // we can poll slower since it's not a blocker
-          delayMs: parallelBlockTime * 6,
+          delayMs: (parallelBlockTime * 0.5) | 0,
           startBlockHeight: 1 as BlockNumber,
           confirmationDepth: 2, // TODO: test this
         }),

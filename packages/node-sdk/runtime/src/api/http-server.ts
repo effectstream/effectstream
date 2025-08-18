@@ -4,13 +4,14 @@ import type { Pool } from "pg";
 import cors from "@fastify/cors";
 import { run, until } from "effection";
 import {
-  aquireDBMutex,
+  acquireDBMutex,
   getAllAddresses,
   getAllScheduledData,
   getPrimitivePrefix,
   getTableSchema,
   releaseDBMutex,
   runPreparedQuery,
+  waitUntilFree,
 } from "@paima/db";
 import { ENV } from "@paima/utils";
 import type { AllSyncProtocols } from "@paima/sync";
@@ -246,7 +247,7 @@ export const startHttpServer = function* (
     const { tableName } = request.params;
     const result = await runPreparedQuery(
       getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
-      "table-schema",
+      `table-schema:${tableName}`,
     );
     return result;
   });
@@ -262,11 +263,19 @@ export const startHttpServer = function* (
       throw new Error("Table name too long");
     }
     unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
-    const result = await runPreparedQuery<{ rows: unknown[] }>(
-      dbConn.query(unsafeQuery),
-      "unsafe-get-table-data",
+    const result = await runPreparedQuery(
+      new Promise<unknown[]>((resolve) => {
+        dbConn.query(unsafeQuery, (err: Error, res: { rows: unknown[] }) => {
+          if (err) {
+            resolve([]);
+          } else {
+            resolve(res.rows);
+          }
+        });
+      }),
+      `unsafe-get-table-data:${unsafeTableName}`,
     );
-    return result.rows;
+    return result;
   }
 
   server.get(
@@ -341,7 +350,7 @@ export const startHttpServer = function* (
       getTableSchema.run({
         tableName: `${prefix}${primitiveName.toLowerCase()}`,
       }, dbConn),
-      "primitives-schema",
+      `primitives-schema:${primitiveName}`,
     );
     return result;
   });
@@ -374,23 +383,37 @@ export const startHttpServer = function* (
     },
   );
 
+  server.get("/db_status", () => {
+    return waitUntilFree();
+  });
   // These endpoints:
-  // * /db_aquire_lock
+  // * /db_acquire_lock
   // * /db_release_lock
   // Are only used by the e2e tests to ensure that only one query is executed at a time.
   // They are not used by the main application.
   // TODO Disable this totally for production.
-  server.get("/db_aquire_lock", {
-    schema: {
-      tags: ["developer"],
-      response: {
-        200: Type.String(),
+  server.get(
+    "/db_acquire_lock",
+    {
+      schema: {
+        tags: ["developer"],
+        response: {
+          200: Type.String(),
+        },
+        querystring: Type.Object({
+          name: Type.String(),
+        }),
       },
     },
-  }, async () => {
-    await run(() => aquireDBMutex("http-server"));
-    return "ok";
-  });
+    async (
+      request: FastifyRequest<{ Querystring: { name: string } }>,
+      reply,
+    ) => {
+      const { name } = request.query;
+      await run(() => acquireDBMutex(`http-server:${name}`));
+      return "ok";
+    },
+  );
 
   server.get("/db_release_lock", {
     schema: {
@@ -398,9 +421,16 @@ export const startHttpServer = function* (
       response: {
         200: Type.String(),
       },
+      querystring: Type.Object({
+        name: Type.String(),
+      }),
     },
-  }, () => {
-    releaseDBMutex();
+  }, async (
+    request: FastifyRequest<{ Querystring: { name: string } }>,
+    reply,
+  ) => {
+    const { name } = request.query;
+    releaseDBMutex(`http-server:${name}`);
     return "ok";
   });
 

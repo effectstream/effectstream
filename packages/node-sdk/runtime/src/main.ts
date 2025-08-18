@@ -1,6 +1,6 @@
 import { type ChainBlock, genSyncProtocols } from "@paima/sync";
 import {
-  aquireDBMutex,
+  acquireDBMutex,
   createDynamicTables,
   getConnection,
   releaseDBMutex,
@@ -49,7 +49,12 @@ export function* start(config: StartConfig): Operation<void> {
   }
 
   yield* spawn(function* () {
-    yield* startHttpServer(dbConn, syncProtocols, config.apiRouter);
+    yield* startHttpServer(
+      dbConn,
+      syncProtocols,
+      config.apiRouter,
+      config.grammar,
+    );
   });
 
   const finalizedBlockStream = createChannel<ChainBlock>();
@@ -63,7 +68,7 @@ export function* start(config: StartConfig): Operation<void> {
     // So we request a DBMutex as well.
     const dbClient: Client = yield* until(dbConn.connect());
     try {
-      yield* aquireDBMutex("processing-blocks");
+      yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
       blockHash = yield* processFinalizedBlock(
         value,
         config,
@@ -71,7 +76,7 @@ export function* start(config: StartConfig): Operation<void> {
         blockHash,
       );
     } finally {
-      releaseDBMutex();
+      releaseDBMutex(`processing-blocks:${value.blockNumber}`);
       dbClient.release();
     }
 
