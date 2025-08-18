@@ -4,7 +4,7 @@ import { runPreparedQuery } from "@paima/db";
 import {
   getStateMachineInput,
   getStateMachineInputByBlockHeight,
-} from "@example/database";
+} from "@e2e/database";
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paima/runtime";
 

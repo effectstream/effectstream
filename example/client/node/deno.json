@@ -1,5 +1,5 @@
 {
-  "name": "@example/node",
+  "name": "@e2e/node",
   "version": "0.3.0",
   "license": "MIT",
   "exports": "./src/main.ts",

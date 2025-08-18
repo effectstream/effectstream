@@ -1,5 +1,5 @@
 {
-    "name": "@example/midnight-contracts",
+    "name": "@e2e/midnight-contracts",
     "version": "0.3.0",
     "exports": {
         ".": "./read-contract.ts"

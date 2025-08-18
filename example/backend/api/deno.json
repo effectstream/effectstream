@@ -1,5 +1,5 @@
 {
-    "name": "@example/api",
+    "name": "@e2e/api",
     "exports": "./src/mod.ts",
     "type": "module",
     "scripts": {

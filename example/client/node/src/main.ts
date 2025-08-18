@@ -1,15 +1,15 @@
 import { init, start } from "@paima/runtime";
 import { main, suspend } from "effection";
-import { localhostConfig } from "@example/data-types";
+import { localhostConfig } from "@e2e/data-types";
 import {
   type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
 } from "@paima/config";
-import { migrationRouter } from "@example/database";
-import { gameStateTransitions } from "@example/state-transition";
-import { apiRouter } from "@example/api";
-import { grammar } from "@example/data-types";
+import { migrationRouter } from "@e2e/database";
+import { gameStateTransitions } from "@e2e/state-transition";
+import { apiRouter } from "@e2e/api";
+import { grammar } from "@e2e/data-types";
 
 main(function* () {
   yield* init();

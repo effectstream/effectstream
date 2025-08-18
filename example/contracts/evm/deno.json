@@ -1,5 +1,5 @@
 {
-    "name": "@example/evm-contracts",
+    "name": "@e2e/evm-contracts",
     "exports": "./mod.ts",
     "version": "0.3.0",
     "license": "MIT",

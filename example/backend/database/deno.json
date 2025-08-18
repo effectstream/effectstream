@@ -1,5 +1,5 @@
 {
-    "name": "@example/database",
+    "name": "@e2e/database",
     "version": "0.3.0",
     "license": "MIT",
     "exports": "./src/mod.ts",
