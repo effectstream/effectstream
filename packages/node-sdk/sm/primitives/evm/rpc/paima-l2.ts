@@ -50,7 +50,7 @@ import { Value } from "@sinclair/typebox/value";
 import { CryptoManager } from "@paima/crypto";
 
 function* checkNonce(
-  nonce: string | undefined,
+  nonce: string,
   block_height: BlockNumber,
 ): StateUpdateStream<boolean> {
   const [nonceData] = yield* World.resolve(findNonce, { nonce });
@@ -77,7 +77,7 @@ function* checkNonce(
 
 function* executePaimaL2Input(input: {
   paima_block_height: PaimaBlockNumber;
-  nonce: string | undefined;
+  nonce: string;
   ownChain: {
     blockNumber: BlockNumber;
     transactionHash: TxHash;
