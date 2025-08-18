@@ -6,6 +6,7 @@
   "tasks": {
     "evm": "deno task -f @example/evm-contracts build && deno task -f @example/evm-contracts deploy:standalone",
     "dev": "deno task -f @example/node dev",
+    "frontend": "deno task -f @example/frontend dev",
     "check": "deno check"
   },
   "imports": {},

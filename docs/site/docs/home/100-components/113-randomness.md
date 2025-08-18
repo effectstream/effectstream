@@ -1,0 +1,3 @@
+# Randomness
+
+How randomness works
