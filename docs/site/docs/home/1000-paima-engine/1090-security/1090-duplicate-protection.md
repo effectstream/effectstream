@@ -92,6 +92,3 @@ once in its intended context.
 
 - Scheduled:
   - No nonce required; engine prevents replays via atomic execution.
-
-Reference (v1 background):
-[Replay protection](https://docs.paimastudios.com/home/state-machine/direct-write/replay-protection/).
