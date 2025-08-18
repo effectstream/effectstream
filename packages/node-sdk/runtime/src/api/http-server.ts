@@ -322,6 +322,74 @@ export const startHttpServer = function* (
     return getPrimitivePrefix(primitive.primitive.type);
   }
 
+  // List all primitive tables that have an aggregated view
+  server.get("/primitives", {
+    schema: {
+      tags: ["developer"],
+      response: {
+        200: Type.Array(
+          Type.Object({
+            primitiveName: Type.String(),
+            primitiveType: Type.String(),
+            address: Type.String(),
+            caip2: Type.Optional(Type.String()),
+            protocolName: Type.Optional(Type.String()),
+            table: Type.Object({
+              name: Type.String(),
+              dataEndpoint: Type.String(),
+              schemaEndpoint: Type.String(),
+            }),
+          }, { additionalProperties: true }),
+        ),
+      },
+    },
+  }, () => {
+    const seen = new Set<string>();
+    const items: Array<{
+      primitiveName: string;
+      primitiveType: string;
+      address: string;
+      caip2?: string;
+      protocolName?: string;
+      table: { name: string; dataEndpoint: string; schemaEndpoint: string };
+    }> = [];
+
+    for (const sp of syncProtocols) {
+      const cfg = sp.config as any;
+      const primitives = (cfg?.primitives ?? []) as any[];
+      for (const entry of primitives) {
+        const prim = entry?.primitive;
+        if (!prim?.name || !prim?.type) continue;
+        const name: string = prim.name;
+        const type = prim.type;
+
+        const lower = name.toLowerCase();
+        if (seen.has(lower)) continue;
+
+        const prefix = getPrimitivePrefix(type);
+        if (!prefix) continue; // only list primitives with aggregated data
+
+        const address = prim.contractAddress ?? "";
+
+        seen.add(lower);
+        items.push({
+          primitiveName: name,
+          primitiveType: type,
+          address,
+          caip2: cfg?.syncProtocol?.caip2,
+          protocolName: cfg?.syncProtocol?.name,
+          table: {
+            name: `${prefix}${lower}`,
+            dataEndpoint: `/primitives/${name}`,
+            schemaEndpoint: `/primitives-schema/${name}`,
+          },
+        });
+      }
+    }
+
+    return items;
+  });
+
   server.get("/primitives-schema/:primitiveName", {
     schema: {
       tags: ["developer"],
