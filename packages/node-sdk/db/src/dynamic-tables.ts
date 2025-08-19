@@ -10,11 +10,12 @@ import {
   ERC721_VIEW_PREFIX,
   erc721Ivm,
 } from "./ivm/erc721-ivm.ts";
-import type { AllSyncProtocols } from "@paima/sync";
+// This import causes a circular dependency with the sync package.
+// import type { AllSyncProtocols } from "@paima/sync";
 import type { PoolClient } from "pg";
-import { applyMigrations } from "@paima/db/apply-migrations";
-import type { VersionInfo } from "@paima/db/version";
-import { findMigrationByName } from "@paima/db";
+import type { VersionInfo } from "../migrations/system-version.ts";
+import { applyMigrations } from "../scripts/apply-migrations.ts";
+import { findMigrationByName } from "./sql/system.queries.ts";
 
 /**
  * Creates dynamic tables for the given sync protocols.
@@ -30,7 +31,7 @@ export function* createDynamicTables(
   versionInfo: VersionInfo,
   lastBlockHeight: number,
   dbConn: PoolClient,
-  syncProtocols: AllSyncProtocols[],
+  syncProtocols: any[], // AllSyncProtocols[],
 ) {
   for (const syncProtocol of syncProtocols) {
     for (const primitive of syncProtocol.config.primitives) {

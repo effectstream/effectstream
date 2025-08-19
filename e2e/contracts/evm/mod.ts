@@ -2,7 +2,6 @@
 
 export * from "./build/mod.ts";
 export { contracts } from "./build/contracts.ts";
-export * from "./deploy.ts";
 
 // This a placeholder for evm contract addresses.
 // TODO This script should read the current /ignition/deployments/chain-* to generate the addresses list.

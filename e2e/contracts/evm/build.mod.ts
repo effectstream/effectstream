@@ -123,10 +123,6 @@ export * from "./build/mod.ts";
 export { contracts } from "./build/contracts.ts";
 `;
 
-    if (fs.existsSync("./deploy.ts")) {
-      rootModContent += `export * from "./deploy.ts";\n`;
-    }
-
     rootModContent += `
 // This a placeholder for evm contract addresses.
 // TODO This script should read the current /ignition/deployments/chain-* to generate the addresses list.

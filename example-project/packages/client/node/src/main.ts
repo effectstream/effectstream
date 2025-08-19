@@ -13,10 +13,12 @@ import { grammar } from "@example/data-types";
 
 main(function* () {
   yield* init();
-  console.log("starting node");
+  console.log("Starting Paima Engine Node");
 
   yield* withPaimaStaticConfig(localhostConfig, function* () {
     yield* start({
+      appName: "evm-midnight-example",
+      appVersion: "0.3.21",
       syncInfo: toSyncProtocolWithNetwork(localhostConfig),
       gameStateTransitions,
       migrationRouter,

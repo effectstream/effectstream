@@ -1,20 +1,28 @@
-import { readFile } from "node:fs/promises";
-import type { StartConfigMigrationRouter } from "@paimaexample/runtime";
+import type {
+  DBMigrations,
+  StartConfigMigrationRouter,
+} from "@paimaexample/runtime";
 
-const __dirname = import.meta.dirname;
+import { migrationTable } from "./migration-order.ts";
 
 /**
  * This function is used by Paima Engine to apply the migration at the correct block heights.
  * It returns the migration script for the given block height.
- * @param blockHeight - The paima block height to get the migration script for.
+ * @param startBlockHeight - The paima block height to start applying the migrations from (inclusive).
+ * @param endBlockHeight - The paima block height to stop applying the migrations at (inclusive).
  * @returns The migration script for the given block height.
  */
 export const migrationRouter: StartConfigMigrationRouter = async function (
-  blockHeight: number,
-): Promise<string | undefined> {
-  switch (blockHeight) {
-    case 1:
-      return await readFile(`${__dirname}/migrations/database.sql`, "utf-8");
-  }
-  return undefined;
+  startBlockHeight: number,
+  endBlockHeight: number,
+): Promise<DBMigrations[]> {
+  const migrationsToApply = migrationTable
+    .filter((migration) => {
+      const targetBlockHeight = migration.blockHeight ?? 1;
+      return (
+        targetBlockHeight >= startBlockHeight &&
+        targetBlockHeight <= endBlockHeight
+      );
+    });
+  return migrationsToApply;
 };

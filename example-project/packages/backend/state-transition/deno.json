@@ -5,9 +5,9 @@
   "exports": "./src/mod.ts",
   "tasks": {},
   "imports": {
-    "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.20",
-    "@paimaexample/db": "jsr:@paimaexample/db@0.3.20",
-    "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.20",
-    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.20"
+    "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.21",
+    "@paimaexample/db": "jsr:@paimaexample/db@0.3.21",
+    "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.21",
+    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.21"
   }
 }
