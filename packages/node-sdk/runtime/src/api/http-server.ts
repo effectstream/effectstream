@@ -6,9 +6,7 @@ import { run, until } from "effection";
 import {
   aquireDBMutex,
   getAllAddresses,
-  getAllAddressesCount,
   getAllScheduledData,
-  getAllScheduledDataCount,
   getPrimitivePrefix,
   getTableSchema,
   releaseDBMutex,
@@ -29,6 +27,7 @@ import {
   createPaginatedResponseSchema,
   createPaginationMeta,
   getPaginationParams,
+  type PaginatedResponse,
   PaginationQuerySchema,
 } from "./pagination.ts";
 
@@ -177,36 +176,26 @@ export const startHttpServer = function* (
       },
     },
   }, async (request) => {
-    const { limit, skip, count } = getPaginationParams(request);
-
-    const query = request.query as any;
-    const paginationParams =
-      (query.limit !== undefined || query.skip !== undefined)
-        ? { limit, skip }
-        : {};
-
-    const addressesPromise = runPreparedQuery(
-      getAllAddresses.run(paginationParams as any, dbConn as any),
-      "addresses",
-    );
-
-    const countPromise = count
-      ? runPreparedQuery(
-        getAllAddressesCount.run(undefined, dbConn as any),
-        "addresses-count",
-      )
-      : undefined;
-
-    const [addresses, countResult] = await Promise.all([
-      addressesPromise,
-      countPromise,
-    ]);
+    const { limit, after } = getPaginationParams(request);
+    let addresses: any[] = [];
+    try {
+      addresses = await runPreparedQuery(
+        getAllAddresses.run({
+          limit,
+          after_account_id: after?.account_id,
+          after_address: after?.address,
+        } as any, dbConn),
+        "addresses",
+      );
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+      throw error;
+    }
 
     const pagination = createPaginationMeta(
       limit,
-      skip,
-      countResult?.[0]?.total,
-      addresses.length,
+      addresses,
+      ["account_id", "address"],
     );
 
     return {
@@ -289,36 +278,26 @@ export const startHttpServer = function* (
       },
     },
   }, async (request) => {
-    const { limit, skip, count } = getPaginationParams(request);
+    const { limit, after } = getPaginationParams(request);
 
-    const query = request.query as any;
-    const paginationParams =
-      (query.limit !== undefined || query.skip !== undefined)
-        ? { limit, skip }
-        : {};
-
-    const scheduledDataPromise = runPreparedQuery(
-      getAllScheduledData.run(paginationParams as any, dbConn as any),
-      "scheduled-data",
-    );
-
-    const countPromise = count
-      ? runPreparedQuery(
-        getAllScheduledDataCount.run(undefined, dbConn as any),
-        "scheduled-data-count",
-      )
-      : undefined;
-
-    const [scheduledData, countResult] = await Promise.all([
-      scheduledDataPromise,
-      countPromise,
-    ]);
+    let scheduledData: any[] = [];
+    try {
+      scheduledData = await runPreparedQuery(
+        getAllScheduledData.run({
+          limit,
+          after_id: after?.id,
+        } as any, dbConn),
+        "scheduled-data",
+      );
+    } catch (error) {
+      console.error("Error fetching scheduled data:", error);
+      throw error;
+    }
 
     const pagination = createPaginationMeta(
       limit,
-      skip,
-      countResult?.[0]?.total,
-      scheduledData.length,
+      scheduledData,
+      ["id"],
     );
 
     return {
@@ -359,7 +338,7 @@ export const startHttpServer = function* (
   async function unsafeGetTableData(
     tableName: string,
     limit?: number,
-    skip?: number,
+    afterId?: number | string,
   ): Promise<unknown[]> {
     let unsafeQuery = `SELECT * FROM ":1"`;
     const unsafeTableName = tableName.toLowerCase().replace(
@@ -371,14 +350,19 @@ export const startHttpServer = function* (
     }
     unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
 
-    if (limit !== undefined && skip !== undefined) {
-      unsafeQuery += ` LIMIT ${limit} OFFSET ${skip}`;
+    if (afterId !== undefined) {
+      const whereValue = typeof afterId === "string"
+        ? `'${afterId.replace(/'/g, "''")}'`
+        : afterId;
+      unsafeQuery += ` WHERE id > ${whereValue}`;
+    }
+    unsafeQuery += " ORDER BY id ASC";
+
+    if (limit !== undefined) {
+      unsafeQuery += ` LIMIT ${limit}`;
     }
 
-    const result = await runPreparedQuery<{ rows: unknown[] }>(
-      dbConn.query(unsafeQuery),
-      "unsafe-get-table-data",
-    );
+    const result = await dbConn.query(unsafeQuery);
     return result.rows;
   }
 
@@ -392,10 +376,7 @@ export const startHttpServer = function* (
       throw new Error("Table name too long");
     }
     unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
-    const result = await runPreparedQuery<{ rows: { total: number }[] }>(
-      dbConn.query(unsafeQuery),
-      "unsafe-get-table-data-count",
-    );
+    const result = await dbConn.query(unsafeQuery);
     return result.rows[0]?.total || 0;
   }
 
@@ -419,25 +400,15 @@ export const startHttpServer = function* (
       reply,
     ) => {
       const { tableName } = request.params;
-      const { limit, skip, count } = getPaginationParams(request);
+      const { limit, after } = getPaginationParams(request);
 
       try {
-        // Only run count query if explicitly requested
-        const dataPromise = unsafeGetTableData(tableName, limit, skip);
-        const countPromise = count
-          ? unsafeGetTableDataCount(tableName)
-          : undefined;
-
-        const [data, total] = await Promise.all([
-          dataPromise,
-          countPromise,
-        ]);
+        const data = await unsafeGetTableData(tableName, limit, after?.id);
 
         const pagination = createPaginationMeta(
           limit,
-          skip,
-          total,
-          data.length,
+          data as any[],
+          ["id"],
         );
 
         return {
@@ -525,7 +496,7 @@ export const startHttpServer = function* (
       reply,
     ) => {
       const { primitiveName } = request.params;
-      const { limit, skip, count } = getPaginationParams(request);
+      const { limit, after } = getPaginationParams(request);
       const prefix = getPrimitivePrefixWrapper(primitiveName);
       if (!prefix) {
         return reply.status(404).send({
@@ -535,22 +506,12 @@ export const startHttpServer = function* (
 
       const tableName = `${prefix}${primitiveName.toLowerCase()}`;
       try {
-        // Only run count query if explicitly requested
-        const dataPromise = unsafeGetTableData(tableName, limit, skip);
-        const countPromise = count
-          ? unsafeGetTableDataCount(tableName)
-          : undefined;
-
-        const [data, total] = await Promise.all([
-          dataPromise,
-          countPromise,
-        ]);
+        const data = await unsafeGetTableData(tableName, limit, after?.id);
 
         const pagination = createPaginationMeta(
           limit,
-          skip,
-          total,
-          data.length,
+          data as any[],
+          ["id"],
         );
 
         return {

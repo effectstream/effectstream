@@ -374,8 +374,9 @@ export const getAccountById = new PreparedQuery<
 
 /** 'GetAllAddresses' parameters type */
 export interface IGetAllAddressesParams {
-  limit?: number;
-  skip?: number;
+  after_account_id?: number | null | void;
+  after_address?: string | null | void;
+  limit?: number | null | void;
 }
 
 /** 'GetAllAddresses' return type */
@@ -392,10 +393,32 @@ export interface IGetAllAddressesQuery {
 }
 
 const getAllAddressesIR: any = {
-  "usedParamSet": {},
-  "params": [],
+  "usedParamSet": {
+    "after_account_id": true,
+    "after_address": true,
+    "limit": true,
+  },
+  "params": [{
+    "name": "after_account_id",
+    "required": false,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 228, "b": 244 }, { "a": 285, "b": 301 }, {
+      "a": 338,
+      "b": 354,
+    }],
+  }, {
+    "name": "after_address",
+    "required": false,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 385, "b": 398 }],
+  }, {
+    "name": "limit",
+    "required": false,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 473, "b": 478 }],
+  }],
   "statement":
-    'SELECT \n    addresses.address as "address", \n    addresses.account_id as "account_id",\n    accounts.primary_address as "primary_address"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nORDER BY addresses.account_id',
+    'SELECT \n    addresses.address as "address", \n    addresses.account_id as "account_id",\n    accounts.primary_address as "primary_address"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nWHERE\n  (:after_account_id::INT IS NULL OR addresses.account_id > :after_account_id::INT) OR\n  (addresses.account_id = :after_account_id::INT AND addresses.address > :after_address)\nORDER BY addresses.account_id ASC, addresses.address ASC\nLIMIT COALESCE(:limit, 1000)',
 };
 
 /**
@@ -407,7 +430,11 @@ const getAllAddressesIR: any = {
  *     accounts.primary_address as "primary_address"
  * FROM addresses
  * LEFT JOIN accounts ON accounts.primary_address = addresses.address
- * ORDER BY addresses.account_id
+ * WHERE
+ *   (:after_account_id::INT IS NULL OR addresses.account_id > :after_account_id::INT) OR
+ *   (addresses.account_id = :after_account_id::INT AND addresses.address > :after_address)
+ * ORDER BY addresses.account_id ASC, addresses.address ASC
+ * LIMIT COALESCE(:limit, 1000)
  * ```
  */
 export const getAllAddresses = new PreparedQuery<
@@ -420,7 +447,7 @@ export type IGetAllAddressesCountParams = void;
 
 /** 'GetAllAddressesCount' return type */
 export interface IGetAllAddressesCountResult {
-  total: number;
+  total: string | null;
 }
 
 /** 'GetAllAddressesCount' query type */
