@@ -3,9 +3,9 @@ import { type QueryResult, safeQuery } from "./e2e-db.ts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const getMaxTimeout = () => {
+const getMaxTimeout = (): number => {
   if (Deno.env.get("E2E_MAX_TIMEOUT")) {
-    return parseInt(Deno.env.get("E2E_MAX_TIMEOUT", 10)!);
+    return parseInt(Deno.env.get("E2E_MAX_TIMEOUT")!, 10);
   }
   return 20000;
 };
