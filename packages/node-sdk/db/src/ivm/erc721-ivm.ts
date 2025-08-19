@@ -16,67 +16,68 @@ export function erc721Ivm(name: string) {
     throw new Error(`Invalid name: ${name}`);
   }
 
-  const script = `
+  const ownershipTable =
+    `primitives.erc721_ownership_intermediate_${validSQLName}`;
 
--- Intermediate table for current ERC721 ownership (maintained by triggers)
-CREATE TABLE erc721_ownership_intermediate_${validSQLName} (
-    primitive_name TEXT NOT NULL,
-    token_id TEXT NOT NULL,
-    current_owner TEXT NOT NULL,
-    last_transfer_block_height INTEGER NOT NULL,
-    last_transfer_id INTEGER NOT NULL,
-    PRIMARY KEY (primitive_name, token_id)
-);
+  return `
+  -- Intermediate table for current ERC721 ownership (maintained by triggers)
+  CREATE TABLE ${ownershipTable} (
+      primitive_name TEXT NOT NULL,
+      token_id TEXT NOT NULL,
+      current_owner TEXT NOT NULL,
+      last_transfer_block_height INTEGER NOT NULL,
+      last_transfer_id INTEGER NOT NULL,
+      PRIMARY KEY (primitive_name, token_id)
+  );
 
--- Trigger function to maintain current ownership
-CREATE OR REPLACE FUNCTION update_erc721_ownership_${validSQLName}() RETURNS TRIGGER AS $$
-BEGIN
-    -- Only process ERC721 transfers
-    IF NEW.payload_type = 'transfer' 
-       AND NEW.primitive_name = '${name}' 
-       AND NEW.payload->>'to' IS NOT NULL 
-       AND NEW.payload->>'to' != '' THEN
-        
-        INSERT INTO erc721_ownership_intermediate_${validSQLName} (
-            primitive_name,
-            token_id,
-            current_owner,
-            last_transfer_block_height,
-            last_transfer_id
-        ) VALUES (
-        NEW.primitive_name,
-            NEW.payload->>'tokenId',
-            lower(NEW.payload->>'to'),
-            NEW.paima_block_height,
-            NEW.id
-        )
-        ON CONFLICT (primitive_name, token_id) DO UPDATE SET
-            current_owner = lower(NEW.payload->>'to'),
-            last_transfer_block_height = NEW.paima_block_height,
-            last_transfer_id = NEW.id
-        WHERE NEW.paima_block_height > erc721_ownership_intermediate_${validSQLName}.last_transfer_block_height
-           OR (NEW.paima_block_height = erc721_ownership_intermediate_${validSQLName}.last_transfer_block_height 
-               AND NEW.id > erc721_ownership_intermediate_${validSQLName}.last_transfer_id);
-    END IF;
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+  -- Trigger function to maintain current ownership
+  CREATE OR REPLACE FUNCTION update_erc721_ownership_${validSQLName}() RETURNS TRIGGER AS $$
+  BEGIN
+      -- Only process ERC721 transfers
+      IF NEW.payload_type = 'transfer' 
+         AND NEW.primitive_name = '${name}' 
+         AND NEW.payload->>'to' IS NOT NULL 
+         AND NEW.payload->>'to' != '' THEN
+         
+       INSERT INTO ${ownershipTable} (
+           primitive_name,
+           token_id,
+           current_owner,
+           last_transfer_block_height,
+           last_transfer_id
+       ) VALUES (
+       NEW.primitive_name,
+           NEW.payload->>'tokenId',
+           lower(NEW.payload->>'to'),
+           NEW.paima_block_height,
+           NEW.id
+       )
+       ON CONFLICT (primitive_name, token_id) DO UPDATE SET
+           current_owner = lower(NEW.payload->>'to'),
+           last_transfer_block_height = NEW.paima_block_height,
+           last_transfer_id = NEW.id
+       WHERE NEW.paima_block_height > ${ownershipTable}.last_transfer_block_height
+          OR (NEW.paima_block_height = ${ownershipTable}.last_transfer_block_height 
+              AND NEW.id > ${ownershipTable}.last_transfer_id);
+      END IF;
+      
+      RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql;
 
--- Create trigger on primitive_accounting
-CREATE TRIGGER trigger_update_erc721_ownership_${validSQLName}
-    AFTER INSERT ON primitive_accounting
-    FOR EACH ROW
-    EXECUTE FUNCTION update_erc721_ownership_${validSQLName}();
+  -- Create trigger on primitive_accounting
+  CREATE TRIGGER trigger_update_erc721_ownership_${validSQLName}
+      AFTER INSERT ON paima.primitive_accounting
+      FOR EACH ROW
+      EXECUTE FUNCTION update_erc721_ownership_${validSQLName}();
 
--- Simple incrementally maintained view on the intermediate table
-SELECT pgivm.create_immv('erc721_ownership_view_${validSQLName}',
-    'SELECT
-        primitive_name,
-        token_id,
-        current_owner
-    FROM erc721_ownership_intermediate_${validSQLName};
-');
-`;
-  return script;
+  -- Simple incrementally maintained view on the intermediate table
+  SELECT pgivm.create_immv('erc721_ownership_view_${validSQLName}',
+      'SELECT
+          primitive_name,
+          token_id,
+          current_owner
+      FROM ${ownershipTable};
+  ');
+  `;
 }

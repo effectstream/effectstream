@@ -340,15 +340,21 @@ export const startHttpServer = function* (
     limit?: number,
     afterId?: number | string,
   ): Promise<unknown[]> {
-    let unsafeQuery = `SELECT * FROM ":1"`;
-    const unsafeTableName = tableName.toLowerCase().replace(
-      /[^a-zA-Z0-9_]/g,
-      "",
+    // Split by dot for schema.table
+    const parts = tableName.split(".");
+    if (parts.length > 2) {
+      throw new Error("Invalid table name format");
+    }
+    const sanitizedParts = parts.map((part) =>
+      part.toLowerCase().replace(/[^a-z0-9_]/g, "")
     );
-    if (unsafeTableName.length > 63) {
+    const unsafeTableName = sanitizedParts.join(".");
+
+    if (unsafeTableName.length > 128) { // Arbitrary longer limit
       throw new Error("Table name too long");
     }
-    unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
+
+    let unsafeQuery = `SELECT * FROM ${unsafeTableName}`;
 
     if (afterId !== undefined) {
       const whereValue = typeof afterId === "string"
@@ -364,20 +370,6 @@ export const startHttpServer = function* (
 
     const result = await dbConn.query(unsafeQuery);
     return result.rows;
-  }
-
-  async function unsafeGetTableDataCount(tableName: string): Promise<number> {
-    let unsafeQuery = `SELECT COUNT(*) as total FROM ":1"`;
-    const unsafeTableName = tableName.toLowerCase().replace(
-      /[^a-zA-Z0-9_]/g,
-      "",
-    );
-    if (unsafeTableName.length > 63) {
-      throw new Error("Table name too long");
-    }
-    unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
-    const result = await dbConn.query(unsafeQuery);
-    return result.rows[0]?.total || 0;
   }
 
   server.get(
@@ -403,7 +395,9 @@ export const startHttpServer = function* (
       const { limit, after } = getPaginationParams(request);
 
       try {
-        const data = await unsafeGetTableData(tableName, limit, after?.id);
+        // schema use ensures that the the query won't access system or dynamic tables
+        const qualifiedTable = `custom.${tableName}`;
+        const data = await unsafeGetTableData(qualifiedTable, limit, after?.id);
 
         const pagination = createPaginationMeta(
           limit,
@@ -504,9 +498,10 @@ export const startHttpServer = function* (
         });
       }
 
-      const tableName = `${prefix}${primitiveName.toLowerCase()}`;
       try {
-        const data = await unsafeGetTableData(tableName, limit, after?.id);
+        const qualifiedTable =
+          `primitives.${prefix}${primitiveName.toLowerCase()}`;
+        const data = await unsafeGetTableData(qualifiedTable, limit, after?.id);
 
         const pagination = createPaginationMeta(
           limit,

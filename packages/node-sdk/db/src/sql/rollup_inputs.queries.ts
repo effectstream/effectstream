@@ -72,7 +72,7 @@ const newScheduledHeightDataIR: any = {
     "locs": [{ "a": 462, "b": 482 }],
   }],
   "statement":
-    "WITH\n  new_row AS (\n    INSERT INTO rollup_inputs(from_address, input_data)\n    VALUES (:from_address!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row), :primitive_name, :caip2, :origin_tx_hash::BYTEA, :origin_contract_address\n  )\nINSERT INTO rollup_input_future_block(id, future_block_height)\nSELECT (SELECT id FROM new_row), :future_block_height!",
+    "WITH\n  new_row AS (\n    INSERT INTO paima.rollup_inputs(from_address, input_data)\n    VALUES (:from_address!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row), :primitive_name, :caip2, :origin_tx_hash::BYTEA, :origin_contract_address\n  )\nINSERT INTO paima.rollup_input_future_block(id, future_block_height)\nSELECT (SELECT id FROM new_row), :future_block_height!",
 };
 
 /**
@@ -80,15 +80,15 @@ const newScheduledHeightDataIR: any = {
  * ```
  * WITH
  *   new_row AS (
- *     INSERT INTO rollup_inputs(from_address, input_data)
+ *     INSERT INTO paima.rollup_inputs(from_address, input_data)
  *     VALUES (:from_address!, :input_data!)
  *     RETURNING id
  *   ),
  *   insert_origin AS (
- *     INSERT INTO rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)
+ *     INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)
  *     SELECT (SELECT id FROM new_row), :primitive_name, :caip2, :origin_tx_hash::BYTEA, :origin_contract_address
  *   )
- * INSERT INTO rollup_input_future_block(id, future_block_height)
+ * INSERT INTO paima.rollup_input_future_block(id, future_block_height)
  * SELECT (SELECT id FROM new_row), :future_block_height!
  * ```
  */
@@ -136,7 +136,7 @@ const newScheduledTimestampDataIR: any = {
     "locs": [{ "a": 411, "b": 431 }],
   }],
   "statement":
-    "WITH\n  new_row AS (\n    INSERT INTO rollup_inputs(from_address, input_data)\n    VALUES (:from_address!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row),null,null,null,null\n  )\nINSERT INTO rollup_input_future_timestamp(id, future_ms_timestamp)\nSELECT (SELECT id FROM new_row), :future_ms_timestamp!",
+    "WITH\n  new_row AS (\n    INSERT INTO paima.rollup_inputs(from_address, input_data)\n    VALUES (:from_address!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row),null,null,null,null\n  )\nINSERT INTO paima.rollup_input_future_timestamp(id, future_ms_timestamp)\nSELECT (SELECT id FROM new_row), :future_ms_timestamp!",
 };
 
 /**
@@ -144,15 +144,15 @@ const newScheduledTimestampDataIR: any = {
  * ```
  * WITH
  *   new_row AS (
- *     INSERT INTO rollup_inputs(from_address, input_data)
+ *     INSERT INTO paima.rollup_inputs(from_address, input_data)
  *     VALUES (:from_address!, :input_data!)
  *     RETURNING id
  *   ),
  *   insert_origin AS (
- *     INSERT INTO rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)
+ *     INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)
  *     SELECT (SELECT id FROM new_row),null,null,null,null
  *   )
- * INSERT INTO rollup_input_future_timestamp(id, future_ms_timestamp)
+ * INSERT INTO paima.rollup_input_future_timestamp(id, future_ms_timestamp)
  * SELECT (SELECT id FROM new_row), :future_ms_timestamp!
  * ```
  */
@@ -249,7 +249,7 @@ const newGameInputIR: any = {
     "locs": [{ "a": 545, "b": 558 }],
   }],
   "statement":
-    "WITH\n  new_row AS (\n    INSERT INTO rollup_inputs(from_address, input_data)\n    VALUES (:from_address!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row), :primitive_name!, :caip2!, :origin_tx_hash!::BYTEA, :origin_contract_address\n  )\nINSERT INTO rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)\nSELECT (SELECT id FROM new_row), :success!, :paima_tx_hash!::BYTEA, :index_in_block!, :block_height!",
+    "WITH\n  new_row AS (\n    INSERT INTO paima.rollup_inputs(from_address, input_data)\n    VALUES (:from_address!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row), :primitive_name!, :caip2!, :origin_tx_hash!::BYTEA, :origin_contract_address\n  )\nINSERT INTO paima.rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)\nSELECT (SELECT id FROM new_row), :success!, :paima_tx_hash!::BYTEA, :index_in_block!, :block_height!",
 };
 
 /**
@@ -257,15 +257,15 @@ const newGameInputIR: any = {
  * ```
  * WITH
  *   new_row AS (
- *     INSERT INTO rollup_inputs(from_address, input_data)
+ *     INSERT INTO paima.rollup_inputs(from_address, input_data)
  *     VALUES (:from_address!, :input_data!)
  *     RETURNING id
  *   ),
  *   insert_origin AS (
- *     INSERT INTO rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)
+ *     INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)
  *     SELECT (SELECT id FROM new_row), :primitive_name!, :caip2!, :origin_tx_hash!::BYTEA, :origin_contract_address
  *   )
- * INSERT INTO rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)
+ * INSERT INTO paima.rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)
  * SELECT (SELECT id FROM new_row), :success!, :paima_tx_hash!::BYTEA, :index_in_block!, :block_height!
  * ```
  */
@@ -327,13 +327,13 @@ const insertGameInputResultIR: any = {
     "locs": [{ "a": 157, "b": 170 }],
   }],
   "statement":
-    "INSERT INTO rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)\nVALUES (:id!, :success!, :paima_tx_hash!::BYTEA, :index_in_block!, :block_height!)",
+    "INSERT INTO paima.rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)\nVALUES (:id!, :success!, :paima_tx_hash!::BYTEA, :index_in_block!, :block_height!)",
 };
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)
+ * INSERT INTO paima.rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)
  * VALUES (:id!, :success!, :paima_tx_hash!::BYTEA, :index_in_block!, :block_height!)
  * ```
  */
@@ -818,13 +818,13 @@ const removeScheduledBlockDataIR: any = {
     "locs": [{ "a": 221, "b": 234 }],
   }],
   "statement":
-    "DELETE FROM rollup_inputs\nWHERE\n  input_data = :input_data! AND\n  rollup_inputs.id IN (\n    SELECT rollup_input_future_block.id\n    FROM rollup_input_future_block\n    WHERE rollup_input_future_block.future_block_height = :block_height!\n)",
+    "DELETE FROM paima.rollup_inputs\nWHERE\n  input_data = :input_data! AND\n  rollup_inputs.id IN (\n    SELECT rollup_input_future_block.id\n    FROM rollup_input_future_block\n    WHERE rollup_input_future_block.future_block_height = :block_height!\n)",
 };
 
 /**
  * Query generated from SQL:
  * ```
- * DELETE FROM rollup_inputs
+ * DELETE FROM paima.rollup_inputs
  * WHERE
  *   input_data = :input_data! AND
  *   rollup_inputs.id IN (
@@ -868,13 +868,13 @@ const removeScheduledTimestampDataIR: any = {
     "locs": [{ "a": 233, "b": 246 }],
   }],
   "statement":
-    "DELETE FROM rollup_inputs\nWHERE\n  input_data = :input_data! AND\n  rollup_inputs.id IN (\n    SELECT rollup_input_future_timestamp.id\n    FROM rollup_input_future_timestamp\n    WHERE rollup_input_future_timestamp.future_ms_timestamp = :ms_timestamp!\n)",
+    "DELETE FROM paima.rollup_inputs\nWHERE\n  input_data = :input_data! AND\n  rollup_inputs.id IN (\n    SELECT rollup_input_future_timestamp.id\n    FROM rollup_input_future_timestamp\n    WHERE rollup_input_future_timestamp.future_ms_timestamp = :ms_timestamp!\n)",
 };
 
 /**
  * Query generated from SQL:
  * ```
- * DELETE FROM rollup_inputs
+ * DELETE FROM paima.rollup_inputs
  * WHERE
  *   input_data = :input_data! AND
  *   rollup_inputs.id IN (
@@ -911,13 +911,14 @@ const removeAllScheduledDataByInputDataIR: any = {
     "transform": { "type": "scalar" },
     "locs": [{ "a": 45, "b": 56 }],
   }],
-  "statement": "DELETE FROM rollup_inputs\nWHERE input_data = :input_data!",
+  "statement":
+    "DELETE FROM paima.rollup_inputs\nWHERE input_data = :input_data!",
 };
 
 /**
  * Query generated from SQL:
  * ```
- * DELETE FROM rollup_inputs
+ * DELETE FROM paima.rollup_inputs
  * WHERE input_data = :input_data!
  * ```
  */
@@ -948,13 +949,13 @@ const deleteScheduledIR: any = {
     "transform": { "type": "scalar" },
     "locs": [{ "a": 37, "b": 40 }],
   }],
-  "statement": "DELETE FROM rollup_inputs\nWHERE id = :id!",
+  "statement": "DELETE FROM paima.rollup_inputs\nWHERE id = :id!",
 };
 
 /**
  * Query generated from SQL:
  * ```
- * DELETE FROM rollup_inputs
+ * DELETE FROM paima.rollup_inputs
  * WHERE id = :id!
  * ```
  */

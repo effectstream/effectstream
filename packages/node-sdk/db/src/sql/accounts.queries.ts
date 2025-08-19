@@ -23,7 +23,7 @@ const newAddressIR: any = {
     "transform": { "type": "scalar" },
     "locs": [{ "a": 41, "b": 49 }],
   }],
-  "statement": "INSERT INTO addresses (address) \nVALUES (:address!)",
+  "statement": "INSERT INTO paima.addresses (address) \nVALUES (:address!)",
 };
 
 /**
@@ -67,7 +67,7 @@ const newAddressWithIdIR: any = {
     "locs": [{ "a": 64, "b": 75 }],
   }],
   "statement":
-    "INSERT INTO addresses (address, account_id) \nVALUES (:address!, :account_id!)",
+    "INSERT INTO paima.addresses (address, account_id) \nVALUES (:address!, :account_id!)",
 };
 
 /**
@@ -107,7 +107,7 @@ const newAccountIR: any = {
     "locs": [{ "a": 48, "b": 63 }],
   }],
   "statement":
-    "INSERT INTO accounts (primary_address) \nVALUES (:primary_address)\nRETURNING id",
+    "INSERT INTO paima.accounts (primary_address) \nVALUES (:primary_address)\nRETURNING id",
 };
 
 /**
@@ -152,7 +152,7 @@ const updateAddressAccountIR: any = {
     "locs": [{ "a": 63, "b": 71 }],
   }],
   "statement":
-    "UPDATE addresses\nSET account_id = :account_id!\nWHERE address = :address!",
+    "UPDATE paima.addresses\nSET account_id = :account_id!\nWHERE address = :address!",
 };
 
 /**
@@ -191,7 +191,7 @@ const removeAddressAccountIR: any = {
     "locs": [{ "a": 55, "b": 63 }],
   }],
   "statement":
-    "UPDATE addresses\nSET account_id = NULL\nWHERE address = :address!",
+    "UPDATE paima.addresses\nSET account_id = NULL\nWHERE address = :address!",
 };
 
 /**
@@ -236,7 +236,7 @@ const updatePrimaryAddressIR: any = {
     "locs": [{ "a": 66, "b": 77 }],
   }],
   "statement":
-    "UPDATE accounts\nSET primary_address = :primary_address\nWHERE id = :account_id!",
+    "UPDATE paima.accounts\nSET primary_address = :primary_address\nWHERE id = :account_id!",
 };
 
 /**
@@ -277,7 +277,7 @@ const getAddressByAddressIR: any = {
     "transform": { "type": "scalar" },
     "locs": [{ "a": 40, "b": 48 }],
   }],
-  "statement": "SELECT * FROM addresses\nWHERE address = :address!",
+  "statement": "SELECT * FROM paima.addresses\nWHERE address = :address!",
 };
 
 /**
@@ -317,7 +317,7 @@ const getAddressByAccountIdIR: any = {
     "transform": { "type": "scalar" },
     "locs": [{ "a": 43, "b": 54 }],
   }],
-  "statement": "SELECT * FROM addresses\nWHERE account_id = :account_id!",
+  "statement": "SELECT * FROM paima.addresses\nWHERE account_id = :account_id!",
 };
 
 /**
@@ -357,7 +357,7 @@ const getAccountByIdIR: any = {
     "transform": { "type": "scalar" },
     "locs": [{ "a": 34, "b": 45 }],
   }],
-  "statement": "SELECT * FROM accounts\nWHERE id = :account_id!",
+  "statement": "SELECT * FROM paima.accounts\nWHERE id = :account_id!",
 };
 
 /**
@@ -421,18 +421,18 @@ const getAllAddressesIR: any = {
     "locs": [{ "a": 1291, "b": 1296 }],
   }],
   "statement":
-    'SELECT \n    addresses.address as "address", \n    addresses.account_id as "account_id",\n    accounts.primary_address as "primary_address"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nWHERE\n    -- This clause is for the first page fetch when no cursor is provided\n    (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)\n    OR\n    (\n        -- Case 1: The current row\'s account_id is "greater" than the cursor\'s.\n        -- This handles two sub-cases:\n        -- a) regular greater-than (e.g., 5 > 4)\n        -- b) current is NULL but cursor is NOT NULL (since NULLS sort LAST)\n        (addresses.account_id > :after_account_id::INT) OR (addresses.account_id IS NULL AND :after_account_id::INT IS NOT NULL)\n    )\n    OR\n    (\n        -- Case 2: The account_ids are equivalent, so we compare by the tie-breaker (address).\n        -- This handles two sub-cases for equivalence:\n        -- a) they are equal and not null (e.g., 5 = 5)\n        -- b) they are both null\n        (addresses.account_id = :after_account_id::INT OR (addresses.account_id IS NULL AND :after_account_id::INT IS NULL))\n        AND\n        (addresses.address > :after_address::TEXT)\n    )\nORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC\nLIMIT COALESCE(:limit, 1000)',
+    'SELECT \n    paima.addresses.address as "address", \n    paima.addresses.account_id as "account_id",\n    paima.accounts.primary_address as "primary_address"\nFROM paima.addresses\nLEFT JOIN paima.accounts ON paima.accounts.primary_address = paima.addresses.address\nWHERE\n    -- This clause is for the first page fetch when no cursor is provided\n    (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)\n    OR\n    (\n        -- Case 1: The current row\'s account_id is "greater" than the cursor\'s.\n        -- This handles two sub-cases:\n        -- a) regular greater-than (e.g., 5 > 4)\n        -- b) current is NULL but cursor is NOT NULL (since NULLS sort LAST)\n        (paima.addresses.account_id > :after_account_id::INT) OR (paima.addresses.account_id IS NULL AND :after_account_id::INT IS NOT NULL)\n    )\n    OR\n    (\n        -- Case 2: The account_ids are equivalent, so we compare by the tie-breaker (address).\n        -- This handles two sub-cases for equivalence:\n        -- a) they are equal and not null (e.g., 5 = 5)\n        -- b) they are both null\n        (paima.addresses.account_id = :after_account_id::INT OR (paima.addresses.account_id IS NULL AND :after_account_id::INT IS NULL))\n        AND\n        (paima.addresses.address > :after_address::TEXT)\n    )\nORDER BY paima.addresses.account_id ASC NULLS LAST, paima.addresses.address ASC\nLIMIT COALESCE(:limit, 1000)',
 };
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT
- *     addresses.address as "address",
- *     addresses.account_id as "account_id",
- *     accounts.primary_address as "primary_address"
- * FROM addresses
- * LEFT JOIN accounts ON accounts.primary_address = addresses.address
+ *     paima.addresses.address as "address",
+ *     paima.addresses.account_id as "account_id",
+ *     paima.accounts.primary_address as "primary_address"
+ * FROM paima.addresses
+ * LEFT JOIN paima.accounts ON paima.accounts.primary_address = paima.addresses.address
  * WHERE
  *     -- This clause is for the first page fetch when no cursor is provided
  *     (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)
@@ -442,7 +442,7 @@ const getAllAddressesIR: any = {
  *         -- This handles two sub-cases:
  *         -- a) regular greater-than (e.g., 5 > 4)
  *         -- b) current is NULL but cursor is NOT NULL (since NULLS sort LAST)
- *         (addresses.account_id > :after_account_id::INT) OR (addresses.account_id IS NULL AND :after_account_id::INT IS NOT NULL)
+ *         (paima.addresses.account_id > :after_account_id::INT) OR (paima.addresses.account_id IS NULL AND :after_account_id::INT IS NOT NULL)
  *     )
  *     OR
  *     (
@@ -450,11 +450,11 @@ const getAllAddressesIR: any = {
  *         -- This handles two sub-cases for equivalence:
  *         -- a) they are equal and not null (e.g., 5 = 5)
  *         -- b) they are both null
- *         (addresses.account_id = :after_account_id::INT OR (addresses.account_id IS NULL AND :after_account_id::INT IS NULL))
+ *         (paima.addresses.account_id = :after_account_id::INT OR (paima.addresses.account_id IS NULL AND :after_account_id::INT IS NULL))
  *         AND
- *         (addresses.address > :after_address::TEXT)
+ *         (paima.addresses.address > :after_address::TEXT)
  *     )
- * ORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC
+ * ORDER BY paima.addresses.account_id ASC NULLS LAST, paima.addresses.address ASC
  * LIMIT COALESCE(:limit, 1000)
  * ```
  */
@@ -480,7 +480,7 @@ export interface IGetAllAddressesCountQuery {
 const getAllAddressesCountIR: any = {
   "usedParamSet": {},
   "params": [],
-  "statement": "SELECT COUNT(*) as total\nFROM addresses",
+  "statement": "SELECT COUNT(*) as total\nFROM paima.addresses",
 };
 
 /**

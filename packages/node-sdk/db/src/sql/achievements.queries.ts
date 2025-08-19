@@ -1,5 +1,5 @@
 /** Types generated for queries found in "src/sql/achievements.sql" */
-import { PreparedQuery } from '@pgtyped/runtime';
+import { PreparedQuery } from "@pgtyped/runtime";
 
 export type DateOrString = Date | string;
 
@@ -24,7 +24,22 @@ export interface IGetAchievementProgressQuery {
   result: IGetAchievementProgressResult;
 }
 
-const getAchievementProgressIR: any = {"usedParamSet":{"account_id":true,"names":true},"params":[{"name":"names","required":false,"transform":{"type":"array_spread"},"locs":[{"a":79,"b":84},{"a":97,"b":102}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":54,"b":65}]}],"statement":"SELECT * FROM achievement_progress\nWHERE account_id = :account_id!\nAND ('*' in :names OR name IN :names)"};
+const getAchievementProgressIR: any = {
+  "usedParamSet": { "account_id": true, "names": true },
+  "params": [{
+    "name": "names",
+    "required": false,
+    "transform": { "type": "array_spread" },
+    "locs": [{ "a": 79, "b": 84 }, { "a": 97, "b": 102 }],
+  }, {
+    "name": "account_id",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 54, "b": 65 }],
+  }],
+  "statement":
+    "SELECT * FROM achievement_progress\nWHERE account_id = :account_id!\nAND ('*' in :names OR name IN :names)",
+};
 
 /**
  * Query generated from SQL:
@@ -34,8 +49,10 @@ const getAchievementProgressIR: any = {"usedParamSet":{"account_id":true,"names"
  * AND ('*' in :names OR name IN :names)
  * ```
  */
-export const getAchievementProgress = new PreparedQuery<IGetAchievementProgressParams,IGetAchievementProgressResult>(getAchievementProgressIR);
-
+export const getAchievementProgress = new PreparedQuery<
+  IGetAchievementProgressParams,
+  IGetAchievementProgressResult
+>(getAchievementProgressIR);
 
 /** 'SetAchievementProgress' parameters type */
 export interface ISetAchievementProgressParams {
@@ -55,7 +72,43 @@ export interface ISetAchievementProgressQuery {
   result: ISetAchievementProgressResult;
 }
 
-const setAchievementProgressIR: any = {"usedParamSet":{"account_id":true,"name":true,"completed_date":true,"progress":true,"total":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":93,"b":104}]},{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":107,"b":112}]},{"name":"completed_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":115,"b":129}]},{"name":"progress","required":false,"transform":{"type":"scalar"},"locs":[{"a":132,"b":140}]},{"name":"total","required":false,"transform":{"type":"scalar"},"locs":[{"a":143,"b":148}]}],"statement":"INSERT INTO achievement_progress (account_id, name, completed_date, progress, total)\nVALUES (:account_id!, :name!, :completed_date, :progress, :total)\nON CONFLICT (account_id, name)\nDO UPDATE SET\n  completed_date = EXCLUDED.completed_date,\n  progress = EXCLUDED.progress,\n  total = EXCLUDED.total"};
+const setAchievementProgressIR: any = {
+  "usedParamSet": {
+    "account_id": true,
+    "name": true,
+    "completed_date": true,
+    "progress": true,
+    "total": true,
+  },
+  "params": [{
+    "name": "account_id",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 93, "b": 104 }],
+  }, {
+    "name": "name",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 107, "b": 112 }],
+  }, {
+    "name": "completed_date",
+    "required": false,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 115, "b": 129 }],
+  }, {
+    "name": "progress",
+    "required": false,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 132, "b": 140 }],
+  }, {
+    "name": "total",
+    "required": false,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 143, "b": 148 }],
+  }],
+  "statement":
+    "INSERT INTO achievement_progress (account_id, name, completed_date, progress, total)\nVALUES (:account_id!, :name!, :completed_date, :progress, :total)\nON CONFLICT (account_id, name)\nDO UPDATE SET\n  completed_date = EXCLUDED.completed_date,\n  progress = EXCLUDED.progress,\n  total = EXCLUDED.total",
+};
 
 /**
  * Query generated from SQL:
@@ -69,6 +122,70 @@ const setAchievementProgressIR: any = {"usedParamSet":{"account_id":true,"name":
  *   total = EXCLUDED.total
  * ```
  */
-export const setAchievementProgress = new PreparedQuery<ISetAchievementProgressParams,ISetAchievementProgressResult>(setAchievementProgressIR);
+export const setAchievementProgress = new PreparedQuery<
+  ISetAchievementProgressParams,
+  ISetAchievementProgressResult
+>(setAchievementProgressIR);
 
+/** 'UpdateAchievementProgress' parameters type */
+export interface IUpdateAchievementProgressParams {
+  accountId: number;
+  name: string;
+  progress: number;
+  total: number;
+}
 
+/** 'UpdateAchievementProgress' return type */
+export type IUpdateAchievementProgressResult = void;
+
+/** 'UpdateAchievementProgress' query type */
+export interface IUpdateAchievementProgressQuery {
+  params: IUpdateAchievementProgressParams;
+  result: IUpdateAchievementProgressResult;
+}
+
+const updateAchievementProgressIR: any = {
+  "usedParamSet": {
+    "accountId": true,
+    "name": true,
+    "progress": true,
+    "total": true,
+  },
+  "params": [{
+    "name": "accountId",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 100, "b": 109 }],
+  }, {
+    "name": "name",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 112, "b": 117 }],
+  }, {
+    "name": "progress",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 120, "b": 128 }],
+  }, {
+    "name": "total",
+    "required": true,
+    "transform": { "type": "scalar" },
+    "locs": [{ "a": 131, "b": 136 }],
+  }],
+  "statement":
+    "INSERT INTO paima.achievement_progress (account_id, name, progress, total)\nVALUES (:accountId!, :name!, :progress!, :total!) ON CONFLICT (account_id, name) DO UPDATE SET\n  progress = EXCLUDED.progress,\n  total = EXCLUDED.total;",
+};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO paima.achievement_progress (account_id, name, progress, total)
+ * VALUES (:accountId!, :name!, :progress!, :total!) ON CONFLICT (account_id, name) DO UPDATE SET
+ *   progress = EXCLUDED.progress,
+ *   total = EXCLUDED.total;
+ * ```
+ */
+export const updateAchievementProgress = new PreparedQuery<
+  IUpdateAchievementProgressParams,
+  IUpdateAchievementProgressResult
+>(updateAchievementProgressIR);
