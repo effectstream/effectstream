@@ -46,12 +46,13 @@ export interface IGetStateMachineInputQuery {
   result: IGetStateMachineInputResult;
 }
 
-const getStateMachineInputIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM user_state_machine"};
+const getStateMachineInputIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM user_state_machine\nORDER BY id ASC"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT * FROM user_state_machine
+ * ORDER BY id ASC
  * ```
  */
 export const getStateMachineInput = new PreparedQuery<IGetStateMachineInputParams,IGetStateMachineInputResult>(getStateMachineInputIR);
@@ -75,13 +76,14 @@ export interface IGetStateMachineInputByBlockHeightQuery {
   result: IGetStateMachineInputByBlockHeightResult;
 }
 
-const getStateMachineInputByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":55,"b":68}]}],"statement":"SELECT * FROM user_state_machine \nWHERE block_height = :block_height!"};
+const getStateMachineInputByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":54,"b":67}]}],"statement":"SELECT * FROM user_state_machine\nWHERE block_height = :block_height!\nORDER BY id ASC"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM user_state_machine 
+ * SELECT * FROM user_state_machine
  * WHERE block_height = :block_height!
+ * ORDER BY id ASC
  * ```
  */
 export const getStateMachineInputByBlockHeight = new PreparedQuery<IGetStateMachineInputByBlockHeightParams,IGetStateMachineInputByBlockHeightResult>(getStateMachineInputByBlockHeightIR);
