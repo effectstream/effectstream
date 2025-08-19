@@ -402,20 +402,26 @@ const getAllAddressesIR: any = {
     "name": "after_account_id",
     "required": false,
     "transform": { "type": "scalar" },
-    "locs": [{ "a": 230, "b": 246 }, { "a": 347, "b": 363 }],
+    "locs": [
+      { "a": 304, "b": 320 },
+      { "a": 659, "b": 675 },
+      { "a": 720, "b": 736 },
+      { "a": 1046, "b": 1062 },
+      { "a": 1106, "b": 1122 },
+    ],
   }, {
     "name": "after_address",
     "required": false,
     "transform": { "type": "scalar" },
-    "locs": [{ "a": 265, "b": 278 }, { "a": 371, "b": 384 }],
+    "locs": [{ "a": 339, "b": 352 }, { "a": 1180, "b": 1193 }],
   }, {
     "name": "limit",
     "required": false,
     "transform": { "type": "scalar" },
-    "locs": [{ "a": 476, "b": 481 }],
+    "locs": [{ "a": 1291, "b": 1296 }],
   }],
   "statement":
-    'SELECT \n    addresses.address as "address", \n    addresses.account_id as "account_id",\n    accounts.primary_address as "primary_address"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nWHERE\n    (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL) OR\n    (addresses.account_id, addresses.address) > (:after_account_id::INT, :after_address::TEXT)\nORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC\nLIMIT COALESCE(:limit, 1000)',
+    'SELECT \n    addresses.address as "address", \n    addresses.account_id as "account_id",\n    accounts.primary_address as "primary_address"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nWHERE\n    -- This clause is for the first page fetch when no cursor is provided\n    (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)\n    OR\n    (\n        -- Case 1: The current row\'s account_id is "greater" than the cursor\'s.\n        -- This handles two sub-cases:\n        -- a) regular greater-than (e.g., 5 > 4)\n        -- b) current is NULL but cursor is NOT NULL (since NULLS sort LAST)\n        (addresses.account_id > :after_account_id::INT) OR (addresses.account_id IS NULL AND :after_account_id::INT IS NOT NULL)\n    )\n    OR\n    (\n        -- Case 2: The account_ids are equivalent, so we compare by the tie-breaker (address).\n        -- This handles two sub-cases for equivalence:\n        -- a) they are equal and not null (e.g., 5 = 5)\n        -- b) they are both null\n        (addresses.account_id = :after_account_id::INT OR (addresses.account_id IS NULL AND :after_account_id::INT IS NULL))\n        AND\n        (addresses.address > :after_address::TEXT)\n    )\nORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC\nLIMIT COALESCE(:limit, 1000)',
 };
 
 /**
@@ -428,8 +434,26 @@ const getAllAddressesIR: any = {
  * FROM addresses
  * LEFT JOIN accounts ON accounts.primary_address = addresses.address
  * WHERE
- *     (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL) OR
- *     (addresses.account_id, addresses.address) > (:after_account_id::INT, :after_address::TEXT)
+ *     -- This clause is for the first page fetch when no cursor is provided
+ *     (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)
+ *     OR
+ *     (
+ *         -- Case 1: The current row's account_id is "greater" than the cursor's.
+ *         -- This handles two sub-cases:
+ *         -- a) regular greater-than (e.g., 5 > 4)
+ *         -- b) current is NULL but cursor is NOT NULL (since NULLS sort LAST)
+ *         (addresses.account_id > :after_account_id::INT) OR (addresses.account_id IS NULL AND :after_account_id::INT IS NOT NULL)
+ *     )
+ *     OR
+ *     (
+ *         -- Case 2: The account_ids are equivalent, so we compare by the tie-breaker (address).
+ *         -- This handles two sub-cases for equivalence:
+ *         -- a) they are equal and not null (e.g., 5 = 5)
+ *         -- b) they are both null
+ *         (addresses.account_id = :after_account_id::INT OR (addresses.account_id IS NULL AND :after_account_id::INT IS NULL))
+ *         AND
+ *         (addresses.address > :after_address::TEXT)
+ *     )
  * ORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC
  * LIMIT COALESCE(:limit, 1000)
  * ```
