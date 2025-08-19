@@ -402,23 +402,20 @@ const getAllAddressesIR: any = {
     "name": "after_account_id",
     "required": false,
     "transform": { "type": "scalar" },
-    "locs": [{ "a": 228, "b": 244 }, { "a": 285, "b": 301 }, {
-      "a": 338,
-      "b": 354,
-    }],
+    "locs": [{ "a": 230, "b": 246 }, { "a": 347, "b": 363 }],
   }, {
     "name": "after_address",
     "required": false,
     "transform": { "type": "scalar" },
-    "locs": [{ "a": 385, "b": 398 }],
+    "locs": [{ "a": 265, "b": 278 }, { "a": 371, "b": 384 }],
   }, {
     "name": "limit",
     "required": false,
     "transform": { "type": "scalar" },
-    "locs": [{ "a": 473, "b": 478 }],
+    "locs": [{ "a": 476, "b": 481 }],
   }],
   "statement":
-    'SELECT \n    addresses.address as "address", \n    addresses.account_id as "account_id",\n    accounts.primary_address as "primary_address"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nWHERE\n  (:after_account_id::INT IS NULL OR addresses.account_id > :after_account_id::INT) OR\n  (addresses.account_id = :after_account_id::INT AND addresses.address > :after_address)\nORDER BY addresses.account_id ASC, addresses.address ASC\nLIMIT COALESCE(:limit, 1000)',
+    'SELECT \n    addresses.address as "address", \n    addresses.account_id as "account_id",\n    accounts.primary_address as "primary_address"\nFROM addresses\nLEFT JOIN accounts ON accounts.primary_address = addresses.address\nWHERE\n    (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL) OR\n    (addresses.account_id, addresses.address) > (:after_account_id::INT, :after_address::TEXT)\nORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC\nLIMIT COALESCE(:limit, 1000)',
 };
 
 /**
@@ -431,9 +428,9 @@ const getAllAddressesIR: any = {
  * FROM addresses
  * LEFT JOIN accounts ON accounts.primary_address = addresses.address
  * WHERE
- *   (:after_account_id::INT IS NULL OR addresses.account_id > :after_account_id::INT) OR
- *   (addresses.account_id = :after_account_id::INT AND addresses.address > :after_address)
- * ORDER BY addresses.account_id ASC, addresses.address ASC
+ *     (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL) OR
+ *     (addresses.account_id, addresses.address) > (:after_account_id::INT, :after_address::TEXT)
+ * ORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC
  * LIMIT COALESCE(:limit, 1000)
  * ```
  */
