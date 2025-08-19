@@ -3,7 +3,7 @@ import {
   type GrammarDefinition,
   mapPrimitivesToGrammar,
 } from "@paimaexample/concise";
-import { localhostConfig } from "./config.ts";
+import { localhostConfig } from "./localhostConfig.ts";
 
 export const grammar = {
   //   {"tag":"array","content":[{"tag":"cell","content":{"value":[{"0":1}],"alignment":[{"tag":"atom","value":{"tag":"bytes","length":8}}]}},{"tag":"cell","content":{"value":[{"0":1}],"alignment":[{"tag":"atom","value":{"tag":"bytes","length":20}}]}},{"tag":"cell","content":{"value":[{"0":84,"1":65,"2":146,"3":119,"4":152,"5":1}],"alignment":[{"tag":"atom","value":{"tag":"bytes","length":20}}]}},{"tag":"cell","content":{"value":[{"0":76,"1":101,"2":118,"3":101,"4":108,"5":32,"6":32,"7":32,"8":32,"9":32,"10":32,"11":32,"12":32,"13":32,"14":32,"15":32,"16":32,"17":32,"18":32,"19":32,"20":32,"21":32,"22":32,"23":32,"24":32,"25":32,"26":32,"27":32,"28":32,"29":32,"30":32,"31":32}],"alignment":[{"tag":"atom","value":{"tag":"bytes","length":32}}]}},{"tag":"cell","content":{"value":[{"0":49,"1":32,"2":32,"3":32,"4":32,"5":32,"6":32,"7":32,"8":32,"9":32,"10":32,"11":32,"12":32,"13":32,"14":32,"15":32,"16":32,"17":32,"18":32,"19":32,"20":32,"21":32,"22":32,"23":32,"24":32,"25":32,"26":32,"27":32,"28":32,"29":32,"30":32,"31":32}],"alignment":[{"tag":"atom","value":{"tag":"bytes","length":32}}]}}]}

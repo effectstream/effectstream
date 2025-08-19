@@ -1,5 +1,5 @@
 import { PaimaSTM } from "@paimaexample/sm";
-import { grammar } from "@example/data-types";
+import { grammar } from "@example/data-types/grammar";
 import type { BaseStfInput, BaseStfOutput } from "@paimaexample/sm";
 import {
   getEvmMidnightByTokenId,

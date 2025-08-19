@@ -8,8 +8,6 @@ export const startEvm = {
       name: ComponentNames.HARDHAT,
       args: ["task", "-f", "@example/evm-contracts", "chain:start"],
       waitToExit: false,
-      // logs: "otel-compatible",
-      // logs: "none",
       type: "system-dependency",
     },
     {

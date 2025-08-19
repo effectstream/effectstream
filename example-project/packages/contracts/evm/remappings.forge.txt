@@ -1,2 +1,0 @@
-@openzeppelin/=../../../node_modules/@openzeppelin/
-@paimaexample/=../../../node_modules/@paimaexample/

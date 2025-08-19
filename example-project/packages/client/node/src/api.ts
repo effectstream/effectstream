@@ -5,8 +5,8 @@ import { getEvmMidnight } from "@example/database";
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paimaexample/runtime";
 
-// Defintion of API Inputs and Outputs.
-// These defintion build the OpenAPI documentation.
+// Definition of API Inputs and Outputs.
+// These definition build the OpenAPI documentation.
 // And allow to have type safety for the API Endpoints.
 const ParamsSchema = Type.Object({
   blockHeight: Type.Optional(Type.Number()),

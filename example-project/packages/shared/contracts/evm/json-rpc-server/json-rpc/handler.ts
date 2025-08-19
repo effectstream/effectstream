@@ -238,8 +238,8 @@ const _handleError = (error: any): JsonRpcResponse => {
   if (error.transactionHash !== undefined) {
     txHash = error.transactionHash;
   }
-  if (error.data !== undefined) {
-    if (error.data.data !== undefined) {
+  if (error.data && typeof error.data === "object") {
+    if (error.data.data) {
       returnData = error.data.data;
     } else {
       returnData = error.data;

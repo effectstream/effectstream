@@ -12,9 +12,6 @@ import { hardhat } from "viem/chains";
 import type { TimestampMs } from "@paimaexample/utils";
 import { erc721dev } from "@example/evm-contracts";
 
-// comes from hardhat.config.ts
-const parallelBlockTime: TimestampMs = 10 * 1000;
-
 export const localhostConfig = new ConfigBuilder()
   .setNamespace(
     (builder) => builder.setSecurityNamespace("evm-midnight-node"),

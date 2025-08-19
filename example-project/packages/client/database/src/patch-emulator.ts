@@ -1,4 +1,4 @@
-import { localhostConfig } from "@example/data-types";
+import { localhostConfig } from "@example/data-types/localhostConfig";
 import { migrationTable } from "./migration-order.ts";
 import { run } from "effection";
 import { createDynamicTables, getConnection } from "@paimaexample/db";

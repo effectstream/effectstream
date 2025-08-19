@@ -1,6 +1,7 @@
 import { ComponentNames } from "@paimaexample/log";
 
 export const startMidnight = {
+  // Start Midnight Node, Indexer, and Proof Server.
   stopProcessAtPort: [9944, 8088, 6300],
   processes: [
     {
@@ -11,7 +12,6 @@ export const startMidnight = {
         "@example/midnight-contracts",
         "midnight-node:start",
       ],
-      // logs: "none",
       waitToExit: false,
       type: "system-dependency",
     },
