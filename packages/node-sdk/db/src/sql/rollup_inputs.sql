@@ -59,6 +59,7 @@ SELECT
 FROM rollup_inputs
 JOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id
 JOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id
+WHERE rollup_inputs.id > :after_id::INT
 ORDER BY rollup_inputs.id ASC
 )
 	UNION ALL 
@@ -78,11 +79,13 @@ JOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id
 JOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id
 LEFT OUTER JOIN rollup_input_result
   ON (rollup_input_result.id = rollup_inputs.id)
-WHERE rollup_input_result.id IS NULL
+WHERE 
+  rollup_input_result.id IS NULL AND
+  rollup_inputs.id > :after_id::INT
 ORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC
 )
 ORDER BY id ASC
-LIMIT COALESCE(:limit, 999999) OFFSET COALESCE(:skip, 0);
+LIMIT COALESCE(:limit, 999999);
 
 /* @name getAllScheduledDataCount */
 SELECT COUNT(*) as total FROM (
