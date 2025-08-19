@@ -103,11 +103,14 @@ async function postToBatcher(jsonArrayString: string, walletInfo: WalletInfo) {
 
 export function AddressesTable() {
   const [addresses, setAddresses] = useState<AddressRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [limit] = useState<number>(20);
-  const [skip, setSkip] = useState<number>(0);
-  const [total, setTotal] = useState<number | null>(null);
+  const [limit, setLimit] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(0);
+  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
+    undefined,
+  ]);
+  const [hasNextPage, setHasNextPage] = useState<boolean>(false);
   const [wallets, setWallets] = useState<WalletInfo[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<WalletInfo | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -398,8 +401,12 @@ export function AddressesTable() {
 
       const url = new URL(ADDRESSES_ENDPOINT);
       url.searchParams.set("limit", String(limit));
-      url.searchParams.set("skip", String(skip));
-      url.searchParams.set("count", "true");
+
+      const cursor = cursorHistory[currentPage];
+      if (cursor) {
+        url.searchParams.set("after", cursor);
+      }
+
       const response = await fetch(url.toString());
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -408,8 +415,17 @@ export function AddressesTable() {
       const jsonResponse = await response.json();
       const addrArray = jsonResponse.data ?? [];
       setAddresses(addrArray);
+
       if (jsonResponse.pagination) {
-        setTotal(jsonResponse.pagination.total ?? null);
+        setHasNextPage(jsonResponse.pagination.hasMore ?? false);
+        if (
+          jsonResponse.pagination.nextCursor &&
+          cursorHistory.length === currentPage + 1
+        ) {
+          setCursorHistory(
+            (prev) => [...prev, jsonResponse.pagination.nextCursor],
+          );
+        }
       }
     } catch (err) {
       console.error("Error fetching addresses:", err);
@@ -421,7 +437,7 @@ export function AddressesTable() {
 
   useEffect(() => {
     fetchAddresses();
-  }, [limit, skip]);
+  }, [limit, currentPage]);
 
   // Group addresses by account_id
   const groupedAddresses = addresses.reduce((groups: GroupedAddress[], row) => {
@@ -460,6 +476,26 @@ export function AddressesTable() {
       ),
     ),
   ] as number[];
+
+  const handleLimitChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setLimit(Number(event.target.value));
+    setCurrentPage(0);
+    setCursorHistory([undefined]);
+  };
+
+  const handleNextPage = () => {
+    if (hasNextPage) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleFirstPage = () => {
+    setCurrentPage(0);
+  };
 
   if (loading) {
     return (
@@ -1256,142 +1292,90 @@ export function AddressesTable() {
           }}
         >
           <h3 style={{ margin: 0, color: "#333" }}>Addresses</h3>
-          <button
-            type="button"
-            onClick={fetchAddresses}
-            disabled={loading}
-            style={{
-              padding: "8px 16px",
-              background: loading
-                ? "#ccc"
-                : "linear-gradient(45deg, #19b17b, #022418)",
-              color: "white",
-              border: "none",
-              borderRadius: "6px",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: "600",
-              fontSize: "14px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <span style={{ fontSize: "16px" }}>
-              {loading ? "⏳" : "🔄"}
-            </span>
-            {loading ? "Refreshing..." : "Refresh Addresses"}
-          </button>
+          <div className="table-controls">
+            <label>
+              Rows per page:
+              <select value={limit} onChange={handleLimitChange}>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
+          </div>
         </div>
-        {/* Pagination Controls */}
-        {(skip > 0 || addresses.length >= limit) && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
-            <div style={{ display: "flex", gap: 8 }}>
+        {loading && <p>Loading...</p>}
+        {error && <p className="error">{error}</p>}
+        {!loading && !error && (
+          <>
+            <table className="addresses-table">
+              <thead>
+                <tr>
+                  <th>Account ID</th>
+                  <th>Addresses</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupedAddresses.map((group, index) => (
+                  <tr
+                    key={group.account_id ?? `null-${index}`}
+                    className={group.hasPrimaryAddress
+                      ? "has-primary-address"
+                      : ""}
+                  >
+                    <td className="account-id-cell">
+                      <div className="account-id-content">
+                        {group.account_id ?? "No Account ID"}
+                      </div>
+                    </td>
+                    <td className="addresses-cell">
+                      {group.addresses.map((address, addrIndex) => (
+                        <div
+                          key={address}
+                          className={`address-item ${
+                            address === group.primaryAddress
+                              ? "primary-address"
+                              : ""
+                          }`}
+                          title={address === group.primaryAddress
+                            ? `${address} (Primary)`
+                            : address}
+                        >
+                          {address}
+                          {address === group.primaryAddress && (
+                            <span className="primary-badge">Primary</span>
+                          )}
+                        </div>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="pagination-controls">
               <button
                 type="button"
-                onClick={() => setSkip((s) => Math.max(0, s - limit))}
-                disabled={skip === 0 || loading}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #ddd",
-                  background: skip > 0 && !loading ? "white" : "#f3f4f6",
-                  cursor: skip > 0 && !loading ? "pointer" : "not-allowed",
-                }}
+                onClick={handleFirstPage}
+                disabled={currentPage === 0}
               >
-                Prev
+                First
               </button>
               <button
                 type="button"
-                onClick={() => setSkip((s) => s + limit)}
-                disabled={loading || (total != null && (skip + limit) >= total)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #ddd",
-                  background:
-                    (!loading && (total == null || (skip + limit) < total))
-                      ? "white"
-                      : "#f3f4f6",
-                  cursor:
-                    (!loading && (total == null || (skip + limit) < total))
-                      ? "pointer"
-                      : "not-allowed",
-                }}
+                onClick={handlePrevPage}
+                disabled={currentPage === 0}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={handleNextPage}
+                disabled={!hasNextPage}
               >
                 Next
               </button>
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                color: "#555",
-              }}
-            >
-              <span>
-                {(() => {
-                  const currentPage = Math.floor(skip / limit) + 1;
-                  const totalPages = total != null
-                    ? Math.max(1, Math.ceil(total / limit))
-                    : undefined;
-                  return `Page ${String(currentPage).padStart(2, "0")} ${
-                    totalPages ? `of ${totalPages}` : ""
-                  }`;
-                })()}
-              </span>
-            </div>
-          </div>
+          </>
         )}
-        <table className="addresses-table">
-          <thead>
-            <tr>
-              <th>Account ID</th>
-              <th>Addresses</th>
-            </tr>
-          </thead>
-          <tbody>
-            {groupedAddresses.map((group, index) => (
-              <tr
-                key={group.account_id ?? `null-${index}`}
-                className={group.hasPrimaryAddress ? "has-primary-address" : ""}
-              >
-                <td className="account-id-cell">
-                  <div className="account-id-content">
-                    {group.account_id ?? "No Account ID"}
-                  </div>
-                </td>
-                <td className="addresses-cell">
-                  {group.addresses.map((address, addrIndex) => (
-                    <div
-                      key={address}
-                      className={`address-item ${
-                        address === group.primaryAddress
-                          ? "primary-address"
-                          : ""
-                      }`}
-                      title={address === group.primaryAddress
-                        ? `${address} (Primary)`
-                        : address}
-                    >
-                      {address}
-                      {address === group.primaryAddress && (
-                        <span className="primary-badge">Primary</span>
-                      )}
-                    </div>
-                  ))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
       {groupedAddresses.length === 0 && (
         <div className="no-addresses">
