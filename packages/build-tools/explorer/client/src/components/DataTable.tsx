@@ -69,7 +69,8 @@ export function DataTable(
   const hasData = data && data.rows && data.fields && data.rows.length > 0;
   const fields = data?.fields || [];
   const rows = data?.rows || [];
-  const canGoNext = !!pagination && pagination.hasMore;
+  const canGoNext = !!pagination && pagination.hasMore &&
+    rows.length >= pagination.limit;
   const canGoPrev = !!pagination && pagination.currentPage > 0;
 
   const hideControls = !pagination || (!canGoPrev && !canGoNext);

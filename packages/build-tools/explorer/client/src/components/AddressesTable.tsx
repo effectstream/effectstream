@@ -1369,7 +1369,7 @@ export function AddressesTable() {
               <button
                 type="button"
                 onClick={handleNextPage}
-                disabled={!hasNextPage}
+                disabled={!hasNextPage || addresses.length < limit}
               >
                 Next
               </button>
