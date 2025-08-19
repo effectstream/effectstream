@@ -176,15 +176,20 @@ export const startHttpServer = function* (
     },
   }, async (request) => {
     const { limit, after } = getPaginationParams(request);
-
-    const addresses = await runPreparedQuery(
-      getAllAddresses.run({
-        limit,
-        after_account_id: after?.account_id,
-        after_address: after?.address,
-      } as any, dbConn),
-      "addresses",
-    );
+    let addresses: any[] = [];
+    try {
+      addresses = await runPreparedQuery(
+        getAllAddresses.run({
+          limit,
+          after_account_id: after?.account_id,
+          after_address: after?.address,
+        } as any, dbConn),
+        "addresses",
+      );
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+      throw error;
+    }
 
     const pagination = createPaginationMeta(
       limit,
@@ -274,13 +279,19 @@ export const startHttpServer = function* (
   }, async (request) => {
     const { limit, after } = getPaginationParams(request);
 
-    const scheduledData = await runPreparedQuery(
-      getAllScheduledData.run({
-        limit,
-        after_id: after?.id,
-      } as any, dbConn),
-      "scheduled-data",
-    );
+    let scheduledData: any[] = [];
+    try {
+      scheduledData = await runPreparedQuery(
+        getAllScheduledData.run({
+          limit,
+          after_id: after?.id,
+        } as any, dbConn),
+        "scheduled-data",
+      );
+    } catch (error) {
+      console.error("Error fetching scheduled data:", error);
+      throw error;
+    }
 
     const pagination = createPaginationMeta(
       limit,
