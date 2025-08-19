@@ -46,9 +46,9 @@ SELECT
 FROM addresses
 LEFT JOIN accounts ON accounts.primary_address = addresses.address
 WHERE
-  (:after_account_id::INT IS NULL OR addresses.account_id > :after_account_id::INT) OR
-  (addresses.account_id = :after_account_id::INT AND addresses.address > :after_address)
-ORDER BY addresses.account_id ASC, addresses.address ASC
+    (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL) OR
+    (addresses.account_id, addresses.address) > (:after_account_id::INT, :after_address::TEXT)
+ORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC
 LIMIT COALESCE(:limit, 1000);
 
 /* @name getAllAddressesCount */
