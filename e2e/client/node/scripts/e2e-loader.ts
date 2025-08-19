@@ -134,7 +134,6 @@ export async function getDBConnection(): Promise<Client> {
       await fetch(
         `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=e2e-loader`,
       );
-      console.error("lock acquired");
       didLock = true;
       await db.query(
         `SELECT id FROM public.primitive_accounting LIMIT 1`,
