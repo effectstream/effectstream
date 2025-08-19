@@ -393,32 +393,33 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   });
 
   await assert("Check System API Table Data", async () => {
-    const limit = sharedState.paima_state_machine_counter * 2; // 2x the data length
-    const response = await fetch(
-      `http://localhost:${ENV.PAIMA_API_PORT}/tables/user_state_machine?count=true&limit=${limit}`,
-    );
-    const { data, pagination } = await response.json();
-    const dataLenghtAsserts =
-      data.length === sharedState.paima_state_machine_counter;
-    if (!dataLenghtAsserts) {
+    const allData = [];
+    let nextCursor: string | undefined = undefined;
+
+    do {
+      let url =
+        `http://localhost:${ENV.PAIMA_API_PORT}/tables/user_state_machine?limit=10`;
+      if (nextCursor) {
+        url += `&after=${nextCursor}`;
+      }
+
+      const response = await fetch(url);
+      const { data, pagination } = await response.json();
+      allData.push(...data);
+      nextCursor = pagination.nextCursor;
+    } while (nextCursor);
+
+    const dataLengthAsserts =
+      allData.length === sharedState.paima_state_machine_counter;
+    if (!dataLengthAsserts) {
       console.error(
         "Data length mismatch: Data length",
-        data.length,
+        allData.length,
         "expected (sharedState.paima_state_machine_counter)",
         sharedState.paima_state_machine_counter,
       );
     }
-    const paginationAsserts =
-      pagination.total === sharedState.paima_state_machine_counter;
-    if (!paginationAsserts) {
-      console.error(
-        "Pagination total mismatch: Pagination total",
-        pagination.total,
-        "expected (sharedState.paima_state_machine_counter)",
-        sharedState.paima_state_machine_counter,
-      );
-    }
-    return dataLenghtAsserts && paginationAsserts;
+    return dataLengthAsserts;
   });
 
   const tokens = {
