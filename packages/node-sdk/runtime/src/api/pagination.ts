@@ -76,26 +76,39 @@ export function getPaginationParams(request: FastifyRequest): {
 }
 
 // Create pagination metadata
-export function createPaginationMeta<T>(
+export function createPaginationMeta<T extends Record<string, any>>(
   limit: number,
   data: T[],
   cursorFields: (keyof T)[],
+  nextCursorSeed?: Record<string, any> | null,
 ): PaginationMeta {
   const meta: PaginationMeta = { limit };
+  const hasMore = data.length > limit;
 
-  if (data.length === limit) {
-    meta.hasMore = true;
-    const lastItem = data[data.length - 1];
+  if (hasMore) {
+    // Remove the extra item that was fetched to check for `hasMore`
+    data.pop();
+  }
+  meta.hasMore = hasMore;
 
-    const cursor: { [key: string]: any } = {};
-    for (const field of cursorFields) {
-      cursor[field as string] = lastItem[field];
+  if (hasMore) {
+    let cursorObject: Record<string, any>;
+    if (nextCursorSeed) {
+      // Use the provided seed for the next cursor (e.g., for offset-based pagination)
+      cursorObject = nextCursorSeed;
+    } else if (data.length > 0) {
+      // Build the cursor from the last item in the dataset
+      const lastItem = data[data.length - 1];
+      cursorObject = {};
+      for (const field of cursorFields) {
+        cursorObject[field as string] = lastItem[field];
+      }
+    } else {
+      return meta;
     }
 
-    const cursorString = JSON.stringify(cursor);
+    const cursorString = JSON.stringify(cursorObject);
     meta.nextCursor = encodeBase64(new TextEncoder().encode(cursorString));
-  } else {
-    meta.hasMore = false;
   }
 
   return meta;

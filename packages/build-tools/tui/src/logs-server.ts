@@ -91,7 +91,7 @@ export class LogServer {
           200: createPaginatedResponseSchema(OTelLogSchema),
         },
       },
-    }, (request: any, reply: any) => {
+    }, (request, reply) => {
       const { limit } = getPaginationParams(request);
       const copy = this.getData();
 
