@@ -15,31 +15,23 @@
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { assertSQL } from "./e2e-assert.ts";
-import { type SharedState } from "./e2e-shared-state.ts";
-import {
-  type ContractAddress,
-  NetworkId,
-} from "npm:@midnight-ntwrk/compact-runtime";
+import { assertSQL, type SharedState } from "@e2e/engine";
+import type { ContractAddress } from "@midnight-ntwrk/compact-runtime";
 import {
   Counter,
   type CounterPrivateState,
   witnesses,
-} from "../../../contracts/midnight/contract/src/index.ts";
+} from "@e2e/midnight-contracts/counter";
 import {
   type CoinInfo,
   nativeToken,
   Transaction,
   type TransactionId,
-} from "npm:@midnight-ntwrk/ledger";
-import {
-  type DeployedContract,
-  findDeployedContract,
-  type FoundContract,
-} from "npm:@midnight-ntwrk/midnight-js-contracts";
-import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider";
+} from "@midnight-ntwrk/ledger";
+import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
+import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import {
   type BalancedTransaction,
   createBalancedTx,
@@ -49,24 +41,21 @@ import {
   type MidnightProviders,
   type UnbalancedTransaction,
   type WalletProvider,
-} from "npm:@midnight-ntwrk/midnight-js-types";
-import { type Resource, WalletBuilder } from "npm:@midnight-ntwrk/wallet";
-import { type Wallet } from "npm:@midnight-ntwrk/wallet-api";
-import { Transaction as ZswapTransaction } from "npm:@midnight-ntwrk/zswap";
-import * as Rx from "npm:rxjs";
-import { WebSocket } from "npm:ws";
-import { levelPrivateStateProvider } from "npm:@midnight-ntwrk/midnight-js-level-private-state-provider";
-import {
-  assertIsContractAddress,
-  toHex,
-} from "npm:@midnight-ntwrk/midnight-js-utils";
+} from "@midnight-ntwrk/midnight-js-types";
+import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
+import type { Wallet } from "@midnight-ntwrk/wallet-api";
+import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
+import * as Rx from "rxjs";
+import { WebSocket } from "ws";
+import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
+import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import {
   getLedgerNetworkId,
   getZswapNetworkId,
   setNetworkId,
-} from "npm:@midnight-ntwrk/midnight-js-network-id";
-import { Client } from "pg";
-import { readMidnightContract } from "../../../contracts/midnight/read-contract.ts";
+} from "@midnight-ntwrk/midnight-js-network-id";
+import type { Client } from "pg";
+import { readMidnightContract } from "@e2e/midnight-contracts";
 import { dirname, resolve } from "node:path";
 
 globalThis.WebSocket = WebSocket;
@@ -86,7 +75,7 @@ const contractConfig = {
   privateStateStoreName: "counter-private-state",
   zkConfigPath: resolve(
     dirname(new URL(import.meta.url).pathname),
-    "../../../contracts/midnight/contract/src/managed/counter",
+    "../../../shared/contracts/midnight/contract/src/managed/counter",
   ),
 };
 

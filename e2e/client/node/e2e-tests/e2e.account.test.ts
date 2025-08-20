@@ -1,5 +1,12 @@
-import { paimaL2Builder, wallets } from "./e2e-contracts.ts";
-import { assertSQL, assertSQL2 } from "./e2e-assert.ts";
+import {
+  type AccountState,
+  addLinkedAddress,
+  assertSQL,
+  assertSQL2,
+  paimaL2Builder,
+  type SharedState,
+  wallets,
+} from "@e2e/engine";
 import type { Client } from "pg";
 import {
   accountMessages,
@@ -7,11 +14,6 @@ import {
   BuiltinGrammarPrefix,
   signMessage as internalSignMessage,
 } from "@paima/concise";
-import {
-  type AccountState,
-  addLinkedAddress,
-  type SharedState,
-} from "./e2e-shared-state.ts";
 
 function validateAccountState(
   expectedState: AccountState,

@@ -5,10 +5,10 @@ import { ENV } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
 import { ComponentNames } from "@paima/log";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
-import { launchCardano } from "./launch-cardano.ts";
-import { launchEvm } from "./launch-evm.ts";
-import { launchMidnight } from "./launch-midnight.ts";
-import { getPaimaEVMPublicClient } from "./e2e-rpc.ts";
+import { launchCardano } from "@paima/orchestrator/start-cardano";
+import { launchEvm } from "@paima/orchestrator/start-evm";
+import { launchMidnight } from "@paima/orchestrator/start-midnight";
+import { getPaimaEVMPublicClient } from "@e2e/engine";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -37,9 +37,9 @@ export async function startup(): Promise<Client> {
 
     // Launch my processes
     processesToLaunch: [
-      launchEvm,
-      yaci_enabled ? launchCardano : {},
-      launchMidnight,
+      launchEvm("@e2e/evm-contracts"),
+      yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
+      launchMidnight("@e2e/midnight-contracts"),
       // launchAvail
     ],
 
@@ -63,7 +63,9 @@ export async function startup(): Promise<Client> {
       if (processesJson.processes.find((p: any) => p.name === "sync")) {
         // This is a light weight check, that only assures that the node is running.
         // But it does not assure that the node is ready to accept requests.
-        const healthResponse = await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/health`);
+        const healthResponse = await fetch(
+          `http://localhost:${ENV.PAIMA_API_PORT}/health`,
+        );
         const data = await healthResponse.json();
         if (data.status === "ok") {
           break;
@@ -82,12 +84,12 @@ export async function startup(): Promise<Client> {
     try {
       const blockNumber = await rpcClient.getBlockNumber();
       if (typeof blockNumber === "bigint" && blockNumber > 0n) {
-        // Wait until block is height 1, so we assure the 
+        // Wait until block is height 1, so we assure the
         // the system migrations and presync is done.
         break;
       }
     } catch {
-      // If the node is launched, but not ready, this will throw 
+      // If the node is launched, but not ready, this will throw
       // an error as the internal DB is not ready yet.
     }
     await delay(500);

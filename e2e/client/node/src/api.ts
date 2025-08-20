@@ -1,4 +1,3 @@
-import type { FastifyInstance } from "fastify";
 import { type Static, Type } from "@sinclair/typebox";
 import { runPreparedQuery } from "@paima/db";
 import {
@@ -7,9 +6,10 @@ import {
 } from "@e2e/database";
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paima/runtime";
+import type fastify from "fastify";
 
-// Defintion of API Inputs and Outputs.
-// These defintion build the OpenAPI documentation.
+// Definition of API Inputs and Outputs.
+// These definitions build the OpenAPI documentation.
 // And allow to have type safety for the API Endpoints.
 const ParamsSchema = Type.Object({
   blockHeight: Type.Optional(Type.Number()),
@@ -28,8 +28,9 @@ const ResponseSchema = Type.Array(Type.Object({
  * @param server - The Fastify instance.
  * @param dbConn - The database connection.
  */
+
 export const apiRouter: StartConfigApiRouter = async function (
-  server: FastifyInstance,
+  server: fastify.FastifyInstance,
   dbConn: Pool,
 ): Promise<void> {
   server.get<{

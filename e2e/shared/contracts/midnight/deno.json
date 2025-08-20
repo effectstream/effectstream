@@ -2,7 +2,8 @@
     "name": "@e2e/midnight-contracts",
     "version": "0.3.0",
     "exports": {
-        ".": "./read-contract.ts"
+        ".": "./read-contract.ts",
+        "./counter": "./contract/src/index.ts"
     },
     "tasks": {
         "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs @paima/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive",

@@ -1,4 +1,4 @@
-import { readMidnightContract } from "../../../contracts/midnight/read-contract.ts";
+import { readMidnightContract } from "@e2e/midnight-contracts";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 
 import {

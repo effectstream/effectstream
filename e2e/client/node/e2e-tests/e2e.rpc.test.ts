@@ -1,7 +1,5 @@
 import { ENV } from "@paima/utils";
-import { assert } from "./e2e-assert.ts";
-import { wallets } from "./e2e-contracts.ts";
-import { getPaimaEVMPublicClient } from "./e2e-rpc.ts";
+import { assert, getPaimaEVMPublicClient, wallets } from "@e2e/engine";
 
 export async function RPCTest() {
   // Test RPC

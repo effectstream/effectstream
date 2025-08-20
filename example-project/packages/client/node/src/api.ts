@@ -1,22 +1,21 @@
-import type { FastifyInstance } from "fastify";
 import { type Static, Type } from "@sinclair/typebox";
 import { runPreparedQuery } from "@paimaexample/db";
 import { getEvmMidnight } from "@example/database";
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paimaexample/runtime";
+import type fastify from "fastify";
 
 // Definition of API Inputs and Outputs.
 // These definition build the OpenAPI documentation.
 // And allow to have type safety for the API Endpoints.
-const ParamsSchema = Type.Object({
-  blockHeight: Type.Optional(Type.Number()),
-});
-
-type ParamsType = Static<typeof ParamsSchema>;
+const ParamsSchema = Type.Object({});
 const ResponseSchema = Type.Array(Type.Object({
+  token_id: Type.String(),
+  owner: Type.Union([Type.Null(), Type.String()]),
   block_height: Type.Number(),
-  id: Type.Number(),
-  inputs: Type.String(),
+  property_name: Type.String(),
+  value: Type.String(),
+  property_block_height: Type.Number(),
 }));
 
 /**
@@ -26,15 +25,17 @@ const ResponseSchema = Type.Array(Type.Object({
  * @param dbConn - The database connection.
  */
 export const apiRouter: StartConfigApiRouter = async function (
-  server: FastifyInstance,
+  server: fastify.FastifyInstance,
   dbConn: Pool,
 ): Promise<void> {
   server.get<{
-    Params: ParamsType;
-  }>("/api/erc721", async (request) => {
-    return await runPreparedQuery(
+    Params: Static<typeof ParamsSchema>;
+    Reply: Static<typeof ResponseSchema>;
+  }>("/api/erc721", async (request, reply) => {
+    const result = await runPreparedQuery(
       getEvmMidnight.run(undefined, dbConn),
       "/api/erc721",
     );
+    reply.send(result);
   });
 };

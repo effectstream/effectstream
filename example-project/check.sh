@@ -123,6 +123,16 @@ else
 fi
 echo
 
+# Check if compact binary is installed
+echo "Checking compact..."
+if command -v compact &> /dev/null; then
+    COMPACT_VERSION=$(compact --version | head -n1 | cut -d' ' -f2)
+    print_success "compact is installed (version: $COMPACT_VERSION)"
+else
+    print_error "compact is not installed. Please install compact."
+fi
+echo
+
 # Final result
 echo "================================================"
 if [ $FAILED -eq 0 ]; then

@@ -1,6 +1,5 @@
 import type { Client } from "pg";
-import { safeQuery } from "./e2e-db.ts";
-import { assert } from "./e2e-assert.ts";
+import { assert, safeQuery } from "@e2e/engine";
 
 export async function testMigrations(db: Client) {
   const version = await safeQuery<{

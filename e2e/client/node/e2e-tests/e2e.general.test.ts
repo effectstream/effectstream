@@ -1,17 +1,19 @@
 import {
+  addLinkedAddress,
+  assert,
+  assertSQL,
   erc20Builder,
   erc721Builder,
   paimaL2Builder,
+  type SharedState,
   wallets,
-} from "./e2e-contracts.ts";
-import { assert, assertSQL } from "./e2e-assert.ts";
+} from "@e2e/engine";
 import type { Client } from "pg";
 import { AddressType } from "@paima/utils";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { ENV } from "@paima/utils";
-import { addLinkedAddress, type SharedState } from "./e2e-shared-state.ts";
 import { createMessageForBatcher } from "@paima/concise";
 
 // Start Test

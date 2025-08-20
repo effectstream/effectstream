@@ -1,6 +1,10 @@
-import { erc20Builder, erc721Builder, wallets } from "./e2e-contracts.ts";
+import {
+  erc20Builder,
+  erc721Builder,
+  type SharedState,
+  wallets,
+} from "@e2e/engine";
 import type { Client } from "pg";
-import type { SharedState } from "./e2e-shared-state.ts";
 
 // Start Test
 export async function tokenTests(db: Client, sharedState: SharedState) {

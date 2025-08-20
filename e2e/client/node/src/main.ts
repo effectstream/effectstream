@@ -7,8 +7,8 @@ import {
   withPaimaStaticConfig,
 } from "@paima/config";
 import { migrationRouter } from "@e2e/database";
-import { gameStateTransitions } from "@e2e/state-transition";
-import { apiRouter } from "@e2e/api";
+import { gameStateTransitions } from "./state-machine.ts";
+import { apiRouter } from "./api.ts";
 import { grammar } from "@e2e/data-types";
 
 main(function* () {
