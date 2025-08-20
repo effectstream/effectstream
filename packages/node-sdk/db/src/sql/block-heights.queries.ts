@@ -24,12 +24,12 @@ export interface IGetLatestProcessedBlockHeightQuery {
   result: IGetLatestProcessedBlockHeightResult;
 }
 
-const getLatestProcessedBlockHeightIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM paima_blocks\nWHERE paima_block_hash IS NOT NULL\nORDER BY block_height DESC\nLIMIT 1"};
+const getLatestProcessedBlockHeightIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM paima.paima_blocks\nWHERE paima_block_hash IS NOT NULL\nORDER BY block_height DESC\nLIMIT 1"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima_blocks
+ * SELECT * FROM paima.paima_blocks
  * WHERE paima_block_hash IS NOT NULL
  * ORDER BY block_height DESC
  * LIMIT 1
@@ -52,12 +52,12 @@ export interface IGetBlockSeedsQuery {
   result: IGetBlockSeedsResult;
 }
 
-const getBlockSeedsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT seed FROM paima_blocks\nWHERE paima_block_hash IS NOT NULL\nORDER BY block_height DESC\nLIMIT 25"};
+const getBlockSeedsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT seed FROM paima.paima_blocks\nWHERE paima_block_hash IS NOT NULL\nORDER BY block_height DESC\nLIMIT 25"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT seed FROM paima_blocks
+ * SELECT seed FROM paima.paima_blocks
  * WHERE paima_block_hash IS NOT NULL
  * ORDER BY block_height DESC
  * LIMIT 25
@@ -87,12 +87,12 @@ export interface IGetBlockHeightsQuery {
   result: IGetBlockHeightsResult;
 }
 
-const getBlockHeightsIR: any = {"usedParamSet":{"block_heights":true},"params":[{"name":"block_heights","required":true,"transform":{"type":"array_spread"},"locs":[{"a":50,"b":64}]}],"statement":"SELECT * FROM paima_blocks \nWHERE block_height IN :block_heights!\nORDER BY block_height ASC"};
+const getBlockHeightsIR: any = {"usedParamSet":{"block_heights":true},"params":[{"name":"block_heights","required":true,"transform":{"type":"array_spread"},"locs":[{"a":56,"b":70}]}],"statement":"SELECT * FROM paima.paima_blocks \nWHERE block_height IN :block_heights!\nORDER BY block_height ASC"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima_blocks 
+ * SELECT * FROM paima.paima_blocks 
  * WHERE block_height IN :block_heights!
  * ORDER BY block_height ASC
  * ```
@@ -122,14 +122,14 @@ export interface IGetBlockByHashQuery {
   result: IGetBlockByHashResult;
 }
 
-const getBlockByHashIR: any = {"usedParamSet":{"block_hash":true},"params":[{"name":"block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":179,"b":190},{"a":224,"b":235}]}],"statement":"SELECT curr.*, prev.paima_block_hash as \"prev_block\"\nFROM paima_blocks curr\nLEFT JOIN paima_blocks prev ON prev.block_height = curr.block_height - 1\nWHERE curr.paima_block_hash = :block_hash! OR curr.main_chain_block_hash = :block_hash!"};
+const getBlockByHashIR: any = {"usedParamSet":{"block_hash":true},"params":[{"name":"block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":191,"b":202},{"a":236,"b":247}]}],"statement":"SELECT curr.*, prev.paima_block_hash as \"prev_block\"\nFROM paima.paima_blocks curr\nLEFT JOIN paima.paima_blocks prev ON prev.block_height = curr.block_height - 1\nWHERE curr.paima_block_hash = :block_hash! OR curr.main_chain_block_hash = :block_hash!"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT curr.*, prev.paima_block_hash as "prev_block"
- * FROM paima_blocks curr
- * LEFT JOIN paima_blocks prev ON prev.block_height = curr.block_height - 1
+ * FROM paima.paima_blocks curr
+ * LEFT JOIN paima.paima_blocks prev ON prev.block_height = curr.block_height - 1
  * WHERE curr.paima_block_hash = :block_hash! OR curr.main_chain_block_hash = :block_hash!
  * ```
  */
@@ -154,12 +154,12 @@ export interface ISaveLastBlockQuery {
   result: ISaveLastBlockResult;
 }
 
-const saveLastBlockIR: any = {"usedParamSet":{"block_height":true,"ver":true,"main_chain_block_hash":true,"seed":true,"ms_timestamp":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":113,"b":126}]},{"name":"ver","required":true,"transform":{"type":"scalar"},"locs":[{"a":129,"b":133}]},{"name":"main_chain_block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":136,"b":158}]},{"name":"seed","required":true,"transform":{"type":"scalar"},"locs":[{"a":161,"b":166}]},{"name":"ms_timestamp","required":true,"transform":{"type":"scalar"},"locs":[{"a":169,"b":182}]}],"statement":"INSERT INTO paima_blocks(block_height, ver, main_chain_block_hash, seed, ms_timestamp, paima_block_hash)\nVALUES (:block_height!, :ver!, :main_chain_block_hash!, :seed!, :ms_timestamp!, NULL)\nON CONFLICT (block_height)\nDO UPDATE SET\nblock_height = EXCLUDED.block_height,\nver = EXCLUDED.ver,\nmain_chain_block_hash = EXCLUDED.main_chain_block_hash,\nseed = EXCLUDED.seed,\nms_timestamp = EXCLUDED.ms_timestamp,\npaima_block_hash = EXCLUDED.paima_block_hash"};
+const saveLastBlockIR: any = {"usedParamSet":{"block_height":true,"ver":true,"main_chain_block_hash":true,"seed":true,"ms_timestamp":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":119,"b":132}]},{"name":"ver","required":true,"transform":{"type":"scalar"},"locs":[{"a":135,"b":139}]},{"name":"main_chain_block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":142,"b":164}]},{"name":"seed","required":true,"transform":{"type":"scalar"},"locs":[{"a":167,"b":172}]},{"name":"ms_timestamp","required":true,"transform":{"type":"scalar"},"locs":[{"a":175,"b":188}]}],"statement":"INSERT INTO paima.paima_blocks(block_height, ver, main_chain_block_hash, seed, ms_timestamp, paima_block_hash)\nVALUES (:block_height!, :ver!, :main_chain_block_hash!, :seed!, :ms_timestamp!, NULL)\nON CONFLICT (block_height)\nDO UPDATE SET\nblock_height = EXCLUDED.block_height,\nver = EXCLUDED.ver,\nmain_chain_block_hash = EXCLUDED.main_chain_block_hash,\nseed = EXCLUDED.seed,\nms_timestamp = EXCLUDED.ms_timestamp,\npaima_block_hash = EXCLUDED.paima_block_hash"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima_blocks(block_height, ver, main_chain_block_hash, seed, ms_timestamp, paima_block_hash)
+ * INSERT INTO paima.paima_blocks(block_height, ver, main_chain_block_hash, seed, ms_timestamp, paima_block_hash)
  * VALUES (:block_height!, :ver!, :main_chain_block_hash!, :seed!, :ms_timestamp!, NULL)
  * ON CONFLICT (block_height)
  * DO UPDATE SET
@@ -189,12 +189,12 @@ export interface IBlockHeightDoneQuery {
   result: IBlockHeightDoneResult;
 }
 
-const blockHeightDoneIR: any = {"usedParamSet":{"block_hash":true,"block_height":true},"params":[{"name":"block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":43,"b":54}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":77,"b":90}]}],"statement":"UPDATE paima_blocks\nSET\npaima_block_hash = :block_hash!\nWHERE block_height = :block_height!"};
+const blockHeightDoneIR: any = {"usedParamSet":{"block_hash":true,"block_height":true},"params":[{"name":"block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":49,"b":60}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":83,"b":96}]}],"statement":"UPDATE paima.paima_blocks\nSET\npaima_block_hash = :block_hash!\nWHERE block_height = :block_height!"};
 
 /**
  * Query generated from SQL:
  * ```
- * UPDATE paima_blocks
+ * UPDATE paima.paima_blocks
  * SET
  * paima_block_hash = :block_hash!
  * WHERE block_height = :block_height!

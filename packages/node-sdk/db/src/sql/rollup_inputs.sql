@@ -1,12 +1,12 @@
 /* @name newScheduledHeightData */
 WITH
   new_row AS (
-    INSERT INTO rollup_inputs(from_address, input_data)
+    INSERT INTO paima.rollup_inputs(from_address, input_data)
     VALUES (:from_address!, :input_data!)
     RETURNING id
   ),
   insert_origin AS (
-    INSERT INTO rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)
+    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)
     SELECT (SELECT id FROM new_row), :primitive_name, :caip2, :origin_tx_hash::BYTEA, :origin_contract_address
   )
 INSERT INTO paima.rollup_input_future_block(id, future_block_height)
@@ -15,12 +15,12 @@ SELECT (SELECT id FROM new_row), :future_block_height!;
 /* @name newScheduledTimestampData */
 WITH
   new_row AS (
-    INSERT INTO rollup_inputs(from_address, input_data)
+    INSERT INTO paima.rollup_inputs(from_address, input_data)
     VALUES (:from_address!, :input_data!)
     RETURNING id
   ),
   insert_origin AS (
-    INSERT INTO rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)
+    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)
     SELECT (SELECT id FROM new_row),null,null,null,null
   )
 INSERT INTO paima.rollup_input_future_timestamp(id, future_ms_timestamp)
@@ -77,7 +77,7 @@ SELECT
 FROM paima.rollup_inputs
 JOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id
 JOIN paima.rollup_input_future_timestamp ON paima.rollup_inputs.id = paima.rollup_input_future_timestamp.id
-LEFT OUTER JOIN rollup_input_result
+LEFT OUTER JOIN paima.rollup_input_result
   ON (paima.rollup_input_result.id = paima.rollup_inputs.id)
 WHERE 
   paima.rollup_input_result.id IS NULL AND
@@ -191,7 +191,7 @@ WHERE
   lower(rollup_inputs.from_address) = lower(:from_address!);
 
 /* @name removeScheduledBlockData */
-DELETE FROM rollup_inputs
+DELETE FROM paima.rollup_inputs
 WHERE
   input_data = :input_data! AND
   rollup_inputs.id IN (
@@ -201,7 +201,7 @@ WHERE
 );
 
 /* @name removeScheduledTimestampData */
-DELETE FROM rollup_inputs
+DELETE FROM paima.rollup_inputs
 WHERE
   input_data = :input_data! AND
   rollup_inputs.id IN (

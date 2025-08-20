@@ -19,14 +19,8 @@ export function erc20Ivm(name: string) {
   const balanceTable = `primitives.erc20_balances_intermediate_${validSQLName}`;
 
   return `
-  CREATE TABLE IF NOT EXISTS ${balanceTable} (
-    address TEXT PRIMARY KEY,
-    balance BIGINT NOT NULL
-  );
-
-  // Restore the original script logic here, adapted with schema
   -- Intermediate table for current ERC20 balances (maintained by triggers)
-  CREATE TABLE ${balanceTable} (
+  CREATE TABLE IF NOT EXISTS ${balanceTable} (
       primitive_name TEXT NOT NULL,
       address TEXT NOT NULL,
       balance numeric(78,0) DEFAULT 0,
@@ -80,7 +74,7 @@ export function erc20Ivm(name: string) {
       EXECUTE FUNCTION update_erc20_balances_${validSQLName}();
   
   -- Simple incrementally maintained view on the intermediate table
-  SELECT pgivm.create_immv('erc20_balances_view_${validSQLName}',
+  SELECT pgivm.create_immv('primitives.erc20_balances_view_${validSQLName}',
       'SELECT
           primitive_name,
           address,

@@ -1,5 +1,6 @@
 // TODO: This file is used as we need to bundle JSR assets.
 //       Until there is support for import with { type: text }
+// ... existing code ...
 export const migrations = `
 CREATE SCHEMA IF NOT EXISTS paima;
 CREATE SCHEMA IF NOT EXISTS primitives;
@@ -13,7 +14,7 @@ CREATE TABLE paima.paima_blocks (
   ms_timestamp TIMESTAMP without time zone NOT NULL,
 
   -- note: slightly awkward, but this field is nullable
-  --       this helps other SQL queries refer to the block before the block is done being processed
+  -- this helps other SQL queries refer to the block before the block is done being processed
   paima_block_hash BYTEA
 );
 
@@ -87,7 +88,7 @@ CREATE TABLE paima.addresses (
   account_id INTEGER REFERENCES paima.accounts(id)
 );
 
-CREATE INDEX addresses_account_id_idx on paima.addresses(account_id);
+-- create index addresses_account_id_idx on paima.addresses(account_id);
 
 ALTER TABLE paima.accounts ADD CONSTRAINT fk_primary_address_address FOREIGN KEY (primary_address) REFERENCES paima.addresses(address);
 
@@ -115,5 +116,4 @@ CREATE TABLE paima.registered_event (
   topic TEXT NOT NULL,
   PRIMARY KEY(name, topic)
 );
-
 `;
