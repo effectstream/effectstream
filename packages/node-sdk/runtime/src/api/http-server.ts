@@ -7,6 +7,7 @@ import {
   aquireDBMutex,
   getAllAddresses,
   getAllScheduledData,
+  getPrimaryKeyColumns,
   getPrimitivePrefix,
   getTableSchema,
   releaseDBMutex,
@@ -178,12 +179,16 @@ export const startHttpServer = function* (
     const { limit, after } = getPaginationParams(request);
     let addresses: any[] = [];
     try {
+      // @ts-ignore - pgtyped overload resolution is failing in this context
       addresses = await runPreparedQuery(
-        getAllAddresses.run({
-          limit,
-          after_account_id: after?.account_id,
-          after_address: after?.address,
-        } as any, dbConn),
+        getAllAddresses.run(
+          {
+            limit,
+            after_account_id: after?.account_id ?? null,
+            after_address: after?.address ?? null,
+          },
+          dbConn,
+        ),
         "addresses",
       );
     } catch (error) {
@@ -281,11 +286,15 @@ export const startHttpServer = function* (
 
     let scheduledData: any[] = [];
     try {
+      // @ts-ignore - pgtyped overload resolution is failing in this context
       scheduledData = await runPreparedQuery(
-        getAllScheduledData.run({
-          limit,
-          after_id: after?.id,
-        } as any, dbConn),
+        getAllScheduledData.run(
+          {
+            limit,
+            after_id: after?.id ?? null,
+          },
+          dbConn,
+        ),
         "scheduled-data",
       );
     } catch (error) {
@@ -402,20 +411,98 @@ export const startHttpServer = function* (
       const { limit, after } = getPaginationParams(request);
 
       try {
-        const data = await unsafeGetTableData(tableName, limit, after?.id);
+        // Sanitize table name
+        const safeTableName = tableName.toLowerCase().replace(
+          /[^a-z0-9_.]/g,
+          "",
+        );
+        if (safeTableName.length > 128 || safeTableName.length === 0) {
+          return reply.status(400).send({ error: "Invalid table name" });
+        }
+
+        // 1. Introspect for Primary Keys
+        const pkColumnsResult: { column_name: string }[] =
+          await runPreparedQuery(
+            getPrimaryKeyColumns.run({ tableName: safeTableName }, dbConn),
+            "getPrimaryKeyColumns",
+          );
+        const pkColumns = pkColumnsResult.map((c: { column_name: string }) =>
+          c.column_name
+        );
+
+        let query: string;
+        const params: any[] = [];
+        let cursorFields: string[] = [];
+        let nextCursorSeed: Record<string, any> | null = null;
+
+        // 2. Determine Pagination Strategy
+        if (pkColumns.length > 0) {
+          // --- Keyset Pagination Strategy ---
+          cursorFields = pkColumns;
+          let whereClause = "";
+          const orderByClause = `ORDER BY ${
+            pkColumns.map((c) => `"${c}" ASC`).join(", ")
+          }`;
+
+          if (after) {
+            const pkValues = pkColumns.map((c: string) => after[c]);
+            const placeholders = pkColumns.map((_, i: number) => `$${i + 2}`)
+              .join(", ");
+            whereClause = `WHERE (${
+              pkColumns.map((c: string) => `"${c}"`).join(", ")
+            }) > (${placeholders})`;
+            params.push(...pkValues);
+          }
+
+          query =
+            `SELECT * FROM ${safeTableName} ${whereClause} ${orderByClause} LIMIT $1`;
+          params.unshift(limit + 1);
+        } else {
+          // --- Offset Pagination Fallback Strategy ---
+          console.warn(
+            `[Paima Engine] WARNING: Table "${safeTableName}" has no primary key. Falling back to less performant OFFSET-based pagination.`,
+          );
+          const offset = after?.offset || 0;
+
+          // Find a column to order by
+          const tableSchema = await runPreparedQuery(
+            getTableSchema.run({ tableName: safeTableName }, dbConn),
+            "table-schema",
+          );
+          if (tableSchema.length === 0) {
+            return reply.status(404).send({
+              error: "Table has no columns or does not exist",
+            });
+          }
+          const orderByColumn = tableSchema[0].column_name;
+          const orderByClause = `ORDER BY "${orderByColumn}" ASC`;
+
+          query =
+            `SELECT * FROM ${safeTableName} ${orderByClause} LIMIT $1 OFFSET $2`;
+          params.push(limit + 1, offset);
+          nextCursorSeed = { offset: offset + limit };
+        }
+
+        const result = await dbConn.query(query, params);
+        const data = result.rows;
 
         const pagination = createPaginationMeta(
           limit,
-          data as any[],
-          ["id"],
+          data,
+          cursorFields,
+          nextCursorSeed,
         );
 
         return {
           data,
           pagination,
         };
-      } catch (error) {
-        return reply.status(404).send({ error: "Table not found" });
+      } catch (error: any) {
+        if (error.code === "42P01") { // undefined_table
+          return reply.status(404).send({ error: "Table not found" });
+        }
+        console.error(`Error fetching table ${tableName}:`, error);
+        return reply.status(500).send({ error: "Internal server error" });
       }
     },
   );
@@ -505,11 +592,21 @@ export const startHttpServer = function* (
 
       const tableName = `${prefix}${primitiveName.toLowerCase()}`;
       try {
-        const data = await unsafeGetTableData(tableName, limit, after?.id);
+        // Primitives are system-generated and are guaranteed to have an `id` PK.
+        // We can use a simplified, but still safe, query.
+        const safeTableName = tableName.replace(/[^a-z0-9_]/g, "");
+        const afterId = after?.id;
+
+        const query =
+          `SELECT * FROM "${safeTableName}" WHERE ($1::INT IS NULL OR id > $1::INT) ORDER BY id ASC LIMIT $2`;
+        const params: (string | number | null)[] = [afterId, limit + 1];
+
+        const result = await dbConn.query(query, params);
+        const data = result.rows;
 
         const pagination = createPaginationMeta(
           limit,
-          data as any[],
+          data,
           ["id"],
         );
 
@@ -517,9 +614,15 @@ export const startHttpServer = function* (
           data,
           pagination,
         };
-      } catch (error) {
-        return reply.status(404).send({
-          error: "Primitive does not have aggregated data",
+      } catch (error: any) {
+        if (error.code === "42P01") { // undefined_table
+          return reply.status(404).send({
+            error: "Primitive table not found",
+          });
+        }
+        console.error(`Error fetching primitive ${primitiveName}:`, error);
+        return reply.status(500).send({
+          error: "Internal server error fetching primitive data",
         });
       }
     },
