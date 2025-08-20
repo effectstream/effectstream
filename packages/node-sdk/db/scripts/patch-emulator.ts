@@ -1,10 +1,10 @@
-import { localhostConfig } from "@e2e/data-types";
 import { run } from "effection";
 import { createDynamicTables, getConnection } from "@paima/db";
 import type { Client } from "pg";
-import { applyMigrations } from "@paima/db/version";
+import { applyMigrations } from "./apply-migrations.ts";
 import type { SyncProtocolWithNetwork } from "@paima/config";
-import type { DBMigrations } from "@paima/runtime";
+// TODO: Circular dependency.
+// import type { DBMigrations } from "@paima/runtime";
 
 /**
  * This is to generate the user/custom pgtyped files in compilation time
@@ -15,9 +15,10 @@ import type { DBMigrations } from "@paima/runtime";
  */
 export async function standAloneApplyMigrations(
   db: Client,
-  migrationTable: DBMigrations[],
+  migrationTable: /*DBMigrations[]*/ any[],
+  localhostConfig: SyncProtocolWithNetwork,
 ) {
-  const l: SyncProtocolWithNetwork = localhostConfig as any;
+  const l: SyncProtocolWithNetwork = localhostConfig;
   const config = Object.entries(l.primitives).map(([key, value]) => {
     return {
       config: {

@@ -1,4 +1,5 @@
-import type { DBMigrations } from "@paima/runtime";
+// TODO: Circular dependency.
+// import type { DBMigrations } from "@paima/runtime";
 
 /**
  * This function is used by Paima Engine to apply the migration at the correct block heights.
@@ -8,10 +9,10 @@ import type { DBMigrations } from "@paima/runtime";
  * @returns The migration script for the given block height.
  */
 export function getMigrationsForBlockHeight(
-  migrationTable: DBMigrations[] | undefined,
+  migrationTable: /*DBMigrations[]*/ any[] | undefined,
   startBlockHeight: number,
   endBlockHeight: number,
-): DBMigrations[] {
+): /*DBMigrations[]*/ any[] {
   if (!migrationTable) {
     return [];
   }

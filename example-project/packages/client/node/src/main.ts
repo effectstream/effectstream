@@ -6,7 +6,7 @@ import {
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
 } from "@paimaexample/config";
-import { migrationRouter } from "@example/database";
+import { migrationTable } from "@example/database";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "@example/data-types/grammar";
@@ -21,7 +21,7 @@ main(function* () {
       appVersion: "0.3.21",
       syncInfo: toSyncProtocolWithNetwork(localhostConfig),
       gameStateTransitions,
-      migrationRouter,
+      migrations: migrationTable,
       apiRouter,
       grammar,
     });
