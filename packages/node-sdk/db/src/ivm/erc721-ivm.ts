@@ -72,7 +72,7 @@ export function erc721Ivm(name: string) {
       EXECUTE FUNCTION update_erc721_ownership_${validSQLName}();
 
   -- Simple incrementally maintained view on the intermediate table
-  SELECT pgivm.create_immv('erc721_ownership_view_${validSQLName}',
+  SELECT pgivm.create_immv('primitives.erc721_ownership_view_${validSQLName}',
       'SELECT
           primitive_name,
           token_id,
