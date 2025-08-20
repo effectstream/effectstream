@@ -32,6 +32,22 @@ const config = Value.Parse(OrchestratorConfig, {
     launchMidnight,
     // Uncomment to enable Avail Process
     // launchAvail
+    {
+      stopProcessAtPort: [10599],
+      processes: [
+        {
+          name: "frontend-build",
+          args: ["task", "-f", "@paima/explorer", "build"],
+          waitToExit: true,
+        },
+        {
+          name: "frontend-server",
+          args: ["task", "-f", "@paima/explorer", "server:start"],
+          waitToExit: false,
+          type: "system-dependency",
+        },
+      ],
+    },
   ],
 
   // Launch the Batcher with our PaimaL2 Contract

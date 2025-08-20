@@ -5,9 +5,8 @@
     "./witnesses": "./src/witnesses.ts"
   },
   "tasks": {
-    "compact": "compactc src/counter.compact src/managed/counter",
-    "test": "vitest run",
-    "test:compile": "npm run compact && vitest run",
+    "compact": "compact compile src/counter.compact src/managed/counter && deno task convert:js",
+    "convert:js": "deno run -A convert-js.ts src/managed/counter/contract/index.cjs src/managed/counter/contract/index.ts"
   },
   "imports": {
     "vitest": "npm:vitest@^3.2.4",

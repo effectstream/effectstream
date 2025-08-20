@@ -6,6 +6,24 @@ import { startEvm } from "./start-evm.ts";
 import { startCardano } from "./start-cardano.ts";
 import { startMidnight } from "./start-midnight.ts";
 
+const midnightExtended = {
+  stopProcessAtPort: [...startMidnight.stopProcessAtPort, 10599],
+  processes: [
+    ...startMidnight.processes,
+    {
+      name: "Frontend Build",
+      args: ["task", "-f", "@example/frontend", "build"],
+      waitToExit: true,
+    },
+    {
+      name: "Frontend Server",
+      args: ["task", "-f", "@example/frontend", "server:start"],
+      waitToExit: false,
+      type: "system-dependency",
+    },
+  ],
+};
+
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
     [ComponentNames.TMUX]: true,
@@ -22,7 +40,7 @@ const config = Value.Parse(OrchestratorConfig, {
   processesToLaunch: [
     startEvm,
     // startCardano,
-    startMidnight,
+    midnightExtended,
     // startAvail,
   ],
 

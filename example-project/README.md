@@ -1,26 +1,30 @@
-# Install & Start
+# Quick Start
 
-```
-Install dependencies
+
 ```sh
-rm deno.lock
-rm -rf node_modules
-deno install --allow-scripts
-./patch.sh
-```
+# Install Dependencies
+deno install --allow-scripts && ./patch.sh
 
-Deploy Contracts
-```
-deno task evm
-```
+# Compile Contracts
+deno task build:evm
+deno task build:midnight
 
-Launch Node
-```
+# Launch Paima Engine Node
 deno task dev
 ```
 
-Launch Web App
+Open [http://localhost:10599](http://localhost:10599)
+
+
+# Docker
 
 ```
-deno task frontend
+# If running in MacOS Apple Silicon set platform
+DOCKER_DEFAULT_PLATFORM=linux/amd64
+
+# Build Docker Image
+docker build -f ./Dockerfile . -t evm-midnight 
+
+# Run Docker Image
+docker run evm-midnight
 ```

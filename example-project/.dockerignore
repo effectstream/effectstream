@@ -3,3 +3,8 @@ node_modules
 cache
 out
 volume
+packages/shared/contracts/midnight/midnight-level-db/*
+packages/frontend/client/dist/*
+packages/shared/contracts/evm/build/*
+packages/shared/contracts/evm/ignition/deployments/*
+packages/shared/contracts/evm/remappings.txt

@@ -49,9 +49,12 @@ async function unzipBinary() {
   });
   const platform = getPlatform();
   const parts = platform.split("-");
+  const binaryName = (parts[0] === "linux" && parts[1] === "amd64")
+    ? `midnight-node-${platform}`
+    : "midnight-node";
   if (parts[0] === "linux") {
     fs.chmodSync(
-      path.join(__dirname, "midnight-node", `midnight-node-${platform}`),
+      path.join(__dirname, "midnight-node", binaryName),
       0o755,
     );
   }
