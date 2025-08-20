@@ -38,7 +38,7 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
     //   `SELECT
     //         primitive_name, id, paima_block_height, payload_type, payload
     //         FROM
-    //         public.primitive_accounting;`,
+    //         paima.primitive_accounting;`,
     //   (res) => res.rows.length === sharedState.primitive_accounting_counter,
     //   (res) => {
     //     return res.rows.length === sharedState.primitive_accounting_counter;
@@ -66,7 +66,7 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
     //   `SELECT
     //         primitive_name, id, paima_block_height, payload_type, payload
     //         FROM
-    //         public.primitive_accounting;`,
+    //         paima.primitive_accounting;`,
     //   (res) => res.rows.length === sharedState.primitive_accounting_counter,
     //   (res) => {
     //     return res.rows.length === sharedState.primitive_accounting_counter;
@@ -121,7 +121,7 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
     //   `SELECT
     //         primitive_name, id, paima_block_height, payload_type, payload
     //         FROM
-    //         public.primitive_accounting;`,
+    //         paima.primitive_accounting;`,
     //   (res) => res.rows.length === sharedState.primitive_accounting_counter,
     //   (res) => {
     //     return res.rows.length === sharedState.primitive_accounting_counter;
@@ -137,7 +137,7 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
   //   `SELECT
   //         primitive_name, id, paima_block_height, payload_type, payload
   //         FROM
-  //         public.primitive_accounting;`,
+  //         paima.primitive_accounting;`,
   //   (res) => res.rows.length === sharedState.primitive_accounting_counter,
   //   (res) => {
   //     return res.rows.length === sharedState.primitive_accounting_counter;
