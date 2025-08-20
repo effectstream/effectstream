@@ -118,6 +118,7 @@
     "npm:@opentelemetry/semantic-conventions@1.28.0": "1.28.0",
     "npm:@openzeppelin/contracts-upgradeable@^5.1.0": "5.4.0_@openzeppelin+contracts@5.1.0",
     "npm:@openzeppelin/contracts@5.1.0": "5.1.0",
+    "npm:@paima/pgtyped-cli@2.4.5": "2.4.5_typescript@5.6.3_fp-ts@2.16.11_io-ts@2.2.22__fp-ts@2.16.11_chokidar@4.0.1",
     "npm:@paima/pgtyped-cli@^2.4.5": "2.4.5_typescript@5.6.3_fp-ts@2.16.11_io-ts@2.2.22__fp-ts@2.16.11_chokidar@4.0.1",
     "npm:@pgtyped/parser@2.4.2": "2.4.2",
     "npm:@pgtyped/runtime@2.4.2": "2.4.2",
@@ -195,6 +196,7 @@
     "npm:viem@^2.21.3": "2.34.0_typescript@5.6.3_ws@8.18.3",
     "npm:vite-plugin-node-stdlib-browser@*": "0.2.1_node-stdlib-browser@1.3.1_vite@6.3.5__picomatch@4.0.3_@types+node@22.15.15",
     "npm:vite@^6.3.2": "6.3.5_picomatch@4.0.3_@types+node@22.15.15",
+    "npm:wait-on@*": "8.0.3",
     "npm:wait-on@8.0.3": "8.0.3",
     "npm:ws@*": "8.18.1",
     "npm:ws@8.18.1": "8.18.1"
@@ -14200,12 +14202,7 @@
           "npm:rxjs@*",
           "npm:viem@^2.21.3",
           "npm:ws@*"
-        ],
-        "packageJson": {
-          "dependencies": [
-            "npm:@midnight-ntwrk/compact-runtime@~0.8.1"
-          ]
-        }
+        ]
       },
       "e2e/e2e-engine": {
         "dependencies": [

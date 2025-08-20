@@ -1,6 +1,4 @@
-import type { DBMigrations, StartConfigMigrationRouter } from "@paima/runtime";
-
-import { migrationTable } from "./migration-order.ts";
+import type { DBMigrations } from "@paima/runtime";
 
 /**
  * This function is used by Paima Engine to apply the migration at the correct block heights.
@@ -9,10 +7,14 @@ import { migrationTable } from "./migration-order.ts";
  * @param endBlockHeight - The paima block height to stop applying the migrations at (inclusive).
  * @returns The migration script for the given block height.
  */
-export const migrationRouter: StartConfigMigrationRouter = async function (
+export function getMigrationsForBlockHeight(
+  migrationTable: DBMigrations[] | undefined,
   startBlockHeight: number,
   endBlockHeight: number,
-): Promise<DBMigrations[]> {
+): DBMigrations[] {
+  if (!migrationTable) {
+    return [];
+  }
   const migrationsToApply = migrationTable
     .filter((migration) => {
       const targetBlockHeight = migration.blockHeight ?? 1;
@@ -22,4 +24,4 @@ export const migrationRouter: StartConfigMigrationRouter = async function (
       );
     });
   return migrationsToApply;
-};
+}

@@ -18,7 +18,7 @@ import {
 } from "@paima/db";
 import { Buffer } from "node:buffer";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import type { StartConfig, StartConfigMigrationRouter } from "./types.ts";
+import type { StartConfig } from "./types.ts";
 import type { PaimaBlockHash } from "@paima/utils";
 import { generatePaimaBlockHash, Prando } from "@paima/crypto";
 import { applyUserMigrations } from "./version-migrations.ts";
@@ -126,7 +126,7 @@ export function* processFinalizedBlock(
   dbConn: Pool,
   previousBlockHash: PaimaBlockHash | null,
 ): Operation<PaimaBlockHash> {
-  const { gameStateTransitions, migrationRouter } = config;
+  const { gameStateTransitions, migrations } = config;
   const blockHash: PaimaBlockHash = generatePaimaBlockHash(
     value,
     previousBlockHash,
@@ -148,11 +148,11 @@ export function* processFinalizedBlock(
     );
 
     /* STEP 2: Process the migrations. */
-    if (migrationRouter) {
+    if (migrations) {
       yield* applyUserMigrations(
         value.blockNumber,
         dbConn,
-        migrationRouter,
+        migrations,
       );
     }
 

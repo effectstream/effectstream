@@ -8,12 +8,11 @@ import {
 } from "@paima/db/version";
 import type { Operation } from "effection";
 import { until } from "npm:effection@3.5.0";
-import { insertPaimaEngineVersion } from "@paima/db";
-import type {
-  DBMigrations,
-  StartConfigMigrationRouter,
-  VERSION,
-} from "@paima/runtime";
+import {
+  getMigrationsForBlockHeight,
+  insertPaimaEngineVersion,
+} from "@paima/db";
+import type { DBMigrations, VERSION } from "@paima/runtime";
 
 type SystemMigration = {
   version: VERSION;
@@ -25,7 +24,7 @@ export function* applySystemMigrations(
   versionInfo: VersionInfo,
   lastBlockHeight: number,
   dbConn: Client,
-  migrationRouter: StartConfigMigrationRouter | undefined,
+  migrationOrder: DBMigrations[] | undefined,
 ): Operation<void> {
   if (
     versionInfo.engine_current_version === versionInfo.engine_previous_version
@@ -36,7 +35,7 @@ export function* applySystemMigrations(
 
   const migrations = yield* getAllSystemMigrations(
     versionInfo,
-    migrationRouter,
+    migrationOrder,
     dbConn,
   );
 
@@ -75,7 +74,7 @@ export function* applySystemMigrations(
 }
 function* getAllSystemMigrations(
   config: VersionInfo,
-  migrationRouter: StartConfigMigrationRouter | undefined,
+  migrationOrder: DBMigrations[] | undefined,
   blockHeight: number,
 ): Operation<SystemMigration[]> {
   const fromVersion = config.is_empty
@@ -94,11 +93,11 @@ function* getAllSystemMigrations(
 export function* applyUserMigrations(
   currentBlockHeight: number,
   dbConn: Client,
-  migrationRouter: StartConfigMigrationRouter,
+  migrationOrder: DBMigrations[] | undefined,
 ): Operation<void> {
   const migrations = yield* getAllUserMigrations(
     PAIMA_ENGINE_VERSION,
-    migrationRouter,
+    migrationOrder,
     currentBlockHeight,
   );
 
@@ -118,13 +117,15 @@ export function* applyUserMigrations(
 
 function* getAllUserMigrations(
   currentEngineVersion: VERSION,
-  migrationRouter: StartConfigMigrationRouter,
+  migrationOrder: DBMigrations[] | undefined,
   blockHeight: number,
 ): Operation<DBMigrations[]> {
   // Get User Migrations
-  const userMigrations = migrationRouter
-    ? yield* until(migrationRouter(blockHeight, blockHeight))
-    : [];
+  const userMigrations = getMigrationsForBlockHeight(
+    migrationOrder,
+    blockHeight,
+    blockHeight,
+  );
 
   // Check if User Migrations are compatible with the current version
   for (const migration of userMigrations) {

@@ -1,19 +1,22 @@
 import { localhostConfig } from "@e2e/data-types";
-import { migrationTable } from "./migration-order.ts";
 import { run } from "effection";
 import { createDynamicTables, getConnection } from "@paima/db";
 import type { Client } from "pg";
 import { applyMigrations } from "@paima/db/version";
 import type { SyncProtocolWithNetwork } from "@paima/config";
+import type { DBMigrations } from "@paima/runtime";
 
 /**
  * This is to generate the user/custom pgtyped files in compilation time
  * MIGRATIONS environment variable is used to specify the path to the migrations folder.
  * Every file in the migrations folder is executed in order.
+ *
  * TODO: Implement how to manage the order of the migrations, e.g. 1.sql, 2.sql, 10.sql, etc.
  */
-
-async function standAloneApplyUserMigrations(db: Client) {
+export async function standAloneApplyMigrations(
+  db: Client,
+  migrationTable: DBMigrations[],
+) {
   const l: SyncProtocolWithNetwork = localhostConfig as any;
   const config = Object.entries(l.primitives).map(([key, value]) => {
     return {
@@ -53,7 +56,3 @@ async function standAloneApplyUserMigrations(db: Client) {
     );
   }
 }
-
-const db = await getConnection();
-await standAloneApplyUserMigrations(db);
-console.log("✅ User migrations applied");
