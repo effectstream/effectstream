@@ -1,27 +1,30 @@
 # Paima Engine
 
-# Development
+## Quick Start
 
-## Install dependencies
-`deno install --allow-scripts`
+Start at [Paima Engine Template](./example-project/) for quickstart project
 
-## Build Contracts
+## Development
+
+Paima Engine development mode & tests can be run through e2e environment.
+
+
 ```sh
+# Install dependencies
+deno install --allow-scripts && ./patch.sh
+
+# Build Contracts
 deno task -f @e2e/evm-contracts build
 deno task -f @e2e/evm-contracts deploy:standalone
 deno task -f @e2e/midnight-contracts midnight-contract:compile
+
+# Run Example Deployment Mode
+deno task -f @e2e/node dev
 ```
 
-## Run Example Deployment
-`deno task -f @e2e/node dev`
-
-## Create pgtypes
-`deno task -f @e2e/database pgtyped:update`
-
-## Launch Explorer
-`deno task -f @paima/explorer start`
-
-# Tests
 ## Run Tests
-`deno task -f @e2e/node test`
+> NOTE: first install dependencies and build contracts
 
+```sh
+deno task -f @e2e/node test
+```
