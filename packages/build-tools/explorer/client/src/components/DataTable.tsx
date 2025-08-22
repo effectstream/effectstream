@@ -43,7 +43,8 @@ function formatCellValue(value: any, fieldName: string): string {
 
   // Check if this looks like an Ethereum address
   if (
-    typeof value === "string" && value.startsWith("0x") && value.length === 42
+    typeof value === "string" &&
+    (fieldName === 'contract_address' || (value.startsWith("0x") && value.length === 42))
   ) {
     return `<span class="address-cell" style="overflow: hidden; text-overflow: ellipsis;" title="${value}">${value}</span>`;
   }
