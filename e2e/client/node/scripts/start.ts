@@ -6,10 +6,10 @@ import {
 import { ComponentNames } from "@paima/log";
 import { Value } from "@sinclair/typebox/value";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
-import { launchAvail } from "./launch-avail.ts";
-import { launchCardano } from "./launch-cardano.ts";
-import { launchEvm } from "./launch-evm.ts";
-import { launchMidnight } from "./launch-midnight.ts";
+import { launchAvail } from "@paima/orchestrator/start-avail";
+import { launchCardano } from "@paima/orchestrator/start-cardano";
+import { launchEvm } from "@paima/orchestrator/start-evm";
+import { launchMidnight } from "@paima/orchestrator/start-midnight";
 
 const external_db_enabled = Deno.env.get("EXTERNAL_DB_ENABLED") === "true";
 const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
@@ -27,11 +27,11 @@ const config = Value.Parse(OrchestratorConfig, {
 
   // Launch my processes
   processesToLaunch: [
-    launchEvm,
-    yaci_enabled ? launchCardano : {},
-    launchMidnight,
+    launchEvm("@e2e/evm-contracts"),
+    yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
+    launchMidnight("@e2e/midnight-contracts"),
     // Uncomment to enable Avail Process
-    // launchAvail
+    // launchAvail("@e2e/avail-contracts"),
     {
       stopProcessAtPort: [10599],
       processes: [

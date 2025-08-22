@@ -111,7 +111,7 @@ function* startup(
     versionInfo,
     lastBlockHeight,
     dbConn,
-    config.migrationRouter,
+    config.migrations,
   );
 
   const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);

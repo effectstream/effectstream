@@ -18,15 +18,6 @@ export type StartConfigGameStateTransitions = (
   input: BaseStfInput,
 ) => SyncStateUpdateStream<void>;
 
-/**
- * Type for the migration router function.
- * It should return a valid SQL to be executed at a given block height.
- */
-export type StartConfigMigrationRouter = (
-  startBlockHeight: number,
-  endBlockHeight: number,
-) => Promise<DBMigrations[]>;
-
 export type DBMigrations = {
   versionDependency?: VERSION;
   blockHeight?: number;
@@ -56,7 +47,7 @@ export type StartConfig = {
   appVersion: VERSION;
   syncInfo: SyncProtocolWithNetwork[];
   gameStateTransitions?: StartConfigGameStateTransitions;
-  migrationRouter?: StartConfigMigrationRouter;
+  migrations?: DBMigrations[];
   apiRouter?: StartConfigApiRouter;
   grammar?: GrammarDefinition;
 };

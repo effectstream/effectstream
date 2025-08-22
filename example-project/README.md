@@ -2,6 +2,9 @@
 
 
 ```sh
+# Check for external Dependencies
+./check.sh
+
 # Install Dependencies
 deno install --allow-scripts && ./patch.sh
 

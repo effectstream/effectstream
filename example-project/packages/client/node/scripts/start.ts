@@ -2,14 +2,17 @@ import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
 import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
 import { contractAddressesEvmMain } from "@example/evm-contracts";
-import { startEvm } from "./start-evm.ts";
-import { startCardano } from "./start-cardano.ts";
-import { startMidnight } from "./start-midnight.ts";
+import { launchEvm } from "@paimaexample/orchestrator/start-evm";
+import { launchCardano } from "@paimaexample/orchestrator/start-cardano";
+import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 
-const midnightExtended = {
-  stopProcessAtPort: [...startMidnight.stopProcessAtPort, 10599],
+const midnightExtended = (packageName: string) => ({
+  stopProcessAtPort: [
+    ...launchMidnight(packageName).stopProcessAtPort,
+    10599,
+  ],
   processes: [
-    ...startMidnight.processes,
+    ...launchMidnight(packageName).processes,
     {
       name: "Frontend Build",
       args: ["task", "-f", "@example/frontend", "build"],
@@ -22,7 +25,7 @@ const midnightExtended = {
       type: "system-dependency",
     },
   ],
-};
+});
 
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
@@ -38,10 +41,10 @@ const config = Value.Parse(OrchestratorConfig, {
 
   // Launch my processes
   processesToLaunch: [
-    startEvm,
-    // startCardano,
-    midnightExtended,
-    // startAvail,
+    launchEvm("@example/evm-contracts"),
+    // launchCardano("@example/cardano-contracts"),
+    midnightExtended("@example/midnight-contracts"),
+    // launchAvail("@example/avail-contracts"),
   ],
 
   // Launch the Batcher with our PaimaL2 Contract

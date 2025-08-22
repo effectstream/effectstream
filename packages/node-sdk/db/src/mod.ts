@@ -57,3 +57,5 @@ export {
   getPrimitivePrefix,
 } from "./dynamic-tables.ts";
 // export { startPGlite } from "./start-pglite.ts";
+
+export { getMigrationsForBlockHeight } from "./migrations.ts";

@@ -9,7 +9,8 @@
     "./db-up": "./scripts/start-pglite.ts",
     "./db-wait": "./scripts/wait-for-db.ts",
     "./pgtyped-update": "./scripts/pgtyped-update.ts",
-    "./version": "./migrations/system-version.ts"
+    "./version": "./migrations/system-version.ts",
+    "./patch-emulator": "./scripts/patch-emulator.ts"
   },
   "tasks": {
     "pgtyped:update": "deno task _build:assets && ((kill -9 $(lsof -ti:5432)) || true) && deno run -A @paima/db/pgtyped-update",

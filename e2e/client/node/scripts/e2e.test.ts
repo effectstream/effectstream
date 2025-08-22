@@ -1,13 +1,20 @@
-import { cleanup, shutdown, startup } from "./e2e-loader.ts";
-import { anyError, printSummary } from "./e2e-assert.ts";
+import {
+  anyError,
+  cleanup,
+  newSharedState,
+  printSummary,
+  type SharedState,
+  shutdown,
+  startup,
+} from "@e2e/engine";
+
 import type { Client } from "pg";
-import { generalTest } from "./e2e.general.test.ts";
-import { accountTests } from "./e2e.account.test.ts";
-import { newSharedState } from "./e2e-shared-state.ts";
-import { tokenTests } from "./e2e.tokens.ts";
-import { RPCTest } from "./e2e.rpc.test.ts";
-import { joinAndIncrementTest } from "./e2e.midnight.test.ts";
-import { testMigrations } from "./e2e.migrationts.ts";
+import { accountTests } from "../e2e-tests/e2e.account.test.ts";
+import { generalTest } from "../e2e-tests/e2e.general.test.ts";
+import { joinAndIncrementTest } from "../e2e-tests/e2e.midnight.test.ts";
+import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
+import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
+import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

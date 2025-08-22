@@ -10,7 +10,7 @@
     // TODO: how these actually will work will depend on the hardhat v3 viem plugin
     //       See https://github.com/NomicFoundation/hardhat/issues/5978
     "imports": {
-        "@paimaexample/log": "jsr:@paimaexample/log@0.3.21",
+        "@paimaexample/log": "jsr:@paimaexample/log@0.3.22",
         "@wagmi/cli": "npm:@wagmi/cli@2.3.1",
         "hardhat": "npm:hardhat@3.0.0-next.20",
         "@nomicfoundation/hardhat-ignition-viem": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.0-next.20",
