@@ -20,12 +20,12 @@ export interface IGetPageQuery {
   result: IGetPageResult;
 }
 
-const getPageIR: any = {"usedParamSet":{"protocol_name":true},"params":[{"name":"protocol_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":61,"b":75}]}],"statement":"SELECT * FROM sync_protocol_pagination\nWHERE protocol_name = :protocol_name!"};
+const getPageIR: any = {"usedParamSet":{"protocol_name":true},"params":[{"name":"protocol_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":67,"b":81}]}],"statement":"SELECT * FROM paima.sync_protocol_pagination\nWHERE protocol_name = :protocol_name!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM sync_protocol_pagination
+ * SELECT * FROM paima.sync_protocol_pagination
  * WHERE protocol_name = :protocol_name!
  * ```
  */
@@ -47,13 +47,13 @@ export interface IUpsertPageQuery {
   result: IUpsertPageResult;
 }
 
-const upsertPageIR: any = {"usedParamSet":{"protocol_name":true,"page":true},"params":[{"name":"protocol_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":98,"b":112}]},{"name":"page","required":true,"transform":{"type":"scalar"},"locs":[{"a":119,"b":124}]}],"statement":"INSERT INTO\n    sync_protocol_pagination (\n        protocol_name,\n        page\n    )\nVALUES (\n    :protocol_name!,\n    :page!\n)"};
+const upsertPageIR: any = {"usedParamSet":{"protocol_name":true,"page":true},"params":[{"name":"protocol_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":104,"b":118}]},{"name":"page","required":true,"transform":{"type":"scalar"},"locs":[{"a":125,"b":130}]}],"statement":"INSERT INTO\n    paima.sync_protocol_pagination (\n        protocol_name,\n        page\n    )\nVALUES (\n    :protocol_name!,\n    :page!\n)"};
 
 /**
  * Query generated from SQL:
  * ```
  * INSERT INTO
- *     sync_protocol_pagination (
+ *     paima.sync_protocol_pagination (
  *         protocol_name,
  *         page
  *     )

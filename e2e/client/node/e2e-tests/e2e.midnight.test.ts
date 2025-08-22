@@ -467,7 +467,7 @@ async function joinAndIncrementTest(
         }>(
           "MidnightRowsExists",
           db,
-          "SELECT * FROM public.primitive_accounting WHERE primitive_name = 'MidnightContractState'",
+          "SELECT * FROM paima.primitive_accounting WHERE primitive_name = 'MidnightContractState'",
           (res) => res.rowCount === 2,
           (res) => {
             return res.rows[0].payload.content[0].content.value[0]["0"] ===
