@@ -24,10 +24,6 @@ import fastifySwaggerUi, {
   type FastifySwaggerUiOptions,
 } from "@fastify/swagger-ui";
 import { Type } from "@sinclair/typebox";
-import {
-  createIsUserDefinedTableFilter,
-  sanitizeIdentifier,
-} from "./table-filter.ts";
 import type { StartConfigApiRouter } from "../types.ts";
 import type { GrammarDefinition } from "@paima/concise";
 import {
@@ -149,9 +145,6 @@ export const startHttpServer = function* (
       origin: "*",
     }),
   );
-
-  // Filter that allows only user-defined tables (not system, not dynamic IVM)
-  const isUserDefinedTable = createIsUserDefinedTableFilter(syncProtocols);
 
   if (apiRouter) {
     yield* until(apiRouter(server, dbConn));
@@ -354,13 +347,8 @@ export const startHttpServer = function* (
   ) => {
     const { tableName } = request.params;
 
-    const safeName = sanitizeIdentifier(tableName);
-    if (!isUserDefinedTable(safeName)) {
-      return [];
-    }
-
     const result = await runPreparedQuery(
-      getTableSchema.run({ tableName: safeName }, dbConn),
+      getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
       `table-schema:${tableName}`,
     );
 
@@ -374,10 +362,10 @@ export const startHttpServer = function* (
     skip?: number,
   ): Promise<unknown[]> {
     let unsafeQuery = `SELECT * FROM ":1"`;
-    const unsafeTableName = sanitizeIdentifier(tableName);
-    if (!isUserDefinedTable(unsafeTableName)) {
-      throw new Error("Table access denied");
-    }
+    const unsafeTableName = tableName.toLowerCase().replace(
+      /[^a-zA-Z0-9_]/g,
+      "",
+    );
     if (unsafeTableName.length > 63) {
       throw new Error("Table name too long");
     }
