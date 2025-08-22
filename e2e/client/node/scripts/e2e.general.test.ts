@@ -47,7 +47,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     `SELECT
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
-      public.primitive_accounting;`,
+      paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
       return res.rows[sharedState.primitive_accounting_counter - 3]
@@ -69,7 +69,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     `SELECT
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
-      public.primitive_accounting;`,
+      paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
       return res.rows[sharedState.primitive_accounting_counter - 1]
@@ -87,7 +87,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     `SELECT
       inputs
       FROM
-      public.user_state_machine;`,
+      user_state_machine;`,
     (res) => res.rows.length === sharedState.paima_state_machine_counter,
     (res) => {
       const dump = [
@@ -119,7 +119,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ address: string; balance: string }>(
     "Check IVM ERC20",
     db,
-    `SELECT * FROM public.erc20_balances_view_aribitrum_token;`,
+    `SELECT * FROM primitives.erc20_balances_view_aribitrum_token;`,
     (res) => res.rows.length === 2,
     (res) => {
       // TODO
@@ -158,7 +158,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ address: string }>(
     "Check addresses",
     db,
-    `SELECT * FROM public.addresses;`,
+    `SELECT * FROM paima.addresses;`,
     (res) => res.rows.length === 1,
     (res) => {
       return res.rows[0].address === wallets[0].address.toLowerCase();
@@ -172,7 +172,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ sum: number }>(
     "Check Promises in State Machine",
     db,
-    `SELECT * FROM public.another_example_table order by block_height asc;`,
+    `SELECT * FROM another_example_table order by block_height asc;`,
     (res) => res.rows.length === attackInputCount,
     (res) => {
       // The first value is random - 3;
@@ -211,7 +211,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     `SELECT
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
-      public.primitive_accounting;`,
+      paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
   );
@@ -255,7 +255,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     `SELECT
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
-      public.primitive_accounting;`,
+      paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
       return res.rows[sharedState.primitive_accounting_counter - 1]
@@ -295,7 +295,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     `SELECT
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
-      public.primitive_accounting;`,
+      paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
       return res.rows[sharedState.primitive_accounting_counter - 1]
@@ -311,7 +311,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ nonce: string }>(
     "Check nonces",
     db,
-    `SELECT * FROM public.nonces;`,
+    `SELECT * FROM paima.nonces;`,
     (res) => res.rows.length === nonce_counter,
     (res) => {
       return res.rows.length === nonce_counter;
@@ -328,7 +328,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ inputs: string; block_height: number }>(
     "Check Scheduled Data - block",
     db,
-    `SELECT inputs, block_height from public.user_state_machine`,
+    `SELECT inputs, block_height from user_state_machine`,
     (res) => res.rows.length === sharedState.paima_state_machine_counter,
     (res) => {
       return res.rows[sharedState.paima_state_machine_counter - 1].inputs ===
@@ -346,7 +346,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ inputs: string; block_height: number }>(
     "Check Scheduled Data - timestamp",
     db,
-    `SELECT inputs, block_height from public.user_state_machine`,
+    `SELECT inputs, block_height from user_state_machine`,
     (res) => res.rows.length === sharedState.paima_state_machine_counter,
     (res) => {
       return res.rows[sharedState.paima_state_machine_counter - 1].inputs ===
@@ -386,32 +386,33 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   });
 
   await assert("Check System API Table Data", async () => {
-    const limit = sharedState.paima_state_machine_counter * 2; // 2x the data length
-    const response = await fetch(
-      `http://localhost:${ENV.PAIMA_API_PORT}/tables/user_state_machine?count=true&limit=${limit}`,
-    );
-    const { data, pagination } = await response.json();
-    const dataLenghtAsserts =
-      data.length === sharedState.paima_state_machine_counter;
-    if (!dataLenghtAsserts) {
+    const allData = [];
+    let nextCursor: string | undefined = undefined;
+
+    do {
+      let url =
+        `http://localhost:${ENV.PAIMA_API_PORT}/tables/user_state_machine?limit=10`;
+      if (nextCursor) {
+        url += `&after=${nextCursor}`;
+      }
+
+      const response = await fetch(url);
+      const { data, pagination } = await response.json();
+      allData.push(...data);
+      nextCursor = pagination.nextCursor;
+    } while (nextCursor);
+
+    const dataLengthAsserts =
+      allData.length === sharedState.paima_state_machine_counter;
+    if (!dataLengthAsserts) {
       console.error(
         "Data length mismatch: Data length",
-        data.length,
+        allData.length,
         "expected (sharedState.paima_state_machine_counter)",
         sharedState.paima_state_machine_counter,
       );
     }
-    const paginationAsserts =
-      pagination.total === sharedState.paima_state_machine_counter;
-    if (!paginationAsserts) {
-      console.error(
-        "Pagination total mismatch: Pagination total",
-        pagination.total,
-        "expected (sharedState.paima_state_machine_counter)",
-        sharedState.paima_state_machine_counter,
-      );
-    }
-    return dataLenghtAsserts && paginationAsserts;
+    return dataLengthAsserts;
   });
 
   const tokens = {
@@ -441,7 +442,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   >(
     "Check ERC721 sync-process",
     db,
-    `SELECT * FROM public.erc721_ownership_view_arbitrum_erc721;`,
+    `SELECT * FROM primitives.erc721_ownership_view_arbitrum_erc721;`,
     (res) => res.rows.length === 4,
     (res) => {
       return res.rows.every((row: any) => {
@@ -482,7 +483,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     `SELECT
           primitive_name, id, paima_block_height, payload_type, payload
           FROM
-          public.primitive_accounting;`,
+          paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
       return res.rows.length === sharedState.primitive_accounting_counter;
@@ -497,7 +498,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     `SELECT
           primitive_name, id, paima_block_height, payload_type, payload
           FROM
-          public.primitive_accounting;`,
+          paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
       return res.rows.length === sharedState.primitive_accounting_counter;

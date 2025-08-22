@@ -115,13 +115,13 @@ async function assertAccountState(
     db,
     {
       query:
-        `SELECT primitive_name FROM public.primitive_accounting ORDER BY id`,
+        `SELECT primitive_name FROM paima.primitive_accounting ORDER BY id`,
       check: (res) => res.rows.length === expectedPrimitiveAccountingCount,
     },
     {
       query: `SELECT 
-      (SELECT json_agg(json_build_object('address', address, 'account_id', account_id)) FROM public.addresses) as addresses,
-      (SELECT json_agg(json_build_object('id', id, 'primary_address', primary_address)) FROM public.accounts) as accounts`,
+      (SELECT json_agg(json_build_object('address', address, 'account_id', account_id)) FROM paima.addresses) as addresses,
+      (SELECT json_agg(json_build_object('id', id, 'primary_address', primary_address)) FROM paima.accounts) as accounts`,
       check: (res) => {
         const addressRows = res.rows[0].addresses || [];
         const accountRows = res.rows[0].accounts || [];
@@ -594,7 +594,7 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     `SELECT
         primitive_name, id, paima_block_height, payload_type, payload
         FROM
-        public.primitive_accounting;`,
+        paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
       return res.rows.length === sharedState.primitive_accounting_counter;

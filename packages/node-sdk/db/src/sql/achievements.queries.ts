@@ -24,12 +24,12 @@ export interface IGetAchievementProgressQuery {
   result: IGetAchievementProgressResult;
 }
 
-const getAchievementProgressIR: any = {"usedParamSet":{"account_id":true,"names":true},"params":[{"name":"names","required":false,"transform":{"type":"array_spread"},"locs":[{"a":79,"b":84},{"a":97,"b":102}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":54,"b":65}]}],"statement":"SELECT * FROM achievement_progress\nWHERE account_id = :account_id!\nAND ('*' in :names OR name IN :names)"};
+const getAchievementProgressIR: any = {"usedParamSet":{"account_id":true,"names":true},"params":[{"name":"names","required":false,"transform":{"type":"array_spread"},"locs":[{"a":85,"b":90},{"a":103,"b":108}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":60,"b":71}]}],"statement":"SELECT * FROM paima.achievement_progress\nWHERE account_id = :account_id!\nAND ('*' in :names OR name IN :names)"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM achievement_progress
+ * SELECT * FROM paima.achievement_progress
  * WHERE account_id = :account_id!
  * AND ('*' in :names OR name IN :names)
  * ```
@@ -55,12 +55,12 @@ export interface ISetAchievementProgressQuery {
   result: ISetAchievementProgressResult;
 }
 
-const setAchievementProgressIR: any = {"usedParamSet":{"account_id":true,"name":true,"completed_date":true,"progress":true,"total":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":93,"b":104}]},{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":107,"b":112}]},{"name":"completed_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":115,"b":129}]},{"name":"progress","required":false,"transform":{"type":"scalar"},"locs":[{"a":132,"b":140}]},{"name":"total","required":false,"transform":{"type":"scalar"},"locs":[{"a":143,"b":148}]}],"statement":"INSERT INTO achievement_progress (account_id, name, completed_date, progress, total)\nVALUES (:account_id!, :name!, :completed_date, :progress, :total)\nON CONFLICT (account_id, name)\nDO UPDATE SET\n  completed_date = EXCLUDED.completed_date,\n  progress = EXCLUDED.progress,\n  total = EXCLUDED.total"};
+const setAchievementProgressIR: any = {"usedParamSet":{"account_id":true,"name":true,"completed_date":true,"progress":true,"total":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":99,"b":110}]},{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":113,"b":118}]},{"name":"completed_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":121,"b":135}]},{"name":"progress","required":false,"transform":{"type":"scalar"},"locs":[{"a":138,"b":146}]},{"name":"total","required":false,"transform":{"type":"scalar"},"locs":[{"a":149,"b":154}]}],"statement":"INSERT INTO paima.achievement_progress (account_id, name, completed_date, progress, total)\nVALUES (:account_id!, :name!, :completed_date, :progress, :total)\nON CONFLICT (account_id, name)\nDO UPDATE SET\n  completed_date = EXCLUDED.completed_date,\n  progress = EXCLUDED.progress,\n  total = EXCLUDED.total"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO achievement_progress (account_id, name, completed_date, progress, total)
+ * INSERT INTO paima.achievement_progress (account_id, name, completed_date, progress, total)
  * VALUES (:account_id!, :name!, :completed_date, :progress, :total)
  * ON CONFLICT (account_id, name)
  * DO UPDATE SET

@@ -5,7 +5,6 @@ import { RingBuffer } from "./tab/logs-ringbuffer.ts";
 import {
   createPaginatedResponseSchema,
   getPaginationParams,
-  paginateArray,
   PaginationQuerySchema,
 } from "@paima/runtime";
 
@@ -92,11 +91,18 @@ export class LogServer {
           200: createPaginatedResponseSchema(OTelLogSchema),
         },
       },
-    }, (request: any, reply: any) => {
-      const { limit, skip } = getPaginationParams(request);
+    }, (request, reply) => {
+      const { limit } = getPaginationParams(request);
       const copy = this.getData();
-      const paginatedResult = paginateArray(copy, limit, skip);
-      reply.status(200).send(paginatedResult);
+
+      const data = copy.slice(0, limit);
+      const pagination = {
+        limit,
+        hasMore: copy.length > limit,
+        nextCursor: undefined,
+      };
+
+      reply.status(200).send({ data, pagination });
     });
 
     // New endpoint to control log display per process

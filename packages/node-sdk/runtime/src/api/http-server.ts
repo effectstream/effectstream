@@ -6,9 +6,8 @@ import { run, until } from "effection";
 import {
   acquireDBMutex,
   getAllAddresses,
-  getAllAddressesCount,
   getAllScheduledData,
-  getAllScheduledDataCount,
+  getPrimaryKeyColumns,
   getPrimitivePrefix,
   getTableSchema,
   releaseDBMutex,
@@ -24,16 +23,13 @@ import fastifySwaggerUi, {
   type FastifySwaggerUiOptions,
 } from "@fastify/swagger-ui";
 import { Type } from "@sinclair/typebox";
-import {
-  createIsUserDefinedTableFilter,
-  sanitizeIdentifier,
-} from "./table-filter.ts";
 import type { StartConfigApiRouter } from "../types.ts";
 import type { GrammarDefinition } from "@paima/concise";
 import {
   createPaginatedResponseSchema,
   createPaginationMeta,
   getPaginationParams,
+  type PaginatedResponse,
   PaginationQuerySchema,
 } from "./pagination.ts";
 
@@ -150,9 +146,6 @@ export const startHttpServer = function* (
     }),
   );
 
-  // Filter that allows only user-defined tables (not system, not dynamic IVM)
-  const isUserDefinedTable = createIsUserDefinedTableFilter(syncProtocols);
-
   if (apiRouter) {
     yield* until(apiRouter(server, dbConn));
   }
@@ -185,36 +178,30 @@ export const startHttpServer = function* (
       },
     },
   }, async (request) => {
-    const { limit, skip, count } = getPaginationParams(request);
-
-    const query = request.query as any;
-    const paginationParams =
-      (query.limit !== undefined || query.skip !== undefined)
-        ? { limit, skip }
-        : {};
-
-    const addressesPromise = runPreparedQuery(
-      getAllAddresses.run(paginationParams as any, dbConn as any),
-      "addresses",
-    );
-
-    const countPromise = count
-      ? runPreparedQuery(
-        getAllAddressesCount.run(undefined, dbConn as any),
-        "addresses-count",
-      )
-      : undefined;
-
-    const [addresses, countResult] = await Promise.all([
-      addressesPromise,
-      countPromise,
-    ]);
+    const { limit, after } = getPaginationParams(request);
+    let addresses: any[] = [];
+    try {
+      // @ts-ignore - pgtyped overload resolution is failing in this context
+      addresses = await runPreparedQuery(
+        getAllAddresses.run(
+          {
+            limit,
+            after_account_id: after?.account_id ?? null,
+            after_address: after?.address ?? null,
+          },
+          dbConn,
+        ),
+        "addresses",
+      );
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+      throw error;
+    }
 
     const pagination = createPaginationMeta(
       limit,
-      skip,
-      countResult?.[0]?.total ? parseInt(countResult[0].total, 10) : undefined,
-      addresses.length,
+      addresses,
+      ["account_id", "address"],
     );
 
     return {
@@ -297,36 +284,30 @@ export const startHttpServer = function* (
       },
     },
   }, async (request) => {
-    const { limit, skip, count } = getPaginationParams(request);
+    const { limit, after } = getPaginationParams(request);
 
-    const query = request.query as any;
-    const paginationParams =
-      (query.limit !== undefined || query.skip !== undefined)
-        ? { limit, skip }
-        : {};
-
-    const scheduledDataPromise = runPreparedQuery(
-      getAllScheduledData.run(paginationParams as any, dbConn as any),
-      "scheduled-data",
-    );
-
-    const countPromise = count
-      ? runPreparedQuery(
-        getAllScheduledDataCount.run(undefined, dbConn as any),
-        "scheduled-data-count",
-      )
-      : undefined;
-
-    const [scheduledData, countResult] = await Promise.all([
-      scheduledDataPromise,
-      countPromise,
-    ]);
+    let scheduledData: any[] = [];
+    try {
+      // @ts-ignore - pgtyped overload resolution is failing in this context
+      scheduledData = await runPreparedQuery(
+        getAllScheduledData.run(
+          {
+            limit,
+            after_id: after?.id ?? null,
+          },
+          dbConn,
+        ),
+        "scheduled-data",
+      );
+    } catch (error) {
+      console.error("Error fetching scheduled data:", error);
+      throw error;
+    }
 
     const pagination = createPaginationMeta(
       limit,
-      skip,
-      countResult?.[0]?.total ? parseInt(countResult[0].total, 10) : undefined,
-      scheduledData.length,
+      scheduledData,
+      ["id"],
     );
 
     return {
@@ -354,81 +335,13 @@ export const startHttpServer = function* (
   ) => {
     const { tableName } = request.params;
 
-    const safeName = sanitizeIdentifier(tableName);
-    if (!isUserDefinedTable(safeName)) {
-      return [];
-    }
-
     const result = await runPreparedQuery(
-      getTableSchema.run({ tableName: safeName }, dbConn),
+      getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
       `table-schema:${tableName}`,
     );
 
     return result;
   });
-
-  // TODO This is a temporary function to allow unsafe SQL queries.
-  async function unsafeGetTableData(
-    tableName: string,
-    limit?: number,
-    skip?: number,
-  ): Promise<unknown[]> {
-    let unsafeQuery = `SELECT * FROM ":1"`;
-    const unsafeTableName = sanitizeIdentifier(tableName);
-    if (!isUserDefinedTable(unsafeTableName)) {
-      throw new Error("Table access denied");
-    }
-    if (unsafeTableName.length > 63) {
-      throw new Error("Table name too long");
-    }
-    unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
-
-    if (limit !== undefined && skip !== undefined && limit > 0 && skip >= 0) {
-      unsafeQuery += ` LIMIT ${limit} OFFSET ${skip}`;
-    }
-
-    const result = await runPreparedQuery(
-      new Promise<unknown[]>((resolve) => {
-        dbConn.query(unsafeQuery, (err: Error, res: { rows: unknown[] }) => {
-          if (err) {
-            resolve([]);
-          } else {
-            resolve(res.rows);
-          }
-        });
-      }),
-      `unsafe-get-table-data:${unsafeTableName}`,
-    );
-    return result;
-  }
-
-  async function unsafeGetTableDataCount(tableName: string): Promise<number> {
-    let unsafeQuery = `SELECT COUNT(*) as total FROM ":1"`;
-    const unsafeTableName = tableName.toLowerCase().replace(
-      /[^a-zA-Z0-9_]/g,
-      "",
-    );
-    if (unsafeTableName.length > 63) {
-      throw new Error("Table name too long");
-    }
-    unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
-    const result = await runPreparedQuery<{ total: number }>(
-      new Promise<{ total: number }[]>((resolve) => {
-        dbConn.query(
-          unsafeQuery,
-          (err: Error, res: { rows: { total: number }[] }) => {
-            if (err) {
-              resolve([]);
-            } else {
-              resolve(res.rows);
-            }
-          },
-        );
-      }),
-      `unsafe-get-table-data-count:${unsafeTableName}`,
-    );
-    return result[0]?.total || 0;
-  }
 
   server.get(
     "/tables/:tableName",
@@ -450,33 +363,101 @@ export const startHttpServer = function* (
       reply,
     ) => {
       const { tableName } = request.params;
-      const { limit, skip, count } = getPaginationParams(request);
+      const { limit, after } = getPaginationParams(request);
 
       try {
-        // Only run count query if explicitly requested
-        const dataPromise = unsafeGetTableData(tableName, limit, skip);
-        const countPromise = count
-          ? unsafeGetTableDataCount(tableName)
-          : undefined;
+        // Sanitize table name
+        const safeTableName = tableName.toLowerCase().replace(
+          /[^a-z0-9_.]/g,
+          "",
+        );
+        if (safeTableName.length > 128 || safeTableName.length === 0) {
+          return reply.status(400).send({ error: "Invalid table name" });
+        }
 
-        const [data, total] = await Promise.all([
-          dataPromise,
-          countPromise,
-        ]);
+        // 1. Introspect for Primary Keys
+        const pkColumnsResult: { column_name: string }[] =
+          await runPreparedQuery(
+            getPrimaryKeyColumns.run({ tableName: safeTableName }, dbConn),
+            "getPrimaryKeyColumns",
+          );
+        const pkColumns = pkColumnsResult.map((c: { column_name: string }) =>
+          c.column_name
+        );
+
+        let query: string;
+        const params: any[] = [];
+        let cursorFields: string[] = [];
+        let nextCursorSeed: Record<string, any> | null = null;
+
+        // 2. Determine Pagination Strategy
+        if (pkColumns.length > 0) {
+          // --- Keyset Pagination Strategy ---
+          cursorFields = pkColumns;
+          let whereClause = "";
+          const orderByClause = `ORDER BY ${
+            pkColumns.map((c) => `"${c}" ASC`).join(", ")
+          }`;
+
+          if (after) {
+            const pkValues = pkColumns.map((c: string) => after[c]);
+            const placeholders = pkColumns.map((_, i: number) => `$${i + 2}`)
+              .join(", ");
+            whereClause = `WHERE (${
+              pkColumns.map((c: string) => `"${c}"`).join(", ")
+            }) > (${placeholders})`;
+            params.push(...pkValues);
+          }
+
+          query =
+            `SELECT * FROM public.${safeTableName} ${whereClause} ${orderByClause} LIMIT $1`;
+          params.unshift(limit + 1);
+        } else {
+          // --- Offset Pagination Fallback Strategy ---
+          console.warn(
+            `[Paima Engine] WARNING: Table "${safeTableName}" has no primary key. Falling back to less performant OFFSET-based pagination.`,
+          );
+          const offset = after?.offset || 0;
+
+          // Find a column to order by
+          const tableSchema = await runPreparedQuery(
+            getTableSchema.run({ tableName: safeTableName }, dbConn),
+            "table-schema",
+          );
+          if (tableSchema.length === 0) {
+            return reply.status(404).send({
+              error: "Table has no columns or does not exist",
+            });
+          }
+          const orderByColumn = tableSchema[0].column_name;
+          const orderByClause = `ORDER BY "${orderByColumn}" ASC`;
+
+          query =
+            `SELECT * FROM public.${safeTableName} ${orderByClause} LIMIT $1 OFFSET $2`;
+          params.push(limit + 1, offset);
+          nextCursorSeed = { offset: offset + limit };
+        }
+
+        const result = await dbConn.query(query, params);
+        const data = result.rows;
 
         const pagination = createPaginationMeta(
           limit,
-          skip,
-          total,
-          data.length,
+          data,
+          cursorFields,
+          nextCursorSeed,
         );
 
         return {
           data,
           pagination,
         };
-      } catch (error) {
-        return reply.status(404).send({ error: "Table not found" });
+      } catch (error: any) {
+        if (error.code === "42P01") { // undefined_table
+          return reply.status(404).send({ error: "Table not found" });
+        }
+        console.error(`Error fetching table ${tableName}:`, error);
+        return reply.status(500).send({ error: "Internal server error" });
       }
     },
   );
@@ -556,7 +537,7 @@ export const startHttpServer = function* (
       reply,
     ) => {
       const { primitiveName } = request.params;
-      const { limit, skip, count } = getPaginationParams(request);
+      const { limit, after } = getPaginationParams(request);
       const prefix = getPrimitivePrefixWrapper(primitiveName);
       if (!prefix) {
         return reply.status(404).send({
@@ -564,33 +545,41 @@ export const startHttpServer = function* (
         });
       }
 
-      const tableName = `${prefix}${primitiveName.toLowerCase()}`;
       try {
-        // Only run count query if explicitly requested
-        const dataPromise = unsafeGetTableData(tableName, limit, skip);
-        const countPromise = count
-          ? unsafeGetTableDataCount(tableName)
-          : undefined;
+        // Primitives are system-generated and are guaranteed to have an `id` PK.
+        // We can use a simplified, but still safe, query.
+        const safeTableName = primitiveName.toLowerCase().replace(
+          /[^a-z0-9_]/g,
+          "",
+        );
+        const afterId = after?.id;
 
-        const [data, total] = await Promise.all([
-          dataPromise,
-          countPromise,
-        ]);
+        const query =
+          `SELECT * FROM primitives.${safeTableName} WHERE ($1::INT IS NULL OR id > $1::INT) ORDER BY id ASC LIMIT $2`;
+        const params: (string | number | null)[] = [afterId, limit + 1];
+
+        const result = await dbConn.query(query, params);
+        const data = result.rows;
 
         const pagination = createPaginationMeta(
           limit,
-          skip,
-          total,
-          data.length,
+          data,
+          ["id"],
         );
 
         return {
           data,
           pagination,
         };
-      } catch (error) {
-        return reply.status(404).send({
-          error: "Primitive does not have aggregated data",
+      } catch (error: any) {
+        if (error.code === "42P01") { // undefined_table
+          return reply.status(404).send({
+            error: "Primitive table not found",
+          });
+        }
+        console.error(`Error fetching primitive ${primitiveName}:`, error);
+        return reply.status(500).send({
+          error: "Internal server error fetching primitive data",
         });
       }
     },
