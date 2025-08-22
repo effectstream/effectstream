@@ -55,3 +55,9 @@ SELECT * FROM paima_engine_expected_version
 ORDER BY block_height DESC
 LIMIT 1
 ;
+
+/* @name getAllTableNames */
+SELECT tablename
+FROM pg_tables
+WHERE schemaname = 'public'
+;

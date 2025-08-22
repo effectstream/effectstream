@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 
 // Import components
@@ -12,6 +12,9 @@ import { useBlockchainData } from "./hooks/useBlockchainData.ts";
 import { useTableData } from "./hooks/useTableData.ts";
 
 function App() {
+  const [selectedPrimitives, setSelectedPrimitives] = useState<string[]>([]);
+  const [selectedUserTables, setSelectedUserTables] = useState<string[]>([]);
+
   // Use custom hooks for data management
   const {
     chainConfigs,
@@ -22,19 +25,33 @@ function App() {
 
   const {
     primitiveData,
-    staticTableData,
+    userTableData,
     scheduledData,
+    primitiveNames,
+    userTableNames,
     primitivePagination,
-    staticTablePagination,
+    userTablePagination,
     nextPrimitivePage,
     prevPrimitivePage,
     firstPrimitivePage,
     setPrimitiveLimit,
-    nextStaticTablePage,
-    prevStaticTablePage,
-    firstStaticTablePage,
-    setStaticTableLimit,
+    nextUserTablePage,
+    prevUserTablePage,
+    firstUserTablePage,
+    setUserTableLimit,
   } = useTableData();
+
+  useEffect(() => {
+    if (primitiveNames.length > 0 && selectedPrimitives.length === 0) {
+      setSelectedPrimitives([primitiveNames[0]]);
+    }
+  }, [primitiveNames, selectedPrimitives]);
+
+  useEffect(() => {
+    if (userTableNames.length > 0 && selectedUserTables.length === 0) {
+      setSelectedUserTables([userTableNames[0]]);
+    }
+  }, [userTableNames, selectedUserTables]);
 
   // Error handling for uncaught promises
   useEffect(() => {
@@ -73,6 +90,10 @@ function App() {
       <Header
         latestBlock={latestBlock}
         isConnected={isConnected}
+        primitiveNames={primitiveNames}
+        userTableNames={userTableNames}
+        onSelectPrimitive={(name) => setSelectedPrimitives([name])}
+        onSelectUserTable={(name) => setSelectedUserTables([name])}
       />
 
       <ColumnsContainer
@@ -82,7 +103,11 @@ function App() {
 
       <TableSection
         title="Primitive Data"
-        tables={primitiveData}
+        tables={Object.fromEntries(
+          Object.entries(primitiveData).filter(([key]) =>
+            selectedPrimitives.includes(key)
+          ),
+        )}
         pagination={primitivePagination}
         onPrev={(name) => prevPrimitivePage(name)}
         onNext={(name) => nextPrimitivePage(name)}
@@ -92,12 +117,16 @@ function App() {
 
       <TableSection
         title="State Machine Tables"
-        tables={staticTableData}
-        pagination={staticTablePagination}
-        onPrev={(name) => prevStaticTablePage(name)}
-        onNext={(name) => nextStaticTablePage(name)}
-        onFirst={(name) => firstStaticTablePage(name)}
-        onLimitChange={(name, limit) => setStaticTableLimit(name, limit)}
+        tables={Object.fromEntries(
+          Object.entries(userTableData).filter(([key]) =>
+            selectedUserTables.includes(key)
+          ),
+        )}
+        pagination={userTablePagination}
+        onPrev={(name) => prevUserTablePage(name)}
+        onNext={(name) => nextUserTablePage(name)}
+        onFirst={(name) => firstUserTablePage(name)}
+        onLimitChange={(name, limit) => setUserTableLimit(name, limit)}
       >
         <BatcherInput />
       </TableSection>

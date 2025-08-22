@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal } from "./Modal.tsx";
 import { AddressesTable } from "./AddressesTable.tsx";
+import { TableSelectorModal } from "./TableSelectorModal.tsx";
 import {
   BATCHER_OPENAPI_URL,
   DOCUMENTATION_URL,
@@ -10,13 +11,26 @@ import {
 interface HeaderProps {
   latestBlock: number;
   isConnected: boolean;
+  primitiveNames: string[];
+  userTableNames: string[];
+  onSelectPrimitive: (name: string) => void;
+  onSelectUserTable: (name: string) => void;
 }
 
-export function Header({ latestBlock, isConnected }: HeaderProps) {
+export function Header({
+  latestBlock,
+  isConnected,
+  primitiveNames,
+  userTableNames,
+  onSelectPrimitive,
+  onSelectUserTable,
+}: HeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [isPrimitiveModalOpen, setIsPrimitiveModalOpen] = useState(false);
+  const [isUserTableModalOpen, setIsUserTableModalOpen] = useState(false);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -55,6 +69,20 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
       <header className="header">
         <h1 className="title">Paima Explorer</h1>
         <div className="header-right">
+          <button
+            type="button"
+            className="batcher-api-button"
+            onClick={() => setIsPrimitiveModalOpen(true)}
+          >
+            Primitives
+          </button>
+          <button
+            type="button"
+            className="batcher-api-button"
+            onClick={() => setIsUserTableModalOpen(true)}
+          >
+            Custom Tables
+          </button>
           <button
             type="button"
             className="batcher-api-button"
@@ -156,6 +184,22 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
       >
         <AddressesTable />
       </Modal>
+
+      <TableSelectorModal
+        isOpen={isPrimitiveModalOpen}
+        onClose={() => setIsPrimitiveModalOpen(false)}
+        title="Select a Primitive"
+        tableNames={primitiveNames}
+        onSelect={onSelectPrimitive}
+      />
+
+      <TableSelectorModal
+        isOpen={isUserTableModalOpen}
+        onClose={() => setIsUserTableModalOpen(false)}
+        title="Select a Custom Table"
+        tableNames={userTableNames}
+        onSelect={onSelectUserTable}
+      />
     </>
   );
 }

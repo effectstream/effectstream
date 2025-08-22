@@ -928,3 +928,36 @@ body {
   color: #999;
   font-style: italic;
 }
+
+/* Table Selector Modal */
+.table-selector-content ul {
+  list-style: none;
+  padding: 20px;
+  margin: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.table-selector-content li {
+  margin-bottom: 10px;
+}
+
+.table-selector-content button {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(45deg, #19b17b, #022418);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+}
+
+.table-selector-content button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(25, 177, 123, 0.5);
+  background: linear-gradient(45deg, #22c48a, #033d2a);
+}

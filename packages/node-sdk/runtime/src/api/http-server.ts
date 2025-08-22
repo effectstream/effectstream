@@ -7,9 +7,11 @@ import {
   acquireDBMutex,
   getAllAddresses,
   getAllScheduledData,
+  getAllTableNames,
   getPrimaryKeyColumns,
   getPrimitivePrefix,
   getTableSchema,
+  type IGetAllTableNamesResult,
   releaseDBMutex,
   runPreparedQuery,
   waitUntilFree,
@@ -316,6 +318,26 @@ export const startHttpServer = function* (
     };
   });
 
+  server.get("/tables", {
+    schema: {
+      tags: ["developer"],
+      response: {
+        200: Type.Array(Type.Object({
+          table_name: Type.String(),
+        })),
+      },
+    },
+  }, async () => {
+    const tables = (await runPreparedQuery(
+      getAllTableNames.run(undefined, dbConn),
+      "tables",
+    )) as IGetAllTableNamesResult[];
+    return tables
+      .filter((t): t is { tablename: string } => t.tablename !== null)
+      .map((t) => ({ table_name: t.tablename }));
+  });
+
+  // TODO How to only select user defined tables?
   server.get("/table-schema/:tableName", {
     schema: {
       tags: ["developer"],
