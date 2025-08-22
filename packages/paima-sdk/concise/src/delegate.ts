@@ -2,8 +2,7 @@ import {
   BuiltinGrammar,
   BuiltinGrammarPrefix,
   KeyedBuiltinGrammar,
-  parseStmInput,
-} from "@paima/concise";
+} from "./v2/builtins/grammar.ts";
 import { privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import {
@@ -14,6 +13,7 @@ import {
   type WalletAddress,
 } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
+import { parseStmInput } from "./v2/inputs.ts";
 
 export function extractDelegateWallet(inputData: string) {
   const parsed = parseStmInput<

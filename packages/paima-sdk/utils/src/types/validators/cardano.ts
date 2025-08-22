@@ -1,4 +1,5 @@
-import { crc32 } from "@foxglove/crc";
+// import { crc32 } from "@foxglove/crc";
+import * as crc32 from "crc-32";
 import { CHECKSUM_ERROR_MSG, MALFORMED_ERROR_MSG } from "./utils.ts";
 import { MiniCborReader } from "./minicbor.ts";
 import bs58 from "bs58";
@@ -26,7 +27,8 @@ function verifyCardanoByronAddressBytes(data: Uint8Array): boolean {
 
   const addressDataEncoded = reader.readByteString();
 
-  if (Number(reader.readInt()) !== crc32(addressDataEncoded)) {
+  // if (Number(reader.readInt()) !== crc32(addressDataEncoded)) { // foxglove
+  if (Number(reader.readInt()) !== crc32.buf(addressDataEncoded)) { // crc-32
     throw new Error(CHECKSUM_ADDRESS_ERROR_MSG);
   }
 

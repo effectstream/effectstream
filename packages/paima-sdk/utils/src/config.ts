@@ -361,6 +361,7 @@ export class ENV {
     key: string,
   ): string | undefined {
     try {
+      if (!Deno) throw new Error("Not deno runtime");
       return Deno.env.get(key);
     } catch (error) {
       return process.env[key];

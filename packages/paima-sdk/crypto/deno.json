@@ -7,6 +7,8 @@
         "@cardano-foundation/cardano-verify-datasignature": "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11",
         "@sinclair/typebox": "npm:@sinclair/typebox@~0.34.30",
         "mina-signer": "npm:mina-signer@^3.0.7",
-        "viem": "npm:viem@^2.21.3"
+        "viem": "npm:viem@^2.21.3",
+        "@polkadot/util": "npm:@polkadot/util@^13.5.5",
+        "@polkadot/util-crypto": "npm:@polkadot/util-crypto@^13.5.5"
     }
 }
