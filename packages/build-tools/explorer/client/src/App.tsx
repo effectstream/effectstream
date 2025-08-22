@@ -28,9 +28,11 @@ function App() {
     staticTablePagination,
     nextPrimitivePage,
     prevPrimitivePage,
+    firstPrimitivePage,
     setPrimitiveLimit,
     nextStaticTablePage,
     prevStaticTablePage,
+    firstStaticTablePage,
     setStaticTableLimit,
   } = useTableData();
 
@@ -84,6 +86,7 @@ function App() {
         pagination={primitivePagination}
         onPrev={(name) => prevPrimitivePage(name)}
         onNext={(name) => nextPrimitivePage(name)}
+        onFirst={(name) => firstPrimitivePage(name)}
         onLimitChange={(name, limit) => setPrimitiveLimit(name, limit)}
       />
 
@@ -93,6 +96,7 @@ function App() {
         pagination={staticTablePagination}
         onPrev={(name) => prevStaticTablePage(name)}
         onNext={(name) => nextStaticTablePage(name)}
+        onFirst={(name) => firstStaticTablePage(name)}
         onLimitChange={(name, limit) => setStaticTableLimit(name, limit)}
       >
         <BatcherInput />
