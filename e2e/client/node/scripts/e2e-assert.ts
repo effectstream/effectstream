@@ -3,6 +3,13 @@ import { type QueryResult, safeQuery } from "./e2e-db.ts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const getMaxTimeout = (): number => {
+  if (Deno.env.get("E2E_MAX_TIMEOUT")) {
+    return parseInt(Deno.env.get("E2E_MAX_TIMEOUT")!, 10);
+  }
+  return 20000;
+};
+
 const testResults = {
   count: 0,
   passed: 0,
@@ -104,15 +111,17 @@ export async function assertSQL<RowType>(
   check: (res: QueryResult<RowType>) => boolean,
 ): Promise<QueryResult<RowType>> {
   startTest(testName);
-  let maxMilis = 10000;
-  while (maxMilis > 0) {
+  let remainingTime = getMaxTimeout();
+  const retryDelay = 200;
+
+  while (remainingTime > 0) {
     const res = await safeQuery<RowType>(db, query, testName);
 
     // First wait until the data is available.
     if (!waitUntil(res)) {
-      await delay(100);
-      maxMilis -= 100;
-      if (maxMilis <= 0) {
+      await delay(retryDelay);
+      remainingTime -= retryDelay;
+      if (remainingTime <= 0) {
         testFailed();
         console.log("Expected", waitUntil.toString());
         console.error("[TIMEOUT] Data in DB:", res.rows);
@@ -172,8 +181,10 @@ export async function assertSQL2<WaitType, CheckType>(
   check: { query: string; check: (res: QueryResult<CheckType>) => boolean },
 ): Promise<QueryResult<WaitType | CheckType>> {
   startTest(testName);
-  let maxMilis = 10000;
-  while (maxMilis > 0) {
+  const retryDelay = 200;
+
+  let remainingTime = getMaxTimeout();
+  while (remainingTime > 0) {
     const waitUntilResult = await safeQuery<WaitType>(
       db,
       waitUntil.query,
@@ -182,9 +193,9 @@ export async function assertSQL2<WaitType, CheckType>(
 
     // First wait until the data is available.
     if (!waitUntil.check(waitUntilResult)) {
-      await delay(100);
-      maxMilis -= 100;
-      if (maxMilis <= 0) {
+      await delay(retryDelay);
+      remainingTime -= retryDelay;
+      if (remainingTime <= 0) {
         testFailed();
         console.log("Expected", waitUntil.toString());
         console.error("[TIMEOUT] Data in DB:", waitUntilResult.rows);

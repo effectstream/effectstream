@@ -8,8 +8,10 @@ import { Type } from "@sinclair/typebox";
 import type { ToMapping } from "../utils.ts";
 import { ConfigNetworkSchemaSubstrate } from "./substrate/common.ts";
 import { ConfigNetworkSchemaAlgorand } from "./algorand.ts";
+import { ConfigNetworkSchemaNtp } from "./ntp.ts";
 
 export const networkTypes = {
+  [ConfigNetworkType.NTP]: ConfigNetworkSchemaNtp,
   [ConfigNetworkType.EVM]: ConfigNetworkSchemaEvm,
   [ConfigNetworkType.CARDANO]: ConfigNetworkSchemaCardano,
   [ConfigNetworkType.MINA]: ConfigNetworkSchemaMina,

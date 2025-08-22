@@ -5,6 +5,7 @@ import type { UtxoRpcSyncState } from "./utxorpc/state.ts";
 import type { PaginatedFetcher } from "./base/fetcher.ts";
 import type { UnionToIntersection } from "@paima/utils";
 import type { MidnightSyncState } from "./midnight/state.ts";
+import type { NtpSyncState } from "./ntp/state.ts";
 
 // TODO: move folders
 export type RootOutput = ChainBlock;
@@ -12,6 +13,7 @@ export type RootPage = ChainPage;
 
 // TODO: map config types to sync protocols
 export type AllSyncProtocols =
+  | NtpSyncState
   | EvmSyncState
   | UtxoRpcSyncState
   | MidnightSyncState;

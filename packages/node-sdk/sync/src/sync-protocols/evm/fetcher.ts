@@ -41,8 +41,7 @@ export class EvmFetcher
       Page,
       GetBlockReturnType<Chain>,
       PrimitiveType,
-      | ConfigSyncProtocolType.EVM_RPC_MAIN
-      | ConfigSyncProtocolType.EVM_RPC_PARALLEL
+      ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,
     PaginatedFetcher<Page> {
   constructor(
@@ -60,23 +59,12 @@ export class EvmFetcher
     data: Input,
     rootConversion: RootConversion<Output, RootOutput, RootPage>,
   ): Operation<DataFetched<Output, Page, RootPage>> {
-    const isParallel =
-      this.config.syncProtocolType === ConfigSyncProtocolType.EVM_RPC_PARALLEL;
     const pageFetcher = (() => {
-      if (data.isPresync || isParallel) {
-        return genOnDemandPageRequests(
-          data.from,
-          data.to,
-          (page) => this.client.getBlock({ blockNumber: BigInt(page) }),
-          blockNumberRelation,
-        );
-      }
-      return genImmediatePageRequests(
-        Array.from(
-          { length: data.to - data.from + 1 },
-          (_, i) => i + data.from,
-        ),
+      return genOnDemandPageRequests(
+        data.from,
+        data.to,
         (page) => this.client.getBlock({ blockNumber: BigInt(page) }),
+        blockNumberRelation,
       );
     })();
 
@@ -89,71 +77,39 @@ export class EvmFetcher
     );
     const groupedByPage = this.groupByPage(primitives);
 
-    if (isParallel) {
-      const [output, lastPage] = yield* all(
-        [
-          all(
-            keysOf(groupedByPage).map(function* (pageJson) {
-              const page = Value.Encode(PageSchema, pageJson);
-              const raw = yield* call(() => pageFetcher(page));
-              const blockHashes = [raw.hash] as EvmBlockHash[];
-              return {
-                raw,
-                primitives: groupedByPage[pageJson],
-                blockHashes,
-              };
-            }),
-          ),
-          // we always need to get the last page in the parallel case
-          // so we can use it for pagination
-          call(() => pageFetcher(Number(data.to))),
-        ],
-      );
-      return {
-        output: output.map((o) => ({
-          output: o,
-          cleanup: () => {}, // no cleanup required
-        })),
-        lastPage: {
-          own: Number(data.to),
-          root: rootConversion.toRootPage({
-            blockHashes: [lastPage.hash] as EvmBlockHash[],
-            primitives: [], // unused in toRootPage
-            raw: lastPage,
+    const [output, lastPage] = yield* all(
+      [
+        all(
+          keysOf(groupedByPage).map(function* (pageJson) {
+            const page = Value.Encode(PageSchema, pageJson);
+            const raw = yield* call(() => pageFetcher(page));
+            const blockHashes = [raw.hash] as EvmBlockHash[];
+            return {
+              raw,
+              primitives: groupedByPage[pageJson],
+              blockHashes,
+            };
           }),
-        },
-      };
-    } else {
-      const output = yield* all(
-        Array.from(
-          { length: data.to - data.from + 1 },
-          (_, i) => i + data.from,
-        ).map(function* (page: Page) {
-          const key = Value.Decode(PageSchema, page);
-          const raw = yield* call(() => pageFetcher(page));
-          const blockHashes = [raw.hash] as EvmBlockHash[];
-          return {
-            raw,
-            primitives: groupedByPage[key] ?? [],
-            blockHashes,
-          };
+        ),
+        // we always need to get the last page in the parallel case
+        // so we can use it for pagination
+        call(() => pageFetcher(Number(data.to))),
+      ],
+    );
+    return {
+      output: output.map((o) => ({
+        output: o,
+        cleanup: () => {}, // no cleanup required
+      })),
+      lastPage: {
+        own: Number(data.to),
+        root: rootConversion.toRootPage({
+          blockHashes: [lastPage.hash] as EvmBlockHash[],
+          primitives: [], // unused in toRootPage
+          raw: lastPage,
         }),
-      );
-      return {
-        output: output.map((o) => ({
-          output: o,
-          cleanup: () => {}, // no cleanup required
-        })),
-        lastPage: {
-          own: Number(data.to),
-          root: rootConversion.toRootPage({
-            blockHashes: [] as EvmBlockHash[],
-            primitives: [], // unused in toRootPage
-            raw: (yield* call(() => pageFetcher(Number(data.to)))),
-          }),
-        },
-      };
-    }
+      },
+    };
   }
 
   @bound
@@ -177,8 +133,7 @@ export class EvmFetcher
     toBlock: bigint,
     client: PublicClient<any, Chain, any, any>,
     primitive: PrimitiveEntry<
-      | ConfigSyncProtocolType.EVM_RPC_MAIN
-      | ConfigSyncProtocolType.EVM_RPC_PARALLEL
+      ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
   ): Operation<
@@ -237,8 +192,7 @@ export class EvmFetcher
     data: Input,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
     primitives: PrimitiveEntry<
-      | ConfigSyncProtocolType.EVM_RPC_MAIN
-      | ConfigSyncProtocolType.EVM_RPC_PARALLEL
+      ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >[],
   ): Operation<PrimitiveType[]> {
     const client = this.client;
@@ -246,7 +200,6 @@ export class EvmFetcher
 
     const fromBlock = yield* call(() => pageRequest(data.from));
     const toBlock = yield* call(() => pageRequest(data.to));
-
     for (const primitive of primitives) {
       allOperations.push(
         this.fetchLogsAndExtractPrimitiveData(

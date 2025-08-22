@@ -11,6 +11,7 @@ import { launchCardano } from "./launch-cardano.ts";
 import { launchEvm } from "./launch-evm.ts";
 import { launchMidnight } from "./launch-midnight.ts";
 
+const external_db_enabled = Deno.env.get("EXTERNAL_DB_ENABLED") === "true";
 const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
   ? false
   : true;
@@ -18,7 +19,7 @@ const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
     // Launch Dev DB & Collector
-    [ComponentNames.PAIMA_PGLITE]: true,
+    [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
     [ComponentNames.COLLECTOR]: true,
   },
 

@@ -15,6 +15,8 @@ import { BufferedRpc } from "./sync-protocols/utxorpc/BufferedRpc.ts";
 import { UtxoRpcFetcher } from "./sync-protocols/utxorpc/fetcher.ts";
 import { UtxoRpcSyncState } from "./sync-protocols/utxorpc/state.ts";
 import { MidnightFetcher, MidnightSyncState } from "@paima/sync";
+import { NtpFetcher } from "./sync-protocols/ntp/fetcher.ts";
+import { NtpSyncState } from "./sync-protocols/ntp/state.ts";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -22,7 +24,15 @@ export function* genSyncProtocols(
 ): Operation<AllSyncProtocols[]> {
   const result: AllSyncProtocols[] = [];
   for (const entry of syncInfo) {
-    if (
+    if (entry.networkType === ConfigNetworkType.NTP) {
+      const fetcher = new NtpFetcher(entry);
+      const state = yield* NtpSyncState.restoreState(
+        dbConn,
+        entry,
+        fetcher,
+      );
+      result.push(state);
+    } else if (
       entry.networkType === ConfigNetworkType.EVM
     ) {
       const viemNetwork = yield* getViemNetwork(entry.network);

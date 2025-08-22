@@ -47,14 +47,4 @@ comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0-next.20/
 echo "Commenting out second await fileHandle?.close()..."
 comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0-next.20/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 275 "await fileHandle?.close();"
 
-echo "Updating fetchHistory method signature..."
-replace_in_file "./node_modules/.deno/@utxorpc+sdk@0.6.7/node_modules/@utxorpc/sdk/lib/node/index.d.ts" \
-    "fetchHistory(p: ChainPoint, maxItems?: number): Promise<cardano.Block>;" \
-    "fetchHistory(p: ChainPoint | undefined, maxItems?: number): Promise<cardano.Block>;"
-
-echo "Updating startToken assignment..."
-replace_in_file "./node_modules/.deno/@utxorpc+sdk@0.6.7/node_modules/@utxorpc/sdk/lib/node/index.mjs" \
-    "startToken: new sync.BlockRef({" \
-    "startToken: !p ? undefined : new sync.BlockRef({"
-
 echo "✅ All patches applied successfully"

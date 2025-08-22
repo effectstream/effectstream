@@ -27,7 +27,6 @@ export const AlgorandPrimitivesToSyncProtocol = {} as const;
 
 export const AvailPrimitivesToSyncProtocol = {
   [ConfigPrimitiveType.AvailPaimaL2]: [
-    ConfigSyncProtocolType.AVAIL_MAIN,
     ConfigSyncProtocolType.AVAIL_PARALLEL,
   ],
 } as const;
@@ -57,31 +56,24 @@ export const CardanoUtxorpcPrimitivesToSyncProtocol = {
 
 export const EvmPrimitivesToSyncProtocol = {
   [ConfigPrimitiveType.EvmRpcGeneric]: [
-    ConfigSyncProtocolType.EVM_RPC_MAIN,
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   ],
   [ConfigPrimitiveType.EvmRpcPaimaL2]: [
-    ConfigSyncProtocolType.EVM_RPC_MAIN,
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   ],
   [ConfigPrimitiveType.EvmRpcERC20]: [
-    ConfigSyncProtocolType.EVM_RPC_MAIN,
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   ],
   [ConfigPrimitiveType.EvmRpcERC721]: [
-    ConfigSyncProtocolType.EVM_RPC_MAIN,
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   ],
   [ConfigPrimitiveType.EvmRpcERC6551Registry]: [
-    ConfigSyncProtocolType.EVM_RPC_MAIN,
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   ],
   [ConfigPrimitiveType.EvmRpcERC1155]: [
-    ConfigSyncProtocolType.EVM_RPC_MAIN,
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   ],
   [ConfigPrimitiveType.EvmRpcDynamicPrimitive]: [
-    ConfigSyncProtocolType.EVM_RPC_MAIN,
     ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   ],
 } as const;

@@ -11,6 +11,7 @@ import { launchMidnight } from "./launch-midnight.ts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const external_db_enabled = Deno.env.get("EXTERNAL_DB_ENABLED") === "true";
 const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
   ? false
   : true;
@@ -25,7 +26,7 @@ export async function startup(): Promise<Client> {
   const config = Value.Parse(OrchestratorConfig, {
     logs,
     processes: {
-      [ComponentNames.PAIMA_PGLITE]: true,
+      [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
 
       [ComponentNames.TUI]: false,
       [ComponentNames.TMUX]: false,
@@ -133,7 +134,6 @@ export async function getDBConnection(): Promise<Client> {
       await fetch(
         `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=e2e-loader`,
       );
-      console.error("lock acquired");
       didLock = true;
       await db.query(
         `SELECT id FROM paima.primitive_accounting LIMIT 1`,

@@ -174,8 +174,7 @@ function* executePaimaL2Input(input: {
 export default function* processPaimaL2SyncProtocolResponse(
   paima_block_height: PaimaBlockNumber,
   response: FlattenSyncProtocolIOFor<
-    | ConfigSyncProtocolType.EVM_RPC_MAIN
-    | ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+    ConfigSyncProtocolType.EVM_RPC_PARALLEL,
     ConfigPrimitiveType.EvmRpcPaimaL2,
     ConfigPrimitivePayloadType.PaimaL2Event
   >,

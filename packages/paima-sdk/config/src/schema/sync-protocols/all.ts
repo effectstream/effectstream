@@ -1,5 +1,5 @@
 import {
-  Static,
+  type Static,
   type TIntersect,
   type TLiteral,
   type TObject,
@@ -9,9 +9,7 @@ import {
 } from "@sinclair/typebox";
 import { ConfigSyncProtocolType } from "./types.ts";
 import {
-  CommonResponseEvmRpcMain,
   CommonResponseEvmRpcParallel,
-  ConfigSyncProtocolSchemaEvmMain,
   ConfigSyncProtocolSchemaEvmParallel,
 } from "./evm/rpc.ts";
 import {
@@ -27,9 +25,7 @@ import {
   ConfigSyncProtocolSchemaMinaParallel,
 } from "./mina/graphql.ts";
 import {
-  CommonResponseAvailRpcMain,
   CommonResponseAvailRpcParallel,
-  ConfigSyncProtocolSchemaAvailMain,
   ConfigSyncProtocolSchemaAvailParallel,
 } from "./avail/rpc.ts";
 import {
@@ -38,10 +34,13 @@ import {
 } from "./midnight/graphql.ts";
 import type { ToMapping } from "../utils.ts";
 import { ConfigSyncProtocolDecorator } from "./decorators/all.ts";
+import {
+  CommonResponseNtpMain,
+  ConfigSyncProtocolSchemaNtpMain,
+} from "./ntp/rpc.ts";
 
 export const mainSyncProtocolTypes = {
-  [ConfigSyncProtocolType.EVM_RPC_MAIN]: ConfigSyncProtocolSchemaEvmMain,
-  [ConfigSyncProtocolType.AVAIL_MAIN]: ConfigSyncProtocolSchemaAvailMain,
+  [ConfigSyncProtocolType.NTP_MAIN]: ConfigSyncProtocolSchemaNtpMain,
 } as const;
 
 export type ConfigSyncProtocolMappingMain = ToMapping<
@@ -64,8 +63,7 @@ export const parallelSyncProtocolTypes = {
 } as const;
 
 export const syncProtocolCommonResponse = {
-  [ConfigSyncProtocolType.EVM_RPC_MAIN]: CommonResponseEvmRpcMain,
-  [ConfigSyncProtocolType.AVAIL_MAIN]: CommonResponseAvailRpcMain,
+  [ConfigSyncProtocolType.NTP_MAIN]: CommonResponseNtpMain,
   [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: CommonResponseEvmRpcParallel,
   [ConfigSyncProtocolType.CARDANO_CARP_PARALLEL]:
     CommonResponseCardanoCarpParallel,
