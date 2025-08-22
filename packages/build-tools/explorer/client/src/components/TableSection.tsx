@@ -17,6 +17,19 @@ interface TableSectionProps {
   tables: Record<string, TableData | null>;
   isLoading?: boolean;
   children?: React.ReactNode;
+  pagination?: Record<
+    string,
+    {
+      limit: number;
+      cursors: (string | undefined)[];
+      currentPage: number;
+      hasMore: boolean;
+    }
+  >;
+  onPrev?: (tableName: string) => void;
+  onNext?: (tableName: string) => void;
+  onFirst?: (tableName: string) => void;
+  onLimitChange?: (tableName: string, limit: number) => void;
 }
 
 export function TableSection({
@@ -24,6 +37,11 @@ export function TableSection({
   tables,
   isLoading = false,
   children,
+  pagination,
+  onPrev,
+  onNext,
+  onFirst,
+  onLimitChange,
 }: TableSectionProps) {
   // Always render tables, even if empty
   const tableEntries = Object.entries(tables);
@@ -45,6 +63,13 @@ export function TableSection({
                 key={tableName}
                 title={tableName}
                 data={data}
+                pagination={pagination?.[tableName]}
+                onPrev={onPrev ? () => onPrev(tableName) : undefined}
+                onNext={onNext ? () => onNext(tableName) : undefined}
+                onFirst={onFirst ? () => onFirst(tableName) : undefined}
+                onLimitChange={onLimitChange
+                  ? (limit) => onLimitChange(tableName, limit)
+                  : undefined}
               />
             ))
           )}

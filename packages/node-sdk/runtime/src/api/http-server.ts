@@ -132,6 +132,7 @@ export const startHttpServer = function* (
   apiRouter?: StartConfigApiRouter,
   grammar?: GrammarDefinition,
 ) {
+  // Use dbConn directly; queries are executed via pgtyped PreparedQuery.run
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.
   const server = fastify();
@@ -335,7 +336,7 @@ export const startHttpServer = function* (
     const { tableName } = request.params;
 
     const result = await runPreparedQuery(
-      getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
+      getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn as any),
       "table-schema",
     );
 
@@ -555,7 +556,7 @@ export const startHttpServer = function* (
     const result = await runPreparedQuery(
       getTableSchema.run({
         tableName: `${prefix}${primitiveName.toLowerCase()}`,
-      }, dbConn),
+      }, dbConn as any),
       "primitives-schema",
     );
     return result;

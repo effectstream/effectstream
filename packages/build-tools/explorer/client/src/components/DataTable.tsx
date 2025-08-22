@@ -10,9 +10,21 @@ interface TableData {
   fields: Field[];
 }
 
+interface PaginationMeta {
+  limit: number;
+  cursors: (string | undefined)[];
+  currentPage: number;
+  hasMore: boolean;
+}
+
 interface DataTableProps {
   title: string;
   data: TableData | null;
+  pagination?: PaginationMeta;
+  onPrev?: () => void;
+  onNext?: () => void;
+  onFirst?: () => void;
+  onLimitChange?: (limit: number) => void;
 }
 
 function formatCellValue(value: any, fieldName: string): string {
@@ -49,11 +61,19 @@ function formatCellValue(value: any, fieldName: string): string {
   return value.toString();
 }
 
-export function DataTable({ title, data }: DataTableProps) {
+export function DataTable(
+  { title, data, pagination, onPrev, onNext, onFirst, onLimitChange }:
+    DataTableProps,
+) {
   // Always show the table container with title
   const hasData = data && data.rows && data.fields && data.rows.length > 0;
   const fields = data?.fields || [];
   const rows = data?.rows || [];
+  const canGoNext = !!pagination && pagination.hasMore &&
+    rows.length >= pagination.limit;
+  const canGoPrev = !!pagination && pagination.currentPage > 0;
+
+  const hideControls = !pagination || (!canGoPrev && !canGoNext);
 
   return (
     <div
@@ -98,6 +118,62 @@ export function DataTable({ title, data }: DataTableProps) {
             </tbody>
           </table>
         )}
+      {/* Pagination Controls */}
+      {pagination && !hideControls && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginTop: 8,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              type="button"
+              onClick={onFirst}
+              disabled={!canGoPrev}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #ddd",
+                background: canGoPrev ? "white" : "#f3f4f6",
+                cursor: canGoPrev ? "pointer" : "not-allowed",
+              }}
+            >
+              First
+            </button>
+            <button
+              type="button"
+              onClick={onPrev}
+              disabled={!canGoPrev}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #ddd",
+                background: canGoPrev ? "white" : "#f3f4f6",
+                cursor: canGoPrev ? "pointer" : "not-allowed",
+              }}
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              onClick={onNext}
+              disabled={!canGoNext}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid #ddd",
+                background: canGoNext ? "white" : "#f3f4f6",
+                cursor: canGoNext ? "pointer" : "not-allowed",
+              }}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
