@@ -17,7 +17,6 @@ ORDER BY id ASC
 ;
 
 
-
 /* @name getLastSumFromExampleTable */
 SELECT sum FROM another_example_table 
 ORDER BY block_height DESC
@@ -30,4 +29,3 @@ INSERT INTO another_example_table
 VALUES 
 (:sum!, :block_height!) 
 ;
-
