@@ -134,7 +134,7 @@ export async function getDBConnection(): Promise<Client> {
       console.error("lock acquired");
       didLock = true;
       await db.query(
-        `SELECT id FROM public.primitive_accounting LIMIT 1`,
+        `SELECT id FROM paima.primitive_accounting LIMIT 1`,
       );
       isReady = true;
     } finally {
