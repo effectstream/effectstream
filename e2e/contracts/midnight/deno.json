@@ -1,0 +1,37 @@
+{
+    "name": "@e2e/midnight-contracts",
+    "version": "0.3.0",
+    "exports": {
+        ".": "./read-contract.ts"
+    },
+    "tasks": {
+        "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs @paima/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive",
+        "midnight-node:wait": "wait-on tcp:9944",
+        "midnight-indexer:start": "LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @paima/npm-midnight-indexer --binary --clean",
+        "midnight-indexer:wait": "wait-on tcp:8088",
+        "midnight-proof-server:start": "LEDGER_NETWORK_ID=\"Undeployed\" RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @paima/npm-midnight-proof-server",
+        "midnight-proof-server:wait": "wait-on tcp:6300",
+        "midnight-contract:compile": "deno -A compile-contract.ts",
+        "midnight-contract:clean": "rm -rf midnight-level-db && rm -rf contract.json",
+        "midnight-contract:deploy": "deno task midnight-contract:clean && deno --unstable-detect-cjs -A deploy.ts"
+    },
+    "imports": {
+        "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger",
+        "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime",
+        "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap",
+        "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts",
+        "@midnight-ntwrk/midnight-js-http-client-proof-provider": "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider",
+        "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider",
+        "@midnight-ntwrk/midnight-js-node-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider",
+        "@midnight-ntwrk/midnight-js-types": "npm:@midnight-ntwrk/midnight-js-types",
+        "@midnight-ntwrk/wallet": "npm:@midnight-ntwrk/wallet",
+        "@midnight-ntwrk/wallet-api": "npm:@midnight-ntwrk/wallet-api",
+        "@midnight-ntwrk/midnight-js-level-private-state-provider": "npm:@midnight-ntwrk/midnight-js-level-private-state-provider",
+        "@midnight-ntwrk/midnight-js-utils": "npm:@midnight-ntwrk/midnight-js-utils",
+        "@midnight-ntwrk/midnight-js-network-id": "npm:@midnight-ntwrk/midnight-js-network-id",
+        "rxjs": "npm:rxjs",
+        "ws": "npm:ws",
+        "@std/path": "jsr:@std/path",
+        "@std/fs": "jsr:@std/fs"
+    }
+}

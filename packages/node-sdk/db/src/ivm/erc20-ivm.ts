@@ -84,3 +84,8 @@ export function erc20Ivm(name: string) {
   ');
   `;
 }
+
+// Naming helpers kept in this file to co-locate schema naming with IVM DDL
+export const ERC20_VIEW_PREFIX = "erc20_balances_view_" as const;
+export const ERC20_INTERMEDIATE_PREFIX =
+  "erc20_balances_intermediate_" as const;

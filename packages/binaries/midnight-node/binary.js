@@ -24,6 +24,8 @@ function getBinaryUrl() {
 async function downloadAndSaveBinary() {
   const url = getBinaryUrl();
   try {
+    console.error(`Downloading... ${url}`);
+
     const response = await axios.get(url, { responseType: "stream" });
     const writer = fs.createWriteStream(
       path.join(__dirname, "midnight-node.zip"),
@@ -45,6 +47,14 @@ async function unzipBinary() {
   await extract(path.join(__dirname, "midnight-node.zip"), {
     dir: path.join(__dirname, "midnight-node"),
   });
+  const platform = getPlatform();
+  const parts = platform.split("-");
+  if (parts[0] === "linux") {
+    fs.chmodSync(
+      path.join(__dirname, "midnight-node", `midnight-node-${platform}`),
+      0o755,
+    );
+  }
   fs.unlinkSync(path.join(__dirname, "midnight-node.zip"));
 }
 
@@ -55,4 +65,5 @@ async function binary() {
 
 module.exports = {
   binary,
+  getPlatform,
 };

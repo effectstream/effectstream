@@ -1,0 +1,13 @@
+{
+    "name": "@e2e/api",
+    "exports": "./src/mod.ts",
+    "type": "module",
+    "scripts": {
+        "check": "deno check src/api.ts"
+    },
+    "imports": {
+        "fastify": "npm:fastify@^5.4.0",
+        "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+        "pg": "npm:pg@^8.14.0"
+    }
+}

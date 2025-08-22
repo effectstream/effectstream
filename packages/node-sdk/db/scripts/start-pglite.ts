@@ -1,13 +1,11 @@
 import { type DebugLevel, PGlite } from "@electric-sql/pglite";
 // TODO This is not working, so we load the pg_ivm extension from the node_modules folder
 // import { pg_ivm } from "@electric-sql/pglite/pg_ivm";
-import { readFileSync } from "node:fs";
 import net from "node:net";
-import { postgreSplitterOptions, splitQuery } from "npm:dbgate-query-splitter";
 import { fromNodeSocket } from "pg-gateway/node";
 import { ENV } from "@paima/utils";
-import { migrations } from "../migrations/up.ts";
 
+// TODO PORT be a ENV variable
 // Get port from arguments.
 const portArgName = "--port";
 const portArgIndex = Deno.args.indexOf(portArgName);
@@ -17,26 +15,6 @@ if (isNaN(port)) {
   throw new Error(`Port argument ${portArgName} is not a number`);
 }
 
-const logFlag = Deno.args.includes("--log");
-const log = (...args: any[]) => {
-  if (logFlag) console.log(...args);
-};
-
-// dirname is not available in jsr packages
-const __dirname = import.meta.dirname;
-// TODO: we hardcode the migration file here
-//       but probably have to be smarter about this
-//       like accepting a file path and running all migrations according to some logic
-//       (ex: see `loadDataMigrations`)
-//       trick: paima-engine needs to follow the same folder structure for migrations as Paima apps
-// TODO: Update when we have with { type: text } imports
-let migrationData = "";
-try {
-  Deno.statSync(__dirname + "/migrations/up.sql");
-  migrationData = readFileSync(__dirname + "/migrations/up.sql", "utf-8");
-} catch (e) {
-  migrationData = migrations;
-}
 // TODO: find nearest node_modules folder, as import { pg_ivm } is not working
 let nodeModulesPath = Deno.cwd();
 while (true) {
@@ -54,8 +32,8 @@ while (true) {
 const db = new PGlite(
   "memory://", // TODO: use different values for in-browser & production builds
   {
-    username: "postgres",
-    database: "postgres",
+    username: ENV.DB_USER,
+    database: ENV.DB_NAME,
     extensions: {
       // pg_ivm: pg_ivm,
       pg_ivm: new URL(
@@ -67,61 +45,6 @@ const db = new PGlite(
     debug: (ENV.DEBUG_PGLITE as DebugLevel) || 0,
   },
 );
-await db.exec("CREATE EXTENSION IF NOT EXISTS pg_ivm;");
-
-// Function to remove comments from SQL (optional, but helpful if needed)
-function removeComments(sql: string): string {
-  return sql
-    .replace(/\/\*[\s\S]*?\*\//g, "") // Remove block comments /* ... */
-    .replace(/--.*$/gm, ""); // Remove line comments -- ...
-}
-
-// Updated function to split using dbgate-query-splitter
-function splitSqlStatements(sql: string): string[] {
-  const cleanedSql = removeComments(sql); // Optional: clean before splitting
-  return splitQuery(cleanedSql, postgreSplitterOptions).map((item) =>
-    item.toString().trim()
-  );
-}
-
-// Updated function to execute with dbgate-query-splitter
-async function executeMigrationsWithLogs(db: PGlite, migrationData: string) {
-  const queries = splitSqlStatements(migrationData);
-  for (const query of queries) {
-    if (query.trim() === "") continue;
-    log(`Executing query: ${query}`);
-    try {
-      await db.exec(query);
-    } catch (error) {
-      console.error(`Error executing query: ${query}`);
-      throw error;
-    }
-  }
-}
-
-await executeMigrationsWithLogs(db, migrationData);
-
-/**
- * This is to genereate the user/custom pgtyped files in compilation time
- * MIGRATIONS environment variable is used to specify the path to the migrations folder.
- * Every file in the migrations folder is executed in order.
- * TODO: Implement how to manage the order of the migrations, e.g. 1.sql, 2.sql, 10.sql, etc.
- */
-
-const userMigrations = Deno.env.get("MIGRATIONS");
-if (userMigrations) {
-  const files = Deno.readDirSync(userMigrations);
-  for (const file of files) {
-    if (file.isFile && file.name.endsWith(".sql")) {
-      log(`Executing migration: ${file.name}`);
-      const migration = readFileSync(
-        `${userMigrations}/${file.name}`,
-        "utf-8",
-      );
-      await executeMigrationsWithLogs(db, migration);
-    }
-  }
-}
 
 {
   // TODO: consider switching to pglite-socket once it works

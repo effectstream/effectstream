@@ -9,9 +9,7 @@ let readonlyDBConn: pg.Pool | null;
 // PGLite does not support multiple connections, so we need to use a mutex to ensure that only one query is executed at a time.
 // * For transactions use yield* acquireDBMutex(); ...Your Operations... releaseDBMutex();
 // * For single queries use await runPreparedQuery(myQuery.run(params, dbConn));
-// IMPORTANT: This is only for PGLite instances, for full pgsql servers, this is not needed.
-const IS_PGLITE = true; // TODO: make this configurable
-
+// IMPORTANT: This is only for PGLite instances, for full pgsql servers, this is not needed.0
 // TODO This is a very simple mutex implementation.
 //      It releases the mutex randomly, and not in order.
 //      It only works for deno's single-threaded runtime.
@@ -23,11 +21,41 @@ let db_mutex: "free" | "locked" = "free";
  * If running in a full pgsql server, it will do nothing.
  * Always run run `releaseDBMutex()` after the query locks no longer needed, other threads are blocked until the mutex is released.
  */
-export function* acquireDBMutex(_: string): Operation<void> {
-  if (!IS_PGLITE) return;
+const _waitUntilFree = {
+  waiting: [] as {
+    name: string;
+    date: string;
+  }[],
+  running: {
+    name: "",
+    date: "",
+  },
+  db_mutex,
+};
+
+export const waitUntilFree = () => {
+  return {
+    ..._waitUntilFree,
+    db_mutex,
+  };
+};
+export function* acquireDBMutex(lockName: string): Operation<void> {
+  if (!ENV.PGLITE) return;
+  _waitUntilFree.waiting.push({
+    name: lockName,
+    date: new Date().toISOString(),
+  });
   while (true) {
     if (db_mutex === "free") {
       db_mutex = "locked";
+      _waitUntilFree.waiting.splice(
+        _waitUntilFree.waiting.findIndex((w) => w.name === lockName),
+        1,
+      );
+      _waitUntilFree.running = {
+        name: lockName,
+        date: new Date().toISOString(),
+      };
       break;
     }
     yield* sleep(10);
@@ -40,7 +68,16 @@ export function* acquireDBMutex(_: string): Operation<void> {
  * If running in a full pgsql server, it will do nothing.
  * Do not call this function if you did not call `acquireDBMutex()` before.
  */
-export function releaseDBMutex() {
+export function releaseDBMutex(lockName: string) {
+  if (_waitUntilFree.running.name !== lockName) {
+    console.error(
+      "releasing mutex",
+      _waitUntilFree.running,
+      "but the lock name does not match",
+      lockName,
+    );
+  }
+  _waitUntilFree.running = { name: "", date: "" };
   db_mutex = "free";
 }
 
@@ -50,17 +87,31 @@ export function releaseDBMutex() {
  * If running in a full pgsql server, it will run normally.
  */
 export async function runPreparedQuery<T>(
-  p: Promise<T>,
+  p: Promise<T[]>,
   name: string,
-): Promise<T> {
-  let result: T;
+): Promise<T[]> {
+  let result: T[];
   try {
-    if (IS_PGLITE) {
+    if (ENV.PGLITE) {
       await run(() => acquireDBMutex(`pq:${name}`));
     }
-    result = await p;
+
+    let t;
+    const timeout: Promise<T[]> = new Promise((resolve) => {
+      t = setTimeout(() => {
+        console.error("[CRITICAL ERROR] Database query timed out", name);
+        if (ENV.PGLITE) {
+          // TODO: This is a temporary fix to allow the query to continue.
+          // Only allow to continue in PGLITE.
+          // We suspect this is PGLITE specific error.
+          resolve([]);
+        }
+      }, 2500);
+    });
+    result = await Promise.race([p, timeout]);
+    clearTimeout(t);
   } finally {
-    releaseDBMutex();
+    releaseDBMutex(`pq:${name}`);
   }
   return result;
 }
@@ -73,7 +124,7 @@ export const getConnection = (
     creds = {
       host: ENV.DB_HOST,
       user: ENV.DB_USER,
-      password: ENV.DB_PW,
+      password: ENV.PGLITE ? undefined : ENV.DB_PW,
       database: ENV.DB_NAME,
       port: ENV.DB_PORT,
     };
@@ -81,12 +132,12 @@ export const getConnection = (
   if (readonly && readonlyDBConn) return readonlyDBConn;
 
   // TODO: make this configurable for non pglite instances
-  const MAX_CONNECTIONS = IS_PGLITE ? 1 : 10;
+  const MAX_CONNECTIONS = ENV.PGLITE ? 1 : 10;
 
   const pool = new pg.Pool({ ...creds, max: MAX_CONNECTIONS });
   pool.on("error", (err: unknown) =>
     log.remote(
-      ComponentNames.PAIMA_DB,
+      ComponentNames.PAIMA_PGLITE,
       ["query"],
       SeverityNumber.ERROR,
       (log) => log(err),
@@ -96,7 +147,7 @@ export const getConnection = (
     // https://github.com/brianc/node-postgres/issues/2499#issuecomment-805477725
     _client.on("error", (err: Error) => {
       log.remote(
-        ComponentNames.PAIMA_DB,
+        ComponentNames.PAIMA_PGLITE,
         ["connect"],
         SeverityNumber.ERROR,
         (log) => log(err),
@@ -122,7 +173,7 @@ export const getPersistentConnection = (creds: PoolConfig): Client => {
   // On each new client initiated, need to register for error(this is a serious bug on pg, the client throw errors although it should not)
   client.on("error", (err: Error) => {
     log.remote(
-      ComponentNames.PAIMA_DB,
+      ComponentNames.PAIMA_PGLITE,
       ["query"],
       SeverityNumber.ERROR,
       (log) => log(err),

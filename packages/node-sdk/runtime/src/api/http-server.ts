@@ -12,6 +12,7 @@ import {
   getTableSchema,
   releaseDBMutex,
   runPreparedQuery,
+  waitUntilFree,
 } from "@paima/db";
 import { ENV } from "@paima/utils";
 import type { AllSyncProtocols } from "@paima/sync";
@@ -315,7 +316,6 @@ export const startHttpServer = function* (
     };
   });
 
-  // TODO How to only select user defined tables?
   server.get("/table-schema/:tableName", {
     schema: {
       tags: ["developer"],
@@ -336,50 +336,12 @@ export const startHttpServer = function* (
     const { tableName } = request.params;
 
     const result = await runPreparedQuery(
-      getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn as any),
-      "table-schema",
+      getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
+      `table-schema:${tableName}`,
     );
 
     return result;
   });
-
-  // TODO This is a temporary function to allow unsafe SQL queries.
-  async function unsafeGetTableData(
-    tableName: string,
-    limit?: number,
-    afterId?: number | string,
-  ): Promise<unknown[]> {
-    // Split by dot for schema.table
-    const parts = tableName.split(".");
-    if (parts.length > 2) {
-      throw new Error("Invalid table name format");
-    }
-    const sanitizedParts = parts.map((part) =>
-      part.toLowerCase().replace(/[^a-z0-9_]/g, "")
-    );
-    const unsafeTableName = sanitizedParts.join(".");
-
-    if (unsafeTableName.length > 128) { // Arbitrary longer limit
-      throw new Error("Table name too long");
-    }
-
-    let unsafeQuery = `SELECT * FROM ${unsafeTableName}`;
-
-    if (afterId !== undefined) {
-      const whereValue = typeof afterId === "string"
-        ? `'${afterId.replace(/'/g, "''")}'`
-        : afterId;
-      unsafeQuery += ` WHERE id > ${whereValue}`;
-    }
-    unsafeQuery += " ORDER BY id ASC";
-
-    if (limit !== undefined) {
-      unsafeQuery += ` LIMIT ${limit}`;
-    }
-
-    const result = await dbConn.query(unsafeQuery);
-    return result.rows;
-  }
 
   server.get(
     "/tables/:tableName",
@@ -548,8 +510,8 @@ export const startHttpServer = function* (
     const result = await runPreparedQuery(
       getTableSchema.run({
         tableName: `${prefix}${primitiveName.toLowerCase()}`,
-      }, dbConn as any),
-      "primitives-schema",
+      }, dbConn),
+      `primitives-schema:${primitiveName}`,
     );
     return result;
   });
@@ -623,23 +585,37 @@ export const startHttpServer = function* (
     },
   );
 
+  server.get("/db_status", () => {
+    return waitUntilFree();
+  });
   // These endpoints:
   // * /db_acquire_lock
   // * /db_release_lock
   // Are only used by the e2e tests to ensure that only one query is executed at a time.
   // They are not used by the main application.
   // TODO Disable this totally for production.
-  server.get("/db_acquire_lock", {
-    schema: {
-      tags: ["developer"],
-      response: {
-        200: Type.String(),
+  server.get(
+    "/db_acquire_lock",
+    {
+      schema: {
+        tags: ["developer"],
+        response: {
+          200: Type.String(),
+        },
+        querystring: Type.Object({
+          name: Type.String(),
+        }),
       },
     },
-  }, async () => {
-    await run(() => acquireDBMutex("http-server"));
-    return "ok";
-  });
+    async (
+      request: FastifyRequest<{ Querystring: { name: string } }>,
+      reply,
+    ) => {
+      const { name } = request.query;
+      await run(() => acquireDBMutex(`http-server:${name}`));
+      return "ok";
+    },
+  );
 
   server.get("/db_release_lock", {
     schema: {
@@ -647,9 +623,16 @@ export const startHttpServer = function* (
       response: {
         200: Type.String(),
       },
+      querystring: Type.Object({
+        name: Type.String(),
+      }),
     },
-  }, () => {
-    releaseDBMutex();
+  }, async (
+    request: FastifyRequest<{ Querystring: { name: string } }>,
+    reply,
+  ) => {
+    const { name } = request.query;
+    releaseDBMutex(`http-server:${name}`);
     return "ok";
   });
 

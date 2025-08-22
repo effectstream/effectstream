@@ -6,19 +6,22 @@
 `deno install --allow-scripts`
 
 ## Build Contracts
-`deno task -f @example/evm-contracts build`
-`deno task -f @example/evm-contracts deploy:standalone` 
+```sh
+deno task -f @e2e/evm-contracts build
+deno task -f @e2e/evm-contracts deploy:standalone
+deno task -f @e2e/midnight-contracts midnight-contract:compile
+```
 
 ## Run Example Deployment
-`deno task -f @example/node dev`
+`deno task -f @e2e/node dev`
 
 ## Create pgtypes
-`deno task -f @example/database pgtyped:update`
+`deno task -f @e2e/database pgtyped:update`
 
 ## Launch Explorer
 `deno task -f @paima/explorer start`
 
 # Tests
 ## Run Tests
-`deno task -f @example/node test`
+`deno task -f @e2e/node test`
 

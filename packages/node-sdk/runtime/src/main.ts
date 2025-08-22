@@ -14,6 +14,7 @@ import { startHttpServer } from "./api/http-server.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
 import type { PaimaBlockHash } from "@paima/utils";
+import { applyMigrations } from "@paima/db/apply-migrations";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -30,12 +31,12 @@ export function* init() {
  */
 export function* start(config: StartConfig): Operation<void> {
   const { syncInfo } = config;
-  const dbConn = getConnection();
-  const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
-
   // TODO We only need to do this once, at the beginning.
   //      We have to distinguish between the start or restart of the node.
-  //      Futher updates need to be managed by the user.
+  //      Further updates need to be managed by the user.
+  const dbConn = getConnection();
+  yield* until(applyMigrations(dbConn));
+  const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
   yield* createDynamicTables(dbConn, syncProtocols);
 
   log.remote(
@@ -49,7 +50,12 @@ export function* start(config: StartConfig): Operation<void> {
   }
 
   yield* spawn(function* () {
-    yield* startHttpServer(dbConn, syncProtocols, config.apiRouter);
+    yield* startHttpServer(
+      dbConn,
+      syncProtocols,
+      config.apiRouter,
+      config.grammar,
+    );
   });
 
   const finalizedBlockStream = createChannel<ChainBlock>();
@@ -63,7 +69,7 @@ export function* start(config: StartConfig): Operation<void> {
     // So we request a DBMutex as well.
     const dbClient: Client = yield* until(dbConn.connect());
     try {
-      yield* acquireDBMutex("processing-blocks");
+      yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
       blockHash = yield* processFinalizedBlock(
         value,
         config,
@@ -71,7 +77,7 @@ export function* start(config: StartConfig): Operation<void> {
         blockHash,
       );
     } finally {
-      releaseDBMutex();
+      releaseDBMutex(`processing-blocks:${value.blockNumber}`);
       dbClient.release();
     }
 

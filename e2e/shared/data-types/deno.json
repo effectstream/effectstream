@@ -1,0 +1,11 @@
+{
+  "name": "@e2e/data-types",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": "./src/mod.ts",
+  "imports": {
+    "viem": "npm:viem@^2.21.3",
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "@e2e/contracts": "file:../../contracts"
+  }
+}

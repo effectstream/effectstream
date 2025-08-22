@@ -81,3 +81,8 @@ export function erc721Ivm(name: string) {
   ');
   `;
 }
+
+// Naming helpers kept in this file to co-locate schema naming with IVM DDL
+export const ERC721_VIEW_PREFIX = "erc721_ownership_view_" as const;
+export const ERC721_INTERMEDIATE_PREFIX =
+  "erc721_ownership_intermediate_" as const;

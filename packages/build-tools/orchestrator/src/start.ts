@@ -96,7 +96,7 @@ export const OrchestratorConfig = Type.Object({
 
     // Dev Tools
     [ComponentNames.CHECKER]: Type.Boolean({ default: true }),
-    [ComponentNames.PAIMA_DB]: Type.Boolean({ default: false }),
+    [ComponentNames.PAIMA_PGLITE]: Type.Boolean({ default: false }),
     [ComponentNames.TMUX]: Type.Boolean({ default: true }),
 
     // DevOps
@@ -176,8 +176,10 @@ export async function start(
     processesToLaunch.push([
       config.processes[ComponentNames.DOCS] &&
       startProcess[ComponentNames.DOCS],
-      config.processes[ComponentNames.PAIMA_DB] &&
-      startProcess[ComponentNames.PAIMA_DB],
+      config.processes[ComponentNames.PAIMA_PGLITE] &&
+      startProcess[ComponentNames.PAIMA_PGLITE],
+      config.processes[ComponentNames.APPLY_MIGRATIONS] &&
+      startProcess[ComponentNames.APPLY_MIGRATIONS],
     ]);
 
     // Al main system dependencies are launched.
@@ -413,149 +415,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     return batcher;
   },
 
-  [ComponentNames.MIDNIGHT_NODE]: async (): Promise<ProcessComponent> => {
-    const midnightNode = $({
-      args: [
-        "task",
-        "-f",
-        "@example/midnight-contracts",
-        "midnight-node:start",
-      ],
-      log: rawLogHandler,
-      component: ComponentNames.MIDNIGHT_NODE,
-      abortController: abortControllers.system,
-    });
-    void midnightNode.process.status; // need to await sub-service start below
-
-    await $({
-      args: ["task", "-f", "@example/midnight-contracts", "midnight-node:wait"],
-      component: ComponentNames.MIDNIGHT_NODE_WAIT,
-      abortController: abortControllers.noncritical,
-    }).process.status;
-
-    return midnightNode;
-  },
-
-  [ComponentNames.MIDNIGHT_INDEXER]: async (): Promise<ProcessComponent> => {
-    const midnightIndexer = $({
-      args: [
-        "task",
-        "-f",
-        "@example/midnight-contracts",
-        "midnight-indexer:start",
-      ],
-      log: rawLogHandler,
-      component: ComponentNames.MIDNIGHT_INDEXER,
-
-      abortController: abortControllers.system,
-    });
-    void midnightIndexer.process.status; // need to await sub-service start below
-
-    await $({
-      args: [
-        "task",
-        "-f",
-        "@example/midnight-contracts",
-        "midnight-indexer:wait",
-      ],
-      component: ComponentNames.MIDNIGHT_INDEXER_WAIT,
-      abortController: abortControllers.noncritical,
-    }).process.status;
-
-    return midnightIndexer;
-  },
-  [ComponentNames.MIDNIGHT_PROOF_SERVER]: async (): Promise<
-    ProcessComponent
-  > => {
-    const midnightProofServer = $({
-      args: [
-        "task",
-        "-f",
-        "@example/midnight-contracts",
-        "midnight-proof-server:start",
-      ],
-      log: rawLogHandler,
-      component: ComponentNames.MIDNIGHT_PROOF_SERVER,
-      abortController: abortControllers.system,
-    });
-    void midnightProofServer.process.status; // need to await sub-service start below
-
-    await $({
-      args: [
-        "task",
-        "-f",
-        "@example/midnight-contracts",
-        "midnight-proof-server:wait",
-      ],
-      component: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
-      abortController: abortControllers.noncritical,
-    }).process.status;
-
-    return midnightProofServer;
-  },
-  [ComponentNames.MIDNIGHT_CONTRACT]: async (): Promise<ProcessComponent> => {
-    const midnightContract = $({
-      args: [
-        "task",
-        "-f",
-        "@example/midnight-contracts",
-        "midnight-contract:deploy",
-      ],
-      log: rawLogHandler,
-      component: ComponentNames.MIDNIGHT_CONTRACT,
-      abortController: abortControllers.system,
-    });
-    await midnightContract.process.status;
-
-    return midnightContract;
-  },
-  [ComponentNames.AVAIL_NODE]: async (): Promise<ProcessComponent> => {
-    const availNode = $({
-      args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
-      log: rawLogHandler,
-      component: ComponentNames.AVAIL_NODE,
-      abortController: abortControllers.system,
-    });
-    void availNode.process.status; // need to await sub-service start below
-
-    await $({
-      args: ["task", "-f", "@example/avail-contracts", "avail-node:wait"],
-      component: ComponentNames.AVAIL_NODE_WAIT,
-      abortController: abortControllers.noncritical,
-    }).process.status;
-
-    return availNode;
-  },
-
-  [ComponentNames.AVAIL_CLIENT]: async (): Promise<ProcessComponent> => {
-    const availClient = $({
-      args: [
-        "task",
-        "-f",
-        "@example/avail-contracts",
-        "avail-light-client:start",
-      ],
-      log: rawLogHandler,
-      component: ComponentNames.AVAIL_CLIENT,
-      abortController: abortControllers.system,
-    });
-    void availClient.process.status; // need to await sub-service start below
-
-    await $({
-      args: [
-        "task",
-        "-f",
-        "@example/avail-contracts",
-        "avail-light-client:wait",
-      ],
-      component: ComponentNames.AVAIL_CLIENT_WAIT,
-      abortController: abortControllers.noncritical,
-    }).process.status;
-
-    return availClient;
-  },
-
-  [ComponentNames.PAIMA_DB]: async (): Promise<ProcessComponent> => {
+  [ComponentNames.PAIMA_PGLITE]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
       await dkill({ ports: [ENV.DB_PORT] });
     }
@@ -570,7 +430,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         String(ENV.DB_PORT),
       ],
       log: logHandler,
-      component: ComponentNames.PAIMA_DB,
+      component: ComponentNames.PAIMA_PGLITE,
       abortController: abortControllers.system,
     });
     void paimaDb.process.status; // need to await sub-service start below
@@ -580,5 +440,19 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     })).spawn().status;
 
     return paimaDb;
+  },
+
+  [ComponentNames.APPLY_MIGRATIONS]: async (): Promise<ProcessComponent> => {
+    const externalPaimaDb = $({
+      args: [
+        "run",
+        "-A",
+        config.packageName + "/db/apply-migrations",
+      ],
+      component: ComponentNames.APPLY_MIGRATIONS,
+      abortController: abortControllers.system,
+    });
+    await externalPaimaDb.process.status;
+    return externalPaimaDb;
   },
 });

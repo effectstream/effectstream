@@ -1,0 +1,28 @@
+{
+  "workspace": [
+    "./packages/**/*"
+  ],
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "evm": "deno task -f @example/evm-contracts build && deno task -f @example/evm-contracts deploy:standalone",
+    "dev": "deno task -f @example/node dev",
+    "frontend": "deno task -f @example/frontend dev",
+    "check": "deno check"
+  },
+  "imports": {},
+  "lint": {
+    "rules": {
+      "exclude": [
+        // needed for generators since you can't use the arrow function syntax
+        "no-this-alias",
+        // this is too strict to play well with effection
+        "require-yield",
+        // way too many typescript things that require using `any`
+        "no-explicit-any",
+        "ban-types", // `Function` and `{}` are occasionally useful
+        "no-unused-vars", // maybe enable this at some point
+        "no-slow-types" // would be nice to have, but this is a lot of work
+      ]
+    }
+  }
+}

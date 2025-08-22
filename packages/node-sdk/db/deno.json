@@ -5,10 +5,13 @@
   "exports": {
     ".": "./src/mod.ts",
     "./start-pglite": "./scripts/start-pglite.ts",
+    "./apply-migrations": "./scripts/apply-migrations.ts",
     "./db-up": "./scripts/start-pglite.ts",
     "./db-wait": "./scripts/wait-for-db.ts",
-    "./pgtyped-internal": "./scripts/pgtyped-internal.ts",
     "./pgtyped-update": "./scripts/pgtyped-update.ts"
+  },
+  "tasks": {
+    "pgtyped:update": "deno run -A @paima/db/pgtyped-update"
   },
   "imports": {
     "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2",

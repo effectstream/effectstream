@@ -51,5 +51,9 @@ export * from "./register-events.ts";
 export * from "./pg-connection.ts";
 export * from "./scheduled-constructors.ts";
 
-export { createDynamicTables, getPrimitivePrefix } from "./dynamic-tables.ts";
+export {
+  createDynamicTables,
+  getPrimitiveIntermediatePrefix,
+  getPrimitivePrefix,
+} from "./dynamic-tables.ts";
 // export { startPGlite } from "./start-pglite.ts";

@@ -10,7 +10,9 @@ const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
 );
 
 function checkIfBinaryExists() {
-  return fs.existsSync(path.join(__dirname, "proof-server", "proof-server"));
+  const platform = getPlatform();
+  const binaryName = `midnight-proof-server-${platform}`;
+  return fs.existsSync(path.join(__dirname, "proof-server", binaryName));
 }
 
 function isBinarySupported() {
