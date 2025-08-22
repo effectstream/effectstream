@@ -1,8 +1,0 @@
-{
-  "version": 3,
-  "file": "index.cjs",
-  "sourceRoot": "../../../../",
-  "sources": ["src/counter.compact"],
-  "names": [],
-  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAeA;;;;;;;;MAYA,AAAA,SAWC;;;;cAVC,mBAA4B;cAC5B,WAAoB;cACpB,gBAAyB;cACzB,QAAiB;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;yCAHjB,mBAA4B,+BAC5B,WAAoB,+BACpB,gBAAyB,+BACzB,QAAiB;;;;;;;;;4CAHjB,mBAA4B;4CAC5B,WAAoB;4CACpB,gBAAyB;4CACzB,QAAiB;;;OAOlB;;;GACA;EAxBD;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;IAKA;;;;;;;;;uDAA6B;IAC7B;;;;;;;;;uDAA0C;IAC1C;;;;;;;;;uDAAkC;IAClC;;;;;;;;;uDAAuC;IACvC;;;;;;;;;uDAA+B;;;;;;;GAe9B;EAZD,AAAA,aAWC;;gBAVC,mBAA4B;gBAC5B,WAAoB;gBACpB,gBAAyB;gBACzB,QAAiB;;UAEjB,KAAK;IAAL;;;;;;;;;;2EAAA,KAAK;;;;sDAAA;IACL;;;;;;;yGAA4B,mBAAiB;;uDAA7B;IAChB;;;;;;;yGAAoB,WAAS;;uDAArB;IACR;;;;;;;yGAAyB,gBAAc;;uDAA1B;IACb;;;;;;;yGAAiB,QAAM;;uDAAlB;;GACN;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;IAlBD;qCAAA;;;;;;;;;;;wFAA6B;KAAA;IAC7B;qCAAA;;;;;;;;;;;wFAA0C;KAAA;IAC1C;qCAAA;;;;;;;;;;;wFAAkC;KAAA;IAClC;qCAAA;;;;;;;;;;;wFAAuC;KAAA;IACvC;qCAAA;;;;;;;;;;;wFAA+B;KAAA;;;;;;;;;;;;;;"
-}

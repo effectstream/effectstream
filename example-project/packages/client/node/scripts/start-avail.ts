@@ -1,6 +1,7 @@
 import { ComponentNames } from "@paimaexample/log";
 
 export const startAvail = {
+  // Start Avail Node and Light Client (indexer).
   // Note: Check ports as 9944 is used by Midnight Node by default in the lace wallet
   stopProcessAtPort: [9944, 7007],
   processes: [
@@ -8,7 +9,6 @@ export const startAvail = {
       name: ComponentNames.AVAIL_NODE,
       args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
       waitToExit: false,
-      // logs: "none",
       type: "system-dependency",
     },
     {

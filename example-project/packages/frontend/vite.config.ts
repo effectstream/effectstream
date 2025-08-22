@@ -54,6 +54,7 @@ export default defineConfig({
           src: normalizePath(
             path.resolve(
               "..",
+              "shared",
               "contracts",
               "midnight",
               "contract",
@@ -71,6 +72,7 @@ export default defineConfig({
           src: normalizePath(
             path.resolve(
               "..",
+              "shared",
               "contracts",
               "midnight",
               "contract",
@@ -88,6 +90,7 @@ export default defineConfig({
           src: normalizePath(
             path.resolve(
               "..",
+              "shared",
               "contracts",
               "midnight",
               "contract.json",

@@ -21,14 +21,6 @@ async function test() {
     // The contracts are deployed with the private key.
     db = await startup();
 
-    // Launch site
-    if (Deno.env.get("PAIMA_E2E_SITE_LAUNCH")) {
-      const command = new Deno.Command(Deno.execPath(), {
-        args: ["task", "-f", "@paima/explorer", "dev"],
-      });
-      command.spawn();
-    }
-
     const sharedState = newSharedState();
     sharedState.primitive_accounting_counter = 1;
 

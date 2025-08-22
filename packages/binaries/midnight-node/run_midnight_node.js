@@ -10,7 +10,7 @@ const { getPlatform } = require("./binary");
 function runMidnightNode(env = process.env, args = []) {
   const platform = getPlatform();
   const parts = platform.split("-");
-  const binaryName = (parts[0] === "linux")
+  const binaryName = (parts[0] === "linux" && parts[1] === "amd64")
     ? `midnight-node-${platform}`
     : "midnight-node";
   const binaryPath = path.join(__dirname, "midnight-node", binaryName);

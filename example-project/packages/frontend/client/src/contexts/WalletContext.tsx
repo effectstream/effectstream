@@ -1,11 +1,13 @@
 import {
   createContext,
-  ReactNode,
+  type ReactNode,
   useContext,
   useEffect,
   useState,
 } from "react";
-import { createWalletClient, custom, type WalletClient } from "viem";
+import { createWalletClient, custom, http, type WalletClient } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { mainnet } from "viem/chains";
 // import { WalletBuilder } from "@midnight-ntwrk/wallet";
 import * as MidnightWallet from "@midnight-ntwrk/wallet";
 console.log("🔗 [WALLET] MidnightWallet", MidnightWallet);
@@ -27,9 +29,14 @@ interface WalletContextType {
   isConnected: boolean;
   address: string | null;
   walletClient: WalletClient | null;
+  walletType: "local" | "browser" | null;
   connectEvmWallet: () => Promise<void>;
+  connectLocalWallet: () => Promise<void>;
   disconnectWallet: () => void;
   signMessage: (message: string) => Promise<string>;
+  isModalOpen: boolean;
+  openModal: () => void;
+  closeModal: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -50,6 +57,10 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
   const [walletClient, setWalletClient] = useState<WalletClient | null>(null);
+  const [walletType, setWalletType] = useState<"local" | "browser" | null>(
+    null,
+  );
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Check if wallet is already connected on mount
   useEffect(() => {
@@ -57,20 +68,21 @@ export function WalletProvider({ children }: WalletProviderProps) {
   }, []);
 
   const checkConnection = async () => {
-    if (typeof window !== "undefined" && window.ethereum) {
+    if (typeof globalThis !== "undefined" && (globalThis as any).ethereum) {
       try {
-        const accounts = await window.ethereum.request({
+        const accounts = await (globalThis as any).ethereum.request({
           method: "eth_accounts",
         });
 
         if (accounts.length > 0) {
           const client = createWalletClient({
-            transport: custom(window.ethereum),
+            transport: custom((globalThis as any).ethereum),
           });
 
           setWalletClient(client);
           setAddress(accounts[0]);
           setIsConnected(true);
+          setWalletType("browser");
         }
       } catch (error) {
         console.error("Error checking wallet connection:", error);
@@ -78,20 +90,24 @@ export function WalletProvider({ children }: WalletProviderProps) {
     }
   };
 
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
+
   const connectEvmWallet = async () => {
-    if (typeof window !== "undefined" && window.ethereum) {
+    if (typeof globalThis !== "undefined" && (globalThis as any).ethereum) {
       try {
-        const accounts = await window.ethereum.request({
+        const accounts = await (globalThis as any).ethereum.request({
           method: "eth_requestAccounts",
         });
 
         const client = createWalletClient({
-          transport: custom(window.ethereum),
+          transport: custom((globalThis as any).ethereum),
         });
 
         setWalletClient(client);
         setAddress(accounts[0]);
         setIsConnected(true);
+        setWalletType("browser");
 
         console.log("🔗 [WALLET] MetaMask connected:", accounts[0]);
       } catch (error) {
@@ -103,13 +119,36 @@ export function WalletProvider({ children }: WalletProviderProps) {
     }
   };
 
+  const connectLocalWallet = async () => {
+    try {
+      const account = privateKeyToAccount(
+        "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97",
+      );
+      const client = createWalletClient({
+        account,
+        chain: mainnet,
+        transport: http(),
+      });
+      setWalletClient(client);
+      setAddress(account.address);
+      setIsConnected(true);
+      setWalletType("local");
+      console.log("🔗 [WALLET] Local wallet connected:", account.address);
+    } catch (error) {
+      console.error("Failed to connect local wallet:", error);
+      throw error;
+    }
+  };
+
   const disconnectWallet = () => {
     setWalletClient(null);
     setAddress(null);
     setIsConnected(false);
+    setWalletType(null);
     console.log("🔗 [WALLET] Wallet disconnected");
   };
 
+  // deno-lint-ignore require-await
   const signMessage = async (message: string): Promise<string> => {
     if (!walletClient || !address) {
       throw new Error("Wallet not connected");
@@ -131,7 +170,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
 
   // Listen for account changes
   useEffect(() => {
-    if (typeof window !== "undefined" && window.ethereum) {
+    if (typeof globalThis !== "undefined" && (globalThis as any).ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
         if (accounts.length === 0) {
           disconnectWallet();
@@ -143,18 +182,21 @@ export function WalletProvider({ children }: WalletProviderProps) {
 
       const handleChainChanged = () => {
         // Reload the page when chain changes for simplicity
-        window.location.reload();
+        (globalThis as any).location.reload();
       };
 
-      window.ethereum.on("accountsChanged", handleAccountsChanged);
-      window.ethereum.on("chainChanged", handleChainChanged);
+      (globalThis as any).ethereum.on("accountsChanged", handleAccountsChanged);
+      (globalThis as any).ethereum.on("chainChanged", handleChainChanged);
 
       return () => {
-        window.ethereum.removeListener(
+        (globalThis as any).ethereum.removeListener(
           "accountsChanged",
           handleAccountsChanged,
         );
-        window.ethereum.removeListener("chainChanged", handleChainChanged);
+        (globalThis as any).ethereum.removeListener(
+          "chainChanged",
+          handleChainChanged,
+        );
       };
     }
   }, [address]);
@@ -163,9 +205,14 @@ export function WalletProvider({ children }: WalletProviderProps) {
     isConnected,
     address,
     walletClient,
+    walletType,
     connectEvmWallet,
+    connectLocalWallet,
     disconnectWallet,
     signMessage,
+    isModalOpen,
+    openModal,
+    closeModal,
   };
 
   return (

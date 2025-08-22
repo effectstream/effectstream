@@ -7,6 +7,7 @@ import {
   ENGINE_OPENAPI_URL,
 } from "../config.ts";
 import { useWallet } from "../contexts/WalletContext.tsx";
+import { WalletModal } from "./WalletModal.tsx";
 
 interface HeaderProps {
   latestBlock: number;
@@ -24,7 +25,11 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
     isConnected: walletConnected,
     address,
     connectEvmWallet,
+    connectLocalWallet,
     disconnectWallet,
+    isModalOpen: isWalletModalOpen,
+    openModal: openWalletModal,
+    closeModal: closeWalletModal,
   } = useWallet();
 
   const docsDropdownRef = useRef<HTMLDivElement>(null);
@@ -61,12 +66,25 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
     setIsAddressModalOpen(false);
   };
 
-  const handleWalletConnect = async () => {
+  const handleWalletConnect = () => {
+    openWalletModal();
+  };
+
+  const handleConnectLocal = async () => {
+    try {
+      await connectLocalWallet();
+      closeWalletModal();
+    } catch (error) {
+      console.error("Failed to connect local wallet:", error);
+    }
+  };
+
+  const handleConnectBrowser = async () => {
     try {
       await connectEvmWallet();
+      closeWalletModal();
     } catch (error) {
-      console.error("Failed to connect wallet:", error);
-      // You could add a notification here if needed
+      console.error("Failed to connect browser wallet:", error);
     }
   };
 
@@ -197,6 +215,12 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
           </div>
         </div>
       </header>
+      <WalletModal
+        isOpen={isWalletModalOpen}
+        onClose={closeWalletModal}
+        onConnectLocal={handleConnectLocal}
+        onConnectBrowser={handleConnectBrowser}
+      />
 
       <Modal
         isOpen={isModalOpen}

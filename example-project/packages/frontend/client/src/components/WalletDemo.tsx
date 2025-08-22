@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import type { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { writeContract } from "viem/actions";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
-import { initialNFTSamples } from "../examples.ts";
+import type { initialNFTSamples } from "../examples.ts";
 import { useWallet } from "../contexts/WalletContext.tsx";
 import {
   connectMidnightWallet,
@@ -233,6 +233,7 @@ export function WalletDemo() {
     address: walletAddress,
     signMessage,
     walletClient,
+    walletType,
   } = useWallet();
 
   const [evmWallet, setEvmWallet] = useState<EVMWallet | null>(null);
@@ -328,18 +329,19 @@ export function WalletDemo() {
   // Create hardhat wallet client when main wallet connects
   useEffect(() => {
     const createHardhatWalletClient = () => {
-      if (
-        walletConnected && walletAddress && typeof globalThis !== "undefined" &&
-        (globalThis as any).ethereum
-      ) {
+      if (walletConnected && (walletClient?.account || walletAddress)) {
         try {
+          const account = walletClient?.account ||
+            (walletAddress as `0x${string}`);
+          if (!account) return;
+
           console.log(
             "🔗 [HARDHAT] Creating hardhat wallet client for:",
-            walletAddress,
+            typeof account === "string" ? account : account.address,
           );
 
           const hardhatClient = createWalletClient({
-            account: walletAddress as `0x${string}`,
+            account: account,
             chain: hardhat,
             transport: http("http://127.0.0.1:8545"), // Hardhat local node
           });
@@ -360,7 +362,7 @@ export function WalletDemo() {
     };
 
     createHardhatWalletClient();
-  }, [walletConnected, walletAddress]);
+  }, [walletConnected, walletClient, walletAddress]);
 
   // Removed property suggestion handler as we no longer add properties
 
@@ -554,7 +556,7 @@ export function WalletDemo() {
         abi: erc721dev.abi,
         functionName: "mint",
         args: [walletAddress as `0x${string}`, tokenId],
-        account: walletAddress as `0x${string}`,
+        account: (walletClient?.account || walletAddress) as `0x${string}`,
         chain: hardhat,
       });
 
@@ -808,11 +810,11 @@ export function WalletDemo() {
       {!isCollapsed && (
         <div className="wallet-demo-content">
           <div className="wallet-demo-intro">
-            <p>
-              Demonstrating EVM wallet connection for token creation and
-              Midnight wallet connection for counter increment operations across
-              different blockchains.
-            </p>
+            <span>
+              EVM Wallet can create & transfer ERC721 Tokens.<br />
+              Midnight Wallet can add metadata to ERC721 Tokens across different
+              blockchains.
+            </span>
           </div>
 
           <div className="wallets-container">
@@ -834,7 +836,9 @@ export function WalletDemo() {
 
                 <div className="wallet-status">
                   {walletConnected
-                    ? "✅ MetaMask Connected"
+                    ? `✅ ${
+                      walletType === "local" ? "Local Wallet" : "MetaMask"
+                    } Connected`
                     : "❌ Connect MetaMask using the header button"}
                 </div>
 

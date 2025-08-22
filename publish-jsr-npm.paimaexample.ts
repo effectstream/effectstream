@@ -96,7 +96,11 @@ async function fetchLatestVersion(): Promise<string> {
     console.log(`Using manual version: ${manualVersion}`);
     return manualVersion;
   }
-  return JSON.parse(await Deno.readTextFile("./deno.json")).version;
+  const denoFile = (await Deno.readTextFile("./deno.json")).replace(
+    /\/\/.+?$/gm,
+    "",
+  );
+  return JSON.parse(denoFile).version;
 }
 
 async function fetchNextVersionFromJSR(): Promise<string> {
@@ -185,6 +189,9 @@ async function walkAndProcess(dir: string, reverse: boolean = false) {
     } else if (filePattern.test(entry.name)) {
       // Skip the script file itself to avoid self-modification
       if (entry.name === "publish-jsr-npm.paimaexample.ts") {
+        continue;
+      }
+      if (entry.name === "deno.json" && dir === rootDir) {
         continue;
       }
       await processFile(fullPath, reverse);
