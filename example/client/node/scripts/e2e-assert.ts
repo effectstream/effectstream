@@ -117,7 +117,7 @@ export async function assertSQL<RowType>(
     let res: QueryResult<RowType>;
     let didLock = false;
     try {
-      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock`);
       didLock = true;
       res = await db.query(query);
     } finally {
@@ -191,7 +191,7 @@ export async function assertSQL2<WaitType, CheckType>(
     let waitUntilResult: QueryResult<WaitType>;
     let didLock = false;
     try {
-      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock`);
       didLock = true;
       waitUntilResult = await db.query(waitUntil.query);
     } finally {
@@ -216,7 +216,7 @@ export async function assertSQL2<WaitType, CheckType>(
     let checkResult: QueryResult<CheckType>;
     didLock = false;
     try {
-      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock`);
       didLock = true;
       checkResult = await db.query(check.query);
     } finally {

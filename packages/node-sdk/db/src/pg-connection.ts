@@ -7,7 +7,7 @@ import { ENV } from "@paima/utils";
 let readonlyDBConn: pg.Pool | null;
 
 // PGLite does not support multiple connections, so we need to use a mutex to ensure that only one query is executed at a time.
-// * For transactions use yield* aquireDBMutex(); ...Your Operations... releaseDBMutex();
+// * For transactions use yield* acquireDBMutex(); ...Your Operations... releaseDBMutex();
 // * For single queries use await runPreparedQuery(myQuery.run(params, dbConn));
 // IMPORTANT: This is only for PGLite instances, for full pgsql servers, this is not needed.
 const IS_PGLITE = true; // TODO: make this configurable
@@ -23,7 +23,7 @@ let db_mutex: "free" | "locked" = "free";
  * If running in a full pgsql server, it will do nothing.
  * Always run run `releaseDBMutex()` after the query locks no longer needed, other threads are blocked until the mutex is released.
  */
-export function* aquireDBMutex(_: string): Operation<void> {
+export function* acquireDBMutex(_: string): Operation<void> {
   if (!IS_PGLITE) return;
   while (true) {
     if (db_mutex === "free") {
@@ -38,7 +38,7 @@ export function* aquireDBMutex(_: string): Operation<void> {
  * Releases a mutex to allow other queries to be executed.
  * If running in PGLite, it will release a mutex to allow other queries to be executed.
  * If running in a full pgsql server, it will do nothing.
- * Do not call this function if you did not call `aquireDBMutex()` before.
+ * Do not call this function if you did not call `acquireDBMutex()` before.
  */
 export function releaseDBMutex() {
   db_mutex = "free";
@@ -56,7 +56,7 @@ export async function runPreparedQuery<T>(
   let result: T;
   try {
     if (IS_PGLITE) {
-      await run(() => aquireDBMutex(`pq:${name}`));
+      await run(() => acquireDBMutex(`pq:${name}`));
     }
     result = await p;
   } finally {

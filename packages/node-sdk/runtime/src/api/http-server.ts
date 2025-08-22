@@ -4,7 +4,7 @@ import type { Pool } from "pg";
 import cors from "@fastify/cors";
 import { run, until } from "effection";
 import {
-  aquireDBMutex,
+  acquireDBMutex,
   getAllAddresses,
   getAllScheduledData,
   getPrimaryKeyColumns,
@@ -624,12 +624,12 @@ export const startHttpServer = function* (
   );
 
   // These endpoints:
-  // * /db_aquire_lock
+  // * /db_acquire_lock
   // * /db_release_lock
   // Are only used by the e2e tests to ensure that only one query is executed at a time.
   // They are not used by the main application.
   // TODO Disable this totally for production.
-  server.get("/db_aquire_lock", {
+  server.get("/db_acquire_lock", {
     schema: {
       tags: ["developer"],
       response: {
@@ -637,7 +637,7 @@ export const startHttpServer = function* (
       },
     },
   }, async () => {
-    await run(() => aquireDBMutex("http-server"));
+    await run(() => acquireDBMutex("http-server"));
     return "ok";
   });
 

@@ -278,7 +278,7 @@ export async function getDBConnection(): Promise<Client> {
     let didLock = false;
     let isReady = false;
     try {
-      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_aquire_lock`);
+      await fetch(`http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock`);
       didLock = true;
       await db.query(
         `SELECT id FROM paima.primitive_accounting LIMIT 1`,
