@@ -1,9 +1,11 @@
 {
   "name": "@example/data-types",
   "version": "0.3.0",
+  "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
     "viem": "npm:viem@^2.21.3",
-    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "@example/contracts": "file:../../contracts"
   }
 }

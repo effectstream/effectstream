@@ -7,6 +7,7 @@ import {
   aquireDBMutex,
   getAllAddresses,
   getAllScheduledData,
+  getPrimaryKeyColumns,
   getPrimitivePrefix,
   getTableSchema,
   releaseDBMutex,
@@ -22,15 +23,19 @@ import fastifySwaggerUi, {
 } from "@fastify/swagger-ui";
 import { Type } from "@sinclair/typebox";
 import type { StartConfigApiRouter } from "../types.ts";
+import type { GrammarDefinition } from "@paima/concise";
+import {
+  createPaginatedResponseSchema,
+  createPaginationMeta,
+  getPaginationParams,
+  type PaginatedResponse,
+  PaginationQuerySchema,
+} from "./pagination.ts";
 
 export enum RpcPaths {
   Root = "rpc",
   EVM = "evm",
 }
-
-// TODO This should be passed into the config somehow.
-import { grammar } from "@example/data-types";
-
 /**
  * Register the OpenAPI documentation for the Paima Engine HTTP server.
  * Documentation is available at /documentation /documentation/json /documentation/yaml
@@ -125,6 +130,7 @@ export const startHttpServer = function* (
   dbConn: Pool,
   syncProtocols: AllSyncProtocols[],
   apiRouter?: StartConfigApiRouter,
+  grammar?: GrammarDefinition,
 ) {
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.
@@ -157,12 +163,49 @@ export const startHttpServer = function* (
     };
   });
 
-  server.get("/addresses", async () => {
-    const result = await runPreparedQuery(
-      getAllAddresses.run(undefined, dbConn),
-      "addresses",
+  server.get("/addresses", {
+    schema: {
+      tags: ["status"],
+      querystring: PaginationQuerySchema,
+      response: {
+        200: createPaginatedResponseSchema(Type.Object({
+          account_id: Type.Union([Type.Number(), Type.Null()]),
+          address: Type.String(),
+          primary_address: Type.Union([Type.String(), Type.Null()]),
+        })),
+      },
+    },
+  }, async (request) => {
+    const { limit, after } = getPaginationParams(request);
+    let addresses: any[] = [];
+    try {
+      // @ts-ignore - pgtyped overload resolution is failing in this context
+      addresses = await runPreparedQuery(
+        getAllAddresses.run(
+          {
+            limit,
+            after_account_id: after?.account_id ?? null,
+            after_address: after?.address ?? null,
+          },
+          dbConn,
+        ),
+        "addresses",
+      );
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+      throw error;
+    }
+
+    const pagination = createPaginationMeta(
+      limit,
+      addresses,
+      ["account_id", "address"],
     );
-    return result;
+
+    return {
+      data: addresses,
+      pagination,
+    };
   });
 
   // TODO This is dev only endpoint to monitor sync protocols.
@@ -170,7 +213,6 @@ export const startHttpServer = function* (
     schema: {
       tags: ["developer"],
       response: {
-        // Simplified representation of the sync protocol.
         200: Type.Array(Type.Object({
           fetcher: Type.Object({}, { additionalProperties: true }),
           pageRelation: Type.Object({}, { additionalProperties: true }),
@@ -183,7 +225,8 @@ export const startHttpServer = function* (
       },
     },
   }, () => {
-    return clearBigInts(syncProtocols);
+    const cleanedProtocols = clearBigInts(syncProtocols);
+    return cleanedProtocols;
   });
 
   // TODO This is dev only endpoint to monitor sync protocols.
@@ -205,7 +248,8 @@ export const startHttpServer = function* (
   }, () => {
     const config = syncProtocols.map((syncProtocol) => syncProtocol.config)
       .flat();
-    return clearBigInts(config);
+    const cleanedConfig = clearBigInts(config);
+    return cleanedConfig;
   });
 
   server.get("/grammar", {
@@ -219,12 +263,55 @@ export const startHttpServer = function* (
     return grammar;
   });
 
-  server.get("/scheduled-data", async () => {
-    const result = await runPreparedQuery(
-      getAllScheduledData.run(undefined, dbConn),
-      "scheduled-data",
+  server.get("/scheduled-data", {
+    schema: {
+      tags: ["status"],
+      querystring: PaginationQuerySchema,
+      response: {
+        200: createPaginatedResponseSchema(Type.Object({
+          caip2: Type.Union([Type.String(), Type.Null()]),
+          contract_address: Type.Union([Type.String(), Type.Null()]),
+          from_address: Type.Union([Type.String(), Type.Null()]),
+          future_block_height: Type.Union([Type.Number(), Type.Null()]),
+          future_ms_timestamp: Type.Union([Type.String(), Type.Null()]), // Date as string
+          id: Type.Union([Type.Number(), Type.Null()]),
+          input_data: Type.Union([Type.String(), Type.Null()]),
+          origin_tx_hash: Type.Union([Type.String(), Type.Null()]), // Buffer as string
+          primitive_name: Type.Union([Type.String(), Type.Null()]),
+        })),
+      },
+    },
+  }, async (request) => {
+    const { limit, after } = getPaginationParams(request);
+
+    let scheduledData: any[] = [];
+    try {
+      // @ts-ignore - pgtyped overload resolution is failing in this context
+      scheduledData = await runPreparedQuery(
+        getAllScheduledData.run(
+          {
+            limit,
+            after_id: after?.id ?? null,
+          },
+          dbConn,
+        ),
+        "scheduled-data",
+      );
+    } catch (error) {
+      console.error("Error fetching scheduled data:", error);
+      throw error;
+    }
+
+    const pagination = createPaginationMeta(
+      limit,
+      scheduledData,
+      ["id"],
     );
-    return result;
+
+    return {
+      data: scheduledData,
+      pagination,
+    };
   });
 
   // TODO How to only select user defined tables?
@@ -246,15 +333,21 @@ export const startHttpServer = function* (
     _,
   ) => {
     const { tableName } = request.params;
+
     const result = await runPreparedQuery(
       getTableSchema.run({ tableName: tableName.toLowerCase() }, dbConn),
       "table-schema",
     );
+
     return result;
   });
 
   // TODO This is a temporary function to allow unsafe SQL queries.
-  async function unsafeGetTableData(tableName: string): Promise<unknown[]> {
+  async function unsafeGetTableData(
+    tableName: string,
+    limit?: number,
+    afterId?: number | string,
+  ): Promise<unknown[]> {
     let unsafeQuery = `SELECT * FROM ":1"`;
     const unsafeTableName = tableName.toLowerCase().replace(
       /[^a-zA-Z0-9_]/g,
@@ -264,11 +357,35 @@ export const startHttpServer = function* (
       throw new Error("Table name too long");
     }
     unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
-    const result = await runPreparedQuery<{ rows: unknown[] }>(
-      dbConn.query(unsafeQuery),
-      "unsafe-get-table-data",
-    );
+
+    if (afterId !== undefined) {
+      const whereValue = typeof afterId === "string"
+        ? `'${afterId.replace(/'/g, "''")}'`
+        : afterId;
+      unsafeQuery += ` WHERE id > ${whereValue}`;
+    }
+    unsafeQuery += " ORDER BY id ASC";
+
+    if (limit !== undefined) {
+      unsafeQuery += ` LIMIT ${limit}`;
+    }
+
+    const result = await dbConn.query(unsafeQuery);
     return result.rows;
+  }
+
+  async function unsafeGetTableDataCount(tableName: string): Promise<number> {
+    let unsafeQuery = `SELECT COUNT(*) as total FROM ":1"`;
+    const unsafeTableName = tableName.toLowerCase().replace(
+      /[^a-zA-Z0-9_]/g,
+      "",
+    );
+    if (unsafeTableName.length > 63) {
+      throw new Error("Table name too long");
+    }
+    unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
+    const result = await dbConn.query(unsafeQuery);
+    return result.rows[0]?.total || 0;
   }
 
   server.get(
@@ -276,20 +393,116 @@ export const startHttpServer = function* (
     {
       schema: {
         tags: ["developer"],
+        querystring: PaginationQuerySchema,
         response: {
-          200: Type.Array(Type.Object({}, { additionalProperties: true })),
+          200: createPaginatedResponseSchema(
+            Type.Object({}, { additionalProperties: true }),
+          ),
         },
       },
     },
     async (
-      request: FastifyRequest<{ Params: { tableName: string } }>,
+      request: FastifyRequest<
+        { Params: { tableName: string }; Querystring: any }
+      >,
       reply,
     ) => {
       const { tableName } = request.params;
+      const { limit, after } = getPaginationParams(request);
+
       try {
-        return await unsafeGetTableData(tableName);
-      } catch (error) {
-        return reply.status(404).send({ error: "Table not found" });
+        // Sanitize table name
+        const safeTableName = tableName.toLowerCase().replace(
+          /[^a-z0-9_.]/g,
+          "",
+        );
+        if (safeTableName.length > 128 || safeTableName.length === 0) {
+          return reply.status(400).send({ error: "Invalid table name" });
+        }
+
+        // 1. Introspect for Primary Keys
+        const pkColumnsResult: { column_name: string }[] =
+          await runPreparedQuery(
+            getPrimaryKeyColumns.run({ tableName: safeTableName }, dbConn),
+            "getPrimaryKeyColumns",
+          );
+        const pkColumns = pkColumnsResult.map((c: { column_name: string }) =>
+          c.column_name
+        );
+
+        let query: string;
+        const params: any[] = [];
+        let cursorFields: string[] = [];
+        let nextCursorSeed: Record<string, any> | null = null;
+
+        // 2. Determine Pagination Strategy
+        if (pkColumns.length > 0) {
+          // --- Keyset Pagination Strategy ---
+          cursorFields = pkColumns;
+          let whereClause = "";
+          const orderByClause = `ORDER BY ${
+            pkColumns.map((c) => `"${c}" ASC`).join(", ")
+          }`;
+
+          if (after) {
+            const pkValues = pkColumns.map((c: string) => after[c]);
+            const placeholders = pkColumns.map((_, i: number) => `$${i + 2}`)
+              .join(", ");
+            whereClause = `WHERE (${
+              pkColumns.map((c: string) => `"${c}"`).join(", ")
+            }) > (${placeholders})`;
+            params.push(...pkValues);
+          }
+
+          query =
+            `SELECT * FROM ${safeTableName} ${whereClause} ${orderByClause} LIMIT $1`;
+          params.unshift(limit + 1);
+        } else {
+          // --- Offset Pagination Fallback Strategy ---
+          console.warn(
+            `[Paima Engine] WARNING: Table "${safeTableName}" has no primary key. Falling back to less performant OFFSET-based pagination.`,
+          );
+          const offset = after?.offset || 0;
+
+          // Find a column to order by
+          const tableSchema = await runPreparedQuery(
+            getTableSchema.run({ tableName: safeTableName }, dbConn),
+            "table-schema",
+          );
+          if (tableSchema.length === 0) {
+            return reply.status(404).send({
+              error: "Table has no columns or does not exist",
+            });
+          }
+          const orderByColumn = tableSchema[0].column_name;
+          const orderByClause = `ORDER BY "${orderByColumn}" ASC`;
+
+          query =
+            `SELECT * FROM ${safeTableName} ${orderByClause} LIMIT $1 OFFSET $2`;
+          params.push(limit + 1, offset);
+          nextCursorSeed = { offset: offset + limit };
+        }
+
+        const result = await dbConn.query(query, params);
+        const data = result.rows;
+
+        const pagination = createPaginationMeta(
+          limit,
+          data,
+          cursorFields,
+          nextCursorSeed,
+        );
+
+        return {
+          data,
+          pagination,
+        };
+      } catch (error: any) {
+        if (error.code === "42P01") { // undefined_table
+          return reply.status(404).send({ error: "Table not found" });
+        }
+        console.error(`Error fetching table ${tableName}:`, error);
+        return reply.status(500).send({ error: "Internal server error" });
       }
     },
   );
@@ -353,26 +566,65 @@ export const startHttpServer = function* (
     {
       schema: {
         tags: ["developer"],
+        querystring: PaginationQuerySchema,
         response: {
           // TODO
-          200: Type.Array(Type.Object({}, { additionalProperties: true })),
+          200: createPaginatedResponseSchema(
+            Type.Object({}, { additionalProperties: true }),
+          ),
         },
       },
     },
     async (
-      request: FastifyRequest<{ Params: { primitiveName: string } }>,
+      request: FastifyRequest<
+        { Params: { primitiveName: string }; Querystring: any }
+      >,
       reply,
     ) => {
       const { primitiveName } = request.params;
+      const { limit, after } = getPaginationParams(request);
       const prefix = getPrimitivePrefixWrapper(primitiveName);
       if (!prefix) {
         return reply.status(404).send({
           error: "Primitive does not have aggregated data",
         });
       }
-      return await unsafeGetTableData(
-        `${prefix}${primitiveName.toLowerCase()}`,
-      );
+
+      const tableName = `${prefix}${primitiveName.toLowerCase()}`;
+      try {
+        // Primitives are system-generated and are guaranteed to have an `id` PK.
+        // We can use a simplified, but still safe, query.
+        const safeTableName = tableName.replace(/[^a-z0-9_]/g, "");
+        const afterId = after?.id;
+
+        const query =
+          `SELECT * FROM "${safeTableName}" WHERE ($1::INT IS NULL OR id > $1::INT) ORDER BY id ASC LIMIT $2`;
+        const params: (string | number | null)[] = [afterId, limit + 1];
+
+        const result = await dbConn.query(query, params);
+        const data = result.rows;
+
+        const pagination = createPaginationMeta(
+          limit,
+          data,
+          ["id"],
+        );
+
+        return {
+          data,
+          pagination,
+        };
+      } catch (error: any) {
+        if (error.code === "42P01") { // undefined_table
+          return reply.status(404).send({
+            error: "Primitive table not found",
+          });
+        }
+        console.error(`Error fetching primitive ${primitiveName}:`, error);
+        return reply.status(500).send({
+          error: "Internal server error fetching primitive data",
+        });
+      }
     },
   );
 

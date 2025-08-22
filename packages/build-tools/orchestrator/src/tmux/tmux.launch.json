@@ -2,11 +2,11 @@
     "panes": [
         {
             "name": "LOGS",
-            "command": "deno task -f @paima/tui logs"
+            "command": "deno -A ${packageName}/tui/logs"
         },
         {
             "name": "TUI",
-            "command": "deno task -f @paima/tui dev",
+            "command": "deno -A ${packageName}/tui/tui",
             "split_horizontal": true
         }
     ]

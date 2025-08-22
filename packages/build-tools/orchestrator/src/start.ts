@@ -2,7 +2,6 @@
 import { ENV, type ValueOf } from "@paima/utils";
 import "./http-server.ts";
 import { dkill } from "@sylc/dkill";
-import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 import {
   initTelemetry,
@@ -33,44 +32,62 @@ Deno.addSignalListener("SIGINT", () => {
  * processes: components to start
  */
 export const OrchestratorConfig = Type.Object({
+  // Log options.
   logs: Type.Union([
+    // No logs
     Type.Literal("none"),
+    // Print only errors to terminal
     Type.Literal("stdout-err"),
+    // Print all logs to terminal
     Type.Literal("stdout"),
+    // Send only to OTEL collector
     Type.Literal("development"),
+    // Send to OTEL collector and print to terminal
     Type.Literal("production"),
   ], { default: "development" }),
 
+  // This kills default processes that are open in specific ports.
   kill: Type.Object({
+    // TODO: kill.auto is workaround to kill processes that are still running from a previous run.
+    //       PGLite 5432. Frequently does not shutdown in some cases.
+    //       Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
+    //       And other ports are checked.
     auto: Type.Boolean({ default: true }),
-
-    // External configured ports.
-    hardhat: Type.Array(Type.Number(), {
-      default: [8545, 8546],
-    }),
-    // TODO "kill" is a workaround to kill any processes that are still running from a previous run.
-    //
-    // Cardano processes 8090, 10000. Do not terminate cleanly.
-    // Unfortunately required because of https://github.com/bloxbean/yaci-devkit/issues/94
-    //
-    // PGLite 5432. Frequently does not shutdown in some cases.
-    //
-    // Hardhat 8545. Sometimes it does not shutdown cleanly when the node crashes.
-    //
-    // Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
-    //
-    yaciDevkit: Type.Array(Type.Number(), {
-      default: [8090, 10000, 50051, 3001],
-    }),
   }, { default: {} }),
 
-  // Batcher options.
-  // Also set: processes[ComponentNames.PAIMA_BATCHER] = true
-  batcher: Type.Optional(Type.Object({
-    paimaL2Address: Type.String(),
-    batcherPrivateKey: Type.String(),
-    chainName: Type.String(),
-  })),
+  // Custom user defined processes to launch.
+  // For example you can launch hardhat evm chains, wait to be ready and deploy contracts.
+  processesToLaunch: Type.Array(
+    Type.Object({
+      description: Type.String({ default: "" }),
+      stopProcessAtPort: Type.Array(Type.Number(), { default: [] }),
+      processes: Type.Array(
+        Type.Object({
+          name: Type.String(),
+          args: Type.Array(Type.String()),
+          waitToExit: Type.Boolean({ default: true }),
+          logs: Type.Union([
+            Type.Literal("otel-compatible"),
+            Type.Literal("raw"),
+            Type.Literal("none"),
+          ], { default: "raw" }),
+          type: Type.Union([
+            Type.Literal("system-dependency"),
+            Type.Literal("secondary"),
+          ], { default: "secondary" }),
+        }),
+        { default: [] },
+      ),
+    }),
+    { default: [] },
+  ),
+
+  // This can be customized for different locations of the packages.
+  // nighly: jsr:@paimaexample
+  // release: jsr:@paima
+  // local development: @paima
+  packageName: Type.String({ default: "jsr:@paima" }),
+  packageVersion: Type.String({ default: "" }),
 
   // Processes to start
   processes: Type.Object({
@@ -79,22 +96,25 @@ export const OrchestratorConfig = Type.Object({
 
     // Dev Tools
     [ComponentNames.CHECKER]: Type.Boolean({ default: true }),
-
     [ComponentNames.PAIMA_DB]: Type.Boolean({ default: false }),
-
-    [ComponentNames.HARDHAT]: Type.Boolean({ default: false }),
-    [ComponentNames.DEPLOY_EVM_CONTRACTS]: Type.Boolean({ default: false }),
-    [ComponentNames.YACI_DEVKIT]: Type.Boolean({ default: false }),
-    [ComponentNames.DOLOS]: Type.Boolean({ default: false }),
+    [ComponentNames.TMUX]: Type.Boolean({ default: true }),
 
     // DevOps
     [ComponentNames.COLLECTOR]: Type.Boolean({ default: true }),
     [ComponentNames.PAIMA_BATCHER]: Type.Boolean({ default: true }),
     [ComponentNames.DOCS]: Type.Boolean({ default: true }),
+
     // TODO: Explorer crashes when launching process through Deno.command
     [ComponentNames.EXPLORER]: Type.Boolean({ default: false }),
-    [ComponentNames.TMUX]: Type.Boolean({ default: true }),
   }, { default: {} }),
+
+  // Batcher options.
+  // NOTE: Set processes[ComponentNames.PAIMA_BATCHER] = true to launch the batcher.
+  batcher: Type.Optional(Type.Object({
+    paimaL2Address: Type.String(),
+    batcherPrivateKey: Type.String(),
+    chainName: Type.String(),
+  })),
 });
 
 type OrchestratorConfigType = Static<typeof OrchestratorConfig>;
@@ -158,36 +178,72 @@ export async function start(
       startProcess[ComponentNames.DOCS],
       config.processes[ComponentNames.PAIMA_DB] &&
       startProcess[ComponentNames.PAIMA_DB],
-      config.processes[ComponentNames.YACI_DEVKIT] &&
-      startProcess[ComponentNames.YACI_DEVKIT],
-      config.processes[ComponentNames.HARDHAT] &&
-      startProcess[ComponentNames.HARDHAT],
     ]);
 
-    processesToLaunch.push([
-      // Start the Dolos process. Depends on YaciDevkit.
-      config.processes[ComponentNames.DOLOS] &&
-      startProcess[ComponentNames.DOLOS],
-      // Deploy the contracts. Depends on Hardhat.
-      config.processes[ComponentNames.DEPLOY_EVM_CONTRACTS] &&
-      startProcess[ComponentNames.DEPLOY_EVM_CONTRACTS],
-    ]);
+    // Al main system dependencies are launched.
+    // Start user defined processes.
+    const pipelines: (() => Promise<ProcessComponent>)[][] = [];
+    for (const processList of config.processesToLaunch) {
+      let first = true;
+      const pipeline: (() => Promise<ProcessComponent>)[] = [];
+      for (const process of processList.processes) {
+        const { name, args, waitToExit, logs, type } = process;
+        pipeline.push(async (): Promise<ProcessComponent> => {
+          if (first && processList.stopProcessAtPort.length > 0) {
+            await dkill({ ports: processList.stopProcessAtPort });
+            first = false;
+          }
+          let logHandler_: typeof logHandler;
+          switch (logs) {
+            case "none":
+              logHandler_ = () => {};
+              break;
+            case "otel-compatible":
+              logHandler_ = logHandler;
+              break;
+            case "raw":
+              logHandler_ = rawLogHandler;
+              break;
+          }
+          const processComponent = $({
+            args: args,
+            component: name,
+            log: logHandler_,
+            abortController: type === "system-dependency"
+              ? abortControllers.system
+              : abortControllers.noncritical,
+          });
+          if (waitToExit) {
+            await processComponent.process.status;
+          }
+          return processComponent;
+        });
+      }
+      pipelines.push(pipeline);
+    }
+    // Now we transpose the pipelines, to make them run in parallel.
+    const maxLength = Math.max(...pipelines.map((p) => p.length));
+    for (let i = 0; i < maxLength; i++) {
+      const batch: (false | (() => Promise<ProcessComponent>))[] = [];
+      for (const pipeline of pipelines) {
+        batch.push(pipeline[i] ? pipeline[i] : false);
+      }
+      processesToLaunch.push(batch);
+    }
 
-    // Start the batcher, after the contracts are deployed.
     processesToLaunch.push([
       config.processes[ComponentNames.PAIMA_BATCHER] &&
       startProcess[ComponentNames.PAIMA_BATCHER],
     ]);
 
     // Start the explorer
-    // This crashes when launching process through Deno.command
+    // TODO: This crashes when launching process through Deno.command
     processesToLaunch.push([
+      // Start the explorer
+      // This crashes when launching process through Deno.command
       config.processes[ComponentNames.EXPLORER] &&
       startProcess[ComponentNames.EXPLORER],
-    ]);
-
-    // Start the main process
-    processesToLaunch.push([
+      // Start the main process
       config.processes[ComponentNames.PAIMA_SYNC] &&
       startProcess[ComponentNames.PAIMA_SYNC],
     ]);
@@ -226,10 +282,11 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     const session_name = "paima-" + Date.now();
 
     const tm = new Tmux({});
+    await tm.init();
     await tm.newSession(session_name);
 
     // We can pass a custom launch json file to the tmux instance
-    await tm.readLaunchJson(session_name);
+    await tm.readLaunchJson(config.packageName, session_name);
 
     const tmux = $({
       ...tm.getAttachSessionCommand(session_name),
@@ -249,7 +306,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       await dkill({ ports: [ENV.PAIMA_EXPLORER_PORT] });
     }
     const explorer = $({
-      args: ["task", "-f", "@paima/explorer", "dev"],
+      args: ["task", "-f", config.packageName + "/explorer", "dev"],
       component: ComponentNames.EXPLORER,
       log: rawLogHandler,
       abortController: abortControllers.developerUI,
@@ -264,26 +321,12 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     const docs = $({
-      args: ["task", "-f", "@paima/docs", "start"],
+      args: ["task", "-f", config.packageName + "/docs", "start"],
       component: ComponentNames.DOCS,
       abortController: abortControllers.developerUI,
     });
     void docs.process.status;
     return docs;
-  },
-
-  [ComponentNames.DEPLOY_EVM_CONTRACTS]: async (): Promise<
-    ProcessComponent
-  > => {
-    const deploy = $({
-      args: ["task", "-f", "@example/evm-contracts", "deploy"],
-      component: ComponentNames.DEPLOY_EVM_CONTRACTS,
-      log: rawLogHandler,
-      abortController: abortControllers.system,
-    });
-
-    await Promise.all([deploy.process.status]);
-    return deploy;
   },
 
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
@@ -292,24 +335,24 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     const otlpCollector = $({
-      args: ["task", "-f", "@paima/collector", "start"],
+      args: [
+        "run",
+        "-A",
+        "--unstable-temporal",
+        config.packageName + "/collector/start",
+      ],
       // collector always has to post logs directly to console
       // otherwise, it gets stuck in an infinite loop of sending to itself
       log: rawLogHandler,
       component: ComponentNames.COLLECTOR,
       abortController: abortControllers.noncritical,
     });
-    void Promise.all([otlpCollector.process.status]);
+    void otlpCollector.process.status;
 
-    const waitOtlp = $({
-      args: ["task", "-f", "@paima/collector", "wait"],
-      // collector always has to post logs directly to console
-      // otherwise, it gets stuck in an infinite loop of sending to itself
-      log: rawLogHandler,
-      component: ComponentNames.COLLECTOR_WAIT,
-      abortController: abortControllers.noncritical,
-    });
-    await Promise.all([waitOtlp.process.status]);
+    await (new Deno.Command("wait-on", {
+      args: [`tcp:${ENV.OTEL_COLLECTOR_PORT}`],
+    })).spawn().status;
+
     setCollectorStarted();
     return otlpCollector;
   },
@@ -348,18 +391,14 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     // TODO This should be read from the config.
-    const paimaL2Address = contractAddressesEvmMain()["chain31337"][
-      "PaimaL2ContractModule#MyPaimaL2Contract"
-    ];
-    const batcherPrivateKey =
-      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-    const chainName = "hardhat";
+    const paimaL2Address = config.batcher?.paimaL2Address;
+    const batcherPrivateKey = config.batcher?.batcherPrivateKey;
+    const chainName = config.batcher?.chainName;
     const batcher = $({
       args: [
-        "task",
-        "-f",
-        "@paima/batcher",
-        "standalone",
+        "run",
+        "-A",
+        config.packageName + "/batcher/start",
         `--paimaL2Address=${paimaL2Address}`,
         `--batcherPrivateKey=${batcherPrivateKey}`,
         `--chainName=${chainName}`,
@@ -374,72 +413,146 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     return batcher;
   },
 
-  [ComponentNames.HARDHAT]: async (): Promise<ProcessComponent> => {
-    if (config.kill.auto) {
-      await dkill({ ports: config.kill.hardhat });
-    }
-
-    // TODO: some way to specify which chains should be used for a project
-    const hardhat = $({
-      // TODO This should be read from the config.
-      args: ["task", "-f", "@example/evm-contracts", "chain:start"],
-      log: logHandler,
-      component: ComponentNames.HARDHAT,
+  [ComponentNames.MIDNIGHT_NODE]: async (): Promise<ProcessComponent> => {
+    const midnightNode = $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-node:start",
+      ],
+      log: rawLogHandler,
+      component: ComponentNames.MIDNIGHT_NODE,
       abortController: abortControllers.system,
     });
-    void hardhat.process.status; // need to await sub-service start below
+    void midnightNode.process.status; // need to await sub-service start below
 
     await $({
-      args: ["task", "-f", "@example/evm-contracts", "chain:wait"],
-      component: ComponentNames.HARDHAT_WAIT,
+      args: ["task", "-f", "@example/midnight-contracts", "midnight-node:wait"],
+      component: ComponentNames.MIDNIGHT_NODE_WAIT,
       abortController: abortControllers.noncritical,
     }).process.status;
 
-    return hardhat;
+    return midnightNode;
   },
 
-  [ComponentNames.YACI_DEVKIT]: async (): Promise<ProcessComponent> => {
-    // Yaci Devkit Ports
-    if (config.kill.auto) {
-      await dkill({ ports: config.kill.yaciDevkit });
-    }
+  [ComponentNames.MIDNIGHT_INDEXER]: async (): Promise<ProcessComponent> => {
+    const midnightIndexer = $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-indexer:start",
+      ],
+      log: rawLogHandler,
+      component: ComponentNames.MIDNIGHT_INDEXER,
 
-    const yaciDevkit = $({
-      args: ["task", "-f", "@example/cardano-contracts", "devkit:start"],
-      log: logHandler,
-      component: ComponentNames.YACI_DEVKIT,
       abortController: abortControllers.system,
     });
-    void yaciDevkit.process.status; // need to await sub-service start below
+    void midnightIndexer.process.status; // need to await sub-service start below
 
     await $({
-      args: ["task", "-f", "@example/cardano-contracts", "devkit:wait"],
-      component: ComponentNames.YACI_DEVKIT_WAIT,
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-indexer:wait",
+      ],
+      component: ComponentNames.MIDNIGHT_INDEXER_WAIT,
       abortController: abortControllers.noncritical,
-    })
-      .process.status;
-    return yaciDevkit;
+    }).process.status;
+
+    return midnightIndexer;
+  },
+  [ComponentNames.MIDNIGHT_PROOF_SERVER]: async (): Promise<
+    ProcessComponent
+  > => {
+    const midnightProofServer = $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-proof-server:start",
+      ],
+      log: rawLogHandler,
+      component: ComponentNames.MIDNIGHT_PROOF_SERVER,
+      abortController: abortControllers.system,
+    });
+    void midnightProofServer.process.status; // need to await sub-service start below
+
+    await $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-proof-server:wait",
+      ],
+      component: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return midnightProofServer;
+  },
+  [ComponentNames.MIDNIGHT_CONTRACT]: async (): Promise<ProcessComponent> => {
+    const midnightContract = $({
+      args: [
+        "task",
+        "-f",
+        "@example/midnight-contracts",
+        "midnight-contract:deploy",
+      ],
+      log: rawLogHandler,
+      component: ComponentNames.MIDNIGHT_CONTRACT,
+      abortController: abortControllers.system,
+    });
+    await midnightContract.process.status;
+
+    return midnightContract;
+  },
+  [ComponentNames.AVAIL_NODE]: async (): Promise<ProcessComponent> => {
+    const availNode = $({
+      args: ["task", "-f", "@example/avail-contracts", "avail-node:start"],
+      log: rawLogHandler,
+      component: ComponentNames.AVAIL_NODE,
+      abortController: abortControllers.system,
+    });
+    void availNode.process.status; // need to await sub-service start below
+
+    await $({
+      args: ["task", "-f", "@example/avail-contracts", "avail-node:wait"],
+      component: ComponentNames.AVAIL_NODE_WAIT,
+      abortController: abortControllers.noncritical,
+    }).process.status;
+
+    return availNode;
   },
 
-  [ComponentNames.DOLOS]: async (): Promise<ProcessComponent> => {
-    const dolos = $({
-      args: ["task", "-f", "@example/cardano-contracts", "dolos:start"],
-      // use this until Dolos supports otel: https://github.com/txpipe/dolos/issues/399
-      log: (chunk) =>
-        rawLogHandler(chunk, "stdout", ComponentNames.DOLOS, "dolos"),
-      component: ComponentNames.DOLOS,
+  [ComponentNames.AVAIL_CLIENT]: async (): Promise<ProcessComponent> => {
+    const availClient = $({
+      args: [
+        "task",
+        "-f",
+        "@example/avail-contracts",
+        "avail-light-client:start",
+      ],
+      log: rawLogHandler,
+      component: ComponentNames.AVAIL_CLIENT,
       abortController: abortControllers.system,
     });
-    void dolos.process.status; // need to await sub-service start below
+    void availClient.process.status; // need to await sub-service start below
 
     await $({
-      args: ["task", "-f", "@example/cardano-contracts", "dolos:wait"],
-      component: ComponentNames.DOLOS_WAIT,
+      args: [
+        "task",
+        "-f",
+        "@example/avail-contracts",
+        "avail-light-client:wait",
+      ],
+      component: ComponentNames.AVAIL_CLIENT_WAIT,
       abortController: abortControllers.noncritical,
-    })
-      .process.status;
+    }).process.status;
 
-    return dolos;
+    return availClient;
   },
 
   [ComponentNames.PAIMA_DB]: async (): Promise<ProcessComponent> => {
@@ -449,18 +562,22 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
     const paimaDb = $({
       // TODO: run pgtyped:up only depending on parameters?
-      args: ["task", "-f", "@paima/db", "db:up"],
+      args: [
+        "run",
+        "-A",
+        config.packageName + "/db/start-pglite",
+        "--port",
+        String(ENV.DB_PORT),
+      ],
       log: logHandler,
       component: ComponentNames.PAIMA_DB,
       abortController: abortControllers.system,
     });
     void paimaDb.process.status; // need to await sub-service start below
 
-    await $({
-      args: ["task", "-f", "@paima/db", "db:wait"],
-      component: ComponentNames.PAIMA_DB_WAIT,
-      abortController: abortControllers.noncritical,
-    }).process.status;
+    await (new Deno.Command("wait-on", {
+      args: [`tcp:${ENV.DB_PORT}`],
+    })).spawn().status;
 
     return paimaDb;
   },

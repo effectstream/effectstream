@@ -44,6 +44,7 @@ export * from "./sql/events.queries.ts";
 export * from "./sql/sync-protocols/page.queries.ts";
 export * from "./sql/primitives.queries.ts";
 export * from "./sql/system.queries.ts";
+export * from "./sql/tables.queries.ts";
 
 export * from "./event-indexing.ts";
 export * from "./register-events.ts";
@@ -51,3 +52,4 @@ export * from "./pg-connection.ts";
 export * from "./scheduled-constructors.ts";
 
 export { createDynamicTables, getPrimitivePrefix } from "./dynamic-tables.ts";
+// export { startPGlite } from "./start-pglite.ts";

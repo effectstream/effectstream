@@ -1,4 +1,4 @@
-import type { Pool } from "npm:pg";
+import type { Pool } from "pg";
 import { ENV } from "@paima/utils";
 
 type QueryResult<RowType> = {
@@ -24,6 +24,10 @@ export function printSummary() {
   console.log(`  ${testResults.passed} tests passed`);
   console.log(`  ${testResults.failed} tests failed`);
   console.log(`  ${testResults.skipped} tests skipped`);
+}
+
+export function anyError(): boolean {
+  return testResults.count === 0 || testResults.failed > 0;
 }
 
 let isRunning = false;

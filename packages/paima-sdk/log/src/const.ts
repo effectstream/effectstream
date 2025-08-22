@@ -16,6 +16,11 @@ export const ExternalComponents = {
   HARDHAT: "hardhat",
   YACI_DEVKIT: "yaci-devkit",
   DOLOS: "dolos",
+  MIDNIGHT_NODE: "midnight-node",
+  MIDNIGHT_INDEXER: "midnight-indexer",
+  MIDNIGHT_PROOF_SERVER: "midnight-proof-server",
+  AVAIL_NODE: "avail-node",
+  AVAIL_CLIENT: "avail-light-client",
 };
 
 /**
@@ -31,6 +36,7 @@ export const PaimaToolsComponents = {
   DOCS: "docs",
   PAIMA_BATCHER: "batcher",
   DEPLOY_EVM_CONTRACTS: "deploy-evm-contracts",
+  MIDNIGHT_CONTRACT: "midnight-contract",
 };
 /**
  * Secondary components
@@ -42,6 +48,11 @@ export const SecondaryComponents = {
   // Thses processes are launched by their counterpart.
   DOLOS_WAIT: "dolos-wait",
   YACI_DEVKIT_WAIT: "yaci-devkit-wait",
+  MIDNIGHT_NODE_WAIT: "midnight-node-wait",
+  MIDNIGHT_INDEXER_WAIT: "midnight-indexer-wait",
+  MIDNIGHT_PROOF_SERVER_WAIT: "midnight-proof-server-wait",
+  AVAIL_NODE_WAIT: "avail-node-wait",
+  AVAIL_CLIENT_WAIT: "avail-light-client-wait",
   HARDHAT_WAIT: "hardhat-wait",
   COLLECTOR_WAIT: "collector-wait",
   PAIMA_DB_WAIT: "db-wait",

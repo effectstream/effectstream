@@ -1,7 +1,12 @@
 {
   "name": "@paima/tui",
   "version": "0.3.0",
-  "exports": "./src/mod.ts",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./logs": "./src/logs-standalone.ts",
+    "./tui": "./src/main.tsx"
+  },
   "tasks": {
     "clean": "rm -rf logs",
     "dev": "deno run -A src/main.tsx",

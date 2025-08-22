@@ -26,6 +26,8 @@ export abstract class BaseDataFetcher<
   abstract readData(
     data: Input,
     rootConversion: RootConversion<Output, RootOutput, RootPage>,
+    // TODO: Search for a better strategy so it's not needed. For now its just for mindnight
+    lastPage: LastPage<Page, RootPage> | undefined,
   ): Operation<DataFetched<Output, Page, RootPage>>;
 }
 

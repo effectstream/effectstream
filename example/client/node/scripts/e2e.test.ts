@@ -1,11 +1,12 @@
 import { cleanup, shutdown, startup } from "./e2e-loader.ts";
-import { printSummary } from "./e2e-assert.ts";
+import { anyError, printSummary } from "./e2e-assert.ts";
 import type { Client } from "pg";
 import { generalTest } from "./e2e.general.test.ts";
 import { accountTests } from "./e2e.account.test.ts";
 import { newSharedState } from "./e2e-shared-state.ts";
 import { tokenTests } from "./e2e.tokens.ts";
 import { RPCTest } from "./e2e.rpc.test.ts";
+import { joinAndIncrementTest } from "./e2e.midnight.test.ts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -28,10 +29,12 @@ async function test() {
     }
 
     const sharedState = newSharedState();
+    sharedState.primitive_accounting_counter = 1;
 
     await generalTest(db, sharedState);
     await RPCTest();
     await accountTests(db, sharedState);
+    await joinAndIncrementTest(db, sharedState);
     await tokenTests(db, sharedState);
 
     // Done testing.
@@ -55,6 +58,10 @@ async function test() {
     console.error(e);
     await cleanup(db);
     shutdown();
+  } finally {
+    if (anyError()) {
+      Deno.exit(1);
+    }
   }
 }
 

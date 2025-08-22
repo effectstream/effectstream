@@ -15,14 +15,37 @@ import type { EncodedStateValue } from "@midnight-ntwrk/onchain-runtime";
 // Contract state
 // ==============
 
-const MidnightEncodedStateJsonSchema = Type.Unsafe<
-  MidnightEncodedStateJson
->(Type.String());
-export const PrimitiveMidnightContractStatePayload = TypeboxHelpers
-  .SerializeObjAsJson<
-    EncodedStateValue,
-    typeof MidnightEncodedStateJsonSchema
-  >();
+// Define a proper TypeBox schema for EncodedStateValue
+const EncodedStateValueSchema = Type.Recursive((Self) =>
+  Type.Union([
+    Type.Object({
+      tag: Type.Literal("null"),
+    }),
+    Type.Object({
+      tag: Type.Literal("cell"),
+      content: Self, // Recursive reference for nested structures
+    }),
+    Type.Object({
+      tag: Type.Literal("array"),
+      content: Type.Array(Self),
+    }),
+    Type.Object({
+      tag: Type.Literal("map"),
+      content: Type.Any(), // Maps are complex, use Any for now
+    }),
+    Type.Object({
+      tag: Type.Literal("some"),
+      value: Self,
+    }),
+    Type.Object({
+      tag: Type.Literal("none"),
+    }),
+  ])
+);
+
+export const PrimitiveMidnightContractStatePayload = Type.Unsafe<
+  EncodedStateValue
+>(EncodedStateValueSchema);
 export const PrimitiveMidnightContractStateSyncProtocolResponse = Type.Object({
   primitive: Type.Literal(ConfigPrimitiveType.MidnightContractState),
   payloadType: Type.Literal(ConfigPrimitivePayloadType.Event),

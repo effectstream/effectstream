@@ -1,5 +1,13 @@
 // import deployedEvmAddresses from "@example/evm-contracts/deployments";
 
+import { readMidnightContract } from "../../../contracts/midnight/read-contract.ts";
+
+const deployedEvmAddresses = {
+  "chain-31337": {
+    "L2Contract#PaimaL2Contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "Foo#SomeERC20": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+  },
+} as const;
 import { contractAddressesEvmMain } from "@example/evm-contracts";
 
 import {
@@ -22,13 +30,16 @@ const stfInputs = {
 
 // comes from hardhat.config.ts
 const parallelBlockTime: TimestampMs = 10 * 1000;
-
+// TODO: This is a workaround to disable yaci-devkit in linux for testing.
+//       There is a unknown error when launching this process.
+//       error: Text file busy (os error 26)
+const yaci = Deno.env.get("DISABLE_LINUX_YACI") ? false : true;
 export const localhostConfig = new ConfigBuilder()
   .setNamespace(
-    (builder) => builder.setSecurityNamespace("asdf"),
+    (builder) => builder.setSecurityNamespace("example-e2e-test"),
   )
-  .buildNetworks((builder) =>
-    builder
+  .buildNetworks((builder) => {
+    let b = builder
       .addViemNetwork({
         ...hardhat,
         name: "evmMain",
@@ -42,22 +53,27 @@ export const localhostConfig = new ConfigBuilder()
         id: 31338, // taken from hardhat.config.ts
       })
       .addNetwork({
-        name: "yaci",
-        type: ConfigNetworkType.CARDANO,
-        nodeUrl: "http://127.0.0.1:10000", // yaci-devkit default URL
-        network: "yaci",
-      })
-  )
+        name: "midnight",
+        type: ConfigNetworkType.MIDNIGHT,
+        genesisHash:
+          "0x0000000000000000000000000000000000000000000000000000000000000001",
+        networkId: 0,
+        nodeUrl: "http://127.0.0.1:9944",
+      });
+
+    if (yaci) {
+      b = b
+        .addNetwork({
+          name: "yaci",
+          type: ConfigNetworkType.CARDANO,
+          nodeUrl: "http://127.0.0.1:10000", // yaci-devkit default URL
+          network: "yaci",
+        });
+    }
+    return b;
+  })
   .buildDeployments((builder) =>
     builder
-      .addDeployment(
-        (networks) => networks.evmMain,
-        (_network) => ({
-          name: "PaimaErc20DevModule#PaimaErc20Dev",
-          address: contractAddressesEvmMain()
-            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
-        }),
-      )
       .addDeployment(
         (networks) => networks.evmMain,
         (_network) => ({
@@ -83,16 +99,8 @@ export const localhostConfig = new ConfigBuilder()
             .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
         }),
       )
-      .addDeployment(
-        (networks) => networks.evmParallel,
-        (_network) => ({
-          name: "PaimaErc20DevModule#PaimaErc20Dev",
-          address: contractAddressesEvmMain()
-            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
-        }),
-      )
-  ).buildSyncProtocols((builder) =>
-    builder
+  ).buildSyncProtocols((builder) => {
+    let result = builder
       .addMain((networks) => networks.evmMain, (network, deployments) => ({
         name: "mainEvmRPC",
         type: ConfigSyncProtocolType.EVM_RPC_MAIN,
@@ -113,15 +121,32 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addParallel(
-        (networks) => networks.yaci,
+        (networks) => networks.midnight,
         (network, deployments) => ({
-          name: "parallelUtxoRpc",
-          type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
-          rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
-          startSlot: 1,
+          name: "parallelMidnight",
+          type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+          startBlockHeight: 1,
+          pollingInterval: 1000,
+          indexer: "http://127.0.0.1:8088/api/v1/graphql",
+          indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
         }),
-      )
-  )
+      );
+
+    if (yaci) {
+      result = result
+        .addParallel(
+          (networks) => (networks as any).yaci,
+          (network, deployments) => ({
+            name: "parallelUtxoRpc",
+            type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
+            rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
+            startSlot: 1,
+          }),
+        );
+    }
+
+    return result;
+  })
   .buildPrimitives((builder) =>
     builder.addPrimitive(
       (syncProtocols) => syncProtocols.mainEvmRPC,
@@ -149,6 +174,16 @@ export const localhostConfig = new ConfigBuilder()
             paimal2contract.abi,
             "PaimaGameInteraction(address,bytes,uint256)",
           ),
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.parallelMidnight,
+        (network, deployments, syncProtocol) => ({
+          name: "MidnightContractState",
+          type: ConfigPrimitiveType.MidnightContractState,
+          startBlockHeight: 1,
+          contractAddress: readMidnightContract().contractAddress,
+          scheduledPrefix: "midnightContractState",
         }),
       )
       .addPrimitive(

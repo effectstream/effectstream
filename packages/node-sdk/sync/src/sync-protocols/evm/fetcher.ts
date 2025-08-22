@@ -8,8 +8,8 @@ import type { Chain, GetBlockReturnType, PublicClient } from "viem";
 import type { Operation } from "effection";
 import { all, call } from "effection";
 import {
-  type BlockHash,
   bound,
+  type EvmBlockHash,
   type EvmRpcPageJson,
   keysOf,
 } from "@paima/utils";
@@ -96,7 +96,7 @@ export class EvmFetcher
             keysOf(groupedByPage).map(function* (pageJson) {
               const page = Value.Encode(PageSchema, pageJson);
               const raw = yield* call(() => pageFetcher(page));
-              const blockHashes = [raw.hash];
+              const blockHashes = [raw.hash] as EvmBlockHash[];
               return {
                 raw,
                 primitives: groupedByPage[pageJson],
@@ -117,7 +117,7 @@ export class EvmFetcher
         lastPage: {
           own: Number(data.to),
           root: rootConversion.toRootPage({
-            blockHashes: [],
+            blockHashes: [lastPage.hash] as EvmBlockHash[],
             primitives: [], // unused in toRootPage
             raw: lastPage,
           }),
@@ -131,7 +131,7 @@ export class EvmFetcher
         ).map(function* (page: Page) {
           const key = Value.Decode(PageSchema, page);
           const raw = yield* call(() => pageFetcher(page));
-          const blockHashes = [raw.hash];
+          const blockHashes = [raw.hash] as EvmBlockHash[];
           return {
             raw,
             primitives: groupedByPage[key] ?? [],
@@ -147,7 +147,7 @@ export class EvmFetcher
         lastPage: {
           own: Number(data.to),
           root: rootConversion.toRootPage({
-            blockHashes: [],
+            blockHashes: [] as EvmBlockHash[],
             primitives: [], // unused in toRootPage
             raw: (yield* call(() => pageFetcher(Number(data.to)))),
           }),

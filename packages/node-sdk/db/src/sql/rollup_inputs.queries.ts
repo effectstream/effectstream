@@ -161,7 +161,10 @@ export const insertGameInputResult = new PreparedQuery<IInsertGameInputResultPar
 
 
 /** 'GetAllScheduledData' parameters type */
-export type IGetAllScheduledDataParams = void;
+export interface IGetAllScheduledDataParams {
+  after_id?: number | null | void;
+  limit?: number | null | void;
+}
 
 /** 'GetAllScheduledData' return type */
 export interface IGetAllScheduledDataResult {
@@ -182,7 +185,7 @@ export interface IGetAllScheduledDataQuery {
   result: IGetAllScheduledDataResult;
 }
 
-const getAllScheduledDataIR: any = {"usedParamSet":{},"params":[],"statement":"(\nSELECT\n  rollup_inputs.id,\n  NULL AS future_ms_timestamp,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id\nORDER BY rollup_inputs.id ASC\n)\n\tUNION ALL \n(\nSELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  NULL AS \"future_block_height\",\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id\nLEFT OUTER JOIN rollup_input_result\n  ON (rollup_input_result.id = rollup_inputs.id)\nWHERE rollup_input_result.id IS NULL\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC\n)"};
+const getAllScheduledDataIR: any = {"usedParamSet":{"after_id":true,"limit":true},"params":[{"name":"after_id","required":false,"transform":{"type":"scalar"},"locs":[{"a":520,"b":528},{"a":1238,"b":1246}]},{"name":"limit","required":false,"transform":{"type":"scalar"},"locs":[{"a":1349,"b":1354}]}],"statement":"(\nSELECT\n  rollup_inputs.id,\n  NULL AS future_ms_timestamp,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id\nWHERE rollup_inputs.id > :after_id::INT\nORDER BY rollup_inputs.id ASC\n)\n\tUNION ALL \n(\nSELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  NULL AS \"future_block_height\",\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM rollup_inputs\nJOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id\nJOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id\nLEFT OUTER JOIN rollup_input_result\n  ON (rollup_input_result.id = rollup_inputs.id)\nWHERE \n  rollup_input_result.id IS NULL AND\n  rollup_inputs.id > :after_id::INT\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC\n)\nORDER BY id ASC\nLIMIT COALESCE(:limit, 999999)"};
 
 /**
  * Query generated from SQL:
@@ -201,6 +204,7 @@ const getAllScheduledDataIR: any = {"usedParamSet":{},"params":[],"statement":"(
  * FROM rollup_inputs
  * JOIN rollup_input_origin ON rollup_inputs.id = rollup_input_origin.id
  * JOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id
+ * WHERE rollup_inputs.id > :after_id::INT
  * ORDER BY rollup_inputs.id ASC
  * )
  * 	UNION ALL 
@@ -220,12 +224,56 @@ const getAllScheduledDataIR: any = {"usedParamSet":{},"params":[],"statement":"(
  * JOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id
  * LEFT OUTER JOIN rollup_input_result
  *   ON (rollup_input_result.id = rollup_inputs.id)
- * WHERE rollup_input_result.id IS NULL
+ * WHERE 
+ *   rollup_input_result.id IS NULL AND
+ *   rollup_inputs.id > :after_id::INT
  * ORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC
  * )
+ * ORDER BY id ASC
+ * LIMIT COALESCE(:limit, 999999)
  * ```
  */
 export const getAllScheduledData = new PreparedQuery<IGetAllScheduledDataParams,IGetAllScheduledDataResult>(getAllScheduledDataIR);
+
+
+/** 'GetAllScheduledDataCount' parameters type */
+export type IGetAllScheduledDataCountParams = void;
+
+/** 'GetAllScheduledDataCount' return type */
+export interface IGetAllScheduledDataCountResult {
+  total: string | null;
+}
+
+/** 'GetAllScheduledDataCount' query type */
+export interface IGetAllScheduledDataCountQuery {
+  params: IGetAllScheduledDataCountParams;
+  result: IGetAllScheduledDataCountResult;
+}
+
+const getAllScheduledDataCountIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT COUNT(*) as total FROM (\n  (\n  SELECT rollup_inputs.id\n  FROM rollup_inputs\n  JOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id\n  )\n  UNION ALL \n  (\n  SELECT rollup_inputs.id\n  FROM rollup_inputs\n  JOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id\n  LEFT OUTER JOIN rollup_input_result\n    ON (rollup_input_result.id = rollup_inputs.id)\n  WHERE rollup_input_result.id IS NULL\n  )\n) AS scheduled_data"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT COUNT(*) as total FROM (
+ *   (
+ *   SELECT rollup_inputs.id
+ *   FROM rollup_inputs
+ *   JOIN rollup_input_future_block ON rollup_input_future_block.id = rollup_inputs.id
+ *   )
+ *   UNION ALL 
+ *   (
+ *   SELECT rollup_inputs.id
+ *   FROM rollup_inputs
+ *   JOIN rollup_input_future_timestamp ON rollup_inputs.id = rollup_input_future_timestamp.id
+ *   LEFT OUTER JOIN rollup_input_result
+ *     ON (rollup_input_result.id = rollup_inputs.id)
+ *   WHERE rollup_input_result.id IS NULL
+ *   )
+ * ) AS scheduled_data
+ * ```
+ */
+export const getAllScheduledDataCount = new PreparedQuery<IGetAllScheduledDataCountParams,IGetAllScheduledDataCountResult>(getAllScheduledDataCountIR);
 
 
 /** 'GetFutureGameInputByBlockHeight' parameters type */

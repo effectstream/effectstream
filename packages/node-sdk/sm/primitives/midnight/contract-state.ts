@@ -30,29 +30,28 @@ export default function* processMidnightContractStateSyncProtocolResponse(
     scheduledPrefix,
     { payload },
   );
-  yield* createScheduledData(
-    JSON.stringify(scheduledInputData),
-    {
-      blockHeight: getScheduleBlockHeight(
-        response.output.syncProtocol.payload,
-        paima_block_height,
-      ),
-    },
-    {
-      primitiveName: response.output.syncProtocol.payload.primitiveName,
-      txHash: response.output.syncProtocol.payload.transactionHash,
-      caip2: response.output.syncProtocol.payload.caip2,
-      fromAddress: "", // TODO: Midnight indexer doesn't serve this.
-      contractAddress: response.input.contractAddress,
-    },
-  );
-
   yield* World.resolve(insertPrimitiveAccounting, {
     primitive_name: response.output.syncProtocol.payload.primitiveName,
     paima_block_height: paima_block_height,
     payload_type: ConfigPrimitiveAccountingPayloadType.Event,
-    payload: response.output.payload satisfies PayloadOf<
-      typeof PrimitiveMidnightGraphqlContractStateAccounting
-    >,
+    payload: JSON.stringify(response.output.payload) as any,
   });
+  if (scheduledPrefix) {
+    yield* createScheduledData(
+      JSON.stringify(scheduledInputData),
+      {
+        blockHeight: getScheduleBlockHeight(
+          response.output.syncProtocol.payload,
+          paima_block_height,
+        ),
+      },
+      {
+        primitiveName: response.output.syncProtocol.payload.primitiveName,
+        txHash: response.output.syncProtocol.payload.transactionHash,
+        caip2: response.output.syncProtocol.payload.caip2,
+        fromAddress: "", // TODO: Midnight indexer doesn't serve this.
+        contractAddress: response.input.contractAddress,
+      },
+    );
+  }
 }
