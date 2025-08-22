@@ -60,6 +60,9 @@ export function useTableData() {
   const [scheduledData, setScheduledData] = useState<
     Record<string, TableData | null>
   >({});
+  const [contractsData, setContractsData] = useState<
+    Record<string, TableData | null>
+  >({});
   const [primitivePagination, setPrimitivePagination] = useState<
     Record<string, PaginationMeta>
   >({});
@@ -177,6 +180,59 @@ export function useTableData() {
       };
     },
     [convertSchemaToFields],
+  );
+
+  // Convert contract data (from config) to TableData format
+  const convertContractsDataToTableFormat = useCallback(
+    (config: any[]): TableData | null => {
+      if (!config || !Array.isArray(config)) {
+        return null;
+      }
+
+      const rows: any[] = [];
+      config.forEach((syncProtocolConfig) => {
+        if (
+          !syncProtocolConfig.primitives ||
+          !Array.isArray(syncProtocolConfig.primitives)
+        ) {
+          return;
+        }
+        syncProtocolConfig.primitives.forEach((primitiveConfig: any) => {
+          if (!primitiveConfig.primitive || !primitiveConfig.primitive.name) {
+            console.warn(
+              "Primitive config is missing primitive or primitive.name",
+              primitiveConfig,
+            );
+            return;
+          }
+          rows.push({
+            network_type: syncProtocolConfig.networkType || "N/A",
+            primitive_name: primitiveConfig.primitive.name,
+            primitive_type: primitiveConfig.primitive.type,
+            contract_address: primitiveConfig.primitive.contractAddress ||
+              "N/A",
+            start_block: primitiveConfig.primitive.startBlockHeight ||
+              "N/A",
+          });
+        });
+      });
+
+      const fields: Field[] = [
+        { name: "network_type", dataTypeID: 25 },
+        { name: "primitive_name", dataTypeID: 25 },
+        { name: "primitive_type", dataTypeID: 25 },
+        { name: "contract_address", dataTypeID: 25 },
+        { name: "start_block", dataTypeID: 23 }, // number
+      ];
+
+      return {
+        command: "SELECT",
+        rowCount: rows.length,
+        rows: rows,
+        fields: fields,
+      };
+    },
+    [],
   );
 
   // Fetch schema for primitive
@@ -674,6 +730,25 @@ export function useTableData() {
     }
   }, [fetchScheduledData]);
 
+  // Initialize contracts data
+  const initializeContractsData = useCallback(async () => {
+    console.log("📋 Initializing contracts data...");
+
+    try {
+      const config = await fetchConfig();
+      if (!config) {
+        console.error("Failed to fetch config for contracts data");
+        return;
+      }
+
+      const tableData = convertContractsDataToTableFormat(config);
+      setContractsData({ "contracts": tableData });
+      console.log("✅ Contracts data initialized");
+    } catch (error) {
+      console.error("Error initializing contracts data:", error);
+    }
+  }, [fetchConfig, convertContractsDataToTableFormat]);
+
   // Initialize and setup refresh intervals
   useEffect(() => {
     let primitiveRefreshInterval: number;
@@ -686,6 +761,7 @@ export function useTableData() {
         initializePrimitiveTables(),
         initializeStaticTables(),
         initializeScheduledData(),
+        initializeContractsData(),
       ]);
 
       // Mark initial load as complete
@@ -733,6 +809,7 @@ export function useTableData() {
     primitiveData,
     staticTableData,
     scheduledData,
+    contractsData,
     refreshPrimitiveData,
     refreshStaticTableData,
     refreshScheduledData,

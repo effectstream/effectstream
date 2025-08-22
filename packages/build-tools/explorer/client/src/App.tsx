@@ -34,6 +34,7 @@ function App() {
     prevStaticTablePage,
     firstStaticTablePage,
     setStaticTableLimit,
+    contractsData,
   } = useTableData();
 
   // Error handling for uncaught promises
@@ -78,6 +79,11 @@ function App() {
       <ColumnsContainer
         chainConfigs={chainConfigs}
         newBlockIndices={newBlockIndices}
+      />
+
+      <TableSection
+        title="Tracked Contracts"
+        tables={contractsData}
       />
 
       <TableSection
