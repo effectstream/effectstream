@@ -87,7 +87,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     `SELECT
       inputs
       FROM
-      custom.user_state_machine;`,
+      user_state_machine;`,
     (res) => res.rows.length === sharedState.paima_state_machine_counter,
     (res) => {
       const dump = [
@@ -172,7 +172,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ sum: number }>(
     "Check Promises in State Machine",
     db,
-    `SELECT * FROM custom.another_example_table order by block_height asc;`,
+    `SELECT * FROM another_example_table order by block_height asc;`,
     (res) => res.rows.length === attackInputCount,
     (res) => {
       // The first value is random - 3;
@@ -328,7 +328,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ inputs: string; block_height: number }>(
     "Check Scheduled Data - block",
     db,
-    `SELECT inputs, block_height from custom.user_state_machine`,
+    `SELECT inputs, block_height from user_state_machine`,
     (res) => res.rows.length === sharedState.paima_state_machine_counter,
     (res) => {
       return res.rows[sharedState.paima_state_machine_counter - 1].inputs ===
@@ -346,7 +346,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ inputs: string; block_height: number }>(
     "Check Scheduled Data - timestamp",
     db,
-    `SELECT inputs, block_height from custom.user_state_machine`,
+    `SELECT inputs, block_height from user_state_machine`,
     (res) => res.rows.length === sharedState.paima_state_machine_counter,
     (res) => {
       return res.rows[sharedState.paima_state_machine_counter - 1].inputs ===

@@ -16,12 +16,12 @@ export interface IInsertStateMachineInputQuery {
   result: IInsertStateMachineInputResult;
 }
 
-const insertStateMachineInputIR: any = {"usedParamSet":{"inputs":true,"block_height":true},"params":[{"name":"inputs","required":true,"transform":{"type":"scalar"},"locs":[{"a":72,"b":79}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":82,"b":95}]}],"statement":"INSERT INTO custom.user_state_machine \n(inputs, block_height) \nVALUES \n(:inputs!, :block_height!)"};
+const insertStateMachineInputIR: any = {"usedParamSet":{"inputs":true,"block_height":true},"params":[{"name":"inputs","required":true,"transform":{"type":"scalar"},"locs":[{"a":65,"b":72}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":75,"b":88}]}],"statement":"INSERT INTO user_state_machine \n(inputs, block_height) \nVALUES \n(:inputs!, :block_height!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO custom.user_state_machine 
+ * INSERT INTO user_state_machine 
  * (inputs, block_height) 
  * VALUES 
  * (:inputs!, :block_height!)
@@ -46,12 +46,12 @@ export interface IGetStateMachineInputQuery {
   result: IGetStateMachineInputResult;
 }
 
-const getStateMachineInputIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM custom.user_state_machine\nORDER BY id ASC"};
+const getStateMachineInputIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM user_state_machine\nORDER BY id ASC"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM custom.user_state_machine
+ * SELECT * FROM user_state_machine
  * ORDER BY id ASC
  * ```
  */
@@ -76,12 +76,12 @@ export interface IGetStateMachineInputByBlockHeightQuery {
   result: IGetStateMachineInputByBlockHeightResult;
 }
 
-const getStateMachineInputByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":61,"b":74}]}],"statement":"SELECT * FROM custom.user_state_machine\nWHERE block_height = :block_height!\nORDER BY id ASC"};
+const getStateMachineInputByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":54,"b":67}]}],"statement":"SELECT * FROM user_state_machine\nWHERE block_height = :block_height!\nORDER BY id ASC"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM custom.user_state_machine
+ * SELECT * FROM user_state_machine
  * WHERE block_height = :block_height!
  * ORDER BY id ASC
  * ```
@@ -103,12 +103,12 @@ export interface IGetLastSumFromExampleTableQuery {
   result: IGetLastSumFromExampleTableResult;
 }
 
-const getLastSumFromExampleTableIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT sum FROM custom.another_example_table \nORDER BY block_height DESC\nLIMIT 1"};
+const getLastSumFromExampleTableIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT sum FROM another_example_table \nORDER BY block_height DESC\nLIMIT 1"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT sum FROM custom.another_example_table 
+ * SELECT sum FROM another_example_table 
  * ORDER BY block_height DESC
  * LIMIT 1
  * ```
@@ -131,12 +131,12 @@ export interface IInsertSumIntoExampleTableQuery {
   result: IInsertSumIntoExampleTableResult;
 }
 
-const insertSumIntoExampleTableIR: any = {"usedParamSet":{"sum":true,"block_height":true},"params":[{"name":"sum","required":true,"transform":{"type":"scalar"},"locs":[{"a":72,"b":76}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":79,"b":92}]}],"statement":"INSERT INTO custom.another_example_table \n(sum, block_height) \nVALUES \n(:sum!, :block_height!)"};
+const insertSumIntoExampleTableIR: any = {"usedParamSet":{"sum":true,"block_height":true},"params":[{"name":"sum","required":true,"transform":{"type":"scalar"},"locs":[{"a":65,"b":69}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":72,"b":85}]}],"statement":"INSERT INTO another_example_table \n(sum, block_height) \nVALUES \n(:sum!, :block_height!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO custom.another_example_table 
+ * INSERT INTO another_example_table 
  * (sum, block_height) 
  * VALUES 
  * (:sum!, :block_height!)

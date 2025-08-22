@@ -448,7 +448,7 @@ export const startHttpServer = function* (
           }
 
           query =
-            `SELECT * FROM custom.${safeTableName} ${whereClause} ${orderByClause} LIMIT $1`;
+            `SELECT * FROM public.${safeTableName} ${whereClause} ${orderByClause} LIMIT $1`;
           params.unshift(limit + 1);
         } else {
           // --- Offset Pagination Fallback Strategy ---
@@ -471,7 +471,7 @@ export const startHttpServer = function* (
           const orderByClause = `ORDER BY "${orderByColumn}" ASC`;
 
           query =
-            `SELECT * FROM custom.${safeTableName} ${orderByClause} LIMIT $1 OFFSET $2`;
+            `SELECT * FROM public.${safeTableName} ${orderByClause} LIMIT $1 OFFSET $2`;
           params.push(limit + 1, offset);
           nextCursorSeed = { offset: offset + limit };
         }
