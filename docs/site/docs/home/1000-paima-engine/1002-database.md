@@ -14,6 +14,12 @@ To update the pgtyped functions run:
 ## System Tables and Migrations
 
 * DB Initialization
-@paima/db `/migrations/up.sql` 
+@paima/db `/migrations/system-up-v-<MAJOR>-<MINOR>-<PATCH>.sql` 
 
-> up.sql is applied at the start up.
+Where the version MUST match the Package Version.
+e.g., For Paima Engine 0.3.20, the migration is called: `/migrations/system-up-v-0-3-20.sql` 
+> NOTE 0.0.0 Is a special migration that gets applied before the node starts.
+
+
+And then the file must be added to the `assets-config.json` 
+> NOTE: This is a JSR limitation at the time

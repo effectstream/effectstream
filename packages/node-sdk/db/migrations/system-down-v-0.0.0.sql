@@ -1,0 +1,2 @@
+DROP TABLE paima_engine_version_history;
+DROP TABLE paima_engine_migration_history;

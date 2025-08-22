@@ -20,8 +20,10 @@ const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
  * and wait for the sync process to start and be ready.
  */
 export async function startup(): Promise<Client> {
+  const logs = Deno.env.get("PAIMA_E2E_LOG_DEBUG") ? "stdout" : "stdout-err";
+
   const config = Value.Parse(OrchestratorConfig, {
-    logs: "stdout-err",
+    logs,
     processes: {
       [ComponentNames.PAIMA_PGLITE]: true,
 
@@ -126,8 +128,8 @@ export async function getDBConnection(): Promise<Client> {
   while (maxMillis > 0) {
     let didLock = false;
     let isReady = false;
+
     try {
-      console.error("acquiring lock");
       await fetch(
         `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=e2e-loader`,
       );
@@ -139,11 +141,9 @@ export async function getDBConnection(): Promise<Client> {
       isReady = true;
     } finally {
       if (didLock) {
-        console.error("releasing lock");
         await fetch(
           `http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock?name=e2e-loader`,
         );
-        console.error("lock released");
       }
     }
     if (isReady) {

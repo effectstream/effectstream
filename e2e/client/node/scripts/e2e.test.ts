@@ -7,6 +7,7 @@ import { newSharedState } from "./e2e-shared-state.ts";
 import { tokenTests } from "./e2e.tokens.ts";
 import { RPCTest } from "./e2e.rpc.test.ts";
 import { joinAndIncrementTest } from "./e2e.midnight.test.ts";
+import { testMigrations } from "./e2e.migrationts.ts";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -36,6 +37,7 @@ async function test() {
     await accountTests(db, sharedState);
     await joinAndIncrementTest(db, sharedState);
     await tokenTests(db, sharedState);
+    await testMigrations(db);
 
     // Done testing.
     printSummary();

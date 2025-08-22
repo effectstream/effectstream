@@ -8,10 +8,12 @@
     "./apply-migrations": "./scripts/apply-migrations.ts",
     "./db-up": "./scripts/start-pglite.ts",
     "./db-wait": "./scripts/wait-for-db.ts",
-    "./pgtyped-update": "./scripts/pgtyped-update.ts"
+    "./pgtyped-update": "./scripts/pgtyped-update.ts",
+    "./version": "./migrations/system-version.ts"
   },
   "tasks": {
-    "pgtyped:update": "deno run -A @paima/db/pgtyped-update"
+    "pgtyped:update": "deno task _build:assets && ((kill -9 $(lsof -ti:5432)) || true) && deno run -A @paima/db/pgtyped-update",
+    "_build:assets": "(rm migrations/assets.ts || true) && deno run --allow-read jsr:@codemonument/asset-builder --import-file assets-config.json > ./migrations/assets.ts"
   },
   "imports": {
     "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2",

@@ -1,10 +1,7 @@
 import type { ChainBlock } from "@paima/sync";
 import { call, type Operation, until } from "effection";
 import type { Pool } from "pg";
-import {
-  type BaseStfInput,
-  primitiveTransitionFunction,
-} from "@paima/sm";
+import { type BaseStfInput, primitiveTransitionFunction } from "@paima/sm";
 import { PreparedQuery } from "@pgtyped/runtime";
 import type {
   ExecPromise,
@@ -24,6 +21,7 @@ import { ComponentNames, log, SeverityNumber } from "@paima/log";
 import type { StartConfig, StartConfigMigrationRouter } from "./types.ts";
 import type { PaimaBlockHash } from "@paima/utils";
 import { generatePaimaBlockHash, Prando } from "@paima/crypto";
+import { applyUserMigrations } from "./version-migrations.ts";
 
 /** Helper to check if a SyncStateUpdateStream object is a WorldResolve */
 function isWorldResolve(value: any): value is QueuedUpdate {
@@ -39,7 +37,7 @@ function isPromise(value: any): value is ExecPromise<any> {
  * STF updates can fail (since the data for them comes from arbitrary onchain data)
  * But we can't allow a single user's bad transaction to DOS the game for everybody else
  * So failures should be isolated to just the specific input, and not the full block
- * (recall: without this, in psql, if a query fails during a db transaction, the entire dbTx becomes invalid)
+ * (recall: without this, in pgsql, if a query fails during a db transaction, the entire dbTx becomes invalid)
  */
 async function tryOrRollback<T>(
   dbTx: Pool,
@@ -107,26 +105,9 @@ function* executeGeneratorStepByStep(
 }
 
 /**
- * This function is used to process the user defined migrations
- * to be executed at specific block heights.
- */
-function* processMigrations(
-  blockHeight: number,
-  migrationsRouter: StartConfigMigrationRouter,
-  dbConn: Pool,
-): Operation<void> {
-  const migrationToApply = yield* until(migrationsRouter(blockHeight));
-  if (migrationToApply) {
-    yield* until(
-      tryOrRollback(dbConn, async () => await dbConn.query(migrationToApply)),
-    );
-  }
-}
-
-/**
  * This function is the main entry point for processing a produced block.
- * It is called whem a block can be processed and finalized.
- * It runs the entire pipeline in a transaction, with subtransactions for each StateMachineExecution.
+ * It is called when a block can be processed and finalized.
+ * It runs the entire pipeline in a transaction, with sub-transactions for each StateMachineExecution.
  *
  * Process Order:
  * 1. Create a temporal block record
@@ -136,7 +117,7 @@ function* processMigrations(
  * 5. Mark the block as done, and add the hash.
  * 6. Commit the transaction
  *
- * IMPORTANT: This function must recieve a non-shared dbConn object.
+ * IMPORTANT: This function must receive a non-shared dbConn object.
  *            as it will be used in a transaction.
  */
 export function* processFinalizedBlock(
@@ -168,7 +149,11 @@ export function* processFinalizedBlock(
 
     /* STEP 2: Process the migrations. */
     if (migrationRouter) {
-      yield* processMigrations(value.blockNumber, migrationRouter, dbConn);
+      yield* applyUserMigrations(
+        value.blockNumber,
+        dbConn,
+        migrationRouter,
+      );
     }
 
     /* STEP 3: Process the primitives. */
