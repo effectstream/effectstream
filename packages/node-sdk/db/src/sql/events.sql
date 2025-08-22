@@ -39,3 +39,23 @@ SELECT name, topic FROM paima.registered_event;
 
 /* @name getEventByTopic */
 SELECT name FROM paima.registered_event WHERE topic = :topic!;
+
+/* @name getAllEvents */
+SELECT
+    e.id,
+    re.name AS event_name,
+    e.topic,
+    e.address,
+    e.data,
+    e.block_height,
+    e.tx_index,
+    e.log_index
+FROM
+    paima.event e
+LEFT JOIN
+    paima.registered_event re ON e.topic = re.topic
+WHERE
+    (:after_id::INT IS NULL OR e.id > :after_id::INT)
+ORDER BY
+    e.id ASC
+LIMIT COALESCE(:limit, 100);

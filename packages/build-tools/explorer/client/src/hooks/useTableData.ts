@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CONFIG_ENDPOINT,
+  EVENTS_ENDPOINT,
   PRIMITIVES_ENDPOINT,
   PRIMITIVES_SCHEMA_ENDPOINT,
   SCHEDULED_DATA_ENDPOINT,
@@ -63,10 +64,16 @@ export function useTableData() {
   const [contractsData, setContractsData] = useState<
     Record<string, TableData | null>
   >({});
+  const [eventsData, setEventsData] = useState<
+    Record<string, TableData | null>
+  >({});
   const [primitivePagination, setPrimitivePagination] = useState<
     Record<string, PaginationMeta>
   >({});
   const [staticTablePagination, setStaticTablePagination] = useState<
+    Record<string, PaginationMeta>
+  >({});
+  const [eventsPagination, setEventsPagination] = useState<
     Record<string, PaginationMeta>
   >({});
   const [primitiveSchemas, setPrimitiveSchemas] = useState<
@@ -85,6 +92,7 @@ export function useTableData() {
   const staticTableSchemasRef = useRef<Record<string, SchemaColumn[]>>({});
   const primitivePaginationRef = useRef<Record<string, PaginationMeta>>({});
   const staticTablePaginationRef = useRef<Record<string, PaginationMeta>>({});
+  const eventsPaginationRef = useRef<Record<string, PaginationMeta>>({});
 
   // Update refs whenever state changes
   useEffect(() => {
@@ -106,6 +114,10 @@ export function useTableData() {
   useEffect(() => {
     staticTablePaginationRef.current = staticTablePagination;
   }, [staticTablePagination]);
+
+  useEffect(() => {
+    eventsPaginationRef.current = eventsPagination;
+  }, [eventsPagination]);
 
   // Convert schema columns to Field format
   const convertSchemaToFields = useCallback(
@@ -460,6 +472,82 @@ export function useTableData() {
     [convertTableDataToTableFormat],
   );
 
+  // Fetch events data
+  const fetchEventsData = useCallback(
+    async (pagination?: PaginationMeta) => {
+      try {
+        const current = pagination ?? {
+          limit: DEFAULT_LIMIT,
+          cursors: [undefined],
+          currentPage: 0,
+          hasMore: false,
+        };
+        const url = new URL(EVENTS_ENDPOINT);
+        url.searchParams.set("limit", String(current.limit));
+
+        const cursor = current.cursors[current.currentPage];
+        if (cursor) {
+          url.searchParams.set("after", cursor);
+        }
+
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(`🚫 Events not found (404)`);
+            return null;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const jsonResponse = await response.json();
+        console.log(`📊 Fetched events data:`, jsonResponse);
+        const data = jsonResponse.data ?? [];
+        const paginationMeta = jsonResponse.pagination;
+        if (paginationMeta) {
+          setEventsPagination((prev) => {
+            const newCursors = [...prev["events"].cursors];
+            if (
+              paginationMeta.nextCursor &&
+              newCursors.length === prev["events"].currentPage + 1
+            ) {
+              newCursors.push(paginationMeta.nextCursor);
+            }
+            return {
+              ...prev,
+              ["events"]: {
+                ...prev["events"],
+                hasMore: paginationMeta.hasMore,
+                cursors: newCursors,
+              },
+            };
+          });
+        }
+
+        // Manually define fields for events data
+        const fields: Field[] = [
+          { name: "id", dataTypeID: 23 },
+          { name: "event_name", dataTypeID: 25 },
+          { name: "topic", dataTypeID: 25 },
+          { name: "address", dataTypeID: 25 },
+          { name: "data", dataTypeID: 25 },
+          { name: "block_height", dataTypeID: 23 },
+          { name: "tx_index", dataTypeID: 23 },
+          { name: "log_index", dataTypeID: 23 },
+        ];
+
+        return {
+          command: "SELECT",
+          rowCount: data.length,
+          rows: data,
+          fields: fields,
+        };
+      } catch (error) {
+        console.error(`Error fetching events data:`, error);
+        return null;
+      }
+    },
+    [],
+  );
+
   // Fetch scheduled data
   const fetchScheduledData = useCallback(
     async (): Promise<TableData | null> => {
@@ -583,6 +671,23 @@ export function useTableData() {
       // Don't clear data on error, keep existing data
     }
   }, [fetchScheduledData]);
+
+  // Refresh events data
+  const refreshEventsData = useCallback(async () => {
+    if (!isInitialLoadComplete.current) {
+      return;
+    }
+
+    try {
+      const pagination = eventsPaginationRef.current["events"];
+      const data = await fetchEventsData(pagination);
+      if (data !== null) {
+        setEventsData({ "events": data });
+      }
+    } catch (error) {
+      console.error("Error refreshing events data:", error);
+    }
+  }, [fetchEventsData]);
 
   // Initialize primitive tables
   const initializePrimitiveTables = useCallback(async () => {
@@ -730,6 +835,34 @@ export function useTableData() {
     }
   }, [fetchScheduledData]);
 
+  const initializeEventsData = useCallback(async () => {
+    console.log("📋 Initializing events data...");
+
+    try {
+      setEventsPagination((prev) => ({
+        ...prev,
+        ["events"]: prev["events"] ?? {
+          limit: DEFAULT_LIMIT,
+          cursors: [undefined],
+          currentPage: 0,
+          hasMore: false,
+        },
+      }));
+
+      const pagination = eventsPaginationRef.current["events"] ?? {
+        limit: DEFAULT_LIMIT,
+        cursors: [undefined],
+        currentPage: 0,
+        hasMore: false,
+      };
+      const data = await fetchEventsData(pagination);
+      setEventsData({ "events": data });
+      console.log("✅ Events data initialized");
+    } catch (error) {
+      console.error("Error initializing events data:", error);
+    }
+  }, [fetchEventsData]);
+
   // Initialize contracts data
   const initializeContractsData = useCallback(async () => {
     console.log("📋 Initializing contracts data...");
@@ -754,6 +887,7 @@ export function useTableData() {
     let primitiveRefreshInterval: number;
     let staticTableRefreshInterval: number;
     let scheduledDataRefreshInterval: number;
+    let eventsRefreshInterval: number;
 
     const initialize = async () => {
       // Initialize tables
@@ -762,6 +896,7 @@ export function useTableData() {
         initializeStaticTables(),
         initializeScheduledData(),
         initializeContractsData(),
+        initializeEventsData(),
       ]);
 
       // Mark initial load as complete
@@ -788,6 +923,14 @@ export function useTableData() {
           refreshScheduledData();
         }, 5000);
       }, 3000);
+
+      // Refresh events data after 4.5 seconds, then every 5 seconds
+      setTimeout(() => {
+        refreshEventsData();
+        eventsRefreshInterval = setInterval(() => {
+          refreshEventsData();
+        }, 5000);
+      }, 4500);
     };
 
     initialize();
@@ -802,6 +945,9 @@ export function useTableData() {
       if (scheduledDataRefreshInterval) {
         clearInterval(scheduledDataRefreshInterval);
       }
+      if (eventsRefreshInterval) {
+        clearInterval(eventsRefreshInterval);
+      }
     };
   }, []); // Empty dependency array to prevent re-runs
 
@@ -810,11 +956,13 @@ export function useTableData() {
     staticTableData,
     scheduledData,
     contractsData,
+    eventsData,
     refreshPrimitiveData,
     refreshStaticTableData,
     refreshScheduledData,
     primitivePagination,
     staticTablePagination,
+    eventsPagination,
     // Pagination controls for primitives
     setPrimitiveLimit: async (primitiveName: string, limit: number) => {
       const newPagination = {

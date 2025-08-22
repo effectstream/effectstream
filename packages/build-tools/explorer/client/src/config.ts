@@ -70,6 +70,9 @@ export const PRIMITIVES_SCHEMA_ENDPOINT =
   `http://127.0.0.1:${ENV.PAIMA_API_PORT}/primitives-schema`;
 export const TABLE_SCHEMA_ENDPOINT =
   `http://127.0.0.1:${ENV.PAIMA_API_PORT}/table-schema`;
+export const EVENTS_ENDPOINT = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/events`;
+export const EVENTS_SCHEMA_ENDPOINT =
+  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/events-schema`;
 export const BATCHER_ENDPOINT =
   `http://localhost:${ENV.BATCHER_PORT}/send-input`;
 export const BATCHER_OPENAPI_URL =

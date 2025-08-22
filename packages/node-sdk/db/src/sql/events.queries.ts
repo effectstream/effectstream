@@ -199,3 +199,55 @@ const getEventByTopicIR: any = {"usedParamSet":{"topic":true},"params":[{"name":
 export const getEventByTopic = new PreparedQuery<IGetEventByTopicParams,IGetEventByTopicResult>(getEventByTopicIR);
 
 
+/** 'GetAllEvents' parameters type */
+export interface IGetAllEventsParams {
+  after_id?: number | null | void;
+  limit?: number | null | void;
+}
+
+/** 'GetAllEvents' return type */
+export interface IGetAllEventsResult {
+  address: string;
+  block_height: number;
+  data: Json;
+  event_name: string;
+  id: number;
+  log_index: number;
+  topic: string;
+  tx_index: number;
+}
+
+/** 'GetAllEvents' query type */
+export interface IGetAllEventsQuery {
+  params: IGetAllEventsParams;
+  result: IGetAllEventsResult;
+}
+
+const getAllEventsIR: any = {"usedParamSet":{"after_id":true,"limit":true},"params":[{"name":"after_id","required":false,"transform":{"type":"scalar"},"locs":[{"a":232,"b":240},{"a":265,"b":273}]},{"name":"limit","required":false,"transform":{"type":"scalar"},"locs":[{"a":318,"b":323}]}],"statement":"SELECT\n    e.id,\n    re.name AS event_name,\n    e.topic,\n    e.address,\n    e.data,\n    e.block_height,\n    e.tx_index,\n    e.log_index\nFROM\n    paima.event e\nLEFT JOIN\n    paima.registered_event re ON e.topic = re.topic\nWHERE\n    (:after_id::INT IS NULL OR e.id > :after_id::INT)\nORDER BY\n    e.id ASC\nLIMIT COALESCE(:limit, 100)"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT
+ *     e.id,
+ *     re.name AS event_name,
+ *     e.topic,
+ *     e.address,
+ *     e.data,
+ *     e.block_height,
+ *     e.tx_index,
+ *     e.log_index
+ * FROM
+ *     paima.event e
+ * LEFT JOIN
+ *     paima.registered_event re ON e.topic = re.topic
+ * WHERE
+ *     (:after_id::INT IS NULL OR e.id > :after_id::INT)
+ * ORDER BY
+ *     e.id ASC
+ * LIMIT COALESCE(:limit, 100)
+ * ```
+ */
+export const getAllEvents = new PreparedQuery<IGetAllEventsParams,IGetAllEventsResult>(getAllEventsIR);
+
+

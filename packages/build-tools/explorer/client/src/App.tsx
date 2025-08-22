@@ -35,6 +35,8 @@ function App() {
     firstStaticTablePage,
     setStaticTableLimit,
     contractsData,
+    eventsData,
+    eventsPagination,
   } = useTableData();
 
   // Error handling for uncaught promises
@@ -94,6 +96,12 @@ function App() {
         onNext={(name) => nextPrimitivePage(name)}
         onFirst={(name) => firstPrimitivePage(name)}
         onLimitChange={(name, limit) => setPrimitiveLimit(name, limit)}
+      />
+
+      <TableSection
+        title="Events"
+        tables={eventsData}
+        pagination={eventsPagination}
       />
 
       <TableSection

@@ -6,6 +6,7 @@ import { run, until } from "effection";
 import {
   aquireDBMutex,
   getAllAddresses,
+  getAllEvents,
   getAllScheduledData,
   getPrimaryKeyColumns,
   getPrimitivePrefix,
@@ -205,6 +206,54 @@ export const startHttpServer = function* (
 
     return {
       data: addresses,
+      pagination,
+    };
+  });
+
+  server.get("/events", {
+    schema: {
+      tags: ["status"],
+      querystring: PaginationQuerySchema,
+      response: {
+        200: createPaginatedResponseSchema(Type.Object({
+          id: Type.Number(),
+          event_name: Type.Union([Type.String(), Type.Null()]),
+          topic: Type.String(),
+          address: Type.String(),
+          data: Type.String(),
+          block_height: Type.Number(),
+          tx_index: Type.Number(),
+          log_index: Type.Number(),
+        })),
+      },
+    },
+  }, async (request) => {
+    const { limit, after } = getPaginationParams(request);
+    let events: any[] = [];
+    try {
+      events = await runPreparedQuery(
+        getAllEvents.run(
+          {
+            limit,
+            after_id: after?.id ?? null,
+          },
+          dbConn,
+        ),
+        "events",
+      );
+    } catch (error) {
+      console.error("Error fetching events:", error);
+      throw error;
+    }
+
+    const pagination = createPaginationMeta(
+      limit,
+      events,
+      ["id"],
+    );
+
+    return {
+      data: events,
       pagination,
     };
   });
