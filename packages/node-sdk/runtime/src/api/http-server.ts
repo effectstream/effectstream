@@ -4,7 +4,7 @@ import type { Pool } from "pg";
 import cors from "@fastify/cors";
 import { run, until } from "effection";
 import {
-  aquireDBMutex,
+  acquireDBMutex,
   getAllAddresses,
   getAllScheduledData,
   getPrimaryKeyColumns,
@@ -349,15 +349,21 @@ export const startHttpServer = function* (
     limit?: number,
     afterId?: number | string,
   ): Promise<unknown[]> {
-    let unsafeQuery = `SELECT * FROM ":1"`;
-    const unsafeTableName = tableName.toLowerCase().replace(
-      /[^a-zA-Z0-9_]/g,
-      "",
+    // Split by dot for schema.table
+    const parts = tableName.split(".");
+    if (parts.length > 2) {
+      throw new Error("Invalid table name format");
+    }
+    const sanitizedParts = parts.map((part) =>
+      part.toLowerCase().replace(/[^a-z0-9_]/g, "")
     );
-    if (unsafeTableName.length > 63) {
+    const unsafeTableName = sanitizedParts.join(".");
+
+    if (unsafeTableName.length > 128) { // Arbitrary longer limit
       throw new Error("Table name too long");
     }
-    unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
+
+    let unsafeQuery = `SELECT * FROM ${unsafeTableName}`;
 
     if (afterId !== undefined) {
       const whereValue = typeof afterId === "string"
@@ -373,20 +379,6 @@ export const startHttpServer = function* (
 
     const result = await dbConn.query(unsafeQuery);
     return result.rows;
-  }
-
-  async function unsafeGetTableDataCount(tableName: string): Promise<number> {
-    let unsafeQuery = `SELECT COUNT(*) as total FROM ":1"`;
-    const unsafeTableName = tableName.toLowerCase().replace(
-      /[^a-zA-Z0-9_]/g,
-      "",
-    );
-    if (unsafeTableName.length > 63) {
-      throw new Error("Table name too long");
-    }
-    unsafeQuery = unsafeQuery.replace(":1", unsafeTableName);
-    const result = await dbConn.query(unsafeQuery);
-    return result.rows[0]?.total || 0;
   }
 
   server.get(
@@ -456,7 +448,7 @@ export const startHttpServer = function* (
           }
 
           query =
-            `SELECT * FROM ${safeTableName} ${whereClause} ${orderByClause} LIMIT $1`;
+            `SELECT * FROM public.${safeTableName} ${whereClause} ${orderByClause} LIMIT $1`;
           params.unshift(limit + 1);
         } else {
           // --- Offset Pagination Fallback Strategy ---
@@ -479,7 +471,7 @@ export const startHttpServer = function* (
           const orderByClause = `ORDER BY "${orderByColumn}" ASC`;
 
           query =
-            `SELECT * FROM ${safeTableName} ${orderByClause} LIMIT $1 OFFSET $2`;
+            `SELECT * FROM public.${safeTableName} ${orderByClause} LIMIT $1 OFFSET $2`;
           params.push(limit + 1, offset);
           nextCursorSeed = { offset: offset + limit };
         }
@@ -591,15 +583,17 @@ export const startHttpServer = function* (
         });
       }
 
-      const tableName = `${prefix}${primitiveName.toLowerCase()}`;
       try {
         // Primitives are system-generated and are guaranteed to have an `id` PK.
         // We can use a simplified, but still safe, query.
-        const safeTableName = tableName.replace(/[^a-z0-9_]/g, "");
+        const safeTableName = primitiveName.toLowerCase().replace(
+          /[^a-z0-9_]/g,
+          "",
+        );
         const afterId = after?.id;
 
         const query =
-          `SELECT * FROM "${safeTableName}" WHERE ($1::INT IS NULL OR id > $1::INT) ORDER BY id ASC LIMIT $2`;
+          `SELECT * FROM primitives.${safeTableName} WHERE ($1::INT IS NULL OR id > $1::INT) ORDER BY id ASC LIMIT $2`;
         const params: (string | number | null)[] = [afterId, limit + 1];
 
         const result = await dbConn.query(query, params);
@@ -630,12 +624,12 @@ export const startHttpServer = function* (
   );
 
   // These endpoints:
-  // * /db_aquire_lock
+  // * /db_acquire_lock
   // * /db_release_lock
   // Are only used by the e2e tests to ensure that only one query is executed at a time.
   // They are not used by the main application.
   // TODO Disable this totally for production.
-  server.get("/db_aquire_lock", {
+  server.get("/db_acquire_lock", {
     schema: {
       tags: ["developer"],
       response: {
@@ -643,7 +637,7 @@ export const startHttpServer = function* (
       },
     },
   }, async () => {
-    await run(() => aquireDBMutex("http-server"));
+    await run(() => acquireDBMutex("http-server"));
     return "ok";
   });
 

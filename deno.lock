@@ -131,6 +131,7 @@
     "npm:chalk@5.4.1": "5.4.1",
     "npm:clsx@2": "2.1.1",
     "npm:concurrently@9.1.2": "9.1.2",
+    "npm:dbgate-query-splitter@*": "4.11.5",
     "npm:denque@^2.1.0": "2.1.0",
     "npm:docusaurus-plugin-remote-content@4": "4.0.0_@docusaurus+core@3.8.1__@mdx-js+react@3.1.0___@types+react@19.1.9___react@18.3.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@types+react@19.1.9__webpack@5.101.0___acorn@8.15.0__react-router@5.3.4___react@18.3.1__typescript@5.6.3_@mdx-js+react@3.1.0__@types+react@19.1.9__react@18.3.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@19.1.9_typescript@5.6.3",
     "npm:effection@3.5.0": "3.5.0",
@@ -7174,6 +7175,9 @@
     },
     "dayjs@1.11.13": {
       "integrity": "sha512-oaMBel6gjolK862uaPQOVTA7q3TZhuSvuMQAAglQDOWYO9A91IrAOUJEyKVlqJlHE0vq5p5UXxzdPfMH/x6xNg=="
+    },
+    "dbgate-query-splitter@4.11.5": {
+      "integrity": "sha512-xr4rWhuLeaaDdfdDpMOesCAnZGPUKTH9WPU/GSCHzoKR6NI60IyPjMccShLY+rPIsNw2SZQtbic2aCoFcwI4kg=="
     },
     "debounce@1.2.1": {
       "integrity": "sha512-XRRe6Glud4rd/ZGQfiV1ruXSfbvfJedlV9Y6zOlP+2K04vBYiJEte6stfFkCP03aMnY5tsipamumUjL14fofug=="

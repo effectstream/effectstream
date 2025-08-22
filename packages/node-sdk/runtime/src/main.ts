@@ -1,6 +1,6 @@
 import { type ChainBlock, genSyncProtocols } from "@paima/sync";
 import {
-  aquireDBMutex,
+  acquireDBMutex,
   createDynamicTables,
   getConnection,
   releaseDBMutex,
@@ -63,7 +63,7 @@ export function* start(config: StartConfig): Operation<void> {
     // So we request a DBMutex as well.
     const dbClient: Client = yield* until(dbConn.connect());
     try {
-      yield* aquireDBMutex("processing-blocks");
+      yield* acquireDBMutex("processing-blocks");
       blockHash = yield* processFinalizedBlock(
         value,
         config,
