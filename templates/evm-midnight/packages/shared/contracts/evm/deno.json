@@ -5,7 +5,7 @@
         "./build": "./build/mod.ts",
         "./contractAddressesEvmMain": "./build/contractAddressesEvmMain.ts"
     },
-    "version": "0.3.0",
+    "version": "0.3.22",
     "license": "MIT",
     // TODO: how these actually will work will depend on the hardhat v3 viem plugin
     //       See https://github.com/NomicFoundation/hardhat/issues/5978

@@ -24,6 +24,12 @@ const midnightExtended = (packageName: string) => ({
       waitToExit: false,
       type: "system-dependency",
     },
+    {
+      name: "Explorer",
+      args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
+      waitToExit: false,
+      type: "system-dependency",
+    },
   ],
 });
 

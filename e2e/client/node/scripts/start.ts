@@ -33,7 +33,7 @@ const config = Value.Parse(OrchestratorConfig, {
     // Uncomment to enable Avail Process
     // launchAvail("@e2e/avail-contracts"),
     {
-      stopProcessAtPort: [10599],
+      stopProcessAtPort: [10590],
       processes: [
         {
           name: "frontend-build",

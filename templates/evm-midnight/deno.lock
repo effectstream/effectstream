@@ -32,8 +32,10 @@
     "jsr:@paimaexample/utils@0.3.22": "0.3.22",
     "jsr:@paimaexample/utils@~0.3.22": "0.3.22",
     "jsr:@std/assert@1": "1.0.14",
+    "jsr:@std/assert@^1.0.12": "1.0.14",
     "jsr:@std/assert@~1.0.6": "1.0.14",
     "jsr:@std/bytes@1": "1.0.6",
+    "jsr:@std/collections@^1.1.1": "1.1.2",
     "jsr:@std/crypto@1": "1.0.5",
     "jsr:@std/encoding@1": "1.0.10",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
@@ -41,11 +43,15 @@
     "jsr:@std/encoding@~1.0.8": "1.0.10",
     "jsr:@std/fmt@~1.0.2": "1.0.8",
     "jsr:@std/http@1": "1.0.20",
+    "jsr:@std/internal@^1.0.10": "1.0.10",
+    "jsr:@std/internal@^1.0.9": "1.0.10",
     "jsr:@std/io@~0.224.9": "0.224.9",
     "jsr:@std/media-types@1": "1.1.0",
-    "jsr:@std/path@1": "1.0.9",
+    "jsr:@std/path@1": "1.1.1",
+    "jsr:@std/path@1.1.1": "1.1.1",
     "jsr:@std/path@~1.0.6": "1.0.9",
     "jsr:@std/text@~1.0.7": "1.0.16",
+    "jsr:@std/toml@*": "1.0.8",
     "jsr:@sylc/dkill@~0.12.3": "0.12.3",
     "npm:@bloxbean/yaci-devkit@0.10.6": "0.10.6",
     "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11": "1.0.11",
@@ -111,10 +117,12 @@
     "npm:@paima/pgtyped-cli@2.4.5": "2.4.5_typescript@5.9.2_fp-ts@2.16.11_io-ts@2.2.22__fp-ts@2.16.11_chokidar@4.0.3",
     "npm:@paima/pgtyped-cli@^2.4.5": "2.4.5_typescript@5.9.2_fp-ts@2.16.11_io-ts@2.2.22__fp-ts@2.16.11_chokidar@4.0.3",
     "npm:@paimaexample/evm-contracts@0.3.21": "0.3.21_@openzeppelin+contracts@5.1.0",
+    "npm:@paimaexample/explorer@0.3.15": "0.3.15",
     "npm:@paimaexample/npm-avail-light-client@0.3.22": "0.3.22",
     "npm:@paimaexample/npm-avail-node@0.3.22": "0.3.22",
     "npm:@paimaexample/npm-midnight-indexer@*": "0.3.22",
     "npm:@paimaexample/npm-midnight-indexer@0.3.22": "0.3.22",
+    "npm:@paimaexample/npm-midnight-node@*": "0.3.22",
     "npm:@paimaexample/npm-midnight-node@0.3.22": "0.3.22",
     "npm:@paimaexample/npm-midnight-proof-server@*": "0.3.22",
     "npm:@paimaexample/npm-midnight-proof-server@0.3.22": "0.3.22",
@@ -315,6 +323,7 @@
         "jsr:@paimaexample/log@~0.3.22",
         "jsr:@paimaexample/utils@~0.3.22",
         "jsr:@std/encoding@~1.0.8",
+        "jsr:@std/path@1.1.1",
         "npm:@electric-sql/pglite",
         "npm:@pgtyped/runtime@2.4.2",
         "npm:effection@3.5.0",
@@ -452,10 +461,16 @@
       ]
     },
     "@std/assert@1.0.14": {
-      "integrity": "68d0d4a43b365abc927f45a9b85c639ea18a9fab96ad92281e493e4ed84abaa4"
+      "integrity": "68d0d4a43b365abc927f45a9b85c639ea18a9fab96ad92281e493e4ed84abaa4",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.10"
+      ]
     },
     "@std/bytes@1.0.6": {
       "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
+    },
+    "@std/collections@1.1.2": {
+      "integrity": "f1685dd45c3ec27c39d0e8a642ccf810f391ec8a6cb5e7355926e6dacc64c43e"
     },
     "@std/crypto@1.0.5": {
       "integrity": "0dcfbb319fe0bba1bd3af904ceb4f948cde1b92979ec1614528380ed308a3b40"
@@ -472,6 +487,9 @@
         "jsr:@std/encoding@^1.0.10"
       ]
     },
+    "@std/internal@1.0.10": {
+      "integrity": "e3be62ce42cab0e177c27698e5d9800122f67b766a0bea6ca4867886cbde8cf7"
+    },
     "@std/io@0.224.9": {
       "integrity": "4414664b6926f665102e73c969cfda06d2c4c59bd5d0c603fd4f1b1c840d6ee3"
     },
@@ -481,8 +499,20 @@
     "@std/path@1.0.9": {
       "integrity": "260a49f11edd3db93dd38350bf9cd1b4d1366afa98e81b86167b4e3dd750129e"
     },
+    "@std/path@1.1.1": {
+      "integrity": "fe00026bd3a7e6a27f73709b83c607798be40e20c81dde655ce34052fd82ec76",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.9"
+      ]
+    },
     "@std/text@1.0.16": {
       "integrity": "ddb9853b75119a2473857d691cf1ec02ad90793a2e8b4a4ac49d7354281a0cf8"
+    },
+    "@std/toml@1.0.8": {
+      "integrity": "eb8ae76b4cc1c6c13f2a91123675823adbec2380de75cd3748c628960d952164",
+      "dependencies": [
+        "jsr:@std/collections"
+      ]
     },
     "@sylc/dkill@0.12.3": {
       "integrity": "7321d192fed6b09ad5bb1b7f6a4a3b89fcde50cecf5529914548415535a68704",
@@ -2387,6 +2417,10 @@
         "@openzeppelin/contracts",
         "@openzeppelin/contracts-upgradeable"
       ]
+    },
+    "@paimaexample/explorer@0.3.15": {
+      "integrity": "sha512-iCy3HkMdaFPRNMp381qRwqyfRrtOlOR1j94nds8a08fpxTeOIsE3Sqn58aW89cWD9x0R8XQCZ0AwvZ38eWZlPQ==",
+      "bin": true
     },
     "@paimaexample/npm-avail-light-client@0.3.22": {
       "integrity": "sha512-LokSOkBlkPFcUZ2WALDAfoNNtC9Bv2mYsKgbMlNsleV4/B/+YKuhTH9pD+/pxSNp0VB9/0u97VdjByQ1W0GBbw==",
@@ -6579,6 +6613,7 @@
           "jsr:@paimaexample/runtime@0.3.22",
           "jsr:@paimaexample/sm@0.3.22",
           "jsr:@paimaexample/utils@0.3.22",
+          "npm:@paimaexample/explorer@0.3.15",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:effection@^3.5.0",
           "npm:fastify@^5.4.0",
