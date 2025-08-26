@@ -15,6 +15,7 @@ import { useTableData } from "./hooks/useTableData.ts";
 function App() {
   const [selectedPrimitives, setSelectedPrimitives] = useState<string[]>([]);
   const [selectedUserTables, setSelectedUserTables] = useState<string[]>([]);
+  const [isPrimitivesModalOpen, setIsPrimitivesModalOpen] = useState(false);
   const [isUserTablesModalOpen, setIsUserTablesModalOpen] = useState(false);
 
   // Use custom hooks for data management
@@ -45,7 +46,7 @@ function App() {
 
   useEffect(() => {
     if (primitiveNames.length > 0 && selectedPrimitives.length === 0) {
-      setSelectedPrimitives([primitiveNames[0]]);
+      setSelectedPrimitives(primitiveNames);
     }
   }, [primitiveNames, selectedPrimitives]);
 
@@ -92,8 +93,6 @@ function App() {
       <Header
         latestBlock={latestBlock}
         isConnected={isConnected}
-        primitiveNames={primitiveNames}
-        onSelectPrimitive={(name) => setSelectedPrimitives([name])}
       />
 
       <ColumnsContainer
@@ -113,7 +112,28 @@ function App() {
         onNext={(name) => nextPrimitivePage(name)}
         onFirst={(name) => firstPrimitivePage(name)}
         onLimitChange={(name, limit) => setPrimitiveLimit(name, limit)}
-      />
+      >
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <button
+            type="button"
+            className="batcher-api-button"
+            onClick={() => setIsPrimitivesModalOpen(true)}
+          >
+            Select Primitives
+          </button>
+        </div>
+        <TablesMultiSelectModal
+          isOpen={isPrimitivesModalOpen}
+          onClose={() => setIsPrimitivesModalOpen(false)}
+          title="Select Primitives"
+          tableNames={primitiveNames}
+          selectedNames={selectedPrimitives}
+          onApply={(names) =>
+            setSelectedPrimitives(
+              names.length ? names : [primitiveNames[0]].filter(Boolean),
+            )}
+        />
+      </TableSection>
 
       <TableSection
         title="State Machine Tables"
