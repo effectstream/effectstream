@@ -17,13 +17,13 @@ export interface IGetErc20BalanceAQuery {
   result: IGetErc20BalanceAResult;
 }
 
-const getErc20BalanceAIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT primitive_name, address, balance\nFROM public.erc20_balances_view_aribitrum_token"};
+const getErc20BalanceAIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT primitive_name, address, balance\nFROM primitives.erc20_balances_view_aribitrum_token"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT primitive_name, address, balance
- * FROM public.erc20_balances_view_aribitrum_token
+ * FROM primitives.erc20_balances_view_aribitrum_token
  * ```
  */
 export const getErc20BalanceA = new PreparedQuery<IGetErc20BalanceAParams,IGetErc20BalanceAResult>(getErc20BalanceAIR);
@@ -45,13 +45,13 @@ export interface IGetErc20BalanceBQuery {
   result: IGetErc20BalanceBResult;
 }
 
-const getErc20BalanceBIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT primitive_name, address, balance\nFROM public.erc20_balances_view_eth_l1_erc20"};
+const getErc20BalanceBIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT primitive_name, address, balance\nFROM primitives.erc20_balances_view_eth_l1_erc20"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT primitive_name, address, balance
- * FROM public.erc20_balances_view_eth_l1_erc20
+ * FROM primitives.erc20_balances_view_eth_l1_erc20
  * ```
  */
 export const getErc20BalanceB = new PreparedQuery<IGetErc20BalanceBParams,IGetErc20BalanceBResult>(getErc20BalanceBIR);
@@ -73,13 +73,13 @@ export interface IGetErc721OwnershipAQuery {
   result: IGetErc721OwnershipAResult;
 }
 
-const getErc721OwnershipAIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT primitive_name, token_id, current_owner\nFROM public.erc721_ownership_view_arbitrum_erc721"};
+const getErc721OwnershipAIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT primitive_name, token_id, current_owner\nFROM primitives.erc721_ownership_view_arbitrum_erc721"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT primitive_name, token_id, current_owner
- * FROM public.erc721_ownership_view_arbitrum_erc721
+ * FROM primitives.erc721_ownership_view_arbitrum_erc721
  * ```
  */
 export const getErc721OwnershipA = new PreparedQuery<IGetErc721OwnershipAParams,IGetErc721OwnershipAResult>(getErc721OwnershipAIR);
@@ -101,13 +101,13 @@ export interface IGetErc721OwnershipBQuery {
   result: IGetErc721OwnershipBResult;
 }
 
-const getErc721OwnershipBIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT primitive_name, token_id, current_owner\nFROM public.erc721_ownership_view_l1_erc721_token"};
+const getErc721OwnershipBIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT primitive_name, token_id, current_owner\nFROM primitives.erc721_ownership_view_l1_erc721_token"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT primitive_name, token_id, current_owner
- * FROM public.erc721_ownership_view_l1_erc721_token
+ * FROM primitives.erc721_ownership_view_l1_erc721_token
  * ```
  */
 export const getErc721OwnershipB = new PreparedQuery<IGetErc721OwnershipBParams,IGetErc721OwnershipBResult>(getErc721OwnershipBIR);
