@@ -410,6 +410,11 @@ body {
   gap: 25px;
 }
 
+/* If the last card is alone on its row, make it span full width */
+.primitive-tables > .primitive-table-container:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
 .primitive-table-container {
   background: rgba(255, 255, 255, 0.8);
   border-radius: 12px;
