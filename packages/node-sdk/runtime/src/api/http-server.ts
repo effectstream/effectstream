@@ -386,12 +386,6 @@ export const startHttpServer = function* (
       reply,
     ) => {
       const { tableName } = request.params;
-      if (tableName === "paima_engine_version_history") {
-        return reply.status(400).send({ error: "Invalid table name" });
-      }
-      if (tableName === "paima_engine_migration_history") {
-        return reply.status(400).send({ error: "Invalid table name" });
-      }
       const { limit, after } = getPaginationParams(request);
 
       try {
