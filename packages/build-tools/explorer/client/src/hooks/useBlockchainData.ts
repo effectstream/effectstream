@@ -27,30 +27,68 @@ export function useBlockchainData() {
   // Fetch latest block for RPC chains
   const fetchLatestBlockForChain = useCallback(async (chainKey: string) => {
     const config = chainConfigs[chainKey];
-    if (config.type !== "EVM" || !config.rpcEndpoint) return;
+    if (!config.rpcEndpoint) return;
+
+    // Skip non-RPC chains (chains without rpcEndpoint)
+    if ((config.type !== "EVM" && config.type !== "MIDNIGHT")) return;
 
     try {
-      const response = await fetch(config.rpcEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "eth_blockNumber",
-          params: [],
-          id: 1,
-        }),
-      });
+      let blockNumber: number;
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (config.type === "MIDNIGHT") {
+        // Use Substrate/Midnight RPC methods
+        const response = await fetch(config.rpcEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "chain_getBlock",
+            params: [],
+            id: 1,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error.message);
+        }
+
+        // Extract block number from Midnight/Substrate response
+        const hexNumber = data.result?.block?.header?.number;
+        if (!hexNumber) {
+          throw new Error(
+            "Invalid Midnight block response: missing block number",
+          );
+        }
+        blockNumber = parseInt(hexNumber, 16);
+      } else {
+        // Use Ethereum RPC methods for EVM chains
+        const response = await fetch(config.rpcEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "eth_blockNumber",
+            params: [],
+            id: 1,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error.message);
+        }
+
+        blockNumber = parseInt(data.result, 16);
       }
-
-      const data = await response.json();
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
-
-      const blockNumber = parseInt(data.result, 16);
 
       setChainConfigs((prev: PaimaChains) => {
         const updated = { ...prev };
@@ -265,7 +303,10 @@ export function useBlockchainData() {
     const rpcIntervals: any[] = [];
     Object.keys(chainConfigs).forEach((chainKey) => {
       const config = chainConfigs[chainKey];
-      if (config.type === "EVM" && config.rpcEndpoint) {
+      if (
+        (config.type === "EVM" || config.type === "MIDNIGHT") &&
+        config.rpcEndpoint
+      ) {
         // Fetch immediately
         fetchLatestBlockForChain(chainKey);
 

@@ -77,6 +77,9 @@ export function transformConfigToPaimaChains(
       } else if (syncProtocol.chainUri) {
         rpcEndpoint = syncProtocol.chainUri;
       }
+    } else if (network.type === "midnight") {
+      // Use nodeUrl for Midnight chains
+      rpcEndpoint = network.nodeUrl;
     }
 
     // Determine block time (convert from MS to seconds, with fallbacks)

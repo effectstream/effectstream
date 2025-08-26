@@ -20,6 +20,10 @@ prune_height = 200
  
 [serve.grpc]
 listen_address = "[::]:50051"
+magic = 42
+
+[serve.minibf]
+listen_address = "[::]:3051"
 
 [serve.ouroboros]
 listen_path = "dolos.socket"
