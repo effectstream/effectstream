@@ -12,25 +12,20 @@ interface HeaderProps {
   latestBlock: number;
   isConnected: boolean;
   primitiveNames: string[];
-  userTableNames: string[];
   onSelectPrimitive: (name: string) => void;
-  onSelectUserTable: (name: string) => void;
 }
 
 export function Header({
   latestBlock,
   isConnected,
   primitiveNames,
-  userTableNames,
   onSelectPrimitive,
-  onSelectUserTable,
 }: HeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isPrimitiveModalOpen, setIsPrimitiveModalOpen] = useState(false);
-  const [isUserTableModalOpen, setIsUserTableModalOpen] = useState(false);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -75,13 +70,6 @@ export function Header({
             onClick={() => setIsPrimitiveModalOpen(true)}
           >
             Primitives
-          </button>
-          <button
-            type="button"
-            className="batcher-api-button"
-            onClick={() => setIsUserTableModalOpen(true)}
-          >
-            Custom Tables
           </button>
           <button
             type="button"
@@ -191,14 +179,6 @@ export function Header({
         title="Select a Primitive"
         tableNames={primitiveNames}
         onSelect={onSelectPrimitive}
-      />
-
-      <TableSelectorModal
-        isOpen={isUserTableModalOpen}
-        onClose={() => setIsUserTableModalOpen(false)}
-        title="Select a Custom Table"
-        tableNames={userTableNames}
-        onSelect={onSelectUserTable}
       />
     </>
   );

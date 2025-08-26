@@ -6,6 +6,7 @@ import { Header } from "./components/Header.tsx";
 import { ColumnsContainer } from "./components/ColumnsContainer.tsx";
 import { TableSection } from "./components/TableSection.tsx";
 import { BatcherInput } from "./components/BatcherInput.tsx";
+import { TablesMultiSelectModal } from "./components/TablesMultiSelectModal.tsx";
 
 // Import hooks
 import { useBlockchainData } from "./hooks/useBlockchainData.ts";
@@ -14,6 +15,7 @@ import { useTableData } from "./hooks/useTableData.ts";
 function App() {
   const [selectedPrimitives, setSelectedPrimitives] = useState<string[]>([]);
   const [selectedUserTables, setSelectedUserTables] = useState<string[]>([]);
+  const [isUserTablesModalOpen, setIsUserTablesModalOpen] = useState(false);
 
   // Use custom hooks for data management
   const {
@@ -91,9 +93,7 @@ function App() {
         latestBlock={latestBlock}
         isConnected={isConnected}
         primitiveNames={primitiveNames}
-        userTableNames={userTableNames}
         onSelectPrimitive={(name) => setSelectedPrimitives([name])}
-        onSelectUserTable={(name) => setSelectedUserTables([name])}
       />
 
       <ColumnsContainer
@@ -128,6 +128,26 @@ function App() {
         onFirst={(name) => firstUserTablePage(name)}
         onLimitChange={(name, limit) => setUserTableLimit(name, limit)}
       >
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <button
+            type="button"
+            className="batcher-api-button"
+            onClick={() => setIsUserTablesModalOpen(true)}
+          >
+            Select Tables
+          </button>
+        </div>
+        <TablesMultiSelectModal
+          isOpen={isUserTablesModalOpen}
+          onClose={() => setIsUserTablesModalOpen(false)}
+          title="Select Custom Tables"
+          tableNames={userTableNames}
+          selectedNames={selectedUserTables}
+          onApply={(names) =>
+            setSelectedUserTables(
+              names.length ? names : [userTableNames[0]].filter(Boolean),
+            )}
+        />
         <BatcherInput />
       </TableSection>
 
