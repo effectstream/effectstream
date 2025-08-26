@@ -936,32 +936,50 @@ body {
 /* Table Selector Modal */
 .table-selector-content ul {
   list-style: none;
-  padding: 20px;
-  margin: 0;
+  padding: 0;
+  margin: 12px;
   max-height: 400px;
   overflow-y: auto;
 }
 
 .table-selector-content li {
-  margin-bottom: 10px;
+  margin: 12px;
 }
 
 .table-selector-content button {
   width: 100%;
-  padding: 15px;
-  background: linear-gradient(45deg, #19b17b, #022418);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
+  padding: 14px 16px;
+  background: white;
+  color: #222;
+  border: 1px solid #e5e7eb;
+  border-left: none;
+  border-right: none;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   text-align: left;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .table-selector-content button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(25, 177, 123, 0.5);
-  background: linear-gradient(45deg, #22c48a, #033d2a);
+  background: #f9fafb;
+}
+
+/* First and last item rounded and bordered */
+.table-selector .table-selector-content ul li:first-child button {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.table-selector .table-selector-content ul li:last-child button {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Container background to white */
+.table-selector .modal-body {
+  background: white;
 }
