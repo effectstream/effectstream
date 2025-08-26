@@ -33,3 +33,30 @@ const getPrimaryKeyColumnsIR: any = {"usedParamSet":{"tableName":true},"params":
 export const getPrimaryKeyColumns = new PreparedQuery<IGetPrimaryKeyColumnsParams,IGetPrimaryKeyColumnsResult>(getPrimaryKeyColumnsIR);
 
 
+/** 'GetPublicTables' parameters type */
+export type IGetPublicTablesParams = void;
+
+/** 'GetPublicTables' return type */
+export interface IGetPublicTablesResult {
+  table_name: string | null;
+}
+
+/** 'GetPublicTables' query type */
+export interface IGetPublicTablesQuery {
+  params: IGetPublicTablesParams;
+  result: IGetPublicTablesResult;
+}
+
+const getPublicTablesIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT table_name\nFROM   information_schema.tables\nWHERE  table_schema = 'public'"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT table_name
+ * FROM   information_schema.tables
+ * WHERE  table_schema = 'public'
+ * ```
+ */
+export const getPublicTables = new PreparedQuery<IGetPublicTablesParams,IGetPublicTablesResult>(getPublicTablesIR);
+
+
