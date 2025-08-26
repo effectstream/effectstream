@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { initialChainConfigs, type PaimaChains } from "../config.ts";
+import { fetchChainConfigs, initialChainConfigs } from "../config.ts";
+import type { PaimaChains } from "../types/index.ts";
 
 interface Block {
   number: number;
@@ -16,9 +17,9 @@ function generateRandomHash() {
 }
 
 export function useBlockchainData() {
-  const [chainConfigs, setChainConfigs] = useState<PaimaChains>(
-    initialChainConfigs,
-  );
+  const [chainConfigs, setChainConfigs] = useState<PaimaChains>({});
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  const [configError, setConfigError] = useState<string | null>(null);
   const [newBlockIndices, setNewBlockIndices] = useState<
     Record<string, number | undefined>
   >({});
@@ -51,7 +52,7 @@ export function useBlockchainData() {
 
       const blockNumber = parseInt(data.result, 16);
 
-      setChainConfigs((prev) => {
+      setChainConfigs((prev: PaimaChains) => {
         const updated = { ...prev };
         const chainConfig = updated[chainKey];
 
@@ -74,7 +75,7 @@ export function useBlockchainData() {
 
             // Check if block already exists to prevent duplicates
             const blockExists = chainConfig.blocks.some(
-              (block) =>
+              (block: Block) =>
                 block.number === blockNumber && block.hash === blockHash,
             );
 
@@ -108,7 +109,7 @@ export function useBlockchainData() {
       });
     } catch (error) {
       console.error(`Error fetching latest block for ${chainKey}:`, error);
-      setChainConfigs((prev) => ({
+      setChainConfigs((prev: PaimaChains) => ({
         ...prev,
         [chainKey]: {
           ...prev[chainKey],
@@ -136,13 +137,13 @@ export function useBlockchainData() {
         timestamp: timestamp,
       };
 
-      setChainConfigs((prev) => {
+      setChainConfigs((prev: PaimaChains) => {
         const updated = { ...prev };
         const chainConfig = updated[chainKey];
 
         // Check if block already exists to prevent duplicates
         const blockExists = chainConfig.blocks.some(
-          (block) => block.number === blockNumber,
+          (block: Block) => block.number === blockNumber,
         );
 
         if (!blockExists) {
@@ -175,13 +176,38 @@ export function useBlockchainData() {
     [chainConfigs],
   );
 
+  // Load chain configs from API
+  const loadChainConfigs = useCallback(async () => {
+    setIsLoadingConfig(true);
+    setConfigError(null);
+
+    try {
+      const configs = await fetchChainConfigs();
+      setChainConfigs(configs);
+      console.log("✅ Loaded chain configs from API:", configs);
+    } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Unknown error";
+      setConfigError(errorMessage);
+      console.error(
+        "❌ Failed to load chain configs, using fallback:",
+        errorMessage,
+      );
+      setChainConfigs(initialChainConfigs);
+    } finally {
+      setIsLoadingConfig(false);
+    }
+  }, []);
+
   // Initialize chains with dummy blocks
-  const initializeChains = useCallback(() => {
-    setChainConfigs((prev) => {
+  const initializeChains = useCallback((configs: PaimaChains) => {
+    setChainConfigs((prev: PaimaChains) => {
       const updated = { ...prev };
 
-      Object.keys(updated).forEach((chainKey) => {
+      Object.keys(configs).forEach((chainKey) => {
         const config = updated[chainKey];
+        if (!config) return;
 
         if (!config.rpcEndpoint) {
           // Generate 5 initial blocks for non-RPC chains
@@ -208,10 +234,20 @@ export function useBlockchainData() {
     });
   }, []);
 
-  // Setup intervals
+  // Load configs on mount
   useEffect(() => {
-    // Initialize chains
-    initializeChains();
+    loadChainConfigs();
+  }, [loadChainConfigs]);
+
+  // Setup intervals after configs are loaded
+  useEffect(() => {
+    // Don't setup intervals if we're still loading or have no configs
+    if (isLoadingConfig || Object.keys(chainConfigs).length === 0) {
+      return;
+    }
+
+    // Initialize chains with dummy blocks
+    initializeChains(chainConfigs);
 
     // Setup block generators for non-RPC chains
     const blockIntervals: any[] = [];
@@ -246,9 +282,16 @@ export function useBlockchainData() {
         clearInterval(interval)
       );
     };
-  }, []); // Empty dependency array since we want this to run once
+  }, [
+    chainConfigs,
+    isLoadingConfig,
+    initializeChains,
+    generateBlock,
+    fetchLatestBlockForChain,
+  ]); // React to config changes
 
   // Get Paima chain data for backward compatibility
+  // Always use the hardcoded Paima main chain first
   const paimaChain = chainConfigs.Paima;
   const latestBlock = paimaChain?.latestBlockNumber || 0;
   const isConnected = paimaChain?.isConnected || false;
@@ -258,5 +301,7 @@ export function useBlockchainData() {
     newBlockIndices,
     latestBlock,
     isConnected,
+    isLoadingConfig,
+    configError,
   };
 }

@@ -24,6 +24,8 @@ function App() {
     newBlockIndices,
     latestBlock,
     isConnected,
+    isLoadingConfig,
+    configError,
   } = useBlockchainData();
 
   const {
@@ -87,6 +89,62 @@ function App() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  // Show loading state while configs are being fetched
+  if (isLoadingConfig) {
+    return (
+      <div className="container">
+        <Header
+          latestBlock={latestBlock}
+          isConnected={isConnected}
+        />
+        <div
+          style={{
+            padding: "20px",
+            textAlign: "center",
+            fontSize: "18px",
+            color: "#667eea",
+          }}
+        >
+          🔄 Loading chain configurations...
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if config loading failed
+  if (configError) {
+    return (
+      <div className="container">
+        <Header
+          latestBlock={latestBlock}
+          isConnected={isConnected}
+        />
+        <div
+          style={{
+            padding: "20px",
+            textAlign: "center",
+            fontSize: "16px",
+            color: "#f44336",
+            backgroundColor: "rgba(244, 67, 54, 0.1)",
+            border: "1px solid rgba(244, 67, 54, 0.3)",
+            borderRadius: "8px",
+            margin: "20px",
+          }}
+        >
+          ⚠️ Failed to load chain configurations: {configError}
+          <br />
+          <small style={{ color: "#666", marginTop: "8px", display: "block" }}>
+            Using fallback configuration. Some features may not work correctly.
+          </small>
+        </div>
+        <ColumnsContainer
+          chainConfigs={chainConfigs}
+          newBlockIndices={newBlockIndices}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="container">
