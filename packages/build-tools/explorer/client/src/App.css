@@ -163,13 +163,10 @@ body {
 /* Columns Layout */
 .columns-container {
   display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 20px;
-  height: 400px;
   margin-top: 20px;
   max-width: 100%;
-  overflow: hidden;
-  overflow-x: hidden;
 }
 
 .column {
@@ -218,6 +215,7 @@ body {
   color: #555;
   border-bottom: 2px solid #eee;
   padding-bottom: 10px;
+  word-wrap: break-word;
 }
 
 .block-time {
@@ -291,6 +289,7 @@ body {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  word-break: break-all;
 }
 
 .block-timestamp {
