@@ -1,6 +1,8 @@
+CREATE SCHEMA IF NOT EXISTS paima;
+
 CREATE EXTENSION IF NOT EXISTS pg_ivm;
 
-CREATE TABLE paima_engine_expected_version (
+CREATE TABLE paima.paima_engine_expected_version (
   app_version_major INTEGER NOT NULL,
   app_version_minor INTEGER NOT NULL,
   app_version_patch INTEGER NOT NULL,
@@ -11,11 +13,11 @@ CREATE TABLE paima_engine_expected_version (
 );
 
 CREATE UNIQUE INDEX paima_engine_expected_version_unique_version_block_height 
-ON paima_engine_expected_version 
+ON paima.paima_engine_expected_version 
 (app_version_major, app_version_minor, app_version_patch, 
 engine_version_major, engine_version_minor, engine_version_patch);
 
-CREATE TABLE paima_engine_version_history (
+CREATE TABLE paima.paima_engine_version_history (
   app_version_major INTEGER NOT NULL,
   app_version_minor INTEGER NOT NULL,
   app_version_patch INTEGER NOT NULL,
@@ -26,12 +28,13 @@ CREATE TABLE paima_engine_version_history (
 );
 
 CREATE UNIQUE INDEX paima_engine_version_history_unique_version_block_height 
-ON paima_engine_version_history 
+ON paima.paima_engine_version_history 
 (app_version_major, app_version_minor, app_version_patch, 
 engine_version_major, engine_version_minor, engine_version_patch);
 
-CREATE TABLE paima_engine_migration_history (
+CREATE TABLE paima.paima_engine_migration_history (
   name TEXT NOT NULL,
   block_height INTEGER NOT NULL,
   is_system_migration BOOLEAN NOT NULL
 );
+

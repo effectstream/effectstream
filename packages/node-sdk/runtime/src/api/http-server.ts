@@ -9,6 +9,7 @@ import {
   getAllScheduledData,
   getPrimaryKeyColumns,
   getPrimitivePrefix,
+  getPublicTables,
   getTableSchema,
   releaseDBMutex,
   runPreparedQuery,
@@ -374,11 +375,23 @@ export const startHttpServer = function* (
         if (safeTableName.length > 128 || safeTableName.length === 0) {
           return reply.status(400).send({ error: "Invalid table name" });
         }
-
+        const publicTables = await runPreparedQuery(
+          getPublicTables.run(undefined, dbConn),
+          "getPublicTables",
+        );
+        if (!publicTables.some((t) => t.table_name === safeTableName)) {
+          return reply.status(400).send({
+            error:
+              `Invalid table name, not found in public schema: ${safeTableName}`,
+          });
+        }
         // 1. Introspect for Primary Keys
         const pkColumnsResult: { column_name: string }[] =
           await runPreparedQuery(
-            getPrimaryKeyColumns.run({ tableName: safeTableName }, dbConn),
+            getPrimaryKeyColumns.run(
+              { tableName: `public.${safeTableName}` },
+              dbConn,
+            ),
             "getPrimaryKeyColumns",
           );
         const pkColumns = pkColumnsResult.map((c: { column_name: string }) =>
