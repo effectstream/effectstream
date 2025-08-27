@@ -1,14 +1,21 @@
-import type { Operation } from "effection";
+import { type Operation, until } from "effection";
 import Deque from "denque";
-import { conditionVariable, type CondVar } from "@paima/utils";
+import {
+  type BlockNumber,
+  conditionVariable,
+  type CondVar,
+} from "@paima/utils";
 import stableStringify from "json-stable-stringify";
 import { bound } from "@paima/utils";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
 import type { BaseDataFetcher, DataFetched } from "./fetcher.ts";
 import type { PageRelation } from "./page.ts";
+import type { PoolClient } from "pg";
+import { acquireDBMutex, releaseDBMutex, upsertPage } from "@paima/db";
 
 export type LastPage<Page, RootPage> = {
   own: Page;
+  ownBlockNumber: BlockNumber;
   root: RootPage;
 };
 /**
@@ -63,9 +70,11 @@ export abstract class SyncState<
   public lastPage: undefined | LastPage<Page, RootPage>;
 
   constructor(
+    public readonly name: string,
     lastPage: undefined | LastPage<Page, RootPage>,
     public readonly fetcher: Fetcher,
     public readonly pageRelation: PageRelation<Page>,
+    public readonly dbConn: PoolClient | undefined = undefined,
   ) {
     this.bufferedData = new Deque();
     this.newDataCondVar = conditionVariable<void>();
@@ -113,6 +122,14 @@ export abstract class SyncState<
             `Update root page: ${this.lastPage?.root} -> ${data.lastPage.root}`,
           ),
       );
+
+      yield* acquireDBMutex(`update-state-${this.name}`);
+      yield* until(upsertPage.run({
+        protocol_name: this.name,
+        page_number: data.lastPage.ownBlockNumber,
+        page: JSON.stringify(data.lastPage),
+      }, this.dbConn));
+      releaseDBMutex(`update-state-${this.name}`);
       this.lastPage = data.lastPage;
       this.newPageCondVar.wake();
     }

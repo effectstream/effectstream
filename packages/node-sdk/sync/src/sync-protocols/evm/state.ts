@@ -3,7 +3,7 @@ import type { Operation } from "effection";
 import { call } from "effection";
 import { getPage } from "@paima/db";
 import type { PoolClient } from "pg";
-import { bound } from "@paima/utils";
+import { bound, type EvmBlockNumber } from "@paima/utils";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { EvmFetcher } from "./fetcher.ts";
@@ -11,7 +11,6 @@ import { genInputRange } from "../common/page-helpers.ts";
 import type { Input, Output, Page } from "./types.ts";
 import { toMsTimestamp } from "./types.ts";
 import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
-import { ConfigSyncProtocolType } from "@paima/config";
 
 export class EvmSyncState extends SyncState<
   Input,
@@ -28,24 +27,20 @@ export class EvmSyncState extends SyncState<
       { networkType: ConfigNetworkType.EVM }
     >,
     fetcher: EvmFetcher,
+    dbConn: PoolClient,
   ) {
-    super(lastPage, fetcher, blockNumberRelation);
+    super(
+      config.syncProtocol.name,
+      lastPage,
+      fetcher,
+      blockNumberRelation,
+      dbConn,
+    );
   }
 
   @bound
   override toRootOutput(data: Output): RootOutput {
-    return {
-      blockHashes: data.blockHashes.map((h) => ({
-        source: this.config.syncProtocol.name,
-        blockHashes: h,
-      })),
-      blockNumber: Number(data.raw.number),
-      timestamp: this.toRootPage(data),
-      primitives: data.primitives.map((p) => ({
-        ...p,
-        source: this.config.syncProtocol.name,
-      })),
-    };
+    throw new Error("Only main chains create root outputs");
   }
 
   @bound
@@ -63,7 +58,7 @@ export class EvmSyncState extends SyncState<
       1, // TODO: do we skip block 0 for EVM?
       {
         name: this.config.syncProtocol.name,
-        startPage: this.config.syncProtocol.startBlockHeight,
+        startPage: this.config.syncProtocol.startBlockHeight as EvmBlockNumber,
       },
       this.getNamespace(),
     );
@@ -86,12 +81,13 @@ export class EvmSyncState extends SyncState<
       ...p,
       source: this.config.syncProtocol.name,
     }));
-    const blockHashes = ourOutput.blockHashes.map((h) => ({
-      source: this.config.syncProtocol.name,
-      blockHashes: h,
+    const blockInfo = ourOutput.blockHashes.map((h) => ({
+      protocol_name: this.config.syncProtocol.name,
+      block_number: Number(ourOutput.raw.number),
+      blockHash: h,
     }));
     rootOutput.primitives.push(...primitives);
-    rootOutput.blockHashes.push(...blockHashes);
+    rootOutput.blockInfo.push(...blockInfo);
   }
 
   @bound
@@ -113,12 +109,14 @@ export class EvmSyncState extends SyncState<
         protocol_name: config.syncProtocol.name,
       }, dbConn)
     );
-    // TODO: this should instead be parsed with typebox with default values
-    const page = result as any;
+    const page: any = result
+      ? result.page as unknown as LastPage<Page, RootPage>
+      : undefined;
     return new EvmSyncState(
       page,
       config,
       fetcher,
+      dbConn,
     );
   }
 }

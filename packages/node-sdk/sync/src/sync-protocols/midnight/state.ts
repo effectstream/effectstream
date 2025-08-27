@@ -1,6 +1,6 @@
 import { call, type Operation } from "effection";
-import { bound, PaimaBlockNumber, type TimestampMs } from "@paima/utils";
-import { type PoolClient } from "pg";
+import { bound, type TimestampMs } from "@paima/utils";
+import type { PoolClient } from "pg";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Input, Output, Page } from "./types.ts";
@@ -34,8 +34,16 @@ export class MidnightSyncState extends SyncState<
     >,
     fetcher: MidnightFetcher,
     private readonly client: MidnightClient,
+    dbConn: PoolClient,
   ) {
-    super(lastPage, fetcher, pageRelation);
+    super(
+      config.syncProtocol.name,
+      lastPage,
+      fetcher,
+      pageRelation,
+      dbConn,
+    );
+    console.error("MidnightSyncState constructor");
     this.url = config.syncProtocol.indexer;
   }
 
@@ -55,19 +63,7 @@ export class MidnightSyncState extends SyncState<
 
   @bound
   override toRootOutput(data: Output): RootOutput {
-    const blockNumber = data.raw.height as PaimaBlockNumber;
-    return {
-      blockHashes: [{
-        source: this.config.syncProtocol.name,
-        blockHashes: data.raw.hash,
-      }],
-      blockNumber,
-      timestamp: Date.parse(data.raw.timestamp) as TimestampMs,
-      primitives: data.primitives.map((p) => ({
-        ...p,
-        source: this.config.syncProtocol.name,
-      })),
-    };
+    throw new Error("Only main chains create root outputs");
   }
 
   @bound
@@ -101,6 +97,12 @@ export class MidnightSyncState extends SyncState<
       ...p,
       source: this.config.syncProtocol.name,
     }));
+    const blockInfo = [{
+      protocol_name: this.config.syncProtocol.name,
+      block_number: ourOutput.raw.height,
+      blockHash: ourOutput.raw.hash,
+    }];
+    rootOutput.blockInfo.push(...blockInfo);
     rootOutput.primitives.push(...primitives);
   }
 
@@ -122,16 +124,20 @@ export class MidnightSyncState extends SyncState<
         protocol_name: config.syncProtocol.name,
       }, dbConn)
     );
-    const page = result as any as LastPage<Page, RootPage> | undefined;
+    const page = result
+      ? result.page as unknown as LastPage<Page, RootPage>
+      : undefined;
     return new MidnightSyncState(
       page,
       config,
       fetcher,
+      // TODO: The urls should be part of the config.
       new MidnightClient(
         config.syncProtocol.indexer,
         config.syncProtocol.indexerWS ??
           "ws://127.0.0.1:8088/api/v1/graphql/ws",
       ),
+      dbConn,
     );
   }
 }

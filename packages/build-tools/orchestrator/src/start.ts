@@ -21,6 +21,9 @@ import { installTmux, Tmux } from "./tmux/tmux.ts";
 import type { LaunchableComponents } from "@paima/log";
 import { type Static, Type } from "@sinclair/typebox";
 
+let appConfig: OrchestratorConfigType | null = null;
+let pFactory: ReturnType<typeof processFactory> | null = null;
+
 Deno.addSignalListener("SIGINT", () => {
   shutdown(0);
 });
@@ -83,7 +86,7 @@ export const OrchestratorConfig = Type.Object({
   ),
 
   // This can be customized for different locations of the packages.
-  // nighly: jsr:@paimaexample
+  // nightly: jsr:@paimaexample
   // release: jsr:@paima
   // local development: @paima
   packageName: Type.String({ default: "jsr:@paima" }),
@@ -103,9 +106,6 @@ export const OrchestratorConfig = Type.Object({
     [ComponentNames.COLLECTOR]: Type.Boolean({ default: true }),
     [ComponentNames.PAIMA_BATCHER]: Type.Boolean({ default: true }),
     [ComponentNames.DOCS]: Type.Boolean({ default: true }),
-
-    // TODO: Explorer crashes when launching process through Deno.command
-    [ComponentNames.EXPLORER]: Type.Boolean({ default: false }),
   }, { default: {} }),
 
   // Batcher options.
@@ -122,6 +122,8 @@ type OrchestratorConfigType = Static<typeof OrchestratorConfig>;
 export async function start(
   config: OrchestratorConfigType,
 ): Promise<void> {
+  appConfig = config;
+  pFactory = processFactory(config);
   // Let's setup the output mode
   // Config options:
   //   none: no logs
@@ -261,6 +263,8 @@ export async function start(
     await shutdown(1);
   }
 }
+
+export { appConfig, pFactory };
 
 export const abortControllers = {
   // Abort controller for all critical processes

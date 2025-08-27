@@ -26,6 +26,11 @@ export class UtxoRpcFetcher
     data: Input,
     rootConversion: RootConversion<Output, RootOutput, RootPage>,
   ): Operation<DataFetched<Output, Page, RootPage>> {
+    console.log(
+      `[UTXORPC] Fetching blocks from ${data.from} to ${data.to}. ${
+        data.isPresync ? "[presync]" : ""
+      }`,
+    );
     const outputs: OutputAndCleanup<Output>[] = [];
     const blocks = this.client.fetchBlocks(data.from, data.to);
     for (const block of blocks) {
@@ -49,6 +54,7 @@ export class UtxoRpcFetcher
     return {
       output: outputs,
       lastPage: {
+        ownBlockNumber: Number(data.to),
         own: {
           slot: Number(
             outputs[outputs.length - 1].output.raw.block.header!.slot,

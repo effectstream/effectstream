@@ -2,6 +2,7 @@ import type {
   BlockNumber,
   MidnightAddress,
   MidnightBlockHash,
+  MidnightBlockNumber,
   MidnightTxHash,
   TimestampIso8601,
   TimestampMs,
@@ -63,7 +64,7 @@ interface Transaction {
 export interface Block {
   parent?: Block;
   hash: MidnightBlockHash;
-  height: BlockNumber;
+  height: MidnightBlockNumber;
   timestamp: TimestampIso8601;
   transactions: Transaction[];
 }

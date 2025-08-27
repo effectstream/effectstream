@@ -92,6 +92,16 @@ async function awaitShutdown(): Promise<void> {
 let failed = false;
 export const processes: ProcessComponent[] = [];
 
+export const terminateProcess = (processIndex: number) => {
+  const process = processes[processIndex];
+  if (process && process.alive) {
+    process._allow_restart = true;
+    process.process.kill();
+    process.alive = false;
+    process.date = new Date().toISOString();
+  }
+};
+
 export const $ = (params: {
   command?: string;
   args: string[]; // parsing string->string[] automatically is blocked on https://github.com/denoland/deno_task_shell/pull/137

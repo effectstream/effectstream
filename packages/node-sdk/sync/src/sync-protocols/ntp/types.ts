@@ -1,6 +1,7 @@
 import type {
   BlockNumber,
   NtpBlockHash,
+  NtpBlockNumber,
   NtpPageJson,
   TimestampMs,
 } from "@paima/utils";

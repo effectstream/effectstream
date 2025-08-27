@@ -28,8 +28,15 @@ export class UtxoRpcSyncState extends SyncState<
       { networkType: ConfigNetworkType.CARDANO }
     >,
     fetcher: UtxoRpcFetcher,
+    dbConn: PoolClient,
   ) {
-    super(lastPage, fetcher, chainPointRelation);
+    super(
+      config.syncProtocol.name,
+      lastPage,
+      fetcher,
+      chainPointRelation,
+      dbConn,
+    );
   }
 
   @bound
@@ -50,18 +57,7 @@ export class UtxoRpcSyncState extends SyncState<
 
   @bound
   override toRootOutput(data: Output): RootOutput {
-    return {
-      blockHashes: data.blockHashes.map((h) => ({
-        source: this.config.syncProtocol.name,
-        blockHashes: h,
-      })),
-      blockNumber: Number(data.raw.block.header!.height),
-      timestamp: this.toRootPage(data),
-      primitives: data.primitives.map((p) => ({
-        ...p,
-        source: this.config.syncProtocol.name,
-      })),
-    };
+    throw new Error("Only main chains create root outputs");
   }
 
   @bound
@@ -128,12 +124,13 @@ export class UtxoRpcSyncState extends SyncState<
       ...p,
       source: this.config.syncProtocol.name,
     }));
-    const blockHashes = ourOutput.blockHashes.map((h) => ({
-      blockHashes: h,
-      source: this.config.syncProtocol.name,
+    const blockInfo = ourOutput.blockHashes.map((h) => ({
+      protocol_name: this.config.syncProtocol.name,
+      block_number: Number(ourOutput.raw.block.header!.height),
+      blockHash: h,
     }));
     rootOutput.primitives.push(...primitives);
-    rootOutput.blockHashes.push(...blockHashes);
+    rootOutput.blockInfo.push(...blockInfo);
   }
 
   @bound
@@ -155,12 +152,15 @@ export class UtxoRpcSyncState extends SyncState<
         protocol_name: config.syncProtocol.name,
       }, dbConn)
     );
-    // TODO: this should instead be parsed with typebox with default values
-    const page = result as any;
+    const page = result
+      ? result.page as unknown as LastPage<Page, RootPage>
+      : undefined;
+    console.error("[UTXORPC] Restoring state", page);
     return new UtxoRpcSyncState(
       page,
       config,
       fetcher,
+      dbConn,
     );
   }
 }

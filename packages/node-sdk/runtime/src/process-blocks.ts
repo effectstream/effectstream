@@ -14,12 +14,13 @@ import {
   getFutureGameInputByBlockHeight,
   getFutureGameInputByMaxTimestamp,
   insertGameInputResult,
+  removePages,
   saveLastBlock,
 } from "@paima/db";
 import { Buffer } from "node:buffer";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
 import type { StartConfig } from "./types.ts";
-import type { PaimaBlockHash } from "@paima/utils";
+import type { BlockNumber, PaimaBlockHash } from "@paima/utils";
 import { generatePaimaBlockHash, Prando } from "@paima/crypto";
 import { applyUserMigrations } from "./version-migrations.ts";
 
@@ -260,7 +261,33 @@ export function* processFinalizedBlock(
       }, dbConn)
     );
 
-    /* STEP 7: Commit the transaction. */
+    /* STEP 7: Update page state for all sync protocols consumed
+    *          This is to mark what blocks where consumed by this specific
+    *          block, to avoid re-processing the same blocks more than once
+    *          if the sync protocol is restarted.
+    */
+
+    // Get latest block for each sync protocol.
+    const latestBlocks: Record<string, BlockNumber> = {};
+    for (const blockInfo of value.blockInfo) {
+      if (
+        !latestBlocks[blockInfo.protocol_name] ||
+        latestBlocks[blockInfo.protocol_name] < blockInfo.block_number
+      ) {
+        latestBlocks[blockInfo.protocol_name] = blockInfo.block_number;
+      }
+    }
+
+    for (const [protocolName, blockNumber] of Object.entries(latestBlocks)) {
+      yield* until(
+        removePages.run({
+          protocol_name: protocolName,
+          page_number: blockNumber,
+        }, dbConn),
+      );
+    }
+
+    /* STEP 8: Commit the transaction. */
     yield* until(dbConn.query("COMMIT"));
   } catch (err) {
     yield* until(dbConn.query("ROLLBACK"));

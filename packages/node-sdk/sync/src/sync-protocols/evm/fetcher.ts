@@ -103,6 +103,7 @@ export class EvmFetcher
       })),
       lastPage: {
         own: Number(data.to),
+        ownBlockNumber: Number(data.to),
         root: rootConversion.toRootPage({
           blockHashes: [lastPage.hash] as EvmBlockHash[],
           primitives: [], // unused in toRootPage

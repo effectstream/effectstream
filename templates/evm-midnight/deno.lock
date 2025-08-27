@@ -6823,6 +6823,7 @@
         "dependencies": [
           "jsr:@paimaexample/concise@0.3.22",
           "jsr:@paimaexample/config@0.3.22",
+          "jsr:@paimaexample/db@0.3.22",
           "jsr:@paimaexample/utils@0.3.22",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:viem@^2.21.3"
