@@ -11,38 +11,23 @@ First clone the repository and copy the `/example-project` folder.
 This will give us a working template.
 ```sh
 git clone git@github.com:PaimaStudios/paima-engine.git
-cd paima-engine
-git checkout v-next-sample
-cd ..
-cp -r paima-engine/example-project my-dapp
-cd my-dapp
+git checkout v-next
+cd paima-engine/templates/evm-midnight
 ```
 
-Check for system dependencies. 
-This will check if all dependencies are met.
-```
+```sh
+# Check for external dependencies
 ./check.sh
-```
 
-Install dependencies
-```sh
-deno install --allow-scripts
-./patch.sh
-```
+# Install packages
+deno install --allow-scripts && ./patch.sh
 
-Compile EVM Contracts
-```sh
-deno task evm
-```
+# Compile contracts
+deno task build:evm
+deno task build:midnight
 
-Launch Node
-```sh
+# Launch Paima Engine Node
 deno task dev
-```
-
-Launch dApp
-```sh
-deno task frontend
 ```
 
 Now you should see the dApp running in your browser!

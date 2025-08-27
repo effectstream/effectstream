@@ -88,6 +88,7 @@ const npmPackagesToPublish = [
   "./packages/binaries/midnight-indexer",
   "./packages/binaries/midnight-node",
   "./packages/binaries/midnight-proof-server",
+  "./packages/build-tools/explorer",
 ];
 
 async function fetchLatestVersion(): Promise<string> {
@@ -168,6 +169,7 @@ async function processFile(filePath: string, reverse: boolean = false) {
 
 const skipDirectories = [
   `${rootDir}/example-project`,
+  `${rootDir}/templates`,
   `${rootDir}/docs/docs`,
   `${rootDir}/.github`,
 ];
