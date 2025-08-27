@@ -35,6 +35,42 @@ const getPageIR: any = {"usedParamSet":{"protocol_name":true},"params":[{"name":
 export const getPage = new PreparedQuery<IGetPageParams,IGetPageResult>(getPageIR);
 
 
+/** 'GetSyncAndLastPage' parameters type */
+export type IGetSyncAndLastPageParams = void;
+
+/** 'GetSyncAndLastPage' return type */
+export interface IGetSyncAndLastPageResult {
+  fetched_page: number | null;
+  protocol_name: string;
+  synced_page: number | null;
+}
+
+/** 'GetSyncAndLastPage' query type */
+export interface IGetSyncAndLastPageQuery {
+  params: IGetSyncAndLastPageParams;
+  result: IGetSyncAndLastPageResult;
+}
+
+const getSyncAndLastPageIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT\n  protocol_name,\n  MIN(page_number) AS synced_page,\n  MAX(page_number) AS fetched_page\nFROM\n  paima.sync_protocol_pagination\nGROUP BY\n  protocol_name\nORDER BY\n  protocol_name"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT
+ *   protocol_name,
+ *   MIN(page_number) AS synced_page,
+ *   MAX(page_number) AS fetched_page
+ * FROM
+ *   paima.sync_protocol_pagination
+ * GROUP BY
+ *   protocol_name
+ * ORDER BY
+ *   protocol_name
+ * ```
+ */
+export const getSyncAndLastPage = new PreparedQuery<IGetSyncAndLastPageParams,IGetSyncAndLastPageResult>(getSyncAndLastPageIR);
+
+
 /** 'RemovePages' parameters type */
 export interface IRemovePagesParams {
   page_number: number;
