@@ -96,8 +96,25 @@ export class EvmFetcher
         call(() => pageFetcher(Number(data.to))),
       ],
     );
+
+    // Build an output with all page info, as we need all the hashes to build the paima-block-hash
+    const allOutputs: Output[] = [];
+    for (let page = data.from; page <= data.to; page++) {
+      const _output = output.find((o) => o.raw.number === BigInt(page));
+      if (_output) {
+        allOutputs.push(_output);
+      } else {
+        const raw = yield* call(() => pageFetcher(page));
+        allOutputs.push({
+          raw,
+          primitives: [],
+          blockHashes: [raw.hash] as EvmBlockHash[],
+        });
+      }
+    }
+
     return {
-      output: output.map((o) => ({
+      output: allOutputs.map((o) => ({
         output: o,
         cleanup: () => {}, // no cleanup required
       })),

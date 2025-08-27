@@ -135,6 +135,7 @@ export class NtpFetcher
   groupByPage(
     primitives: PrimitiveType[],
   ): Record<NtpPageJson, PrimitiveType[]> {
+    // Not used in NTP
     return {};
   }
 
