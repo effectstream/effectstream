@@ -1,6 +1,6 @@
 import { readMidnightContract } from "@e2e/midnight-contracts";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
-
+import { getConnection } from "@paima/db";
 import {
   ConfigBuilder,
   ConfigNetworkType,
@@ -9,8 +9,9 @@ import {
   getEvmEvent,
 } from "@paima/config";
 import { hardhat } from "viem/chains";
-import type { BlockNumber, TimestampMs } from "@paima/utils";
+import type { BlockNumber } from "@paima/utils";
 import { erc20dev, erc721dev, paimal2contract } from "@e2e/evm-contracts";
+
 // TODO: This should typed from the grammar types.
 const stfInputs = {
   "schedule": "schedule",
@@ -26,6 +27,32 @@ const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
   ? false
   : true;
 
+/**
+ * Let check if the db.
+ * If empty then the db is not initialized, and use the current time for the NTP sync.
+ * If not, we recreate the original state configuration.
+ */
+
+const mainSyncProtocolName = "mainNtp";
+let launchStartTime: number | undefined;
+const dbConn = getConnection();
+try {
+  const result = await dbConn.query(`
+    SELECT * FROM paima.sync_protocol_pagination 
+    WHERE protocol_name = '${mainSyncProtocolName}' 
+    ORDER BY page_number ASC
+    LIMIT 1
+  `);
+  if (!result || !result.rows.length) {
+    throw new Error("DB is empty");
+  }
+  launchStartTime = result.rows[0].page.root -
+    (result.rows[0].page_number * 1000);
+} catch {
+  // This is not an error.
+  // Do nothing, the DB has not been initialized yet.
+}
+
 export const localhostConfig = new ConfigBuilder()
   .setNamespace(
     (builder) => builder.setSecurityNamespace("example-e2e-test"),
@@ -38,7 +65,7 @@ export const localhostConfig = new ConfigBuilder()
         // Initial time for the Paima Engine Node. Unix Timestamp in milliseconds.
         // Give 2 minutes to the server to start syncing.
         // In development mode local chains can take a while to start and deploy contracts.
-        startTime: new Date().getTime(),
+        startTime: launchStartTime ?? new Date().getTime(),
         // Block size is milliseconds, this will be used to sync other chains.
         // Block times will be exact, and not affected by the network latency, or server time.
         blockTimeMS: 1000,
@@ -107,7 +134,7 @@ export const localhostConfig = new ConfigBuilder()
       .addMain(
         (networks) => networks.ntp,
         (network, deployments) => ({
-          name: "mainNtp",
+          name: mainSyncProtocolName,
           type: ConfigSyncProtocolType.NTP_MAIN,
           chainUri: "",
           startBlockHeight: 1,

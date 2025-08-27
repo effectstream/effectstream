@@ -1,0 +1,17 @@
+{
+    "name": "@paima/explorer",
+    "version": "0.3.0",
+    "main": "client/dist/index.html",
+    "bin": {
+        "explorer": "cli.cjs"
+    },
+    "type": "commonjs",
+    "files": [
+        "cli.cjs",
+        "client/dist/index.html",
+        "client/dist/**"
+    ],
+    "devDependencies": {
+        "http-server": "^14.1.1"
+    }
+}

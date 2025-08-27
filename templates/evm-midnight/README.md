@@ -1,14 +1,13 @@
 # Quick Start
 
-
 ```sh
-# Check for external Dependencies
+# Check for external dependencies
 ./check.sh
 
-# Install Dependencies
+# Install packages
 deno install --allow-scripts && ./patch.sh
 
-# Compile Contracts
+# Compile contracts
 deno task build:evm
 deno task build:midnight
 

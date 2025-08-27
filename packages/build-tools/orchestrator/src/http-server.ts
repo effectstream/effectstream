@@ -1,6 +1,13 @@
 import fastify from "fastify";
-import { type ProcessComponent, processes, shutdown } from "./process.ts";
+import {
+  type ProcessComponent,
+  processes,
+  shutdown,
+  terminateProcess,
+} from "./process.ts";
 import { ENV } from "@paima/utils";
+import { pFactory } from "./start.ts";
+import { ComponentNames } from "@paima/log";
 // This file is a HTTP server to expose process information to the TUI.
 
 const server = fastify();
@@ -14,10 +21,23 @@ function mapProcess(p: ProcessComponent) {
     date: p.date,
   };
 }
-// No pagination implementyed because rarely processes will exceed a reasonable number
 server.get("/processes", function handler() {
   return {
     processes: processes.map(mapProcess),
+  };
+});
+
+server.get("/restart-sync", async function handler() {
+  const syncProcessI = processes.findIndex(
+    (p) => (p.component === ComponentNames.PAIMA_SYNC && p.alive),
+  );
+  if (syncProcessI !== -1) {
+    terminateProcess(syncProcessI);
+    await pFactory![ComponentNames.PAIMA_SYNC]();
+  }
+
+  return {
+    success: true,
   };
 });
 

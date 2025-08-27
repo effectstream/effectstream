@@ -11,6 +11,7 @@ import {
   getPrimaryKeyColumns,
   getPrimitivePrefix,
   getPublicTables,
+  getSyncAndLastPage,
   getTableSchema,
   type IGetAllTableNamesResult,
   releaseDBMutex,
@@ -211,6 +212,25 @@ export const startHttpServer = function* (
       data: addresses,
       pagination,
     };
+  });
+
+  server.get("/block-heights", {
+    schema: {
+      tags: ["status"],
+      response: {
+        200: Type.Array(Type.Object({
+          protocol_name: Type.String(),
+          synced_page: Type.Number({ nullable: true }),
+          fetched_page: Type.Number({ nullable: true }),
+        })),
+      },
+    },
+  }, async () => {
+    const blockHeights = await runPreparedQuery(
+      getSyncAndLastPage.run(undefined, dbConn),
+      "block-heights",
+    );
+    return blockHeights;
   });
 
   // TODO This is dev only endpoint to monitor sync protocols.

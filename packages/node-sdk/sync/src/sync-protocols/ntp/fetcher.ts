@@ -121,6 +121,7 @@ export class NtpFetcher
         cleanup: () => {}, // no cleanup required
       })),
       lastPage: {
+        ownBlockNumber: Number(data.to),
         own: Number(data.to),
         root: rootConversion.toRootPage({
           blockHashes: [] as NtpBlockHash[],
@@ -134,6 +135,7 @@ export class NtpFetcher
   groupByPage(
     primitives: PrimitiveType[],
   ): Record<NtpPageJson, PrimitiveType[]> {
+    // Not used in NTP
     return {};
   }
 

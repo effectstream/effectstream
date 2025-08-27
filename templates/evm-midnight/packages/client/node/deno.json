@@ -1,6 +1,6 @@
 {
   "name": "@example/node",
-  "version": "0.3.0",
+  "version": "0.3.22",
   "license": "MIT",
   "exports": {
     ".": "./src/main.ts",
@@ -26,6 +26,7 @@
     "fastify": "npm:fastify@^5.4.0",
     "pg": "npm:pg@^8.14.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
-    "effection": "npm:effection@^3.5.0"
+    "effection": "npm:effection@^3.5.0",
+    "@paimaexample/explorer": "npm:@paimaexample/explorer@0.3.15"
   }
 }

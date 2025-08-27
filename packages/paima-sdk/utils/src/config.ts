@@ -165,8 +165,8 @@ const definitions = {
     key: "PAIMA_EXPLORER_PORT",
     isSecret: false,
     type: "number",
-    defaultValue: 10599,
-    description: "Explorer Port. Example: '10599'",
+    defaultValue: 10590,
+    description: "Explorer Port. Example: '10590'",
   },
   PAIMA_CHAIN_ID: {
     key: "PAIMA_CHAIN_ID",

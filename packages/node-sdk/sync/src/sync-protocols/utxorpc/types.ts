@@ -2,6 +2,7 @@ import type {
   AbsoluteSlotNumber,
   BlockNumber,
   CardanoBlockHash,
+  CardanoBlockNumber,
   TimestampMs,
 } from "@paima/utils";
 import type { PageRelation } from "../base/page.ts";
@@ -27,7 +28,7 @@ export type BlockAndTimestamp = {
 
 export type Page = {
   slot: AbsoluteSlotNumber;
-  height: BlockNumber;
+  height: CardanoBlockNumber;
   hash: CardanoBlockHash;
 };
 

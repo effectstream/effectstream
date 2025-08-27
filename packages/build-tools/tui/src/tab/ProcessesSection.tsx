@@ -19,6 +19,7 @@ export const ProcessesSection = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [restartStatus, setRestartStatus] = useState<string>("");
   const [processToRestart, setProcessToRestart] = useState<Process | null>(
     null,
   );
@@ -79,6 +80,26 @@ export const ProcessesSection = () => {
   };
 
   useInput((input, key) => {
+    if (input === "r" || input === "R") {
+      const syncProcess = processes.find((p) => p.name === "sync" && p.alive);
+      if (syncProcess) {
+        setRestartStatus("Restarting sync process...");
+        fetch(`${ENV.ORCHESTRATOR_URL}:${ENV.ORCHESTRATOR_PORT}/restart-sync`)
+          .then(() => {
+            setRestartStatus("Sync process restarted successfully.");
+            setTimeout(() => setRestartStatus(""), 3000);
+          })
+          .catch((error) => {
+            setRestartStatus("Failed to restart sync process.");
+            console.error("Failed to restart sync process:", error);
+            setTimeout(() => setRestartStatus(""), 3000);
+          });
+      } else {
+        setRestartStatus("Sync process is not active, cannot restart.");
+        setTimeout(() => setRestartStatus(""), 3000);
+      }
+      return;
+    }
     // Handle individual process log display toggle with space
     if (input === " ") {
       if (processes.length > 0 && selectedIndex < processes.length) {
@@ -250,12 +271,13 @@ export const ProcessesSection = () => {
       <Text color={areAllProcessesDisabled() ? "red" : "green"}>
         All Processes: {getAllProcessesStatus()} (Press L to toggle all)
       </Text>
+      {restartStatus ? <Text color="yellow">{restartStatus}</Text> : null}
       <Text></Text>
 
-      <Text color="white" bold={true}>
+      <Text color="white" bold>
         [Log] PID Name Args
       </Text>
-      <Text color="white" bold={true}>
+      <Text color="white" bold>
         {"─".repeat(80)}
       </Text>
       {processes.map((process: Process, index: number) => {
@@ -283,9 +305,8 @@ export const ProcessesSection = () => {
       )}
       {processes.length > 0 && (
         <Text color="gray">
-          Use ↑↓ arrows to navigate, SPACE to toggle selected, L to toggle all
-          ({selectedIndex +
-            1}/{processes.length})
+          Use ↑↓ arrows to navigate, SPACE to toggle selected, L to toggle all,
+          R to restart sync
         </Text>
       )}
     </Box>

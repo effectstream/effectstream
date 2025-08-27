@@ -1,6 +1,6 @@
 {
     "name": "@example/avail-contracts",
-    "version": "0.3.20",
+    "version": "0.3.22",
     "exports": {},
     "tasks": {
         "avail-node:start": "deno run -A --unstable-detect-cjs @paimaexample/npm-avail-node --dev",
