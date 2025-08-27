@@ -43,7 +43,6 @@ export class MidnightSyncState extends SyncState<
       pageRelation,
       dbConn,
     );
-    console.error("MidnightSyncState constructor");
     this.url = config.syncProtocol.indexer;
   }
 

@@ -12,7 +12,7 @@ export async function testMigrations(db: Client) {
     block_height: number;
   }>(
     db,
-    "SELECT * FROM paima_engine_version_history ORDER BY block_height DESC LIMIT 1",
+    "SELECT * FROM paima.paima_engine_version_history ORDER BY block_height DESC LIMIT 1",
     "test-version",
   );
 
@@ -32,7 +32,11 @@ export async function testMigrations(db: Client) {
     name: string;
     block_height: number;
     is_system_migration: boolean;
-  }>(db, "SELECT * FROM paima_engine_migration_history", "test-migrations");
+  }>(
+    db,
+    "SELECT * FROM paima.paima_engine_migration_history",
+    "test-migrations",
+  );
 
   assert(
     "test-migrations",

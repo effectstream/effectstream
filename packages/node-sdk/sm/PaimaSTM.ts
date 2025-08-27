@@ -65,13 +65,13 @@ export class PaimaSTM<
       prefix = parsedInput.prefix;
       data = parsedInput.data;
     } catch (_e) {
+      if (_e instanceof Error) {
+        console.error(`[STM] Parsing error:`, _e.message);
+      }
       console.error(
-        `Skipping input with invalid format: `,
+        `[STM] Cannot parse the input with the known grammar:`,
         input.conciseInput,
       );
-      if (_e instanceof Error) {
-        console.error(_e.message);
-      }
       return;
     }
     const listener = this.messageListeners.get(prefix);

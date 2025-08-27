@@ -155,7 +155,6 @@ export class UtxoRpcSyncState extends SyncState<
     const page = result
       ? result.page as unknown as LastPage<Page, RootPage>
       : undefined;
-    console.error("[UTXORPC] Restoring state", page);
     return new UtxoRpcSyncState(
       page,
       config,
