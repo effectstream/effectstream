@@ -45,6 +45,7 @@ const config = Value.Parse(OrchestratorConfig, {
           args: ["task", "-f", "@paima/explorer", "server:start"],
           waitToExit: false,
           type: "system-dependency",
+          link: "http://localhost:10590",
         },
       ],
     },

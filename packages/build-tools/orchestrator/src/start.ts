@@ -69,6 +69,7 @@ export const OrchestratorConfig = Type.Object({
           name: Type.String(),
           args: Type.Array(Type.String()),
           waitToExit: Type.Boolean({ default: true }),
+          link: Type.String({ default: "" }),
           logs: Type.Union([
             Type.Literal("otel-compatible"),
             Type.Literal("raw"),
@@ -191,7 +192,7 @@ export async function start(
       let first = true;
       const pipeline: (() => Promise<ProcessComponent>)[] = [];
       for (const process of processList.processes) {
-        const { name, args, waitToExit, logs, type } = process;
+        const { name, args, waitToExit, logs, type, link } = process;
         pipeline.push(async (): Promise<ProcessComponent> => {
           if (first && processList.stopProcessAtPort.length > 0) {
             await dkill({ ports: processList.stopProcessAtPort });
@@ -216,6 +217,7 @@ export async function start(
             abortController: type === "system-dependency"
               ? abortControllers.system
               : abortControllers.noncritical,
+            link: link,
           });
           if (waitToExit) {
             await processComponent.process.status;
@@ -240,13 +242,7 @@ export async function start(
       startProcess[ComponentNames.PAIMA_BATCHER],
     ]);
 
-    // Start the explorer
-    // TODO: This crashes when launching process through Deno.command
     processesToLaunch.push([
-      // Start the explorer
-      // This crashes when launching process through Deno.command
-      config.processes[ComponentNames.EXPLORER] &&
-      startProcess[ComponentNames.EXPLORER],
       // Start the main process
       config.processes[ComponentNames.PAIMA_SYNC] &&
       startProcess[ComponentNames.PAIMA_SYNC],

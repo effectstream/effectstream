@@ -8,6 +8,7 @@ interface Process {
   alive: boolean;
   args: string[];
   date: string;
+  link?: string;
 }
 
 interface ProcessResponse {
@@ -295,8 +296,10 @@ export const ProcessesSection = () => {
           >
             <Text color={logColor}>[{logStatus}]</Text>
             {` ${process.pid.toString().padEnd(8)} ${
-              (process.name ?? "noname").padEnd(20)
-            } ${process.args.join(" ")}`}
+              (process.name ?? "noname").padEnd(21)
+            }`}
+            {process.link && ` [ ${process.link} ]`}
+            {` ${process.args.join(" ")}`}
           </Text>
         );
       })}
