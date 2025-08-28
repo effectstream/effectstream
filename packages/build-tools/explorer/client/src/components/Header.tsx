@@ -12,7 +12,10 @@ interface HeaderProps {
   isConnected: boolean;
 }
 
-export function Header({ latestBlock, isConnected }: HeaderProps) {
+export function Header({
+  latestBlock,
+  isConnected,
+}: HeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);

@@ -265,3 +265,30 @@ const getExpectedEngineVersionIR: any = {"usedParamSet":{},"params":[],"statemen
 export const getExpectedEngineVersion = new PreparedQuery<IGetExpectedEngineVersionParams,IGetExpectedEngineVersionResult>(getExpectedEngineVersionIR);
 
 
+/** 'GetAllTableNames' parameters type */
+export type IGetAllTableNamesParams = void;
+
+/** 'GetAllTableNames' return type */
+export interface IGetAllTableNamesResult {
+  tablename: string | null;
+}
+
+/** 'GetAllTableNames' query type */
+export interface IGetAllTableNamesQuery {
+  params: IGetAllTableNamesParams;
+  result: IGetAllTableNamesResult;
+}
+
+const getAllTableNamesIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT tablename\nFROM pg_tables\nWHERE schemaname = 'public'"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT tablename
+ * FROM pg_tables
+ * WHERE schemaname = 'public'
+ * ```
+ */
+export const getAllTableNames = new PreparedQuery<IGetAllTableNamesParams,IGetAllTableNamesResult>(getAllTableNamesIR);
+
+

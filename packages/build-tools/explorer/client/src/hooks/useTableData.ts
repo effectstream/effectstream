@@ -51,10 +51,11 @@ export function useTableData() {
   const DEFAULT_LIMIT = 20;
 
   const [primitiveNames, setPrimitiveNames] = useState<string[]>([]);
+  const [userTableNames, setUserTableNames] = useState<string[]>([]);
   const [primitiveData, setPrimitiveData] = useState<
     Record<string, TableData | null>
   >({});
-  const [staticTableData, setStaticTableData] = useState<
+  const [userTableData, setUserTableData] = useState<
     Record<string, TableData | null>
   >({});
   const [scheduledData, setScheduledData] = useState<
@@ -63,13 +64,13 @@ export function useTableData() {
   const [primitivePagination, setPrimitivePagination] = useState<
     Record<string, PaginationMeta>
   >({});
-  const [staticTablePagination, setStaticTablePagination] = useState<
+  const [userTablePagination, setUserTablePagination] = useState<
     Record<string, PaginationMeta>
   >({});
   const [primitiveSchemas, setPrimitiveSchemas] = useState<
     Record<string, SchemaColumn[]>
   >({});
-  const [staticTableSchemas, setStaticTableSchemas] = useState<
+  const [userTableSchemas, setUserTableSchemas] = useState<
     Record<string, SchemaColumn[]>
   >({});
 
@@ -78,10 +79,11 @@ export function useTableData() {
 
   // Refs to access current state values in callbacks
   const primitiveNamesRef = useRef<string[]>([]);
+  const userTableNamesRef = useRef<string[]>([]);
   const primitiveSchemasRef = useRef<Record<string, SchemaColumn[]>>({});
-  const staticTableSchemasRef = useRef<Record<string, SchemaColumn[]>>({});
+  const userTableSchemasRef = useRef<Record<string, SchemaColumn[]>>({});
   const primitivePaginationRef = useRef<Record<string, PaginationMeta>>({});
-  const staticTablePaginationRef = useRef<Record<string, PaginationMeta>>({});
+  const userTablePaginationRef = useRef<Record<string, PaginationMeta>>({});
 
   // Cache primitives whose schema 404s so we never re-request
   const unavailablePrimitiveSchemasRef = useRef<Set<string>>(new Set());
@@ -94,20 +96,24 @@ export function useTableData() {
   }, [primitiveNames]);
 
   useEffect(() => {
+    userTableNamesRef.current = userTableNames;
+  }, [userTableNames]);
+
+  useEffect(() => {
     primitiveSchemasRef.current = primitiveSchemas;
   }, [primitiveSchemas]);
 
   useEffect(() => {
-    staticTableSchemasRef.current = staticTableSchemas;
-  }, [staticTableSchemas]);
+    userTableSchemasRef.current = userTableSchemas;
+  }, [userTableSchemas]);
 
   useEffect(() => {
     primitivePaginationRef.current = primitivePagination;
   }, [primitivePagination]);
 
   useEffect(() => {
-    staticTablePaginationRef.current = staticTablePagination;
-  }, [staticTablePagination]);
+    userTablePaginationRef.current = userTablePagination;
+  }, [userTablePagination]);
 
   // Convert schema columns to Field format
   const convertSchemaToFields = useCallback(
@@ -266,6 +272,22 @@ export function useTableData() {
     }
   }, []);
 
+  // Fetch all user table names
+  const fetchAllUserTableNames = useCallback(async (): Promise<string[]> => {
+    try {
+      const response = await fetch(TABLES_ENDPOINT);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const tables: { table_name: string }[] = await response.json();
+      console.log("📋 Fetched user table names:", tables);
+      return tables.map((t) => t.table_name);
+    } catch (error) {
+      console.error("Error fetching user table names:", error);
+      return [];
+    }
+  }, []);
+
   // Extract primitive names from config
   const extractPrimitiveNames = useCallback((config: any): string[] => {
     const names: string[] = [];
@@ -401,7 +423,7 @@ export function useTableData() {
         const data = jsonResponse.data ?? [];
         const paginationMeta = jsonResponse.pagination;
         if (paginationMeta) {
-          setStaticTablePagination((prev) => {
+          setUserTablePagination((prev) => {
             const newCursors = [...prev[tableName].cursors];
             if (
               paginationMeta.nextCursor &&
@@ -513,23 +535,39 @@ export function useTableData() {
   }, [fetchPrimitiveData]);
 
   // Refresh static table data
-  const refreshStaticTableData = useCallback(async () => {
+  const refreshUserTableData = useCallback(async () => {
     // Only refresh if initial load is complete
-    if (!isInitialLoadComplete.current) {
+    if (
+      !isInitialLoadComplete.current || userTableNamesRef.current.length === 0
+    ) {
       return;
     }
 
     try {
-      const tableName = "user_state_machine";
-      const schema = staticTableSchemasRef.current[tableName];
-      const pagination = staticTablePaginationRef.current[tableName];
-      const data = await fetchTableData(tableName, schema, pagination);
-      // Only update if we got valid data
-      if (data !== null) {
-        setStaticTableData({ [tableName]: data });
+      const fetchPromises = userTableNamesRef.current.map(
+        async (tableName) => {
+          const schema = userTableSchemasRef.current[tableName];
+          const pagination = userTablePaginationRef.current[tableName];
+          const data = await fetchTableData(tableName, schema, pagination);
+          return { tableName, data };
+        },
+      );
+
+      const results = await Promise.all(fetchPromises);
+
+      if (results.length > 0) {
+        setUserTableData((currentData) => {
+          const updatedData = { ...currentData };
+          results.forEach(({ tableName, data }) => {
+            if (data !== null) {
+              updatedData[tableName] = data;
+            }
+          });
+          return updatedData;
+        });
       }
     } catch (error) {
-      console.error("Error refreshing static table data:", error);
+      console.error("Error refreshing user table data:", error);
       // Don't clear data on error, keep existing data
     }
   }, [fetchTableData]);
@@ -645,46 +683,83 @@ export function useTableData() {
   ]);
 
   // Initialize static tables
-  const initializeStaticTables = useCallback(async () => {
+  const initializeUserTables = useCallback(async () => {
     console.log("📋 Initializing state machine tables...");
 
     try {
-      // Fetch schema first
-      const schema = await fetchTableSchema("user_state_machine");
-      if (schema) {
-        setStaticTableSchemas({ "user_state_machine": schema });
+      const tableNames = await fetchAllUserTableNames();
+      setUserTableNames(tableNames);
+
+      if (tableNames.length === 0) {
+        console.log("No user tables found");
+        return;
       }
 
+      // Fetch schemas first
+      const schemaPromises = tableNames.map(async (tableName) => {
+        const schema = await fetchTableSchema(tableName);
+        return { tableName, schema };
+      });
+
+      const schemaResults = await Promise.all(schemaPromises);
+
+      // Store schemas
+      const schemas: Record<string, SchemaColumn[]> = {};
+      schemaResults.forEach(({ tableName, schema }) => {
+        if (schema) {
+          schemas[tableName] = schema;
+        }
+      });
+      setUserTableSchemas(schemas);
+
       // Initialize pagination defaults
-      setStaticTablePagination((prev) => ({
-        ...prev,
-        ["user_state_machine"]: prev["user_state_machine"] ?? {
-          limit: DEFAULT_LIMIT,
-          cursors: [undefined],
-          currentPage: 0,
-          hasMore: false,
-        },
-      }));
+      setUserTablePagination((prev) => {
+        const next = { ...prev };
+        tableNames.forEach((name) => {
+          if (!next[name]) {
+            next[name] = {
+              limit: DEFAULT_LIMIT,
+              cursors: [undefined],
+              currentPage: 0,
+              hasMore: false,
+            };
+          }
+        });
+        return next;
+      });
 
       // Then fetch data
-      const tableName = "user_state_machine";
-      const pagination = staticTablePaginationRef.current[tableName] ?? {
-        limit: DEFAULT_LIMIT,
-        cursors: [undefined],
-        currentPage: 0,
-        hasMore: false,
-      };
-      const data = await fetchTableData(
-        tableName,
-        schema || undefined,
-        pagination,
+      const fetchPromises = tableNames.map(
+        async (tableName) => {
+          const schema = schemas[tableName];
+          const pagination = userTablePaginationRef.current[tableName] ?? {
+            limit: DEFAULT_LIMIT,
+            cursors: [undefined],
+            currentPage: 0,
+            hasMore: false,
+          };
+          const data = await fetchTableData(
+            tableName,
+            schema || undefined,
+            pagination,
+          );
+          return { tableName, data };
+        },
       );
-      setStaticTableData({ [tableName]: data });
+
+      const results = await Promise.all(fetchPromises);
+
+      const initialData: Record<string, TableData | null> = {};
+      results.forEach(({ tableName, data }) => {
+        initialData[tableName] = data;
+      });
+
+      setUserTableData(initialData);
       console.log("✅ State machine tables initialized");
     } catch (error) {
       console.error("Error initializing state machine tables:", error);
     }
-  }, [fetchTableSchema, fetchTableData]);
+  }, [fetchTableSchema, fetchTableData, fetchAllUserTableNames]);
 
   // Initialize scheduled data
   const initializeScheduledData = useCallback(async () => {
@@ -702,14 +777,14 @@ export function useTableData() {
   // Initialize and setup refresh intervals
   useEffect(() => {
     let primitiveRefreshInterval: number;
-    let staticTableRefreshInterval: number;
+    let userTableRefreshInterval: number;
     let scheduledDataRefreshInterval: number;
 
     const initialize = async () => {
       // Initialize tables
       await Promise.all([
         initializePrimitiveTables(),
-        initializeStaticTables(),
+        initializeUserTables(),
         initializeScheduledData(),
       ]);
 
@@ -724,9 +799,9 @@ export function useTableData() {
 
       // Refresh static table data after 1.5 seconds, then every 5 seconds
       setTimeout(() => {
-        refreshStaticTableData();
-        staticTableRefreshInterval = setInterval(() => {
-          refreshStaticTableData();
+        refreshUserTableData();
+        userTableRefreshInterval = setInterval(() => {
+          refreshUserTableData();
         }, 5000);
       }, 1500);
 
@@ -745,8 +820,8 @@ export function useTableData() {
       if (primitiveRefreshInterval) {
         clearInterval(primitiveRefreshInterval);
       }
-      if (staticTableRefreshInterval) {
-        clearInterval(staticTableRefreshInterval);
+      if (userTableRefreshInterval) {
+        clearInterval(userTableRefreshInterval);
       }
       if (scheduledDataRefreshInterval) {
         clearInterval(scheduledDataRefreshInterval);
@@ -756,13 +831,15 @@ export function useTableData() {
 
   return {
     primitiveData,
-    staticTableData,
+    userTableData,
     scheduledData,
+    primitiveNames,
+    userTableNames,
     refreshPrimitiveData,
-    refreshStaticTableData,
+    refreshUserTableData,
     refreshScheduledData,
     primitivePagination,
-    staticTablePagination,
+    userTablePagination,
     // Pagination controls for primitives
     setPrimitiveLimit: async (primitiveName: string, limit: number) => {
       const newPagination = {
@@ -845,55 +922,55 @@ export function useTableData() {
       setPrimitiveData((prev) => ({ ...prev, [primitiveName]: data }));
     },
     // Pagination controls for static tables
-    setStaticTableLimit: async (tableName: string, limit: number) => {
+    setUserTableLimit: async (tableName: string, limit: number) => {
       const newPagination = {
         limit,
         cursors: [undefined],
         currentPage: 0,
         hasMore: false,
       };
-      setStaticTablePagination((prev) => ({
+      setUserTablePagination((prev) => ({
         ...prev,
         [tableName]: newPagination,
       }));
-      const schema = staticTableSchemasRef.current[tableName];
+      const schema = userTableSchemasRef.current[tableName];
       const data = await fetchTableData(tableName, schema, newPagination);
-      setStaticTableData((prev) => ({ ...prev, [tableName]: data }));
+      setUserTableData((prev) => ({ ...prev, [tableName]: data }));
     },
-    nextStaticTablePage: async (tableName: string) => {
-      const current = staticTablePaginationRef.current[tableName];
+    nextUserTablePage: async (tableName: string) => {
+      const current = userTablePaginationRef.current[tableName];
       if (!current || !current.hasMore) return;
 
       const newPagination = {
         ...current,
         currentPage: current.currentPage + 1,
       };
-      setStaticTablePagination((prev) => ({
+      setUserTablePagination((prev) => ({
         ...prev,
         [tableName]: newPagination,
       }));
-      const schema = staticTableSchemasRef.current[tableName];
+      const schema = userTableSchemasRef.current[tableName];
       const data = await fetchTableData(tableName, schema, newPagination);
-      setStaticTableData((prev) => ({ ...prev, [tableName]: data }));
+      setUserTableData((prev) => ({ ...prev, [tableName]: data }));
     },
-    prevStaticTablePage: async (tableName: string) => {
-      const current = staticTablePaginationRef.current[tableName];
+    prevUserTablePage: async (tableName: string) => {
+      const current = userTablePaginationRef.current[tableName];
       if (!current || current.currentPage === 0) return;
 
       const newPagination = {
         ...current,
         currentPage: current.currentPage - 1,
       };
-      setStaticTablePagination((prev) => ({
+      setUserTablePagination((prev) => ({
         ...prev,
         [tableName]: newPagination,
       }));
-      const schema = staticTableSchemasRef.current[tableName];
+      const schema = userTableSchemasRef.current[tableName];
       const data = await fetchTableData(tableName, schema, newPagination);
-      setStaticTableData((prev) => ({ ...prev, [tableName]: data }));
+      setUserTableData((prev) => ({ ...prev, [tableName]: data }));
     },
-    firstStaticTablePage: async (tableName: string) => {
-      const current = staticTablePaginationRef.current[tableName];
+    firstUserTablePage: async (tableName: string) => {
+      const current = userTablePaginationRef.current[tableName];
       if (!current) return;
 
       const newPagination = {
@@ -901,13 +978,13 @@ export function useTableData() {
         cursors: [undefined],
         currentPage: 0,
       };
-      setStaticTablePagination((prev) => ({
+      setUserTablePagination((prev) => ({
         ...prev,
         [tableName]: newPagination,
       }));
-      const schema = staticTableSchemasRef.current[tableName];
+      const schema = userTableSchemasRef.current[tableName];
       const data = await fetchTableData(tableName, schema, newPagination);
-      setStaticTableData((prev) => ({ ...prev, [tableName]: data }));
+      setUserTableData((prev) => ({ ...prev, [tableName]: data }));
     },
   };
 }

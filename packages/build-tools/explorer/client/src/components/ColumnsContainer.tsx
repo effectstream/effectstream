@@ -1,5 +1,5 @@
 import type { ChainConfig, PaimaChains } from "../types/index.ts";
-import { BlockColumn } from "./BlockColumn.tsx";
+import { BlockRow } from "./BlockRow.tsx";
 
 interface Block {
   number: number;
@@ -12,7 +12,10 @@ interface ColumnsContainerProps {
   newBlockIndices: Record<string, number | undefined>;
 }
 
-function calculateBlockTime(chainKey: string, config: ChainConfig): string {
+function calculateBlockTime(
+  chainKey: string,
+  config: ChainConfig,
+): string | undefined {
   // TODO: For now just show a constant block time - so the explorer can be understood.
   // if (
   //   config.type === "EVM" && config.rpcEndpoint && config.blocks.length >= 2
@@ -30,7 +33,7 @@ function calculateBlockTime(chainKey: string, config: ChainConfig): string {
   //     return `${Math.round(avgTimeDiff / 1000 * 10) / 10}s`;
   //   }
   // }
-
+  if (!config.blockTime) return undefined;
   return `${config.blockTime / 1000}s`;
 }
 
@@ -38,17 +41,22 @@ export function ColumnsContainer(
   { chainConfigs, newBlockIndices }: ColumnsContainerProps,
 ) {
   return (
-    <div className="columns-container">
-      {Object.entries(chainConfigs).map(([chainKey, config]) => (
-        <BlockColumn
-          key={chainKey}
-          title={config.name}
-          blockTime={calculateBlockTime(chainKey, config)}
-          blocks={config.blocks}
-          isMainColumn={chainKey === "paima"}
-          newBlockIndex={newBlockIndices[chainKey]}
-        />
-      ))}
+    <div className="rows-container">
+      {Object.entries(chainConfigs).map(([chainKey, config]) => {
+        // TODO: Remove this once we have a better way to handle Cardano blocks.
+        const isCardano = (config.type || "").toUpperCase() === "CARDANO";
+        const blocksToShow = isCardano ? [] : config.blocks;
+        return (
+          <BlockRow
+            key={chainKey}
+            title={config.name}
+            blockTime={calculateBlockTime(chainKey, config)}
+            blocks={blocksToShow}
+            isMainColumn={chainKey === "paima"}
+            newBlockIndex={newBlockIndices[chainKey]}
+          />
+        );
+      })}
     </div>
   );
 }

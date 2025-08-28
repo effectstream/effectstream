@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
-import { initialChainConfigs, type PaimaChains } from "../config.ts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  BLOCK_HEIGHTS_ENDPOINT,
+  fetchChainConfigs,
+  initialChainConfigs,
+  SYNC_PROTOCOLS_ENDPOINT,
+} from "../config.ts";
+import type { PaimaChains } from "../types/index.ts";
 
 interface Block {
   number: number;
@@ -15,20 +21,35 @@ function generateRandomHash() {
     ).join("");
 }
 
+let paimaPollInterval: number = 1000;
+
 export function useBlockchainData() {
-  const [chainConfigs, setChainConfigs] = useState<PaimaChains>(
-    initialChainConfigs,
-  );
+  const [chainConfigs, setChainConfigs] = useState<PaimaChains>({});
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  const [configError, setConfigError] = useState<string | null>(null);
   const [newBlockIndices, setNewBlockIndices] = useState<
     Record<string, number | undefined>
   >({});
+  const paimaPollRef = useRef<number | null>(null);
+  const rpcInFlightRef = useRef(false);
+  const fetchLatestBlockForChainRef = useRef<(key: string) => void>(() => {});
+  const chainsInitializedRef = useRef(false);
+  const nonRpcIntervalsStartedRef = useRef(false);
+  const blockHeightsPollRef = useRef<number | null>(null);
 
-  // Fetch latest block for RPC chains
+  // Fetch latest block for Paima main (EVM) only
   const fetchLatestBlockForChain = useCallback(async (chainKey: string) => {
+    // Only allow RPC polling for Paima main chain
+    if (chainKey !== "Paima") return;
     const config = chainConfigs[chainKey];
-    if (config.type !== "EVM" || !config.rpcEndpoint) return;
+    if (!config) return;
+    if (!config.rpcEndpoint) return;
+    if (config.type !== "EVM") return;
 
+    if (rpcInFlightRef.current) return;
+    rpcInFlightRef.current = true;
     try {
+      // Use Ethereum RPC method for EVM chain
       const response = await fetch(config.rpcEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,9 +70,9 @@ export function useBlockchainData() {
         throw new Error(data.error.message);
       }
 
-      const blockNumber = parseInt(data.result, 16);
+      const blockNumber: number = parseInt(data.result, 16);
 
-      setChainConfigs((prev) => {
+      setChainConfigs((prev: PaimaChains) => {
         const updated = { ...prev };
         const chainConfig = updated[chainKey];
 
@@ -74,7 +95,7 @@ export function useBlockchainData() {
 
             // Check if block already exists to prevent duplicates
             const blockExists = chainConfig.blocks.some(
-              (block) =>
+              (block: Block) =>
                 block.number === blockNumber && block.hash === blockHash,
             );
 
@@ -99,7 +120,7 @@ export function useBlockchainData() {
                   ...prevIndices,
                   [chainKey]: undefined,
                 }));
-              }, 250);
+              }, 500);
             }
           }
         }
@@ -108,15 +129,21 @@ export function useBlockchainData() {
       });
     } catch (error) {
       console.error(`Error fetching latest block for ${chainKey}:`, error);
-      setChainConfigs((prev) => ({
+      setChainConfigs((prev: PaimaChains) => ({
         ...prev,
         [chainKey]: {
           ...prev[chainKey],
           isConnected: false,
         },
       }));
+    } finally {
+      rpcInFlightRef.current = false;
     }
   }, [chainConfigs]);
+
+  useEffect(() => {
+    fetchLatestBlockForChainRef.current = fetchLatestBlockForChain;
+  }, [fetchLatestBlockForChain]);
 
   // Generate a new block for a chain
   const generateBlock = useCallback(
@@ -136,13 +163,13 @@ export function useBlockchainData() {
         timestamp: timestamp,
       };
 
-      setChainConfigs((prev) => {
+      setChainConfigs((prev: PaimaChains) => {
         const updated = { ...prev };
         const chainConfig = updated[chainKey];
 
         // Check if block already exists to prevent duplicates
         const blockExists = chainConfig.blocks.some(
-          (block) => block.number === blockNumber,
+          (block: Block) => block.number === blockNumber,
         );
 
         if (!blockExists) {
@@ -175,13 +202,39 @@ export function useBlockchainData() {
     [chainConfigs],
   );
 
+  // Load chain configs from API
+  const loadChainConfigs = useCallback(async () => {
+    setIsLoadingConfig(true);
+    setConfigError(null);
+
+    try {
+      const configs = await fetchChainConfigs();
+      paimaPollInterval = configs.Paima.blockTime ?? 1000;
+      setChainConfigs(configs);
+      console.log("✅ Loaded chain configs from API:", configs);
+    } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Unknown error";
+      setConfigError(errorMessage);
+      console.error(
+        "❌ Failed to load chain configs, using fallback:",
+        errorMessage,
+      );
+      setChainConfigs(initialChainConfigs);
+    } finally {
+      setIsLoadingConfig(false);
+    }
+  }, []);
+
   // Initialize chains with dummy blocks
-  const initializeChains = useCallback(() => {
-    setChainConfigs((prev) => {
+  const initializeChains = useCallback((configs: PaimaChains) => {
+    setChainConfigs((prev: PaimaChains) => {
       const updated = { ...prev };
 
-      Object.keys(updated).forEach((chainKey) => {
+      Object.keys(configs).forEach((chainKey) => {
         const config = updated[chainKey];
+        if (!config) return;
 
         if (!config.rpcEndpoint) {
           // Generate 5 initial blocks for non-RPC chains
@@ -190,7 +243,9 @@ export function useBlockchainData() {
           for (let i = -5; i < 0; i++) {
             const blockNumber = config.currentBlock + i;
             const blockHash = generateRandomHash();
-            const timestamp = new Date(Date.now() + i * config.blockTime);
+            const timestamp = new Date(
+              Date.now() + i * (config.blockTime ?? 1000),
+            );
 
             initialBlocks.push({
               number: blockNumber,
@@ -208,47 +263,212 @@ export function useBlockchainData() {
     });
   }, []);
 
-  // Setup intervals
+  // Load configs on mount
   useEffect(() => {
-    // Initialize chains
-    initializeChains();
+    loadChainConfigs();
+  }, [loadChainConfigs]);
 
-    // Setup block generators for non-RPC chains
-    const blockIntervals: any[] = [];
+  // One-time initialization of non-RPC chains with dummy blocks
+  useEffect(() => {
+    if (isLoadingConfig || chainsInitializedRef.current) return;
+    if (Object.keys(chainConfigs).length === 0) return;
+    initializeChains(chainConfigs);
+    chainsInitializedRef.current = true;
+  }, [isLoadingConfig]);
+
+  // Start non-RPC block generators once after configs load
+  useEffect(() => {
+    if (isLoadingConfig || nonRpcIntervalsStartedRef.current) return;
+    if (Object.keys(chainConfigs).length === 0) return;
+
+    const blockIntervals: number[] = [];
     Object.keys(chainConfigs).forEach((chainKey) => {
       const config = chainConfigs[chainKey];
       if (!config.rpcEndpoint) {
-        const interval = setInterval(() => {
+        const id = setInterval(() => {
           generateBlock(chainKey);
-        }, config.blockTime);
-        blockIntervals.push(interval);
+        }, config.blockTime) as unknown as number;
+        blockIntervals.push(id);
       }
     });
 
-    // Setup RPC polling for RPC chains
-    const rpcIntervals: any[] = [];
-    Object.keys(chainConfigs).forEach((chainKey) => {
-      const config = chainConfigs[chainKey];
-      if (config.type === "EVM" && config.rpcEndpoint) {
-        // Fetch immediately
-        fetchLatestBlockForChain(chainKey);
+    nonRpcIntervalsStartedRef.current = true;
+    return () => {
+      blockIntervals.forEach((id) => clearInterval(id));
+      nonRpcIntervalsStartedRef.current = false;
+    };
+  }, [isLoadingConfig]);
 
-        // Setup polling interval
-        const interval = setInterval(() => {
-          fetchLatestBlockForChain(chainKey);
-        }, 1000);
-        rpcIntervals.push(interval);
-      }
-    });
+  // Start Paima RPC polling once after configs load
+  useEffect(() => {
+    console.log("🔄 Starting Paima RPC polling");
+    if (isLoadingConfig) return;
+    if (paimaPollRef.current != null) return;
+
+    // Immediate fetch
+    fetchLatestBlockForChainRef.current("Paima");
+    paimaPollRef.current = setInterval(() => {
+      fetchLatestBlockForChainRef.current("Paima");
+    }, paimaPollInterval);
 
     return () => {
-      [...blockIntervals, ...rpcIntervals].forEach((interval) =>
-        clearInterval(interval)
-      );
+      if (paimaPollRef.current != null) {
+        clearInterval(paimaPollRef.current);
+        paimaPollRef.current = null;
+      }
     };
-  }, []); // Empty dependency array since we want this to run once
+  }, [isLoadingConfig]);
+
+  // Periodically fetch engine block-heights and sample last-synced blocks for non-Paima chains
+  useEffect(() => {
+    if (isLoadingConfig) return;
+    if (blockHeightsPollRef.current != null) return;
+
+    const computeInterval = () => {
+      const entries = Object.entries(chainConfigs).filter(([k]) =>
+        k !== "Paima"
+      );
+      let min = Number.POSITIVE_INFINITY;
+      for (const [, cfg] of entries) {
+        if (typeof cfg.blockTime === "number" && cfg.blockTime > 0) {
+          if (cfg.blockTime < min) min = cfg.blockTime;
+        }
+      }
+      if (!Number.isFinite(min)) return 10000;
+      return Math.max(1000, min);
+    };
+
+    const tick = async () => {
+      try {
+        const res = await fetch(BLOCK_HEIGHTS_ENDPOINT);
+        if (!res.ok) throw new Error(`block-heights HTTP ${res.status}`);
+        const heights: {
+          protocol_name: string;
+          synced_page: number | null;
+          fetched_page: number | null;
+        }[] = await res.json();
+
+        const updates: {
+          key: string;
+          block: { number: number; hash: string; timestamp: Date } | null;
+        }[] = [];
+
+        for (const [key, cfg] of Object.entries(chainConfigs)) {
+          if (key === "Paima") continue;
+          const proto = cfg.protocolName;
+          if (!proto) continue;
+          const h = heights.find((x) => x.protocol_name === proto);
+          if (!h || h.synced_page == null) continue;
+
+          try {
+            const resp = await fetch(
+              `${SYNC_PROTOCOLS_ENDPOINT}/${
+                encodeURIComponent(proto)
+              }/blocks?page=${h.synced_page}`,
+            );
+            if (!resp.ok) throw new Error(`blocks HTTP ${resp.status}`);
+            const data = await resp.json();
+            const blockPayload = data?.blocks?.[0];
+            if (!blockPayload) continue;
+
+            let number: number | null = null;
+            let hash: string | null = null;
+            let tsMs: number | null = null;
+
+            if (cfg.type === "EVM") {
+              number = Number(blockPayload.number);
+              hash = blockPayload.hash;
+              tsMs = blockPayload.timestamp != null
+                ? Number(blockPayload.timestamp) * 1000
+                : null;
+            } else if (cfg.type === "MIDNIGHT") {
+              const headerNumberHex = blockPayload?.header?.number as
+                | string
+                | undefined;
+              const headerNumber = headerNumberHex
+                ? parseInt(headerNumberHex, 16)
+                : undefined;
+              number = Number(
+                blockPayload.height ??
+                  (headerNumber !== undefined ? headerNumber : undefined),
+              );
+              hash = blockPayload.hash ?? blockPayload.header?.parentHash ?? "";
+              tsMs = null;
+            } else if (cfg.type === "CARDANO") {
+              number = Number(
+                blockPayload.block?.header?.height ??
+                  blockPayload.header?.height,
+              );
+              hash = blockPayload.block?.header?.hash ??
+                blockPayload.header?.hash ?? "";
+              tsMs = Number(blockPayload.timestamp ?? 0);
+            } else {
+              number = Number(blockPayload.blockNumber ?? h.synced_page);
+              hash = blockPayload.hash ?? "";
+              tsMs = blockPayload.timestamp != null
+                ? Number(blockPayload.timestamp)
+                : null;
+            }
+
+            if (number != null && !Number.isNaN(number)) {
+              updates.push({
+                key,
+                block: {
+                  number,
+                  hash: hash ?? "",
+                  timestamp: tsMs ? new Date(tsMs) : new Date(),
+                },
+              });
+            }
+          } catch (_) {
+            // ignore errors for individual protocol fetches
+          }
+        }
+
+        if (updates.length > 0) {
+          setChainConfigs((prev: PaimaChains) => {
+            const next = { ...prev };
+            for (const u of updates) {
+              const cfg = next[u.key];
+              if (!cfg || !u.block) continue;
+              const exists = cfg.blocks.some((b) =>
+                b.number === u.block!.number
+              );
+              if (!exists) {
+                cfg.blocks.unshift(u.block);
+                if (cfg.blocks.length > 20) {
+                  cfg.blocks = cfg.blocks.slice(0, 20);
+                }
+              }
+            }
+            return next;
+          });
+        }
+      } catch (_) {
+        // ignore errors for the overall heights tick
+      }
+    };
+
+    // initial tick and interval
+    tick();
+    const intervalMs = computeInterval();
+    console.log(
+      `[Explorer] Engine block-heights polling interval resolved to ${intervalMs} ms`,
+    );
+    blockHeightsPollRef.current = setInterval(
+      tick,
+      intervalMs,
+    ) as unknown as number;
+    return () => {
+      if (blockHeightsPollRef.current != null) {
+        clearInterval(blockHeightsPollRef.current);
+        blockHeightsPollRef.current = null;
+      }
+    };
+  }, [isLoadingConfig]);
 
   // Get Paima chain data for backward compatibility
+  // Always use the hardcoded Paima main chain first
   const paimaChain = chainConfigs.Paima;
   const latestBlock = paimaChain?.latestBlockNumber || 0;
   const isConnected = paimaChain?.isConnected || false;
@@ -258,5 +478,7 @@ export function useBlockchainData() {
     newBlockIndices,
     latestBlock,
     isConnected,
+    isLoadingConfig,
+    configError,
   };
 }

@@ -7,11 +7,13 @@ import {
   acquireDBMutex,
   getAllAddresses,
   getAllScheduledData,
+  getAllTableNames,
   getPrimaryKeyColumns,
   getPrimitivePrefix,
   getPublicTables,
   getSyncAndLastPage,
   getTableSchema,
+  type IGetAllTableNamesResult,
   releaseDBMutex,
   runPreparedQuery,
   waitUntilFree,
@@ -148,6 +150,124 @@ export const startHttpServer = function* (
     }),
   );
 
+  // Fetch raw blocks for a given sync protocol and page/range
+  server.get(
+    "/sync-protocols/:protocolName/blocks",
+    {
+      schema: {
+        tags: ["developer"],
+        querystring: Type.Object({
+          page: Type.Optional(Type.Number()),
+          from: Type.Optional(Type.Number()),
+          to: Type.Optional(Type.Number()),
+          // EVM-only toggle to include full transactions if supported by the client
+          includeTransactions: Type.Optional(Type.Boolean()),
+        }),
+        response: {
+          200: Type.Object({
+            protocol_name: Type.String(),
+            from: Type.Number(),
+            to: Type.Number(),
+            blocks: Type.Array(Type.Object({}, { additionalProperties: true })),
+          }),
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<
+        {
+          Params: { protocolName: string };
+          Querystring: {
+            page?: number;
+            from?: number;
+            to?: number;
+            includeTransactions?: boolean;
+          };
+        }
+      >,
+      reply,
+    ) => {
+      const { protocolName } = request.params;
+      const {
+        page,
+        from: fromQuery,
+        to: toQuery,
+        includeTransactions = false,
+      } = request.query;
+
+      // Resolve range
+      const from = typeof page === "number" ? page : (fromQuery ?? 0);
+      const to = typeof page === "number" ? page : (toQuery ?? from);
+      if (typeof from !== "number" || typeof to !== "number") {
+        return reply.status(400).send({ error: "Specify page or from/to" });
+      }
+      if (to < from) {
+        return reply.status(400).send({ error: "Invalid range: to < from" });
+      }
+
+      try {
+        const protocol = syncProtocols.find((p) => p.name === protocolName);
+        if (!protocol) {
+          return reply.status(404).send({ error: "Protocol not found" });
+        }
+
+        const blocks: any[] = [];
+        const fetcher: any = (protocol as any).fetcher;
+        // TODO: Utilize cache strategy for getting the blocks
+
+        // EVM (viem PublicClient)
+        if (fetcher?.client?.getBlock) {
+          for (let n = from; n <= to; n++) {
+            // viem: includeTransactions option is { includeTransactions?: boolean }
+            const block = await fetcher.client.getBlock({
+              blockNumber: BigInt(n),
+              includeTransactions,
+            });
+            blocks.push(block);
+          }
+          // Midnight
+        } else if (fetcher?.client?.fetchBlock) {
+          for (let n = from; n <= to; n++) {
+            const result = await fetcher.client.fetchBlock(n);
+            if (result?.block) blocks.push(result.block);
+          }
+          // UTXO RPC (buffered)
+        } else if (fetcher?.client?.fetchBlocks) {
+          const res = fetcher.client.fetchBlocks(from, to);
+          for (const item of res) {
+            blocks.push(item.output.raw);
+          }
+          // NTP synthetic blocks
+        } else if (fetcher?.ntpTimeSync != null) {
+          const cfg = (protocol as any).config?.network;
+          if (!cfg?.startTime || !cfg?.blockTimeMS) {
+            return reply.status(500).send({ error: "NTP config missing" });
+          }
+          for (let n = from; n <= to; n++) {
+            const timestamp = BigInt(cfg.startTime) +
+              BigInt(cfg.blockTimeMS) * BigInt(n);
+            blocks.push({
+              blockNumber: n,
+              timestamp,
+              hash: `0x${timestamp.toString(16)}`,
+            });
+          }
+        } else {
+          return reply.status(400).send({ error: "Unsupported protocol type" });
+        }
+
+        return clearBigInts({
+          protocol_name: protocolName,
+          from,
+          to,
+          blocks,
+        });
+      } catch (error) {
+        console.error("Error fetching blocks: ", error);
+        return reply.status(500).send({ error: "Internal server error" });
+      }
+    },
+  );
   if (apiRouter) {
     yield* until(apiRouter(server, dbConn));
   }
@@ -337,6 +457,26 @@ export const startHttpServer = function* (
     };
   });
 
+  server.get("/tables", {
+    schema: {
+      tags: ["developer"],
+      response: {
+        200: Type.Array(Type.Object({
+          table_name: Type.String(),
+        })),
+      },
+    },
+  }, async () => {
+    const tables = (await runPreparedQuery(
+      getAllTableNames.run(undefined, dbConn),
+      "tables",
+    )) as IGetAllTableNamesResult[];
+    return tables
+      .filter((t): t is { tablename: string } => t.tablename !== null)
+      .map((t) => ({ table_name: t.tablename }));
+  });
+
+  // TODO How to only select user defined tables?
   server.get("/table-schema/:tableName", {
     schema: {
       tags: ["developer"],
@@ -660,7 +800,7 @@ export const startHttpServer = function* (
         name: Type.String(),
       }),
     },
-  }, async (
+  }, (
     request: FastifyRequest<{ Querystring: { name: string } }>,
     reply,
   ) => {

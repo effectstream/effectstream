@@ -43,9 +43,15 @@ export function BlockItem({ block, isNew = false }: BlockItemProps) {
         cursor: "pointer",
       }}
     >
-      <div className="block-number">Block #{block.number.toLocaleString()}</div>
+      <div className="block-header">
+        <div className="block-number">
+          Block #{block.number.toLocaleString()}
+        </div>
+        <div className="block-timestamp">
+          {formatTimestamp(block.timestamp)}
+        </div>
+      </div>
       <div className="block-hash">{block.hash}</div>
-      <div className="block-timestamp">{formatTimestamp(block.timestamp)}</div>
     </div>
   );
 }
