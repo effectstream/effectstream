@@ -1,4 +1,4 @@
-## Startup & Process Orchestrator
+# Process Orchestrator
 
 Developing a multi-chain dApp is complex. It often requires running multiple local blockchains, indexers, deploying contracts, and managing various services simultaneously. Doing this manually is tedious, error-prone, and slows down development.
 

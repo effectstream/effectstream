@@ -1,4 +1,4 @@
-## Grammar
+# Grammar
 
 The **Grammar** is the formal "language" of your Paima application. It acts as a crucial bridge, defining a strict, type-safe structure for all on-chain inputs and connecting them directly to your [State Machine](./102-state-machine.md).
 
@@ -9,7 +9,7 @@ Its primary responsibilities are:
 
 Paima v2 uses a structured **JSON array format** for all inputs.
 
-### Defining Your Grammar 
+## Defining Your Grammar 
 
 In `/templates/evm-examples/` example `grammar.ts`
 
@@ -17,7 +17,7 @@ You define your application's grammar in a single `grammar.ts` file. This is a T
 
 The prefix is always the first element in an input's JSON array and is used by the engine to route the input to the correct grammar rule and, subsequently, the correct STF.
 
-#### Anatomy of a Grammar Rule
+### Anatomy of a Grammar Rule
 
 Let's look at a simple rule for an `attack` command.
 
@@ -45,7 +45,7 @@ Each argument is defined as a tuple `[name, type]`:
 | `name` (string) | The name of the argument. This becomes the key in the parsed object available in your STF. |
 | `type` (TypeBox Schema) | A schema from **TypeBox** that defines the data type and constraints for the argument. The engine uses this to validate the input and provide type safety. |
 
-### Automating Grammar for Primitives
+## Automating Grammar for Primitives
 
 You don't have to define grammar rules for every on-chain event manually. To save time, Paima Engine provides the `mapPrimitivesToGrammar` helper function. This function automatically inspects the **Primitives** you've defined in your [Sync Service Config](./101-sync-service.md) and generates the corresponding grammar rules for you.
 
@@ -68,7 +68,7 @@ export const grammar = {
 } as const satisfies GrammarDefinition;
 ```
 
-### How Grammar Connects to the State Machine
+## How Grammar Connects to the State Machine
 
 The grammar is the central piece that links an on-chain event to your application logic. Here’s the flow:
 
@@ -84,7 +84,7 @@ The grammar is the central piece that links an on-chain event to your applicatio
     }
     ```
 
-### Built-in System Grammar (`&`)
+## Built-in System Grammar (`&`)
 
 Paima Engine reserves the `&` prefix for a suite of powerful, built-in system commands. You do not need to define these in your grammar file; the engine handles them automatically.
 
@@ -95,7 +95,7 @@ This command allows multiple user inputs to be bundled into a single on-chain tr
 *   **Parameters**: The second element is an array of other valid Paima inputs.
 *   **Robustness**: If any individual input within the batch is malformed, the engine will skip it and continue processing the rest, preventing a single error from halting the entire batch.
 
-#### Account Management Commands
+### Account Management Commands
 These commands provide a flexible L2 Account Abstraction system, allowing multiple wallets to control a single Paima account.
 
 *   **`&createAccount`**: Creates a new Paima Account, with the sender becoming the primary wallet.
@@ -105,7 +105,7 @@ These commands provide a flexible L2 Account Abstraction system, allowing multip
 *   **`&unlinkAddress`**: Removes a wallet from an account.
     *   **Structure**: `["&unlinkAddress", account_id, sig_from_primary, address_to_unlink, new_primary_if_needed]`
 
-### Creating Inputs on the Frontend
+## Creating Inputs on the Frontend
 
 On the frontend, you simply construct a standard JavaScript array and then JSON-stringify it to create the payload for a transaction.
 

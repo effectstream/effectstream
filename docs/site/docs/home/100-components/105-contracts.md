@@ -1,14 +1,14 @@
-## Contracts
+# Contracts
 
 Paima Engine is designed to be chain-agnostic and contract-agnostic. It can work with virtually any smart contract deployed on its supported chains by monitoring the **events** they emit or the **public state** they expose.
 
 The engine's Sync Service listens for these on-chain occurrences and transforms them into inputs for your [State Machine](./102-state-machine.md).
 
-### Working with Your Own Smart Contracts
+## Working with Your Own Smart Contracts
 
 You can write and deploy custom contracts to handle specific on-chain logic, such as minting NFTs, transferring tokens, or managing registries. Paima Engine will then observe these contracts as a data source.
 
-#### EVM Contracts (Solidity)
+### EVM Contracts (Solidity)
 
 You can deploy any standard EVM smart contract. The key is that your contract must emit events for any state change you want Paima to react to.
 
@@ -34,7 +34,7 @@ contract Erc20Dev is ERC20 {
 }
 ```
 
-#### ZK Contracts (Midnight)
+### ZK Contracts (Midnight)
 
 Paima can also monitor Zero-Knowledge contracts. On Midnight, instead of events, contracts expose a public **`ledger` state**. Paima primitives are configured to watch for changes to this public state.
 
@@ -56,7 +56,7 @@ export circuit increment(): [] {
 }
 ```
 
-### Compiling and Deploying Contracts
+## Compiling and Deploying Contracts
 
 The Paima Engine templates come with pre-configured scripts to compile your smart contracts and generate the necessary artifacts (like ABIs).
 
@@ -70,7 +70,7 @@ deno task build:midnight
 ```
 The templates also include scripts for deploying these contracts to local development chains or public testnets/mainnets.
 
-### The `PaimaL2Contract`
+## The `PaimaL2Contract`
 
 While Paima can listen to any contract, it also provides a specialized contract called `PaimaL2Contract`. This contract serves as a highly efficient, generic "mailbox" for submitting game-specific inputs directly to the state machine.
 
@@ -120,7 +120,7 @@ Once your contract is compiled and deployed, the final step is to tell the **Syn
 )
 ```
 
-### Paima-Provided EVM Contracts
+## Paima-Provided EVM Contracts
 
 The `@paima/evm-contracts` package ships with a suite of pre-built, audited smart contracts and libraries to accelerate your development. These can be used directly in your project.
 
@@ -147,7 +147,7 @@ These are simplified, mintable versions of the standard contracts, designed to m
 | **`Erc20Dev`** | A simple ERC20 contract that includes a public `mint(address, amount)` function, allowing you to easily create tokens for testing purposes. |
 | **`Erc721Dev`** | A simple ERC721 contract with a public `mint(address)` function, allowing you to create NFTs on demand during development. |
 
-#### Standard Interfaces
+### Standard Interfaces
 Interfaces are crucial for interacting with any contract on the EVM, whether it's one you deployed or one belonging to another protocol. These allow your contracts to call functions on other contracts in a type-safe way.
 
 | Interface | Description |
@@ -158,7 +158,7 @@ Interfaces are crucial for interacting with any contract on the EVM, whether it'
 | **`IERC721Metadata`** | An extension of `IERC721` that includes functions like `name()`, `symbol()`, and `tokenURI()`. |
 | **`IERC165`** | The interface for EIP-165, which allows you to check if a contract supports a specific interface. |
 
-#### Utility Libraries
+### Utility Libraries
 For more advanced Solidity development, the package also includes several of OpenZeppelin's low-level utility libraries.
 
 | Library | Description |
