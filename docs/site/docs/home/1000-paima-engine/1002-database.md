@@ -1,25 +1,61 @@
 # Database
 
-> INFO: This is intended for developers making changes or contributions to Paima Engine.
+At the heart of every Paima Engine node is a powerful PostgreSQL database. This database is the single source of truth for your application's state, storing everything from raw on-chain inputs to the processed, real-time state of your game world.
 
-## Queries 
+Paima Engine provides a sophisticated and developer-friendly toolkit for defining your database schema, managing its evolution over time, and interacting with it in a type-safe manner.
 
-The database uses PGTyped to convert SQL to Typescript save queries.  
-To update the pgtyped functions run:  
-`deno task -f @paima/db pgtyped:update` 
+### Database Schema
 
-* SQL Scripts:
-@paima/db `/src/sql/*.sql`
+Your dApp's database is organized into three main schemas:
 
-## System Tables and Migrations
+*   **`paima`**: This schema is reserved for Paima Engine's internal system tables. These tables manage the core operations of the node, such as block processing, input queuing, account management, and achievement tracking. You should generally not modify these tables directly.
+*   **`primitives`**: This schema holds the **Dynamic Tables** that are automatically created and managed by the Paima Engine to represent the state of your configured Primitives. For example, an `ERC20` primitive will create a table in this schema to track token balances.
+*   **`public`**: This is **your schema**. All of your dApp's custom tables, such as `players`, `games`, or `inventories`, should be created here.
 
-* DB Initialization
-@paima/db `/migrations/system-up-v-<MAJOR>-<MINOR>-<PATCH>.sql` 
+### Defining Custom Tables & Migrations
 
-Where the version MUST match the Package Version.
-e.g., For Paima Engine 0.3.20, the migration is called: `/migrations/system-up-v-0-3-20.sql` 
-> NOTE 0.0.0 Is a special migration that gets applied before the node starts.
+The process of defining and evolving your database schema is managed through a robust **migration system**. A migration is simply a SQL file containing `CREATE TABLE`, `ALTER TABLE`, or other DDL statements.
 
+### Creating Migration Files
 
-And then the file must be added to the `assets-config.json` 
-> NOTE: This is a JSR limitation at the time
+All your SQL migration files should be placed in the `/packages/node-sdk/db/migrations/system-down-v-x.x.x.sql` directory.
+
+**Example (`system-down-v-x.x.x.sql`):**
+```sql
+CREATE TABLE paima.system_table (
+  id SERIAL PRIMARY KEY,
+  block_height INTEGER NOT NULL,
+  ...other fields...
+);
+```
+### Type-Safe Queries with `pgtyped`
+
+Paima Engine uses `pgtyped` to bridge the gap between your SQL database and your TypeScript code. It automatically generates fully type-safe TypeScript functions directly from your raw SQL queries, eliminating an entire class of bugs and providing excellent editor autocompletion.
+
+### Writing Named Queries
+You write your SQL queries in files within the `/TODO` directory. To make a query available to `pgtyped`, you must give it a special named comment.
+
+**Example (`TODO.sql`):**
+```sql
+-- TODO
+```
+
+### Generating TypeScript Functions
+After writing your queries, you run a simple command:
+```sh
+deno task -f @paima/db pgtyped:update
+```
+This command introspects your SQL files and your database schema, then generates corresponding TypeScript functions.
+
+### System Tables Overview
+
+The `paima` schema contains a number of tables essential for the engine's operation. Here are a few of the most important ones:
+
+| Table | Description |
+| :--- | :--- |
+| **`paima.paima_blocks`** | Records every L2 block processed by the engine, including its seed for randomness. |
+| **`paima.rollup_inputs`** | A queue for all incoming inputs from on-chain events. |
+| **`paima.rollup_input_future_block`** | Stores scheduled inputs that are set to execute at a future block height (for timers/ticks). |
+| **`paima.accounts` & `paima.addresses`** | Manages the L2 Account System, linking wallets to persistent accounts. |
+| **`paima.achievement_progress`** | Stores the dynamic per-player progress for the PRC-1 Achievement system. |
+| **`paima.primitive_config`** | Stores the configuration of all your defined Primitives. |

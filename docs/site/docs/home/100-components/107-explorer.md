@@ -1,3 +1,59 @@
 # Paima Explorer
 
-The explorer, is Web Application that can be used to navigate in real time the Paima Engine Node. It displays the current block, synced blockchains, contract states, and other useful information.
+The Paima Explorer is a powerful, locally-run web application that serves as an essential companion for developing with Paima Engine. It provides a real-time, interactive window into your running Paima Engine node, allowing you to monitor its health, inspect its state, and explore its data without needing to write a single line of SQL.
+
+Think of it as a block explorer and a database admin panel rolled into one, specifically designed for your Paima dApp.
+
+### Running the Explorer
+
+The Paima Explorer is typically launched automatically as part of the local development environment when you run `deno task dev`. It is configured within the `processesToLaunch` section of your `orchestrator.ts` file.
+
+```ts
+// In your orchestrator.ts
+{
+  processes: [
+    {
+      name: "explorer",
+      args: ["run", "-A", "--unstable-detect-cjs", "@paima/explorer"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:10590",
+    },
+  ],
+},
+```
+
+Once running, you can access it at the URL provided in the console, usually `http://localhost:10590`.
+
+### Key Features
+
+The Explorer is organized into several key sections, each providing a unique view into your node's operations.
+
+#### 1. Dashboard: Sync Status & Chain Health
+
+The main dashboard gives you an at-a-glance overview of your node's health and the status of its connections to various blockchains.
+
+*   **Main L2 Chain Blocks**: Displays the current block height of your Paima Engine's internal clock (the Main NTP Protocol). This shows you the current "tick" or state of your application.
+*   **Parallel Chains**: For each connected parallel chain (EVM, Midnight, Cardano, etc.), it shows the last block height synced by the node. This is crucial for debugging and ensuring that your node is successfully ingesting data from all its sources.
+
+#### 2. Exploring State Tables
+
+This is the most powerful feature of the Explorer. It gives you a direct, read-only view into the PostgreSQL database that stores your application's state, without needing a separate database client. The tables are intelligently categorized.
+
+*   **Dynamic (Primitive) Tables**: These tables are **automatically created and managed by Paima Engine** to represent the state of your configured Primitives. For example, if you have an `ERC20` primitive, the Explorer will show a table named `erc20_balances_view_<primitive_name>` that contains the real-time token balance for every wallet address. This is incredibly useful for verifying that your primitives are working correctly.
+
+*   **Custom Tables**: These are the tables that **you defined** in your custom SQL "migration" files. This section allows you to inspect the data specific to your dApp's logic. You can see your `players`, `games`, `inventories`, or any other custom table to confirm that your State Transition Functions (STFs) are writing the correct data.
+
+#### 3. Accounts and Addresses
+
+This section provides a user-friendly interface to view the state of the Paima L2 [Account System](./116-accounts.md). You can:
+*   See a list of all created Paima Accounts.
+*   View which wallet addresses are linked to each account.
+*   Identify which address is the current primary (controlling) wallet for an account.
+
+#### 4. Interactive API Documentation
+
+The Explorer hosts the live **OpenAPI (Swagger) documentation** for your node's API. This is an interactive tool that allows you to:
+*   See all available API endpoints, including built-in system endpoints, your own custom endpoints, and the Batcher API.
+*   View the request parameters and expected response schemas for each endpoint.
+*   **Execute API calls directly from your browser**, making it an invaluable tool for testing your API without needing to write any frontend code.
