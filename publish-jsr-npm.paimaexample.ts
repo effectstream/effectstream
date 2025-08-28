@@ -169,7 +169,8 @@ async function processFile(filePath: string, reverse: boolean = false) {
 
 const skipDirectories = [
   `${rootDir}/templates`,
-  `${rootDir}/docs/docs`,
+  `${rootDir}/e2e`,
+  `${rootDir}/docs`,
   `${rootDir}/.github`,
 ];
 async function walkAndProcess(dir: string, reverse: boolean = false) {

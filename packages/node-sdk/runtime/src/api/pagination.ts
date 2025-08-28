@@ -1,6 +1,6 @@
 import { type TSchema, Type } from "@sinclair/typebox";
 import type { FastifyRequest } from "fastify";
-import { decodeBase64, encodeBase64 } from "jsr:@std/encoding/base64";
+import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 
 const DEFAULT_PAGINATION_LIMIT = 100;
 
