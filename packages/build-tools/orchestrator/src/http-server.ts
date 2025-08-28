@@ -19,6 +19,7 @@ function mapProcess(p: ProcessComponent) {
     alive: p.alive,
     args: p.args,
     date: p.date,
+    link: p.link,
   };
 }
 server.get("/processes", function handler() {
