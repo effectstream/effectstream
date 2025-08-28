@@ -3,7 +3,7 @@ import type { Operation } from "effection";
 import { call } from "effection";
 import { getPage } from "@paima/db";
 import type { PoolClient } from "pg";
-import { bound } from "@paima/utils";
+import { bound, type NtpBlockNumber } from "@paima/utils";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { NtpFetcher } from "./fetcher.ts";
@@ -27,16 +27,24 @@ export class NtpSyncState extends SyncState<
       { networkType: ConfigNetworkType.NTP }
     >,
     fetcher: NtpFetcher,
+    dbConn: PoolClient,
   ) {
-    super(lastPage, fetcher, blockNumberRelation);
+    super(
+      config.syncProtocol.name,
+      lastPage,
+      fetcher,
+      blockNumberRelation,
+      dbConn,
+    );
   }
 
   @bound
   override toRootOutput(data: Output): RootOutput {
     return {
-      blockHashes: data.blockHashes.map((h) => ({
-        source: this.config.syncProtocol.name,
-        blockHashes: h,
+      blockInfo: data.blockHashes.map((h) => ({
+        protocol_name: this.config.syncProtocol.name,
+        block_number: Number(data.raw.blockNumber),
+        blockHash: h,
       })),
       blockNumber: Number(data.raw.blockNumber),
       timestamp: this.toRootPage(data),
@@ -56,7 +64,7 @@ export class NtpSyncState extends SyncState<
       1, // TODO: do we skip block 0 for NTP?
       {
         name: this.config.syncProtocol.name,
-        startPage: this.config.syncProtocol.startBlockHeight,
+        startPage: this.config.syncProtocol.startBlockHeight as NtpBlockNumber,
       },
       this.getNamespace(),
     );
@@ -75,11 +83,7 @@ export class NtpSyncState extends SyncState<
     ourOutput: Output,
     rootOutput: RootOutput,
   ): void {
-    const blockHashes = ourOutput.blockHashes.map((h) => ({
-      source: this.config.syncProtocol.name,
-      blockHashes: h,
-    }));
-    rootOutput.blockHashes.push(...blockHashes);
+    throw new Error("Only parallel chains merge into root");
   }
 
   @bound
@@ -101,12 +105,14 @@ export class NtpSyncState extends SyncState<
         protocol_name: config.syncProtocol.name,
       }, dbConn)
     );
-    // TODO: this should instead be parsed with typebox with default values
-    const page = result as any;
+    const page: any = result
+      ? result.page as unknown as LastPage<Page, RootPage>
+      : undefined;
     return new NtpSyncState(
       page,
       config,
       fetcher,
+      dbConn,
     );
   }
 }

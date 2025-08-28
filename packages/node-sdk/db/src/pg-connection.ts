@@ -58,6 +58,18 @@ export function* acquireDBMutex(lockName: string): Operation<void> {
       };
       break;
     }
+    const i = _waitUntilFree.waiting.findIndex((w) => w.name === lockName);
+    if (i !== -1) {
+      const now = new Date().getTime();
+      const waitingSince = new Date(_waitUntilFree.waiting[i].date).getTime();
+      const waitingFor = now - waitingSince;
+      if (waitingFor > 2500) {
+        console.error(
+          `[DB Mutex] Waiting for ${waitingFor}[ms] for ${lockName}. 
+Locked by ${_waitUntilFree.running.name}. This is a critical error, please restart the sync service.`,
+        );
+      }
+    }
     yield* sleep(10);
   }
 }

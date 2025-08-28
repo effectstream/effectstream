@@ -12,14 +12,7 @@ export function generatePaimaBlockHash(
   chainBlock: ChainBlock,
   previousBlockHash: PaimaBlockHash | null,
 ): PaimaBlockHash {
-  const hashes: BlockHash[] = chainBlock.blockHashes.map((h) => h.blockHashes);
-
-  let hash: PaimaBlockHash = previousBlockHash ?? "0x0";
-
-  for (const h of hashes) {
-    const s = hash + h;
-    hash = `0x${crypto.hash("sha512", s, "hex")}` as PaimaBlockHash;
-  }
-
-  return hash;
+  const hashes: BlockHash[] = chainBlock.blockInfo.map((h) => h.blockHash);
+  const hashString: string = [previousBlockHash ?? "0x0", ...hashes].join("");
+  return `0x${crypto.hash("sha512", hashString, "hex")}` as PaimaBlockHash;
 }

@@ -26,11 +26,15 @@ export type VersionString = `${number}.${number}.${number}`;
 export type PaimaBlockNumber = FastFlavor<number, "PaimaBlockNumber">;
 export type EvmBlockNumber = FastFlavor<number, "EvmBlockNumber">;
 export type NtpBlockNumber = FastFlavor<number, "NtpBlockNumber">;
+export type MidnightBlockNumber = FastFlavor<number, "MidnightBlockNumber">;
+export type CardanoBlockNumber = FastFlavor<number, "CardanoBlockNumber">;
 
 export type BlockNumber =
   | PaimaBlockNumber
   | EvmBlockNumber
-  | NtpBlockNumber;
+  | NtpBlockNumber
+  | MidnightBlockNumber
+  | CardanoBlockNumber;
 
 /**
  * recall: slots may be empty, so absolute slot number is not usually equal to block number

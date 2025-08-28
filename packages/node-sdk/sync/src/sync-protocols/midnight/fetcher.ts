@@ -48,7 +48,9 @@ export class MidnightFetcher extends BaseDataFetcher<
   ): Operation<DataFetched<Output, Page, RootPage>> {
     const outputs: OutputAndCleanup<Output>[] = [];
     console.log(
-      `Fetching blocks from ${data.from} to ${data.to}. Presync: ${data.isPresync}`,
+      `[Midnight] Fetching blocks from ${data.from} to ${data.to}. ${
+        data.isPresync ? "[presync]" : ""
+      }`,
     );
     for (let height = data.from; height <= data.to; height++) {
       const result = yield* call(() => this.client.fetchBlock(height));
@@ -90,6 +92,7 @@ export class MidnightFetcher extends BaseDataFetcher<
     return {
       output: outputs,
       lastPage: {
+        ownBlockNumber: lastOutput.raw.height,
         own: {
           height: lastOutput.raw.height,
           hash: lastOutput.raw.hash,

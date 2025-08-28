@@ -60,9 +60,13 @@ CREATE TABLE paima.nonces (
 );
 
 CREATE TABLE paima.sync_protocol_pagination (
-  protocol_name TEXT PRIMARY KEY,
-  page JSONB NOT NULL
+  protocol_name TEXT NOT NULL,
+  page_number INTEGER NOT NULL,
+  page JSONB NOT NULL,
+  PRIMARY KEY (protocol_name, page_number)
 );
+
+CREATE INDEX sync_protocol_pagination_page_number_idx on paima.sync_protocol_pagination(protocol_name, page_number);
 
 CREATE TABLE paima.primitive_config (
   primitive_name TEXT PRIMARY KEY,
