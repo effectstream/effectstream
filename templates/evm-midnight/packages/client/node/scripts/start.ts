@@ -13,6 +13,7 @@ const midnightExtended = (packageName: string) => ({
   ],
   processes: [
     ...launchMidnight(packageName).processes,
+    // We build the frontend after the midnight process is started, as it uses the contract address at build time.
     {
       name: "frontend-build",
       args: ["task", "-f", "@example/frontend", "build"],
@@ -39,6 +40,7 @@ const config = Value.Parse(OrchestratorConfig, {
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,
+    [ComponentNames.DOCS]: false,
 
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: true,

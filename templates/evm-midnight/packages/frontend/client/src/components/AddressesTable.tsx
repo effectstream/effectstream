@@ -404,7 +404,7 @@ export function AddressesTable() {
       }
 
       const data = await response.json();
-      setAddresses(data);
+      setAddresses(data.data);
     } catch (err) {
       console.error("Error fetching addresses:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -417,34 +417,36 @@ export function AddressesTable() {
     fetchAddresses();
   }, []);
 
-  // Group addresses by account_id
-  const groupedAddresses = addresses.reduce((groups: GroupedAddress[], row) => {
-    const existingGroup = groups.find((group) =>
-      group.account_id === row.account_id
-    );
+  const groupedAddresses = (addresses || []).reduce(
+    (groups: GroupedAddress[], row) => {
+      const existingGroup = groups.find((group) =>
+        group.account_id === row.account_id
+      );
 
-    if (existingGroup) {
-      // Add address to existing group if not already present
-      if (!existingGroup.addresses.includes(row.address)) {
-        existingGroup.addresses.push(row.address);
+      if (existingGroup) {
+        // Add address to existing group if not already present
+        if (!existingGroup.addresses.includes(row.address)) {
+          existingGroup.addresses.push(row.address);
+        }
+        // Update primary address info if this row has a primary address
+        if (row.primary_address) {
+          existingGroup.hasPrimaryAddress = true;
+          existingGroup.primaryAddress = row.primary_address;
+        }
+      } else {
+        // Create new group
+        groups.push({
+          account_id: row.account_id,
+          addresses: [row.address],
+          hasPrimaryAddress: !!row.primary_address,
+          primaryAddress: row.primary_address,
+        });
       }
-      // Update primary address info if this row has a primary address
-      if (row.primary_address) {
-        existingGroup.hasPrimaryAddress = true;
-        existingGroup.primaryAddress = row.primary_address;
-      }
-    } else {
-      // Create new group
-      groups.push({
-        account_id: row.account_id,
-        addresses: [row.address],
-        hasPrimaryAddress: !!row.primary_address,
-        primaryAddress: row.primary_address,
-      });
-    }
 
-    return groups;
-  }, []);
+      return groups;
+    },
+    [],
+  );
 
   // Get unique account IDs for dropdown
   const accountIds = [

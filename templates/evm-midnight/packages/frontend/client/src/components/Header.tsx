@@ -162,7 +162,8 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
                 >
                   Documentation
                 </button>
-                <button
+                {
+                  /* <button
                   type="button"
                   className="dropdown-item"
                   onClick={() => {
@@ -171,7 +172,8 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
                   }}
                 >
                   Addresses
-                </button>
+                </button> */
+                }
               </div>
             )}
           </div>

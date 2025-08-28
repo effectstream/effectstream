@@ -220,8 +220,8 @@ The `/templates/evm-midnight/` comes with a folder called `/packages/frontend/` 
 * **Reads from Paima Engine API** Paima Engine Provides son Endpoints you can consume.
 * **Reads from Custom API** You can create your own custom endpoints.
 
-More in the [Frontend](../100-components/115-frontend.md)
-More in the [API](../100-components/103-api.md)
+More about the [Frontend](../100-components/115-frontend.md)  
+More about the [API](../100-components/103-api.md)
 
 ## Chain Config & Sync Service
 
@@ -274,7 +274,7 @@ This configuration tells the engine to watch an ERC721 contract for `Transfer` e
 
 Learn more about the [Sync Service & Chain Config](../100-components/101-sync-service.md).
 
-## Contracts & The `PaimaL2Contract`
+## Contracts
 
 Paima Engine can monitor any smart contract on a supported chain by listening to the **events** it emits. For example, you can deploy a standard ERC20 contract, and the engine can track its `Transfer` events to update balances in your application's state.
 
@@ -292,7 +292,7 @@ While any contract works, Paima provides the specialized **`PaimaL2Contract`**, 
 
 You connect a contract event to your State Machine by defining a **Primitive** in your chain configuration, which links the event to a `scheduledPrefix` that triggers your game logic.
 
-Learn more about [Contracts](../100-components/105-contracts.md)
+Learn more about [Contracts](../100-components/105-contracts.md)  
 More about [Paima L2](../100-components/104-paima-l2-contract.md)
 
 ## Process Orchestrator
@@ -325,7 +325,7 @@ const config = Value.Parse(OrchestratorConfig, {
 await start(config);
 
 ```
-More About [Processes and Startup](../100-components/106-processes.md)
+More about [Processes Orchestrator](../100-components/106-processes.md)
 
 ## Grammar
 
@@ -348,7 +348,7 @@ export const grammar = {
 } as const satisfies GrammarDefinition;
 ```
 
-More About [Grammar](../100-components/111-grammar.md)
+More about [Grammar](../100-components/111-grammar.md)
 
 
 ## Next Steps: Dive Deeper into Paima Engine
