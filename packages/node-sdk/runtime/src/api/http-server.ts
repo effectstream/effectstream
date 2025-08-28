@@ -35,6 +35,7 @@ import {
   getPaginationParams,
   type PaginatedResponse,
   PaginationQuerySchema,
+  type TypePaginationQuerySchema,
 } from "./pagination.ts";
 
 export enum RpcPaths {
@@ -299,8 +300,15 @@ export const startHttpServer = function* (
         })),
       },
     },
-  }, async (request) => {
-    const { limit, after } = getPaginationParams(request);
+  }, async (
+    request: FastifyRequest<{
+      Querystring: TypePaginationQuerySchema;
+    }>,
+  ) => {
+    const { limit, after } = getPaginationParams<{
+      account_id: number;
+      address: string;
+    }>(request.query);
     let addresses: any[] = [];
     try {
       // @ts-ignore - pgtyped overload resolution is failing in this context
@@ -424,8 +432,14 @@ export const startHttpServer = function* (
         })),
       },
     },
-  }, async (request) => {
-    const { limit, after } = getPaginationParams(request);
+  }, async (
+    request: FastifyRequest<{
+      Querystring: TypePaginationQuerySchema;
+    }>,
+  ) => {
+    const { limit, after } = getPaginationParams<{
+      id: number;
+    }>(request.query);
 
     let scheduledData: any[] = [];
     try {
@@ -519,12 +533,15 @@ export const startHttpServer = function* (
     },
     async (
       request: FastifyRequest<
-        { Params: { tableName: string }; Querystring: any }
+        {
+          Params: { tableName: string };
+          Querystring: TypePaginationQuerySchema;
+        }
       >,
       reply,
     ) => {
       const { tableName } = request.params;
-      const { limit, after } = getPaginationParams(request);
+      const { limit, after } = getPaginationParams(request.query);
 
       try {
         // Sanitize table name
@@ -559,9 +576,9 @@ export const startHttpServer = function* (
         );
 
         let query: string;
-        const params: any[] = [];
+        const params: (string | number)[] = [];
         let cursorFields: string[] = [];
-        let nextCursorSeed: Record<string, any> | null = null;
+        let nextCursorSeed: Record<string, string | number> | null = null;
 
         // 2. Determine Pagination Strategy
         if (pkColumns.length > 0) {
@@ -573,7 +590,7 @@ export const startHttpServer = function* (
           }`;
 
           if (after) {
-            const pkValues = pkColumns.map((c: string) => after[c]);
+            const pkValues = pkColumns.map((c: string) => (after as any)[c]);
             const placeholders = pkColumns.map((_, i: number) => `$${i + 2}`)
               .join(", ");
             whereClause = `WHERE (${
@@ -590,7 +607,7 @@ export const startHttpServer = function* (
           console.warn(
             `[Paima Engine] WARNING: Table "${safeTableName}" has no primary key. Falling back to less performant OFFSET-based pagination.`,
           );
-          const offset = after?.offset || 0;
+          const offset = Number(parseInt(request.query.after ?? "0"));
 
           // Find a column to order by
           const tableSchema = await runPreparedQuery(
@@ -611,8 +628,21 @@ export const startHttpServer = function* (
           nextCursorSeed = { offset: offset + limit };
         }
 
-        const result = await dbConn.query(query, params);
-        const data = result.rows;
+        // TODO: We have to make this query safe.
+        //       Refactor ASAP; query comes from a user input.
+        const data = await runPreparedQuery(
+          new Promise<any[]>((resolve, reject) => {
+            return dbConn.query(
+              query,
+              params,
+              (err: any, result: { rows: any[] }) => {
+                if (err) reject(err);
+                resolve(result.rows);
+              },
+            );
+          }),
+          `http-server/tables:${safeTableName}/${query}/${params}`,
+        );
 
         const pagination = createPaginationMeta(
           limit,
@@ -705,12 +735,15 @@ export const startHttpServer = function* (
     },
     async (
       request: FastifyRequest<
-        { Params: { primitiveName: string }; Querystring: any }
+        {
+          Params: { primitiveName: string };
+          Querystring: TypePaginationQuerySchema;
+        }
       >,
       reply,
     ) => {
       const { primitiveName } = request.params;
-      const { limit, after } = getPaginationParams(request);
+      const { limit, after } = getPaginationParams(request.query);
       const prefix = getPrimitivePrefixWrapper(primitiveName);
       if (!prefix) {
         return reply.status(404).send({
@@ -721,18 +754,38 @@ export const startHttpServer = function* (
       try {
         // Primitives are system-generated and are guaranteed to have an `id` PK.
         // We can use a simplified, but still safe, query.
-        const safeTableName = primitiveName.toLowerCase().replace(
+        const safeTableName = prefix + primitiveName.toLowerCase().replace(
           /[^a-z0-9_]/g,
           "",
         );
-        const afterId = after?.id;
 
-        const query =
-          `SELECT * FROM primitives.${safeTableName} WHERE ($1::INT IS NULL OR id > $1::INT) ORDER BY id ASC LIMIT $2`;
-        const params: (string | number | null)[] = [afterId, limit + 1];
+        const primaryKey = after ? Object.keys(after)[0] : undefined;
+        const afterId = after && primaryKey
+          ? (after as any)[primaryKey]
+          : undefined;
 
-        const result = await dbConn.query(query, params);
-        const data = result.rows;
+        // TODO This is a very unsafe query.
+        //      Refactor ASAP; primaryKey comes from from a user input.
+        const query = primaryKey && afterId
+          ? `SELECT * FROM primitives.${safeTableName} WHERE ($1::INT IS NULL OR ${primaryKey} > $1::INT) ORDER BY ${primaryKey} ASC LIMIT $2`
+          : `SELECT * FROM primitives.${safeTableName} LIMIT $1`;
+        const params = primaryKey && afterId
+          ? [afterId, limit + 1]
+          : [limit + 1];
+
+        const data = await runPreparedQuery(
+          new Promise<any[]>((resolve, reject) => {
+            return dbConn.query(
+              query,
+              params,
+              (err: any, result: { rows: any[] }) => {
+                if (err) reject(err);
+                resolve(result.rows);
+              },
+            );
+          }),
+          `http-server/primitives:${safeTableName}/${query}/${params}`,
+        );
 
         const pagination = createPaginationMeta(
           limit,

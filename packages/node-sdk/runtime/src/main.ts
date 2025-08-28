@@ -70,9 +70,11 @@ export function* start(config: StartConfig): Operation<void> {
     // We request a dbClient for a non-shared dbConn object.
     // For PGLite, this is not enough, as the can only be one connection at a time.
     // So we request a DBMutex as well.
-    const dbClient: Client = yield* until(dbConn.connect());
+    let dbClient: Client | undefined;
     try {
       yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
+      dbClient = yield* until(dbConn.connect());
+
       blockHash = yield* processFinalizedBlock(
         value,
         config,
@@ -81,7 +83,9 @@ export function* start(config: StartConfig): Operation<void> {
       );
     } finally {
       releaseDBMutex(`processing-blocks:${value.blockNumber}`);
-      dbClient.release();
+      if (dbClient) {
+        dbClient.release();
+      }
     }
 
     log.remote(

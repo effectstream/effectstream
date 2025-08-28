@@ -7,10 +7,10 @@
     "./grammar": "./src/grammar.ts"
   },
   "imports": {
-    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.28",
-    "@paimaexample/config": "jsr:@paimaexample/config@0.3.28",
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.28",
-    "@paimaexample/db": "jsr:@paimaexample/db@0.3.28",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.29",
+    "@paimaexample/config": "jsr:@paimaexample/config@0.3.29",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.29",
+    "@paimaexample/db": "jsr:@paimaexample/db@0.3.29",
     "viem": "npm:viem@^2.21.3",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
   }
