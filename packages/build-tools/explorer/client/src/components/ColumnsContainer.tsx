@@ -41,7 +41,7 @@ export function ColumnsContainer(
   { chainConfigs, newBlockIndices }: ColumnsContainerProps,
 ) {
   return (
-    <div className="columns-container">
+    <div className="rows-container">
       {Object.entries(chainConfigs).map(([chainKey, config]) => {
         // TODO: Remove this once we have a better way to handle Cardano blocks.
         const isCardano = (config.type || "").toUpperCase() === "CARDANO";

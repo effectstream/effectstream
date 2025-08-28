@@ -28,8 +28,8 @@ export function BlockRow({
   );
 
   return (
-    <div className={`column ${isMainColumn ? "main-column" : ""}`}>
-      <h2 className="column-title">
+    <div className={`row ${isMainColumn ? "main-row" : ""}`}>
+      <h2 className="row-title">
         {title}
         {blockTime ? ` - Block Time: ${blockTime}` : ""}
       </h2>
