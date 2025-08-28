@@ -3,7 +3,7 @@ import { ComponentNames } from "@paima/log";
 // Start Midnight Node and Indexer.
 //
 // This is a example launcher for Midnight Chains and Contracts.
-// Working implementation examples are provided in the example-projects.
+// Working implementation examples are provided in the /templates/* folders.
 // Normally you would not need to modify this file.
 //
 // This file requires you to provide a workspace package with the following tasks:

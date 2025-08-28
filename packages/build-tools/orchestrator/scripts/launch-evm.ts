@@ -3,7 +3,7 @@ import { ComponentNames } from "@paima/log";
 // Start EVM (Hardhat) Chains and deploy contracts.
 //
 // This is a example launcher for EVM Chains and Contracts.
-// Working implementation examples are provided in the example-projects.
+// Working implementation examples are provided in the /templates/* folders.
 // Normally you would not need to modify this file.
 //
 // This file requires you to provide a workspace package with the following tasks:

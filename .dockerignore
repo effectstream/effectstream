@@ -4,7 +4,6 @@ node_modules
 cache
 out
 volume
-example-project
 docs/site/.docusaurus
 
 packages/binaries/midnight-node/midnight-node/midnight-node

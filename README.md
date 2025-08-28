@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-Start at [Paima Engine Template](./example-project/) for quickstart project
+Start at [Paima Engine Template](./templates/evm-midnight/) for quickstart project
 
 ## Development
 

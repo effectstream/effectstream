@@ -19,9 +19,13 @@ Paima Engine is a Web3 Engine optimized for dApps, games, gamification and auton
 
 > Linux and Macos are supported. Windows WSL is experimental.
 
-First clone the repository and copy the `/example-project` folder.  
-This will give us a working template.
+> This is a preview of the Paima Engine V2 documentation. We welcome any feedback you have on errors, missing information, or parts that aren't clear.
+
+
+First clone the repository and copy the `/templates/evm-midnight/` folder, this will give us a working template.
+
 ```sh
+# Clone and move to evm-midnight template
 git clone git@github.com:PaimaStudios/paima-engine.git
 git checkout v-next
 cd paima-engine/templates/evm-midnight
