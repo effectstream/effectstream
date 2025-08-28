@@ -6,7 +6,7 @@ interface Block {
   timestamp: Date;
 }
 
-interface BlockColumnProps {
+interface BlockRowProps {
   title: string;
   blockTime: string;
   blocks: Block[];
@@ -14,13 +14,13 @@ interface BlockColumnProps {
   newBlockIndex?: number;
 }
 
-export function BlockColumn({
+export function BlockRow({
   title,
   blockTime,
   blocks,
   isMainColumn = false,
   newBlockIndex,
-}: BlockColumnProps) {
+}: BlockRowProps) {
   // Remove duplicate blocks to prevent React key conflicts
   const uniqueBlocks = blocks.filter((block, index, array) =>
     index ===
@@ -29,10 +29,9 @@ export function BlockColumn({
 
   return (
     <div className={`column ${isMainColumn ? "main-column" : ""}`}>
-      <h2 className="column-title">{title}</h2>
-      <div className="block-time">
-        Block Time: <span>{blockTime}</span>
-      </div>
+      <h2 className="column-title">
+        {title} - Block Time: <span>{blockTime}</span>
+      </h2>
       <div className="blocks-list">
         {uniqueBlocks.map((block, index) => (
           <BlockItem

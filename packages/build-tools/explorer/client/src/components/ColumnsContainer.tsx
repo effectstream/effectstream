@@ -1,5 +1,5 @@
 import type { ChainConfig, PaimaChains } from "../types/index.ts";
-import { BlockColumn } from "./BlockColumn.tsx";
+import { BlockRow } from "./BlockRow.tsx";
 
 interface Block {
   number: number;
@@ -44,7 +44,7 @@ export function ColumnsContainer(
         const isCardano = (config.type || "").toUpperCase() === "CARDANO";
         const blocksToShow = isCardano ? [] : config.blocks;
         return (
-          <BlockColumn
+          <BlockRow
             key={chainKey}
             title={config.name}
             blockTime={calculateBlockTime(chainKey, config)}
