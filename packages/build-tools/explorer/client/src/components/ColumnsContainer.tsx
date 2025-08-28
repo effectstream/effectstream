@@ -39,16 +39,21 @@ export function ColumnsContainer(
 ) {
   return (
     <div className="columns-container">
-      {Object.entries(chainConfigs).map(([chainKey, config]) => (
-        <BlockColumn
-          key={chainKey}
-          title={config.name}
-          blockTime={calculateBlockTime(chainKey, config)}
-          blocks={config.blocks}
-          isMainColumn={chainKey === "paima"}
-          newBlockIndex={newBlockIndices[chainKey]}
-        />
-      ))}
+      {Object.entries(chainConfigs).map(([chainKey, config]) => {
+        // TODO: Remove this once we have a better way to handle Cardano blocks.
+        const isCardano = (config.type || "").toUpperCase() === "CARDANO";
+        const blocksToShow = isCardano ? [] : config.blocks;
+        return (
+          <BlockColumn
+            key={chainKey}
+            title={config.name}
+            blockTime={calculateBlockTime(chainKey, config)}
+            blocks={blocksToShow}
+            isMainColumn={chainKey === "paima"}
+            newBlockIndex={newBlockIndices[chainKey]}
+          />
+        );
+      })}
     </div>
   );
 }

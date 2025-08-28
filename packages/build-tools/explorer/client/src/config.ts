@@ -121,6 +121,7 @@ export function transformConfigToPaimaChains(
       latestBlockNumber: 0,
       previousLatestBlockNumber: 0,
       isConnected: false,
+      protocolName: syncProtocol.name,
     };
 
     chains[chainKey] = chainConfig;
@@ -221,6 +222,8 @@ export const initialChainConfigs: PaimaChains = {
 };
 
 export const CONFIG_ENDPOINT = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/config`;
+export const BLOCK_HEIGHTS_ENDPOINT =
+  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/block-heights`;
 export const PRIMITIVES_ENDPOINT =
   `http://127.0.0.1:${ENV.PAIMA_API_PORT}/primitives`;
 export const TABLES_ENDPOINT = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/tables`;
@@ -232,6 +235,8 @@ export const PRIMITIVES_SCHEMA_ENDPOINT =
   `http://127.0.0.1:${ENV.PAIMA_API_PORT}/primitives-schema`;
 export const TABLE_SCHEMA_ENDPOINT =
   `http://127.0.0.1:${ENV.PAIMA_API_PORT}/table-schema`;
+export const SYNC_PROTOCOLS_ENDPOINT =
+  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/sync-protocols`;
 export const BATCHER_ENDPOINT =
   `http://localhost:${ENV.BATCHER_PORT}/send-input`;
 export const BATCHER_OPENAPI_URL =

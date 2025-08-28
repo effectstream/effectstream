@@ -15,6 +15,8 @@ export interface ChainConfig {
   latestBlockNumber?: number;
   previousLatestBlockNumber?: number;
   isConnected?: boolean;
+  // Optional: maps this chain config to an engine sync protocol name
+  protocolName?: string;
 }
 
 export type PaimaChains = Record<string, ChainConfig>;
