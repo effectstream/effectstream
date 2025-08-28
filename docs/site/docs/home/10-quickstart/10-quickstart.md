@@ -80,6 +80,87 @@ shared/contracts/evm         @example/evm-contracts
 shared/contracts/midnight    @example/midnight-contracts
 shared/contracts/data-types  @example/data-types
 ```
+## Startup Overview
+
+The Paima Engine Startup sequence:
+
+```mermaid
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      top: 5
+      bottom: 25
+---
+graph TD
+    subgraph "User"
+        A["fa:fa-keyboard $ deno task dev"]
+    end
+
+    subgraph "Phase 1: Orchestration"
+        B(Process Orchestrator)
+        subgraph "Launches & Monitors Dependencies"
+            
+            C[fa:fa-server Infrastructure:<br/>Database, Collector, ...]
+            D[fa:fa-database Dev Tools:<br/>TUI, Explorer, ...]
+            E[fa:fa-network-wired Chain Services:<br/>Nodes, Indexers, Proof Server, Deploy Contracts, ...]
+            F[Frontends]
+        end
+        G{fa:fa-hourglass-half Wait for Dependencies to be Ready...}
+    end
+
+    subgraph "Phase 2: Paima Node Execution"
+        H(Paima Engine Node)
+        subgraph "Node Initializes Internal Services"
+            I[fa:fa-sync Chain & Primitives Sync Service]
+            J[fa:fa-cogs State Machine & State]
+            K[fa:fa-plug API Server]
+            L[Other Subsystems]
+        end
+    end
+
+    A --> B;
+    B --> C;
+    B --> D;
+    B --> E;
+    B --> F;
+
+    C --> G;
+    D --> G;
+    E --> G;
+    F --> G;
+    
+    G -- All services ready --> H;
+    
+    H --> L;
+    H --> I;
+    H --> J;
+    H --> K;
+```
+
+The `start(...)` function launches the node. It's located in `/packages/node/src/main.ts`, and receives as inputs the node configuration.
+
+```ts
+main(function* () {
+  yield* init();
+
+  yield* withPaimaStaticConfig(localhostConfig, function* () {
+    yield* start({
+      appName: "My-dApp",
+      appVersion: "1.0.0",
+      syncInfo: toSyncProtocolWithNetwork(localhostConfig),
+      stateTransitions,
+      migrations,
+      apiRouter,
+      grammar,
+    });
+  });
+
+  yield* suspend();
+});
+```
+
+Learn more about the [Node Startup](../100-components/117-node-startup.md)
 
 
 ## State Machine
