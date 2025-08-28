@@ -107,8 +107,6 @@ The goal, therefore, is to try and support connecting these NFTs to state machin
 
 Paima Engine helps developers overcome problems with connecting multiple ecosystems (even when monitoring multiple chains,  different chains have different block times and finality making solutions non-trivial) by providing a wide-variety of options to different use-cases including special handling of cases where we need to assert the user still holds the NFT (in other words, they haven't sold the NFT since the last time we got an update from the different chain about the ownership status).
 
-You can find more about the idea [here](../700-multichain-support/1-nfts/1-introduction.mdx)
-
 ## Non-custodial L2s
 
 Most blockchain apps and L2s are custodial in nature. That is to say, to use them you first have to deposit your funds into the app/L2. This is dangerous because it means that user funds are at risk if the contract that is custodying user funds gets hacked, or if the L2 goes offline (sometimes called a "proposer failure" if nobody can bridge L2 funds back to the L1, or "sequencer failure" / "liveness failure" if the L2 state itself can no longer be advanced).
@@ -130,8 +128,8 @@ Similarly, to give additional liquidity for NFTs for the game, it natively suppo
 ### Data availability (DA) layer support
 
 Paima supports the following as DA layers:
-- EVM (default)
-- [Avail](../100-state-machine/300-react-to-events/3-funnel-types/800-avail-block-funnel.md)
+- [EVM (default)](../200-chains/201-evm.md)
+- [Avail](../200-chains/204-avail.md)
 
 We provide the choice, because using a DA layer makes resync of rollup state significantly cheaper & faster.
 - **EVM**: syncing rollup state requires running an EVM fullnode (expensive & heavy)
@@ -147,7 +145,7 @@ ZK cryptography is often used in Web3 for two different properties:
 
 Both these use-cases are of interest in games, as being able to prove world state helps with composability of worlds, and private inputs allow games with private state (ex: fog of war) and can also help with compliance (ex: being able to prove you know information without revealing the sensitive information publicly)
 
-Paima already comes with [ZK layer](../100-state-machine/300-react-to-events/3-funnel-types/600-mina-funnel.mdx) support, and we are working with [Zeko](http://zeko.io/) (based on Mina Protocol) to enable app-specific ZK rollups as well. You can learn more about the architecture of our ZK layer [here](https://blog.paimastudios.com/paima-zk-layer/).
+Paima already comes with ZK layer support, and we are working with [Midnight](https://midnight.network/) to enable app-specific ZK rollups as well. You can learn more about the architecture of our ZK layer [here](https://blog.paimastudios.com/paima-zk-layer/).
 
 #### Example game
 
@@ -225,7 +223,7 @@ Unfortunately there is no "free lunch", and so usage of sovereign rollups comes 
 
 ### Extra work for trading L2 assets on the L1
 
-Although assets that stay on the L1 are supported, if assets are stored on the L2, extra work is required to make these assets from the L2 available on the L1 (that is to say, supporting the ability to put \$5 into the L2, make some money, then take \$10 out require extra work). Paima Engine supports this through its concept of *inverse projections* which supports both [NFT](../20000-PRCs/prc-3.md) and [fungible tokens](../20000-PRCs/prc-5.md). You can learn more about this in our [blogpost](https://blog.paimastudios.com/self-sovereign-rollup/).
+Although assets that stay on the L1 are supported, if assets are stored on the L2, extra work is required to make these assets from the L2 available on the L1 (that is to say, supporting the ability to put \$5 into the L2, make some money, then take \$10 out require extra work). Paima Engine supports this through its concept of *inverse projections* which supports both [NFT](../400-paima-standards/prc3.md) and [fungible tokens](../400-paima-standards/prc4.md). You can learn more about this in our [blogpost](https://blog.paimastudios.com/self-sovereign-rollup/).
 
 ### Optional compatibility with other L1 dApps
 

@@ -278,21 +278,21 @@ Now you're ready to explore the full power and flexibility of the engine. Use th
 
 You've touched on the basics, now master the details of the components you've already used:
 
-*   [State Machine](./102-state-machine.md): Learn advanced techniques for managing your dApp's logic.
-*   [Sync Service & Chain Config](./101-sync-service.md): Uncover the full potential of multi-chain data aggregation.
-*   [Contracts & The Paima L2 Contract](./105-contracts.md): Explore the specifics of the `PaimaL2Contract` and other provided contracts.
-*   [Grammar](./111-grammar.md): Master the language of your dApp for complex interactions.
-*   [Frontend (dApp)](./115-frontend.md): Discover best practices for building user interfaces.
+*   [State Machine](../100-components/102-state-machine.md): Learn advanced techniques for managing your dApp's logic.
+*   [Sync Service & Chain Config](../100-components/101-sync-service.md): Uncover the full potential of multi-chain data aggregation.
+*   [Contracts & The Paima L2 Contract](../100-components/105-contracts.md): Explore the specifics of the `PaimaL2Contract` and other provided contracts.
+*   [Grammar](../100-components/111-grammar.md): Master the language of your dApp for complex interactions.
+*   [Frontend (dApp)](../100-components/115-frontend.md): Discover best practices for building user interfaces.
 
 ### Advanced Features & Services
 
 Level up your application with Paima's powerful, built-in services:
 
-*   [**Batcher**](./108-batcher.md): Offer a gasless, cross-chain experience to your users.
-*   [**Accounts**](./116-accounts.md): Implement a flexible L2 account system that goes beyond simple wallets.
-*   [**Randomness**](./113-randomness.md): Learn how to use Paima's deterministic randomness for fair and replayable game mechanics.
-*   [**Database**](./109-database.md): Take full control of your application's data with custom tables and queries.
-*   [**Achievements**](./114-achievements.md): Integrate a standardized achievement system into your dApp.
+*   [**Batcher**](../100-components/108-batcher.md): Offer a gasless, cross-chain experience to your users.
+*   [**Accounts**](../100-components/116-accounts.md): Implement a flexible L2 account system that goes beyond simple wallets.
+*   [**Randomness**](../100-components/113-randomness.md): Learn how to use Paima's deterministic randomness for fair and replayable game mechanics.
+*   [**Database**](../100-components/109-database.md): Take full control of your application's data with custom tables and queries.
+*   [**Achievements**](../100-components/114-achievements.md): Integrate a standardized achievement system into your dApp.
 
 ### Multi-Chain Development
 
