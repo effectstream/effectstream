@@ -128,8 +128,8 @@ echo
 
 # Check if forge binary is installed
 echo "Checking forge..."
-if command -v forge &> /dev/null; then
-    FORGE_VERSION=$(forge --version | head -n1 | cut -d' ' -f3)
+if FORGE_OUTPUT=$(forge --version 2>/dev/null); then
+    FORGE_VERSION=$(echo "$FORGE_OUTPUT" | head -n1 | cut -d' ' -f3)
     print_success "forge is installed (version: $FORGE_VERSION)"
 else
     print_error "forge is not installed. Please install Foundry (forge)."
@@ -138,8 +138,8 @@ echo
 
 # Check if compact binary is installed
 echo "Checking compact..."
-if command -v compact &> /dev/null; then
-    COMPACT_VERSION=$(compact --version | head -n1 | cut -d' ' -f2)
+if COMPACT_OUTPUT=$(compact --version 2>/dev/null); then
+    COMPACT_VERSION=$(echo "$COMPACT_OUTPUT" | head -n1 | cut -d' ' -f2)
     print_success "compact is installed (version: $COMPACT_VERSION)"
 else
     print_error "compact is not installed. Please install compact."
