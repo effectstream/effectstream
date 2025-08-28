@@ -18,6 +18,7 @@ deno task -f @e2e/evm-contracts build
 deno task -f @e2e/evm-contracts deploy:standalone
 deno task -f @e2e/midnight-contracts midnight-contract:compile
 
+# If running on linux set env DISABLE_LINUX_YACI=true
 # Run Example Deployment Mode
 deno task -f @e2e/node dev
 ```

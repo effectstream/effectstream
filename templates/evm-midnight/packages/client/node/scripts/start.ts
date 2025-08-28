@@ -14,21 +14,23 @@ const midnightExtended = (packageName: string) => ({
   processes: [
     ...launchMidnight(packageName).processes,
     {
-      name: "Frontend Build",
+      name: "frontend-build",
       args: ["task", "-f", "@example/frontend", "build"],
       waitToExit: true,
     },
     {
-      name: "Frontend Server",
+      name: "frontend-server",
       args: ["task", "-f", "@example/frontend", "server:start"],
       waitToExit: false,
       type: "system-dependency",
+      link: "http://localhost:10599",
     },
     {
-      name: "Explorer",
+      name: "explorer",
       args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
       waitToExit: false,
       type: "system-dependency",
+      link: "http://localhost:10590",
     },
   ],
 });

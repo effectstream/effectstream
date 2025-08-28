@@ -12,6 +12,7 @@ export type ProcessComponent = {
   args: string[];
   alive: boolean;
   date: string;
+  link: string;
   // This is internal temporal flag to notify that the next
   // "restart" is intended, so we do not stop paima-engine.
   _allow_restart?: boolean;
@@ -113,6 +114,7 @@ export const $ = (params: {
   stdin?: "inherit" | "piped" | "null" | undefined;
   stdout?: "inherit" | "piped" | "null" | undefined;
   stderr?: "inherit" | "piped" | "null" | undefined;
+  link?: string;
 }): ProcessComponent => {
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
@@ -138,6 +140,7 @@ export const $ = (params: {
       stderr: params.stderr === "piped",
       stdout: params.stdout === "piped",
     },
+    link: params.link ?? "",
   };
   processes.push(processComponent);
 
