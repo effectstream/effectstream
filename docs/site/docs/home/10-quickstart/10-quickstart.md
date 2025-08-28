@@ -7,8 +7,10 @@ slug: /quick-start
 
 > Linux and Macos are supported. Windows WSL is experimental.
 
-First clone the repository and copy the `/example-project` folder.  
-This will give us a working template.
+> This is a preview of the Paima Engine V2 documentation. We welcome any feedback you have on errors, missing information, or parts that aren't clear.
+
+First clone the repository and copy the `/templates/evm-midnight/` folder, this will give us a working template.
+
 ```sh
 git clone git@github.com:PaimaStudios/paima-engine.git
 git checkout v-next
