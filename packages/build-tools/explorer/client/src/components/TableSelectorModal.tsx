@@ -21,7 +21,12 @@ export function TableSelectorModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      className="table-selector"
+    >
       <div className="table-selector-content">
         <ul>
           {tableNames.map((tableName) => (

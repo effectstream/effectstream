@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface ModalProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export function Modal(
 
   if (!isOpen) return null;
 
-  return (
+  const content = (
     <div className="modal-overlay" onClick={onClose}>
       <div
         className={`modal-content ${className}`}
@@ -80,4 +81,8 @@ export function Modal(
       </div>
     </div>
   );
+
+  return (typeof document !== "undefined" && document.body)
+    ? createPortal(content, document.body)
+    : content;
 }
