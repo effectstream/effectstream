@@ -302,6 +302,16 @@ body {
   color: #999;
 }
 
+.block-item.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+  background: #f3f4f6;
+  border: 1px dashed #d1d5db;
+  font-weight: 600;
+}
+
 /* Scrollbar mStyling */
 .blocks-list::-webkit-scrollbar,
 .primitive-table tbody::-webkit-scrollbar {

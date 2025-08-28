@@ -33,13 +33,15 @@ export function BlockRow({
         {title} - Block Time: <span>{blockTime}</span>
       </h2>
       <div className="blocks-list">
-        {uniqueBlocks.map((block, index) => (
-          <BlockItem
-            key={`${index}-${block.number}-${block.hash}`}
-            block={block}
-            isNew={newBlockIndex === index}
-          />
-        ))}
+        {uniqueBlocks.length === 0
+          ? <div className="block-item placeholder">No Blocks Fetched</div>
+          : uniqueBlocks.map((block, index) => (
+            <BlockItem
+              key={`${index}-${block.number}-${block.hash}`}
+              block={block}
+              isNew={newBlockIndex === index}
+            />
+          ))}
       </div>
     </div>
   );

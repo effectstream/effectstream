@@ -305,7 +305,7 @@ export function useBlockchainData() {
     fetchLatestBlockForChainRef.current("Paima");
     paimaPollRef.current = setInterval(() => {
       fetchLatestBlockForChainRef.current("Paima");
-    }, 10000);
+    }, 1000);
 
     return () => {
       if (paimaPollRef.current != null) {
