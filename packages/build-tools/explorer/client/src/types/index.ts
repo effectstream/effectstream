@@ -7,7 +7,7 @@ export interface Block {
 export interface ChainConfig {
   type: string;
   name: string;
-  blockTime: number;
+  blockTime?: number;
   color: string;
   blocks: Block[];
   currentBlock: number;

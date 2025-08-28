@@ -169,6 +169,13 @@ body {
   max-width: 100%;
   width: 100%;
 }
+.columns-container .column:first-child {
+  background: #00130c;
+}
+
+.columns-container .column:first-child .column-title {
+  color: #ddd;
+}
 
 .column {
   background: rgba(255, 255, 255, 0.9);

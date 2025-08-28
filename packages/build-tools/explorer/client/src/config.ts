@@ -82,18 +82,6 @@ export function transformConfigToPaimaChains(
       rpcEndpoint = network.nodeUrl;
     }
 
-    // Determine block time (convert from MS to seconds, with fallbacks)
-    let blockTime = 1000; // Default 1 second
-    if (network.blockTimeMS) {
-      blockTime = network.blockTimeMS;
-    } else if (network.type === "evm") {
-      blockTime = 12000; // 12 seconds for Ethereum-like chains
-    } else if (network.type === "cardano") {
-      blockTime = 20000; // 20 seconds for Cardano
-    } else if (network.type === "midnight") {
-      blockTime = 6000; // 6 seconds for Midnight
-    }
-
     // Determine color based on network type and name
     let color = CHAIN_COLORS.evm; // Default
     if (network.type === "cardano") {
@@ -113,7 +101,7 @@ export function transformConfigToPaimaChains(
     const chainConfig: ChainConfig = {
       type: network.type.toUpperCase(),
       name: network.name,
-      blockTime,
+      blockTime: network.blockTimeMS ?? undefined,
       color,
       blocks: [],
       currentBlock: network.type === "evm" ? 500000 : 100000, // Default starting block
@@ -145,7 +133,9 @@ export async function fetchChainConfigs(): Promise<PaimaChains> {
       Paima: {
         type: "EVM",
         name: "Paima Engine",
-        blockTime: 300,
+        blockTime: configData.find(
+          (c) => c.syncProtocol.name === "mainNtp",
+        )?.network.blockTimeMS ?? 1000,
         color: "#667eea",
         blocks: [],
         currentBlock: 1000000,
@@ -170,7 +160,7 @@ export const initialChainConfigs: PaimaChains = {
   Paima: {
     type: "EVM",
     name: "Paima Engine",
-    blockTime: 300,
+    blockTime: 1000,
     color: "#667eea",
     blocks: [],
     currentBlock: 1000000,

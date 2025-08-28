@@ -8,7 +8,7 @@ interface Block {
 
 interface BlockRowProps {
   title: string;
-  blockTime: string;
+  blockTime?: string;
   blocks: Block[];
   isMainColumn?: boolean;
   newBlockIndex?: number;
@@ -30,7 +30,8 @@ export function BlockRow({
   return (
     <div className={`column ${isMainColumn ? "main-column" : ""}`}>
       <h2 className="column-title">
-        {title} - Block Time: <span>{blockTime}</span>
+        {title}
+        {blockTime ? ` - Block Time: ${blockTime}` : ""}
       </h2>
       <div className="blocks-list">
         {uniqueBlocks.length === 0

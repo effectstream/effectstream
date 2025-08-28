@@ -12,7 +12,10 @@ interface ColumnsContainerProps {
   newBlockIndices: Record<string, number | undefined>;
 }
 
-function calculateBlockTime(chainKey: string, config: ChainConfig): string {
+function calculateBlockTime(
+  chainKey: string,
+  config: ChainConfig,
+): string | undefined {
   // TODO: For now just show a constant block time - so the explorer can be understood.
   // if (
   //   config.type === "EVM" && config.rpcEndpoint && config.blocks.length >= 2
@@ -30,7 +33,7 @@ function calculateBlockTime(chainKey: string, config: ChainConfig): string {
   //     return `${Math.round(avgTimeDiff / 1000 * 10) / 10}s`;
   //   }
   // }
-
+  if (!config.blockTime) return undefined;
   return `${config.blockTime / 1000}s`;
 }
 

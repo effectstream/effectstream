@@ -21,6 +21,8 @@ function generateRandomHash() {
     ).join("");
 }
 
+let paimaPollInterval: number = 1000;
+
 export function useBlockchainData() {
   const [chainConfigs, setChainConfigs] = useState<PaimaChains>({});
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
@@ -28,7 +30,6 @@ export function useBlockchainData() {
   const [newBlockIndices, setNewBlockIndices] = useState<
     Record<string, number | undefined>
   >({});
-  const [syncedSamplesLoaded, setSyncedSamplesLoaded] = useState(false);
   const paimaPollRef = useRef<number | null>(null);
   const rpcInFlightRef = useRef(false);
   const fetchLatestBlockForChainRef = useRef<(key: string) => void>(() => {});
@@ -208,6 +209,7 @@ export function useBlockchainData() {
 
     try {
       const configs = await fetchChainConfigs();
+      paimaPollInterval = configs.Paima.blockTime ?? 1000;
       setChainConfigs(configs);
       console.log("✅ Loaded chain configs from API:", configs);
     } catch (error) {
@@ -241,7 +243,9 @@ export function useBlockchainData() {
           for (let i = -5; i < 0; i++) {
             const blockNumber = config.currentBlock + i;
             const blockHash = generateRandomHash();
-            const timestamp = new Date(Date.now() + i * config.blockTime);
+            const timestamp = new Date(
+              Date.now() + i * (config.blockTime ?? 1000),
+            );
 
             initialBlocks.push({
               number: blockNumber,
@@ -305,7 +309,7 @@ export function useBlockchainData() {
     fetchLatestBlockForChainRef.current("Paima");
     paimaPollRef.current = setInterval(() => {
       fetchLatestBlockForChainRef.current("Paima");
-    }, 1000);
+    }, paimaPollInterval);
 
     return () => {
       if (paimaPollRef.current != null) {
