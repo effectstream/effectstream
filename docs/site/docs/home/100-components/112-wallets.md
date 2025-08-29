@@ -44,6 +44,7 @@ The `WalletMode` enum allows you to support a broad range of ecosystems, enablin
 | **`Algorand`** | Algorand | Connects to Algorand wallets. |
 | **`Mina`** | Mina | Connects to the Auro wallet for the Mina Protocol. |
 | **`AvailJs`** | Avail | Connects to wallets for the Avail network. |
+| **`Midnight`** | Midnight | Connects to Lace Wallet |
 
 ### Primary Uses of a Connected Wallet
 

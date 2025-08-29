@@ -1,0 +1,69 @@
+{
+  "name": "@example/frontend",
+  "version": "0.3.22",
+  "license": "MIT",
+  "exports": {
+    ".": "./server/main.ts"
+  },
+  "tasks": {
+    "dev": "deno run -A --node-modules-dir=auto npm:vite",
+    "build": "deno run -A --node-modules-dir=auto npm:vite build",
+    "server:start": "deno run -A --node-modules-dir --watch ./server/main.ts",
+    "serve": "deno task build && deno task server:start"
+  },
+  "imports": {
+    "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.4",
+    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.8.1",
+    "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger@^4.0.0",
+    "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts@^2.0.2",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-fetch-zk-config-provider@^2.0.2",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@^2.0.2",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@^2.0.2",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@^2.0.2",
+    "@midnight-ntwrk/midnight-js-network-id": "npm:@midnight-ntwrk/midnight-js-network-id@^2.0.2",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@^2.0.2",
+    "@midnight-ntwrk/midnight-js-types": "npm:@midnight-ntwrk/midnight-js-types@^2.0.2",
+    "@midnight-ntwrk/midnight-js-utils": "npm:@midnight-ntwrk/midnight-js-utils@^2.0.2",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.3.0",
+    "@midnight-ntwrk/wallet": "npm:@midnight-ntwrk/wallet@^5.0.0",
+    "@midnight-ntwrk/wallet-api": "npm:@midnight-ntwrk/wallet-api@^5.0.0",
+    "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@^4.0.0",
+    "@oak/oak": "jsr:@oak/oak@^17.1.4",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.30",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.30",
+    "@polkadot/util-crypto": "npm:@polkadot/util-crypto@^13.5.6",
+    "@std/assert": "jsr:@std/assert@^1.0.12",
+    "@types/react": "npm:@types/react@^19.1.2",
+    "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^4.4.1",
+    "react": "npm:react@^19.1.0",
+    "react-dom": "npm:react-dom@^19.1.0",
+    "react-router-dom": "npm:react-router-dom@^7.5.1",
+    "rxjs": "npm:rxjs@^7.8.2",
+    "stream-browserify": "npm:stream-browserify@3.0.0",
+    "vite": "npm:vite@^6.3.2",
+    "viem": "npm:viem@^2.21.3",
+    "viem/accounts": "npm:viem/accounts",
+    "viem/chains": "npm:viem/chains",
+    "vite-plugin-node-stdlib-browser": "npm:vite-plugin-node-stdlib-browser",
+    "vite-plugin-static-copy": "npm:vite-plugin-static-copy@^3.1.1",
+    "vite-plugin-top-level-await": "npm:vite-plugin-top-level-await@^1.6.0",
+    "vite-plugin-wasm": "npm:vite-plugin-wasm@^3.5.0",
+    "web3-utils": "npm:web3-utils@^4.3.3",
+    "ws": "npm:ws@^8.18.3",
+    "@paima/wallets": "../../packages/paima-sdk/wallets/src/mod.ts"
+  },
+  "compilerOptions": {
+    "types": [
+      "react",
+      "react-dom",
+      "@types/react"
+    ],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "deno.ns"
+    ],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  }
+}
