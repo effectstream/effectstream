@@ -12,10 +12,12 @@ app.use(routeStaticFilesFrom([
   `${Deno.cwd()}/client/public`,
 ]));
 
+// Default EVM-Midnight dApp Port
+const PORT = 10599;
 // If this is the entry point, start the server
 if (import.meta.main) {
   console.log(
-    `Server listening on port http://localhost:${ENV.PAIMA_EXPLORER_PORT}`,
+    `Server listening on port http://localhost:${PORT}`,
   );
-  await app.listen({ port: ENV.PAIMA_EXPLORER_PORT });
+  await app.listen({ port: PORT });
 }

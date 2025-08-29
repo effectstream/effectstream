@@ -34,6 +34,13 @@ print_warning() {
     printf "${YELLOW}⚠️  $1${NC}\n"
 }
 
+# Function to compare semantic versions
+# usage: version_ge version1 version2
+# returns 0 if version1 >= version2, 1 otherwise
+version_ge() {
+    test "$(printf '%s\n' "$1" "$2" | sort -V | head -n 1)" = "$2"
+}
+
 # Check if curl is installed
 echo "Checking curl..."
 if command -v curl &> /dev/null; then
@@ -53,21 +60,27 @@ else
 fi
 echo
 
-# Check if deno >= 2.4 is installed
+# Check if tmux is installed
+echo "Checking tmux..."
+if command -v tmux &> /dev/null; then
+    print_success "tmux is installed"
+else
+    print_error "tmux is not installed. Please install tmux."
+fi
+echo
+
+# Check if deno >= 2.4.3 is installed
 echo "Checking deno..."
 if command -v deno &> /dev/null; then
     DENO_VERSION=$(deno --version | head -n1 | cut -d' ' -f2)
-    # Extract major and minor version numbers
-    DENO_MAJOR=$(echo $DENO_VERSION | cut -d'.' -f1)
-    DENO_MINOR=$(echo $DENO_VERSION | cut -d'.' -f2)
-    
-    if [ "$DENO_MAJOR" -gt 2 ] || ([ "$DENO_MAJOR" -eq 2 ] && [ "$DENO_MINOR" -ge 4 ]); then
-        print_success "deno is installed (version: $DENO_VERSION) - meets requirement >= 2.4"
+    REQUIRED_DENO_VERSION="2.4.3"
+    if version_ge "$DENO_VERSION" "$REQUIRED_DENO_VERSION"; then
+        print_success "deno is installed (version: $DENO_VERSION) - meets requirement >= $REQUIRED_DENO_VERSION"
     else
-        print_error "deno version $DENO_VERSION is installed but version >= 2.4 is required. Please upgrade deno."
+        print_error "deno version $DENO_VERSION is installed but version >= $REQUIRED_DENO_VERSION is required. Please upgrade deno."
     fi
 else
-    print_error "deno is not installed. Please install deno >= 2.4."
+    print_error "deno is not installed. Please install deno >= $REQUIRED_DENO_VERSION."
 fi
 echo
 
@@ -115,8 +128,8 @@ echo
 
 # Check if forge binary is installed
 echo "Checking forge..."
-if command -v forge &> /dev/null; then
-    FORGE_VERSION=$(forge --version | head -n1 | cut -d' ' -f3)
+if FORGE_OUTPUT=$(forge --version 2>/dev/null); then
+    FORGE_VERSION=$(echo "$FORGE_OUTPUT" | head -n1 | cut -d' ' -f3)
     print_success "forge is installed (version: $FORGE_VERSION)"
 else
     print_error "forge is not installed. Please install Foundry (forge)."
@@ -125,8 +138,8 @@ echo
 
 # Check if compact binary is installed
 echo "Checking compact..."
-if command -v compact &> /dev/null; then
-    COMPACT_VERSION=$(compact --version | head -n1 | cut -d' ' -f2)
+if COMPACT_OUTPUT=$(compact --version 2>/dev/null); then
+    COMPACT_VERSION=$(echo "$COMPACT_OUTPUT" | head -n1 | cut -d' ' -f2)
     print_success "compact is installed (version: $COMPACT_VERSION)"
 else
     print_error "compact is not installed. Please install compact."

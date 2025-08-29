@@ -3,8 +3,10 @@ import type { Operation } from "effection";
 import { until } from "npm:effection@3.5.0";
 import * as migrationFiles from "./assets.ts";
 import {
+  acquireDBMutex,
   getLatestProcessedBlockHeight,
   getLatestVersion,
+  releaseDBMutex,
   tableExists,
 } from "@paima/db";
 type VERSION = `${number}.${number}.${number}`;
@@ -102,15 +104,20 @@ export function* getLastBlockHeight(
   versionInfo: VersionInfo,
   dbConn: Client,
 ): Operation<number> {
-  return versionInfo.is_empty
+  yield* acquireDBMutex("get-last-block-height");
+  const v = versionInfo.is_empty
     ? 0
     : (yield* until(getLatestProcessedBlockHeight.run(undefined, dbConn)))[0]
       .block_height;
+  releaseDBMutex("get-last-block-height");
+  return v;
 }
 
 export function* getVersionInfo(dbConn: Client): Operation<VersionInfo> {
   // 1. Let's check if the database is empty.
+  yield* acquireDBMutex("get-version-info");
   const [result] = yield* until(tableExists.run(undefined, dbConn));
+  releaseDBMutex("get-version-info");
 
   if (!result.exists) {
     return {
@@ -122,7 +129,10 @@ export function* getVersionInfo(dbConn: Client): Operation<VersionInfo> {
   }
 
   // So let's check what is the latest version from the `paima_engine_version_history` table.
+  yield* acquireDBMutex("get-version-info");
   const [latestVersion] = yield* until(getLatestVersion.run(undefined, dbConn));
+  releaseDBMutex("get-version-info");
+
   if (!latestVersion) {
     throw new Error("Internal error: No version found in the database");
   }

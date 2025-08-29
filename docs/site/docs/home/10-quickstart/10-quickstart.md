@@ -13,8 +13,9 @@ First clone the repository and copy the `/templates/evm-midnight/` folder, this 
 
 ```sh
 git clone git@github.com:PaimaStudios/paima-engine.git
+cd paima-engine
 git checkout v-next
-cd paima-engine/templates/evm-midnight
+cd templates/evm-midnight
 ```
 
 ```sh

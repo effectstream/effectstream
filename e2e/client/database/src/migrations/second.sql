@@ -1,4 +1,5 @@
 CREATE TABLE another_example_table (
+  id SERIAL PRIMARY KEY,
   sum INTEGER NOT NULL,
   block_height INTEGER NOT NULL
 );

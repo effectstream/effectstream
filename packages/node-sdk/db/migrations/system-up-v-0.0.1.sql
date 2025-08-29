@@ -1,6 +1,5 @@
 CREATE SCHEMA IF NOT EXISTS paima;
 CREATE SCHEMA IF NOT EXISTS primitives;
-CREATE SCHEMA IF NOT EXISTS custom;
 
 CREATE TABLE paima.paima_blocks (
   block_height INTEGER PRIMARY KEY,

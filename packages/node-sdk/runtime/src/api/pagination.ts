@@ -1,6 +1,6 @@
-import { type TSchema, Type } from "@sinclair/typebox";
+import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { FastifyRequest } from "fastify";
-import { decodeBase64, encodeBase64 } from "jsr:@std/encoding/base64";
+import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 
 const DEFAULT_PAGINATION_LIMIT = 100;
 
@@ -17,6 +17,8 @@ export const PaginationQuerySchema = Type.Object({
     description: "Cursor for next page",
   })),
 });
+
+export type TypePaginationQuerySchema = Static<typeof PaginationQuerySchema>;
 
 export type PaginationQuery = {
   limit?: number;
@@ -50,22 +52,29 @@ export type PaginatedResponse<T> = {
 };
 
 // Extract and validate pagination parameters from request
-export function getPaginationParams(request: FastifyRequest): {
+export function getPaginationParams<T extends Object>(
+  query: TypePaginationQuerySchema,
+): {
   limit: number;
-  after: any;
+  after: T | undefined;
 } {
-  const query = request.query as any;
   const limit = Math.min(
-    Math.max(1, parseInt(query.limit as string) || DEFAULT_PAGINATION_LIMIT),
+    Math.max(1, parseInt(String(query.limit ?? 1)) || DEFAULT_PAGINATION_LIMIT),
     MAX_PAGINATION_LIMIT,
   );
 
-  let after: any;
+  let after: T | undefined;
 
   if (query.after) {
     try {
       const decoded = decodeBase64(query.after);
       after = JSON.parse(new TextDecoder().decode(decoded));
+      if (typeof after !== "object") {
+        throw new Error("Invalid cursor object");
+      }
+      if (Object.keys(after).length === 0) {
+        throw new Error("Invalid cursor content");
+      }
     } catch (e) {
       // Invalid cursor, treat as no cursor
       after = undefined;

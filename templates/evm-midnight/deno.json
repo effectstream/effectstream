@@ -10,7 +10,10 @@
     "start:frontend": "deno task -f @example/frontend dev",
     "check": "deno check"
   },
-  "imports": {},
+  "imports": {
+    // TODO: This is a workaround for a missing dependency.
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.30"
+  },
   "lint": {
     "rules": {
       "exclude": [

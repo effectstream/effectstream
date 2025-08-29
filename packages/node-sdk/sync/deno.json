@@ -12,7 +12,7 @@
     "denque": "npm:denque@^2.1.0",
     "pg": "npm:pg@^8.14.0",
     "json-stable-stringify": "npm:json-stable-stringify@^1.2.1",
-    "@utxorpc/sdk": "npm:@utxorpc/sdk@^0.6.7",
+    "@utxorpc/sdk": "npm:@utxorpc/sdk@^0.6.8",
     "@utxorpc/spec": "npm:@utxorpc/spec@^0.16.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
   }
