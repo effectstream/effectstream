@@ -51,7 +51,13 @@ RUN /app/patch.sh
 RUN deno task build:evm ||:
 RUN deno task build:midnight ||:
 
+# Frontend / Explorer / API / Hardhat 1&2 / Midnight Proof
 EXPOSE 10599
+EXPOSE 10590
+EXPOSE 9999
+EXPOSE 8545
+EXPOSE 8546
+EXPOSE 8088
 
 ENV PAIMA_STDOUT=true
 CMD ["deno", "task", "dev"]
