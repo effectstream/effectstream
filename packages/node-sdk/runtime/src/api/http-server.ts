@@ -8,6 +8,7 @@ import {
   getAllAddresses,
   getAllScheduledData,
   getAllTableNames,
+  getDynamicTables,
   getPrimaryKeyColumns,
   getPrimitivePrefix,
   getPublicTables,
@@ -36,7 +37,21 @@ import {
   type PaginatedResponse,
   PaginationQuerySchema,
   type TypePaginationQuerySchema,
+  validateColumnName,
 } from "./pagination.ts";
+
+// Utility functions for SQL injection prevention
+function escapeColumnName(columnName: string): string {
+  // Double-quote column names to prevent SQL injection
+  return `"${columnName.replace(/"/g, '""')}"`;
+}
+
+function validateAndEscapeColumnName(columnName: string): string | null {
+  if (!validateColumnName(columnName)) {
+    return null;
+  }
+  return escapeColumnName(columnName);
+}
 
 export enum RpcPaths {
   Root = "rpc",
@@ -297,7 +312,21 @@ export const startHttpServer = function* (
   server.get("/addresses", {
     schema: {
       tags: ["status"],
-      querystring: PaginationQuerySchema,
+      querystring: Type.Object({
+        limit: PaginationQuerySchema.properties.limit,
+        after: Type.Optional(Type.Union([
+          Type.String({
+            description:
+              "Cursor for next page (base64-encoded JSON object with primary key values)",
+            examples: ["eyJhY2NvdW50X2lkIjoxMjMsImFkZHJlc3MiOiIwMXQzIn0="],
+          }),
+          Type.Number({
+            description: "Offset for pagination (0-based)",
+            minimum: 0,
+            examples: [0, 100, 500],
+          }),
+        ])),
+      }),
       response: {
         200: createPaginatedResponseSchema(Type.Object({
           account_id: Type.Union([Type.Number(), Type.Null()]),
@@ -423,7 +452,21 @@ export const startHttpServer = function* (
   server.get("/scheduled-data", {
     schema: {
       tags: ["status"],
-      querystring: PaginationQuerySchema,
+      querystring: Type.Object({
+        limit: PaginationQuerySchema.properties.limit,
+        after: Type.Optional(Type.Union([
+          Type.String({
+            description:
+              "Cursor for next page (base64-encoded JSON object with primary key values)",
+            examples: ["eyJpZCI6MTIzfQ=="],
+          }),
+          Type.Number({
+            description: "Offset for pagination (0-based)",
+            minimum: 0,
+            examples: [0, 100, 500],
+          }),
+        ])),
+      }),
       response: {
         200: createPaginatedResponseSchema(Type.Object({
           caip2: Type.Union([Type.String(), Type.Null()]),
@@ -529,7 +572,22 @@ export const startHttpServer = function* (
     {
       schema: {
         tags: ["developer"],
-        querystring: PaginationQuerySchema,
+        querystring: Type.Object({
+          limit: PaginationQuerySchema.properties.limit,
+          after: Type.Optional(Type.Union([
+            Type.String({
+              description:
+                "Cursor for next page (base64-encoded JSON object with primary key values)",
+              examples: ["eyJpZCI6MTIzfQ=="],
+            }),
+            Type.Number({
+              description:
+                "Offset for pagination when no primary key is available (0-based)",
+              minimum: 0,
+              examples: [0, 100, 500],
+            }),
+          ])),
+        }),
         response: {
           200: createPaginatedResponseSchema(
             Type.Object({}, { additionalProperties: true }),
@@ -547,7 +605,7 @@ export const startHttpServer = function* (
       reply,
     ) => {
       const { tableName } = request.params;
-      const { limit, after } = getPaginationParams(request.query);
+      const { limit, after, offset } = getPaginationParams(request.query);
 
       try {
         // Sanitize table name
@@ -590,9 +648,42 @@ export const startHttpServer = function* (
         if (pkColumns.length > 0) {
           // --- Keyset Pagination Strategy ---
           cursorFields = pkColumns;
+
+          // Validate that all primary key columns are legitimate column names
+          const invalidPkColumns = pkColumns.filter((c) =>
+            !validateColumnName(c)
+          );
+          if (invalidPkColumns.length > 0) {
+            return reply.status(500).send({
+              error: `Invalid primary key column names detected: ${
+                invalidPkColumns.join(", ")
+              }`,
+            });
+          }
+
+          // Validate cursor structure matches primary key columns
+          if (after) {
+            const cursorKeys = Object.keys(after);
+            const missingKeys = pkColumns.filter((pk) =>
+              !cursorKeys.includes(pk)
+            );
+            const extraKeys = cursorKeys.filter((k) => !pkColumns.includes(k));
+
+            if (missingKeys.length > 0 || extraKeys.length > 0) {
+              return reply.status(400).send({
+                error: `Cursor must contain exactly the primary key columns: ${
+                  pkColumns.join(", ")
+                }`,
+              });
+            }
+          }
+
           let whereClause = "";
+          const escapedColumns = pkColumns.map((c) =>
+            validateAndEscapeColumnName(c)!
+          );
           const orderByClause = `ORDER BY ${
-            pkColumns.map((c) => `"${c}" ASC`).join(", ")
+            escapedColumns.map((c) => `${c} ASC`).join(", ")
           }`;
 
           if (after) {
@@ -600,7 +691,7 @@ export const startHttpServer = function* (
             const placeholders = pkColumns.map((_, i: number) => `$${i + 2}`)
               .join(", ");
             whereClause = `WHERE (${
-              pkColumns.map((c: string) => `"${c}"`).join(", ")
+              escapedColumns.join(", ")
             }) > (${placeholders})`;
             params.push(...pkValues);
           }
@@ -613,7 +704,16 @@ export const startHttpServer = function* (
           console.warn(
             `[Paima Engine] WARNING: Table "${safeTableName}" has no primary key. Falling back to less performant OFFSET-based pagination.`,
           );
-          const offset = Number(parseInt(request.query.after ?? "0"));
+
+          // Use offset from pagination parameters, defaulting to 0
+          const paginationOffset = offset ?? 0;
+
+          // Validate offset is non-negative
+          if (paginationOffset < 0) {
+            return reply.status(400).send({
+              error: "Invalid offset: must be non-negative",
+            });
+          }
 
           // Find a column to order by
           const tableSchema = await runPreparedQuery(
@@ -625,17 +725,33 @@ export const startHttpServer = function* (
               error: "Table has no columns or does not exist",
             });
           }
+
+          // Validate that the order-by column name is safe
           const orderByColumn = tableSchema[0].column_name;
-          const orderByClause = `ORDER BY "${orderByColumn}" ASC`;
+          if (!orderByColumn) {
+            return reply.status(500).send({
+              error: "Table has no valid column for ordering",
+            });
+          }
+
+          const escapedOrderByColumn = validateAndEscapeColumnName(
+            orderByColumn,
+          );
+          if (!escapedOrderByColumn) {
+            return reply.status(500).send({
+              error: "Invalid column name for ordering",
+            });
+          }
+
+          const orderByClause = `ORDER BY ${escapedOrderByColumn} ASC`;
 
           query =
             `SELECT * FROM public.${safeTableName} ${orderByClause} LIMIT $1 OFFSET $2`;
-          params.push(limit + 1, offset);
-          nextCursorSeed = { offset: offset + limit };
+          params.push(limit + 1, paginationOffset);
+          nextCursorSeed = { offset: paginationOffset + limit };
         }
 
-        // TODO: We have to make this query safe.
-        //       Refactor ASAP; query comes from a user input.
+        // Execute the query safely with prepared parameters
         const data = await runPreparedQuery(
           new Promise<any[]>((resolve, reject) => {
             return dbConn.query(
@@ -730,7 +846,22 @@ export const startHttpServer = function* (
     {
       schema: {
         tags: ["developer"],
-        querystring: PaginationQuerySchema,
+        querystring: Type.Object({
+          limit: PaginationQuerySchema.properties.limit,
+          after: Type.Optional(Type.Union([
+            Type.String({
+              description:
+                "Cursor for next page (base64-encoded JSON object with primary key values)",
+              examples: ["eyJpZCI6MTIzfQ=="],
+            }),
+            Type.Number({
+              description:
+                "Offset for pagination when no primary key is available (0-based)",
+              minimum: 0,
+              examples: [0, 100, 500],
+            }),
+          ])),
+        }),
         response: {
           // TODO
           200: createPaginatedResponseSchema(
@@ -765,19 +896,59 @@ export const startHttpServer = function* (
           "",
         );
 
-        const primaryKey = after ? Object.keys(after)[0] : undefined;
-        const afterId = after && primaryKey
-          ? (after as any)[primaryKey]
-          : undefined;
+        // Check Table Exists
+        const tableExists = await runPreparedQuery(
+          getDynamicTables.run(undefined, dbConn),
+          "getDynamicTables",
+        );
+        if (!tableExists.some((t) => t.table_name === safeTableName)) {
+          return reply.status(404).send({
+            error: `Table not found: ${safeTableName}`,
+          });
+        }
 
-        // TODO This is a very unsafe query.
-        //      Refactor ASAP; primaryKey comes from from a user input.
-        const query = primaryKey && afterId
-          ? `SELECT * FROM primitives.${safeTableName} WHERE ($1::INT IS NULL OR ${primaryKey} > $1::INT) ORDER BY ${primaryKey} ASC LIMIT $2`
-          : `SELECT * FROM primitives.${safeTableName} LIMIT $1`;
-        const params = primaryKey && afterId
-          ? [afterId, limit + 1]
-          : [limit + 1];
+        // Validate cursor structure and extract primary key safely
+        let primaryKey: string | undefined;
+        let afterId: any;
+
+        if (after) {
+          const keys = Object.keys(after);
+          if (keys.length !== 1) {
+            return reply.status(400).send({
+              error:
+                "Invalid cursor: must contain exactly one primary key field",
+            });
+          }
+
+          primaryKey = keys[0];
+          const escapedKey = validateAndEscapeColumnName(primaryKey);
+          if (!escapedKey) {
+            return reply.status(400).send({
+              error: "Invalid primary key column name in cursor",
+            });
+          }
+
+          afterId = (after as any)[primaryKey];
+          if (typeof afterId !== "number" && typeof afterId !== "string") {
+            return reply.status(400).send({
+              error: "Invalid primary key value in cursor",
+            });
+          }
+        }
+
+        // Construct safe parameterized query
+        let query: string;
+        let params: any[];
+
+        if (primaryKey && afterId !== undefined) {
+          const escapedKey = validateAndEscapeColumnName(primaryKey)!;
+          query =
+            `SELECT * FROM primitives.${safeTableName} WHERE ${escapedKey} > $1 ORDER BY ${escapedKey} ASC LIMIT $2`;
+          params = [afterId, limit + 1];
+        } else {
+          query = `SELECT * FROM primitives.${safeTableName} LIMIT $1`;
+          params = [limit + 1];
+        }
 
         const data = await runPreparedQuery(
           new Promise<any[]>((resolve, reject) => {

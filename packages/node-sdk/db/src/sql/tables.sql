@@ -10,3 +10,8 @@ AND    i.indisprimary;
 SELECT table_name
 FROM   information_schema.tables
 WHERE  table_schema = 'public';
+
+/* @name getDynamicTables */
+SELECT table_name
+FROM   information_schema.tables
+WHERE  table_schema = 'primitives';
