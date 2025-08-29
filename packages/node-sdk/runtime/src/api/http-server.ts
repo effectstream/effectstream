@@ -145,6 +145,12 @@ export const startHttpServer = function* (
   // OpenAPI Docs
   yield* registerOpenApiDocumentation(server, ENV.PAIMA_API_PORT);
 
+  // Register parent error handler
+  server.setErrorHandler((error, request, reply) => {
+    console.error("[HTTP SERVER] Error: ", error, request.url);
+    reply.status(500).send({ ok: false });
+  });
+
   yield* until(
     server.register(cors, {
       origin: "*",
