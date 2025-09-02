@@ -1,5 +1,7 @@
 import {
+AddressType,
   type BlockNumber,
+  type EvmAddress,
   type PaimaBlockNumber,
   type TxHash,
   TypeboxHelpers,
@@ -42,10 +44,8 @@ import {
   account_unlinkAddress,
   verifySignature,
 } from "@paima/sm";
-import { clearBigInts } from "../../utils.ts";
 import { BuiltinGrammarPrefix } from "@paima/concise";
 import { Value } from "@sinclair/typebox/value";
-import { CryptoManager } from "@paima/crypto";
 import { Type } from "@sinclair/typebox";
 
 function* checkNonce(
@@ -87,6 +87,7 @@ function* executePaimaL2Input(input: {
   payload: PayloadOf<typeof PrimitiveEvmRpcPaimaL2Accounting>;
   primitiveName: string;
   signerAddress: WalletAddress;
+  signerAddressType: AddressType;
 }): StateUpdateStream<void> {
   const isNonceValid = yield* checkNonce(input.nonce, input.paima_block_height);
   if (!isNonceValid) return;
@@ -111,13 +112,13 @@ function* executePaimaL2Input(input: {
       ComponentNames.PAIMA_SYNC,
       ["paima-l2"],
       SeverityNumber.ERROR,
-      (log) => log(`Invalid payload: ${e}`)
+      (log) => log(`Invalid payload: ${e}\nPayload: ${JSON.stringify(input.payload)}`)
     );
   }
 
   // This is encoded in the event payload data.
   // NOTE: We cleanup the null 0x00 bytes, as Postgres does not allow them in strings.
-  const conciseCommandStr = hexToString((input.payload as any).data).replace(
+  const inputData = hexToString((input.payload as any).data).replace(
     /\0/g,
     ""
   );
@@ -130,6 +131,7 @@ function* executePaimaL2Input(input: {
     // Let's insert a new address.
     yield* World.resolve(newAddress, {
       address: input.signerAddress,
+      address_type: input.signerAddressType,
     });
     [signer_address] = yield* World.resolve(getAddressByAddress, {
       address: input.signerAddress,
@@ -137,7 +139,7 @@ function* executePaimaL2Input(input: {
   }
 
   try {
-    const delegateWallet = extractDelegateWallet(conciseCommandStr);
+    const delegateWallet = extractDelegateWallet(inputData);
     let status = false;
     if (delegateWallet.prefix === BuiltinGrammarPrefix.createAccount) {
       status = yield* account_createAccount(signer_address, delegateWallet);
@@ -163,8 +165,9 @@ function* executePaimaL2Input(input: {
     // This is not an error, it's not just a delegate wallet message type.
   }
 
+  console.log("Creating scheduled data for Paima L2 input", inputData, input.paima_block_height, input.primitiveName, input.ownChain.transactionHash, signer_address.address);
   yield* createScheduledData(
-    conciseCommandStr,
+    inputData,
     {
       blockHeight: input.paima_block_height,
     },
@@ -213,6 +216,7 @@ export default function* processPaimaL2SyncProtocolResponse(
         null,
         millisecondTimestamp,
         userAddress,
+        addressType,
         gameInput
       );
       // We yield the promise to the generator caller.
@@ -223,6 +227,21 @@ export default function* processPaimaL2SyncProtocolResponse(
         message,
         userSignature
       );
+
+       // TODO: This is only for EVM at the time.
+      //       How should we handle this?
+      //       Just guess the chain by the format?
+      //       We need to format this, as it's not parsed or validated before.
+      let signerAddress: WalletAddress;
+      switch (addressType) {
+        case AddressType.EVM:
+          signerAddress = Value.Decode(TypeboxHelpers.Evm.Address, userAddress);
+          break;
+        default:
+          signerAddress = userAddress;
+          break;
+      }
+      
       if (validSignature) {
         yield* executePaimaL2Input({
           paima_block_height,
@@ -238,20 +257,12 @@ export default function* processPaimaL2SyncProtocolResponse(
           },
           payload: {
             data: stringToHex(batchedMessage.parsed.gameInput),
-            inputData: batchedMessage.parsed.gameInput,
-          } as any,
+            userAddress: userAddress as EvmAddress, // This might be a non-EVM address
+            value: "0x0",
+          },
           primitiveName: response.output.syncProtocol.payload.primitiveName,
-          signerAddress:
-            // TODO: This is only for EVM at the time.
-            //       How should we handle this?
-            //       Just guess the chain by the format?
-            //       We need to format this, as it's not parsed or validated before.
-            CryptoManager.Evm().verifyAddress(batchedMessage.parsed.userAddress)
-              ? Value.Decode(
-                  TypeboxHelpers.Evm.Address,
-                  batchedMessage.parsed.userAddress
-                )
-              : batchedMessage.parsed.userAddress,
+          signerAddress,
+          signerAddressType: addressType,
         });
       } else {
         log.remote(
@@ -275,6 +286,8 @@ export default function* processPaimaL2SyncProtocolResponse(
       payload: outerLayerData,
       primitiveName: response.output.syncProtocol.payload.primitiveName,
       signerAddress: outerLayerData.userAddress,
+      // This is a EVM contract, so the signer is always EVM.
+      signerAddressType: AddressType.EVM,
     });
   }
 }

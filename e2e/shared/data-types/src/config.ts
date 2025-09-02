@@ -1,8 +1,6 @@
 import { readMidnightContract } from "@e2e/midnight-contracts";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
-// TODO This file is imported by the node and the browser.
-//      So we need to find a way to work with the db only for the node.
-// import { getConnection } from "@paima/db";
+
 import {
   ConfigBuilder,
   ConfigNetworkType,
@@ -25,13 +23,14 @@ const stfInputs = {
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
-const yaci_enabled = Deno ? (Deno.env.get("DISABLE_LINUX_YACI") === "true"
-  ? false
-  : true) : false;
+const yaci_enabled = Deno
+  ? (Deno.env.get("DISABLE_LINUX_YACI") === "true" ? false : true)
+  : false;
 
-const midnight_enabled = Deno ? (Deno.env.get("DISABLE_MIDNIGHT") === "true"
-  ? false
-  : true) : true;
+// NOTE: This disable midnight sync, allowing for faster testing.
+const midnight_enabled = Deno
+  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
+  : true;
 /**
  * Let check if the db.
  * If empty then the db is not initialized, and use the current time for the NTP sync.
@@ -40,24 +39,29 @@ const midnight_enabled = Deno ? (Deno.env.get("DISABLE_MIDNIGHT") === "true"
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
-// // TODO: This does not work when imported by the browser.
-// const dbConn = getConnection();
-// try {
-//   const result = await dbConn.query(`
-//     SELECT * FROM paima.sync_protocol_pagination 
-//     WHERE protocol_name = '${mainSyncProtocolName}' 
-//     ORDER BY page_number ASC
-//     LIMIT 1
-//   `);
-//   if (!result || !result.rows.length) {
-//     throw new Error("DB is empty");
-//   }
-//   launchStartTime = result.rows[0].page.root -
-//     (result.rows[0].page_number * 1000);
-// } catch {
-//   // This is not an error.
-//   // Do nothing, the DB has not been initialized yet.
-// }
+
+if (Deno) {
+  // NOTE: This does not work when imported by the browser.
+  //       We setup a Deno as undefined in the browser, to make it skip this import.
+  const { getConnection } = await import("@paima/db");
+  const dbConn = getConnection();
+  try {
+    const result = await dbConn.query(`
+      SELECT * FROM paima.sync_protocol_pagination 
+      WHERE protocol_name = '${mainSyncProtocolName}' 
+      ORDER BY page_number ASC
+      LIMIT 1
+    `);
+    if (!result || !result.rows.length) {
+      throw new Error("DB is empty");
+    }
+    launchStartTime = result.rows[0].page.root -
+      (result.rows[0].page_number * 1000);
+  } catch {
+    // This is not an error.
+    // Do nothing, the DB has not been initialized yet.
+  }
+}
 
 export const localhostConfig = new ConfigBuilder()
   .setNamespace(
@@ -87,17 +91,17 @@ export const localhostConfig = new ConfigBuilder()
           default: { http: ["http://127.0.0.1:8546"] },
         },
         id: 31338, // taken from hardhat.config.ts
-      })
+      });
     if (midnight_enabled) {
       b = b
-      .addNetwork({
-        name: "midnight",
-        type: ConfigNetworkType.MIDNIGHT,
-        genesisHash:
-          "0x0000000000000000000000000000000000000000000000000000000000000001",
-        networkId: 0,
-        nodeUrl: "http://127.0.0.1:9944",
-      });
+        .addNetwork({
+          name: "midnight",
+          type: ConfigNetworkType.MIDNIGHT,
+          genesisHash:
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+          networkId: 0,
+          nodeUrl: "http://127.0.0.1:9944",
+        });
     }
 
     if (yaci_enabled) {
@@ -172,7 +176,7 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1 as BlockNumber,
           confirmationDepth: 2, // TODO: test this
         }),
-      )
+      );
     if (midnight_enabled) {
       result = result
         .addParallel(
@@ -205,7 +209,6 @@ export const localhostConfig = new ConfigBuilder()
     return result;
   })
   .buildPrimitives((builder) => {
-
     builder.addPrimitive(
       (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
       (network, deployments, syncProtocol) => ({
@@ -231,7 +234,7 @@ export const localhostConfig = new ConfigBuilder()
           abi: getEvmEvent(
             paimal2contract.abi,
             "PaimaGameInteraction(address,bytes,uint256)",
-          )
+          ),
         }),
       )
       .addPrimitive(
@@ -283,8 +286,8 @@ export const localhostConfig = new ConfigBuilder()
         }),
       );
 
-      if (midnight_enabled) {
-        builder = builder
+    if (midnight_enabled) {
+      builder = builder
         .addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
           (network, deployments, syncProtocol) => ({
@@ -294,8 +297,8 @@ export const localhostConfig = new ConfigBuilder()
             contractAddress: readMidnightContract().contractAddress,
             scheduledPrefix: "midnightContractState",
           }),
-        )
-      }
-      return builder;
+        );
+    }
+    return builder;
   })
   .build();

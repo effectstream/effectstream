@@ -14,6 +14,7 @@ import {
   BuiltinGrammarPrefix,
   signMessage as internalSignMessage,
 } from "@paima/concise";
+import { AddressType } from "@paima/utils";
 
 function validateAccountState(
   expectedState: AccountState,
@@ -157,7 +158,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.linkAddress(
       wallets[0].privateKey,
+      AddressType.EVM,
       wallets[1].privateKey,
+      AddressType.EVM,
       wallets[0].address,
       wallets[1].address,
       1,
@@ -180,7 +183,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.linkAddress(
       wallets[0].privateKey,
+      AddressType.EVM,
       wallets[2].privateKey,
+      AddressType.EVM,
       wallets[0].address,
       wallets[2].address,
       1,
@@ -203,7 +208,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.linkAddress(
       wallets[2].privateKey,
+      AddressType.EVM,
       wallets[3].privateKey,
+      AddressType.EVM,
       wallets[2].address,
       wallets[3].address,
       1,
@@ -225,9 +232,12 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.unlinkAddress(
       wallets[2].privateKey,
+      AddressType.EVM,
       1,
       wallets[3].address,
-      "",
+      AddressType.EVM,
+      null,
+      null,
     ),
     wallets[0].privateKey,
   );
@@ -246,9 +256,12 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.unlinkAddress(
       wallets[2].privateKey,
+      AddressType.EVM,
       1,
       wallets[2].address,
+      AddressType.EVM,
       wallets[1].address,
+      AddressType.EVM,
     ),
     wallets[2].privateKey,
   );
@@ -316,9 +329,12 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.unlinkAddress(
       wallets[1].privateKey,
+      AddressType.EVM,
       1,
       wallets[1].address,
+      AddressType.EVM,
       wallets[0].address,
+      AddressType.EVM,
     ),
     wallets[1].privateKey,
   );
@@ -347,9 +363,12 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.unlinkAddress(
       wallets[9].privateKey,
+      AddressType.EVM,
       4,
       wallets[9].address,
-      "",
+      AddressType.EVM,
+      null,
+      null,
     ),
     wallets[9].privateKey,
   );
@@ -365,7 +384,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.linkAddress(
       wallets[9].privateKey,
+      AddressType.EVM,
       wallets[9].privateKey,
+      AddressType.EVM,
       wallets[9].address,
       wallets[9].address,
       1,
@@ -404,7 +425,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.linkAddress(
       wallets[4].privateKey,
+      AddressType.EVM,
       wallets[6].privateKey,
+      AddressType.EVM,
       wallets[4].address,
       wallets[6].address,
       999, // non-existent account
@@ -429,9 +452,12 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.unlinkAddress(
       wallets[4].privateKey, // wallet-4 owns account 2
+      AddressType.EVM,
       3, // wallet-5's account
       wallets[5].address, // trying to unlink wallet-5's address
-      "",
+      AddressType.EVM,
+      null,
+      null,
     ),
     wallets[4].privateKey,
   );
@@ -548,7 +574,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
   await paimaL2.submitGameInput(
     await accountPayload.linkAddress(
       wallets[4].privateKey,
+      AddressType.EVM,
       wallets[10].privateKey,
+      AddressType.EVM,
       wallets[4].address,
       wallets[10].address,
       2,

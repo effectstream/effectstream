@@ -129,14 +129,35 @@ export class Batcher {
   *addUserInput(
     batchedSubunit: BatchedSubunit,
   ): Operation<boolean> {
-    const addressType: AddressType = batchedSubunit?.addressType;
+    // Verify the signature
+    // TODO 1: We need to setup & configure the namespace.
+    // TODO 2: We only support EVM signatures for now.
+    //         Should the caller pass the type e.g., EVM of addresses?
+    const addressType = batchedSubunit.addressType;
     if (addressType == null) {
-      throw new Error("Address type is required");
+      throw new Error("Missing address type: " + JSON.stringify(batchedSubunit));
     }
-
+    
     switch (addressType) {
-      case AddressType.EVM:
-        break;
+      case AddressType.EVM: {
+        const messageVerified = yield* until(
+          CryptoManager.Evm().verifySignature(
+            batchedSubunit.userAddress,
+            createMessageForBatcher(
+              null,
+              batchedSubunit.millisecondTimestamp,
+              batchedSubunit.userAddress,
+              batchedSubunit.addressType,
+              batchedSubunit.gameInput,
+            ),
+            batchedSubunit.userSignature,
+          ),
+        );
+        if (!messageVerified) {
+          throw new Error("Invalid signature for " + JSON.stringify(batchedSubunit));
+        }
+      }
+      break;
       case AddressType.CARDANO:
       case AddressType.SUBSTRATE:
       case AddressType.AVAIL:
@@ -145,30 +166,10 @@ export class Batcher {
       case AddressType.MIDNIGHT:
       case AddressType.POLKADOT:
         // TODO Implement the signature verification for the other address types
-        throw new Error("NYI address type: " + addressType);
+        throw new Error("NYI address type: " + batchedSubunit.addressType);
       default:
         assertNever(addressType);
     }
-    // Verify the signature
-    // TODO 1: We need to setup & configure the namespace.
-    // TODO 2: We only support EVM signatures for now.
-    //         Should the caller pass the type e.g., EVM of addresses?
-    const messageVerified = yield* until(
-      CryptoManager.Evm().verifySignature(
-        batchedSubunit.userAddress,
-        createMessageForBatcher(
-          null,
-          batchedSubunit.millisecondTimestamp,
-          batchedSubunit.userAddress,
-          batchedSubunit.gameInput,
-        ),
-        batchedSubunit.userSignature,
-      ),
-    );
-    if (!messageVerified) {
-      throw new Error("Invalid signature for " + JSON.stringify(batchedSubunit));
-    }
-
     // Add to storage
     yield* this.storage.addInput(batchedSubunit);
 

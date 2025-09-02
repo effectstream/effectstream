@@ -88,11 +88,23 @@ export function* start(config: StartConfig): Operation<void> {
       }
     }
 
+    // Used to log the block range for each protocol.
+    const contentBlocksForProtocol: Record<string, [number, number]> = {};
+    for (const block of value.blockInfo) {
+      if (!contentBlocksForProtocol[block.protocol_name]) {
+        contentBlocksForProtocol[block.protocol_name] = [block.block_number, block.block_number];
+      }
+      contentBlocksForProtocol[block.protocol_name] = [
+        Math.min(contentBlocksForProtocol[block.protocol_name][0], block.block_number),
+        Math.max(contentBlocksForProtocol[block.protocol_name][1], block.block_number),
+      ];
+    }
+   
     log.remote(
       ComponentNames.PAIMA_SYNC,
       "block-merge",
       SeverityNumber.INFO,
-      (log) => log(`finalized block ${value.blockNumber} @ ${blockHash}`),
+      (log) => log(`finalized block ${value.blockNumber} @ ${blockHash?.slice(0, 8)}... | ${JSON.stringify(contentBlocksForProtocol)}`),
     );
     yield* each.next();
   }

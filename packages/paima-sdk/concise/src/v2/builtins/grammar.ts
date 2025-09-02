@@ -26,7 +26,7 @@ export const BuiltinGrammar = {
     ["primary_address_type", Type.Number()],
     ["new_address", Type.String()],
     ["signature_from_new_address", Type.String()],
-    ["secondary_address_type", Type.Number()],
+    ["new_address_type", Type.Number()],
     ["is_new_primary", Type.Boolean()],
   ],
   [BuiltinGrammarPrefix.unlinkAddress]: [
@@ -34,8 +34,10 @@ export const BuiltinGrammar = {
     // if empty, unlink self.
     ["signature_from_primary", Type.String()],
     ["primary_address_type", Type.Number()],
-    ["account_address", Type.String()],
-    ["new_primary", Type.String()],
+    ["target_address", Type.String()],
+    ["target_address_type", Type.Number()],
+    ["new_primary_address", Type.String()],
+    ["new_primary_address_type", Type.Number()],
   ],
 } as const satisfies GrammarDefinition;
 export const KeyedBuiltinGrammar = toKeyedJsonGrammar(BuiltinGrammar);

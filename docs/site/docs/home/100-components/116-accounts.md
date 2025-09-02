@@ -60,7 +60,7 @@ This command links a new wallet address to an existing account.
 This command removes a wallet address from an account. The logic for this command is contextual, depending on who initiates it.
 
 *   **Purpose**: To remove a wallet's control over an account.
-*   **Grammar**: `["&unlinkAddress", account_id, signature_from_primary,  primary_address_type, account_address, new_primary]`
+*   **Grammar**: `["&unlinkAddress", account_id, signature_from_primary,  primary_address_type, target_address, new_primary]`
 
 There are two ways this command can be used:
 
@@ -71,7 +71,7 @@ There are two ways this command can be used:
 
 2.  **Self Unlink (by a linked Address)**
     *   **Logic**: Any linked address can remove itself from an account.
-    *   **Requirements**: The `signature_from_primary` parameter is left as an empty string. The sender's address must match the `account_address` being unlinked.
+    *   **Requirements**: The `signature_from_primary` parameter is left as an empty string. The sender's address must match the `target_address` being unlinked.
     *   **Safety Precaution**: A user **cannot** unlink themselves if they are the Primary Address and other addresses are still linked to the account. This prevents the account from being "orphaned" without an administrator. To change the primary, they must first use `&linkAddress` to set a new primary or use the administrative unlink flow.
 
 Check the [AddressTypes in the Wallets Section](./112-wallets.md)
