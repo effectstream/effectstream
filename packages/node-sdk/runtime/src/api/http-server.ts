@@ -127,6 +127,7 @@ function* registerOpenApiDocumentation(
 }
 
 // TODO This should add user defined endpoints.
+
 /**
  * Start the Paima Engine HTTP server.
  * @param dbConn - The database connection.
@@ -212,33 +213,8 @@ export const startHttpServer = function* (
         return reply.status(400).send({ error: "Invalid range: to < from" });
       }
 
-      // Check for existing synced data to prevent gaps
-      if (typeof page === "number") {
-        try {
-          const blockHeights = await runPreparedQuery(
-            getSyncAndLastPage.run(undefined, dbConn),
-            "block-heights",
-          );
-          const protocolData = blockHeights.find((h: any) =>
-            h.protocol_name === protocolName
-          );
-
-          if (protocolData && protocolData.fetched_page !== null) {
-            const lastFetchedPage = protocolData.fetched_page;
-            // If there's a gap between last fetched page and requested page, fill it
-            if (page > lastFetchedPage + 1) {
-              from = lastFetchedPage + 1;
-              to = page;
-            }
-          }
-        } catch (error) {
-          // If we can't get block heights, continue with original logic
-          console.warn(
-            "Could not fetch block heights for gap detection:",
-            error,
-          );
-        }
-      }
+      // Simple range resolution - let frontend handle gap detection
+      if (typeof page === "number") from = to = page;
 
       try {
         const protocol = syncProtocols.find((p) => p.name === protocolName);

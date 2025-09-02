@@ -23,6 +23,112 @@ function generateRandomHash() {
 
 let paimaPollInterval: number = 1000;
 
+// Helper function to create batch ranges
+const createBatches = (
+  start: number,
+  end: number,
+  batchSize: number,
+): [number, number][] => {
+  const batches: [number, number][] = [];
+  for (let i = start; i <= end; i += batchSize) {
+    const batchEnd = Math.min(i + batchSize - 1, end);
+    batches.push([i, batchEnd]);
+  }
+  return batches;
+};
+
+// Helper function to fetch a batch of blocks
+const fetchBlockBatch = async (
+  protocol: string,
+  from: number,
+  to: number,
+  chainType: string,
+): Promise<{ number: number; hash: string; timestamp: Date }[]> => {
+  const endpoint = from === to
+    ? `${SYNC_PROTOCOLS_ENDPOINT}/${
+      encodeURIComponent(protocol)
+    }/blocks?page=${from}`
+    : `${SYNC_PROTOCOLS_ENDPOINT}/${
+      encodeURIComponent(protocol)
+    }/blocks?from=${from}&to=${to}`;
+
+  const resp = await fetch(endpoint);
+  if (!resp.ok) {
+    console.warn(
+      `Failed to fetch blocks ${from}-${to} for ${protocol}: ${resp.status}`,
+    );
+    return [];
+  }
+
+  const data = await resp.json();
+  const blocks = data?.blocks;
+
+  if (!blocks || !Array.isArray(blocks)) return [];
+
+  return blocks.map((block) => parseBlock(block, chainType, from)).filter((
+    block,
+  ): block is NonNullable<typeof block> => block !== null);
+};
+
+// Block parsing strategies for different chain types
+const blockParsers = {
+  EVM: (block: any) => ({
+    number: Number(block.number),
+    hash: block.hash ?? "",
+    timestamp: block.timestamp != null
+      ? new Date(Number(block.timestamp) * 1000)
+      : new Date(),
+  }),
+
+  MIDNIGHT: (block: any) => {
+    const headerNumberHex = block?.header?.number as string | undefined;
+    const headerNumber = headerNumberHex
+      ? parseInt(headerNumberHex, 16)
+      : undefined;
+    const number = Number(
+      block.height ??
+        (headerNumber !== undefined ? headerNumber : undefined),
+    );
+
+    return {
+      number,
+      hash: block.hash ?? block.header?.parentHash ?? "",
+      timestamp: new Date(), // Default timestamp for now
+    };
+  },
+
+  CARDANO: (block: any) => ({
+    number: Number(
+      block.block?.header?.height ?? block.header?.height,
+    ),
+    hash: block.block?.header?.hash ?? block.header?.hash ?? "",
+    timestamp: new Date(Number(block.timestamp ?? 0)),
+  }),
+
+  DEFAULT: (block: any, defaultNumber: number) => ({
+    number: Number(block.blockNumber ?? defaultNumber),
+    hash: block.hash ?? "",
+    timestamp: block.timestamp != null
+      ? new Date(Number(block.timestamp))
+      : new Date(),
+  }),
+} as const;
+
+// Helper function to parse individual block based on chain type
+const parseBlock = (
+  blockPayload: any,
+  chainType: string,
+  defaultNumber: number,
+): { number: number; hash: string; timestamp: Date } | null => {
+  const parser = blockParsers[chainType as keyof typeof blockParsers] ??
+    blockParsers.DEFAULT;
+  const result = parser(blockPayload, defaultNumber);
+
+  if (result.number == null || Number.isNaN(result.number)) return null;
+
+  return result;
+};
+
 export function useBlockchainData() {
   const [chainConfigs, setChainConfigs] = useState<PaimaChains>({});
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
@@ -376,158 +482,31 @@ export function useBlockchainData() {
             const startPage = lastProcessed + 1;
             const endPage = h.synced_page;
 
-            // If there's a gap, fetch blocks in batches to fill it
             if (endPage > startPage) {
+              // Gap detected - fetch in batches
               console.log(
                 `[Explorer] Interpolating gap for ${proto}: ${startPage} to ${endPage}`,
               );
 
-              // Fetch blocks in batches of 10 to avoid overwhelming the API
-              const batchSize = 10;
-              for (
-                let batchStart = startPage;
-                batchStart <= endPage;
-                batchStart += batchSize
-              ) {
-                const batchEnd = Math.min(batchStart + batchSize - 1, endPage);
-
-                // Fetch the range
-                const resp = await fetch(
-                  `${SYNC_PROTOCOLS_ENDPOINT}/${
-                    encodeURIComponent(proto)
-                  }/blocks?from=${batchStart}&to=${batchEnd}`,
-                );
-
-                if (!resp.ok) {
-                  console.warn(
-                    `Failed to fetch batch ${batchStart}-${batchEnd} for ${proto}: ${resp.status}`,
-                  );
-                  continue;
-                }
-
-                const data = await resp.json();
-                const blocks = data?.blocks;
-
-                if (blocks && Array.isArray(blocks)) {
-                  for (const blockPayload of blocks) {
-                    let number: number | null = null;
-                    let hash: string | null = null;
-                    let tsMs: number | null = null;
-
-                    if (cfg.type === "EVM") {
-                      number = Number(blockPayload.number);
-                      hash = blockPayload.hash;
-                      tsMs = blockPayload.timestamp != null
-                        ? Number(blockPayload.timestamp) * 1000
-                        : null;
-                    } else if (cfg.type === "MIDNIGHT") {
-                      const headerNumberHex = blockPayload?.header?.number as
-                        | string
-                        | undefined;
-                      const headerNumber = headerNumberHex
-                        ? parseInt(headerNumberHex, 16)
-                        : undefined;
-                      number = Number(
-                        blockPayload.height ??
-                          (headerNumber !== undefined
-                            ? headerNumber
-                            : undefined),
-                      );
-                      hash = blockPayload.hash ??
-                        blockPayload.header?.parentHash ??
-                        "";
-                      tsMs = null;
-                    } else if (cfg.type === "CARDANO") {
-                      number = Number(
-                        blockPayload.block?.header?.height ??
-                          blockPayload.header?.height,
-                      );
-                      hash = blockPayload.block?.header?.hash ??
-                        blockPayload.header?.hash ?? "";
-                      tsMs = Number(blockPayload.timestamp ?? 0);
-                    } else {
-                      number = Number(blockPayload.blockNumber ?? batchStart);
-                      hash = blockPayload.hash ?? "";
-                      tsMs = blockPayload.timestamp != null
-                        ? Number(blockPayload.timestamp)
-                        : null;
-                    }
-
-                    if (number != null && !Number.isNaN(number)) {
-                      allParsedBlocks.push({
-                        number,
-                        hash: hash ?? "",
-                        timestamp: tsMs ? new Date(tsMs) : new Date(),
-                      });
-                    }
-                  }
-                }
-              }
-            } else {
-              // No gap, just fetch the single page
-              const resp = await fetch(
-                `${SYNC_PROTOCOLS_ENDPOINT}/${
-                  encodeURIComponent(proto)
-                }/blocks?page=${h.synced_page}`,
+              const batches = createBatches(startPage, endPage, 10);
+              const batchResults = await Promise.all(
+                batches.map(([from, to]) =>
+                  fetchBlockBatch(proto, from, to, cfg.type)
+                ),
               );
 
-              if (!resp.ok) throw new Error(`blocks HTTP ${resp.status}`);
-
-              const data = await resp.json();
-              const blocks = data?.blocks;
-
-              if (blocks && Array.isArray(blocks)) {
-                for (const blockPayload of blocks) {
-                  let number: number | null = null;
-                  let hash: string | null = null;
-                  let tsMs: number | null = null;
-
-                  if (cfg.type === "EVM") {
-                    number = Number(blockPayload.number);
-                    hash = blockPayload.hash;
-                    tsMs = blockPayload.timestamp != null
-                      ? Number(blockPayload.timestamp) * 1000
-                      : null;
-                  } else if (cfg.type === "MIDNIGHT") {
-                    const headerNumberHex = blockPayload?.header?.number as
-                      | string
-                      | undefined;
-                    const headerNumber = headerNumberHex
-                      ? parseInt(headerNumberHex, 16)
-                      : undefined;
-                    number = Number(
-                      blockPayload.height ??
-                        (headerNumber !== undefined ? headerNumber : undefined),
-                    );
-                    hash = blockPayload.hash ??
-                      blockPayload.header?.parentHash ??
-                      "";
-                    tsMs = null;
-                  } else if (cfg.type === "CARDANO") {
-                    number = Number(
-                      blockPayload.block?.header?.height ??
-                        blockPayload.header?.height,
-                    );
-                    hash = blockPayload.block?.header?.hash ??
-                      blockPayload.header?.hash ?? "";
-                    tsMs = Number(blockPayload.timestamp ?? 0);
-                  } else {
-                    number = Number(blockPayload.blockNumber ?? h.synced_page);
-                    hash = blockPayload.hash ?? "";
-                    tsMs = blockPayload.timestamp != null
-                      ? Number(blockPayload.timestamp)
-                      : null;
-                  }
-
-                  if (number != null && !Number.isNaN(number)) {
-                    allParsedBlocks.push({
-                      number,
-                      hash: hash ?? "",
-                      timestamp: tsMs ? new Date(tsMs) : new Date(),
-                    });
-                  }
-                }
-              }
+              // Flatten all blocks from all batches
+              const allBlockPayloads = batchResults.flat();
+              allParsedBlocks.push(...allBlockPayloads);
+            } else {
+              // No gap - fetch single page
+              const blockPayloads = await fetchBlockBatch(
+                proto,
+                h.synced_page,
+                h.synced_page,
+                cfg.type,
+              );
+              allParsedBlocks.push(...blockPayloads);
             }
 
             if (allParsedBlocks.length > 0) {
