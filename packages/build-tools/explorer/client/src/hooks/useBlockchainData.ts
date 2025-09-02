@@ -378,11 +378,17 @@ export function useBlockchainData() {
 
             // If there's a gap, fetch blocks in batches to fill it
             if (endPage > startPage) {
-              console.log(`[Explorer] Interpolating gap for ${proto}: ${startPage} to ${endPage}`);
+              console.log(
+                `[Explorer] Interpolating gap for ${proto}: ${startPage} to ${endPage}`,
+              );
 
               // Fetch blocks in batches of 10 to avoid overwhelming the API
               const batchSize = 10;
-              for (let batchStart = startPage; batchStart <= endPage; batchStart += batchSize) {
+              for (
+                let batchStart = startPage;
+                batchStart <= endPage;
+                batchStart += batchSize
+              ) {
                 const batchEnd = Math.min(batchStart + batchSize - 1, endPage);
 
                 // Fetch the range
@@ -393,7 +399,9 @@ export function useBlockchainData() {
                 );
 
                 if (!resp.ok) {
-                  console.warn(`Failed to fetch batch ${batchStart}-${batchEnd} for ${proto}: ${resp.status}`);
+                  console.warn(
+                    `Failed to fetch batch ${batchStart}-${batchEnd} for ${proto}: ${resp.status}`,
+                  );
                   continue;
                 }
 
@@ -406,7 +414,7 @@ export function useBlockchainData() {
                     let hash: string | null = null;
                     let tsMs: number | null = null;
 
-                                        if (cfg.type === "EVM") {
+                    if (cfg.type === "EVM") {
                       number = Number(blockPayload.number);
                       hash = blockPayload.hash;
                       tsMs = blockPayload.timestamp != null
@@ -421,9 +429,12 @@ export function useBlockchainData() {
                         : undefined;
                       number = Number(
                         blockPayload.height ??
-                          (headerNumber !== undefined ? headerNumber : undefined),
+                          (headerNumber !== undefined
+                            ? headerNumber
+                            : undefined),
                       );
-                      hash = blockPayload.hash ?? blockPayload.header?.parentHash ??
+                      hash = blockPayload.hash ??
+                        blockPayload.header?.parentHash ??
                         "";
                       tsMs = null;
                     } else if (cfg.type === "CARDANO") {
@@ -488,7 +499,8 @@ export function useBlockchainData() {
                       blockPayload.height ??
                         (headerNumber !== undefined ? headerNumber : undefined),
                     );
-                    hash = blockPayload.hash ?? blockPayload.header?.parentHash ??
+                    hash = blockPayload.hash ??
+                      blockPayload.header?.parentHash ??
                       "";
                     tsMs = null;
                   } else if (cfg.type === "CARDANO") {
