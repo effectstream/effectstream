@@ -559,8 +559,13 @@ export function useBlockchainData() {
               );
 
               if (newBlocks.length > 0) {
+                // Sort blocks by number in descending order (most recent first)
+                const sortedNewBlocks = newBlocks.sort((a, b) =>
+                  b.number - a.number
+                );
+
                 // Add all new blocks to the beginning
-                cfg.blocks.unshift(...newBlocks);
+                cfg.blocks.unshift(...sortedNewBlocks);
 
                 // Keep only last 20 blocks
                 if (cfg.blocks.length > 20) {
