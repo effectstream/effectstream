@@ -16,6 +16,7 @@ import {
   type InjectionPreference,
   type WalletMode,
 } from "./utils.ts";
+import type{ MidnightApi } from "./midnight/midnight.ts";
 
 export type BaseLoginInfo<Api> = {
   preference?: InjectionPreference<Api>;
@@ -46,6 +47,7 @@ export type LoginInfoMap = {
     preferBatchedMode: boolean;
     seed: string;
   };
+  [WalletMode.Midnight]: BaseLoginInfo<MidnightApi>;
 };
 
 type ToUnion<T> = {

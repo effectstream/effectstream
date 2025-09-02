@@ -18,6 +18,7 @@ import {
 } from "@paima/db";
 import { verifySignature } from "./verify-signature.ts";
 import {
+AddressType,
   type Signature,
   TypeboxHelpers,
   type WalletAddress,
@@ -88,6 +89,8 @@ export function* account_linkAddress(
 ): SyncStateUpdateStream<boolean> {
   try {
     const account_id: number = input.data.account_id;
+    const primary_address_type: AddressType = input.data.primary_address_type;
+    const secondary_address_type: AddressType = input.data.secondary_address_type;
     const signature_from_primary: Signature = input.data.signature_from_primary;
     const new_address: WalletAddress = formatWalletAddress(
       input.data.new_address,
@@ -117,6 +120,7 @@ export function* account_linkAddress(
     );
 
     const primarySignatureValid = yield* verifySignature(
+      primary_address_type,
       account.primary_address,
       primaryMessage,
       signature_from_primary,
@@ -135,6 +139,7 @@ export function* account_linkAddress(
       is_new_primary,
     );
     const newAddressSignatureValid = yield* verifySignature(
+      secondary_address_type,
       new_address,
       newAddressMessage,
       signature_from_new_address,
@@ -196,6 +201,7 @@ export function* account_unlinkAddressWithPrimary(
 ): SyncStateUpdateStream<boolean> {
   try {
     const account_id: number = input.data.account_id;
+    const primary_address_type: AddressType = input.data.primary_address_type;
     const signature_from_primary: Signature = input.data.signature_from_primary;
     const account_address: WalletAddress = formatWalletAddress(
       input.data.account_address,
@@ -230,6 +236,7 @@ export function* account_unlinkAddressWithPrimary(
     );
 
     const primarySignatureValid = yield* verifySignature(
+      primary_address_type,
       account.primary_address,
       primaryMessage,
       signature_from_primary,
@@ -321,6 +328,7 @@ export function* account_unlinkAddressSelf(
 ): SyncStateUpdateStream<boolean> {
   try {
     const account_id: number = input.data.account_id;
+    const primary_address_type: AddressType = input.data.primary_address_type;
     const account_address: WalletAddress = formatWalletAddress(
       input.data.account_address,
     );
@@ -348,7 +356,7 @@ export function* account_unlinkAddressSelf(
 
     // If this was the primary address, set primary to null
     if (account.primary_address === targetAddress) {
-      // Only allow unlinking if there are no other addressses in the account.
+      // Only allow unlinking if there are no other addresses in the account.
       // The user should use the unlinkAddressWithPrimary instead, by providing the signature.
       const otherAddresses = yield* World.resolve(getAddressByAccountId, {
         account_id,

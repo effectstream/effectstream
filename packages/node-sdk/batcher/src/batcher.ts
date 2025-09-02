@@ -18,7 +18,8 @@ import { type BatcherStorage, FileStorage } from "./storage.ts";
 import { startBatcherHttpServer } from "./batcher-server.ts";
 import { type Operation, sleep, spawn, until } from "effection";
 import { CryptoManager } from "@paima/crypto";
-import type { EvmAddress, EvmPrivateKey } from "@paima/utils";
+import { AddressType, type EvmAddress, type EvmPrivateKey } from "@paima/utils";
+import { assertNever } from "assert-never";
 
 // TODO: Import this from the actual ABI package when available
 const paimaL2Abi = [
@@ -128,6 +129,26 @@ export class Batcher {
   *addUserInput(
     batchedSubunit: BatchedSubunit,
   ): Operation<boolean> {
+    const addressType: AddressType = batchedSubunit?.addressType;
+    if (addressType == null) {
+      throw new Error("Address type is required");
+    }
+
+    switch (addressType) {
+      case AddressType.EVM:
+        break;
+      case AddressType.CARDANO:
+      case AddressType.SUBSTRATE:
+      case AddressType.AVAIL:
+      case AddressType.ALGORAND:
+      case AddressType.MINA:
+      case AddressType.MIDNIGHT:
+      case AddressType.POLKADOT:
+        // TODO Implement the signature verification for the other address types
+        throw new Error("NYI address type: " + addressType);
+      default:
+        assertNever(addressType);
+    }
     // Verify the signature
     // TODO 1: We need to setup & configure the namespace.
     // TODO 2: We only support EVM signatures for now.
@@ -145,7 +166,7 @@ export class Batcher {
       ),
     );
     if (!messageVerified) {
-      throw new Error("Invalid signature");
+      throw new Error("Invalid signature for " + JSON.stringify(batchedSubunit));
     }
 
     // Add to storage

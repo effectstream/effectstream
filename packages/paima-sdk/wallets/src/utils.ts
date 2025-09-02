@@ -12,12 +12,12 @@ import { CardanoConnector } from "./cardano/cardano.ts";
 import { PolkadotConnector } from "./polkadot/polkadot.ts";
 import { MinaConnector } from "./mina/mina.ts";
 import { AvailConnector } from "./avail/avail.ts";
-// import { MidnightConnector } from "./midnight/midnight.ts";
+import { MidnightConnector } from "./midnight/midnight.ts";
 
 export const enum WalletMode {
   EvmInjected,
   EvmEthers,
-  // Midnight,
+  Midnight,
   Cardano,
   Polkadot,
   Algorand,
@@ -25,10 +25,22 @@ export const enum WalletMode {
   AvailJs,
 }
 
+export const WalletNameMap: Record<WalletMode, string> = {
+  [WalletMode.EvmInjected]: 'EVM',
+  [WalletMode.EvmEthers]: 'EVM',
+  [WalletMode.Midnight]: 'Midnight',
+  [WalletMode.Cardano]: 'Cardano',
+  [WalletMode.Polkadot]: 'Polkadot',
+  [WalletMode.Algorand]: 'Algorand',
+  [WalletMode.Mina]: 'Mina',
+  [WalletMode.AvailJs]: 'Avail',
+};
+
+
 export const WalletModeMap = {
   [WalletMode.EvmInjected]: EvmInjectedConnector.instance(),
   [WalletMode.EvmEthers]: EthersConnector.instance(),
-  // [WalletMode.Midnight]: MidnightConnector.instance(),
+  [WalletMode.Midnight]: MidnightConnector.instance(),
   [WalletMode.Cardano]: CardanoConnector.instance(),
   [WalletMode.Polkadot]: PolkadotConnector.instance(),
   [WalletMode.Algorand]: AlgorandConnector.instance(),
@@ -59,6 +71,7 @@ export async function allInjectedWallets(): Promise<{
   >;
   [WalletMode.Algorand]: ReturnType<typeof AlgorandConnector.getWalletOptions>;
   [WalletMode.Mina]: ReturnType<typeof MinaConnector.getWalletOptions>;
+  [WalletMode.Midnight]: ReturnType<typeof MidnightConnector.getWalletOptions>;
 }> {
   return {
     [WalletMode.EvmInjected]: EvmInjectedConnector.getWalletOptions(),
@@ -66,6 +79,7 @@ export async function allInjectedWallets(): Promise<{
     [WalletMode.Polkadot]: await PolkadotConnector.getWalletOptions(),
     [WalletMode.Algorand]: AlgorandConnector.getWalletOptions(),
     [WalletMode.Mina]: MinaConnector.getWalletOptions(),
+    [WalletMode.Midnight]: MidnightConnector.getWalletOptions(),
   };
 }
 export async function connectInjectedWallet<Api>(

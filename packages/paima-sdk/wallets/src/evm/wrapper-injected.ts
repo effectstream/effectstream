@@ -1,4 +1,4 @@
-import type { OldResult, Result } from "@paima/utils";
+import type { Result } from "@paima/utils";
 import type { IProvider } from "../IProvider.ts";
 import type { WalletMode, ApiForMode } from "../utils.ts";
 import { type LoginInfoMap, connectInjected } from "../wallet-modes.ts";
@@ -69,7 +69,7 @@ async function verifyWalletChain(): Promise<boolean> {
     .verifyWalletChain();
 }
 
-export async function checkEthWalletStatus(): Promise<OldResult> {
+export async function checkEthWalletStatus(): Promise<Result<string>> {
   // const errorFxn = buildEndpointErrorFxn('checkEthWalletStatus');
 
   // if (!hasLogin(WalletMode.EvmInjected)) {
@@ -87,7 +87,7 @@ export async function checkEthWalletStatus(): Promise<OldResult> {
     return { success: false, errorMessage: "EVM_CHAIN_VERIFICATION" };
   }
 
-  return { success: true, message: "" };
+  return { success: true, result: "OK" };
 }
 
 export async function evmLoginWrapper(

@@ -44,6 +44,10 @@ export const BatcherInnerGrammar = {
     userAddress(AddressType.MIDNIGHT),
     ...BatcherInnerCommon,
   ],
+  [`${AddressType.POLKADOT}`]: [
+    userAddress(AddressType.POLKADOT),
+    ...BatcherInnerCommon,
+  ],
 } as const satisfies GrammarDefinition satisfies Record<AddressType, any>;
 export const KeyedBuiltinBatcherInnerGrammar = toKeyedJsonGrammar(
   BatcherInnerGrammar,

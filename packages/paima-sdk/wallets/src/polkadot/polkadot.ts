@@ -16,7 +16,9 @@ import {
 import { web3Enable, web3FromSource } from "@polkadot/extension-dapp";
 import { utf8ToHex } from "web3-utils";
 import { getWindow } from "../windows.ts";
-
+const { web3Accounts, web3Enable, web3FromAddress } = await import(
+  "@polkadot/extension-dapp"
+);
 export type PolkadotAddress = string;
 export type PolkadotApi = InjectedExtension;
 
@@ -61,9 +63,7 @@ export class PolkadotConnector
     if (this.provider != null) {
       return this.provider;
     }
-    const { web3Accounts, web3Enable, web3FromAddress } = await import(
-      "@polkadot/extension-dapp"
-    );
+
     const extensions = await web3Enable(/*gameName*/ "paima");
     if (extensions.length === 0) {
       throw new Error(`[polkadot] no extension detected`);
@@ -84,7 +84,7 @@ export class PolkadotConnector
         api: injector,
       });
     }
-    throw new Error("[polkadot] No account detected that supports signing!");
+    throw new Error("[polkadot] No account detected that supports signing! Found extensions: " + extensions.map(e => e.name).join(", "));
   };
   connectExternal = async (
     conn: ActiveConnection<PolkadotApi>

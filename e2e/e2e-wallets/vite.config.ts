@@ -7,21 +7,26 @@ import "react-dom";
 import { fromFileUrl } from "jsr:@std/path";
 import { join, dirname } from "node:path";
 
+// This is a workaround to make the workspace imports work.
 const walletPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/wallets/");
 const cryptoPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/crypto/");
+const dataTypesPath = join(dirname(fromFileUrl(import.meta.url)), "../shared/data-types/");
 
 export default defineConfig({
+  define: {
+    "Deno": undefined,
+  },
   resolve: {
     alias: {
       "@paima/wallets": walletPath + "src/mod.ts",
       "@paima/crypto": cryptoPath + "src/mod.ts",
+      "@e2e/data-types": dataTypesPath + "src/mod.ts",
     },
   },
   root: "./client",
   build: {
     target: "esnext",
     minify: false,
-    // sourcemap: true,
   },
   server: {
     port: 4001,

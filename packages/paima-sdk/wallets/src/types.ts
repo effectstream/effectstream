@@ -1,6 +1,6 @@
 export type Hash = string;
 import type { WalletAddress } from "@paima/utils";
-import type { UserSignature, WalletOption } from "./IProvider.ts";
+import type { IProvider, UserSignature, WalletOption } from "./IProvider.ts";
 
 export type SignFunction = (message: string) => Promise<UserSignature>;
 
@@ -8,6 +8,7 @@ export type QueryValue = string | number | boolean;
 export type QueryOptions = Record<string, QueryValue>;
 
 export interface Wallet {
+  provider: IProvider<unknown>;
   walletAddress: WalletAddress;
   metadata: WalletOption;
 }

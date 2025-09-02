@@ -1,6 +1,8 @@
 import { readMidnightContract } from "@e2e/midnight-contracts";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
-import { getConnection } from "@paima/db";
+// TODO This file is imported by the node and the browser.
+//      So we need to find a way to work with the db only for the node.
+// import { getConnection } from "@paima/db";
 import {
   ConfigBuilder,
   ConfigNetworkType,
@@ -23,10 +25,13 @@ const stfInputs = {
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
-const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
+const yaci_enabled = Deno ? (Deno.env.get("DISABLE_LINUX_YACI") === "true"
   ? false
-  : true;
+  : true) : false;
 
+const midnight_enabled = Deno ? (Deno.env.get("DISABLE_MIDNIGHT") === "true"
+  ? false
+  : true) : true;
 /**
  * Let check if the db.
  * If empty then the db is not initialized, and use the current time for the NTP sync.
@@ -35,23 +40,24 @@ const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
-const dbConn = getConnection();
-try {
-  const result = await dbConn.query(`
-    SELECT * FROM paima.sync_protocol_pagination 
-    WHERE protocol_name = '${mainSyncProtocolName}' 
-    ORDER BY page_number ASC
-    LIMIT 1
-  `);
-  if (!result || !result.rows.length) {
-    throw new Error("DB is empty");
-  }
-  launchStartTime = result.rows[0].page.root -
-    (result.rows[0].page_number * 1000);
-} catch {
-  // This is not an error.
-  // Do nothing, the DB has not been initialized yet.
-}
+// // TODO: This does not work when imported by the browser.
+// const dbConn = getConnection();
+// try {
+//   const result = await dbConn.query(`
+//     SELECT * FROM paima.sync_protocol_pagination 
+//     WHERE protocol_name = '${mainSyncProtocolName}' 
+//     ORDER BY page_number ASC
+//     LIMIT 1
+//   `);
+//   if (!result || !result.rows.length) {
+//     throw new Error("DB is empty");
+//   }
+//   launchStartTime = result.rows[0].page.root -
+//     (result.rows[0].page_number * 1000);
+// } catch {
+//   // This is not an error.
+//   // Do nothing, the DB has not been initialized yet.
+// }
 
 export const localhostConfig = new ConfigBuilder()
   .setNamespace(
@@ -82,6 +88,8 @@ export const localhostConfig = new ConfigBuilder()
         },
         id: 31338, // taken from hardhat.config.ts
       })
+    if (midnight_enabled) {
+      b = b
       .addNetwork({
         name: "midnight",
         type: ConfigNetworkType.MIDNIGHT,
@@ -90,6 +98,7 @@ export const localhostConfig = new ConfigBuilder()
         networkId: 0,
         nodeUrl: "http://127.0.0.1:9944",
       });
+    }
 
     if (yaci_enabled) {
       b = b
@@ -164,18 +173,21 @@ export const localhostConfig = new ConfigBuilder()
           confirmationDepth: 2, // TODO: test this
         }),
       )
-      .addParallel(
-        (networks) => networks.midnight,
-        (network, deployments) => ({
-          name: "parallelMidnight",
-          type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
-          startBlockHeight: 1,
-          pollingInterval: 1000,
-          delayMs: 1000,
-          indexer: "http://127.0.0.1:8088/api/v1/graphql",
-          indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
-        }),
-      );
+    if (midnight_enabled) {
+      result = result
+        .addParallel(
+          (networks) => (networks as any).midnight,
+          (network, deployments) => ({
+            name: "parallelMidnight",
+            type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+            startBlockHeight: 1,
+            pollingInterval: 1000,
+            delayMs: 1000,
+            indexer: "http://127.0.0.1:8088/api/v1/graphql",
+            indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
+          }),
+        );
+    }
 
     if (yaci_enabled) {
       result = result
@@ -192,7 +204,8 @@ export const localhostConfig = new ConfigBuilder()
 
     return result;
   })
-  .buildPrimitives((builder) =>
+  .buildPrimitives((builder) => {
+
     builder.addPrimitive(
       (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
       (network, deployments, syncProtocol) => ({
@@ -218,17 +231,7 @@ export const localhostConfig = new ConfigBuilder()
           abi: getEvmEvent(
             paimal2contract.abi,
             "PaimaGameInteraction(address,bytes,uint256)",
-          ),
-        }),
-      )
-      .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelMidnight,
-        (network, deployments, syncProtocol) => ({
-          name: "MidnightContractState",
-          type: ConfigPrimitiveType.MidnightContractState,
-          startBlockHeight: 1,
-          contractAddress: readMidnightContract().contractAddress,
-          scheduledPrefix: "midnightContractState",
+          )
         }),
       )
       .addPrimitive(
@@ -278,6 +281,21 @@ export const localhostConfig = new ConfigBuilder()
           // TODO This is not defined. Should be a error.
           scheduledPrefix: "transfer-erc20-2",
         }),
-      )
-  )
+      );
+
+      if (midnight_enabled) {
+        builder = builder
+        .addPrimitive(
+          (syncProtocols) => (syncProtocols as any).parallelMidnight,
+          (network, deployments, syncProtocol) => ({
+            name: "MidnightContractState",
+            type: ConfigPrimitiveType.MidnightContractState,
+            startBlockHeight: 1,
+            contractAddress: readMidnightContract().contractAddress,
+            scheduledPrefix: "midnightContractState",
+          }),
+        )
+      }
+      return builder;
+  })
   .build();

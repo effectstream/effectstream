@@ -31,6 +31,43 @@ h2 {
   margin-bottom: 24px;
 }
 
+.primitives-list {
+  display: block;
+  text-align: left;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.primitives-list div {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.primitives-list label {
+  color: #eee;
+  margin-left: 0.5rem;
+}
+
+.primitives-list input[type="radio"] {
+  accent-color: #10b981;
+}
+
+.card .button-2 {
+  background: linear-gradient(45deg, #a4a415, #977a19);
+}
+
+.card .button-2:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(147, 137, 5, 0.5);
+  background: linear-gradient(45deg, #977a19, #7a6514);
+}
+
 .card button {
   background: linear-gradient(45deg, #10b981, #059669);
   color: white;
@@ -51,6 +88,7 @@ h2 {
 }
 
 .info-box {
+  color: #fff;
   background-color: rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
@@ -60,6 +98,15 @@ h2 {
   max-width: 800px;
   margin-left: auto;
   margin-right: auto;
+  max-height: 200px;
+  overflow-y: scroll;
+  scrollbar-width: none;
+}
+
+.info-box-large {
+  max-height: 1000px;
+  overflow-y: scroll;
+  scrollbar-width: default;
 }
 
 .info-box h2 {
@@ -67,6 +114,68 @@ h2 {
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   padding-bottom: 0.75rem;
   margin-bottom: 1rem;
+}
+
+.form-field {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-field label {
+  color: #eee;
+  font-weight: 600;
+  width: 150px;
+  text-align: right;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  flex: 1;
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.form-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.form-buttons button {
+  background: linear-gradient(45deg, #10b981, #059669);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+}
+
+.form-buttons button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.5);
+  background: linear-gradient(45deg, #059669, #047857);
+}
+
+.form-buttons .back-button {
+  background: linear-gradient(45deg, #6b7280, #4b5563);
+  box-shadow: 0 2px 10px rgba(107, 114, 128, 0.3);
+}
+
+.form-buttons .back-button:hover {
+  background: linear-gradient(45deg, #4b5563, #374151);
+  box-shadow: 0 4px 15px rgba(107, 114, 128, 0.5);
 }
 
 .info-box pre {
@@ -1055,4 +1164,95 @@ h2 {
   height: 200px;
   color: #999;
   font-style: italic;
+}
+
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.popup-content {
+  background: #1a202c;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.popup-content h2 {
+  color: #fff;
+  margin-top: 0;
+}
+
+.popup-content h3 {
+  color: #cbd5e0;
+  border-bottom: 1px solid #4a5568;
+  padding-bottom: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.close-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.wallets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.wallet-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: #fff;
+  text-align: center;
+}
+
+.wallet-item img {
+  width: 64px;
+  height: 64px;
+  max-width: 64px;
+  max-height: 64px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.wallet-item p {
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+
+.wallet-icon-placeholder {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  background-color: #4a5568;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #fff;
 }
