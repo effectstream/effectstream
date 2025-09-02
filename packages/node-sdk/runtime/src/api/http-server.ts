@@ -203,13 +203,41 @@ export const startHttpServer = function* (
       } = request.query;
 
       // Resolve range
-      const from = typeof page === "number" ? page : (fromQuery ?? 0);
-      const to = typeof page === "number" ? page : (toQuery ?? from);
+      let from = typeof page === "number" ? page : (fromQuery ?? 0);
+      let to = typeof page === "number" ? page : (toQuery ?? from);
       if (typeof from !== "number" || typeof to !== "number") {
         return reply.status(400).send({ error: "Specify page or from/to" });
       }
       if (to < from) {
         return reply.status(400).send({ error: "Invalid range: to < from" });
+      }
+
+      // Check for existing synced data to prevent gaps
+      if (typeof page === "number") {
+        try {
+          const blockHeights = await runPreparedQuery(
+            getSyncAndLastPage.run(undefined, dbConn),
+            "block-heights",
+          );
+          const protocolData = blockHeights.find((h: any) =>
+            h.protocol_name === protocolName
+          );
+
+          if (protocolData && protocolData.fetched_page !== null) {
+            const lastFetchedPage = protocolData.fetched_page;
+            // If there's a gap between last fetched page and requested page, fill it
+            if (page > lastFetchedPage + 1) {
+              from = lastFetchedPage + 1;
+              to = page;
+            }
+          }
+        } catch (error) {
+          // If we can't get block heights, continue with original logic
+          console.warn(
+            "Could not fetch block heights for gap detection:",
+            error,
+          );
+        }
       }
 
       try {

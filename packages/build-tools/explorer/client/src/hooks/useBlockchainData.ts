@@ -36,6 +36,7 @@ export function useBlockchainData() {
   const chainsInitializedRef = useRef(false);
   const nonRpcIntervalsStartedRef = useRef(false);
   const blockHeightsPollRef = useRef<number | null>(null);
+  const lastProcessedPagesRef = useRef<Record<string, number>>({});
 
   // Fetch latest block for Paima main (EVM) only
   const fetchLatestBlockForChain = useCallback(async (chainKey: string) => {
@@ -350,7 +351,7 @@ export function useBlockchainData() {
 
         const updates: {
           key: string;
-          block: { number: number; hash: string; timestamp: Date } | null;
+          blocks: { number: number; hash: string; timestamp: Date }[];
         }[] = [];
 
         for (const [key, cfg] of Object.entries(chainConfigs)) {
@@ -360,65 +361,171 @@ export function useBlockchainData() {
           const h = heights.find((x) => x.protocol_name === proto);
           if (!h || h.synced_page == null) continue;
 
+          // Skip if we've already processed this synced_page
+          const lastProcessed = lastProcessedPagesRef.current[proto] || 0;
+          if (h.synced_page <= lastProcessed) continue;
+
           try {
-            const resp = await fetch(
-              `${SYNC_PROTOCOLS_ENDPOINT}/${
-                encodeURIComponent(proto)
-              }/blocks?page=${h.synced_page}`,
-            );
-            if (!resp.ok) throw new Error(`blocks HTTP ${resp.status}`);
-            const data = await resp.json();
-            const blockPayload = data?.blocks?.[0];
-            if (!blockPayload) continue;
+            const allParsedBlocks: {
+              number: number;
+              hash: string;
+              timestamp: Date;
+            }[] = [];
 
-            let number: number | null = null;
-            let hash: string | null = null;
-            let tsMs: number | null = null;
+            // Calculate the gap and interpolate missing blocks
+            const startPage = lastProcessed + 1;
+            const endPage = h.synced_page;
 
-            if (cfg.type === "EVM") {
-              number = Number(blockPayload.number);
-              hash = blockPayload.hash;
-              tsMs = blockPayload.timestamp != null
-                ? Number(blockPayload.timestamp) * 1000
-                : null;
-            } else if (cfg.type === "MIDNIGHT") {
-              const headerNumberHex = blockPayload?.header?.number as
-                | string
-                | undefined;
-              const headerNumber = headerNumberHex
-                ? parseInt(headerNumberHex, 16)
-                : undefined;
-              number = Number(
-                blockPayload.height ??
-                  (headerNumber !== undefined ? headerNumber : undefined),
-              );
-              hash = blockPayload.hash ?? blockPayload.header?.parentHash ?? "";
-              tsMs = null;
-            } else if (cfg.type === "CARDANO") {
-              number = Number(
-                blockPayload.block?.header?.height ??
-                  blockPayload.header?.height,
-              );
-              hash = blockPayload.block?.header?.hash ??
-                blockPayload.header?.hash ?? "";
-              tsMs = Number(blockPayload.timestamp ?? 0);
+            // If there's a gap, fetch blocks in batches to fill it
+            if (endPage > startPage) {
+              console.log(`[Explorer] Interpolating gap for ${proto}: ${startPage} to ${endPage}`);
+
+              // Fetch blocks in batches of 10 to avoid overwhelming the API
+              const batchSize = 10;
+              for (let batchStart = startPage; batchStart <= endPage; batchStart += batchSize) {
+                const batchEnd = Math.min(batchStart + batchSize - 1, endPage);
+
+                // Fetch the range
+                const resp = await fetch(
+                  `${SYNC_PROTOCOLS_ENDPOINT}/${
+                    encodeURIComponent(proto)
+                  }/blocks?from=${batchStart}&to=${batchEnd}`,
+                );
+
+                if (!resp.ok) {
+                  console.warn(`Failed to fetch batch ${batchStart}-${batchEnd} for ${proto}: ${resp.status}`);
+                  continue;
+                }
+
+                const data = await resp.json();
+                const blocks = data?.blocks;
+
+                if (blocks && Array.isArray(blocks)) {
+                  for (const blockPayload of blocks) {
+                    let number: number | null = null;
+                    let hash: string | null = null;
+                    let tsMs: number | null = null;
+
+                                        if (cfg.type === "EVM") {
+                      number = Number(blockPayload.number);
+                      hash = blockPayload.hash;
+                      tsMs = blockPayload.timestamp != null
+                        ? Number(blockPayload.timestamp) * 1000
+                        : null;
+                    } else if (cfg.type === "MIDNIGHT") {
+                      const headerNumberHex = blockPayload?.header?.number as
+                        | string
+                        | undefined;
+                      const headerNumber = headerNumberHex
+                        ? parseInt(headerNumberHex, 16)
+                        : undefined;
+                      number = Number(
+                        blockPayload.height ??
+                          (headerNumber !== undefined ? headerNumber : undefined),
+                      );
+                      hash = blockPayload.hash ?? blockPayload.header?.parentHash ??
+                        "";
+                      tsMs = null;
+                    } else if (cfg.type === "CARDANO") {
+                      number = Number(
+                        blockPayload.block?.header?.height ??
+                          blockPayload.header?.height,
+                      );
+                      hash = blockPayload.block?.header?.hash ??
+                        blockPayload.header?.hash ?? "";
+                      tsMs = Number(blockPayload.timestamp ?? 0);
+                    } else {
+                      number = Number(blockPayload.blockNumber ?? batchStart);
+                      hash = blockPayload.hash ?? "";
+                      tsMs = blockPayload.timestamp != null
+                        ? Number(blockPayload.timestamp)
+                        : null;
+                    }
+
+                    if (number != null && !Number.isNaN(number)) {
+                      allParsedBlocks.push({
+                        number,
+                        hash: hash ?? "",
+                        timestamp: tsMs ? new Date(tsMs) : new Date(),
+                      });
+                    }
+                  }
+                }
+              }
             } else {
-              number = Number(blockPayload.blockNumber ?? h.synced_page);
-              hash = blockPayload.hash ?? "";
-              tsMs = blockPayload.timestamp != null
-                ? Number(blockPayload.timestamp)
-                : null;
+              // No gap, just fetch the single page
+              const resp = await fetch(
+                `${SYNC_PROTOCOLS_ENDPOINT}/${
+                  encodeURIComponent(proto)
+                }/blocks?page=${h.synced_page}`,
+              );
+
+              if (!resp.ok) throw new Error(`blocks HTTP ${resp.status}`);
+
+              const data = await resp.json();
+              const blocks = data?.blocks;
+
+              if (blocks && Array.isArray(blocks)) {
+                for (const blockPayload of blocks) {
+                  let number: number | null = null;
+                  let hash: string | null = null;
+                  let tsMs: number | null = null;
+
+                  if (cfg.type === "EVM") {
+                    number = Number(blockPayload.number);
+                    hash = blockPayload.hash;
+                    tsMs = blockPayload.timestamp != null
+                      ? Number(blockPayload.timestamp) * 1000
+                      : null;
+                  } else if (cfg.type === "MIDNIGHT") {
+                    const headerNumberHex = blockPayload?.header?.number as
+                      | string
+                      | undefined;
+                    const headerNumber = headerNumberHex
+                      ? parseInt(headerNumberHex, 16)
+                      : undefined;
+                    number = Number(
+                      blockPayload.height ??
+                        (headerNumber !== undefined ? headerNumber : undefined),
+                    );
+                    hash = blockPayload.hash ?? blockPayload.header?.parentHash ??
+                      "";
+                    tsMs = null;
+                  } else if (cfg.type === "CARDANO") {
+                    number = Number(
+                      blockPayload.block?.header?.height ??
+                        blockPayload.header?.height,
+                    );
+                    hash = blockPayload.block?.header?.hash ??
+                      blockPayload.header?.hash ?? "";
+                    tsMs = Number(blockPayload.timestamp ?? 0);
+                  } else {
+                    number = Number(blockPayload.blockNumber ?? h.synced_page);
+                    hash = blockPayload.hash ?? "";
+                    tsMs = blockPayload.timestamp != null
+                      ? Number(blockPayload.timestamp)
+                      : null;
+                  }
+
+                  if (number != null && !Number.isNaN(number)) {
+                    allParsedBlocks.push({
+                      number,
+                      hash: hash ?? "",
+                      timestamp: tsMs ? new Date(tsMs) : new Date(),
+                    });
+                  }
+                }
+              }
             }
 
-            if (number != null && !Number.isNaN(number)) {
+            if (allParsedBlocks.length > 0) {
               updates.push({
                 key,
-                block: {
-                  number,
-                  hash: hash ?? "",
-                  timestamp: tsMs ? new Date(tsMs) : new Date(),
-                },
+                blocks: allParsedBlocks,
               });
+
+              // Update the last processed page for this protocol
+              lastProcessedPagesRef.current[proto] = h.synced_page;
             }
           } catch (_) {
             // ignore errors for individual protocol fetches
@@ -430,12 +537,20 @@ export function useBlockchainData() {
             const next = { ...prev };
             for (const u of updates) {
               const cfg = next[u.key];
-              if (!cfg || !u.block) continue;
-              const exists = cfg.blocks.some((b) =>
-                b.number === u.block!.number
+              if (!cfg || !u.blocks || u.blocks.length === 0) continue;
+
+              // Filter out blocks that already exist to avoid duplicates
+              const newBlocks = u.blocks.filter((block) =>
+                !cfg.blocks.some((existingBlock) =>
+                  existingBlock.number === block.number
+                )
               );
-              if (!exists) {
-                cfg.blocks.unshift(u.block);
+
+              if (newBlocks.length > 0) {
+                // Add all new blocks to the beginning
+                cfg.blocks.unshift(...newBlocks);
+
+                // Keep only last 20 blocks
                 if (cfg.blocks.length > 20) {
                   cfg.blocks = cfg.blocks.slice(0, 20);
                 }
