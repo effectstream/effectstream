@@ -202,19 +202,16 @@ export const startHttpServer = function* (
         to: toQuery,
         includeTransactions = false,
       } = request.query;
-
+      const validPage = typeof page === "number" && !Number.isNaN(page);
       // Resolve range
-      let from = typeof page === "number" ? page : (fromQuery ?? 0);
-      let to = typeof page === "number" ? page : (toQuery ?? from);
-      if (typeof from !== "number" || typeof to !== "number") {
+      const from = validPage ? page : (fromQuery ?? 0);
+      const to = validPage ? page : (toQuery ?? from);
+      if (!validPage && (typeof from !== "number" || typeof to !== "number")) {
         return reply.status(400).send({ error: "Specify page or from/to" });
       }
       if (to < from) {
         return reply.status(400).send({ error: "Invalid range: to < from" });
       }
-
-      // Simple range resolution - let frontend handle gap detection
-      if (typeof page === "number") from = to = page;
 
       try {
         const protocol = syncProtocols.find((p) => p.name === protocolName);
