@@ -18,7 +18,7 @@ import {
 } from "@paima/db";
 import { verifySignature } from "./verify-signature.ts";
 import {
-AddressType,
+  AddressType,
   type Signature,
   TypeboxHelpers,
   type WalletAddress,
@@ -31,12 +31,17 @@ import { Value } from "@sinclair/typebox/value";
  *
  * These messages come from unparsed sources, as the payload is a string format.
  */
-const formatWalletAddress = (address: string, addressType: AddressType): WalletAddress => {
+const formatWalletAddress = (
+  address: string,
+  addressType: AddressType,
+): WalletAddress => {
   switch (addressType) {
     case AddressType.EVM:
       return Value.Decode(TypeboxHelpers.Evm.Address, address);
     default:
-      throw new Error("NYI. Implement signers for address type: " + addressType);
+      throw new Error(
+        "NYI. Implement signers for address type: " + addressType,
+      );
   }
 };
 
@@ -157,14 +162,16 @@ export function* account_linkAddress(
     let [existingAddress] = yield* World.resolve(getAddressByAddress, {
       address: targetAddress,
     });
-    const targetAddressType = new_address ? new_address_type : account.address_type;
+    const targetAddressType = new_address
+      ? new_address_type
+      : account.address_type;
 
     if (!existingAddress) {
       // Create new address entry linked to this account
       yield* World.resolve(newAddressWithId, {
         address: targetAddress,
         account_id,
-        address_type: targetAddressType
+        address_type: targetAddressType,
       });
       [existingAddress] = yield* World.resolve(getAddressByAddress, {
         address: targetAddress,
@@ -211,10 +218,14 @@ export function* account_unlinkAddressWithPrimary(
       input.data.target_address,
       input.data.target_address_type,
     );
-    const new_primary_address: WalletAddress | null = formatWalletAddress(
-      input.data.new_primary_address,
-      input.data.new_primary_address_type,
-    );
+    const new_primary_address: WalletAddress | null =
+      input.data.new_primary_address === "" ||
+        input.data.new_primary_address_type === -1
+        ? null
+        : formatWalletAddress(
+          input.data.new_primary_address,
+          input.data.new_primary_address_type,
+        );
 
     // Step 1: Check if account_id exists
     const [account] = yield* World.resolve(getAccountById, { account_id });
@@ -238,7 +249,7 @@ export function* account_unlinkAddressWithPrimary(
     const primaryMessage = accountMessages.unlinkAccountWithPrimary(
       account_id,
       targetAddress,
-      new_primary_address ? new_primary_address : null,
+      new_primary_address,
     );
 
     const primarySignatureValid = yield* verifySignature(
