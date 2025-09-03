@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y \
     lsof \
     # iproute2 is required for ss command - for dkill.
     iproute2 \
+    # xz is required for compactc
+    xz-utils \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js
@@ -33,8 +36,17 @@ RUN curl -L https://github.com/foundry-rs/foundry/releases/download/v1.3.0-rc1/f
     && mv anvil cast chisel forge /usr/local/bin/ \
     && rm -rf foundry.tar.gz
 
-# # Verify Foundry installation
+# Verify Foundry installation
 RUN forge --version && cast --version && anvil --version
+
+# Install Compact
+RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+# RUN ls -l /root/.local/bin
+RUN which compact
+RUN compact update
+RUN compact --version
+RUN compact compile --version
 
 # # Create working directory
 WORKDIR /app
