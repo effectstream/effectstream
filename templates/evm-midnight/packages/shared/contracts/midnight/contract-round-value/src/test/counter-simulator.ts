@@ -8,7 +8,7 @@ import {
   Contract,
   type Ledger,
   ledger,
-} from "../managed/counter/contract/index.cjs";
+} from "../managed/counter-round-value/contract/index.cjs";
 import { type CounterPrivateState, witnesses } from "../witnesses.js";
 
 // This is over-kill for such a simple contract, but the same pattern can be used to test more

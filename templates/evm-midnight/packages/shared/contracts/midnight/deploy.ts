@@ -26,7 +26,7 @@ import {
   Counter,
   type CounterPrivateState,
   witnesses,
-} from "./contract/src/index.original.ts";
+} from "./contract-round-value/src/index.original.ts";
 import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2";
 import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@2.0.2";
 import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@2.0.2";
