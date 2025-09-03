@@ -1,4 +1,4 @@
-import type { ApiPromise } from "npm:avail-js-sdk";
+import type { ApiPromise } from "avail-js-sdk";
 import type { Result } from "@paima/utils";
 import type { AlgorandApi } from "./algorand/algorand.ts";
 import type { CardanoApi } from "./cardano/cardano.ts";

@@ -16,11 +16,12 @@ export type MinaApi = AuroMinaApi.default;
 
 type MinaAddress = any;
 
-declare global {
-  interface Window {
-    mina?: Record<string, { name?: string; enable?: () => Promise<MinaApi> }>;
-  }
-}
+// JSR Error: modifying global types is not allowed
+// declare global {
+//   interface Window {
+//     mina?: Record<string, { name?: string; enable?: () => Promise<MinaApi> }>;
+//   }
+// }
 
 export class MinaConnector
   implements IConnector<MinaApi>, IInjectedConnector<MinaApi>
@@ -29,7 +30,7 @@ export class MinaConnector
   private static INSTANCE: undefined | MinaConnector = undefined;
 
   static getWalletOptions(): ConnectionOption<MinaApi>[] {
-    const minaApi = getWindow()?.mina;
+    const minaApi: Record<string, { name?: string; enable?: () => Promise<MinaApi> }> = (getWindow() as any)?.mina;
     if (minaApi == null || !minaApi.isAuro) return [];
 
     return [

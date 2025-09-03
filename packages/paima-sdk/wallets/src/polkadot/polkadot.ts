@@ -16,17 +16,17 @@ import {
 import { web3Enable, web3FromSource } from "@polkadot/extension-dapp";
 import { utf8ToHex } from "web3-utils";
 import { getWindow } from "../windows.ts";
-const { web3Accounts, web3Enable, web3FromAddress } = await import(
+const { web3Accounts, /*web3Enable,*/ web3FromAddress } = await import(
   "@polkadot/extension-dapp"
 );
 export type PolkadotAddress = string;
 export type PolkadotApi = InjectedExtension;
 
-declare global {
-  interface Window {
-    injectedWeb3?: Record<string, InjectedWindowProvider>;
-  }
-}
+// declare global {
+//   interface Window {
+//     injectedWeb3?: Record<string, InjectedWindowProvider>;
+//   }
+// }
 
 export class PolkadotConnector
   implements IConnector<PolkadotApi>, IInjectedConnector<PolkadotApi>
@@ -35,9 +35,9 @@ export class PolkadotConnector
   private static INSTANCE: undefined | PolkadotConnector = undefined;
 
   static async getWalletOptions(): Promise<ConnectionOption<PolkadotApi>[]> {
-    const windowObj = getWindow();
-    if (windowObj?.injectedWeb3 == null) return [];
-    return Object.keys(windowObj.injectedWeb3).map((wallet) => ({
+    const injectedWeb3: Record<string, InjectedWindowProvider> = (getWindow() as any)?.injectedWeb3;
+    if (injectedWeb3 == null) return [];
+    return Object.keys(injectedWeb3).map((wallet) => ({
       metadata: {
         name: wallet,
         // polkadot provides no way to get a human-friendly name or icon for wallets

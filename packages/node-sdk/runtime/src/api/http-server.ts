@@ -13,6 +13,7 @@ import {
   getPublicTables,
   getSyncAndLastPage,
   getTableSchema,
+  type IGetAllAddressesResult,
   type IGetAllTableNamesResult,
   releaseDBMutex,
   runPreparedQuery,
@@ -315,7 +316,7 @@ export const startHttpServer = function* (
       account_id: number;
       address: string;
     }>(request.query);
-    let addresses: any[] = [];
+    let addresses: IGetAllAddressesResult[] = [];
     try {
       // @ts-ignore - pgtyped overload resolution is failing in this context
       addresses = await runPreparedQuery(

@@ -21,11 +21,12 @@ export type CardanoAddress = {
   hex: string;
 };
 
-declare global {
-  interface Window {
-    cardano?: Record<string, { name?: string; enable?: () => Promise<CardanoApi> }>;
-  }
-}
+// JSR Error: modifying global types is not allowed
+// declare global {
+//   interface Window {
+//     cardano?: Record<string, { name?: string; enable?: () => Promise<CardanoApi> }>;
+//   }
+// }
 
 // 4 helpers to convert hex addresses to bech32
 const NETWORK_TAG_MAINNET = '1';
@@ -38,7 +39,7 @@ export class CardanoConnector implements IConnector<CardanoApi>, IInjectedConnec
   private static INSTANCE: undefined | CardanoConnector = undefined;
 
   static getWalletOptions(): ConnectionOption<CardanoApi>[] {
-    const cardanoApi = getWindow()?.cardano;
+    const cardanoApi: Record<string, { name?: string; enable?: () => Promise<CardanoApi> }> = (getWindow() as any)?.cardano;
     if (cardanoApi == null) return [];
 
     const options = Object.entries(cardanoApi).reduce((options, [key, info]) => {
