@@ -1,0 +1,14 @@
+{
+  "name": "@chess/middleware",
+  "description": "Middleware for Chess game, to be imported into any frontend",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "imports": {
+    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.32",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.32",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.32",
+    "@paimaexample/wallets": "jsr:@paimaexample/wallets@0.3.32",
+    "viem": "npm:viem@^2.21.3"
+  }
+}

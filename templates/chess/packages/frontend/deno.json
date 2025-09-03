@@ -1,0 +1,85 @@
+{
+  "name": "@chess/frontend",
+  "version": "0.3.23",
+  "license": "MIT",
+  "exports": {
+    ".": "./server/main.ts"
+  },
+  "tasks": {
+    "dev": "deno run -A --node-modules-dir=auto npm:vite",
+    "build": "deno run -A --node-modules-dir=auto npm:vite build",
+    "server:start": "deno run -A --node-modules-dir --watch ./server/main.ts",
+    "serve": "deno task build && deno task server:start"
+  },
+  "imports": {
+    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.32",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.32",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.32",
+    "@paimaexample/wallets": "jsr:@paimaexample/wallets@0.3.32",
+
+    "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.4",
+    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.8.1",
+    "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger@^4.0.0",
+    "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts@^2.0.2",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-fetch-zk-config-provider@^2.0.2",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@^2.0.2",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@^2.0.2",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@^2.0.2",
+    "@midnight-ntwrk/midnight-js-network-id": "npm:@midnight-ntwrk/midnight-js-network-id@^2.0.2",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@^2.0.2",
+    "@midnight-ntwrk/midnight-js-types": "npm:@midnight-ntwrk/midnight-js-types@^2.0.2",
+    "@midnight-ntwrk/midnight-js-utils": "npm:@midnight-ntwrk/midnight-js-utils@^2.0.2",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.3.0",
+    "@midnight-ntwrk/wallet": "npm:@midnight-ntwrk/wallet@^5.0.0",
+    "@midnight-ntwrk/wallet-api": "npm:@midnight-ntwrk/wallet-api@^5.0.0",
+    "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@^4.0.0",
+    "@oak/oak": "jsr:@oak/oak@^17.1.4",
+
+    "@polkadot/util": "npm:@polkadot/util@^10.4.2",
+    "@polkadot/util-crypto": "npm:@polkadot/util-crypto@^10.4.2",
+    "@std/assert": "jsr:@std/assert@^1.0.12",
+    "@thirdweb-dev/chains": "npm:@thirdweb-dev/chains@0.1.63",
+    "@thirdweb-dev/wallets": "npm:@thirdweb-dev/wallets@2.4.1",
+    "@types/react": "npm:@types/react@^19.1.2",
+    "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^4.4.1",
+    "chess.js": "npm:chess.js@^1.4.0",
+    "date-fns": "npm:date-fns@^4.1.0",
+    "ethers": "npm:ethers@5.7.2",
+    "mui": "npm:mui@^0.0.1",
+    "react": "npm:react@^19.1.0",
+    "react-dom": "npm:react-dom@^19.1.0",
+    "react-router-dom": "npm:react-router-dom@^7.5.1",
+    "rxjs": "npm:rxjs@^7.8.2",
+    "sass-embedded": "npm:sass-embedded@^1.90.0",
+    "stream-browserify": "npm:stream-browserify@3.0.0",
+    "vite": "npm:vite@^6.3.2",
+    "viem": "npm:viem@^2.21.3",
+    "viem/accounts": "npm:viem/accounts",
+    "viem/chains": "npm:viem/chains",
+    "vite-plugin-node-stdlib-browser": "npm:vite-plugin-node-stdlib-browser",
+    "ws": "npm:ws@^8.18.3",
+    "@emotion/react": "npm:@emotion/react@^11.11.3",
+    "@emotion/styled": "npm:@emotion/styled@^11.11.0",
+    "@mui/icons-material": "npm:@mui/icons-material@^5.15.5",
+    "@mui/material": "npm:@mui/material@^5.15.5",
+    "@thirdweb-dev/sdk": "npm:@thirdweb-dev/sdk@2.4.1",
+    "clsx": "npm:clsx@^1.2.1",
+    "eslint-plugin-react-hooks": "npm:eslint-plugin-react-hooks@^4.6.0",
+    "react-chessboard": "npm:react-chessboard@^2.0.8",
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
+  },
+  "compilerOptions": {
+    "types": [
+      "react",
+      "react-dom",
+      "@types/react"
+    ],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "deno.ns"
+    ],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  }
+}
