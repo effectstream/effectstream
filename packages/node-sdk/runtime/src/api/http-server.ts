@@ -146,7 +146,7 @@ export const startHttpServer = function* (
   // OpenAPI Docs
   yield* registerOpenApiDocumentation(server, ENV.PAIMA_API_PORT);
 
-  // Register parent error handler
+  // Register error-catching handler
   server.setErrorHandler((error, request, reply) => {
     console.error("[HTTP SERVER] Error: ", error, request.url);
     reply.status(500).send({ ok: false });

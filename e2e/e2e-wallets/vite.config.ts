@@ -11,6 +11,12 @@ import { join, dirname } from "node:path";
 const walletPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/wallets/");
 const cryptoPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/crypto/");
 const dataTypesPath = join(dirname(fromFileUrl(import.meta.url)), "../shared/data-types/");
+const concisePath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/concise/");
+const configPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/config/");
+const utilsPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/utils/");
+
+// This is a mock for @paima/db so it doesn't get loaded in the browser.
+const dbEmptyPath = join(dirname(fromFileUrl(import.meta.url)), "paima-db-empty.ts");
 
 export default defineConfig({
   define: {
@@ -18,9 +24,14 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      "@paima/utils": utilsPath + "src/mod.ts",
+      "@paima/config": configPath + "src/mod.ts",
+      "@paima/concise": concisePath + "src/mod.ts",
+      "@paimaexample/crypto": cryptoPath + "src/mod.ts",
       "@paima/wallets": walletPath + "src/mod.ts",
       "@paima/crypto": cryptoPath + "src/mod.ts",
       "@e2e/data-types": dataTypesPath + "src/mod.ts",
+      "@paima/db": dbEmptyPath,
     },
   },
   root: "./client",

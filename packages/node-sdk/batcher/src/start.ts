@@ -32,6 +32,9 @@ const ArgsSchema = Type.Object({
     pattern: "^0x[a-fA-F0-9]{64}$",
     description: "Private key for the batcher wallet",
   }),
+  paimaSyncProtocolName: Type.String({
+    description: "Name of the Paima Sync protocol to use",
+  }),
   chainName: Type.String({
     description: "Name of the blockchain network to connect to",
   }),
@@ -65,6 +68,7 @@ try {
       string: [
         "paimaL2Address",
         "batcherPrivateKey",
+        "paimaSyncProtocolName",
         "chainName",
         "batchIntervalSeconds",
         "paimaL2Fee",
@@ -106,6 +110,7 @@ await run(() =>
     chain: chain,
     batchIntervalSeconds: Number(args.batchIntervalSeconds),
     paimaL2Fee: parseEther(args.paimaL2Fee),
+    paimaSyncProtocolName: args.paimaSyncProtocolName,
     namespace: args.namespace,
     maxBatchSize: Number(args.maxBatchSize),
     port: Number(args.port),

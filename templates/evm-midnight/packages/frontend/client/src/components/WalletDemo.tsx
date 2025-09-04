@@ -108,7 +108,7 @@ const AddressType = {
 
 // Batcher helper functions
 async function createSignedInput(
-  gameInput: string,
+  conciseInput: string,
   userAddress: string,
   signMessage: (message: string) => Promise<string>,
 ) {
@@ -131,7 +131,7 @@ async function createSignedInput(
     null,
     timestamp,
     userAddress,
-    gameInput,
+    conciseInput,
   );
 
   const signature = await signMessage(message);
@@ -140,7 +140,7 @@ async function createSignedInput(
     addressType,
     userAddress,
     userSignature: signature,
-    gameInput,
+    conciseInput,
     millisecondTimestamp: timestamp,
   };
 }
@@ -151,7 +151,7 @@ async function sendInputToBatcher(batchedInput: any) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(batchedInput),
+    body: JSON.stringify({ data: batchedInput }),
   });
 
   if (!response.ok) {

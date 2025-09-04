@@ -15,7 +15,7 @@ function userAddress<Addr extends AddressType>(
 }
 const BatcherInnerCommon = [
   ["userSignature", Type.String()],
-  ["gameInput", Type.String()],
+  ["conciseInput", Type.String()],
   ["millisecondTimestamp", Type.String()],
 ] as const;
 export const BatcherInnerGrammar = {

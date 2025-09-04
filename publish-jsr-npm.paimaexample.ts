@@ -73,6 +73,8 @@ const jsrPackagesToPublish = [
   "./packages/node-sdk/sync",
   "./packages/paima-sdk/crypto",
   "./packages/node-sdk/sm",
+  "./packages/paima-sdk/events",
+  "./packages/node-sdk/events",
   "./packages/node-sdk/runtime",
   "./packages/node-sdk/batcher",
   "./packages/chains/evm-contracts",

@@ -1,8 +1,8 @@
 import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { type Operation, run, until } from "effection";
-import type { BatchedSubunit } from "@paima/concise";
-import { Type } from "@sinclair/typebox";
+// import type { BatchedSubunit } from "@paima/concise";
+import { type Static, Type } from "@sinclair/typebox";
 import type { Batcher } from "./batcher.ts";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
@@ -10,14 +10,29 @@ import fastifySwagger, {
 import fastifySwaggerUi, {
   type FastifySwaggerUiOptions,
 } from "@fastify/swagger-ui";
+
+
 // TypeBox schema for BatchedSubunit
 const BatchedSubunitSchema = Type.Object({
   addressType: Type.Number(),
   userAddress: Type.String(),
   userSignature: Type.String(),
-  gameInput: Type.String(),
+  conciseInput: Type.String(),
   millisecondTimestamp: Type.String(),
 });
+
+const BatchedSubunitSchemaWrapper = Type.Object({
+  data: BatchedSubunitSchema,
+  waitForConfirmation: Type.Union([
+    Type.Literal("no-wait"), 
+    Type.Literal("wait-receipt"), 
+    Type.Literal("wait-paima-processed")
+  ], {
+    default: "wait-paima-processed",
+  }),
+});
+
+type BatchedSubunitWrapper = Static<typeof BatchedSubunitSchemaWrapper>
 
 /**
  * Register the OpenAPI documentation for the batcher server.
@@ -98,6 +113,12 @@ function* registerOpenApiDocumentation(
   yield* until(server.register(fastifySwagger, openApiOptions));
 
   yield* until(server.register(fastifySwaggerUi, uiOptions));
+
+  // Register error-catching handler
+  server.setErrorHandler((error, request, reply) => {
+    console.error("[HTTP SERVER] Error: ", error, request.url);
+    reply.status(500).send({ ok: false });
+  });
 }
 
 /**
@@ -199,36 +220,30 @@ export function* startBatcherHttpServer(
   server.post("/send-input", {
     schema: {
       tags: ["batcher"],
-      body: BatchedSubunitSchema,
+      body: BatchedSubunitSchemaWrapper,
       response: {
         200: Type.Object({
           success: Type.Boolean(),
           message: Type.String(),
-          queueSize: Type.Number(),
+          blockNumber: Type.Number(),
+          blockHash: Type.String(),
         }),
       },
     },
   }, async (
-    request: FastifyRequest<{ Body: BatchedSubunit }>,
+    request: FastifyRequest<{ Body: BatchedSubunitWrapper }>,
     reply,
   ) => {
     try {
-      const batchedSubunit = request.body;
-
-      const success = await run(() => batcher.addUserInput(batchedSubunit));
-
-      if (success) {
-        const stats = await run(() => batcher.getQueueStats());
-        return {
-          success: true,
-          message: "Input added to batch queue",
-          queueSize: stats.pendingInputs,
-        };
-      } else {
-        return reply.status(400).send({
-          error: "Failed to add input to batch queue",
-        });
-      }
+      const batchedSubunit = request.body.data;
+      const waitForConfirmation = request.body.waitForConfirmation;
+      const transactionReceipt = await run(() => batcher.addUserInput(batchedSubunit, waitForConfirmation));
+      return {
+        success: true,
+        message: "Input processed",
+        blockNumber: transactionReceipt ? transactionReceipt.blockNumber : 0,
+        blockHash: transactionReceipt ? transactionReceipt.blockHash : "",
+      };
     } catch (error) {
       console.error("Error adding input to batcher:", error);
       return reply.status(500).send({
