@@ -376,10 +376,7 @@ function App() {
           break;
         }
         case 'sendBatcherTransaction': {
-          const result = await sendBatcherTransaction(wallet,
-            '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512', // address is not used but required
-            conciseData
-          );
+          const result = await sendBatcherTransaction(wallet, conciseData);
           console.log(result);
           setActionResult(`Batcher transaction sent. Result: ${JSON.stringify(result, null, 2)}`);
           break;

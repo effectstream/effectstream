@@ -80,6 +80,7 @@ const jsrPackagesToPublish = [
   "./packages/build-tools/tui",
   "./packages/build-tools/collector",
   "./packages/build-tools/orchestrator",
+  "./packages/paima-sdk/wallets",
 ];
 const npmPackagesToPublish = [
   "./packages/chains/evm-contracts",

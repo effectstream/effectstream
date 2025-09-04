@@ -73,7 +73,7 @@ export async function sendTransaction(
     throw new Error("Paima L2 is EVM contract.");
   }
 
-  const evmProvider: EthersEvmProvider | EvmInjectedProvider = wallet.provider;
+  const evmProvider: EthersEvmProvider | EvmInjectedProvider = wallet.provider as EthersEvmProvider | EvmInjectedProvider;
   const dataUtf8 = JSON.stringify(conciseData);
   const hexData = utf8ToHex(dataUtf8);
 
@@ -114,6 +114,7 @@ export async function sendBatcherTransaction(
       null,
       timestamp,
       wallet.provider.getAddress().address,
+      wallet.provider.getAddress().type,
       JSON.stringify(conciseData),
     ),
   );

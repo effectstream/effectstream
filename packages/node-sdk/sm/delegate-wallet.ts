@@ -346,10 +346,13 @@ export function* account_unlinkAddressSelf(
   try {
     const account_id: number = input.data.account_id;
     const primary_address_type: AddressType = input.data.primary_address_type;
-    const target_address: WalletAddress = formatWalletAddress(
-      input.data.target_address,
-      input.data.target_address_type,
-    );
+
+    const target_address: WalletAddress | null = (input.data.target_address === "" || input.data.target_address_type === -1) 
+    ? null 
+    : formatWalletAddress(
+        input.data.target_address,
+        input.data.target_address_type,
+      );
 
     // Step 1: Check if account_id exists
     const [account] = yield* World.resolve(getAccountById, { account_id });

@@ -48,7 +48,7 @@ interface EIP6963AnnounceProviderEvent extends CustomEvent {
 
 const eip5953Providers: EIP6963ProviderDetail[] = [];
 
-getWindow()?.addEventListener(
+(getWindow() as any)?.addEventListener(
   "eip6963:announceProvider",
   (event: EIP6963AnnounceProviderEvent) => {
     eip5953Providers.push(event.detail);
@@ -56,15 +56,17 @@ getWindow()?.addEventListener(
 );
 
 getWindow()?.dispatchEvent(new Event("eip6963:requestProvider"));
-declare global {
-  interface Window {
-    ethereum?: EIP1193Provider;
-    evmproviders?: EIP5749EVMProviders;
-  }
-  interface WindowEventMap {
-    "eip6963:announceProvider": EIP6963AnnounceProviderEvent;
-  }
-}
+
+// JSR Error: modifying global types is not allowed
+// declare global {
+//   interface Window {
+//     ethereum?: EIP1193Provider;
+//     evmproviders?: EIP5749EVMProviders;
+//   }
+//   interface WindowEventMap {
+//     "eip6963:announceProvider": EIP6963AnnounceProviderEvent;
+//   }
+// }
 
 /**
  * Type definition from EIP3085 (https://eips.ethereum.org/EIPS/eip-3085)
@@ -115,7 +117,8 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
 
     // 2) Add EIP5749
     {
-      const eip5749Options = Object.entries(windowObj.evmproviders ?? {}).map(
+      const eip5749Providers: EIP5749EVMProviders = (windowObj as any).evmproviders ?? {};
+      const eip5749Options = Object.entries(eip5749Providers).map(
         ([key, provider]) => ({
           metadata: {
             name: key,
@@ -188,7 +191,8 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
 
     // Update the selected Eth address if the user changes after logging in.
     // warning: not supported by all wallets (ex: Flint)
-    getWindow()?.ethereum?.on("accountsChanged", (newAccounts) => {
+    const ethereum: EIP1193Provider = (getWindow() as any).ethereum;
+    ethereum?.on("accountsChanged", (newAccounts) => {
       const accounts = newAccounts as string[];
       if (!accounts || !accounts[0] || accounts[0] !== this.provider?.address) {
         this.provider = undefined;

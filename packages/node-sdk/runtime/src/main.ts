@@ -9,9 +9,20 @@ import {
   getConnection,
   releaseDBMutex,
 } from "@paima/db";
+import { PaimaEventBroker } from "@paima/event-server";
+import {
+  BuiltinEvents,
+  PaimaEventManager,
+} from "@paima/event-client";
 import { startMerge, startSync } from "@paima/sync";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
-import { createChannel, each, type Operation, spawn, until } from "effection";
+import {
+  createChannel,
+  each,
+  type Operation,
+  spawn,
+  until,
+} from "effection";
 import { initTelemetry } from "./telemetry.ts";
 import { processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
@@ -21,6 +32,7 @@ import type { PaimaBlockHash } from "@paima/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@paima/db/version";
 import type { SyncProtocolWithNetwork } from "@paima/config";
+import { run } from "node:test";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -51,6 +63,9 @@ export function* start(config: StartConfig): Operation<void> {
   for (const syncProtocol of syncProtocols) {
     yield* startSync(syncProtocol);
   }
+
+  // Create MQTT Broker
+  new PaimaEventBroker("paima-engine").createServer();
 
   yield* spawn(function* () {
     yield* startHttpServer(
@@ -88,26 +103,63 @@ export function* start(config: StartConfig): Operation<void> {
       }
     }
 
-    // Used to log the block range for each protocol.
-    const contentBlocksForProtocol: Record<string, [number, number]> = {};
-    for (const block of value.blockInfo) {
-      if (!contentBlocksForProtocol[block.protocol_name]) {
-        contentBlocksForProtocol[block.protocol_name] = [block.block_number, block.block_number];
-      }
-      contentBlocksForProtocol[block.protocol_name] = [
-        Math.min(contentBlocksForProtocol[block.protocol_name][0], block.block_number),
-        Math.max(contentBlocksForProtocol[block.protocol_name][1], block.block_number),
-      ];
-    }
-   
+    // Used to emit & log the block range for each protocol.
+    const contentBlocksForProtocol = getRangesForSyncProtocols(value);
+  
+    yield* until(
+      emitLatestBlocks(
+        value.blockNumber,
+        value.timestamp,
+        contentBlocksForProtocol,
+      ),
+    );
+
     log.remote(
       ComponentNames.PAIMA_SYNC,
       "block-merge",
       SeverityNumber.INFO,
-      (log) => log(`finalized block ${value.blockNumber} @ ${blockHash?.slice(0, 8)}... | ${JSON.stringify(contentBlocksForProtocol)}`),
+      (log) =>
+        log(
+          `finalized block ${value.blockNumber} @ ${
+            blockHash?.slice(0, 8)
+          }... | ${JSON.stringify(contentBlocksForProtocol)}`,
+        ),
     );
     yield* each.next();
   }
+}
+
+function getRangesForSyncProtocols(value: ChainBlock): Record<string, [number, number]> {
+  const contentBlocksForProtocol: Record<string, [number, number]> = {};
+  for (const block of value.blockInfo) {
+    if (!contentBlocksForProtocol[block.protocol_name]) {
+      contentBlocksForProtocol[block.protocol_name] = [block.block_number, block.block_number];
+    }
+    contentBlocksForProtocol[block.protocol_name] = [
+      Math.min(contentBlocksForProtocol[block.protocol_name][0], block.block_number),
+      Math.max(contentBlocksForProtocol[block.protocol_name][1], block.block_number),
+    ];
+  }
+  return contentBlocksForProtocol;
+}
+
+async function emitLatestBlocks(
+  rollUpBlockHeight: number,
+  rollUpBlockTimestamp: number,
+  syncChains: Record<string, [number, number]>,
+) {
+  return await Promise.all([
+    PaimaEventManager.Instance.sendMessage(BuiltinEvents.RollupBlock, {
+      block: rollUpBlockHeight,
+      timestamp: rollUpBlockTimestamp,
+    }),
+    ...Object.entries(syncChains).map(([chainName, [_, toBlock]]) =>
+      PaimaEventManager.Instance.sendMessage(BuiltinEvents.SyncChains, {
+        chain: chainName,
+        block: toBlock,
+      })
+    ),
+  ]);
 }
 
 function* startup(
