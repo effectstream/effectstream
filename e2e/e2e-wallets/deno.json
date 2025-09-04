@@ -42,7 +42,7 @@
     "rxjs": "npm:rxjs@^7.8.2",
     "stream-browserify": "npm:stream-browserify@3.0.0",
     "vite": "npm:vite@^6.3.2",
-    "viem": "npm:viem@^2.36.0",
+    "viem": "npm:viem@2.37.3",
     "viem/accounts": "npm:viem/accounts",
     "viem/chains": "npm:viem/chains",
     "vite-plugin-node-stdlib-browser": "npm:vite-plugin-node-stdlib-browser",

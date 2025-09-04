@@ -77,7 +77,7 @@ const signature = await walletClient.signMessage({
     "my-namespace",
     timestamp,
     userAddress,
-    gameInput
+    conciseInput
   ),
 });
 ```

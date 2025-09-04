@@ -55,13 +55,15 @@ Here is an example of a frontend submitting an input to the batcher:
 import { createMessageForBatcher } from '@paima/concise';
 import { AddressType } from '@paima/utils-backend';
 
+const appName = "";
 const timestamp = Date.now();
-const gameInput = ["my_game_action", "0x1", "0x2"]; // Your grammar-formatted input
+const conciseInput = ["my-action", "0x1", "0x2"]; // Your grammar-formatted input
+
 
 // The user signs a message, not a transaction
 const signature = await walletClient.signMessage({
   message: createMessageForBatcher(
-    null, timestamp, account.address, gameInput
+    appName, timestamp, account.address, account.accountType, conciseInput
   ),
 });
 
@@ -69,12 +71,15 @@ const signature = await walletClient.signMessage({
 await fetch(`${ENV.BATCHER_URL}/send-input`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    addressType: AddressType.EVM,
-    userAddress: account.address,
-    userSignature: signature,
-    gameInput,
-    millisecondTimestamp: timestamp,
+  body: JSON.stringify({ 
+    data: {
+      userAddress: account.address,
+      addressType: account.accountType,
+      userSignature: signature,
+      conciseInput: conciseInput,
+      millisecondTimestamp: timestamp,
+    },
+    waitForConfirmation: "wait-paima-processed",
   }),
 });
 ```
