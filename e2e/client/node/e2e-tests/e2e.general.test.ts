@@ -63,7 +63,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     wallets[0].privateKey,
     erc20_b,
   );
-  const blockNumber = await erc20.a.transfer(
+  let blockNumber = await erc20.a.transfer(
     wallets[0].privateKey,
     wallets[1].address,
     erc20_c,
@@ -478,11 +478,14 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     wallets[1].address,
     tokens.tokenC,
   );
-  await erc721.a.transfer(
+  blockNumber = await erc721.a.transfer(
     wallets[1].privateKey,
     wallets[0].address,
     tokens.tokenD,
   );
+  while (latestBlock["parallelEvmRPC_fast"] ? BigInt(latestBlock["parallelEvmRPC_fast"]) < blockNumber : true) {
+    await sleep(100);
+  }
   // Cannot burn a token?
   // await erc721.burn(wallet_X.privateKey, tokens.tokenD);
   await assertSQL<

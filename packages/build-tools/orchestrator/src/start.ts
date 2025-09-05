@@ -116,6 +116,7 @@ export const OrchestratorConfig = Type.Object({
     batcherPrivateKey: Type.String(),
     paimaSyncProtocolName: Type.String(),
     chainName: Type.String(),
+    batchIntervalMs: Type.Number({ default: 1000 }),
   })),
 });
 
@@ -401,12 +402,14 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       batcherPrivateKey,
       chainName,
       paimaSyncProtocolName,
+      batchIntervalMs,
     } = config.batcher;
     const batcher = $({
       args: [
         "run",
         "-A",
         config.packageName + "/batcher/start",
+        `--batchIntervalMs=${batchIntervalMs ?? 1000}`,
         `--paimaL2Address=${paimaL2Address}`,
         `--batcherPrivateKey=${batcherPrivateKey}`,
         `--chainName=${chainName}`,

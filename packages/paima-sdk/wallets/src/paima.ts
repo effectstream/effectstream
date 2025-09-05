@@ -35,11 +35,16 @@ export class PaimaEngineConfig {
     preferBatchedMode: boolean = false,
   ) {
     this.appName = appName ?? "";
+    
     this.paimaL2SyncProtocolName = paimaL2SyncProtocolName;
     this.paimaL2ContractAddress = paimaL2ContractAddress;
     this.paimaL2Abi = paimaL2Abi ?? this.fallbackABI();
     this.paimaL2Chain = paimaL2Chain;
+    
     this.batcherURL = batcherURL;
+    if (!this.batcherURL && preferBatchedMode) {
+      throw new Error("To enable batcher, you need to set the batcher URL.");
+    }
     this.preferBatchedMode = preferBatchedMode;
   }
 

@@ -44,6 +44,7 @@ export async function startup(): Promise<Client> {
     ],
 
     batcher: {
+      batchIntervalMs: 100, // 100ms for testing
       paimaL2Address: contractAddressesEvmMain()["chain31337"][
         "PaimaL2ContractModule#MyPaimaL2Contract"
       ],

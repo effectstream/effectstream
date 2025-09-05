@@ -38,9 +38,9 @@ const ArgsSchema = Type.Object({
   chainName: Type.String({
     description: "Name of the blockchain network to connect to",
   }),
-  batchIntervalSeconds: Type.String({
+  batchIntervalMs: Type.String({
     pattern: "^[0-9]+$",
-    description: "Interval in seconds between batch processing",
+    description: "Interval in milliseconds between batch processing",
   }),
   paimaL2Fee: Type.String({
     pattern: "^[0-9]+(\\.[0-9]+)?$",
@@ -75,9 +75,10 @@ try {
         "namespace",
         "maxBatchSize",
         "port",
+        "checkTimeMs",
       ],
       default: {
-        batchIntervalSeconds: "5",
+        batchIntervalMs: "1000",
         paimaL2Fee: "0",
         namespace: "default",
         maxBatchSize: "1000",
@@ -108,7 +109,7 @@ await run(() =>
       args.batcherPrivateKey,
     ),
     chain: chain,
-    batchIntervalSeconds: Number(args.batchIntervalSeconds),
+    batchIntervalMs: Number(args.batchIntervalMs),
     paimaL2Fee: parseEther(args.paimaL2Fee),
     paimaSyncProtocolName: args.paimaSyncProtocolName,
     namespace: args.namespace,
