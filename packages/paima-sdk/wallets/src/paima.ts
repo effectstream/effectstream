@@ -23,6 +23,7 @@ export class PaimaEngineConfig {
   public paimaL2CurrentFee: bigint = 0n;
   public web3: Web3 | undefined = undefined;
   public batcherURL: string | undefined = undefined;
+  public preferBatchedMode: boolean = false;
 
   constructor(
     appName: string | undefined,
@@ -31,6 +32,7 @@ export class PaimaEngineConfig {
     paimaL2Chain: Chain,
     paimaL2Abi: AbiItem[] | undefined,
     batcherURL: string | undefined,
+    preferBatchedMode: boolean = false,
   ) {
     this.appName = appName ?? "";
     this.paimaL2SyncProtocolName = paimaL2SyncProtocolName;
@@ -38,6 +40,7 @@ export class PaimaEngineConfig {
     this.paimaL2Abi = paimaL2Abi ?? this.fallbackABI();
     this.paimaL2Chain = paimaL2Chain;
     this.batcherURL = batcherURL;
+    this.preferBatchedMode = preferBatchedMode;
   }
 
   /** Return a Web3 client for the PaimaL2 chain. */
@@ -81,6 +84,45 @@ export async function signMessage(wallet: Wallet, message: string) {
 }
 
 /**
+ * Main function to send a transaction to a Paima L2 contract.
+ * It will decide whether to use the batcher or the self-sequenced transaction based on the preferBatchedMode flag.
+ * 
+ * @param wallet - The wallet to send the transaction with.
+ * @param conciseData - The concise data to send.
+ * @param paimaEngineConfig - The Paima Engine configuration.
+ * @param waitForConfirmation - The confirmation mode to use:
+ *   no-wait: Do not wait for any confirmation.
+ *   wait-receipt: Wait only for the chain transaction receipt.
+ *   wait-paima-processed: Wait for the transaction to be processed by the Paima Engine.
+ * @returns
+ */
+export async function sendTransaction(
+  wallet: Wallet,
+  conciseData: any[],
+  paimaEngineConfig: PaimaEngineConfig,
+  waitForConfirmation: "wait-paima-processed" | "wait-receipt" | "no-wait" =
+    "wait-paima-processed",
+): Promise<
+  | ReturnType<typeof sendBatcherTransaction>
+  | ReturnType<typeof sendSelfSequencedTransaction>
+> {
+  if (paimaEngineConfig.preferBatchedMode) {
+    return await sendBatcherTransaction(
+      wallet,
+      conciseData,
+      paimaEngineConfig,
+      waitForConfirmation,
+    );
+  }
+  return await sendSelfSequencedTransaction(
+    wallet,
+    conciseData,
+    paimaEngineConfig,
+    waitForConfirmation,
+  );
+}
+
+/**
  * Paima Wallet Interface - Send a transaction to a Paima L2 contract with a wallet.
  * The concise data must match the grammar; if not the input will be rejected by Paima Engine.
  * @param wallet - The wallet to send the transaction with.
@@ -92,14 +134,31 @@ export async function signMessage(wallet: Wallet, message: string) {
  *   wait-paima-processed: Wait for the transaction to be processed by the Paima Engine.
  ** @returns
  */
-export async function sendTransaction(
+export async function sendSelfSequencedTransaction(
   wallet: Wallet,
   // TODO this should be any type of grammar.
   conciseData: any[],
   paimaEngineConfig: PaimaEngineConfig,
   waitForConfirmation: "wait-paima-processed" | "wait-receipt" | "no-wait" =
     "wait-paima-processed",
-) {
+): Promise<
+  & {
+    success: boolean;
+    type: 'self-sequenced';
+  }
+  & (
+    | {
+      wait: "wait-paima-processed";
+      hash: string;
+      receipt: TransactionReceipt;
+      rollup: number;
+    }
+    | {
+      wait: "wait-receipt" | "no-wait";
+      hash: string;
+    }
+  )
+> {
   // TODO: Where to get this value from?
   const DEFAULT_GAS_PRICE = BigInt("61000000000");
 
@@ -133,17 +192,32 @@ export async function sendTransaction(
   if (
     waitForConfirmation === "no-wait" || waitForConfirmation === "wait-receipt"
   ) {
-    return tx_result;
+    return {
+      success: true,
+      type: 'self-sequenced',
+      wait: waitForConfirmation,
+      hash: tx_result.txHash,
+    };
   }
 
   // Wait for paima engine to process the transaction
   const receipt = await getTxReceipt(tx_result.txHash, paimaEngineConfig);
 
-  await waitForPaimaEngineBlockProcessed(
+  const response = await waitForPaimaEngineBlockProcessed(
     Number(receipt.blockNumber),
     paimaEngineConfig,
   );
-  return serializeBigInts(receipt);
+
+  const rollup = response ? response.rollup : 0;
+
+  return {
+    success: true,
+    type: 'self-sequenced',
+    hash: tx_result.txHash,
+    wait: waitForConfirmation,
+    receipt: serializeBigInts(receipt),
+    rollup,
+  };
 }
 
 // We return a json version of object for the frontend.
@@ -165,7 +239,7 @@ async function getTxReceipt(
   return await web3.eth.getTransactionReceipt(txHash);
 }
 
-/** 
+/**
  * Wait for specific block number to be processed by the Paima Engine.
  * This guarantees that the block number is processed by the Paima Engine.
  * @param blockNumber - The block number to wait for.
@@ -177,7 +251,7 @@ export function waitForPaimaEngineBlockProcessed(
   blockNumber: number,
   paimaEngineConfig: PaimaEngineConfig,
   timeout: number = 60000,
-): Promise<void> {
+): Promise<{ latestBlock: number; rollup: number } | void> {
   let subscriptionReference: symbol | undefined = undefined;
   let latestBlock = 0;
   let timer: number | undefined = undefined;
@@ -186,7 +260,7 @@ export function waitForPaimaEngineBlockProcessed(
     new Promise<void>((_, reject) => {
       timer = setTimeout(() => reject(new Error("Timeout")), timeout);
     }),
-    new Promise<void>((resolve, reject) => {
+    new Promise<{ latestBlock: number; rollup: number }>((resolve, reject) => {
       if (!paimaEngineConfig.paimaL2SyncProtocolName) {
         reject(new Error("Paima L2 Sync Protocol Name is not set"));
         return;
@@ -195,12 +269,15 @@ export function waitForPaimaEngineBlockProcessed(
       PaimaEventManager.Instance.subscribe(
         {
           topic: BuiltinEvents.SyncChains,
-          filter: { chain: paimaEngineConfig.paimaL2SyncProtocolName, block: undefined },
+          filter: {
+            chain: paimaEngineConfig.paimaL2SyncProtocolName,
+            block: undefined,
+          },
         },
         (event) => {
           latestBlock = Math.max(event.block, latestBlock);
           if (latestBlock > blockNumber) {
-            resolve(void 0);
+            resolve({ latestBlock, rollup: event.rollup });
           }
         },
       )
@@ -236,7 +313,14 @@ export async function sendBatcherTransaction(
   paimaEngineConfig: PaimaEngineConfig,
   waitForConfirmation: "wait-paima-processed" | "wait-receipt" | "no-wait" =
     "wait-paima-processed",
-) {
+): Promise<{
+  success: boolean;
+  type: 'batcher';
+  message: string;
+  blockNumber: number;
+  blockHash: string;
+  rollup: number;
+}> {
   if (!paimaEngineConfig.batcherURL) {
     throw new Error("Batcher URL is not set");
   }
@@ -273,5 +357,10 @@ export async function sendBatcherTransaction(
       }),
     },
   );
-  return await response.json();
+  
+  return await {
+    ...(await response.json()),
+    type: 'batcher',
+    success: response.ok,
+  };
 }

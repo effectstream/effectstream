@@ -203,7 +203,7 @@ export class Batcher {
     batchedSubunit: BatchedSubunit,
     waitForConfirmation: "no-wait" | "wait-receipt" | "wait-paima-processed" =
       "wait-paima-processed",
-  ): Operation<TransactionReceipt | null> {
+  ): Operation<TransactionReceipt & { rollup: number } | null> {
     const stored: boolean = yield* this.verifyAndStoreInput(batchedSubunit);
 
     if (!stored) {
@@ -229,18 +229,22 @@ export class Batcher {
       throw new Error("Failed to get transaction receipt");
     }
 
+    let rollup = 0;
     // Wait for the transaction to be processed by the Paima Engine
     if (waitForConfirmation === "wait-paima-processed") {
-      yield* until(this.waitForPaimaProcessed(transactionReceipt));
+      const result = yield* until(this.waitForPaimaProcessed(transactionReceipt));
+      if (result) {
+        rollup = result.rollup;
+      }
     }
 
-    return transactionReceipt;
+    return { ...transactionReceipt, rollup };
   }
 
   waitForPaimaProcessed(
     transactionReceipt: TransactionReceipt, 
     timeout: number = 60000
-  ): Promise<void> {
+  ): Promise<{ latestBlock: number, rollup: number } | void> {
     let subscriptionReference: symbol | undefined = undefined;
     let latestBlock = 0;
     let timer: number | undefined = undefined;
@@ -248,7 +252,7 @@ export class Batcher {
       new Promise<void>((_, reject) => {
         timer = setTimeout(() => reject(new Error("Timeout")), timeout);
       }),
-      new Promise<void>((resolve, reject) => {
+      new Promise<{ latestBlock: number, rollup: number }>((resolve, reject) => {
         PaimaEventManager.Instance.subscribe(
           {
             topic: BuiltinEvents.SyncChains,
@@ -257,7 +261,7 @@ export class Batcher {
           (event) => {
             latestBlock = Math.max(event.block, latestBlock);
             if (latestBlock > transactionReceipt.blockNumber) {
-              resolve(void 0);
+              resolve({ latestBlock, rollup: event.rollup });
             }
           },
         )

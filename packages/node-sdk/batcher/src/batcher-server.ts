@@ -1,7 +1,6 @@
 import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { type Operation, run, until } from "effection";
-// import type { BatchedSubunit } from "@paima/concise";
 import { type Static, Type } from "@sinclair/typebox";
 import type { Batcher } from "./batcher.ts";
 import fastifySwagger, {
@@ -227,6 +226,7 @@ export function* startBatcherHttpServer(
           message: Type.String(),
           blockNumber: Type.Number(),
           blockHash: Type.String(),
+          rollup: Type.Number(),
         }),
       },
     },
@@ -243,6 +243,7 @@ export function* startBatcherHttpServer(
         message: "Input processed",
         blockNumber: transactionReceipt ? transactionReceipt.blockNumber : 0,
         blockHash: transactionReceipt ? transactionReceipt.blockHash : "",
+        rollup: transactionReceipt ? transactionReceipt.rollup : 0,
       };
     } catch (error) {
       console.error("Error adding input to batcher:", error);
