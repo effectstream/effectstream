@@ -32,7 +32,6 @@ import type { PaimaBlockHash } from "@paima/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@paima/db/version";
 import type { SyncProtocolWithNetwork } from "@paima/config";
-import { run } from "node:test";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -157,6 +156,7 @@ async function emitLatestBlocks(
       PaimaEventManager.Instance.sendMessage(BuiltinEvents.SyncChains, {
         chain: chainName,
         block: toBlock,
+        rollup: rollUpBlockHeight
       })
     ),
   ]);
