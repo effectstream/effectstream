@@ -139,11 +139,13 @@ export async function sendTransaction(
   // Wait for paima engine to process the transaction
   const receipt = await getTxReceipt(tx_result.txHash, paimaEngineConfig);
 
-  await waitForPaimaEngineBlockProcessed(
+  const response =await waitForPaimaEngineBlockProcessed(
     Number(receipt.blockNumber),
     paimaEngineConfig,
   );
-  return serializeBigInts(receipt);
+
+  const rollup = response ? response.rollup : 0;
+  return { ...serializeBigInts(receipt), rollup };
 }
 
 // We return a json version of object for the frontend.
@@ -177,7 +179,7 @@ export function waitForPaimaEngineBlockProcessed(
   blockNumber: number,
   paimaEngineConfig: PaimaEngineConfig,
   timeout: number = 60000,
-): Promise<void> {
+): Promise<{ latestBlock: number, rollup: number } | void > {
   let subscriptionReference: symbol | undefined = undefined;
   let latestBlock = 0;
   let timer: number | undefined = undefined;
@@ -186,7 +188,7 @@ export function waitForPaimaEngineBlockProcessed(
     new Promise<void>((_, reject) => {
       timer = setTimeout(() => reject(new Error("Timeout")), timeout);
     }),
-    new Promise<void>((resolve, reject) => {
+    new Promise<{ latestBlock: number, rollup: number }>((resolve, reject) => {
       if (!paimaEngineConfig.paimaL2SyncProtocolName) {
         reject(new Error("Paima L2 Sync Protocol Name is not set"));
         return;
@@ -200,7 +202,7 @@ export function waitForPaimaEngineBlockProcessed(
         (event) => {
           latestBlock = Math.max(event.block, latestBlock);
           if (latestBlock > blockNumber) {
-            resolve(void 0);
+            resolve({ latestBlock, rollup: event.rollup });
           }
         },
       )

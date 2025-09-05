@@ -227,6 +227,7 @@ export function* startBatcherHttpServer(
           message: Type.String(),
           blockNumber: Type.Number(),
           blockHash: Type.String(),
+          rollup: Type.Number(),
         }),
       },
     },
@@ -243,6 +244,7 @@ export function* startBatcherHttpServer(
         message: "Input processed",
         blockNumber: transactionReceipt ? transactionReceipt.blockNumber : 0,
         blockHash: transactionReceipt ? transactionReceipt.blockHash : "",
+        rollup: transactionReceipt ? transactionReceipt.blockNumber : 0,
       };
     } catch (error) {
       console.error("Error adding input to batcher:", error);
