@@ -64,8 +64,8 @@ export function setupMatchExecutor(
 
     const rounds = await getMatchSeeds.run({ lobby_id: lobbyID }, dbConn);
     const seeds = rounds.map((round) => ({
-      seed: round.seed,
-      block_height: round.block_height,
+      seed: round.starting_block_height.toString(), // TODO We don't have the seed,
+      block_height: round.starting_block_height, // .block_height, ?
       round: round.round_within_match,
     }));
     const moves = await getMovesByLobby.run({ lobby_id: lobbyID }, dbConn);

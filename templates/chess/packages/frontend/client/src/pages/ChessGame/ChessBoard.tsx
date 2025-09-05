@@ -1,12 +1,12 @@
 import React from "react";
 import { useTheme } from "@mui/material";
 import { Chessboard } from "react-chessboard";
-import { chessPieces } from "./pieces";
+import { chessPieces } from "./pieces.tsx";
 import { Chess, type Square } from "chess.js";
 
 interface Props {
   board: string;
-  playerColor: "white" | "black",
+  playerColor: "white" | "black";
   arePiecesDraggable: boolean;
   handleMove: (move: string) => void;
   promotion: string;
@@ -34,25 +34,26 @@ export const ChessBoard: React.FC<Props> = ({
     // document.documentElement.clientWidth works better than window.innerWidth, generally, in mobile.
     // if both available, use the smaller one.
     // window.screen.width doesn't account for rotation, so just use as final backup.
-    const width = window.innerWidth && document.documentElement.clientWidth ? 
-        Math.min(window.innerWidth, document.documentElement.clientWidth) : 
-        document.documentElement.clientWidth || window.innerWidth || window.screen.width;
+    const width = window.innerWidth && document.documentElement.clientWidth
+      ? Math.min(window.innerWidth, document.documentElement.clientWidth)
+      : document.documentElement.clientWidth || window.innerWidth ||
+        window.screen.width;
     const responsiveSize = width - PADDING;
     return Math.max(100, Math.min(MAX_BOARD_WIDTH, responsiveSize));
-  }
+  };
 
   const [boardWidth, setBoardWidth] = React.useState<number>(getWidth());
 
   React.useEffect(() => {
     const handleResize = () => {
       setBoardWidth(getWidth());
-    }
-
-    window.addEventListener('resize', handleResize);
-    return () => {
-        window.removeEventListener('resize', handleResize);
     };
-}, []);
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   const onMouseoverSquare = (square: Square) => {
     if (!arePiecesDraggable) return;
@@ -79,7 +80,7 @@ export const ChessBoard: React.FC<Props> = ({
 
   const highlightSquare = (square: Square) => {
     const element = document.querySelector(
-      `[data-square=${square}]`
+      `[data-square=${square}]`,
     ) as HTMLElement;
 
     const isBlack = element.dataset.squareColor === "black";

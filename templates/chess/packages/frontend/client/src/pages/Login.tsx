@@ -1,17 +1,22 @@
 import React, { useContext, useState } from "react";
 import { Button, Typography } from "@mui/material";
+
 import { AppContext } from "../main.tsx";
 import type { MainController } from "../MainController.ts";
-// import type { LoginInfo } from "@paimaexample/sdk/mw-core";
 import { Card } from "../components/Card.tsx";
 import { Layout } from "../layouts/Layout.tsx";
 import { SelectField } from "../components/SelectField.tsx";
+
 import { LocalWallet } from "@thirdweb-dev/wallets";
 import { getChainByChainId } from "@thirdweb-dev/chains";
+
 import { WalletMode } from "@paimaexample/wallets";
-// import { WalletMode } from "@paimaexample/providers";
-// console.log({ PaimaWallets });
-type LoginInfo = any;
+
+type LoginInfo = {
+  mode: WalletMode;
+  connection?: any;
+  preferBatchedMode?: any;
+};
 
 const wallets = [
   "Guest",
@@ -19,7 +24,7 @@ const wallets = [
   "EVM Self-sequence",
   "Algorand",
   "Polkadot",
-  "Cardano"
+  "Cardano",
 ] as const;
 
 type WalletType = typeof wallets[number];
@@ -93,7 +98,9 @@ export const Login: React.FC = () => {
         <Button
           disabled={!selectedWallet}
           onClick={() =>
-            mainController.connectWallet(walletMapping?.[selectedWallet as WalletType])}
+            mainController.connectWallet(
+              walletMapping?.[selectedWallet as WalletType],
+            )}
         >
           Connect
         </Button>

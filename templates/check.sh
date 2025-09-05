@@ -146,6 +146,16 @@ else
 fi
 echo
 
+# Check if compact compile is working
+echo "Checking compact compile..."
+if COMPACT_COMPILE_OUTPUT=$(compact compile --version 2>/dev/null); then
+    COMPACT_COMPILE_VERSION=$(echo "$COMPACT_COMPILE_OUTPUT" | head -n1)
+    print_success "compact compile is working (version: $COMPACT_COMPILE_VERSION)"
+else
+    print_error "compact compile is not working. Please check your compact installation."
+fi
+echo
+
 # Final result
 echo "================================================"
 if [ $FAILED -eq 0 ]; then

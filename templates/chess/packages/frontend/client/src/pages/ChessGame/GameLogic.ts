@@ -5,13 +5,14 @@ import type { Color } from "chess.js";
 import { Chess } from "chess.js";
 
 type FailedResult = any;
-import * as Paima from "@chess/middleware";
-
-
+import * as Paima from "../../middleware/mod.ts";
+import type { Wallet } from "@paimaexample/wallets";
 
 export class ChessService {
   // Get Lobby State
-  static async getLobbyState(lobbyId: string): Promise<LobbyState | null> {
+  static async getLobbyState(
+    lobbyId: string,
+  ): Promise<LobbyState | null> {
     const result = await Paima.default.getLobbyState(lobbyId);
 
     if (!result.success) {
@@ -25,6 +26,7 @@ export class ChessService {
 
   // Submit Moves
   static async submitMove(
+    wallet: Wallet,
     lobbyId: string,
     roundNumber: number,
     move: string,
@@ -35,7 +37,12 @@ export class ChessService {
       lobby: LobbyState;
     }
   > {
-    const result = await Paima.default.submitMoves(lobbyId, roundNumber, move);
+    const result = await Paima.default.submitMoves(
+      wallet!,
+      lobbyId,
+      roundNumber,
+      move,
+    );
     console.log("Submit move result: ", result);
     return result;
   }
@@ -48,13 +55,18 @@ export class ChessLogic {
     this.userAddress = userAddress;
   }
 
-  async handleMove(lobbyState: LobbyState, move: string): Promise<LobbyState> {
+  async handleMove(
+    wallet: Wallet,
+    lobbyState: LobbyState,
+    move: string,
+  ): Promise<LobbyState | undefined> {
     if (this.isThisPlayersTurnRaw(lobbyState) == false) {
       console.log("It's the other player's turn");
       return;
     }
 
     const moveResult = await ChessService.submitMove(
+      wallet,
       lobbyState.lobby_id,
       lobbyState.current_round,
       move,

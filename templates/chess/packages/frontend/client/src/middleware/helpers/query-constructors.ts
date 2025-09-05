@@ -1,6 +1,7 @@
 import type { WalletAddress } from "@paimaexample/utils";
 
 // HELPERS
+// TODO This should come from config
 const getBackendUri = () => "http://localhost:9999";
 
 function queryValueToString(value: QueryValue): string {

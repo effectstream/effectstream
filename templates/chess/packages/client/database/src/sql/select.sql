@@ -128,8 +128,6 @@ AND round_within_match = :round_number;
 
 /* @name getMatchSeeds */
 SELECT * FROM rounds
-INNER JOIN block_heights
-ON block_heights.block_height = rounds.execution_block_height
 WHERE rounds.lobby_id = :lobby_id;
 
 /* @name getFinalState */
@@ -139,3 +137,19 @@ WHERE lobby_id = :lobby_id;
 /* @name getLobbyRounds */
 SELECT * FROM rounds
 WHERE lobby_id = :lobby_id;
+
+
+/* @name internalStateA */
+SELECT * FROM paima.rollup_inputs;
+
+/* @name internalStateB */
+SELECT * FROM paima.rollup_input_origin;
+
+/* @name internalStateC */
+SELECT * FROM paima.rollup_input_future_block;
+
+/* @name internalStateD */
+SELECT * FROM paima.rollup_input_future_timestamp;
+
+/* @name internalStateE */
+SELECT * FROM paima.rollup_input_result;

@@ -26,6 +26,7 @@ import { deleteZombieRound, scheduleZombieRound } from "./zombie.ts";
 import type { INewFinalStateParams } from "@chess/db";
 // import type { SQLUpdate } from "@paimaexample/node-sdk/db";
 type SQLUpdate = [any, any];
+export const BLOCK_TIME = Number.parseInt("1"); // Block creation time in seconds. process.env.BLOCK_TIME);
 
 // This function inserts a new empty round in the database.
 // We also schedule a future zombie round execution.
@@ -97,10 +98,15 @@ export function persistExecutedRound(
   // We remove the scheduled zombie round input
   if (lobby.round_length) {
     const block_height = roundData.starting_block_height + lobby.round_length;
-    return [
-      executedRoundTuple,
-      deleteZombieRound(lobby.lobby_id, block_height),
-    ];
+    if (block_height === blockHeight) {
+      // Do not delete if same round as execution round
+      return [];
+    } else {
+      return [
+        executedRoundTuple,
+        deleteZombieRound(lobby.lobby_id, block_height),
+      ];
+    }
   }
   return [executedRoundTuple];
 }
@@ -125,10 +131,10 @@ export function persistMatchResults(
       player_one_iswhite: matchEnvironment.user1.color === "w",
       player_one_wallet: matchEnvironment.user1.wallet,
       player_one_result: expandResult(results[0] as ConciseResult),
-      player_one_elapsed_time: elapsedBlocks[0] * 1000, // ENV.BLOCK_TIME,
+      player_one_elapsed_time: elapsedBlocks[0] * BLOCK_TIME,
       player_two_wallet: matchEnvironment.user2.wallet,
       player_two_result: expandResult(results[1] as ConciseResult),
-      player_two_elapsed_time: elapsedBlocks[1] * 1000, //ENV.BLOCK_TIME,
+      player_two_elapsed_time: elapsedBlocks[1] * BLOCK_TIME,
       positions: newState.fenBoard,
     },
   };

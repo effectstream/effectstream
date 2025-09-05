@@ -8,7 +8,7 @@ type LoginInfo = any;
 type MatchExecutor = any;
 type PackedUserStats = any;
 // import { ethers } from "ethers";
-import * as Paima from "@chess/middleware";
+import * as Paima from "./middleware/mod.ts";
 import { Wallet, walletLogin } from "@paimaexample/wallets";
 // The MainController is a React component that will be used to control the state of the application
 // It will be used to check if the user has metamask installed and if they are connected to the correct network
@@ -29,7 +29,7 @@ export enum Page {
 export class MainController {
   userAddress: string | null = null;
   wallet: Wallet | null = null;
-  
+
   callback: (
     page: Page | null,
     isLoading: boolean,
@@ -44,16 +44,20 @@ export class MainController {
 
   private async enforceWalletConnected() {
     this.checkCallback();
-    if (!this.isWalletConnected() || !this.userAddress) {
+    this.isWalletConnected();
+    if (!this.userAddress) {
       this.callback(Page.Login, false, null);
     }
   }
 
+  // TODO What is this doing?
   private isWalletConnected = (): boolean => {
-    return typeof (globalThis as any).ethereum !== "undefined" ? true : false;
+    const isConnected = typeof (globalThis as any).ethereum !== "undefined"
+      ? true
+      : false;
+    console.log("is wallet connected: ", isConnected);
+    return true;
   };
-
-
 
   async connectWallet(loginInfo: LoginInfo) {
     this.callback(Page.Login, true, null);
@@ -84,7 +88,7 @@ export class MainController {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
     const response = await Paima.default.getLobbySearch(
-      this.userAddress as string,
+      this.wallet!.provider.getAddress().address,
       query,
       page,
       1,
@@ -132,7 +136,7 @@ export class MainController {
   async joinLobby(lobbyId: string): Promise<void> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.joinLobby(lobbyId);
+    const response = await Paima.default.joinLobby(this.wallet!, lobbyId);
     if (!response.success) {
       this.callback(null, false, null);
       throw new Error("Could not join lobby");
@@ -161,7 +165,7 @@ export class MainController {
   async closeLobby(lobbyId: string): Promise<void> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.closeLobby(lobbyId);
+    const response = await Paima.default.closeLobby(this.wallet!, lobbyId);
     console.log("close lobby response: ", response);
     if (!response.success) {
       this.callback(null, false, null);
@@ -174,7 +178,7 @@ export class MainController {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
     const response = await Paima.default.getOpenLobbies(
-      this.userAddress!,
+      this.wallet!.provider.getAddress().address,
       page,
       limit,
     );
@@ -192,7 +196,7 @@ export class MainController {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
     const response = await Paima.default.getUserLobbiesMatches(
-      this.userAddress!,
+      this.wallet!.provider.getAddress().address,
       page,
       limit,
     );
@@ -207,7 +211,9 @@ export class MainController {
   async getStats(): Promise<PackedUserStats> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.getUserStats(this.userAddress!);
+    const response = await Paima.default.getUserStats(
+      this.wallet!.provider.getAddress().address,
+    );
     console.log("get stats response: ", response);
     this.callback(null, false, null);
     if (!response.success) {

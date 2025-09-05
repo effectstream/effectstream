@@ -20,7 +20,7 @@ export const PageCoordinator: React.FC = () => {
   ) as unknown as MainController;
   const navigate = useNavigate();
 
-  const [lobby, setLobby] = useState<LobbyState>(null);
+  const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export const PageCoordinator: React.FC = () => {
       setLoading(isLoading);
       if (newPage === Page.Game) {
         setLobby(extraData);
-        navigate(`${newPage}?lobby=${extraData.lobby_id}`);
+        navigate(`${newPage}?lobby=${extraData?.lobby_id}`);
       } else if (newPage) {
         navigate(newPage);
       }
@@ -47,7 +47,10 @@ export const PageCoordinator: React.FC = () => {
         <Route path={Page.Login} element={<Login />} />
         <Route
           element={
-            <ProtectedRoute walletAddress={mainController.userAddress} />
+            <ProtectedRoute
+              walletAddress={mainController.wallet?.provider.getAddress()
+                .address!}
+            />
           }
         >
           <Route path={Page.MainMenu} element={<MainMenu />} />

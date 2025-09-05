@@ -67,9 +67,11 @@ function createStatsUpdateInput(
   result: ConciseResult,
   ratingChange: number,
 ) {
+  // TODO: we don't support the "*" serial indicator for keys.
+  //       it should be `${wallet}`
   return JSON.stringify([
     "u",
-    `*${wallet}`,
+    `${wallet}`,
     `${result}`,
     `${ratingChange}`,
   ]);

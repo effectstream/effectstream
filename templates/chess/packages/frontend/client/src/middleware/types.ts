@@ -1,5 +1,3 @@
-// import type { Hash } from '@paimaexample/sdk/utils';
-
 import type {
   BaseRoundStatus,
   LobbyState,

@@ -41,7 +41,7 @@ export function setupOpenLobbies(
     const { count, page } = request.query;
     wallet = wallet.toLowerCase();
 
-    const offset = (page!) * count!; // check if page is based 0 or 1
+    const offset = (page ?? 0) * (count ?? 0); // check if page is based 0 or 1
     const lobbies = await getPaginatedOpenLobbies.run(
       { count: `${count}`, page: `${offset}`, wallet },
       dbConn,

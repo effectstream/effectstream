@@ -21,7 +21,7 @@ This pattern is a blueprint for many real-world applications, such as:
 
 ```sh
 # Check for external dependencies
-./check.sh
+./../check.sh
 
 # Install packages
 deno install --allow-scripts && ./patch.sh

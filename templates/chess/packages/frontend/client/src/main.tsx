@@ -5,15 +5,6 @@ import { MainController } from "./MainController.ts";
 import { BrowserRouter } from "react-router-dom";
 import { createTheme, ThemeProvider } from "@mui/material";
 import { theme } from "./theme.ts";
-// import { ethers } from "ethers";
-// import * as s from "@sinclair/typebox";
-// import * as mw from "@chess/middleware";
-// import * as mw from "@chess/middleware/bundle";
-// console.log({ mw });
-
-// import * as c from "@paimaexample/crypto";
-
-// console.log({ c });
 
 import "./main.scss";
 

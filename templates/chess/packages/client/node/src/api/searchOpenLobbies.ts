@@ -63,7 +63,9 @@ export function setupSearchOpenLobbies(
       return;
     }
 
-    const offset = (page! - 1) * count!;
+    // const offset = (page! - 1) * count!;
+    const offset = (page ?? 0) * (count ?? 0); // check if page is based 0 or 1
+
     const lobbies = await searchPaginatedOpenLobbies.run(
       {
         count: `${count}`,

@@ -1,9 +1,9 @@
 -- Generic paima engine table, that can't be modified
-CREATE TABLE block_heights ( 
-  block_height INTEGER PRIMARY KEY,
-  seed TEXT NOT NULL,
-  done BOOLEAN NOT NULL DEFAULT false
-);
+-- CREATE TABLE block_heights ( 
+--   block_height INTEGER PRIMARY KEY,
+--   seed TEXT NOT NULL,
+--   done BOOLEAN NOT NULL DEFAULT false
+-- );
 
 -- Extend the schema to fit your needs
 CREATE TYPE lobby_status AS ENUM ('open', 'active', 'finished', 'closed');
@@ -32,8 +32,8 @@ CREATE TABLE rounds(
   match_state TEXT NOT NULL,
   player_one_blocks_left INTEGER NOT NULL,
   player_two_blocks_left INTEGER NOT NULL,
-  starting_block_height INTEGER NOT NULL references block_heights(block_height),
-  execution_block_Height INTEGER references block_heights(block_height)
+  starting_block_height INTEGER NOT NULL, -- references block_heights(block_height),
+  execution_block_Height INTEGER -- references block_heights(block_height)
 );
 
 CREATE TYPE match_result AS ENUM ('win', 'tie', 'loss');

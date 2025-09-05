@@ -1,6 +1,7 @@
 /** Types generated for queries found in "src/sql/select.sql" */
 import { PreparedQuery } from "@pgtyped/runtime";
 
+import type { Buffer } from "node:buffer";
 // export type lobby_status = 'active' | 'closed' | 'finished' | 'open';
 // export type match_result = 'loss' | 'tie' | 'win';
 import type { LobbyStatus, MatchResult } from "../common.ts";
@@ -773,8 +774,6 @@ export interface IGetMatchSeedsParams {
 
 /** 'GetMatchSeeds' return type */
 export interface IGetMatchSeedsResult {
-  block_height: number;
-  done: boolean;
   execution_block_height: number | null;
   id: number;
   lobby_id: string;
@@ -782,7 +781,6 @@ export interface IGetMatchSeedsResult {
   player_one_blocks_left: number;
   player_two_blocks_left: number;
   round_within_match: number;
-  seed: string;
   starting_block_height: number;
 }
 
@@ -798,18 +796,15 @@ const getMatchSeedsIR: any = {
     "name": "lobby_id",
     "required": false,
     "transform": { "type": "scalar" },
-    "locs": [{ "a": 132, "b": 140 }],
+    "locs": [{ "a": 45, "b": 53 }],
   }],
-  "statement":
-    "SELECT * FROM rounds\nINNER JOIN block_heights\nON block_heights.block_height = rounds.execution_block_height\nWHERE rounds.lobby_id = :lobby_id",
+  "statement": "SELECT * FROM rounds\nWHERE rounds.lobby_id = :lobby_id",
 };
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT * FROM rounds
- * INNER JOIN block_heights
- * ON block_heights.block_height = rounds.execution_block_height
  * WHERE rounds.lobby_id = :lobby_id
  * ```
  */
@@ -910,3 +905,170 @@ export const getLobbyRounds = new PreparedQuery<
   IGetLobbyRoundsParams,
   IGetLobbyRoundsResult
 >(getLobbyRoundsIR);
+
+/** 'InternalStateA' parameters type */
+export type IInternalStateAParams = void;
+
+/** 'InternalStateA' return type */
+export interface IInternalStateAResult {
+  from_address: string;
+  id: number;
+  input_data: string;
+}
+
+/** 'InternalStateA' query type */
+export interface IInternalStateAQuery {
+  params: IInternalStateAParams;
+  result: IInternalStateAResult;
+}
+
+const internalStateAIR: any = {
+  "usedParamSet": {},
+  "params": [],
+  "statement": "SELECT * FROM paima.rollup_inputs",
+};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM paima.rollup_inputs
+ * ```
+ */
+export const internalStateA = new PreparedQuery<
+  IInternalStateAParams,
+  IInternalStateAResult
+>(internalStateAIR);
+
+/** 'InternalStateB' parameters type */
+export type IInternalStateBParams = void;
+
+/** 'InternalStateB' return type */
+export interface IInternalStateBResult {
+  caip2: string | null;
+  contract_address: string | null;
+  id: number;
+  primitive_name: string | null;
+  tx_hash: Buffer | null;
+}
+
+/** 'InternalStateB' query type */
+export interface IInternalStateBQuery {
+  params: IInternalStateBParams;
+  result: IInternalStateBResult;
+}
+
+const internalStateBIR: any = {
+  "usedParamSet": {},
+  "params": [],
+  "statement": "SELECT * FROM paima.rollup_input_origin",
+};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM paima.rollup_input_origin
+ * ```
+ */
+export const internalStateB = new PreparedQuery<
+  IInternalStateBParams,
+  IInternalStateBResult
+>(internalStateBIR);
+
+/** 'InternalStateC' parameters type */
+export type IInternalStateCParams = void;
+
+/** 'InternalStateC' return type */
+export interface IInternalStateCResult {
+  future_block_height: number;
+  id: number;
+}
+
+/** 'InternalStateC' query type */
+export interface IInternalStateCQuery {
+  params: IInternalStateCParams;
+  result: IInternalStateCResult;
+}
+
+const internalStateCIR: any = {
+  "usedParamSet": {},
+  "params": [],
+  "statement": "SELECT * FROM paima.rollup_input_future_block",
+};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM paima.rollup_input_future_block
+ * ```
+ */
+export const internalStateC = new PreparedQuery<
+  IInternalStateCParams,
+  IInternalStateCResult
+>(internalStateCIR);
+
+/** 'InternalStateD' parameters type */
+export type IInternalStateDParams = void;
+
+/** 'InternalStateD' return type */
+export interface IInternalStateDResult {
+  future_ms_timestamp: Date;
+  id: number;
+}
+
+/** 'InternalStateD' query type */
+export interface IInternalStateDQuery {
+  params: IInternalStateDParams;
+  result: IInternalStateDResult;
+}
+
+const internalStateDIR: any = {
+  "usedParamSet": {},
+  "params": [],
+  "statement": "SELECT * FROM paima.rollup_input_future_timestamp",
+};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM paima.rollup_input_future_timestamp
+ * ```
+ */
+export const internalStateD = new PreparedQuery<
+  IInternalStateDParams,
+  IInternalStateDResult
+>(internalStateDIR);
+
+/** 'InternalStateE' parameters type */
+export type IInternalStateEParams = void;
+
+/** 'InternalStateE' return type */
+export interface IInternalStateEResult {
+  block_height: number;
+  id: number;
+  index_in_block: number;
+  paima_tx_hash: Buffer;
+  success: boolean;
+}
+
+/** 'InternalStateE' query type */
+export interface IInternalStateEQuery {
+  params: IInternalStateEParams;
+  result: IInternalStateEResult;
+}
+
+const internalStateEIR: any = {
+  "usedParamSet": {},
+  "params": [],
+  "statement": "SELECT * FROM paima.rollup_input_result",
+};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM paima.rollup_input_result
+ * ```
+ */
+export const internalStateE = new PreparedQuery<
+  IInternalStateEParams,
+  IInternalStateEResult
+>(internalStateEIR);

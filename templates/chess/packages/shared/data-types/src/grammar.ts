@@ -7,34 +7,34 @@ import { localhostConfig } from "./localhostConfig.ts";
 
 export const grammar = {
   createdLobby: [
-      ["numOfRounds", Type.Number()],
-      ["roundLength", Type.Number()],
-      ["playTimePerPlayer", Type.Number()],
-      ["isHidden", Type.Boolean({ default: false })],
-      ["isPractice", Type.Boolean({ default: false })],
-      ["botDifficulty", Type.Number()],
-      ["playerOneIsWhite", Type.Boolean({ default: true })],
+    ["numOfRounds", Type.Number()],
+    ["roundLength", Type.Number()],
+    ["playTimePerPlayer", Type.Number()],
+    ["isHidden", Type.Boolean({ default: false })],
+    ["isPractice", Type.Boolean({ default: false })],
+    ["botDifficulty", Type.Number()],
+    ["playerOneIsWhite", Type.Boolean({ default: true })],
   ],
-  joinedLobby: [
-      ["lobbyID", Type.String()],
-  ],
-  closedLobby: [
+  joinLobby: [
     ["lobbyID", Type.String()],
   ],
-  submittedMoves: [
+  closeLobby: [
+    ["lobbyID", Type.String()],
+  ],
+  submitMoves: [
     ["lobbyID", Type.String()],
     ["roundNumber", Type.Number()],
     ["pgnMove", Type.String()],
   ],
-  zombieScheduledData: [
+  z /* zombieScheduledData */: [
     ["lobbyID", Type.String()],
   ],
-  userScheduledData: [
+  u /* userScheduledData */: [
     ["user", Type.String()],
     ["result", Type.String()],
     ["ratingChange", Type.Number()],
   ],
-  scheduledBotMove: [
+  sb /* scheduledBotMove */: [
     ["lobbyID", Type.String()],
     ["roundNumber", Type.Number()],
   ],

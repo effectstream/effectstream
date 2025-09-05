@@ -1,6 +1,6 @@
 import type { TickEvent } from "@chess/game-logic";
 import { format } from "date-fns";
-import { BLOCK_TIME } from "./constants";
+import { BLOCK_TIME } from "./constants.ts";
 
 export const formatDate = (dateISO: string | Date): string => {
   const date = new Date(dateISO);
@@ -12,10 +12,12 @@ export const formatTime = (time: number): string => {
   const minutes = Math.floor(time / 60) % 60;
   const hours = Math.floor(time / 3600);
 
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-    2,
-    "0",
-  )}:${String(seconds).padStart(2, "0")}`;
+  return `${String(hours).padStart(2, "0")}:${
+    String(minutes).padStart(
+      2,
+      "0",
+    )
+  }:${String(seconds).padStart(2, "0")}`;
 };
 
 export function isTickEvent(event: any): event is TickEvent {

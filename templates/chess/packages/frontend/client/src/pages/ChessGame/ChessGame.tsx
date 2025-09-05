@@ -94,7 +94,9 @@ export const ChessGame: React.FC<Props> = ({ lobby }) => {
   useEffect(() => {
     const fetchLobbyData = async () => {
       if (waitingConfirmation || replayInProgress) return;
-      const lobbyState = await ChessService.getLobbyState(lobbyID);
+      const lobbyState = await ChessService.getLobbyState(
+        lobbyID,
+      );
       if (lobbyState == null) return;
       setLobbyState((old) => {
         return old && old.current_round > lobbyState.current_round
@@ -113,7 +115,11 @@ export const ChessGame: React.FC<Props> = ({ lobby }) => {
   async function handleMove(move: string): Promise<void> {
     setWaitingConfirmation(true);
     game.move(move);
-    const newLobbyState = await chessLogic.handleMove(lobbyState, move);
+    const newLobbyState = await chessLogic.handleMove(
+      mainController.wallet!,
+      lobbyState!,
+      move,
+    );
     if (newLobbyState != null) {
       setLobbyState(newLobbyState);
     } else {

@@ -39,7 +39,9 @@ export function deleteZombieRound(
 
 // Create the zombie round input
 function createZombieInput(lobbyId: string): string {
-  return JSON.stringify(["z", `*${lobbyId}`]);
+  // TODO: we don't support the "*" serial indicator for keys.
+  //       it should be `*${lobbyId}`
+  return JSON.stringify(["z", `${lobbyId}`]);
 }
 
 export const generateZombieMove = (

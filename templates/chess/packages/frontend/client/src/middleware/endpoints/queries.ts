@@ -3,20 +3,30 @@
 // import type { MatchExecutor, RoundExecutor } from '@paimaexample/sdk/executors';
 
 import type {
-  MatchWinnerResponse,
-  MatchExecutorData,
-  RoundExecutorData,
-  RoundStatusData,
-  UserStats,
   LobbyState,
   LobbyStateQuery,
+  MatchExecutorData,
+  MatchWinnerResponse,
+  RoundExecutorData,
+  RoundStatusData,
   UserLobby,
-} from '@chess/utils';
+  UserStats,
+} from "@chess/utils";
 
 // import { buildEndpointErrorFxn, MiddlewareErrorCode } from '../errors.ts';
-import { getRawLobbyState, getRawNewLobbies } from '../helpers/auxiliary-queries.ts';
-import { buildEndpointErrorFxn, calculateRoundEnd, FailedResult } from '../helpers/utility-functions.ts';
-import { buildMatchExecutor, buildRoundExecutor } from '../helpers/executors.ts';
+import {
+  getRawLobbyState,
+  getRawNewLobbies,
+} from "../helpers/auxiliary-queries.ts";
+import {
+  buildEndpointErrorFxn,
+  calculateRoundEnd,
+  FailedResult,
+} from "../helpers/utility-functions.ts";
+import {
+  buildMatchExecutor,
+  buildRoundExecutor,
+} from "../helpers/executors.ts";
 import {
   backendQueryMatchExecutor,
   backendQueryMatchWinner,
@@ -27,7 +37,7 @@ import {
   backendQuerySearchLobby,
   backendQueryUserLobbies,
   backendQueryUserStats,
-} from '../helpers/query-constructors.ts';
+} from "../helpers/query-constructors.ts";
 import type {
   LobbyStates,
   NewLobbies,
@@ -35,10 +45,14 @@ import type {
   PackedRoundExecutionState,
   PackedUserLobbies,
   PackedUserStats,
-} from '../types.ts';
-import type { MatchExecutor, MatchState, RoundExecutor, TickEvent } from '@chess/game-logic';
-import { isPlayersTurn } from '@chess/game-logic';
-
+} from "../types.ts";
+import type {
+  MatchExecutor,
+  MatchState,
+  RoundExecutor,
+  TickEvent,
+} from "@chess/game-logic";
+import { isPlayersTurn } from "@chess/game-logic";
 
 export async function getBlockNumber(): Promise<number> {
   const response = await fetch("http://localhost:9999/rpc/evm", {
@@ -50,16 +64,17 @@ export async function getBlockNumber(): Promise<number> {
       jsonrpc: "2.0",
       method: "eth_getBlockByNumber",
       params: ["latest", false],
-      id: 1
+      id: 1,
     }),
   });
   const data = await response.json();
   return data.block_height;
 }
 
-
-async function getLobbyState(lobbyID: string): Promise<PackedLobbyState | FailedResult> {
-  const errorFxn = buildEndpointErrorFxn('getLobbyState');
+async function getLobbyState(
+  lobbyID: string,
+): Promise<PackedLobbyState | FailedResult> {
+  const errorFxn = buildEndpointErrorFxn("getLobbyState");
 
   let packedLobbyState: PackedLobbyState | FailedResult;
   let latestBlockHeight: number;
@@ -81,7 +96,7 @@ async function getLobbyState(lobbyID: string): Promise<PackedLobbyState | Failed
     const { lobby } = packedLobbyState;
     let [start, length] = [0, 0];
 
-    if (lobby.lobby_state === 'active') {
+    if (lobby.lobby_state === "active") {
       start = lobby.round_start_height;
       length = lobby.round_length;
     }
@@ -105,9 +120,9 @@ async function getLobbySearch(
   wallet: string,
   searchQuery: string,
   page: number,
-  count?: number
+  count?: number,
 ): Promise<LobbyStates | FailedResult> {
-  const errorFxn = buildEndpointErrorFxn('getLobbySearch');
+  const errorFxn = buildEndpointErrorFxn("getLobbySearch");
 
   let response: Response;
   try {
@@ -130,16 +145,19 @@ async function getLobbySearch(
 
 async function getRoundExecutionState(
   lobbyID: string,
-  round: number
+  round: number,
 ): Promise<PackedRoundExecutionState | FailedResult> {
-  const errorFxn = buildEndpointErrorFxn('getRoundExecutionState');
+  const errorFxn = buildEndpointErrorFxn("getRoundExecutionState");
 
   let res: Response;
   let latestBlockHeight: number;
 
   try {
     const query = backendQueryRoundStatus(lobbyID, round);
-    [res, latestBlockHeight] = await Promise.all([fetch(query), getBlockNumber()]);
+    [res, latestBlockHeight] = await Promise.all([
+      fetch(query),
+      getBlockNumber(),
+    ]);
   } catch (err) {
     return errorFxn("ERROR_QUERYING_BACKEND_ENDPOINT", err);
   }
@@ -163,8 +181,10 @@ async function getRoundExecutionState(
   }
 }
 
-async function getUserStats(walletAddress: string): Promise<PackedUserStats | FailedResult> {
-  const errorFxn = buildEndpointErrorFxn('getUserStats');
+async function getUserStats(
+  walletAddress: string,
+): Promise<PackedUserStats | FailedResult> {
+  const errorFxn = buildEndpointErrorFxn("getUserStats");
 
   let res: Response;
   try {
@@ -188,9 +208,9 @@ async function getUserStats(walletAddress: string): Promise<PackedUserStats | Fa
 
 async function getNewLobbies(
   wallet: string,
-  blockHeight: number
+  blockHeight: number,
 ): Promise<NewLobbies | FailedResult> {
-  const errorFxn = buildEndpointErrorFxn('getNewLobbies');
+  const errorFxn = buildEndpointErrorFxn("getNewLobbies");
   try {
     return getRawNewLobbies(wallet, blockHeight);
   } catch (err) {
@@ -201,9 +221,9 @@ async function getNewLobbies(
 async function getUserLobbiesMatches(
   walletAddress: string,
   page: number,
-  count?: number
+  count?: number,
 ): Promise<PackedUserLobbies | FailedResult> {
-  const errorFxn = buildEndpointErrorFxn('getUserLobbiesMatches');
+  const errorFxn = buildEndpointErrorFxn("getUserLobbiesMatches");
 
   let res: Response;
   try {
@@ -217,7 +237,7 @@ async function getUserLobbiesMatches(
     const j = (await res.json()) as { lobbies: UserLobby[] };
     return {
       success: true,
-      lobbies: j.lobbies.map(lobby => ({
+      lobbies: j.lobbies.map((lobby) => ({
         ...lobby,
         myTurn: isPlayersTurn(walletAddress, lobby),
       })),
@@ -230,9 +250,9 @@ async function getUserLobbiesMatches(
 async function getOpenLobbies(
   wallet: string,
   page: number,
-  count?: number
+  count?: number,
 ): Promise<LobbyStates | FailedResult> {
-  const errorFxn = buildEndpointErrorFxn('getOpenLobbies');
+  const errorFxn = buildEndpointErrorFxn("getOpenLobbies");
 
   let res: Response;
   try {
@@ -249,12 +269,12 @@ async function getOpenLobbies(
       lobbies: j.lobbies,
     };
   } catch (err) {
-        return errorFxn("INVALID_RESPONSE_FROM_BACKEND", err);
+    return errorFxn("INVALID_RESPONSE_FROM_BACKEND", err);
   }
 }
 
 async function getRandomOpenLobby(): Promise<PackedLobbyState | FailedResult> {
-  const errorFxn = buildEndpointErrorFxn('getRandomOpenLobby');
+  const errorFxn = buildEndpointErrorFxn("getRandomOpenLobby");
 
   let res: Response;
   try {
@@ -283,17 +303,12 @@ export interface SuccessfulResult<T> {
   result: T;
 }
 
-// export interface FailedResult {
-//   success: false;
-//   errorMessage: string;
-//   errorCode?: number;
-// }
-
 export type Result<T> = SuccessfulResult<T> | FailedResult;
 
-
-async function getMatchWinner(lobbyId: string): Promise<Result<MatchWinnerResponse>> {
-  const errorFxn = buildEndpointErrorFxn('getMatchWinner');
+async function getMatchWinner(
+  lobbyId: string,
+): Promise<Result<MatchWinnerResponse>> {
+  const errorFxn = buildEndpointErrorFxn("getMatchWinner");
 
   let res: Response;
   try {
@@ -316,9 +331,9 @@ async function getMatchWinner(lobbyId: string): Promise<Result<MatchWinnerRespon
 
 async function getRoundExecutor(
   lobbyId: string,
-  roundNumber: number
+  roundNumber: number,
 ): Promise<Result<RoundExecutor<MatchState, TickEvent>>> {
-  const errorFxn = buildEndpointErrorFxn('getRoundExecutor');
+  const errorFxn = buildEndpointErrorFxn("getRoundExecutor");
 
   // Retrieve data:
   let res: Response;
@@ -349,9 +364,9 @@ async function getRoundExecutor(
 }
 
 async function getMatchExecutor(
-  lobbyId: string
+  lobbyId: string,
 ): Promise<Result<MatchExecutor<MatchState, TickEvent>>> {
-  const errorFxn = buildEndpointErrorFxn('getMatchExecutor');
+  const errorFxn = buildEndpointErrorFxn("getMatchExecutor");
 
   // Retrieve data:
   let res: Response;

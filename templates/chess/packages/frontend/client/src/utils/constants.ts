@@ -1,1 +1,1 @@
-export const BLOCK_TIME = Number.parseInt("1000"); // process.env.BLOCK_TIME);
+export const BLOCK_TIME = Number.parseInt("1"); // Block creation time in seconds. process.env.BLOCK_TIME);

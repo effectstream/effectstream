@@ -42,7 +42,8 @@ export function setupUserLobbies(
     let { wallet } = request.query;
     const { count, page } = request.query;
     wallet = wallet.toLowerCase();
-    const offset = (page! - 1) * count!;
+    // const offset = (page! - 1) * count!;
+    const offset = (page ?? 0) * (count ?? 0); // check if page is based 0 or 1
 
     const userLobbies = await getAllPaginatedUserLobbies.run(
       { wallet: wallet, count: `${count}`, page: `${offset}` },

@@ -19,5 +19,7 @@ export function schedulePracticeMove(
 }
 
 function createPracticeInput(lobbyId: string, round: number) {
-  return JSON.stringify(["sb", `*${lobbyId}`, `${round}`]);
+  // TODO: we don't support the "*" serial indicator for keys.
+  //       it should be `*${lobbyId}`
+  return JSON.stringify(["sb", `${lobbyId}`, `${round}`]);
 }

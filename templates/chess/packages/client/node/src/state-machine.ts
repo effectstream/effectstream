@@ -1,6 +1,6 @@
 import { PaimaSTM } from "@paimaexample/sm";
 import { grammar } from "@chess/data-types/grammar";
-import type { BaseStfInput, BaseStfOutput } from "@paimaexample/sm";
+import type { BaseStfInput } from "@paimaexample/sm";
 import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
 import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
 import {
@@ -11,6 +11,11 @@ import {
   submittedMoves,
 } from "./state-machine/v1/transition.ts";
 import { getConnection } from "@paimaexample/db";
+import type {
+  BotMove,
+  UserStats,
+  ZombieRound,
+} from "./state-machine/v1/types.ts";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 type SQLUpdate = [any, any];
@@ -24,111 +29,213 @@ stm.addStateTransition("createdLobby", function* (data) {
         input: "createdLobby",
         ...parsedInput,
       }, randomGenerator).then((r) => {
-        console.error("r", r);
+        // console.error("non-adapted response:", r);
         // TODO We have a issue where the result is unpacked.
         //      So we return an extra []
         resolve([r] as SQLUpdate[]);
       }).catch((e) => {
-        console.error("e", e);
+        console.error("non-adapted error:", e);
         reject(e);
       });
-  })
+    }),
   );
-
   for (let i = 0; i < result.length; i++) {
+    yield* printSQLQueries(i, result[i]);
     yield* World.resolve(result[i][0], result[i][1]);
   }
 });
 
-stm.addStateTransition("joinedLobby", function* (data) {
+stm.addStateTransition("joinLobby", function* (data) {
   const user = data.signerAddress;
   const { blockHeight, parsedInput, randomGenerator } = data;
   const dbConn = getConnection();
-  const result = yield* World.promise(
-    joinedLobby(user!, blockHeight, {
-      input: "joinedLobby",
-      ...parsedInput,
-    }, dbConn),
+  const result = yield* World.promise<SQLUpdate[]>(
+    new Promise((resolve, reject) => {
+      return joinedLobby(user!, blockHeight, {
+        input: "joinedLobby",
+        ...parsedInput,
+      }, dbConn).then((r) => {
+        // console.error("non-adapted response:", r);
+        // TODO We have a issue where the result is unpacked.
+        //      So we return an extra []
+        resolve([r] as SQLUpdate[]);
+      }).catch((e) => {
+        console.error("non-adapted error:", e);
+        reject(e);
+      });
+    }),
   );
+  for (let i = 0; i < result.length; i++) {
+    yield* printSQLQueries(i, result[i]);
+    yield* World.resolve(result[i][0], result[i][1]);
+  }
 });
 
-stm.addStateTransition("closedLobby", function* (data) {
+stm.addStateTransition("closeLobby", function* (data) {
   const user = data.signerAddress;
   const { blockHeight, parsedInput, randomGenerator } = data;
   const dbConn = getConnection();
-  const result = yield* World.promise(
-    closedLobby(user!, {
-      input: "closedLobby",
-      ...parsedInput,
-    }, dbConn),
+
+  const result = yield* World.promise<SQLUpdate[]>(
+    new Promise((resolve, reject) => {
+      return closedLobby(user!, {
+        input: "closedLobby",
+        ...parsedInput,
+      }, dbConn).then((r) => {
+        // console.error("non-adapted response:", r);
+        // TODO We have a issue where the result is unpacked.
+        //      So we return an extra []
+        resolve([r] as SQLUpdate[]);
+      }).catch((e) => {
+        console.error("non-adapted error:", e);
+        reject(e);
+      });
+    }),
   );
+  for (let i = 0; i < result.length; i++) {
+    yield* printSQLQueries(i, result[i]);
+    yield* World.resolve(result[i][0], result[i][1]);
+  }
 });
 
-stm.addStateTransition("submittedMoves", function* (data) {
+stm.addStateTransition("submitMoves", function* (data) {
   const user = data.signerAddress;
   const { blockHeight, parsedInput, randomGenerator } = data;
   const dbConn = getConnection();
-  const result = yield* World.promise(
-    submittedMoves(
-      user!,
-      blockHeight,
-      {
-        input: "submittedMoves",
-        ...parsedInput,
-      },
-      dbConn,
-      randomGenerator,
-    ),
+
+  const result = yield* World.promise<SQLUpdate[]>(
+    new Promise((resolve, reject) => {
+      return submittedMoves(
+        user!,
+        blockHeight,
+        {
+          input: "submittedMoves",
+          ...parsedInput,
+        },
+        dbConn,
+        randomGenerator,
+      ).then((r) => {
+        // console.error("non-adapted response:", r);
+        // TODO We have a issue where the result is unpacked.
+        //      So we return an extra []
+        resolve([r] as SQLUpdate[]);
+      }).catch((e) => {
+        console.error("non-adapted error:", e);
+        reject(e);
+      });
+    }),
   );
+  for (let i = 0; i < result.length; i++) {
+    yield* printSQLQueries(i, result[i]);
+    yield* World.resolve(result[i][0], result[i][1]);
+  }
 });
 
-stm.addStateTransition("zombieScheduledData", function* (data) {
+stm.addStateTransition("z", function* (data) {
   const { blockHeight, parsedInput, randomGenerator } = data;
+  console.error("Processing z", parsedInput);
   const dbConn = getConnection();
-  const result = yield* World.promise(
-    scheduledData(
-      blockHeight,
-      {
-        input: "scheduledData",
-        ...parsedInput,
-      },
-      dbConn,
-      randomGenerator,
-    ),
+  const result = yield* World.promise<SQLUpdate[]>(
+    new Promise((resolve, reject) => {
+      return scheduledData(
+        blockHeight,
+        {
+          input: "scheduledData",
+          effect: "zombie",
+          ...parsedInput,
+        } as ZombieRound,
+        dbConn,
+        randomGenerator,
+      ).then((r) => {
+        // console.error("non-adapted response:", r);
+        // TODO We have a issue where the result is unpacked.
+        //      So we return an extra []
+        resolve([r] as SQLUpdate[]);
+      }).catch((e) => {
+        console.error("non-adapted error:", e);
+        reject(e);
+      });
+    }),
   );
+  for (let i = 0; i < result.length; i++) {
+    yield* printSQLQueries(i, result[i]);
+    yield* World.resolve(result[i][0], result[i][1]);
+  }
 });
 
-stm.addStateTransition("userScheduledData", function* (data) {
+stm.addStateTransition("u", function* (data) {
   const { blockHeight, parsedInput, randomGenerator } = data;
+  console.error("Processing u", parsedInput);
   const dbConn = getConnection();
-  const result = yield* World.promise(
-    scheduledData(
-      blockHeight,
-      {
-        input: "scheduledData",
-        ...parsedInput,
-      },
-      dbConn,
-      randomGenerator,
-    ),
+  const result = yield* World.promise<SQLUpdate[]>(
+    new Promise((resolve, reject) => {
+      return scheduledData(
+        blockHeight,
+        {
+          input: "scheduledData",
+          effect: "stats",
+          ...parsedInput,
+        } as UserStats,
+        dbConn,
+        randomGenerator,
+      ).then((r) => {
+        // console.error("non-adapted response:", r);
+        // TODO We have a issue where the result is unpacked.
+        //      So we return an extra []
+        resolve([r] as SQLUpdate[]);
+      }).catch((e) => {
+        console.error("non-adapted error:", e);
+        reject(e);
+      });
+    }),
   );
+  for (let i = 0; i < result.length; i++) {
+    yield* printSQLQueries(i, result[i]);
+    yield* World.resolve(result[i][0], result[i][1]);
+  }
 });
 
-stm.addStateTransition("scheduledBotMove", function* (data) {
+stm.addStateTransition("sb", function* (data) {
   const { blockHeight, parsedInput, randomGenerator } = data;
+  console.error("Processing sb", parsedInput);
   const dbConn = getConnection();
-  const result = yield* World.promise(
-    scheduledData(
-      blockHeight,
-      {
-        input: "scheduledData",
-        ...parsedInput,
-      },
-      dbConn,
-      randomGenerator,
-    ),
+  const result = yield* World.promise<SQLUpdate[]>(
+    new Promise((resolve, reject) => {
+      return scheduledData(
+        blockHeight,
+        {
+          input: "scheduledData",
+          effect: "move",
+          ...parsedInput,
+        } as BotMove,
+        dbConn,
+        randomGenerator,
+      ).then((r) => {
+        // console.error("non-adapted response:", r);
+        // TODO We have a issue where the result is unpacked.
+        //      So we return an extra []
+        resolve([r] as SQLUpdate[]);
+      }).catch((e) => {
+        console.error("non-adapted error:", e);
+        reject(e);
+      });
+    }),
   );
+
+  for (let i = 0; i < result.length; i++) {
+    yield* printSQLQueries(i, result[i]);
+    yield* World.resolve(result[i][0], result[i][1]);
+  }
 });
+
+function* printSQLQueries(index: number, result: any) {
+  console.error("--------------------------------");
+  console.error(`Processing Query ${index + 1}`);
+  console.error(
+    `Prepared Query:\n${result[0].queryIR.statement}\n\n`,
+  );
+  console.error(`Parameters:\n${JSON.stringify(result[1], null, 2)}\n\n`);
+}
 
 // stm.finalize(); // this avoids people dynamically calling stm.addStateTransition after initialization
 
