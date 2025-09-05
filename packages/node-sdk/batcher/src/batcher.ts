@@ -38,7 +38,7 @@ interface BatcherConfig {
   paimaL2Address: EvmAddress;
   batcherPrivateKey: EvmPrivateKey;
   chain: Chain;
-  batchIntervalSeconds?: number;
+  batchIntervalMs?: number;
   paimaL2Fee: bigint;
   paimaSyncProtocolName: string;
   namespace?: string;
@@ -90,7 +90,7 @@ export class Batcher {
   constructor(config: BatcherConfig) {
     this.paimaL2Address = config.paimaL2Address;
     this.paimaSyncProtocolName = config.paimaSyncProtocolName;
-    this.batchInterval = (config.batchIntervalSeconds ?? 5) * 1000; // Convert to milliseconds
+    this.batchInterval = config.batchIntervalMs ?? 1000;
     this.paimaL2Fee = config.paimaL2Fee;
     this.namespace = config.namespace ?? "";
     this.maxBatchSize = config.maxBatchSize ?? 10000; // Default max batch size
@@ -426,7 +426,7 @@ export class Batcher {
     paimaL2Address: string;
     batcherAddress: string;
     chainName: string;
-    batchIntervalSeconds: number;
+    batchIntervalMs: number;
     paimaL2Fee: string;
     namespace: string;
     maxBatchSize: number;
@@ -436,7 +436,7 @@ export class Batcher {
       paimaL2Address: this.paimaL2Address,
       batcherAddress: this.account.address,
       chainName: this.walletClient.chain?.name || "Unknown",
-      batchIntervalSeconds: this.batchInterval / 1000,
+      batchIntervalMs: this.batchInterval,
       paimaL2Fee: this.paimaL2Fee.toString(),
       namespace: this.namespace,
       maxBatchSize: this.maxBatchSize,
@@ -483,7 +483,7 @@ export function* createAndLaunchBatcher(
 
   const getPublicConfig = batcher.getPublicConfig();
   console.log(
-    `🎯 Batcher started - batching every ${getPublicConfig.batchIntervalSeconds} seconds`,
+    `🎯 Batcher started - batching every ${getPublicConfig.batchIntervalMs} milliseconds`,
   );
   console.log(`📍 PaimaL2 Contract: ${getPublicConfig.paimaL2Address}`);
   console.log(`👤 Batcher Address: ${getPublicConfig.batcherAddress}`);
