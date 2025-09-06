@@ -13,14 +13,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pragma language_version 0.16;
+pragma language_version 0.17;
 
 import CompactStandardLibrary;
 
 // public state
 export ledger round: Counter;
+export ledger quotient: Uint<128>;
+export ledger remainder: Uint<128>;
+
+witness divMod(x: Uint<128>, y: Uint<128>): [Uint<128>, Uint<128>];
 
 // transition function changing public state
-export circuit increment(): [] {
+export circuit increment(): [Uint<128>, Uint<128>] {
   round.increment(1);
+
+  const dividend: Uint<128> = 3;
+  const divisor: Uint<128> = 8;
+  const result = disclose(divMod(dividend, divisor));
+  quotient = result[0];
+  remainder = result[1];
+  // assert(remainder < divisor, "remainder error");
+  // assert(((quotient * divisor) + remainder) as Field == dividend as Field, "division error");
+  return [quotient, remainder];
 }

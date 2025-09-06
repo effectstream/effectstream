@@ -121,6 +121,10 @@ const getCounterLedgerState = async (
     const contractState = await providers.publicDataProvider.queryContractState(
       contractAddress,
     );
+
+    console.log("quotient>", contractState ? Counter.ledger(contractState.data).quotient : null);
+    console.log("remainder>", contractState ? Counter.ledger(contractState.data).remainder : null);
+
     const state = contractState != null
       ? Counter.ledger(contractState.data).round
       : null;

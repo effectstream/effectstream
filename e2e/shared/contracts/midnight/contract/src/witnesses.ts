@@ -18,4 +18,15 @@ export type CounterPrivateState = {
   privateCounter: number;
 };
 
-export const witnesses = {};
+export const witnesses = {
+  divMod: (
+    _privateState: CounterPrivateState,
+    _a: number | bigint, 
+    _b: number | bigint): [CounterPrivateState, [bigint, bigint]] => {
+    const a = Number(_a);
+    const b = Number(_b);
+    const remainder = a % b;
+    const quotient = Math.floor(a / b);
+    return [_privateState, [BigInt(quotient), BigInt(remainder)]];
+  }
+};
