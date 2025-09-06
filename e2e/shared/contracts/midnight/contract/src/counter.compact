@@ -28,8 +28,8 @@ witness divMod(x: Uint<128>, y: Uint<128>): [Uint<128>, Uint<128>];
 export circuit increment(): [Uint<128>, Uint<128>] {
   round.increment(1);
 
-  const dividend: Uint<128> = 3;
-  const divisor: Uint<128> = 8;
+  const dividend: Uint<128> = 7;
+  const divisor: Uint<128> = 3;
   const result = disclose(divMod(dividend, divisor));
   quotient = result[0];
   remainder = result[1];
