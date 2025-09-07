@@ -34,6 +34,7 @@
         "deploy:standalone": "deno task deploy:clean && ((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && kill -9 $(lsof -ti tcp:8545)",
         "deploy": "deno task deploy:clean && deno run -A deploy_caller.ts",
         "chain:start": "deno run -A npm:hardhat@3.0.0-next.20 node",
-        "chain:wait": "deno run -A npm:hardhat@3.0.0-next.20 node wait"
+        "chain:wait": "deno run -A npm:hardhat@3.0.0-next.20 node wait",
+        "contract:compile": "deno task build"
     }
 }
