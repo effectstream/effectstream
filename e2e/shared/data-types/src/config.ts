@@ -191,9 +191,9 @@ export const localhostConfig = new ConfigBuilder()
           name: "parallelAvail",
           type: ConfigSyncProtocolType.AVAIL_PARALLEL,
           rpc: network.nodeUrl,
-          lightClient: network.nodeUrl,
-          startBlockHeight: 0,
-          pollingInterval: 10_000,
+          lightClient: 'http://127.0.0.1:7007',
+          startBlockHeight: 1,
+          pollingInterval: 20_000,
         }),
       );
 

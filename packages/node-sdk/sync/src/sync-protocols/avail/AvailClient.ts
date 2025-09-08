@@ -18,9 +18,19 @@ export class AvailClient {
 
   async getLatestBlockHeight(): Promise<number> {
     const api = (await this.sdk).client.api;
-    const header = await api.rpc.chain.getHeader();
-    const num = header.number;
-    return num.toNumber();
+    // Block from avail node is slightly above the light client
+    // const header = await api.rpc.chain.getHeader();
+    const statusResponse = await fetch(`${this.url}/v2/status`);
+    if (!statusResponse.ok) {
+      throw new Error(
+        `Failed to get status from light client, status: ${statusResponse.status}`,
+      );
+    }
+    const status = await statusResponse.json();
+    const num = status.blocks?.latest as number;
+    // const num = header.number;
+    // return num.toNumber();
+    return num;
   }
 
   async getBlockFromHash(hash: string): Promise<AvailBlock> {
