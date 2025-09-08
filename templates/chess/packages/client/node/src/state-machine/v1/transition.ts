@@ -28,8 +28,7 @@ import type {
 } from "./types.ts";
 import { isBotMove, isUserStats, isZombieRound } from "./types.ts";
 import type { ConciseResult, Timer } from "@chess/utils";
-import { currentPlayer, PRACTICE_BOT_ADDRESS, updateTimer } from "@chess/utils";
-// import type { SQLUpdate } from '@paimaexample/node-sdk/db';
+import { currentPlayer, updateTimer } from "@chess/utils";
 import { calculateBestMove } from "../persist/ai.ts";
 import {
   persistCloseLobby,
@@ -162,12 +161,12 @@ export const submittedBotMove = async (
     pgnMove: practiceMove,
   };
   // If the submitted moves are usable/all validation passes, continue
-  if (!validateSubmittedMove(lobby, round, botMove, PRACTICE_BOT_ADDRESS)) {
+  if (!validateSubmittedMove(lobby, round, botMove, "0x0")) { // TODO This should be a Paima Engine Constant
     return [];
   }
   // Generate update to persist the moves
   const persistMoveTuple = persistMoveSubmission(
-    PRACTICE_BOT_ADDRESS,
+    "0x0", // TODO This should be a Paima Engine Constant
     botMove,
     lobby,
   );

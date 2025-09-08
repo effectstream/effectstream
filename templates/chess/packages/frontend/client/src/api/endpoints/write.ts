@@ -1,39 +1,21 @@
 import {
-  getLobbyStateWithUser,
-  getNonemptyNewLobbies,
-  getRawNewLobbies,
-} from "../helpers/auxiliary-queries.ts";
-import {
   lobbyWasClosed,
-  userCreatedLobby,
   userJoinedLobby,
 } from "../helpers/utility-functions.ts";
 import type { MatchMove } from "@chess/game-logic";
-import type {
-  CreateLobbySuccessfulResponse,
-  PackedLobbyState,
-} from "../types.ts";
-import { FailedResult, OldResult } from "../helpers/utility-functions.ts";
-
-import { hardhat } from "viem/chains";
+import type { Result } from "@paimaexample/utils";
+import type { LobbyState } from "@chess/utils";
 import {
-  PaimaEngineConfig,
+  type PaimaEngineConfig,
   sendTransaction,
   type Wallet,
 } from "@paimaexample/wallets";
+import { apiGetLobbyStateWithUser, apiGetRawNewLobbies } from "./queries.ts";
+import type { NewLobby } from "@chess/utils";
 
-const paimaEngineConfig = new PaimaEngineConfig(
-  "",
-  "mainEvmRPC",
-  "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-  hardhat,
-  undefined,
-  "http://localhost:3334",
-  true,
-);
-
-async function createLobby(
+export async function apiCreateLobby(
   wallet: Wallet,
+  paimaEngineConfig: PaimaEngineConfig,
   userAddress: string,
   numberOfRounds: number,
   roundLength: number,
@@ -42,7 +24,7 @@ async function createLobby(
   isHidden = false,
   isPractice = false,
   playerOneIsWhite = true,
-): Promise<CreateLobbySuccessfulResponse | FailedResult> {
+): Promise<Result<NewLobby>> {
   const conciseData = [
     "createdLobby",
     numberOfRounds,
@@ -53,17 +35,14 @@ async function createLobby(
     botDifficulty,
     playerOneIsWhite,
   ];
-  const startTime = Date.now();
-  console.log(">>> START CREATE LOBBY", { time: 0, now: Date.now() });
   const response = await sendTransaction(
     wallet,
     conciseData,
     paimaEngineConfig,
     "wait-paima-processed",
   );
-  console.log(">>> END CREATE LOBBY", { time: Date.now() - startTime });
-  console.log(">>> RESPONSE", response);
-  const newLobbies = await getRawNewLobbies(
+
+  const newLobbies = await apiGetRawNewLobbies(
     userAddress,
     (response as any).rollup,
   );
@@ -86,7 +65,11 @@ async function createLobby(
   };
 }
 
-async function joinLobby(wallet: Wallet, lobbyID: string): Promise<OldResult> {
+export async function apiJoinLobby(
+  wallet: Wallet,
+  paimaEngineConfig: PaimaEngineConfig,
+  lobbyID: string,
+): Promise<Result> {
   const conciseData = ["joinLobby", lobbyID];
   const response = await sendTransaction(
     wallet,
@@ -100,7 +83,7 @@ async function joinLobby(wallet: Wallet, lobbyID: string): Promise<OldResult> {
       errorMessage: "Failed to join lobby",
     };
   }
-  const lobbyState = await getLobbyStateWithUser(
+  const lobbyState = await apiGetLobbyStateWithUser(
     lobbyID,
     wallet.provider.getAddress().address,
   );
@@ -115,7 +98,11 @@ async function joinLobby(wallet: Wallet, lobbyID: string): Promise<OldResult> {
   }
 }
 
-async function closeLobby(wallet: Wallet, lobbyID: string): Promise<OldResult> {
+export async function apiCloseLobby(
+  wallet: Wallet,
+  paimaEngineConfig: PaimaEngineConfig,
+  lobbyID: string,
+): Promise<Result> {
   const conciseData = ["closeLobby", lobbyID];
 
   const response = await sendTransaction(
@@ -130,7 +117,7 @@ async function closeLobby(wallet: Wallet, lobbyID: string): Promise<OldResult> {
       errorMessage: "Failed to close lobby",
     };
   }
-  const lobbyState = await getLobbyStateWithUser(
+  const lobbyState = await apiGetLobbyStateWithUser(
     lobbyID,
     wallet.provider.getAddress().address,
   );
@@ -147,12 +134,13 @@ async function closeLobby(wallet: Wallet, lobbyID: string): Promise<OldResult> {
   }
 }
 
-async function submitMoves(
+export async function apiSubmitMoves(
   wallet: Wallet,
+  paimaEngineConfig: PaimaEngineConfig,
   lobbyID: string,
   roundNumber: number,
   move: MatchMove,
-): Promise<FailedResult | PackedLobbyState> {
+): Promise<Result<LobbyState>> {
   const conciseData = ["submitMoves", lobbyID, roundNumber, move];
   const response = await sendTransaction(
     wallet,
@@ -166,7 +154,7 @@ async function submitMoves(
       errorMessage: "Failed to submit moves",
     };
   }
-  const lobbyState = await getLobbyStateWithUser(
+  const lobbyState = await apiGetLobbyStateWithUser(
     lobbyID,
     wallet.provider.getAddress().address,
   );
@@ -179,10 +167,3 @@ async function submitMoves(
     errorMessage: "Cannot submit moves",
   };
 }
-
-export const writeEndpoints = {
-  createLobby,
-  joinLobby,
-  closeLobby,
-  submitMoves,
-};

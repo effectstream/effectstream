@@ -1,15 +1,22 @@
-// import * as Paima from "./paima/middleware.js";
 import type { LobbyState, LobbyStateQuery, UserLobby } from "@chess/utils";
-import type { MatchState, TickEvent } from "@chess/game-logic";
-// import type { MatchExecutor } from "@paimaexample/sdk/executors";
-// import type { PackedUserStats } from "./paima/middleware";
-// import type { LoginInfo } from "@paimaexample/sdk/mw-core
 type LoginInfo = any;
 type MatchExecutor = any;
 type PackedUserStats = any;
-// import { ethers } from "ethers";
-import * as Paima from "./middleware/mod.ts";
-import { Wallet, walletLogin } from "@paimaexample/wallets";
+import { type Wallet, walletLogin } from "@paimaexample/wallets";
+import {
+  apiGetLobbySearch,
+  apiGetLobbyState,
+  apiGetMatchExecutor,
+  apiGetOpenLobbies,
+  apiGetUserLobbiesMatches,
+  apiGetUserStats,
+} from "./api/endpoints/queries.ts";
+import {
+  apiCloseLobby,
+  apiCreateLobby,
+  apiJoinLobby,
+} from "./api/endpoints/write.ts";
+import { paimaEngineConfig } from "./PaimaEngineConfig.ts";
 // The MainController is a React component that will be used to control the state of the application
 // It will be used to check if the user has metamask installed and if they are connected to the correct network
 // Other settings also will be controlled here
@@ -75,7 +82,7 @@ export class MainController {
   async loadLobbyState(lobbyId: string): Promise<LobbyState> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.getLobbyState(lobbyId);
+    const response = await apiGetLobbyState(lobbyId);
     console.log("get lobby state response: ", response);
     this.callback(null, false, null);
     if (!response.success) {
@@ -87,7 +94,7 @@ export class MainController {
   async searchLobby(query: string, page: number): Promise<LobbyStateQuery[]> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.getLobbySearch(
+    const response = await apiGetLobbySearch(
       this.wallet!.provider.getAddress().address,
       query,
       page,
@@ -113,8 +120,9 @@ export class MainController {
   ): Promise<void> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.createLobby(
+    const response = await apiCreateLobby(
       this.wallet!,
+      paimaEngineConfig,
       userAddress,
       numOfRounds,
       roundLength,
@@ -136,12 +144,12 @@ export class MainController {
   async joinLobby(lobbyId: string): Promise<void> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.joinLobby(this.wallet!, lobbyId);
+    const response = await apiJoinLobby(this.wallet!, paimaEngineConfig, lobbyId);
     if (!response.success) {
       this.callback(null, false, null);
       throw new Error("Could not join lobby");
     }
-    const resp = await Paima.default.getLobbyState(lobbyId);
+    const resp = await apiGetLobbyState(lobbyId);
     console.log("move to joined lobby response: ", response);
     if (!resp.success) {
       this.callback(null, false, null);
@@ -153,7 +161,7 @@ export class MainController {
   async moveToJoinedLobby(lobbyId: string): Promise<void> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.getLobbyState(lobbyId);
+    const response = await apiGetLobbyState(lobbyId);
     console.log("move to joined lobby response: ", response);
     if (!response.success) {
       this.callback(null, false, null);
@@ -165,7 +173,7 @@ export class MainController {
   async closeLobby(lobbyId: string): Promise<void> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.closeLobby(this.wallet!, lobbyId);
+    const response = await apiCloseLobby(this.wallet!, paimaEngineConfig, lobbyId);
     console.log("close lobby response: ", response);
     if (!response.success) {
       this.callback(null, false, null);
@@ -177,7 +185,7 @@ export class MainController {
   async getOpenLobbies(page = 0, limit = 100): Promise<LobbyStateQuery[]> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.getOpenLobbies(
+    const response = await apiGetOpenLobbies(
       this.wallet!.provider.getAddress().address,
       page,
       limit,
@@ -188,14 +196,14 @@ export class MainController {
       throw new Error("Could not get open lobbies");
     }
     return response.lobbies.filter(
-      (lobby) => lobby.lobby_state === "open",
+      (lobby: LobbyStateQuery) => lobby.lobby_state === "open",
     );
   }
 
   async getMyGames(page = 0, limit = 100): Promise<UserLobby[]> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.getUserLobbiesMatches(
+    const response = await apiGetUserLobbiesMatches(
       this.wallet!.provider.getAddress().address,
       page,
       limit,
@@ -211,7 +219,7 @@ export class MainController {
   async getStats(): Promise<PackedUserStats> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.getUserStats(
+    const response = await apiGetUserStats(
       this.wallet!.provider.getAddress().address,
     );
     console.log("get stats response: ", response);
@@ -227,7 +235,7 @@ export class MainController {
   ): Promise<MatchExecutor> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
-    const response = await Paima.default.getMatchExecutor(lobbyId);
+    const response = await apiGetMatchExecutor(lobbyId);
     console.log("get match executor: ", response);
     this.callback(null, false, null);
     if (!response.success) {

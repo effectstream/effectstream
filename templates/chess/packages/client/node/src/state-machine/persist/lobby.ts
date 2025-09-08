@@ -13,7 +13,6 @@ import {
 import type { Prando } from "@paimaexample/crypto";
 import type { WalletAddress } from "@paimaexample/utils";
 import type { Timer } from "@chess/utils";
-import { PRACTICE_BOT_ADDRESS } from "@chess/utils";
 import { Chess } from "chess.js";
 import { blankStats } from "./stats.ts";
 import { persistNewRound } from "./match.ts";
@@ -58,7 +57,7 @@ export function persistLobbyCreation(
 
     const joinLobbyUpdates = persistLobbyJoin(
       blockHeight,
-      PRACTICE_BOT_ADDRESS,
+      "0x0", // TODO This should be a Paima Engine Constant
       { input: "joinedLobby", lobbyID: lobby_id },
       params,
     );

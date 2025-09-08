@@ -4,22 +4,26 @@ import type {
   IGetMovesByLobbyResult,
   IGetNewLobbiesByUserAndBlockHeightResult,
   IGetUserStatsResult,
-  LobbyStatus,
+  LobbyStatus as LobbyStatusDB,
 } from "@chess/db";
 
 import type { WalletAddress } from "@paimaexample/utils";
+
+export type LobbyStatus = "active" | "closed" | "finished" | "open";
+export type MatchResult = "loss" | "tie" | "win";
 
 type IGetBlockHeightsResult = {
   block_height: number;
   done: boolean;
   seed: string;
 };
+
 export type ConciseResult = "w" | "t" | "l";
 export type ExpandedResult = "win" | "tie" | "loss";
-export type MatchResult = [ConciseResult, ConciseResult];
+export type MatchResultPair = [ConciseResult, ConciseResult];
 
 export interface MatchWinnerResponse {
-  match_status?: LobbyStatus;
+  match_status?: LobbyStatusDB;
   winner_address?: string;
 }
 

@@ -8,15 +8,11 @@ import { Layout } from "../layouts/Layout.tsx";
 import { SelectField } from "../components/SelectField.tsx";
 
 import { LocalWallet } from "@thirdweb-dev/wallets";
-import { getChainByChainId } from "@thirdweb-dev/chains";
+import { getChainByChainIdAsync } from "@thirdweb-dev/chains";
 
 import { WalletMode } from "@paimaexample/wallets";
+import { paimaEngineConfig } from "../PaimaEngineConfig.ts";
 
-type LoginInfo = {
-  mode: WalletMode;
-  connection?: any;
-  preferBatchedMode?: any;
-};
 
 const wallets = [
   "Guest",
@@ -30,9 +26,8 @@ const wallets = [
 type WalletType = typeof wallets[number];
 
 async function getLocalWallet() {
-  const wallet = new LocalWallet({
-    chain: getChainByChainId(Number.parseInt("31337")), // process.env.CHAIN_ID)),
-  });
+  const chain = await getChainByChainIdAsync(paimaEngineConfig.paimaL2Chain.id);
+  const wallet = new LocalWallet({ chain });
   await wallet.loadOrCreate({
     strategy: "encryptedJson",
     // note: no password. This is unsafe, since somebody with physical access to your computer can get your key
@@ -53,7 +48,7 @@ export const Login: React.FC = () => {
     wallets[0],
   );
   const [walletMapping, setWalletMapping] = useState<
-    undefined | Record<WalletType, LoginInfo>
+    undefined | Record<WalletType, { mode: WalletMode; connection?: any }>
   >(undefined);
 
   React.useEffect(() => {
@@ -69,12 +64,10 @@ export const Login: React.FC = () => {
             },
             api: localWallet,
           },
-          preferBatchedMode: true,
         },
-        EVM: { mode: WalletMode.EvmInjected, preferBatchedMode: true },
+        EVM: { mode: WalletMode.EvmInjected },
         "EVM Self-sequence": {
           mode: WalletMode.EvmInjected,
-          preferBatchedMode: false,
         },
         Cardano: { mode: WalletMode.Cardano },
         Polkadot: { mode: WalletMode.Polkadot },
@@ -92,8 +85,15 @@ export const Login: React.FC = () => {
           label="Please, select your wallet"
           items={wallets}
           value={selectedWallet}
-          onChange={(event: any) =>
-            setSelectedWallet(event.target.value as WalletType)}
+          onChange={(event: any) => {
+            const wallet = event.target.value as WalletType;
+            if (wallet === wallets[2]) { // "EVM Self-sequence"
+              paimaEngineConfig.preferBatchedMode = false;
+            } else {
+              paimaEngineConfig.preferBatchedMode = true;
+            }
+            setSelectedWallet(wallet);
+          }}
         />
         <Button
           disabled={!selectedWallet}

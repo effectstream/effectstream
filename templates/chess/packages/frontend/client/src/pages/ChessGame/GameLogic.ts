@@ -1,19 +1,19 @@
 import type { LobbyState } from "@chess/utils";
-// import type { FailedResult } from "@paimaexample/sdk/mw-core";
-// import * as Paima from "../../paima/middleware.js";
 import type { Color } from "chess.js";
 import { Chess } from "chess.js";
 
-type FailedResult = any;
-import * as Paima from "../../middleware/mod.ts";
 import type { Wallet } from "@paimaexample/wallets";
+import { apiGetLobbyState } from "../../api/endpoints/queries.ts";
+import { apiSubmitMoves } from "../../api/endpoints/write.ts";
+import type { PaimaEngineConfig } from "@paimaexample/wallets";
+import type { Result } from "@paimaexample/utils";
 
 export class ChessService {
   // Get Lobby State
   static async getLobbyState(
     lobbyId: string,
   ): Promise<LobbyState | null> {
-    const result = await Paima.default.getLobbyState(lobbyId);
+    const result = await apiGetLobbyState(lobbyId);
 
     if (!result.success) {
       console.error(result);
@@ -27,18 +27,14 @@ export class ChessService {
   // Submit Moves
   static async submitMove(
     wallet: Wallet,
+    paimaEngineConfig: PaimaEngineConfig,
     lobbyId: string,
     roundNumber: number,
     move: string,
-  ): Promise<
-    | FailedResult
-    | {
-      success: true;
-      lobby: LobbyState;
-    }
-  > {
-    const result = await Paima.default.submitMoves(
+  ): Promise<Result<LobbyState>> {
+    const result = await apiSubmitMoves(
       wallet!,
+      paimaEngineConfig,
       lobbyId,
       roundNumber,
       move,
@@ -57,6 +53,7 @@ export class ChessLogic {
 
   async handleMove(
     wallet: Wallet,
+    paimaEngineConfig: PaimaEngineConfig,
     lobbyState: LobbyState,
     move: string,
   ): Promise<LobbyState | undefined> {
@@ -67,6 +64,7 @@ export class ChessLogic {
 
     const moveResult = await ChessService.submitMove(
       wallet,
+      paimaEngineConfig,
       lobbyState.lobby_id,
       lobbyState.current_round,
       move,

@@ -54,6 +54,7 @@ const config = Value.Parse(OrchestratorConfig, {
 
   // Launch the Batcher with our PaimaL2 Contract
   batcher: {
+    batchIntervalMs: 100,
     paimaL2Address: contractAddressesEvmMain()["chain31337"][
       "PaimaL2ContractModule#MyPaimaL2Contract"
     ],

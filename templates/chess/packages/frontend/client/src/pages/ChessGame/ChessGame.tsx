@@ -21,6 +21,7 @@ import { PromotionList } from "../../components/PromotionList.tsx";
 import { ChessBoard } from "./ChessBoard.tsx";
 import type { Color } from "chess.js";
 import { BLACK, Chess, WHITE } from "chess.js";
+import { paimaEngineConfig } from "../../PaimaEngineConfig.ts";
 
 interface Props {
   lobby: LobbyState | null;
@@ -117,6 +118,7 @@ export const ChessGame: React.FC<Props> = ({ lobby }) => {
     game.move(move);
     const newLobbyState = await chessLogic.handleMove(
       mainController.wallet!,
+      paimaEngineConfig,
       lobbyState!,
       move,
     );

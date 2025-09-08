@@ -11,7 +11,7 @@ export function schedulePracticeMove(
   block_height: number,
 ): SQLUpdate {
   const params: INewScheduledHeightDataParams = {
-    from_address: "0x0",
+    from_address: "0x0", // TODO This should be a Paima Engine Constant
     future_block_height: block_height,
     input_data: createPracticeInput(lobbyId, round),
   };

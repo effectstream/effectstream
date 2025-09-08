@@ -1,8 +1,6 @@
 import type { WalletAddress } from "@paimaexample/utils";
 
-// HELPERS
-// TODO This should come from config
-const getBackendUri = () => "http://localhost:9999";
+const getBackendUri = () => `${import.meta.env.VITE_PAIMA_ENGINE_NODE_URL}`;
 
 function queryValueToString(value: QueryValue): string {
   if (typeof value === "string") {
@@ -18,7 +16,7 @@ function queryValueToString(value: QueryValue): string {
 
 export function buildQuery(endpoint: string, options: QueryOptions): string {
   const optStrings: string[] = [];
-  for (let opt in options) {
+  for (const opt in options) {
     const valString = queryValueToString(options[opt]);
     optStrings.push(`${opt}=${valString}`);
   }
@@ -38,6 +36,7 @@ export function buildBackendQuery(
 ): string {
   return `${getBackendUri()}/${buildQuery(endpoint, options)}`;
 }
+
 export function backendQueryLobbyState(lobbyID: string): string {
   const endpoint = "api/lobby_state";
   const options = {
