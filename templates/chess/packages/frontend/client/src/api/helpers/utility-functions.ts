@@ -24,13 +24,8 @@ interface RoundEnd {
 
 export function userJoinedLobby(
   address: String,
-  lobby: Result<LobbyState>,
+  lobbyState: LobbyState,
 ): boolean {
-  if (!lobby.hasOwnProperty("lobby")) {
-    return false;
-  }
-  const lobbyState = lobby.lobby;
-
   if (!lobbyState.hasOwnProperty("player_two")) {
     return false;
   }
@@ -42,13 +37,8 @@ export function userJoinedLobby(
 
 export function userCreatedLobby(
   address: String,
-  lobby: Result<LobbyState>,
+  lobbyState: LobbyState,
 ): boolean {
-  if (!lobby.hasOwnProperty("lobby")) {
-    return false;
-  }
-  const lobbyState = lobby.lobby;
-
   if (!lobbyState.hasOwnProperty("lobby_creator")) {
     return false;
   }

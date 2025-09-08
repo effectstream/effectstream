@@ -23,77 +23,80 @@ export async function apiCreateLobby(
   botDifficulty: number,
   isHidden = false,
   isPractice = false,
-  playerOneIsWhite = true,
+  playerOneIsWhite = true
 ): Promise<Result<NewLobby>> {
-  const conciseData = [
-    "createdLobby",
-    numberOfRounds,
-    roundLength,
-    playTimePerPlayer,
-    isHidden,
-    isPractice,
-    botDifficulty,
-    playerOneIsWhite,
-  ];
-  const response = await sendTransaction(
-    wallet,
-    conciseData,
-    paimaEngineConfig,
-    "wait-paima-processed",
-  );
+  try {
+    const conciseData = [
+      "createdLobby",
+      numberOfRounds,
+      roundLength,
+      playTimePerPlayer,
+      isHidden,
+      isPractice,
+      botDifficulty,
+      playerOneIsWhite,
+    ];
+    const response = await sendTransaction(
+      wallet,
+      conciseData,
+      paimaEngineConfig,
+      "wait-paima-processed"
+    );
+    if (!response.success) throw new Error("Failed to create lobby");
+    const newLobbies = await apiGetRawNewLobbies(
+      userAddress,
+      (response as any).rollup
+    );
+    if (!newLobbies.success) throw new Error("Failed to get new lobbies");
+    if (newLobbies.lobbies.length === 0) throw new Error("Received an empty list of new lobbies");
 
-  const newLobbies = await apiGetRawNewLobbies(
-    userAddress,
-    (response as any).rollup,
-  );
-  if (!newLobbies.success) {
+    // This type does not match as expected.
+    return {
+      success: true,
+
+      lobbyID: newLobbies.lobbies[0].lobby_id,
+      lobbyStatus: "open",
+    };
+  } catch (err) {
     return {
       success: false,
-      errorMessage: "Failed to get new lobbies",
+      errorMessage: "Cannot create lobby: " + String(err),
     };
   }
-  if (newLobbies.lobbies.length === 0) {
-    return {
-      success: false,
-      errorMessage: "Received an empty list of new lobbies",
-    };
-  }
-  return {
-    success: true,
-    lobbyID: newLobbies.lobbies[0].lobby_id,
-    lobbyStatus: "open",
-  };
 }
 
 export async function apiJoinLobby(
   wallet: Wallet,
   paimaEngineConfig: PaimaEngineConfig,
-  lobbyID: string,
+  lobbyID: string
 ): Promise<Result> {
-  const conciseData = ["joinLobby", lobbyID];
-  const response = await sendTransaction(
-    wallet,
-    conciseData,
-    paimaEngineConfig,
-    "wait-paima-processed",
-  );
-  if (!response.success) {
+  try {
+    const conciseData = ["joinLobby", lobbyID];
+    const response = await sendTransaction(
+      wallet,
+      conciseData,
+      paimaEngineConfig,
+      "wait-paima-processed"
+    );
+    if (!response.success) throw new Error("Failed to join lobby");
+    const lobbyState = await apiGetLobbyStateWithUser(
+      lobbyID,
+      wallet.provider.getAddress().address
+    );
+    if (!lobbyState.success) throw new Error("Failed to get lobby state");
+    if (
+      !userJoinedLobby(wallet.provider.getAddress().address, lobbyState.lobby)
+    ) {
+      throw new Error("User is not in the lobby");
+    }
     return {
-      success: false,
-      errorMessage: "Failed to join lobby",
+      success: true,
+      message: "",
     };
-  }
-  const lobbyState = await apiGetLobbyStateWithUser(
-    lobbyID,
-    wallet.provider.getAddress().address,
-  );
-
-  if (userJoinedLobby(wallet.provider.getAddress().address, lobbyState)) {
-    return { success: true, message: "" };
-  } else {
+  } catch (err) {
     return {
       success: false,
-      errorMessage: "Cannot join lobby",
+      errorMessage: "Cannot join lobby: " + String(err),
     };
   }
 }
@@ -101,35 +104,33 @@ export async function apiJoinLobby(
 export async function apiCloseLobby(
   wallet: Wallet,
   paimaEngineConfig: PaimaEngineConfig,
-  lobbyID: string,
+  lobbyID: string
 ): Promise<Result> {
-  const conciseData = ["closeLobby", lobbyID];
+  try {
+    const conciseData = ["closeLobby", lobbyID];
 
-  const response = await sendTransaction(
-    wallet,
-    conciseData,
-    paimaEngineConfig,
-    "wait-paima-processed",
-  );
-  if (!response.success) {
-    return {
-      success: false,
-      errorMessage: "Failed to close lobby",
-    };
-  }
-  const lobbyState = await apiGetLobbyStateWithUser(
-    lobbyID,
-    wallet.provider.getAddress().address,
-  );
-  if (lobbyWasClosed(lobbyState)) {
+    const response = await sendTransaction(
+      wallet,
+      conciseData,
+      paimaEngineConfig,
+      "wait-paima-processed"
+    );
+    if (!response.success) throw new Error("Failed to close lobby");
+    const lobbyState = await apiGetLobbyStateWithUser(
+      lobbyID,
+      wallet.provider.getAddress().address
+    );
+    if (!lobbyState.success) throw new Error("Failed to get lobby state");
+    if (!lobbyWasClosed(lobbyState)) throw new Error("Lobby was not closed");
+
     return {
       success: true,
       message: "",
     };
-  } else {
+  } catch (err) {
     return {
       success: false,
-      errorMessage: "Cannot close lobby",
+      errorMessage: "Cannot close lobby: " + String(err),
     };
   }
 }
@@ -139,31 +140,29 @@ export async function apiSubmitMoves(
   paimaEngineConfig: PaimaEngineConfig,
   lobbyID: string,
   roundNumber: number,
-  move: MatchMove,
+  move: MatchMove
 ): Promise<Result<LobbyState>> {
-  const conciseData = ["submitMoves", lobbyID, roundNumber, move];
-  const response = await sendTransaction(
-    wallet,
-    conciseData,
-    paimaEngineConfig,
-    "wait-paima-processed",
-  );
-  if (!response.success) {
+  try {
+    const conciseData = ["submitMoves", lobbyID, roundNumber, move];
+    const response = await sendTransaction(
+      wallet,
+      conciseData,
+      paimaEngineConfig,
+      "wait-paima-processed"
+    );
+    if (!response.success) throw new Error("Failed to submit moves");
+
+    const lobbyState = await apiGetLobbyStateWithUser(
+      lobbyID,
+      wallet.provider.getAddress().address
+    );
+    if (!lobbyState.success) throw new Error("Failed to get lobby state");
+    return lobbyState;
+  } catch (err) {
     return {
       success: false,
-      errorMessage: "Failed to submit moves",
+      errorMessage: "Cannot submit moves: " + String(err),
     };
   }
-  const lobbyState = await apiGetLobbyStateWithUser(
-    lobbyID,
-    wallet.provider.getAddress().address,
-  );
-
-  if (lobbyState.success) {
-    return lobbyState;
-  }
-  return {
-    success: false,
-    errorMessage: "Cannot submit moves",
-  };
 }
+

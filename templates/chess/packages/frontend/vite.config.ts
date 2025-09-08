@@ -45,6 +45,10 @@ const paimaPrecompilePath = join(
   dirname(fromFileUrl(import.meta.url)),
   "../../../../packages/paima-sdk/precompile/",
 );
+const chessApiContractPath = join(
+  dirname(fromFileUrl(import.meta.url)),
+  "../shared/api/",
+);
 export default defineConfig({
   root: "./client",
   resolve: {
@@ -66,8 +70,9 @@ export default defineConfig({
 
       // END OF LOCAL IMPORTS
 
+      "@chess/api-contract": chessApiContractPath + "src/mod.ts",
       "@chess/utils": chessUtilsPath + "src/mod.ts",
-      "@chess/data-types": chessDataTypesPath + "src/mod.ts",
+      "@chess/data-types/types": chessDataTypesPath + "src/chess-types.ts",
       "@chess/game-logic": chessGameLogicPath + "src/mod.ts",
       "npm:@polkadot/extension-dapp@^0.61.7": "@polkadot/extension-dapp",
       "npm:@foxglove/crc@^1.0.1": "@foxglove/crc",
