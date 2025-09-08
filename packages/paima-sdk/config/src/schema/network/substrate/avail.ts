@@ -20,6 +20,7 @@ export const ConfigNetworkSchemaAvail = new ConfigSchema({
     type: Type.Literal(ConfigNetworkType.AVAIL),
     genesisSeed: Type.String(),
     nodeUrl: Type.String(),
+    genesisHash: Type.String(),
   }),
   optional: Type.Object({}),
 });

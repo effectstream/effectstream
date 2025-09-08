@@ -6,6 +6,7 @@ if (!seed) {
   throw new Error("SEED environment variable is not set");
 }
 const account = Account.new(seed);
+const genesisHash = await sdk.client.api.rpc.chain.getBlockHash(0);
 console.log("Account Address: ", account.address);
 // Use a fixed key string
 const ApplicationKey = "app_key_" + Date.now();
@@ -48,7 +49,7 @@ export async function createApplicationKey() {
 
 const { appId, txHash } = await createApplicationKey();
 console.log("Transaction Hash: ", txHash.toString());
-const data = JSON.stringify({ appId, txHash, ApplicationKey });
+const data = JSON.stringify({ appId, txHash, ApplicationKey, genesisHash });
 const fileName = Deno.cwd() + "/avail_app.json";
 console.log("Writing to file: ", fileName);
 await Deno.writeTextFile(fileName, data);

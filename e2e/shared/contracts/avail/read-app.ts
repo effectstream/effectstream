@@ -4,6 +4,7 @@ export type AvailApplicationInfo = {
     value: string;
   };
   ApplicationKey: string;
+  genesisHash: string;
 };
 
 let cachedAppInfo: AvailApplicationInfo | undefined;

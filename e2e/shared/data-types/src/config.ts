@@ -96,6 +96,7 @@ export const localhostConfig = new ConfigBuilder()
         type: ConfigNetworkType.AVAIL,
         genesisSeed: "//Alice",
         nodeUrl: "ws://127.0.0.1:9955/ws",
+        genesisHash: readAvailApplication().genesisHash,
       });
 
     if (yaci_enabled) {
@@ -305,6 +306,7 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1,
           appId: readAvailApplication().appId,
           contractAddress: readAvailApplication().ApplicationKey,
+          genesisHash: readAvailApplication().genesisHash,
         }),
       )
   )
