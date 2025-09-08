@@ -18,7 +18,7 @@ import { ComponentNames } from "@paima/log";
 // packageName: the name of the package that implements the tasks.
 //
 export const launchAvail = (packageName: string) => ({
-  stopProcessAtPort: [9944, 7007],
+  stopProcessAtPort: [9955, 7007],
   processes: [
     {
       name: ComponentNames.AVAIL_NODE,

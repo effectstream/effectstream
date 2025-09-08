@@ -5,11 +5,12 @@
     "tasks": {
         "avail-node:start": "deno run -A --unstable-detect-cjs @paimaexample/npm-avail-node --dev --rpc-port 9955 --no-telemetry",
         "avail-node:wait": "wait-on tcp:9955",
-        "avail-light-client:start": "deno run -A --unstable-detect-cjs @paimaexample/npm-avail-light-client --config ./config.yml --app-id 16",
+        "avail-light-client:start": "deno run -A --unstable-detect-cjs @paimaexample/npm-avail-light-client --config ./config.yml --app-id ${AVAIL_APP_ID}",
         "avail-light-client:wait": "wait-on tcp:7007"
     },
     "imports": {
         "@paimaexample/npm-avail-node": "npm:@paimaexample/npm-avail-node@0.3.30",
-        "@paimaexample/npm-avail-light-client": "npm:@paimaexample/npm-avail-light-client@0.3.30"
+        "@paimaexample/npm-avail-light-client": "npm:@paimaexample/npm-avail-light-client@0.3.30",
+        "avail-js-sdk": "npm:avail-js-sdk@^0.4.2"
     }
 }
