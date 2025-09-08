@@ -25,7 +25,7 @@ export class AvailSyncState extends SyncState<
       { networkType: ConfigNetworkType.AVAIL }
     >,
     fetcher: AvailFetcher,
-    private readonly client: AvailClient,
+    public readonly client: AvailClient,
     dbConn: PoolClient,
   ) {
     super(
