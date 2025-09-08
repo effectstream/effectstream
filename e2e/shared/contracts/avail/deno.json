@@ -1,7 +1,9 @@
 {
     "name": "@e2e/avail-contracts",
     "version": "0.3.0",
-    "exports": {},
+    "exports": {
+        ".": "./read-app.ts"
+    },
     "tasks": {
         "avail-node:start": "deno run -A --unstable-detect-cjs npm:@paimaexample/npm-avail-node --dev --rpc-port 9955 --no-telemetry",
         "avail-node:wait": "wait-on tcp:9955",

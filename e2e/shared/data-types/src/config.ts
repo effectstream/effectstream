@@ -1,5 +1,6 @@
 import { readMidnightContract } from "@e2e/midnight-contracts";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
+import { readAvailApplication } from "@e2e/avail-contracts";
 import { getConnection } from "@paima/db";
 import {
   ConfigBuilder,
@@ -183,7 +184,7 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       .addParallel(
-        (networks) => networks.,
+        (networks) => networks.avail,
         (network, deployments) => ({
           name: "parallelAvail",
           type: ConfigSyncProtocolType.AVAIL_PARALLEL,
@@ -300,10 +301,10 @@ export const localhostConfig = new ConfigBuilder()
         (syncProtocols) => syncProtocols.parallelAvail,
         (network, deployments, syncProtocol) => ({
           name: "AvailContractState",
-          type: ConfigPrimitiveType.AvailContractState,
+          type: ConfigPrimitiveType.AvailPaimaL2,
           startBlockHeight: 1,
-          contractAddress: readAvailApplication().appId,
-          scheduledPrefix: "availAppState",
+          appId: readAvailApplication().appId,
+          contractAddress: readAvailApplication().ApplicationKey,
         }),
       )
   )
