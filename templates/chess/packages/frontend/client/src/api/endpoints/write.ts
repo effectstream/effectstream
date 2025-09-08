@@ -24,7 +24,7 @@ export async function apiCreateLobby(
   isHidden = false,
   isPractice = false,
   playerOneIsWhite = true
-): Promise<Result<NewLobby>> {
+): Promise<Result<NewLobby & { lobbyStatus: "open" }>> {
   try {
     const conciseData = [
       "createdLobby",
@@ -48,14 +48,15 @@ export async function apiCreateLobby(
       (response as any).rollup
     );
     if (!newLobbies.success) throw new Error("Failed to get new lobbies");
-    if (newLobbies.lobbies.length === 0) throw new Error("Received an empty list of new lobbies");
+    if (newLobbies.result.length === 0) throw new Error("Received an empty list of new lobbies");
 
     // This type does not match as expected.
     return {
       success: true,
-
-      lobbyID: newLobbies.lobbies[0].lobby_id,
-      lobbyStatus: "open",
+      result: {
+        lobby_id: newLobbies.result[0].lobby_id,
+        lobbyStatus: "open",
+      }
     };
   } catch (err) {
     return {
@@ -69,7 +70,7 @@ export async function apiJoinLobby(
   wallet: Wallet,
   paimaEngineConfig: PaimaEngineConfig,
   lobbyID: string
-): Promise<Result> {
+): Promise<Result<string>> {
   try {
     const conciseData = ["joinLobby", lobbyID];
     const response = await sendTransaction(
@@ -85,13 +86,13 @@ export async function apiJoinLobby(
     );
     if (!lobbyState.success) throw new Error("Failed to get lobby state");
     if (
-      !userJoinedLobby(wallet.provider.getAddress().address, lobbyState.lobby)
+      !userJoinedLobby(wallet.provider.getAddress().address, lobbyState.result)
     ) {
       throw new Error("User is not in the lobby");
     }
     return {
       success: true,
-      message: "",
+      result: "",
     };
   } catch (err) {
     return {
@@ -105,7 +106,7 @@ export async function apiCloseLobby(
   wallet: Wallet,
   paimaEngineConfig: PaimaEngineConfig,
   lobbyID: string
-): Promise<Result> {
+): Promise<Result<string>> {
   try {
     const conciseData = ["closeLobby", lobbyID];
 
@@ -121,11 +122,11 @@ export async function apiCloseLobby(
       wallet.provider.getAddress().address
     );
     if (!lobbyState.success) throw new Error("Failed to get lobby state");
-    if (!lobbyWasClosed(lobbyState)) throw new Error("Lobby was not closed");
+    if (!lobbyWasClosed(lobbyState.result)) throw new Error("Lobby was not closed");
 
     return {
       success: true,
-      message: "",
+      result: "",
     };
   } catch (err) {
     return {

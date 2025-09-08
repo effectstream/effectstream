@@ -88,7 +88,7 @@ export class MainController {
     if (!response.success) {
       throw new Error("Could not get lobby state");
     }
-    return response.lobby as unknown as LobbyState;
+    return response.result;
   }
 
   async searchLobby(query: string, page: number): Promise<LobbyStateQuery[]> {
@@ -105,7 +105,7 @@ export class MainController {
     if (!response.success) {
       throw new Error("Could not search lobby");
     }
-    return response.lobbies;
+    return response.result;
   }
 
   async createLobby(
@@ -137,7 +137,7 @@ export class MainController {
       this.callback(null, false, null);
       throw new Error("Could not create lobby");
     }
-    const lobbyState = await this.loadLobbyState(response.lobbyID);
+    const lobbyState = await this.loadLobbyState(response.result.lobby_id);
     this.callback(Page.Game, false, lobbyState);
   }
 
@@ -155,7 +155,7 @@ export class MainController {
       this.callback(null, false, null);
       throw new Error("Could not download lobby state from join lobby");
     }
-    this.callback(Page.Game, false, resp.lobby as unknown as LobbyState);
+    this.callback(Page.Game, false, resp.result as unknown as LobbyState);
   }
 
   async moveToJoinedLobby(lobbyId: string): Promise<void> {
@@ -167,7 +167,7 @@ export class MainController {
       this.callback(null, false, null);
       throw new Error("Could not join lobby");
     }
-    this.callback(Page.Game, false, response.lobby as unknown as LobbyState);
+    this.callback(Page.Game, false, response.result as unknown as LobbyState);
   }
 
   async closeLobby(lobbyId: string): Promise<void> {
@@ -195,12 +195,12 @@ export class MainController {
     if (!response.success) {
       throw new Error("Could not get open lobbies");
     }
-    return response.lobbies.filter(
+    return response.result.filter(
       (lobby: LobbyStateQuery) => lobby.lobby_state === "open",
     );
   }
 
-  async getMyGames(page = 0, limit = 100): Promise<UserLobby[]> {
+  async getMyGames(page = 0, limit = 100): Promise<(LobbyState & { myTurn: boolean })[]> {
     await this.enforceWalletConnected();
     this.callback(null, true, null);
     const response = await apiGetUserLobbiesMatches(
@@ -213,7 +213,7 @@ export class MainController {
     if (!response.success) {
       throw new Error("Could not get open lobbies");
     }
-    return response.lobbies;
+    return response.result;
   }
 
   async getStats(): Promise<PackedUserStats> {

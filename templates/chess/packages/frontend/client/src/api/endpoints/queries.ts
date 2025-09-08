@@ -86,7 +86,7 @@ export async function apiGetLobbyState(
 
     return {
       success: true,
-      lobby: {
+      result: {
         ...lobby,
         round_ends_in_blocks: end.blocks,
         round_ends_in_secs: end.seconds,
@@ -105,7 +105,7 @@ export async function apiGetLobbySearch(
   searchQuery: string,
   page: number,
   count?: number | undefined
-): Promise<Result<LobbyStateQuery>> {
+): Promise<Result<LobbyStateQuery[]>> {
   try {
     const response = await client.searchOpenLobbies({
       query: {
@@ -117,10 +117,10 @@ export async function apiGetLobbySearch(
     });
     const ok = response.status === 200;
     if (!ok) throw new Error("Failed to get lobby search");
-
+  
     return {
       success: true,
-      lobbies: response.body.lobbies,
+      result: (response.body.lobbies ?? []) as unknown as LobbyStateQuery[],
     };
   } catch (err) {
     return {
@@ -152,7 +152,7 @@ export async function apiGetRoundExecutionState(
 
     return {
       success: true,
-      round: {
+      result: {
         executed: response.body.executed,
         usersWhoSubmittedMoves: response.body.usersWhoSubmittedMoves,
         roundEndsInBlocks: end.blocks,
@@ -169,7 +169,7 @@ export async function apiGetRoundExecutionState(
 
 export async function apiGetUserStats(
   walletAddress: string
-): Promise<Result<UserStats>> {
+): Promise<Result<{ stats: UserStats | null, rank: string | undefined }>> {
   try {
     const response = await client.getUserStats({
       query: {
@@ -181,8 +181,10 @@ export async function apiGetUserStats(
     if (!ok) throw new Error("Failed to get user stats");
     return {
       success: true,
-      stats: response.body.stats,
-      rank: response.body.rank,
+      result: {
+        stats: response.body.stats,
+        rank: response.body.rank,
+      },
     };
   } catch (err) {
     return {
@@ -195,7 +197,7 @@ export async function apiGetUserStats(
 export async function apiGetNewLobbies(
   wallet: string,
   blockHeight: number
-): Promise<Result<NewLobby>> {
+): Promise<Result<NewLobby[]>> {
   const errorFxn = buildEndpointErrorFxn("getNewLobbies");
   try {
     return await apiGetRawNewLobbies(wallet, blockHeight);
@@ -208,7 +210,7 @@ export async function apiGetUserLobbiesMatches(
   walletAddress: string,
   page: number,
   count?: number
-): Promise<Result<LobbyState>> {
+): Promise<Result<(LobbyState & { myTurn: boolean })[]>> {
   try {
     const response = await client.getUserLobbies({
       query: {
@@ -219,12 +221,13 @@ export async function apiGetUserLobbiesMatches(
     });
     const ok = response.status === 200;
     if (!ok) throw new Error("Failed to get user lobbies matches");
+    const result: (LobbyState & { myTurn: boolean })[] = response.body.lobbies.map((lobby) => ({
+      ...(lobby as LobbyState),
+      myTurn: isPlayersTurn(walletAddress, lobby as any),
+    }));
     return {
       success: true,
-      lobbies: response.body.lobbies.map((lobby) => ({
-        ...lobby,
-        myTurn: isPlayersTurn(walletAddress, lobby as any),
-      })),
+      result: result,
     };
   } catch (err) {
     return {
@@ -238,7 +241,7 @@ export async function apiGetOpenLobbies(
   wallet: string,
   page: number,
   count?: number
-): Promise<Result<LobbyStateQuery>> {
+): Promise<Result<LobbyStateQuery[]>> {
   try {
     const response = await client.getOpenLobbies({
       query: {
@@ -251,7 +254,7 @@ export async function apiGetOpenLobbies(
     if (!ok) throw new Error("Failed to get open lobbies");
     return {
       success: true,
-      lobbies: response.body.lobbies,
+      result: (response.body.lobbies ?? []) as unknown as LobbyStateQuery[],
     };
   } catch (err) {
     return {
@@ -269,7 +272,7 @@ export async function apiGetRandomOpenLobby(): Promise<Result<LobbyState>> {
     if (!response.body.lobby) throw new Error("No open lobbies");
     return {
       success: true,
-      lobby: response.body.lobby,
+      result: response.body.lobby as unknown as LobbyState,
     };
   } catch (err) {
     return {
@@ -279,28 +282,28 @@ export async function apiGetRandomOpenLobby(): Promise<Result<LobbyState>> {
   }
 }
 
-export async function apiGetMatchWinner(
-  lobbyId: string
-): Promise<Result<MatchWinnerResponse>> {
-  try {
-    const response = await client.getMatchWinner({
-      query: {
-        lobbyID: lobbyId,
-      },
-    });
-    const ok = response.status === 200;
-    if (!ok) throw new Error("Failed to get match winner");
-    return {
-      success: true,
-      result: response.body,
-    };
-  } catch (err) {
-    return {
-      success: false,
-      errorMessage: String(err),
-    };
-  }
-}
+// export async function apiGetMatchWinner(
+//   lobbyId: string
+// ): Promise<Result<MatchWinnerResponse>> {
+//   try {
+//     const response = await client.getMatchWinner({
+//       query: {
+//         lobbyID: lobbyId,
+//       },
+//     });
+//     const ok = response.status === 200;
+//     if (!ok) throw new Error("Failed to get match winner");
+//     return {
+//       success: true,
+//       result: response.body,
+//     };
+//   } catch (err) {
+//     return {
+//       success: false,
+//       errorMessage: String(err),
+//     };
+//   }
+// }
 
 export async function apiGetRoundExecutor(
   lobbyId: string,
@@ -318,7 +321,7 @@ export async function apiGetRoundExecutor(
     if ("error" in response.body) throw new Error(response.body.error);
     return {
       success: true,
-      result: buildRoundExecutor(response.body, roundNumber),
+      result: buildRoundExecutor(response.body as RoundExecutorData, roundNumber),
     };
   } catch (err) {
     return {
@@ -340,7 +343,7 @@ export async function apiGetMatchExecutor(
     const ok = response.status === 200;
     if (!ok) throw new Error("Failed to get match executor");
     if (response.body == null) throw new Error("No match executor");
-    const matchExecutor = buildMatchExecutor(response.body.lobby, response.body.moves, response.body.seeds)
+    const matchExecutor = buildMatchExecutor(response.body as MatchExecutorData)
     return {
       success: true,
       result: matchExecutor,
@@ -368,7 +371,7 @@ export async function getRawLobbyState(lobbyID: string): Promise<LobbyState> {
 export async function apiGetRawNewLobbies(
   wallet: string,
   blockHeight: number
-): Promise<Result<NewLobby>> {
+): Promise<Result<NewLobby[]>> {
   try {
     const response = await client.getUserLobbiesBlockheight({
       query: {
@@ -380,7 +383,7 @@ export async function apiGetRawNewLobbies(
     if (!ok) throw new Error("Failed to get new lobbies");
     return {
       success: true,
-      lobbies: response.body.lobbies,
+      result: response.body.lobbies,
     };
   } catch (err) {
     return {
@@ -393,12 +396,12 @@ export async function apiGetRawNewLobbies(
 export async function apiGetNonemptyNewLobbies(
   address: string,
   blockHeight: number
-): Promise<Result<NewLobby>> {
+): Promise<Result<NewLobby[]>> {
   const newLobbies = await apiGetRawNewLobbies(address, blockHeight);
   if (!newLobbies.success) {
     throw new Error("Failed to get new lobbies");
   }
-  if (newLobbies.lobbies.length === 0) {
+  if (newLobbies.result.length === 0) {
     throw new Error("Received an empty list of new lobbies");
   }
   return newLobbies;
@@ -415,7 +418,7 @@ export async function apiGetLobbyStateWithUser(
   ) {
     return {
       success: true,
-      lobby: lobbyState,
+      result: lobbyState,
     };
   }
   throw new Error("User is not in the lobby");

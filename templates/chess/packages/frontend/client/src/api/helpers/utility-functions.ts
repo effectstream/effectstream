@@ -48,13 +48,8 @@ export function userCreatedLobby(
   return lobbyState.lobby_creator.toLowerCase() === address.toLowerCase();
 }
 
-export function lobbyWasClosed(lobby: Result<LobbyState>): boolean {
-  const { lobby: lobbyState } = lobby;
-  if (!lobbyState) {
-    return false;
-  }
-
-  return lobbyState.lobby_state === "closed";
+export function lobbyWasClosed(lobby: LobbyState): boolean {
+  return lobby.lobby_state === "closed";
 }
 
 export function calculateRoundEnd(

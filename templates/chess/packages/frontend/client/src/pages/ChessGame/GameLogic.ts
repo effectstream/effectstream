@@ -20,8 +20,8 @@ export class ChessService {
       return null;
     }
 
-    console.log("Lobby state: ", result.lobby);
-    return result.lobby;
+    console.log("Lobby state: ", result.result);
+    return result.result;
   }
 
   // Submit Moves
@@ -73,7 +73,7 @@ export class ChessLogic {
       console.log("Move failed");
       return;
     }
-    return moveResult.lobby;
+    return moveResult.result;
   }
 
   isThisPlayersTurnRaw(lobbyState: LobbyState): boolean {

@@ -44,7 +44,8 @@ const _PositiveNumberString = (options: { default: string }) =>
     }),
   ]);
   
-const CoercibleNumber = (options: { default: string }) =>
+const CoercibleNumber = (options: { default: string }) => 
+  // Type.Optional(Type.Number());
   Type.Transform(_PositiveNumberString(options))
     .Decode((value) => parseInt(value as string, 10))
     .Encode((value) => String(value));
