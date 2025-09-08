@@ -91,6 +91,15 @@ stm.addStateTransition(
 );
 
 stm.addStateTransition(
+  "avail-app-state",
+  function* (data) {
+    const { payload } = data.parsedInput;
+    console.log("📦 Avail App state has message:", payload.message);
+    return;
+  },
+);
+
+stm.addStateTransition(
   "throw_error",
   function* (data) {
     throw new Error("This is a test error");

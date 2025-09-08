@@ -308,6 +308,7 @@ export const localhostConfig = new ConfigBuilder()
           appId: readAvailApplication().appId,
           contractAddress: readAvailApplication().ApplicationKey,
           genesisHash: readAvailApplication().genesisHash,
+          scheduledPrefix: "avail-app-state",
         }),
       )
   )
