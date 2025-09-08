@@ -89,6 +89,12 @@ export const localhostConfig = new ConfigBuilder()
           "0x0000000000000000000000000000000000000000000000000000000000000001",
         networkId: 0,
         nodeUrl: "http://127.0.0.1:9944",
+      })
+      .addNetwork({
+        name: "avail",
+        type: ConfigNetworkType.AVAIL,
+        genesisSeed: "//Alice",
+        nodeUrl: "ws://127.0.0.1:9955/ws",
       });
 
     if (yaci_enabled) {
@@ -174,6 +180,17 @@ export const localhostConfig = new ConfigBuilder()
           delayMs: 1000,
           indexer: "http://127.0.0.1:8088/api/v1/graphql",
           indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
+        }),
+      )
+      .addParallel(
+        (networks) => networks.,
+        (network, deployments) => ({
+          name: "parallelAvail",
+          type: ConfigSyncProtocolType.AVAIL_PARALLEL,
+          rpc: network.nodeUrl,
+          lightClient: network.nodeUrl,
+          startBlockHeight: 0,
+          pollingInterval: 10_000,
         }),
       );
 
@@ -277,6 +294,16 @@ export const localhostConfig = new ConfigBuilder()
           ),
           // TODO This is not defined. Should be a error.
           scheduledPrefix: "transfer-erc20-2",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.parallelAvail,
+        (network, deployments, syncProtocol) => ({
+          name: "AvailContractState",
+          type: ConfigPrimitiveType.AvailContractState,
+          startBlockHeight: 1,
+          contractAddress: readAvailApplication().appId,
+          scheduledPrefix: "availAppState",
         }),
       )
   )

@@ -3,7 +3,6 @@ import type { Static } from "@sinclair/typebox";
 import { ConfigSchema } from "../../utils.ts";
 import { ConfigNetworkType } from "../types.ts";
 import type { MergeIntersects } from "@paima/utils";
-import { SubstrateGenesisHash } from "./common.ts";
 
 // =====
 // Utils
@@ -19,7 +18,8 @@ export const ConfigNetworkSchemaAvail = new ConfigSchema({
   required: Type.Object({
     name: Type.String(),
     type: Type.Literal(ConfigNetworkType.AVAIL),
-    genesisHash: SubstrateGenesisHash,
+    genesisSeed: Type.String(),
+    nodeUrl: Type.String(),
   }),
   optional: Type.Object({}),
 });
