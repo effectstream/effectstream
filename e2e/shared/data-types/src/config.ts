@@ -97,6 +97,7 @@ export const localhostConfig = new ConfigBuilder()
         genesisSeed: "//Alice",
         nodeUrl: "ws://127.0.0.1:9955/ws",
         genesisHash: readAvailApplication().genesisHash,
+        caip2: `avail:local`,
       });
 
     if (yaci_enabled) {

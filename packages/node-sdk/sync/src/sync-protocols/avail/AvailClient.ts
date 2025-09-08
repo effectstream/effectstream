@@ -16,6 +16,13 @@ export class AvailClient {
     this.sdk = SDK.New(nodeUrl ?? AVAIL_NODE_DEFAULT_URL);
   }
 
+  async getLatestBlockHeight(): Promise<number> {
+    const api = (await this.sdk).client.api;
+    const header = await api.rpc.chain.getHeader();
+    const num = header.number;
+    return num.toNumber();
+  }
+
   async getBlockFromHash(hash: string): Promise<AvailBlock> {
     const block = await (await this.sdk).client.api.rpc.chain.getBlock(hash);
     return {
