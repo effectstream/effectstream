@@ -14,7 +14,7 @@ http_server_port=7007
 port=37000
 
 # WebSocket endpoint of a full node.
-full_node_ws = ["ws://127.0.0.1:9944"]
+full_node_ws = ["ws://127.0.0.1:9955"]
 
 # Application ID. If not set or set to 0, application client is not started.
 app_id=0

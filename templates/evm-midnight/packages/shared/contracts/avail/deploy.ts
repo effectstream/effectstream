@@ -49,7 +49,7 @@ export async function createApplicationKey() {
 const { appId, txHash } = await createApplicationKey();
 console.log("Transaction Hash: ", txHash.toString());
 const data = JSON.stringify({ appId, txHash, ApplicationKey });
-const fileName = Deno.cwd() + "avail_app.json";
+const fileName = Deno.cwd() + "/avail_app.json";
 console.log("Writing to file: ", fileName);
 await Deno.writeTextFile(fileName, data);
 
@@ -62,19 +62,4 @@ const child = new Deno.Command("deno", {
 
 console.log("Light Client Started");
 
-// Attach light client stdout to the console
-child.stdout.pipeTo(
-  new WritableStream({
-    write: (chunk) => {
-      console.log(chunk);
-    },
-  }),
-);
-child.stderr.pipeTo(
-  new WritableStream({
-    write: (chunk) => {
-      console.error(chunk);
-    },
-  }),
-);
 await child.status;

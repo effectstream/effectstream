@@ -3,10 +3,15 @@
     "version": "0.3.0",
     "exports": {},
     "tasks": {
-        "avail-node:start": "deno run -A --unstable-detect-cjs @paima/npm-avail-node --dev",
-        "avail-node:wait": "wait-on tcp:9944",
-        "avail-light-client:start": "deno run -A --unstable-detect-cjs @paima/npm-avail-light-client --network local --config ./config.yml",
+        "avail-node:start": "deno run -A --unstable-detect-cjs npm:@paimaexample/npm-avail-node --dev --rpc-port 9955 --no-telemetry",
+        "avail-node:wait": "wait-on tcp:9955",
+        "avail-light-client:deploy": "deno run -A --unstable-detect-cjs ./deploy.ts",
+        "avail-light-client:start": "deno run -A --unstable-detect-cjs npm:@paimaexample/npm-avail-light-client --config ./config.yml --app-id $AVAIL_APP_ID",
         "avail-light-client:wait": "wait-on tcp:7007"
     },
-    "imports": {}
+    "imports": {
+        "avail-js-sdk": "npm:avail-js-sdk@^0.4.2",
+        "@paimaexample/npm-avail-node": "npm:@paimaexample/npm-avail-node@0.3.30",
+        "@paimaexample/npm-avail-light-client": "npm:@paimaexample/npm-avail-light-client@0.3.30"
+    }
 }

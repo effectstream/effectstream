@@ -30,8 +30,7 @@ const config = Value.Parse(OrchestratorConfig, {
     launchEvm("@e2e/evm-contracts"),
     yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
     launchMidnight("@e2e/midnight-contracts"),
-    // Uncomment to enable Avail Process
-    // launchAvail("@e2e/avail-contracts"),
+    launchAvail("@e2e/avail-contracts"),
     {
       stopProcessAtPort: [10590],
       processes: [

@@ -28,19 +28,19 @@ export const launchAvail = (packageName: string) => ({
       type: "system-dependency",
     },
     {
+      name: ComponentNames.AVAIL_NODE_WAIT,
+      args: ["task", "-f", packageName, "avail-node:wait"],
+    },
+    {
       name: ComponentNames.AVAIL_CLIENT,
       args: [
         "task",
         "-f",
         packageName,
-        "avail-light-client:start",
+        "avail-light-client:deploy",
       ],
       waitToExit: false,
       type: "system-dependency",
-    },
-    {
-      name: ComponentNames.AVAIL_NODE_WAIT,
-      args: ["task", "-f", packageName, "avail-node:wait"],
     },
     {
       name: ComponentNames.AVAIL_CLIENT_WAIT,
