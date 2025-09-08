@@ -5,6 +5,8 @@
 
 The `evm-midnight` template is a powerful starting point that demonstrates one of Paima Engine's core strengths: **multi-chain interoperability**. It showcases a complete, end-to-end dApp that seamlessly combines a public, asset-focused EVM chain with a private, computation-focused ZK chain (Midnight).
 
+![evm-midnight-web](./evm-midnight.png)
+
 ## Core Concept: Extending NFTs with Private Metadata
 
 The goal of this template is to create a dApp where users can own a standard **ERC721 NFT** on an EVM chain, but then use the privacy features of **Midnight** to add or update secret metadata associated with that NFT.
