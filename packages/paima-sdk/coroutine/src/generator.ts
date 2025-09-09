@@ -62,7 +62,7 @@ export const World = {
       type: "promise",
       promise,
     };
-    const [wrapped] = (yield call) as [Output];
+    const [wrapped] = (yield call) as Output[];
     return wrapped;
   },
 };

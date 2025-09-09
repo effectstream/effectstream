@@ -213,7 +213,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ sum: number }>(
     "Check Promises in State Machine",
     db,
-    `SELECT * FROM another_example_table order by block_height asc;`,
+    `SELECT * FROM another_example_table WHERE block_height >= 0 ORDER BY block_height asc;`,
     (res) => res.rows.length === attackInputCount,
     (res) => {
       // The first value is random - 3;

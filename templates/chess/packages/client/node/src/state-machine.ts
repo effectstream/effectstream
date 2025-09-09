@@ -24,20 +24,15 @@ stm.addStateTransition("createdLobby", function* (data) {
   const user = data.signerAddress;
   const { blockHeight, parsedInput, randomGenerator } = data;
   const result = yield* World.promise<SQLUpdate[]>(
-    new Promise((resolve, reject) => {
-      return createdLobby(user!, blockHeight, {
+    createdLobby(
+      user!,
+      blockHeight,
+      {
         input: "createdLobby",
         ...parsedInput,
-      }, randomGenerator).then((r) => {
-        // console.error("non-adapted response:", r);
-        // TODO We have a issue where the result is unpacked.
-        //      So we return an extra []
-        resolve([r] as SQLUpdate[]);
-      }).catch((e) => {
-        console.error("non-adapted error:", e);
-        reject(e);
-      });
-    }),
+      },
+      randomGenerator
+    )
   );
   for (let i = 0; i < result.length; i++) {
     yield* printSQLQueries(i, result[i]);
@@ -50,20 +45,15 @@ stm.addStateTransition("joinLobby", function* (data) {
   const { blockHeight, parsedInput, randomGenerator } = data;
   const dbConn = getConnection();
   const result = yield* World.promise<SQLUpdate[]>(
-    new Promise((resolve, reject) => {
-      return joinedLobby(user!, blockHeight, {
+    joinedLobby(
+      user!,
+      blockHeight,
+      {
         input: "joinedLobby",
         ...parsedInput,
-      }, dbConn).then((r) => {
-        // console.error("non-adapted response:", r);
-        // TODO We have a issue where the result is unpacked.
-        //      So we return an extra []
-        resolve([r] as SQLUpdate[]);
-      }).catch((e) => {
-        console.error("non-adapted error:", e);
-        reject(e);
-      });
-    }),
+      },
+      dbConn
+    )
   );
   for (let i = 0; i < result.length; i++) {
     yield* printSQLQueries(i, result[i]);
@@ -75,22 +65,15 @@ stm.addStateTransition("closeLobby", function* (data) {
   const user = data.signerAddress;
   const { blockHeight, parsedInput, randomGenerator } = data;
   const dbConn = getConnection();
-
   const result = yield* World.promise<SQLUpdate[]>(
-    new Promise((resolve, reject) => {
-      return closedLobby(user!, {
+    closedLobby(
+      user!,
+      {
         input: "closedLobby",
         ...parsedInput,
-      }, dbConn).then((r) => {
-        // console.error("non-adapted response:", r);
-        // TODO We have a issue where the result is unpacked.
-        //      So we return an extra []
-        resolve([r] as SQLUpdate[]);
-      }).catch((e) => {
-        console.error("non-adapted error:", e);
-        reject(e);
-      });
-    }),
+      },
+      dbConn
+    )
   );
   for (let i = 0; i < result.length; i++) {
     yield* printSQLQueries(i, result[i]);
@@ -102,28 +85,17 @@ stm.addStateTransition("submitMoves", function* (data) {
   const user = data.signerAddress;
   const { blockHeight, parsedInput, randomGenerator } = data;
   const dbConn = getConnection();
-
   const result = yield* World.promise<SQLUpdate[]>(
-    new Promise((resolve, reject) => {
-      return submittedMoves(
-        user!,
-        blockHeight,
-        {
-          input: "submittedMoves",
-          ...parsedInput,
-        },
-        dbConn,
-        randomGenerator,
-      ).then((r) => {
-        // console.error("non-adapted response:", r);
-        // TODO We have a issue where the result is unpacked.
-        //      So we return an extra []
-        resolve([r] as SQLUpdate[]);
-      }).catch((e) => {
-        console.error("non-adapted error:", e);
-        reject(e);
-      });
-    }),
+    submittedMoves(
+      user!,
+      blockHeight,
+      {
+        input: "submittedMoves",
+        ...parsedInput,
+      },
+      dbConn,
+      randomGenerator
+    )
   );
   for (let i = 0; i < result.length; i++) {
     yield* printSQLQueries(i, result[i]);
@@ -133,29 +105,19 @@ stm.addStateTransition("submitMoves", function* (data) {
 
 stm.addStateTransition("z", function* (data) {
   const { blockHeight, parsedInput, randomGenerator } = data;
-  console.error("Processing z", parsedInput);
+  console.log("Processing Zombie Round", parsedInput);
   const dbConn = getConnection();
   const result = yield* World.promise<SQLUpdate[]>(
-    new Promise((resolve, reject) => {
-      return scheduledData(
-        blockHeight,
-        {
-          input: "scheduledData",
-          effect: "zombie",
-          ...parsedInput,
-        } as ZombieRound,
-        dbConn,
-        randomGenerator,
-      ).then((r) => {
-        // console.error("non-adapted response:", r);
-        // TODO We have a issue where the result is unpacked.
-        //      So we return an extra []
-        resolve([r] as SQLUpdate[]);
-      }).catch((e) => {
-        console.error("non-adapted error:", e);
-        reject(e);
-      });
-    }),
+    scheduledData(
+      blockHeight,
+      {
+        input: "scheduledData",
+        effect: "zombie",
+        ...parsedInput,
+      } as ZombieRound,
+      dbConn,
+      randomGenerator
+    )
   );
   for (let i = 0; i < result.length; i++) {
     yield* printSQLQueries(i, result[i]);
@@ -165,29 +127,19 @@ stm.addStateTransition("z", function* (data) {
 
 stm.addStateTransition("u", function* (data) {
   const { blockHeight, parsedInput, randomGenerator } = data;
-  console.error("Processing u", parsedInput);
+  console.log("Processing User Stats", parsedInput);
   const dbConn = getConnection();
   const result = yield* World.promise<SQLUpdate[]>(
-    new Promise((resolve, reject) => {
-      return scheduledData(
-        blockHeight,
-        {
-          input: "scheduledData",
-          effect: "stats",
-          ...parsedInput,
-        } as UserStats,
-        dbConn,
-        randomGenerator,
-      ).then((r) => {
-        // console.error("non-adapted response:", r);
-        // TODO We have a issue where the result is unpacked.
-        //      So we return an extra []
-        resolve([r] as SQLUpdate[]);
-      }).catch((e) => {
-        console.error("non-adapted error:", e);
-        reject(e);
-      });
-    }),
+    scheduledData(
+      blockHeight,
+      {
+        input: "scheduledData",
+        effect: "stats",
+        ...parsedInput,
+      } as UserStats,
+      dbConn,
+      randomGenerator
+    )
   );
   for (let i = 0; i < result.length; i++) {
     yield* printSQLQueries(i, result[i]);
@@ -197,29 +149,19 @@ stm.addStateTransition("u", function* (data) {
 
 stm.addStateTransition("sb", function* (data) {
   const { blockHeight, parsedInput, randomGenerator } = data;
-  console.error("Processing sb", parsedInput);
+  console.log("Processing Scheduled Bot Move", parsedInput);
   const dbConn = getConnection();
   const result = yield* World.promise<SQLUpdate[]>(
-    new Promise((resolve, reject) => {
-      return scheduledData(
-        blockHeight,
-        {
-          input: "scheduledData",
-          effect: "move",
-          ...parsedInput,
-        } as BotMove,
-        dbConn,
-        randomGenerator,
-      ).then((r) => {
-        // console.error("non-adapted response:", r);
-        // TODO We have a issue where the result is unpacked.
-        //      So we return an extra []
-        resolve([r] as SQLUpdate[]);
-      }).catch((e) => {
-        console.error("non-adapted error:", e);
-        reject(e);
-      });
-    }),
+    scheduledData(
+      blockHeight,
+      {
+        input: "scheduledData",
+        effect: "move",
+        ...parsedInput,
+      } as BotMove,
+      dbConn,
+      randomGenerator
+    )
   );
 
   for (let i = 0; i < result.length; i++) {
@@ -231,9 +173,7 @@ stm.addStateTransition("sb", function* (data) {
 function* printSQLQueries(index: number, result: any) {
   console.error("--------------------------------");
   console.error(`Processing Query ${index + 1}`);
-  console.error(
-    `Prepared Query:\n${result[0].queryIR.statement}\n\n`,
-  );
+  console.error(`Prepared Query:\n${result[0].queryIR.statement}\n\n`);
   console.error(`Parameters:\n${JSON.stringify(result[1], null, 2)}\n\n`);
 }
 
@@ -250,7 +190,7 @@ function* printSQLQueries(index: number, result: any) {
  */
 export const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
-  input: BaseStfInput,
+  input: BaseStfInput
 ): SyncStateUpdateStream<void> {
   if (blockHeight >= 0) {
     yield* stm.processInput(input);

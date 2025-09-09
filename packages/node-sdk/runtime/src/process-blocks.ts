@@ -95,7 +95,8 @@ function* executeGeneratorStepByStep(
       // This means that we have non-database promises in the generator.
       // Each time yield is called, we catch the intention and resolve it.
       const queryResult = yield* until(value.promise);
-      operations.push(queryResult);
+      // We wrap the result, but it will be flattened by the generator.
+      operations.push([queryResult]);
     } else {
       console.error("Yielding unhandled type", result);
       throw new Error("Unhandled type in generator");
