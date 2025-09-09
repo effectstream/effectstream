@@ -9,6 +9,7 @@ import type { AvailFetcher } from "./fetcher.ts";
 import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
 import { getPage } from "@paima/db";
 import { AvailClient } from "./AvailClient.ts";
+import { applyDelay } from "../common/utils.ts";
 
 export class AvailSyncState extends SyncState<
   Input,
@@ -49,7 +50,10 @@ export class AvailSyncState extends SyncState<
   @bound
   override toRootPage(data: Output): RootPage {
     // Avail headers include `received_at` (ms). Use it as the chain page.
-    return data.raw.received_at as unknown as TimestampMs;
+    return applyDelay(
+      data.raw.received_at,
+      this.config.syncProtocol.delayMs,
+    );
   }
 
   @bound

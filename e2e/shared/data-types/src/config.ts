@@ -194,6 +194,7 @@ export const localhostConfig = new ConfigBuilder()
           lightClient: 'http://127.0.0.1:7007',
           startBlockHeight: 1,
           pollingInterval: 20_000,
+          delayMs: 40_000,
         }),
       );
 
