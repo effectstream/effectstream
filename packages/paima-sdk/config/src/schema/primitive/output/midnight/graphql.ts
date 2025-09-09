@@ -1,6 +1,6 @@
-import {
-  type MidnightEncodedStateJson,
-  type Satisfies,
+import type {
+  MidnightEncodedStateJson,
+  Satisfies,
   TypeboxHelpers,
 } from "@paima/utils";
 import {

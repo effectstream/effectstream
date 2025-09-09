@@ -39,7 +39,9 @@ export const ConfigSyncProtocolSchemaAvailBase = NameField.cloneMerge(
 });
 
 export const CommonResponseAvailRpcBase = {
-  internal: {},
+  internal: {
+    transactionHash: Type.String(),
+  },
   payload: {
     primitiveName: Type.String(),
     caip2: TypeboxHelpers.Caip2,

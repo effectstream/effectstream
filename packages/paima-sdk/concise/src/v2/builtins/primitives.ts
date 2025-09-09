@@ -9,6 +9,7 @@ import {
   ConfigPrimitivePayloadType,
   ConfigPrimitiveType,
   ConfigSyncProtocolType,
+  PrimitiveAvailPaimaL2Payload,
   PrimitiveCardanoCarpDelegationPayload,
   PrimitiveCardanoCarpMintBurnPayload,
   PrimitiveCardanoCarpProjectedNFTPayload,
@@ -120,6 +121,9 @@ export const BuiltinTransitions = {
   },
   [ConfigPrimitiveType.MidnightContractState]: {
     scheduledPrefix: [["payload", PrimitiveMidnightContractStatePayload]],
+  },
+  [ConfigPrimitiveType.AvailPaimaL2]: {
+    scheduledPrefix: [["payload", PrimitiveAvailPaimaL2Payload]],
   },
 } as const;
 

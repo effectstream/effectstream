@@ -15,7 +15,7 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Input, Output, Page, PrimitiveType } from "./types.ts";
 import { AvailClient } from "./AvailClient.ts";
-import { all, call, type Operation } from "effection";
+import { all, call, sleep, type Operation } from "effection";
 import { bound } from "@paima/utils";
 
 export class AvailFetcher extends BaseDataFetcher<
@@ -131,7 +131,9 @@ export class AvailFetcher extends BaseDataFetcher<
       e.appId === appId
     );
     if (!isPresent) return undefined;
-
+    // Sometimes the block data appears much later than the appId appears in the block header
+    // so we need to sleep for a bit to ensure the block data is available
+    yield* sleep(10_000);
     // Read block data for the corresponding height to unblock future parsing.
     // Intentionally ignore the result for now.
     const blockData = yield* call(() =>
@@ -141,7 +143,7 @@ export class AvailFetcher extends BaseDataFetcher<
     const dataTransaction = blockData.data_transactions.at(0);
     if (!dataTransaction) return undefined;
     // TODO: is always a JSON string?
-    const data = JSON.parse(atob(dataTransaction.data));
+    const data: string = atob(dataTransaction.data);
     return {
       input: primitive.primitive,
       primitiveType: ConfigPrimitiveType.AvailPaimaL2,
@@ -149,7 +151,11 @@ export class AvailFetcher extends BaseDataFetcher<
       output: {
         payloadType: ConfigPrimitivePayloadType.Event,
         primitive: ConfigPrimitiveType.AvailPaimaL2,
-        payload: data,
+        payload: {
+          inputData: height.toString(),
+          inputNonce: '0x', // TODO replace this with something meaningful
+          suppliedValue: data,
+        },
         syncProtocol: {
           type: ConfigSyncProtocolType.AVAIL_PARALLEL,
           name: this.config.syncProtocol.name,
@@ -165,7 +171,9 @@ export class AvailFetcher extends BaseDataFetcher<
               timestamp: null,
             },
           },
-          internal: {},
+          internal: {
+            transactionHash: header.hash, // TODO replace this with real txHash
+          },
         },
       },
     };
