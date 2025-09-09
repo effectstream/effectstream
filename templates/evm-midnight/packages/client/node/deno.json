@@ -1,5 +1,5 @@
 {
-  "name": "@example/node",
+  "name": "@example-evm-midnight/node",
   "version": "0.3.22",
   "license": "MIT",
   "exports": {

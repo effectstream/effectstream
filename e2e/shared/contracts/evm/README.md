@@ -57,7 +57,7 @@ First create a ignition module at:
 With a Hardhat-Ignition Module, for example:
 
 ```ts
-import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+export { buildModule } from "@nomicfoundation/ignition-core";
 
 export default buildModule("MyModuleName", (m) => {
   const contract = m.contract("MyContractName", []);

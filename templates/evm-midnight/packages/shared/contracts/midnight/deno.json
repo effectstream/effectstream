@@ -1,5 +1,5 @@
 {
-    "name": "@example/midnight-contracts",
+    "name": "@example-evm-midnight/midnight-contracts",
     "version": "0.3.22",
     "exports": {
         ".": "./read-contract.ts"

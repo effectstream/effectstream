@@ -1,14 +1,14 @@
 import { PaimaSTM } from "@paimaexample/sm";
-import { grammar } from "@example/data-types/grammar";
+import { grammar } from "@example-evm-midnight/data-types/grammar";
 import type { BaseStfInput, BaseStfOutput } from "@paimaexample/sm";
 import {
   getEvmMidnightByTokenId,
   insertEvmMidnight,
   insertEvmMidnightProperty,
-} from "@example/database";
+} from "@example-evm-midnight/database";
 import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
 import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
-import { contractAddressesEvmMain } from "@example/evm-contracts";
+import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 

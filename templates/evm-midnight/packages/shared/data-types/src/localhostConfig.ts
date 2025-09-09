@@ -1,5 +1,5 @@
-import { contractAddressesEvmMain } from "@example/evm-contracts";
-import { readMidnightContract } from "@example/midnight-contracts";
+import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
+import { readMidnightContract } from "@example-evm-midnight/midnight-contracts";
 
 import {
   ConfigBuilder,
@@ -10,7 +10,7 @@ import {
 } from "@paimaexample/config";
 import { hardhat } from "viem/chains";
 import type { TimestampMs } from "@paimaexample/utils";
-import { erc721dev } from "@example/evm-contracts";
+import { erc721dev } from "@example-evm-midnight/evm-contracts";
 import { getConnection } from "@paimaexample/db";
 
 /**

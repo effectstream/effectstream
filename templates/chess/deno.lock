@@ -24,6 +24,7 @@
     "jsr:@paimaexample/db@~0.3.38": "0.3.38",
     "jsr:@paimaexample/event-client@~0.3.38": "0.3.38",
     "jsr:@paimaexample/event-server@~0.3.38": "0.3.38",
+    "jsr:@paimaexample/evm-hardhat@0.3.39": "0.3.39",
     "jsr:@paimaexample/explorer@0.3.38": "0.3.38",
     "jsr:@paimaexample/log@0.3.38": "0.3.38",
     "jsr:@paimaexample/log@~0.3.38": "0.3.38",
@@ -42,6 +43,7 @@
     "jsr:@std/assert@~1.0.6": "1.0.14",
     "jsr:@std/bytes@1": "1.0.6",
     "jsr:@std/cli@^1.0.21": "1.0.22",
+    "jsr:@std/cli@^1.0.22": "1.0.22",
     "jsr:@std/crypto@1": "1.0.5",
     "jsr:@std/encoding@1": "1.0.10",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
@@ -76,7 +78,6 @@
     "npm:@metamask/providers@^22.1.0": "22.1.0_webextension-polyfill@0.12.0",
     "npm:@midnight-ntwrk/compact-runtime@~0.8.1": "0.8.1",
     "npm:@midnight-ntwrk/ledger@4": "4.0.0",
-    "npm:@midnight-ntwrk/ledger@4.0.0": "4.0.0",
     "npm:@midnight-ntwrk/midnight-js-contracts@^2.0.2": "2.0.2",
     "npm:@midnight-ntwrk/midnight-js-fetch-zk-config-provider@^2.0.2": "2.0.2",
     "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@^2.0.2": "2.0.2",
@@ -93,11 +94,11 @@
     "npm:@midnight-ntwrk/zswap@4": "4.0.0",
     "npm:@mui/icons-material@^5.15.5": "5.18.0_@mui+material@5.18.0__@emotion+react@11.14.0___react@19.1.1__@emotion+styled@11.14.1___@emotion+react@11.14.0____react@19.1.1___react@19.1.1__@types+react@19.1.12__react@19.1.1__react-dom@19.1.1___react@19.1.1_@types+react@19.1.12_react@19.1.1_@emotion+react@11.14.0__react@19.1.1_@emotion+styled@11.14.1__@emotion+react@11.14.0___react@19.1.1__react@19.1.1_react-dom@19.1.1__react@19.1.1",
     "npm:@mui/material@^5.15.5": "5.18.0_@emotion+react@11.14.0__react@19.1.1_@emotion+styled@11.14.1__@emotion+react@11.14.0___react@19.1.1__react@19.1.1_@types+react@19.1.12_react@19.1.1_react-dom@19.1.1__react@19.1.1",
-    "npm:@nomicfoundation/hardhat-errors@3.0.0-next.20": "3.0.0-next.20",
-    "npm:@nomicfoundation/hardhat-ignition-viem@3.0.0-next.20": "3.0.0-next.20_@nomicfoundation+hardhat-ignition@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76_@nomicfoundation+hardhat-viem@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76__viem@2.37.4___ws@8.18.3_@nomicfoundation+ignition-core@3.0.2_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.37.4__ws@8.18.3",
-    "npm:@nomicfoundation/hardhat-ignition@3.0.0-next.20": "3.0.0-next.20_hardhat@3.0.0-next.20__zod@3.25.76",
-    "npm:@nomicfoundation/hardhat-utils@3.0.0-next.20": "3.0.0-next.20",
-    "npm:@nomicfoundation/hardhat-viem@3.0.0-next.20": "3.0.0-next.20_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.37.4__ws@8.18.3",
+    "npm:@nomicfoundation/hardhat-errors@3.0.1": "3.0.1",
+    "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2": "3.0.2_@nomicfoundation+hardhat-ignition@3.0.2__@nomicfoundation+hardhat-verify@3.0.1___hardhat@3.0.0-next.20____zod@3.25.76___zod@3.25.76__hardhat@3.0.0-next.20___zod@3.25.76_@nomicfoundation+hardhat-verify@3.0.1__hardhat@3.0.0-next.20___zod@3.25.76__zod@3.25.76_@nomicfoundation+hardhat-viem@3.0.0__hardhat@3.0.0-next.20___zod@3.25.76__viem@2.37.4___ws@8.18.3_@nomicfoundation+ignition-core@3.0.2_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.37.4__ws@8.18.3",
+    "npm:@nomicfoundation/hardhat-utils@3.0.0": "3.0.0",
+    "npm:@nomicfoundation/hardhat-viem@3.0.0": "3.0.0_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.37.4__ws@8.18.3",
+    "npm:@nomicfoundation/ignition-core@3.0.2": "3.0.2",
     "npm:@opentelemetry/api-logs@0.56.0": "0.56.0",
     "npm:@opentelemetry/api@^1.9.0": "1.9.0",
     "npm:@opentelemetry/auto-instrumentations-node@0.54": "0.54.0_@opentelemetry+api@1.9.0",
@@ -132,7 +133,7 @@
     "npm:@thirdweb-dev/sdk@2.4.1": "2.4.1_ethers@5.7.2",
     "npm:@thirdweb-dev/wallets@2.4.1": "2.4.1_ethers@5.7.2_@types+react@19.1.12_react@19.1.1_bs58@6.0.0",
     "npm:@ts-rest/core@3.53.0-rc.1": "3.53.0-rc.1_@types+node@24.2.0",
-    "npm:@ts-rest/fastify@3.53.0-rc.1": "3.53.0-rc.1_@ts-rest+core@3.53.0-rc.1__@types+node@24.2.0_fastify@5.6.0_@types+node@24.2.0",
+    "npm:@ts-rest/fastify@3.53.0-rc.1": "3.53.0-rc.1_@ts-rest+core@3.53.0-rc.1_fastify@5.6.0_@types+node@24.2.0",
     "npm:@types/node@*": "24.2.0",
     "npm:@types/react@^19.1.2": "19.1.12",
     "npm:@utxorpc/sdk@~0.6.8": "0.6.8_@connectrpc+connect@1.4.0__@bufbuild+protobuf@1.10.1",
@@ -163,6 +164,7 @@
     "npm:fastify@^5.4.0": "5.6.0",
     "npm:graphql-ws@^6.0.6": "6.0.6_graphql@16.11.0_ws@8.18.1",
     "npm:hardhat@3.0.0-next.20": "3.0.0-next.20_zod@3.25.76",
+    "npm:hardhat@3.0.4": "3.0.4_zod@3.25.76",
     "npm:hi-base32@~0.5.1": "0.5.1",
     "npm:ip@^2.0.1": "2.0.1",
     "npm:js-base64@^3.7.7": "3.7.8",
@@ -282,7 +284,7 @@
         "jsr:@paimaexample/crypto@~0.3.38",
         "jsr:@paimaexample/event-client",
         "jsr:@paimaexample/utils@~0.3.38",
-        "jsr:@std/cli",
+        "jsr:@std/cli@^1.0.21",
         "npm:@fastify/cors",
         "npm:@fastify/swagger",
         "npm:@fastify/swagger-ui",
@@ -384,6 +386,17 @@
         "npm:aedes",
         "npm:aedes-server-factory",
         "npm:ip"
+      ]
+    },
+    "@paimaexample/evm-hardhat@0.3.39": {
+      "integrity": "91412e269dd74addb71da1bc6c643ff6dbc096bf3c2c25848636634b1e092959",
+      "dependencies": [
+        "jsr:@std/cli@^1.0.22",
+        "jsr:@std/encoding@~1.0.8",
+        "npm:@nomicfoundation/hardhat-errors",
+        "npm:@nomicfoundation/hardhat-utils",
+        "npm:hardhat@3.0.4",
+        "npm:ws@8.18.1"
       ]
     },
     "@paimaexample/explorer@0.3.38": {
@@ -1157,28 +1170,28 @@
       "integrity": "sha512-MrzV0nvsymfO/fursTB7m/KunkPsCndltVgfdHaT1Aj5Vi6R/doKIGGkOofHX+8B6VMZpuZosKCMQ5lQuqjt8w==",
       "dependencies": [
         "@eth-optimism/core-utils",
-        "@ethersproject/abstract-provider",
-        "@ethersproject/abstract-signer",
+        "@ethersproject/abstract-provider@5.7.0",
+        "@ethersproject/abstract-signer@5.8.0",
         "ethers@5.7.2"
       ]
     },
     "@eth-optimism/core-utils@0.12.0": {
       "integrity": "sha512-qW+7LZYCz7i8dRa7SRlUKIo1VBU8lvN0HeXCxJR+z+xtMzMQpPds20XJNCMclszxYQHkXY00fOT6GvFw9ZL6nw==",
       "dependencies": [
-        "@ethersproject/abi",
-        "@ethersproject/abstract-provider",
-        "@ethersproject/address@5.7.0",
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/constants",
+        "@ethersproject/abi@5.8.0",
+        "@ethersproject/abstract-provider@5.8.0",
+        "@ethersproject/address@5.8.0",
+        "@ethersproject/bignumber@5.8.0",
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/constants@5.8.0",
         "@ethersproject/contracts",
-        "@ethersproject/hash",
-        "@ethersproject/keccak256",
-        "@ethersproject/properties",
+        "@ethersproject/hash@5.8.0",
+        "@ethersproject/keccak256@5.8.0",
+        "@ethersproject/properties@5.8.0",
         "@ethersproject/providers",
-        "@ethersproject/rlp",
-        "@ethersproject/transactions",
-        "@ethersproject/web",
+        "@ethersproject/rlp@5.8.0",
+        "@ethersproject/transactions@5.7.0",
+        "@ethersproject/web@5.7.1",
         "bufio",
         "chai"
       ]
@@ -1226,151 +1239,237 @@
       "integrity": "sha512-351ktp42TiRcYB3H1OP8yajPeAQstMW/yCFokj/AthP9bLHzQFPlOrxOcwYEDkUAICmOHljvN4K39OMTMUa9RA==",
       "dependencies": [
         "@ethersproject/address@5.7.0",
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/constants",
-        "@ethersproject/hash",
-        "@ethersproject/keccak256",
-        "@ethersproject/logger",
-        "@ethersproject/properties",
-        "@ethersproject/strings"
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/constants@5.7.0",
+        "@ethersproject/hash@5.7.0",
+        "@ethersproject/keccak256@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/properties@5.7.0",
+        "@ethersproject/strings@5.7.0"
+      ]
+    },
+    "@ethersproject/abi@5.8.0": {
+      "integrity": "sha512-b9YS/43ObplgyV6SlyQsG53/vkSal0MNA1fskSC4mbnCMi8R+NkcH8K9FPYNESf6jUefBUniE4SOKms0E/KK1Q==",
+      "dependencies": [
+        "@ethersproject/address@5.8.0",
+        "@ethersproject/bignumber@5.8.0",
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/constants@5.8.0",
+        "@ethersproject/hash@5.8.0",
+        "@ethersproject/keccak256@5.8.0",
+        "@ethersproject/logger@5.8.0",
+        "@ethersproject/properties@5.8.0",
+        "@ethersproject/strings@5.8.0"
       ]
     },
     "@ethersproject/abstract-provider@5.7.0": {
       "integrity": "sha512-R41c9UkchKCpAqStMYUpdunjo3pkEvZC3FAwZn5S5MGbXoMQOHIdHItezTETxAO5bevtMApSyEhn9+CHcDsWBw==",
       "dependencies": [
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/logger",
-        "@ethersproject/networks",
-        "@ethersproject/properties",
-        "@ethersproject/transactions",
-        "@ethersproject/web"
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/networks@5.7.1",
+        "@ethersproject/properties@5.7.0",
+        "@ethersproject/transactions@5.7.0",
+        "@ethersproject/web@5.7.1"
+      ]
+    },
+    "@ethersproject/abstract-provider@5.8.0": {
+      "integrity": "sha512-wC9SFcmh4UK0oKuLJQItoQdzS/qZ51EJegK6EmAWlh+OptpQ/npECOR3QqECd8iGHC0RJb4WKbVdSfif4ammrg==",
+      "dependencies": [
+        "@ethersproject/bignumber@5.8.0",
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/logger@5.8.0",
+        "@ethersproject/networks@5.8.0",
+        "@ethersproject/properties@5.8.0",
+        "@ethersproject/transactions@5.8.0",
+        "@ethersproject/web@5.8.0"
       ]
     },
     "@ethersproject/abstract-signer@5.7.0": {
       "integrity": "sha512-a16V8bq1/Cz+TGCkE2OPMTOUDLS3grCpdjoJCYNnVBbdYEMSgKrU0+B90s8b6H+ByYTBZN7a3g76jdIJi7UfKQ==",
       "dependencies": [
-        "@ethersproject/abstract-provider",
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/logger",
-        "@ethersproject/properties"
+        "@ethersproject/abstract-provider@5.7.0",
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/properties@5.7.0"
+      ]
+    },
+    "@ethersproject/abstract-signer@5.8.0": {
+      "integrity": "sha512-N0XhZTswXcmIZQdYtUnd79VJzvEwXQw6PK0dTl9VoYrEBxxCPXqS0Eod7q5TNKRxe1/5WUMuR0u0nqTF/avdCA==",
+      "dependencies": [
+        "@ethersproject/abstract-provider@5.8.0",
+        "@ethersproject/bignumber@5.8.0",
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/logger@5.8.0",
+        "@ethersproject/properties@5.8.0"
       ]
     },
     "@ethersproject/address@5.6.1": {
       "integrity": "sha512-uOgF0kS5MJv9ZvCz7x6T2EXJSzotiybApn4XlOgoTX0xdtyVIJ7pF+6cGPxiEq/dpBiTfMiw7Yc81JcwhSYA0Q==",
       "dependencies": [
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/keccak256",
-        "@ethersproject/logger",
-        "@ethersproject/rlp"
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/keccak256@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/rlp@5.7.0"
       ]
     },
     "@ethersproject/address@5.7.0": {
       "integrity": "sha512-9wYhYt7aghVGo758POM5nqcOMaE168Q6aRLJZwUmiqSrAungkG74gSSeKEIR7ukixesdRZGPgVqme6vmxs1fkA==",
       "dependencies": [
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/keccak256",
-        "@ethersproject/logger",
-        "@ethersproject/rlp"
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/keccak256@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/rlp@5.7.0"
+      ]
+    },
+    "@ethersproject/address@5.8.0": {
+      "integrity": "sha512-GhH/abcC46LJwshoN+uBNoKVFPxUuZm6dA257z0vZkKmU1+t8xTn8oK7B9qrj8W2rFRMch4gbJl6PmVxjxBEBA==",
+      "dependencies": [
+        "@ethersproject/bignumber@5.8.0",
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/keccak256@5.8.0",
+        "@ethersproject/logger@5.8.0",
+        "@ethersproject/rlp@5.8.0"
       ]
     },
     "@ethersproject/base64@5.7.0": {
       "integrity": "sha512-Dr8tcHt2mEbsZr/mwTPIQAf3Ai0Bks/7gTw9dSqk1mQvhW3XvRlmDJr/4n+wg1JmCl16NZue17CDh8xb/vZ0sQ==",
       "dependencies": [
-        "@ethersproject/bytes"
+        "@ethersproject/bytes@5.7.0"
+      ]
+    },
+    "@ethersproject/base64@5.8.0": {
+      "integrity": "sha512-lN0oIwfkYj9LbPx4xEkie6rAMJtySbpOAFXSDVQaBnAzYfB4X2Qr+FXJGxMoc3Bxp2Sm8OwvzMrywxyw0gLjIQ==",
+      "dependencies": [
+        "@ethersproject/bytes@5.8.0"
       ]
     },
     "@ethersproject/basex@5.7.0": {
       "integrity": "sha512-ywlh43GwZLv2Voc2gQVTKBoVQ1mti3d8HK5aMxsfu/nRDnMmNqaSJ3r3n85HBByT8OpoY96SXM1FogC533T4zw==",
       "dependencies": [
-        "@ethersproject/bytes",
-        "@ethersproject/properties"
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/properties@5.7.0"
       ]
     },
     "@ethersproject/bignumber@5.7.0": {
       "integrity": "sha512-n1CAdIHRWjSucQO3MC1zPSVgV/6dy/fjL9pMrPP9peL+QxEg9wOsVqwD4+818B6LUEtaXzVHQiuivzRoxPxUGw==",
       "dependencies": [
-        "@ethersproject/bytes",
-        "@ethersproject/logger",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "bn.js@5.2.2"
+      ]
+    },
+    "@ethersproject/bignumber@5.8.0": {
+      "integrity": "sha512-ZyaT24bHaSeJon2tGPKIiHszWjD/54Sz8t57Toch475lCLljC6MgPmxk7Gtzz+ddNN5LuHea9qhAe0x3D+uYPA==",
+      "dependencies": [
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/logger@5.8.0",
         "bn.js@5.2.2"
       ]
     },
     "@ethersproject/bytes@5.7.0": {
       "integrity": "sha512-nsbxwgFXWh9NyYWo+U8atvmMsSdKJprTcICAkvbBffT75qDocbuggBU0SJiVK2MuTrp0q+xvLkTnGMPK1+uA9A==",
       "dependencies": [
-        "@ethersproject/logger"
+        "@ethersproject/logger@5.7.0"
+      ]
+    },
+    "@ethersproject/bytes@5.8.0": {
+      "integrity": "sha512-vTkeohgJVCPVHu5c25XWaWQOZ4v+DkGoC42/TS2ond+PARCxTJvgTFUNDZovyQ/uAQ4EcpqqowKydcdmRKjg7A==",
+      "dependencies": [
+        "@ethersproject/logger@5.8.0"
       ]
     },
     "@ethersproject/constants@5.7.0": {
       "integrity": "sha512-DHI+y5dBNvkpYUMiRQyxRBYBefZkJfo70VUkUAsRjcPs47muV9evftfZ0PJVCXYbAiCgght0DtcF9srFQmIgWA==",
       "dependencies": [
-        "@ethersproject/bignumber"
+        "@ethersproject/bignumber@5.7.0"
+      ]
+    },
+    "@ethersproject/constants@5.8.0": {
+      "integrity": "sha512-wigX4lrf5Vu+axVTIvNsuL6YrV4O5AXl5ubcURKMEME5TnWBouUh0CDTWxZ2GpnRn1kcCgE7l8O5+VbV9QTTcg==",
+      "dependencies": [
+        "@ethersproject/bignumber@5.8.0"
       ]
     },
     "@ethersproject/contracts@5.7.0": {
       "integrity": "sha512-5GJbzEU3X+d33CdfPhcyS+z8MzsTrBGk/sc+G+59+tPa9yFkl6HQ9D6L0QMgNTA9q8dT0XKxxkyp883XsQvbbg==",
       "dependencies": [
-        "@ethersproject/abi",
-        "@ethersproject/abstract-provider",
-        "@ethersproject/abstract-signer",
+        "@ethersproject/abi@5.7.0",
+        "@ethersproject/abstract-provider@5.7.0",
+        "@ethersproject/abstract-signer@5.7.0",
         "@ethersproject/address@5.7.0",
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/constants",
-        "@ethersproject/logger",
-        "@ethersproject/properties",
-        "@ethersproject/transactions"
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/constants@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/properties@5.7.0",
+        "@ethersproject/transactions@5.7.0"
       ]
     },
     "@ethersproject/hash@5.7.0": {
       "integrity": "sha512-qX5WrQfnah1EFnO5zJv1v46a8HW0+E5xuBBDTwMFZLuVTx0tbU2kkx15NqdjxecrLGatQN9FGQKpb1FKdHCt+g==",
       "dependencies": [
-        "@ethersproject/abstract-signer",
+        "@ethersproject/abstract-signer@5.7.0",
         "@ethersproject/address@5.7.0",
-        "@ethersproject/base64",
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/keccak256",
-        "@ethersproject/logger",
-        "@ethersproject/properties",
-        "@ethersproject/strings"
+        "@ethersproject/base64@5.7.0",
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/keccak256@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/properties@5.7.0",
+        "@ethersproject/strings@5.7.0"
+      ]
+    },
+    "@ethersproject/hash@5.8.0": {
+      "integrity": "sha512-ac/lBcTbEWW/VGJij0CNSw/wPcw9bSRgCB0AIBz8CvED/jfvDoV9hsIIiWfvWmFEi8RcXtlNwp2jv6ozWOsooA==",
+      "dependencies": [
+        "@ethersproject/abstract-signer@5.8.0",
+        "@ethersproject/address@5.8.0",
+        "@ethersproject/base64@5.8.0",
+        "@ethersproject/bignumber@5.8.0",
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/keccak256@5.8.0",
+        "@ethersproject/logger@5.8.0",
+        "@ethersproject/properties@5.8.0",
+        "@ethersproject/strings@5.8.0"
       ]
     },
     "@ethersproject/hdnode@5.7.0": {
       "integrity": "sha512-OmyYo9EENBPPf4ERhR7oj6uAtUAhYGqOnIS+jE5pTXvdKBS99ikzq1E7Iv0ZQZ5V36Lqx1qZLeak0Ra16qpeOg==",
       "dependencies": [
-        "@ethersproject/abstract-signer",
+        "@ethersproject/abstract-signer@5.7.0",
         "@ethersproject/basex",
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/logger",
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/logger@5.7.0",
         "@ethersproject/pbkdf2",
-        "@ethersproject/properties",
+        "@ethersproject/properties@5.7.0",
         "@ethersproject/sha2",
-        "@ethersproject/signing-key",
-        "@ethersproject/strings",
-        "@ethersproject/transactions",
+        "@ethersproject/signing-key@5.7.0",
+        "@ethersproject/strings@5.7.0",
+        "@ethersproject/transactions@5.7.0",
         "@ethersproject/wordlists"
       ]
     },
     "@ethersproject/json-wallets@5.7.0": {
       "integrity": "sha512-8oee5Xgu6+RKgJTkvEMl2wDgSPSAQ9MB/3JYjFV9jlKvcYHUXZC+cQp0njgmxdHkYWn8s6/IqIZYm0YWCjO/0g==",
       "dependencies": [
-        "@ethersproject/abstract-signer",
+        "@ethersproject/abstract-signer@5.7.0",
         "@ethersproject/address@5.7.0",
-        "@ethersproject/bytes",
+        "@ethersproject/bytes@5.7.0",
         "@ethersproject/hdnode",
-        "@ethersproject/keccak256",
-        "@ethersproject/logger",
+        "@ethersproject/keccak256@5.7.0",
+        "@ethersproject/logger@5.7.0",
         "@ethersproject/pbkdf2",
-        "@ethersproject/properties",
+        "@ethersproject/properties@5.7.0",
         "@ethersproject/random",
-        "@ethersproject/strings",
-        "@ethersproject/transactions",
+        "@ethersproject/strings@5.7.0",
+        "@ethersproject/transactions@5.7.0",
         "aes-js@3.0.0",
         "scrypt-js"
       ]
@@ -1378,53 +1477,75 @@
     "@ethersproject/keccak256@5.7.0": {
       "integrity": "sha512-2UcPboeL/iW+pSg6vZ6ydF8tCnv3Iu/8tUmLLzWWGzxWKFFqOBQFLo6uLUv6BDrLgCDfN28RJ/wtByx+jZ4KBg==",
       "dependencies": [
-        "@ethersproject/bytes",
+        "@ethersproject/bytes@5.7.0",
+        "js-sha3@0.8.0"
+      ]
+    },
+    "@ethersproject/keccak256@5.8.0": {
+      "integrity": "sha512-A1pkKLZSz8pDaQ1ftutZoaN46I6+jvuqugx5KYNeQOPqq+JZ0Txm7dlWesCHB5cndJSu5vP2VKptKf7cksERng==",
+      "dependencies": [
+        "@ethersproject/bytes@5.8.0",
         "js-sha3@0.8.0"
       ]
     },
     "@ethersproject/logger@5.7.0": {
       "integrity": "sha512-0odtFdXu/XHtjQXJYA3u9G0G8btm0ND5Cu8M7i5vhEcE8/HmF4Lbdqanwyv4uQTr2tx6b7fQRmgLrsnpQlmnig=="
     },
+    "@ethersproject/logger@5.8.0": {
+      "integrity": "sha512-Qe6knGmY+zPPWTC+wQrpitodgBfH7XoceCGL5bJVejmH+yCS3R8jJm8iiWuvWbG76RUmyEG53oqv6GMVWqunjA=="
+    },
     "@ethersproject/networks@5.7.1": {
       "integrity": "sha512-n/MufjFYv3yFcUyfhnXotyDlNdFb7onmkSy8aQERi2PjNcnWQ66xXxa3XlS8nCcA8aJKJjIIMNJTC7tu80GwpQ==",
       "dependencies": [
-        "@ethersproject/logger"
+        "@ethersproject/logger@5.7.0"
+      ]
+    },
+    "@ethersproject/networks@5.8.0": {
+      "integrity": "sha512-egPJh3aPVAzbHwq8DD7Po53J4OUSsA1MjQp8Vf/OZPav5rlmWUaFLiq8cvQiGK0Z5K6LYzm29+VA/p4RL1FzNg==",
+      "dependencies": [
+        "@ethersproject/logger@5.8.0"
       ]
     },
     "@ethersproject/pbkdf2@5.7.0": {
       "integrity": "sha512-oR/dBRZR6GTyaofd86DehG72hY6NpAjhabkhxgr3X2FpJtJuodEl2auADWBZfhDHgVCbu3/H/Ocq2uC6dpNjjw==",
       "dependencies": [
-        "@ethersproject/bytes",
+        "@ethersproject/bytes@5.7.0",
         "@ethersproject/sha2"
       ]
     },
     "@ethersproject/properties@5.7.0": {
       "integrity": "sha512-J87jy8suntrAkIZtecpxEPxY//szqr1mlBaYlQ0r4RCaiD2hjheqF9s1LVE8vVuJCXisjIP+JgtK/Do54ej4Sw==",
       "dependencies": [
-        "@ethersproject/logger"
+        "@ethersproject/logger@5.7.0"
+      ]
+    },
+    "@ethersproject/properties@5.8.0": {
+      "integrity": "sha512-PYuiEoQ+FMaZZNGrStmN7+lWjlsoufGIHdww7454FIaGdbe/p5rnaCXTr5MtBYl3NkeoVhHZuyzChPeGeKIpQw==",
+      "dependencies": [
+        "@ethersproject/logger@5.8.0"
       ]
     },
     "@ethersproject/providers@5.7.2": {
       "integrity": "sha512-g34EWZ1WWAVgr4aptGlVBF8mhl3VWjv+8hoAnzStu8Ah22VHBsuGzP17eb6xDVRzw895G4W7vvx60lFFur/1Rg==",
       "dependencies": [
-        "@ethersproject/abstract-provider",
-        "@ethersproject/abstract-signer",
+        "@ethersproject/abstract-provider@5.7.0",
+        "@ethersproject/abstract-signer@5.7.0",
         "@ethersproject/address@5.7.0",
-        "@ethersproject/base64",
+        "@ethersproject/base64@5.7.0",
         "@ethersproject/basex",
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/constants",
-        "@ethersproject/hash",
-        "@ethersproject/logger",
-        "@ethersproject/networks",
-        "@ethersproject/properties",
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/constants@5.7.0",
+        "@ethersproject/hash@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/networks@5.7.1",
+        "@ethersproject/properties@5.7.0",
         "@ethersproject/random",
-        "@ethersproject/rlp",
+        "@ethersproject/rlp@5.7.0",
         "@ethersproject/sha2",
-        "@ethersproject/strings",
-        "@ethersproject/transactions",
-        "@ethersproject/web",
+        "@ethersproject/strings@5.7.0",
+        "@ethersproject/transactions@5.7.0",
+        "@ethersproject/web@5.7.1",
         "bech32@1.1.4",
         "ws@7.4.6"
       ]
@@ -1432,115 +1553,165 @@
     "@ethersproject/random@5.7.0": {
       "integrity": "sha512-19WjScqRA8IIeWclFme75VMXSBvi4e6InrUNuaR4s5pTF2qNhcGdCUwdxUVGtDDqC00sDLCO93jPQoDUH4HVmQ==",
       "dependencies": [
-        "@ethersproject/bytes",
-        "@ethersproject/logger"
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/logger@5.7.0"
       ]
     },
     "@ethersproject/rlp@5.7.0": {
       "integrity": "sha512-rBxzX2vK8mVF7b0Tol44t5Tb8gomOHkj5guL+HhzQ1yBh/ydjGnpw6at+X6Iw0Kp3OzzzkcKp8N9r0W4kYSs9w==",
       "dependencies": [
-        "@ethersproject/bytes",
-        "@ethersproject/logger"
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/logger@5.7.0"
+      ]
+    },
+    "@ethersproject/rlp@5.8.0": {
+      "integrity": "sha512-LqZgAznqDbiEunaUvykH2JAoXTT9NV0Atqk8rQN9nx9SEgThA/WMx5DnW8a9FOufo//6FZOCHZ+XiClzgbqV9Q==",
+      "dependencies": [
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/logger@5.8.0"
       ]
     },
     "@ethersproject/sha2@5.7.0": {
       "integrity": "sha512-gKlH42riwb3KYp0reLsFTokByAKoJdgFCwI+CCiX/k+Jm2mbNs6oOaCjYQSlI1+XBVejwH2KrmCbMAT/GnRDQw==",
       "dependencies": [
-        "@ethersproject/bytes",
-        "@ethersproject/logger",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/logger@5.7.0",
         "hash.js"
       ]
     },
     "@ethersproject/signing-key@5.7.0": {
       "integrity": "sha512-MZdy2nL3wO0u7gkB4nA/pEf8lu1TlFswPNmy8AiYkfKTdO6eXBJyUdmHO/ehm/htHw9K/qF8ujnTyUAD+Ry54Q==",
       "dependencies": [
-        "@ethersproject/bytes",
-        "@ethersproject/logger",
-        "@ethersproject/properties",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/properties@5.7.0",
         "bn.js@5.2.2",
         "elliptic@6.5.4",
+        "hash.js"
+      ]
+    },
+    "@ethersproject/signing-key@5.8.0": {
+      "integrity": "sha512-LrPW2ZxoigFi6U6aVkFN/fa9Yx/+4AtIUe4/HACTvKJdhm0eeb107EVCIQcrLZkxaSIgc/eCrX8Q1GtbH+9n3w==",
+      "dependencies": [
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/logger@5.8.0",
+        "@ethersproject/properties@5.8.0",
+        "bn.js@5.2.2",
+        "elliptic@6.6.1",
         "hash.js"
       ]
     },
     "@ethersproject/solidity@5.7.0": {
       "integrity": "sha512-HmabMd2Dt/raavyaGukF4XxizWKhKQ24DoLtdNbBmNKUOPqwjsKQSdV9GQtj9CBEea9DlzETlVER1gYeXXBGaA==",
       "dependencies": [
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/keccak256",
-        "@ethersproject/logger",
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/keccak256@5.7.0",
+        "@ethersproject/logger@5.7.0",
         "@ethersproject/sha2",
-        "@ethersproject/strings"
+        "@ethersproject/strings@5.7.0"
       ]
     },
     "@ethersproject/strings@5.7.0": {
       "integrity": "sha512-/9nu+lj0YswRNSH0NXYqrh8775XNyEdUQAuf3f+SmOrnVewcJ5SBNAjF7lpgehKi4abvNNXyf+HX86czCdJ8Mg==",
       "dependencies": [
-        "@ethersproject/bytes",
-        "@ethersproject/constants",
-        "@ethersproject/logger"
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/constants@5.7.0",
+        "@ethersproject/logger@5.7.0"
+      ]
+    },
+    "@ethersproject/strings@5.8.0": {
+      "integrity": "sha512-qWEAk0MAvl0LszjdfnZ2uC8xbR2wdv4cDabyHiBh3Cldq/T8dPH3V4BbBsAYJUeonwD+8afVXld274Ls+Y1xXg==",
+      "dependencies": [
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/constants@5.8.0",
+        "@ethersproject/logger@5.8.0"
       ]
     },
     "@ethersproject/transactions@5.7.0": {
       "integrity": "sha512-kmcNicCp1lp8qanMTC3RIikGgoJ80ztTyvtsFvCYpSCfkjhD0jZ2LOrnbcuxuToLIUYYf+4XwD1rP+B/erDIhQ==",
       "dependencies": [
         "@ethersproject/address@5.7.0",
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/constants",
-        "@ethersproject/keccak256",
-        "@ethersproject/logger",
-        "@ethersproject/properties",
-        "@ethersproject/rlp",
-        "@ethersproject/signing-key"
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/constants@5.7.0",
+        "@ethersproject/keccak256@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/properties@5.7.0",
+        "@ethersproject/rlp@5.7.0",
+        "@ethersproject/signing-key@5.7.0"
+      ]
+    },
+    "@ethersproject/transactions@5.8.0": {
+      "integrity": "sha512-UglxSDjByHG0TuU17bDfCemZ3AnKO2vYrL5/2n2oXvKzvb7Cz+W9gOWXKARjp2URVwcWlQlPOEQyAviKwT4AHg==",
+      "dependencies": [
+        "@ethersproject/address@5.8.0",
+        "@ethersproject/bignumber@5.8.0",
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/constants@5.8.0",
+        "@ethersproject/keccak256@5.8.0",
+        "@ethersproject/logger@5.8.0",
+        "@ethersproject/properties@5.8.0",
+        "@ethersproject/rlp@5.8.0",
+        "@ethersproject/signing-key@5.8.0"
       ]
     },
     "@ethersproject/units@5.7.0": {
       "integrity": "sha512-pD3xLMy3SJu9kG5xDGI7+xhTEmGXlEqXU4OfNapmfnxLVY4EMSSRp7j1k7eezutBPH7RBN/7QPnwR7hzNlEFeg==",
       "dependencies": [
-        "@ethersproject/bignumber",
-        "@ethersproject/constants",
-        "@ethersproject/logger"
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/constants@5.7.0",
+        "@ethersproject/logger@5.7.0"
       ]
     },
     "@ethersproject/wallet@5.7.0": {
       "integrity": "sha512-MhmXlJXEJFBFVKrDLB4ZdDzxcBxQ3rLyCkhNqVu3CDYvR97E+8r01UgrI+TI99Le+aYm/in/0vp86guJuM7FCA==",
       "dependencies": [
-        "@ethersproject/abstract-provider",
-        "@ethersproject/abstract-signer",
+        "@ethersproject/abstract-provider@5.7.0",
+        "@ethersproject/abstract-signer@5.7.0",
         "@ethersproject/address@5.7.0",
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/hash",
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/hash@5.7.0",
         "@ethersproject/hdnode",
         "@ethersproject/json-wallets",
-        "@ethersproject/keccak256",
-        "@ethersproject/logger",
-        "@ethersproject/properties",
+        "@ethersproject/keccak256@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/properties@5.7.0",
         "@ethersproject/random",
-        "@ethersproject/signing-key",
-        "@ethersproject/transactions",
+        "@ethersproject/signing-key@5.7.0",
+        "@ethersproject/transactions@5.7.0",
         "@ethersproject/wordlists"
       ]
     },
     "@ethersproject/web@5.7.1": {
       "integrity": "sha512-Gueu8lSvyjBWL4cYsWsjh6MtMwM0+H4HvqFPZfB6dV8ctbP9zFAO73VG1cMWae0FLPCtz0peKPpZY8/ugJJX2w==",
       "dependencies": [
-        "@ethersproject/base64",
-        "@ethersproject/bytes",
-        "@ethersproject/logger",
-        "@ethersproject/properties",
-        "@ethersproject/strings"
+        "@ethersproject/base64@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/properties@5.7.0",
+        "@ethersproject/strings@5.7.0"
+      ]
+    },
+    "@ethersproject/web@5.8.0": {
+      "integrity": "sha512-j7+Ksi/9KfGviws6Qtf9Q7KCqRhpwrYKQPs+JBA/rKVFF/yaWLHJEH3zfVP2plVu+eys0d2DlFmhoQJayFewcw==",
+      "dependencies": [
+        "@ethersproject/base64@5.8.0",
+        "@ethersproject/bytes@5.8.0",
+        "@ethersproject/logger@5.8.0",
+        "@ethersproject/properties@5.8.0",
+        "@ethersproject/strings@5.8.0"
       ]
     },
     "@ethersproject/wordlists@5.7.0": {
       "integrity": "sha512-S2TFNJNfHWVHNE6cNDjbVlZ6MgE17MIxMbMg2zv3wn+3XSJGosL1m9ZVv3GXCf/2ymSsQ+hRI5IzoMJTG6aoVA==",
       "dependencies": [
-        "@ethersproject/bytes",
-        "@ethersproject/hash",
-        "@ethersproject/logger",
-        "@ethersproject/properties",
-        "@ethersproject/strings"
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/hash@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/properties@5.7.0",
+        "@ethersproject/strings@5.7.0"
       ]
     },
     "@evanhahn/lottie-web-light@5.8.1": {
@@ -2551,39 +2722,68 @@
         "fastq"
       ]
     },
-    "@nomicfoundation/hardhat-errors@3.0.0-next.20": {
-      "integrity": "sha512-jJaGIzPs5YzB8oreLhYAyAo5veLJXXwiJt8oVkLRYPvfsT8+RWrIwJjcbwktfMObNNceAO8PgDP1d2YBuPwlDw==",
-      "dependencies": [
-        "@nomicfoundation/hardhat-utils@3.0.0-next.20"
+    "@nomicfoundation/edr-darwin-arm64@0.12.0-next.5": {
+      "integrity": "sha512-LfDxE/Q+wsToSL17Rf6HNaqfp3v4G9AGwjzfCa3momYw9QhMiELfB4nPm93qt3pwwuiCCqqpdURFdC8oYmVHfg=="
+    },
+    "@nomicfoundation/edr-darwin-x64@0.12.0-next.5": {
+      "integrity": "sha512-jKTBN90XOTFkeg0BgxmXemvUUuC0fr2vwekMcxLhW2zb0E6oO/DM5ApSz4KoQhefVZCOFFvmj0Za5Cgr27accg=="
+    },
+    "@nomicfoundation/edr-linux-arm64-gnu@0.12.0-next.5": {
+      "integrity": "sha512-aBe22ybgRdgSCVBtw5x8w25wwHhQa1B1mrcmHeFadW5lBM4thOwpq4xeNcdRhID7ZSkJvRTCe9KA1yCn2EYdbw=="
+    },
+    "@nomicfoundation/edr-linux-arm64-musl@0.12.0-next.5": {
+      "integrity": "sha512-168VcV9HcUY6rRmZNb2wHWWQJ82BZmu4if17MnQSeqT/u77hObjx4P7rfFpcOxfnuEbP2NEgAZsA7uU2bMcRMQ=="
+    },
+    "@nomicfoundation/edr-linux-x64-gnu@0.12.0-next.5": {
+      "integrity": "sha512-C0N9zBEMGwYO5Is9dYuvM2Bl/0y1ornF6xRmnaaMOEf9y6grjC84Ip33fnySNG4nGcjHMYrS2RBC/Lm+rg4BcA=="
+    },
+    "@nomicfoundation/edr-linux-x64-musl@0.12.0-next.5": {
+      "integrity": "sha512-BqCg+I4/r833BH4bVA/0oAYTvfg7GHpUq0DTRqaAwTD1bWTD48rIEtKBYZ6KEDQNB3NQEi5CMz50G9ziteaq0A=="
+    },
+    "@nomicfoundation/edr-win32-x64-msvc@0.12.0-next.5": {
+      "integrity": "sha512-5bp+w+dVxe5vxzQY0N+R1wuk6heCgSKqPLz5mjiU5SP/LtynF7mV2siXXCi+NGOM3sV04oUzLfR8K+c83Za5sw=="
+    },
+    "@nomicfoundation/edr@0.12.0-next.5": {
+      "integrity": "sha512-VhjH0OyKGtWqGeOMGICGsj2l0+7SyQWXp00wuY0hkG+vt1XH2G404L0CK9+qWEPcoZu9/LFcVGVs+Bb1XWvDPA==",
+      "optionalDependencies": [
+        "@nomicfoundation/edr-darwin-arm64",
+        "@nomicfoundation/edr-darwin-x64",
+        "@nomicfoundation/edr-linux-arm64-gnu",
+        "@nomicfoundation/edr-linux-arm64-musl",
+        "@nomicfoundation/edr-linux-x64-gnu",
+        "@nomicfoundation/edr-linux-x64-musl",
+        "@nomicfoundation/edr-win32-x64-msvc"
       ]
     },
     "@nomicfoundation/hardhat-errors@3.0.1": {
       "integrity": "sha512-qXzTDmND5aNSolxms6shuLlPK8+rugKjDsLb1BRVAYnZfPBCIc52v8nX2HEW+/qBRp3YMZVDyJVrhud+Uby2JQ==",
       "dependencies": [
-        "@nomicfoundation/hardhat-utils@3.0.0"
+        "@nomicfoundation/hardhat-utils"
       ]
     },
-    "@nomicfoundation/hardhat-ignition-viem@3.0.0-next.20_@nomicfoundation+hardhat-ignition@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76_@nomicfoundation+hardhat-viem@3.0.0-next.20__hardhat@3.0.0-next.20___zod@3.25.76__viem@2.37.4___ws@8.18.3_@nomicfoundation+ignition-core@3.0.2_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.37.4__ws@8.18.3": {
-      "integrity": "sha512-TxjyvFgGwcxUy9P2pfKivtmgyNIOLDtQy6h7w8LfjJCPZsk/9p4bVrJzCfy5WpjL3xJuB61jjm3dtlhFO/I1Vg==",
+    "@nomicfoundation/hardhat-ignition-viem@3.0.2_@nomicfoundation+hardhat-ignition@3.0.2__@nomicfoundation+hardhat-verify@3.0.1___hardhat@3.0.0-next.20____zod@3.25.76___zod@3.25.76__hardhat@3.0.0-next.20___zod@3.25.76_@nomicfoundation+hardhat-verify@3.0.1__hardhat@3.0.0-next.20___zod@3.25.76__zod@3.25.76_@nomicfoundation+hardhat-viem@3.0.0__hardhat@3.0.0-next.20___zod@3.25.76__viem@2.37.4___ws@8.18.3_@nomicfoundation+ignition-core@3.0.2_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.37.4__ws@8.18.3": {
+      "integrity": "sha512-SbKUzPPIqDIkZyqCIKeEomoRJHmjyJR4QCVGXfQLV2XsPsMnXlT92i/KfQSRB8TrxXoDnobRFynUKRPLgNalUA==",
       "dependencies": [
-        "@nomicfoundation/hardhat-errors@3.0.0-next.20",
+        "@nomicfoundation/hardhat-errors",
         "@nomicfoundation/hardhat-ignition",
+        "@nomicfoundation/hardhat-verify",
         "@nomicfoundation/hardhat-viem",
         "@nomicfoundation/ignition-core",
-        "hardhat",
+        "hardhat@3.0.0-next.20_zod@3.25.76",
         "viem@2.37.4_ws@8.18.3"
       ]
     },
-    "@nomicfoundation/hardhat-ignition@3.0.0-next.20_hardhat@3.0.0-next.20__zod@3.25.76": {
-      "integrity": "sha512-ie7kjmrpK+9B1VEgu+IehZHGPr1PcA37rInID3ch0bS48KiyMltQMKNkCAxGTu0cOSwQpqD7R+WGh76CFIPKLQ==",
+    "@nomicfoundation/hardhat-ignition@3.0.2_@nomicfoundation+hardhat-verify@3.0.1__hardhat@3.0.0-next.20___zod@3.25.76__zod@3.25.76_hardhat@3.0.0-next.20__zod@3.25.76": {
+      "integrity": "sha512-7OcSzZf9bZUt2At6oJizjFF0lMQWaI5En0akTHOp3crkVB2cVmnqZwCn+NGm7gdB8lzWPCXA/MWrm06eFM2G1w==",
       "dependencies": [
-        "@nomicfoundation/hardhat-errors@3.0.0-next.20",
-        "@nomicfoundation/hardhat-utils@3.0.0-next.20",
+        "@nomicfoundation/hardhat-errors",
+        "@nomicfoundation/hardhat-utils",
+        "@nomicfoundation/hardhat-verify",
         "@nomicfoundation/ignition-core",
         "@nomicfoundation/ignition-ui",
         "chalk@5.6.2",
         "debug@4.4.1",
-        "hardhat",
+        "hardhat@3.0.0-next.20_zod@3.25.76",
         "json5",
         "prompts"
       ]
@@ -2601,32 +2801,34 @@
         "undici@6.21.3"
       ]
     },
-    "@nomicfoundation/hardhat-utils@3.0.0-next.20": {
-      "integrity": "sha512-/uLGNOgj6SfhzMhAH7Vony5l/IHYvSdgUxXg9mTuS8qLe6L/RlqcekdtNBWZhanltIaWegD1qfDIbz+b5HJPbQ==",
+    "@nomicfoundation/hardhat-verify@3.0.1_hardhat@3.0.0-next.20__zod@3.25.76_zod@3.25.76": {
+      "integrity": "sha512-gFLN8CekE0TvkwyjQ3eChoeZHd2gi4gVp+a6ntOZtlAUUbvxuKIq5OanzBa1SOPtwnYXsBAPKDsiC5uOVW4crw==",
       "dependencies": [
-        "@streamparser/json-node",
+        "@ethersproject/abi@5.8.0",
+        "@nomicfoundation/hardhat-errors",
+        "@nomicfoundation/hardhat-utils",
+        "@nomicfoundation/hardhat-zod-utils",
+        "cbor2",
+        "chalk@5.6.2",
         "debug@4.4.1",
-        "env-paths",
-        "ethereum-cryptography@2.2.1",
-        "fast-equals",
-        "json-stream-stringify",
-        "rfdc",
-        "undici@6.21.3"
+        "hardhat@3.0.0-next.20_zod@3.25.76",
+        "semver@7.7.2",
+        "zod@3.25.76"
       ]
     },
-    "@nomicfoundation/hardhat-viem@3.0.0-next.20_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.37.4__ws@8.18.3": {
-      "integrity": "sha512-WAdKmGHL7YBwlhw7zrBpGkBtEoYBNAcYlG28/YiB47JFc4iZeKXm5CXq9MmE/WsMfjvHXVVrbx1GiENnC3f90A==",
+    "@nomicfoundation/hardhat-viem@3.0.0_hardhat@3.0.0-next.20__zod@3.25.76_viem@2.37.4__ws@8.18.3": {
+      "integrity": "sha512-4QHBfTgJuo1O8vK9AO2AQYKsIp9yg06aF9C+WydDr2XS7VLJYh3g3gZdszLbSD9eHWsuviN688VKbcmfIZNWvQ==",
       "dependencies": [
-        "@nomicfoundation/hardhat-errors@3.0.0-next.20",
-        "@nomicfoundation/hardhat-utils@3.0.0-next.20",
-        "hardhat",
+        "@nomicfoundation/hardhat-errors",
+        "@nomicfoundation/hardhat-utils",
+        "hardhat@3.0.0-next.20_zod@3.25.76",
         "viem@2.37.4_ws@8.18.3"
       ]
     },
     "@nomicfoundation/hardhat-zod-utils@3.0.0_zod@3.25.76": {
       "integrity": "sha512-xAi+45+V82pZZ9QGDEiii0wp+SXXH/8hS7/pk7S0gOG6h29gPuE42yek8wh3Ff0M+DrsB/RKZjcezmdwH5a6mQ==",
       "dependencies": [
-        "@nomicfoundation/hardhat-utils@3.0.0",
+        "@nomicfoundation/hardhat-utils",
         "zod@3.25.76"
       ]
     },
@@ -2634,8 +2836,8 @@
       "integrity": "sha512-Uwjgsc6RLp8Dfp5hJ8KHccfYyTpSdhn3uaYHzjSX83l/9JphZ4gyzZOYvnJk3wbXpOPjdCRQAHNkk20vv5Z/Jw==",
       "dependencies": [
         "@ethersproject/address@5.6.1",
-        "@nomicfoundation/hardhat-errors@3.0.1",
-        "@nomicfoundation/hardhat-utils@3.0.0",
+        "@nomicfoundation/hardhat-errors",
+        "@nomicfoundation/hardhat-utils",
         "@nomicfoundation/solidity-analyzer",
         "cbor2",
         "debug@4.4.1",
@@ -3437,9 +3639,9 @@
     "@paperxyz/embedded-wallet-service-sdk@1.2.5": {
       "integrity": "sha512-FuAMdMmpB55K5jNS2Em6TtqJdXNLPdFxReITd2uS2lMgCtmlUP4aLLFsx+fDEVsAP3hg4FVueqGQWilII/7i0A==",
       "dependencies": [
-        "@ethersproject/abstract-signer",
-        "@ethersproject/bytes",
-        "@ethersproject/properties",
+        "@ethersproject/abstract-signer@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/properties@5.7.0",
         "@ethersproject/providers",
         "@paperxyz/sdk-common-utilities"
       ]
@@ -4646,7 +4848,7 @@
     "@safe-global/safe-core-sdk-types@1.10.1": {
       "integrity": "sha512-BKvuYTLOlY16Rq6qCXglmnL6KxInDuXMFqZMaCzwDKiEh+uoHu3xCumG5tVtWOkCgBF4XEZXMqwZUiLcon7IsA==",
       "dependencies": [
-        "@ethersproject/bignumber",
+        "@ethersproject/bignumber@5.7.0",
         "@ethersproject/contracts",
         "@safe-global/safe-deployments",
         "web3-core@1.10.4",
@@ -4685,10 +4887,10 @@
     "@safe-global/safe-ethers-adapters@0.1.0-alpha.17_@ethersproject+abstract-provider@5.7.0_@ethersproject+abstract-signer@5.7.0_@ethersproject+bignumber@5.7.0_@ethersproject+properties@5.7.0_ethers@5.7.2": {
       "integrity": "sha512-02+emAnnXZAOwld1Ucen6idnMCAD76TXrhmuteYsdYoPjl5Eyq1ySb9tzIjCWklgfjMHQtrHSHDJqwdlHFM4GQ==",
       "dependencies": [
-        "@ethersproject/abstract-provider",
-        "@ethersproject/abstract-signer",
-        "@ethersproject/bignumber",
-        "@ethersproject/properties",
+        "@ethersproject/abstract-provider@5.7.0",
+        "@ethersproject/abstract-signer@5.7.0",
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/properties@5.7.0",
         "@safe-global/safe-core-sdk",
         "@safe-global/safe-core-sdk-types",
         "@safe-global/safe-deployments",
@@ -5216,7 +5418,14 @@
         "@types/node@24.2.0"
       ]
     },
-    "@ts-rest/fastify@3.53.0-rc.1_@ts-rest+core@3.53.0-rc.1__@types+node@24.2.0_fastify@5.6.0_@types+node@24.2.0": {
+    "@ts-rest/fastify@3.53.0-rc.1_@ts-rest+core@3.53.0-rc.1_fastify@5.6.0": {
+      "integrity": "sha512-zEsEFit/w2fp0UN6wVKUEJ2PXmHEAioFl8MD6xIRW/apE7OEnO6jEG3scM/qcVJDDxuxi3DtzDXBrvohGkm9WQ==",
+      "dependencies": [
+        "@ts-rest/core@3.53.0-rc.1",
+        "fastify"
+      ]
+    },
+    "@ts-rest/fastify@3.53.0-rc.1_@ts-rest+core@3.53.0-rc.1_fastify@5.6.0_@types+node@24.2.0": {
       "integrity": "sha512-zEsEFit/w2fp0UN6wVKUEJ2PXmHEAioFl8MD6xIRW/apE7OEnO6jEG3scM/qcVJDDxuxi3DtzDXBrvohGkm9WQ==",
       "dependencies": [
         "@ts-rest/core@3.53.0-rc.1_@types+node@24.2.0",
@@ -5520,8 +5729,8 @@
     "@walletconnect/auth-client@2.1.2": {
       "integrity": "sha512-ubJLn+vGb8sTdBFX6xAh4kjR5idrtS3RBngQWaJJJpEPBQmxMb8pM2q0FIRs8Is4K6jKy+uEhusMV+7ZBmTzjw==",
       "dependencies": [
-        "@ethersproject/hash",
-        "@ethersproject/transactions",
+        "@ethersproject/hash@5.7.0",
+        "@ethersproject/transactions@5.7.0",
         "@stablelib/random",
         "@stablelib/sha256",
         "@walletconnect/core@2.21.8",
@@ -5969,8 +6178,8 @@
     "@walletconnect/utils@2.17.1": {
       "integrity": "sha512-KL7pPwq7qUC+zcTmvxGqIyYanfHgBQ+PFd0TEblg88jM7EjuDLhjyyjtkhyE/2q7QgR7OanIK7pCpilhWvBsBQ==",
       "dependencies": [
-        "@ethersproject/hash",
-        "@ethersproject/transactions",
+        "@ethersproject/hash@5.7.0",
+        "@ethersproject/transactions@5.7.0",
         "@stablelib/chacha20poly1305",
         "@stablelib/hkdf",
         "@stablelib/random",
@@ -7682,35 +7891,35 @@
     "ethers@5.7.2": {
       "integrity": "sha512-wswUsmWo1aOK8rR7DIKiWSw9DbLWe6x98Jrn8wcTflTVvaXhAMaB5zGAXy0GYQEQp9iO1iSHWVyARQm11zUtyg==",
       "dependencies": [
-        "@ethersproject/abi",
-        "@ethersproject/abstract-provider",
-        "@ethersproject/abstract-signer",
+        "@ethersproject/abi@5.7.0",
+        "@ethersproject/abstract-provider@5.7.0",
+        "@ethersproject/abstract-signer@5.7.0",
         "@ethersproject/address@5.7.0",
-        "@ethersproject/base64",
+        "@ethersproject/base64@5.7.0",
         "@ethersproject/basex",
-        "@ethersproject/bignumber",
-        "@ethersproject/bytes",
-        "@ethersproject/constants",
+        "@ethersproject/bignumber@5.7.0",
+        "@ethersproject/bytes@5.7.0",
+        "@ethersproject/constants@5.7.0",
         "@ethersproject/contracts",
-        "@ethersproject/hash",
+        "@ethersproject/hash@5.7.0",
         "@ethersproject/hdnode",
         "@ethersproject/json-wallets",
-        "@ethersproject/keccak256",
-        "@ethersproject/logger",
-        "@ethersproject/networks",
+        "@ethersproject/keccak256@5.7.0",
+        "@ethersproject/logger@5.7.0",
+        "@ethersproject/networks@5.7.1",
         "@ethersproject/pbkdf2",
-        "@ethersproject/properties",
+        "@ethersproject/properties@5.7.0",
         "@ethersproject/providers",
         "@ethersproject/random",
-        "@ethersproject/rlp",
+        "@ethersproject/rlp@5.7.0",
         "@ethersproject/sha2",
-        "@ethersproject/signing-key",
+        "@ethersproject/signing-key@5.7.0",
         "@ethersproject/solidity",
-        "@ethersproject/strings",
-        "@ethersproject/transactions",
+        "@ethersproject/strings@5.7.0",
+        "@ethersproject/transactions@5.7.0",
         "@ethersproject/units",
         "@ethersproject/wallet",
-        "@ethersproject/web",
+        "@ethersproject/web@5.7.1",
         "@ethersproject/wordlists"
       ]
     },
@@ -8267,8 +8476,32 @@
       "dependencies": [
         "@ignored/edr",
         "@ignored/edr-optimism",
-        "@nomicfoundation/hardhat-errors@3.0.0-next.20",
-        "@nomicfoundation/hardhat-utils@3.0.0-next.20",
+        "@nomicfoundation/hardhat-errors",
+        "@nomicfoundation/hardhat-utils",
+        "@nomicfoundation/hardhat-zod-utils",
+        "@nomicfoundation/solidity-analyzer",
+        "@sentry/core",
+        "adm-zip",
+        "chalk@5.6.2",
+        "debug@4.4.1",
+        "enquirer",
+        "ethereum-cryptography@2.2.1",
+        "micro-eth-signer",
+        "p-map",
+        "resolve.exports",
+        "semver@7.7.2",
+        "tsx",
+        "ws@8.18.3",
+        "zod@3.25.76"
+      ],
+      "bin": true
+    },
+    "hardhat@3.0.4_zod@3.25.76": {
+      "integrity": "sha512-6BoteHrD8nq5/yCUJGfYmspTulkjQZgRJOBPwXNZLz3fJV8B2wYLnDSbkKpyI97yhAmfzuc2qp6yBHPK5Msl4A==",
+      "dependencies": [
+        "@nomicfoundation/edr",
+        "@nomicfoundation/hardhat-errors",
+        "@nomicfoundation/hardhat-utils",
         "@nomicfoundation/hardhat-zod-utils",
         "@nomicfoundation/solidity-analyzer",
         "@sentry/core",
@@ -11405,7 +11638,7 @@
     "web3-core-method@1.10.4": {
       "integrity": "sha512-uZTb7flr+Xl6LaDsyTeE2L1TylokCJwTDrIVfIfnrGmnwLc6bmTWCCrm71sSrQ0hqs6vp/MKbQYIYqUN0J8WyA==",
       "dependencies": [
-        "@ethersproject/transactions",
+        "@ethersproject/transactions@5.7.0",
         "web3-core-helpers@1.10.4",
         "web3-core-promievent@1.10.4",
         "web3-core-subscriptions@1.10.4",
@@ -11416,7 +11649,7 @@
       "integrity": "sha512-/mC5t9UjjJoQmJJqO5nWK41YHo+tMzFaT7Tp7jDCQsBkinE68KsUJkt0jzygpheW84Zra0DVp6q19gf96+cugg==",
       "dependencies": [
         "@ethereumjs/common@2.6.5",
-        "@ethersproject/transactions",
+        "@ethersproject/transactions@5.7.0",
         "web3-core-helpers@1.5.2",
         "web3-core-promievent@1.5.2",
         "web3-core-subscriptions@1.5.2",
@@ -12223,14 +12456,15 @@
       },
       "packages/shared/contracts/evm": {
         "dependencies": [
+          "jsr:@paimaexample/evm-hardhat@0.3.39",
           "jsr:@paimaexample/log@0.3.38",
-          "npm:@nomicfoundation/hardhat-errors@3.0.0-next.20",
-          "npm:@nomicfoundation/hardhat-ignition-viem@3.0.0-next.20",
-          "npm:@nomicfoundation/hardhat-ignition@3.0.0-next.20",
-          "npm:@nomicfoundation/hardhat-utils@3.0.0-next.20",
-          "npm:@nomicfoundation/hardhat-viem@3.0.0-next.20",
+          "npm:@nomicfoundation/hardhat-errors@3.0.1",
+          "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
+          "npm:@nomicfoundation/hardhat-utils@3.0.0",
+          "npm:@nomicfoundation/hardhat-viem@3.0.0",
+          "npm:@nomicfoundation/ignition-core@3.0.2",
           "npm:@wagmi/cli@2.3.1",
-          "npm:hardhat@3.0.0-next.20",
+          "npm:hardhat@3.0.4",
           "npm:ws@8.18.1"
         ],
         "packageJson": {

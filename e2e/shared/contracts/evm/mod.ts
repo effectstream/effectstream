@@ -15,7 +15,8 @@ export const contractAddressesEvmMain: () => Record<
     "/ignition/deployments/chain-31337/deployed_addresses.json";
   const file2 = __dirname +
     "/ignition/deployments/chain-31338/deployed_addresses.json";
-
+  // TODO The generated file gets imported by from the node and the browser.
+  //      So we need to update how this file is been imported.
   let chain31337: Record<string, `0x${string}`> = {};
   if (Deno && Deno.statSync(file1).isFile) {
     chain31337 = JSON.parse(Deno.readTextFileSync(file1));

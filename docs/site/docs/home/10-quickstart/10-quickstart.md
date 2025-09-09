@@ -74,12 +74,12 @@ Default folder structure:
 Workspace packages:
 ```
 
-client/database              @example/database
-client/node                  @example/node
-frontend                     @example/frontend
-shared/contracts/evm         @example/evm-contracts
-shared/contracts/midnight    @example/midnight-contracts
-shared/contracts/data-types  @example/data-types
+client/database              @example-evm-midnight/database
+client/node                  @example-evm-midnight/node
+frontend                     @example-evm-midnight/frontend
+shared/contracts/evm         @example-evm-midnight/evm-contracts
+shared/contracts/midnight    @example-evm-midnight/midnight-contracts
+shared/contracts/data-types  @example-evm-midnight/data-types
 ```
 ## Startup Overview
 

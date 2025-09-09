@@ -4,7 +4,7 @@ import * as config from "./hardhat.config.ts";
 import Erc20DevModule from "./ignition/modules/erc20dev.ts";
 import PaimaL2ContractModule from "./ignition/modules/paimaL2.ts";
 import Erc721DevModule from "./ignition/modules/erc721dev.ts";
-import type { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+import type { buildModule } from "@nomicfoundation/ignition-core";
 // import CounterModule from "./ignition/modules/counter.ts";
 // import OpenZeppelinErc20DevModule from "./ignition/modules/oz-erc20dev.ts";
 
@@ -69,4 +69,8 @@ export async function deploy(): Promise<void> {
   console.log("Deployed contracts:\n", messages.join("\n"));
   // Wait for a block to be minted on the slowest chain.
   await new Promise((r) => setTimeout(r, 1000 * 2));
+}
+
+if (import.meta.main) {
+  await deploy();
 }
