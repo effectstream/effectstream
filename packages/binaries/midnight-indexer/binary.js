@@ -39,7 +39,7 @@ function getBinaryUrl() {
   if (!supportedPlatforms.includes(platform)) {
     throw new Error(`Unsupported platform: ${platform}`);
   }
-  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/indexer-standalone-${platform}.zip`;
+  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/indexer-standalone-${platform}-${CURRENT_BINARY_VERSION}.zip`;
 }
 
 /*
