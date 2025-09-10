@@ -7,9 +7,7 @@ const path = require("path");
 function checkIfBinaryExists() {
   const platform = getPlatform();
   const parts = platform.split("-");
-  const binaryName = (parts[0] === "linux" && parts[1] === "amd64")
-    ? `midnight-node-${platform}`
-    : "midnight-node";
+  const binaryName = `midnight-node-${platform}`;
   return fs.existsSync(path.join(__dirname, "midnight-node", binaryName));
 }
 

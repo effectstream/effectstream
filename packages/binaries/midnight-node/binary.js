@@ -4,7 +4,7 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
-const CURRENT_BINARY_VERSION = "0.16.1-alpha.1";
+const CURRENT_BINARY_VERSION = "0.16.1-ed77cb77";
 
 /*
 @returns {string} The platform and architecture of the current machine.
