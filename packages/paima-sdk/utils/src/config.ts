@@ -1,29 +1,51 @@
-/**
- * Careful: this class uses `process.env`
- * which might not be set depending on the framework used for the frontend of an app
+/** 
+ * IMPORTANT:
+ * This is BACKEND / PAIMA ENGINE only import.
+ * This should not be imported in frontend code as it will leak sensitive information.
+ * 
+ * Usage: 
+ * import { ENV } from "@paima/utils/node-env";
+ * 
  */
 
-// TODO: To register a new config, we need to add it in the defintions, and then add the getter in the ENV class.
-//       Is it possible to do this automatically, or just once?
-import process from "node:process";
-const definitions = {
+// NOTE: To register a new config, we need to add it in the definitions, and then add the getter in the ENV class.
+// TODO: Is it possible to do this automatically, or just once?
+
+export type ConfigDefinition = {
+  // Unique identifier for the config.
+  key: string;
+  // Whether the config is a secret value (it hides it from the terminal-interface).
+  isSecret?: boolean;
+  // Description of the config.
+  description: string;
+  // Whether the config is a system config and not managed by the user.
+  isSystem?: boolean;
+} & ({
+  type: "string"
+  defaultValue: string | undefined;
+} | { 
+  type: "number";
+  defaultValue: number | undefined;
+} | {
+  type: "boolean";
+  defaultValue: boolean | undefined;
+});
+
+const definitions: Record<string, ConfigDefinition> = {
   DB_HOST: {
     key: "DB_HOST",
-    isSecret: false,
     type: "string",
     defaultValue: "localhost",
     description: "Paima Engine Postgres Host URL. Example: 'localhost'",
   },
   DB_NAME: {
     key: "DB_NAME",
-    isSecret: false,
     type: "string",
     defaultValue: "postgres",
     description: "Paima Engine Postgres Database Name. Example: 'postgres'",
   },
   DB_PORT: {
     key: "DB_PORT",
-    isSecret: false,
     type: "number",
     defaultValue: 5432,
     description: "Paima Engine Postgres Port. Example: '5432'",
@@ -37,28 +59,24 @@ const definitions = {
   },
   DB_USER: {
     key: "DB_USER",
-    isSecret: false,
     type: "string",
     defaultValue: "postgres",
     description: "Paima Engine Postgres User. Example: 'postgres'",
   },
   NODE_ENV: {
     key: "NODE_ENV",
-    isSecret: false,
     type: "string",
     defaultValue: undefined,
     description: "Node Environment. Example: 'development' or 'production'",
   },
   ORCHESTRATOR_URL: {
     key: "ORCHESTRATOR_URL",
-    isSecret: false,
     type: "string",
     defaultValue: "http://localhost",
     description: "Paima Engine Orchestrator URL. Example: 'http://localhost'",
   },
   ORCHESTRATOR_PORT: {
     key: "ORCHESTRATOR_PORT",
-    isSecret: false,
     type: "number",
     defaultValue: 3000,
     description:
@@ -66,14 +84,12 @@ const definitions = {
   },
   TUI_LOG_URL: {
     key: "TUI_LOG_URL",
-    isSecret: false,
     type: "string",
     defaultValue: "http://localhost",
     description: "TUI Log URL. Example: 'http://localhost'",
   },
   TUI_LOG_PORT: {
     key: "TUI_LOG_PORT",
-    isSecret: false,
     type: "number",
     defaultValue: 11033,
     description: "TUI Log Port. Example: '11033'",
@@ -81,7 +97,6 @@ const definitions = {
   SHELL: {
     isSystem: true,
     key: "SHELL",
-    isSecret: false,
     type: "string",
     defaultValue: undefined,
     description:
@@ -90,7 +105,6 @@ const definitions = {
   TMUX: {
     isSystem: true,
     key: "TMUX",
-    isSecret: false,
     type: "string",
     defaultValue: undefined,
     description:
@@ -98,7 +112,6 @@ const definitions = {
   },
   RECAPTCHA_V3_FRONTEND: {
     key: "RECAPTCHA_V3_FRONTEND",
-    isSecret: false,
     type: "string",
     defaultValue: undefined,
     description:
@@ -106,56 +119,48 @@ const definitions = {
   },
   BATCHER_PORT: {
     key: "BATCHER_PORT",
-    isSecret: false,
     type: "number",
     defaultValue: 3334,
     description: "Batcher Port. Example: '3334'",
   },
   STORE_HISTORICAL_GAME_INPUTS: {
     key: "STORE_HISTORICAL_GAME_INPUTS",
-    isSecret: false,
     type: "boolean",
     defaultValue: true,
     description: "Store Historical Game Inputs. Example: 'true' or 'false'",
   },
   MQTT_BROKER: {
     key: "MQTT_BROKER",
-    isSecret: false,
     type: "boolean",
     defaultValue: true,
     description: "MQTT Broker. Example: 'true' or 'false'",
   },
   MQTT_ENGINE_BROKER_URL: {
     key: "MQTT_ENGINE_BROKER_URL",
-    isSecret: false,
     type: "string",
     defaultValue: "ws://127.0.0.1:8883",
     description: "MQTT Engine Broker URL. Example: 'ws://127.0.0.1:8883'",
   },
   MQTT_ENGINE_BROKER_PORT: {
     key: "MQTT_ENGINE_BROKER_PORT",
-    isSecret: false,
     type: "number",
     defaultValue: 8883,
     description: "MQTT Engine Broker Port. Example: '8883'",
   },
   MQTT_BATCHER_BROKER_URL: {
     key: "MQTT_BATCHER_BROKER_URL",
-    isSecret: false,
     type: "string",
     defaultValue: "ws://127.0.0.1:8884",
     description: "MQTT Batcher Broker URL. Example: 'ws://127.0.0.1:8884'",
   },
   MQTT_BATCHER_BROKER_PORT: {
     key: "MQTT_BATCHER_BROKER_PORT",
-    isSecret: false,
     type: "number",
     defaultValue: 8884,
     description: "MQTT Batcher Broker Port. Example: '8884'",
   },
   PAIMA_API_PORT: {
     key: "PAIMA_API_PORT",
-    isSecret: false,
     type: "number",
     defaultValue: 9999,
     description:
@@ -163,21 +168,18 @@ const definitions = {
   },
   PAIMA_EXPLORER_PORT: {
     key: "PAIMA_EXPLORER_PORT",
-    isSecret: false,
     type: "number",
     defaultValue: 10590,
     description: "Explorer Port. Example: '10590'",
   },
   PAIMA_CHAIN_ID: {
     key: "PAIMA_CHAIN_ID",
-    isSecret: false,
     type: "number",
     defaultValue: 87401284021,
     description: "Paima Chain ID. Example: '87401284021'",
   },
   PGLITE: {
     key: "PGLITE",
-    isSecret: false,
     type: "boolean",
     defaultValue: true,
     description:
@@ -185,21 +187,18 @@ const definitions = {
   },
   DEBUG_PGLITE: {
     key: "DEBUG_PGLITE",
-    isSecret: false,
     type: "number",
     defaultValue: undefined,
     description: "Enable PGLite Debug/Verbose mode. Example: '1'",
   },
   OTEL_COLLECTOR_PORT: {
     key: "OTEL_COLLECTOR_PORT",
-    isSecret: false,
     type: "number",
     defaultValue: 4318,
     description: "OTEL Collector Port. Example: '4318'",
   },
   DOCS_PORT: {
     key: "DOCS_PORT",
-    isSecret: false,
     type: "number",
     defaultValue: 10600,
     description: "Docs Port. Example: '10600'",
@@ -287,7 +286,8 @@ export class ENV {
   static get DOCS_PORT(): number {
     return ENV.getConfig(definitions.DOCS_PORT);
   }
-  static getConfig<T>(config: typeof definitions[keyof typeof definitions]): T {
+
+  public static getConfig<T>(config: ConfigDefinition): T {
     switch (config.type) {
       case "string":
         return ENV.getString(config.key, config.defaultValue) as T;
@@ -337,7 +337,7 @@ export class ENV {
   ): boolean {
     const value = ENV.getEnv(key);
     if (value == null || value === "") return defaultValue;
-    return ["true", "1", "yes"].includes(value.toLowerCase());
+    return ["true", "t", "1", "yes", "y"].includes(value.toLowerCase());
   }
 
   private static getNumber(
@@ -360,10 +360,6 @@ export class ENV {
   private static getEnv(
     key: string,
   ): string | undefined {
-    try {
-      return Deno.env.get(key);
-    } catch (error) {
-      return process.env[key];
-    }
+    return Deno.env.get(key);
   }
 }

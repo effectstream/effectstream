@@ -13,7 +13,7 @@ import { AddressType } from "@paima/utils";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 import { createBatcherSubunit, createMessageForBatcher } from "@paima/concise";
 import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 

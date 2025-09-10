@@ -2,7 +2,10 @@
   "name": "@paima/utils",
   "version": "0.3.0",
   "license": "MIT",
-  "exports": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./node-env": "./src/config.ts"
+  },
   "imports": {
     "@coderspirit/nominal": "npm:@coderspirit/nominal@^4.1.1",
     "@foxglove/crc": "npm:@foxglove/crc@^1.0.1",

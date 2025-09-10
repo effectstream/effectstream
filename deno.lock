@@ -17980,6 +17980,8 @@
       "packages/paima-sdk/crypto": {
         "dependencies": [
           "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11",
+          "npm:@polkadot/util-crypto@^13.5.6",
+          "npm:@polkadot/util@^13.5.6",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:algosdk@^3.4.0",
           "npm:mina-signer@^3.0.7",
@@ -18046,6 +18048,7 @@
           "npm:@perawallet/connect@^1.4.2",
           "npm:@polkadot/extension-dapp@~0.61.7",
           "npm:@polkadot/extension-inject@~0.61.7",
+          "npm:@polkadot/util-crypto@^13.5.6",
           "npm:@polkadot/util@^13.5.6",
           "npm:assert-never@^1.4.0",
           "npm:avail-js-sdk@~0.4.2",

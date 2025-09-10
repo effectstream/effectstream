@@ -1,7 +1,7 @@
 import type { Client, PoolConfig } from "pg";
 import pg from "pg";
 import { OrchestratorConfig, start } from "@paima/orchestrator";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 import { Value } from "@sinclair/typebox/value";
 import { ComponentNames } from "@paima/log";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";

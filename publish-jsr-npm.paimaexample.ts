@@ -61,19 +61,25 @@ const filePattern = /\.(ts|js|json|tsx|jsx)$/i;
 
 // Packages to publish in order
 const jsrPackagesToPublish = [
+  /* Paima SDK */
   "./packages/paima-sdk/utils",
-  "./docs/site",
+  "./packages/paima-sdk/log", // [@utils]
   "./packages/paima-sdk/config",
-  "./packages/paima-sdk/log",
-  "./packages/paima-sdk/coroutine",
-  "./packages/node-sdk/db",
   "./packages/paima-sdk/precompile",
-  "./packages/paima-sdk/chain-types",
-  "./packages/paima-sdk/concise",
-  "./packages/node-sdk/sync",
+  "./packages/paima-sdk/chain-types", // [@utils, @config]
+  "./packages/paima-sdk/concise", // [@chain-types, @precompile]
   "./packages/paima-sdk/crypto",
-  "./packages/node-sdk/sm",
   "./packages/paima-sdk/events",
+  "./packages/paima-sdk/wallets", // [@concise, @crypto, @events-client]
+  "./packages/paima-sdk/coroutine",
+
+  /* Docs */
+  "./docs/site",
+
+  /* Node SDK */
+  "./packages/node-sdk/db",
+  "./packages/node-sdk/sync",
+  "./packages/node-sdk/sm",
   "./packages/node-sdk/events",
   "./packages/node-sdk/runtime",
   "./packages/node-sdk/batcher",
@@ -82,7 +88,6 @@ const jsrPackagesToPublish = [
   "./packages/build-tools/tui",
   "./packages/build-tools/collector",
   "./packages/build-tools/orchestrator",
-  "./packages/paima-sdk/wallets",
   './packages/chains/evm-hardhat',
 ];
 const npmPackagesToPublish = [

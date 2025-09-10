@@ -6,8 +6,8 @@ import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import * as chains from "viem/chains";
 import { run } from "effection";
-import { ENV, TypeboxHelpers } from "@paima/utils";
-
+import { ENV } from "@paima/utils/node-env";
+import { TypeboxHelpers } from "@paima/utils";
 // Standalone Batcher service start script.
 // Example usage:
 // deno run -A --check packages/node-sdk/batcher/src/start.ts \

@@ -78,6 +78,7 @@ export default defineConfig({
       "npm:@foxglove/crc@^1.0.1": "@foxglove/crc",
       "./@polkadot/util": "npm:@polkadot/util-crypto",
       "./@polkadot/util-crypto": "npm:@polkadot/util-crypto",
+      "npm:@polkadot/util-crypto@^13.5.6": "@polkadot/util-crypto",
       "npm:@sinclair/typebox@^0.34.41": "@sinclair/typebox",
       "npm:/@sinclair/typebox@^0.34.41/value": "@sinclair/typebox/value",
       "npm:@sinclair/typebox@^0.34.41/value": "@sinclair/typebox/value",

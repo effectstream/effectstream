@@ -19,7 +19,7 @@ import {
   runPreparedQuery,
   waitUntilFree,
 } from "@paima/db";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 import type { AllSyncProtocols } from "@paima/sync";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,

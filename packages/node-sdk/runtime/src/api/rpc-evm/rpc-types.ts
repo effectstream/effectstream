@@ -6,7 +6,7 @@ import {
   type PublicRpcSchema,
   RpcRequestError,
 } from "viem";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 
 export type PaimaEvmRpcSchema = [
   ...PublicRpcSchema,

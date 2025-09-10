@@ -4,7 +4,8 @@ import type { ApiPromise, Keyring } from "avail-js-sdk";
 import { AddressType } from "@paima/utils";
 import type { IProvider, ActiveConnection, AddressAndType, UserSignature } from "../IProvider.ts";
 import type { PolkadotAddress } from "../polkadot/polkadot.ts";
-const { u8aToHex } = await import('@polkadot/util');
+import { u8aToHex } from "@polkadot/util";
+
 
 export type AvailJsApi = { rpc: ApiPromise; keyring: Keyring };
 

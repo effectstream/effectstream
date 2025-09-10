@@ -3,13 +3,8 @@ import Aedes from 'aedes';
 import type { Server } from 'aedes-server-factory';
 import { createServer } from 'aedes-server-factory';
 import ip from 'ip';
-// import { ENV } from '@paima/utils';
-// TODO We need to import this from the ENV
-const ENV = {
-  MQTT_BROKER: true,
-  MQTT_ENGINE_BROKER_PORT: 8883,
-  MQTT_BATCHER_BROKER_PORT: 8884,
-}
+import { ENV } from '@paima/utils/node-env';
+
 
 
 function isLocalhost(ipAddress: string): boolean {

@@ -1,4 +1,3 @@
-export * from "./config.ts";
 export * from "./types/mod.ts";
 export * from "./constants.ts";
 export * from "./viem.ts";

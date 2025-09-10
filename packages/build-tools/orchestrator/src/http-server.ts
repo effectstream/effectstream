@@ -5,7 +5,7 @@ import {
   shutdown,
   terminateProcess,
 } from "./process.ts";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 import { pFactory } from "./start.ts";
 import { ComponentNames } from "@paima/log";
 // This file is a HTTP server to expose process information to the TUI.

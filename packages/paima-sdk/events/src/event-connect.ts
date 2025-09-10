@@ -4,9 +4,9 @@ import { PaimaEventManager } from './event-manager.ts';
 import { toPattern } from './utils.ts';
 import { extract, matches } from 'mqtt-pattern';
 import { PaimaEventBrokerNames } from './types.ts';
-// import { ENV } from '@paima/utils';
 import type { Buffer } from "node:buffer";
 
+// TODO This should come from @paima/utils/node-env ENV
 const ENV = { 
   MQTT_ENGINE_BROKER_URL: 'ws://localhost:8883',
   MQTT_BATCHER_BROKER_URL: 'ws://localhost:8884',
