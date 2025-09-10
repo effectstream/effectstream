@@ -4,6 +4,11 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
+const CURRENT_BINARY_VERSION = "3.0.0-alpha.4";
+
+/*
+@returns {string} The platform and architecture of the current machine. Example: "linux-amd64"
+*/
 function getPlatform() {
   const platform = os.platform();
   const arch = os.arch();
@@ -24,6 +29,9 @@ function getPlatform() {
   }
 }
 
+/*
+@returns {string} The URL to download the binary for the current platform.
+*/
 function getBinaryUrl() {
   const platform = getPlatform();
   const supportedPlatforms = require("./package.json").supportedPlatforms;
@@ -34,6 +42,9 @@ function getBinaryUrl() {
   return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/indexer-standalone-${platform}.zip`;
 }
 
+/*
+@returns {Promise<void>} Downloads and saves the binary for the current platform.
+*/
 async function downloadAndSaveBinary() {
   const url = getBinaryUrl();
   try {
@@ -55,6 +66,9 @@ async function downloadAndSaveBinary() {
   }
 }
 
+/*
+@returns {Promise<void>} Unzips the binary for the current platform.
+*/
 async function unzipBinary() {
   await extract(path.join(__dirname, "indexer-standalone.zip"), {
     dir: path.join(__dirname, "indexer-standalone"),

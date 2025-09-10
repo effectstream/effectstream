@@ -4,6 +4,11 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
+const CURRENT_BINARY_VERSION = "0.16.1-alpha.1";
+
+/*
+@returns {string} The platform and architecture of the current machine.
+*/
 function getPlatform() {
   let platform = os.platform();
   let arch = os.arch();
@@ -12,15 +17,21 @@ function getPlatform() {
   return `${platform}-${arch}`;
 }
 
+/*
+@returns {string} The URL to download the binary for the current platform.
+*/
 function getBinaryUrl() {
   const platform = getPlatform();
   const supportedPlatforms = require("./package.json").supportedPlatforms;
   if (!supportedPlatforms.includes(platform)) {
     throw new Error(`Unsupported platform: ${platform}`);
   }
-  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/midnight-node-${platform}.zip`;
+  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/midnight-node-${platform}-${CURRENT_BINARY_VERSION}.zip`;
 }
 
+/*
+@returns {Promise<void>} Downloads and saves the binary for the current platform.
+*/
 async function downloadAndSaveBinary() {
   const url = getBinaryUrl();
   try {
@@ -43,15 +54,16 @@ async function downloadAndSaveBinary() {
   }
 }
 
+/*
+@returns {Promise<void>} Unzips the binary for the current platform.
+*/
 async function unzipBinary() {
   await extract(path.join(__dirname, "midnight-node.zip"), {
     dir: path.join(__dirname, "midnight-node"),
   });
   const platform = getPlatform();
   const parts = platform.split("-");
-  const binaryName = (parts[0] === "linux" && parts[1] === "amd64")
-    ? `midnight-node-${platform}`
-    : "midnight-node";
+  const binaryName = `midnight-node-${platform}`;
   if (parts[0] === "linux") {
     fs.chmodSync(
       path.join(__dirname, "midnight-node", binaryName),

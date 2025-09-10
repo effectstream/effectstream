@@ -4,7 +4,10 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
+const CURRENT_BINARY_VERSION = "ledger-5.0";
+
 /**
+ * @returns {string} The platform and architecture of the current machine. Example: "linux-amd64"
  * Returns platform string matching the naming convention used for hosted binaries.
  * Example outputs: linux-amd64, macos-arm64
  */
@@ -33,7 +36,7 @@ function getBinaryUrl() {
   }
 
   // TODO: Replace placeholder link with real URL once available
-  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/midnight-proof-server-${platform}.zip`;
+  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/midnight-proof-server-${platform}-${CURRENT_BINARY_VERSION}.zip`;
 }
 
 async function downloadAndSaveBinary() {
