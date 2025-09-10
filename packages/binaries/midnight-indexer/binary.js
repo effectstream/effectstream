@@ -70,9 +70,11 @@ async function downloadAndSaveBinary() {
 @returns {Promise<void>} Unzips the binary for the current platform.
 */
 async function unzipBinary() {
-  await extract(path.join(__dirname, "indexer-standalone.zip"), {
-    dir: path.join(__dirname, "indexer-standalone"),
-  });
+  const dir = path.join(__dirname, "indexer-standalone");
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  await extract(path.join(__dirname, "indexer-standalone.zip"), { dir });
   fs.unlinkSync(path.join(__dirname, "indexer-standalone.zip"));
 
   const platform = getPlatform();

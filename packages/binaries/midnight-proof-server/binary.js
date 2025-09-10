@@ -58,7 +58,9 @@ async function downloadAndSaveBinary() {
 async function unzipBinary() {
   const zipPath = path.join(__dirname, "proof-server.zip");
   const destDir = path.join(__dirname, "proof-server");
-
+  if (!fs.existsSync(destDir)) {
+    fs.mkdirSync(destDir, { recursive: true });
+  }
   await extract(zipPath, { dir: destDir });
   const platform = getPlatform();
   const parts = platform.split("-");
