@@ -12,7 +12,7 @@
   },
   "imports": {
     // TODO: This is a workaround for a missing dependency.
-    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.38"
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.39"
   },
   "lint": {
     "rules": {
