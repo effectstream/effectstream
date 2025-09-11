@@ -1,4 +1,4 @@
-import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+import { buildModule } from "@nomicfoundation/ignition-core";
 
 export default buildModule("PaimaL2ContractModule", (m) => {
   const owner = m.getParameter("owner");

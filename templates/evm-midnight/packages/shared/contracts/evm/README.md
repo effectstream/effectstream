@@ -1,6 +1,6 @@
 # Build Contracts
 
-`deno task -f @example/evm-contracts build`
+`deno task -f @example-evm-midnight/evm-contracts build`
 
 # Deploy Contracts
 
@@ -45,7 +45,7 @@ To add your contracts you will need 3 steps:
 ### 1. Add new Contract
 
 Add your Solidity Contracts in `/src/contracts/my-contract.ts`  
-and run `deno task -f @example/evm-contracts build`
+and run `deno task -f @example-evm-midnight/evm-contracts build`
 
 Your contract is compiled and ready to be used.
 
@@ -57,7 +57,7 @@ First create a ignition module at:
 With a Hardhat-Ignition Module, for example:
 
 ```ts
-import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+export { buildModule } from "@nomicfoundation/ignition-core";
 
 export default buildModule("MyModuleName", (m) => {
   const contract = m.contract("MyContractName", []);

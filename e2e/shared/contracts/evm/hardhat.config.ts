@@ -1,14 +1,14 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import util from "node:util";
 import HardhatViem from "@nomicfoundation/hardhat-viem";
-// import HardhatAbiExporter from "hardhat-abi-exporter";
 import { overrideTask, task } from "hardhat/config";
 import { ArgumentType } from "hardhat/types/arguments";
 // required for https://github.com/NomicFoundation/hardhat/issues/6472
 import {
   type JsonRpcServer,
   JsonRpcServerImplementation,
-} from "./json-rpc-server/json-rpc/server.ts";
+} from "@paima/evm-hardhat/json-rpc-server";
+
 import fs from "node:fs";
 import type { NetworkConfig } from "hardhat/types/config";
 import waitOn from "wait-on";
@@ -21,6 +21,7 @@ import {
 import { parse } from "jsonc-parser";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import HardhatIgnitionViem from "@nomicfoundation/hardhat-ignition-viem";
+
 
 const __dirname: any = import.meta.dirname;
 const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
@@ -66,8 +67,8 @@ function getNetworkList(networks: Record<string, NetworkConfig>) {
 }
 
 const nodeTask = overrideTask("node")
-  .setAction(
-    async (args, hre): Promise<void> => {
+  .setAction(async () => ({
+    default: async (args, hre): Promise<void> => {
       const hostname = (() => {
         if (args.hostname !== "127.0.0.1" && args.hostname !== "") {
           return args.hostname;
@@ -151,7 +152,7 @@ const nodeTask = overrideTask("node")
         connections.map((connection) => connection.waitUntilClosed()),
       );
     },
-  )
+  }))
   .build();
 
 const nodeWaitTask = task(["node", "wait"])
@@ -159,8 +160,8 @@ const nodeWaitTask = task(["node", "wait"])
     name: "port",
     type: ArgumentType.INT,
     defaultValue: 8545,
-  }).setAction(
-    async (args, hre): Promise<void> => {
+  }).setAction(async () => ({
+    default: async (args, hre): Promise<void> => {
       const networkEntries = getNetworkList(hre.config.networks);
       for (
         let port = args.port;
@@ -173,7 +174,7 @@ const nodeWaitTask = task(["node", "wait"])
         port++;
       }
     },
-  )
+  }))
   .build();
 
 const config: HardhatUserConfig = {
@@ -183,7 +184,7 @@ const config: HardhatUserConfig = {
   // You can edit this to match your requirements.
   networks: {
     evmMain: {
-      type: "edr",
+      type: "edr-simulated",
       chainType: "l1",
       chainId: 31337,
       mining: {
@@ -199,12 +200,12 @@ const config: HardhatUserConfig = {
       url: "http://0.0.0.0:8545",
     },
     evmParallel: {
-      type: "edr",
+      type: "edr-simulated",
       chainType: "l1",
       chainId: 31338,
       mining: {
         auto: true,
-        interval: 1 * 1000, // 1s
+        interval: 1000, // 1s
       },
     },
     // This is a helper network to allow to hardhat/ignition to connect to the network.
@@ -228,56 +229,17 @@ const config: HardhatUserConfig = {
   plugins: [
     HardhatViem,
     HardhatIgnitionViem,
-    // HardhatFoundry,
-    // HardhatAbiExporter,
   ],
 
   solidity: {
     profiles: {
-      /*
-       * The default profile is used when no profile is defined or specified
-       * in the CLI or by the tasks you are running.
-       */
       default: {
         version: "0.8.30",
       },
     },
-    // dependenciesToCompile: [
-    //   // TODO
-    // ],
-    // remappings: [
-    //   "remapped/=npm/@openzeppelin/contracts@5.1.0/access/",
-    //   //   // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
-    //   "forge-std/=npm/forge-std@local/src/",
-    // ],
   },
-  // abiExporter: {
-  //   path: "./build/abi",
-  //   runOnCompile: true,
-  //   clear: true,
-  //   flat: false,
-  //   tsWrapper: true,
-  // },
+
 };
 
-// avoid the user having to manually run contracts when using the localhost network as it's tedious
-// if ((process.env["NETWORK"] ?? "localhost") === "localhost") {
-//   defaultDeployment(__dirname, outDir, {
-//     modulePath: path.resolve(
-//       __dirname,
-//       "src",
-//       "ignition",
-//       "modules",
-//       "deploy.ts",
-//     ),
-//     parameters: path.resolve(__dirname, "src", "ignition", "parameters.json5"),
-//     reset: false,
-//     verify: false, // likely you want this to true for mainnet
-//     strategy: "basic", // change if you want create2
-//     deploymentId: undefined,
-//     defaultSender: undefined,
-//     writeLocalhostDeployment: true,
-//   });
-// }
 
 export default config;

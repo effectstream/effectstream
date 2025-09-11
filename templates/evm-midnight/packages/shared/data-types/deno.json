@@ -1,5 +1,5 @@
 {
-  "name": "@example/data-types",
+  "name": "@example-evm-midnight/data-types",
   "version": "0.3.22",
   "license": "MIT",
   "exports": {

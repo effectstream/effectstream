@@ -1,5 +1,5 @@
 {
-    "name": "@example/avail-contracts",
+    "name": "@example-evm-midnight/avail-contracts",
     "version": "0.3.22",
     "exports": {},
     "tasks": {

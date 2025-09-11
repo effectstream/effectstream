@@ -83,6 +83,7 @@ const jsrPackagesToPublish = [
   "./packages/build-tools/collector",
   "./packages/build-tools/orchestrator",
   "./packages/paima-sdk/wallets",
+  './packages/chains/evm-hardhat',
 ];
 const npmPackagesToPublish = [
   "./packages/chains/evm-contracts",

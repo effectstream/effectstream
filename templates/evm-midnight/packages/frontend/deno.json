@@ -1,5 +1,5 @@
 {
-  "name": "@example/frontend",
+  "name": "@example-evm-midnight/frontend",
   "version": "0.3.22",
   "license": "MIT",
   "exports": {

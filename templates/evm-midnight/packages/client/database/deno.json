@@ -1,5 +1,5 @@
 {
-    "name": "@example/database",
+    "name": "@example-evm-midnight/database",
     "version": "0.3.22",
     "license": "MIT",
     "exports": "./src/mod.ts",

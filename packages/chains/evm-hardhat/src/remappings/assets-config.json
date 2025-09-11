@@ -1,0 +1,12 @@
+{
+    "files": [
+        {
+            "importPath": "./src/remappings/remappings.hardhat.txt",
+            "calledName": "remappings.hardhat"
+        },
+        {
+            "importPath": "./src/remappings/remappings.forge.txt",
+            "calledName": "remappings.forge"
+        }
+    ]
+}

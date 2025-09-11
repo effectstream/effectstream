@@ -13,7 +13,7 @@ import {
 } from "../increment.ts";
 import { take, timeout } from "rxjs/operators";
 import { BATCHER_ENDPOINT } from "../config.ts";
-import { erc721dev } from "@example/evm-contracts";
+import { erc721dev } from "@example-evm-midnight/evm-contracts";
 
 interface EVMWallet {
   privateKey: `0x${string}`;

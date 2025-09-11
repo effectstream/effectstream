@@ -4,10 +4,10 @@
   ],
   "nodeModulesDir": "auto",
   "tasks": {
-    "build:evm": "deno task -f @example/evm-contracts build && deno task -f @example/evm-contracts deploy:standalone",
-    "build:midnight": "deno task -f  @example/my-midnight-contract compact",
-    "dev": "deno task -f @example/node dev",
-    "start:frontend": "deno task -f @example/frontend dev",
+    "build:evm": "deno task -f @example-evm-midnight/evm-contracts build && deno task -f @example-evm-midnight/evm-contracts deploy:standalone",
+    "build:midnight": "deno task -f  @example-evm-midnight/my-midnight-contract compact",
+    "dev": "deno task -f @example-evm-midnight/node dev",
+    "start:frontend": "deno task -f @example-evm-midnight/frontend dev",
     "check": "deno check"
   },
   "imports": {
