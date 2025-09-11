@@ -15,9 +15,16 @@ export function readMidnightContract(): MidnightContractInfo {
     cachedContractInfo = contractInfo;
     return contractInfo;
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
-      throw new Error("contract.json not found in the current directory");
+    // TODO: this file is been imported by the node and the browser.
+    //      So we need to update this is read or imported.
+    if (Deno) {
+      if (err instanceof Deno.errors.NotFound) {
+        throw new Error("contract.json not found in the current directory");
+      }
     }
-    throw new Error(`Failed to read contract.json: ${String(err)}`);
+    // throw new Error(`Failed to read contract.json: ${String(err)}`);
+    return {
+      contractAddress: "",
+    }
   }
 }

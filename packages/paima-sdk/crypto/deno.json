@@ -6,7 +6,9 @@
     "imports": {
         "@cardano-foundation/cardano-verify-datasignature": "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11",
         "@sinclair/typebox": "npm:@sinclair/typebox@~0.34.30",
+        "algosdk": "npm:algosdk@^3.4.0",
         "mina-signer": "npm:mina-signer@^3.0.7",
-        "viem": "npm:viem@^2.21.3"
+        "viem": "npm:viem@^2.21.3",
+        "web3-utils": "npm:web3-utils@^4.3.3"
     }
 }

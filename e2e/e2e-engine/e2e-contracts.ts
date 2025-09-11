@@ -106,7 +106,7 @@ function clients(privateKey: `0x${string}`, chain: Chain): {
  */
 export const paimaL2Builder = (sharedState: SharedState) => ({
   submitGameInput: async (
-    input: string[],
+    input: (string | number | boolean)[],
     privateKey: `0x${string}`,
   ): Promise<void> => {
     console.log("🎮 Submitting game input", input);
@@ -123,7 +123,18 @@ export const paimaL2Builder = (sharedState: SharedState) => ({
       abi: paimal2contract.metadata.output.abi,
       functionName: "paimaSubmitGameInput",
       args: [
-        toHex(JSON.stringify(input)),
+        toHex(JSON.stringify(input.map(i => {
+          switch (typeof i) {
+            case "string":
+              return i;
+            case "number":
+              return i.toString();
+            case "boolean":
+              return i ? "true" : "false";
+            default:
+              throw new Error("Invalid input type: " + typeof i);
+          }
+        }))),
       ],
       value: parseEther("0.0000000001"),
     });

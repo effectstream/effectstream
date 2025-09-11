@@ -14,7 +14,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { ENV } from "@paima/utils";
-import { createMessageForBatcher } from "@paima/concise";
+import { createBatcherSubunit, createMessageForBatcher } from "@paima/concise";
 
 // Start Test
 export async function generalTest(db: Client, sharedState: SharedState) {
@@ -227,6 +227,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       null,
       timestamp,
       account.address,
+      AddressType.EVM,
       gameInput,
     ),
   });
@@ -235,22 +236,22 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      addressType: AddressType.EVM,
-      userAddress: account.address,
-      userSignature: signature,
+    body: JSON.stringify(createBatcherSubunit(
+      timestamp,
+      account.address,
+      AddressType.EVM,
+      signature,
       gameInput,
-      millisecondTimestamp: timestamp,
-    }),
+    )),
   });
   nonce_counter += 1;
   sharedState.primitive_accounting_counter += 1;
   sharedState.paima_state_machine_counter += 1;
-  // Manually add into accouts
+  // Manually add into accounts
   addLinkedAddress(sharedState, account.address, false, null);
 
   await assertSQL<
-    { primitive_name: string; payload: { inputData: string } }
+    { primitive_name: string; payload: { data: string } }
   >(
     "Check Batcher",
     db,
@@ -264,8 +265,8 @@ export async function generalTest(db: Client, sharedState: SharedState) {
             .primitive_name ===
           "PaimaGameInteraction" &&
         res.rows[sharedState.primitive_accounting_counter - 1].payload
-            .inputData ===
-          gameInput;
+        // ["attack","999","777"]
+            .data === "0x5b2261747461636b222c22393939222c22373737225d";
     },
   );
 
@@ -278,19 +279,19 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      addressType: AddressType.EVM,
-      userAddress: account.address,
-      userSignature: badSignature,
+    body: JSON.stringify(createBatcherSubunit(
+      timestamp,
+      account.address,
+      AddressType.EVM,
+      badSignature,
       gameInput,
-      millisecondTimestamp: timestamp,
-    }),
+    )),
   });
   // This message should not change the state of the database.
   // If this test fails, it will probably reflected in the next test.
   // As we cannot wait until the state does not change.
   await assertSQL<
-    { primitive_name: string; payload: { inputData: string } }
+    { primitive_name: string; payload: { data: string } }
   >(
     "Batcher Message with bad signature: should not be processed",
     db,
@@ -304,8 +305,8 @@ export async function generalTest(db: Client, sharedState: SharedState) {
             .primitive_name ===
           "PaimaGameInteraction" &&
         res.rows[sharedState.primitive_accounting_counter - 1].payload
-            .inputData ===
-          gameInput;
+        // ["attack","999","777"]
+            .data === "0x5b2261747461636b222c22393939222c22373737225d";
     },
   );
 

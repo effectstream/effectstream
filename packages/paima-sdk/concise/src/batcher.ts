@@ -1,10 +1,11 @@
-import type {
-  AddressAndType,
-  AddressType,
-  ShallowMergeIntersects,
-  Signature,
-  TimestampMsStr,
-  WalletAddress,
+import {
+AddressType,
+TypeboxHelpers,
+  type AddressAndType,
+  type ShallowMergeIntersects,
+  type Signature,
+  type TimestampMsStr,
+  type WalletAddress,
 } from "@paima/utils";
 import type { InputDataString } from "@paima/chain-types";
 import {
@@ -21,6 +22,7 @@ import {
   parseStmInput,
 } from "./v2/mod.ts";
 import sha3 from "js-sha3";
+import { Value } from "@sinclair/typebox/value";
 const { keccak_256 } = sha3;
 
 type ExpandType<T extends AddressAndType> = T extends any ? {
@@ -38,13 +40,47 @@ export type BatchedSubunit = ShallowMergeIntersects<
 
 export type BatcherMessage = string;
 
+export function createBatcherSubunit(
+  millisecondTimestamp: TimestampMsStr,
+  _walletAddress: WalletAddress,
+  walletAddressType: AddressType,
+  signature: Signature,
+  inputData: string,
+): BatchedSubunit {
+  let walletAddress;
+  switch (walletAddressType) {
+    case AddressType.EVM:
+      walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, _walletAddress);
+      break;
+    default:
+      throw new Error("NYI: Unsupported wallet address type: " + walletAddressType);
+  }
+  return {
+    addressType: walletAddressType,
+    userAddress: walletAddress,
+    userSignature: signature,
+    gameInput: inputData,
+    millisecondTimestamp: millisecondTimestamp,
+  };
+}
+
 /** This is what wallets sign when submitting a batch */
 export function createMessageForBatcher(
   namespace: string | null,
   millisecondTimestamp: TimestampMsStr,
-  walletAddress: WalletAddress,
+  _walletAddress: WalletAddress,
+  walletAddressType: AddressType,
   inputData: string,
 ): BatcherMessage {
+  let walletAddress;
+  switch (walletAddressType) {
+    case AddressType.EVM:
+      walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, _walletAddress);
+      break;
+    default:
+      throw new Error("NYI: Unsupported wallet address type: " + walletAddressType);
+  }
+
   return ((namespace ?? "") + millisecondTimestamp + walletAddress + inputData)
     .replace(/[^a-zA-Z0-9]/g, "-")
     .toLocaleLowerCase();
@@ -58,9 +94,18 @@ export function createMessageForBatcher(
  *       So it contains the address indirectly
  */
 export function hashBatchSubunit(input: BatchedSubunit): string {
+  let walletAddress;
+  switch (input.addressType) {
+    case AddressType.EVM:
+      walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, input.userAddress);
+      break;
+    default:
+      throw new Error("NYI: Unsupported wallet address type: " + input.addressType);
+  }
+
   return "0x" +
     keccak_256(
-      input.userAddress + input.gameInput + input.millisecondTimestamp,
+      walletAddress + input.gameInput + input.millisecondTimestamp,
     );
 }
 
