@@ -375,7 +375,7 @@ export const erc20Factory = (
       amount: bigint,
       silent = false,
       wait = true,
-    ) => {
+    ): Promise<bigint> => {
       if (!silent) {
         console.log("💸 Transferring", amount, "to", to_address);
       }
@@ -395,6 +395,7 @@ export const erc20Factory = (
         ],
       });
       const hash = await walletClient.writeContract(request);
+      let blockNumber = 0n;
       if (wait) {
         const receipt = await publicClient.waitForTransactionReceipt({
           hash,
@@ -406,6 +407,7 @@ export const erc20Factory = (
             } Transfer block ${receipt.blockNumber} @ Hash ${hash}`,
           );
         }
+        blockNumber = receipt.blockNumber;
       }
 
       // Update shared state
@@ -414,6 +416,8 @@ export const erc20Factory = (
 
       sharedState.primitive_accounting_counter += 1;
       sharedState.paima_state_machine_counter += 1;
+
+      return blockNumber;
     },
   };
 };
