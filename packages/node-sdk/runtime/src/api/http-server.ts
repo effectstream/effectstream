@@ -128,6 +128,7 @@ function* registerOpenApiDocumentation(
 }
 
 // TODO This should add user defined endpoints.
+
 /**
  * Start the Paima Engine HTTP server.
  * @param dbConn - The database connection.
@@ -202,11 +203,11 @@ export const startHttpServer = function* (
         to: toQuery,
         includeTransactions = false,
       } = request.query;
-
+      const validPage = typeof page === "number" && !Number.isNaN(page);
       // Resolve range
-      const from = typeof page === "number" ? page : (fromQuery ?? 0);
-      const to = typeof page === "number" ? page : (toQuery ?? from);
-      if (typeof from !== "number" || typeof to !== "number") {
+      const from = validPage ? page : (fromQuery ?? 0);
+      const to = validPage ? page : (toQuery ?? from);
+      if (!validPage && (typeof from !== "number" || typeof to !== "number")) {
         return reply.status(400).send({ error: "Specify page or from/to" });
       }
       if (to < from) {
