@@ -14,10 +14,10 @@
   "imports": {
     // LOCAL IMPORTS
     // UNCOMMENT TO USE THE jsr/npm @paimaexample packages 
-    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.43",
-    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.43",
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.43",
-    "@paimaexample/wallets": "jsr:@paimaexample/wallets@0.3.43",
+    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.44",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.44",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.44",
+    "@paimaexample/wallets": "jsr:@paimaexample/wallets@0.3.44",
     // END OF LOCAL IMPORTS
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.4",
     "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.8.1",
