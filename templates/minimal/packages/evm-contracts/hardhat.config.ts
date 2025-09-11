@@ -1,7 +1,6 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import util from "node:util";
 import HardhatViem from "@nomicfoundation/hardhat-viem";
-// import HardhatAbiExporter from "hardhat-abi-exporter";
 import { overrideTask, task } from "hardhat/config";
 import { ArgumentType } from "hardhat/types/arguments";
 // required for https://github.com/NomicFoundation/hardhat/issues/6472
@@ -22,7 +21,7 @@ import { parse } from "jsonc-parser";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import HardhatIgnitionViem from "@nomicfoundation/hardhat-ignition-viem";
 
-const __dirname: any = import.meta.dirname;
+const __dirname = import.meta.dirname;
 const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
 
 // TODO: ideally hardhat/edr itself would implement opentelemetry instead of inlining it ourselves
@@ -35,7 +34,7 @@ export function initTelemetry(): void {
 }
 initTelemetry();
 
-function logNetwork(networkName: string, ...msg: any[]) {
+function logNetwork(networkName: string, ...msg: unknown[]) {
   log.remote(
     ComponentNames.HARDHAT,
     [networkName],
@@ -228,8 +227,6 @@ const config: HardhatUserConfig = {
   plugins: [
     HardhatViem,
     HardhatIgnitionViem,
-    // HardhatFoundry,
-    // HardhatAbiExporter,
   ],
 
   solidity: {
@@ -242,42 +239,8 @@ const config: HardhatUserConfig = {
         version: "0.8.30",
       },
     },
-    // dependenciesToCompile: [
-    //   // TODO
-    // ],
-    // remappings: [
-    //   "remapped/=npm/@openzeppelin/contracts@5.1.0/access/",
-    //   //   // This is necessary because most people import forge-std/Test.sol, and not forge-std/src/Test.sol
-    //   "forge-std/=npm/forge-std@local/src/",
-    // ],
   },
-  // abiExporter: {
-  //   path: "./build/abi",
-  //   runOnCompile: true,
-  //   clear: true,
-  //   flat: false,
-  //   tsWrapper: true,
-  // },
 };
 
-// avoid the user having to manually run contracts when using the localhost network as it's tedious
-// if ((process.env["NETWORK"] ?? "localhost") === "localhost") {
-//   defaultDeployment(__dirname, outDir, {
-//     modulePath: path.resolve(
-//       __dirname,
-//       "src",
-//       "ignition",
-//       "modules",
-//       "deploy.ts",
-//     ),
-//     parameters: path.resolve(__dirname, "src", "ignition", "parameters.json5"),
-//     reset: false,
-//     verify: false, // likely you want this to true for mainnet
-//     strategy: "basic", // change if you want create2
-//     deploymentId: undefined,
-//     defaultSender: undefined,
-//     writeLocalhostDeployment: true,
-//   });
-// }
 
 export default config;
