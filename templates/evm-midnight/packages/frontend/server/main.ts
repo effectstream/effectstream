@@ -1,7 +1,6 @@
 import { Application } from "@oak/oak/application";
 import { Router } from "@oak/oak/router";
 import routeStaticFilesFrom from "./util/routeStaticFilesFrom.ts";
-import { ENV } from "@paimaexample/utils";
 
 export const app = new Application();
 const router = new Router();

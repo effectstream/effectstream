@@ -16,9 +16,8 @@ import {
 import { web3Enable, web3FromSource } from "@polkadot/extension-dapp";
 import { utf8ToHex } from "web3-utils";
 import { getWindow } from "../windows.ts";
-const { web3Accounts, /*web3Enable,*/ web3FromAddress } = await import(
-  "@polkadot/extension-dapp"
-);
+
+import { web3Accounts, web3FromAddress } from "@polkadot/extension-dapp";
 export type PolkadotAddress = string;
 export type PolkadotApi = InjectedExtension;
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env -S deno run --allow-all
-import { ENV, type ValueOf } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
+import type { ValueOf } from "@paima/utils";
 import "./http-server.ts";
 import { dkill } from "@sylc/dkill";
 

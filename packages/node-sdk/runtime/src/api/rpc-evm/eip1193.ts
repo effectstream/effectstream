@@ -38,7 +38,7 @@ import {
 } from "./rpc-utils.ts";
 const { keccak_256 } = sha3;
 import { runPreparedQuery } from "@paima/db";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 
 export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
   const engine = new JsonRpcEngine();
