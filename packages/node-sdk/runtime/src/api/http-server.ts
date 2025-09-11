@@ -8,19 +8,14 @@ import {
   getAllAddresses,
   getAllScheduledData,
   getAllTableNames,
-  getDynamicTables,
-  getPrimaryKeyColumns,
   getPrimitivePrefix,
-  getPublicTables,
   getSyncAndLastPage,
   getTableSchema,
-  type IGetAllTableNamesResult,
-  type IGetDynamicTablesResult,
-  type IGetPublicTablesResult,
   releaseDBMutex,
   runPreparedQuery,
   waitUntilFree,
 } from "@paima/db";
+import type { IGetAllTableNamesResult } from "@paima/db";
 import { ENV } from "@paima/utils";
 import type { AllSyncProtocols } from "@paima/sync";
 import fastifySwagger, {
@@ -35,14 +30,19 @@ import type { GrammarDefinition } from "@paima/concise";
 import {
   createPaginatedResponseSchema,
   createPaginationMeta,
+  fetchPrimitiveTablePage,
+  fetchPublicTablePage,
   getPaginationParams,
-  InvalidColumnNameError,
-  type PaginatedResponse,
   PaginationQuerySchema,
   type TypePaginationQuerySchema,
-  validateAndEscapeColumnName,
-  validateColumnName,
 } from "./pagination.ts";
+
+function tableListContains(
+  list: Array<{ table_name: string | null }>,
+  name: string,
+): boolean {
+  return list.some((t) => t.table_name === name);
+}
 
 // Utility functions for SQL injection prevention moved to pagination.ts
 
@@ -609,186 +609,17 @@ export const startHttpServer = function* (
         if (safeTableName.length > 128 || safeTableName.length === 0) {
           return reply.status(400).send({ error: "Invalid table name" });
         }
-        const publicTables = await runPreparedQuery<IGetPublicTablesResult>(
-          getPublicTables.run(undefined, dbConn),
-          "getPublicTables",
+        const { data, pagination } = await fetchPublicTablePage(
+          dbConn,
+          safeTableName,
+          { limit, after, offset },
         );
-        if (
-          !publicTables.some((t: IGetPublicTablesResult) =>
-            t.table_name === safeTableName
-          )
-        ) {
-          return reply.status(400).send({
-            error:
-              `Invalid table name, not found in public schema: ${safeTableName}`,
-          });
-        }
-        // 1. Introspect for Primary Keys
-        const pkColumnsResult: { column_name: string }[] =
-          await runPreparedQuery(
-            getPrimaryKeyColumns.run(
-              { tableName: `public.${safeTableName}` },
-              dbConn,
-            ),
-            "getPrimaryKeyColumns",
-          );
-        const pkColumns = pkColumnsResult.map((c: { column_name: string }) =>
-          c.column_name
-        );
-
-        let query: string;
-        const params: (string | number)[] = [];
-        let cursorFields: string[] = [];
-        let nextCursorSeed: Record<string, string | number> | null = null;
-
-        // 2. Determine Pagination Strategy
-        if (pkColumns.length > 0) {
-          // --- Keyset Pagination Strategy ---
-          cursorFields = pkColumns;
-
-          // Validate that all primary key columns are legitimate column names
-          const invalidPkColumns = pkColumns.filter((c) =>
-            !validateColumnName(c)
-          );
-          if (invalidPkColumns.length > 0) {
-            return reply.status(500).send({
-              error: `Invalid primary key column names detected: ${
-                invalidPkColumns.join(", ")
-              }`,
-            });
-          }
-
-          // Validate cursor structure matches primary key columns
-          if (after) {
-            const cursorKeys = Object.keys(after);
-            const missingKeys = pkColumns.filter((pk) =>
-              !cursorKeys.includes(pk)
-            );
-            const extraKeys = cursorKeys.filter((k) => !pkColumns.includes(k));
-
-            if (missingKeys.length > 0 || extraKeys.length > 0) {
-              return reply.status(400).send({
-                error: `Cursor must contain exactly the primary key columns: ${
-                  pkColumns.join(", ")
-                }`,
-              });
-            }
-          }
-
-          let whereClause = "";
-          const escapedColumns: string[] = [];
-          try {
-            for (const c of pkColumns) {
-              escapedColumns.push(validateAndEscapeColumnName(c));
-            }
-          } catch (e) {
-            if (e instanceof InvalidColumnNameError) {
-              return reply.status(500).send({ error: e.message });
-            }
-            throw e;
-          }
-          const orderByClause = `ORDER BY ${
-            escapedColumns.map((c) => `${c} ASC`).join(", ")
-          }`;
-
-          if (after) {
-            const pkValues = pkColumns.map((c: string) => (after as any)[c]);
-            const placeholders = pkColumns.map((_, i: number) => `$${i + 2}`)
-              .join(", ");
-            whereClause = `WHERE (${
-              escapedColumns.join(", ")
-            }) > (${placeholders})`;
-            params.push(...pkValues);
-          }
-
-          query =
-            `SELECT * FROM public.${safeTableName} ${whereClause} ${orderByClause} LIMIT $1`;
-          params.unshift(limit + 1);
-        } else {
-          // --- Offset Pagination Fallback Strategy ---
-          console.warn(
-            `[Paima Engine] WARNING: Table "${safeTableName}" has no primary key. Falling back to less performant OFFSET-based pagination.`,
-          );
-
-          // Use offset from pagination parameters, defaulting to 0
-          const paginationOffset = offset ?? 0;
-
-          // Validate offset is non-negative
-          if (paginationOffset < 0) {
-            return reply.status(400).send({
-              error: "Invalid offset: must be non-negative",
-            });
-          }
-
-          // Find a column to order by
-          const tableSchema = await runPreparedQuery(
-            getTableSchema.run({ tableName: safeTableName }, dbConn),
-            "table-schema",
-          );
-          if (tableSchema.length === 0) {
-            return reply.status(404).send({
-              error: "Table has no columns or does not exist",
-            });
-          }
-
-          // Validate that the order-by column name is safe
-          const orderByColumn = tableSchema[0].column_name;
-          if (!orderByColumn) {
-            return reply.status(500).send({
-              error: "Table has no valid column for ordering",
-            });
-          }
-
-          let escapedOrderByColumn: string;
-          try {
-            escapedOrderByColumn = validateAndEscapeColumnName(orderByColumn);
-          } catch (e) {
-            if (e instanceof InvalidColumnNameError) {
-              return reply.status(500).send({ error: e.message });
-            }
-            throw e;
-          }
-
-          const orderByClause = `ORDER BY ${escapedOrderByColumn} ASC`;
-
-          query =
-            `SELECT * FROM public.${safeTableName} ${orderByClause} LIMIT $1 OFFSET $2`;
-          params.push(limit + 1, paginationOffset);
-          nextCursorSeed = { offset: paginationOffset + limit };
-        }
-
-        // Execute the query safely with prepared parameters
-        const data = await runPreparedQuery(
-          new Promise<any[]>((resolve, reject) => {
-            return dbConn.query(
-              query,
-              params,
-              (err: any, result: { rows: any[] }) => {
-                if (err) reject(err);
-                resolve(result.rows);
-              },
-            );
-          }),
-          `http-server/tables:${safeTableName}/${query}/${params}`,
-        );
-
-        const pagination = createPaginationMeta(
-          limit,
-          data,
-          cursorFields,
-          nextCursorSeed,
-        );
-
-        return {
-          data,
-          pagination,
-        };
+        return { data, pagination };
       } catch (error: any) {
-        if (error.code === "42P01") { // undefined_table
-          return reply.status(404).send({ error: "Table not found" });
-        }
         console.error(`Error fetching table ${tableName}:`, error);
-        return reply.status(500).send({ error: "Internal server error" });
+        return reply.status(500).send({
+          error: error.message || "Internal server error",
+        });
       }
     },
   );
@@ -895,109 +726,20 @@ export const startHttpServer = function* (
       }
 
       try {
-        // Primitives are system-generated and are guaranteed to have an `id` PK.
-        // We can use a simplified, but still safe, query.
         const safeTableName = prefix + primitiveName.toLowerCase().replace(
           /[^a-z0-9_]/g,
           "",
         );
-
-        // Check Table Exists
-        const tableExists = await runPreparedQuery<IGetDynamicTablesResult>(
-          getDynamicTables.run(undefined, dbConn),
-          "getDynamicTables",
-        );
-        if (
-          !tableExists.some((t: IGetDynamicTablesResult) =>
-            t.table_name === safeTableName
-          )
-        ) {
-          return reply.status(404).send({
-            error: `Table not found: ${safeTableName}`,
-          });
+        if (safeTableName.length > 128 || safeTableName.length === 0) {
+          return reply.status(400).send({ error: "Invalid table name" });
         }
-
-        // Validate cursor structure and extract primary key safely
-        let primaryKey: string | undefined;
-        let afterId: any;
-
-        if (after) {
-          const keys = Object.keys(after);
-          if (keys.length !== 1) {
-            return reply.status(400).send({
-              error:
-                "Invalid cursor: must contain exactly one primary key field",
-            });
-          }
-
-          primaryKey = keys[0];
-          const escapedKey = validateAndEscapeColumnName(primaryKey);
-          if (!escapedKey) {
-            return reply.status(400).send({
-              error: "Invalid primary key column name in cursor",
-            });
-          }
-
-          afterId = (after as any)[primaryKey];
-          if (typeof afterId !== "number" && typeof afterId !== "string") {
-            return reply.status(400).send({
-              error: "Invalid primary key value in cursor",
-            });
-          }
-        }
-
-        // Construct safe parameterized query
-        let query: string;
-        let params: any[];
-
-        if (primaryKey && afterId !== undefined) {
-          let escapedKey: string;
-          try {
-            escapedKey = validateAndEscapeColumnName(primaryKey);
-          } catch (e) {
-            if (e instanceof InvalidColumnNameError) {
-              return reply.status(400).send({ error: e.message });
-            }
-            throw e;
-          }
-          query =
-            `SELECT * FROM primitives.${safeTableName} WHERE ${escapedKey} > $1 ORDER BY ${escapedKey} ASC LIMIT $2`;
-          params = [afterId, limit + 1];
-        } else {
-          query = `SELECT * FROM primitives.${safeTableName} LIMIT $1`;
-          params = [limit + 1];
-        }
-
-        const data = await runPreparedQuery(
-          new Promise<any[]>((resolve, reject) => {
-            return dbConn.query(
-              query,
-              params,
-              (err: any, result: { rows: any[] }) => {
-                if (err) reject(err);
-                resolve(result.rows);
-              },
-            );
-          }),
-          `http-server/primitives:${safeTableName}/${query}/${params}`,
+        const { data, pagination } = await fetchPrimitiveTablePage(
+          dbConn,
+          safeTableName,
+          { limit, after },
         );
-
-        const pagination = createPaginationMeta(
-          limit,
-          data,
-          ["id"],
-        );
-
-        return {
-          data,
-          pagination,
-        };
+        return { data, pagination };
       } catch (error: any) {
-        if (error.code === "42P01") { // undefined_table
-          return reply.status(404).send({
-            error: "Primitive table not found",
-          });
-        }
         console.error(`Error fetching primitive ${primitiveName}:`, error);
         return reply.status(500).send({
           error: "Internal server error fetching primitive data",
