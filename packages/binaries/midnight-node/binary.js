@@ -17,6 +17,9 @@ function getPlatform() {
   return `${platform}-${arch}`;
 }
 
+const FILE_NAME =
+  `midnight-node-${getPlatform()}-${CURRENT_BINARY_VERSION}.zip`;
+
 /*
 @returns {string} The URL to download the binary for the current platform.
 */
@@ -26,7 +29,7 @@ function getBinaryUrl() {
   if (!supportedPlatforms.includes(platform)) {
     throw new Error(`Unsupported platform: ${platform}`);
   }
-  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/midnight-node-${platform}-${CURRENT_BINARY_VERSION}.zip`;
+  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/${FILE_NAME}`;
 }
 
 /*
@@ -39,7 +42,10 @@ async function downloadAndSaveBinary() {
 
     const response = await axios.get(url, { responseType: "stream" });
     const writer = fs.createWriteStream(
-      path.join(__dirname, "midnight-node.zip"),
+      path.join(
+        __dirname,
+        FILE_NAME,
+      ),
     );
 
     response.data.pipe(writer);
@@ -58,7 +64,7 @@ async function downloadAndSaveBinary() {
 @returns {Promise<void>} Unzips the binary for the current platform.
 */
 async function unzipBinary() {
-  await extract(path.join(__dirname, "midnight-node.zip"), {
+  await extract(path.join(__dirname, FILE_NAME), {
     dir: path.join(__dirname, "midnight-node"),
   });
   const platform = getPlatform();
@@ -70,7 +76,12 @@ async function unzipBinary() {
       0o755,
     );
   }
-  fs.unlinkSync(path.join(__dirname, "midnight-node.zip"));
+  fs.unlinkSync(
+    path.join(
+      __dirname,
+      FILE_NAME,
+    ),
+  );
 }
 
 async function binary() {

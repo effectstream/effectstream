@@ -2,10 +2,10 @@ run_migrations: true
 
 application:
   network_id: "Undeployed"
-  blocks_buffer: 60
+  blocks_buffer: 10
   save_ledger_state_after: 1000
-  caught_up_max_distance: 60
-  caught_up_leeway: 30
+  caught_up_max_distance: 10
+  caught_up_leeway: 5
   active_wallets_repeat_delay: "100ms"
   active_wallets_ttl: "30m"
   transaction_batch_size: 10
@@ -16,7 +16,7 @@ infra:
 
   node:
     url: "ws://localhost:9944"
-    genesis_protocol_version: 13000
+    genesis_protocol_version: 16000
     reconnect_max_delay: "10s" # 10ms, 100ms, 1s, 10s
     reconnect_max_attempts: 30 # Roughly 5m
 
