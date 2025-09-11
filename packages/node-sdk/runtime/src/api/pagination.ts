@@ -40,6 +40,26 @@ export function validateCursorStructure<T extends Record<string, any>>(
   return true;
 }
 
+// Utility functions for SQL injection prevention
+export function escapeColumnName(columnName: string): string {
+  // Double-quote column names to prevent SQL injection
+  return `"${columnName.replace(/"/g, '""')}"`;
+}
+
+export class InvalidColumnNameError extends Error {
+  constructor(columnName: string) {
+    super(`Invalid column name: ${columnName}`);
+    this.name = "InvalidColumnNameError";
+  }
+}
+
+export function validateAndEscapeColumnName(columnName: string): string {
+  if (!validateColumnName(columnName)) {
+    throw new InvalidColumnNameError(columnName);
+  }
+  return escapeColumnName(columnName);
+}
+
 const DEFAULT_PAGINATION_LIMIT = 100;
 
 export const MAX_PAGINATION_LIMIT = 1000;

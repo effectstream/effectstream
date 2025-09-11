@@ -15,6 +15,8 @@ import {
   getSyncAndLastPage,
   getTableSchema,
   type IGetAllTableNamesResult,
+  type IGetDynamicTablesResult,
+  type IGetPublicTablesResult,
   releaseDBMutex,
   runPreparedQuery,
   waitUntilFree,
@@ -34,24 +36,15 @@ import {
   createPaginatedResponseSchema,
   createPaginationMeta,
   getPaginationParams,
+  InvalidColumnNameError,
   type PaginatedResponse,
   PaginationQuerySchema,
   type TypePaginationQuerySchema,
+  validateAndEscapeColumnName,
   validateColumnName,
 } from "./pagination.ts";
 
-// Utility functions for SQL injection prevention
-function escapeColumnName(columnName: string): string {
-  // Double-quote column names to prevent SQL injection
-  return `"${columnName.replace(/"/g, '""')}"`;
-}
-
-function validateAndEscapeColumnName(columnName: string): string | null {
-  if (!validateColumnName(columnName)) {
-    return null;
-  }
-  return escapeColumnName(columnName);
-}
+// Utility functions for SQL injection prevention moved to pagination.ts
 
 export enum RpcPaths {
   Root = "rpc",
@@ -616,11 +609,15 @@ export const startHttpServer = function* (
         if (safeTableName.length > 128 || safeTableName.length === 0) {
           return reply.status(400).send({ error: "Invalid table name" });
         }
-        const publicTables = await runPreparedQuery(
+        const publicTables = await runPreparedQuery<IGetPublicTablesResult>(
           getPublicTables.run(undefined, dbConn),
           "getPublicTables",
         );
-        if (!publicTables.some((t) => t.table_name === safeTableName)) {
+        if (
+          !publicTables.some((t: IGetPublicTablesResult) =>
+            t.table_name === safeTableName
+          )
+        ) {
           return reply.status(400).send({
             error:
               `Invalid table name, not found in public schema: ${safeTableName}`,
@@ -679,9 +676,17 @@ export const startHttpServer = function* (
           }
 
           let whereClause = "";
-          const escapedColumns = pkColumns.map((c) =>
-            validateAndEscapeColumnName(c)!
-          );
+          const escapedColumns: string[] = [];
+          try {
+            for (const c of pkColumns) {
+              escapedColumns.push(validateAndEscapeColumnName(c));
+            }
+          } catch (e) {
+            if (e instanceof InvalidColumnNameError) {
+              return reply.status(500).send({ error: e.message });
+            }
+            throw e;
+          }
           const orderByClause = `ORDER BY ${
             escapedColumns.map((c) => `${c} ASC`).join(", ")
           }`;
@@ -734,13 +739,14 @@ export const startHttpServer = function* (
             });
           }
 
-          const escapedOrderByColumn = validateAndEscapeColumnName(
-            orderByColumn,
-          );
-          if (!escapedOrderByColumn) {
-            return reply.status(500).send({
-              error: "Invalid column name for ordering",
-            });
+          let escapedOrderByColumn: string;
+          try {
+            escapedOrderByColumn = validateAndEscapeColumnName(orderByColumn);
+          } catch (e) {
+            if (e instanceof InvalidColumnNameError) {
+              return reply.status(500).send({ error: e.message });
+            }
+            throw e;
           }
 
           const orderByClause = `ORDER BY ${escapedOrderByColumn} ASC`;
@@ -897,11 +903,15 @@ export const startHttpServer = function* (
         );
 
         // Check Table Exists
-        const tableExists = await runPreparedQuery(
+        const tableExists = await runPreparedQuery<IGetDynamicTablesResult>(
           getDynamicTables.run(undefined, dbConn),
           "getDynamicTables",
         );
-        if (!tableExists.some((t) => t.table_name === safeTableName)) {
+        if (
+          !tableExists.some((t: IGetDynamicTablesResult) =>
+            t.table_name === safeTableName
+          )
+        ) {
           return reply.status(404).send({
             error: `Table not found: ${safeTableName}`,
           });
@@ -941,7 +951,15 @@ export const startHttpServer = function* (
         let params: any[];
 
         if (primaryKey && afterId !== undefined) {
-          const escapedKey = validateAndEscapeColumnName(primaryKey)!;
+          let escapedKey: string;
+          try {
+            escapedKey = validateAndEscapeColumnName(primaryKey);
+          } catch (e) {
+            if (e instanceof InvalidColumnNameError) {
+              return reply.status(400).send({ error: e.message });
+            }
+            throw e;
+          }
           query =
             `SELECT * FROM primitives.${safeTableName} WHERE ${escapedKey} > $1 ORDER BY ${escapedKey} ASC LIMIT $2`;
           params = [afterId, limit + 1];
