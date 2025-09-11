@@ -21,10 +21,6 @@ type Deployment = {
 // Add or remove contracts as needed.
 const myDeployments: Deployment[] = [
   {
-    module: Erc20DevModule,
-    network: "evmMainHttp",
-  },
-  {
     module: PaimaL2ContractModule,
     network: "evmMainHttp",
     parameters: {
@@ -33,18 +29,6 @@ const myDeployments: Deployment[] = [
         fee: 0,
       },
     },
-  },
-  {
-    module: Erc721DevModule,
-    network: "evmMainHttp",
-  },
-  {
-    module: Erc20DevModule,
-    network: "evmParallelHttp",
-  },
-  {
-    module: Erc721DevModule,
-    network: "evmParallelHttp",
   },
 ] as const;
 

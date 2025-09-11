@@ -24,18 +24,37 @@
         "@nomicfoundation/hardhat-utils": "npm:@nomicfoundation/hardhat-utils@3.0.0" // required for https://github.com/NomicFoundation/hardhat/issues/6472
     },
     "tasks": {
-        "swap:remappings:forge": "deno -A @paimaexample/evm-hardhat/remappings-forge --depth 2 --package @paimaexample",
-        "swap:remappings:hardhat": "deno -A @paimaexample/evm-hardhat/remappings-hardhat --package @paimaexample",
-        "check": "./mod.ts",
-        "build:mod": "deno run -A @paimaexample/evm-hardhat/builder",
+        "swap:remappings:forge": "deno -A @paimaexample/evm-hardhat/remappings-forge --depth 4",
+        "swap:remappings:hardhat": "deno -A @paimaexample/evm-hardhat/remappings-hardhat",
+        "check": "echo 'check'",
+        "build:mod": {
+            // deploy:standalone does not return 'success', as the hardhat process is terminated by chain:stop - so it cannot be invoked as dependency
+            "command": "(deno task deploy:standalone || true) && deno run -A @paimaexample/evm-hardhat/builder"
+        },
         "build:clean": "rm -rf build || true",
-        "build:forge": "deno task swap:remappings:forge && forge build",
-        "build:hardhat": "deno task swap:remappings:hardhat && deno run -A npm:hardhat@3.0.4 compile && deno task build:mod",
-        "build": "deno task build:clean && deno task build:forge && deno task build:hardhat && deno task build:mod",
+        "build:forge": {
+            "command": "forge build",
+            "dependencies": ["swap:remappings:forge"]
+        },
+        "build:hardhat": {
+            "command": "deno run -A npm:hardhat@3.0.4 compile",
+            "dependencies": ["swap:remappings:hardhat"]
+        },
+        "build": {
+            "command": "deno task build:forge && deno task build:hardhat",
+            "dependencies": ["build:clean"]
+        },
         "deploy:clean": "rm -rf ignition/deployments || true",
-        "deploy:standalone": "deno task deploy:clean && ((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && kill -9 $(lsof -ti tcp:8545)",
-        "deploy": "deno task deploy:clean && deno run -A deploy.ts",
+        "deploy:standalone": {
+            "command":"(((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && deno task chain:stop) || true",
+            "dependencies": ["deploy:clean","build"]
+        },
+        "deploy": { 
+            "command": "deno run -A deploy.ts",
+            "dependencies": ["deploy:clean"]
+        },
         "chain:start": "deno run -A npm:hardhat@3.0.4 node",
+        "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",
         "chain:wait": "deno run -A npm:hardhat@3.0.4 node wait"
     }
 }

@@ -14,8 +14,7 @@ Paima Engine development mode & tests can be run through e2e environment.
 deno install --allow-scripts && ./patch.sh
 
 # Build Contracts
-deno task -f @e2e/evm-contracts build
-deno task -f @e2e/evm-contracts deploy:standalone
+deno task -f @e2e/evm-contracts build:mod
 deno task -f @e2e/midnight-contracts midnight-contract:compile
 
 # If running on linux set env DISABLE_LINUX_YACI=true
