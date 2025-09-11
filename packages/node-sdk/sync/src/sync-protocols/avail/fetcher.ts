@@ -15,7 +15,7 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Input, Output, Page, PrimitiveType } from "./types.ts";
 import { AvailClient } from "./AvailClient.ts";
-import { all, call, sleep, type Operation } from "effection";
+import { all, call, type Operation } from "effection";
 import { bound } from "@paima/utils";
 
 export class AvailFetcher extends BaseDataFetcher<
@@ -47,6 +47,11 @@ export class AvailFetcher extends BaseDataFetcher<
     lastPage: LastPage<Page, RootPage> | undefined,
   ): Operation<DataFetched<Output, Page, RootPage>> {
     const outputs: OutputAndCleanup<Output>[] = [];
+    console.log(
+      `[Avail] Fetching blocks from ${data.from} to ${data.to}. ${
+        data.isPresync ? "[presync]" : ""
+      }`,
+    );
     for (let height = data.from; height <= data.to; height++) {
       let header;
       try {
@@ -131,9 +136,6 @@ export class AvailFetcher extends BaseDataFetcher<
       e.appId === appId
     );
     if (!isPresent) return undefined;
-    // Sometimes the block data appears much later than the appId appears in the block header
-    // so we need to sleep for a bit to ensure the block data is available
-    yield* sleep(10_000);
     // Read block data for the corresponding height to unblock future parsing.
     // Intentionally ignore the result for now.
     const blockData = yield* call(() =>
@@ -153,7 +155,7 @@ export class AvailFetcher extends BaseDataFetcher<
         primitive: ConfigPrimitiveType.AvailPaimaL2,
         payload: {
           inputData: height.toString(),
-          inputNonce: '0x', // TODO replace this with something meaningful
+          inputNonce: "0x", // TODO replace this with something meaningful
           suppliedValue: data,
         },
         syncProtocol: {
