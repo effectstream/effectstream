@@ -63,7 +63,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     wallets[0].privateKey,
     erc20_b,
   );
-  const blockNumber = await erc20.a.transfer(
+  let blockNumber = await erc20.a.transfer(
     wallets[0].privateKey,
     wallets[1].address,
     erc20_c,
@@ -258,7 +258,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   );
 
   console.log("Created random account", account.address);
-  const gameInput = JSON.stringify(["attack", "999", "777"]);
+  const conciseInput = JSON.stringify(["attack", "999", "777"]);
   let nonce_counter = 0;
   // Send a batched message.
   const signature = await walletClient.signMessage({
@@ -267,22 +267,26 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       timestamp,
       account.address,
       AddressType.EVM,
-      gameInput,
+      conciseInput,
     ),
   });
+
   await fetch(`http://localhost:${ENV.BATCHER_PORT}/send-input`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(createBatcherSubunit(
-      timestamp,
-      account.address,
-      AddressType.EVM,
-      signature,
-      gameInput,
-    )),
+    body: JSON.stringify({
+      data: createBatcherSubunit(
+        timestamp,
+        account.address,
+        AddressType.EVM,
+        signature,
+        conciseInput,
+      ), 
+    }),
   });
+
   nonce_counter += 1;
   sharedState.primitive_accounting_counter += 1;
   sharedState.paima_state_machine_counter += 1;
@@ -298,7 +302,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
       paima.primitive_accounting;`,
-    (res) => res.rows.length === sharedState.primitive_accounting_counter,
+    (_) => true, // We don't need to wait as the batcher waits for the transaction to be processed by the Paima Engine.
     (res) => {
       return res.rows[sharedState.primitive_accounting_counter - 1]
             .primitive_name ===
@@ -318,13 +322,15 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(createBatcherSubunit(
-      timestamp,
-      account.address,
-      AddressType.EVM,
-      badSignature,
-      gameInput,
-    )),
+    body: JSON.stringify({
+      data: createBatcherSubunit(
+        timestamp,
+        account.address,
+        AddressType.EVM,
+        badSignature,
+        conciseInput,
+      ),
+    }),
   });
   // This message should not change the state of the database.
   // If this test fails, it will probably reflected in the next test.
@@ -472,11 +478,14 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     wallets[1].address,
     tokens.tokenC,
   );
-  await erc721.a.transfer(
+  blockNumber = await erc721.a.transfer(
     wallets[1].privateKey,
     wallets[0].address,
     tokens.tokenD,
   );
+  while (latestBlock["parallelEvmRPC_fast"] ? BigInt(latestBlock["parallelEvmRPC_fast"]) < blockNumber : true) {
+    await sleep(100);
+  }
   // Cannot burn a token?
   // await erc721.burn(wallet_X.privateKey, tokens.tokenD);
   await assertSQL<

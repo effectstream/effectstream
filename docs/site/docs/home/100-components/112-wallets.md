@@ -33,6 +33,8 @@ Integrating wallet connectivity into your dApp is streamlined with a single `log
 ```ts
 import { WalletMode, login } from '@paima/wallet';
 
+const paimaEngineConfig = new PaimaEngineConfig(...); // see PaimaEngineConfig in the @paima/wallets package
+
 async function connectWallet() {
   try {
     // The login function prompts the user with their chosen wallet extension.
@@ -62,36 +64,81 @@ The `WalletMode` enum allows you to support a broad range of ecosystems, enablin
 | **`AvailJs`** | Avail | Connects to wallets for the Avail network. |
 | **`Midnight`** | Midnight | Connects to Lace Wallet |
 
-### Primary Uses of a Connected Wallet
+## PaimaEngineConfig
 
-Once a user has connected their wallet, your frontend can use the returned `walletClient` to perform three main types of actions.
+The `PaimaEngineConfig` is used to configure the Paima Engine.
 
-#### 1. Signing Messages for the Batcher (Recommended)
+Settings:
+* **App Name**: The name of the app, used to internally sign messages.
+* **Paima L2 Sync Protocol Name**: The name of the paima l2 sync protocol defined in your config.
+* **Paima L2 Contract Address**: The address of the paima l2 contract to target.
+* **Paima L2 Chain**: The chain of the paima l2 contract.
+* **Paima L2 ABI**: (Optional) The abi of the paima l2 contract.
+* **Batcher URL**: The url of the batcher to use.
+* **Prefer Batched Mode**: If true use batcher by default, otherwise use self-sequenced transaction.
 
-This is the most common and powerful use case. To provide a gasless, cross-chain experience, the user's wallet is used to **sign a message** containing their game input. This signed message is then sent to the [Batcher](./108-batcher.md), which handles the on-chain submission. This is the core mechanism that allows a Cardano user to play a game on an EVM chain without needing an EVM wallet or gas.
+See the `PaimaEngineConfig` in the `@paima/wallets` package for more details.
 
 ```ts
-// Using the walletClient obtained from the login() function.
-const signature = await walletClient.signMessage({
-  message: createMessageForBatcher(
-    "my-namespace",
-    timestamp,
-    userAddress,
-    gameInput
-  ),
-});
+const paimaEngineConfig = new PaimaEngineConfig(
+  "my-app",                       // app name
+  "paima-l2-sync-protocol-name",  // paima l2 sync protocol name
+  "0x1234567890abcdef",           // paima l2 contract address
+  hardhat,                        // paima l2 chain
+  undefined,                      // if undefined, use default paima l2 abi
+  "http://localhost:3334",        // batcher url
+  true,                           // if true use batcher by default
+);
 ```
 
-### 2. Sending On-Chain Transactions
+## Primary Uses of a Connected Wallet
+
+Once a user has connected their wallet, your frontend can use the returned `walletClient` for different uses.
+
+### 1. Sending Concise Inputs to Paima L2 Contract
+
+Send a transaction to the Paima L2 contract.
+This will automatically decide whether to use the batcher or the self-sequenced transaction based on the `preferBatchedMode` flag.
+
+```ts
+const conciseInput = ["my-action", "0x1", "0x2"]; // Your grammar-formatted input
+const result = await sendTransaction(walletClient, conciseInput, paimaEngineConfig);
+```
+
+See the `sendTransaction` function in the `@paima/wallets` package for more details.
+
+### 2. Manually Signing Messages for the Batcher
+
+To provide a gasless, cross-chain experience, the user's wallet is used to **sign a message** containing their game input. This signed message is then sent to the [Batcher](./108-batcher.md), which handles the on-chain submission. This is the core mechanism that allows a Cardano user to play a game on an EVM chain without needing an EVM wallet or gas.
+
+```ts
+const conciseInput = ["my-action", "0x3", "0x4"]; // Your grammar-formatted input
+const result = await sendBatcherTransaction(walletClient, conciseInput, paimaEngineConfig);
+```
+
+### 3. Sending On-Chain Transactions
 
 For specific, high-stakes actions, or if your dApp doesn't use a Batcher, you can use the wallet to send traditional on-chain transactions.
 
 *   **Direct Paima L2 Contract Interaction**: Call the `submitInput` function on the `PaimaL2Contract` to send a game move directly.
+This can be done using the `sendSelfSequencedTransaction` function.
+```ts
+const result = await sendSelfSequencedTransaction(walletClient, conciseInput, paimaEngineConfig);
+```
+
 *   **Other Contract Interactions**: Call any function on any other smart contract, such as minting an NFT or transferring an ERC20 token.
 
-#### 3. User Identification
+### 4. User Identification
 
 The user's `walletAddress` is their primary identifier within the Paima Engine. When your State Machine receives an input, it knows which user performed the action based on the `signerAddress`. This address is used to query the database for the user's state, inventory, and other relevant information.
+
+### 4. Signing Messages
+
+You can sign custom messages with the wallet.
+```ts
+const message = "my-message";
+const signature = await walletClient.signMessage({ message });
+```
 
 ## Wallets and the Paima Account System
 

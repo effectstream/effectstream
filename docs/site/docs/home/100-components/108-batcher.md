@@ -57,9 +57,9 @@ This is the most critical part of the Batcher's security model. The `PaimaL2Cont
 When the engine's Sync Service detects a `PaimaGameInteraction` event with a payload starting with `&B`, it triggers a special process:
 1.  **Parse Batch**: The engine parses the single `&B` string into its individual subunits.
 2.  **Iterate and Verify**: It loops through each subunit and performs the following steps:
-    a. **Reconstruct Message**: It uses the `userAddress`, `millisecondTimestamp`, and `gameInput` from the subunit to reconstruct the exact, deterministic message that the user's wallet was supposed to have signed.
+    a. **Reconstruct Message**: It uses the `userAddress`, `millisecondTimestamp`, and `conciseInput` from the subunit to reconstruct the exact, deterministic message that the user's wallet was supposed to have signed.
     b. **Verify Signature**: It then attempts to verify the provided `userSignature` against the reconstructed message. Crucially, it intelligently tries multiple signature schemes (EVM, Cardano, Mina, etc.) to determine the user's wallet type and validate accordingly.
-3.  **Process Valid Inputs**: If the signature is valid, the engine processes the `gameInput` through the standard Grammar and State Machine. If the signature is invalid, the subunit is safely discarded, and the engine moves to the next one. This prevents a single invalid signature from halting the entire batch.
+3.  **Process Valid Inputs**: If the signature is valid, the engine processes the `conciseInput` through the standard Grammar and State Machine. If the signature is invalid, the subunit is safely discarded, and the engine moves to the next one. This prevents a single invalid signature from halting the entire batch.
 
 ### The Default Batcher Implementation
 
@@ -138,11 +138,11 @@ First, create the game move as a standard JavaScript array, following the rules 
 
 ```ts
 // The user's intended action, as a structured array.
-const gameInput = ["attack", 1, 42];
+const conciseInput = ["attack", 1, 42];
 ```
 
 #### 2. Create and Sign the Batcher Message
-This is the most critical step. The user does not sign the `gameInput` directly. Instead, you must use the `createMessageForBatcher` helper function. This function combines the game input with other essential data (a timestamp, the user's address, and a security namespace) into a single, deterministic string. This is the string the user's wallet will sign.
+This is the most critical step. The user does not sign the `conciseInput` directly. Instead, you must use the `createMessageForBatcher` helper function. This function combines the game input with other essential data (a timestamp, the user's address, and a security namespace) into a single, deterministic string. This is the string the user's wallet will sign.
 
 It is crucial to use this specific function because the Paima Engine uses the exact same function internally to reconstruct the message for signature verification. Any deviation will result in an invalid signature.
 
@@ -157,7 +157,7 @@ const messageToSign = createMessageForBatcher(
   "my-security-namespace", // A unique string for your dApp to prevent cross-game replay attacks.
   timestamp,
   userAddress,
-  JSON.stringify(gameInput) // The game input must be stringified.
+  JSON.stringify(conciseInput) // The game input must be stringified.
 );
 
 // Use the wallet client to sign the message.
@@ -175,7 +175,7 @@ const payload = {
   addressType: AddressType.EVM, // The type of wallet the user signed with.
   userAddress: userAddress,
   userSignature: signature,
-  gameInput: JSON.stringify(gameInput),
+  conciseInput: JSON.stringify(conciseInput),
   millisecondTimestamp: timestamp,
 };
 
@@ -197,7 +197,7 @@ When deploying a custom Batcher, you are running a critical piece of infrastruct
     *   **Rate Limiting**: Limit the number of requests a single IP address can make per minute.
     *   **CAPTCHA**: For anonymous users, you can integrate a service like Google's reCAPTCHA.
     *   **API Keys**: If your Batcher is being used by other backend services, require an API key.
-*   **Input Validation**: Before even checking a signature, your custom Batcher can perform basic validation on the `gameInput` string. For example, you can check if it's valid JSON and if its size is within a reasonable limit to reject obvious junk requests immediately.
+*   **Input Validation**: Before even checking a signature, your custom Batcher can perform basic validation on the `conciseInput` string. For example, you can check if it's valid JSON and if its size is within a reasonable limit to reject obvious junk requests immediately.
 
 ### When to Bypass the Batcher
 

@@ -33,7 +33,7 @@ type ExpandType<T extends AddressAndType> = T extends any ? {
 export type BatchedSubunit = ShallowMergeIntersects<
   ExpandType<AddressAndType> & {
     userSignature: Signature;
-    gameInput: InputDataString;
+    conciseInput: InputDataString;
     millisecondTimestamp: TimestampMsStr;
   }
 >;
@@ -59,7 +59,7 @@ export function createBatcherSubunit(
     addressType: walletAddressType,
     userAddress: walletAddress,
     userSignature: signature,
-    gameInput: inputData,
+    conciseInput: inputData,
     millisecondTimestamp: millisecondTimestamp,
   };
 }
@@ -105,7 +105,7 @@ export function hashBatchSubunit(input: BatchedSubunit): string {
 
   return "0x" +
     keccak_256(
-      walletAddress + input.gameInput + input.millisecondTimestamp,
+      walletAddress + input.conciseInput + input.millisecondTimestamp,
     );
 }
 

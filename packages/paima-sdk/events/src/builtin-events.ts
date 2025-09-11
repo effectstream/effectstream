@@ -80,6 +80,11 @@ const SyncChains = genEvent({
       name: 'block',
       type: Type.Integer(),
       indexed: true,
+    },
+    {
+      name: 'rollup',
+      type: Type.Integer(),
+      indexed: false,
     }
   ],
 });

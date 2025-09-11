@@ -242,7 +242,7 @@ export default function* processPaimaL2SyncProtocolResponse(
         userAddress,
         millisecondTimestamp,
         userSignature,
-        gameInput,
+        conciseInput,
       } = parsed;
       // TODO: We need to setup & configure the namespace.
       const message = createMessageForBatcher(
@@ -250,7 +250,7 @@ export default function* processPaimaL2SyncProtocolResponse(
         millisecondTimestamp,
         userAddress,
         addressType,
-        gameInput,
+        conciseInput,
       );
       // We yield the promise to the generator caller.
       // Sync Generators cannot resolve promises.
@@ -288,7 +288,7 @@ export default function* processPaimaL2SyncProtocolResponse(
               response.output.syncProtocol.payload.transactionHash,
           },
           payload: {
-            data: stringToHex(batchedMessage.parsed.gameInput),
+            data: stringToHex(batchedMessage.parsed.conciseInput),
             userAddress: userAddress as EvmAddress, // This might be a non-EVM address
             value: "0x0",
           },
