@@ -2,7 +2,7 @@
 
 ```sh
 # Check for external dependencies
-./check.sh
+./../check.sh
 
 # Install packages
 deno install --allow-scripts && ./patch.sh

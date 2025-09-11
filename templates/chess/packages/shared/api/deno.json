@@ -1,0 +1,16 @@
+{
+    "name": "@chess/api-contract",
+    "version": "0.3.0",
+    "license": "MIT",
+    "exports": {
+        ".": "./src/mod.ts"
+    },
+    "imports": {
+        "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+        "@sinclair/typemap": "npm:@sinclair/typemap@^0.10.1",
+        "@ts-rest/core": "npm:@ts-rest/core@3.53.0-rc.1"
+    },
+    "compilerOptions": {
+        "strict": true
+    }
+}

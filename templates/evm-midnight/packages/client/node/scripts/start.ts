@@ -37,17 +37,16 @@ const midnightExtended = (packageName: string) => ({
 });
 
 const config = Value.Parse(OrchestratorConfig, {
+  // Launch system processes
+  packageName: "jsr:@paimaexample",
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,
     [ComponentNames.DOCS]: false,
-
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: true,
     [ComponentNames.COLLECTOR]: true,
   },
-
-  packageName: "jsr:@paimaexample",
 
   // Launch my processes
   processesToLaunch: [
