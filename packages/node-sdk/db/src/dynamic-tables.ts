@@ -5,11 +5,7 @@ import {
   ERC20_VIEW_PREFIX,
   erc20Ivm,
 } from "./ivm/erc20-ivm.ts";
-import {
-  ERC721_INTERMEDIATE_PREFIX,
-  ERC721_VIEW_PREFIX,
-  erc721Ivm,
-} from "./ivm/erc721-ivm.ts";
+
 // This import causes a circular dependency with the sync package.
 // import type { AllSyncProtocols } from "@paima/sync";
 import type { PoolClient } from "pg";
@@ -93,14 +89,22 @@ function* createDynamicTableForPrimitive(
 export function getPrimitivePrefix(
   primitiveType: ConfigPrimitiveType,
 ): string | undefined {
+
+  const primitive = PaimaPrimitiveRegistry.getPrimitiveByType(primitiveType);
+  if (primitive) {
+    const viewPrefix = primitive.getViewPrefix();
+    return viewPrefix[0]; 
+  }
+
+  // TODO Remove:
+  // Old way of doing it, when the primitive was not a class.
   switch (primitiveType) {
     case ConfigPrimitiveType.EvmRpcERC20:
       return ERC20_VIEW_PREFIX;
-    case ConfigPrimitiveType.EvmRpcERC721:
-      return ERC721_VIEW_PREFIX;
     default:
       return undefined;
   }
+  
 }
 
 /**
@@ -116,11 +120,17 @@ export function getPrimitivePrefix(
 export function getPrimitiveIntermediatePrefix(
   primitiveType: ConfigPrimitiveType,
 ): string | undefined {
+  const primitive = PaimaPrimitiveRegistry.getPrimitiveByType(primitiveType);
+  if (primitive) {
+    const intermediatePrefix = primitive.getIntermediatePrefix();
+    return intermediatePrefix[0];
+  }
+
+  // TODO Remove:
+  // Old way of doing it, when the primitive was not a class.
   switch (primitiveType) {
     case ConfigPrimitiveType.EvmRpcERC20:
       return ERC20_INTERMEDIATE_PREFIX;
-    case ConfigPrimitiveType.EvmRpcERC721:
-      return ERC721_INTERMEDIATE_PREFIX;
     default:
       return undefined;
   }

@@ -13,12 +13,17 @@ export abstract class PaimaPrimitive {
   abstract internalType: ConfigPrimitiveType;
   abstract abi: ReturnType<typeof getEvmEvent>;
   abstract grammar: any; // Type TOOD;
-  abstract dynamicTables: (name: string) => string;
   abstract internalEvent: ConfigPrimitiveAccountingPayloadType;
+  
   // User defined
   abstract instanceName: string;
   abstract startBlockHeight: number;
   abstract contractAddress: EvmAddress;
+
+  // Dynamic/ivm Table Global definitions
+  abstract dynamicTables: (name: string) => string;
+  abstract getIntermediatePrefix(): string[];
+  abstract getViewPrefix(): string[];
 
   public getConfig() {
     return {

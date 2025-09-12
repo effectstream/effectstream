@@ -37,7 +37,14 @@ export class Erc721Primitive extends PaimaPrimitive {
       }),
     ],
   ];
+
   dynamicTables = erc721Ivm;
+  override getIntermediatePrefix(): string[] {
+    return ["erc721_ownership_intermediate_"];
+  }
+  override getViewPrefix(): string[] {
+    return ["erc721_ownership_view_"];
+  }
 
   constructor(
     instanceName: string,

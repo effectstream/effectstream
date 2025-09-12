@@ -1,3 +1,4 @@
+import { ConfigPrimitiveType } from "@paima/config";
 import { PaimaPrimitive } from "./PaimaPrimitive.ts";
 
 /** 
@@ -13,6 +14,10 @@ export class PaimaPrimitiveRegistry {
       return this.primitives[instanceName];
     }
   
+    static getPrimitiveByType(type: ConfigPrimitiveType): PaimaPrimitive | undefined {
+      return Object.values(this.primitives).find((primitive) => primitive.internalType === type);
+    }
+
     static addPrimitive(primitive: PaimaPrimitive) {
       if (this.primitives[primitive.instanceName]) {
         throw new Error(`Primitive ${primitive.instanceName} already exists`);

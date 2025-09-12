@@ -1,17 +1,6 @@
 import processErc20TransferDatum from "./evm/rpc/erc20-transfer.ts";
 import processPaimaL2Event from "./evm/rpc/paima-l2.ts";
-import processErc721TransferDatum from "./evm/rpc/erc721-transfer.ts";
-// import processErc721MintDatum from "./evm/rpc/erc721-mint.ts";
-// import processErc6551RegistryDatum from "./evm/rpc/erc6551-registry.ts";
-// import processErc1155TransferDatum from "./evm/rpc/erc1155-transfer.ts";
-// import processGenericDatum from "./generic.ts";
-// import processCardanoDelegationDatum from "./cardano/carp/delegation.ts";
-// import processCardanoProjectedNFT from "./cardano/carp/projected-nft.ts";
-// import processCardanoAssetUtxoDatum from "./cardano/carp/delayed-asset.ts";
-// import processCardanoTransferDatum from "./cardano/carp/transfer.ts";
-// import processCardanoMintBurnDatum from "./cardano/carp/mint-burn.ts";
-// import processDynamicEvmPrimitive from "./evm/rpc/dynamic-primitive.ts";
-// import processMidnightContractStateDatum from "./midnight/contract-state.ts";
+
 import assertNever from "assert-never";
 import type {
   ConfigSyncProtocolType,
