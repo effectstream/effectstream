@@ -60,8 +60,8 @@ COPY . .
 
 RUN deno install --allow-scripts
 RUN /app/patch.sh
-RUN deno task build:evm ||:
-RUN deno task build:midnight ||:
+RUN deno task build:evm
+RUN deno task build:midnight
 
 # Frontend / Explorer / API / Hardhat 1&2 / Midnight Proof
 EXPOSE 10599

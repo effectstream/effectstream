@@ -6,20 +6,20 @@
  *  deno run -A update-packages.ts --version 1.2.3 --all-packages --apply
  */
 
-import { parse } from "https://deno.land/std@0.207.0/flags/mod.ts";
+import { parseArgs } from "jsr:@std/cli/parse-args";
 import {
   dirname,
   fromFileUrl,
   join,
-} from "https://deno.land/std@0.207.0/path/mod.ts";
-import { walk } from "https://deno.land/std@0.207.0/fs/walk.ts";
+} from "jsr:@std/path";
+import { walk } from "jsr:@std/fs";
 
 // 1. Read args. Args should contain
 // --version x.y.z
 // --package <name> or --all-packages
 // --apply or --dry-run
 async function main(): Promise<void> {
-  const flags = parse(Deno.args, {
+  const flags = parseArgs(Deno.args, {
     string: ["version", "package"],
     boolean: ["all-packages", "apply"],
     default: { apply: false },
@@ -90,7 +90,8 @@ async function main(): Promise<void> {
   packageDirs.forEach((dir) => console.log(`- ${dir.split("/").pop()}`));
   console.log(`New version: ${version}`);
 
-  const regex = /(jsr|npm):@paimaexample\/([\w-]+)@[\^~]?(\d+\.\d+\.\d+)/g;
+  const denoJsonRegex = /(jsr|npm):@paimaexample\/([\w-]+)@[\^~]?(\d+\.\d+\.\d+)/g;
+  const packageJsonRegex = /"@paimaexample\/([\w-]+)": "[\^~]?(\d+\.\d+\.\d+)"/g;
 
   for (const dir of packageDirs) {
     // 4. now for each package delete deno.lock and node_modules folder.
@@ -132,7 +133,7 @@ async function main(): Promise<void> {
     ) {
       const filePath = entry.path;
       const content = await Deno.readTextFile(filePath);
-      const matches = [...content.matchAll(regex)];
+      const matches = [...content.matchAll(denoJsonRegex)];
 
       if (matches.length > 0) {
         if (dryRun) {
@@ -144,8 +145,39 @@ async function main(): Promise<void> {
         } else {
           console.log(`\nUpdating ${filePath}...`);
           const newContent = content.replace(
-            regex,
+            denoJsonRegex,
             `$1:@paimaexample/$2@${version}`,
+          );
+          await Deno.writeTextFile(filePath, newContent);
+          console.log(`Successfully updated ${filePath}`);
+        }
+      }
+    }
+
+    for await (
+      const entry of walk(dir, {
+        includeFiles: true,
+        includeDirs: false,
+        exts: [".json"],
+        match: [/package\.json$/],
+      })
+    ) {
+      const filePath = entry.path;
+      const content = await Deno.readTextFile(filePath);
+      const matches = [...content.matchAll(packageJsonRegex)];
+
+      if (matches.length > 0) {
+        if (dryRun) {
+          console.log(`\n[dry-run] Changes for ${filePath}:`);
+          for (const match of matches) {
+            const newDep = `"@paimaexample/${match[1]}": "${version}"`;
+            console.log(`  - ${match[0]} -> ${newDep}`);
+          }
+        } else {
+          console.log(`\nUpdating ${filePath}...`);
+          const newContent = content.replace(
+            packageJsonRegex,
+            `"@paimaexample/$1": "${version}"`,
           );
           await Deno.writeTextFile(filePath, newContent);
           console.log(`Successfully updated ${filePath}`);

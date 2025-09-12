@@ -4,7 +4,7 @@
   ],
   "nodeModulesDir": "auto",
   "tasks": {
-    "build:evm": "deno task -f @chess/evm-contracts build && deno task -f @chess/evm-contracts deploy:standalone",
+    "build:evm": "deno task -f @chess/evm-contracts build:mod",
     "dev": "deno task -f @chess/node dev",
     "start:frontend": "deno task -f @chess/frontend dev",
     "check": "deno check"
