@@ -19,7 +19,7 @@ export default function* processAvailPaimaL2Datum(
     ConfigPrimitivePayloadType.Event
   >,
 ): StateUpdateStream<void> {
-  const { scheduledPrefix } = response.input;
+  const { scheduledPrefix, contractAddress } = response.input;
   const { payload, syncProtocol } = response.output;
   const scheduledInputData = generateRawStmInput(
     BuiltinTransitions[ConfigPrimitiveType.AvailPaimaL2]
@@ -28,10 +28,10 @@ export default function* processAvailPaimaL2Datum(
     { payload },
   );
   yield* World.resolve(insertPrimitiveAccounting, {
-    primitive_name: response.output.syncProtocol.payload.primitiveName,
+    primitive_name: syncProtocol.payload.primitiveName,
     paima_block_height: paima_block_height,
     payload_type: ConfigPrimitiveAccountingPayloadType.Event,
-    payload: JSON.stringify(response.output.payload) as any,
+    payload: JSON.stringify(payload) as any,
   });
   if (scheduledPrefix) {
     yield* createScheduledData(
@@ -40,11 +40,11 @@ export default function* processAvailPaimaL2Datum(
         blockHeight: paima_block_height,
       },
       {
-        primitiveName: response.output.syncProtocol.payload.primitiveName,
-        txHash: response.output.syncProtocol.internal.transactionHash,
-        caip2: response.output.syncProtocol.payload.caip2,
-        fromAddress: response.input.contractAddress,
-        contractAddress: response.input.contractAddress,
+        primitiveName: syncProtocol.payload.primitiveName,
+        txHash: syncProtocol.internal.transactionHash,
+        caip2: syncProtocol.payload.caip2,
+        fromAddress: contractAddress,
+        contractAddress: contractAddress,
       },
     );
   }
