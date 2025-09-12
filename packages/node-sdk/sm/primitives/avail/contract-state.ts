@@ -1,8 +1,8 @@
 import { createScheduledData, insertPrimitiveAccounting } from "@paima/db";
 import { BuiltinTransitions, generateRawStmInput } from "@paima/concise";
 import {
-  type ConfigPrimitivePayloadType,
   ConfigPrimitiveAccountingPayloadType,
+  type ConfigPrimitivePayloadType,
   ConfigPrimitiveType,
   type ConfigSyncProtocolType,
   type FlattenSyncProtocolIOFor,
@@ -14,16 +14,16 @@ import type { PaimaBlockNumber } from "@paima/utils";
 export default function* processAvailPaimaL2Datum(
   paima_block_height: PaimaBlockNumber,
   response: FlattenSyncProtocolIOFor<
-  ConfigSyncProtocolType.AVAIL_PARALLEL,
-  ConfigPrimitiveType.AvailPaimaL2,
-  ConfigPrimitivePayloadType.Event
+    ConfigSyncProtocolType.AVAIL_PARALLEL,
+    ConfigPrimitiveType.AvailPaimaL2,
+    ConfigPrimitivePayloadType.Event
   >,
 ): StateUpdateStream<void> {
   const { scheduledPrefix } = response.input;
   const { payload, syncProtocol } = response.output;
   const scheduledInputData = generateRawStmInput(
     BuiltinTransitions[ConfigPrimitiveType.AvailPaimaL2]
-    .scheduledPrefix,
+      .scheduledPrefix,
     scheduledPrefix,
     { payload },
   );
@@ -37,7 +37,7 @@ export default function* processAvailPaimaL2Datum(
     yield* createScheduledData(
       JSON.stringify(scheduledInputData),
       {
-        blockHeight: syncProtocol.payload.ownChain.blockNumber,
+        blockHeight: paima_block_height,
       },
       {
         primitiveName: response.output.syncProtocol.payload.primitiveName,
@@ -45,7 +45,7 @@ export default function* processAvailPaimaL2Datum(
         caip2: response.output.syncProtocol.payload.caip2,
         fromAddress: response.input.contractAddress,
         contractAddress: response.input.contractAddress,
-      }
+      },
     );
   }
 }

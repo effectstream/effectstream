@@ -15,7 +15,7 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Input, Output, Page, PrimitiveType } from "./types.ts";
 import { AvailClient } from "./AvailClient.ts";
-import { all, call, type Operation } from "effection";
+import { all, call, type Operation, sleep } from "effection";
 import { bound } from "@paima/utils";
 
 export class AvailFetcher extends BaseDataFetcher<

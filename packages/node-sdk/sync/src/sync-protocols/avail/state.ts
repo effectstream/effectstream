@@ -49,9 +49,9 @@ export class AvailSyncState extends SyncState<
 
   @bound
   override toRootPage(data: Output): RootPage {
-    // Avail headers include `received_at` (ms). Use it as the chain page.
+    // Avail headers include `received_at` (sec). Use it as the chain page.
     return applyDelay(
-      data.raw.received_at,
+      data.raw.received_at * 1000,
       this.config.syncProtocol.delayMs,
     );
   }

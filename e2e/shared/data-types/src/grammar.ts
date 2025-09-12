@@ -61,14 +61,16 @@ export const grammar = {
     [
       "payload",
       Type.Object({
-        message: Type.String(),
+        suppliedValue: Type.String(),
       }),
     ],
   ],
   // Auto-generate other primitives, but exclude midnight (we define it explicitly above)
   ...Object.fromEntries(
     Object.entries(mapPrimitivesToGrammar(localhostConfig.primitives))
-      .filter(([key]) => key !== "midnightContractState" && key !== "avail-app-state"),
+      .filter(([key]) =>
+        key !== "midnightContractState" && key !== "avail-app-state"
+      ),
   ),
 } as const satisfies GrammarDefinition;
 

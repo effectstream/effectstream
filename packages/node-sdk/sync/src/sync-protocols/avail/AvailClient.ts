@@ -30,7 +30,7 @@ export class AvailClient {
     const num = status.blocks?.latest as number;
     // const num = header.number;
     // return num.toNumber();
-    return num;
+    return Math.max(num - 1, 1);
   }
 
   async getBlockFromHash(hash: string): Promise<AvailBlock> {
@@ -58,7 +58,10 @@ export class AvailClient {
   }
 
   async getBlockDataFromHeight(height: number): Promise<AvailBlockDataItem> {
-    const response = await fetch(`${this.url}/v2/blocks/${height}/data`);
+    let response = await fetch(`${this.url}/v2/blocks/${height}/data`);
+    if (response.status === 400) {
+      response = await fetch(`${this.url}/v2/blocks/${height + 1}/data`);
+    }
     if (!response.ok) {
       throw new Error(
         `Failed to get block data from height ${height}, status: ${response.status}`,

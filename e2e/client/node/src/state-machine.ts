@@ -94,7 +94,11 @@ stm.addStateTransition(
   "avail-app-state",
   function* (data) {
     const { payload } = data.parsedInput;
-    console.log("📦 Avail App state has message:", payload.message);
+    const parsedPayload = JSON.parse(payload.suppliedValue);
+    console.log(
+      "📦 Avail App state has message:",
+      parsedPayload.message || parsedPayload,
+    );
     return;
   },
 );
