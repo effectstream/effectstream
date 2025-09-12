@@ -10,7 +10,8 @@ import {
 import { chainedMessage, Format, matchColor } from "material-chalk";
 import chalk from "chalk";
 import { toString } from "./utils.ts";
-import { ENV } from "@paima/utils";
+// TODO How to handle this in the frontend & backend?
+const ENV = { NODE_ENV: 'development' } // TODO This should come from @paima/utils/node-env ENV
 
 /**
  * https://github.com/fullstack-build/tslog/pull/308

@@ -11,12 +11,13 @@ import {
   getPrimitivePrefix,
   getSyncAndLastPage,
   getTableSchema,
+  type IGetAllAddressesResult,
+  type IGetAllTableNamesResult,
   releaseDBMutex,
   runPreparedQuery,
   waitUntilFree,
 } from "@paima/db";
-import type { IGetAllTableNamesResult } from "@paima/db";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 import type { AllSyncProtocols } from "@paima/sync";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
@@ -135,6 +136,7 @@ function* registerOpenApiDocumentation(
 }
 
 // TODO This should add user defined endpoints.
+
 /**
  * Start the Paima Engine HTTP server.
  * @param dbConn - The database connection.
@@ -153,7 +155,7 @@ export const startHttpServer = function* (
   // OpenAPI Docs
   yield* registerOpenApiDocumentation(server, ENV.PAIMA_API_PORT);
 
-  // Register parent error handler
+  // Register error-catching handler
   server.setErrorHandler((error, request, reply) => {
     console.error("[HTTP SERVER] Error: ", error, request.url);
     reply.status(500).send({ ok: false, error: error.message });
@@ -209,11 +211,11 @@ export const startHttpServer = function* (
         to: toQuery,
         includeTransactions = false,
       } = request.query;
-
+      const validPage = typeof page === "number" && !Number.isNaN(page);
       // Resolve range
-      const from = typeof page === "number" ? page : (fromQuery ?? 0);
-      const to = typeof page === "number" ? page : (toQuery ?? from);
-      if (typeof from !== "number" || typeof to !== "number") {
+      const from = validPage ? page : (fromQuery ?? 0);
+      const to = validPage ? page : (toQuery ?? from);
+      if (!validPage && (typeof from !== "number" || typeof to !== "number")) {
         return reply.status(400).send({ error: "Specify page or from/to" });
       }
       if (to < from) {
@@ -337,7 +339,7 @@ export const startHttpServer = function* (
       account_id: number;
       address: string;
     }>(request.query);
-    let addresses: any[] = [];
+    let addresses: IGetAllAddressesResult[] = [];
     try {
       // @ts-ignore - pgtyped overload resolution is failing in this context
       addresses = await runPreparedQuery(

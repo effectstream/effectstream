@@ -51,7 +51,7 @@ COPY .github/launch.sh /app/launch.sh
 RUN chmod +x /app/launch.sh
 
 # Copy the patch script
-COPY .github/patch.sh /app/patch.sh
+COPY ./patch.sh /app/patch.sh
 RUN chmod +x /app/patch.sh
 
 # Clone the repository

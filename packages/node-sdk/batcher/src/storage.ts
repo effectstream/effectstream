@@ -124,7 +124,7 @@ export class FileStorage implements BatcherStorage {
    * Create a unique key for a BatchedSubunit for comparison
    */
   private createInputKey(input: BatchedSubunit): string {
-    return `${input.userAddress}-${input.gameInput}-${input.millisecondTimestamp}-${input.userSignature}`;
+    return `${input.userAddress}-${input.conciseInput}-${input.millisecondTimestamp}-${input.userSignature}`;
   }
 
   *getInputCountAndSize(): Operation<{ count: number; size: number }> {

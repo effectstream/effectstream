@@ -1,0 +1,6 @@
+{
+    "workspace": [
+        "./packages/**/*"
+    ],
+    "nodeModulesDir": "auto"
+}

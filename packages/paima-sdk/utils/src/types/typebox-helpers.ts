@@ -40,6 +40,9 @@ export type MaybeStaticDecode<T extends never | TSchema> = T extends TSchema
   ? StaticDecode<T>
   : never;
 
+// IMPORTANT
+// These types are used in the on-chain messages.
+// Do not change or reuse the numeric values.
 export enum AddressType {
   EVM = 0,
   CARDANO = 1,
@@ -48,6 +51,7 @@ export enum AddressType {
   MINA = 4,
   MIDNIGHT = 5,
   AVAIL = 6,
+  POLKADOT = 7,
 }
 
 function tryDecode<T>(
@@ -216,6 +220,18 @@ export const TypeboxHelpers = {
       Type.String({ format: "mina-address" }),
     ),
   },
+  // TODO THIS IS WRONG TYPE - ONLY A PLACEHOLDER
+  Polkadot: {
+    BlockHash: Type.Unsafe<Nominal.MinaBlockHash>(
+      Type.String({ format: "mina-blockhash" }),
+    ),
+    TxHash: Type.Unsafe<Nominal.MinaTxHash>(
+      Type.String({ format: "mina-txid" }),
+    ),
+    Address: Type.Unsafe<Nominal.MinaAddress>(
+      Type.String({ format: "mina-address" }),
+    ),
+  },
   Caip2: Type.Unsafe<Nominal.Caip2>(Type.String()),
   WalletAddress: () =>
     Type.Union(AddressTypebox as Mutable<typeof AddressTypebox>),
@@ -270,6 +286,7 @@ export const AddressValidator = {
   [AddressType.ALGORAND]: TypeboxHelpers.Algorand.Address,
   [AddressType.MINA]: TypeboxHelpers.Mina.Address,
   [AddressType.MIDNIGHT]: TypeboxHelpers.Midnight.Address,
+  [AddressType.POLKADOT]: TypeboxHelpers.Polkadot.Address,
 } as const satisfies Record<AddressType, TSchema>;
 export const AddressTypebox = [
   Type.Object({
@@ -299,6 +316,10 @@ export const AddressTypebox = [
   Type.Object({
     type: Type.Literal(AddressType.MIDNIGHT),
     address: TypeboxHelpers.Midnight.Address,
+  }),
+  Type.Object({
+    type: Type.Literal(AddressType.POLKADOT),
+    address: TypeboxHelpers.Polkadot.Address,
   }),
 ] as const;
 true satisfies Satisfies<

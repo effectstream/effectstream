@@ -84,6 +84,7 @@ CREATE TABLE paima.accounts (
 
 CREATE TABLE paima.addresses (
   address TEXT NOT NULL UNIQUE,
+  address_type INTEGER NOT NULL,
   account_id INTEGER REFERENCES paima.accounts(id)
 );
 

@@ -1,6 +1,7 @@
 import { CryptoManager } from "@paima/crypto";
-import type { Signature, WalletAddress } from "@paima/utils";
+import { AddressType, Signature, WalletAddress } from "@paima/utils";
 import { type SyncStateUpdateStream, World } from "@paima/coroutine";
+import { assertNever } from "assert-never";
 
 /**
  * Verify a signature for a given wallet address and message.
@@ -16,11 +17,29 @@ import { type SyncStateUpdateStream, World } from "@paima/coroutine";
  * @returns True if the signature is valid, false otherwise.
  */
 export function* verifySignature(
+  addressType: AddressType,
   walletAddress: WalletAddress,
   message: string,
   signature: Signature,
 ): SyncStateUpdateStream<boolean> {
   if (!walletAddress || !signature) throw new Error("No Signature");
+
+  switch (addressType) {
+    case AddressType.EVM:
+      break;
+    case AddressType.CARDANO:
+    case AddressType.SUBSTRATE:
+    case AddressType.AVAIL:
+    case AddressType.ALGORAND:
+    case AddressType.MINA:
+    case AddressType.MIDNIGHT:
+    case AddressType.POLKADOT:
+      // TODO Implement the signature verification for the other address types
+      throw new Error("NYI address type: " + addressType);
+    default:
+      assertNever(addressType);
+  }
+  
   // TODO: Add other chains here.
   const WALLET_VALIDATORS = [
     CryptoManager.Evm(),

@@ -1,4 +1,4 @@
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 
 // use --unstable-raw-imports
 // https://github.com/denoland/deno/issues/29904

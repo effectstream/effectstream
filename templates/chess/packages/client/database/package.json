@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "@paima/pgtyped-cli": "^2.4.5",
+    "concurrently": "9.1.2"
+  }
+}

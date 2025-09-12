@@ -1,0 +1,26 @@
+// Defaults
+html,
+body {
+  height: 100%;
+  background-color: black;
+}
+
+#app {
+  background-image: url(@assets/images/background.png);
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  height: 100%;
+}
+
+body {
+  color: white;
+  font-family: "Inter", "Arial", sans-serif;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+html * {
+  box-sizing: border-box;
+}

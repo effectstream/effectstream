@@ -1,10 +1,10 @@
 /* @name newAddress */
-INSERT INTO paima.addresses (address) 
-VALUES (:address!);
+INSERT INTO paima.addresses (address, address_type) 
+VALUES (:address!, :address_type);
 
 /* @name newAddressWithId */
-INSERT INTO paima.addresses (address, account_id) 
-VALUES (:address!, :account_id!); 
+INSERT INTO paima.addresses (address, address_type, account_id) 
+VALUES (:address!, :address_type!, :account_id!); 
 
 /* @name newAccount */
 INSERT INTO paima.accounts (primary_address) 
@@ -35,12 +35,15 @@ SELECT * FROM paima.addresses
 WHERE account_id = :account_id!;
 
 /* @name getAccountById */
-SELECT * FROM paima.accounts
+SELECT account_id, address, address_type, primary_address, id as address_id FROM paima.accounts
+LEFT JOIN paima.addresses ON paima.accounts.primary_address = paima.addresses.address
 WHERE id = :account_id!;
+
 
 /* @name getAllAddresses */
 SELECT 
     addresses.address as "address", 
+    addresses.address_type as "address_type",
     addresses.account_id as "account_id",
     accounts.primary_address as "primary_address"
 FROM paima.addresses

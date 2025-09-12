@@ -46,19 +46,21 @@ This command links a new wallet address to an existing account.
 *   **Security Model**: This is a sensitive operation and is secured by a **two-signature requirement**:
     1.  A signature from the **current Primary Address** is required to prove that the sender has the authority to modify the account.
     2.  A signature from the **new Address being linked** is required to prove that its owner consents to being added to the account.
-*   **Grammar**: `["&linkAddress", account_id, signature_from_primary, new_address, signature_from_new_address, is_new_primary]`
+*   **Grammar**: `["&linkAddress", account_id, signature_from_primary, primary_address_type, new_address, signature_from_new_address, secondary_address_type, is_new_primary]`
 *   **Parameters**:
     *   `account_id` (number): The ID of the account to modify.
     *   `signature_from_primary` (string): The signature from the current primary wallet.
+    *   `primary_address_type`: (AddressType) Numeric type of address.
     *   `new_address` (string): The new wallet address to link.
     *   `signature_from_new_address` (string): The signature from the new wallet.
+    *   `secondary_address_type`: (AddressType): Numeric type of address
     *   `is_new_primary` (boolean): If `true`, the `new_address` will become the new Primary Address for the account.
 
 #### `&unlinkAddress`
 This command removes a wallet address from an account. The logic for this command is contextual, depending on who initiates it.
 
 *   **Purpose**: To remove a wallet's control over an account.
-*   **Grammar**: `["&unlinkAddress", account_id, signature_from_primary, account_address, new_primary]`
+*   **Grammar**: `["&unlinkAddress", account_id, signature_from_primary,  primary_address_type, target_address, new_primary]`
 
 There are two ways this command can be used:
 
@@ -69,8 +71,10 @@ There are two ways this command can be used:
 
 2.  **Self Unlink (by a linked Address)**
     *   **Logic**: Any linked address can remove itself from an account.
-    *   **Requirements**: The `signature_from_primary` parameter is left as an empty string. The sender's address must match the `account_address` being unlinked.
+    *   **Requirements**: The `signature_from_primary` parameter is left as an empty string. The sender's address must match the `target_address` being unlinked.
     *   **Safety Precaution**: A user **cannot** unlink themselves if they are the Primary Address and other addresses are still linked to the account. This prevents the account from being "orphaned" without an administrator. To change the primary, they must first use `&linkAddress` to set a new primary or use the administrative unlink flow.
+
+Check the [AddressTypes in the Wallets Section](./112-wallets.md)
 
 ### Querying Account Data
 
