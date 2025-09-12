@@ -16,9 +16,8 @@ deno install --allow-scripts && ./patch.sh
 # Build All Contracts
 deno task -r contract:compile
 
-# Build contracts individually
-deno task -f @e2e/evm-contracts build
-deno task -f @e2e/evm-contracts deploy:standalone
+# OR Build Contracts Individually
+deno task -f @e2e/evm-contracts build:mod
 deno task -f @e2e/midnight-contracts midnight-contract:compile
 
 # If running on linux set env DISABLE_LINUX_YACI=true

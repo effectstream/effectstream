@@ -101,9 +101,9 @@ These commands provide a flexible L2 Account Abstraction system, allowing multip
 *   **`&createAccount`**: Creates a new Paima Account, with the sender becoming the primary wallet.
     *   **Structure**: `["&createAccount"]`
 *   **`&linkAddress`**: Links a new wallet to an existing account, requiring signatures from both the primary and new wallets.
-    *   **Structure**: `["&linkAddress", account_id, sig_from_primary, new_address, sig_from_new, is_new_primary]`
+    *   **Structure**: `["&linkAddress", account_id, signature_from_primary, primary_address_type, new_address, signature_from_new_address, signature_from_new_address, is_new_primary]`
 *   **`&unlinkAddress`**: Removes a wallet from an account.
-    *   **Structure**: `["&unlinkAddress", account_id, sig_from_primary, address_to_unlink, new_primary_if_needed]`
+    *   **Structure**: `["&unlinkAddress", account_id, signature_from_primary, primary_address_type, address_to_unlink, new_primary_if_needed]`
 
 ## Creating Inputs on the Frontend
 

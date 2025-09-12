@@ -1,5 +1,5 @@
 {
-    "name": "@example/avail-contracts",
+    "name": "@example-evm-midnight/avail-contracts",
     "version": "0.3.22",
     "exports": {},
     "tasks": {
@@ -9,7 +9,7 @@
         "avail-light-client:wait": "wait-on tcp:7007"
     },
     "imports": {
-        "@paimaexample/npm-avail-node": "npm:@paimaexample/npm-avail-node@0.3.30",
-        "@paimaexample/npm-avail-light-client": "npm:@paimaexample/npm-avail-light-client@0.3.30"
+        "@paimaexample/npm-avail-node": "npm:@paimaexample/npm-avail-node@0.3.44",
+        "@paimaexample/npm-avail-light-client": "npm:@paimaexample/npm-avail-light-client@0.3.44"
     }
 }

@@ -6,7 +6,7 @@ import {
   Counter,
   type CounterPrivateState,
   witnesses,
-} from "@example/my-midnight-contract";
+} from "@example-evm-midnight/my-midnight-contract";
 import {
   type CoinInfo,
   Transaction,

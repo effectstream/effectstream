@@ -7,6 +7,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import {
+AddressType,
   type EvmAddress,
   type EvmPrivateKey,
   type PrivateKey,
@@ -76,78 +77,131 @@ export const signMessage = async (
 };
 
 export const accountPayload = {
-  createAccount: async (): Promise<string[]> => {
+  createAccount: async (): Promise<['&createAccount']> => {
     return [BuiltinGrammarPrefix.createAccount];
   },
+  // TODO This should use the Wallet connector to sign the message
   linkAddress: async (
     primaryAccountPrivateKey: PrivateKey,
+    primaryAccountAddressType: AddressType,
     newAccountPrivateKey: PrivateKey,
-    primaryAddress: WalletAddress,
-    newAddress: WalletAddress,
+    newAccountAddressType: AddressType,
+    _primaryAddress: WalletAddress,
+    _newAddress: WalletAddress,
     accountId: number,
     isNewPrimary: boolean,
-  ): Promise<string[]> => {
+  ): Promise<['&linkAddress', number, string, number, string, string, number, boolean]> => {
+    
+    // TODO Unify for any wallet type.
+    let primaryAddress: WalletAddress;
+    switch (primaryAccountAddressType) {
+      case AddressType.EVM:
+        primaryAddress = Value.Decode(TypeboxHelpers.Evm.Address, _primaryAddress);
+        break;
+      default:
+        throw new Error("NYI: Primary account address type is not EVM");
+    }
+
+    let newAddress: WalletAddress;
+    switch (newAccountAddressType) {
+      case AddressType.EVM:
+        newAddress = Value.Decode(TypeboxHelpers.Evm.Address, _newAddress);
+        break;
+      default:
+        throw new Error("NYI: New account address type is not EVM");
+    }    
+
+    const signatureFromPrimary = await signMessage(
+      accountMessages.linkAccount(
+        accountId,
+        newAddress,
+        isNewPrimary,
+      ),
+      primaryAccountPrivateKey,
+    );
+
+    const signatureFromNewAddress = await signMessage(
+      accountMessages.linkAccount(
+        accountId,
+        primaryAddress,
+        isNewPrimary,
+      ),
+      newAccountPrivateKey,
+    );
+
     return [
       BuiltinGrammarPrefix.linkAddress,
-      String(accountId),
-      await signMessage(
-        accountMessages.linkAccount(
-          accountId,
-          isEvmAddress(newAddress)
-            ? Value.Decode(TypeboxHelpers.Evm.Address, newAddress)
-            : newAddress,
-          isNewPrimary,
-        ),
-        primaryAccountPrivateKey,
-      ),
+      accountId,
+      signatureFromPrimary,
+      primaryAccountAddressType,
       newAddress,
-      await signMessage(
-        accountMessages.linkAccount(
-          accountId,
-          isEvmAddress(primaryAddress)
-            ? Value.Decode(TypeboxHelpers.Evm.Address, primaryAddress)
-            : primaryAddress,
-          isNewPrimary,
-        ),
-        newAccountPrivateKey,
-      ),
-      isNewPrimary ? "true" : "false",
+      signatureFromNewAddress,
+      newAccountAddressType,
+      isNewPrimary,
     ];
   },
   unlinkSelf: async (
     accountId: number,
-  ): Promise<string[]> => {
+  ): Promise<['&unlinkAddress', number, string, number, string, number, string, number]> => {
     return [
       BuiltinGrammarPrefix.unlinkAddress,
-      String(accountId),
+      accountId,
       "",
+      -1,
       "",
+      -1,
       "",
+      -1,
     ];
   },
+  // TODO This should use the Wallet connector to sign the message
   unlinkAddress: async (
     primaryAccountPrivateKey: PrivateKey,
+    primaryAccountAddressType: AddressType,
     accountId: number,
-    accountAddress: WalletAddress,
-    newPrimary: WalletAddress,
-  ): Promise<string[]> => {
+    _targetAddress: WalletAddress,
+    targetAddressType: AddressType,
+    _newPrimary: WalletAddress | null,
+    newPrimaryType: AddressType | null,
+  ): Promise<['&unlinkAddress', number, string, number, string, number, string, number]> => {
+    // TODO Unify for any wallet type.
+    let targetAddress: WalletAddress;
+    switch (targetAddressType) {
+      case AddressType.EVM:
+        targetAddress = Value.Decode(TypeboxHelpers.Evm.Address, _targetAddress);
+        break;
+      default:
+        throw new Error("NYI: Target address type is not EVM");
+    }
+    let newPrimary: WalletAddress | null = null;
+    if (_newPrimary) {
+      switch (newPrimaryType) {
+        case AddressType.EVM:
+          newPrimary = Value.Decode(TypeboxHelpers.Evm.Address, _newPrimary);
+          break;
+        default:
+          throw new Error("NYI: New primary address type is not EVM");
+      }
+    }
+    
+    const signatureFromPrimary = await signMessage(
+      accountMessages.unlinkAccountWithPrimary(
+        accountId,
+        targetAddress,
+        newPrimary,
+      ),
+      primaryAccountPrivateKey,
+    );
+
     return [
       BuiltinGrammarPrefix.unlinkAddress,
-      String(accountId),
-      await signMessage(
-        accountMessages.unlinkAccountWithPrimary(
-          accountId,
-          isEvmAddress(accountAddress)
-            ? Value.Decode(TypeboxHelpers.Evm.Address, accountAddress)
-            : accountAddress,
-          isEvmAddress(newPrimary)
-            ? Value.Decode(TypeboxHelpers.Evm.Address, newPrimary)
-            : newPrimary,
-        ),
-        primaryAccountPrivateKey,
-      ),
-      accountAddress,
-      newPrimary.toLowerCase(),
+      accountId,
+      signatureFromPrimary,
+      primaryAccountAddressType,
+      targetAddress,
+      targetAddressType,
+      newPrimary ?? "",
+      newPrimaryType ?? -1,
     ];
   },
 };

@@ -1,6 +1,6 @@
 import { fastify, type FastifyRequest } from "fastify";
 import { type Static, Type } from "@sinclair/typebox";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 import { RingBuffer } from "./tab/logs-ringbuffer.ts";
 
 //

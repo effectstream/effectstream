@@ -15,6 +15,7 @@
         "@fastify/swagger": "npm:@fastify/swagger@^9.5.1",
         "@fastify/swagger-ui": "npm:@fastify/swagger-ui@^5.2.3",
         "@std/cli": "jsr:@std/cli@^1.0.21",
+        "assert-never": "npm:assert-never@^1.4.0",
         "fastify": "npm:fastify@^5.4.0",
         "@fastify/cors": "npm:@fastify/cors@^11.0.1",
         "effection": "npm:effection@^3.5.0",

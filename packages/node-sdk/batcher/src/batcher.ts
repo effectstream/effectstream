@@ -6,6 +6,7 @@ import {
   http,
   type PublicClient,
   toHex,
+  type TransactionReceipt,
   type WalletClient,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -18,7 +19,9 @@ import { type BatcherStorage, FileStorage } from "./storage.ts";
 import { startBatcherHttpServer } from "./batcher-server.ts";
 import { type Operation, sleep, spawn, until } from "effection";
 import { CryptoManager } from "@paima/crypto";
-import type { EvmAddress, EvmPrivateKey } from "@paima/utils";
+import { AddressType, type EvmAddress, type EvmPrivateKey } from "@paima/utils";
+import { assertNever } from "assert-never";
+import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 
 // TODO: Import this from the actual ABI package when available
 const paimaL2Abi = [
@@ -35,8 +38,9 @@ interface BatcherConfig {
   paimaL2Address: EvmAddress;
   batcherPrivateKey: EvmPrivateKey;
   chain: Chain;
-  batchIntervalSeconds?: number;
+  batchIntervalMs?: number;
   paimaL2Fee: bigint;
+  paimaSyncProtocolName: string;
   namespace?: string;
   maxBatchSize?: number;
   storage?: BatcherStorage; // TODO Probably we want to pass a DB connection instead.
@@ -70,12 +74,23 @@ export class Batcher {
   /* Maximum batch size in inputs */
   // TODO Not yet implemented.
   private maxBatchSize: number;
+  /* Paima Sync protocol name */
+  private paimaSyncProtocolName: string;
   /* Storage for the batcher */
   private storage: BatcherStorage;
+  /* Callbacks to return the transaction receipt after the transaction is confirmed */
+  private submissionCallbacks: Map<
+    string,
+    {
+      resolve: (transactionReceipt: TransactionReceipt) => void;
+      reject: (error: Error) => void;
+    }
+  > = new Map();
 
   constructor(config: BatcherConfig) {
     this.paimaL2Address = config.paimaL2Address;
-    this.batchInterval = (config.batchIntervalSeconds ?? 5) * 1000; // Convert to milliseconds
+    this.paimaSyncProtocolName = config.paimaSyncProtocolName;
+    this.batchInterval = config.batchIntervalMs ?? 1000;
     this.paimaL2Fee = config.paimaL2Fee;
     this.namespace = config.namespace ?? "";
     this.maxBatchSize = config.maxBatchSize ?? 10000; // Default max batch size
@@ -122,32 +137,55 @@ export class Batcher {
     console.log("✅ Batcher shutdown complete");
   }
 
-  /**
-   * Add a user input to the batch queue after validating the signature and checking for duplicates
-   */
-  *addUserInput(
+  private *verifyAndStoreInput(
     batchedSubunit: BatchedSubunit,
   ): Operation<boolean> {
     // Verify the signature
     // TODO 1: We need to setup & configure the namespace.
     // TODO 2: We only support EVM signatures for now.
     //         Should the caller pass the type e.g., EVM of addresses?
-    const messageVerified = yield* until(
-      CryptoManager.Evm().verifySignature(
-        batchedSubunit.userAddress,
-        createMessageForBatcher(
-          null,
-          batchedSubunit.millisecondTimestamp,
-          batchedSubunit.userAddress,
-          batchedSubunit.gameInput,
-        ),
-        batchedSubunit.userSignature,
-      ),
-    );
-    if (!messageVerified) {
-      throw new Error("Invalid signature");
+    const addressType = batchedSubunit.addressType;
+    if (addressType == null) {
+      throw new Error(
+        "Missing address type: " + JSON.stringify(batchedSubunit),
+      );
     }
 
+    switch (addressType) {
+      case AddressType.EVM:
+        {
+          const messageVerified = yield* until(
+            CryptoManager.Evm().verifySignature(
+              batchedSubunit.userAddress,
+              createMessageForBatcher(
+                null,
+                batchedSubunit.millisecondTimestamp,
+                batchedSubunit.userAddress,
+                batchedSubunit.addressType,
+                batchedSubunit.conciseInput,
+              ),
+              batchedSubunit.userSignature,
+            ),
+          );
+          if (!messageVerified) {
+            throw new Error(
+              "Invalid signature for " + JSON.stringify(batchedSubunit),
+            );
+          }
+        }
+        break;
+      case AddressType.CARDANO:
+      case AddressType.SUBSTRATE:
+      case AddressType.AVAIL:
+      case AddressType.ALGORAND:
+      case AddressType.MINA:
+      case AddressType.MIDNIGHT:
+      case AddressType.POLKADOT:
+        // TODO Implement the signature verification for the other address types
+        throw new Error("NYI address type: " + batchedSubunit.addressType);
+      default:
+        assertNever(addressType);
+    }
     // Add to storage
     yield* this.storage.addInput(batchedSubunit);
 
@@ -156,6 +194,88 @@ export class Batcher {
       `✅ Added input from ${batchedSubunit.userAddress} to batch queue. Queue size: ${count} inputs, ${size} bytes`,
     );
     return true;
+  }
+
+  /**
+   * Add a user input to the batch queue after validating the signature and checking for duplicates
+   */
+  *addUserInput(
+    batchedSubunit: BatchedSubunit,
+    waitForConfirmation: "no-wait" | "wait-receipt" | "wait-paima-processed" =
+      "wait-paima-processed",
+  ): Operation<TransactionReceipt & { rollup: number } | null> {
+    const stored: boolean = yield* this.verifyAndStoreInput(batchedSubunit);
+
+    if (!stored) {
+      throw new Error("Failed to verify and store input");
+    }
+
+    if (waitForConfirmation === "no-wait") {
+      // We don't wait for any confirmation to return to the caller.
+      return null;
+    }
+
+    const promise = new Promise<TransactionReceipt>(
+      (resolve, reject) => {
+        this.submissionCallbacks.set(batchedSubunit.userSignature, {
+          resolve,
+          reject,
+        });
+      },
+    );
+    // Wait for the transaction receipt
+    const transactionReceipt = yield* until(promise);
+    if (!transactionReceipt) {
+      throw new Error("Failed to get transaction receipt");
+    }
+
+    let rollup = 0;
+    // Wait for the transaction to be processed by the Paima Engine
+    if (waitForConfirmation === "wait-paima-processed") {
+      const result = yield* until(this.waitForPaimaProcessed(transactionReceipt));
+      if (result) {
+        rollup = result.rollup;
+      }
+    }
+
+    return { ...transactionReceipt, rollup };
+  }
+
+  waitForPaimaProcessed(
+    transactionReceipt: TransactionReceipt, 
+    timeout: number = 60000
+  ): Promise<{ latestBlock: number, rollup: number } | void> {
+    let subscriptionReference: symbol | undefined = undefined;
+    let latestBlock = 0;
+    let timer: number | undefined = undefined;
+    return Promise.race([
+      new Promise<void>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Timeout")), timeout);
+      }),
+      new Promise<{ latestBlock: number, rollup: number }>((resolve, reject) => {
+        PaimaEventManager.Instance.subscribe(
+          {
+            topic: BuiltinEvents.SyncChains,
+            filter: { chain: this.paimaSyncProtocolName, block: undefined },
+          },
+          (event) => {
+            latestBlock = Math.max(event.block, latestBlock);
+            if (latestBlock > transactionReceipt.blockNumber) {
+              resolve({ latestBlock, rollup: event.rollup });
+            }
+          },
+        )
+          .then((subscription) => subscriptionReference = subscription)
+          .catch(reject);
+      }),
+    ]).finally(() => {
+      if (subscriptionReference) {
+        PaimaEventManager.Instance.unsubscribe(subscriptionReference);
+      }
+      if (timer) {
+        clearTimeout(timer);
+      }
+    });
   }
 
   /**
@@ -212,13 +332,40 @@ export class Batcher {
 
         // Only now remove the successfully processed inputs from storage
         yield* this.storage.removeProcessedInputs(selectedInputs);
+
+        for (const input of selectedInputs) {
+          const callbacks = this.submissionCallbacks.get(input.userSignature);
+          if (callbacks) {
+            callbacks.resolve(receipt);
+            this.submissionCallbacks.delete(input.userSignature);
+          }
+        }
       } else {
         console.error(`❌ Batch submission failed! Hash: ${hash}`);
         // Don't remove inputs on failure - they remain in storage for retry
+        const error = new Error(`Batch submission failed! Hash: ${hash}`);
+        for (const input of selectedInputs) {
+          const callbacks = this.submissionCallbacks.get(input.userSignature);
+          if (callbacks) {
+            callbacks.reject(error);
+            this.submissionCallbacks.delete(input.userSignature);
+          }
+        }
       }
     } catch (error) {
       console.error(`❌ Error processing batch:`, error);
       // On error, inputs remain in storage for retry
+      const err = error instanceof Error
+        ? error
+        : new Error("Unknown error processing batch");
+      const pendingInputs = yield* this.storage.getAllInputs();
+      for (const input of pendingInputs) {
+        const callbacks = this.submissionCallbacks.get(input.userSignature);
+        if (callbacks) {
+          callbacks.reject(err);
+          this.submissionCallbacks.delete(input.userSignature);
+        }
+      }
     } finally {
       this.isProcessingBatch = false;
     }
@@ -279,19 +426,21 @@ export class Batcher {
     paimaL2Address: string;
     batcherAddress: string;
     chainName: string;
-    batchIntervalSeconds: number;
+    batchIntervalMs: number;
     paimaL2Fee: string;
     namespace: string;
     maxBatchSize: number;
+    paimaSyncProtocolName: string;
   } {
     return {
       paimaL2Address: this.paimaL2Address,
       batcherAddress: this.account.address,
       chainName: this.walletClient.chain?.name || "Unknown",
-      batchIntervalSeconds: this.batchInterval / 1000,
+      batchIntervalMs: this.batchInterval,
       paimaL2Fee: this.paimaL2Fee.toString(),
       namespace: this.namespace,
       maxBatchSize: this.maxBatchSize,
+      paimaSyncProtocolName: this.paimaSyncProtocolName,
     };
   }
 
@@ -334,13 +483,16 @@ export function* createAndLaunchBatcher(
 
   const getPublicConfig = batcher.getPublicConfig();
   console.log(
-    `🎯 Batcher started - batching every ${getPublicConfig.batchIntervalSeconds} seconds`,
+    `🎯 Batcher started - batching every ${getPublicConfig.batchIntervalMs} milliseconds`,
   );
   console.log(`📍 PaimaL2 Contract: ${getPublicConfig.paimaL2Address}`);
   console.log(`👤 Batcher Address: ${getPublicConfig.batcherAddress}`);
   console.log(`⛓️ Chain: ${getPublicConfig.chainName}`);
   console.log(`📦 Max Batch Size: ${getPublicConfig.maxBatchSize} bytes`);
   console.log(`🏷️ Namespace: "${getPublicConfig.namespace}"`);
+  console.log(
+    `🔍 Paima Sync Protocol: "${getPublicConfig.paimaSyncProtocolName}"`,
+  );
   console.log("📋 Press Ctrl+C to stop gracefully");
 
   // Main batching loop

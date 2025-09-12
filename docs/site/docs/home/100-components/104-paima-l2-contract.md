@@ -117,25 +117,12 @@ These commands allow users to manage their Paima Account directly through the `P
 
 *   **`&createAccount`**
     *   **Description**: Creates a new, empty Paima Account. The wallet that sends this transaction (`msg.sender`) automatically becomes the first and primary address for this new account.
-    *   **Grammar**: `&createAccount`
 
 *   **`&linkAddress`**
     *   **Description**: Links a new wallet address to an existing Paima Account. This process is secured by requiring signatures from both the current primary wallet (proving control over the account) and the new wallet being linked (proving its ownership).
-    *   **Grammar**: `[&linkAddress,account_id,signature_from_primary,new_address,signature_from_new_address,is_new_primary]`
-    *   **Parameters**:
-        *   `account_id` (number): The ID of the account to link to.
-        *   `signature_from_primary` (string): A signature from the current primary wallet, authorizing the link.
-        *   `new_address` (string): The new wallet address to add to the account.
-        *   `signature_from_new_address` (string): A signature from the new wallet, consenting to be linked.
-        *   `is_new_primary` (boolean): If `true`, this new address will become the primary controlling wallet for the account.
 
 *   **`&unlinkAddress`**
     *   **Description**: Removes a wallet address from a Paima Account. This can be initiated either by the user themselves to leave an account, or by the primary wallet holder to remove another linked address.
-    *   **Grammar**: `[&unlinkAddress,account_id,signature_from_primary,account_address,new_primary]`
-    *   **Parameters**:
-        *   `account_id` (number): The ID of the account to modify.
-        *   `signature_from_primary` (string): A signature from the primary wallet authorizing the removal. Can be an empty string if a user is unlinking their own, non-primary address.
-        *   `account_address` (string): The address to be removed from the account.
-        *   `new_primary` (string): If the address being removed is the current primary, this specifies which of the remaining linked addresses should become the new primary.
-
+  
+ 
 More in [accounts](../100-components/116-accounts.md)

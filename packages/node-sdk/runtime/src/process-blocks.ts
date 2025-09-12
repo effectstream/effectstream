@@ -95,7 +95,8 @@ function* executeGeneratorStepByStep(
       // This means that we have non-database promises in the generator.
       // Each time yield is called, we catch the intention and resolve it.
       const queryResult = yield* until(value.promise);
-      operations.push(queryResult);
+      // We wrap the result, but it will be flattened by the generator.
+      operations.push([queryResult]);
     } else {
       console.error("Yielding unhandled type", result);
       throw new Error("Unhandled type in generator");
@@ -227,7 +228,7 @@ export function* processFinalizedBlock(
               ),
           );
         }
-        const gameInputHash = `0x${
+        const conciseInputHash = `0x${
           Array(64).fill(0).map(() =>
             Math.floor(Math.random() * 16).toString(16)
           )
@@ -237,7 +238,7 @@ export function* processFinalizedBlock(
           insertGameInputResult.run({
             id: data.id,
             success,
-            paima_tx_hash: Buffer.from(gameInputHash),
+            paima_tx_hash: Buffer.from(conciseInputHash),
             index_in_block,
             block_height: value.blockNumber,
           }, dbConn),

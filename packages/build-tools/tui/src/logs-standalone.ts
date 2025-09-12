@@ -2,7 +2,7 @@ import { attachTransport, log } from "@paima/log";
 import { LogServer, type OTelLog } from "./logs-server.ts";
 import { createStream, type RotatingFileStream } from "rotating-file-stream";
 import type { ILogObj } from "tslog";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 
 // This is a standalone script that can be used to view logs from the collector.
 // Its purpose is to be used in a tmux session, and not as a part of the TUI.

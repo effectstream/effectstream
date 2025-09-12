@@ -14,7 +14,7 @@ import {
   type Namespace,
   SeverityNumber,
 } from "@paima/log";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 
 // this file is based on https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
 

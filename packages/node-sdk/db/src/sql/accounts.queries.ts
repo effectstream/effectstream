@@ -4,6 +4,7 @@ import { PreparedQuery } from '@pgtyped/runtime';
 /** 'NewAddress' parameters type */
 export interface INewAddressParams {
   address: string;
+  address_type?: number | null | void;
 }
 
 /** 'NewAddress' return type */
@@ -15,13 +16,13 @@ export interface INewAddressQuery {
   result: INewAddressResult;
 }
 
-const newAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":47,"b":55}]}],"statement":"INSERT INTO paima.addresses (address) \nVALUES (:address!)"};
+const newAddressIR: any = {"usedParamSet":{"address":true,"address_type":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":61,"b":69}]},{"name":"address_type","required":false,"transform":{"type":"scalar"},"locs":[{"a":72,"b":84}]}],"statement":"INSERT INTO paima.addresses (address, address_type) \nVALUES (:address!, :address_type)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima.addresses (address) 
- * VALUES (:address!)
+ * INSERT INTO paima.addresses (address, address_type) 
+ * VALUES (:address!, :address_type)
  * ```
  */
 export const newAddress = new PreparedQuery<INewAddressParams,INewAddressResult>(newAddressIR);
@@ -31,6 +32,7 @@ export const newAddress = new PreparedQuery<INewAddressParams,INewAddressResult>
 export interface INewAddressWithIdParams {
   account_id: number;
   address: string;
+  address_type: number;
 }
 
 /** 'NewAddressWithId' return type */
@@ -42,13 +44,13 @@ export interface INewAddressWithIdQuery {
   result: INewAddressWithIdResult;
 }
 
-const newAddressWithIdIR: any = {"usedParamSet":{"address":true,"account_id":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":59,"b":67}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":70,"b":81}]}],"statement":"INSERT INTO paima.addresses (address, account_id) \nVALUES (:address!, :account_id!)"};
+const newAddressWithIdIR: any = {"usedParamSet":{"address":true,"address_type":true,"account_id":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":73,"b":81}]},{"name":"address_type","required":true,"transform":{"type":"scalar"},"locs":[{"a":84,"b":97}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":100,"b":111}]}],"statement":"INSERT INTO paima.addresses (address, address_type, account_id) \nVALUES (:address!, :address_type!, :account_id!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima.addresses (address, account_id) 
- * VALUES (:address!, :account_id!)
+ * INSERT INTO paima.addresses (address, address_type, account_id) 
+ * VALUES (:address!, :address_type!, :account_id!)
  * ```
  */
 export const newAddressWithId = new PreparedQuery<INewAddressWithIdParams,INewAddressWithIdResult>(newAddressWithIdIR);
@@ -175,6 +177,7 @@ export interface IGetAddressByAddressParams {
 export interface IGetAddressByAddressResult {
   account_id: number | null;
   address: string;
+  address_type: number;
 }
 
 /** 'GetAddressByAddress' query type */
@@ -204,6 +207,7 @@ export interface IGetAddressByAccountIdParams {
 export interface IGetAddressByAccountIdResult {
   account_id: number | null;
   address: string;
+  address_type: number;
 }
 
 /** 'GetAddressByAccountId' query type */
@@ -231,7 +235,10 @@ export interface IGetAccountByIdParams {
 
 /** 'GetAccountById' return type */
 export interface IGetAccountByIdResult {
-  id: number;
+  account_id: number | null;
+  address: string;
+  address_id: number;
+  address_type: number;
   primary_address: string | null;
 }
 
@@ -241,12 +248,13 @@ export interface IGetAccountByIdQuery {
   result: IGetAccountByIdResult;
 }
 
-const getAccountByIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":40,"b":51}]}],"statement":"SELECT * FROM paima.accounts\nWHERE id = :account_id!"};
+const getAccountByIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":193,"b":204}]}],"statement":"SELECT account_id, address, address_type, primary_address, id as address_id FROM paima.accounts\nLEFT JOIN paima.addresses ON paima.accounts.primary_address = paima.addresses.address\nWHERE id = :account_id!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.accounts
+ * SELECT account_id, address, address_type, primary_address, id as address_id FROM paima.accounts
+ * LEFT JOIN paima.addresses ON paima.accounts.primary_address = paima.addresses.address
  * WHERE id = :account_id!
  * ```
  */
@@ -264,6 +272,7 @@ export interface IGetAllAddressesParams {
 export interface IGetAllAddressesResult {
   account_id: number | null;
   address: string;
+  address_type: number;
   primary_address: string | null;
 }
 
@@ -273,13 +282,14 @@ export interface IGetAllAddressesQuery {
   result: IGetAllAddressesResult;
 }
 
-const getAllAddressesIR: any = {"usedParamSet":{"after_account_id":true,"after_address":true,"limit":true},"params":[{"name":"after_account_id","required":false,"transform":{"type":"scalar"},"locs":[{"a":328,"b":344},{"a":683,"b":699},{"a":744,"b":760},{"a":1070,"b":1086},{"a":1130,"b":1146}]},{"name":"after_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":363,"b":376},{"a":1204,"b":1217}]},{"name":"limit","required":false,"transform":{"type":"scalar"},"locs":[{"a":1315,"b":1320}]}],"statement":"SELECT \n    addresses.address as \"address\", \n    addresses.account_id as \"account_id\",\n    accounts.primary_address as \"primary_address\"\nFROM paima.addresses\nLEFT JOIN paima.accounts ON paima.accounts.primary_address = paima.addresses.address\nWHERE\n    -- This clause is for the first page fetch when no cursor is provided\n    (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)\n    OR\n    (\n        -- Case 1: The current row's account_id is \"greater\" than the cursor's.\n        -- This handles two sub-cases:\n        -- a) regular greater-than (e.g., 5 > 4)\n        -- b) current is NULL but cursor is NOT NULL (since NULLS sort LAST)\n        (addresses.account_id > :after_account_id::INT) OR (addresses.account_id IS NULL AND :after_account_id::INT IS NOT NULL)\n    )\n    OR\n    (\n        -- Case 2: The account_ids are equivalent, so we compare by the tie-breaker (address).\n        -- This handles two sub-cases for equivalence:\n        -- a) they are equal and not null (e.g., 5 = 5)\n        -- b) they are both null\n        (addresses.account_id = :after_account_id::INT OR (addresses.account_id IS NULL AND :after_account_id::INT IS NULL))\n        AND\n        (addresses.address > :after_address::TEXT)\n    )\nORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC\nLIMIT COALESCE(:limit, 1000)"};
+const getAllAddressesIR: any = {"usedParamSet":{"after_account_id":true,"after_address":true,"limit":true},"params":[{"name":"after_account_id","required":false,"transform":{"type":"scalar"},"locs":[{"a":374,"b":390},{"a":729,"b":745},{"a":790,"b":806},{"a":1116,"b":1132},{"a":1176,"b":1192}]},{"name":"after_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":409,"b":422},{"a":1250,"b":1263}]},{"name":"limit","required":false,"transform":{"type":"scalar"},"locs":[{"a":1361,"b":1366}]}],"statement":"SELECT \n    addresses.address as \"address\", \n    addresses.address_type as \"address_type\",\n    addresses.account_id as \"account_id\",\n    accounts.primary_address as \"primary_address\"\nFROM paima.addresses\nLEFT JOIN paima.accounts ON paima.accounts.primary_address = paima.addresses.address\nWHERE\n    -- This clause is for the first page fetch when no cursor is provided\n    (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)\n    OR\n    (\n        -- Case 1: The current row's account_id is \"greater\" than the cursor's.\n        -- This handles two sub-cases:\n        -- a) regular greater-than (e.g., 5 > 4)\n        -- b) current is NULL but cursor is NOT NULL (since NULLS sort LAST)\n        (addresses.account_id > :after_account_id::INT) OR (addresses.account_id IS NULL AND :after_account_id::INT IS NOT NULL)\n    )\n    OR\n    (\n        -- Case 2: The account_ids are equivalent, so we compare by the tie-breaker (address).\n        -- This handles two sub-cases for equivalence:\n        -- a) they are equal and not null (e.g., 5 = 5)\n        -- b) they are both null\n        (addresses.account_id = :after_account_id::INT OR (addresses.account_id IS NULL AND :after_account_id::INT IS NULL))\n        AND\n        (addresses.address > :after_address::TEXT)\n    )\nORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC\nLIMIT COALESCE(:limit, 1000)"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT 
  *     addresses.address as "address", 
+ *     addresses.address_type as "address_type",
  *     addresses.account_id as "account_id",
  *     accounts.primary_address as "primary_address"
  * FROM paima.addresses

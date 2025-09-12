@@ -1,5 +1,5 @@
 {
-  "name": "@example/my-midnight-contract",
+  "name": "@example-evm-midnight/my-midnight-contract",
   "exports": {
     ".": "./src/_index.ts",
     "./witnesses": "./src/witnesses.ts"
@@ -11,6 +11,6 @@
   },
   "imports": {
     "vitest": "npm:vitest@^3.2.4",
-    "@example/my-midnight-contract": "@example/my-midnight-contract"
+    "@example-evm-midnight/my-midnight-contract": "@example-evm-midnight/my-midnight-contract"
   }
 }

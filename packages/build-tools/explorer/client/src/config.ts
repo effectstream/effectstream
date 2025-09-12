@@ -1,5 +1,12 @@
 import type { ChainConfig, PaimaChains } from "./types/index.ts";
-import { ENV } from "@paima/utils";
+
+const ENV = {
+  PAIMA_API_PORT: import.meta.env.VITE_PAIMA_API_PORT,
+  BATCHER_PORT: import.meta.env.VITE_BATCHER_PORT,
+  DOCS_PORT: import.meta.env.VITE_DOCS_PORT,
+  PAIMA_EXPLORER_PORT: import.meta.env.VITE_PAIMA_EXPLORER_PORT,
+} as const;
+
 
 // Define the structure of the config endpoint response
 interface ConfigEndpointNetwork {

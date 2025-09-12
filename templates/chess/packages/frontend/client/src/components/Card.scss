@@ -1,0 +1,13 @@
+.card {
+  background: rgba(50, 52, 72, 0.5);
+  border: 1px solid rgba(87, 231, 251, 0.3);
+  box-shadow: 0px 32px 40px rgba(0, 0, 0, 0.6);
+
+  border-radius: 8px;
+
+  /* Note: backdrop-filter doesn't work nicely with our Chessboard library so it's not used during play */
+  &--blurred {
+    background: rgba(50, 52, 72, 0.3);
+    backdrop-filter: blur(24px);
+  }
+}
