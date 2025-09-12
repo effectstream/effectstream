@@ -21,9 +21,6 @@ export interface FailedResult {
 
 export type Result<T> = SuccessfulResult<T> | FailedResult;
 
-// TODO: delete this
-export type OldResult = SuccessfulResultMessage | FailedResult;
-
 export type InternalServerErrorResult = FailedResult;
 
 /** comes from the `tsoa` package, but we don't want it as a dependency just for this type  */

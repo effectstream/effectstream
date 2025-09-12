@@ -15,7 +15,7 @@ function userAddress<Addr extends AddressType>(
 }
 const BatcherInnerCommon = [
   ["userSignature", Type.String()],
-  ["gameInput", Type.String()],
+  ["conciseInput", Type.String()],
   ["millisecondTimestamp", Type.String()],
 ] as const;
 export const BatcherInnerGrammar = {
@@ -42,6 +42,10 @@ export const BatcherInnerGrammar = {
   ],
   [`${AddressType.MIDNIGHT}`]: [
     userAddress(AddressType.MIDNIGHT),
+    ...BatcherInnerCommon,
+  ],
+  [`${AddressType.POLKADOT}`]: [
+    userAddress(AddressType.POLKADOT),
     ...BatcherInnerCommon,
   ],
 } as const satisfies GrammarDefinition satisfies Record<AddressType, any>;

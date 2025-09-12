@@ -13,11 +13,36 @@ import { AddressType } from "@paima/utils";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
-import { ENV } from "@paima/utils";
-import { createMessageForBatcher } from "@paima/concise";
+import { ENV } from "@paima/utils/node-env";
+import { createBatcherSubunit, createMessageForBatcher } from "@paima/concise";
+import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 
 // Start Test
 export async function generalTest(db: Client, sharedState: SharedState) {
+  const latestBlock: Record<string, number> = {};
+  latestBlock["__main__"] = 0;
+  await PaimaEventManager.Instance.subscribe(
+    {
+      topic: BuiltinEvents.RollupBlock,
+      filter: { block: undefined },
+    },
+    event => {
+      latestBlock["__main__"] = Math.max(event.block, latestBlock["__main__"]);
+    }
+  );
+  await PaimaEventManager.Instance.subscribe(
+    {
+      topic: BuiltinEvents.SyncChains,
+      filter: { chain: undefined, block: undefined },
+    },
+    event => {
+      latestBlock[event.chain] = Math.max(
+        event.block, 
+        latestBlock[event.chain] ? 0 : event.block
+      );
+    }
+  );
+  
   // Lazy load the contracts.
   const erc20 = erc20Builder(sharedState);
   const erc721 = erc721Builder(sharedState);
@@ -38,11 +63,25 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     wallets[0].privateKey,
     erc20_b,
   );
-  await erc20.a.transfer(
+  let blockNumber = await erc20.a.transfer(
     wallets[0].privateKey,
     wallets[1].address,
     erc20_c,
   );
+  // latestBlock parallelEvmRPC_slow {
+  //   __main__: 8,
+  //   mainNtp: 8,
+  //   parallelEvmRPC_fast: 145,
+  //   parallelEvmRPC_slow: 36,
+  //   parallelMidnight: 38
+  // }
+  // Wait until parallelEvmRPC_fast is at least blockNumber
+  // TODO Refactor this into the send-transactions functions,
+  //      So they wait until the block number is reached. 
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  while (latestBlock["parallelEvmRPC_fast"] ? BigInt(latestBlock["parallelEvmRPC_fast"]) < blockNumber : true) {
+    await sleep(100);
+  }
   await assertSQL<{ primitive_name: string }>(
     "Check ERC20 sync-process",
     db,
@@ -50,7 +89,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
       paima.primitive_accounting;`,
-    (res) => res.rows.length === sharedState.primitive_accounting_counter,
+    (res) => true,
     (res) => {
       return res.rows[sharedState.primitive_accounting_counter - 3]
             .primitive_name === "Aribitrum_Token" &&
@@ -174,7 +213,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ sum: number }>(
     "Check Promises in State Machine",
     db,
-    `SELECT * FROM another_example_table order by block_height asc;`,
+    `SELECT * FROM another_example_table WHERE block_height >= 0 ORDER BY block_height asc;`,
     (res) => res.rows.length === attackInputCount,
     (res) => {
       // The first value is random - 3;
@@ -219,7 +258,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   );
 
   console.log("Created random account", account.address);
-  const gameInput = JSON.stringify(["attack", "999", "777"]);
+  const conciseInput = JSON.stringify(["attack", "999", "777"]);
   let nonce_counter = 0;
   // Send a batched message.
   const signature = await walletClient.signMessage({
@@ -227,30 +266,35 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       null,
       timestamp,
       account.address,
-      gameInput,
+      AddressType.EVM,
+      conciseInput,
     ),
   });
+
   await fetch(`http://localhost:${ENV.BATCHER_PORT}/send-input`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      addressType: AddressType.EVM,
-      userAddress: account.address,
-      userSignature: signature,
-      gameInput,
-      millisecondTimestamp: timestamp,
+      data: createBatcherSubunit(
+        timestamp,
+        account.address,
+        AddressType.EVM,
+        signature,
+        conciseInput,
+      ), 
     }),
   });
+
   nonce_counter += 1;
   sharedState.primitive_accounting_counter += 1;
   sharedState.paima_state_machine_counter += 1;
-  // Manually add into accouts
+  // Manually add into accounts
   addLinkedAddress(sharedState, account.address, false, null);
 
   await assertSQL<
-    { primitive_name: string; payload: { inputData: string } }
+    { primitive_name: string; payload: { data: string } }
   >(
     "Check Batcher",
     db,
@@ -258,14 +302,14 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       primitive_name, id, paima_block_height, payload_type, payload
       FROM
       paima.primitive_accounting;`,
-    (res) => res.rows.length === sharedState.primitive_accounting_counter,
+    (_) => true, // We don't need to wait as the batcher waits for the transaction to be processed by the Paima Engine.
     (res) => {
       return res.rows[sharedState.primitive_accounting_counter - 1]
             .primitive_name ===
           "PaimaGameInteraction" &&
         res.rows[sharedState.primitive_accounting_counter - 1].payload
-            .inputData ===
-          gameInput;
+        // ["attack","999","777"]
+            .data === "0x5b2261747461636b222c22393939222c22373737225d";
     },
   );
 
@@ -279,18 +323,20 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      addressType: AddressType.EVM,
-      userAddress: account.address,
-      userSignature: badSignature,
-      gameInput,
-      millisecondTimestamp: timestamp,
+      data: createBatcherSubunit(
+        timestamp,
+        account.address,
+        AddressType.EVM,
+        badSignature,
+        conciseInput,
+      ),
     }),
   });
   // This message should not change the state of the database.
   // If this test fails, it will probably reflected in the next test.
   // As we cannot wait until the state does not change.
   await assertSQL<
-    { primitive_name: string; payload: { inputData: string } }
+    { primitive_name: string; payload: { data: string } }
   >(
     "Batcher Message with bad signature: should not be processed",
     db,
@@ -304,8 +350,8 @@ export async function generalTest(db: Client, sharedState: SharedState) {
             .primitive_name ===
           "PaimaGameInteraction" &&
         res.rows[sharedState.primitive_accounting_counter - 1].payload
-            .inputData ===
-          gameInput;
+        // ["attack","999","777"]
+            .data === "0x5b2261747461636b222c22393939222c22373737225d";
     },
   );
 
@@ -432,11 +478,14 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     wallets[1].address,
     tokens.tokenC,
   );
-  await erc721.a.transfer(
+  blockNumber = await erc721.a.transfer(
     wallets[1].privateKey,
     wallets[0].address,
     tokens.tokenD,
   );
+  while (latestBlock["parallelEvmRPC_fast"] ? BigInt(latestBlock["parallelEvmRPC_fast"]) < blockNumber : true) {
+    await sleep(100);
+  }
   // Cannot burn a token?
   // await erc721.burn(wallet_X.privateKey, tokens.tokenD);
   await assertSQL<

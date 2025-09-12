@@ -1,7 +1,7 @@
 import type { Client, PoolConfig } from "pg";
 import pg from "pg";
 import { OrchestratorConfig, start } from "@paima/orchestrator";
-import { ENV } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
 import { Value } from "@sinclair/typebox/value";
 import { ComponentNames } from "@paima/log";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
@@ -44,9 +44,11 @@ export async function startup(): Promise<Client> {
     ],
 
     batcher: {
+      batchIntervalMs: 100, // 100ms for testing
       paimaL2Address: contractAddressesEvmMain()["chain31337"][
         "PaimaL2ContractModule#MyPaimaL2Contract"
       ],
+      paimaSyncProtocolName: "parallelEvmRPC_fast",
       batcherPrivateKey:
         "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
       chainName: "hardhat",

@@ -1,0 +1,17 @@
+{
+  "name": "@paima/event-client",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": {
+      ".": "./src/mod.ts"
+  },
+  "imports": {
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.41",
+    "abitype": "npm:abitype@^1.1.0",
+    "assert-never": "npm:assert-never@^1.4.0",
+    "js-sha3": "npm:js-sha3@^0.9.3",
+    "mqtt": "npm:mqtt@^5.14.0",
+    "mqtt-pattern": "npm:mqtt-pattern@^2.1.0"
+  }
+}
+  

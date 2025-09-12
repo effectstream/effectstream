@@ -36,7 +36,7 @@ const AddressType = {
   EVM: 0,
 };
 
-async function createSignedInput(gameInput: string, walletInfo: WalletInfo) {
+async function createSignedInput(conciseInput: string, walletInfo: WalletInfo) {
   const account = privateKeyToAccount(walletInfo.privateKey);
   const walletClient = createWalletClient({
     account,
@@ -52,7 +52,8 @@ async function createSignedInput(gameInput: string, walletInfo: WalletInfo) {
     null,
     timestamp,
     userAddress,
-    gameInput,
+    addressType,
+    conciseInput,
   );
 
   const signature = await walletClient.signMessage({
@@ -64,7 +65,7 @@ async function createSignedInput(gameInput: string, walletInfo: WalletInfo) {
     addressType,
     userAddress,
     userSignature: signature,
-    gameInput,
+    conciseInput,
     millisecondTimestamp: timestamp,
   };
 }
@@ -75,7 +76,7 @@ async function sendInputToBatcher(batchedInput: any) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(batchedInput),
+    body: JSON.stringify({ data: batchedInput }),
   });
 
   if (!response.ok) {

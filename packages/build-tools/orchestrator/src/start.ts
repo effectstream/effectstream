@@ -1,5 +1,6 @@
 #!/usr/bin/env -S deno run --allow-all
-import { ENV, type ValueOf } from "@paima/utils";
+import { ENV } from "@paima/utils/node-env";
+import type { ValueOf } from "@paima/utils";
 import "./http-server.ts";
 import { dkill } from "@sylc/dkill";
 
@@ -114,7 +115,9 @@ export const OrchestratorConfig = Type.Object({
   batcher: Type.Optional(Type.Object({
     paimaL2Address: Type.String(),
     batcherPrivateKey: Type.String(),
+    paimaSyncProtocolName: Type.String(),
     chainName: Type.String(),
+    batchIntervalMs: Type.Number({ default: 1000 }),
   })),
 });
 
@@ -392,18 +395,26 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       await dkill({ ports: [ENV.BATCHER_PORT] });
     }
 
-    // TODO This should be read from the config.
-    const paimaL2Address = config.batcher?.paimaL2Address;
-    const batcherPrivateKey = config.batcher?.batcherPrivateKey;
-    const chainName = config.batcher?.chainName;
+    if (!config.batcher) {
+      throw new Error("Batcher config is required");
+    }
+    const { 
+      paimaL2Address,
+      batcherPrivateKey,
+      chainName,
+      paimaSyncProtocolName,
+      batchIntervalMs,
+    } = config.batcher;
     const batcher = $({
       args: [
         "run",
         "-A",
         config.packageName + "/batcher/start",
+        `--batchIntervalMs=${batchIntervalMs ?? 1000}`,
         `--paimaL2Address=${paimaL2Address}`,
         `--batcherPrivateKey=${batcherPrivateKey}`,
         `--chainName=${chainName}`,
+        `--paimaSyncProtocolName=${paimaSyncProtocolName}`,
       ],
       log: rawLogHandler,
       component: ComponentNames.PAIMA_BATCHER,

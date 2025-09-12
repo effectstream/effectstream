@@ -1,13 +1,13 @@
 {
-    "name": "@example/database",
+    "name": "@example-evm-midnight/database",
     "version": "0.3.22",
     "license": "MIT",
     "exports": "./src/mod.ts",
     "imports": {
-        "@paimaexample/config": "jsr:@paimaexample/config@0.3.30",
-        "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.30",
+        "@paimaexample/config": "jsr:@paimaexample/config@0.3.44",
+        "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.44",
         "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2",
-        "@paimaexample/db": "jsr:@paimaexample/db@0.3.30",
+        "@paimaexample/db": "jsr:@paimaexample/db@0.3.44",
         "pg": "npm:pg@^8.14.0",
         "effection": "npm:effection@3.5.0"
     },

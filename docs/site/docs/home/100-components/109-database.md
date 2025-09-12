@@ -60,7 +60,7 @@ export const migrationTable: DBMigrations[] = [
 And uses PGTyped to convert SQL into Typescript functions.
 
 To convert the SQL for your project:  
-`deno task -f @example/database pgtyped:update`
+`deno task -f @example-evm-midnight/database pgtyped:update`
 
 * SQL Files are located at `/packages/backend/database/src/sql/*.sql`
 

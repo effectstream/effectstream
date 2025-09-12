@@ -19,9 +19,9 @@ import { toSyncProtocolWithNetwork, withPaimaStaticConfig } from "@paima/config"
 
 // 1. Import all the core pieces of your application
 // Project Defined Components
-import { localhostConfig } from "@example/data-types/localhostConfig";
-import { migrationTable } from "@example/database";
-import { grammar } from "@example/data-types/grammar";
+import { localhostConfig } from "@example-evm-midnight/data-types/localhostConfig";
+import { migrationTable } from "@example-evm-midnight/database";
+import { grammar } from "@example-evm-midnight/data-types/grammar";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 

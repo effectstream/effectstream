@@ -39,12 +39,12 @@ replace_in_file() {
 
 # Apply patches
 echo "Commenting out await stdoutFileHandle.close()..."
-comment_line "./node_modules/.deno/hardhat@3.0.0-next.20/node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js" 49 "await stdoutFileHandle.close();"
+comment_line "./node_modules/.deno/hardhat@3.0.4/node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js" 48 "await stdoutFileHandle.close();"
 
 echo "Commenting out first await fileHandle?.close()..."
-comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0-next.20/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 209 "await fileHandle?.close();"
+comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 209 "await fileHandle?.close();"
 
 echo "Commenting out second await fileHandle?.close()..."
-comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0-next.20/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 275 "await fileHandle?.close();"
+comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 275 "await fileHandle?.close();"
 
 echo "✅ All patches applied successfully"

@@ -1,5 +1,5 @@
 {
-  "version": "0.3.30",
+  "version": "0.3.44",
   "workspace": [
     "./packages/**/*",
     "./e2e/**/*",

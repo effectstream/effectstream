@@ -1,0 +1,22 @@
+{
+    "name": "@paima/wallets",
+    "version": "0.3.0",
+    "license": "MIT",
+    "exports": "./src/mod.ts",
+    "imports": {
+        "@aurowallet/mina-provider": "npm:@aurowallet/mina-provider@^1.0.12",
+        "@metamask/providers": "npm:@metamask/providers@^22.1.0",
+        "@perawallet/connect": "npm:@perawallet/connect@^1.4.2",
+        "@polkadot/extension-dapp": "npm:@polkadot/extension-dapp@^0.61.7",
+        "@polkadot/extension-inject": "npm:@polkadot/extension-inject@^0.61.7",
+        "@polkadot/util": "npm:@polkadot/util@^13.5.6",
+        "@polkadot/util-crypto": "npm:@polkadot/util-crypto@^13.5.6",
+        "assert-never": "npm:assert-never@^1.4.0",
+        "avail-js-sdk": "npm:avail-js-sdk@^0.4.2",
+        "bech32": "npm:bech32@^2.0.0",
+        "ethers": "npm:ethers@^6.15.0",
+        "viem": "npm:viem@2.37.3",
+        "web3": "npm:web3@^4.16.0",
+        "web3-utils": "npm:web3-utils@^4.3.3"
+    }
+}

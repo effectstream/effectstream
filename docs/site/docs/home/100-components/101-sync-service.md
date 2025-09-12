@@ -65,7 +65,7 @@ This optional but highly recommended step allows you to register the addresses o
         (networks) => networks.evmParallel_fast, // Target the network
         (_network) => ({
           name: "PaimaErc20DevModule#PaimaErc20Dev", // A unique name for this contract
-          address: "0x...", // The contract's address. Generated and available in the @example/contract-evm package
+          address: "0x...", // The contract's address. Generated and available in the @example-evm-midnight/contract-evm package
         }),
       )
   )

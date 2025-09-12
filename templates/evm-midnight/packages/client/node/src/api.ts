@@ -1,6 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { runPreparedQuery } from "@paimaexample/db";
-import { getEvmMidnight } from "@example/database";
+import { getEvmMidnight } from "@example-evm-midnight/database";
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paimaexample/runtime";
 import type fastify from "fastify";

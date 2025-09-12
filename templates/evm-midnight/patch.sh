@@ -1,4 +1,5 @@
 #!/bin/bash
+./../../patch.sh
 
 # Apply patches
 echo "🔧 Applying patches..."
@@ -74,16 +75,6 @@ with open('$file', 'w') as f:
         echo "⚠️  Warning: File $file not found"
     fi
 }
-
-# Apply patches
-echo "Commenting out await stdoutFileHandle.close()..."
-comment_line "./node_modules/.deno/hardhat@3.0.0-next.20/node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js" 49 "await stdoutFileHandle.close();"
-
-echo "Commenting out first await fileHandle?.close()..."
-comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0-next.20/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 209 "await fileHandle?.close();"
-
-echo "Commenting out second await fileHandle?.close()..."
-comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0-next.20/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 275 "await fileHandle?.close();"
 
 echo "Replacing fetch-blob streams.cjs content..."
 replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/streams.cjs" "  // \`node:stream/web\` got introduced in v16.5.0 as experimental

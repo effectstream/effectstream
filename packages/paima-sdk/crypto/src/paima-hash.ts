@@ -1,4 +1,3 @@
-import type { ChainBlock } from "@paima/sync";
 import type { BlockHash, PaimaBlockHash } from "@paima/utils";
 import crypto from "node:crypto";
 
@@ -9,7 +8,7 @@ import crypto from "node:crypto";
  * @returns The Paima block hash.
  */
 export function generatePaimaBlockHash(
-  chainBlock: ChainBlock,
+  chainBlock: { blockInfo: { blockHash: BlockHash }[] }, // ChainBlock,
   previousBlockHash: PaimaBlockHash | null,
 ): PaimaBlockHash {
   const hashes: BlockHash[] = chainBlock.blockInfo.map((h) => h.blockHash);
