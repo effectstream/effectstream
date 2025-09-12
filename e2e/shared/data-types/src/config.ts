@@ -264,16 +264,14 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_slow,
         (network, deployments, syncProtocol) => ({
-          name: "L1_ERC721_Token",
-          type: ConfigPrimitiveType.EvmRpcERC721,
-          startBlockHeight: 0,
-          contractAddress:
+          ...new Erc721Primitive(
+            "L1_ERC721_Token",
+            0,
             contractAddressesEvmMain().chain31338["Erc721DevModule#Erc721Dev"],
-          abi: getEvmEvent(
-            erc721dev.abi,
-            "Transfer(address,address,uint256)",
-          ),
-          // TODO This is not defined. Should be a error.
+          ).getConfig(),
+          // TODO This is temporal for typechecking.
+          type: ConfigPrimitiveType.EvmRpcERC721,        
+          // TODO This should be optional.
           scheduledPrefix: "transfer-assets",
         }),
       )
