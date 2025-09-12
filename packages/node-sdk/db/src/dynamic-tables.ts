@@ -40,9 +40,11 @@ export function* createDynamicTables(
   }
 }
 
+import { PaimaPrimitiveRegistry } from "@e2e/data-types";
+
 const primitiveTypeFunctionMap: Record<string, (name: string) => string> = {
   [ConfigPrimitiveType.EvmRpcERC20]: erc20Ivm,
-  [ConfigPrimitiveType.EvmRpcERC721]: erc721Ivm,
+  // [ConfigPrimitiveType.EvmRpcERC721]: erc721Ivm,
 };
 
 function* createDynamicTableForPrimitive(
@@ -57,7 +59,9 @@ function* createDynamicTableForPrimitive(
 ) {
   const type = p.primitive.type;
   const name = p.primitive.name;
-  const sqlFunction = primitiveTypeFunctionMap[type];
+
+  const primitive = PaimaPrimitiveRegistry.getPrimitive(name);
+  const sqlFunction = primitive?.getDynamicTables ?? primitiveTypeFunctionMap[type];
   if (!sqlFunction) {
     // This primitive does not have dynamic tables.
     return;

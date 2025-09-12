@@ -11,6 +11,8 @@ import {
 import { hardhat } from "viem/chains";
 import type { BlockNumber } from "@paima/utils";
 import { erc20dev, erc721dev, paimal2contract } from "@e2e/evm-contracts";
+import { Erc721Primitive } from "./primitives/erc721/erc721-primitive.ts";
+import { getConnection } from "@paima/db";
 
 // TODO: This should typed from the grammar types.
 const stfInputs = {
@@ -43,7 +45,7 @@ let launchStartTime: number | undefined;
 if (Deno) {
   // NOTE: This does not work when imported by the browser.
   //       We setup a Deno as undefined in the browser, to make it skip this import.
-  const { getConnection } = await import("@paima/db");
+  // const { getConnection } = await import("@paima/db");
   const dbConn = getConnection();
   try {
     const result = await dbConn.query(`
@@ -240,16 +242,22 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
         (network, deployments, syncProtocol) => ({
-          name: "Arbitrum_ERC721",
-          type: ConfigPrimitiveType.EvmRpcERC721,
-          startBlockHeight: 0,
-          contractAddress:
+          // startBlockHeight: 0,
+          // contractAddress:
+          //   contractAddressesEvmMain().chain31337["Erc721DevModule#Erc721Dev"],
+          // abi: getEvmEvent(
+          //   erc721dev.abi,
+          //   "Transfer(address,address,uint256)",
+          // ),
+
+          ...new Erc721Primitive(
+            "Arbitrum_ERC721",
+            0,
             contractAddressesEvmMain().chain31337["Erc721DevModule#Erc721Dev"],
-          abi: getEvmEvent(
-            erc721dev.abi,
-            "Transfer(address,address,uint256)",
-          ),
-          // TODO This is not defined. Should be a error.
+          ).getConfig(),
+          // NOT Necessary, but added for type checking in the meantime.
+          type: ConfigPrimitiveType.EvmRpcERC721,
+          // TODO This should be optional.
           scheduledPrefix: "transfer-assets",
         }),
       )
