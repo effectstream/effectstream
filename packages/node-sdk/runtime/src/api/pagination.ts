@@ -96,7 +96,6 @@ export async function fetchPublicTablePage(
   let query: string;
   const params: (string | number)[] = [];
   let cursorFields: string[] = [];
-  let nextCursorSeed: Record<string, string | number> | null = null;
 
   if (pkColumns.length > 0) {
     // Keyset pagination
@@ -163,7 +162,31 @@ export async function fetchPublicTablePage(
     query =
       `SELECT * FROM public.${safeTableName} ${orderByClause} LIMIT $1 OFFSET $2`;
     params.push(limit + 1, paginationOffset);
-    nextCursorSeed = { offset: paginationOffset + limit };
+    // Build numeric nextCursor for offset mode (not base64 JSON)
+    const data = await runPreparedQuery<any[]>(
+      new Promise<any[]>((resolve, reject) => {
+        return dbConn.query(
+          query,
+          params,
+          (err: any, result: { rows: any[] }) => {
+            if (err) reject(err);
+            resolve(result.rows);
+          },
+        );
+      }),
+      `http-server/tables:${safeTableName}/${query}/${params}`,
+    );
+
+    const hasMore = data.length > limit;
+    if (hasMore) data.pop();
+    return {
+      data,
+      pagination: {
+        limit,
+        hasMore,
+        nextCursor: hasMore ? String(paginationOffset + limit) : undefined,
+      },
+    };
   }
 
   const data = await runPreparedQuery<any[]>(
@@ -184,7 +207,6 @@ export async function fetchPublicTablePage(
     limit,
     data,
     cursorFields as (keyof any)[],
-    nextCursorSeed,
   );
   return { data, pagination };
 }
@@ -192,7 +214,11 @@ export async function fetchPublicTablePage(
 export async function fetchPrimitiveTablePage(
   dbConn: Pool,
   safeTableName: string,
-  { limit, after }: { limit: number; after?: Record<string, any> },
+  { limit, after, offset }: {
+    limit: number;
+    after?: Record<string, any>;
+    offset?: number;
+  },
 ): Promise<PaginatedResponse<any>> {
   // Validate primitive table exists
   const dynamicTables = await runPreparedQuery<IGetDynamicTablesResult>(
@@ -203,36 +229,34 @@ export async function fetchPrimitiveTablePage(
     throw new Error(`Table not found: ${safeTableName}`);
   }
 
-  // Cursor handling: primitives guarantee an 'id' PK, but accept any single-key cursor
-  if (after) {
-    // Ensure the primitive table has an 'id' column before paginating
-    const tableSchema = await runPreparedQuery<IGetTableSchemaResult>(
-      getTableSchema.run({ tableName: safeTableName }, dbConn),
-      `primitive-schema:${safeTableName}`,
-    );
-    const hasIdColumn = tableSchema.some((c) => c.column_name === "id");
-    if (!hasIdColumn) {
-      throw new Error(
-        "Primitive table cannot be paginated: missing 'id' column",
-      );
+  // Inspect schema to decide strategy
+  const tableSchema = await runPreparedQuery<IGetTableSchemaResult>(
+    getTableSchema.run({ tableName: safeTableName }, dbConn),
+    `primitive-schema:${safeTableName}`,
+  );
+  if (tableSchema.length === 0) {
+    throw new Error("Primitive table has no columns or does not exist");
+  }
+  const hasIdColumn = tableSchema.some((c) => c.column_name === "id");
+
+  if (hasIdColumn) {
+    // Keyset pagination on id
+    let query: string;
+    let params: (string | number)[];
+    if (after) {
+      const afterId = (after as any)["id"];
+      if (afterId === undefined) {
+        throw new Error("Cursor must contain 'id' when paginating primitives");
+      }
+      query =
+        `SELECT * FROM primitives.${safeTableName} WHERE "id" > $1 ORDER BY "id" ASC LIMIT $2`;
+      params = [afterId, limit + 1];
+    } else {
+      query =
+        `SELECT * FROM primitives.${safeTableName} ORDER BY "id" ASC LIMIT $1`;
+      params = [limit + 1];
     }
 
-    const keys = Object.keys(after);
-    if (keys.length !== 1) {
-      throw new Error(
-        "Invalid cursor: must contain exactly one primary key field",
-      );
-    }
-    const primaryKey = keys[0];
-    const escapedKey = validateAndEscapeColumnName(primaryKey);
-    const afterId = (after as any)[primaryKey];
-    if (typeof afterId !== "number" && typeof afterId !== "string") {
-      throw new Error("Invalid primary key value in cursor");
-    }
-
-    const query =
-      `SELECT * FROM primitives.${safeTableName} WHERE ${escapedKey} > $1 ORDER BY ${escapedKey} ASC LIMIT $2`;
-    const params = [afterId, limit + 1];
     const data = await runPreparedQuery<any[]>(
       new Promise<any[]>((resolve, reject) => {
         return dbConn.query(
@@ -252,30 +276,41 @@ export async function fetchPrimitiveTablePage(
       ["id"] as (keyof any)[],
     );
     return { data, pagination };
+  } else {
+    // Fallback to offset-based pagination with numeric nextCursor
+    const paginationOffset = offset ?? 0;
+    const orderByColumn = tableSchema[0].column_name;
+    if (!orderByColumn) {
+      throw new Error("Primitive table has no valid column for ordering");
+    }
+    const escapedOrderByColumn = validateAndEscapeColumnName(orderByColumn);
+    const query =
+      `SELECT * FROM primitives.${safeTableName} ORDER BY ${escapedOrderByColumn} ASC LIMIT $1 OFFSET $2`;
+    const params = [limit + 1, paginationOffset];
+    const data = await runPreparedQuery<any[]>(
+      new Promise<any[]>((resolve, reject) => {
+        return dbConn.query(
+          query,
+          params,
+          (err: any, result: { rows: any[] }) => {
+            if (err) reject(err);
+            resolve(result.rows);
+          },
+        );
+      }),
+      `http-server/primitives:${safeTableName}/${query}/${params}`,
+    );
+    const hasMore = data.length > limit;
+    if (hasMore) data.pop();
+    return {
+      data,
+      pagination: {
+        limit,
+        hasMore,
+        nextCursor: hasMore ? String(paginationOffset + limit) : undefined,
+      },
+    };
   }
-
-  // No cursor: simple page by limit
-  const query = `SELECT * FROM primitives.${safeTableName} LIMIT $1`;
-  const params = [limit + 1];
-  const data = await runPreparedQuery<any[]>(
-    new Promise<any[]>((resolve, reject) => {
-      return dbConn.query(
-        query,
-        params,
-        (err: any, result: { rows: any[] }) => {
-          if (err) reject(err);
-          resolve(result.rows);
-        },
-      );
-    }),
-    `http-server/primitives:${safeTableName}/${query}/${params}`,
-  );
-  const pagination = createPaginationMeta<any>(
-    limit,
-    data,
-    ["id"] as (keyof any)[],
-  );
-  return { data, pagination };
 }
 
 const DEFAULT_PAGINATION_LIMIT = 100;

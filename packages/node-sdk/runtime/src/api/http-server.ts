@@ -156,7 +156,7 @@ export const startHttpServer = function* (
   // Register parent error handler
   server.setErrorHandler((error, request, reply) => {
     console.error("[HTTP SERVER] Error: ", error, request.url);
-    reply.status(500).send({ ok: false });
+    reply.status(500).send({ ok: false, error: error.message });
   });
 
   yield* until(
@@ -717,7 +717,7 @@ export const startHttpServer = function* (
       reply,
     ) => {
       const { primitiveName } = request.params;
-      const { limit, after } = getPaginationParams(request.query);
+      const { limit, after, offset } = getPaginationParams(request.query);
       const prefix = getPrimitivePrefixWrapper(primitiveName);
       if (!prefix) {
         return reply.status(404).send({
@@ -736,13 +736,14 @@ export const startHttpServer = function* (
         const { data, pagination } = await fetchPrimitiveTablePage(
           dbConn,
           safeTableName,
-          { limit, after },
+          { limit, after, offset },
         );
         return { data, pagination };
       } catch (error: any) {
         console.error(`Error fetching primitive ${primitiveName}:`, error);
         return reply.status(500).send({
-          error: "Internal server error fetching primitive data",
+          error:
+            `Internal server error fetching primitive data: ${error.message}`,
         });
       }
     },
