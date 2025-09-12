@@ -2,18 +2,21 @@
 
 ## Quick Start
 
-Start at [Paima Engine Template](./templates/evm-midnight/) for quickstart project
+Start at [Paima Engine Template](./templates/evm-midnight/) for quickstart
+project
 
 ## Development
 
 Paima Engine development mode & tests can be run through e2e environment.
 
-
 ```sh
 # Install dependencies
 deno install --allow-scripts && ./patch.sh
 
-# Build Contracts
+# Build All Contracts
+deno task -r contract:compile
+
+# Build contracts individually
 deno task -f @e2e/evm-contracts build
 deno task -f @e2e/evm-contracts deploy:standalone
 deno task -f @e2e/midnight-contracts midnight-contract:compile
@@ -24,6 +27,7 @@ deno task -f @e2e/node dev
 ```
 
 ## Run Tests
+
 > NOTE: first install dependencies and build contracts
 
 ```sh
