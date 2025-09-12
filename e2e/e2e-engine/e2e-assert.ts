@@ -81,6 +81,7 @@ export async function assert(
     const result = await check();
     if (!result) {
       testFailed();
+      return false;
     }
     testPassed();
     return result;
