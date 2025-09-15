@@ -1,6 +1,8 @@
 import { Type } from "@sinclair/typebox";
 import { type GrammarDefinition, mapPrimitivesToGrammar } from "@paima/concise";
 import { localhostConfig } from "./config.ts";
+import { PaimaPrimitiveRegistry } from "@e2e/data-types";
+// import { PaimaPrimitive } from "@e2e/data-types";
 
 export const grammar = {
   schedule: [
@@ -33,34 +35,13 @@ export const grammar = {
   ],
   switchMap: [["mapId", Type.String()]],
   // Midnight contract state with proper EncodedStateValue schema
-  midnightContractState: [
-    [
-      "payload",
-      Type.Recursive((Self) =>
-        Type.Union([
-          Type.Object({
-            tag: Type.Literal("null"),
-          }),
-          Type.Object({
-            tag: Type.Literal("cell"),
-            content: Self,
-          }),
-          Type.Object({
-            tag: Type.Literal("array"),
-            content: Type.Array(Self),
-          }),
-          Type.Object({
-            tag: Type.Literal("map"),
-            content: Type.Array(Type.Tuple([Type.Any(), Self])), // Map as [key, value] pairs
-          }),
-        ])
-      ),
-    ],
-  ],
   // Auto-generate other primitives, but exclude midnight (we define it explicitly above)
   ...Object.fromEntries(
-    Object.entries(mapPrimitivesToGrammar(localhostConfig.primitives))
-      .filter(([key]) => key !== "midnightContractState"),
+    Object.entries(mapPrimitivesToGrammar(
+      localhostConfig.primitives,
+      PaimaPrimitiveRegistry.primitives
+    ))
+      // .filter(([key]) => key !== "midnightContractState"),
   ),
 } as const satisfies GrammarDefinition;
 

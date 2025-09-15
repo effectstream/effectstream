@@ -39,14 +39,12 @@ export function* primitiveTransitionFunction(
 
     const prefix: string | undefined = (primitive.input as any).scheduledPrefix;
 
-    
-
     const insertPrimitiveAccountingParams: IInsertPrimitiveAccountingParams = {
       primitive_name: paimaPrimitive.instanceName,
       paima_block_height: paima_block_height,
       payload_type: paimaPrimitive.internalEvent,
       // TODO This needs to be a JSON Object, not JSON Array.
-      payload: paimaPrimitive.getPayload(primitive)[0],
+      payload: paimaPrimitive.getPayload(primitive),
     }
 
     yield* World.resolve(insertPrimitiveAccounting, insertPrimitiveAccountingParams);
@@ -54,7 +52,7 @@ export function* primitiveTransitionFunction(
     // This is the old primitiveTransitionFunction
     if (prefix) {
       yield* createScheduledData(
-        paimaPrimitive.getStateMachinePayload(prefix, primitive),
+        paimaPrimitive.getStateMachinePayloadString(primitive),
         {
           blockHeight: paima_block_height,
         },
@@ -208,15 +206,18 @@ export function* primitiveTransitionFunction(
       }
       break;
     case ConfigPrimitiveType.MidnightContractState:
-      switch (primitive.payloadType) {
-        case ConfigPrimitivePayloadType.Event:
-          return yield* processMidnightContractStateDatum(
-            paima_block_height,
-            primitive,
-          );
-        default:
-          // assertNever.default(clearBigInts(primitive));
-      }
+      console.error("Midnight: primitive", primitive);
+      console.error(PaimaPrimitiveRegistry.primitives)
+      throw new Error("Implemented as PaimaPrimitive");
+      // switch (primitive.payloadType) {
+      //   case ConfigPrimitivePayloadType.Event:
+      //     return yield* processMidnightContractStateDatum(
+      //       paima_block_height,
+      //       primitive,
+      //     );
+      //   default:
+      //     // assertNever.default(clearBigInts(primitive));
+      // }
       break;
     default:
       // assertNever.default(clearBigInts(primitive));

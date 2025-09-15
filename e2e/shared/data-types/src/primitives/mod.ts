@@ -2,4 +2,7 @@
 
 export * from "./PaimaPrimitive.ts";
 export * from "./PrimitiveRegistry.ts";
-export * from "./erc721/erc721-primitive.ts";
+
+
+export * from "./evm-erc721/mod.ts";
+export * from "./midnight-generic/mod.ts";

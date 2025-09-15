@@ -1,5 +1,7 @@
-import { ConfigPrimitiveAccountingPayloadType, ConfigPrimitiveType, getEvmEvent } from "@paima/config";
-import { EvmAddress } from "@paima/utils";
+import type { ConfigPrimitiveAccountingPayloadType, ConfigPrimitiveType, getEvmEvent } from "@paima/config";
+import type { EvmAddress } from "@paima/utils";
+import type{ StaticDecode, TSchema } from "@sinclair/typebox";
+import { CommandTuple } from "@paima/concise";
 
 /**
  * Abstract Class for Paima Primitives
@@ -9,37 +11,50 @@ import { EvmAddress } from "@paima/utils";
  */
 export abstract class PaimaPrimitive {
   // Primitive defined
-  abstract internalName: string;
+  // unique name for primitive definition as chain:protocol 
+  abstract internalName: `${string}:${string}`;
+  // unique type for primitive; 
+  // @deprecated this value should no be used, but we use it for compatibility
   abstract internalType: ConfigPrimitiveType;
-  abstract abi: ReturnType<typeof getEvmEvent>;
-  abstract grammar: any; // Type TOOD;
+  // grammar for primitive
+  abstract grammar: readonly Readonly<[string, TSchema]>[];
+  // event for primitive
+  // @deprecated this value should no be used, but we use it for compatibility
   abstract internalEvent: ConfigPrimitiveAccountingPayloadType;
   
-  // User defined
+  // Instance defined
   abstract instanceName: string;
   abstract startBlockHeight: number;
-  abstract contractAddress: EvmAddress;
+  // TODO We need to be make a ContractAddress type.
+  abstract contractAddress: EvmAddress | string; 
+  // TODO This should be optional.
+  abstract stateMachinePrefix: string; // | undefined;
 
   // Dynamic/ivm Table Global definitions
-  abstract dynamicTables: (name: string) => string;
-  abstract getIntermediatePrefix(): string[];
+  abstract dynamicTables: undefined | ((name: string) => string);
+  abstract getIntermediatePrefix():  string[];
   abstract getViewPrefix(): string[];
 
-  public getConfig() {
-    return {
-      name: this.instanceName,
-      type: this.internalType,
-      startBlockHeight: this.startBlockHeight,
-      contractAddress: this.contractAddress,
-      abi: this.abi,
-    };
+  abstract getConfig(): Record<string, any>;
+
+  // Arrow function to bind 'this', as this function is passed as a reference
+  public getDynamicTables = (name: string): string | undefined => {
+    return this.dynamicTables?.(name);
   }
 
-  // Arrow function to bind 'this'
-  public getDynamicTables = (name: string) => {
-    return this.dynamicTables(name);
-  }
+  // This returns the payload in the state machine format.
+  // e.g., [stateMachinePrefix, v1, v2, v3]
+  abstract getStateMachinePayload(primitiveTransactionData: any): StaticDecode<
+    CommandTuple<
+      typeof this.stateMachinePrefix, 
+      typeof this.grammar
+    >
+  >;
 
-  abstract getStateMachinePayload(prefix: string, primitiveTransactionData: any): string;
-  abstract getPayload(primitiveTransactionData: any): string[];
+  public getStateMachinePayloadString(primitiveTransactionData: any): string {
+    return JSON.stringify(this.getStateMachinePayload(primitiveTransactionData));
+  };
+
+  // Get json object payload in format { key: value }
+  abstract getPayload(primitiveTransactionData: any): Record<string, any>;
 }

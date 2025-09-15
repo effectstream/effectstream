@@ -70,12 +70,14 @@ function* createDynamicTableForPrimitive(
   }, dbConn));
   // This particular migration has been applied, so we can skip it.
   if (migration) return;
+  const code = sqlFunction(name);
+  if (!code) return;
 
   yield* until(applyMigrations(
     dbConn,
     lastBlockHeight,
     migrationName,
-    sqlFunction(name),
+    code,
     true,
   ));
 }

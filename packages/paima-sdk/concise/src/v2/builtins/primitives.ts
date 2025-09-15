@@ -24,6 +24,8 @@ import {
 } from "@paima/config";
 import type { PrimitiveConfig } from "@paima/config";
 import { generatePrecompile } from "@paima/precompile";
+// import { PaimaPrimitiveRegistry } from "@e2e/data-types";
+// import { PaimaPrimitive } from "@e2e/data-types";
 
 export const CardanoCarpMintBurnPrecompile = generatePrecompile(
   `${ConfigSyncProtocolType.CARDANO_CARP_PARALLEL}-${ConfigPrimitiveType.CardanoCarpMintBurn}-${ConfigPrimitivePayloadType.MintOrBurn}`,
@@ -178,8 +180,10 @@ export function mapPrimitivesToGrammar<
   T extends Record<string, { primitive: PrimitiveConfig }>,
 >(
   primitives: T,
+  primitives_new: any,
 ): PrimitivesToGrammar<T> {
   const result = {} as Record<string, any>;
+  // TODO This is deprecated, we should remove it.
   for (const { primitive } of Object.values(primitives)) {
     if (!(primitive.type in BuiltinTransitions)) {
       continue;
@@ -193,9 +197,24 @@ export function mapPrimitivesToGrammar<
     ) {
       // filter out optional prefixes that the user did not define
       if (transition in primitive) {
+        // if (result[primitive[transition]]) {
+        //   throw new Error(`Primitive ${primitive[transition]} already exists`);
+        // }
         result[primitive[transition]] = transitions[transition];
       }
     }
   }
+
+  // PaimaPrimitiveRegistry.primitives;
+  Object.values(primitives_new).forEach(
+    (primitive: any) => {
+  //     // if (result[primitive.instanceName]) {
+  //     //   throw new Error(`Primitive ${primitive.instanceName} already exists`);
+  //     // }
+      result[primitive.stateMachinePrefix] = primitive.grammar;
+    },
+  );
+
+
   return result as PrimitivesToGrammar<T>;
 }

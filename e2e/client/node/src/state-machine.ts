@@ -82,7 +82,7 @@ stm.addStateTransition("attack", function* (data) {
   return;
 });
 
-stm.addStateTransition("midnightContractState", function* (data) {
+stm.addStateTransition("midnightContractState" as any, function* (data) {
   const { payload } = data.parsedInput;
 
   // Handle different EncodedStateValue variants

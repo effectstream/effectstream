@@ -10,9 +10,11 @@ import {
 } from "@paima/config";
 import { hardhat } from "viem/chains";
 import type { BlockNumber } from "@paima/utils";
-import { erc20dev, erc721dev, paimal2contract } from "@e2e/evm-contracts";
-import { Erc721Primitive } from "./primitives/erc721/erc721-primitive.ts";
+import { erc20dev, paimal2contract } from "@e2e/evm-contracts";
 import { getConnection } from "@paima/db";
+// TODO These will be defined in a paima-engine package.
+import { MidnightGenericPrimitive } from "./primitives/midnight-generic/mod.ts";
+import { Erc721Primitive } from "./primitives/evm-erc721/mod.ts";
 
 // TODO: This should typed from the grammar types.
 const stfInputs = {
@@ -242,37 +244,23 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
         (network, deployments, syncProtocol) => ({
-          // startBlockHeight: 0,
-          // contractAddress:
-          //   contractAddressesEvmMain().chain31337["Erc721DevModule#Erc721Dev"],
-          // abi: getEvmEvent(
-          //   erc721dev.abi,
-          //   "Transfer(address,address,uint256)",
-          // ),
-
-          ...new Erc721Primitive(
-            "Arbitrum_ERC721",
-            0,
-            contractAddressesEvmMain().chain31337["Erc721DevModule#Erc721Dev"],
-          ).getConfig(),
-          // NOT Necessary, but added for type checking in the meantime.
-          type: ConfigPrimitiveType.EvmRpcERC721,
-          // TODO This should be optional.
-          scheduledPrefix: "transfer-assets",
+          ...new Erc721Primitive({
+            instanceName: "Arbitrum_ERC721",
+            startBlockHeight: 0,
+            contractAddress: contractAddressesEvmMain().chain31337["Erc721DevModule#Erc721Dev"],
+            stateMachinePrefix: "transfer-assets",
+          }).getConfig(),
         }),
       )
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_slow,
         (network, deployments, syncProtocol) => ({
-          ...new Erc721Primitive(
-            "L1_ERC721_Token",
-            0,
-            contractAddressesEvmMain().chain31338["Erc721DevModule#Erc721Dev"],
-          ).getConfig(),
-          // TODO This is temporal for typechecking.
-          type: ConfigPrimitiveType.EvmRpcERC721,        
-          // TODO This should be optional.
-          scheduledPrefix: "transfer-assets",
+          ...new Erc721Primitive({
+            instanceName: "L1_ERC721_Token",
+            startBlockHeight: 0,
+            contractAddress: contractAddressesEvmMain().chain31338["Erc721DevModule#Erc721Dev"],
+            stateMachinePrefix: "transfer-assets",
+          }).getConfig(),
         }),
       )
       .addPrimitive(
@@ -297,11 +285,14 @@ export const localhostConfig = new ConfigBuilder()
         .addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
           (network, deployments, syncProtocol) => ({
-            name: "MidnightContractState",
-            type: ConfigPrimitiveType.MidnightContractState,
-            startBlockHeight: 1,
-            contractAddress: readMidnightContract().contractAddress,
-            scheduledPrefix: "midnightContractState",
+            ...new MidnightGenericPrimitive({
+              instanceName: "MidnightContractState",
+              startBlockHeight: 1,
+              contractAddress: readMidnightContract().contractAddress,
+              stateMachinePrefix: "midnightContractState",
+            }).getConfig(),
+            // type: ConfigPrimitiveType.MidnightContractState,
+            // scheduledPrefix: "midnightContractState",
           }),
         );
     }
