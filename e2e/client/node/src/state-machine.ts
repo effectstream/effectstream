@@ -3,6 +3,7 @@ import { grammar } from "@e2e/data-types";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import {
   getLastSumFromExampleTable,
+  insertAvailMessage,
   insertStateMachineInput,
   insertSumIntoExampleTable,
 } from "@e2e/database";
@@ -124,6 +125,12 @@ stm.addStateTransition(
       "📦 Avail App state has message:",
       parsedPayload.message || parsedPayload,
     );
+    if (parsedPayload.message) {
+      yield* World.resolve(insertAvailMessage, {
+        message: parsedPayload.message,
+        height: data.blockHeight,
+      });
+    }
     return;
   },
 );

@@ -145,3 +145,61 @@ const insertSumIntoExampleTableIR: any = {"usedParamSet":{"sum":true,"block_heig
 export const insertSumIntoExampleTable = new PreparedQuery<IInsertSumIntoExampleTableParams,IInsertSumIntoExampleTableResult>(insertSumIntoExampleTableIR);
 
 
+/** 'InsertAvailMessage' parameters type */
+export interface IInsertAvailMessageParams {
+  height: number;
+  message: string;
+}
+
+/** 'InsertAvailMessage' return type */
+export type IInsertAvailMessageResult = void;
+
+/** 'InsertAvailMessage' query type */
+export interface IInsertAvailMessageQuery {
+  params: IInsertAvailMessageParams;
+  result: IInsertAvailMessageResult;
+}
+
+const insertAvailMessageIR: any = {"usedParamSet":{"message":true,"height":true},"params":[{"name":"message","required":true,"transform":{"type":"scalar"},"locs":[{"a":56,"b":64}]},{"name":"height","required":true,"transform":{"type":"scalar"},"locs":[{"a":67,"b":74}]}],"statement":"INSERT INTO avail_messages \n(message, height) \nVALUES \n(:message!, :height!)"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO avail_messages 
+ * (message, height) 
+ * VALUES 
+ * (:message!, :height!)
+ * ```
+ */
+export const insertAvailMessage = new PreparedQuery<IInsertAvailMessageParams,IInsertAvailMessageResult>(insertAvailMessageIR);
+
+
+/** 'GetLatestAvailMessage' parameters type */
+export type IGetLatestAvailMessageParams = void;
+
+/** 'GetLatestAvailMessage' return type */
+export interface IGetLatestAvailMessageResult {
+  height: number;
+  id: number;
+  message: string;
+}
+
+/** 'GetLatestAvailMessage' query type */
+export interface IGetLatestAvailMessageQuery {
+  params: IGetLatestAvailMessageParams;
+  result: IGetLatestAvailMessageResult;
+}
+
+const getLatestAvailMessageIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM avail_messages \nORDER BY height DESC\nLIMIT 1"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM avail_messages 
+ * ORDER BY height DESC
+ * LIMIT 1
+ * ```
+ */
+export const getLatestAvailMessage = new PreparedQuery<IGetLatestAvailMessageParams,IGetLatestAvailMessageResult>(getLatestAvailMessageIR);
+
+
