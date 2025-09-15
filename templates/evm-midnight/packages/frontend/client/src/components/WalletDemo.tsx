@@ -217,15 +217,51 @@ const convertApiDataToTokens = (
     property_block_height: number;
   }[],
 ): ERC721Token[] => {
-  return apiData.map((data) => ({
-    id: data.token_id,
-    owner: data.owner,
-    properties: {
-      [data.property_name]: data.value,
-    },
-    isValid: !!data.owner, // Token is valid if it has an owner
-  }));
+  const tokenMap: Record<string, ERC721Token> = {};
+  for (const data of apiData) {
+    if (!tokenMap[data.token_id]) {
+      tokenMap[data.token_id] = {
+        id: data.token_id,
+        owner: data.owner,
+        properties: {},
+        isValid: !!data.owner,
+      };
+    }
+    if (data.property_name) {
+      tokenMap[data.token_id].properties[data.property_name] = data.value;
+    }
+  }
+  return Object.values(tokenMap);
 };
+
+function areTokensEqual(a: ERC721Token[], b: ERC721Token[]): boolean {
+  if (a.length !== b.length) return false;
+
+  const aMap = new Map(a.map((t) => [t.id, t]));
+  const bMap = new Map(b.map((t) => [t.id, t]));
+
+  if (aMap.size !== bMap.size) return false;
+
+  for (const [id, tokenA] of aMap.entries()) {
+    const tokenB = bMap.get(id);
+    if (!tokenB) return false;
+    if (tokenA.owner !== tokenB.owner) return false;
+    if (tokenA.isValid !== tokenB.isValid) return false;
+
+    const propsA = tokenA.properties;
+    const propsB = tokenB.properties;
+    const keysA = Object.keys(propsA);
+    const keysB = Object.keys(propsB);
+
+    if (keysA.length !== keysB.length) return false;
+
+    for (const key of keysA) {
+      if (propsA[key] !== propsB[key]) return false;
+    }
+  }
+
+  return true;
+}
 
 export function WalletDemo() {
   const {
@@ -234,6 +270,7 @@ export function WalletDemo() {
     signMessage,
     walletClient,
     walletType,
+    connectEvmWallet,
   } = useWallet();
 
   const [evmWallet, setEvmWallet] = useState<EVMWallet | null>(null);
@@ -242,12 +279,10 @@ export function WalletDemo() {
     null,
   );
   const [isConnectingMidnight, setIsConnectingMidnight] = useState(false);
-  const [isIncrementingCounter, setIsIncrementingCounter] = useState(false);
   const [tokens, setTokens] = useState<ERC721Token[]>([]);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [tokenName, setTokenName] = useState<string>("");
   const [isLoadingTokens, setIsLoadingTokens] = useState<boolean>(false);
-  const [tokenIdInput, setTokenIdInput] = useState<string>("");
   const [createTokenId, setCreateTokenId] = useState<string>(
     Date.now().toString(),
   );
@@ -260,18 +295,12 @@ export function WalletDemo() {
     new Set(),
   );
   const [isCreatingToken, setIsCreatingToken] = useState(false);
+  const [newPropName, setNewPropName] = useState("");
+  const [newPropValue, setNewPropValue] = useState("");
+  const [isIncrementingCounter, setIsIncrementingCounter] = useState(false);
 
   // ERC721 contract address - moved here to be accessible to both sections
   const erc721Address = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
-
-  // Increment counter form state
-  const [incrementForm, setIncrementForm] = useState({
-    contractAddress: erc721Address,
-    tokenId: "",
-    propertyName: "Name",
-    propertyValue:
-      RANDOM_TOKEN_NAMES[Math.floor(Math.random() * RANDOM_TOKEN_NAMES.length)],
-  });
 
   // Generate random token name
   const generateRandomTokenName = () => {
@@ -291,7 +320,12 @@ export function WalletDemo() {
     try {
       const apiData = await fetchNFTData();
       const convertedTokens = convertApiDataToTokens(apiData);
-      setTokens(convertedTokens);
+      setTokens((prevTokens) => {
+        if (!areTokensEqual(prevTokens, convertedTokens)) {
+          return convertedTokens;
+        }
+        return prevTokens;
+      });
     } catch (error) {
       console.error("Failed to load tokens:", error);
       showNotification(
@@ -306,24 +340,19 @@ export function WalletDemo() {
 
   // Initial load and setup interval
   useEffect(() => {
-    loadTokens(); // Initial load
+    // We only want to load tokens when no token is selected
+    if (!selectedToken) {
+      loadTokens();
+    }
 
     const interval = setInterval(() => {
-      loadTokens(); // Refresh every 5 seconds
+      // We pause refreshing when a token is selected to avoid losing focus on input fields
+      if (!selectedToken) {
+        loadTokens();
+      }
     }, 5000);
 
-    return () => clearInterval(interval);
-  }, []);
-
-  // Update tokenId input when selected token changes
-  useEffect(() => {
-    if (selectedToken) {
-      setTokenIdInput(selectedToken);
-      setIncrementForm((prev) => ({
-        ...prev,
-        tokenId: selectedToken,
-      }));
-    }
+    return () => clearInterval(interval); // Cleanup on unmount or when dependencies change
   }, [selectedToken]);
 
   // Create hardhat wallet client when main wallet connects
@@ -368,8 +397,11 @@ export function WalletDemo() {
 
   // Handle card selection
   const handleCardSelect = (tokenId: string) => {
-    setSelectedToken(tokenId);
-    // No notification for token selection to avoid spam
+    setSelectedToken((prevSelectedToken) =>
+      prevSelectedToken === tokenId ? null : tokenId
+    );
+    setNewPropName("");
+    setNewPropValue("");
   };
 
   // Memoized property suggestions for each token (stable per token, filtered by missing properties)
@@ -645,7 +677,11 @@ export function WalletDemo() {
     }
   };
 
-  const incrementCounter = async () => {
+  const addProperty = async (
+    tokenId: string,
+    propertyName: string,
+    propertyValue: string,
+  ) => {
     if (!midnightWallet?.contractConnected) {
       showNotification(
         "error",
@@ -655,38 +691,7 @@ export function WalletDemo() {
       return;
     }
 
-    // if (!selectedToken) {
-    //   showNotification(
-    //     "error",
-    //     "No NFT Selected",
-    //     "Please select an NFT to add the property to",
-    //   );
-    //   return;
-    // }
-
-    // Check if token exists and is valid
-    const selectedTokenData = tokens.find((token) =>
-      token.id === selectedToken
-    );
-    // if (!selectedTokenData) {
-    //   showNotification(
-    //     "error",
-    //     "Token Not Found",
-    //     "The selected ERC721 token does not exist",
-    //   );
-    //   return;
-    // }
-
-    // if (!selectedTokenData.isValid) {
-    //   showNotification(
-    //     "error",
-    //     "Invalid Token",
-    //     "The selected token is invalid (no owner found)",
-    //   );
-    //   // return;
-    // }
-
-    if (!incrementForm.propertyName || !incrementForm.propertyValue) {
+    if (!propertyName || !propertyValue) {
       showNotification(
         "error",
         "Missing Property Details",
@@ -697,8 +702,7 @@ export function WalletDemo() {
 
     setIsIncrementingCounter(true);
 
-    // Add animation for the property
-    const propertyKey = `${selectedToken}-${incrementForm.propertyName}`;
+    const propertyKey = `${tokenId}-${propertyName}`;
     setAnimatingProperties((prev) => new Set([...prev, propertyKey]));
     setTimeout(() => {
       setAnimatingProperties((prev) => {
@@ -710,34 +714,30 @@ export function WalletDemo() {
 
     try {
       console.log("🏷️ [NETWORK] Adding property to NFT via Midnight network");
-      console.log("📝 [PROPERTY] Contract:", incrementForm.contractAddress);
-      console.log("📝 [PROPERTY] Token ID:", incrementForm.tokenId);
+      console.log("📝 [PROPERTY] Contract:", erc721Address);
+      console.log("📝 [PROPERTY] Token ID:", tokenId);
       console.log(
         "📝 [PROPERTY] Property:",
-        incrementForm.propertyName,
+        propertyName,
         "=",
-        incrementForm.propertyValue,
+        propertyValue,
       );
 
-      // Show processing notification
       showNotification(
         "info",
         "Adding Property",
-        `Adding "${incrementForm.propertyName}" property to NFT on Midnight network...`,
+        `Adding "${propertyName}" property to NFT on Midnight network...`,
       );
 
-      // Call the increment function with the form parameters
       const result = await incrementCounterValue(
-        incrementForm.contractAddress,
-        incrementForm.tokenId,
-        incrementForm.propertyName,
-        incrementForm.propertyValue,
+        erc721Address,
+        tokenId,
+        propertyName,
+        propertyValue,
       );
 
-      // Fetch updated state
       const updatedState = await fetchCurrentCounterState();
 
-      // Update the wallet state with new counter value
       setMidnightWallet((prev) =>
         prev
           ? {
@@ -750,10 +750,9 @@ export function WalletDemo() {
       showNotification(
         "success",
         "Property Added",
-        `Property "${incrementForm.propertyName}: ${incrementForm.propertyValue}" added to NFT successfully! Transaction: ${result.txId}. Data will refresh from API.`,
+        `Property "${propertyName}: ${propertyValue}" added to NFT successfully! Transaction: ${result.txId}. Data will refresh from API.`,
       );
 
-      // Refresh tokens after a delay to get updated data
       setTimeout(() => {
         loadTokens();
       }, 2000);
@@ -762,7 +761,7 @@ export function WalletDemo() {
       showNotification(
         "error",
         "Property Addition Failed",
-        `Failed to add property "${incrementForm.propertyName}: ${incrementForm.propertyValue}" to NFT: ${
+        `Failed to add property "${propertyName}: ${propertyValue}" to NFT: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
@@ -839,7 +838,15 @@ export function WalletDemo() {
                     ? `✅ ${
                       walletType === "local" ? "Local Wallet" : "MetaMask"
                     } Connected`
-                    : "❌ Connect MetaMask using the header button"}
+                    : (
+                      <button
+                        type="button"
+                        onClick={connectEvmWallet}
+                        className="wallet-button evm-button"
+                      >
+                        Connect EVM Wallet
+                      </button>
+                    )}
                 </div>
 
                 {
@@ -855,67 +862,6 @@ export function WalletDemo() {
                 )} */
                 }
               </div>
-
-              {walletConnected && (
-                <div className="token-creation">
-                  <div className="token-input-group">
-                    <div className="token-id-creation-group">
-                      <label htmlFor="createTokenId" className="token-id-label">
-                        Token ID:
-                      </label>
-                      <div className="token-id-input-wrapper">
-                        <input
-                          id="createTokenId"
-                          type="text"
-                          value={createTokenId}
-                          onChange={(e) => setCreateTokenId(e.target.value)}
-                          className={`token-name-input evm-input ${
-                            createTokenId.trim() &&
-                              !/^\d+$/.test(createTokenId.trim())
-                              ? "form-input-error"
-                              : ""
-                          }`}
-                          placeholder="Enter token ID"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCreateTokenId(Date.now().toString())}
-                          className="refresh-timestamp-btn"
-                          title="Refresh with current timestamp"
-                        >
-                          🕐
-                        </button>
-                      </div>
-                      {createTokenId.trim() &&
-                        !/^\d+$/.test(createTokenId.trim()) && (
-                        <div className="input-warning">
-                          ⚠️ Token ID must be a positive number
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={createERC721Token}
-                      className="wallet-button evm-button"
-                      disabled={isCreatingToken || !walletConnected ||
-                        !hardhatWalletClient || !createTokenId.trim() ||
-                        !/^\d+$/.test(createTokenId.trim())}
-                    >
-                      {isCreatingToken
-                        ? (
-                          <>
-                            <span className="loader"></span>
-                            Creating Token...
-                          </>
-                        )
-                        : (
-                          "MINT ERC721 Token"
-                        )}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Midnight Wallet Section */}
@@ -925,221 +871,55 @@ export function WalletDemo() {
               </h3>
 
               <div className="wallet-info">
-                <div className="current-wallet">
-                  <span className="wallet-label">Current Wallet:</span>
-                  <span className="wallet-address midnight-address">
-                    {midnightWallet?.connected
-                      ? `${midnightWallet.address.slice(0, 12)}...${
-                        midnightWallet.address.slice(-8)
-                      }`
-                      : "No wallet connected"}
-                  </span>
-                </div>
-
-                {midnightWallet?.connected && (
-                  <div className="contract-status">
-                    <div className="contract-info">
-                      <span className="contract-label">Contract:</span>
-                      <span className="contract-address">
-                        {midnightWallet.contractConnected
-                          ? `${midnightWallet.contractAddress?.slice(0, 8)}...${
-                            midnightWallet.contractAddress?.slice(-6)
-                          }`
-                          : "Not connected"}
-                      </span>
-                    </div>
-                    <div className="counter-value">
-                      <span className="counter-label">Counter Value:</span>
-                      <span className="counter-number">
-                        {midnightWallet.currentCounterValue?.toString() ??
-                          "N/A"}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={connectMidnightWalletHandler}
-                  className="wallet-button midnight-button"
-                  disabled={isConnectingMidnight}
-                >
-                  {isConnectingMidnight
-                    ? (
-                      <>
-                        <span className="loader"></span>
-                        Connecting...
-                      </>
-                    )
-                    : midnightWallet?.connected
-                    ? "✅ Midnight Wallet Connected"
-                    : "Connect Midnight Wallet"}
-                </button>
-              </div>
-
-              {midnightWallet?.contractConnected && (
-                <div className="counter-operations">
-                  <h4 className="counter-title">Add NFT Property</h4>
-
-                  <div className="increment-form">
-                    <div className="form-table">
-                      <div className="form-row">
-                        <label htmlFor="contractAddress" className="form-label">
-                          Contract Address:
-                        </label>
-                        <input
-                          id="contractAddress"
-                          type="text"
-                          value={incrementForm.contractAddress}
-                          onChange={(e) =>
-                            setIncrementForm((prev) => ({
-                              ...prev,
-                              contractAddress: e.target.value,
-                            }))}
-                          className="form-input"
-                          placeholder="0x..."
-                          disabled
-                        />
+                {midnightWallet?.connected
+                  ? (
+                    <>
+                      <div className="current-wallet">
+                        <span className="wallet-label">Current Wallet:</span>
+                        <span className="wallet-address midnight-address">
+                          {midnightWallet.address
+                            ? `${midnightWallet.address.slice(0, 8)}...${
+                              midnightWallet.address.slice(-6)
+                            }`
+                            : "Unknown address"}
+                        </span>
                       </div>
-
-                      <div className="form-row">
-                        <label htmlFor="tokenId" className="form-label">
-                          Token ID:
-                        </label>
-                        <div className="token-id-input-group">
-                          <input
-                            id="tokenId"
-                            type="text"
-                            value={tokenIdInput}
-                            onChange={(e) => {
-                              setTokenIdInput(e.target.value);
-                              setIncrementForm((prev) => ({
-                                ...prev,
-                                tokenId: e.target.value,
-                              }));
-                            }}
-                            className={`form-input ${
-                              tokenIdInput && !tokens.find((t) =>
-                                  t.id === tokenIdInput
-                                )
-                                ? "form-input-error"
-                                : ""
-                            }`}
-                            placeholder="Enter or select token ID"
-                          />
-                          {tokenIdInput && !tokens.find((t) =>
-                            t.id === tokenIdInput
-                          ) && (
-                            <div className="input-warning">
-                              ⚠️ The ERC721 token does not exist
-                            </div>
-                          )}
-                        </div>
+                      <div
+                        className="wallet-status"
+                        style={{
+                          textAlign: "center",
+                          padding: "10px",
+                          borderRadius: "6px",
+                          fontSize: "0.9rem",
+                          fontWeight: "500",
+                          marginTop: "10px",
+                          background: "rgba(16, 185, 129, 0.1)",
+                          color: "#059669",
+                          border: "1px solid rgba(16, 185, 129, 0.3)",
+                        }}
+                      >
+                        ✅ Connected
                       </div>
-
-                      <div className="form-row">
-                        <label htmlFor="propertyName" className="form-label">
-                          Property Name:
-                        </label>
-                        <input
-                          id="propertyName"
-                          type="text"
-                          value={incrementForm.propertyName}
-                          onChange={(e) =>
-                            setIncrementForm((prev) => ({
-                              ...prev,
-                              propertyName: e.target.value,
-                            }))}
-                          className="form-input"
-                          placeholder="e.g., Level, Strength, Rarity"
-                        />
-                      </div>
-
-                      <div className="form-row">
-                        <label htmlFor="propertyValue" className="form-label">
-                          Property Value:
-                        </label>
-                        <div className="property-value-input-group">
-                          <input
-                            id="propertyValue"
-                            type="text"
-                            value={incrementForm.propertyValue}
-                            onChange={(e) =>
-                              setIncrementForm((prev) => ({
-                                ...prev,
-                                propertyValue: e.target.value,
-                              }))}
-                            className="form-input"
-                            placeholder="e.g., 1, Legendary, 100"
-                          />
-                          {incrementForm.propertyName.toLowerCase() ===
-                              "name" && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const randomName = RANDOM_TOKEN_NAMES[
-                                  Math.floor(
-                                    Math.random() * RANDOM_TOKEN_NAMES.length,
-                                  )
-                                ];
-                                setIncrementForm((prev) => ({
-                                  ...prev,
-                                  propertyValue: randomName,
-                                }));
-                              }}
-                              className="wallet-button midnight-button random-name-btn"
-                              title="Generate random name"
-                            >
-                              🎲
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="counter-actions">
+                    </>
+                  )
+                  : (
                     <button
                       type="button"
-                      onClick={incrementCounter}
-                      className="wallet-button midnight-button increment-button"
-                      disabled={isIncrementingCounter ||
-                        !incrementForm.propertyName ||
-                        !incrementForm.propertyValue}
+                      onClick={connectMidnightWalletHandler}
+                      className="wallet-button midnight-button"
+                      disabled={isConnectingMidnight}
                     >
-                      {isIncrementingCounter
+                      {isConnectingMidnight
                         ? (
                           <>
                             <span className="loader"></span>
-                            Adding Property...
+                            Connecting...
                           </>
                         )
-                        : (
-                          "🏷️ Add Property to NFT"
-                        )}
+                        : "Connect Midnight Wallet"}
                     </button>
-                  </div>
-
-                  <div className="counter-description">
-                    <p>
-                      Select an NFT below and fill in the property details
-                      above. Click the button to add the property to your
-                      selected NFT via the Midnight blockchain.
-                    </p>
-                    {!selectedToken && (
-                      <p
-                        style={{
-                          color: "#f59e0b",
-                          fontSize: "14px",
-                          marginTop: "8px",
-                        }}
-                      >
-                        ⚠️ Please select an NFT from the cards below first.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
+                  )}
+              </div>
             </div>
           </div>
 
@@ -1147,7 +927,7 @@ export function WalletDemo() {
           <div className="tokens-cards-container">
             <div className="cards-header">
               <h3 className="cards-title">
-                ERC721 Tokens & Properties
+                Merged EVM ERC721 + Midnight Properties
                 {isLoadingTokens && (
                   <span className="loading-indicator">(Loading...)</span>
                 )}
@@ -1164,6 +944,66 @@ export function WalletDemo() {
                 )}
               </button>
             </div>
+
+            {walletConnected && (
+              <div className="token-creation">
+                <div className="token-input-group">
+                  <div className="token-id-creation-group">
+                    <label htmlFor="createTokenId" className="token-id-label">
+                      Create new Asset with # ID:
+                    </label>
+                    <div className="token-id-input-wrapper">
+                      <input
+                        id="createTokenId"
+                        type="text"
+                        value={createTokenId}
+                        onChange={(e) => setCreateTokenId(e.target.value)}
+                        className={`token-name-input evm-input ${
+                          createTokenId.trim() &&
+                            !/^\d+$/.test(createTokenId.trim())
+                            ? "form-input-error"
+                            : ""
+                        }`}
+                        placeholder="Enter token ID"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setCreateTokenId(Date.now().toString())}
+                        className="refresh-timestamp-btn"
+                        title="Refresh with current timestamp"
+                      >
+                        🕐
+                      </button>
+                    </div>
+                    {createTokenId.trim() &&
+                      !/^\d+$/.test(createTokenId.trim()) && (
+                      <div className="input-warning">
+                        ⚠️ Token ID must be a positive number
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={createERC721Token}
+                    className="wallet-button evm-button"
+                    disabled={isCreatingToken || !walletConnected ||
+                      !hardhatWalletClient || !createTokenId.trim() ||
+                      !/^\d+$/.test(createTokenId.trim())}
+                  >
+                    {isCreatingToken
+                      ? (
+                        <>
+                          <span className="loader"></span>
+                          Creating Token...
+                        </>
+                      )
+                      : (
+                        "MINT ERC721 Token"
+                      )}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {tokens.length === 0 && !isLoadingTokens && (
               <div className="no-tokens-message">
@@ -1240,11 +1080,11 @@ export function WalletDemo() {
                                         onClick={(e) => {
                                           e.stopPropagation(); // Prevent card selection
                                           handleCardSelect(token.id); // Select the card first
-                                          // Note: Property suggestions disabled for counter demo
+                                          setNewPropName(suggestion.key);
+                                          setNewPropValue(suggestion.value);
                                         }}
                                         className="card-suggestion-tag"
                                         title={suggestion.description}
-                                        disabled
                                       >
                                         {suggestion.key}
                                       </button>
@@ -1276,6 +1116,128 @@ export function WalletDemo() {
                               </div>
                             )}
                         </div>
+                        {selectedToken === token.id && (
+                          <div>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "5px",
+                                marginTop: "10px",
+                                marginBottom: "10px",
+                              }}
+                            >
+                              <label
+                                style={{
+                                  fontWeight: "600",
+                                  fontSize: "0.9rem",
+                                }}
+                              >
+                                Update Token Name
+                              </label>
+                              <div style={{ display: "flex", gap: "10px" }}>
+                                <input
+                                  className="token-name-input evm-input"
+                                  style={{ flex: 1 }}
+                                  value={(token.properties.Name as string) ||
+                                    ""}
+                                  onChange={(e) => {
+                                    const newTokens = [...tokens];
+                                    const tokenIndex = newTokens.findIndex(
+                                      (t) => t.id === token.id,
+                                    );
+                                    if (tokenIndex !== -1) {
+                                      newTokens[tokenIndex] = {
+                                        ...newTokens[tokenIndex],
+                                        properties: {
+                                          ...newTokens[tokenIndex].properties,
+                                          Name: e.target.value,
+                                        },
+                                      };
+                                      setTokens(newTokens);
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="wallet-button evm-button"
+                                  style={{ minHeight: "auto", padding: "10px" }}
+                                  disabled={isIncrementingCounter}
+                                  onClick={async () => {
+                                    await addProperty(
+                                      token.id,
+                                      "Name",
+                                      token.properties.Name as string,
+                                    );
+                                  }}
+                                >
+                                  {isIncrementingCounter ? "Saving..." : "Save"}
+                                </button>
+                              </div>
+                            </div>
+
+                            <label
+                              style={{
+                                fontWeight: "600",
+                                fontSize: "0.9rem",
+                              }}
+                            >
+                              Create Custom Property
+                            </label>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "10px",
+                                marginTop: "10px",
+                              }}
+                            >
+                              <input
+                                className="token-name-input evm-input"
+                                style={{ flex: 1, maxWidth: "100px" }}
+                                placeholder="key"
+                                value={newPropName}
+                                onChange={(e) => setNewPropName(e.target.value)}
+                              />
+                              <input
+                                className="token-name-input evm-input"
+                                style={{ flex: 1, maxWidth: "140px" }}
+                                placeholder="value"
+                                value={newPropValue}
+                                onChange={(e) =>
+                                  setNewPropValue(e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                className="wallet-button evm-button"
+                                style={{
+                                  flex: 1,
+                                  minHeight: "auto",
+                                  padding: "10px",
+                                }}
+                                disabled={isIncrementingCounter}
+                                onClick={async () => {
+                                  if (!newPropName || !newPropValue) {
+                                    showNotification(
+                                      "error",
+                                      "Missing input",
+                                      "Please provide both property name and value",
+                                    );
+                                    return;
+                                  }
+                                  await addProperty(
+                                    token.id,
+                                    newPropName,
+                                    newPropValue,
+                                  );
+                                  setNewPropName("");
+                                  setNewPropValue("");
+                                }}
+                              >
+                                {isIncrementingCounter ? "Adding..." : "Add"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
