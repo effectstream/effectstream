@@ -113,6 +113,7 @@ export const paimaL2Builder = (sharedState: SharedState) => ({
   submitGameInput: async (
     input: (string | number | boolean)[],
     privateKey: `0x${string}`,
+    wait = true,
   ): Promise<void> => {
     console.log("🎮 Submitting game input", input);
     const { account, walletClient, publicClient } = clients(
@@ -152,6 +153,10 @@ export const paimaL2Builder = (sharedState: SharedState) => ({
         receipt.status === "success" ? "" : "❌"
       } Submit Game Input block ${receipt.blockNumber} @ Hash ${hash}`,
     );
+
+    if (wait) {
+      await blockWatcher.waitForBlock(mainEvm.name, receipt.blockNumber);
+    }
 
     // Update shared state
     sharedState.paima_state_machine_counter += 1;

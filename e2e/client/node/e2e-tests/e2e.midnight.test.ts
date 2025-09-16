@@ -430,6 +430,7 @@ async function joinAndIncrementTest(
     console.error("❌ Error:", error instanceof Error ? error.message : error);
     // Deno.exit(1);
   } finally {
+    await blockWatcher.waitForBlock();
     // Clean up wallet
     if (wallet) {
       try {

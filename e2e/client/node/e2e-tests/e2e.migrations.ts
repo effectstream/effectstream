@@ -43,8 +43,8 @@ export async function testMigrations(db: Client) {
     async () => {
       // 2 system migrations
       // 4 dynamic tables
-      // 4 user migration
-      return migrations.rows.length === 10;
+      // 5 user migration
+      return migrations.rows.length === 11;
     },
   );
 }
