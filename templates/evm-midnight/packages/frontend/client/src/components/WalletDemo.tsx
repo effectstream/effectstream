@@ -1117,7 +1117,11 @@ export function WalletDemo() {
                             )}
                         </div>
                         {selectedToken === token.id && (
-                          <div>
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          >
                             <div
                               style={{
                                 display: "flex",
