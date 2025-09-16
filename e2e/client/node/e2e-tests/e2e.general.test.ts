@@ -2,6 +2,7 @@ import {
   addLinkedAddress,
   assert,
   assertSQL,
+  blockWatcher,
   erc20Builder,
   erc721Builder,
   paimaL2Builder,
@@ -15,59 +16,9 @@ import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { ENV } from "@paima/utils/node-env";
 import { createBatcherSubunit, createMessageForBatcher } from "@paima/concise";
-import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
-
-/**
- * Wait for a specific block number to be processed by the Paima Engine.
- * If only latest block is provided, it will wait for the next block on the __main__ chain.s
- * @param latestBlock - The latest block number for each chain.
- * @param chain - The chain to wait for.
- * @param blockNumber - The block number to wait for.
- */
-const waitForBlock = async (
-  latestBlock: Record<string, number>,
-  chain = "__main__",
-  blockNumber?: number | bigint,
-) => {
-  const waitForBlockNumber = BigInt(blockNumber ?? latestBlock[chain] + 1);
-  const sleep = (ms: number) =>
-    new Promise((resolve) => setTimeout(resolve, ms));
-  while (
-    latestBlock[chain] ? BigInt(latestBlock[chain]) < waitForBlockNumber : true
-  ) {
-    await sleep(100);
-  }
-};
 
 // Start Test
 export async function generalTest(db: Client, sharedState: SharedState) {
-  const latestBlock: Record<string, number> = {};
-  latestBlock["__main__"] = 0;
-  await PaimaEventManager.Instance.subscribe(
-    {
-      topic: BuiltinEvents.RollupBlock,
-      filter: { block: undefined },
-    },
-    (event) => {
-      latestBlock["__main__"] = Math.max(
-        Number(event.block),
-        isNaN(latestBlock["__main__"]) ? 0 : latestBlock["__main__"],
-      );
-    },
-  );
-  await PaimaEventManager.Instance.subscribe(
-    {
-      topic: BuiltinEvents.SyncChains,
-      filter: { chain: undefined, block: undefined },
-    },
-    (event) => {
-      latestBlock[event.chain] = Math.max(
-        event.block,
-        latestBlock[event.chain] ? 0 : event.block,
-      );
-    },
-  );
-
   // Lazy load the contracts.
   const erc20 = erc20Builder(sharedState);
   const erc721 = erc721Builder(sharedState);
@@ -103,7 +54,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   // Wait until parallelEvmRPC_fast is at least blockNumber
   // TODO Refactor this into the send-transactions functions,
   //      So they wait until the block number is reached.
-  await waitForBlock(latestBlock, "parallelEvmRPC_fast", blockNumber);
+  await blockWatcher.waitForBlock("parallelEvmRPC_fast", blockNumber);
   await assertSQL<{ primitive_name: string }>(
     "Check ERC20 sync-process",
     db,
@@ -125,7 +76,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     ["attack", "1", "100"],
     wallets[0].privateKey,
   );
-  await waitForBlock(latestBlock);
+  await blockWatcher.waitForBlock();
   await assertSQL<{ primitive_name: string }>(
     "Check PaimaL2 sync-process",
     db,
@@ -144,7 +95,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     ["attack", "2", "200"],
     wallets[0].privateKey,
   );
-  await waitForBlock(latestBlock);
+  await blockWatcher.waitForBlock();
   await assertSQL<{ inputs: string }>(
     "Check State Machine events",
     db,
@@ -268,7 +219,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   );
   // This command does not increment the paima_state_machine_counter.
   sharedState.paima_state_machine_counter -= 1;
-  await waitForBlock(latestBlock);
+  await blockWatcher.waitForBlock();
   await assertSQL<{ primitive_name: string }>(
     "Wait for error to be processed",
     db,
@@ -395,7 +346,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     wallets[0].privateKey,
   );
   // This should increment the state machine indirectly.
-  await waitForBlock(latestBlock);
+  await blockWatcher.waitForBlock();
   await assertSQL<{ inputs: string; block_height: number }>(
     "Check Scheduled Data - block",
     db,
@@ -506,7 +457,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     wallets[0].address,
     tokens.tokenD,
   );
-  await waitForBlock(latestBlock, "parallelEvmRPC_fast", blockNumber);
+  await blockWatcher.waitForBlock("parallelEvmRPC_fast", blockNumber);
   // Cannot burn a token?
   // await erc721.burn(wallet_X.privateKey, tokens.tokenD);
   await assertSQL<

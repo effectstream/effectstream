@@ -1,7 +1,7 @@
 import type { Client } from "pg";
 import { Account, Pallets, SDK } from "avail-js-sdk";
 import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
-import { assertSQL, type SharedState } from "@e2e/engine";
+import { assertSQL, blockWatcher, type SharedState } from "@e2e/engine";
 import { readAvailApplication } from "@e2e/avail-contracts";
 
 const AVAIL_NODE_URL = "ws://localhost:9955/ws";
@@ -71,18 +71,10 @@ export async function submitDataWithMessageAvailTest(
   const appId = readAvailApplication().appId;
   console.log(`Submitting data to App Id: ${appId}`);
   const data = '{ "message": "Batata" }';
-  let blockNumber = Number(latestBlock["__main__"]);
-  while (isNaN(blockNumber)) {
-    await sleep(1000);
-    blockNumber = Number(latestBlock["__main__"]);
-  }
+  await blockWatcher.waitForBlock();
   const txHash = await submitData(appId, data);
   console.log(`Transaction Hash: ${txHash.txHash.toString()}`);
-  while (
-    latestBlock["__main__"] ? latestBlock["__main__"] < blockNumber : true
-  ) {
-    await sleep(1000);
-  }
+  await blockWatcher.waitForBlock();
   // Avail Tx should have inserted new primitive accounting entry
   sharedState.primitive_accounting_counter += 1;
   await assertSQL<{ primitive_name: string }>(

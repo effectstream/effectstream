@@ -1,5 +1,6 @@
 import {
   anyError,
+  blockWatcher,
   cleanup,
   newSharedState,
   printSummary,
@@ -29,9 +30,10 @@ async function test() {
     // The contracts are deployed with the private key.
     db = await startup();
 
-    const sharedState = newSharedState();
+    const sharedState: SharedState = newSharedState();
     sharedState.primitive_accounting_counter = 1;
 
+    await blockWatcher.initBlockSubscription();
     await generalTest(db, sharedState);
     console.log(
       "generalTest completed",
