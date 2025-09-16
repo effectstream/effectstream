@@ -24,8 +24,13 @@ import {
   updateERC721Ownership,
 } from "./e2e-shared-state.ts";
 
-const mainEvm = hardhat;
+import { blockWatcher } from "./e2e-block-subscription.ts";
+
+// Overwrite "Hardhat" chain name to "parallelEvmRPC_fast" and "parallelEvmRPC_slow" to identify them in the block watcher.
+const mainEvm = { ...hardhat, name: "parallelEvmRPC_fast" };
 const parallelEvm = JSON.parse(JSON.stringify(hardhat));
+parallelEvm.name = "parallelEvmRPC_slow";
+
 parallelEvm.id = 31338;
 parallelEvm.rpcUrls.default.http[0] = "http://0.0.0.0:8546";
 
@@ -123,7 +128,7 @@ export const paimaL2Builder = (sharedState: SharedState) => ({
       abi: paimal2contract.metadata.output.abi,
       functionName: "paimaSubmitGameInput",
       args: [
-        toHex(JSON.stringify(input.map(i => {
+        toHex(JSON.stringify(input.map((i) => {
           switch (typeof i) {
             case "string":
               return i;
@@ -219,12 +224,12 @@ function erc721Factory(
           );
         }
         blockNumber = receipt.blockNumber;
+        await blockWatcher.waitForBlock(chain.name, blockNumber);
       }
 
       updateERC721Ownership(sharedState, chain.id, account.address, token_id);
       sharedState.primitive_accounting_counter += 1;
       sharedState.paima_state_machine_counter += 1;
-
       return blockNumber;
     },
     transfer: async (
@@ -268,6 +273,7 @@ function erc721Factory(
           );
         }
         blockNumber = receipt.blockNumber;
+        await blockWatcher.waitForBlock(chain.name, blockNumber);
       }
 
       updateERC721Ownership(sharedState, chain.id, to_address, tokenId);
@@ -316,12 +322,12 @@ function erc721Factory(
           );
         }
         blockNumber = receipt.blockNumber;
+        await blockWatcher.waitForBlock(chain.name, blockNumber);
       }
 
       updateERC721Ownership(sharedState, chain.id, null, tokenId);
       sharedState.primitive_accounting_counter += 1;
       sharedState.paima_state_machine_counter += 1;
-
       return blockNumber;
     },
   };
@@ -371,10 +377,11 @@ export const erc20Factory = (
           console.log(
             `  ${
               receipt.status === "success" ? "" : "❌"
-            } Mint block ${receipt.blockNumber} @ Hash ${hash}`,
+            } Mint block ${receipt.blockNumber} @ Hash ${hash} for "${chain.name}"`,
           );
         }
         blockNumber = receipt.blockNumber;
+        await blockWatcher.waitForBlock(chain.name, blockNumber);
       }
 
       // Update shared state
@@ -424,6 +431,7 @@ export const erc20Factory = (
           );
         }
         blockNumber = receipt.blockNumber;
+        await blockWatcher.waitForBlock(chain.name, blockNumber);
       }
 
       // Update shared state

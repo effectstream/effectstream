@@ -30,11 +30,12 @@ class BlockWatcher {
     block?: number | bigint,
   ): Promise<void> {
     await this.ensureInitialized();
-    let currentBlock: number = this.latestBlock[chain] ?? 0;
+    const targetChain = chain;
+    let currentBlock: number = this.latestBlock[targetChain] ?? 0;
     const targetBlock: number = Number(block ?? currentBlock + 1);
     while (currentBlock < targetBlock) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      currentBlock = this.latestBlock[chain] ?? 0;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      currentBlock = this.latestBlock[targetChain] ?? 0;
     }
   }
 
