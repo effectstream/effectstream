@@ -76,6 +76,7 @@ export async function submitDataWithMessageAvailTest(
   console.log(`Transaction Hash: ${txHash.txHash.toString()}`);
   await blockWatcher.waitForBlock();
   await blockWatcher.waitForBlock();
+  await blockWatcher.waitForBlock();
   // Avail Tx should have inserted new primitive accounting entry
   sharedState.primitive_accounting_counter += 1;
   await assertSQL<{ primitive_name: string }>(
@@ -83,6 +84,6 @@ export async function submitDataWithMessageAvailTest(
     db,
     `SELECT * FROM avail_messages;`,
     (res: any) => res.rows.length === 1,
-    (res: any) => res.rows[0].message === data,
+    (res: any) => res.rows[0].message === JSON.parse(data).message,
   );
 }
