@@ -1,6 +1,5 @@
 import processPaimaL2Event from "./evm/rpc/paima-l2.ts";
 
-import assertNever from "assert-never";
 import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
@@ -8,7 +7,6 @@ import type {
 import { ConfigPrimitivePayloadType, ConfigPrimitiveType } from "@paima/config";
 import { World, type StateUpdateStream } from "@paima/coroutine";
 import type { PaimaBlockNumber } from "@paima/utils";
-import { clearBigInts } from "./utils.ts";
 import { PaimaPrimitiveRegistry } from "@e2e/my-primitives";
 import { createScheduledData, type IInsertPrimitiveAccountingParams, insertPrimitiveAccounting } from "@paima/db";
 
@@ -75,12 +73,10 @@ export function* primitiveTransitionFunction(
             primitive,
           );
         default:
-          assertNever.default(clearBigInts(primitive));
-      }
-      break;
+          throw new Error(`Primitive type ${primitive.primitiveType} not supported`);
+        }
   
     default:
       throw new Error(`Primitive type ${primitive.primitiveType} not supported`);
-      break;
   }
 }

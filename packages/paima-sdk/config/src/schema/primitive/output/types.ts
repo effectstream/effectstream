@@ -1,7 +1,7 @@
 import type { StaticDecode, TLiteral, TObject } from "@sinclair/typebox";
 import type { ConfigSyncProtocolType } from "../../sync-protocols/types.ts";
 import type { PrimitivesTypesForSyncProtocol } from "../config/types.ts";
-import type { PrimitiveToDatum } from "./all.ts";
+// import type { PrimitiveToDatum } from "./all.ts";
 import type { IntersectObject, MergeIntersects, ValueOf } from "@paima/utils";
 import type {
   ConfigSyncProtocolCommonAll,
@@ -39,14 +39,16 @@ type AddSyncProtocolCommonResponse<
   : never;
 export type ResponseForSyncProtocol<
   SyncProtocol extends ConfigSyncProtocolType,
-> = SyncProtocol extends unknown ? AddSyncProtocolCommonResponse<
-    SyncProtocol,
-    FilterForPrimitive<
-      (typeof PrimitiveToDatum)[number],
-      ValueOf<PrimitivesTypesForSyncProtocol<SyncProtocol>>
-    >
-  >
-  : never;
+> = any;
+
+// SyncProtocol extends unknown ? AddSyncProtocolCommonResponse<
+//     SyncProtocol,
+//     FilterForPrimitive<
+//       (typeof PrimitiveToDatum)[number],
+//       ValueOf<PrimitivesTypesForSyncProtocol<SyncProtocol>>
+//     >
+//   >
+//   : never;
 
 /**
  * Typescript struggles to realize the sync protocol & payload field generic types are correlated

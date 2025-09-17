@@ -177,7 +177,7 @@ export class EvmFetcher
         output: {
           payloadType: primitive.primitive.abi.name as any,
           primitive: primitive.primitive as any,
-          payload: log.args,
+          payload: (log as any).args,
           syncProtocol: {
             type: primitive.syncProtocol as any,
             name: primitive.primitive.name,

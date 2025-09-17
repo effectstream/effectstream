@@ -23,113 +23,26 @@ export enum ConfigPrimitiveType {
   AvailPaimaL2 = "avail-paima-l2",
 }
 
-export const AlgorandPrimitivesToSyncProtocol = {} as const;
-
-export const AvailPrimitivesToSyncProtocol = {
-  [ConfigPrimitiveType.AvailPaimaL2]: [
-    ConfigSyncProtocolType.AVAIL_PARALLEL,
-  ],
-} as const;
-
-export const CardanoCarpPrimitivesToSyncProtocol = {
-  [ConfigPrimitiveType.CardanoCarpDelegation]: [
-    ConfigSyncProtocolType.CARDANO_CARP_PARALLEL,
-  ],
-  [ConfigPrimitiveType.CardanoCarpProjectedNFT]: [
-    ConfigSyncProtocolType.CARDANO_CARP_PARALLEL,
-  ],
-  [ConfigPrimitiveType.CardanoCarpDelayedAsset]: [
-    ConfigSyncProtocolType.CARDANO_CARP_PARALLEL,
-  ],
-  [ConfigPrimitiveType.CardanoCarpTransfer]: [
-    ConfigSyncProtocolType.CARDANO_CARP_PARALLEL,
-  ],
-  [ConfigPrimitiveType.CardanoCarpMintBurn]: [
-    ConfigSyncProtocolType.CARDANO_CARP_PARALLEL,
-  ],
-} as const;
-export const CardanoUtxorpcPrimitivesToSyncProtocol = {
-  [ConfigPrimitiveType.CardanoUtxorpcMatchTx]: [
-    ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
-  ],
-} as const;
-
-export const EvmPrimitivesToSyncProtocol = {
-  [ConfigPrimitiveType.EvmRpcGeneric]: [
-    ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-  ],
-  [ConfigPrimitiveType.EvmRpcPaimaL2]: [
-    ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-  ],
-  // [ConfigPrimitiveType.EvmRpcERC20]: [
-  //   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-  // ],
-  [ConfigPrimitiveType.EvmRpcERC721]: [
-    ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-  ],
-  [ConfigPrimitiveType.EvmRpcERC6551Registry]: [
-    ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-  ],
-  [ConfigPrimitiveType.EvmRpcERC1155]: [
-    ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-  ],
-  [ConfigPrimitiveType.EvmRpcDynamicPrimitive]: [
-    ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-  ],
-} as const;
-
-export const MinaPrimitivesToSyncProtocol = {
-  [ConfigPrimitiveType.MinaEventGeneric]: [
-    ConfigSyncProtocolType.MINA_PARALLEL,
-  ],
-  [ConfigPrimitiveType.MinaActionGeneric]: [
-    ConfigSyncProtocolType.MINA_PARALLEL,
-  ],
-} as const;
-
-export const MidnightPrimitivesToSyncProtocol = {
-  [ConfigPrimitiveType.MidnightContractState]: [
-    ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
-  ],
-} as const;
-
-export const PrimitiveToSyncProtocol = {
-  ...AvailPrimitivesToSyncProtocol,
-  ...CardanoCarpPrimitivesToSyncProtocol,
-  ...CardanoUtxorpcPrimitivesToSyncProtocol,
-  ...EvmPrimitivesToSyncProtocol,
-  ...MinaPrimitivesToSyncProtocol,
-  ...MidnightPrimitivesToSyncProtocol,
-} as const satisfies Record<
-  ConfigPrimitiveType,
-  readonly ConfigSyncProtocolType[]
->;
-
-type FindPrimitive<
-  SyncProtocol extends ConfigSyncProtocolType,
-  T extends typeof PrimitiveToSyncProtocol,
-> = {
-  [K in keyof T]: T[K] extends readonly (infer Val)[]
-    ? SyncProtocol extends Val ? SyncProtocol
-    : never
-    : never;
-};
-
 export type SyncProtocolsForPrimitives<
   SyncProtocol extends ConfigSyncProtocolType,
-> = RemoveNeverEntries<
-  FindPrimitive<SyncProtocol, typeof PrimitiveToSyncProtocol>
->;
+> = any;
+// RemoveNeverEntries<
+//   FindPrimitive<SyncProtocol, typeof PrimitiveToSyncProtocol>
+// >;
+
 export type PrimitivesTypesForSyncProtocol<
   SyncProtocol extends ConfigSyncProtocolType,
-> = FlipObject<
-  SyncProtocolsForPrimitives<SyncProtocol>
->;
+> = any;
+//  FlipObject<
+//   SyncProtocolsForPrimitives<SyncProtocol>
+// >;
+
 export type PrimitivesForSyncProtocol<
   SyncProtocol extends ConfigSyncProtocolType | ConfigSyncProtocolDecoratorType,
   RequireOptional extends boolean = true,
-> = PrimitiveConfig<RequireOptional> & {
-  type: ValueOf<
-    PrimitivesTypesForSyncProtocol<SyncProtocol & ConfigSyncProtocolType>
-  >;
-};
+> = any;
+// PrimitiveConfig<RequireOptional> & {
+//  type: ValueOf<
+//    PrimitivesTypesForSyncProtocol<SyncProtocol & ConfigSyncProtocolType>
+//  >;
+// };

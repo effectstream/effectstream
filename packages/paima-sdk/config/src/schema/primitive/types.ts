@@ -55,17 +55,19 @@ export type FlattenSyncProtocolIOFor<
   SyncProtocol extends ConfigSyncProtocolType,
   Primitive extends ConfigPrimitiveType,
   Payload extends ConfigPrimitivePayloadType,
-> = Extract<
-  FlattenSyncProtocolIO<
-    SyncProtocolIO<SyncProtocol> extends infer R extends TSchema
-      ? MergeIntersects<MaybeStaticDecode<R>>
-      : never
-  >,
-  {
-    primitiveType: Primitive;
-    payloadType: Payload;
-  }
->;
+> = any;
+
+// Extract<
+//   FlattenSyncProtocolIO<
+//     SyncProtocolIO<SyncProtocol> extends infer R extends TSchema
+//       ? MergeIntersects<MaybeStaticDecode<R>>
+//       : never
+//   >,
+//   {
+//     primitiveType: Primitive;
+//     payloadType: Payload;
+//   }
+// >;
 
 export function flattenIO<
   const IO extends { input: any; output: { primitive: any; payloadType: any } },

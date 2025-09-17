@@ -93,7 +93,7 @@ export class PrimitiveBuilder<
     SyncProtocols,
     & Primitives
     & Record<
-      NewPrimitive["name"],
+      string, // NewPrimitive["name"],
       PrimitiveEntry<
         SyncProtocol["syncProtocol"]["name"],
         NewPrimitive & PrimitiveConfig<true>
