@@ -24,8 +24,6 @@ import {
 } from "@paima/config";
 import type { PrimitiveConfig } from "@paima/config";
 import { generatePrecompile } from "@paima/precompile";
-// import { PaimaPrimitiveRegistry } from "@e2e/data-types";
-// import { PaimaPrimitive } from "@e2e/data-types";
 
 export const CardanoCarpMintBurnPrecompile = generatePrecompile(
   `${ConfigSyncProtocolType.CARDANO_CARP_PARALLEL}-${ConfigPrimitiveType.CardanoCarpMintBurn}-${ConfigPrimitivePayloadType.MintOrBurn}`,
@@ -180,7 +178,6 @@ export function mapPrimitivesToGrammar<
   T extends Record<string, { primitive: PrimitiveConfig }>,
 >(
   primitives: T,
-  primitives_new: any,
 ): PrimitivesToGrammar<T> {
   const result = {} as Record<string, any>;
   // TODO This is deprecated, we should remove it.
@@ -204,16 +201,6 @@ export function mapPrimitivesToGrammar<
       }
     }
   }
-
-  // PaimaPrimitiveRegistry.primitives;
-  Object.values(primitives_new).forEach(
-    (primitive: any) => {
-  //     // if (result[primitive.instanceName]) {
-  //     //   throw new Error(`Primitive ${primitive.instanceName} already exists`);
-  //     // }
-      result[primitive.stateMachinePrefix] = primitive.grammar;
-    },
-  );
 
 
   return result as PrimitivesToGrammar<T>;

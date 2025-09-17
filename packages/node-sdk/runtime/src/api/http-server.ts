@@ -644,7 +644,7 @@ export const startHttpServer = function* (
     if (!primitive) {
       return undefined;
     }
-    return getPrimitivePrefix(primitive.primitive.type);
+    return getPrimitivePrefix(primitive.primitive.type)[0];
   }
 
   server.get("/primitives-schema/:primitiveName", {

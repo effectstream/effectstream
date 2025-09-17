@@ -11,41 +11,29 @@ import { ERC721_VIEW_PREFIX, erc721Ivm } from "./erc721-ivm.ts";
  * This is a concrete implementation of the PaimaPrimitive class for ERC721.
  */
 import { erc721 } from "./erc721-abi.ts";
-import { StaticDecode, type TSchema, Type } from "@sinclair/typebox";
+import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
 import { PaimaPrimitive } from "../PaimaPrimitive.ts";
-import { PaimaPrimitiveRegistry } from "../PrimitiveRegistry.ts";
 import { Value } from "@sinclair/typebox/value";
 import { ERC721_INTERMEDIATE_PREFIX } from "./erc721-ivm.ts";
-import { CommandTuple, generateRawStmInput } from "@paima/concise";
+import { type CommandTuple, generateRawStmInput, type ParamToData } from "@paima/concise";
 
-export class Erc721Primitive extends PaimaPrimitive {
-  // Instance defined
-  override instanceName: string;
-  override startBlockHeight: number;
-  override contractAddress: EvmAddress;
-  abi: ReturnType<typeof getEvmEvent>;
-  // TODO This should be optional.
-  override stateMachinePrefix: string; // | undefined;
+export const erc721Grammar = [
+  ['to', Type.String()],
+  ['from', Type.String()],
+  ['tokenId', Type.String()],
+  ['isBurn', Type.Boolean()],
+] as const;
 
+export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
   // Primitive defined
   readonly internalName = "EVM:ERC721" as const;
   readonly internalType = ConfigPrimitiveType.EvmRpcERC721 as const;
   readonly internalEvent = ConfigPrimitiveAccountingPayloadType
     .Transfer as const;
-  override grammar: readonly Readonly<[string, TSchema]>[] = [
-    [
-      // TODO This should be the user defined prefix
-      "payload",
-      // TODO This does not need to be an object, but we copied it for now.
-      Type.Object({
-        to: Type.String(),
-        from: Type.String(),
-        tokenId: Type.String(),
-        // This is not part of the standard, we inject this value by comparing the to address.
-        isBurn: Type.Boolean(),
-      }),
-    ],
-  ] as const;
+  readonly abi = getEvmEvent(erc721.abi, "Transfer(address,address,uint256)");
+  override grammar = erc721Grammar;
+
+  // Dynamic table to track the owner of each token.
   override dynamicTables = erc721Ivm;
   override getIntermediatePrefix(): string[] {
     return [ERC721_INTERMEDIATE_PREFIX];
@@ -60,26 +48,26 @@ export class Erc721Primitive extends PaimaPrimitive {
     contractAddress: EvmAddress;
     stateMachinePrefix: string | undefined;
   }) {
-    super();
-    this.abi = getEvmEvent(erc721.abi, "Transfer(address,address,uint256)");
-    this.instanceName = config.instanceName;
-    this.startBlockHeight = config.startBlockHeight;
-    this.contractAddress = Value.Decode(
-      TypeboxHelpers.Evm.Address,
-      config.contractAddress,
+    super(
+      config.instanceName,
+      config.startBlockHeight,
+      Value.Decode(
+        TypeboxHelpers.Evm.Address,
+        config.contractAddress,
+      ),
+      config.stateMachinePrefix,
     );
-    // TODO This should be optional.
-    this.stateMachinePrefix = config.stateMachinePrefix || "";
-    PaimaPrimitiveRegistry.addPrimitive(this);
   }
 
-  // TODO Prefix can be a class member.
   override getStateMachinePayload(primitiveTransactionData: any): StaticDecode<
     CommandTuple<
-      typeof this.stateMachinePrefix,
-      typeof this.grammar
+      string,
+      typeof erc721Grammar
     >
   > {
+    if (!this.stateMachinePrefix) {
+      throw new Error("State machine prefix is not set");
+    }
     const payload = this.getPayload(primitiveTransactionData);
 
     return generateRawStmInput(
@@ -89,8 +77,7 @@ export class Erc721Primitive extends PaimaPrimitive {
     );
   }
 
-  // TODO This type must match the grammar.
-  override getPayload(primitiveTransactionData: any): Record<string, any> {
+  override getPayload(primitiveTransactionData: any): ParamToData<typeof erc721Grammar> {
     const { to, from } = primitiveTransactionData.output.payload;
     const toAddr = Value.Decode(TypeboxHelpers.Evm.Address, to.toLowerCase());
     const fromAddr = Value.Decode(
@@ -104,16 +91,11 @@ export class Erc721Primitive extends PaimaPrimitive {
     );
 
     return {
-      payload: Value.Decode(
-        this.grammar[0][1],
-        {
-          to: toAddr,
-          from: fromAddr,
-          tokenId: tokenId,
-          isBurn: isBurn,
-        },
-      ),
-    };
+      to: toAddr,
+      from: fromAddr,
+      tokenId: tokenId,
+      isBurn: isBurn,
+    }
   }
 
   override getConfig() {
@@ -121,9 +103,10 @@ export class Erc721Primitive extends PaimaPrimitive {
       name: this.instanceName,
       type: this.internalType,
       startBlockHeight: this.startBlockHeight,
-      contractAddress: this.contractAddress,
+      contractAddress: this.contractAddress as EvmAddress,
       abi: this.abi,
-      scheduledPrefix: this.stateMachinePrefix,
+      // TODO This should be optional.
+      scheduledPrefix: this.stateMachinePrefix ?? '',
     } as const;
   }
 }

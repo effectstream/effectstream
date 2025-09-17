@@ -1,10 +1,5 @@
 import { until } from "effection";
-import { ConfigPrimitiveType } from "@paima/config";
-import {
-  ERC20_INTERMEDIATE_PREFIX,
-  ERC20_VIEW_PREFIX,
-  erc20Ivm,
-} from "./ivm/erc20-ivm.ts";
+import type { ConfigPrimitiveType } from "@paima/config";
 
 // This import causes a circular dependency with the sync package.
 // import type { AllSyncProtocols } from "@paima/sync";
@@ -12,6 +7,7 @@ import type { PoolClient } from "pg";
 import type { VersionInfo } from "../migrations/system-version.ts";
 import { applyMigrations } from "../scripts/apply-migrations.ts";
 import { findMigrationByName } from "./sql/system.queries.ts";
+import { PaimaPrimitiveRegistry } from "@e2e/my-primitives";
 
 /**
  * Creates dynamic tables for the given sync protocols.
@@ -36,12 +32,6 @@ export function* createDynamicTables(
   }
 }
 
-import { PaimaPrimitiveRegistry } from "@e2e/data-types";
-
-const primitiveTypeFunctionMap: Record<string, (name: string) => string> = {
-  [ConfigPrimitiveType.EvmRpcERC20]: erc20Ivm,
-  // [ConfigPrimitiveType.EvmRpcERC721]: erc721Ivm,
-};
 
 function* createDynamicTableForPrimitive(
   p: {
@@ -57,21 +47,21 @@ function* createDynamicTableForPrimitive(
   const name = p.primitive.name;
 
   const primitive = PaimaPrimitiveRegistry.getPrimitive(name);
-  const sqlFunction = primitive?.getDynamicTables ?? primitiveTypeFunctionMap[type];
-  if (!sqlFunction) {
-    // This primitive does not have dynamic tables.
-    return;
-  }
+  const sqlFunction = primitive?.getDynamicTables;
+
+  // This primitive does not have dynamic tables.
+  if (!sqlFunction) return;
+  const code = sqlFunction(name);
+  if (!code) return;
 
   const migrationName = `dynamic-tables-${type}-${name}`;
   const [migration] = yield* until(findMigrationByName.run({
     name: migrationName,
     isSystemMigration: true,
   }, dbConn));
+
   // This particular migration has been applied, so we can skip it.
   if (migration) return;
-  const code = sqlFunction(name);
-  if (!code) return;
 
   yield* until(applyMigrations(
     dbConn,
@@ -90,23 +80,9 @@ function* createDynamicTableForPrimitive(
  */
 export function getPrimitivePrefix(
   primitiveType: ConfigPrimitiveType,
-): string | undefined {
-
+): string[] {
   const primitive = PaimaPrimitiveRegistry.getPrimitiveByType(primitiveType);
-  if (primitive) {
-    const viewPrefix = primitive.getViewPrefix();
-    return viewPrefix[0]; 
-  }
-
-  // TODO Remove:
-  // Old way of doing it, when the primitive was not a class.
-  switch (primitiveType) {
-    case ConfigPrimitiveType.EvmRpcERC20:
-      return ERC20_VIEW_PREFIX;
-    default:
-      return undefined;
-  }
-  
+  return primitive ? primitive.getViewPrefix() : [];
 }
 
 /**
@@ -121,19 +97,7 @@ export function getPrimitivePrefix(
  */
 export function getPrimitiveIntermediatePrefix(
   primitiveType: ConfigPrimitiveType,
-): string | undefined {
+): string[] {
   const primitive = PaimaPrimitiveRegistry.getPrimitiveByType(primitiveType);
-  if (primitive) {
-    const intermediatePrefix = primitive.getIntermediatePrefix();
-    return intermediatePrefix[0];
-  }
-
-  // TODO Remove:
-  // Old way of doing it, when the primitive was not a class.
-  switch (primitiveType) {
-    case ConfigPrimitiveType.EvmRpcERC20:
-      return ERC20_INTERMEDIATE_PREFIX;
-    default:
-      return undefined;
-  }
+  return primitive ? primitive.getIntermediatePrefix() : [];
 }

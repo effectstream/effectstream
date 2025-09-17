@@ -10,19 +10,12 @@ import {
 } from "@paima/config";
 import { hardhat } from "viem/chains";
 import type { BlockNumber } from "@paima/utils";
-import { erc20dev, paimal2contract } from "@e2e/evm-contracts";
+import { paimal2contract } from "@e2e/evm-contracts";
 import { getConnection } from "@paima/db";
 // TODO These will be defined in a paima-engine package.
-import { MidnightGenericPrimitive } from "./primitives/midnight-generic/mod.ts";
-import { Erc721Primitive } from "./primitives/evm-erc721/mod.ts";
-
-// TODO: This should typed from the grammar types.
-const stfInputs = {
-  "schedule": "schedule",
-  "attack": "attack",
-  "transfer": "transfer",
-  "switchMap": "switchMap",
-} as const;
+import { MidnightGenericPrimitive } from "@e2e/my-primitives";
+import { Erc721Primitive } from "@e2e/my-primitives";
+import { Erc20Primitive } from "@e2e/my-primitives";
 
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
@@ -95,9 +88,9 @@ export const localhostConfig = new ConfigBuilder()
           default: { http: ["http://127.0.0.1:8546"] },
         },
         id: 31338, // taken from hardhat.config.ts
-      });
-    if (midnight_enabled) {
-      b = b
+      })
+    // if (midnight_enabled) {
+    //   b = b
         .addNetwork({
           name: "midnight",
           type: ConfigNetworkType.MIDNIGHT,
@@ -106,7 +99,7 @@ export const localhostConfig = new ConfigBuilder()
           networkId: 0,
           nodeUrl: "http://127.0.0.1:9944",
         });
-    }
+    // }
 
     if (yaci_enabled) {
       b = b
@@ -180,9 +173,9 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1 as BlockNumber,
           confirmationDepth: 2, // TODO: test this
         }),
-      );
-    if (midnight_enabled) {
-      result = result
+      )//;
+    // if (midnight_enabled) {
+    //   result = result
         .addParallel(
           (networks) => (networks as any).midnight,
           (network, deployments) => ({
@@ -195,7 +188,7 @@ export const localhostConfig = new ConfigBuilder()
             indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
           }),
         );
-    }
+    // }
 
     if (yaci_enabled) {
       result = result
@@ -212,18 +205,17 @@ export const localhostConfig = new ConfigBuilder()
 
     return result;
   })
-  .buildPrimitives((builder) => {
+  .buildPrimitives((builder) => 
     builder.addPrimitive(
       (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
       (network, deployments, syncProtocol) => ({
-        name: "Aribitrum_Token",
-        type: ConfigPrimitiveType.EvmRpcERC20,
-
-        startBlockHeight: 0,
-        contractAddress: contractAddressesEvmMain()
-          .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
-        abi: getEvmEvent(erc20dev.abi, "Transfer(address,address,uint256)"),
-        scheduledPrefix: stfInputs.transfer,
+        ...(new Erc20Primitive({
+          instanceName: "Aribitrum_Token",
+          startBlockHeight: 0,
+          contractAddress: contractAddressesEvmMain()
+            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
+          stateMachinePrefix: "transfer-erc20",
+        })).getConfig()
       }),
     )
       .addPrimitive(
@@ -266,22 +258,18 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_slow,
         (network, deployments, syncProtocol) => ({
-          name: "ETH_L1_ERC20",
-          type: ConfigPrimitiveType.EvmRpcERC20,
-          startBlockHeight: 0,
-          contractAddress: contractAddressesEvmMain()
-            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
-          abi: getEvmEvent(
-            erc20dev.abi,
-            "Transfer(address,address,uint256)",
-          ),
-          // TODO This is not defined. Should be a error.
-          scheduledPrefix: "transfer-erc20-2",
+          ...(new Erc20Primitive({
+            instanceName: "ETH_L1_ERC20",
+            startBlockHeight: 0,
+            contractAddress: contractAddressesEvmMain()
+              .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
+            stateMachinePrefix: "transfer-erc20",
+          })).getConfig(),
         }),
-      );
+      )
 
-    if (midnight_enabled) {
-      builder = builder
+    // if (midnight_enabled) {
+      // builder = builder
         .addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
           (network, deployments, syncProtocol) => ({
@@ -291,11 +279,10 @@ export const localhostConfig = new ConfigBuilder()
               contractAddress: readMidnightContract().contractAddress,
               stateMachinePrefix: "midnightContractState",
             }).getConfig(),
-            // type: ConfigPrimitiveType.MidnightContractState,
-            // scheduledPrefix: "midnightContractState",
           }),
-        );
-    }
-    return builder;
-  })
+        )
+    // }
+    // return builder;
+  // }
+)
   .build();

@@ -1,7 +1,8 @@
-import type { ConfigPrimitiveAccountingPayloadType, ConfigPrimitiveType, getEvmEvent } from "@paima/config";
+import type { ConfigPrimitiveAccountingPayloadType, ConfigPrimitiveType } from "@paima/config";
 import type { EvmAddress } from "@paima/utils";
-import type{ StaticDecode, TSchema } from "@sinclair/typebox";
-import { CommandTuple } from "@paima/concise";
+import type { StaticDecode, TSchema } from "@sinclair/typebox";
+import type { CommandTuple } from "@paima/concise";
+import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
 
 /**
  * Abstract Class for Paima Primitives
@@ -9,7 +10,19 @@ import { CommandTuple } from "@paima/concise";
  * This is the interface that needs to be implemented to register a new primitive.
  * E.g., ERC721, ERC1155, etc,
  */
-export abstract class PaimaPrimitive {
+export abstract class PaimaPrimitive<TGrammar extends readonly Readonly<[string, TSchema]>[]> {
+  constructor(
+    // Instance defined unique name
+    public readonly instanceName: string,
+    // Start block height for the primitive
+    public readonly startBlockHeight: number,
+    // Contract address for the primitive
+    // TODO We need to be make a ContractAddress type.
+    public readonly contractAddress: /* EvmAddress | */string,
+    public readonly stateMachinePrefix: string | undefined,
+  ) {
+    PaimaPrimitiveRegistry.addPrimitive(this);
+  }
   // Primitive defined
   // unique name for primitive definition as chain:protocol 
   abstract internalName: `${string}:${string}`;
@@ -17,24 +30,17 @@ export abstract class PaimaPrimitive {
   // @deprecated this value should no be used, but we use it for compatibility
   abstract internalType: ConfigPrimitiveType;
   // grammar for primitive
-  abstract grammar: readonly Readonly<[string, TSchema]>[];
+  abstract grammar: TGrammar;
   // event for primitive
   // @deprecated this value should no be used, but we use it for compatibility
   abstract internalEvent: ConfigPrimitiveAccountingPayloadType;
   
-  // Instance defined
-  abstract instanceName: string;
-  abstract startBlockHeight: number;
-  // TODO We need to be make a ContractAddress type.
-  abstract contractAddress: EvmAddress | string; 
-  // TODO This should be optional.
-  abstract stateMachinePrefix: string; // | undefined;
-
   // Dynamic/ivm Table Global definitions
-  abstract dynamicTables: undefined | ((name: string) => string);
-  abstract getIntermediatePrefix():  string[];
-  abstract getViewPrefix(): string[];
+  dynamicTables: undefined | ((name: string) => string) = undefined;
+  getIntermediatePrefix():  string[] { return []; }
+  getViewPrefix(): string[] { return []; }
 
+  // Return the config for the primitive.
   abstract getConfig(): Record<string, any>;
 
   // Arrow function to bind 'this', as this function is passed as a reference
@@ -46,8 +52,8 @@ export abstract class PaimaPrimitive {
   // e.g., [stateMachinePrefix, v1, v2, v3]
   abstract getStateMachinePayload(primitiveTransactionData: any): StaticDecode<
     CommandTuple<
-      typeof this.stateMachinePrefix, 
-      typeof this.grammar
+      string, 
+      TGrammar
     >
   >;
 
