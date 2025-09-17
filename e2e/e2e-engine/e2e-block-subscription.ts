@@ -42,7 +42,7 @@ class BlockWatcher {
   /**
    * Safely gets the latest known block number for a chain.
    */
-  public getLatestBlock(chain: string): number {
+  public getLatestBlock(chain: string = "__main__"): number {
     return this.latestBlock[chain] ?? 0;
   }
 
@@ -59,7 +59,7 @@ class BlockWatcher {
     return this.initializationPromise;
   }
 
-  public async initBlockSubscription(): Promise<void> {
+  private async initBlockSubscription(): Promise<void> {
     console.log("Initializing block subscriptions...");
     this.latestBlock["__main__"] = 0;
 

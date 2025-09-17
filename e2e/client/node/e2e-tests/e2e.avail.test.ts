@@ -74,9 +74,8 @@ export async function submitDataWithMessageAvailTest(
   await blockWatcher.waitForBlock();
   const txHash = await submitData(appId, data);
   console.log(`Transaction Hash: ${txHash.txHash.toString()}`);
-  await blockWatcher.waitForBlock();
-  await blockWatcher.waitForBlock();
-  await blockWatcher.waitForBlock();
+  const currentAvailBlock = blockWatcher.getLatestBlock("parallelAvail");
+  await blockWatcher.waitForBlock("parallelAvail", currentAvailBlock + 2);
   // Avail Tx should have inserted new primitive accounting entry
   sharedState.primitive_accounting_counter += 1;
   await assertSQL<{ primitive_name: string }>(
