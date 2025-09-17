@@ -23,7 +23,7 @@ import { erc20Grammar } from "./erc20-grammar.ts";
 export class Erc20Primitive extends PaimaPrimitive<typeof erc20Grammar> {
   // Primitive defined
   readonly internalName = "EVM:ERC20" as const;
-  readonly internalType = ConfigPrimitiveType.EvmRpcERC20 as const;
+  readonly internalType = "evm-rpc-erc20" as any; // ConfigPrimitiveType.EvmRpcERC20 as const;
   readonly internalEvent = ConfigPrimitiveAccountingPayloadType
     .Transfer as const;
   readonly abi = getEvmEvent(erc20.abi, "Transfer(address,address,uint256)");

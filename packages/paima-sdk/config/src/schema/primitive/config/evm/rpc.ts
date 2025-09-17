@@ -24,15 +24,15 @@ export const PrimitiveEvmPaimaL2Config = PrimitiveConfigBaseEvm.cloneMerge({
 // ERC20
 // =====
 
-export const PrimitiveErc20Config = PrimitiveConfigBaseEvm.cloneMerge({
-  required: Type.Object({
-    type: Type.Literal(ConfigPrimitiveType.EvmRpcERC20),
-    contractAddress: TypeboxHelpers.Evm.Address,
-  }),
-  optional: Type.Object({
-    scheduledPrefix: Type.String(),
-  }),
-});
+// export const PrimitiveErc20Config = PrimitiveConfigBaseEvm.cloneMerge({
+//   required: Type.Object({
+//     type: Type.Literal(ConfigPrimitiveType.EvmRpcERC20),
+//     contractAddress: TypeboxHelpers.Evm.Address,
+//   }),
+//   optional: Type.Object({
+//     scheduledPrefix: Type.String(),
+//   }),
+// });
 
 // ======
 // ERC721

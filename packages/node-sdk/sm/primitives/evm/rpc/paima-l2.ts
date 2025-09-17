@@ -8,12 +8,11 @@ import {
   type WalletAddress,
 } from "@paima/utils";
 import { hexToString, stringToHex } from "viem";
-import type {
+import {
   ConfigPrimitivePayloadType,
-  ConfigSyncProtocolType,
-  FlattenSyncProtocolIOFor,
-  PayloadOf,
-  PrimitiveEvmRpcPaimaL2Accounting,
+  type ConfigSyncProtocolType,
+  type FlattenSyncProtocolIOFor,
+  type PayloadOf,
 } from "@paima/config";
 import type { StateUpdateStream } from "@paima/coroutine";
 import {
@@ -33,8 +32,7 @@ import {
 } from "@paima/concise";
 import {
   ConfigPrimitiveAccountingPayloadType,
-  type ConfigPrimitiveType,
-  PrimitiveEvmRpcPaimaL2Payload,
+  ConfigPrimitiveType,
 } from "@paima/config";
 import { ComponentNames, log, SeverityNumber } from "@paima/log";
 import {
@@ -76,6 +74,27 @@ function* checkNonce(
   return true;
 }
 
+// TODO REMOVE THIS WHEN MIGRATING TO V2
+const PrimitiveEvmRpcPaimaL2Payload = Type.Object({
+  userAddress: TypeboxHelpers.Evm.Address,
+  data: TypeboxHelpers.HexString0x(),
+  value: TypeboxHelpers.Uint256,
+});
+
+const PrimitiveEvmRpcPaimaL2Accounting = Type.Object({
+  primitive: Type.Literal(ConfigPrimitiveType.EvmRpcPaimaL2),
+  payloadType: Type.Literal(ConfigPrimitiveAccountingPayloadType.Event),
+  payload: PrimitiveEvmRpcPaimaL2Payload,
+});
+
+const PrimitiveEvmRpcPaimaL2SyncProtocolResponse = Type.Object({
+  primitive: Type.Literal(ConfigPrimitiveType.EvmRpcPaimaL2),
+  payloadType: Type.Literal(ConfigPrimitivePayloadType.PaimaL2Event),
+  payload: PrimitiveEvmRpcPaimaL2Payload,
+});
+
+// TODO REMOVE END.
+
 function* executePaimaL2Input(input: {
   paima_block_height: PaimaBlockNumber;
   nonce: string | undefined;
@@ -83,7 +102,7 @@ function* executePaimaL2Input(input: {
     blockNumber: BlockNumber;
     transactionHash: TxHash;
   };
-  payload: PayloadOf<typeof PrimitiveEvmRpcPaimaL2Accounting>;
+  payload: any, // PayloadOf<typeof PrimitiveEvmRpcPaimaL2Accounting>;
   primitiveName: string;
   signerAddress: WalletAddress;
   signerAddressType: AddressType;

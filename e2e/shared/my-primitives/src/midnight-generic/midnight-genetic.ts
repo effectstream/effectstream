@@ -1,13 +1,11 @@
 import {
   ConfigPrimitiveAccountingPayloadType,
-  ConfigPrimitiveType,
+  // ConfigPrimitiveType,
 } from "@paima/config";
 import { PaimaPrimitive } from "../PaimaPrimitive.ts";
 import type { MidnightAddress } from "@paima/utils";
 import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
-import { type CommandTuple, generateRawStmInput, ParamToData } from "@paima/concise";
-import { PaimaPrimitiveRegistry } from "../PrimitiveRegistry.ts";
-import { Value } from "@sinclair/typebox/value";
+import { type CommandTuple, generateRawStmInput, type ParamToData } from "@paima/concise";
 
 export const midnightGenericGrammar /* : readonly Readonly<[string, TSchema]>[] */ = [
   [
@@ -50,7 +48,7 @@ export const midnightGenericGrammar /* : readonly Readonly<[string, TSchema]>[] 
 export class MidnightGenericPrimitive extends PaimaPrimitive<typeof midnightGenericGrammar> {
   // Primitive defined
   readonly internalName = "Midnight:Generic" as const;
-  readonly internalType = ConfigPrimitiveType.MidnightContractState as const;
+  readonly internalType = "midnight-contract-state" as any; // ConfigPrimitiveType.MidnightContractState as const;
   readonly internalEvent = ConfigPrimitiveAccountingPayloadType.Event as const;
   override readonly grammar = midnightGenericGrammar;
 

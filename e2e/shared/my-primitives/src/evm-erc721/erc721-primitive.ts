@@ -27,7 +27,7 @@ export const erc721Grammar = [
 export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
   // Primitive defined
   readonly internalName = "EVM:ERC721" as const;
-  readonly internalType = ConfigPrimitiveType.EvmRpcERC721 as const;
+  readonly internalType = "evm-rpc-erc721" as any; // ConfigPrimitiveType.EvmRpcERC721 as const;
   readonly internalEvent = ConfigPrimitiveAccountingPayloadType
     .Transfer as const;
   readonly abi = getEvmEvent(erc721.abi, "Transfer(address,address,uint256)");

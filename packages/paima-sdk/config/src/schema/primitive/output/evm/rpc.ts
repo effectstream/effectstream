@@ -10,7 +10,7 @@ import { ConfigPrimitivePayloadType } from "../types.ts";
 const mockAbi = "string"; // TODO: add real ABIs later
 export const AbiMap = {
   [ConfigPrimitiveType.EvmRpcPaimaL2]: { contract: mockAbi },
-  [ConfigPrimitiveType.EvmRpcERC20]: { contract: mockAbi },
+  // [ConfigPrimitiveType.EvmRpcERC20]: { contract: mockAbi },
   [ConfigPrimitiveType.EvmRpcERC721]: { contract: mockAbi, paima: mockAbi },
   [ConfigPrimitiveType.EvmRpcERC1155]: { contract: mockAbi },
   [ConfigPrimitiveType.EvmRpcGeneric]: { contract: mockAbi },
@@ -41,17 +41,17 @@ export const PrimitiveEvmRpcPaimaL2SyncProtocolResponse = Type.Object({
 // ERC20
 // =====
 
-export const PrimitiveEvmRpcErc20TransferPayload = Type.Object({
-  from: TypeboxHelpers.Evm.Address,
-  to: TypeboxHelpers.Evm.Address,
-  value: TypeboxHelpers.Uint256,
-});
+// export const PrimitiveEvmRpcErc20TransferPayload = Type.Object({
+//   from: TypeboxHelpers.Evm.Address,
+//   to: TypeboxHelpers.Evm.Address,
+//   value: TypeboxHelpers.Uint256,
+// });
 
-export const PrimitiveEvmRpcErc20TransferSyncProtocolResponse = Type.Object({
-  primitive: Type.Literal(ConfigPrimitiveType.EvmRpcERC20),
-  payloadType: Type.Literal(ConfigPrimitivePayloadType.Transfer),
-  payload: PrimitiveEvmRpcErc20TransferPayload,
-});
+// export const PrimitiveEvmRpcErc20TransferSyncProtocolResponse = Type.Object({
+//   primitive: Type.Literal(ConfigPrimitiveType.EvmRpcERC20),
+//   payloadType: Type.Literal(ConfigPrimitivePayloadType.Transfer),
+//   payload: PrimitiveEvmRpcErc20TransferPayload,
+// });
 
 // ======
 // ERC721
@@ -173,7 +173,7 @@ export const PrimitiveEvmRpcDynamicPrimitiveSyncProtocolResponse = Type
 
 export const syncProtocolResponsesEvmRpc = [
   PrimitiveEvmRpcPaimaL2SyncProtocolResponse,
-  PrimitiveEvmRpcErc20TransferSyncProtocolResponse,
+  // PrimitiveEvmRpcErc20TransferSyncProtocolResponse,
   PrimitiveEvmRpcErc721TransferSyncProtocolResponse,
   PrimitiveEvmRpcErc721MintSyncProtocolResponse,
   PrimitiveEvmRpcErc1155TransferSyncProtocolResponse,

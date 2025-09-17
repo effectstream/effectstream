@@ -2,7 +2,7 @@ import { Type } from "@sinclair/typebox";
 import {
   PrimitiveDynamicEvmPrimitiveConfig,
   PrimitiveErc1155Config,
-  PrimitiveErc20Config,
+  // PrimitiveErc20Config,
   PrimitiveErc6551RegistryConfig,
   PrimitiveErc721Config,
   PrimitiveEvmGenericConfig,
@@ -30,7 +30,7 @@ const ConfigPrimitives = <Bool extends boolean>(
   [
     PrimitiveAvailPaimaL2Config.allProperties(requireOptional),
     PrimitiveEvmPaimaL2Config.allProperties(requireOptional),
-    PrimitiveErc20Config.allProperties(requireOptional),
+    // PrimitiveErc20Config.allProperties(requireOptional),
     PrimitiveErc721Config.allProperties(requireOptional),
     PrimitiveErc1155Config.allProperties(requireOptional),
     PrimitiveErc6551RegistryConfig.allProperties(requireOptional),
