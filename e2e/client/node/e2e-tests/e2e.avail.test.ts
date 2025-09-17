@@ -76,7 +76,7 @@ export async function submitDataWithMessageAvailTest(
   console.log(`Transaction Hash: ${txHash.txHash.toString()}`);
   const currentAvailBlock = blockWatcher.getLatestBlock("parallelAvail");
   console.time("wait_for_avail_block");
-  await blockWatcher.waitForBlock("parallelAvail", currentAvailBlock + 11);
+  await blockWatcher.waitForBlock("parallelAvail", currentAvailBlock + 6);
   console.timeEnd("wait_for_avail_block");
   console.log(
     `Current Avail Block: ${blockWatcher.getLatestBlock("parallelAvail")}`,
