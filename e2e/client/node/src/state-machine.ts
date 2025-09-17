@@ -122,6 +122,7 @@ stm.addStateTransition(
     const { payload } = data.parsedInput;
     const parsedPayload = JSON.parse(payload.suppliedValue);
     console.log(
+      `[${Date.now()}]`,
       "📦 Avail App state has message:",
       parsedPayload.message || parsedPayload,
     );
