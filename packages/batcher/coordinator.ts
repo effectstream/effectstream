@@ -2,8 +2,12 @@ import { BatcherPool } from "./pool.ts";
 import { DefaultBatcherInput } from "./types.ts";
 
 export abstract class BatcherCoordinator<T = DefaultBatcherInput> {
-  constructor(protected pool: BatcherPool<T>) {}
-  reset(newPool: BatcherPool<T>): void {
+  protected pool: BatcherPool<T> | undefined;
+  constructor() {}
+  setPool(pool: BatcherPool<T>): void {
+    this.pool = pool;
+  }
+  resetPool(newPool: BatcherPool<T>): void {
     this.pool = newPool;
   }
   abstract isReady(): boolean;
@@ -16,22 +20,24 @@ export class SchedulerCoordinator<T = DefaultBatcherInput>
   extends BatcherCoordinator<T> {
   /**
    * @param timeWindow - The time between each scheduled batch in seconds.
-   * @param pool - The pool of inputs.
    */
   constructor(
     protected timeWindow: number,
-    pool: BatcherPool<T>,
   ) {
-    super(pool);
+    super();
     this.timeWindow = timeWindow;
   }
   isReady(): boolean {
+    if (!this.pool) {
+      throw new Error("Pool not set");
+    }
     return this.pool.timeSinceCreated >= this.timeWindow;
   }
 }
 
 /**
  * Coordinator that checks if the pool is ready to be processed based on a size window.
+ * This means that if the pool size is reached, the pool is sent.
  */
 export class SizeCoordinator<T = DefaultBatcherInput>
   extends BatcherCoordinator<T> {
@@ -39,11 +45,14 @@ export class SizeCoordinator<T = DefaultBatcherInput>
    * @param targetSize - The target size of the pool.
    * @param pool - The pool of inputs.
    */
-  constructor(protected targetSize: number, pool: BatcherPool<T>) {
-    super(pool);
+  constructor(protected targetSize: number) {
+    super();
     this.targetSize = targetSize;
   }
   isReady(): boolean {
+    if (!this.pool) {
+      throw new Error("Pool not set");
+    }
     return this.pool.length >= this.targetSize;
   }
 }
@@ -61,13 +70,15 @@ export class ValueCoordinator<T = DefaultBatcherInput>
   constructor(
     protected targetValue: number,
     protected valueCallback: (item: T) => number,
-    pool: BatcherPool<T>,
   ) {
-    super(pool);
+    super();
     this.targetValue = targetValue;
     this.valueCallback = valueCallback;
   }
   isReady(): boolean {
+    if (!this.pool) {
+      throw new Error("Pool not set");
+    }
     const poolValue = this.pool.mapToValue(this.valueCallback);
     return poolValue >= this.targetValue;
   }
@@ -86,13 +97,15 @@ export class TimeOrSizeCoordinator<T = DefaultBatcherInput>
   constructor(
     protected timeWindow: number,
     protected targetSize: number,
-    pool: BatcherPool<T>,
   ) {
-    super(pool);
+    super();
     this.timeWindow = timeWindow;
     this.targetSize = targetSize;
   }
   isReady(): boolean {
+    if (!this.pool) {
+      throw new Error("Pool not set");
+    }
     return this.pool.timeSinceCreated >= this.timeWindow ||
       this.pool.length >= this.targetSize;
   }
