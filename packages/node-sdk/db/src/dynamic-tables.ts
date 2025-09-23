@@ -7,7 +7,7 @@ import type { VersionInfo } from "../migrations/system-version.ts";
 import { applyMigrations } from "../scripts/apply-migrations.ts";
 import { findMigrationByName } from "./sql/system.queries.ts";
 // TODO THIS NEED TO BE AN INTERNAL PACKAGE
-import { PaimaPrimitiveRegistry } from "@e2e/my-primitives";
+import { PaimaPrimitiveRegistry } from "@paima/sm";
 
 /**
  * Creates dynamic tables for the given sync protocols.

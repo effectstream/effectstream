@@ -37,7 +37,7 @@ import {
   PaginationQuerySchema,
   type TypePaginationQuerySchema,
 } from "./pagination.ts";
-import { PaimaPrimitiveRegistry } from "@e2e/my-primitives";
+import { PaimaPrimitiveRegistry } from "@paima/sm";
 
 function tableListContains(
   list: Array<{ table_name: string | null }>,

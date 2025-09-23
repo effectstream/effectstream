@@ -40,19 +40,15 @@ import { BuiltinGrammarPrefix } from "@paima/concise";
 
 import { paimal2 } from "./paimal2-abi.ts";
 import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
-import { type JsonObject, PaimaPrimitive } from "../PaimaPrimitive.ts";
+import { type JsonObject, PaimaPrimitive } from "@paima/sm";
 import { Value } from "@sinclair/typebox/value";
-import {
-  type CommandTuple,
-  generateRawStmInput,
-  type ParamToData,
-} from "@paima/concise";
+import type { CommandTuple } from "@paima/concise";
 
 export class PaimaL2Primitive extends PaimaPrimitive<
   readonly [string, TSchema][]
 > {
   // Primitive defined
-  readonly internalTypeName = "EVM:PAIMAL2" as const;
+  readonly internalTypeName = "EVM:PaimaL2" as const;
   readonly abi = getEvmEvent(
     paimal2.abi,
     "PaimaGameInteraction(address,bytes,uint256)",

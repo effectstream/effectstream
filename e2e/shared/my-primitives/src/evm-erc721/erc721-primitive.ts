@@ -11,8 +11,8 @@ import { ERC721_VIEW_PREFIX, erc721Ivm } from "./erc721-ivm.ts";
  * This is a concrete implementation of the PaimaPrimitive class for ERC721.
  */
 import { erc721 } from "./erc721-abi.ts";
-import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
-import { type JsonObject, PaimaPrimitive } from "../PaimaPrimitive.ts";
+import { type StaticDecode, Type } from "@sinclair/typebox";
+import { type JsonObject, PaimaPrimitive } from "@paima/sm";
 import { Value } from "@sinclair/typebox/value";
 import { ERC721_INTERMEDIATE_PREFIX } from "./erc721-ivm.ts";
 import {
@@ -20,7 +20,7 @@ import {
   generateRawStmInput,
   type ParamToData,
 } from "@paima/concise";
-import { StateUpdateStream } from "@paima/coroutine";
+import type { StateUpdateStream } from "@paima/coroutine";
 
 export const erc721Grammar = [
   ["to", Type.String()],

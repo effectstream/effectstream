@@ -4,8 +4,7 @@ import type {
 } from "@paima/config";
 import { type StateUpdateStream, World } from "@paima/coroutine";
 import type { PaimaBlockNumber } from "@paima/utils";
-// TODO THIS NEED TO BE AN INTERNAL PACKAGE
-import { PaimaPrimitiveRegistry } from "@e2e/my-primitives";
+import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
 import {
   createScheduledData,
   type IInsertPrimitiveAccountingParams,

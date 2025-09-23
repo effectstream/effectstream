@@ -12,7 +12,7 @@ import { ERC20_VIEW_PREFIX, erc20Ivm } from "./erc20-ivm.ts";
  * This is a concrete implementation of the PaimaPrimitive class for ERC20.
  */
 import { erc20 } from "./erc20-abi.ts";
-import { type JsonObject, PaimaPrimitive } from "../PaimaPrimitive.ts";
+import { type JsonObject, PaimaPrimitive } from "@paima/sm";
 import { Value } from "@sinclair/typebox/value";
 import { ERC20_INTERMEDIATE_PREFIX } from "./erc20-ivm.ts";
 import {

@@ -3,6 +3,7 @@ import type { StaticDecode, TSchema } from "@sinclair/typebox";
 import type { CommandTuple } from "@paima/concise";
 import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
 import type { StateUpdateStream } from "@paima/coroutine";
+import type { JsonObject } from "./types.ts";
 
 /**
  * Abstract Class for Paima Primitives
@@ -65,18 +66,3 @@ export abstract class PaimaPrimitive<
     }[];
   }>;
 }
-
-/**
- * Valid JSON Object, required for the db accounting.
- */
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
-
-export type JsonObject = {
-  [key: string]: JsonValue;
-};

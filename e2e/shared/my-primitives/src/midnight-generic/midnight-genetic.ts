@@ -1,4 +1,4 @@
-import { PaimaPrimitive } from "../PaimaPrimitive.ts";
+import { PaimaPrimitive } from "@paima/sm";
 import type { MidnightAddress, PaimaBlockNumber } from "@paima/utils";
 import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
 import {
