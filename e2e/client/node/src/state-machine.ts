@@ -43,7 +43,8 @@ stm.addStateTransition("attack", function* (data) {
   // Example 1:
   // How to write in the DB.
   yield* World.resolve(insertStateMachineInput, {
-    inputs: `attack playerId: ${data.parsedInput.playerId} with moveId: ${data.parsedInput.moveId}`,
+    inputs:
+      `attack playerId: ${data.parsedInput.playerId} with moveId: ${data.parsedInput.moveId}`,
     block_height: data.blockHeight,
   });
 
@@ -141,7 +142,7 @@ stm.addStateTransition("transfer-erc20", function* (data) {
  */
 export const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
-  input: BaseStfInput
+  input: BaseStfInput,
 ): SyncStateUpdateStream<void> {
   if (blockHeight >= 0) {
     yield* stm.processInput(input);

@@ -3,7 +3,6 @@ import { ConfigNetworkType } from "../network/mod.ts";
 import type { ConfigSyncProtocolDecoratorType } from "./decorators/types.ts";
 import type { NetworkConfig } from "../../config/parts/network.ts";
 import type { ConfigSyncProtocolMapping } from "./all.ts";
-import type { PrimitivesForSyncProtocol } from "../primitive/config/types.ts";
 
 export enum ConfigSyncProtocolType {
   NTP_MAIN = "ntp-main",
@@ -33,15 +32,20 @@ export type SyncProtocolFromNetwork<T extends ConfigNetworkType> =
     ? FlipObject<typeof SyncProtocolToNetwork>[T]
     : never;
 
+export type DefaultPrimitive = {
+  todo_this_should_be_defined_per_fetcher: string;
+  abi: any;
+  name: string;
+  contractAddress: string;
+};
+
 export type PrimitiveEntry<
   SyncProtocol extends ConfigSyncProtocolType = ConfigSyncProtocolType,
-  Primitive extends PrimitivesForSyncProtocol<SyncProtocol> =
-    PrimitivesForSyncProtocol<SyncProtocol>,
 > = {
   /** The sync protocol this primitive belongs to */
   syncProtocol: SyncProtocol;
   /** The primitive configuration */
-  primitive: Primitive;
+  primitive: DefaultPrimitive;
   /** Custom identifier for the primitive */
   id: string;
 };
@@ -58,6 +62,6 @@ export type SyncProtocolWithNetwork = {
     syncProtocolType: ConfigSyncProtocolMapping[K]["type"];
     syncProtocol: ConfigSyncProtocolMapping[K];
     network: NetworkFromSyncProtocol<K>;
-    primitives: PrimitiveEntry<K, PrimitivesForSyncProtocol<K>>[];
+    primitives: PrimitiveEntry<K>[];
   };
 }[keyof typeof SyncProtocolToNetwork];

@@ -8,8 +8,6 @@ import type {
   TimestampMs,
 } from "@paima/utils";
 import type {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
 } from "@paima/config";
@@ -84,9 +82,7 @@ export type Page = {
 };
 
 export type PrimitiveType = FlattenSyncProtocolIOFor<
-  ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
-  ConfigPrimitiveType.MidnightContractState,
-  ConfigPrimitivePayloadType.Event
+  ConfigSyncProtocolType.MIDNIGHT_PARALLEL
 >;
 export type Input = PageSyncRange<BlockNumber>;
 export type Output = {

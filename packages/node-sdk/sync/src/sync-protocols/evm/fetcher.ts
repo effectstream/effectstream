@@ -18,7 +18,6 @@ import type { Input, Output, Page, PrimitiveType } from "./types.ts";
 import { PageSchema } from "./types.ts";
 import {
   fetchNewestPage,
-  genImmediatePageRequests,
   genOnDemandPageRequests,
   type PageRange,
   type PageRequest,
@@ -27,10 +26,11 @@ import type { PrimitiveFetcher } from "../base/primitive.ts";
 import type { RootConversion } from "../base/state.ts";
 import type {
   ConfigNetworkType,
+  ConfigSyncProtocolEvmParallel,
+  NetworkFromSyncProtocol,
   PrimitiveEntry,
-  SyncProtocolWithNetwork,
 } from "@paima/config";
-import { ConfigSyncProtocolType } from "@paima/config";
+import type { ConfigSyncProtocolType } from "@paima/config";
 import { Value } from "@sinclair/typebox/value";
 
 export class EvmFetcher
@@ -45,10 +45,18 @@ export class EvmFetcher
     >,
     PaginatedFetcher<Page> {
   constructor(
-    readonly config: Extract<
-      SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.EVM }
-    >,
+    readonly config: // SyncProtocolWithNetwork,
+      {
+        primitives: PrimitiveEntry<
+          ConfigSyncProtocolType.EVM_RPC_PARALLEL
+        >[];
+        syncProtocol: ConfigSyncProtocolEvmParallel;
+        networkType: ConfigNetworkType.EVM;
+        syncProtocolType: ConfigSyncProtocolType.EVM_RPC_PARALLEL;
+        network: NetworkFromSyncProtocol<
+          ConfigSyncProtocolType.EVM_RPC_PARALLEL
+        >;
+      },
     readonly client: PublicClient<any, Chain, any, any>,
   ) {
     super(config.syncProtocol.name);
@@ -137,7 +145,7 @@ export class EvmFetcher
     return primitives.reduce((acc, primitive) => {
       const key = Value.Decode(
         PageSchema,
-        Number(primitive.output.syncProtocol.payload.ownChain.blockNumber),
+        Number(primitive.syncProtocol.blockNumber),
       );
       (acc[key] ??= []).push(
         primitive,
@@ -160,7 +168,7 @@ export class EvmFetcher
     // Fetch range of eventlogs
     const logs = yield* call(() =>
       client.getLogs({
-        address: primitive.primitive.contractAddress,
+        address: primitive.primitive.contractAddress as `0x${string}`,
         event: primitive.primitive.abi,
         fromBlock,
         toBlock,
@@ -173,33 +181,26 @@ export class EvmFetcher
     for (const log of logs) {
       // const block = yield* call(() => pageRequest(Number(log.blockNumber)));
       const primitiveResponse: PrimitiveType = {
-        input: primitive.primitive as any,
+        syncProtocol: {
+          name: primitive.syncProtocol as any,
+          blockNumber: Number(log.blockNumber),
+          transactionHash: log.transactionHash,
+          transactionIndex: log.transactionIndex,
+          contractAddress: log.address,
+          logIndex: log.logIndex,
+        },
+        primitive: primitive.primitive.name,
         output: {
-          payloadType: primitive.primitive.abi.name as any,
-          primitive: primitive.primitive as any,
-          payload: (log as any).args,
-          syncProtocol: {
-            type: primitive.syncProtocol as any,
-            name: primitive.primitive.name,
-            internal: {},
-            payload: {
-              primitiveName: primitive.primitive.name,
-              caip2: `eip155:${client.chain.id}`,
-              ownChain: {
-                blockNumber: Number(log.blockNumber),
-                // timestamp: Number(block.timestamp),
-              },
-              transactionHash: log.transactionHash,
-              transactionIndex: log.transactionIndex,
-              contractAddress: log.address,
-              logIndex: log.logIndex,
-            },
-          },
-        } as any,
-        primitiveType: primitive.primitive.type,
-        payloadType: primitive.primitive.abi.name as any,
+          payloadType: primitive.primitive.abi.name,
+          payload: (log as unknown as {
+            args: {
+              // TODO why is args undefined from getLogs (?)
+            };
+          }).args,
+        },
       };
-      primitiveResponses.push(primitiveResponse as any);
+
+      primitiveResponses.push(primitiveResponse);
     }
 
     return primitiveResponses;

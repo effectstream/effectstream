@@ -1,6 +1,4 @@
 import {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
   type PrimitiveEntry,
   type SyncProtocolWithNetwork,
@@ -17,7 +15,6 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@paima/utils";
 import { MidnightClient } from "./MidnightClient.ts";
-import { PageRequest } from "../base/page.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -140,37 +137,21 @@ export class MidnightFetcher extends BaseDataFetcher<
       return undefined;
     }
     return {
-      input: primitive.primitive,
-      output: {
-        primitive: ConfigPrimitiveType.MidnightContractState,
-        payloadType: ConfigPrimitivePayloadType.Event,
-        payload: state.data.encode() as unknown as any,
-        syncProtocol: {
-          type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
-          name: this.config.syncProtocol.name,
-          internal: {},
-          payload: {
-            primitiveName: primitive.primitive.name,
-            mainchain: {
-              blockNumber: null,
-              timestamp: null,
-            },
-            caip2: `midnight:${this.config.network.networkId}`,
-            ownChain: {
-              blockNumber: height,
-            },
-            transactionHash:
-              block.transactions.find((t) =>
-                (t.contractCalls ?? []).find((c) =>
-                  c.address === contractAddress
-                )
-              )?.hash ??
-                "0x0000000000000000000000000000000000000000000000000000000000000000",
-          },
-        },
+      syncProtocol: {
+        name: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+        blockNumber: height,
+        transactionHash:
+          block.transactions.find((t) =>
+            (t.contractCalls ?? []).find((c) => c.address === contractAddress)
+          )?.hash ??
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+        contractAddress: contractAddress,
       },
-      primitiveType: ConfigPrimitiveType.MidnightContractState,
-      payloadType: ConfigPrimitivePayloadType.Event,
+      primitive: primitive.primitive.name,
+      output: {
+        payloadType: "midnight-contract-state",
+        payload: state.data.encode() as unknown as {},
+      },
     };
   }
 }

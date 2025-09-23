@@ -1,7 +1,3 @@
-import {
-  ConfigPrimitiveAccountingPayloadType,
-  // ConfigPrimitiveType,
-} from "@paima/config";
 import { PaimaPrimitive } from "../PaimaPrimitive.ts";
 import type { MidnightAddress, PaimaBlockNumber } from "@paima/utils";
 import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
@@ -12,52 +8,49 @@ import {
 } from "@paima/concise";
 import type { StateUpdateStream } from "@paima/coroutine";
 
-export const midnightGenericGrammar /* : readonly Readonly<[string, TSchema]>[] */ =
+export const midnightGenericGrammar = [
   [
-    [
-      "payload",
-      // As type is unknown, we use a recursive wrapper with a "payload" key.
-      Type.Recursive((Self) =>
-        Type.Union([
-          Type.Object({
-            tag: Type.Literal("null"),
-          }),
-          Type.Object({
-            tag: Type.Literal("cell"),
-            content: Self,
-          }),
-          Type.Object({
-            tag: Type.Literal("array"),
-            content: Type.Array(Self),
-          }),
-          Type.Object({
-            tag: Type.Literal("map"),
-            content: Type.Array(Type.Tuple([Type.Any(), Type.Any()])),
-          }),
-          Type.Object({
-            value: Type.Array(Type.Record(Type.String(), Type.Number())),
-            alignment: Type.Array(Self),
-          }),
-          Type.Object({
-            tag: Type.Literal("atom"),
-            value: Self,
-          }),
-          Type.Object({
-            tag: Type.Literal("bytes"),
-            length: Type.Number(),
-          }),
-        ])
-      ),
-    ],
-  ] as const;
+    "payload",
+    // As type is unknown, we use a recursive wrapper with a "payload" key.
+    Type.Recursive((Self) =>
+      Type.Union([
+        Type.Object({
+          tag: Type.Literal("null"),
+        }),
+        Type.Object({
+          tag: Type.Literal("cell"),
+          content: Self,
+        }),
+        Type.Object({
+          tag: Type.Literal("array"),
+          content: Type.Array(Self),
+        }),
+        Type.Object({
+          tag: Type.Literal("map"),
+          content: Type.Array(Type.Tuple([Type.Any(), Type.Any()])),
+        }),
+        Type.Object({
+          value: Type.Array(Type.Record(Type.String(), Type.Number())),
+          alignment: Type.Array(Self),
+        }),
+        Type.Object({
+          tag: Type.Literal("atom"),
+          value: Self,
+        }),
+        Type.Object({
+          tag: Type.Literal("bytes"),
+          length: Type.Number(),
+        }),
+      ])
+    ),
+  ],
+] as const;
 
 export class MidnightGenericPrimitive extends PaimaPrimitive<
   typeof midnightGenericGrammar
 > {
   // Primitive defined
-  readonly internalName = "Midnight:Generic" as const;
-  readonly internalType = "midnight-contract-state" as any; // ConfigPrimitiveType.MidnightContractState as const;
-  readonly internalEvent = ConfigPrimitiveAccountingPayloadType.Event as const;
+  readonly internalTypeName = "Midnight:Generic" as const;
   override readonly grammar = midnightGenericGrammar;
 
   // No dynamic tables for midnight generic primitive
@@ -79,13 +72,13 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
       config.instanceName,
       config.startBlockHeight,
       config.contractAddress,
-      config.stateMachinePrefix
+      config.stateMachinePrefix,
     );
   }
 
   override *getPayload(
     _: PaimaBlockNumber,
-    primitiveTransactionData: { output: { payload: any } }
+    primitiveTransactionData: { output: { payload: any } },
   ) {
     const payload = primitiveTransactionData.output.payload;
     try {
@@ -95,15 +88,17 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
       //   this.grammar[0][1],
       //   payload,
       // );
-      const stateMachinePayload: StaticDecode<
-        CommandTuple<string, typeof this.grammar>
-      > | null = this.stateMachinePrefix
-        ? generateRawStmInput(
+      const stateMachinePayload:
+        | StaticDecode<
+          CommandTuple<string, typeof this.grammar>
+        >
+        | null = this.stateMachinePrefix
+          ? generateRawStmInput(
             this.grammar,
             this.stateMachinePrefix,
-            accountingPayload
+            accountingPayload,
           )
-        : null;
+          : null;
 
       return {
         isBatched,
@@ -117,7 +112,7 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
     } catch (error) {
       console.error(
         "[ERROR] Decoding Midnight Generic Payload:",
-        JSON.stringify(payload)
+        JSON.stringify(payload),
       );
       throw error;
     }
@@ -126,7 +121,7 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
   override getConfig() {
     return {
       name: this.instanceName,
-      type: this.internalType,
+      type: this.internalTypeName,
       startBlockHeight: this.startBlockHeight,
       contractAddress: this.contractAddress,
       // TODO This should be optional

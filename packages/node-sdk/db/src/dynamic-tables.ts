@@ -1,5 +1,4 @@
 import { until } from "effection";
-import type { ConfigPrimitiveType } from "@paima/config";
 
 // This import causes a circular dependency with the sync package.
 // import type { AllSyncProtocols } from "@paima/sync";
@@ -33,11 +32,10 @@ export function* createDynamicTables(
   }
 }
 
-
 function* createDynamicTableForPrimitive(
   p: {
     primitive: {
-      type: ConfigPrimitiveType;
+      type: string;
       name: string;
     };
   },
@@ -80,7 +78,7 @@ function* createDynamicTableForPrimitive(
  * @returns The prefix for the given primitive name.
  */
 export function getPrimitivePrefix(
-  primitiveType: ConfigPrimitiveType,
+  primitiveType: string,
 ): string[] {
   const primitive = PaimaPrimitiveRegistry.getPrimitiveByType(primitiveType);
   return primitive ? primitive.getViewPrefix() : [];
@@ -97,7 +95,7 @@ export function getPrimitivePrefix(
  * @returns The intermediate prefix for the given primitive type.
  */
 export function getPrimitiveIntermediatePrefix(
-  primitiveType: ConfigPrimitiveType,
+  primitiveType: string,
 ): string[] {
   const primitive = PaimaPrimitiveRegistry.getPrimitiveByType(primitiveType);
   return primitive ? primitive.getIntermediatePrefix() : [];

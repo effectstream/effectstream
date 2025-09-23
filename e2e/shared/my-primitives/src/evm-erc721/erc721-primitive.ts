@@ -1,7 +1,4 @@
-import {
-  ConfigPrimitiveAccountingPayloadType,
-  getEvmEvent,
-} from "@paima/config";
+import { getEvmEvent } from "@paima/config";
 import {
   type EvmAddress,
   type PaimaBlockNumber,
@@ -34,10 +31,7 @@ export const erc721Grammar = [
 
 export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
   // Primitive defined
-  readonly internalName = "EVM:ERC721" as const;
-  readonly internalType = "evm-rpc-erc721" as any; // ConfigPrimitiveType.EvmRpcERC721 as const;
-  readonly internalEvent =
-    ConfigPrimitiveAccountingPayloadType.Transfer as const;
+  readonly internalTypeName = "EVM:ERC721" as const;
   readonly abi = getEvmEvent(erc721.abi, "Transfer(address,address,uint256)");
   override grammar = erc721Grammar;
 
@@ -60,19 +54,21 @@ export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
       config.instanceName,
       config.startBlockHeight,
       Value.Decode(TypeboxHelpers.Evm.Address, config.contractAddress),
-      config.stateMachinePrefix
+      config.stateMachinePrefix,
     );
   }
 
   override *getPayload(
     _: PaimaBlockNumber,
-    primitiveTransactionData: any
+    primitiveTransactionData: any,
   ): StateUpdateStream<{
     isBatched: boolean;
     data: {
-      stateMachinePayload: StaticDecode<
-        CommandTuple<string, typeof erc721Grammar>
-      > | null;
+      stateMachinePayload:
+        | StaticDecode<
+          CommandTuple<string, typeof erc721Grammar>
+        >
+        | null;
       accountingPayload: JsonObject;
     }[];
   }> {
@@ -80,12 +76,12 @@ export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
     const toAddr = Value.Decode(TypeboxHelpers.Evm.Address, to.toLowerCase());
     const fromAddr = Value.Decode(
       TypeboxHelpers.Evm.Address,
-      from.toLowerCase()
+      from.toLowerCase(),
     );
     const isBurn = Boolean(toAddr.toLocaleLowerCase().match(/^0x0+(dead)?$/g));
     const tokenId = Value.Decode(
       TypeboxHelpers.Uint256,
-      primitiveTransactionData.output.payload.tokenId
+      primitiveTransactionData.output.payload.tokenId,
     );
 
     const isBatched = false;
@@ -95,15 +91,17 @@ export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
       tokenId: tokenId,
       isBurn: isBurn,
     };
-    const stateMachinePayload: StaticDecode<
-      CommandTuple<string, typeof this.grammar>
-    > | null = this.stateMachinePrefix
-      ? generateRawStmInput(
+    const stateMachinePayload:
+      | StaticDecode<
+        CommandTuple<string, typeof this.grammar>
+      >
+      | null = this.stateMachinePrefix
+        ? generateRawStmInput(
           this.grammar,
           this.stateMachinePrefix,
-          accountingPayload
+          accountingPayload,
         )
-      : null;
+        : null;
 
     return {
       isBatched,
@@ -119,7 +117,7 @@ export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
   override getConfig() {
     return {
       name: this.instanceName,
-      type: this.internalType,
+      type: this.internalTypeName,
       startBlockHeight: this.startBlockHeight,
       contractAddress: this.contractAddress as EvmAddress,
       abi: this.abi,

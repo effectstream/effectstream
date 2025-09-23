@@ -6,8 +6,6 @@ import type {
 } from "@paima/utils";
 import type { PageRelation } from "../base/page.ts";
 import type {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
 } from "@paima/config";
@@ -23,9 +21,7 @@ export type ChainBlock = {
   }[];
   primitives: (
     & FlattenSyncProtocolIOFor<
-      ConfigSyncProtocolType,
-      ConfigPrimitiveType,
-      ConfigPrimitivePayloadType
+      ConfigSyncProtocolType
     >
     & { source: string }
   )[];

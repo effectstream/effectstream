@@ -1,4 +1,3 @@
-import type { ConfigPrimitiveAccountingPayloadType, ConfigPrimitiveType } from "@paima/config";
 import type { PaimaBlockNumber } from "@paima/utils";
 import type { StaticDecode, TSchema } from "@sinclair/typebox";
 import type { CommandTuple } from "@paima/concise";
@@ -11,7 +10,9 @@ import type { StateUpdateStream } from "@paima/coroutine";
  * This is the interface that needs to be implemented to register a new primitive.
  * E.g., ERC721, ERC1155, etc,
  */
-export abstract class PaimaPrimitive<TGrammar extends readonly Readonly<[string, TSchema]>[]> {
+export abstract class PaimaPrimitive<
+  TGrammar extends readonly Readonly<[string, TSchema]>[],
+> {
   constructor(
     // Instance defined unique name
     public readonly instanceName: string,
@@ -19,27 +20,25 @@ export abstract class PaimaPrimitive<TGrammar extends readonly Readonly<[string,
     public readonly startBlockHeight: number,
     // Contract address for the primitive
     // TODO We need to be make a ContractAddress type.
-    public readonly contractAddress: /* EvmAddress | */string,
+    public readonly contractAddress: string,
     public readonly stateMachinePrefix: string | undefined,
   ) {
     PaimaPrimitiveRegistry.addPrimitive(this);
   }
   // Primitive defined
-  // unique name for primitive definition as chain:protocol 
-  abstract internalName: `${string}:${string}`;
-  // unique type for primitive; 
-  // @deprecated this value should no be used, but we use it for compatibility
-  abstract internalType: ConfigPrimitiveType;
+  // unique name for primitive definition as chain:protocol
+  abstract internalTypeName: `${string}:${string}`;
   // grammar for primitive
   abstract grammar: TGrammar;
-  // event for primitive
-  // @deprecated this value should no be used, but we use it for compatibility
-  abstract internalEvent: ConfigPrimitiveAccountingPayloadType;
-  
+
   // Dynamic/ivm Table Global definitions
   dynamicTables: undefined | ((name: string) => string) = undefined;
-  getIntermediatePrefix():  string[] { return []; }
-  getViewPrefix(): string[] { return []; }
+  getIntermediatePrefix(): string[] {
+    return [];
+  }
+  getViewPrefix(): string[] {
+    return [];
+  }
 
   // Return the config for the primitive.
   abstract getConfig(): Record<string, any>;
@@ -47,21 +46,23 @@ export abstract class PaimaPrimitive<TGrammar extends readonly Readonly<[string,
   // Arrow function to bind 'this', as this function is passed as a reference
   public getDynamicTables = (name: string): string | undefined => {
     return this.dynamicTables?.(name);
-  }
+  };
 
   // This returns the payload in the state machine format.
   // e.g., [stateMachinePrefix, v1, v2, v3]
   abstract getPayload(
-    paima_block_height: PaimaBlockNumber, 
-    primitiveTransactionData: any
+    paima_block_height: PaimaBlockNumber,
+    primitiveTransactionData: any,
   ): StateUpdateStream<{
     isBatched: boolean;
     data: {
-      stateMachinePayload: StaticDecode<
-        CommandTuple<string, TGrammar>
-      > | null;
+      stateMachinePayload:
+        | StaticDecode<
+          CommandTuple<string, TGrammar>
+        >
+        | null;
       accountingPayload: JsonObject;
-    }[]
+    }[];
   }>;
 }
 
@@ -79,4 +80,3 @@ export type JsonValue =
 export type JsonObject = {
   [key: string]: JsonValue;
 };
-

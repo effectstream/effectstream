@@ -1,5 +1,6 @@
 import type { Satisfies, Stringifiable, TypeErrorMessage } from "@paima/utils";
 import type {
+  DefaultPrimitive,
   PrimitiveEntry,
   SyncProtocolWithNetwork,
 } from "../schema/sync-protocols/types.ts";
@@ -86,11 +87,14 @@ export function onlyValue<
  * Helper function to filter and create PrimitiveEntry objects for a specific sync protocol
  */
 function getPrimitivesForSyncProtocol<T extends string>(
-  primitives: Record<string, any>,
+  primitives: Record<
+    string,
+    { syncProtocol: T; primitive: DefaultPrimitive }
+  >,
   syncProtocolName: T,
-): PrimitiveEntry<any, any>[] {
+): PrimitiveEntry<any>[] {
   if (!primitives) return [];
-  const result: PrimitiveEntry<any, any>[] = [];
+  const result: PrimitiveEntry<any>[] = [];
 
   for (const [primitiveName, primitiveData] of Object.entries(primitives)) {
     if (primitiveData.syncProtocol === syncProtocolName) {

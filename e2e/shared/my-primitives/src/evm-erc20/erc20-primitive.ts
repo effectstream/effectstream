@@ -1,8 +1,5 @@
 import type { StaticDecode } from "@sinclair/typebox";
-import {
-  ConfigPrimitiveAccountingPayloadType,
-  getEvmEvent,
-} from "@paima/config";
+import { getEvmEvent } from "@paima/config";
 import {
   type EvmAddress,
   type PaimaBlockNumber,
@@ -15,7 +12,7 @@ import { ERC20_VIEW_PREFIX, erc20Ivm } from "./erc20-ivm.ts";
  * This is a concrete implementation of the PaimaPrimitive class for ERC20.
  */
 import { erc20 } from "./erc20-abi.ts";
-import { JsonObject, PaimaPrimitive } from "../PaimaPrimitive.ts";
+import { type JsonObject, PaimaPrimitive } from "../PaimaPrimitive.ts";
 import { Value } from "@sinclair/typebox/value";
 import { ERC20_INTERMEDIATE_PREFIX } from "./erc20-ivm.ts";
 import {
@@ -28,10 +25,7 @@ import type { StateUpdateStream } from "@paima/coroutine";
 
 export class Erc20Primitive extends PaimaPrimitive<typeof erc20Grammar> {
   // Primitive defined
-  readonly internalName = "EVM:ERC20" as const;
-  readonly internalType = "evm-rpc-erc20" as any; // ConfigPrimitiveType.EvmRpcERC20 as const;
-  readonly internalEvent =
-    ConfigPrimitiveAccountingPayloadType.Transfer as const;
+  readonly internalTypeName = "EVM:ERC20" as const;
   readonly abi = getEvmEvent(erc20.abi, "Transfer(address,address,uint256)");
   override grammar = erc20Grammar;
 
@@ -54,19 +48,21 @@ export class Erc20Primitive extends PaimaPrimitive<typeof erc20Grammar> {
       config.instanceName,
       config.startBlockHeight,
       Value.Decode(TypeboxHelpers.Evm.Address, config.contractAddress),
-      config.stateMachinePrefix
+      config.stateMachinePrefix,
     );
   }
 
   override *getPayload(
     _: PaimaBlockNumber,
-    primitiveTransactionData: any
+    primitiveTransactionData: any,
   ): StateUpdateStream<{
     isBatched: boolean;
     data: {
-      stateMachinePayload: StaticDecode<
-        CommandTuple<string, typeof erc20Grammar>
-      > | null;
+      stateMachinePayload:
+        | StaticDecode<
+          CommandTuple<string, typeof erc20Grammar>
+        >
+        | null;
       accountingPayload: JsonObject;
     }[];
   }> {
@@ -74,12 +70,12 @@ export class Erc20Primitive extends PaimaPrimitive<typeof erc20Grammar> {
     const toAddr = Value.Decode(TypeboxHelpers.Evm.Address, to.toLowerCase());
     const fromAddr = Value.Decode(
       TypeboxHelpers.Evm.Address,
-      from.toLowerCase()
+      from.toLowerCase(),
     );
     // const isBurn = Boolean(toAddr.toLocaleLowerCase().match(/^0x0+(dead)?$/g));
     const value = Value.Decode(
       TypeboxHelpers.Uint256,
-      primitiveTransactionData.output.payload.value
+      primitiveTransactionData.output.payload.value,
     );
     const isBatched = false;
     const accountingPayload: ParamToData<typeof erc20Grammar> = {
@@ -87,15 +83,17 @@ export class Erc20Primitive extends PaimaPrimitive<typeof erc20Grammar> {
       from: fromAddr,
       value: value,
     };
-    const stateMachinePayload: StaticDecode<
-      CommandTuple<string, typeof this.grammar>
-    > | null = this.stateMachinePrefix
-      ? generateRawStmInput(
+    const stateMachinePayload:
+      | StaticDecode<
+        CommandTuple<string, typeof this.grammar>
+      >
+      | null = this.stateMachinePrefix
+        ? generateRawStmInput(
           this.grammar,
           this.stateMachinePrefix,
-          accountingPayload
+          accountingPayload,
         )
-      : null;
+        : null;
 
     return {
       isBatched,
@@ -111,7 +109,7 @@ export class Erc20Primitive extends PaimaPrimitive<typeof erc20Grammar> {
   override getConfig() {
     return {
       name: this.instanceName,
-      type: this.internalType,
+      type: this.internalTypeName,
       startBlockHeight: this.startBlockHeight,
       contractAddress: this.contractAddress as EvmAddress,
       abi: this.abi,
