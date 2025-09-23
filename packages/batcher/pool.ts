@@ -1,4 +1,6 @@
-class BatcherPool<T> extends Array<T> {
+import { DefaultBatcherInput } from "./types.ts";
+
+class BatcherPool<T = DefaultBatcherInput> extends Array<T> {
   // A custom attribute, initialized in the constructor
   public readonly createdAt: number;
 
@@ -17,7 +19,7 @@ class BatcherPool<T> extends Array<T> {
 
   /** Clears the pool (probably wont be used in the batcher) */
   public clear(): void {
-    // 'this.length' is an inherited property from Array
+    // 'this.length' is an inherited property from Array and when redefined to 0 it will clear the pool
     this.length = 0;
   }
 
