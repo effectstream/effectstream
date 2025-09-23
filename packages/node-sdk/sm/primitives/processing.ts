@@ -1,5 +1,3 @@
-import processPaimaL2Event from "./evm/rpc/paima-l2.ts";
-
 import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
@@ -7,10 +5,13 @@ import type {
 import { ConfigPrimitivePayloadType, ConfigPrimitiveType } from "@paima/config";
 import { World, type StateUpdateStream } from "@paima/coroutine";
 import type { PaimaBlockNumber } from "@paima/utils";
+// TODO THIS NEED TO BE AN INTERNAL PACKAGE
 import { PaimaPrimitiveRegistry } from "@e2e/my-primitives";
-import { createScheduledData, type IInsertPrimitiveAccountingParams, insertPrimitiveAccounting } from "@paima/db";
-
-
+import {
+  createScheduledData,
+  type IInsertPrimitiveAccountingParams,
+  insertPrimitiveAccounting,
+} from "@paima/db";
 
 export function* primitiveTransitionFunction(
   paima_block_height: PaimaBlockNumber,
@@ -18,65 +19,56 @@ export function* primitiveTransitionFunction(
     ConfigSyncProtocolType,
     ConfigPrimitiveType,
     ConfigPrimitivePayloadType
-  >,
+  >
 ): StateUpdateStream<void> {
-
   const primitiveName = primitive.output.syncProtocol.payload.primitiveName;
   const paimaPrimitive = PaimaPrimitiveRegistry.getPrimitive(primitiveName);
-  if (paimaPrimitive) {
-    // TODO Other custom primitive actions can be added here.
-    // if (paimaPrimitive.preprocess) {
-    //   yield* paimaPrimitive.preprocess(primitive);
-    // } 
-    const prefix: string | undefined = (primitive.input as any).scheduledPrefix;
-
+  if (!paimaPrimitive) {
+    console.error("No Paima Primitive found for", primitiveName);
+    return;
+  }
+  // TODO We don't need to pass the `primitive' rather the primitive.output
+  const { isBatched, data } = yield* paimaPrimitive.getPayload(
+    paima_block_height,
+    primitive
+  );
+  // console.error("[primitivePayload]", isBatched, data);
+  // TODO We should process the batched data in order, instead of 
+  //      getting the data and then writing the data to the db.
+  for (let { accountingPayload, stateMachinePayload } of data) {
+    // TODO Why is JSON array types been rejected by the db?
+    // [jsonPayload] [ [ "attack", "1", "100" ] ]
+    // error: invalid input syntax for type json
+    if (Array.isArray(accountingPayload)) {
+      accountingPayload = { data: accountingPayload };
+    }
     const insertPrimitiveAccountingParams: IInsertPrimitiveAccountingParams = {
       primitive_name: paimaPrimitive.instanceName,
       paima_block_height: paima_block_height,
       payload_type: paimaPrimitive.internalEvent,
-      // TODO This needs to be a JSON Object, not JSON Array.
-      payload: paimaPrimitive.getPayload(primitive),
-    }
+      payload: accountingPayload,
+    };
+    yield* World.resolve(
+      insertPrimitiveAccounting,
+      insertPrimitiveAccountingParams
+    );
 
-    yield* World.resolve(insertPrimitiveAccounting, insertPrimitiveAccountingParams);
-
-    if (prefix) {
+    if (stateMachinePayload) {
       yield* createScheduledData(
-        paimaPrimitive.getStateMachinePayloadString(primitive),
+        JSON.stringify(stateMachinePayload),
         {
           blockHeight: paima_block_height,
         },
         {
           primitiveName: primitiveName,
-          txHash: (primitive.output.syncProtocol.payload as any).transactionHash,
+          txHash: (primitive.output.syncProtocol.payload as any)
+            .transactionHash,
           caip2: primitive.output.syncProtocol.payload.caip2,
           // TODO: Should we try to infer from the payload contents?
           fromAddress: "0x0",
           contractAddress: paimaPrimitive.contractAddress,
-        },
+        }
       );
     }
-    return;
-  }
-
-
-  // TODO The next section will not be used.
-  //      It should be removed when PaimaPrimitive
-  //      are fully implemented.
-
-  switch (primitive.primitiveType) {
-    case ConfigPrimitiveType.EvmRpcPaimaL2:
-      switch (primitive.payloadType) {
-        case ConfigPrimitivePayloadType.PaimaL2Event:
-          return yield* processPaimaL2Event(
-            paima_block_height,
-            primitive,
-          );
-        default:
-          throw new Error(`Primitive type ${primitive.primitiveType} not supported`);
-        }
-  
-    default:
-      throw new Error(`Primitive type ${primitive.primitiveType} not supported`);
   }
 }

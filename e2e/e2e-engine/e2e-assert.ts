@@ -124,7 +124,7 @@ export async function assertSQL<RowType>(
       remainingTime -= retryDelay;
       if (remainingTime <= 0) {
         testFailed();
-        console.log("Expected", waitUntil.toString());
+        console.log("Expected (waitUntil)", waitUntil.toString());
         console.error("[TIMEOUT] Data in DB:", res.rows);
         return res;
       }

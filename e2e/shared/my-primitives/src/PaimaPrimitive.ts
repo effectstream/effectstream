@@ -1,8 +1,9 @@
 import type { ConfigPrimitiveAccountingPayloadType, ConfigPrimitiveType } from "@paima/config";
-import type { EvmAddress } from "@paima/utils";
+import type { PaimaBlockNumber } from "@paima/utils";
 import type { StaticDecode, TSchema } from "@sinclair/typebox";
 import type { CommandTuple } from "@paima/concise";
 import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
+import type { StateUpdateStream } from "@paima/coroutine";
 
 /**
  * Abstract Class for Paima Primitives
@@ -50,17 +51,32 @@ export abstract class PaimaPrimitive<TGrammar extends readonly Readonly<[string,
 
   // This returns the payload in the state machine format.
   // e.g., [stateMachinePrefix, v1, v2, v3]
-  abstract getStateMachinePayload(primitiveTransactionData: any): StaticDecode<
-    CommandTuple<
-      string, 
-      TGrammar
-    >
-  >;
-
-  public getStateMachinePayloadString(primitiveTransactionData: any): string {
-    return JSON.stringify(this.getStateMachinePayload(primitiveTransactionData));
-  };
-
-  // Get json object payload in format { key: value }
-  abstract getPayload(primitiveTransactionData: any): Record<string, any>;
+  abstract getPayload(
+    paima_block_height: PaimaBlockNumber, 
+    primitiveTransactionData: any
+  ): StateUpdateStream<{
+    isBatched: boolean;
+    data: {
+      stateMachinePayload: StaticDecode<
+        CommandTuple<string, TGrammar>
+      > | null;
+      accountingPayload: JsonObject;
+    }[]
+  }>;
 }
+
+/**
+ * Valid JSON Object, required for the db accounting.
+ */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export type JsonObject = {
+  [key: string]: JsonValue;
+};
+

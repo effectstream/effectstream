@@ -307,9 +307,8 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       return res.rows[sharedState.primitive_accounting_counter - 1]
             .primitive_name ===
           "PaimaGameInteraction" &&
-        res.rows[sharedState.primitive_accounting_counter - 1].payload
-        // ["attack","999","777"]
-            .data === "0x5b2261747461636b222c22393939222c22373737225d";
+        JSON.stringify(res.rows[sharedState.primitive_accounting_counter - 1].payload
+            .data) === JSON.stringify(["attack","999","777"]); // "0x5b2261747461636b222c22393939222c22373737225d";
     },
   );
 
@@ -328,11 +327,13 @@ export async function generalTest(db: Client, sharedState: SharedState) {
         account.address,
         AddressType.EVM,
         badSignature,
-        conciseInput,
+        JSON.stringify(["attack", "990", "770"]),
       ),
     }),
   });
   // This message should not change the state of the database.
+  //
+  // TODO We can get the current EVM block number and wait until it is greater than the block number.
   // If this test fails, it will probably reflected in the next test.
   // As we cannot wait until the state does not change.
   await assertSQL<
@@ -349,9 +350,9 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       return res.rows[sharedState.primitive_accounting_counter - 1]
             .primitive_name ===
           "PaimaGameInteraction" &&
-        res.rows[sharedState.primitive_accounting_counter - 1].payload
-        // ["attack","999","777"]
-            .data === "0x5b2261747461636b222c22393939222c22373737225d";
+        JSON.stringify(res.rows[sharedState.primitive_accounting_counter - 1].payload
+            .data) === JSON.stringify(["attack","999","777"]); // "0x5b2261747461636b222c22393939222c22373737225d";
+            // .data === "0x5b2261747461636b222c22393939222c22373737225d";
     },
   );
 
@@ -366,7 +367,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     },
   );
 
-  // Let's test the scheduled data created throught the state machine.
+  // Let's test the scheduled data created thought the state machine.
   await paimaL2.submitGameInput(
     ["schedule", "1", "block", "111"],
     wallets[0].privateKey,

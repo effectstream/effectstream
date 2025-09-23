@@ -3,7 +3,7 @@ import { erc20Grammar, erc721Grammar, midnightGenericGrammar } from "@e2e/my-pri
 import { Type } from "@sinclair/typebox";
 import type { GrammarDefinition } from "@paima/concise";
 
-export const grammar = {
+export const paimaL2Grammar = {
   schedule: [
     ["tick", Type.Integer()],
     [
@@ -21,7 +21,10 @@ export const grammar = {
   ],
   throw_error: [],
   switchMap: [["mapId", Type.String()]],
+} as const satisfies GrammarDefinition;
 
+export const grammar = {
+  ...paimaL2Grammar,
   // TODO Check if these exist in runtime 
   'midnightContractState': midnightGenericGrammar,
   'transfer-assets': erc721Grammar,

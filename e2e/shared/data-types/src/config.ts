@@ -4,18 +4,16 @@ import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import {
   ConfigBuilder,
   ConfigNetworkType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
-  getEvmEvent,
 } from "@paima/config";
 import { hardhat } from "viem/chains";
 import type { BlockNumber } from "@paima/utils";
-import { paimal2contract } from "@e2e/evm-contracts";
 import { getConnection } from "@paima/db";
 // TODO These will be defined in a paima-engine package.
-import { MidnightGenericPrimitive } from "@e2e/my-primitives";
+import { MidnightGenericPrimitive, PaimaL2Primitive } from "@e2e/my-primitives";
 import { Erc721Primitive } from "@e2e/my-primitives";
 import { Erc20Primitive } from "@e2e/my-primitives";
+import { paimaL2Grammar } from "./grammar.ts";
 
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
@@ -221,16 +219,14 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
         (network, deployments, syncProtocol) => ({
-          name: "PaimaGameInteraction",
-          type: ConfigPrimitiveType.EvmRpcPaimaL2,
-          startBlockHeight: 0,
-          contractAddress: contractAddressesEvmMain()["chain31337"][
-            "PaimaL2ContractModule#MyPaimaL2Contract"
-          ],
-          abi: getEvmEvent(
-            paimal2contract.abi,
-            "PaimaGameInteraction(address,bytes,uint256)",
-          ),
+          ...new PaimaL2Primitive({
+            instanceName: "PaimaGameInteraction",
+            startBlockHeight: 0,
+            contractAddress: contractAddressesEvmMain()["chain31337"][
+              "PaimaL2ContractModule#MyPaimaL2Contract"
+            ],
+            paimaL2Grammar: paimaL2Grammar,
+          }).getConfig(),
         }),
       )
       .addPrimitive(

@@ -1,9 +1,12 @@
 import {
   ConfigPrimitiveAccountingPayloadType,
-  ConfigPrimitiveType,
   getEvmEvent,
 } from "@paima/config";
-import { type EvmAddress, TypeboxHelpers } from "@paima/utils";
+import {
+  type EvmAddress,
+  type PaimaBlockNumber,
+  TypeboxHelpers,
+} from "@paima/utils";
 import { ERC721_VIEW_PREFIX, erc721Ivm } from "./erc721-ivm.ts";
 /**
  * Erc721 Primitive
@@ -12,24 +15,29 @@ import { ERC721_VIEW_PREFIX, erc721Ivm } from "./erc721-ivm.ts";
  */
 import { erc721 } from "./erc721-abi.ts";
 import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
-import { PaimaPrimitive } from "../PaimaPrimitive.ts";
+import { type JsonObject, PaimaPrimitive } from "../PaimaPrimitive.ts";
 import { Value } from "@sinclair/typebox/value";
 import { ERC721_INTERMEDIATE_PREFIX } from "./erc721-ivm.ts";
-import { type CommandTuple, generateRawStmInput, type ParamToData } from "@paima/concise";
+import {
+  type CommandTuple,
+  generateRawStmInput,
+  type ParamToData,
+} from "@paima/concise";
+import { StateUpdateStream } from "@paima/coroutine";
 
 export const erc721Grammar = [
-  ['to', Type.String()],
-  ['from', Type.String()],
-  ['tokenId', Type.String()],
-  ['isBurn', Type.Boolean()],
+  ["to", Type.String()],
+  ["from", Type.String()],
+  ["tokenId", Type.String()],
+  ["isBurn", Type.Boolean()],
 ] as const;
 
 export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
   // Primitive defined
   readonly internalName = "EVM:ERC721" as const;
   readonly internalType = "evm-rpc-erc721" as any; // ConfigPrimitiveType.EvmRpcERC721 as const;
-  readonly internalEvent = ConfigPrimitiveAccountingPayloadType
-    .Transfer as const;
+  readonly internalEvent =
+    ConfigPrimitiveAccountingPayloadType.Transfer as const;
   readonly abi = getEvmEvent(erc721.abi, "Transfer(address,address,uint256)");
   override grammar = erc721Grammar;
 
@@ -51,51 +59,61 @@ export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
     super(
       config.instanceName,
       config.startBlockHeight,
-      Value.Decode(
-        TypeboxHelpers.Evm.Address,
-        config.contractAddress,
-      ),
-      config.stateMachinePrefix,
+      Value.Decode(TypeboxHelpers.Evm.Address, config.contractAddress),
+      config.stateMachinePrefix
     );
   }
 
-  override getStateMachinePayload(primitiveTransactionData: any): StaticDecode<
-    CommandTuple<
-      string,
-      typeof erc721Grammar
-    >
-  > {
-    if (!this.stateMachinePrefix) {
-      throw new Error("State machine prefix is not set");
-    }
-    const payload = this.getPayload(primitiveTransactionData);
-
-    return generateRawStmInput(
-      this.grammar,
-      this.stateMachinePrefix,
-      payload,
-    );
-  }
-
-  override getPayload(primitiveTransactionData: any): ParamToData<typeof erc721Grammar> {
+  override *getPayload(
+    _: PaimaBlockNumber,
+    primitiveTransactionData: any
+  ): StateUpdateStream<{
+    isBatched: boolean;
+    data: {
+      stateMachinePayload: StaticDecode<
+        CommandTuple<string, typeof erc721Grammar>
+      > | null;
+      accountingPayload: JsonObject;
+    }[];
+  }> {
     const { to, from } = primitiveTransactionData.output.payload;
     const toAddr = Value.Decode(TypeboxHelpers.Evm.Address, to.toLowerCase());
     const fromAddr = Value.Decode(
       TypeboxHelpers.Evm.Address,
-      from.toLowerCase(),
+      from.toLowerCase()
     );
     const isBurn = Boolean(toAddr.toLocaleLowerCase().match(/^0x0+(dead)?$/g));
     const tokenId = Value.Decode(
       TypeboxHelpers.Uint256,
-      primitiveTransactionData.output.payload.tokenId,
+      primitiveTransactionData.output.payload.tokenId
     );
 
-    return {
+    const isBatched = false;
+    const accountingPayload: ParamToData<typeof erc721Grammar> = {
       to: toAddr,
       from: fromAddr,
       tokenId: tokenId,
       isBurn: isBurn,
-    }
+    };
+    const stateMachinePayload: StaticDecode<
+      CommandTuple<string, typeof this.grammar>
+    > | null = this.stateMachinePrefix
+      ? generateRawStmInput(
+          this.grammar,
+          this.stateMachinePrefix,
+          accountingPayload
+        )
+      : null;
+
+    return {
+      isBatched,
+      data: [
+        {
+          accountingPayload,
+          stateMachinePayload,
+        },
+      ],
+    };
   }
 
   override getConfig() {
@@ -106,7 +124,7 @@ export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
       contractAddress: this.contractAddress as EvmAddress,
       abi: this.abi,
       // TODO This should be optional.
-      scheduledPrefix: this.stateMachinePrefix ?? '',
+      scheduledPrefix: this.stateMachinePrefix ?? "",
     } as const;
   }
 }
