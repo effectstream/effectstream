@@ -1,6 +1,6 @@
 import { DefaultBatcherInput } from "./types.ts";
 
-class BatcherPool<T = DefaultBatcherInput> extends Array<T> {
+export class BatcherPool<T = DefaultBatcherInput> extends Array<T> {
   // A custom attribute, initialized in the constructor
   public readonly createdAt: number;
 
