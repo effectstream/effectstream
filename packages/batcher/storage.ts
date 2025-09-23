@@ -1,9 +1,11 @@
-import type { BatchedSubunit } from "@paima/concise";
+import type { DefaultBatcherInput } from "./types.ts";
 
 /**
  * Interface for batcher storage operations
  */
-export interface BatcherStorage {
+export interface BatcherStorage<
+  T extends DefaultBatcherInput = DefaultBatcherInput,
+> {
   /**
    * Initialize the storage (create directories, tables, etc.)
    */
@@ -12,18 +14,18 @@ export interface BatcherStorage {
   /**
    * Add a new input to storage
    */
-  addInput(input: BatchedSubunit): Promise<void>;
+  addInput(input: T): Promise<void>;
 
   /**
    * Get all pending inputs
    */
-  getAllInputs(): Promise<BatchedSubunit[]>;
+  getAllInputs(): Promise<T[]>;
 
   /**
    * Remove specific processed inputs from storage (after successful processing)
    * This ensures we remove exactly the inputs that were processed, not just the first N
    */
-  removeProcessedInputs(processedInputs: BatchedSubunit[]): Promise<void>;
+  removeProcessedInputs(processedInputs: T[]): Promise<void>;
 
   /**
    * Get the count of pending inputs
@@ -39,7 +41,8 @@ export interface BatcherStorage {
 /**
  * File-based storage implementation using JSONL format
  */
-export class FileStorage implements BatcherStorage {
+export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
+  implements BatcherStorage<T> {
   private readonly filePath: string;
   private readonly dataDirectory: string;
 
@@ -58,7 +61,7 @@ export class FileStorage implements BatcherStorage {
     }
   }
 
-  async addInput(input: BatchedSubunit): Promise<void> {
+  async addInput(input: T): Promise<void> {
     try {
       await Deno.writeFile(
         this.filePath,
@@ -71,7 +74,7 @@ export class FileStorage implements BatcherStorage {
     }
   }
 
-  async getAllInputs(): Promise<BatchedSubunit[]> {
+  async getAllInputs(): Promise<T[]> {
     try {
       const content = new TextDecoder().decode(
         await Deno.readFile(this.filePath),
@@ -89,7 +92,7 @@ export class FileStorage implements BatcherStorage {
   }
 
   async removeProcessedInputs(
-    processedInputs: BatchedSubunit[],
+    processedInputs: T[],
   ): Promise<void> {
     try {
       // Create a set of keys for the processed inputs for fast lookup
@@ -128,8 +131,8 @@ export class FileStorage implements BatcherStorage {
   /**
    * Create a unique key for a BatchedSubunit for comparison
    */
-  private createInputKey(input: BatchedSubunit): string {
-    return `${input.userAddress}-${input.conciseInput}-${input.millisecondTimestamp}-${input.userSignature}`;
+  private createInputKey(input: T): string {
+    return `${input.address}-${input.input}-${input.timestamp}-${input.signature}`;
   }
 
   async getInputCountAndSize(): Promise<{ count: number; size: number }> {
@@ -164,21 +167,23 @@ export class FileStorage implements BatcherStorage {
  * This could be implemented with PostgreSQL,
  * Perhaps passing the connection string as an argument.
  */
-export class DatabaseStorage implements BatcherStorage {
+export class DatabaseStorage<
+  T extends DefaultBatcherInput = DefaultBatcherInput,
+> implements BatcherStorage<T> {
   constructor(private connectionString: string) {}
 
   // TODO: Implement database storage
   init(): Promise<void> {
     throw new Error("DatabaseStorage not implemented yet");
   }
-  addInput(input: BatchedSubunit): Promise<void> {
+  addInput(input: T): Promise<void> {
     throw new Error("DatabaseStorage not implemented yet");
   }
-  getAllInputs(): Promise<BatchedSubunit[]> {
+  getAllInputs(): Promise<T[]> {
     throw new Error("DatabaseStorage not implemented yet");
   }
   removeProcessedInputs(
-    processedInputs: BatchedSubunit[],
+    processedInputs: T[],
   ): Promise<void> {
     throw new Error("DatabaseStorage not implemented yet");
   }
