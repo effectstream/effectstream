@@ -1,4 +1,7 @@
+import { AddressType } from "@paima/utils";
+
 export interface DefaultBatcherInput {
+  addressType: AddressType;
   input: string;
   signature: string;
   address: string;

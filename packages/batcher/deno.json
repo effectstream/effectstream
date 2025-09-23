@@ -1,0 +1,9 @@
+{
+  "name": "@paima/batcher-core",
+  "imports": {
+    "@paima/utils": "../paima-sdk/utils/src/mod.ts",
+    "@paima/crypto": "../paima-sdk/crypto/src/mod.ts",
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "@sinclair/typebox/value": "npm:@sinclair/typebox/value"
+  }
+}
