@@ -2,6 +2,7 @@ import { Value } from "@sinclair/typebox/value";
 import { type StaticDecode, Type } from "@sinclair/typebox";
 import {
   type ConfigSyncProtocolType,
+  type FlattenSyncProtocolIOFor,
   getEvmEvent,
   type ProtocolPrimitiveMap,
 } from "@paima/config";
@@ -69,7 +70,9 @@ export class Erc721Primitive extends PaimaPrimitive<
 
   override *getPayload(
     _: PaimaBlockNumber,
-    primitiveTransactionData: any,
+    primitiveTransactionData: FlattenSyncProtocolIOFor<
+      ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    >,
   ): StateUpdateStream<{
     isBatched: boolean;
     data: {

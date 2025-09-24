@@ -9,8 +9,11 @@ import type { Chain, GetBlockReturnType } from "viem";
 import type { PageSyncRange } from "../common/page-helpers.ts";
 import { Type } from "@sinclair/typebox";
 import type {
+  ConfigNetworkType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
+  PrimitiveEntry,
+  SyncProtocolWithNetwork,
 } from "@paima/config";
 
 export type Page = BlockNumber;
@@ -21,6 +24,16 @@ export const PageSchema = TypeboxHelpers.SerializeObjAsJson<
   Page,
   typeof PageJsonSchema
 >();
+
+export type ConfigType = Extract<
+  SyncProtocolWithNetwork,
+  { networkType: ConfigNetworkType.EVM }
+>;
+
+export type PrimitiveEntryType = Extract<
+  PrimitiveEntry,
+  { syncProtocol: ConfigSyncProtocolType.EVM_RPC_PARALLEL }
+>;
 
 export type PrimitiveType = FlattenSyncProtocolIOFor<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL

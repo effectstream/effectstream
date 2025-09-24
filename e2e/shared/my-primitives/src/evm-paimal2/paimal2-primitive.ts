@@ -75,7 +75,9 @@ export class PaimaL2Primitive extends PaimaPrimitive<
 
   override *getPayload(
     paima_block_height: PaimaBlockNumber,
-    primitiveTransactionData: any,
+    primitiveTransactionData: FlattenSyncProtocolIOFor<
+      ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    >,
   ): StateUpdateStream<{
     isBatched: boolean;
     data: {

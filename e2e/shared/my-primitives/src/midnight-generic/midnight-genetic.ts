@@ -8,6 +8,7 @@ import {
 } from "@paima/concise";
 import type {
   ConfigSyncProtocolType,
+  FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
 } from "@paima/config";
 
@@ -82,12 +83,17 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
 
   override *getPayload(
     _: PaimaBlockNumber,
-    primitiveTransactionData: { output: { payload: any } },
+    primitiveTransactionData: FlattenSyncProtocolIOFor<
+      ConfigSyncProtocolType.MIDNIGHT_PARALLEL
+    >,
   ) {
     const payload = primitiveTransactionData.output.payload;
     try {
       const isBatched = false;
-      const accountingPayload: ParamToData<typeof this.grammar> = { payload };
+      // TODO We need to write a correct Typebox type for the payload
+      const accountingPayload: ParamToData<typeof this.grammar> = {
+        payload,
+      } as unknown as ParamToData<typeof this.grammar>;
       // Value.Decode(
       //   this.grammar[0][1],
       //   payload,

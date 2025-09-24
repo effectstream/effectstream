@@ -14,7 +14,14 @@ import {
   keysOf,
 } from "@paima/utils";
 import { blockNumberRelation } from "../common/utils.ts";
-import type { Input, Output, Page, PrimitiveType } from "./types.ts";
+import type {
+  ConfigType,
+  Input,
+  Output,
+  Page,
+  PrimitiveEntryType,
+  PrimitiveType,
+} from "./types.ts";
 import { PageSchema } from "./types.ts";
 import {
   fetchNewestPage,
@@ -45,10 +52,7 @@ export class EvmFetcher
     >,
     PaginatedFetcher<Page> {
   constructor(
-    readonly config: Extract<
-      SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.EVM }
-    >,
+    readonly config: ConfigType,
     readonly client: PublicClient<any, Chain, any, any>,
   ) {
     super(config.syncProtocol.name);
@@ -150,10 +154,7 @@ export class EvmFetcher
     fromBlock: bigint,
     toBlock: bigint,
     client: PublicClient<any, Chain, any, any>,
-    primitiveEntry: Extract<
-      PrimitiveEntry,
-      { syncProtocol: ConfigSyncProtocolType.EVM_RPC_PARALLEL }
-    >,
+    primitiveEntry: PrimitiveEntryType,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
   ): Operation<
     PrimitiveType[]
@@ -177,6 +178,9 @@ export class EvmFetcher
     const primitiveResponses: PrimitiveType[] = [];
     for (const log of logs) {
       // const block = yield* call(() => pageRequest(Number(log.blockNumber)));
+      const args = (log as unknown as {
+        args: Record<string, any>;
+      }).args;
       const primitiveResponse: PrimitiveType = {
         syncProtocol: {
           name: primitiveEntry.syncProtocol,
@@ -189,11 +193,7 @@ export class EvmFetcher
         primitive: primitiveEntry.primitive.name,
         output: {
           payloadType: primitiveEntry.primitive.abi.name,
-          payload: (log as unknown as {
-            args: {
-              // TODO why is args undefined from getLogs (?)
-            };
-          }).args,
+          payload: args,
         },
       };
 

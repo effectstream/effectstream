@@ -6,6 +6,7 @@ import type { StateUpdateStream } from "@paima/coroutine";
 import type { JsonObject } from "./types.ts";
 import type {
   ConfigSyncProtocolType,
+  FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
 } from "@paima/config";
 
@@ -60,7 +61,7 @@ export abstract class PaimaPrimitive<
   // e.g., [stateMachinePrefix, v1, v2, v3]
   abstract getPayload(
     paima_block_height: PaimaBlockNumber,
-    primitiveTransactionData: any,
+    primitiveTransactionData: FlattenSyncProtocolIOFor<SyncProtocol>,
   ): StateUpdateStream<{
     isBatched: boolean;
     data: {

@@ -1,11 +1,13 @@
-import type {
-  ConfigNetworkType,
-  ConfigSyncProtocolType,
-  PrimitiveEntry,
-  SyncProtocolWithNetwork,
-} from "@paima/config";
 import { BaseDataFetcher } from "../base/fetcher.ts";
-import type { Block, Input, Output, Page, PrimitiveType } from "./types.ts";
+import type {
+  Block,
+  ConfigType,
+  Input,
+  Output,
+  Page,
+  PrimitiveEntryType,
+  PrimitiveType,
+} from "./types.ts";
 import { all, call, type Operation } from "effection";
 import type { DataFetched } from "../base/fetcher.ts";
 import type {
@@ -16,6 +18,7 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@paima/utils";
 import { MidnightClient } from "./MidnightClient.ts";
+import type { EncodedStateValue } from "@paima/config";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -26,10 +29,7 @@ export class MidnightFetcher extends BaseDataFetcher<
 > {
   readonly client: MidnightClient;
   constructor(
-    readonly config: Extract<
-      SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.MIDNIGHT }
-    >,
+    readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
     this.client = new MidnightClient(
@@ -104,19 +104,16 @@ export class MidnightFetcher extends BaseDataFetcher<
   *readPrimitives(
     height: number,
     block: Block,
-    primitives: Extract<
-      PrimitiveEntry,
-      { syncProtocol: ConfigSyncProtocolType.MIDNIGHT_PARALLEL }
-    >[],
+    primitiveEntries: PrimitiveEntryType[],
   ): Operation<PrimitiveType[]> {
     const client = this.client;
     const allOperations: Operation<PrimitiveType | undefined>[] = [];
-    for (const primitive of primitives) {
+    for (const primitiveEntry of primitiveEntries) {
       allOperations.push(
         this.fetchContractState(
           height,
           client,
-          primitive,
+          primitiveEntry,
           block,
         ),
       );
@@ -130,10 +127,7 @@ export class MidnightFetcher extends BaseDataFetcher<
   *fetchContractState(
     height: number,
     client: MidnightClient,
-    primitiveEntry: Extract<
-      PrimitiveEntry,
-      { syncProtocol: ConfigSyncProtocolType.MIDNIGHT_PARALLEL }
-    >,
+    primitiveEntry: PrimitiveEntryType,
     block: Block,
   ): Operation<PrimitiveType | undefined> {
     const contractAddress = primitiveEntry.primitive.contractAddress;
@@ -157,7 +151,7 @@ export class MidnightFetcher extends BaseDataFetcher<
       primitive: primitiveEntry.primitive.name,
       output: {
         payloadType: "midnight-contract-state",
-        payload: state.data.encode() as unknown as {},
+        payload: state.data.encode() as unknown as EncodedStateValue,
       },
     };
   }

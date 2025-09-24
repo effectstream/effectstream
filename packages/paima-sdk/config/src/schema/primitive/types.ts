@@ -1,8 +1,10 @@
 import type { ConfigSyncProtocolType } from "../sync-protocols/types.ts";
+import type { EncodedStateValue } from "@midnight-ntwrk/onchain-runtime";
+
+export type { EncodedStateValue };
 
 export type FlattenSyncProtocolIOFor<
   SyncProtocol extends ConfigSyncProtocolType,
-  PrimitivePayload = {},
 > = {
   syncProtocol: {
     name: SyncProtocol;
@@ -15,6 +17,39 @@ export type FlattenSyncProtocolIOFor<
   primitive: string;
   output: {
     payloadType: string;
-    payload: PrimitivePayload;
+    payload: ProtocolPayloadMap[SyncProtocol];
   };
 };
+
+type EVMPrimitivePayload = Record<string, any>;
+
+type MidnightTPrimitivePayload = EncodedStateValue;
+
+type NtpPrimitivePayload = never;
+
+type CardanoCarpPrimitivePayload = {
+  TODO_MISSING_FIELDS: string;
+};
+
+type CardanoUtxoRpcPrimitivePayload = {
+  TODO_MISSING_FIELDS: string;
+};
+
+type MinaPrimitivePayload = {
+  TODO_MISSING_FIELDS: string;
+};
+
+type AvailPrimitivePayload = {
+  TODO_MISSING_FIELDS: string;
+};
+
+interface ProtocolPayloadMap {
+  [ConfigSyncProtocolType.NTP_MAIN]: NtpPrimitivePayload;
+  [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: EVMPrimitivePayload;
+  [ConfigSyncProtocolType.CARDANO_CARP_PARALLEL]: CardanoCarpPrimitivePayload;
+  [ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL]:
+    CardanoUtxoRpcPrimitivePayload;
+  [ConfigSyncProtocolType.MINA_PARALLEL]: MinaPrimitivePayload;
+  [ConfigSyncProtocolType.AVAIL_PARALLEL]: AvailPrimitivePayload;
+  [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: MidnightTPrimitivePayload;
+}
