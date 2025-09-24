@@ -1,6 +1,8 @@
 // TODO This can be replaced by a function that does the insertions.
 // This will allow to create new tables during migrations.
 
+import { ERC20_TYPE } from "./erc20-primitive.ts";
+
 // TODO The IVM here is not relevant, as the trigger does the work.
 
 /**
@@ -35,7 +37,7 @@ export function erc20Ivm(name: string) {
         to_address TEXT;
     BEGIN
         -- Only process ERC20 transfers
-        IF NEW.payload_type = 'transfer' 
+        IF NEW.payload_type = '${ERC20_TYPE}' 
            AND NEW.primitive_name = '${name}'
            AND NEW.payload->>'value' IS NOT NULL THEN
            

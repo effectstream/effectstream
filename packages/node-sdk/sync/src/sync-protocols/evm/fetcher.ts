@@ -26,12 +26,12 @@ import type { PrimitiveFetcher } from "../base/primitive.ts";
 import type { RootConversion } from "../base/state.ts";
 import type {
   ConfigNetworkType,
-  ConfigSyncProtocolEvmParallel,
-  NetworkFromSyncProtocol,
   PrimitiveEntry,
+  SyncProtocolWithNetwork,
 } from "@paima/config";
 import type { ConfigSyncProtocolType } from "@paima/config";
 import { Value } from "@sinclair/typebox/value";
+import { PaimaPrimitiveRegistry } from "@paima/sm";
 
 export class EvmFetcher
   extends BaseDataFetcher<Input, Output, RootOutput, Page, RootPage>
@@ -45,18 +45,10 @@ export class EvmFetcher
     >,
     PaginatedFetcher<Page> {
   constructor(
-    readonly config: // SyncProtocolWithNetwork,
-      {
-        primitives: PrimitiveEntry<
-          ConfigSyncProtocolType.EVM_RPC_PARALLEL
-        >[];
-        syncProtocol: ConfigSyncProtocolEvmParallel;
-        networkType: ConfigNetworkType.EVM;
-        syncProtocolType: ConfigSyncProtocolType.EVM_RPC_PARALLEL;
-        network: NetworkFromSyncProtocol<
-          ConfigSyncProtocolType.EVM_RPC_PARALLEL
-        >;
-      },
+    readonly config: Extract<
+      SyncProtocolWithNetwork,
+      { networkType: ConfigNetworkType.EVM }
+    >,
     readonly client: PublicClient<any, Chain, any, any>,
   ) {
     super(config.syncProtocol.name);
@@ -158,18 +150,23 @@ export class EvmFetcher
     fromBlock: bigint,
     toBlock: bigint,
     client: PublicClient<any, Chain, any, any>,
-    primitive: PrimitiveEntry<
-      ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    primitiveEntry: Extract<
+      PrimitiveEntry,
+      { syncProtocol: ConfigSyncProtocolType.EVM_RPC_PARALLEL }
     >,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
   ): Operation<
     PrimitiveType[]
   > {
-    // Fetch range of eventlogs
+    const primitive_ = PaimaPrimitiveRegistry.getPrimitive(
+      primitiveEntry.primitive.name,
+    );
+
+    // Fetch range of event-logs
     const logs = yield* call(() =>
       client.getLogs({
-        address: primitive.primitive.contractAddress as `0x${string}`,
-        event: primitive.primitive.abi,
+        address: primitiveEntry.primitive.contractAddress as `0x${string}`,
+        event: primitiveEntry.primitive.abi,
         fromBlock,
         toBlock,
         strict: true,
@@ -182,16 +179,16 @@ export class EvmFetcher
       // const block = yield* call(() => pageRequest(Number(log.blockNumber)));
       const primitiveResponse: PrimitiveType = {
         syncProtocol: {
-          name: primitive.syncProtocol as any,
+          name: primitiveEntry.syncProtocol,
           blockNumber: Number(log.blockNumber),
           transactionHash: log.transactionHash,
           transactionIndex: log.transactionIndex,
           contractAddress: log.address,
           logIndex: log.logIndex,
         },
-        primitive: primitive.primitive.name,
+        primitive: primitiveEntry.primitive.name,
         output: {
-          payloadType: primitive.primitive.abi.name,
+          payloadType: primitiveEntry.primitive.abi.name,
           payload: (log as unknown as {
             args: {
               // TODO why is args undefined from getLogs (?)
@@ -210,8 +207,9 @@ export class EvmFetcher
   *readPrimitives(
     data: Input,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
-    primitives: PrimitiveEntry<
-      ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    primitiveEntries: Extract<
+      PrimitiveEntry,
+      { syncProtocol: ConfigSyncProtocolType.EVM_RPC_PARALLEL }
     >[],
   ): Operation<PrimitiveType[]> {
     const client = this.client;
@@ -219,7 +217,7 @@ export class EvmFetcher
 
     const fromBlock = yield* call(() => pageRequest(data.from));
     const toBlock = yield* call(() => pageRequest(data.to));
-    for (const primitive of primitives) {
+    for (const primitive of primitiveEntries) {
       allOperations.push(
         this.fetchLogsAndExtractPrimitiveData(
           fromBlock.number,

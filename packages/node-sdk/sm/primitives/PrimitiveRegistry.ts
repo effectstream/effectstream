@@ -1,3 +1,4 @@
+import type { ConfigSyncProtocolType } from "@paima/config";
 import type { PaimaPrimitive } from "./PaimaPrimitive.ts";
 
 /**
@@ -7,27 +8,37 @@ import type { PaimaPrimitive } from "./PaimaPrimitive.ts";
  * They can be retrieved by their instance-name.
  */
 type UnknownPrimitive = any;
+type UnknownSyncProtocol = any;
 
 export class PaimaPrimitiveRegistry {
-  static primitives: Record<string, PaimaPrimitive<UnknownPrimitive>> = {};
+  static primitives: Record<
+    string,
+    PaimaPrimitive<UnknownSyncProtocol, UnknownPrimitive>
+  > = {};
 
-  static getPrimitive(
+  static getPrimitive<
+    SyncProtocol extends ConfigSyncProtocolType = UnknownSyncProtocol,
+  >(
     instanceName: string,
-  ): PaimaPrimitive<UnknownPrimitive> | undefined {
+  ): PaimaPrimitive<SyncProtocol, UnknownPrimitive> | undefined {
     const primitive = this.primitives[instanceName];
     // TODO This will be always defined
     return primitive ?? undefined;
   }
 
-  static getPrimitiveByType(
+  static getPrimitiveByType<
+    SyncProtocol extends ConfigSyncProtocolType = UnknownSyncProtocol,
+  >(
     type: string,
-  ): PaimaPrimitive<UnknownPrimitive> | undefined {
+  ): PaimaPrimitive<SyncProtocol, UnknownPrimitive> | undefined {
     return Object.values(this.primitives).find((primitive) =>
       primitive.internalTypeName === type
     );
   }
 
-  static addPrimitive(primitive: PaimaPrimitive<UnknownPrimitive>) {
+  static addPrimitive(
+    primitive: PaimaPrimitive<UnknownSyncProtocol, UnknownPrimitive>,
+  ) {
     if (this.primitives[primitive.instanceName]) {
       throw new Error(`Primitive ${primitive.instanceName} already exists`);
     }

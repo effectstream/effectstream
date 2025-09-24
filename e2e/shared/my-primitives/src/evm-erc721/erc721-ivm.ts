@@ -1,3 +1,5 @@
+import { ERC721_TYPE } from "./erc721-primitive.ts";
+
 /**
  * Creates a new IVM for the ERC721 token with the given name.
  * This will track the current owner of each token.
@@ -29,7 +31,7 @@ export function erc721Ivm(name: string) {
   CREATE OR REPLACE FUNCTION update_erc721_ownership_${validSQLName}() RETURNS TRIGGER AS $$
   BEGIN
       -- Only process ERC721 transfers
-      IF NEW.payload_type = 'transfer' 
+      IF NEW.payload_type = '${ERC721_TYPE}' 
          AND NEW.primitive_name = '${name}' 
          AND NEW.payload->>'to' IS NOT NULL 
          AND NEW.payload->>'to' != '' THEN

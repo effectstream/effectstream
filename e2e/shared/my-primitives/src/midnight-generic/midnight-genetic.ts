@@ -1,12 +1,15 @@
 import { PaimaPrimitive } from "@paima/sm";
 import type { MidnightAddress, PaimaBlockNumber } from "@paima/utils";
-import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
+import { type StaticDecode, Type } from "@sinclair/typebox";
 import {
   type CommandTuple,
   generateRawStmInput,
   type ParamToData,
 } from "@paima/concise";
-import type { StateUpdateStream } from "@paima/coroutine";
+import type {
+  ConfigSyncProtocolType,
+  ProtocolPrimitiveMap,
+} from "@paima/config";
 
 export const midnightGenericGrammar = [
   [
@@ -47,6 +50,7 @@ export const midnightGenericGrammar = [
 ] as const;
 
 export class MidnightGenericPrimitive extends PaimaPrimitive<
+  ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
   typeof midnightGenericGrammar
 > {
   // Primitive defined
@@ -118,7 +122,9 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
     }
   }
 
-  override getConfig() {
+  override getConfig(): ProtocolPrimitiveMap[
+    ConfigSyncProtocolType.MIDNIGHT_PARALLEL
+  ] {
     return {
       name: this.instanceName,
       type: this.internalTypeName,

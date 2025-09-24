@@ -24,7 +24,7 @@ import type {
   SyncProtocolWithNetwork,
 } from "@paima/config";
 import type { ConfigSyncProtocolType } from "@paima/config";
-import { NtpTimeSync, NtpTimeSyncDefaultOptions } from "ntp-time-sync";
+import { NtpTimeSync, type NtpTimeSyncDefaultOptions } from "ntp-time-sync";
 
 type RecursivePartial<T> = {
   [P in keyof T]?: RecursivePartial<T[P]>;
@@ -143,8 +143,9 @@ export class NtpFetcher
   *readPrimitives(
     data: Input,
     pageRequest: PageRequest<Page, { timestamp: bigint; hash: string }>,
-    primitives: PrimitiveEntry<
-      ConfigSyncProtocolType.NTP_MAIN
+    primitiveEntries: Extract<
+      PrimitiveEntry,
+      { syncProtocol: ConfigSyncProtocolType.NTP_MAIN }
     >[],
   ): Operation<PrimitiveType[]> {
     return [];

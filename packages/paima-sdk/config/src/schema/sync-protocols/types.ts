@@ -3,6 +3,7 @@ import { ConfigNetworkType } from "../network/mod.ts";
 import type { ConfigSyncProtocolDecoratorType } from "./decorators/types.ts";
 import type { NetworkConfig } from "../../config/parts/network.ts";
 import type { ConfigSyncProtocolMapping } from "./all.ts";
+import type { getEvmEvent } from "@paima/config";
 
 export enum ConfigSyncProtocolType {
   NTP_MAIN = "ntp-main",
@@ -32,23 +33,71 @@ export type SyncProtocolFromNetwork<T extends ConfigNetworkType> =
     ? FlipObject<typeof SyncProtocolToNetwork>[T]
     : never;
 
-export type DefaultPrimitive = {
-  todo_this_should_be_defined_per_fetcher: string;
-  abi: any;
+type BasePrimitive = {
   name: string;
-  contractAddress: string;
+  type: string;
+  startBlockHeight: number;
 };
 
-export type PrimitiveEntry<
-  SyncProtocol extends ConfigSyncProtocolType = ConfigSyncProtocolType,
-> = {
-  /** The sync protocol this primitive belongs to */
-  syncProtocol: SyncProtocol;
-  /** The primitive configuration */
-  primitive: DefaultPrimitive;
-  /** Custom identifier for the primitive */
-  id: string;
+type EVMPrimitive = BasePrimitive & {
+  abi: ReturnType<typeof getEvmEvent>;
+  contractAddress: string;
+  scheduledPrefix?: string;
 };
+
+type MidnightPrimitive = BasePrimitive & {
+  name: string;
+  contractAddress: string;
+  scheduledPrefix?: string;
+};
+
+type CardanoUtxoRpcPrimitive = BasePrimitive & {
+  TODO_ADD_MISSING_FIELDS: string;
+};
+
+type CardanoCarpPrimitive = BasePrimitive & {
+  TODO_ADD_MISSING_FIELDS: string;
+};
+
+type MinaPrimitive = BasePrimitive & {
+  TODO_ADD_MISSING_FIELDS: string;
+};
+
+type AvailPrimitive = BasePrimitive & {
+  TODO_ADD_MISSING_FIELDS: string;
+};
+
+/**
+ * A mapping between specific sync protocols and their corresponding primitive types.
+ * This helps in creating a discriminated union for PrimitiveEntry.
+ */
+export type ProtocolPrimitiveMap = {
+  [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: EVMPrimitive;
+  [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: MidnightPrimitive;
+  [ConfigSyncProtocolType.CARDANO_CARP_PARALLEL]: CardanoCarpPrimitive;
+  [ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL]: CardanoUtxoRpcPrimitive;
+  [ConfigSyncProtocolType.MINA_PARALLEL]: MinaPrimitive;
+  [ConfigSyncProtocolType.AVAIL_PARALLEL]: AvailPrimitive;
+};
+
+/**
+ * PrimitiveEntry contains the sync protocol name,
+ * and the primitive configuration created by `getConfig()`
+ */
+export type PrimitiveEntry = {
+  [K in ConfigSyncProtocolType]: {
+    /** The sync protocol this primitive belongs to */
+    syncProtocol: K;
+    /**
+     * The primitive configuration, correctly typed based on the syncProtocol.
+     * Protocols not in ProtocolPrimitiveMap will default to DefaultPrimitive.
+     */
+    primitive: K extends keyof ProtocolPrimitiveMap ? ProtocolPrimitiveMap[K]
+      : never;
+    /** Custom identifier for the primitive */
+    id: string;
+  };
+}[ConfigSyncProtocolType];
 
 export type NetworkFromSyncProtocol<
   T extends ConfigSyncProtocolType | ConfigSyncProtocolDecoratorType,
@@ -62,6 +111,9 @@ export type SyncProtocolWithNetwork = {
     syncProtocolType: ConfigSyncProtocolMapping[K]["type"];
     syncProtocol: ConfigSyncProtocolMapping[K];
     network: NetworkFromSyncProtocol<K>;
-    primitives: PrimitiveEntry<K>[];
+    primitives: Extract<
+      PrimitiveEntry,
+      { syncProtocol: ConfigSyncProtocolMapping[K]["type"] }
+    >[];
   };
 }[keyof typeof SyncProtocolToNetwork];

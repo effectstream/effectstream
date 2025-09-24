@@ -1,32 +1,47 @@
 import type { StaticDecode } from "@sinclair/typebox";
-import { getEvmEvent } from "@paima/config";
+import {
+  type ConfigSyncProtocolType,
+  getEvmEvent,
+  type ProtocolPrimitiveMap,
+} from "@paima/config";
 import {
   type EvmAddress,
   type PaimaBlockNumber,
   TypeboxHelpers,
 } from "@paima/utils";
-import { ERC20_VIEW_PREFIX, erc20Ivm } from "./erc20-ivm.ts";
-/**
- * Erc20 Primitive
- *
- * This is a concrete implementation of the PaimaPrimitive class for ERC20.
- */
-import { erc20 } from "./erc20-abi.ts";
 import { type JsonObject, PaimaPrimitive } from "@paima/sm";
 import { Value } from "@sinclair/typebox/value";
-import { ERC20_INTERMEDIATE_PREFIX } from "./erc20-ivm.ts";
 import {
   type CommandTuple,
   generateRawStmInput,
   type ParamToData,
 } from "@paima/concise";
-import { erc20Grammar } from "./erc20-grammar.ts";
 import type { StateUpdateStream } from "@paima/coroutine";
+import { erc20 } from "./erc20-abi.ts";
+import { erc20Grammar } from "./erc20-grammar.ts";
+import {
+  ERC20_INTERMEDIATE_PREFIX,
+  ERC20_VIEW_PREFIX,
+  erc20Ivm,
+} from "./erc20-ivm.ts";
 
-export class Erc20Primitive extends PaimaPrimitive<typeof erc20Grammar> {
+/**
+ * Erc20 Primitive
+ *
+ * This is a concrete implementation of the PaimaPrimitive class for ERC20.
+ */
+export const ERC20_TYPE = "EVM:ERC20" as const;
+
+export class Erc20Primitive extends PaimaPrimitive<
+  ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+  typeof erc20Grammar
+> {
   // Primitive defined
-  readonly internalTypeName = "EVM:ERC20" as const;
-  readonly abi = getEvmEvent(erc20.abi, "Transfer(address,address,uint256)");
+  readonly internalTypeName = ERC20_TYPE;
+  readonly abi: ReturnType<typeof getEvmEvent> = getEvmEvent(
+    erc20.abi,
+    "Transfer(address,address,uint256)",
+  );
   override grammar = erc20Grammar;
 
   // Dynamic table to track the owner of each token.
@@ -106,15 +121,16 @@ export class Erc20Primitive extends PaimaPrimitive<typeof erc20Grammar> {
     };
   }
 
-  override getConfig() {
+  override getConfig(): ProtocolPrimitiveMap[
+    ConfigSyncProtocolType.EVM_RPC_PARALLEL
+  ] {
     return {
       name: this.instanceName,
       type: this.internalTypeName,
       startBlockHeight: this.startBlockHeight,
       contractAddress: this.contractAddress as EvmAddress,
       abi: this.abi,
-      // TODO This should be optional.
-      scheduledPrefix: this.stateMachinePrefix ?? "",
+      scheduledPrefix: this.stateMachinePrefix,
     } as const;
   }
 }

@@ -12,6 +12,7 @@ import { hexToString, stringToHex } from "viem";
 import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
+  ProtocolPrimitiveMap,
 } from "@paima/config";
 import type { StateUpdateStream } from "@paima/coroutine";
 import {
@@ -45,6 +46,7 @@ import { Value } from "@sinclair/typebox/value";
 import type { CommandTuple } from "@paima/concise";
 
 export class PaimaL2Primitive extends PaimaPrimitive<
+  ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   readonly [string, TSchema][]
 > {
   // Primitive defined
@@ -106,7 +108,9 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     };
   }
 
-  override getConfig() {
+  override getConfig(): ProtocolPrimitiveMap[
+    ConfigSyncProtocolType.EVM_RPC_PARALLEL
+  ] {
     return {
       name: this.instanceName,
       type: "evm-rpc-paima-l2",

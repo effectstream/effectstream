@@ -4,6 +4,10 @@ import type { CommandTuple } from "@paima/concise";
 import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
 import type { StateUpdateStream } from "@paima/coroutine";
 import type { JsonObject } from "./types.ts";
+import type {
+  ConfigSyncProtocolType,
+  ProtocolPrimitiveMap,
+} from "@paima/config";
 
 /**
  * Abstract Class for Paima Primitives
@@ -12,6 +16,7 @@ import type { JsonObject } from "./types.ts";
  * E.g., ERC721, ERC1155, etc,
  */
 export abstract class PaimaPrimitive<
+  SyncProtocol extends ConfigSyncProtocolType,
   TGrammar extends readonly Readonly<[string, TSchema]>[],
 > {
   constructor(
@@ -42,7 +47,9 @@ export abstract class PaimaPrimitive<
   }
 
   // Return the config for the primitive.
-  abstract getConfig(): Record<string, any>;
+  abstract getConfig(): SyncProtocol extends keyof ProtocolPrimitiveMap
+    ? ProtocolPrimitiveMap[SyncProtocol]
+    : never;
 
   // Arrow function to bind 'this', as this function is passed as a reference
   public getDynamicTables = (name: string): string | undefined => {

@@ -12,7 +12,10 @@ export interface PrimitiveFetcher<
   readPrimitives(
     data: Input,
     pageRequest: PageRequest<Page, RawData>,
-    primitives: PrimitiveEntry<NetworkType>[],
+    primitiveEntries: Extract<
+      PrimitiveEntry,
+      { syncProtocol: NetworkType }
+    >[],
   ): Operation<PrimitiveType[]>;
 
   groupByPage<T extends string>(

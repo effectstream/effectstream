@@ -1,27 +1,31 @@
-import { getEvmEvent } from "@paima/config";
+import { Value } from "@sinclair/typebox/value";
+import { type StaticDecode, Type } from "@sinclair/typebox";
+import {
+  type ConfigSyncProtocolType,
+  getEvmEvent,
+  type ProtocolPrimitiveMap,
+} from "@paima/config";
 import {
   type EvmAddress,
   type PaimaBlockNumber,
   TypeboxHelpers,
 } from "@paima/utils";
-import { ERC721_VIEW_PREFIX, erc721Ivm } from "./erc721-ivm.ts";
-/**
- * Erc721 Primitive
- *
- * This is a concrete implementation of the PaimaPrimitive class for ERC721.
- */
-import { erc721 } from "./erc721-abi.ts";
-import { type StaticDecode, Type } from "@sinclair/typebox";
 import { type JsonObject, PaimaPrimitive } from "@paima/sm";
-import { Value } from "@sinclair/typebox/value";
-import { ERC721_INTERMEDIATE_PREFIX } from "./erc721-ivm.ts";
 import {
   type CommandTuple,
   generateRawStmInput,
   type ParamToData,
 } from "@paima/concise";
 import type { StateUpdateStream } from "@paima/coroutine";
+import { ERC721_VIEW_PREFIX, erc721Ivm } from "./erc721-ivm.ts";
+import { ERC721_INTERMEDIATE_PREFIX } from "./erc721-ivm.ts";
+import { erc721 } from "./erc721-abi.ts";
 
+/**
+ * Erc721 Primitive
+ *
+ * This is a concrete implementation of the PaimaPrimitive class for ERC721.
+ */
 export const erc721Grammar = [
   ["to", Type.String()],
   ["from", Type.String()],
@@ -29,9 +33,14 @@ export const erc721Grammar = [
   ["isBurn", Type.Boolean()],
 ] as const;
 
-export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
+export const ERC721_TYPE = "EVM:ERC721" as const;
+
+export class Erc721Primitive extends PaimaPrimitive<
+  ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+  typeof erc721Grammar
+> {
   // Primitive defined
-  readonly internalTypeName = "EVM:ERC721" as const;
+  readonly internalTypeName = ERC721_TYPE;
   readonly abi = getEvmEvent(erc721.abi, "Transfer(address,address,uint256)");
   override grammar = erc721Grammar;
 
@@ -114,7 +123,9 @@ export class Erc721Primitive extends PaimaPrimitive<typeof erc721Grammar> {
     };
   }
 
-  override getConfig() {
+  override getConfig(): ProtocolPrimitiveMap[
+    ConfigSyncProtocolType.EVM_RPC_PARALLEL
+  ] {
     return {
       name: this.instanceName,
       type: this.internalTypeName,

@@ -1,7 +1,8 @@
-import {
+import type {
+  ConfigNetworkType,
   ConfigSyncProtocolType,
-  type PrimitiveEntry,
-  type SyncProtocolWithNetwork,
+  PrimitiveEntry,
+  SyncProtocolWithNetwork,
 } from "@paima/config";
 import { BaseDataFetcher } from "../base/fetcher.ts";
 import type { Block, Input, Output, Page, PrimitiveType } from "./types.ts";
@@ -27,7 +28,7 @@ export class MidnightFetcher extends BaseDataFetcher<
   constructor(
     readonly config: Extract<
       SyncProtocolWithNetwork,
-      { syncProtocolType: ConfigSyncProtocolType.MIDNIGHT_PARALLEL }
+      { networkType: ConfigNetworkType.MIDNIGHT }
     >,
   ) {
     super(config.syncProtocol.name);
@@ -103,7 +104,10 @@ export class MidnightFetcher extends BaseDataFetcher<
   *readPrimitives(
     height: number,
     block: Block,
-    primitives: PrimitiveEntry<ConfigSyncProtocolType.MIDNIGHT_PARALLEL>[],
+    primitives: Extract<
+      PrimitiveEntry,
+      { syncProtocol: ConfigSyncProtocolType.MIDNIGHT_PARALLEL }
+    >[],
   ): Operation<PrimitiveType[]> {
     const client = this.client;
     const allOperations: Operation<PrimitiveType | undefined>[] = [];
@@ -126,10 +130,13 @@ export class MidnightFetcher extends BaseDataFetcher<
   *fetchContractState(
     height: number,
     client: MidnightClient,
-    primitive: PrimitiveEntry<ConfigSyncProtocolType.MIDNIGHT_PARALLEL>,
+    primitiveEntry: Extract<
+      PrimitiveEntry,
+      { syncProtocol: ConfigSyncProtocolType.MIDNIGHT_PARALLEL }
+    >,
     block: Block,
   ): Operation<PrimitiveType | undefined> {
-    const contractAddress = primitive.primitive.contractAddress;
+    const contractAddress = primitiveEntry.primitive.contractAddress;
     const state = yield* call(() =>
       client.fetchContractState(contractAddress, height)
     );
@@ -138,7 +145,7 @@ export class MidnightFetcher extends BaseDataFetcher<
     }
     return {
       syncProtocol: {
-        name: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+        name: primitiveEntry.syncProtocol,
         blockNumber: height,
         transactionHash:
           block.transactions.find((t) =>
@@ -147,7 +154,7 @@ export class MidnightFetcher extends BaseDataFetcher<
             "0x0000000000000000000000000000000000000000000000000000000000000000",
         contractAddress: contractAddress,
       },
-      primitive: primitive.primitive.name,
+      primitive: primitiveEntry.primitive.name,
       output: {
         payloadType: "midnight-contract-state",
         payload: state.data.encode() as unknown as {},
