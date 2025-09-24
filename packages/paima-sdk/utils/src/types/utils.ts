@@ -58,3 +58,12 @@ export function keysOf<Key extends number | string>(
 ): Key[] {
   return Object.keys(obj) as Key[];
 }
+
+export function clearBigInts<T>(value: T): T {
+  return JSON.parse(
+    JSON.stringify(
+      value,
+      (_, v) => typeof v === "bigint" ? v.toString() : v,
+    ),
+  );
+}

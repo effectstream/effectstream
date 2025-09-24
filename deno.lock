@@ -13759,6 +13759,11 @@
           "npm:js-sha3@~0.9.3"
         ]
       },
+      "packages/paima-sdk/test": {
+        "dependencies": [
+          "npm:@sinclair/typebox@~0.34.30"
+        ]
+      },
       "packages/paima-sdk/utils": {
         "dependencies": [
           "npm:@coderspirit/nominal@^4.1.1",

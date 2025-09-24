@@ -1,0 +1,7 @@
+{
+  "name": "@paima/test2",
+  "version": "0.3.0",
+  "exports": "./src/mod.ts",
+  "imports": {
+  }
+}

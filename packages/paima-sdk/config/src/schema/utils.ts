@@ -122,3 +122,24 @@ export class ConfigSchema<
     }) as any;
   };
 }
+
+export function createSchema<
+  Base extends ConfigSchema<ObjectLike, ObjectLike>,
+  Required extends ObjectLike,
+  Optional extends ObjectLike,
+>(
+  params: {
+    base: Base;
+    required: Required;
+    optional: Optional;
+  },
+) {
+  const config = params.base.cloneMerge({
+    required: params.required,
+    optional: params.optional,
+  });
+  const optionalProps = config.allProperties(false);
+  const allProps = config.allProperties(true);
+
+  return { optionalProps, allProps };
+}
