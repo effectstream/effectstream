@@ -2,8 +2,6 @@ import type { Hash } from "viem";
 import { CryptoManager } from "@paima/crypto";
 import { AddressType, TypeboxHelpers } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
-import { BatcherCoordinator } from "./coordinator.ts";
-import { BatcherPool } from "./pool.ts";
 import { BatcherStorage } from "./storage.ts";
 import { DefaultBatcherInput } from "./types.ts";
 import { IChainConnector } from "./chain-connectors/connector.ts";
@@ -11,9 +9,25 @@ import {
   BatchingCriteriaConfig,
   PaimaBatcherConfig,
   validateBatcherConfig,
-  ValidConnectorKey,
 } from "./batcher-config.ts";
 import { Buffer } from "node:buffer";
+
+// TODO: Missing from old implementation:
+// 1. HTTP Server integration (batcher-server.ts)
+// 2. Event system integration (@paima/event-client)
+// 3. Real batch processing (buildBatchData from @paima/concise)
+// 4. Transaction callback system
+// 5. Multi-confirmation levels ("no-wait", "wait-receipt", "wait-paima-processed")
+// 6. Effection-based async operations
+// 7. BatcherCoordinator and BatcherPool imports (still imported but not used)
+
+// NEXT STEPS:
+// 1. ✅ Remove unused coordinator/pool imports
+// 2. ✅ Add HTTP server integration
+// 3. ✅ Add event system integration
+// 4. ✅ Add transaction callback system
+// 5. ✅ Add multi-confirmation levels
+// 6. ✅ Add buildBatchData integration
 
 /**
  * PaimaBatcher - A type-safe, simplified blockchain batching system
@@ -244,7 +258,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       return false;
     }
     try {
-      return await this.batchingCriteria.isBatchReadyFn(pendingInputs as T[]);
+      return await this.batchingCriteria.isBatchReadyFn(
+        pendingInputs as T[],
+        this.lastProcessTime,
+      );
     } catch (error) {
       console.error("❌ Error in custom batch criteria function:", error);
       return false;

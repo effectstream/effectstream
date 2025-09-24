@@ -59,7 +59,10 @@ export interface BatchingCriteriaConfig<
   targetValue?: number; // Required when using "value" criteria
 
   // Required for "custom" - user-provided function
-  isBatchReadyFn?: (pendingInputs: T[]) => boolean | Promise<boolean>;
+  isBatchReadyFn?: (
+    pendingInputs: T[],
+    lastProcessTime?: number,
+  ) => boolean | Promise<boolean>;
 }
 
 export interface PaimaBatcherConfig<
