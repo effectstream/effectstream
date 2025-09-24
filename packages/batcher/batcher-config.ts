@@ -77,6 +77,13 @@ export interface PaimaBatcherConfig<
   defaultTarget?: ValidConnectorKey<TConnectors>; // Target to use when input.target is not specified - must be a key of connectors
 
   batchingCriteria: BatchingCriteriaConfig<TInput>;
+
+  port?: number; // HTTP server port
+  confirmationLevel?: "no-wait" | "wait-receipt" | "wait-paima-processed"; // Transaction confirmation levels
+  maxRetries?: number; // Maximum retry attempts for failed transactions
+  retryDelayMs?: number; // Delay between retry attempts
+  enableHttpServer?: boolean; // Whether to start HTTP server
+  enableEventSystem?: boolean; // Whether to enable Paima event system
 }
 
 /**

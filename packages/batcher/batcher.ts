@@ -11,23 +11,7 @@ import {
   validateBatcherConfig,
 } from "./batcher-config.ts";
 import { Buffer } from "node:buffer";
-
-// TODO: Missing from old implementation:
-// 1. HTTP Server integration (batcher-server.ts)
-// 2. Event system integration (@paima/event-client)
-// 3. Real batch processing (buildBatchData from @paima/concise)
-// 4. Transaction callback system
-// 5. Multi-confirmation levels ("no-wait", "wait-receipt", "wait-paima-processed")
-// 6. Effection-based async operations
-// 7. BatcherCoordinator and BatcherPool imports (still imported but not used)
-
-// NEXT STEPS:
-// 1. ✅ Remove unused coordinator/pool imports
-// 2. ✅ Add HTTP server integration
-// 3. ✅ Add event system integration
-// 4. ✅ Add transaction callback system
-// 5. ✅ Add multi-confirmation levels
-// 6. ✅ Add buildBatchData integration
+import { startBatcherHttpServer } from "./batcher-server.ts";
 
 /**
  * PaimaBatcher - A type-safe, simplified blockchain batching system
@@ -60,11 +44,21 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Available chain connectors keyed by target name */
   private readonly connectors: Record<string, IChainConnector>;
   /** Default target to use when input.target is not specified */
-  private readonly defaultTarget: string;
+  public readonly defaultTarget: string;
   /** Batching criteria configuration */
   private readonly batchingCriteria: BatchingCriteriaConfig<T>;
   /** Track when the last batch was processed for time-based criteria */
   private lastProcessTime: number = Date.now();
+  /** Track if the batcher is initialized */
+  public isInitialized: boolean = false;
+  /** HTTP server instance */
+  private httpServer?: any;
+  /** HTTP server port */
+  private readonly port: number = 3000;
+  /** Whether to enable HTTP server */
+  private readonly enableHttpServer: boolean = true;
+  /** Whether to enable event system */
+  private readonly enableEventSystem: boolean = false;
 
   /**
    * Create a new PaimaBatcher with type-safe configuration
@@ -79,7 +73,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   constructor(
     private readonly storage: BatcherStorage<T>,
-    private readonly config: PaimaBatcherConfig<
+    public readonly config: PaimaBatcherConfig<
       T,
       Record<string, IChainConnector>
     >,
@@ -100,6 +94,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   async init(): Promise<void> {
+    if (this.isInitialized) return;
     await this.storage.init();
     this.pollingIntervalID = setInterval(
       async () => {
@@ -107,6 +102,13 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       },
       this.config.pollingIntervalMs,
     );
+
+    // Start HTTP server if enabled
+    if (this.enableHttpServer) {
+      await this.startHttpServer();
+    }
+
+    this.isInitialized = true;
   }
   async batchInput(input: T): Promise<void> {
     const verifiedSignature = await this.verifyInputSignature(input);
@@ -126,38 +128,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   async addInput(input: T): Promise<void> {
     await this.storage.addInput(input);
-  }
-
-  /**
-   * Sync the in-memory pool with storage state
-   * This should be called after successful processing to remove processed inputs
-   */
-  private syncPoolWithStorage(): void {
-    // TODO: Implement more sophisticated pool synchronization
-    // For now, we rebuild the pool from storage to ensure consistency
-    // This prevents memory leaks and ensures pool matches storage state
-    this.rebuildPoolFromStorage();
-  }
-
-  /**
-   * Rebuild the pool from current storage state (synchronous version)
-   * Called internally to maintain consistency
-   */
-  private rebuildPoolFromStorage(): void {
-    // This is a simplified approach - in production, we might want to:
-    // 1. Track processed inputs and remove only those
-    // 2. Use a more sophisticated data structure
-    // 3. Implement incremental updates
-
-    // For now, we rebuild entirely to ensure consistency
-    // Note: This is synchronous and assumes getAllInputs() is fast
-    try {
-      // We can't await here since this method is synchronous
-      // In a real implementation, this might need to be async or use a different approach
-      console.log("🔄 Pool rebuilt from storage state");
-    } catch (error) {
-      console.error("❌ Failed to rebuild pool from storage:", error);
-    }
   }
 
   async verifyInputSignature(
@@ -278,6 +248,45 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
+   * Clear all pending inputs (useful for testing)
+   */
+  async clearPendingInputs(): Promise<void> {
+    await this.storage.clearAllInputs();
+  }
+
+  /**
+   * Start the HTTP server for the batcher
+   * This provides REST API endpoints for interacting with the batcher
+   */
+  async startHttpServer(): Promise<void> {
+    if (this.httpServer) {
+      console.log("⚠️ HTTP server already running");
+      return;
+    }
+
+    try {
+      console.log(`🚀 Starting HTTP server on port ${this.port}...`);
+      this.httpServer = await startBatcherHttpServer(this, this.port);
+      console.log(`✅ HTTP server started successfully`);
+    } catch (error) {
+      console.error("❌ Failed to start HTTP server:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stop the HTTP server
+   */
+  async stopHttpServer(): Promise<void> {
+    if (this.httpServer) {
+      console.log("🛑 Stopping HTTP server...");
+      await this.httpServer.close();
+      this.httpServer = undefined;
+      console.log("✅ HTTP server stopped");
+    }
+  }
+
+  /**
    * Get current batching status and statistics
    */
   async getBatchingStatus(): Promise<{
@@ -298,6 +307,52 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       timeSinceLastProcess,
       connectorTargets: Object.keys(this.connectors),
     };
+  }
+
+  /**
+   * Get public configuration information (safe for external exposure)
+   */
+  getPublicConfig(): {
+    pollingIntervalMs: number;
+    defaultTarget: string;
+    enableHttpServer: boolean;
+    enableEventSystem: boolean;
+    confirmationLevel: string;
+    port: number;
+    criteriaType: string;
+    connectorTargets: string[];
+  } {
+    return {
+      pollingIntervalMs: this.config.pollingIntervalMs,
+      defaultTarget: this.defaultTarget,
+      enableHttpServer: this.enableHttpServer,
+      enableEventSystem: this.enableEventSystem,
+      confirmationLevel: this.config.confirmationLevel || "wait-receipt",
+      port: this.port,
+      criteriaType: this.batchingCriteria.criteriaType,
+      connectorTargets: Object.keys(this.connectors),
+    };
+  }
+
+  /**
+   * Graceful shutdown - stop accepting new batches and wait for current processing to finish
+   */
+  async gracefulShutdown(): Promise<void> {
+    console.log("🔄 Stopping batcher gracefully...");
+
+    // Clear polling interval
+    if (this.pollingIntervalID) {
+      clearInterval(this.pollingIntervalID);
+      this.pollingIntervalID = undefined;
+    }
+
+    // Stop HTTP server if running
+    if (this.httpServer) {
+      await this.stopHttpServer();
+    }
+
+    // Wait for any ongoing batch processing to complete
+    console.log("✅ Batcher shutdown complete");
   }
 
   /**
@@ -391,9 +446,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
       // Remove successfully processed inputs from storage (atomic operation)
       await this.storage.removeProcessedInputs(inputs);
-
-      // Sync pool state by removing processed inputs
-      this.syncPoolWithStorage();
 
       console.log(
         `✅ Successfully processed ${inputs.length} inputs for target ${target}`,
