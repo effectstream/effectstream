@@ -6,6 +6,7 @@ import type { PaginatedFetcher } from "./base/fetcher.ts";
 import type { UnionToIntersection } from "@paima/utils";
 import type { MidnightSyncState } from "./midnight/state.ts";
 import type { NtpSyncState } from "./ntp/state.ts";
+import type { AvailSyncState } from "./avail/state.ts";
 
 // TODO: move folders
 export type RootOutput = ChainBlock;
@@ -16,7 +17,8 @@ export type AllSyncProtocols =
   | NtpSyncState
   | EvmSyncState
   | UtxoRpcSyncState
-  | MidnightSyncState;
+  | MidnightSyncState
+  | AvailSyncState;
 export type ISyncProtocol = UnionToIntersection<AllSyncProtocols>;
 
 type toPaginated<T> = T extends { fetcher: PaginatedFetcher<infer Page> } ? T

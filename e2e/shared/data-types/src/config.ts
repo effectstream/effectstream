@@ -1,6 +1,7 @@
 import { readMidnightContract } from "@e2e/midnight-contracts";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
-
+import { readAvailApplication } from "@e2e/avail-contracts";
+import { getConnection } from "@paima/db";
 import {
   ConfigBuilder,
   ConfigNetworkType,
@@ -8,8 +9,8 @@ import {
 } from "@paima/config";
 import { hardhat } from "viem/chains";
 import type { BlockNumber } from "@paima/utils";
-import { getConnection } from "@paima/db";
 import {
+  AvailGenericPrimitive,
   Erc20Primitive,
   Erc721Primitive,
   MidnightGenericPrimitive,
@@ -27,6 +28,11 @@ const yaci_enabled = Deno
 // NOTE: This disable midnight sync, allowing for faster testing.
 const midnight_enabled = Deno
   ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
+  : true;
+
+// NOTE: This disable avail sync, allowing for faster testing.
+const avail_enabled = Deno
+  ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
   : true;
 /**
  * Let check if the db.
@@ -89,6 +95,16 @@ export const localhostConfig = new ConfigBuilder()
         },
         id: 31338, // taken from hardhat.config.ts
       });
+    if (avail_enabled) {
+      b = b.addNetwork({
+        name: "avail",
+        type: ConfigNetworkType.AVAIL,
+        genesisSeed: "//Alice",
+        nodeUrl: "ws://127.0.0.1:9955/ws",
+        genesisHash: readAvailApplication().genesisHash,
+        caip2: `avail:local`,
+      });
+    }
     if (midnight_enabled) {
       b = b
         .addNetwork({
@@ -173,7 +189,23 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1 as BlockNumber,
           confirmationDepth: 2, // TODO: test this
         }),
-      ); //;
+      );
+
+    if (avail_enabled) {
+      result = result.addParallel(
+        (networks) => (networks as any).avail,
+        (network, deployments) => ({
+          name: "parallelAvail",
+          type: ConfigSyncProtocolType.AVAIL_PARALLEL,
+          rpc: network.nodeUrl,
+          lightClient: "http://127.0.0.1:7007",
+          startBlockHeight: 1,
+          pollingInterval: 20_000,
+          delayMs: 60_000, // 1 minute
+        }),
+      );
+    }
+
     if (midnight_enabled) {
       result = result
         .addParallel(
@@ -262,6 +294,20 @@ export const localhostConfig = new ConfigBuilder()
             stateMachinePrefix: "transfer-erc20",
           }).getConfig(),
       );
+    if (avail_enabled) {
+      builder = builder.addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelAvail,
+        (network, deployments, syncProtocol) =>
+          new AvailGenericPrimitive({
+            instanceName: "AvailContractState",
+            startBlockHeight: 1,
+            appId: readAvailApplication().appId,
+            applicationKey: readAvailApplication().ApplicationKey,
+            genesisHash: readAvailApplication().genesisHash,
+            stateMachinePrefix: "avail-app-state",
+          }).getConfig(),
+      );
+    }
     if (midnight_enabled) {
       builder = builder
         .addPrimitive(

@@ -55,6 +55,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     paimal2.abi,
     "PaimaGameInteraction(address,bytes,uint256)",
   );
+  readonly contractAddress: EvmAddress;
   override grammar = [];
   readonly paimaL2Grammar: GrammarDefinition;
 
@@ -67,8 +68,11 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     super(
       config.instanceName,
       config.startBlockHeight,
-      Value.Decode(TypeboxHelpers.Evm.Address, config.contractAddress),
       undefined,
+    );
+    this.contractAddress = Value.Decode(
+      TypeboxHelpers.Evm.Address,
+      config.contractAddress,
     );
     this.paimaL2Grammar = config.paimaL2Grammar;
   }

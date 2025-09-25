@@ -44,6 +44,7 @@ export class Erc20Primitive extends PaimaPrimitive<
     "Transfer(address,address,uint256)",
   );
   override grammar = erc20Grammar;
+  readonly contractAddress: EvmAddress;
 
   // Dynamic table to track the owner of each token.
   override dynamicTables = erc20Ivm;
@@ -63,8 +64,11 @@ export class Erc20Primitive extends PaimaPrimitive<
     super(
       config.instanceName,
       config.startBlockHeight,
-      Value.Decode(TypeboxHelpers.Evm.Address, config.contractAddress),
       config.stateMachinePrefix,
+    );
+    this.contractAddress = Value.Decode(
+      TypeboxHelpers.Evm.Address,
+      config.contractAddress,
     );
   }
 

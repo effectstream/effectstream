@@ -1,4 +1,9 @@
-import { erc20Grammar, erc721Grammar, midnightGenericGrammar } from "@paima/sm";
+import {
+  availGenericGrammar,
+  erc20Grammar,
+  erc721Grammar,
+  midnightGenericGrammar,
+} from "@paima/sm";
 
 import { Type } from "@sinclair/typebox";
 import type { GrammarDefinition } from "@paima/concise";
@@ -27,6 +32,7 @@ export const grammar = {
   ...paimaL2Grammar,
 
   // TODO Check if these exist in runtime
+  "avail-app-state": availGenericGrammar,
   "midnightContractState": midnightGenericGrammar,
   "transfer-assets": erc721Grammar,
   "transfer-erc20": erc20Grammar,

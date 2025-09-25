@@ -43,7 +43,9 @@ type MinaPrimitivePayload = {
 };
 
 type AvailPrimitivePayload = {
-  TODO_MISSING_FIELDS: string;
+  inputData: string;
+  inputNonce: string;
+  suppliedValue: string;
 };
 
 interface ProtocolPayloadMap {

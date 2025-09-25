@@ -18,6 +18,7 @@
     "fastify": "npm:fastify@^5.4.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.4",
+    "avail-js-sdk": "npm:avail-js-sdk@^0.4.2",
     "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.8.1",
     "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger@^4.0.0",
     "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts@^2.0.2",

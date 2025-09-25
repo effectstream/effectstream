@@ -37,18 +37,17 @@ type BasePrimitive = {
   name: string;
   type: string;
   startBlockHeight: number;
+  scheduledPrefix?: string;
 };
 
 type EVMPrimitive = BasePrimitive & {
   abi: ReturnType<typeof getEvmEvent>;
   contractAddress: string;
-  scheduledPrefix?: string;
 };
 
 type MidnightPrimitive = BasePrimitive & {
   name: string;
   contractAddress: string;
-  scheduledPrefix?: string;
 };
 
 type CardanoUtxoRpcPrimitive = BasePrimitive & {
@@ -64,7 +63,9 @@ type MinaPrimitive = BasePrimitive & {
 };
 
 type AvailPrimitive = BasePrimitive & {
-  TODO_ADD_MISSING_FIELDS: string;
+  appId: number; // readAvailApplication().appId,
+  applicationKey: string; // readAvailApplication().ApplicationKey,
+  genesisHash: string; // readAvailApplication().genesisHash,
 };
 
 type NtpMainPrimitive = BasePrimitive & {};

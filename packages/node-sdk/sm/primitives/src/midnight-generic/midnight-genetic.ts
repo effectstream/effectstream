@@ -57,6 +57,7 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
   // Primitive defined
   readonly internalTypeName = "Midnight:Generic" as const;
   override readonly grammar = midnightGenericGrammar;
+  readonly contractAddress: string; // TODO is the contract address a MidnightAddress?
 
   // No dynamic tables for midnight generic primitive
   override dynamicTables = undefined;
@@ -76,9 +77,9 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
     super(
       config.instanceName,
       config.startBlockHeight,
-      config.contractAddress,
       config.stateMachinePrefix,
     );
+    this.contractAddress = config.contractAddress;
   }
 
   override *getPayload(

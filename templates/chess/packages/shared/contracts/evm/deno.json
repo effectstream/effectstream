@@ -34,24 +34,35 @@
     "build:clean": "rm -rf build || true",
     "build:forge": {
       "command": "forge build",
-      "dependencies": ["swap:remappings:forge"]
+      "dependencies": [
+        "swap:remappings:forge"
+      ]
     },
     "build:hardhat": {
       "command": "deno run -A npm:hardhat@3.0.4 compile",
-      "dependencies": ["swap:remappings:hardhat"]
+      "dependencies": [
+        "swap:remappings:hardhat"
+      ]
     },
     "build": {
       "command": "deno task build:forge && deno task build:hardhat",
-      "dependencies": ["build:clean"]
+      "dependencies": [
+        "build:clean"
+      ]
     },
+    "contract:compile": "deno task build:mod",
     "deploy:clean": "rm -rf ignition/deployments || true",
     "deploy:standalone": {
       "command": "(((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && deno task chain:stop) || true",
-      "dependencies": ["build"]
+      "dependencies": [
+        "build"
+      ]
     },
     "deploy": {
       "command": "deno run -A deploy.ts",
-      "dependencies": ["deploy:clean"]
+      "dependencies": [
+        "deploy:clean"
+      ]
     },
     "chain:start": "deno run -A npm:hardhat@3.0.4 node",
     "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",

@@ -23,11 +23,8 @@ export abstract class PaimaPrimitive<
   constructor(
     // Instance defined unique name
     public readonly instanceName: string,
-    // Start block height for the primitive
+    // Start block height of the primitive
     public readonly startBlockHeight: number,
-    // Contract address for the primitive
-    // TODO We need to be make a ContractAddress type.
-    public readonly contractAddress: string,
     public readonly stateMachinePrefix: string | undefined,
   ) {
     PaimaPrimitiveRegistry.addPrimitive(this);

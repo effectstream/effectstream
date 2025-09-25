@@ -3,10 +3,10 @@ network_id: &network_id "Undeployed"
 
 chain_indexer_application:
   network_id: *network_id
-  blocks_buffer: 10
+  blocks_buffer: 60
   save_zswap_state_after: 1000
-  caught_up_max_distance: 10
-  caught_up_leeway: 5
+  caught_up_max_distance: 60
+  caught_up_leeway: 30
 
 wallet_indexer_application:
   network_id: *network_id

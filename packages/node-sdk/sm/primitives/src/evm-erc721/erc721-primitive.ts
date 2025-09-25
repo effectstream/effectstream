@@ -44,7 +44,7 @@ export class Erc721Primitive extends PaimaPrimitive<
   readonly internalTypeName = ERC721_TYPE;
   readonly abi = getEvmEvent(erc721.abi, "Transfer(address,address,uint256)");
   override grammar = erc721Grammar;
-
+  readonly contractAddress: EvmAddress;
   // Dynamic table to track the owner of each token.
   override dynamicTables = erc721Ivm;
   override getIntermediatePrefix(): string[] {
@@ -63,8 +63,11 @@ export class Erc721Primitive extends PaimaPrimitive<
     super(
       config.instanceName,
       config.startBlockHeight,
-      Value.Decode(TypeboxHelpers.Evm.Address, config.contractAddress),
       config.stateMachinePrefix,
+    );
+    this.contractAddress = Value.Decode(
+      TypeboxHelpers.Evm.Address,
+      config.contractAddress,
     );
   }
 
