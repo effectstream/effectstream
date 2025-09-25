@@ -8,10 +8,11 @@ slug: /
 ## What is Paima Engine
 
 Paima Engine is a Web3 Engine optimized for dApps, games, gamification and autonomous worlds that allows quickly building web3 apps.
-  * Connect multiple chains, leveraging their tech as tokens, and existing markets.
-  * Build on-chain dApps without blockchain specific knowledge.
-  * Secure: all interactions go into the chains and not your Paima Node.
-  * Iterate quickly as tools are developer centered.
+
+- Connect multiple chains, leveraging their tech as tokens, and existing markets.
+- Build on-chain dApps without blockchain specific knowledge.
+- Secure: all interactions go into the chains and not your Paima Node.
+- Iterate quickly as tools are developer centered.
 
 [Learn more about Paima Engine](./1-what-is-paima-engine.md)
 
@@ -20,7 +21,6 @@ Paima Engine is a Web3 Engine optimized for dApps, games, gamification and auton
 > Linux and Macos are supported. Windows WSL is experimental.
 
 > This is a preview of the Paima Engine V2 documentation. We welcome any feedback you have on errors, missing information, or parts that aren't clear.
-
 
 First clone the repository and copy the `/templates/evm-midnight/` folder, this will give us a working template.
 
@@ -47,9 +47,8 @@ deno task build:midnight
 deno task dev
 ```
 
-
-Now you should see the dApp running in your browser!  
-Continue the [Quick Start Guide](../10-quickstart/10-quickstart.md) 
+Now you should see the dApp running in your browser!
+Continue the [Quick Start Guide](../10-quickstart/10-quickstart.md)
 
 ## What is Paima Engine
 
@@ -57,18 +56,15 @@ Continue the [Quick Start Guide](../10-quickstart/10-quickstart.md)
 
 [Learn more about Paima Engine](./1-what-is-paima-engine.md)
 
-
 ## Main Components
 
-* [Chain Sync](../100-components/101-sync-service.md)
-* [State Machine](../100-components/102-state-machine.md)
-* [API](../100-components/103-api.md)
+- [Chain Sync](../100-components/101-sync-service.md)
+- [State Machine](../100-components/102-state-machine.md)
+- [API](../100-components/103-api.md)
 
 [See All Components](../100-components//100-components.md)
 
-
 ## Guide for Paima Engine Contributor
 
-* [Paima Engine Architecture](../1000-paima-engine/1000-paima-engine.md)
-* [Contribution Guide](../1000-paima-engine/1100-contributions.md)
-
+- [Paima Engine Architecture](../1000-paima-engine/1000-paima-engine.md)
+- [Contribution Guide](../1000-paima-engine/1100-contributions.md)
