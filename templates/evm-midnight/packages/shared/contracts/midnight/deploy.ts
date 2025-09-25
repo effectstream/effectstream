@@ -48,7 +48,7 @@ const contractConfig = {
   privateStateStoreName: "counter-private-state",
   zkConfigPath: path.resolve(
     currentDir,
-    "contract",
+    "contract-round-value",
     "src",
     "managed",
     "counter",
