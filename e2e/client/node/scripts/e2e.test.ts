@@ -1,5 +1,6 @@
 import {
   anyError,
+  blockWatcher,
   cleanup,
   newSharedState,
   printSummary,
@@ -12,6 +13,7 @@ import type { Client } from "pg";
 import { accountTests } from "../e2e-tests/e2e.account.test.ts";
 import { generalTest } from "../e2e-tests/e2e.general.test.ts";
 import { joinAndIncrementTest } from "../e2e-tests/e2e.midnight.test.ts";
+import { submitDataWithMessageAvailTest } from "../e2e-tests/e2e.avail.test.ts";
 import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
 import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
@@ -28,13 +30,22 @@ async function test() {
     // The contracts are deployed with the private key.
     db = await startup();
 
-    const sharedState = newSharedState();
+    const sharedState: SharedState = newSharedState();
     sharedState.primitive_accounting_counter = 1;
 
     await generalTest(db, sharedState);
+    console.log(
+      "generalTest completed",
+      sharedState,
+    );
     await RPCTest();
     await accountTests(db, sharedState);
+    console.log(
+      "accountTests completed",
+      sharedState,
+    );
     await joinAndIncrementTest(db, sharedState);
+    await submitDataWithMessageAvailTest(db, sharedState);
     await tokenTests(db, sharedState);
     await testMigrations(db);
 
