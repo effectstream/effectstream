@@ -1,16 +1,8 @@
-
 #!/bin/bash
-
 # Dependency checker script
-# This script checks for all required dependencies and shows error messages for missing ones
+# This script checks for all required dependencies and shows error messages for missing ones.
 
 set -e  # Exit on any error
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
 
 # Track if any checks failed
 FAILED=0
@@ -18,20 +10,24 @@ FAILED=0
 echo "🔍 Checking dependencies..."
 echo
 
-# Function to print success message
+# Colors for output
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[1;33m'
+NC=$'\033[0m' # No Color
+
 print_success() {
-    printf "${GREEN}✅ $1${NC}\n"
+    echo "${GREEN}✅ $1${NC}"
 }
 
-# Function to print error message
 print_error() {
-    printf "${RED}❌ $1${NC}\n"
+    echo "${RED}❌ $1${NC}"
     FAILED=1
 }
 
-# Function to print warning message
 print_warning() {
-    printf "${YELLOW}⚠️  $1${NC}\n"
+    # Two spaces because terminals seem not to know this is double-width.
+    echo "${YELLOW}⚠️  $1${NC}"
 }
 
 # Function to compare semantic versions
@@ -88,8 +84,8 @@ echo
 echo "Checking node..."
 if command -v node &> /dev/null; then
     NODE_VERSION=$(node --version | sed 's/v//')
-    NODE_MAJOR=$(echo $NODE_VERSION | cut -d'.' -f1)
-    
+    NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d'.' -f1)
+
     if [ "$NODE_MAJOR" -ge 22 ]; then
         print_success "node is installed (version: $NODE_VERSION) - meets requirement >= 22"
     else
@@ -141,27 +137,28 @@ echo "Checking compact..."
 if COMPACT_OUTPUT=$(compact --version 2>/dev/null); then
     COMPACT_VERSION=$(echo "$COMPACT_OUTPUT" | head -n1 | cut -d' ' -f2)
     print_success "compact is installed (version: $COMPACT_VERSION)"
+
+    # Check if compact compile is working
+    echo "Checking compact compile..."
+    if COMPACT_COMPILE_OUTPUT=$(compact compile --version 2>/dev/null); then
+        COMPACT_COMPILE_VERSION=$(echo "$COMPACT_COMPILE_OUTPUT" | head -n1)
+        print_success "compact compile is working (version: $COMPACT_COMPILE_VERSION)"
+    else
+        print_error "compact compile is not working. Please check your compact installation."
+        echo "   Consider running \`compact update\`."
+    fi
+    echo
 else
     print_error "compact is not installed. Please install compact."
-fi
-echo
-
-# Check if compact compile is working
-echo "Checking compact compile..."
-if COMPACT_COMPILE_OUTPUT=$(compact compile --version 2>/dev/null); then
-    COMPACT_COMPILE_VERSION=$(echo "$COMPACT_COMPILE_OUTPUT" | head -n1)
-    print_success "compact compile is working (version: $COMPACT_COMPILE_VERSION)"
-else
-    print_error "compact compile is not working. Please check your compact installation."
 fi
 echo
 
 # Final result
 echo "================================================"
 if [ $FAILED -eq 0 ]; then
-    printf "${GREEN}🎉 All dependency checks passed!${NC}\n"
+    echo "${GREEN}🎉 All dependency checks passed!${NC}"
     exit 0
 else
-    printf "${RED}💥 Some dependency checks failed. Please install the missing dependencies.${NC}\n"
+    echo "${RED}💥 Some dependency checks failed. Please install the missing dependencies.${NC}"
     exit 1
 fi
