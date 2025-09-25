@@ -18,23 +18,19 @@ Paima Engine is a Web3 Engine optimized for dApps, games, gamification and auton
 
 ## App Quick Start
 
-> Linux and Macos are supported. Windows WSL is experimental.
+> Linux and macOS are supported. Windows WSL is experimental.
 
 > This is a preview of the Paima Engine V2 documentation. We welcome any feedback you have on errors, missing information, or parts that aren't clear.
 
-First clone the repository and copy the `/templates/evm-midnight/` folder, this will give us a working template.
+First, clone the repository and use the `templates/evm-midnight/` folder as a working template:
 
 ```sh
 # Clone and move to evm-midnight template
-git clone git@github.com:PaimaStudios/paima-engine.git
-cd paima-engine
-git checkout v-next
-cd templates/evm-midnight
-```
+git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next
+cd paima-engine/templates/evm-midnight
 
-```sh
 # Check for external dependencies
-./../check.sh
+../check.sh
 
 # Install packages
 deno install --allow-scripts && ./patch.sh
@@ -48,7 +44,7 @@ deno task dev
 ```
 
 Now you should see the dApp running in your browser!
-Continue the [Quick Start Guide](../10-quickstart/10-quickstart.md)
+Continue at the [Quick Start Guide](../10-quickstart/10-quickstart.md).
 
 ## What is Paima Engine
 
