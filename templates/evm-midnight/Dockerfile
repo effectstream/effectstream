@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     # xz is required for compactc
     xz-utils \
     unzip \
+    nginx \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js
@@ -42,7 +43,6 @@ RUN forge --version && cast --version && anvil --version
 # Install Compact
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
-# RUN ls -l /root/.local/bin
 RUN which compact
 RUN compact update
 RUN compact --version
@@ -58,6 +58,10 @@ RUN chmod +x /app/patch.sh
 # Clone the repository
 COPY . .
 
+COPY ./docker-scripts/nginx.conf /etc/nginx/nginx.conf
+COPY ./docker-scripts/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 RUN deno install --allow-scripts
 RUN /app/patch.sh
 RUN deno task build:evm
@@ -72,7 +76,8 @@ EXPOSE 8088
 EXPOSE 8546
 EXPOSE 8545
 EXPOSE 6300
+EXPOSE 8080
 
 
 ENV PAIMA_STDOUT=true
-CMD ["deno", "task", "dev"]
+ENTRYPOINT ["/entrypoint.sh"]
