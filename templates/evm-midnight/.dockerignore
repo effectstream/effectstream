@@ -4,6 +4,7 @@ cache
 out
 volume
 packages/shared/contracts/midnight/midnight-level-db/*
+packages/shared/contracts/midnight/contract-round-value/src/managed
 packages/frontend/client/dist/*
 packages/shared/contracts/evm/build/*
 packages/shared/contracts/evm/ignition/deployments/*

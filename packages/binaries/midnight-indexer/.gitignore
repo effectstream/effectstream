@@ -1,4 +1,5 @@
 node_modules
 midnight-indexer
 indexer-standalone/data
+indexer-standalone/indexer-standalone
 indexer-standalone/indexer-standalone-*
