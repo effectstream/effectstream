@@ -231,15 +231,14 @@ export const localhostConfig = new ConfigBuilder()
       )
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
-        (network, deployments, syncProtocol) => ({
-          ...new Erc721Primitive({
+        (network, deployments, syncProtocol) =>
+          new Erc721Primitive({
             instanceName: "Arbitrum_ERC721",
             startBlockHeight: 0,
             contractAddress: contractAddressesEvmMain()
               .chain31337["Erc721DevModule#Erc721Dev"],
             stateMachinePrefix: "transfer-assets",
           }).getConfig(),
-        }),
       )
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_slow,
