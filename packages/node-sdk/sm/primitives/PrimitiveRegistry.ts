@@ -1,4 +1,4 @@
-import type { ConfigSyncProtocolType } from "@paima/config";
+import type { ProtocolPrimitiveMap } from "@paima/config";
 import type { PaimaPrimitive } from "./PaimaPrimitive.ts";
 
 /**
@@ -11,23 +11,27 @@ type UnknownPrimitive = any;
 type UnknownSyncProtocol = any;
 
 export class PaimaPrimitiveRegistry {
+  // Singleton to manage the primitives
   static primitives: Record<
     string,
     PaimaPrimitive<UnknownSyncProtocol, UnknownPrimitive>
   > = {};
 
   static getPrimitive<
-    SyncProtocol extends ConfigSyncProtocolType = UnknownSyncProtocol,
+    SyncProtocol extends keyof ProtocolPrimitiveMap = UnknownSyncProtocol,
   >(
     instanceName: string,
-  ): PaimaPrimitive<SyncProtocol, UnknownPrimitive> | undefined {
+  ): PaimaPrimitive<SyncProtocol, UnknownPrimitive> {
     const primitive = this.primitives[instanceName];
-    // TODO This will be always defined
-    return primitive ?? undefined;
+    if (!primitive) {
+      // This should never happen.
+      throw new Error(`Primitive ${instanceName} not found`);
+    }
+    return primitive;
   }
 
   static getPrimitiveByType<
-    SyncProtocol extends ConfigSyncProtocolType = UnknownSyncProtocol,
+    SyncProtocol extends keyof ProtocolPrimitiveMap = UnknownSyncProtocol,
   >(
     type: string,
   ): PaimaPrimitive<SyncProtocol, UnknownPrimitive> | undefined {

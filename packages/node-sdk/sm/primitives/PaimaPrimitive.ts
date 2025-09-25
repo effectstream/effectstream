@@ -17,7 +17,7 @@ import type {
  * E.g., ERC721, ERC1155, etc,
  */
 export abstract class PaimaPrimitive<
-  SyncProtocol extends ConfigSyncProtocolType,
+  SyncProtocol extends keyof ProtocolPrimitiveMap,
   TGrammar extends readonly Readonly<[string, TSchema]>[],
 > {
   constructor(
@@ -48,9 +48,7 @@ export abstract class PaimaPrimitive<
   }
 
   // Return the config for the primitive.
-  abstract getConfig(): SyncProtocol extends keyof ProtocolPrimitiveMap
-    ? ProtocolPrimitiveMap[SyncProtocol]
-    : never;
+  abstract getConfig(): ProtocolPrimitiveMap[SyncProtocol];
 
   // Arrow function to bind 'this', as this function is passed as a reference
   public getDynamicTables = (name: string): string | undefined => {

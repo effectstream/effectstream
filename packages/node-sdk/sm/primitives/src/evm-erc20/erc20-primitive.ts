@@ -137,3 +137,9 @@ export class Erc20Primitive extends PaimaPrimitive<
     } as const;
   }
 }
+
+declare module "@paima/sm" {
+  interface PrimitiveGlobalDefinitions {
+    Erc20Primitive: typeof Erc20Primitive;
+  }
+}

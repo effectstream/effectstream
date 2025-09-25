@@ -67,11 +67,14 @@ type AvailPrimitive = BasePrimitive & {
   TODO_ADD_MISSING_FIELDS: string;
 };
 
+type NtpMainPrimitive = BasePrimitive & {};
+
 /**
  * A mapping between specific sync protocols and their corresponding primitive types.
  * This helps in creating a discriminated union for PrimitiveEntry.
  */
 export type ProtocolPrimitiveMap = {
+  [ConfigSyncProtocolType.NTP_MAIN]: NtpMainPrimitive;
   [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: EVMPrimitive;
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: MidnightPrimitive;
   [ConfigSyncProtocolType.CARDANO_CARP_PARALLEL]: CardanoCarpPrimitive;

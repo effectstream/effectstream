@@ -1,4 +1,4 @@
-import { erc20Grammar, erc721Grammar, midnightGenericGrammar } from "@e2e/my-primitives";
+import { erc20Grammar, erc721Grammar, midnightGenericGrammar } from "@paima/sm";
 
 import { Type } from "@sinclair/typebox";
 import type { GrammarDefinition } from "@paima/concise";
@@ -25,8 +25,9 @@ export const paimaL2Grammar = {
 
 export const grammar = {
   ...paimaL2Grammar,
-  // TODO Check if these exist in runtime 
-  'midnightContractState': midnightGenericGrammar,
-  'transfer-assets': erc721Grammar,
-  'transfer-erc20': erc20Grammar,
+
+  // TODO Check if these exist in runtime
+  "midnightContractState": midnightGenericGrammar,
+  "transfer-assets": erc721Grammar,
+  "transfer-erc20": erc20Grammar,
 } as const satisfies GrammarDefinition;

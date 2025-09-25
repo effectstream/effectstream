@@ -1,10 +1,13 @@
-import type { ConfigSyncProtocolType } from "../sync-protocols/types.ts";
+import type {
+  ConfigSyncProtocolType,
+  ProtocolPrimitiveMap,
+} from "../sync-protocols/types.ts";
 import type { EncodedStateValue } from "@midnight-ntwrk/onchain-runtime";
 
 export type { EncodedStateValue };
 
 export type FlattenSyncProtocolIOFor<
-  SyncProtocol extends ConfigSyncProtocolType,
+  SyncProtocol extends keyof ProtocolPrimitiveMap,
 > = {
   syncProtocol: {
     name: SyncProtocol;

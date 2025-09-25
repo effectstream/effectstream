@@ -17543,12 +17543,6 @@
           "npm:viem@^2.21.3"
         ]
       },
-      "e2e/shared/my-primitives": {
-        "dependencies": [
-          "npm:@sinclair/typebox@~0.34.30",
-          "npm:viem@^2.21.3"
-        ]
-      },
       "packages/binaries/avail-light-client": {
         "packageJson": {
           "dependencies": [

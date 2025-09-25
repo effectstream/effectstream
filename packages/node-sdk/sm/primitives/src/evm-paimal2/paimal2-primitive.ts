@@ -432,3 +432,9 @@ function* processPaimaL2SyncProtocolResponse(
     isBatched,
   };
 }
+
+declare module "@paima/sm" {
+  interface PrimitiveGlobalDefinitions {
+    PaimaL2Primitive: typeof PaimaL2Primitive;
+  }
+}

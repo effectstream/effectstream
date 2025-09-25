@@ -141,3 +141,9 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
     } as const;
   }
 }
+
+declare module "@paima/sm" {
+  interface PrimitiveGlobalDefinitions {
+    MidnightGenericPrimitive: typeof MidnightGenericPrimitive;
+  }
+}
