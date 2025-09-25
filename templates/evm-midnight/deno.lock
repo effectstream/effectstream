@@ -7734,7 +7734,7 @@
           "npm:@paimaexample/npm-midnight-proof-server@0.3.44"
         ]
       },
-      "packages/shared/contracts/midnight/contract": {
+      "packages/shared/contracts/midnight/contract-round-value": {
         "dependencies": [
           "npm:vitest@^3.2.4"
         ]

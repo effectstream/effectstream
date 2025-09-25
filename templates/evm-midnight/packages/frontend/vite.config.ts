@@ -65,7 +65,7 @@ export default defineConfig({
               "*",
             ),
           ),
-          // src: "src/contract/src/managed/counter/keys/*",
+          // src: "src/contract-round-value/src/managed/counter/keys/*",
           dest: "keys",
         },
         {
@@ -83,7 +83,7 @@ export default defineConfig({
               "*",
             ),
           ),
-          // src: "src/contract/src/managed/counter/zkir/*",
+          // src: "src/contract-round-value/src/managed/counter/zkir/*",
           dest: "zkir",
         },
         {

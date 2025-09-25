@@ -28,7 +28,6 @@ export const launchMidnight = (packageName: string) => ({
         packageName,
         "midnight-node:start",
       ],
-      logs: "none",
       waitToExit: false,
       type: "system-dependency",
     },

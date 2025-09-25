@@ -14,7 +14,8 @@
         "midnight-proof-server:wait": "wait-on tcp:6300",
         "midnight-contract:compile": "deno -A compile-contract.ts",
         "midnight-contract:clean": "rm -rf midnight-level-db && rm -rf contract.json",
-        "midnight-contract:deploy": "deno task midnight-contract:clean && deno --unstable-detect-cjs -A deploy.ts"
+        "midnight-contract:deploy": "deno task midnight-contract:clean && deno --unstable-detect-cjs -A deploy.ts",
+        "contract:compile": "deno task midnight-contract:compile"
     },
     "imports": {
         "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger",
