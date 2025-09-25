@@ -15,6 +15,8 @@ import { BufferedRpc } from "./sync-protocols/utxorpc/BufferedRpc.ts";
 import { UtxoRpcFetcher } from "./sync-protocols/utxorpc/fetcher.ts";
 import { UtxoRpcSyncState } from "./sync-protocols/utxorpc/state.ts";
 import { MidnightFetcher, MidnightSyncState } from "@paima/sync";
+import { AvailFetcher } from "./sync-protocols/avail/fetcher.ts";
+import { AvailSyncState } from "./sync-protocols/avail/state.ts";
 import { NtpFetcher } from "./sync-protocols/ntp/fetcher.ts";
 import { NtpSyncState } from "./sync-protocols/ntp/state.ts";
 
@@ -78,6 +80,16 @@ export function* genSyncProtocols(
     ) {
       const fetcher = new MidnightFetcher(entry);
       const state = yield* MidnightSyncState.restoreState(
+        dbConn,
+        entry,
+        fetcher,
+      );
+      result.push(state);
+    } else if (
+      entry.networkType === ConfigNetworkType.AVAIL
+    ) {
+      const fetcher = new AvailFetcher(entry);
+      const state = yield* AvailSyncState.restoreState(
         dbConn,
         entry,
         fetcher,

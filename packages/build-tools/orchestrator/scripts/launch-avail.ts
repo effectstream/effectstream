@@ -18,7 +18,7 @@ import { ComponentNames } from "@paima/log";
 // packageName: the name of the package that implements the tasks.
 //
 export const launchAvail = (packageName: string) => ({
-  stopProcessAtPort: [9944, 7007],
+  stopProcessAtPort: [9955, 7007],
   processes: [
     {
       name: ComponentNames.AVAIL_NODE,
@@ -28,19 +28,19 @@ export const launchAvail = (packageName: string) => ({
       type: "system-dependency",
     },
     {
+      name: ComponentNames.AVAIL_NODE_WAIT,
+      args: ["task", "-f", packageName, "avail-node:wait"],
+    },
+    {
       name: ComponentNames.AVAIL_CLIENT,
       args: [
         "task",
         "-f",
         packageName,
-        "avail-light-client:start",
+        "avail-light-client:deploy",
       ],
       waitToExit: false,
       type: "system-dependency",
-    },
-    {
-      name: ComponentNames.AVAIL_NODE_WAIT,
-      args: ["task", "-f", packageName, "avail-node:wait"],
     },
     {
       name: ComponentNames.AVAIL_CLIENT_WAIT,

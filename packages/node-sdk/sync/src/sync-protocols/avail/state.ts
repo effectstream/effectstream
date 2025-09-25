@@ -5,35 +5,28 @@ import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Input, Output, Page } from "./types.ts";
 import { pageRelation } from "./types.ts";
-import type { MidnightFetcher } from "./fetcher.ts";
+import type { AvailFetcher } from "./fetcher.ts";
 import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
 import { getPage } from "@paima/db";
-import { MidnightClient } from "./MidnightClient.ts";
+import { AvailClient } from "./AvailClient.ts";
+import { applyDelay } from "../common/utils.ts";
 
-type LatestBlock = {
-  block: {
-    height: number;
-  };
-};
-
-export class MidnightSyncState extends SyncState<
+export class AvailSyncState extends SyncState<
   Input,
   Output,
   Page,
   RootOutput,
   RootPage,
-  MidnightFetcher
+  AvailFetcher
 > {
-  private readonly url: string;
-
   constructor(
     lastPage: LastPage<Page, RootPage> | undefined,
     readonly config: Extract<
       SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.MIDNIGHT }
+      { networkType: ConfigNetworkType.AVAIL }
     >,
-    fetcher: MidnightFetcher,
-    public readonly client: MidnightClient,
+    fetcher: AvailFetcher,
+    public readonly client: AvailClient,
     dbConn: PoolClient,
   ) {
     super(
@@ -43,33 +36,34 @@ export class MidnightSyncState extends SyncState<
       pageRelation,
       dbConn,
     );
-    this.url = config.syncProtocol.indexer;
   }
 
   @bound
   override toPage(input: Input, data: Output[]): Page {
     const lastBlock = data[data.length - 1];
     return {
-      height: lastBlock.raw.height,
+      height: lastBlock.raw.number,
       hash: lastBlock.raw.hash,
     };
   }
 
   @bound
   override toRootPage(data: Output): RootPage {
-    return data.raw.timestamp as unknown as TimestampMs;
+    // Avail headers include `received_at` (sec). Use it as the chain page.
+    return applyDelay(
+      data.raw.received_at * 1000,
+      this.config.syncProtocol.delayMs,
+    );
   }
 
   @bound
-  override toRootOutput(data: Output): RootOutput {
+  override toRootOutput(_data: Output): RootOutput {
     throw new Error("Only main chains create root outputs");
   }
 
   @bound
   override *stateToInput(): Operation<Input | undefined> {
-    const latestBlockResult = yield* call(() => this.client.fetchLatestBlock());
-    const latestHeight = latestBlockResult.block.height;
-
+    const latestHeight = yield* call(() => this.client.getLatestBlockHeight());
     const startHeight = this.lastPage?.own.height ??
       this.config.syncProtocol.startBlockHeight - 1;
 
@@ -86,7 +80,7 @@ export class MidnightSyncState extends SyncState<
     return {
       from,
       to,
-      isPresync: false, // TODO: handle presync
+      isPresync: false,
     };
   }
 
@@ -98,7 +92,7 @@ export class MidnightSyncState extends SyncState<
     }));
     const blockInfo = [{
       protocol_name: this.config.syncProtocol.name,
-      block_number: ourOutput.raw.height,
+      block_number: ourOutput.raw.number,
       blockHash: ourOutput.raw.hash,
     }];
     rootOutput.blockInfo.push(...blockInfo);
@@ -114,10 +108,10 @@ export class MidnightSyncState extends SyncState<
     dbConn: PoolClient,
     config: Extract<
       SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.MIDNIGHT }
+      { networkType: ConfigNetworkType.AVAIL }
     >,
-    fetcher: MidnightFetcher,
-  ): Operation<MidnightSyncState> {
+    fetcher: AvailFetcher,
+  ): Operation<AvailSyncState> {
     const [result] = yield* call(async () =>
       await getPage.run({
         protocol_name: config.syncProtocol.name,
@@ -126,15 +120,13 @@ export class MidnightSyncState extends SyncState<
     const page = result
       ? result.page as unknown as LastPage<Page, RootPage>
       : undefined;
-    return new MidnightSyncState(
+    return new AvailSyncState(
       page,
       config,
       fetcher,
-      // TODO: The urls should be part of the config.
-      new MidnightClient(
-        config.syncProtocol.indexer,
-        config.syncProtocol.indexerWS ??
-          "ws://127.0.0.1:8088/api/v1/graphql/ws",
+      new AvailClient(
+        config.syncProtocol.rpc,
+        config.syncProtocol.lightClient,
       ),
       dbConn,
     );

@@ -43,7 +43,8 @@ stm.addStateTransition("attack", function* (data) {
   // Example 1:
   // How to write in the DB.
   yield* World.resolve(insertStateMachineInput, {
-    inputs: `attack playerId: ${data.parsedInput.playerId} with moveId: ${data.parsedInput.moveId}`,
+    inputs:
+      `attack playerId: ${data.parsedInput.playerId} with moveId: ${data.parsedInput.moveId}`,
     block_height: data.blockHeight,
   });
 
@@ -99,7 +100,7 @@ stm.addStateTransition("midnightContractState", function* (data) {
       console.log(
         "📚 Contract state is array with",
         payload.content.length,
-        "items"
+        "items",
       );
       break;
 
@@ -113,6 +114,19 @@ stm.addStateTransition("midnightContractState", function* (data) {
 
   return;
 });
+
+stm.addStateTransition(
+  "avail-app-state",
+  function* (data) {
+    const { payload } = data.parsedInput;
+    const parsedPayload = JSON.parse(payload.suppliedValue);
+    console.log(
+      "📦 Avail App state has message:",
+      parsedPayload.message || parsedPayload,
+    );
+    return;
+  },
+);
 
 stm.addStateTransition("throw_error", function* (data) {
   throw new Error("This is a test error");
@@ -167,7 +181,7 @@ stm.addStateTransition("transfer", function* (data) {
  */
 export const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
-  input: BaseStfInput
+  input: BaseStfInput,
 ): SyncStateUpdateStream<void> {
   if (blockHeight >= 0) {
     yield* stm.processInput(input);

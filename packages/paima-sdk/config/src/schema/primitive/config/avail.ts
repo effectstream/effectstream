@@ -16,6 +16,8 @@ export const PrimitiveAvailPaimaL2Config = PrimitiveConfigBaseAvail.cloneMerge({
     type: Type.Literal(ConfigPrimitiveType.AvailPaimaL2),
     contractAddress: TypeboxHelpers.Avail.Address,
     appId: Type.Number(),
+    genesisHash: Type.String(),
+    scheduledPrefix: Type.String(),
   }),
   optional: Type.Object({}),
 });
