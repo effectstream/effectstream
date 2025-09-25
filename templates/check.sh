@@ -74,9 +74,11 @@ if command -v deno &> /dev/null; then
         print_success "deno is installed (version: $DENO_VERSION) - meets requirement >= $REQUIRED_DENO_VERSION"
     else
         print_error "deno version $DENO_VERSION is installed but version >= $REQUIRED_DENO_VERSION is required. Please upgrade deno."
+        echo "🌐 https://docs.deno.com/runtime/getting_started/installation/"
     fi
 else
     print_error "deno is not installed. Please install deno >= $REQUIRED_DENO_VERSION."
+    echo "🌐 https://docs.deno.com/runtime/getting_started/installation/"
 fi
 echo
 
@@ -90,9 +92,11 @@ if command -v node &> /dev/null; then
         print_success "node is installed (version: $NODE_VERSION) - meets requirement >= 22"
     else
         print_error "node version $NODE_VERSION is installed but version >= 22 is required. Please upgrade node."
+        echo "🌐 https://nodejs.org/en/download"
     fi
 else
     print_error "node is not installed. Please install node >= 22."
+    echo "🌐 https://nodejs.org/en/download"
 fi
 echo
 
@@ -129,6 +133,7 @@ if FORGE_OUTPUT=$(forge --version 2>/dev/null); then
     print_success "forge is installed (version: $FORGE_VERSION)"
 else
     print_error "forge is not installed. Please install Foundry (forge)."
+    echo "🌐 https://getfoundry.sh/introduction/installation"
 fi
 echo
 
@@ -150,6 +155,7 @@ if COMPACT_OUTPUT=$(compact --version 2>/dev/null); then
     echo
 else
     print_error "compact is not installed. Please install compact."
+    echo "🌐 https://github.com/midnightntwrk/compact/releases"
 fi
 echo
 
