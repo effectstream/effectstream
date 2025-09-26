@@ -1,60 +1,60 @@
 {
-    "name": "@minimal/evm-contracts",
-    "exports": {
-        ".": "./mod.ts",
-        "./build": "./build/mod.ts",
-        "./contractAddressesEvmMain": "./build/contractAddressesEvmMain.ts"
+  "name": "@minimal/evm-contracts",
+  "exports": {
+    ".": "./mod.ts",
+    "./build": "./build/mod.ts",
+    "./contractAddressesEvmMain": "./build/contractAddressesEvmMain.ts"
+  },
+  "version": "0.3.23",
+  "license": "MIT",
+  // TODO: how these actually will work will depend on the hardhat v3 viem plugin
+  //       See https://github.com/NomicFoundation/hardhat/issues/5978
+  "imports": {
+    "@paimaexample/evm-hardhat": "jsr:@paimaexample/evm-hardhat@0.3.44",
+    "@paimaexample/log": "jsr:@paimaexample/log@0.3.44",
+    "@wagmi/cli": "npm:@wagmi/cli@2.3.1",
+    "hardhat": "npm:hardhat@3.0.4",
+    "@nomicfoundation/hardhat-ignition-viem": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
+    "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
+    "@nomicfoundation/hardhat-viem": "npm:@nomicfoundation/hardhat-viem@3.0.0",
+    "@nomicfoundation/ignition-core": "npm:@nomicfoundation/ignition-core@3.0.2",
+    // required for https://github.com/NomicFoundation/hardhat/issues/6472
+    "ws": "npm:ws@8.18.1",
+    "@nomicfoundation/hardhat-errors": "npm:@nomicfoundation/hardhat-errors@3.0.1", // required for https://github.com/NomicFoundation/hardhat/issues/6472
+    "@nomicfoundation/hardhat-utils": "npm:@nomicfoundation/hardhat-utils@3.0.0" // required for https://github.com/NomicFoundation/hardhat/issues/6472
+  },
+  "tasks": {
+    "swap:remappings:forge": "deno -A @paimaexample/evm-hardhat/remappings-forge --depth 2 --package @paimaexample",
+    "swap:remappings:hardhat": "deno -A @paimaexample/evm-hardhat/remappings-hardhat",
+    "check": "echo 'check'",
+    "build:mod": {
+      // deploy:standalone does not return 'success', as the hardhat process is terminated by chain:stop - so it cannot be invoked as dependency
+      "command": "(deno task deploy:standalone || true) && deno run -A @paimaexample/evm-hardhat/builder"
     },
-    "version": "0.3.23",
-    "license": "MIT",
-    // TODO: how these actually will work will depend on the hardhat v3 viem plugin
-    //       See https://github.com/NomicFoundation/hardhat/issues/5978
-    "imports": {
-        "@paimaexample/evm-hardhat": "jsr:@paimaexample/evm-hardhat@0.3.44",
-        "@paimaexample/log": "jsr:@paimaexample/log@0.3.44",
-        "@wagmi/cli": "npm:@wagmi/cli@2.3.1",
-        "hardhat": "npm:hardhat@3.0.4",
-        "@nomicfoundation/hardhat-ignition-viem": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
-        "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
-        "@nomicfoundation/hardhat-viem": "npm:@nomicfoundation/hardhat-viem@3.0.0",
-        "@nomicfoundation/ignition-core": "npm:@nomicfoundation/ignition-core@3.0.2",
-        // required for https://github.com/NomicFoundation/hardhat/issues/6472
-        "ws": "npm:ws@8.18.1",
-        "@nomicfoundation/hardhat-errors": "npm:@nomicfoundation/hardhat-errors@3.0.1", // required for https://github.com/NomicFoundation/hardhat/issues/6472
-        "@nomicfoundation/hardhat-utils": "npm:@nomicfoundation/hardhat-utils@3.0.0" // required for https://github.com/NomicFoundation/hardhat/issues/6472
+    "build:clean": "rm -rf build || true",
+    "build:forge": {
+      "command": "forge build",
+      "dependencies": ["swap:remappings:forge"]
     },
-    "tasks": {
-        "swap:remappings:forge": "deno -A @paimaexample/evm-hardhat/remappings-forge --depth 2 --package @paimaexample",
-        "swap:remappings:hardhat": "deno -A @paimaexample/evm-hardhat/remappings-hardhat",
-        "check": "echo 'check'",
-        "build:mod": {
-            // deploy:standalone does not return 'success', as the hardhat process is terminated by chain:stop - so it cannot be invoked as dependency
-            "command": "(deno task deploy:standalone || true) && deno run -A @paimaexample/evm-hardhat/builder"
-        },
-        "build:clean": "rm -rf build || true",
-        "build:forge": {
-            "command": "forge build",
-            "dependencies": ["swap:remappings:forge"]
-        },
-        "build:hardhat": {
-            "command": "deno run -A npm:hardhat@3.0.4 compile",
-            "dependencies": ["swap:remappings:hardhat"]
-        },
-        "build": {
-            "command": "deno task build:forge && deno task build:hardhat",
-            "dependencies": ["build:clean"]
-        },
-        "deploy:clean": "rm -rf ignition/deployments || true",
-        "deploy:standalone": {
-            "command":"(((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && deno task chain:stop) || true",
-            "dependencies": ["deploy:clean","build"]
-        },
-        "deploy": { 
-            "command": "deno run -A deploy.ts",
-            "dependencies": ["deploy:clean"]
-        },
-        "chain:start": "deno run -A npm:hardhat@3.0.4 node",
-        "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",
-        "chain:wait": "deno run -A npm:hardhat@3.0.4 node wait"
-    }
+    "build:hardhat": {
+      "command": "deno run -A npm:hardhat@3.0.4 compile",
+      "dependencies": ["swap:remappings:hardhat"]
+    },
+    "build": {
+      "command": "deno task build:forge && deno task build:hardhat",
+      "dependencies": ["build:clean"]
+    },
+    "deploy:clean": "rm -rf ignition/deployments || true",
+    "deploy:standalone": {
+      "command": "(((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && deno task chain:stop) || true",
+      "dependencies": ["build"]
+    },
+    "deploy": {
+      "command": "deno run -A deploy.ts",
+      "dependencies": ["deploy:clean"]
+    },
+    "chain:start": "deno run -A npm:hardhat@3.0.4 node",
+    "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",
+    "chain:wait": "deno run -A npm:hardhat@3.0.4 node wait"
+  }
 }

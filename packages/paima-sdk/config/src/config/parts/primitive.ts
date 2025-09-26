@@ -1,27 +1,18 @@
-import type { MergeIntersects, RemoveUnknown } from "@paima/utils";
-import type { StaticDecode } from "@sinclair/typebox";
-import {
-  ConfigPrimitiveAll,
-  type PrimitivesForSyncProtocol,
-} from "../../schema/mod.ts";
+import type { RemoveUnknown } from "@paima/utils";
 import type { NetworkBuilderData, NetworkList } from "./network.ts";
 import type {
   DeployedAddressesBuilderData,
   DeployedAddressesList,
 } from "./deployedAddresses.ts";
 import type { SyncProtocolConfig, SyncProtocolList } from "./syncProtocols.ts";
-import { Value } from "@sinclair/typebox/value";
-// import { bound } from "@paima/utils";
 
-export type PrimitiveConfig<RequireDefaults extends boolean = true> =
-  MergeIntersects<
-    StaticDecode<ReturnType<typeof ConfigPrimitiveAll<RequireDefaults>>>
-  >;
+type PrimitiveConfig = {};
 
 type PrimitiveEntry<SyncProtocol extends string, PrimitiveConfig> = {
   syncProtocol: SyncProtocol;
   primitive: PrimitiveConfig;
 };
+
 export type PrimitiveList<
   Networks extends NetworkList,
   SyncProtocols extends SyncProtocolList<Networks, SyncProtocolConfig>,
@@ -58,7 +49,15 @@ export class PrimitiveBuilder<
     PrimitiveConfig
   > = {},
 > {
-  data: PrimitiveBuilderData<Networks, SyncProtocols, Primitives>;
+  data: {
+    primitives: Record<
+      string,
+      PrimitiveEntry<
+        SyncProtocols[string]["syncProtocol"]["name"],
+        PrimitiveConfig
+      >
+    >;
+  };
 
   constructor(
     readonly networks: NetworkBuilderData<Networks, any>,
@@ -69,17 +68,18 @@ export class PrimitiveBuilder<
     readonly syncProtocols: SyncProtocols,
   ) {
     this.data = {
-      primitives: {} as Primitives,
+      primitives: {},
     };
   }
 
   // @bound
   addPrimitive<
     const SyncProtocol extends SyncProtocols[string],
-    const NewPrimitive extends PrimitivesForSyncProtocol<
-      SyncProtocol["syncProtocol"]["type"],
-      false
-    >,
+    const NewPrimitive extends {
+      name: string;
+      type: string;
+      startBlockHeight: number;
+    }, // TODO This is the format from PaimaPrimitive.getConfig()
   >(
     genSyncProtocol: (syncProtocol: SyncProtocols) => SyncProtocol,
     genPrimitive: (
@@ -93,10 +93,10 @@ export class PrimitiveBuilder<
     SyncProtocols,
     & Primitives
     & Record<
-      NewPrimitive["name"],
+      string, // NewPrimitive["name"],
       PrimitiveEntry<
         SyncProtocol["syncProtocol"]["name"],
-        NewPrimitive & PrimitiveConfig<true>
+        NewPrimitive & PrimitiveConfig
       >
     >
   > {
@@ -108,17 +108,14 @@ export class PrimitiveBuilder<
       ],
       syncProtocol,
     );
-    const withDefaults = Value.Default(ConfigPrimitiveAll(true), primitive) as
-      & NewPrimitive
-      & PrimitiveConfig<true>;
 
-    (this.data.primitives as any)[withDefaults.name] = {
+    this.data.primitives[primitive.name] = {
       syncProtocol: syncProtocol.syncProtocol.name,
-      primitive: withDefaults,
+      primitive: primitive,
     } satisfies PrimitiveEntry<
       SyncProtocol["syncProtocol"]["name"],
       & NewPrimitive
-      & PrimitiveConfig<true>
+      & PrimitiveConfig
     >;
     return this as any;
   }

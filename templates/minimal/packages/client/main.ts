@@ -4,9 +4,6 @@ import {
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
 } from "@paimaexample/config";
-// import { migrationTable } from "@e2e/database";
-// import { gameStateTransitions } from "./state-machine.ts";
-// import { apiRouter } from "./api.ts";
 import { contractAddressesEvmMain } from "@minimal/evm-contracts";
 
 import {

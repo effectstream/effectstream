@@ -136,15 +136,16 @@ export function* processFinalizedBlock(
   try {
     /* STEP 0: Start the transaction. */
     yield* until(dbConn.query("BEGIN"));
+    const randomGenerator = new Prando(blockHash);
 
     /* STEP 1: Create a temporal block record */
     yield* call(() =>
       saveLastBlock.run({
-        // TODO: Check thses values
+        // TODO: Check these values
         block_height: value.blockNumber,
         ver: 0,
         main_chain_block_hash: Buffer.from(value.blockNumber.toString()),
-        seed: value.blockNumber.toString(),
+        seed: randomGenerator.seed.toString(),
         ms_timestamp: new Date(value.timestamp),
       }, dbConn)
     );
@@ -189,7 +190,6 @@ export function* processFinalizedBlock(
     // TODO What should be the order of the scheduled data - per id?
     const scheduledData = [...scheduledData1, ...scheduledData2];
     let index_in_block = 0;
-    const randomGenerator = new Prando(blockHash);
 
     if (gameStateTransitions && scheduledData.length > 0) {
       randomGenerator.skip();

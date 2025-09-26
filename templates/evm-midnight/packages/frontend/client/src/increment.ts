@@ -79,7 +79,7 @@ const contractConfig = {
     "contract",
     "src",
     "managed",
-    "counter",
+    "counter-round-value",
   ),
 };
 

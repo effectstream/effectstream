@@ -8,6 +8,7 @@ import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { launchCardano } from "@paima/orchestrator/start-cardano";
 import { launchEvm } from "@paima/orchestrator/start-evm";
 import { launchMidnight } from "@paima/orchestrator/start-midnight";
+import { launchAvail } from "@paima/orchestrator/start-avail";
 import { getPaimaEVMPublicClient } from "@e2e/engine";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -40,7 +41,7 @@ export async function startup(): Promise<Client> {
       launchEvm("@e2e/evm-contracts"),
       yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
       launchMidnight("@e2e/midnight-contracts"),
-      // launchAvail
+      launchAvail("@e2e/avail-contracts"),
     ],
 
     batcher: {

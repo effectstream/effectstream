@@ -16,9 +16,13 @@ const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
   ? false
   : true;
 
-const midnight_enabled = Deno ? (Deno.env.get("DISABLE_MIDNIGHT") === "true"
-  ? false
-  : true) : true;
+const midnight_enabled = Deno
+  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
+  : true;
+
+const avail_enabled = Deno
+  ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
+  : true;
 
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
@@ -33,9 +37,8 @@ const config = Value.Parse(OrchestratorConfig, {
   processesToLaunch: [
     launchEvm("@e2e/evm-contracts"),
     yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
+    avail_enabled ? launchAvail("@e2e/avail-contracts") : {},
     midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : {},
-    // Uncomment to enable Avail Process
-    // launchAvail("@e2e/avail-contracts"),
     {
       stopProcessAtPort: [10590],
       processes: [

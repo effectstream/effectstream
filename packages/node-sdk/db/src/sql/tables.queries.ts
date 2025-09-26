@@ -60,3 +60,30 @@ const getPublicTablesIR: any = {"usedParamSet":{},"params":[],"statement":"SELEC
 export const getPublicTables = new PreparedQuery<IGetPublicTablesParams,IGetPublicTablesResult>(getPublicTablesIR);
 
 
+/** 'GetDynamicTables' parameters type */
+export type IGetDynamicTablesParams = void;
+
+/** 'GetDynamicTables' return type */
+export interface IGetDynamicTablesResult {
+  table_name: string | null;
+}
+
+/** 'GetDynamicTables' query type */
+export interface IGetDynamicTablesQuery {
+  params: IGetDynamicTablesParams;
+  result: IGetDynamicTablesResult;
+}
+
+const getDynamicTablesIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT table_name\nFROM   information_schema.tables\nWHERE  table_schema = 'primitives'"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT table_name
+ * FROM   information_schema.tables
+ * WHERE  table_schema = 'primitives'
+ * ```
+ */
+export const getDynamicTables = new PreparedQuery<IGetDynamicTablesParams,IGetDynamicTablesResult>(getDynamicTablesIR);
+
+

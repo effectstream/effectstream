@@ -2,6 +2,7 @@ import {
   addLinkedAddress,
   assert,
   assertSQL,
+  blockWatcher,
   erc20Builder,
   erc721Builder,
   paimaL2Builder,
@@ -15,34 +16,9 @@ import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { ENV } from "@paima/utils/node-env";
 import { createBatcherSubunit, createMessageForBatcher } from "@paima/concise";
-import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 
 // Start Test
 export async function generalTest(db: Client, sharedState: SharedState) {
-  const latestBlock: Record<string, number> = {};
-  latestBlock["__main__"] = 0;
-  await PaimaEventManager.Instance.subscribe(
-    {
-      topic: BuiltinEvents.RollupBlock,
-      filter: { block: undefined },
-    },
-    event => {
-      latestBlock["__main__"] = Math.max(event.block, latestBlock["__main__"]);
-    }
-  );
-  await PaimaEventManager.Instance.subscribe(
-    {
-      topic: BuiltinEvents.SyncChains,
-      filter: { chain: undefined, block: undefined },
-    },
-    event => {
-      latestBlock[event.chain] = Math.max(
-        event.block, 
-        latestBlock[event.chain] ? 0 : event.block
-      );
-    }
-  );
-  
   // Lazy load the contracts.
   const erc20 = erc20Builder(sharedState);
   const erc721 = erc721Builder(sharedState);
@@ -77,11 +53,8 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   // }
   // Wait until parallelEvmRPC_fast is at least blockNumber
   // TODO Refactor this into the send-transactions functions,
-  //      So they wait until the block number is reached. 
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-  while (latestBlock["parallelEvmRPC_fast"] ? BigInt(latestBlock["parallelEvmRPC_fast"]) < blockNumber : true) {
-    await sleep(100);
-  }
+  //      So they wait until the block number is reached.
+  await blockWatcher.waitForBlock("parallelEvmRPC_fast", blockNumber);
   await assertSQL<{ primitive_name: string }>(
     "Check ERC20 sync-process",
     db,
@@ -103,7 +76,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     ["attack", "1", "100"],
     wallets[0].privateKey,
   );
-
+  await blockWatcher.waitForBlock();
   await assertSQL<{ primitive_name: string }>(
     "Check PaimaL2 sync-process",
     db,
@@ -122,6 +95,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     ["attack", "2", "200"],
     wallets[0].privateKey,
   );
+  await blockWatcher.waitForBlock();
   await assertSQL<{ inputs: string }>(
     "Check State Machine events",
     db,
@@ -134,15 +108,15 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       const dump = [
         {
           inputs:
-            "transfer 200000000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            "transfer 200000000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
         },
         {
           inputs:
-            "transfer 300000000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            "transfer 300000000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
         },
         {
           inputs:
-            "transfer 90000000000000000000 from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+            "transfer 90000000000000000000 from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 to 0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
         },
         { inputs: "attack playerId: 1 with moveId: 100" },
         { inputs: "attack playerId: 2 with moveId: 200" },
@@ -245,7 +219,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   );
   // This command does not increment the paima_state_machine_counter.
   sharedState.paima_state_machine_counter -= 1;
-
+  await blockWatcher.waitForBlock();
   await assertSQL<{ primitive_name: string }>(
     "Wait for error to be processed",
     db,
@@ -283,7 +257,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
         AddressType.EVM,
         signature,
         conciseInput,
-      ), 
+      ),
     }),
   });
 
@@ -304,12 +278,10 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       paima.primitive_accounting;`,
     (_) => true, // We don't need to wait as the batcher waits for the transaction to be processed by the Paima Engine.
     (res) => {
-      return res.rows[sharedState.primitive_accounting_counter - 1]
-            .primitive_name ===
-          "PaimaGameInteraction" &&
-        res.rows[sharedState.primitive_accounting_counter - 1].payload
-        // ["attack","999","777"]
-            .data === "0x5b2261747461636b222c22393939222c22373737225d";
+      const d = res.rows[sharedState.primitive_accounting_counter - 1];
+      return d.primitive_name === "PaimaGameInteraction" &&
+        JSON.stringify(d.payload.data) ===
+          JSON.stringify(["attack", "999", "777"]);
     },
   );
 
@@ -328,11 +300,13 @@ export async function generalTest(db: Client, sharedState: SharedState) {
         account.address,
         AddressType.EVM,
         badSignature,
-        conciseInput,
+        JSON.stringify(["attack", "990", "770"]),
       ),
     }),
   });
   // This message should not change the state of the database.
+  //
+  // TODO We can get the current EVM block number and wait until it is greater than the block number.
   // If this test fails, it will probably reflected in the next test.
   // As we cannot wait until the state does not change.
   await assertSQL<
@@ -346,12 +320,10 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
-      return res.rows[sharedState.primitive_accounting_counter - 1]
-            .primitive_name ===
-          "PaimaGameInteraction" &&
-        res.rows[sharedState.primitive_accounting_counter - 1].payload
-        // ["attack","999","777"]
-            .data === "0x5b2261747461636b222c22393939222c22373737225d";
+      const d = res.rows[sharedState.primitive_accounting_counter - 1];
+      return d.primitive_name === "PaimaGameInteraction" &&
+        JSON.stringify(d.payload.data) ===
+          JSON.stringify(["attack", "990", "770"]);
     },
   );
 
@@ -366,13 +338,13 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     },
   );
 
-  // Let's test the scheduled data created throught the state machine.
+  // Let's test the scheduled data created thought the state machine.
   await paimaL2.submitGameInput(
     ["schedule", "1", "block", "111"],
     wallets[0].privateKey,
   );
   // This should increment the state machine indirectly.
-
+  await blockWatcher.waitForBlock();
   await assertSQL<{ inputs: string; block_height: number }>(
     "Check Scheduled Data - block",
     db,
@@ -483,9 +455,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     wallets[0].address,
     tokens.tokenD,
   );
-  while (latestBlock["parallelEvmRPC_fast"] ? BigInt(latestBlock["parallelEvmRPC_fast"]) < blockNumber : true) {
-    await sleep(100);
-  }
+  await blockWatcher.waitForBlock("parallelEvmRPC_fast", blockNumber);
   // Cannot burn a token?
   // await erc721.burn(wallet_X.privateKey, tokens.tokenD);
   await assertSQL<

@@ -9,8 +9,6 @@ import { TypeboxHelpers } from "@paima/utils";
 import type { PageSyncRange } from "../common/page-helpers.ts";
 import { Type } from "@sinclair/typebox";
 import type {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
 } from "@paima/config";
@@ -25,9 +23,7 @@ export const PageSchema = TypeboxHelpers.SerializeObjAsJson<
 >();
 
 export type PrimitiveType = FlattenSyncProtocolIOFor<
-  ConfigSyncProtocolType.NTP_MAIN,
-  ConfigPrimitiveType,
-  ConfigPrimitivePayloadType
+  ConfigSyncProtocolType.NTP_MAIN
 >;
 export type Input = PageSyncRange<Page>;
 export type Output = {

@@ -112,9 +112,7 @@ function handleCleanFlag(env, workingDir) {
 function runMidnightIndexer(env = process.env, args = []) {
   const platform = getPlatform();
   const parts = platform.split("-");
-  const binaryName = (parts[0] === "linux")
-    ? `indexer-standalone-${platform}`
-    : "indexer-standalone";
+  const binaryName = `indexer-standalone-${platform}`;
   const binaryPath = path.join(
     __dirname,
     "indexer-standalone",
