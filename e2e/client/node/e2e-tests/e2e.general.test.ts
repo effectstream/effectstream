@@ -108,15 +108,15 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       const dump = [
         {
           inputs:
-            "transfer 200000000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            "transfer 200000000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
         },
         {
           inputs:
-            "transfer 300000000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            "transfer 300000000000000000000 from 0x0000000000000000000000000000000000000000 to 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
         },
         {
           inputs:
-            "transfer 90000000000000000000 from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+            "transfer 90000000000000000000 from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 to 0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
         },
         { inputs: "attack playerId: 1 with moveId: 100" },
         { inputs: "attack playerId: 2 with moveId: 200" },
@@ -278,12 +278,10 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       paima.primitive_accounting;`,
     (_) => true, // We don't need to wait as the batcher waits for the transaction to be processed by the Paima Engine.
     (res) => {
-      return res.rows[sharedState.primitive_accounting_counter - 1]
-            .primitive_name ===
-          "PaimaGameInteraction" &&
-        res.rows[sharedState.primitive_accounting_counter - 1].payload
-            // ["attack","999","777"]
-            .data === "0x5b2261747461636b222c22393939222c22373737225d";
+      const d = res.rows[sharedState.primitive_accounting_counter - 1];
+      return d.primitive_name === "PaimaGameInteraction" &&
+        JSON.stringify(d.payload.data) ===
+          JSON.stringify(["attack", "999", "777"]);
     },
   );
 
@@ -302,11 +300,13 @@ export async function generalTest(db: Client, sharedState: SharedState) {
         account.address,
         AddressType.EVM,
         badSignature,
-        conciseInput,
+        JSON.stringify(["attack", "990", "770"]),
       ),
     }),
   });
   // This message should not change the state of the database.
+  //
+  // TODO We can get the current EVM block number and wait until it is greater than the block number.
   // If this test fails, it will probably reflected in the next test.
   // As we cannot wait until the state does not change.
   await assertSQL<
@@ -320,12 +320,10 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
-      return res.rows[sharedState.primitive_accounting_counter - 1]
-            .primitive_name ===
-          "PaimaGameInteraction" &&
-        res.rows[sharedState.primitive_accounting_counter - 1].payload
-            // ["attack","999","777"]
-            .data === "0x5b2261747461636b222c22393939222c22373737225d";
+      const d = res.rows[sharedState.primitive_accounting_counter - 1];
+      return d.primitive_name === "PaimaGameInteraction" &&
+        JSON.stringify(d.payload.data) ===
+          JSON.stringify(["attack", "990", "770"]);
     },
   );
 
@@ -340,7 +338,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     },
   );
 
-  // Let's test the scheduled data created throught the state machine.
+  // Let's test the scheduled data created thought the state machine.
   await paimaL2.submitGameInput(
     ["schedule", "1", "block", "111"],
     wallets[0].privateKey,

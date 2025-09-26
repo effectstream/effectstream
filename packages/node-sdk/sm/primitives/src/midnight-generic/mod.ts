@@ -1,0 +1,1 @@
+export { MidnightGenericPrimitive, midnightGenericGrammar } from "./midnight-genetic.ts";

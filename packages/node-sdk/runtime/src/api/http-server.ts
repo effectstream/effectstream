@@ -37,6 +37,7 @@ import {
   PaginationQuerySchema,
   type TypePaginationQuerySchema,
 } from "./pagination.ts";
+import { PaimaPrimitiveRegistry } from "@paima/sm";
 
 function tableListContains(
   list: Array<{ table_name: string | null }>,
@@ -629,6 +630,13 @@ export const startHttpServer = function* (
   function getPrimitivePrefixWrapper(
     primitiveName: string,
   ): string | undefined {
+    const primitiveTry = PaimaPrimitiveRegistry.getPrimitive(primitiveName);
+    console.error("primitiveTry", primitiveName, primitiveTry);
+    // if (!primitive) {
+    //   return undefined;
+    // }
+    // return primitive.getViewPrefix()[0];
+
     // TODO map/find the results generated bad TS Types (too hard to represent)
     const findPrimitive = (syncProtocols: AllSyncProtocols[]) => {
       for (const syncProtocol of syncProtocols) {
@@ -644,7 +652,7 @@ export const startHttpServer = function* (
     if (!primitive) {
       return undefined;
     }
-    return getPrimitivePrefix(primitive.primitive.type);
+    return getPrimitivePrefix((primitive.primitive as any).type)[0];
   }
 
   server.get("/primitives-schema/:primitiveName", {

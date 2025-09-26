@@ -17391,6 +17391,7 @@
           "npm:@midnight-ntwrk/wallet@5",
           "npm:@midnight-ntwrk/zswap@4",
           "npm:@sinclair/typebox@~0.34.30",
+          "npm:avail-js-sdk@~0.4.2",
           "npm:effection@^3.5.0",
           "npm:fastify@^5.4.0",
           "npm:pg@^8.14.0",

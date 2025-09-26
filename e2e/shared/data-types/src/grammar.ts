@@ -1,8 +1,14 @@
-import { Type } from "@sinclair/typebox";
-import { type GrammarDefinition, mapPrimitivesToGrammar } from "@paima/concise";
-import { localhostConfig } from "./config.ts";
+import {
+  availGenericGrammar,
+  erc20Grammar,
+  erc721Grammar,
+  midnightGenericGrammar,
+} from "@paima/sm";
 
-export const grammar = {
+import { Type } from "@sinclair/typebox";
+import type { GrammarDefinition } from "@paima/concise";
+
+export const paimaL2Grammar = {
   schedule: [
     ["tick", Type.Integer()],
     [
@@ -19,60 +25,15 @@ export const grammar = {
     ["moveId", Type.Integer()],
   ],
   throw_error: [],
-  // TODO: How do we get this from the known payload types?
-  //       This is a ERC20 transfer.
-  transfer: [
-    [
-      "payload",
-      Type.Object({
-        to: Type.String(),
-        from: Type.String(),
-        value: Type.String(),
-      }),
-    ],
-  ],
   switchMap: [["mapId", Type.String()]],
-  // Midnight contract state with proper EncodedStateValue schema
-  midnightContractState: [
-    [
-      "payload",
-      Type.Recursive((Self) =>
-        Type.Union([
-          Type.Object({
-            tag: Type.Literal("null"),
-          }),
-          Type.Object({
-            tag: Type.Literal("cell"),
-            content: Self,
-          }),
-          Type.Object({
-            tag: Type.Literal("array"),
-            content: Type.Array(Self),
-          }),
-          Type.Object({
-            tag: Type.Literal("map"),
-            content: Type.Array(Type.Tuple([Type.Any(), Self])), // Map as [key, value] pairs
-          }),
-        ])
-      ),
-    ],
-  ],
-  "avail-app-state": [
-    [
-      "payload",
-      Type.Object({
-        suppliedValue: Type.String(),
-      }),
-    ],
-  ],
-  // Auto-generate other primitives, but exclude midnight (we define it explicitly above)
-  ...Object.fromEntries(
-    Object.entries(mapPrimitivesToGrammar(localhostConfig.primitives))
-      .filter(([key]) =>
-        key !== "midnightContractState" && key !== "avail-app-state"
-      ),
-  ),
 } as const satisfies GrammarDefinition;
 
-// const foo = mapPrimitivesToGrammar(localhostConfig.primitives);
-// localhostConfig.primitives.TransferEvent;
+export const grammar = {
+  ...paimaL2Grammar,
+
+  // TODO Check if these exist in runtime
+  "avail-app-state": availGenericGrammar,
+  "midnightContractState": midnightGenericGrammar,
+  "transfer-assets": erc721Grammar,
+  "transfer-erc20": erc20Grammar,
+} as const satisfies GrammarDefinition;

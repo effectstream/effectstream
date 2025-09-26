@@ -9,8 +9,6 @@ import type { PageRelation } from "../base/page.ts";
 import type { cardano } from "@utxorpc/spec";
 import type { PageSyncRange } from "../common/page-helpers.ts";
 import type {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
 } from "@paima/config";
@@ -34,9 +32,7 @@ export type Page = {
 
 // TODO: blocked on https://github.com/utxorpc/spec/issues/135
 export type PrimitiveType = FlattenSyncProtocolIOFor<
-  ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
-  ConfigPrimitiveType,
-  ConfigPrimitivePayloadType
+  ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL
 >;
 export type Input = PageSyncRange<BlockNumber>;
 export type Output = {

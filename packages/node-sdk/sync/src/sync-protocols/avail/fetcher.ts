@@ -1,6 +1,4 @@
 import {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
   type PrimitiveEntry,
   type SyncProtocolWithNetwork,
@@ -13,7 +11,13 @@ import type {
   RootConversion,
 } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
-import type { Input, Output, Page, PrimitiveType } from "./types.ts";
+import type {
+  ConfigType,
+  Input,
+  Output,
+  Page,
+  PrimitiveType,
+} from "./types.ts";
 import { AvailClient } from "./AvailClient.ts";
 import { all, call, type Operation, sleep } from "effection";
 import { bound } from "@paima/utils";
@@ -28,10 +32,7 @@ export class AvailFetcher extends BaseDataFetcher<
   readonly client: AvailClient;
 
   constructor(
-    readonly config: Extract<
-      SyncProtocolWithNetwork,
-      { syncProtocolType: ConfigSyncProtocolType.AVAIL_PARALLEL }
-    >,
+    readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
     this.client = new AvailClient(
@@ -108,12 +109,15 @@ export class AvailFetcher extends BaseDataFetcher<
   *readPrimitives(
     height: number,
     header: Output["raw"],
-    primitives: PrimitiveEntry<ConfigSyncProtocolType.AVAIL_PARALLEL>[],
+    primitiveEntries: Extract<
+      PrimitiveEntry,
+      { syncProtocol: ConfigSyncProtocolType.AVAIL_PARALLEL }
+    >[],
   ): Operation<PrimitiveType[]> {
     const allOperations: Operation<PrimitiveType | undefined>[] = [];
-    for (const primitive of primitives) {
+    for (const primitiveEntry of primitiveEntries) {
       allOperations.push(
-        this.fetchPaimaL2(height, primitive, header),
+        this.fetchData(height, primitiveEntry, header),
       );
     }
     return (yield* all(allOperations)).flat().filter(
@@ -122,14 +126,17 @@ export class AvailFetcher extends BaseDataFetcher<
   }
 
   @bound
-  *fetchPaimaL2(
+  *fetchData(
     height: number,
-    primitive: PrimitiveEntry<ConfigSyncProtocolType.AVAIL_PARALLEL>,
+    primitiveEntry: Extract<
+      PrimitiveEntry,
+      { syncProtocol: ConfigSyncProtocolType.AVAIL_PARALLEL }
+    >,
     header: Output["raw"],
   ): Operation<PrimitiveType | undefined> {
     // For now we only read blocks; if the appId appears in the block header
     // we will invoke the data endpoint, but we will not emit a primitive yet.
-    const appId = primitive.primitive.appId;
+    const appId = primitiveEntry.primitive.appId;
     if (typeof appId !== "number") return undefined;
 
     const isPresent = header.extension.app_lookup.index.some((e) =>
@@ -147,35 +154,19 @@ export class AvailFetcher extends BaseDataFetcher<
     // TODO: is always a JSON string?
     const data: string = atob(dataTransaction.data);
     return {
-      input: primitive.primitive,
-      primitiveType: ConfigPrimitiveType.AvailPaimaL2,
-      payloadType: ConfigPrimitivePayloadType.Event,
+      syncProtocol: {
+        name: primitiveEntry.syncProtocol,
+        blockNumber: height,
+        transactionHash: header.hash,
+        contractAddress: primitiveEntry.primitive.applicationKey,
+      },
+      primitive: primitiveEntry.primitive.name,
       output: {
-        payloadType: ConfigPrimitivePayloadType.Event,
-        primitive: ConfigPrimitiveType.AvailPaimaL2,
+        payloadType: "avail-app-state",
         payload: {
           inputData: height.toString(),
           inputNonce: "0x", // TODO replace this with something meaningful
           suppliedValue: data,
-        },
-        syncProtocol: {
-          type: ConfigSyncProtocolType.AVAIL_PARALLEL,
-          name: this.config.syncProtocol.name,
-          payload: {
-            primitiveName: primitive.primitive.name,
-            caip2: this.config.network.caip2,
-            ownChain: {
-              blockNumber: height,
-            },
-            extrinsicIndex: 0,
-            mainchain: {
-              blockNumber: null,
-              timestamp: null,
-            },
-          },
-          internal: {
-            transactionHash: header.hash, // TODO replace this with real txHash
-          },
         },
       },
     };

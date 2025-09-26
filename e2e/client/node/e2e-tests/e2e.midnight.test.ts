@@ -441,7 +441,7 @@ async function joinAndIncrementTest(
           id: number;
           paima_block_height: number;
           payload_type: string;
-          payload: {
+          payload: { payload: {
             tag: string;
             content: {
               tag: string;
@@ -449,16 +449,16 @@ async function joinAndIncrementTest(
                 value: { "0"?: number }[];
               };
             }[];
-          };
+          } };
         }>(
           "MidnightRowsExists",
           db,
           "SELECT * FROM paima.primitive_accounting WHERE primitive_name = 'MidnightContractState'",
           (res) => res.rowCount === 2,
           (res) => {
-            return res.rows[0].payload.content[0].content.value[0]["0"] ===
+            return res.rows[0].payload.payload.content[0].content.value[0]["0"] ===
                 undefined &&
-              res.rows[1].payload.content[0].content.value[0]["0"] === 1;
+              res.rows[1].payload.payload.content[0].content.value[0]["0"] === 1;
           },
         );
 

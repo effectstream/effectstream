@@ -1,6 +1,8 @@
 import type { Satisfies, Stringifiable, TypeErrorMessage } from "@paima/utils";
 import type {
+  ConfigSyncProtocolType,
   PrimitiveEntry,
+  ProtocolPrimitiveMap,
   SyncProtocolWithNetwork,
 } from "../schema/sync-protocols/types.ts";
 import type { ConfigBuilderData } from "./builder.ts";
@@ -85,20 +87,28 @@ export function onlyValue<
 /**
  * Helper function to filter and create PrimitiveEntry objects for a specific sync protocol
  */
-function getPrimitivesForSyncProtocol<T extends string>(
-  primitives: Record<string, any>,
-  syncProtocolName: T,
-): PrimitiveEntry<any, any>[] {
+function getPrimitivesForSyncProtocol<T extends ConfigSyncProtocolType>(
+  primitives: Record<
+    string,
+    {
+      syncProtocol: T;
+      primitive: T extends keyof ProtocolPrimitiveMap ? ProtocolPrimitiveMap[T]
+        : never;
+    }
+  >,
+  syncProtocolName: string,
+): Extract<PrimitiveEntry, { syncProtocol: T }>[] {
   if (!primitives) return [];
-  const result: PrimitiveEntry<any, any>[] = [];
+  const result: Extract<PrimitiveEntry, { syncProtocol: T }>[] = [];
 
   for (const [primitiveName, primitiveData] of Object.entries(primitives)) {
     if (primitiveData.syncProtocol === syncProtocolName) {
-      result.push({
+      const t: any = {
         syncProtocol: primitiveData.syncProtocol,
         primitive: primitiveData.primitive,
         id: primitiveName,
-      });
+      };
+      result.push(t);
     }
   }
 
@@ -127,7 +137,7 @@ export function toSyncProtocolWithNetwork<
         .networks[data.syncProtocols.main.network],
       primitives: getPrimitivesForSyncProtocol(
         data.primitives,
-        data.syncProtocols.main.syncProtocol.name,
+        data.syncProtocols.main.syncProtocol.name as ConfigSyncProtocolType,
       ),
     } as SyncProtocolWithNetwork,
     ...Object.values(data.syncProtocols.parallel).map((
@@ -142,7 +152,7 @@ export function toSyncProtocolWithNetwork<
         network,
         primitives: getPrimitivesForSyncProtocol(
           data.primitives,
-          protocol.syncProtocol.name,
+          protocol.syncProtocol.name as ConfigSyncProtocolType,
         ),
       };
       return result as SyncProtocolWithNetwork;

@@ -1,8 +1,7 @@
 import type {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
+  SyncProtocolWithNetwork,
 } from "@paima/config";
 import type { BlockNumber } from "@paima/utils";
 import type { PageSyncRange } from "../common/page-helpers.ts";
@@ -53,9 +52,7 @@ export type Page = {
 };
 
 export type PrimitiveType = FlattenSyncProtocolIOFor<
-  ConfigSyncProtocolType.AVAIL_PARALLEL,
-  ConfigPrimitiveType.AvailPaimaL2,
-  ConfigPrimitivePayloadType.Event
+  ConfigSyncProtocolType.AVAIL_PARALLEL
 >;
 
 export type Input = PageSyncRange<BlockNumber>;
@@ -70,3 +67,8 @@ export const pageRelation: PageRelation<Page> = {
   min: (p1, p2) => (p1.height < p2.height ? p1 : p2),
   max: (p1, p2) => (p1.height > p2.height ? p1 : p2),
 };
+
+export type ConfigType = Extract<
+  SyncProtocolWithNetwork,
+  { syncProtocolType: ConfigSyncProtocolType.AVAIL_PARALLEL }
+>;

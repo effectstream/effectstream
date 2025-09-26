@@ -86,33 +86,7 @@ stm.addStateTransition("attack", function* (data) {
 
 stm.addStateTransition("midnightContractState", function* (data) {
   const { payload } = data.parsedInput;
-
-  // Handle different EncodedStateValue variants
-  switch (payload.tag) {
-    case "null":
-      console.log("📭 Contract state is null");
-      break;
-
-    case "cell":
-      console.log("📦 Contract state has cell content:", payload.content);
-      break;
-
-    case "array":
-      console.log(
-        "📚 Contract state is array with",
-        payload.content.length,
-        "items",
-      );
-      break;
-
-    case "map":
-      console.log("🗺️ Contract state is a map:", payload.content);
-      break;
-    default:
-      console.warn("❓ Unknown contract state tag:", payload);
-      break;
-  }
-
+  console.error("🎉 [MIDNIGHT] Transaction receipt:", payload);
   return;
 });
 
@@ -167,8 +141,8 @@ stm.addStateTransition("schedule", function* (data) {
   return;
 });
 
-stm.addStateTransition("transfer", function* (data) {
-  const { to, from, value } = data.parsedInput.payload;
+stm.addStateTransition("transfer-erc20", function* (data) {
+  const { to, from, value } = data.parsedInput;
   yield* World.resolve(insertStateMachineInput, {
     inputs: `transfer ${value} from ${from} to ${to}`,
     block_height: data.blockHeight,
