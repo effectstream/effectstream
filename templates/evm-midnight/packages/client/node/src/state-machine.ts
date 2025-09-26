@@ -55,29 +55,37 @@ stm.addStateTransition(
       return;
     }
 
-    const [evmMidnight] = yield* World.resolve(getEvmMidnightByTokenId, {
-      contract_address,
-      token_id,
-    });
-
-    if (!evmMidnight) {
-      console.log("🎉 [TRANSFER-ASSETS] Inserting midnight with no owner");
-      yield* World.resolve(insertEvmMidnight, {
+    try {
+      const [evmMidnight] = yield* World.resolve(getEvmMidnightByTokenId, {
         contract_address,
         token_id,
-        owner: "",
+      });
+
+      if (!evmMidnight) {
+        console.log("🎉 [TRANSFER-ASSETS] Inserting midnight with no owner");
+        yield* World.resolve(insertEvmMidnight, {
+          contract_address,
+          token_id,
+          owner: "",
+          block_height: data.blockHeight,
+        });
+      }
+
+      console.log("🎉 [TRANSFER-ASSETS] Inserting midnight property");
+      yield* World.resolve(insertEvmMidnightProperty, {
+        contract_address,
+        token_id,
+        property_name,
+        value,
         block_height: data.blockHeight,
       });
+    } catch (error) {
+      console.error(
+        "[TRANSFER-ASSETS] Database not ready.",
+        error,
+      );
+      return;
     }
-
-    console.log("🎉 [TRANSFER-ASSETS] Inserting midnight property");
-    yield* World.resolve(insertEvmMidnightProperty, {
-      contract_address,
-      token_id,
-      property_name,
-      value,
-      block_height: data.blockHeight,
-    });
   },
 );
 

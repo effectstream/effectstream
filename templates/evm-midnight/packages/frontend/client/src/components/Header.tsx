@@ -177,7 +177,8 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
               </div>
             )}
           </div>
-          {walletConnected
+          {
+            /* {walletConnected
             ? (
               <div className="wallet-info">
                 <div className="wallet-address">
@@ -200,7 +201,8 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
               >
                 Connect Wallet
               </button>
-            )}
+            )} */
+          }
           <div className="block-info">
             <span>Latest Block:</span>
             <span
