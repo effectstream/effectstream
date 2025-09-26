@@ -14,8 +14,9 @@ import {
   PaimaBatcherConfig,
   validateBatcherConfig,
 } from "./batcher-config.ts";
-import { Buffer } from "node:buffer";
 import { startBatcherHttpServer } from "./batcher-server.ts";
+import { BatchBuildingResult, BatchDataBuilder } from "./batch-data-builder.ts";
+import { DefaultBatchDataBuilder } from "./default-batch-builder.ts";
 
 /**
  * PaimaBatcher - A type-safe, simplified blockchain batching system
@@ -74,6 +75,8 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       timeoutId: number;
     }
   > = new Map();
+  /** Batch data builder for constructing batch payloads */
+  private readonly batchDataBuilder: BatchDataBuilder<T>;
 
   /**
    * Create a new PaimaBatcher with type-safe configuration
@@ -98,6 +101,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     this.validateConfig();
     this.defaultTarget = config.defaultTarget ||
       Object.keys(config.connectors)[0];
+    this.batchDataBuilder = this.initializeBatchDataBuilder();
   }
 
   /**
@@ -106,6 +110,34 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   protected validateConfig(): void {
     validateBatcherConfig(this.config);
+  }
+
+  /**
+   * Initialize the batch data builder based on configuration
+   *
+   * @returns The appropriate batch data builder for this batcher
+   */
+  private initializeBatchDataBuilder(): BatchDataBuilder<T> {
+    // Use globally configured default builder, or fallback to our standard implementation
+    return this.config.batchBuilding?.defaultBuilder ??
+      new DefaultBatchDataBuilder<T>();
+  }
+
+  /**
+   * Get the appropriate batch data builder for a specific target
+   *
+   * @param target - The target chain/connector name
+   * @returns The batch data builder for the specified target
+   */
+  private getBatchDataBuilderForTarget(target: string): BatchDataBuilder<T> {
+    // First check for target-specific builder
+    const targetBuilders = this.config.batchBuilding?.targetBuilders;
+    if (targetBuilders && targetBuilders[target]) {
+      return targetBuilders[target];
+    }
+
+    // Fallback to default builder
+    return this.batchDataBuilder;
   }
 
   async init(): Promise<void> {
@@ -467,21 +499,22 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   ): Promise<void> {
     console.log(`🔗 Processing ${inputs.length} inputs for target: ${target}`);
 
-    // TODO: Implement buildBatchData logic for creating optimized batch data
-    // For now, we'll create a simple batch by concatenating inputs
-    const batchData = this.buildBatchData(inputs);
+    // Build batch data using the target-specific batch builder
+    const batchResult = this.buildBatchData(inputs, target);
 
-    if (!batchData) {
+    if (!batchResult || batchResult.data === "") {
       console.log(`📭 No valid inputs for target ${target}, skipping...`);
       return;
     }
 
+    const { selectedInputs, data } = batchResult;
+
     // Estimate fee and submit transaction
-    const estimatedFee = await connector.estimateBatchFee(batchData);
+    const estimatedFee = await connector.estimateBatchFee(data);
     // The estimated fee by default is the configured PaimaL2 fee, but can be overridden by the connector.
     console.log(`💰 Estimated fee for ${target}: ${estimatedFee}`);
 
-    const hash = await connector.submitBatch(batchData, estimatedFee);
+    const hash = await connector.submitBatch(data, estimatedFee);
     console.log(`✅ Submitted batch for ${target}: ${hash}`);
 
     // Wait for confirmation
@@ -500,7 +533,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       );
 
       // Remove successfully processed inputs from storage (atomic operation)
-      await this.storage.removeProcessedInputs(inputs);
+      await this.storage.removeProcessedInputs(selectedInputs);
 
       if (processingResult) {
         console.log(
@@ -508,7 +541,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         );
 
         // Resolve callbacks for all processed inputs
-        for (const input of inputs) {
+        for (const input of selectedInputs) {
           const callbacks = this.submissionCallbacks.get(input.signature);
           if (callbacks) {
             callbacks.resolve({
@@ -526,7 +559,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         );
 
         // Reject callbacks for failed processing
-        for (const input of inputs) {
+        for (const input of selectedInputs) {
           const callbacks = this.submissionCallbacks.get(input.signature);
           if (callbacks) {
             const error = new Error("Paima processing validation failed");
@@ -544,7 +577,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       );
 
       // Reject callbacks for failed processing
-      for (const input of inputs) {
+      for (const input of selectedInputs) {
         const callbacks = this.submissionCallbacks.get(input.signature);
         if (callbacks) {
           const err = error instanceof Error
@@ -558,7 +591,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     console.log(
-      `✅ Successfully processed ${inputs.length} inputs for target ${target}`,
+      `✅ Successfully processed ${selectedInputs.length} inputs for target ${target}`,
     );
   }
 
@@ -566,19 +599,17 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Build optimized batch data from inputs
    * TODO: This should use the actual buildBatchData utility from @paima/concise
    */
-  private buildBatchData(inputs: T[]): string | null {
-    if (inputs.length === 0) return null;
+  private buildBatchData(
+    inputs: T[],
+    target: string,
+  ): BatchBuildingResult<T> | null {
+    const builder = this.getBatchDataBuilderForTarget(target);
+    const options = {
+      maxSize: this.config.batchBuilding?.maxSize,
+      target: target,
+    };
 
-    // For now, create a simple batch by joining input data
-    // In the real implementation, this would use buildBatchData from @paima/concise
-    const batchContent = inputs.map((input) =>
-      (input as unknown as DefaultBatcherInput).input
-    ).join("");
-
-    if (!batchContent) return null;
-
-    // Return hex-encoded batch data
-    return `0x${Buffer.from(batchContent).toString("hex")}`;
+    return builder.buildBatchData(inputs, options);
   }
   /**
    * Validate the input and return a boolean indicating if the input is valid.

@@ -5,6 +5,7 @@
 
 import { DefaultBatcherInput } from "./types.ts";
 import { IChainConnector } from "./chain-connectors/connector.ts";
+import { BatchDataBuilder } from "./batch-data-builder.ts";
 
 /**
  * Type-safe batcher configuration with compile-time connector validation
@@ -84,6 +85,15 @@ export interface PaimaBatcherConfig<
   retryDelayMs?: number; // Delay between retry attempts
   enableHttpServer?: boolean; // Whether to start HTTP server
   enableEventSystem?: boolean; // Whether to enable Paima event system
+
+  batchBuilding?: {
+    /** Maximum size of batches in bytes */
+    maxSize?: number;
+    /** Target-specific batch builders */
+    targetBuilders?: Record<string, BatchDataBuilder<TInput>>;
+    /** Default batch builder to use when no target-specific builder exists */
+    defaultBuilder?: BatchDataBuilder<TInput>;
+  };
 }
 
 /**
