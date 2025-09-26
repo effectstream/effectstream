@@ -50,11 +50,12 @@
         "build:clean"
       ]
     },
-    "contract:compile": "deno task build:mod",
     "deploy:clean": "rm -rf ignition/deployments || true",
+    "contract:compile": "deno task build:mod",
     "deploy:standalone": {
-      "command": "(((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && deno task chain:stop) || true",
+      "command": "(((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && (deno task chain:stop)) || true",
       "dependencies": [
+        "deploy:clean",
         "build"
       ]
     },

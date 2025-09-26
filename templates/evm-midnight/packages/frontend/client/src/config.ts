@@ -11,7 +11,36 @@ const BASE_URL_DOCS = `http://127.0.0.1:${ENV.DOCS_PORT}`;
 const BASE_URL_MIDNIGHT_INDEXER = `http://127.0.0.1:8088`;
 const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
 
-export const BASE_URL_MIDNIGHT_NODE = `http://127.0.0.1:9944`;
+const BASE_URL_MIDNIGHT_NODE_A = `http://127.0.0.1:9944`;
+const BASE_URL_MIDNIGHT_NODE_B = `http://127.0.0.1:8080`;
+let selectedMidnightNodeUrl: string | null = null;
+export const getMidnightNodeUrl = async (): Promise<string> => {
+  if (selectedMidnightNodeUrl) {
+    return selectedMidnightNodeUrl;
+  }
+
+  for (const url of [BASE_URL_MIDNIGHT_NODE_A, BASE_URL_MIDNIGHT_NODE_B]) {
+    try {
+      const response = await fetch(
+        `/proxy/health?url=${encodeURIComponent(url)}`,
+      );
+      if (response.ok) {
+        const health = await response.json();
+        if (health.isSyncing === false) {
+          console.log(`Selected midnight node: ${url}`);
+          selectedMidnightNodeUrl = url;
+          return url;
+        }
+      }
+    } catch (e) {
+      // Trying the next url
+    }
+  }
+
+  console.error("No healthy midnight node found, defaulting to A");
+  return BASE_URL_MIDNIGHT_NODE_A;
+};
+
 export const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
 export const BASE_URL_MIDNIGHT_INDEXER_API =
   `${BASE_URL_MIDNIGHT_INDEXER}/api/v1/graphql`;
