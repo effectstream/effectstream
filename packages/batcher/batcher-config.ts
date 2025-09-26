@@ -6,6 +6,7 @@
 import { DefaultBatcherInput } from "./types.ts";
 import { IChainConnector } from "./chain-connectors/connector.ts";
 import { BatchDataBuilder } from "./batch-data-builder.ts";
+import { ShutdownHooks } from "./batcher.ts";
 
 /**
  * Type-safe batcher configuration with compile-time connector validation
@@ -93,6 +94,22 @@ export interface PaimaBatcherConfig<
     targetBuilders?: Record<string, BatchDataBuilder<TInput>>;
     /** Default batch builder to use when no target-specific builder exists */
     defaultBuilder?: BatchDataBuilder<TInput>;
+  };
+
+  shutdown?: {
+    /** Custom shutdown hooks for extensibility */
+    hooks?: ShutdownHooks<TInput>;
+    /** Signal handling configuration */
+    signalHandling?: {
+      /** Signals to listen for (Deno signals) */
+      signals?: string[];
+      /** Custom shutdown handler */
+      customShutdownHandler?: (signal: string) => Promise<void> | void;
+      /** Exit code to use when shutting down */
+      exitCode?: number;
+    };
+    /** Default shutdown timeout in milliseconds */
+    timeoutMs?: number;
   };
 }
 

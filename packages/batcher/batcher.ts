@@ -41,6 +41,23 @@ import { DefaultBatchDataBuilder } from "./default-batch-builder.ts";
  * - Easier testing and debugging
  * - Better performance (no dual operations)
  */
+
+interface ShutdownState {
+  isShuttingDown: boolean;
+  shutdownInitiatedAt: number | null;
+  shutdownTimeoutMs: number;
+  isProcessingBatch: boolean;
+}
+
+export interface ShutdownHooks<
+  T extends DefaultBatcherInput,
+> {
+  preShutdown?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
+  stopAcceptingInputs?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
+  waitForProcessing?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
+  cleanup?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
+  postShutdown?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
+}
 export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Namespace used for signature verification messages */
   namespace: string = "paima_batcher";
@@ -64,6 +81,13 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   private readonly enableHttpServer: boolean = true;
   /** Whether to enable event system */
   private readonly enableEventSystem: boolean = false;
+  /** Shutdown state tracking */
+  private shutdownState: ShutdownState = {
+    isShuttingDown: false,
+    shutdownInitiatedAt: null,
+    shutdownTimeoutMs: 30000,
+    isProcessingBatch: false,
+  };
   /** Callbacks to return the transaction receipt after the transaction is confirmed */
   private submissionCallbacks: Map<
     string,
@@ -170,6 +194,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       "wait-receipt",
     timeoutMs: number = 60000,
   ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
+    if (this.shutdownState.isShuttingDown) {
+      throw new Error("Batcher is shutting down, not accepting new inputs");
+    }
+
     const verifiedSignature = await this.verifyInputSignature(input);
     if (!verifiedSignature) {
       throw new Error("Invalid signature");
@@ -226,6 +254,8 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   async pollBatcher(): Promise<void> {
+    if (this.shutdownState.isShuttingDown) return;
+
     const isReady = await this.isBatchReady();
     if (!isReady) return;
 
@@ -325,6 +355,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Force process current batch (useful for testing or manual triggers)
    */
   async forceProcessBatches(): Promise<void> {
+    if (this.shutdownState.isShuttingDown) {
+      throw new Error("Cannot force process batches during shutdown");
+    }
+
     console.log("🔧 Force processing batches...");
     await this.processBatches();
     this.lastProcessTime = Date.now(); // Update last process time
@@ -334,6 +368,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Clear all pending inputs (useful for testing)
    */
   async clearPendingInputs(): Promise<void> {
+    if (this.shutdownState.isShuttingDown) {
+      throw new Error("Cannot clear pending inputs during shutdown");
+    }
+
     await this.storage.clearAllInputs();
   }
 
@@ -393,6 +431,23 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
+   * Get shutdown status information
+   */
+  getShutdownStatus(): {
+    isShuttingDown: boolean;
+    shutdownInitiatedAt: number | null;
+    shutdownTimeoutMs: number;
+    isProcessingBatch: boolean;
+  } {
+    return {
+      isShuttingDown: this.shutdownState.isShuttingDown,
+      shutdownInitiatedAt: this.shutdownState.shutdownInitiatedAt,
+      shutdownTimeoutMs: this.shutdownState.shutdownTimeoutMs,
+      isProcessingBatch: this.shutdownState.isProcessingBatch,
+    };
+  }
+
+  /**
    * Get public configuration information (safe for external exposure)
    */
   getPublicConfig(): {
@@ -420,22 +475,88 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Graceful shutdown - stop accepting new batches and wait for current processing to finish
    */
-  async gracefulShutdown(): Promise<void> {
+  async gracefulShutdown(
+    hooks?: ShutdownHooks<any>,
+    options?: { timeoutMs?: number; force?: boolean },
+  ): Promise<void> {
+    if (this.shutdownState.isShuttingDown) return;
+
+    this.shutdownState.isShuttingDown = true;
+    this.shutdownState.shutdownInitiatedAt = Date.now();
+    this.shutdownState.shutdownTimeoutMs = options?.timeoutMs ??
+      this.shutdownState.shutdownTimeoutMs;
+
     console.log("🔄 Stopping batcher gracefully...");
 
-    // Clear polling interval
+    try {
+      // Phase 1: Pre-shutdown (custom hook)
+      await hooks?.preShutdown?.(this);
+
+      // Phase 2: Stop accepting new inputs
+      this.stopPolling();
+      await this.stopHttpServer();
+      await hooks?.stopAcceptingInputs?.(this);
+
+      // Phase 3: Wait for ongoing processing
+      await this.waitForOngoingProcessing(options?.timeoutMs);
+      await hooks?.waitForProcessing?.(this);
+
+      // Phase 4: Cleanup resources
+      await this.cleanupResources();
+      await hooks?.cleanup?.(this);
+
+      // Phase 5: Post-shutdown (custom hook)
+      await hooks?.postShutdown?.(this);
+
+      console.log("✅ Batcher shutdown complete");
+    } catch (error) {
+      console.error("❌ Error during graceful shutdown:", error);
+      if (options?.force) {
+        console.log("🔧 Force shutdown due to error");
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Stop the polling interval
+   */
+  private stopPolling(): void {
     if (this.pollingIntervalID) {
       clearInterval(this.pollingIntervalID);
       this.pollingIntervalID = undefined;
     }
+  }
 
-    // Stop HTTP server if running
-    if (this.httpServer) {
-      await this.stopHttpServer();
+  /**
+   * Wait for any ongoing batch processing to complete
+   */
+  private async waitForOngoingProcessing(timeoutMs?: number): Promise<void> {
+    const timeout = timeoutMs ?? this.shutdownState.shutdownTimeoutMs;
+    const startTime = Date.now();
+
+    if (!this.shutdownState.isProcessingBatch) {
+      return;
     }
 
-    // Wait for any ongoing batch processing to complete
-    console.log("✅ Batcher shutdown complete");
+    console.log("⏳ Waiting for current batch processing to complete...");
+
+    while (this.shutdownState.isProcessingBatch) {
+      if (Date.now() - startTime > timeout) {
+        throw new Error(
+          `Shutdown timeout: batch processing did not complete within ${timeout}ms`,
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+
+  /**
+   * Cleanup additional resources (can be overridden by subclasses)
+   */
+  protected async cleanupResources(): Promise<void> {
+    // Default implementation - can be extended by subclasses
   }
 
   /**
@@ -447,6 +568,8 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * - Handling confirmations and callbacks
    */
   async processBatches(): Promise<void> {
+    if (this.shutdownState.isShuttingDown) return;
+
     const pendingInputs = await this.storage.getAllInputs();
 
     if (pendingInputs.length === 0) {
@@ -456,31 +579,39 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     console.log(`🚀 Processing ${pendingInputs.length} pending inputs...`);
 
-    // Group inputs by target (connector)
-    const inputsByTarget = new Map<string, T[]>();
+    this.shutdownState.isProcessingBatch = true;
 
-    for (const input of pendingInputs) {
-      const target = input.target || this.defaultTarget;
-      if (!inputsByTarget.has(target)) {
-        inputsByTarget.set(target, []);
-      }
-      inputsByTarget.get(target)!.push(input);
-    }
+    try {
+      // Group inputs by target (connector)
+      const inputsByTarget = new Map<string, T[]>();
 
-    // Process each target group
-    for (const [target, inputs] of inputsByTarget) {
-      const connector = this.connectors[target];
-      if (!connector) {
-        console.error(`❌ No connector available for target: ${target}`);
-        continue;
+      for (const input of pendingInputs) {
+        const target = input.target || this.defaultTarget;
+        if (!inputsByTarget.has(target)) {
+          inputsByTarget.set(target, []);
+        }
+        inputsByTarget.get(target)!.push(input);
       }
 
-      try {
-        await this.processBatchForTarget(connector, target, inputs);
-      } catch (error) {
-        console.error(`❌ Error processing batch for target ${target}:`, error);
-        // Continue processing other targets even if one fails
+      for (const [target, inputs] of inputsByTarget) {
+        const connector = this.connectors[target];
+        if (!connector) {
+          console.error(`❌ No connector available for target: ${target}`);
+          continue;
+        }
+
+        try {
+          await this.processBatchForTarget(connector, target, inputs);
+        } catch (error) {
+          console.error(
+            `❌ Error processing batch for target ${target}:`,
+            error,
+          );
+          // Continue processing other targets even if one fails
+        }
       }
+    } finally {
+      this.shutdownState.isProcessingBatch = false;
     }
   }
 
@@ -698,4 +829,100 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       .replace(/[^a-zA-Z0-9]/g, "-")
       .toLocaleLowerCase();
   }
+}
+
+/**
+ * Signal handler for graceful shutdown
+ */
+class SignalHandler {
+  private listeners: (() => void)[] = [];
+
+  /**
+   * Setup signal listeners for graceful shutdown
+   */
+  setup(
+    shutdownFn: () => Promise<void>,
+    config: {
+      signals?: string[];
+      customShutdownHandler?: (signal: string) => Promise<void> | void;
+      exitCode?: number;
+    } = {},
+  ): void {
+    const signals = config.signals || ["SIGINT", "SIGTERM"];
+
+    for (const signal of signals) {
+      const listener = async () => {
+        console.log(`🛑 Received ${signal}, initiating graceful shutdown...`);
+
+        try {
+          if (config.customShutdownHandler) {
+            await config.customShutdownHandler(signal);
+          } else {
+            await shutdownFn();
+          }
+        } catch (error) {
+          console.error(`❌ Error during shutdown on ${signal}:`, error);
+        } finally {
+          Deno.exit(config.exitCode || 0);
+        }
+      };
+
+      Deno.addSignalListener(signal as Deno.Signal, listener);
+      this.listeners.push(listener);
+    }
+  }
+
+  /**
+   * Cleanup signal listeners
+   */
+  cleanup(): void {
+    // Deno doesn't provide removeSignalListener, so we rely on process exit
+    this.listeners.length = 0;
+  }
+}
+
+/**
+ * Create and launch a new Batcher with optional signal handling
+ */
+export async function createAndLaunchBatcher<T extends DefaultBatcherInput>(
+  storage: BatcherStorage<T>,
+  config: PaimaBatcherConfig<T>,
+): Promise<void> {
+  const batcher = new PaimaBatcher(storage, config);
+  await batcher.init();
+
+  // Setup signal handling if configured
+  let signalHandler: SignalHandler | undefined;
+  if (config.shutdown?.signalHandling) {
+    signalHandler = new SignalHandler();
+    signalHandler.setup(
+      () =>
+        batcher.gracefulShutdown(
+          config.shutdown!.hooks,
+          {
+            timeoutMs: config.shutdown!.timeoutMs,
+          },
+        ),
+      config.shutdown.signalHandling,
+    );
+  }
+
+  // Log startup information
+  const publicConfig = batcher.getPublicConfig();
+  console.log(
+    `🎯 Batcher started - polling every ${publicConfig.pollingIntervalMs} milliseconds`,
+  );
+  console.log(`📍 Default Target: ${publicConfig.defaultTarget}`);
+  console.log(
+    `⛓️ Connector Targets: ${publicConfig.connectorTargets.join(", ")}`,
+  );
+  console.log(`📦 Batching Criteria: ${publicConfig.criteriaType}`);
+  if (publicConfig.enableHttpServer) {
+    console.log(`🌐 HTTP Server: http://localhost:${publicConfig.port}`);
+  }
+  console.log("📋 Press Ctrl+C to stop gracefully");
+
+  // Keep process alive (batcher runs via polling)
+  // The process will exit when signals are received
+  await new Promise(() => {}); // Never resolves, waits for signals
 }
