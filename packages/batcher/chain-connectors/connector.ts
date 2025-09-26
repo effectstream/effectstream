@@ -1,6 +1,25 @@
 // Implements a connector interface for the batcher
 
-import type { Hash, TransactionReceipt } from "viem";
+/**
+ * Generic blockchain transaction hash type
+ * Can represent transaction hashes from any blockchain
+ */
+export type BlockchainHash = string;
+
+/**
+ * Generic blockchain transaction receipt type
+ * Contains common fields that most blockchains have
+ */
+export interface BlockchainTransactionReceipt {
+  /** Transaction hash */
+  hash: BlockchainHash;
+  /** Block number where transaction was included */
+  blockNumber: bigint;
+  /** Transaction status (1 = success, 0 = failure) */
+  status: number;
+  /** Additional blockchain-specific fields can be added via extension */
+  [key: string]: any;
+}
 
 /**
  * Base interface for blockchain connectors that handle chain-specific operations
@@ -13,7 +32,7 @@ export interface IChainConnector {
    * @param fee - The fee to pay for the transaction (blockchain-specific format)
    * @returns Promise resolving to transaction hash
    */
-  submitBatch(data: string, fee: string | bigint): Promise<Hash>;
+  submitBatch(data: string, fee: string | bigint): Promise<BlockchainHash>;
 
   /**
    * Wait for a transaction to be confirmed on the blockchain
@@ -22,9 +41,9 @@ export interface IChainConnector {
    * @returns Promise resolving to transaction receipt
    */
   waitForTransactionReceipt(
-    hash: Hash,
+    hash: BlockchainHash,
     timeout?: number,
-  ): Promise<TransactionReceipt>;
+  ): Promise<BlockchainTransactionReceipt>;
 
   /**
    * Get the current account/address for this connector

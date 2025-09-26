@@ -5,13 +5,30 @@ import type {
   Chain,
   Hash,
   PublicClient,
-  TransactionReceipt,
+  TransactionReceipt as ViemTransactionReceipt,
   WalletClient,
 } from "viem";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import type { IChainConnector } from "./connector.ts";
+import type {
+  BlockchainHash,
+  BlockchainTransactionReceipt,
+  IChainConnector,
+} from "./connector.ts";
 import type { EvmAddress, EvmPrivateKey } from "@paima/utils";
+
+// Type conversion utilities
+function viemReceiptToGenericReceipt(
+  receipt: ViemTransactionReceipt,
+): BlockchainTransactionReceipt {
+  return {
+    hash: receipt.transactionHash,
+    blockNumber: receipt.blockNumber,
+    status: receipt.status === "success" ? 1 : 0,
+    // Include original receipt for EVM-specific access if needed
+    _viemReceipt: receipt,
+  };
+}
 
 /**
  * EVM-specific implementation of the chain connector interface
@@ -64,7 +81,10 @@ export class EvmChainConnector implements IChainConnector {
   /**
    * Submit a batch transaction to the PaimaL2 contract
    */
-  async submitBatch(data: string, fee?: string | bigint): Promise<Hash> {
+  async submitBatch(
+    data: string,
+    fee?: string | bigint,
+  ): Promise<BlockchainHash> {
     let actualFee = this.paimaL2Fee;
     if (fee) {
       actualFee = typeof fee === "string" ? BigInt(fee) : fee;
@@ -86,16 +106,20 @@ export class EvmChainConnector implements IChainConnector {
   /**
    * Wait for a transaction to be confirmed on the blockchain
    */
-  async waitForTransactionReceipt(hash: Hash): Promise<TransactionReceipt> {
+  async waitForTransactionReceipt(
+    hash: BlockchainHash,
+    timeout?: number,
+  ): Promise<BlockchainTransactionReceipt> {
     const receipt = await this.publicClient.waitForTransactionReceipt({
-      hash,
+      hash: hash as Hash,
+      timeout,
     });
 
     console.log(
       `✅ Transaction confirmed! Block: ${receipt.blockNumber}, Hash: ${hash}, Status: ${receipt.status}`,
     );
 
-    return receipt;
+    return viemReceiptToGenericReceipt(receipt);
   }
 
   /**

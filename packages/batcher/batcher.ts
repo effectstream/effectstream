@@ -1,11 +1,14 @@
-import type { Hash, TransactionReceipt } from "viem";
 import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 import { CryptoManager } from "@paima/crypto";
 import { AddressType, TypeboxHelpers } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
 import { BatcherStorage } from "./storage.ts";
 import { DefaultBatcherInput } from "./types.ts";
-import { IChainConnector } from "./chain-connectors/connector.ts";
+import {
+  BlockchainHash,
+  BlockchainTransactionReceipt,
+  IChainConnector,
+} from "./chain-connectors/connector.ts";
 import {
   BatchingCriteriaConfig,
   PaimaBatcherConfig,
@@ -487,7 +490,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     if (!batchContent) return null;
 
     // Return hex-encoded batch data
-    return `0x${Buffer.from(batchContent).toString("hex")}` as Hash;
+    return `0x${Buffer.from(batchContent).toString("hex")}`;
   }
   /**
    * Validate the input and return a boolean indicating if the input is valid.
@@ -508,7 +511,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * @returns Promise resolving to processing info or null if timeout
    */
   private async waitForPaimaProcessed(
-    transactionReceipt: TransactionReceipt,
+    transactionReceipt: BlockchainTransactionReceipt,
     chainName: string,
     timeout: number = 60000,
   ): Promise<{ latestBlock: number; rollup: number } | null> {
@@ -530,7 +533,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
               },
               (event) => {
                 latestBlock = Math.max(event.block, latestBlock);
-                if (latestBlock > transactionReceipt.blockNumber) {
+                if (latestBlock > Number(transactionReceipt.blockNumber)) {
                   resolve({ latestBlock, rollup: event.rollup });
                 }
               },
