@@ -46,8 +46,8 @@ import { dirname, resolve } from "node:path";
 import {
   BASE_URL_MIDNIGHT_INDEXER_API,
   BASE_URL_MIDNIGHT_INDEXER_WS,
-  BASE_URL_MIDNIGHT_NODE,
   BASE_URL_PROOF_SERVER,
+  getMidnightNodeUrl,
 } from "./config.ts";
 
 // Inlined common types for standalone script
@@ -101,9 +101,10 @@ class StandaloneConfig implements Config {
   );
   indexer = BASE_URL_MIDNIGHT_INDEXER_API;
   indexerWS = BASE_URL_MIDNIGHT_INDEXER_WS;
-  node = BASE_URL_MIDNIGHT_NODE;
+  node: string;
   proofServer = BASE_URL_PROOF_SERVER;
-  constructor() {
+  constructor(nodeUrl: string) {
+    this.node = nodeUrl;
     setNetworkId("Undeployed" as any);
   }
 }
@@ -332,7 +333,8 @@ const connectMidnightWallet = async (): Promise<{
 }> => {
   console.log("🔗 Building Midnight wallet with genesis seed...");
 
-  const config = new StandaloneConfig();
+  const midnightNodeUrl = await getMidnightNodeUrl();
+  const config = new StandaloneConfig(midnightNodeUrl);
   const wallet = await buildWalletAndWaitForFunds(
     config,
     GENESIS_MINT_WALLET_SEED,
