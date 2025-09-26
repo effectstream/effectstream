@@ -63,6 +63,17 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   private readonly enableHttpServer: boolean = true;
   /** Whether to enable event system */
   private readonly enableEventSystem: boolean = false;
+  /** Callbacks to return the transaction receipt after the transaction is confirmed */
+  private submissionCallbacks: Map<
+    string,
+    {
+      resolve: (
+        result: BlockchainTransactionReceipt & { rollup?: number } | null,
+      ) => void;
+      reject: (error: Error) => void;
+      timeoutId: number;
+    }
+  > = new Map();
 
   /**
    * Create a new PaimaBatcher with type-safe configuration
@@ -114,7 +125,19 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     this.isInitialized = true;
   }
-  async batchInput(input: T): Promise<void> {
+  /**
+   * Add a user input to the batch queue after validating the signature
+   * @param input - The input to add to the batch queue
+   * @param confirmationLevel - The level of confirmation to wait for
+   * @param timeoutMs - Timeout in milliseconds for confirmation (default: 60000)
+   * @returns Promise resolving to transaction receipt or null based on confirmation level
+   */
+  async batchInput(
+    input: T,
+    confirmationLevel: "no-wait" | "wait-receipt" | "wait-paima-processed" =
+      "wait-receipt",
+    timeoutMs: number = 60000,
+  ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
     const verifiedSignature = await this.verifyInputSignature(input);
     if (!verifiedSignature) {
       throw new Error("Invalid signature");
@@ -124,6 +147,30 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     console.log(
       `✅ Added input from ${input.address} to batch queue. Queue size: ${count} inputs, ${size} bytes`,
     );
+
+    if (confirmationLevel === "no-wait") {
+      return null;
+    }
+
+    // Create promise for callback with timeout
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this.submissionCallbacks.delete(input.signature);
+        reject(new Error("Confirmation timeout"));
+      }, timeoutMs);
+
+      this.submissionCallbacks.set(input.signature, {
+        resolve: (result) => {
+          clearTimeout(timeoutId);
+          resolve(result);
+        },
+        reject: (error) => {
+          clearTimeout(timeoutId);
+          reject(error);
+        },
+        timeoutId,
+      });
+    });
   }
 
   /**
@@ -442,6 +489,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     console.log(
       `✅ Transaction confirmed for ${target}: Block ${receipt.blockNumber}`,
     );
+
     // Wait for Paima Engine processing using event listening
     try {
       const chainName = connector.getChainName();
@@ -450,20 +498,43 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         chainName,
         timeout,
       );
+
+      // Remove successfully processed inputs from storage (atomic operation)
+      await this.storage.removeProcessedInputs(inputs);
+
       if (processingResult) {
         console.log(
           `✅ Paima processing validated for ${target}, rollup: ${processingResult.rollup}`,
         );
-        // Remove successfully processed inputs from storage (atomic operation)
-        await this.storage.removeProcessedInputs(inputs);
-        console.log(
-          `✅ Successfully processed ${inputs.length} inputs for target ${target}`,
-        );
+
+        // Resolve callbacks for all processed inputs
+        for (const input of inputs) {
+          const callbacks = this.submissionCallbacks.get(input.signature);
+          if (callbacks) {
+            callbacks.resolve({
+              ...receipt,
+              rollup: processingResult.rollup,
+            });
+            clearTimeout(callbacks.timeoutId);
+            this.submissionCallbacks.delete(input.signature);
+          }
+        }
       } else {
         // Error keep inputs in storage for retry
         console.error(
           `❌ Paima processing validation failed for target ${target}`,
         );
+
+        // Reject callbacks for failed processing
+        for (const input of inputs) {
+          const callbacks = this.submissionCallbacks.get(input.signature);
+          if (callbacks) {
+            const error = new Error("Paima processing validation failed");
+            callbacks.reject(error);
+            clearTimeout(callbacks.timeoutId);
+            this.submissionCallbacks.delete(input.signature);
+          }
+        }
       }
     } catch (error) {
       // Error keep inputs in storage for retry
@@ -471,7 +542,24 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         `❌ Error waiting for Paima processing for target ${target}:`,
         error,
       );
+
+      // Reject callbacks for failed processing
+      for (const input of inputs) {
+        const callbacks = this.submissionCallbacks.get(input.signature);
+        if (callbacks) {
+          const err = error instanceof Error
+            ? error
+            : new Error("Unknown error during Paima processing");
+          callbacks.reject(err);
+          clearTimeout(callbacks.timeoutId);
+          this.submissionCallbacks.delete(input.signature);
+        }
+      }
     }
+
+    console.log(
+      `✅ Successfully processed ${inputs.length} inputs for target ${target}`,
+    );
   }
 
   /**

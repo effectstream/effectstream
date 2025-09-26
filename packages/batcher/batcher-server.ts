@@ -145,7 +145,7 @@ export async function startBatcherHttpServer(
         }),
       },
     },
-  }, async () => {
+  }, () => {
     return {
       status: "ok",
       isInitialized: batcher.isInitialized || false,
@@ -225,6 +225,12 @@ export async function startBatcherHttpServer(
           message: Type.String(),
           inputsProcessed: Type.Number(),
         }),
+        202: Type.Object({
+          success: Type.Boolean(),
+          message: Type.String(),
+          transactionHash: Type.Optional(Type.String()),
+          rollup: Type.Optional(Type.Number()),
+        }),
       },
     },
   }, async (
@@ -233,10 +239,10 @@ export async function startBatcherHttpServer(
   ) => {
     try {
       const batcherInput = request.body.data;
-      const confirmationLevel = request.body.confirmationLevel;
+      const confirmationLevel = request.body.confirmationLevel ||
+        "wait-receipt";
 
-      // TODO: Adapt the input format for the new batcher
-      // For now, we'll create a basic input that should work
+      // Adapt the input format for the new batcher
       const adaptedInput = {
         address: batcherInput.address,
         addressType: batcherInput.addressType,
@@ -246,14 +252,42 @@ export async function startBatcherHttpServer(
         target: batcherInput.target,
       };
 
-      // Add input to batcher (this will trigger signature verification)
-      await batcher.batchInput(adaptedInput as any);
+      // Add input to batcher with confirmation level
+      const result = await batcher.batchInput(
+        adaptedInput as any,
+        confirmationLevel,
+      );
 
-      return {
-        success: true,
-        message: "Input processed successfully",
-        inputsProcessed: 1,
-      };
+      // Return appropriate response based on confirmation level
+      switch (confirmationLevel) {
+        case "no-wait":
+          return {
+            success: true,
+            message: "Input queued for batching",
+            inputsProcessed: 1,
+          };
+        case "wait-receipt":
+          return {
+            success: true,
+            message: "Input processed successfully",
+            transactionHash: result?.hash,
+            inputsProcessed: 1,
+          };
+        case "wait-paima-processed":
+          return {
+            success: true,
+            message: "Input processed and validated by Paima Engine",
+            transactionHash: result?.hash,
+            rollup: result?.rollup,
+            inputsProcessed: 1,
+          };
+        default:
+          return {
+            success: true,
+            message: "Input processed successfully",
+            inputsProcessed: 1,
+          };
+      }
     } catch (error) {
       console.error("Error adding input to batcher:", error);
       return reply.status(500).send({
