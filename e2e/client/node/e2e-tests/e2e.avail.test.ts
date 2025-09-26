@@ -8,7 +8,11 @@ const AVAIL_NODE_URL = "ws://localhost:9955/ws";
 const AVAIL_SEED: string = "//Alice";
 const account = Account.new(AVAIL_SEED);
 
-export async function submitData(appId: number, data: string) {
+const avail_enabled = Deno
+  ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
+  : true;
+
+async function submitData(appId: number, data: string) {
   const sdk = await SDK.New(AVAIL_NODE_URL);
   console.log(`Submitting data to App Id: ${appId}`);
 
@@ -53,6 +57,8 @@ export async function submitDataWithMessageAvailTest(
   db: Client,
   sharedState: SharedState,
 ) {
+  if (!avail_enabled) return;
+  
   const latestBlock: Record<string, number> = {};
   const sleep = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
