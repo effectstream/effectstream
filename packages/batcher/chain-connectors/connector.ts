@@ -56,18 +56,4 @@ export interface IChainConnector {
    * @returns Promise resolving to current block number
    */
   getBlockNumber(): Promise<bigint>;
-
-  /**
-   * Validate that a transaction was processed by the Paima engine
-   * @param receipt - The transaction receipt
-   * @param expectedBlock - The expected block number for processing
-   * @returns Validation result with rollup info (may be synchronous or asynchronous)
-   */
-  validatePaimaProcessing(
-    receipt: TransactionReceipt,
-    expectedBlock: bigint,
-  ):
-    | Promise<{ valid: boolean; rollup?: number; latestBlock?: bigint } | null>
-    | { valid: boolean; rollup?: number; latestBlock?: bigint }
-    | null;
 }

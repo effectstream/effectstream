@@ -33,6 +33,3 @@ export { startBatcherHttpServer } from "./batcher-server.ts";
 
 // Utility types
 export type { DefaultBatcherInput } from "./types.ts";
-
-// Example usage
-export * from "./example.ts";

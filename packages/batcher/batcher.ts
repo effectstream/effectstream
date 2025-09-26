@@ -1,4 +1,5 @@
-import type { Hash } from "viem";
+import type { Hash, TransactionReceipt } from "viem";
+import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 import { CryptoManager } from "@paima/crypto";
 import { AddressType, TypeboxHelpers } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
@@ -403,11 +404,16 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
   /**
    * Process a batch for a specific target using the designated connector
+   * @param connector - The connector to use to process the batch
+   * @param target - The target to process the batch for
+   * @param inputs - The inputs to process the batch for
+   * @param timeout - The timeout in milliseconds to use to wait for the batch to be processed by paima engine (default: 60000)
    */
   private async processBatchForTarget(
     connector: IChainConnector,
     target: string,
     inputs: T[],
+    timeout: number = 60000,
   ): Promise<void> {
     console.log(`🔗 Processing ${inputs.length} inputs for target: ${target}`);
 
@@ -422,6 +428,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     // Estimate fee and submit transaction
     const estimatedFee = await connector.estimateBatchFee(batchData);
+    // The estimated fee by default is the configured PaimaL2 fee, but can be overridden by the connector.
     console.log(`💰 Estimated fee for ${target}: ${estimatedFee}`);
 
     const hash = await connector.submitBatch(batchData, estimatedFee);
@@ -432,29 +439,35 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     console.log(
       `✅ Transaction confirmed for ${target}: Block ${receipt.blockNumber}`,
     );
-
-    // Validate Paima processing
-    const validation = await connector.validatePaimaProcessing(
-      receipt,
-      receipt.blockNumber,
-    );
-
-    if (validation?.valid) {
-      console.log(
-        `✅ Paima processing validated for ${target}, rollup: ${validation.rollup}`,
+    // Wait for Paima Engine processing using event listening
+    try {
+      const chainName = connector.getChainName();
+      const processingResult = await this.waitForPaimaProcessed(
+        receipt,
+        chainName,
+        timeout,
       );
-
-      // Remove successfully processed inputs from storage (atomic operation)
-      await this.storage.removeProcessedInputs(inputs);
-
-      console.log(
-        `✅ Successfully processed ${inputs.length} inputs for target ${target}`,
-      );
-    } else {
+      if (processingResult) {
+        console.log(
+          `✅ Paima processing validated for ${target}, rollup: ${processingResult.rollup}`,
+        );
+        // Remove successfully processed inputs from storage (atomic operation)
+        await this.storage.removeProcessedInputs(inputs);
+        console.log(
+          `✅ Successfully processed ${inputs.length} inputs for target ${target}`,
+        );
+      } else {
+        // Error keep inputs in storage for retry
+        console.error(
+          `❌ Paima processing validation failed for target ${target}`,
+        );
+      }
+    } catch (error) {
+      // Error keep inputs in storage for retry
       console.error(
-        `❌ Paima processing validation failed for target ${target}`,
+        `❌ Error waiting for Paima processing for target ${target}:`,
+        error,
       );
-      // Keep inputs in storage for retry
     }
   }
 
@@ -480,10 +493,65 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Validate the input and return a boolean indicating if the input is valid.
    * Default is a placeholder to be overridden by the user extending the PaimaBatcher class.
    * @param input - The input to validate.
-   * @returns A boolean indicating if the input is valid.
+   * @returns A boolean or Promise<boolean> in the case is implemented as async indicating if the input is valid.
    */
-  async validateInput(input: T): Promise<boolean> {
+  validateInput(input: T): boolean | Promise<boolean> {
     return !!input.signature.length && !!input.address.length;
+  }
+
+  /**
+   * Wait for the Paima Engine to process a submitted transaction.
+   * Listens for SyncChains events to confirm Paima Engine has processed the block.
+   * @param transactionReceipt - The transaction receipt to wait for
+   * @param chainName - The chain name to filter events
+   * @param timeout - Timeout in milliseconds (default: 60000)
+   * @returns Promise resolving to processing info or null if timeout
+   */
+  private async waitForPaimaProcessed(
+    transactionReceipt: TransactionReceipt,
+    chainName: string,
+    timeout: number = 60000,
+  ): Promise<{ latestBlock: number; rollup: number } | null> {
+    let subscriptionReference: symbol | undefined = undefined;
+    let latestBlock = 0;
+    let timer: number | undefined = undefined;
+
+    try {
+      const result = await Promise.race([
+        new Promise<void>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("Timeout")), timeout);
+        }),
+        new Promise<{ latestBlock: number; rollup: number }>(
+          (resolve, reject) => {
+            PaimaEventManager.Instance.subscribe(
+              {
+                topic: BuiltinEvents.SyncChains,
+                filter: { chain: chainName, block: undefined },
+              },
+              (event) => {
+                latestBlock = Math.max(event.block, latestBlock);
+                if (latestBlock > transactionReceipt.blockNumber) {
+                  resolve({ latestBlock, rollup: event.rollup });
+                }
+              },
+            )
+              .then((subscription) => subscriptionReference = subscription)
+              .catch(reject);
+          },
+        ),
+      ]);
+      return result || null;
+    } catch (error) {
+      console.error("Error waiting for Paima processing:", error);
+      return null;
+    } finally {
+      if (subscriptionReference) {
+        PaimaEventManager.Instance.unsubscribe(subscriptionReference);
+      }
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
   }
   /**
    * Creates the message to be validated by verifyInputSignature against a signature and address.

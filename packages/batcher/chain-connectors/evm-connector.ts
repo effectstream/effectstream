@@ -64,9 +64,11 @@ export class EvmChainConnector implements IChainConnector {
   /**
    * Submit a batch transaction to the PaimaL2 contract
    */
-  async submitBatch(data: string, fee: string | bigint): Promise<Hash> {
-    const actualFee = typeof fee === "string" ? BigInt(fee) : fee;
-
+  async submitBatch(data: string, fee?: string | bigint): Promise<Hash> {
+    let actualFee = this.paimaL2Fee;
+    if (fee) {
+      actualFee = typeof fee === "string" ? BigInt(fee) : fee;
+    }
     const hash = await this.walletClient.writeContract({
       account: this.account,
       chain: this.walletClient.chain,
@@ -84,10 +86,7 @@ export class EvmChainConnector implements IChainConnector {
   /**
    * Wait for a transaction to be confirmed on the blockchain
    */
-  async waitForTransactionReceipt(
-    hash: Hash,
-    timeout?: number,
-  ): Promise<TransactionReceipt> {
+  async waitForTransactionReceipt(hash: Hash): Promise<TransactionReceipt> {
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash,
     });
@@ -115,10 +114,10 @@ export class EvmChainConnector implements IChainConnector {
 
   /**
    * Estimate the fee for submitting a batch (returns the configured PaimaL2 fee)
+   * This matches the approach used in the old batcher implementation which
+   * simply used the pre-configured fee rather than performing complex estimation.
    */
   estimateBatchFee(data: string): bigint {
-    // For EVM, we use the pre-configured PaimaL2 fee
-    // In a more sophisticated implementation, this could estimate gas
     return this.paimaL2Fee;
   }
 
@@ -134,33 +133,6 @@ export class EvmChainConnector implements IChainConnector {
    */
   async getBlockNumber(): Promise<bigint> {
     return await this.publicClient.getBlockNumber();
-  }
-
-  /**
-   * Validate that a transaction was processed by the Paima engine
-   * This is a placeholder implementation - in the full system this would
-   * use event subscriptions to wait for Paima engine processing
-   */
-  validatePaimaProcessing(
-    receipt: TransactionReceipt,
-    expectedBlock: bigint,
-  ): { valid: boolean; rollup?: number; latestBlock?: bigint } | null {
-    // TODO: Implement proper Paima engine validation using event system
-    // For now, we'll just check if the transaction was successful
-    if (receipt.status !== "success") {
-      return { valid: false };
-    }
-
-    // In the full implementation, this would:
-    // 1. Subscribe to PaimaEventManager SyncChains events
-    // 2. Wait for the transaction to be processed by Paima engine
-    // 3. Return the rollup number when processing is complete
-
-    return {
-      valid: true,
-      rollup: Number(receipt.blockNumber), // Placeholder - should come from event
-      latestBlock: receipt.blockNumber,
-    };
   }
 
   /**
