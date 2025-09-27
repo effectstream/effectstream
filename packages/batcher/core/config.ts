@@ -4,8 +4,8 @@
  */
 
 import { DefaultBatcherInput } from "./types.ts";
-import { IChainConnector } from "./chain-connectors/connector.ts";
-import { BatchDataBuilder } from "./batch-data-builder.ts";
+import { IChainConnector } from "../connectors/connector.ts";
+import { BatchDataBuilder } from "../batch-data-builder/batch-data-builder.ts";
 import { ShutdownHooks } from "./batcher.ts";
 
 /**

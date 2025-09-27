@@ -7,29 +7,29 @@
  */
 
 // Core batcher functionality
-export { PaimaBatcher } from "./batcher.ts";
+export { PaimaBatcher } from "./core/batcher.ts";
 
 // Configuration types and validation
 export type {
   BatchingCriteriaConfig,
   PaimaBatcherConfig,
   ValidConnectorKey,
-} from "./batcher-config.ts";
+} from "./core/config.ts";
 export {
   validateBatcherConfig,
   validateBatchingCriteria,
-} from "./batcher-config.ts";
+} from "./core/config.ts";
 
 // Storage interfaces and implementations
-export type { BatcherStorage } from "./storage.ts";
-export { DatabaseStorage, FileStorage } from "./storage.ts";
+export type { BatcherStorage } from "./core/storage.ts";
+export { DatabaseStorage, FileStorage } from "./core/storage.ts";
 
 // Chain connector interfaces and implementations
-export type { IChainConnector } from "./chain-connectors/connector.ts";
-export { EvmChainConnector } from "./chain-connectors/evm-connector.ts";
+export type { IChainConnector } from "./connectors/connector.ts";
+export { EvmChainConnector } from "./connectors/evm-connector.ts";
 
 // HTTP server
-export { startBatcherHttpServer } from "./batcher-server.ts";
+export { startBatcherHttpServer } from "./server/batcher-server.ts";
 
 // Utility types
-export type { DefaultBatcherInput } from "./types.ts";
+export type { DefaultBatcherInput } from "./core/types.ts";

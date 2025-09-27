@@ -8,15 +8,18 @@ import {
   BlockchainHash,
   BlockchainTransactionReceipt,
   IChainConnector,
-} from "./chain-connectors/connector.ts";
+} from "../connectors/connector.ts";
 import {
   BatchingCriteriaConfig,
   PaimaBatcherConfig,
   validateBatcherConfig,
-} from "./batcher-config.ts";
-import { startBatcherHttpServer } from "./batcher-server.ts";
-import { BatchBuildingResult, BatchDataBuilder } from "./batch-data-builder.ts";
-import { DefaultBatchDataBuilder } from "./default-batch-builder.ts";
+} from "./config.ts";
+import { startBatcherHttpServer } from "../server/batcher-server.ts";
+import {
+  BatchBuildingResult,
+  BatchDataBuilder,
+} from "../batch-data-builder/batch-data-builder.ts";
+import { DefaultBatchDataBuilder } from "../batch-data-builder/default-batch-builder.ts";
 
 /**
  * PaimaBatcher - A type-safe, simplified blockchain batching system

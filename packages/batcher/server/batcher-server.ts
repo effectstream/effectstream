@@ -1,7 +1,7 @@
 import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { type Static, Type } from "@sinclair/typebox";
-import type { PaimaBatcher } from "./batcher.ts";
+import type { PaimaBatcher } from "../core/batcher.ts";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
 } from "@fastify/swagger";
