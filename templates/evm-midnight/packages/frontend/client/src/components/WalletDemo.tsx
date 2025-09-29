@@ -14,6 +14,7 @@ import {
 import { take, timeout } from "rxjs/operators";
 import { BATCHER_ENDPOINT } from "../config.ts";
 import { erc721dev } from "@example-evm-midnight/evm-contracts";
+import { WalletModal } from "./WalletModal.tsx";
 
 interface EVMWallet {
   privateKey: `0x${string}`;
@@ -271,6 +272,8 @@ export function WalletDemo() {
     walletClient,
     walletType,
     connectEvmWallet,
+    isModalOpen,
+    closeModal,
   } = useWallet();
 
   const [evmWallet, setEvmWallet] = useState<EVMWallet | null>(null);
@@ -841,7 +844,7 @@ export function WalletDemo() {
                     : (
                       <button
                         type="button"
-                        onClick={connectEvmWallet}
+                        onClick={() => connectEvmWallet()}
                         className="wallet-button evm-button"
                       >
                         Connect EVM Wallet
@@ -1250,6 +1253,7 @@ export function WalletDemo() {
           </div>
         </div>
       )}
+      {isModalOpen && <WalletModal onClose={closeModal} />}
 
       <style>
         {`
