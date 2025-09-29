@@ -6,8 +6,6 @@ import {
   DOCUMENTATION_URL,
   ENGINE_OPENAPI_URL,
 } from "../config.ts";
-import { useWallet } from "../contexts/WalletContext.tsx";
-import { WalletModal } from "./WalletModal.tsx";
 
 interface HeaderProps {
   latestBlock: number;
@@ -20,17 +18,6 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isDocsDropdownOpen, setIsDocsDropdownOpen] = useState(false);
-
-  const {
-    isConnected: walletConnected,
-    address,
-    connectEvmWallet,
-    connectLocalWallet,
-    disconnectWallet,
-    isModalOpen: isWalletModalOpen,
-    openModal: openWalletModal,
-    closeModal: closeWalletModal,
-  } = useWallet();
 
   const docsDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -64,32 +51,6 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
 
   const handleCloseAddressModal = () => {
     setIsAddressModalOpen(false);
-  };
-
-  const handleWalletConnect = () => {
-    openWalletModal();
-  };
-
-  const handleConnectLocal = async () => {
-    try {
-      await connectLocalWallet();
-      closeWalletModal();
-    } catch (error) {
-      console.error("Failed to connect local wallet:", error);
-    }
-  };
-
-  const handleConnectBrowser = async () => {
-    try {
-      await connectEvmWallet();
-      closeWalletModal();
-    } catch (error) {
-      console.error("Failed to connect browser wallet:", error);
-    }
-  };
-
-  const handleWalletDisconnect = () => {
-    disconnectWallet();
   };
 
   const toggleDocsDropdown = () => {
@@ -219,12 +180,6 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
           </div>
         </div>
       </header>
-      <WalletModal
-        isOpen={isWalletModalOpen}
-        onClose={closeWalletModal}
-        onConnectLocal={handleConnectLocal}
-        onConnectBrowser={handleConnectBrowser}
-      />
 
       <Modal
         isOpen={isModalOpen}

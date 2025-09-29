@@ -3,7 +3,7 @@
 # DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run evm-midnight-sample
 
 # Use Ubuntu as base image
-FROM denoland/deno:ubuntu-2.4.1
+FROM denoland/deno:ubuntu-2.5.2
 
 # # Update package list and install required dependencies
 RUN apt-get update && apt-get install -y \
@@ -58,10 +58,6 @@ RUN chmod +x /app/patch.sh
 # Clone the repository
 COPY . .
 
-COPY ./docker-scripts/nginx.conf /etc/nginx/nginx.conf
-COPY ./docker-scripts/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
 RUN deno install --allow-scripts
 RUN /app/patch.sh
 RUN deno task build:evm
@@ -76,8 +72,7 @@ EXPOSE 8088
 EXPOSE 8546
 EXPOSE 8545
 EXPOSE 6300
-EXPOSE 8080
 
-
+ENV RUN_IN_DOCKER=true
 ENV PAIMA_STDOUT=true
-ENTRYPOINT ["/entrypoint.sh"]
+CMD ["deno", "task", "dev"]
