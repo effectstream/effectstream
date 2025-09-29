@@ -8,15 +8,26 @@
     "check": "deno check --unstable-raw-imports src/main.ts",
     // Open chrome://inspect to see the inspector
     "node:start": "deno run -A --inspect --unstable-raw-imports src/main.ts",
+    "batcher:start": "deno run -A --unstable-raw-imports scripts/batcher-start.ts",
     "dev": "deno task -f @paima/tui clean && NODE_ENV=development deno run -A --check --unstable-raw-imports scripts/start.ts",
     "test": "deno run -A --unstable-raw-imports --check scripts/e2e.test.ts"
   },
   "imports": {
+    // TODO This @paima imports may not be necessary 
+    "@paima/batcher": "../../../packages/batcher/mod.ts",
+    "@paima/utils": "../../../packages/paima-sdk/utils/src/mod.ts",
+    "@paima/crypto": "../../../packages/paima-sdk/crypto/src/mod.ts",
+    "@paima/event-client": "../../../packages/paima-sdk/events/src/mod.ts",
     "pg": "npm:pg@^8.14.0",
     "viem": "npm:viem@^2.21.3",
+    "viem/accounts": "npm:viem@^2.21.3/accounts",
     "effection": "npm:effection@^3.5.0",
     "fastify": "npm:fastify@^5.4.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "@sinclair/typebox/value": "npm:@sinclair/typebox/value",
+    "@fastify/cors": "npm:@fastify/cors@^11.0.1",
+    "@fastify/swagger": "npm:@fastify/swagger@^9.5.1",
+    "@fastify/swagger-ui": "npm:@fastify/swagger-ui@^5.2.3",
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.4",
     "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.8.1",
     "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger@^4.0.0",

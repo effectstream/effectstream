@@ -10,7 +10,7 @@ import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 // First version of a standalone launcher for the new batcher, configured like the old E2E batcher.
 
 // Config values mirroring e2e/client/node/scripts/start.ts
-const batchIntervalMs = 100;
+const batchIntervalMs = 1000;
 const paimaL2Address = contractAddressesEvmMain()["chain31337"][
   "PaimaL2ContractModule#MyPaimaL2Contract"
 ] as `0x${string}`;

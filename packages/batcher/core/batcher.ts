@@ -2,6 +2,7 @@ import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 import { CryptoManager } from "@paima/crypto";
 import { AddressType, TypeboxHelpers } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
+import { toHex } from "viem";
 import { BatcherStorage } from "./storage.ts";
 import { DefaultBatcherInput } from "./types.ts";
 import {
@@ -644,12 +645,16 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     const { selectedInputs, data } = batchResult;
 
+    // Convert JSON string to hex bytes for blockchain submission
+    // TODO dont use viem or pass the toHex responsibility to the connector
+    const hexData = toHex(data);
+
     // Estimate fee and submit transaction
-    const estimatedFee = await connector.estimateBatchFee(data);
+    const estimatedFee = await connector.estimateBatchFee(hexData);
     // The estimated fee by default is the configured PaimaL2 fee, but can be overridden by the connector.
     console.log(`💰 Estimated fee for ${target}: ${estimatedFee}`);
 
-    const hash = await connector.submitBatch(data, estimatedFee);
+    const hash = await connector.submitBatch(hexData, estimatedFee);
     console.log(`✅ Submitted batch for ${target}: ${hash}`);
 
     // Wait for confirmation

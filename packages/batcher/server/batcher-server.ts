@@ -234,12 +234,13 @@ export async function startBatcherHttpServer(
       },
     },
   }, async (
-    request: FastifyRequest<{ Body: BatcherInputWrapper }>,
+    request: FastifyRequest,
     reply,
   ) => {
     try {
-      const batcherInput = request.body.data;
-      const confirmationLevel = request.body.confirmationLevel ??
+      const body = request.body as any;
+      const batcherInput = body.data;
+      const confirmationLevel = body.confirmationLevel ??
         batcher.getPublicConfig().confirmationLevel;
 
       // Adapt the input format for the new batcher
