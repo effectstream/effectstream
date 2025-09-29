@@ -79,7 +79,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** HTTP server instance */
   private httpServer?: any;
   /** HTTP server port */
-  private readonly port: number = 3000;
+  private readonly port: number;
   /** Whether to enable HTTP server */
   private readonly enableHttpServer: boolean = true;
   /** Whether to enable event system */
@@ -129,6 +129,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     this.defaultTarget = config.defaultTarget ||
       Object.keys(config.connectors)[0];
     this.batchDataBuilder = this.initializeBatchDataBuilder();
+    this.port = this.config.port ?? 3000;
   }
 
   /**
@@ -458,7 +459,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     defaultTarget: string;
     enableHttpServer: boolean;
     enableEventSystem: boolean;
-    confirmationLevel: string;
+    confirmationLevel: "no-wait" | "wait-receipt" | "wait-paima-processed";
     port: number;
     criteriaType: string;
     connectorTargets: string[];
@@ -659,10 +660,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     // Wait for Paima Engine processing using event listening
     try {
-      const chainName = connector.getChainName();
+      const eventFilterChain = connector.getSyncProtocolName?.() ??
+        connector.getChainName();
       const processingResult = await this.waitForPaimaProcessed(
         receipt,
-        chainName,
+        eventFilterChain,
         timeout,
       );
 

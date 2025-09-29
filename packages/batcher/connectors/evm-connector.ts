@@ -79,6 +79,13 @@ export class EvmChainConnector implements IChainConnector {
   }
 
   /**
+   * Return the Paima Sync protocol name used for event filtering
+   */
+  getSyncProtocolName(): string {
+    return this.paimaSyncProtocolName;
+  }
+
+  /**
    * Submit a batch transaction to the PaimaL2 contract
    */
   async submitBatch(

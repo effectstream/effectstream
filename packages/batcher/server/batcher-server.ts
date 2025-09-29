@@ -239,8 +239,8 @@ export async function startBatcherHttpServer(
   ) => {
     try {
       const batcherInput = request.body.data;
-      const confirmationLevel = request.body.confirmationLevel ||
-        "wait-receipt";
+      const confirmationLevel = request.body.confirmationLevel ??
+        batcher.getPublicConfig().confirmationLevel;
 
       // Adapt the input format for the new batcher
       const adaptedInput = {

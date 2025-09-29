@@ -75,4 +75,10 @@ export interface IChainConnector {
    * @returns Promise resolving to current block number
    */
   getBlockNumber(): Promise<bigint>;
+
+  /**
+   * Optional sync protocol name used to filter Paima Sync events
+   * If not provided, the batcher will fall back to the connector's chain name
+   */
+  getSyncProtocolName?(): string;
 }
