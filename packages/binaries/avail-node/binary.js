@@ -50,6 +50,10 @@ const getBinaryKey = () => {
           return
         }
 
+        if (name.toLowerCase() === 'pop') {
+          // ubuntu binaries work for popos
+          name = 'ubuntu'
+        }
         const distroKey = `${arch}-${name.toLowerCase()}-${version.replace('.', '')}`
         resolve(distroKey)
       })
@@ -87,14 +91,16 @@ const downloadBinary = async (distroKey) => {
             tar.x({
                 file: tarPath,
                 cwd: binDir,
-                strip: 1, 
+                strip: 0, 
             }).then(() => {
-                console.log('Extraction complete.');
                 const binaryPath = path.join(binDir, 'avail-node')
                 fs.chmodSync(binaryPath, '755')
                 fs.unlinkSync(tarPath); 
                 resolve(binaryPath);
-            }).catch(reject);
+            }).catch((e) => {
+              console.log("error", e);
+              reject(e);
+            });
         });
         dest.on('error', reject);
     });
