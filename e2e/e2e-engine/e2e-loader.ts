@@ -18,6 +18,14 @@ const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
   ? false
   : true;
 
+const midnight_enabled = Deno
+  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
+  : true;
+
+const avail_enabled = Deno
+  ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
+  : true;
+
 /**
  * Launch the Sync through the orchestrator,
  * and wait for the sync process to start and be ready.
@@ -29,7 +37,7 @@ export async function startup(): Promise<Client> {
     logs,
     processes: {
       [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
-
+      [ComponentNames.DOCS]: false,
       [ComponentNames.TUI]: false,
       [ComponentNames.TMUX]: false,
     },
@@ -40,8 +48,8 @@ export async function startup(): Promise<Client> {
     processesToLaunch: [
       launchEvm("@e2e/evm-contracts"),
       yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
-      launchMidnight("@e2e/midnight-contracts"),
-      launchAvail("@e2e/avail-contracts"),
+      midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : {},
+      avail_enabled ? launchAvail("@e2e/avail-contracts") : {},
     ],
 
     batcher: {
