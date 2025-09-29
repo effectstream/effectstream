@@ -6,7 +6,7 @@
         "./counter": "./contract/src/index.ts"
     },
     "tasks": {
-        "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs @paima/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive",
+        "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs @paima/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
         "midnight-node:wait": "wait-on tcp:9944",
         "midnight-indexer:start": "RUST_BACKTRACE=1 LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @paima/npm-midnight-indexer --binary --clean",
         "midnight-indexer:wait": "wait-on tcp:8088",

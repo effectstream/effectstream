@@ -12,28 +12,9 @@ const BASE_URL_MIDNIGHT_INDEXER = `http://127.0.0.1:8088`;
 const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
 
 const BASE_URL_MIDNIGHT_NODE_A = `http://127.0.0.1:9944`;
-const BASE_URL_MIDNIGHT_NODE_B = `http://127.0.0.1:8080`;
-let selectedMidnightNodeUrl: string | null = null;
 
 export const getMidnightNodeUrl = async (): Promise<string> => {
-  if (selectedMidnightNodeUrl) {
-    return selectedMidnightNodeUrl;
-  }
-  try {
-    const response = await fetch(`/proxy/health`);
-    if (response.ok) {
-      const data = await response.json();
-      if (data.url) {
-        selectedMidnightNodeUrl = data.url;
-        return data.url;
-      }
-    }
-  } catch {}
-  console.error(
-    "Could not get midnight node URL from backend, defaulting to A",
-  );
-  selectedMidnightNodeUrl = BASE_URL_MIDNIGHT_NODE_A;
-  return selectedMidnightNodeUrl;
+  return BASE_URL_MIDNIGHT_NODE_A;
 };
 
 export const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;

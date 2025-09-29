@@ -58,10 +58,6 @@ RUN chmod +x /app/patch.sh
 # Clone the repository
 COPY . .
 
-COPY ./docker-scripts/nginx.conf /etc/nginx/nginx.conf
-COPY ./docker-scripts/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
 RUN deno install --allow-scripts
 RUN /app/patch.sh
 RUN deno task build:evm
@@ -76,8 +72,7 @@ EXPOSE 8088
 EXPOSE 8546
 EXPOSE 8545
 EXPOSE 6300
-EXPOSE 8080
 
 ENV RUN_IN_DOCKER=true
 ENV PAIMA_STDOUT=true
-ENTRYPOINT ["/entrypoint.sh"]
+CMD ["deno", "task", "dev"]
