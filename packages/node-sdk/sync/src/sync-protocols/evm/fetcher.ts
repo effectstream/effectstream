@@ -38,7 +38,6 @@ import type {
 } from "@paima/config";
 import type { ConfigSyncProtocolType } from "@paima/config";
 import { Value } from "@sinclair/typebox/value";
-import { PaimaPrimitiveRegistry } from "@paima/sm";
 
 export class EvmFetcher
   extends BaseDataFetcher<Input, Output, RootOutput, Page, RootPage>
@@ -159,10 +158,6 @@ export class EvmFetcher
   ): Operation<
     PrimitiveType[]
   > {
-    const primitive_ = PaimaPrimitiveRegistry.getPrimitive(
-      primitiveEntry.primitive.name,
-    );
-
     // Fetch range of event-logs
     const logs = yield* call(() =>
       client.getLogs({

@@ -6,8 +6,6 @@ import type { PoolClient } from "pg";
 import type { VersionInfo } from "../migrations/system-version.ts";
 import { applyMigrations } from "../scripts/apply-migrations.ts";
 import { findMigrationByName } from "./sql/system.queries.ts";
-// TODO THIS NEED TO BE AN INTERNAL PACKAGE
-import { PaimaPrimitiveRegistry } from "@paima/sm";
 
 /**
  * Creates dynamic tables for the given sync protocols.
@@ -45,8 +43,13 @@ function* createDynamicTableForPrimitive(
   const type = p.primitive.type;
   const name = p.primitive.name;
 
-  const primitive = PaimaPrimitiveRegistry.getPrimitive(name);
-  const sqlFunction = primitive?.getDynamicTables;
+  // const primitive = PaimaPrimitiveRegistry.getPrimitive(name);
+  const primitive = (globalThis as any).PAIMA_REGISTRY[name];
+  if (!primitive) {
+    // This should never happen.
+    throw new Error(`Primitive ${name} not found`);
+  }
+  const sqlFunction = primitive.getDynamicTables;
 
   // This primitive does not have dynamic tables.
   if (!sqlFunction) return;
@@ -80,8 +83,10 @@ function* createDynamicTableForPrimitive(
 export function getPrimitivePrefix(
   primitiveType: string,
 ): string[] {
-  const primitive = PaimaPrimitiveRegistry.getPrimitiveByType(primitiveType);
-  return primitive ? primitive.getViewPrefix() : [];
+  const expectedPrimitive: any = Object.values(
+    (globalThis as any).PAIMA_REGISTRY,
+  ).find((primitive: any) => primitive.internalTypeName === primitiveType);
+  return expectedPrimitive?.getViewPrefix() || [];
 }
 
 /**
@@ -97,6 +102,8 @@ export function getPrimitivePrefix(
 export function getPrimitiveIntermediatePrefix(
   primitiveType: string,
 ): string[] {
-  const primitive = PaimaPrimitiveRegistry.getPrimitiveByType(primitiveType);
-  return primitive ? primitive.getIntermediatePrefix() : [];
+  const expectedPrimitive: any = Object.values(
+    (globalThis as any).PAIMA_REGISTRY,
+  ).find((primitive: any) => primitive.internalTypeName === primitiveType);
+  return expectedPrimitive?.getIntermediatePrefix() || [];
 }

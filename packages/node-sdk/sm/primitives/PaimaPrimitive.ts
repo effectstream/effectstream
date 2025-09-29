@@ -1,4 +1,4 @@
-import type { PaimaBlockNumber } from "@paima/utils";
+import type { AddressAndType, PaimaBlockNumber } from "@paima/utils";
 import type { StaticDecode, TSchema } from "@sinclair/typebox";
 import type { CommandTuple } from "@paima/concise";
 import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
@@ -60,6 +60,7 @@ export abstract class PaimaPrimitive<
   ): StateUpdateStream<{
     isBatched: boolean;
     data: {
+      fromAddressAndType: AddressAndType;
       stateMachinePayload:
         | StaticDecode<
           CommandTuple<string, TGrammar>

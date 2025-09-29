@@ -1,5 +1,10 @@
 import { PaimaPrimitive } from "@paima/sm";
-import type { MidnightAddress, PaimaBlockNumber } from "@paima/utils";
+import {
+  type AddressAndType,
+  AddressType,
+  type MidnightAddress,
+  type PaimaBlockNumber,
+} from "@paima/utils";
 import { type StaticDecode, Type } from "@sinclair/typebox";
 import {
   type CommandTuple,
@@ -11,6 +16,7 @@ import type {
   FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
 } from "@paima/config";
+import type { SyncStateUpdateStream } from "@paima/coroutine";
 
 export const midnightGenericGrammar = [
   [
@@ -87,7 +93,16 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.MIDNIGHT_PARALLEL
     >,
-  ) {
+  ): SyncStateUpdateStream<{
+    isBatched: boolean;
+    data: {
+      fromAddressAndType: AddressAndType;
+      stateMachinePayload:
+        | StaticDecode<CommandTuple<string, typeof midnightGenericGrammar>>
+        | null;
+      accountingPayload: ParamToData<typeof midnightGenericGrammar>;
+    }[];
+  }> {
     const payload = primitiveTransactionData.output.payload;
     try {
       const isBatched = false;
@@ -115,6 +130,10 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
         isBatched,
         data: [
           {
+            fromAddressAndType: {
+              type: AddressType.NONE,
+              address: "0x0",
+            },
             accountingPayload,
             stateMachinePayload,
           },
@@ -143,8 +162,8 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
   }
 }
 
-declare module "@paima/sm" {
-  interface PrimitiveGlobalDefinitions {
-    MidnightGenericPrimitive: typeof MidnightGenericPrimitive;
-  }
-}
+// declare module "@paima/sm" {
+//   interface PrimitiveGlobalDefinitions {
+//     MidnightGenericPrimitive: typeof MidnightGenericPrimitive;
+//   }
+// }

@@ -24,14 +24,17 @@ export function* primitiveTransitionFunction(
     return;
   }
   // TODO We don't need to pass the `primitive' rather the primitive.output
-  const { isBatched, data } = yield* paimaPrimitive.getPayload(
-    paima_block_height,
-    primitiveData,
-  );
+  const { isBatched, data } = yield* paimaPrimitive
+    .getPayload(
+      paima_block_height,
+      primitiveData,
+    );
   // console.error("[primitivePayload]", isBatched, data);
   // TODO We should process the batched data in order, instead of
   //      getting the data and then writing the data to the db.
-  for (let { accountingPayload, stateMachinePayload } of data) {
+  for (
+    let { accountingPayload, stateMachinePayload, fromAddressAndType } of data
+  ) {
     // TODO Why is JSON array types been rejected by the db?
     // [jsonPayload] [ [ "attack", "1", "100" ] ]
     // error: invalid input syntax for type json
@@ -59,8 +62,8 @@ export function* primitiveTransitionFunction(
           primitiveName: primitiveName,
           txHash: primitiveData.syncProtocol.transactionHash,
           caip2: "caip2",
-          // TODO: Should we try to infer from the payload contents?
-          fromAddress: "0x0",
+          fromAddress: fromAddressAndType.address,
+          fromAddressType: fromAddressAndType.type,
           contractAddress: primitiveData.syncProtocol.contractAddress,
         },
       );

@@ -4,7 +4,6 @@ import { readMidnightContract } from "@example-evm-midnight/midnight-contracts";
 import {
   ConfigBuilder,
   ConfigNetworkType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
   getEvmEvent,
 } from "@paimaexample/config";
@@ -12,6 +11,7 @@ import { hardhat } from "viem/chains";
 import type { TimestampMs } from "@paimaexample/utils";
 import { erc721dev } from "@example-evm-midnight/evm-contracts";
 import { getConnection } from "@paimaexample/db";
+import { Erc721Primitive, MidnightGenericPrimitive } from "@paimaexample/sm";
 
 /**
  * Let check if the db.
@@ -115,29 +115,24 @@ export const localhostConfig = new ConfigBuilder()
     builder
       .addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
-        (network, deployments, syncProtocol) => ({
-          name: "Arbitrum_ERC721",
-          type: ConfigPrimitiveType.EvmRpcERC721,
-          startBlockHeight: 0,
-          contractAddress:
-            contractAddressesEvmMain().chain31337["Erc721DevModule#Erc721Dev"],
-          abi: getEvmEvent(
-            erc721dev.abi,
-            "Transfer(address,address,uint256)",
-          ),
-          // TODO This is not defined. Should be a error.
-          scheduledPrefix: "transfer-assets",
-        }),
+        (network, deployments, syncProtocol) =>
+          new Erc721Primitive({
+            instanceName: "Arbitrum_ERC721",
+            startBlockHeight: 0,
+            contractAddress: contractAddressesEvmMain()
+              .chain31337["Erc721DevModule#Erc721Dev"],
+            stateMachinePrefix: "transfer-assets",
+          }).getConfig(),
       )
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelMidnight,
-        (network, deployments, syncProtocol) => ({
-          name: "MidnightContractState",
-          type: ConfigPrimitiveType.MidnightContractState,
-          startBlockHeight: 1,
-          contractAddress: readMidnightContract().contractAddress,
-          scheduledPrefix: "midnightContractState",
-        }),
+        (network, deployments, syncProtocol) =>
+          new MidnightGenericPrimitive({
+            instanceName: "MidnightContractState",
+            startBlockHeight: 1,
+            contractAddress: readMidnightContract().contractAddress,
+            stateMachinePrefix: "midnightContractState",
+          }).getConfig(),
       )
   )
   .build();

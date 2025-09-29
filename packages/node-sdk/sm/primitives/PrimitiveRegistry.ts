@@ -9,6 +9,12 @@ import type { PaimaPrimitive } from "./PaimaPrimitive.ts";
  */
 type UnknownPrimitive = any;
 type UnknownSyncProtocol = any;
+// @paima/db packages cannot import this package.
+// so we communicate via the globalThis object.
+(globalThis as any).PAIMA_REGISTRY = {} as Record<
+  string,
+  PaimaPrimitive<UnknownSyncProtocol, UnknownPrimitive>
+>;
 
 export class PaimaPrimitiveRegistry {
   // Singleton to manage the primitives
@@ -46,6 +52,7 @@ export class PaimaPrimitiveRegistry {
     if (this.primitives[primitive.instanceName]) {
       throw new Error(`Primitive ${primitive.instanceName} already exists`);
     }
+    (globalThis as any).PAIMA_REGISTRY[primitive.instanceName] = primitive;
     this.primitives[primitive.instanceName] = primitive;
   }
 }

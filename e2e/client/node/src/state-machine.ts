@@ -10,6 +10,7 @@ import {
 import type { StartConfigGameStateTransitions } from "@paima/runtime";
 import { newScheduledHeightData, newScheduledTimestampData } from "@paima/db";
 import { type SyncStateUpdateStream, World } from "@paima/coroutine";
+import { AddressType } from "@paima/utils";
 // import { createScheduledData } from "@paima/db";
 
 type MyEvents = {}; // TODO: replace
@@ -122,6 +123,7 @@ stm.addStateTransition("schedule", function* (data) {
     case "block":
       yield* World.resolve(newScheduledHeightData, {
         from_address: "0x0",
+        from_address_type: AddressType.NONE,
         future_block_height: data.blockHeight + tick,
         input_data: JSON.stringify(["attack", playerId, 1]),
       });
@@ -130,6 +132,7 @@ stm.addStateTransition("schedule", function* (data) {
     case "timestamp":
       yield* World.resolve(newScheduledTimestampData, {
         from_address: "0x0",
+        from_address_type: AddressType.NONE,
         future_ms_timestamp: new Date(data.blockTimestamp + tick),
         input_data: JSON.stringify(["attack", playerId, 1]),
       });

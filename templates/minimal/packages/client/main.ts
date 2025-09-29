@@ -1,25 +1,33 @@
-import { init, start, StartConfigApiRouter, StartConfigGameStateTransitions } from "@paimaexample/runtime";
+import {
+  init,
+  start,
+  type StartConfigApiRouter,
+  type StartConfigGameStateTransitions,
+} from "@paimaexample/runtime";
 import { main, suspend } from "effection";
 import {
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
 } from "@paimaexample/config";
 import { contractAddressesEvmMain } from "@minimal/evm-contracts";
-
+import { PaimaL2Primitive } from "@paimaexample/sm";
 import {
   ConfigBuilder,
   ConfigNetworkType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
-  getEvmEvent,
 } from "@paimaexample/config";
 import { hardhat } from "viem/chains";
-import { paimal2contract } from "@minimal/evm-contracts";
 import { Type } from "@sinclair/typebox";
-import { type GrammarDefinition, mapPrimitivesToGrammar } from "@paimaexample/concise";
-import { SyncStateUpdateStream, World } from "@paimaexample/coroutine";
+import type { GrammarDefinition } from "@paimaexample/concise";
+import type { SyncStateUpdateStream } from "@paimaexample/coroutine";
 import { PaimaSTM } from "@paimaexample/sm";
-import { BaseStfInput } from "@paimaexample/sm";
+import type { BaseStfInput } from "@paimaexample/sm";
+
+const grammar = {
+  my_action_name: [
+    ["input", Type.String()],
+  ],
+} as const satisfies GrammarDefinition;
 
 export const localhostConfig = new ConfigBuilder()
   .setNamespace(
@@ -63,34 +71,20 @@ export const localhostConfig = new ConfigBuilder()
     builder
       .addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
-        (network, deployments, syncProtocol) => ({
-          name: "Minimal_PaimaL2",
-          type: ConfigPrimitiveType.EvmRpcPaimaL2,
-          startBlockHeight: 0,
-          contractAddress:
-            contractAddressesEvmMain().chain31337["PaimaL2#PaimaL2"],
-          abi: getEvmEvent(
-            paimal2contract.abi,
-            "PaimaGameInteraction(address,bytes,uint256)",
-          ),
-        }),
+        (network, deployments, syncProtocol) =>
+          new PaimaL2Primitive({
+            instanceName: "Minimal_PaimaL2",
+            startBlockHeight: 0,
+            contractAddress: contractAddressesEvmMain()
+              .chain31337["PaimaL2ContractModule#MyPaimaL2Contract"],
+            paimaL2Grammar: grammar,
+          }).getConfig(),
       )
   )
   .build();
 
-const grammar = {
-    my_action_name: [
-        ["input", Type.String()],
-    ],
-    // Auto-generate other primitives
-    ...Object.fromEntries(
-        Object.entries(mapPrimitivesToGrammar(localhostConfig.primitives)),
-    ),
-} as const satisfies GrammarDefinition;
-
 const stm = new PaimaSTM<typeof grammar, {}>(grammar);
 stm.addStateTransition("my_action_name", function* (data) {
-
   console.log("--------------------------------");
   console.log("State Transition Function");
   console.log("Input Data:", data.parsedInput);
@@ -101,9 +95,9 @@ stm.addStateTransition("my_action_name", function* (data) {
 
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   _blockHeight: number,
-  input: BaseStfInput
+  input: BaseStfInput,
 ): SyncStateUpdateStream<void> {
-    yield* stm.processInput(input);
+  yield* stm.processInput(input);
 };
 
 export const apiRouter: StartConfigApiRouter = async function (
@@ -111,7 +105,9 @@ export const apiRouter: StartConfigApiRouter = async function (
   dbConn: any, // Pool,
 ): Promise<void> {
   server.get("/fetch-primitive-accounting", async () => {
-    const result = await dbConn.query(`SELECT * FROM paima.primitive_accounting`);
+    const result = await dbConn.query(
+      `SELECT * FROM paima.primitive_accounting`,
+    );
     return result.rows;
     // reply.send(result.rows);
   });

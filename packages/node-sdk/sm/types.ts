@@ -2,6 +2,7 @@
 
 import type { PreparedQuery } from "@pgtyped/runtime";
 import type {
+  AddressType,
   PaimaBlockNumber,
   TimestampMs,
   WalletAddress,
@@ -18,6 +19,7 @@ export type BaseStfInput = {
   conciseInput: string;
   accountId?: number;
   signerAddress?: WalletAddress;
+  signerAddressType?: AddressType;
   randomGenerator: Prando;
 };
 export type BaseStfOutput<Events extends AppEvents> = {

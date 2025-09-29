@@ -201,6 +201,7 @@ export function* processFinalizedBlock(
             blockHeight: value.blockNumber,
             conciseInput: data.input_data,
             signerAddress: data.from_address,
+            signerAddressType: data.from_address_type,
             randomGenerator,
             // TODO: We might want to add this to the scheduled data.
             //

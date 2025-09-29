@@ -78,17 +78,17 @@ const jsrPackagesToPublish = [
 
   /* Node SDK */
   "./packages/node-sdk/db",
-  "./packages/node-sdk/sync",
-  "./packages/node-sdk/sm",
+  "./packages/node-sdk/sync", // [@db]
+  "./packages/node-sdk/sm", // [@db]
   "./packages/node-sdk/events",
-  "./packages/node-sdk/runtime",
+  "./packages/node-sdk/runtime", // [@db, @sync, @sm]
   "./packages/node-sdk/batcher",
   "./packages/chains/evm-contracts",
   "./packages/build-tools/explorer",
   "./packages/build-tools/tui",
   "./packages/build-tools/collector",
   "./packages/build-tools/orchestrator",
-  './packages/chains/evm-hardhat',
+  "./packages/chains/evm-hardhat",
 ];
 const npmPackagesToPublish = [
   "./packages/chains/evm-contracts",

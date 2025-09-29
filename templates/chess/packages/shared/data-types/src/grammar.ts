@@ -1,9 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import {
-  type GrammarDefinition,
-  mapPrimitivesToGrammar,
-} from "@paimaexample/concise";
-import { localhostConfig } from "./localhostConfig.ts";
+import type { GrammarDefinition } from "@paimaexample/concise";
 
 export const grammar = {
   createdLobby: [
@@ -38,8 +34,4 @@ export const grammar = {
     ["lobbyID", Type.String()],
     ["roundNumber", Type.Number()],
   ],
-  // Auto-generate other primitives
-  ...Object.fromEntries(
-    Object.entries(mapPrimitivesToGrammar(localhostConfig.primitives)),
-  ),
 } as const satisfies GrammarDefinition;

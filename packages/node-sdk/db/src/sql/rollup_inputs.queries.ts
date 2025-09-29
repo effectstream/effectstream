@@ -9,6 +9,7 @@ export type DateOrString = Date | string;
 export interface INewScheduledHeightDataParams {
   caip2?: string | null | void;
   from_address: string;
+  from_address_type: number;
   future_block_height: number;
   input_data: string;
   origin_contract_address?: string | null | void;
@@ -25,15 +26,15 @@ export interface INewScheduledHeightDataQuery {
   result: INewScheduledHeightDataResult;
 }
 
-const newScheduledHeightDataIR: any = {"usedParamSet":{"from_address":true,"input_data":true,"primitive_name":true,"caip2":true,"origin_tx_hash":true,"origin_contract_address":true,"future_block_height":true},"params":[{"name":"from_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":94,"b":107}]},{"name":"input_data","required":true,"transform":{"type":"scalar"},"locs":[{"a":110,"b":121}]},{"name":"primitive_name","required":false,"transform":{"type":"scalar"},"locs":[{"a":300,"b":314}]},{"name":"caip2","required":false,"transform":{"type":"scalar"},"locs":[{"a":317,"b":322}]},{"name":"origin_tx_hash","required":false,"transform":{"type":"scalar"},"locs":[{"a":325,"b":339}]},{"name":"origin_contract_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":349,"b":372}]},{"name":"future_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":480,"b":500}]}],"statement":"WITH\n  new_row AS (\n    INSERT INTO paima.rollup_inputs(from_address, input_data)\n    VALUES (:from_address!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row), :primitive_name, :caip2, :origin_tx_hash::BYTEA, :origin_contract_address\n  )\nINSERT INTO paima.rollup_input_future_block(id, future_block_height)\nSELECT (SELECT id FROM new_row), :future_block_height!"};
+const newScheduledHeightDataIR: any = {"usedParamSet":{"from_address":true,"from_address_type":true,"input_data":true,"primitive_name":true,"caip2":true,"origin_tx_hash":true,"origin_contract_address":true,"future_block_height":true},"params":[{"name":"from_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":113,"b":126}]},{"name":"from_address_type","required":true,"transform":{"type":"scalar"},"locs":[{"a":129,"b":147}]},{"name":"input_data","required":true,"transform":{"type":"scalar"},"locs":[{"a":150,"b":161}]},{"name":"primitive_name","required":false,"transform":{"type":"scalar"},"locs":[{"a":340,"b":354}]},{"name":"caip2","required":false,"transform":{"type":"scalar"},"locs":[{"a":357,"b":362}]},{"name":"origin_tx_hash","required":false,"transform":{"type":"scalar"},"locs":[{"a":365,"b":379}]},{"name":"origin_contract_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":389,"b":412}]},{"name":"future_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":520,"b":540}]}],"statement":"WITH\n  new_row AS (\n    INSERT INTO paima.rollup_inputs(from_address, from_address_type, input_data)\n    VALUES (:from_address!, :from_address_type!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row), :primitive_name, :caip2, :origin_tx_hash::BYTEA, :origin_contract_address\n  )\nINSERT INTO paima.rollup_input_future_block(id, future_block_height)\nSELECT (SELECT id FROM new_row), :future_block_height!"};
 
 /**
  * Query generated from SQL:
  * ```
  * WITH
  *   new_row AS (
- *     INSERT INTO paima.rollup_inputs(from_address, input_data)
- *     VALUES (:from_address!, :input_data!)
+ *     INSERT INTO paima.rollup_inputs(from_address, from_address_type, input_data)
+ *     VALUES (:from_address!, :from_address_type!, :input_data!)
  *     RETURNING id
  *   ),
  *   insert_origin AS (
@@ -50,6 +51,7 @@ export const newScheduledHeightData = new PreparedQuery<INewScheduledHeightDataP
 /** 'NewScheduledTimestampData' parameters type */
 export interface INewScheduledTimestampDataParams {
   from_address: string;
+  from_address_type: number;
   future_ms_timestamp: DateOrString;
   input_data: string;
 }
@@ -63,15 +65,15 @@ export interface INewScheduledTimestampDataQuery {
   result: INewScheduledTimestampDataResult;
 }
 
-const newScheduledTimestampDataIR: any = {"usedParamSet":{"from_address":true,"input_data":true,"future_ms_timestamp":true},"params":[{"name":"from_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":94,"b":107}]},{"name":"input_data","required":true,"transform":{"type":"scalar"},"locs":[{"a":110,"b":121}]},{"name":"future_ms_timestamp","required":true,"transform":{"type":"scalar"},"locs":[{"a":429,"b":449}]}],"statement":"WITH\n  new_row AS (\n    INSERT INTO paima.rollup_inputs(from_address, input_data)\n    VALUES (:from_address!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row),null,null,null,null\n  )\nINSERT INTO paima.rollup_input_future_timestamp(id, future_ms_timestamp)\nSELECT (SELECT id FROM new_row), :future_ms_timestamp!"};
+const newScheduledTimestampDataIR: any = {"usedParamSet":{"from_address":true,"from_address_type":true,"input_data":true,"future_ms_timestamp":true},"params":[{"name":"from_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":113,"b":126}]},{"name":"from_address_type","required":true,"transform":{"type":"scalar"},"locs":[{"a":129,"b":147}]},{"name":"input_data","required":true,"transform":{"type":"scalar"},"locs":[{"a":150,"b":161}]},{"name":"future_ms_timestamp","required":true,"transform":{"type":"scalar"},"locs":[{"a":469,"b":489}]}],"statement":"WITH\n  new_row AS (\n    INSERT INTO paima.rollup_inputs(from_address, from_address_type, input_data)\n    VALUES (:from_address!, :from_address_type!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row),null,null,null,null\n  )\nINSERT INTO paima.rollup_input_future_timestamp(id, future_ms_timestamp)\nSELECT (SELECT id FROM new_row), :future_ms_timestamp!"};
 
 /**
  * Query generated from SQL:
  * ```
  * WITH
  *   new_row AS (
- *     INSERT INTO paima.rollup_inputs(from_address, input_data)
- *     VALUES (:from_address!, :input_data!)
+ *     INSERT INTO paima.rollup_inputs(from_address, from_address_type, input_data)
+ *     VALUES (:from_address!, :from_address_type!, :input_data!)
  *     RETURNING id
  *   ),
  *   insert_origin AS (
@@ -90,6 +92,7 @@ export interface INewGameInputParams {
   block_height: number;
   caip2: string;
   from_address: string;
+  from_address_type: number;
   index_in_block: number;
   input_data: string;
   origin_contract_address?: string | null | void;
@@ -108,15 +111,15 @@ export interface INewGameInputQuery {
   result: INewGameInputResult;
 }
 
-const newGameInputIR: any = {"usedParamSet":{"from_address":true,"input_data":true,"primitive_name":true,"caip2":true,"origin_tx_hash":true,"origin_contract_address":true,"success":true,"paima_tx_hash":true,"index_in_block":true,"block_height":true},"params":[{"name":"from_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":94,"b":107}]},{"name":"input_data","required":true,"transform":{"type":"scalar"},"locs":[{"a":110,"b":121}]},{"name":"primitive_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":300,"b":315}]},{"name":"caip2","required":true,"transform":{"type":"scalar"},"locs":[{"a":318,"b":324}]},{"name":"origin_tx_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":327,"b":342}]},{"name":"origin_contract_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":352,"b":375}]},{"name":"success","required":true,"transform":{"type":"scalar"},"locs":[{"a":510,"b":518}]},{"name":"paima_tx_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":521,"b":535}]},{"name":"index_in_block","required":true,"transform":{"type":"scalar"},"locs":[{"a":545,"b":560}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":563,"b":576}]}],"statement":"WITH\n  new_row AS (\n    INSERT INTO paima.rollup_inputs(from_address, input_data)\n    VALUES (:from_address!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row), :primitive_name!, :caip2!, :origin_tx_hash!::BYTEA, :origin_contract_address\n  )\nINSERT INTO paima.rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)\nSELECT (SELECT id FROM new_row), :success!, :paima_tx_hash!::BYTEA, :index_in_block!, :block_height!"};
+const newGameInputIR: any = {"usedParamSet":{"from_address":true,"from_address_type":true,"input_data":true,"primitive_name":true,"caip2":true,"origin_tx_hash":true,"origin_contract_address":true,"success":true,"paima_tx_hash":true,"index_in_block":true,"block_height":true},"params":[{"name":"from_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":113,"b":126}]},{"name":"from_address_type","required":true,"transform":{"type":"scalar"},"locs":[{"a":129,"b":147}]},{"name":"input_data","required":true,"transform":{"type":"scalar"},"locs":[{"a":150,"b":161}]},{"name":"primitive_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":340,"b":355}]},{"name":"caip2","required":true,"transform":{"type":"scalar"},"locs":[{"a":358,"b":364}]},{"name":"origin_tx_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":367,"b":382}]},{"name":"origin_contract_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":392,"b":415}]},{"name":"success","required":true,"transform":{"type":"scalar"},"locs":[{"a":550,"b":558}]},{"name":"paima_tx_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":561,"b":575}]},{"name":"index_in_block","required":true,"transform":{"type":"scalar"},"locs":[{"a":585,"b":600}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":603,"b":616}]}],"statement":"WITH\n  new_row AS (\n    INSERT INTO paima.rollup_inputs(from_address, from_address_type, input_data)\n    VALUES (:from_address!, :from_address_type!, :input_data!)\n    RETURNING id\n  ),\n  insert_origin AS (\n    INSERT INTO paima.rollup_input_origin(id, primitive_name, caip2, tx_hash, contract_address)\n    SELECT (SELECT id FROM new_row), :primitive_name!, :caip2!, :origin_tx_hash!::BYTEA, :origin_contract_address\n  )\nINSERT INTO paima.rollup_input_result(id, success, paima_tx_hash, index_in_block, block_height)\nSELECT (SELECT id FROM new_row), :success!, :paima_tx_hash!::BYTEA, :index_in_block!, :block_height!"};
 
 /**
  * Query generated from SQL:
  * ```
  * WITH
  *   new_row AS (
- *     INSERT INTO paima.rollup_inputs(from_address, input_data)
- *     VALUES (:from_address!, :input_data!)
+ *     INSERT INTO paima.rollup_inputs(from_address, from_address_type, input_data)
+ *     VALUES (:from_address!, :from_address_type!, :input_data!)
  *     RETURNING id
  *   ),
  *   insert_origin AS (
@@ -171,6 +174,7 @@ export interface IGetAllScheduledDataResult {
   caip2: string | null;
   contract_address: string | null;
   from_address: string | null;
+  from_address_type: number | null;
   future_block_height: number | null;
   future_ms_timestamp: Date | null;
   id: number | null;
@@ -185,7 +189,7 @@ export interface IGetAllScheduledDataQuery {
   result: IGetAllScheduledDataResult;
 }
 
-const getAllScheduledDataIR: any = {"usedParamSet":{"after_id":true,"limit":true},"params":[{"name":"after_id","required":false,"transform":{"type":"scalar"},"locs":[{"a":562,"b":570},{"a":1352,"b":1360}]},{"name":"limit","required":false,"transform":{"type":"scalar"},"locs":[{"a":1463,"b":1468}]}],"statement":"(\nSELECT\n  rollup_inputs.id,\n  NULL AS future_ms_timestamp,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id\nJOIN paima.rollup_input_future_block ON paima.rollup_input_future_block.id = paima.rollup_inputs.id\nWHERE rollup_inputs.id > :after_id::INT\nORDER BY rollup_inputs.id ASC\n)\n\tUNION ALL \n(\nSELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  NULL AS \"future_block_height\",\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id\nJOIN paima.rollup_input_future_timestamp ON paima.rollup_inputs.id = paima.rollup_input_future_timestamp.id\nLEFT OUTER JOIN paima.rollup_input_result\n  ON (paima.rollup_input_result.id = paima.rollup_inputs.id)\nWHERE \n  paima.rollup_input_result.id IS NULL AND\n  paima.rollup_inputs.id > :after_id::INT\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC\n)\nORDER BY id ASC\nLIMIT COALESCE(:limit, 999999)"};
+const getAllScheduledDataIR: any = {"usedParamSet":{"after_id":true,"limit":true},"params":[{"name":"after_id","required":false,"transform":{"type":"scalar"},"locs":[{"a":597,"b":605},{"a":1422,"b":1430}]},{"name":"limit","required":false,"transform":{"type":"scalar"},"locs":[{"a":1533,"b":1538}]}],"statement":"(\nSELECT\n  rollup_inputs.id,\n  NULL AS future_ms_timestamp,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id\nJOIN paima.rollup_input_future_block ON paima.rollup_input_future_block.id = paima.rollup_inputs.id\nWHERE rollup_inputs.id > :after_id::INT\nORDER BY rollup_inputs.id ASC\n)\n\tUNION ALL \n(\nSELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  NULL AS \"future_block_height\",\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id\nJOIN paima.rollup_input_future_timestamp ON paima.rollup_inputs.id = paima.rollup_input_future_timestamp.id\nLEFT OUTER JOIN paima.rollup_input_result\n  ON (paima.rollup_input_result.id = paima.rollup_inputs.id)\nWHERE \n  paima.rollup_input_result.id IS NULL AND\n  paima.rollup_inputs.id > :after_id::INT\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC\n)\nORDER BY id ASC\nLIMIT COALESCE(:limit, 999999)"};
 
 /**
  * Query generated from SQL:
@@ -197,6 +201,7 @@ const getAllScheduledDataIR: any = {"usedParamSet":{"after_id":true,"limit":true
  *   rollup_input_future_block.future_block_height,
  *   rollup_inputs.input_data,
  *   rollup_inputs.from_address,
+ *   rollup_inputs.from_address_type,
  *   rollup_input_origin.primitive_name,
  *   rollup_input_origin.contract_address,
  *   rollup_input_origin.caip2,
@@ -215,6 +220,7 @@ const getAllScheduledDataIR: any = {"usedParamSet":{"after_id":true,"limit":true
  *   NULL AS "future_block_height",
  *   rollup_inputs.input_data,
  *   rollup_inputs.from_address,
+ *   rollup_inputs.from_address_type,
  *   rollup_input_origin.primitive_name,
  *   rollup_input_origin.contract_address,
  *   rollup_input_origin.caip2,
@@ -286,6 +292,7 @@ export interface IGetFutureGameInputByBlockHeightResult {
   caip2: string | null;
   contract_address: string | null;
   from_address: string;
+  from_address_type: number;
   future_block_height: number;
   id: number;
   input_data: string;
@@ -299,7 +306,7 @@ export interface IGetFutureGameInputByBlockHeightQuery {
   result: IGetFutureGameInputByBlockHeightResult;
 }
 
-const getFutureGameInputByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":558,"b":571}]}],"statement":"SELECT\n  rollup_inputs.id,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id\nJOIN paima.rollup_input_future_block ON paima.rollup_input_future_block.id = paima.rollup_inputs.id\nWHERE rollup_input_future_block.future_block_height = :block_height!\nORDER BY rollup_inputs.id ASC"};
+const getFutureGameInputByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":593,"b":606}]}],"statement":"SELECT\n  rollup_inputs.id,\n  rollup_input_future_block.future_block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id\nJOIN paima.rollup_input_future_block ON paima.rollup_input_future_block.id = paima.rollup_inputs.id\nWHERE rollup_input_future_block.future_block_height = :block_height!\nORDER BY rollup_inputs.id ASC"};
 
 /**
  * Query generated from SQL:
@@ -309,6 +316,7 @@ const getFutureGameInputByBlockHeightIR: any = {"usedParamSet":{"block_height":t
  *   rollup_input_future_block.future_block_height,
  *   rollup_inputs.input_data,
  *   rollup_inputs.from_address,
+ *   rollup_inputs.from_address_type,
  *   rollup_input_origin.primitive_name,
  *   rollup_input_origin.contract_address,
  *   rollup_input_origin.caip2,
@@ -333,6 +341,7 @@ export interface IGetFutureGameInputByMaxTimestampResult {
   caip2: string | null;
   contract_address: string | null;
   from_address: string;
+  from_address_type: number;
   future_ms_timestamp: Date;
   id: number;
   input_data: string;
@@ -346,7 +355,7 @@ export interface IGetFutureGameInputByMaxTimestampQuery {
   result: IGetFutureGameInputByMaxTimestampResult;
 }
 
-const getFutureGameInputByMaxTimestampIR: any = {"usedParamSet":{"max_timestamp":true},"params":[{"name":"max_timestamp","required":true,"transform":{"type":"scalar"},"locs":[{"a":678,"b":692}]}],"statement":"SELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id\nJOIN paima.rollup_input_future_timestamp ON paima.rollup_inputs.id = paima.rollup_input_future_timestamp.id\nLEFT OUTER JOIN paima.rollup_input_result\n  ON (paima.rollup_input_result.id = paima.rollup_inputs.id)\nWHERE rollup_input_future_timestamp.future_ms_timestamp <= :max_timestamp! AND\n      paima.rollup_input_result.id IS NULL\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC"};
+const getFutureGameInputByMaxTimestampIR: any = {"usedParamSet":{"max_timestamp":true},"params":[{"name":"max_timestamp","required":true,"transform":{"type":"scalar"},"locs":[{"a":713,"b":727}]}],"statement":"SELECT\n  rollup_inputs.id,\n  rollup_input_future_timestamp.future_ms_timestamp,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  rollup_input_origin.primitive_name,\n  rollup_input_origin.contract_address,\n  rollup_input_origin.caip2,\n  rollup_input_origin.tx_hash as \"origin_tx_hash\"\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id\nJOIN paima.rollup_input_future_timestamp ON paima.rollup_inputs.id = paima.rollup_input_future_timestamp.id\nLEFT OUTER JOIN paima.rollup_input_result\n  ON (paima.rollup_input_result.id = paima.rollup_inputs.id)\nWHERE rollup_input_future_timestamp.future_ms_timestamp <= :max_timestamp! AND\n      paima.rollup_input_result.id IS NULL\nORDER BY rollup_input_future_timestamp.future_ms_timestamp ASC"};
 
 /**
  * Query generated from SQL:
@@ -356,6 +365,7 @@ const getFutureGameInputByMaxTimestampIR: any = {"usedParamSet":{"max_timestamp"
  *   rollup_input_future_timestamp.future_ms_timestamp,
  *   rollup_inputs.input_data,
  *   rollup_inputs.from_address,
+ *   rollup_inputs.from_address_type,
  *   rollup_input_origin.primitive_name,
  *   rollup_input_origin.contract_address,
  *   rollup_input_origin.caip2,
@@ -383,6 +393,7 @@ export interface IGetGameInputResultByBlockHeightResult {
   block_height: number;
   contract_address: string | null;
   from_address: string;
+  from_address_type: number;
   id: number;
   index_in_block: number;
   input_data: string;
@@ -397,7 +408,7 @@ export interface IGetGameInputResultByBlockHeightQuery {
   result: IGetGameInputResultByBlockHeightResult;
 }
 
-const getGameInputResultByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":627,"b":640}]}],"statement":"SELECT\n  rollup_inputs.id,\n  paima_blocks.block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  paima_blocks.paima_block_hash,\n  rollup_input_origin.contract_address,\n  rollup_input_result.paima_tx_hash,\n  rollup_input_result.index_in_block,\n  rollup_input_result.success\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id\nJOIN paima.rollup_input_result ON paima.rollup_inputs.id = paima.rollup_input_result.id\nJOIN paima.paima_blocks ON paima.rollup_input_result.block_height = paima.paima_blocks.block_height\nWHERE paima_blocks.block_height = :block_height!"};
+const getGameInputResultByBlockHeightIR: any = {"usedParamSet":{"block_height":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":662,"b":675}]}],"statement":"SELECT\n  rollup_inputs.id,\n  paima_blocks.block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  paima_blocks.paima_block_hash,\n  rollup_input_origin.contract_address,\n  rollup_input_result.paima_tx_hash,\n  rollup_input_result.index_in_block,\n  rollup_input_result.success\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id\nJOIN paima.rollup_input_result ON paima.rollup_inputs.id = paima.rollup_input_result.id\nJOIN paima.paima_blocks ON paima.rollup_input_result.block_height = paima.paima_blocks.block_height\nWHERE paima_blocks.block_height = :block_height!"};
 
 /**
  * Query generated from SQL:
@@ -407,6 +418,7 @@ const getGameInputResultByBlockHeightIR: any = {"usedParamSet":{"block_height":t
  *   paima_blocks.block_height,
  *   rollup_inputs.input_data,
  *   rollup_inputs.from_address,
+ *   rollup_inputs.from_address_type,
  *   paima_blocks.paima_block_hash,
  *   rollup_input_origin.contract_address,
  *   rollup_input_result.paima_tx_hash,
@@ -431,6 +443,7 @@ export interface IGetGameInputResultByTxHashParams {
 export interface IGetGameInputResultByTxHashResult {
   block_height: number;
   from_address: string;
+  from_address_type: number;
   id: number;
   index_in_block: number;
   input_data: string;
@@ -445,7 +458,7 @@ export interface IGetGameInputResultByTxHashQuery {
   result: IGetGameInputResultByTxHashResult;
 }
 
-const getGameInputResultByTxHashIR: any = {"usedParamSet":{"tx_hash":true},"params":[{"name":"tx_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":507,"b":515}]}],"statement":"SELECT\n  rollup_inputs.id,\n  paima_blocks.block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  paima_blocks.paima_block_hash,\n  rollup_input_result.paima_tx_hash,\n  rollup_input_result.index_in_block,\n  rollup_input_result.success\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_result ON paima.rollup_inputs.id = paima.rollup_input_result.id\nJOIN paima.paima_blocks ON paima.rollup_input_result.block_height = paima.paima_blocks.block_height\nWHERE rollup_input_result.paima_tx_hash = :tx_hash!"};
+const getGameInputResultByTxHashIR: any = {"usedParamSet":{"tx_hash":true},"params":[{"name":"tx_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":542,"b":550}]}],"statement":"SELECT\n  rollup_inputs.id,\n  paima_blocks.block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  paima_blocks.paima_block_hash,\n  rollup_input_result.paima_tx_hash,\n  rollup_input_result.index_in_block,\n  rollup_input_result.success\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_result ON paima.rollup_inputs.id = paima.rollup_input_result.id\nJOIN paima.paima_blocks ON paima.rollup_input_result.block_height = paima.paima_blocks.block_height\nWHERE rollup_input_result.paima_tx_hash = :tx_hash!"};
 
 /**
  * Query generated from SQL:
@@ -455,6 +468,7 @@ const getGameInputResultByTxHashIR: any = {"usedParamSet":{"tx_hash":true},"para
  *   paima_blocks.block_height,
  *   rollup_inputs.input_data,
  *   rollup_inputs.from_address,
+ *   rollup_inputs.from_address_type,
  *   paima_blocks.paima_block_hash,
  *   rollup_input_result.paima_tx_hash,
  *   rollup_input_result.index_in_block,
@@ -478,6 +492,7 @@ export interface IGetGameInputResultByAddressParams {
 export interface IGetGameInputResultByAddressResult {
   block_height: number;
   from_address: string;
+  from_address_type: number;
   id: number;
   index_in_block: number;
   input_data: string;
@@ -492,7 +507,7 @@ export interface IGetGameInputResultByAddressQuery {
   result: IGetGameInputResultByAddressResult;
 }
 
-const getGameInputResultByAddressIR: any = {"usedParamSet":{"block_height":true,"from_address":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":508,"b":521}]},{"name":"from_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":612,"b":625}]}],"statement":"SELECT\n  rollup_inputs.id,\n  paima_blocks.block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  paima_blocks.paima_block_hash,\n  rollup_input_result.paima_tx_hash,\n  rollup_input_result.index_in_block,\n  rollup_input_result.success\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_result ON paima.rollup_inputs.id = paima.rollup_input_result.id\nJOIN paima.paima_blocks ON paima.rollup_input_result.block_height = paima.paima_blocks.block_height\nWHERE\n  rollup_input_result.block_height = :block_height! AND\n  rollup_input_result.success = TRUE AND\n  lower(rollup_inputs.from_address) = lower(:from_address!)"};
+const getGameInputResultByAddressIR: any = {"usedParamSet":{"block_height":true,"from_address":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":543,"b":556}]},{"name":"from_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":647,"b":660}]}],"statement":"SELECT\n  rollup_inputs.id,\n  paima_blocks.block_height,\n  rollup_inputs.input_data,\n  rollup_inputs.from_address,\n  rollup_inputs.from_address_type,\n  paima_blocks.paima_block_hash,\n  rollup_input_result.paima_tx_hash,\n  rollup_input_result.index_in_block,\n  rollup_input_result.success\nFROM paima.rollup_inputs\nJOIN paima.rollup_input_result ON paima.rollup_inputs.id = paima.rollup_input_result.id\nJOIN paima.paima_blocks ON paima.rollup_input_result.block_height = paima.paima_blocks.block_height\nWHERE\n  rollup_input_result.block_height = :block_height! AND\n  rollup_input_result.success = TRUE AND\n  lower(rollup_inputs.from_address) = lower(:from_address!)"};
 
 /**
  * Query generated from SQL:
@@ -502,6 +517,7 @@ const getGameInputResultByAddressIR: any = {"usedParamSet":{"block_height":true,
  *   paima_blocks.block_height,
  *   rollup_inputs.input_data,
  *   rollup_inputs.from_address,
+ *   rollup_inputs.from_address_type,
  *   paima_blocks.paima_block_hash,
  *   rollup_input_result.paima_tx_hash,
  *   rollup_input_result.index_in_block,
