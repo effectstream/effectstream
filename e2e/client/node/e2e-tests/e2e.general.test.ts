@@ -319,11 +319,11 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       FROM
       paima.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
-    (res) => {  
+    (res) => {
       const d = res.rows[sharedState.primitive_accounting_counter - 1];
       return d.primitive_name === "PaimaGameInteraction" &&
         JSON.stringify(d.payload.data) ===
-          JSON.stringify(["attack", "990", "777"]);
+          JSON.stringify(["attack", "999", "777"]);
     },
   );
 
