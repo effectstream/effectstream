@@ -5,7 +5,7 @@
  * Different blockchain targets may require different batch formatting strategies.
  */
 
-import { DefaultBatcherInput } from "./types.ts";
+import { DefaultBatcherInput } from "../core/types.ts";
 
 /**
  * Options for batch building

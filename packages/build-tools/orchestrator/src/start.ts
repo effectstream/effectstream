@@ -394,28 +394,9 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     if (config.kill.auto) {
       await dkill({ ports: [ENV.BATCHER_PORT] });
     }
-
-    if (!config.batcher) {
-      throw new Error("Batcher config is required");
-    }
-    const { 
-      paimaL2Address,
-      batcherPrivateKey,
-      chainName,
-      paimaSyncProtocolName,
-      batchIntervalMs,
-    } = config.batcher;
+    // Use the new E2E batcher launcher script
     const batcher = $({
-      args: [
-        "run",
-        "-A",
-        config.packageName + "/batcher/start",
-        `--batchIntervalMs=${batchIntervalMs ?? 1000}`,
-        `--paimaL2Address=${paimaL2Address}`,
-        `--batcherPrivateKey=${batcherPrivateKey}`,
-        `--chainName=${chainName}`,
-        `--paimaSyncProtocolName=${paimaSyncProtocolName}`,
-      ],
+      args: ["task", "-f", "@e2e/node", "batcher:start"],
       log: rawLogHandler,
       component: ComponentNames.PAIMA_BATCHER,
       abortController: abortControllers.system,

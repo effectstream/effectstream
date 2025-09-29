@@ -16,9 +16,9 @@ const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
   ? false
   : true;
 
-const midnight_enabled = Deno ? (Deno.env.get("DISABLE_MIDNIGHT") === "true"
-  ? false
-  : true) : true;
+const midnight_enabled = Deno
+  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
+  : true;
 
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
@@ -54,8 +54,8 @@ const config = Value.Parse(OrchestratorConfig, {
       ],
     },
   ],
-
   // Launch the Batcher with our PaimaL2 Contract
+  /*
   batcher: {
     batchIntervalMs: 100,
     paimaL2Address: contractAddressesEvmMain()["chain31337"][
@@ -66,6 +66,7 @@ const config = Value.Parse(OrchestratorConfig, {
       "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
     chainName: "hardhat",
   },
+  */
 });
 
 await start(config);

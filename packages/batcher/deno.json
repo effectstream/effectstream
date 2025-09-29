@@ -1,5 +1,6 @@
 {
-  "name": "@paima/batcher-core",
+  "name": "@paima/batcher",
+  "exports": "./mod.ts",
   "version": "0.3.0",
   "license": "MIT",
   "imports": {

@@ -10,7 +10,7 @@ import {
   BatchBuildingResult,
   BatchDataBuilder,
 } from "./batch-data-builder.ts";
-import { DefaultBatcherInput } from "./types.ts";
+import { DefaultBatcherInput } from "../core/types.ts";
 
 const BATCHER_GRAMMAR_PREFIX = "&B";
 
