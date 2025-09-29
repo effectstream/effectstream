@@ -7,6 +7,8 @@ import {
   type ProtocolPrimitiveMap,
 } from "@paima/config";
 import {
+  type AddressAndType,
+  AddressType,
   type EvmAddress,
   type PaimaBlockNumber,
   TypeboxHelpers,
@@ -79,6 +81,7 @@ export class Erc721Primitive extends PaimaPrimitive<
   ): StateUpdateStream<{
     isBatched: boolean;
     data: {
+      fromAddressAndType: AddressAndType;
       stateMachinePayload:
         | StaticDecode<
           CommandTuple<string, typeof erc721Grammar>
@@ -122,6 +125,10 @@ export class Erc721Primitive extends PaimaPrimitive<
       isBatched,
       data: [
         {
+          fromAddressAndType: {
+            type: AddressType.NONE,
+            address: "0x0",
+          },
           accountingPayload,
           stateMachinePayload,
         },
@@ -144,8 +151,8 @@ export class Erc721Primitive extends PaimaPrimitive<
   }
 }
 
-declare module "@paima/sm" {
-  interface PrimitiveGlobalDefinitions {
-    Erc721Primitive: typeof Erc721Primitive;
-  }
-}
+// declare module "@paima/sm" {
+//   interface PrimitiveGlobalDefinitions {
+//     Erc721Primitive: typeof Erc721Primitive;
+//   }
+// }

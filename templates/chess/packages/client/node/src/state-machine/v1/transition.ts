@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
 import type { Prando } from "@paimaexample/crypto";
-import type { WalletAddress } from "@paimaexample/utils";
+import { AddressType, type WalletAddress } from "@paimaexample/utils";
 import type {
   IGetLobbyByIdResult,
   IGetRoundDataResult,
@@ -429,12 +429,16 @@ async function finalizeMatch(
   // Stats are updated with scheduled data to support parallelism safely.
   const statsUpdate1 = scheduleStatsUpdate(
     matchEnvironment.user1.wallet,
+    // Unknown address type.
+    AddressType.NONE,
     results[0] as ConciseResult,
     ratingChange,
     blockHeight + 1,
   );
   const statsUpdate2 = scheduleStatsUpdate(
     matchEnvironment.user2.wallet,
+    // Unknown address type.
+    AddressType.NONE,
     results[1] as unknown as ConciseResult,
     -ratingChange,
     blockHeight + 1,

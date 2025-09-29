@@ -1,5 +1,5 @@
 {
-  "version": "0.3.44",
+  "version": "0.3.47",
   "workspace": [
     "./packages/**/*",
     "./e2e/**/*",
@@ -7,7 +7,7 @@
   ],
   "nodeModulesDir": "auto",
   "tasks": {
-    "check": "deno check"
+    "check": "deno task -f @e2e/node check"
   },
   "imports": {},
   "lint": {

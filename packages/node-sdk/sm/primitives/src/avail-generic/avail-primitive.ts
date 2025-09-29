@@ -1,6 +1,5 @@
 import { type JsonObject, PaimaPrimitive } from "@paima/sm";
 import { type StaticDecode, Type } from "@sinclair/typebox";
-import { Value } from "@sinclair/typebox/value";
 import { type CommandTuple, generateRawStmInput } from "@paima/concise";
 import type {
   ConfigSyncProtocolType,
@@ -9,9 +8,9 @@ import type {
 } from "@paima/config";
 import type { StateUpdateStream } from "@paima/coroutine";
 import {
-  type AvailAddress,
+  type AddressAndType,
+  AddressType,
   type PaimaBlockNumber,
-  TypeboxHelpers,
 } from "@paima/utils";
 
 /**
@@ -63,6 +62,7 @@ export class AvailGenericPrimitive extends PaimaPrimitive<
   ): StateUpdateStream<{
     isBatched: boolean;
     data: {
+      fromAddressAndType: AddressAndType;
       stateMachinePayload:
         | StaticDecode<
           CommandTuple<string, typeof availGenericGrammar>
@@ -84,6 +84,10 @@ export class AvailGenericPrimitive extends PaimaPrimitive<
       isBatched: false,
       data: [
         {
+          fromAddressAndType: {
+            type: AddressType.NONE,
+            address: "0x0",
+          },
           accountingPayload: { payload },
           stateMachinePayload: scheduledInputData,
         },
@@ -103,11 +107,5 @@ export class AvailGenericPrimitive extends PaimaPrimitive<
       applicationKey: this.applicationKey,
       genesisHash: this.genesisHash,
     } as const;
-  }
-}
-
-declare module "@paima/sm" {
-  interface PrimitiveGlobalDefinitions {
-    AvailGenericPrimitive: typeof AvailGenericPrimitive;
   }
 }

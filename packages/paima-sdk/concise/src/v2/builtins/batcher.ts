@@ -19,6 +19,10 @@ const BatcherInnerCommon = [
   ["millisecondTimestamp", Type.String()],
 ] as const;
 export const BatcherInnerGrammar = {
+  [`${AddressType.NONE}`]: [
+    userAddress(AddressType.NONE),
+    ...BatcherInnerCommon,
+  ],
   [`${AddressType.EVM}`]: [userAddress(AddressType.EVM), ...BatcherInnerCommon],
   [`${AddressType.CARDANO}`]: [
     userAddress(AddressType.CARDANO),
