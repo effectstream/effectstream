@@ -22,7 +22,7 @@ export type ConfigDefinition = {
 } & ({
   type: "string"
   defaultValue: string | undefined;
-} | { 
+} | {
   type: "number";
   defaultValue: number | undefined;
 } | {
@@ -77,7 +77,7 @@ const definitions: Record<string, ConfigDefinition> = {
   ORCHESTRATOR_PORT: {
     key: "ORCHESTRATOR_PORT",
     type: "number",
-    defaultValue: 3000,
+    defaultValue: 0,
     description:
       "Paima Engine Orchestrator Port. Used by the TUI to monitor processes. Example: '3000'",
   },
