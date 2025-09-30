@@ -1,5 +1,3 @@
-import { ENV } from "@paima/utils/node-env";
-
 // use --unstable-raw-imports
 // https://github.com/denoland/deno/issues/29904
 // import launchJson from "./tmux.launch.json" with { type: "text" };
@@ -15,14 +13,9 @@ const __dirname = import.meta.dirname;
 
 export default interface NodeTmuxOptions {
   /**
-   * The path of the shell to use
-   */
-  shell?: string;
-
-  /**
    * The command to use. Defaults to "tmux"
    */
-  command?: string;
+  command: string;
 
   /**
    * The path to the tmux configuration file
@@ -41,13 +34,13 @@ export class Tmux {
   private options: NodeTmuxOptions;
   private paneCount: number = 0;
 
-  constructor(options: NodeTmuxOptions) {
+  constructor(options: Partial<NodeTmuxOptions>) {
     this.options = {
       command: "tmux",
-      shell: ENV.SHELL,
       ...options,
     };
   }
+
   async init() {
     let path = __dirname + "/tmux.conf";
     let cleanup = false;
@@ -69,22 +62,18 @@ export class Tmux {
    * @param name Session name
    * @param command Optional command to execute
    */
-  public async newSession(name: string, command?: string): Promise<void> {
+  public async newSession(name: string, command?: string[]): Promise<void> {
     if (!this._validate(name) || name.length > 50) {
       throw new Error(`Illegal session name`);
     } else if (await this.hasSession(name)) {
       throw new Error(`Session '${name}' already exists`);
     }
 
-    const ext = command ? ` ${command}` : "";
+    const ext = command ?? [];
     // Build the base command with config file if specified
-    let tmuxCommand = this.options.command!;
-    if (this.options.configFile) {
-      tmuxCommand += ` -f "${this.options.configFile}"`;
-    }
-
-    const cmd = `${tmuxCommand} new -d -s "${name}"` + ext;
-    console.log(cmd);
+    const cfg = this.options.configFile ? ["-f", this.options.configFile] : [];
+    const cmd = [...cfg, "new", "-d", "-s", name, ...ext];
+    console.log("tmux", ...cmd);
     await this._exec(cmd);
   }
 
@@ -92,7 +81,7 @@ export class Tmux {
    * List of sessions currently active
    */
   public async listSessions(): Promise<string[]> {
-    const out = await this._exec(`${this.options.command} ls -F "#S"`, true);
+    const out = await this._exec(["ls", "-F", "#S"], true);
     if (!out) return [];
     return out.split("\n").filter((s) => !!s);
   }
@@ -108,7 +97,7 @@ export class Tmux {
     }
 
     try {
-      await this._exec(`${this.options.command} has-session -t "${name}"`);
+      await this._exec(["has-session", "-t", name]);
       return true;
     } catch (err) {
       return false;
@@ -135,12 +124,10 @@ export class Tmux {
       throw new Error(`Session '${sessionName}' does not exist`);
     }
 
-    const ext = newline ? " Enter" : "";
+    const ext = newline ? ["Enter"] : [];
     const target = `${sessionName}:0.${paneIndex}`; // session:window.pane
 
-    await this._exec(
-      `${this.options.command} send-keys -t "${target}" "${print}"` + ext,
-    );
+    await this._exec(["send-keys", "-t", target, print, ...ext]);
   }
 
   public getAttachSessionCommand(
@@ -172,13 +159,7 @@ export class Tmux {
       throw new Error(`Session '${sessionName}' does not exist`);
     }
 
-    let cmd = `${this.options.command} split-window -t "${sessionName}"`;
-
-    if (horizontal) {
-      cmd += ` -h`; // horizontal split (left/right)
-    } else {
-      cmd += ` -v`; // vertical split (top/bottom)
-    }
+    const cmd = ["split-window", "-t", sessionName, horizontal ? "-h" : "-v"];
     await this._exec(cmd);
 
     this.paneCount++;
@@ -188,17 +169,15 @@ export class Tmux {
   }
 
   /**
-   * Command Execution utility method
-   *
-   * @param command Command to execute
+   * @param args Arguments to pass to `tmux`.
    */
   private async _exec(
-    command: string,
+    args: string[],
     ignoreError: boolean = false,
   ): Promise<string> {
     try {
-      const cmd = new Deno.Command("sh", {
-        args: ["-c", command],
+      const cmd = new Deno.Command(this.options.command, {
+        args,
         stdout: "piped",
         stderr: "piped",
       });
