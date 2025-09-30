@@ -1,3 +1,5 @@
+import { ENV } from "@paima/utils/node-env";
+
 // use --unstable-raw-imports
 // https://github.com/denoland/deno/issues/29904
 // import launchJson from "./tmux.launch.json" with { type: "text" };
@@ -72,7 +74,16 @@ export class Tmux {
     const ext = command ?? [];
     // Build the base command with config file if specified
     const cfg = this.options.configFile ? ["-f", this.options.configFile] : [];
-    const cmd = [...cfg, "new", "-d", "-s", name, ...ext];
+    const cmd = [
+      ...cfg,
+      "new",
+      "-d",
+      "-e",
+      `ORCHESTRATOR_PORT=${ENV.ORCHESTRATOR_PORT}`,
+      "-s",
+      name,
+      ...ext,
+    ];
     console.log("tmux", ...cmd);
     await this._exec(cmd);
   }
