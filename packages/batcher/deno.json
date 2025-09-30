@@ -4,9 +4,6 @@
   "version": "0.3.0",
   "license": "MIT",
   "imports": {
-    "@paima/utils": "../paima-sdk/utils/src/mod.ts",
-    "@paima/crypto": "../paima-sdk/crypto/src/mod.ts",
-    "@paima/batcher/chain-connectors": "./chain-connectors/mod.ts",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "@sinclair/typebox/value": "npm:@sinclair/typebox/value",
     "viem": "npm:viem@^2.21.3",

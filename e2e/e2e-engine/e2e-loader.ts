@@ -28,6 +28,7 @@ export async function startup(): Promise<Client> {
     logs,
     processes: {
       [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
+      [ComponentNames.PAIMA_BATCHER]: true, // Enable batcher for e2e tests
 
       [ComponentNames.TUI]: false,
       [ComponentNames.TMUX]: false,

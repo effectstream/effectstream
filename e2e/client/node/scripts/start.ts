@@ -5,7 +5,6 @@ import {
 } from "@paima/orchestrator";
 import { ComponentNames } from "@paima/log";
 import { Value } from "@sinclair/typebox/value";
-import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { launchAvail } from "@paima/orchestrator/start-avail";
 import { launchCardano } from "@paima/orchestrator/start-cardano";
 import { launchEvm } from "@paima/orchestrator/start-evm";
@@ -24,6 +23,7 @@ const config = Value.Parse(OrchestratorConfig, {
   processes: {
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
+    [ComponentNames.PAIMA_BATCHER]: true,
     [ComponentNames.COLLECTOR]: true,
   },
 
@@ -54,19 +54,6 @@ const config = Value.Parse(OrchestratorConfig, {
       ],
     },
   ],
-  // Launch the Batcher with our PaimaL2 Contract
-  /*
-  batcher: {
-    batchIntervalMs: 100,
-    paimaL2Address: contractAddressesEvmMain()["chain31337"][
-      "PaimaL2ContractModule#MyPaimaL2Contract"
-    ],
-    paimaSyncProtocolName: "parallelEvmRPC_fast",
-    batcherPrivateKey:
-      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-    chainName: "hardhat",
-  },
-  */
 });
 
 await start(config);

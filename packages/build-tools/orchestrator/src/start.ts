@@ -106,19 +106,9 @@ export const OrchestratorConfig = Type.Object({
 
     // DevOps
     [ComponentNames.COLLECTOR]: Type.Boolean({ default: true }),
-    [ComponentNames.PAIMA_BATCHER]: Type.Boolean({ default: true }),
+    [ComponentNames.PAIMA_BATCHER]: Type.Boolean({ default: false }),
     [ComponentNames.DOCS]: Type.Boolean({ default: true }),
   }, { default: {} }),
-
-  // Batcher options.
-  // NOTE: Set processes[ComponentNames.PAIMA_BATCHER] = true to launch the batcher.
-  batcher: Type.Optional(Type.Object({
-    paimaL2Address: Type.String(),
-    batcherPrivateKey: Type.String(),
-    paimaSyncProtocolName: Type.String(),
-    chainName: Type.String(),
-    batchIntervalMs: Type.Number({ default: 1000 }),
-  })),
 });
 
 type OrchestratorConfigType = Static<typeof OrchestratorConfig>;
@@ -396,7 +386,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
     // Use the new E2E batcher launcher script
     const batcher = $({
-      args: ["task", "-f", "@e2e/node", "batcher:start"],
+      args: ["task", "batcher:start"],
       log: rawLogHandler,
       component: ComponentNames.PAIMA_BATCHER,
       abortController: abortControllers.system,

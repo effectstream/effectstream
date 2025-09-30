@@ -13,11 +13,6 @@
     "test": "deno run -A --unstable-raw-imports --check scripts/e2e.test.ts"
   },
   "imports": {
-    // TODO This @paima imports may not be necessary 
-    "@paima/batcher": "../../../packages/batcher/mod.ts",
-    "@paima/utils": "../../../packages/paima-sdk/utils/src/mod.ts",
-    "@paima/crypto": "../../../packages/paima-sdk/crypto/src/mod.ts",
-    "@paima/event-client": "../../../packages/paima-sdk/events/src/mod.ts",
     "pg": "npm:pg@^8.14.0",
     "viem": "npm:viem@^2.21.3",
     "viem/accounts": "npm:viem@^2.21.3/accounts",
