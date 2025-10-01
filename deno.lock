@@ -131,6 +131,7 @@
     "npm:@polkadot/extension-inject@~0.61.7": "0.61.7_@polkadot+api@16.4.8__@polkadot+util@13.5.6__@polkadot+util-crypto@13.5.6___@polkadot+util@13.5.6___@polkadot+x-randomvalues@13.5.6____@polkadot+util@13.5.6____@polkadot+wasm-util@7.5.1_____@polkadot+util@13.5.6___@polkadot+wasm-util@7.5.1____@polkadot+util@13.5.6_@polkadot+util@13.5.6",
     "npm:@polkadot/util-crypto@^13.5.6": "13.5.6_@polkadot+util@13.5.6_@polkadot+x-randomvalues@13.5.6__@polkadot+util@13.5.6__@polkadot+wasm-util@7.5.1___@polkadot+util@13.5.6_@polkadot+wasm-util@7.5.1__@polkadot+util@13.5.6",
     "npm:@polkadot/util@^13.5.6": "13.5.6",
+    "npm:@sinclair/typebox@*": "0.34.41",
     "npm:@sinclair/typebox@~0.34.30": "0.34.41",
     "npm:@sinclair/typebox@~0.34.41": "0.34.41",
     "npm:@subsquid/ss58-codec@^1.2.3": "1.2.3",
@@ -17454,6 +17455,9 @@
       "e2e/client/node": {
         "dependencies": [
           "npm:@deno/vite-plugin@^1.0.4",
+          "npm:@fastify/cors@^11.0.1",
+          "npm:@fastify/swagger-ui@^5.2.3",
+          "npm:@fastify/swagger@^9.5.1",
           "npm:@midnight-ntwrk/compact-runtime@~0.8.1",
           "npm:@midnight-ntwrk/ledger@4",
           "npm:@midnight-ntwrk/midnight-js-contracts@^2.0.2",
@@ -17469,6 +17473,7 @@
           "npm:@midnight-ntwrk/wallet-api@5",
           "npm:@midnight-ntwrk/wallet@5",
           "npm:@midnight-ntwrk/zswap@4",
+          "npm:@sinclair/typebox@*",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:avail-js-sdk@~0.4.2",
           "npm:effection@^3.5.0",
@@ -17591,6 +17596,17 @@
       "e2e/shared/data-types": {
         "dependencies": [
           "npm:@sinclair/typebox@~0.34.30",
+          "npm:viem@^2.21.3"
+        ]
+      },
+      "packages/batcher": {
+        "dependencies": [
+          "npm:@fastify/cors@^11.0.1",
+          "npm:@fastify/swagger-ui@^5.2.3",
+          "npm:@fastify/swagger@^9.5.1",
+          "npm:@sinclair/typebox@*",
+          "npm:@sinclair/typebox@~0.34.30",
+          "npm:fastify@^5.4.0",
           "npm:viem@^2.21.3"
         ]
       },
