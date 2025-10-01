@@ -7,6 +7,7 @@
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "viem": "npm:viem@^2.21.3",
     "viem/accounts": "npm:viem@^2.21.3/accounts",
+    "effection": "npm:effection@^3.5.0",
     "fastify": "npm:fastify@^5.4.0",
     "@fastify/cors": "npm:@fastify/cors@^11.0.1",
     "@fastify/swagger": "npm:@fastify/swagger@^9.5.1",

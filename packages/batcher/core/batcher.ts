@@ -3,18 +3,14 @@ import { CryptoManager } from "@paima/crypto";
 import { AddressType, TypeboxHelpers } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
 import { toHex } from "viem";
+import { call, type Operation, sleep, spawn, suspend } from "effection";
 import type { BatcherStorage } from "./storage.ts";
 import type { DefaultBatcherInput } from "./types.ts";
 import type {
-  BlockchainHash,
   BlockchainTransactionReceipt,
   IChainConnector,
 } from "../connectors/connector.ts";
-import type {
-  BatchingCriteriaConfig,
-  PaimaBatcherConfig,
-  PerConnectorBatchingCriteria,
-} from "./config.ts";
+import type { BatchingCriteriaConfig, PaimaBatcherConfig } from "./config.ts";
 import { DEFAULT_BATCHING_CRITERIA, validateBatcherConfig } from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
 import type {
@@ -579,6 +575,65 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
   /**
    * Graceful shutdown - stop accepting new batches and wait for current processing to finish
+   * Effection-compatible version that can be used with yield*
+   */
+  *gracefulShutdownOp(
+    hooks?: ShutdownHooks<any>,
+    options?: { timeoutMs?: number; force?: boolean },
+  ): Operation<void> {
+    if (this.shutdownState.isShuttingDown) return;
+
+    this.shutdownState.isShuttingDown = true;
+    this.shutdownState.shutdownInitiatedAt = Date.now();
+    this.shutdownState.shutdownTimeoutMs = options?.timeoutMs ??
+      this.shutdownState.shutdownTimeoutMs;
+
+    console.log("🔄 Stopping batcher gracefully...");
+
+    try {
+      // Phase 1: Pre-shutdown (custom hook)
+      if (hooks?.preShutdown) {
+        yield* call(() => hooks.preShutdown!(this));
+      }
+
+      // Phase 2: Stop accepting new inputs
+      this.stopPolling();
+      yield* call(() => this.stopHttpServer());
+      if (hooks?.stopAcceptingInputs) {
+        yield* call(() => hooks.stopAcceptingInputs!(this));
+      }
+
+      // Phase 3: Wait for ongoing processing
+      yield* call(() => this.waitForOngoingProcessing(options?.timeoutMs));
+      if (hooks?.waitForProcessing) {
+        yield* call(() => hooks.waitForProcessing!(this));
+      }
+
+      // Phase 4: Cleanup resources
+      yield* call(() => this.cleanupResources());
+      if (hooks?.cleanup) {
+        yield* call(() => hooks.cleanup!(this));
+      }
+
+      // Phase 5: Post-shutdown (custom hook)
+      if (hooks?.postShutdown) {
+        yield* call(() => hooks.postShutdown!(this));
+      }
+
+      console.log("✅ Batcher shutdown complete");
+    } catch (error) {
+      console.error("❌ Error during graceful shutdown:", error);
+      if (options?.force) {
+        console.log("🔧 Force shutdown due to error");
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Graceful shutdown - stop accepting new batches and wait for current processing to finish
+   * Legacy async version for backward compatibility
    */
   async gracefulShutdown(
     hooks?: ShutdownHooks<any>,
@@ -990,6 +1045,38 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     )
       .replace(/[^a-zA-Z0-9]/g, "-")
       .toLocaleLowerCase();
+  }
+
+  /**
+   * Run the batcher using Effection structured concurrency.
+   * This replaces the traditional init() + setInterval pattern with an Effection operation
+   * that provides better cancellation and resource management.
+   *
+   * @returns An Effection operation that runs the batcher polling loop
+   */
+  *runBatcher(): Operation<void> {
+    // Initialize storage and mark as initialized
+    yield* call(() => this.storage.init());
+    this.isInitialized = true;
+
+    // Start HTTP server if enabled
+    if (this.enableHttpServer) {
+      yield* call(() => this.startHttpServer());
+    }
+
+    // Spawn polling task
+    yield* spawn(function* (this: PaimaBatcher<T>) {
+      while (!this.shutdownState.isShuttingDown) {
+        yield* sleep(this.config.pollingIntervalMs);
+
+        if (!this.shutdownState.isShuttingDown) {
+          yield* call(() => this.pollBatcher());
+        }
+      }
+    }.bind(this));
+
+    // Keep the operation alive until cancelled
+    yield* suspend();
   }
 }
 

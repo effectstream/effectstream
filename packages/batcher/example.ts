@@ -118,6 +118,56 @@ process.on("SIGTERM", async () => {
   process.exit(0);
 });
 
+/**
+ * Effection-based example using structured concurrency
+ * This demonstrates the new runBatcher() method with Effection
+ *
+ * Note: To run this example, you would need to:
+ * 1. Install effection: npm install effection
+ * 2. Import { main } from "effection"
+ * 3. Use main(function* () { ... }) instead of async function
+ */
+/*
+// Example Effection-based main function (requires effection to be installed):
+import { main, suspend } from "effection";
+
+main(function* () {
+  console.log("🚀 Starting PaimaBatcher with Effection...");
+
+  const storage = new FileStorage("./batcher-data");
+  const batcher = new PaimaBatcher(storage, batcherConfig);
+  globalBatcher = batcher;
+
+  try {
+    const publicConfig = batcher.getPublicConfig();
+    console.log(
+      `🎯 Batcher started - polling every ${publicConfig.pollingIntervalMs} ms`,
+    );
+    console.log(`📍 Default Target: ${publicConfig.defaultTarget}`);
+    console.log(
+      `⛓️ Connector Targets: ${publicConfig.connectorTargets.join(", ")}`,
+    );
+    console.log(
+      `📦 Batching Criteria: ${
+        Object.entries(publicConfig.criteriaTypes).map(([target, type]) =>
+          `${target}=${type}`
+        ).join(", ")
+      }`,
+    );
+    console.log(`🌐 HTTP Server: http://localhost:${publicConfig.port}`);
+    console.log("📋 Press Ctrl+C to stop gracefully");
+
+    // Run the batcher with Effection structured concurrency
+    yield* batcher.runBatcher();
+  } catch (error) {
+    console.error("❌ Batcher error:", error);
+    yield* batcher.gracefulShutdownOp();
+  }
+
+  yield* suspend();
+});
+*/
+
 if (import.meta.main) {
   main();
 }
