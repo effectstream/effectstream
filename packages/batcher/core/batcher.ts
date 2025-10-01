@@ -3,20 +3,21 @@ import { CryptoManager } from "@paima/crypto";
 import { AddressType, TypeboxHelpers } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
 import { toHex } from "viem";
-import { BatcherStorage } from "./storage.ts";
-import { DefaultBatcherInput } from "./types.ts";
-import {
+import type { BatcherStorage } from "./storage.ts";
+import type { DefaultBatcherInput } from "./types.ts";
+import type {
   BlockchainHash,
   BlockchainTransactionReceipt,
   IChainConnector,
 } from "../connectors/connector.ts";
-import {
+import type {
   BatchingCriteriaConfig,
   PaimaBatcherConfig,
-  validateBatcherConfig,
+  PerConnectorBatchingCriteria,
 } from "./config.ts";
+import { DEFAULT_BATCHING_CRITERIA, validateBatcherConfig } from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
-import {
+import type {
   BatchBuildingResult,
   BatchDataBuilder,
 } from "../batch-data-builder/batch-data-builder.ts";
@@ -71,10 +72,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   private readonly connectors: Record<string, IChainConnector>;
   /** Default target to use when input.target is not specified */
   public readonly defaultTarget: string;
-  /** Batching criteria configuration */
-  private readonly batchingCriteria: BatchingCriteriaConfig<T>;
-  /** Track when the last batch was processed for time-based criteria */
-  private lastProcessTime: number = Date.now();
+  /** Per-connector batching criteria configuration */
+  private readonly batchingCriteria: Map<string, BatchingCriteriaConfig<T>>;
+  /** Track when the last batch was processed for time-based criteria (per connector) */
+  private lastProcessTime: Map<string, number>;
   /** Track if the batcher is initialized */
   public isInitialized: boolean = false;
   /** HTTP server instance */
@@ -125,10 +126,26 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     >,
   ) {
     this.connectors = config.connectors;
-    this.batchingCriteria = config.batchingCriteria;
     this.validateConfig();
     this.defaultTarget = config.defaultTarget ||
       Object.keys(config.connectors)[0];
+
+    // Initialize per-connector batching criteria
+    this.batchingCriteria = new Map();
+    for (const target of Object.keys(this.connectors)) {
+      const criteria = config.batchingCriteria
+        ?.[target as keyof typeof config.batchingCriteria] ??
+        DEFAULT_BATCHING_CRITERIA;
+      this.batchingCriteria.set(target, criteria);
+    }
+
+    // Initialize per-connector last process times
+    this.lastProcessTime = new Map();
+    const now = Date.now();
+    for (const target of Object.keys(this.connectors)) {
+      this.lastProcessTime.set(target, now);
+    }
+
     this.batchDataBuilder = this.initializeBatchDataBuilder();
     this.port = this.config.port ?? 3000;
   }
@@ -261,97 +278,138 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   async pollBatcher(): Promise<void> {
     if (this.shutdownState.isShuttingDown) return;
 
-    const isReady = await this.isBatchReady();
-    if (!isReady) return;
+    // Check each connector target independently for batching readiness
+    const targetsToProcess: string[] = [];
+    for (const target of Object.keys(this.connectors)) {
+      if (await this.isTargetReadyForBatching(target)) {
+        targetsToProcess.push(target);
+      }
+    }
 
-    // Process any pending batches using the connector system
-    await this.processBatches();
-    this.lastProcessTime = Date.now();
+    if (targetsToProcess.length === 0) return;
+
+    // Process batches for ready targets
+    await this.processBatchesForTargets(targetsToProcess);
+
+    // Update last process times for processed targets
+    const now = Date.now();
+    for (const target of targetsToProcess) {
+      this.lastProcessTime.set(target, now);
+    }
   }
 
   /**
-   * Check if a batch is ready to be processed based on the configured criteria
+   * Check if a specific target is ready for batching based on its configured criteria
    */
-  private async isBatchReady(): Promise<boolean> {
-    const pendingInputs = await this.storage.getAllInputs();
+  private async isTargetReadyForBatching(target: string): Promise<boolean> {
+    const targetInputs = await this.storage.getInputsByTarget(
+      target,
+      this.defaultTarget,
+    );
 
-    // If no inputs, nothing is ready
-    if (!pendingInputs.length) return false;
+    // If no inputs for this target, nothing is ready
+    if (!targetInputs.length) return false;
 
-    const { criteriaType } = this.batchingCriteria;
+    const criteria = this.batchingCriteria.get(target)!;
+    const { criteriaType } = criteria;
 
     switch (criteriaType) {
       case "time":
-        return this.checkTimeCriteria();
+        return this.checkTimeCriteriaForTarget(target);
       case "size":
-        return this.checkSizeCriteria(pendingInputs);
+        return this.checkSizeCriteriaForTarget(targetInputs, criteria);
       case "value":
-        return this.checkValueCriteria(pendingInputs);
+        return this.checkValueCriteriaForTarget(targetInputs, criteria);
       case "hybrid":
-        return this.checkHybridCriteria(pendingInputs);
+        return this.checkHybridCriteriaForTarget(
+          target,
+          targetInputs,
+          criteria,
+        );
       case "custom":
-        return this.checkCustomCriteria(pendingInputs);
+        return this.checkCustomCriteriaForTarget(
+          target,
+          targetInputs,
+          criteria,
+        );
       default:
-        console.warn(`Unknown criteria type: ${criteriaType}`);
+        console.warn(
+          `Unknown criteria type for target ${target}: ${criteriaType}`,
+        );
         return false;
     }
   }
 
   /**
-   * Check if time-based criteria is met
+   * Check if time-based criteria is met for a specific target
    */
-  private checkTimeCriteria(): boolean {
-    const timeSinceLastProcess = Date.now() - this.lastProcessTime;
-    return timeSinceLastProcess >= this.batchingCriteria.timeWindowMs!;
+  private checkTimeCriteriaForTarget(target: string): boolean {
+    const criteria = this.batchingCriteria.get(target)!;
+    const timeSinceLastProcess = Date.now() - this.lastProcessTime.get(target)!;
+    return timeSinceLastProcess >= criteria.timeWindowMs!;
   }
 
   /**
-   * Check if size-based criteria is met
+   * Check if size-based criteria is met for a specific target
    */
-  private checkSizeCriteria(pendingInputs: T[]): boolean {
-    return pendingInputs.length >= this.batchingCriteria.maxBatchSize!;
+  private checkSizeCriteriaForTarget(
+    targetInputs: T[],
+    criteria: BatchingCriteriaConfig<T>,
+  ): boolean {
+    return targetInputs.length >= criteria.maxBatchSize!;
   }
 
   /**
    * Check if value-based criteria is met
    */
-  private checkValueCriteria(pendingInputs: T[]): boolean {
-    if (
-      !this.batchingCriteria.valueAccumulatorFn ||
-      !this.batchingCriteria.targetValue
-    ) {
+  private checkValueCriteriaForTarget(
+    targetInputs: T[],
+    criteria: BatchingCriteriaConfig<T>,
+  ): boolean {
+    if (!criteria.valueAccumulatorFn || !criteria.targetValue) {
       return false;
     }
 
-    const totalValue = pendingInputs.reduce((sum, input) => {
-      return sum + this.batchingCriteria.valueAccumulatorFn!(input as T);
+    const totalValue = targetInputs.reduce((sum, input) => {
+      return sum + criteria.valueAccumulatorFn!(input as T);
     }, 0);
-    return totalValue >= this.batchingCriteria.targetValue;
+    return totalValue >= criteria.targetValue;
   }
 
   /**
-   * Check if hybrid (time + size) criteria is met
+   * Check if hybrid (time + size) criteria is met for a specific target
    */
-  private checkHybridCriteria(pendingInputs: T[]): boolean {
-    const timeReady = this.checkTimeCriteria();
-    const sizeReady = this.checkSizeCriteria(pendingInputs);
+  private checkHybridCriteriaForTarget(
+    target: string,
+    targetInputs: T[],
+    criteria: BatchingCriteriaConfig<T>,
+  ): boolean {
+    const timeReady = this.checkTimeCriteriaForTarget(target);
+    const sizeReady = this.checkSizeCriteriaForTarget(targetInputs, criteria);
     return timeReady || sizeReady;
   }
 
   /**
-   * Check if custom criteria is met
+   * Check if custom criteria is met for a specific target
    */
-  private async checkCustomCriteria(pendingInputs: T[]): Promise<boolean> {
-    if (!this.batchingCriteria.isBatchReadyFn) {
+  private async checkCustomCriteriaForTarget(
+    target: string,
+    targetInputs: T[],
+    criteria: BatchingCriteriaConfig<T>,
+  ): Promise<boolean> {
+    if (!criteria.isBatchReadyFn) {
       return false;
     }
     try {
-      return await this.batchingCriteria.isBatchReadyFn(
-        pendingInputs as T[],
-        this.lastProcessTime,
+      return await criteria.isBatchReadyFn(
+        targetInputs as T[],
+        this.lastProcessTime.get(target)!,
       );
     } catch (error) {
-      console.error("❌ Error in custom batch criteria function:", error);
+      console.error(
+        `❌ Error in custom batch criteria function for target ${target}:`,
+        error,
+      );
       return false;
     }
   }
@@ -364,9 +422,15 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       throw new Error("Cannot force process batches during shutdown");
     }
 
-    console.log("🔧 Force processing batches...");
-    await this.processBatches();
-    this.lastProcessTime = Date.now(); // Update last process time
+    console.log("🔧 Force processing batches for all targets...");
+    const allTargets = Object.keys(this.connectors);
+    await this.processBatchesForTargets(allTargets);
+
+    // Update last process times for all targets
+    const now = Date.now();
+    for (const target of allTargets) {
+      this.lastProcessTime.set(target, now);
+    }
   }
 
   /**
@@ -416,22 +480,52 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Get current batching status and statistics
    */
   async getBatchingStatus(): Promise<{
-    isReady: boolean;
-    pendingInputs: number;
-    criteriaType: string;
-    timeSinceLastProcess: number;
+    targets: Array<{
+      target: string;
+      isReady: boolean;
+      pendingInputs: number;
+      criteriaType: string;
+      timeSinceLastProcess: number;
+    }>;
+    totalPendingInputs: number;
     connectorTargets: string[];
   }> {
-    const pendingInputs = await this.storage.getAllInputs();
-    const isReady = await this.isBatchReady();
-    const timeSinceLastProcess = Date.now() - this.lastProcessTime;
+    const connectorTargets = Object.keys(this.connectors);
+    const targets: Array<{
+      target: string;
+      isReady: boolean;
+      pendingInputs: number;
+      criteriaType: string;
+      timeSinceLastProcess: number;
+    }> = [];
+
+    let totalPendingInputs = 0;
+
+    for (const target of connectorTargets) {
+      const targetInputs = await this.storage.getInputsByTarget(
+        target,
+        this.defaultTarget,
+      );
+      const isReady = await this.isTargetReadyForBatching(target);
+      const timeSinceLastProcess = Date.now() -
+        this.lastProcessTime.get(target)!;
+      const criteria = this.batchingCriteria.get(target)!;
+
+      targets.push({
+        target,
+        isReady,
+        pendingInputs: targetInputs.length,
+        criteriaType: criteria.criteriaType,
+        timeSinceLastProcess,
+      });
+
+      totalPendingInputs += targetInputs.length;
+    }
 
     return {
-      isReady,
-      pendingInputs: pendingInputs.length,
-      criteriaType: this.batchingCriteria.criteriaType,
-      timeSinceLastProcess,
-      connectorTargets: Object.keys(this.connectors),
+      targets,
+      totalPendingInputs,
+      connectorTargets,
     };
   }
 
@@ -462,9 +556,15 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     enableEventSystem: boolean;
     confirmationLevel: "no-wait" | "wait-receipt" | "wait-paima-processed";
     port: number;
-    criteriaType: string;
     connectorTargets: string[];
+    /** Per-connector batching criteria types */
+    criteriaTypes: Record<string, string>;
   } {
+    const criteriaTypes: Record<string, string> = {};
+    for (const [target, criteria] of this.batchingCriteria) {
+      criteriaTypes[target] = criteria.criteriaType;
+    }
+
     return {
       pollingIntervalMs: this.config.pollingIntervalMs,
       defaultTarget: this.defaultTarget,
@@ -472,8 +572,8 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       enableEventSystem: this.enableEventSystem,
       confirmationLevel: this.config.confirmationLevel || "wait-receipt",
       port: this.port,
-      criteriaType: this.batchingCriteria.criteriaType,
       connectorTargets: Object.keys(this.connectors),
+      criteriaTypes,
     };
   }
 
@@ -607,6 +707,58 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
         try {
           await this.processBatchForTarget(connector, target, inputs);
+        } catch (error) {
+          console.error(
+            `❌ Error processing batch for target ${target}:`,
+            error,
+          );
+          // Continue processing other targets even if one fails
+        }
+      }
+    } finally {
+      this.shutdownState.isProcessingBatch = false;
+    }
+  }
+
+  /**
+   * Process batches for specific targets
+   * @param targetsToProcess - Array of target names to process batches for
+   */
+  async processBatchesForTargets(targetsToProcess: string[]): Promise<void> {
+    if (this.shutdownState.isShuttingDown) return;
+
+    if (targetsToProcess.length === 0) {
+      console.log("📭 No targets to process");
+      return;
+    }
+
+    console.log(
+      `🚀 Processing batches for targets: ${targetsToProcess.join(", ")}`,
+    );
+
+    this.shutdownState.isProcessingBatch = true;
+
+    try {
+      for (const target of targetsToProcess) {
+        const connector = this.connectors[target];
+        if (!connector) {
+          console.error(`❌ No connector available for target: ${target}`);
+          continue;
+        }
+
+        // Get inputs for this specific target
+        const targetInputs = await this.storage.getInputsByTarget(
+          target,
+          this.defaultTarget,
+        );
+
+        if (targetInputs.length === 0) {
+          console.log(`📭 No inputs for target ${target}, skipping...`);
+          continue;
+        }
+
+        try {
+          await this.processBatchForTarget(connector, target, targetInputs);
         } catch (error) {
           console.error(
             `❌ Error processing batch for target ${target}:`,
@@ -926,7 +1078,13 @@ export async function createAndLaunchBatcher<T extends DefaultBatcherInput>(
   console.log(
     `⛓️ Connector Targets: ${publicConfig.connectorTargets.join(", ")}`,
   );
-  console.log(`📦 Batching Criteria: ${publicConfig.criteriaType}`);
+  console.log(
+    `📦 Batching Criteria: ${
+      Object.entries(publicConfig.criteriaTypes).map(([target, type]) =>
+        `${target}=${type}`
+      ).join(", ")
+    }`,
+  );
   if (publicConfig.enableHttpServer) {
     console.log(`🌐 HTTP Server: http://localhost:${publicConfig.port}`);
   }

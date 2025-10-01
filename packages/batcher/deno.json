@@ -5,7 +5,6 @@
   "license": "MIT",
   "imports": {
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
-    "@sinclair/typebox/value": "npm:@sinclair/typebox/value",
     "viem": "npm:viem@^2.21.3",
     "viem/accounts": "npm:viem@^2.21.3/accounts",
     "fastify": "npm:fastify@^5.4.0",

@@ -14,8 +14,8 @@ import {
   FileStorage,
   PaimaBatcher,
   type PaimaBatcherConfig,
-} from "@paima/batcher";
-import { contractAddressesEvmMain } from "@e2e/evm-contracts";
+} from "@paimaexample/batcher";
+import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
 import * as chains from "viem/chains";
 
 // First version of a standalone launcher for the new batcher, configured like the old E2E batcher.
@@ -51,9 +51,8 @@ const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   connectors: { evm },
   defaultTarget: "evm",
-  batchingCriteria: { criteriaType: "time", timeWindowMs: batchIntervalMs },
-  confirmationLevel: "wait-paima-processed",
-  batchBuilding: { maxSize: 10000 },
+  confirmationLevel: "wait-paima-processed", // By Connector
+  batchBuilding: { maxSize: 10000 }, // By Connector
   port,
 };
 
@@ -73,7 +72,13 @@ console.log(`📍 Default Target: ${publicConfig.defaultTarget}`);
 console.log(
   `⛓️ Connector Targets: ${publicConfig.connectorTargets.join(", ")}`,
 );
-console.log(`📦 Batching Criteria: ${publicConfig.criteriaType}`);
+console.log(
+  `📦 Batching Criteria: ${
+    Object.entries(publicConfig.criteriaTypes).map(([target, type]) =>
+      `${target}=${type}`
+    ).join(", ")
+  }`,
+);
 console.log(`🌐 HTTP Server: http://localhost:${publicConfig.port}`);
 console.log("📋 Press Ctrl+C to stop gracefully");
 

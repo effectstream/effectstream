@@ -40,7 +40,9 @@ const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   connectors: { evm },
   defaultTarget: "evm",
-  batchingCriteria: { criteriaType: "time", timeWindowMs: batchIntervalMs },
+  batchingCriteria: {
+    evm: { criteriaType: "time", timeWindowMs: batchIntervalMs },
+  },
   confirmationLevel: "wait-paima-processed",
   batchBuilding: { maxSize: 10000 },
   port,
@@ -62,7 +64,13 @@ console.log(`📍 Default Target: ${publicConfig.defaultTarget}`);
 console.log(
   `⛓️ Connector Targets: ${publicConfig.connectorTargets.join(", ")}`,
 );
-console.log(`📦 Batching Criteria: ${publicConfig.criteriaType}`);
+console.log(
+  `📦 Batching Criteria: ${
+    Object.entries(publicConfig.criteriaTypes).map(([target, type]) =>
+      `${target}=${type}`
+    ).join(", ")
+  }`,
+);
 console.log(`🌐 HTTP Server: http://localhost:${publicConfig.port}`);
 console.log("📋 Press Ctrl+C to stop gracefully");
 

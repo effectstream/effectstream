@@ -3,10 +3,10 @@
  * imported by the batcher.
  */
 
-import { DefaultBatcherInput } from "./types.ts";
-import { IChainConnector } from "../connectors/connector.ts";
-import { BatchDataBuilder } from "../batch-data-builder/batch-data-builder.ts";
-import { ShutdownHooks } from "./batcher.ts";
+import type { DefaultBatcherInput } from "./types.ts";
+import type { IChainConnector } from "../connectors/connector.ts";
+import type { BatchDataBuilder } from "../batch-data-builder/batch-data-builder.ts";
+import type { ShutdownHooks } from "./batcher.ts";
 
 /**
  * Type-safe batcher configuration with compile-time connector validation
@@ -18,7 +18,7 @@ import { ShutdownHooks } from "./batcher.ts";
  *
  * @example
  * ```typescript
- * // ✅ Valid configuration - TypeScript ensures type safety
+ * // ✅ Valid configuration with per-connector batching criteria
  * const config: PaimaBatcherConfig<{
  *   evm: EvmChainConnector;
  *   polygon: EvmChainConnector;
@@ -28,7 +28,13 @@ import { ShutdownHooks } from "./batcher.ts";
  *     evm: evmConnector,
  *     polygon: polygonConnector,
  *   },
- *   defaultTarget: "evm", // ✅ Must be a key of connectors
+ *   defaultTarget: "evm",
+ *   batchingCriteria: {
+ *     // EVM batches by size (10 inputs)
+ *     evm: { criteriaType: "size", maxBatchSize: 10 },
+ *     // Polygon processes immediately (default: size=1)
+ *     // polygon: omitted - uses DEFAULT_BATCHING_CRITERIA
+ *   },
  * };
  *
  * // ❌ Invalid configuration - TypeScript error
@@ -67,6 +73,29 @@ export interface BatchingCriteriaConfig<
   ) => boolean | Promise<boolean>;
 }
 
+/**
+ * Per-connector batching criteria configuration
+ * Maps connector keys to their specific batching strategies
+ */
+export type PerConnectorBatchingCriteria<
+  TInput extends DefaultBatcherInput = DefaultBatcherInput,
+  TConnectors extends Record<string, IChainConnector> = Record<
+    string,
+    IChainConnector
+  >,
+> = Partial<
+  Record<ValidConnectorKey<TConnectors>, BatchingCriteriaConfig<TInput>>
+>;
+
+/**
+ * Default batching criteria when none specified for a connector
+ * Processes inputs immediately (size=1) to ensure responsiveness
+ */
+export const DEFAULT_BATCHING_CRITERIA: BatchingCriteriaConfig = {
+  criteriaType: "size",
+  maxBatchSize: 1,
+};
+
 export interface PaimaBatcherConfig<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
   TConnectors extends Record<string, IChainConnector> = Record<
@@ -78,7 +107,11 @@ export interface PaimaBatcherConfig<
   connectors: TConnectors;
   defaultTarget?: ValidConnectorKey<TConnectors>; // Target to use when input.target is not specified - must be a key of connectors
 
-  batchingCriteria: BatchingCriteriaConfig<TInput>;
+  /**
+   * Per-connector batching criteria - allows different strategies per target
+   * Connectors without specified criteria will use DEFAULT_BATCHING_CRITERIA (size=1)
+   */
+  batchingCriteria?: PerConnectorBatchingCriteria<TInput, TConnectors>;
 
   port?: number; // HTTP server port
   confirmationLevel?: "no-wait" | "wait-receipt" | "wait-paima-processed"; // Transaction confirmation levels
@@ -141,8 +174,24 @@ export function validateBatcherConfig<
     );
   }
 
-  // Validate batching criteria configuration
-  validateBatchingCriteria(config.batchingCriteria);
+  // Validate batching criteria configuration for each connector
+  if (config.batchingCriteria) {
+    for (
+      const [target, criteria] of Object.entries(config.batchingCriteria) as [
+        string,
+        BatchingCriteriaConfig<T>,
+      ][]
+    ) {
+      if (!(target in config.connectors)) {
+        throw new Error(
+          `Batching criteria specified for unknown connector '${target}'. Available connectors: ${
+            Object.keys(config.connectors).join(", ")
+          }`,
+        );
+      }
+      validateBatchingCriteria(criteria);
+    }
+  }
 
   console.log(
     `🔧 Configuration validated. Available connectors: ${
@@ -157,6 +206,16 @@ export function validateBatcherConfig<
         Object.keys(config.connectors)[0]
       }`,
     );
+  }
+
+  // Log batching criteria per connector
+  const connectorTargets = Object.keys(config.connectors);
+  for (const target of connectorTargets) {
+    const criteria = (config.batchingCriteria
+      ?.[target as keyof typeof config.batchingCriteria] as
+        | BatchingCriteriaConfig<T>
+        | undefined) ?? DEFAULT_BATCHING_CRITERIA;
+    console.log(`📏 ${target}: ${criteria.criteriaType} criteria`);
   }
 }
 

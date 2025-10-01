@@ -182,9 +182,8 @@ export async function startBatcherHttpServer(
     return {
       batcher: {
         isInitialized: batcher.isInitialized || false,
-        pendingInputs: status.pendingInputs,
-        criteriaType: status.criteriaType,
-        timeSinceLastProcess: status.timeSinceLastProcess,
+        totalPendingInputs: status.totalPendingInputs,
+        targets: status.targets,
         connectorTargets: status.connectorTargets,
       },
       config,
@@ -197,20 +196,22 @@ export async function startBatcherHttpServer(
       tags: ["developer"],
       response: {
         200: Type.Object({
-          pendingInputs: Type.Number(),
-          isReady: Type.Boolean(),
-          criteriaType: Type.String(),
-          timeSinceLastProcess: Type.Number(),
+          totalPendingInputs: Type.Number(),
+          targets: Type.Array(Type.Object({
+            target: Type.String(),
+            pendingInputs: Type.Number(),
+            isReady: Type.Boolean(),
+            criteriaType: Type.String(),
+            timeSinceLastProcess: Type.Number(),
+          })),
         }),
       },
     },
   }, async () => {
     const status = await batcher.getBatchingStatus();
     return {
-      pendingInputs: status.pendingInputs,
-      isReady: status.isReady,
-      criteriaType: status.criteriaType,
-      timeSinceLastProcess: status.timeSinceLastProcess,
+      totalPendingInputs: status.totalPendingInputs,
+      targets: status.targets,
     };
   });
 
@@ -323,7 +324,7 @@ export async function startBatcherHttpServer(
       return {
         success: true,
         message: "Batch processing forced",
-        remainingInputs: status.pendingInputs,
+        remainingInputs: status.totalPendingInputs,
       };
     } catch (error) {
       console.error("Error forcing batch:", error);

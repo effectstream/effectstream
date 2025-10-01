@@ -40,11 +40,14 @@ const batcherConfig: PaimaBatcherConfig = {
   },
   defaultTarget: "evm",
 
-  // Batching criteria - process when either time OR size criteria is met
+  // Per-connector batching criteria - allows different strategies per target
   batchingCriteria: {
-    criteriaType: "hybrid",
-    timeWindowMs: 60000, // OR
-    maxBatchSize: 10, // Process every 1 minute OR when 10 inputs accumulated
+    evm: {
+      criteriaType: "hybrid",
+      timeWindowMs: 60000, // OR
+      maxBatchSize: 10, // Process every 1 minute OR when 10 inputs accumulated
+    },
+    // Other connectors would use DEFAULT_BATCHING_CRITERIA (size=1) if not specified
   },
 
   // HTTP server configuration

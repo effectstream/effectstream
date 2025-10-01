@@ -33,6 +33,13 @@ export interface BatcherStorage<
   getInputCountAndSize(): Promise<{ count: number; size: number }>;
 
   /**
+   * Get all pending inputs for a specific target (efficient filtering)
+   * @param target - The target connector name
+   * @param defaultTarget - The default target to use when input.target is not specified
+   */
+  getInputsByTarget(target: string, defaultTarget: string): Promise<T[]>;
+
+  /**
    * Clear all inputs (useful for testing)
    */
   clearAllInputs(): Promise<void>;
@@ -149,6 +156,18 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
     }
   }
 
+  async getInputsByTarget(target: string, defaultTarget: string): Promise<T[]> {
+    try {
+      const allInputs = await this.getAllInputs();
+      return allInputs.filter((input) =>
+        (input.target || defaultTarget) === target
+      );
+    } catch (error) {
+      console.error("Error getting inputs by target:", error);
+      throw new Error(`Failed to get inputs by target: ${error}`);
+    }
+  }
+
   async clearAllInputs(): Promise<void> {
     try {
       await Deno.remove(this.filePath);
@@ -188,6 +207,9 @@ export class DatabaseStorage<
     throw new Error("DatabaseStorage not implemented yet");
   }
   getInputCountAndSize(): Promise<{ count: number; size: number }> {
+    throw new Error("DatabaseStorage not implemented yet");
+  }
+  getInputsByTarget(target: string, defaultTarget: string): Promise<T[]> {
     throw new Error("DatabaseStorage not implemented yet");
   }
   clearAllInputs(): Promise<void> {
