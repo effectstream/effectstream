@@ -1,15 +1,5 @@
 import { until } from "effection";
-import { ConfigPrimitiveType } from "@paima/config";
-import {
-  ERC20_INTERMEDIATE_PREFIX,
-  ERC20_VIEW_PREFIX,
-  erc20Ivm,
-} from "./ivm/erc20-ivm.ts";
-import {
-  ERC721_INTERMEDIATE_PREFIX,
-  ERC721_VIEW_PREFIX,
-  erc721Ivm,
-} from "./ivm/erc721-ivm.ts";
+
 // This import causes a circular dependency with the sync package.
 // import type { AllSyncProtocols } from "@paima/sync";
 import type { PoolClient } from "pg";
@@ -40,15 +30,10 @@ export function* createDynamicTables(
   }
 }
 
-const primitiveTypeFunctionMap: Record<string, (name: string) => string> = {
-  [ConfigPrimitiveType.EvmRpcERC20]: erc20Ivm,
-  [ConfigPrimitiveType.EvmRpcERC721]: erc721Ivm,
-};
-
 function* createDynamicTableForPrimitive(
   p: {
     primitive: {
-      type: ConfigPrimitiveType;
+      type: string;
       name: string;
     };
   },
@@ -57,17 +42,26 @@ function* createDynamicTableForPrimitive(
 ) {
   const type = p.primitive.type;
   const name = p.primitive.name;
-  const sqlFunction = primitiveTypeFunctionMap[type];
-  if (!sqlFunction) {
-    // This primitive does not have dynamic tables.
-    return;
+
+  // const primitive = PaimaPrimitiveRegistry.getPrimitive(name);
+  const primitive = (globalThis as any).PAIMA_REGISTRY[name];
+  if (!primitive) {
+    // This should never happen.
+    throw new Error(`Primitive ${name} not found`);
   }
+  const sqlFunction = primitive.getDynamicTables;
+
+  // This primitive does not have dynamic tables.
+  if (!sqlFunction) return;
+  const code = sqlFunction(name);
+  if (!code) return;
 
   const migrationName = `dynamic-tables-${type}-${name}`;
   const [migration] = yield* until(findMigrationByName.run({
     name: migrationName,
     isSystemMigration: true,
   }, dbConn));
+
   // This particular migration has been applied, so we can skip it.
   if (migration) return;
 
@@ -75,7 +69,7 @@ function* createDynamicTableForPrimitive(
     dbConn,
     lastBlockHeight,
     migrationName,
-    sqlFunction(name),
+    code,
     true,
   ));
 }
@@ -87,16 +81,12 @@ function* createDynamicTableForPrimitive(
  * @returns The prefix for the given primitive name.
  */
 export function getPrimitivePrefix(
-  primitiveType: ConfigPrimitiveType,
-): string | undefined {
-  switch (primitiveType) {
-    case ConfigPrimitiveType.EvmRpcERC20:
-      return ERC20_VIEW_PREFIX;
-    case ConfigPrimitiveType.EvmRpcERC721:
-      return ERC721_VIEW_PREFIX;
-    default:
-      return undefined;
-  }
+  primitiveType: string,
+): string[] {
+  const expectedPrimitive: any = Object.values(
+    (globalThis as any).PAIMA_REGISTRY,
+  ).find((primitive: any) => primitive.internalTypeName === primitiveType);
+  return expectedPrimitive?.getViewPrefix() || [];
 }
 
 /**
@@ -110,14 +100,10 @@ export function getPrimitivePrefix(
  * @returns The intermediate prefix for the given primitive type.
  */
 export function getPrimitiveIntermediatePrefix(
-  primitiveType: ConfigPrimitiveType,
-): string | undefined {
-  switch (primitiveType) {
-    case ConfigPrimitiveType.EvmRpcERC20:
-      return ERC20_INTERMEDIATE_PREFIX;
-    case ConfigPrimitiveType.EvmRpcERC721:
-      return ERC721_INTERMEDIATE_PREFIX;
-    default:
-      return undefined;
-  }
+  primitiveType: string,
+): string[] {
+  const expectedPrimitive: any = Object.values(
+    (globalThis as any).PAIMA_REGISTRY,
+  ).find((primitive: any) => primitive.internalTypeName === primitiveType);
+  return expectedPrimitive?.getIntermediatePrefix() || [];
 }

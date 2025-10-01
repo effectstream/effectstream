@@ -29,3 +29,16 @@ INSERT INTO another_example_table
 VALUES 
 (:sum!, :block_height!) 
 ;
+
+/* @name insertAvailMessage */
+INSERT INTO avail_messages 
+(message, height) 
+VALUES 
+(:message!, :height!) 
+;
+
+/* @name getLatestAvailMessage */
+SELECT * FROM avail_messages 
+ORDER BY height DESC
+LIMIT 1
+;

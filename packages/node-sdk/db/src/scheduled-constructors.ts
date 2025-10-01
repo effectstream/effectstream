@@ -7,11 +7,14 @@ import {
   removeScheduledBlockData,
   removeScheduledTimestampData,
 } from "./sql/rollup_inputs.queries.ts";
-import type { Caip2, TxHash, UnknownFormat } from "@paima/utils";
+import {
+  AddressType,
+  type Caip2,
+  type TxHash,
+  type UnknownFormat,
+} from "@paima/utils";
 import {
   type BlockNumber,
-  type HexString0x,
-  type HexStringNo0x,
   strip0x,
   type TimestampMs,
   type WalletAddress,
@@ -39,6 +42,7 @@ export function* createScheduledData(
       txHash: TxHash;
       caip2: Caip2;
       fromAddress: WalletAddress;
+      fromAddressType: AddressType;
       contractAddress: undefined | WalletAddress;
     }
     | {
@@ -49,6 +53,8 @@ export function* createScheduledData(
     const sourceParams = "precompile" in source
       ? {
         from_address: source.precompile,
+        // TODO: Check this value. What is the precompile types?
+        from_address_type: AddressType.NONE,
         primitive_name: null,
         origin_tx_hash: null,
         caip2: null,
@@ -56,6 +62,7 @@ export function* createScheduledData(
       }
       : {
         from_address: source.fromAddress,
+        from_address_type: source.fromAddressType,
         primitive_name: source.primitiveName,
         origin_tx_hash: Buffer.from(strip0x(source.txHash), "hex"),
         caip2: source.caip2,
@@ -76,6 +83,7 @@ export function* createScheduledData(
       future_ms_timestamp: new Date(trigger.timestamp),
       input_data: inputData,
       from_address: source.precompile,
+      from_address_type: AddressType.NONE,
     });
   }
 }

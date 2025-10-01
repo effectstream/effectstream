@@ -43,8 +43,12 @@ export async function testMigrations(db: Client) {
     async () => {
       // 2 system migrations
       // 4 dynamic tables
-      // 4 user migration
-      return migrations.rows.length === 10;
+      // 5 user migration
+      if (migrations.rows.length !== 11) {
+        console.error("Migrations rows length is not 10", migrations.rows);
+        return false;
+      }
+      return true;
     },
   );
 }

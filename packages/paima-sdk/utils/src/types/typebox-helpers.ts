@@ -1,4 +1,4 @@
-import { FormatRegistry, Kind, Type } from "@sinclair/typebox";
+import { FormatRegistry, type Kind, Type } from "@sinclair/typebox";
 import type {
   NumberOptions,
   RegExpOptions,
@@ -44,6 +44,7 @@ export type MaybeStaticDecode<T extends never | TSchema> = T extends TSchema
 // These types are used in the on-chain messages.
 // Do not change or reuse the numeric values.
 export enum AddressType {
+  NONE = -1,
   EVM = 0,
   CARDANO = 1,
   SUBSTRATE = 2,
@@ -279,6 +280,7 @@ export const TypeboxHelpers = {
 };
 
 export const AddressValidator = {
+  [AddressType.NONE]: Type.Literal("0x0"),
   [AddressType.EVM]: TypeboxHelpers.Evm.Address,
   [AddressType.CARDANO]: TypeboxHelpers.Cardano.Address,
   [AddressType.SUBSTRATE]: TypeboxHelpers.Substrate.Address,
@@ -288,7 +290,12 @@ export const AddressValidator = {
   [AddressType.MIDNIGHT]: TypeboxHelpers.Midnight.Address,
   [AddressType.POLKADOT]: TypeboxHelpers.Polkadot.Address,
 } as const satisfies Record<AddressType, TSchema>;
+
 export const AddressTypebox = [
+  Type.Object({
+    type: Type.Literal(AddressType.NONE),
+    address: Type.Literal("0x0"),
+  }),
   Type.Object({
     type: Type.Literal(AddressType.EVM),
     address: TypeboxHelpers.Evm.Address,

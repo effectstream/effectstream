@@ -11,7 +11,7 @@ deno task -f @minimal/node dev
 ```sh
 # another terminal
 cd frontend
-node build.js
+node esbuild.js
 npx http-server .
 ```
 

@@ -77,7 +77,7 @@ export class PaimaSTM<
     const listener = this.messageListeners.get(prefix);
     if (listener == null) {
       console.error(
-        `Prefix found with no corresponding state transition: ${prefix}`,
+        `Grammar match, but no prefix found with corresponding state transition: ${prefix}`,
       );
       return;
     }

@@ -6,7 +6,7 @@ import type {
 import { newStats, updateStats } from "@chess/db";
 import type { ConciseResult } from "@chess/utils";
 import type { UserStats } from "../v1/types.ts";
-import type { WalletAddress } from "@paimaexample/utils";
+import type { AddressType, WalletAddress } from "@paimaexample/utils";
 import {
   type INewScheduledHeightDataParams,
   newScheduledHeightData,
@@ -49,12 +49,14 @@ export function persistStatsUpdate(
 // Schedule a stats update to be executed in the future
 export function scheduleStatsUpdate(
   wallet: WalletAddress,
+  walletType: AddressType,
   result: ConciseResult,
   ratingChange: number,
   block_height: number,
 ): SQLUpdate {
   const params: INewScheduledHeightDataParams = {
     from_address: wallet,
+    from_address_type: walletType,
     future_block_height: block_height,
     input_data: createStatsUpdateInput(wallet, result, ratingChange),
   };

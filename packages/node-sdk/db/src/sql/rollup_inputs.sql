@@ -1,8 +1,8 @@
 /* @name newScheduledHeightData */
 WITH
   new_row AS (
-    INSERT INTO paima.rollup_inputs(from_address, input_data)
-    VALUES (:from_address!, :input_data!)
+    INSERT INTO paima.rollup_inputs(from_address, from_address_type, input_data)
+    VALUES (:from_address!, :from_address_type!, :input_data!)
     RETURNING id
   ),
   insert_origin AS (
@@ -15,8 +15,8 @@ SELECT (SELECT id FROM new_row), :future_block_height!;
 /* @name newScheduledTimestampData */
 WITH
   new_row AS (
-    INSERT INTO paima.rollup_inputs(from_address, input_data)
-    VALUES (:from_address!, :input_data!)
+    INSERT INTO paima.rollup_inputs(from_address, from_address_type, input_data)
+    VALUES (:from_address!, :from_address_type!, :input_data!)
     RETURNING id
   ),
   insert_origin AS (
@@ -29,8 +29,8 @@ SELECT (SELECT id FROM new_row), :future_ms_timestamp!;
 /* @name newGameInput */
 WITH
   new_row AS (
-    INSERT INTO paima.rollup_inputs(from_address, input_data)
-    VALUES (:from_address!, :input_data!)
+    INSERT INTO paima.rollup_inputs(from_address, from_address_type, input_data)
+    VALUES (:from_address!, :from_address_type!, :input_data!)
     RETURNING id
   ),
   insert_origin AS (
@@ -52,6 +52,7 @@ SELECT
   rollup_input_future_block.future_block_height,
   rollup_inputs.input_data,
   rollup_inputs.from_address,
+  rollup_inputs.from_address_type,
   rollup_input_origin.primitive_name,
   rollup_input_origin.contract_address,
   rollup_input_origin.caip2,
@@ -70,6 +71,7 @@ SELECT
   NULL AS "future_block_height",
   rollup_inputs.input_data,
   rollup_inputs.from_address,
+  rollup_inputs.from_address_type,
   rollup_input_origin.primitive_name,
   rollup_input_origin.contract_address,
   rollup_input_origin.caip2,
@@ -111,6 +113,7 @@ SELECT
   rollup_input_future_block.future_block_height,
   rollup_inputs.input_data,
   rollup_inputs.from_address,
+  rollup_inputs.from_address_type,
   rollup_input_origin.primitive_name,
   rollup_input_origin.contract_address,
   rollup_input_origin.caip2,
@@ -127,6 +130,7 @@ SELECT
   rollup_input_future_timestamp.future_ms_timestamp,
   rollup_inputs.input_data,
   rollup_inputs.from_address,
+  rollup_inputs.from_address_type,
   rollup_input_origin.primitive_name,
   rollup_input_origin.contract_address,
   rollup_input_origin.caip2,
@@ -146,6 +150,7 @@ SELECT
   paima_blocks.block_height,
   rollup_inputs.input_data,
   rollup_inputs.from_address,
+  rollup_inputs.from_address_type,
   paima_blocks.paima_block_hash,
   rollup_input_origin.contract_address,
   rollup_input_result.paima_tx_hash,
@@ -163,6 +168,7 @@ SELECT
   paima_blocks.block_height,
   rollup_inputs.input_data,
   rollup_inputs.from_address,
+  rollup_inputs.from_address_type,
   paima_blocks.paima_block_hash,
   rollup_input_result.paima_tx_hash,
   rollup_input_result.index_in_block,
@@ -178,6 +184,7 @@ SELECT
   paima_blocks.block_height,
   rollup_inputs.input_data,
   rollup_inputs.from_address,
+  rollup_inputs.from_address_type,
   paima_blocks.paima_block_hash,
   rollup_input_result.paima_tx_hash,
   rollup_input_result.index_in_block,

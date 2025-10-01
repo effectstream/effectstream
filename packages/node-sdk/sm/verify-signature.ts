@@ -25,6 +25,8 @@ export function* verifySignature(
   if (!walletAddress || !signature) throw new Error("No Signature");
 
   switch (addressType) {
+    case AddressType.NONE:
+      throw new Error("Invalid address type: " + addressType);
     case AddressType.EVM:
       break;
     case AddressType.CARDANO:
@@ -39,7 +41,7 @@ export function* verifySignature(
     default:
       assertNever(addressType);
   }
-  
+
   // TODO: Add other chains here.
   const WALLET_VALIDATORS = [
     CryptoManager.Evm(),

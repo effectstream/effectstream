@@ -27,5 +27,6 @@ echo "🧪 Running tests..."
 #
 #       This is a workaround to avoid launching YACI DEVKIT.
 #
-DISABLE_LINUX_YACI=true PAIMA_E2E_LOG_DEBUG=1 deno task -f @e2e/node test
+# TODO: DISABLE_AVAIL=true is temporal as avail is not running in linux as in macos
+DISABLE_AVAIL=true DISABLE_LINUX_YACI=true PAIMA_E2E_LOG_DEBUG=1 deno task -f @e2e/node test
 

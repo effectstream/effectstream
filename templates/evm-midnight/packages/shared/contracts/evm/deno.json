@@ -10,8 +10,8 @@
   // TODO: how these actually will work will depend on the hardhat v3 viem plugin
   //       See https://github.com/NomicFoundation/hardhat/issues/5978
   "imports": {
-    "@paimaexample/evm-hardhat": "jsr:@paimaexample/evm-hardhat@0.3.44",
-    "@paimaexample/log": "jsr:@paimaexample/log@0.3.44",
+    "@paimaexample/evm-hardhat": "jsr:@paimaexample/evm-hardhat@0.3.47",
+    "@paimaexample/log": "jsr:@paimaexample/log@0.3.47",
     "@wagmi/cli": "npm:@wagmi/cli@2.3.1",
     "hardhat": "npm:hardhat@3.0.4",
     "@nomicfoundation/hardhat-ignition-viem": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
@@ -34,24 +34,36 @@
     "build:clean": "rm -rf build || true",
     "build:forge": {
       "command": "forge build",
-      "dependencies": ["swap:remappings:forge"]
+      "dependencies": [
+        "swap:remappings:forge"
+      ]
     },
     "build:hardhat": {
       "command": "deno run -A npm:hardhat@3.0.4 compile",
-      "dependencies": ["swap:remappings:hardhat"]
+      "dependencies": [
+        "swap:remappings:hardhat"
+      ]
     },
     "build": {
       "command": "deno task build:forge && deno task build:hardhat",
-      "dependencies": ["build:clean"]
+      "dependencies": [
+        "build:clean"
+      ]
     },
     "deploy:clean": "rm -rf ignition/deployments || true",
+    "contract:compile": "deno task build:mod",
     "deploy:standalone": {
-      "command": "(((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && deno task chain:stop) || true",
-      "dependencies": ["build"]
+      "command": "(((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && (deno task chain:stop)) || true",
+      "dependencies": [
+        "deploy:clean",
+        "build"
+      ]
     },
     "deploy": {
       "command": "deno run -A deploy.ts",
-      "dependencies": ["deploy:clean"]
+      "dependencies": [
+        "deploy:clean"
+      ]
     },
     "chain:start": "deno run -A npm:hardhat@3.0.4 node",
     "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",

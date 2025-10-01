@@ -22,7 +22,7 @@ Open [http://localhost:10599](http://localhost:10599)
 
 ```
 # If running in MacOS Apple Silicon set platform
-DOCKER_DEFAULT_PLATFORM=linux/amd64
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
 
 # Build Docker Image
 docker build -f ./Dockerfile . -t evm-midnight 

@@ -1,81 +1,60 @@
 import type {
-  StaticDecode,
-  TLiteral,
-  TObject,
-  TSchema,
-} from "@sinclair/typebox";
-import type { ConfigSyncProtocolType } from "../sync-protocols/types.ts";
-import type {
-  ConfigPrimitivePayloadType,
-  ResponseForSyncProtocol,
-} from "./output/types.ts";
-import type { KeyedConfigPrimitiveAll } from "./config/all.ts";
-import type { IdxOf, MaybeStaticDecode, MergeIntersects } from "@paima/utils";
-import type { ConfigPrimitiveType } from "./config/types.ts";
+  ConfigSyncProtocolType,
+  ProtocolPrimitiveMap,
+} from "../sync-protocols/types.ts";
+import type { EncodedStateValue } from "@midnight-ntwrk/onchain-runtime";
 
-export type SyncProtocolIO<SyncProtocol extends ConfigSyncProtocolType> =
-  SyncProtocolToIO<
-    ResponseForSyncProtocol<SyncProtocol>
-  >;
-
-export type ToKeyedUnion<Arr extends readonly TSchema[]> = {
-  [
-    K in IdxOf<Arr> as StaticDecode<Arr[K]> extends { type: infer Type }
-      ? Type & string
-      : never
-  ]: Arr[K];
-};
-
-type SyncProtocolToIO<U> = U extends
-  TObject<{ primitive: TLiteral<infer Primitives> }> ? TObject<{
-    input: Primitives extends keyof KeyedConfigPrimitiveAll
-      ? KeyedConfigPrimitiveAll[Primitives]
-      : never;
-    output: U;
-  }>
-  : never;
-
-/**
- * This is purely because Typescript cannot type-guard nested properties
- * like refining `input` based on `output.primitive`
- * https://github.com/microsoft/TypeScript/pull/38839
- */
-export type FlattenSyncProtocolIO<IO> = IO extends {
-  input: any;
-  output: { primitive: infer Primitive; payloadType: infer PayloadType };
-} ? {
-    input: IO["input"];
-    output: IO["output"];
-    primitiveType: Primitive;
-    payloadType: PayloadType;
-  }
-  : never;
+export type { EncodedStateValue };
 
 export type FlattenSyncProtocolIOFor<
-  SyncProtocol extends ConfigSyncProtocolType,
-  Primitive extends ConfigPrimitiveType,
-  Payload extends ConfigPrimitivePayloadType,
-> = Extract<
-  FlattenSyncProtocolIO<
-    SyncProtocolIO<SyncProtocol> extends infer R extends TSchema
-      ? MergeIntersects<MaybeStaticDecode<R>>
-      : never
-  >,
-  {
-    primitiveType: Primitive;
-    payloadType: Payload;
-  }
->;
+  SyncProtocol extends keyof ProtocolPrimitiveMap,
+> = {
+  syncProtocol: {
+    name: SyncProtocol;
+    blockNumber: number;
+    transactionHash: string;
+    transactionIndex?: number;
+    contractAddress: string;
+    logIndex?: number;
+  };
+  primitive: string;
+  output: {
+    payloadType: string;
+    payload: ProtocolPayloadMap[SyncProtocol];
+  };
+};
 
-export function flattenIO<
-  const IO extends { input: any; output: { primitive: any; payloadType: any } },
->(
-  io: { input: IO["input"]; output: IO["output"] },
-): IO & FlattenSyncProtocolIO<IO> {
-  return {
-    input: io.input,
-    output: io.output,
-    primitiveType: io.output.primitive,
-    payloadType: io.output.payloadType,
-  } as IO & FlattenSyncProtocolIO<IO>;
+type EVMPrimitivePayload = Record<string, any>;
+
+type MidnightTPrimitivePayload = EncodedStateValue;
+
+type NtpPrimitivePayload = never;
+
+type CardanoCarpPrimitivePayload = {
+  TODO_MISSING_FIELDS: string;
+};
+
+type CardanoUtxoRpcPrimitivePayload = {
+  TODO_MISSING_FIELDS: string;
+};
+
+type MinaPrimitivePayload = {
+  TODO_MISSING_FIELDS: string;
+};
+
+type AvailPrimitivePayload = {
+  inputData: string;
+  inputNonce: string;
+  suppliedValue: string;
+};
+
+interface ProtocolPayloadMap {
+  [ConfigSyncProtocolType.NTP_MAIN]: NtpPrimitivePayload;
+  [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: EVMPrimitivePayload;
+  [ConfigSyncProtocolType.CARDANO_CARP_PARALLEL]: CardanoCarpPrimitivePayload;
+  [ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL]:
+    CardanoUtxoRpcPrimitivePayload;
+  [ConfigSyncProtocolType.MINA_PARALLEL]: MinaPrimitivePayload;
+  [ConfigSyncProtocolType.AVAIL_PARALLEL]: AvailPrimitivePayload;
+  [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: MidnightTPrimitivePayload;
 }

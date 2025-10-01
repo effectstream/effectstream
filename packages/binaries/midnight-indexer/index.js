@@ -11,9 +11,7 @@ const os = require("os");
 function checkIfBinaryExists() {
   const platform = getPlatform();
   const parts = platform.split("-");
-  const binaryName = (parts[0] === "linux")
-    ? `indexer-standalone-${platform}`
-    : `indexer-standalone`;
+  const binaryName = `indexer-standalone-${platform}`;
   return fs.existsSync(
     path.join(__dirname, "indexer-standalone", binaryName),
   );

@@ -6,8 +6,6 @@ import type {
   UnknownFormat,
 } from "@paima/utils";
 import type {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
 } from "@paima/config";
@@ -40,9 +38,7 @@ export type ExtrinsicPrimitive = {
   extrinsic: true;
   /** primitive that triggered this event */
   info: FlattenSyncProtocolIOFor<
-    ConfigSyncProtocolType,
-    ConfigPrimitiveType,
-    ConfigPrimitivePayloadType
+    ConfigSyncProtocolType
   >;
 };
 

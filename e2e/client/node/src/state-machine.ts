@@ -3,12 +3,14 @@ import { grammar } from "@e2e/data-types";
 import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import {
   getLastSumFromExampleTable,
+  insertAvailMessage,
   insertStateMachineInput,
   insertSumIntoExampleTable,
 } from "@e2e/database";
 import type { StartConfigGameStateTransitions } from "@paima/runtime";
 import { newScheduledHeightData, newScheduledTimestampData } from "@paima/db";
 import { type SyncStateUpdateStream, World } from "@paima/coroutine";
+import { AddressType } from "@paima/utils";
 // import { createScheduledData } from "@paima/db";
 
 type MyEvents = {}; // TODO: replace
@@ -43,7 +45,8 @@ stm.addStateTransition("attack", function* (data) {
   // Example 1:
   // How to write in the DB.
   yield* World.resolve(insertStateMachineInput, {
-    inputs: `attack playerId: ${data.parsedInput.playerId} with moveId: ${data.parsedInput.moveId}`,
+    inputs:
+      `attack playerId: ${data.parsedInput.playerId} with moveId: ${data.parsedInput.moveId}`,
     block_height: data.blockHeight,
   });
 
@@ -84,35 +87,29 @@ stm.addStateTransition("attack", function* (data) {
 
 stm.addStateTransition("midnightContractState", function* (data) {
   const { payload } = data.parsedInput;
-
-  // Handle different EncodedStateValue variants
-  switch (payload.tag) {
-    case "null":
-      console.log("📭 Contract state is null");
-      break;
-
-    case "cell":
-      console.log("📦 Contract state has cell content:", payload.content);
-      break;
-
-    case "array":
-      console.log(
-        "📚 Contract state is array with",
-        payload.content.length,
-        "items"
-      );
-      break;
-
-    case "map":
-      console.log("🗺️ Contract state is a map:", payload.content);
-      break;
-    default:
-      console.warn("❓ Unknown contract state tag:", payload);
-      break;
-  }
-
+  console.error("🎉 [MIDNIGHT] Transaction receipt:", payload);
   return;
 });
+
+stm.addStateTransition(
+  "avail-app-state",
+  function* (data) {
+    const { payload } = data.parsedInput;
+    const parsedPayload = JSON.parse(payload.suppliedValue);
+    console.log(
+      `[${Date.now()}]`,
+      "📦 Avail App state has message:",
+      parsedPayload.message || parsedPayload,
+    );
+    if (parsedPayload.message) {
+      yield* World.resolve(insertAvailMessage, {
+        message: parsedPayload.message,
+        height: data.blockHeight,
+      });
+    }
+    return;
+  },
+);
 
 stm.addStateTransition("throw_error", function* (data) {
   throw new Error("This is a test error");
@@ -126,6 +123,7 @@ stm.addStateTransition("schedule", function* (data) {
     case "block":
       yield* World.resolve(newScheduledHeightData, {
         from_address: "0x0",
+        from_address_type: AddressType.NONE,
         future_block_height: data.blockHeight + tick,
         input_data: JSON.stringify(["attack", playerId, 1]),
       });
@@ -134,6 +132,7 @@ stm.addStateTransition("schedule", function* (data) {
     case "timestamp":
       yield* World.resolve(newScheduledTimestampData, {
         from_address: "0x0",
+        from_address_type: AddressType.NONE,
         future_ms_timestamp: new Date(data.blockTimestamp + tick),
         input_data: JSON.stringify(["attack", playerId, 1]),
       });
@@ -145,8 +144,8 @@ stm.addStateTransition("schedule", function* (data) {
   return;
 });
 
-stm.addStateTransition("transfer", function* (data) {
-  const { to, from, value } = data.parsedInput.payload;
+stm.addStateTransition("transfer-erc20", function* (data) {
+  const { to, from, value } = data.parsedInput;
   yield* World.resolve(insertStateMachineInput, {
     inputs: `transfer ${value} from ${from} to ${to}`,
     block_height: data.blockHeight,
@@ -167,7 +166,7 @@ stm.addStateTransition("transfer", function* (data) {
  */
 export const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
-  input: BaseStfInput
+  input: BaseStfInput,
 ): SyncStateUpdateStream<void> {
   if (blockHeight >= 0) {
     yield* stm.processInput(input);

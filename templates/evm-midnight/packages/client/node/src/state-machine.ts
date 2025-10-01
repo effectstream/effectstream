@@ -23,21 +23,25 @@ function decodeString(data: Record<string, number>, length: number) {
 stm.addStateTransition(
   "midnightContractState",
   function* (data) {
-    const round = data.parsedInput.payload.content[0].content.value[0]["0"];
+    // TODO Improve the midnight generic primitive to not need to decode the string.
+    const payload: any = data.parsedInput.payload;
+    console.error("🎉 [MIDNIGHT] Transaction receipt:", payload);
+
+    const round = payload.content[0].content.value[0]["0"];
     const contract_address = decodeString(
-      data.parsedInput.payload.content[1].content.value[0],
+      payload.content[1].content.value[0],
       64,
     );
     const token_id = decodeString(
-      data.parsedInput.payload.content[2].content.value[0],
+      payload.content[2].content.value[0],
       64,
     );
     const property_name = decodeString(
-      data.parsedInput.payload.content[3].content.value[0],
+      payload.content[3].content.value[0],
       32,
     );
     const value = decodeString(
-      data.parsedInput.payload.content[4].content.value[0],
+      payload.content[4].content.value[0],
       32,
     );
     console.log(
@@ -55,29 +59,37 @@ stm.addStateTransition(
       return;
     }
 
-    const [evmMidnight] = yield* World.resolve(getEvmMidnightByTokenId, {
-      contract_address,
-      token_id,
-    });
-
-    if (!evmMidnight) {
-      console.log("🎉 [TRANSFER-ASSETS] Inserting midnight with no owner");
-      yield* World.resolve(insertEvmMidnight, {
+    try {
+      const [evmMidnight] = yield* World.resolve(getEvmMidnightByTokenId, {
         contract_address,
         token_id,
-        owner: "",
+      });
+
+      if (!evmMidnight) {
+        console.log("🎉 [TRANSFER-ASSETS] Inserting midnight with no owner");
+        yield* World.resolve(insertEvmMidnight, {
+          contract_address,
+          token_id,
+          owner: "",
+          block_height: data.blockHeight,
+        });
+      }
+
+      console.log("🎉 [TRANSFER-ASSETS] Inserting midnight property");
+      yield* World.resolve(insertEvmMidnightProperty, {
+        contract_address,
+        token_id,
+        property_name,
+        value,
         block_height: data.blockHeight,
       });
+    } catch (error) {
+      console.error(
+        "[TRANSFER-ASSETS] Database not ready.",
+        error,
+      );
+      return;
     }
-
-    console.log("🎉 [TRANSFER-ASSETS] Inserting midnight property");
-    yield* World.resolve(insertEvmMidnightProperty, {
-      contract_address,
-      token_id,
-      property_name,
-      value,
-      block_height: data.blockHeight,
-    });
   },
 );
 
@@ -85,11 +97,11 @@ stm.addStateTransition(
   "transfer-assets",
   function* (data) {
     console.log("🎉 [TRANSFER-ASSETS] Transaction receipt:");
-    console.log(JSON.stringify(data.parsedInput.payload, null, 2));
+    console.log(JSON.stringify(data.parsedInput, null, 2));
+    const { to, tokenId }: any = data.parsedInput;
     const contract_address =
       contractAddressesEvmMain().chain31337["Erc721DevModule#Erc721Dev"];
     console.log("🎉 [TRANSFER-ASSETS] Contract address:", contract_address);
-    const { to, tokenId } = data.parsedInput.payload;
     yield* World.resolve(insertEvmMidnight, {
       contract_address,
       token_id: tokenId,

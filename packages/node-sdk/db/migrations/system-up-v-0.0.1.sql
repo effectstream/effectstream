@@ -16,6 +16,7 @@ CREATE TABLE paima.paima_blocks (
 CREATE TABLE paima.rollup_inputs (
   id SERIAL PRIMARY KEY,
   from_address TEXT NOT NULL,
+  from_address_type INTEGER NOT NULL,
   input_data TEXT NOT NULL
 );
 

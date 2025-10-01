@@ -5,10 +5,11 @@ import type { IGetLobbyByIdResult } from "@chess/db";
 import type { SubmittedMovesInput } from "../v1/types.ts";
 import {
   type INewScheduledHeightDataParams,
-  IRemoveScheduledBlockDataParams,
+  type IRemoveScheduledBlockDataParams,
   newScheduledHeightData,
   removeScheduledBlockData,
 } from "@paimaexample/db";
+import { AddressType } from "@paimaexample/utils";
 
 type SQLUpdate = [any, any];
 
@@ -19,6 +20,7 @@ export function scheduleZombieRound(
 ): SQLUpdate {
   const params: INewScheduledHeightDataParams = {
     from_address: "0x0", // TODO This should be a Paima Engine Constant
+    from_address_type: AddressType.NONE,
     future_block_height: block_height,
     input_data: createZombieInput(lobbyId),
   };

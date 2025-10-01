@@ -14,11 +14,17 @@ import {
   keysOf,
 } from "@paima/utils";
 import { blockNumberRelation } from "../common/utils.ts";
-import type { Input, Output, Page, PrimitiveType } from "./types.ts";
+import type {
+  ConfigType,
+  Input,
+  Output,
+  Page,
+  PrimitiveEntryType,
+  PrimitiveType,
+} from "./types.ts";
 import { PageSchema } from "./types.ts";
 import {
   fetchNewestPage,
-  genImmediatePageRequests,
   genOnDemandPageRequests,
   type PageRange,
   type PageRequest,
@@ -30,7 +36,7 @@ import type {
   PrimitiveEntry,
   SyncProtocolWithNetwork,
 } from "@paima/config";
-import { ConfigSyncProtocolType } from "@paima/config";
+import type { ConfigSyncProtocolType } from "@paima/config";
 import { Value } from "@sinclair/typebox/value";
 
 export class EvmFetcher
@@ -45,10 +51,7 @@ export class EvmFetcher
     >,
     PaginatedFetcher<Page> {
   constructor(
-    readonly config: Extract<
-      SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.EVM }
-    >,
+    readonly config: ConfigType,
     readonly client: PublicClient<any, Chain, any, any>,
   ) {
     super(config.syncProtocol.name);
@@ -137,7 +140,7 @@ export class EvmFetcher
     return primitives.reduce((acc, primitive) => {
       const key = Value.Decode(
         PageSchema,
-        Number(primitive.output.syncProtocol.payload.ownChain.blockNumber),
+        Number(primitive.syncProtocol.blockNumber),
       );
       (acc[key] ??= []).push(
         primitive,
@@ -150,18 +153,16 @@ export class EvmFetcher
     fromBlock: bigint,
     toBlock: bigint,
     client: PublicClient<any, Chain, any, any>,
-    primitive: PrimitiveEntry<
-      ConfigSyncProtocolType.EVM_RPC_PARALLEL
-    >,
+    primitiveEntry: PrimitiveEntryType,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
   ): Operation<
     PrimitiveType[]
   > {
-    // Fetch range of eventlogs
+    // Fetch range of event-logs
     const logs = yield* call(() =>
       client.getLogs({
-        address: primitive.primitive.contractAddress,
-        event: primitive.primitive.abi,
+        address: primitiveEntry.primitive.contractAddress as `0x${string}`,
+        event: primitiveEntry.primitive.abi,
         fromBlock,
         toBlock,
         strict: true,
@@ -172,34 +173,26 @@ export class EvmFetcher
     const primitiveResponses: PrimitiveType[] = [];
     for (const log of logs) {
       // const block = yield* call(() => pageRequest(Number(log.blockNumber)));
+      const args = (log as unknown as {
+        args: Record<string, any>;
+      }).args;
       const primitiveResponse: PrimitiveType = {
-        input: primitive.primitive as any,
+        syncProtocol: {
+          name: primitiveEntry.syncProtocol,
+          blockNumber: Number(log.blockNumber),
+          transactionHash: log.transactionHash,
+          transactionIndex: log.transactionIndex,
+          contractAddress: log.address,
+          logIndex: log.logIndex,
+        },
+        primitive: primitiveEntry.primitive.name,
         output: {
-          payloadType: primitive.primitive.abi.name as any,
-          primitive: primitive.primitive as any,
-          payload: log.args,
-          syncProtocol: {
-            type: primitive.syncProtocol as any,
-            name: primitive.primitive.name,
-            internal: {},
-            payload: {
-              primitiveName: primitive.primitive.name,
-              caip2: `eip155:${client.chain.id}`,
-              ownChain: {
-                blockNumber: Number(log.blockNumber),
-                // timestamp: Number(block.timestamp),
-              },
-              transactionHash: log.transactionHash,
-              transactionIndex: log.transactionIndex,
-              contractAddress: log.address,
-              logIndex: log.logIndex,
-            },
-          },
-        } as any,
-        primitiveType: primitive.primitive.type,
-        payloadType: primitive.primitive.abi.name as any,
+          payloadType: primitiveEntry.primitive.abi.name,
+          payload: args,
+        },
       };
-      primitiveResponses.push(primitiveResponse as any);
+
+      primitiveResponses.push(primitiveResponse);
     }
 
     return primitiveResponses;
@@ -209,8 +202,9 @@ export class EvmFetcher
   *readPrimitives(
     data: Input,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
-    primitives: PrimitiveEntry<
-      ConfigSyncProtocolType.EVM_RPC_PARALLEL
+    primitiveEntries: Extract<
+      PrimitiveEntry,
+      { syncProtocol: ConfigSyncProtocolType.EVM_RPC_PARALLEL }
     >[],
   ): Operation<PrimitiveType[]> {
     const client = this.client;
@@ -218,7 +212,7 @@ export class EvmFetcher
 
     const fromBlock = yield* call(() => pageRequest(data.from));
     const toBlock = yield* call(() => pageRequest(data.to));
-    for (const primitive of primitives) {
+    for (const primitive of primitiveEntries) {
       allOperations.push(
         this.fetchLogsAndExtractPrimitiveData(
           fromBlock.number,

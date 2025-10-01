@@ -11,7 +11,12 @@ const BASE_URL_DOCS = `http://127.0.0.1:${ENV.DOCS_PORT}`;
 const BASE_URL_MIDNIGHT_INDEXER = `http://127.0.0.1:8088`;
 const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
 
-export const BASE_URL_MIDNIGHT_NODE = `http://127.0.0.1:9944`;
+const BASE_URL_MIDNIGHT_NODE_A = `http://127.0.0.1:9944`;
+
+export const getMidnightNodeUrl = async (): Promise<string> => {
+  return BASE_URL_MIDNIGHT_NODE_A;
+};
+
 export const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
 export const BASE_URL_MIDNIGHT_INDEXER_API =
   `${BASE_URL_MIDNIGHT_INDEXER}/api/v1/graphql`;

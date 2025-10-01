@@ -30,7 +30,8 @@ interface WalletContextType {
   address: string | null;
   walletClient: WalletClient | null;
   walletType: "local" | "browser" | null;
-  connectEvmWallet: () => Promise<void>;
+  connectEvmWallet: () => void;
+  connectBrowserWallet: () => Promise<void>;
   connectLocalWallet: () => Promise<void>;
   disconnectWallet: () => void;
   signMessage: (message: string) => Promise<string>;
@@ -90,10 +91,18 @@ export function WalletProvider({ children }: WalletProviderProps) {
     }
   };
 
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
+  const openModal = () => {
+    setIsModalOpen(true);
+  };
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
 
-  const connectEvmWallet = async () => {
+  const connectEvmWallet = () => {
+    openModal();
+  };
+
+  const connectBrowserWallet = async () => {
     if (typeof globalThis !== "undefined" && (globalThis as any).ethereum) {
       try {
         const accounts = await (globalThis as any).ethereum.request({
@@ -108,6 +117,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
         setAddress(accounts[0]);
         setIsConnected(true);
         setWalletType("browser");
+        closeModal();
 
         console.log("🔗 [WALLET] MetaMask connected:", accounts[0]);
       } catch (error) {
@@ -133,6 +143,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
       setAddress(account.address);
       setIsConnected(true);
       setWalletType("local");
+      closeModal();
       console.log("🔗 [WALLET] Local wallet connected:", account.address);
     } catch (error) {
       console.error("Failed to connect local wallet:", error);
@@ -207,6 +218,7 @@ export function WalletProvider({ children }: WalletProviderProps) {
     walletClient,
     walletType,
     connectEvmWallet,
+    connectBrowserWallet,
     connectLocalWallet,
     disconnectWallet,
     signMessage,

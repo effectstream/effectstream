@@ -1,20 +1,3 @@
-// This file is part of midnightntwrk/example-counter.
-// Copyright (C) 2025 Midnight Foundation
-// SPDX-License-Identifier: Apache-2.0
-// Licensed under the Apache License, Version 2.0 (the "License");
-// You may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { assertSQL, type SharedState } from "@e2e/engine";
 import type { ContractAddress } from "@midnight-ntwrk/compact-runtime";
 import {
@@ -49,6 +32,7 @@ import * as Rx from "rxjs";
 import { WebSocket } from "ws";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
+import { blockWatcher } from "@e2e/engine";
 import {
   getLedgerNetworkId,
   getZswapNetworkId,
@@ -446,16 +430,18 @@ async function joinAndIncrementTest(
     console.error("❌ Error:", error instanceof Error ? error.message : error);
     // Deno.exit(1);
   } finally {
+    await blockWatcher.waitForBlock();
     // Clean up wallet
     if (wallet) {
       try {
         console.log("🧹 Wallet closed successfully");
+        await blockWatcher.waitForBlock();
         await assertSQL<{
           primitive_name: string;
           id: number;
           paima_block_height: number;
           payload_type: string;
-          payload: {
+          payload: { payload: {
             tag: string;
             content: {
               tag: string;
@@ -463,16 +449,16 @@ async function joinAndIncrementTest(
                 value: { "0"?: number }[];
               };
             }[];
-          };
+          } };
         }>(
           "MidnightRowsExists",
           db,
           "SELECT * FROM paima.primitive_accounting WHERE primitive_name = 'MidnightContractState'",
           (res) => res.rowCount === 2,
           (res) => {
-            return res.rows[0].payload.content[0].content.value[0]["0"] ===
+            return res.rows[0].payload.payload.content[0].content.value[0]["0"] ===
                 undefined &&
-              res.rows[1].payload.content[0].content.value[0]["0"] === 1;
+              res.rows[1].payload.payload.content[0].content.value[0]["0"] === 1;
           },
         );
 

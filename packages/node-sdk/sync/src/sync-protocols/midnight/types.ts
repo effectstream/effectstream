@@ -8,10 +8,11 @@ import type {
   TimestampMs,
 } from "@paima/utils";
 import type {
-  ConfigPrimitivePayloadType,
-  ConfigPrimitiveType,
+  ConfigNetworkType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
+  PrimitiveEntry,
+  SyncProtocolWithNetwork,
 } from "@paima/config";
 
 export type CommonFunnelArgs = {
@@ -84,9 +85,7 @@ export type Page = {
 };
 
 export type PrimitiveType = FlattenSyncProtocolIOFor<
-  ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
-  ConfigPrimitiveType.MidnightContractState,
-  ConfigPrimitivePayloadType.Event
+  ConfigSyncProtocolType.MIDNIGHT_PARALLEL
 >;
 export type Input = PageSyncRange<BlockNumber>;
 export type Output = {
@@ -100,3 +99,13 @@ export const pageRelation: PageRelation<Page> = {
   min: (p1, p2) => (p1.height < p2.height ? p1 : p2),
   max: (p1, p2) => (p1.height > p2.height ? p1 : p2),
 };
+
+export type ConfigType = Extract<
+  SyncProtocolWithNetwork,
+  { networkType: ConfigNetworkType.MIDNIGHT }
+>;
+
+export type PrimitiveEntryType = Extract<
+  PrimitiveEntry,
+  { syncProtocol: ConfigSyncProtocolType.MIDNIGHT_PARALLEL }
+>;

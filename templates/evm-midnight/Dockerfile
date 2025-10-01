@@ -3,7 +3,7 @@
 # DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run evm-midnight-sample
 
 # Use Ubuntu as base image
-FROM denoland/deno:ubuntu-2.4.1
+FROM denoland/deno:ubuntu-2.5.2
 
 # # Update package list and install required dependencies
 RUN apt-get update && apt-get install -y \
@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     # xz is required for compactc
     xz-utils \
     unzip \
+    nginx \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js
@@ -42,7 +43,6 @@ RUN forge --version && cast --version && anvil --version
 # Install Compact
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
-# RUN ls -l /root/.local/bin
 RUN which compact
 RUN compact update
 RUN compact --version
@@ -73,6 +73,6 @@ EXPOSE 8546
 EXPOSE 8545
 EXPOSE 6300
 
-
+ENV RUN_IN_DOCKER=true
 ENV PAIMA_STDOUT=true
 CMD ["deno", "task", "dev"]

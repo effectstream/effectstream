@@ -33,7 +33,7 @@ export class MidnightSyncState extends SyncState<
       { networkType: ConfigNetworkType.MIDNIGHT }
     >,
     fetcher: MidnightFetcher,
-    private readonly client: MidnightClient,
+    public readonly client: MidnightClient,
     dbConn: PoolClient,
   ) {
     super(

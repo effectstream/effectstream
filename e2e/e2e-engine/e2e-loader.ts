@@ -8,6 +8,7 @@ import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { launchCardano } from "@paima/orchestrator/start-cardano";
 import { launchEvm } from "@paima/orchestrator/start-evm";
 import { launchMidnight } from "@paima/orchestrator/start-midnight";
+import { launchAvail } from "@paima/orchestrator/start-avail";
 import { getPaimaEVMPublicClient } from "@e2e/engine";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -15,6 +16,14 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const external_db_enabled = Deno.env.get("EXTERNAL_DB_ENABLED") === "true";
 const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
   ? false
+  : true;
+
+const midnight_enabled = Deno
+  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
+  : true;
+
+const avail_enabled = Deno
+  ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
   : true;
 
 /**
@@ -30,6 +39,7 @@ export async function startup(): Promise<Client> {
       [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
       [ComponentNames.PAIMA_BATCHER]: true, // Enable batcher for e2e tests
 
+      [ComponentNames.DOCS]: false,
       [ComponentNames.TUI]: false,
       [ComponentNames.TMUX]: false,
     },
@@ -40,8 +50,8 @@ export async function startup(): Promise<Client> {
     processesToLaunch: [
       launchEvm("@e2e/evm-contracts"),
       yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
-      launchMidnight("@e2e/midnight-contracts"),
-      // launchAvail
+      midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : {},
+      avail_enabled ? launchAvail("@e2e/avail-contracts") : {},
     ],
 
     batcher: {
