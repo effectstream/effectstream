@@ -70,10 +70,10 @@ async function createSignedInput(conciseInput: string, walletInfo: WalletInfo) {
 
   return {
     addressType,
-    userAddress,
-    userSignature: signature,
-    conciseInput,
-    millisecondTimestamp: timestamp,
+    address: userAddress,
+    signature: signature,
+    input: conciseInput,
+    timestamp: timestamp,
   };
 }
 
@@ -99,7 +99,7 @@ async function postToBatcher(jsonArrayString: string, walletInfo: WalletInfo) {
 
   console.log("✅ Signed input created:", {
     ...signedInput,
-    userSignature: signedInput.userSignature.slice(0, 10) + "...",
+    userSignature: signedInput.signature.slice(0, 10) + "...",
   });
 
   console.log("📤 Sending to batcher...");

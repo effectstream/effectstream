@@ -1,7 +1,8 @@
 {
   "dependencies": {
     "@paimaexample/explorer": "0.3.44",
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "viem": "^2.37.9"
   },
   "devDependencies": {
   }

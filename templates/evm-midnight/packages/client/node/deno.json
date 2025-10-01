@@ -3,13 +3,14 @@
   "version": "0.3.22",
   "license": "MIT",
   "exports": {
-    ".": "./src/main.ts",
+    ".": "./src/main.ts"
   },
   "tasks": {
     // separate from node:start so we can type-check before starting other services
     "check": "deno check --unstable-raw-imports src/main.ts",
     // Open chrome://inspect to see the inspector
     "node:start": "deno run -A --inspect --unstable-raw-imports src/main.ts",
+    "batcher:start": "deno run -A --unstable-raw-imports scripts/batcher-start.ts",
     "dev": "deno task -f @paimaexample/tui clean && NODE_ENV=development deno run -A --check --unstable-raw-imports scripts/start.ts",
     "test": "deno run -A --unstable-raw-imports --check scripts/e2e.test.ts"
   },
@@ -24,6 +25,8 @@
     "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.44",
     "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.44",
     "@paimaexample/db": "jsr:@paimaexample/db@0.3.44",
+    "viem/chains": "npm:viem@^2.21.3/chains",
+    "viem": "npm:viem@^2.21.3",
     "fastify": "npm:fastify@^5.4.0",
     "pg": "npm:pg@^8.14.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
