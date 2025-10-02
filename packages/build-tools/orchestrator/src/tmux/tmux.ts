@@ -1,19 +1,13 @@
-import { ENV } from "@paima/utils/node-env";
-
-// use --unstable-raw-imports
-// https://github.com/denoland/deno/issues/29904
-// import launchJson from "./tmux.launch.json" with { type: "text" };
-
-import { json } from "./tmux.launch.ts";
-import { install } from "./install.ts";
-
-// dirname is not available in jsr packages
-const __dirname = import.meta.dirname;
-
 // This is a wrapper around the tmux command.
 // It allows to create an instance of tmux, and execute commands on it.
+import { ENV } from "@paima/utils/node-env";
 
-export default interface NodeTmuxOptions {
+// TODO: Use `with { type: "text" }` when it no longer requires `--unstable-raw-imports`.
+// https://github.com/denoland/deno/issues/29904
+import install_sh from "./install.sh.ts";
+import tmux_launch_json from "./tmux.launch.json.ts";
+
+export interface TmuxOptions {
   /**
    * The command to use. Defaults to "tmux"
    */
@@ -33,10 +27,10 @@ const NAME_FORMAT = /^[^"';]+$/;
  * tmux operations.
  */
 export class Tmux {
-  private options: NodeTmuxOptions;
+  private options: TmuxOptions;
   private paneCount: number = 0;
 
-  constructor(options: Partial<NodeTmuxOptions>) {
+  constructor(options: Partial<TmuxOptions>) {
     this.options = {
       command: "tmux",
       ...options,
@@ -44,7 +38,7 @@ export class Tmux {
   }
 
   async init() {
-    let path = __dirname + "/tmux.conf";
+    let path = import.meta.dirname + "/tmux.conf";
     let cleanup = false;
     try {
       await Deno.stat(path);
@@ -226,7 +220,7 @@ export class Tmux {
         split_horizontal?: boolean;
         split_vertical?: boolean;
       }[];
-    } = json;
+    } = tmux_launch_json;
 
     for (const pane of data.panes) {
       pane.command = pane.command?.replaceAll("${packageName}", packageName);
@@ -253,7 +247,7 @@ export const installTmux = async () => {
   });
   const child = cmd.spawn();
   const writer = child.stdin.getWriter();
-  await writer.write(new TextEncoder().encode(install));
+  await writer.write(new TextEncoder().encode(install_sh));
   await writer.close();
   const output = await child.output();
 

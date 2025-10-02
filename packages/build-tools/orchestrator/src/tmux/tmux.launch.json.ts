@@ -1,4 +1,4 @@
-export const json = {
+export default {
   "panes": [
     {
       "name": "LOGS",

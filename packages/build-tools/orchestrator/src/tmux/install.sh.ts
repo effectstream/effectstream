@@ -1,4 +1,4 @@
-export const install = `
+export default `
 #!/bin/sh
 # This script is used to install tmux on the system.
 set -e
