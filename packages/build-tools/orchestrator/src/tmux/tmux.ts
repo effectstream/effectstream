@@ -25,7 +25,7 @@ export default interface NodeTmuxOptions {
   configFile?: string;
 }
 
-/* The format prevents  */
+/* Deny shell escapes and tmux command sequence escapes from session names as a precaution. */
 const NAME_FORMAT = /^[^"';]+$/;
 
 /**
@@ -65,9 +65,7 @@ export class Tmux {
    * @param command Optional command to execute
    */
   public async newSession(name: string, command?: string[]): Promise<void> {
-    if (!this._validate(name) || name.length > 50) {
-      throw new Error(`Illegal session name`);
-    } else if (await this.hasSession(name)) {
+    if (await this.hasSession(name)) {
       throw new Error(`Session '${name}' already exists`);
     }
 
@@ -103,9 +101,7 @@ export class Tmux {
    * @param name Session to check
    */
   public async hasSession(name: string): Promise<boolean> {
-    if (!this._validate(name) || name.length > 50) {
-      throw new Error(`Illegal session name`);
-    }
+    this._validateSessionName(name);
 
     try {
       await this._exec(["has-session", "-t", name]);
@@ -129,9 +125,7 @@ export class Tmux {
     print: string,
     newline: boolean = false,
   ): Promise<void> {
-    if (!this._validate(sessionName) || sessionName.length > 50) {
-      throw new Error(`Illegal session name`);
-    } else if (!(await this.hasSession(sessionName))) {
+    if (!(await this.hasSession(sessionName))) {
       throw new Error(`Session '${sessionName}' does not exist`);
     }
 
@@ -164,9 +158,7 @@ export class Tmux {
     horizontal: boolean = true,
     command?: string,
   ): Promise<void> {
-    if (!this._validate(sessionName) || sessionName.length > 50) {
-      throw new Error(`Illegal session name`);
-    } else if (!(await this.hasSession(sessionName))) {
+    if (!(await this.hasSession(sessionName))) {
       throw new Error(`Session '${sessionName}' does not exist`);
     }
 
@@ -216,8 +208,10 @@ export class Tmux {
    *
    * @param name Session name
    */
-  private _validate(name: string) {
-    return NAME_FORMAT.test(name);
+  private _validateSessionName(name: string) {
+    if (!NAME_FORMAT.test(name) || name.length > 50) {
+      throw new Error(`Illegal session name`);
+    }
   }
 
   public async readLaunchJson(
