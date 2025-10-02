@@ -11,7 +11,11 @@ import type {
   IChainConnector,
 } from "../connectors/connector.ts";
 import type { BatchingCriteriaConfig, PaimaBatcherConfig } from "./config.ts";
-import { DEFAULT_BATCHING_CRITERIA, validateBatcherConfig } from "./config.ts";
+import {
+  applyBatcherConfigDefaults,
+  DEFAULT_BATCHING_CRITERIA,
+  validateBatcherConfig,
+} from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
 import type {
   BatchBuildingResult,
@@ -79,9 +83,9 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** HTTP server port */
   private readonly port: number;
   /** Whether to enable HTTP server */
-  private readonly enableHttpServer: boolean = true;
+  private readonly enableHttpServer: boolean;
   /** Whether to enable event system */
-  private readonly enableEventSystem: boolean = false;
+  private readonly enableEventSystem: boolean;
   /** Shutdown state tracking */
   private shutdownState: ShutdownState = {
     isShuttingDown: false,
@@ -114,23 +118,30 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * - If defaultTarget is specified, it exists in connectors
    * - Default target falls back to first available connector if not specified
    */
+  public readonly config: PaimaBatcherConfig<
+    T,
+    Record<string, IChainConnector>
+  >;
+
   constructor(
     private readonly storage: BatcherStorage<T>,
-    public readonly config: PaimaBatcherConfig<
+    config: PaimaBatcherConfig<
       T,
       Record<string, IChainConnector>
     >,
   ) {
-    this.connectors = config.connectors;
+    const cfg = applyBatcherConfigDefaults(config);
+    this.config = cfg;
+    this.connectors = cfg.connectors;
     this.validateConfig();
-    this.defaultTarget = config.defaultTarget ||
-      Object.keys(config.connectors)[0];
+    this.defaultTarget = cfg.defaultTarget ||
+      Object.keys(cfg.connectors)[0];
 
     // Initialize per-connector batching criteria
     this.batchingCriteria = new Map();
     for (const target of Object.keys(this.connectors)) {
-      const criteria = config.batchingCriteria
-        ?.[target as keyof typeof config.batchingCriteria] ??
+      const criteria = cfg.batchingCriteria
+        ?.[target as keyof typeof cfg.batchingCriteria] ??
         DEFAULT_BATCHING_CRITERIA;
       this.batchingCriteria.set(target, criteria);
     }
@@ -143,7 +154,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     this.batchDataBuilder = this.initializeBatchDataBuilder();
-    this.port = this.config.port ?? 3000;
+    this.port = this.config.port!;
+    this.enableHttpServer = this.config.enableHttpServer!;
+    this.enableEventSystem = this.config.enableEventSystem!;
+    this.namespace = this.config.namespace ?? this.namespace;
   }
 
   /**
@@ -566,7 +580,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       defaultTarget: this.defaultTarget,
       enableHttpServer: this.enableHttpServer,
       enableEventSystem: this.enableEventSystem,
-      confirmationLevel: this.config.confirmationLevel || "wait-receipt",
+      confirmationLevel: this.config.confirmationLevel!,
       port: this.port,
       connectorTargets: Object.keys(this.connectors),
       criteriaTypes,

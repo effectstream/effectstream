@@ -2,11 +2,8 @@ import { main, suspend } from "effection";
 import { PaimaBatcher } from "@paima/batcher";
 import { config, storage } from "./config.ts";
 
-// Instantiate batcher
+// Instantiate batcher (constructor applies config defaults)
 const batcher = new PaimaBatcher(storage, config);
-
-// Align signature namespace with E2E (empty namespace)
-batcher.namespace = "";
 
 main(function* () {
   console.log("🚀 Starting Paima Batcher...");

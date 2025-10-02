@@ -34,6 +34,7 @@ export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   connectors: { evm },
   defaultTarget: "evm",
+  namespace: "",
   batchingCriteria: {
     evm: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },

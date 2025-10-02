@@ -7,6 +7,8 @@ import type { DefaultBatcherInput } from "./types.ts";
 import type { IChainConnector } from "../connectors/connector.ts";
 import type { BatchDataBuilder } from "../batch-data-builder/batch-data-builder.ts";
 import type { ShutdownHooks } from "./batcher.ts";
+import { type Static, Type } from "@sinclair/typebox";
+import { Value } from "@sinclair/typebox/value";
 
 /**
  * Type-safe batcher configuration with compile-time connector validation
@@ -96,6 +98,54 @@ export const DEFAULT_BATCHING_CRITERIA: BatchingCriteriaConfig = {
   maxBatchSize: 1,
 };
 
+/**
+ * Runtime schema (TypeBox) for BatchingCriteriaConfig
+ * Note: function fields are typed using T.Function but validated separately by validateBatchingCriteria
+ */
+const TimeCriteriaSchema = Type.Object({
+  criteriaType: Type.Literal("time"),
+  timeWindowMs: Type.Number({ minimum: 1 }),
+}, { additionalProperties: false });
+
+const SizeCriteriaSchema = Type.Object({
+  criteriaType: Type.Literal("size"),
+  maxBatchSize: Type.Number({ minimum: 1, default: 1 }),
+}, { additionalProperties: false });
+
+const ValueCriteriaSchema = Type.Object({
+  criteriaType: Type.Literal("value"),
+  valueAccumulatorFn: Type.Any(),
+  targetValue: Type.Number({ minimum: 0 }),
+}, { additionalProperties: false });
+
+const HybridCriteriaSchema = Type.Object({
+  criteriaType: Type.Literal("hybrid"),
+  timeWindowMs: Type.Number({ minimum: 1 }),
+  maxBatchSize: Type.Number({ minimum: 1 }),
+}, { additionalProperties: false });
+
+const CustomCriteriaSchema = Type.Object({
+  criteriaType: Type.Literal("custom"),
+  isBatchReadyFn: Type.Any(),
+}, { additionalProperties: false });
+
+export const BatchingCriteriaConfigSchema = Type.Union([
+  TimeCriteriaSchema,
+  SizeCriteriaSchema,
+  ValueCriteriaSchema,
+  HybridCriteriaSchema,
+  CustomCriteriaSchema,
+]);
+
+export type BatchingCriteriaConfigFromSchema = Static<
+  typeof BatchingCriteriaConfigSchema
+>;
+
+/** Per-connector criteria as a record keyed by connector target */
+export const PerConnectorBatchingCriteriaSchema = Type.Optional(
+  Type.Record(Type.String(), BatchingCriteriaConfigSchema),
+);
+
 export interface PaimaBatcherConfig<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
   TConnectors extends Record<string, IChainConnector> = Record<
@@ -106,6 +156,8 @@ export interface PaimaBatcherConfig<
   pollingIntervalMs: number;
   connectors: TConnectors;
   defaultTarget?: ValidConnectorKey<TConnectors>; // Target to use when input.target is not specified - must be a key of connectors
+  /** Namespace used for signature verification messages */
+  namespace?: string;
 
   /**
    * Per-connector batching criteria - allows different strategies per target
@@ -144,6 +196,130 @@ export interface PaimaBatcherConfig<
     /** Default shutdown timeout in milliseconds */
     timeoutMs?: number;
   };
+}
+
+/** Default values for optional configuration fields */
+export const DEFAULT_CONFIG_VALUES = {
+  namespace: "paima_batcher",
+  pollingIntervalMs: 1000,
+  confirmationLevel: "wait-receipt" as const,
+  port: 3000,
+  enableHttpServer: true,
+  enableEventSystem: false,
+  maxRetries: 3,
+  retryDelayMs: 1000,
+  batchBuilding: {},
+  shutdown: {
+    timeoutMs: 30000,
+    signalHandling: {
+      signals: ["SIGINT", "SIGTERM"],
+      exitCode: 0,
+    },
+  },
+};
+
+/**
+ * Runtime schema (TypeBox) for PaimaBatcherConfig
+ * Note: connectors and builders are opaque instance types -> T.Any
+ */
+export const PaimaBatcherConfigSchema = Type.Object({
+  pollingIntervalMs: Type.Optional(
+    Type.Number({
+      minimum: 1,
+      default: DEFAULT_CONFIG_VALUES.pollingIntervalMs,
+    }),
+  ),
+  connectors: Type.Record(Type.String(), Type.Any()),
+  defaultTarget: Type.Optional(Type.String()),
+  namespace: Type.Optional(
+    Type.String({ default: DEFAULT_CONFIG_VALUES.namespace }),
+  ),
+
+  batchingCriteria: PerConnectorBatchingCriteriaSchema,
+
+  port: Type.Optional(
+    Type.Number({
+      minimum: 1,
+      maximum: 65535,
+      default: DEFAULT_CONFIG_VALUES.port,
+    }),
+  ),
+  confirmationLevel: Type.Optional(
+    Type.Union([
+      Type.Literal("no-wait"),
+      Type.Literal("wait-receipt"),
+      Type.Literal("wait-paima-processed"),
+    ], { default: DEFAULT_CONFIG_VALUES.confirmationLevel }),
+  ),
+  maxRetries: Type.Optional(
+    Type.Number({ minimum: 0, default: DEFAULT_CONFIG_VALUES.maxRetries }),
+  ),
+  retryDelayMs: Type.Optional(
+    Type.Number({ minimum: 0, default: DEFAULT_CONFIG_VALUES.retryDelayMs }),
+  ),
+  enableHttpServer: Type.Optional(
+    Type.Boolean({ default: DEFAULT_CONFIG_VALUES.enableHttpServer }),
+  ),
+  enableEventSystem: Type.Optional(
+    Type.Boolean({ default: DEFAULT_CONFIG_VALUES.enableEventSystem }),
+  ),
+
+  batchBuilding: Type.Optional(Type.Object({
+    maxSize: Type.Optional(Type.Number({ minimum: 1, default: 10000 })),
+    targetBuilders: Type.Optional(Type.Record(Type.String(), Type.Any())),
+    defaultBuilder: Type.Optional(Type.Any()),
+  }, {
+    additionalProperties: false,
+    default: DEFAULT_CONFIG_VALUES.batchBuilding,
+  })),
+
+  shutdown: Type.Optional(Type.Object({
+    hooks: Type.Optional(Type.Object({
+      preShutdown: Type.Optional(Type.Any()),
+      stopAcceptingInputs: Type.Optional(Type.Any()),
+      waitForProcessing: Type.Optional(Type.Any()),
+      cleanup: Type.Optional(Type.Any()),
+      postShutdown: Type.Optional(Type.Any()),
+    }, { additionalProperties: false })),
+    signalHandling: Type.Optional(Type.Object({
+      signals: Type.Optional(
+        Type.Array(Type.String(), {
+          default: DEFAULT_CONFIG_VALUES.shutdown.signalHandling.signals,
+        }),
+      ),
+      customShutdownHandler: Type.Optional(Type.Any()),
+      exitCode: Type.Optional(
+        Type.Number({
+          default: DEFAULT_CONFIG_VALUES.shutdown.signalHandling.exitCode,
+        }),
+      ),
+    }, { additionalProperties: false })),
+    timeoutMs: Type.Optional(
+      Type.Number({
+        minimum: 0,
+        default: DEFAULT_CONFIG_VALUES.shutdown.timeoutMs,
+      }),
+    ),
+  }, { additionalProperties: false })),
+}, { additionalProperties: false });
+
+export type PaimaBatcherConfigFromSchema = Static<
+  typeof PaimaBatcherConfigSchema
+>;
+
+/**
+ * Apply TypeBox defaults and return a config object with defaults filled.
+ * This does NOT replace domain validation; callers should still invoke validateBatcherConfig.
+ */
+export function applyBatcherConfigDefaults<
+  T extends DefaultBatcherInput,
+  TConnectors extends Record<string, IChainConnector>,
+>(
+  config: PaimaBatcherConfig<T, TConnectors>,
+): PaimaBatcherConfig<T, TConnectors> {
+  // Cast applies defaults while preserving provided values
+  const casted = Value.Cast(PaimaBatcherConfigSchema as any, config as any);
+  return casted as PaimaBatcherConfig<T, TConnectors>;
 }
 
 /**

@@ -16,6 +16,11 @@ export type {
   ValidConnectorKey,
 } from "./core/config.ts";
 export {
+  applyBatcherConfigDefaults,
+  BatchingCriteriaConfigSchema,
+  DEFAULT_CONFIG_VALUES,
+  PaimaBatcherConfigSchema,
+  PerConnectorBatchingCriteriaSchema,
   validateBatcherConfig,
   validateBatchingCriteria,
 } from "./core/config.ts";
