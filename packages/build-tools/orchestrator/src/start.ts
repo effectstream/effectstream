@@ -15,6 +15,7 @@ import {
   $,
   AbortProcessStart,
   type ProcessComponent,
+  setForegroundProcess,
   shutdown,
 } from "./process.ts";
 import { ComponentNames } from "@paima/log";
@@ -294,6 +295,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     tmuxConsole.process.status.then(() => {
       tmux.killServer();
     });
+    setForegroundProcess(tmuxConsole.process);
     return tmuxConsole;
   },
 

@@ -28,6 +28,11 @@ export class AbortProcessStart extends Error {
 const wait = (n: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, n));
 
+let foregroundProcess: Deno.ChildProcess | null = null;
+export function setForegroundProcess(proc: Deno.ChildProcess) {
+  foregroundProcess = proc;
+}
+
 let shutdownCalled = false;
 export async function shutdown(
   exitCode: number = 0,
@@ -36,11 +41,28 @@ export async function shutdown(
   if (shutdownCalled) {
     return;
   }
+  shutdownCalled = true;
+
+  // Kill the foreground process first, to regain control of the terminal and
+  // allow us to `console.error` stuff.
+  if (foregroundProcess) {
+    const proc = foregroundProcess;
+    foregroundProcess = null;
+    // Send SIGTERM first, then SIGKILL after one second.
+    proc.kill();
+    const hardKillTimer = setTimeout(
+      () => proc.kill("SIGKILL"),
+      1000,
+    );
+    await proc.output();
+    clearTimeout(hardKillTimer);
+  }
+
+  // We now have control of the terminal again, so start printing stuff...
   if (errorMessage) {
     console.error(errorMessage);
   }
 
-  shutdownCalled = true;
   // This allows for any error logs of different processes to be printed, before we terminate them.
   const timer = {
     passedTime: 0,
