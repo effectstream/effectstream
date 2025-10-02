@@ -284,26 +284,17 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     await Tmux.install();
-    const session_name = "paima-" + Date.now();
-
-    const tm = new Tmux({});
-    await tm.init();
-    await tm.newSession(session_name);
-
-    // We can pass a custom launch json file to the tmux instance
-    await tm.readLaunchJson(config.packageName, session_name);
-
-    const tmux = $({
-      ...tm.getAttachSessionCommand(session_name),
+    const tmux = new Tmux();
+    await tmux.startSession();
+    const tmuxConsole = $({
+      ...tmux.getAttachCommand(),
       component: ComponentNames.TMUX,
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
       abortController: abortControllers.developerUI,
     });
-    tmux.process.unref();
-
-    return tmux;
+    tmuxConsole.process.status.then(() => {
+      tmux.killServer();
+    });
+    return tmuxConsole;
   },
 
   [ComponentNames.EXPLORER]: async (): Promise<ProcessComponent> => {
