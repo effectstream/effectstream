@@ -27,6 +27,31 @@ const NAME_FORMAT = /^[^"';]+$/;
  * tmux operations.
  */
 export class Tmux {
+  static async install() {
+    // Pipe the built-in `install.sh` to `sh` directly.
+    const cmd = new Deno.Command("sh", {
+      stdin: "piped",
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const child = cmd.spawn();
+    const writer = child.stdin.getWriter();
+    await writer.write(new TextEncoder().encode(install_sh));
+    await writer.close();
+    const output = await child.output();
+
+    if (output.stdout.length > 0) {
+      console.log(new TextDecoder().decode(output.stdout));
+    }
+    if (output.stderr.length > 0) {
+      console.log(new TextDecoder().decode(output.stderr));
+    }
+
+    if (!output.success) {
+      console.error("Error running install.sh: exit code", output.code);
+    }
+  }
+
   private options: TmuxOptions;
   private paneCount: number = 0;
 
@@ -237,28 +262,3 @@ export class Tmux {
     }
   }
 }
-
-export const installTmux = async () => {
-  // Pipe the built-in `install.sh` to `sh` directly.
-  const cmd = new Deno.Command("sh", {
-    stdin: "piped",
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const child = cmd.spawn();
-  const writer = child.stdin.getWriter();
-  await writer.write(new TextEncoder().encode(install_sh));
-  await writer.close();
-  const output = await child.output();
-
-  if (output.stdout.length > 0) {
-    console.log(new TextDecoder().decode(output.stdout));
-  }
-  if (output.stderr.length > 0) {
-    console.log(new TextDecoder().decode(output.stderr));
-  }
-
-  if (!output.success) {
-    console.error("Error running install.sh: exit code", output.code);
-  }
-};

@@ -18,7 +18,7 @@ import {
   shutdown,
 } from "./process.ts";
 import { ComponentNames } from "@paima/log";
-import { installTmux, Tmux } from "./tmux/tmux.ts";
+import { Tmux } from "./tmux/tmux.ts";
 import type { LaunchableComponents } from "@paima/log";
 import { type Static, Type } from "@sinclair/typebox";
 
@@ -283,7 +283,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       await dkill({ ports: [ENV.TUI_LOG_PORT] });
     }
 
-    await installTmux();
+    await Tmux.install();
     const session_name = "paima-" + Date.now();
 
     const tm = new Tmux({});
@@ -398,7 +398,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     if (!config.batcher) {
       throw new Error("Batcher config is required");
     }
-    const { 
+    const {
       paimaL2Address,
       batcherPrivateKey,
       chainName,
