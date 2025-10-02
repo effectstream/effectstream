@@ -170,7 +170,10 @@ export async function startBatcherHttpServer(
             defaultTarget: Type.String(),
             enableHttpServer: Type.Boolean(),
             enableEventSystem: Type.Boolean(),
-            confirmationLevel: Type.String(),
+            confirmationLevel: Type.Union([
+              Type.String(),
+              Type.Record(Type.String(), Type.String()),
+            ]),
           }),
           timestamp: Type.String(),
         }),
@@ -241,8 +244,19 @@ export async function startBatcherHttpServer(
     try {
       const body = request.body as any;
       const batcherInput = body.data;
-      const confirmationLevel = body.confirmationLevel ??
-        batcher.getPublicConfig().confirmationLevel;
+      let confirmationLevel = body.confirmationLevel as any;
+      if (!confirmationLevel) {
+        const cfg = batcher.config?.confirmationLevel;
+        if (typeof cfg === "string") {
+          confirmationLevel = cfg;
+        } else if (cfg && typeof batcher === "object") {
+          const target = (body.data?.target as string) ||
+            batcher.getPublicConfig().defaultTarget;
+          confirmationLevel = cfg[target] ?? "wait-receipt";
+        } else {
+          confirmationLevel = "wait-receipt";
+        }
+      }
 
       // Adapt the input format for the new batcher
       const adaptedInput = {

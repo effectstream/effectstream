@@ -27,7 +27,6 @@ const config = Value.Parse(OrchestratorConfig, {
   processes: {
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
-    [ComponentNames.PAIMA_BATCHER]: true,
     [ComponentNames.COLLECTOR]: true,
   },
 
@@ -53,6 +52,13 @@ const config = Value.Parse(OrchestratorConfig, {
           waitToExit: false,
           type: "system-dependency",
           link: "http://localhost:10590",
+        },
+        { // Launch the Batcher with our PaimaL2 Contract
+          name: "batcher",
+          args: ["task", "-f", "@e2e/batcher", "start"],
+          waitToExit: false,
+          type: "system-dependency",
+          link: "http://localhost:3334",
         },
       ],
     },

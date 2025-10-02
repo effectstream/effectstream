@@ -106,6 +106,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   > = new Map();
   /** Batch data builder for constructing batch payloads */
   private readonly batchDataBuilder: BatchDataBuilder<T>;
+  /** State transition listeners keyed by prefix */
+  private stateTransitionListeners: Map<
+    string,
+    (payload: any) => void | Promise<void>
+  > = new Map();
 
   /**
    * Create a new PaimaBatcher with type-safe configuration
@@ -161,6 +166,55 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
+   * Register a state transition listener for a given prefix.
+   * Throws if a listener already exists for the prefix.
+   */
+  addStateTransition<Prefix extends string>(
+    prefix: Prefix,
+    listener: (payload: any) => void | Promise<void>,
+  ): void {
+    if (this.stateTransitionListeners.has(prefix)) {
+      throw new Error(
+        `Disallowed: duplicate listener for prefix ${prefix}. Duplicate prefixes can cause determinism issues`,
+      );
+    }
+    this.stateTransitionListeners.set(prefix, listener);
+  }
+
+  /** Remove a previously registered state transition listener. */
+  removeStateTransition(prefix: string): void {
+    this.stateTransitionListeners.delete(prefix);
+  }
+
+  /** Emit a state transition event to the registered listener if enabled. */
+  private async emitStateTransition(
+    prefix: string,
+    payload: any,
+  ): Promise<void> {
+    if (!this.enableEventSystem) return;
+    const listener = this.stateTransitionListeners.get(prefix);
+    if (!listener) return;
+    try {
+      await listener(payload);
+    } catch (error) {
+      // Re-emit as error; guard against recursive error loops
+      const hasErrorListener = this.stateTransitionListeners.has("error");
+      if (prefix !== "error" && hasErrorListener) {
+        try {
+          await this.stateTransitionListeners.get("error")!({
+            phase: "event-listener",
+            target: undefined,
+            error,
+            time: Date.now(),
+          });
+        } catch {
+          // swallow
+        }
+      }
+    }
+  }
+
+  /**
    * Validate the batcher configuration. Can be overridden by subclasses for custom validation.
    * By default, uses the standard validation from batcher-config.ts
    */
@@ -212,6 +266,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     this.isInitialized = true;
+    await this.emitStateTransition("startup", {
+      publicConfig: this.getPublicConfig(),
+      time: Date.now(),
+    });
   }
   /**
    * Add a user input to the batch queue after validating the signature
@@ -297,6 +355,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     if (targetsToProcess.length === 0) return;
+    await this.emitStateTransition("poll:targets-ready", {
+      targets: targetsToProcess,
+      time: Date.now(),
+    });
 
     // Process batches for ready targets
     await this.processBatchesForTargets(targetsToProcess);
@@ -465,9 +527,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     try {
-      console.log(`🚀 Starting HTTP server on port ${this.port}...`);
       this.httpServer = await startBatcherHttpServer(this, this.port);
-      console.log(`✅ HTTP server started successfully`);
+      await this.emitStateTransition("http:start", {
+        port: this.port,
+        time: Date.now(),
+      });
     } catch (error) {
       console.error("❌ Failed to start HTTP server:", error);
       throw error;
@@ -479,10 +543,9 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   async stopHttpServer(): Promise<void> {
     if (this.httpServer) {
-      console.log("🛑 Stopping HTTP server...");
       await this.httpServer.close();
       this.httpServer = undefined;
-      console.log("✅ HTTP server stopped");
+      await this.emitStateTransition("http:stop", { time: Date.now() });
     }
   }
 
@@ -564,7 +627,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     defaultTarget: string;
     enableHttpServer: boolean;
     enableEventSystem: boolean;
-    confirmationLevel: "no-wait" | "wait-receipt" | "wait-paima-processed";
+    confirmationLevel: string | Partial<Record<string, string>>;
     port: number;
     connectorTargets: string[];
     /** Per-connector batching criteria types */
@@ -580,7 +643,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       defaultTarget: this.defaultTarget,
       enableHttpServer: this.enableHttpServer,
       enableEventSystem: this.enableEventSystem,
-      confirmationLevel: this.config.confirmationLevel!,
+      confirmationLevel: this.config.confirmationLevel || "undefined",
       port: this.port,
       connectorTargets: Object.keys(this.connectors),
       criteriaTypes,
@@ -827,12 +890,23 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         }
 
         try {
+          await this.emitStateTransition("batch:process:start", {
+            target,
+            inputCount: targetInputs.length,
+            time: Date.now(),
+          });
           await this.processBatchForTarget(connector, target, targetInputs);
         } catch (error) {
           console.error(
             `❌ Error processing batch for target ${target}:`,
             error,
           );
+          await this.emitStateTransition("error", {
+            phase: "batch",
+            target,
+            error,
+            time: Date.now(),
+          });
           // Continue processing other targets even if one fails
         }
       }
@@ -874,15 +948,28 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     const estimatedFee = await connector.estimateBatchFee(hexData);
     // The estimated fee by default is the configured PaimaL2 fee, but can be overridden by the connector.
     console.log(`💰 Estimated fee for ${target}: ${estimatedFee}`);
+    await this.emitStateTransition("batch:fee-estimate", {
+      target,
+      estimatedFee,
+      time: Date.now(),
+    });
 
     const hash = await connector.submitBatch(hexData, estimatedFee);
     console.log(`✅ Submitted batch for ${target}: ${hash}`);
+    await this.emitStateTransition("batch:submit", {
+      target,
+      estimatedFee,
+      txHash: hash,
+      time: Date.now(),
+    });
 
     // Wait for confirmation
     const receipt = await connector.waitForTransactionReceipt(hash);
-    console.log(
-      `✅ Transaction confirmed for ${target}: Block ${receipt.blockNumber}`,
-    );
+    await this.emitStateTransition("batch:receipt", {
+      target,
+      blockNumber: receipt.blockNumber,
+      time: Date.now(),
+    });
 
     // Wait for Paima Engine processing using event listening
     try {
@@ -898,9 +985,12 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       await this.storage.removeProcessedInputs(selectedInputs);
 
       if (processingResult) {
-        console.log(
-          `✅ Paima processing validated for ${target}, rollup: ${processingResult.rollup}`,
-        );
+        await this.emitStateTransition("batch:paima-processed", {
+          target,
+          latestBlock: processingResult.latestBlock,
+          rollup: processingResult.rollup,
+          time: Date.now(),
+        });
 
         // Resolve callbacks for all processed inputs
         for (const input of selectedInputs) {
@@ -919,6 +1009,12 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         console.error(
           `❌ Paima processing validation failed for target ${target}`,
         );
+        await this.emitStateTransition("error", {
+          phase: "paima",
+          target,
+          error: new Error("Paima processing validation failed"),
+          time: Date.now(),
+        });
 
         // Reject callbacks for failed processing
         for (const input of selectedInputs) {
@@ -937,6 +1033,12 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         `❌ Error waiting for Paima processing for target ${target}:`,
         error,
       );
+      await this.emitStateTransition("error", {
+        phase: "paima",
+        target,
+        error,
+        time: Date.now(),
+      });
 
       // Reject callbacks for failed processing
       for (const input of selectedInputs) {
@@ -951,10 +1053,12 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         }
       }
     }
-
-    console.log(
-      `✅ Successfully processed ${selectedInputs.length} inputs for target ${target}`,
-    );
+    await this.emitStateTransition("batch:process:end", {
+      target,
+      processedCount: selectedInputs.length,
+      success: true,
+      time: Date.now(),
+    });
   }
 
   /**
@@ -966,8 +1070,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     target: string,
   ): BatchBuildingResult<T> | null {
     const builder = this.getBatchDataBuilderForTarget(target);
+    const connector = this.connectors[target];
     const options = {
-      maxSize: this.config.batchBuilding?.maxSize,
+      maxSize: typeof connector.getMaxBatchSize === "function"
+        ? connector.getMaxBatchSize()
+        : this.config.batchBuilding?.maxSize,
       target: target,
     };
 
@@ -1077,6 +1184,13 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     if (this.enableHttpServer) {
       yield* call(() => this.startHttpServer());
     }
+
+    yield* call(() =>
+      this.emitStateTransition("startup", {
+        publicConfig: this.getPublicConfig(),
+        time: Date.now(),
+      })
+    );
 
     // Spawn polling task
     yield* spawn(function* (this: PaimaBatcher<T>) {

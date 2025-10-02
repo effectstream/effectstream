@@ -38,3 +38,7 @@ export { startBatcherHttpServer } from "./server/batcher-server.ts";
 
 // Utility types
 export type { DefaultBatcherInput } from "./core/types.ts";
+
+// Event/listener helpers
+export type { BatcherGrammar, BatcherListener } from "./core/batcher-events.ts";
+export { attachDefaultConsoleListeners } from "./core/batcher-events.ts";

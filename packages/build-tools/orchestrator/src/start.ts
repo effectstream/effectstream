@@ -54,7 +54,6 @@ export const OrchestratorConfig = Type.Object({
   kill: Type.Object({
     // TODO: kill.auto is workaround to kill processes that are still running from a previous run.
     //       PGLite 5432. Frequently does not shutdown in some cases.
-    //       Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
     //       And other ports are checked.
     auto: Type.Boolean({ default: true }),
   }, { default: {} }),
@@ -106,7 +105,6 @@ export const OrchestratorConfig = Type.Object({
 
     // DevOps
     [ComponentNames.COLLECTOR]: Type.Boolean({ default: true }),
-    [ComponentNames.PAIMA_BATCHER]: Type.Boolean({ default: false }),
     [ComponentNames.DOCS]: Type.Boolean({ default: true }),
   }, { default: {} }),
 });
@@ -229,11 +227,6 @@ export async function start(
       }
       processesToLaunch.push(batch);
     }
-
-    processesToLaunch.push([
-      config.processes[ComponentNames.PAIMA_BATCHER] &&
-      startProcess[ComponentNames.PAIMA_BATCHER],
-    ]);
 
     processesToLaunch.push([
       // Start the main process
@@ -378,23 +371,6 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     });
     await Promise.all([node.process.status]);
     return node;
-  },
-
-  [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
-    if (config.kill.auto) {
-      await dkill({ ports: [ENV.BATCHER_PORT] });
-    }
-    // Use the new E2E batcher launcher script
-    const batcher = $({
-      args: ["task", "batcher:start"],
-      log: rawLogHandler,
-      component: ComponentNames.PAIMA_BATCHER,
-      abortController: abortControllers.system,
-      namespace: [],
-    });
-    // This is a long-lasting service that does not exit.
-    void batcher.process.status;
-    return batcher;
   },
 
   [ComponentNames.PAIMA_PGLITE]: async (): Promise<ProcessComponent> => {

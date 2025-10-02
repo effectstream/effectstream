@@ -41,6 +41,7 @@ export class EvmChainConnector implements IChainConnector {
   private readonly paimaL2Address: EvmAddress;
   private readonly paimaL2Fee: bigint;
   private readonly paimaSyncProtocolName: string;
+  private readonly maxBatchSize: number;
 
   // TODO: Import this from the actual ABI package when available
   private readonly paimaL2Abi = [
@@ -63,6 +64,7 @@ export class EvmChainConnector implements IChainConnector {
     this.paimaL2Address = paimaL2Address;
     this.paimaL2Fee = paimaL2Fee;
     this.paimaSyncProtocolName = paimaSyncProtocolName;
+    this.maxBatchSize = 10000;
 
     // Initialize viem clients
     this.account = privateKeyToAccount(batcherPrivateKey);
@@ -150,6 +152,14 @@ export class EvmChainConnector implements IChainConnector {
    */
   estimateBatchFee(data: string): bigint {
     return this.paimaL2Fee;
+  }
+
+  getMaxBatchSize(): number {
+    return this.maxBatchSize;
+  }
+
+  setMaxBatchSize(maxBatchSize: number): void {
+    this.maxBatchSize = maxBatchSize;
   }
 
   /**

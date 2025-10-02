@@ -37,8 +37,6 @@ export async function startup(): Promise<Client> {
     logs,
     processes: {
       [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
-      [ComponentNames.PAIMA_BATCHER]: true, // Enable batcher for e2e tests
-
       [ComponentNames.DOCS]: false,
       [ComponentNames.TUI]: false,
       [ComponentNames.TMUX]: false,
@@ -52,18 +50,18 @@ export async function startup(): Promise<Client> {
       yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
       midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : {},
       avail_enabled ? launchAvail("@e2e/avail-contracts") : {},
+      {
+        processes: [
+          {
+            name: "batcher",
+            args: ["task", "-f", "@e2e/batcher", "start"],
+            waitToExit: false,
+            type: "system-dependency",
+            link: "http://localhost:3334",
+          },
+        ],
+      },
     ],
-
-    batcher: {
-      batchIntervalMs: 100, // 100ms for testing
-      paimaL2Address: contractAddressesEvmMain()["chain31337"][
-        "PaimaL2ContractModule#MyPaimaL2Contract"
-      ],
-      paimaSyncProtocolName: "parallelEvmRPC_fast",
-      batcherPrivateKey:
-        "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-      chainName: "hardhat",
-    },
   });
   start(config);
   console.log("⌛ Waiting for sync process to start...");

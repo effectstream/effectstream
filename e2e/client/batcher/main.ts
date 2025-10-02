@@ -9,23 +9,33 @@ main(function* () {
   console.log("🚀 Starting Paima Batcher...");
 
   try {
-    const publicConfig = batcher.getPublicConfig();
-    console.log(
-      `🎯 Batcher started - polling every ${publicConfig.pollingIntervalMs} ms
-      | 📍 Default Target: ${publicConfig.defaultTarget}
-      | ⛓️ Connector Targets: ${publicConfig.connectorTargets.join(", ")}
-      | 📦 Batching Criteria: ${
-        Object.entries(publicConfig.criteriaTypes).map(([target, type]) =>
-          `${target}=${type}`
-        ).join(", ")
-      }
-      ${
-        publicConfig.enableHttpServer
-          ? ` | 🌐 HTTP Server: http://localhost:${publicConfig.port}`
-          : ""
-      }
-      | 📋 Press Ctrl+C to stop gracefully`,
-    );
+    // E2E-specific startup banner via state transition
+    batcher.addStateTransition("startup", ({ publicConfig }) => {
+      const banner =
+        `🧪 E2E Batcher startup - polling every ${publicConfig.pollingIntervalMs} ms\n` +
+        `      | 📍 Default Target: ${publicConfig.defaultTarget}\n` +
+        `      | ⛓️ Connector Targets: ${
+          publicConfig.connectorTargets.join(", ")
+        }\n` +
+        `      | 📦 Batching Criteria: ${
+          Object.entries(publicConfig.criteriaTypes).map(([target, type]) =>
+            `${target}=${type}`
+          ).join(", ")
+        }\n` +
+        `      | 📋 Press Ctrl+C to stop gracefully`;
+      console.log(banner);
+    });
+
+    // E2E-specific http:start banner printing HTTP config
+    batcher.addStateTransition("http:start", ({ port }) => {
+      const publicConfig = batcher.getPublicConfig();
+      const httpInfo = `🌐 HTTP Server started for E2E\n` +
+        `      | URL: http://localhost:${port}\n` +
+        `      | Confirmation: ${publicConfig.confirmationLevel}\n` +
+        `      | Events Enabled: ${publicConfig.enableEventSystem}\n` +
+        `      | Polling: ${publicConfig.pollingIntervalMs} ms`;
+      console.log(httpInfo);
+    });
 
     // Run the batcher with Effection structured concurrency
     yield* batcher.runBatcher();

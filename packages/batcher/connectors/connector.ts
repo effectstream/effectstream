@@ -65,6 +65,12 @@ export interface IChainConnector {
   estimateBatchFee(data: string): Promise<string | bigint> | string | bigint;
 
   /**
+   * Maximum batch payload size in bytes for this connector/chain.
+   * Used by the batch data builder to limit batch size per target.
+   */
+  getMaxBatchSize(): number;
+
+  /**
    * Check if the connector is ready to submit transactions
    * @returns True if the connector is operational
    */

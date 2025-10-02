@@ -146,6 +146,11 @@ export const PerConnectorBatchingCriteriaSchema = Type.Optional(
   Type.Record(Type.String(), BatchingCriteriaConfigSchema),
 );
 
+export type ConfirmationLevel =
+  | "no-wait"
+  | "wait-receipt"
+  | "wait-paima-processed";
+
 export interface PaimaBatcherConfig<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
   TConnectors extends Record<string, IChainConnector> = Record<
@@ -166,7 +171,13 @@ export interface PaimaBatcherConfig<
   batchingCriteria?: PerConnectorBatchingCriteria<TInput, TConnectors>;
 
   port?: number; // HTTP server port
-  confirmationLevel?: "no-wait" | "wait-receipt" | "wait-paima-processed"; // Transaction confirmation levels
+  /**
+   * Confirmation level can be a single string applied to all connectors,
+   * or a per-connector mapping keyed by connector target.
+   */
+  confirmationLevel?:
+    | ConfirmationLevel
+    | Partial<Record<ValidConnectorKey<TConnectors>, ConfirmationLevel>>;
   maxRetries?: number; // Maximum retry attempts for failed transactions
   retryDelayMs?: number; // Delay between retry attempts
   enableHttpServer?: boolean; // Whether to start HTTP server
@@ -246,9 +257,19 @@ export const PaimaBatcherConfigSchema = Type.Object({
   ),
   confirmationLevel: Type.Optional(
     Type.Union([
-      Type.Literal("no-wait"),
-      Type.Literal("wait-receipt"),
-      Type.Literal("wait-paima-processed"),
+      Type.Union([
+        Type.Literal("no-wait"),
+        Type.Literal("wait-receipt"),
+        Type.Literal("wait-paima-processed"),
+      ]),
+      Type.Record(
+        Type.String(),
+        Type.Union([
+          Type.Literal("no-wait"),
+          Type.Literal("wait-receipt"),
+          Type.Literal("wait-paima-processed"),
+        ]),
+      ),
     ], { default: DEFAULT_CONFIG_VALUES.confirmationLevel }),
   ),
   maxRetries: Type.Optional(

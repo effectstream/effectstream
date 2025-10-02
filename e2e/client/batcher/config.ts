@@ -32,6 +32,7 @@ const evm = new EvmChainConnector(
 // Batcher config matching old behavior
 export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
+  enableHttpServer: true,
   connectors: { evm },
   defaultTarget: "evm",
   namespace: "",
@@ -40,6 +41,7 @@ export const config: PaimaBatcherConfig = {
   },
   confirmationLevel: "wait-paima-processed",
   batchBuilding: { maxSize: 10000 },
+  enableEventSystem: true, // Important for adding state transitions to console logs
   port,
 };
 

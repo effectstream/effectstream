@@ -6,5 +6,8 @@
   "imports": {
     "viem": "npm:viem@^2.21.3",
     "effection": "npm:effection@^3.5.0"
+  },
+  "tasks": {
+    "start": "deno run -A --unstable-raw-imports main.ts"
   }
 }
