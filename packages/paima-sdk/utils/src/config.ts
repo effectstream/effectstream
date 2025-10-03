@@ -1,11 +1,10 @@
-/** 
+/**
  * IMPORTANT:
  * This is BACKEND / PAIMA ENGINE only import.
  * This should not be imported in frontend code as it will leak sensitive information.
- * 
- * Usage: 
+ *
+ * Usage:
  * import { ENV } from "@paima/utils/node-env";
- * 
  */
 
 // NOTE: To register a new config, we need to add it in the definitions, and then add the getter in the ENV class.
@@ -23,7 +22,7 @@ export type ConfigDefinition = {
 } & ({
   type: "string"
   defaultValue: string | undefined;
-} | { 
+} | {
   type: "number";
   defaultValue: number | undefined;
 } | {
@@ -78,7 +77,7 @@ const definitions: Record<string, ConfigDefinition> = {
   ORCHESTRATOR_PORT: {
     key: "ORCHESTRATOR_PORT",
     type: "number",
-    defaultValue: 3000,
+    defaultValue: 0,
     description:
       "Paima Engine Orchestrator Port. Used by the TUI to monitor processes. Example: '3000'",
   },
@@ -246,6 +245,9 @@ export class ENV {
   }
   static get ORCHESTRATOR_PORT(): number {
     return ENV.getConfig(definitions.ORCHESTRATOR_PORT);
+  }
+  static set ORCHESTRATOR_PORT(port: number) {
+    Deno.env.set(definitions.ORCHESTRATOR_PORT.key, String(port));
   }
   static get TUI_LOG_URL(): string {
     return ENV.getConfig(definitions.TUI_LOG_URL);

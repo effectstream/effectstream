@@ -67,6 +67,13 @@ server.post("/shutdown", async function handler() {
 // Run the server!
 try {
   await server.listen({ port: ENV.ORCHESTRATOR_PORT });
+  // If ORCHESTRATOR_PORT was 0, set it for child processes to whatever
+  // port we're actually listening on.
+  const addr = server.server.address();
+  if (ENV.ORCHESTRATOR_PORT === 0 && addr && typeof addr === "object") {
+    console.log("ORCHESTRATOR_PORT set to", addr.port);
+    ENV.ORCHESTRATOR_PORT = addr.port;
+  }
 } catch (err) {
   server.log.error(err);
   Deno.exit(1);
