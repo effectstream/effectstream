@@ -7,9 +7,9 @@ import { call, type Operation, sleep, spawn, suspend } from "effection";
 import type { BatcherStorage } from "./storage.ts";
 import type { DefaultBatcherInput } from "./types.ts";
 import type {
+  BlockchainAdapter,
   BlockchainTransactionReceipt,
-  IChainConnector,
-} from "../connectors/connector.ts";
+} from "../adapters/adapter.ts";
 import type { BatchingCriteriaConfig, PaimaBatcherConfig } from "./config.ts";
 import {
   applyBatcherConfigDefaults,
@@ -22,6 +22,7 @@ import type {
   BatchDataBuilder,
 } from "../batch-data-builder/batch-data-builder.ts";
 import { DefaultBatchDataBuilder } from "../batch-data-builder/default-batch-builder.ts";
+import { BatcherFileStorage } from "./mod.ts";
 
 /**
  * PaimaBatcher - A type-safe, simplified blockchain batching system
@@ -68,13 +69,13 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   namespace: string = "paima_batcher";
   /** Timer ID for periodic batch processing */
   private pollingIntervalID?: number;
-  /** Available chain connectors keyed by target name */
-  private readonly connectors: Record<string, IChainConnector>;
+  /** Available blockchain adapters keyed by target name */
+  private readonly adapters: Record<string, BlockchainAdapter>;
   /** Default target to use when input.target is not specified */
   public readonly defaultTarget: string;
-  /** Per-connector batching criteria configuration */
+  /** Per-adapter batching criteria configuration */
   private readonly batchingCriteria: Map<string, BatchingCriteriaConfig<T>>;
-  /** Track when the last batch was processed for time-based criteria (per connector) */
+  /** Track when the last batch was processed for time-based criteria (per adapter) */
   private lastProcessTime: Map<string, number>;
   /** Track if the batcher is initialized */
   public isInitialized: boolean = false;
@@ -115,46 +116,48 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Create a new PaimaBatcher with type-safe configuration
    *
-   * @param storage - The storage system for persisting inputs
    * @param config - Type-safe configuration with unified batching criteria
+   * @param storage - The storage system for persisting inputs (default: file storage)
    *
    * Runtime validation ensures:
-   * - At least one connector is provided
-   * - If defaultTarget is specified, it exists in connectors
-   * - Default target falls back to first available connector if not specified
+   * - At least one adapter is provided
+   * - If defaultTarget is specified, it exists in adapters
+   * - Default target falls back to first available adapter if not specified
    */
   public readonly config: PaimaBatcherConfig<
     T,
-    Record<string, IChainConnector>
+    Record<string, BlockchainAdapter>
   >;
 
   constructor(
-    private readonly storage: BatcherStorage<T>,
     config: PaimaBatcherConfig<
       T,
-      Record<string, IChainConnector>
+      Record<string, BlockchainAdapter>
     >,
+    private readonly storage: BatcherStorage<T> = new BatcherFileStorage<T>(
+      "./batcher-data",
+    ),
   ) {
     const cfg = applyBatcherConfigDefaults(config);
     this.config = cfg;
-    this.connectors = cfg.connectors;
+    this.adapters = cfg.adapters;
     this.validateConfig();
     this.defaultTarget = cfg.defaultTarget ||
-      Object.keys(cfg.connectors)[0];
+      Object.keys(cfg.adapters)[0];
 
-    // Initialize per-connector batching criteria
+    // Initialize per-adapter batching criteria
     this.batchingCriteria = new Map();
-    for (const target of Object.keys(this.connectors)) {
+    for (const target of Object.keys(this.adapters)) {
       const criteria = cfg.batchingCriteria
         ?.[target as keyof typeof cfg.batchingCriteria] ??
         DEFAULT_BATCHING_CRITERIA;
       this.batchingCriteria.set(target, criteria);
     }
 
-    // Initialize per-connector last process times
+    // Initialize per-adapter last process times
     this.lastProcessTime = new Map();
     const now = Date.now();
-    for (const target of Object.keys(this.connectors)) {
+    for (const target of Object.keys(this.adapters)) {
       this.lastProcessTime.set(target, now);
     }
 
@@ -236,7 +239,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Get the appropriate batch data builder for a specific target
    *
-   * @param target - The target chain/connector name
+   * @param target - The target chain/adapter name
    * @returns The batch data builder for the specified target
    */
   private getBatchDataBuilderForTarget(target: string): BatchDataBuilder<T> {
@@ -346,9 +349,9 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   async pollBatcher(): Promise<void> {
     if (this.shutdownState.isShuttingDown) return;
 
-    // Check each connector target independently for batching readiness
+    // Check each adapter target independently for batching readiness
     const targetsToProcess: string[] = [];
-    for (const target of Object.keys(this.connectors)) {
+    for (const target of Object.keys(this.adapters)) {
       if (await this.isTargetReadyForBatching(target)) {
         targetsToProcess.push(target);
       }
@@ -495,7 +498,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     console.log("🔧 Force processing batches for all targets...");
-    const allTargets = Object.keys(this.connectors);
+    const allTargets = Object.keys(this.adapters);
     await this.processBatchesForTargets(allTargets);
 
     // Update last process times for all targets
@@ -561,9 +564,9 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       timeSinceLastProcess: number;
     }>;
     totalPendingInputs: number;
-    connectorTargets: string[];
+    adapterTargets: string[];
   }> {
-    const connectorTargets = Object.keys(this.connectors);
+    const adapterTargets = Object.keys(this.adapters);
     const targets: Array<{
       target: string;
       isReady: boolean;
@@ -574,7 +577,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     let totalPendingInputs = 0;
 
-    for (const target of connectorTargets) {
+    for (const target of adapterTargets) {
       const targetInputs = await this.storage.getInputsByTarget(
         target,
         this.defaultTarget,
@@ -598,7 +601,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     return {
       targets,
       totalPendingInputs,
-      connectorTargets,
+      adapterTargets,
     };
   }
 
@@ -629,8 +632,8 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     enableEventSystem: boolean;
     confirmationLevel: string | Partial<Record<string, string>>;
     port: number;
-    connectorTargets: string[];
-    /** Per-connector batching criteria types */
+    adapterTargets: string[];
+    /** Per-adapter batching criteria types */
     criteriaTypes: Record<string, string>;
   } {
     const criteriaTypes: Record<string, string> = {};
@@ -645,7 +648,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       enableEventSystem: this.enableEventSystem,
       confirmationLevel: this.config.confirmationLevel || "undefined",
       port: this.port,
-      connectorTargets: Object.keys(this.connectors),
+      adapterTargets: Object.keys(this.adapters),
       criteriaTypes,
     };
   }
@@ -797,11 +800,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
-   * Process and submit batches using the appropriate chain connectors
+   * Process and submit batches using the appropriate blockchain adapters
    * This method handles the core batch processing logic including:
-   * - Grouping inputs by target/connector
+   * - Grouping inputs by target/adapter
    * - Building optimized batch data
-   * - Submitting to appropriate blockchain via connectors
+   * - Submitting to appropriate blockchain via adapters
    * - Handling confirmations and callbacks
    */
   async processBatches(): Promise<void> {
@@ -819,7 +822,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     this.shutdownState.isProcessingBatch = true;
 
     try {
-      // Group inputs by target (connector)
+      // Group inputs by target (adapter)
       const inputsByTarget = new Map<string, T[]>();
 
       for (const input of pendingInputs) {
@@ -831,14 +834,14 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       }
 
       for (const [target, inputs] of inputsByTarget) {
-        const connector = this.connectors[target];
-        if (!connector) {
-          console.error(`❌ No connector available for target: ${target}`);
+        const adapter = this.adapters[target];
+        if (!adapter) {
+          console.error(`❌ No adapter available for target: ${target}`);
           continue;
         }
 
         try {
-          await this.processBatchForTarget(connector, target, inputs);
+          await this.processBatchForTarget(adapter, target, inputs);
         } catch (error) {
           console.error(
             `❌ Error processing batch for target ${target}:`,
@@ -860,21 +863,16 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     if (this.shutdownState.isShuttingDown) return;
 
     if (targetsToProcess.length === 0) {
-      console.log("📭 No targets to process");
       return;
     }
-
-    console.log(
-      `🚀 Processing batches for targets: ${targetsToProcess.join(", ")}`,
-    );
 
     this.shutdownState.isProcessingBatch = true;
 
     try {
       for (const target of targetsToProcess) {
-        const connector = this.connectors[target];
-        if (!connector) {
-          console.error(`❌ No connector available for target: ${target}`);
+        const adapter = this.adapters[target];
+        if (!adapter) {
+          console.error(`❌ No adapter available for target: ${target}`);
           continue;
         }
 
@@ -885,7 +883,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         );
 
         if (targetInputs.length === 0) {
-          console.log(`📭 No inputs for target ${target}, skipping...`);
           continue;
         }
 
@@ -895,7 +892,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
             inputCount: targetInputs.length,
             time: Date.now(),
           });
-          await this.processBatchForTarget(connector, target, targetInputs);
+          await this.processBatchForTarget(adapter, target, targetInputs);
         } catch (error) {
           console.error(
             `❌ Error processing batch for target ${target}:`,
@@ -916,14 +913,14 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
-   * Process a batch for a specific target using the designated connector
-   * @param connector - The connector to use to process the batch
+   * Process a batch for a specific target using the designated adapter
+   * @param adapter - The adapter to use to process the batch
    * @param target - The target to process the batch for
    * @param inputs - The inputs to process the batch for
    * @param timeout - The timeout in milliseconds to use to wait for the batch to be processed by paima engine (default: 60000)
    */
   private async processBatchForTarget(
-    connector: IChainConnector,
+    adapter: BlockchainAdapter,
     target: string,
     inputs: T[],
     timeout: number = 60000,
@@ -941,12 +938,12 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     const { selectedInputs, data } = batchResult;
 
     // Convert JSON string to hex bytes for blockchain submission
-    // TODO dont use viem or pass the toHex responsibility to the connector
+    // TODO dont use viem or pass the toHex responsibility to the adapter
     const hexData = toHex(data);
 
     // Estimate fee and submit transaction
-    const estimatedFee = await connector.estimateBatchFee(hexData);
-    // The estimated fee by default is the configured PaimaL2 fee, but can be overridden by the connector.
+    const estimatedFee = await adapter.estimateBatchFee(hexData);
+    // The estimated fee by default is the configured PaimaL2 fee, but can be overridden by the adapter.
     console.log(`💰 Estimated fee for ${target}: ${estimatedFee}`);
     await this.emitStateTransition("batch:fee-estimate", {
       target,
@@ -954,7 +951,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       time: Date.now(),
     });
 
-    const hash = await connector.submitBatch(hexData, estimatedFee);
+    const hash = await adapter.submitBatch(hexData, estimatedFee);
     console.log(`✅ Submitted batch for ${target}: ${hash}`);
     await this.emitStateTransition("batch:submit", {
       target,
@@ -964,7 +961,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     });
 
     // Wait for confirmation
-    const receipt = await connector.waitForTransactionReceipt(hash);
+    const receipt = await adapter.waitForTransactionReceipt(hash);
     await this.emitStateTransition("batch:receipt", {
       target,
       blockNumber: receipt.blockNumber,
@@ -973,8 +970,8 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     // Wait for Paima Engine processing using event listening
     try {
-      const eventFilterChain = connector.getSyncProtocolName?.() ??
-        connector.getChainName();
+      const eventFilterChain = adapter.getSyncProtocolName?.() ??
+        adapter.getChainName();
       const processingResult = await this.waitForPaimaProcessed(
         receipt,
         eventFilterChain,
@@ -1070,11 +1067,9 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     target: string,
   ): BatchBuildingResult<T> | null {
     const builder = this.getBatchDataBuilderForTarget(target);
-    const connector = this.connectors[target];
+    const adapter = this.adapters[target];
     const options = {
-      maxSize: typeof connector.getMaxBatchSize === "function"
-        ? connector.getMaxBatchSize()
-        : this.config.batchBuilding?.maxSize,
+      maxSize: adapter.maxBatchSize ?? this.config.batchBuilding?.maxSize,
       target: target,
     };
 
@@ -1265,7 +1260,7 @@ export async function createAndLaunchBatcher<T extends DefaultBatcherInput>(
   storage: BatcherStorage<T>,
   config: PaimaBatcherConfig<T>,
 ): Promise<void> {
-  const batcher = new PaimaBatcher(storage, config);
+  const batcher = new PaimaBatcher(config, storage);
   await batcher.init();
 
   // Setup signal handling if configured
@@ -1291,7 +1286,7 @@ export async function createAndLaunchBatcher<T extends DefaultBatcherInput>(
   );
   console.log(`📍 Default Target: ${publicConfig.defaultTarget}`);
   console.log(
-    `⛓️ Connector Targets: ${publicConfig.connectorTargets.join(", ")}`,
+    `⛓️ Adapter Targets: ${publicConfig.adapterTargets.join(", ")}`,
   );
   console.log(
     `📦 Batching Criteria: ${

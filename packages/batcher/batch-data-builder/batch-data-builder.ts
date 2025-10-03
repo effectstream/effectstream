@@ -13,7 +13,7 @@ import { DefaultBatcherInput } from "../core/types.ts";
 export interface BatchBuildingOptions {
   /** Maximum size of the batch in bytes */
   maxSize?: number;
-  /** Target chain/connector name */
+  /** Target chain/adapter name */
   target?: string;
 }
 

@@ -1,5 +1,5 @@
 import {
-  EvmChainConnector,
+  EvmChainAdapter,
   FileStorage,
   PaimaBatcher,
   type PaimaBatcherConfig,
@@ -26,8 +26,8 @@ const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
 // Storage location (JSONL queue)
 const storage = new FileStorage("./batcher-data");
 
-// EVM connector
-const evm = new EvmChainConnector(
+// EVM adapter
+const evm = new EvmChainAdapter(
   paimaL2Address,
   batcherPrivateKey,
   chain,
@@ -38,7 +38,7 @@ const evm = new EvmChainConnector(
 // Batcher config matching old behavior
 const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
-  connectors: { evm },
+  adapters: { evm },
   defaultTarget: "evm",
   batchingCriteria: {
     evm: { criteriaType: "time", timeWindowMs: batchIntervalMs },
@@ -49,7 +49,7 @@ const config: PaimaBatcherConfig = {
 };
 
 // Instantiate and run
-const batcher = new PaimaBatcher(storage, config);
+const batcher = new PaimaBatcher(config, storage);
 
 // Align signature namespace with E2E (empty namespace)
 batcher.namespace = "";
@@ -62,7 +62,7 @@ console.log(
 );
 console.log(`📍 Default Target: ${publicConfig.defaultTarget}`);
 console.log(
-  `⛓️ Connector Targets: ${publicConfig.connectorTargets.join(", ")}`,
+  `⛓️ Adapter Targets: ${publicConfig.adapterTargets.join(", ")}`,
 );
 console.log(
   `📦 Batching Criteria: ${

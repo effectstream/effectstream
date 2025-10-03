@@ -28,8 +28,7 @@ const evmConnector = new EvmChainConnector(
     },
     testnet: false,
   } as any,
-  BigInt("1000000000000000"), // 0.001 ETH
-  "ethereum",
+  BigInt("1000000000000000").toString(), // 0.001 ETH
 );
 
 // Example batcher configuration
@@ -67,7 +66,7 @@ async function main() {
   console.log("🚀 Starting PaimaBatcher with HTTP server...");
 
   const storage = new FileStorage("./batcher-data");
-  const batcher = new PaimaBatcher(storage, batcherConfig);
+  const batcher = new PaimaBatcher(batcherConfig, storage);
   globalBatcher = batcher;
 
   try {

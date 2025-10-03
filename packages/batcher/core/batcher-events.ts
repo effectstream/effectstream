@@ -1,3 +1,4 @@
+import type { DefaultBatcherInput } from "./types.ts";
 import type { PaimaBatcher } from "./batcher.ts";
 
 /**
@@ -50,16 +51,18 @@ export type BatcherListener<
  * Helper to attach console logs for common events. This does NOT auto-attach.
  * Call from the entrypoint if you want the default banner and lifecycle logs.
  */
-export function attachDefaultConsoleListeners(
-  batcher: PaimaBatcher<any>,
+export function attachDefaultConsoleListeners<
+  T extends DefaultBatcherInput = DefaultBatcherInput,
+>(
+  batcher: PaimaBatcher<T>,
 ): void {
   try {
     batcher.addStateTransition("startup", ({ publicConfig }) => {
       const banner =
         `🎯 Batcher started - polling every ${publicConfig.pollingIntervalMs} ms\n` +
         `      | 📍 Default Target: ${publicConfig.defaultTarget}\n` +
-        `      | ⛓️ Connector Targets: ${
-          publicConfig.connectorTargets.join(", ")
+        `      | ⛓️ Adapter Targets: ${
+          publicConfig.adapterTargets.join(", ")
         }\n` +
         `      | 📦 Batching Criteria: ${
           Object.entries(publicConfig.criteriaTypes).map(([target, type]) =>

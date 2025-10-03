@@ -1,9 +1,8 @@
 import {
-  EvmChainConnector,
   FileStorage,
   type PaimaBatcherConfig,
+  PaimaL2DefaultAdapter,
 } from "@paima/batcher";
-import * as chains from "viem/chains";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 
 // Config values mirroring e2e/client/node/scripts/start.ts
@@ -14,17 +13,15 @@ const paimaL2Address = contractAddressesEvmMain()["chain31337"][
 const paimaSyncProtocolName = "parallelEvmRPC_fast";
 const batcherPrivateKey =
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-const chain = chains.hardhat;
 
 // Defaults consistent with E2E usage
 const paimaL2Fee = 0n; // old batcher defaulted to 0 for local dev
 const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
 
-// EVM connector
-const evm = new EvmChainConnector(
+// PaimaL2 EVM adapter
+const paimaL2 = new PaimaL2DefaultAdapter(
   paimaL2Address,
   batcherPrivateKey,
-  chain,
   paimaL2Fee,
   paimaSyncProtocolName,
 );
@@ -33,11 +30,11 @@ const evm = new EvmChainConnector(
 export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   enableHttpServer: true,
-  connectors: { evm },
-  defaultTarget: "evm",
+  adapters: { paimaL2 },
+  defaultTarget: "paimaL2",
   namespace: "",
   batchingCriteria: {
-    evm: { criteriaType: "time", timeWindowMs: batchIntervalMs },
+    paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },
   confirmationLevel: "wait-paima-processed",
   batchBuilding: { maxSize: 10000 },

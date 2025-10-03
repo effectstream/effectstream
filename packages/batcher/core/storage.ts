@@ -34,7 +34,7 @@ export interface BatcherStorage<
 
   /**
    * Get all pending inputs for a specific target (efficient filtering)
-   * @param target - The target connector name
+   * @param target - The target adapter name
    * @param defaultTarget - The default target to use when input.target is not specified
    */
   getInputsByTarget(target: string, defaultTarget: string): Promise<T[]>;

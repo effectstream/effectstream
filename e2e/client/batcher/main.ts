@@ -2,8 +2,7 @@ import { main, suspend } from "effection";
 import { PaimaBatcher } from "@paima/batcher";
 import { config, storage } from "./config.ts";
 
-// Instantiate batcher (constructor applies config defaults)
-const batcher = new PaimaBatcher(storage, config);
+const batcher = new PaimaBatcher(config, storage);
 
 main(function* () {
   console.log("🚀 Starting Paima Batcher...");
@@ -14,8 +13,8 @@ main(function* () {
       const banner =
         `🧪 E2E Batcher startup - polling every ${publicConfig.pollingIntervalMs} ms\n` +
         `      | 📍 Default Target: ${publicConfig.defaultTarget}\n` +
-        `      | ⛓️ Connector Targets: ${
-          publicConfig.connectorTargets.join(", ")
+        `      | ⛓️ Blockchain Adapter Targets: ${
+          publicConfig.adapterTargets.join(", ")
         }\n` +
         `      | 📦 Batching Criteria: ${
           Object.entries(publicConfig.criteriaTypes).map(([target, type]) =>

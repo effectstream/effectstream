@@ -1,5 +1,3 @@
-// Implement the EVM connector for the batcher
-
 import type {
   Account,
   Chain,
@@ -8,13 +6,14 @@ import type {
   TransactionReceipt as ViemTransactionReceipt,
   WalletClient,
 } from "viem";
-import { createPublicClient, createWalletClient, http } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import type {
+  BlockchainAdapter,
   BlockchainHash,
   BlockchainTransactionReceipt,
-  IChainConnector,
-} from "./connector.ts";
+} from "./adapter.ts";
+import { createPublicClient, createWalletClient, http } from "viem";
+import * as chains from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
 import type { EvmAddress, EvmPrivateKey } from "@paima/utils";
 
 // Type conversion utilities
@@ -31,17 +30,17 @@ function viemReceiptToGenericReceipt(
 }
 
 /**
- * EVM-specific implementation of the chain connector interface
+ * EVM-specific implementation of the blockchain adapter interface
  * Handles all EVM blockchain interactions including transaction submission and confirmation
  */
-export class EvmChainConnector implements IChainConnector {
+export class PaimaL2DefaultAdapter implements BlockchainAdapter {
   private readonly walletClient: WalletClient;
   private readonly publicClient: PublicClient;
   private readonly account: Account;
   private readonly paimaL2Address: EvmAddress;
   private readonly paimaL2Fee: bigint;
   private readonly paimaSyncProtocolName: string;
-  private readonly maxBatchSize: number;
+  public readonly maxBatchSize: number;
 
   // TODO: Import this from the actual ABI package when available
   private readonly paimaL2Abi = [
@@ -57,14 +56,15 @@ export class EvmChainConnector implements IChainConnector {
   constructor(
     paimaL2Address: EvmAddress,
     batcherPrivateKey: EvmPrivateKey,
-    chain: Chain,
     paimaL2Fee: bigint,
     paimaSyncProtocolName: string,
+    chain: Chain = chains.hardhat,
+    maxBatchSize: number = 10000,
   ) {
     this.paimaL2Address = paimaL2Address;
     this.paimaL2Fee = paimaL2Fee;
     this.paimaSyncProtocolName = paimaSyncProtocolName;
-    this.maxBatchSize = 10000;
+    this.maxBatchSize = maxBatchSize;
 
     // Initialize viem clients
     this.account = privateKeyToAccount(batcherPrivateKey);
@@ -132,7 +132,7 @@ export class EvmChainConnector implements IChainConnector {
   }
 
   /**
-   * Get the current account/address for this connector
+   * Get the current account/address for this adapter
    */
   getAccountAddress(): string {
     return this.account.address;
@@ -154,16 +154,8 @@ export class EvmChainConnector implements IChainConnector {
     return this.paimaL2Fee;
   }
 
-  getMaxBatchSize(): number {
-    return this.maxBatchSize;
-  }
-
-  setMaxBatchSize(maxBatchSize: number): void {
-    this.maxBatchSize = maxBatchSize;
-  }
-
   /**
-   * Check if the connector is ready to submit transactions
+   * Check if the adapter is ready to submit transactions
    */
   isReady(): boolean {
     return this.walletClient !== undefined && this.publicClient !== undefined;

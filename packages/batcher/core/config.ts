@@ -4,31 +4,31 @@
  */
 
 import type { DefaultBatcherInput } from "./types.ts";
-import type { IChainConnector } from "../connectors/connector.ts";
+import type { BlockchainAdapter } from "../adapters/adapter.ts";
 import type { BatchDataBuilder } from "../batch-data-builder/batch-data-builder.ts";
 import type { ShutdownHooks } from "./batcher.ts";
 import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 
 /**
- * Type-safe batcher configuration with compile-time connector validation
+ * Type-safe batcher configuration with compile-time adapter validation
  *
  * This configuration system ensures that:
- * 1. If a defaultTarget is specified, it must be a valid key of the connectors Record
- * 2. At least one connector must be provided
+ * 1. If a defaultTarget is specified, it must be a valid key of the adapters record
+ * 2. At least one adapter must be provided
  * 3. The configuration is validated at runtime for additional safety
  *
  * @example
  * ```typescript
- * // ✅ Valid configuration with per-connector batching criteria
+ * // ✅ Valid configuration with per-adapter batching criteria
  * const config: PaimaBatcherConfig<{
- *   evm: EvmChainConnector;
- *   polygon: EvmChainConnector;
+ *   evm: EvmChainAdapter;
+ *   polygon: EvmPolygonChainAdapter;
  * }> = {
  *   pollingIntervalMs: 1000,
- *   connectors: {
- *     evm: evmConnector,
- *     polygon: polygonConnector,
+ *   adapters: {
+ *     evm: evmAdapter,
+ *     polygon: polygonAdapter,
  *   },
  *   defaultTarget: "evm",
  *   batchingCriteria: {
@@ -40,14 +40,14 @@ import { Value } from "@sinclair/typebox/value";
  * };
  *
  * // ❌ Invalid configuration - TypeScript error
- * const invalidConfig: PaimaBatcherConfig<{ evm: EvmChainConnector }> = {
+ * const invalidConfig: PaimaBatcherConfig<{ evm: EvmChainAdapter }> = {
  *   pollingIntervalMs: 1000,
- *   connectors: { evm: evmConnector },
+ *   adapters: { evm: evmAdapter },
  *   defaultTarget: "invalid-target", // ❌ TypeScript error: not a valid key
  * };
  * ```
  */
-export type ValidConnectorKey<T> = T extends Record<infer K, any> ? K : never;
+export type ValidAdapterKey<T> = T extends Record<infer K, any> ? K : never;
 
 /**
  * Batching criteria configuration - replaces the separate coordinator system
@@ -76,21 +76,21 @@ export interface BatchingCriteriaConfig<
 }
 
 /**
- * Per-connector batching criteria configuration
- * Maps connector keys to their specific batching strategies
+ * Per-adapter batching criteria configuration
+ * Maps adapter keys to their specific batching strategies
  */
-export type PerConnectorBatchingCriteria<
+export type PerAdapterBatchingCriteria<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
-  TConnectors extends Record<string, IChainConnector> = Record<
+  TAdapters extends Record<string, BlockchainAdapter> = Record<
     string,
-    IChainConnector
+    BlockchainAdapter
   >,
 > = Partial<
-  Record<ValidConnectorKey<TConnectors>, BatchingCriteriaConfig<TInput>>
+  Record<ValidAdapterKey<TAdapters>, BatchingCriteriaConfig<TInput>>
 >;
 
 /**
- * Default batching criteria when none specified for a connector
+ * Default batching criteria when none specified for an adapter
  * Processes inputs immediately (size=1) to ensure responsiveness
  */
 export const DEFAULT_BATCHING_CRITERIA: BatchingCriteriaConfig = {
@@ -141,8 +141,8 @@ export type BatchingCriteriaConfigFromSchema = Static<
   typeof BatchingCriteriaConfigSchema
 >;
 
-/** Per-connector criteria as a record keyed by connector target */
-export const PerConnectorBatchingCriteriaSchema = Type.Optional(
+/** Per-adapter criteria as a record keyed by adapter target */
+export const PerAdapterBatchingCriteriaSchema = Type.Optional(
   Type.Record(Type.String(), BatchingCriteriaConfigSchema),
 );
 
@@ -153,31 +153,31 @@ export type ConfirmationLevel =
 
 export interface PaimaBatcherConfig<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
-  TConnectors extends Record<string, IChainConnector> = Record<
+  TAdapters extends Record<string, BlockchainAdapter> = Record<
     string,
-    IChainConnector
+    BlockchainAdapter
   >,
 > {
   pollingIntervalMs: number;
-  connectors: TConnectors;
-  defaultTarget?: ValidConnectorKey<TConnectors>; // Target to use when input.target is not specified - must be a key of connectors
+  adapters: TAdapters;
+  defaultTarget?: ValidAdapterKey<TAdapters>; // Target to use when input.target is not specified - must be a key of adapters
   /** Namespace used for signature verification messages */
   namespace?: string;
 
   /**
-   * Per-connector batching criteria - allows different strategies per target
-   * Connectors without specified criteria will use DEFAULT_BATCHING_CRITERIA (size=1)
+   * Per-adapter batching criteria - allows different strategies per target
+   * Adapters without specified criteria will use DEFAULT_BATCHING_CRITERIA (size=1)
    */
-  batchingCriteria?: PerConnectorBatchingCriteria<TInput, TConnectors>;
+  batchingCriteria?: PerAdapterBatchingCriteria<TInput, TAdapters>;
 
   port?: number; // HTTP server port
   /**
-   * Confirmation level can be a single string applied to all connectors,
-   * or a per-connector mapping keyed by connector target.
+   * Confirmation level can be a single string applied to all adapters,
+   * or a per-adapter mapping keyed by adapter target.
    */
   confirmationLevel?:
     | ConfirmationLevel
-    | Partial<Record<ValidConnectorKey<TConnectors>, ConfirmationLevel>>;
+    | Partial<Record<ValidAdapterKey<TAdapters>, ConfirmationLevel>>;
   maxRetries?: number; // Maximum retry attempts for failed transactions
   retryDelayMs?: number; // Delay between retry attempts
   enableHttpServer?: boolean; // Whether to start HTTP server
@@ -231,7 +231,7 @@ export const DEFAULT_CONFIG_VALUES = {
 
 /**
  * Runtime schema (TypeBox) for PaimaBatcherConfig
- * Note: connectors and builders are opaque instance types -> T.Any
+ * Note: adapters and builders are opaque instance types -> T.Any
  */
 export const PaimaBatcherConfigSchema = Type.Object({
   pollingIntervalMs: Type.Optional(
@@ -240,13 +240,13 @@ export const PaimaBatcherConfigSchema = Type.Object({
       default: DEFAULT_CONFIG_VALUES.pollingIntervalMs,
     }),
   ),
-  connectors: Type.Record(Type.String(), Type.Any()),
+  adapters: Type.Record(Type.String(), Type.Any()),
   defaultTarget: Type.Optional(Type.String()),
   namespace: Type.Optional(
     Type.String({ default: DEFAULT_CONFIG_VALUES.namespace }),
   ),
 
-  batchingCriteria: PerConnectorBatchingCriteriaSchema,
+  batchingCriteria: PerAdapterBatchingCriteriaSchema,
 
   port: Type.Optional(
     Type.Number({
@@ -334,13 +334,13 @@ export type PaimaBatcherConfigFromSchema = Static<
  */
 export function applyBatcherConfigDefaults<
   T extends DefaultBatcherInput,
-  TConnectors extends Record<string, IChainConnector>,
+  TAdapters extends Record<string, BlockchainAdapter>,
 >(
-  config: PaimaBatcherConfig<T, TConnectors>,
-): PaimaBatcherConfig<T, TConnectors> {
+  config: PaimaBatcherConfig<T, TAdapters>,
+): PaimaBatcherConfig<T, TAdapters> {
   // Cast applies defaults while preserving provided values
   const casted = Value.Cast(PaimaBatcherConfigSchema as any, config as any);
-  return casted as PaimaBatcherConfig<T, TConnectors>;
+  return casted as PaimaBatcherConfig<T, TAdapters>;
 }
 
 /**
@@ -350,11 +350,11 @@ export function applyBatcherConfigDefaults<
  */
 export function validateBatcherConfig<
   T extends DefaultBatcherInput,
-  TConnectors extends Record<string, IChainConnector>,
->(config: PaimaBatcherConfig<T, TConnectors>): void {
-  if (Object.keys(config.connectors).length === 0) {
+  TAdapters extends Record<string, BlockchainAdapter>,
+>(config: PaimaBatcherConfig<T, TAdapters>): void {
+  if (Object.keys(config.adapters).length === 0) {
     throw new Error(
-      "At least one connector must be provided in the configuration",
+      "At least one blockchain adapter must be provided in the configuration",
     );
   }
 
@@ -362,16 +362,16 @@ export function validateBatcherConfig<
   // but we can add runtime validation for additional safety
   if (
     config.defaultTarget &&
-    !(config.defaultTarget in config.connectors)
+    !(config.defaultTarget in config.adapters)
   ) {
     throw new Error(
-      `Default target '${config.defaultTarget}' is not present in connectors. Available connectors: ${
-        Object.keys(config.connectors).join(", ")
+      `Default target '${config.defaultTarget}' is not present in adapters. Available adapters: ${
+        Object.keys(config.adapters).join(", ")
       }`,
     );
   }
 
-  // Validate batching criteria configuration for each connector
+  // Validate batching criteria configuration for each adapter
   if (config.batchingCriteria) {
     for (
       const [target, criteria] of Object.entries(config.batchingCriteria) as [
@@ -379,10 +379,10 @@ export function validateBatcherConfig<
         BatchingCriteriaConfig<T>,
       ][]
     ) {
-      if (!(target in config.connectors)) {
+      if (!(target in config.adapters)) {
         throw new Error(
-          `Batching criteria specified for unknown connector '${target}'. Available connectors: ${
-            Object.keys(config.connectors).join(", ")
+          `Batching criteria specified for unknown adapter '${target}'. Available adapters: ${
+            Object.keys(config.adapters).join(", ")
           }`,
         );
       }
@@ -391,23 +391,23 @@ export function validateBatcherConfig<
   }
 
   console.log(
-    `🔧 Configuration validated. Available connectors: ${
-      Object.keys(config.connectors)
+    `🔧✅ Configuration validated. Available adapters: ${
+      Object.keys(config.adapters)
     }`,
   );
   if (config.defaultTarget) {
     console.log(`🎯 Default target: ${config.defaultTarget}`);
   } else {
     console.log(
-      `🎯 Using first available connector as default: ${
-        Object.keys(config.connectors)[0]
+      `🎯 Using first available adapter as default: ${
+        Object.keys(config.adapters)[0]
       }`,
     );
   }
 
-  // Log batching criteria per connector
-  const connectorTargets = Object.keys(config.connectors);
-  for (const target of connectorTargets) {
+  // Log batching criteria per adapter
+  const adapterTargets = Object.keys(config.adapters);
+  for (const target of adapterTargets) {
     const criteria = (config.batchingCriteria
       ?.[target as keyof typeof config.batchingCriteria] as
         | BatchingCriteriaConfig<T>

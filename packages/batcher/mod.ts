@@ -3,7 +3,7 @@
  *
  * This module provides a clean interface to the Paima batcher system,
  * including the core batcher class, configuration types, storage interfaces,
- * and chain connectors.
+ * and chain adapters.
  */
 
 // Core batcher functionality
@@ -13,14 +13,14 @@ export { PaimaBatcher } from "./core/batcher.ts";
 export type {
   BatchingCriteriaConfig,
   PaimaBatcherConfig,
-  ValidConnectorKey,
+  ValidAdapterKey,
 } from "./core/config.ts";
 export {
   applyBatcherConfigDefaults,
   BatchingCriteriaConfigSchema,
   DEFAULT_CONFIG_VALUES,
   PaimaBatcherConfigSchema,
-  PerConnectorBatchingCriteriaSchema,
+  PerAdapterBatchingCriteriaSchema,
   validateBatcherConfig,
   validateBatchingCriteria,
 } from "./core/config.ts";
@@ -29,9 +29,9 @@ export {
 export type { BatcherStorage } from "./core/storage.ts";
 export { DatabaseStorage, FileStorage } from "./core/storage.ts";
 
-// Chain connector interfaces and implementations
-export type { IChainConnector } from "./connectors/connector.ts";
-export { EvmChainConnector } from "./connectors/evm-connector.ts";
+// Chain adapter interface and implementations
+export type { BlockchainAdapter } from "./adapters/adapter.ts";
+export { PaimaL2DefaultAdapter } from "./adapters/paimal2-adapter.ts";
 
 // HTTP server
 export { startBatcherHttpServer } from "./server/batcher-server.ts";

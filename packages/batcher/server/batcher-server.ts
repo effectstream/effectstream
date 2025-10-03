@@ -163,7 +163,7 @@ export async function startBatcherHttpServer(
             pendingInputs: Type.Number(),
             criteriaType: Type.String(),
             timeSinceLastProcess: Type.Number(),
-            connectorTargets: Type.Array(Type.String()),
+            adapterTargets: Type.Array(Type.String()),
           }),
           config: Type.Object({
             pollingIntervalMs: Type.Number(),
@@ -187,7 +187,7 @@ export async function startBatcherHttpServer(
         isInitialized: batcher.isInitialized || false,
         totalPendingInputs: status.totalPendingInputs,
         targets: status.targets,
-        connectorTargets: status.connectorTargets,
+        adapterTargets: status.adapterTargets,
       },
       config,
       timestamp: new Date().toISOString(),

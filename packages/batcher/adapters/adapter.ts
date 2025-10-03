@@ -1,4 +1,4 @@
-// Implements a connector interface for the batcher
+// Implements a adapter interface for the batcher responsible for handling blockchain interactions
 
 /**
  * Generic blockchain transaction hash type
@@ -22,10 +22,10 @@ export interface BlockchainTransactionReceipt {
 }
 
 /**
- * Base interface for blockchain connectors that handle chain-specific operations
+ * Base interface for blockchain adapters that handle chain-specific operations
  * Provides a unified interface for different blockchain interactions
  */
-export interface IChainConnector {
+export interface BlockchainAdapter {
   /**
    * Submit a batch transaction to the blockchain
    * @param data - The batch data to submit (hex encoded)
@@ -46,7 +46,7 @@ export interface IChainConnector {
   ): Promise<BlockchainTransactionReceipt>;
 
   /**
-   * Get the current account/address for this connector
+   * Get the current account/address for this adapter
    * @returns The account address as a string
    */
   getAccountAddress(): string;
@@ -65,14 +65,14 @@ export interface IChainConnector {
   estimateBatchFee(data: string): Promise<string | bigint> | string | bigint;
 
   /**
-   * Maximum batch payload size in bytes for this connector/chain.
+   * Maximum batch payload size in bytes for this adapter/chain.
    * Used by the batch data builder to limit batch size per target.
    */
-  getMaxBatchSize(): number;
+  maxBatchSize?: number;
 
   /**
-   * Check if the connector is ready to submit transactions
-   * @returns True if the connector is operational
+   * Check if the adapter is ready to submit transactions
+   * @returns True if the adapter is operational
    */
   isReady(): boolean;
 
@@ -84,7 +84,7 @@ export interface IChainConnector {
 
   /**
    * Optional sync protocol name used to filter Paima Sync events
-   * If not provided, the batcher will fall back to the connector's chain name
+   * If not provided, the batcher will fall back to the adapter's chain name
    */
   getSyncProtocolName?(): string;
 }
