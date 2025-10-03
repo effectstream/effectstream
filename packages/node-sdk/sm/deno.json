@@ -13,7 +13,7 @@
     "pg-tx": "npm:pg-tx@^1.0.1",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "assert-never": "npm:assert-never@^1.4.0",
-    "viem": "npm:viem@^2.21.3",
+    "viem": "npm:viem@2.37.3",
     "@pgtyped/runtime": "npm:@pgtyped/runtime@^2.4.2"
   }
 }

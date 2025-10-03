@@ -35,7 +35,7 @@
     "sass-embedded": "npm:sass-embedded@^1.90.0",
     "stream-browserify": "npm:stream-browserify@3.0.0",
     "vite": "npm:vite@^6.3.2",
-    "viem": "npm:viem@^2.21.3",
+    "viem": "npm:viem@2.37.3",
     "viem/accounts": "npm:viem/accounts",
     "viem/chains": "npm:viem/chains",
     "vite-plugin-node-stdlib-browser": "npm:vite-plugin-node-stdlib-browser",
