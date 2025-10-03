@@ -50,4 +50,5 @@ export type StartConfig = {
   migrations?: DBMigrations[];
   apiRouter?: StartConfigApiRouter;
   grammar?: GrammarDefinition;
+  userDefinedPrimitives?: Record<string, any>;
 };

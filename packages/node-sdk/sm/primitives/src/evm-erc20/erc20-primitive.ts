@@ -27,20 +27,20 @@ import {
   ERC20_VIEW_PREFIX,
   erc20Ivm,
 } from "./erc20-ivm.ts";
+import { PrimitiveTypeEVMERC20 } from "../builtin.ts";
 
 /**
  * Erc20 Primitive
  *
  * This is a concrete implementation of the PaimaPrimitive class for ERC20.
  */
-export const ERC20_TYPE = "EVM:ERC20" as const;
 
 export class Erc20Primitive extends PaimaPrimitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   typeof erc20Grammar
 > {
   // Primitive defined
-  readonly internalTypeName = ERC20_TYPE;
+  readonly internalTypeName = PrimitiveTypeEVMERC20;
   readonly abi: ReturnType<typeof getEvmEvent> = getEvmEvent(
     erc20.abi,
     "Transfer(address,address,uint256)",
@@ -63,11 +63,7 @@ export class Erc20Primitive extends PaimaPrimitive<
     contractAddress: EvmAddress;
     stateMachinePrefix: string | undefined;
   }) {
-    super(
-      config.instanceName,
-      config.startBlockHeight,
-      config.stateMachinePrefix,
-    );
+    super(config);
     this.contractAddress = Value.Decode(
       TypeboxHelpers.Evm.Address,
       config.contractAddress,

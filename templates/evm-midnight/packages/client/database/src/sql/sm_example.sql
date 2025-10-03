@@ -1,3 +1,10 @@
+/* @name evmMidnightTableExists */
+SELECT EXISTS (
+    SELECT FROM information_schema.tables 
+    WHERE  table_schema = 'public'
+    AND    table_name   = 'evm_midnight'
+);
+
 /* @name insertEvmMidnight */
 INSERT INTO evm_midnight 
     (contract_address, token_id, owner, block_height) 

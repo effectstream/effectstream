@@ -23,27 +23,22 @@ import type { StateUpdateStream } from "@paima/coroutine";
 import { ERC721_VIEW_PREFIX, erc721Ivm } from "./erc721-ivm.ts";
 import { ERC721_INTERMEDIATE_PREFIX } from "./erc721-ivm.ts";
 import { erc721 } from "./erc721-abi.ts";
+import { erc721Grammar } from "./erc721-grammar.ts";
+import { PrimitiveTypeEVMERC721 } from "../builtin.ts";
 
 /**
  * Erc721 Primitive
  *
  * This is a concrete implementation of the PaimaPrimitive class for ERC721.
  */
-export const erc721Grammar = [
-  ["to", Type.String()],
-  ["from", Type.String()],
-  ["tokenId", Type.String()],
-  ["isBurn", Type.Boolean()],
-] as const;
 
-export const ERC721_TYPE = "EVM:ERC721" as const;
 
-export class Erc721Primitive extends PaimaPrimitive<
+  export class Erc721Primitive extends PaimaPrimitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   typeof erc721Grammar
 > {
   // Primitive defined
-  readonly internalTypeName = ERC721_TYPE;
+  readonly internalTypeName = PrimitiveTypeEVMERC721;
   readonly abi = getEvmEvent(erc721.abi, "Transfer(address,address,uint256)");
   override grammar = erc721Grammar;
   readonly contractAddress: EvmAddress;
@@ -62,11 +57,7 @@ export class Erc721Primitive extends PaimaPrimitive<
     contractAddress: EvmAddress;
     stateMachinePrefix: string | undefined;
   }) {
-    super(
-      config.instanceName,
-      config.startBlockHeight,
-      config.stateMachinePrefix,
-    );
+    super(config);
     this.contractAddress = Value.Decode(
       TypeboxHelpers.Evm.Address,
       config.contractAddress,

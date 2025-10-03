@@ -62,6 +62,7 @@ RUN deno install --allow-scripts
 RUN /app/patch.sh
 RUN deno task build:evm
 RUN deno task build:midnight
+RUN deno task -f @e2e/wallets-ui build
 
 # Frontend / Explorer / API / Hardhat 1&2 / Midnight Proof
 EXPOSE 10599

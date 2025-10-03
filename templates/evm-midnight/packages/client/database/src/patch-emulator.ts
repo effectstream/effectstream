@@ -1,10 +1,11 @@
-import { localhostConfig } from "@example-evm-midnight/data-types/localhostConfig";
-import { migrationTable } from "./migration-order.ts";
 import { run } from "effection";
-import { createDynamicTables, getConnection } from "@paimaexample/db";
+import { createDynamicTables } from "@paimaexample/db";
 import type { Client } from "pg";
 import { applyMigrations } from "@paimaexample/db/version";
 import type { SyncProtocolWithNetwork } from "@paimaexample/config";
+import { builtInPrimitivesMap } from "@paimaexample/sm";
+
+// TODO Update this to use the internal patch-emulator.ts
 
 /**
  * This is to generate the user/custom pgtyped files in compilation time
@@ -13,9 +14,30 @@ import type { SyncProtocolWithNetwork } from "@paimaexample/config";
  * TODO: Implement how to manage the order of the migrations, e.g. 1.sql, 2.sql, 10.sql, etc.
  */
 
-async function standAloneApplyUserMigrations(db: Client) {
+export async function standAloneApplyMigrations(
+  db: Client,
+  migrationTable: /*DBMigrations[]*/ any[],
+  localhostConfig: SyncProtocolWithNetwork,
+  userDefinedPrimitives?: Record<string, any>,
+) {
   const l: SyncProtocolWithNetwork = localhostConfig as any;
   const config = Object.entries(l.primitives).map(([key, value]) => {
+
+    const primitiveType = value.primitive.type;
+    const primitiveUniqueName = value.primitive.name;
+    const primitiveConfig = value.primitive;
+    const isBuiltInPrimitive = primitiveType in builtInPrimitivesMap;
+    const isUserDefinedPrimitive = userDefinedPrimitives && primitiveType in userDefinedPrimitives;
+    const classConfig = {
+      ...primitiveConfig,
+      instanceName: primitiveUniqueName,
+    }
+    if (isBuiltInPrimitive) {
+      new builtInPrimitivesMap[primitiveType as keyof typeof builtInPrimitivesMap](classConfig as any) ;
+    } else if (isUserDefinedPrimitive) {
+      new userDefinedPrimitives[primitiveType as keyof typeof userDefinedPrimitives](classConfig);
+    }
+
     return {
       config: {
         primitives: [{
@@ -27,6 +49,7 @@ async function standAloneApplyUserMigrations(db: Client) {
       },
     };
   });
+
 
   await run(function* () {
     return yield* createDynamicTables(
@@ -54,6 +77,3 @@ async function standAloneApplyUserMigrations(db: Client) {
   }
 }
 
-const db = await getConnection();
-await standAloneApplyUserMigrations(db);
-console.log("✅ User migrations applied");

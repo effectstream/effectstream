@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 import deno from "@deno/vite-plugin";
 import nodePolyfills from "vite-plugin-node-stdlib-browser";
 import wasm from "vite-plugin-wasm";
-import topLevelAwait from "vite-plugin-top-level-await";
 import "react";
 import "react-dom";
 import { viteStaticCopy } from "vite-plugin-static-copy";
@@ -12,6 +11,38 @@ import path from "node:path";
 
 export default defineConfig({
   root: "./client",
+
+  resolve: {
+    alias: {
+      // Fix for: Module "npm:@scope/package@version" has been externalized for browser compatibility.
+      //          Cannot access "npm:@scope/package@version.__esModule" in client code
+      "npm:@polkadot/extension-dapp@^0.61.7": "@polkadot/extension-dapp",
+      "npm:@foxglove/crc@^1.0.1": "@foxglove/crc",
+      "./@polkadot/util": "npm:@polkadot/util-crypto",
+      "./@polkadot/util-crypto": "npm:@polkadot/util-crypto",
+      "npm:@polkadot/util-crypto@^13.4.3": "@polkadot/util-crypto",
+      "npm:@polkadot/util@^13.4.3": "@polkadot/util",
+      "npm:@polkadot/util-crypto@^13.5.6": "@polkadot/util-crypto",
+      "npm:@polkadot/util@^13.5.6": "@polkadot/util",
+      "npm:@sinclair/typebox@^0.34.41": "@sinclair/typebox",
+      "npm:/@sinclair/typebox@^0.34.41/value": "@sinclair/typebox/value",
+      "npm:@sinclair/typebox@^0.34.41/value": "@sinclair/typebox/value",
+      "npm:/@sinclair/typebox@~0.34.41/value": "@sinclair/typebox/value",
+      "npm:@sinclair/typebox@^0.34.30": "@sinclair/typebox",
+      "npm:/@sinclair/typebox@^0.34.30/value": "@sinclair/typebox/value",
+      "npm:@sinclair/typebox@^0.34.30/value": "@sinclair/typebox/value",
+      "npm:/@sinclair/typebox@~0.34.30/value": "@sinclair/typebox/value",
+      "npm:viem": "viem",
+      "npm:viem/accounts": "viem/accounts",
+      "npm:viem@^2.21.3": "viem",
+      "npm:viem@^2.21.3/accounts": "viem/accounts",
+      "npm:/viem@^2.21.3/accounts": "viem/accounts",
+      "npm:@dcspark/cip34-js@3.0.1": "@dcspark/cip34-js",
+      "npm:@dcspark/carp-client@^3.3.0": "@dcspark/carp-client",
+      "npm:@subsquid/ss58-codec@^1.2.3": "@subsquid/ss58-codec",
+    },
+  },
+
   // optimizeDeps: {
   //
   // },
@@ -27,11 +58,6 @@ export default defineConfig({
       ignoreDynamicRequires: true,
     },
   },
-  // esbuild: {
-  //   supported: {
-  //     "top-level-await": true, //browsers can handle top-level-await features
-  //   },
-  // },
   server: {
     port: 4001,
     open: true,

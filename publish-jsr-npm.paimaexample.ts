@@ -60,44 +60,44 @@ const rootDir = dirIndex !== -1 ? Deno.args[dirIndex + 1] : Deno.cwd();
 const filePattern = /\.(ts|js|json|tsx|jsx)$/i;
 
 // Packages to publish in order
-const jsrPackagesToPublish = [
-  /* Paima SDK */
-  "./packages/paima-sdk/utils",
-  "./packages/paima-sdk/log", // [@utils]
-  "./packages/paima-sdk/config",
-  "./packages/paima-sdk/precompile",
-  "./packages/paima-sdk/chain-types", // [@utils, @config]
-  "./packages/paima-sdk/concise", // [@chain-types, @precompile]
-  "./packages/paima-sdk/crypto",
-  "./packages/paima-sdk/events",
-  "./packages/paima-sdk/wallets", // [@concise, @crypto, @events-client]
-  "./packages/paima-sdk/coroutine",
+const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
+  // /* Paima SDK */
+  { path: "./packages/paima-sdk/utils" },
+  { path: "./packages/paima-sdk/log" }, // ["@utils"]},
+  { path: "./packages/paima-sdk/config" },
+  { path: "./packages/paima-sdk/precompile" },
+  { path: "./packages/paima-sdk/chain-types" }, // [@utils, @config]
+  { path: "./packages/paima-sdk/concise" }, // [@chain-types, @precompile]
+  { path: "./packages/paima-sdk/crypto" },
+  { path: "./packages/paima-sdk/events" },
+  { path: "./packages/paima-sdk/wallets" }, // [@concise, @crypto, @events-client]
+  { path: "./packages/paima-sdk/coroutine" },
 
-  /* Docs */
-  "./docs/site",
+  // /* Docs */
+  // {path: "./docs/site" },
 
-  /* Node SDK */
-  "./packages/node-sdk/db",
-  "./packages/node-sdk/sync", // [@db]
-  "./packages/node-sdk/sm", // [@db]
-  "./packages/node-sdk/events",
-  "./packages/node-sdk/runtime", // [@db, @sync, @sm]
-  "./packages/node-sdk/batcher",
-  "./packages/chains/evm-contracts",
-  "./packages/build-tools/explorer",
-  "./packages/build-tools/tui",
-  "./packages/build-tools/collector",
-  "./packages/build-tools/orchestrator",
-  "./packages/chains/evm-hardhat",
+  // /* Node SDK */
+  { path: "./packages/node-sdk/db" },
+  { path: "./packages/node-sdk/sync" }, // [@db]
+  { path: "./packages/node-sdk/sm" }, // [@db]
+  { path: "./packages/node-sdk/events" },
+  { path: "./packages/node-sdk/runtime" }, // [@db, @sync, @sm]
+  { path: "./packages/node-sdk/batcher" },
+  { path: "./packages/chains/evm-contracts" },
+  { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
+  { path: "./packages/build-tools/tui" },
+  { path: "./packages/build-tools/collector" },
+  { path: "./packages/build-tools/orchestrator" },
+  { path: "./packages/chains/evm-hardhat" },
 ];
-const npmPackagesToPublish = [
-  "./packages/chains/evm-contracts",
-  "./packages/binaries/avail-light-client",
-  "./packages/binaries/avail-node",
-  "./packages/binaries/midnight-indexer",
-  "./packages/binaries/midnight-node",
-  "./packages/binaries/midnight-proof-server",
-  "./packages/build-tools/explorer",
+
+const npmPackagesToPublish: { path: string; prepublish?: string[] }[] = [
+  { path: "./packages/chains/evm-contracts" },
+  { path: "./packages/binaries/avail-light-client" },
+  { path: "./packages/binaries/avail-node" },
+  { path: "./packages/binaries/midnight-indexer" },
+  { path: "./packages/binaries/midnight-node" },
+  { path: "./packages/binaries/midnight-proof-server" },
 ];
 
 async function fetchLatestVersion(): Promise<string> {
@@ -111,30 +111,6 @@ async function fetchLatestVersion(): Promise<string> {
     "",
   );
   return JSON.parse(denoFile).version;
-}
-
-async function fetchNextVersionFromJSR(): Promise<string> {
-  try {
-    const response = await fetch("https://jsr.io/@paimaexample/sync/meta.json");
-    if (!response.ok) {
-      throw new Error(`Failed to fetch version: ${response.statusText}`);
-    }
-    const data = await response.json();
-    const currentVersion = data.latest;
-
-    // Increment minor version
-    const versionParts = currentVersion.split(".");
-    const major = parseInt(versionParts[0]);
-    const minor = parseInt(versionParts[1]);
-    const patch = parseInt(versionParts[2]);
-
-    const newVersion = `${major}.${minor}.${patch + 1}`;
-    console.log(`Auto-incremented version: ${newVersion}`);
-    return newVersion;
-  } catch (error) {
-    console.error("Error fetching version:", error);
-    throw error;
-  }
 }
 
 async function processFile(filePath: string, reverse: boolean = false) {
@@ -182,6 +158,7 @@ const skipDirectories = [
   `${rootDir}/docs/docs`,
   `${rootDir}/.github`,
 ];
+
 async function walkAndProcess(dir: string, reverse: boolean = false) {
   for await (const entry of Deno.readDir(dir)) {
     const fullPath = `${dir}/${entry.name}`;
@@ -211,15 +188,15 @@ async function walkAndProcess(dir: string, reverse: boolean = false) {
 }
 
 async function publishJSRPackages() {
-  console.log("Starting package publishing...");
-
+  console.log(Array(20).fill("-").join(""));
+  console.log("Starting JSR package publishing...");
+  console.log(Array(20).fill("-").join(""));
+  // Change to the package directory
+  const originalCwd = Deno.cwd();
   for (const packagePath of jsrPackagesToPublish) {
     try {
-      console.log(`Publishing ${packagePath}...`);
-
-      // Change to the package directory
-      const originalCwd = Deno.cwd();
-      Deno.chdir(packagePath);
+      console.log(`> Publishing ${packagePath.path}...`);
+      Deno.chdir(packagePath.path);
 
       // Run the publish command
       const publishArgs = [
@@ -241,18 +218,18 @@ async function publishJSRPackages() {
       const { success } = await command.output();
 
       if (!success) {
-        console.error(`Failed to publish ${packagePath}`);
+        console.error(`Failed to publish ${packagePath.path}`);
         Deno.chdir(originalCwd);
-        return;
+        continue;
       }
 
-      console.log(`Successfully published ${packagePath}`);
-
+      console.log(`Successfully published ${packagePath.path}`);
+    } catch (error) {
+      console.error(`Error publishing ${packagePath.path}:`, error);
+      continue;
+    } finally {
       // Return to original directory
       Deno.chdir(originalCwd);
-    } catch (error) {
-      console.error(`Error publishing ${packagePath}:`, error);
-      return;
     }
   }
 
@@ -260,25 +237,32 @@ async function publishJSRPackages() {
 }
 
 async function publishNPMPackages() {
-  console.log("Starting npm package publishing...");
+  console.log(Array(20).fill("-").join(""));
+  console.log("Starting NPM package publishing...");
+  console.log(Array(20).fill("-").join(""));
+  const originalCwd = Deno.cwd();
+
   for (const packagePath of npmPackagesToPublish) {
-    console.log(`Publishing ${packagePath}...`);
-    const originalCwd = Deno.cwd();
-    Deno.chdir(packagePath);
-    const command = new Deno.Command("npm", {
-      args: ["publish", "--access", "public", "--otp", otpCode!],
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { success } = await command.output();
-    if (!success) {
-      console.error(`Failed to publish ${packagePath}`);
+    try {
+      console.log(`> Publishing ${packagePath}...`);
+      Deno.chdir(packagePath.path);
+      const command = new Deno.Command("npm", {
+        args: ["publish", "--access", "public", "--otp", otpCode!],
+        stdout: "inherit",
+        stderr: "inherit",
+      });
+      const { success } = await command.output();
+
+      if (!success) {
+        console.error(`Failed to publish ${packagePath.path}`);
+      } else {
+        console.log(`Successfully published ${packagePath.path}`);
+      }
+    } catch (error) {
+      console.error(`Error publishing ${packagePath.path}:`, error);
+    } finally {
       Deno.chdir(originalCwd);
-      return;
     }
-    console.log(`Successfully published ${packagePath}`);
-    // Return to original directory
-    Deno.chdir(originalCwd);
   }
 }
 
@@ -296,26 +280,64 @@ async function showPublishCommands() {
   console.log("");
 
   for (const packagePath of npmPackagesToPublish) {
-    console.log(`cd ${packagePath}`);
+    console.log(`cd ${packagePath.path}`);
     const publishCmd = otpCode
       ? `npm publish --access public --otp ${otpCode}`
       : `npm publish --access public`;
     console.log(publishCmd);
     console.log(
-      `cd ${Array(packagePath.split("/").length - 1).fill("..").join("/")}/`,
+      `cd ${
+        Array(packagePath.path.split("/").length - 1).fill("..").join("/")
+      }/`,
     );
   }
 
   for (const packagePath of jsrPackagesToPublish) {
-    console.log(`cd ${packagePath}`);
+    console.log(`cd ${packagePath.path}`);
     const publishCmd = authToken
       ? `deno publish --allow-slow-types --allow-dirty --no-check --token ${authToken}`
       : `deno publish --allow-slow-types --allow-dirty --no-check`;
     console.log(publishCmd);
     console.log(
-      `cd ${Array(packagePath.split("/").length - 1).fill("..").join("/")}/`,
+      `cd ${
+        Array(packagePath.path.split("/").length - 1).fill("..").join("/")
+      }/`,
     );
     console.log("");
+  }
+}
+
+async function prePublishPackages() {
+  // execute prepublish scripts for all packages
+  const originalCwd = Deno.cwd();
+  for (
+    const packagePath of [...jsrPackagesToPublish, ...npmPackagesToPublish]
+  ) {
+    if (packagePath.prepublish) {
+      try {
+        console.log(`Pre-publishing ${packagePath.path}...`);
+        Deno.chdir(packagePath.path);
+        const command = new Deno.Command("deno", {
+          args: packagePath.prepublish,
+          stdout: "inherit",
+          stderr: "inherit",
+        });
+        const { success } = await command.output();
+        if (!success) {
+          throw new Error(`Failed to pre-publish ${packagePath.path}`);
+        }
+        console.log(
+          `Successfully pre-published ${packagePath.path} ${
+            packagePath.prepublish.join(" ")
+          }`,
+        );
+      } catch (error) {
+        console.error(`Error pre-publishing ${packagePath.path}:`, error);
+        throw error;
+      } finally {
+        Deno.chdir(originalCwd);
+      }
+    }
   }
 }
 
@@ -327,6 +349,8 @@ async function main() {
     console.log("Starting replacement...");
     await walkAndProcess(rootDir, false);
   }
+
+  await prePublishPackages();
 
   if (shouldPublish) {
     if (otpCode) {

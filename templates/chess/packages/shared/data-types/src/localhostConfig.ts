@@ -1,12 +1,11 @@
 import { contractAddressesEvmMain } from "@chess/evm-contracts";
-
+import { PrimitiveTypeEVMPaimaL2 } from "@paimaexample/sm/builtin";
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@paimaexample/config";
 import { hardhat } from "viem/chains";
-import { PaimaL2Primitive } from "@paimaexample/sm";
 import { grammar } from "@chess/data-types/grammar";
 
 export const localhostConfig = new ConfigBuilder()
@@ -57,14 +56,15 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) =>
-          new PaimaL2Primitive({
-            instanceName: "Chess_PaimaL2",
+          ({
+            name: "Chess_PaimaL2",
+            type: PrimitiveTypeEVMPaimaL2,
             startBlockHeight: 0,
             contractAddress:
               contractAddressesEvmMain()
                 .chain31337["PaimaL2ContractModule#MyPaimaL2Contract"],
             paimaL2Grammar: grammar,
-          }).getConfig(),
+          }),
       )
   )
   .build();

@@ -631,12 +631,6 @@ export const startHttpServer = function* (
     primitiveName: string,
   ): string | undefined {
     const primitiveTry = PaimaPrimitiveRegistry.getPrimitive(primitiveName);
-    console.error("primitiveTry", primitiveName, primitiveTry);
-    // if (!primitive) {
-    //   return undefined;
-    // }
-    // return primitive.getViewPrefix()[0];
-
     // TODO map/find the results generated bad TS Types (too hard to represent)
     const findPrimitive = (syncProtocols: AllSyncProtocols[]) => {
       for (const syncProtocol of syncProtocols) {

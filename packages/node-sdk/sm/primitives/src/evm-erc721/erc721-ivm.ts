@@ -1,4 +1,4 @@
-import { ERC721_TYPE } from "./erc721-primitive.ts";
+import { PrimitiveTypeEVMERC721 } from "../builtin.ts";
 
 /**
  * Creates a new IVM for the ERC721 token with the given name.
@@ -31,7 +31,7 @@ export function erc721Ivm(name: string) {
   CREATE OR REPLACE FUNCTION update_erc721_ownership_${validSQLName}() RETURNS TRIGGER AS $$
   BEGIN
       -- Only process ERC721 transfers
-      IF NEW.payload_type = '${ERC721_TYPE}' 
+      IF NEW.payload_type = '${PrimitiveTypeEVMERC721}' 
          AND NEW.primitive_name = '${name}' 
          AND NEW.payload->>'to' IS NOT NULL 
          AND NEW.payload->>'to' != '' THEN

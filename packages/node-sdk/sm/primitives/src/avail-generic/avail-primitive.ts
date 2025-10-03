@@ -1,5 +1,5 @@
 import { type JsonObject, PaimaPrimitive } from "@paima/sm";
-import { type StaticDecode, Type } from "@sinclair/typebox";
+import type { StaticDecode } from "@sinclair/typebox";
 import { type CommandTuple, generateRawStmInput } from "@paima/concise";
 import type {
   ConfigSyncProtocolType,
@@ -12,23 +12,19 @@ import {
   AddressType,
   type PaimaBlockNumber,
 } from "@paima/utils";
+import { availGenericGrammar } from "./avail-generic-grammar.ts";
+import { PrimitiveTypeAvailGeneric } from "../builtin.ts";
 
 /**
  * Avail Generic Primitive
  *
  * This is a concrete implementation of the PaimaPrimitive class for Avail and Generic Contracts.
  */
-export const AVAIL_GENERIC_TYPE = "AVAIL:GENERIC" as const;
-
-export const availGenericGrammar = [
-  ["payload", Type.Object({ suppliedValue: Type.String() })],
-] as const;
-
 export class AvailGenericPrimitive extends PaimaPrimitive<
   ConfigSyncProtocolType.AVAIL_PARALLEL,
   typeof availGenericGrammar
 > {
-  readonly internalTypeName = AVAIL_GENERIC_TYPE;
+  readonly internalTypeName = PrimitiveTypeAvailGeneric;
   override grammar = availGenericGrammar;
   readonly appId: number;
   readonly genesisHash: string;
@@ -43,11 +39,7 @@ export class AvailGenericPrimitive extends PaimaPrimitive<
     applicationKey: string;
     stateMachinePrefix: string | undefined;
   }) {
-    super(
-      config.instanceName,
-      config.startBlockHeight,
-      config.stateMachinePrefix,
-    );
+    super(config);
     this.appId = config.appId;
     this.genesisHash = config.genesisHash;
     this.applicationKey = config.applicationKey;

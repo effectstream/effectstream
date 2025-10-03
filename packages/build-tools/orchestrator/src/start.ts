@@ -144,7 +144,7 @@ export async function start(
       break;
     case "stdout":
       // TODO: This is a hack to force the logs to be printed to stdout.
-      Deno.env.set("PAIMA_LOGS_FORCE_STDOUT", "true");
+      Deno && Deno.env.set("PAIMA_LOGS_FORCE_STDOUT", "true");
       setCurrentOutput(["stdout"]);
       break;
     case "development":

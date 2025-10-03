@@ -9,14 +9,15 @@ import {
 } from "@paima/config";
 import { hardhat } from "viem/chains";
 import type { BlockNumber } from "@paima/utils";
-import {
-  AvailGenericPrimitive,
-  Erc20Primitive,
-  Erc721Primitive,
-  MidnightGenericPrimitive,
-  PaimaL2Primitive,
-} from "@paima/sm";
+
 import { paimaL2Grammar } from "./grammar.ts";
+import {
+  PrimitiveTypeAvailGeneric,
+  PrimitiveTypeEVMERC20,
+  PrimitiveTypeEVMERC721,
+  PrimitiveTypeEVMPaimaL2,
+  PrimitiveTypeMidnightGeneric,
+} from "@paima/sm/builtin";
 
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
@@ -240,85 +241,87 @@ export const localhostConfig = new ConfigBuilder()
   .buildPrimitives((builder) => {
     builder.addPrimitive(
       (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
-      (network, deployments, syncProtocol) =>
-        new Erc20Primitive({
-          instanceName: "Aribitrum_Token",
-          startBlockHeight: 0,
-          contractAddress: contractAddressesEvmMain()
-            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
-          stateMachinePrefix: "transfer-erc20",
-        }).getConfig(),
+      (network, deployments, syncProtocol) => ({
+        name: "Aribitrum_Token",
+        type: PrimitiveTypeEVMERC20,
+        startBlockHeight: 0,
+        contractAddress: contractAddressesEvmMain()
+          .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
+        stateMachinePrefix: "transfer-erc20",
+      })
     )
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
         (network, deployments, syncProtocol) =>
-          new PaimaL2Primitive({
-            instanceName: "PaimaGameInteraction",
+          ({
+            name: "PaimaGameInteraction",
+            type: PrimitiveTypeEVMPaimaL2,
             startBlockHeight: 0,
             contractAddress: contractAddressesEvmMain()["chain31337"][
               "PaimaL2ContractModule#MyPaimaL2Contract"
             ],
             paimaL2Grammar: paimaL2Grammar,
-          }).getConfig(),
+          }),
       )
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
         (network, deployments, syncProtocol) =>
-          new Erc721Primitive({
-            instanceName: "Arbitrum_ERC721",
+          ({
+            name: "Arbitrum_ERC721",
+            type: PrimitiveTypeEVMERC721,
             startBlockHeight: 0,
             contractAddress: contractAddressesEvmMain()
               .chain31337["Erc721DevModule#Erc721Dev"],
             stateMachinePrefix: "transfer-assets",
-          }).getConfig(),
+          }),
       )
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_slow,
-        (network, deployments, syncProtocol) =>
-          new Erc721Primitive({
-            instanceName: "L1_ERC721_Token",
-            startBlockHeight: 0,
-            contractAddress: contractAddressesEvmMain()
-              .chain31338["Erc721DevModule#Erc721Dev"],
-            stateMachinePrefix: "transfer-assets",
-          }).getConfig(),
+        (network, deployments, syncProtocol) => ({
+          name: "L1_ERC721_Token",
+          type: PrimitiveTypeEVMERC721,
+          startBlockHeight: 0,
+          contractAddress: contractAddressesEvmMain()
+            .chain31338["Erc721DevModule#Erc721Dev"],
+          stateMachinePrefix: "transfer-assets",
+        }),
       )
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_slow,
-        (network, deployments, syncProtocol) =>
-          new Erc20Primitive({
-            instanceName: "ETH_L1_ERC20",
-            startBlockHeight: 0,
-            contractAddress: contractAddressesEvmMain()
-              .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
-            stateMachinePrefix: "transfer-erc20",
-          }).getConfig(),
+        (network, deployments, syncProtocol) => ({
+          name: "ETH_L1_ERC20",
+          type: PrimitiveTypeEVMERC20,
+          startBlockHeight: 0,
+          contractAddress: contractAddressesEvmMain()
+            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
+          stateMachinePrefix: "transfer-erc20",
+        }),
       );
     if (avail_enabled) {
       builder = builder.addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelAvail,
-        (network, deployments, syncProtocol) =>
-          new AvailGenericPrimitive({
-            instanceName: "AvailContractState",
-            startBlockHeight: 1,
-            appId: readAvailApplication().appId,
-            applicationKey: readAvailApplication().ApplicationKey,
-            genesisHash: readAvailApplication().genesisHash,
-            stateMachinePrefix: "avail-app-state",
-          }).getConfig(),
+        (network, deployments, syncProtocol) => ({
+          name: "AvailContractState",
+          type: PrimitiveTypeAvailGeneric,
+          startBlockHeight: 1,
+          appId: readAvailApplication().appId,
+          applicationKey: readAvailApplication().ApplicationKey,
+          genesisHash: readAvailApplication().genesisHash,
+          stateMachinePrefix: "avail-app-state",
+        }),
       );
     }
     if (midnight_enabled) {
       builder = builder
         .addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
-          (network, deployments, syncProtocol) =>
-            new MidnightGenericPrimitive({
-              instanceName: "MidnightContractState",
-              startBlockHeight: 1,
-              contractAddress: readMidnightContract().contractAddress,
-              stateMachinePrefix: "midnightContractState",
-            }).getConfig(),
+          (network, deployments, syncProtocol) => ({
+            name: "MidnightContractState",
+            type: PrimitiveTypeMidnightGeneric,
+            startBlockHeight: 1,
+            contractAddress: readMidnightContract().contractAddress,
+            stateMachinePrefix: "midnightContractState",
+          }),
         );
     }
     return builder;

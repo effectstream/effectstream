@@ -1,6 +1,35 @@
 /** Types generated for queries found in "src/sql/sm_example.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
+/** 'EvmMidnightTableExists' parameters type */
+export type IEvmMidnightTableExistsParams = void;
+
+/** 'EvmMidnightTableExists' return type */
+export interface IEvmMidnightTableExistsResult {
+  exists: boolean | null;
+}
+
+/** 'EvmMidnightTableExists' query type */
+export interface IEvmMidnightTableExistsQuery {
+  params: IEvmMidnightTableExistsParams;
+  result: IEvmMidnightTableExistsResult;
+}
+
+const evmMidnightTableExistsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT EXISTS (\n    SELECT FROM information_schema.tables \n    WHERE  table_schema = 'public'\n    AND    table_name   = 'evm_midnight'\n)"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT EXISTS (
+ *     SELECT FROM information_schema.tables 
+ *     WHERE  table_schema = 'public'
+ *     AND    table_name   = 'evm_midnight'
+ * )
+ * ```
+ */
+export const evmMidnightTableExists = new PreparedQuery<IEvmMidnightTableExistsParams,IEvmMidnightTableExistsResult>(evmMidnightTableExistsIR);
+
+
 /** 'InsertEvmMidnight' parameters type */
 export interface IInsertEvmMidnightParams {
   block_height: number;

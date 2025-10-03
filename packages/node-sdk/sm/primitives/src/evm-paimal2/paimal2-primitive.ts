@@ -45,13 +45,14 @@ import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
 import { type JsonObject, PaimaPrimitive } from "@paima/sm";
 import { Value } from "@sinclair/typebox/value";
 import type { CommandTuple } from "@paima/concise";
+import { PrimitiveTypeEVMPaimaL2 } from "../builtin.ts";
 
 export class PaimaL2Primitive extends PaimaPrimitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   readonly [string, TSchema][]
 > {
   // Primitive defined
-  readonly internalTypeName = "EVM:PaimaL2" as const;
+  readonly internalTypeName = PrimitiveTypeEVMPaimaL2;
   readonly abi = getEvmEvent(
     paimal2.abi,
     "PaimaGameInteraction(address,bytes,uint256)",
@@ -66,11 +67,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     contractAddress: EvmAddress;
     paimaL2Grammar: GrammarDefinition;
   }) {
-    super(
-      config.instanceName,
-      config.startBlockHeight,
-      undefined,
-    );
+    super({...config, stateMachinePrefix: undefined});
     this.contractAddress = Value.Decode(
       TypeboxHelpers.Evm.Address,
       config.contractAddress,
@@ -122,7 +119,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
   ] {
     return {
       name: this.instanceName,
-      type: "evm-rpc-paima-l2",
+      type: this.internalTypeName,
       startBlockHeight: this.startBlockHeight,
       contractAddress: this.contractAddress as EvmAddress,
       abi: this.abi,

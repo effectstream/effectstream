@@ -5,6 +5,12 @@
   "exports": {
     ".": "./server/main.ts"
   },
+  "publish": {
+    "exclude": [
+      "!client/dist",
+      "!dist"
+    ]
+  },
   "tasks": {
     "dev": "deno run -A --node-modules-dir=auto npm:vite",
     "build": "deno run -A --node-modules-dir=auto npm:vite build",

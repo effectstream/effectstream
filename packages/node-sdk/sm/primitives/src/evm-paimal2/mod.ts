@@ -1,1 +1,0 @@
-export { PaimaL2Primitive } from "./paimal2-primitive.ts";

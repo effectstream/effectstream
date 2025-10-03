@@ -5,13 +5,10 @@ import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-  getEvmEvent,
 } from "@paimaexample/config";
 import { hardhat } from "viem/chains";
-import type { TimestampMs } from "@paimaexample/utils";
-import { erc721dev } from "@example-evm-midnight/evm-contracts";
 import { getConnection } from "@paimaexample/db";
-import { Erc721Primitive, MidnightGenericPrimitive } from "@paimaexample/sm";
+import { PrimitiveTypeEVMERC721, PrimitiveTypeMidnightGeneric } from "@paimaexample/sm/builtin";
 
 /**
  * Let check if the db.
@@ -115,24 +112,24 @@ export const localhostConfig = new ConfigBuilder()
     builder
       .addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
-        (network, deployments, syncProtocol) =>
-          new Erc721Primitive({
-            instanceName: "Arbitrum_ERC721",
-            startBlockHeight: 0,
-            contractAddress: contractAddressesEvmMain()
-              .chain31337["Erc721DevModule#Erc721Dev"],
-            stateMachinePrefix: "transfer-assets",
-          }).getConfig(),
+        (network, deployments, syncProtocol) => ({
+          name: "Arbitrum_ERC721",
+          type: PrimitiveTypeEVMERC721,
+          startBlockHeight: 0,
+          contractAddress: contractAddressesEvmMain()
+            .chain31337["Erc721DevModule#Erc721Dev"],
+          stateMachinePrefix: "transfer-assets",
+        })
       )
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelMidnight,
-        (network, deployments, syncProtocol) =>
-          new MidnightGenericPrimitive({
-            instanceName: "MidnightContractState",
-            startBlockHeight: 1,
-            contractAddress: readMidnightContract().contractAddress,
-            stateMachinePrefix: "midnightContractState",
-          }).getConfig(),
+        (network, deployments, syncProtocol) => ({
+          name: "MidnightContractState",
+          type: PrimitiveTypeMidnightGeneric,
+          startBlockHeight: 1,
+          contractAddress: readMidnightContract().contractAddress,
+          stateMachinePrefix: "midnightContractState",
+        })
       )
   )
   .build();

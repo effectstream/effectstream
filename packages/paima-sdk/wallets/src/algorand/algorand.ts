@@ -1,4 +1,4 @@
-import type { PeraWalletConnect } from "@perawallet/connect";
+import { PeraWalletConnect } from "@perawallet/connect";
 import { AddressType, uint8ArrayToHexString } from "@paima/utils";
 import {
   type IConnector,
@@ -42,7 +42,7 @@ export class AlgorandConnector
           displayName: "Pera Wallet",
         },
         api: async (): Promise<AlgorandApi> => {
-          const { PeraWalletConnect } = await import("@perawallet/connect");
+          // const { PeraWalletConnect } = await import("@perawallet/connect");
           const peraWallet = new PeraWalletConnect();
           return peraWallet;
         },

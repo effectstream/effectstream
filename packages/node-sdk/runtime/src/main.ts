@@ -32,6 +32,7 @@ import type { PaimaBlockHash } from "@paima/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@paima/db/version";
 import type { SyncProtocolWithNetwork } from "@paima/config";
+import { builtInPrimitivesMap } from "@paima/sm";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -169,7 +170,18 @@ function* startup(
 ): Operation<AllSyncProtocols[]> {
   const versionInfo = yield* getVersionInfo(dbConn);
   const lastBlockHeight = yield* getLastBlockHeight(versionInfo, dbConn);
+  // Create Runtime Primitives Instances
+  syncInfo.forEach((syncProtocol) => {
+    syncProtocol.primitives.forEach((primitive, primitiveIndex) => {
+      processPrimitives(
+        syncProtocol.primitives,
+        primitiveIndex,
+        config.userDefinedPrimitives
+      );
+    });
+  });
 
+  
   yield* acquireDBMutex(`startup-node`);
 
   // When the node is started, we apply system migrations.
@@ -193,4 +205,40 @@ function* startup(
 
   releaseDBMutex(`startup-node`);
   return syncProtocols;
+}
+
+// Convert the primitive config to the final primitive instance
+const processPrimitives = (
+  primitives: {primitive: any, id: string}[],
+  primitiveIndex: number,
+  userDefinedPrimitives?: Record<string, any>,
+) => {
+    const primitiveType = primitives[primitiveIndex].primitive.type;
+    const primitiveUniqueName = primitives[primitiveIndex].id;
+    const primitiveConfig = primitives[primitiveIndex].primitive;
+    const isBuiltInPrimitive = primitiveType in builtInPrimitivesMap;
+    const isUserDefinedPrimitive = userDefinedPrimitives && primitiveType in userDefinedPrimitives;
+    if (isBuiltInPrimitive && isUserDefinedPrimitive) {
+      throw new Error(`User defined primitive cannot have the same name as a built-in primitive.
+                       Built-in values: ${Object.keys(builtInPrimitivesMap).join(", ")}`);
+    }
+    if (!isBuiltInPrimitive && !isUserDefinedPrimitive) {
+      throw new Error(`PrimitiveUniqueName is not built-in and not user-defined.
+                       Available values: ${Object.keys([
+                        ...Object.keys(builtInPrimitivesMap),
+                        ...Object.keys(userDefinedPrimitives || {}),
+                      ]).join(", ")}`);
+    }
+    let p = null;
+    const classConfig = {
+      ...primitiveConfig,
+      instanceName: primitiveUniqueName,
+    }
+    if (isBuiltInPrimitive) {
+      p = new builtInPrimitivesMap[primitiveType as keyof typeof builtInPrimitivesMap](classConfig as any) ;
+    } else if (isUserDefinedPrimitive) {
+      p = new userDefinedPrimitives[primitiveType as keyof typeof userDefinedPrimitives](classConfig);
+    }
+    // Update the primitive with the final configuration
+    primitives[primitiveIndex].primitive = p.getConfig();
 }

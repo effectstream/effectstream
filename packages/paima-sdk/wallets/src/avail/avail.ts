@@ -1,12 +1,16 @@
 import { Buffer } from "node:buffer";
 import { utf8ToHex } from 'web3-utils';
-import type { ApiPromise, Keyring } from "avail-js-sdk";
+import type { ApiPromise } from "avail-js-sdk";
 import { AddressType } from "@paima/utils";
 import type { IProvider, ActiveConnection, AddressAndType, UserSignature } from "../IProvider.ts";
-import type { PolkadotAddress } from "../polkadot/polkadot.ts";
+type PolkadotAddress = string;
 import { u8aToHex } from "@polkadot/util";
 
+// Problematic dependency for deno-fresh
+import type { Keyring } from "avail-js-sdk";
 
+// Problematic dependency for deno-vite
+// import type { Keyring } from "@polkadot/api";
 export type AvailJsApi = { rpc: ApiPromise; keyring: Keyring };
 
 export class AvailConnector {
