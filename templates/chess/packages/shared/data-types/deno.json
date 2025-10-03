@@ -13,7 +13,7 @@
     "@paimaexample/config": "jsr:@paimaexample/config@0.3.62",
     "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.62",
     "@sinclair/typemap": "npm:@sinclair/typemap@^0.10.1",
-    "viem": "npm:viem@^2.21.3",
+    "viem": "npm:viem@2.37.3",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
   }
 }

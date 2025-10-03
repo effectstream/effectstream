@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import type { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { writeContract } from "viem/actions";
-import { createPublicClient, createWalletClient, http } from "viem";
+import { createPublicClient, createWalletClient, http, type WalletClient } from "viem";
 import { hardhat } from "viem/chains";
-import type { initialNFTSamples } from "../examples.ts";
 import { useWallet } from "../contexts/WalletContext.tsx";
 import {
   connectMidnightWallet,
@@ -15,11 +13,7 @@ import { take, timeout } from "rxjs/operators";
 import { BATCHER_ENDPOINT } from "../config.ts";
 import { erc721dev } from "@example-evm-midnight/evm-contracts";
 import { WalletModal } from "./WalletModal.tsx";
-
-interface EVMWallet {
-  privateKey: `0x${string}`;
-  address: `0x${string}`;
-}
+import { BlockWatcher } from "../hooks/BlockWatcher.ts";
 
 interface MidnightWallet {
   address: string;
@@ -268,16 +262,12 @@ export function WalletDemo() {
   const {
     isConnected: walletConnected,
     address: walletAddress,
-    signMessage,
-    walletClient,
-    walletType,
-    connectEvmWallet,
+    wallet,
     isModalOpen,
+    openModal,
     closeModal,
   } = useWallet();
 
-  const [evmWallet, setEvmWallet] = useState<EVMWallet | null>(null);
-  const [hardhatWalletClient, setHardhatWalletClient] = useState<any>(null);
   const [midnightWallet, setMidnightWallet] = useState<MidnightWallet | null>(
     null,
   );
@@ -301,6 +291,7 @@ export function WalletDemo() {
   const [newPropName, setNewPropName] = useState("");
   const [newPropValue, setNewPropValue] = useState("");
   const [isIncrementingCounter, setIsIncrementingCounter] = useState(false);
+  const [hardhatWalletClient, setHardhatWalletClient] = useState<WalletClient | null>(null);
 
   // ERC721 contract address - moved here to be accessible to both sections
   const erc721Address = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
@@ -360,41 +351,36 @@ export function WalletDemo() {
 
   // Create hardhat wallet client when main wallet connects
   useEffect(() => {
-    const createHardhatWalletClient = () => {
-      if (walletConnected && (walletClient?.account || walletAddress)) {
+    const initHardhatWalletClient = () => {
+      if (walletConnected && walletAddress) {
         try {
-          const account = walletClient?.account ||
-            (walletAddress as `0x${string}`);
-          if (!account) return;
-
           console.log(
             "🔗 [HARDHAT] Creating hardhat wallet client for:",
-            typeof account === "string" ? account : account.address,
+            walletAddress
           );
 
-          const hardhatClient = createWalletClient({
-            account: account,
+          const client = createWalletClient({
+            account: walletAddress as `0x${string}`,
             chain: hardhat,
             transport: http("http://127.0.0.1:8545"), // Hardhat local node
           });
 
-          setHardhatWalletClient(hardhatClient);
+          setHardhatWalletClient(client);
+
           console.log(
-            "✅ [HARDHAT] Hardhat wallet client created successfully",
+            "✅ [HARDHAT] Hardhat wallet client created successfully"
           );
         } catch (error) {
           console.error(
             "❌ [HARDHAT] Failed to create hardhat wallet client:",
-            error,
+            error
           );
         }
-      } else {
-        setHardhatWalletClient(null);
       }
     };
 
-    createHardhatWalletClient();
-  }, [walletConnected, walletClient, walletAddress]);
+    initHardhatWalletClient();
+  }, [walletConnected, walletAddress]);
 
   // Removed property suggestion handler as we no longer add properties
 
@@ -542,7 +528,7 @@ export function WalletDemo() {
   };
 
   const createERC721Token = async () => {
-    if (!walletConnected || !walletAddress || !hardhatWalletClient) {
+    if (!walletConnected || !walletAddress || !wallet) {
       showNotification(
         "error",
         "No Wallet Connected",
@@ -586,13 +572,16 @@ export function WalletDemo() {
       );
 
       // Call the mint function on the ERC721 contract using hardhat wallet client
+      if (!hardhatWalletClient) {
+        throw new Error("Viem wallet not found");
+      }
       const mintTxHash = await writeContract(hardhatWalletClient, {
         address: erc721Address,
         abi: erc721dev.abi,
         functionName: "mint",
         args: [walletAddress as `0x${string}`, tokenId],
-        account: (walletClient?.account || walletAddress) as `0x${string}`,
         chain: hardhat,
+        account: walletAddress as `0x${string}`,
       });
 
       console.log("✅ [CONTRACT] ERC721 mint transaction hash:", mintTxHash);
@@ -606,6 +595,9 @@ export function WalletDemo() {
         hash: mintTxHash,
       });
       console.log("🎉 [CONTRACT] Transaction receipt:", transaction);
+      const blockNumber: bigint = transaction.blockNumber;
+
+      await BlockWatcher.Instance.waitForBlock('mainEvmRPC', blockNumber);
 
       showNotification(
         "success",
@@ -837,14 +829,12 @@ export function WalletDemo() {
                 </div>
 
                 <div className="wallet-status">
-                  {walletConnected
-                    ? `✅ ${
-                      walletType === "local" ? "Local Wallet" : "MetaMask"
-                    } Connected`
+                  {walletConnected && wallet
+                    ? `✅ ${wallet.metadata.displayName} Connected`
                     : (
                       <button
                         type="button"
-                        onClick={() => connectEvmWallet()}
+                        onClick={openModal}
                         className="wallet-button evm-button"
                       >
                         Connect EVM Wallet
@@ -990,7 +980,7 @@ export function WalletDemo() {
                     onClick={createERC721Token}
                     className="wallet-button evm-button"
                     disabled={isCreatingToken || !walletConnected ||
-                      !hardhatWalletClient || !createTokenId.trim() ||
+                      !createTokenId.trim() ||
                       !/^\d+$/.test(createTokenId.trim())}
                   >
                     {isCreatingToken

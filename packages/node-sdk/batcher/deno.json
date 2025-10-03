@@ -20,6 +20,6 @@
         "@fastify/cors": "npm:@fastify/cors@^11.0.1",
         "effection": "npm:effection@^3.5.0",
         "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
-        "viem": "npm:viem@^2.21.3"
+        "viem": "npm:viem@2.37.3"
     }
 }

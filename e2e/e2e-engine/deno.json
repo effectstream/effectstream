@@ -5,7 +5,7 @@
     "exports": "./mod.ts",
     "imports": {
         "pg": "npm:pg@^8.14.0",
-        "viem": "npm:viem@^2.21.3",
+        "viem": "npm:viem@2.37.3",
         "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
         "effection": "npm:effection@^3.5.0"
     }
