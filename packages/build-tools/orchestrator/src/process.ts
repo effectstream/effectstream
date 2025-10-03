@@ -36,7 +36,7 @@ export function setForegroundProcess(proc: Deno.ChildProcess) {
 let shutdownCalled = false;
 export async function shutdown(
   exitCode: number = 0,
-  errorMessage?: string,
+  reason?: any,
 ): Promise<void> {
   if (shutdownCalled) {
     return;
@@ -48,40 +48,28 @@ export async function shutdown(
   if (foregroundProcess) {
     const proc = foregroundProcess;
     foregroundProcess = null;
-    // Send SIGTERM first, then SIGKILL after one second.
-    proc.kill();
-    const hardKillTimer = setTimeout(
-      () => proc.kill("SIGKILL"),
-      1000,
-    );
-    await proc.output();
-    clearTimeout(hardKillTimer);
+    await kill(proc);
   }
 
   // We now have control of the terminal again, so start printing stuff...
-  if (errorMessage) {
-    console.error(errorMessage);
+  if (reason) {
+    console.trace(reason);
   }
-
-  // This allows for any error logs of different processes to be printed, before we terminate them.
-  const timer = {
-    passedTime: 0,
-    waitTime: 2000,
-  };
-  const message = setInterval(() => {
-    console.log(
-      `shutdown called... (waiting ${timer.waitTime - timer.passedTime}ms)`,
-    );
-    timer.passedTime += 300;
-  }, 300);
-  await wait(timer.waitTime);
-  clearInterval(message);
-  console.log("shutdown now");
 
   abortControllers.system.abort();
   abortControllers.noncritical.abort();
   await awaitShutdown();
-  Deno.exit(exitCode);
+
+  // This process is actually being kept alive by the HTTP server which isn't stopped here.
+  // If we exit naively, some child processes will orphan themselves and stay running, such as
+  // `yaci-dev` which doesn't propagate kills down to the actual Cardano node process.
+  // Rely on terminal driver default ^C to kill the entire process group.
+  console.log(
+    "Orchestrator has shut down. Press ^C again to kill background processes that we don't currently kill automatically.",
+  );
+  if (exitCode) {
+    Deno.exitCode = exitCode;
+  }
 }
 
 async function awaitShutdown(): Promise<void> {
@@ -93,8 +81,8 @@ async function awaitShutdown(): Promise<void> {
 
   for (const p of processes) {
     if (p.alive && p.component !== ComponentNames.TMUX) {
-      console.log("Force killing process", p.process.pid);
-      p.process.kill();
+      console.log("Force killing process", p.process.pid, ":", p.args);
+      kill(p.process);
     }
   }
 
@@ -107,7 +95,7 @@ async function awaitShutdown(): Promise<void> {
         if (process.is_piped.stdout) {
           process.process.stdout.cancel();
         }
-        process.process[Symbol.asyncDispose]();
+        return kill(process.process);
       }),
   );
 }
@@ -119,11 +107,26 @@ export const terminateProcess = (processIndex: number) => {
   const process = processes[processIndex];
   if (process && process.alive) {
     process._allow_restart = true;
-    process.process.kill();
+    kill(process.process);
     process.alive = false;
     process.date = new Date().toISOString();
   }
 };
+
+/** Send SIGTERM first, then SIGKILL after one second. */
+async function kill(proc: Deno.ChildProcess): Promise<void> {
+  try {
+    proc.kill("SIGTERM");
+    const hardKillTimer = setTimeout(
+      () => proc.kill("SIGKILL"),
+      1000,
+    );
+    await proc.status;
+    clearTimeout(hardKillTimer);
+  } catch (e) {
+    // Usually "Child process has already terminated".
+  }
+}
 
 export const $ = (params: {
   command?: string;
@@ -141,7 +144,8 @@ export const $ = (params: {
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
   }
-  const process = new Deno.Command(params.command ?? "deno", {
+  const command = params.command ?? "deno";
+  const process = new Deno.Command(command, {
     args: params.args,
     signal: params.abortController.signal,
     stderr: params.stderr ?? "piped",
@@ -154,7 +158,7 @@ export const $ = (params: {
   const processComponent: ProcessComponent = {
     process,
     abortController: params.abortController,
-    args: params.args,
+    args: [command, ...params.args],
     alive: true,
     date: new Date().toISOString(),
     component: params.component,
@@ -216,9 +220,9 @@ export const $ = (params: {
           1,
           shutdownCalled
             ? ""
-            : `Shutdown caused by ${params.args.join(" ")}, status ${
-              JSON.stringify(status)
-            }`,
+            : `Shutdown caused by \`${
+              processComponent.args.join(" ")
+            }\`, status ${JSON.stringify(status)}`,
         );
       }
       failed = true;

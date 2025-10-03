@@ -26,10 +26,6 @@ import { type Static, Type } from "@sinclair/typebox";
 let appConfig: OrchestratorConfigType | null = null;
 let pFactory: ReturnType<typeof processFactory> | null = null;
 
-Deno.addSignalListener("SIGINT", () => {
-  shutdown(0);
-});
-
 /**
  * Orchestrator configurations
  * logs: log output mode
@@ -258,9 +254,8 @@ export async function start(
     }
   } catch (e) {
     if (!(e instanceof AbortProcessStart)) {
-      console.error(e);
+      await shutdown(1, e);
     }
-    await shutdown(1);
   }
 }
 
