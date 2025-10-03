@@ -10,7 +10,6 @@ import {
   withPaimaStaticConfig,
 } from "@paimaexample/config";
 import { contractAddressesEvmMain } from "@minimal/evm-contracts";
-import { PaimaL2Primitive } from "@paimaexample/sm";
 import {
   ConfigBuilder,
   ConfigNetworkType,
@@ -22,6 +21,7 @@ import type { GrammarDefinition } from "@paimaexample/concise";
 import type { SyncStateUpdateStream } from "@paimaexample/coroutine";
 import { PaimaSTM } from "@paimaexample/sm";
 import type { BaseStfInput } from "@paimaexample/sm";
+import { PrimitiveTypeEVMPaimaL2 } from "@paimaexample/sm/builtin";
 
 const grammar = {
   my_action_name: [
@@ -72,13 +72,14 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) =>
-          new PaimaL2Primitive({
-            instanceName: "Minimal_PaimaL2",
+          ({
+            name: "Minimal_PaimaL2",
+            type: PrimitiveTypeEVMPaimaL2,
             startBlockHeight: 0,
             contractAddress: contractAddressesEvmMain()
               .chain31337["PaimaL2ContractModule#MyPaimaL2Contract"],
             paimaL2Grammar: grammar,
-          }).getConfig(),
+          }),
       )
   )
   .build();
