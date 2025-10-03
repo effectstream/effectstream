@@ -29,3 +29,9 @@ Open [http://localhost:10599](http://localhost:10599)
 # Update Database
 deno task -f @chess/db pgtyped:update
 ```
+
+## Launch Docker Version
+```sh
+docker build . -f Dockerfile -t paima-chess
+docker run -p 10599:10599 -p 8545:8545 -p 10590:10590 -p 9999:9999 -p 3334:3334 paima-chess
+``

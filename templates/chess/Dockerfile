@@ -12,8 +12,6 @@ RUN apt-get update && apt-get install -y \
     lsof \
     # iproute2 is required for ss command - for dkill.
     iproute2 \
-    # xz is required for compactc
-    xz-utils \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
@@ -39,14 +37,6 @@ RUN curl -L https://github.com/foundry-rs/foundry/releases/download/v1.3.0-rc1/f
 # Verify Foundry installation
 RUN forge --version && cast --version && anvil --version
 
-# Install Compact
-RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
-ENV PATH="/root/.local/bin:$PATH"
-RUN which compact
-RUN compact update
-RUN compact --version
-RUN compact compile --version
-
 # # Create working directory
 WORKDIR /app
 
@@ -60,17 +50,13 @@ COPY . .
 RUN deno install --allow-scripts
 RUN /app/patch.sh
 RUN deno task build:evm
-RUN deno task build:midnight
 
-# Frontend / Explorer / API / Hardhat 1&2 / Midnight Proof
+# Frontend / Explorer / Hardhat 1&2 / API / Batcher
 EXPOSE 10599
 EXPOSE 10590
-EXPOSE 9999
-EXPOSE 9944
-EXPOSE 8088
-EXPOSE 8546
 EXPOSE 8545
-EXPOSE 6300
+EXPOSE 9999
+EXPOSE 3334
 
 ENV RUN_IN_DOCKER=true
 ENV PAIMA_STDOUT=true
