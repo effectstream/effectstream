@@ -87,6 +87,8 @@ export function transformConfigToPaimaChains(
     } else if (network.type === "midnight") {
       // Use nodeUrl for Midnight chains
       rpcEndpoint = network.nodeUrl;
+    } else if (network.type === 'avail' || network.type === 'cardano') {
+      rpcEndpoint = network.nodeUrl;
     }
 
     // Determine color based on network type and name
@@ -108,7 +110,7 @@ export function transformConfigToPaimaChains(
     const chainConfig: ChainConfig = {
       type: network.type.toUpperCase(),
       name: network.name,
-      blockTime: network.blockTimeMS ?? undefined,
+      blockTime: network.blockTimeMS ?? syncProtocol.pollingInterval ?? undefined,
       color,
       blocks: [],
       currentBlock: network.type === "evm" ? 500000 : 100000, // Default starting block
@@ -127,98 +129,35 @@ export function transformConfigToPaimaChains(
 
 // Function to fetch and transform config
 export async function fetchChainConfigs(): Promise<PaimaChains> {
-  try {
-    const response = await fetch(CONFIG_ENDPOINT);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const configData: ConfigEndpointItem[] = await response.json();
-    const dynamicChains = transformConfigToPaimaChains(configData);
-
-    // Always start with hardcoded Paima main as the first element
-    const combinedChains: PaimaChains = {
-      Paima: {
-        type: "EVM",
-        name: "Paima Engine",
-        blockTime: configData.find(
-          (c) => c.syncProtocol.name === "mainNtp",
-        )?.network.blockTimeMS ?? 1000,
-        color: "#667eea",
-        blocks: [],
-        currentBlock: 1000000,
-        rpcEndpoint: `http://127.0.0.1:${ENV.PAIMA_API_PORT}/rpc/evm`,
-        latestBlockNumber: 0,
-        previousLatestBlockNumber: 0,
-        isConnected: false,
-      },
-      ...dynamicChains,
-    };
-
-    return combinedChains;
-  } catch (error) {
-    console.error("Error fetching chain configs:", error);
-    // Return fallback configs on error
-    return initialChainConfigs;
+  const response = await fetch(CONFIG_ENDPOINT);
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
   }
+  const configData: ConfigEndpointItem[] = await response.json();
+  const dynamicChains = transformConfigToPaimaChains(configData);
+
+  // Always start with hardcoded Paima main as the first element
+  const combinedChains: PaimaChains = {
+    Paima: {
+      type: 'EVM',
+      name: 'Paima Engine',
+      blockTime:
+        configData.find(c => c.syncProtocol.name === 'mainNtp')?.network.blockTimeMS ?? 1000,
+      color: '#667eea',
+      blocks: [],
+      currentBlock: 1000000,
+      rpcEndpoint: `http://127.0.0.1:${ENV.PAIMA_API_PORT}/rpc/evm`,
+      latestBlockNumber: 0,
+      previousLatestBlockNumber: 0,
+      isConnected: false,
+    },
+    ...dynamicChains,
+  };
+
+  return combinedChains;
 }
 
-// Initial configuration for each chain (fallback)
-export const initialChainConfigs: PaimaChains = {
-  Paima: {
-    type: "EVM",
-    name: "Paima Engine",
-    blockTime: 1000,
-    color: "#667eea",
-    blocks: [],
-    currentBlock: 1000000,
-    rpcEndpoint: `http://127.0.0.1:${ENV.PAIMA_API_PORT}/rpc/evm`,
-    latestBlockNumber: 0,
-    previousLatestBlockNumber: 0,
-    isConnected: false,
-  },
-  evmMain: {
-    type: "EVM",
-    name: "Arbitrum",
-    blockTime: 300,
-    color: "#4caf50",
-    blocks: [],
-    currentBlock: 500000,
-    rpcEndpoint: "http://127.0.0.1:8545/rpc/evm",
-    latestBlockNumber: 0,
-    previousLatestBlockNumber: 0,
-    isConnected: false,
-  },
-  evmParallel: {
-    type: "EVM",
-    name: "Ethereum L1",
-    blockTime: 12000,
-    color: "#ff9800",
-    blocks: [],
-    currentBlock: 750000,
-    rpcEndpoint: "http://127.0.0.1:8546/rpc/evm",
-    latestBlockNumber: 0,
-    previousLatestBlockNumber: 0,
-    isConnected: false,
-  },
-  cardano: {
-    type: "Cardano",
-    name: "Cardano",
-    blockTime: 20000,
-    color: "#2196f3",
-    blocks: [],
-    currentBlock: 300000,
-  },
-  midnight: {
-    type: "Midnight",
-    name: "Midnight",
-    blockTime: 6000,
-    color: "#9c27b0",
-    blocks: [],
-    currentBlock: 150000,
-  },
-};
-
-export const CONFIG_ENDPOINT = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/config`;
+export const CONFIG_ENDPOINT = `http://127.0.0.1:9999/config`;
 export const BLOCK_HEIGHTS_ENDPOINT =
   `http://127.0.0.1:${ENV.PAIMA_API_PORT}/block-heights`;
 export const PRIMITIVES_ENDPOINT =
