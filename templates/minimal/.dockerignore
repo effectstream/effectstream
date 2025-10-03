@@ -1,0 +1,10 @@
+node_modules
+.vscode
+cache
+out
+volume
+packages/frontend/min.js
+packages/frontend/min.js.map
+packages/evm-contracts/evm/build/*
+packages/evm-contracts/evm/ignition/deployments/*
+packages/evm-contracts/evm/remappings.txt
