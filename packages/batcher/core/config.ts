@@ -6,7 +6,7 @@
 import type { DefaultBatcherInput } from "./types.ts";
 import type { BlockchainAdapter } from "../adapters/adapter.ts";
 import type { BatchDataBuilder } from "../batch-data-builder/batch-data-builder.ts";
-import type { ShutdownHooks } from "./batcher.ts";
+import type { ShutdownHooks } from "./shutdown-manager.ts";
 import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 

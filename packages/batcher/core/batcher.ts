@@ -1,9 +1,8 @@
-import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 import { CryptoManager } from "@paima/crypto";
 import { AddressType, TypeboxHelpers } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
-import { toHex } from "viem";
-import { call, type Operation, sleep, spawn, suspend } from "effection";
+import { call, resource, sleep, spawn, suspend } from "effection";
+import type { Operation } from "effection";
 import type { BatcherStorage } from "./storage.ts";
 import type { DefaultBatcherInput } from "./types.ts";
 import type {
@@ -23,6 +22,12 @@ import type {
 } from "../batch-data-builder/batch-data-builder.ts";
 import { DefaultBatchDataBuilder } from "../batch-data-builder/default-batch-builder.ts";
 import { BatcherFileStorage } from "./mod.ts";
+import { BatchProcessor } from "./batch-processor.ts";
+import {
+  type BatcherShutdownState,
+  type ShutdownHooks,
+  ShutdownManager,
+} from "./shutdown-manager.ts";
 
 /**
  * PaimaBatcher - A type-safe, simplified blockchain batching system
@@ -32,6 +37,12 @@ import { BatcherFileStorage } from "./mod.ts";
  * - Batching criteria is configurable via BatchingCriteriaConfig
  * - No in-memory pool - eliminates consistency issues entirely
  * - All operations are atomic and crash-safe
+ * - Composed of specialized components for better maintainability
+ *
+ * COMPONENTS:
+ * - BatchProcessor: Handles complex batch processing and transaction lifecycle
+ * - ShutdownManager: Coordinates graceful shutdown procedures
+ * - Storage: Single source of truth for all batch data
  *
  * BATCHING CRITERIA:
  * - "time": Process based on time windows (e.g., every 5 minutes)
@@ -39,31 +50,8 @@ import { BatcherFileStorage } from "./mod.ts";
  * - "value": Process based on accumulated value (e.g., when total value reaches threshold)
  * - "hybrid": Process when either time OR size criteria is met
  * - "custom": Process based on user-defined function
- *
- * SIMPLICITY BENEFITS:
- * - No dual state management (pool + storage)
- * - No synchronization logic between data structures
- * - Single source of truth prevents inconsistencies
- * - Easier testing and debugging
- * - Better performance (no dual operations)
  */
 
-interface ShutdownState {
-  isShuttingDown: boolean;
-  shutdownInitiatedAt: number | null;
-  shutdownTimeoutMs: number;
-  isProcessingBatch: boolean;
-}
-
-export interface ShutdownHooks<
-  T extends DefaultBatcherInput,
-> {
-  preShutdown?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
-  stopAcceptingInputs?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
-  waitForProcessing?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
-  cleanup?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
-  postShutdown?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
-}
 export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Namespace used for signature verification messages */
   namespace: string = "paima_batcher";
@@ -88,7 +76,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Whether to enable event system */
   private readonly enableEventSystem: boolean;
   /** Shutdown state tracking */
-  private shutdownState: ShutdownState = {
+  public readonly shutdownState: BatcherShutdownState = {
     isShuttingDown: false,
     shutdownInitiatedAt: null,
     shutdownTimeoutMs: 30000,
@@ -107,6 +95,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   > = new Map();
   /** Batch data builder for constructing batch payloads */
   private readonly batchDataBuilder: BatchDataBuilder<T>;
+  /** Batch processor for handling complex batch operations */
+  private readonly batchProcessor: BatchProcessor<T>;
+  /** Shutdown manager for handling graceful shutdowns */
+  private readonly shutdownManager: ShutdownManager<T>;
   /** State transition listeners keyed by prefix */
   private stateTransitionListeners: Map<
     string,
@@ -162,6 +154,23 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     this.batchDataBuilder = this.initializeBatchDataBuilder();
+    this.batchProcessor = new BatchProcessor<T>({
+      buildBatchData: (inputs: T[], target: string) =>
+        this.buildBatchData(inputs, target),
+      emitStateTransition: (prefix: string, payload: any) =>
+        this.emitStateTransition(prefix, payload),
+      storage: this.storage,
+      submissionCallbacks: this.submissionCallbacks,
+    });
+    this.shutdownManager = new ShutdownManager<T>(
+      {
+        shutdownState: this.shutdownState,
+        stopPolling: () => this.stopPolling(),
+        stopHttpServer: () => this.stopHttpServer(),
+        cleanupResources: () => this.cleanupResources(),
+      },
+      this,
+    );
     this.port = this.config.port!;
     this.enableHttpServer = this.config.enableHttpServer!;
     this.enableEventSystem = this.config.enableEventSystem!;
@@ -608,18 +617,8 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * Get shutdown status information
    */
-  getShutdownStatus(): {
-    isShuttingDown: boolean;
-    shutdownInitiatedAt: number | null;
-    shutdownTimeoutMs: number;
-    isProcessingBatch: boolean;
-  } {
-    return {
-      isShuttingDown: this.shutdownState.isShuttingDown,
-      shutdownInitiatedAt: this.shutdownState.shutdownInitiatedAt,
-      shutdownTimeoutMs: this.shutdownState.shutdownTimeoutMs,
-      isProcessingBatch: this.shutdownState.isProcessingBatch,
-    };
+  getShutdownStatus() {
+    return this.shutdownManager.getShutdownStatus();
   }
 
   /**
@@ -661,54 +660,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     hooks?: ShutdownHooks<any>,
     options?: { timeoutMs?: number; force?: boolean },
   ): Operation<void> {
-    if (this.shutdownState.isShuttingDown) return;
-
-    this.shutdownState.isShuttingDown = true;
-    this.shutdownState.shutdownInitiatedAt = Date.now();
-    this.shutdownState.shutdownTimeoutMs = options?.timeoutMs ??
-      this.shutdownState.shutdownTimeoutMs;
-
-    console.log("🔄 Stopping batcher gracefully...");
-
-    try {
-      // Phase 1: Pre-shutdown (custom hook)
-      if (hooks?.preShutdown) {
-        yield* call(() => hooks.preShutdown!(this));
-      }
-
-      // Phase 2: Stop accepting new inputs
-      this.stopPolling();
-      yield* call(() => this.stopHttpServer());
-      if (hooks?.stopAcceptingInputs) {
-        yield* call(() => hooks.stopAcceptingInputs!(this));
-      }
-
-      // Phase 3: Wait for ongoing processing
-      yield* call(() => this.waitForOngoingProcessing(options?.timeoutMs));
-      if (hooks?.waitForProcessing) {
-        yield* call(() => hooks.waitForProcessing!(this));
-      }
-
-      // Phase 4: Cleanup resources
-      yield* call(() => this.cleanupResources());
-      if (hooks?.cleanup) {
-        yield* call(() => hooks.cleanup!(this));
-      }
-
-      // Phase 5: Post-shutdown (custom hook)
-      if (hooks?.postShutdown) {
-        yield* call(() => hooks.postShutdown!(this));
-      }
-
-      console.log("✅ Batcher shutdown complete");
-    } catch (error) {
-      console.error("❌ Error during graceful shutdown:", error);
-      if (options?.force) {
-        console.log("🔧 Force shutdown due to error");
-      } else {
-        throw error;
-      }
-    }
+    yield* this.shutdownManager.gracefulShutdownOp(hooks, options);
   }
 
   /**
@@ -719,44 +671,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     hooks?: ShutdownHooks<any>,
     options?: { timeoutMs?: number; force?: boolean },
   ): Promise<void> {
-    if (this.shutdownState.isShuttingDown) return;
-
-    this.shutdownState.isShuttingDown = true;
-    this.shutdownState.shutdownInitiatedAt = Date.now();
-    this.shutdownState.shutdownTimeoutMs = options?.timeoutMs ??
-      this.shutdownState.shutdownTimeoutMs;
-
-    console.log("🔄 Stopping batcher gracefully...");
-
-    try {
-      // Phase 1: Pre-shutdown (custom hook)
-      await hooks?.preShutdown?.(this);
-
-      // Phase 2: Stop accepting new inputs
-      this.stopPolling();
-      await this.stopHttpServer();
-      await hooks?.stopAcceptingInputs?.(this);
-
-      // Phase 3: Wait for ongoing processing
-      await this.waitForOngoingProcessing(options?.timeoutMs);
-      await hooks?.waitForProcessing?.(this);
-
-      // Phase 4: Cleanup resources
-      await this.cleanupResources();
-      await hooks?.cleanup?.(this);
-
-      // Phase 5: Post-shutdown (custom hook)
-      await hooks?.postShutdown?.(this);
-
-      console.log("✅ Batcher shutdown complete");
-    } catch (error) {
-      console.error("❌ Error during graceful shutdown:", error);
-      if (options?.force) {
-        console.log("🔧 Force shutdown due to error");
-      } else {
-        throw error;
-      }
-    }
+    return this.shutdownManager.gracefulShutdown(hooks, options);
   }
 
   /**
@@ -766,29 +681,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     if (this.pollingIntervalID) {
       clearInterval(this.pollingIntervalID);
       this.pollingIntervalID = undefined;
-    }
-  }
-
-  /**
-   * Wait for any ongoing batch processing to complete
-   */
-  private async waitForOngoingProcessing(timeoutMs?: number): Promise<void> {
-    const timeout = timeoutMs ?? this.shutdownState.shutdownTimeoutMs;
-    const startTime = Date.now();
-
-    if (!this.shutdownState.isProcessingBatch) {
-      return;
-    }
-
-    console.log("⏳ Waiting for current batch processing to complete...");
-
-    while (this.shutdownState.isProcessingBatch) {
-      if (Date.now() - startTime > timeout) {
-        throw new Error(
-          `Shutdown timeout: batch processing did not complete within ${timeout}ms`,
-        );
-      }
-      await new Promise((resolve) => setTimeout(resolve, 10));
     }
   }
 
@@ -841,7 +733,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         }
 
         try {
-          await this.processBatchForTarget(adapter, target, inputs);
+          await this.batchProcessor.processBatchForTarget(
+            adapter,
+            target,
+            inputs,
+          );
         } catch (error) {
           console.error(
             `❌ Error processing batch for target ${target}:`,
@@ -892,7 +788,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
             inputCount: targetInputs.length,
             time: Date.now(),
           });
-          await this.processBatchForTarget(adapter, target, targetInputs);
+          await this.batchProcessor.processBatchForTarget(
+            adapter,
+            target,
+            targetInputs,
+          );
         } catch (error) {
           console.error(
             `❌ Error processing batch for target ${target}:`,
@@ -910,152 +810,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     } finally {
       this.shutdownState.isProcessingBatch = false;
     }
-  }
-
-  /**
-   * Process a batch for a specific target using the designated adapter
-   * @param adapter - The adapter to use to process the batch
-   * @param target - The target to process the batch for
-   * @param inputs - The inputs to process the batch for
-   * @param timeout - The timeout in milliseconds to use to wait for the batch to be processed by paima engine (default: 60000)
-   */
-  private async processBatchForTarget(
-    adapter: BlockchainAdapter,
-    target: string,
-    inputs: T[],
-    timeout: number = 60000,
-  ): Promise<void> {
-    console.log(`🔗 Processing ${inputs.length} inputs for target: ${target}`);
-
-    // Build batch data using the target-specific batch builder
-    const batchResult = this.buildBatchData(inputs, target);
-
-    if (!batchResult || batchResult.data === "") {
-      console.log(`📭 No valid inputs for target ${target}, skipping...`);
-      return;
-    }
-
-    const { selectedInputs, data } = batchResult;
-
-    // Convert JSON string to hex bytes for blockchain submission
-    // TODO dont use viem or pass the toHex responsibility to the adapter
-    const hexData = toHex(data);
-
-    // Estimate fee and submit transaction
-    const estimatedFee = await adapter.estimateBatchFee(hexData);
-    // The estimated fee by default is the configured PaimaL2 fee, but can be overridden by the adapter.
-    console.log(`💰 Estimated fee for ${target}: ${estimatedFee}`);
-    await this.emitStateTransition("batch:fee-estimate", {
-      target,
-      estimatedFee,
-      time: Date.now(),
-    });
-
-    const hash = await adapter.submitBatch(hexData, estimatedFee);
-    console.log(`✅ Submitted batch for ${target}: ${hash}`);
-    await this.emitStateTransition("batch:submit", {
-      target,
-      estimatedFee,
-      txHash: hash,
-      time: Date.now(),
-    });
-
-    // Wait for confirmation
-    const receipt = await adapter.waitForTransactionReceipt(hash);
-    await this.emitStateTransition("batch:receipt", {
-      target,
-      blockNumber: receipt.blockNumber,
-      time: Date.now(),
-    });
-
-    // Wait for Paima Engine processing using event listening
-    try {
-      const eventFilterChain = adapter.getSyncProtocolName?.() ??
-        adapter.getChainName();
-      const processingResult = await this.waitForPaimaProcessed(
-        receipt,
-        eventFilterChain,
-        timeout,
-      );
-
-      // Remove successfully processed inputs from storage (atomic operation)
-      await this.storage.removeProcessedInputs(selectedInputs);
-
-      if (processingResult) {
-        await this.emitStateTransition("batch:paima-processed", {
-          target,
-          latestBlock: processingResult.latestBlock,
-          rollup: processingResult.rollup,
-          time: Date.now(),
-        });
-
-        // Resolve callbacks for all processed inputs
-        for (const input of selectedInputs) {
-          const callbacks = this.submissionCallbacks.get(input.signature);
-          if (callbacks) {
-            callbacks.resolve({
-              ...receipt,
-              rollup: processingResult.rollup,
-            });
-            clearTimeout(callbacks.timeoutId);
-            this.submissionCallbacks.delete(input.signature);
-          }
-        }
-      } else {
-        // Error keep inputs in storage for retry
-        console.error(
-          `❌ Paima processing validation failed for target ${target}`,
-        );
-        await this.emitStateTransition("error", {
-          phase: "paima",
-          target,
-          error: new Error("Paima processing validation failed"),
-          time: Date.now(),
-        });
-
-        // Reject callbacks for failed processing
-        for (const input of selectedInputs) {
-          const callbacks = this.submissionCallbacks.get(input.signature);
-          if (callbacks) {
-            const error = new Error("Paima processing validation failed");
-            callbacks.reject(error);
-            clearTimeout(callbacks.timeoutId);
-            this.submissionCallbacks.delete(input.signature);
-          }
-        }
-      }
-    } catch (error) {
-      // Error keep inputs in storage for retry
-      console.error(
-        `❌ Error waiting for Paima processing for target ${target}:`,
-        error,
-      );
-      await this.emitStateTransition("error", {
-        phase: "paima",
-        target,
-        error,
-        time: Date.now(),
-      });
-
-      // Reject callbacks for failed processing
-      for (const input of selectedInputs) {
-        const callbacks = this.submissionCallbacks.get(input.signature);
-        if (callbacks) {
-          const err = error instanceof Error
-            ? error
-            : new Error("Unknown error during Paima processing");
-          callbacks.reject(err);
-          clearTimeout(callbacks.timeoutId);
-          this.submissionCallbacks.delete(input.signature);
-        }
-      }
-    }
-    await this.emitStateTransition("batch:process:end", {
-      target,
-      processedCount: selectedInputs.length,
-      success: true,
-      time: Date.now(),
-    });
   }
 
   /**
@@ -1086,60 +840,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
-   * Wait for the Paima Engine to process a submitted transaction.
-   * Listens for SyncChains events to confirm Paima Engine has processed the block.
-   * @param transactionReceipt - The transaction receipt to wait for
-   * @param chainName - The chain name to filter events
-   * @param timeout - Timeout in milliseconds (default: 60000)
-   * @returns Promise resolving to processing info or null if timeout
-   */
-  private async waitForPaimaProcessed(
-    transactionReceipt: BlockchainTransactionReceipt,
-    chainName: string,
-    timeout: number = 60000,
-  ): Promise<{ latestBlock: number; rollup: number } | null> {
-    let subscriptionReference: symbol | undefined = undefined;
-    let latestBlock = 0;
-    let timer: number | undefined = undefined;
-
-    try {
-      const result = await Promise.race([
-        new Promise<void>((_, reject) => {
-          timer = setTimeout(() => reject(new Error("Timeout")), timeout);
-        }),
-        new Promise<{ latestBlock: number; rollup: number }>(
-          (resolve, reject) => {
-            PaimaEventManager.Instance.subscribe(
-              {
-                topic: BuiltinEvents.SyncChains,
-                filter: { chain: chainName, block: undefined },
-              },
-              (event) => {
-                latestBlock = Math.max(event.block, latestBlock);
-                if (latestBlock > Number(transactionReceipt.blockNumber)) {
-                  resolve({ latestBlock, rollup: event.rollup });
-                }
-              },
-            )
-              .then((subscription) => subscriptionReference = subscription)
-              .catch(reject);
-          },
-        ),
-      ]);
-      return result || null;
-    } catch (error) {
-      console.error("Error waiting for Paima processing:", error);
-      return null;
-    } finally {
-      if (subscriptionReference) {
-        PaimaEventManager.Instance.unsubscribe(subscriptionReference);
-      }
-      if (timer) {
-        clearTimeout(timer);
-      }
-    }
-  }
-  /**
    * Creates the message to be validated by verifyInputSignature against a signature and address.
    * @param input - The input to create a message for.
    * @returns A string message for the batcher.
@@ -1164,22 +864,46 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
-   * Run the batcher using Effection structured concurrency.
-   * This replaces the traditional init() + setInterval pattern with an Effection operation
-   * that provides better cancellation and resource management.
-   *
-   * @returns An Effection operation that runs the batcher polling loop
+   * It starts the server and holds it until the operation is halted,
+   * at which point it automatically stops the server.
    */
-  *runBatcher(): Operation<void> {
-    // Initialize storage and mark as initialized
-    yield* call(() => this.storage.init());
-    this.isInitialized = true;
-
-    // Start HTTP server if enabled
-    if (this.enableHttpServer) {
-      yield* call(() => this.startHttpServer());
+  *runHttpServer(): Operation<void> {
+    if (!this.enableHttpServer) {
+      return;
     }
 
+    yield* resource(
+      (function* (this: PaimaBatcher<T>, provide: (value: any) => void) {
+        const server = yield* call(() => this.startHttpServer());
+        provide(server);
+        yield* suspend(); // Keep the server alive until cancelled
+      }).bind(this),
+    );
+  }
+
+  /**
+   * An Effection operation that runs the polling loop indefinitely.
+   * This operation is intended to be spawned as a background task that
+   * is automatically cancelled when its parent scope terminates.
+   */
+  *runPollingLoop(): Operation<void> {
+    while (true) {
+      yield* sleep(this.config.pollingIntervalMs);
+      yield* call(() => this.pollBatcher());
+    }
+  }
+
+  /**
+   * Run the batcher using Effection structured concurrency.
+   * This operation initializes the batcher and then runs the HTTP server
+   * and polling loop as concurrent, managed background tasks.
+   *
+   * @returns An Effection operation that runs the batcher.
+   */
+  *runBatcher(): Operation<void> {
+    // 1. Perform sequential setup tasks
+    yield* call(() => this.storage.init());
+    this.isInitialized = true;
     yield* call(() =>
       this.emitStateTransition("startup", {
         publicConfig: this.getPublicConfig(),
@@ -1187,19 +911,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       })
     );
 
-    // Spawn polling task
-    yield* spawn(function* (this: PaimaBatcher<T>) {
-      while (!this.shutdownState.isShuttingDown) {
-        yield* sleep(this.config.pollingIntervalMs);
-
-        if (!this.shutdownState.isShuttingDown) {
-          yield* call(() => this.pollBatcher());
-        }
-      }
-    }.bind(this));
-
-    // Keep the operation alive until cancelled
-    yield* suspend();
+    // 2. Run the main background tasks concurrently
+    // Spawn ensures that if one task fails or stops, the other is also stopped.
+    // This is the essence of structured concurrency.
+    yield* spawn(() => this.runHttpServer());
+    yield* spawn(() => this.runPollingLoop());
   }
 }
 
