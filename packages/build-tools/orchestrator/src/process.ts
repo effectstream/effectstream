@@ -25,9 +25,6 @@ export class AbortProcessStart extends Error {
   }
 }
 
-const wait = (n: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, n));
-
 let foregroundProcess: Deno.ChildProcess | null = null;
 export function setForegroundProcess(proc: Deno.ChildProcess) {
   foregroundProcess = proc;
@@ -43,22 +40,24 @@ export async function shutdown(
   }
   shutdownCalled = true;
 
-  // Kill the foreground process first, to regain control of the terminal and
-  // allow us to `console.error` stuff.
-  if (foregroundProcess) {
-    const proc = foregroundProcess;
-    foregroundProcess = null;
-    await kill(proc);
-  }
+  // Shut down non-UI processes.
+  abortControllers.system.abort();
+  abortControllers.noncritical.abort();
+  // Start force-killing stragglers.
+  const forced = awaitShutdown();
 
+  // Wait for the foreground process to finish so we have control of the terminal.
+  if (foregroundProcess) {
+    await foregroundProcess.status;
+  }
   // We now have control of the terminal again, so start printing stuff...
   if (reason) {
     console.trace(reason);
   }
-
-  abortControllers.system.abort();
-  abortControllers.noncritical.abort();
-  await awaitShutdown();
+  // Print force-kill logs.
+  for (const p of await forced) {
+    console.log("Force killed process", p.process.pid, ":", p.args);
+  }
 
   // This process is actually being kept alive by the HTTP server which isn't stopped here.
   // If we exit naively, some child processes will orphan themselves and stay running, such as
@@ -72,32 +71,37 @@ export async function shutdown(
   }
 }
 
-async function awaitShutdown(): Promise<void> {
+async function awaitShutdown(): Promise<ProcessComponent[]> {
+  // Wait a bit to let processes exit on their own.
   let maxWait = 5000;
-  while (processes.some((p) => p.alive && maxWait > 0)) {
-    await wait(100);
+  while (
+    maxWait > 0 &&
+    processes.some((p) => p.alive && p.component !== ComponentNames.TMUX)
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
     maxWait -= 100;
   }
 
+  // Document and wait for each process that must be force-killed.
+  const forced = [];
+  const promises = [];
   for (const p of processes) {
-    if (p.alive && p.component !== ComponentNames.TMUX) {
-      console.log("Force killing process", p.process.pid, ":", p.args);
-      kill(p.process);
+    // Cancel pipes.
+    if (p.is_piped.stderr) {
+      p.process.stderr.cancel();
+    }
+    if (p.is_piped.stdout) {
+      p.process.stdout.cancel();
+    }
+    if (p.component !== ComponentNames.TMUX) {
+      if (p.alive) {
+        forced.push(p);
+        promises.push(kill(p.process));
+      }
     }
   }
-
-  await Promise.all(
-    processes.filter((p) => p.component !== ComponentNames.TMUX)
-      .map((process) => {
-        if (process.is_piped.stderr) {
-          process.process.stderr.cancel();
-        }
-        if (process.is_piped.stdout) {
-          process.process.stdout.cancel();
-        }
-        return kill(process.process);
-      }),
-  );
+  await Promise.all(promises);
+  return forced;
 }
 
 let failed = false;
@@ -222,7 +226,7 @@ export const $ = (params: {
             ? ""
             : `Shutdown caused by \`${
               processComponent.args.join(" ")
-            }\`, status ${JSON.stringify(status)}`,
+            }\`, status ${status.signal ?? status.code}`,
         );
       }
       failed = true;
