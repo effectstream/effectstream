@@ -7,7 +7,6 @@ import { ENV } from "@paima/utils/node-env";
 // This is a standalone script that can be used to view logs from the collector.
 // Its purpose is to be used in a tmux session, and not as a part of the TUI.
 class LogsViewer {
-  private readonly pollInterval = 300; // ms
   public isRunning = false;
   private logDisplayStates: Record<string, boolean> = {};
   private logServer: LogServer;
@@ -70,20 +69,15 @@ class LogsViewer {
   }
 
   async start(): Promise<void> {
-    // Do not await, so it runs in the background.
-    this.logServer.init();
+    console.log("🔍 Starting log server...");
 
-    console.log("🔍 Starting log viewer...");
-    console.log(`📡 Polling every ${this.pollInterval}ms`);
-    console.log("Press Ctrl+C to stop\n");
-
-    this.isRunning = true;
     try {
       Deno.lstatSync("./logs");
     } catch (error) {
       Deno.mkdirSync("./logs", { recursive: true });
     }
 
+    // Set up displayLogs's destination
     attachTransport((logObj: ILogObj) => {
       const message = logObj[0] as string;
       const cleanMessage = message.replace(this.ansiRegex(), "");
@@ -96,16 +90,12 @@ class LogsViewer {
       );
     });
 
-    const poll = async () => {
-      if (!this.isRunning) return;
-      const logs = this.logServer.getData();
-      this.displayLogs(logs);
-      await new Promise((resolve) => setTimeout(resolve, this.pollInterval));
-      poll();
-    };
+    // Attach log server to displayLogs then start the log server
+    this.logServer.on("addLogs", (logs) => this.displayLogs(logs));
+    await this.logServer.start();
 
-    // Start polling
-    poll();
+    this.isRunning = true;
+    console.log("🔍 Log viewer started. Press Ctrl+C to stop.");
   }
 }
 
@@ -129,10 +119,10 @@ Deno.addSignalListener("SIGINT", () => {
   Deno.exit(0);
 });
 
-viewer.start().then(() => {
-  console.log("🔍 Log viewer started");
-}).catch((error) => {
+try {
+  await viewer.start();
+} catch (error) {
   console.error(error);
   killTmux();
   Deno.exit(1);
-});
+}

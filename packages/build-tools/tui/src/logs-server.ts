@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { fastify, type FastifyRequest } from "fastify";
 import { type Static, Type } from "@sinclair/typebox";
 import { ENV } from "@paima/utils/node-env";
@@ -26,7 +27,7 @@ const LogDisplayControlSchema = Type.Object({
 });
 type LogDisplayControl = Static<typeof LogDisplayControlSchema>;
 
-export class LogServer {
+export class LogServer extends EventEmitter<{ "addLogs": [OTelLog[]] }> {
   private dataStore = new RingBuffer<OTelLog>(MAX_DATA_ITEMS);
   private processLogStates: Record<string, boolean> = {}; // Track per-process log display state
 
@@ -63,9 +64,11 @@ export class LogServer {
     for (const log of logs) {
       this.dataStore.push(log);
     }
+    this.emit("addLogs", logs);
   }
 
-  public async init() {
+  /** Start the OTel HTTP server, returning once it's listening. */
+  public async start() {
     this.server.post("/v1/data", {
       schema: {
         body: Type.Array(OTelLogSchema),
