@@ -1,6 +1,6 @@
-/** This file contains the configuration definition for the batcher as well as
- * the functions to validate the correct definition of the configuration to be
- * imported by the batcher.
+/**
+ * Type-safe configuration system for PaimaBatcher with compile-time adapter validation
+ * and runtime safety checks.
  */
 
 import type { DefaultBatcherInput } from "./types.ts";
@@ -11,64 +11,33 @@ import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 
 /**
- * Type-safe batcher configuration with compile-time adapter validation
+ * Type-safe batcher configuration with compile-time adapter validation.
  *
- * This configuration system ensures that:
- * 1. If a defaultTarget is specified, it must be a valid key of the adapters record
- * 2. At least one adapter must be provided
- * 3. The configuration is validated at runtime for additional safety
- *
- * @example
- * ```typescript
- * // ✅ Valid configuration with per-adapter batching criteria
- * const config: PaimaBatcherConfig<{
- *   evm: EvmChainAdapter;
- *   polygon: EvmPolygonChainAdapter;
- * }> = {
- *   pollingIntervalMs: 1000,
- *   adapters: {
- *     evm: evmAdapter,
- *     polygon: polygonAdapter,
- *   },
- *   defaultTarget: "evm",
- *   batchingCriteria: {
- *     // EVM batches by size (10 inputs)
- *     evm: { criteriaType: "size", maxBatchSize: 10 },
- *     // Polygon processes immediately (default: size=1)
- *     // polygon: omitted - uses DEFAULT_BATCHING_CRITERIA
- *   },
- * };
- *
- * // ❌ Invalid configuration - TypeScript error
- * const invalidConfig: PaimaBatcherConfig<{ evm: EvmChainAdapter }> = {
- *   pollingIntervalMs: 1000,
- *   adapters: { evm: evmAdapter },
- *   defaultTarget: "invalid-target", // ❌ TypeScript error: not a valid key
- * };
- * ```
+ * Ensures type safety for adapter keys and provides runtime validation.
+ * Supports per-adapter batching strategies and flexible confirmation levels.
  */
 export type ValidAdapterKey<T> = T extends Record<infer K, any> ? K : never;
 
 /**
- * Batching criteria configuration - replaces the separate coordinator system
- * Provides a unified way to define when batches should be processed
+ * Configuration for when and how batches should be processed.
+ * Supports time-based, size-based, value-based, hybrid, and custom criteria.
  */
 export interface BatchingCriteriaConfig<
   T extends DefaultBatcherInput = DefaultBatcherInput,
 > {
   criteriaType: "time" | "size" | "value" | "hybrid" | "custom";
 
-  // Required for "time" and "hybrid"
+  // Time-based criteria
   timeWindowMs?: number;
 
-  // Required for "size" and "hybrid"
+  // Size-based criteria
   maxBatchSize?: number;
 
-  // Required for "value" - returns numeric contribution per input
+  // Value-based criteria
   valueAccumulatorFn?: (input: T) => number;
-  targetValue?: number; // Required when using "value" criteria
+  targetValue?: number;
 
-  // Required for "custom" - user-provided function
+  // Custom criteria
   isBatchReadyFn?: (
     pendingInputs: T[],
     lastProcessTime?: number,
@@ -76,8 +45,8 @@ export interface BatchingCriteriaConfig<
 }
 
 /**
- * Per-adapter batching criteria configuration
- * Maps adapter keys to their specific batching strategies
+ * Maps adapter targets to their specific batching criteria.
+ * Adapters without criteria use DEFAULT_BATCHING_CRITERIA.
  */
 export type PerAdapterBatchingCriteria<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
@@ -90,8 +59,8 @@ export type PerAdapterBatchingCriteria<
 >;
 
 /**
- * Default batching criteria when none specified for an adapter
- * Processes inputs immediately (size=1) to ensure responsiveness
+ * Default criteria when none specified for an adapter.
+ * Processes inputs immediately for maximum responsiveness.
  */
 export const DEFAULT_BATCHING_CRITERIA: BatchingCriteriaConfig = {
   criteriaType: "size",
@@ -99,8 +68,8 @@ export const DEFAULT_BATCHING_CRITERIA: BatchingCriteriaConfig = {
 };
 
 /**
- * Runtime schema (TypeBox) for BatchingCriteriaConfig
- * Note: function fields are typed using T.Function but validated separately by validateBatchingCriteria
+ * TypeBox schema for BatchingCriteriaConfig validation.
+ * Function fields use T.Any since they're runtime-validated separately.
  */
 const TimeCriteriaSchema = Type.Object({
   criteriaType: Type.Literal("time"),
@@ -158,58 +127,47 @@ export interface PaimaBatcherConfig<
     BlockchainAdapter
   >,
 > {
+  // Core configuration
   pollingIntervalMs: number;
   adapters: TAdapters;
-  defaultTarget?: ValidAdapterKey<TAdapters>; // Target to use when input.target is not specified - must be a key of adapters
-  /** Namespace used for signature verification messages */
-  namespace?: string;
+  defaultTarget?: ValidAdapterKey<TAdapters>;
 
-  /**
-   * Per-adapter batching criteria - allows different strategies per target
-   * Adapters without specified criteria will use DEFAULT_BATCHING_CRITERIA (size=1)
-   */
+  // Signature and networking
+  namespace?: string;
+  port?: number;
+  enableHttpServer?: boolean;
+  enableEventSystem?: boolean;
+
+  // Batching behavior
   batchingCriteria?: PerAdapterBatchingCriteria<TInput, TAdapters>;
 
-  port?: number; // HTTP server port
-  /**
-   * Confirmation level can be a single string applied to all adapters,
-   * or a per-adapter mapping keyed by adapter target.
-   */
+  // Transaction handling
   confirmationLevel?:
     | ConfirmationLevel
     | Partial<Record<ValidAdapterKey<TAdapters>, ConfirmationLevel>>;
-  maxRetries?: number; // Maximum retry attempts for failed transactions
-  retryDelayMs?: number; // Delay between retry attempts
-  enableHttpServer?: boolean; // Whether to start HTTP server
-  enableEventSystem?: boolean; // Whether to enable Paima event system
+  maxRetries?: number;
+  retryDelayMs?: number;
 
+  // Batch building configuration
   batchBuilding?: {
-    /** Maximum size of batches in bytes */
     maxSize?: number;
-    /** Target-specific batch builders */
     targetBuilders?: Record<string, BatchDataBuilder<TInput>>;
-    /** Default batch builder to use when no target-specific builder exists */
     defaultBuilder?: BatchDataBuilder<TInput>;
   };
 
+  // Shutdown configuration
   shutdown?: {
-    /** Custom shutdown hooks for extensibility */
     hooks?: ShutdownHooks<TInput>;
-    /** Signal handling configuration */
     signalHandling?: {
-      /** Signals to listen for (Deno signals) */
       signals?: string[];
-      /** Custom shutdown handler */
       customShutdownHandler?: (signal: string) => Promise<void> | void;
-      /** Exit code to use when shutting down */
       exitCode?: number;
     };
-    /** Default shutdown timeout in milliseconds */
     timeoutMs?: number;
   };
 }
 
-/** Default values for optional configuration fields */
+/** Default configuration values for optional fields */
 export const DEFAULT_CONFIG_VALUES = {
   namespace: "paima_batcher",
   pollingIntervalMs: 1000,
@@ -230,8 +188,8 @@ export const DEFAULT_CONFIG_VALUES = {
 };
 
 /**
- * Runtime schema (TypeBox) for PaimaBatcherConfig
- * Note: adapters and builders are opaque instance types -> T.Any
+ * TypeBox schema for PaimaBatcherConfig validation.
+ * Uses T.Any for adapter and builder instances.
  */
 export const PaimaBatcherConfigSchema = Type.Object({
   pollingIntervalMs: Type.Optional(
@@ -329,8 +287,8 @@ export type PaimaBatcherConfigFromSchema = Static<
 >;
 
 /**
- * Apply TypeBox defaults and return a config object with defaults filled.
- * This does NOT replace domain validation; callers should still invoke validateBatcherConfig.
+ * Applies TypeBox defaults to configuration object.
+ * Does not replace domain validation - use validateBatcherConfig() separately.
  */
 export function applyBatcherConfigDefaults<
   T extends DefaultBatcherInput,
@@ -344,9 +302,8 @@ export function applyBatcherConfigDefaults<
 }
 
 /**
- * Validate the batcher configuration to ensure consistency
- * @param config - The configuration to validate
- * @returns void - throws error if invalid
+ * Validates batcher configuration for consistency and required fields.
+ * Throws error if configuration is invalid.
  */
 export function validateBatcherConfig<
   T extends DefaultBatcherInput,
@@ -417,14 +374,13 @@ export function validateBatcherConfig<
 }
 
 /**
- * Validate the batching criteria configuration
- * @param criteria - The batching criteria to validate
- * @returns void - throws error if invalid
+ * Validates batching criteria configuration based on criteria type.
+ * Throws error if required fields are missing.
  */
 export function validateBatchingCriteria<T extends DefaultBatcherInput>(
   criteria: BatchingCriteriaConfig<T>,
 ): void {
-  // Validate required fields based on criteria type
+  // Check required fields for each criteria type
   switch (criteria.criteriaType) {
     case "time":
       if (!criteria.timeWindowMs) {
@@ -476,5 +432,5 @@ export function validateBatchingCriteria<T extends DefaultBatcherInput>(
       );
   }
 
-  console.log(`📏 Batching criteria validated: ${criteria.criteriaType}`);
+  console.log(`✅ Batching criteria validated: ${criteria.criteriaType}`);
 }
