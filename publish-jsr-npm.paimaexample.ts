@@ -82,13 +82,13 @@ const jsrPackagesToPublish = [
   "./packages/node-sdk/sm", // [@db]
   "./packages/node-sdk/events",
   "./packages/node-sdk/runtime", // [@db, @sync, @sm]
-  "./packages/node-sdk/batcher",
   "./packages/chains/evm-contracts",
   "./packages/build-tools/explorer",
   "./packages/build-tools/tui",
   "./packages/build-tools/collector",
   "./packages/build-tools/orchestrator",
   "./packages/chains/evm-hardhat",
+  "./packages/batcher",
 ];
 const npmPackagesToPublish = [
   "./packages/chains/evm-contracts",

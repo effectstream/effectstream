@@ -45,7 +45,6 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.DOCS]: false,
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: true,
-    [ComponentNames.PAIMA_BATCHER]: true,
     [ComponentNames.COLLECTOR]: true,
   },
 
@@ -55,6 +54,13 @@ const config = Value.Parse(OrchestratorConfig, {
     // launchCardano("@example-evm-midnight/cardano-contracts"),
     midnightExtended("@example-evm-midnight/midnight-contracts"),
     // launchAvail("@example-evm-midnight/avail-contracts"),
+    { // Launch the Batcher with our PaimaL2 Contract
+      name: "batcher",
+      args: ["task", "-f", "@example-evm-midnight/batcher", "start"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:3334",
+    },
   ],
 });
 
