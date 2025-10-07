@@ -28,6 +28,7 @@ import {
   type ShutdownHooks,
   ShutdownManager,
 } from "./shutdown-manager.ts";
+import type { BatcherGrammar, BatcherListener } from "./batcher-events.ts";
 
 /**
  * PaimaBatcher - A type-safe, simplified blockchain batching system
@@ -208,9 +209,9 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Register a state transition listener for a given prefix.
    * Throws if a listener already exists for the prefix.
    */
-  addStateTransition<Prefix extends string>(
+  addStateTransition<Prefix extends keyof BatcherGrammar & string>(
     prefix: Prefix,
-    listener: (payload: any) => void | Promise<void>,
+    listener: BatcherListener<BatcherGrammar, Prefix>,
   ): void {
     if (this.stateTransitionListeners.has(prefix)) {
       throw new Error(
