@@ -67,11 +67,9 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     selectedInputs: T[],
     timeout: number,
   ): Promise<void> {
-    // Estimate fee and submit transaction
     const estimatedFee = await adapter.estimateBatchFee(hexData);
-    console.log(`💰 Estimated fee for ${target}: ${estimatedFee}`);
 
-    await this.batcher.emitStateTransition("batch:fee-estimate", {
+    this.batcher.emitStateTransition("batch:fee-estimate", {
       target,
       estimatedFee,
       time: Date.now(),
@@ -80,7 +78,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     const hash = await adapter.submitBatch(hexData, estimatedFee);
     console.log(`✅ Submitted batch for ${target}: ${hash}`);
 
-    await this.batcher.emitStateTransition("batch:submit", {
+    this.batcher.emitStateTransition("batch:submit", {
       target,
       estimatedFee,
       txHash: hash,
@@ -104,15 +102,13 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     selectedInputs: T[],
     timeout: number,
   ): Promise<void> {
-    // Wait for blockchain confirmation
     const receipt = await adapter.waitForTransactionReceipt(hash);
-    await this.batcher.emitStateTransition("batch:receipt", {
+    this.batcher.emitStateTransition("batch:receipt", {
       target,
       blockNumber: receipt.blockNumber,
       time: Date.now(),
     });
 
-    // Wait for Paima Engine processing
     await this.waitForPaimaProcessing(
       receipt,
       adapter,
@@ -138,7 +134,6 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         timeout,
       );
 
-      // Handle successful processing
       await this.handleSuccessfulProcessing(
         processingResult,
         receipt,
@@ -146,7 +141,6 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         selectedInputs,
       );
     } catch (error) {
-      // Handle processing failure
       await this.handleProcessingFailure(error, target, selectedInputs);
     }
   }
@@ -158,17 +152,15 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     selectedInputs: T[],
   ): Promise<void> {
     if (processingResult) {
-      await this.batcher.emitStateTransition("batch:paima-processed", {
+      this.batcher.emitStateTransition("batch:paima-processed", {
         target,
         latestBlock: processingResult.latestBlock,
         rollup: processingResult.rollup,
         time: Date.now(),
       });
 
-      // Remove successfully processed inputs from storage
       await this.batcher.storage.removeProcessedInputs(selectedInputs);
 
-      // Resolve callbacks for all processed inputs
       this.resolveInputCallbacks(
         selectedInputs,
         receipt,
@@ -179,14 +171,13 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       console.error(
         `❌ Paima processing validation failed for target ${target}`,
       );
-      await this.batcher.emitStateTransition("error", {
+      this.batcher.emitStateTransition("error", {
         phase: "paima",
         target,
         error: new Error("Paima processing validation failed"),
         time: Date.now(),
       });
 
-      // Reject callbacks for failed processing
       this.rejectInputCallbacks(
         selectedInputs,
         "Paima processing validation failed",
@@ -204,14 +195,13 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       error,
     );
 
-    await this.batcher.emitStateTransition("error", {
+    this.batcher.emitStateTransition("error", {
       phase: "paima",
       target,
       error,
       time: Date.now(),
     });
 
-    // Reject callbacks for failed processing
     this.rejectInputCallbacks(
       selectedInputs,
       error.message || "Unknown error during Paima processing",

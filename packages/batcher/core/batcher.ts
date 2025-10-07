@@ -1,7 +1,7 @@
 import { CryptoManager } from "@paima/crypto";
 import { AddressType, TypeboxHelpers } from "@paima/utils";
 import { Value } from "@sinclair/typebox/value";
-import { call, resource, sleep, spawn, suspend } from "effection";
+import { call, lift, resource, sleep, spawn, suspend } from "effection";
 import type { Operation } from "effection";
 import type { BatcherStorage } from "./storage.ts";
 import type { DefaultBatcherInput } from "./types.ts";
@@ -157,8 +157,35 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     this.batchProcessor = new BatchProcessor<T>({
       buildBatchData: (inputs: T[], target: string) =>
         this.buildBatchData(inputs, target),
-      emitStateTransition: (prefix: string, payload: any) =>
-        this.emitStateTransition(prefix, payload),
+      emitStateTransition: async (prefix: string, payload: any) => {
+        // For async contexts, we need to handle this differently
+        // Since we're in an async method but need to call an Effection operation,
+        // we'll create a simple non-blocking implementation
+        if (this.enableEventSystem) {
+          const listener = this.stateTransitionListeners.get(prefix);
+          if (listener) {
+            try {
+              // Execute the listener asynchronously without blocking
+              listener(payload);
+            } catch (error) {
+              const hasErrorListener = this.stateTransitionListeners.has(
+                "error",
+              );
+              if (prefix !== "error" && hasErrorListener) {
+                try {
+                  this.stateTransitionListeners.get("error")!({
+                    phase: `event-listener:${prefix}`,
+                    error,
+                    time: Date.now(),
+                  });
+                } catch {
+                  // swallow
+                }
+              }
+            }
+          }
+        }
+      },
       storage: this.storage,
       submissionCallbacks: this.submissionCallbacks,
     });
@@ -198,32 +225,36 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     this.stateTransitionListeners.delete(prefix);
   }
 
-  /** Emit a state transition event to the registered listener if enabled. */
-  private async emitStateTransition(
-    prefix: string,
-    payload: any,
-  ): Promise<void> {
+  /**
+   * Emit a state transition event.
+   * This runs the listener in a separate, supervised fiber using `spawn`,
+   * ensuring that a slow or failing listener does not block the main batcher process.
+   */
+  *emitStateTransition(prefix: string, payload: any): Operation<void> {
     if (!this.enableEventSystem) return;
     const listener = this.stateTransitionListeners.get(prefix);
     if (!listener) return;
-    try {
-      await listener(payload);
-    } catch (error) {
-      // Re-emit as error; guard against recursive error loops
-      const hasErrorListener = this.stateTransitionListeners.has("error");
-      if (prefix !== "error" && hasErrorListener) {
-        try {
-          await this.stateTransitionListeners.get("error")!({
-            phase: "event-listener",
-            target: undefined,
+
+    // `spawn` starts the listener in the background.
+    // The `emitStateTransition` operation can return immediately.
+    yield* spawn((function* (this: PaimaBatcher<T>) {
+      try {
+        // We still use `call` here to handle the listener being async.
+        yield* lift(listener)(payload);
+      } catch (error) {
+        // Error handling now happens inside the spawned fiber,
+        // preventing a listener crash from taking down the whole batcher.
+        const hasErrorListener = this.stateTransitionListeners.has("error");
+        if (prefix !== "error" && hasErrorListener) {
+          // Re-emit the error, again in a supervised manner.
+          yield* lift(this.stateTransitionListeners.get("error")!)({
+            phase: `event-listener:${prefix}`,
             error,
             time: Date.now(),
           });
-        } catch {
-          // swallow
         }
       }
-    }
+    }).bind(this));
   }
 
   /**
@@ -667,7 +698,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Graceful shutdown - stop accepting new batches and wait for current processing to finish
    * Legacy async version for backward compatibility
    */
-  async gracefulShutdown(
+  gracefulShutdown(
     hooks?: ShutdownHooks<any>,
     options?: { timeoutMs?: number; force?: boolean },
   ): Promise<void> {
@@ -904,12 +935,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // 1. Perform sequential setup tasks
     yield* call(() => this.storage.init());
     this.isInitialized = true;
-    yield* call(() =>
-      this.emitStateTransition("startup", {
-        publicConfig: this.getPublicConfig(),
-        time: Date.now(),
-      })
-    );
+    yield* this.emitStateTransition("startup", {
+      publicConfig: this.getPublicConfig(),
+      time: Date.now(),
+    });
 
     // 2. Run the main background tasks concurrently
     // Spawn ensures that if one task fails or stops, the other is also stopped.

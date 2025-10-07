@@ -1,4 +1,4 @@
-import { call } from "effection";
+import { lift } from "effection";
 import type { Operation } from "effection";
 import type { DefaultBatcherInput } from "./types.ts";
 import type { PaimaBatcher } from "./batcher.ts";
@@ -56,31 +56,31 @@ export class ShutdownManager<T extends DefaultBatcherInput> {
     try {
       // Phase 1: Pre-shutdown (custom hook)
       if (hooks?.preShutdown) {
-        yield* call(() => hooks.preShutdown!(this.batcherInstance));
+        yield* lift(hooks.preShutdown!)(this.batcherInstance);
       }
 
       // Phase 2: Stop accepting new inputs
       this.batcherInterface.stopPolling();
-      yield* call(() => this.batcherInstance.stopHttpServer());
+      yield* lift(this.batcherInstance.stopHttpServer)();
       if (hooks?.stopAcceptingInputs) {
-        yield* call(() => hooks.stopAcceptingInputs!(this.batcherInstance));
+        yield* lift(hooks.stopAcceptingInputs!)(this.batcherInstance);
       }
 
       // Phase 3: Wait for ongoing processing
-      yield* call(() => this.waitForOngoingProcessing(options?.timeoutMs));
+      yield* lift(this.waitForOngoingProcessing)(options?.timeoutMs);
       if (hooks?.waitForProcessing) {
-        yield* call(() => hooks.waitForProcessing!(this.batcherInstance));
+        yield* lift(hooks.waitForProcessing!)(this.batcherInstance);
       }
 
       // Phase 4: Cleanup resources
-      yield* call(() => this.batcherInstance.cleanupResources());
+      yield* lift(this.batcherInstance.cleanupResources)();
       if (hooks?.cleanup) {
-        yield* call(() => hooks.cleanup!(this.batcherInstance));
+        yield* lift(hooks.cleanup!)(this.batcherInstance);
       }
 
       // Phase 5: Post-shutdown (custom hook)
       if (hooks?.postShutdown) {
-        yield* call(() => hooks.postShutdown!(this.batcherInstance));
+        yield* lift(hooks.postShutdown!)(this.batcherInstance);
       }
 
       console.log("✅ Batcher shutdown complete");
