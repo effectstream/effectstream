@@ -28,6 +28,9 @@ export const paimaL2Grammar = {
 export const grammar = {
   ...paimaL2Grammar,
 
+  // Custom Grammars
+  "counter-stm": [["counter", Type.Number()]],
+
   // TODO Check if these exist in runtime
   "avail-app-state": builtinGrammars.availGeneric,
   "midnightContractState": builtinGrammars.midnightGeneric,

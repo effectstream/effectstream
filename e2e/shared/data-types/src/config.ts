@@ -165,7 +165,7 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigSyncProtocolType.NTP_MAIN,
           chainUri: "",
           startBlockHeight: 1,
-          pollingInterval: 1000,
+          pollingInterval: 500,
         }),
       )
       .addParallel(
@@ -185,7 +185,7 @@ export const localhostConfig = new ConfigBuilder()
           name: "parallelEvmRPC_slow",
           type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
           chainUri: network.rpcUrls.default.http[0],
-          pollingInterval: 1000, // we can poll slower since it's not a blocker
+          pollingInterval: 500, // we can poll slower since it's not a blocker
           delayMs: 1000,
           startBlockHeight: 1 as BlockNumber,
           confirmationDepth: 2, // TODO: test this
@@ -201,7 +201,7 @@ export const localhostConfig = new ConfigBuilder()
           rpc: network.nodeUrl,
           lightClient: "http://127.0.0.1:7007",
           startBlockHeight: 1,
-          pollingInterval: 20_000,
+          pollingInterval: 1_000,
           delayMs: 60_000, // 1 minute
         }),
       );
@@ -216,7 +216,7 @@ export const localhostConfig = new ConfigBuilder()
             type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
             startBlockHeight: 1,
             pollingInterval: 1000,
-            delayMs: 1000,
+            delayMs: 6000,
             indexer: "http://127.0.0.1:8088/api/v1/graphql",
             indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
           }),
@@ -248,6 +248,17 @@ export const localhostConfig = new ConfigBuilder()
         contractAddress: contractAddressesEvmMain()
           .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
         stateMachinePrefix: "transfer-erc20",
+      })
+    )
+    .addPrimitive(
+      (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
+      (network, deployments, syncProtocol) => ({
+        name: "Counter",
+        type: 'EVM:CUSTOM-COUNTER',
+        startBlockHeight: 0,
+        contractAddress: contractAddressesEvmMain()
+          .chain31337["CounterModule#Counter"],
+        stateMachinePrefix: "counter-stm",
       })
     )
       .addPrimitive(

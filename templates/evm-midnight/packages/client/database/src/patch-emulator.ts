@@ -21,7 +21,7 @@ export async function standAloneApplyMigrations(
   userDefinedPrimitives?: Record<string, any>,
 ) {
   const l: SyncProtocolWithNetwork = localhostConfig as any;
-  const config = Object.entries(l.primitives).map(([key, value]) => {
+  const config = Object.entries(l.primitives).map(([key, value]: [string, any]) => {
 
     const primitiveType = value.primitive.type;
     const primitiveUniqueName = value.primitive.name;
@@ -36,6 +36,8 @@ export async function standAloneApplyMigrations(
       new builtInPrimitivesMap[primitiveType as keyof typeof builtInPrimitivesMap](classConfig as any) ;
     } else if (isUserDefinedPrimitive) {
       new userDefinedPrimitives[primitiveType as keyof typeof userDefinedPrimitives](classConfig);
+    } else {
+      throw new Error(`Primitive ${primitiveType} not found`);
     }
 
     return {

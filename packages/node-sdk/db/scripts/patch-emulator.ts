@@ -25,7 +25,7 @@ export async function standAloneApplyMigrations(
     const primitiveUniqueName = value.primitive.name;
     const primitiveConfig = value.primitive;
     const isBuiltInPrimitive = primitiveType in builtInPrimitivesMap;
-    const isUserDefinedPrimitive = userDefinedPrimitives && primitiveType in userDefinedPrimitives;
+    const isUserDefinedPrimitive = userDefinedPrimitives && (primitiveType in userDefinedPrimitives);
     const classConfig = {
       ...primitiveConfig,
       instanceName: primitiveUniqueName,
@@ -34,6 +34,9 @@ export async function standAloneApplyMigrations(
       new builtInPrimitivesMap[primitiveType as keyof typeof builtInPrimitivesMap](classConfig as any) ;
     } else if (isUserDefinedPrimitive) {
       new userDefinedPrimitives[primitiveType as keyof typeof userDefinedPrimitives](classConfig);
+    } else {
+      console.error("userDefinedPrimitives", userDefinedPrimitives, primitiveType);
+      throw new Error(`Primitive ${primitiveType} not found`);
     }
 
     return {

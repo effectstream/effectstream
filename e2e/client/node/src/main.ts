@@ -9,6 +9,11 @@ import { migrationTable } from "@e2e/database";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "@e2e/data-types";
+import { EvmCounterPrimitive } from "./custom-primitive.ts";
+
+const userDefinedPrimitives = {
+  'EVM:CUSTOM-COUNTER': EvmCounterPrimitive
+};
 
 main(function* () {
   yield* init();
@@ -23,6 +28,7 @@ main(function* () {
       migrations: migrationTable,
       apiRouter,
       grammar,
+      userDefinedPrimitives,
     });
   });
 

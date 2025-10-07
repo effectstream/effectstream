@@ -3,6 +3,8 @@ import { Account, Pallets, SDK } from "avail-js-sdk";
 import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 import { assertSQL, blockWatcher, type SharedState } from "@e2e/engine";
 import { readAvailApplication } from "@e2e/avail-contracts";
+import { cryptoWaitReady } from '@polkadot/util-crypto';
+await cryptoWaitReady();
 
 const AVAIL_NODE_URL = "ws://localhost:9955/ws";
 const AVAIL_SEED: string = "//Alice";
