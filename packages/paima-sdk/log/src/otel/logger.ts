@@ -1,4 +1,4 @@
-import otlApi from "@opentelemetry/api-logs";
+import * as otlApi from "@opentelemetry/api-logs";
 import type { LogFunc } from "../const.ts";
 import { defaultSeverity } from "../const.ts";
 import { toString } from "../utils.ts";

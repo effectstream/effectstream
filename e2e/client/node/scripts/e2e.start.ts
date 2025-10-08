@@ -50,6 +50,16 @@ export async function startup(): Promise<Client> {
       yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
       midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : {},
       avail_enabled ? launchAvail("@e2e/avail-contracts") : {},
+      {
+        name: "frontend-build",
+        args: ["task", "-f", "@paima/explorer", "build"],
+        waitToExit: true,
+      },
+      {
+        name: "e2e-wallet",
+        args: ["task", "-f", "@e2e/wallets-ui", "build"],
+        waitToExit: true,
+      },
     ],
 
     batcher: {

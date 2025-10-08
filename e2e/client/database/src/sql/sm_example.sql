@@ -42,3 +42,10 @@ SELECT * FROM avail_messages
 ORDER BY height DESC
 LIMIT 1
 ;
+
+/* @name insertCounterInput */
+INSERT INTO counter_inputs
+(counter, block_height) 
+VALUES 
+(:counter!, :block_height!) 
+;

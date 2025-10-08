@@ -5,10 +5,10 @@ import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
 import type { StateUpdateStream } from "@paima/coroutine";
 import type { JsonObject } from "./types.ts";
 import type {
-  ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
 } from "@paima/config";
+import type { AnyPrimitiveType } from "./src/builtin.ts";
 
 /**
  * Abstract Class for Paima Primitives
@@ -20,18 +20,26 @@ export abstract class PaimaPrimitive<
   SyncProtocol extends keyof ProtocolPrimitiveMap,
   TGrammar extends readonly Readonly<[string, TSchema]>[],
 > {
-  constructor(
     // Instance defined unique name
-    public readonly instanceName: string,
-    // Start block height of the primitive
-    public readonly startBlockHeight: number,
-    public readonly stateMachinePrefix: string | undefined,
-  ) {
+  public readonly instanceName: string;
+  // Start block height of the primitive
+  public readonly startBlockHeight: number;
+  // State machine prefix of the primitive
+  public readonly stateMachinePrefix: string | undefined;
+
+  constructor(config: {
+    instanceName: string,
+    startBlockHeight: number,
+    stateMachinePrefix: string | undefined,
+  }) {
+    this.instanceName = config.instanceName;
+    this.startBlockHeight = config.startBlockHeight;
+    this.stateMachinePrefix = config.stateMachinePrefix;
     PaimaPrimitiveRegistry.addPrimitive(this);
   }
   // Primitive defined
   // unique name for primitive definition as chain:protocol
-  abstract internalTypeName: `${string}:${string}`;
+  abstract internalTypeName: AnyPrimitiveType;
   // grammar for primitive
   abstract grammar: TGrammar;
 

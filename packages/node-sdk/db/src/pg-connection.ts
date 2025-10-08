@@ -23,6 +23,7 @@ let db_mutex: "free" | "locked" = "free";
  */
 const _waitUntilFree = {
   waiting: [] as {
+    priority: 'high' | 'low';
     name: string;
     date: string;
   }[],
@@ -33,20 +34,30 @@ const _waitUntilFree = {
   db_mutex,
 };
 
+// Get data for database.
 export const waitUntilFree = () => {
   return {
     ..._waitUntilFree,
     db_mutex,
   };
 };
-export function* acquireDBMutex(lockName: string): Operation<void> {
+
+export function* acquireDBMutex(lockName: string, priority: 'high' | 'low' = 'low'): Operation<void> {
   if (!ENV.PGLITE) return;
   _waitUntilFree.waiting.push({
+    priority,
     name: lockName,
     date: new Date().toISOString(),
   });
+
   while (true) {
-    if (db_mutex === "free") {
+    // If there is a high priority lock, wait for it to be released.
+    if (priority === 'low' && _waitUntilFree.waiting.find((w) => w.priority === 'high')) {
+      // do nothing
+    }
+
+    // If there is no lock, acquire it.
+    else if (db_mutex === "free") {
       db_mutex = "locked";
       _waitUntilFree.waiting.splice(
         _waitUntilFree.waiting.findIndex((w) => w.name === lockName),
@@ -58,6 +69,8 @@ export function* acquireDBMutex(lockName: string): Operation<void> {
       };
       break;
     }
+
+    // This is only for debugging purposes.
     const i = _waitUntilFree.waiting.findIndex((w) => w.name === lockName);
     if (i !== -1) {
       const now = new Date().getTime();
@@ -70,6 +83,7 @@ Locked by ${_waitUntilFree.running.name}. This is a critical error, please resta
         );
       }
     }
+
     yield* sleep(10);
   }
 }

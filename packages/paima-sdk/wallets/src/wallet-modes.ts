@@ -1,6 +1,6 @@
 import type { ApiPromise } from "avail-js-sdk";
 import type { Result } from "@paima/utils";
-import type { AlgorandApi } from "./algorand/algorand.ts";
+// import type { AlgorandApi } from "./algorand/algorand.ts";
 import type { CardanoApi } from "./cardano/cardano.ts";
 import type { EthersApi } from "./evm/ethers.ts";
 import type { EvmApi } from "./evm/injected.ts";
@@ -10,7 +10,7 @@ import type {
   IProvider,
 } from "./IProvider.ts";
 import type { MinaApi } from "./mina/mina.ts";
-import type { PolkadotApi } from "./polkadot/polkadot.ts";
+// import type { PolkadotApi } from "./polkadot/polkadot.ts";
 import {
   connectInjectedWallet,
   type InjectionPreference,

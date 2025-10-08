@@ -16,7 +16,7 @@ import type {
   RootConversion,
 } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
-import { bound } from "@paima/utils";
+import { bound, MidnightBlockHash } from "@paima/utils";
 import { MidnightClient } from "./MidnightClient.ts";
 import type { EncodedStateValue } from "@paima/config";
 
@@ -42,7 +42,6 @@ export class MidnightFetcher extends BaseDataFetcher<
   override *readData(
     data: Input,
     rootConversion: RootConversion<Output, RootOutput, RootPage>,
-    lastPage: LastPage<Page, RootPage> | undefined,
   ): Operation<DataFetched<Output, Page, RootPage>> {
     const outputs: OutputAndCleanup<Output>[] = [];
     console.log(
@@ -52,11 +51,6 @@ export class MidnightFetcher extends BaseDataFetcher<
     );
     for (let height = data.from; height <= data.to; height++) {
       const result = yield* call(() => this.client.fetchBlock(height));
-      if (!result?.block) {
-        // Block not found, we can stop here.
-        // This can happen if we are at the tip of the chain.
-        break;
-      }
       const block: Block = result.block;
       const primitives = yield* this.readPrimitives(
         height,
@@ -72,21 +66,7 @@ export class MidnightFetcher extends BaseDataFetcher<
       });
     }
 
-    if (outputs.length === 0) {
-      if (!lastPage) {
-        // This should not happen if we have a start block, but as a fallback:
-        throw new Error(
-          `Could not fetch any blocks from ${data.from} to ${data.to} and no previous page was found.`,
-        );
-      }
-      return {
-        output: [],
-        lastPage: lastPage,
-      };
-    }
-
     const lastOutput = outputs[outputs.length - 1].output;
-
     return {
       output: outputs,
       lastPage: {

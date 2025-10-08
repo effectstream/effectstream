@@ -3,7 +3,7 @@ import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
 import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
 import { launchEvm } from "@paimaexample/orchestrator/start-evm";
-import { launchCardano } from "@paimaexample/orchestrator/start-cardano";
+// import { launchCardano } from "@paimaexample/orchestrator/start-cardano";
 import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 
 const midnightExtended = (packageName: string) => ({
@@ -13,15 +13,15 @@ const midnightExtended = (packageName: string) => ({
   ],
   processes: [
     ...launchMidnight(packageName).processes,
-    // We build the frontend after the midnight process is started, as it uses the contract address at build time.
     {
-      name: "frontend-build",
+      name: "frontend-server",
       args: ["task", "-f", "@example-evm-midnight/frontend", "build"],
       waitToExit: true,
+      type: "system-dependency",
     },
     {
       name: "frontend-server",
-      args: ["task", "-f", "@example-evm-midnight/frontend", "server:start"],
+      args: ["task", "-f", "@example-evm-midnight/frontend", "serve"],
       waitToExit: false,
       type: "system-dependency",
       link: "http://localhost:10599",

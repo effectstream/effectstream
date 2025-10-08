@@ -1,9 +1,14 @@
-import { Keyring } from "avail-js-sdk";
 import type { Result } from "@paima/utils";
 import type { IProvider } from "../IProvider.ts";
 import type { WalletMode, ApiForMode } from "../utils.ts";
 import type { LoginInfoMap } from "../wallet-modes.ts";
 import { type AvailJsApi, AvailConnector } from "./avail.ts";
+
+// Problematic dependency for deno-fresh
+import { Keyring } from "avail-js-sdk";
+
+// Problematic dependency for deno-vite
+// import { Keyring } from "@polkadot/api";
 
 async function connectWallet(
   loginInfo: LoginInfoMap[WalletMode.AvailJs]

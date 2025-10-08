@@ -20,9 +20,18 @@ export function readAvailApplication(): AvailApplicationInfo {
     cachedAppInfo = appInfo;
     return appInfo;
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
+    if (Deno) {
+      console.error(err);
       throw new Error("avail_app.json not found in the current directory");
     }
-    throw new Error(`Failed to read avail_app.json: ${String(err)}`);
+    // For frontend let's return a default app info
+    return {
+      appId: 0,
+      txHash: {
+        value: "",
+      },
+      ApplicationKey: "",
+      genesisHash: "",
+    }
   }
 }

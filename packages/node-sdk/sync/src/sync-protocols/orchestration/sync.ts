@@ -22,6 +22,8 @@ export function* startSync(
       if (input == null) {
         if ("pollingInterval" in config.syncProtocol) {
           yield* sleep(config.syncProtocol.pollingInterval);
+        } else {
+          console.error(`${self.name} has no polling interval?`);
         }
         continue;
       }

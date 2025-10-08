@@ -1,6 +1,6 @@
 {
-    "name": "@paima/explorer",
-    "version": "0.3.0",
+    "name": "@paimaexample/explorer",
+    "version": "0.3.62",
     "main": "client/dist/index.html",
     "bin": {
         "explorer": "cli.cjs"
@@ -9,9 +9,10 @@
     "files": [
         "cli.cjs",
         "client/dist/index.html",
-        "client/dist/**"
+        "client/dist/**",
+        "server/**"
     ],
-    "devDependencies": {
+    "dependencies": {
         "http-server": "^14.1.1"
     }
 }

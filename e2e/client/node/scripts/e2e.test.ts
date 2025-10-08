@@ -1,14 +1,10 @@
 import {
   anyError,
-  blockWatcher,
-  cleanup,
   newSharedState,
   printSummary,
   type SharedState,
-  shutdown,
-  startup,
 } from "@e2e/engine";
-
+import { startup, cleanup, shutdown } from "./e2e.start.ts";
 import type { Client } from "pg";
 import { accountTests } from "../e2e-tests/e2e.account.test.ts";
 import { generalTest } from "../e2e-tests/e2e.general.test.ts";
@@ -17,6 +13,18 @@ import { submitDataWithMessageAvailTest } from "../e2e-tests/e2e.avail.test.ts";
 import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
 import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
+
+const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
+  ? false
+  : true;
+
+const midnight_enabled = Deno
+  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
+  : true;
+
+const avail_enabled = Deno
+  ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
+  : true;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -31,8 +39,11 @@ async function test() {
     db = await startup();
 
     const sharedState: SharedState = newSharedState();
-    sharedState.primitive_accounting_counter = 1;
 
+    // Midnight triggers the event when read for first time.
+    if (midnight_enabled) {
+      sharedState.primitive_accounting_counter = 1;
+    }
     await generalTest(db, sharedState);
     console.log(
       "generalTest completed",

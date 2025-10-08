@@ -203,3 +203,32 @@ const getLatestAvailMessageIR: any = {"usedParamSet":{},"params":[],"statement":
 export const getLatestAvailMessage = new PreparedQuery<IGetLatestAvailMessageParams,IGetLatestAvailMessageResult>(getLatestAvailMessageIR);
 
 
+/** 'InsertCounterInput' parameters type */
+export interface IInsertCounterInputParams {
+  block_height: number;
+  counter: number;
+}
+
+/** 'InsertCounterInput' return type */
+export type IInsertCounterInputResult = void;
+
+/** 'InsertCounterInput' query type */
+export interface IInsertCounterInputQuery {
+  params: IInsertCounterInputParams;
+  result: IInsertCounterInputResult;
+}
+
+const insertCounterInputIR: any = {"usedParamSet":{"counter":true,"block_height":true},"params":[{"name":"counter","required":true,"transform":{"type":"scalar"},"locs":[{"a":61,"b":69}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":72,"b":85}]}],"statement":"INSERT INTO counter_inputs\n(counter, block_height) \nVALUES \n(:counter!, :block_height!)"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO counter_inputs
+ * (counter, block_height) 
+ * VALUES 
+ * (:counter!, :block_height!)
+ * ```
+ */
+export const insertCounterInput = new PreparedQuery<IInsertCounterInputParams,IInsertCounterInputResult>(insertCounterInputIR);
+
+

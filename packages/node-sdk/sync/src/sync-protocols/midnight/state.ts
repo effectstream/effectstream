@@ -9,6 +9,7 @@ import type { MidnightFetcher } from "./fetcher.ts";
 import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
 import { getPage } from "@paima/db";
 import { MidnightClient } from "./MidnightClient.ts";
+import { applyDelay } from "../common/utils.ts";
 
 type LatestBlock = {
   block: {
@@ -57,7 +58,11 @@ export class MidnightSyncState extends SyncState<
 
   @bound
   override toRootPage(data: Output): RootPage {
-    return data.raw.timestamp as unknown as TimestampMs;
+    const time = data.raw.timestamp as unknown as TimestampMs;
+    return applyDelay(
+      time,
+      this.config.syncProtocol.delayMs,
+    );
   }
 
   @bound

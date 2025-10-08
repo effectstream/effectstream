@@ -32,7 +32,8 @@ export const PRIMITIVES_SCHEMA_ENDPOINT = `${BASE_URL_API}/primitives-schema`;
 export const TABLE_SCHEMA_ENDPOINT = `${BASE_URL_API}/table-schema`;
 export const ENGINE_OPENAPI_URL = `${BASE_URL_API}/documentation`;
 export const ADDRESSES_ENDPOINT = `${BASE_URL_API}/addresses`;
-export const BATCHER_ENDPOINT = `${BASE_URL_BATCHER}/send-input`;
+export const BATCHER_ENDPOINT = import.meta.env.VITE_BATCHER_URL ||
+  "http://localhost:3000/api";
 export const BATCHER_OPENAPI_URL = `${BASE_URL_BATCHER}/documentation`;
 // TODO Temporal documentation url
 export const DOCUMENTATION_URL =
@@ -76,3 +77,5 @@ export const initialChainConfigs = {
     currentBlock: 150000,
   },
 };
+
+export { paimaEngineConfig } from "./PaimaEngineConfig.ts";

@@ -16,6 +16,7 @@ import {
   erc20dev,
   erc721dev,
   paimal2contract,
+  counter,
 } from "@e2e/evm-contracts";
 
 import {
@@ -26,13 +27,13 @@ import {
 
 import { blockWatcher } from "./e2e-block-subscription.ts";
 
-// Overwrite "Hardhat" chain name to "parallelEvmRPC_fast" and "parallelEvmRPC_slow" to identify them in the block watcher.
-const mainEvm = { ...hardhat, name: "parallelEvmRPC_fast" };
-const parallelEvm = JSON.parse(JSON.stringify(hardhat));
-parallelEvm.name = "parallelEvmRPC_slow";
+// Overwrite "Hardhat" chain name to "e2eParallelEvmRPC_fast" and "e2eParallelEvmRPC_slow" to identify them in the block watcher.
+export const e2eMainEvm = { ...hardhat, name: "parallelEvmRPC_fast" };
+export const e2eParallelEvm = JSON.parse(JSON.stringify(hardhat));
+e2eParallelEvm.name = "parallelEvmRPC_slow";
 
-parallelEvm.id = 31338;
-parallelEvm.rpcUrls.default.http[0] = "http://0.0.0.0:8546";
+e2eParallelEvm.id = 31338;
+e2eParallelEvm.rpcUrls.default.http[0] = "http://0.0.0.0:8546";
 
 export const wallets: {
   address: `0x${string}`;
@@ -114,15 +115,15 @@ export const paimaL2Builder = (sharedState: SharedState) => ({
     input: (string | number | boolean)[],
     privateKey: `0x${string}`,
     wait = true,
-  ): Promise<void> => {
+  ): Promise<number> => {
     console.log("🎮 Submitting game input", input);
     const { account, walletClient, publicClient } = clients(
       privateKey,
-      mainEvm,
+      e2eMainEvm,
     );
     const hash = await walletClient.writeContract({
       account,
-      chain: mainEvm,
+      chain: e2eMainEvm,
       address: contractAddressesEvmMain()["chain31337"][
         "PaimaL2ContractModule#MyPaimaL2Contract"
       ],
@@ -155,7 +156,8 @@ export const paimaL2Builder = (sharedState: SharedState) => ({
     );
 
     if (wait) {
-      await blockWatcher.waitForBlock(mainEvm.name, receipt.blockNumber);
+      console.error("Waiting for block", e2eMainEvm.name, receipt.blockNumber);
+      await blockWatcher.waitForBlock(e2eMainEvm.name, receipt.blockNumber);
     }
 
     // Update shared state
@@ -177,6 +179,7 @@ export const paimaL2Builder = (sharedState: SharedState) => ({
     if (!addressExists) {
       sharedState.account_state.unlinkedAddresses.add(address);
     }
+    return Number(receipt.blockNumber);
   },
 });
 
@@ -451,6 +454,42 @@ export const erc20Factory = (
   };
 };
 
+export const counterContractInteract = async (
+  chain: Chain,
+  private_key: `0x${string}`, 
+  sharedState: SharedState,
+) => {
+
+  const { account, walletClient, publicClient } = clients(
+    private_key,
+    chain,
+  );
+  const { request } = await publicClient.simulateContract({
+    account,
+    chain,
+    address: contractAddressesEvmMain()["chain31337"]["CounterModule#Counter"],
+    abi: counter.abi,
+    functionName: "incrementCounter",
+    args: [],
+  });
+
+  const hash = await walletClient.writeContract(request);
+  let blockNumber = 0n;
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash,
+    });
+      console.log(
+        `  ${
+          receipt.status === "success" ? "" : "❌"
+        } Mint block ${receipt.blockNumber} @ Hash ${hash} for "${chain.name}"`,
+      );
+    blockNumber = receipt.blockNumber;
+    await blockWatcher.waitForBlock(chain.name, blockNumber);
+  
+  sharedState.primitive_accounting_counter += 1;
+  return blockNumber;
+}
+
 /**
  * Erc20 Contracts Instances.
  */
@@ -459,18 +498,18 @@ export const erc20Builder = (sharedState: SharedState) => ({
     contractAddressesEvmMain()["chain31337"][
       "PaimaErc20DevModule#PaimaErc20Dev"
     ],
-    mainEvm,
+    e2eMainEvm,
     sharedState,
   ),
   b: erc20Factory(
     contractAddressesEvmMain()["chain31338"][
       "PaimaErc20DevModule#PaimaErc20Dev"
     ],
-    parallelEvm,
+    e2eParallelEvm,
     sharedState,
   ),
-  id_a: mainEvm.id,
-  id_b: parallelEvm.id,
+  id_a: e2eMainEvm.id,
+  id_b: e2eParallelEvm.id,
 });
 
 /**
@@ -479,14 +518,14 @@ export const erc20Builder = (sharedState: SharedState) => ({
 export const erc721Builder = (sharedState: SharedState) => ({
   a: erc721Factory(
     contractAddressesEvmMain()["chain31337"]["Erc721DevModule#Erc721Dev"],
-    mainEvm,
+    e2eMainEvm,
     sharedState,
   ),
   b: erc721Factory(
     contractAddressesEvmMain()["chain31338"]["Erc721DevModule#Erc721Dev"],
-    parallelEvm,
+    e2eParallelEvm,
     sharedState,
   ),
-  id_a: mainEvm.id,
-  id_b: parallelEvm.id,
+  id_a: e2eMainEvm.id,
+  id_b: e2eParallelEvm.id,
 });

@@ -1,8 +1,8 @@
 import type { IProvider } from "./IProvider.ts";
-import { algorandLoginWrapper } from "./algorand/wrapper.ts";
+// import { algorandLoginWrapper } from "./algorand/wrapper.ts";
 import { cardanoLoginWrapper } from "./cardano/wrapper.ts";
 import { evmLoginWrapper } from "./evm/wrapper-injected.ts";
-import { polkadotLoginWrapper } from "./polkadot/wrapper.ts";
+// import { polkadotLoginWrapper } from "./polkadot/wrapper.ts";
 import { ethersLoginWrapper } from "./evm/wrapper-ethers.ts";
 import { minaLoginWrapper } from "./mina/wrapper.ts";
 import { availJsLoginWrapper } from "./avail/wrapper.ts";
@@ -10,7 +10,7 @@ import { WalletMode } from "./utils.ts";
 import type { Result } from "@paima/utils";
 import type { Wallet } from "./types.ts";
 import type { LoginInfo } from "./wallet-modes.ts";
-import { assertNever } from "assert-never";
+// import { assertNever } from "assert-never";
 import { midnightLoginWrapper } from "./midnight/wrapper.ts";
 
 export async function walletLogin(
@@ -41,12 +41,13 @@ async function login(loginInfo: LoginInfo): Promise<Result<IProvider<unknown>>> 
     case WalletMode.Cardano: {
       return await cardanoLoginWrapper(loginInfo);
     }
-    case WalletMode.Polkadot: {
-      return await polkadotLoginWrapper(loginInfo);
-    }
-    case WalletMode.Algorand: {
-      return await algorandLoginWrapper(loginInfo);
-    }
+    // TODO: Disabled as these did not compile with deno-vite or deno-fresh
+    // case WalletMode.Polkadot: {
+    //   return await polkadotLoginWrapper(loginInfo);
+    // }
+    // case WalletMode.Algorand: {
+    //   return await algorandLoginWrapper(loginInfo);
+    // }
     case WalletMode.Mina: {
       return await minaLoginWrapper(loginInfo);
     }
@@ -57,6 +58,6 @@ async function login(loginInfo: LoginInfo): Promise<Result<IProvider<unknown>>> 
       return await midnightLoginWrapper(loginInfo);
     }
     default:
-      assertNever(loginInfo, true);
+      throw new Error(`Unsupported wallet mode: ${loginInfo.mode}`);
   }
 };

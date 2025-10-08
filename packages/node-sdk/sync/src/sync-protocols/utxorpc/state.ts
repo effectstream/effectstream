@@ -62,13 +62,6 @@ export class UtxoRpcSyncState extends SyncState<
 
   @bound
   override toRootPage(data: Output): RootPage {
-    if (
-      this.config.syncProtocol.type ===
-        ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL
-    ) {
-      return data.raw.timestamp;
-    }
-
     return applyDelay(
       data.raw.timestamp,
       this.config.syncProtocol.delayMs,

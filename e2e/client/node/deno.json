@@ -2,7 +2,10 @@
   "name": "@e2e/node",
   "version": "0.3.0",
   "license": "MIT",
-  "exports": "./src/main.ts",
+  "exports": {
+    ".": "./src/main.ts",
+    "./custom-primitive": "./src/custom-primitive.ts"
+  },
   "tasks": {
     // separate from node:start so we can type-check before starting other services
     "check": "deno check --unstable-raw-imports src/main.ts",
@@ -13,7 +16,7 @@
   },
   "imports": {
     "pg": "npm:pg@^8.14.0",
-    "viem": "npm:viem@^2.21.3",
+    "viem": "npm:viem@2.37.3",
     "effection": "npm:effection@^3.5.0",
     "fastify": "npm:fastify@^5.4.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
@@ -35,6 +38,7 @@
     "@midnight-ntwrk/wallet-api": "npm:@midnight-ntwrk/wallet-api@^5.0.0",
     "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@^4.0.0",
     "rxjs": "npm:rxjs",
-    "ws": "npm:ws"
+    "ws": "npm:ws",
+    "@polkadot/util-crypto": "npm:@polkadot/util-crypto@^13.4.3"
   }
 }

@@ -4,6 +4,7 @@ import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
 import {
   getLastSumFromExampleTable,
   insertAvailMessage,
+  insertCounterInput,
   insertStateMachineInput,
   insertSumIntoExampleTable,
 } from "@e2e/database";
@@ -148,6 +149,15 @@ stm.addStateTransition("transfer-erc20", function* (data) {
   const { to, from, value } = data.parsedInput;
   yield* World.resolve(insertStateMachineInput, {
     inputs: `transfer ${value} from ${from} to ${to}`,
+    block_height: data.blockHeight,
+  });
+  return;
+});
+
+stm.addStateTransition("counter-stm", function* (data) {
+  const { counter } = data.parsedInput;
+  yield* World.resolve(insertCounterInput, {
+    counter,
     block_height: data.blockHeight,
   });
   return;

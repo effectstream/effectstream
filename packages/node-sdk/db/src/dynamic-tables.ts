@@ -47,6 +47,7 @@ function* createDynamicTableForPrimitive(
   const primitive = (globalThis as any).PAIMA_REGISTRY[name];
   if (!primitive) {
     // This should never happen.
+    console.error(`Cannot find primitive ${name} in the registry. If this is custom primitive, ensure it's registered.`);
     throw new Error(`Primitive ${name} not found`);
   }
   const sqlFunction = primitive.getDynamicTables;

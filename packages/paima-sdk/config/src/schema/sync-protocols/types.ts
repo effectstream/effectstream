@@ -35,7 +35,7 @@ export type SyncProtocolFromNetwork<T extends ConfigNetworkType> =
 
 type BasePrimitive = {
   name: string;
-  type: string;
+  type: `${string}:${string}`;
   startBlockHeight: number;
   scheduledPrefix?: string;
 };

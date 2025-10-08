@@ -55,7 +55,7 @@ export const ConfigSyncProtocolSchemaEvmParallel =
         confirmationDepth: Type.Number(),
       }),
       optional: Type.Object({
-        delayMs: TypeboxHelpers.IntervalMs({ default: 2 * 1000 }),
+        delayMs: TypeboxHelpers.IntervalMs({ default: 0 }),
       }),
     });
 export type ConfigSyncProtocolEvmParallel = MergeIntersects<

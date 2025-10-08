@@ -1,6 +1,6 @@
 import type { Operation } from "effection";
 import type { SyncProtocolWithNetwork } from "@paima/config";
-import type { AppEvents, BaseStfInput, BaseStfOutput } from "@paima/sm";
+import type { AppEvents, BaseStfInput, BaseStfOutput, PaimaPrimitive } from "@paima/sm";
 import type { FastifyInstance } from "fastify";
 import type { Pool } from "pg";
 import type { SyncStateUpdateStream } from "@paima/coroutine";
@@ -34,6 +34,8 @@ export type StartConfigApiRouter = (
   dbConn: Pool,
 ) => Promise<void>;
 
+export type PaimaPrimitiveConstructor<T extends PaimaPrimitive<any, any>> = new (config: any) => T;
+
 /**
  * Main configuration object for the Paima Engine Node.
  *
@@ -50,4 +52,5 @@ export type StartConfig = {
   migrations?: DBMigrations[];
   apiRouter?: StartConfigApiRouter;
   grammar?: GrammarDefinition;
+  userDefinedPrimitives?: Record<string, PaimaPrimitiveConstructor<any>>;
 };
