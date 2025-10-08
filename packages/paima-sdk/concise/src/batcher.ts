@@ -1,13 +1,14 @@
 import {
-AddressType,
-TypeboxHelpers,
   type AddressAndType,
+  AddressType,
   type ShallowMergeIntersects,
   type Signature,
   type TimestampMsStr,
+  TypeboxHelpers,
   type WalletAddress,
 } from "@paima/utils";
 import type { InputDataString } from "@paima/chain-types";
+import type { DefaultBatcherInput } from "@paima/batcher";
 import {
   BatcherGrammar,
   BatcherGrammarPrefix,
@@ -46,21 +47,23 @@ export function createBatcherSubunit(
   walletAddressType: AddressType,
   signature: Signature,
   inputData: string,
-): BatchedSubunit {
+): DefaultBatcherInput {
   let walletAddress;
   switch (walletAddressType) {
     case AddressType.EVM:
       walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, _walletAddress);
       break;
     default:
-      throw new Error("NYI: Unsupported wallet address type: " + walletAddressType);
+      throw new Error(
+        "NYI: Unsupported wallet address type: " + walletAddressType,
+      );
   }
   return {
     addressType: walletAddressType,
-    userAddress: walletAddress,
-    userSignature: signature,
-    conciseInput: inputData,
-    millisecondTimestamp: millisecondTimestamp,
+    address: walletAddress,
+    signature: signature,
+    input: inputData,
+    timestamp: millisecondTimestamp,
   };
 }
 
@@ -78,7 +81,9 @@ export function createMessageForBatcher(
       walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, _walletAddress);
       break;
     default:
-      throw new Error("NYI: Unsupported wallet address type: " + walletAddressType);
+      throw new Error(
+        "NYI: Unsupported wallet address type: " + walletAddressType,
+      );
   }
 
   return ((namespace ?? "") + millisecondTimestamp + walletAddress + inputData)
@@ -97,10 +102,15 @@ export function hashBatchSubunit(input: BatchedSubunit): string {
   let walletAddress;
   switch (input.addressType) {
     case AddressType.EVM:
-      walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, input.userAddress);
+      walletAddress = Value.Decode(
+        TypeboxHelpers.Evm.Address,
+        input.userAddress,
+      );
       break;
     default:
-      throw new Error("NYI: Unsupported wallet address type: " + input.addressType);
+      throw new Error(
+        "NYI: Unsupported wallet address type: " + input.addressType,
+      );
   }
 
   return "0x" +

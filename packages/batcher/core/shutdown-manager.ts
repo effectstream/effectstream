@@ -51,7 +51,7 @@ export class ShutdownManager<T extends DefaultBatcherInput> {
       options?.timeoutMs ??
         this.batcherInterface.shutdownState.shutdownTimeoutMs;
 
-    console.log("🔄 Stopping batcher gracefully...");
+    console.log("Stopping batcher gracefully...");
 
     try {
       // Phase 1: Pre-shutdown (custom hook)
@@ -110,7 +110,7 @@ export class ShutdownManager<T extends DefaultBatcherInput> {
       options?.timeoutMs ??
         this.batcherInterface.shutdownState.shutdownTimeoutMs;
 
-    console.log("🔄 Stopping batcher gracefully...");
+    console.log("Stopping batcher gracefully...");
 
     try {
       // Phase 1: Pre-shutdown (custom hook)
