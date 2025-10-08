@@ -52,7 +52,7 @@ async function submitData(appId: number, data: string) {
   console.log(`DataHash: ${event.dataHash}`);
 
   console.log("Data submission completed successfully");
-  return { txHash: res.txHash, blockHash: res.blockHash };
+  return { txHash: res.txHash, blockHash: res.blockHash, blockNumber: res.blockNumber };
 }
 
 export async function submitDataWithMessageAvailTest(
@@ -61,41 +61,24 @@ export async function submitDataWithMessageAvailTest(
 ) {
   if (!avail_enabled) return;
   
-  const latestBlock: Record<string, number> = {};
-  const sleep = (ms: number) =>
-    new Promise((resolve) => setTimeout(resolve, ms));
-  await PaimaEventManager.Instance.subscribe(
-    {
-      topic: BuiltinEvents.RollupBlock,
-      filter: { block: undefined },
-    },
-    (event) => {
-      latestBlock["__main__"] = Math.max(
-        Number(event.block),
-        isNaN(latestBlock["__main__"]) ? 0 : latestBlock["__main__"],
-      );
-    },
-  );
   const appId = readAvailApplication().appId;
+  
   console.log(`Submitting data to App Id: ${appId}`);
   const data = '{ "message": "Batata" }';
-  await blockWatcher.waitForBlock();
-  const txHash = await submitData(appId, data);
-  console.log(`Transaction Hash: ${txHash.txHash.toString()}`);
-  const currentAvailBlock = blockWatcher.getLatestBlock("parallelAvail");
-  console.time("wait_for_avail_block");
-  await blockWatcher.waitForBlock("parallelAvail", currentAvailBlock + 6);
-  console.timeEnd("wait_for_avail_block");
-  console.log(
-    `Current Avail Block: ${blockWatcher.getLatestBlock("parallelAvail")}`,
-  );
+  
+  const txReceipt = await submitData(appId, data);
+  console.log(`Transaction Hash: ${txReceipt.txHash.toString()}`);
+  console.log(`Waiting for block ${txReceipt.blockNumber} @ parallelAvail...\nthis might take a while...`);
+  
+  await blockWatcher.waitForBlock("parallelAvail", txReceipt.blockNumber);
+
   // Avail Tx should have inserted new primitive accounting entry
   sharedState.primitive_accounting_counter += 1;
   await assertSQL<{ primitive_name: string }>(
     "Check Avail Tx",
     db,
     `SELECT * FROM avail_messages;`,
-    (res: any) => res.rows.length === 1,
-    (res: any) => res.rows[0].message === JSON.parse(data).message,
+    (res: any) => true,
+    (res: any) => res.rows.length === 1 && res.rows[0].message === JSON.parse(data).message,
   );
 }

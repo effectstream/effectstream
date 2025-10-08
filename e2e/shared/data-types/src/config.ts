@@ -216,7 +216,7 @@ export const localhostConfig = new ConfigBuilder()
             type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
             startBlockHeight: 1,
             pollingInterval: 1000,
-            delayMs: 6000,
+            delayMs: 18000,
             indexer: "http://127.0.0.1:8088/api/v1/graphql",
             indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
           }),
@@ -232,6 +232,7 @@ export const localhostConfig = new ConfigBuilder()
             type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
             rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
             startSlot: 1,
+            delayMs: 20000,
           }),
         );
     }

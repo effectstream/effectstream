@@ -425,17 +425,20 @@ async function joinAndIncrementTest(
     console.log(`📊 New counter value: ${afterResult.counterValue}`);
 
     console.log("🎉 Join and increment process completed successfully!");
+
+    console.log("🔍 Waiting for block...", incrementResult.blockHeight, '@ parallelMidnight');
+    await blockWatcher.waitForBlock("parallelMidnight", incrementResult.blockHeight);
+
+
   } catch (error) {
     console.error("❌ Error during join and increment process:", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
     // Deno.exit(1);
   } finally {
-    await blockWatcher.waitForBlock();
     // Clean up wallet
     if (wallet) {
       try {
         console.log("🧹 Wallet closed successfully");
-        await blockWatcher.waitForBlock();
         await assertSQL<{
           primitive_name: string;
           id: number;

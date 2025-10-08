@@ -62,12 +62,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       paima.primitive_accounting;`,
     (res) => true,
     (res) => {
-      return res.rows[sharedState.primitive_accounting_counter - 3]
-            .primitive_name === "Aribitrum_Token" &&
-        res.rows[sharedState.primitive_accounting_counter - 2]
-            .primitive_name === "Aribitrum_Token" &&
-        res.rows[sharedState.primitive_accounting_counter - 1]
-            .primitive_name === "Aribitrum_Token";
+      return res.rows.filter((r) => r.primitive_name === "Aribitrum_Token").length === 3;
     },
   );
   await paimaL2.submitGameInput(
@@ -83,9 +78,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       paima.primitive_accounting;`,
     (res) => true,
     (res) => {
-      return res.rows[res.rows.length - 1]
-        .primitive_name ===
-        "PaimaGameInteraction";
+      return res.rows.filter((r) => r.primitive_name === "PaimaGameInteraction").length === 1;
     },
   );
   await paimaL2.submitGameInput(
