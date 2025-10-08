@@ -19,23 +19,22 @@ export const enum WalletMode {
   EvmEthers,
   Midnight,
   Cardano,
-  Polkadot,
-  Algorand,
+  // Polkadot,
+  // Algorand,
   Mina,
   AvailJs,
 }
 
 export const WalletNameMap: Record<WalletMode, string> = {
-  [WalletMode.EvmInjected]: 'EVM',
-  [WalletMode.EvmEthers]: 'EVM',
-  [WalletMode.Midnight]: 'Midnight',
-  [WalletMode.Cardano]: 'Cardano',
+  [WalletMode.EvmInjected]: "EVM",
+  [WalletMode.EvmEthers]: "EVM",
+  [WalletMode.Midnight]: "Midnight",
+  [WalletMode.Cardano]: "Cardano",
   // [WalletMode.Polkadot]: 'Polkadot',
   // [WalletMode.Algorand]: 'Algorand',
-  [WalletMode.Mina]: 'Mina',
-  [WalletMode.AvailJs]: 'Avail',
+  [WalletMode.Mina]: "Mina",
+  [WalletMode.AvailJs]: "Avail",
 };
-
 
 export const WalletModeMap = {
   [WalletMode.EvmInjected]: EvmInjectedConnector.instance(),
@@ -55,29 +54,29 @@ export type ApiForMode<Mode extends WalletMode> = ExtractGeneric<
 
 export type InjectionPreference<T> =
   | {
-      name: string;
-    }
+    name: string;
+  }
   | {
-      connection: ActiveConnection<T>;
-    };
+    connection: ActiveConnection<T>;
+  };
 
 export async function allInjectedWallets(): Promise<{
   [WalletMode.EvmInjected]: ReturnType<
     typeof EvmInjectedConnector.getWalletOptions
   >;
   [WalletMode.Cardano]: ReturnType<typeof CardanoConnector.getWalletOptions>;
-  [WalletMode.Polkadot]: Awaited<
-    ReturnType<typeof PolkadotConnector.getWalletOptions>
-  >;
-  [WalletMode.Algorand]: ReturnType<typeof AlgorandConnector.getWalletOptions>;
+  // [WalletMode.Polkadot]: Awaited<
+  //   ReturnType<typeof PolkadotConnector.getWalletOptions>
+  // >;
+  // [WalletMode.Algorand]: ReturnType<typeof AlgorandConnector.getWalletOptions>;
   [WalletMode.Mina]: ReturnType<typeof MinaConnector.getWalletOptions>;
   [WalletMode.Midnight]: ReturnType<typeof MidnightConnector.getWalletOptions>;
 }> {
   return {
     [WalletMode.EvmInjected]: EvmInjectedConnector.getWalletOptions(),
     [WalletMode.Cardano]: CardanoConnector.getWalletOptions(),
-    [WalletMode.Polkadot]: await PolkadotConnector.getWalletOptions(),
-    [WalletMode.Algorand]: AlgorandConnector.getWalletOptions(),
+    // [WalletMode.Polkadot]: await PolkadotConnector.getWalletOptions(),
+    // [WalletMode.Algorand]: AlgorandConnector.getWalletOptions(),
     [WalletMode.Mina]: MinaConnector.getWalletOptions(),
     [WalletMode.Midnight]: MidnightConnector.getWalletOptions(),
   };
@@ -85,7 +84,7 @@ export async function allInjectedWallets(): Promise<{
 export async function connectInjectedWallet<Api>(
   typeName: string,
   preference: undefined | InjectionPreference<Api>,
-  connector: IInjectedConnector<Api>
+  connector: IInjectedConnector<Api>,
 ): Promise<IProvider<Api>> {
   if (preference == null) {
     console.log(`${typeName} Attempting simple login`);
@@ -108,7 +107,7 @@ export async function connectInjectedWallet<Api>(
 export function callProvider<
   Mode extends WalletMode,
   Api extends ApiForMode<Mode>,
-  Func extends keyof IProvider<Api>
+  Func extends keyof IProvider<Api>,
 >(
   mode: Mode,
   funcName: Func,

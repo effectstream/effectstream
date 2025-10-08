@@ -16,7 +16,8 @@ import {
   type InjectionPreference,
   type WalletMode,
 } from "./utils.ts";
-import type{ MidnightApi } from "./midnight/midnight.ts";
+import type { MidnightApi } from "./midnight/midnight.ts";
+import type { Chain } from "viem/chains";
 
 export type BaseLoginInfo<Api> = {
   preference?: InjectionPreference<Api>;
@@ -33,14 +34,15 @@ export type LoginInfoMap = {
      * @default true
      */
     checkChainId?: boolean;
+    chain?: Chain;
   };
   [WalletMode.EvmEthers]: {
     connection: ActiveConnection<EthersApi>;
     preferBatchedMode: boolean;
   };
   [WalletMode.Cardano]: BaseLoginInfo<CardanoApi>;
-  [WalletMode.Polkadot]: BaseLoginInfo<PolkadotApi>;
-  [WalletMode.Algorand]: BaseLoginInfo<AlgorandApi>;
+  // [WalletMode.Polkadot]: BaseLoginInfo<PolkadotApi>;
+  // [WalletMode.Algorand]: BaseLoginInfo<AlgorandApi>;
   [WalletMode.Mina]: BaseLoginInfo<MinaApi>;
   [WalletMode.AvailJs]: {
     connection: ActiveConnection<ApiPromise>;
@@ -66,13 +68,13 @@ function getWalletName(info: BaseLoginInfo<unknown>): undefined | string {
 export async function connectInjected<Api>(
   typeName: string,
   loginInfo: BaseLoginInfo<Api>,
-  connector: IInjectedConnector<Api>
+  connector: IInjectedConnector<Api>,
 ): Promise<Result<IProvider<Api>>> {
   try {
     const provider = await connectInjectedWallet(
       typeName,
       loginInfo.preference,
-      connector
+      connector,
     );
     return {
       success: true,
@@ -82,7 +84,7 @@ export async function connectInjected<Api>(
     console.log(
       `${typeName} Error while logging into wallet ${
         getWalletName(loginInfo) ?? "simple"
-      }`
+      }`,
     );
 
     return {
