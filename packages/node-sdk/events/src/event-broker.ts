@@ -1,23 +1,27 @@
-/* eslint-disable no-console */
 import Aedes from 'aedes';
 import type { Server } from 'aedes-server-factory';
-import { createServer } from 'aedes-server-factory';
-import ip from 'ip';
-import { ENV } from '@paima/utils/node-env';
+import { createServer } from "aedes-server-factory";
+import ip from "ip";
+import { ENV } from "@paima/utils/node-env";
 
+const localhostIPv4Range = ip.cidrSubnet('127.0.0.0/8');
+const localhostIPv6Range = ip.cidrSubnet('::1/128');
+const ipv4MappedIPv6LocalhostRange = ip.cidrSubnet('::ffff:127.0.0.0/104');
 
-
-function isLocalhost(ipAddress: string): boolean {
+function isLocalhost(ipAddress: string | undefined): boolean {
   // note: this only detects simple cases (ex: you're not mapping different hostnames to localhost)
-  const localhostIPv4Range = ip.cidrSubnet('127.0.0.0/8');
-  const localhostIPv6Range = ip.cidrSubnet('::1/128');
-  const ipv4MappedIPv6LocalhostRange = ip.cidrSubnet('::ffff:127.0.0.0/104');
+  if (!ipAddress) return false;
+  try {
+    const isV4 = ip.isV4Format(ipAddress);
+    if (isV4 && localhostIPv4Range.contains(ipAddress)) return true;
 
-  return (
-    localhostIPv4Range.contains(ipAddress) ||
-    localhostIPv6Range.contains(ipAddress) ||
-    ipv4MappedIPv6LocalhostRange.contains(ipAddress)
-  );
+    const isV6 = ip.isV6Format(ipAddress);
+    if (!isV4 && isV6 && localhostIPv6Range.contains(ipAddress)) return true;
+    if (!isV4 && isV6 && ipv4MappedIPv6LocalhostRange.contains(ipAddress)) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
 }
 
 /*
@@ -27,7 +31,6 @@ export class PaimaEventBroker {
   constructor(private broker: 'paima-engine' | 'Batcher') {}
   private static aedes: Aedes.default | null = null;
   private static server: Server | null = null;
-
   /*
    * Get & Init Server Singleton
    */
@@ -36,15 +39,34 @@ export class PaimaEventBroker {
     if (PaimaEventBroker.server) return PaimaEventBroker.server;
 
     PaimaEventBroker.aedes = Aedes.createBroker();
-    PaimaEventBroker.aedes.authorizePublish = (client, packet, callback): void => {
+    PaimaEventBroker.aedes.authorizePublish = (
+      client,
+      packet,
+      callback
+    ): void => {
+      // We need to allow only localhost to publish.
+      // @ deno we are getting `client?.req?.socket?.remoteAddress` as undefined.
 
-      // TODO We need to allow only localhost to publish.
-      //      In deno we are getting `client?.req?.socket?.remoteAddress` as undefined.
-      //
-      // if (client?.req?.socket?.remoteAddress == null)
-      //   return callback(
-      //     new Error('Error: no remove address found for  PaimaEventBroker connection')
-      // );
+      // socket has a symbol kHandle that has a symbol kStreamBaseField that has a localAddr and a remoteAddr object
+      let remoteAddr: string | undefined;
+      let symbolKStreamBaseField: symbol | undefined;
+      const symbolKHandle = Object.getOwnPropertySymbols(
+        client?.req?.socket ?? {}
+      ).find((symbol) => symbol.toString() === 'Symbol(kHandle)');
+
+      if (symbolKHandle) {
+        symbolKStreamBaseField = Object.getOwnPropertySymbols(
+          (client?.req?.socket as any)[symbolKHandle]
+        ).find((symbol) => symbol.toString() === 'Symbol(kStreamBaseField)');
+      }
+
+      if (symbolKStreamBaseField) {
+        remoteAddr = (
+          (client?.req?.socket as any)[symbolKHandle as any][
+            symbolKStreamBaseField as any
+          ].remoteAddr as any
+        ).hostname;
+      }
 
       /**
        * to avoid players injecting commands into the Paima Engine node
@@ -56,22 +78,27 @@ export class PaimaEventBroker {
        *       as they are all just localhost processes connecting to this broker
        *       so this localhost check could be stricter, but this should be sufficient
        */
-      // if (isLocalhost(client?.req?.socket?.remoteAddress)) {
-      return callback(null);
-      // }
+      if (isLocalhost(remoteAddr)) {
+        return callback(null);
+      }
+
       // for some reason, mqtt-cli requires this topic
       // https://github.com/Anasnew99/mqtt-cli/blob/29ba08e66da397bdab16723c93b59ecb51d2da3e/src/index.ts#L158
-      // if (packet.topic === '/ping_req_sys') {
-      // return callback(null);
-      // }
-      // callback(new Error('Messages must come from localhost'));
+      if (packet.topic === '/ping_req_sys') {
+        return callback(null);
+      }
+
+      console.error('Filtering message from non-localhost');
+      callback(new Error('Messages must come from localhost'));
     };
 
-    PaimaEventBroker.server = createServer(PaimaEventBroker.aedes, { ws: true });
+    PaimaEventBroker.server = createServer(PaimaEventBroker.aedes, {
+      ws: true,
+    });
 
     // WEBSOCKET PROTOCOL SERVER
     PaimaEventBroker.server.listen(this.getPort(), () =>
-      console.log('MQTT-WS Server Started at PORT ' + this.getPort())
+      console.log("MQTT-WS Server Started at PORT " + this.getPort())
     );
     return PaimaEventBroker.server;
   }
@@ -85,7 +112,7 @@ export class PaimaEventBroker {
   private getPort(): number {
     switch (this.broker) {
       // TODO: use env vars without duplicating default here
-      case 'paima-engine': {
+    case 'paima-engine': {
         return ENV.MQTT_ENGINE_BROKER_PORT;
       }
       case 'Batcher': {
