@@ -14,12 +14,13 @@ function isLocalhost(ipAddress: string | undefined): boolean {
   try {
     const isV4 = ip.isV4Format(ipAddress);
     if (isV4 && localhostIPv4Range.contains(ipAddress)) return true;
-
+    // NOTE v4 addresses like 192.168.1.100 are detected as an IPV6 address 
+    //     and the *.contains(ipAddress) checks give false positives.
     const isV6 = ip.isV6Format(ipAddress);
     if (!isV4 && isV6 && localhostIPv6Range.contains(ipAddress)) return true;
     if (!isV4 && isV6 && ipv4MappedIPv6LocalhostRange.contains(ipAddress)) return true;
   } catch {
-    /* ignore */
+    /* ignore - format errors throw if invalid IP */
   }
   return false;
 }
@@ -45,9 +46,19 @@ export class PaimaEventBroker {
       callback
     ): void => {
       // We need to allow only localhost to publish.
-      // @ deno we are getting `client?.req?.socket?.remoteAddress` as undefined.
-
-      // socket has a symbol kHandle that has a symbol kStreamBaseField that has a localAddr and a remoteAddr object
+      
+      // NOTE: Using deno `client?.req?.socket?.remoteAddress` is undefined.
+      //       This was defined correctly when using node.js runtime.
+      // 
+      // In https://github.com/denoland/deno/pull/20120 these new fields were added:
+      // Symbol(kHandle) and Symbol(kStreamBaseField).
+      //
+      // client.req.socket[Symbol(kHandle)][Symbol(kStreamBaseField)] = { 
+      //   remoteAddr: { hostname: '127.0.0.1' },
+      //   localAddr: { hostname: '127.0.0.1' },
+      // }
+      // This remoteAddr is correctly defined.
+      //
       let remoteAddr: string | undefined;
       let symbolKStreamBaseField: symbol | undefined;
       const symbolKHandle = Object.getOwnPropertySymbols(
