@@ -13,10 +13,10 @@ import { privateKeyToAccount } from "viem/accounts";
 import { hardhat } from "viem/chains";
 import {
   contractAddressesEvmMain,
+  counter,
   erc20dev,
   erc721dev,
   paimal2contract,
-  counter,
 } from "@e2e/evm-contracts";
 
 import {
@@ -456,10 +456,9 @@ export const erc20Factory = (
 
 export const counterContractInteract = async (
   chain: Chain,
-  private_key: `0x${string}`, 
+  private_key: `0x${string}`,
   sharedState: SharedState,
 ) => {
-
   const { account, walletClient, publicClient } = clients(
     private_key,
     chain,
@@ -475,20 +474,21 @@ export const counterContractInteract = async (
 
   const hash = await walletClient.writeContract(request);
   let blockNumber = 0n;
-    const receipt = await publicClient.waitForTransactionReceipt({
-      hash,
-    });
-      console.log(
-        `  ${
-          receipt.status === "success" ? "" : "❌"
-        } Mint block ${receipt.blockNumber} @ Hash ${hash} for "${chain.name}"`,
-      );
-    blockNumber = receipt.blockNumber;
-    await blockWatcher.waitForBlock(chain.name, blockNumber);
-  
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash,
+  });
+  console.log(
+    `${
+      receipt.status === "success" ? "" : "❌"
+    } Mint block ${receipt.blockNumber} @ Hash ${hash} for "${chain.name}"`,
+  );
+  blockNumber = receipt.blockNumber;
+  console.log("Waiting for block", chain.name, blockNumber);
+  await blockWatcher.waitForBlock(chain.name, blockNumber);
+
   sharedState.primitive_accounting_counter += 1;
   return blockNumber;
-}
+};
 
 /**
  * Erc20 Contracts Instances.
