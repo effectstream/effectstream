@@ -887,6 +887,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
     return (
       this.namespace +
+      (input.target ?? "") +
       input.timestamp +
       walletAddress +
       input.input

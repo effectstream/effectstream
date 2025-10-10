@@ -57,7 +57,7 @@ const otpCode = otpIndex !== -1 ? Deno.args[otpIndex + 1] : null;
 const dirIndex = Deno.args.indexOf("--dir");
 const rootDir = dirIndex !== -1 ? Deno.args[dirIndex + 1] : Deno.cwd();
 
-const filePattern = /\.(ts|js|json|tsx|jsx)$/i;
+const filePattern = /\.(ts|js|json|tsx|jsx|tmux)$/i;
 
 // Packages to publish in order
 const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
@@ -131,7 +131,15 @@ async function processFile(filePath: string, reverse: boolean = false) {
       "@paima/$1",
     );
   }
-
+  // Update session.tmux files
+  if (
+    filePath.endsWith("session.tmux") || filePath.endsWith("session.tmux.ts")
+  ) {
+    newContent = newContent.replace(
+      /deno -A @paimaexample\/([\w-]+)/g,
+      "deno -A @paima/$1",
+    );
+  }
   // If this is a deno.json or package.json, update the version (both forward and reverse)
   if (filePath.endsWith("deno.json") || filePath.endsWith("package.json")) {
     const updateVersion = await fetchLatestVersion();

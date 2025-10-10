@@ -368,6 +368,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
           timestamp: millisecondTimestamp,
           signature: userSignature,
           input: conciseInput,
+          target: batcherTarget,
         } = parsed;
         // TODO: We need to setup & configure the namespace.
         const message = createMessageForBatcher(
@@ -376,6 +377,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
           userAddress,
           addressType,
           conciseInput,
+          batcherTarget,
         );
         // We yield the promise to the generator caller.
         // Sync Generators cannot resolve promises.

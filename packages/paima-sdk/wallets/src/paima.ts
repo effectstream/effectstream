@@ -35,12 +35,12 @@ export class PaimaEngineConfig {
     preferBatchedMode: boolean = false,
   ) {
     this.appName = appName ?? "";
-    
+
     this.paimaL2SyncProtocolName = paimaL2SyncProtocolName;
     this.paimaL2ContractAddress = paimaL2ContractAddress;
     this.paimaL2Abi = paimaL2Abi ?? this.fallbackABI();
     this.paimaL2Chain = paimaL2Chain;
-    
+
     this.batcherURL = batcherURL;
     if (!this.batcherURL && preferBatchedMode) {
       throw new Error("To enable batcher, you need to set the batcher URL.");
@@ -91,7 +91,7 @@ export async function signMessage(wallet: Wallet, message: string) {
 /**
  * Main function to send a transaction to a Paima L2 contract.
  * It will decide whether to use the batcher or the self-sequenced transaction based on the preferBatchedMode flag.
- * 
+ *
  * @param wallet - The wallet to send the transaction with.
  * @param conciseData - The concise data to send.
  * @param paimaEngineConfig - The Paima Engine configuration.
@@ -107,6 +107,7 @@ export async function sendTransaction(
   paimaEngineConfig: PaimaEngineConfig,
   waitForConfirmation: "wait-paima-processed" | "wait-receipt" | "no-wait" =
     "wait-paima-processed",
+  batcherTarget: string | undefined = undefined,
 ): Promise<
   | ReturnType<typeof sendBatcherTransaction>
   | ReturnType<typeof sendSelfSequencedTransaction>
@@ -117,6 +118,7 @@ export async function sendTransaction(
       conciseData,
       paimaEngineConfig,
       waitForConfirmation,
+      batcherTarget,
     );
   }
   return await sendSelfSequencedTransaction(
@@ -149,7 +151,7 @@ export async function sendSelfSequencedTransaction(
 ): Promise<
   & {
     success: boolean;
-    type: 'self-sequenced';
+    type: "self-sequenced";
   }
   & (
     | {
@@ -199,7 +201,7 @@ export async function sendSelfSequencedTransaction(
   ) {
     return {
       success: true,
-      type: 'self-sequenced',
+      type: "self-sequenced",
       wait: waitForConfirmation,
       hash: tx_result.txHash,
     };
@@ -217,7 +219,7 @@ export async function sendSelfSequencedTransaction(
 
   return {
     success: true,
-    type: 'self-sequenced',
+    type: "self-sequenced",
     hash: tx_result.txHash,
     wait: waitForConfirmation,
     receipt: serializeBigInts(receipt),
@@ -318,9 +320,10 @@ export async function sendBatcherTransaction(
   paimaEngineConfig: PaimaEngineConfig,
   waitForConfirmation: "wait-paima-processed" | "wait-receipt" | "no-wait" =
     "wait-paima-processed",
+  batcherTarget: string | undefined = undefined,
 ): Promise<{
   success: boolean;
-  type: 'batcher';
+  type: "batcher";
   message: string;
   blockNumber: number;
   blockHash: string;
@@ -340,6 +343,7 @@ export async function sendBatcherTransaction(
       wallet.provider.getAddress().address,
       wallet.provider.getAddress().type,
       conciseDataStr,
+      batcherTarget,
     ),
   );
 
@@ -352,20 +356,21 @@ export async function sendBatcherTransaction(
       },
       body: JSON.stringify({
         data: {
+          target: batcherTarget,
           addressType: wallet.provider.getAddress().type,
-          userAddress: wallet.provider.getAddress().address,
-          userSignature: signature,
-          conciseInput: conciseDataStr,
-          millisecondTimestamp: timestamp,
+          address: wallet.provider.getAddress().address,
+          signature,
+          input: conciseDataStr,
+          timestamp,
         },
         waitForConfirmation,
       }),
     },
   );
-  
+
   return await {
     ...(await response.json()),
-    type: 'batcher',
+    type: "batcher",
     success: response.ok,
   };
 }

@@ -52,7 +52,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     false,
     true, // wait until paima processes the transaction
   );
- 
+
   await assertSQL<{ primitive_name: string }>(
     "Check ERC20 sync-process",
     db,
@@ -62,7 +62,8 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       paima.primitive_accounting;`,
     (res) => true,
     (res) => {
-      return res.rows.filter((r) => r.primitive_name === "Aribitrum_Token").length === 3;
+      return res.rows.filter((r) => r.primitive_name === "Aribitrum_Token")
+        .length === 3;
     },
   );
   await paimaL2.submitGameInput(
@@ -78,7 +79,8 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       paima.primitive_accounting;`,
     (res) => true,
     (res) => {
-      return res.rows.filter((r) => r.primitive_name === "PaimaGameInteraction").length === 1;
+      return res.rows.filter((r) => r.primitive_name === "PaimaGameInteraction")
+        .length === 1;
     },
   );
   await paimaL2.submitGameInput(
@@ -238,6 +240,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       account.address,
       AddressType.EVM,
       conciseInput,
+      undefined,
     ),
   });
 
@@ -351,7 +354,10 @@ export async function generalTest(db: Client, sharedState: SharedState) {
 
   // Scheduled date send data in the next block.
   // Blocks are 1/4[s] so we wait for 5 blocks.
-  await blockWatcher.waitForBlock("parallelEvmRPC_fast", blockNumberScheduledData + 5);
+  await blockWatcher.waitForBlock(
+    "parallelEvmRPC_fast",
+    blockNumberScheduledData + 5,
+  );
 
   // This should increment the state machine indirectly.
   await assertSQL<{ inputs: string; block_height: number }>(
@@ -373,7 +379,10 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     false,
   );
   // Wait until the next block, as each block is 1000 mS
-  await blockWatcher.waitForBlock("parallelEvmRPC_fast", blockNumberScheduledDataTimestamp + 5);
+  await blockWatcher.waitForBlock(
+    "parallelEvmRPC_fast",
+    blockNumberScheduledDataTimestamp + 5,
+  );
   // This should increment the state machine indirectly.
 
   await assertSQL<{ inputs: string; block_height: number }>(

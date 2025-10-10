@@ -15,9 +15,9 @@
         "midnight-contract:deploy": "deno task midnight-contract:clean && deno --unstable-detect-cjs -A deploy.ts"
     },
     "imports": {
-        "@paimaexample/npm-midnight-indexer": "npm:@paimaexample/npm-midnight-indexer@0.3.64",
-        "@paimaexample/npm-midnight-node": "npm:@paimaexample/npm-midnight-node@0.3.64",
-        "@paimaexample/npm-midnight-proof-server": "npm:@paimaexample/npm-midnight-proof-server@0.3.64",
+        "@paimaexample/npm-midnight-indexer": "npm:@paimaexample/npm-midnight-indexer@0.3.65",
+        "@paimaexample/npm-midnight-node": "npm:@paimaexample/npm-midnight-node@0.3.65",
+        "@paimaexample/npm-midnight-proof-server": "npm:@paimaexample/npm-midnight-proof-server@0.3.65",
         "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger",
         "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.8.1",
         "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap"

@@ -72,6 +72,7 @@ export function createMessageForBatcher(
   _walletAddress: WalletAddress,
   walletAddressType: AddressType,
   inputData: string,
+  target: string | undefined = undefined,
 ): BatcherMessage {
   let walletAddress;
   switch (walletAddressType) {
@@ -84,7 +85,8 @@ export function createMessageForBatcher(
       );
   }
 
-  return ((namespace ?? "") + millisecondTimestamp + walletAddress + inputData)
+  return ((namespace ?? "") + (target ?? "") + millisecondTimestamp +
+    walletAddress + inputData)
     .replace(/[^a-zA-Z0-9]/g, "-")
     .toLocaleLowerCase();
 }
