@@ -363,7 +363,7 @@ export async function sendBatcherTransaction(
           input: conciseDataStr,
           timestamp,
         },
-        waitForConfirmation,
+        confirmationLevel: waitForConfirmation,
       }),
     },
   );

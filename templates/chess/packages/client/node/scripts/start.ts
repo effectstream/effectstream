@@ -4,7 +4,7 @@ import { Value } from "@sinclair/typebox/value";
 import { launchEvm } from "@paimaexample/orchestrator/start-evm";
 
 const evmProcessesExtended = launchEvm("@chess/evm-contracts");
-evmProcessesExtended.stopProcessAtPort = [10590, 10599, 3334];
+evmProcessesExtended.stopProcessAtPort.push(3334);
 evmProcessesExtended.processes.push({
   name: "batcher",
   args: ["task", "-f", "@chess/batcher", "start"],
@@ -30,7 +30,7 @@ const config = Value.Parse(OrchestratorConfig, {
   processesToLaunch: [
     evmProcessesExtended,
     {
-      stopProcessAtPort: [10590, 10599, 3334],
+      stopProcessAtPort: [10590, 10599],
       processes: [
         {
           name: "frontend-server",
