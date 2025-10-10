@@ -1,72 +1,32 @@
 import type { Result } from "@paima/utils";
 import type { IProvider } from "../IProvider.ts";
-import type { WalletMode, ApiForMode } from "../utils.ts";
-import { type LoginInfoMap, connectInjected } from "../wallet-modes.ts";
+import type { ApiForMode, WalletMode } from "../utils.ts";
+import { connectInjected, type LoginInfoMap } from "../wallet-modes.ts";
 import { EvmInjectedConnector } from "./injected.ts";
+import type { Chain } from "viem/chains";
 interface SwitchError {
   code: number;
 }
 
-async function switchChain(chainName: string | undefined): Promise<boolean> {
-  // TODO resolve this from the chain name or passed config
-  const config = {
-    chainId: 1,
-    chainName: "Hardhat",
-    chainCurrencyName: "Ether",
-    chainCurrencySymbol: "ETH",
-    chainCurrencyDecimals: 18,
-    chainUri: "http://127.0.0.1:8545",
-    chainExplorerUri: "https://etherscan.io",
-  };
-
-  const CHAIN_NOT_ADDED_ERROR_CODE = 4902;
-  const hexChainId = "0x" + config.chainId.toString(16);
-
-  try {
-    await EvmInjectedConnector.instance()
-      .getOrThrowProvider()
-      .switchChain(hexChainId);
-    return await verifyWalletChain();
-  } catch (switchError) {
-    // This error code indicates that the chain has not been added to the wallet.
-    const se = switchError as SwitchError;
-    if (se.hasOwnProperty("code") && se.code === CHAIN_NOT_ADDED_ERROR_CODE) {
-      try {
-        await EvmInjectedConnector.instance()
-          .getOrThrowProvider()
-          .addChain({
-            chainId: hexChainId,
-            chainName: chainName,
-            nativeCurrency: {
-              name: config.chainCurrencyName,
-              symbol: config.chainCurrencySymbol,
-              decimals: config.chainCurrencyDecimals,
-            },
-            rpcUrls: [config.chainUri],
-            // blockExplorerUrls: Chain not added with empty string.
-            blockExplorerUrls: config.chainExplorerUri
-              ? [config.chainExplorerUri]
-              : undefined,
-          });
-        await EvmInjectedConnector.instance()
-          .getOrThrowProvider()
-          .switchChain(hexChainId);
-        return await verifyWalletChain();
-      } catch (addError) {
-        // errorFxn(PaimaMiddlewareErrorCode.ERROR_ADDING_CHAIN, addError);
-        return false;
-      }
-    } else {
-      // errorFxn(PaimaMiddlewareErrorCode.ERROR_SWITCHING_TO_CHAIN, switchError);
-      return false;
-    }
+async function switchChain(chain: Chain | undefined): Promise<boolean> {
+  if (!chain) {
+    // We can't switch to a chain if we don't know what chain to switch to.
+    return false;
   }
+  const hexChainId = "0x" + chain.id.toString(16);
+  await EvmInjectedConnector.instance().switchChain(
+    hexChainId,
+    chain,
+  );
+  return await verifyWalletChain(chain);
 }
 
-async function verifyWalletChain(): Promise<boolean> {
-  return await EvmInjectedConnector.instance()
-    .getOrThrowProvider()
-    .verifyWalletChain();
+async function verifyWalletChain(chain: Chain | undefined): Promise<boolean> {
+  if (!chain) {
+    return false;
+  }
+  const hexChainId = "0x" + chain.id.toString(16);
+  return await EvmInjectedConnector.instance().verifyWalletChain(hexChainId);
 }
 
 export async function checkEthWalletStatus(): Promise<Result<string>> {
@@ -80,7 +40,7 @@ export async function checkEthWalletStatus(): Promise<Result<string>> {
   }
 
   try {
-    if (!(await verifyWalletChain())) {
+    if (!(await verifyWalletChain(undefined))) {
       return { success: false, errorMessage: "EVM_WRONG_CHAIN" };
     }
   } catch (err) {
@@ -91,7 +51,7 @@ export async function checkEthWalletStatus(): Promise<Result<string>> {
 }
 
 export async function evmLoginWrapper(
-  loginInfo: LoginInfoMap[WalletMode.EvmInjected]
+  loginInfo: LoginInfoMap[WalletMode.EvmInjected],
 ): Promise<Result<IProvider<ApiForMode<WalletMode.EvmInjected>>>> {
   // const errorFxn = buildEndpointErrorFxn('evmLoginWrapper');
 
@@ -110,7 +70,7 @@ export async function evmLoginWrapper(
   const loginResult = await connectInjected(
     "evmLoginWrapper",
     loginInfo,
-    EvmInjectedConnector.instance()
+    EvmInjectedConnector.instance(),
   );
   if (loginResult.success === false) {
     return loginResult;
@@ -126,8 +86,8 @@ export async function evmLoginWrapper(
   }
   try {
     if (loginInfo.checkChainId !== false) {
-      if (!(await verifyWalletChain())) {
-        if (!(await switchChain(undefined))) {
+      if (!(await verifyWalletChain(loginInfo.chain))) {
+        if (!(await switchChain(loginInfo.chain))) {
           return { success: false, errorMessage: "EVM_CHAIN_SWITCH" };
         }
       }

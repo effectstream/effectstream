@@ -7,13 +7,13 @@ const extract = require("extract-zip");
 
 const downloadLinks = {
   "apple-arm64":
-    "https://github.com/availproject/avail-light/releases/download/avail-light-client-v1.13.0-rc10/avail-light-apple-arm64.tar.gz",
+    "https://github.com/availproject/avail-light/releases/download/avail-light-client-v1.13.2/avail-light-apple-arm64.tar.gz",
   "apple-x86_64":
-    "https://github.com/availproject/avail-light/releases/download/avail-light-client-v1.13.0-rc10/avail-light-apple-x86_64.tar.gz",
+    "https://github.com/availproject/avail-light/releases/download/avail-light-client-v1.13.2/avail-light-apple-x86_64.tar.gz",
   "linux-amd64":
-    "https://github.com/availproject/avail-light/releases/download/avail-light-client-v1.13.0-rc10/avail-light-linux-amd64.tar.gz",
+    "https://github.com/availproject/avail-light/releases/download/avail-light-client-v1.13.2/avail-light-linux-amd64.tar.gz",
   "windows-x86_64":
-    "https://github.com/availproject/avail-light/releases/download/avail-light-client-v1.13.0-rc10/avail-light-x86_64-pc-windows-msvc.exe.zip",
+    "https://github.com/availproject/avail-light/releases/download/avail-light-client-v1.13.2/avail-light-x86_64-pc-windows-msvc.exe.zip",
 };
 
 const getBinaryKey = () => {

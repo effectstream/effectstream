@@ -70,8 +70,6 @@ RUN deno task -f @e2e/evm-contracts build:mod
 RUN deno task -f @e2e/wallets-ui build
 
 # START E2E TESTS
-# Avail Light Client failing on linux
-ENV DISABLE_AVAIL=true
 # Yaci Devkit failing on linux
 ENV DISABLE_LINUX_YACI=true
 # Show Paima-Engine logs

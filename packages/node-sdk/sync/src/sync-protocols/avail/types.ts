@@ -7,6 +7,24 @@ import type { BlockNumber } from "@paima/utils";
 import type { PageSyncRange } from "../common/page-helpers.ts";
 import type { PageRelation } from "../base/page.ts";
 
+export type AvailStatus = {
+  modes: string[];
+  app_id: number;
+  genesis_hash: string;
+  network: string;
+  blocks: {
+    latest: number;
+    available?: {
+      first: number;
+      last: number;
+    };
+    app_data?: {
+      first: number;
+      last: number;
+    };
+  };
+}
+
 export type AvailBlockHeader = {
   hash: `0x${string}`;
   parent_hash: `0x${string}`;

@@ -8,12 +8,12 @@ import type {
 import { Buffer } from "node:buffer";
 import { AddressType } from "@paima/utils";
 import type {
-  IProvider,
   ActiveConnection,
   AddressAndType,
+  IProvider,
   UserSignature,
 } from "../IProvider.ts";
-import { type EvmAddress, DEFAULT_GAS_LIMIT } from "./types.ts";
+import { DEFAULT_GAS_LIMIT, type EvmAddress } from "./types.ts";
 import { utf8ToHex } from "web3-utils";
 
 export type EthersApi = Signer;
@@ -50,7 +50,7 @@ export class EthersConnector {
 export class EthersEvmProvider implements IProvider<EthersApi> {
   constructor(
     private readonly conn: ActiveConnection<EthersApi>,
-    readonly address: EvmAddress
+    readonly address: EvmAddress,
   ) {}
 
   static init = async (api: EthersApi): Promise<EthersEvmProvider> => {
@@ -81,7 +81,7 @@ export class EthersEvmProvider implements IProvider<EthersApi> {
     return signature;
   };
   finalizeTransaction = async (
-    tx: TransactionRequest
+    tx: TransactionRequest,
   ): Promise<TransactionLike<string>> => {
     return await this.conn.api.populateTransaction({
       gasLimit: DEFAULT_GAS_LIMIT,
@@ -89,7 +89,7 @@ export class EthersEvmProvider implements IProvider<EthersApi> {
     });
   };
   sendTransaction = async (
-    tx: TransactionRequest
+    tx: TransactionRequest,
   ): Promise<{
     txHash: string;
     extra: TransactionResponse;

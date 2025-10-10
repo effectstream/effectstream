@@ -478,11 +478,12 @@ export const counterContractInteract = async (
     hash,
   });
   console.log(
-    `  ${
+    `${
       receipt.status === "success" ? "" : "❌"
     } Mint block ${receipt.blockNumber} @ Hash ${hash} for "${chain.name}"`,
   );
   blockNumber = receipt.blockNumber;
+  console.log("Waiting for block", chain.name, blockNumber);
   await blockWatcher.waitForBlock(chain.name, blockNumber);
 
   sharedState.primitive_accounting_counter += 1;

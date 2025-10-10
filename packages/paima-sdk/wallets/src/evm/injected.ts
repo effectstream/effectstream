@@ -1,17 +1,19 @@
 import type { MetaMaskInpageProvider } from "@metamask/providers";
 import { AddressType } from "@paima/utils";
 import {
-  type IInjectedConnector,
-  type ConnectionOption,
-  optionToActive,
   type ActiveConnection,
-  type IProvider,
   type AddressAndType,
+  type ConnectionOption,
+  type IInjectedConnector,
+  type IProvider,
+  optionToActive,
   type UserSignature,
 } from "../IProvider.ts";
 import type { EvmAddress } from "./types.ts";
 import { getWindow } from "../windows.ts";
 import { utf8ToHex } from "web3-utils";
+import * as CHAINS from "viem/chains";
+import type { Chain } from "viem/chains";
 
 type EIP1193Provider = MetaMaskInpageProvider;
 
@@ -52,21 +54,12 @@ const eip5953Providers: EIP6963ProviderDetail[] = [];
   "eip6963:announceProvider",
   (event: EIP6963AnnounceProviderEvent) => {
     eip5953Providers.push(event.detail);
-  }
+  },
 );
 
 getWindow()?.dispatchEvent(new Event("eip6963:requestProvider"));
 
-// JSR Error: modifying global types is not allowed
-// declare global {
-//   interface Window {
-//     ethereum?: EIP1193Provider;
-//     evmproviders?: EIP5749EVMProviders;
-//   }
-//   interface WindowEventMap {
-//     "eip6963:announceProvider": EIP6963AnnounceProviderEvent;
-//   }
-// }
+const CHAIN_NOT_ADDED_ERROR_CODE = 4902;
 
 /**
  * Type definition from EIP3085 (https://eips.ethereum.org/EIPS/eip-3085)
@@ -117,7 +110,8 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
 
     // 2) Add EIP5749
     {
-      const eip5749Providers: EIP5749EVMProviders = (windowObj as any).evmproviders ?? {};
+      const eip5749Providers: EIP5749EVMProviders =
+        (windowObj as any).evmproviders ?? {};
       const eip5749Options = Object.entries(eip5749Providers).map(
         ([key, provider]) => ({
           metadata: {
@@ -127,7 +121,7 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
           },
           api: (): Promise<EIP5749ProviderWithInfo> =>
             Promise.resolve(provider),
-        })
+        }),
       );
       allWallets.push(...eip5749Options);
     }
@@ -146,8 +140,8 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
     return allWallets;
   }
   static getWalletOptions(): ConnectionOption<EvmApi>[] {
-    const withDuplicates =
-      EvmInjectedConnector.getPossiblyDuplicateWalletOptions();
+    const withDuplicates = EvmInjectedConnector
+      .getPossiblyDuplicateWalletOptions();
     const seenNames: Set<string> = new Set();
     const seenDisplayNames: Set<string> = new Set();
 
@@ -182,7 +176,7 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
     return await this.connectExternal(await optionToActive(options[0]));
   };
   connectExternal = async (
-    conn: ActiveConnection<EvmApi>
+    conn: ActiveConnection<EvmApi>,
   ): Promise<EvmInjectedProvider> => {
     if (this.provider?.getConnection().metadata?.name === conn.metadata.name) {
       return this.provider;
@@ -207,11 +201,12 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
 
     // the eip6963 name for Metamask is io.metamask
     // but we want to keep simply "metamask" working for backwards compatibility with older versions of Paima
-    const adjustedName =
-      name.toLocaleLowerCase() === "metamask" ? "io.metamask" : name;
-    const provider =
-      EvmInjectedConnector.getPossiblyDuplicateWalletOptions().find(
-        (entry) => entry.metadata.name === adjustedName
+    const adjustedName = name.toLocaleLowerCase() === "metamask"
+      ? "io.metamask"
+      : name;
+    const provider = EvmInjectedConnector.getPossiblyDuplicateWalletOptions()
+      .find(
+        (entry) => entry.metadata.name === adjustedName,
       );
     if (provider == null) {
       throw new Error(`EVM wallet ${name} not found`);
@@ -229,6 +224,80 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
   };
   isConnected = (): boolean => {
     return this.provider != null;
+  };
+
+  switchChain = async (hexChainId: string, chain?: Chain): Promise<void> => {
+    try {
+      // careful: not all wallets support switching chains
+      await this.provider?.getConnection().api.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: hexChainId }],
+      });
+
+      await this.verifyWalletChain(hexChainId);
+    } catch (se: any) {
+      // deno-lint-ignore no-prototype-builtins
+      if (se.hasOwnProperty("code") && se.code === CHAIN_NOT_ADDED_ERROR_CODE) {
+        let targetChain: Chain | undefined = undefined;
+        Object.entries(CHAINS).forEach(([key, value]) => {
+          const possibleChain = value as Chain;
+          if (
+            typeof possibleChain === "object" &&
+            // deno-lint-ignore no-prototype-builtins
+            possibleChain.hasOwnProperty("id") &&
+            possibleChain.id === parseInt(hexChainId, 16)
+          ) {
+            targetChain = possibleChain;
+          }
+        });
+
+        if (chain) {
+          targetChain = chain;
+        }
+        if (!targetChain) {
+          throw new Error(`[switchChain] error: Chain not found`);
+        }
+
+        await this.addChain({
+          chainId: hexChainId,
+          chainName: targetChain.name,
+          nativeCurrency: {
+            name: targetChain.nativeCurrency.name,
+            symbol: targetChain.nativeCurrency.symbol,
+            decimals: targetChain.nativeCurrency.decimals,
+          },
+          rpcUrls: [targetChain.rpcUrls.default.http[0]],
+          blockExplorerUrls: targetChain.blockExplorers?.default.url
+            ? [targetChain.blockExplorers?.default.url]
+            : undefined,
+        });
+      } else {
+        throw new Error(`[switchChain] error: ${se?.message}`, se?.code);
+      }
+    }
+  };
+  verifyWalletChain = async (chainId: string): Promise<boolean> => {
+    try {
+      const walletChain = await this.provider?.getConnection().api.request({
+        method: "eth_chainId",
+      });
+      return parseInt(walletChain as string, 16) === parseInt(chainId, 16);
+    } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      throw new Error(`[verifyWalletChain] error: ${e?.message}`, e?.code);
+    }
+  };
+  addChain = async (newChain: AddEthereumChainParameter): Promise<void> => {
+    try {
+      // careful: not all wallets support adding arbitrary chains
+      await this.provider?.getConnection().api.request({
+        method: "wallet_addEthereumChain",
+        params: [newChain],
+      });
+    } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      throw new Error(`[addChain] error: ${e?.message}`, e?.code);
+    }
   };
 }
 
@@ -253,10 +322,10 @@ type Web3TransactionRequest = {
 export class EvmInjectedProvider implements IProvider<EvmApi> {
   constructor(
     private readonly conn: ActiveConnection<EvmApi>,
-    readonly address: EvmAddress
+    readonly address: EvmAddress,
   ) {}
   static init = async (
-    conn: ActiveConnection<EvmApi>
+    conn: ActiveConnection<EvmApi>,
   ): Promise<EvmInjectedProvider> => {
     const accounts = (await conn.api.request({
       method: "eth_requestAccounts",
@@ -285,7 +354,7 @@ export class EvmInjectedProvider implements IProvider<EvmApi> {
     if (typeof signature !== "string") {
       console.log("[signMessageEth] invalid signature:", signature);
       throw new Error(
-        `[signMessageEth] Received signature of type ${typeof signature}`
+        `[signMessageEth] Received signature of type ${typeof signature}`,
       );
     }
     return signature;
@@ -331,7 +400,7 @@ export class EvmInjectedProvider implements IProvider<EvmApi> {
     }
   };
   sendTransaction = async (
-    tx: Web3TransactionRequest
+    tx: Web3TransactionRequest,
   ): Promise<{
     txHash: string;
   }> => {
@@ -344,7 +413,7 @@ export class EvmInjectedProvider implements IProvider<EvmApi> {
       if (typeof hash !== "string") {
         console.log("[sendTransaction] invalid signature:", hash);
         throw new Error(
-          `[sendTransaction] Received "hash" of type ${typeof hash}`
+          `[sendTransaction] Received "hash" of type ${typeof hash}`,
         );
       }
       return {

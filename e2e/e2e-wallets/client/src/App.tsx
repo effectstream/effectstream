@@ -142,10 +142,12 @@ function App() {
         const syncProtocol: any = primitiveData.syncProtocol;
         // @ts-ignore - TODO: fix types in config
         const network =
-          (localhostConfig.syncProtocols.parallel as any)[syncProtocol]?.network || "";
+          (localhostConfig.syncProtocols.parallel as any)[syncProtocol]
+            ?.network || "";
         // @ts-ignore - TODO: fix types in config
         const networkType =
-          (localhostConfig.allNetworks.networks as any)[network]?.type || "unknown";
+          (localhostConfig.allNetworks.networks as any)[network]?.type ||
+          "unknown";
 
         return {
           name,
@@ -270,7 +272,8 @@ function App() {
             mode: WalletMode.EvmInjected,
             preference: { name: "io.metamask" },
             preferBatchedMode: false,
-            checkChainId: false,
+            checkChainId: true,
+            chain: paimaEngineConfig.paimaL2Chain,
           })
         ),
       types: ["evm"],
@@ -284,7 +287,8 @@ function App() {
             mode: WalletMode.EvmInjected,
             preference: { name: "app.phantom" },
             preferBatchedMode: false,
-            checkChainId: false,
+            checkChainId: true,
+            chain: paimaEngineConfig.paimaL2Chain,
           })
         ),
       types: ["evm"],
@@ -298,7 +302,8 @@ function App() {
             mode: WalletMode.EvmInjected,
             preference: { name: "No wallet" },
             preferBatchedMode: false,
-            checkChainId: false,
+            checkChainId: true,
+            chain: paimaEngineConfig.paimaL2Chain,
           })
         ),
       types: ["evm"],
@@ -370,25 +375,26 @@ function App() {
         ),
       types: ["cardano"],
     },
-    {
-      name: "Polkadot",
-      mode: WalletMode.Polkadot,
-      login: () =>
-        handleLogin(() => walletLogin({ mode: WalletMode.Polkadot })),
-      types: ["polkadot"],
-    },
-    {
-      name: "Algorand",
-      mode: WalletMode.Algorand,
-      login: () =>
-        handleLogin(() =>
-          walletLogin({
-            mode: WalletMode.Algorand,
-            preference: { name: "exodus" },
-          })
-        ),
-      types: ["algorand"],
-    },
+    // // Disabled until we update @paima/wallets
+    // {
+    //   name: "Polkadot",
+    //   mode: WalletMode.Polkadot,
+    //   login: () =>
+    //     handleLogin(() => walletLogin({ mode: WalletMode.Polkadot })),
+    //   types: ["polkadot"],
+    // },
+    // {
+    //   name: "Algorand",
+    //   mode: WalletMode.Algorand,
+    //   login: () =>
+    //     handleLogin(() =>
+    //       walletLogin({
+    //         mode: WalletMode.Algorand,
+    //         preference: { name: "exodus" },
+    //       })
+    //     ),
+    //   types: ["algorand"],
+    // },
     {
       name: "Mina",
       mode: WalletMode.Mina,
@@ -553,7 +559,8 @@ function App() {
               onChange={() => setSelectedPrimitive(primitive)}
             />
             <label htmlFor={primitive.name}>
-              <strong>{primitive.name}</strong> <i>@ {primitive.syncProtocol}</i>
+              <strong>{primitive.name}</strong>{" "}
+              <i>@ {primitive.syncProtocol}</i>
             </label>
           </div>
         ))}
