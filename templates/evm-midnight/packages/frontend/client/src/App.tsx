@@ -1,32 +1,46 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 
 // Import components
 import { Header } from "./components/Header.tsx";
-import { ColumnsContainer } from "./components/ColumnsContainer.tsx";
 import { WalletDemo } from "./components/WalletDemo.tsx";
+import { blockWatcher } from "./hooks/BlockWatcher.ts";
 
 // Import hooks
-import { useBlockchainData } from "./hooks/useBlockchainData.ts";
-import { useTableData } from "./hooks/useTableData.ts";
 
 // Import wallet context
 import { WalletProvider } from "./contexts/WalletContext.tsx";
 
 function App() {
-  // Use custom hooks for data management
-  const {
-    // chainConfigs,
-    // newBlockIndices,
-    latestBlock,
-    isConnected,
-  } = useBlockchainData();
+  const [latestBlock, setLatestBlock] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
 
-  // const {
-  //   primitiveData,
-  //   staticTableData,
-  //   scheduledData,
-  // } = useTableData();
+  useEffect(() => {
+    let isMounted = true;
+    const watchBlocks = async () => {
+      let currentBlock = await blockWatcher.waitForBlock("__main__", 0);
+      if (isMounted) {
+        setLatestBlock(currentBlock);
+        setIsConnected(true);
+      }
+
+      while (isMounted) {
+        currentBlock = await blockWatcher.waitForBlock(
+          "__main__",
+          currentBlock + 1,
+        );
+        if (isMounted) {
+          setLatestBlock(currentBlock);
+        }
+      }
+    };
+
+    watchBlocks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Error handling for uncaught promises
   useEffect(() => {

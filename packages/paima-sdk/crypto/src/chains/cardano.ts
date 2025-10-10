@@ -6,6 +6,7 @@ import {
 } from "@paima/utils";
 import type { IVerify } from "../IVerify.ts";
 import { Value } from "@sinclair/typebox/value";
+import { default as verifyCardanoDataSignature } from "@cardano-foundation/cardano-verify-datasignature";
 
 export class CardanoCrypto implements IVerify {
   verifyAddress = (address: WalletAddress): address is CardanoAddress => {
@@ -24,9 +25,9 @@ export class CardanoCrypto implements IVerify {
       if (!signature || !key || remainder.length > 0) {
         return false;
       }
-      const { default: verifyCardanoDataSignature } = await import(
-        "@cardano-foundation/cardano-verify-datasignature"
-      );
+      // const { default: verifyCardanoDataSignature } = await import(
+      //   "@cardano-foundation/cardano-verify-datasignature"
+      // );
       return verifyCardanoDataSignature.default(
         signature,
         key,

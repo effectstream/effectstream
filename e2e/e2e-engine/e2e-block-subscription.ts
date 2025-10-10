@@ -62,6 +62,7 @@ class BlockWatcher {
   private async initBlockSubscription(): Promise<void> {
     console.log("Initializing block subscriptions...");
     this.latestBlock["__main__"] = 0;
+    this.latestBlock["__timestamp__"] = 0;
 
     await Promise.all([
       PaimaEventManager.Instance.subscribe(
@@ -70,13 +71,11 @@ class BlockWatcher {
           filter: { block: undefined },
         },
         (event) => {
-          const currentBlock = isNaN(this.latestBlock["__main__"])
-            ? 0
-            : this.latestBlock["__main__"];
-          this.latestBlock["__main__"] = Math.max(
-            Number(event.block),
-            currentBlock,
-          );
+          const currentBlock = this.latestBlock["__main__"];
+          this.latestBlock["__main__"] = Math.max(Number(event.block), currentBlock);
+          
+          const currentTimestamp = this.latestBlock["__timestamp__"];
+          this.latestBlock["__timestamp__"] = Math.max(Number(event.timestamp), currentTimestamp);
         },
       ),
       PaimaEventManager.Instance.subscribe(
@@ -86,7 +85,7 @@ class BlockWatcher {
         },
         (event) => {
           const currentBlock = this.latestBlock[event.chain] || 0;
-          this.latestBlock[event.chain] = Math.max(event.block, currentBlock);
+          this.latestBlock[event.chain] = Math.max(Number(event.block), currentBlock);
         },
       ),
     ]);

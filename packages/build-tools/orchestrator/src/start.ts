@@ -15,19 +15,16 @@ import {
   $,
   AbortProcessStart,
   type ProcessComponent,
+  setForegroundProcess,
   shutdown,
 } from "./process.ts";
 import { ComponentNames } from "@paima/log";
-import { installTmux, Tmux } from "./tmux/tmux.ts";
+import { Tmux } from "./tmux/tmux.ts";
 import type { LaunchableComponents } from "@paima/log";
 import { type Static, Type } from "@sinclair/typebox";
 
 let appConfig: OrchestratorConfigType | null = null;
 let pFactory: ReturnType<typeof processFactory> | null = null;
-
-Deno.addSignalListener("SIGINT", () => {
-  shutdown(0);
-});
 
 /**
  * Orchestrator configurations
@@ -132,7 +129,7 @@ export async function start(
       break;
     case "stdout":
       // TODO: This is a hack to force the logs to be printed to stdout.
-      Deno.env.set("PAIMA_LOGS_FORCE_STDOUT", "true");
+      Deno && Deno.env.set("PAIMA_LOGS_FORCE_STDOUT", "true");
       setCurrentOutput(["stdout"]);
       break;
     case "development":
@@ -240,9 +237,8 @@ export async function start(
     }
   } catch (e) {
     if (!(e instanceof AbortProcessStart)) {
-      console.error(e);
+      await shutdown(1, e);
     }
-    await shutdown(1);
   }
 }
 
@@ -266,27 +262,19 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       await dkill({ ports: [ENV.TUI_LOG_PORT] });
     }
 
-    await installTmux();
-    const session_name = "paima-" + Date.now();
-
-    const tm = new Tmux({});
-    await tm.init();
-    await tm.newSession(session_name);
-
-    // We can pass a custom launch json file to the tmux instance
-    await tm.readLaunchJson(config.packageName, session_name);
-
-    const tmux = $({
-      ...tm.getAttachSessionCommand(session_name),
+    await Tmux.install();
+    const tmux = new Tmux();
+    await tmux.startSession();
+    const tmuxConsole = $({
+      ...tmux.getAttachCommand(),
       component: ComponentNames.TMUX,
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
       abortController: abortControllers.developerUI,
     });
-    tmux.process.unref();
-
-    return tmux;
+    tmuxConsole.process.status.then(() => {
+      tmux.killServer();
+    });
+    setForegroundProcess(tmuxConsole.process);
+    return tmuxConsole;
   },
 
   [ComponentNames.EXPLORER]: async (): Promise<ProcessComponent> => {

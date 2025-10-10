@@ -26,6 +26,17 @@ const avail_enabled = Deno
   ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
   : true;
 
+const evmProcessesExtended = launchEvm("@e2e/evm-contracts");
+// Add batcher after the evm processes because it needs the contracts to be deployed
+evmProcessesExtended.stopProcessAtPort = [3334];
+evmProcessesExtended.processes.push({
+  name: "batcher",
+  args: ["task", "-f", "@e2e/batcher", "start"],
+  waitToExit: false,
+  type: "system-dependency",
+  logs: "none",
+});
+
 /**
  * Launch the Sync through the orchestrator,
  * and wait for the sync process to start and be ready.
@@ -46,18 +57,21 @@ export async function startup(): Promise<Client> {
 
     // Launch my processes
     processesToLaunch: [
-      launchEvm("@e2e/evm-contracts"),
+      evmProcessesExtended,
       yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
       midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : {},
       avail_enabled ? launchAvail("@e2e/avail-contracts") : {},
       {
         processes: [
           {
-            name: "batcher",
-            args: ["task", "-f", "@e2e/batcher", "start"],
-            waitToExit: false,
-            type: "system-dependency",
-            link: "http://localhost:3334",
+            name: "frontend-build",
+            args: ["task", "-f", "@paima/explorer", "build"],
+            waitToExit: true,
+          },
+          {
+            name: "e2e-wallet",
+            args: ["task", "-f", "@e2e/wallets-ui", "build"],
+            waitToExit: true,
           },
         ],
       },

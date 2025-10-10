@@ -15,6 +15,7 @@ import {
   type SignedTransaction,
 } from "algosdk";
 import { Buffer } from "node:buffer";
+import { default as verifyCardanoDataSignature } from "@cardano-foundation/cardano-verify-datasignature";
 
 function hexStringToBytes(hexString: string): number[] {
   if (!/^[0-9a-fA-F]+$/.test(hexString)) {
@@ -52,9 +53,9 @@ export class AlgorandCrypto implements IVerify {
       if (!signature || !key || remainder.length > 0) {
         return false;
       }
-      const { default: verifyCardanoDataSignature } = await import(
-        "@cardano-foundation/cardano-verify-datasignature"
-      );
+      // const { default: verifyCardanoDataSignature } = await import(
+      //   "@cardano-foundation/cardano-verify-datasignature"
+      // );
       return verifyCardanoDataSignature.default(
         signature,
         key,

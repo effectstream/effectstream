@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y \
     # xz is required for compactc
     xz-utils \
     unzip \
-    nginx \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js

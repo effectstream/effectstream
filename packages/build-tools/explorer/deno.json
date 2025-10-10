@@ -5,6 +5,12 @@
   "exports": {
     ".": "./server/main.ts"
   },
+  "publish": {
+    "exclude": [
+      "!client/dist",
+      "!dist"
+    ]
+  },
   "tasks": {
     "dev": "deno run -A --node-modules-dir=auto npm:vite",
     "build": "deno run -A --node-modules-dir=auto npm:vite build",
@@ -15,10 +21,10 @@
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.4",
     "@oak/oak": "jsr:@oak/oak@^17.1.4",
     "@std/assert": "jsr:@std/assert@^1.0.12",
-    "@types/react": "npm:@types/react@^19.1.2",
+    "@types/react": "npm:@types/react@19.1.2",
     "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^4.4.1",
-    "react": "npm:react@^19.1.0",
-    "react-dom": "npm:react-dom@^19.1.0",
+    "react": "npm:react@19.1.0",
+    "react-dom": "npm:react-dom@19.1.0",
     "react-router-dom": "npm:react-router-dom@^7.5.1",
     "vite": "npm:vite@^6.3.2",
     "viem": "npm:viem",
@@ -30,7 +36,8 @@
     "types": [
       "react",
       "react-dom",
-      "@types/react"
+      "@types/react",
+      "vite/client"
     ],
     "lib": [
       "dom",

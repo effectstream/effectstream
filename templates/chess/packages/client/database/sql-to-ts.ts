@@ -1,5 +1,5 @@
 import { getConnection } from "@paimaexample/db";
-import { standAloneApplyMigrations } from "@paimaexample/db/patch-emulator";
+import { standAloneApplyMigrations } from "@paimaexample/db-emulator";
 import { migrationTable } from "./src/migration-order.ts";
 import { localhostConfig } from "@chess/data-types/localhostConfig";
 

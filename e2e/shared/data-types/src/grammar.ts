@@ -1,9 +1,6 @@
 import {
-  availGenericGrammar,
-  erc20Grammar,
-  erc721Grammar,
-  midnightGenericGrammar,
-} from "@paima/sm";
+  builtinGrammars
+} from "@paima/sm/grammar";
 
 import { Type } from "@sinclair/typebox";
 import type { GrammarDefinition } from "@paima/concise";
@@ -31,9 +28,12 @@ export const paimaL2Grammar = {
 export const grammar = {
   ...paimaL2Grammar,
 
+  // Custom Grammars
+  "counter-stm": [["counter", Type.Number()]],
+
   // TODO Check if these exist in runtime
-  "avail-app-state": availGenericGrammar,
-  "midnightContractState": midnightGenericGrammar,
-  "transfer-assets": erc721Grammar,
-  "transfer-erc20": erc20Grammar,
+  "avail-app-state": builtinGrammars.availGeneric,
+  "midnightContractState": builtinGrammars.midnightGeneric,
+  "transfer-assets": builtinGrammars.evmErc721,
+  "transfer-erc20": builtinGrammars.evmErc20,
 } as const satisfies GrammarDefinition;

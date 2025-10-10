@@ -7,6 +7,7 @@ import {
 import type { IVerify } from "../IVerify.ts";
 import type { NetworkId } from "mina-signer";
 import { Value } from "@sinclair/typebox/value";
+import { default as Client } from "mina-signer";
 
 export class MinaCrypto implements IVerify {
   verifyAddress = (address: WalletAddress): address is MinaAddress => {
@@ -23,7 +24,7 @@ export class MinaCrypto implements IVerify {
         return false;
       }
 
-      const Client = (await import("mina-signer")).default;
+      // const Client = (await import("mina-signer")).default;
 
       const signerClient = new Client({ network: network as NetworkId });
 

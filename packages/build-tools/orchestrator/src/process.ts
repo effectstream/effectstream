@@ -25,69 +25,83 @@ export class AbortProcessStart extends Error {
   }
 }
 
-const wait = (n: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, n));
+let foregroundProcess: Deno.ChildProcess | null = null;
+export function setForegroundProcess(proc: Deno.ChildProcess) {
+  foregroundProcess = proc;
+}
 
 let shutdownCalled = false;
 export async function shutdown(
   exitCode: number = 0,
-  errorMessage?: string,
+  reason?: any,
 ): Promise<void> {
   if (shutdownCalled) {
     return;
   }
-  if (errorMessage) {
-    console.error(errorMessage);
-  }
-
   shutdownCalled = true;
-  // This allows for any error logs of different processes to be printed, before we terminate them.
-  const timer = {
-    passedTime: 0,
-    waitTime: 2000,
-  };
-  const message = setInterval(() => {
-    console.log(
-      `shutdown called... (waiting ${timer.waitTime - timer.passedTime}ms)`,
-    );
-    timer.passedTime += 300;
-  }, 300);
-  await wait(timer.waitTime);
-  clearInterval(message);
-  console.log("shutdown now");
 
+  // Shut down non-UI processes.
   abortControllers.system.abort();
   abortControllers.noncritical.abort();
-  await awaitShutdown();
-  Deno.exit(exitCode);
+  // Start force-killing stragglers.
+  const forced = awaitShutdown();
+
+  // Wait for the foreground process to finish so we have control of the terminal.
+  if (foregroundProcess) {
+    await foregroundProcess.status;
+  }
+  // We now have control of the terminal again, so start printing stuff...
+  if (reason) {
+    console.trace(reason);
+  }
+  // Print force-kill logs.
+  for (const p of await forced) {
+    console.log("Force killed process", p.process.pid, ":", p.args);
+  }
+
+  // This process is actually being kept alive by the HTTP server which isn't stopped here.
+  // If we exit naively, some child processes will orphan themselves and stay running, such as
+  // `yaci-dev` which doesn't propagate kills down to the actual Cardano node process.
+  // Rely on terminal driver default ^C to kill the entire process group.
+  console.log(
+    "Orchestrator has shut down. Press ^C again to kill background processes that we don't currently kill automatically.",
+  );
+  if (exitCode) {
+    Deno.exitCode = exitCode;
+  }
 }
 
-async function awaitShutdown(): Promise<void> {
+async function awaitShutdown(): Promise<ProcessComponent[]> {
+  // Wait a bit to let processes exit on their own.
   let maxWait = 5000;
-  while (processes.some((p) => p.alive && maxWait > 0)) {
-    await wait(100);
+  while (
+    maxWait > 0 &&
+    processes.some((p) => p.alive && p.component !== ComponentNames.TMUX)
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
     maxWait -= 100;
   }
 
+  // Document and wait for each process that must be force-killed.
+  const forced = [];
+  const promises = [];
   for (const p of processes) {
-    if (p.alive && p.component !== ComponentNames.TMUX) {
-      console.log("Force killing process", p.process.pid);
-      p.process.kill();
+    // Cancel pipes.
+    if (p.is_piped.stderr) {
+      p.process.stderr.cancel();
+    }
+    if (p.is_piped.stdout) {
+      p.process.stdout.cancel();
+    }
+    if (p.component !== ComponentNames.TMUX) {
+      if (p.alive) {
+        forced.push(p);
+        promises.push(kill(p.process));
+      }
     }
   }
-
-  await Promise.all(
-    processes.filter((p) => p.component !== ComponentNames.TMUX)
-      .map((process) => {
-        if (process.is_piped.stderr) {
-          process.process.stderr.cancel();
-        }
-        if (process.is_piped.stdout) {
-          process.process.stdout.cancel();
-        }
-        process.process[Symbol.asyncDispose]();
-      }),
-  );
+  await Promise.all(promises);
+  return forced;
 }
 
 let failed = false;
@@ -97,11 +111,26 @@ export const terminateProcess = (processIndex: number) => {
   const process = processes[processIndex];
   if (process && process.alive) {
     process._allow_restart = true;
-    process.process.kill();
+    kill(process.process);
     process.alive = false;
     process.date = new Date().toISOString();
   }
 };
+
+/** Send SIGTERM first, then SIGKILL after one second. */
+async function kill(proc: Deno.ChildProcess): Promise<void> {
+  try {
+    proc.kill("SIGTERM");
+    const hardKillTimer = setTimeout(
+      () => proc.kill("SIGKILL"),
+      1000,
+    );
+    await proc.status;
+    clearTimeout(hardKillTimer);
+  } catch (e) {
+    // Usually "Child process has already terminated".
+  }
+}
 
 export const $ = (params: {
   command?: string;
@@ -119,7 +148,8 @@ export const $ = (params: {
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
   }
-  const process = new Deno.Command(params.command ?? "deno", {
+  const command = params.command ?? "deno";
+  const process = new Deno.Command(command, {
     args: params.args,
     signal: params.abortController.signal,
     stderr: params.stderr ?? "piped",
@@ -132,7 +162,7 @@ export const $ = (params: {
   const processComponent: ProcessComponent = {
     process,
     abortController: params.abortController,
-    args: params.args,
+    args: [command, ...params.args],
     alive: true,
     date: new Date().toISOString(),
     component: params.component,
@@ -194,9 +224,9 @@ export const $ = (params: {
           1,
           shutdownCalled
             ? ""
-            : `Shutdown caused by ${params.args.join(" ")}, status ${
-              JSON.stringify(status)
-            }`,
+            : `Shutdown caused by \`${
+              processComponent.args.join(" ")
+            }\`, status ${status.signal ?? status.code}`,
         );
       }
       failed = true;

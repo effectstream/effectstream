@@ -30,6 +30,7 @@ export const launchMidnight = (packageName: string) => ({
       ],
       waitToExit: false,
       type: "system-dependency",
+      logs: "none",
     },
     {
       name: ComponentNames.MIDNIGHT_INDEXER,

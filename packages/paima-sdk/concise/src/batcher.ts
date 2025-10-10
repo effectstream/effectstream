@@ -1,14 +1,11 @@
 import {
-  type AddressAndType,
   AddressType,
-  type ShallowMergeIntersects,
   type Signature,
   type TimestampMsStr,
   TypeboxHelpers,
   type WalletAddress,
 } from "@paima/utils";
 import type { InputDataString } from "@paima/chain-types";
-import type { DefaultBatcherInput } from "@paima/batcher";
 import {
   BatcherGrammar,
   BatcherGrammarPrefix,
@@ -26,18 +23,19 @@ import sha3 from "js-sha3";
 import { Value } from "@sinclair/typebox/value";
 const { keccak_256 } = sha3;
 
-type ExpandType<T extends AddressAndType> = T extends any ? {
-    addressType: T["type"];
-    userAddress: T["address"];
-  }
-  : never;
-export type BatchedSubunit = ShallowMergeIntersects<
-  ExpandType<AddressAndType> & {
-    userSignature: Signature;
-    conciseInput: InputDataString;
-    millisecondTimestamp: TimestampMsStr;
-  }
->;
+export interface DefaultBatcherInput {
+  addressType: AddressType;
+  input: string;
+  signature: string;
+  address: string;
+  timestamp: string;
+  target?: string;
+}
+
+/**
+ * @deprecated Use DefaultBatcherInput instead. This type will be removed in a future version.
+ */
+export type BatchedSubunit = DefaultBatcherInput;
 
 export type BatcherMessage = string;
 
@@ -98,13 +96,13 @@ export function createMessageForBatcher(
  *       It wasn't needed for the message since that gets signed by the public key
  *       So it contains the address indirectly
  */
-export function hashBatchSubunit(input: BatchedSubunit): string {
+export function hashBatchSubunit(input: DefaultBatcherInput): string {
   let walletAddress;
   switch (input.addressType) {
     case AddressType.EVM:
       walletAddress = Value.Decode(
         TypeboxHelpers.Evm.Address,
-        input.userAddress,
+        input.address,
       );
       break;
     default:
@@ -115,7 +113,7 @@ export function hashBatchSubunit(input: BatchedSubunit): string {
 
   return "0x" +
     keccak_256(
-      walletAddress + input.conciseInput + input.millisecondTimestamp,
+      walletAddress + input.input + input.timestamp,
     );
 }
 
@@ -126,12 +124,12 @@ export function hashBatchSubunit(input: BatchedSubunit): string {
  */
 export function buildBatchData(
   maxSize: number,
-  inputs: BatchedSubunit[],
+  inputs: DefaultBatcherInput[],
 ): {
-  selectedInputs: BatchedSubunit[];
+  selectedInputs: DefaultBatcherInput[];
   data: string;
 } {
-  const selectedInputs: BatchedSubunit[] = [];
+  const selectedInputs: DefaultBatcherInput[] = [];
   const batchedTransaction: string[] = [];
   let remainingSpace = maxSize -
     `["${BatcherGrammarPrefix.batcherInput}", []`.length;
@@ -140,7 +138,12 @@ export function buildBatchData(
     const packed = generateStmInput(
       BatcherInnerGrammar,
       `${input.addressType}`,
-      input,
+      {
+        userAddress: input.address,
+        userSignature: input.signature,
+        conciseInput: input.input,
+        millisecondTimestamp: input.timestamp,
+      },
     );
     if (packed.length + 1 > remainingSpace) {
       break;
@@ -169,7 +172,7 @@ export function buildBatchData(
 }
 
 export type ExtractedBatchSubunit = {
-  parsed: BatchedSubunit;
+  parsed: DefaultBatcherInput;
   raw: string;
 };
 export function extractBatches(inputData: string): ExtractedBatchSubunit[] {
@@ -189,12 +192,17 @@ export function extractBatches(inputData: string): ExtractedBatchSubunit[] {
         BatcherInnerGrammar,
         KeyedBuiltinBatcherInnerGrammar,
       );
-      const parsed = {
-        ...subunit.data,
+      const parsed: DefaultBatcherInput = {
         addressType: Number.parseInt(subunit.prefix),
-      } as BatchedSubunit;
+        address: subunit.data.userAddress,
+        signature: subunit.data.userSignature,
+        input: subunit.data.conciseInput,
+        timestamp: subunit.data.millisecondTimestamp,
+      };
       result.push({ raw: input, parsed });
-    } catch (_e) {} // ignore malformed inputs
+    } catch (_e) {
+      // ignore malformed inputs
+    }
   }
   return result;
 }

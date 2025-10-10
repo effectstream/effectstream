@@ -1,6 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { runPreparedQuery } from "@paimaexample/db";
-import { getEvmMidnight } from "@example-evm-midnight/database";
+import { evmMidnightTableExists, getEvmMidnight } from "@example-evm-midnight/database";
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paimaexample/runtime";
 import type fastify from "fastify";
@@ -32,10 +32,18 @@ export const apiRouter: StartConfigApiRouter = async function (
     Params: Static<typeof ParamsSchema>;
     Reply: Static<typeof ResponseSchema>;
   }>("/api/erc721", async (request, reply) => {
+
+    const [tableExists] = await runPreparedQuery(evmMidnightTableExists.run(undefined, dbConn), "evmMidnightTableExists");
+    if (!tableExists.exists) {
+      reply.send([]);
+      return;
+    }
+
     const result = await runPreparedQuery(
       getEvmMidnight.run(undefined, dbConn),
       "/api/erc721",
     );
+
     reply.send(result);
   });
 };

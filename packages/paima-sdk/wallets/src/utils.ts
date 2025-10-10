@@ -5,11 +5,11 @@ import type {
   IProvider,
 } from "./IProvider.ts";
 
-import { AlgorandConnector } from "./algorand/algorand.ts";
+// import { AlgorandConnector } from "./algorand/algorand.ts";
 import { EthersConnector } from "./evm/ethers.ts";
 import { EvmInjectedConnector } from "./evm/injected.ts";
 import { CardanoConnector } from "./cardano/cardano.ts";
-import { PolkadotConnector } from "./polkadot/polkadot.ts";
+// import { PolkadotConnector } from "./polkadot/polkadot.ts";
 import { MinaConnector } from "./mina/mina.ts";
 import { AvailConnector } from "./avail/avail.ts";
 import { MidnightConnector } from "./midnight/midnight.ts";
@@ -30,8 +30,8 @@ export const WalletNameMap: Record<WalletMode, string> = {
   [WalletMode.EvmEthers]: 'EVM',
   [WalletMode.Midnight]: 'Midnight',
   [WalletMode.Cardano]: 'Cardano',
-  [WalletMode.Polkadot]: 'Polkadot',
-  [WalletMode.Algorand]: 'Algorand',
+  // [WalletMode.Polkadot]: 'Polkadot',
+  // [WalletMode.Algorand]: 'Algorand',
   [WalletMode.Mina]: 'Mina',
   [WalletMode.AvailJs]: 'Avail',
 };
@@ -42,8 +42,8 @@ export const WalletModeMap = {
   [WalletMode.EvmEthers]: EthersConnector.instance(),
   [WalletMode.Midnight]: MidnightConnector.instance(),
   [WalletMode.Cardano]: CardanoConnector.instance(),
-  [WalletMode.Polkadot]: PolkadotConnector.instance(),
-  [WalletMode.Algorand]: AlgorandConnector.instance(),
+  // [WalletMode.Polkadot]: PolkadotConnector.instance(),
+  // [WalletMode.Algorand]: AlgorandConnector.instance(),
   [WalletMode.Mina]: MinaConnector.instance(),
   [WalletMode.AvailJs]: AvailConnector.instance(),
 };

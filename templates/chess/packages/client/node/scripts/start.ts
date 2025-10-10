@@ -5,6 +5,7 @@ import { launchEvm } from "@paimaexample/orchestrator/start-evm";
 
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
+  // logs: "stdout",
   packageName: "jsr:@paimaexample",
   processes: {
     [ComponentNames.TMUX]: true,
@@ -21,16 +22,16 @@ const config = Value.Parse(OrchestratorConfig, {
     {
       stopProcessAtPort: [10590, 10599, 3334],
       processes: [
-        // We build the frontend as "dev" command fails running from the orchestrator.
-        // For development - comment the build and server::start commands
-        // {
-        //   name: "frontend-build",
-        //   args: ["task", "-f", "@chess/frontend", "build"],
-        //   waitToExit: true,
-        // },
         {
           name: "frontend-server",
-          args: ["task", "-f", "@chess/frontend", "server:start"],
+          args: ["task", "-f", "@chess/frontend", "build"],
+          waitToExit: true,
+          type: "system-dependency",
+          link: "http://localhost:10599",
+        },
+        {
+          name: "frontend-server",
+          args: ["task", "-f", "@chess/frontend", "serve"],
           waitToExit: false,
           type: "system-dependency",
           link: "http://localhost:10599",

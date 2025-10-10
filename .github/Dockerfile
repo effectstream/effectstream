@@ -46,10 +46,6 @@ RUN forge --version && cast --version && anvil --version
 # Create working directory
 WORKDIR /app
 
-# Copy the launch script
-COPY .github/launch.sh /app/launch.sh
-RUN chmod +x /app/launch.sh
-
 # Copy the patch script
 COPY ./patch.sh /app/patch.sh
 RUN chmod +x /app/patch.sh
@@ -67,5 +63,17 @@ ENV DENO_DIR=/tmp/.deno
 RUN deno install --allow-scripts
 RUN /app/patch.sh
 
-# Set the default command to run the launch script
-CMD ["/app/launch.sh"]
+
+RUN deno task -f @e2e/midnight-contracts midnight-contract:compile
+RUN deno task -f @e2e/evm-contracts build:mod
+
+RUN deno task -f @e2e/wallets-ui build
+
+# START E2E TESTS
+# Avail Light Client failing on linux
+ENV DISABLE_AVAIL=true
+# Yaci Devkit failing on linux
+ENV DISABLE_LINUX_YACI=true
+# Show Paima-Engine logs
+ENV PAIMA_E2E_LOG_DEBUG=true
+CMD ["deno", "task", "-f", "@e2e/node", "test"]

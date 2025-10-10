@@ -24,7 +24,11 @@ const avail_enabled = Deno
   : true;
 
 const config = Value.Parse(OrchestratorConfig, {
+  // logs: "stdout",
   processes: {
+    [ComponentNames.TMUX]: true,
+    [ComponentNames.TUI]: true,
+    [ComponentNames.DOCS]: false,
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
     [ComponentNames.COLLECTOR]: true,
@@ -43,7 +47,7 @@ const config = Value.Parse(OrchestratorConfig, {
       processes: [
         {
           name: "frontend-build",
-          args: ["task", "-f", "@paima/explorer", "build"],
+          args: ["task", "-f", "paima/explorer", "build"],
           waitToExit: true,
         },
         {

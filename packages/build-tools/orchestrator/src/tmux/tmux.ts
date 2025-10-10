@@ -1,290 +1,142 @@
-import { ENV } from "@paima/utils/node-env";
+/*
+  Tmux server controller. Flow:
+  1. Install tmux
+  2. Start a tmux server and session by feeding it our startup script
+  3. Attach to the tmux session in the foreground
+  4. Wait for the tmux session to exit (^C for kill-session, or detach)
+  5. Orchestrator shuts down, killing tmux server on the way
 
-// use --unstable-raw-imports
+  A distinct server is used so that:
+  - The environment variables of the orchestrator are respected.
+  - The user's tmux keybinds (like changing the prefix) are respected.
+  - We can set our own keybinds (like ^C to kill the session) that don't affect
+    other sessions (keybinds are always per-server).
+  - We can reliably kill the server and therefore the session no matter why the
+    `tmux attach` command ended (detached, killed session, killed externally).
+
+  It would be nice to run `tmux -D` as one of the orchestrator's processes, but
+  we can't easily detect when after spawning it the socket is ready and we can
+  run other commands, so we let tmux handle spawning the server itself and
+  expose `.kill()` separately.
+
+  We don't have any cleanup logic for the socket file at present, but tmux
+  should put it in `/tmp` or similar.
+*/
+
+// TODO: Use `with { type: "text" }` when it no longer requires `--unstable-raw-imports`.
 // https://github.com/denoland/deno/issues/29904
-// import launchJson from "./tmux.launch.json" with { type: "text" };
+import install_sh from "./install.sh.ts";
+import session_tmux from "./session.tmux.ts";
 
-import { json } from "./tmux.launch.ts";
-import { install } from "./install.ts";
-
-// dirname is not available in jsr packages
-const __dirname = import.meta.dirname;
-
-// This is a wrapper around the tmux command.
-// It allows to create an instance of tmux, and execute commands on it.
-
-export default interface NodeTmuxOptions {
-  /**
-   * The path of the shell to use
-   */
-  shell?: string;
-
+export interface TmuxOptions {
   /**
    * The command to use. Defaults to "tmux"
    */
-  command?: string;
+  command: string;
 
   /**
-   * The path to the tmux configuration file
+   * The socket alias to use. Defaults to `paima-${Date.now()}`.
    */
-  configFile?: string;
+  socket: string;
 }
 
-/* The format prevents  */
-const NAME_FORMAT = /^[^"';]+$/;
-
 /**
- * An adapter class containing methods to execute common
- * tmux operations.
+ * A controller for a private tmux server for the orchestrator's use.
  */
 export class Tmux {
-  private options: NodeTmuxOptions;
-  private paneCount: number = 0;
+  static async install() {
+    // Pipe the built-in `install.sh` to `sh` directly.
+    const cmd = new Deno.Command("sh", {
+      stdin: "piped",
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const child = cmd.spawn();
+    const writer = child.stdin.getWriter();
+    await writer.write(new TextEncoder().encode(install_sh));
+    await writer.close();
+    const output = await child.output();
 
-  constructor(options: NodeTmuxOptions) {
+    if (output.stdout.length > 0) {
+      console.log(new TextDecoder().decode(output.stdout));
+    }
+    if (output.stderr.length > 0) {
+      console.log(new TextDecoder().decode(output.stderr));
+    }
+
+    if (!output.success) {
+      console.error("Error running install.sh: exit code", output.code);
+    }
+  }
+
+  private options: TmuxOptions;
+
+  constructor(options: Partial<TmuxOptions> = {}) {
     this.options = {
       command: "tmux",
-      shell: ENV.SHELL,
+      socket: `paima-${Date.now()}`,
       ...options,
     };
   }
-  async init() {
-    let path = __dirname + "/tmux.conf";
-    let cleanup = false;
-    try {
-      await Deno.stat(path);
-    } catch (e) {
-      // create file
-      path = "./tmux.conf";
-      cleanup = true;
-      await Deno.writeTextFile(path, `set -g mouse on`);
-    }
 
-    this.options.configFile = path;
+  /** Tell the server to start our session. */
+  public async startSession() {
+    const cmd = new Deno.Command(this.options.command, {
+      args: [
+        "-L",
+        this.options.socket,
+        "start-server",
+        ";",
+        "source-file",
+        "-",
+      ],
+      stdin: "piped",
+      stdout: "piped",
+      stderr: "piped",
+    });
+
+    const child = cmd.spawn();
+    const writer = child.stdin.getWriter();
+    await writer.write(new TextEncoder().encode(session_tmux));
+    await writer.close();
+    this._checkExit(await child.output());
   }
 
-  /**
-   * Create a new session of the given name
-   *
-   * @param name Session name
-   * @param command Optional command to execute
-   */
-  public async newSession(name: string, command?: string): Promise<void> {
-    if (!this._validate(name) || name.length > 50) {
-      throw new Error(`Illegal session name`);
-    } else if (await this.hasSession(name)) {
-      throw new Error(`Session '${name}' already exists`);
-    }
-
-    const ext = command ? ` ${command}` : "";
-    // Build the base command with config file if specified
-    let tmuxCommand = this.options.command!;
-    if (this.options.configFile) {
-      tmuxCommand += ` -f "${this.options.configFile}"`;
-    }
-
-    const cmd = `${tmuxCommand} new -d -s "${name}"` + ext;
-    console.log(cmd);
-    await this._exec(cmd);
-  }
-
-  /**
-   * List of sessions currently active
-   */
-  public async listSessions(): Promise<string[]> {
-    const out = await this._exec(`${this.options.command} ls -F "#S"`, true);
-    if (!out) return [];
-    return out.split("\n").filter((s) => !!s);
-  }
-
-  /**
-   * Returns whether a session with the given name exists
-   *
-   * @param name Session to check
-   */
-  public async hasSession(name: string): Promise<boolean> {
-    if (!this._validate(name) || name.length > 50) {
-      throw new Error(`Illegal session name`);
-    }
-
-    try {
-      await this._exec(`${this.options.command} has-session -t "${name}"`);
-      return true;
-    } catch (err) {
-      return false;
-    }
-  }
-
-  /**
-   * Write text input to a specific pane in the given session
-   *
-   * @param sessionName Session name
-   * @param paneIndex Pane index (0 = first pane, 1 = second pane, etc.)
-   * @param print Text to write
-   * @param newline Whether to end with an enter (Execute input). Defaults to false
-   */
-  public async writeInputToPane(
-    sessionName: string,
-    paneIndex: number,
-    print: string,
-    newline: boolean = false,
-  ): Promise<void> {
-    if (!this._validate(sessionName) || sessionName.length > 50) {
-      throw new Error(`Illegal session name`);
-    } else if (!(await this.hasSession(sessionName))) {
-      throw new Error(`Session '${sessionName}' does not exist`);
-    }
-
-    const ext = newline ? " Enter" : "";
-    const target = `${sessionName}:0.${paneIndex}`; // session:window.pane
-
-    await this._exec(
-      `${this.options.command} send-keys -t "${target}" "${print}"` + ext,
-    );
-  }
-
-  public getAttachSessionCommand(
-    name: string,
-  ): { command: string; args: string[] } {
-    const args: string[] = [];
-    args.push("attach-session", "-t", name);
+  /** Attach to the session in the foreground and wait for it to be detached. */
+  public getAttachCommand(): {
+    command: string;
+    args: string[];
+    stdin: "inherit";
+    stdout: "inherit";
+    stderr: "inherit";
+  } {
     return {
-      command: this.options.command!,
-      args: args,
+      command: this.options.command,
+      args: ["-L", this.options.socket, "-N", "attach"],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
     };
   }
 
-  /**
-   * Split a pane in the given session
-   *
-   * @param sessionName Session name
-   * @param horizontal If true, split horizontally (left/right). If false, split vertically (top/bottom). Defaults to true
-   * @param command Optional command to execute in the new pane
-   */
-  public async splitPane(
-    sessionName: string,
-    horizontal: boolean = true,
-    command?: string,
-  ): Promise<void> {
-    if (!this._validate(sessionName) || sessionName.length > 50) {
-      throw new Error(`Illegal session name`);
-    } else if (!(await this.hasSession(sessionName))) {
-      throw new Error(`Session '${sessionName}' does not exist`);
-    }
-
-    let cmd = `${this.options.command} split-window -t "${sessionName}"`;
-
-    if (horizontal) {
-      cmd += ` -h`; // horizontal split (left/right)
-    } else {
-      cmd += ` -v`; // vertical split (top/bottom)
-    }
-    await this._exec(cmd);
-
-    this.paneCount++;
-    if (command) {
-      await this.writeInputToPane(sessionName, this.paneCount, command, true);
-    }
+  /** Kill the server, if it hasn't already exited. */
+  public async killServer() {
+    const cmd = new Deno.Command(this.options.command, {
+      args: ["-L", this.options.socket, "-N", "kill-server"],
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+    });
+    // Ignore exit status. We're okay with failing to kill something that isn't there.
+    await cmd.output();
   }
 
-  /**
-   * Command Execution utility method
-   *
-   * @param command Command to execute
-   */
-  private async _exec(
-    command: string,
-    ignoreError: boolean = false,
-  ): Promise<string> {
-    try {
-      const cmd = new Deno.Command("sh", {
-        args: ["-c", command],
-        stdout: "piped",
-        stderr: "piped",
-      });
-
-      const output = await cmd.output();
-
-      if (!output.success && !ignoreError) {
-        const errorText = new TextDecoder().decode(output.stderr);
-        throw new Error(
-          errorText || `Command failed with exit code ${output.code}`,
-        );
-      }
-
-      return new TextDecoder().decode(output.stdout);
-    } catch (error) {
-      if (ignoreError) {
-        return "";
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Validate the given session name
-   *
-   * @param name Session name
-   */
-  private _validate(name: string) {
-    return NAME_FORMAT.test(name);
-  }
-
-  public async readLaunchJson(
-    packageName: string,
-    sessionName: string,
-    file?: string,
-  ) {
-    const data: {
-      panes: {
-        command?: string;
-        name: string;
-        split_horizontal?: boolean;
-        split_vertical?: boolean;
-      }[];
-    } = json;
-
-    for (const pane of data.panes) {
-      pane.command = pane.command?.replaceAll("${packageName}", packageName);
-    }
-
-    for (const pane of data.panes) {
-      if (pane.split_horizontal) {
-        await this.splitPane(sessionName, true, pane.command);
-      } else if (pane.split_vertical) {
-        await this.splitPane(sessionName, false, pane.command);
-      } else if (pane.command) {
-        await this.writeInputToPane(sessionName, 0, pane.command, true);
-      }
+  private _checkExit(output: Deno.CommandOutput) {
+    if (!output.success) {
+      const errorText = new TextDecoder().decode(output.stderr);
+      throw new Error(
+        errorText || `Command failed with exit code ${output.code}`,
+      );
     }
   }
 }
-
-export const installTmux = async () => {
-  const path = __dirname ? __dirname + "/install.sh" : "./install.sh";
-  try {
-    await Deno.stat(path);
-  } catch (e) {
-    // create file
-    await Deno.writeTextFile(path, install);
-  }
-
-  const cmd = new Deno.Command("sh", {
-    args: [path],
-    stdout: "piped",
-    stderr: "piped",
-  });
-
-  const output = await cmd.output();
-
-  if (output.stdout.length > 0) {
-    console.log(new TextDecoder().decode(output.stdout));
-  }
-  if (output.stderr.length > 0) {
-    console.log(new TextDecoder().decode(output.stderr));
-  }
-
-  if (!output.success) {
-    console.error("Error running install.sh: exit code", output.code);
-  }
-};

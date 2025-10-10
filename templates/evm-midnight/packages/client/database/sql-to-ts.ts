@@ -1,5 +1,7 @@
 import { getConnection } from "@paimaexample/db";
-import { standAloneApplyMigrations } from "@paimaexample/db/patch-emulator";
+// TODO Update this to use the @paimaexample/db-emulator package
+// import { standAloneApplyMigrations } from "@paimaexample/db-emulator";
+import { standAloneApplyMigrations } from "./src/patch-emulator.ts";
 import { migrationTable } from "./src/migration-order.ts";
 import { localhostConfig } from "@example-evm-midnight/data-types/localhostConfig";
 

@@ -9,9 +9,10 @@
     "files": [
         "cli.cjs",
         "client/dist/index.html",
-        "client/dist/**"
+        "client/dist/**",
+        "server/**"
     ],
-    "devDependencies": {
+    "dependencies": {
         "http-server": "^14.1.1"
     }
 }

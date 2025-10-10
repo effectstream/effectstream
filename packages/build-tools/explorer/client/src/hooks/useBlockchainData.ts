@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BLOCK_HEIGHTS_ENDPOINT,
   fetchChainConfigs,
-  initialChainConfigs,
   SYNC_PROTOCOLS_ENDPOINT,
 } from "../config.ts";
 import type { PaimaChains } from "../types/index.ts";
+import { blockWatcher } from "./BlockWatcher.ts";
 
 interface Block {
   number: number;
@@ -108,8 +108,16 @@ const blockParsers = {
   DEFAULT: (block: any, defaultNumber: number) => ({
     number: Number(block.blockNumber ?? defaultNumber),
     hash: block.hash ?? "",
-    timestamp: block.timestamp != null
-      ? new Date(Number(block.timestamp))
+    timestamp: block.received_at != null
+      ? new Date(Number(block.received_at))
+      : new Date(),
+  }),
+
+  AVAIL: (block: any) => ({
+    number: Number(block.number),
+    hash: block.hash ?? "",
+    timestamp: block.received_at != null
+      ? new Date(Number(block.received_at))
       : new Date(),
   }),
 } as const;
@@ -136,121 +144,10 @@ export function useBlockchainData() {
   const [newBlockIndices, setNewBlockIndices] = useState<
     Record<string, number | undefined>
   >({});
-  const paimaPollRef = useRef<number | null>(null);
-  const rpcInFlightRef = useRef(false);
-  const fetchLatestBlockForChainRef = useRef<(key: string) => void>(() => {});
   const chainsInitializedRef = useRef(false);
   const nonRpcIntervalsStartedRef = useRef(false);
   const blockHeightsPollRef = useRef<number | null>(null);
   const lastProcessedPagesRef = useRef<Record<string, number>>({});
-
-  // Fetch latest block for Paima main (EVM) only
-  const fetchLatestBlockForChain = useCallback(async (chainKey: string) => {
-    // Only allow RPC polling for Paima main chain
-    if (chainKey !== "Paima") return;
-    const config = chainConfigs[chainKey];
-    if (!config) return;
-    if (!config.rpcEndpoint) return;
-    if (config.type !== "EVM") return;
-
-    if (rpcInFlightRef.current) return;
-    rpcInFlightRef.current = true;
-    try {
-      // Use Ethereum RPC method for EVM chain
-      const response = await fetch(config.rpcEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "eth_blockNumber",
-          params: [],
-          id: 1,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
-
-      const blockNumber: number = parseInt(data.result, 16);
-
-      setChainConfigs((prev: PaimaChains) => {
-        const updated = { ...prev };
-        const chainConfig = updated[chainKey];
-
-        if (blockNumber > (chainConfig.latestBlockNumber || 0)) {
-          chainConfig.previousLatestBlockNumber =
-            chainConfig.latestBlockNumber || 0;
-          chainConfig.latestBlockNumber = blockNumber;
-          chainConfig.isConnected = true;
-
-          // Generate new block when RPC block increments
-          if (chainConfig.previousLatestBlockNumber > 0) {
-            const blockHash = generateRandomHash();
-            const timestamp = new Date();
-
-            const newBlock = {
-              number: blockNumber,
-              hash: blockHash,
-              timestamp: timestamp,
-            };
-
-            // Check if block already exists to prevent duplicates
-            const blockExists = chainConfig.blocks.some(
-              (block: Block) =>
-                block.number === blockNumber && block.hash === blockHash,
-            );
-
-            if (!blockExists) {
-              // Add to beginning of array
-              chainConfig.blocks.unshift(newBlock);
-
-              // Keep only last 20 blocks
-              if (chainConfig.blocks.length > 20) {
-                chainConfig.blocks = chainConfig.blocks.slice(0, 20);
-              }
-
-              // Set new block indicator
-              setNewBlockIndices((prevIndices) => ({
-                ...prevIndices,
-                [chainKey]: 0,
-              }));
-
-              // Clear new block indicator after animation
-              setTimeout(() => {
-                setNewBlockIndices((prevIndices) => ({
-                  ...prevIndices,
-                  [chainKey]: undefined,
-                }));
-              }, 500);
-            }
-          }
-        }
-
-        return updated;
-      });
-    } catch (error) {
-      console.error(`Error fetching latest block for ${chainKey}:`, error);
-      setChainConfigs((prev: PaimaChains) => ({
-        ...prev,
-        [chainKey]: {
-          ...prev[chainKey],
-          isConnected: false,
-        },
-      }));
-    } finally {
-      rpcInFlightRef.current = false;
-    }
-  }, [chainConfigs]);
-
-  useEffect(() => {
-    fetchLatestBlockForChainRef.current = fetchLatestBlockForChain;
-  }, [fetchLatestBlockForChain]);
 
   // Generate a new block for a chain
   const generateBlock = useCallback(
@@ -328,7 +225,7 @@ export function useBlockchainData() {
         "❌ Failed to load chain configs, using fallback:",
         errorMessage,
       );
-      setChainConfigs(initialChainConfigs);
+      setChainConfigs({});
     } finally {
       setIsLoadingConfig(false);
     }
@@ -408,22 +305,74 @@ export function useBlockchainData() {
 
   // Start Paima RPC polling once after configs load
   useEffect(() => {
-    console.log("🔄 Starting Paima RPC polling");
     if (isLoadingConfig) return;
-    if (paimaPollRef.current != null) return;
 
-    // Immediate fetch
-    fetchLatestBlockForChainRef.current("Paima");
-    paimaPollRef.current = setInterval(() => {
-      fetchLatestBlockForChainRef.current("Paima");
-    }, paimaPollInterval);
+    // This will implicitly initialize the blockWatcher
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    blockWatcher.waitForBlock("__main__");
 
-    return () => {
-      if (paimaPollRef.current != null) {
-        clearInterval(paimaPollRef.current);
-        paimaPollRef.current = null;
-      }
-    };
+    const interval = setInterval(() => {
+      setChainConfigs((prev: PaimaChains) => {
+        const updated = { ...prev };
+        let changed = false;
+
+        for (const chainKey in updated) {
+          const config = updated[chainKey];
+          const watcherChainKey = chainKey === "Paima"
+            ? "__main__"
+            : config.protocolName || chainKey;
+          const blockNumber = blockWatcher.getLatestBlock(watcherChainKey);
+
+          if (blockNumber > (config.latestBlockNumber || 0)) {
+            changed = true;
+            config.previousLatestBlockNumber = config.latestBlockNumber || 0;
+            config.latestBlockNumber = blockNumber;
+            config.isConnected = true;
+
+            // Generate new block when block number increments
+            if (config.previousLatestBlockNumber > 0) {
+              const blockHash = generateRandomHash();
+              const timestamp = new Date();
+
+              const newBlock = {
+                number: blockNumber,
+                hash: blockHash,
+                timestamp: timestamp,
+              };
+
+              const blockExists = config.blocks.some(
+                (block: Block) =>
+                  block.number === blockNumber,
+              );
+
+              if (!blockExists) {
+                config.blocks.unshift(newBlock);
+
+                if (config.blocks.length > 20) {
+                  config.blocks = config.blocks.slice(0, 20);
+                }
+
+                // This state is separate, so need to call its setter
+                setNewBlockIndices((prevIndices) => ({
+                  ...prevIndices,
+                  [chainKey]: 0,
+                }));
+
+                setTimeout(() => {
+                  setNewBlockIndices((prevIndices) => ({
+                    ...prevIndices,
+                    [chainKey]: undefined,
+                  }));
+                }, 500);
+              }
+            }
+          }
+        }
+        return changed ? { ...updated } : prev;
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
   }, [isLoadingConfig]);
 
   // Periodically fetch engine block-heights and sample last-synced blocks for non-Paima chains
@@ -478,36 +427,14 @@ export function useBlockchainData() {
               timestamp: Date;
             }[] = [];
 
-            // Calculate the gap and interpolate missing blocks
-            const startPage = lastProcessed + 1;
-            const endPage = h.synced_page;
-
-            if (endPage > startPage) {
-              // Gap detected - fetch in batches
-              console.log(
-                `[Explorer] Interpolating gap for ${proto}: ${startPage} to ${endPage}`,
-              );
-
-              const batches = createBatches(startPage, endPage, 10);
-              const batchResults = await Promise.all(
-                batches.map(([from, to]) =>
-                  fetchBlockBatch(proto, from, to, cfg.type)
-                ),
-              );
-
-              // Flatten all blocks from all batches
-              const allBlockPayloads = batchResults.flat();
-              allParsedBlocks.push(...allBlockPayloads);
-            } else {
-              // No gap - fetch single page
-              const blockPayloads = await fetchBlockBatch(
-                proto,
-                h.synced_page,
-                h.synced_page,
-                cfg.type,
-              );
-              allParsedBlocks.push(...blockPayloads);
-            }
+            // We only want to fetch the latest blocks, not the entire history.
+            const blockPayloads = await fetchBlockBatch(
+              proto,
+              h.synced_page,
+              h.synced_page,
+              cfg.type,
+            );
+            allParsedBlocks.push(...blockPayloads);
 
             if (allParsedBlocks.length > 0) {
               updates.push({

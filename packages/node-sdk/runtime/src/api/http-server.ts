@@ -18,7 +18,14 @@ import {
   waitUntilFree,
 } from "@paima/db";
 import { ENV } from "@paima/utils/node-env";
-import type { AllSyncProtocols } from "@paima/sync";
+import type {
+  AllSyncProtocols,
+  AvailFetcher,
+  EvmFetcher,
+  MidnightFetcher,
+  NtpFetcher,
+  UtxoRpcFetcher,
+} from "@paima/sync";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
 } from "@fastify/swagger";
@@ -38,6 +45,7 @@ import {
   type TypePaginationQuerySchema,
 } from "./pagination.ts";
 import { PaimaPrimitiveRegistry } from "@paima/sm";
+import { ConfigNetworkType } from "@paima/config";
 
 function tableListContains(
   list: Array<{ table_name: string | null }>,
@@ -230,48 +238,70 @@ export const startHttpServer = function* (
         }
 
         const blocks: any[] = [];
-        const fetcher: any = (protocol as any).fetcher;
-        // TODO: Utilize cache strategy for getting the blocks
+        const fetcher = protocol.fetcher;
+        const networkType = protocol.config.networkType;
 
-        // EVM (viem PublicClient)
-        if (fetcher?.client?.getBlock) {
-          for (let n = from; n <= to; n++) {
-            // viem: includeTransactions option is { includeTransactions?: boolean }
-            const block = await fetcher.client.getBlock({
-              blockNumber: BigInt(n),
-              includeTransactions,
-            });
-            blocks.push(block);
+        switch (networkType) {
+          case ConfigNetworkType.EVM: {
+            const evmFetcher = fetcher as EvmFetcher;
+            for (let n = from; n <= to; n++) {
+              // viem: includeTransactions option is { includeTransactions?: boolean }
+              const block = await evmFetcher.client.getBlock({
+                blockNumber: BigInt(n),
+                includeTransactions,
+              });
+              blocks.push(block);
+            }
+            break;
           }
-          // Midnight
-        } else if (fetcher?.client?.fetchBlock) {
-          for (let n = from; n <= to; n++) {
-            const result = await fetcher.client.fetchBlock(n);
-            if (result?.block) blocks.push(result.block);
+          case ConfigNetworkType.MIDNIGHT: {
+            const midnightFetcher = fetcher as MidnightFetcher;
+            for (let n = from; n <= to; n++) {
+              const result = await midnightFetcher.client.fetchBlock(n);
+              if (result?.block) blocks.push(result.block);
+            }
+            break;
           }
-          // UTXO RPC (buffered)
-        } else if (fetcher?.client?.fetchBlocks) {
-          const res = fetcher.client.fetchBlocks(from, to);
-          for (const item of res) {
-            blocks.push(item.output.raw);
+          case ConfigNetworkType.NTP:
+            {
+              const ntpFetcher = fetcher as NtpFetcher;
+              const cfg = ntpFetcher.config.network;
+              if (!cfg?.startTime || !cfg?.blockTimeMS) {
+                return reply.status(500).send({ error: "NTP config missing" });
+              }
+              for (let n = from; n <= to; n++) {
+                const timestamp = BigInt(cfg.startTime) +
+                  BigInt(cfg.blockTimeMS) * BigInt(n);
+                blocks.push({
+                  blockNumber: n,
+                  timestamp,
+                  hash: `0x${timestamp.toString(16)}`,
+                });
+              }
+            }
+            break;
+          case ConfigNetworkType.CARDANO: {
+            const cardanoFetcher = fetcher as UtxoRpcFetcher;
+            const res = cardanoFetcher.client.fetchBlocks(from, to);
+            for (const item of res) {
+              blocks.push(item.output);
+            }
+            break;
           }
-          // NTP synthetic blocks
-        } else if (fetcher?.ntpTimeSync != null) {
-          const cfg = (protocol as any).config?.network;
-          if (!cfg?.startTime || !cfg?.blockTimeMS) {
-            return reply.status(500).send({ error: "NTP config missing" });
+          case ConfigNetworkType.AVAIL: {
+            const availFetcher = fetcher as AvailFetcher;
+            for (let n = from; n <= to; n++) {
+              const result = await availFetcher.client.getBlockHeaderFromHeight(
+                n,
+              );
+              if (result) blocks.push(result);
+            }
+            break;
           }
-          for (let n = from; n <= to; n++) {
-            const timestamp = BigInt(cfg.startTime) +
-              BigInt(cfg.blockTimeMS) * BigInt(n);
-            blocks.push({
-              blockNumber: n,
-              timestamp,
-              hash: `0x${timestamp.toString(16)}`,
-            });
-          }
-        } else {
-          return reply.status(400).send({ error: "Unsupported protocol type" });
+          default:
+            return reply.status(400).send(
+              `Unsupported network type: ${networkType}`,
+            );
         }
 
         return clearBigInts({
@@ -631,12 +661,6 @@ export const startHttpServer = function* (
     primitiveName: string,
   ): string | undefined {
     const primitiveTry = PaimaPrimitiveRegistry.getPrimitive(primitiveName);
-    console.error("primitiveTry", primitiveName, primitiveTry);
-    // if (!primitive) {
-    //   return undefined;
-    // }
-    // return primitive.getViewPrefix()[0];
-
     // TODO map/find the results generated bad TS Types (too hard to represent)
     const findPrimitive = (syncProtocols: AllSyncProtocols[]) => {
       for (const syncProtocol of syncProtocols) {

@@ -1,7 +1,7 @@
 import type { GrammarDefinition } from "@paimaexample/concise";
-import { erc721Grammar, midnightGenericGrammar } from "@paimaexample/sm";
+import { builtinGrammars } from "@paimaexample/sm/grammar";
 
 export const grammar = {
-  "transfer-assets": erc721Grammar,
-  "midnightContractState": midnightGenericGrammar,
+  "transfer-assets": builtinGrammars.evmErc721,
+  "midnightContractState": builtinGrammars.midnightGeneric,
 } as const satisfies GrammarDefinition;

@@ -139,26 +139,19 @@ function App() {
   const primitives = useMemo<PrimitiveInfo[]>(() => {
     return Object.entries(localhostConfig.primitives).map(
       ([name, primitiveData]: [string, any]) => {
-        const syncProtocol = primitiveData.syncProtocol;
+        const syncProtocol: any = primitiveData.syncProtocol;
         // @ts-ignore - TODO: fix types in config
         const network =
-          localhostConfig.syncProtocols.parallel[syncProtocol]?.network || "";
+          (localhostConfig.syncProtocols.parallel as any)[syncProtocol]?.network || "";
         // @ts-ignore - TODO: fix types in config
         const networkType =
-          localhostConfig.allNetworks.networks[network]?.type || "unknown";
-
-        const abi = primitiveData?.primitive?.abi;
-        const signature = abi
-          ? `${abi.name}(${
-            // @ts-ignore - TODO: fix types in config
-            abi.inputs.map((i: any) => `${i.name}:${i.type}`).join(", ")})`
-          : "No ABI";
+          (localhostConfig.allNetworks.networks as any)[network]?.type || "unknown";
 
         return {
           name,
           syncProtocol,
           network,
-          signature,
+          signature: "",
           type: primitiveData.primitive.type,
           networkType,
         };
@@ -560,8 +553,7 @@ function App() {
               onChange={() => setSelectedPrimitive(primitive)}
             />
             <label htmlFor={primitive.name}>
-              <strong>{primitive.name}</strong> (sync:{" "}
-              {primitive.syncProtocol}) - <i>{primitive.signature}</i>
+              <strong>{primitive.name}</strong> <i>@ {primitive.syncProtocol}</i>
             </label>
           </div>
         ))}
@@ -603,7 +595,7 @@ function App() {
 
       {wallet && selectedPrimitive && (
         <div className="info-box-large info-box">
-          {selectedPrimitive.type === "evm-rpc-paima-l2"
+          {selectedPrimitive.type === "EVM:PaimaL2"
             ? (selectedFunction ? renderForm() : (
               <div>
                 <h2>Select a function</h2>

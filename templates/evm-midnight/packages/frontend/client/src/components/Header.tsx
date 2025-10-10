@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "./Modal.tsx";
-import { AddressesTable } from "./AddressesTable.tsx";
 import {
   BATCHER_OPENAPI_URL,
   DOCUMENTATION_URL,
@@ -229,14 +228,16 @@ export function Header({ latestBlock, isConnected }: HeaderProps) {
         </div>
       </Modal>
 
-      <Modal
+      {
+        /* <Modal
         className="addresses"
         isOpen={isAddressModalOpen}
         onClose={handleCloseAddressModal}
         title="Addresses"
       >
         <AddressesTable />
-      </Modal>
+      </Modal> */
+      }
     </>
   );
 }

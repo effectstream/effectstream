@@ -1,4 +1,5 @@
-CREATE TABLE test_4 (
+CREATE TABLE counter_inputs (
   id SERIAL PRIMARY KEY,
-  id_3 INTEGER NOT NULL REFERENCES test_3(id)
+  block_height INTEGER NOT NULL,
+  counter INTEGER NOT NULL
 );

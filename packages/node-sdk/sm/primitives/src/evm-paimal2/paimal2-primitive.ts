@@ -45,13 +45,14 @@ import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
 import { type JsonObject, PaimaPrimitive } from "@paima/sm";
 import { Value } from "@sinclair/typebox/value";
 import type { CommandTuple } from "@paima/concise";
+import { PrimitiveTypeEVMPaimaL2 } from "../builtin.ts";
 
 export class PaimaL2Primitive extends PaimaPrimitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   readonly [string, TSchema][]
 > {
   // Primitive defined
-  readonly internalTypeName = "EVM:PaimaL2" as const;
+  readonly internalTypeName = PrimitiveTypeEVMPaimaL2;
   readonly abi = getEvmEvent(
     paimal2.abi,
     "PaimaGameInteraction(address,bytes,uint256)",
@@ -66,11 +67,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     contractAddress: EvmAddress;
     paimaL2Grammar: GrammarDefinition;
   }) {
-    super(
-      config.instanceName,
-      config.startBlockHeight,
-      undefined,
-    );
+    super({ ...config, stateMachinePrefix: undefined });
     this.contractAddress = Value.Decode(
       TypeboxHelpers.Evm.Address,
       config.contractAddress,
@@ -122,7 +119,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
   ] {
     return {
       name: this.instanceName,
-      type: "evm-rpc-paima-l2",
+      type: this.internalTypeName,
       startBlockHeight: this.startBlockHeight,
       contractAddress: this.contractAddress as EvmAddress,
       abi: this.abi,
@@ -367,10 +364,10 @@ export class PaimaL2Primitive extends PaimaPrimitive<
         const { parsed } = batchedMessage;
         const {
           addressType,
-          userAddress,
-          millisecondTimestamp,
-          userSignature,
-          conciseInput,
+          address: userAddress,
+          timestamp: millisecondTimestamp,
+          signature: userSignature,
+          input: conciseInput,
         } = parsed;
         // TODO: We need to setup & configure the namespace.
         const message = createMessageForBatcher(
@@ -412,15 +409,15 @@ export class PaimaL2Primitive extends PaimaPrimitive<
           commands.push(
             yield* this.executePaimaL2Input({
               paima_block_height,
-              nonce: batchedMessage.parsed.userAddress +
+              nonce: batchedMessage.parsed.address +
                 "-" +
-                batchedMessage.parsed.millisecondTimestamp,
+                batchedMessage.parsed.timestamp,
               ownChain: {
                 blockNumber: response.syncProtocol.blockNumber,
                 transactionHash: response.syncProtocol.transactionHash,
               },
               payload: {
-                data: stringToHex(batchedMessage.parsed.conciseInput),
+                data: stringToHex(batchedMessage.parsed.input),
                 userAddress: userAddress as EvmAddress, // This might be a non-EVM address
                 value: "0x0",
               },
