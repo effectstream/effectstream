@@ -1,9 +1,8 @@
 import type { Client } from "pg";
 import { Account, Pallets, SDK } from "avail-js-sdk";
-import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 import { assertSQL, blockWatcher, type SharedState } from "@e2e/engine";
 import { readAvailApplication } from "@e2e/avail-contracts";
-import { cryptoWaitReady } from '@polkadot/util-crypto';
+import { cryptoWaitReady } from "@polkadot/util-crypto";
 await cryptoWaitReady();
 
 const AVAIL_NODE_URL = "ws://localhost:9955/ws";
@@ -37,9 +36,10 @@ async function submitData(appId: number, data: string) {
   if (res.events === undefined) throw new Error("No events found");
 
   // Transaction Details
-  console.log(
-    `Block Hash: ${res.blockHash}, Block Number: ${res.blockNumber}, Tx Hash: ${res.txHash}, Tx Index: ${res.txIndex}`,
-  );
+  console.log(`Block Hash: ${res.blockHash}
+Block Number: ${res.blockNumber}
+Tx Hash: ${res.txHash}
+Tx Index: ${res.txIndex}`);
 
   // Find DataSubmitted event
   const event = res.events.findFirst(
@@ -52,7 +52,11 @@ async function submitData(appId: number, data: string) {
   console.log(`DataHash: ${event.dataHash}`);
 
   console.log("Data submission completed successfully");
-  return { txHash: res.txHash, blockHash: res.blockHash, blockNumber: res.blockNumber };
+  return {
+    txHash: res.txHash,
+    blockHash: res.blockHash,
+    blockNumber: res.blockNumber,
+  };
 }
 
 export async function submitDataWithMessageAvailTest(
@@ -60,16 +64,18 @@ export async function submitDataWithMessageAvailTest(
   sharedState: SharedState,
 ) {
   if (!avail_enabled) return;
-  
+
   const appId = readAvailApplication().appId;
-  
+
   console.log(`Submitting data to App Id: ${appId}`);
-  const data = '{ "message": "Batata" }';
-  
-  const txReceipt = await submitData(appId, data);
+  const data = { message: "Batata" };
+
+  const txReceipt = await submitData(appId, JSON.stringify(data));
   console.log(`Transaction Hash: ${txReceipt.txHash.toString()}`);
-  console.log(`Waiting for block ${txReceipt.blockNumber} @ parallelAvail...\nthis might take a while...`);
-  
+  console.log(
+    `Waiting for block ${txReceipt.blockNumber} @ parallelAvail...\nthis might take a while...`,
+  );
+
   await blockWatcher.waitForBlock("parallelAvail", txReceipt.blockNumber);
 
   // Avail Tx should have inserted new primitive accounting entry
@@ -79,6 +85,7 @@ export async function submitDataWithMessageAvailTest(
     db,
     `SELECT * FROM avail_messages;`,
     (res: any) => true,
-    (res: any) => res.rows.length === 1 && res.rows[0].message === JSON.parse(data).message,
+    (res: any) => res.rows.length === 1 && res.rows[0].message === data.message,
   );
 }
+
