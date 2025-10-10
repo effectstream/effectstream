@@ -99,6 +99,7 @@ const npmPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/binaries/midnight-indexer" },
   { path: "./packages/binaries/midnight-node" },
   { path: "./packages/binaries/midnight-proof-server" },
+  { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
 ];
 
 async function fetchLatestVersion(): Promise<string> {

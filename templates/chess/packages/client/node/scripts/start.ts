@@ -3,6 +3,16 @@ import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
 import { launchEvm } from "@paimaexample/orchestrator/start-evm";
 
+const evmProcessesExtended = launchEvm("@chess/evm-contracts");
+evmProcessesExtended.stopProcessAtPort = [10590, 10599, 3334];
+evmProcessesExtended.processes.push({
+  name: "batcher",
+  args: ["task", "-f", "@chess/batcher", "start"],
+  waitToExit: false,
+  type: "system-dependency",
+  logs: "none",
+});
+
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
   // logs: "stdout",
@@ -18,7 +28,7 @@ const config = Value.Parse(OrchestratorConfig, {
 
   // Launch my processes
   processesToLaunch: [
-    launchEvm("@chess/evm-contracts"),
+    evmProcessesExtended,
     {
       stopProcessAtPort: [10590, 10599, 3334],
       processes: [
@@ -47,13 +57,6 @@ const config = Value.Parse(OrchestratorConfig, {
           waitToExit: false,
           type: "system-dependency",
           link: "http://localhost:10590",
-        },
-        { // Launch the Batcher with our PaimaL2 Contract
-          name: "batcher",
-          args: ["task", "-f", "@chess/batcher", "start"],
-          waitToExit: false,
-          type: "system-dependency",
-          link: "http://localhost:3334",
         },
       ],
     },
