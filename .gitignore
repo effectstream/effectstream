@@ -19,3 +19,5 @@ tmp/
 # System files
 .DS_Store
 
+ai-context/
+ai-context-index.md
