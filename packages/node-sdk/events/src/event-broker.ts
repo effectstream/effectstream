@@ -50,6 +50,9 @@ export class PaimaEventBroker {
       // NOTE: Using deno `client?.req?.socket?.remoteAddress` is undefined.
       //       This was defined correctly when using node.js runtime.
       // 
+      // This is a workaround for the following issue:
+      // https://github.com/denoland/deno/issues/30707
+      //
       // In https://github.com/denoland/deno/pull/20120 these new fields were added:
       // Symbol(kHandle) and Symbol(kStreamBaseField).
       //
