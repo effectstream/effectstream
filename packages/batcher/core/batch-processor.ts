@@ -3,7 +3,6 @@ import type {
   BlockchainTransactionReceipt,
 } from "../adapters/adapter.ts";
 import type { BatchBuildingResult } from "../batch-data-builder/batch-data-builder.ts";
-import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 import { toHex } from "viem";
 import type { DefaultBatcherInput } from "./types.ts";
 
@@ -28,6 +27,10 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           timeoutId: number;
         }
       >;
+      waitForPaimaProcessed: (
+        receipt: BlockchainTransactionReceipt,
+        timeout: number,
+      ) => Promise<{ latestBlock: number; rollup: number } | null>;
     },
   ) {}
 
@@ -109,181 +112,81 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       time: Date.now(),
     });
 
-    await this.waitForPaimaProcessing(
+    // Remove processed inputs from storage after successful receipt
+    await this.batcher.storage.removeProcessedInputs(selectedInputs);
+
+    // Resolve all callbacks with the receipt
+    // Individual callers will decide if they want to continue waiting for Paima
+    this.resolveInputCallbacks(selectedInputs, receipt);
+
+    // Optional: Still trigger Paima processing check for event emission
+    this.waitForPaimaProcessing(
       receipt,
       adapter,
       target,
-      selectedInputs,
       timeout,
-    );
+    ).catch((error) => {
+      console.error(
+        `⚠️ Error waiting for Paima processing for target ${target}:`,
+        error,
+      );
+    });
   }
 
   private async waitForPaimaProcessing(
     receipt: BlockchainTransactionReceipt,
     adapter: BlockchainAdapter,
     target: string,
-    selectedInputs: T[],
     timeout: number,
   ): Promise<void> {
     try {
-      const eventFilterChain = adapter.getSyncProtocolName?.() ??
-        adapter.getChainName();
-      const processingResult = await this.waitForPaimaProcessed(
+      const processingResult = await this.batcher.waitForPaimaProcessed(
         receipt,
-        eventFilterChain,
         timeout,
       );
 
-      await this.handleSuccessfulProcessing(
-        processingResult,
-        receipt,
-        target,
-        selectedInputs,
-      );
+      if (processingResult) {
+        this.batcher.emitStateTransition("batch:paima-processed", {
+          target,
+          latestBlock: processingResult.latestBlock,
+          rollup: processingResult.rollup,
+          time: Date.now(),
+        });
+      } else {
+        console.error(
+          `❌ Paima processing validation failed for target ${target}`,
+        );
+        this.batcher.emitStateTransition("error", {
+          phase: "paima",
+          target,
+          error: new Error("Paima processing validation failed"),
+          time: Date.now(),
+        });
+      }
     } catch (error) {
-      await this.handleProcessingFailure(error, target, selectedInputs);
-    }
-  }
-
-  private async handleSuccessfulProcessing(
-    processingResult: { latestBlock: number; rollup: number } | null,
-    receipt: BlockchainTransactionReceipt,
-    target: string,
-    selectedInputs: T[],
-  ): Promise<void> {
-    if (processingResult) {
-      this.batcher.emitStateTransition("batch:paima-processed", {
-        target,
-        latestBlock: processingResult.latestBlock,
-        rollup: processingResult.rollup,
-        time: Date.now(),
-      });
-
-      await this.batcher.storage.removeProcessedInputs(selectedInputs);
-
-      this.resolveInputCallbacks(
-        selectedInputs,
-        receipt,
-        processingResult.rollup,
-      );
-    } else {
-      // Error - keep inputs in storage for retry
       console.error(
-        `❌ Paima processing validation failed for target ${target}`,
+        `❌ Error waiting for Paima processing for target ${target}:`,
+        error,
       );
       this.batcher.emitStateTransition("error", {
         phase: "paima",
         target,
-        error: new Error("Paima processing validation failed"),
+        error,
         time: Date.now(),
       });
-
-      this.rejectInputCallbacks(
-        selectedInputs,
-        "Paima processing validation failed",
-      );
     }
-  }
-
-  private async handleProcessingFailure(
-    error: any,
-    target: string,
-    selectedInputs: T[],
-  ): Promise<void> {
-    console.error(
-      `❌ Error waiting for Paima processing for target ${target}:`,
-      error,
-    );
-
-    this.batcher.emitStateTransition("error", {
-      phase: "paima",
-      target,
-      error,
-      time: Date.now(),
-    });
-
-    this.rejectInputCallbacks(
-      selectedInputs,
-      error.message || "Unknown error during Paima processing",
-    );
   }
 
   private resolveInputCallbacks(
     selectedInputs: T[],
     receipt: BlockchainTransactionReceipt,
-    rollup: number,
   ): void {
     for (const input of selectedInputs) {
       const callbacks = this.batcher.submissionCallbacks.get(input.signature);
       if (callbacks) {
-        callbacks.resolve({
-          ...receipt,
-          rollup,
-        });
+        callbacks.resolve(receipt);
         clearTimeout(callbacks.timeoutId);
         this.batcher.submissionCallbacks.delete(input.signature);
-      }
-    }
-  }
-
-  private rejectInputCallbacks(
-    selectedInputs: T[],
-    errorMessage: string,
-  ): void {
-    for (const input of selectedInputs) {
-      const callbacks = this.batcher.submissionCallbacks.get(input.signature);
-      if (callbacks) {
-        const error = new Error(errorMessage);
-        callbacks.reject(error);
-        clearTimeout(callbacks.timeoutId);
-        this.batcher.submissionCallbacks.delete(input.signature);
-      }
-    }
-  }
-
-  private async waitForPaimaProcessed(
-    transactionReceipt: BlockchainTransactionReceipt,
-    chainName: string,
-    timeout: number = 60000,
-  ): Promise<{ latestBlock: number; rollup: number } | null> {
-    let subscriptionReference: symbol | undefined = undefined;
-    let latestBlock = 0;
-    let timer: number | undefined = undefined;
-
-    try {
-      const result = await Promise.race([
-        new Promise<void>((_, reject) => {
-          timer = setTimeout(() => reject(new Error("Timeout")), timeout);
-        }),
-        new Promise<{ latestBlock: number; rollup: number }>(
-          (resolve, reject) => {
-            PaimaEventManager.Instance.subscribe(
-              {
-                topic: BuiltinEvents.SyncChains,
-                filter: { chain: chainName, block: undefined },
-              },
-              (event) => {
-                latestBlock = Math.max(event.block, latestBlock);
-                if (latestBlock > Number(transactionReceipt.blockNumber)) {
-                  resolve({ latestBlock, rollup: event.rollup });
-                }
-              },
-            )
-              .then((subscription) => subscriptionReference = subscription)
-              .catch(reject);
-          },
-        ),
-      ]);
-      return result || null;
-    } catch (error) {
-      console.error("Error waiting for Paima processing:", error);
-      return null;
-    } finally {
-      if (subscriptionReference) {
-        PaimaEventManager.Instance.unsubscribe(subscriptionReference);
-      }
-      if (timer) {
-        clearTimeout(timer);
       }
     }
   }

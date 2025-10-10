@@ -228,10 +228,6 @@ export async function startBatcherHttpServer(
           success: Type.Boolean(),
           message: Type.String(),
           inputsProcessed: Type.Number(),
-        }),
-        202: Type.Object({
-          success: Type.Boolean(),
-          message: Type.String(),
           transactionHash: Type.Optional(Type.String()),
           rollup: Type.Optional(Type.Number()),
         }),

@@ -29,6 +29,7 @@ import {
   ShutdownManager,
 } from "./shutdown-manager.ts";
 import type { BatcherGrammar, BatcherListener } from "./batcher-events.ts";
+import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 
 /**
  * PaimaBatcher - A type-safe, simplified blockchain batching system
@@ -87,9 +88,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   private submissionCallbacks: Map<
     string,
     {
-      resolve: (
-        result: BlockchainTransactionReceipt & { rollup?: number } | null,
-      ) => void;
+      resolve: (result: BlockchainTransactionReceipt) => void;
       reject: (error: Error) => void;
       timeoutId: number;
     }
@@ -167,14 +166,14 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
           if (listener) {
             try {
               // Execute the listener asynchronously without blocking
-              listener(payload);
+              await listener(payload);
             } catch (error) {
               const hasErrorListener = this.stateTransitionListeners.has(
                 "error",
               );
               if (prefix !== "error" && hasErrorListener) {
                 try {
-                  this.stateTransitionListeners.get("error")!({
+                  await this.stateTransitionListeners.get("error")!({
                     phase: `event-listener:${prefix}`,
                     error,
                     time: Date.now(),
@@ -189,6 +188,8 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       },
       storage: this.storage,
       submissionCallbacks: this.submissionCallbacks,
+      waitForPaimaProcessed: (receipt, timeout) =>
+        this.waitForPaimaProcessed(receipt, timeout),
     });
     this.shutdownManager = new ShutdownManager<T>(
       {
@@ -347,24 +348,120 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     // Create promise for callback with timeout
-    return new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        this.submissionCallbacks.delete(input.signature);
-        reject(new Error("Confirmation timeout"));
-      }, timeoutMs);
+    const receiptPromise = new Promise<BlockchainTransactionReceipt>(
+      (resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          this.submissionCallbacks.delete(input.signature);
+          reject(new Error("Receipt confirmation timeout"));
+        }, timeoutMs);
 
-      this.submissionCallbacks.set(input.signature, {
-        resolve: (result) => {
-          clearTimeout(timeoutId);
-          resolve(result);
-        },
-        reject: (error) => {
-          clearTimeout(timeoutId);
-          reject(error);
-        },
-        timeoutId,
-      });
-    });
+        this.submissionCallbacks.set(input.signature, {
+          resolve: (result) => {
+            clearTimeout(timeoutId);
+            resolve(result);
+          },
+          reject: (error) => {
+            clearTimeout(timeoutId);
+            reject(error);
+          },
+          timeoutId,
+        });
+      },
+    );
+
+    // Wait for transaction receipt
+    const receipt = await receiptPromise;
+
+    // If only waiting for receipt, return now
+    if (confirmationLevel === "wait-receipt") {
+      return receipt;
+    }
+
+    // If waiting for Paima processing, continue waiting
+    if (confirmationLevel === "wait-paima-processed") {
+      try {
+        const processingResult = await this.waitForPaimaProcessed(
+          receipt,
+          timeoutMs,
+        );
+        if (processingResult) {
+          return {
+            ...receipt,
+            rollup: processingResult.rollup,
+          };
+        } else {
+          throw new Error("Paima processing validation failed");
+        }
+      } catch (error) {
+        throw new Error(
+          `Failed to wait for Paima processing: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        );
+      }
+    }
+
+    return receipt;
+  }
+
+  /**
+   * Wait for a transaction to be processed by Paima Engine
+   * @param receipt - The transaction receipt to wait for
+   * @param timeout - Timeout in milliseconds
+   * @returns Promise with latest block and rollup number, or null on failure
+   */
+  private async waitForPaimaProcessed(
+    receipt: BlockchainTransactionReceipt,
+    timeout: number = 60000,
+  ): Promise<{ latestBlock: number; rollup: number } | null> {
+    // We need to get the chain name from the receipt
+    // Since receipt doesn't have chain info, we need to track which adapter submitted it
+    // For now, we'll use the first adapter's chain name
+    // TODO: This needs to be improved to track which adapter each input belongs to
+    const firstAdapter = Object.values(this.adapters)[0];
+    const chainName = firstAdapter.getSyncProtocolName?.() ??
+      firstAdapter.getChainName();
+
+    let subscriptionReference: symbol | undefined = undefined;
+    let latestBlock = 0;
+    let timer: number | undefined = undefined;
+
+    try {
+      const result = await Promise.race([
+        new Promise<void>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("Timeout")), timeout);
+        }),
+        new Promise<{ latestBlock: number; rollup: number }>(
+          (resolve, reject) => {
+            PaimaEventManager.Instance.subscribe(
+              {
+                topic: BuiltinEvents.SyncChains,
+                filter: { chain: chainName, block: undefined },
+              },
+              (event) => {
+                latestBlock = Math.max(event.block, latestBlock);
+                if (latestBlock > Number(receipt.blockNumber)) {
+                  resolve({ latestBlock, rollup: event.rollup });
+                }
+              },
+            )
+              .then((subscription) => subscriptionReference = subscription)
+              .catch(reject);
+          },
+        ),
+      ]);
+      return result || null;
+    } catch (error) {
+      console.error("Error waiting for Paima processing:", error);
+      return null;
+    } finally {
+      if (subscriptionReference) {
+        PaimaEventManager.Instance.unsubscribe(subscriptionReference);
+      }
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
   }
 
   /**

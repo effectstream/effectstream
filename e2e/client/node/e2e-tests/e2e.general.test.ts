@@ -251,21 +251,20 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     signature,
     timestamp,
   };
-  console.log("Sending batcher input", batcherInput);
+  const body = {
+    data: batcherInput,
+    confirmationLevel: "wait-paima-processed",
+  };
   console.log(
     "Sending request body",
-    JSON.stringify({
-      data: batcherInput,
-    }),
+    JSON.stringify(body, null, 2),
   );
   await fetch(`http://localhost:${ENV.BATCHER_PORT}/send-input`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      data: batcherInput,
-    }),
+    body: JSON.stringify(body),
   });
 
   nonce_counter += 1;

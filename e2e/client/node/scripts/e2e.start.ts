@@ -28,13 +28,12 @@ const avail_enabled = Deno
 
 const evmProcessesExtended = launchEvm("@e2e/evm-contracts");
 // Add batcher after the evm processes because it needs the contracts to be deployed
-evmProcessesExtended.stopProcessAtPort = [3334];
+evmProcessesExtended.stopProcessAtPort.push(3334);
 evmProcessesExtended.processes.push({
   name: "batcher",
   args: ["task", "-f", "@e2e/batcher", "start"],
   waitToExit: false,
   type: "system-dependency",
-  logs: "none",
 });
 
 /**
