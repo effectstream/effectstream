@@ -70,7 +70,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     wallets[0].privateKey,
   );
   await assertSQL<{ primitive_name: string }>(
-    "Check PaimaL2 sync-process",
+    "Check PaimaL2 sync-process 0x1",
     db,
     `SELECT
       primitive_name, id, paima_block_height, payload_type, payload
@@ -514,7 +514,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   // ============ Check if the primitive_accounting table is correct state after all tests ============
 
   await assertSQL<{ primitive_name: string }>(
-    "Check PaimaL2 sync-process",
+    "Check PaimaL2 sync-process 0x2",
     db,
     `SELECT
           primitive_name, id, paima_block_height, payload_type, payload
