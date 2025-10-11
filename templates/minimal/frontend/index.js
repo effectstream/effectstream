@@ -22,6 +22,7 @@ let wallet = null;
 async function login() {
   const result = await walletLogin({
     mode: WalletMode.EvmInjected,
+    chain: paimaEngineConfig.paimaL2Chain,
   });
   if (!result.success) throw new Error("Cannot login");
   wallet = result.result;
