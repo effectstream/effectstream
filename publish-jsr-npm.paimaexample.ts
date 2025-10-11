@@ -80,15 +80,16 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/node-sdk/db" },
   { path: "./packages/node-sdk/sync" }, // [@db]
   { path: "./packages/node-sdk/sm" }, // [@db]
+  { path: "./packages/node-sdk/db-emulator" }, // [@db, @sm]
   { path: "./packages/node-sdk/events" },
   { path: "./packages/node-sdk/runtime" }, // [@db, @sync, @sm]
-  { path: "./packages/node-sdk/batcher" },
   { path: "./packages/chains/evm-contracts" },
   { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
   { path: "./packages/build-tools/tui" },
   { path: "./packages/build-tools/collector" },
   { path: "./packages/build-tools/orchestrator" },
   { path: "./packages/chains/evm-hardhat" },
+  { path: "./packages/batcher" },
 ];
 
 const npmPackagesToPublish: { path: string; prepublish?: string[] }[] = [
@@ -98,6 +99,7 @@ const npmPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/binaries/midnight-indexer" },
   { path: "./packages/binaries/midnight-node" },
   { path: "./packages/binaries/midnight-proof-server" },
+  { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
 ];
 
 async function fetchLatestVersion(): Promise<string> {
@@ -129,7 +131,15 @@ async function processFile(filePath: string, reverse: boolean = false) {
       "@paima/$1",
     );
   }
-
+  // Update session.tmux files
+  if (
+    filePath.endsWith("session.tmux") || filePath.endsWith("session.tmux.ts")
+  ) {
+    newContent = newContent.replace(
+      /@paima\/(?!pgtyped-cli)([\w-]+)/g,
+      "deno -A @paimaexample/$1",
+    );
+  }
   // If this is a deno.json or package.json, update the version (both forward and reverse)
   if (filePath.endsWith("deno.json") || filePath.endsWith("package.json")) {
     const updateVersion = await fetchLatestVersion();

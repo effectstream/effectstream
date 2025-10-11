@@ -19,37 +19,47 @@ export async function standAloneApplyMigrations(
   userDefinedPrimitives?: Record<string, any>,
 ) {
   const l: SyncProtocolWithNetwork = localhostConfig as any;
-  const config = Object.entries(l.primitives).map(([key, value]: [string, any]) => {
+  const config = Object.entries(l.primitives).map(
+    ([key, value]: [string, any]) => {
+      const primitiveType = value.primitive.type;
+      const primitiveUniqueName = value.primitive.name;
+      const primitiveConfig = value.primitive;
+      const isBuiltInPrimitive = primitiveType in builtInPrimitivesMap;
+      const isUserDefinedPrimitive = userDefinedPrimitives &&
+        (primitiveType in userDefinedPrimitives);
+      const classConfig = {
+        ...primitiveConfig,
+        instanceName: primitiveUniqueName,
+      };
+      if (isBuiltInPrimitive) {
+        new builtInPrimitivesMap[
+          primitiveType as keyof typeof builtInPrimitivesMap
+        ](classConfig as any);
+      } else if (isUserDefinedPrimitive) {
+        new userDefinedPrimitives[
+          primitiveType as keyof typeof userDefinedPrimitives
+        ](classConfig);
+      } else {
+        console.error(
+          "userDefinedPrimitives",
+          userDefinedPrimitives,
+          primitiveType,
+        );
+        throw new Error(`Primitive ${primitiveType} not found`);
+      }
 
-    const primitiveType = value.primitive.type;
-    const primitiveUniqueName = value.primitive.name;
-    const primitiveConfig = value.primitive;
-    const isBuiltInPrimitive = primitiveType in builtInPrimitivesMap;
-    const isUserDefinedPrimitive = userDefinedPrimitives && (primitiveType in userDefinedPrimitives);
-    const classConfig = {
-      ...primitiveConfig,
-      instanceName: primitiveUniqueName,
-    }
-    if (isBuiltInPrimitive) {
-      new builtInPrimitivesMap[primitiveType as keyof typeof builtInPrimitivesMap](classConfig as any) ;
-    } else if (isUserDefinedPrimitive) {
-      new userDefinedPrimitives[primitiveType as keyof typeof userDefinedPrimitives](classConfig);
-    } else {
-      console.error("userDefinedPrimitives", userDefinedPrimitives, primitiveType);
-      throw new Error(`Primitive ${primitiveType} not found`);
-    }
-
-    return {
-      config: {
-        primitives: [{
-          primitive: {
-            type: value.primitive.type,
-            name: value.primitive.name,
-          },
-        }],
-      },
-    };
-  });
+      return {
+        config: {
+          primitives: [{
+            primitive: {
+              type: value.primitive.type,
+              name: value.primitive.name,
+            },
+          }],
+        },
+      };
+    },
+  );
 
   await run(function* () {
     return yield* createDynamicTables(
@@ -76,4 +86,3 @@ export async function standAloneApplyMigrations(
     );
   }
 }
-

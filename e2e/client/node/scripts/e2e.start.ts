@@ -26,6 +26,16 @@ const avail_enabled = Deno
   ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
   : true;
 
+const evmProcessesExtended = launchEvm("@e2e/evm-contracts");
+// Add batcher after the evm processes because it needs the contracts to be deployed
+evmProcessesExtended.stopProcessAtPort.push(3334);
+evmProcessesExtended.processes.push({
+  name: "batcher",
+  args: ["task", "-f", "@e2e/batcher", "start"],
+  waitToExit: false,
+  type: "system-dependency",
+});
+
 /**
  * Launch the Sync through the orchestrator,
  * and wait for the sync process to start and be ready.
@@ -46,32 +56,25 @@ export async function startup(): Promise<Client> {
 
     // Launch my processes
     processesToLaunch: [
-      launchEvm("@e2e/evm-contracts"),
+      evmProcessesExtended,
       yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
       midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : {},
       avail_enabled ? launchAvail("@e2e/avail-contracts") : {},
       {
-        name: "frontend-build",
-        args: ["task", "-f", "@paima/explorer", "build"],
-        waitToExit: true,
-      },
-      {
-        name: "e2e-wallet",
-        args: ["task", "-f", "@e2e/wallets-ui", "build"],
-        waitToExit: true,
+        processes: [
+          {
+            name: "frontend-build",
+            args: ["task", "-f", "@paima/explorer", "build"],
+            waitToExit: true,
+          },
+          {
+            name: "e2e-wallet",
+            args: ["task", "-f", "@e2e/wallets-ui", "build"],
+            waitToExit: true,
+          },
+        ],
       },
     ],
-
-    batcher: {
-      batchIntervalMs: 100, // 100ms for testing
-      paimaL2Address: contractAddressesEvmMain()["chain31337"][
-        "PaimaL2ContractModule#MyPaimaL2Contract"
-      ],
-      paimaSyncProtocolName: "parallelEvmRPC_fast",
-      batcherPrivateKey:
-        "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-      chainName: "hardhat",
-    },
   });
   start(config);
   console.log("⌛ Waiting for sync process to start...");

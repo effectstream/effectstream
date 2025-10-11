@@ -1,5 +1,4 @@
-
-import { Type, type StaticDecode } from "@sinclair/typebox";
+import { type StaticDecode, Type } from "@sinclair/typebox";
 import {
   type ConfigSyncProtocolType,
   type FlattenSyncProtocolIOFor,
@@ -26,7 +25,6 @@ import { counter } from "./custom-primitive.abi.ts";
 const counterGrammar = [
   ["counter", Type.Number()],
 ] as const;
-
 
 /**
  * Erc20 Primitive
@@ -79,12 +77,19 @@ export class EvmCounterPrimitive extends PaimaPrimitive<
     }[];
   }> {
     const { userAddress, count } = primitiveTransactionData.output.payload;
-    const userAddressParsed = Value.Decode(TypeboxHelpers.Evm.Address, userAddress.toLowerCase());
-    const countParsed = Value.Decode(TypeboxHelpers.Uint256, count);
+    const userAddressParsed = Value.Decode(
+      TypeboxHelpers.Evm.Address,
+      userAddress.toLowerCase(),
+    );
+    // Convert BigInt to number for int256 values (works for positive and negative integers)
+    const countParsed = BigInt(count);
+    const counterNumber = countParsed >= 0n
+      ? Number(countParsed)
+      : -Number(-countParsed);
 
-    const isBatched= false;
+    const isBatched = false;
     const accountingPayload: ParamToData<typeof counterGrammar> = {
-      counter: Number(countParsed),
+      counter: counterNumber,
     };
     const stateMachinePayload:
       | StaticDecode<
@@ -136,6 +141,5 @@ export class EvmCounterPrimitive extends PaimaPrimitive<
 
   override getDynamicTables = (name: string): string | undefined => {
     return undefined;
-  }
+  };
 }
-

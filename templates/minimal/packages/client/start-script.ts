@@ -5,7 +5,6 @@ import {
 } from "@paimaexample/orchestrator";
 import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
-import { contractAddressesEvmMain } from "@minimal/evm-contracts";
 // import { launchAvail } from "@paima/orchestrator/start-avail";
 // import { launchCardano } from "@paimaexample/orchestrator/start-cardano";
 import { launchEvm } from "@paimaexample/orchestrator/start-evm";
@@ -28,7 +27,6 @@ const config = Value.Parse(OrchestratorConfig, {
   processesToLaunch: [
     launchEvm("@minimal/evm-contracts"),
   ],
-
   // Launch the Batcher with our PaimaL2 Contract
   // batcher: {
   //   batchIntervalMs: 100,

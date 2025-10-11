@@ -1,8 +1,17 @@
 import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
 import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
-import { contractAddressesEvmMain } from "@chess/evm-contracts";
 import { launchEvm } from "@paimaexample/orchestrator/start-evm";
+
+const evmProcessesExtended = launchEvm("@chess/evm-contracts");
+evmProcessesExtended.stopProcessAtPort.push(3334);
+evmProcessesExtended.processes.push({
+  name: "batcher",
+  args: ["task", "-f", "@chess/batcher", "start"],
+  waitToExit: false,
+  type: "system-dependency",
+  logs: "none",
+});
 
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
@@ -19,7 +28,7 @@ const config = Value.Parse(OrchestratorConfig, {
 
   // Launch my processes
   processesToLaunch: [
-    launchEvm("@chess/evm-contracts"),
+    evmProcessesExtended,
     {
       stopProcessAtPort: [10590, 10599],
       processes: [
@@ -52,18 +61,6 @@ const config = Value.Parse(OrchestratorConfig, {
       ],
     },
   ],
-
-  // Launch the Batcher with our PaimaL2 Contract
-  batcher: {
-    batchIntervalMs: 100,
-    paimaL2Address: contractAddressesEvmMain()["chain31337"][
-      "PaimaL2ContractModule#MyPaimaL2Contract"
-    ],
-    paimaSyncProtocolName: "mainEvmRPC",
-    batcherPrivateKey:
-      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-    chainName: "hardhat",
-  },
 });
 
 if (Deno.env.get("PAIMA_STDOUT")) {

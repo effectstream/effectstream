@@ -21,7 +21,11 @@ interface WalletInfo {
   address: `0x${string}`;
 }
 
-async function createSignedInput(conciseInput: string, walletInfo: WalletInfo) {
+async function createSignedInput(
+  conciseInput: string,
+  walletInfo: WalletInfo,
+  batcherTarget: string | undefined = undefined,
+) {
   const account = privateKeyToAccount(walletInfo.privateKey);
   const walletClient = createWalletClient({
     account,
@@ -40,6 +44,7 @@ async function createSignedInput(conciseInput: string, walletInfo: WalletInfo) {
     userAddress,
     addressType,
     conciseInput,
+    batcherTarget,
   );
 
   const signature = await walletClient.signMessage({
@@ -48,10 +53,11 @@ async function createSignedInput(conciseInput: string, walletInfo: WalletInfo) {
 
   return {
     addressType,
-    userAddress,
-    userSignature: signature,
-    conciseInput,
-    millisecondTimestamp: timestamp,
+    address: userAddress,
+    signature: signature,
+    input: conciseInput,
+    timestamp: timestamp,
+    target: batcherTarget,
   };
 }
 
@@ -73,13 +79,21 @@ async function sendInputToBatcher(batchedInput: any) {
 }
 
 // TODO This should be provided by @paima/* package.
-async function postToBatcher(jsonArrayString: string, walletInfo: WalletInfo) {
+async function postToBatcher(
+  jsonArrayString: string,
+  walletInfo: WalletInfo,
+  batcherTarget: string | undefined = undefined,
+) {
   console.log("🚀 Creating signed input for:", jsonArrayString);
-  const signedInput = await createSignedInput(jsonArrayString, walletInfo);
+  const signedInput = await createSignedInput(
+    jsonArrayString,
+    walletInfo,
+    batcherTarget,
+  );
 
   console.log("✅ Signed input created:", {
     ...signedInput,
-    userSignature: signedInput.userSignature.slice(0, 10) + "...",
+    signature: signedInput.signature.slice(0, 10) + "...",
   });
 
   console.log("📤 Sending to batcher...");
@@ -112,6 +126,9 @@ export function BatcherInput() {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [grammar, setGrammar] = useState<Record<string, any>>({});
   const [isGrammarLoading, setIsGrammarLoading] = useState(true);
+  const [batcherTarget, setBatcherTarget] = useState<string | undefined>(
+    undefined,
+  );
 
   const showNotification = (
     type: Notification["type"],
@@ -301,7 +318,7 @@ export function BatcherInput() {
 
     try {
       const jsonArrayString = JSON.stringify(jsonArray);
-      await postToBatcher(jsonArrayString, wallet);
+      await postToBatcher(jsonArrayString, wallet, batcherTarget);
       showNotification(
         "success",
         "Success!",
