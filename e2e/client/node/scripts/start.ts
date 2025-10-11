@@ -23,6 +23,18 @@ const avail_enabled = Deno
   ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
   : true;
 
+const evmProcessesExtended = launchEvm("@e2e/evm-contracts");
+// Add batcher after the evm processes because it needs the contracts to be deployed
+evmProcessesExtended.stopProcessAtPort.push(3334);
+evmProcessesExtended.processes.push(
+  { // Launch the Batcher with our PaimaL2 Contract
+    name: "batcher",
+    args: ["task", "-f", "@e2e/batcher", "start"],
+    waitToExit: false,
+    type: "system-dependency",
+  },
+);
+
 const config = Value.Parse(OrchestratorConfig, {
   // logs: "stdout",
   processes: {
@@ -38,7 +50,7 @@ const config = Value.Parse(OrchestratorConfig, {
 
   // Launch my processes
   processesToLaunch: [
-    launchEvm("@e2e/evm-contracts"),
+    evmProcessesExtended,
     yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
     avail_enabled ? launchAvail("@e2e/avail-contracts") : {},
     midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : {},
@@ -56,13 +68,6 @@ const config = Value.Parse(OrchestratorConfig, {
           waitToExit: false,
           type: "system-dependency",
           link: "http://localhost:10590",
-        },
-        { // Launch the Batcher with our PaimaL2 Contract
-          name: "batcher",
-          args: ["task", "-f", "@e2e/batcher", "start"],
-          waitToExit: false,
-          type: "system-dependency",
-          link: "http://localhost:3334",
         },
       ],
     },

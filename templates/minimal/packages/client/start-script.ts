@@ -20,7 +20,6 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.TMUX]: false,
     [ComponentNames.TUI]: false,
     [ComponentNames.DOCS]: false,
-    [ComponentNames.PAIMA_BATCHER]: false,
   },
 
   // Launch my processes
