@@ -1,0 +1,11 @@
+{
+  "name": "@multi-chain-transfer/batcher",
+  "exports": "./main.ts",
+  "imports": {
+    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.68",
+    "effection": "npm:effection@^3.5.0"
+  },
+  "tasks": {
+    "start": "deno run -A --unstable-detect-cjs main.ts"
+  }
+}
