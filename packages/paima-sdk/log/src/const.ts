@@ -35,7 +35,6 @@ export const PaimaToolsComponents = {
   COLLECTOR: "collector",
   EXPLORER: "explorer",
   DOCS: "docs",
-  PAIMA_BATCHER: "batcher",
   DEPLOY_EVM_CONTRACTS: "deploy-evm-contracts",
   MIDNIGHT_CONTRACT: "midnight-contract",
 };

@@ -54,18 +54,14 @@ const config = Value.Parse(OrchestratorConfig, {
     // launchCardano("@example-evm-midnight/cardano-contracts"),
     midnightExtended("@example-evm-midnight/midnight-contracts"),
     // launchAvail("@example-evm-midnight/avail-contracts"),
+    { // Launch the Batcher with our PaimaL2 Contract
+      name: "batcher",
+      args: ["task", "-f", "@example-evm-midnight/batcher", "start"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:3334",
+    },
   ],
-
-  // Launch the Batcher with our PaimaL2 Contract
-  batcher: {
-    paimaL2Address: contractAddressesEvmMain()["chain31337"][
-      "PaimaL2ContractModule#MyPaimaL2Contract"
-    ],
-    paimaSyncProtocolName: "mainEvmRPC",
-    batcherPrivateKey:
-      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-    chainName: "hardhat",
-  },
 });
 
 if (Deno.env.get("PAIMA_STDOUT")) {

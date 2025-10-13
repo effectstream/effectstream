@@ -1,6 +1,6 @@
 {
-    "name": "@paimaexample/explorer",
-    "version": "0.3.62",
+    "name": "@paima/explorer",
+    "version": "0.3.0",
     "main": "client/dist/index.html",
     "bin": {
         "explorer": "cli.cjs"

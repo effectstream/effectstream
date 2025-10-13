@@ -1,0 +1,14 @@
+{
+  "name": "@e2e/batcher",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": "./main.ts",
+  "imports": {
+    "viem": "npm:viem@^2.21.3",
+    "effection": "npm:effection@^3.5.0",
+    "@paima/batcher": "../../../packages/batcher/mod.ts"
+  },
+  "tasks": {
+    "start": "deno run -A --unstable-raw-imports main.ts"
+  }
+}

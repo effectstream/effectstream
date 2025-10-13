@@ -14,7 +14,16 @@ import { ComponentNames } from "@paima/log";
 //
 // packageName: the name of the package that implements the tasks.
 //
-export const launchEvm = (packageName: string) => ({
+export const launchEvm = (packageName: string): {
+  stopProcessAtPort: number[];
+  processes: {
+    name: string;
+    args: string[];
+    waitToExit?: boolean;
+    logs?: string;
+    type?: string;
+  }[];
+} => ({
   stopProcessAtPort: [8545, 8546],
   processes: [
     {

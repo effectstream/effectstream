@@ -37,7 +37,11 @@ export function WalletModal({ onClose }: WalletModalProps) {
           },
         });
       } else {
-        await connectEvmWallet({ mode });
+        const loginInfo /*: LoginInfo*/ = {
+          mode: mode,
+          chain: paimaEngineConfig.paimaL2Chain,
+        };
+        await connectEvmWallet(loginInfo);
       }
       onClose();
     } catch (error) {
@@ -49,9 +53,13 @@ export function WalletModal({ onClose }: WalletModalProps) {
   return (
     <div className="wallet-modal-overlay">
       <div className="wallet-modal-content">
-        <button onClick={onClose} className="wallet-modal-close">&times;</button>
+        <button onClick={onClose} className="wallet-modal-close">
+          &times;
+        </button>
         <h2 className="wallet-modal-title">Connect Wallet</h2>
-        <p className="wallet-modal-subtitle">Choose your preferred wallet to continue</p>
+        <p className="wallet-modal-subtitle">
+          Choose your preferred wallet to continue
+        </p>
         <div className="wallet-options">
           <button
             onClick={() => handleConnect(WalletMode.EvmInjected)}

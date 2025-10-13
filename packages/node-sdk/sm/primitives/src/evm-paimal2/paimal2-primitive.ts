@@ -67,7 +67,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     contractAddress: EvmAddress;
     paimaL2Grammar: GrammarDefinition;
   }) {
-    super({...config, stateMachinePrefix: undefined});
+    super({ ...config, stateMachinePrefix: undefined });
     this.contractAddress = Value.Decode(
       TypeboxHelpers.Evm.Address,
       config.contractAddress,
@@ -364,10 +364,11 @@ export class PaimaL2Primitive extends PaimaPrimitive<
         const { parsed } = batchedMessage;
         const {
           addressType,
-          userAddress,
-          millisecondTimestamp,
-          userSignature,
-          conciseInput,
+          address: userAddress,
+          timestamp: millisecondTimestamp,
+          signature: userSignature,
+          input: conciseInput,
+          target: batcherTarget,
         } = parsed;
         // TODO: We need to setup & configure the namespace.
         const message = createMessageForBatcher(
@@ -376,6 +377,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
           userAddress,
           addressType,
           conciseInput,
+          batcherTarget,
         );
         // We yield the promise to the generator caller.
         // Sync Generators cannot resolve promises.
@@ -409,15 +411,15 @@ export class PaimaL2Primitive extends PaimaPrimitive<
           commands.push(
             yield* this.executePaimaL2Input({
               paima_block_height,
-              nonce: batchedMessage.parsed.userAddress +
+              nonce: batchedMessage.parsed.address +
                 "-" +
-                batchedMessage.parsed.millisecondTimestamp,
+                batchedMessage.parsed.timestamp,
               ownChain: {
                 blockNumber: response.syncProtocol.blockNumber,
                 transactionHash: response.syncProtocol.transactionHash,
               },
               payload: {
-                data: stringToHex(batchedMessage.parsed.conciseInput),
+                data: stringToHex(batchedMessage.parsed.input),
                 userAddress: userAddress as EvmAddress, // This might be a non-EVM address
                 value: "0x0",
               },

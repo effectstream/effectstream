@@ -51,7 +51,6 @@ export const OrchestratorConfig = Type.Object({
   kill: Type.Object({
     // TODO: kill.auto is workaround to kill processes that are still running from a previous run.
     //       PGLite 5432. Frequently does not shutdown in some cases.
-    //       Batcher 3334. Sometimes it does not shutdown cleanly when the node crashes.
     //       And other ports are checked.
     auto: Type.Boolean({ default: true }),
   }, { default: {} }),
@@ -103,19 +102,8 @@ export const OrchestratorConfig = Type.Object({
 
     // DevOps
     [ComponentNames.COLLECTOR]: Type.Boolean({ default: true }),
-    [ComponentNames.PAIMA_BATCHER]: Type.Boolean({ default: true }),
     [ComponentNames.DOCS]: Type.Boolean({ default: true }),
   }, { default: {} }),
-
-  // Batcher options.
-  // NOTE: Set processes[ComponentNames.PAIMA_BATCHER] = true to launch the batcher.
-  batcher: Type.Optional(Type.Object({
-    paimaL2Address: Type.String(),
-    batcherPrivateKey: Type.String(),
-    paimaSyncProtocolName: Type.String(),
-    chainName: Type.String(),
-    batchIntervalMs: Type.Number({ default: 1000 }),
-  })),
 });
 
 type OrchestratorConfigType = Static<typeof OrchestratorConfig>;
@@ -236,11 +224,6 @@ export async function start(
       }
       processesToLaunch.push(batch);
     }
-
-    processesToLaunch.push([
-      config.processes[ComponentNames.PAIMA_BATCHER] &&
-      startProcess[ComponentNames.PAIMA_BATCHER],
-    ]);
 
     processesToLaunch.push([
       // Start the main process
@@ -376,42 +359,6 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     });
     await Promise.all([node.process.status]);
     return node;
-  },
-
-  [ComponentNames.PAIMA_BATCHER]: async (): Promise<ProcessComponent> => {
-    if (config.kill.auto) {
-      await dkill({ ports: [ENV.BATCHER_PORT] });
-    }
-
-    if (!config.batcher) {
-      throw new Error("Batcher config is required");
-    }
-    const {
-      paimaL2Address,
-      batcherPrivateKey,
-      chainName,
-      paimaSyncProtocolName,
-      batchIntervalMs,
-    } = config.batcher;
-    const batcher = $({
-      args: [
-        "run",
-        "-A",
-        config.packageName + "/batcher/start",
-        `--batchIntervalMs=${batchIntervalMs ?? 1000}`,
-        `--paimaL2Address=${paimaL2Address}`,
-        `--batcherPrivateKey=${batcherPrivateKey}`,
-        `--chainName=${chainName}`,
-        `--paimaSyncProtocolName=${paimaSyncProtocolName}`,
-      ],
-      log: rawLogHandler,
-      component: ComponentNames.PAIMA_BATCHER,
-      abortController: abortControllers.system,
-      namespace: [],
-    });
-    // This is a long-lasting service that does not exit.
-    void batcher.process.status;
-    return batcher;
   },
 
   [ComponentNames.PAIMA_PGLITE]: async (): Promise<ProcessComponent> => {
