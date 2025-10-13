@@ -36,7 +36,11 @@ const AddressType = {
   EVM: 0,
 };
 
-async function createSignedInput(conciseInput: string, walletInfo: WalletInfo) {
+async function createSignedInput(
+  conciseInput: string,
+  walletInfo: WalletInfo,
+  batcherTarget: string | undefined = undefined,
+) {
   const account = privateKeyToAccount(walletInfo.privateKey);
   const walletClient = createWalletClient({
     account,
@@ -54,6 +58,7 @@ async function createSignedInput(conciseInput: string, walletInfo: WalletInfo) {
     userAddress,
     addressType,
     conciseInput,
+    batcherTarget,
   );
 
   const signature = await walletClient.signMessage({
@@ -63,10 +68,11 @@ async function createSignedInput(conciseInput: string, walletInfo: WalletInfo) {
 
   return {
     addressType,
-    userAddress,
-    userSignature: signature,
-    conciseInput,
-    millisecondTimestamp: timestamp,
+    address: userAddress,
+    signature: signature,
+    input: conciseInput,
+    timestamp: timestamp,
+    target: batcherTarget,
   };
 }
 
@@ -86,13 +92,21 @@ async function sendInputToBatcher(batchedInput: any) {
   return await response.json();
 }
 
-async function postToBatcher(jsonArrayString: string, walletInfo: WalletInfo) {
+async function postToBatcher(
+  jsonArrayString: string,
+  walletInfo: WalletInfo,
+  batcherTarget: string | undefined = undefined,
+) {
   console.log("🚀 Creating signed input for:", jsonArrayString);
-  const signedInput = await createSignedInput(jsonArrayString, walletInfo);
+  const signedInput = await createSignedInput(
+    jsonArrayString,
+    walletInfo,
+    batcherTarget,
+  );
 
   console.log("✅ Signed input created:", {
     ...signedInput,
-    userSignature: signedInput.userSignature.slice(0, 10) + "...",
+    signature: signedInput.signature.slice(0, 10) + "...",
   });
 
   console.log("📤 Sending to batcher...");

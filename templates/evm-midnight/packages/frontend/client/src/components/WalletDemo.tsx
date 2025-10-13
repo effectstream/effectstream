@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { writeContract } from "viem/actions";
-import { createPublicClient, createWalletClient, http, type WalletClient } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type WalletClient,
+} from "viem";
 import { hardhat } from "viem/chains";
 import { useWallet } from "../contexts/WalletContext.tsx";
 import {
@@ -106,6 +111,7 @@ async function createSignedInput(
   conciseInput: string,
   userAddress: string,
   signMessage: (message: string) => Promise<string>,
+  batcherTarget: string | undefined = undefined,
 ) {
   const timestamp = Date.now();
   const addressType = AddressType.EVM;
@@ -115,8 +121,10 @@ async function createSignedInput(
     millisecondTimestamp: number,
     walletAddress: string,
     inputData: string,
+    batcherTarget: string | undefined = undefined,
   ): string {
-    return ((namespace ?? "") + millisecondTimestamp + walletAddress +
+    return ((namespace ?? "") + (batcherTarget ?? "") + millisecondTimestamp +
+      walletAddress +
       inputData)
       .replace(/[^a-zA-Z0-9]/g, "-")
       .toLocaleLowerCase();
@@ -127,16 +135,17 @@ async function createSignedInput(
     timestamp,
     userAddress,
     conciseInput,
+    batcherTarget,
   );
 
   const signature = await signMessage(message);
 
   return {
     addressType,
-    userAddress,
-    userSignature: signature,
-    conciseInput,
-    millisecondTimestamp: timestamp,
+    address: userAddress,
+    signature: signature,
+    input: conciseInput,
+    timestamp: timestamp,
   };
 }
 
@@ -170,7 +179,7 @@ async function postToBatcher(
 
   console.log("✅ Signed input created:", {
     ...signedInput,
-    userSignature: signedInput.userSignature.slice(0, 10) + "...",
+    userSignature: signedInput.signature.slice(0, 10) + "...",
   });
 
   console.log("📤 Sending to batcher...");
@@ -291,7 +300,9 @@ export function WalletDemo() {
   const [newPropName, setNewPropName] = useState("");
   const [newPropValue, setNewPropValue] = useState("");
   const [isIncrementingCounter, setIsIncrementingCounter] = useState(false);
-  const [hardhatWalletClient, setHardhatWalletClient] = useState<WalletClient | null>(null);
+  const [hardhatWalletClient, setHardhatWalletClient] = useState<
+    WalletClient | null
+  >(null);
 
   // ERC721 contract address - moved here to be accessible to both sections
   const erc721Address = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
@@ -356,7 +367,7 @@ export function WalletDemo() {
         try {
           console.log(
             "🔗 [HARDHAT] Creating hardhat wallet client for:",
-            walletAddress
+            walletAddress,
           );
 
           const client = createWalletClient({
@@ -368,12 +379,12 @@ export function WalletDemo() {
           setHardhatWalletClient(client);
 
           console.log(
-            "✅ [HARDHAT] Hardhat wallet client created successfully"
+            "✅ [HARDHAT] Hardhat wallet client created successfully",
           );
         } catch (error) {
           console.error(
             "❌ [HARDHAT] Failed to create hardhat wallet client:",
-            error
+            error,
           );
         }
       }
@@ -597,7 +608,7 @@ export function WalletDemo() {
       console.log("🎉 [CONTRACT] Transaction receipt:", transaction);
       const blockNumber: bigint = transaction.blockNumber;
 
-      await BlockWatcher.Instance.waitForBlock('mainEvmRPC', blockNumber);
+      await BlockWatcher.Instance.waitForBlock("mainEvmRPC", blockNumber);
 
       showNotification(
         "success",

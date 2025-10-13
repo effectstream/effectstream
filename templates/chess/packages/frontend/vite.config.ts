@@ -78,7 +78,8 @@ export default defineConfig({
 
       // Fix for: Module "npm:@scope/package@version" has been externalized for browser compatibility.
       //          Cannot access "npm:@scope/package@version.__esModule" in client code
-      "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11": "@cardano-foundation/cardano-verify-datasignature",
+      "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11":
+        "@cardano-foundation/cardano-verify-datasignature",
       "npm:@polkadot/extension-dapp@^0.61.7": "@polkadot/extension-dapp",
       "npm:@polkadot/util@^13.5.6": "@polkadot/util",
       "npm:@polkadot/util@^13.4.3": "@polkadot/util",
@@ -97,10 +98,10 @@ export default defineConfig({
       "npm:/@sinclair/typebox@~0.34.30/value": "@sinclair/typebox/value",
       "npm:viem": "viem",
       "npm:viem/accounts": "viem/accounts",
-      "npm:viem@^2.21.3": "viem",
-      "npm:viem@^2.21.3/accounts": "viem/accounts",
-      "npm:/viem@^2.21.3/accounts": "viem/accounts",
       "npm:@dcspark/cip34-js@3.0.1": "@dcspark/cip34-js",
+      "npm:viem@2.37.3/accounts": "viem/accounts",
+      "npm:/viem@2.37.3/accounts": "viem/accounts",
+      "npm:viem@2.37.3": "viem",
       "npm:@dcspark/carp-client@^3.3.0": "@dcspark/carp-client",
       "npm:@subsquid/ss58-codec@^1.2.3": "@subsquid/ss58-codec",
     },
