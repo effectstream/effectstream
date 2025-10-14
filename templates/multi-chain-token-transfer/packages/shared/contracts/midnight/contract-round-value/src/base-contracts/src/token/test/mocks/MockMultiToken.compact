@@ -1,0 +1,104 @@
+pragma language_version >= 0.17.0;
+
+import CompactStandardLibrary;
+import "../../MultiToken" prefix MultiToken_;
+
+export { ZswapCoinPublicKey, ContractAddress, Either, Maybe };
+export { MultiToken__balances, MultiToken__operatorApprovals, MultiToken__uri };
+
+/**
+ * @description `_uri` is a `Maybe` type for testing.
+ * If `_uri` is provided, initialize the contract with that value.
+ * Otherwise, the contract will not initialize and we can test
+ * the contract when it is not initialized properly.
+*/
+constructor(
+  _uri: Maybe<Opaque<"string">>
+) {
+  if (disclose(_uri.is_some)) {
+    MultiToken_initialize(_uri.value);
+  }
+}
+
+export circuit initialize(_uri: Opaque<"string">): [] {
+  return MultiToken_initialize(_uri);
+}
+
+export circuit uri(id: Uint<128>): Opaque<"string"> {
+  return MultiToken_uri(id);
+}
+
+export circuit balanceOf(account: Either<ZswapCoinPublicKey, ContractAddress>, id: Uint<128>): Uint<128> {
+  return MultiToken_balanceOf(account, id);
+}
+
+export circuit setApprovalForAll(operator: Either<ZswapCoinPublicKey, ContractAddress>, approved: Boolean): [] {
+  return MultiToken_setApprovalForAll(operator, approved);
+}
+
+export circuit isApprovedForAll(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+  operator: Either<ZswapCoinPublicKey, ContractAddress>
+): Boolean {
+  return MultiToken_isApprovedForAll(account, operator);
+}
+
+export circuit transferFrom(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  id: Uint<128>,
+  value: Uint<128>
+): [] {
+  return MultiToken_transferFrom(from, to, id, value);
+}
+
+export circuit _unsafeTransferFrom(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  id: Uint<128>,
+  value: Uint<128>
+): [] {
+  return MultiToken__unsafeTransferFrom(from, to, id, value);
+}
+
+export circuit _transfer(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  id: Uint<128>,
+  value: Uint<128>
+): [] {
+  return MultiToken__transfer(from, to, id, value);
+}
+
+export circuit _unsafeTransfer(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  id: Uint<128>,
+  value: Uint<128>
+): [] {
+  return MultiToken__unsafeTransfer(from, to, id, value);
+}
+
+export circuit _setURI(newURI: Opaque<"string">): [] {
+  return MultiToken__setURI(newURI);
+}
+
+export circuit _mint(to: Either<ZswapCoinPublicKey, ContractAddress>, id: Uint<128>, value: Uint<128>): [] {
+  return MultiToken__mint(to, id, value);
+}
+
+export circuit _unsafeMint(to: Either<ZswapCoinPublicKey, ContractAddress>, id: Uint<128>, value: Uint<128>): [] {
+  return MultiToken__unsafeMint(to, id, value);
+}
+
+export circuit _burn(from: Either<ZswapCoinPublicKey, ContractAddress>, id: Uint<128>, value: Uint<128>): [] {
+  return MultiToken__burn(from, id, value);
+}
+
+export circuit _setApprovalForAll(
+  owner: Either<ZswapCoinPublicKey, ContractAddress>,
+  operator: Either<ZswapCoinPublicKey, ContractAddress>,
+  approved: Boolean
+): [] {
+  return MultiToken__setApprovalForAll(owner, operator, approved);
+}

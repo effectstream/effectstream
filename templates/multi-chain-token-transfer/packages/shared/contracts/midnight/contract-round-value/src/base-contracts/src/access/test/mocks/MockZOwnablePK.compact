@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT
+
+pragma language_version >= 0.17.0;
+
+import CompactStandardLibrary;
+import "../../ZOwnablePK" prefix ZOwnablePK_;
+
+export { ZswapCoinPublicKey, ContractAddress, Either, Maybe };
+export { ZOwnablePK__ownerCommitment, ZOwnablePK__counter };
+
+/**
+ * @description `isInit` is a param for testing.
+ *
+ * If `isInit` is false, the constructor will not initialize the contract.
+ * This behavior is to test that circuits are not callable unless the
+ * contract is initialized.
+*/
+constructor(initOwnerCommitment: Bytes<32>, instanceSalt: Bytes<32>, isInit: Boolean) {
+  if (disclose(isInit)) {
+    ZOwnablePK_initialize(initOwnerCommitment, instanceSalt);
+  }
+}
+
+export circuit owner(): Bytes<32> {
+  return ZOwnablePK_owner();
+}
+
+export circuit transferOwnership(newOwnerCommitment: Bytes<32>): [] {
+  return ZOwnablePK_transferOwnership(disclose(newOwnerCommitment));
+}
+
+export circuit renounceOwnership(): [] {
+  return ZOwnablePK_renounceOwnership();
+}
+
+export circuit assertOnlyOwner(): [] {
+  return ZOwnablePK_assertOnlyOwner();
+}
+
+export circuit _computeOwnerCommitment(id: Bytes<32>, counter: Uint<64>): Bytes<32> {
+  return ZOwnablePK__computeOwnerCommitment(id, counter);
+}
+
+export pure circuit _computeOwnerId(pk: Either<ZswapCoinPublicKey, ContractAddress>, nonce: Bytes<32>): Bytes<32> {
+  return ZOwnablePK__computeOwnerId(pk, nonce);
+}
+
+export circuit _transferOwnership(newOwnerCommitment: Bytes<32>): [] {
+  return ZOwnablePK__transferOwnership(newOwnerCommitment);
+}

@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: MIT
+
+pragma language_version >= 0.17.0;
+
+import CompactStandardLibrary;
+
+import "../../FungibleToken" prefix FungibleToken_;
+
+export { ZswapCoinPublicKey, ContractAddress, Either, Maybe };
+
+/**
+ * @description `init` is a param for testing.
+ * If `init` is true, initialize the contract with the
+ * _name`, `_symbol`, and `_decimals`.
+ * Otherwise, the contract will not initialize and we can test
+ * the contract when it is not initialized properly.
+*/
+constructor(
+  _name: Opaque<"string">,
+  _symbol: Opaque<"string">,
+  _decimals:Uint<8>,
+  init: Boolean
+) {
+  if (disclose(init)) {
+    FungibleToken_initialize(_name, _symbol, _decimals);
+  }
+}
+
+export circuit name(): Opaque<"string"> {
+  return FungibleToken_name();
+}
+
+export circuit symbol(): Opaque<"string"> {
+  return FungibleToken_symbol();
+}
+
+export circuit decimals(): Uint<8> {
+  return FungibleToken_decimals();
+}
+
+export circuit totalSupply(): Uint<128> {
+  return FungibleToken_totalSupply();
+}
+
+export circuit balanceOf(account: Either<ZswapCoinPublicKey, ContractAddress>): Uint<128> {
+  return FungibleToken_balanceOf(account);
+}
+
+export circuit allowance(
+  owner: Either<ZswapCoinPublicKey, ContractAddress>,
+  spender: Either<ZswapCoinPublicKey, ContractAddress>
+): Uint<128> {
+  return FungibleToken_allowance(owner, spender);
+}
+
+export circuit transfer(to: Either<ZswapCoinPublicKey, ContractAddress>, value: Uint<128>): Boolean {
+  return FungibleToken_transfer(to, value);
+}
+
+export circuit _unsafeTransfer(to: Either<ZswapCoinPublicKey, ContractAddress>, value: Uint<128>): Boolean {
+  return FungibleToken__unsafeTransfer(to, value);
+}
+
+export circuit transferFrom(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): Boolean {
+  return FungibleToken_transferFrom(from, to, value);
+}
+
+export circuit _unsafeTransferFrom(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): Boolean {
+  return FungibleToken__unsafeTransferFrom(from, to, value);
+}
+
+export circuit approve(spender: Either<ZswapCoinPublicKey, ContractAddress>, value: Uint<128>): Boolean {
+  return FungibleToken_approve(spender, value);
+}
+
+export circuit _approve(
+  owner: Either<ZswapCoinPublicKey, ContractAddress>,
+  spender: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): [] {
+  return FungibleToken__approve(owner, spender, value);
+}
+
+export circuit _transfer(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): [] {
+  return FungibleToken__transfer(from, to, value);
+}
+
+export circuit _unsafeUncheckedTransfer(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): [] {
+  return FungibleToken__unsafeUncheckedTransfer(from, to, value);
+}
+
+export circuit _mint(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): [] {
+  return FungibleToken__mint(account, value);
+}
+
+export circuit _unsafeMint(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): [] {
+  return FungibleToken__unsafeMint(account, value);
+}
+
+export circuit _burn(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): [] {
+  return FungibleToken__burn(account, value);
+}
+
+export circuit _spendAllowance(
+  owner: Either<ZswapCoinPublicKey, ContractAddress>,
+  spender: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): [] {
+  return FungibleToken__spendAllowance(owner, spender, value);
+}

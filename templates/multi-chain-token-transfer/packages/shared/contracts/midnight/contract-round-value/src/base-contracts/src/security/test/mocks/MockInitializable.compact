@@ -1,0 +1,18 @@
+pragma language_version >= 0.17.0;
+
+import CompactStandardLibrary;
+import "../../Initializable" prefix Initializable_;
+
+export { Initializable__isInitialized };
+
+export circuit initialize(): [] {
+    return Initializable_initialize();
+}
+
+export circuit assertInitialized(): [] {
+    return Initializable_assertInitialized();
+}
+
+export circuit assertNotInitialized(): [] {
+    return Initializable_assertNotInitialized();
+}

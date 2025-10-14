@@ -1,0 +1,166 @@
+pragma language_version >= 0.17.0;
+
+import CompactStandardLibrary;
+
+import "../../NonFungibleToken" prefix NonFungibleToken_;
+
+export { ZswapCoinPublicKey, ContractAddress, Either, Maybe };
+
+/**
+ * @description `init` is a param for testing.
+ * If `init` is true, initialize the contract with `_name` and `_symbol`.
+ * Otherwise, the contract will not initialize and we can test the
+ * contract when it is not initialized properly.
+*/
+constructor(
+  _name: Opaque<"string">,
+  _symbol: Opaque<"string">,
+  init: Boolean
+) {
+  if (disclose(init)) {
+    NonFungibleToken_initialize(_name, _symbol);
+  }
+}
+
+export circuit name(): Opaque<"string"> {
+  return NonFungibleToken_name();
+}
+
+export circuit symbol(): Opaque<"string"> {
+  return NonFungibleToken_symbol();
+}
+
+export circuit balanceOf(account: Either<ZswapCoinPublicKey, ContractAddress>): Uint<128> {
+  return NonFungibleToken_balanceOf(account);
+}
+
+export circuit ownerOf(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {
+  return NonFungibleToken_ownerOf(tokenId);
+}
+
+export circuit tokenURI(tokenId: Uint<128>): Opaque<"string"> {
+  return NonFungibleToken_tokenURI(tokenId);
+}
+
+export circuit approve(
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  tokenId: Uint<128>
+): [] {
+  return NonFungibleToken_approve(to, tokenId);
+}
+
+export circuit getApproved(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {
+  return NonFungibleToken_getApproved(tokenId);
+}
+
+export circuit setApprovalForAll(
+  operator: Either<ZswapCoinPublicKey, ContractAddress>,
+  approved: Boolean
+): [] {
+  return NonFungibleToken_setApprovalForAll(operator, approved);
+}
+
+export circuit isApprovedForAll(
+  owner: Either<ZswapCoinPublicKey, ContractAddress>,
+  operator: Either<ZswapCoinPublicKey, ContractAddress>
+): Boolean {
+  return NonFungibleToken_isApprovedForAll(owner, operator);
+}
+
+export circuit transferFrom(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  tokenId: Uint<128>
+): [] {
+  return NonFungibleToken_transferFrom(from, to, tokenId);
+}
+
+export circuit _requireOwned(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {
+  return NonFungibleToken__requireOwned(tokenId);
+}
+
+export circuit _ownerOf(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {
+  return NonFungibleToken__ownerOf(tokenId);
+}
+
+export circuit _approve(
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  tokenId: Uint<128>,
+  auth: Either<ZswapCoinPublicKey, ContractAddress>
+): [] {
+  return NonFungibleToken__approve(to, tokenId, auth);
+}
+
+export circuit _checkAuthorized(
+  owner: Either<ZswapCoinPublicKey, ContractAddress>,
+  spender: Either<ZswapCoinPublicKey, ContractAddress>,
+  tokenId: Uint<128>
+): [] {
+  return NonFungibleToken__checkAuthorized(owner, spender, tokenId);
+}
+
+export circuit _isAuthorized(
+  owner: Either<ZswapCoinPublicKey, ContractAddress>,
+  spender: Either<ZswapCoinPublicKey, ContractAddress>,
+  tokenId: Uint<128>
+): Boolean {
+  return NonFungibleToken__isAuthorized(owner, spender, tokenId);
+}
+
+export circuit _getApproved(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {
+  return NonFungibleToken__getApproved(tokenId);
+}
+
+export circuit _setApprovalForAll(
+  owner: Either<ZswapCoinPublicKey, ContractAddress>,
+  operator: Either<ZswapCoinPublicKey, ContractAddress>,
+  approved: Boolean
+): [] {
+  return NonFungibleToken__setApprovalForAll(owner, operator, approved);
+}
+
+export circuit _mint(
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  tokenId: Uint<128>
+): [] {
+  return NonFungibleToken__mint(to, tokenId);
+}
+
+export circuit _burn(tokenId: Uint<128>): [] {
+  return NonFungibleToken__burn(tokenId);
+}
+
+export circuit _transfer(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  tokenId: Uint<128>
+): [] {
+  return NonFungibleToken__transfer(from, to, tokenId);
+}
+
+export circuit _setTokenURI(tokenId: Uint<128>, tokenURI: Opaque<"string">): [] {
+  return NonFungibleToken__setTokenURI(tokenId, tokenURI);
+}
+
+export circuit _unsafeTransferFrom(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  tokenId: Uint<128>
+): [] {
+  return NonFungibleToken__unsafeTransferFrom(from, to, tokenId);
+}
+
+export circuit _unsafeTransfer(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  tokenId: Uint<128>
+): [] {
+  return NonFungibleToken__unsafeTransfer(from, to, tokenId);
+}
+
+export circuit _unsafeMint(
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  tokenId: Uint<128>
+): [] {
+  return NonFungibleToken__unsafeMint(to, tokenId);
+}

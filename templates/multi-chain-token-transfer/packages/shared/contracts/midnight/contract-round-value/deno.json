@@ -5,8 +5,8 @@
     "./witnesses": "./src/witnesses.ts"
   },
   "tasks": {
-    "compact": "compact compile src/counter.compact src/managed/counter && deno task convert:js",
-    "convert:js": "deno run -A convert-js.ts src/managed/counter/contract/index.cjs src/managed/counter/contract/index.ts",
+    "compact": "compact compile src/simpletoken.compact src/managed/simpletoken && deno task convert:js",
+    "convert:js": "deno run -A convert-js.ts src/managed/simpletoken/contract/index.cjs src/managed/simpletoken/contract/index.ts",
     "contract:compile": "deno task compact"
   },
   "imports": {

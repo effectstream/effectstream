@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT
+
+pragma language_version >= 0.17.0;
+
+import CompactStandardLibrary;
+
+import "../../AccessControl" prefix AccessControl_;
+
+export { ZswapCoinPublicKey, ContractAddress, Either, Maybe, AccessControl_DEFAULT_ADMIN_ROLE };
+
+export circuit hasRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
+  return AccessControl_hasRole(roleId, account);
+}
+
+export circuit assertOnlyRole(roleId: Bytes<32>): [] {
+  AccessControl_assertOnlyRole(roleId);
+}
+
+export circuit _checkRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+  AccessControl__checkRole(roleId, account);
+}
+
+export circuit getRoleAdmin(roleId: Bytes<32>): Bytes<32> {
+  return AccessControl_getRoleAdmin(roleId);
+}
+
+export circuit grantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+  AccessControl_grantRole(roleId, account);
+}
+
+export circuit revokeRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+  AccessControl_revokeRole(roleId, account);
+}
+
+export circuit renounceRole(roleId: Bytes<32>, callerConfirmation: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+  AccessControl_renounceRole(roleId, callerConfirmation);
+}
+
+export circuit _setRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
+  AccessControl__setRoleAdmin(roleId, adminRole);
+}
+
+export circuit _grantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
+  return AccessControl__grantRole(roleId, account);
+}
+
+export circuit _unsafeGrantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
+  return AccessControl__unsafeGrantRole(roleId, account);
+}
+
+export circuit _revokeRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
+  return AccessControl__revokeRole(roleId, account);
+}
