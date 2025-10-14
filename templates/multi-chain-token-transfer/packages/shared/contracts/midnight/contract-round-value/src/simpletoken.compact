@@ -18,8 +18,6 @@ constructor(
   name: Opaque<"string">,
   symbol: Opaque<"string">,
   decimals: Uint<8>,
-  recipient: Either<ZswapCoinPublicKey, ContractAddress>,
-  fixedSupply: Uint<128>,
   initialOwner: Either<ZswapCoinPublicKey, ContractAddress>,
 ) {
   // Initialize the token
