@@ -1,7 +1,7 @@
 import {
-  allInjectedWallets,
+  allInjectedWallets as _allInjectedWallets,
   PaimaEngineConfig,
-  sendTransaction,
+  sendTransaction as _sendTransaction,
   walletLogin,
   WalletMode,
 } from "@paimaexample/wallets";
@@ -83,7 +83,7 @@ async function contract_safeTransferFrom(client, wallet, to_addr, amount) {
       "0x",
     ]
   })
-  const hast = await client.writeContract(request)
+  const _hast = await client.writeContract(request)
   console.log("end");
 }
 
@@ -100,7 +100,7 @@ async function contract_transferToMidnight(client, wallet, amount) {
       wallet.walletAddress,
     ],
   });
-  const hash = await client.writeContract(request)
+  const _hash = await client.writeContract(request)
   console.log("end");
 }
 
@@ -119,17 +119,38 @@ async function contract_mint(client, wallet, amount) {
       // "0x",
     ],
   });
-  const hash = await client.writeContract(request)
+  const _hash = await client.writeContract(request)
   console.log("end");
 }
 
-window.paima = {
-  ...window.paima,
+async function contract_safeBatchTransferFrom(client, wallet, to_addr, ids, amounts) {
+  console.log("start");
+  const accounts = await client.getAddresses()
+  const { request } = await publicClient.simulateContract({
+    account: accounts[0],
+    address: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+    abi: mct_erc1155.abi,
+    functionName: 'safeBatchTransferFrom',
+    args: [
+      wallet.walletAddress,
+      to_addr,
+      ids,
+      amounts,
+      "0x",
+    ]
+  })
+  const _hast = await client.writeContract(request)
+  console.log("end");
+}
+
+globalThis.paima = {
+  ...globalThis.paima,
   contract_balanceOf,
   login,
   contract_safeTransferFrom,
   contract_transferToMidnight,
   contract_mint,
+  contract_safeBatchTransferFrom,
 };
 
 
