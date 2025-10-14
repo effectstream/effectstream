@@ -113,12 +113,23 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
-          name: "Arbitrum_ERC721",
-          type: PrimitiveTypeEVMERC721,
+          name: "MULTI_CHAIN_TOKEN_EVM",
+          type: "EVM:ERC1155",
           startBlockHeight: 0,
           contractAddress: contractAddressesEvmMain()
-            .chain31337["Erc721DevModule#Erc721Dev"],
-          stateMachinePrefix: "transfer-assets",
+            .chain31337["Erc1155DevModule#MCT_ERC1155"],
+          stateMachinePrefix: "evm-transfer-erc1155",
+        })
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "TRANSFER_TO_MIDNIGHT",
+          type: "EVM:MCT_ERC1155",
+          startBlockHeight: 0,
+          contractAddress: contractAddressesEvmMain()
+            .chain31337["Erc1155DevModule#MCT_ERC1155"],
+          stateMachinePrefix: "transfer-to-midnight",
         })
       )
       .addPrimitive(

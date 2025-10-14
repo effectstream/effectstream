@@ -254,7 +254,7 @@ async function publishNPMPackages() {
 
   for (const packagePath of npmPackagesToPublish) {
     try {
-      console.log(`> Publishing ${packagePath}...`);
+      console.log(`> Publishing ${packagePath.path}...`);
       Deno.chdir(packagePath.path);
       const command = new Deno.Command("npm", {
         args: ["publish", "--access", "public", "--otp", otpCode!],

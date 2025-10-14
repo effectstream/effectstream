@@ -1,0 +1,18 @@
+{
+    "name": "@multi-chain-transfer/custom-primitive-evm-erc1155",
+    "version": "0.0.1",
+    "license": "MIT",
+    "exports": {
+        "./erc1155-primitive": "./erc1155-primitive.ts",
+        "./erc1155-grammar": "./erc1155-grammar.ts"
+    },
+    "imports": {
+        "@paimaexample/config": "jsr:@paimaexample/config@0.3.69",
+        "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.69",
+        "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.69",
+        "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.69",
+        "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.69",
+        "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
+
+    }
+}

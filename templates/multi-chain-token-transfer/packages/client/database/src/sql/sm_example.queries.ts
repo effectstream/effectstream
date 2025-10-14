@@ -1,6 +1,8 @@
 /** Types generated for queries found in "src/sql/sm_example.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
+export type NumberOrString = number | string;
+
 /** 'EvmMidnightTableExists' parameters type */
 export type IEvmMidnightTableExistsParams = void;
 
@@ -32,7 +34,9 @@ export const evmMidnightTableExists = new PreparedQuery<IEvmMidnightTableExistsP
 
 /** 'InsertEvmMidnight' parameters type */
 export interface IInsertEvmMidnightParams {
+  amount: NumberOrString;
   block_height: number;
+  chain: string;
   contract_address: string;
   owner: string;
   token_id: string;
@@ -47,58 +51,54 @@ export interface IInsertEvmMidnightQuery {
   result: IInsertEvmMidnightResult;
 }
 
-const insertEvmMidnightIR: any = {"usedParamSet":{"contract_address":true,"token_id":true,"owner":true,"block_height":true},"params":[{"name":"contract_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":94,"b":111}]},{"name":"token_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":114,"b":123}]},{"name":"owner","required":true,"transform":{"type":"scalar"},"locs":[{"a":126,"b":132}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":135,"b":148}]}],"statement":"INSERT INTO evm_midnight \n    (contract_address, token_id, owner, block_height) \nVALUES \n    (:contract_address!, :token_id!, :owner!, :block_height!) \nON CONFLICT (contract_address, token_id) \nDO UPDATE SET \n    owner = EXCLUDED.owner,\n    block_height = EXCLUDED.block_height"};
+const insertEvmMidnightIR: any = {"usedParamSet":{"contract_address":true,"chain":true,"token_id":true,"amount":true,"owner":true,"block_height":true},"params":[{"name":"contract_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":109,"b":126}]},{"name":"chain","required":true,"transform":{"type":"scalar"},"locs":[{"a":129,"b":135}]},{"name":"token_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":138,"b":147}]},{"name":"amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":150,"b":157}]},{"name":"owner","required":true,"transform":{"type":"scalar"},"locs":[{"a":160,"b":166}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":169,"b":182}]}],"statement":"INSERT INTO evm_midnight \n    (contract_address, chain, token_id, amount, owner, block_height) \nVALUES \n    (:contract_address!, :chain!, :token_id!, :amount!, :owner!, :block_height!) \nON CONFLICT (contract_address, token_id, owner) \nDO UPDATE SET \n    chain = EXCLUDED.chain,\n    block_height = EXCLUDED.block_height,\n    amount = EXCLUDED.amount"};
 
 /**
  * Query generated from SQL:
  * ```
  * INSERT INTO evm_midnight 
- *     (contract_address, token_id, owner, block_height) 
+ *     (contract_address, chain, token_id, amount, owner, block_height) 
  * VALUES 
- *     (:contract_address!, :token_id!, :owner!, :block_height!) 
- * ON CONFLICT (contract_address, token_id) 
+ *     (:contract_address!, :chain!, :token_id!, :amount!, :owner!, :block_height!) 
+ * ON CONFLICT (contract_address, token_id, owner) 
  * DO UPDATE SET 
- *     owner = EXCLUDED.owner,
- *     block_height = EXCLUDED.block_height
+ *     chain = EXCLUDED.chain,
+ *     block_height = EXCLUDED.block_height,
+ *     amount = EXCLUDED.amount
  * ```
  */
 export const insertEvmMidnight = new PreparedQuery<IInsertEvmMidnightParams,IInsertEvmMidnightResult>(insertEvmMidnightIR);
 
 
-/** 'InsertEvmMidnightProperty' parameters type */
-export interface IInsertEvmMidnightPropertyParams {
+/** 'GetEvmMidnight' parameters type */
+export type IGetEvmMidnightParams = void;
+
+/** 'GetEvmMidnight' return type */
+export interface IGetEvmMidnightResult {
+  amount: string;
   block_height: number;
+  chain: string;
   contract_address: string;
-  property_name: string;
+  id: number;
+  owner: string;
   token_id: string;
-  value: string;
 }
 
-/** 'InsertEvmMidnightProperty' return type */
-export type IInsertEvmMidnightPropertyResult = void;
-
-/** 'InsertEvmMidnightProperty' query type */
-export interface IInsertEvmMidnightPropertyQuery {
-  params: IInsertEvmMidnightPropertyParams;
-  result: IInsertEvmMidnightPropertyResult;
+/** 'GetEvmMidnight' query type */
+export interface IGetEvmMidnightQuery {
+  params: IGetEvmMidnightParams;
+  result: IGetEvmMidnightResult;
 }
 
-const insertEvmMidnightPropertyIR: any = {"usedParamSet":{"contract_address":true,"token_id":true,"property_name":true,"value":true,"block_height":true},"params":[{"name":"contract_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":120,"b":137}]},{"name":"token_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":140,"b":149}]},{"name":"property_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":152,"b":166}]},{"name":"value","required":true,"transform":{"type":"scalar"},"locs":[{"a":169,"b":175}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":178,"b":191}]}],"statement":"INSERT INTO evm_midnight_properties \n    (contract_address, token_id, property_name, value, block_height) \nVALUES \n    (:contract_address!, :token_id!, :property_name!, :value!, :block_height!) \nON CONFLICT (contract_address, token_id, property_name) \nDO UPDATE SET \n    value = EXCLUDED.value,\n    block_height = EXCLUDED.block_height"};
+const getEvmMidnightIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM evm_midnight"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO evm_midnight_properties 
- *     (contract_address, token_id, property_name, value, block_height) 
- * VALUES 
- *     (:contract_address!, :token_id!, :property_name!, :value!, :block_height!) 
- * ON CONFLICT (contract_address, token_id, property_name) 
- * DO UPDATE SET 
- *     value = EXCLUDED.value,
- *     block_height = EXCLUDED.block_height
+ * SELECT * FROM evm_midnight
  * ```
  */
-export const insertEvmMidnightProperty = new PreparedQuery<IInsertEvmMidnightPropertyParams,IInsertEvmMidnightPropertyResult>(insertEvmMidnightPropertyIR);
+export const getEvmMidnight = new PreparedQuery<IGetEvmMidnightParams,IGetEvmMidnightResult>(getEvmMidnightIR);
 
 
 /** 'GetEvmMidnightByTokenId' parameters type */
@@ -109,10 +109,12 @@ export interface IGetEvmMidnightByTokenIdParams {
 
 /** 'GetEvmMidnightByTokenId' return type */
 export interface IGetEvmMidnightByTokenIdResult {
+  amount: string;
   block_height: number;
+  chain: string;
   contract_address: string;
   id: number;
-  owner: string | null;
+  owner: string;
   token_id: string;
 }
 
@@ -135,42 +137,39 @@ const getEvmMidnightByTokenIdIR: any = {"usedParamSet":{"token_id":true,"contrac
 export const getEvmMidnightByTokenId = new PreparedQuery<IGetEvmMidnightByTokenIdParams,IGetEvmMidnightByTokenIdResult>(getEvmMidnightByTokenIdIR);
 
 
-/** 'GetEvmMidnight' parameters type */
-export type IGetEvmMidnightParams = void;
+/** 'GetEvmMidnightByOwner' parameters type */
+export interface IGetEvmMidnightByOwnerParams {
+  contract_address: string;
+  owner: string;
+}
 
-/** 'GetEvmMidnight' return type */
-export interface IGetEvmMidnightResult {
+/** 'GetEvmMidnightByOwner' return type */
+export interface IGetEvmMidnightByOwnerResult {
+  amount: string;
   block_height: number;
-  owner: string | null;
-  property_block_height: number;
-  property_name: string;
+  chain: string;
+  contract_address: string;
+  id: number;
+  owner: string;
   token_id: string;
-  value: string;
 }
 
-/** 'GetEvmMidnight' query type */
-export interface IGetEvmMidnightQuery {
-  params: IGetEvmMidnightParams;
-  result: IGetEvmMidnightResult;
+/** 'GetEvmMidnightByOwner' query type */
+export interface IGetEvmMidnightByOwnerQuery {
+  params: IGetEvmMidnightByOwnerParams;
+  result: IGetEvmMidnightByOwnerResult;
 }
 
-const getEvmMidnightIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT \nevm_midnight.token_id, \nevm_midnight.owner, \nevm_midnight.block_height as block_height,\nevm_midnight_properties.property_name, \nevm_midnight_properties.value,\nevm_midnight_properties.block_height as property_block_height\nFROM evm_midnight \nLEFT JOIN evm_midnight_properties ON evm_midnight.token_id = evm_midnight_properties.token_id\nORDER BY evm_midnight.token_id DESC"};
+const getEvmMidnightByOwnerIR: any = {"usedParamSet":{"owner":true,"contract_address":true},"params":[{"name":"owner","required":true,"transform":{"type":"scalar"},"locs":[{"a":55,"b":61}]},{"name":"contract_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":99,"b":116}]}],"statement":"SELECT * FROM evm_midnight \nWHERE evm_midnight.owner = :owner!\nAND evm_midnight.contract_address = :contract_address!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT 
- * evm_midnight.token_id, 
- * evm_midnight.owner, 
- * evm_midnight.block_height as block_height,
- * evm_midnight_properties.property_name, 
- * evm_midnight_properties.value,
- * evm_midnight_properties.block_height as property_block_height
- * FROM evm_midnight 
- * LEFT JOIN evm_midnight_properties ON evm_midnight.token_id = evm_midnight_properties.token_id
- * ORDER BY evm_midnight.token_id DESC
+ * SELECT * FROM evm_midnight 
+ * WHERE evm_midnight.owner = :owner!
+ * AND evm_midnight.contract_address = :contract_address!
  * ```
  */
-export const getEvmMidnight = new PreparedQuery<IGetEvmMidnightParams,IGetEvmMidnightResult>(getEvmMidnightIR);
+export const getEvmMidnightByOwner = new PreparedQuery<IGetEvmMidnightByOwnerParams,IGetEvmMidnightByOwnerResult>(getEvmMidnightByOwnerIR);
 
 

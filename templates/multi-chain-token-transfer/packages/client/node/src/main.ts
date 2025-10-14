@@ -10,6 +10,8 @@ import { migrationTable } from "@multi-chain-transfer/database";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "@multi-chain-transfer/data-types/grammar";
+import { Erc1155Primitive } from "@multi-chain-transfer/custom-primitive-evm-erc1155/erc1155-primitive";
+import { MCTErc1155Primitive } from "@multi-chain-transfer/custom-primitive-mct-erc1155/erc1155-primitive";
 
 main(function* () {
   yield* init();
@@ -17,13 +19,17 @@ main(function* () {
 
   yield* withPaimaStaticConfig(localhostConfig, function* () {
     yield* start({
-      appName: "evm-midnight-example",
+      appName: "multi-chain-token-transfer",
       appVersion: "0.3.21",
       syncInfo: toSyncProtocolWithNetwork(localhostConfig),
       gameStateTransitions,
       migrations: migrationTable,
       apiRouter,
       grammar,
+      userDefinedPrimitives: {
+        "EVM:ERC1155": Erc1155Primitive,
+        "EVM:MCT_ERC1155": MCTErc1155Primitive,
+      },
     });
   });
 

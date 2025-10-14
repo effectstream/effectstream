@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Paima Example</title>
+        <link rel="stylesheet" href="style.css">
+        <style>
+            .data-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }
+            .data-table th, .data-table td {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }
+            .data-table th {
+                background-color: #f2f2f2;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>Connect Wallet</h2>
+            <div id="address">Not connected</div>
+            <button id="login" onclick="walletLogin()">Connect Wallet</button>
+            <br>
+            <br>
+            <h2>Send Transaction to PaimaL2 Contract</h2>
+            <input id="amount-input" type="number" value="" placeholder="Amout to send">
+
+            <input id="to-address-input" type="address" value="0xa0Ee7A142d267C1f36714E4a8F75612F20a79720" placeholder="To address">
+            <button id="Sent TX" onclick="writeToContractEVMERC1155()">Send TX</button>
+            <hr>
+            <h2>Mint</h2>
+            <input id="mint-amount-input" type="number" value="" placeholder="Amount to mint">
+            <button onclick="mintTokens()">Mint</button>
+            <hr>
+            <h2>Transfer to Midnight</h2>
+            <input id="midnight-amount-input" type="number" value="" placeholder="Amount to transfer">
+            <button onclick="transferToMidnight()">Transfer</button>
+            <hr>
+            <h2>Read Balance</h2>
+            <button onclick="fetchBalance()">Refresh Balance</button>
+            <pre id="balance-data"></pre>
+            <hr>
+            <h2>ERC721 Data</h2>
+            <button onclick="fetchErc721Data()">Refresh ERC721 data</button>
+            <pre id="erc721-data"></pre>
+            <hr>
+            <h2>Multi Chain Token EVM Data</h2>
+            <button onclick="fetchMultiChainTokenData()">Refresh Data</button>
+            <div id="multi-chain-token-container"></div>
+        </div>
+    </body>
+</html>
+
+<script type="module" src="./min.js">
+</script>
+
+<script>
+    
+    const system = {
+        wallet: null,
+        client: null,
+    };
+    async function walletLogin() {
+        console.log(window.paima);
+        const { wallet, client } = await paima.login();
+        const { metadata, provider } = wallet;
+        const { address: address1 } = provider;
+        const address2 = await provider.getAddress();
+        console.log(provider);
+        console.log({ address1, address2 });
+        document.getElementById('address').innerText = address2.address;
+        system.wallet = wallet;
+        system.client = client;
+    };
+
+    async function writeToContractEVMERC1155() {
+        console.log("call contract mint function");
+        const amount = document.getElementById('amount-input').value;
+        const to_address = document.getElementById('to-address-input').value;
+        console.log({ amount, to_address });
+        await paima.contract_safeTransferFrom(system.client, system.wallet, to_address, amount);
+    }
+
+    async function fetchBalance() {
+        const balance = await paima.contract_balanceOf(system.wallet.walletAddress, 1n);
+        document.getElementById('balance-data').innerText = String(balance);
+    }
+
+    async function mintTokens() {
+        const amount = document.getElementById('mint-amount-input').value;
+        if (system.wallet && system.client && amount) {
+            await paima.contract_mint(system.client, system.wallet, BigInt(amount));
+        } else {
+            console.error('Wallet not connected or amount not set');
+        }
+    }
+
+    async function transferToMidnight() {
+        const amount = document.getElementById('midnight-amount-input').value;
+        if (system.wallet && system.client && amount) {
+            await paima.contract_transferToMidnight(system.client, system.wallet, BigInt(amount));
+        } else {
+            console.error('Wallet not connected or amount not set');
+        }
+    }
+</script>
+<script>
+    async function fetchErc721Data() {
+        try {
+            const response = await fetch('http://localhost:9999/api/erc721');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            document.getElementById('erc721-data').innerText = JSON.stringify(data, null, 2);
+        } catch (error) {
+            console.error('Failed to fetch ERC721 data:', error);
+            document.getElementById('erc721-data').innerText = 'Failed to load data.';
+        }
+    }
+
+    // Fetch data on page load
+    window.addEventListener('load', fetchErc721Data);
+
+    async function fetchMultiChainTokenData() {
+        try {
+            const response = await fetch('http://127.0.0.1:9999/primitives/MULTI_CHAIN_TOKEN_EVM?limit=20');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const result = await response.json();
+            const data = result.data;
+
+            const container = document.getElementById('multi-chain-token-container');
+            if (data.length === 0) {
+                container.innerHTML = 'No data available.';
+                return;
+            }
+
+            // Create table
+            const table = document.createElement('table');
+            table.className = 'data-table'; // for styling
+
+            // Create table header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            const headers = ['Primitive Name', 'Token ID', 'Owner Address', 'Amount'];
+            headers.forEach(headerText => {
+                const th = document.createElement('th');
+                th.textContent = headerText;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Create table body
+            const tbody = document.createElement('tbody');
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                const cellData = [item.primitive_name, item.token_id, item.owner_address, item.amount];
+                cellData.forEach(text => {
+                    const td = document.createElement('td');
+                    td.textContent = text;
+                    row.appendChild(td);
+                });
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+
+            container.innerHTML = '';
+            container.appendChild(table);
+
+        } catch (error) {
+            console.error('Failed to fetch multi chain token data:', error);
+            document.getElementById('multi-chain-token-container').innerText = 'Failed to load data.';
+        }
+    }
+    window.addEventListener('load', fetchMultiChainTokenData);
+</script>

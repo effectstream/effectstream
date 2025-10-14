@@ -1,13 +1,15 @@
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
 import {
   FileStorage,
-  PaimaBatcherConfig,
+  type PaimaBatcherConfig,
   PaimaL2DefaultAdapter,
 } from "@paimaexample/batcher";
 
 const batchIntervalMs = 1000;
+
+// TODO This is the ERC1155 contract address, not the PaimaL2 contract address
 const paimaL2Address = contractAddressesEvmMain()["chain31337"][
-  "PaimaL2ContractModule#MyPaimaL2Contract"
+  "Erc1155DevModule#MCT_ERC1155"
 ] as `0x${string}`;
 const paimaSyncProtocolName = "mainEvmRPC";
 const batcherPrivateKey =

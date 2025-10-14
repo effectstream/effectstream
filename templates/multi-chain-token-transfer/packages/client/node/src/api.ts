@@ -13,9 +13,9 @@ const ResponseSchema = Type.Array(Type.Object({
   token_id: Type.String(),
   owner: Type.Union([Type.Null(), Type.String()]),
   block_height: Type.Number(),
-  property_name: Type.String(),
-  value: Type.String(),
-  property_block_height: Type.Number(),
+  chain: Type.String(),
+  contract_address: Type.String(),
+  amount: Type.String(),
 }));
 
 /**
