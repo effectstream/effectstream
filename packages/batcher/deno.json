@@ -11,6 +11,21 @@
     "fastify": "npm:fastify@^5.4.0",
     "@fastify/cors": "npm:@fastify/cors@^11.0.1",
     "@fastify/swagger": "npm:@fastify/swagger@^9.5.1",
-    "@fastify/swagger-ui": "npm:@fastify/swagger-ui@^5.2.3"
+    "@fastify/swagger-ui": "npm:@fastify/swagger-ui@^5.2.3",
+    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.8.1",
+    "@midnight-ntwrk/wallet": "npm:@midnight-ntwrk/wallet@5.0.0",
+    "@midnight-ntwrk/wallet-api": "npm:@midnight-ntwrk/wallet-api@5.0.0",
+    "@midnight-ntwrk/wallet-sdk-address-format": "npm:@midnight-ntwrk/wallet-sdk-address-format",
+    "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts@2.0.2",
+    "@midnight-ntwrk/midnight-js-types": "npm:@midnight-ntwrk/midnight-js-types@2.0.2",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@2.0.2",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@2.0.2",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@2.0.2",
+    "@midnight-ntwrk/midnight-js-network-id": "npm:@midnight-ntwrk/midnight-js-network-id@2.0.2",
+    "@midnight-ntwrk/midnight-js-utils": "npm:@midnight-ntwrk/midnight-js-utils@2.0.2",
+    "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger@4.0.0",
+    "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@4.0.0",
+    "rxjs": "npm:rxjs@7.8.2"
   }
 }

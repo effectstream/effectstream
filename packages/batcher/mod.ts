@@ -32,6 +32,8 @@ export { DatabaseStorage, FileStorage } from "./core/storage.ts";
 // Chain adapter interface and implementations
 export type { BlockchainAdapter } from "./adapters/adapter.ts";
 export { PaimaL2DefaultAdapter } from "./adapters/paimal2-adapter.ts";
+export { MidnightAdapter } from "./adapters/midnight-adapter.ts";
+export type { MidnightAdapterConfig } from "./adapters/midnight-adapter.ts";
 
 // HTTP server
 export { startBatcherHttpServer } from "./server/batcher-server.ts";
