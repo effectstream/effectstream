@@ -10,6 +10,7 @@ import {
   paimaL2Builder,
   type SharedState,
   wallets,
+  erc1155Builder,
 } from "@e2e/engine";
 import type { Client } from "pg";
 import { AddressType } from "@paima/utils";
@@ -17,7 +18,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { ENV } from "@paima/utils/node-env";
-import { createBatcherSubunit, createMessageForBatcher } from "@paima/concise";
+import { createMessageForBatcher } from "@paima/concise";
 
 // Start Test
 export async function generalTest(db: Client, sharedState: SharedState) {
@@ -25,6 +26,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   const erc20 = erc20Builder(sharedState);
   const erc721 = erc721Builder(sharedState);
   const paimaL2 = paimaL2Builder(sharedState);
+  const erc1155 = erc1155Builder(sharedState);
 
   const multiplier = 10n ** 18n;
 
@@ -532,6 +534,105 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     (res) => true,
     (res) => {
       return res.rows.length === sharedState.primitive_accounting_counter;
+    },
+  );
+
+  /* Let's check multi event tracking */
+  const tokenIds = [1n, 2n, 3n, 4n] as const;
+  await erc1155.a.mint(wallets[0].address, wallets[0].privateKey, tokenIds[0], 100n, false, false);
+  await erc1155.a.mint(wallets[1].address, wallets[1].privateKey, tokenIds[1], 200n, false, false);
+  await erc1155.a.mint(wallets[0].address, wallets[0].privateKey, tokenIds[2], 300n, false, false);
+  await erc1155.a.mint(wallets[1].address, wallets[1].privateKey, tokenIds[3], 400n, false, true);
+
+  await assertSQL<{ primitive_name: string }>(
+    "Check ERC1155 sync-process - mint",
+    db,
+    `SELECT * FROM primitives.erc1155_ownership_view_l1_erc1155_token;`,
+    (res) => true,
+    (res) => {
+      console.log(res.rows);
+      return res.rows.length === 4;
+    },
+  );
+
+
+  await erc1155.a.transfer(
+    wallets[0].privateKey,
+    wallets[2].address,
+    tokenIds[0],
+    50n,
+    false,
+    false,
+  );
+  await erc1155.a.transferBatch(
+    wallets[1].privateKey,
+    wallets[2].address,
+    [tokenIds[1], tokenIds[3]],
+    [50n, 100n],
+    false,
+    true,
+  );
+  const expectedTokens = {
+    [wallets[0].address]: {
+      [tokenIds[0].toString()]: 50n,
+      [tokenIds[1].toString()]: 0n,
+      [tokenIds[2].toString()]: 300n,
+      [tokenIds[3].toString()]: 0n,
+    },
+    [wallets[1].address]: {
+      [tokenIds[0].toString()]: 0n,  
+      [tokenIds[1].toString()]: 150n,
+      [tokenIds[2].toString()]: 0n,
+      [tokenIds[3].toString()]: 300n,
+    },
+    [wallets[2].address]: {
+      [tokenIds[0].toString()]: 50n,
+      [tokenIds[1].toString()]: 50n,
+      [tokenIds[2].toString()]: 0n,
+      [tokenIds[3].toString()]: 100n,
+    },
+  };
+  await assertSQL<{
+    primitive_name: string,
+    token_id: string,
+    owner_address: string,
+    amount: string,
+  }>(
+    "Check ERC1155 sync-process - transfer",
+    db,
+    `SELECT * FROM primitives.erc1155_ownership_view_l1_erc1155_token;`,
+    (res) => true,
+    (res) => {
+      console.log(res.rows)
+      
+      const w0 = wallets[0].address;
+      const w0_ = w0.toLocaleLowerCase();
+      const w1 = wallets[1].address;
+      const w1_ = w1.toLocaleLowerCase();
+      const w2 = wallets[2].address;
+      const w2_ = w2.toLocaleLowerCase();
+      const t0 = tokenIds[0].toString();
+      const t1 = tokenIds[1].toString();
+      const t2 = tokenIds[2].toString();
+      const t3 = tokenIds[3].toString();
+      const rule1 = expectedTokens[w0][t0] === 0n ? true : BigInt(res.rows.find(r =>  r.owner_address === w0_ && r.token_id === t0)!.amount) === expectedTokens[w0][t0];
+      const rule2 = expectedTokens[w0][t1] === 0n ? true : BigInt(res.rows.find(r =>  r.owner_address === w0_ && r.token_id === t1)!.amount) === expectedTokens[w0][t1];
+      const rule3 = expectedTokens[w0][t2] === 0n ? true : BigInt(res.rows.find(r =>  r.owner_address === w0_ && r.token_id === t2)!.amount) === expectedTokens[w0][t2];
+      const rule4 = expectedTokens[w0][t3] === 0n ? true : BigInt(res.rows.find(r =>  r.owner_address === w0_ && r.token_id === t3)!.amount) === expectedTokens[w0][t3];
+      const rule5 = expectedTokens[w1][t0] === 0n ? true : BigInt(res.rows.find(r =>  r.owner_address === w1_ && r.token_id === t0)!.amount) === expectedTokens[w1][t0];
+      const rule6 = expectedTokens[w1][t1] === 0n ? true : BigInt(res.rows.find(r =>  r.owner_address === w1_ && r.token_id === t1)!.amount) === expectedTokens[w1][t1];
+      const rule7 = expectedTokens[w1][t2] === 0n ? true : BigInt(res.rows.find(r =>  r.owner_address === w1_ && r.token_id === t2)!.amount) === expectedTokens[w1][t2];
+      const rule8 = expectedTokens[w1][t3] === 0n ? true : BigInt(res.rows.find(r =>  r.owner_address === w1_ && r.token_id === t3)!.amount) === expectedTokens[w1][t3];
+      const rule9 = expectedTokens[w2][t0] === 0n ? true : BigInt(res.rows.find(r =>  r.owner_address === w2_ && r.token_id === t0)!.amount) === expectedTokens[w2][t0];
+      const rule10 = expectedTokens[w2][t1] === 0n ? true : BigInt(res.rows.find(r => r.owner_address === w2_ && r.token_id === t1)!.amount) === expectedTokens[w2][t1];
+      const rule11 = expectedTokens[w2][t2] === 0n ? true : BigInt(res.rows.find(r => r.owner_address === w2_ && r.token_id === t2)!.amount) === expectedTokens[w2][t2];
+      const rule12 = expectedTokens[w2][t3] === 0n ? true : BigInt(res.rows.find(r => r.owner_address === w2_ && r.token_id === t3)!.amount) === expectedTokens[w2][t3];
+      const isOk = rule1 && rule2 && rule3 && rule4 && rule5 && rule6 && rule7 && rule8 && rule9 && rule10 && rule11 && rule12;
+      if (!isOk) {
+        console.log({rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12});
+      }
+      return isOk;
+      
     },
   );
 

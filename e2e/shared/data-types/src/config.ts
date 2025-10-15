@@ -13,6 +13,7 @@ import type { BlockNumber } from "@paima/utils";
 import { paimaL2Grammar } from "./grammar.ts";
 import {
   PrimitiveTypeAvailGeneric,
+  PrimitiveTypeEVMERC1155,
   PrimitiveTypeEVMERC20,
   PrimitiveTypeEVMERC721,
   PrimitiveTypeEVMPaimaL2,
@@ -308,7 +309,18 @@ export const localhostConfig = new ConfigBuilder()
             .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
           stateMachinePrefix: "transfer-erc20",
         }),
-      );
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
+        (network, deployments, syncProtocol) => ({
+          name: "L1_ERC1155_TOKEN",
+          type: PrimitiveTypeEVMERC1155,
+          startBlockHeight: 0,
+          contractAddress: contractAddressesEvmMain()
+            .chain31337["Erc1155DevModule#ERC1155Dev"],
+          stateMachinePrefix: "transfer-erc1155",
+        }),
+      )
     if (avail_enabled) {
       builder = builder.addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelAvail,
