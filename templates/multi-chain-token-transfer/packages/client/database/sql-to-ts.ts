@@ -4,13 +4,11 @@ import { getConnection } from "@paimaexample/db";
 import { standAloneApplyMigrations } from "./src/patch-emulator.ts";
 import { migrationTable } from "./src/migration-order.ts";
 import { localhostConfig } from "@multi-chain-transfer/data-types/localhostConfig";
-import { Erc1155Primitive } from "@multi-chain-transfer/custom-primitive-evm-erc1155/erc1155-primitive";
 import { MCTErc1155Primitive } from "@multi-chain-transfer/custom-primitive-mct-erc1155/erc1155-primitive";
 
 // This helper applies Paima Engine Migrations to the database, so you can use it to generate the pgtyped files.
 const db = await getConnection();
 await standAloneApplyMigrations(db, migrationTable, localhostConfig as any, {
-  "EVM:ERC1155": Erc1155Primitive,
   "EVM:MCT_ERC1155": MCTErc1155Primitive,
 });
 console.log("✅ System & User migrations applied");

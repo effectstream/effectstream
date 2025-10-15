@@ -3,296 +3,13 @@
 <head>
     <meta charset="UTF--8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Midnight <-> EVM Interoperability Bridge</title>
-    <style>
-        :root {
-            --bg-color: #1a1a2e;
-            --card-bg: #222533;
-            --text-color: #e0e0e0;
-            --primary-color: #6a1b9a; /* Deep Purple */
-            --secondary-color: #4CAF50; /* Green for success */
-            --border-color: #3f3f50;
-            --input-bg: #333642;
-            --button-hover: #7b2fae;
-            --button-secondary-bg: #5a5a6a;
-            --button-secondary-hover: #6c6c7d;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            margin-bottom: 30px;
-        }
-
-        header {
-            text-align: center;
-            padding: 20px 0;
-            margin-bottom: 30px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        header .logo {
-            height: 40px; /* Adjust logo size */
-            margin-right: 15px;
-            filter: invert(1); /* Example for a dark theme logo */
-        }
-
-        header h1 {
-            margin: 0;
-            color: var(--text-color);
-            font-size: 2.5em;
-            font-weight: 600;
-        }
-
-        .wallet-info-bar {
-            background-color: var(--card-bg);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 30px;
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            gap: 15px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .wallet-status, .token-balances {
-            display: flex;
-            align-items: center;
-            font-size: 1.1em;
-            gap: 8px;
-        }
-
-        .wallet-status .icon, .token-balances .icon {
-            color: var(--secondary-color);
-            font-size: 1.2em;
-        }
-
-        .main-content {
-            display: flex;
-            gap: 30px;
-            margin-bottom: 30px;
-            flex-wrap: wrap; /* Allow wrapping on smaller screens */
-            justify-content: center;
-        }
-
-        .chain-panel {
-            background-color: var(--card-bg);
-            border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            flex: 1;
-            min-width: 450px; /* Minimum width for panels */
-            max-width: calc(50% - 15px); /* Max width for two columns */
-            box-sizing: border-box;
-        }
-
-        .chain-panel h2 {
-            text-align: center;
-            color: var(--primary-color);
-            margin-top: 0;
-            margin-bottom: 25px;
-            font-size: 1.8em;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 15px;
-        }
-
-        .chain-panel .wallet-display {
-            font-size: 0.9em;
-            color: #b0b0b0;
-            text-align: center;
-            margin-bottom: 20px;
-            word-wrap: break-word;
-        }
-
-        .section {
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px dashed var(--border-color);
-        }
-
-        .section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-
-        .section h3 {
-            color: var(--text-color);
-            font-size: 1.4em;
-            margin-top: 0;
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 0.95em;
-            color: #c0c0c0;
-        }
-
-        input[type="number"],
-        input[type="text"],
-        input[type="address"] {
-            width: calc(100% - 24px);
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            background-color: var(--input-bg);
-            color: var(--text-color);
-            font-size: 1em;
-            box-sizing: border-box;
-        }
-
-        input[type="number"]::placeholder,
-        input[type="text"]::placeholder,
-        input[type="address"]::placeholder {
-            color: #888;
-        }
-
-        button {
-            width: 100%;
-            padding: 12px 15px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 1.1em;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        }
-
-        button:hover {
-            background-color: var(--button-hover);
-        }
-        
-        button:disabled {
-            background-color: var(--button-secondary-bg);
-            cursor: not-allowed;
-        }
-
-        button.secondary {
-            background-color: var(--button-secondary-bg);
-            margin-top: 10px; /* Example for a second button */
-        }
-
-        button.secondary:hover {
-            background-color: var(--button-secondary-hover);
-        }
-
-        .status-message {
-            margin-top: 10px;
-            font-size: 0.9em;
-            color: var(--secondary-color);
-        }
-
-        .all-balances-section {
-            background-color: var(--card-bg);
-            border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            margin-top: 30px;
-        }
-
-        .all-balances-section h2 {
-            text-align: center;
-            color: var(--text-color);
-            margin-top: 0;
-            margin-bottom: 25px;
-            font-size: 1.8em;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 15px;
-        }
-
-        .balances-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .balances-table th, .balances-table td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .balances-table th {
-            background-color: var(--input-bg);
-            color: var(--primary-color);
-            font-weight: 600;
-            font-size: 1em;
-        }
-
-        .balances-table tbody tr:hover {
-            background-color: #2b2e3a;
-        }
-        
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        .data-table th, .data-table td {
-            border: 1px solid var(--border-color);
-            padding: 8px;
-            text-align: left;
-        }
-        .data-table th {
-            background-color: var(--input-bg);
-            color: var(--primary-color);
-        }
-
-        footer {
-            text-align: center;
-            padding: 30px 0;
-            margin-top: 50px;
-            color: #888;
-            font-size: 0.9em;
-            border-top: 1px solid var(--border-color);
-        }
-
-        /* Responsive Design */
-        @media (max-width: 992px) {
-            .main-content {
-                flex-direction: column;
-                align-items: center;
-            }
-            .chain-panel {
-                max-width: 90%;
-                min-width: unset;
-                width: 100%;
-            }
-            .wallet-info-bar {
-                flex-direction: column;
-                align-items: center;
-                gap: 20px;
-            }
-        }
-    </style>
+    <title>Midnight / EVM Interoperability Bridge</title>
+    <link rel="stylesheet" href="./style.css"></link>
 </head>
 <body>
     <div class="container">
         <header>
-            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9IiM2YjE3YTgiIGQ9Ik0xMiAyQzYuNDc3IDIgMiA2LjQ3NyAyIDEyczQuNDc3IDEwIDEwIDEwYzMuMDQ1IDAgNS44MDctMS4zMDcgNy43NDktMy4zOTVsLTEuNzk0LTEuNzk0QTguMDAxIDguMDAxIDAgMCAwIDEyIDh2MTJhOC4wMDEgOC4wMDEgMCAwIDAgNi4wMzgtMi43NTFsMi44NDMgMi44NDNBOS45NTkgOS45NTkgMCAwIDEtMTIgMiIgLz48cGF0aCBmaWxsPSIjNjgxN2E4IiBkPSJNMTMgMTBhMi42IDIgMCAwIDAgLjQ4Ni0zLjkxNGwtLjk3My0uNTQ2QTMuODkgMy44OSAwIDAgMSAxMyA4YzEuNjU1IDAgMyAwIDEuNSAxLjUgMy4zMjQtMy4wMDYgMCA0LjQ2LTEuNTggNS4wMDYtLjI4LS42MTQtLjUtMS4zMDYtLjUtMlptLTEuNSA3LjVjLS44MiAwLTEuNS0uNjgtMS41LTEuNSAwLS44Mi42OC0xLjUgMS41LTEuNXMxLjUuNjggMS41IDEuNWMwIC44Mi0uNjggMS41LTEuNSAxLjV6Ii8+PHBhdGhzIGZpbGw9IiM2YjE3YTgiIGQ9Ik0xMiA0Yy00LjQxOCAwLTggMy41ODItOCA4czMuNTgyIDggOCA4YzEuODU1IDAgMy41NTQtLjYzIDQuOTQ2LTEuNjkzTDE1LjU2IDE1LjM2QTUuOTM4IDUuOTM4IDAgMCAxIDEyIDE4Yy0yLjIwNiAwLTQtMS43OTQtNC00czEuNzk0LTQgNC00YzEuNTMxIDAgMi44NzUuODczIDMuNTk0IDIuMTc0bDEuNzkyLTEuNzkyQzE1Ljc2IDUuMjkxIDEzLjk4NSA0IDEyIDR6Ii8+PC9zdmc+" alt="Bridge Logo" class="logo">
-            <h1>Midnight <-> EVM Interoperability Bridge</h1>
+            <h1>Midnight / EVM Interoperability Bridge</h1>
         </header>
 
         <section class="wallet-info-bar">
@@ -303,7 +20,7 @@
                     <span id="connection-status">Not Connected</span>
                     <div id="address" style="font-size: 0.8em; color: #b0b0b0;"></div>
                 </div>
-                <button id="login" onclick="walletLogin()" style="margin-left: 20px;">Connect Wallet</button>
+                <button class="evm-button" id="login" onclick="walletLogin()" style="margin-left: 20px;">Connect Wallet</button>
             </div>
              <div class="token-balances">
                 <span><strong>Your Balance:</strong> <span id="balance-data">N/A</span> SWAP</span>
@@ -312,7 +29,7 @@
         </section>
 
         <div class="main-content container">
-            <div class="chain-panel">
+            <div class="chain-panel evm-panel">
                 <h2>EVM Chain</h2>
                 <div class="wallet-display">Connected EVM Account: <span id="evm-account-display">Not connected</span></div>
 
@@ -351,24 +68,26 @@
                 </div>
             </div>
 
-            <div class="chain-panel">
+            <div class="divider"></div>
+
+            <div class="chain-panel midnight-panel">
                 <h2>Midnight Chain</h2>
                 <div class="wallet-display">Connected Midnight Account: Not connected</div>
 
                 <div class="section">
                     <h3>Swap Midnight -> EVM</h3>
                     <label for="swapMidnightAmount">Amount to Send:</label>
-                    <input type="number" id="swapMidnightAmount" placeholder="e.g., 50" disabled>
-                    <button onclick="handleSwapMidnightToEvm()" disabled>Send to EVM Bridge (NYI)</button>
+                    <input type="number" id="swapMidnightAmount" placeholder="e.g., 50">
+                    <button onclick="handleSwapMidnightToEvm()">Send to EVM Bridge (NYI)</button>
                 </div>
 
                 <div class="section">
                     <h3>Transfer Tokens (Midnight)</h3>
                     <label for="transferMidnightRecipient">Recipient Midnight Address:</label>
-                    <input type="text" id="transferMidnightRecipient" placeholder="midnight1..." disabled>
+                    <input type="text" id="transferMidnightRecipient" placeholder="midnight1...">
                     <label for="transferMidnightAmount">Amount to Transfer:</label>
-                    <input type="number" id="transferMidnightAmount" placeholder="e.g., 25" disabled>
-                    <button onclick="handleTransferMidnight()" disabled>Send Midnight Tokens (NYI)</button>
+                    <input type="number" id="transferMidnightAmount" placeholder="e.g., 25">
+                    <button onclick="handleTransferMidnight()">Send Midnight Tokens (NYI)</button>
                 </div>
             </div>
         </div>

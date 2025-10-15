@@ -10,7 +10,6 @@ import { migrationTable } from "@multi-chain-transfer/database";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "@multi-chain-transfer/data-types/grammar";
-import { Erc1155Primitive } from "@multi-chain-transfer/custom-primitive-evm-erc1155/erc1155-primitive";
 import { MCTErc1155Primitive } from "@multi-chain-transfer/custom-primitive-mct-erc1155/erc1155-primitive";
 
 main(function* () {
@@ -27,7 +26,6 @@ main(function* () {
       apiRouter,
       grammar,
       userDefinedPrimitives: {
-        "EVM:ERC1155": Erc1155Primitive,
         "EVM:MCT_ERC1155": MCTErc1155Primitive,
       },
     });

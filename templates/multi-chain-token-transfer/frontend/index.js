@@ -24,6 +24,7 @@ let wallet = null;
 async function login() {
   const result = await walletLogin({
     mode: WalletMode.EvmInjected,
+    chain: hardhat,
   });
 
   if (!result.success) throw new Error("Cannot login");

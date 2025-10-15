@@ -8,7 +8,7 @@ import {
 } from "@paimaexample/config";
 import { hardhat } from "viem/chains";
 import { getConnection } from "@paimaexample/db";
-import { PrimitiveTypeEVMERC721, PrimitiveTypeMidnightGeneric } from "@paimaexample/sm/builtin";
+import { PrimitiveTypeMidnightGeneric, PrimitiveTypeEVMERC1155 } from "@paimaexample/sm/builtin";
 
 /**
  * Let check if the db.
@@ -114,7 +114,7 @@ export const localhostConfig = new ConfigBuilder()
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "MULTI_CHAIN_TOKEN_EVM",
-          type: "EVM:ERC1155",
+          type: PrimitiveTypeEVMERC1155,
           startBlockHeight: 0,
           contractAddress: contractAddressesEvmMain()
             .chain31337["Erc1155DevModule#MCT_ERC1155"],
