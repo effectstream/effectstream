@@ -12,6 +12,7 @@ struct LastTransfer {
   amount: Uint<128>;
 }
 
+export ledger txHashes: Set<Bytes<16>>;
 export ledger lastTransfer: LastTransfer;
 
 constructor(
@@ -103,12 +104,15 @@ export circuit transferFrom(
 export circuit transferToEvm(
   target_address: Opaque<'string'>,
   amount: Uint<128>,
+  txHash: Bytes<16>,
 ): [] {
   const caller = ownPublicKey();
   const callerEither = left<ZswapCoinPublicKey, ContractAddress>(caller);
   const callerTokenBalance = FungibleToken_balanceOf(callerEither);
+  assert(!txHashes.member(disclose(txHash)), "Transaction already processed");
   assert(callerTokenBalance >= amount, "Insufficient balance");
   burnFrom(callerEither, amount);
+  txHashes.insert(disclose(txHash));
   lastTransfer = LastTransfer{
     disclose(target_address),
     disclose(amount),

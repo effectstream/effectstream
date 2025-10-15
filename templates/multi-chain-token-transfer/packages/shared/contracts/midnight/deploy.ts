@@ -230,12 +230,7 @@ const deploy = async () => {
         8n,
         initialOwner,
       ],
-      initialPrivateState: {
-        name: "TokenName",
-        symbol: "TKN",
-        decimals: 8n,
-        initialOwner: initialOwner,
-      },
+      initialPrivateState: {},
     });
     log.info("Contract deployed.");
 
