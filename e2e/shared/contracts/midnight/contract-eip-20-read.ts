@@ -9,7 +9,7 @@ export function readMidnightContract(): MidnightContractInfo {
     // Get the directory of the current module file using Deno's URL API
     const dir = new URL(".", import.meta.url);
     // Construct the full path to contract.json
-    const contractPath = new URL("contract.json", dir);
+    const contractPath = new URL("contract-eip-20.json", dir);
     const contractJson = Deno.readTextFileSync(contractPath);
     const contractInfo = JSON.parse(contractJson) as MidnightContractInfo;
     cachedContractInfo = contractInfo;
@@ -19,7 +19,7 @@ export function readMidnightContract(): MidnightContractInfo {
     //      So we need to update this is read or imported.
     if (Deno) {
       console.error(err);
-      throw new Error("contract.json not found in the current directory");
+      throw new Error("contract-eip-20.json not found in the current directory");
     }
     return {
       contractAddress: "",

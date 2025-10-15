@@ -2,8 +2,9 @@
     "name": "@e2e/midnight-contracts",
     "version": "0.3.0",
     "exports": {
-        ".": "./read-contract.ts",
-        "./counter": "./contract/src/index.ts"
+        "./contract-counter-address": "./contract-counter-read.ts",
+        "./contract-eip-20-address": "./contract-eip-20-read.ts",
+        "./counter": "./contract-counter/src/index.ts"
     },
     "tasks": {
         "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs @paima/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
@@ -12,10 +13,11 @@
         "midnight-indexer:wait": "wait-on tcp:8088",
         "midnight-proof-server:start": "LEDGER_NETWORK_ID=\"Undeployed\" RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @paima/npm-midnight-proof-server",
         "midnight-proof-server:wait": "wait-on tcp:6300",
-        "midnight-contract:compile": "deno -A compile-contract.ts",
-        "midnight-contract:clean": "rm -rf midnight-level-db && rm -rf contract.json",
-        "midnight-contract:deploy": "deno task midnight-contract:clean && deno --unstable-detect-cjs -A deploy.ts",
-        "contract:compile": "deno task midnight-contract:compile"
+        "midnight-contract:clean": "rm -rf midnight-level-db contract-eip-20.json contract-counter.json",
+        "midnight-contract:deploy": "deno task midnight-contract:clean && deno task contract-eip20:deploy && deno task contract-counter:deploy",
+        "contract-counter:deploy": "deno --unstable-detect-cjs -A contract-counter-deploy.ts",
+        "contract-eip20:deploy": "deno --unstable-detect-cjs -A contract-eip-20-deploy.ts"
+
     },
     "imports": {
         "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger",

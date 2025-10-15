@@ -1,17 +1,23 @@
-import { assertSQL, type SharedState } from "@e2e/engine";
-import type { ContractAddress } from "@midnight-ntwrk/compact-runtime";
+import {
+  type ContractAddress,
+  NetworkId,
+} from "@midnight-ntwrk/compact-runtime";
 import {
   Counter,
   type CounterPrivateState,
   witnesses,
-} from "@e2e/midnight-contracts/counter";
+} from "./contract-counter/src/index.ts";
 import {
   type CoinInfo,
   nativeToken,
   Transaction,
   type TransactionId,
 } from "@midnight-ntwrk/ledger";
-import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
+import {
+  type DeployedContract,
+  findDeployedContract,
+  type FoundContract,
+} from "@midnight-ntwrk/midnight-js-contracts";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
@@ -26,26 +32,28 @@ import {
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
-import type { Wallet } from "@midnight-ntwrk/wallet-api";
+import { type Wallet } from "@midnight-ntwrk/wallet-api";
 import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
 import * as Rx from "rxjs";
 import { WebSocket } from "ws";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
-import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
-import { blockWatcher } from "@e2e/engine";
+import {
+  assertIsContractAddress,
+  toHex,
+} from "@midnight-ntwrk/midnight-js-utils";
 import {
   getLedgerNetworkId,
   getZswapNetworkId,
   setNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
-import type { Client } from "pg";
-import { readMidnightContract } from "@e2e/midnight-contracts/contract-counter-address";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve } from "@std/path";
+import { exists } from "@std/fs";
 
+// @ts-expect-error: It's needed to enable WebSocket usage through apollo
 globalThis.WebSocket = WebSocket;
 
 // Inlined common types for standalone script
-type CounterCircuits = ImpureCircuitId<any>;
+type CounterCircuits = ImpureCircuitId<Counter.Contract<CounterPrivateState>>;
 
 const CounterPrivateStateId = "counterPrivateState";
 
@@ -55,11 +63,25 @@ type CounterProviders = MidnightProviders<
   CounterPrivateState
 >;
 
+type CounterContract = Counter.Contract<CounterPrivateState>;
+
+type DeployedCounterContract =
+  | DeployedContract<CounterContract>
+  | FoundContract<CounterContract>;
+
+// Inlined config for standalone script
+const currentDir = resolve(
+  dirname(new URL(import.meta.url).pathname),
+);
+
 const contractConfig = {
   privateStateStoreName: "counter-private-state",
   zkConfigPath: resolve(
-    dirname(new URL(import.meta.url).pathname),
-    "../../../shared/contracts/midnight/contract-counter/src/managed/counter",
+    currentDir,
+    "contract-counter",
+    "src",
+    "managed",
+    "counter",
   ),
 };
 
@@ -72,13 +94,19 @@ interface Config {
 }
 
 class StandaloneConfig implements Config {
-  logDir = "logs/standalone";
+  logDir = resolve(
+    currentDir,
+    "..",
+    "logs",
+    "standalone",
+    `${new Date().toISOString()}.log`,
+  );
   indexer = "http://127.0.0.1:8088/api/v1/graphql";
   indexerWS = "ws://127.0.0.1:8088/api/v1/graphql/ws";
   node = "http://127.0.0.1:9944";
   proofServer = "http://127.0.0.1:6300";
   constructor() {
-    setNetworkId("Undeployed" as unknown as any);
+    setNetworkId("Undeployed" as unknown as NetworkId);
   }
 }
 
@@ -90,7 +118,7 @@ const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
 
 // Standalone helper functions
-const counterContractInstance: any = new Counter.Contract(
+const counterContractInstance: CounterContract = new Counter.Contract(
   witnesses,
 );
 
@@ -119,7 +147,7 @@ const getCounterLedgerState = async (
 const joinContract = async (
   providers: CounterProviders,
   contractAddress: string,
-): Promise<any> => {
+): Promise<DeployedCounterContract> => {
   const counterContract = await findDeployedContract(providers, {
     contractAddress,
     contract: counterContractInstance,
@@ -133,7 +161,7 @@ const joinContract = async (
 };
 
 const increment = async (
-  counterContract: any,
+  counterContract: DeployedCounterContract,
 ): Promise<FinalizedTxData> => {
   console.log("Incrementing...");
   const finalizedTxData = await counterContract.callTx.increment();
@@ -145,7 +173,7 @@ const increment = async (
 
 const displayCounterValue = async (
   providers: CounterProviders,
-  counterContract: any,
+  counterContract: DeployedCounterContract,
 ): Promise<{ counterValue: bigint | null; contractAddress: string }> => {
   const contractAddress = counterContract.deployTxData.public.contractAddress;
   const counterValue = await getCounterLedgerState(providers, contractAddress);
@@ -216,25 +244,42 @@ const buildWalletAndWaitForFunds = async (
   filename: string,
 ): Promise<Wallet & Resource> => {
   const directoryPath = Deno.env.get("SYNC_CACHE");
-  let wallet: any;
+  let wallet: Wallet & Resource;
   if (directoryPath !== undefined) {
     const fullPath = `${directoryPath}/${filename}`;
-    try {
-      const contractAddress = readMidnightContract().contractAddress;
-      wallet = await WalletBuilder.restore(
-        indexer,
-        indexerWS,
-        proofServer,
-        node,
-        seed,
-        contractAddress,
-        "info",
-      );
-      wallet.start();
-    } catch (error: unknown) {
+    if (await exists(fullPath)) {
       console.log(
-        "Wallet was not able to restore using the stored state, building wallet from scratch",
+        `Attempting to restore state from ${fullPath}`,
       );
+      try {
+        const serialized = await Deno.readFile(fullPath);
+        wallet = await WalletBuilder.restore(
+          indexer,
+          indexerWS,
+          proofServer,
+          node,
+          seed,
+          serialized,
+          "info",
+        );
+        wallet.start();
+      } catch (error: unknown) {
+        console.log(
+          "Wallet was not able to restore using the stored state, building wallet from scratch",
+        );
+        wallet = await WalletBuilder.buildFromSeed(
+          indexer,
+          indexerWS,
+          proofServer,
+          node,
+          seed,
+          getZswapNetworkId(),
+          "info",
+        );
+        wallet.start();
+      }
+    } else {
+      console.log("Wallet save file not found, building wallet from scratch");
       wallet = await WalletBuilder.buildFromSeed(
         indexer,
         indexerWS,
@@ -252,13 +297,13 @@ const buildWalletAndWaitForFunds = async (
     );
 
     try {
-      wallet = await WalletBuilder.build(
+      wallet = await WalletBuilder.buildFromSeed(
         indexer,
         indexerWS,
         proofServer,
         node,
         seed,
-        getZswapNetworkId(),
+        NetworkId.Undeployed,
         "info",
       );
       console.log("✅ Wallet built successfully");
@@ -269,7 +314,7 @@ const buildWalletAndWaitForFunds = async (
     }
   }
 
-  const state: any = await Rx.firstValueFrom(wallet.state());
+  const state = await Rx.firstValueFrom(wallet.state());
   console.log(`Your wallet seed is: ${seed}`);
   console.log(`Your wallet address is: ${state.address}`);
   let balance = state.balances[nativeToken()];
@@ -323,17 +368,26 @@ const getContractAddress = async (): Promise<string> => {
   }
 
   // If not provided via args, try to read from contract_address.txt file
+  const contractAddressFile = resolve(currentDir, "contract-counter.json");
 
   try {
-    const contractAddressFromFile = readMidnightContract().contractAddress;
+    if (await exists(contractAddressFile)) {
+      const contractAddressFromFile = JSON.parse(
+        await Deno.readTextFile(contractAddressFile),
+      ).contractAddress;
 
-    if (contractAddressFromFile) {
-      console.log(
-        `📄 Using contract address from file: ${contractAddressFromFile}`,
-      );
-      return contractAddressFromFile;
+      if (contractAddressFromFile) {
+        console.log(
+          `📄 Using contract address from file ${contractAddressFile}: ${contractAddressFromFile}`,
+        );
+        return contractAddressFromFile;
+      } else {
+        throw new Error("Contract address file is empty");
+      }
     } else {
-      throw new Error("Contract address file is empty");
+      throw new Error(
+        `Contract address file not found at ${contractAddressFile}`,
+      );
     }
   } catch (error) {
     console.error(`❌ Error reading contract address from file: ${error}`);
@@ -361,10 +415,7 @@ const getContractAddress = async (): Promise<string> => {
  * Example:
  *   deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678
  */
-async function joinAndIncrementTest(
-  db: Client,
-  sharedState: SharedState,
-): Promise<void> {
+async function joinAndIncrement(): Promise<void> {
   // Get contract address from command line arguments or file
   const contractAddress = await getContractAddress();
 
@@ -384,7 +435,7 @@ async function joinAndIncrementTest(
     wallet = await buildWalletAndWaitForFunds(
       config,
       GENESIS_MINT_WALLET_SEED,
-      "contract.json",
+      "contract-counter.json",
     );
 
     console.log("✅ Wallet built successfully");
@@ -417,60 +468,22 @@ async function joinAndIncrementTest(
       `✅ Counter incremented! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`,
     );
 
-    sharedState.primitive_accounting_counter += 1;
-
     // Display counter value after increment
     console.log("📊 Displaying counter value after increment...");
     const afterResult = await displayCounterValue(providers, counterContract);
     console.log(`📊 New counter value: ${afterResult.counterValue}`);
 
     console.log("🎉 Join and increment process completed successfully!");
-
-    console.log("🔍 Waiting for block...", incrementResult.blockHeight, '@ parallelMidnight');
-    await blockWatcher.waitForBlock("parallelMidnight", incrementResult.blockHeight);
-
-
   } catch (error) {
     console.error("❌ Error during join and increment process:", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
-    // Deno.exit(1);
+    Deno.exit(1);
   } finally {
     // Clean up wallet
     if (wallet) {
       try {
         console.log("🧹 Wallet closed successfully");
-        await assertSQL<{
-          primitive_name: string;
-          id: number;
-          paima_block_height: number;
-          payload_type: string;
-          payload: { payload: {
-            tag: string;
-            content: {
-              tag: string;
-              content: {
-                value: { "0"?: number }[];
-              };
-            }[];
-          } };
-        }>(
-          "MidnightRowsExists",
-          db,
-          "SELECT * FROM paima.primitive_accounting WHERE primitive_name = 'MidnightContractState'",
-          (res) => true,
-          (res) => {
-            const countOK = res.rows.length === 2;
-            const row0_OK = res.rows[0].payload.payload.content[0].content.value[0]["0"] === undefined;
-            const row1_OK = res.rows[1].payload.payload.content[0].content.value[0]["0"] === 1;
-            const OK = countOK && row0_OK && row1_OK;
-            if (!OK) {
-              console.log({countOK, row0_OK, row1_OK, row: res.rows});
-            }
-            return OK;
-          },
-        );
-
-        // Deno.exit(0);
+        Deno.exit(0);
       } catch (error) {
         console.error("❌ Error closing wallet:", error);
       }
@@ -478,4 +491,12 @@ async function joinAndIncrementTest(
   }
 }
 
-export { joinAndIncrementTest };
+// Run the script if this file is executed directly
+if (import.meta.main) {
+  joinAndIncrement().catch((error) => {
+    console.error("❌ Unhandled error:", error);
+    Deno.exit(1);
+  });
+}
+
+export { joinAndIncrement };

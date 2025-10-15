@@ -41,8 +41,9 @@ async function test() {
     const sharedState: SharedState = newSharedState();
 
     // Midnight triggers the event when read for first time.
+    // In the E2E Test, we have 2 primitives.
     if (midnight_enabled) {
-      sharedState.primitive_accounting_counter = 1;
+      sharedState.primitive_accounting_counter = 2;
     }
     await generalTest(db, sharedState);
     console.log(
