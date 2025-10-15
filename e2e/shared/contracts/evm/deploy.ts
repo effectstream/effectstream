@@ -6,7 +6,7 @@ import PaimaL2ContractModule from "./ignition/modules/paimaL2.ts";
 import Erc721DevModule from "./ignition/modules/erc721dev.ts";
 import type { buildModule } from "@nomicfoundation/ignition-core";
 import CounterModule from "./ignition/modules/counter.ts";
-// import OpenZeppelinErc20DevModule from "./ignition/modules/oz-erc20dev.ts";
+import ERC1155DevModule from "./ignition/modules/erc1155dev.ts";
 
 const __dirname: any = import.meta.dirname;
 
@@ -49,7 +49,12 @@ const myDeployments: Deployment[] = [
   {
     module: CounterModule,
     network: "evmMainHttp",
+  },
+  {
+    module: ERC1155DevModule,
+    network: "evmMainHttp",
   }
+
 ] as const;
 
 /**

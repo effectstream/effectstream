@@ -41,7 +41,7 @@ type BasePrimitive = {
 };
 
 type EVMPrimitive = BasePrimitive & {
-  abi: ReturnType<typeof getEvmEvent>;
+  abi: ReturnType<typeof getEvmEvent> | ReturnType<typeof getEvmEvent>[];
   contractAddress: string;
 };
 

@@ -36,4 +36,5 @@ export const grammar = {
   "midnightContractState": builtinGrammars.midnightGeneric,
   "transfer-assets": builtinGrammars.evmErc721,
   "transfer-erc20": builtinGrammars.evmErc20,
+  "transfer-erc1155": builtinGrammars.evmErc1155,
 } as const satisfies GrammarDefinition;
