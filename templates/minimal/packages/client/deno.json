@@ -16,7 +16,7 @@
   "imports": {
     // THESE DEPENDENCIES ARE USED FOR MIDNIGHT
     // TODO These dependencies should be included in the corresponding package @paima/*
-    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.8.1",
+    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.9.0",
     "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger@^4.0.0",
     "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts@^2.0.2",
     "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-fetch-zk-config-provider@^2.0.2",

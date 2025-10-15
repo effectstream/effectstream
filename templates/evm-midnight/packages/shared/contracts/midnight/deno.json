@@ -19,7 +19,7 @@
         "@paimaexample/npm-midnight-node": "npm:@paimaexample/npm-midnight-node@0.3.68",
         "@paimaexample/npm-midnight-proof-server": "npm:@paimaexample/npm-midnight-proof-server@0.3.68",
         "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger",
-        "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.8.1",
+        "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
         "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap"
     }
 }
