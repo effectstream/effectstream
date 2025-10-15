@@ -135,10 +135,17 @@ async function processFile(filePath: string, reverse: boolean = false) {
   if (
     filePath.endsWith("session.tmux") || filePath.endsWith("session.tmux.ts")
   ) {
-    newContent = newContent.replace(
-      /@paima\/(?!pgtyped-cli)([\w-]+)/g,
-      "deno -A @paimaexample/$1",
-    );
+    if (!reverse) {
+      newContent = newContent.replace(
+        /@paima\/(?!pgtyped-cli)([\w-]+)/g,
+        "@paimaexample/$1",
+      );
+    } else {
+      newContent = newContent.replace(
+        /@paimaexample\/([\w-]+)/g,
+        "@paima/$1",
+      );
+    }
   }
   // If this is a deno.json or package.json, update the version (both forward and reverse)
   if (filePath.endsWith("deno.json") || filePath.endsWith("package.json")) {
@@ -357,10 +364,9 @@ async function main() {
     await walkAndProcess(rootDir, true);
   } else {
     console.log("Starting replacement...");
+    await prePublishPackages();
     await walkAndProcess(rootDir, false);
   }
-
-  await prePublishPackages();
 
   if (shouldPublish) {
     if (otpCode) {

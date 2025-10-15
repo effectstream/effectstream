@@ -6,6 +6,7 @@ export const midnightGenericGrammar = [
       // As type is unknown, we use a recursive wrapper with a "payload" key.
       Type.Recursive((Self) =>
         Type.Union([
+          Type.Object({}),
           Type.Object({
             tag: Type.Literal("null"),
           }),
