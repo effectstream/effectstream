@@ -1,39 +1,58 @@
-import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
 import {
   FileStorage,
+  MidnightAdapter,
   type PaimaBatcherConfig,
-  PaimaL2DefaultAdapter,
 } from "@paimaexample/batcher";
+import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
+import { SimpleToken, witnesses } from "@multi-chain-transfer/midnight-contracts/simpletoken";
+import { NetworkId } from "@midnight-ntwrk/compact-runtime";
+import * as path from "https://deno.land/std@0.224.0/path/mod.ts";
 
 const batchIntervalMs = 1000;
-
-// TODO This is the ERC1155 contract address, not the PaimaL2 contract address
-const paimaL2Address = contractAddressesEvmMain()["chain31337"][
-  "Erc1155DevModule#MCT_ERC1155"
-] as `0x${string}`;
-const paimaSyncProtocolName = "mainEvmRPC";
-const batcherPrivateKey =
-  "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-
-// Defaults consistent with local template usage
-const paimaL2Fee = 0n; // Old batcher defaulted to 0 for local dev
 const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
 
-// EVM PaimaL2 adapter mirroring batcher-start.ts configuration
-const paimaL2 = new PaimaL2DefaultAdapter(
-  paimaL2Address,
-  batcherPrivateKey,
-  paimaL2Fee,
-  paimaSyncProtocolName,
+const GENESIS_MINT_WALLET_SEED =
+  "0000000000000000000000000000000000000000000000000000000000000001";
+
+const { contractInfo, contractAddress } = readMidnightContract();
+const zkConfigPath = path.resolve(
+  import.meta.url,
+  "../../shared",
+  "contracts",
+  "midnight",
+  "contract-round-value",
+  "src",
+  "managed",
+  "simpletoken",
+);
+
+const midnightAdapterConfig = {
+  indexer: "http://localhost:8088",
+  indexerWS: "ws://localhost:8088",
+  node: "ws://localhost:9944",
+  proofServer: "http://localhost:6300",
+  zkConfigPath,
+  privateStateStoreName: "simpletoken-private-state",
+}
+
+const midnightAdapter = new MidnightAdapter(
+  contractAddress,
+  GENESIS_MINT_WALLET_SEED,
+  midnightAdapterConfig,
+  SimpleToken.Contract,
+  witnesses,
+  contractInfo,
+  NetworkId.Undeployed,
+  "midnight-graphql-parallel",
 );
 
 export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
-  adapters: { paimaL2 },
-  defaultTarget: "paimaL2",
+  adapters: { midnight: midnightAdapter },
+  defaultTarget: "midnight",
   namespace: "",
   batchingCriteria: {
-    paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
+    midnight: { criteriaType: "size", maxBatchSize: 1 },
   },
   confirmationLevel: "wait-paima-processed", // Connector expectation
   batchBuilding: { maxSize: 10000 }, // Connector expectation
