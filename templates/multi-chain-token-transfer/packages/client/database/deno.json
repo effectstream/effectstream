@@ -4,11 +4,11 @@
     "license": "MIT",
     "exports": "./src/mod.ts",
     "imports": {
-        "@paimaexample/config": "jsr:@paimaexample/config@0.3.72",
-        "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.72",
-        "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.72",
+        "@paimaexample/config": "jsr:@paimaexample/config@0.3.74",
+        "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.74",
+        "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.74",
         "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2",
-        "@paimaexample/db": "jsr:@paimaexample/db@0.3.72",
+        "@paimaexample/db": "jsr:@paimaexample/db@0.3.74",
         "pg": "npm:pg@^8.14.0",
         "effection": "npm:effection@3.5.0"
     },
