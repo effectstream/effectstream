@@ -1,5 +1,8 @@
 import * as log from "https://deno.land/std@0.224.0/log/mod.ts";
-
+import {
+  MidnightBech32m,
+  ShieldedAddress,
+} from "npm:@midnight-ntwrk/wallet-sdk-address-format";
 import {
   NetworkId,
   setNetworkId,
@@ -11,7 +14,6 @@ import {
   type WalletProvider,
 } from "npm:@midnight-ntwrk/midnight-js-types@2.0.2";
 import { type Resource, WalletBuilder } from "npm:@midnight-ntwrk/wallet@5.0.0";
-import { type Wallet } from "npm:@midnight-ntwrk/wallet-api@5.0.0";
 import {
   Transaction as ZswapTransaction,
 } from "npm:@midnight-ntwrk/zswap@4.0.0";
@@ -21,12 +23,13 @@ import {
   Transaction,
   type TransactionId,
 } from "npm:@midnight-ntwrk/ledger@4.0.0";
-import { deployContract } from "npm:@midnight-ntwrk/midnight-js-contracts@2.0.2";
 import {
-  Counter,
-  type CounterPrivateState,
+  deployContract,
+} from "npm:@midnight-ntwrk/midnight-js-contracts@2.0.2";
+import {
+  SimpleToken,
   witnesses,
-} from "./contract/src/index.ts";
+} from "./contract-eip-20/src/index.original.ts";
 import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2";
 import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@2.0.2";
 import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@2.0.2";
@@ -45,24 +48,17 @@ const GENESIS_MINT_WALLET_SEED =
 const currentDir = path.dirname(path.fromFileUrl(import.meta.url));
 
 const contractConfig = {
-  privateStateStoreName: "counter-private-state",
+  privateStateStoreName: "simpletoken-private-state",
   zkConfigPath: path.resolve(
     currentDir,
-    "contract",
+    "contract-eip-20",
     "src",
     "managed",
-    "counter",
+    "simpletoken",
   ),
 };
 
 class StandaloneConfig {
-  logDir = path.resolve(
-    currentDir,
-    "counter-cli",
-    "logs",
-    "standalone",
-    `${new Date().toISOString()}.log`,
-  );
   indexer = "http://127.0.0.1:8088/api/v1/graphql";
   indexerWS = "ws://127.0.0.1:8088/api/v1/graphql/ws";
   node = "http://127.0.0.1:9944";
@@ -189,14 +185,34 @@ const deploy = async () => {
       },
     },
   });
-
   const config = new StandaloneConfig();
 
   let wallet: (Wallet & Resource) | null = null;
 
   try {
     log.info("Building wallet...");
-    wallet = await buildWalletAndWaitForFunds(config, GENESIS_MINT_WALLET_SEED);
+    wallet = await buildWalletAndWaitForFunds(
+      config,
+      GENESIS_MINT_WALLET_SEED,
+    );
+    const state = await Rx.firstValueFrom(wallet.state());
+    const walletAddress = state.address;
+    log.info(`Wallet address-----: ${walletAddress}`);
+    const decodedAddress = MidnightBech32m.parse(walletAddress);
+    const shieldedAddress = ShieldedAddress.codec.decode(
+      "undeployed",
+      decodedAddress,
+    );
+    console.log("coin Public Key:", shieldedAddress.coinPublicKeyString());
+    console.log(
+      "encryption Public Key:",
+      shieldedAddress.encryptionPublicKeyString(),
+    );
+    const initialOwner = {
+      is_left: true,
+      left: { bytes: shieldedAddress.coinPublicKey.data },
+      right: { bytes: new Uint8Array(32) },
+    };
     log.info("Wallet built successfully.");
 
     log.info("Configuring providers...");
@@ -204,18 +220,24 @@ const deploy = async () => {
     log.info("Providers configured.");
 
     log.info("Deploying contract...");
-    const contract = new Counter.Contract(witnesses);
+    const contract = new SimpleToken.Contract(witnesses);
     const deployedContract = await deployContract(providers, {
       contract: contract,
-      privateStateId: "counterPrivateState",
-      initialPrivateState: { privateCounter: 0 } as CounterPrivateState,
+      privateStateId: "simpletokenPrivateState",
+      args: [
+        "TokenName",
+        "TKN",
+        8n,
+        initialOwner,
+      ],
+      initialPrivateState: {},
     });
     log.info("Contract deployed.");
 
     const contractAddress =
       deployedContract.deployTxData.public.contractAddress;
     console.log(contractAddress);
-    const outputPath = path.join(currentDir, "contract.json");
+    const outputPath = path.join(currentDir, "contract-eip-20.json");
     await Deno.writeTextFile(
       outputPath,
       JSON.stringify({ contractAddress }, null, 2),

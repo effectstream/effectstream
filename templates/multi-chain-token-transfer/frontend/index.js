@@ -21,10 +21,30 @@ export const paimaEngineConfig = new PaimaEngineConfig(
 );
 
 let wallet = null;
-async function login() {
+async function loginEVM() {
   const result = await walletLogin({
     mode: WalletMode.EvmInjected,
     chain: hardhat,
+  });
+
+  if (!result.success) throw new Error("Cannot login");
+  wallet = result.result;
+
+  const client = createWalletClient({
+    chain: hardhat,
+    transport: custom({
+      async request({ method, params }) {
+        const response = await wallet.provider.conn.api.request({method, params})
+        return response
+      }
+    })
+  });
+  return { wallet, client };
+}
+
+async function loginMidnight() {
+  const result = await walletLogin({
+    mode: WalletMode.Midnight,
   });
 
   if (!result.success) throw new Error("Cannot login");
@@ -147,7 +167,8 @@ async function contract_safeBatchTransferFrom(client, wallet, to_addr, ids, amou
 globalThis.paima = {
   ...globalThis.paima,
   contract_balanceOf,
-  login,
+  loginEVM,
+  loginMidnight,
   contract_safeTransferFrom,
   contract_transferToMidnight,
   contract_mint,

@@ -3,13 +3,8 @@ import { Type } from "@sinclair/typebox";
 export const midnightGenericGrammar = [
     [
       "payload",
-      // As type is unknown, we use a recursive wrapper with a "payload" key.
       Type.Recursive((Self) =>
         Type.Union([
-          Type.Object({}),
-          Type.Object({
-            tag: Type.Literal("null"),
-          }),
           Type.Object({
             tag: Type.Literal("cell"),
             content: Self,
@@ -19,8 +14,11 @@ export const midnightGenericGrammar = [
             content: Type.Array(Self),
           }),
           Type.Object({
-            tag: Type.Literal("map"),
-            content: Type.Array(Type.Tuple([Type.Any(), Type.Any()])),
+            tag: Type.Literal('map'),
+            content: Type.Union([
+              Type.Object({}),
+              Type.Array(Type.Tuple([Type.Any(), Type.Any()])),
+            ]),
           }),
           Type.Object({
             value: Type.Array(Type.Record(Type.String(), Type.Number())),
@@ -33,6 +31,9 @@ export const midnightGenericGrammar = [
           Type.Object({
             tag: Type.Literal("bytes"),
             length: Type.Number(),
+          }),
+          Type.Object({
+            tag: Type.Optional(Type.Literal("null")),
           }),
         ])
       ),

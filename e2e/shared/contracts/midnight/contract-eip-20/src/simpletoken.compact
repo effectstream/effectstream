@@ -1,0 +1,120 @@
+// SimpleToken.compact
+pragma language_version >= 0.17.0;
+
+import CompactStandardLibrary;
+import "./base-contracts/src/token/FungibleToken"
+  prefix FungibleToken_;
+import "./base-contracts/src/access/Ownable"
+  prefix Ownable_;
+
+struct LastTransfer {
+  target_address: Opaque<'string'>;
+  amount: Uint<128>;
+}
+
+export ledger txHashes: Set<Bytes<16>>;
+export ledger lastTransfer: LastTransfer;
+
+constructor(
+  name: Opaque<"string">,
+  symbol: Opaque<"string">,
+  decimals: Uint<8>,
+  initialOwner: Either<ZswapCoinPublicKey, ContractAddress>,
+) {
+  // Initialize the token
+  FungibleToken_initialize(name, symbol, decimals);
+  // Set the initial owner
+  Ownable_initialize(initialOwner);
+}
+
+export circuit name(): Opaque<"string"> {
+  return FungibleToken_name();
+}
+
+export circuit owner(): Either<ZswapCoinPublicKey, ContractAddress> {
+  return Ownable_owner();
+}
+
+export circuit symbol(): Opaque<"string"> {
+  return FungibleToken_symbol();
+}
+
+export circuit decimals(): Uint<8> {
+  return FungibleToken_decimals();
+}
+
+export circuit totalSupply(): Uint<128> {
+  return FungibleToken_totalSupply();
+}
+
+export circuit balanceOf(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+): Uint<128> {
+  return FungibleToken_balanceOf(account);
+}
+
+export circuit mint(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): [] {
+  // This line protects the circuit - only the owner can continue past it
+  Ownable_assertOnlyOwner();
+  // If we reach here, the caller is the owner
+  FungibleToken__mint(account, value);
+}
+
+export circuit transfer(
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): Boolean {
+  return FungibleToken_transfer(to, value);
+}
+
+export circuit approve(
+  spender: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): Boolean {
+  return FungibleToken_approve(spender, value);
+}
+
+export circuit allowance(
+  owner: Either<ZswapCoinPublicKey, ContractAddress>,
+  spender: Either<ZswapCoinPublicKey, ContractAddress>,
+): Uint<128> {
+  return FungibleToken_allowance(owner, spender);
+}
+
+// Allows the owner to burn tokens from any account
+export circuit burnFrom(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): [] {
+  Ownable_assertOnlyOwner();
+  return FungibleToken__burn(account, value);
+}
+
+export circuit transferFrom(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): Boolean {
+  return FungibleToken_transferFrom(from, to, value);
+}
+
+export circuit transferToEvm(
+  target_address: Opaque<'string'>,
+  amount: Uint<128>,
+  txHash: Bytes<16>,
+): [] {
+  const caller = ownPublicKey();
+  const callerEither = left<ZswapCoinPublicKey, ContractAddress>(caller);
+  const callerTokenBalance = FungibleToken_balanceOf(callerEither);
+  assert(!txHashes.member(disclose(txHash)), "Transaction already processed");
+  assert(callerTokenBalance >= amount, "Insufficient balance");
+  burnFrom(callerEither, amount);
+  txHashes.insert(disclose(txHash));
+  lastTransfer = LastTransfer{
+    disclose(target_address),
+    disclose(amount),
+  };
+}

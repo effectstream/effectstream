@@ -20,7 +20,8 @@
                     <span id="connection-status">Not Connected</span>
                     <div id="address" style="font-size: 0.8em; color: #b0b0b0;"></div>
                 </div>
-                <button class="evm-button" id="login" onclick="walletLogin()" style="margin-left: 20px;">Connect Wallet</button>
+                <button class="evm-button" id="login" onclick="walletLogin()" style="margin-left: 20px;">Connect EVM Wallet</button>
+                <button class="midnight-button" id="login-midnight" onclick="walletLoginMidnight()" style="margin-left: 10px;">Connect Lace (Midnight) Wallet</button>
             </div>
              <div class="token-balances">
                 <span><strong>Your Balance:</strong> <span id="balance-data">N/A</span> SWAP</span>
@@ -72,7 +73,7 @@
 
             <div class="chain-panel midnight-panel">
                 <h2>Midnight Chain</h2>
-                <div class="wallet-display">Connected Midnight Account: Not connected</div>
+                <div class="wallet-display">Connected Midnight Account: <span id="midnight-account-display">Not connected</span></div>
 
                 <div class="section">
                     <h3>Swap Midnight -> EVM</h3>
@@ -111,10 +112,12 @@
     const system = {
         wallet: null,
         client: null,
+        midnight_wallet: null,
+        midnight_client: null,
     };
     async function walletLogin() {
         console.log(window.paima);
-        const { wallet, client } = await paima.login();
+        const { wallet, client } = await paima.loginEVM();
         const { metadata, provider } = wallet;
         const { address: address1 } = provider;
         const address2 = await provider.getAddress();
@@ -134,6 +137,17 @@
         // Fetch initial data on login
         fetchBalance();
         fetchMultiChainTokenData();
+    };
+
+    async function walletLoginMidnight() {
+        const { wallet, client } = await paima.loginMidnight();
+        
+        const address = wallet.walletAddress;
+        document.getElementById('midnight-account-display').innerText = address;
+        document.getElementById('login-midnight').style.display = 'none'; // Hide login button
+        
+        system.midnight_wallet = wallet;
+        system.midnight_client = client;
     };
 
     async function writeToContractEVMERC1155() {

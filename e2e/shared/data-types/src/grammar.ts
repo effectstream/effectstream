@@ -34,6 +34,7 @@ export const grammar = {
   // TODO Check if these exist in runtime
   "avail-app-state": builtinGrammars.availGeneric,
   "midnightContractState": builtinGrammars.midnightGeneric,
+  "eip20ContractState": builtinGrammars.midnightGeneric,
   "transfer-assets": builtinGrammars.evmErc721,
   "transfer-erc20": builtinGrammars.evmErc20,
   "transfer-erc1155": builtinGrammars.evmErc1155,

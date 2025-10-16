@@ -1,29 +1,26 @@
 import {
   type ContractAddress,
   NetworkId,
-} from "npm:@midnight-ntwrk/compact-runtime";
+} from "@midnight-ntwrk/compact-runtime";
 import {
-  SimpleToken,
+  Counter,
+  type CounterPrivateState,
   witnesses,
-} from "./contract-round-value/src/index.original.ts";
+} from "./contract-counter/src/index.ts";
 import {
   type CoinInfo,
   nativeToken,
   Transaction,
   type TransactionId,
-} from "npm:@midnight-ntwrk/ledger";
-import {
-  MidnightBech32m,
-  ShieldedAddress,
-} from "npm:@midnight-ntwrk/wallet-sdk-address-format";
+} from "@midnight-ntwrk/ledger";
 import {
   type DeployedContract,
   findDeployedContract,
   type FoundContract,
-} from "npm:@midnight-ntwrk/midnight-js-contracts";
-import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider";
+} from "@midnight-ntwrk/midnight-js-contracts";
+import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import {
   type BalancedTransaction,
   createBalancedTx,
@@ -33,41 +30,63 @@ import {
   type MidnightProviders,
   type UnbalancedTransaction,
   type WalletProvider,
-} from "npm:@midnight-ntwrk/midnight-js-types";
-import { type Resource, WalletBuilder } from "npm:@midnight-ntwrk/wallet";
-import { type Wallet } from "npm:@midnight-ntwrk/wallet-api";
-import { Transaction as ZswapTransaction } from "npm:@midnight-ntwrk/zswap";
-import { levelPrivateStateProvider } from "npm:@midnight-ntwrk/midnight-js-level-private-state-provider";
-import * as Rx from "npm:rxjs";
-import { assertIsContractAddress } from "npm:@midnight-ntwrk/midnight-js-utils";
+} from "@midnight-ntwrk/midnight-js-types";
+import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
+import { type Wallet } from "@midnight-ntwrk/wallet-api";
+import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
+import * as Rx from "rxjs";
+import { WebSocket } from "ws";
+import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
+import {
+  assertIsContractAddress,
+  toHex,
+} from "@midnight-ntwrk/midnight-js-utils";
 import {
   getLedgerNetworkId,
   getZswapNetworkId,
   setNetworkId,
-} from "npm:@midnight-ntwrk/midnight-js-network-id";
+} from "@midnight-ntwrk/midnight-js-network-id";
 import { dirname, resolve } from "@std/path";
 import { exists } from "@std/fs";
 
+// @ts-expect-error: It's needed to enable WebSocket usage through apollo
 globalThis.WebSocket = WebSocket;
 
 // Inlined common types for standalone script
-type SimpleTokenCircuits = ImpureCircuitId<SimpleToken.Contract>;
+type CounterCircuits = ImpureCircuitId<Counter.Contract<CounterPrivateState>>;
 
-const SimpleTokenPrivateStateId = "simpleTokenPrivateState";
+const CounterPrivateStateId = "counterPrivateState";
 
-type SimpleTokenProviders = MidnightProviders<
-  SimpleTokenCircuits,
-  typeof SimpleTokenPrivateStateId,
-  {}
+type CounterProviders = MidnightProviders<
+  CounterCircuits,
+  typeof CounterPrivateStateId,
+  CounterPrivateState
 >;
 
-type SimpleTokenContract = SimpleToken.Contract;
+type CounterContract = Counter.Contract<CounterPrivateState>;
 
-type DeployedSimpleTokenContract =
-  | DeployedContract<SimpleTokenContract>
-  | FoundContract<SimpleTokenContract>;
+type DeployedCounterContract =
+  | DeployedContract<CounterContract>
+  | FoundContract<CounterContract>;
+
+// Inlined config for standalone script
+const currentDir = resolve(
+  dirname(new URL(import.meta.url).pathname),
+);
+
+const contractConfig = {
+  privateStateStoreName: "counter-private-state",
+  zkConfigPath: resolve(
+    currentDir,
+    "contract-counter",
+    "src",
+    "managed",
+    "counter",
+  ),
+};
 
 interface Config {
+  readonly logDir: string;
   readonly indexer: string;
   readonly indexerWS: string;
   readonly node: string;
@@ -75,6 +94,13 @@ interface Config {
 }
 
 class StandaloneConfig implements Config {
+  logDir = resolve(
+    currentDir,
+    "..",
+    "logs",
+    "standalone",
+    `${new Date().toISOString()}.log`,
+  );
   indexer = "http://127.0.0.1:8088/api/v1/graphql";
   indexerWS = "ws://127.0.0.1:8088/api/v1/graphql/ws";
   node = "http://127.0.0.1:9944";
@@ -84,33 +110,20 @@ class StandaloneConfig implements Config {
   }
 }
 
-const config = new StandaloneConfig();
-
-const currentDir = resolve(
-  dirname(new URL(import.meta.url).pathname),
-);
-
-const contractConfig = {
-  privateStateStoreName: "counter-private-state",
-  zkConfigPath: resolve(
-    currentDir,
-    "contract-round-value",
-    "src",
-    "managed",
-    "simpletoken",
-  ),
-};
-
+/**
+ * This seed gives access to tokens minted in the genesis block of a local development node - only
+ * used in standalone networks to build a wallet with initial funds.
+ */
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
 
-const simpleTokenContractInstance: SimpleTokenContract = new SimpleToken
-  .Contract(
+// Standalone helper functions
+const counterContractInstance: CounterContract = new Counter.Contract(
   witnesses,
 );
 
-const getSimpleTokenLedgerState = async (
-  providers: SimpleTokenProviders,
+const getCounterLedgerState = async (
+  providers: CounterProviders,
   contractAddress: ContractAddress,
 ): Promise<bigint | null> => {
   assertIsContractAddress(contractAddress);
@@ -120,87 +133,56 @@ const getSimpleTokenLedgerState = async (
     const contractState = await providers.publicDataProvider.queryContractState(
       contractAddress,
     );
-    console.log("contractState", contractState);
-    console.log(
-      Object.entries(contractState).map(([key, value]) =>
-        `${key}: ${value} (${typeof value})`
-      ),
-    );
     const state = contractState != null
-      ? SimpleToken.ledger(contractState.data)
+      ? Counter.ledger(contractState.data).round
       : null;
-    console.log(
-      `📊 Ledger state: ${
-        state && JSON.stringify(
-          state,
-          (_key, value) => typeof value === "bigint" ? value.toString() : value,
-          2,
-        )
-      }`,
-    );
+    console.log(`📊 Ledger state: ${state}`);
     return state;
   } catch (error) {
-    console.error("❌ Error getting simple token ledger state:", error);
+    console.error("❌ Error getting counter ledger state:", error);
     throw error;
   }
 };
 
 const joinContract = async (
-  providers: SimpleTokenProviders,
+  providers: CounterProviders,
   contractAddress: string,
-): Promise<DeployedSimpleTokenContract> => {
-  console.log("Joining contract...🍋🍋🍋");
-  const simpleTokenContract = await findDeployedContract(providers, {
+): Promise<DeployedCounterContract> => {
+  const counterContract = await findDeployedContract(providers, {
     contractAddress,
-    contract: simpleTokenContractInstance,
-    privateStateId: "simpleTokenPrivateState",
-    initialPrivateState: {},
+    contract: counterContractInstance,
+    privateStateId: "counterPrivateState",
+    initialPrivateState: { privateCounter: 0 },
   });
   console.log(
-    `Joined contract at address: ${simpleTokenContract.deployTxData.public.contractAddress}`,
+    `Joined contract at address: ${counterContract.deployTxData.public.contractAddress}`,
   );
-  return simpleTokenContract;
+  return counterContract;
 };
 
-const balanceOf = async (
-  simpleTokenContract: DeployedSimpleTokenContract,
-  account: string,
-): Promise<bigint> => {
-  const shieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(account),
-  );
-  const either = {
-    is_left: true,
-    left: { bytes: shieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
-  const accountBalance = await simpleTokenContract.callTx.balanceOf(either);
-  return accountBalance.private.result as bigint;
-};
-
-const mint = async (
-  simpleTokenContract: DeployedSimpleTokenContract,
-  account: string,
-  value: bigint,
+const increment = async (
+  counterContract: DeployedCounterContract,
 ): Promise<FinalizedTxData> => {
-  console.log("Minting...");
-  const shieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(account),
-  );
-  console.log("shieldedAddress", shieldedAddress.coinPublicKeyString());
-  const either = {
-    is_left: true,
-    left: { bytes: shieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
-  const finalizedTxData = await simpleTokenContract.callTx.mint(either, value);
+  console.log("Incrementing...");
+  const finalizedTxData = await counterContract.callTx.increment();
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
-  console.log(`Minted ${value} tokens to ${account}`);
   return finalizedTxData.public;
+};
+
+const displayCounterValue = async (
+  providers: CounterProviders,
+  counterContract: DeployedCounterContract,
+): Promise<{ counterValue: bigint | null; contractAddress: string }> => {
+  const contractAddress = counterContract.deployTxData.public.contractAddress;
+  const counterValue = await getCounterLedgerState(providers, contractAddress);
+  if (counterValue === null) {
+    console.log(`There is no counter contract deployed at ${contractAddress}.`);
+  } else {
+    console.log(`Current counter value: ${Number(counterValue)}`);
+  }
+  return { contractAddress, counterValue };
 };
 
 const createWalletAndMidnightProvider = async (
@@ -252,7 +234,7 @@ const waitForFunds = (wallet: Wallet) =>
         return state.syncProgress?.synced === true;
       }),
       Rx.map((s: any) => s.balances[nativeToken()] ?? 0n),
-      Rx.filter((balance: bigint) => balance > 0n),
+      Rx.filter((balance) => balance > 0n),
     ),
   );
 
@@ -277,7 +259,8 @@ const buildWalletAndWaitForFunds = async (
           proofServer,
           node,
           seed,
-          serialized.toString(),
+          serialized,
+          "info",
         );
         wallet.start();
       } catch (error: unknown) {
@@ -314,13 +297,14 @@ const buildWalletAndWaitForFunds = async (
     );
 
     try {
-      wallet = await WalletBuilder.build(
+      wallet = await WalletBuilder.buildFromSeed(
         indexer,
         indexerWS,
         proofServer,
         node,
         seed,
         NetworkId.Undeployed,
+        "info",
       );
       console.log("✅ Wallet built successfully");
       wallet.start();
@@ -340,20 +324,6 @@ const buildWalletAndWaitForFunds = async (
     balance = await waitForFunds(wallet);
   }
   console.log(`Your wallet balance is: ${balance}`);
-
-  const receiverAddress = "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lta07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
-  const transferRecipe = await wallet.transferTransaction([{
-    amount: 10000000n,
-    type: nativeToken(), // "tDUST",
-    receiverAddress,
-  }]);
-  
-  console.log({transferRecipe});
-  const provenTransaction = await wallet.proveTransaction(transferRecipe);
-  console.log({provenTransaction});
-  const submittedTransaction = await wallet.submitTransaction(provenTransaction);
-  console.log({submittedTransaction});
-
   return wallet;
 };
 
@@ -366,7 +336,7 @@ const configureProviders = async (
   );
   return {
     privateStateProvider: levelPrivateStateProvider<
-      typeof SimpleTokenPrivateStateId
+      typeof CounterPrivateStateId
     >({
       privateStateStoreName: contractConfig.privateStateStoreName,
     }),
@@ -374,7 +344,7 @@ const configureProviders = async (
       config.indexer,
       config.indexerWS,
     ),
-    zkConfigProvider: new NodeZkConfigProvider<"mint">(
+    zkConfigProvider: new NodeZkConfigProvider<"increment">(
       contractConfig.zkConfigPath,
     ),
     proofProvider: httpClientProofProvider(config.proofServer),
@@ -383,6 +353,9 @@ const configureProviders = async (
   };
 };
 
+/**
+ * Get contract address from command line arguments or from a file
+ */
 const getContractAddress = async (): Promise<string> => {
   // First try to get from command line arguments
   const contractAddressFromArgs = Deno.args[0];
@@ -395,7 +368,7 @@ const getContractAddress = async (): Promise<string> => {
   }
 
   // If not provided via args, try to read from contract_address.txt file
-  const contractAddressFile = resolve(currentDir, "contract.json");
+  const contractAddressFile = resolve(currentDir, "contract-counter.json");
 
   try {
     if (await exists(contractAddressFile)) {
@@ -432,12 +405,22 @@ const getContractAddress = async (): Promise<string> => {
   }
 };
 
-async function joinAndMint(account: string, amount: bigint): Promise<void> {
+/**
+ * Standalone script that joins a counter contract with a specific address and increments its value.
+ *
+ * Usage:
+ *   deno run --allow-all increment.ts <CONTRACT_ADDRESS>
+ *   or create a contract_address.txt file with the contract address
+ *
+ * Example:
+ *   deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678
+ */
+async function joinAndIncrement(): Promise<void> {
   // Get contract address from command line arguments or file
   const contractAddress = await getContractAddress();
 
   console.log(
-    `🚀 Starting join and mint process for contract: ${contractAddress}`,
+    `🚀 Starting join and increment process for contract: ${contractAddress}`,
   );
 
   // Initialize configuration
@@ -452,7 +435,7 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
     wallet = await buildWalletAndWaitForFunds(
       config,
       GENESIS_MINT_WALLET_SEED,
-      "contract.json",
+      "contract-counter.json",
     );
 
     console.log("✅ Wallet built successfully");
@@ -464,34 +447,35 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
     console.log("✅ Providers configured successfully");
 
     // Join the contract
-    console.log(
-      `🔗 Joining simple token contract at address: ${contractAddress}`,
-    );
-    const simpleTokenContract = await joinContract(providers, contractAddress);
+    console.log(`🔗 Joining counter contract at address: ${contractAddress}`);
+    const counterContract = await joinContract(providers, contractAddress);
 
-    console.log("✅ Successfully joined the simple token contract");
+    console.log("✅ Successfully joined the counter contract");
+
+    // Display current counter value before increment
+    console.log("📊 Displaying current counter value before increment...");
+    const beforeResult = await displayCounterValue(providers, counterContract);
+    console.log(`📊 Current counter value: ${beforeResult.counterValue}`);
 
     // Increment the counter
-    console.log("🔢 Minting simple token...");
-    const incrementResult = await mint(simpleTokenContract, account, amount);
+    console.log("🔢 Incrementing counter...");
+    const incrementResult = await increment(counterContract);
 
     console.log(
-      `✅ Simple token minted successfully! Transaction ID: ${incrementResult.txId}`,
+      `✅ Counter incremented successfully! Transaction ID: ${incrementResult.txId}`,
     );
     console.log(
-      `✅ Simple token minted! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`,
+      `✅ Counter incremented! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`,
     );
 
-    const accountBalance = await balanceOf(simpleTokenContract, account);
-    console.log(
-      `Account balance: ${String(accountBalance)}`,
-    );
-    // Display simple token value after increment
-    await getSimpleTokenLedgerState(providers, contractAddress);
+    // Display counter value after increment
+    console.log("📊 Displaying counter value after increment...");
+    const afterResult = await displayCounterValue(providers, counterContract);
+    console.log(`📊 New counter value: ${afterResult.counterValue}`);
 
-    console.log("🎉 Join and mint process completed successfully!");
+    console.log("🎉 Join and increment process completed successfully!");
   } catch (error) {
-    console.error("❌ Error during join and mint process:", error);
+    console.error("❌ Error during join and increment process:", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
     Deno.exit(1);
   } finally {
@@ -509,19 +493,10 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
 
 // Run the script if this file is executed directly
 if (import.meta.main) {
-  const wallet = await WalletBuilder.build(
-    config.indexer,
-    config.indexerWS,
-    config.proofServer,
-    config.node,
-    GENESIS_MINT_WALLET_SEED,
-    NetworkId.Undeployed,
-  );
-  const address = (await Rx.firstValueFrom(wallet.state())).address;
-  joinAndMint(address, 20000n).catch((error) => {
+  joinAndIncrement().catch((error) => {
     console.error("❌ Unhandled error:", error);
     Deno.exit(1);
   });
 }
 
-export { joinAndMint };
+export { joinAndIncrement };

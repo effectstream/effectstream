@@ -5,7 +5,7 @@
   "nodeModulesDir": "auto",
   "tasks": {
     "build:evm": "deno task -f @example-evm-midnight/evm-contracts build:mod",
-    "build:midnight": "deno task -f  @example-evm-midnight/my-midnight-contract compact",
+    "build:midnight": "deno task -f @example-evm-midnight/my-midnight-contract compact",
     "dev": "deno task -f @example-evm-midnight/node dev",
     "start:frontend": "deno task -f @example-evm-midnight/frontend dev",
     "check": "deno task -f @example-evm-midnight/node check"
