@@ -7,7 +7,7 @@
   },
   "imports": {
     "chess.js": "npm:chess.js@^1.4.0",
-    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.73",
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.73"
+    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.75",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.75"
   }
 }

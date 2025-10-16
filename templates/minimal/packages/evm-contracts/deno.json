@@ -10,8 +10,8 @@
   // TODO: how these actually will work will depend on the hardhat v3 viem plugin
   //       See https://github.com/NomicFoundation/hardhat/issues/5978
   "imports": {
-    "@paimaexample/evm-hardhat": "jsr:@paimaexample/evm-hardhat@0.3.73",
-    "@paimaexample/log": "jsr:@paimaexample/log@0.3.73",
+    "@paimaexample/evm-hardhat": "jsr:@paimaexample/evm-hardhat@0.3.75",
+    "@paimaexample/log": "jsr:@paimaexample/log@0.3.75",
     "@wagmi/cli": "npm:@wagmi/cli@2.3.1",
     "hardhat": "npm:hardhat@3.0.4",
     "@nomicfoundation/hardhat-ignition-viem": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
@@ -55,6 +55,7 @@
     },
     "chain:start": "deno run -A npm:hardhat@3.0.4 node",
     "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",
-    "chain:wait": "deno run -A npm:hardhat@3.0.4 node wait"
+    "chain:wait": "deno run -A npm:hardhat@3.0.4 node wait",
+    "contract:compile": "deno task build:mod"
   }
 }
