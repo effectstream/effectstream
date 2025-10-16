@@ -2,7 +2,7 @@
   "name": "@multi-chain-transfer/batcher",
   "exports": "./main.ts",
   "imports": {
-    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.70",
+    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.73",
     "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime",
     "effection": "npm:effection@^3.5.0"
   },
