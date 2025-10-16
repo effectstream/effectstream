@@ -28,6 +28,7 @@ stm.addStateTransition("midnightContractState", function* (data) {
   console.error(
     "🎉 [MIDNIGHT] Transaction receipt:",
     JSON.stringify(payload),
+    "\n",
     JSON.stringify(decodedData),
   );
 });
@@ -129,14 +130,14 @@ class MidnightDecoder {
    * @param {object} valueData - The object containing numeric values with string keys.
    * @returns {number[]} A sorted array of byte values.
    */
-  private valueObjectToByteArray(valueData: Record<string, number>) {
+  private valueObjectToByteArray(valueData: any) {
     if (!valueData || Object.keys(valueData).length === 0) {
       return [];
     }
     // Sort keys numerically to ensure correct byte order.
     const entries = Object.entries(valueData).map((
-      [key, val],
-    ) => [parseInt(key, 10), val]) as [number, number][];
+      [key, val]: [string, unknown],
+    ) => [parseInt(key, 10), val as number]);
     entries.sort((a, b) => a[0] - b[0]);
     return entries.map((entry) => entry[1]);
   }
@@ -146,7 +147,15 @@ class MidnightDecoder {
    * @param {object} content - The content object from a cell, containing 'value' and 'alignment'.
    * @returns {any|any[]} The decoded value or an array of decoded values.
    */
-  private decodeCellContent(content: { value: any[]; alignment: any[] }) {
+  private decodeCellContent(content: any) {
+    // Gracefully handle cell content that is empty or malformed.
+    if (
+      !content || !Array.isArray(content.alignment) ||
+      !Array.isArray(content.value)
+    ) {
+      return null; // An empty or invalid cell decodes to null.
+    }
+
     const { value: values, alignment: alignments } = content;
     const decodedParts = [];
 
@@ -171,15 +180,24 @@ class MidnightDecoder {
         case "bytes":
           if (byteArray.length === 0) {
             decodedParts.push(null); // Represent empty byte arrays as null.
-          } else if (typeDesc.length === 1 && byteArray.length === 1) {
-            // If it's a defined single byte, return as a number for simplicity.
+          } else if (byteArray.length === 1) {
+            // If it's a single byte, return as a number for simplicity.
             decodedParts.push(byteArray[0]);
           } else {
-            // For other byte arrays, a hex string is a common and readable representation.
-            const hexString = byteArray.map((b) =>
-              b.toString(16).padStart(2, "0")
-            ).join("");
-            decodedParts.push("0x" + hexString);
+            // Heuristic: Treat smaller byte arrays as little-endian numbers,
+            // and larger ones (like hashes) as big-endian (direct order) hex strings.
+            if (byteArray.length <= 6) {
+              let numericValue = 0n;
+              for (let j = 0; j < byteArray.length; j++) {
+                numericValue += BigInt(byteArray[j]) << BigInt(8 * j);
+              }
+              decodedParts.push(Number(numericValue));
+            } else {
+              const hexString = byteArray.map((b) =>
+                b.toString(16).padStart(2, "0")
+              ).join("");
+              decodedParts.push("0x" + hexString);
+            }
           }
           break;
         case "null":
@@ -239,7 +257,7 @@ class MidnightDecoder {
       // Return unknown objects as they are.
       return data;
     } catch (error) {
-      console.error("Error decoding data:", error);
+      // console.error("Error decoding data:", error);
       return null;
     }
   }
