@@ -8,7 +8,7 @@ import type {
 } from "./adapter.ts";
 import type { ContractInfo } from "./midnight-arg-parser.ts";
 import { parseCircuitArgs } from "./midnight-arg-parser.ts";
-import { NetworkId } from "@midnight-ntwrk/compact-runtime";
+import type { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import { WalletBuilder } from "@midnight-ntwrk/wallet";
 import type { Resource } from "@midnight-ntwrk/wallet";
 import type { Wallet } from "@midnight-ntwrk/wallet-api";
@@ -69,6 +69,7 @@ export class MidnightAdapter implements BlockchainAdapter {
   private hasFunds = false;
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
+  private walletAddress: string | null = null;
 
   constructor(
     contractAddress: string,
@@ -107,8 +108,7 @@ export class MidnightAdapter implements BlockchainAdapter {
     try {
       console.log("🔗 Building Midnight wallet...");
 
-      // Build wallet from seed
-      this.wallet = await WalletBuilder.buildFromSeed(
+      this.wallet = await WalletBuilder.build(
         this.config.indexer,
         this.config.indexerWS,
         this.config.proofServer,
@@ -171,6 +171,7 @@ export class MidnightAdapter implements BlockchainAdapter {
     wallet: Wallet,
   ): Promise<WalletProvider & MidnightProvider> {
     const state = await Rx.firstValueFrom(wallet.state());
+    this.walletAddress = state.address;
     return {
       coinPublicKey: state.coinPublicKey,
       encryptionPublicKey: state.encryptionPublicKey,
@@ -251,7 +252,6 @@ export class MidnightAdapter implements BlockchainAdapter {
     data: string,
     fee?: string | bigint,
   ): Promise<BlockchainHash> {
-    // Ensure initialization is complete
     if (this.initializationPromise) {
       await this.initializationPromise;
       this.initializationPromise = null;
@@ -327,9 +327,6 @@ export class MidnightAdapter implements BlockchainAdapter {
 
     while (Date.now() - startTime < timeout) {
       try {
-        // Query indexer for transaction
-        // Note: The actual query method depends on the indexer API
-        // This is a placeholder implementation
         const txInfo = await this.queryTransactionStatus(hash);
 
         if (txInfo && txInfo.confirmed) {
@@ -449,13 +446,10 @@ export class MidnightAdapter implements BlockchainAdapter {
    * Get the current account/address for this adapter
    */
   getAccountAddress(): string {
-    if (!this.wallet) {
+    if (!this.wallet || !this.walletAddress) {
       throw new Error("Wallet not initialized");
     }
-
-    // This will be synchronous once wallet is initialized
-    // We'll need to handle this in a way that works with the sync API
-    return this.contractAddress; // Placeholder - should return wallet address
+    return this.walletAddress;
   }
 
   /**
