@@ -2,8 +2,8 @@
 pragma language_version >= 0.17.0;
 
 import CompactStandardLibrary;
-import "./base-contracts/src/token/FungibleToken"
-  prefix FungibleToken_;
+import "./base-contracts/src/token/MultiToken"
+  prefix MultiToken_;
 import "./base-contracts/src/access/Ownable"
   prefix Ownable_;
 
@@ -15,42 +15,31 @@ struct LastTransfer {
 export ledger txHashes: Set<Bytes<16>>;
 export ledger lastTransfer: LastTransfer;
 
+
+// For now we are just using TOKEN_ID 0 for the simple token
+
 constructor(
-  name: Opaque<"string">,
-  symbol: Opaque<"string">,
-  decimals: Uint<8>,
+  uri: Opaque<"string">,
   initialOwner: Either<ZswapCoinPublicKey, ContractAddress>,
 ) {
-  // Initialize the token
-  FungibleToken_initialize(name, symbol, decimals);
+  // Initialize the multi-token with URI
+  MultiToken_initialize(uri);
   // Set the initial owner
   Ownable_initialize(initialOwner);
 }
 
-export circuit name(): Opaque<"string"> {
-  return FungibleToken_name();
+export circuit uri(id: Uint<128>): Opaque<"string"> {
+  return MultiToken_uri(id);
 }
 
 export circuit owner(): Either<ZswapCoinPublicKey, ContractAddress> {
   return Ownable_owner();
 }
 
-export circuit symbol(): Opaque<"string"> {
-  return FungibleToken_symbol();
-}
-
-export circuit decimals(): Uint<8> {
-  return FungibleToken_decimals();
-}
-
-export circuit totalSupply(): Uint<128> {
-  return FungibleToken_totalSupply();
-}
-
 export circuit balanceOf(
   account: Either<ZswapCoinPublicKey, ContractAddress>,
 ): Uint<128> {
-  return FungibleToken_balanceOf(account);
+  return MultiToken_balanceOf(account, 0);
 }
 
 export circuit mint(
@@ -60,28 +49,30 @@ export circuit mint(
   // This line protects the circuit - only the owner can continue past it
   Ownable_assertOnlyOwner();
   // If we reach here, the caller is the owner
-  FungibleToken__mint(account, value);
+  MultiToken__mint(account, 0, value);
 }
 
 export circuit transfer(
   to: Either<ZswapCoinPublicKey, ContractAddress>,
   value: Uint<128>,
-): Boolean {
-  return FungibleToken_transfer(to, value);
+): [] {
+  const caller = ownPublicKey();
+  const callerEither = left<ZswapCoinPublicKey, ContractAddress>(caller);
+  MultiToken__transfer(callerEither, to, 0, value);
 }
 
-export circuit approve(
-  spender: Either<ZswapCoinPublicKey, ContractAddress>,
-  value: Uint<128>,
-): Boolean {
-  return FungibleToken_approve(spender, value);
+export circuit setApprovalForAll(
+  operator: Either<ZswapCoinPublicKey, ContractAddress>,
+  approved: Boolean,
+): [] {
+  return MultiToken_setApprovalForAll(operator, approved);
 }
 
-export circuit allowance(
-  owner: Either<ZswapCoinPublicKey, ContractAddress>,
-  spender: Either<ZswapCoinPublicKey, ContractAddress>,
-): Uint<128> {
-  return FungibleToken_allowance(owner, spender);
+export circuit isApprovedForAll(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+  operator: Either<ZswapCoinPublicKey, ContractAddress>,
+): Boolean {
+  return MultiToken_isApprovedForAll(account, operator);
 }
 
 // Allows the owner to burn tokens from any account
@@ -90,15 +81,15 @@ export circuit burnFrom(
   value: Uint<128>
 ): [] {
   Ownable_assertOnlyOwner();
-  return FungibleToken__burn(account, value);
+  return MultiToken__burn(account, 0, value);
 }
 
 export circuit transferFrom(
   from: Either<ZswapCoinPublicKey, ContractAddress>,
   to: Either<ZswapCoinPublicKey, ContractAddress>,
   value: Uint<128>,
-): Boolean {
-  return FungibleToken_transferFrom(from, to, value);
+): [] {
+  return MultiToken_transferFrom(from, to, 0, value);
 }
 
 export circuit transferToEvm(
@@ -108,7 +99,7 @@ export circuit transferToEvm(
 ): [] {
   const caller = ownPublicKey();
   const callerEither = left<ZswapCoinPublicKey, ContractAddress>(caller);
-  const callerTokenBalance = FungibleToken_balanceOf(callerEither);
+  const callerTokenBalance = MultiToken_balanceOf(callerEither, 0);
   assert(!txHashes.member(disclose(txHash)), "Transaction already processed");
   assert(callerTokenBalance >= amount, "Insufficient balance");
   burnFrom(callerEither, amount);

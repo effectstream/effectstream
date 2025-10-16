@@ -58,7 +58,7 @@ const SimpleTokenPrivateStateId = "simpleTokenPrivateState";
 type SimpleTokenProviders = MidnightProviders<
   SimpleTokenCircuits,
   typeof SimpleTokenPrivateStateId,
-  SimpleToken.Contract.PrivateState
+  {}
 >;
 
 type SimpleTokenContract = SimpleToken.Contract;
@@ -119,6 +119,12 @@ const getSimpleTokenLedgerState = async (
   try {
     const contractState = await providers.publicDataProvider.queryContractState(
       contractAddress,
+    );
+    console.log("contractState", contractState);
+    console.log(
+      Object.entries(contractState).map(([key, value]) =>
+        `${key}: ${value} (${typeof value})`
+      ),
     );
     const state = contractState != null
       ? SimpleToken.ledger(contractState.data)
@@ -183,6 +189,7 @@ const mint = async (
     "undeployed",
     MidnightBech32m.parse(account),
   );
+  console.log("shieldedAddress", shieldedAddress.coinPublicKeyString());
   const either = {
     is_left: true,
     left: { bytes: shieldedAddress.coinPublicKey.data },
