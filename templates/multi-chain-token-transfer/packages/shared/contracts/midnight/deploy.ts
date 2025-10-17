@@ -29,7 +29,7 @@ import {
 import {
   SimpleToken,
   witnesses,
-} from "./contract-round-value/src/index.original.ts";
+} from "./contract-eip-20/src/index.original.ts";
 import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2";
 import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@2.0.2";
 import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@2.0.2";
@@ -51,7 +51,7 @@ const contractConfig = {
   privateStateStoreName: "simpletoken-private-state",
   zkConfigPath: path.resolve(
     currentDir,
-    "contract-round-value",
+    "contract-eip-20",
     "src",
     "managed",
     "simpletoken",

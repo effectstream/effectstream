@@ -24,16 +24,16 @@ constructor(
   // Initialize the token
   FungibleToken_initialize(name, symbol, decimals);
   // Set the initial owner
-  Ownable_initialize(initialOwner);
+  // Ownable_initialize(initialOwner);
 }
 
 export circuit name(): Opaque<"string"> {
   return FungibleToken_name();
 }
 
-export circuit owner(): Either<ZswapCoinPublicKey, ContractAddress> {
-  return Ownable_owner();
-}
+// export circuit owner(): Either<ZswapCoinPublicKey, ContractAddress> {
+//   return Ownable_owner();
+// }
 
 export circuit symbol(): Opaque<"string"> {
   return FungibleToken_symbol();
@@ -58,7 +58,7 @@ export circuit mint(
   value: Uint<128>,
 ): [] {
   // This line protects the circuit - only the owner can continue past it
-  Ownable_assertOnlyOwner();
+  // Ownable_assertOnlyOwner();
   // If we reach here, the caller is the owner
   FungibleToken__mint(account, value);
 }
@@ -89,7 +89,7 @@ export circuit burnFrom(
   account: Either<ZswapCoinPublicKey, ContractAddress>,
   value: Uint<128>
 ): [] {
-  Ownable_assertOnlyOwner();
+  // Ownable_assertOnlyOwner();
   return FungibleToken__burn(account, value);
 }
 
