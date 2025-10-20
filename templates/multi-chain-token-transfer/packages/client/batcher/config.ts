@@ -1,6 +1,7 @@
 import {
   FileStorage,
   MidnightAdapter,
+  MidnightBatchDataBuilder,
   type PaimaBatcherConfig,
 } from "@paimaexample/batcher";
 import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
@@ -16,7 +17,6 @@ const GENESIS_MINT_WALLET_SEED =
 
 const { contractInfo, contractAddress } = readMidnightContract();
 const zkConfigPath = path.resolve(
-  import.meta.url,
   "../../shared",
   "contracts",
   "midnight",
@@ -27,24 +27,27 @@ const zkConfigPath = path.resolve(
 );
 
 const midnightAdapterConfig = {
-  indexer: "http://localhost:8088",
-  indexerWS: "ws://localhost:8088",
-  node: "ws://localhost:9944",
+  indexer: "http://localhost:8088/api/v1/graphql",
+  indexerWS: "ws://localhost:8088/api/v1/graphql/ws",
+  node: "http://localhost:9944",
   proofServer: "http://localhost:6300",
   zkConfigPath,
-  privateStateStoreName: "simpletoken-private-state",
+  privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
+  privateStateId: "simpleTokenPrivateState", // On-chain contract ID (must match deploy.ts)
 }
 
 const midnightAdapter = new MidnightAdapter(
   contractAddress,
   GENESIS_MINT_WALLET_SEED,
   midnightAdapterConfig,
-  SimpleToken.Contract,
+  new SimpleToken.Contract(witnesses),
   witnesses,
   contractInfo,
   NetworkId.Undeployed,
   "midnight-graphql-parallel",
 );
+
+const midnightBatchBuilder = new MidnightBatchDataBuilder();
 
 export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
@@ -55,7 +58,12 @@ export const config: PaimaBatcherConfig = {
     midnight: { criteriaType: "size", maxBatchSize: 1 },
   },
   confirmationLevel: "wait-paima-processed", // Connector expectation
-  batchBuilding: { maxSize: 10000 }, // Connector expectation
+  batchBuilding: {
+    maxSize: 10000, // Connector expectation
+    targetBuilders: {
+      midnight: midnightBatchBuilder,
+    },
+  },
   enableHttpServer: true,
   enableEventSystem: true,
   port,

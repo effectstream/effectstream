@@ -10,8 +10,8 @@
         "avail-light-client:wait": "wait-on tcp:7007"
     },
     "imports": {
-        "@paimaexample/npm-avail-node": "npm:@paimaexample/npm-avail-node@0.3.75",
-        "@paimaexample/npm-avail-light-client": "npm:@paimaexample/npm-avail-light-client@0.3.75",
+        "@paimaexample/npm-avail-node": "npm:@paimaexample/npm-avail-node@0.3.94",
+        "@paimaexample/npm-avail-light-client": "npm:@paimaexample/npm-avail-light-client@0.3.94",
         "avail-js-sdk": "npm:avail-js-sdk@^0.4.2"
     }
 }
