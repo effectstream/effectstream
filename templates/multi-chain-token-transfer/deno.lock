@@ -106,6 +106,7 @@
     "npm:@paima/pgtyped-cli@^2.4.5": "2.4.5_typescript@5.9.3_fp-ts@2.16.11_io-ts@2.2.22__fp-ts@2.16.11_chokidar@4.0.3",
     "npm:@paimaexample/evm-contracts@0.3.94": "0.3.94_@openzeppelin+contracts@5.1.0",
     "npm:@paimaexample/explorer@0.3.94": "0.3.94",
+    "npm:@paimaexample/npm-midnight-indexer@*": "0.3.94",
     "npm:@paimaexample/npm-midnight-indexer@0.3.94": "0.3.94",
     "npm:@paimaexample/npm-midnight-node@*": "0.3.94",
     "npm:@paimaexample/npm-midnight-node@0.3.94": "0.3.94",
