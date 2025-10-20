@@ -408,7 +408,6 @@ export class MidnightAdapter implements BlockchainAdapter {
           result = await this.deployedContract.callTx[circuit](
             ...parsedArgs,
           );
-          console.log("✅ callTx succeeded! Result type:", typeof result, "keys:", Object.keys(result || {}));
         } catch (callTxError) {
           console.error("❌ callTx threw an error:");
           console.error("  Error type:", typeof callTxError);
@@ -417,26 +416,14 @@ export class MidnightAdapter implements BlockchainAdapter {
           throw callTxError; // Re-throw to be caught by outer catch
         }
 
-        // Check if result has public.txId (FinalizedTxData) or needs balancing
-        if (result && result.public && result.public.txId) {
-          const txId = result.public.txId;
-          // Convert TransactionId to hex string if needed
-          let txIdStr: string;
-          if (typeof txId === 'string') {
-            txIdStr = txId;
-          } else if (typeof txId === 'object' && txId.toHex) {
-            txIdStr = txId.toHex();
-          } else if (typeof txId === 'object' && txId.toString) {
-            txIdStr = txId.toString();
-          } else {
-            txIdStr = String(txId);
-          }
-          
-          console.log(`🚀 Circuit invoked successfully! Transaction ID: ${txIdStr} (type: ${typeof txId}, has toHex: ${typeof (txId as any)?.toHex})`);
-          return txIdStr;
+        // Check if result has public.txHash (FinalizedTxData) or needs balancing
+        if (result && result.public && result.public.txHash) {
+          const txHash = result.public.txHash;
+          console.log(`🚀 Circuit invoked successfully! Transaction Hash: ${txHash}`);
+          return txHash;
         } else {
           // Maybe it's an UnbalancedTransaction that needs balancing
-          console.log("🔄 Result doesn't have public.txId, might need balancing:", result);
+          console.log("🔄 Result doesn't have public.txHash, might need balancing:", result);
           throw new Error("Transaction result format unexpected - may need balancing");
         }
       }
@@ -509,7 +496,6 @@ export class MidnightAdapter implements BlockchainAdapter {
       // Midnight TransactionId is 72 hex chars (288 bits), but GraphQL expects 64 (256 bits)
       // The actual transaction hash appears to be in the last 64 characters
       if (normalizedHash.length > 64) {
-        console.warn(`Hash length is ${normalizedHash.length} (expected 64). Extracting last 64 chars...`);
         normalizedHash = normalizedHash.slice(-64);
       } else if (normalizedHash.length < 64) {
         normalizedHash = normalizedHash.padStart(64, '0');

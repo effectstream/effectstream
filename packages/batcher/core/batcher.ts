@@ -188,8 +188,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       },
       storage: this.storage,
       submissionCallbacks: this.submissionCallbacks,
-      waitForPaimaProcessed: (receipt, timeout) =>
-        this.waitForPaimaProcessed(receipt, timeout),
+      waitForPaimaProcessed: (
+        target: string,
+        receipt: BlockchainTransactionReceipt,
+        timeout: number,
+      ) => this.waitForPaimaProcessed(target, receipt, timeout),
     });
     this.shutdownManager = new ShutdownManager<T>(
       {
@@ -381,6 +384,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     if (confirmationLevel === "wait-paima-processed") {
       try {
         const processingResult = await this.waitForPaimaProcessed(
+          input.target || this.defaultTarget,
           receipt,
           timeoutMs,
         );
@@ -411,16 +415,15 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * @returns Promise with latest block and rollup number, or null on failure
    */
   private async waitForPaimaProcessed(
+    target: string,
     receipt: BlockchainTransactionReceipt,
-    timeout: number = 60000,
+    timeout: number = 120000,
   ): Promise<{ latestBlock: number; rollup: number } | null> {
     // We need to get the chain name from the receipt
     // Since receipt doesn't have chain info, we need to track which adapter submitted it
-    // For now, we'll use the first adapter's chain name
-    // TODO: This needs to be improved to track which adapter each input belongs to
-    const firstAdapter = Object.values(this.adapters)[0];
-    const chainName = firstAdapter.getSyncProtocolName?.() ??
-      firstAdapter.getChainName();
+    const adapter = this.adapters[target];
+    const chainName = adapter.getSyncProtocolName?.() ??
+      adapter.getChainName();
 
     let subscriptionReference: symbol | undefined = undefined;
     let latestBlock = 0;

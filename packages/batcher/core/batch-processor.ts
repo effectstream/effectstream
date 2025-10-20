@@ -34,6 +34,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         }
       >;
       waitForPaimaProcessed: (
+        target: string,
         receipt: BlockchainTransactionReceipt,
         timeout: number,
       ) => Promise<{ latestBlock: number; rollup: number } | null>;
@@ -147,6 +148,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
   ): Promise<void> {
     try {
       const processingResult = await this.batcher.waitForPaimaProcessed(
+        target,
         receipt,
         timeout,
       );
