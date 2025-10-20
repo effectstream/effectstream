@@ -13,6 +13,8 @@
     "jsr:@paimaexample/db@~0.3.94": "0.3.94",
     "jsr:@paimaexample/event-client@~0.3.94": "0.3.94",
     "jsr:@paimaexample/event-server@~0.3.94": "0.3.94",
+    "jsr:@paimaexample/evm-hardhat@0.3.94": "0.3.94",
+    "jsr:@paimaexample/log@0.3.94": "0.3.94",
     "jsr:@paimaexample/log@~0.3.94": "0.3.94",
     "jsr:@paimaexample/runtime@0.3.94": "0.3.94",
     "jsr:@paimaexample/runtime@~0.3.94": "0.3.94",
@@ -20,6 +22,7 @@
     "jsr:@paimaexample/sm@~0.3.94": "0.3.94",
     "jsr:@paimaexample/sync@~0.3.94": "0.3.94",
     "jsr:@paimaexample/utils@~0.3.94": "0.3.94",
+    "jsr:@std/cli@^1.0.22": "1.0.23",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/encoding@~1.0.8": "1.0.10",
     "npm:@bloxbean/yaci-devkit@0.10.6": "0.10.6",
@@ -199,7 +202,7 @@
       "dependencies": [
         "jsr:@paimaexample/coroutine@~0.3.94",
         "jsr:@paimaexample/db@~0.3.94",
-        "jsr:@paimaexample/log",
+        "jsr:@paimaexample/log@~0.3.94",
         "jsr:@paimaexample/utils",
         "jsr:@std/encoding@~1.0.8",
         "npm:@pgtyped/runtime@2.4.2",
@@ -226,6 +229,16 @@
         "npm:aedes",
         "npm:aedes-server-factory",
         "npm:ip"
+      ]
+    },
+    "@paimaexample/evm-hardhat@0.3.94": {
+      "integrity": "5f26527a9bf71cac0abecbe4028ae136e1795728b950e086e2029bb6edf82c7f",
+      "dependencies": [
+        "jsr:@std/cli",
+        "jsr:@std/encoding@~1.0.8",
+        "npm:@nomicfoundation/hardhat-errors",
+        "npm:@nomicfoundation/hardhat-utils",
+        "npm:ws@8.18.1"
       ]
     },
     "@paimaexample/log@0.3.94": {
@@ -258,7 +271,7 @@
         "jsr:@paimaexample/db@~0.3.94",
         "jsr:@paimaexample/event-client",
         "jsr:@paimaexample/event-server",
-        "jsr:@paimaexample/log",
+        "jsr:@paimaexample/log@~0.3.94",
         "jsr:@paimaexample/runtime@~0.3.94",
         "jsr:@paimaexample/sm@~0.3.94",
         "jsr:@paimaexample/sync",
@@ -291,7 +304,7 @@
         "jsr:@paimaexample/coroutine@~0.3.94",
         "jsr:@paimaexample/crypto",
         "jsr:@paimaexample/db@~0.3.94",
-        "jsr:@paimaexample/log",
+        "jsr:@paimaexample/log@~0.3.94",
         "jsr:@paimaexample/sm@~0.3.94",
         "jsr:@paimaexample/utils",
         "npm:@pgtyped/runtime@^2.4.2",
@@ -305,7 +318,7 @@
       "dependencies": [
         "jsr:@paimaexample/config@~0.3.94",
         "jsr:@paimaexample/db@~0.3.94",
-        "jsr:@paimaexample/log",
+        "jsr:@paimaexample/log@~0.3.94",
         "jsr:@paimaexample/sync",
         "jsr:@paimaexample/utils",
         "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider",
@@ -339,6 +352,9 @@
         "npm:js-sha512",
         "npm:viem@2.37.3"
       ]
+    },
+    "@std/cli@1.0.23": {
+      "integrity": "bf95b7a9425ba2af1ae5a6359daf58c508f2decf711a76ed2993cd352498ccca"
     },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"

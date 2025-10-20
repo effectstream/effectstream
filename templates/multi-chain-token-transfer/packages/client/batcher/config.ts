@@ -44,7 +44,7 @@ const midnightAdapter = new MidnightAdapter(
   witnesses,
   contractInfo,
   NetworkId.Undeployed,
-  "midnight-graphql-parallel",
+  "midnight",
 );
 
 const midnightBatchBuilder = new MidnightBatchDataBuilder();

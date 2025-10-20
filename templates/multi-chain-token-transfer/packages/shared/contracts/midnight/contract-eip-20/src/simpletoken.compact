@@ -81,7 +81,7 @@ export circuit burnFrom(
   value: Uint<128>
 ): [] {
   // Ownable_assertOnlyOwner();
-  return FungibleToken__burn(account, value);
+  return MultiToken__burn(account, 0, value);
 }
 
 export circuit transferFrom(
