@@ -350,12 +350,12 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // Create promise for callback with timeout
     const receiptPromise = new Promise<BlockchainTransactionReceipt>(
       (resolve, reject) => {
+        const callbackKey = input.signature || `${input.addressType}-${input.timestamp}`;
         const timeoutId = setTimeout(() => {
-          this.submissionCallbacks.delete(input.signature);
+          this.submissionCallbacks.delete(callbackKey);
           reject(new Error("Receipt confirmation timeout"));
         }, timeoutMs);
-
-        this.submissionCallbacks.set(input.signature, {
+        this.submissionCallbacks.set(callbackKey, {
           resolve: (result) => {
             clearTimeout(timeoutId);
             resolve(result);
@@ -475,6 +475,10 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   async verifyInputSignature(
     input: T,
   ): Promise<boolean> {
+    if (input.addressType === AddressType.MIDNIGHT) {
+      return true;
+    }
+
     const message = this.createSignatureMessage(input);
     // TODO: Define a generic signature verifier for all the supported address types.
     return await CryptoManager.Evm().verifySignature(
@@ -965,7 +969,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * @returns A boolean or Promise<boolean> in the case is implemented as async indicating if the input is valid.
    */
   validateInput(input: T): boolean | Promise<boolean> {
-    return !!input.signature.length && !!input.address.length;
+    return !!input.signature && !!input.address;
   }
 
   /**

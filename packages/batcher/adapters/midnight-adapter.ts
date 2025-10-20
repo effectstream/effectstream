@@ -8,6 +8,7 @@ import type {
 } from "./adapter.ts";
 import type { ContractInfo } from "./midnight-arg-parser.ts";
 import { parseCircuitArgs } from "./midnight-arg-parser.ts";
+import { hexStringToUint8Array } from "@paima/utils";
 import type { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import { WalletBuilder } from "@midnight-ntwrk/wallet";
 import type { Resource } from "@midnight-ntwrk/wallet";
@@ -38,9 +39,10 @@ import { createBalancedTx } from "@midnight-ntwrk/midnight-js-types";
 import {
   getLedgerNetworkId,
   getZswapNetworkId,
+  setNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import * as Rx from "rxjs";
-import { hexStringToUint8Array } from "@paima/utils";
+import { Buffer } from "node:buffer";
 
 export interface MidnightAdapterConfig {
   indexer: string;
@@ -48,7 +50,8 @@ export interface MidnightAdapterConfig {
   node: string;
   proofServer: string;
   zkConfigPath: string;
-  privateStateStoreName: string;
+  privateStateStoreName: string; // LevelDB store name (local)
+  privateStateId?: string; // Contract private state ID (on-chain), defaults to privateStateStoreName if not provided
 }
 
 /**
@@ -70,6 +73,9 @@ export class MidnightAdapter implements BlockchainAdapter {
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
   private walletAddress: string | null = null;
+  private contractJoined = false;
+  private contractInstance: any = null;
+  private witnesses: any = null;
 
   constructor(
     contractAddress: string,
@@ -89,79 +95,131 @@ export class MidnightAdapter implements BlockchainAdapter {
     this.syncProtocolName = syncProtocolName;
     this.maxBatchSize = maxBatchSize;
 
+    // Store contract info for lazy joining
+    this.contractInstance = contractInstance;
+    this.witnesses = witnesses;
+    
     // Start async initialization but don't await
-    this.initializationPromise = this.initialize(
-      walletSeed,
-      contractInstance,
-      witnesses,
-    );
+    this.initializationPromise = this.initialize(walletSeed);
   }
 
   /**
-   * Initialize wallet, providers, and contract
+   * Initialize wallet and providers (but NOT contract - that's done lazily)
    */
-  private async initialize(
-    walletSeed: string,
-    contractInstance: any,
-    witnesses: any,
-  ): Promise<void> {
+  private async initialize(walletSeed: string): Promise<void> {
     try {
+      const networkId = [
+        "Undeployed",
+        "Devnet",
+        "Testnet",
+        "Mainnet",
+      ][this.networkId];
+      setNetworkId(networkId as any);
+
       console.log("🔗 Building Midnight wallet...");
 
-      this.wallet = await WalletBuilder.build(
+      this.wallet = await WalletBuilder.buildFromSeed(
         this.config.indexer,
         this.config.indexerWS,
         this.config.proofServer,
         this.config.node,
         walletSeed,
-        getZswapNetworkId(),
+        getZswapNetworkId(), // Use zswap network ID after setting network
         "info",
       );
 
       this.wallet.start();
 
+      // Get and log wallet address for debugging
+      const initialState = await Rx.firstValueFrom(this.wallet.state());
+      this.walletAddress = initialState.address;
       console.log("✅ Wallet built and sync started");
-
-      // Configure providers
-      const walletAndMidnightProvider = await this
-        .createWalletAndMidnightProvider(
-          this.wallet,
-        );
+      console.log(`📍 Batcher wallet address: ${this.walletAddress}`);
+      console.log(`🔑 Coin public key: ${Buffer.from(initialState.coinPublicKey).toString("hex")}`);
 
       this.publicDataProvider = indexerPublicDataProvider(
         this.config.indexer,
         this.config.indexerWS,
       );
 
-      const providers = {
-        privateStateProvider: levelPrivateStateProvider({
-          privateStateStoreName: this.config.privateStateStoreName,
-        }),
-        publicDataProvider: this.publicDataProvider,
-        zkConfigProvider: new NodeZkConfigProvider(this.config.zkConfigPath),
-        proofProvider: httpClientProofProvider(this.config.proofServer),
-        walletProvider: walletAndMidnightProvider,
-        midnightProvider: walletAndMidnightProvider,
-      };
-
-      console.log("⚙️ Providers configured");
-
-      // Join the deployed contract
-      console.log(`🔗 Joining contract at address: ${this.contractAddress}`);
-      this.deployedContract = await findDeployedContract(providers, {
-        contractAddress: this.contractAddress,
-        contract: contractInstance,
-        privateStateId: this.config.privateStateStoreName,
-        initialPrivateState: {},
-      });
-
-      console.log("✅ Contract joined successfully");
-
       this.isInitialized = true;
     } catch (error) {
       console.error("❌ Failed to initialize Midnight adapter:", error);
       throw error;
     }
+  }
+
+  /**
+   * Join the contract lazily (after wallet is synced and ready)
+   * This mirrors what the interact script does
+   */
+  private async ensureContractJoined(): Promise<void> {
+    if (this.contractJoined || !this.wallet) {
+      return;
+    }
+
+    console.log("⚙️ Configuring providers for contract join...");
+    
+    // Create fresh providers right before joining (like interact script does)
+    const walletAndMidnightProvider = await this.createWalletAndMidnightProvider(
+      this.wallet,
+    );
+
+    const providers = {
+      privateStateProvider: levelPrivateStateProvider({
+        privateStateStoreName: this.config.privateStateStoreName,
+      }),
+      publicDataProvider: this.publicDataProvider,
+      zkConfigProvider: new NodeZkConfigProvider(this.config.zkConfigPath),
+      proofProvider: httpClientProofProvider(this.config.proofServer),
+      walletProvider: walletAndMidnightProvider,
+      midnightProvider: walletAndMidnightProvider,
+    };
+
+    console.log("🔗 Joining contract at address:", this.contractAddress);
+    
+    // Use privateStateId if provided, otherwise fall back to privateStateStoreName
+    const privateStateId = this.config.privateStateId ?? this.config.privateStateStoreName;
+    console.log(`🔑 Using privateStateId: ${privateStateId}`);
+    
+    this.deployedContract = await findDeployedContract(providers, {
+      contractAddress: this.contractAddress,
+      contract: this.contractInstance,
+      privateStateId: privateStateId,
+      initialPrivateState: {},
+    });
+
+    console.log("✅ Contract joined successfully");
+    
+    // CRITICAL: Wait for private state to fully sync after joining
+    // The contract needs to download and decrypt historical transactions
+    console.log("⏳ Verifying contract private state is accessible...");
+    
+    // Try to read from the contract to ensure private state is ready
+    // Use a pure circuit call (like balanceOf or owner) to verify
+    try {
+      const circuitNames = Object.keys(this.deployedContract.call);
+      console.log(`🔍 Available circuits for testing: ${circuitNames.join(", ")}`);
+      
+      // Try calling a pure circuit to verify state is ready
+      if (this.deployedContract.call.owner) {
+        console.log("🧪 Testing contract state with owner() query...");
+        const ownerResult = await this.deployedContract.call.owner();
+        console.log("✅ Contract state verified - owner query succeeded");
+      } else {
+        console.log("⚠️ No owner() circuit found, using time-based delay instead");
+        console.log("⏳ Waiting 10 seconds for contract private state to sync...");
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        console.log("✅ Private state sync delay complete");
+      }
+    } catch (error) {
+      console.warn("⚠️ Contract state test query failed, waiting longer...");
+      console.log("⏳ Waiting 10 seconds for contract private state to sync...");
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+      console.log("✅ Private state sync delay complete");
+    }
+    
+    this.contractJoined = true;
   }
 
   /**
@@ -203,43 +261,55 @@ export class MidnightAdapter implements BlockchainAdapter {
   }
 
   /**
-   * Wait for wallet to have funds (called lazily on first transaction)
+   * Wait for wallet to be synced and have funds (called lazily on first transaction)
    */
   private async ensureFunds(): Promise<void> {
     if (this.hasFunds || !this.wallet) {
       return;
     }
 
-    console.log("💰 Checking wallet balance...");
+    console.log("💰 Checking wallet sync and balance...");
 
     const state = await Rx.firstValueFrom(this.wallet.state());
     const balance = state.balances[nativeToken()] ?? 0n;
+    const isSynced = state.syncProgress?.synced === true;
 
-    if (balance > 0n) {
-      console.log(`✅ Wallet has balance: ${balance}`);
+    console.log(`Wallet status: synced=${isSynced}, balance=${balance}`);
+
+    // Check both balance AND sync status
+    if (balance > 0n && isSynced) {
+      console.log(`✅ Wallet has balance and is synced: ${balance}`);
       this.hasFunds = true;
       return;
     }
 
-    console.log("⏳ Waiting for wallet to receive funds...");
+    if (balance === 0n) {
+      console.log("⏳ Waiting for wallet to receive funds...");
+    } else {
+      console.log("⏳ Wallet has balance but not synced, waiting for sync...");
+    }
 
+    // Wait for BOTH sync AND funds
     await Rx.firstValueFrom(
       this.wallet.state().pipe(
         Rx.throttleTime(10_000),
         Rx.tap((state) => {
           const applyGap = state.syncProgress?.lag.applyGap ?? 0n;
           const sourceGap = state.syncProgress?.lag.sourceGap ?? 0n;
+          const synced = state.syncProgress?.synced === true;
+          const bal = state.balances[nativeToken()] ?? 0n;
           console.log(
-            `Wallet syncing... Backend lag: ${sourceGap}, wallet lag: ${applyGap}`,
+            `Wallet status: synced=${synced}, balance=${bal}, Backend lag: ${sourceGap}, wallet lag: ${applyGap}`,
           );
         }),
+        // CRITICAL: Must be synced before submitting transactions
         Rx.filter((state) => state.syncProgress?.synced === true),
         Rx.map((s) => s.balances[nativeToken()] ?? 0n),
         Rx.filter((balance) => balance > 0n),
       ),
     );
 
-    console.log("✅ Wallet funded and ready");
+    console.log("✅ Wallet fully synced and funded");
     this.hasFunds = true;
   }
 
@@ -257,49 +327,119 @@ export class MidnightAdapter implements BlockchainAdapter {
       this.initializationPromise = null;
     }
 
-    if (!this.isInitialized || !this.wallet || !this.deployedContract) {
+    if (!this.isInitialized || !this.wallet) {
       throw new Error("Midnight adapter not initialized");
     }
 
     // Ensure wallet has funds (lazy check)
     await this.ensureFunds();
+    
+    // Join contract AFTER wallet is ready (lazy join)
+    await this.ensureContractJoined();
+    
+    if (!this.deployedContract) {
+      throw new Error("Failed to join contract");
+    }
 
     try {
-      // Decode hex data to get JSON payload
-      // Strip 0x prefix if present
-      const hexData = data.startsWith("0x") ? data.slice(2) : data;
-      const jsonStr = new TextDecoder().decode(hexStringToUint8Array(hexData));
-      const payload = JSON.parse(jsonStr);
+      const payloads = this.parseBatchPayload(data);
 
-      if (!payload.circuit || !Array.isArray(payload.args)) {
-        throw new Error(
-          'Invalid payload format: must have "circuit" and "args" fields',
+      if (payloads.length === 0) {
+        throw new Error("Batch payload contained no invocations");
+      }
+
+      if (payloads.length > 1) {
+        console.warn(
+          `⚠️ Midnight adapter received ${payloads.length} invocations in a single batch. ` +
+            "Currently only the first invocation will be processed.",
         );
       }
 
-      const circuitName = payload.circuit;
-      const argsJson = payload.args;
+      const { circuit, args } = payloads[0];
+
+      // Check if circuit is pure (read-only query) or impure (state-changing transaction)
+      const circuitDef = this.contractInfo.circuits.find((c) => c.name === circuit);
+      if (!circuitDef) {
+        throw new Error(
+          `Circuit "${circuit}" not found in contract. Available circuits: ${
+            this.contractInfo.circuits.map((c) => c.name).join(", ")
+          }`,
+        );
+      }
 
       console.log(
-        `🔄 Invoking circuit "${circuitName}" with ${argsJson.length} arguments`,
+        `🔄 Invoking circuit "${circuit}" with ${args.length} arguments`,
       );
 
-      // Parse arguments according to circuit definition
       const parsedArgs = parseCircuitArgs(
-        circuitName,
-        argsJson,
+        circuit,
+        args,
         this.contractInfo,
       );
 
-      // Invoke circuit
-      const result = await this.deployedContract.callTx[circuitName](
-        ...parsedArgs,
-      );
+      console.log(`🔍 Circuit "${circuit}" is ${circuitDef.pure ? "PURE (query)" : "IMPURE (transaction)"}`);
+      console.log("🔄 Parsed arguments:", parsedArgs);
 
-      const txId = result.public.txId;
-      console.log(`🚀 Circuit invoked successfully! Transaction ID: ${txId}`);
+      let result;
+      
+      if (circuitDef.pure) {
+        // Pure circuit - use call (local query, no transaction)
+        console.log("📖 Calling pure circuit (read-only query)...");
+        try {
+          const queryResult = await this.deployedContract.call[circuit](...parsedArgs);
+          console.log("✅ Pure circuit query succeeded! Result:", queryResult);
+          
+          // For pure circuits, we return a fake transaction ID with the result encoded
+          // Since the batcher expects a hash, we'll return a special format
+          return `query:${circuit}:${JSON.stringify(queryResult)}`;
+        } catch (callError) {
+          console.error("❌ Pure circuit call threw an error:");
+          console.error("  Error message:", callError instanceof Error ? callError.message : String(callError));
+          throw callError;
+        }
+      } else {
+        // Impure circuit - use callTx (submit transaction)
+        console.log("📝 Calling impure circuit (transaction)...");
+        console.log("🔄 deployedContract type:", typeof this.deployedContract);
+        console.log("🔄 callTx available?:", !!this.deployedContract?.callTx);
+        console.log("🔄 circuit method available?:", !!this.deployedContract?.callTx?.[circuit]);
+        
+        try {
+          result = await this.deployedContract.callTx[circuit](
+            ...parsedArgs,
+          );
+          console.log("✅ callTx succeeded! Result type:", typeof result, "keys:", Object.keys(result || {}));
+        } catch (callTxError) {
+          console.error("❌ callTx threw an error:");
+          console.error("  Error type:", typeof callTxError);
+          console.error("  Error message:", callTxError instanceof Error ? callTxError.message : String(callTxError));
+          console.error("  Error stack:", callTxError instanceof Error ? callTxError.stack : "N/A");
+          throw callTxError; // Re-throw to be caught by outer catch
+        }
 
-      return txId;
+        // Check if result has public.txId (FinalizedTxData) or needs balancing
+        if (result && result.public && result.public.txId) {
+          const txId = result.public.txId;
+          // Convert TransactionId to hex string if needed
+          let txIdStr: string;
+          if (typeof txId === 'string') {
+            txIdStr = txId;
+          } else if (typeof txId === 'object' && txId.toHex) {
+            txIdStr = txId.toHex();
+          } else if (typeof txId === 'object' && txId.toString) {
+            txIdStr = txId.toString();
+          } else {
+            txIdStr = String(txId);
+          }
+          
+          console.log(`🚀 Circuit invoked successfully! Transaction ID: ${txIdStr} (type: ${typeof txId}, has toHex: ${typeof (txId as any)?.toHex})`);
+          return txIdStr;
+        } else {
+          // Maybe it's an UnbalancedTransaction that needs balancing
+          console.log("🔄 Result doesn't have public.txId, might need balancing:", result);
+          throw new Error("Transaction result format unexpected - may need balancing");
+        }
+      }
     } catch (error) {
       console.error("❌ Failed to submit batch:", error);
       throw new Error(
@@ -363,19 +503,31 @@ export class MidnightAdapter implements BlockchainAdapter {
     }
 
     try {
+      // Normalize hash format - ensure it's lowercase and proper length
+      let normalizedHash = txId.toLowerCase().replace(/^0x/, '');
+      
+      // Midnight TransactionId is 72 hex chars (288 bits), but GraphQL expects 64 (256 bits)
+      // The actual transaction hash appears to be in the last 64 characters
+      if (normalizedHash.length > 64) {
+        console.warn(`Hash length is ${normalizedHash.length} (expected 64). Extracting last 64 chars...`);
+        normalizedHash = normalizedHash.slice(-64);
+      } else if (normalizedHash.length < 64) {
+        normalizedHash = normalizedHash.padStart(64, '0');
+      }
+      
+      console.log(`Querying transaction: original=${txId}, normalized=${normalizedHash}`);
+      
       // Query the indexer for transaction details by hash
       const query = `query ($hash: String!) {
         transactions(offset: { hash: $hash }) {
+          applyStage
           block {
             height
-          }
-          transactionResult {
-            status
           }
         }
       }`;
 
-      const response = await this.gqlQuery(query, { hash: txId });
+      const response = await this.gqlQuery(query, { hash: normalizedHash });
 
       if (
         !response || !response.transactions ||
@@ -387,14 +539,14 @@ export class MidnightAdapter implements BlockchainAdapter {
 
       const tx = response.transactions[0];
 
-      if (!tx.block || !tx.transactionResult) {
+      if (!tx.block || !tx.applyStage) {
         // Transaction exists but doesn't have complete data yet
         return null;
       }
 
-      // Transaction is confirmed if status is SUCCESS or PARTIAL_SUCCESS
-      const status = tx.transactionResult.status;
-      const confirmed = status === "SUCCESS" || status === "PARTIAL_SUCCESS";
+      // Transaction is confirmed if applyStage is SucceedEntirely
+      const applyStage = tx.applyStage;
+      const confirmed = applyStage === "SucceedEntirely";
 
       return {
         confirmed,
@@ -526,6 +678,71 @@ export class MidnightAdapter implements BlockchainAdapter {
       } catch (error) {
         console.warn("Warning: Error closing wallet:", error);
       }
+    }
+  }
+
+  private parseBatchPayload(data: string): Array<{ circuit: string; args: any[] }> {
+    const decoded = this.decodeHexString(data);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(decoded);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse Midnight batch payload JSON: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("Invalid Midnight batch payload structure");
+    }
+
+    const { prefix, payloads } = payload as {
+      prefix: unknown;
+      payloads: Array<{
+        circuit: unknown;
+        args: unknown;
+        addressType?: unknown;
+        address?: unknown;
+        signature?: unknown;
+        timestamp?: unknown;
+      }>;
+    };
+
+    if (prefix !== "&B") {
+      throw new Error(`Invalid batch prefix: expected "&B", got "${prefix}"`);
+    }
+
+    if (!Array.isArray(payloads)) {
+      throw new Error("Invalid Midnight batch payload structure: missing payloads array");
+    }
+
+    const sanitized = payloads.map((entry, index) => {
+      if (!entry || typeof entry.circuit !== "string") {
+        throw new Error(`Invalid circuit name at index ${index}`);
+      }
+
+      if (!Array.isArray(entry.args)) {
+        throw new Error(`Invalid circuit args at index ${index}`);
+      }
+
+      return { circuit: entry.circuit, args: entry.args };
+    });
+
+    return sanitized;
+  }
+
+  private decodeHexString(hex: string): string {
+    const normalized = hex.startsWith("0x") ? hex.slice(2) : hex;
+    try {
+      return new TextDecoder().decode(hexStringToUint8Array(normalized));
+    } catch (error) {
+      throw new Error(
+        `Failed to decode Midnight batch payload hex: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 }

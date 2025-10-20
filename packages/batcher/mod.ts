@@ -44,3 +44,7 @@ export type { DefaultBatcherInput } from "./core/types.ts";
 // Event/listener helpers
 export type { BatcherGrammar, BatcherListener } from "./core/batcher-events.ts";
 export { attachDefaultConsoleListeners } from "./core/batcher-events.ts";
+
+export { DefaultBatchDataBuilder } from "./batch-data-builder/default-batch-builder.ts";
+export type { BatchDataBuilder } from "./batch-data-builder/batch-data-builder.ts";
+export { MidnightBatchDataBuilder } from "./batch-data-builder/midnight-batch-builder.ts";
