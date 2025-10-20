@@ -25,16 +25,16 @@ constructor(
   // Initialize the multi-token with URI
   MultiToken_initialize(uri);
   // Set the initial owner
-  Ownable_initialize(initialOwner);
+  // Ownable_initialize(initialOwner);
 }
 
 export circuit uri(id: Uint<128>): Opaque<"string"> {
   return MultiToken_uri(id);
 }
 
-export circuit owner(): Either<ZswapCoinPublicKey, ContractAddress> {
-  return Ownable_owner();
-}
+// export circuit owner(): Either<ZswapCoinPublicKey, ContractAddress> {
+//   return Ownable_owner();
+// }
 
 export circuit balanceOf(
   account: Either<ZswapCoinPublicKey, ContractAddress>,
@@ -47,7 +47,7 @@ export circuit mint(
   value: Uint<128>,
 ): [] {
   // This line protects the circuit - only the owner can continue past it
-  Ownable_assertOnlyOwner();
+  // Ownable_assertOnlyOwner();
   // If we reach here, the caller is the owner
   MultiToken__mint(account, 0, value);
 }
@@ -80,8 +80,8 @@ export circuit burnFrom(
   account: Either<ZswapCoinPublicKey, ContractAddress>,
   value: Uint<128>
 ): [] {
-  Ownable_assertOnlyOwner();
-  return MultiToken__burn(account, 0, value);
+  // Ownable_assertOnlyOwner();
+  return FungibleToken__burn(account, value);
 }
 
 export circuit transferFrom(

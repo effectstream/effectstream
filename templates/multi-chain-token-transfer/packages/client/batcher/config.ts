@@ -20,7 +20,7 @@ const zkConfigPath = path.resolve(
   "../../shared",
   "contracts",
   "midnight",
-  "contract-round-value",
+  "contract-eip-20",
   "src",
   "managed",
   "simpletoken",

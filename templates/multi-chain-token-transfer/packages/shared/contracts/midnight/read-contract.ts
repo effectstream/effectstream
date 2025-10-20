@@ -18,7 +18,7 @@ export function readMidnightContract(): MidnightContractInfo {
     const dir = new URL(".", import.meta.url);
     // Construct the full path to contract.json
     const contractPath = new URL("contract.json", dir);
-    const contractInfoPath = new URL("./contract-round-value/src/managed/simpletoken/compiler/contract-info.json", dir);
+    const contractInfoPath = new URL("./contract-eip-20/src/managed/simpletoken/compiler/contract-info.json", dir);
     const contractAddressJson = Deno.readTextFileSync(contractPath);
     const contractInfoJson = Deno.readTextFileSync(contractInfoPath);
     const contractAddressInfo = JSON.parse(contractAddressJson) as MidnightContractAddressInfo;

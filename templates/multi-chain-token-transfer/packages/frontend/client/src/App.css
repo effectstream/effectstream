@@ -63,8 +63,42 @@ header h1 {
     display: flex;
     justify-content: space-around;
     flex-wrap: wrap;
-    gap: 15px;
+    gap: 20px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.wallet-column {
+    flex: 1;
+    min-width: 320px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.wallet-column h3 {
+    margin: 0 0 15px 0;
+    text-align: center;
+    font-size: 1.3em;
+    color: var(--text-color);
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+    width: 100%;
+}
+
+.wallet-column .address {
+    font-size: 0.8em;
+    color: #b0b0b0;
+    margin-top: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wallet-details {
+  min-width: 0;
 }
 
 .wallet-status, .token-balances {
@@ -206,6 +240,9 @@ button:disabled {
 button.secondary {
     background-color: var(--button-secondary-bg);
     margin-top: 10px; /* Example for a second button */
+    width: auto;
+    padding: 8px 12px;
+    font-size: 0.9em;
 }
 
 button.secondary:hover {
@@ -309,4 +346,82 @@ footer {
         align-items: center;
         gap: 20px;
     }
+}
+
+.loader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.loader-content {
+    text-align: center;
+    color: white;
+}
+
+.spinner {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 4px solid white;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1001;
+}
+
+.popup {
+    background-color: var(--card-bg);
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    width: 90%;
+    max-width: 400px;
+    border: 1px solid var(--border-color);
+}
+
+.popup p {
+    margin: 0 0 20px;
+    font-size: 1.1em;
+    color: var(--text-color);
+}
+
+.popup button {
+    padding: 10px 20px;
+    font-size: 1em;
+    background-color: var(--evm-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.popup button:hover {
+    background-color: var(--evm-button-hover);
 }

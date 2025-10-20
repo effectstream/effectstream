@@ -5,7 +5,7 @@ import {
 import {
   SimpleToken,
   witnesses,
-} from "./contract-round-value/src/index.original.ts";
+} from "./contract-eip-20/src/index.original.ts";
 import {
   type CoinInfo,
   nativeToken,
@@ -94,7 +94,7 @@ const contractConfig = {
   privateStateStoreName: "counter-private-state",
   zkConfigPath: resolve(
     currentDir,
-    "contract-round-value",
+    "contract-eip-20",
     "src",
     "managed",
     "simpletoken",
