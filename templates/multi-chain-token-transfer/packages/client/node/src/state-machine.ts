@@ -8,6 +8,7 @@ import {
 import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
 import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
+import { mintInEvm, mintInMidnight } from "@multi-chain-transfer/batcher/calls";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 
@@ -19,11 +20,36 @@ const stm = new PaimaSTM<typeof grammar, any>(grammar);
 //   return str.trim();
 // }
 
+enum MidnightContractActionName {
+  MINT = 1001,
+  TRANSFER = 1002,
+  BURN_FROM = 1005,
+  TRANSFER_FROM = 1006,
+  TRANSFER_TO_EVM = 1007,
+}
+
 stm.addStateTransition("midnightContractState", function* (data) {
   const decodedData = new MidnightDecoder().decode(data.parsedInput.payload);
 
   // TODO Improve the midnight generic primitive to not need to decode the string.
   const payload = data.parsedInput.payload;
+  const targetStr = decodedData.actionTarget.is_left ? decodedData.actionTarget.left.bytes.toString() : decodedData.actionTarget.right.bytes.toString();
+  const actionName = Number(decodedData.actionName);
+  switch (actionName) {
+    case MidnightContractActionName.MINT:
+      console.log("🎉 [MIDNIGHT] Mint action");
+      console.log("🎉 [MIDNIGHT] Mint action Value", decodedData.actionValue);
+      console.log("🎉 [MIDNIGHT] Mint action Target", targetStr);
+      break;
+    case MidnightContractActionName.TRANSFER_TO_EVM:
+      console.log("🎉 [MIDNIGHT] Transfer to EVM action");
+      console.log("🎉 [MIDNIGHT] Transfer to EVM action Value", decodedData.actionValue);
+      console.log("🎉 [MIDNIGHT] Transfer to EVM action Target", targetStr);      
+      yield* mintInEvm(targetStr, BigInt(decodedData.actionValue));
+      break;
+    case MidnightContractActionName.BURN_FROM:
+      break;
+  }
   console.error(
     "🎉 [MIDNIGHT] Transaction receipt:",
     JSON.stringify(payload),
@@ -39,6 +65,7 @@ stm.addStateTransition("transfer-to-midnight", function* (data) {
   console.log("🎉 [TRANSFER-TO-MIDNIGHT] Transaction receipt:");
   console.log(JSON.stringify(data.parsedInput));
   console.log("@ Contract address:", contract_address);
+  yield* mintInMidnight(midnight_address, BigInt(amount));
 });
 
 stm.addStateTransition("evm-transfer-erc1155", function* (data) {

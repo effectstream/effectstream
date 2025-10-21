@@ -11447,6 +11447,8 @@
       "packages/client/batcher": {
         "dependencies": [
           "jsr:@paimaexample/batcher@0.3.97",
+          "jsr:@paimaexample/concise@0.3.97",
+          "jsr:@paimaexample/coroutine@0.3.97",
           "jsr:@paimaexample/utils@0.3.97",
           "jsr:@std/path@^1.1.2",
           "npm:@midnight-ntwrk/compact-runtime@0.9.0",
