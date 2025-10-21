@@ -15,6 +15,11 @@ struct LastTransfer {
 export ledger txHashes: Set<Bytes<16>>;
 export ledger lastTransfer: LastTransfer;
 
+export ledger actionName: Uint<128>;
+export ledger actionTarget: Either<ZswapCoinPublicKey, ContractAddress>;
+export ledger actionTargetAddress: Opaque<'string'>;
+export ledger actionValue: Uint<128>;
+
 constructor(
   name: Opaque<"string">,
   symbol: Opaque<"string">,
@@ -61,27 +66,43 @@ export circuit mint(
   // Ownable_assertOnlyOwner();
   // If we reach here, the caller is the owner
   FungibleToken__mint(account, value);
+  actionName = 1001;
+  actionTarget = disclose(account);
+  actionValue = disclose(value);
 }
 
 export circuit transfer(
   to: Either<ZswapCoinPublicKey, ContractAddress>,
   value: Uint<128>,
 ): Boolean {
-  return FungibleToken_transfer(to, value);
+  const result = FungibleToken_transfer(to, value);
+  actionName = 1002;
+  actionTarget = disclose(to);
+  actionValue = disclose(value);
+  return result;
 }
 
 export circuit approve(
   spender: Either<ZswapCoinPublicKey, ContractAddress>,
   value: Uint<128>,
 ): Boolean {
-  return FungibleToken_approve(spender, value);
+  const result = FungibleToken_approve(spender, value);
+  actionName = 1003;
+  actionTarget = disclose(spender);
+  actionValue = disclose(value);
+  return result;
 }
 
 export circuit allowance(
   owner: Either<ZswapCoinPublicKey, ContractAddress>,
   spender: Either<ZswapCoinPublicKey, ContractAddress>,
 ): Uint<128> {
-  return FungibleToken_allowance(owner, spender);
+  const result = FungibleToken_allowance(owner, spender);
+  actionName = 1004;
+  actionTarget = disclose(owner);
+  // actionTarget = disclose(spender);
+  actionValue = disclose(result);
+  return result;
 }
 
 // Allows the owner to burn tokens from any account
@@ -90,7 +111,11 @@ export circuit burnFrom(
   value: Uint<128>
 ): [] {
   // Ownable_assertOnlyOwner();
-  return FungibleToken__burn(account, value);
+  const result = FungibleToken__burn(account, value);
+  actionName = 1005;
+  actionTarget = disclose(account);
+  actionValue = disclose(value);
+  return result;
 }
 
 export circuit transferFrom(
@@ -98,7 +123,11 @@ export circuit transferFrom(
   to: Either<ZswapCoinPublicKey, ContractAddress>,
   value: Uint<128>,
 ): Boolean {
-  return FungibleToken_transferFrom(from, to, value);
+  const result = FungibleToken_transferFrom(from, to, value);
+  actionName = 1006;
+  actionTarget = disclose(to);
+  actionValue = disclose(value);
+  return result;
 }
 
 export circuit transferToEvm(
@@ -117,4 +146,7 @@ export circuit transferToEvm(
     disclose(target_address),
     disclose(amount),
   };
+  actionName = 1007;
+  actionTargetAddress = disclose(target_address);
+  actionValue = disclose(amount);
 }
