@@ -2,7 +2,7 @@ import { walletLogin, WalletMode } from "@paimaexample/wallets";
 import { hardhat } from "viem/chains";
 import { createWalletClient, custom } from "viem";
 import { createPublicClient, http } from "viem";
-import { mct_erc1155 } from "@multi-chain-transfer/custom-primitive-mct-erc1155/abi";
+import { mct_erc1155 } from "@multi-chain-transfer/evm-contracts";
 
 import * as Eip20Interact from "./eip-20-interact.ts";
 
@@ -150,12 +150,13 @@ export async function evm_transferToMidnight(
   midnightAddress: `0x${string}`
 ) {
   const accounts = await client.getAddresses();
+  const txHash = Math.random().toString(36).substring(2, 15);
   const { request } = await publicClient.simulateContract({
     account: accounts[0],
     address: EVM_CONTRACT_ADDRESS,
     abi: mct_erc1155.abi,
     functionName: "transferToMidnight",
-    args: [amount, midnightAddress],
+    args: [amount, midnightAddress, txHash],
   });
   const _hash = await client.writeContract(request);
 }

@@ -11,52 +11,89 @@ import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 
-// function decodeString(data: Record<string, number>, length: number) {
-//   let str = "";
-//   for (let i = 0; i < length; i++) {
-//     str += String.fromCharCode(data[`${i}`]);
-//   }
-//   return str.trim();
-// }
-
 stm.addStateTransition("midnightContractState", function* (data) {
   const decodedData = new MidnightDecoder().decode(data.parsedInput.payload);
-
   // TODO Improve the midnight generic primitive to not need to decode the string.
   const payload = data.parsedInput.payload;
-  console.error(
-    "🎉 [MIDNIGHT] Transaction receipt:",
-    JSON.stringify(payload),
-    "\n",
-    JSON.stringify(decodedData),
-  );
+  // Example ledger state:
+  // {
+  //   "txHashes":{},
+  //   "lastTransfer":{
+  //     "target_address":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  //     "amount":"1200"
+  //   },
+  //   "actionName":"1007",
+  //   "actionTarget":{
+  //     "is_left":true,
+  //      "left":{"bytes":{"0":183,"1":155,"2":5,"3":232,"4":1,"5":188,"6":214,"7":13,"8":144,"9":46,"10":237,"11":119,"12":114,"13":125,"14":118,"15":241,"16":106,"17":227,"18":87,"19":235,"20":235,"21":253,"22":107,"23":228,"24":127,"25":193,"26":73,"27":172,"28":127,"29":148,"30":131,"31":161}},"right":{"bytes":{"0":0,"1":0,"2":0,"3":0,"4":0,"5":0,"6":0,"7":0,"8":0,"9":0,"10":0,"11":0,"12":0,"13":0,"14":0,"15":0,"16":0,"17":0,"18":0,"19":0,"20":0,"21":0,"22":0,"23":0,"24":0,"25":0,"26":0,"27":0,"28":0,"29":0,"30":0,"31":0}}
+  //   },
+  //   "actionTargetAddress":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  //   "actionValue":"1200"
+  //   }
+  const action: string = payload.actionName;
+  switch (action) {
+    case "1007": {
+      const { actionTargetAddress, actionValue } = payload;
+      console.error(
+        "🎉 [MIDNIGHT] Transfer To EVM Transaction receipt:",
+        JSON.stringify(payload)
+      );
+      const functionName = "transferToEvm";
+      const args = {
+        target_address: actionTargetAddress,
+        amount: actionValue,
+      };
+      // TODO txHashes is empty.
+      console.log(
+        `calling batcher function ${functionName} with arguments ${JSON.stringify(
+          args
+        )}`
+      );
+      break;
+    }
+    default: {
+      console.error(
+        "🎉 [MIDNIGHT] Transaction receipt:",
+        JSON.stringify(payload),
+        "\n",
+        JSON.stringify(decodedData)
+      );
+    }
+  }
 });
 
 stm.addStateTransition("transfer-to-midnight", function* (data) {
-  const { midnight_address, amount } = data.parsedInput;
+  const { midnight_address, amount, tx_hash, token_id } = data.parsedInput;
   const contract_address =
     contractAddressesEvmMain().chain31337["Erc1155DevModule#MCT_ERC1155"];
   console.log("🎉 [TRANSFER-TO-MIDNIGHT] Transaction receipt:");
-  console.log(JSON.stringify(data.parsedInput));
-  console.log("@ Contract address:", contract_address);
+  const functionName = "transferToMidnight";
+  const args = {
+    target_address: midnight_address,
+    amount,
+    token_id,
+    tx_hash,
+  };
+  console.log(
+    `calling batcher function ${functionName} with arguments ${JSON.stringify(
+      args
+    )}`
+  );
 });
 
 stm.addStateTransition("evm-transfer-erc1155", function* (data) {
   console.log("🎉 [TRANSFER-ASSETS] Transaction receipt:");
-  //     🎉 [TRANSFER-ASSETS] Transaction receipt:
-  // {
-  //   "to": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-  //   "from": "0x0000000000000000000000000000000000000000",
-  //   "tokenId": "1",
-  //   "amount": "1111",
-  //   "isMint": true,
-  //   "isBurn": false
-  // }
-  console.log(JSON.stringify(data.parsedInput, null, 2));
   const { to, tokenId, isMint, amount, isBurn, from } = data.parsedInput;
   const contract_address =
     contractAddressesEvmMain().chain31337["Erc1155DevModule#MCT_ERC1155"];
-  console.log("🎉 [TRANSFER-ASSETS] Contract address:", contract_address);
+  console.log("🎉 [TRANSFER-ASSETS]", {
+    to,
+    tokenId,
+    isMint,
+    amount,
+    isBurn,
+    from,
+  });
 
   const getBalance = function* (address: string) {
     const [evmMidnightBalances] = yield* World.resolve(getEvmMidnightByOwner, {
@@ -111,7 +148,7 @@ stm.addStateTransition("evm-transfer-erc1155", function* (data) {
  */
 export const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
-  input: BaseStfInput,
+  input: BaseStfInput
 ): SyncStateUpdateStream<void> {
   if (blockHeight >= 0) {
     yield* stm.processInput(input);
@@ -134,9 +171,9 @@ class MidnightDecoder {
       return [];
     }
     // Sort keys numerically to ensure correct byte order.
-    const entries = Object.entries(valueData).map((
-      [key, val]: [string, unknown],
-    ) => [parseInt(key, 10), val as number]);
+    const entries = Object.entries(valueData).map(
+      ([key, val]: [string, unknown]) => [parseInt(key, 10), val as number]
+    );
     entries.sort((a, b) => a[0] - b[0]);
     return entries.map((entry) => entry[1]);
   }
@@ -149,7 +186,8 @@ class MidnightDecoder {
   private decodeCellContent(content: any) {
     // Gracefully handle cell content that is empty or malformed.
     if (
-      !content || !Array.isArray(content.alignment) ||
+      !content ||
+      !Array.isArray(content.alignment) ||
       !Array.isArray(content.value)
     ) {
       return null; // An empty or invalid cell decodes to null.
@@ -192,9 +230,9 @@ class MidnightDecoder {
               }
               decodedParts.push(Number(numericValue));
             } else {
-              const hexString = byteArray.map((b) =>
-                b.toString(16).padStart(2, "0")
-              ).join("");
+              const hexString = byteArray
+                .map((b) => b.toString(16).padStart(2, "0"))
+                .join("");
               decodedParts.push("0x" + hexString);
             }
           }
