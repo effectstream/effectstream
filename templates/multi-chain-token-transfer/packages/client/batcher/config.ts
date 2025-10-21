@@ -11,7 +11,7 @@ import { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import * as path from "@std/path";
 import { hardhat } from "viem/chains";
 import type { EvmAddress, EvmPrivateKey } from "@paimaexample/utils";
-import { ERC1155Adapter } from "./erc1155-adapter.ts";
+import { ERC1155CustomAdapter } from "./erc1155-adapter.ts";
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
 
 const batchIntervalMs = 1000;
@@ -52,13 +52,12 @@ const midnightAdapter = new MidnightAdapter(
   "midnight",
 );
 
-const midnightBatchBuilder = new MidnightBatchDataBuilder();
-
 // ERC1155 adapter configuration
 const erc1155Address = contractAddressesEvmMain()["chain31337"]["Erc1155DevModule#MCT_ERC1155"] as EvmAddress;
-const batcherPrivateKey = Deno.env.get("BATCHER_PRIVATE_KEY") as EvmPrivateKey;
+const batcherPrivateKey = Deno.env.get("BATCHER_PRIVATE_KEY") ??
+  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as EvmPrivateKey;
 
-const erc1155Adapter = new ERC1155Adapter(
+const erc1155Adapter = new ERC1155CustomAdapter(
   erc1155Address,
   batcherPrivateKey,
   hardhat,
@@ -66,6 +65,7 @@ const erc1155Adapter = new ERC1155Adapter(
   10000,
 );
 
+const midnightBatchBuilder = new MidnightBatchDataBuilder();
 const defaultBatchBuilder = new DefaultBatchDataBuilder();
 
 export const config: PaimaBatcherConfig = {

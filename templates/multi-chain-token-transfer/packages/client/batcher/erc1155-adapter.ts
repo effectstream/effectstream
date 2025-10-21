@@ -27,9 +27,9 @@ function viemReceiptToGenericReceipt(
 
 /**
  * ERC1155 adapter for the Paima batcher
- * Handles mint() and transferToMidnight() function calls on the ERC1155 contract
+ * Only handles mint() and custom transferToMidnight() function calls on the ERC1155 contract
  */
-export class ERC1155Adapter implements BlockchainAdapter {
+export class ERC1155CustomAdapter implements BlockchainAdapter {
   private readonly walletClient: WalletClient;
   private readonly publicClient: PublicClient;
   private readonly account: Account;
