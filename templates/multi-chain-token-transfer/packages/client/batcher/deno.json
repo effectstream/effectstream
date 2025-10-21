@@ -2,7 +2,7 @@
   "name": "@multi-chain-transfer/batcher",
   "exports": "./main.ts",
   "imports": {
-    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.95",
+    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.96",
     "effection": "npm:effection@^3.5.0"
   },
   "tasks": {

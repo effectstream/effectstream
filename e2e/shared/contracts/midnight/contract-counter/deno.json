@@ -2,7 +2,8 @@
     "name": "@e2e/midnight-contract-counter-basic",
     "exports": {
       ".": "./src/_index.ts",
-      "./witnesses": "./src/witnesses.ts"
+      "./witnesses": "./src/witnesses.ts",
+      "./contract": "./src/managed/counter/contract/index.cjs"
     },
     "tasks": {
       "compact": "compact compile src/counter.compact src/managed/counter && deno task convert:js",
@@ -10,6 +11,7 @@
       "contract:compile": "deno task compact"
     },
     "imports": {
-      "vitest": "npm:vitest@^3.2.4"
+      "vitest": "npm:vitest@^3.2.4",
+      "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.9.0"
     }
   }
