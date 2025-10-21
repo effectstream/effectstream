@@ -6,6 +6,27 @@ type MidnightGqlBlock = {
   block: Block;
 };
 
+
+export interface MidnightGqlBlockState {
+  block: {
+    hash:            string;
+    height:          number;
+    protocolVersion: number;
+    timestamp:       number;
+    parent:          {
+      hash: string;
+    };
+    transactions:    {
+      hash:            string;
+      contractActions: {
+        address:    string;
+        state:      string;
+      }[];
+    }[];
+  };
+};
+
+
 // Replace with your actual endpoints and contract address
 const queryURL = "http://127.0.0.1:8088/api/v1/graphql";
 const subscriptionURL = "ws://127.0.0.1:8088/api/v1/graphql/ws";
@@ -78,7 +99,7 @@ export class MidnightClient {
     return ex.value.data;
   }
 
-  async fetchBlock(blockHeight: number): Promise<MidnightGqlBlock> {
+  async fetchBlock(blockHeight: number): Promise<MidnightGqlBlockState> {
     const query = `query {
       block(offset: { height: ${blockHeight} }) {
         hash
@@ -90,6 +111,10 @@ export class MidnightClient {
         }
         transactions {
           hash
+          contractActions {
+            address
+            state
+          }
         }
       }
     }`;

@@ -3,7 +3,6 @@ import { grammar } from "@multi-chain-transfer/data-types/grammar";
 import type { BaseStfInput, BaseStfOutput } from "@paimaexample/sm";
 import {
   getEvmMidnightByOwner,
-  getEvmMidnightByTokenId,
   insertEvmMidnight,
 } from "@multi-chain-transfer/database";
 import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";

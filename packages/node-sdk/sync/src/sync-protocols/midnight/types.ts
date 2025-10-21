@@ -14,6 +14,7 @@ import type {
   PrimitiveEntry,
   SyncProtocolWithNetwork,
 } from "@paima/config";
+import type { MidnightGqlBlockState } from "./MidnightClient.ts";
 
 export type CommonFunnelArgs = {
   /**
@@ -63,11 +64,20 @@ interface Transaction {
 }
 
 export interface Block {
-  parent?: Block;
-  hash: MidnightBlockHash;
-  height: MidnightBlockNumber;
-  timestamp: TimestampIso8601;
-  transactions: Transaction[];
+  hash:            MidnightBlockHash;
+  height:          MidnightBlockNumber;
+  protocolVersion: number;
+  timestamp:       TimestampIso8601;
+  parent:          {
+    hash: MidnightBlockHash;
+  };
+  transactions:    {
+    hash:            MidnightTxHash;
+    contractActions: {
+      address:    MidnightAddress;
+      state:      string;
+    }[];
+  }[];
 }
 
 export type CachedBlock = Pick<Block, "height" | "hash" | "timestamp"> & {

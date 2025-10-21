@@ -24,6 +24,7 @@ import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-conf
 
 import {
   type BalancedTransaction,
+  Contract,
   createBalancedTx,
   type FinalizedTxData,
   type ImpureCircuitId,
@@ -48,6 +49,26 @@ import {
   MidnightBech32m,
   ShieldedAddress,
 } from "@midnight-ntwrk/wallet-sdk-address-format";
+import {
+  type DAppConnectorAPI,
+  type DAppConnectorWalletAPI,
+  type ServiceUriConfig,
+} from '@midnight-ntwrk/dapp-connector-api';
+import {
+  concatMap,
+  filter,
+  firstValueFrom,
+  interval,
+  map,
+  of,
+  take,
+  tap,
+  throwError,
+  timeout,
+  catchError,
+} from 'rxjs';
+import { pipe as fnPipe } from 'fp-ts/function';
+import semver from 'semver';
 
 const BASE_URL_MIDNIGHT_NODE_A = `http://127.0.0.1:9944`;
 const getMidnightNodeUrl = async (): Promise<string> => {
@@ -61,15 +82,21 @@ const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v1/graph
 const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v1/graphql/ws`;
 
 
+
+type PrivateState = {};
+const SimpleTokenPrivateStateId = "simpleTokenPrivateState";
+
+
+export type SimpleContract = Contract<PrivateState, typeof witnesses>;
+
+
 // Inlined common types for standalone script
 type SimpleTokenCircuits = ImpureCircuitId<SimpleToken.Contract>;
 
-const SimpleTokenPrivateStateId = "simpleTokenPrivateState";
-
-type SimpleTokenProviders = MidnightProviders<
+export type SimpleTokenProviders = MidnightProviders<
   SimpleTokenCircuits,
   typeof SimpleTokenPrivateStateId,
-  SimpleToken.Contract.PrivateState
+  PrivateState
 >;
 
 type SimpleTokenContract = SimpleToken.Contract;
@@ -84,16 +111,16 @@ const currentDir = resolve(
   dirname(new URL(import.meta.url).pathname),
 );
 
-const contractConfig = {
-  privateStateStoreName: "simpletoken-private-state",
-  zkConfigPath: resolve(
-    currentDir,
-    "contract-eip-20",
-    "src",
-    "managed",
-    "simpletoken",
-  ),
-};
+// const contractConfig = {
+//   privateStateStoreName: "simpletoken-private-state",
+//   zkConfigPath: resolve(
+//     currentDir,
+//     "contract-eip-20",
+//     "src",
+//     "managed",
+//     "simpletoken",
+//   ),
+// };
 
 interface Config {
   readonly logDir: string;
@@ -234,6 +261,7 @@ const transferToEvm = async (
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
+  console.log(finalizedTxData);
   console.log(`Transferred ${amount} tokens to ${targetAddress}`);
   return finalizedTxData.public;
 };
@@ -411,51 +439,55 @@ const buildWalletAndWaitForFunds = async (
 };
 
 const configureProviders = async (
-  internalWallet: Wallet & Resource,
   injectedWallet: Wallet & Resource,
   config: Config,
 ) => {
 
-  const internalWalletAndMidnightProvider = await oldCreateWalletAndMidnightProvider(
-    internalWallet,
-  );
+  // const internalWalletAndMidnightProvider = await oldCreateWalletAndMidnightProvider(
+  //   internalWallet,
+  // );
 
   const injectedWalletAndMidnightProvider = await createWalletAndMidnightProvider(
     injectedWallet,
   );
 
-  console.log({ internalWalletAndMidnightProvider, injectedWalletAndMidnightProvider });
+  // console.log({ internalWalletAndMidnightProvider, injectedWalletAndMidnightProvider });
 
-  const privateStateProvider = levelPrivateStateProvider<
-    typeof SimpleTokenPrivateStateId
-  >({
-    privateStateStoreName: contractConfig.privateStateStoreName,
-  });
+  // const privateStateProvider = levelPrivateStateProvider<
+  //   typeof SimpleTokenPrivateStateId
+  // >({
+  //   privateStateStoreName: contractConfig.privateStateStoreName,
+  // });
 
-  const publicDataProvider = indexerPublicDataProvider(
-    config.indexer,
-    config.indexerWS,
-  );
+  // const publicDataProvider = indexerPublicDataProvider(
+  //   config.indexer,
+  //   config.indexerWS,
+  // );
 
-  const zkConfigPath = window.location.origin;
+  // const zkConfigPath = window.location.origin;
 
-  const zkConfigProvider = new FetchZkConfigProvider(
-    zkConfigPath,
-    fetch.bind(window),
-  );
-  const proofProvider = httpClientProofProvider(config.proofServer);
+  // const zkConfigProvider = new FetchZkConfigProvider(
+  //   zkConfigPath,
+  //   fetch.bind(window),
+  // );
+  // const proofProvider = httpClientProofProvider(config.proofServer);
 
-  const providers: SimpleTokenProviders = {
-    privateStateProvider,
-    publicDataProvider,
-    zkConfigProvider,
-    proofProvider,
-    walletProvider: internalWalletAndMidnightProvider,
-    midnightProvider: internalWalletAndMidnightProvider,
+  const providers = await new MidnightAlternativeLogin().getProviders();
+
+  // const providers: SimpleTokenProviders = {
+  //   privateStateProvider,
+  //   publicDataProvider,
+  //   zkConfigProvider,
+  //   proofProvider,
+  //   walletProvider: internalWalletAndMidnightProvider,
+  //   midnightProvider: internalWalletAndMidnightProvider,
+  //   injectedWalletProvider: injectedWalletAndMidnightProvider,
+  //   injectedMidnightProvider: injectedWalletAndMidnightProvider,
+  // };
+  return {
+    ...providers,
     injectedWalletProvider: injectedWalletAndMidnightProvider,
-    injectedMidnightProvider: injectedWalletAndMidnightProvider,
-  };
-  return providers;
+}
 };
 
 /**
@@ -468,27 +500,167 @@ const getContractAddress = async (): Promise<string> => {
   return json.contractAddress;
 };
 
+
+
+class MidnightAlternativeLogin {
+  private initializedProviders: Promise<SimpleTokenProviders> | undefined;
+  private logger = {
+    info: (...message: any[]) => console.log(...message),
+    error: (...message: any[]) => console.error(...message),
+  };
+
+  constructor() {
+  }
+
+public getProviders(): Promise<SimpleTokenProviders> {
+  // We use a cached `Promise` to hold the providers. This will:
+  //
+  // 1. Cache and re-use the providers (including the configured connector API), and
+  // 2. Act as a synchronization point if multiple contract deploys or joins run concurrently.
+  //    Concurrent calls to `getProviders()` will receive, and ultimately await, the same
+  //    `Promise`.
+  return this.initializedProviders ?? (this.initializedProviders = this.initializeProviders());
+}
+
+
+/** @internal */
+private async initializeProviders(): Promise<SimpleTokenProviders> {
+const { wallet, uris } = await this.connectToWallet();
+const walletState = await wallet.state();
+const zkConfigPath = window.location.origin; // '../../../contract/src/managed/bboard';
+
+console.log(`Connecting to wallet with network ID: ${getLedgerNetworkId()}`);
+
+return {
+  privateStateProvider: levelPrivateStateProvider({}),
+  zkConfigProvider: new FetchZkConfigProvider(zkConfigPath, fetch.bind(window)),
+  proofProvider: httpClientProofProvider(uris.proverServerUri),
+  publicDataProvider: indexerPublicDataProvider(uris.indexerUri, uris.indexerWsUri),
+  walletProvider: {
+    coinPublicKey: walletState.coinPublicKey,
+    encryptionPublicKey: walletState.encryptionPublicKey,
+    balanceTx(tx: UnbalancedTransaction, newCoins: CoinInfo[]): Promise<BalancedTransaction> {
+      return wallet
+        .balanceAndProveTransaction(
+          ZswapTransaction.deserialize(tx.serialize(getLedgerNetworkId()), getZswapNetworkId()),
+          newCoins,
+        )
+        .then((zswapTx: any) => Transaction.deserialize(zswapTx.serialize(getZswapNetworkId()), getLedgerNetworkId()))
+        .then(createBalancedTx);
+    },
+  },
+  midnightProvider: {
+    submitTx(tx: BalancedTransaction): Promise<TransactionId> {
+      return wallet.submitTransaction(tx);
+    },
+  },
+};
+};
+
+/** @internal */
+private async connectToWallet(): Promise<{ wallet: DAppConnectorWalletAPI; uris: ServiceUriConfig }> {
+const COMPATIBLE_CONNECTOR_API_VERSION = '1.x';
+
+return firstValueFrom(
+  fnPipe(
+    interval(100),
+    map(() => window.midnight?.mnLace),
+    tap((connectorAPI) => {
+      this.logger.info(connectorAPI, 'Check for wallet connector API');
+    }),
+    filter((connectorAPI): connectorAPI is DAppConnectorAPI => !!connectorAPI),
+    concatMap((connectorAPI) =>
+      semver.satisfies(connectorAPI.apiVersion, COMPATIBLE_CONNECTOR_API_VERSION)
+        ? of(connectorAPI)
+        : throwError(() => {
+            this.logger.error(
+              {
+                expected: COMPATIBLE_CONNECTOR_API_VERSION,
+                actual: connectorAPI.apiVersion,
+              },
+              'Incompatible version of wallet connector API',
+            );
+
+            return new Error(
+              `Incompatible version of Midnight Lace wallet found. Require '${COMPATIBLE_CONNECTOR_API_VERSION}', got '${connectorAPI.apiVersion}'.`,
+            );
+          }),
+    ),
+    tap((connectorAPI) => {
+      this.logger.info(connectorAPI, 'Compatible wallet connector API found. Connecting.');
+    }),
+    take(1),
+    timeout({
+      first: 1_000,
+      with: () =>
+        throwError(() => {
+          this.logger.error('Could not find wallet connector API');
+
+          return new Error('Could not find Midnight Lace wallet. Extension installed?');
+        }),
+    }),
+    concatMap(async (connectorAPI) => {
+      const isEnabled = await connectorAPI.isEnabled();
+
+      this.logger.info(isEnabled, 'Wallet connector API enabled status');
+
+      return connectorAPI;
+    }),
+    timeout({
+      first: 5_000,
+      with: () =>
+        throwError(() => {
+          this.logger.error('Wallet connector API has failed to respond');
+
+          return new Error('Midnight Lace wallet has failed to respond. Extension enabled?');
+        }),
+    }),
+    concatMap(async (connectorAPI) => ({ 
+      walletConnectorAPI: await connectorAPI.enable(),
+      connectorAPI 
+    })),
+    catchError((error, apis) =>
+      error
+        ? throwError(() => {
+            this.logger.error('Unable to enable connector API');
+            return new Error('Application is not authorized');
+          })
+        : apis,
+    ),
+    concatMap(async ({ walletConnectorAPI, connectorAPI }) => {
+      const uris = await connectorAPI.serviceUriConfig();
+
+      this.logger.info('Connected to wallet connector API and retrieved service configuration');
+
+      return { wallet: walletConnectorAPI, uris };
+    }),
+  ),
+);
+};
+
+}
+
+
 const connectMidnightWallet = async (injectedWallet: any): Promise<{
   injectedWallet: Wallet & Resource;
-  internalWallet: Wallet & Resource;
   providers: SimpleTokenProviders;
 }> => {
   console.log("🔗 Building Midnight wallet with genesis seed...");
 
   const midnightNodeUrl = await getMidnightNodeUrl();
   const config = new StandaloneConfig(midnightNodeUrl);
-  const internalWallet = await buildWalletAndWaitForFunds(
-    config,
-    GENESIS_MINT_WALLET_SEED,
-    "contract.json",
-  );
+  // const internalWallet = await buildWalletAndWaitForFunds(
+  //   config,
+  //   GENESIS_MINT_WALLET_SEED,
+  //   "contract.json",
+  // );
 
   // console.log("✅ Midnight wallet built successfully");
 
-  const providers = await configureProviders(internalWallet, injectedWallet, config);
+  const providers = await configureProviders(injectedWallet, config);
   console.log("✅ Providers configured successfully");
 
-  return { internalWallet, injectedWallet, providers };
+  return { injectedWallet, providers };
 };
 
 const connectToContract = async (
@@ -527,39 +699,11 @@ const fetchCurrentCounterState = async (
   return await displayCounterValue(actualProviders, actualContract);
 };
 
-// const incrementCounterValue = async (
-//   contractAddress: string,
-//   tokenId: string,
-//   propertyName: string,
-//   propertyValue: string,
-//   contract: DeployedSimpleTokenContract,
-// ): Promise<FinalizedTxData> => {
-
-//   if (!contract) {
-//     throw new Error("Contract must be joined first");
-//   }
-
-//   console.log("🔢 Incrementing counter...");
-//   const result = await increment(
-//     contract,
-//     contractAddress,
-//     tokenId,
-//     propertyName || "",
-//     propertyValue || "",
-//   );
-//   console.log(
-//     `✅ Counter incremented successfully! Transaction ID: ${result.txId}`,
-//   );
-
-//   return result;
-// };
-
 export {
   mint,
   balanceOf,
   connectMidnightWallet,
   connectToContract,
   fetchCurrentCounterState,
-  // incrementCounterValue,
   transferToEvm,
 };
