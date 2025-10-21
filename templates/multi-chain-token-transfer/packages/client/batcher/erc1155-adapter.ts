@@ -101,36 +101,42 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
     fee?: string | bigint,
   ) {
     try {
-      const payload = this.parseBatchPayload(data);
-
-      if (payload.payloads.length === 0) {
-        throw new Error("Batch payload contained no function calls");
+      // Parse the default batch builder format: ["&B", [input1, input2, ...]]
+      const batchArray = this.parseDefaultBatchFormat(data);
+      
+      if (batchArray.inputs.length === 0) {
+        throw new Error("Batch payload contained no inputs");
       }
 
-      if (payload.payloads.length > 1) {
+      if (batchArray.inputs.length > 1) {
         console.warn(
-          `⚠️ ERC1155 adapter received ${payload.payloads.length} function calls in a single batch. ` +
-            "Currently only the first call will be processed.",
+          `⚠️ ERC1155 adapter received ${batchArray.inputs.length} inputs in a single batch. ` +
+            "Currently only the first input will be processed.",
         );
       }
 
-      const { function: functionName, args } = payload.payloads[0];
-
+      // Extract the first input: [addressType, address, signature, input, timestamp]
+      const firstInput = JSON.parse(batchArray.inputs[0] as unknown as string);
+      const inputData = firstInput[3]; // The 'input' field contains the hex-encoded function call
+      
+      // Decode and parse the input to get the function call
+      const functionCall = this.parseFunctionCall(inputData);
+      
       console.log(
-        `🔄 Calling function "${functionName}" with ${args.length} arguments`,
+        `🔄 Calling function "${functionCall.function}" with ${functionCall.args.length} arguments`,
       );
 
       let hash;
 
       // Route to appropriate contract function
-      switch (functionName) {
+      switch (functionCall.function) {
         case "mint": {
-          if (args.length !== 2) {
+          if (functionCall.args.length !== 2) {
             throw new Error(
-              `mint() expects 2 arguments (address, amount), got ${args.length}`,
+              `mint() expects 2 arguments (address, amount), got ${functionCall.args.length}`,
             );
           }
-          const [to, amount] = args;
+          const [to, amount] = functionCall.args;
           hash = await this.walletClient.writeContract({
             account: this.account,
             chain: this.walletClient.chain,
@@ -143,12 +149,12 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
         }
 
         case "transferToMidnight": {
-          if (args.length !== 2) {
+          if (functionCall.args.length !== 2) {
             throw new Error(
-              `transferToMidnight() expects 2 arguments (amount, targetAddress), got ${args.length}`,
+              `transferToMidnight() expects 2 arguments (amount, targetAddress), got ${functionCall.args.length}`,
             );
           }
-          const [amount, targetAddress] = args;
+          const [amount, targetAddress] = functionCall.args;
           hash = await this.walletClient.writeContract({
             account: this.account,
             chain: this.walletClient.chain,
@@ -162,7 +168,7 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
 
         default:
           throw new Error(
-            `Unsupported function: ${functionName}. Supported functions: mint, transferToMidnight`,
+            `Unsupported function: ${functionCall.function}. Supported functions: mint, transferToMidnight`,
           );
       }
 
@@ -255,60 +261,92 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
   }
 
   /**
-   * Parse batch payload from hex-encoded JSON
-   * Expected format: {"prefix": "&B", "payloads": [{function: "mint", args: [...]}, ...]}
+   * Parse the default batch builder format: ["&B", [input1, input2, ...]]
+   * Each input is: [addressType, address, signature, inputData, timestamp]
    */
-  private parseBatchPayload(data: string): {
+  private parseDefaultBatchFormat(data: string): {
     prefix: string;
-    payloads: Array<{ function: string; args: any[] }>;
+    inputs: any[][];
   } {
     const decoded = this.decodeHexString(data);
-    let payload: unknown;
+    let batchArray: unknown;
     try {
-      payload = JSON.parse(decoded);
+      batchArray = JSON.parse(decoded);
     } catch (error) {
       throw new Error(
-        `Failed to parse ERC1155 batch payload JSON: ${
+        `Failed to parse batch array JSON: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
     }
 
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-      throw new Error("Invalid ERC1155 batch payload structure");
+    if (!Array.isArray(batchArray) || batchArray.length !== 2) {
+      throw new Error(
+        "Invalid batch format: expected array with 2 elements [prefix, inputs]",
+      );
     }
 
-    const { prefix, payloads } = payload as {
-      prefix: unknown;
-      payloads: Array<{
-        function: unknown;
-        args: unknown;
-      }>;
-    };
+    const [prefix, inputs] = batchArray;
 
     if (prefix !== "&B") {
       throw new Error(`Invalid batch prefix: expected "&B", got "${prefix}"`);
     }
 
-    if (!Array.isArray(payloads)) {
+    if (!Array.isArray(inputs)) {
       throw new Error(
-        "Invalid ERC1155 batch payload structure: missing payloads array",
+        "Invalid batch format: second element must be an array of inputs",
       );
     }
 
-    const sanitized = payloads.map((entry, index) => {
-      if (!entry || typeof entry.function !== "string") {
-        throw new Error(`Invalid function name at index ${index}`);
-      }
+    return { prefix, inputs };
+  }
 
-      if (!Array.isArray(entry.args)) {
-        throw new Error(`Invalid function args at index ${index}`);
-      }
+  /**
+   * Parse a function call from the input data
+   * Expected format: {"function": "mint", "args": [...]}
+   */
+  private parseFunctionCall(inputData: string): {
+    function: string;
+    args: any[];
+  } {
+    // The inputData might be hex-encoded or already a JSON string
+    let decoded = inputData;
+    if (inputData.startsWith("0x")) {
+      decoded = this.decodeHexString(inputData);
+    }
 
-      return { function: entry.function, args: entry.args };
-    });
+    let functionCall: unknown;
+    try {
+      functionCall = JSON.parse(decoded);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse function call JSON: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
-    return { prefix: prefix as string, payloads: sanitized };
+    if (
+      !functionCall || typeof functionCall !== "object" ||
+      Array.isArray(functionCall)
+    ) {
+      throw new Error("Invalid function call structure");
+    }
+
+    const { function: functionName, args } = functionCall as {
+      function: unknown;
+      args: unknown;
+    };
+
+    if (typeof functionName !== "string") {
+      throw new Error("Invalid function name");
+    }
+
+    if (!Array.isArray(args)) {
+      throw new Error("Invalid function args");
+    }
+
+    return { function: functionName, args };
   }
 
   /**

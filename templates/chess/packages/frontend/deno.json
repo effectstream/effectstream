@@ -12,10 +12,10 @@
     "serve": "deno task build && deno task server:start"
   },
   "imports": {
-    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.94",
-    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.94",
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.94",
-    "@paimaexample/wallets": "jsr:@paimaexample/wallets@0.3.94",
+    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.97",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.97",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.97",
+    "@paimaexample/wallets": "jsr:@paimaexample/wallets@0.3.97",
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.4",
     "@oak/oak": "jsr:@oak/oak@^17.1.4",
     "@std/assert": "jsr:@std/assert@^1.0.12",
