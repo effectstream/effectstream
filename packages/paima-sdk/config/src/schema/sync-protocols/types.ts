@@ -3,7 +3,7 @@ import { ConfigNetworkType } from "../network/mod.ts";
 import type { ConfigSyncProtocolDecoratorType } from "./decorators/types.ts";
 import type { NetworkConfig } from "../../config/parts/network.ts";
 import type { ConfigSyncProtocolMapping } from "./all.ts";
-import type { getEvmEvent } from "@paima/config";
+import type { EncodedStateValue, getEvmEvent } from "@paima/config";
 
 export enum ConfigSyncProtocolType {
   NTP_MAIN = "ntp-main",
@@ -48,6 +48,11 @@ type EVMPrimitive = BasePrimitive & {
 type MidnightPrimitive = BasePrimitive & {
   name: string;
   contractAddress: string;
+  contract: {
+    ledger: (data: EncodedStateValue) => any;
+  };
+  networkId?: number;
+  genesisHash?: string;
 };
 
 type CardanoUtxoRpcPrimitive = BasePrimitive & {

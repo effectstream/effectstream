@@ -12,6 +12,6 @@
     "@dcspark/cip34-js": "npm:@dcspark/cip34-js@3.0.1",
     "assert-never": "npm:assert-never@^1.4.0",
     "@dcspark/carp-client": "npm:@dcspark/carp-client@^3.3.0",
-    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.2.6"
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.3.0"
   }
 }

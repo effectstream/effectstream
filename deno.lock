@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@std/cli@^1.0.22": "1.0.23",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/encoding@~1.0.8": "1.0.10",
     "npm:@aurowallet/mina-provider@^1.0.12": "1.0.12",
@@ -57,7 +58,6 @@
     "npm:@midnight-ntwrk/midnight-js-utils@2.0.2": "2.0.2",
     "npm:@midnight-ntwrk/midnight-js-utils@^2.0.2": "2.0.2",
     "npm:@midnight-ntwrk/onchain-runtime@0.3": "0.3.0",
-    "npm:@midnight-ntwrk/onchain-runtime@~0.2.6": "0.2.6",
     "npm:@midnight-ntwrk/wallet-api@*": "5.0.0_rxjs@7.8.2",
     "npm:@midnight-ntwrk/wallet-api@5": "5.0.0_rxjs@7.8.2",
     "npm:@midnight-ntwrk/wallet-api@5.0.0": "5.0.0_rxjs@7.8.2",
@@ -197,6 +197,9 @@
     "npm:ws@^8.18.3": "8.18.3"
   },
   "jsr": {
+    "@std/cli@1.0.23": {
+      "integrity": "bf95b7a9425ba2af1ae5a6359daf58c508f2decf711a76ed2993cd352498ccca"
+    },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     }
@@ -3078,8 +3081,8 @@
         "mime@3.0.0"
       ]
     },
-    "@fastify/static@8.2.0": {
-      "integrity": "sha512-PejC/DtT7p1yo3p+W7LiUtLMsV8fEvxAK15sozHy9t8kwo5r0uLYmhV/inURmGz1SkHZFz/8CNtHLPyhKcx4SQ==",
+    "@fastify/static@8.3.0": {
+      "integrity": "sha512-yKxviR5PH1OKNnisIzZKmgZSus0r2OZb8qCSbqmw34aolT4g3UlzYfeBRym+HJ1J471CR8e2ldNub4PubD1coA==",
       "dependencies": [
         "@fastify/accept-negotiator",
         "@fastify/send",
@@ -3595,7 +3598,7 @@
     "@midnight-ntwrk/compact-runtime@0.9.0": {
       "integrity": "sha512-Dsms+SWRWlaTIay4SO7ITxTJvo8lgEKkMss+dQnIZDnEoCEO5lHTSj4TckBAvyYSWm4KElN3tir/MVm5hHgfDA==",
       "dependencies": [
-        "@midnight-ntwrk/onchain-runtime@0.3.0",
+        "@midnight-ntwrk/onchain-runtime",
         "@types/object-inspect",
         "object-inspect"
       ]
@@ -3675,9 +3678,6 @@
     },
     "@midnight-ntwrk/midnight-js-utils@2.0.2": {
       "integrity": "sha512-c01Nh9BfwxwijItgrieeXtdwfOZuQd9gWMX+294rT8Pq+vydIt61+0V89TLIT7nh/1d7Z2Bu9X5+9rFzfzwylA=="
-    },
-    "@midnight-ntwrk/onchain-runtime@0.2.6": {
-      "integrity": "sha512-i/I1H/zQVFcjzCTD3ENa9OT2z7MvIHeqiY7/biBO7YQk/Dme5aYeQUczs/79sDih4fRQoeHNtaNVyZNzN6OBLg=="
     },
     "@midnight-ntwrk/onchain-runtime@0.3.0": {
       "integrity": "sha512-vZWPoz7MhXO5UgWZET50g7APOcT5dbAfADDcrSreeOagV8lj7JJzlnYIIhrcUaMOv+NHWxPaUcJUYUkmu9LoTA=="
@@ -6189,10 +6189,11 @@
         "@types/node@24.2.0"
       ]
     },
-    "@types/chai@5.2.2": {
-      "integrity": "sha512-8kB30R7Hwqf40JPiKhVzodJs2Qc1ZJ5zuT3uzw5Hq/dhNCl3G3l83jfpdI1e20BP348+fV7VIL/+FxaXkqBmWg==",
+    "@types/chai@5.2.3": {
+      "integrity": "sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==",
       "dependencies": [
-        "@types/deep-eql"
+        "@types/deep-eql",
+        "assertion-error"
       ]
     },
     "@types/connect-history-api-fallback@1.5.4": {
@@ -17950,16 +17951,19 @@
       },
       "e2e/shared/contracts/midnight/contract-counter": {
         "dependencies": [
+          "npm:@midnight-ntwrk/compact-runtime@0.9",
           "npm:vitest@^3.2.4"
         ]
       },
       "e2e/shared/contracts/midnight/contract-eip-20": {
         "dependencies": [
+          "npm:@midnight-ntwrk/compact-runtime@0.9",
           "npm:vitest@^3.2.4"
         ]
       },
       "e2e/shared/data-types": {
         "dependencies": [
+          "npm:@midnight-ntwrk/onchain-runtime@0.3",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:viem@2.37.3"
         ]
@@ -18179,6 +18183,7 @@
       },
       "packages/node-sdk/sm": {
         "dependencies": [
+          "npm:@midnight-ntwrk/onchain-runtime@0.3",
           "npm:@pgtyped/runtime@^2.4.2",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:assert-never@^1.4.0",
@@ -18190,6 +18195,7 @@
       "packages/node-sdk/sync": {
         "dependencies": [
           "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@^2.0.2",
+          "npm:@midnight-ntwrk/onchain-runtime@0.3",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:@utxorpc/sdk@~0.6.8",
           "npm:@utxorpc/spec@0.16",
@@ -18219,7 +18225,7 @@
         "dependencies": [
           "npm:@dcspark/carp-client@^3.3.0",
           "npm:@dcspark/cip34-js@3.0.1",
-          "npm:@midnight-ntwrk/onchain-runtime@~0.2.6",
+          "npm:@midnight-ntwrk/onchain-runtime@0.3",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:abitype@^1.0.8",
           "npm:assert-never@^1.4.0",

@@ -5,14 +5,14 @@
   "nodeModulesDir": "auto",
   "tasks": {
     "build:evm": "deno task -f @multi-chain-transfer/evm-contracts build:mod",
-    "build:midnight": "deno task -f @multi-chain-transfer/my-midnight-contract compact",
+    "build:midnight": "deno task -f @multi-chain-transfer/midnight-contract-eip-20 compact",
     "dev": "deno task -f @multi-chain-transfer/node dev",
     "start:frontend": "deno task -f @multi-chain-transfer/frontend dev",
     "check": "deno task -f @multi-chain-transfer/node check"
   },
   "imports": {
     // TODO: This is a workaround for a missing dependency.
-    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.95",
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.96",
     "@std/path": "jsr:@std/path@^1.1.2"
   },
   "lint": {

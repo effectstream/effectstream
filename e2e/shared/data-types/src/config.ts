@@ -20,7 +20,9 @@ import {
   PrimitiveTypeEVMPaimaL2,
   PrimitiveTypeMidnightGeneric,
 } from "@paima/sm/builtin";
-
+import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
+import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
+ 
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
@@ -115,7 +117,7 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigNetworkType.MIDNIGHT,
           genesisHash:
             "0x0000000000000000000000000000000000000000000000000000000000000001",
-          networkId: 0,
+          networkId: 0, // NetworkId.Undeployed,
           nodeUrl: "http://127.0.0.1:9944",
         });
     }
@@ -346,6 +348,8 @@ export const localhostConfig = new ConfigBuilder()
             startBlockHeight: 1,
             contractAddress: readMidnightContractCounter().contractAddress,
             stateMachinePrefix: "midnightContractState",
+            contract: { ledger: CounterContract.ledger },
+            networkId: 0, // NetworkId.Undeployed,
           }),
         ).addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
@@ -355,6 +359,8 @@ export const localhostConfig = new ConfigBuilder()
             startBlockHeight: 1,
             contractAddress: readMidnightContractEip20().contractAddress,
             stateMachinePrefix: "eip20ContractState",
+            contract: { ledger: SimpleTokenContract.ledger },
+            networkId: 0, // NetworkId.Undeployed,
           }),
         );
     }
