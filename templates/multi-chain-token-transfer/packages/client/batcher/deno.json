@@ -3,9 +3,11 @@
   "exports": "./main.ts",
   "imports": {
     "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.94",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.94",
     "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
     "@std/path": "jsr:@std/path@^1.1.2",
-    "effection": "npm:effection@^3.5.0"
+    "effection": "npm:effection@^3.5.0",
+    "viem": "npm:viem@2.37.3"
   },
   "tasks": {
     "start": "deno run -A --unstable-detect-cjs main.ts"
