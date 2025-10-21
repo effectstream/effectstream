@@ -5,7 +5,7 @@
   "nodeModulesDir": "auto",
   "tasks": {
     "build:evm": "deno task -f @multi-chain-transfer/evm-contracts build:mod",
-    "build:midnight": "deno task -f @multi-chain-transfer/my-midnight-contract compact",
+    "build:midnight": "deno task -f @multi-chain-transfer/midnight-contract-eip-20 compact",
     "dev": "deno task -f @multi-chain-transfer/node dev",
     "start:frontend": "deno task -f @multi-chain-transfer/frontend dev",
     "check": "deno task -f @multi-chain-transfer/node check"

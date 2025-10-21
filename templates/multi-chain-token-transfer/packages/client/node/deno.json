@@ -29,5 +29,6 @@
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "effection": "npm:effection@^3.5.0",
     "@paimaexample/explorer": "npm:@paimaexample/explorer@0.3.96",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.3.0"
   }
 }

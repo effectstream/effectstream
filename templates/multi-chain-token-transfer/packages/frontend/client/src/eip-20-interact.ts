@@ -6,7 +6,7 @@ import {
   SimpleToken,
   // type CounterPrivateState,
   witnesses,
-} from "@multi-chain-transfer/my-midnight-contract";
+} from "@multi-chain-transfer/midnight-contract-eip-20";
 import {
   type CoinInfo,
   nativeToken,
