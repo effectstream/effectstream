@@ -54,7 +54,15 @@ const convertToEither = (rawValue: [Uint8Array, Uint8Array, Uint8Array]) => {
 function getBalanceMap(publicStates: PublicContractStates): Map<string, bigint> {
   const balances = publicStates.contractState.data.asArray()![0]?.asMap();
   const balanceKey = balances?.keys()[0];
-  const tokenBalance = balances?.get(balanceKey!)?.asMap();
+  let tokenBalance;
+
+  try {
+    tokenBalance = balances?.get(balanceKey!)?.asMap();
+  } catch (error) {
+    console.error("Error getting balance map", error);
+    return new Map<string, bigint>();
+  }
+  
   const simplifiedBalanceMap = tokenBalance?.keys().reduce((acc, key) => {
     const mapKeyEither = convertToEither(key.value as [Uint8Array, Uint8Array, Uint8Array]);
     const mapKey = mapKeyEither.is_left ? mapKeyEither.left.bytes : mapKeyEither.right.bytes;
