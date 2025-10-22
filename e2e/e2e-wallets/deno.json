@@ -29,7 +29,8 @@
     "vite-plugin-top-level-await": "npm:vite-plugin-top-level-await@^1.6.0",
     "vite-plugin-wasm": "npm:vite-plugin-wasm@^3.5.0",
     "wagmi": "npm:wagmi@^2.16.9",
-    "ws": "npm:ws@^8.18.3"
+    "ws": "npm:ws@^8.18.3",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.3.0"
   },
   "compilerOptions": {
     "types": [
