@@ -8,22 +8,24 @@ const midnightExtended = (packageName: string) => ({
   stopProcessAtPort: [
     ...launchMidnight(packageName).stopProcessAtPort,
     10599,
+    3334,
+    10590,
   ],
   processes: [
     ...launchMidnight(packageName).processes,
-    // {
-    //   name: "frontend-server",
-    //   args: ["task", "-f", "@multi-chain-transfer/frontend", "build"],
-    //   waitToExit: true,
-    //   type: "system-dependency",
-    // },
-    // {
-    //   name: "frontend-server",
-    //   args: ["task", "-f", "@multi-chain-transfer/frontend", "serve"],
-    //   waitToExit: false,
-    //   type: "system-dependency",
-    //   link: "http://localhost:10599",
-    // },
+    {
+      name: "frontend-server",
+      args: ["task", "-f", "@multi-chain-transfer/frontend", "build"],
+      waitToExit: true,
+      type: "system-dependency",
+    },
+    {
+      name: "frontend-server",
+      args: ["task", "-f", "@multi-chain-transfer/frontend", "serve"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:10599",
+    },
     {
       name: "explorer",
       args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
@@ -37,6 +39,12 @@ const midnightExtended = (packageName: string) => ({
       waitToExit: false,
       type: "system-dependency",
       link: "http://localhost:3334",
+    },
+    {
+      name: "midnight-faucet",
+      args: ["task", "-f", "@multi-chain-transfer/midnight-contracts", "midnight-faucet:start"],
+      waitToExit: false,
+      type: "system-dependency",
     }
   ],
 });
@@ -56,16 +64,7 @@ const config = Value.Parse(OrchestratorConfig, {
   // Launch my processes
   processesToLaunch: [
     launchEvm("@multi-chain-transfer/evm-contracts"),
-    // launchCardano("@multi-chain-transfer/cardano-contracts"),
     midnightExtended("@multi-chain-transfer/midnight-contracts"),
-    // launchAvail("@multi-chain-transfer/avail-contracts"),
-    { // Launch the Batcher with our PaimaL2 Contract
-      name: "batcher",
-      args: ["task", "-f", "@multi-chain-transfer/batcher", "start"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:3334",
-    },
   ],
 });
 

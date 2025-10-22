@@ -341,6 +341,20 @@ const buildWalletAndWaitForFunds = async (
   }
   console.log(`Your wallet balance is: ${balance}`);
 
+  /* Transfer dust to lace wallet */
+  const receiverAddress = "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lta07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
+  const transferRecipe = await wallet.transferTransaction([{
+    amount: 10000000n,
+    type: nativeToken(), // "tDUST",
+    receiverAddress,
+  }]);
+  
+  console.log({transferRecipe});
+  const provenTransaction = await wallet.proveTransaction(transferRecipe);
+  console.log({provenTransaction});
+  const submittedTransaction = await wallet.submitTransaction(provenTransaction);
+  console.log({submittedTransaction});
+
   return wallet;
 };
 

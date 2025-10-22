@@ -30,11 +30,8 @@
     "@midnight-ntwrk/wallet-sdk-address-format": "npm:@midnight-ntwrk/wallet-sdk-address-format@^2.0.0",
     "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@^4.0.0",
     
-
-    
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.4",
     "@fresh/plugin-vite": "jsr:@fresh/plugin-vite@^1.0.4",
-    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.3.0",
     "@oak/oak": "jsr:@oak/oak@^17.1.4",
     "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.97",
     "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.97",
