@@ -4,7 +4,7 @@ import { createWalletClient, custom } from "viem";
 import { createPublicClient, http } from "viem";
 import { mct_erc1155 } from "@multi-chain-transfer/evm-contracts";
 
-import * as Eip20Interact from "./eip-20-interact.ts";
+import * as Eip20Interact from "./eip-1155-interact.ts";
 
 const EVM_CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 

@@ -10880,7 +10880,7 @@
           "npm:@paimaexample/npm-midnight-proof-server@0.3.97"
         ]
       },
-      "packages/shared/contracts/midnight/contract-eip-20": {
+      "packages/shared/contracts/midnight/contract-eip-1155": {
         "dependencies": [
           "npm:vitest@^3.2.4"
         ]
