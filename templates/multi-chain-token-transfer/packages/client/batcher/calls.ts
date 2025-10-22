@@ -3,6 +3,7 @@ import { createWalletClient, http, type Address } from "viem";
 import { hardhat } from "viem/chains";
 import { createMessageForBatcher } from "@paimaexample/concise";
 import { World } from "@paimaexample/coroutine";
+import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 
 // Batcher configuration
 const BATCHER_PORT = Deno.env.get("BATCHER_PORT") || "3334";
@@ -14,6 +15,18 @@ const AddressType = {
   EVM: 0,
   MIDNIGHT: 5,
 };
+
+function convertMidnightAddress(address: string): { coinPublicKey: string, encryptionPublicKey: string } {
+  const midnightAddress = MidnightBech32m.parse(address);
+  const [coinPublicKey, encryptionPublicKey] = [
+    Uint8Array.prototype.slice.call(midnightAddress.data, 0, 32),
+    Uint8Array.prototype.slice.call(midnightAddress.data, 32),
+  ];
+  return {
+    coinPublicKey: `${coinPublicKey.toHex()}`,
+    encryptionPublicKey: `${encryptionPublicKey.toHex()}`,
+  };
+}
 
 // Create viem account and wallet client
 const account = privateKeyToAccount(WALLET_PRIVATE_KEY);
@@ -156,7 +169,7 @@ function createMidnightAccount(accountHex: string): {
   return {
     is_left: true,
     left: {
-      bytes: accountHex,
+      bytes: accountHex.startsWith('0x') ? accountHex : `0x${accountHex}`,
     },
     right: {
       bytes: zeroBytes32,
@@ -166,7 +179,12 @@ function createMidnightAccount(accountHex: string): {
 
 // Helper: Create the input payload for Midnight mint circuit
 function createMidnightMintPayload(accountHex: string, amount: bigint): string {
-  const account = createMidnightAccount(accountHex);
+  let parsedAccount = accountHex.startsWith("mn_") ? convertMidnightAddress(accountHex).coinPublicKey : accountHex;
+  if (!parsedAccount.startsWith('0x')) parsedAccount = `0x${parsedAccount}`;
+  if (parsedAccount.length !== 64 + 2) {
+    throw new Error(`Invalid account hex: ${parsedAccount}. Must be a bech32m address or a hex value of 64 bytes.`);
+  }
+  const account = createMidnightAccount(parsedAccount);
   
   const payload = {
     circuit: "mint",
