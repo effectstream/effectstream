@@ -17896,6 +17896,7 @@
           "jsr:@oak/oak@^17.1.4",
           "jsr:@std/assert@^1.0.12",
           "npm:@deno/vite-plugin@^1.0.4",
+          "npm:@midnight-ntwrk/onchain-runtime@0.3",
           "npm:@types/react@19.1.0",
           "npm:@vitejs/plugin-react@^4.4.1",
           "npm:ethers@^6.15.0",

@@ -63,9 +63,7 @@ ENV DENO_DIR=/tmp/.deno
 RUN deno install --allow-scripts
 RUN /app/patch.sh
 
-
-RUN deno task -f @e2e/midnight-contracts midnight-contract:compile
-RUN deno task -f @e2e/evm-contracts build:mod
+RUN deno task -r contract:compile
 
 RUN deno task -f @e2e/wallets-ui build
 
