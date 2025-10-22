@@ -137,7 +137,7 @@ export function* mintInEvm(target: string, value: bigint) {
         },
         body: JSON.stringify({
           data: batcherInput,
-          confirmationLevel: "wait-receipt",
+          confirmationLevel: "no-wait",
         }),
       })
     );
@@ -237,7 +237,7 @@ export function* mintInMidnight(accountHex: string, value: bigint) {
         },
         body: JSON.stringify({
           data: batcherInput,
-          confirmationLevel: "wait-receipt",
+          confirmationLevel: "no-wait",
         }),
       })
     );

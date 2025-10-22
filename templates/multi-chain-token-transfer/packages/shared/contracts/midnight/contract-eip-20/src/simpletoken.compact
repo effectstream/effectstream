@@ -31,6 +31,10 @@ constructor(
 }
 
 export circuit uri(id: Uint<128>): Opaque<"string"> {
+  // TODO This is a read-only function, but when called the proof is sent, 
+  //      and the transaction update the paima-engine midnight fetcher.
+  //      and we need to distinguish between function calls.
+  actionName = 900;
   return MultiToken_uri(id);
 }
 
@@ -41,6 +45,8 @@ export circuit uri(id: Uint<128>): Opaque<"string"> {
 export circuit balanceOf(
   account: Either<ZswapCoinPublicKey, ContractAddress>,
 ): Uint<128> {
+  // TODO This is a read-only function
+  actionName = 901;
   return MultiToken_balanceOf(account, 0);
 }
 
