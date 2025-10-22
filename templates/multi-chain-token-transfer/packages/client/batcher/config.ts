@@ -49,7 +49,7 @@ const midnightAdapter = new MidnightAdapter(
   witnesses,
   contractInfo,
   NetworkId.Undeployed,
-  "midnight",
+  "parallelMidnight",
 );
 
 // ERC1155 adapter configuration
@@ -61,7 +61,7 @@ const erc1155Adapter = new ERC1155CustomAdapter(
   erc1155Address,
   batcherPrivateKey,
   hardhat,
-  "evm",
+  "mainEvmRPC",
   10000,
 );
 

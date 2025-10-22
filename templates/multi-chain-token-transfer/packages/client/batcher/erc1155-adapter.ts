@@ -11,6 +11,7 @@ import { PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
 import type { EvmAddress, EvmPrivateKey } from "@paimaexample/utils";
 import { hexStringToUint8Array } from "@paimaexample/utils";
 import type { BlockchainAdapter } from "@paimaexample/batcher";
+import { mct_erc1155 } from "@multi-chain-transfer/evm-contracts";
 
 // Type conversion utilities
 function viemReceiptToGenericReceipt(
@@ -36,30 +37,6 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
   private readonly erc1155Address: EvmAddress;
   private readonly syncProtocolName: string;
   public readonly maxBatchSize: number;
-
-  // ERC1155 contract ABI with mint and transferToMidnight functions
-  private readonly erc1155Abi = [
-    {
-      inputs: [
-        { name: "_to", type: "address" },
-        { name: "_amount", type: "uint256" },
-      ],
-      name: "mint",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [
-        { name: "_amount", type: "uint256" },
-        { name: "_target_account", type: "address" },
-      ],
-      name: "transferToMidnight",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-  ] as const;
 
   constructor(
     erc1155Address: EvmAddress,
@@ -125,7 +102,7 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
       console.log(
         `🔄 Calling function "${functionCall.function}" with ${functionCall.args.length} arguments`,
       );
-
+      console.log("args", JSON.stringify(functionCall.args));
       let hash;
 
       // Route to appropriate contract function
@@ -141,7 +118,7 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
             account: this.account,
             chain: this.walletClient.chain,
             address: this.erc1155Address,
-            abi: this.erc1155Abi,
+            abi: mct_erc1155.abi,
             functionName: "mint",
             args: [to as `0x${string}`, BigInt(amount)],
           });
@@ -149,19 +126,19 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
         }
 
         case "transferToMidnight": {
-          if (functionCall.args.length !== 2) {
+          if (functionCall.args.length !== 3) {
             throw new Error(
-              `transferToMidnight() expects 2 arguments (amount, targetAddress), got ${functionCall.args.length}`,
+              `transferToMidnight() expects 3 arguments (amount, targetAddress, txHash), got ${functionCall.args.length}`,
             );
           }
-          const [amount, targetAddress] = functionCall.args;
+          const [amount, targetAddress, txHash] = functionCall.args;
           hash = await this.walletClient.writeContract({
             account: this.account,
             chain: this.walletClient.chain,
             address: this.erc1155Address,
-            abi: this.erc1155Abi,
+            abi: mct_erc1155.abi,
             functionName: "transferToMidnight",
-            args: [BigInt(amount), targetAddress as `0x${string}`],
+            args: [BigInt(amount), targetAddress as `0x${string}`, txHash as `0x${string}`],
           });
           break;
         }

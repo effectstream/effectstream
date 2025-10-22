@@ -24,19 +24,19 @@ stm.addStateTransition("midnightContractState", function* (data) {
   const decodedData = new MidnightDecoder().decode(data.parsedInput.payload);
   // TODO Improve the midnight generic primitive to not need to decode the string.
   const payload = data.parsedInput.payload;
-  const targetStr = decodedData.actionTarget.is_left ? decodedData.actionTarget.left.bytes.toString() : decodedData.actionTarget.right.bytes.toString();
+  const targetAddress = new Uint8Array(decodedData.actionTarget.is_left ? Object.values(decodedData.actionTarget.left.bytes) : Object.values(decodedData.actionTarget.right.bytes));
   const actionName = Number(decodedData.actionName);
   switch (actionName) {
     case MidnightContractActionName.MINT:
       console.log("🎉 [MIDNIGHT] Mint action");
       console.log("🎉 [MIDNIGHT] Mint action Value", decodedData.actionValue);
-      console.log("🎉 [MIDNIGHT] Mint action Target", targetStr);
+      console.log("🎉 [MIDNIGHT] Mint action Target", targetAddress.toHex());
       break;
     case MidnightContractActionName.TRANSFER_TO_EVM:
       console.log("🎉 [MIDNIGHT] Transfer to EVM action");
       console.log("🎉 [MIDNIGHT] Transfer to EVM action Value", decodedData.actionValue);
-      console.log("🎉 [MIDNIGHT] Transfer to EVM action Target", targetStr);      
-      yield* mintInEvm(targetStr, BigInt(decodedData.actionValue));
+      console.log("🎉 [MIDNIGHT] Transfer to EVM action Target", payload.actionTargetAddress);      
+      yield* mintInEvm(payload.actionTargetAddress, BigInt(decodedData.actionValue));
       break;
     case MidnightContractActionName.BURN_FROM:
       break;

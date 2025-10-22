@@ -38,5 +38,6 @@ deno task -r contract:compile
 
 # OR Build Contracts Individually
 deno task -f @e2e/evm-contracts build:mod
-deno task -f @e2e/midnight-contracts midnight-contract:compile
+deno task -f @e2e/midnight-contract-eip-20 contract:compile
+deno task -f @e2e/midnight-contract-counter contract:compile
 ```
