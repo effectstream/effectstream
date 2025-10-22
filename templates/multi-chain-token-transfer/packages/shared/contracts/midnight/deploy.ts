@@ -225,9 +225,7 @@ const deploy = async () => {
       contract: contract,
       privateStateId: "simpletokenPrivateState",
       args: [
-        "TokenName",
-        "TKN",
-        8n,
+        "https://api.yourproject.com/token/{id}.json",
         initialOwner,
       ],
       initialPrivateState: {},

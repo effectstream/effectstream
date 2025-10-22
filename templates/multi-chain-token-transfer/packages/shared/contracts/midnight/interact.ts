@@ -58,7 +58,7 @@ const SimpleTokenPrivateStateId = "simpleTokenPrivateState";
 type SimpleTokenProviders = MidnightProviders<
   SimpleTokenCircuits,
   typeof SimpleTokenPrivateStateId,
-  SimpleToken.Contract.PrivateState
+  {}
 >;
 
 type SimpleTokenContract = SimpleToken.Contract;
@@ -119,6 +119,12 @@ const getSimpleTokenLedgerState = async (
   try {
     const contractState = await providers.publicDataProvider.queryContractState(
       contractAddress,
+    );
+    console.log("contractState", contractState);
+    console.log(
+      Object.entries(contractState).map(([key, value]) =>
+        `${key}: ${value} (${typeof value})`
+      ),
     );
     const state = contractState != null
       ? SimpleToken.ledger(contractState.data)
@@ -334,19 +340,6 @@ const buildWalletAndWaitForFunds = async (
     balance = await waitForFunds(wallet);
   }
   console.log(`Your wallet balance is: ${balance}`);
-
-  const receiverAddress = "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lta07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
-  const transferRecipe = await wallet.transferTransaction([{
-    amount: 10000000n,
-    type: nativeToken(), // "tDUST",
-    receiverAddress,
-  }]);
-  
-  console.log({transferRecipe});
-  const provenTransaction = await wallet.proveTransaction(transferRecipe);
-  console.log({provenTransaction});
-  const submittedTransaction = await wallet.submitTransaction(provenTransaction);
-  console.log({submittedTransaction});
 
   return wallet;
 };

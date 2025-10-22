@@ -11,6 +11,7 @@ logs/
 
 # Batcher file storage
 batcher-data/
+midnight-level-db/
 
 # Docusaurus
 .docusaurus/
@@ -21,3 +22,4 @@ batcher-data/
 # Temporary files
 packages/client/node/tmux.conf
 packages/client/node/install.sh
+

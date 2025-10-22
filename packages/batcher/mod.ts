@@ -32,6 +32,8 @@ export { DatabaseStorage, FileStorage } from "./core/storage.ts";
 // Chain adapter interface and implementations
 export type { BlockchainAdapter } from "./adapters/adapter.ts";
 export { PaimaL2DefaultAdapter } from "./adapters/paimal2-adapter.ts";
+export { MidnightAdapter } from "./adapters/midnight-adapter.ts";
+export type { MidnightAdapterConfig } from "./adapters/midnight-adapter.ts";
 
 // HTTP server
 export { startBatcherHttpServer } from "./server/batcher-server.ts";
@@ -42,3 +44,7 @@ export type { DefaultBatcherInput } from "./core/types.ts";
 // Event/listener helpers
 export type { BatcherGrammar, BatcherListener } from "./core/batcher-events.ts";
 export { attachDefaultConsoleListeners } from "./core/batcher-events.ts";
+
+export { DefaultBatchDataBuilder } from "./batch-data-builder/default-batch-builder.ts";
+export type { BatchDataBuilder } from "./batch-data-builder/batch-data-builder.ts";
+export { MidnightBatchDataBuilder } from "./batch-data-builder/midnight-batch-builder.ts";

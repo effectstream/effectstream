@@ -31,6 +31,13 @@ const midnightExtended = (packageName: string) => ({
       type: "system-dependency",
       link: "http://localhost:10590",
     },
+    {
+      name: "batcher",
+      args: ["task", "-f", "@multi-chain-transfer/batcher", "start"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:3334",
+    }
   ],
 });
 

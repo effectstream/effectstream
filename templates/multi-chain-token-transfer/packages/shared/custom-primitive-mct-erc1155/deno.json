@@ -8,11 +8,11 @@
         "./abi": "./erc1155-abi.ts"
     },
     "imports": {
-        "@paimaexample/config": "jsr:@paimaexample/config@0.3.96",
-        "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.96",
-        "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.96",
-        "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.96",
-        "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.96",
+        "@paimaexample/config": "jsr:@paimaexample/config@0.3.97",
+        "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.97",
+        "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.97",
+        "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.97",
+        "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.97",
         "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
 
     }

@@ -8,13 +8,47 @@ import {
 import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
 import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
+import { mintInEvm, mintInMidnight } from "@multi-chain-transfer/batcher/calls";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
+
+enum MidnightContractActionName {
+  MINT = 1001,
+  TRANSFER = 1002,
+  BURN_FROM = 1005,
+  TRANSFER_FROM = 1006,
+  TRANSFER_TO_EVM = 1007,
+}
 
 stm.addStateTransition("midnightContractState", function* (data) {
   const decodedData = new MidnightDecoder().decode(data.parsedInput.payload);
   // TODO Improve the midnight generic primitive to not need to decode the string.
   const payload = data.parsedInput.payload;
+  const targetStr = decodedData.actionTarget.is_left ? decodedData.actionTarget.left.bytes.toString() : decodedData.actionTarget.right.bytes.toString();
+  const actionName = Number(decodedData.actionName);
+  switch (actionName) {
+    case MidnightContractActionName.MINT:
+      console.log("🎉 [MIDNIGHT] Mint action");
+      console.log("🎉 [MIDNIGHT] Mint action Value", decodedData.actionValue);
+      console.log("🎉 [MIDNIGHT] Mint action Target", targetStr);
+      break;
+    case MidnightContractActionName.TRANSFER_TO_EVM:
+      console.log("🎉 [MIDNIGHT] Transfer to EVM action");
+      console.log("🎉 [MIDNIGHT] Transfer to EVM action Value", decodedData.actionValue);
+      console.log("🎉 [MIDNIGHT] Transfer to EVM action Target", targetStr);      
+      yield* mintInEvm(targetStr, BigInt(decodedData.actionValue));
+      break;
+    case MidnightContractActionName.BURN_FROM:
+      break;
+    default: {
+      console.error(
+        "🎉 [MIDNIGHT] Transaction receipt:",
+        JSON.stringify(payload),
+        "\n",
+        JSON.stringify(decodedData)
+      );
+    }
+  }
   // Example ledger state:
   // {
   //   "txHashes":{},
@@ -30,55 +64,17 @@ stm.addStateTransition("midnightContractState", function* (data) {
   //   "actionTargetAddress":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
   //   "actionValue":"1200"
   //   }
-  const action: string = payload.actionName;
-  switch (action) {
-    case "1007": {
-      const { actionTargetAddress, actionValue } = payload;
-      console.error(
-        "🎉 [MIDNIGHT] Transfer To EVM Transaction receipt:",
-        JSON.stringify(payload)
-      );
-      const functionName = "transferToEvm";
-      const args = {
-        target_address: actionTargetAddress,
-        amount: actionValue,
-      };
-      // TODO txHashes is empty.
-      console.log(
-        `calling batcher function ${functionName} with arguments ${JSON.stringify(
-          args
-        )}`
-      );
-      break;
-    }
-    default: {
-      console.error(
-        "🎉 [MIDNIGHT] Transaction receipt:",
-        JSON.stringify(payload),
-        "\n",
-        JSON.stringify(decodedData)
-      );
-    }
-  }
 });
 
 stm.addStateTransition("transfer-to-midnight", function* (data) {
-  const { midnight_address, amount, tx_hash, token_id } = data.parsedInput;
+  // For now token id is hardcoded to 0 in the midnight contract.
+  const { midnight_address, amount } = data.parsedInput;
   const contract_address =
     contractAddressesEvmMain().chain31337["Erc1155DevModule#MCT_ERC1155"];
   console.log("🎉 [TRANSFER-TO-MIDNIGHT] Transaction receipt:");
-  const functionName = "transferToMidnight";
-  const args = {
-    target_address: midnight_address,
-    amount,
-    token_id,
-    tx_hash,
-  };
-  console.log(
-    `calling batcher function ${functionName} with arguments ${JSON.stringify(
-      args
-    )}`
-  );
+  console.log(JSON.stringify(data.parsedInput));
+  console.log("@ Contract address:", contract_address);
+  yield* mintInMidnight(midnight_address, BigInt(amount));
 });
 
 stm.addStateTransition("evm-transfer-erc1155", function* (data) {

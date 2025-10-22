@@ -1,5 +1,13 @@
-export type MidnightContractInfo = {
+type MidnightContractCompilerInfo = {
+  circuits: any[];
+  witnesses: any[];
+  contracts: any[];
+};
+type MidnightContractAddressInfo = {
   contractAddress: string;
+};
+export type MidnightContractInfo = MidnightContractAddressInfo & {
+  contractInfo: MidnightContractCompilerInfo;
 };
 
 let cachedContractInfo: MidnightContractInfo | undefined;
@@ -10,10 +18,15 @@ export function readMidnightContract(): MidnightContractInfo {
     const dir = new URL(".", import.meta.url);
     // Construct the full path to contract.json
     const contractPath = new URL("contract.json", dir);
-    const contractJson = Deno.readTextFileSync(contractPath);
-    const contractInfo = JSON.parse(contractJson) as MidnightContractInfo;
-    cachedContractInfo = contractInfo;
-    return contractInfo;
+    const contractInfoPath = new URL("./contract-eip-20/src/managed/simpletoken/compiler/contract-info.json", dir);
+    const contractAddressJson = Deno.readTextFileSync(contractPath);
+    const contractInfoJson = Deno.readTextFileSync(contractInfoPath);
+    const contractAddressInfo = JSON.parse(contractAddressJson) as MidnightContractAddressInfo;
+    const contractInfo = JSON.parse(contractInfoJson) as MidnightContractCompilerInfo;
+    return {
+      ...contractAddressInfo,
+      contractInfo,
+    };
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {
       throw new Error("contract.json not found in the current directory");

@@ -10,3 +10,7 @@ export type { BlockchainAdapter } from "./adapter.ts";
 
 // PaimaL2 adapter implementation
 export { PaimaL2DefaultAdapter } from "./paimal2-adapter.ts";
+
+// Midnight adapter implementation
+export { MidnightAdapter } from "./midnight-adapter.ts";
+export type { MidnightAdapterConfig } from "./midnight-adapter.ts";
