@@ -67,7 +67,8 @@ stm.addStateTransition("midnightContractState", function* (data) {
 });
 
 stm.addStateTransition("transfer-to-midnight", function* (data) {
-  const { midnight_address, amount, tx_hash, token_id } = data.parsedInput;
+  // For now token id is hardcoded to 0 in the midnight contract.
+  const { midnight_address, amount } = data.parsedInput;
   const contract_address =
     contractAddressesEvmMain().chain31337["Erc1155DevModule#MCT_ERC1155"];
   console.log("🎉 [TRANSFER-TO-MIDNIGHT] Transaction receipt:");
