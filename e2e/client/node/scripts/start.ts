@@ -10,6 +10,7 @@ import { launchCardano } from "@paima/orchestrator/start-cardano";
 import { launchEvm } from "@paima/orchestrator/start-evm";
 import { launchMidnight } from "@paima/orchestrator/start-midnight";
 
+const logs = Deno.env.get("PAIMA_E2E_LOG_DEBUG") ? "stdout" : "development";
 const external_db_enabled = Deno.env.get("EXTERNAL_DB_ENABLED") === "true";
 const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
   ? false
@@ -36,14 +37,14 @@ evmProcessesExtended.processes.push(
 );
 
 const config = Value.Parse(OrchestratorConfig, {
-  // logs: "stdout",
+  logs,
   processes: {
-    [ComponentNames.TMUX]: true,
-    [ComponentNames.TUI]: true,
+    [ComponentNames.TMUX]: logs === "development",
+    [ComponentNames.TUI]: logs === "development",
     [ComponentNames.DOCS]: false,
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
-    [ComponentNames.COLLECTOR]: true,
+    [ComponentNames.COLLECTOR]: logs === "development",
   },
 
   packageName: "@paima",

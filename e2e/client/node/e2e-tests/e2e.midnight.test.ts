@@ -39,7 +39,7 @@ import {
   setNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import type { Client } from "pg";
-import { readMidnightContract } from "@e2e/midnight-contracts";
+import { readMidnightContract } from "@e2e/midnight-contracts/contract-counter-address";
 import { dirname, resolve } from "node:path";
 
 globalThis.WebSocket = WebSocket;
@@ -59,7 +59,7 @@ const contractConfig = {
   privateStateStoreName: "counter-private-state",
   zkConfigPath: resolve(
     dirname(new URL(import.meta.url).pathname),
-    "../../../shared/contracts/midnight/contract/src/managed/counter",
+    "../../../shared/contracts/midnight/contract-counter/src/managed/counter",
   ),
 };
 
@@ -444,24 +444,25 @@ async function joinAndIncrementTest(
           id: number;
           paima_block_height: number;
           payload_type: string;
-          payload: { payload: {
-            tag: string;
-            content: {
-              tag: string;
-              content: {
-                value: { "0"?: number }[];
-              };
-            }[];
-          } };
+          payload: { 
+            payload: {
+              round: string;
+            }
+          };
         }>(
-          "MidnightRowsExists",
+          "Midnight Rows Exists",
           db,
           "SELECT * FROM paima.primitive_accounting WHERE primitive_name = 'MidnightContractState'",
-          (res) => res.rowCount === 2,
+          (res) => true,
           (res) => {
-            return res.rows[0].payload.payload.content[0].content.value[0]["0"] ===
-                undefined &&
-              res.rows[1].payload.payload.content[0].content.value[0]["0"] === 1;
+            const countOK = res.rows.length === 2;
+            const row0_OK = res.rows[0].payload.payload.round === "0";
+            const row1_OK = res.rows[1].payload.payload.round === "1";
+            const OK = countOK && row0_OK && row1_OK;
+            if (!OK) {
+              console.log({countOK, row0_OK, row1_OK, row: res.rows});
+            }
+            return OK;
           },
         );
 

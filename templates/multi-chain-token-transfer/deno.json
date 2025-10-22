@@ -1,0 +1,33 @@
+{
+  "workspace": [
+    "./packages/**/*"
+  ],
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "build:evm": "deno task -f @multi-chain-transfer/evm-contracts build:mod",
+    "build:midnight": "deno task -f @multi-chain-transfer/midnight-contract-eip-20 compact",
+    "dev": "deno task -f @multi-chain-transfer/node dev",
+    "start:frontend": "deno task -f @multi-chain-transfer/frontend dev",
+    "check": "deno task -f @multi-chain-transfer/node check"
+  },
+  "imports": {
+    // TODO: This is a workaround for a missing dependency.
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.97",
+    "@std/path": "jsr:@std/path@^1.1.2"
+  },
+  "lint": {
+    "rules": {
+      "exclude": [
+        // needed for generators since you can't use the arrow function syntax
+        "no-this-alias",
+        // this is too strict to play well with effection
+        "require-yield",
+        // way too many typescript things that require using `any`
+        "no-explicit-any",
+        "ban-types", // `Function` and `{}` are occasionally useful
+        "no-unused-vars", // maybe enable this at some point
+        "no-slow-types" // would be nice to have, but this is a lot of work
+      ]
+    }
+  }
+}

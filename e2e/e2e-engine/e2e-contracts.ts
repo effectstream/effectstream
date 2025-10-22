@@ -16,6 +16,7 @@ import {
   counter,
   erc20dev,
   erc721dev,
+  erc1155dev,
   paimal2contract,
 } from "@e2e/evm-contracts";
 
@@ -341,6 +342,174 @@ function erc721Factory(
   };
 }
 
+export const erc1155Factory = (
+  contractAddress: `0x${string}`,
+  chain: Chain,
+  sharedState: SharedState,
+) => {
+  return {
+    mint: async (
+      mint_address: `0x${string}`,
+      mint_private_key: `0x${string}`,
+      token_id: bigint,
+      amount: bigint,
+      silent = false,
+      wait: true | false | 'receipt' = true,
+    ): Promise<bigint> => {
+      if (!silent) {
+        console.log("⚡ Minting", amount, " Token #", token_id, " to", mint_address);
+      }
+      const { account, walletClient, publicClient } = clients(
+        mint_private_key,
+        chain,
+      );
+      const { request } = await publicClient.simulateContract({
+        account,
+        chain,
+        address: contractAddress,
+        abi: erc1155dev.abi,
+        functionName: "mint",
+        args: [
+          mint_address,
+          amount,
+          token_id,
+          "0x",
+        ],
+      });
+      const hash = await walletClient.writeContract(request);
+      let blockNumber = 0n;
+      if (wait) {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+        });
+        if (!silent) {
+          console.log(
+            `  ${
+              receipt.status === "success" ? "" : "❌"
+            } Mint block ${receipt.blockNumber} @ Hash ${hash}`,
+          );
+        }
+        blockNumber = receipt.blockNumber;
+
+        if (wait === true) {
+          await blockWatcher.waitForBlock(chain.name, blockNumber);
+        }
+      }
+
+      // updateERC1155Ownership(sharedState, chain.id, mint_address, token_id);
+      sharedState.primitive_accounting_counter += 1;
+      return blockNumber;
+    },
+    transfer: async (
+      from_private_key: `0x${string}`,
+      to_address: `0x${string}`,
+      token_id: bigint,
+      amount: bigint,
+      silent = false,
+      wait = true,
+    ): Promise<bigint> => {
+      if (!silent) {
+        console.log("💸 Transferring", amount, " Token #", token_id, " to", to_address);
+      }
+      const { account, walletClient, publicClient } = clients(
+        from_private_key,
+        chain,
+      );
+      const { request } = await publicClient.simulateContract({
+        account,
+        chain,
+        address: contractAddress,
+        abi: erc1155dev.abi,
+        functionName: "safeTransferFrom",
+        args: [
+          account.address,
+          to_address,
+          token_id,
+          amount,
+          "0x",
+        ],
+      });
+      const hash = await walletClient.writeContract(request);
+      let blockNumber = 0n;
+      if (wait) {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+        });
+        if (!silent) {
+          console.log(
+            `  ${
+              receipt.status === "success" ? "" : "❌"
+            } Transfer block ${receipt.blockNumber} @ Hash ${hash}`,
+          );
+        }
+        blockNumber = receipt.blockNumber;
+        await blockWatcher.waitForBlock(chain.name, blockNumber);
+      }
+
+      // updateERC1155Ownership(sharedState, chain.id, to_address, token_id);
+      sharedState.primitive_accounting_counter += 1;
+      return blockNumber;
+    },
+    transferBatch: async (
+      from_private_key: `0x${string}`,
+      to_address: `0x${string}`,
+      token_ids: bigint[],
+      amounts: bigint[],
+      silent = false,
+      wait = true,
+    ): Promise<bigint> => {
+      if (amounts.length !== token_ids.length) {
+        throw new Error("amounts and token_ids must have the same length");
+      }
+      if (amounts.length < 1) {
+        throw new Error("amounts and token_ids must have at least 1 element");
+      }
+      if (!silent) {
+        console.log("💸 Transferring", amounts, " Token #", token_ids, " to", to_address);
+      }
+      const { account, walletClient, publicClient } = clients(
+        from_private_key,
+        chain,
+      );
+      const { request } = await publicClient.simulateContract({
+        account,
+        chain,
+        address: contractAddress,
+        abi: erc1155dev.abi,
+        functionName: "safeBatchTransferFrom",
+        args: [
+          account.address,
+          to_address,
+          token_ids,
+          amounts,
+          "0x",
+        ],
+      });
+      const hash = await walletClient.writeContract(request);
+      let blockNumber = 0n;
+      if (wait) {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+        });
+        if (!silent) {
+          console.log(
+            `  ${
+              receipt.status === "success" ? "" : "❌"
+            } Transfer block ${receipt.blockNumber} @ Hash ${hash}`,
+          );
+        }
+        blockNumber = receipt.blockNumber;
+        await blockWatcher.waitForBlock(chain.name, blockNumber);
+      }
+
+      // updateERC1155Ownership(sharedState, chain.id, to_address, token_ids);\
+      // This gets registered as multiple primitive transactions
+      sharedState.primitive_accounting_counter += amounts.length;
+      return blockNumber;
+    },
+  };
+};
+
 /**
  * Erc20 Contract Methods.
  */
@@ -528,4 +697,13 @@ export const erc721Builder = (sharedState: SharedState) => ({
   ),
   id_a: e2eMainEvm.id,
   id_b: e2eParallelEvm.id,
+});
+
+export const erc1155Builder = (sharedState: SharedState) => ({
+  a: erc1155Factory(
+    contractAddressesEvmMain()["chain31337"]["Erc1155DevModule#ERC1155Dev"],
+    e2eMainEvm,
+    sharedState,
+  ),
+  id_a: e2eMainEvm.id,
 });

@@ -88,7 +88,13 @@ stm.addStateTransition("attack", function* (data) {
 
 stm.addStateTransition("midnightContractState", function* (data) {
   const { payload } = data.parsedInput;
-  console.error("🎉 [MIDNIGHT] Transaction receipt:", payload);
+  console.error("🎉 [MIDNIGHT] Transaction receipt:", JSON.stringify(payload));
+  return;
+});
+
+stm.addStateTransition("eip20ContractState", function* (data) {
+  const { payload } = data.parsedInput;
+  console.error("🎉 [MIDNIGHT] Transaction receipt:", JSON.stringify(payload));
   return;
 });
 

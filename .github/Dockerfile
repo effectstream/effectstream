@@ -19,6 +19,8 @@ RUN apt-get update && apt-get install -y \
     lsof \
     # iproute2 is required for ss command - for dkill.
     iproute2 \
+    # xz is required for compactc
+    xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js
@@ -46,6 +48,14 @@ RUN forge --version && cast --version && anvil --version
 # Create working directory
 WORKDIR /app
 
+# Install Compact
+RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+RUN which compact
+RUN compact update
+RUN compact --version
+RUN compact compile --version
+
 # Copy the patch script
 COPY ./patch.sh /app/patch.sh
 RUN chmod +x /app/patch.sh
@@ -63,9 +73,7 @@ ENV DENO_DIR=/tmp/.deno
 RUN deno install --allow-scripts
 RUN /app/patch.sh
 
-
-RUN deno task -f @e2e/midnight-contracts midnight-contract:compile
-RUN deno task -f @e2e/evm-contracts build:mod
+RUN deno task -r contract:compile
 
 RUN deno task -f @e2e/wallets-ui build
 

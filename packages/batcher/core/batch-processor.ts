@@ -3,8 +3,14 @@ import type {
   BlockchainTransactionReceipt,
 } from "../adapters/adapter.ts";
 import type { BatchBuildingResult } from "../batch-data-builder/batch-data-builder.ts";
-import { toHex } from "viem";
 import type { DefaultBatcherInput } from "./types.ts";
+function encodeHexFromString(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `0x${hex}`;
+}
+
 
 /**
  * Handles the complex batch processing logic for a specific target.
@@ -28,6 +34,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         }
       >;
       waitForPaimaProcessed: (
+        target: string,
         receipt: BlockchainTransactionReceipt,
         timeout: number,
       ) => Promise<{ latestBlock: number; rollup: number } | null>;
@@ -52,7 +59,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
 
     const { selectedInputs, data } = batchResult;
 
-    const hexData = toHex(data);
+    const hexData = encodeHexFromString(data);
 
     await this.submitAndConfirmTransaction(
       adapter,
@@ -141,6 +148,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
   ): Promise<void> {
     try {
       const processingResult = await this.batcher.waitForPaimaProcessed(
+        target,
         receipt,
         timeout,
       );
@@ -182,11 +190,12 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     receipt: BlockchainTransactionReceipt,
   ): void {
     for (const input of selectedInputs) {
-      const callbacks = this.batcher.submissionCallbacks.get(input.signature);
+      const callbackKey = input.signature || `${input.addressType}-${input.timestamp}`;
+      const callbacks = this.batcher.submissionCallbacks.get(callbackKey);
       if (callbacks) {
         callbacks.resolve(receipt);
         clearTimeout(callbacks.timeoutId);
-        this.batcher.submissionCallbacks.delete(input.signature);
+        this.batcher.submissionCallbacks.delete(callbackKey);
       }
     }
   }

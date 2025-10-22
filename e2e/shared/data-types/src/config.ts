@@ -1,4 +1,5 @@
-import { readMidnightContract } from "@e2e/midnight-contracts";
+import { readMidnightContract as readMidnightContractCounter } from "@e2e/midnight-contracts/contract-counter-address";
+import { readMidnightContract as readMidnightContractEip20 } from "@e2e/midnight-contracts/contract-eip-20-address";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { readAvailApplication } from "@e2e/avail-contracts";
 import { getConnection } from "@paima/db";
@@ -13,12 +14,15 @@ import type { BlockNumber } from "@paima/utils";
 import { paimaL2Grammar } from "./grammar.ts";
 import {
   PrimitiveTypeAvailGeneric,
+  PrimitiveTypeEVMERC1155,
   PrimitiveTypeEVMERC20,
   PrimitiveTypeEVMERC721,
   PrimitiveTypeEVMPaimaL2,
   PrimitiveTypeMidnightGeneric,
 } from "@paima/sm/builtin";
-
+import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
+import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
+ 
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
@@ -113,7 +117,7 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigNetworkType.MIDNIGHT,
           genesisHash:
             "0x0000000000000000000000000000000000000000000000000000000000000001",
-          networkId: 0,
+          networkId: 0, // NetworkId.Undeployed,
           nodeUrl: "http://127.0.0.1:9944",
         });
     }
@@ -308,7 +312,18 @@ export const localhostConfig = new ConfigBuilder()
             .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
           stateMachinePrefix: "transfer-erc20",
         }),
-      );
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
+        (network, deployments, syncProtocol) => ({
+          name: "L1_ERC1155_TOKEN",
+          type: PrimitiveTypeEVMERC1155,
+          startBlockHeight: 0,
+          contractAddress: contractAddressesEvmMain()
+            .chain31337["Erc1155DevModule#ERC1155Dev"],
+          stateMachinePrefix: "transfer-erc1155",
+        }),
+      )
     if (avail_enabled) {
       builder = builder.addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelAvail,
@@ -331,8 +346,21 @@ export const localhostConfig = new ConfigBuilder()
             name: "MidnightContractState",
             type: PrimitiveTypeMidnightGeneric,
             startBlockHeight: 1,
-            contractAddress: readMidnightContract().contractAddress,
+            contractAddress: readMidnightContractCounter().contractAddress,
             stateMachinePrefix: "midnightContractState",
+            contract: { ledger: CounterContract.ledger },
+            networkId: 0, // NetworkId.Undeployed,
+          }),
+        ).addPrimitive(
+          (syncProtocols) => (syncProtocols as any).parallelMidnight,
+          (network, deployments, syncProtocol) => ({
+            name: "Midnight-EIP-20",
+            type: PrimitiveTypeMidnightGeneric,
+            startBlockHeight: 1,
+            contractAddress: readMidnightContractEip20().contractAddress,
+            stateMachinePrefix: "eip20ContractState",
+            contract: { ledger: SimpleTokenContract.ledger },
+            networkId: 0, // NetworkId.Undeployed,
           }),
         );
     }

@@ -4,7 +4,7 @@ import {
   type PaginatedFetcher,
 } from "../base/fetcher.ts";
 import type { RootOutput, RootPage } from "../types.ts";
-import type { Chain, GetBlockReturnType, PublicClient } from "viem";
+import type { AbiEvent, Chain, GetBlockReturnType, PublicClient } from "viem";
 import type { Operation } from "effection";
 import { all, call } from "effection";
 import {
@@ -154,6 +154,7 @@ export class EvmFetcher
     toBlock: bigint,
     client: PublicClient<any, Chain, any, any>,
     primitiveEntry: PrimitiveEntryType,
+    abi: AbiEvent,
     pageRequest: PageRequest<Page, GetBlockReturnType<Chain>>,
   ): Operation<
     PrimitiveType[]
@@ -162,7 +163,7 @@ export class EvmFetcher
     const logs = yield* call(() =>
       client.getLogs({
         address: primitiveEntry.primitive.contractAddress as `0x${string}`,
-        event: primitiveEntry.primitive.abi,
+        event: abi,
         fromBlock,
         toBlock,
         strict: true,
@@ -187,7 +188,7 @@ export class EvmFetcher
         },
         primitive: primitiveEntry.primitive.name,
         output: {
-          payloadType: primitiveEntry.primitive.abi.name,
+          payloadType: abi.name,
           payload: args,
         },
       };
@@ -213,15 +214,32 @@ export class EvmFetcher
     const fromBlock = yield* call(() => pageRequest(data.from));
     const toBlock = yield* call(() => pageRequest(data.to));
     for (const primitive of primitiveEntries) {
-      allOperations.push(
-        this.fetchLogsAndExtractPrimitiveData(
-          fromBlock.number,
-          toBlock.number,
-          client,
-          primitive,
-          pageRequest,
-        ),
-      );
+      if (Array.isArray(primitive.primitive.abi)) {
+        const abis = primitive.primitive.abi as AbiEvent[];
+        for (const abi of abis) {
+          allOperations.push(
+            this.fetchLogsAndExtractPrimitiveData(
+              fromBlock.number,
+              toBlock.number,
+              client,
+              primitive,
+              abi,
+              pageRequest,
+            ),
+          );
+        }
+      } else {
+        allOperations.push(
+          this.fetchLogsAndExtractPrimitiveData(
+            fromBlock.number,
+            toBlock.number,
+            client,
+            primitive,
+            primitive.primitive.abi as AbiEvent,
+            pageRequest,
+          ),
+        );
+      }
     }
 
     return (yield* all(allOperations)).flat();

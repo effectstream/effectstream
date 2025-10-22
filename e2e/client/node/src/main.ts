@@ -1,3 +1,11 @@
+// NOTE & TODO:
+// Importing "@midnight-ntwrk/onchain-runtime" here is a workaround.
+// Loading this package in a dependency makes the onchain-runtime wasm
+// fail in runtime when trying to parse the state.
+// The next line is so that the wasm is loaded and not optimized away.
+import { NetworkId } from "@midnight-ntwrk/onchain-runtime";
+NetworkId.Undeployed;
+
 import { init, start } from "@paima/runtime";
 import { main, suspend } from "effection";
 import { localhostConfig } from "@e2e/data-types";

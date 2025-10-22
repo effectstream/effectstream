@@ -1,0 +1,34 @@
+{
+  "name": "@multi-chain-transfer/node",
+  "version": "0.3.22",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/main.ts"
+  },
+  "tasks": {
+    // separate from node:start so we can type-check before starting other services
+    "check": "deno check --unstable-raw-imports src/main.ts",
+    // Open chrome://inspect to see the inspector
+    "node:start": "deno run -A --inspect --unstable-raw-imports src/main.ts",
+    "dev": "deno task -f @paimaexample/tui clean && NODE_ENV=development deno run -A --check --unstable-raw-imports scripts/start.ts",
+    "test": "deno run -A --unstable-raw-imports --check scripts/e2e.test.ts"
+  },
+  "imports": {
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.97",
+    "@paimaexample/config": "jsr:@paimaexample/config@0.3.97",
+    "@paimaexample/log": "jsr:@paimaexample/log@0.3.97",
+    "@paimaexample/orchestrator": "jsr:@paimaexample/orchestrator@0.3.97",
+    "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.97",
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.97",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.97",
+    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.97",
+    "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.97",
+    "@paimaexample/db": "jsr:@paimaexample/db@0.3.97",
+    "fastify": "npm:fastify@^5.4.0",
+    "pg": "npm:pg@^8.14.0",
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "effection": "npm:effection@^3.5.0",
+    "@paimaexample/explorer": "npm:@paimaexample/explorer@0.3.97",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.3.0"
+  }
+}

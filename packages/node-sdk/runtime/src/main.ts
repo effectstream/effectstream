@@ -223,7 +223,7 @@ const processPrimitives = (
                        Built-in values: ${Object.keys(builtInPrimitivesMap).join(", ")}`);
     }
     if (!isBuiltInPrimitive && !isUserDefinedPrimitive) {
-      throw new Error(`PrimitiveUniqueName is not built-in and not user-defined.
+      throw new Error(`PrimitiveUniqueName "${primitiveUniqueName}" is not built-in and not user-defined.
                        Available values: ${Object.keys([
                         ...Object.keys(builtInPrimitivesMap),
                         ...Object.keys(userDefinedPrimitives || {}),

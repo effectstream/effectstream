@@ -5,7 +5,7 @@ import {
   type MidnightAddress,
   type PaimaBlockNumber,
 } from "@paima/utils";
-import { type StaticDecode, Type } from "@sinclair/typebox";
+import type { StaticDecode } from "@sinclair/typebox";
 import {
   type CommandTuple,
   generateRawStmInput,
@@ -13,12 +13,14 @@ import {
 } from "@paima/concise";
 import type {
   ConfigSyncProtocolType,
+  EncodedStateValue,
   FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
 } from "@paima/config";
 import type { SyncStateUpdateStream } from "@paima/coroutine";
 import { PrimitiveTypeMidnightGeneric } from "../builtin.ts";
 import { midnightGenericGrammar } from "./midnight-genetic-grammar.ts"
+
 
 export class MidnightGenericPrimitive extends PaimaPrimitive<
   ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
@@ -27,8 +29,12 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
   // Primitive defined
   readonly internalTypeName = PrimitiveTypeMidnightGeneric;
   override readonly grammar = midnightGenericGrammar;
-  readonly contractAddress: string; // TODO is the contract address a MidnightAddress?
-
+  readonly contractAddress: string;
+  readonly contract: {
+    ledger: (data: EncodedStateValue) => any;
+  };
+  readonly networkId: number;
+  readonly genesisHash: string;
   // No dynamic tables for midnight generic primitive
   override dynamicTables = undefined;
   override getIntermediatePrefix(): string[] {
@@ -43,9 +49,17 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
     startBlockHeight: number;
     contractAddress: MidnightAddress;
     stateMachinePrefix: string;
+    contract: {
+      ledger: (data: EncodedStateValue) => any;
+    }
+    networkId?: number;
+    genesisHash?: string;
   }) {
     super(config);
     this.contractAddress = config.contractAddress;
+    this.contract = config.contract;
+    this.networkId = config.networkId || 0;
+    this.genesisHash = config.genesisHash || "";
   }
 
   override *getPayload(
@@ -66,14 +80,11 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
     const payload = primitiveTransactionData.output.payload;
     try {
       const isBatched = false;
-      // TODO We need to write a correct Typebox type for the payload
+     
       const accountingPayload: ParamToData<typeof this.grammar> = {
         payload,
       } as unknown as ParamToData<typeof this.grammar>;
-      // Value.Decode(
-      //   this.grammar[0][1],
-      //   payload,
-      // );
+     
       const stateMachinePayload:
         | StaticDecode<
           CommandTuple<string, typeof this.grammar>
@@ -118,6 +129,12 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
       contractAddress: this.contractAddress,
       // TODO This should be optional
       scheduledPrefix: this.stateMachinePrefix ?? "",
+      contract: this.contract,
+      // TODO Using "NetworkId.Undeployed" generated issues in 
+      // runtime with the onchain-runtime wasm.
+      networkId: this.networkId || 0, 
+      // TODO This is unused for now.
+      genesisHash: this.genesisHash || "", 
     } as const;
   }
 }

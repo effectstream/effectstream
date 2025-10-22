@@ -11,14 +11,14 @@ import type {
 import { all, call, type Operation } from "effection";
 import type { DataFetched } from "../base/fetcher.ts";
 import type {
-  LastPage,
   OutputAndCleanup,
   RootConversion,
 } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
-import { bound, MidnightBlockHash } from "@paima/utils";
-import { MidnightClient } from "./MidnightClient.ts";
+import { bound } from "@paima/utils";
+import { MidnightClient, type MidnightGqlBlockState } from "./MidnightClient.ts";
 import type { EncodedStateValue } from "@paima/config";
+import { ContractState, NetworkId } from '@midnight-ntwrk/onchain-runtime';
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -50,16 +50,15 @@ export class MidnightFetcher extends BaseDataFetcher<
       }`,
     );
     for (let height = data.from; height <= data.to; height++) {
-      const result = yield* call(() => this.client.fetchBlock(height));
-      const block: Block = result.block;
+      const result: MidnightGqlBlockState = yield* call(() => this.client.fetchBlock(height));
       const primitives = yield* this.readPrimitives(
         height,
-        block,
+        result,
         this.config.primitives,
       );
       outputs.push({
         output: {
-          raw: block,
+          raw: result.block as unknown as Block,
           primitives,
         },
         cleanup: () => {},
@@ -83,20 +82,20 @@ export class MidnightFetcher extends BaseDataFetcher<
   @bound
   *readPrimitives(
     height: number,
-    block: Block,
+    block: MidnightGqlBlockState,
     primitiveEntries: PrimitiveEntryType[],
   ): Operation<PrimitiveType[]> {
     const client = this.client;
-    const allOperations: Operation<PrimitiveType | undefined>[] = [];
+    const allOperations: Operation<PrimitiveType[]>[] = [];
     for (const primitiveEntry of primitiveEntries) {
-      allOperations.push(
-        this.fetchContractState(
-          height,
-          client,
-          primitiveEntry,
-          block,
-        ),
-      );
+        allOperations.push(
+          this.fetchContractState(
+            height,
+            client,
+            primitiveEntry,
+            block,
+          )
+        );
     }
     return (yield* all(allOperations)).flat().filter(
       Boolean,
@@ -108,31 +107,54 @@ export class MidnightFetcher extends BaseDataFetcher<
     height: number,
     client: MidnightClient,
     primitiveEntry: PrimitiveEntryType,
-    block: Block,
-  ): Operation<PrimitiveType | undefined> {
+    block: MidnightGqlBlockState,
+  ): Operation<PrimitiveType[]> {
     const contractAddress = primitiveEntry.primitive.contractAddress;
-    const state = yield* call(() =>
+    const blockFinalState = yield* call(() =>
       client.fetchContractState(contractAddress, height)
     );
-    if (!state) {
-      return undefined;
+    // The state returns null if the contract was not called in the block height
+    if (!blockFinalState) {
+      return [];
     }
-    return {
-      syncProtocol: {
-        name: primitiveEntry.syncProtocol,
-        blockNumber: height,
-        transactionHash:
-          block.transactions.find((t) =>
-            (t.contractCalls ?? []).find((c) => c.address === contractAddress)
-          )?.hash ??
-            "0x0000000000000000000000000000000000000000000000000000000000000000",
-        contractAddress: contractAddress,
-      },
-      primitive: primitiveEntry.primitive.name,
-      output: {
-        payloadType: "midnight-contract-state",
-        payload: state.data.encode() as unknown as EncodedStateValue,
-      },
-    };
+
+    const transactions = block.block.transactions.filter((t) => {
+      return (t.contractActions ?? []).some((c) => {
+        const longest = Math.max(contractAddress.length, c.address.length);
+        // Addresses length can be padded by 0's
+        return c.address.padStart(longest, '0') === contractAddress.padStart(longest, '0');
+      });
+    });
+
+
+    return transactions.map(t => {
+      // TODO: What does it mean if t.contractActions has more than one element?
+      const rawState: string = t.contractActions.find((c) => {
+        const longest = Math.max(contractAddress.length, c.address.length);
+        // Addresses length can be padded by 0's
+        return c.address.padStart(longest, '0') === contractAddress.padStart(longest, '0');
+      })!.state!;
+      const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+      const contractState = ContractState.deserialize(byteState, primitiveEntry.primitive.networkId || NetworkId.Undeployed);
+      const contract = primitiveEntry.primitive.contract;
+      const state = contract.ledger(contractState.data as any);
+      const pojoState = JSON.parse(JSON.stringify(
+        state,
+        (_key, value) => typeof value === "bigint" ? value.toString() : value
+      ));
+      return {
+        syncProtocol: {
+          name: primitiveEntry.syncProtocol,
+          blockNumber: height,
+          transactionHash: t.hash,
+          contractAddress: contractAddress,
+        },
+        primitive: primitiveEntry.primitive.name,
+        output: {
+          payloadType: "midnight-contract-state",
+          payload: pojoState as unknown as EncodedStateValue,
+        },
+      }
+    });
   }
 }

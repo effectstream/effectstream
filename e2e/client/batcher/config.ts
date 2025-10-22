@@ -11,6 +11,7 @@ const paimaL2Address = contractAddressesEvmMain()["chain31337"][
   "PaimaL2ContractModule#MyPaimaL2Contract"
 ] as `0x${string}`;
 const paimaSyncProtocolName = "parallelEvmRPC_fast";
+// In real cases use Deno.env for reading private key
 const batcherPrivateKey =
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
