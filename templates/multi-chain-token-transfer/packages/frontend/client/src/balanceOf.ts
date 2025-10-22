@@ -1,6 +1,6 @@
 import {
-  SimpleToken,
-} from "@multi-chain-transfer/midnight-contract-eip-20";
+  MultiChainMultiToken,
+} from "@multi-chain-transfer/midnight-contract-eip-1155";
 import { getPublicStates, PublicContractStates } from '@midnight-ntwrk/midnight-js-contracts';
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';

@@ -1,6 +1,6 @@
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
 import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
-import * as SimpleTokenContract from "@multi-chain-transfer/midnight-contract-eip-20/contract";
+import * as MultiChainMultiTokenContract from "@multi-chain-transfer/midnight-contract-eip-1155/contract";
 
 import {
   ConfigBuilder,
@@ -141,7 +141,7 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1,
           contractAddress: readMidnightContract().contractAddress,
           stateMachinePrefix: "midnightContractState",
-          contract: { ledger: SimpleTokenContract.ledger },
+          contract: { ledger: MultiChainMultiTokenContract.ledger },
           networkId: 0,
         })
       )

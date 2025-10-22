@@ -1,13 +1,13 @@
 {
-  "name": "@multi-chain-transfer/midnight-contract-eip-20",
+  "name": "@multi-chain-transfer/midnight-contract-eip-1155",
   "exports": {
     ".": "./src/_index.ts",
     "./witnesses": "./src/witnesses.ts",
-    "./contract": "./src/managed/simpletoken/contract/index.cjs"
+    "./contract": "./src/managed/multichain_multitoken/contract/index.cjs"
   },
   "tasks": {
-    "compact": "compact compile src/simpletoken.compact src/managed/simpletoken && deno task convert:js",
-    "convert:js": "deno run -A convert-js.ts src/managed/simpletoken/contract/index.cjs src/managed/simpletoken/contract/index.ts",
+    "compact": "compact compile src/multichain_multitoken.compact src/managed/multichain_multitoken && deno task convert:js",
+    "convert:js": "deno run -A convert-js.ts src/managed/multichain_multitoken/contract/index.cjs src/managed/multichain_multitoken/contract/index.ts",
     "contract:compile": "deno task compact"
   },
   "imports": {

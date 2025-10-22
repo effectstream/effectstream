@@ -1,2 +1,2 @@
-export * as SimpleToken from "./managed/simpletoken/contract/index.cjs";
+export * as MultiChainMultiToken from "./managed/multichain_multitoken/contract/index.cjs";
 export * from "./witnesses.ts";

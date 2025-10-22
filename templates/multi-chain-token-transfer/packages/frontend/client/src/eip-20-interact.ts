@@ -3,10 +3,10 @@ import {
   NetworkId,
 } from "@midnight-ntwrk/compact-runtime";
 import {
-  SimpleToken,
+  MultiChainMultiToken,
   // type CounterPrivateState,
   witnesses,
-} from "@multi-chain-transfer/midnight-contract-eip-20";
+} from "@multi-chain-transfer/midnight-contract-eip-1155";
 import {
   type CoinInfo,
   nativeToken,
@@ -85,26 +85,26 @@ const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v1/graphql
 
 
 type PrivateState = {};
-const SimpleTokenPrivateStateId = "simpleTokenPrivateState";
+const multiChainMultiTokenPrivateStateId = "multiChainMultiTokenPrivateState";
 
 
-export type SimpleContract = Contract<PrivateState, typeof witnesses>;
+export type MultiChainContract = Contract<PrivateState, typeof witnesses>;
 
 
 // Inlined common types for standalone script
-type SimpleTokenCircuits = ImpureCircuitId<SimpleToken.Contract>;
+type MultiChainMultiTokenCircuits = ImpureCircuitId<MultiChainMultiToken.Contract>;
 
-export type SimpleTokenProviders = MidnightProviders<
-  SimpleTokenCircuits,
-  typeof SimpleTokenPrivateStateId,
+export type MultiChainMultiTokenProviders = MidnightProviders<
+  MultiChainMultiTokenCircuits,
+  typeof MultiChainMultiTokenPrivateStateId,
   PrivateState
 >;
 
-type SimpleTokenContract = SimpleToken.Contract;
+type MultiChainMultiTokenContract = MultiChainMultiToken.Contract;
 
-type DeployedSimpleTokenContract =
-  | DeployedContract<SimpleTokenContract>
-  | FoundContract<SimpleTokenContract>;
+type DeployedMultiChainMultiTokenContract =
+  | DeployedContract<MultiChainMultiTokenContract>
+  | FoundContract<MultiChainMultiTokenContract>;
 
 
 // Inlined config for standalone script
@@ -113,13 +113,13 @@ const currentDir = resolve(
 );
 
 // const contractConfig = {
-//   privateStateStoreName: "simpletoken-private-state",
+//   privateStateStoreName: "multichain_multitoken-private-state",
 //   zkConfigPath: resolve(
 //     currentDir,
-//     "contract-eip-20",
+//     "contract-eip-1155",
 //     "src",
 //     "managed",
-//     "simpletoken",
+//     "multichain_multitoken",
 //   ),
 // };
 
@@ -156,13 +156,13 @@ class StandaloneConfig implements Config {
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
 
-const simpleTokenContractInstance: SimpleTokenContract = new SimpleToken
+const multiChainMultiTokenContractInstance: MultiChainMultiTokenContract = new MultiChainMultiToken
   .Contract(
   witnesses,
 );
 
-const getCounterLedgerState = async (
-  providers: SimpleTokenProviders,
+const getMultiChainMultiTokenLedgerState = async (
+  providers: MultiChainMultiTokenProviders,
   contractAddress: ContractAddress,
 ): Promise<any | null> => {
   assertIsContractAddress(contractAddress);
@@ -173,7 +173,7 @@ const getCounterLedgerState = async (
       contractAddress,
     );
     const state = contractState != null
-      ? SimpleToken.ledger(contractState.data)
+      ? MultiChainMultiToken.ledger(contractState.data)
       : null;
     console.log(`📊 Ledger state: ${state}`);
     return state;
@@ -184,24 +184,24 @@ const getCounterLedgerState = async (
 };
 
 const joinContract = async (
-  providers: SimpleTokenProviders,
+  providers: MultiChainMultiTokenProviders,
   contractAddress: string,
-): Promise<DeployedSimpleTokenContract> => {
-  const simpleTokenContract = await findDeployedContract(providers, {
+): Promise<DeployedMultiChainMultiTokenContract> => {
+  const multiChainMultiTokenContract = await findDeployedContract(providers, {
     contractAddress,
-    contract: simpleTokenContractInstance,
-    privateStateId: "simpleTokenPrivateState",
+    contract: multiChainMultiTokenContractInstance,
+    privateStateId: "multiChainMultiTokenPrivateState",
     initialPrivateState: {},
   });
   console.log(
-    `Joined contract at address: ${simpleTokenContract.deployTxData.public.contractAddress}`,
+    `Joined contract at address: ${multiChainMultiTokenContract.deployTxData.public.contractAddress}`,
   );
-  return simpleTokenContract;
+  return multiChainMultiTokenContract;
 };
 
 
 const mint = async (
-  simpleTokenContract: DeployedSimpleTokenContract,
+  multiChainMultiTokenContract: DeployedMultiChainMultiTokenContract,
   account: string,
   value: bigint,
 ): Promise<FinalizedTxData> => {
@@ -216,7 +216,7 @@ const mint = async (
     left: { bytes: shieldedAddress.coinPublicKey.data },
     right: { bytes: new Uint8Array(32) },
   };
-  const finalizedTxData = await (simpleTokenContract.callTx as any).mint(either, value);
+  const finalizedTxData = await (multiChainMultiTokenContract.callTx as any).mint(either, value);
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
@@ -225,7 +225,7 @@ const mint = async (
 };
 
 const balanceOf = async (
-  simpleTokenContract: any, // DeployedSimpleTokenContract,
+  multiChainMultiTokenContract: any, // DeployedMultiChainMultiTokenContract,
   account: string,
 ): Promise<bigint> => {
   return await balanceOfQuery(account);
@@ -238,13 +238,13 @@ const balanceOf = async (
     left: { bytes: shieldedAddress.coinPublicKey.data },
     right: { bytes: new Uint8Array(32) },
   };
-  const balance = await (simpleTokenContract.callTx as any).balanceOf(either);
+  const balance = await (multiChainMultiTokenContract.callTx as any).balanceOf(either);
   console.log('balanceOf', balance);
   return balance.private.result as bigint;*/
 };
 
 const transferToEvm = async (
-  simpleTokenContract: any, // DeployedSimpleTokenContract,
+  multiChainMultiTokenContract: any, // DeployedMultiChainMultiTokenContract,
   account: string,
   targetAddress: string,
   amount: bigint,
@@ -259,7 +259,7 @@ const transferToEvm = async (
     left: { bytes: shieldedAddress.coinPublicKey.data },
     right: { bytes: new Uint8Array(32) },
   };
-  const finalizedTxData = await (simpleTokenContract.callTx as any).transferToEvm(targetAddress, amount, txHash);
+  const finalizedTxData = await (multiChainMultiTokenContract.callTx as any).transferToEvm(targetAddress, amount, txHash);
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
@@ -299,12 +299,12 @@ const transferToEvm = async (
 //   return finalizedTxData.public;
 // };
 
-const displayCounterValue = async (
-  providers: SimpleTokenProviders,
-  simpleTokenContract: DeployedSimpleTokenContract,
+const displayMultiChainMultiTokenValue = async (
+  providers: MultiChainMultiTokenProviders,
+  multiChainMultiTokenContract: DeployedMultiChainMultiTokenContract,
 ): Promise<{ state: any | null; contractAddress: string }> => {
-  const contractAddress = simpleTokenContract.deployTxData.public.contractAddress;
-  const state = await getCounterLedgerState(providers, contractAddress);
+  const contractAddress = multiChainMultiTokenContract.deployTxData.public.contractAddress;
+  const state = await getMultiChainMultiTokenLedgerState(providers, contractAddress);
   return { contractAddress, state };
 };
 
@@ -456,7 +456,7 @@ const configureProviders = async (
   // console.log({ internalWalletAndMidnightProvider, injectedWalletAndMidnightProvider });
 
   // const privateStateProvider = levelPrivateStateProvider<
-  //   typeof SimpleTokenPrivateStateId
+  //   typeof MultiChainMultiTokenPrivateStateId
   // >({
   //   privateStateStoreName: contractConfig.privateStateStoreName,
   // });
@@ -476,7 +476,7 @@ const configureProviders = async (
 
   const providers = await new MidnightAlternativeLogin().getProviders();
 
-  // const providers: SimpleTokenProviders = {
+  // const providers: MultiChainMultiTokenProviders = {
   //   privateStateProvider,
   //   publicDataProvider,
   //   zkConfigProvider,
@@ -505,7 +505,7 @@ const getContractAddress = async (): Promise<string> => {
 
 
 class MidnightAlternativeLogin {
-  private initializedProviders: Promise<SimpleTokenProviders> | undefined;
+  private initializedProviders: Promise<MultiChainMultiTokenProviders> | undefined;
   private logger = {
     info: (...message: any[]) => console.log(...message),
     error: (...message: any[]) => console.error(...message),
@@ -514,7 +514,7 @@ class MidnightAlternativeLogin {
   constructor() {
   }
 
-public getProviders(): Promise<SimpleTokenProviders> {
+public getProviders(): Promise<MultiChainMultiTokenProviders> {
   // We use a cached `Promise` to hold the providers. This will:
   //
   // 1. Cache and re-use the providers (including the configured connector API), and
@@ -526,7 +526,7 @@ public getProviders(): Promise<SimpleTokenProviders> {
 
 
 /** @internal */
-private async initializeProviders(): Promise<SimpleTokenProviders> {
+private async initializeProviders(): Promise<MultiChainMultiTokenProviders> {
 const { wallet, uris } = await this.connectToWallet();
 const walletState = await wallet.state();
 const zkConfigPath = window.location.origin; // '../../../contract/src/managed/bboard';
@@ -645,7 +645,7 @@ return firstValueFrom(
 
 const connectMidnightWallet = async (injectedWallet: any): Promise<{
   injectedWallet: Wallet & Resource;
-  providers: SimpleTokenProviders;
+  providers: MultiChainMultiTokenProviders;
 }> => {
   console.log("🔗 Building Midnight wallet with genesis seed...");
 
@@ -666,21 +666,21 @@ const connectMidnightWallet = async (injectedWallet: any): Promise<{
 };
 
 const connectToContract = async (
-  providers: SimpleTokenProviders,
+  providers: MultiChainMultiTokenProviders,
   contractAddress?: string,
 ): Promise<{
-  contract: DeployedSimpleTokenContract;
+  contract: DeployedMultiChainMultiTokenContract;
   state: any | null;
   contractAddress: string;
 }> => {
   const address = contractAddress || await getContractAddress();
-  console.log(`🔗 Joining simple token contract at address: ${address}`);
+  console.log(`🔗 Joining multi chain multi token contract at address: ${address}`);
 
   const contract = await joinContract(providers, address);
-  console.log("✅ Successfully joined the simple token contract");
+  console.log("✅ Successfully joined the multi chain multi token contract");
 
   // Get initial state
-  const currentState = await displayCounterValue(providers, contract);
+  const currentState = await displayMultiChainMultiTokenValue(providers, contract);
   console.log(`📊 Current state value: ${currentState}`);
   
 
@@ -688,17 +688,17 @@ const connectToContract = async (
 };
 
 const fetchCurrentCounterState = async (
-  providers: SimpleTokenProviders,
-  simpleTokenContract?: DeployedSimpleTokenContract,
+  providers: MultiChainMultiTokenProviders,
+  multiChainMultiTokenContract?: DeployedMultiChainMultiTokenContract,
 ): Promise<{ state: any | null; contractAddress: string }> => {
   const actualProviders = providers;
-  const actualContract = simpleTokenContract;
+  const actualContract = multiChainMultiTokenContract;
 
   if (!actualProviders || !actualContract) {
     throw new Error("Providers and contract must be initialized first");
   }
 
-  return await displayCounterValue(actualProviders, actualContract);
+  return await displayMultiChainMultiTokenValue(actualProviders, actualContract);
 };
 
 export {
