@@ -13,14 +13,14 @@ import {
   type PaimaBlockNumber,
   TypeboxHelpers,
 } from "@paimaexample/utils";
-import { type JsonObject, PaimaPrimitive, PaimaPrimitiveRegistry } from "@paimaexample/sm";
+import { type JsonObject, PaimaPrimitive } from "@paimaexample/sm";
 import {
   type CommandTuple,
   generateRawStmInput,
   type ParamToData,
 } from "@paimaexample/concise";
 import type { StateUpdateStream } from "@paimaexample/coroutine";
-import { mct_erc1155 } from "./erc1155-abi.ts";
+import { mct_erc1155 } from "@multi-chain-transfer/evm-contracts";
 import { mctErc1155Grammar } from "./erc1155-grammar.ts";
 
 /**
@@ -38,7 +38,7 @@ export class MCTErc1155Primitive extends PaimaPrimitive<
 > {
   // Primitive defined
   readonly internalTypeName = PrimitiveTypeEVMMCTERC1155;
-  readonly abi = getEvmEvent(mct_erc1155.abi, "TransferToMidnight(address,address,uint256)");
+  readonly abi = getEvmEvent(mct_erc1155.abi, "TransferToMidnight(address,string,uint256,uint256,string)");
   override grammar = mctErc1155Grammar;
   readonly contractAddress: EvmAddress;
 
@@ -72,7 +72,7 @@ export class MCTErc1155Primitive extends PaimaPrimitive<
       accountingPayload: JsonObject;
     }[];
   }> {
-    const { from, midnight_address, amount } = primitiveTransactionData.output.payload;
+    const { from, midnight_address, amount, token_id, tx_hash } = primitiveTransactionData.output.payload;
     const fromAddr = Value.Decode(
       TypeboxHelpers.Evm.Address,
       from.toLowerCase(),
@@ -81,12 +81,18 @@ export class MCTErc1155Primitive extends PaimaPrimitive<
       TypeboxHelpers.Uint256,
       amount,
     );
+    const tokenIdParsed = Value.Decode(
+      TypeboxHelpers.Uint256,
+      token_id,
+    );
 
     const isBatched = false;
     const accountingPayload: ParamToData<typeof mctErc1155Grammar> = {
       midnight_address: midnight_address,
       from: fromAddr,
       amount: amountParsed,
+      token_id: tokenIdParsed,
+      tx_hash: tx_hash,
     };
     const stateMachinePayload:
       | StaticDecode<
