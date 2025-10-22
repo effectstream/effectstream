@@ -125,7 +125,7 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
       console.log(
         `🔄 Calling function "${functionCall.function}" with ${functionCall.args.length} arguments`,
       );
-
+      console.log("args", JSON.stringify(functionCall.args));
       let hash;
 
       // Route to appropriate contract function

@@ -6,6 +6,7 @@
   },
   "imports": {
     "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
+    "@midnight-ntwrk/wallet-sdk-address-format": "npm:@midnight-ntwrk/wallet-sdk-address-format@2.0.0",
     "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.97",
     "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.97",
     "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.97",
