@@ -40,12 +40,6 @@ const midnightExtended = (packageName: string) => ({
       type: "system-dependency",
       link: "http://localhost:3334",
     },
-    {
-      name: "midnight-faucet",
-      args: ["task", "-f", "@multi-chain-transfer/midnight-contracts", "midnight-faucet:start"],
-      waitToExit: false,
-      type: "system-dependency",
-    }
   ],
 });
 

@@ -86,9 +86,7 @@ class StandaloneConfig implements Config {
 
 const config = new StandaloneConfig();
 
-const currentDir = resolve(
-  dirname(new URL(import.meta.url).pathname),
-);
+const currentDir = resolve(dirname(new URL(import.meta.url).pathname));
 
 const contractConfig = {
   privateStateStoreName: "counter-private-state",
@@ -97,46 +95,45 @@ const contractConfig = {
     "contract-eip-20",
     "src",
     "managed",
-    "simpletoken",
+    "simpletoken"
   ),
 };
 
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
 
-const simpleTokenContractInstance: SimpleTokenContract = new SimpleToken
-  .Contract(
-  witnesses,
-);
+const simpleTokenContractInstance: SimpleTokenContract =
+  new SimpleToken.Contract(witnesses);
 
 const getSimpleTokenLedgerState = async (
   providers: SimpleTokenProviders,
-  contractAddress: ContractAddress,
+  contractAddress: ContractAddress
 ): Promise<bigint | null> => {
   assertIsContractAddress(contractAddress);
   console.log("🔍 Checking contract ledger state...");
 
   try {
     const contractState = await providers.publicDataProvider.queryContractState(
-      contractAddress,
+      contractAddress
     );
     console.log("contractState", contractState);
     console.log(
-      Object.entries(contractState).map(([key, value]) =>
-        `${key}: ${value} (${typeof value})`
-      ),
+      Object.entries(contractState).map(
+        ([key, value]) => `${key}: ${value} (${typeof value})`
+      )
     );
-    const state = contractState != null
-      ? SimpleToken.ledger(contractState.data)
-      : null;
+    const state =
+      contractState != null ? SimpleToken.ledger(contractState.data) : null;
     console.log(
       `📊 Ledger state: ${
-        state && JSON.stringify(
+        state &&
+        JSON.stringify(
           state,
-          (_key, value) => typeof value === "bigint" ? value.toString() : value,
-          2,
+          (_key, value) =>
+            typeof value === "bigint" ? value.toString() : value,
+          2
         )
-      }`,
+      }`
     );
     return state;
   } catch (error) {
@@ -147,7 +144,7 @@ const getSimpleTokenLedgerState = async (
 
 const joinContract = async (
   providers: SimpleTokenProviders,
-  contractAddress: string,
+  contractAddress: string
 ): Promise<DeployedSimpleTokenContract> => {
   console.log("Joining contract...🍋🍋🍋");
   const simpleTokenContract = await findDeployedContract(providers, {
@@ -157,18 +154,18 @@ const joinContract = async (
     initialPrivateState: {},
   });
   console.log(
-    `Joined contract at address: ${simpleTokenContract.deployTxData.public.contractAddress}`,
+    `Joined contract at address: ${simpleTokenContract.deployTxData.public.contractAddress}`
   );
   return simpleTokenContract;
 };
 
 const balanceOf = async (
   simpleTokenContract: DeployedSimpleTokenContract,
-  account: string,
+  account: string
 ): Promise<bigint> => {
   const shieldedAddress = ShieldedAddress.codec.decode(
     "undeployed",
-    MidnightBech32m.parse(account),
+    MidnightBech32m.parse(account)
   );
   const either = {
     is_left: true,
@@ -182,12 +179,12 @@ const balanceOf = async (
 const mint = async (
   simpleTokenContract: DeployedSimpleTokenContract,
   account: string,
-  value: bigint,
+  value: bigint
 ): Promise<FinalizedTxData> => {
   console.log("Minting...");
   const shieldedAddress = ShieldedAddress.codec.decode(
     "undeployed",
-    MidnightBech32m.parse(account),
+    MidnightBech32m.parse(account)
   );
   console.log("shieldedAddress", shieldedAddress.coinPublicKeyString());
   const either = {
@@ -197,14 +194,14 @@ const mint = async (
   };
   const finalizedTxData = await simpleTokenContract.callTx.mint(either, value);
   console.log(
-    `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
+    `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`
   );
   console.log(`Minted ${value} tokens to ${account}`);
   return finalizedTxData.public;
 };
 
 const createWalletAndMidnightProvider = async (
-  wallet: Wallet,
+  wallet: Wallet
 ): Promise<WalletProvider & MidnightProvider> => {
   const state = await Rx.firstValueFrom(wallet.state());
   return {
@@ -212,21 +209,21 @@ const createWalletAndMidnightProvider = async (
     encryptionPublicKey: state.encryptionPublicKey,
     balanceTx(
       tx: UnbalancedTransaction,
-      newCoins: CoinInfo[],
+      newCoins: CoinInfo[]
     ): Promise<BalancedTransaction> {
       return wallet
         .balanceTransaction(
           ZswapTransaction.deserialize(
             tx.serialize(getLedgerNetworkId()),
-            getZswapNetworkId(),
+            getZswapNetworkId()
           ),
-          newCoins,
+          newCoins
         )
         .then((tx) => wallet.proveTransaction(tx))
         .then((zswapTx) =>
           Transaction.deserialize(
             zswapTx.serialize(getZswapNetworkId()),
-            getLedgerNetworkId(),
+            getLedgerNetworkId()
           )
         )
         .then(createBalancedTx);
@@ -245,30 +242,28 @@ const waitForFunds = (wallet: Wallet) =>
         const applyGap = state.syncProgress?.lag.applyGap ?? 0n;
         const sourceGap = state.syncProgress?.lag.sourceGap ?? 0n;
         console.log(
-          `Waiting for funds. Backend lag: ${sourceGap}, wallet lag: ${applyGap}, transactions=${state.transactionHistory.length}`,
+          `Waiting for funds. Backend lag: ${sourceGap}, wallet lag: ${applyGap}, transactions=${state.transactionHistory.length}`
         );
       }),
       Rx.filter((state: any) => {
         return state.syncProgress?.synced === true;
       }),
       Rx.map((s: any) => s.balances[nativeToken()] ?? 0n),
-      Rx.filter((balance: bigint) => balance > 0n),
-    ),
+      Rx.filter((balance: bigint) => balance > 0n)
+    )
   );
 
 const buildWalletAndWaitForFunds = async (
   { indexer, indexerWS, node, proofServer }: Config,
   seed: string,
-  filename: string,
+  filename: string
 ): Promise<Wallet & Resource> => {
   const directoryPath = Deno.env.get("SYNC_CACHE");
   let wallet: Wallet & Resource;
   if (directoryPath !== undefined) {
     const fullPath = `${directoryPath}/${filename}`;
     if (await exists(fullPath)) {
-      console.log(
-        `Attempting to restore state from ${fullPath}`,
-      );
+      console.log(`Attempting to restore state from ${fullPath}`);
       try {
         const serialized = await Deno.readFile(fullPath);
         wallet = await WalletBuilder.restore(
@@ -277,12 +272,12 @@ const buildWalletAndWaitForFunds = async (
           proofServer,
           node,
           seed,
-          serialized.toString(),
+          serialized.toString()
         );
         wallet.start();
       } catch (error: unknown) {
         console.log(
-          "Wallet was not able to restore using the stored state, building wallet from scratch",
+          "Wallet was not able to restore using the stored state, building wallet from scratch"
         );
         wallet = await WalletBuilder.buildFromSeed(
           indexer,
@@ -291,7 +286,7 @@ const buildWalletAndWaitForFunds = async (
           node,
           seed,
           getZswapNetworkId(),
-          "info",
+          "info"
         );
         wallet.start();
       }
@@ -304,13 +299,13 @@ const buildWalletAndWaitForFunds = async (
         node,
         seed,
         getZswapNetworkId(),
-        "info",
+        "info"
       );
       wallet.start();
     }
   } else {
     console.log(
-      "📁 File path for save file not found, building wallet from scratch",
+      "📁 File path for save file not found, building wallet from scratch"
     );
 
     try {
@@ -320,7 +315,7 @@ const buildWalletAndWaitForFunds = async (
         proofServer,
         node,
         seed,
-        NetworkId.Undeployed,
+        NetworkId.Undeployed
       );
       console.log("✅ Wallet built successfully");
       wallet.start();
@@ -342,28 +337,33 @@ const buildWalletAndWaitForFunds = async (
   console.log(`Your wallet balance is: ${balance}`);
 
   /* Transfer dust to lace wallet */
-  const receiverAddress = "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lta07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
-  const transferRecipe = await wallet.transferTransaction([{
-    amount: 10000000n,
-    type: nativeToken(), // "tDUST",
-    receiverAddress,
-  }]);
-  
-  console.log({transferRecipe});
+  const receiverAddress =
+    "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lta07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
+  const transferRecipe = await wallet.transferTransaction([
+    {
+      amount: 10000000n,
+      type: nativeToken(), // "tDUST",
+      receiverAddress,
+    },
+  ]);
+
+  console.log({ transferRecipe });
   const provenTransaction = await wallet.proveTransaction(transferRecipe);
-  console.log({provenTransaction});
-  const submittedTransaction = await wallet.submitTransaction(provenTransaction);
-  console.log({submittedTransaction});
+  console.log({ provenTransaction });
+  const submittedTransaction = await wallet.submitTransaction(
+    provenTransaction
+  );
+  console.log({ submittedTransaction });
 
   return wallet;
 };
 
 const configureProviders = async (
   wallet: Wallet & Resource,
-  config: Config,
+  config: Config
 ) => {
   const walletAndMidnightProvider = await createWalletAndMidnightProvider(
-    wallet,
+    wallet
   );
   return {
     privateStateProvider: levelPrivateStateProvider<
@@ -373,10 +373,10 @@ const configureProviders = async (
     }),
     publicDataProvider: indexerPublicDataProvider(
       config.indexer,
-      config.indexerWS,
+      config.indexerWS
     ),
     zkConfigProvider: new NodeZkConfigProvider<"mint">(
-      contractConfig.zkConfigPath,
+      contractConfig.zkConfigPath
     ),
     proofProvider: httpClientProofProvider(config.proofServer),
     walletProvider: walletAndMidnightProvider,
@@ -390,7 +390,7 @@ const getContractAddress = async (): Promise<string> => {
 
   if (contractAddressFromArgs) {
     console.log(
-      `📋 Using contract address from arguments: ${contractAddressFromArgs}`,
+      `📋 Using contract address from arguments: ${contractAddressFromArgs}`
     );
     return contractAddressFromArgs;
   }
@@ -401,12 +401,12 @@ const getContractAddress = async (): Promise<string> => {
   try {
     if (await exists(contractAddressFile)) {
       const contractAddressFromFile = JSON.parse(
-        await Deno.readTextFile(contractAddressFile),
+        await Deno.readTextFile(contractAddressFile)
       ).contractAddress;
 
       if (contractAddressFromFile) {
         console.log(
-          `📄 Using contract address from file ${contractAddressFile}: ${contractAddressFromFile}`,
+          `📄 Using contract address from file ${contractAddressFile}: ${contractAddressFromFile}`
         );
         return contractAddressFromFile;
       } else {
@@ -414,20 +414,20 @@ const getContractAddress = async (): Promise<string> => {
       }
     } else {
       throw new Error(
-        `Contract address file not found at ${contractAddressFile}`,
+        `Contract address file not found at ${contractAddressFile}`
       );
     }
   } catch (error) {
     console.error(`❌ Error reading contract address from file: ${error}`);
     console.error("❌ Error: Contract address is required");
     console.error(
-      "Usage: deno run --allow-all increment.ts <CONTRACT_ADDRESS>",
+      "Usage: deno run --allow-all increment.ts <CONTRACT_ADDRESS>"
     );
     console.error(
-      "Or create a contract_address.txt file with the contract address",
+      "Or create a contract_address.txt file with the contract address"
     );
     console.error(
-      "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678",
+      "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678"
     );
     Deno.exit(1);
   }
@@ -438,7 +438,7 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
   const contractAddress = await getContractAddress();
 
   console.log(
-    `🚀 Starting join and mint process for contract: ${contractAddress}`,
+    `🚀 Starting join and mint process for contract: ${contractAddress}`
   );
 
   // Initialize configuration
@@ -453,7 +453,7 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
     wallet = await buildWalletAndWaitForFunds(
       config,
       GENESIS_MINT_WALLET_SEED,
-      "contract.json",
+      "contract.json"
     );
 
     console.log("✅ Wallet built successfully");
@@ -466,7 +466,7 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
 
     // Join the contract
     console.log(
-      `🔗 Joining simple token contract at address: ${contractAddress}`,
+      `🔗 Joining simple token contract at address: ${contractAddress}`
     );
     const simpleTokenContract = await joinContract(providers, contractAddress);
 
@@ -477,16 +477,14 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
     const incrementResult = await mint(simpleTokenContract, account, amount);
 
     console.log(
-      `✅ Simple token minted successfully! Transaction ID: ${incrementResult.txId}`,
+      `✅ Simple token minted successfully! Transaction ID: ${incrementResult.txId}`
     );
     console.log(
-      `✅ Simple token minted! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`,
+      `✅ Simple token minted! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`
     );
 
     const accountBalance = await balanceOf(simpleTokenContract, account);
-    console.log(
-      `Account balance: ${String(accountBalance)}`,
-    );
+    console.log(`Account balance: ${String(accountBalance)}`);
     // Display simple token value after increment
     await getSimpleTokenLedgerState(providers, contractAddress);
 
@@ -508,15 +506,89 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
   }
 }
 
+const faucet = async (receiverAddress: string): Promise<void> => {
+  // Get contract address from command line arguments or file
+  const contractAddress = await getContractAddress();
+
+  console.log(
+    `🚀 Starting join and mint process for contract: ${contractAddress}`
+  );
+
+  // Initialize configuration
+  const config = new StandaloneConfig();
+
+  let wallet = null;
+
+  try {
+    console.log("🔗 Building wallet with genesis seed for standalone mode...");
+
+    // Build wallet using genesis seed (which has initial funds in standalone mode)
+    wallet = await buildWalletAndWaitForFunds(
+      config,
+      GENESIS_MINT_WALLET_SEED,
+      "contract.json"
+    );
+
+    console.log("✅ Wallet built successfully");
+
+    // Configure providers
+    console.log("⚙️ Configuring providers...");
+    const providers = await configureProviders(wallet, config);
+
+    console.log("✅ Providers configured successfully");
+
+    // Join the contract
+    console.log(
+      `🔗 Joining simple token contract at address: ${contractAddress}`
+    );
+    const simpleTokenContract = await joinContract(providers, contractAddress);
+
+    console.log("✅ Successfully joined the simple token contract");
+
+    /* Transfer dust to lace wallet */
+    // const receiverAddress =
+    //   "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
+    const transferRecipe = await wallet.transferTransaction([
+      {
+        amount: 10000000n, // 10 Dust
+        type: nativeToken(), // "tDUST",
+        receiverAddress,
+      },
+    ]);
+    console.log("✅ Successfully transferred dust to receiver address ", receiverAddress, { transferRecipe });
+  } catch (error) {
+    console.error("❌ Error during join and mint process:", error);
+    console.error("❌ Error:", error instanceof Error ? error.message : error);
+    Deno.exit(1);
+  } finally {
+    // Clean up wallet
+    if (wallet) {
+      try {
+        console.log("🧹 Wallet closed successfully");
+        Deno.exit(0);
+      } catch (error) {
+        console.error("❌ Error closing wallet:", error);
+      }
+    }
+  }
+};
+
 // Run the script if this file is executed directly
 if (import.meta.main) {
+  // If this script is called with the MIDNIGHT_ADDRESS environment variable, run the faucet function
+  const midnightAddress = Deno.env.get("MIDNIGHT_ADDRESS");
+  if (midnightAddress) {
+    await faucet(midnightAddress);
+    Deno.exit(0);
+  }
+
   const wallet = await WalletBuilder.build(
     config.indexer,
     config.indexerWS,
     config.proofServer,
     config.node,
     GENESIS_MINT_WALLET_SEED,
-    NetworkId.Undeployed,
+    NetworkId.Undeployed
   );
   const address = (await Rx.firstValueFrom(wallet.state())).address;
   joinAndMint(address, 20000n).catch((error) => {

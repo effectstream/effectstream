@@ -101,6 +101,21 @@ header h1 {
   min-width: 0;
 }
 
+.wallet-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.wallet-status-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .wallet-status, .token-balances {
     display: flex;
     align-items: center;
@@ -424,4 +439,21 @@ footer {
 
 .popup button:hover {
     background-color: var(--evm-button-hover);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--evm-color);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.9em;
+  width: auto;
+  box-shadow: none;
+}
+
+.link-button:hover {
+  color: var(--evm-button-hover);
+  background: none;
 }

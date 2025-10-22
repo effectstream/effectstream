@@ -273,6 +273,29 @@ function App() {
     });
   };
 
+  const getDustFromFaucet = async () => {
+    await withLoader('Getting DUST from faucet...', async () => {
+      if (midnightAddress) {
+        try {
+          const response = await fetch(`http://localhost:9999/api/faucet?address=${midnightAddress}`);
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Faucet request failed: ${response.status} ${response.statusText} - ${errorText}`);
+          }
+          showPopup('Successfully received DUST from faucet! Balance will update shortly.');
+          setTimeout(() => {
+            fetchMidnightBalance();
+          }, 2000);
+        } catch (error) {
+          console.error('Failed to get DUST from faucet:', error);
+          alert(`Failed to get DUST from faucet. Check the console for details.`);
+        }
+      } else {
+        alert('Please connect Midnight wallet first.');
+      }
+    });
+  };
+
   // TODO: Implement these functions
   const handleSwapMidnightToEvm = () => alert("Not implemented yet");
   const handleTransferMidnight = () => alert("Not implemented yet");
@@ -306,11 +329,13 @@ function App() {
           <div className="wallet-column">
             <h3>EVM Wallet</h3>
             <div className="wallet-status">
-              <span className="icon">{evmAddress ? "✓" : "✗"}</span>
-              <div className="wallet-details">
-                <strong>Status:</strong>
-                <span>{evmAddress ? "Connected" : "Not Connected"}</span>
-                <div className="address">{evmAddress}</div>
+              <div className="wallet-status-left">
+                <span className="icon">{evmAddress ? '✓' : '✗'}</span>
+                <div className="wallet-details">
+                  <strong>Status:</strong>
+                  <span>{evmAddress ? 'Connected' : 'Not Connected'}</span>
+                  <div className="address">{evmAddress}</div>
+                </div>
               </div>
             </div>
             {evmAddress ? (
@@ -339,12 +364,26 @@ function App() {
           <div className="wallet-column">
             <h3>Midnight Wallet</h3>
             <div className="wallet-status">
-              <span className="icon">{midnightAddress ? "✓" : "✗"}</span>
-              <div className="wallet-details">
-                <strong>Status:</strong>
-                <span>{midnightAddress ? "Connected" : "Not Connected"}</span>
-                <div className="address">{midnightAddress}</div>
+              <div className="wallet-status-left">
+                <span className="icon">{midnightAddress ? '✓' : '✗'}</span>
+                <div className="wallet-details">
+                  <strong>Status:</strong>
+                  <span>
+                    {midnightAddress ? 'Connected' : 'Not Connected'}
+                  </span>
+                  <div className="address">{midnightAddress}</div>
+                </div>
               </div>
+              {midnightAddress && (
+                <button
+                style={{ minWidth: '90px' }}
+                  type="button"
+                  onClick={getDustFromFaucet}
+                  className="link-button"
+                >
+                  Get DUST from Faucet
+                </button>
+              )}
             </div>
             {midnightAddress ? (
               <div className="token-balances">
