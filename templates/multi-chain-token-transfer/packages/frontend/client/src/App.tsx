@@ -122,6 +122,8 @@ function App() {
     await withLoader("Minting EVM tokens...", async () => {
       if (evmWallet && evmClient && mintAmount) {
         await paima.evm_mint(evmClient, evmWallet, BigInt(mintAmount));
+        // Update EVM balance after a delay to allow blockchain processing
+        setTimeout(() => fetchBalance(), 2000);
       } else {
         alert("Please connect wallet and enter an amount.");
       }
@@ -136,6 +138,8 @@ function App() {
           midnightAddress,
           BigInt(midnightMintAmount)
         );
+        // Update Midnight balance after a delay to allow blockchain processing
+        setTimeout(() => fetchMidnightBalance(), 2000);
       } else {
         alert("Please connect wallet and enter an amount.");
       }
@@ -153,18 +157,11 @@ function App() {
           midnightAddress as `0x${string}`
         );
 
-        const currentBalance =
-          !balance || balance === "N/A" || balance === "undefined"
-            ? 0n
-            : BigInt(balance);
-        const currentMidnightBalance =
-          !midnightBalance ||
-          midnightBalance === "N/A" ||
-          midnightBalance === "undefined"
-            ? 0n
-            : BigInt(midnightBalance);
-        setBalance(String(currentBalance - amount));
-        setMidnightBalance(String(currentMidnightBalance + amount));
+        // Update both balances after a delay to allow blockchain processing
+        setTimeout(() => {
+          fetchBalance();
+          fetchMidnightBalance();
+        }, 12000);
 
         showPopup(
           `Successfully initiated transfer of ${amount} tokens to Midnight.`
@@ -186,11 +183,11 @@ function App() {
           BigInt(transferToEvmAmount)
         );
 
-        const currentMidnightBalance =
-        !midnightBalance || midnightBalance === "N/A" || midnightBalance === "undefined" ? 0n : BigInt(midnightBalance);
-        const currentBalance = !balance || balance === "N/A" || balance === "undefined" ? 0n : BigInt(balance);
-        setMidnightBalance(String(currentMidnightBalance - amount));
-        setBalance(String(currentBalance + amount));
+        // Update both balances after a delay to allow blockchain processing
+        setTimeout(() => {
+          fetchMidnightBalance();
+          fetchBalance();
+        }, 10000);
 
         showPopup(
           `Successfully initiated transfer of ${amount} tokens to EVM.`

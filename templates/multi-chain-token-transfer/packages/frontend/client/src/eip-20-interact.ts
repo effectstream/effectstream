@@ -69,6 +69,7 @@ import {
 } from 'rxjs';
 import { pipe as fnPipe } from 'fp-ts/function';
 import semver from 'semver';
+import { balanceOf as balanceOfQuery } from './balanceOf.ts';
 
 const BASE_URL_MIDNIGHT_NODE_A = `http://127.0.0.1:9944`;
 const getMidnightNodeUrl = async (): Promise<string> => {
@@ -227,7 +228,8 @@ const balanceOf = async (
   simpleTokenContract: any, // DeployedSimpleTokenContract,
   account: string,
 ): Promise<bigint> => {
-  const shieldedAddress = ShieldedAddress.codec.decode(
+  return await balanceOfQuery(account);
+  /*const shieldedAddress = ShieldedAddress.codec.decode(
     "undeployed",
     MidnightBech32m.parse(account),
   );
@@ -238,7 +240,7 @@ const balanceOf = async (
   };
   const balance = await (simpleTokenContract.callTx as any).balanceOf(either);
   console.log('balanceOf', balance);
-  return balance.private.result as bigint;
+  return balance.private.result as bigint;*/
 };
 
 const transferToEvm = async (
