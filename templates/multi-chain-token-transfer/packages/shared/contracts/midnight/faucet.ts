@@ -21,9 +21,6 @@ import {
   findDeployedContract,
   type FoundContract,
 } from "npm:@midnight-ntwrk/midnight-js-contracts";
-import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import {
   type BalancedTransaction,
   createBalancedTx,
@@ -37,7 +34,6 @@ import {
 import { type Resource, WalletBuilder } from "npm:@midnight-ntwrk/wallet";
 import { type Wallet } from "npm:@midnight-ntwrk/wallet-api";
 import { Transaction as ZswapTransaction } from "npm:@midnight-ntwrk/zswap";
-import { levelPrivateStateProvider } from "npm:@midnight-ntwrk/midnight-js-level-private-state-provider";
 import * as Rx from "npm:rxjs";
 import { assertIsContractAddress } from "npm:@midnight-ntwrk/midnight-js-utils";
 import {
@@ -47,6 +43,17 @@ import {
 } from "npm:@midnight-ntwrk/midnight-js-network-id";
 import { dirname, resolve } from "@std/path";
 import { exists } from "@std/fs";
+
+/** 
+ * This script transfers 10.0 dust from the default midnight wallet to a given address. 
+ * This works only on the local undeployed network.
+ * 
+ * This is useful to pass dust to Lace wallets in the browser for testing purposes.
+ * 
+ * Usage:
+ * MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts
+ * 
+ */
 
 globalThis.WebSocket = WebSocket;
 
@@ -335,184 +342,11 @@ const buildWalletAndWaitForFunds = async (
     balance = await waitForFunds(wallet);
   }
   console.log(`Your wallet balance is: ${balance}`);
-
-  /* Transfer dust to lace wallet */
-  const receiverAddress =
-    "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lta07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
-  const transferRecipe = await wallet.transferTransaction([
-    {
-      amount: 10000000n,
-      type: nativeToken(), // "tDUST",
-      receiverAddress,
-    },
-  ]);
-
-  console.log({ transferRecipe });
-  const provenTransaction = await wallet.proveTransaction(transferRecipe);
-  console.log({ provenTransaction });
-  const submittedTransaction = await wallet.submitTransaction(
-    provenTransaction
-  );
-  console.log({ submittedTransaction });
-
   return wallet;
 };
 
-const configureProviders = async (
-  wallet: Wallet & Resource,
-  config: Config
-) => {
-  const walletAndMidnightProvider = await createWalletAndMidnightProvider(
-    wallet
-  );
-  return {
-    privateStateProvider: levelPrivateStateProvider<
-      typeof MultiChainMultiTokenPrivateStateId
-    >({
-      privateStateStoreName: contractConfig.privateStateStoreName,
-    }),
-    publicDataProvider: indexerPublicDataProvider(
-      config.indexer,
-      config.indexerWS
-    ),
-    zkConfigProvider: new NodeZkConfigProvider<"mint">(
-      contractConfig.zkConfigPath
-    ),
-    proofProvider: httpClientProofProvider(config.proofServer),
-    walletProvider: walletAndMidnightProvider,
-    midnightProvider: walletAndMidnightProvider,
-  };
-};
-
-const getContractAddress = async (): Promise<string> => {
-  // First try to get from command line arguments
-  const contractAddressFromArgs = Deno.args[0];
-
-  if (contractAddressFromArgs) {
-    console.log(
-      `📋 Using contract address from arguments: ${contractAddressFromArgs}`
-    );
-    return contractAddressFromArgs;
-  }
-
-  // If not provided via args, try to read from contract_address.txt file
-  const contractAddressFile = resolve(currentDir, "contract.json");
-
-  try {
-    if (await exists(contractAddressFile)) {
-      const contractAddressFromFile = JSON.parse(
-        await Deno.readTextFile(contractAddressFile)
-      ).contractAddress;
-
-      if (contractAddressFromFile) {
-        console.log(
-          `📄 Using contract address from file ${contractAddressFile}: ${contractAddressFromFile}`
-        );
-        return contractAddressFromFile;
-      } else {
-        throw new Error("Contract address file is empty");
-      }
-    } else {
-      throw new Error(
-        `Contract address file not found at ${contractAddressFile}`
-      );
-    }
-  } catch (error) {
-    console.error(`❌ Error reading contract address from file: ${error}`);
-    console.error("❌ Error: Contract address is required");
-    console.error(
-      "Usage: deno run --allow-all increment.ts <CONTRACT_ADDRESS>"
-    );
-    console.error(
-      "Or create a contract_address.txt file with the contract address"
-    );
-    console.error(
-      "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678"
-    );
-    Deno.exit(1);
-  }
-};
-
-async function joinAndMint(account: string, amount: bigint): Promise<void> {
-  // Get contract address from command line arguments or file
-  const contractAddress = await getContractAddress();
-
-  console.log(
-    `🚀 Starting join and mint process for contract: ${contractAddress}`
-  );
-
-  // Initialize configuration
-  const config = new StandaloneConfig();
-
-  let wallet = null;
-
-  try {
-    console.log("🔗 Building wallet with genesis seed for standalone mode...");
-
-    // Build wallet using genesis seed (which has initial funds in standalone mode)
-    wallet = await buildWalletAndWaitForFunds(
-      config,
-      GENESIS_MINT_WALLET_SEED,
-      "contract.json"
-    );
-
-    console.log("✅ Wallet built successfully");
-
-    // Configure providers
-    console.log("⚙️ Configuring providers...");
-    const providers = await configureProviders(wallet, config);
-
-    console.log("✅ Providers configured successfully");
-
-    // Join the contract
-    console.log(
-      `🔗 Joining multi chain multi token contract at address: ${contractAddress}`
-    );
-    const multiChainMultiTokenContract = await joinContract(providers, contractAddress);
-
-    console.log("✅ Successfully joined the multi chain multi token contract");
-
-    // Increment the counter
-    console.log("🔢 Minting multi chain multi token...");
-    const incrementResult = await mint(multiChainMultiTokenContract, account, amount);
-
-    console.log(
-      `✅ Multi chain multi token minted successfully! Transaction ID: ${incrementResult.txId}`
-    );
-    console.log(
-      `✅ Multi chain multi token minted! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`
-    );
-
-    const accountBalance = await balanceOf(multiChainMultiTokenContract, account);
-    console.log(`Account balance: ${String(accountBalance)}`);
-    // Display multi chain multi token value after increment
-    await getMultiChainMultiTokenLedgerState(providers, contractAddress);
-
-    console.log("🎉 Join and mint process completed successfully!");
-  } catch (error) {
-    console.error("❌ Error during join and mint process:", error);
-    console.error("❌ Error:", error instanceof Error ? error.message : error);
-    Deno.exit(1);
-  } finally {
-    // Clean up wallet
-    if (wallet) {
-      try {
-        console.log("🧹 Wallet closed successfully");
-        Deno.exit(0);
-      } catch (error) {
-        console.error("❌ Error closing wallet:", error);
-      }
-    }
-  }
-}
 
 const faucet = async (receiverAddress: string): Promise<void> => {
-  // Get contract address from command line arguments or file
-  const contractAddress = await getContractAddress();
-
-  console.log(
-    `🚀 Starting join and mint process for contract: ${contractAddress}`
-  );
 
   // Initialize configuration
   const config = new StandaloneConfig();
@@ -531,23 +365,7 @@ const faucet = async (receiverAddress: string): Promise<void> => {
 
     console.log("✅ Wallet built successfully");
 
-    // Configure providers
-    console.log("⚙️ Configuring providers...");
-    const providers = await configureProviders(wallet, config);
-
-    console.log("✅ Providers configured successfully");
-
-    // Join the contract
-    console.log(
-      `🔗 Joining multi chain multi token contract at address: ${contractAddress}`
-    );
-    const multiChainMultiTokenContract = await joinContract(providers, contractAddress);
-
-    console.log("✅ Successfully joined the multi chain multi token contract");
-
     /* Transfer dust to lace wallet */
-    // const receiverAddress =
-    //   "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
     const transferRecipe = await wallet.transferTransaction([
       {
         amount: 10000000n, // 10 Dust
@@ -555,7 +373,19 @@ const faucet = async (receiverAddress: string): Promise<void> => {
         receiverAddress,
       },
     ]);
-    console.log("✅ Successfully transferred dust to receiver address ", receiverAddress, { transferRecipe });
+    console.log({ transferRecipe });
+    
+    const provenTransaction = await wallet.proveTransaction(transferRecipe);
+    console.log({ provenTransaction });
+    
+    const submittedTransaction = await wallet.submitTransaction(
+      provenTransaction
+    );
+    console.log({ submittedTransaction });
+    
+    console.log("✅ Successfully transferred dust to receiver address ");
+
+
   } catch (error) {
     console.error("❌ Error during join and mint process:", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
@@ -575,26 +405,17 @@ const faucet = async (receiverAddress: string): Promise<void> => {
 
 // Run the script if this file is executed directly
 if (import.meta.main) {
-  // If this script is called with the MIDNIGHT_ADDRESS environment variable, run the faucet function
   const midnightAddress = Deno.env.get("MIDNIGHT_ADDRESS");
-  if (midnightAddress) {
+  if (!midnightAddress) {
+    console.error("❌ MIDNIGHT_ADDRESS environment variable is not set");
+    console.error("Example: MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts");
+    Deno.exit(1);
+  }
+  try {
     await faucet(midnightAddress);
     Deno.exit(0);
-  }
-
-  const wallet = await WalletBuilder.build(
-    config.indexer,
-    config.indexerWS,
-    config.proofServer,
-    config.node,
-    GENESIS_MINT_WALLET_SEED,
-    NetworkId.Undeployed
-  );
-  const address = (await Rx.firstValueFrom(wallet.state())).address;
-  joinAndMint(address, 20000n).catch((error) => {
-    console.error("❌ Unhandled error:", error);
+  } catch (error) {
+    console.error("❌ Error during faucet process:", error);
     Deno.exit(1);
-  });
+  }
 }
-
-export { joinAndMint };
