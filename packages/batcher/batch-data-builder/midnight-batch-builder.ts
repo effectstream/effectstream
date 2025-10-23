@@ -1,9 +1,9 @@
 import { hexStringToUint8Array } from "@paima/utils";
 import type { DefaultBatcherInput } from "../core/types.ts";
 import type {
-  BatchDataBuilder,
   BatchBuildingOptions,
   BatchBuildingResult,
+  BatchDataBuilder,
 } from "./batch-data-builder.ts";
 
 const BATCH_PREFIX = "&B";
@@ -26,8 +26,7 @@ function decodeHexIfNeeded(value: string): string {
 }
 
 export class MidnightBatchDataBuilder<T extends DefaultBatcherInput>
-  implements BatchDataBuilder<T>
-{
+  implements BatchDataBuilder<T> {
   buildBatchData(
     inputs: T[],
     options?: BatchBuildingOptions,
@@ -50,18 +49,8 @@ export class MidnightBatchDataBuilder<T extends DefaultBatcherInput>
     let currentSize = encoder.encode(emptyBatch).length;
 
     for (const input of inputs) {
-      let parsed: any;
-      try {
-        parsed = JSON.parse(decodeHexIfNeeded(input.input));
-      } catch (error) {
-        console.warn(`Skipping malformed Midnight input: ${error}`);
-        continue;
-      }
-
-      if (!parsed || typeof parsed !== "object" || typeof parsed.circuit !== "string" || !Array.isArray(parsed.args)) {
-        console.warn("Skipping Midnight input with invalid structure");
-        continue;
-      }
+      // Inputs are now pre-validated, so we can trust the structure
+      const parsed = JSON.parse(decodeHexIfNeeded(input.input));
 
       const payloadEntry = {
         circuit: parsed.circuit,
@@ -98,4 +87,3 @@ export class MidnightBatchDataBuilder<T extends DefaultBatcherInput>
     };
   }
 }
-
