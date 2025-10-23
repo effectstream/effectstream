@@ -1,4 +1,4 @@
-// SimpleToken.compact
+// MultiChainMultiToken.compact
 pragma language_version >= 0.17.0;
 
 import CompactStandardLibrary;

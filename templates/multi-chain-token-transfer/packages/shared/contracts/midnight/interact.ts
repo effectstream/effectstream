@@ -3,9 +3,9 @@ import {
   NetworkId,
 } from "npm:@midnight-ntwrk/compact-runtime";
 import {
-  SimpleToken,
+  MultiChainMultiToken,
   witnesses,
-} from "./contract-eip-20/src/index.original.ts";
+} from "./contract-eip-1155/src/index.original.ts";
 import {
   type CoinInfo,
   nativeToken,
@@ -51,21 +51,21 @@ import { exists } from "@std/fs";
 globalThis.WebSocket = WebSocket;
 
 // Inlined common types for standalone script
-type SimpleTokenCircuits = ImpureCircuitId<SimpleToken.Contract>;
+type MultiChainMultiTokenCircuits = ImpureCircuitId<MultiChainMultiToken.Contract>;
 
-const SimpleTokenPrivateStateId = "simpleTokenPrivateState";
+const MultiChainMultiTokenPrivateStateId = "multiChainMultiTokenPrivateState";
 
-type SimpleTokenProviders = MidnightProviders<
-  SimpleTokenCircuits,
-  typeof SimpleTokenPrivateStateId,
+type MultiChainMultiTokenProviders = MidnightProviders<
+  MultiChainMultiTokenCircuits,
+  typeof MultiChainMultiTokenPrivateStateId,
   {}
 >;
 
-type SimpleTokenContract = SimpleToken.Contract;
+type MultiChainMultiTokenContract = MultiChainMultiToken.Contract;
 
-type DeployedSimpleTokenContract =
-  | DeployedContract<SimpleTokenContract>
-  | FoundContract<SimpleTokenContract>;
+type DeployedMultiChainMultiTokenContract =
+  | DeployedContract<MultiChainMultiTokenContract>
+  | FoundContract<MultiChainMultiTokenContract>;
 
 interface Config {
   readonly indexer: string;
@@ -89,24 +89,24 @@ const config = new StandaloneConfig();
 const currentDir = resolve(dirname(new URL(import.meta.url).pathname));
 
 const contractConfig = {
-  privateStateStoreName: "counter-private-state",
+  privateStateStoreName: "multichain_multitoken-private-state",
   zkConfigPath: resolve(
     currentDir,
-    "contract-eip-20",
+    "contract-eip-1155",
     "src",
     "managed",
-    "simpletoken"
+    "multichain_multitoken"
   ),
 };
 
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
 
-const simpleTokenContractInstance: SimpleTokenContract =
-  new SimpleToken.Contract(witnesses);
+const multiChainMultiTokenContractInstance: MultiChainMultiTokenContract =
+  new MultiChainMultiToken.Contract(witnesses);
 
-const getSimpleTokenLedgerState = async (
-  providers: SimpleTokenProviders,
+const getMultiChainMultiTokenLedgerState = async (
+  providers: MultiChainMultiTokenProviders,
   contractAddress: ContractAddress
 ): Promise<bigint | null> => {
   assertIsContractAddress(contractAddress);
@@ -123,7 +123,7 @@ const getSimpleTokenLedgerState = async (
       )
     );
     const state =
-      contractState != null ? SimpleToken.ledger(contractState.data) : null;
+      contractState != null ? MultiChainMultiToken.ledger(contractState.data) : null;
     console.log(
       `📊 Ledger state: ${
         state &&
@@ -137,30 +137,30 @@ const getSimpleTokenLedgerState = async (
     );
     return state;
   } catch (error) {
-    console.error("❌ Error getting simple token ledger state:", error);
+    console.error("❌ Error getting multi chain multi token ledger state:", error);
     throw error;
   }
 };
 
 const joinContract = async (
-  providers: SimpleTokenProviders,
+  providers: MultiChainMultiTokenProviders,
   contractAddress: string
-): Promise<DeployedSimpleTokenContract> => {
+): Promise<DeployedMultiChainMultiTokenContract> => {
   console.log("Joining contract...🍋🍋🍋");
-  const simpleTokenContract = await findDeployedContract(providers, {
+  const multiChainMultiTokenContract = await findDeployedContract(providers, {
     contractAddress,
-    contract: simpleTokenContractInstance,
-    privateStateId: "simpleTokenPrivateState",
+    contract: multiChainMultiTokenContractInstance,
+    privateStateId: "multiChainMultiTokenPrivateState",
     initialPrivateState: {},
   });
   console.log(
-    `Joined contract at address: ${simpleTokenContract.deployTxData.public.contractAddress}`
+    `Joined contract at address: ${multiChainMultiTokenContract.deployTxData.public.contractAddress}`
   );
-  return simpleTokenContract;
+  return multiChainMultiTokenContract;
 };
 
 const balanceOf = async (
-  simpleTokenContract: DeployedSimpleTokenContract,
+  multiChainMultiTokenContract: DeployedMultiChainMultiTokenContract,
   account: string
 ): Promise<bigint> => {
   const shieldedAddress = ShieldedAddress.codec.decode(
@@ -172,12 +172,12 @@ const balanceOf = async (
     left: { bytes: shieldedAddress.coinPublicKey.data },
     right: { bytes: new Uint8Array(32) },
   };
-  const accountBalance = await simpleTokenContract.callTx.balanceOf(either);
+  const accountBalance = await multiChainMultiTokenContract.callTx.balanceOf(either);
   return accountBalance.private.result as bigint;
 };
 
 const mint = async (
-  simpleTokenContract: DeployedSimpleTokenContract,
+  multiChainMultiTokenContract: DeployedMultiChainMultiTokenContract,
   account: string,
   value: bigint
 ): Promise<FinalizedTxData> => {
@@ -192,7 +192,7 @@ const mint = async (
     left: { bytes: shieldedAddress.coinPublicKey.data },
     right: { bytes: new Uint8Array(32) },
   };
-  const finalizedTxData = await simpleTokenContract.callTx.mint(either, value);
+  const finalizedTxData = await multiChainMultiTokenContract.callTx.mint(either, value);
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`
   );
@@ -367,7 +367,7 @@ const configureProviders = async (
   );
   return {
     privateStateProvider: levelPrivateStateProvider<
-      typeof SimpleTokenPrivateStateId
+      typeof MultiChainMultiTokenPrivateStateId
     >({
       privateStateStoreName: contractConfig.privateStateStoreName,
     }),
@@ -466,27 +466,27 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
 
     // Join the contract
     console.log(
-      `🔗 Joining simple token contract at address: ${contractAddress}`
+      `🔗 Joining multi chain multi token contract at address: ${contractAddress}`
     );
-    const simpleTokenContract = await joinContract(providers, contractAddress);
+    const multiChainMultiTokenContract = await joinContract(providers, contractAddress);
 
-    console.log("✅ Successfully joined the simple token contract");
+    console.log("✅ Successfully joined the multi chain multi token contract");
 
     // Increment the counter
-    console.log("🔢 Minting simple token...");
-    const incrementResult = await mint(simpleTokenContract, account, amount);
+    console.log("🔢 Minting multi chain multi token...");
+    const incrementResult = await mint(multiChainMultiTokenContract, account, amount);
 
     console.log(
-      `✅ Simple token minted successfully! Transaction ID: ${incrementResult.txId}`
+      `✅ Multi chain multi token minted successfully! Transaction ID: ${incrementResult.txId}`
     );
     console.log(
-      `✅ Simple token minted! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`
+      `✅ Multi chain multi token minted! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`
     );
 
-    const accountBalance = await balanceOf(simpleTokenContract, account);
+    const accountBalance = await balanceOf(multiChainMultiTokenContract, account);
     console.log(`Account balance: ${String(accountBalance)}`);
-    // Display simple token value after increment
-    await getSimpleTokenLedgerState(providers, contractAddress);
+    // Display multi chain multi token value after increment
+    await getMultiChainMultiTokenLedgerState(providers, contractAddress);
 
     console.log("🎉 Join and mint process completed successfully!");
   } catch (error) {
@@ -539,11 +539,11 @@ const faucet = async (receiverAddress: string): Promise<void> => {
 
     // Join the contract
     console.log(
-      `🔗 Joining simple token contract at address: ${contractAddress}`
+      `🔗 Joining multi chain multi token contract at address: ${contractAddress}`
     );
-    const simpleTokenContract = await joinContract(providers, contractAddress);
+    const multiChainMultiTokenContract = await joinContract(providers, contractAddress);
 
-    console.log("✅ Successfully joined the simple token contract");
+    console.log("✅ Successfully joined the multi chain multi token contract");
 
     /* Transfer dust to lace wallet */
     // const receiverAddress =
