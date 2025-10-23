@@ -4,7 +4,7 @@ import { createWalletClient, custom } from "viem";
 import { createPublicClient, http } from "viem";
 import { mct_erc1155 } from "@multi-chain-transfer/evm-contracts";
 
-import * as Eip20Interact from "./eip-1155-interact.ts";
+import * as Eip1155Interact from "./eip-1155-interact.ts";
 
 const EVM_CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
@@ -43,7 +43,7 @@ export async function loginMidnight() {
   const paimaWallet = result.result;
 
   const { injectedWallet, providers } =
-    await Eip20Interact.connectMidnightWallet(
+    await Eip1155Interact.connectMidnightWallet(
       (paimaWallet.provider as any).conn.api
     );
   const state: any = await injectedWallet.state();
@@ -53,7 +53,7 @@ export async function loginMidnight() {
     contract,
     state: state2,
     contractAddress,
-  } = await Eip20Interact.connectToContract(providers);
+  } = await Eip1155Interact.connectToContract(providers);
   const data = {
     addr,
     contract,
@@ -69,7 +69,7 @@ export async function loginMidnight() {
 export async function midnight_balanceOf(contract: any, addr: string) {
   try {
     console.log("Balance of", contract, addr);
-    return await Eip20Interact.balanceOf(contract, addr);
+    return await Eip1155Interact.balanceOf(contract, addr);
   } catch (error) {
     console.error(0, { error });
   }
@@ -81,7 +81,7 @@ export async function midnight_mint(
   amount: bigint
 ) {
   try {
-    return await Eip20Interact.mint(contract, addr, amount);
+    return await Eip1155Interact.mint(contract, addr, amount);
   } catch (error) {
     console.error(1, { error });
   }
@@ -99,7 +99,7 @@ export async function midnight_transferToEVM(
     const txHashArrayBuffer = new ArrayBuffer(16);
     const txHashView = new Uint8Array(txHashArrayBuffer);
     txHashView.set(new TextEncoder().encode(txHash));
-    return await Eip20Interact.transferToEvm(
+    return await Eip1155Interact.transferToEvm(
       contract,
       addr,
       targetAddress,
