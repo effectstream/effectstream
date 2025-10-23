@@ -1,10 +1,22 @@
 // Implements a adapter interface for the batcher responsible for handling blockchain interactions
 
+import type { DefaultBatcherInput } from "../core/types.ts";
+
 /**
  * Generic blockchain transaction hash type
  * Can represent transaction hashes from any blockchain
  */
 export type BlockchainHash = string;
+
+/**
+ * Result of input validation operations
+ */
+export type ValidationResult = {
+  /** Whether the input is valid */
+  valid: boolean;
+  /** Error message if validation failed */
+  error?: string;
+};
 
 /**
  * Generic blockchain transaction receipt type
@@ -87,4 +99,25 @@ export interface BlockchainAdapter {
    * If not provided, the batcher will fall back to the adapter's chain name
    */
   getSyncProtocolName?(): string;
+
+  /**
+   * (Optional) Verifies the input signature.
+   * If not implemented, the batcher will use its default EVM verification logic.
+   * Adapters for chains without signatures (like Midnight) should override this
+   * to return `true`.
+   * @param input - The input containing the signature.
+   * @returns A promise resolving to true if the signature is valid.
+   */
+  verifySignature?(input: DefaultBatcherInput): boolean | Promise<boolean>;
+
+  /**
+   * (Optional) Validate an input _before_ it is added to the storage queue.
+   * This is used for adapter-specific semantic validation, like checking
+   * circuit arguments or payload formats.
+   * @param input - The input to validate.
+   * @returns A promise resolving to a ValidationResult.
+   */
+  validateInput?(
+    input: DefaultBatcherInput,
+  ): ValidationResult | Promise<ValidationResult>;
 }

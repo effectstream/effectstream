@@ -2,6 +2,7 @@ import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { type Static, Type } from "@sinclair/typebox";
 import type { PaimaBatcher } from "../core/batcher.ts";
+import { InputValidationError } from "../core/batcher.ts";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
 } from "@fastify/swagger";
@@ -302,6 +303,15 @@ export async function startBatcherHttpServer(
       }
     } catch (error) {
       console.error("Error adding input to batcher:", error);
+
+      if (error instanceof InputValidationError) {
+        return reply.status(error.statusCode).send({
+          success: false,
+          error: "Validation failed",
+          message: error.message,
+        });
+      }
+
       return reply.status(500).send({
         success: false,
         error: "Internal server error",

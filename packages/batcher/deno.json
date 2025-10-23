@@ -3,6 +3,9 @@
   "exports": "./mod.ts",
   "version": "0.3.0",
   "license": "MIT",
+  "tasks": {
+    "check": "deno check ./mod.ts"
+  },
   "imports": {
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "viem": "npm:viem@^2.21.3",

@@ -32,6 +32,17 @@ import type { BatcherGrammar, BatcherListener } from "./batcher-events.ts";
 import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
 
 /**
+ * Custom error class for input validation failures
+ * Provides structured error information with appropriate HTTP status codes
+ */
+export class InputValidationError extends Error {
+  constructor(message: string, public statusCode: number = 400) {
+    super(message);
+    this.name = "InputValidationError";
+  }
+}
+
+/**
  * PaimaBatcher - A type-safe, simplified blockchain batching system
  *
  * ARCHITECTURE:
@@ -333,13 +344,41 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     timeoutMs: number = 60000,
   ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
     if (this.shutdownState.isShuttingDown) {
-      throw new Error("Batcher is shutting down, not accepting new inputs");
+      // 503 Service Unavailable
+      throw new InputValidationError(
+        "Batcher is shutting down, not accepting new inputs",
+        503,
+      );
     }
 
-    const verifiedSignature = await this.verifyInputSignature(input);
-    if (!verifiedSignature) {
-      throw new Error("Invalid signature");
+    const target = input.target || this.defaultTarget;
+    const adapter = this.adapters[target];
+
+    // 1. Signature Validation (Pre-Queue, Adapter-Driven)
+    let verifiedSignature = false;
+
+    if (adapter && typeof adapter.verifySignature === "function") {
+      verifiedSignature = await adapter.verifySignature(input);
+    } else {
+      // Fall back to the batcher's default EVM verification
+      verifiedSignature = await this._defaultVerifyInputSignature(input);
     }
+
+    if (!verifiedSignature) {
+      throw new InputValidationError("Invalid signature", 401);
+    }
+
+    // 2. Adapter-Specific Input Validation (Pre-Queue)
+    if (adapter && typeof adapter.validateInput === "function") {
+      const validationResult = await adapter.validateInput(input);
+      if (!validationResult.valid) {
+        throw new InputValidationError(
+          validationResult.error || "Invalid input for target adapter",
+        );
+      }
+    }
+
+    // 3. Add to Storage (Only if all validation passes)
     await this.addInput(input);
     const { count, size } = await this.storage.getInputCountAndSize();
     console.log(
@@ -353,7 +392,8 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // Create promise for callback with timeout
     const receiptPromise = new Promise<BlockchainTransactionReceipt>(
       (resolve, reject) => {
-        const callbackKey = input.signature || `${input.addressType}-${input.timestamp}`;
+        const callbackKey = input.signature ||
+          `${input.addressType}-${input.timestamp}`;
         const timeoutId = setTimeout(() => {
           this.submissionCallbacks.delete(callbackKey);
           reject(new Error("Receipt confirmation timeout"));
@@ -475,15 +515,32 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     await this.storage.addInput(input);
   }
 
-  async verifyInputSignature(
+  private async _defaultVerifyInputSignature(
     input: T,
   ): Promise<boolean> {
-    if (input.addressType === AddressType.MIDNIGHT) {
-      return true;
+    // This is the default EVM verification logic
+    // Create the signature message using EVM-specific logic
+    let walletAddress;
+    switch (input.addressType) {
+      case AddressType.EVM:
+        walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, input.address);
+        break;
+      default:
+        throw new Error(
+          `Unsupported address type for signature verification: ${input.addressType}`,
+        );
     }
 
-    const message = this.createSignatureMessage(input);
-    // TODO: Define a generic signature verifier for all the supported address types.
+    const message = (
+      this.namespace +
+      (input.target ?? "") +
+      input.timestamp +
+      walletAddress +
+      input.input
+    )
+      .replace(/[^a-zA-Z0-9]/g, "-")
+      .toLocaleLowerCase();
+
     return await CryptoManager.Evm().verifySignature(
       input.address,
       message,
@@ -973,31 +1030,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   validateInput(input: T): boolean | Promise<boolean> {
     return !!input.signature && !!input.address;
-  }
-
-  /**
-   * Creates the message to be validated by verifyInputSignature against a signature and address.
-   * @param input - The input to create a message for.
-   * @returns A string message for the batcher.
-   */
-  private createSignatureMessage(input: T): string {
-    let walletAddress;
-    switch (input.addressType) {
-      case AddressType.EVM:
-        walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, input.address);
-        break;
-      default:
-        throw new Error("Invalid address type");
-    }
-    return (
-      this.namespace +
-      (input.target ?? "") +
-      input.timestamp +
-      walletAddress +
-      input.input
-    )
-      .replace(/[^a-zA-Z0-9]/g, "-")
-      .toLocaleLowerCase();
   }
 
   /**
