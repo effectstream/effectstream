@@ -10,7 +10,7 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
 import type { EvmAddress, EvmPrivateKey } from "@paimaexample/utils";
 import { hexStringToUint8Array } from "@paimaexample/utils";
-import type { BlockchainAdapter } from "@paimaexample/batcher";
+import type { BlockchainAdapter, ValidationResult } from "@paimaexample/batcher";
 import { mct_erc1155 } from "@multi-chain-transfer/evm-contracts";
 
 // Type conversion utilities
@@ -95,8 +95,8 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
       // Extract the first input: [addressType, address, signature, input, timestamp]
       const firstInput = JSON.parse(batchArray.inputs[0] as unknown as string);
       const inputData = firstInput[3]; // The 'input' field contains the hex-encoded function call
-      
-      // Decode and parse the input to get the function call
+
+      // Parse the function call (inputs are now pre-validated, so this should succeed)
       const functionCall = this.parseFunctionCall(inputData);
       
       console.log(
@@ -108,11 +108,6 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
       // Route to appropriate contract function
       switch (functionCall.function) {
         case "mint": {
-          if (functionCall.args.length !== 2) {
-            throw new Error(
-              `mint() expects 2 arguments (address, amount), got ${functionCall.args.length}`,
-            );
-          }
           const [to, amount] = functionCall.args;
           hash = await this.walletClient.writeContract({
             account: this.account,
@@ -126,11 +121,6 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
         }
 
         case "transferToMidnight": {
-          if (functionCall.args.length !== 3) {
-            throw new Error(
-              `transferToMidnight() expects 3 arguments (amount, targetAddress, txHash), got ${functionCall.args.length}`,
-            );
-          }
           const [amount, targetAddress, txHash] = functionCall.args;
           hash = await this.walletClient.writeContract({
             account: this.account,
@@ -144,6 +134,7 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
         }
 
         default:
+          // This should never happen since validation is done pre-queue
           throw new Error(
             `Unsupported function: ${functionCall.function}. Supported functions: mint, transferToMidnight`,
           );
@@ -235,6 +226,52 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
    */
   getContractAddress(): EvmAddress {
     return this.erc1155Address;
+  }
+
+  /**
+   * Pre-validate ERC1155 inputs before they enter the batch queue
+   * Validates function call structure and arguments
+   */
+  validateInput(input: DefaultBatcherInput): ValidationResult {
+    try {
+      // The input.input field contains the hex-encoded function call
+      const inputData = input.input;
+
+      const functionCall = this.parseFunctionCall(inputData);
+
+      switch (functionCall.function) {
+        case "mint":
+          if (functionCall.args.length !== 2) {
+            return {
+              valid: false,
+              error: `mint() expects 2 arguments (address, amount), got ${functionCall.args.length}`,
+            };
+          }
+          break;
+
+        case "transferToMidnight":
+          if (functionCall.args.length !== 3) {
+            return {
+              valid: false,
+              error: `transferToMidnight() expects 3 arguments (amount, targetAddress, txHash), got ${functionCall.args.length}`,
+            };
+          }
+          break;
+
+        default:
+          return {
+            valid: false,
+            error: `Unsupported function: ${functionCall.function}. Supported functions: mint, transferToMidnight`,
+          };
+      }
+
+      return { valid: true };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : "Unknown validation error",
+      };
+    }
   }
 
   /**
