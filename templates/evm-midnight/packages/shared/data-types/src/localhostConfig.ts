@@ -9,6 +9,7 @@ import {
 import { hardhat } from "viem/chains";
 import { getConnection } from "@paimaexample/db";
 import { PrimitiveTypeEVMERC721, PrimitiveTypeMidnightGeneric } from "@paimaexample/sm/builtin";
+import * as CounterContract from "@example-evm-midnight/my-midnight-contract/contract";
 
 /**
  * Let check if the db.
@@ -129,6 +130,8 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1,
           contractAddress: readMidnightContract().contractAddress,
           stateMachinePrefix: "midnightContractState",
+          contract: { ledger: CounterContract.ledger },
+          networkId: 0, // NetworkId.Undeployed,
         })
       )
   )

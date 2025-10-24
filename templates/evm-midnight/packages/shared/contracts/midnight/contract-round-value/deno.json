@@ -2,7 +2,8 @@
   "name": "@example-evm-midnight/my-midnight-contract",
   "exports": {
     ".": "./src/_index.ts",
-    "./witnesses": "./src/witnesses.ts"
+    "./witnesses": "./src/witnesses.ts",
+    "./contract": "./src/managed/counter/contract/index.cjs"
   },
   "tasks": {
     "compact": "compact compile src/counter.compact src/managed/counter && deno task convert:js",
