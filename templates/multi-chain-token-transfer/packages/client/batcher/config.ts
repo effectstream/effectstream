@@ -6,7 +6,7 @@ import {
   DefaultBatchDataBuilder,
 } from "@paimaexample/batcher";
 import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
-import { SimpleToken, witnesses } from "@multi-chain-transfer/midnight-contracts/simpletoken";
+import { MultiChainMultiToken, witnesses } from "@multi-chain-transfer/midnight-contracts/multichain_multitoken";
 import { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import * as path from "@std/path";
 import { hardhat } from "viem/chains";
@@ -25,10 +25,10 @@ const zkConfigPath = path.resolve(
   "../../shared",
   "contracts",
   "midnight",
-  "contract-eip-20",
+  "contract-eip-1155",
   "src",
   "managed",
-  "simpletoken",
+  "multichain_multitoken",
 );
 
 const midnightAdapterConfig = {
@@ -37,15 +37,15 @@ const midnightAdapterConfig = {
   node: "http://localhost:9944",
   proofServer: "http://localhost:6300",
   zkConfigPath,
-  privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
-  privateStateId: "simpleTokenPrivateState", // On-chain contract ID (must match deploy.ts)
+  privateStateStoreName: "multichain_multitoken-private-state", // Local LevelDB store
+  privateStateId: "multiChainMultiTokenPrivateState", // On-chain contract ID (must match deploy.ts)
 }
 
 const midnightAdapter = new MidnightAdapter(
   contractAddress,
   GENESIS_MINT_WALLET_SEED,
   midnightAdapterConfig,
-  new SimpleToken.Contract(witnesses),
+  new MultiChainMultiToken.Contract(witnesses),
   witnesses,
   contractInfo,
   NetworkId.Undeployed,
