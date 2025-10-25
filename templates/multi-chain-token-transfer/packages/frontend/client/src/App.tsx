@@ -238,7 +238,7 @@ function App() {
   const fetchErc721Data = async () => {
     await withLoader("Fetching ERC721 data...", async () => {
       try {
-        const response = await fetch("http://localhost:9999/api/erc721");
+        const response = await fetch("http://localhost:9999/api/erc1155");
         if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();

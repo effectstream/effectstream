@@ -20,35 +20,15 @@ enum MidnightContractActionName {
   TRANSFER_TO_EVM = 1007,
 }
 
+const decodeToByteString = (x: { [key: string]: number }): string => 
+  Array(Object.keys(x).length)
+    .fill(0)
+    .map((_,i)=>x[i])
+    .join('')
+    .trim();
+
 stm.addStateTransition("midnightContractState", function* (data) {
-  const decodedData = new MidnightDecoder().decode(data.parsedInput.payload);
-  // TODO Improve the midnight generic primitive to not need to decode the string.
-  const payload = data.parsedInput.payload;
-  const targetAddress = new Uint8Array(decodedData.actionTarget.is_left ? Object.values(decodedData.actionTarget.left.bytes) : Object.values(decodedData.actionTarget.right.bytes));
-  const actionName = Number(decodedData.actionName);
-  switch (actionName) {
-    case MidnightContractActionName.MINT:
-      console.log("🎉 [MIDNIGHT] Mint action");
-      console.log("🎉 [MIDNIGHT] Mint action Value", decodedData.actionValue);
-      console.log("🎉 [MIDNIGHT] Mint action Target", targetAddress.toHex());
-      break;
-    case MidnightContractActionName.TRANSFER_TO_EVM:
-      console.log("🎉 [MIDNIGHT] Transfer to EVM action");
-      console.log("🎉 [MIDNIGHT] Transfer to EVM action Value", decodedData.actionValue);
-      console.log("🎉 [MIDNIGHT] Transfer to EVM action Target", payload.actionTargetAddress);      
-      yield* mintInEvm(payload.actionTargetAddress, BigInt(decodedData.actionValue));
-      break;
-    case MidnightContractActionName.BURN_FROM:
-      break;
-    default: {
-      console.error(
-        "🎉 [MIDNIGHT] Transaction receipt:",
-        JSON.stringify(payload),
-        "\n",
-        JSON.stringify(decodedData)
-      );
-    }
-  }
+  const { actionName, actionValue, actionTargetAddress, actionTarget } = data.parsedInput.payload;
   // Example ledger state:
   // {
   //   "txHashes":{},
@@ -64,6 +44,28 @@ stm.addStateTransition("midnightContractState", function* (data) {
   //   "actionTargetAddress":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
   //   "actionValue":"1200"
   //   }
+  switch (Number(actionName)) {
+    case MidnightContractActionName.MINT:
+      console.log("🎉 [MIDNIGHT] Mint action");
+      console.log("🎉 [MIDNIGHT] Mint action Value", actionValue);
+      console.log("🎉 [MIDNIGHT] Mint action Target", decodeToByteString(actionTarget.left.bytes));
+      break;
+    case MidnightContractActionName.TRANSFER_TO_EVM:
+      console.log("🎉 [MIDNIGHT] Transfer to EVM action");
+      console.log("🎉 [MIDNIGHT] Transfer to EVM action Value", actionValue);
+      console.log("🎉 [MIDNIGHT] Transfer to EVM action Target", actionTargetAddress);      
+      yield* mintInEvm(actionTargetAddress, BigInt(actionValue));
+      break;
+    case MidnightContractActionName.BURN_FROM:
+      break;
+    default: {
+      console.error(
+        "🎉 [MIDNIGHT] Transaction receipt:",
+        JSON.stringify(data.parsedInput.payload)
+      );
+    }
+  }
+
 });
 
 stm.addStateTransition("transfer-to-midnight", function* (data) {
@@ -154,144 +156,3 @@ export const gameStateTransitions: StartConfigGameStateTransitions = function* (
   return;
 };
 
-// Midnight Decoder
-
-class MidnightDecoder {
-  /**
-   * Converts a value object like { '0': 72, '1': 101 } to a sorted byte array [72, 101].
-   * @param {object} valueData - The object containing numeric values with string keys.
-   * @returns {number[]} A sorted array of byte values.
-   */
-  private valueObjectToByteArray(valueData: any) {
-    if (!valueData || Object.keys(valueData).length === 0) {
-      return [];
-    }
-    // Sort keys numerically to ensure correct byte order.
-    const entries = Object.entries(valueData).map(
-      ([key, val]: [string, unknown]) => [parseInt(key, 10), val as number]
-    );
-    entries.sort((a, b) => a[0] - b[0]);
-    return entries.map((entry) => entry[1]);
-  }
-
-  /**
-   * Decodes the content of a "cell" object based on its alignment descriptors.
-   * @param {object} content - The content object from a cell, containing 'value' and 'alignment'.
-   * @returns {any|any[]} The decoded value or an array of decoded values.
-   */
-  private decodeCellContent(content: any) {
-    // Gracefully handle cell content that is empty or malformed.
-    if (
-      !content ||
-      !Array.isArray(content.alignment) ||
-      !Array.isArray(content.value)
-    ) {
-      return null; // An empty or invalid cell decodes to null.
-    }
-
-    const { value: values, alignment: alignments } = content;
-    const decodedParts = [];
-
-    for (let i = 0; i < alignments.length; i++) {
-      const alignment = alignments[i];
-      const valueData = values[i] || {}; // Default to empty object if value part is missing.
-
-      // Alignment is always an 'atom' wrapping the type descriptor.
-      const typeDesc = alignment.value;
-      const byteArray = this.valueObjectToByteArray(valueData);
-
-      if (!typeDesc) {
-        decodedParts.push(null); // Handle cases with missing type info.
-        continue;
-      }
-
-      switch (typeDesc.tag) {
-        case "compress":
-          // The 'compress' tag indicates a string.
-          decodedParts.push(String.fromCharCode(...byteArray));
-          break;
-        case "bytes":
-          if (byteArray.length === 0) {
-            decodedParts.push(null); // Represent empty byte arrays as null.
-          } else if (byteArray.length === 1) {
-            // If it's a single byte, return as a number for simplicity.
-            decodedParts.push(byteArray[0]);
-          } else {
-            // Heuristic: Treat smaller byte arrays as little-endian numbers,
-            // and larger ones (like hashes) as big-endian (direct order) hex strings.
-            if (byteArray.length <= 6) {
-              let numericValue = 0n;
-              for (let j = 0; j < byteArray.length; j++) {
-                numericValue += BigInt(byteArray[j]) << BigInt(8 * j);
-              }
-              decodedParts.push(Number(numericValue));
-            } else {
-              const hexString = byteArray
-                .map((b) => b.toString(16).padStart(2, "0"))
-                .join("");
-              decodedParts.push("0x" + hexString);
-            }
-          }
-          break;
-        case "null":
-          decodedParts.push(null);
-          break;
-        default:
-          // If we encounter an unknown type, return it raw for debugging.
-          decodedParts.push({ unhandled_type: typeDesc, value: byteArray });
-          break;
-      }
-    }
-
-    // If a cell results in a single decoded part, return it directly.
-    // Otherwise, return the full array of parts.
-    return decodedParts.length === 1 ? decodedParts[0] : decodedParts;
-  }
-
-  /**
-   * The main recursive decoder function.
-   * @param {object} data - The JSON object to decode.
-   * @returns {any} The decoded data.
-   */
-  public decode(data: any): any {
-    try {
-      if (!data || typeof data !== "object") {
-        return data;
-      }
-
-      // Check for the main structural tags.
-      if ("tag" in data) {
-        switch (data.tag) {
-          case "array":
-            return data.content.map((item: any) => this.decode(item));
-          case "map":
-            // The example only has empty maps. A more general implementation
-            // would handle an array of [key, value] tuples here.
-            return {}; // For empty map content: {}
-          case "cell":
-            return this.decodeCellContent(data.content);
-          case "atom":
-            // An atom just wraps another value. Decode the inner value.
-            return this.decode(data.value);
-          case "null":
-            return null;
-          default:
-            // This case handles type descriptor tags ('bytes', 'compress')
-            // if passed directly. We return them as is.
-            return data;
-        }
-      }
-
-      // This handles the case where the object is the content of a cell.
-      if ("value" in data && "alignment" in data) {
-        return this.decodeCellContent(data);
-      }
-
-      // Return unknown objects as they are.
-      return data;
-    } catch (error) {
-      // console.error("Error decoding data:", error);
-      return null;
-    }
-  }
-}
