@@ -27,9 +27,9 @@ import {
   deployContract,
 } from "npm:@midnight-ntwrk/midnight-js-contracts@2.0.2";
 import {
-  SimpleToken,
+  MultiChainMultiToken,
   witnesses,
-} from "./contract-eip-20/src/index.original.ts";
+} from "./contract-eip-1155/src/index.original.ts";
 import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2";
 import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@2.0.2";
 import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@2.0.2";
@@ -48,13 +48,13 @@ const GENESIS_MINT_WALLET_SEED =
 const currentDir = path.dirname(path.fromFileUrl(import.meta.url));
 
 const contractConfig = {
-  privateStateStoreName: "simpletoken-private-state",
+  privateStateStoreName: "multichain_multitoken-private-state",
   zkConfigPath: path.resolve(
     currentDir,
-    "contract-eip-20",
+    "contract-eip-1155",
     "src",
     "managed",
-    "simpletoken",
+    "multichain_multitoken",
   ),
 };
 
@@ -220,10 +220,10 @@ const deploy = async () => {
     log.info("Providers configured.");
 
     log.info("Deploying contract...");
-    const contract = new SimpleToken.Contract(witnesses);
+    const contract = new MultiChainMultiToken.Contract(witnesses);
     const deployedContract = await deployContract(providers, {
       contract: contract,
-      privateStateId: "simpletokenPrivateState",
+      privateStateId: "multiChainMultiTokenPrivateState",
       args: [
         "https://api.yourproject.com/token/{id}.json",
         initialOwner,

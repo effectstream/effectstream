@@ -39,6 +39,7 @@
     "jsr:@std/assert@1": "1.0.15",
     "jsr:@std/assert@~1.0.6": "1.0.15",
     "jsr:@std/bytes@1": "1.0.6",
+    "jsr:@std/cli@^1.0.22": "1.0.23",
     "jsr:@std/crypto@1": "1.0.5",
     "jsr:@std/encoding@1": "1.0.10",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
@@ -103,7 +104,6 @@
     "npm:@midnight-ntwrk/onchain-runtime@0.3": "0.3.0",
     "npm:@midnight-ntwrk/wallet-api@*": "5.0.0_rxjs@7.8.2",
     "npm:@midnight-ntwrk/wallet-api@5": "5.0.0_rxjs@7.8.2",
-    "npm:@midnight-ntwrk/wallet-api@5.0.0": "5.0.0_rxjs@7.8.2",
     "npm:@midnight-ntwrk/wallet-sdk-address-format@*": "2.0.0_@midnight-ntwrk+zswap@4.0.0",
     "npm:@midnight-ntwrk/wallet-sdk-address-format@2": "2.0.0_@midnight-ntwrk+zswap@4.0.0",
     "npm:@midnight-ntwrk/wallet-sdk-address-format@2.0.0": "2.0.0_@midnight-ntwrk+zswap@4.0.0",
@@ -135,7 +135,6 @@
     "npm:@paima/pgtyped-cli@^2.4.5": "2.4.5_typescript@5.9.3_fp-ts@2.16.11_io-ts@2.2.22__fp-ts@2.16.11_chokidar@4.0.3",
     "npm:@paimaexample/evm-contracts@0.3.97": "0.3.97_@openzeppelin+contracts@5.1.0",
     "npm:@paimaexample/explorer@0.3.97": "0.3.97",
-    "npm:@paimaexample/npm-midnight-indexer@*": "0.3.97",
     "npm:@paimaexample/npm-midnight-indexer@0.3.97": "0.3.97",
     "npm:@paimaexample/npm-midnight-node@*": "0.3.97",
     "npm:@paimaexample/npm-midnight-node@0.3.97": "0.3.97",
@@ -199,7 +198,6 @@
     "npm:react-router-dom@^7.5.1": "7.9.4_react@19.1.0_react-dom@19.1.0__react@19.1.0",
     "npm:react@18.3.1": "18.3.1",
     "npm:react@19.1.0": "19.1.0",
-    "npm:rotating-file-stream@^3.2.6": "3.2.7",
     "npm:rxjs@*": "7.8.1",
     "npm:rxjs@7.8.1": "7.8.1",
     "npm:rxjs@7.8.2": "7.8.2",
@@ -306,7 +304,6 @@
         "npm:@fastify/cors",
         "npm:@fastify/swagger",
         "npm:@fastify/swagger-ui",
-        "npm:@midnight-ntwrk/compact-runtime@0.9.0",
         "npm:@midnight-ntwrk/ledger@4.0.0",
         "npm:@midnight-ntwrk/midnight-js-contracts@2.0.2",
         "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@2.0.2",
@@ -315,7 +312,6 @@
         "npm:@midnight-ntwrk/midnight-js-network-id@2.0.2",
         "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@2.0.2",
         "npm:@midnight-ntwrk/midnight-js-types@2.0.2",
-        "npm:@midnight-ntwrk/wallet-api@5.0.0",
         "npm:@midnight-ntwrk/wallet@5.0.0",
         "npm:@midnight-ntwrk/zswap@4.0.0",
         "npm:@sinclair/typebox@~0.34.30",
@@ -417,6 +413,8 @@
     "@paimaexample/evm-hardhat@0.3.97": {
       "integrity": "30546093f003dafe99228825e4b5a467e0d64a9386d00833b638adf411302a65",
       "dependencies": [
+        "jsr:@std/cli",
+        "jsr:@std/encoding@~1.0.8",
         "npm:@nomicfoundation/hardhat-errors",
         "npm:@nomicfoundation/hardhat-utils",
         "npm:ws@8.18.1"
@@ -532,13 +530,9 @@
     "@paimaexample/tui@0.3.97": {
       "integrity": "85023dbe78fd7e78f2e71b1ac74e747125090afa43074279097dcf84ad21640f",
       "dependencies": [
-        "jsr:@paimaexample/log@~0.3.97",
         "jsr:@paimaexample/utils@~0.3.97",
-        "npm:@sinclair/typebox@~0.34.30",
-        "npm:fastify",
         "npm:ink",
-        "npm:react@18.3.1",
-        "npm:rotating-file-stream"
+        "npm:react@18.3.1"
       ]
     },
     "@paimaexample/utils@0.3.97": {
@@ -581,6 +575,9 @@
     },
     "@std/bytes@1.0.6": {
       "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
+    },
+    "@std/cli@1.0.23": {
+      "integrity": "bf95b7a9425ba2af1ae5a6359daf58c508f2decf711a76ed2993cd352498ccca"
     },
     "@std/crypto@1.0.5": {
       "integrity": "0dcfbb319fe0bba1bd3af904ceb4f948cde1b92979ec1614528380ed308a3b40"
@@ -8621,6 +8618,12 @@
       "integrity": "sha512-PRsaiG84bK+AMvxziE/lCFss8juXjNaWzVbN5tXAm4XjeaS9NAHhop+PjQxz2A9h8Q4M/xGmzP8vqNwy6JeK0A==",
       "bin": true
     },
+    "material-chalk@1.1.1": {
+      "integrity": "sha512-GDO/69mS1vLQfX9T4THPCJb1vu0renYxfn4rtYDzldrKsXuXSZOin5VZTTlO5U4dDMRnXqPp0WdY320v6iwcdw==",
+      "dependencies": [
+        "@material/material-color-utilities"
+      ]
+    },
     "material-chalk@1.1.1_chalk@5.4.1": {
       "integrity": "sha512-GDO/69mS1vLQfX9T4THPCJb1vu0renYxfn4rtYDzldrKsXuXSZOin5VZTTlO5U4dDMRnXqPp0WdY320v6iwcdw==",
       "dependencies": [
@@ -9906,9 +9909,6 @@
         "fsevents"
       ],
       "bin": true
-    },
-    "rotating-file-stream@3.2.7": {
-      "integrity": "sha512-SVquhBEVvRFY+nWLUc791Y0MIlyZrEClRZwZFLLRgJKldHyV1z4e2e/dp9LPqCS3AM//uq/c3PnOFgjqnm5P+A=="
     },
     "rxjs@7.8.1": {
       "integrity": "sha512-AA3TVj+0A2iuIoQkWEK/tqFjBq2j+6PO6Y0zJcvzLAFhEFIO3HL0vls9hWLncZbAAbK0mar7oZ4V079I/qPMxg==",
@@ -11942,7 +11942,7 @@
           "npm:@paimaexample/npm-midnight-proof-server@0.3.97"
         ]
       },
-      "packages/shared/contracts/midnight/contract-eip-20": {
+      "packages/shared/contracts/midnight/contract-eip-1155": {
         "dependencies": [
           "npm:vitest@^3.2.4"
         ]

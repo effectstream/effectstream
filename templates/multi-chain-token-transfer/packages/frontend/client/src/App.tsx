@@ -43,7 +43,7 @@ function App() {
 
   useEffect(() => {
     if (evmWallet) {
-      fetchBalance();
+      fetchEVMBalance();
       fetchMultiChainTokenData();
     }
     if (midnightWallet) {
@@ -84,25 +84,21 @@ function App() {
     });
   };
 
-  const fetchBalance = async () => {
-    await withLoader("Fetching EVM balance...", async () => {
-      if (evmWallet) {
-        const balance = await paima.evm_balanceOf(evmWallet.walletAddress, 1n);
-        setBalance(String(balance));
-      }
-    });
+  const fetchEVMBalance = async () => {
+    if (evmWallet) {
+      const balance = await paima.evm_balanceOf(evmWallet.walletAddress, 1n);
+      setBalance(String(balance));
+    }
   };
 
   const fetchMidnightBalance = async () => {
-    await withLoader("Fetching Midnight balance...", async () => {
-      if (midnightWallet && midnightContract) {
-        const balance = await paima.midnight_balanceOf(
-          midnightContract,
-          midnightAddress
-        );
-        setMidnightBalance(String(balance));
-      }
-    });
+    if (midnightWallet && midnightContract) {
+      const balance = await paima.midnight_balanceOf(
+        midnightContract,
+        midnightAddress
+      );
+      setMidnightBalance(String(balance));
+    }
   };
 
   const [popup, setPopup] = useState<{ message: string; visible: boolean }>({
@@ -123,7 +119,7 @@ function App() {
       if (evmWallet && evmClient && mintAmount) {
         await paima.evm_mint(evmClient, evmWallet, BigInt(mintAmount));
         // Update EVM balance after a delay to allow blockchain processing
-        setTimeout(() => fetchBalance(), 2000);
+        setTimeout(() => fetchEVMBalance(), 2000);
       } else {
         alert("Please connect wallet and enter an amount.");
       }
@@ -159,7 +155,7 @@ function App() {
 
         // Update both balances after a delay to allow blockchain processing
         setTimeout(() => {
-          fetchBalance();
+          fetchEVMBalance();
           fetchMidnightBalance();
         }, 12000);
 
@@ -186,7 +182,7 @@ function App() {
         // Update both balances after a delay to allow blockchain processing
         setTimeout(() => {
           fetchMidnightBalance();
-          fetchBalance();
+          fetchEVMBalance();
         }, 10000);
 
         showPopup(
@@ -342,7 +338,7 @@ function App() {
                 </span>
                 <button
                   type="button"
-                  onClick={fetchBalance}
+                  onClick={fetchEVMBalance}
                   className="secondary"
                 >
                   Refresh
