@@ -14,7 +14,10 @@ Paima Engine is a Web3 Engine optimized for dApps, games, gamification and auton
 - Secure: all interactions go into the chains and not your Paima Node.
 - Iterate quickly as tools are developer centered.
 
+<iframe src="https://drive.google.com/file/d/1DCIUJLEXIIri20Tr2a_09tK4SG74KF9M/preview?vq=hd720" width="640" height="480" allow="autoplay"></iframe>
+
 [Learn more about Paima Engine](./1-what-is-paima-engine.md)
+
 
 ## App Quick Start
 
@@ -45,12 +48,6 @@ deno task dev
 
 Now you should see the dApp running in your browser!
 Continue at the [Quick Start Guide](../10-quickstart/10-quickstart.md).
-
-## What is Paima Engine
-
-<iframe src="https://drive.google.com/file/d/1DCIUJLEXIIri20Tr2a_09tK4SG74KF9M/preview" width="640" height="480" allow="autoplay"></iframe>
-
-[Learn more about Paima Engine](./1-what-is-paima-engine.md)
 
 ## Main Components
 

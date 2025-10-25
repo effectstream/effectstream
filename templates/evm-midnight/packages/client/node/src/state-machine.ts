@@ -12,6 +12,14 @@ import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 
+const decodeString = (x: { [key: string]: number }): string => 
+  Array(Object.keys(x).length)
+    .fill(0)
+    .map((_,i)=>x[i])
+    .map(x => String.fromCharCode(x))
+    .join('')
+    .trim();
+    
 stm.addStateTransition(
   "midnightContractState",
   function* (data) {
@@ -23,14 +31,6 @@ stm.addStateTransition(
       property_name:    { [key: string]: number };
       value:            { [key: string]: number }
      } = data.parsedInput.payload;
-
-    const decodeString = (x: { [key: string]: number }): string => 
-      Array(Object.keys(x).length)
-        .fill(0)
-        .map((_,i)=>x[i])
-        .map(x => String.fromCharCode(x))
-        .join('')
-        .trim();
 
     const contract_address = decodeString(payload.contract_address);
     const token_id = decodeString(payload.token_id);
