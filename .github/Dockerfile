@@ -1,5 +1,6 @@
 # Use Ubuntu as base image
-FROM denoland/deno:ubuntu-2.5.2
+FROM denoland/deno:ubuntu-2.5.4
+
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive

@@ -3,7 +3,7 @@
 # DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run evm-midnight-sample
 
 # Use Ubuntu as base image
-FROM denoland/deno:ubuntu-2.5.2
+FROM denoland/deno:ubuntu-2.5.4
 
 # # Update package list and install required dependencies
 RUN apt-get update && apt-get install -y \
