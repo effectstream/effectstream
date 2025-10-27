@@ -16,11 +16,6 @@ import {
   validateBatcherConfig,
 } from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
-import type {
-  BatchBuildingResult,
-  BatchDataBuilder,
-} from "../batch-data-builder/batch-data-builder.ts";
-import { DefaultBatchDataBuilder } from "../batch-data-builder/default-batch-builder.ts";
 import { BatcherFileStorage } from "./mod.ts";
 import { BatchProcessor } from "./batch-processor.ts";
 import {
@@ -71,7 +66,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Timer ID for periodic batch processing */
   private pollingIntervalID?: number;
   /** Available blockchain adapters keyed by target name */
-  private readonly adapters: Record<string, BlockchainAdapter>;
+  private readonly adapters: Record<string, BlockchainAdapter<any>>;
   /** Default target to use when input.target is not specified */
   public readonly defaultTarget: string;
   /** Per-adapter batching criteria configuration */
@@ -104,8 +99,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       timeoutId: number;
     }
   > = new Map();
-  /** Batch data builder for constructing batch payloads */
-  private readonly batchDataBuilder: BatchDataBuilder<T>;
   /** Batch processor for handling complex batch operations */
   private readonly batchProcessor: BatchProcessor<T>;
   /** Shutdown manager for handling graceful shutdowns */
@@ -129,13 +122,13 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   public readonly config: PaimaBatcherConfig<
     T,
-    Record<string, BlockchainAdapter>
+    Record<string, BlockchainAdapter<any>>
   >;
 
   constructor(
     config: PaimaBatcherConfig<
       T,
-      Record<string, BlockchainAdapter>
+      Record<string, BlockchainAdapter<any>>
     >,
     private readonly storage: BatcherStorage<T> = new BatcherFileStorage<T>(
       "./batcher-data",
@@ -164,10 +157,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       this.lastProcessTime.set(target, now);
     }
 
-    this.batchDataBuilder = this.initializeBatchDataBuilder();
     this.batchProcessor = new BatchProcessor<T>({
-      buildBatchData: (inputs: T[], target: string) =>
-        this.buildBatchData(inputs, target),
       emitStateTransition: async (prefix: string, payload: any) => {
         // For async contexts, we need to handle this differently
         // Since we're in an async method but need to call an Effection operation,
@@ -281,33 +271,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     validateBatcherConfig(this.config);
   }
 
-  /**
-   * Initialize the batch data builder based on configuration
-   *
-   * @returns The appropriate batch data builder for this batcher
-   */
-  private initializeBatchDataBuilder(): BatchDataBuilder<T> {
-    // Use globally configured default builder, or fallback to our standard implementation
-    return this.config.batchBuilding?.defaultBuilder ??
-      new DefaultBatchDataBuilder<T>();
-  }
-
-  /**
-   * Get the appropriate batch data builder for a specific target
-   *
-   * @param target - The target chain/adapter name
-   * @returns The batch data builder for the specified target
-   */
-  private getBatchDataBuilderForTarget(target: string): BatchDataBuilder<T> {
-    // First check for target-specific builder
-    const targetBuilders = this.config.batchBuilding?.targetBuilders;
-    if (targetBuilders && targetBuilders[target]) {
-      return targetBuilders[target];
-    }
-
-    // Fallback to default builder
-    return this.batchDataBuilder;
-  }
 
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -1005,23 +968,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
   }
 
-  /**
-   * Build optimized batch data from inputs
-   * TODO: This should use the actual buildBatchData utility from @paima/concise
-   */
-  private buildBatchData(
-    inputs: T[],
-    target: string,
-  ): BatchBuildingResult<T> | null {
-    const builder = this.getBatchDataBuilderForTarget(target);
-    const adapter = this.adapters[target];
-    const options = {
-      maxSize: adapter.maxBatchSize ?? this.config.batchBuilding?.maxSize,
-      target: target,
-    };
-
-    return builder.buildBatchData(inputs, options);
-  }
   /**
    * Validate the input and return a boolean indicating if the input is valid.
    * Default is a placeholder to be overridden by the user extending the PaimaBatcher class.

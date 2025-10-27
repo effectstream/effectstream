@@ -5,8 +5,12 @@
  * This module centralizes adapter-related imports for the batcher system.
  */
 
-// Base blockchain adapter interface
-export type { BlockchainAdapter } from "./adapter.ts";
+// Base blockchain adapter interface and types
+export type {
+  BlockchainAdapter,
+  BatchBuildingOptions,
+  BatchBuildingResult,
+} from "./adapter.ts";
 
 // PaimaL2 adapter implementation
 export { PaimaL2DefaultAdapter } from "./paimal2-adapter.ts";

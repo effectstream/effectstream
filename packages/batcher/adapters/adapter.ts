@@ -34,17 +34,54 @@ export interface BlockchainTransactionReceipt {
 }
 
 /**
+ * Options for batch building
+ */
+export interface BatchBuildingOptions {
+  /** Maximum size of the batch in bytes */
+  maxSize?: number;
+}
+
+/**
+ * Result of batch building operation
+ */
+export interface BatchBuildingResult<TOutput> {
+  /** Inputs that were selected for this batch */
+  selectedInputs: DefaultBatcherInput[];
+  /** Serialized batch data. The type (TOutput) is defined by the adapter implementation. */
+  data: TOutput;
+}
+
+/**
  * Base interface for blockchain adapters that handle chain-specific operations
  * Provides a unified interface for different blockchain interactions
  */
-export interface BlockchainAdapter {
+export interface BlockchainAdapter<TOutput> {
   /**
-   * Submit a batch transaction to the blockchain
-   * @param data - The batch data to submit (hex encoded)
-   * @param fee - The fee to pay for the transaction (blockchain-specific format)
+   * Submit a batch transaction to the blockchain.
+   * @param data - The type-safe batch data, as constructed by buildBatchData.
+   * @param fee - The fee to pay for the transaction.
    * @returns Promise resolving to transaction hash
    */
-  submitBatch(data: string, fee: string | bigint): Promise<BlockchainHash>;
+  submitBatch(data: TOutput, fee: string | bigint): Promise<BlockchainHash>;
+
+  /**
+   * Estimate the fee for submitting a batch.
+   * @param data - The type-safe batch data payload to estimate for.
+   * @returns Estimated fee
+   */
+  estimateBatchFee(data: TOutput): Promise<string | bigint> | string | bigint;
+
+  /**
+   * Build batch data from a collection of inputs.
+   * This method is now part of the adapter itself.
+   * @param inputs - Array of inputs to batch
+   * @param options - Options for batch building
+   * @returns Batch building result or null if no inputs could be batched
+   */
+  buildBatchData(
+    inputs: DefaultBatcherInput[],
+    options?: BatchBuildingOptions,
+  ): BatchBuildingResult<TOutput> | null;
 
   /**
    * Wait for a transaction to be confirmed on the blockchain
@@ -70,15 +107,8 @@ export interface BlockchainAdapter {
   getChainName(): string;
 
   /**
-   * Estimate the fee for submitting a batch
-   * @param data - The batch data to estimate for
-   * @returns Estimated fee (may be synchronous or asynchronous depending on implementation)
-   */
-  estimateBatchFee(data: string): Promise<string | bigint> | string | bigint;
-
-  /**
    * Maximum batch payload size in bytes for this adapter/chain.
-   * Used by the batch data builder to limit batch size per target.
+   * Used by buildBatchData to limit batch size per target.
    */
   maxBatchSize?: number;
 
