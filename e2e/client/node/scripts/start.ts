@@ -24,24 +24,11 @@ const avail_enabled = Deno
   ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
   : true;
 
-const evmProcessesExtended = launchEvm("@e2e/evm-contracts");
-// Add batcher after the evm processes because it needs the contracts to be deployed
-evmProcessesExtended.stopProcessAtPort.push(3334);
-evmProcessesExtended.processes.push(
-  { // Launch the Batcher with our PaimaL2 Contract
-    name: "batcher",
-    args: ["task", "-f", "@e2e/batcher", "start"],
-    waitToExit: false,
-    type: "system-dependency",
-  },
-);
-
 const config = Value.Parse(OrchestratorConfig, {
   logs,
   processes: {
     [ComponentNames.TMUX]: logs === "development",
     [ComponentNames.TUI]: logs === "development",
-    [ComponentNames.DOCS]: false,
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
     [ComponentNames.COLLECTOR]: logs === "development",
@@ -51,27 +38,34 @@ const config = Value.Parse(OrchestratorConfig, {
 
   // Launch my processes
   processesToLaunch: [
-    evmProcessesExtended,
-    yaci_enabled ? launchCardano("@e2e/cardano-contracts") : {},
-    avail_enabled ? launchAvail("@e2e/avail-contracts") : {},
-    midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : {},
-    {
+    ...launchEvm("@e2e/evm-contracts"),
+    ...(yaci_enabled ? launchCardano("@e2e/cardano-contracts") : []),
+    ...(avail_enabled ? launchAvail("@e2e/avail-contracts") : []),
+    ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : []),
+    { 
+      name: "build explorer",
       stopProcessAtPort: [10590],
-      processes: [
-        {
-          name: "frontend-build",
-          args: ["task", "-f", "paima/explorer", "build"],
-          waitToExit: true,
-        },
-        {
-          name: "frontend-server",
-          args: ["task", "-f", "@paima/explorer", "server:start"],
-          waitToExit: false,
-          type: "system-dependency",
-          link: "http://localhost:10590",
-        },
-      ],
+      args: ["task", "-f", "paima/explorer", "build"],
+      waitToExit: true,
+      dependsOn: [],
     },
+    {
+      name: "serve explorer",
+      args: ["task", "-f", "@paima/explorer", "server:start"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:10590",
+      dependsOn: [],
+    },
+    { 
+      // Launch the Batcher with our PaimaL2 Contract
+      stopProcessAtPort: [3334],
+      name: "batcher",
+      args: ["task", "-f", "@e2e/batcher", "start"],
+      waitToExit: false,
+      type: "system-dependency",
+      dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS],
+    }
   ],
 });
 

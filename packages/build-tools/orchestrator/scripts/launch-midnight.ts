@@ -17,10 +17,17 @@ import { ComponentNames } from "@paima/log";
 //
 // packageName: the name of the package that implements the tasks.
 //
-export const launchMidnight = (packageName: string) => ({
-  stopProcessAtPort: [9944, 8088, 6300],
-  processes: [
+export const launchMidnight = (packageName: string): {
+  stopProcessAtPort?: number[];
+  name: string;
+  args: string[];
+  waitToExit?: boolean;
+  logs?: string;
+  type?: string;
+  dependsOn?: string[];
+}[] => [
     {
+      stopProcessAtPort: [9944, 8088, 6300],
       name: ComponentNames.MIDNIGHT_NODE,
       args: [
         "task",
@@ -31,6 +38,7 @@ export const launchMidnight = (packageName: string) => ({
       waitToExit: false,
       type: "system-dependency",
       logs: "none",
+      dependsOn: [],
     },
     {
       name: ComponentNames.MIDNIGHT_INDEXER,
@@ -42,6 +50,7 @@ export const launchMidnight = (packageName: string) => ({
       ],
       waitToExit: false,
       type: "system-dependency",
+      dependsOn: [ComponentNames.MIDNIGHT_NODE],
     },
     {
       name: ComponentNames.MIDNIGHT_PROOF_SERVER,
@@ -53,6 +62,7 @@ export const launchMidnight = (packageName: string) => ({
       ],
       waitToExit: false,
       type: "system-dependency",
+      dependsOn: [ComponentNames.MIDNIGHT_NODE]
     },
     {
       name: ComponentNames.MIDNIGHT_NODE_WAIT,
@@ -62,6 +72,7 @@ export const launchMidnight = (packageName: string) => ({
         packageName,
         "midnight-node:wait",
       ],
+      dependsOn: [ComponentNames.MIDNIGHT_NODE],
     },
     {
       name: ComponentNames.MIDNIGHT_INDEXER_WAIT,
@@ -71,6 +82,7 @@ export const launchMidnight = (packageName: string) => ({
         packageName,
         "midnight-indexer:wait",
       ],
+      dependsOn: [ComponentNames.MIDNIGHT_INDEXER],
     },
     {
       name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
@@ -80,6 +92,7 @@ export const launchMidnight = (packageName: string) => ({
         packageName,
         "midnight-proof-server:wait",
       ],
+      dependsOn: [ComponentNames.MIDNIGHT_PROOF_SERVER],
     },
     {
       name: ComponentNames.MIDNIGHT_CONTRACT,
@@ -89,6 +102,10 @@ export const launchMidnight = (packageName: string) => ({
         packageName,
         "midnight-contract:deploy",
       ],
+      dependsOn: [
+        ComponentNames.MIDNIGHT_NODE_WAIT,
+        ComponentNames.MIDNIGHT_INDEXER_WAIT,
+        ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
+      ],
     },
-  ],
-});
+  ];

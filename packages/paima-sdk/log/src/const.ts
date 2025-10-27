@@ -34,7 +34,6 @@ export const PaimaToolsComponents = {
   TMUX: "tmux",
   COLLECTOR: "collector",
   EXPLORER: "explorer",
-  DOCS: "docs",
   DEPLOY_EVM_CONTRACTS: "deploy-evm-contracts",
   MIDNIGHT_CONTRACT: "midnight-contract",
 };

@@ -15,10 +15,17 @@ import { ComponentNames } from "@paima/log";
 //
 // packageName: the name of the package that implements the tasks.
 //
-export const launchCardano = (packageName: string) => ({
-  stopProcessAtPort: [8090, 10000, 50051, 3001],
-  processes: [
+export const launchCardano = (packageName: string): {
+  stopProcessAtPort?: number[];
+  name: string;
+  args: string[];
+  waitToExit?: boolean;
+  logs?: string;
+  type?: string;
+  dependsOn?: string[];
+}[] => [
     {
+      stopProcessAtPort: [8090, 10000, 50051, 3001],
       name: ComponentNames.YACI_DEVKIT,
       args: ["task", "-f", packageName, "devkit:start"],
       waitToExit: false,
@@ -28,16 +35,18 @@ export const launchCardano = (packageName: string) => ({
     {
       name: ComponentNames.YACI_DEVKIT_WAIT,
       args: ["task", "-f", packageName, "devkit:wait"],
+      dependsOn: [ComponentNames.YACI_DEVKIT],
     },
     {
       name: ComponentNames.DOLOS,
       args: ["task", "-f", packageName, "dolos:start"],
       waitToExit: false,
       type: "system-dependency",
+      dependsOn: [ComponentNames.YACI_DEVKIT_WAIT],
     },
     {
       name: ComponentNames.DOLOS_WAIT,
       args: ["task", "-f", packageName, "dolos:wait"],
+      dependsOn: [ComponentNames.DOLOS],
     },
-  ],
-});
+  ];
