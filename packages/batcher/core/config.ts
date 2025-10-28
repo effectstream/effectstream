@@ -5,7 +5,6 @@
 
 import type { DefaultBatcherInput } from "./types.ts";
 import type { BlockchainAdapter } from "../adapters/adapter.ts";
-import type { BatchDataBuilder } from "../batch-data-builder/batch-data-builder.ts";
 import type { ShutdownHooks } from "./shutdown-manager.ts";
 import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
@@ -50,9 +49,9 @@ export interface BatchingCriteriaConfig<
  */
 export type PerAdapterBatchingCriteria<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
-  TAdapters extends Record<string, BlockchainAdapter> = Record<
+  TAdapters extends Record<string, BlockchainAdapter<any>> = Record<
     string,
-    BlockchainAdapter
+    BlockchainAdapter<any>
   >,
 > = Partial<
   Record<ValidAdapterKey<TAdapters>, BatchingCriteriaConfig<TInput>>
@@ -122,9 +121,9 @@ export type ConfirmationLevel =
 
 export interface PaimaBatcherConfig<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
-  TAdapters extends Record<string, BlockchainAdapter> = Record<
+  TAdapters extends Record<string, BlockchainAdapter<any>> = Record<
     string,
-    BlockchainAdapter
+    BlockchainAdapter<any>
   >,
 > {
   // Core configuration
@@ -148,13 +147,6 @@ export interface PaimaBatcherConfig<
   maxRetries?: number;
   retryDelayMs?: number;
 
-  // Batch building configuration
-  batchBuilding?: {
-    maxSize?: number;
-    targetBuilders?: Record<string, BatchDataBuilder<TInput>>;
-    defaultBuilder?: BatchDataBuilder<TInput>;
-  };
-
   // Shutdown configuration
   shutdown?: {
     hooks?: ShutdownHooks<TInput>;
@@ -177,7 +169,6 @@ export const DEFAULT_CONFIG_VALUES = {
   enableEventSystem: false,
   maxRetries: 3,
   retryDelayMs: 1000,
-  batchBuilding: {},
   shutdown: {
     timeoutMs: 30000,
     signalHandling: {
@@ -243,15 +234,6 @@ export const PaimaBatcherConfigSchema = Type.Object({
     Type.Boolean({ default: DEFAULT_CONFIG_VALUES.enableEventSystem }),
   ),
 
-  batchBuilding: Type.Optional(Type.Object({
-    maxSize: Type.Optional(Type.Number({ minimum: 1, default: 10000 })),
-    targetBuilders: Type.Optional(Type.Record(Type.String(), Type.Any())),
-    defaultBuilder: Type.Optional(Type.Any()),
-  }, {
-    additionalProperties: false,
-    default: DEFAULT_CONFIG_VALUES.batchBuilding,
-  })),
-
   shutdown: Type.Optional(Type.Object({
     hooks: Type.Optional(Type.Object({
       preShutdown: Type.Optional(Type.Any()),
@@ -292,7 +274,7 @@ export type PaimaBatcherConfigFromSchema = Static<
  */
 export function applyBatcherConfigDefaults<
   T extends DefaultBatcherInput,
-  TAdapters extends Record<string, BlockchainAdapter>,
+  TAdapters extends Record<string, BlockchainAdapter<any>>,
 >(
   config: PaimaBatcherConfig<T, TAdapters>,
 ): PaimaBatcherConfig<T, TAdapters> {
@@ -307,7 +289,7 @@ export function applyBatcherConfigDefaults<
  */
 export function validateBatcherConfig<
   T extends DefaultBatcherInput,
-  TAdapters extends Record<string, BlockchainAdapter>,
+  TAdapters extends Record<string, BlockchainAdapter<any>>,
 >(config: PaimaBatcherConfig<T, TAdapters>): void {
   if (Object.keys(config.adapters).length === 0) {
     throw new Error(

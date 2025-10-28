@@ -16,11 +16,6 @@ import {
   validateBatcherConfig,
 } from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
-import type {
-  BatchBuildingResult,
-  BatchDataBuilder,
-} from "../batch-data-builder/batch-data-builder.ts";
-import { DefaultBatchDataBuilder } from "../batch-data-builder/default-batch-builder.ts";
 import { BatcherFileStorage } from "./mod.ts";
 import { BatchProcessor } from "./batch-processor.ts";
 import {
@@ -30,6 +25,17 @@ import {
 } from "./shutdown-manager.ts";
 import type { BatcherGrammar, BatcherListener } from "./batcher-events.ts";
 import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
+
+/**
+ * Custom error class for input validation failures
+ * Provides structured error information with appropriate HTTP status codes
+ */
+export class InputValidationError extends Error {
+  constructor(message: string, public statusCode: number = 400) {
+    super(message);
+    this.name = "InputValidationError";
+  }
+}
 
 /**
  * PaimaBatcher - A type-safe, simplified blockchain batching system
@@ -60,7 +66,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Timer ID for periodic batch processing */
   private pollingIntervalID?: number;
   /** Available blockchain adapters keyed by target name */
-  private readonly adapters: Record<string, BlockchainAdapter>;
+  private readonly adapters: Record<string, BlockchainAdapter<any>>;
   /** Default target to use when input.target is not specified */
   public readonly defaultTarget: string;
   /** Per-adapter batching criteria configuration */
@@ -93,8 +99,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       timeoutId: number;
     }
   > = new Map();
-  /** Batch data builder for constructing batch payloads */
-  private readonly batchDataBuilder: BatchDataBuilder<T>;
   /** Batch processor for handling complex batch operations */
   private readonly batchProcessor: BatchProcessor<T>;
   /** Shutdown manager for handling graceful shutdowns */
@@ -118,13 +122,13 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   public readonly config: PaimaBatcherConfig<
     T,
-    Record<string, BlockchainAdapter>
+    Record<string, BlockchainAdapter<any>>
   >;
 
   constructor(
     config: PaimaBatcherConfig<
       T,
-      Record<string, BlockchainAdapter>
+      Record<string, BlockchainAdapter<any>>
     >,
     private readonly storage: BatcherStorage<T> = new BatcherFileStorage<T>(
       "./batcher-data",
@@ -153,10 +157,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       this.lastProcessTime.set(target, now);
     }
 
-    this.batchDataBuilder = this.initializeBatchDataBuilder();
     this.batchProcessor = new BatchProcessor<T>({
-      buildBatchData: (inputs: T[], target: string) =>
-        this.buildBatchData(inputs, target),
       emitStateTransition: async (prefix: string, payload: any) => {
         // For async contexts, we need to handle this differently
         // Since we're in an async method but need to call an Effection operation,
@@ -270,33 +271,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     validateBatcherConfig(this.config);
   }
 
-  /**
-   * Initialize the batch data builder based on configuration
-   *
-   * @returns The appropriate batch data builder for this batcher
-   */
-  private initializeBatchDataBuilder(): BatchDataBuilder<T> {
-    // Use globally configured default builder, or fallback to our standard implementation
-    return this.config.batchBuilding?.defaultBuilder ??
-      new DefaultBatchDataBuilder<T>();
-  }
-
-  /**
-   * Get the appropriate batch data builder for a specific target
-   *
-   * @param target - The target chain/adapter name
-   * @returns The batch data builder for the specified target
-   */
-  private getBatchDataBuilderForTarget(target: string): BatchDataBuilder<T> {
-    // First check for target-specific builder
-    const targetBuilders = this.config.batchBuilding?.targetBuilders;
-    if (targetBuilders && targetBuilders[target]) {
-      return targetBuilders[target];
-    }
-
-    // Fallback to default builder
-    return this.batchDataBuilder;
-  }
 
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -333,13 +307,44 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     timeoutMs: number = 60000,
   ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
     if (this.shutdownState.isShuttingDown) {
-      throw new Error("Batcher is shutting down, not accepting new inputs");
+      // 503 Service Unavailable
+      throw new InputValidationError(
+        "Batcher is shutting down, not accepting new inputs",
+        503,
+      );
     }
 
-    const verifiedSignature = await this.verifyInputSignature(input);
-    if (!verifiedSignature) {
-      throw new Error("Invalid signature");
+    const target = input.target || this.defaultTarget;
+    const adapter = this.adapters[target];
+    if (!adapter) {
+      throw new InputValidationError(`Adapter for target ${target} not found. Available targets: ${Object.keys(this.adapters).join(", ")}`, 404);
     }
+
+    // 1. Signature Validation (Pre-Queue, Adapter-Driven)
+    let verifiedSignature = false;
+
+    if (adapter && typeof adapter.verifySignature === "function") {
+      verifiedSignature = await adapter.verifySignature(input);
+    } else {
+      // Fall back to the batcher's default EVM verification
+      verifiedSignature = await this._defaultVerifyInputSignature(input);
+    }
+
+    if (!verifiedSignature) {
+      throw new InputValidationError("Invalid signature", 401);
+    }
+
+    // 2. Adapter-Specific Input Validation (Pre-Queue)
+    if (adapter && typeof adapter.validateInput === "function") {
+      const validationResult = await adapter.validateInput(input);
+      if (!validationResult.valid) {
+        throw new InputValidationError(
+          validationResult.error || "Invalid input for target adapter",
+        );
+      }
+    }
+
+    // 3. Add to Storage (Only if all validation passes)
     await this.addInput(input);
     const { count, size } = await this.storage.getInputCountAndSize();
     console.log(
@@ -353,7 +358,8 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // Create promise for callback with timeout
     const receiptPromise = new Promise<BlockchainTransactionReceipt>(
       (resolve, reject) => {
-        const callbackKey = input.signature || `${input.addressType}-${input.timestamp}`;
+        const callbackKey = input.signature ||
+          `${input.addressType}-${input.timestamp}`;
         const timeoutId = setTimeout(() => {
           this.submissionCallbacks.delete(callbackKey);
           reject(new Error("Receipt confirmation timeout"));
@@ -475,15 +481,32 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     await this.storage.addInput(input);
   }
 
-  async verifyInputSignature(
+  private async _defaultVerifyInputSignature(
     input: T,
   ): Promise<boolean> {
-    if (input.addressType === AddressType.MIDNIGHT) {
-      return true;
+    // This is the default EVM verification logic
+    // Create the signature message using EVM-specific logic
+    let walletAddress;
+    switch (input.addressType) {
+      case AddressType.EVM:
+        walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, input.address);
+        break;
+      default:
+        throw new Error(
+          `Unsupported address type for signature verification: ${input.addressType}`,
+        );
     }
 
-    const message = this.createSignatureMessage(input);
-    // TODO: Define a generic signature verifier for all the supported address types.
+    const message = (
+      this.namespace +
+      (input.target ?? "") +
+      input.timestamp +
+      walletAddress +
+      input.input
+    )
+      .replace(/[^a-zA-Z0-9]/g, "-")
+      .toLocaleLowerCase();
+
     return await CryptoManager.Evm().verifySignature(
       input.address,
       message,
@@ -949,23 +972,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
-   * Build optimized batch data from inputs
-   * TODO: This should use the actual buildBatchData utility from @paima/concise
-   */
-  private buildBatchData(
-    inputs: T[],
-    target: string,
-  ): BatchBuildingResult<T> | null {
-    const builder = this.getBatchDataBuilderForTarget(target);
-    const adapter = this.adapters[target];
-    const options = {
-      maxSize: adapter.maxBatchSize ?? this.config.batchBuilding?.maxSize,
-      target: target,
-    };
-
-    return builder.buildBatchData(inputs, options);
-  }
-  /**
    * Validate the input and return a boolean indicating if the input is valid.
    * Default is a placeholder to be overridden by the user extending the PaimaBatcher class.
    * @param input - The input to validate.
@@ -973,31 +979,6 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   validateInput(input: T): boolean | Promise<boolean> {
     return !!input.signature && !!input.address;
-  }
-
-  /**
-   * Creates the message to be validated by verifyInputSignature against a signature and address.
-   * @param input - The input to create a message for.
-   * @returns A string message for the batcher.
-   */
-  private createSignatureMessage(input: T): string {
-    let walletAddress;
-    switch (input.addressType) {
-      case AddressType.EVM:
-        walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, input.address);
-        break;
-      default:
-        throw new Error("Invalid address type");
-    }
-    return (
-      this.namespace +
-      (input.target ?? "") +
-      input.timestamp +
-      walletAddress +
-      input.input
-    )
-      .replace(/[^a-zA-Z0-9]/g, "-")
-      .toLocaleLowerCase();
   }
 
   /**

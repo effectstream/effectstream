@@ -5,9 +5,14 @@ import type {
   BlockchainAdapter,
   BlockchainHash,
   BlockchainTransactionReceipt,
+  ValidationResult,
+  BatchBuildingOptions,
+  BatchBuildingResult,
 } from "./adapter.ts";
 import type { ContractInfo } from "./midnight-arg-parser.ts";
 import { parseCircuitArgs } from "./midnight-arg-parser.ts";
+import type { DefaultBatcherInput } from "../core/types.ts";
+import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "../batch-data-builder/midnight-builder-logic.ts";
 import { hexStringToUint8Array } from "@paima/utils";
 import type { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import { WalletBuilder } from "@midnight-ntwrk/wallet";
@@ -58,13 +63,16 @@ export interface MidnightAdapterConfig {
  * Midnight blockchain adapter implementing BlockchainAdapter interface
  * Enables batcher to submit transactions by invoking Compact contract circuits
  */
-export class MidnightAdapter implements BlockchainAdapter {
+export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload | null> {
   private readonly contractAddress: string;
   private readonly config: MidnightAdapterConfig;
   private readonly contractInfo: ContractInfo;
   private readonly networkId: NetworkId;
   private readonly syncProtocolName: string;
   public readonly maxBatchSize?: number;
+
+  // Private helper for building batch data
+  private readonly batchBuilderLogic = new MidnightBatchBuilderLogic();
 
   private wallet: (Wallet & Resource) | null = null;
   private deployedContract: any = null;
@@ -98,7 +106,7 @@ export class MidnightAdapter implements BlockchainAdapter {
     // Store contract info for lazy joining
     this.contractInstance = contractInstance;
     this.witnesses = witnesses;
-    
+
     // Start async initialization but don't await
     this.initializationPromise = this.initialize(walletSeed);
   }
@@ -135,7 +143,11 @@ export class MidnightAdapter implements BlockchainAdapter {
       this.walletAddress = initialState.address;
       console.log("✅ Wallet built and sync started");
       console.log(`📍 Batcher wallet address: ${this.walletAddress}`);
-      console.log(`🔑 Coin public key: ${Buffer.from(initialState.coinPublicKey).toString("hex")}`);
+      console.log(
+        `🔑 Coin public key: ${
+          Buffer.from(initialState.coinPublicKey).toString("hex")
+        }`,
+      );
 
       this.publicDataProvider = indexerPublicDataProvider(
         this.config.indexer,
@@ -159,11 +171,12 @@ export class MidnightAdapter implements BlockchainAdapter {
     }
 
     console.log("⚙️ Configuring providers for contract join...");
-    
+
     // Create fresh providers right before joining (like interact script does)
-    const walletAndMidnightProvider = await this.createWalletAndMidnightProvider(
-      this.wallet,
-    );
+    const walletAndMidnightProvider = await this
+      .createWalletAndMidnightProvider(
+        this.wallet,
+      );
 
     const providers = {
       privateStateProvider: levelPrivateStateProvider({
@@ -177,11 +190,12 @@ export class MidnightAdapter implements BlockchainAdapter {
     };
 
     console.log("🔗 Joining contract at address:", this.contractAddress);
-    
+
     // Use privateStateId if provided, otherwise fall back to privateStateStoreName
-    const privateStateId = this.config.privateStateId ?? this.config.privateStateStoreName;
+    const privateStateId = this.config.privateStateId ??
+      this.config.privateStateStoreName;
     console.log(`🔑 Using privateStateId: ${privateStateId}`);
-    
+
     this.deployedContract = await findDeployedContract(providers, {
       contractAddress: this.contractAddress,
       contract: this.contractInstance,
@@ -190,35 +204,33 @@ export class MidnightAdapter implements BlockchainAdapter {
     });
 
     console.log("✅ Contract joined successfully");
-    
+
     // CRITICAL: Wait for private state to fully sync after joining
     // The contract needs to download and decrypt historical transactions
     console.log("⏳ Verifying contract private state is accessible...");
-    
+
     // Try to read from the contract to ensure private state is ready
     // Use a pure circuit call (like balanceOf or owner) to verify
     try {
       const circuitNames = Object.keys(this.deployedContract.call);
-      console.log(`🔍 Available circuits for testing: ${circuitNames.join(", ")}`);
-      
-      // Try calling a pure circuit to verify state is ready
-      if (this.deployedContract.call.owner) {
-        console.log("🧪 Testing contract state with owner() query...");
-        const ownerResult = await this.deployedContract.call.owner();
-        console.log("✅ Contract state verified - owner query succeeded");
-      } else {
-        console.log("⚠️ No owner() circuit found, using time-based delay instead");
-        console.log("⏳ Waiting 10 seconds for contract private state to sync...");
-        await new Promise((resolve) => setTimeout(resolve, 10000));
-        console.log("✅ Private state sync delay complete");
-      }
-    } catch (error) {
-      console.warn("⚠️ Contract state test query failed, waiting longer...");
-      console.log("⏳ Waiting 10 seconds for contract private state to sync...");
+      console.log(
+        `🔍 Available circuits for testing: ${circuitNames.join(", ")}`,
+      );
+
+      console.log(
+        "⏳ Waiting 10 seconds for contract private state to sync...",
+      );
       await new Promise((resolve) => setTimeout(resolve, 10000));
       console.log("✅ Private state sync delay complete");
+    } catch (error) {
+      console.warn("⚠️ Contract state test query failed, waiting longer...");
+      console.log(
+        "⏳ Waiting 5 seconds for contract private state to sync...",
+      );
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      console.log("✅ Private state sync delay complete");
     }
-    
+
     this.contractJoined = true;
   }
 
@@ -313,13 +325,19 @@ export class MidnightAdapter implements BlockchainAdapter {
     this.hasFunds = true;
   }
 
+  public buildBatchData(
+    inputs: DefaultBatcherInput[],
+    options?: BatchBuildingOptions,
+  ): BatchBuildingResult<MidnightBatchPayload | null> | null {
+    // Cast is safe because we know our helper returns this type
+    return this.batchBuilderLogic.buildBatchData(inputs, options) as BatchBuildingResult<MidnightBatchPayload | null> | null;
+  }
+
   /**
    * Submit a batch transaction to the Midnight contract
-   * @param data - Hex-encoded JSON payload: {"circuit": "...", "args": [...]}
-   * @param fee - Fee parameter (not used for Midnight currently)
    */
   async submitBatch(
-    data: string,
+    data: MidnightBatchPayload | null,
     fee?: string | bigint,
   ): Promise<BlockchainHash> {
     if (this.initializationPromise) {
@@ -333,32 +351,33 @@ export class MidnightAdapter implements BlockchainAdapter {
 
     // Ensure wallet has funds (lazy check)
     await this.ensureFunds();
-    
+
     // Join contract AFTER wallet is ready (lazy join)
     await this.ensureContractJoined();
-    
+
     if (!this.deployedContract) {
       throw new Error("Failed to join contract");
     }
 
     try {
-      const payloads = this.parseBatchPayload(data);
 
-      if (payloads.length === 0) {
+      if (!data || !data.payloads || data.payloads.length === 0) {
         throw new Error("Batch payload contained no invocations");
       }
 
-      if (payloads.length > 1) {
+      if (data.payloads.length > 1) {
         console.warn(
-          `⚠️ Midnight adapter received ${payloads.length} invocations in a single batch. ` +
+          `⚠️ Midnight adapter received ${data.payloads.length} invocations in a single batch. ` +
             "Currently only the first invocation will be processed.",
         );
       }
 
-      const { circuit, args } = payloads[0];
+      const { circuit, args } = data.payloads[0];
 
       // Check if circuit is pure (read-only query) or impure (state-changing transaction)
-      const circuitDef = this.contractInfo.circuits.find((c) => c.name === circuit);
+      const circuitDef = this.contractInfo.circuits.find((c) =>
+        c.name === circuit
+      );
       if (!circuitDef) {
         throw new Error(
           `Circuit "${circuit}" not found in contract. Available circuits: ${
@@ -377,24 +396,33 @@ export class MidnightAdapter implements BlockchainAdapter {
         this.contractInfo,
       );
 
-      console.log(`🔍 Circuit "${circuit}" is ${circuitDef.pure ? "PURE (query)" : "IMPURE (transaction)"}`);
+      console.log(
+        `🔍 Circuit "${circuit}" is ${
+          circuitDef.pure ? "PURE (query)" : "IMPURE (transaction)"
+        }`,
+      );
       console.log("🔄 Parsed arguments:", parsedArgs);
 
       let result;
-      
+
       if (circuitDef.pure) {
         // Pure circuit - use call (local query, no transaction)
         console.log("📖 Calling pure circuit (read-only query)...");
         try {
-          const queryResult = await this.deployedContract.call[circuit](...parsedArgs);
+          const queryResult = await this.deployedContract.call[circuit](
+            ...parsedArgs,
+          );
           console.log("✅ Pure circuit query succeeded! Result:", queryResult);
-          
+
           // For pure circuits, we return a fake transaction ID with the result encoded
           // Since the batcher expects a hash, we'll return a special format
           return `query:${circuit}:${JSON.stringify(queryResult)}`;
         } catch (callError) {
           console.error("❌ Pure circuit call threw an error:");
-          console.error("  Error message:", callError instanceof Error ? callError.message : String(callError));
+          console.error(
+            "  Error message:",
+            callError instanceof Error ? callError.message : String(callError),
+          );
           throw callError;
         }
       } else {
@@ -402,8 +430,11 @@ export class MidnightAdapter implements BlockchainAdapter {
         console.log("📝 Calling impure circuit (transaction)...");
         console.log("🔄 deployedContract type:", typeof this.deployedContract);
         console.log("🔄 callTx available?:", !!this.deployedContract?.callTx);
-        console.log("🔄 circuit method available?:", !!this.deployedContract?.callTx?.[circuit]);
-        
+        console.log(
+          "🔄 circuit method available?:",
+          !!this.deployedContract?.callTx?.[circuit],
+        );
+
         try {
           result = await this.deployedContract.callTx[circuit](
             ...parsedArgs,
@@ -411,20 +442,35 @@ export class MidnightAdapter implements BlockchainAdapter {
         } catch (callTxError) {
           console.error("❌ callTx threw an error:");
           console.error("  Error type:", typeof callTxError);
-          console.error("  Error message:", callTxError instanceof Error ? callTxError.message : String(callTxError));
-          console.error("  Error stack:", callTxError instanceof Error ? callTxError.stack : "N/A");
+          console.error(
+            "  Error message:",
+            callTxError instanceof Error
+              ? callTxError.message
+              : String(callTxError),
+          );
+          console.error(
+            "  Error stack:",
+            callTxError instanceof Error ? callTxError.stack : "N/A",
+          );
           throw callTxError; // Re-throw to be caught by outer catch
         }
 
         // Check if result has public.txHash (FinalizedTxData) or needs balancing
         if (result && result.public && result.public.txHash) {
           const txHash = result.public.txHash;
-          console.log(`🚀 Circuit invoked successfully! Transaction Hash: ${txHash}`);
+          console.log(
+            `🚀 Circuit invoked successfully! Transaction Hash: ${txHash}`,
+          );
           return txHash;
         } else {
           // Maybe it's an UnbalancedTransaction that needs balancing
-          console.log("🔄 Result doesn't have public.txHash, might need balancing:", result);
-          throw new Error("Transaction result format unexpected - may need balancing");
+          console.log(
+            "🔄 Result doesn't have public.txHash, might need balancing:",
+            result,
+          );
+          throw new Error(
+            "Transaction result format unexpected - may need balancing",
+          );
         }
       }
     } catch (error) {
@@ -491,18 +537,20 @@ export class MidnightAdapter implements BlockchainAdapter {
 
     try {
       // Normalize hash format - ensure it's lowercase and proper length
-      let normalizedHash = txId.toLowerCase().replace(/^0x/, '');
-      
+      let normalizedHash = txId.toLowerCase().replace(/^0x/, "");
+
       // Midnight TransactionId is 72 hex chars (288 bits), but GraphQL expects 64 (256 bits)
       // The actual transaction hash appears to be in the last 64 characters
       if (normalizedHash.length > 64) {
         normalizedHash = normalizedHash.slice(-64);
       } else if (normalizedHash.length < 64) {
-        normalizedHash = normalizedHash.padStart(64, '0');
+        normalizedHash = normalizedHash.padStart(64, "0");
       }
-      
-      console.log(`Querying transaction: original=${txId}, normalized=${normalizedHash}`);
-      
+
+      console.log(
+        `Querying transaction: original=${txId}, normalized=${normalizedHash}`,
+      );
+
       // Query the indexer for transaction details by hash
       const query = `query ($hash: String!) {
         transactions(offset: { hash: $hash }) {
@@ -600,7 +648,7 @@ export class MidnightAdapter implements BlockchainAdapter {
   /**
    * Estimate the fee for submitting a batch
    */
-  estimateBatchFee(data: string): bigint {
+  estimateBatchFee(data: MidnightBatchPayload | null): bigint {
     // Midnight uses native token for fees
     // For now, return 0 as fees are handled by the wallet
     return 0n;
@@ -667,7 +715,9 @@ export class MidnightAdapter implements BlockchainAdapter {
     }
   }
 
-  private parseBatchPayload(data: string): Array<{ circuit: string; args: any[] }> {
+  private parseBatchPayload(
+    data: string,
+  ): Array<{ circuit: string; args: any[] }> {
     const decoded = this.decodeHexString(data);
     let payload: unknown;
     try {
@@ -701,7 +751,9 @@ export class MidnightAdapter implements BlockchainAdapter {
     }
 
     if (!Array.isArray(payloads)) {
-      throw new Error("Invalid Midnight batch payload structure: missing payloads array");
+      throw new Error(
+        "Invalid Midnight batch payload structure: missing payloads array",
+      );
     }
 
     const sanitized = payloads.map((entry, index) => {
@@ -730,5 +782,88 @@ export class MidnightAdapter implements BlockchainAdapter {
         }`,
       );
     }
+  }
+
+  public verifySignature(input: DefaultBatcherInput): boolean {
+    // Midnight inputs are not signed in a way the core batcher understands.
+    // The adapter is responsible for this logic (e.g., inside the circuit).
+    // We return true to bypass this check, matching the previous hardcoded behavior.
+    return true;
+  }
+
+  public validateInput(
+    input: DefaultBatcherInput,
+  ): ValidationResult {
+    try {
+      // 1. Decode the raw input
+      const decodedInput = this.decodeHexIfNeeded(input.input);
+
+      // 2. Shallow Parse (from MidnightBatchDataBuilder)
+      let parsed: any;
+      try {
+        parsed = JSON.parse(decodedInput);
+      } catch (error) {
+        return {
+          valid: false,
+          error: "Input is not valid JSON",
+        };
+      }
+
+      if (
+        !parsed || typeof parsed !== "object" ||
+        typeof parsed.circuit !== "string" || !Array.isArray(parsed.args)
+      ) {
+        return {
+          valid: false,
+          error:
+            "Invalid input structure. Expected { circuit: string, args: [] }",
+        };
+      }
+
+      // 3. Deep Parse (from submitBatch)
+      const circuitDef = this.contractInfo.circuits.find((c) =>
+        c.name === parsed.circuit
+      );
+      if (!circuitDef) {
+        return {
+          valid: false,
+          error: `Circuit "${parsed.circuit}" not found. Available: ${
+            this.contractInfo.circuits.map((c) => c.name).join(", ")
+          }`,
+        };
+      }
+
+      // 4. Validate arguments
+      // parseCircuitArgs will throw if validation fails
+      parseCircuitArgs(
+        parsed.circuit,
+        parsed.args,
+        this.contractInfo,
+      );
+
+      return { valid: true };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error instanceof Error
+          ? error.message
+          : "Unknown validation error",
+      };
+    }
+  }
+
+  private decodeHexIfNeeded(value: string): string {
+    if (/^0x[0-9a-fA-F]+$/.test(value)) {
+      return new TextDecoder().decode(hexStringToUint8Array(value.slice(2)));
+    }
+    // Also handle hex without 0x prefix, if needed
+    if (/^[0-9a-fA-F]+$/.test(value) && value.length % 2 === 0) {
+      try {
+        return new TextDecoder().decode(hexStringToUint8Array(value));
+      } catch {
+        // Fallback to original value if not valid hex
+      }
+    }
+    return value;
   }
 }

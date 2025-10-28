@@ -1,21 +1,15 @@
 /**
- * Default batch data builder implementation
+ * Default batch builder logic implementation
  *
  * This implementation follows the same logic as the original @paima/concise buildBatchData
  * but works with the generic DefaultBatcherInput type and supports target-specific configurations.
  */
 
-import {
-  BatchBuildingOptions,
-  BatchBuildingResult,
-  BatchDataBuilder,
-} from "./batch-data-builder.ts";
 import { DefaultBatcherInput } from "../core/types.ts";
 
 const BATCHER_GRAMMAR_PREFIX = "&B";
 
-export class DefaultBatchDataBuilder<T extends DefaultBatcherInput>
-  implements BatchDataBuilder<T> {
+export class DefaultBatchBuilderLogic {
   /**
    * Build batch data using the standard Paima batching algorithm
    *
@@ -23,20 +17,26 @@ export class DefaultBatchDataBuilder<T extends DefaultBatcherInput>
    * @param options - Options for batch building
    * @returns Batch building result or null if no inputs could be batched
    */
-  buildBatchData(
+  buildBatchData<T extends DefaultBatcherInput>(
     inputs: T[],
-    options?: BatchBuildingOptions,
-  ): BatchBuildingResult<T> | null {
+    options?: {
+      /** Maximum size of the batch in bytes */
+      maxSize?: number;
+    },
+  ): { selectedInputs: T[]; data: string } | null {
     return this.buildDefaultBatchData(inputs, options);
   }
 
   /**
    * Internal implementation of the default batch building logic
    */
-  private buildDefaultBatchData(
+  private buildDefaultBatchData<T extends DefaultBatcherInput>(
     inputs: T[],
-    options?: BatchBuildingOptions,
-  ): BatchBuildingResult<T> | null {
+    options?: {
+      /** Maximum size of the batch in bytes */
+      maxSize?: number;
+    },
+  ): { selectedInputs: T[]; data: string } | null {
     if (inputs.length === 0) return null;
 
     const maxSize = options?.maxSize ?? 10000;
@@ -61,7 +61,7 @@ export class DefaultBatchDataBuilder<T extends DefaultBatcherInput>
     }
 
     if (batchedTransaction.length === 0) {
-      return { selectedInputs: [], data: "" };
+      return null;
     }
 
     const batchedData = this.generateBatchStmInput(batchedTransaction);
@@ -78,7 +78,7 @@ export class DefaultBatchDataBuilder<T extends DefaultBatcherInput>
    * @param input - The batcher input data
    * @returns Array representation of the STM input
    */
-  private generateStmInput(input: T): any[] {
+  private generateStmInput(input: DefaultBatcherInput): any[] {
     // e.g. [addressType, userAddress, userSignature, conciseInput, millisecondTimestamp]
     return [
       `${input.addressType}`,

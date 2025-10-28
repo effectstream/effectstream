@@ -2,6 +2,7 @@ import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { type Static, Type } from "@sinclair/typebox";
 import type { PaimaBatcher } from "../core/batcher.ts";
+import { InputValidationError } from "../core/batcher.ts";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
 } from "@fastify/swagger";
@@ -115,7 +116,27 @@ async function registerOpenApiDocumentation(
   // Register error-catching handler
   server.setErrorHandler((error, request, reply) => {
     console.error("[HTTP SERVER] Error: ", error, request.url);
-    reply.status(500).send({ ok: false });
+
+    // Handle validation errors (return 400 instead of 500)
+    if (error.validation) {
+      return reply.status(400).send({
+        success: false,
+        error: "Validation failed",
+        message: "Invalid request data",
+        details: error.validation
+      });
+    }
+
+    // Handle InputValidationError (return appropriate status code)
+    if (error instanceof InputValidationError) {
+      return reply.status(error.statusCode).send({
+        success: false,
+        error: "Validation failed",
+        message: error.message,
+      });
+    }
+
+    reply.status(500).send({ ok: false, error: error.message ?? "Unknown error" });
   });
 }
 
@@ -302,6 +323,15 @@ export async function startBatcherHttpServer(
       }
     } catch (error) {
       console.error("Error adding input to batcher:", error);
+
+      if (error instanceof InputValidationError) {
+        return reply.status(error.statusCode).send({
+          success: false,
+          error: "Validation failed",
+          message: error.message,
+        });
+      }
+
       return reply.status(500).send({
         success: false,
         error: "Internal server error",
