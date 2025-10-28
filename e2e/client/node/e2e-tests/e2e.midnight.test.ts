@@ -1,4 +1,4 @@
-import { assertSQL, type SharedState } from "@e2e/engine";
+import { assert, assertSQL, type SharedState } from "@e2e/engine";
 import type { ContractAddress } from "@midnight-ntwrk/compact-runtime";
 import {
   Counter,
@@ -41,7 +41,9 @@ import {
 import type { Client } from "pg";
 import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
 import { dirname, resolve } from "node:path";
+import { AddressType } from "@paima/utils";
 
+const BATCHER_URL = "http://localhost:3334";
 globalThis.WebSocket = WebSocket;
 
 // Inlined common types for standalone script
@@ -351,6 +353,51 @@ const getContractAddress = async (): Promise<string> => {
   }
 };
 
+
+async function sendMintToBatcher(
+  amount: number | string,
+  confirmationLevel: string = "no-wait",
+): Promise<number> {
+  const account = {
+    is_left: true,
+    left: {
+      bytes: "0x00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF",
+    },
+    right: {
+      bytes: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    },
+  };
+  const input = JSON.stringify({
+    circuit: "mint",
+    args: [account, amount],
+  });
+  const body = {
+    data: {
+      target: "midnight_eip20",
+      address: "placeholderaddress",
+      addressType: AddressType.MIDNIGHT,
+      input,
+      timestamp: Date.now(),
+      signature: "signature",
+    },
+    confirmationLevel: confirmationLevel,
+  };
+  const response = await fetch(`${BATCHER_URL}/send-input`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json();
+  if (response.ok) {
+    console.log("✅ Mint sent to batcher successfully");
+  } else {
+    console.error("❌ Error sending mint to batcher:", result);
+  }
+  return response.status;
+}
+
 /**
  * Standalone script that joins a counter contract with a specific address and increments its value.
  *
@@ -474,4 +521,27 @@ async function joinAndIncrementTest(
   }
 }
 
-export { joinAndIncrementTest };
+async function sendMintToBatcherTest(
+  db: Client,
+  sharedState: SharedState,
+): Promise<void> {
+  const status200 = await sendMintToBatcher(20000);
+  console.log("🪙 Correct input for Mint sent to batcher successfully with status:", status200);
+  await assert("Send Mint to Batcher Test", async () => {
+    return status200 === 200;
+  });
+
+  const statusBadInput = await sendMintToBatcher("not a number");
+  console.log("🪙 Wrong input for Mint sent to batcher successfully:", statusBadInput);
+  await assert("Send Mint to Batcher Test Bad Input", async () => {
+    return statusBadInput === 400;
+  });
+
+  const statusBadConfirmationLevel = await sendMintToBatcher(20000, "wrong-confirmation-level");
+  console.log("🪙 Wrong confirmation level for Mint sent to batcher successfully:", statusBadConfirmationLevel);
+  await assert("Send Mint to Batcher Test Bad Confirmation Level", async () => {
+    return statusBadConfirmationLevel === 400;
+  });
+}
+
+export { joinAndIncrementTest, sendMintToBatcherTest };

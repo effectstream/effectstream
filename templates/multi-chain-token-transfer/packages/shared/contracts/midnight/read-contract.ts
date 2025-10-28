@@ -1,3 +1,5 @@
+import * as path from "@std/path";
+
 type MidnightContractCompilerInfo = {
   circuits: any[];
   witnesses: any[];
@@ -8,6 +10,7 @@ type MidnightContractAddressInfo = {
 };
 export type MidnightContractInfo = MidnightContractAddressInfo & {
   contractInfo: MidnightContractCompilerInfo;
+  zkConfigPath: string;
 };
 
 let cachedContractInfo: MidnightContractInfo | undefined;
@@ -23,9 +26,13 @@ export function readMidnightContract(): MidnightContractInfo {
     const contractInfoJson = Deno.readTextFileSync(contractInfoPath);
     const contractAddressInfo = JSON.parse(contractAddressJson) as MidnightContractAddressInfo;
     const contractInfo = JSON.parse(contractInfoJson) as MidnightContractCompilerInfo;
+    const zkConfigPath = path.resolve(
+      `./contract-eip-1155/src/managed/multichain_multitoken`,
+    );
     return {
       ...contractAddressInfo,
       contractInfo,
+      zkConfigPath,
     };
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {

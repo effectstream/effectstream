@@ -10,7 +10,7 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
 import type { EvmAddress, EvmPrivateKey } from "@paimaexample/utils";
 import { hexStringToUint8Array } from "@paimaexample/utils";
-import type { BlockchainAdapter, ValidationResult } from "@paimaexample/batcher";
+import type { BlockchainAdapter, ValidationResult, DefaultBatcherInput } from "@paimaexample/batcher";
 import { mct_erc1155 } from "@multi-chain-transfer/evm-contracts";
 
 // Type conversion utilities

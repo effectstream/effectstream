@@ -1,3 +1,4 @@
+import * as path from "@std/path";
 /**
 * Information about a compiled Midnight contract
 */
@@ -24,9 +25,10 @@ export type MidnightContractAddressInfo = {
 export type MidnightContractInfo = MidnightContractAddressInfo & {
   /** Compiler-generated contract information */
   contractInfo: MidnightContractCompilerInfo;
+  zkConfigPath: string;
 };
 
-let cachedContractInfo: Record<string, MidnightContractInfo> = {};
+const cachedContractInfo: Record<string, MidnightContractInfo> = {};
 
 /**
 * Reads contract information from JSON files
@@ -66,7 +68,9 @@ export function readMidnightContract(
 
     // Construct the full path to the contract info file using the first found subdirectory
     const contractInfoPath = new URL(`./${contractName}/src/managed/${compilerSubdir}/compiler/contract-info.json`, dir);
-
+    const zkConfigPath = path.resolve(
+      `./${contractName}/src/managed/${compilerSubdir}`,
+    );
     const contractAddressJson = Deno.readTextFileSync(contractPath);
     const contractInfoJson = Deno.readTextFileSync(contractInfoPath);
     const contractAddressInfo = JSON.parse(contractAddressJson) as MidnightContractAddressInfo;
@@ -75,6 +79,7 @@ export function readMidnightContract(
     cachedContractInfo[contractName] = {
       ...contractAddressInfo,
       contractInfo,
+      zkConfigPath,
     };
     
     return cachedContractInfo[contractName];
