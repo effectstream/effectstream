@@ -10,7 +10,11 @@ import type {
   BlockchainAdapter,
   BlockchainHash,
   BlockchainTransactionReceipt,
+  BatchBuildingOptions,
+  BatchBuildingResult,
 } from "./adapter.ts";
+import { DefaultBatchBuilderLogic } from "../batch-data-builder/default-builder-logic.ts";
+import type { DefaultBatcherInput } from "../core/types.ts";
 import { createPublicClient, createWalletClient, http } from "viem";
 import * as chains from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
@@ -29,11 +33,18 @@ function viemReceiptToGenericReceipt(
   };
 }
 
+function encodeHexFromString(value: string): `0x${string}` {
+  const bytes = new TextEncoder().encode(value);
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `0x${hex}`;
+}
+
 /**
  * EVM-specific implementation of the blockchain adapter interface
  * Handles all EVM blockchain interactions including transaction submission and confirmation
  */
-export class PaimaL2DefaultAdapter implements BlockchainAdapter {
+export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
   private readonly walletClient: WalletClient;
   private readonly publicClient: PublicClient;
   private readonly account: Account;
@@ -41,6 +52,9 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter {
   private readonly paimaL2Fee: bigint;
   private readonly paimaSyncProtocolName: string;
   public readonly maxBatchSize: number;
+
+  // Private helper for building batch data
+  private readonly batchBuilderLogic = new DefaultBatchBuilderLogic();
 
   // TODO: Import this from the actual ABI package when available
   private readonly paimaL2Abi = [
@@ -88,6 +102,17 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter {
   }
 
   /**
+   * Build batch data from a collection of inputs
+   */
+  public buildBatchData(
+    inputs: DefaultBatcherInput[],
+    options?: BatchBuildingOptions,
+  ): BatchBuildingResult<string> | null {
+    // Cast is safe because we know our helper returns a string
+    return this.batchBuilderLogic.buildBatchData(inputs, options) as BatchBuildingResult<string> | null;
+  }
+
+  /**
    * Submit a batch transaction to the PaimaL2 contract
    */
   async submitBatch(
@@ -98,13 +123,14 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter {
     if (fee) {
       actualFee = typeof fee === "string" ? BigInt(fee) : fee;
     }
+    const hexData = encodeHexFromString(data);
     const hash = await this.walletClient.writeContract({
       account: this.account,
       chain: this.walletClient.chain,
       address: this.paimaL2Address,
       abi: this.paimaL2Abi,
       functionName: "paimaSubmitGameInput",
-      args: [data as `0x${string}`],
+      args: [hexData],
       value: actualFee,
     });
 
@@ -151,6 +177,7 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter {
    * simply used the pre-configured fee rather than performing complex estimation.
    */
   estimateBatchFee(data: string): bigint {
+    // Note: Fee estimation doesn't need hex encoding since it just returns the configured fee
     return this.paimaL2Fee;
   }
 

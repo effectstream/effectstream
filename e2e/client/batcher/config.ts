@@ -67,13 +67,6 @@ export const config: PaimaBatcherConfig = {
     midnight_eip20: { criteriaType: "size", maxBatchSize: 1 },
   },
   confirmationLevel: "wait-paima-processed",
-  batchBuilding: {
-    maxSize: 10000,
-    targetBuilders: {
-      midnight_eip20: new MidnightBatchDataBuilder(),
-      paimaL2: new DefaultBatchDataBuilder(),
-    },
-  },
   enableEventSystem: true, // Important for adding state transitions to console logs
   port,
 };

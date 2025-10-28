@@ -6,10 +6,13 @@ import type {
   BlockchainHash,
   BlockchainTransactionReceipt,
   ValidationResult,
+  BatchBuildingOptions,
+  BatchBuildingResult,
 } from "./adapter.ts";
 import type { ContractInfo } from "./midnight-arg-parser.ts";
 import { parseCircuitArgs } from "./midnight-arg-parser.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
+import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "../batch-data-builder/midnight-builder-logic.ts";
 import { hexStringToUint8Array } from "@paima/utils";
 import type { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import { WalletBuilder } from "@midnight-ntwrk/wallet";
@@ -60,13 +63,16 @@ export interface MidnightAdapterConfig {
  * Midnight blockchain adapter implementing BlockchainAdapter interface
  * Enables batcher to submit transactions by invoking Compact contract circuits
  */
-export class MidnightAdapter implements BlockchainAdapter {
+export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload | null> {
   private readonly contractAddress: string;
   private readonly config: MidnightAdapterConfig;
   private readonly contractInfo: ContractInfo;
   private readonly networkId: NetworkId;
   private readonly syncProtocolName: string;
   public readonly maxBatchSize?: number;
+
+  // Private helper for building batch data
+  private readonly batchBuilderLogic = new MidnightBatchBuilderLogic();
 
   private wallet: (Wallet & Resource) | null = null;
   private deployedContract: any = null;
@@ -319,13 +325,19 @@ export class MidnightAdapter implements BlockchainAdapter {
     this.hasFunds = true;
   }
 
+  public buildBatchData(
+    inputs: DefaultBatcherInput[],
+    options?: BatchBuildingOptions,
+  ): BatchBuildingResult<MidnightBatchPayload | null> | null {
+    // Cast is safe because we know our helper returns this type
+    return this.batchBuilderLogic.buildBatchData(inputs, options) as BatchBuildingResult<MidnightBatchPayload | null> | null;
+  }
+
   /**
    * Submit a batch transaction to the Midnight contract
-   * @param data - Hex-encoded JSON payload: {"circuit": "...", "args": [...]}
-   * @param fee - Fee parameter (not used for Midnight currently)
    */
   async submitBatch(
-    data: string,
+    data: MidnightBatchPayload | null,
     fee?: string | bigint,
   ): Promise<BlockchainHash> {
     if (this.initializationPromise) {
@@ -348,20 +360,19 @@ export class MidnightAdapter implements BlockchainAdapter {
     }
 
     try {
-      const payloads = this.parseBatchPayload(data);
 
-      if (payloads.length === 0) {
+      if (!data || !data.payloads || data.payloads.length === 0) {
         throw new Error("Batch payload contained no invocations");
       }
 
-      if (payloads.length > 1) {
+      if (data.payloads.length > 1) {
         console.warn(
-          `⚠️ Midnight adapter received ${payloads.length} invocations in a single batch. ` +
+          `⚠️ Midnight adapter received ${data.payloads.length} invocations in a single batch. ` +
             "Currently only the first invocation will be processed.",
         );
       }
 
-      const { circuit, args } = payloads[0];
+      const { circuit, args } = data.payloads[0];
 
       // Check if circuit is pure (read-only query) or impure (state-changing transaction)
       const circuitDef = this.contractInfo.circuits.find((c) =>
@@ -637,7 +648,7 @@ export class MidnightAdapter implements BlockchainAdapter {
   /**
    * Estimate the fee for submitting a batch
    */
-  estimateBatchFee(data: string): bigint {
+  estimateBatchFee(data: MidnightBatchPayload | null): bigint {
     // Midnight uses native token for fees
     // For now, return 0 as fees are handled by the wallet
     return 0n;

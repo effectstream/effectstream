@@ -34,7 +34,6 @@ export const config: PaimaBatcherConfig = {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },
   confirmationLevel: "wait-paima-processed", // Connector expectation
-  batchBuilding: { maxSize: 10000 }, // Connector expectation
   enableHttpServer: true,
   enableEventSystem: true,
   port,

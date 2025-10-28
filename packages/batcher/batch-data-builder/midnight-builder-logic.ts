@@ -1,12 +1,19 @@
 import { hexStringToUint8Array } from "@paima/utils";
 import type { DefaultBatcherInput } from "../core/types.ts";
-import type {
-  BatchBuildingOptions,
-  BatchBuildingResult,
-  BatchDataBuilder,
-} from "./batch-data-builder.ts";
 
 const BATCH_PREFIX = "&B";
+
+export interface MidnightBatchPayload {
+  prefix: string;
+  payloads: Array<{
+    circuit: string;
+    args: unknown[];
+    addressType: number;
+    address: string;
+    signature: string;
+    timestamp: string;
+  }>;
+}
 
 function decodeHexIfNeeded(value: string): string {
   if (typeof value !== "string") {
@@ -25,12 +32,14 @@ function decodeHexIfNeeded(value: string): string {
   return value;
 }
 
-export class MidnightBatchDataBuilder<T extends DefaultBatcherInput>
-  implements BatchDataBuilder<T> {
-  buildBatchData(
+export class MidnightBatchBuilderLogic {
+  buildBatchData<T extends DefaultBatcherInput>(
     inputs: T[],
-    options?: BatchBuildingOptions,
-  ): BatchBuildingResult<T> | null {
+    options?: {
+      /** Maximum size of the batch in bytes */
+      maxSize?: number;
+    },
+  ): { selectedInputs: T[]; data: MidnightBatchPayload | null } | null {
     if (inputs.length === 0) return null;
 
     const maxSize = options?.maxSize ?? 10000;
@@ -73,17 +82,15 @@ export class MidnightBatchDataBuilder<T extends DefaultBatcherInput>
     }
 
     if (payloads.length === 0) {
-      return { selectedInputs: [], data: "" };
+      return { selectedInputs: [], data: null };
     }
-
-    const serialized = JSON.stringify({
-      prefix: BATCH_PREFIX,
-      payloads,
-    });
 
     return {
       selectedInputs,
-      data: serialized,
+      data: {
+        prefix: BATCH_PREFIX,
+        payloads,
+      },
     };
   }
 }

@@ -2,14 +2,7 @@ import type {
   BlockchainAdapter,
   BlockchainTransactionReceipt,
 } from "../adapters/adapter.ts";
-import type { BatchBuildingResult } from "../batch-data-builder/batch-data-builder.ts";
 import type { DefaultBatcherInput } from "./types.ts";
-function encodeHexFromString(value: string): string {
-  const bytes = new TextEncoder().encode(value);
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-  return `0x${hex}`;
-}
 
 
 /**
@@ -19,10 +12,6 @@ function encodeHexFromString(value: string): string {
 export class BatchProcessor<T extends DefaultBatcherInput> {
   constructor(
     private batcher: {
-      buildBatchData: (
-        inputs: T[],
-        target: string,
-      ) => BatchBuildingResult<T> | null;
       emitStateTransition: (prefix: string, payload: any) => Promise<void>;
       storage: { removeProcessedInputs: (inputs: T[]) => Promise<void> };
       submissionCallbacks: Map<
@@ -42,42 +31,45 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
   ) {}
 
   async processBatchForTarget(
-    adapter: BlockchainAdapter,
+    adapter: BlockchainAdapter<any>,
     target: string,
     inputs: T[],
     timeout: number = 60000,
   ): Promise<void> {
     console.log(`🔗 Processing ${inputs.length} inputs for target: ${target}`);
 
-    // Build batch data using the target-specific batch builder
-    const batchResult = this.batcher.buildBatchData(inputs, target);
+    // Get builder *from adapter*
+    const options = {
+      maxSize: adapter.maxBatchSize,
+    };
 
-    if (!batchResult || batchResult.data === "") {
+    // Build batch data directly from adapter
+    const batchResult = adapter.buildBatchData(inputs as DefaultBatcherInput[], options);
+
+    if (!batchResult || !batchResult.data) {
       console.log(`📭 No valid inputs for target ${target}, skipping...`);
       return;
     }
 
-    const { selectedInputs, data } = batchResult;
-
-    const hexData = encodeHexFromString(data);
+    const { selectedInputs, data } = batchResult; // data is 'unknown'
 
     await this.submitAndConfirmTransaction(
       adapter,
       target,
-      hexData,
-      selectedInputs,
+      data,
+      selectedInputs as T[],
       timeout,
     );
   }
 
   private async submitAndConfirmTransaction(
-    adapter: BlockchainAdapter,
+    adapter: BlockchainAdapter<any>,
     target: string,
-    hexData: string,
+    data: unknown, // CHANGED from hexData: string
     selectedInputs: T[],
     timeout: number,
   ): Promise<void> {
-    const estimatedFee = await adapter.estimateBatchFee(hexData);
+    const estimatedFee = await adapter.estimateBatchFee(data);
 
     this.batcher.emitStateTransition("batch:fee-estimate", {
       target,
@@ -85,7 +77,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       time: Date.now(),
     });
 
-    const hash = await adapter.submitBatch(hexData, estimatedFee);
+    const hash = await adapter.submitBatch(data, estimatedFee);
     console.log(`✅ Submitted batch for ${target}: ${hash}`);
 
     this.batcher.emitStateTransition("batch:submit", {
@@ -106,7 +98,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
   }
 
   private async handleTransactionConfirmation(
-    adapter: BlockchainAdapter,
+    adapter: BlockchainAdapter<any>,
     target: string,
     hash: string,
     selectedInputs: T[],
@@ -142,7 +134,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
 
   private async waitForPaimaProcessing(
     receipt: BlockchainTransactionReceipt,
-    adapter: BlockchainAdapter,
+    adapter: BlockchainAdapter<any>,
     target: string,
     timeout: number,
   ): Promise<void> {
