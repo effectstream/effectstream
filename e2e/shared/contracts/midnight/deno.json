@@ -2,9 +2,9 @@
     "name": "@e2e/midnight-contracts",
     "version": "0.3.0",
     "exports": {
-        "./contract-counter-address": "./contract-counter-read.ts",
-        "./contract-eip-20-address": "./contract-eip-20-read.ts",
-        "./counter": "./contract-counter/src/index.ts"
+        "./read-contract": "./read-contract.ts",
+        "./counter": "./contract-counter/src/index.ts",
+        "./eip-20": "./contract-eip-20/src/index.ts"
     },
     "tasks": {
         "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs @paima/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",

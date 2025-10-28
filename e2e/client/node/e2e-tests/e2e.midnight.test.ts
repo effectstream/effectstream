@@ -39,7 +39,7 @@ import {
   setNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import type { Client } from "pg";
-import { readMidnightContract } from "@e2e/midnight-contracts/contract-counter-address";
+import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
 import { dirname, resolve } from "node:path";
 
 globalThis.WebSocket = WebSocket;
@@ -220,7 +220,7 @@ const buildWalletAndWaitForFunds = async (
   if (directoryPath !== undefined) {
     const fullPath = `${directoryPath}/${filename}`;
     try {
-      const contractAddress = readMidnightContract().contractAddress;
+      const contractAddress = readMidnightContract("contract-counter", "contract-counter.json").contractAddress;
       wallet = await WalletBuilder.restore(
         indexer,
         indexerWS,
@@ -325,7 +325,7 @@ const getContractAddress = async (): Promise<string> => {
   // If not provided via args, try to read from contract_address.txt file
 
   try {
-    const contractAddressFromFile = readMidnightContract().contractAddress;
+    const contractAddressFromFile = readMidnightContract("contract-counter", "contract-counter.json").contractAddress;
 
     if (contractAddressFromFile) {
       console.log(
