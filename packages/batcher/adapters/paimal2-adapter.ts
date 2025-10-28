@@ -33,6 +33,13 @@ function viemReceiptToGenericReceipt(
   };
 }
 
+function encodeHexFromString(value: string): `0x${string}` {
+  const bytes = new TextEncoder().encode(value);
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `0x${hex}`;
+}
+
 /**
  * EVM-specific implementation of the blockchain adapter interface
  * Handles all EVM blockchain interactions including transaction submission and confirmation
@@ -116,13 +123,14 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
     if (fee) {
       actualFee = typeof fee === "string" ? BigInt(fee) : fee;
     }
+    const hexData = encodeHexFromString(data);
     const hash = await this.walletClient.writeContract({
       account: this.account,
       chain: this.walletClient.chain,
       address: this.paimaL2Address,
       abi: this.paimaL2Abi,
       functionName: "paimaSubmitGameInput",
-      args: [data as `0x${string}`],
+      args: [hexData],
       value: actualFee,
     });
 
@@ -169,6 +177,7 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
    * simply used the pre-configured fee rather than performing complex estimation.
    */
   estimateBatchFee(data: string): bigint {
+    // Note: Fee estimation doesn't need hex encoding since it just returns the configured fee
     return this.paimaL2Fee;
   }
 
