@@ -214,6 +214,10 @@ export async function start(
     const runningProcesses = new Map<string, Promise<void>>();
     const finished = new Set<string>();
 
+    let circularDependencyLoopCount = 0;
+    const CIRCULAR_DEPENDENCY_THRESHOLD = 50;
+    let lastPendingSnapshot: Set<string> | null = null;
+    
     const launchTask = async (task: Task): Promise<void> => {
       task.status = 'running';
 
@@ -305,14 +309,30 @@ export async function start(
                 waiter = resolve;
             });
         } else if (pending.size > 0) {
-            console.error('Error: Circular dependency or missing dependency detected.');
-            console.error('Pending tasks:');
-            for (const pendingTaskName of pending) {
-                const pendingTask = tasks.get(pendingTaskName)!;
-                console.error(`  - ${pendingTask.name} is waiting for: ${[...pendingTask.dependencies].join(', ')}`);
+            // Check if we have the same pending tasks as last iteration
+            const currentPendingSnapshot = new Set(pending);
+            const isSamePending = lastPendingSnapshot && 
+                currentPendingSnapshot.size === lastPendingSnapshot.size &&
+                [...currentPendingSnapshot].every(task => lastPendingSnapshot!.has(task));
+            
+            if (isSamePending) {
+                circularDependencyLoopCount++;
+            } else {
+                circularDependencyLoopCount = 0;
             }
-            await shutdown(1);
-            return;
+            
+            lastPendingSnapshot = currentPendingSnapshot;
+            
+            if (circularDependencyLoopCount >= CIRCULAR_DEPENDENCY_THRESHOLD) {
+                console.error('Error: Circular dependency or missing dependency detected.');
+                console.error('Pending tasks:');
+                for (const pendingTaskName of pending) {
+                    const pendingTask = tasks.get(pendingTaskName)!;
+                    console.error(`  - ${pendingTask.name} is waiting for: ${[...pendingTask.dependencies].join(', ')}`);
+                }
+                await shutdown(1);
+                return;
+            }
         }
         await new Promise(resolve => setTimeout(resolve, 100));
     }
