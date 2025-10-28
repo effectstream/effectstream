@@ -63,49 +63,31 @@ But you can write your own, here is an example of a reusable launcher function f
 
 ```ts
 // This function returns a configuration object for a process group.
-export const launchEvm = (packageName: string) => ({
-  // A list of ports to clear before starting.
-  stopProcessAtPort: [8545],
-  processes: [
-    {
-      // Step 1: Start the Hardhat EVM chain (a long-running service).
-      name: ComponentNames.HARDHAT,
-      args: ["task", "-f", packageName, "chain:start"],
-      waitToExit: false, // Don't wait, let it run in the background.
-    },
-    {
-      // Step 2: Wait until the chain is responsive.
-      name: ComponentNames.HARDHAT_WAIT,
-      args: ["task", "-f", packageName, "chain:wait"],
-      // waitToExit is true by default, so the orchestrator pauses here.
-    },
-    {
-      // Step 3: Deploy contracts. This only runs after the wait step completes.
-      name: ComponentNames.DEPLOY_EVM_CONTRACTS,
-      args: ["task", "-f", packageName, "deploy"],
-    },
-  ],
-});
+export const launchEvm = (packageName: string) => [
+  {
+    stopProcessAtPort: [8545, 8546],
+    name: ComponentNames.HARDHAT,
+    args: ["task", "-f", packageName, "chain:start"],
+    waitToExit: false,
+    logs: "otel-compatible",
+    type: "system-dependency",
+    dependsOn: [],
+  },
+  {
+    name: ComponentNames.HARDHAT_WAIT,
+    args: ["task", "-f", packageName, "chain:wait"],
+    dependsOn: [ComponentNames.HARDHAT],
+  },
+  {
+    name: ComponentNames.DEPLOY_EVM_CONTRACTS,
+    args: ["task", "-f", packageName, "deploy"],
+    type: "system-dependency",
+    dependsOn: [ComponentNames.HARDHAT_WAIT],
+  },
+];
 ```
 
 This demonstrates the key property of `waitToExit`, which allows you to define dependencies between steps.
-
-#### 3. Batcher Configuration (`batcher`)
-
-If you enable `PAIMA_BATCHER` in the `processes` section, you must also provide this configuration block. It tells the Batcher service which L2 contract to submit inputs to and what wallet to use for sending transactions.
-
-```ts
-  batcher: {
-    // The address of your deployed PaimaL2Contract.
-    paimaL2Address: "0x...",
-
-    // A private key for a dev wallet funded by the local Hardhat node.
-    batcherPrivateKey: "0x59c69...",
-
-    // The name of the chain defined in the hardhat config.
-    chainName: "hardhat",
-  },
-```
 
 ### Full Example Walkthrough
 
@@ -126,33 +108,28 @@ const config = Value.Parse(OrchestratorConfig, {
   // Section 2: Define custom launch sequences
   processesToLaunch: [
     // Group A: Launch EVM, wait, and deploy contracts
-    launchEvm("@e2e/evm-contracts"),
+    ...launchEvm("@e2e/evm-contracts"),
 
     // Group B: Launch Cardano stack
-    launchCardano("@e2e/cardano-contracts"),
+    ...launchCardano("@e2e/cardano-contracts"),
 
     // Group C: Launch Midnight stack
-    launchMidnight("@e2e/midnight-contracts"),
+    ...launchMidnight("@e2e/midnight-contracts"),
 
     // Group D: Build and serve the frontend explorer
     //          Manually defined process. 
     {
-      processes: [
-        {
-          name: "frontend-build",
-          args: ["task", "-f", "@paima/explorer", "build"],
-          waitToExit: true, // Wait for the build to finish...
-        },
-        {
-          name: "frontend-server",
-          args: ["task", "-f", "@paima/explorer", "server:start"],
-          waitToExit: false, // ...then start the server and let it run.
-        },
-      ],
+      name: "build explorer",
+      args: ["task", "-f", "@paima/explorer", "build"],
+      waitToExit: true, // Wait for the build to finish...
+    },
+    {
+      name: "serve explorer",
+      args: ["task", "-f", "@paima/explorer", "server:start"],
+      waitToExit: false, // ...then start the server and let it run.
+      dependsOn: ["build explorer"],
     },
   ],
-
-  // Section 3: The Orchestrator will start the sync service after all the above is ready.
 });
 
 // Start the entire process

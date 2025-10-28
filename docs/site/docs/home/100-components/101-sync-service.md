@@ -157,9 +157,13 @@ Primitives are the specific event listeners. This is where you tell the engine, 
 
 Each primitive is linked to a **`scheduledPrefix`**. This prefix is the crucial link between the Sync Service and the State Machine. When a primitive detects an event, it creates an input with this prefix, which in turn triggers the corresponding State Transition Function (STF).
 
-In this example, we are tracking the `Transfer` event from an ERC20 contract.
+In this example, we are tracking the `Transfer` event from an ERC20 contract. We use the built-in `PrimitiveTypeEVMERC20` to automatically handle parsing and database updates for token balances.
 
 ```ts
+import { PrimitiveTypeEVMERC20 } from "@paima/sm/builtin";
+
+// ...
+
 .buildPrimitives(builder =>
     builder.addPrimitive(
         // 1. Select the protocol to listen on.
@@ -168,11 +172,9 @@ In this example, we are tracking the `Transfer` event from an ERC20 contract.
         // 2. Define the primitive's properties.
         (network, deployments, syncProtocol) => ({
           name: "My_ERC20_Token",
-          type: ConfigPrimitiveType.EvmRpcERC20, // This primitive automatically tracks ERC20 balances.
+          type: PrimitiveTypeEVMERC20, // Use the built-in ERC20 primitive type
           startBlockHeight: 0,
           contractAddress: deployments["PaimaErc20DevModule#PaimaErc20Dev"].address,
-          abi: getEvmEvent(erc20dev.abi, "Transfer(address,address,uint256)"),
-
           // 3. The link to the State Machine.
           // This will trigger the STF registered with the name "transfer".
           scheduledPrefix: "transfer",
@@ -182,4 +184,3 @@ In this example, we are tracking the `Transfer` event from an ERC20 contract.
 ```
 
 By combining these steps, you create a powerful, multi-chain data pipeline that transforms raw on-chain events into a clean, ordered set of inputs for your application logic.
-
