@@ -773,11 +773,11 @@ export class MidnightAdapter implements BlockchainAdapter {
     }
   }
 
-  public async verifySignature(input: DefaultBatcherInput): Promise<boolean> {
+  public verifySignature(input: DefaultBatcherInput): boolean {
     // Midnight inputs are not signed in a way the core batcher understands.
     // The adapter is responsible for this logic (e.g., inside the circuit).
     // We return true to bypass this check, matching the previous hardcoded behavior.
-    return await Promise.resolve(true);
+    return true;
   }
 
   public validateInput(
