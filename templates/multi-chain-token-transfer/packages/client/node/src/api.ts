@@ -34,7 +34,7 @@ export const apiRouter: StartConfigApiRouter = async function (
   server.get<{
     Params: Static<typeof TokenParamsSchema>;
     Reply: Static<typeof TokenResponseSchema>;
-  }>("/api/erc721", async (request, reply) => {
+  }>("/api/erc1155", async (request, reply) => {
     const [tableExists] = await runPreparedQuery(
       evmMidnightTableExists.run(undefined, dbConn),
       "evmMidnightTableExists",
@@ -46,7 +46,7 @@ export const apiRouter: StartConfigApiRouter = async function (
 
     const result = await runPreparedQuery(
       getEvmMidnight.run(undefined, dbConn),
-      "/api/erc721",
+      "/api/erc1155",
     );
 
     reply.send(result);

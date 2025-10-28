@@ -316,6 +316,9 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     const target = input.target || this.defaultTarget;
     const adapter = this.adapters[target];
+    if (!adapter) {
+      throw new InputValidationError(`Adapter for target ${target} not found. Available targets: ${Object.keys(this.adapters).join(", ")}`, 404);
+    }
 
     // 1. Signature Validation (Pre-Queue, Adapter-Driven)
     let verifiedSignature = false;

@@ -715,11 +715,80 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     }
   }
 
-  public async verifySignature(input: DefaultBatcherInput): Promise<boolean> {
+  private parseBatchPayload(
+    data: string,
+  ): Array<{ circuit: string; args: any[] }> {
+    const decoded = this.decodeHexString(data);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(decoded);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse Midnight batch payload JSON: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("Invalid Midnight batch payload structure");
+    }
+
+    const { prefix, payloads } = payload as {
+      prefix: unknown;
+      payloads: Array<{
+        circuit: unknown;
+        args: unknown;
+        addressType?: unknown;
+        address?: unknown;
+        signature?: unknown;
+        timestamp?: unknown;
+      }>;
+    };
+
+    if (prefix !== "&B") {
+      throw new Error(`Invalid batch prefix: expected "&B", got "${prefix}"`);
+    }
+
+    if (!Array.isArray(payloads)) {
+      throw new Error(
+        "Invalid Midnight batch payload structure: missing payloads array",
+      );
+    }
+
+    const sanitized = payloads.map((entry, index) => {
+      if (!entry || typeof entry.circuit !== "string") {
+        throw new Error(`Invalid circuit name at index ${index}`);
+      }
+
+      if (!Array.isArray(entry.args)) {
+        throw new Error(`Invalid circuit args at index ${index}`);
+      }
+
+      return { circuit: entry.circuit, args: entry.args };
+    });
+
+    return sanitized;
+  }
+
+  private decodeHexString(hex: string): string {
+    const normalized = hex.startsWith("0x") ? hex.slice(2) : hex;
+    try {
+      return new TextDecoder().decode(hexStringToUint8Array(normalized));
+    } catch (error) {
+      throw new Error(
+        `Failed to decode Midnight batch payload hex: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  public verifySignature(input: DefaultBatcherInput): boolean {
     // Midnight inputs are not signed in a way the core batcher understands.
     // The adapter is responsible for this logic (e.g., inside the circuit).
     // We return true to bypass this check, matching the previous hardcoded behavior.
-    return await Promise.resolve(true);
+    return true;
   }
 
   public validateInput(

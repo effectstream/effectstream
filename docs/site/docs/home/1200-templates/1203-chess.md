@@ -37,7 +37,7 @@ deno task dev
 Now you should see the dApp running in your browser!
 
 ### Chess Game
-<iframe src="https://drive.google.com/file/d/1d-p8E9tkIYfiO3kH_bwVK77CiMKs4awW/preview" width="640" height="480" allow="autoplay"></iframe>
+<iframe src="https://drive.google.com/file/d/1d-p8E9tkIYfiO3kH_bwVK77CiMKs4awW/preview?vq=hd720" width="640" height="480" allow="autoplay"></iframe>
 
 ## The Components in Action
 

@@ -8,7 +8,6 @@ import {
 import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
 import { MultiChainMultiToken, witnesses } from "@multi-chain-transfer/midnight-contracts/multichain_multitoken";
 import { NetworkId } from "@midnight-ntwrk/compact-runtime";
-import * as path from "@std/path";
 import { hardhat } from "viem/chains";
 import type { EvmAddress, EvmPrivateKey } from "@paimaexample/utils";
 import { ERC1155CustomAdapter } from "./erc1155-adapter.ts";
@@ -20,16 +19,7 @@ const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
 
-const { contractInfo, contractAddress } = readMidnightContract();
-const zkConfigPath = path.resolve(
-  "../../shared",
-  "contracts",
-  "midnight",
-  "contract-eip-1155",
-  "src",
-  "managed",
-  "multichain_multitoken",
-);
+const { contractInfo, contractAddress, zkConfigPath } = readMidnightContract();
 
 const midnightAdapterConfig = {
   indexer: "http://localhost:8088/api/v1/graphql",

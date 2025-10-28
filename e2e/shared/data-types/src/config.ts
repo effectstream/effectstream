@@ -1,5 +1,4 @@
-import { readMidnightContract as readMidnightContractCounter } from "@e2e/midnight-contracts/contract-counter-address";
-import { readMidnightContract as readMidnightContractEip20 } from "@e2e/midnight-contracts/contract-eip-20-address";
+import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { readAvailApplication } from "@e2e/avail-contracts";
 import { getConnection } from "@paima/db";
@@ -339,6 +338,8 @@ export const localhostConfig = new ConfigBuilder()
       );
     }
     if (midnight_enabled) {
+      const counterAddress = readMidnightContract("contract-counter", "contract-counter.json").contractAddress;
+      const eip20Address = readMidnightContract("contract-eip-20", "contract-eip-20.json").contractAddress;
       builder = builder
         .addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
@@ -346,7 +347,7 @@ export const localhostConfig = new ConfigBuilder()
             name: "MidnightContractState",
             type: PrimitiveTypeMidnightGeneric,
             startBlockHeight: 1,
-            contractAddress: readMidnightContractCounter().contractAddress,
+            contractAddress: counterAddress,
             stateMachinePrefix: "midnightContractState",
             contract: { ledger: CounterContract.ledger },
             networkId: 0, // NetworkId.Undeployed,
@@ -357,7 +358,7 @@ export const localhostConfig = new ConfigBuilder()
             name: "Midnight-EIP-20",
             type: PrimitiveTypeMidnightGeneric,
             startBlockHeight: 1,
-            contractAddress: readMidnightContractEip20().contractAddress,
+            contractAddress: eip20Address,
             stateMachinePrefix: "eip20ContractState",
             contract: { ledger: SimpleTokenContract.ledger },
             networkId: 0, // NetworkId.Undeployed,
