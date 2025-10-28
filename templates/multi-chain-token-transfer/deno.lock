@@ -32,6 +32,7 @@
     "jsr:@paimaexample/sm@0.3.99": "0.3.99",
     "jsr:@paimaexample/sm@~0.3.99": "0.3.99",
     "jsr:@paimaexample/sync@~0.3.99": "0.3.99",
+    "jsr:@paimaexample/tui@0.3.99": "0.3.99",
     "jsr:@paimaexample/utils@0.3.99": "0.3.99",
     "jsr:@paimaexample/utils@~0.3.99": "0.3.99",
     "jsr:@paimaexample/wallets@0.3.99": "0.3.99",
@@ -191,6 +192,7 @@
     "npm:react-dom@19.1.0": "19.1.0_react@19.1.0",
     "npm:react-router-dom@^7.5.1": "7.9.4_react@19.1.0_react-dom@19.1.0__react@19.1.0",
     "npm:react@19.1.0": "19.1.0",
+    "npm:rotating-file-stream@^3.2.6": "3.2.7",
     "npm:rxjs@*": "7.8.1",
     "npm:rxjs@7.8.1": "7.8.1",
     "npm:rxjs@7.8.2": "7.8.2",
@@ -516,6 +518,16 @@
         "npm:ntp-time-sync",
         "npm:pg",
         "npm:viem@2.37.3"
+      ]
+    },
+    "@paimaexample/tui@0.3.99": {
+      "integrity": "5f66286523bc715e795a0362706c87e3334136cb4d0e7555dde4f4a0914f0dc5",
+      "dependencies": [
+        "jsr:@paimaexample/log@~0.3.99",
+        "jsr:@paimaexample/utils@~0.3.99",
+        "npm:@sinclair/typebox@~0.34.30",
+        "npm:fastify",
+        "npm:rotating-file-stream"
       ]
     },
     "@paimaexample/utils@0.3.99": {
@@ -9526,6 +9538,9 @@
         "fsevents"
       ],
       "bin": true
+    },
+    "rotating-file-stream@3.2.7": {
+      "integrity": "sha512-SVquhBEVvRFY+nWLUc791Y0MIlyZrEClRZwZFLLRgJKldHyV1z4e2e/dp9LPqCS3AM//uq/c3PnOFgjqnm5P+A=="
     },
     "rxjs@7.8.1": {
       "integrity": "sha512-AA3TVj+0A2iuIoQkWEK/tqFjBq2j+6PO6Y0zJcvzLAFhEFIO3HL0vls9hWLncZbAAbK0mar7oZ4V079I/qPMxg==",
