@@ -12,38 +12,32 @@ import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 
-function decodeString(data: Record<string, number>, length: number) {
-  let str = "";
-  for (let i = 0; i < length; i++) {
-    str += String.fromCharCode(data[`${i}`]);
-  }
-  return str.trim();
-}
-
+const decodeString = (x: { [key: string]: number }): string => 
+  Array(Object.keys(x).length)
+    .fill(0)
+    .map((_,i)=>x[i])
+    .map(x => String.fromCharCode(x))
+    .join('')
+    .trim();
+    
 stm.addStateTransition(
   "midnightContractState",
   function* (data) {
-    // TODO Improve the midnight generic primitive to not need to decode the string.
-    const payload: any = data.parsedInput.payload;
-    console.error("🎉 [MIDNIGHT] Transaction receipt:", payload);
+    // TODO: 1. Improve the grammar. 2. We need to decode the strings.
+    const payload: {
+      round:            string;
+      contract_address: { [key: string]: number };
+      token_id:         { [key: string]: number };
+      property_name:    { [key: string]: number };
+      value:            { [key: string]: number }
+     } = data.parsedInput.payload;
 
-    const round = payload.content[0].content.value[0]["0"];
-    const contract_address = decodeString(
-      payload.content[1].content.value[0],
-      64,
-    );
-    const token_id = decodeString(
-      payload.content[2].content.value[0],
-      64,
-    );
-    const property_name = decodeString(
-      payload.content[3].content.value[0],
-      32,
-    );
-    const value = decodeString(
-      payload.content[4].content.value[0],
-      32,
-    );
+    const contract_address = decodeString(payload.contract_address);
+    const token_id = decodeString(payload.token_id);
+    const property_name = decodeString(payload.property_name);
+    const value = decodeString(payload.value);
+    const round = payload.round;
+
     console.log(
       "🎉 [CONTRACT] Transaction receipt:",
       {
