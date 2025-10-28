@@ -288,7 +288,9 @@ export class ERC1155CustomAdapter implements BlockchainAdapter<string | null> {
     prefix: string;
     inputs: any[][];
   } {
-    const decoded = this.decodeHexString(data);
+    const decoded = /^0x[0-9a-fA-F]*$/.test(data) || /^[0-9a-fA-F]+$/.test(data)
+      ? this.decodeHexString(data)
+      : data;
     let batchArray: unknown;
     try {
       batchArray = JSON.parse(decoded);
@@ -380,7 +382,9 @@ export class ERC1155CustomAdapter implements BlockchainAdapter<string | null> {
       throw new Error(
         `Failed to decode ERC1155 batch payload hex: ${
           error instanceof Error ? error.message : String(error)
-        }`,
+        }` +
+        `hex: ${hex}` +
+        `normalized: ${normalized}`
       );
     }
   }
