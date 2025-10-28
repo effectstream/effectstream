@@ -15,32 +15,32 @@ import { ComponentNames } from "@paima/log";
 // packageName: the name of the package that implements the tasks.
 //
 export const launchEvm = (packageName: string): {
-  stopProcessAtPort: number[];
-  processes: {
-    name: string;
-    args: string[];
-    waitToExit?: boolean;
-    logs?: string;
-    type?: string;
-  }[];
-} => ({
-  stopProcessAtPort: [8545, 8546],
-  processes: [
+  stopProcessAtPort?: number[];
+  name: string;
+  args: string[];
+  waitToExit?: boolean;
+  logs?: string;
+  type?: string;
+  dependsOn?: string[];
+}[] => [
     {
+      stopProcessAtPort: [8545, 8546],
       name: ComponentNames.HARDHAT,
       args: ["task", "-f", packageName, "chain:start"],
       waitToExit: false,
       logs: "otel-compatible",
       type: "system-dependency",
+      dependsOn: [],
     },
     {
       name: ComponentNames.HARDHAT_WAIT,
       args: ["task", "-f", packageName, "chain:wait"],
+      dependsOn: [ComponentNames.HARDHAT],
     },
     {
       name: ComponentNames.DEPLOY_EVM_CONTRACTS,
       args: ["task", "-f", packageName, "deploy"],
       type: "system-dependency",
+      dependsOn: [ComponentNames.HARDHAT_WAIT],
     },
-  ],
-});
+  ];

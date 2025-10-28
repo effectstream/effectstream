@@ -26,6 +26,24 @@ import { type Static, Type } from "@sinclair/typebox";
 let appConfig: OrchestratorConfigType | null = null;
 let pFactory: ReturnType<typeof processFactory> | null = null;
 
+const ProcessLaunch = Type.Object({
+  name: Type.String(),
+  description: Type.String({ default: '' }),
+  stopProcessAtPort: Type.Array(Type.Number(), { default: [] }),
+  dependsOn: Type.Array(Type.String(), { default: [] }),
+  args: Type.Array(Type.String()),
+  waitToExit: Type.Boolean({ default: true }),
+  link: Type.String({ default: '' }),
+  logs: Type.Union(
+    [Type.Literal('otel-compatible'), Type.Literal('raw'), Type.Literal('none')],
+    { default: 'raw' }
+  ),
+  type: Type.Union(
+    [Type.Literal('system-dependency'), Type.Literal('secondary')],
+    { default: 'secondary' }
+  ),
+});
+
 /**
  * Orchestrator configurations
  * logs: log output mode
@@ -57,31 +75,7 @@ export const OrchestratorConfig = Type.Object({
 
   // Custom user defined processes to launch.
   // For example you can launch hardhat evm chains, wait to be ready and deploy contracts.
-  processesToLaunch: Type.Array(
-    Type.Object({
-      description: Type.String({ default: "" }),
-      stopProcessAtPort: Type.Array(Type.Number(), { default: [] }),
-      processes: Type.Array(
-        Type.Object({
-          name: Type.String(),
-          args: Type.Array(Type.String()),
-          waitToExit: Type.Boolean({ default: true }),
-          link: Type.String({ default: "" }),
-          logs: Type.Union([
-            Type.Literal("otel-compatible"),
-            Type.Literal("raw"),
-            Type.Literal("none"),
-          ], { default: "raw" }),
-          type: Type.Union([
-            Type.Literal("system-dependency"),
-            Type.Literal("secondary"),
-          ], { default: "secondary" }),
-        }),
-        { default: [] },
-      ),
-    }),
-    { default: [] },
-  ),
+  processesToLaunch: Type.Array(ProcessLaunch, { default: [] }),
 
   // This can be customized for different locations of the packages.
   // nightly: jsr:@paimaexample
@@ -102,17 +96,27 @@ export const OrchestratorConfig = Type.Object({
 
     // DevOps
     [ComponentNames.COLLECTOR]: Type.Boolean({ default: true }),
-    [ComponentNames.DOCS]: Type.Boolean({ default: true }),
   }, { default: {} }),
 });
 
 type OrchestratorConfigType = Static<typeof OrchestratorConfig>;
 
-export async function start(
-  config: OrchestratorConfigType,
-): Promise<void> {
-  appConfig = config;
-  pFactory = processFactory(config);
+type Task = {
+  name: string;
+  config: Static<typeof ProcessLaunch> | SystemProcess;
+  dependencies: Set<string>;
+  dependents: Set<string>;
+  status: 'pending' | 'running' | 'finished' | 'failed';
+  process?: ProcessComponent;
+};
+
+type SystemProcess = {
+  name: string;
+  dependsOn: string[];
+  launch: () => Promise<ProcessComponent>;
+};
+
+const setupLogging = (config: OrchestratorConfigType): void => {
   // Let's setup the output mode
   // Config options:
   //   none: no logs
@@ -141,100 +145,183 @@ export async function start(
       initTelemetry();
       break;
   }
+}
 
+export async function start(
+  config: OrchestratorConfigType,
+): Promise<void> {
+  appConfig = config;
+  pFactory = processFactory(config);
+  setupLogging(config);
   try {
+
+    const tasks = new Map<string, Task>();
+    const processesToRun: (Static<typeof ProcessLaunch> | SystemProcess)[] = [...config.processesToLaunch];
+
+    // Build task graph
+    for (const processConfig of processesToRun) {
+      if (tasks.has(processConfig.name)) {
+        console.error(`Error: Duplicate process name "${processConfig.name}" found. Process names must be unique.`);
+        await shutdown(1);
+        return;
+      }
+      tasks.set(processConfig.name, {
+        name: processConfig.name,
+        config: processConfig,
+        dependencies: new Set(processConfig.dependsOn),
+        dependents: new Set(),
+        status: 'pending',
+      });
+    }
+
+    for (const task of tasks.values()) {
+      for (const depName of task.dependencies) {
+        const depTask = tasks.get(depName);
+        if (depTask) {
+          depTask.dependents.add(task.name);
+        } else {
+          console.error(`Error: Dependency "${depName}" for process "${task.name}" not found.`);
+          await shutdown(1);
+          return;
+        }
+      }
+    }
+
+    // Start System Processes
     const startProcess = processFactory(config);
-    // This is a 2D array of functions that launch processes.
-    // The outer array is for processes that are launched in sequence.
-    // The inner array is for processes that are launched in parallel.
-    const processesToLaunch: (false | (() => Promise<ProcessComponent>))[][] =
-      [];
 
-    // fast-fail if there are type errors in the project
+    // Add system processes
     if (config.processes[ComponentNames.CHECKER]) {
-      processesToLaunch.push([startProcess[ComponentNames.CHECKER]]);
+      await startProcess[ComponentNames.CHECKER]();
     }
-
     if (config.processes[ComponentNames.TMUX]) {
-      processesToLaunch.push([startProcess[ComponentNames.TMUX]]);
+      await startProcess[ComponentNames.TMUX]();
     }
-
     if (config.processes[ComponentNames.COLLECTOR]) {
-      processesToLaunch.push([startProcess[ComponentNames.COLLECTOR]]);
+      await startProcess[ComponentNames.COLLECTOR]();
+    }
+    if (config.processes[ComponentNames.PAIMA_PGLITE]) {
+      await startProcess[ComponentNames.PAIMA_PGLITE]();
+    }
+    if (config.processes[ComponentNames.APPLY_MIGRATIONS]) {
+      await startProcess[ComponentNames.APPLY_MIGRATIONS]();
     }
 
-    // First batch of processes that have no other dependencies
-    processesToLaunch.push([
-      config.processes[ComponentNames.DOCS] &&
-      startProcess[ComponentNames.DOCS],
-      config.processes[ComponentNames.PAIMA_PGLITE] &&
-      startProcess[ComponentNames.PAIMA_PGLITE],
-      config.processes[ComponentNames.APPLY_MIGRATIONS] &&
-      startProcess[ComponentNames.APPLY_MIGRATIONS],
-    ]);
 
-    // Al main system dependencies are launched.
-    // Start user defined processes.
-    const pipelines: (() => Promise<ProcessComponent>)[][] = [];
-    for (const processList of config.processesToLaunch) {
-      let first = true;
-      const pipeline: (() => Promise<ProcessComponent>)[] = [];
-      for (const process of processList.processes) {
-        const { name, args, waitToExit, logs, type, link } = process;
-        pipeline.push(async (): Promise<ProcessComponent> => {
-          if (first && processList.stopProcessAtPort.length > 0) {
-            await dkill({ ports: processList.stopProcessAtPort });
-            first = false;
-          }
-          let logHandler_: typeof logHandler;
-          switch (logs) {
-            case "none":
-              logHandler_ = () => {};
-              break;
-            case "otel-compatible":
-              logHandler_ = logHandler;
-              break;
-            case "raw":
-              logHandler_ = rawLogHandler;
-              break;
-          }
-          const processComponent = $({
-            args: args,
-            component: name,
-            log: logHandler_,
-            abortController: type === "system-dependency"
-              ? abortControllers.system
-              : abortControllers.noncritical,
-            link: link,
-          });
-          if (waitToExit) {
-            await processComponent.process.status;
-          }
-          return processComponent;
+    // Start User-defined Processes
+    const pending = new Set<string>(tasks.keys());
+    const runningWaitToFinish = new Map<string, Promise<void>>();
+    const runningProcesses = new Map<string, Promise<void>>();
+    const finished = new Set<string>();
+
+    const launchTask = async (task: Task): Promise<void> => {
+      task.status = 'running';
+
+      let processComponent: ProcessComponent;
+      if ('launch' in task.config) { // System process
+        processComponent = await task.config.launch();
+      } else { // User-defined process
+        const { name, args, logs, type, link, stopProcessAtPort } = task.config;
+        if (stopProcessAtPort.length > 0) {
+          await dkill({ ports: stopProcessAtPort });
+        }
+        let logHandler_: typeof logHandler;
+        switch (logs) {
+          case "none":
+            logHandler_ = () => {};
+            break;
+          case "otel-compatible":
+            logHandler_ = logHandler;
+            break;
+          case "raw":
+            logHandler_ = rawLogHandler;
+            break;
+        }
+        processComponent = $({
+          args: args,
+          component: name,
+          log: logHandler_,
+          abortController: type === "system-dependency"
+            ? abortControllers.system
+            : abortControllers.noncritical,
+          link: link,
         });
       }
-      pipelines.push(pipeline);
-    }
-    // Now we transpose the pipelines, to make them run in parallel.
-    const maxLength = Math.max(...pipelines.map((p) => p.length));
-    for (let i = 0; i < maxLength; i++) {
-      const batch: (false | (() => Promise<ProcessComponent>))[] = [];
-      for (const pipeline of pipelines) {
-        batch.push(pipeline[i] ? pipeline[i] : false);
+      task.process = processComponent;
+
+      const finish = (): void => {
+        task.status = 'finished';
+        finished.add(task.name);
+        runningWaitToFinish.delete(task.name);
+        runningProcesses.delete(task.name);
+
+        for (const dependentName of task.dependents) {
+          const dependentTask = tasks.get(dependentName)!;
+          dependentTask.dependencies.delete(task.name);
+        }
+        // Wake up the main loop
+        if (waiter) {
+          waiter();
+          waiter = null;
+        }
+      };
+      
+      const waitToExit = 'waitToExit' in task.config ? task.config.waitToExit : true;
+
+      if (waitToExit) {
+        task.process.process.status.then(finish).catch(async err => {
+            console.error(`Task ${task.name} failed with error: ${err}`);
+            task.status = 'failed';
+            await shutdown(1, err);
+        });
+      } else {
+        finish();
       }
-      processesToLaunch.push(batch);
+    };
+
+    let waiter: (() => void) | null = null;
+    
+    while (pending.size > 0 || runningWaitToFinish.size > 0) {
+        const executableTasks = Array.from(pending)
+            .map(name => tasks.get(name)!)
+            .filter(task => task.dependencies.size === 0);
+
+        if (executableTasks.length > 0) {
+            for (const task of executableTasks) {
+                pending.delete(task.name);
+                const taskPromise = launchTask(task);
+                const waitToExit = 'waitToExit' in task.config ? task.config.waitToExit : true;
+                if (waitToExit) {
+                  runningWaitToFinish.set(task.name, taskPromise);
+                } else {
+                  runningProcesses.set(task.name, taskPromise);
+                }
+            }
+        } else if (runningWaitToFinish.size > 0) {
+            for (const pendingTaskName of pending) {
+                const pendingTask = tasks.get(pendingTaskName)!;
+            }
+            await new Promise<void>(resolve => {
+                waiter = resolve;
+            });
+        } else if (pending.size > 0) {
+            console.error('Error: Circular dependency or missing dependency detected.');
+            console.error('Pending tasks:');
+            for (const pendingTaskName of pending) {
+                const pendingTask = tasks.get(pendingTaskName)!;
+                console.error(`  - ${pendingTask.name} is waiting for: ${[...pendingTask.dependencies].join(', ')}`);
+            }
+            await shutdown(1);
+            return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    processesToLaunch.push([
-      // Start the main process
-      config.processes[ComponentNames.PAIMA_SYNC] &&
-      startProcess[ComponentNames.PAIMA_SYNC],
-    ]);
+    // Wait for all processes to finish
+    // Launch Paima Engine Main Sync Process
+    await startProcess[ComponentNames.PAIMA_SYNC]();
 
-    // Launch outer processes in sequence, and inner processes in parallel
-    for (const batch of processesToLaunch) {
-      await Promise.all(batch.map((p) => p && p()));
-    }
+    
   } catch (e) {
     if (!(e instanceof AbortProcessStart)) {
       await shutdown(1, e);
@@ -289,20 +376,6 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     });
     await explorer.process.status;
     return explorer;
-  },
-
-  [ComponentNames.DOCS]: async (): Promise<ProcessComponent> => {
-    if (config.kill.auto) {
-      await dkill({ ports: [ENV.DOCS_PORT] });
-    }
-
-    const docs = $({
-      args: ["task", "-f", config.packageName + "/docs", "start"],
-      component: ComponentNames.DOCS,
-      abortController: abortControllers.developerUI,
-    });
-    void docs.process.status;
-    return docs;
   },
 
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
