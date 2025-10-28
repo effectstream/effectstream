@@ -5,6 +5,6 @@
     ".": "./src/mod.ts"
   },
   "imports": {
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.97"
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.98"
   }
 }

@@ -1,0 +1,44 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug E2E Test",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/e2e/client/node",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": [
+        "run",
+        "--unstable-raw-imports",
+        "--check"
+      ],
+      "program": "${workspaceFolder}/e2e/client/node/scripts/e2e.test.ts",
+      "env": {
+        "NODE_ENV": "development",
+        //"PAIMA_E2E_PAUSE_TIME": "10000",
+        //"PAIMA_E2E_LOG_DEBUG": "1",
+        "DEBUG_PG_LITE": "5"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Debug Batcher Start",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/e2e/client/batcher",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": [
+        "run",
+        "-A",
+        "--unstable-detect-cjs",
+        "main.ts",
+      ],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    }
+  ]
+}

@@ -10,7 +10,8 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
 import type { EvmAddress, EvmPrivateKey } from "@paimaexample/utils";
 import { hexStringToUint8Array } from "@paimaexample/utils";
-import type { BlockchainAdapter, ValidationResult, DefaultBatcherInput } from "@paimaexample/batcher";
+import type { BlockchainAdapter, DefaultBatcherInput } from "@paimaexample/batcher";
+import { DefaultBatchBuilderLogic } from "@paimaexample/batcher";
 import { mct_erc1155 } from "@multi-chain-transfer/evm-contracts";
 
 // Type conversion utilities
@@ -30,12 +31,13 @@ function viemReceiptToGenericReceipt(
  * ERC1155 adapter for the Paima batcher
  * Only handles mint() and custom transferToMidnight() function calls on the ERC1155 contract
  */
-export class ERC1155CustomAdapter implements BlockchainAdapter {
+export class ERC1155CustomAdapter implements BlockchainAdapter<string | null> {
   private readonly walletClient: WalletClient;
   private readonly publicClient: PublicClient;
   private readonly account: Account;
   private readonly erc1155Address: EvmAddress;
   private readonly syncProtocolName: string;
+  private readonly batchBuilderLogic: DefaultBatchBuilderLogic;
   public readonly maxBatchSize: number;
 
   constructor(
@@ -48,7 +50,7 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
     this.erc1155Address = erc1155Address;
     this.syncProtocolName = syncProtocolName;
     this.maxBatchSize = maxBatchSize;
-
+    this.batchBuilderLogic = new DefaultBatchBuilderLogic();
     this.account = privateKeyToAccount(batcherPrivateKey);
 
     this.walletClient = createWalletClient({
@@ -67,6 +69,10 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
    */
   getSyncProtocolName(): string {
     return this.syncProtocolName;
+  }
+
+  buildBatchData(inputs: DefaultBatcherInput[], options?: { maxSize?: number }): { selectedInputs: DefaultBatcherInput[]; data: string } | null {
+    return this.batchBuilderLogic.buildBatchData(inputs, options) as { selectedInputs: DefaultBatcherInput[]; data: string } | null;
   }
 
   /**
@@ -232,7 +238,7 @@ export class ERC1155CustomAdapter implements BlockchainAdapter {
    * Pre-validate ERC1155 inputs before they enter the batch queue
    * Validates function call structure and arguments
    */
-  validateInput(input: DefaultBatcherInput): ValidationResult {
+  validateInput(input: DefaultBatcherInput) {
     try {
       // The input.input field contains the hex-encoded function call
       const inputData = input.input;
