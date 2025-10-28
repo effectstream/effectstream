@@ -14,6 +14,7 @@
     "jsr:@std/assert@~1.0.6": "1.0.15",
     "jsr:@std/bytes@1": "1.0.6",
     "jsr:@std/cli@*": "1.0.23",
+    "jsr:@std/cli@^1.0.22": "1.0.23",
     "jsr:@std/collections@^1.1.3": "1.1.3",
     "jsr:@std/crypto@1": "1.0.5",
     "jsr:@std/encoding@1": "1.0.10",
