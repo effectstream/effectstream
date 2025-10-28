@@ -66,7 +66,7 @@ export async function startup(): Promise<Client> {
         args: ["task", "-f", "@e2e/batcher", "start"],
         waitToExit: false,
         type: "system-dependency",
-        dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS],
+        dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
       }
     ],
   });

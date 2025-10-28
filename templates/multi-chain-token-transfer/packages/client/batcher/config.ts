@@ -1,9 +1,9 @@
 import {
   FileStorage,
   MidnightAdapter,
-  MidnightBatchDataBuilder,
+  MidnightBatchBuilderLogic,
   type PaimaBatcherConfig,
-  DefaultBatchDataBuilder,
+  DefaultBatchBuilderLogic,
 } from "@paimaexample/batcher";
 import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
 import { MultiChainMultiToken, witnesses } from "@multi-chain-transfer/midnight-contracts/multichain_multitoken";
@@ -44,8 +44,8 @@ const midnightAdapter = new MidnightAdapter(
 
 // ERC1155 adapter configuration
 const erc1155Address = contractAddressesEvmMain()["chain31337"]["Erc1155DevModule#MCT_ERC1155"] as EvmAddress;
-const batcherPrivateKey = Deno.env.get("BATCHER_PRIVATE_KEY") ??
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as EvmPrivateKey;
+const batcherPrivateKey = (Deno.env.get("BATCHER_PRIVATE_KEY") ??
+  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`;
 
 const erc1155Adapter = new ERC1155CustomAdapter(
   erc1155Address,
@@ -54,9 +54,6 @@ const erc1155Adapter = new ERC1155CustomAdapter(
   "mainEvmRPC",
   10000,
 );
-
-const midnightBatchBuilder = new MidnightBatchDataBuilder();
-const defaultBatchBuilder = new DefaultBatchDataBuilder();
 
 export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
@@ -71,13 +68,6 @@ export const config: PaimaBatcherConfig = {
     evm: { criteriaType: "size", maxBatchSize: 1 },
   },
   confirmationLevel: "wait-paima-processed", // Connector expectation
-  batchBuilding: {
-    maxSize: 10000, // Connector expectation
-    targetBuilders: {
-      midnight: midnightBatchBuilder,
-      evm: defaultBatchBuilder,
-    },
-  },
   enableHttpServer: true,
   enableEventSystem: true,
   port,

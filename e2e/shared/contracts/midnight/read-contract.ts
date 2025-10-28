@@ -42,15 +42,15 @@ export function readMidnightContract(
   contractFileName: string = "contract.json"
 ): MidnightContractInfo {
   if (cachedContractInfo[contractName]) return cachedContractInfo[contractName];
+  let compilerSubdir = "";
   try {
     // Get the directory of the current module file using Deno's URL API
-    const dir = new URL(".", import.meta.url);
-    // Construct the full path to the contract address file
-    const contractPath = new URL(contractFileName, dir);
+    const moduleDir = path.dirname(new URL(import.meta.url).pathname);
+    // Construct the full paths relative to this module's location
+    const contractPath = path.join(moduleDir, contractFileName);
     
     // Find the first directory inside the managed directory
-    const managedDir = new URL(`./${contractName}/src/managed/`, dir);
-    let compilerSubdir = "";
+    const managedDir = path.join(moduleDir, contractName, "src/managed/");
     try {
       for (const entry of Deno.readDirSync(managedDir)) {
         if (entry.isDirectory) {
@@ -59,17 +59,29 @@ export function readMidnightContract(
         }
       }
     } catch (error) {
-      throw new Error(`Managed directory not found: ${managedDir.pathname}`);
+      throw new Error(`Managed directory not found: ${managedDir}`);
     }
     
     if (!compilerSubdir) {
-      throw new Error(`No subdirectory found in managed directory: ${managedDir.pathname}`);
+      throw new Error(`No subdirectory found in managed directory: ${managedDir}`);
     }
 
     // Construct the full path to the contract info file using the first found subdirectory
-    const contractInfoPath = new URL(`./${contractName}/src/managed/${compilerSubdir}/compiler/contract-info.json`, dir);
+    const contractInfoPath = path.join(
+      moduleDir,
+      contractName,
+      "src/managed",
+      compilerSubdir,
+      "compiler/contract-info.json"
+    );
+    console.log(`contractInfoPath: ${contractInfoPath}`);
     const zkConfigPath = path.resolve(
-      `./${contractName}/src/managed/${compilerSubdir}`,
+      path.join(
+        moduleDir,
+        contractName,
+        "src/managed",
+        compilerSubdir
+      )
     );
     const contractAddressJson = Deno.readTextFileSync(contractPath);
     const contractInfoJson = Deno.readTextFileSync(contractInfoPath);
@@ -85,7 +97,7 @@ export function readMidnightContract(
     return cachedContractInfo[contractName];
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {
-      throw new Error(`Contract files not found - expected: ${contractFileName} and ${contractName}/src/managed/multichain_multitoken/compiler/contract-info.json`);
+      throw new Error(`Contract files not found - expected: ${contractFileName} and ${contractName}/src/managed/${compilerSubdir}/compiler/contract-info.json`);
     }
     throw new Error(`Failed to read contract files: ${String(err)}`);
   }

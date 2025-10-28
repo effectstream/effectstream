@@ -30,7 +30,7 @@ export type { BatcherStorage } from "./core/storage.ts";
 export { DatabaseStorage, FileStorage } from "./core/storage.ts";
 
 // Chain adapter interface and implementations
-export type { BlockchainAdapter } from "./adapters/adapter.ts";
+export type { BlockchainAdapter, BatchBuildingOptions, BatchBuildingResult } from "./adapters/adapter.ts";
 export { PaimaL2DefaultAdapter } from "./adapters/paimal2-adapter.ts";
 export { MidnightAdapter } from "./adapters/midnight-adapter.ts";
 export type { MidnightAdapterConfig } from "./adapters/midnight-adapter.ts";

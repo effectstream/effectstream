@@ -18,17 +18,23 @@ export function readMidnightContract(): MidnightContractInfo {
   if (cachedContractInfo) return cachedContractInfo;
   try {
     // Get the directory of the current module file using Deno's URL API
-    const dir = new URL(".", import.meta.url);
-    // Construct the full path to contract.json
-    const contractPath = new URL("contract.json", dir);
-    const contractInfoPath = new URL("./contract-eip-1155/src/managed/multichain_multitoken/compiler/contract-info.json", dir);
+    const moduleDir = path.dirname(new URL(import.meta.url).pathname);
+    // Construct the full paths relative to this module's location
+    const contractPath = path.join(moduleDir, "contract.json");
+    const contractInfoPath = path.join(
+      moduleDir,
+      "./contract-eip-1155/src/managed/multichain_multitoken/compiler/contract-info.json",
+    );
+    const zkConfigPath = path.resolve(
+      path.join(
+        moduleDir,
+        "./contract-eip-1155/src/managed/multichain_multitoken",
+      ),
+    );
     const contractAddressJson = Deno.readTextFileSync(contractPath);
     const contractInfoJson = Deno.readTextFileSync(contractInfoPath);
     const contractAddressInfo = JSON.parse(contractAddressJson) as MidnightContractAddressInfo;
     const contractInfo = JSON.parse(contractInfoJson) as MidnightContractCompilerInfo;
-    const zkConfigPath = path.resolve(
-      `./contract-eip-1155/src/managed/multichain_multitoken`,
-    );
     return {
       ...contractAddressInfo,
       contractInfo,
