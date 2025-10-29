@@ -1,9 +1,7 @@
 import {
   FileStorage,
   MidnightAdapter,
-  MidnightBatchBuilderLogic,
   type PaimaBatcherConfig,
-  DefaultBatchBuilderLogic,
 } from "@paimaexample/batcher";
 import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
 import { MultiChainMultiToken, witnesses } from "@multi-chain-transfer/midnight-contracts/multichain_multitoken";
@@ -31,7 +29,7 @@ const midnightAdapterConfig = {
   privateStateId: "multiChainMultiTokenPrivateState", // On-chain contract ID (must match deploy.ts)
 }
 
-const midnightAdapter = new MidnightAdapter(
+export const midnightAdapter = new MidnightAdapter(
   contractAddress,
   GENESIS_MINT_WALLET_SEED,
   midnightAdapterConfig,
@@ -47,7 +45,7 @@ const erc1155Address = contractAddressesEvmMain()["chain31337"]["Erc1155DevModul
 const batcherPrivateKey = (Deno.env.get("BATCHER_PRIVATE_KEY") ??
   "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`;
 
-const erc1155Adapter = new ERC1155CustomAdapter(
+export const erc1155Adapter = new ERC1155CustomAdapter(
   erc1155Address,
   batcherPrivateKey,
   hardhat,
@@ -57,16 +55,7 @@ const erc1155Adapter = new ERC1155CustomAdapter(
 
 export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
-  adapters: { 
-    midnight: midnightAdapter,
-    evm: erc1155Adapter,
-  },
-  defaultTarget: "midnight",
   namespace: "",
-  batchingCriteria: {
-    midnight: { criteriaType: "size", maxBatchSize: 1 },
-    evm: { criteriaType: "size", maxBatchSize: 1 },
-  },
   confirmationLevel: "wait-paima-processed", // Connector expectation
   enableHttpServer: true,
   enableEventSystem: true,
