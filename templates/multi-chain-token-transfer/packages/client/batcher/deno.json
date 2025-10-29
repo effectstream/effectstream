@@ -7,10 +7,10 @@
   "imports": {
     "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
     "@midnight-ntwrk/wallet-sdk-address-format": "npm:@midnight-ntwrk/wallet-sdk-address-format@2.0.0",
-    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.99",
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.99",
-    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.99",
-    "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.99",
+    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.100",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.100",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.100",
+    "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.100",
     "effection": "npm:effection@^3.5.0",
     "@std/path": "jsr:@std/path@^1.1.2",
     "viem": "npm:viem@2.37.3"
