@@ -128,7 +128,7 @@ export interface PaimaBatcherConfig<
 > {
   // Core configuration
   pollingIntervalMs: number;
-  adapters: TAdapters;
+  adapters?: TAdapters;
   defaultTarget?: ValidAdapterKey<TAdapters>;
 
   // Signature and networking
@@ -189,7 +189,9 @@ export const PaimaBatcherConfigSchema = Type.Object({
       default: DEFAULT_CONFIG_VALUES.pollingIntervalMs,
     }),
   ),
-  adapters: Type.Record(Type.String(), Type.Any()),
+  adapters: Type.Optional(
+    Type.Record(Type.String(), Type.Any(), { default: {} }),
+  ),
   defaultTarget: Type.Optional(Type.String()),
   namespace: Type.Optional(
     Type.String({ default: DEFAULT_CONFIG_VALUES.namespace }),
@@ -285,27 +287,23 @@ export function applyBatcherConfigDefaults<
 
 /**
  * Validates batcher configuration for consistency and required fields.
+ * Allows empty adapters for dynamic registration before initialization.
  * Throws error if configuration is invalid.
  */
 export function validateBatcherConfig<
   T extends DefaultBatcherInput,
   TAdapters extends Record<string, BlockchainAdapter<any>>,
 >(config: PaimaBatcherConfig<T, TAdapters>): void {
-  if (Object.keys(config.adapters).length === 0) {
-    throw new Error(
-      "At least one blockchain adapter must be provided in the configuration",
-    );
-  }
+  // Allow empty adapters during initial config validation
+  // Full validation happens before initialization via validatePreInit()
+  const adapters = config.adapters || {};
 
   // TypeScript already ensures defaultTarget is a valid key if specified,
   // but we can add runtime validation for additional safety
-  if (
-    config.defaultTarget &&
-    !(config.defaultTarget in config.adapters)
-  ) {
+  if (config.defaultTarget && !(config.defaultTarget in adapters)) {
     throw new Error(
       `Default target '${config.defaultTarget}' is not present in adapters. Available adapters: ${
-        Object.keys(config.adapters).join(", ")
+        Object.keys(adapters).join(", ")
       }`,
     );
   }
@@ -318,10 +316,10 @@ export function validateBatcherConfig<
         BatchingCriteriaConfig<T>,
       ][]
     ) {
-      if (!(target in config.adapters)) {
+      if (!(target in adapters)) {
         throw new Error(
           `Batching criteria specified for unknown adapter '${target}'. Available adapters: ${
-            Object.keys(config.adapters).join(", ")
+            Object.keys(adapters).join(", ")
           }`,
         );
       }
@@ -329,29 +327,73 @@ export function validateBatcherConfig<
     }
   }
 
-  console.log(
-    `🔧✅ Configuration validated. Available adapters: ${
-      Object.keys(config.adapters)
-    }`,
-  );
-  if (config.defaultTarget) {
-    console.log(`🎯 Default target: ${config.defaultTarget}`);
+  if (Object.keys(adapters).length > 0) {
+    console.log(
+      `🔧✅ Configuration validated. Available adapters: ${
+        Object.keys(adapters)
+      }`,
+    );
+    if (config.defaultTarget) {
+      console.log(`🎯 Default target: ${config.defaultTarget}`);
+    } else {
+      console.log(
+        `🎯 Using first available adapter as default: ${
+          Object.keys(adapters)[0]
+        }`,
+      );
+    }
+
+    // Log batching criteria per adapter
+    const adapterTargets = Object.keys(adapters);
+    for (const target of adapterTargets) {
+      const criteria = (config.batchingCriteria
+        ?.[target as keyof typeof config.batchingCriteria] as
+          | BatchingCriteriaConfig<T>
+          | undefined) ?? DEFAULT_BATCHING_CRITERIA;
+      console.log(`📏 ${target}: ${criteria.criteriaType} criteria`);
+    }
   } else {
     console.log(
-      `🎯 Using first available adapter as default: ${
-        Object.keys(config.adapters)[0]
-      }`,
+      `🔧✅ Configuration validated. No adapters configured yet. Use addBlockchainAdapter() to add adapters before initialization.`,
+    );
+  }
+}
+
+/**
+ * Validates that batcher is ready for initialization.
+ * Requires at least one adapter to be configured and a valid defaultTarget.
+ * Call this before init() or runBatcher().
+ */
+export function validatePreInit<
+  T extends DefaultBatcherInput,
+  TAdapters extends Record<string, BlockchainAdapter<any>>,
+>(
+  adapters: Record<string, BlockchainAdapter<any>>,
+  defaultTarget?: string,
+): void {
+  if (Object.keys(adapters).length === 0) {
+    throw new Error(
+      "At least one blockchain adapter must be added before initialization. " +
+        "Use addBlockchainAdapter() to add adapters before calling init() or runBatcher().",
     );
   }
 
-  // Log batching criteria per adapter
-  const adapterTargets = Object.keys(config.adapters);
-  for (const target of adapterTargets) {
-    const criteria = (config.batchingCriteria
-      ?.[target as keyof typeof config.batchingCriteria] as
-        | BatchingCriteriaConfig<T>
-        | undefined) ?? DEFAULT_BATCHING_CRITERIA;
-    console.log(`📏 ${target}: ${criteria.criteriaType} criteria`);
+  // Ensure defaultTarget is set
+  if (!defaultTarget) {
+    throw new Error(
+      "Default target must be configured before initialization. " +
+        "If using addBlockchainAdapter(), the first adapter will automatically become the default target. " +
+        "Otherwise, specify defaultTarget in the configuration.",
+    );
+  }
+
+  // Validate defaultTarget exists in adapters
+  if (!(defaultTarget in adapters)) {
+    throw new Error(
+      `Default target '${defaultTarget}' is not present in adapters. Available adapters: ${
+        Object.keys(adapters).join(", ")
+      }`,
+    );
   }
 }
 
