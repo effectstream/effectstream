@@ -374,6 +374,32 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     );
   }
 
+  /**
+   * Set the default target adapter before startup.
+   * Must be called before runBatcher() or init().
+   *
+   * @param adapterName - Name of the adapter to set as default target
+   * @throws If batcher is already initialized
+   * @throws If adapter doesn't exist
+   */
+  setDefaultTarget(adapterName: string): void {
+    if (this.isInitialized) {
+      throw new Error(
+        "Cannot modify default target after batcher has been initialized.",
+      );
+    }
+
+    if (!(adapterName in this.adapters)) {
+      throw new Error(
+        `Adapter '${adapterName}' not found. Available adapters: ${
+          Object.keys(this.adapters).join(", ")
+        }`,
+      );
+    }
+
+    this.defaultTarget = adapterName;
+  }
+
   async init(): Promise<void> {
     if (this.isInitialized) return;
 
