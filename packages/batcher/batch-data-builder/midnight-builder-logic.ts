@@ -66,7 +66,7 @@ export class MidnightBatchBuilderLogic {
         args: parsed.args,
         addressType: input.addressType,
         address: input.address,
-        signature: input.signature,
+        signature: input.signature ?? "",
         timestamp: input.timestamp,
       };
 

@@ -5,7 +5,7 @@
  * but works with the generic DefaultBatcherInput type and supports target-specific configurations.
  */
 
-import { DefaultBatcherInput } from "../core/types.ts";
+import type { DefaultBatcherInput } from "../core/types.ts";
 
 const BATCHER_GRAMMAR_PREFIX = "&B";
 

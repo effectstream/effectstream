@@ -189,6 +189,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       },
       storage: this.storage,
       submissionCallbacks: this.submissionCallbacks,
+      getCallbackKey: (input: T) => this.getInputCallbackKey(input),
       waitForPaimaProcessed: (
         target: string,
         receipt: BlockchainTransactionReceipt,
@@ -321,13 +322,17 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     // 1. Signature Validation (Pre-Queue, Adapter-Driven)
-    let verifiedSignature = false;
+    let verifiedSignature: boolean;
 
     if (adapter && typeof adapter.verifySignature === "function") {
       verifiedSignature = await adapter.verifySignature(input);
-    } else {
-      // Fall back to the batcher's default EVM verification
+    } else if (input.signature) {
+      // Fall back to the batcher's default EVM verification when a signature is provided
       verifiedSignature = await this._defaultVerifyInputSignature(input);
+    } else {
+      throw new InputValidationError(
+        `Adapter for target ${target} requires either a signature or a custom verifySignature implementation`,
+      );
     }
 
     if (!verifiedSignature) {
@@ -358,8 +363,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // Create promise for callback with timeout
     const receiptPromise = new Promise<BlockchainTransactionReceipt>(
       (resolve, reject) => {
-        const callbackKey = input.signature ||
-          `${input.addressType}-${input.timestamp}`;
+        const callbackKey = this.getInputCallbackKey(input);
         const timeoutId = setTimeout(() => {
           this.submissionCallbacks.delete(callbackKey);
           reject(new Error("Receipt confirmation timeout"));
@@ -478,7 +482,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Storage is the single source of truth - no pool needed
    */
   async addInput(input: T): Promise<void> {
-    await this.storage.addInput(input);
+    await this.storage.addInput(input, input.target ?? this.defaultTarget);
   }
 
   private async _defaultVerifyInputSignature(
@@ -486,6 +490,12 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   ): Promise<boolean> {
     // This is the default EVM verification logic
     // Create the signature message using EVM-specific logic
+    if (!input.signature) {
+      throw new Error(
+        "Default signature verification requires a signature to be provided",
+      );
+    }
+
     let walletAddress;
     switch (input.addressType) {
       case AddressType.EVM:
@@ -512,6 +522,17 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       message,
       input.signature,
     );
+  }
+
+  private getInputCallbackKey(input: T): string {
+    return [
+      input.addressType,
+      input.target || this.defaultTarget,
+      input.address,
+      input.timestamp,
+      input.signature ?? "",
+      input.input,
+    ].join("|");
   }
 
   async pollBatcher(): Promise<void> {
@@ -978,7 +999,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * @returns A boolean or Promise<boolean> in the case is implemented as async indicating if the input is valid.
    */
   validateInput(input: T): boolean | Promise<boolean> {
-    return !!input.signature && !!input.address;
+    return !!input.address;
   }
 
   /**

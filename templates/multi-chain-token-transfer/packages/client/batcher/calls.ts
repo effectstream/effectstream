@@ -219,7 +219,6 @@ export function* mintInMidnight(accountHex: string, value: bigint) {
   const batcherInput = {
     address: placeholderAddress,
     addressType: AddressType.MIDNIGHT,
-    signature: "", // Midnight doesn't require signature for minting
     timestamp,
     input,
     target: "midnight",

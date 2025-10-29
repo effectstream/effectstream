@@ -13,7 +13,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
   constructor(
     private batcher: {
       emitStateTransition: (prefix: string, payload: any) => Promise<void>;
-      storage: { removeProcessedInputs: (inputs: T[]) => Promise<void> };
+      storage: { removeProcessedInputs: (inputs: T[], target: string) => Promise<void> };
       submissionCallbacks: Map<
         string,
         {
@@ -27,6 +27,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         receipt: BlockchainTransactionReceipt,
         timeout: number,
       ) => Promise<{ latestBlock: number; rollup: number } | null>;
+      getCallbackKey: (input: T) => string;
     },
   ) {}
 
@@ -112,7 +113,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     });
 
     // Remove processed inputs from storage after successful receipt
-    await this.batcher.storage.removeProcessedInputs(selectedInputs);
+    await this.batcher.storage.removeProcessedInputs(selectedInputs, target);
 
     // Resolve all callbacks with the receipt
     // Individual callers will decide if they want to continue waiting for Paima
@@ -182,7 +183,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     receipt: BlockchainTransactionReceipt,
   ): void {
     for (const input of selectedInputs) {
-      const callbackKey = input.signature || `${input.addressType}-${input.timestamp}`;
+      const callbackKey = this.batcher.getCallbackKey(input);
       const callbacks = this.batcher.submissionCallbacks.get(callbackKey);
       if (callbacks) {
         callbacks.resolve(receipt);

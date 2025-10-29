@@ -367,3 +367,5 @@ curl -X POST http://localhost:3334/batch-input \
     "timestamp": 1234567890
   }'
 ```
+
+`signature` is optional for chains/adapters that override `verifySignature` (for example Midnight). When omitted, the adapter must implement its own verification semantics.

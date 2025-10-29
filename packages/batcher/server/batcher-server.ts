@@ -15,7 +15,7 @@ const BatcherInputSchema = Type.Object({
   address: Type.String(),
   addressType: Type.Number(),
   input: Type.String(),
-  signature: Type.String(),
+  signature: Type.Optional(Type.String()),
   timestamp: Type.String(),
   target: Type.Optional(Type.String()),
 });
