@@ -7,7 +7,7 @@
  */
 
 // Core batcher functionality
-export { PaimaBatcher } from "./core/batcher.ts";
+export { PaimaBatcher, createNewBatcher } from "./core/batcher.ts";
 
 // Configuration types and validation
 export type {

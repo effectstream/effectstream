@@ -1,8 +1,14 @@
 import { main, suspend } from "effection";
-import { PaimaBatcher } from "@paima/batcher";
-import { config, storage } from "./config.ts";
+import { createNewBatcher } from "@paima/batcher";
+import { config, storage, paimaL2Adapter, midnightAdapter } from "./config.ts";
 
-const batcher = new PaimaBatcher(config, storage);
+const batcher = createNewBatcher(config, storage);
+const batchIntervalMs = 1000;
+
+batcher
+  .addBlockchainAdapter("paimal2", paimaL2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
+  .addBlockchainAdapter("midnight_eip20", midnightAdapter, { criteriaType: "size", maxBatchSize: 1 })
+  .setDefaultTarget("paimal2")
 
 // E2E-specific startup banner via state transition
 batcher.addStateTransition("startup", ({ publicConfig }) => {
@@ -19,10 +25,8 @@ batcher.addStateTransition("startup", ({ publicConfig }) => {
     }\n` +
     `      | 📋 Press Ctrl+C to stop gracefully`;
   console.log(banner);
-});
-
-// E2E-specific http:start banner printing HTTP config
-batcher.addStateTransition("http:start", ({ port }) => {
+})
+.addStateTransition("http:start", ({ port }) => {
   const publicConfig = batcher.getPublicConfig();
   const httpInfo = `🌐 HTTP Server started for E2E\n` +
     `      | URL: http://localhost:${port}\n` +

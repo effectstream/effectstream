@@ -230,13 +230,14 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   addStateTransition<Prefix extends keyof BatcherGrammar & string>(
     prefix: Prefix,
     listener: BatcherListener<BatcherGrammar, Prefix>,
-  ): void {
+  ): PaimaBatcher<T> {
     if (this.stateTransitionListeners.has(prefix)) {
       throw new Error(
         `Disallowed: duplicate listener for prefix ${prefix}. Duplicate prefixes can cause determinism issues`,
       );
     }
     this.stateTransitionListeners.set(prefix, listener);
+    return this;
   }
 
   /** Remove a previously registered state transition listener. */
@@ -299,7 +300,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     name: string,
     adapter: BlockchainAdapter<TOutput>,
     batchingCriteria?: BatchingCriteriaConfig<T>,
-  ): void {
+  ): PaimaBatcher<T> {
     if (this.isInitialized) {
       throw new Error(
         "Cannot add adapters after batcher has been initialized. " +
@@ -331,6 +332,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       this.config.batchingCriteria = {};
     }
     (this.config.batchingCriteria as any)[name] = criteria;
+    return this;
   }
 
   /**
@@ -346,7 +348,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   setBatchingCriteria(
     adapterName: string,
     criteria: BatchingCriteriaConfig<T>,
-  ): void {
+  ): PaimaBatcher<T> {
     if (this.isInitialized) {
       throw new Error(
         "Cannot modify batching criteria after batcher has been initialized.",
@@ -369,9 +371,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
     (this.config.batchingCriteria as any)[adapterName] = criteria;
 
-    console.log(
-      `✅ Updated batching criteria for '${adapterName}' to ${criteria.criteriaType}`,
-    );
+    return this;
   }
 
   /**
@@ -382,7 +382,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * @throws If batcher is already initialized
    * @throws If adapter doesn't exist
    */
-  setDefaultTarget(adapterName: string): void {
+  setDefaultTarget(adapterName: string): PaimaBatcher<T> {
     if (this.isInitialized) {
       throw new Error(
         "Cannot modify default target after batcher has been initialized.",
@@ -398,6 +398,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     this.defaultTarget = adapterName;
+    return this;
   }
 
   async init(): Promise<void> {
@@ -1301,13 +1302,39 @@ class SignalHandler {
 }
 
 /**
+ * Factory function to create a new PaimaBatcher instance.
+ * Provides a cleaner API than using the constructor directly.
+ *
+ * @param config - Batcher configuration (adapters can be empty for dynamic registration)
+ * @param storage - Optional storage instance (defaults to BatcherFileStorage)
+ * @returns A new PaimaBatcher instance
+ *
+ * @example
+ * ```typescript
+ * const batcher = createNewBatcher({
+ *   pollingIntervalMs: 1000,
+ *   adapters: {},
+ * });
+ *
+ * batcher.addBlockchainAdapter('ethereum', evmAdapter);
+ * await batcher.init();
+ * ```
+ */
+export function createNewBatcher<T extends DefaultBatcherInput>(
+  config: PaimaBatcherConfig<T, Record<string, BlockchainAdapter<any>>>,
+  storage?: BatcherStorage<T>,
+): PaimaBatcher<T> {
+  return new PaimaBatcher(config, storage);
+}
+
+/**
  * Create and launch a new Batcher with optional signal handling
  */
 export async function createAndLaunchBatcher<T extends DefaultBatcherInput>(
   storage: BatcherStorage<T>,
   config: PaimaBatcherConfig<T>,
 ): Promise<void> {
-  const batcher = new PaimaBatcher(config, storage);
+  const batcher = createNewBatcher(config, storage);
   await batcher.init();
 
   // Setup signal handling if configured

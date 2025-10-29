@@ -3,8 +3,6 @@ import {
   type PaimaBatcherConfig,
   PaimaL2DefaultAdapter,
   MidnightAdapter,
-  MidnightBatchDataBuilder,
-  DefaultBatchDataBuilder,
 } from "@paima/batcher";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
@@ -25,7 +23,7 @@ const paimaL2Fee = 0n; // old batcher defaulted to 0 for local dev
 const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
 
 // PaimaL2 EVM adapter
-const paimaL2 = new PaimaL2DefaultAdapter(
+export const paimaL2Adapter = new PaimaL2DefaultAdapter(
   paimaL2Address,
   batcherPrivateKey,
   paimaL2Fee,
@@ -44,7 +42,7 @@ const midnightAdapterConfig = {
 }
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
-const midnightAdapter = new MidnightAdapter(
+export const midnightAdapter = new MidnightAdapter(
   contractAddress,
   GENESIS_MINT_WALLET_SEED,
   midnightAdapterConfig,
@@ -59,13 +57,7 @@ const midnightAdapter = new MidnightAdapter(
 export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   enableHttpServer: true,
-  adapters: { paimaL2, midnight_eip20: midnightAdapter },
-  defaultTarget: "paimaL2",
   namespace: "", // TODO start using namespace for signature verification security
-  batchingCriteria: {
-    paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
-    midnight_eip20: { criteriaType: "size", maxBatchSize: 1 },
-  },
   confirmationLevel: "wait-paima-processed",
   enableEventSystem: true, // Important for adding state transitions to console logs
   port,
