@@ -364,6 +364,6 @@ If `confirmationLevel` is not explicitly provided in the API call, the batcher u
 
 ## Next Steps
 
-- Learn about [Custom Adapters](./custom-adapters) to support new blockchains
-- Explore [Batching Criteria](./batching-criteria) for advanced batch timing strategies
-- Review [Configuration Reference](./configuration) for all available options
+- Learn about [Custom Adapters](./1250-adapter.md) to support new blockchains
+- Explore [Batching Criteria](./1290-advanced-topics.md#batching-criteria) for advanced batch timing strategies
+- Review [Configuration Reference](./1240-configuration.md) for all available options

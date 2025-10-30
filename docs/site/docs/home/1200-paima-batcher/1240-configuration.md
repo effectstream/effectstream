@@ -802,7 +802,7 @@ batcher.addBlockchainAdapter("midnight", midnightAdapter, { /* ... */ });
 
 ## Next Steps
 
-- Learn about [Custom Adapters](./1250-custom-adapters.md) to support new blockchains
-- Explore [Batching Criteria](./1260-batching-criteria.md) for advanced batch timing strategies
+- Learn about [Custom Adapters](./1250-adapter.md) to support new blockchains
+- Explore [Batching Criteria](./1290-advanced-topics.md#batching-criteria) for advanced batch timing strategies
 - Review [The Batching Pipeline](./1230-batching-pipeline.md) to understand the input lifecycle
-- Check [API Reference](./1270-api-reference.md) for HTTP endpoint documentation
+- Check [HTTP API Reference](./1290-advanced-topics.md#http-api) for endpoint documentation
