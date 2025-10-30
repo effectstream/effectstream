@@ -1320,7 +1320,7 @@ class SignalHandler {
  * await batcher.init();
  * ```
  */
-export function createNewBatcher<T extends DefaultBatcherInput>(
+export function createNewBatcher<T extends DefaultBatcherInput = DefaultBatcherInput>(
   config: PaimaBatcherConfig<T, Record<string, BlockchainAdapter<any>>>,
   storage?: BatcherStorage<T>,
 ): PaimaBatcher<T> {
@@ -1330,7 +1330,7 @@ export function createNewBatcher<T extends DefaultBatcherInput>(
 /**
  * Create and launch a new Batcher with optional signal handling
  */
-export async function createAndLaunchBatcher<T extends DefaultBatcherInput>(
+export async function createAndLaunchBatcher<T extends DefaultBatcherInput = DefaultBatcherInput>(
   storage: BatcherStorage<T>,
   config: PaimaBatcherConfig<T>,
 ): Promise<void> {

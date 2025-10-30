@@ -106,8 +106,11 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
    */
   public buildBatchData(
     inputs: DefaultBatcherInput[],
-    options?: BatchBuildingOptions,
+    _options?: BatchBuildingOptions,
   ): BatchBuildingResult<string> | null {
+    const options = {
+      maxSize: this.maxBatchSize,
+    };
     // Cast is safe because we know our helper returns a string
     return this.batchBuilderLogic.buildBatchData(inputs, options) as BatchBuildingResult<string> | null;
   }

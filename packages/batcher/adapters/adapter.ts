@@ -107,12 +107,6 @@ export interface BlockchainAdapter<TOutput> {
   getChainName(): string;
 
   /**
-   * Maximum batch payload size in bytes for this adapter/chain.
-   * Used by buildBatchData to limit batch size per target.
-   */
-  maxBatchSize?: number;
-
-  /**
    * Check if the adapter is ready to submit transactions
    * @returns True if the adapter is operational
    */

@@ -39,13 +39,8 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
   ): Promise<void> {
     console.log(`🔗 Processing ${inputs.length} inputs for target: ${target}`);
 
-    // Get builder *from adapter*
-    const options = {
-      maxSize: adapter.maxBatchSize,
-    };
-
     // Build batch data directly from adapter
-    const batchResult = adapter.buildBatchData(inputs as DefaultBatcherInput[], options);
+    const batchResult = adapter.buildBatchData(inputs as DefaultBatcherInput[]);
 
     if (!batchResult || !batchResult.data) {
       console.log(`📭 No valid inputs for target ${target}, skipping...`);
