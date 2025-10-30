@@ -524,7 +524,7 @@ This design ensures **type safety** throughout the batching pipeline while maint
 
 ## How They Work Together
 
-Here's a complete flow showing how all core concepts interact:
+Here's a complete flow showing how all core concepts interact, including **extending `DefaultBatcherInput`** with custom fields:
 
 ```typescript
 import { 
@@ -536,7 +536,28 @@ import {
   AddressType 
 } from "@paima/batcher";
 
-// 1. Create a BlockchainAdapter for your target
+// 1. Define custom input type with additional fields
+interface GameBatcherInput extends DefaultBatcherInput {
+  priority: "low" | "medium" | "high";  // Custom field for prioritization
+  gameSessionId?: string;                // Custom field for session tracking
+}
+
+// 2. Configure the PaimaBatcher with global settings
+// Note: Adapters can be added dynamically before initialization
+const config: PaimaBatcherConfig = {
+  pollingIntervalMs: 1000,
+  // No adapters in config - we'll add them dynamically
+  port: 3334,
+};
+
+// 3. Create the PaimaBatcher instance with generic type parameter
+// This ensures type safety throughout the system
+const batcher = createNewBatcher<GameBatcherInput>(config, new FileStorage("./data"));
+//                                ^^^^^^^^^^^^^^^^
+//                                Generic type flows through entire batcher!
+
+// 4. Create and add blockchain adapter dynamically
+// This must be done BEFORE init() or runBatcher()
 const ethereumAdapter = new PaimaL2DefaultAdapter(
   "0x1234...",  // PaimaL2 contract address
   "0xabcd...",  // Batcher private key
@@ -544,43 +565,55 @@ const ethereumAdapter = new PaimaL2DefaultAdapter(
   "eth-mainnet" // Sync protocol name (target can differ from this)
 );
 
-// 2. Configure the PaimaBatcher with global settings
-const config: PaimaBatcherConfig = {
-  pollingIntervalMs: 1000,
-  adapters: { 
-    ethereum: ethereumAdapter  // "ethereum" is the target
-  },
-  defaultTarget: "ethereum",
-  batchingCriteria: {
-    ethereum: { criteriaType: "time", timeWindowMs: 5000 }
-  },
-  port: 3334,
-};
+batcher.addBlockchainAdapter(
+  "ethereum",  // Target name
+  ethereumAdapter,
+  {
+    // Per-adapter batching criteria
+    criteriaType: "custom",
+    // Custom criteria can access the custom fields!
+    isBatchReadyFn: (inputs: GameBatcherInput[]) => {
+      // Process immediately if any high-priority input exists
+      return inputs.some(inp => inp.priority === "high") || inputs.length >= 10;
+    }
+  }
+);
+// 🎯 "ethereum" is automatically set as defaultTarget (first adapter)
 
-// 3. Create the PaimaBatcher instance
-const batcher = createNewBatcher(config, new FileStorage("./data"));
-
-// 4. Add event listeners for observability
+// 5. Add event listeners for observability
 batcher.addStateTransition("startup", ({ publicConfig }) => {
   console.log(`Batcher ready. Default target: ${publicConfig.defaultTarget}`);
 });
 
-// 5. Initialize and run
+// 6. Initialize and run (adapters must be added before this!)
 await batcher.init();
 
-// 6. Submit inputs using DefaultBatcherInput
-const input: DefaultBatcherInput = {
+// 7. Submit inputs using your custom GameBatcherInput type
+// TypeScript ensures all required fields are present (including custom ones!)
+const input: GameBatcherInput = {
   addressType: AddressType.EVM,
   address: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
   input: "gameMove|x10y20",
   signature: "0x...",
   timestamp: Date.now().toString(),
-  target: "ethereum",  // Routes to ethereumAdapter
+  target: "ethereum",        // Routes to ethereumAdapter
+  priority: "high",          // Custom field!
+  gameSessionId: "session-123"  // Custom field!
 };
 
 const receipt = await batcher.batchInput(input, "wait-receipt");
+//                   ^^^^^^^^^^^^^^^^^^
+//                   Expects GameBatcherInput, not DefaultBatcherInput!
+
 console.log(`Transaction confirmed in block ${receipt.blockNumber}`);
 ```
+
+**Key Takeaways from this Example:**
+1. **Generic Type Flows Through System**: `createNewBatcher<GameBatcherInput>()` makes the entire batcher type-aware
+2. **Type Safety**: TypeScript enforces that all calls to `batchInput()` include custom fields
+3. **Custom Criteria Access**: Batching criteria functions receive the extended type with custom fields
+4. **Storage & Adapter Receive Extended Type**: The generic flows to storage operations and adapter methods
+5. **Zero Runtime Overhead**: This is pure TypeScript—no runtime checks or transformations needed
 
 ---
 
