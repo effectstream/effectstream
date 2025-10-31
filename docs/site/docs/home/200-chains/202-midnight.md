@@ -15,15 +15,15 @@ Midnight's architecture is modular, separating the user's private data from the 
 *   **Indexer**: A service that tracks the public blockchain data, making it easily queryable for dApps.
 *   **Smart Contracts (Compact)**: Contracts are written in Compact, a language designed for ZK. They define private logic (circuits) and can expose a **public `ledger` state**.
 
-### Paima Engine's Role in the Midnight Ecosystem
+### Statestream's Role in the Midnight Ecosystem
 
-Paima Engine acts as a powerful off-chain indexer and state machine that **monitors the public state** of Midnight contracts. It does not handle private data or proof generation. Instead, it observes the *results* of private computations that are made public on the Midnight ledger.
+Statestream acts as a powerful off-chain indexer and state machine that **monitors the public state** of Midnight contracts. It does not handle private data or proof generation. Instead, it observes the *results* of private computations that are made public on the Midnight ledger.
 
-This allows you to build complex dApps that combine the privacy of Midnight with the multi-chain data aggregation and deterministic logic of Paima Engine.
+This allows you to build complex dApps that combine the privacy of Midnight with the multi-chain data aggregation and deterministic logic of Statestream.
 
 ```mermaid
 graph TD
-    subgraph Paima Engine
+    subgraph Statestream
         PaimaSync[Sync Service] --> PaimaSM[State Machine]
     end
 
@@ -45,7 +45,7 @@ graph TD
 
 ### Configuration
 
-Connecting Paima Engine to a Midnight network is a two-step process in your `config.ts` file.
+Connecting Statestream to a Midnight network is a two-step process in your `config.ts` file.
 
 *   **Network Definition (`buildNetworks`)**:
     First, you define the connection details for the Midnight network.
@@ -85,7 +85,7 @@ Connecting Paima Engine to a Midnight network is a two-step process in your `con
 *   **Language**: Compact (a TypeScript-inspired DSL for ZK).
 *   **Compilation**: `deno task build:midnight`
 
-A Midnight contract defines private state transitions (`circuits`) and can choose to expose certain data publicly in its `ledger`. Paima Engine can only see what is in the public `ledger`.
+A Midnight contract defines private state transitions (`circuits`) and can choose to expose certain data publicly in its `ledger`. Statestream can only see what is in the public `ledger`.
 
 **Example (`main.rs`):**
 ```rust
@@ -93,7 +93,7 @@ pragma language_version 0.16;
 
 import CompactStandardLibrary;
 
-// This is the public state that Paima Engine's primitive will monitor.
+// This is the public state that Statestream's primitive will monitor.
 export ledger round: Counter;
 
 // This is a private state transition. When executed, it generates a ZK proof.

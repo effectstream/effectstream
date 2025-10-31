@@ -85,19 +85,25 @@ ul.theme-doc-sidebar-menu > li:nth-last-child(3)::before {
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme="dark"] {
-  --ifm-color-primary: #19B17B;
-  --ifm-color-primary-dark: #19B17B;
-  --ifm-color-primary-darker: #19B17B;
-  --ifm-color-primary-darkest: #19B17B;
-  --ifm-color-primary-light: #19B17B;
-  --ifm-color-primary-lighter: #19B17B;
-  --ifm-color-primary-lightest: #19B17B;
-  --ifm-font-color-base: #fff;
+  --yinmn-blue: #26547c;
+  --yinmn-blue-dark: #0d1d29;
+  --baby-powder: #fffcf9;
+  --sunglow: #ffd166;
+  --blackish: #1c1c1c;
+
+  --ifm-color-primary: var(--sunglow);
+  --ifm-color-primary-dark: var(--sunglow);
+  --ifm-color-primary-darker: var(--sunglow);
+  --ifm-color-primary-darkest: var(--sunglow);
+  --ifm-color-primary-light: var(--sunglow);
+  --ifm-color-primary-lighter: var(--sunglow);
+  --ifm-color-primary-lightest: var(--sunglow);
+  --ifm-font-color-base: var(--baby-powder);
   --ifm-blockquote-color: #c8c8c8;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
   --tabs-bg-active: #1c1c1d;
   --tabs-text-inactive: #bab0b0;
-  --ifm-background-color: #030909 !important;
+  --ifm-background-color: var(--yinmn-blue-dark) !important;
 }
 
 .navbar {
@@ -118,9 +124,9 @@ ul.theme-doc-sidebar-menu > li:nth-last-child(3)::before {
 
 
 h1 {
-    background: #19B17B;
+    background: var(--sunglow);
     -webkit-background-clip: text;
-    -webkit-text-fill-color: #19b17b;
+    -webkit-text-fill-color: var(--sunglow);
     background-clip: text;
     width: max-content;
     max-width: 100%;
@@ -128,7 +134,7 @@ h1 {
 }
 
 h2 {
-  color: #19B17B;
+  color: var(--sunglow);
 
 }
 
@@ -171,7 +177,7 @@ code {
 }
 
 .alert--info {
-  background-color: #212B34;
+  background-color: var(--blackish);
   border: var(--ifm-alert-border-width) solid #3F7EB8;
   border-left-width: var(--ifm-alert-border-left-width);
   border-radius: var(--ifm-alert-border-radius);
@@ -179,7 +185,7 @@ code {
 }
 
 .alert--warning {
-  background-color: #54391A;
+  background-color: var(--blackish);
   border: var(--ifm-alert-border-width) solid #F07D00;
   border-left-width: var(--ifm-alert-border-left-width);
   border-radius: var(--ifm-alert-border-radius);
@@ -188,8 +194,8 @@ code {
 }
 
 .alert a {
-  color: #19B17B;
-  text-decoration-color: #19B17B;
+  color: var(--sunglow);
+  text-decoration-color: var(--sunglow);
   -webkit-text-decoration-color: rgba(255, 152, 40, 0.4); /* Safari */   
   text-decoration-color: rgba(255, 152, 40, 0.4);  
 }

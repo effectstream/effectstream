@@ -1,6 +1,6 @@
 # Avail
 
-Avail is not a traditional smart contract platform, but a specialized **Data Availability (DA) Layer**. Its primary purpose is to provide a cheap, secure, and decentralized place to post data. For Paima Engine, it can act as an alternative to an L1 for storing the input data for your rollup, potentially leading to much lower "gas" costs.
+Avail is not a traditional smart contract platform, but a specialized **Data Availability (DA) Layer**. Its primary purpose is to provide a cheap, secure, and decentralized place to post data. For Statestream, it can act as an alternative to an L1 for storing the input data for your rollup, potentially leading to much lower "gas" costs.
 
 ## Configuration
 

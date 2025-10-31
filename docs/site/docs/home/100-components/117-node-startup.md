@@ -1,12 +1,12 @@
 # Node Startup
 
-Once configured your [chains](./101-sync-service.md), defined your [grammar](./111-grammar.md), and written your [state machine](./102-state-machine.md) logic. The final step is to bring all these pieces together and hand them off to the Paima Engine to be executed.
+Once configured your [chains](./101-sync-service.md), defined your [grammar](./111-grammar.md), and written your [state machine](./102-state-machine.md) logic. The final step is to bring all these pieces together and hand them off to the Statestream to be executed.
 
 > We will be using the /templates/evm-midnight as example
 
-`start(...)` Is the main entry point, located at `/packages/client/node/src/main.ts` in the template project. This file acts as the central launch system of your Paima Engine Node, importing all the different components of your application and passing them to the Paima Engine Runtime.
+`start(...)` Is the main entry point, located at `/packages/client/node/src/main.ts` in the template project. This file acts as the central launch system of your Statestream Node, importing all the different components of your application and passing them to the Statestream Runtime.
 
-### Paima Engine `start(...)`
+### Statestream `start(...)`
 
 The entry point file is concise but powerful. It uses the `effection` library for structured concurrency to manage the node's lifecycle and the `@paima/runtime` package to start the engine.
 
@@ -32,12 +32,12 @@ const appVersion = "0.3.21";
 main(function* () {
   // Initialize the Paima runtime environment
   yield* init();
-  console.log("Starting Paima Engine Node");
+  console.log("Starting Statestream Node");
 
   // 3. Load your static configuration into the runtime's context
   yield* withPaimaStaticConfig(localhostConfig, function* () {
 
-    // 4. Start the Paima Engine with all your application's components
+    // 4. Start the Statestream with all your application's components
     yield* start({
       appName,
       appVersion,
@@ -97,7 +97,7 @@ graph TD
     end
 
     subgraph "Phase 2: Paima Node Execution"
-        H(Paima Engine Node)
+        H(Statestream Node)
         subgraph "Node Initializes Internal Services"
             I[fa:fa-sync Chain & Primitives Sync Service]
             J[fa:fa-cogs State Machine & State]
@@ -129,4 +129,4 @@ graph TD
 2.  Its final step is to execute your node's `start(...)`.
 3.  Your `main.ts` gathers all your application-specific configurations and logic.
 4.  It passes this complete "blueprint" to the Paima Runtime's `start()` function.
-5.  The Paima Runtime then uses this blueprint to initialize and run all of its internal services, creating a fully operational Paima Engine node tailored to your dApp.
+5.  The Paima Runtime then uses this blueprint to initialize and run all of its internal services, creating a fully operational Statestream node tailored to your dApp.

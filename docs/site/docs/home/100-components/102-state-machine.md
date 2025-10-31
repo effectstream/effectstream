@@ -2,13 +2,13 @@
 
 ## Overview 
 
-A State Machine (SM) is the core of your Paima Engine application, defining its logic and rules. Let's break down the concept:
+A State Machine (SM) is the core of your Statestream application, defining its logic and rules. Let's break down the concept:
 
-1. It has a State, which is the complete record of the Paima Engine Node at any given moment (e.g., user assets, statuses, etc.), stored in a database.
+1. It has a State, which is the complete record of the Statestream Node at any given moment (e.g., user assets, statuses, etc.), stored in a database.
 2. The SM is defined by a series of State Transition Functions (STFs). These are the functions that change the State in response to an Input.
 3. The Inputs are blockchain events that your application is configured to monitor. The STFs process these on-chain events and transform them into updates for your application's state.
-4. The SM is deterministic, meaning multiple instances of a Paima Engine Node processing the same inputs in the same order will always generate the exact same final State.
-5. The entire process runs within the Paima Engine Node.
+4. The SM is deterministic, meaning multiple instances of a Statestream Node processing the same inputs in the same order will always generate the exact same final State.
+5. The entire process runs within the Statestream Node.
 
 ```
                      State Machine
@@ -68,7 +68,7 @@ stm.addStateTransition(
 **IMPORTANT** 
 These STF functions MUST be deterministic. 
 
-Paima Engine applications are designed to be Replicated State Machines, which means that anyone running a paima engine node can independently process all the inputs in the exact same order and arrive at the identical, correct game state. This deterministic nature is what makes decentralized apps possible without a central server.
+Statestream applications are designed to be Replicated State Machines, which means that anyone running a Statestream node can independently process all the inputs in the exact same order and arrive at the identical, correct game state. This deterministic nature is what makes decentralized apps possible without a central server.
 
 > Therefore STF MUST NOT use `Math.random()`, `new Date()`, do external API calls, or any function that might give different results on different times or machines.   
 
@@ -219,7 +219,7 @@ For example, if the contract was called 4 times:
 
 A State Transition Function (STF) has a unique challenge: it must be a pure, deterministic function, but it also needs to interact with the "outside world" by reading from and writing to the database.
 
-To solve this, Paima STFs are written as Coroutines (specifically, JavaScript Generator Functions) instead of standard async functions. This allows the STF to pause its execution and request that the Paima Engine perform a side effect (like a database query) on its behalf. This pattern ensures that all interactions with the outside world are controlled, deterministic, and replayable.
+To solve this, Paima STFs are written as Coroutines (specifically, JavaScript Generator Functions) instead of standard async functions. This allows the STF to pause its execution and request that the Statestream perform a side effect (like a database query) on its behalf. This pattern ensures that all interactions with the outside world are controlled, deterministic, and replayable.
 
 Instead of await, you will use the yield* keyword to perform these controlled, asynchronous operations.
 

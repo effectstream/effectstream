@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers advanced features of the Paima Batcher that provide powerful customization, monitoring, and operational capabilities:
+This guide covers advanced features of the Batcher that provide powerful customization, monitoring, and operational capabilities:
 
 - **HTTP API**: REST endpoints for submitting inputs and monitoring system status
 - **Batching Criteria**: Advanced strategies for controlling when batches are submitted
@@ -22,7 +22,7 @@ Developers who need to:
 
 ## HTTP API
 
-The Paima Batcher exposes a RESTful HTTP API when `enableHttpServer` is enabled. The API includes comprehensive OpenAPI documentation accessible at `/documentation`.
+The Batcher exposes a RESTful HTTP API when `enableHttpServer` is enabled. The API includes comprehensive OpenAPI documentation accessible at `/documentation`.
 
 ### Configuration
 
@@ -1279,7 +1279,7 @@ redis-cli BGSAVE
 
 ## Effection Integration
 
-The Paima Batcher uses **Effection** for structured concurrency, providing automatic resource cleanup, graceful cancellation, and robust error handling. This section explains how to run the batcher using Effection's `main()` function.
+The Batcher uses **Effection** for structured concurrency, providing automatic resource cleanup, graceful cancellation, and robust error handling. This section explains how to run the batcher using Effection's `main()` function.
 
 ### What is Effection?
 
@@ -1386,7 +1386,7 @@ batcher.addStateTransition("error", ({ phase, error }) => {
 });
 
 main(function* () {
-  console.log("🚀 Starting Paima Batcher...");
+  console.log("🚀 Starting Batcher...");
   
   try {
     // Run the batcher with Effection structured concurrency
@@ -1404,7 +1404,7 @@ main(function* () {
 
 **Output:**
 ```
-🚀 Starting Paima Batcher...
+🚀 Starting Batcher...
 🚀 Batcher started
    Default Target: ethereum
    Adapters: ethereum, polygon

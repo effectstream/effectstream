@@ -1,10 +1,10 @@
-# Introduction to the Paima Batcher
+# Introduction
 
-Welcome to the Paima Batcher, a powerful and flexible service designed to solve the complex problem of transaction batching in a multi-chain environment.
+Welcome to the Batcher, a powerful and flexible service designed to solve the complex problem of transaction batching in a multi-chain environment.
 
-## What is the Paima Batcher?
+## What is the Batcher?
 
-The Paima Batcher is a standalone service that acts as a robust, chain-agnostic ingestion point for user inputs. Its primary job is to:
+The Batcher is a standalone service that acts as a robust, chain-agnostic ingestion point for user inputs. Its primary job is to:
 
 1. Receive inputs via a simple HTTP API.
 2. Validate these inputs using chain-specific logic.
@@ -26,7 +26,7 @@ Writing a single service that can handle all of this is complex and error-prone.
 
 ### Adapter-Driven Architecture
 
-The Paima Batcher solves this problem with a flexible, plugin-based architecture. The core batcher service itself knows nothing about any specific blockchain.
+The Batcher solves this problem with a flexible, plugin-based architecture. The core batcher service itself knows nothing about any specific blockchain.
 
 Instead, all chain-specific logic is delegated to a `BlockchainAdapter`. A `BlockchainAdapter` is a "driver" you provide for a specific chain target (e.g., `"evm"` or `"midnight"`). This adapter is responsible for all chain-specific tasks:
 - Validating an input's data structure.

@@ -1,6 +1,6 @@
-# Paima Batcher
+# Overview
 
-The Paima Batcher is a production-ready service for aggregating and batching user transactions across multiple blockchains. It provides a unified HTTP API for submitting inputs while abstracting away blockchain-specific complexity through a pluggable adapter system.
+The Batcher is a production-ready service for aggregating and batching user transactions across multiple blockchains. It provides a unified HTTP API for submitting inputs while abstracting away blockchain-specific complexity through a pluggable adapter system.
 
 ## Quick Start
 
@@ -42,7 +42,7 @@ All inputs are persisted immediately to storage (file, PostgreSQL, Redis, or cus
        │ POST /send-input
        ▼
 ┌──────────────────────────────────┐
-│     Paima Batcher Core           │
+│     Batcher Core           │
 │  - Validation                    │
 │  - Storage Persistence           │
 │  - Batching Criteria Check       │
@@ -65,8 +65,8 @@ All inputs are persisted immediately to storage (file, PostgreSQL, Redis, or cus
 ## Documentation Structure
 
 ### Getting Started
-- **[Introduction](./1210-introduction.md)** - What is the Paima Batcher and why use it?
-- **[Core Concepts](./1220-core-concepts.md)** - Key abstractions: `PaimaBatcher`, `BlockchainAdapter`, `Target`, `DefaultBatcherInput`
+- **[Introduction](./1210-introduction.md)** - What is the Batcher and why use it?
+- **[Core Concepts](./1220-core-concepts.md)** - Key abstractions: `Batcher`, `BlockchainAdapter`, `Target`, `DefaultBatcherInput`
 
 ### Configuration & Setup
 - **[Configuration](./1240-configuration.md)** - Complete setup guide with dynamic and unified configuration approaches

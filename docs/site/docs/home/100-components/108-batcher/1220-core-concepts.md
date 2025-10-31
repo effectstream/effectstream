@@ -1,6 +1,6 @@
 # Core Concepts
 
-Before diving into customization and advanced features, it's essential to understand the main components ("nouns") of the Paima Batcher system. These building blocks work together to provide a flexible, multi-chain batching solution.
+Before diving into customization and advanced features, it's essential to understand the main components ("nouns") of the Batcher system. These building blocks work together to provide a flexible, multi-chain batching solution.
 
 ---
 

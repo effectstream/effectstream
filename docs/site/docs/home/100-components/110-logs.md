@@ -1,3 +1,3 @@
 # Logs
 
-Paima Engine sends logs by default to a Open Telemetry Collector. 
+Statestream sends logs by default to a Open Telemetry Collector. 

@@ -33,7 +33,7 @@ batcher.addStateTransition("http:start", ({ port }) => {
 });
 
 main(function* () {
-  console.log("🚀 Starting Paima Batcher...");
+  console.log("🚀 Starting Batcher...");
   try {
     // Run the batcher with Effection structured concurrency
     yield* batcher.runBatcher();

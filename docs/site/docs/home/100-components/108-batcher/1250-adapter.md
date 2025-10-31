@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `BlockchainAdapter` interface is the core extension point for supporting new blockchains in the Paima Batcher. By implementing this interface, you can integrate any blockchain—whether EVM-based, zero-knowledge chains like Midnight, or custom Layer 2 solutions—into the unified batching pipeline.
+The `BlockchainAdapter` interface is the core extension point for supporting new blockchains in the Batcher. By implementing this interface, you can integrate any blockchain—whether EVM-based, zero-knowledge chains like Midnight, or custom Layer 2 solutions—into the unified batching pipeline.
 
 This guide walks you through:
 - Understanding the `BlockchainAdapter<TOutput>` interface
@@ -13,7 +13,7 @@ This guide walks you through:
 ## Target Audience
 
 Developers who need to:
-- Support a new blockchain in the Paima Batcher
+- Support a new blockchain in the Batcher
 - Customize batch submission logic for specialized contracts
 - Implement chain-specific validation or signature schemes
 - Override default batching behavior
@@ -728,7 +728,7 @@ getChainName(): string {
 
 #### `getSyncProtocolName()` (Optional)
 
-Return the Paima Sync protocol name for event filtering and `wait-paima-processed` queries:
+Return the Statestream Sync protocol name for event filtering and `wait-paima-processed` queries:
 
 ```typescript
 getSyncProtocolName(): string {

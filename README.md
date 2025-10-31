@@ -1,13 +1,13 @@
-# Paima Engine
+# Statestream Engine
 
 ## Quick Start
 
-Start at [Paima Engine Template](./templates/evm-midnight/) for quickstart
+Start at [Statestream Engine Template](./templates/evm-midnight/) for quickstart
 project
 
 ## Testing Development
 
-Paima Engine development mode & tests can be run through e2e testing environment.
+Statestream Engine development mode & tests can be run through e2e testing environment.
 
 ```sh
 # Install dependencies

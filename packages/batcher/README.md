@@ -1,4 +1,4 @@
-# Paima Batcher
+# Batcher
 
 A blockchain batching system for aggregating and submitting user inputs to
 multiple chains.

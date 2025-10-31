@@ -2,7 +2,7 @@
 
 ## Overview
 
-Understanding how an input flows through the Paima Batcher system is essential for effective integration and customization. This document provides a comprehensive, step-by-step overview of an input's lifecycle—from the initial API call to final chain confirmation.
+Understanding how an input flows through the Batcher system is essential for effective integration and customization. This document provides a comprehensive, step-by-step overview of an input's lifecycle—from the initial API call to final chain confirmation.
 
 This knowledge helps you:
 - Understand where adapter customization hooks in
@@ -20,7 +20,7 @@ Developers building on or integrating with the Paima platform who need to batch 
 
 ## The Input Lifecycle
 
-Every input submitted to the Paima Batcher goes through a well-defined pipeline. Here's the complete journey:
+Every input submitted to the Batcher goes through a well-defined pipeline. Here's the complete journey:
 
 ### Step 1: Ingestion
 
@@ -232,12 +232,12 @@ If `confirmationLevel` is `"wait-receipt"`, the API call **returns at this point
 }
 ```
 
-### Step 9: Paima Processing (Optional)
+### Step 9: Statestream Processing (Optional)
 
-After blockchain confirmation, the batcher optionally waits for the Paima Engine to process the batch. This step:
+After blockchain confirmation, the batcher optionally waits for the Statestream to process the batch. This step:
 
-1. Monitors Paima Sync events for the specific transaction
-2. Waits until the Paima Engine has parsed and validated the inputs
+1. Monitors Statestream Sync events for the specific transaction
+2. Waits until the Statestream has parsed and validated the inputs
 3. Returns the rollup block number where processing occurred
 
 #### Confirmation Level: "wait-paima-processed"
@@ -247,7 +247,7 @@ If `confirmationLevel` is `"wait-paima-processed"`, the API call **waits until t
 ```json
 {
   "success": true,
-  "message": "Input processed and validated by Paima Engine",
+  "message": "Input processed and validated by Statestream",
   "transactionHash": "0xabc...",
   "rollup": 12345,
   "inputsProcessed": 1

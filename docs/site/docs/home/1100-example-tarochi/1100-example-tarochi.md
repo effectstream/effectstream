@@ -1,6 +1,6 @@
 # Tarochi
 
-**Tarochi** is an online decentralized, on-chain, autonomous, Web3 game developed entirely with `Paima Engine`.
+**Tarochi** is an online decentralized, on-chain, autonomous, Web3 game developed entirely with `Statestream`.
 > **Decentralized**: The game runs on a decentralized network of nodes, and is not owned or controlled by a single entity.  
 > **On-chain**: The game is built on top of the blockchain, and all game data is stored on the blockchain.  
 > **Autonomous**: The game is self-governed and self-sustaining, without the need for external intervention.  
@@ -10,7 +10,7 @@
 
 > This is a development stage video of the game
 
-This guide is intended as a practical example of how a complex, fully on-chain game can be developed using `Paima Engine`.
+This guide is intended as a practical example of how a complex, fully on-chain game can be developed using `Statestream`.
 
 # Game Design
 
@@ -22,7 +22,7 @@ We will not deep-dive into the game loop design, but rather focus on important a
 
 Tarochi was built using **[GameMaker](https://gamemaker.io/)**, a beginner-to-advanced friendly tool for creating 2D experiences. While renowned for its intuitive interface, GameMaker's reliance on its proprietary GameMaker Language (GML) has historically made it difficult to integrate with the JavaScript-heavy world of Web3.
 
-To bridge this gap, Paima Engine provides a template and adapter for GameMaker, allowing developers to connect their GML code to JavaScript. This enables the use of Paima Engine's state machine framework for on-chain game logic while leveraging GameMaker for UI and multi-platform support (desktop, mobile, consoles, and browsers).
+To bridge this gap, Statestream provides a template and adapter for GameMaker, allowing developers to connect their GML code to JavaScript. This enables the use of Statestream's state machine framework for on-chain game logic while leveraging GameMaker for UI and multi-platform support (desktop, mobile, consoles, and browsers).
 
 <iframe width="100%" height="440" src="https://www.youtube.com/embed/ePhIU1Hla-g?si=OTpnPs_MsNBS-sjZ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
@@ -30,7 +30,7 @@ To bridge this gap, Paima Engine provides a template and adapter for GameMaker, 
 
 Nearly all Web3 tools are written in or compatible with JavaScript, primarily because crypto wallets are most commonly used as browser extensions. GameMaker's ability to compile games to HTML5 makes it a viable choice for web-based dApps.
 
-Our GameMaker template introduces a custom-built adapter that allows GML code to call JavaScript functions and receive callbacks from them. This enables a GameMaker application to handle everything from wallet connections to direct interactions with Paima Engine and other Web3 libraries.
+Our GameMaker template introduces a custom-built adapter that allows GML code to call JavaScript functions and receive callbacks from them. This enables a GameMaker application to handle everything from wallet connections to direct interactions with Statestream and other Web3 libraries.
 
 ![](./1100-gm.png)
 
@@ -46,9 +46,9 @@ The stack is layered as follows:
 *   **L1: Ethereum** (Primary settlement layer)
 *   **L2: Arbitrum** (For liquidity and DEX interactions)
 *   **L3: Xai** (For fast, low-cost data availability and game actions)
-*   **L4: Tarochi** (The game's sovereign rollup, built with Paima Engine)
+*   **L4: Tarochi** (The game's sovereign rollup, built with Statestream)
 
-Paima Engine allows Tarochi to be a non-EVM application, enabling a more complex and dynamic world while maintaining decentralization. It achieves this by simultaneously monitoring multiple chains (Arbitrum, Xai, and Cardano), leveraging the low costs of Xai for gameplay while tapping into the liquidity of Arbitrum for its tokens and NFTs.
+Statestream allows Tarochi to be a non-EVM application, enabling a more complex and dynamic world while maintaining decentralization. It achieves this by simultaneously monitoring multiple chains (Arbitrum, Xai, and Cardano), leveraging the low costs of Xai for gameplay while tapping into the liquidity of Arbitrum for its tokens and NFTs.
 
 ![](./1100-layers.png)
 
@@ -56,7 +56,7 @@ Paima Engine allows Tarochi to be a non-EVM application, enabling a more complex
 
 **TGOLD** is the native token for the Tarochi L4 autonomous world and is used for in-game economic activities, such as purchasing items. While TGOLD powers the L4's economy, it is made tradable on Arbitrum One through a custom DEX.
 
-Trades made on the Arbitrum DEX are reflected directly in the Tarochi L4 without requiring a traditional bridge. This is possible because Paima Engine monitors both chains. However, this architecture means TGOLD cannot be traded in standard AMMs like Uniswap, as they are not aware of the L4 connection.
+Trades made on the Arbitrum DEX are reflected directly in the Tarochi L4 without requiring a traditional bridge. This is possible because Statestream monitors both chains. However, this architecture means TGOLD cannot be traded in standard AMMs like Uniswap, as they are not aware of the L4 connection.
 
 ### In-Game Assets
 
@@ -76,29 +76,29 @@ Trades made on the Arbitrum DEX are reflected directly in the Tarochi L4 without
 ### Exchanges and DEX:
 *   Gold, Trainers, and Monsters were available to mint on EVM and partially on Cardano.
 *   NFT marketplaces like OpenSea and Jpg.store were used for Monster and Trainer exchanges.
-*   The Paima DEX on Arbitrum was used for trading Gold.
+*   The Statestream DEX on Arbitrum was used for trading Gold.
 
 ## Contracts
 
-*   **`Paima-L2`**: This contract is extensively used for submitting game inputs. It runs on the XAI network for its fast block time and low gas fees.
+*   **`Statestream L2`**: This contract is extensively used for submitting game inputs. It runs on the XAI network for its fast block time and low gas fees.
 *   **`IInverseAppProjectedNft`**: Standard ERC721, with the ability to represent L4 assets as NFTs on L1.
 *   **`IInverseAppProjected1155`**: Standard ERC1155, with the ability to represent L4 fungible/semi-fungible assets on L1.
 *   **`IOrderbookDex`**: TGold DEX Contract.
 
 ## Frontend & Wallets
 
-To interact with the `Paima-L2` contract, the game used a browser EVM Wallet and sent transactions to the batcher. Players could connect their real EVM or Cardano wallets to mint monsters, use trainer effects, and perform other actions requiring a signature.
+To interact with the `Statestream L2` contract, the game used a browser EVM Wallet and sent transactions to the batcher. Players could connect their real EVM or Cardano wallets to mint monsters, use trainer effects, and perform other actions requiring a signature.
 
 ## State Machine
 
-The Tarochi `State Machine` is a set of triggers that react to on-chain events, such as a Monster mint or Gold transfer, but primarily to inputs submitted via the `Paima L2` Contract. Each keyword in the `grammar` is implemented as a `State Transition Function`.
+The Tarochi `State Machine` is a set of triggers that react to on-chain events, such as a Monster mint or Gold transfer, but primarily to inputs submitted via the `Statestream L2` Contract. Each keyword in the `grammar` is implemented as a `State Transition Function`.
 
 For example:
 *   `useItem = @c|item|argument?`: This STF first checks if the user has the item and is in a valid state to use it (e.g., not in battle). If all rules pass, it deducts the item and applies its effects.
 *   `fastTravel = @f|x|y`: This STF checks if the user can fast travel, verifies the target coordinates, moves the player to the new map, and updates any zone-specific effects.
 
 ## Grammar
-> Important: This is Paima Engine V1 Grammar, so it's slightly different from the new Paima Engine V2 Grammar, but it represents the same concepts.
+> Important: This is Statestream V1 Grammar, so it's slightly different from the new Statestream V2 Grammar, but it represents the same concepts.
 ```ts
 join                    = @j|referrer?
 setReferrer             = @k|referrer
@@ -168,4 +168,4 @@ For the development of Tarochi, the following processes need to be run:
 *   Cardano Parallel Chain
 *   Game and Token Smart Contracts
 *   Database (Postgres)
-*   Batcher (to allow users to submit transactions to the Paima-L2 contract without paying for gas or having a wallet)
+*   Batcher (to allow users to submit transactions to the Statestream L2 contract without paying for gas or having a wallet)

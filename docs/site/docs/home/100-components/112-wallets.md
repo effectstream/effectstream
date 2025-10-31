@@ -5,7 +5,7 @@
 
 In any decentralized application, the user's wallet is their identity, their key, and their signature. It's the fundamental tool that allows them to interact with the blockchain and prove ownership of their assets and actions.
 
-A major challenge in building multi-chain dApps is that every blockchain ecosystem has its own wallet standards and connection methods. Paima Engine solves this problem by providing a single, unified interface that handles the complexity for you.
+A major challenge in building multi-chain dApps is that every blockchain ecosystem has its own wallet standards and connection methods. Statestream solves this problem by providing a single, unified interface that handles the complexity for you.
 
 ## The `@paima/wallet` Package
 
@@ -13,7 +13,7 @@ The `@paima/wallet` package is the core frontend library for managing user ident
 
 ## AddressType
 
-This table is a Paima Engine numeric representation of wallet address type. Normally addresses will be used with it's corresponding address type, so the correct cryptographic signer/verifiers can be selected.
+This table is a Statestream numeric representation of wallet address type. Normally addresses will be used with it's corresponding address type, so the correct cryptographic signer/verifiers can be selected.
 
 | Address Type | Number |
 | ------------ | ------ |
@@ -66,7 +66,7 @@ The `WalletMode` enum allows you to support a broad range of ecosystems, enablin
 
 ## PaimaEngineConfig
 
-The `PaimaEngineConfig` is used to configure the Paima Engine.
+The `PaimaEngineConfig` is used to configure the Statestream.
 
 Settings:
 * **App Name**: The name of the app, used to internally sign messages.
@@ -109,7 +109,7 @@ See the `sendTransaction` function in the `@paima/wallets` package for more deta
 
 ### 2. Manually Signing Messages for the Batcher
 
-To provide a gasless, cross-chain experience, the user's wallet is used to **sign a message** containing their game input. This signed message is then sent to the [Batcher](./108-batcher.md), which handles the on-chain submission. This is the core mechanism that allows a Cardano user to play a game on an EVM chain without needing an EVM wallet or gas.
+To provide a gasless, cross-chain experience, the user's wallet is used to **sign a message** containing their game input. This signed message is then sent to the [Batcher](./108-batcher/1200-overview.md), which handles the on-chain submission. This is the core mechanism that allows a Cardano user to play a game on an EVM chain without needing an EVM wallet or gas.
 
 ```ts
 const conciseInput = ["my-action", "0x3", "0x4"]; // Your grammar-formatted input
@@ -130,7 +130,7 @@ const result = await sendSelfSequencedTransaction(walletClient, conciseInput, pa
 
 ### 4. User Identification
 
-The user's `walletAddress` is their primary identifier within the Paima Engine. When your State Machine receives an input, it knows which user performed the action based on the `signerAddress`. This address is used to query the database for the user's state, inventory, and other relevant information.
+The user's `walletAddress` is their primary identifier within the Statestream. When your State Machine receives an input, it knows which user performed the action based on the `signerAddress`. This address is used to query the database for the user's state, inventory, and other relevant information.
 
 ### 4. Signing Messages
 

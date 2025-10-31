@@ -1,13 +1,13 @@
 # Architecture
 
-> This section is intended for developers who require advanced knowledge about the engine or plan to contribute to `Paima Engine`
+> This section is intended for developers who require advanced knowledge about the engine or plan to contribute to `Statestream`
 
-Paima is distributed for `deno` through `NPM` and `JSR` packages
+Statestream is distributed for `deno` through `NPM` and `JSR` packages
 
 ## NPM Packages:
 
 *  @paimaexample/evm-contracts  
-    Paima EVM default contracts (Forge/Hardhat/Ignition) and published artifacts/ABIs.
+    Statestream EVM default contracts (Forge/Hardhat/Ignition) and published artifacts/ABIs.
     
 *  @paimaexample/npm-avail-light-client  
     A wrapper for the Avail Light Client CLI.
@@ -26,7 +26,7 @@ Paima is distributed for `deno` through `NPM` and `JSR` packages
 
 ## JSR Packages:
 *  @paimaexample/batcher  
-    HTTP service to collect and submit user inputs, replacing the need for manually sending input to the blockchain Paima-L2 contract.
+    HTTP service to collect and submit user inputs, replacing the need for manually sending input to the blockchain Statestream L2 contract.
 
 *  @paimaexample/chain-types  
     Common chain types and hashing helpers shared across modules.

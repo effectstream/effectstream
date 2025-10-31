@@ -2,7 +2,7 @@
 
 Developing a multi-chain dApp is complex. It often requires running multiple local blockchains, indexers, deploying contracts, and managing various services simultaneously. Doing this manually is tedious, error-prone, and slows down development.
 
-The **Process Orchestrator** is a powerful tool built into Paima Engine that solves this problem. It automates the setup of your entire local development environment. When you run `deno task dev` in the `/templates/evm-midnight/` example, the orchestrator reads a configuration file (`start.ts`) and launches all the necessary processes—from blockchains and databases to the batcher and frontend server—in the correct order.
+The **Process Orchestrator** is a powerful tool built into Statestream that solves this problem. It automates the setup of your entire local development environment. When you run `deno task dev` in the `/templates/evm-midnight/` example, the orchestrator reads a configuration file (`start.ts`) and launches all the necessary processes—from blockchains and databases to the batcher and frontend server—in the correct order.
 
 Its main goal is to create a complete, "mini-production" environment on your machine, so you can focus on building your dApp, not on managing infrastructure.
 
@@ -33,7 +33,7 @@ const config = Value.Parse(OrchestratorConfig, {
     // Starts a local OpenTelemetry collector to aggregate logs.
     [ComponentNames.COLLECTOR]: true,
 
-    // Starts the Paima Batcher service.
+    // Starts the Batcher service.
     [ComponentNames.PAIMA_BATCHER]: true,
   },
   // ...

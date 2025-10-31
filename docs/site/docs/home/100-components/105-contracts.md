@@ -1,18 +1,18 @@
 # Contracts
 
-Paima Engine is designed to be chain-agnostic and contract-agnostic. It can work with virtually any smart contract deployed on its supported chains by monitoring the **events** they emit or the **public state** they expose.
+Statestream is designed to be chain-agnostic and contract-agnostic. It can work with virtually any smart contract deployed on its supported chains by monitoring the **events** they emit or the **public state** they expose.
 
 The engine's Sync Service listens for these on-chain occurrences and transforms them into inputs for your [State Machine](./102-state-machine.md).
 
 ## Working with Your Own Smart Contracts
 
-You can write and deploy custom contracts to handle specific on-chain logic, such as minting NFTs, transferring tokens, or managing registries. Paima Engine will then observe these contracts as a data source.
+You can write and deploy custom contracts to handle specific on-chain logic, such as minting NFTs, transferring tokens, or managing registries. Statestream will then observe these contracts as a data source.
 
 ### EVM Contracts (Solidity)
 
-You can deploy any standard EVM smart contract. The key is that your contract must emit events for any state change you want Paima to react to.
+You can deploy any standard EVM smart contract. The key is that your contract must emit events for any state change you want Statestream to react to.
 
-For example, here is a simple ERC20 token contract. Paima doesn't interact with the `mint` function directly; instead, it listens for the `Transfer` event that the standard `_mint` function emits.
+For example, here is a simple ERC20 token contract. Statestream doesn't interact with the `mint` function directly; instead, it listens for the `Transfer` event that the standard `_mint` function emits.
 
 ```solidity
 // File: /contracts/evm/src/Erc20Dev.sol
@@ -28,7 +28,7 @@ contract Erc20Dev is ERC20 {
 
     function mint(address _to, uint256 _amount) external {
         // This internal function emits the standard `Transfer` event.
-        // Paima Engine will listen for this event.
+        // Statestream will listen for this event.
         _mint(_to, _amount);
     }
 }
@@ -36,7 +36,7 @@ contract Erc20Dev is ERC20 {
 
 ### ZK Contracts (Midnight)
 
-Paima can also monitor Zero-Knowledge contracts. On Midnight, instead of events, contracts expose a public **`ledger` state**. Paima primitives are configured to watch for changes to this public state.
+Paima can also monitor Zero-Knowledge contracts. On Midnight, instead of events, contracts expose a public **`ledger` state**. Statestream primitives are configured to watch for changes to this public state.
 
 This example shows a simple counter contract. The `increment` circuit is a private state transition, but its effect is made visible by updating the public `round` ledger.
 
@@ -46,7 +46,7 @@ pragma language_version 0.16;
 
 import CompactStandardLibrary;
 
-// This is the public state that Paima Engine will monitor.
+// This is the public state that Statestream will monitor.
 export ledger round: Counter;
 
 // This is a state transition function (a "circuit").
@@ -58,7 +58,7 @@ export circuit increment(): [] {
 
 ## Compiling and Deploying Contracts
 
-The Paima Engine templates come with pre-configured scripts to compile your smart contracts and generate the necessary artifacts (like ABIs).
+The Statestream templates come with pre-configured scripts to compile your smart contracts and generate the necessary artifacts (like ABIs).
 
 You can compile all contracts in your project with the following commands:
 ```sh
@@ -125,7 +125,7 @@ Once your contract is compiled and deployed, the final step is to tell the **Syn
 The `@paima/evm-contracts` package ships with a suite of pre-built, audited smart contracts and libraries to accelerate your development. These can be used directly in your project.
 
 #### Core Paima Contracts
-This is the most important contract for interacting with the Paima Engine's state machine.
+This is the most important contract for interacting with the Statestream's state machine.
 
 | Contract | Description |
 | :--- | :--- |

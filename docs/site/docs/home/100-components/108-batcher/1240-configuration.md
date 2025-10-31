@@ -2,7 +2,7 @@
 
 ## Overview
 
-Configuring the Paima Batcher involves creating a unified configuration object that defines global settings, blockchain adapters, and batching behavior. This guide walks through the complete configuration process—from instantiating adapters to launching the batcher service.
+Configuring the Batcher involves creating a unified configuration object that defines global settings, blockchain adapters, and batching behavior. This guide walks through the complete configuration process—from instantiating adapters to launching the batcher service.
 
 Understanding the configuration system helps you:
 - Wire multiple blockchain adapters to a single batcher
@@ -12,7 +12,7 @@ Understanding the configuration system helps you:
 
 ## Target Audience
 
-Developers setting up the Paima Batcher who need to:
+Developers setting up the Batcher who need to:
 - Connect to one or more blockchain networks
 - Configure batching behavior for different chains
 - Set up the HTTP server for receiving inputs
