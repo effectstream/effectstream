@@ -1,7 +1,7 @@
-import { OrchestratorConfig, start } from "@effectstream/orchestrator";
-import { ComponentNames } from "@effectstream/log";
+import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
+import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
-import { launchEvm } from "@effectstream/orchestrator/start-evm";
+import { launchEvm } from "@paimaexample/orchestrator/start-evm";
 
 const evmProcessesExtended = launchEvm("@chess/evm-contracts");
 evmProcessesExtended.stopProcessAtPort.push(3334);
@@ -16,7 +16,7 @@ evmProcessesExtended.processes.push({
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
   // logs: "stdout",
-  packageName: "jsr:@effectstream",
+  packageName: "jsr:@paimaexample",
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,
@@ -52,7 +52,7 @@ const config = Value.Parse(OrchestratorConfig, {
             "run",
             "-A",
             "--unstable-detect-cjs",
-            "@effectstream/explorer",
+            "@paimaexample/explorer",
           ],
           waitToExit: false,
           type: "system-dependency",

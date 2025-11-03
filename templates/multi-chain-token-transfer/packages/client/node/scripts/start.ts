@@ -1,8 +1,8 @@
-import { OrchestratorConfig, start } from "@effectstream/orchestrator";
-import { ComponentNames } from "@effectstream/log";
+import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
+import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
-import { launchEvm } from "@effectstream/orchestrator/start-evm";
-import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
+import { launchEvm } from "@paimaexample/orchestrator/start-evm";
+import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 
 const customProcesses = [
   {
@@ -23,7 +23,7 @@ const customProcesses = [
   },
   {
     name: "explorer",
-    args: ["run", "-A", "--unstable-detect-cjs", "@effectstream/explorer"],
+    args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10590",
@@ -42,7 +42,7 @@ const customProcesses = [
 
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
-  packageName: "jsr:@effectstream",
+  packageName: "jsr:@paimaexample",
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,

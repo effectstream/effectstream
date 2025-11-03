@@ -1,12 +1,12 @@
-import { PaimaSTM } from "@effectstream/sm";
+import { PaimaSTM } from "@paimaexample/sm";
 import { grammar } from "@multi-chain-transfer/data-types/grammar";
-import type { BaseStfInput, BaseStfOutput } from "@effectstream/sm";
+import type { BaseStfInput, BaseStfOutput } from "@paimaexample/sm";
 import {
   getEvmMidnightByOwner,
   insertEvmMidnight,
 } from "@multi-chain-transfer/database";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
-import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
+import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
+import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
 import { mintInEvm, mintInMidnight } from "@multi-chain-transfer/batcher/calls";
 

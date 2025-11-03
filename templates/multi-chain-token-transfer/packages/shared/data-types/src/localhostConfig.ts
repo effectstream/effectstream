@@ -6,10 +6,10 @@ import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@effectstream/config";
+} from "@paimaexample/config";
 import { hardhat } from "viem/chains";
-import { getConnection } from "@effectstream/db";
-import { PrimitiveTypeMidnightGeneric, PrimitiveTypeEVMERC1155 } from "@effectstream/sm/builtin";
+import { getConnection } from "@paimaexample/db";
+import { PrimitiveTypeMidnightGeneric, PrimitiveTypeEVMERC1155 } from "@paimaexample/sm/builtin";
 
 /**
  * Let check if the db.

@@ -2,7 +2,7 @@ import {
   FileStorage,
   type PaimaBatcherConfig,
   PaimaL2DefaultAdapter,
-} from "@effectstream/batcher";
+} from "@paimaexample/batcher";
 import { contractAddressesEvmMain } from "@chess/evm-contracts";
 
 const batchIntervalMs = 1000;

@@ -1,6 +1,6 @@
-// import type { RoundExecutor } from '@effectstream/sdk/executors';
-// import { roundExecutor } from '@effectstream/sdk/executors';
-import { Prando } from "@effectstream/crypto";
+// import type { RoundExecutor } from '@paimaexample/sdk/executors';
+// import { roundExecutor } from '@paimaexample/sdk/executors';
+import { Prando } from "@paimaexample/crypto";
 import type { MatchEnvironment, MatchState, TickEvent } from "./types.ts";
 import { processTick } from "./tick.ts";
 import type { IGetLobbyByIdResult, IGetRoundMovesResult } from "@chess/db";

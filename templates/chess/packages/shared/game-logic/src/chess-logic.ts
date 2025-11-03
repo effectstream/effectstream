@@ -1,4 +1,4 @@
-import type { Prando } from "@effectstream/crypto";
+import type { Prando } from "@paimaexample/crypto";
 import type { MatchEnvironment, MatchMove, MatchState } from "./types.ts";
 import type {
   ConciseResult,
@@ -8,7 +8,7 @@ import type {
 } from "@chess/utils";
 import type { Color } from "chess.js";
 import { Chess } from "chess.js";
-import type { WalletAddress } from "@effectstream/utils";
+import type { WalletAddress } from "@paimaexample/utils";
 
 export function gameOverFromChess(chess: Chess): boolean {
   return chess.isGameOver();

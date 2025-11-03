@@ -14,7 +14,7 @@ import {
   FileStorage,
   PaimaBatcher,
   type PaimaBatcherConfig,
-} from "@effectstream/batcher";
+} from "@paimaexample/batcher";
 import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
 import * as chains from "viem/chains";
 

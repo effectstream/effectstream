@@ -1,5 +1,5 @@
 import type { Pool } from "pg";
-import type { StartConfigApiRouter } from "@effectstream/runtime";
+import type { StartConfigApiRouter } from "@paimaexample/runtime";
 import type fastify from "fastify";
 import { getLobbyStateHandler } from "./api/lobbyState.ts";
 import { getUserLobbiesBlockheightHandler } from "./api/userLobbiesBlockheight.ts";

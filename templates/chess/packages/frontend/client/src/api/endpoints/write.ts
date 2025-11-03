@@ -3,13 +3,13 @@ import {
   userJoinedLobby,
 } from "../helpers/utility-functions.ts";
 import type { MatchMove } from "@chess/game-logic";
-import type { Result } from "@effectstream/utils";
+import type { Result } from "@paimaexample/utils";
 import type { LobbyState } from "@chess/utils";
 import {
   type PaimaEngineConfig,
   sendTransaction,
   type Wallet,
-} from "@effectstream/wallets";
+} from "@paimaexample/wallets";
 import { apiGetLobbyStateWithUser, apiGetRawNewLobbies } from "./queries.ts";
 import type { NewLobby } from "@chess/utils";
 

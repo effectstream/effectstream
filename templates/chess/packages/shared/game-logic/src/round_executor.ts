@@ -1,4 +1,4 @@
-import type { Prando } from "@effectstream/crypto";
+import type { Prando } from "@paimaexample/crypto";
 import type { ProcessTickFn, RoundExecutor, RoundNumbered } from "./types.ts";
 
 // The round executor enables games to build encapsulated "mini-state machines" in their game that natively work with frontends.

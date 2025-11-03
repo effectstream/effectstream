@@ -2,7 +2,7 @@ import { getLobbyById, getRoundData } from "@chess/db";
 import type { Timer } from "@chess/utils";
 import { updateTimer } from "@chess/utils";
 import { getLobbyRounds } from "@chess/db";
-import { getLatestProcessedBlockHeight } from "@effectstream/db";
+import { getLatestProcessedBlockHeight } from "@paimaexample/db";
 import type { Pool } from "pg";
 
 export const getLobbyStateHandler = async(dbConn: Pool, lobbyID: string) => {

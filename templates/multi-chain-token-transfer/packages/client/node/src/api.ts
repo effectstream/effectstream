@@ -1,11 +1,11 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { runPreparedQuery } from "@effectstream/db";
+import { runPreparedQuery } from "@paimaexample/db";
 import {
   evmMidnightTableExists,
   getEvmMidnight,
 } from "@multi-chain-transfer/database";
 import type { Pool } from "pg";
-import type { StartConfigApiRouter } from "@effectstream/runtime";
+import type { StartConfigApiRouter } from "@paimaexample/runtime";
 import type fastify from "fastify";
 
 /**

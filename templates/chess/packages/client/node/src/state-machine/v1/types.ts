@@ -1,5 +1,5 @@
 import type { ConciseResult } from "@chess/utils";
-import type { WalletAddress } from "@effectstream/utils";
+import type { WalletAddress } from "@paimaexample/utils";
 
 export type ParsedSubmittedInput =
   | CreatedLobbyInput

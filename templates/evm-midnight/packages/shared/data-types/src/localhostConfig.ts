@@ -5,10 +5,10 @@ import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@effectstream/config";
+} from "@paimaexample/config";
 import { hardhat } from "viem/chains";
-import { getConnection } from "@effectstream/db";
-import { PrimitiveTypeEVMERC721, PrimitiveTypeMidnightGeneric } from "@effectstream/sm/builtin";
+import { getConnection } from "@paimaexample/db";
+import { PrimitiveTypeEVMERC721, PrimitiveTypeMidnightGeneric } from "@paimaexample/sm/builtin";
 import * as CounterContract from "@example-evm-midnight/my-midnight-contract/contract";
 
 /**

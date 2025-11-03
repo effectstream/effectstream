@@ -1,5 +1,5 @@
 import { useWallet } from "../contexts/WalletContext.tsx";
-import { WalletMode } from "@effectstream/wallets";
+import { WalletMode } from "@paimaexample/wallets";
 import { LocalWallet } from "@thirdweb-dev/wallets";
 import { getChainByChainIdAsync } from "@thirdweb-dev/chains";
 import { paimaEngineConfig } from "../PaimaEngineConfig.ts";

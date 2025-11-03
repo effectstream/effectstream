@@ -10,25 +10,25 @@
     "check": "deno check --unstable-raw-imports src/main.ts",
     // Open chrome://inspect to see the inspector
     "node:start": "deno run -A --inspect --unstable-raw-imports src/main.ts",
-    "dev": "deno task -f @effectstream/tui clean && NODE_ENV=development deno run -A --check --unstable-raw-imports scripts/start.ts",
+    "dev": "deno task -f @paimaexample/tui clean && NODE_ENV=development deno run -A --check --unstable-raw-imports scripts/start.ts",
     "test": "deno run -A --unstable-raw-imports --check scripts/e2e.test.ts"
   },
   "imports": {
-    "@effectstream/concise": "jsr:@effectstream/concise@0.3.99",
-    "@effectstream/config": "jsr:@effectstream/config@0.3.99",
-    "@effectstream/log": "jsr:@effectstream/log@0.3.99",
-    "@effectstream/orchestrator": "jsr:@effectstream/orchestrator@0.3.99",
-    "@effectstream/runtime": "jsr:@effectstream/runtime@0.3.99",
-    "@effectstream/tui": "jsr:@effectstream/tui@0.3.99",
-    "@effectstream/utils": "jsr:@effectstream/utils@0.3.99",
-    "@effectstream/sm": "jsr:@effectstream/sm@0.3.99",
-    "@effectstream/coroutine": "jsr:@effectstream/coroutine@0.3.99",
-    "@effectstream/db": "jsr:@effectstream/db@0.3.99",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.99",
+    "@paimaexample/config": "jsr:@paimaexample/config@0.3.99",
+    "@paimaexample/log": "jsr:@paimaexample/log@0.3.99",
+    "@paimaexample/orchestrator": "jsr:@paimaexample/orchestrator@0.3.99",
+    "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.99",
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.99",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.99",
+    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.99",
+    "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.99",
+    "@paimaexample/db": "jsr:@paimaexample/db@0.3.99",
     "fastify": "npm:fastify@^5.4.0",
     "pg": "npm:pg@^8.14.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "effection": "npm:effection@^3.5.0",
-    "@effectstream/explorer": "npm:@effectstream/explorer@0.3.99",
+    "@paimaexample/explorer": "npm:@paimaexample/explorer@0.3.99",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.3.0"
   }
 }

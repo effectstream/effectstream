@@ -2,11 +2,11 @@ import type { LobbyState } from "@chess/utils";
 import type { Color } from "chess.js";
 import { Chess } from "chess.js";
 
-import type { Wallet } from "@effectstream/wallets";
+import type { Wallet } from "@paimaexample/wallets";
 import { apiGetLobbyState } from "../../api/endpoints/queries.ts";
 import { apiSubmitMoves } from "../../api/endpoints/write.ts";
-import type { PaimaEngineConfig } from "@effectstream/wallets";
-import type { Result } from "@effectstream/utils";
+import type { PaimaEngineConfig } from "@paimaexample/wallets";
+import type { Result } from "@paimaexample/utils";
 
 export class ChessService {
   // Get Lobby State

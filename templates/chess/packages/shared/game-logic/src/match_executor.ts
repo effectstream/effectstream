@@ -1,5 +1,5 @@
 import { roundExecutor } from "./round_executor.ts";
-import { Prando } from "@effectstream/crypto";
+import { Prando } from "@paimaexample/crypto";
 import type {
   MatchExecutor,
   ProcessTickFn,

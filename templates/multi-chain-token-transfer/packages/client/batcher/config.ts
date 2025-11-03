@@ -4,12 +4,12 @@ import {
   MidnightBatchBuilderLogic,
   type PaimaBatcherConfig,
   DefaultBatchBuilderLogic,
-} from "@effectstream/batcher";
+} from "@paimaexample/batcher";
 import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
 import { MultiChainMultiToken, witnesses } from "@multi-chain-transfer/midnight-contracts/multichain_multitoken";
 import { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import { hardhat } from "viem/chains";
-import type { EvmAddress, EvmPrivateKey } from "@effectstream/utils";
+import type { EvmAddress, EvmPrivateKey } from "@paimaexample/utils";
 import { ERC1155CustomAdapter } from "./erc1155-adapter.ts";
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
 

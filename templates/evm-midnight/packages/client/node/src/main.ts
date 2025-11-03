@@ -6,14 +6,14 @@
 import { NetworkId } from "@midnight-ntwrk/onchain-runtime";
 NetworkId.Undeployed;
 
-import { init, start } from "@effectstream/runtime";
+import { init, start } from "@paimaexample/runtime";
 import { main, suspend } from "effection";
 import { localhostConfig } from "@example-evm-midnight/data-types/localhostConfig";
 import {
   type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
-} from "@effectstream/config";
+} from "@paimaexample/config";
 import { migrationTable } from "@example-evm-midnight/database";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";

@@ -3,7 +3,7 @@ import {
   FileStorage,
   PaimaBatcherConfig,
   PaimaL2DefaultAdapter,
-} from "@effectstream/batcher";
+} from "@paimaexample/batcher";
 
 const batchIntervalMs = 1000;
 const paimaL2Address = contractAddressesEvmMain()["chain31337"][

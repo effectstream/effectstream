@@ -1,4 +1,4 @@
-import { BuiltinEvents, PaimaEventManager } from "@effectstream/event-client";
+import { BuiltinEvents, PaimaEventManager } from "@paimaexample/event-client";
 
 // Singleton class to watch for block updates.
 export class BlockWatcher {

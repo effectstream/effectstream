@@ -1,5 +1,5 @@
-// import type { SQLUpdate } from "@effectstream/node-sdk/db";
-// import { createScheduledData, deleteScheduledData } from "@effectstream/node-sdk/db";
+// import type { SQLUpdate } from "@paimaexample/node-sdk/db";
+// import { createScheduledData, deleteScheduledData } from "@paimaexample/node-sdk/db";
 import { calculateBestMove } from "./ai.ts";
 import type { IGetLobbyByIdResult } from "@chess/db";
 import type { SubmittedMovesInput } from "../v1/types.ts";
@@ -8,8 +8,8 @@ import {
   type IRemoveScheduledBlockDataParams,
   newScheduledHeightData,
   removeScheduledBlockData,
-} from "@effectstream/db";
-import { AddressType } from "@effectstream/utils";
+} from "@paimaexample/db";
+import { AddressType } from "@paimaexample/utils";
 
 type SQLUpdate = [any, any];
 

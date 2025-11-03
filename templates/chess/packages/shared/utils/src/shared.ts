@@ -1,6 +1,6 @@
 import type { IGetLobbyByIdResult, IGetRoundDataResult } from "@chess/db";
 import type { Timer } from "./types.ts";
-import type { WalletAddress } from "@effectstream/utils";
+import type { WalletAddress } from "@paimaexample/utils";
 
 export const updateTimer = (
   round: IGetRoundDataResult,

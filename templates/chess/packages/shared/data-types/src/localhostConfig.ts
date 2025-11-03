@@ -1,10 +1,10 @@
 import { contractAddressesEvmMain } from "@chess/evm-contracts";
-import { PrimitiveTypeEVMPaimaL2 } from "@effectstream/sm/builtin";
+import { PrimitiveTypeEVMPaimaL2 } from "@paimaexample/sm/builtin";
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@effectstream/config";
+} from "@paimaexample/config";
 import { hardhat } from "viem/chains";
 import { grammar } from "@chess/data-types/grammar";
 

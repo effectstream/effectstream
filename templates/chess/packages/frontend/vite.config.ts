@@ -57,17 +57,17 @@ export default defineConfig({
       // LOCAL IMPORTS
       // COMMENT TO USE THE jsr/npm @paimaexample packages
 
-      // "@effectstream/crypto": paimaCryptoPath + "src/mod.ts",
-      // "@effectstream/crypto": paimaCryptoPath + "src/mod.ts",
-      // "@effectstream/utils": paimaUtilsPath + "src/mod.ts",
-      // "@effectstream/utils": paimaUtilsPath + "src/mod.ts",
-      // "@effectstream/concise": paimaConcisePath + "src/mod.ts",
-      // "@effectstream/concise": paimaConcisePath + "src/mod.ts",
-      // "@effectstream/wallets": paimaWalletsPath + "src/mod.ts",
-      // "@effectstream/wallets": paimaWalletsPath + "src/mod.ts",
-      // "@effectstream/config": paimaConfigPath + "src/mod.ts",
-      // "@effectstream/event-client": paimaEventClientPath + "src/mod.ts",
-      // "@effectstream/precompile": paimaPrecompilePath + "src/mod.ts",
+      // "@paimaexample/crypto": paimaCryptoPath + "src/mod.ts",
+      // "@paimaexample/crypto": paimaCryptoPath + "src/mod.ts",
+      // "@paimaexample/utils": paimaUtilsPath + "src/mod.ts",
+      // "@paimaexample/utils": paimaUtilsPath + "src/mod.ts",
+      // "@paimaexample/concise": paimaConcisePath + "src/mod.ts",
+      // "@paimaexample/concise": paimaConcisePath + "src/mod.ts",
+      // "@paimaexample/wallets": paimaWalletsPath + "src/mod.ts",
+      // "@paimaexample/wallets": paimaWalletsPath + "src/mod.ts",
+      // "@paimaexample/config": paimaConfigPath + "src/mod.ts",
+      // "@paimaexample/event-client": paimaEventClientPath + "src/mod.ts",
+      // "@paimaexample/precompile": paimaPrecompilePath + "src/mod.ts",
 
       // END OF LOCAL IMPORTS
 

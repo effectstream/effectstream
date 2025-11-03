@@ -2,16 +2,16 @@ import {
   OrchestratorConfig,
   type ProcessComponent,
   start,
-} from "@effectstream/orchestrator";
-import { ComponentNames } from "@effectstream/log";
+} from "@paimaexample/orchestrator";
+import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
-// import { launchAvail } from "@effectstream/orchestrator/start-avail";
-// import { launchCardano } from "@effectstream/orchestrator/start-cardano";
-import { launchEvm } from "@effectstream/orchestrator/start-evm";
-// import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
+// import { launchAvail } from "@paimaexample/orchestrator/start-avail";
+// import { launchCardano } from "@paimaexample/orchestrator/start-cardano";
+import { launchEvm } from "@paimaexample/orchestrator/start-evm";
+// import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 
 const config = Value.Parse(OrchestratorConfig, {
-  packageName: "@effectstream",
+  packageName: "@paimaexample",
   logs: "stdout",
   processes: {
     // Launch Dev DB & Collector

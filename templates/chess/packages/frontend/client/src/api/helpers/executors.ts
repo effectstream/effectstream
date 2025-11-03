@@ -1,4 +1,4 @@
-import { Prando } from "@effectstream/crypto";
+import { Prando } from "@paimaexample/crypto";
 import type {
   MatchExecutor,
   MatchState,

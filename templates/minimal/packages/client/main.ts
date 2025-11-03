@@ -3,25 +3,25 @@ import {
   start,
   type StartConfigApiRouter,
   type StartConfigGameStateTransitions,
-} from "@effectstream/runtime";
+} from "@paimaexample/runtime";
 import { main, suspend } from "effection";
 import {
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
-} from "@effectstream/config";
+} from "@paimaexample/config";
 import { contractAddressesEvmMain } from "@minimal/evm-contracts";
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@effectstream/config";
+} from "@paimaexample/config";
 import { hardhat } from "viem/chains";
 import { Type } from "@sinclair/typebox";
-import type { GrammarDefinition } from "@effectstream/concise";
-import type { SyncStateUpdateStream } from "@effectstream/coroutine";
-import { PaimaSTM } from "@effectstream/sm";
-import type { BaseStfInput } from "@effectstream/sm";
-import { PrimitiveTypeEVMPaimaL2 } from "@effectstream/sm/builtin";
+import type { GrammarDefinition } from "@paimaexample/concise";
+import type { SyncStateUpdateStream } from "@paimaexample/coroutine";
+import { PaimaSTM } from "@paimaexample/sm";
+import type { BaseStfInput } from "@paimaexample/sm";
+import { PrimitiveTypeEVMPaimaL2 } from "@paimaexample/sm/builtin";
 
 const grammar = {
   my_action_name: [

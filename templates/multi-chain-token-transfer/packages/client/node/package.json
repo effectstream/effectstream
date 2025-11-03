@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@effectstream/explorer": "0.3.99",
+    "@paimaexample/explorer": "0.3.99",
     "http-server": "^14.1.1"
   },
   "devDependencies": {}

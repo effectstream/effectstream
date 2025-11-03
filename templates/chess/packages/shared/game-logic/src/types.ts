@@ -1,5 +1,5 @@
 import type { Color } from "chess.js";
-import type { Prando } from "@effectstream/crypto";
+import type { Prando } from "@paimaexample/crypto";
 
 export type RoundExecutor<MatchState = any, TickEvent = any> = {
   currentTick: number;

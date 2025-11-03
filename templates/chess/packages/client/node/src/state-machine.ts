@@ -1,8 +1,8 @@
-import { PaimaSTM } from "@effectstream/sm";
+import { PaimaSTM } from "@paimaexample/sm";
 import { grammar } from "@chess/data-types/grammar";
-import type { BaseStfInput } from "@effectstream/sm";
-import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
-import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
+import type { BaseStfInput } from "@paimaexample/sm";
+import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
+import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
 import {
   closedLobby,
   createdLobby,
@@ -10,7 +10,7 @@ import {
   scheduledData,
   submittedMoves,
 } from "./state-machine/v1/transition.ts";
-import { getConnection } from "@effectstream/db";
+import { getConnection } from "@paimaexample/db";
 import type {
   BotMove,
   UserStats,

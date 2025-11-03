@@ -1,5 +1,5 @@
 /*
- * This script is used to update the version of @effectstream/ packages in the templates.
+ * This script is used to update the version of @paimaexample/ packages in the templates.
  *
  *  usage:
  *  deno run -A update-packages.ts --version 1.0.0 --package <name> --dry-run
@@ -90,8 +90,8 @@ async function main(): Promise<void> {
   packageDirs.forEach((dir) => console.log(`- ${dir.split("/").pop()}`));
   console.log(`New version: ${version}`);
 
-  const denoJsonRegex = /(jsr|npm):@effectstream\/([\w-]+)@[\^~]?(\d+\.\d+\.\d+)/g;
-  const packageJsonRegex = /"@effectstream\/([\w-]+)": "[\^~]?(\d+\.\d+\.\d+)"/g;
+  const denoJsonRegex = /(jsr|npm):@paimaexample\/([\w-]+)@[\^~]?(\d+\.\d+\.\d+)/g;
+  const packageJsonRegex = /"@paimaexample\/([\w-]+)": "[\^~]?(\d+\.\d+\.\d+)"/g;
 
   for (const dir of packageDirs) {
     // 4. now for each package delete deno.lock and node_modules folder.
@@ -119,10 +119,10 @@ async function main(): Promise<void> {
     }
 
     // 5. Search in the package, recursively, for each deno.json file and find the regex:
-    //    (jsr|npm):@effectstream/([\w-]+)@[.]?(\d+\.\d+\.\d+)
+    //    (jsr|npm):@paimaexample/([\w-]+)@[.]?(\d+\.\d+\.\d+)
     // if --dry-run, print all the replacements to be made.
     // if --apply, make the replacements with the new version
-    //     $1:@effectstream/$2@x.y.z
+    //     $1:@paimaexample/$2@x.y.z
     for await (
       const entry of walk(dir, {
         includeFiles: true,
@@ -139,14 +139,14 @@ async function main(): Promise<void> {
         if (dryRun) {
           console.log(`\n[dry-run] Changes for ${filePath}:`);
           for (const match of matches) {
-            const newDep = `${match[1]}:@effectstream/${match[2]}@${version}`;
+            const newDep = `${match[1]}:@paimaexample/${match[2]}@${version}`;
             console.log(`  - ${match[0]} -> ${newDep}`);
           }
         } else {
           console.log(`\nUpdating ${filePath}...`);
           const newContent = content.replace(
             denoJsonRegex,
-            `$1:@effectstream/$2@${version}`,
+            `$1:@paimaexample/$2@${version}`,
           );
           await Deno.writeTextFile(filePath, newContent);
           console.log(`Successfully updated ${filePath}`);
@@ -170,14 +170,14 @@ async function main(): Promise<void> {
         if (dryRun) {
           console.log(`\n[dry-run] Changes for ${filePath}:`);
           for (const match of matches) {
-            const newDep = `"@effectstream/${match[1]}": "${version}"`;
+            const newDep = `"@paimaexample/${match[1]}": "${version}"`;
             console.log(`  - ${match[0]} -> ${newDep}`);
           }
         } else {
           console.log(`\nUpdating ${filePath}...`);
           const newContent = content.replace(
             packageJsonRegex,
-            `"@effectstream/$1": "${version}"`,
+            `"@paimaexample/$1": "${version}"`,
           );
           await Deno.writeTextFile(filePath, newContent);
           console.log(`Successfully updated ${filePath}`);
