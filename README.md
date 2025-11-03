@@ -1,13 +1,13 @@
-# Statestream Engine
+# Effectstream
 
 ## Quick Start
 
-Start at [Statestream Engine Template](./templates/evm-midnight/) for quickstart
+Start at [Effectstream's Template](./templates/evm-midnight/) for quickstart
 project
 
 ## Testing Development
 
-Statestream Engine development mode & tests can be run through e2e testing environment.
+Effectstream development mode & tests can be run through e2e testing environment.
 
 ```sh
 # Install dependencies
