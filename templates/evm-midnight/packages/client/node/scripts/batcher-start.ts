@@ -51,7 +51,8 @@ const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   connectors: { evm },
   defaultTarget: "evm",
-  confirmationLevel: "wait-effectstream-processed", // By Connector
+  // TODO: rename to wait-effectstream-processed
+  confirmationLevel: "wait-paima-processed", // By Connector
   batchBuilding: { maxSize: 10000 }, // By Connector
   port,
 };

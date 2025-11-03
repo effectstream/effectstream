@@ -67,7 +67,8 @@ export const config: PaimaBatcherConfig = {
     midnight: { criteriaType: "size", maxBatchSize: 1 },
     evm: { criteriaType: "size", maxBatchSize: 1 },
   },
-  confirmationLevel: "wait-effectstream-processed", // Connector expectation
+  // TODO: rename to wait-effectstream-processed
+  confirmationLevel: "wait-paima-processed", // Connector expectation
   enableHttpServer: true,
   enableEventSystem: true,
   port,

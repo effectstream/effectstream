@@ -40,7 +40,8 @@ export async function apiCreateLobby(
       wallet,
       conciseData,
       paimaEngineConfig,
-      "wait-effectstream-processed"
+      // TODO: rename to wait-effectstream-processed
+      "wait-paima-processed"
     );
     if (!response.success) throw new Error("Failed to create lobby");
     const newLobbies = await apiGetRawNewLobbies(
@@ -77,7 +78,8 @@ export async function apiJoinLobby(
       wallet,
       conciseData,
       paimaEngineConfig,
-      "wait-effectstream-processed"
+      // TODO: rename to wait-effectstream-processed
+      "wait-paima-processed"
     );
     if (!response.success) throw new Error("Failed to join lobby");
     const lobbyState = await apiGetLobbyStateWithUser(
@@ -114,7 +116,8 @@ export async function apiCloseLobby(
       wallet,
       conciseData,
       paimaEngineConfig,
-      "wait-effectstream-processed"
+      // TODO: rename to wait-effectstream-processed
+      "wait-paima-processed"
     );
     if (!response.success) throw new Error("Failed to close lobby");
     const lobbyState = await apiGetLobbyStateWithUser(
@@ -149,7 +152,8 @@ export async function apiSubmitMoves(
       wallet,
       conciseData,
       paimaEngineConfig,
-      "wait-effectstream-processed"
+      // TODO: rename to wait-effectstream-processed
+      "wait-paima-processed"
     );
     if (!response.success) throw new Error("Failed to submit moves");
 
