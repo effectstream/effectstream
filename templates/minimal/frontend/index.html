@@ -51,7 +51,7 @@
     }
 
     async function walletLogin() {
-        console.log(window.paima);
+        console.log(window.effectstream);
         const result = await effectstream.login();
         const { metadata, provider } = result;
         const { address: address1 } = provider;

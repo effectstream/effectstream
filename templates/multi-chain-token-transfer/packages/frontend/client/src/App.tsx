@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import * as paima from "./paima.ts";
+import * as effectstream from "./paima.ts";
 
 function App() {
   const [evmWallet, setEvmWallet] = useState<any>(null);

@@ -140,16 +140,16 @@ WHERE lobby_id = :lobby_id;
 
 
 /* @name internalStateA */
-SELECT * FROM effectstream.rollup_inputs;
+SELECT * FROM paima.rollup_inputs;
 
 /* @name internalStateB */
-SELECT * FROM effectstream.rollup_input_origin;
+SELECT * FROM paima.rollup_input_origin;
 
 /* @name internalStateC */
-SELECT * FROM effectstream.rollup_input_future_block;
+SELECT * FROM paima.rollup_input_future_block;
 
 /* @name internalStateD */
-SELECT * FROM effectstream.rollup_input_future_timestamp;
+SELECT * FROM paima.rollup_input_future_timestamp;
 
 /* @name internalStateE */
-SELECT * FROM effectstream.rollup_input_result;
+SELECT * FROM paima.rollup_input_result;

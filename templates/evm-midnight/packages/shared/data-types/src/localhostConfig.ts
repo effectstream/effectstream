@@ -21,8 +21,9 @@ const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
 const dbConn = getConnection();
 try {
+  // TODO Update to effectstream.sync_protocol_pagination
   const result = await dbConn.query(`
-    SELECT * FROM effectstream.sync_protocol_pagination 
+    SELECT * FROM paima.sync_protocol_pagination 
     WHERE protocol_name = '${mainSyncProtocolName}' 
     ORDER BY page_number ASC
     LIMIT 1
