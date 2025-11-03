@@ -3,15 +3,41 @@ import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
 import { launchEvm } from "@paimaexample/orchestrator/start-evm";
 
-const evmProcessesExtended = launchEvm("@chess/evm-contracts");
-evmProcessesExtended.stopProcessAtPort.push(3334);
-evmProcessesExtended.processes.push({
-  name: "batcher",
-  args: ["task", "-f", "@chess/batcher", "start"],
-  waitToExit: false,
-  type: "system-dependency",
-  logs: "none",
-});
+const customProcesses = [
+  {
+    name: "frontend-build",
+    args: ["task", "-f", "@chess/frontend", "build"],
+    waitToExit: true,
+    type: "system-dependency",
+    dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS],
+  },
+  {
+    name: "frontend-server",
+    args: ["task", "-f", "@chess/frontend", "serve"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:10599",
+    stopProcessAtPort: [10599],
+    dependsOn: ["frontend-build"],
+  },
+  {
+    name: "explorer",
+    args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:10590",
+    stopProcessAtPort: [10590],
+  },
+  {
+    name: "batcher",
+    args: ["task", "-f", "@chess/batcher", "start"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:3334",
+    stopProcessAtPort: [3334],
+    dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS],
+  },
+];
 
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
@@ -20,7 +46,6 @@ const config = Value.Parse(OrchestratorConfig, {
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,
-    [ComponentNames.DOCS]: false,
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: true,
     [ComponentNames.COLLECTOR]: true,
@@ -28,38 +53,8 @@ const config = Value.Parse(OrchestratorConfig, {
 
   // Launch my processes
   processesToLaunch: [
-    evmProcessesExtended,
-    {
-      stopProcessAtPort: [10590, 10599],
-      processes: [
-        {
-          name: "frontend-server",
-          args: ["task", "-f", "@chess/frontend", "build"],
-          waitToExit: true,
-          type: "system-dependency",
-          link: "http://localhost:10599",
-        },
-        {
-          name: "frontend-server",
-          args: ["task", "-f", "@chess/frontend", "serve"],
-          waitToExit: false,
-          type: "system-dependency",
-          link: "http://localhost:10599",
-        },
-        {
-          name: "explorer",
-          args: [
-            "run",
-            "-A",
-            "--unstable-detect-cjs",
-            "@paimaexample/explorer",
-          ],
-          waitToExit: false,
-          type: "system-dependency",
-          link: "http://localhost:10590",
-        },
-      ],
-    },
+    ...launchEvm("@chess/evm-contracts"),
+    ...customProcesses,
   ],
 });
 
