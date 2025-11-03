@@ -1,5 +1,5 @@
 {
-  "name": "@paima/db-emulator",
+  "name": "@effectstream/db-emulator",
   "version": "0.3.0",
   "license": "MIT",
   "exports": {

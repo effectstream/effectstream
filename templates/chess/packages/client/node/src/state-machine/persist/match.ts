@@ -15,7 +15,7 @@ import {
   updateLatestMatchState,
 } from "@chess/db";
 import type { MatchEnvironment, MatchState } from "@chess/game-logic";
-import type { WalletAddress } from "@paimaexample/utils";
+import type { WalletAddress } from "@effectstream/utils";
 import type {
   ConciseResult,
   ExpandedResult,
@@ -24,7 +24,7 @@ import type {
 } from "@chess/utils";
 import { deleteZombieRound, scheduleZombieRound } from "./zombie.ts";
 import type { INewFinalStateParams } from "@chess/db";
-// import type { SQLUpdate } from "@paimaexample/node-sdk/db";
+// import type { SQLUpdate } from "@effectstream/node-sdk/db";
 type SQLUpdate = [any, any];
 export const BLOCK_TIME = Number.parseInt("1"); // Block creation time in seconds. process.env.BLOCK_TIME);
 

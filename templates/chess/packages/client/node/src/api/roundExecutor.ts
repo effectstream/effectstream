@@ -1,5 +1,5 @@
 import { getLobbyById, getRoundData, getRoundMoves } from "@chess/db";
-import { getBlockHeights } from "@paimaexample/db";
+import { getBlockHeights } from "@effectstream/db";
 import type { Pool } from "pg";
 
 export const getRoundExecutorHandler = async (

@@ -11,7 +11,7 @@ table_name = :tableName!
 SELECT 
 app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height
 FROM 
-paima.paima_engine_version_history
+effectstream.effectstream_version_history
 ORDER BY block_height DESC
 LIMIT 1
 ;
@@ -20,38 +20,38 @@ LIMIT 1
 SELECT EXISTS (
     SELECT FROM information_schema.tables 
     WHERE  table_schema = 'paima'
-    AND    table_name   = 'paima_engine_version_history'
+    AND    table_name   = 'effectstream_version_history'
 );
 
 /* @name insertPaimaEngineMigration */
-INSERT INTO paima.paima_engine_migration_history 
+INSERT INTO effectstream.effectstream_migration_history 
 (name, block_height, is_system_migration) 
 VALUES 
 (:name!, :blockHeight!, :isSystemMigration!)
 ;
 
 /* @name insertPaimaEngineVersion */
-INSERT INTO paima.paima_engine_version_history 
+INSERT INTO effectstream.effectstream_version_history 
 (app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height) 
 VALUES 
 (:appVersionMajor!, :appVersionMinor!, :appVersionPatch!, :engineVersionMajor!, :engineVersionMinor!, :engineVersionPatch!, :blockHeight!)
 ;
 
 /* @name findMigrationByName */
-SELECT * FROM paima.paima_engine_migration_history
+SELECT * FROM effectstream.effectstream_migration_history
 WHERE name = :name!
 AND is_system_migration = :isSystemMigration!
 ;
 
 /* @name insertEngineExpectedVersion */
-INSERT INTO paima.paima_engine_expected_version 
+INSERT INTO effectstream.effectstream_expected_version 
 (app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height) 
 VALUES 
 (:appVersionMajor!, :appVersionMinor!, :appVersionPatch!, :engineVersionMajor!, :engineVersionMinor!, :engineVersionPatch!, :blockHeight!)
 ;
 
 /* @name getExpectedEngineVersion */
-SELECT * FROM paima.paima_engine_expected_version
+SELECT * FROM effectstream.effectstream_expected_version
 ORDER BY block_height DESC
 LIMIT 1
 ;

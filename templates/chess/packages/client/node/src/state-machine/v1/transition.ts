@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
-import type { Prando } from "@paimaexample/crypto";
-import { AddressType, type WalletAddress } from "@paimaexample/utils";
+import type { Prando } from "@effectstream/crypto";
+import { AddressType, type WalletAddress } from "@effectstream/utils";
 import type {
   IGetLobbyByIdResult,
   IGetRoundDataResult,

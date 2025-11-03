@@ -1,4 +1,4 @@
-import { ENV } from "@paima/utils/node-env";
+import { ENV } from "@effectstream/utils/node-env";
 import { assert, getPaimaEVMPublicClient, wallets } from "@e2e/engine";
 
 export async function RPCTest() {

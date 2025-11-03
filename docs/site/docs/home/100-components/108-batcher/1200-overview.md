@@ -119,7 +119,7 @@ batcher.addBlockchainAdapter("nft", nftAdapter, {
 
 ```typescript
 import { main, suspend } from "effection";
-import { PaimaBatcher, FileStorage, PaimaL2DefaultAdapter } from "@paima/batcher";
+import { PaimaBatcher, FileStorage, PaimaL2DefaultAdapter } from "@effectstream/batcher";
 
 // 1. Create adapter
 const adapter = new PaimaL2DefaultAdapter(

@@ -1,10 +1,10 @@
-import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
-import { ComponentNames } from "@paimaexample/log";
+import { OrchestratorConfig, start } from "@effectstream/orchestrator";
+import { ComponentNames } from "@effectstream/log";
 import { Value } from "@sinclair/typebox/value";
 import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
-import { launchEvm } from "@paimaexample/orchestrator/start-evm";
-// import { launchCardano } from "@paimaexample/orchestrator/start-cardano";
-import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
+import { launchEvm } from "@effectstream/orchestrator/start-evm";
+// import { launchCardano } from "@effectstream/orchestrator/start-cardano";
+import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
 
 const midnightExtended = (packageName: string) => ({
   stopProcessAtPort: [
@@ -28,7 +28,7 @@ const midnightExtended = (packageName: string) => ({
     },
     {
       name: "explorer",
-      args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
+      args: ["run", "-A", "--unstable-detect-cjs", "@effectstream/explorer"],
       waitToExit: false,
       type: "system-dependency",
       link: "http://localhost:10590",
@@ -38,7 +38,7 @@ const midnightExtended = (packageName: string) => ({
 
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
-  packageName: "jsr:@paimaexample",
+  packageName: "jsr:@effectstream",
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,
@@ -64,7 +64,7 @@ const config = Value.Parse(OrchestratorConfig, {
   ],
 });
 
-if (Deno.env.get("PAIMA_STDOUT")) {
+if (Deno.env.get("EFFECTSTREAM_STDOUT")) {
   config.logs = "stdout";
   config.processes[ComponentNames.TMUX] = false;
   config.processes[ComponentNames.TUI] = false;

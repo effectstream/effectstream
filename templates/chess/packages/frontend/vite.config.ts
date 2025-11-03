@@ -20,31 +20,31 @@ const chessGameLogicPath = join(
 );
 const paimaCryptoPath = join(
   dirname(fromFileUrl(import.meta.url)),
-  "../../../../packages/paima-sdk/crypto/",
+  "../../../../packages/effectstream-sdk/crypto/",
 );
 const paimaUtilsPath = join(
   dirname(fromFileUrl(import.meta.url)),
-  "../../../../packages/paima-sdk/utils/",
+  "../../../../packages/effectstream-sdk/utils/",
 );
 const paimaConcisePath = join(
   dirname(fromFileUrl(import.meta.url)),
-  "../../../../packages/paima-sdk/concise/",
+  "../../../../packages/effectstream-sdk/concise/",
 );
 const paimaWalletsPath = join(
   dirname(fromFileUrl(import.meta.url)),
-  "../../../../packages/paima-sdk/wallets/",
+  "../../../../packages/effectstream-sdk/wallets/",
 );
 const paimaConfigPath = join(
   dirname(fromFileUrl(import.meta.url)),
-  "../../../../packages/paima-sdk/config/",
+  "../../../../packages/effectstream-sdk/config/",
 );
 const paimaEventClientPath = join(
   dirname(fromFileUrl(import.meta.url)),
-  "../../../../packages/paima-sdk/events/",
+  "../../../../packages/effectstream-sdk/events/",
 );
 const paimaPrecompilePath = join(
   dirname(fromFileUrl(import.meta.url)),
-  "../../../../packages/paima-sdk/precompile/",
+  "../../../../packages/effectstream-sdk/precompile/",
 );
 const chessApiContractPath = join(
   dirname(fromFileUrl(import.meta.url)),
@@ -57,17 +57,17 @@ export default defineConfig({
       // LOCAL IMPORTS
       // COMMENT TO USE THE jsr/npm @paimaexample packages
 
-      // "@paimaexample/crypto": paimaCryptoPath + "src/mod.ts",
-      // "@paima/crypto": paimaCryptoPath + "src/mod.ts",
-      // "@paimaexample/utils": paimaUtilsPath + "src/mod.ts",
-      // "@paima/utils": paimaUtilsPath + "src/mod.ts",
-      // "@paimaexample/concise": paimaConcisePath + "src/mod.ts",
-      // "@paima/concise": paimaConcisePath + "src/mod.ts",
-      // "@paimaexample/wallets": paimaWalletsPath + "src/mod.ts",
-      // "@paima/wallets": paimaWalletsPath + "src/mod.ts",
-      // "@paima/config": paimaConfigPath + "src/mod.ts",
-      // "@paima/event-client": paimaEventClientPath + "src/mod.ts",
-      // "@paima/precompile": paimaPrecompilePath + "src/mod.ts",
+      // "@effectstream/crypto": paimaCryptoPath + "src/mod.ts",
+      // "@effectstream/crypto": paimaCryptoPath + "src/mod.ts",
+      // "@effectstream/utils": paimaUtilsPath + "src/mod.ts",
+      // "@effectstream/utils": paimaUtilsPath + "src/mod.ts",
+      // "@effectstream/concise": paimaConcisePath + "src/mod.ts",
+      // "@effectstream/concise": paimaConcisePath + "src/mod.ts",
+      // "@effectstream/wallets": paimaWalletsPath + "src/mod.ts",
+      // "@effectstream/wallets": paimaWalletsPath + "src/mod.ts",
+      // "@effectstream/config": paimaConfigPath + "src/mod.ts",
+      // "@effectstream/event-client": paimaEventClientPath + "src/mod.ts",
+      // "@effectstream/precompile": paimaPrecompilePath + "src/mod.ts",
 
       // END OF LOCAL IMPORTS
 

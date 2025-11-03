@@ -57,7 +57,7 @@ export interface IGetLatestVersionQuery {
   result: IGetLatestVersionResult;
 }
 
-const getLatestVersionIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT \napp_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height\nFROM \npaima.paima_engine_version_history\nORDER BY block_height DESC\nLIMIT 1"};
+const getLatestVersionIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT \napp_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height\nFROM \neffectstream.effectstream_version_history\nORDER BY block_height DESC\nLIMIT 1"};
 
 /**
  * Query generated from SQL:
@@ -65,7 +65,7 @@ const getLatestVersionIR: any = {"usedParamSet":{},"params":[],"statement":"SELE
  * SELECT 
  * app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height
  * FROM 
- * paima.paima_engine_version_history
+ * effectstream.effectstream_version_history
  * ORDER BY block_height DESC
  * LIMIT 1
  * ```
@@ -87,7 +87,7 @@ export interface ITableExistsQuery {
   result: ITableExistsResult;
 }
 
-const tableExistsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT EXISTS (\n    SELECT FROM information_schema.tables \n    WHERE  table_schema = 'paima'\n    AND    table_name   = 'paima_engine_version_history'\n)"};
+const tableExistsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT EXISTS (\n    SELECT FROM information_schema.tables \n    WHERE  table_schema = 'paima'\n    AND    table_name   = 'effectstream_version_history'\n)"};
 
 /**
  * Query generated from SQL:
@@ -95,7 +95,7 @@ const tableExistsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT EX
  * SELECT EXISTS (
  *     SELECT FROM information_schema.tables 
  *     WHERE  table_schema = 'paima'
- *     AND    table_name   = 'paima_engine_version_history'
+ *     AND    table_name   = 'effectstream_version_history'
  * )
  * ```
  */
@@ -118,12 +118,12 @@ export interface IInsertPaimaEngineMigrationQuery {
   result: IInsertPaimaEngineMigrationResult;
 }
 
-const insertPaimaEngineMigrationIR: any = {"usedParamSet":{"name":true,"blockHeight":true,"isSystemMigration":true},"params":[{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":102,"b":107}]},{"name":"blockHeight","required":true,"transform":{"type":"scalar"},"locs":[{"a":110,"b":122}]},{"name":"isSystemMigration","required":true,"transform":{"type":"scalar"},"locs":[{"a":125,"b":143}]}],"statement":"INSERT INTO paima.paima_engine_migration_history \n(name, block_height, is_system_migration) \nVALUES \n(:name!, :blockHeight!, :isSystemMigration!)"};
+const insertPaimaEngineMigrationIR: any = {"usedParamSet":{"name":true,"blockHeight":true,"isSystemMigration":true},"params":[{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":109,"b":114}]},{"name":"blockHeight","required":true,"transform":{"type":"scalar"},"locs":[{"a":117,"b":129}]},{"name":"isSystemMigration","required":true,"transform":{"type":"scalar"},"locs":[{"a":132,"b":150}]}],"statement":"INSERT INTO effectstream.effectstream_migration_history \n(name, block_height, is_system_migration) \nVALUES \n(:name!, :blockHeight!, :isSystemMigration!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima.paima_engine_migration_history 
+ * INSERT INTO effectstream.effectstream_migration_history 
  * (name, block_height, is_system_migration) 
  * VALUES 
  * (:name!, :blockHeight!, :isSystemMigration!)
@@ -152,12 +152,12 @@ export interface IInsertPaimaEngineVersionQuery {
   result: IInsertPaimaEngineVersionResult;
 }
 
-const insertPaimaEngineVersionIR: any = {"usedParamSet":{"appVersionMajor":true,"appVersionMinor":true,"appVersionPatch":true,"engineVersionMajor":true,"engineVersionMinor":true,"engineVersionPatch":true,"blockHeight":true},"params":[{"name":"appVersionMajor","required":true,"transform":{"type":"scalar"},"locs":[{"a":196,"b":212}]},{"name":"appVersionMinor","required":true,"transform":{"type":"scalar"},"locs":[{"a":215,"b":231}]},{"name":"appVersionPatch","required":true,"transform":{"type":"scalar"},"locs":[{"a":234,"b":250}]},{"name":"engineVersionMajor","required":true,"transform":{"type":"scalar"},"locs":[{"a":253,"b":272}]},{"name":"engineVersionMinor","required":true,"transform":{"type":"scalar"},"locs":[{"a":275,"b":294}]},{"name":"engineVersionPatch","required":true,"transform":{"type":"scalar"},"locs":[{"a":297,"b":316}]},{"name":"blockHeight","required":true,"transform":{"type":"scalar"},"locs":[{"a":319,"b":331}]}],"statement":"INSERT INTO paima.paima_engine_version_history \n(app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height) \nVALUES \n(:appVersionMajor!, :appVersionMinor!, :appVersionPatch!, :engineVersionMajor!, :engineVersionMinor!, :engineVersionPatch!, :blockHeight!)"};
+const insertPaimaEngineVersionIR: any = {"usedParamSet":{"appVersionMajor":true,"appVersionMinor":true,"appVersionPatch":true,"engineVersionMajor":true,"engineVersionMinor":true,"engineVersionPatch":true,"blockHeight":true},"params":[{"name":"appVersionMajor","required":true,"transform":{"type":"scalar"},"locs":[{"a":203,"b":219}]},{"name":"appVersionMinor","required":true,"transform":{"type":"scalar"},"locs":[{"a":222,"b":238}]},{"name":"appVersionPatch","required":true,"transform":{"type":"scalar"},"locs":[{"a":241,"b":257}]},{"name":"engineVersionMajor","required":true,"transform":{"type":"scalar"},"locs":[{"a":260,"b":279}]},{"name":"engineVersionMinor","required":true,"transform":{"type":"scalar"},"locs":[{"a":282,"b":301}]},{"name":"engineVersionPatch","required":true,"transform":{"type":"scalar"},"locs":[{"a":304,"b":323}]},{"name":"blockHeight","required":true,"transform":{"type":"scalar"},"locs":[{"a":326,"b":338}]}],"statement":"INSERT INTO effectstream.effectstream_version_history \n(app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height) \nVALUES \n(:appVersionMajor!, :appVersionMinor!, :appVersionPatch!, :engineVersionMajor!, :engineVersionMinor!, :engineVersionPatch!, :blockHeight!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima.paima_engine_version_history 
+ * INSERT INTO effectstream.effectstream_version_history 
  * (app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height) 
  * VALUES 
  * (:appVersionMajor!, :appVersionMinor!, :appVersionPatch!, :engineVersionMajor!, :engineVersionMinor!, :engineVersionPatch!, :blockHeight!)
@@ -185,12 +185,12 @@ export interface IFindMigrationByNameQuery {
   result: IFindMigrationByNameResult;
 }
 
-const findMigrationByNameIR: any = {"usedParamSet":{"name":true,"isSystemMigration":true},"params":[{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":64,"b":69}]},{"name":"isSystemMigration","required":true,"transform":{"type":"scalar"},"locs":[{"a":97,"b":115}]}],"statement":"SELECT * FROM paima.paima_engine_migration_history\nWHERE name = :name!\nAND is_system_migration = :isSystemMigration!"};
+const findMigrationByNameIR: any = {"usedParamSet":{"name":true,"isSystemMigration":true},"params":[{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":71,"b":76}]},{"name":"isSystemMigration","required":true,"transform":{"type":"scalar"},"locs":[{"a":104,"b":122}]}],"statement":"SELECT * FROM effectstream.effectstream_migration_history\nWHERE name = :name!\nAND is_system_migration = :isSystemMigration!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.paima_engine_migration_history
+ * SELECT * FROM effectstream.effectstream_migration_history
  * WHERE name = :name!
  * AND is_system_migration = :isSystemMigration!
  * ```
@@ -218,12 +218,12 @@ export interface IInsertEngineExpectedVersionQuery {
   result: IInsertEngineExpectedVersionResult;
 }
 
-const insertEngineExpectedVersionIR: any = {"usedParamSet":{"appVersionMajor":true,"appVersionMinor":true,"appVersionPatch":true,"engineVersionMajor":true,"engineVersionMinor":true,"engineVersionPatch":true,"blockHeight":true},"params":[{"name":"appVersionMajor","required":true,"transform":{"type":"scalar"},"locs":[{"a":197,"b":213}]},{"name":"appVersionMinor","required":true,"transform":{"type":"scalar"},"locs":[{"a":216,"b":232}]},{"name":"appVersionPatch","required":true,"transform":{"type":"scalar"},"locs":[{"a":235,"b":251}]},{"name":"engineVersionMajor","required":true,"transform":{"type":"scalar"},"locs":[{"a":254,"b":273}]},{"name":"engineVersionMinor","required":true,"transform":{"type":"scalar"},"locs":[{"a":276,"b":295}]},{"name":"engineVersionPatch","required":true,"transform":{"type":"scalar"},"locs":[{"a":298,"b":317}]},{"name":"blockHeight","required":true,"transform":{"type":"scalar"},"locs":[{"a":320,"b":332}]}],"statement":"INSERT INTO paima.paima_engine_expected_version \n(app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height) \nVALUES \n(:appVersionMajor!, :appVersionMinor!, :appVersionPatch!, :engineVersionMajor!, :engineVersionMinor!, :engineVersionPatch!, :blockHeight!)"};
+const insertEngineExpectedVersionIR: any = {"usedParamSet":{"appVersionMajor":true,"appVersionMinor":true,"appVersionPatch":true,"engineVersionMajor":true,"engineVersionMinor":true,"engineVersionPatch":true,"blockHeight":true},"params":[{"name":"appVersionMajor","required":true,"transform":{"type":"scalar"},"locs":[{"a":204,"b":220}]},{"name":"appVersionMinor","required":true,"transform":{"type":"scalar"},"locs":[{"a":223,"b":239}]},{"name":"appVersionPatch","required":true,"transform":{"type":"scalar"},"locs":[{"a":242,"b":258}]},{"name":"engineVersionMajor","required":true,"transform":{"type":"scalar"},"locs":[{"a":261,"b":280}]},{"name":"engineVersionMinor","required":true,"transform":{"type":"scalar"},"locs":[{"a":283,"b":302}]},{"name":"engineVersionPatch","required":true,"transform":{"type":"scalar"},"locs":[{"a":305,"b":324}]},{"name":"blockHeight","required":true,"transform":{"type":"scalar"},"locs":[{"a":327,"b":339}]}],"statement":"INSERT INTO effectstream.effectstream_expected_version \n(app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height) \nVALUES \n(:appVersionMajor!, :appVersionMinor!, :appVersionPatch!, :engineVersionMajor!, :engineVersionMinor!, :engineVersionPatch!, :blockHeight!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima.paima_engine_expected_version 
+ * INSERT INTO effectstream.effectstream_expected_version 
  * (app_version_major, app_version_minor, app_version_patch, engine_version_major, engine_version_minor, engine_version_patch, block_height) 
  * VALUES 
  * (:appVersionMajor!, :appVersionMinor!, :appVersionPatch!, :engineVersionMajor!, :engineVersionMinor!, :engineVersionPatch!, :blockHeight!)
@@ -252,12 +252,12 @@ export interface IGetExpectedEngineVersionQuery {
   result: IGetExpectedEngineVersionResult;
 }
 
-const getExpectedEngineVersionIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM paima.paima_engine_expected_version\nORDER BY block_height DESC\nLIMIT 1"};
+const getExpectedEngineVersionIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM effectstream.effectstream_expected_version\nORDER BY block_height DESC\nLIMIT 1"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.paima_engine_expected_version
+ * SELECT * FROM effectstream.effectstream_expected_version
  * ORDER BY block_height DESC
  * LIMIT 1
  * ```

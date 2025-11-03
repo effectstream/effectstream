@@ -1,5 +1,5 @@
-import { getConnection } from "@paima/db";
-import { standAloneApplyMigrations } from "@paima/db-emulator";
+import { getConnection } from "@effectstream/db";
+import { standAloneApplyMigrations } from "@effectstream/db-emulator";
 import { migrationTable } from "./src/migration-order.ts";
 import { localhostConfig } from "@e2e/data-types";
 import { EvmCounterPrimitive } from "@e2e/node/custom-primitive";

@@ -37,7 +37,7 @@ export function erc1155Ivm(name: string) {
           IF NOT (NEW.payload->>'isMint')::boolean THEN
               UPDATE ${ownershipTable}
               SET amount = amount - (NEW.payload->>'amount')::bigint,
-                  last_transfer_block_height = NEW.paima_block_height,
+                  last_transfer_block_height = NEW.effectstream_block_height,
                   last_transfer_id = NEW.id
               WHERE primitive_name = NEW.primitive_name
                 AND token_id = NEW.payload->>'tokenId'
@@ -65,12 +65,12 @@ export function erc1155Ivm(name: string) {
                   NEW.payload->>'tokenId',
                   lower(NEW.payload->>'to'),
                   (NEW.payload->>'amount')::bigint,
-                  NEW.paima_block_height,
+                  NEW.effectstream_block_height,
                   NEW.id
               )
               ON CONFLICT (primitive_name, token_id, owner_address) DO UPDATE SET
                   amount = ${ownershipTable}.amount + (NEW.payload->>'amount')::bigint,
-                  last_transfer_block_height = NEW.paima_block_height,
+                  last_transfer_block_height = NEW.effectstream_block_height,
                   last_transfer_id = NEW.id;
           END IF;
       END IF;
@@ -81,7 +81,7 @@ export function erc1155Ivm(name: string) {
 
   -- Create trigger on primitive_accounting
   CREATE TRIGGER trigger_update_erc1155_ownership_${validSQLName}
-      AFTER INSERT ON paima.primitive_accounting
+      AFTER INSERT ON effectstream.primitive_accounting
       FOR EACH ROW
       EXECUTE FUNCTION update_erc1155_ownership_${validSQLName}();
 

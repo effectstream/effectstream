@@ -1,5 +1,5 @@
 import { main, suspend } from "effection";
-import { PaimaBatcher } from "@paima/batcher";
+import { PaimaBatcher } from "@effectstream/batcher";
 import { config, storage } from "./config.ts";
 
 const batcher = new PaimaBatcher(config, storage);

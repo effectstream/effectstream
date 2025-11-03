@@ -2,7 +2,7 @@
   "name": "@chess/batcher",
   "exports": "./main.ts",
   "imports": {
-    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.99",
+    "@effectstream/batcher": "jsr:@effectstream/batcher@0.3.99",
     "effection": "npm:effection@^3.5.0"
   },
   "tasks": {

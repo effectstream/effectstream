@@ -1,6 +1,6 @@
-import { PaimaSTM } from "@paima/sm";
+import { PaimaSTM } from "@effectstream/sm";
 import { grammar } from "@e2e/data-types";
-import type { BaseStfInput, BaseStfOutput } from "@paima/sm";
+import type { BaseStfInput, BaseStfOutput } from "@effectstream/sm";
 import {
   getLastSumFromExampleTable,
   insertAvailMessage,
@@ -8,11 +8,11 @@ import {
   insertStateMachineInput,
   insertSumIntoExampleTable,
 } from "@e2e/database";
-import type { StartConfigGameStateTransitions } from "@paima/runtime";
-import { newScheduledHeightData, newScheduledTimestampData } from "@paima/db";
-import { type SyncStateUpdateStream, World } from "@paima/coroutine";
-import { AddressType } from "@paima/utils";
-// import { createScheduledData } from "@paima/db";
+import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import { newScheduledHeightData, newScheduledTimestampData } from "@effectstream/db";
+import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
+import { AddressType } from "@effectstream/utils";
+// import { createScheduledData } from "@effectstream/db";
 
 type MyEvents = {}; // TODO: replace
 const stm = new PaimaSTM<typeof grammar, MyEvents>(grammar);

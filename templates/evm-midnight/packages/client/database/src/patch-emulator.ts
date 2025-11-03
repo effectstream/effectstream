@@ -1,9 +1,9 @@
 import { run } from "effection";
-import { createDynamicTables } from "@paimaexample/db";
+import { createDynamicTables } from "@effectstream/db";
 import type { Client } from "pg";
-import { applyMigrations } from "@paimaexample/db/version";
-import type { SyncProtocolWithNetwork } from "@paimaexample/config";
-import { builtInPrimitivesMap } from "@paimaexample/sm";
+import { applyMigrations } from "@effectstream/db/version";
+import type { SyncProtocolWithNetwork } from "@effectstream/config";
+import { builtInPrimitivesMap } from "@effectstream/sm";
 
 // TODO Update this to use the internal patch-emulator.ts
 

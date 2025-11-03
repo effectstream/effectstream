@@ -46,7 +46,7 @@ async function getMarkdownFiles() {
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Statestream",
+  title: "Effectstream",
   //  tagline: 'Getting started',
   url: "https://acedward.github.io",
   baseUrl: "/paima-v-next-docs/",
@@ -56,8 +56,8 @@ const config = {
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: "Statestream", // Usually your GitHub org/user name.
-  projectName: "paima-engine-docs", // Usually your repo name.
+  organizationName: "Effectstream", // Usually your GitHub org/user name.
+  projectName: "effectstream-engine-docs", // Usually your repo name.
 
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
@@ -207,8 +207,8 @@ const config = {
         id: 'v2-announcement',
         content: `
       <div class="custom-banner">
-        <p><strong>You are looking at Statestream v2 docs</strong></p>
-        <p>Statestream v2 is still under construction🚧</p>
+        <p><strong>You are looking at Effectstream v2 docs</strong></p>
+        <p>Effectstream v2 is still under construction🚧</p>
       </div>
     `,
         backgroundColor: '#fffcf9', 
@@ -238,9 +238,9 @@ const config = {
       },
       image: 'img/paima-banner.png',
       navbar: {
-        title: "Statestream",
+        title: "Effectstream",
         logo: {
-          alt: "Statestream logo",
+          alt: "Effectstream logo",
           src: "img/favicon.ico",
           href: "/",
           target: '_self',          

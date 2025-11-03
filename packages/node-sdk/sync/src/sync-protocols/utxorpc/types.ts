@@ -4,14 +4,14 @@ import type {
   CardanoBlockHash,
   CardanoBlockNumber,
   TimestampMs,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import type { PageRelation } from "../base/page.ts";
 import type { cardano } from "@utxorpc/spec";
 import type { PageSyncRange } from "../common/page-helpers.ts";
 import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
-} from "@paima/config";
+} from "@effectstream/config";
 
 /**
  * Cardano blocks don't contain an explicit timestamp

@@ -10,7 +10,7 @@ import { SelectField } from "../components/SelectField.tsx";
 import { LocalWallet } from "@thirdweb-dev/wallets";
 import { getChainByChainIdAsync } from "@thirdweb-dev/chains";
 
-import { WalletMode } from "@paimaexample/wallets";
+import { WalletMode } from "@effectstream/wallets";
 import { paimaEngineConfig } from "../PaimaEngineConfig.ts";
 
 

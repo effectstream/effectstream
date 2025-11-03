@@ -3,7 +3,7 @@ import type { EvmSyncState } from "./evm/state.ts";
 import type { SyncState } from "./base/state.ts";
 import type { UtxoRpcSyncState } from "./utxorpc/state.ts";
 import type { PaginatedFetcher } from "./base/fetcher.ts";
-import type { UnionToIntersection } from "@paima/utils";
+import type { UnionToIntersection } from "@effectstream/utils";
 import type { MidnightSyncState } from "./midnight/state.ts";
 import type { NtpSyncState } from "./ntp/state.ts";
 import type { AvailSyncState } from "./avail/state.ts";

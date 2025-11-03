@@ -1,8 +1,8 @@
 import { privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http, type Address } from "viem";
 import { hardhat } from "viem/chains";
-import { createMessageForBatcher } from "@paimaexample/concise";
-import { World } from "@paimaexample/coroutine";
+import { createMessageForBatcher } from "@effectstream/concise";
+import { World } from "@effectstream/coroutine";
 import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 
 // Batcher configuration

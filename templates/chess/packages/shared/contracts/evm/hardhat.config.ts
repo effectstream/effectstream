@@ -8,7 +8,7 @@ import { ArgumentType } from "hardhat/types/arguments";
 import {
   type JsonRpcServer,
   JsonRpcServerImplementation,
-} from "@paimaexample/evm-hardhat/json-rpc-server";
+} from "@effectstream/evm-hardhat/json-rpc-server";
 import fs from "node:fs";
 import type { NetworkConfig } from "hardhat/types/config";
 import waitOn from "wait-on";
@@ -17,7 +17,7 @@ import {
   defaultOtelSetup,
   log,
   SeverityNumber,
-} from "@paimaexample/log";
+} from "@effectstream/log";
 import { parse } from "jsonc-parser";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import HardhatIgnitionViem from "@nomicfoundation/hardhat-ignition-viem";

@@ -14,7 +14,7 @@ import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
 import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
 
-const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
+const yaci_enabled = Deno.env.get("DISABLE_YACI") === "true"
   ? false
   : true;
 

@@ -117,7 +117,7 @@ The dynamic configuration approach follows these steps:
 Create the base configuration object with global settings. **Adapters are not included here**—they'll be added dynamically in Step 3:
 
 ```typescript
-import { type PaimaBatcherConfig } from "@paima/batcher";
+import { type PaimaBatcherConfig } from "@effectstream/batcher";
 
 const baseConfig: PaimaBatcherConfig = {
   // Polling frequency (how often to check if batching criteria are met)
@@ -159,7 +159,7 @@ Set `pollingIntervalMs` to match your shortest batching time window. For example
 Instantiate each blockchain adapter you want to use:
 
 ```typescript
-import { PaimaL2DefaultAdapter } from "@paima/batcher";
+import { PaimaL2DefaultAdapter } from "@effectstream/batcher";
 
 const evmAdapter = new PaimaL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
@@ -178,7 +178,7 @@ For comprehensive information about adapters, their responsibilities, and exampl
 Now create the batcher instance and use the **builder pattern** to wire adapters:
 
 ```typescript
-import { createNewBatcher, FileStorage } from "@paima/batcher";
+import { createNewBatcher, FileStorage } from "@effectstream/batcher";
 
 // Create storage
 const storage = new FileStorage("./batcher-data");
@@ -346,7 +346,7 @@ import {
   FileStorage,
   PaimaL2DefaultAdapter,
   MidnightAdapter
-} from "@paima/batcher";
+} from "@effectstream/batcher";
 
 // 1. Instantiate adapters
 const evmAdapter = new PaimaL2DefaultAdapter(
@@ -419,7 +419,7 @@ import {
   FileStorage,
   type PaimaBatcherConfig,
   PaimaL2DefaultAdapter
-} from "@paima/batcher";
+} from "@effectstream/batcher";
 
 // Instantiate adapters first
 const evmAdapter = new PaimaL2DefaultAdapter(/* ... */);
@@ -477,7 +477,7 @@ confirmationLevel: "wait-receipt"
 // Per-adapter: different levels for different chains
 confirmationLevel: {
   evm: "no-wait",
-  midnight: "wait-paima-processed"
+  midnight: "wait-effectstream-processed"
 }
 ```
 
@@ -492,7 +492,7 @@ For detailed information about confirmation levels, their behavior in the pipeli
 Choose a storage backend for persisting pending inputs:
 
 ```typescript
-import { FileStorage } from "@paima/batcher";
+import { FileStorage } from "@effectstream/batcher";
 
 const storage = new FileStorage("./batcher-data");
 ```
@@ -513,7 +513,7 @@ The batcher supports graceful shutdown with customizable hooks that execute at s
 ### Shutdown Configuration
 
 ```typescript
-import { createNewBatcher } from "@paima/batcher";
+import { createNewBatcher } from "@effectstream/batcher";
 
 const batcher = createNewBatcher({
   pollingIntervalMs: 1000,

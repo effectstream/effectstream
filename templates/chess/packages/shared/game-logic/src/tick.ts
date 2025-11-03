@@ -1,4 +1,4 @@
-import type { Prando } from "@paimaexample/crypto";
+import type { Prando } from "@effectstream/crypto";
 import { Chess } from "chess.js";
 import { gameOverFromChess, updateBoard } from "./chess-logic.ts";
 import type { MatchEnvironment, MatchState, TickEvent } from "./types.ts";

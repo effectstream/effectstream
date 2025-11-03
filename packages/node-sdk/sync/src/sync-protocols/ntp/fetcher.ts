@@ -6,7 +6,7 @@ import {
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Operation } from "effection";
 import { all, call, until } from "effection";
-import { bound, type NtpBlockHash, type NtpPageJson } from "@paima/utils";
+import { bound, type NtpBlockHash, type NtpPageJson } from "@effectstream/utils";
 import { blockNumberRelation } from "../common/utils.ts";
 import type { Input, Output, Page, PrimitiveType } from "./types.ts";
 import {
@@ -22,8 +22,8 @@ import type {
   ConfigNetworkType,
   PrimitiveEntry,
   SyncProtocolWithNetwork,
-} from "@paima/config";
-import type { ConfigSyncProtocolType } from "@paima/config";
+} from "@effectstream/config";
+import type { ConfigSyncProtocolType } from "@effectstream/config";
 import { NtpTimeSync, type NtpTimeSyncDefaultOptions } from "ntp-time-sync";
 
 type RecursivePartial<T> = {

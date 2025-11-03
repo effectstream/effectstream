@@ -1,6 +1,6 @@
 # Sync Protocols & Chain Config
 
-The Sync Service is the core data-ingestion layer of a `Statestream` node. It acts as the engine's monitor connecting to different blockchains, checking for specific on-chain events, and feeding them in a deterministic, ordered stream to the [State Machine](./102-state-machine.md).
+The Sync Service is the core data-ingestion layer of a `Effectstream` node. It acts as the engine's monitor connecting to different blockchains, checking for specific on-chain events, and feeding them in a deterministic, ordered stream to the [State Machine](./102-state-machine.md).
 
 This entire service is configured using the `ConfigBuilder`, a powerful tool that allows you to define exactly which chains to connect to and what data to capture.
 
@@ -25,7 +25,7 @@ export const localhostConfig = new ConfigBuilder()
 
 ### Step 1: Defining Networks (`buildNetworks`)
 
-This is where you list all the blockchains your application will interact with. Each network is given a unique name for reference in later steps. Statestream supports various network types.
+This is where you list all the blockchains your application will interact with. Each network is given a unique name for reference in later steps. Effectstream supports various network types.
 
 In this example, we define an EVM network (`evmParallel_fast`), a private Midnight network, and a special `NTP` network that acts as a deterministic clock.
 
@@ -73,14 +73,14 @@ This optional but highly recommended step allows you to register the addresses o
 
 ### Step 3: Defining Sync Protocols (`buildSyncProtocols`)
 
-This is the most critical step. Here, you define *how* Statestream will fetch data from the networks you defined. There are two types of protocols: **Main** and **Parallel**.
+This is the most critical step. Here, you define *how* Effectstream will fetch data from the networks you defined. There are two types of protocols: **Main** and **Parallel**.
 
 ### Available Sync Protocols
 
-When you define a sync protocol using `.addMain()` or `.addParallel()`, you must specify its `type`. This tells the Statestream what kind of data source it's connecting to and how to interpret the data.
+When you define a sync protocol using `.addMain()` or `.addParallel()`, you must specify its `type`. This tells the Effectstream what kind of data source it's connecting to and how to interpret the data.
 
 #### The Main Protocol: A Deterministic Clock
-In Statestream, your application's "heartbeat" is driven by a single **Main** protocol. This protocol's block progression defines the official timeline for your entire state machine. All events from all other connected chains are deterministically mapped onto this timeline.
+In Effectstream, your application's "heartbeat" is driven by a single **Main** protocol. This protocol's block progression defines the official timeline for your entire state machine. All events from all other connected chains are deterministically mapped onto this timeline.
 
 For maximum consistency and to decouple your application's tick-rate from the variable block times of real-world blockchains, the main protocol is always a Network Time Protocol (NTP) clock.
 
@@ -160,7 +160,7 @@ Each primitive is linked to a **`scheduledPrefix`**. This prefix is the crucial 
 In this example, we are tracking the `Transfer` event from an ERC20 contract. We use the built-in `PrimitiveTypeEVMERC20` to automatically handle parsing and database updates for token balances.
 
 ```ts
-import { PrimitiveTypeEVMERC20 } from "@paima/sm/builtin";
+import { PrimitiveTypeEVMERC20 } from "@effectstream/sm/builtin";
 
 // ...
 

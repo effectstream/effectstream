@@ -7,7 +7,7 @@ import type {
   LobbyStatus as LobbyStatusDB,
 } from "@chess/db";
 
-import type { WalletAddress } from "@paimaexample/utils";
+import type { WalletAddress } from "@effectstream/utils";
 
 export type LobbyStatus = "active" | "closed" | "finished" | "open";
 export type MatchResult = "loss" | "tie" | "win";

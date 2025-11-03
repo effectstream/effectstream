@@ -21,12 +21,12 @@ export interface IGetPageQuery {
   result: IGetPageResult;
 }
 
-const getPageIR: any = {"usedParamSet":{"protocol_name":true},"params":[{"name":"protocol_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":67,"b":81}]}],"statement":"SELECT * FROM paima.sync_protocol_pagination\nWHERE protocol_name = :protocol_name!\nORDER BY page_number ASC\nLIMIT 1"};
+const getPageIR: any = {"usedParamSet":{"protocol_name":true},"params":[{"name":"protocol_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":74,"b":88}]}],"statement":"SELECT * FROM effectstream.sync_protocol_pagination\nWHERE protocol_name = :protocol_name!\nORDER BY page_number ASC\nLIMIT 1"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.sync_protocol_pagination
+ * SELECT * FROM effectstream.sync_protocol_pagination
  * WHERE protocol_name = :protocol_name!
  * ORDER BY page_number ASC
  * LIMIT 1
@@ -51,7 +51,7 @@ export interface IGetSyncAndLastPageQuery {
   result: IGetSyncAndLastPageResult;
 }
 
-const getSyncAndLastPageIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT\n  protocol_name,\n  MIN(page_number) AS synced_page,\n  MAX(page_number) AS fetched_page\nFROM\n  paima.sync_protocol_pagination\nGROUP BY\n  protocol_name\nORDER BY\n  protocol_name"};
+const getSyncAndLastPageIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT\n  protocol_name,\n  MIN(page_number) AS synced_page,\n  MAX(page_number) AS fetched_page\nFROM\n effectstream.sync_protocol_pagination\nGROUP BY\n  protocol_name\nORDER BY\n  protocol_name"};
 
 /**
  * Query generated from SQL:
@@ -61,7 +61,7 @@ const getSyncAndLastPageIR: any = {"usedParamSet":{},"params":[],"statement":"SE
  *   MIN(page_number) AS synced_page,
  *   MAX(page_number) AS fetched_page
  * FROM
- *   paima.sync_protocol_pagination
+ *  effectstream.sync_protocol_pagination
  * GROUP BY
  *   protocol_name
  * ORDER BY
@@ -86,12 +86,12 @@ export interface IRemovePagesQuery {
   result: IRemovePagesResult;
 }
 
-const removePagesIR: any = {"usedParamSet":{"protocol_name":true,"page_number":true},"params":[{"name":"protocol_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":65,"b":79}]},{"name":"page_number","required":true,"transform":{"type":"scalar"},"locs":[{"a":99,"b":111}]}],"statement":"DELETE FROM paima.sync_protocol_pagination\nWHERE protocol_name = :protocol_name!\nAND page_number < :page_number!"};
+const removePagesIR: any = {"usedParamSet":{"protocol_name":true,"page_number":true},"params":[{"name":"protocol_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":72,"b":86}]},{"name":"page_number","required":true,"transform":{"type":"scalar"},"locs":[{"a":106,"b":118}]}],"statement":"DELETE FROM effectstream.sync_protocol_pagination\nWHERE protocol_name = :protocol_name!\nAND page_number < :page_number!"};
 
 /**
  * Query generated from SQL:
  * ```
- * DELETE FROM paima.sync_protocol_pagination
+ * DELETE FROM effectstream.sync_protocol_pagination
  * WHERE protocol_name = :protocol_name!
  * AND page_number < :page_number!
  * ```
@@ -115,13 +115,13 @@ export interface IUpsertPageQuery {
   result: IUpsertPageResult;
 }
 
-const upsertPageIR: any = {"usedParamSet":{"protocol_name":true,"page_number":true,"page":true},"params":[{"name":"protocol_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":125,"b":139}]},{"name":"page_number","required":true,"transform":{"type":"scalar"},"locs":[{"a":146,"b":158}]},{"name":"page","required":true,"transform":{"type":"scalar"},"locs":[{"a":165,"b":170}]}],"statement":"INSERT INTO\n    paima.sync_protocol_pagination (\n        protocol_name,\n        page_number,\n        page\n    )\nVALUES (\n    :protocol_name!,\n    :page_number!,\n    :page!\n)\nON CONFLICT (protocol_name, page_number) DO UPDATE SET\n    page = EXCLUDED.page"};
+const upsertPageIR: any = {"usedParamSet":{"protocol_name":true,"page_number":true,"page":true},"params":[{"name":"protocol_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":131,"b":145}]},{"name":"page_number","required":true,"transform":{"type":"scalar"},"locs":[{"a":152,"b":164}]},{"name":"page","required":true,"transform":{"type":"scalar"},"locs":[{"a":171,"b":176}]}],"statement":"INSERT INTO\n   effectstream.sync_protocol_pagination (\n        protocol_name,\n        page_number,\n        page\n    )\nVALUES (\n    :protocol_name!,\n    :page_number!,\n    :page!\n)\nON CONFLICT (protocol_name, page_number) DO UPDATE SET\n    page = EXCLUDED.page"};
 
 /**
  * Query generated from SQL:
  * ```
  * INSERT INTO
- *     paima.sync_protocol_pagination (
+ *    effectstream.sync_protocol_pagination (
  *         protocol_name,
  *         page_number,
  *         page

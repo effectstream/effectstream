@@ -3,9 +3,9 @@ import {
   type PaimaBatcherConfig,
   PaimaL2DefaultAdapter,
   MidnightAdapter,
-  MidnightBatchDataBuilder,
-  DefaultBatchDataBuilder,
-} from "@paima/batcher";
+  // MidnightBatchDataBuilder,
+  // DefaultBatchDataBuilder,
+} from "@effectstream/batcher";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
 import { SimpleToken, witnesses } from "@e2e/midnight-contracts/eip-20";
@@ -66,7 +66,7 @@ export const config: PaimaBatcherConfig = {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
     midnight_eip20: { criteriaType: "size", maxBatchSize: 1 },
   },
-  confirmationLevel: "wait-paima-processed",
+  confirmationLevel: "wait-effectstream-processed",
   enableEventSystem: true, // Important for adding state transitions to console logs
   port,
 };

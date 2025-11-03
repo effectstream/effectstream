@@ -10,8 +10,8 @@ import {
   type ICreateLobbyParams,
   startMatch,
 } from "@chess/db";
-import type { Prando } from "@paimaexample/crypto";
-import type { WalletAddress } from "@paimaexample/utils";
+import type { Prando } from "@effectstream/crypto";
+import type { WalletAddress } from "@effectstream/utils";
 import type { Timer } from "@chess/utils";
 import { Chess } from "chess.js";
 import { blankStats } from "./stats.ts";

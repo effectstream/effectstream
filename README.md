@@ -16,7 +16,7 @@ deno install --allow-scripts && ./patch.sh
 # Build All Contracts
 deno task -r contract:compile
 
-# If running on linux set env DISABLE_LINUX_YACI=true
+# If running on linux set env DISABLE_YACI=true
 # Run Example Deployment Mode
 deno task -f @e2e/node dev
 ```

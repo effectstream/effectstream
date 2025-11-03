@@ -14,7 +14,7 @@ import {
   FileStorage,
   PaimaBatcher,
   type PaimaBatcherConfig,
-} from "@paimaexample/batcher";
+} from "@effectstream/batcher";
 import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
 import * as chains from "viem/chains";
 
@@ -51,7 +51,7 @@ const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   connectors: { evm },
   defaultTarget: "evm",
-  confirmationLevel: "wait-paima-processed", // By Connector
+  confirmationLevel: "wait-effectstream-processed", // By Connector
   batchBuilding: { maxSize: 10000 }, // By Connector
   port,
 };

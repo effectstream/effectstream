@@ -1,12 +1,12 @@
 /* @name getEvents */
-SELECT * FROM paima.event WHERE
+SELECT * FROM effectstream.event WHERE
   COALESCE(block_height >= :from, 1=1) AND
   COALESCE(block_height <= :to, 1=1) AND
   COALESCE(address = :address, 1=1) AND
   topic = :topic!;
 
 /* @name insertEvent */
-INSERT INTO paima.event (
+INSERT INTO effectstream.event (
   topic,
   address,
   data,
@@ -23,7 +23,7 @@ INSERT INTO paima.event (
 );
 
 /* @name registerEventType */
-INSERT INTO paima.registered_event (
+INSERT INTO effectstream.registered_event (
   name,
   topic
 ) VALUES (
@@ -32,10 +32,10 @@ INSERT INTO paima.registered_event (
 );
 
 /* @name getTopicsForEvent */
-SELECT topic FROM paima.registered_event WHERE name = :name!;
+SELECT topic FROM effectstream.registered_event WHERE name = :name!;
 
 /* @name getTopics */
-SELECT name, topic FROM paima.registered_event;
+SELECT name, topic FROM effectstream.registered_event;
 
 /* @name getEventByTopic */
-SELECT name FROM paima.registered_event WHERE topic = :topic!;
+SELECT name FROM effectstream.registered_event WHERE topic = :topic!;

@@ -13,12 +13,12 @@ import {
   erc1155Builder,
 } from "@e2e/engine";
 import type { Client } from "pg";
-import { AddressType } from "@paima/utils";
+import { AddressType } from "@effectstream/utils";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
-import { ENV } from "@paima/utils/node-env";
-import { createMessageForBatcher } from "@paima/concise";
+import { ENV } from "@effectstream/utils/node-env";
+import { createMessageForBatcher } from "@effectstream/concise";
 
 // Start Test
 export async function generalTest(db: Client, sharedState: SharedState) {
@@ -59,9 +59,9 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     "Check ERC20 sync-process",
     db,
     `SELECT
-      primitive_name, id, paima_block_height, payload_type, payload
+      primitive_name, id, effectstream_block_height, payload_type, payload
       FROM
-      paima.primitive_accounting;`,
+     effectstream.primitive_accounting;`,
     (res) => true,
     (res) => {
       return res.rows.filter((r) => r.primitive_name === "Aribitrum_Token")
@@ -76,9 +76,9 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     "Check PaimaL2 sync-process 0x1",
     db,
     `SELECT
-      primitive_name, id, paima_block_height, payload_type, payload
+      primitive_name, id, effectstream_block_height, payload_type, payload
       FROM
-      paima.primitive_accounting;`,
+     effectstream.primitive_accounting;`,
     (res) => true,
     (res) => {
       return res.rows.filter((r) => r.primitive_name === "PaimaGameInteraction")
@@ -166,7 +166,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ address: string }>(
     "Check addresses",
     db,
-    `SELECT * FROM paima.addresses;`,
+    `SELECT * FROM effectstream.addresses;`,
     (res) => true,
     (res) => {
       return res.rows[0].address === wallets[0].address.toLowerCase();
@@ -217,9 +217,9 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     "Wait for error to be processed",
     db,
     `SELECT
-      primitive_name, id, paima_block_height, payload_type, payload
+      primitive_name, id, effectstream_block_height, payload_type, payload
       FROM
-      paima.primitive_accounting;`,
+     effectstream.primitive_accounting;`,
     (res) => true,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
   );
@@ -255,7 +255,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   };
   const body = {
     data: batcherInput,
-    confirmationLevel: "wait-paima-processed",
+    confirmationLevel: "wait-effectstream-processed",
   };
   console.log(
     "Sending request body",
@@ -281,9 +281,9 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     "Check Batcher",
     db,
     `SELECT
-      primitive_name, id, paima_block_height, payload_type, payload
+      primitive_name, id, effectstream_block_height, payload_type, payload
       FROM
-      paima.primitive_accounting;`,
+     effectstream.primitive_accounting;`,
     (_) => true, // We don't need to wait as the batcher waits for the transaction to be processed by the Paima Engine.
     (res) => {
       const d = res.rows[sharedState.primitive_accounting_counter - 1];
@@ -323,9 +323,9 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     "Batcher Message with bad signature: should not be processed",
     db,
     `SELECT
-      primitive_name, id, paima_block_height, payload_type, payload
+      primitive_name, id, effectstream_block_height, payload_type, payload
       FROM
-      paima.primitive_accounting;`,
+     effectstream.primitive_accounting;`,
     (res) => res.rows.length === sharedState.primitive_accounting_counter,
     (res) => {
       const d = res.rows[sharedState.primitive_accounting_counter - 1];
@@ -339,7 +339,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assertSQL<{ nonce: string }>(
     "Check nonces",
     db,
-    `SELECT * FROM paima.nonces;`,
+    `SELECT * FROM effectstream.nonces;`,
     (res) => res.rows.length === nonce_counter,
     (res) => {
       return res.rows.length === nonce_counter;
@@ -528,9 +528,9 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     "Check PaimaL2 sync-process (ERC721)",
     db,
     `SELECT
-          primitive_name, id, paima_block_height, payload_type, payload
+          primitive_name, id, effectstream_block_height, payload_type, payload
           FROM
-          paima.primitive_accounting;`,
+         effectstream.primitive_accounting;`,
     (res) => true,
     (res) => {
       return res.rows.length === sharedState.primitive_accounting_counter;
@@ -642,9 +642,9 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     "Check PaimaL2 sync-process 0x2",
     db,
     `SELECT
-          primitive_name, id, paima_block_height, payload_type, payload
+          primitive_name, id, effectstream_block_height, payload_type, payload
           FROM
-          paima.primitive_accounting;`,
+         effectstream.primitive_accounting;`,
     (res) => true,
     (res) => {
       return res.rows.length === sharedState.primitive_accounting_counter;

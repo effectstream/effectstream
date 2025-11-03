@@ -3,7 +3,7 @@ import { parseArgs } from "@std/cli/parse-args";
 // The depth is the number of directories where the node_modules are located.
 const flags = parseArgs(Deno.args, {
   string: ['depth', "package"],
-  default: { depth: '4', package: '@paima' },
+  default: { depth: '4', package: '@effectstream' },
 });
 
 const depth = parseInt(flags.depth, 10);

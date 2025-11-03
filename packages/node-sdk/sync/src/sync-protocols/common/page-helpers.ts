@@ -1,7 +1,7 @@
 import type { Operation } from "effection";
 import type { PageRange } from "../base/page.ts";
-import { narrowResult } from "@paima/utils";
-import { ComponentNames, log, SeverityNumber } from "@paima/log";
+import { narrowResult } from "@effectstream/utils";
+import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { PaginatedSyncProtocols } from "../types.ts";
 import type { PageTypeOf } from "../base/state.ts";
 

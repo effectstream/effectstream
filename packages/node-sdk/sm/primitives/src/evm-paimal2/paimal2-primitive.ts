@@ -1,4 +1,4 @@
-import { getEvmEvent } from "@paima/config";
+import { getEvmEvent } from "@effectstream/config";
 import {
   type AddressAndType,
   AddressType,
@@ -8,43 +8,43 @@ import {
   type TxHash,
   TypeboxHelpers,
   type WalletAddress,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import { hexToString, stringToHex } from "viem";
 import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
-} from "@paima/config";
-import type { StateUpdateStream } from "@paima/coroutine";
+} from "@effectstream/config";
+import type { StateUpdateStream } from "@effectstream/coroutine";
 import {
   findNonce,
   getAddressByAddress,
   insertNonce,
   newAddress,
-} from "@paima/db";
-import { World } from "@paima/coroutine";
+} from "@effectstream/db";
+import { World } from "@effectstream/coroutine";
 import {
   createMessageForBatcher,
   extractBatches,
   extractDelegateWallet,
   type ExtractedBatchSubunit,
   type GrammarDefinition,
-} from "@paima/concise";
+} from "@effectstream/concise";
 
-import { ComponentNames, log, SeverityNumber } from "@paima/log";
+import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import {
   account_createAccount,
   account_linkAddress,
   account_unlinkAddress,
   verifySignature,
-} from "@paima/sm";
-import { BuiltinGrammarPrefix } from "@paima/concise";
+} from "@effectstream/sm";
+import { BuiltinGrammarPrefix } from "@effectstream/concise";
 
 import { paimal2 } from "./paimal2-abi.ts";
 import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
-import { type JsonObject, PaimaPrimitive } from "@paima/sm";
+import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
 import { Value } from "@sinclair/typebox/value";
-import type { CommandTuple } from "@paima/concise";
+import type { CommandTuple } from "@effectstream/concise";
 import { PrimitiveTypeEVMPaimaL2 } from "../builtin.ts";
 
 export class PaimaL2Primitive extends PaimaPrimitive<
@@ -76,7 +76,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
   }
 
   override *getPayload(
-    paima_block_height: PaimaBlockNumber,
+    effectstream_block_height: PaimaBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,
@@ -93,7 +93,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     }[];
   }> {
     const { data, isBatched } = yield* this.processPaimaL2SyncProtocolResponse(
-      paima_block_height,
+      effectstream_block_height,
       primitiveTransactionData,
     );
 
@@ -139,7 +139,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     if (nonceData) {
       log.remote(
         ComponentNames.PAIMA_SYNC,
-        ["paima-l2"],
+        ["effectstream-l2"],
         SeverityNumber.INFO,
         (log) =>
           log(
@@ -174,7 +174,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
    *       if "callSTM" is false, it means the input is valid, but the contents are invalid, and it will be stored in the accounting, but not processed in the STF.
    */
   private *executePaimaL2Input(input: {
-    paima_block_height: PaimaBlockNumber;
+    effectstream_block_height: PaimaBlockNumber;
     nonce: string | undefined;
     ownChain: {
       blockNumber: BlockNumber;
@@ -190,7 +190,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
   }> {
     const isNonceValid = yield* this.checkNonce(
       input.nonce,
-      input.paima_block_height,
+      input.effectstream_block_height,
     );
     if (!isNonceValid) {
       return {
@@ -205,7 +205,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     } catch (e) {
       log.remote(
         ComponentNames.PAIMA_SYNC,
-        ["paima-l2"],
+        ["effectstream-l2"],
         SeverityNumber.ERROR,
         (log) =>
           log(
@@ -278,11 +278,11 @@ export class PaimaL2Primitive extends PaimaPrimitive<
         if (!status) {
           log.remote(
             ComponentNames.PAIMA_SYNC,
-            ["paima-l2"],
+            ["effectstream-l2"],
             SeverityNumber.ERROR,
             (log) =>
               log(
-                `[paima-sm] Error on Delegate Wallet input STF call. Skipping: ` +
+                `[effectstream-sm] Error on Delegate Wallet input STF call. Skipping: ` +
                   delegateWalletInputData,
               ),
           );
@@ -314,7 +314,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     console.log(
       "Creating scheduled data for Paima L2 input",
       inputData,
-      input.paima_block_height,
+      input.effectstream_block_height,
       input.primitiveName,
       input.ownChain.transactionHash,
       signer_address.address,
@@ -328,7 +328,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
   }
 
   private *processPaimaL2SyncProtocolResponse(
-    paima_block_height: PaimaBlockNumber,
+    effectstream_block_height: PaimaBlockNumber,
     response: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,
@@ -410,7 +410,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
         if (validSignature) {
           commands.push(
             yield* this.executePaimaL2Input({
-              paima_block_height,
+              effectstream_block_height,
               nonce: batchedMessage.parsed.address +
                 "-" +
                 batchedMessage.parsed.timestamp,
@@ -441,7 +441,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
           });
           log.remote(
             ComponentNames.PAIMA_SYNC,
-            ["paima-l2"],
+            ["effectstream-l2"],
             SeverityNumber.ERROR,
             (log) => log(`Invalid signature for batched message`),
           );
@@ -451,7 +451,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
       // !isBatched
       commands.push(
         yield* this.executePaimaL2Input({
-          paima_block_height,
+          effectstream_block_height,
           // TODO: where do we get the nonce from?
           nonce: undefined,
           ownChain: {
@@ -476,7 +476,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
   }
 }
 
-// declare module "@paima/sm" {
+// declare module "@effectstream/sm" {
 //   interface PrimitiveGlobalDefinitions {
 //     PaimaL2Primitive: typeof PaimaL2Primitive;
 //   }

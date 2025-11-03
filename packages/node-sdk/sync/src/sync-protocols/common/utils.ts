@@ -3,7 +3,7 @@ import type {
   BlockNumber,
   IntervalMs,
   TimestampMs,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import type { PageRelation } from "../base/page.ts";
 
 export function applyDelay(

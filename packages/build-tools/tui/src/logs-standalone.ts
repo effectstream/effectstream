@@ -1,8 +1,8 @@
-import { attachTransport, log } from "@paima/log";
+import { attachTransport, log } from "@effectstream/log";
 import { LogServer, type OTelLog } from "./logs-server.ts";
 import { createStream, type RotatingFileStream } from "rotating-file-stream";
 import type { ILogObj } from "tslog";
-import { ENV } from "@paima/utils/node-env";
+import { ENV } from "@effectstream/utils/node-env";
 
 // This is a standalone script that can be used to view logs from the collector.
 // Its purpose is to be used in a tmux session, and not as a part of the TUI.
@@ -103,7 +103,7 @@ class LogsViewer {
 const viewer = new LogsViewer();
 
 // In case of spawing from tmux, kill the parent tmux session
-// so that ctrl+c terminates the entire paima-engine process`
+// so that ctrl+c terminates the entire effectstream-engine process`
 const killTmux = () => {
   if (ENV.TMUX) {
     const cmd = new Deno.Command("tmux", { args: ["kill-session"] });

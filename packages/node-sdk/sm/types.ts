@@ -1,4 +1,4 @@
-//import type { AppEvents } from "@paima/events";
+//import type { AppEvents } from "@effectstream/events";
 
 import type { PreparedQuery } from "@pgtyped/runtime";
 import type {
@@ -6,8 +6,8 @@ import type {
   PaimaBlockNumber,
   TimestampMs,
   WalletAddress,
-} from "@paima/utils";
-import type { Prando } from "@paima/crypto";
+} from "@effectstream/utils";
+import type { Prando } from "@effectstream/crypto";
 
 // TODO What is AppEvent type?
 export type AppEvents = any;

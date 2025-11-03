@@ -1,5 +1,5 @@
-import type { FailedResult } from "@paimaexample/utils";
-import type { Result } from "@paimaexample/utils";
+import type { FailedResult } from "@effectstream/utils";
+import type { Result } from "@effectstream/utils";
 import type { LobbyState } from "@chess/utils";
 
 export type ErrorCode = number;

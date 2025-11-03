@@ -1,5 +1,5 @@
 {
-    "name": "@paima/event-server",
+    "name": "@effectstream/event-server",
     "version": "0.3.0",
     "license": "MIT",
     "exports": {

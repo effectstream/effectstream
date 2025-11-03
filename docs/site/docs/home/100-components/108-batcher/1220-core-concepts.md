@@ -25,7 +25,7 @@ The generic type parameter `T` allows you to extend `DefaultBatcherInput` with c
 
 **Example:**
 ```typescript
-import { createNewBatcher, FileStorage } from "@paima/batcher";
+import { createNewBatcher, FileStorage } from "@effectstream/batcher";
 
 const batcher = createNewBatcher(
   {
@@ -120,8 +120,8 @@ interface PaimaBatcherConfig<
   // Optional: Default confirmation behavior for HTTP API requests
   // Can be a global default OR per-adapter
   confirmationLevel?: 
-    | "no-wait" | "wait-receipt" | "wait-paima-processed"
-    | Record<string, "no-wait" | "wait-receipt" | "wait-paima-processed">;
+    | "no-wait" | "wait-receipt" | "wait-effectstream-processed"
+    | Record<string, "no-wait" | "wait-receipt" | "wait-effectstream-processed">;
 
   // Optional: HTTP server settings
   enableHttpServer?: boolean;
@@ -142,7 +142,7 @@ The `confirmationLevel` configuration defines the **default waiting behavior** w
 **Three Levels:**
 - **`"no-wait"`** - Returns immediately after input is queued
 - **`"wait-receipt"`** - Waits for blockchain transaction confirmation (default)
-- **`"wait-paima-processed"`** - Waits until Paima Engine processes the batch
+- **`"wait-effectstream-processed"`** - Waits until Paima Engine processes the batch
 
 **Global vs Per-Adapter:**
 ```typescript
@@ -152,7 +152,7 @@ confirmationLevel: "wait-receipt"
 // Option 2: Per-adapter defaults
 confirmationLevel: {
   ethereum: "wait-receipt",      // Fast finality
-  polygon: "wait-paima-processed", // Wait for full processing
+  polygon: "wait-effectstream-processed", // Wait for full processing
 }
 ```
 
@@ -534,7 +534,7 @@ import {
   FileStorage,
   DefaultBatcherInput,
   AddressType 
-} from "@paima/batcher";
+} from "@effectstream/batcher";
 
 // 1. Define custom input type with additional fields
 interface GameBatcherInput extends DefaultBatcherInput {

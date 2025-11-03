@@ -27,7 +27,7 @@ export type BatcherGrammar = Record<string, unknown> & {
     blockNumber: number | bigint;
     time: number;
   };
-  "batch:paima-processed": {
+  "batch:effectstream-processed": {
     target: string;
     latestBlock: number;
     rollup: number;

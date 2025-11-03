@@ -1,6 +1,6 @@
 # Paima Explorer
 
-The Paima Explorer is a powerful, locally-run web application that serves as an essential companion for developing with Statestream. It provides a real-time, interactive window into your running Statestream node, allowing you to monitor its health, inspect its state, and explore its data without needing to write a single line of SQL.
+The Paima Explorer is a powerful, locally-run web application that serves as an essential companion for developing with Effectstream. It provides a real-time, interactive window into your running Effectstream node, allowing you to monitor its health, inspect its state, and explore its data without needing to write a single line of SQL.
 
 Think of it as a block explorer and a database admin panel rolled into one, specifically designed for your Paima dApp.
 
@@ -14,7 +14,7 @@ The Paima Explorer is typically launched automatically as part of the local deve
   processes: [
     {
       name: "explorer",
-      args: ["run", "-A", "--unstable-detect-cjs", "@paima/explorer"],
+      args: ["run", "-A", "--unstable-detect-cjs", "@effectstream/explorer"],
       waitToExit: false,
       type: "system-dependency",
       link: "http://localhost:10590",
@@ -33,14 +33,14 @@ The Explorer is organized into several key sections, each providing a unique vie
 
 The main dashboard gives you an at-a-glance overview of your node's health and the status of its connections to various blockchains.
 
-*   **Main L2 Chain Blocks**: Displays the current block height of your Statestream's internal clock (the Main NTP Protocol). This shows you the current "tick" or state of your application.
+*   **Main L2 Chain Blocks**: Displays the current block height of your Effectstream's internal clock (the Main NTP Protocol). This shows you the current "tick" or state of your application.
 *   **Parallel Chains**: For each connected parallel chain (EVM, Midnight, Cardano, etc.), it shows the last block height synced by the node. This is crucial for debugging and ensuring that your node is successfully ingesting data from all its sources.
 
 #### 2. Exploring State Tables
 
 This is the most powerful feature of the Explorer. It gives you a direct, read-only view into the PostgreSQL database that stores your application's state, without needing a separate database client. The tables are intelligently categorized.
 
-*   **Dynamic (Primitive) Tables**: These tables are **automatically created and managed by Statestream** to represent the state of your configured Primitives. For example, if you have an `ERC20` primitive, the Explorer will show a table named `erc20_balances_view_<primitive_name>` that contains the real-time token balance for every wallet address. This is incredibly useful for verifying that your primitives are working correctly.
+*   **Dynamic (Primitive) Tables**: These tables are **automatically created and managed by Effectstream** to represent the state of your configured Primitives. For example, if you have an `ERC20` primitive, the Explorer will show a table named `erc20_balances_view_<primitive_name>` that contains the real-time token balance for every wallet address. This is incredibly useful for verifying that your primitives are working correctly.
 
 *   **Custom Tables**: These are the tables that **you defined** in your custom SQL "migration" files. This section allows you to inspect the data specific to your dApp's logic. You can see your `players`, `games`, `inventories`, or any other custom table to confirm that your State Transition Functions (STFs) are writing the correct data.
 

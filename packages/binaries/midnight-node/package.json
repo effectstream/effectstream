@@ -1,5 +1,5 @@
 {
-  "name": "@paima/npm-midnight-node",
+  "name": "@effectstream/npm-midnight-node",
   "version": "0.3.0",
   "description": "Downloads and starts the binary for Midnight Node",
   "main": "index.js",

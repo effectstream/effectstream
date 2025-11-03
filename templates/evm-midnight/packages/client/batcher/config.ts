@@ -3,7 +3,7 @@ import {
   FileStorage,
   PaimaBatcherConfig,
   PaimaL2DefaultAdapter,
-} from "@paimaexample/batcher";
+} from "@effectstream/batcher";
 
 const batchIntervalMs = 1000;
 const paimaL2Address = contractAddressesEvmMain()["chain31337"][
@@ -33,7 +33,7 @@ export const config: PaimaBatcherConfig = {
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },
-  confirmationLevel: "wait-paima-processed", // Connector expectation
+  confirmationLevel: "wait-effectstream-processed", // Connector expectation
   enableHttpServer: true,
   enableEventSystem: true,
   port,

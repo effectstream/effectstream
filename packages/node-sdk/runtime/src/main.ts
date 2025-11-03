@@ -2,20 +2,20 @@ import {
   type AllSyncProtocols,
   type ChainBlock,
   genSyncProtocols,
-} from "@paima/sync";
+} from "@effectstream/sync";
 import {
   acquireDBMutex,
   createDynamicTables,
   getConnection,
   releaseDBMutex,
-} from "@paima/db";
-import { PaimaEventBroker } from "@paima/event-server";
+} from "@effectstream/db";
+import { PaimaEventBroker } from "@effectstream/event-server";
 import {
   BuiltinEvents,
   PaimaEventManager,
-} from "@paima/event-client";
-import { startMerge, startSync } from "@paima/sync";
-import { ComponentNames, log, SeverityNumber } from "@paima/log";
+} from "@effectstream/event-client";
+import { startMerge, startSync } from "@effectstream/sync";
+import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import {
   createChannel,
   each,
@@ -28,11 +28,11 @@ import { processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
-import type { PaimaBlockHash } from "@paima/utils";
+import type { PaimaBlockHash } from "@effectstream/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
-import { getLastBlockHeight, getVersionInfo } from "@paima/db/version";
-import type { SyncProtocolWithNetwork } from "@paima/config";
-import { builtInPrimitivesMap } from "@paima/sm";
+import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
+import type { SyncProtocolWithNetwork } from "@effectstream/config";
+import { builtInPrimitivesMap } from "@effectstream/sm";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -43,7 +43,7 @@ export function* init() {
  * Main entry point to start the Paima Engine Node.
  *
  * This will launch the networks/primitives synchronization sub-processes,
- * the HTTP server, and the merge and paima-block generation process.
+ * the HTTP server, and the merge and effectstream-block generation process.
  *
  * @param config - Paima Engine Node configuration object.
  */
@@ -65,7 +65,7 @@ export function* start(config: StartConfig): Operation<void> {
   }
 
   // Create MQTT Broker
-  new PaimaEventBroker("paima-engine").createServer();
+  new PaimaEventBroker("effectstream-engine").createServer();
 
   yield* spawn(function* () {
     yield* startHttpServer(

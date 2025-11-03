@@ -8,12 +8,12 @@ import {
   walletLogin,
   WalletMode,
   WalletNameMap,
-} from "@paima/wallets";
+} from "@effectstream/wallets";
 import {
   sendBatcherTransaction,
   sendTransaction,
   signMessage,
-} from "@paima/wallets";
+} from "@effectstream/wallets";
 
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
@@ -104,7 +104,7 @@ interface PrimitiveInfo {
   networkType: string;
 }
 
-// localhostConfig.primitives['evm-rpc-paima-l2'].primitive.abi = paimaL2Abi;
+// localhostConfig.primitives['evm-rpc-effectstream-l2'].primitive.abi = paimaL2Abi;
 /** Convert Viem to Ether Signer */
 /** Hook to convert a viem Wallet Client to an ethers.js Signer. */
 function clientToSigner(client: any) { // Client<Transport, Chain, Account>) {
@@ -375,7 +375,7 @@ function App() {
         ),
       types: ["cardano"],
     },
-    // // Disabled until we update @paima/wallets
+    // // Disabled until we update @effectstream/wallets
     // {
     //   name: "Polkadot",
     //   mode: WalletMode.Polkadot,
@@ -414,7 +414,7 @@ function App() {
     if (!selectedPrimitive) {
       return [];
     }
-    if (selectedPrimitive.type === "evm-rpc-paima-l2") {
+    if (selectedPrimitive.type === "evm-rpc-effectstream-l2") {
       return availableWallets;
     }
     return availableWallets.filter((wallet) =>
@@ -467,7 +467,7 @@ function App() {
             wallet,
             conciseData,
             paimaEngineConfig,
-            "wait-paima-processed",
+            "wait-effectstream-processed",
           );
           console.log(result);
           setActionResult(
@@ -480,7 +480,7 @@ function App() {
             wallet,
             conciseData,
             paimaEngineConfig,
-            "wait-paima-processed",
+            "wait-effectstream-processed",
           );
           console.log(result);
           setActionResult(

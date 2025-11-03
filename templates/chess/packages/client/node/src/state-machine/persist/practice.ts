@@ -1,8 +1,8 @@
 import {
   type INewScheduledHeightDataParams,
   newScheduledHeightData,
-} from "@paimaexample/db";
-import { AddressType } from "@paimaexample/utils";
+} from "@effectstream/db";
+import { AddressType } from "@effectstream/utils";
 
 type SQLUpdate = [any, any];
 // Schedule a practice move update to be executed in the future

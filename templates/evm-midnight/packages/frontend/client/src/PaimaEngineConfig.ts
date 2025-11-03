@@ -1,5 +1,5 @@
 import { hardhat } from "viem/chains";
-import { PaimaEngineConfig } from "@paimaexample/wallets";
+import { PaimaEngineConfig } from "@effectstream/wallets";
 export const paimaEngineConfig = new PaimaEngineConfig(
   "",
   "mainEvmRPC",

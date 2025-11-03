@@ -1,11 +1,11 @@
-import { init, start } from "@paimaexample/runtime";
+import { init, start } from "@effectstream/runtime";
 import { main, suspend } from "effection";
 import { localhostConfig } from "@chess/data-types/localhostConfig";
 import {
   type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
-} from "@paimaexample/config";
+} from "@effectstream/config";
 import { migrationTable } from "@chess/db";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";

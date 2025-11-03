@@ -25,9 +25,9 @@ const BatchedSubunitSchemaWrapper = Type.Object({
   waitForConfirmation: Type.Union([
     Type.Literal("no-wait"), 
     Type.Literal("wait-receipt"), 
-    Type.Literal("wait-paima-processed")
+    Type.Literal("wait-effectstream-processed")
   ], {
-    default: "wait-paima-processed",
+    default: "wait-effectstream-processed",
   }),
 });
 

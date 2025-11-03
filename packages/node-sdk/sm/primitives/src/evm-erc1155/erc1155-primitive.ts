@@ -5,21 +5,21 @@ import {
   type FlattenSyncProtocolIOFor,
   getEvmEvent,
   type ProtocolPrimitiveMap,
-} from "@paima/config";
+} from "@effectstream/config";
 import {
   type AddressAndType,
   AddressType,
   type EvmAddress,
   type PaimaBlockNumber,
   TypeboxHelpers,
-} from "@paima/utils";
-import { type JsonObject, PaimaPrimitive } from "@paima/sm";
+} from "@effectstream/utils";
+import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
 import {
   type CommandTuple,
   generateRawStmInput,
   type ParamToData,
-} from "@paima/concise";
-import type { StateUpdateStream } from "@paima/coroutine";
+} from "@effectstream/concise";
+import type { StateUpdateStream } from "@effectstream/coroutine";
 import { ERC1155_VIEW_PREFIX, erc1155Ivm } from "./erc1155-ivm.ts";
 import { ERC1155_INTERMEDIATE_PREFIX } from "./erc1155-ivm.ts";
 import { erc1155 } from "./erc1155-abi.ts";

@@ -52,7 +52,7 @@
 
     async function walletLogin() {
         console.log(window.paima);
-        const result = await paima.login();
+        const result = await effectstream.login();
         const { metadata, provider } = result;
         const { address: address1 } = provider;
         const address2 = await provider.getAddress();
@@ -63,7 +63,7 @@
 
     async function sendTransactionPaimaL2() {
         const input = document.getElementById("transaction-input").value;
-        const result = await paima.sendTransactionPaimaL2(input);
+        const result = await effectstream.sendTransactionPaimaL2(input);
         console.log(result);
         await fetchAccountingData();
     }

@@ -1,10 +1,10 @@
 import type { Operation } from "effection";
-import type { SyncProtocolWithNetwork } from "@paima/config";
-import type { AppEvents, BaseStfInput, BaseStfOutput, PaimaPrimitive } from "@paima/sm";
+import type { SyncProtocolWithNetwork } from "@effectstream/config";
+import type { AppEvents, BaseStfInput, BaseStfOutput, PaimaPrimitive } from "@effectstream/sm";
 import type { FastifyInstance } from "fastify";
 import type { Pool } from "pg";
-import type { SyncStateUpdateStream } from "@paima/coroutine";
-import type { GrammarDefinition } from "@paima/concise";
+import type { SyncStateUpdateStream } from "@effectstream/coroutine";
+import type { GrammarDefinition } from "@effectstream/concise";
 // These are user type defined objects for launching Paima Engine Node.
 
 export type VERSION = `${number}.${number}.${number}`;

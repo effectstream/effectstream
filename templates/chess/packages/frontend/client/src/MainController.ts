@@ -2,7 +2,7 @@ import type { LobbyState, LobbyStateQuery, UserLobby } from "@chess/utils";
 type LoginInfo = any;
 type MatchExecutor = any;
 type PackedUserStats = any;
-import { type Wallet, walletLogin } from "@paimaexample/wallets";
+import { type Wallet, walletLogin } from "@effectstream/wallets";
 import {
   apiGetLobbySearch,
   apiGetLobbyState,

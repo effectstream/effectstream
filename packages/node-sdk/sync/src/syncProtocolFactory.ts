@@ -3,18 +3,18 @@ import { EvmFetcher } from "./sync-protocols/evm/fetcher.ts";
 import type { Operation } from "effection";
 import type { PoolClient } from "pg";
 import type { AllSyncProtocols } from "./sync-protocols/types.ts";
-import { createViemPublicClient } from "@paima/utils";
-import type { SyncProtocolWithNetwork } from "@paima/config";
+import { createViemPublicClient } from "@effectstream/utils";
+import type { SyncProtocolWithNetwork } from "@effectstream/config";
 import {
   ConfigNetworkType,
   ConfigSyncProtocolType,
   getViemNetwork,
-} from "@paima/config";
+} from "@effectstream/config";
 import { CardanoSyncClient } from "@utxorpc/sdk";
 import { BufferedRpc } from "./sync-protocols/utxorpc/BufferedRpc.ts";
 import { UtxoRpcFetcher } from "./sync-protocols/utxorpc/fetcher.ts";
 import { UtxoRpcSyncState } from "./sync-protocols/utxorpc/state.ts";
-import { MidnightFetcher, MidnightSyncState } from "@paima/sync";
+import { MidnightFetcher, MidnightSyncState } from "@effectstream/sync";
 import { AvailFetcher } from "./sync-protocols/avail/fetcher.ts";
 import { AvailSyncState } from "./sync-protocols/avail/state.ts";
 import { NtpFetcher } from "./sync-protocols/ntp/fetcher.ts";

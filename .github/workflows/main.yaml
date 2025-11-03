@@ -1,6 +1,6 @@
 on: [push]
 
-name: Paima Engine Test Workflow
+name: Effectstream Test Workflow
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

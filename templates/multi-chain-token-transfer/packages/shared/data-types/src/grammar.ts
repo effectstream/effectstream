@@ -1,5 +1,5 @@
-import type { GrammarDefinition } from "@paimaexample/concise";
-import { builtinGrammars } from "@paimaexample/sm/grammar";
+import type { GrammarDefinition } from "@effectstream/concise";
+import { builtinGrammars } from "@effectstream/sm/grammar";
 import { mctErc1155Grammar } from "@multi-chain-transfer/custom-primitive-mct-erc1155/erc1155-grammar";
 
 export const grammar = {

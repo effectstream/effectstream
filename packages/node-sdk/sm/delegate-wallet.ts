@@ -1,10 +1,10 @@
-import { type SyncStateUpdateStream, World } from "@paima/coroutine";
+import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import {
   accountMessages,
   type BuiltinGrammar,
   type BuiltinGrammarPrefix,
   type ParseInputResult,
-} from "@paima/concise";
+} from "@effectstream/concise";
 import {
   getAccountById,
   getAddressByAccountId,
@@ -15,14 +15,14 @@ import {
   removeAddressAccount,
   updateAddressAccount,
   updatePrimaryAddress,
-} from "@paima/db";
+} from "@effectstream/db";
 import { verifySignature } from "./verify-signature.ts";
 import {
   AddressType,
   type Signature,
   TypeboxHelpers,
   type WalletAddress,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import { Value } from "@sinclair/typebox/value";
 
 /**

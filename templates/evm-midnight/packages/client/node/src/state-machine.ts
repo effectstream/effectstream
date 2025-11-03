@@ -1,13 +1,13 @@
-import { PaimaSTM } from "@paimaexample/sm";
+import { PaimaSTM } from "@effectstream/sm";
 import { grammar } from "@example-evm-midnight/data-types/grammar";
-import type { BaseStfInput, BaseStfOutput } from "@paimaexample/sm";
+import type { BaseStfInput, BaseStfOutput } from "@effectstream/sm";
 import {
   getEvmMidnightByTokenId,
   insertEvmMidnight,
   insertEvmMidnightProperty,
 } from "@example-evm-midnight/database";
-import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
-import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
+import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);

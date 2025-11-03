@@ -25,7 +25,7 @@ const BatcherInputWrapper = Type.Object({
   confirmationLevel: Type.Union([
     Type.Literal("no-wait"),
     Type.Literal("wait-receipt"),
-    Type.Literal("wait-paima-processed"),
+    Type.Literal("wait-effectstream-processed"),
   ], {
     default: "wait-receipt",
   }),
@@ -306,7 +306,7 @@ export async function startBatcherHttpServer(
             transactionHash: result?.hash,
             inputsProcessed: 1,
           };
-        case "wait-paima-processed":
+        case "wait-effectstream-processed":
           return {
             success: true,
             message: "Input processed and validated by Paima Engine",

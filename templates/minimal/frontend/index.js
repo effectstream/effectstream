@@ -4,7 +4,7 @@ import {
   sendTransaction,
   walletLogin,
   WalletMode,
-} from "@paimaexample/wallets";
+} from "@effectstream/wallets";
 
 import { hardhat } from "viem/chains";
 

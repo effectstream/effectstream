@@ -2,9 +2,9 @@ import type { CardanoSyncClient } from "@utxorpc/sdk";
 import type { cardano } from "@utxorpc/spec";
 import type { OutputAndCleanup } from "../base/state.ts";
 import Deque from "denque";
-import type { BlockNumber } from "@paima/utils";
+import type { BlockNumber } from "@effectstream/utils";
 import type { Operation } from "effection";
-import { conditionVariable } from "@paima/utils";
+import { conditionVariable } from "@effectstream/utils";
 import type { BlockAndTimestamp, Page } from "./types.ts";
 import { Buffer } from "node:buffer";
 

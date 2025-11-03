@@ -4,22 +4,22 @@ import {
   type FlattenSyncProtocolIOFor,
   getEvmEvent,
   type ProtocolPrimitiveMap,
-} from "@paima/config";
+} from "@effectstream/config";
 import {
   type AddressAndType,
   AddressType,
   type EvmAddress,
   type PaimaBlockNumber,
   TypeboxHelpers,
-} from "@paima/utils";
-import { type JsonObject, PaimaPrimitive } from "@paima/sm";
+} from "@effectstream/utils";
+import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
 import { Value } from "@sinclair/typebox/value";
 import {
   type CommandTuple,
   generateRawStmInput,
   type ParamToData,
-} from "@paima/concise";
-import type { StateUpdateStream } from "@paima/coroutine";
+} from "@effectstream/concise";
+import type { StateUpdateStream } from "@effectstream/coroutine";
 import { erc20 } from "./erc20-abi.ts";
 import { erc20Grammar } from "./erc20-grammar.ts";
 import {
@@ -145,7 +145,7 @@ export class Erc20Primitive extends PaimaPrimitive<
   }
 }
 
-// declare module "@paima/sm" {
+// declare module "@effectstream/sm" {
 //   interface PrimitiveGlobalDefinitions {
 //     Erc20Primitive: typeof Erc20Primitive;
 //   }

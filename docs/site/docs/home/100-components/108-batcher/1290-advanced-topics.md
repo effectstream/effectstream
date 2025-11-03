@@ -55,7 +55,7 @@ Submit a new input to the batching queue.
     "timestamp": "1234567890",
     "target": "ethereum"  // Optional, uses defaultTarget if not specified
   },
-  "confirmationLevel": "wait-receipt"  // Optional: "no-wait" | "wait-receipt" | "wait-paima-processed"
+  "confirmationLevel": "wait-receipt"  // Optional: "no-wait" | "wait-receipt" | "wait-effectstream-processed"
 }
 ```
 
@@ -65,7 +65,7 @@ Submit a new input to the batching queue.
 |-------|-------------|-------------------|
 | `"no-wait"` | Immediately after queuing | `{ success, message, inputsProcessed }` |
 | `"wait-receipt"` | After blockchain confirmation | `{ success, message, transactionHash, inputsProcessed }` |
-| `"wait-paima-processed"` | After Paima Engine processes | `{ success, message, transactionHash, rollup, inputsProcessed }` |
+| `"wait-effectstream-processed"` | After Paima Engine processes | `{ success, message, transactionHash, rollup, inputsProcessed }` |
 
 **Response Example (`wait-receipt`):**
 ```json
@@ -776,9 +776,9 @@ batcher.addStateTransition("batch:receipt", ({ target, blockNumber }) => {
 
 ---
 
-#### 9. `batch:paima-processed` – Paima Engine Processed
+#### 9. `batch:effectstream-processed` – Paima Engine Processed
 
-**When:** Paima Engine has processed the batch (only if waiting for `wait-paima-processed`).
+**When:** Paima Engine has processed the batch (only if waiting for `wait-effectstream-processed`).
 
 **Payload:**
 ```typescript
@@ -792,7 +792,7 @@ batcher.addStateTransition("batch:receipt", ({ target, blockNumber }) => {
 
 **Example:**
 ```typescript
-batcher.addStateTransition("batch:paima-processed", ({ target, rollup }) => {
+batcher.addStateTransition("batch:effectstream-processed", ({ target, rollup }) => {
   console.log(`🎯 Paima processed ${target} batch in rollup block ${rollup}`);
 });
 ```
@@ -1002,7 +1002,7 @@ The default storage backend uses JSONL (JSON Lines) files for simplicity and hum
 
 **Usage:**
 ```typescript
-import { FileStorage } from "@paima/batcher";
+import { FileStorage } from "@effectstream/batcher";
 
 const storage = new FileStorage("./batcher-data");
 const batcher = createNewBatcher(config, storage);
@@ -1042,7 +1042,7 @@ Implement `BatcherStorage` to use any backend:
 
 ```typescript
 import { Pool } from "pg";
-import type { BatcherStorage, DefaultBatcherInput } from "@paima/batcher";
+import type { BatcherStorage, DefaultBatcherInput } from "@effectstream/batcher";
 
 export class PostgreSQLStorage<T extends DefaultBatcherInput>
   implements BatcherStorage<T> {
@@ -1156,7 +1156,7 @@ const batcher = createNewBatcher(config, storage);
 
 ```typescript
 import Redis from "ioredis";
-import type { BatcherStorage, DefaultBatcherInput } from "@paima/batcher";
+import type { BatcherStorage, DefaultBatcherInput } from "@effectstream/batcher";
 
 export class RedisStorage<T extends DefaultBatcherInput>
   implements BatcherStorage<T> {
@@ -1336,7 +1336,7 @@ The batcher provides a `runBatcher()` operation that:
 
 ```typescript
 import { main, suspend } from "effection";
-import { PaimaBatcher } from "@paima/batcher";
+import { PaimaBatcher } from "@effectstream/batcher";
 
 const batcher = new PaimaBatcher(config, storage);
 
@@ -1363,7 +1363,7 @@ Here's a production-ready example from the E2E tests:
 
 ```typescript
 import { main, suspend } from "effection";
-import { PaimaBatcher } from "@paima/batcher";
+import { PaimaBatcher } from "@effectstream/batcher";
 import { config, storage } from "./config.ts";
 
 const batcher = new PaimaBatcher(config, storage);

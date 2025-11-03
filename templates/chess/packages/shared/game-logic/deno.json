@@ -7,7 +7,7 @@
   },
   "imports": {
     "chess.js": "npm:chess.js@^1.4.0",
-    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.99",
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.99"
+    "@effectstream/crypto": "jsr:@effectstream/crypto@0.3.99",
+    "@effectstream/utils": "jsr:@effectstream/utils@0.3.99"
   }
 }

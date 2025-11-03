@@ -528,7 +528,7 @@ async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> 
 ```
 
 :::tip Contract ABI Integration
-For EVM adapters, import your contract's ABI from `@paima/evm-contracts` or your project's contract package. This provides type-safe contract interactions via viem.
+For EVM adapters, import your contract's ABI from `@effectstream/evm-contracts` or your project's contract package. This provides type-safe contract interactions via viem.
 :::
 
 ---
@@ -728,7 +728,7 @@ getChainName(): string {
 
 #### `getSyncProtocolName()` (Optional)
 
-Return the Statestream Sync protocol name for event filtering and `wait-paima-processed` queries:
+Return the Effectstream Sync protocol name for event filtering and `wait-effectstream-processed` queries:
 
 ```typescript
 getSyncProtocolName(): string {
@@ -779,7 +779,7 @@ The batcher provides two helper classes for common serialization patterns. These
 
 **Usage:**
 ```typescript
-import { DefaultBatchBuilderLogic } from "@paima/batcher";
+import { DefaultBatchBuilderLogic } from "@effectstream/batcher";
 
 export class MyEVMAdapter implements BlockchainAdapter<string> {
   private readonly batchBuilderLogic = new DefaultBatchBuilderLogic();
@@ -828,7 +828,7 @@ The helper:
 
 **Usage:**
 ```typescript
-import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "@paima/batcher";
+import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "@effectstream/batcher";
 
 export class MyMidnightAdapter implements BlockchainAdapter<MidnightBatchPayload | null> {
   private readonly batchBuilderLogic = new MidnightBatchBuilderLogic();
@@ -867,8 +867,8 @@ This adapter uses `DefaultBatchBuilderLogic` for serialization but implements cu
 - ✅ Pre-validates function names and argument counts
 
 ```typescript
-import { DefaultBatchBuilderLogic } from "@paima/batcher";
-import type { BlockchainAdapter, DefaultBatcherInput } from "@paima/batcher";
+import { DefaultBatchBuilderLogic } from "@effectstream/batcher";
+import type { BlockchainAdapter, DefaultBatcherInput } from "@effectstream/batcher";
 
 export class ERC1155CustomAdapter implements BlockchainAdapter<string | null> {
   private readonly batchBuilderLogic = new DefaultBatchBuilderLogic();
@@ -988,8 +988,8 @@ This adapter uses `MidnightBatchBuilderLogic` for serialization and implements c
 - ✅ Queries Midnight indexer GraphQL API for transaction confirmation
 
 ```typescript
-import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "@paima/batcher";
-import type { BlockchainAdapter, DefaultBatcherInput } from "@paima/batcher";
+import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "@effectstream/batcher";
+import type { BlockchainAdapter, DefaultBatcherInput } from "@effectstream/batcher";
 
 export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload | null> {
   private readonly batchBuilderLogic = new MidnightBatchBuilderLogic();

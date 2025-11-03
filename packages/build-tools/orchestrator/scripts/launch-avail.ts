@@ -1,4 +1,4 @@
-import { ComponentNames } from "@paima/log";
+import { ComponentNames } from "@effectstream/log";
 
 // Start Avail Node and Light Client.
 //

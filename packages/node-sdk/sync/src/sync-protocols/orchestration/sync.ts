@@ -1,8 +1,8 @@
 import type { Operation } from "effection";
 import { sleep, spawn } from "effection";
-import { ComponentNames, log, SeverityNumber } from "@paima/log";
+import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { AllSyncProtocols, ISyncProtocol } from "../types.ts";
-import { tryYield } from "@paima/utils";
+import { tryYield } from "@effectstream/utils";
 
 export function* startSync(
   state: AllSyncProtocols,

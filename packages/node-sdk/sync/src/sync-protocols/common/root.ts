@@ -3,12 +3,12 @@ import type {
   BlockNumber,
   PaimaBlockNumber,
   TimestampMs,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import type { PageRelation } from "../base/page.ts";
 import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
-} from "@paima/config";
+} from "@effectstream/config";
 
 export type ChainPage = TimestampMs;
 export type ChainBlock = {

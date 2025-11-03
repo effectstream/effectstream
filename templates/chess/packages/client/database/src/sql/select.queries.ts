@@ -925,13 +925,13 @@ export interface IInternalStateAQuery {
 const internalStateAIR: any = {
   "usedParamSet": {},
   "params": [],
-  "statement": "SELECT * FROM paima.rollup_inputs",
+  "statement": "SELECT * FROM effectstream.rollup_inputs",
 };
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.rollup_inputs
+ * SELECT * FROM effectstream.rollup_inputs
  * ```
  */
 export const internalStateA = new PreparedQuery<
@@ -960,13 +960,13 @@ export interface IInternalStateBQuery {
 const internalStateBIR: any = {
   "usedParamSet": {},
   "params": [],
-  "statement": "SELECT * FROM paima.rollup_input_origin",
+  "statement": "SELECT * FROM effectstream.rollup_input_origin",
 };
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.rollup_input_origin
+ * SELECT * FROM effectstream.rollup_input_origin
  * ```
  */
 export const internalStateB = new PreparedQuery<
@@ -992,13 +992,13 @@ export interface IInternalStateCQuery {
 const internalStateCIR: any = {
   "usedParamSet": {},
   "params": [],
-  "statement": "SELECT * FROM paima.rollup_input_future_block",
+  "statement": "SELECT * FROM effectstream.rollup_input_future_block",
 };
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.rollup_input_future_block
+ * SELECT * FROM effectstream.rollup_input_future_block
  * ```
  */
 export const internalStateC = new PreparedQuery<
@@ -1024,13 +1024,13 @@ export interface IInternalStateDQuery {
 const internalStateDIR: any = {
   "usedParamSet": {},
   "params": [],
-  "statement": "SELECT * FROM paima.rollup_input_future_timestamp",
+  "statement": "SELECT * FROM effectstream.rollup_input_future_timestamp",
 };
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.rollup_input_future_timestamp
+ * SELECT * FROM effectstream.rollup_input_future_timestamp
  * ```
  */
 export const internalStateD = new PreparedQuery<
@@ -1046,7 +1046,7 @@ export interface IInternalStateEResult {
   block_height: number;
   id: number;
   index_in_block: number;
-  paima_tx_hash: Buffer;
+  effectstream_tx_hash: Buffer;
   success: boolean;
 }
 
@@ -1059,13 +1059,13 @@ export interface IInternalStateEQuery {
 const internalStateEIR: any = {
   "usedParamSet": {},
   "params": [],
-  "statement": "SELECT * FROM paima.rollup_input_result",
+  "statement": "SELECT * FROM effectstream.rollup_input_result",
 };
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.rollup_input_result
+ * SELECT * FROM effectstream.rollup_input_result
  * ```
  */
 export const internalStateE = new PreparedQuery<

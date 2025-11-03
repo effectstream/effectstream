@@ -6,13 +6,13 @@
 import { NetworkId } from "@midnight-ntwrk/onchain-runtime";
 NetworkId.Undeployed;
 
-import { init, start } from "@paima/runtime";
+import { init, start } from "@effectstream/runtime";
 import { main, suspend } from "effection";
 import { localhostConfig } from "@e2e/data-types";
 import {
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
-} from "@paima/config";
+} from "@effectstream/config";
 import { migrationTable } from "@e2e/database";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";

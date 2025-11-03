@@ -5,10 +5,10 @@ import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@paimaexample/config";
+} from "@effectstream/config";
 import { hardhat } from "viem/chains";
-import { getConnection } from "@paimaexample/db";
-import { PrimitiveTypeEVMERC721, PrimitiveTypeMidnightGeneric } from "@paimaexample/sm/builtin";
+import { getConnection } from "@effectstream/db";
+import { PrimitiveTypeEVMERC721, PrimitiveTypeMidnightGeneric } from "@effectstream/sm/builtin";
 import * as CounterContract from "@example-evm-midnight/my-midnight-contract/contract";
 
 /**
@@ -22,7 +22,7 @@ let launchStartTime: number | undefined;
 const dbConn = getConnection();
 try {
   const result = await dbConn.query(`
-    SELECT * FROM paima.sync_protocol_pagination 
+    SELECT * FROM effectstream.sync_protocol_pagination 
     WHERE protocol_name = '${mainSyncProtocolName}' 
     ORDER BY page_number ASC
     LIMIT 1

@@ -1,4 +1,4 @@
-import { walletLogin, WalletMode } from "@paimaexample/wallets";
+import { walletLogin, WalletMode } from "@effectstream/wallets";
 import { hardhat } from "viem/chains";
 import { createWalletClient, custom } from "viem";
 import { createPublicClient, http } from "viem";

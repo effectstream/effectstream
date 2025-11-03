@@ -14,14 +14,14 @@ import {
   type BatchedSubunit,
   buildBatchData,
   createMessageForBatcher,
-} from "@paima/concise";
+} from "@effectstream/concise";
 import { type BatcherStorage, FileStorage } from "./storage.ts";
 import { startBatcherHttpServer } from "./batcher-server.ts";
 import { type Operation, sleep, spawn, until } from "effection";
-import { CryptoManager } from "@paima/crypto";
-import { AddressType, type EvmAddress, type EvmPrivateKey } from "@paima/utils";
+import { CryptoManager } from "@effectstream/crypto";
+import { AddressType, type EvmAddress, type EvmPrivateKey } from "@effectstream/utils";
 import { assertNever } from "assert-never";
-import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
+import { BuiltinEvents, PaimaEventManager } from "@effectstream/event-client";
 
 // TODO: Import this from the actual ABI package when available
 const paimaL2Abi = [
@@ -201,8 +201,8 @@ export class Batcher {
    */
   *addUserInput(
     batchedSubunit: BatchedSubunit,
-    waitForConfirmation: "no-wait" | "wait-receipt" | "wait-paima-processed" =
-      "wait-paima-processed",
+    waitForConfirmation: "no-wait" | "wait-receipt" | "wait-effectstream-processed" =
+      "wait-effectstream-processed",
   ): Operation<TransactionReceipt & { rollup: number } | null> {
     const stored: boolean = yield* this.verifyAndStoreInput(batchedSubunit);
 
@@ -231,7 +231,7 @@ export class Batcher {
 
     let rollup = 0;
     // Wait for the transaction to be processed by the Paima Engine
-    if (waitForConfirmation === "wait-paima-processed") {
+    if (waitForConfirmation === "wait-effectstream-processed") {
       const result = yield* until(this.waitForPaimaProcessed(transactionReceipt));
       if (result) {
         rollup = result.rollup;

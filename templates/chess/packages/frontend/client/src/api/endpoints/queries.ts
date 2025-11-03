@@ -33,7 +33,7 @@ import type {
 
 import { isPlayersTurn } from "@chess/game-logic";
 
-import type { Result } from "@paimaexample/utils";
+import type { Result } from "@effectstream/utils";
 
 interface RoundExecutionState extends BaseRoundStatus {
   roundEndsInBlocks: number;

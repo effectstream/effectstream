@@ -232,22 +232,22 @@ If `confirmationLevel` is `"wait-receipt"`, the API call **returns at this point
 }
 ```
 
-### Step 9: Statestream Processing (Optional)
+### Step 9: Effectstream Processing (Optional)
 
-After blockchain confirmation, the batcher optionally waits for the Statestream to process the batch. This step:
+After blockchain confirmation, the batcher optionally waits for the Effectstream to process the batch. This step:
 
-1. Monitors Statestream Sync events for the specific transaction
-2. Waits until the Statestream has parsed and validated the inputs
+1. Monitors Effectstream Sync events for the specific transaction
+2. Waits until the Effectstream has parsed and validated the inputs
 3. Returns the rollup block number where processing occurred
 
-#### Confirmation Level: "wait-paima-processed"
+#### Confirmation Level: "wait-effectstream-processed"
 
-If `confirmationLevel` is `"wait-paima-processed"`, the API call **waits until this step completes**:
+If `confirmationLevel` is `"wait-effectstream-processed"`, the API call **waits until this step completes**:
 
 ```json
 {
   "success": true,
-  "message": "Input processed and validated by Statestream",
+  "message": "Input processed and validated by Effectstream",
   "transactionHash": "0xabc...",
   "rollup": 12345,
   "inputsProcessed": 1
@@ -343,7 +343,7 @@ If `confirmationLevel` is not explicitly provided in the API call, the batcher u
 │     Monitor Paima Sync events                               │
 │     Wait for rollup block processing                        │
 │                                                              │
-│  🔹 confirmationLevel: "wait-paima-processed" → returns here│
+│  🔹 confirmationLevel: "wait-effectstream-processed" → returns here│
 └─────────────────┬───────────────────────────────────────────┘
                   │
                   ▼

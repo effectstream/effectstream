@@ -8,7 +8,7 @@ import {
 // import { createWalletClient, custom, http, type WalletClient } from "viem";
 // import { WalletBuilder } from "@midnight-ntwrk/wallet";
 import * as MidnightWallet from "@midnight-ntwrk/wallet";
-import { type Wallet, walletLogin } from "@paimaexample/wallets";
+import { type Wallet, walletLogin } from "@effectstream/wallets";
 type LoginInfo = any;
 
 console.log("🔗 [WALLET] MidnightWallet", MidnightWallet);

@@ -3,25 +3,25 @@ import {
   start,
   type StartConfigApiRouter,
   type StartConfigGameStateTransitions,
-} from "@paimaexample/runtime";
+} from "@effectstream/runtime";
 import { main, suspend } from "effection";
 import {
   toSyncProtocolWithNetwork,
   withPaimaStaticConfig,
-} from "@paimaexample/config";
+} from "@effectstream/config";
 import { contractAddressesEvmMain } from "@minimal/evm-contracts";
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@paimaexample/config";
+} from "@effectstream/config";
 import { hardhat } from "viem/chains";
 import { Type } from "@sinclair/typebox";
-import type { GrammarDefinition } from "@paimaexample/concise";
-import type { SyncStateUpdateStream } from "@paimaexample/coroutine";
-import { PaimaSTM } from "@paimaexample/sm";
-import type { BaseStfInput } from "@paimaexample/sm";
-import { PrimitiveTypeEVMPaimaL2 } from "@paimaexample/sm/builtin";
+import type { GrammarDefinition } from "@effectstream/concise";
+import type { SyncStateUpdateStream } from "@effectstream/coroutine";
+import { PaimaSTM } from "@effectstream/sm";
+import type { BaseStfInput } from "@effectstream/sm";
+import { PrimitiveTypeEVMPaimaL2 } from "@effectstream/sm/builtin";
 
 const grammar = {
   my_action_name: [
@@ -107,7 +107,7 @@ export const apiRouter: StartConfigApiRouter = async function (
 ): Promise<void> {
   server.get("/fetch-primitive-accounting", async () => {
     const result = await dbConn.query(
-      `SELECT * FROM paima.primitive_accounting`,
+      `SELECT * FROM effectstream.primitive_accounting`,
     );
     return result.rows;
     // reply.send(result.rows);

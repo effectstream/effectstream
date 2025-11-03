@@ -4,12 +4,12 @@ import {
   MidnightBatchBuilderLogic,
   type PaimaBatcherConfig,
   DefaultBatchBuilderLogic,
-} from "@paimaexample/batcher";
+} from "@effectstream/batcher";
 import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
 import { MultiChainMultiToken, witnesses } from "@multi-chain-transfer/midnight-contracts/multichain_multitoken";
 import { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import { hardhat } from "viem/chains";
-import type { EvmAddress, EvmPrivateKey } from "@paimaexample/utils";
+import type { EvmAddress, EvmPrivateKey } from "@effectstream/utils";
 import { ERC1155CustomAdapter } from "./erc1155-adapter.ts";
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
 
@@ -67,7 +67,7 @@ export const config: PaimaBatcherConfig = {
     midnight: { criteriaType: "size", maxBatchSize: 1 },
     evm: { criteriaType: "size", maxBatchSize: 1 },
   },
-  confirmationLevel: "wait-paima-processed", // Connector expectation
+  confirmationLevel: "wait-effectstream-processed", // Connector expectation
   enableHttpServer: true,
   enableEventSystem: true,
   port,

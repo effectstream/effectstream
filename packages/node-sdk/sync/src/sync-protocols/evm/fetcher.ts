@@ -12,7 +12,7 @@ import {
   type EvmBlockHash,
   type EvmRpcPageJson,
   keysOf,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import { blockNumberRelation } from "../common/utils.ts";
 import type {
   ConfigType,
@@ -35,8 +35,8 @@ import type {
   ConfigNetworkType,
   PrimitiveEntry,
   SyncProtocolWithNetwork,
-} from "@paima/config";
-import type { ConfigSyncProtocolType } from "@paima/config";
+} from "@effectstream/config";
+import type { ConfigSyncProtocolType } from "@effectstream/config";
 import { Value } from "@sinclair/typebox/value";
 
 export class EvmFetcher
@@ -100,7 +100,7 @@ export class EvmFetcher
       ],
     );
 
-    // Build an output with all page info, as we need all the hashes to build the paima-block-hash
+    // Build an output with all page info, as we need all the hashes to build the effectstream-block-hash
     const allOutputs: Output[] = [];
     for (let page = data.from; page <= data.to; page++) {
       const _output = output.find((o) => o.raw.number === BigInt(page));

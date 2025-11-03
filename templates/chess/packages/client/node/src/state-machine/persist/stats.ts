@@ -6,11 +6,11 @@ import type {
 import { newStats, updateStats } from "@chess/db";
 import type { ConciseResult } from "@chess/utils";
 import type { UserStats } from "../v1/types.ts";
-import type { AddressType, WalletAddress } from "@paimaexample/utils";
+import type { AddressType, WalletAddress } from "@effectstream/utils";
 import {
   type INewScheduledHeightDataParams,
   newScheduledHeightData,
-} from "@paimaexample/db";
+} from "@effectstream/db";
 
 export type SQLUpdate = [any, any];
 

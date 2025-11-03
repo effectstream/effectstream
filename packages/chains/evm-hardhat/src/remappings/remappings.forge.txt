@@ -1,2 +1,2 @@
 @openzeppelin/=../../../../node_modules/@openzeppelin/
-@paima/=../../../../node_modules/@paima/
+@effectstream/=../../../../node_modules/@effectstream/

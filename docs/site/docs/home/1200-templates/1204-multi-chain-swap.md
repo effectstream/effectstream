@@ -3,18 +3,18 @@
 -   **Location**: `/templates/multi-chain-token-swap`
 -   **Highlights**: A dApp that showcases interoperability between EVM and Midnight, allowing users to swap ERC1155 tokens between the two chains.
 
-The `multi-chain-token-swap` template is a sophisticated example demonstrating how Statestream can create a seamless multi-chain experience. It builds a dApp where a user's token balance is unified across an EVM chain and a Midnight ZK chain. When a user initiates a cross-chain transfer by triggering an event on one chain, the Statestream detects this and uses a Batcher service to automatically mint a corresponding token on the other chain.
+The `multi-chain-token-swap` template is a sophisticated example demonstrating how Effectstream can create a seamless multi-chain experience. It builds a dApp where a user's token balance is unified across an EVM chain and a Midnight ZK chain. When a user initiates a cross-chain transfer by triggering an event on one chain, the Effectstream detects this and uses a Batcher service to automatically mint a corresponding token on the other chain.
 
 ![UI](./1204-ui.png)
 ## Core Concept: A Unified Multi-Chain Balance
 
-This template addresses a common challenge in Web3: asset fragmentation across different ecosystems. The goal is to create a system where users can interact with tokens on either EVM or Midnight, and the backend logic, powered by Statestream, ensures the total supply and ownership remain consistent across both.
+This template addresses a common challenge in Web3: asset fragmentation across different ecosystems. The goal is to create a system where users can interact with tokens on either EVM or Midnight, and the backend logic, powered by Effectstream, ensures the total supply and ownership remain consistent across both.
 
 *   **EVM Chain**: Manages an `ERC1155` token contract.
 *   **Midnight Chain**: Manages a `MultiToken` ZK contract based on OpenZeppelin's EIP-1155 implementation.
-*   **Statestream**: Monitors both chains. When a `transferTo<OtherChain>` event is detected, the State Machine instructs a Batcher to mint the token on the destination chain.
+*   **Effectstream**: Monitors both chains. When a `transferTo<OtherChain>` event is detected, the State Machine instructs a Batcher to mint the token on the destination chain.
 *   **Batcher**: An automated service that holds the authority to call the `mint` functions on both contracts, executing the commands issued by the State Machine.
-*   **Frontend**: A unified interface for users to view their total balance and initiate cross-chain transfers. It reads balances from both the individual chains (for quick updates) and the Statestream API (for the canonical, unified state).
+*   **Frontend**: A unified interface for users to view their total balance and initiate cross-chain transfers. It reads balances from both the individual chains (for quick updates) and the Effectstream API (for the canonical, unified state).
 
 ### Multi-Chain Token Swap in action
 <iframe src="https://drive.google.com/file/d/1VLlwMyEECt1bpMjtlXG36L3ZqETuSJwv/preview" width="640" height="480" allow="autoplay"></iframe>
@@ -26,8 +26,8 @@ This template addresses a common challenge in Web3: asset fragmentation across d
 
 ```sh
 # Clone the repository
-git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next paima-engine-demo
-cd paima-engine-demo/templates/multi-chain-token-transfer
+git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next effectstream-engine-demo
+cd effectstream-engine-demo/templates/multi-chain-token-transfer
 
 ## Please install missing dependencies.
 ## This will be automatically done in the future.
@@ -40,11 +40,11 @@ deno install --allow-scripts && ./patch.sh
 deno task build:evm
 deno task build:midnight
 
-# Launch Statestream Node
+# Launch Effectstream Node
 deno task dev
 
 # You will need the Midnight Lace Wallet to interact with the dApp.
-# Wait until the Statestream Node is Syncing Blocks
+# Wait until the Effectstream Node is Syncing Blocks
 open http://localhost:10599
 # For EVM wallet you can use this Private Key:
 # 0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6.
@@ -55,7 +55,7 @@ open http://localhost:10599
 
 ## Architecture Overview
 
-The following diagram illustrates the complete flow of a cross-chain swap. It shows how the frontend can receive updates from two sources: a direct query to the destination chain for immediate feedback, and the Statestream's API for the aggregated, canonical state.
+The following diagram illustrates the complete flow of a cross-chain swap. It shows how the frontend can receive updates from two sources: a direct query to the destination chain for immediate feedback, and the Effectstream's API for the aggregated, canonical state.
 
 ```mermaid
 sequenceDiagram
@@ -63,25 +63,25 @@ sequenceDiagram
     participant Frontend dApp
     participant EVM Chain (MCT_ERC1155)
     participant Midnight Chain (Multitoken)
-    participant Statestream Node
+    participant Effectstream Node
     participant Batcher Service
 
     User->>Frontend dApp: Clicks "Transfer to Midnight"
     Frontend dApp->>EVM Chain (MCT_ERC1155): Calls `transferToMidnight(...)`
-    EVM Chain (MCT_ERC1155)-->>Statestream Node: Emits `TransferToMidnight` event
+    EVM Chain (MCT_ERC1155)-->>Effectstream Node: Emits `TransferToMidnight` event
 
-    Statestream Node->>Statestream Node: [Sync Service] Detects event
-    Statestream Node->>Statestream Node: [State Machine] Processes STF
-    Statestream Node->>Batcher Service: API call: `mintOnMidnight(...)`
+    Effectstream Node->>Effectstream Node: [Sync Service] Detects event
+    Effectstream Node->>Effectstream Node: [State Machine] Processes STF
+    Effectstream Node->>Batcher Service: API call: `mintOnMidnight(...)`
 
     Batcher Service->>Midnight Chain (Multitoken): Executes `mint(...)` circuit
 
     Midnight Chain (Multitoken)-->>Frontend dApp: dApp polls Midnight for direct balance confirmation
     Frontend dApp->>User: UI updates based on both direct and unified data
 
-    Midnight Chain (Multitoken)-->>Statestream Node: Public ledger state changes
+    Midnight Chain (Multitoken)-->>Effectstream Node: Public ledger state changes
 
-    Statestream Node->>Statestream Node: [Sync Service] Detects new Midnight state
+    Effectstream Node->>Effectstream Node: [Sync Service] Detects new Midnight state
 ```
 
 ## The Components in Action
@@ -94,7 +94,7 @@ The on-chain logic is split between two specialized contracts, one for each ecos
 
 #### Solidity Contract (`MCT_ERC1155.sol`)
 
-This is a standard OpenZeppelin `ERC1155` contract with an added function, `transferToMidnight`, which burns tokens on the EVM side and emits an event that the Statestream can detect to initiate the mint on Midnight.
+This is a standard OpenZeppelin `ERC1155` contract with an added function, `transferToMidnight`, which burns tokens on the EVM side and emits an event that the Effectstream can detect to initiate the mint on Midnight.
 
 ```solidity
 // In packages/shared/contracts/evm/src/contracts/ERC1155.sol
@@ -113,7 +113,7 @@ contract MCT_ERC1155 is ERC1155, Ownable {
 
 #### Compact (Midnight) Contract (`multichain_multitoken.compact`)
 
-This ZK contract, based on OpenZeppelin's `MultiToken` library, manages the token on the Midnight network. The `transferToEvm` circuit burns tokens and publicly discloses the transfer details on the ledger for Statestream to process.
+This ZK contract, based on OpenZeppelin's `MultiToken` library, manages the token on the Midnight network. The `transferToEvm` circuit burns tokens and publicly discloses the transfer details on the ledger for Effectstream to process.
 
 ```rust
 // In packages/shared/contracts/midnight/contract-eip-1155/src/multichain_multitoken.compact
@@ -144,7 +144,7 @@ export circuit transferToEvm(
 
 ### 2. Chain Configuration (`localhostConfig.ts`)
 
-The first step in any Statestream project is defining the networks it will connect to. This is done in `localhostConfig.ts` using the `ConfigBuilder`. This template connects to a local Hardhat EVM node and a local Midnight node.
+The first step in any Effectstream project is defining the networks it will connect to. This is done in `localhostConfig.ts` using the `ConfigBuilder`. This template connects to a local Hardhat EVM node and a local Midnight node.
 
 ```ts
 // In packages/shared/data-types/src/localhostConfig.ts
@@ -300,7 +300,7 @@ export const apiRouter: StartConfigApiRouter = async function (
 
 ### 7. Faucet
 
-The faucet shows how we can add custom scripts & endpoints to the Statestream Node.
+The faucet shows how we can add custom scripts & endpoints to the Effectstream Node.
 
 This faucet is added to allow transferring native funds to a Midnight Browser Wallet.
 To this we added a Typescript script that does a transfer of 10 Dust to a given Midnight address.
@@ -357,18 +357,18 @@ The `midnightExtended` function is a custom wrapper that not only launches the M
 
 ### 10. Engine Initialization (`main.ts`)
 
-Finally, the `main.ts` file brings all the components together. It uses `withPaimaStaticConfig` to load the `localhostConfig` and then calls the `start` function from `@paimaexample/runtime`, passing it the grammar, state transitions, API router, and other configurations to launch a fully operational Statestream Node.
+Finally, the `main.ts` file brings all the components together. It uses `withPaimaStaticConfig` to load the `localhostConfig` and then calls the `start` function from `@effectstream/runtime`, passing it the grammar, state transitions, API router, and other configurations to launch a fully operational Effectstream Node.
 
 ```ts
 // In packages/client/node/src/main.ts
-import { init, start } from "@paimaexample/runtime";
+import { init, start } from "@effectstream/runtime";
 import { main, suspend } from "effection";
 import { localhostConfig } from "@multi-chain-transfer/data-types/localhostConfig";
 // ... other imports
 
 main(function* () {
   yield* init();
-  console.log("Starting Statestream Node");
+  console.log("Starting Effectstream Node");
 
   yield* withPaimaStaticConfig(localhostConfig, function* () {
     yield* start({
@@ -391,7 +391,7 @@ main(function* () {
 
 ### 11. Batcher Configuration
 
-In this template, the Batcher acts as a trusted, automated service responsible for minting tokens on the destination chain after a transfer is initiated. It listens for API calls from the Statestream's State Machine and executes the corresponding on-chain transactions.
+In this template, the Batcher acts as a trusted, automated service responsible for minting tokens on the destination chain after a transfer is initiated. It listens for API calls from the Effectstream's State Machine and executes the corresponding on-chain transactions.
 
 #### Dual-Adapter Setup (`config.ts`)
 
@@ -490,7 +490,7 @@ export function* mintInEvm(target: string, value: bigint) {
       // ...
       body: JSON.stringify({
         data: batcherInput,
-        // We can wait for Batcher Confirmation, Chain Confirmation or Paima-Engine Confirmation.
+        // We can wait for Batcher Confirmation, Chain Confirmation or Effectstream-Engine Confirmation.
         confirmationLevel: "no-wait",
       }),
     })
@@ -593,14 +593,14 @@ Finally, the custom primitive is registered in the main configuration file, wher
 
 ### Project Folder Structure
 
-The `multi-chain-token-swap` template is organized as a Deno workspace monorepo. This structure helps separate concerns, with distinct packages for the frontend, the Statestream node, and shared code. Understanding this layout is key to navigating and modifying the template.
+The `multi-chain-token-swap` template is organized as a Deno workspace monorepo. This structure helps separate concerns, with distinct packages for the frontend, the Effectstream node, and shared code. Understanding this layout is key to navigating and modifying the template.
 
 ```
 /
 |-- deno.json                 # Deno workspace configuration and top-level tasks
 |-- README.md                 # Main project instructions
 |-- packages/
-|   |-- client/               # Contains the Statestream Node implementation
+|   |-- client/               # Contains the Effectstream Node implementation
 |   |   |-- database/         # Defines the SQL schema and typed queries
 |   |   |   `-- src/
 |   |   |       |-- migrations/database.sql # Custom table schema for token balances
@@ -611,9 +611,9 @@ The `multi-chain-token-swap` template is organized as a Deno workspace monorepo.
 |   |   |   |-- erc1155-adapter.ts # The custom adapter for the EVM contract
 |   |   |   `-- calls.ts      # Coroutines called by the State Machine to trigger the Batcher
 |   |   |
-|   |   `-- node/             # Core of the Statestream Node
+|   |   `-- node/             # Core of the Effectstream Node
 |   |       `-- src/
-|   |           |-- main.ts          # Main entry point that starts the Statestream
+|   |           |-- main.ts          # Main entry point that starts the Effectstream
 |   |           |-- state-machine.ts # The core application logic (State Transition Functions)
 |   |           `-- api.ts           # Defines custom API endpoints (e.g., /api/erc721)
 |   |
@@ -621,7 +621,7 @@ The `multi-chain-token-swap` template is organized as a Deno workspace monorepo.
 |   |   |-- client/
 |   |   |   `-- src/
 |   |   |       |-- App.tsx     # Main React component and UI layout
-|   |   |       |-- paima.ts    # Logic for connecting wallets (EVM, Midnight)
+|   |   |       |--effectstream.ts    # Logic for connecting wallets (EVM, Midnight)
 |   |   |       `-- eip-1155-interact.ts # Logic for interacting with the Midnight contract
 |   |   `-- server/             # Simple Oak server to serve the built frontend
 |   |

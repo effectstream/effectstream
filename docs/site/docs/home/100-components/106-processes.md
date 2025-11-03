@@ -2,7 +2,7 @@
 
 Developing a multi-chain dApp is complex. It often requires running multiple local blockchains, indexers, deploying contracts, and managing various services simultaneously. Doing this manually is tedious, error-prone, and slows down development.
 
-The **Process Orchestrator** is a powerful tool built into Statestream that solves this problem. It automates the setup of your entire local development environment. When you run `deno task dev` in the `/templates/evm-midnight/` example, the orchestrator reads a configuration file (`start.ts`) and launches all the necessary processes—from blockchains and databases to the batcher and frontend server—in the correct order.
+The **Process Orchestrator** is a powerful tool built into Effectstream that solves this problem. It automates the setup of your entire local development environment. When you run `deno task dev` in the `/templates/evm-midnight/` example, the orchestrator reads a configuration file (`start.ts`) and launches all the necessary processes—from blockchains and databases to the batcher and frontend server—in the correct order.
 
 Its main goal is to create a complete, "mini-production" environment on your machine, so you can focus on building your dApp, not on managing infrastructure.
 
@@ -50,13 +50,13 @@ This is commonly used to:
 *   Deploy your smart contracts.
 *   Build and run a frontend application.
 
-> IMPORTANT: Example EVM / Midnight / Cardano / Avail examples are available in the @paima/orchestrator package
+> IMPORTANT: Example EVM / Midnight / Cardano / Avail examples are available in the @effectstream/orchestrator package
 
 ```
-import { launchAvail } from "@paima/orchestrator/start-avail";
-import { launchCardano } from "@paima/orchestrator/start-cardano";
-import { launchEvm } from "@paima/orchestrator/start-evm";
-import { launchMidnight } from "@paima/orchestrator/start-midnight";
+import { launchAvail } from "@effectstream/orchestrator/start-avail";
+import { launchCardano } from "@effectstream/orchestrator/start-cardano";
+import { launchEvm } from "@effectstream/orchestrator/start-evm";
+import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
 ```
 
 But you can write your own, here is an example of a reusable launcher function for an EVM chain. Notice how it defines a sequence of processes.
@@ -95,7 +95,7 @@ Let's look at the complete `start.ts` example. It sets up a complex, multi-chain
 
 ```ts
 // This file is the entry point for `deno task dev`
-import { OrchestratorConfig, start } from "@paima/orchestrator";
+import { OrchestratorConfig, start } from "@effectstream/orchestrator";
 // ... other imports
 
 const config = Value.Parse(OrchestratorConfig, {
@@ -120,12 +120,12 @@ const config = Value.Parse(OrchestratorConfig, {
     //          Manually defined process. 
     {
       name: "build explorer",
-      args: ["task", "-f", "@paima/explorer", "build"],
+      args: ["task", "-f", "@effectstream/explorer", "build"],
       waitToExit: true, // Wait for the build to finish...
     },
     {
       name: "serve explorer",
-      args: ["task", "-f", "@paima/explorer", "server:start"],
+      args: ["task", "-f", "@effectstream/explorer", "server:start"],
       waitToExit: false, // ...then start the server and let it run.
       dependsOn: ["build explorer"],
     },

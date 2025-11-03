@@ -1,5 +1,5 @@
 import type { Channel, Operation } from "effection";
-import { ComponentNames, log, SeverityNumber } from "@paima/log";
+import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type {
   AllSyncProtocols,
   ISyncProtocol,

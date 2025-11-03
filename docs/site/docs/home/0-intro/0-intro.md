@@ -3,34 +3,34 @@ sidebar_position: 1
 slug: /
 ---
 
-# Statestream v2
+# Effectstream v2
 
-## What is Statestream
+## What is Effectstream
 
-Statestream is a Web3 Engine optimized for dApps, games, gamification and autonomous worlds that allows quickly building web3 apps.
+Effectstream is a Web3 Engine optimized for dApps, games, gamification and autonomous worlds that allows quickly building web3 apps.
 
 - Connect multiple chains, leveraging their tech as tokens, and existing markets.
 - Build on-chain dApps without blockchain specific knowledge.
-- Secure: all interactions go into the chains and not your Statestream Node.
+- Secure: all interactions go into the chains and not your Effectstream Node.
 - Iterate quickly as tools are developer centered.
 
 <iframe src="https://drive.google.com/file/d/1DCIUJLEXIIri20Tr2a_09tK4SG74KF9M/preview?vq=hd720" width="640" height="480" allow="autoplay"></iframe>
 
-[Learn more about Statestream](./1-what-is-paima-engine.md)
+[Learn more about Effectstream](./1-what-is-effectstream-engine.md)
 
 
 ## App Quick Start
 
 > Linux and macOS are supported. Windows WSL is experimental.
 
-> This is a preview of the Statestream V2 documentation. We welcome any feedback you have on errors, missing information, or parts that aren't clear.
+> This is a preview of the Effectstream V2 documentation. We welcome any feedback you have on errors, missing information, or parts that aren't clear.
 
 First, clone the repository and use the `templates/evm-midnight/` folder as a working template:
 
 ```sh
 # Clone and move to evm-midnight template
 git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next
-cd paima-engine/templates/evm-midnight
+cd effectstream-engine/templates/evm-midnight
 
 # Check for external dependencies
 ../check.sh
@@ -42,7 +42,7 @@ deno install --allow-scripts && ./patch.sh
 deno task build:evm
 deno task build:midnight
 
-# Launch Statestream Node
+# Launch Effectstream Node
 deno task dev
 ```
 
@@ -57,7 +57,7 @@ Continue at the [Quick Start Guide](../10-quickstart/10-quickstart.md).
 
 [See All Components](../100-components//100-components.md)
 
-## Guide for Statestream Contributor
+## Guide for Effectstream Contributor
 
-- [Statestream Architecture](../1000-paima-engine/1000-paima-engine.md)
-- [Contribution Guide](../1000-paima-engine/1100-contributions.md)
+- [Effectstream Architecture](../1000-effectstream-engine/1000-effectstream-engine.md)
+- [Contribution Guide](../1000-effectstream-engine/1100-contributions.md)

@@ -1,4 +1,4 @@
-import { PaimaBatcher } from "@paimaexample/batcher";
+import { PaimaBatcher } from "@effectstream/batcher";
 import { main, suspend } from "effection";
 import { config, storage } from "./config.ts";
 

@@ -1,4 +1,4 @@
-import type { DBMigrations } from "@paimaexample/runtime";
+import type { DBMigrations } from "@effectstream/runtime";
 import databaseSql from "./migrations/database.sql" with { type: "text" };
 
 export const migrationTable: DBMigrations[] = [

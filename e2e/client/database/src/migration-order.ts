@@ -1,4 +1,4 @@
-import type { DBMigrations } from "@paima/runtime";
+import type { DBMigrations } from "@effectstream/runtime";
 import firstSql from "./migrations/first.sql" with { type: "text" };
 import secondSql from "./migrations/second.sql" with { type: "text" };
 import thirdSql from "./migrations/third.sql" with { type: "text" };

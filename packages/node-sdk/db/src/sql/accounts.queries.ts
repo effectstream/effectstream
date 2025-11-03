@@ -16,12 +16,12 @@ export interface INewAddressQuery {
   result: INewAddressResult;
 }
 
-const newAddressIR: any = {"usedParamSet":{"address":true,"address_type":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":61,"b":69}]},{"name":"address_type","required":false,"transform":{"type":"scalar"},"locs":[{"a":72,"b":84}]}],"statement":"INSERT INTO paima.addresses (address, address_type) \nVALUES (:address!, :address_type)"};
+const newAddressIR: any = {"usedParamSet":{"address":true,"address_type":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":68,"b":76}]},{"name":"address_type","required":false,"transform":{"type":"scalar"},"locs":[{"a":79,"b":91}]}],"statement":"INSERT INTO effectstream.addresses (address, address_type) \nVALUES (:address!, :address_type)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima.addresses (address, address_type) 
+ * INSERT INTO effectstream.addresses (address, address_type) 
  * VALUES (:address!, :address_type)
  * ```
  */
@@ -44,12 +44,12 @@ export interface INewAddressWithIdQuery {
   result: INewAddressWithIdResult;
 }
 
-const newAddressWithIdIR: any = {"usedParamSet":{"address":true,"address_type":true,"account_id":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":73,"b":81}]},{"name":"address_type","required":true,"transform":{"type":"scalar"},"locs":[{"a":84,"b":97}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":100,"b":111}]}],"statement":"INSERT INTO paima.addresses (address, address_type, account_id) \nVALUES (:address!, :address_type!, :account_id!)"};
+const newAddressWithIdIR: any = {"usedParamSet":{"address":true,"address_type":true,"account_id":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":80,"b":88}]},{"name":"address_type","required":true,"transform":{"type":"scalar"},"locs":[{"a":91,"b":104}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":107,"b":118}]}],"statement":"INSERT INTO effectstream.addresses (address, address_type, account_id) \nVALUES (:address!, :address_type!, :account_id!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima.addresses (address, address_type, account_id) 
+ * INSERT INTO effectstream.addresses (address, address_type, account_id) 
  * VALUES (:address!, :address_type!, :account_id!)
  * ```
  */
@@ -72,12 +72,12 @@ export interface INewAccountQuery {
   result: INewAccountResult;
 }
 
-const newAccountIR: any = {"usedParamSet":{"primary_address":true},"params":[{"name":"primary_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":54,"b":69}]}],"statement":"INSERT INTO paima.accounts (primary_address) \nVALUES (:primary_address)\nRETURNING id"};
+const newAccountIR: any = {"usedParamSet":{"primary_address":true},"params":[{"name":"primary_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":61,"b":76}]}],"statement":"INSERT INTO effectstream.accounts (primary_address) \nVALUES (:primary_address)\nRETURNING id"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima.accounts (primary_address) 
+ * INSERT INTO effectstream.accounts (primary_address) 
  * VALUES (:primary_address)
  * RETURNING id
  * ```
@@ -100,12 +100,12 @@ export interface IUpdateAddressAccountQuery {
   result: IUpdateAddressAccountResult;
 }
 
-const updateAddressAccountIR: any = {"usedParamSet":{"account_id":true,"address":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":40,"b":51}]},{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":69,"b":77}]}],"statement":"UPDATE paima.addresses\nSET account_id = :account_id!\nWHERE address = :address!"};
+const updateAddressAccountIR: any = {"usedParamSet":{"account_id":true,"address":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":47,"b":58}]},{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":76,"b":84}]}],"statement":"UPDATE effectstream.addresses\nSET account_id = :account_id!\nWHERE address = :address!"};
 
 /**
  * Query generated from SQL:
  * ```
- * UPDATE paima.addresses
+ * UPDATE effectstream.addresses
  * SET account_id = :account_id!
  * WHERE address = :address!
  * ```
@@ -127,12 +127,12 @@ export interface IRemoveAddressAccountQuery {
   result: IRemoveAddressAccountResult;
 }
 
-const removeAddressAccountIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":61,"b":69}]}],"statement":"UPDATE paima.addresses\nSET account_id = NULL\nWHERE address = :address!"};
+const removeAddressAccountIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":68,"b":76}]}],"statement":"UPDATE effectstream.addresses\nSET account_id = NULL\nWHERE address = :address!"};
 
 /**
  * Query generated from SQL:
  * ```
- * UPDATE paima.addresses
+ * UPDATE effectstream.addresses
  * SET account_id = NULL
  * WHERE address = :address!
  * ```
@@ -155,12 +155,12 @@ export interface IUpdatePrimaryAddressQuery {
   result: IUpdatePrimaryAddressResult;
 }
 
-const updatePrimaryAddressIR: any = {"usedParamSet":{"primary_address":true,"account_id":true},"params":[{"name":"primary_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":44,"b":59}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":72,"b":83}]}],"statement":"UPDATE paima.accounts\nSET primary_address = :primary_address\nWHERE id = :account_id!"};
+const updatePrimaryAddressIR: any = {"usedParamSet":{"primary_address":true,"account_id":true},"params":[{"name":"primary_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":51,"b":66}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":79,"b":90}]}],"statement":"UPDATE effectstream.accounts\nSET primary_address = :primary_address\nWHERE id = :account_id!"};
 
 /**
  * Query generated from SQL:
  * ```
- * UPDATE paima.accounts
+ * UPDATE effectstream.accounts
  * SET primary_address = :primary_address
  * WHERE id = :account_id!
  * ```
@@ -186,12 +186,12 @@ export interface IGetAddressByAddressQuery {
   result: IGetAddressByAddressResult;
 }
 
-const getAddressByAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":46,"b":54}]}],"statement":"SELECT * FROM paima.addresses\nWHERE address = :address!"};
+const getAddressByAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":53,"b":61}]}],"statement":"SELECT * FROM effectstream.addresses\nWHERE address = :address!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.addresses
+ * SELECT * FROM effectstream.addresses
  * WHERE address = :address!
  * ```
  */
@@ -216,12 +216,12 @@ export interface IGetAddressByAccountIdQuery {
   result: IGetAddressByAccountIdResult;
 }
 
-const getAddressByAccountIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":49,"b":60}]}],"statement":"SELECT * FROM paima.addresses\nWHERE account_id = :account_id!"};
+const getAddressByAccountIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":56,"b":67}]}],"statement":"SELECT * FROM effectstream.addresses\nWHERE account_id = :account_id!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.addresses
+ * SELECT * FROM effectstream.addresses
  * WHERE account_id = :account_id!
  * ```
  */
@@ -248,13 +248,13 @@ export interface IGetAccountByIdQuery {
   result: IGetAccountByIdResult;
 }
 
-const getAccountByIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":193,"b":204}]}],"statement":"SELECT account_id, address, address_type, primary_address, id as address_id FROM paima.accounts\nLEFT JOIN paima.addresses ON paima.accounts.primary_address = paima.addresses.address\nWHERE id = :account_id!"};
+const getAccountByIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":220,"b":231}]}],"statement":"SELECT account_id, address, address_type, primary_address, id as address_id FROM effectstream.accounts\nLEFT JOIN effectstream.addresses ON effectstream.accounts.primary_address =effectstream.addresses.address\nWHERE id = :account_id!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT account_id, address, address_type, primary_address, id as address_id FROM paima.accounts
- * LEFT JOIN paima.addresses ON paima.accounts.primary_address = paima.addresses.address
+ * SELECT account_id, address, address_type, primary_address, id as address_id FROM effectstream.accounts
+ * LEFT JOIN effectstream.addresses ON effectstream.accounts.primary_address =effectstream.addresses.address
  * WHERE id = :account_id!
  * ```
  */
@@ -282,7 +282,7 @@ export interface IGetAllAddressesQuery {
   result: IGetAllAddressesResult;
 }
 
-const getAllAddressesIR: any = {"usedParamSet":{"after_account_id":true,"after_address":true,"limit":true},"params":[{"name":"after_account_id","required":false,"transform":{"type":"scalar"},"locs":[{"a":374,"b":390},{"a":729,"b":745},{"a":790,"b":806},{"a":1116,"b":1132},{"a":1176,"b":1192}]},{"name":"after_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":409,"b":422},{"a":1250,"b":1263}]},{"name":"limit","required":false,"transform":{"type":"scalar"},"locs":[{"a":1361,"b":1366}]}],"statement":"SELECT \n    addresses.address as \"address\", \n    addresses.address_type as \"address_type\",\n    addresses.account_id as \"account_id\",\n    accounts.primary_address as \"primary_address\"\nFROM paima.addresses\nLEFT JOIN paima.accounts ON paima.accounts.primary_address = paima.addresses.address\nWHERE\n    -- This clause is for the first page fetch when no cursor is provided\n    (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)\n    OR\n    (\n        -- Case 1: The current row's account_id is \"greater\" than the cursor's.\n        -- This handles two sub-cases:\n        -- a) regular greater-than (e.g., 5 > 4)\n        -- b) current is NULL but cursor is NOT NULL (since NULLS sort LAST)\n        (addresses.account_id > :after_account_id::INT) OR (addresses.account_id IS NULL AND :after_account_id::INT IS NOT NULL)\n    )\n    OR\n    (\n        -- Case 2: The account_ids are equivalent, so we compare by the tie-breaker (address).\n        -- This handles two sub-cases for equivalence:\n        -- a) they are equal and not null (e.g., 5 = 5)\n        -- b) they are both null\n        (addresses.account_id = :after_account_id::INT OR (addresses.account_id IS NULL AND :after_account_id::INT IS NULL))\n        AND\n        (addresses.address > :after_address::TEXT)\n    )\nORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC\nLIMIT COALESCE(:limit, 1000)"};
+const getAllAddressesIR: any = {"usedParamSet":{"after_account_id":true,"after_address":true,"limit":true},"params":[{"name":"after_account_id","required":false,"transform":{"type":"scalar"},"locs":[{"a":401,"b":417},{"a":756,"b":772},{"a":817,"b":833},{"a":1143,"b":1159},{"a":1203,"b":1219}]},{"name":"after_address","required":false,"transform":{"type":"scalar"},"locs":[{"a":436,"b":449},{"a":1277,"b":1290}]},{"name":"limit","required":false,"transform":{"type":"scalar"},"locs":[{"a":1388,"b":1393}]}],"statement":"SELECT \n    addresses.address as \"address\", \n    addresses.address_type as \"address_type\",\n    addresses.account_id as \"account_id\",\n    accounts.primary_address as \"primary_address\"\nFROM effectstream.addresses\nLEFT JOIN effectstream.accounts ON effectstream.accounts.primary_address =effectstream.addresses.address\nWHERE\n    -- This clause is for the first page fetch when no cursor is provided\n    (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)\n    OR\n    (\n        -- Case 1: The current row's account_id is \"greater\" than the cursor's.\n        -- This handles two sub-cases:\n        -- a) regular greater-than (e.g., 5 > 4)\n        -- b) current is NULL but cursor is NOT NULL (since NULLS sort LAST)\n        (addresses.account_id > :after_account_id::INT) OR (addresses.account_id IS NULL AND :after_account_id::INT IS NOT NULL)\n    )\n    OR\n    (\n        -- Case 2: The account_ids are equivalent, so we compare by the tie-breaker (address).\n        -- This handles two sub-cases for equivalence:\n        -- a) they are equal and not null (e.g., 5 = 5)\n        -- b) they are both null\n        (addresses.account_id = :after_account_id::INT OR (addresses.account_id IS NULL AND :after_account_id::INT IS NULL))\n        AND\n        (addresses.address > :after_address::TEXT)\n    )\nORDER BY addresses.account_id ASC NULLS LAST, addresses.address ASC\nLIMIT COALESCE(:limit, 1000)"};
 
 /**
  * Query generated from SQL:
@@ -292,8 +292,8 @@ const getAllAddressesIR: any = {"usedParamSet":{"after_account_id":true,"after_a
  *     addresses.address_type as "address_type",
  *     addresses.account_id as "account_id",
  *     accounts.primary_address as "primary_address"
- * FROM paima.addresses
- * LEFT JOIN paima.accounts ON paima.accounts.primary_address = paima.addresses.address
+ * FROM effectstream.addresses
+ * LEFT JOIN effectstream.accounts ON effectstream.accounts.primary_address =effectstream.addresses.address
  * WHERE
  *     -- This clause is for the first page fetch when no cursor is provided
  *     (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)
@@ -336,13 +336,13 @@ export interface IGetAllAddressesCountQuery {
   result: IGetAllAddressesCountResult;
 }
 
-const getAllAddressesCountIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT COUNT(*) as total\nFROM paima.addresses"};
+const getAllAddressesCountIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT COUNT(*) as total\nFROM effectstream.addresses"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT COUNT(*) as total
- * FROM paima.addresses
+ * FROM effectstream.addresses
  * ```
  */
 export const getAllAddressesCount = new PreparedQuery<IGetAllAddressesCountParams,IGetAllAddressesCountResult>(getAllAddressesCountIR);

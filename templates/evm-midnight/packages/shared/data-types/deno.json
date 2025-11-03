@@ -7,11 +7,11 @@
     "./grammar": "./src/grammar.ts"
   },
   "imports": {
-    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.99",
-    "@paimaexample/config": "jsr:@paimaexample/config@0.3.99",
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.99",
-    "@paimaexample/db": "jsr:@paimaexample/db@0.3.99",
-    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.99",
+    "@effectstream/concise": "jsr:@effectstream/concise@0.3.99",
+    "@effectstream/config": "jsr:@effectstream/config@0.3.99",
+    "@effectstream/utils": "jsr:@effectstream/utils@0.3.99",
+    "@effectstream/db": "jsr:@effectstream/db@0.3.99",
+    "@effectstream/sm": "jsr:@effectstream/sm@0.3.99",
     "viem": "npm:viem@2.37.3",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
   }
