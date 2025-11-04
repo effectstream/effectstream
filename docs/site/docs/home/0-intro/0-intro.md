@@ -14,9 +14,9 @@ Effectstream is a Web3 Engine optimized for dApps, games, gamification and auton
 - Secure: all interactions go into the chains and not your Effectstream Node.
 - Iterate quickly as tools are developer centered.
 
-<iframe src="https://drive.google.com/file/d/1DCIUJLEXIIri20Tr2a_09tK4SG74KF9M/preview?vq=hd720" width="640" height="480" allow="autoplay"></iframe>
+<iframe src="https://drive.google.com/file/d/1Cb7XAVprCIwwhr0xC3xQeWHftfPCTVob/preview?vq=hd720" width="640" height="480" allow="autoplay"></iframe>
 
-[Learn more about Effectstream](./1-what-is-effectstream-engine.md)
+[Learn more about Effectstream](./1-what-is-effectstream.md)
 
 
 ## App Quick Start
@@ -30,7 +30,7 @@ First, clone the repository and use the `templates/evm-midnight/` folder as a wo
 ```sh
 # Clone and move to evm-midnight template
 git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next
-cd effectstream-engine/templates/evm-midnight
+cd paima-engine/templates/evm-midnight
 
 # Check for external dependencies
 ../check.sh

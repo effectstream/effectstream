@@ -26,8 +26,8 @@ This template addresses a common challenge in Web3: asset fragmentation across d
 
 ```sh
 # Clone the repository
-git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next effectstream-engine-demo
-cd effectstream-engine-demo/templates/multi-chain-token-transfer
+git clone git@github.com:PaimaStudios/paima-engine.git --branch v-next effectstream-demo
+cd effectstream-demo/templates/multi-chain-token-transfer
 
 ## Please install missing dependencies.
 ## This will be automatically done in the future.

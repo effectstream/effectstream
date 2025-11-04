@@ -1,6 +1,6 @@
 ---
 sidebar_position: 2
-slug: /what-is-effectstream-engine
+slug: /what-is-effectstream
 ---
 
 # What is Effectstream?

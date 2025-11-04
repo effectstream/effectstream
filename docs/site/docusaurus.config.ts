@@ -48,8 +48,8 @@ async function getMarkdownFiles() {
 const config = {
   title: "Effectstream",
   //  tagline: 'Getting started',
-  url: "https://acedward.github.io",
-  baseUrl: "/paima-v-next-docs/",
+  url: "https://effectstream.github.io",
+  baseUrl: "/docs/",
   onBrokenLinks: "warn",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
