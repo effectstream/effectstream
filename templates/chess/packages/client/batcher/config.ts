@@ -32,7 +32,8 @@ export const config: PaimaBatcherConfig = {
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },
-  confirmationLevel: "wait-paima-processed",
+  // TODO: rename to wait-effectstream-processed
+  confirmationLevel: "wait-paima-processed", // Connector expectation
   enableEventSystem: true,
   port,
 };

@@ -1,5 +1,5 @@
 // list of built-in primitives
-// this list is exposed to the paima-sdk modules via the @paima/sm/builtin module
+// this list is exposed to the effectstream-sdk modules via the @effectstream/sm/builtin module
 export const PrimitiveTypeMidnightGeneric = "Midnight:Generic" as const;
 
 export const PrimitiveTypeEVMPaimaL2 = "EVM:PaimaL2" as const;

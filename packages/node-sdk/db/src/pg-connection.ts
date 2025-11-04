@@ -1,8 +1,8 @@
 import type { Client, PoolClient, PoolConfig } from "pg";
 import pg from "pg";
-import { ComponentNames, log, SeverityNumber } from "@paima/log";
+import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import { type Operation, run, sleep } from "effection";
-import { ENV } from "@paima/utils/node-env";
+import { ENV } from "@effectstream/utils/node-env";
 
 let readonlyDBConn: pg.Pool | null;
 

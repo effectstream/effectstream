@@ -3,6 +3,6 @@ export default `
 set -g mouse on
 
 # Spawn our children.
-new-session -d -- deno -A @paima/tui/logs
-split-window -h -- deno -A @paima/tui/tui
+new-session -d -- deno -A @effectstream/tui/logs
+split-window -h -- deno -A @effectstream/tui/tui
 `;

@@ -1,4 +1,4 @@
-import { AddressType } from "@paima/utils";
+import { AddressType } from "@effectstream/utils";
 
 export interface DefaultBatcherInput {
   addressType: AddressType;

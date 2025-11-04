@@ -1,5 +1,5 @@
 {
-    "name": "@paima/evm-hardhat",
+    "name": "@effectstream/evm-hardhat",
     "version": "0.3.0",
     "license": "MIT",
     "tasks": {

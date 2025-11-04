@@ -1,16 +1,16 @@
 
-# Paima Engine Components
+# Effectstream Components
 
 * [Chain Sync](./101-sync-service.md)
 * [State Machine](./102-state-machine.md)
-* [PaimaL2 Contract](./104-paima-l2-contract.md)
+* [Effectstream L2 Contract](./104-effectstream-l2-contract.md)
 * [Grammar](./111-grammar.md)
 * [Frontend](./115-frontend.md)
 * [API](./103-api.md)
 * [Contracts](./105-contracts.md)
 * [Orchestrator and Processes](./106-processes.md)
 * [Block Explorer](./107-explorer.md)
-* [Batcher](./108-batcher.md)
+* [Batcher](./108-batcher/1200-overview.md)
 * [Database](./109-database.md)
 * [Logs](./110-logs.md)
 * [Wallets](./112-wallets.md)

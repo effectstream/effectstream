@@ -3,8 +3,8 @@ import type {
   EvmBlockHash,
   EvmRpcPageJson,
   TimestampMs,
-} from "@paima/utils";
-import { TypeboxHelpers } from "@paima/utils";
+} from "@effectstream/utils";
+import { TypeboxHelpers } from "@effectstream/utils";
 import type { Chain, GetBlockReturnType } from "viem";
 import type { PageSyncRange } from "../common/page-helpers.ts";
 import { Type } from "@sinclair/typebox";
@@ -14,7 +14,7 @@ import type {
   FlattenSyncProtocolIOFor,
   PrimitiveEntry,
   SyncProtocolWithNetwork,
-} from "@paima/config";
+} from "@effectstream/config";
 
 export type Page = BlockNumber;
 const PageJsonSchema = Type.Unsafe<

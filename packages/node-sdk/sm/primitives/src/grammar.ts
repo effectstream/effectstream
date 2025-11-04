@@ -1,5 +1,5 @@
 // list of built-in grammars
-// this list is exposed to the paima-sdk modules via the @paima/sm/grammar module
+// this list is exposed to the effectstream-sdk modules via the @effectstream/sm/grammar module
 
 import { midnightGenericGrammar } from "./midnight-generic/midnight-genetic-grammar.ts";
 import { erc721Grammar } from "./evm-erc721/erc721-grammar.ts";

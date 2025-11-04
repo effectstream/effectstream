@@ -1,5 +1,5 @@
 {
-    "name": "@paima/batcher-old",
+    "name": "@effectstream/batcher-old",
     "version": "0.3.0",
     "license": "MIT",
     "exports": {

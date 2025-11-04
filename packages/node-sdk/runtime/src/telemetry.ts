@@ -1,7 +1,7 @@
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import opentelemetry from "@opentelemetry/api";
-import { defaultOtelSetup, PaimaTelemetryContext } from "@paima/log";
+import { defaultOtelSetup, PaimaTelemetryContext } from "@effectstream/log";
 import type { Operation } from "effection";
 import fs from "node:fs";
 import path from "node:path";
@@ -20,8 +20,8 @@ const version = "0.3.0";
 
 export function* initTelemetry(): Operation<void> {
   const sdk = new NodeSDK({
-    ...defaultOtelSetup("paima-node", version), // DenoConfig.version),
-    // TODO: set OTEL_EXPORTER_OTLP_PROTOCOL to json for @paima/collector support until it supports protobuf
+    ...defaultOtelSetup("effectstream-node", version), // DenoConfig.version),
+    // TODO: set OTEL_EXPORTER_OTLP_PROTOCOL to json for @effectstream/collector support until it supports protobuf
     instrumentations: [getNodeAutoInstrumentations()],
   });
 

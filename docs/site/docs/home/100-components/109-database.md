@@ -1,6 +1,6 @@
 # Database
 
-Paima Engine uses a SQL Database and tooling to support dApps:
+Effectstream uses a SQL Database and tooling to support dApps:
 * Define custom tables and migrations.
 * Define at what block number migrations get applied.
 * Write custom SQL queries, and they get compiled to typescript.
@@ -22,7 +22,7 @@ CREATE TABLE my_table (
 `/backend/database/src/migration-order.ts`
 
 ```ts
-import type { DBMigrations } from "@paima/runtime";
+import type { DBMigrations } from "@effectstream/runtime";
 import firstSql from "./migrations/first.sql" with { type: "text" };
 import secondSql from "./migrations/second.sql" with { type: "text" };
 import thirdSql from "./migrations/third.sql" with { type: "text" };
@@ -51,7 +51,7 @@ export const migrationTable: DBMigrations[] = [
   },
 ];
 ```
-> You can define the "versionDependency" field to enforce that that version or greater of Paima Engine will be running when the migration is applied.
+> You can define the "versionDependency" field to enforce that that version or greater of Effectstream will be running when the migration is applied.
 
 > "blockHeight" field allows to define in what exact blockHeight the migration will be applied. 1 is default.
 

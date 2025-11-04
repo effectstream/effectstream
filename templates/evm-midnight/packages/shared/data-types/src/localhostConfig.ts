@@ -21,6 +21,7 @@ const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
 const dbConn = getConnection();
 try {
+  // TODO Update to effectstream.sync_protocol_pagination
   const result = await dbConn.query(`
     SELECT * FROM paima.sync_protocol_pagination 
     WHERE protocol_name = '${mainSyncProtocolName}' 

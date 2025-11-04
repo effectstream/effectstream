@@ -1,9 +1,9 @@
 import {
   builtinGrammars
-} from "@paima/sm/grammar";
+} from "@effectstream/sm/grammar";
 
 import { Type } from "@sinclair/typebox";
-import type { GrammarDefinition } from "@paima/concise";
+import type { GrammarDefinition } from "@effectstream/concise";
 
 export const paimaL2Grammar = {
   schedule: [

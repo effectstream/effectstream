@@ -32,7 +32,7 @@ constructor(
 
 export circuit uri(id: Uint<128>): Opaque<"string"> {
   // TODO This is a read-only function, but when called the proof is sent, 
-  //      and the transaction update the paima-engine midnight fetcher.
+  //      and the transaction update the effectstream-engine midnight fetcher.
   //      and we need to distinguish between function calls.
   actionName = 900;
   return MultiToken_uri(id);

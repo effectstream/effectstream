@@ -17,12 +17,12 @@
     "@nomicfoundation/hardhat-utils": "npm:@nomicfoundation/hardhat-utils@3.0.0" // required for https://github.com/NomicFoundation/hardhat/issues/6472
   },
   "tasks": {
-    "swap:remappings:forge": "deno -A @paima/evm-hardhat/remappings-forge --depth 4",
-    "swap:remappings:hardhat": "deno -A @paima/evm-hardhat/remappings-hardhat",
+    "swap:remappings:forge": "deno -A @effectstream/evm-hardhat/remappings-forge --depth 4",
+    "swap:remappings:hardhat": "deno -A @effectstream/evm-hardhat/remappings-hardhat",
     "check": "echo 'check'",
     "build:mod": {
       // deploy:standalone does not return 'success', as the hardhat process is terminated by chain:stop - so it cannot be invoked as dependency
-      "command": "(deno task deploy:standalone || true) && deno run -A @paima/evm-hardhat/builder"
+      "command": "(deno task deploy:standalone || true) && deno run -A @effectstream/evm-hardhat/builder"
     },
     "build:clean": "rm -rf build || true",
     "build:forge": {

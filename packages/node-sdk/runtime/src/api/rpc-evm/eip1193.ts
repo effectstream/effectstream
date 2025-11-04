@@ -12,7 +12,7 @@ import {
 import {
   // getBlockByHash,
   getLatestProcessedBlockHeight,
-} from "@paima/db";
+} from "@effectstream/db";
 import type { Pool } from "pg";
 import {
   type EIP1193Parameters,
@@ -37,8 +37,8 @@ import {
   strip0x,
 } from "./rpc-utils.ts";
 const { keccak_256 } = sha3;
-import { runPreparedQuery } from "@paima/db";
-import { ENV } from "@paima/utils/node-env";
+import { runPreparedQuery } from "@effectstream/db";
+import { ENV } from "@effectstream/utils/node-env";
 
 export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
   const engine = new JsonRpcEngine();
@@ -52,7 +52,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
    */
 
   // TODO: Most of these methods are not implemented, or partially implemented.
-  //       Check paima-v1 eip1193.ts for the full implementation details.
+  //       Check effectstream-v1 eip1193.ts for the full implementation details.
   engine.push(
     createAsyncMiddleware(async (req, res) => {
       const evmRpc: typeof req & EIP1193Parameters<PaimaEvmRpcSchema> =
@@ -88,7 +88,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
         }
         case "eth_sendRawTransaction": {
           // TODO: we can probably support this
-          //       but supporting this conversion would have to be a Paima-level feature and not a EVM-RPC feature
+          //       but supporting this conversion would have to be a Effectstream-level feature and not a EVM-RPC feature
           res.error = createMethodNotSupportedRpcError(
             evmRpc.method,
             `${evmRpc.method} currently unsupported`,

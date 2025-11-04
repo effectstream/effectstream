@@ -1,14 +1,10 @@
 import {
   OrchestratorConfig,
-  type ProcessComponent,
   start,
 } from "@paimaexample/orchestrator";
 import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
-// import { launchAvail } from "@paima/orchestrator/start-avail";
-// import { launchCardano } from "@paimaexample/orchestrator/start-cardano";
 import { launchEvm } from "@paimaexample/orchestrator/start-evm";
-// import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 
 const config = Value.Parse(OrchestratorConfig, {
   packageName: "@paimaexample",
@@ -19,12 +15,11 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.COLLECTOR]: false,
     [ComponentNames.TMUX]: false,
     [ComponentNames.TUI]: false,
-    [ComponentNames.DOCS]: false,
   },
 
   // Launch my processes
   processesToLaunch: [
-    launchEvm("@minimal/evm-contracts"),
+    ...launchEvm("@minimal/evm-contracts"),
   ],
   // Launch the Batcher with our PaimaL2 Contract
   // batcher: {

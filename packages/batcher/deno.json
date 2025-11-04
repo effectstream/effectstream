@@ -1,5 +1,5 @@
 {
-  "name": "@paima/batcher",
+  "name": "@effectstream/batcher",
   "exports": "./mod.ts",
   "version": "0.3.0",
   "license": "MIT",

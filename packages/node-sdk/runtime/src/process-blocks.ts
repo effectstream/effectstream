@@ -1,13 +1,13 @@
-import type { ChainBlock } from "@paima/sync";
+import type { ChainBlock } from "@effectstream/sync";
 import { call, type Operation, until } from "effection";
 import type { Pool } from "pg";
-import { type BaseStfInput, primitiveTransitionFunction } from "@paima/sm";
+import { type BaseStfInput, primitiveTransitionFunction } from "@effectstream/sm";
 import { PreparedQuery } from "@pgtyped/runtime";
 import type {
   ExecPromise,
   QueuedUpdate,
   SyncStateUpdateStream,
-} from "@paima/coroutine";
+} from "@effectstream/coroutine";
 import {
   blockHeightDone,
   deleteScheduled,
@@ -16,12 +16,12 @@ import {
   insertGameInputResult,
   removePages,
   saveLastBlock,
-} from "@paima/db";
+} from "@effectstream/db";
 import { Buffer } from "node:buffer";
-import { ComponentNames, log, SeverityNumber } from "@paima/log";
+import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { StartConfig } from "./types.ts";
-import type { BlockNumber, PaimaBlockHash } from "@paima/utils";
-import { generatePaimaBlockHash, Prando } from "@paima/crypto";
+import type { BlockNumber, PaimaBlockHash } from "@effectstream/utils";
+import { generatePaimaBlockHash, Prando } from "@effectstream/crypto";
 import { applyUserMigrations } from "./version-migrations.ts";
 
 /** Helper to check if a SyncStateUpdateStream object is a WorldResolve */
@@ -239,7 +239,7 @@ export function* processFinalizedBlock(
           insertGameInputResult.run({
             id: data.id,
             success,
-            paima_tx_hash: Buffer.from(conciseInputHash),
+            effectstream_tx_hash: Buffer.from(conciseInputHash),
             index_in_block,
             block_height: value.blockNumber,
           }, dbConn),

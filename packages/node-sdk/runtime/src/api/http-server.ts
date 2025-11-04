@@ -16,8 +16,8 @@ import {
   releaseDBMutex,
   runPreparedQuery,
   waitUntilFree,
-} from "@paima/db";
-import { ENV } from "@paima/utils/node-env";
+} from "@effectstream/db";
+import { ENV } from "@effectstream/utils/node-env";
 import type {
   AllSyncProtocols,
   AvailFetcher,
@@ -25,7 +25,7 @@ import type {
   MidnightFetcher,
   NtpFetcher,
   UtxoRpcFetcher,
-} from "@paima/sync";
+} from "@effectstream/sync";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
 } from "@fastify/swagger";
@@ -34,7 +34,7 @@ import fastifySwaggerUi, {
 } from "@fastify/swagger-ui";
 import { Type } from "@sinclair/typebox";
 import type { StartConfigApiRouter } from "../types.ts";
-import type { GrammarDefinition } from "@paima/concise";
+import type { GrammarDefinition } from "@effectstream/concise";
 import {
   createPaginatedResponseSchema,
   createPaginationMeta,
@@ -44,8 +44,8 @@ import {
   PaginationQuerySchema,
   type TypePaginationQuerySchema,
 } from "./pagination.ts";
-import { PaimaPrimitiveRegistry } from "@paima/sm";
-import { ConfigNetworkType } from "@paima/config";
+import { PaimaPrimitiveRegistry } from "@effectstream/sm";
+import { ConfigNetworkType } from "@effectstream/config";
 
 function tableListContains(
   list: Array<{ table_name: string | null }>,

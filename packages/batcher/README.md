@@ -1,4 +1,4 @@
-# Paima Batcher
+# Batcher
 
 A blockchain batching system for aggregating and submitting user inputs to
 multiple chains.
@@ -29,7 +29,7 @@ import {
   FileStorage,
   PaimaBatcherConfig,
   PaimaL2DefaultAdapter,
-} from "@paima/batcher";
+} from "@effectstream/batcher";
 
 // Create an adapter for your blockchain
 const paimaL2 = new PaimaL2DefaultAdapter(
@@ -48,7 +48,7 @@ const config: PaimaBatcherConfig = {
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: 1000 },
   },
-  confirmationLevel: "wait-paima-processed",
+  confirmationLevel: "wait-effectstream-processed",
   enableEventSystem: true,
   port: 3334,
 };
@@ -60,7 +60,7 @@ const storage = new FileStorage("./batcher-data");
 
 ```typescript
 import { main, suspend } from "effection";
-import { PaimaBatcher } from "@paima/batcher";
+import { PaimaBatcher } from "@effectstream/batcher";
 
 const batcher = new PaimaBatcher(config, storage);
 
@@ -179,7 +179,7 @@ type PaimaBatcherConfig = {
     };
   };
 
-  // Wait behavior: "no-wait" | "wait-receipt" | "wait-paima-processed"
+  // Wait behavior: "no-wait" | "wait-receipt" | "wait-effectstream-processed"
   confirmationLevel?: string | Record<string, string>;
 
   // Enable HTTP REST API
@@ -307,7 +307,7 @@ When calling `batchInput()`, choose how long to wait:
 
 - **`no-wait`** - Return immediately after queuing
 - **`wait-receipt`** - Wait for blockchain transaction receipt
-- **`wait-paima-processed`** - Wait until Paima Engine processes the batch
+- **`wait-effectstream-processed`** - Wait until Paima Engine processes the batch
 
 ```typescript
 // Don't wait
@@ -317,7 +317,7 @@ await batcher.batchInput(input, "no-wait");
 const receipt = await batcher.batchInput(input, "wait-receipt");
 
 // Wait for full processing
-const result = await batcher.batchInput(input, "wait-paima-processed");
+const result = await batcher.batchInput(input, "wait-effectstream-processed");
 console.log(`Processed in rollup block ${result.rollup}`);
 ```
 

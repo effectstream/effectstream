@@ -1,7 +1,7 @@
 import { until } from "effection";
 
 // This import causes a circular dependency with the sync package.
-// import type { AllSyncProtocols } from "@paima/sync";
+// import type { AllSyncProtocols } from "@effectstream/sync";
 import type { PoolClient } from "pg";
 import type { VersionInfo } from "../migrations/system-version.ts";
 import { applyMigrations } from "../scripts/apply-migrations.ts";

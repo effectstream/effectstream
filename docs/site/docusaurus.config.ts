@@ -46,18 +46,18 @@ async function getMarkdownFiles() {
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Paima Engine",
+  title: "Effectstream",
   //  tagline: 'Getting started',
-  url: "https://docs.paimastudios.com",
-  baseUrl: "/",
+  url: "https://effectstream.github.io",
+  baseUrl: "/docs/",
   onBrokenLinks: "warn",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: "Paima Studios", // Usually your GitHub org/user name.
-  projectName: "paima-engine-docs", // Usually your repo name.
+  organizationName: "Effectstream", // Usually your GitHub org/user name.
+  projectName: "effectstream-engine-docs", // Usually your repo name.
 
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
@@ -207,12 +207,12 @@ const config = {
         id: 'v2-announcement',
         content: `
       <div class="custom-banner">
-        <p><strong>You are looking at Paima Engine v2 docs</strong></p>
-        <p>Paima Engine v2 is still under construction🚧</p>
+        <p><strong>You are looking at Effectstream v2 docs</strong></p>
+        <p>Effectstream v2 is still under construction🚧</p>
       </div>
     `,
-        backgroundColor: '#2B3831', 
-        textColor: '#ffffff',
+        backgroundColor: '#fffcf9', 
+        textColor: '#ef476f',
         isCloseable: false,
       },
       colorMode: {
@@ -238,9 +238,9 @@ const config = {
       },
       image: 'img/paima-banner.png',
       navbar: {
-        title: "Paima",
+        title: "Effectstream",
         logo: {
-          alt: "Paima logo",
+          alt: "Effectstream logo",
           src: "img/favicon.ico",
           href: "/",
           target: '_self',          
@@ -307,7 +307,7 @@ const config = {
         //     ],
         //   },
         // ],
-        copyright: `Copyright © ${new Date().getFullYear()} Paima Studios. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Midnight Foundation. Built with Docusaurus.`,
       },
       prism: {
         darkTheme: themes.dracula,

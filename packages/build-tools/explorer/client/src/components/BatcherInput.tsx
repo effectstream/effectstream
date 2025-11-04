@@ -3,7 +3,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { BATCHER_ENDPOINT, GRAMMAR_ENDPOINT } from "../config.ts";
-import { createMessageForBatcher } from "@paima/concise";
+import { createMessageForBatcher } from "@effectstream/concise";
 
 const AddressType = {
   EVM: 0,

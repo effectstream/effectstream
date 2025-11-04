@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-all
-import { ENV } from "@paima/utils/node-env";
-import type { ValueOf } from "@paima/utils";
+import { ENV } from "@effectstream/utils/node-env";
+import type { ValueOf } from "@effectstream/utils";
 import "./http-server.ts";
 import { dkill } from "@sylc/dkill";
 
@@ -18,9 +18,9 @@ import {
   setForegroundProcess,
   shutdown,
 } from "./process.ts";
-import { ComponentNames } from "@paima/log";
+import { ComponentNames } from "@effectstream/log";
 import { Tmux } from "./tmux/tmux.ts";
-import type { LaunchableComponents } from "@paima/log";
+import type { LaunchableComponents } from "@effectstream/log";
 import { type Static, Type } from "@sinclair/typebox";
 
 let appConfig: OrchestratorConfigType | null = null;
@@ -81,7 +81,7 @@ export const OrchestratorConfig = Type.Object({
   // nightly: jsr:@paimaexample
   // release: jsr:@paima
   // local development: @paima
-  packageName: Type.String({ default: "jsr:@paima" }),
+  packageName: Type.String({ default: "jsr:@effectstream" }),
   packageVersion: Type.String({ default: "" }),
 
   // Processes to start

@@ -1,7 +1,7 @@
 import type { Operation } from "effection";
 import { all, lift, sleep } from "effection";
-import { retry } from "@paima/utils";
-import type { IntervalMs, Json } from "@paima/utils";
+import { retry } from "@effectstream/utils";
+import type { IntervalMs, Json } from "@effectstream/utils";
 import stableStringify from "json-stable-stringify";
 
 export type PageRange<Page> = {

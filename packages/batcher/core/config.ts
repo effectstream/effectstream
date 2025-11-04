@@ -117,7 +117,7 @@ export const PerAdapterBatchingCriteriaSchema = Type.Optional(
 export type ConfirmationLevel =
   | "no-wait"
   | "wait-receipt"
-  | "wait-paima-processed";
+  | "wait-effectstream-processed";
 
 export interface PaimaBatcherConfig<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
@@ -209,14 +209,14 @@ export const PaimaBatcherConfigSchema = Type.Object({
       Type.Union([
         Type.Literal("no-wait"),
         Type.Literal("wait-receipt"),
-        Type.Literal("wait-paima-processed"),
+        Type.Literal("wait-effectstream-processed"),
       ]),
       Type.Record(
         Type.String(),
         Type.Union([
           Type.Literal("no-wait"),
           Type.Literal("wait-receipt"),
-          Type.Literal("wait-paima-processed"),
+          Type.Literal("wait-effectstream-processed"),
         ]),
       ),
     ], { default: DEFAULT_CONFIG_VALUES.confirmationLevel }),

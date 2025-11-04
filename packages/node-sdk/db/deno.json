@@ -1,5 +1,5 @@
 {
-  "name": "@paima/db",
+  "name": "@effectstream/db",
   "version": "0.3.0",
   "license": "MIT",
   "exports": {
@@ -12,7 +12,7 @@
     "./version": "./migrations/system-version.ts"
   },
   "tasks": {
-    "pgtyped:update": "deno task _build:assets && ((kill -9 $(lsof -ti:5432)) || true) && deno run -A @paima/db/pgtyped-update",
+    "pgtyped:update": "deno task _build:assets && ((kill -9 $(lsof -ti:5432)) || true) && deno run -A @effectstream/db/pgtyped-update",
     "_build:assets": "(rm migrations/assets.ts || true) && deno run --allow-read jsr:@codemonument/asset-builder --import-file assets-config.json > ./migrations/assets.ts"
   },
   "imports": {

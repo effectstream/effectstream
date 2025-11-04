@@ -1,2 +1,2 @@
-DROP TABLE paima.paima_engine_version_history;
-DROP TABLE paima.paima_engine_migration_history;
+DROP TABLE effectstream.effectstream_version_history;
+DROP TABLE effectstream.effectstream_migration_history;

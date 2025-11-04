@@ -25,7 +25,7 @@ const BatcherInputWrapper = Type.Object({
   confirmationLevel: Type.Union([
     Type.Literal("no-wait"),
     Type.Literal("wait-receipt"),
-    Type.Literal("wait-paima-processed"),
+    Type.Literal("wait-effectstream-processed"),
   ], {
     default: "wait-receipt",
   }),
@@ -49,9 +49,9 @@ async function registerOpenApiDocumentation(
   const openApiOptions: FastifyDynamicSwaggerOptions = {
     openapi: {
       info: {
-        title: "Paima Batcher",
+        title: "Batcher",
         description:
-          "Paima Batcher API - Simplified architecture with configuration-driven batching",
+          "Batcher API - Simplified architecture with configuration-driven batching",
         version: "2.0.0",
       },
       tags: [
@@ -306,7 +306,7 @@ export async function startBatcherHttpServer(
             transactionHash: result?.hash,
             inputsProcessed: 1,
           };
-        case "wait-paima-processed":
+        case "wait-effectstream-processed":
           return {
             success: true,
             message: "Input processed and validated by Paima Engine",
@@ -412,7 +412,7 @@ export async function startBatcherHttpServer(
         console.error("Batcher HTTP server error:", err);
         throw err;
       }
-      console.log(`🎯 Paima Batcher HTTP server running on ${address}`);
+      console.log(`🎯 Batcher HTTP server running on ${address}`);
       console.log(
         `📖 OpenAPI documentation available at ${address}/documentation`,
       );

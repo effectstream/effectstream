@@ -1,11 +1,11 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { runPreparedQuery } from "@paima/db";
+import { runPreparedQuery } from "@effectstream/db";
 import {
   getStateMachineInput,
   getStateMachineInputByBlockHeight,
 } from "@e2e/database";
 import type { Pool } from "pg";
-import type { StartConfigApiRouter } from "@paima/runtime";
+import type { StartConfigApiRouter } from "@effectstream/runtime";
 import type fastify from "fastify";
 
 // Definition of API Inputs and Outputs.

@@ -1,5 +1,5 @@
 {
-  "name": "@paima/orchestrator",
+  "name": "@effectstream/orchestrator",
   "version": "0.3.0",
   "license": "MIT",
   "exports": {
@@ -10,8 +10,8 @@
     "./start-midnight": "./scripts/launch-midnight.ts"
   },
   "tasks": {
-    // "db:up": "deno task -f @paima/db db:up",
-    "node:wait": "deno run -A @paima/db/db-wait && deno task -f @e2e/evm-contracts chain:wait"
+    // "db:up": "deno task -f @effectstream/db db:up",
+    "node:wait": "deno run -A @effectstream/db/db-wait && deno task -f @e2e/evm-contracts chain:wait"
   },
   "imports": {
     "@sylc/dkill": "jsr:@sylc/dkill@^0.12.3",

@@ -5,14 +5,14 @@ import {
   PAIMA_ENGINE_VERSION,
   parseVersion,
   type VersionInfo,
-} from "@paima/db/version";
+} from "@effectstream/db/version";
 import type { Operation } from "effection";
 import { until } from "npm:effection@3.5.0";
 import {
   getMigrationsForBlockHeight,
   insertPaimaEngineVersion,
-} from "@paima/db";
-import type { DBMigrations, VERSION } from "@paima/runtime";
+} from "@effectstream/db";
+import type { DBMigrations, VERSION } from "@effectstream/runtime";
 
 type SystemMigration = {
   version: VERSION;

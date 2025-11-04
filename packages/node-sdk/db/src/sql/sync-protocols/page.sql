@@ -1,5 +1,5 @@
 /* @name getPage */
-SELECT * FROM paima.sync_protocol_pagination
+SELECT * FROM effectstream.sync_protocol_pagination
 WHERE protocol_name = :protocol_name!
 ORDER BY page_number ASC
 LIMIT 1;
@@ -10,7 +10,7 @@ SELECT
   MIN(page_number) AS synced_page,
   MAX(page_number) AS fetched_page
 FROM
-  paima.sync_protocol_pagination
+ effectstream.sync_protocol_pagination
 GROUP BY
   protocol_name
 ORDER BY
@@ -18,13 +18,13 @@ ORDER BY
 
 
 /* @name removePages */
-DELETE FROM paima.sync_protocol_pagination
+DELETE FROM effectstream.sync_protocol_pagination
 WHERE protocol_name = :protocol_name!
 AND page_number < :page_number!;
 
 /* @name upsertPage */
 INSERT INTO
-    paima.sync_protocol_pagination (
+   effectstream.sync_protocol_pagination (
         protocol_name,
         page_number,
         page

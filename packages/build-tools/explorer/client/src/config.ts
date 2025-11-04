@@ -180,6 +180,6 @@ export const BATCHER_OPENAPI_URL =
 export const ENGINE_OPENAPI_URL =
   `http://localhost:${ENV.PAIMA_API_PORT}/documentation`;
 export const DOCUMENTATION_URL =
-  `https://acedward.github.io/paima-v-next-docs/`;
+  `https://effectstream.github.io/docs/`;
 export const ADDRESSES_ENDPOINT =
   `http://127.0.0.1:${ENV.PAIMA_API_PORT}/addresses`;

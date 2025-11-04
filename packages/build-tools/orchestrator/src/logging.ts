@@ -1,9 +1,9 @@
 import { parse } from "jsonc-parser";
 import fs from "node:fs";
 import { NodeSDK } from "@opentelemetry/sdk-node";
-import { ComponentNames, defaultOtelSetup } from "@paima/log";
-import { log, type Namespace, SeverityNumber } from "@paima/log";
-import type { ValueOf } from "@paima/utils";
+import { ComponentNames, defaultOtelSetup } from "@effectstream/log";
+import { log, type Namespace, SeverityNumber } from "@effectstream/log";
+import type { ValueOf } from "@effectstream/utils";
 
 const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
 
@@ -69,7 +69,7 @@ const decoder = new TextDecoder();
 
 /**
  * Print the string as-is directly to console
- * This is to avoid a formatting loop where @paima/collector wraps its own logs
+ * This is to avoid a formatting loop where @effectstream/collector wraps its own logs
  */
 export const rawLogHandler: LogHandler = (
   chunk,
@@ -139,7 +139,7 @@ export const remoteLogHandler: LogHandler = (
 
 export function initTelemetry(): void {
   const sdk = new NodeSDK({
-    ...defaultOtelSetup("@paima/orchestrator", DenoConfig.version),
+    ...defaultOtelSetup("@effectstream/orchestrator", DenoConfig.version),
   });
 
   sdk.start();

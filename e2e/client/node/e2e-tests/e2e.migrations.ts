@@ -12,7 +12,7 @@ export async function testMigrations(db: Client) {
     block_height: number;
   }>(
     db,
-    "SELECT * FROM paima.paima_engine_version_history ORDER BY block_height DESC LIMIT 1",
+    "SELECT * FROM effectstream.effectstream_version_history ORDER BY block_height DESC LIMIT 1",
     "test-version",
   );
 
@@ -34,7 +34,7 @@ export async function testMigrations(db: Client) {
     is_system_migration: boolean;
   }>(
     db,
-    "SELECT * FROM paima.paima_engine_migration_history",
+    "SELECT * FROM effectstream.effectstream_migration_history",
     "test-migrations",
   );
 

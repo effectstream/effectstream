@@ -1,18 +1,18 @@
 # Primitives
 
-Primitives are the fundamental building blocks of Paima Engine's data-ingestion layer. They act as specialized, chain-aware listeners that connect the **Sync Service** to your **State Machine**.
+Primitives are the fundamental building blocks of Effectstream's data-ingestion layer. They act as specialized, chain-aware listeners that connect the **Sync Service** to your **State Machine**.
 
 Each primitive is configured to monitor a specific on-chain address (like a smart contract) for a particular type of event or state change. When a matching event occurs, the primitive's job is to:
 
 1.  **Parse** the raw on-chain data from the event.
 2.  **Transform** it into a structured, type-safe JSON object.
-3.  **Generate** an input that the Paima Engine can schedule for execution by your State Machine.
+3.  **Generate** an input that the Effectstream can schedule for execution by your State Machine.
 
-This creates a deterministic and reliable pipeline from raw blockchain events to your dApp's business logic. Paima Engine offers two types of primitives: built-in and custom.
+This creates a deterministic and reliable pipeline from raw blockchain events to your dApp's business logic. Effectstream offers two types of primitives: built-in and custom.
 
 ## Built-in Primitives
 
-Paima Engine provides a suite of pre-built primitives for the most common blockchain standards, such as ERC20, ERC721, and the `PaimaL2Contract`. Using these is the quickest and easiest way to integrate standard on-chain assets and actions into your application.
+Effectstream provides a suite of pre-built primitives for the most common blockchain standards, such as ERC20, ERC721, and the `PaimaL2Contract`. Using these is the quickest and easiest way to integrate standard on-chain assets and actions into your application.
 
 ### How to Use
 You configure built-in primitives within your `localhostConfig.ts` file using the `.buildPrimitives()` step of the `ConfigBuilder`. You simply need to provide the primitive's type, the contract address to monitor, and the `stateMachinePrefix` that will trigger the corresponding State Transition Function (STF).
@@ -21,7 +21,7 @@ For example, here is how you would configure a primitive to track an `ERC721` NF
 
 ```ts
 // In your localhostConfig.ts
-import { PrimitiveTypeEVMERC721 } from "@paimaexample/sm/builtin";
+import { PrimitiveTypeEVMERC721 } from "@effectstream/sm/builtin";
 
 // ... inside new ConfigBuilder() ...
   .buildPrimitives(builder =>
@@ -160,7 +160,7 @@ override getConfig(): ProtocolPrimitiveMap[ConfigSyncProtocolType.EVM_RPC_PARALL
 
 #### 4. Register the Custom Primitive
 
-The final step is to register your custom primitive class in your `main.ts` file. This tells the Paima Engine how to instantiate your primitive when it sees its `internalTypeName` in the configuration.
+The final step is to register your custom primitive class in your `main.ts` file. This tells the Effectstream how to instantiate your primitive when it sees its `internalTypeName` in the configuration.
 
 ```ts
 // In packages/client/node/src/main.ts

@@ -1046,7 +1046,7 @@ export interface IInternalStateEResult {
   block_height: number;
   id: number;
   index_in_block: number;
-  paima_tx_hash: Buffer;
+  effectstream_tx_hash: Buffer;
   success: boolean;
 }
 

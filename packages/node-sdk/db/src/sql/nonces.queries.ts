@@ -18,12 +18,12 @@ export interface IFindNonceQuery {
   result: IFindNonceResult;
 }
 
-const findNonceIR: any = {"usedParamSet":{"nonce":true},"params":[{"name":"nonce","required":false,"transform":{"type":"scalar"},"locs":[{"a":41,"b":46}]}],"statement":"SELECT * FROM paima.nonces\nWHERE nonce = :nonce"};
+const findNonceIR: any = {"usedParamSet":{"nonce":true},"params":[{"name":"nonce","required":false,"transform":{"type":"scalar"},"locs":[{"a":48,"b":53}]}],"statement":"SELECT * FROM effectstream.nonces\nWHERE nonce = :nonce"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.nonces
+ * SELECT * FROM effectstream.nonces
  * WHERE nonce = :nonce
  * ```
  */
@@ -44,12 +44,12 @@ export interface IDeleteNoncesQuery {
   result: IDeleteNoncesResult;
 }
 
-const deleteNoncesIR: any = {"usedParamSet":{"limit_block_height":true},"params":[{"name":"limit_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":47,"b":66}]}],"statement":"DELETE FROM paima.nonces\nWHERE block_height <= :limit_block_height!"};
+const deleteNoncesIR: any = {"usedParamSet":{"limit_block_height":true},"params":[{"name":"limit_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":54,"b":73}]}],"statement":"DELETE FROM effectstream.nonces\nWHERE block_height <= :limit_block_height!"};
 
 /**
  * Query generated from SQL:
  * ```
- * DELETE FROM paima.nonces
+ * DELETE FROM effectstream.nonces
  * WHERE block_height <= :limit_block_height!
  * ```
  */
@@ -71,12 +71,12 @@ export interface IInsertNonceQuery {
   result: IInsertNonceResult;
 }
 
-const insertNonceIR: any = {"usedParamSet":{"nonce":true,"block_height":true},"params":[{"name":"nonce","required":true,"transform":{"type":"scalar"},"locs":[{"a":54,"b":60}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":63,"b":76}]}],"statement":"INSERT INTO paima.nonces(nonce, block_height)\nVALUES (:nonce!, :block_height!)"};
+const insertNonceIR: any = {"usedParamSet":{"nonce":true,"block_height":true},"params":[{"name":"nonce","required":true,"transform":{"type":"scalar"},"locs":[{"a":61,"b":67}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":70,"b":83}]}],"statement":"INSERT INTO effectstream.nonces(nonce, block_height)\nVALUES (:nonce!, :block_height!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima.nonces(nonce, block_height)
+ * INSERT INTO effectstream.nonces(nonce, block_height)
  * VALUES (:nonce!, :block_height!)
  * ```
  */

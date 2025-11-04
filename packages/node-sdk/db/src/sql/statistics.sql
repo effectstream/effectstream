@@ -1,8 +1,8 @@
 /* @name getInputsTotal */
 WITH scheduled_split AS (
   SELECT CASE WHEN primitive_name IS NULL AND caip2 IS NOT NULL THEN 1 ELSE 0 END as submitted_input
-  FROM paima.rollup_inputs
-  JOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id
+  FROM effectstream.rollup_inputs
+  JOIN effectstream.rollup_input_origin ON effectstream.rollup_inputs.id = effectstream.rollup_input_origin.id
 )
 SELECT
     COUNT(CASE WHEN submitted_input = 1 THEN 1 END) AS "submitted_inputs!",
@@ -12,9 +12,9 @@ FROM scheduled_split;
 /* @name getInputsForBlock */
 WITH scheduled_split AS (
   SELECT CASE WHEN primitive_name IS NULL AND caip2 IS NOT NULL THEN 1 ELSE 0 END as submitted_input
-  FROM paima.rollup_inputs
-  JOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id
-  JOIN paima.rollup_input_result ON paima.rollup_inputs.id = paima.rollup_input_result.id
+  FROM effectstream.rollup_inputs
+  JOIN effectstream.rollup_input_origin ON effectstream.rollup_inputs.id = effectstream.rollup_input_origin.id
+  JOIN effectstream.rollup_input_result ON effectstream.rollup_inputs.id = effectstream.rollup_input_result.id
   WHERE block_height = :block_height!
 )
 SELECT
@@ -25,11 +25,11 @@ FROM scheduled_split;
 /* @name getInputsForBlockHash */
 WITH scheduled_split AS (
   SELECT CASE WHEN primitive_name IS NULL AND caip2 IS NOT NULL THEN 1 ELSE 0 END as submitted_input
-  FROM paima.rollup_inputs
-  JOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id
-  JOIN paima.rollup_input_result ON paima.rollup_inputs.id = paima.rollup_input_result.id
-  JOIN paima.paima_blocks ON paima.paima_blocks.block_height = paima.rollup_input_result.block_height
-  WHERE (main_chain_block_hash = :block_hash! OR paima_block_hash = :block_hash!)
+  FROM effectstream.rollup_inputs
+  JOIN effectstream.rollup_input_origin ON effectstream.rollup_inputs.id = effectstream.rollup_input_origin.id
+  JOIN effectstream.rollup_input_result ON effectstream.rollup_inputs.id = effectstream.rollup_input_result.id
+  JOIN effectstream.effectstream_blocks ON effectstream.effectstream_blocks.block_height = effectstream.rollup_input_result.block_height
+  WHERE (main_chain_block_hash = :block_hash! OR effectstream_block_hash = :block_hash!)
 )
 SELECT
     COUNT(CASE WHEN submitted_input = 1 THEN 1 END) AS "submitted_inputs!",
@@ -39,9 +39,9 @@ FROM scheduled_split;
 /* @name getInputsForAddress */
 WITH scheduled_split AS (
   SELECT CASE WHEN primitive_name IS NULL AND caip2 IS NOT NULL THEN 1 ELSE 0 END as submitted_input
-  FROM paima.rollup_inputs
-  JOIN paima.rollup_input_origin ON paima.rollup_inputs.id = paima.rollup_input_origin.id
-  JOIN paima.rollup_input_result ON paima.rollup_inputs.id = paima.rollup_input_result.id
+  FROM effectstream.rollup_inputs
+  JOIN effectstream.rollup_input_origin ON effectstream.rollup_inputs.id = effectstream.rollup_input_origin.id
+  JOIN effectstream.rollup_input_result ON effectstream.rollup_inputs.id = effectstream.rollup_input_result.id
   WHERE
         (
           lower(from_address) = lower(:addr!) OR

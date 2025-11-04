@@ -5,7 +5,7 @@ import { config, storage } from "./config.ts";
 const batcher = new PaimaBatcher(config, storage);
 
 main(function* () {
-  console.log("🚀 Starting EVM Midnight Template Paima Batcher...");
+  console.log("🚀 Starting EVM Midnight Template Batcher...");
 
   try {
     batcher.addStateTransition("startup", ({ publicConfig }) => {

@@ -35,7 +35,7 @@ export interface TmuxOptions {
   command: string;
 
   /**
-   * The socket alias to use. Defaults to `paima-${Date.now()}`.
+   * The socket alias to use. Defaults to `effectstream-${Date.now()}`.
    */
   socket: string;
 }
@@ -74,7 +74,7 @@ export class Tmux {
   constructor(options: Partial<TmuxOptions> = {}) {
     this.options = {
       command: "tmux",
-      socket: `paima-${Date.now()}`,
+      socket: `effectstream-${Date.now()}`,
       ...options,
     };
   }

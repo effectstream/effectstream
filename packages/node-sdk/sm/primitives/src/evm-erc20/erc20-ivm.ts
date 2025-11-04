@@ -71,7 +71,7 @@ export function erc20Ivm(name: string) {
     
     -- Create trigger on primitive_accounting for ERC20 balances
     CREATE TRIGGER trigger_update_erc20_balances_${validSQLName}
-        AFTER INSERT ON paima.primitive_accounting  -- Note: Qualify with paima schema
+        AFTER INSERT ON effectstream.primitive_accounting  -- Note: Qualify with paima schema
         FOR EACH ROW
         EXECUTE FUNCTION update_erc20_balances_${validSQLName}();
     

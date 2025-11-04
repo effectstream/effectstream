@@ -1,11 +1,11 @@
 /* @name findNonce */
-SELECT * FROM paima.nonces
+SELECT * FROM effectstream.nonces
 WHERE nonce = :nonce;
 
 /* @name deleteNonces */
-DELETE FROM paima.nonces
+DELETE FROM effectstream.nonces
 WHERE block_height <= :limit_block_height!;
 
 /* @name insertNonce */
-INSERT INTO paima.nonces(nonce, block_height)
+INSERT INTO effectstream.nonces(nonce, block_height)
 VALUES (:nonce!, :block_height!);

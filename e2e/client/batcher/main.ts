@@ -1,5 +1,5 @@
 import { main, suspend } from "effection";
-import { PaimaBatcher } from "@paima/batcher";
+import { PaimaBatcher } from "@effectstream/batcher";
 import { config, storage } from "./config.ts";
 
 const batcher = new PaimaBatcher(config, storage);
@@ -33,7 +33,7 @@ batcher.addStateTransition("http:start", ({ port }) => {
 });
 
 main(function* () {
-  console.log("🚀 Starting Paima Batcher...");
+  console.log("🚀 Starting Batcher...");
   try {
     // Run the batcher with Effection structured concurrency
     yield* batcher.runBatcher();

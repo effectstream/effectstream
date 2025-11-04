@@ -5,7 +5,7 @@ import { config, storage } from "./config.ts";
 const batcher = new PaimaBatcher(config, storage);
 
 main(function* () {
-  console.log("🚀 Starting Paima Batcher...");
+  console.log("🚀 Starting Batcher...");
 
   try {
     // Chess-specific startup banner via state transition
