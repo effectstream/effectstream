@@ -27,6 +27,8 @@ export type MidnightContractInfo = MidnightContractAddressInfo & {
   /** Compiler-generated contract information */
   contractInfo: MidnightContractCompilerInfo;
   zkConfigPath: string;
+  /** Directory where the contract file is located */
+  contractDir: string;
 };
 
 const cachedContractInfo: Record<string, MidnightContractInfo> = {};
@@ -96,6 +98,94 @@ function isValidMidnightContractDir(dir: string, contractName: string): boolean 
   } catch {
     return false;
   }
+}
+
+/**
+* Finds the directory containing a Midnight contract by searching for the contract directory structure.
+* This is used during deployment when the contract.json file doesn't exist yet.
+* Searches for directories matching {contractName}/src/managed/ pattern.
+*/
+export function findContractDirectoryForDeploy(
+  contractName: string,
+  baseDir?: string
+): string | null {
+  let startDir: string;
+  
+  if (baseDir) {
+    startDir = path.resolve(baseDir);
+  } else {
+    startDir = Deno.cwd();
+  }
+  
+  let currentDir = path.resolve(startDir);
+  const root = path.parse(currentDir).root;
+  
+  while (currentDir !== root) {
+    try {
+      const entries = Array.from(Deno.readDirSync(currentDir));
+      
+      // Check if contract directory exists here
+      for (const entry of entries) {
+        if (entry.isDirectory && entry.name === contractName) {
+          // Validate it's a Midnight contract by checking for src/managed/
+          if (isValidMidnightContractDir(currentDir, contractName)) {
+            return currentDir;
+          }
+        }
+      }
+      
+      // Also search recursively in subdirectories (up to 3 levels deep)
+      for (const entry of entries) {
+        if (entry.isDirectory) {
+          const skipDirs = ["node_modules", ".git", "dist", "build", ".deno"];
+          if (skipDirs.includes(entry.name)) {
+            continue;
+          }
+          
+          try {
+            const subDir = path.join(currentDir, entry.name);
+            const subEntries = Array.from(Deno.readDirSync(subDir));
+            
+            // Check direct subdirectory
+            for (const subEntry of subEntries) {
+              if (subEntry.isDirectory && subEntry.name === contractName) {
+                if (isValidMidnightContractDir(subDir, contractName)) {
+                  return subDir;
+                }
+              }
+            }
+            
+            // Check one more level deep
+            for (const subEntry of subEntries) {
+              if (subEntry.isDirectory && !skipDirs.includes(subEntry.name)) {
+                const subSubDir = path.join(subDir, subEntry.name);
+                try {
+                  const subSubEntries = Array.from(Deno.readDirSync(subSubDir));
+                  for (const subSubEntry of subSubEntries) {
+                    if (subSubEntry.isDirectory && subSubEntry.name === contractName) {
+                      if (isValidMidnightContractDir(subSubDir, contractName)) {
+                        return subSubDir;
+                      }
+                    }
+                  }
+                } catch {
+                  // Skip if can't read
+                }
+              }
+            }
+          } catch {
+            // Skip if can't read
+          }
+        }
+      }
+      
+      currentDir = path.dirname(currentDir);
+    } catch {
+      currentDir = path.dirname(currentDir);
+    }
+  }
+  
+  return null;
 }
 
 /**
@@ -228,6 +318,7 @@ export function readMidnightContract(
       ...contractAddressInfo,
       contractInfo,
       zkConfigPath,
+      contractDir: moduleDir,
     };
     
     return cachedContractInfo[cacheKey];
