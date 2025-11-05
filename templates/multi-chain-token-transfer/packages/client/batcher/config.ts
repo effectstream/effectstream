@@ -5,7 +5,7 @@ import {
   type PaimaBatcherConfig,
   DefaultBatchBuilderLogic,
 } from "@paimaexample/batcher";
-import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
+import { readMidnightContract } from "@paimaexample/midnight/read-contract";
 import { MultiChainMultiToken, witnesses } from "@multi-chain-transfer/midnight-contracts/multichain_multitoken";
 import { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import { hardhat } from "viem/chains";
@@ -19,7 +19,7 @@ const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
 
-const { contractInfo, contractAddress, zkConfigPath } = readMidnightContract();
+const { contractInfo, contractAddress, zkConfigPath } = readMidnightContract("contract-eip-1155", "contract.json");
 
 const midnightAdapterConfig = {
   indexer: "http://localhost:8088/api/v1/graphql",

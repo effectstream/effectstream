@@ -32,21 +32,23 @@ export type MidnightContractInfo = MidnightContractAddressInfo & {
 const cachedContractInfo: Record<string, MidnightContractInfo> = {};
 
 /**
-* Recursively searches for a file in a directory and its subdirectories.
+* Recursively searches for all files matching a name in a directory and its subdirectories.
 * @param dir - The directory to search in
 * @param fileName - The file name to search for
 * @param maxDepth - Maximum depth to search (default: 5)
 * @param currentDepth - Current search depth (internal use)
-* @returns The directory containing the file, or null if not found
+* @returns Array of directories containing matching files
 */
-function findFileRecursive(
+function findAllFilesRecursive(
   dir: string,
   fileName: string,
   maxDepth: number = 5,
   currentDepth: number = 0
-): string | null {
+): string[] {
+  const results: string[] = [];
+  
   if (currentDepth > maxDepth) {
-    return null;
+    return results;
   }
   
   try {
@@ -58,7 +60,7 @@ function findFileRecursive(
     );
     
     if (hasFile) {
-      return dir;
+      results.push(dir);
     }
     
     // Then recursively search subdirectories
@@ -71,33 +73,56 @@ function findFileRecursive(
         }
         
         const subDir = path.join(dir, entry.name);
-        const found = findFileRecursive(subDir, fileName, maxDepth, currentDepth + 1);
-        if (found) {
-          return found;
-        }
+        const subResults = findAllFilesRecursive(subDir, fileName, maxDepth, currentDepth + 1);
+        results.push(...subResults);
       }
     }
   } catch {
     // Can't read directory, skip it
-    return null;
   }
   
-  return null;
+  return results;
+}
+
+/**
+* Validates that a directory contains a valid Midnight contract structure.
+* Checks if the contractName directory with src/managed/ exists.
+*/
+function isValidMidnightContractDir(dir: string, contractName: string): boolean {
+  const managedDir = path.join(dir, contractName, "src/managed");
+  try {
+    const stats = Deno.statSync(managedDir);
+    return stats.isDirectory;
+  } catch {
+    return false;
+  }
 }
 
 /**
 * Finds the directory containing contract files by searching from a starting directory upward.
 * At each level, recursively searches downward for the contract file.
+* Validates that found contract.json files belong to Midnight contracts.
+* This prevents confusion with EVM contract.json files or other similarly named files.
 */
-function findContractDirectory(startDir: string, contractFileName: string): string | null {
+function findContractDirectory(
+  startDir: string,
+  contractFileName: string,
+  contractName: string
+): string | null {
   let currentDir = path.resolve(startDir);
   const root = path.parse(currentDir).root;
   
   while (currentDir !== root) {
-    // Recursively search from current directory downward
-    const found = findFileRecursive(currentDir, contractFileName);
-    if (found) {
-      return found;
+    // Recursively search from current directory downward for ALL matching files
+    const foundDirs = findAllFilesRecursive(currentDir, contractFileName);
+    
+    // Validate each found directory to ensure it's a Midnight contract
+    for (const found of foundDirs) {
+      if (isValidMidnightContractDir(found, contractName)) {
+        return found;
+      }
+      // If not valid, continue checking other found directories
+      // This handles cases where multiple contract.json files exist
     }
     
     // Move up one directory
@@ -134,13 +159,16 @@ export function readMidnightContract(
   } else {
     // Search for the directory containing the contract file
     // Start from current working directory and walk up
-    const foundDir = findContractDirectory(Deno.cwd(), contractFileName);
+    // Pass contractName to validate we found the right contract.json (not an EVM one)
+    const foundDir = findContractDirectory(Deno.cwd(), contractFileName, contractName);
     
     if (!foundDir) {
       throw new Error(
-        `Could not find contract directory. Searched for ${contractFileName} starting from ${Deno.cwd()}. ` +
-        `Please ensure you're running from a directory that contains or is a parent of the contract files, ` +
-        `or provide an explicit baseDir parameter.`
+        `Could not find Midnight contract directory for "${contractName}". ` +
+        `Searched for ${contractFileName} starting from ${Deno.cwd()}. ` +
+        `Please ensure you're running from a directory that contains or is a parent of the Midnight contract files, ` +
+        `or provide an explicit baseDir parameter. ` +
+        `Note: This function only finds Midnight contracts (with src/managed/ structure), not EVM contracts.`
       );
     }
     

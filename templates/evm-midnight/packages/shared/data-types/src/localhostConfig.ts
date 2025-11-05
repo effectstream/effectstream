@@ -1,5 +1,5 @@
 import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
-import { readMidnightContract } from "@example-evm-midnight/midnight-contracts";
+import { readMidnightContract } from "@paimaexample/midnight/read-contract";
 
 import {
   ConfigBuilder,
@@ -129,7 +129,7 @@ export const localhostConfig = new ConfigBuilder()
           name: "MidnightContractState",
           type: PrimitiveTypeMidnightGeneric,
           startBlockHeight: 1,
-          contractAddress: readMidnightContract().contractAddress,
+          contractAddress: readMidnightContract("contract-round-value", "contract.json").contractAddress,
           stateMachinePrefix: "midnightContractState",
           contract: { ledger: CounterContract.ledger },
           networkId: 0, // NetworkId.Undeployed,

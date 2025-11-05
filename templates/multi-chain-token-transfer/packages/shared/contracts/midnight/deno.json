@@ -2,7 +2,6 @@
     "name": "@multi-chain-transfer/midnight-contracts",
     "version": "0.3.22",
     "exports": {
-        ".": "./read-contract.ts",
         "./multichain_multitoken": "./contract-eip-1155/src/index.original.ts"
     },
     "tasks": {

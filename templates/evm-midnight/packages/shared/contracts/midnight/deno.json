@@ -1,9 +1,7 @@
 {
     "name": "@example-evm-midnight/midnight-contracts",
     "version": "0.3.22",
-    "exports": {
-        ".": "./read-contract.ts"
-    },
+    "exports": {},
     "tasks": {
         "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs npm:@paimaexample/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
         "midnight-node:wait": "wait-on tcp:9944",
