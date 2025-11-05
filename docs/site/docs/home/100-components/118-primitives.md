@@ -168,7 +168,7 @@ import { MCTErc1155Primitive } from "@multi-chain-transfer/custom-primitive-mct-
 
 main(function* () {
   // ...
-  yield* withPaimaStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
     yield* start({
       // ...
       userDefinedPrimitives: {

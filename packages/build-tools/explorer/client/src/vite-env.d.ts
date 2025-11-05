@@ -7,10 +7,10 @@ interface ViteTypeOptions {
   }
   
   interface ImportMetaEnv {
-    readonly VITE_PAIMA_API_PORT: string
+    readonly VITE_EFFECTSTREAM_API_PORT: string
     readonly VITE_BATCHER_PORT: string
     readonly VITE_DOCS_PORT: string
-    readonly VITE_PAIMA_EXPLORER_PORT: string
+    readonly VITE_EFFECTSTREAM_EXPLORER_PORT: string
   }
   
   interface ImportMeta {

@@ -28,13 +28,10 @@ This section is a set of boolean flags to enable or disable core Paima developme
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
     // Starts an in-memory PostgreSQL database for development.
-    [ComponentNames.PAIMA_PGLITE]: true,
+    [ComponentNames.EFFECTSTREAM_PGLITE]: true,
 
     // Starts a local OpenTelemetry collector to aggregate logs.
     [ComponentNames.COLLECTOR]: true,
-
-    // Starts the Batcher service.
-    [ComponentNames.PAIMA_BATCHER]: true,
   },
   // ...
 });
@@ -101,7 +98,7 @@ import { OrchestratorConfig, start } from "@effectstream/orchestrator";
 const config = Value.Parse(OrchestratorConfig, {
   // Section 1: Enable built-in services
   processes: {
-    [ComponentNames.PAIMA_PGLITE]: true, // Use the dev database
+    [ComponentNames.EFFECTSTREAM_PGLITE]: true, // Use the dev database
     [ComponentNames.COLLECTOR]: true,   // Use the log collector
   },
 

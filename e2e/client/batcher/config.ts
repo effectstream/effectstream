@@ -1,6 +1,7 @@
 import {
   FileStorage,
-  type PaimaBatcherConfig,
+  type BatcherConfig,
+  type DefaultBatcherInput,
   PaimaL2DefaultAdapter,
   MidnightAdapter,
 } from "@effectstream/batcher";
@@ -54,7 +55,7 @@ export const midnightAdapter = new MidnightAdapter(
 );
 
 // Batcher config matching old behavior
-export const config: PaimaBatcherConfig = {
+export const config: BatcherConfig<DefaultBatcherInput> = {
   pollingIntervalMs: batchIntervalMs,
   enableHttpServer: true,
   namespace: "", // TODO start using namespace for signature verification security

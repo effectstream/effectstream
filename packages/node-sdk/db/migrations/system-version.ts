@@ -12,7 +12,7 @@ import {
 type VERSION = `${number}.${number}.${number}`;
 type VERSION_NUMBER = [number, number, number];
 // NOTE This must match the version of the root deno.json
-export const PAIMA_ENGINE_VERSION: VERSION = "0.3.20";
+export const EFFECTSTREAM_ENGINE_VERSION: VERSION = "0.3.20";
 
 export { applyMigrations } from "../scripts/apply-migrations.ts";
 
@@ -28,7 +28,7 @@ export function parseVersion(version: VERSION): VERSION_NUMBER {
 // deno-lint-ignore require-await
 export async function getMigrations(
   from_version: VERSION | undefined = undefined,
-  to_version: VERSION = PAIMA_ENGINE_VERSION,
+  to_version: VERSION = EFFECTSTREAM_ENGINE_VERSION,
 ): Promise<{
   version: VERSION;
   sql: string;
@@ -121,7 +121,7 @@ export function* getVersionInfo(dbConn: Client): Operation<VersionInfo> {
 
   if (!result.exists) {
     return {
-      engine_current_version: PAIMA_ENGINE_VERSION,
+      engine_current_version: EFFECTSTREAM_ENGINE_VERSION,
       engine_previous_version: "0.0.0",
       app_previous_version: "0.0.0",
       is_empty: true,
@@ -138,7 +138,7 @@ export function* getVersionInfo(dbConn: Client): Operation<VersionInfo> {
   }
 
   return {
-    engine_current_version: PAIMA_ENGINE_VERSION,
+    engine_current_version: EFFECTSTREAM_ENGINE_VERSION,
     engine_previous_version:
       `${latestVersion.engine_version_major}.${latestVersion.engine_version_minor}.${latestVersion.engine_version_patch}`,
     app_previous_version:

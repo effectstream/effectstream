@@ -138,7 +138,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
     const [nonceData] = yield* World.resolve(findNonce, { nonce });
     if (nonceData) {
       log.remote(
-        ComponentNames.PAIMA_SYNC,
+        ComponentNames.EFFECTSTREAM_SYNC,
         ["effectstream-l2"],
         SeverityNumber.INFO,
         (log) =>
@@ -204,7 +204,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
       Value.Decode(this.PaimaL2Payload, input.payload);
     } catch (e) {
       log.remote(
-        ComponentNames.PAIMA_SYNC,
+        ComponentNames.EFFECTSTREAM_SYNC,
         ["effectstream-l2"],
         SeverityNumber.ERROR,
         (log) =>
@@ -277,7 +277,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
 
         if (!status) {
           log.remote(
-            ComponentNames.PAIMA_SYNC,
+            ComponentNames.EFFECTSTREAM_SYNC,
             ["effectstream-l2"],
             SeverityNumber.ERROR,
             (log) =>
@@ -440,7 +440,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
             } as AddressAndType,
           });
           log.remote(
-            ComponentNames.PAIMA_SYNC,
+            ComponentNames.EFFECTSTREAM_SYNC,
             ["effectstream-l2"],
             SeverityNumber.ERROR,
             (log) => log(`Invalid signature for batched message`),

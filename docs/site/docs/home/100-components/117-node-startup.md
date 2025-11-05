@@ -15,7 +15,7 @@ Let's break down a typical `main.ts` file:
 ```ts
 import { main, suspend } from "effection";
 import { init, start } from "@effectstream/runtime";
-import { toSyncProtocolWithNetwork, withPaimaStaticConfig } from "@effectstream/config";
+import { toSyncProtocolWithNetwork, withEffectstreamStaticConfig } from "@effectstream/config";
 
 // 1. Import all the core pieces of your application
 // Project Defined Components
@@ -35,7 +35,7 @@ main(function* () {
   console.log("Starting Effectstream Node");
 
   // 3. Load your static configuration into the runtime's context
-  yield* withPaimaStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
 
     // 4. Start the Effectstream with all your application's components
     yield* start({
