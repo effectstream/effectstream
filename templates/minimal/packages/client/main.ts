@@ -7,7 +7,7 @@ import {
 import { main, suspend } from "effection";
 import {
   toSyncProtocolWithNetwork,
-  withPaimaStaticConfig,
+  withEffectstreamStaticConfig,
 } from "@paimaexample/config";
 import { contractAddressesEvmMain } from "@minimal/evm-contracts";
 import {
@@ -119,7 +119,7 @@ main(function* () {
   yield* init();
   console.log("Starting Paima Engine Node");
 
-  yield* withPaimaStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
     yield* start({
       appName: "minimal-client",
       appVersion: "1.0.0",

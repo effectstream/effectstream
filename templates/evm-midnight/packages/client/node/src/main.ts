@@ -12,7 +12,7 @@ import { localhostConfig } from "@example-evm-midnight/data-types/localhostConfi
 import {
   type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,
-  withPaimaStaticConfig,
+  withEffectstreamStaticConfig,
 } from "@paimaexample/config";
 import { migrationTable } from "@example-evm-midnight/database";
 import { gameStateTransitions } from "./state-machine.ts";
@@ -23,7 +23,7 @@ main(function* () {
   yield* init();
   console.log("Starting Paima Engine Node");
 
-  yield* withPaimaStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
     yield* start({
       appName: "evm-midnight-example",
       appVersion: "0.3.21",
