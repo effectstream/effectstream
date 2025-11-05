@@ -17951,6 +17951,11 @@
           "npm:ws@8.18.1"
         ]
       },
+      "packages/chains/midnight": {
+        "dependencies": [
+          "jsr:@std/path@1"
+        ]
+      },
       "packages/effectstream-sdk/chain-types": {
         "dependencies": [
           "npm:js-sha3@~0.9.3"

@@ -1,0 +1,12 @@
+{
+    "name": "@effectstream/midnight",
+    "version": "0.3.0",
+    "license": "MIT",
+    "exports": {
+        "./read-contract": "./src/read-contract.ts"
+    },
+    "imports": {
+        "@std/path": "jsr:@std/path@^1.0.0"
+    }
+}
+

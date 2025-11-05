@@ -39,7 +39,7 @@ import {
   setNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import type { Client } from "pg";
-import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
+import { readMidnightContract } from "@effectstream/midnight/read-contract";
 import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
 
