@@ -119,7 +119,7 @@ export interface BlockchainAdapter<TOutput> {
   getBlockNumber(): Promise<bigint>;
 
   /**
-   * Optional sync protocol name used to filter Paima Sync events
+   * Optional sync protocol name used to filter EffectStream Sync events
    * If not provided, the batcher will fall back to the adapter's chain name
    */
   getSyncProtocolName?(): string;

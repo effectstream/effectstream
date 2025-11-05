@@ -7,7 +7,7 @@ import type { DefaultBatcherInput } from "./types.ts";
 
 /**
  * Handles the complex batch processing logic for a specific target.
- * Separated from the main PaimaBatcher class to improve maintainability.
+ * Separated from the main Batcher class to improve maintainability.
  */
 export class BatchProcessor<T extends DefaultBatcherInput> {
   constructor(
@@ -22,7 +22,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           timeoutId: number;
         }
       >;
-      waitForPaimaProcessed: (
+      waitForEffectStreamProcessed: (
         target: string,
         receipt: BlockchainTransactionReceipt,
         timeout: number,
@@ -83,7 +83,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       time: Date.now(),
     });
 
-    // Wait for confirmation and Paima processing
+    // Wait for confirmation and EffectStream processing
     await this.handleTransactionConfirmation(
       adapter,
       target,
@@ -111,31 +111,31 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     await this.batcher.storage.removeProcessedInputs(selectedInputs, target);
 
     // Resolve all callbacks with the receipt
-    // Individual callers will decide if they want to continue waiting for Paima
+    // Individual callers will decide if they want to continue waiting for EffectStream
     this.resolveInputCallbacks(selectedInputs, receipt);
 
-    // Optional: Still trigger Paima processing check for event emission
-    this.waitForPaimaProcessing(
+    // Optional: Still trigger EffectStream processing check for event emission
+    this.waitForEffectStreamProcessing(
       receipt,
       adapter,
       target,
       timeout,
     ).catch((error) => {
       console.error(
-        `⚠️ Error waiting for Paima processing for target ${target}:`,
+        `⚠️ Error waiting for EffectStream processing for target ${target}:`,
         error,
       );
     });
   }
 
-  private async waitForPaimaProcessing(
+  private async waitForEffectStreamProcessing(
     receipt: BlockchainTransactionReceipt,
     adapter: BlockchainAdapter<any>,
     target: string,
     timeout: number,
   ): Promise<void> {
     try {
-      const processingResult = await this.batcher.waitForPaimaProcessed(
+      const processingResult = await this.batcher.waitForEffectStreamProcessed(
         target,
         receipt,
         timeout,
@@ -150,22 +150,22 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         });
       } else {
         console.error(
-          `❌ Paima processing validation failed for target ${target}`,
+          `❌ EffectStream processing validation failed for target ${target}`,
         );
         this.batcher.emitStateTransition("error", {
-          phase: "paima",
+          phase: "effectstream",
           target,
-          error: new Error("Paima processing validation failed"),
+          error: new Error("EffectStream processing validation failed"),
           time: Date.now(),
         });
       }
     } catch (error) {
       console.error(
-        `❌ Error waiting for Paima processing for target ${target}:`,
+        `❌ Error waiting for EffectStream processing for target ${target}:`,
         error,
       );
       this.batcher.emitStateTransition("error", {
-        phase: "paima",
+        phase: "effectstream",
         target,
         error,
         time: Date.now(),

@@ -1,4 +1,4 @@
-// Midnight blockchain adapter for the Paima batcher
+// Midnight blockchain adapter for the EffectStream batcher
 // Handles transaction submission to Midnight contracts via circuit invocation
 
 import type {

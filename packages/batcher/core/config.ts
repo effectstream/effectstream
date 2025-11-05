@@ -1,5 +1,5 @@
 /**
- * Type-safe configuration system for PaimaBatcher with compile-time adapter validation
+ * Type-safe configuration system for EffectStream Batcher with compile-time adapter validation
  * and runtime safety checks.
  */
 
@@ -119,7 +119,7 @@ export type ConfirmationLevel =
   | "wait-receipt"
   | "wait-effectstream-processed";
 
-export interface PaimaBatcherConfig<
+export interface BatcherConfig<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
   TAdapters extends Record<string, BlockchainAdapter<any>> = Record<
     string,
@@ -161,7 +161,7 @@ export interface PaimaBatcherConfig<
 
 /** Default configuration values for optional fields */
 export const DEFAULT_CONFIG_VALUES = {
-  namespace: "paima_batcher",
+  namespace: "effectstream_batcher",
   pollingIntervalMs: 1000,
   confirmationLevel: "wait-receipt" as const,
   port: 3000,
@@ -179,10 +179,10 @@ export const DEFAULT_CONFIG_VALUES = {
 };
 
 /**
- * TypeBox schema for PaimaBatcherConfig validation.
+ * TypeBox schema for BatcherConfig validation.
  * Uses T.Any for adapter and builder instances.
  */
-export const PaimaBatcherConfigSchema = Type.Object({
+export const BatcherConfigSchema = Type.Object({
   pollingIntervalMs: Type.Optional(
     Type.Number({
       minimum: 1,
@@ -266,8 +266,8 @@ export const PaimaBatcherConfigSchema = Type.Object({
   }, { additionalProperties: false })),
 }, { additionalProperties: false });
 
-export type PaimaBatcherConfigFromSchema = Static<
-  typeof PaimaBatcherConfigSchema
+export type BatcherConfigFromSchema = Static<
+  typeof BatcherConfigSchema
 >;
 
 /**
@@ -278,11 +278,11 @@ export function applyBatcherConfigDefaults<
   T extends DefaultBatcherInput,
   TAdapters extends Record<string, BlockchainAdapter<any>>,
 >(
-  config: PaimaBatcherConfig<T, TAdapters>,
-): PaimaBatcherConfig<T, TAdapters> {
+  config: BatcherConfig<T, TAdapters>,
+): BatcherConfig<T, TAdapters> {
   // Cast applies defaults while preserving provided values
-  const casted = Value.Cast(PaimaBatcherConfigSchema as any, config as any);
-  return casted as PaimaBatcherConfig<T, TAdapters>;
+  const casted = Value.Cast(BatcherConfigSchema as any, config as any);
+  return casted as BatcherConfig<T, TAdapters>;
 }
 
 /**
@@ -293,7 +293,7 @@ export function applyBatcherConfigDefaults<
 export function validateBatcherConfig<
   T extends DefaultBatcherInput,
   TAdapters extends Record<string, BlockchainAdapter<any>>,
->(config: PaimaBatcherConfig<T, TAdapters>): void {
+>(config: BatcherConfig<T, TAdapters>): void {
   // Allow empty adapters during initial config validation
   // Full validation happens before initialization via validatePreInit()
   const adapters = config.adapters || {};

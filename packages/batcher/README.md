@@ -27,7 +27,7 @@ Here's a minimal example based on the E2E test setup:
 ```typescript
 import {
   FileStorage,
-  PaimaBatcherConfig,
+  BatcherConfig,
   PaimaL2DefaultAdapter,
 } from "@effectstream/batcher";
 
@@ -40,14 +40,9 @@ const paimaL2 = new PaimaL2DefaultAdapter(
 );
 
 // Configure the batcher
-const config: PaimaBatcherConfig = {
+const config: BatcherConfig = {
   pollingIntervalMs: 1000,
   enableHttpServer: true,
-  adapters: { paimaL2 },
-  defaultTarget: "paimaL2",
-  batchingCriteria: {
-    paimaL2: { criteriaType: "time", timeWindowMs: 1000 },
-  },
   confirmationLevel: "wait-effectstream-processed",
   enableEventSystem: true,
   port: 3334,
@@ -60,23 +55,27 @@ const storage = new FileStorage("./batcher-data");
 
 ```typescript
 import { main, suspend } from "effection";
-import { PaimaBatcher } from "@effectstream/batcher";
+import { createNewBatcher } from "@effectstream/batcher";
 
-const batcher = new PaimaBatcher(config, storage);
+const batcher = createNewBatcher(config, storage);
+
+batcher
+  .addBlockchainAdapter("paimal2", paimaL2Adapter, { criteriaType: "time", timeWindowMs: 1000 })
+// Add custom startup logging
+batcher.addStateTransition("startup", ({ publicConfig }) => {
+  console.log(
+    `🚀 Batcher started - polling every ${publicConfig.pollingIntervalMs}ms`,
+  );
+  console.log(`📍 Default Target: ${publicConfig.defaultTarget}`);
+});
+
+// Add HTTP server logging
+batcher.addStateTransition("http:start", ({ port }) => {
+  console.log(`🌐 HTTP Server: http://localhost:${port}`);
+});
 
 main(function* () {
-  // Add custom startup logging
-  batcher.addStateTransition("startup", ({ publicConfig }) => {
-    console.log(
-      `🚀 Batcher started - polling every ${publicConfig.pollingIntervalMs}ms`,
-    );
-    console.log(`📍 Default Target: ${publicConfig.defaultTarget}`);
-  });
 
-  // Add HTTP server logging
-  batcher.addStateTransition("http:start", ({ port }) => {
-    console.log(`🌐 HTTP Server: http://localhost:${port}`);
-  });
 
   // Run the batcher (handles HTTP server and polling automatically)
   yield* batcher.runBatcher();
@@ -154,7 +153,7 @@ batcher.addStateTransition("error", ({ phase, error }) => {
 Key configuration options:
 
 ```typescript
-type PaimaBatcherConfig = {
+type BatcherConfig = {
   // Polling interval for checking batch criteria
   pollingIntervalMs: number;
 
@@ -307,7 +306,7 @@ When calling `batchInput()`, choose how long to wait:
 
 - **`no-wait`** - Return immediately after queuing
 - **`wait-receipt`** - Wait for blockchain transaction receipt
-- **`wait-effectstream-processed`** - Wait until Paima Engine processes the batch
+- **`wait-effectstream-processed`** - Wait until EffectStream has processed the batch
 
 ```typescript
 // Don't wait
@@ -326,7 +325,7 @@ console.log(`Processed in rollup block ${result.rollup}`);
 ```
 packages/batcher/
 ├── core/                          # Core batcher functionality
-│   ├── batcher.ts                 # Main PaimaBatcher class
+│   ├── batcher.ts                 # Main Batcher class
 │   ├── types.ts                   # Core types and interfaces
 │   ├── config.ts                  # Configuration types
 │   ├── storage.ts                 # Storage interface + FileStorage (✨ pluggable)

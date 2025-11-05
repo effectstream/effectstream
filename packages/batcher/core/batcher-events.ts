@@ -1,5 +1,5 @@
 import type { DefaultBatcherInput } from "./types.ts";
-import type { PaimaBatcher } from "./batcher.ts";
+import type { Batcher } from "./batcher.ts";
 
 /**
  * Default grammar for batcher lifecycle events.
@@ -8,7 +8,7 @@ import type { PaimaBatcher } from "./batcher.ts";
  */
 export type BatcherGrammar = Record<string, unknown> & {
   startup: {
-    publicConfig: ReturnType<PaimaBatcher<any>["getPublicConfig"]>;
+    publicConfig: ReturnType<Batcher<any>["getPublicConfig"]>;
     time: number;
   };
   "http:start": { port: number; time: number };
@@ -54,7 +54,7 @@ export type BatcherListener<
 export function attachDefaultConsoleListeners<
   T extends DefaultBatcherInput = DefaultBatcherInput,
 >(
-  batcher: PaimaBatcher<T>,
+  batcher: Batcher<T>,
 ): void {
   try {
     batcher.addStateTransition("startup", ({ publicConfig }) => {

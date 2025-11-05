@@ -1,25 +1,25 @@
 /**
  * Batcher - Main Module Exports
  *
- * This module provides a clean interface to the Paima batcher system,
+ * This module provides a clean interface to the batcher system,
  * including the core batcher class, configuration types, storage interfaces,
  * and chain adapters.
  */
 
 // Core batcher functionality
-export { PaimaBatcher, createNewBatcher } from "./core/batcher.ts";
+export { Batcher, createNewBatcher } from "./core/batcher.ts";
 
 // Configuration types and validation
 export type {
   BatchingCriteriaConfig,
-  PaimaBatcherConfig,
+  BatcherConfig,
   ValidAdapterKey,
 } from "./core/config.ts";
 export {
   applyBatcherConfigDefaults,
   BatchingCriteriaConfigSchema,
   DEFAULT_CONFIG_VALUES,
-  PaimaBatcherConfigSchema,
+  BatcherConfigSchema,
   PerAdapterBatchingCriteriaSchema,
   validateBatcherConfig,
   validateBatchingCriteria,

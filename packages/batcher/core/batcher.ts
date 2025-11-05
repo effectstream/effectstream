@@ -9,7 +9,7 @@ import type {
   BlockchainAdapter,
   BlockchainTransactionReceipt,
 } from "../adapters/adapter.ts";
-import type { BatchingCriteriaConfig, PaimaBatcherConfig } from "./config.ts";
+import type { BatchingCriteriaConfig, BatcherConfig } from "./config.ts";
 import {
   applyBatcherConfigDefaults,
   DEFAULT_BATCHING_CRITERIA,
@@ -26,7 +26,7 @@ import {
   ShutdownManager,
 } from "./shutdown-manager.ts";
 import type { BatcherGrammar, BatcherListener } from "./batcher-events.ts";
-import { BuiltinEvents, PaimaEventManager } from "@effectstream/event-client";
+import { BuiltinEvents, PaimaEventManager as EffectStreamEventManager } from "@effectstream/event-client";
 
 /**
  * Custom error class for input validation failures
@@ -40,7 +40,7 @@ export class InputValidationError extends Error {
 }
 
 /**
- * PaimaBatcher - A type-safe, simplified blockchain batching system
+ * EffectStream Batcher - A type-safe, simplified blockchain batching system
  *
  * ARCHITECTURE:
  * - Storage is the SINGLE SOURCE OF TRUTH for all data
@@ -62,9 +62,9 @@ export class InputValidationError extends Error {
  * - "custom": Process based on user-defined function
  */
 
-export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
+export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Namespace used for signature verification messages */
-  namespace: string = "paima_batcher";
+  namespace: string = "effectstream_batcher";
   /** Timer ID for periodic batch processing */
   private pollingIntervalID?: number;
   /** Available blockchain adapters keyed by target name */
@@ -112,7 +112,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   > = new Map();
 
   /**
-   * Create a new PaimaBatcher with type-safe configuration
+   * Create a new Batcher with type-safe configuration
    *
    * @param config - Type-safe configuration with unified batching criteria
    * @param storage - The storage system for persisting inputs (default: file storage)
@@ -122,13 +122,13 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * - If defaultTarget is specified, it exists in adapters
    * - Default target falls back to first available adapter if not specified
    */
-  public readonly config: PaimaBatcherConfig<
+  public readonly config: BatcherConfig<
     T,
     Record<string, BlockchainAdapter<any>>
   >;
 
   constructor(
-    config: PaimaBatcherConfig<
+    config: BatcherConfig<
       T,
       Record<string, BlockchainAdapter<any>>
     >,
@@ -202,11 +202,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       storage: this.storage,
       submissionCallbacks: this.submissionCallbacks,
       getCallbackKey: (input: T) => this.getInputCallbackKey(input),
-      waitForPaimaProcessed: (
+      waitForEffectStreamProcessed: (
         target: string,
         receipt: BlockchainTransactionReceipt,
         timeout: number,
-      ) => this.waitForPaimaProcessed(target, receipt, timeout),
+      ) => this.waitForEffectStreamProcessed(target, receipt, timeout),
     });
     this.shutdownManager = new ShutdownManager<T>(
       {
@@ -230,7 +230,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   addStateTransition<Prefix extends keyof BatcherGrammar & string>(
     prefix: Prefix,
     listener: BatcherListener<BatcherGrammar, Prefix>,
-  ): PaimaBatcher<T> {
+  ): Batcher<T> {
     if (this.stateTransitionListeners.has(prefix)) {
       throw new Error(
         `Disallowed: duplicate listener for prefix ${prefix}. Duplicate prefixes can cause determinism issues`,
@@ -257,7 +257,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     // `spawn` starts the listener in the background.
     // The `emitStateTransition` operation can return immediately.
-    yield* spawn((function* (this: PaimaBatcher<T>) {
+    yield* spawn((function* (this: Batcher<T>) {
       try {
         // We still use `call` here to handle the listener being async.
         yield* lift(listener)(payload);
@@ -300,7 +300,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     name: string,
     adapter: BlockchainAdapter<TOutput>,
     batchingCriteria?: BatchingCriteriaConfig<T>,
-  ): PaimaBatcher<T> {
+  ): Batcher<T> {
     if (this.isInitialized) {
       throw new Error(
         "Cannot add adapters after batcher has been initialized. " +
@@ -348,7 +348,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   setBatchingCriteria(
     adapterName: string,
     criteria: BatchingCriteriaConfig<T>,
-  ): PaimaBatcher<T> {
+  ): Batcher<T> {
     if (this.isInitialized) {
       throw new Error(
         "Cannot modify batching criteria after batcher has been initialized.",
@@ -382,7 +382,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * @throws If batcher is already initialized
    * @throws If adapter doesn't exist
    */
-  setDefaultTarget(adapterName: string): PaimaBatcher<T> {
+  setDefaultTarget(adapterName: string): Batcher<T> {
     if (this.isInitialized) {
       throw new Error(
         "Cannot modify default target after batcher has been initialized.",
@@ -534,16 +534,16 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       return receipt;
     }
 
-    // If waiting for Paima processing, continue waiting
+    // If waiting for EffectStream processing, continue waiting
     if (confirmationLevel === "wait-effectstream-processed") {
       const target = input.target || this.defaultTarget;
       if (!target) {
         throw new Error(
-          "Cannot wait for Paima processing: no target specified and no default target configured.",
+          "Cannot wait for EffectStream processing: no target specified and no default target configured.",
         );
       }
       try {
-        const processingResult = await this.waitForPaimaProcessed(
+        const processingResult = await this.waitForEffectStreamProcessed(
           target,
           receipt,
           timeoutMs,
@@ -554,11 +554,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
             rollup: processingResult.rollup,
           };
         } else {
-          throw new Error("Paima processing validation failed");
+          throw new Error("EffectStream processing validation failed");
         }
       } catch (error) {
         throw new Error(
-          `Failed to wait for Paima processing: ${
+          `Failed to wait for EffectStream processing: ${
             error instanceof Error ? error.message : "Unknown error"
           }`,
         );
@@ -569,12 +569,12 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
-   * Wait for a transaction to be processed by Paima Engine
+   * Wait for a transaction to be processed by EffectStream
    * @param receipt - The transaction receipt to wait for
    * @param timeout - Timeout in milliseconds
    * @returns Promise with latest block and rollup number, or null on failure
    */
-  private async waitForPaimaProcessed(
+  private async waitForEffectStreamProcessed(
     target: string,
     receipt: BlockchainTransactionReceipt,
     timeout: number = 120000,
@@ -596,7 +596,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         }),
         new Promise<{ latestBlock: number; rollup: number }>(
           (resolve, reject) => {
-            PaimaEventManager.Instance.subscribe(
+            EffectStreamEventManager.Instance.subscribe(
               {
                 topic: BuiltinEvents.SyncChains,
                 filter: { chain: chainName, block: undefined },
@@ -615,11 +615,11 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       ]);
       return result || null;
     } catch (error) {
-      console.error("Error waiting for Paima processing:", error);
+      console.error("Error waiting for EffectStream processing:", error);
       return null;
     } finally {
       if (subscriptionReference) {
-        PaimaEventManager.Instance.unsubscribe(subscriptionReference);
+        EffectStreamEventManager.Instance.unsubscribe(subscriptionReference);
       }
       if (timer) {
         clearTimeout(timer);
@@ -1180,7 +1180,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
   /**
    * Validate the input and return a boolean indicating if the input is valid.
-   * Default is a placeholder to be overridden by the user extending the PaimaBatcher class.
+   * Default is a placeholder to be overridden by the user extending the Batcher class.
    * @param input - The input to validate.
    * @returns A boolean or Promise<boolean> in the case is implemented as async indicating if the input is valid.
    */
@@ -1198,7 +1198,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     yield* resource(
-      (function* (this: PaimaBatcher<T>, provide: (value: any) => void) {
+      (function* (this: Batcher<T>, provide: (value: any) => void) {
         const server = yield* call(() => this.startHttpServer());
         provide(server);
         yield* suspend(); // Keep the server alive until cancelled
@@ -1302,12 +1302,12 @@ class SignalHandler {
 }
 
 /**
- * Factory function to create a new PaimaBatcher instance.
+ * Factory function to create a new Batcher instance.
  * Provides a cleaner API than using the constructor directly.
  *
  * @param config - Batcher configuration (adapters can be empty for dynamic registration)
  * @param storage - Optional storage instance (defaults to BatcherFileStorage)
- * @returns A new PaimaBatcher instance
+ * @returns A new Batcher instance
  *
  * @example
  * ```typescript
@@ -1321,10 +1321,10 @@ class SignalHandler {
  * ```
  */
 export function createNewBatcher<T extends DefaultBatcherInput = DefaultBatcherInput>(
-  config: PaimaBatcherConfig<T, Record<string, BlockchainAdapter<any>>>,
+  config: BatcherConfig<T, Record<string, BlockchainAdapter<any>>>,
   storage?: BatcherStorage<T>,
-): PaimaBatcher<T> {
-  return new PaimaBatcher(config, storage);
+): Batcher<T> {
+  return new Batcher(config, storage);
 }
 
 /**
@@ -1332,7 +1332,7 @@ export function createNewBatcher<T extends DefaultBatcherInput = DefaultBatcherI
  */
 export async function createAndLaunchBatcher<T extends DefaultBatcherInput = DefaultBatcherInput>(
   storage: BatcherStorage<T>,
-  config: PaimaBatcherConfig<T>,
+  config: BatcherConfig<T>,
 ): Promise<void> {
   const batcher = createNewBatcher(config, storage);
   await batcher.init();
