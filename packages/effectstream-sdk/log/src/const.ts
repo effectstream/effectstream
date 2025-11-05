@@ -55,6 +55,7 @@ export const SecondaryComponents = {
   HARDHAT_WAIT: "hardhat-wait",
   COLLECTOR_WAIT: "collector-wait",
   PAIMA_DB_WAIT: "db-wait",
+  LOKI: "loki",
 };
 
 /** All the components that can be launched by the orchestrator */

@@ -47,6 +47,12 @@ export function setCollectorStarted() {
   collectorStarted = true;
 }
 
+export function noLogsHandler(): LogHandler {
+  return (chunk, source, component, namespace) => {
+    return;
+  };
+}
+
 export const systemLog = (string: string) => {
   logHandler(
     new TextEncoder().encode(string),

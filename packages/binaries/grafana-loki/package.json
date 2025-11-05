@@ -1,0 +1,15 @@
+{
+    "name": "@effectstream/grafana-loki",
+    "version": "3.5.8",
+    "description": "A wrapper for the Grafana Loki binary",
+    "main": "index.js",
+    "bin": {
+        "grafana-loki": "index.js"
+    },
+    "scripts": {
+        "start": "node index.js"
+    },
+    "dependencies": {
+        "@xhmikosr/bin-wrapper": "^13.2.0"
+    }
+}

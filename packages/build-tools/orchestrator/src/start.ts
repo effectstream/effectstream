@@ -10,6 +10,7 @@ import {
   rawLogHandler,
   setCollectorStarted,
   setCurrentOutput,
+  noLogsHandler,
 } from "./logging.ts";
 import {
   $,
@@ -96,6 +97,7 @@ export const OrchestratorConfig = Type.Object({
 
     // DevOps
     [ComponentNames.COLLECTOR]: Type.Boolean({ default: true }),
+    [ComponentNames.LOKI]: Type.Boolean({ default: true }),
   }, { default: {} }),
 });
 
@@ -205,6 +207,9 @@ export async function start(
     }
     if (config.processes[ComponentNames.APPLY_MIGRATIONS]) {
       await startProcess[ComponentNames.APPLY_MIGRATIONS]();
+    }
+    if (config.processes[ComponentNames.LOKI]) {
+      await startProcess[ComponentNames.LOKI]();
     }
 
 
@@ -400,16 +405,12 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.OTEL_COLLECTOR_PORT] });
+      await dkill({ ports: [ENV.OTEL_COLLECTOR_PORT, 12345] }); // 12345 is the port for the Grafana Alloy web UI
     }
 
+    // deno -A @effectstream/grafana-alloy grafana-alloy
     const otlpCollector = $({
-      args: [
-        "run",
-        "-A",
-        "--unstable-temporal",
-        config.packageName + "/collector/start",
-      ],
+      args: ["-A", "@effectstream/grafana-alloy", "grafana-alloy"],
       // collector always has to post logs directly to console
       // otherwise, it gets stuck in an infinite loop of sending to itself
       log: rawLogHandler,
@@ -424,6 +425,21 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
     setCollectorStarted();
     return otlpCollector;
+  },
+
+  [ComponentNames.LOKI]: async (): Promise<ProcessComponent> => {
+    if (config.kill.auto) {
+      await dkill({ ports: [3100] });
+    }
+    const loki = $({
+      args: ["-A", "@effectstream/grafana-loki", "grafana-loki"],
+      component: ComponentNames.LOKI,
+      log: noLogsHandler,
+      abortController: abortControllers.noncritical,
+    });
+  
+    void loki.process.status;
+    return loki;
   },
 
   [ComponentNames.CHECKER]: async (): Promise<ProcessComponent> => {
