@@ -21,7 +21,7 @@ import { grammar } from "@example-evm-midnight/data-types/grammar";
 
 main(function* () {
   yield* init();
-  console.log("Starting Paima Engine Node");
+  console.log("Starting EffectStream Node");
 
   yield* withEffectstreamStaticConfig(localhostConfig, function* () {
     yield* start({
