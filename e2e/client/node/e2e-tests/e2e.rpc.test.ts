@@ -1,9 +1,9 @@
 import { ENV } from "@effectstream/utils/node-env";
-import { assert, getPaimaEVMPublicClient, wallets } from "@e2e/engine";
+import { assert, getEffectstreamEVMPublicClient, wallets } from "@e2e/engine";
 
 export async function RPCTest() {
   // Test RPC
-  const rpcClient = getPaimaEVMPublicClient();
+  const rpcClient = getEffectstreamEVMPublicClient();
 
   await assert("RPC Block Number", async () => {
     const blockNumber = await rpcClient.getBlockNumber();

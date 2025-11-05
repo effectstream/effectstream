@@ -268,7 +268,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           confirmationLevel = cfg;
         } else if (cfg && typeof batcher === "object") {
           const target = (body.data?.target as string) ||
-            batcher.getPublicConfig().defaultTarget;
+            (batcher.getPublicConfig().defaultTarget) || "undefined";
           confirmationLevel = cfg[target] ?? "wait-receipt";
         } else {
           confirmationLevel = "wait-receipt";
