@@ -19,14 +19,14 @@ export async function safeQuery<T>(
   let didLock = false;
   try {
     await fetch(
-      `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=${testName}`,
+      `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/db_acquire_lock?name=${testName}`,
     );
     didLock = true;
     result = await dbQuery(db.query(query));
   } finally {
     if (didLock) {
       await fetch(
-        `http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock?name=${testName}`,
+        `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/db_release_lock?name=${testName}`,
       );
     }
   }

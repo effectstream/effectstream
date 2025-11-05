@@ -30,11 +30,11 @@ server.get("/processes", function handler() {
 
 server.get("/restart-sync", async function handler() {
   const syncProcessI = processes.findIndex(
-    (p) => (p.component === ComponentNames.PAIMA_SYNC && p.alive),
+    (p) => (p.component === ComponentNames.EFFECTSTREAM_SYNC && p.alive),
   );
   if (syncProcessI !== -1) {
     terminateProcess(syncProcessI);
-    await pFactory![ComponentNames.PAIMA_SYNC]();
+    await pFactory![ComponentNames.EFFECTSTREAM_SYNC]();
   }
 
   return {

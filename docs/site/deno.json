@@ -1,6 +1,6 @@
 {
     "name": "@effectstream/docs",
-    "description": "Paima documentation",
+    "description": "Effectstream documentation",
     "version": "0.3.0",
     "license": "MIT",
     "exports": "./src/mod.ts",

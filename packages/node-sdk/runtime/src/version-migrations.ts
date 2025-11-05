@@ -2,7 +2,7 @@ import type { Client } from "pg";
 import {
   applyMigrations,
   getMigrations,
-  PAIMA_ENGINE_VERSION,
+  EFFECTSTREAM_ENGINE_VERSION,
   parseVersion,
   type VersionInfo,
 } from "@effectstream/db/version";
@@ -96,7 +96,7 @@ export function* applyUserMigrations(
   migrationOrder: DBMigrations[] | undefined,
 ): Operation<void> {
   const migrations = yield* getAllUserMigrations(
-    PAIMA_ENGINE_VERSION,
+    EFFECTSTREAM_ENGINE_VERSION,
     migrationOrder,
     currentBlockHeight,
   );

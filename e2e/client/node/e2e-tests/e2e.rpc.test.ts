@@ -166,7 +166,7 @@ export async function RPCTest() {
     // Use a more direct approach since eth_syncing might not be in the viem type
     try {
       const syncing = await fetch(
-        `http://localhost:${ENV.PAIMA_API_PORT}/rpc/evm`,
+        `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/rpc/evm`,
         {
           method: "POST",
           headers: {

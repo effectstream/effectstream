@@ -847,7 +847,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
           // the only real notable exception being ETC where these values are not equal
           // learn more: https://medium.com/@pedrouid/chainid-vs-networkid-how-do-they-differ-on-ethereum-eec2ed41635b
           setResult<typeof evmRpc.method>(
-            `0x${ENV.PAIMA_CHAIN_ID.toString(16)}`,
+            `0x${ENV.EFFECTSTREAM_CHAIN_ID.toString(16)}`,
           );
           return;
         }
@@ -875,7 +875,7 @@ export function evmRpcEngine(dbConn: Pool): JsonRpcEngine {
           // TODO: this is not a great thing to return, since every game is its own chain. Not sure what to do about this
           //       maybe the hash of the game name or something?
           setResult<typeof evmRpc.method>(
-            `0x${ENV.PAIMA_CHAIN_ID.toString(16)}`,
+            `0x${ENV.EFFECTSTREAM_CHAIN_ID.toString(16)}`,
           );
           return;
         }

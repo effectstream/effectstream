@@ -1,10 +1,10 @@
 import type { ChainConfig, PaimaChains } from "./types/index.ts";
 
 const ENV = {
-  PAIMA_API_PORT: import.meta.env.VITE_PAIMA_API_PORT,
+  EFFECTSTREAM_API_PORT: import.meta.env.VITE_EFFECTSTREAM_API_PORT,
   BATCHER_PORT: import.meta.env.VITE_BATCHER_PORT,
   DOCS_PORT: import.meta.env.VITE_DOCS_PORT,
-  PAIMA_EXPLORER_PORT: import.meta.env.VITE_PAIMA_EXPLORER_PORT,
+  EFFECTSTREAM_EXPLORER_PORT: import.meta.env.VITE_EFFECTSTREAM_EXPLORER_PORT,
 } as const;
 
 
@@ -146,7 +146,7 @@ export async function fetchChainConfigs(): Promise<PaimaChains> {
       color: '#667eea',
       blocks: [],
       currentBlock: 1000000,
-      rpcEndpoint: `http://127.0.0.1:${ENV.PAIMA_API_PORT}/rpc/evm`,
+      rpcEndpoint: `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/rpc/evm`,
       latestBlockNumber: 0,
       previousLatestBlockNumber: 0,
       isConnected: false,
@@ -159,27 +159,27 @@ export async function fetchChainConfigs(): Promise<PaimaChains> {
 
 export const CONFIG_ENDPOINT = `http://127.0.0.1:9999/config`;
 export const BLOCK_HEIGHTS_ENDPOINT =
-  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/block-heights`;
+  `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/block-heights`;
 export const PRIMITIVES_ENDPOINT =
-  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/primitives`;
-export const TABLES_ENDPOINT = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/tables`;
+  `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/primitives`;
+export const TABLES_ENDPOINT = `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/tables`;
 export const GRAMMAR_ENDPOINT =
-  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/grammar`;
+  `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/grammar`;
 export const SCHEDULED_DATA_ENDPOINT =
-  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/scheduled-data`;
+  `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/scheduled-data`;
 export const PRIMITIVES_SCHEMA_ENDPOINT =
-  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/primitives-schema`;
+  `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/primitives-schema`;
 export const TABLE_SCHEMA_ENDPOINT =
-  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/table-schema`;
+  `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/table-schema`;
 export const SYNC_PROTOCOLS_ENDPOINT =
-  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/sync-protocols`;
+  `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/sync-protocols`;
 export const BATCHER_ENDPOINT =
   `http://localhost:${ENV.BATCHER_PORT}/send-input`;
 export const BATCHER_OPENAPI_URL =
   `http://localhost:${ENV.BATCHER_PORT}/documentation`;
 export const ENGINE_OPENAPI_URL =
-  `http://localhost:${ENV.PAIMA_API_PORT}/documentation`;
+  `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/documentation`;
 export const DOCUMENTATION_URL =
   `https://effectstream.github.io/docs/`;
 export const ADDRESSES_ENDPOINT =
-  `http://127.0.0.1:${ENV.PAIMA_API_PORT}/addresses`;
+  `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/addresses`;

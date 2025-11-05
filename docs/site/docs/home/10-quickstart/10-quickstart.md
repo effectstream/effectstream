@@ -147,7 +147,7 @@ The `start(...)` function launches the node. It's located in `/packages/node/src
 main(function* () {
   yield* init();
 
-  yield* withPaimaStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
     yield* start({
       appName: "My-dApp",
       appVersion: "1.0.0",
@@ -315,7 +315,7 @@ By handling all this infrastructure automatically, the orchestrator makes local 
 const config = Value.Parse(OrchestratorConfig, {
   processes: {
     // Launch Dev DB & Collector
-    [ComponentNames.PAIMA_PGLITE]: true,
+    [ComponentNames.EFFECTSTREAM_PGLITE]: true,
     [ComponentNames.COLLECTOR]: true,
   },
 

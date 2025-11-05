@@ -15,7 +15,7 @@ app.use(routeStaticFilesFrom([
 // If this is the entry point, start the server
 if (import.meta.main) {
   console.log(
-    `Server listening on port http://localhost:${ENV.PAIMA_EXPLORER_PORT}`,
+    `Server listening on port http://localhost:${ENV.EFFECTSTREAM_EXPLORER_PORT}`,
   );
-  await app.listen({ port: ENV.PAIMA_EXPLORER_PORT });
+  await app.listen({ port: ENV.EFFECTSTREAM_EXPLORER_PORT });
 }

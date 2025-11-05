@@ -114,7 +114,7 @@ export abstract class SyncState<
 
     if (stableStringify(data.lastPage) !== stableStringify(this.lastPage)) {
       log.remote(
-        ComponentNames.PAIMA_SYNC,
+        ComponentNames.EFFECTSTREAM_SYNC,
         this.getNamespace(),
         SeverityNumber.DEBUG,
         (log) =>
