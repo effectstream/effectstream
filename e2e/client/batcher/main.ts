@@ -1,5 +1,5 @@
 import { main, suspend } from "effection";
-import { createNewBatcher } from "@paima/batcher";
+import { createNewBatcher } from "@effectstream/batcher";
 import { config, storage, paimaL2Adapter, midnightAdapter } from "./config.ts";
 
 const batcher = createNewBatcher(config, storage);
@@ -37,7 +37,7 @@ batcher.addStateTransition("startup", ({ publicConfig }) => {
 });
 
 main(function* () {
-  console.log("🚀 Starting Paima Batcher...");
+  console.log("🚀 Starting Batcher...");
   try {
     // Run the batcher with Effection structured concurrency
     yield* batcher.runBatcher();

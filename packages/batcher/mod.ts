@@ -1,5 +1,5 @@
 /**
- * Paima Batcher - Main Module Exports
+ * Batcher - Main Module Exports
  *
  * This module provides a clean interface to the Paima batcher system,
  * including the core batcher class, configuration types, storage interfaces,

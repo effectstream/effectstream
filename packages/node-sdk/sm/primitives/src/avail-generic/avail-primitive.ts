@@ -1,17 +1,17 @@
-import { type JsonObject, PaimaPrimitive } from "@paima/sm";
+import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
 import type { StaticDecode } from "@sinclair/typebox";
-import { type CommandTuple, generateRawStmInput } from "@paima/concise";
+import { type CommandTuple, generateRawStmInput } from "@effectstream/concise";
 import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
-} from "@paima/config";
-import type { StateUpdateStream } from "@paima/coroutine";
+} from "@effectstream/config";
+import type { StateUpdateStream } from "@effectstream/coroutine";
 import {
   type AddressAndType,
   AddressType,
   type PaimaBlockNumber,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import { availGenericGrammar } from "./avail-generic-grammar.ts";
 import { PrimitiveTypeAvailGeneric } from "../builtin.ts";
 

@@ -9,18 +9,18 @@ import { join, dirname } from "node:path";
 import wasm from "vite-plugin-wasm";
 
 // This is a workaround to make the workspace imports work.
-const walletPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/wallets/");
-const cryptoPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/crypto/");
+const walletPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/wallets/");
+const cryptoPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/crypto/");
 const dataTypesPath = join(dirname(fromFileUrl(import.meta.url)), "../shared/data-types/");
-const concisePath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/concise/");
-const configPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/config/");
-const utilsPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/paima-sdk/utils/");
+const concisePath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/concise/");
+const configPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/config/");
+const utilsPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/utils/");
 
 const midnightContractEip20Path = join(dirname(fromFileUrl(import.meta.url)), "../shared/contracts/midnight/contract-eip-20/src/managed/simpletoken/contract/");
 const midnightContractCounterBasicPath = join(dirname(fromFileUrl(import.meta.url)), "../shared/contracts/midnight/contract-counter/src/managed/counter/contract/");
 
-// This is a mock for @paima/db so it doesn't get loaded in the browser.
-const dbEmptyPath = join(dirname(fromFileUrl(import.meta.url)), "paima-db-empty.ts");
+// This is a mock for @effectstream/db so it doesn't get loaded in the browser.
+const dbEmptyPath = join(dirname(fromFileUrl(import.meta.url)), "effectstream-db-empty.ts");
 
 export default defineConfig({
   define: {
@@ -30,14 +30,14 @@ export default defineConfig({
     alias: {
       "@e2e/midnight-contract-eip-20/contract": midnightContractEip20Path + "index.ts",
       "@e2e/midnight-contract-counter-basic/contract": midnightContractCounterBasicPath + "index.ts",
-      "@paima/utils": utilsPath + "src/mod.ts",
-      "@paima/config": configPath + "src/mod.ts",
-      "@paima/concise": concisePath + "src/mod.ts",
-      "@paimaexample/crypto": cryptoPath + "src/mod.ts",
-      "@paima/wallets": walletPath + "src/mod.ts",
-      "@paima/crypto": cryptoPath + "src/mod.ts",
+      "@effectstream/utils": utilsPath + "src/mod.ts",
+      "@effectstream/config": configPath + "src/mod.ts",
+      "@effectstream/concise": concisePath + "src/mod.ts",
+      "@effectstream/crypto": cryptoPath + "src/mod.ts",
+      "@effectstream/wallets": walletPath + "src/mod.ts",
+      // "@effectstream/crypto": cryptoPath + "src/mod.ts",
       "@e2e/data-types": dataTypesPath + "src/mod.ts",
-      "@paima/db": dbEmptyPath,
+      "@effectstream/db": dbEmptyPath,
     },
   },
   root: "./client",

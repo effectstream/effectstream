@@ -25,9 +25,9 @@ const BatchedSubunitSchemaWrapper = Type.Object({
   waitForConfirmation: Type.Union([
     Type.Literal("no-wait"), 
     Type.Literal("wait-receipt"), 
-    Type.Literal("wait-paima-processed")
+    Type.Literal("wait-effectstream-processed")
   ], {
-    default: "wait-paima-processed",
+    default: "wait-effectstream-processed",
   }),
 });
 
@@ -49,8 +49,8 @@ function* registerOpenApiDocumentation(
   const openApiOptions: FastifyDynamicSwaggerOptions = {
     openapi: {
       info: {
-        title: "Paima Batcher",
-        description: "Paima Batcher API",
+        title: "Batcher",
+        description: "Batcher API",
         version: "0.1.0",
       },
       tags: [
@@ -301,7 +301,7 @@ export function* startBatcherHttpServer(
       if (err) {
         console.error("Batcher HTTP server error:", err);
       }
-      console.log(`🎯 Paima Batcher HTTP server running on ${address}`);
+      console.log(`🎯 Batcher HTTP server running on ${address}`);
     },
   );
 }

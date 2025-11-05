@@ -56,7 +56,7 @@ export const erc1155Adapter = new ERC1155CustomAdapter(
 export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   namespace: "",
-  confirmationLevel: "wait-paima-processed", // Connector expectation
+  confirmationLevel: "wait-effectstream-processed", // Connector expectation
   enableHttpServer: true,
   enableEventSystem: true,
   port,

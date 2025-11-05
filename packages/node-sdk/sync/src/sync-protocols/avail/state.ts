@@ -1,13 +1,13 @@
 import { call, type Operation } from "effection";
-import { bound, type TimestampMs } from "@paima/utils";
+import { bound, type TimestampMs } from "@effectstream/utils";
 import type { PoolClient } from "pg";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Input, Output, Page } from "./types.ts";
 import { pageRelation } from "./types.ts";
 import type { AvailFetcher } from "./fetcher.ts";
-import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
-import { getPage } from "@paima/db";
+import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/config";
+import { getPage } from "@effectstream/db";
 import { AvailClient } from "./AvailClient.ts";
 import { applyDelay } from "../common/utils.ts";
 

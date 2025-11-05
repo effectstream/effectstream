@@ -13,8 +13,8 @@ import {
   accountPayload,
   BuiltinGrammarPrefix,
   signMessage as internalSignMessage,
-} from "@paima/concise";
-import { AddressType } from "@paima/utils";
+} from "@effectstream/concise";
+import { AddressType } from "@effectstream/utils";
 
 function validateAccountState(
   expectedState: AccountState,
@@ -118,13 +118,13 @@ async function assertAccountState(
     db,
     {
       query:
-        `SELECT primitive_name FROM paima.primitive_accounting ORDER BY id`,
+        `SELECT primitive_name FROM effectstream.primitive_accounting ORDER BY id`,
       check: (res) => true, // res.rows.length === expectedPrimitiveAccountingCount,
     },
     {
       query: `SELECT 
-      (SELECT json_agg(json_build_object('address', address, 'account_id', account_id)) FROM paima.addresses) as addresses,
-      (SELECT json_agg(json_build_object('id', id, 'primary_address', primary_address)) FROM paima.accounts) as accounts`,
+      (SELECT json_agg(json_build_object('address', address, 'account_id', account_id)) FROM effectstream.addresses) as addresses,
+      (SELECT json_agg(json_build_object('id', id, 'primary_address', primary_address)) FROM effectstream.accounts) as accounts`,
       check: (res) => {
         const addressRows = res.rows[0].addresses || [];
         const accountRows = res.rows[0].accounts || [];
@@ -639,9 +639,9 @@ export async function accountTests(db: Client, sharedState: SharedState) {
     "Check PaimaL2 sync-process 0x3",
     db,
     `SELECT
-        primitive_name, id, paima_block_height, payload_type, payload
+        primitive_name, id, effectstream_block_height, payload_type, payload
         FROM
-        paima.primitive_accounting;`,
+       effectstream.primitive_accounting;`,
     (res) => true,
     (res) => {
       return res.rows.length === sharedState.primitive_accounting_counter;

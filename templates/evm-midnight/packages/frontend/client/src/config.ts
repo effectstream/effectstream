@@ -37,7 +37,7 @@ export const BATCHER_ENDPOINT = import.meta.env.VITE_BATCHER_URL ||
 export const BATCHER_OPENAPI_URL = `${BASE_URL_BATCHER}/documentation`;
 // TODO Temporal documentation url
 export const DOCUMENTATION_URL =
-  `https://acedward.github.io/paima-v-next-docs/`;
+  `https://effectstream.github.io/docs/`;
 
 const RPC_PAIMA = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/rpc/evm`;
 const RPC_ARBITRUM = "http://127.0.0.1:8545/rpc/evm";

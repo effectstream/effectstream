@@ -1,7 +1,7 @@
 /**
  * Default batch builder logic implementation
  *
- * This implementation follows the same logic as the original @paima/concise buildBatchData
+ * This implementation follows the same logic as the original @effectstream/concise buildBatchData
  * but works with the generic DefaultBatcherInput type and supports target-specific configurations.
  */
 
@@ -73,7 +73,7 @@ export class DefaultBatchBuilderLogic {
 
   /**
    * Generate STM input for individual batched subunit
-   * This replicates the logic from generateStmInput in @paima/concise
+   * This replicates the logic from generateStmInput in @effectstream/concise
    *
    * @param input - The batcher input data
    * @returns Array representation of the STM input

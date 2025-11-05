@@ -4,7 +4,7 @@
     "@nomicfoundation/ignition-core": "3.0.2",
     "@openzeppelin/contracts": "5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.1.0",
-    "@paima/evm-contracts": "file:./../../../../packages/chains/evm-contracts"
+    "@effectstream/evm-contracts": "file:./../../../../packages/chains/evm-contracts"
   },
   "devDependencies": {
     "jsonc-parser": "3.3.1",

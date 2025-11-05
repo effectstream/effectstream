@@ -59,7 +59,7 @@ const config = Value.Parse(OrchestratorConfig, {
   ],
 });
 
-if (Deno.env.get("PAIMA_STDOUT")) {
+if (Deno.env.get("EFFECTSTREAM_STDOUT")) {
   config.logs = "stdout";
   config.processes[ComponentNames.TMUX] = false;
   config.processes[ComponentNames.TUI] = false;

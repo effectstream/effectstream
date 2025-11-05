@@ -1,5 +1,5 @@
 /*
- * This script is used to update the version of @paima/ packages in the templates.
+ * This script is used to update the version of @paimaexample/ packages in the templates.
  *
  *  usage:
  *  deno run -A update-packages.ts --version 1.0.0 --package <name> --dry-run

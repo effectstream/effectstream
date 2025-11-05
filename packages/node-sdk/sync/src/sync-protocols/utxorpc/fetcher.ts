@@ -1,10 +1,10 @@
 import { BaseDataFetcher, type DataFetched } from "../base/fetcher.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Operation } from "effection";
-import { bound } from "@paima/utils";
+import { bound } from "@effectstream/utils";
 import type { Input, Output, Page } from "./types.ts";
 import type { OutputAndCleanup, RootConversion } from "../base/state.ts";
-import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
+import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/config";
 import type { BufferedRpc } from "./BufferedRpc.ts";
 import { Buffer } from "node:buffer";
 

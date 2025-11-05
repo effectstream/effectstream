@@ -1,6 +1,6 @@
 import type { Operation } from "effection";
 import type { PageRequest } from "./page.ts";
-import type { ConfigSyncProtocolType, PrimitiveEntry } from "@paima/config";
+import type { ConfigSyncProtocolType, PrimitiveEntry } from "@effectstream/config";
 
 export interface PrimitiveFetcher<
   Input,

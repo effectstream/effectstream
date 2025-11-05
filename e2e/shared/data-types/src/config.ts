@@ -1,14 +1,14 @@
 import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { readAvailApplication } from "@e2e/avail-contracts";
-import { getConnection } from "@paima/db";
+import { getConnection } from "@effectstream/db";
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@paima/config";
+} from "@effectstream/config";
 import { hardhat } from "viem/chains";
-import type { BlockNumber } from "@paima/utils";
+import type { BlockNumber } from "@effectstream/utils";
 
 import { paimaL2Grammar } from "./grammar.ts";
 import {
@@ -18,7 +18,7 @@ import {
   PrimitiveTypeEVMERC721,
   PrimitiveTypeEVMPaimaL2,
   PrimitiveTypeMidnightGeneric,
-} from "@paima/sm/builtin";
+} from "@effectstream/sm/builtin";
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
  
@@ -26,7 +26,7 @@ import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract"
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
 const yaci_enabled = Deno
-  ? (Deno.env.get("DISABLE_LINUX_YACI") === "true" ? false : true)
+  ? (Deno.env.get("DISABLE_YACI") === "true" ? false : true)
   : false;
 
 // NOTE: This disable midnight sync, allowing for faster testing.
@@ -50,11 +50,11 @@ let launchStartTime: number | undefined;
 if (Deno) {
   // NOTE: This does not work when imported by the browser.
   //       We setup a Deno as undefined in the browser, to make it skip this import.
-  // const { getConnection } = await import("@paima/db");
+  // const { getConnection } = await import("@effectstream/db");
   const dbConn = getConnection();
   try {
     const result = await dbConn.query(`
-      SELECT * FROM paima.sync_protocol_pagination 
+      SELECT * FROM effectstream.sync_protocol_pagination 
       WHERE protocol_name = '${mainSyncProtocolName}' 
       ORDER BY page_number ASC
       LIMIT 1

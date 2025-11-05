@@ -1,4 +1,4 @@
-import { hexStringToUint8Array } from "@paima/utils";
+import { hexStringToUint8Array } from "@effectstream/utils";
 import type { DefaultBatcherInput } from "../core/types.ts";
 
 const BATCH_PREFIX = "&B";

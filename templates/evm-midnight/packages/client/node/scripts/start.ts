@@ -1,40 +1,44 @@
 import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
 import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
-import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
 import { launchEvm } from "@paimaexample/orchestrator/start-evm";
-// import { launchCardano } from "@paimaexample/orchestrator/start-cardano";
 import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 
-const midnightExtended = (packageName: string) => ({
-  stopProcessAtPort: [
-    ...launchMidnight(packageName).stopProcessAtPort,
-    10599,
-  ],
-  processes: [
-    ...launchMidnight(packageName).processes,
-    {
-      name: "frontend-server",
-      args: ["task", "-f", "@example-evm-midnight/frontend", "build"],
-      waitToExit: true,
-      type: "system-dependency",
-    },
-    {
-      name: "frontend-server",
-      args: ["task", "-f", "@example-evm-midnight/frontend", "serve"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:10599",
-    },
-    {
-      name: "explorer",
-      args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:10590",
-    },
-  ],
-});
+const customProcesses = [
+  {
+    name: "frontend-build",
+    args: ["task", "-f", "@example-evm-midnight/frontend", "build"],
+    waitToExit: true,
+    type: "system-dependency",
+    dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
+  },
+  {
+    name: "frontend-server",
+    args: ["task", "-f", "@example-evm-midnight/frontend", "serve"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:10599",
+    stopProcessAtPort: [10599],
+    dependsOn: ["frontend-build"],
+  },
+  {
+    name: "explorer",
+    args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:10590",
+    stopProcessAtPort: [10590],
+  },
+  {
+    name: "batcher",
+    args: ["task", "-f", "@example-evm-midnight/batcher", "start"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:3334",
+    stopProcessAtPort: [3334],
+    dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
+  },
+];
 
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
@@ -42,7 +46,6 @@ const config = Value.Parse(OrchestratorConfig, {
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,
-    [ComponentNames.DOCS]: false,
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: true,
     [ComponentNames.COLLECTOR]: true,
@@ -50,21 +53,13 @@ const config = Value.Parse(OrchestratorConfig, {
 
   // Launch my processes
   processesToLaunch: [
-    launchEvm("@example-evm-midnight/evm-contracts"),
-    // launchCardano("@example-evm-midnight/cardano-contracts"),
-    midnightExtended("@example-evm-midnight/midnight-contracts"),
-    // launchAvail("@example-evm-midnight/avail-contracts"),
-    { // Launch the Batcher with our PaimaL2 Contract
-      name: "batcher",
-      args: ["task", "-f", "@example-evm-midnight/batcher", "start"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:3334",
-    },
+    ...launchEvm("@example-evm-midnight/evm-contracts"),
+    ...launchMidnight("@example-evm-midnight/midnight-contracts"),
+    ...customProcesses,
   ],
 });
 
-if (Deno.env.get("PAIMA_STDOUT")) {
+if (Deno.env.get("EFFECTSTREAM_STDOUT")) {
   config.logs = "stdout";
   config.processes[ComponentNames.TMUX] = false;
   config.processes[ComponentNames.TUI] = false;

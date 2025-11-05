@@ -3,7 +3,7 @@ import {
   type PaimaBatcherConfig,
   PaimaL2DefaultAdapter,
   MidnightAdapter,
-} from "@paima/batcher";
+} from "@effectstream/batcher";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
 import { SimpleToken, witnesses } from "@e2e/midnight-contracts/eip-20";
@@ -58,7 +58,7 @@ export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   enableHttpServer: true,
   namespace: "", // TODO start using namespace for signature verification security
-  confirmationLevel: "wait-paima-processed",
+  confirmationLevel: "wait-effectstream-processed",
   enableEventSystem: true, // Important for adding state transitions to console logs
   port,
 };

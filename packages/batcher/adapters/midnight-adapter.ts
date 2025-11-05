@@ -13,7 +13,7 @@ import type { ContractInfo } from "./midnight-arg-parser.ts";
 import { parseCircuitArgs } from "./midnight-arg-parser.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
 import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "../batch-data-builder/midnight-builder-logic.ts";
-import { hexStringToUint8Array } from "@paima/utils";
+import { hexStringToUint8Array } from "@effectstream/utils";
 import type { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import { WalletBuilder } from "@midnight-ntwrk/wallet";
 import type { Resource } from "@midnight-ntwrk/wallet";

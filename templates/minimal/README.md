@@ -18,7 +18,7 @@ npx http-server .
 
 ## Run in Docker 
 ```sh
-docker build . -f Dockerfile -t paima-minimal
-docker run -p 8545:8545 -p 9999:9999 -p 3334:3334 -p 8080:8080 paima-minimal
+docker build . -f Dockerfile -t effectstream-minimal
+docker run -p 8545:8545 -p 9999:9999 -p 3334:3334 -p 8080:8080 effectstream-minimal
 # Open http://127.0.0.1/8080 in a browser
 ```

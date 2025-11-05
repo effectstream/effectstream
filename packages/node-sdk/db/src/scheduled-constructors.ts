@@ -1,5 +1,5 @@
-import type { StateUpdateStream } from "@paima/coroutine";
-import { World } from "@paima/coroutine";
+import type { StateUpdateStream } from "@effectstream/coroutine";
+import { World } from "@effectstream/coroutine";
 import {
   newScheduledHeightData,
   newScheduledTimestampData,
@@ -12,13 +12,13 @@ import {
   type Caip2,
   type TxHash,
   type UnknownFormat,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import {
   type BlockNumber,
   strip0x,
   type TimestampMs,
   type WalletAddress,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import { Buffer } from "node:buffer";
 
 export type UpdateAtTrigger = { blockHeight: BlockNumber } | {

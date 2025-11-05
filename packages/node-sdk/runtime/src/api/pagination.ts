@@ -10,7 +10,7 @@ import {
   type IGetPublicTablesResult,
   type IGetTableSchemaResult,
   runPreparedQuery,
-} from "@paima/db";
+} from "@effectstream/db";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 
 // Utility functions for SQL injection prevention

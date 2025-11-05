@@ -5,21 +5,21 @@ import {
   type FlattenSyncProtocolIOFor,
   getEvmEvent,
   type ProtocolPrimitiveMap,
-} from "@paima/config";
+} from "@effectstream/config";
 import {
   type AddressAndType,
   AddressType,
   type EvmAddress,
   type PaimaBlockNumber,
   TypeboxHelpers,
-} from "@paima/utils";
-import { type JsonObject, PaimaPrimitive } from "@paima/sm";
+} from "@effectstream/utils";
+import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
 import {
   type CommandTuple,
   generateRawStmInput,
   type ParamToData,
-} from "@paima/concise";
-import type { StateUpdateStream } from "@paima/coroutine";
+} from "@effectstream/concise";
+import type { StateUpdateStream } from "@effectstream/coroutine";
 import { ERC721_VIEW_PREFIX, erc721Ivm } from "./erc721-ivm.ts";
 import { ERC721_INTERMEDIATE_PREFIX } from "./erc721-ivm.ts";
 import { erc721 } from "./erc721-abi.ts";
@@ -142,7 +142,7 @@ import { PrimitiveTypeEVMERC721 } from "../builtin.ts";
   }
 }
 
-// declare module "@paima/sm" {
+// declare module "@effectstream/sm" {
 //   interface PrimitiveGlobalDefinitions {
 //     Erc721Primitive: typeof Erc721Primitive;
 //   }

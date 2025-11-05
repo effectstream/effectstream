@@ -2,8 +2,8 @@ import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
   SyncProtocolWithNetwork,
-} from "@paima/config";
-import type { BlockNumber } from "@paima/utils";
+} from "@effectstream/config";
+import type { BlockNumber } from "@effectstream/utils";
 import type { PageSyncRange } from "../common/page-helpers.ts";
 import type { PageRelation } from "../base/page.ts";
 

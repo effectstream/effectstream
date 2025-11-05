@@ -1,5 +1,5 @@
 import { createPublicClient, defineChain, http, type PublicClient } from "viem";
-import { ENV } from "@paima/utils/node-env";
+import { ENV } from "@effectstream/utils/node-env";
 
 export function getPaimaEVMPublicClient(): PublicClient {
   const paimaChain = defineChain({

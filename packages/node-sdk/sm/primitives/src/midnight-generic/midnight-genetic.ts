@@ -1,23 +1,23 @@
-import { PaimaPrimitive } from "@paima/sm";
+import { PaimaPrimitive } from "@effectstream/sm";
 import {
   type AddressAndType,
   AddressType,
   type MidnightAddress,
   type PaimaBlockNumber,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import type { StaticDecode } from "@sinclair/typebox";
 import {
   type CommandTuple,
   generateRawStmInput,
   type ParamToData,
-} from "@paima/concise";
+} from "@effectstream/concise";
 import type {
   ConfigSyncProtocolType,
   EncodedStateValue,
   FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
-} from "@paima/config";
-import type { SyncStateUpdateStream } from "@paima/coroutine";
+} from "@effectstream/config";
+import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { PrimitiveTypeMidnightGeneric } from "../builtin.ts";
 import { midnightGenericGrammar } from "./midnight-genetic-grammar.ts"
 
@@ -139,7 +139,7 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
   }
 }
 
-// declare module "@paima/sm" {
+// declare module "@effectstream/sm" {
 //   interface PrimitiveGlobalDefinitions {
 //     MidnightGenericPrimitive: typeof MidnightGenericPrimitive;
 //   }

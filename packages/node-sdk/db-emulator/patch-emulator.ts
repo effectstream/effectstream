@@ -1,9 +1,9 @@
 import { run } from "effection";
-import { createDynamicTables } from "@paima/db";
+import { createDynamicTables } from "@effectstream/db";
 import type { Client } from "pg";
-import { applyMigrations } from "@paima/db/version";
-import type { SyncProtocolWithNetwork } from "@paima/config";
-import { builtInPrimitivesMap } from "@paima/sm";
+import { applyMigrations } from "@effectstream/db/version";
+import type { SyncProtocolWithNetwork } from "@effectstream/config";
+import { builtInPrimitivesMap } from "@effectstream/sm";
 
 /**
  * This is to generate the user/custom pgtyped files in compilation time

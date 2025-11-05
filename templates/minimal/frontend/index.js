@@ -38,7 +38,7 @@ async function sendTransactionPaimaL2(input) {
   return result;
 }
 
-window.paima = {
+window.effectstream = {
   login,
   sendTransactionPaimaL2,
 };

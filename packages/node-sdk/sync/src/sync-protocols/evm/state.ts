@@ -1,16 +1,16 @@
 import { applyDelay, blockNumberRelation } from "../common/utils.ts";
 import type { Operation } from "effection";
 import { call } from "effection";
-import { getPage } from "@paima/db";
+import { getPage } from "@effectstream/db";
 import type { PoolClient } from "pg";
-import { bound, type EvmBlockNumber } from "@paima/utils";
+import { bound, type EvmBlockNumber } from "@effectstream/utils";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { EvmFetcher } from "./fetcher.ts";
 import { genInputRange } from "../common/page-helpers.ts";
 import type { Input, Output, Page } from "./types.ts";
 import { toMsTimestamp } from "./types.ts";
-import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@paima/config";
+import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/config";
 
 export class EvmSyncState extends SyncState<
   Input,

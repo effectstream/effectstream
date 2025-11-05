@@ -1,8 +1,8 @@
 # Paima L2 Contract
 
-The `PaimaL2Contract` is a specialized, gas-efficient smart contract that serves as the primary "mailbox" or data entry point for your Paima Engine application. While Paima can monitor any contract, the `PaimaL2Contract` is optimized for submitting user actions and game moves directly to your state machine.
+The `PaimaL2Contract` is a specialized, gas-efficient smart contract that serves as the primary "mailbox" or data entry point for your Effectstream application. While Paima can monitor any contract, the `PaimaL2Contract` is optimized for submitting user actions and game moves directly to your state machine.
 
-Its design is intentionally simple: its main job is to accept arbitrary data from a user, wrap it in an event, and securely log that event on the blockchain for the Paima Engine to process.
+Its design is intentionally simple: its main job is to accept arbitrary data from a user, wrap it in an event, and securely log that event on the blockchain for the Effectstream to process.
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -38,11 +38,11 @@ The contract's logic centers around a single function and a single event.
 
 ### How it Connects to the Grammar and State Machine
 
-The `PaimaL2Contract` is the critical on-chain starting point that triggers your off-chain logic. The connection happens through a precise sequence of steps orchestrated by the Paima Engine:
+The `PaimaL2Contract` is the critical on-chain starting point that triggers your off-chain logic. The connection happens through a precise sequence of steps orchestrated by the Effectstream:
 
 1.  **User Action**: A user on your frontend initiates an action, which calls `paimaSubmitGameInput` on the deployed `PaimaL2Contract` with a formatted string (e.g., `["attack","player1","monster7"]`).
 2.  **Event Emission**: The contract executes and emits the `PaimaGameInteraction` event onto the blockchain.
-3.  **Sync Service Detection**: The Paima Engine's **Sync Service**, which is constantly monitoring the blockchain, has a **Primitive** configured to listen specifically for the `PaimaGameInteraction` event from your contract's address.
+3.  **Sync Service Detection**: The Effectstream's **Sync Service**, which is constantly monitoring the blockchain, has a **Primitive** configured to listen specifically for the `PaimaGameInteraction` event from your contract's address.
 4.  **Grammar Parsing**: When the Sync Service detects a new event, it takes the `data` payload and passes it to the **Grammar Parser**. The parser checks the prefix (`["attack",...`) to identify which rule to apply. It then validates and parses the rest of the string into a structured, type-safe object.
 5.  **STF Execution**: The engine uses the parsed prefix to identify and execute the corresponding **State Transition Function (STF)** in your state machine (e.g., the function registered for `"attack"`). The parsed data object is passed as an argument to your STF, where your game logic runs.
 
@@ -52,16 +52,16 @@ This flow creates a secure and deterministic bridge from an on-chain event to yo
 sequenceDiagram
     participant User/Frontend
     participant EVM Blockchain (PaimaL2Contract)
-    participant Paima Engine (Sync Service)
-    participant Paima Engine (Grammar Parser)
-    participant Paima Engine (State Machine)
+    participant Effectstream (Sync Service)
+    participant Effectstream (Grammar Parser)
+    participant Effectstream (State Machine)
 
     User/Frontend->>EVM Blockchain (PaimaL2Contract): Calls `paimaSubmitGameInput("attack|p1|m7")`
     EVM Blockchain (PaimaL2Contract)->>EVM Blockchain (PaimaL2Contract): Emits `PaimaGameInteraction` event
-    Paima Engine (Sync Service)->>EVM Blockchain (PaimaL2Contract): [Primitive] Detects Event
-    Paima Engine (Sync Service)->>Paima Engine (Grammar Parser): Passes raw data: ["attack","p1","m7"]
-    Paima Engine (Grammar Parser)->>Paima Engine (State Machine): Parses input and identifies 'attack' prefix
-    Paima Engine (State Machine)->>Paima Engine (State Machine): Executes 'attack' STF with parsed data
+    Effectstream (Sync Service)->>EVM Blockchain (PaimaL2Contract): [Primitive] Detects Event
+    Effectstream (Sync Service)->>Effectstream (Grammar Parser): Passes raw data: ["attack","p1","m7"]
+    Effectstream (Grammar Parser)->>Effectstream (State Machine): Parses input and identifies 'attack' prefix
+    Effectstream (State Machine)->>Effectstream (State Machine): Executes 'attack' STF with parsed data
 ```
 
 ### Ownership and Monetization
@@ -78,13 +78,13 @@ The `PaimaL2Contract` also includes administrative functions that allow the cont
 > These are low level internal commands.
 > Normally you will not be directly using these mechanisms.
 
-While most of your application's grammar is custom-defined to handle your specific game logic, Paima Engine reserves a special prefix, `&`, for a set of powerful, built-in system commands. These commands provide core functionalities common to most decentralized applications, including input batching and a flexible account management system.
+While most of your application's grammar is custom-defined to handle your specific game logic, Effectstream reserves a special prefix, `&`, for a set of powerful, built-in system commands. These commands provide core functionalities common to most decentralized applications, including input batching and a flexible account management system.
 
-These commands are processed directly by the Paima Engine before your custom State Transition Functions (STFs) are run.
+These commands are processed directly by the Effectstream before your custom State Transition Functions (STFs) are run.
 
 #### Batched Inputs: `&B`
 
-Submitting one on-chain transaction for every single user action can be slow and expensive, leading to a poor user experience. To solve this, Paima provides a batching mechanism, primarily used by the [Batcher service](../100-components/108-batcher.md).
+Submitting one on-chain transaction for every single user action can be slow and expensive, leading to a poor user experience. To solve this, Paima provides a batching mechanism, primarily used by the [Batcher service](../100-components/108-batcher/1200-overview.md).
 
 The `&B` command allows multiple individual user inputs to be bundled together and submitted in a single on-chain transaction, significantly reducing costs and improving throughput.
 
@@ -105,13 +105,13 @@ The `&B` command allows multiple individual user inputs to be bundled together a
 ]
 ```
 
-A key feature of this system is its robustness & security features. Each input within the batch is a string. If one of the inputs is malformed or invalid according to your grammar, the Paima Engine will simply skip that single input and continue processing the rest of the batch. This prevents a single bad actor or a frontend bug from causing an entire batch of valid transactions to fail.
+A key feature of this system is its robustness & security features. Each input within the batch is a string. If one of the inputs is malformed or invalid according to your grammar, the Effectstream will simply skip that single input and continue processing the rest of the batch. This prevents a single bad actor or a frontend bug from causing an entire batch of valid transactions to fail.
 
 Typically, you will not construct this `&B` string manually. The Batcher service and the Paima frontend SDKs handle the creation and submission of batched inputs automatically.
 
 #### Account Management Commands
 
-Paima Engine includes a flexible, L2-native account system that goes beyond simple wallet addresses. A single "Paima Account" can be controlled by multiple wallets (e.g., a hot wallet on a mobile device and a hardware wallet for security), and the primary controlling wallet can be changed. This provides a form of L2 Account Abstraction.
+Effectstream includes a flexible, L2-native account system that goes beyond simple wallet addresses. A single "Paima Account" can be controlled by multiple wallets (e.g., a hot wallet on a mobile device and a hardware wallet for security), and the primary controlling wallet can be changed. This provides a form of L2 Account Abstraction.
 
 These commands allow users to manage their Paima Account directly through the `PaimaL2Contract`.
 

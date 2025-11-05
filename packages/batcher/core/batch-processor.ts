@@ -142,7 +142,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       );
 
       if (processingResult) {
-        this.batcher.emitStateTransition("batch:paima-processed", {
+        this.batcher.emitStateTransition("batch:effectstream-processed", {
           target,
           latestBlock: processingResult.latestBlock,
           rollup: processingResult.rollup,

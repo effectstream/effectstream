@@ -36,9 +36,9 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
     //   "Check PaimaL2 sync-process (A0)",
     //   db,
     //   `SELECT
-    //         primitive_name, id, paima_block_height, payload_type, payload
+    //         primitive_name, id, effectstream_block_height, payload_type, payload
     //         FROM
-    //         paima.primitive_accounting;`,
+    //        effectstream.primitive_accounting;`,
     //   (res) => res.rows.length === sharedState.primitive_accounting_counter,
     //   (res) => {
     //     return res.rows.length === sharedState.primitive_accounting_counter;
@@ -66,9 +66,9 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
     //   "Check PaimaL2 sync-process (A1)",
     //   db,
     //   `SELECT
-    //         primitive_name, id, paima_block_height, payload_type, payload
+    //         primitive_name, id, effectstream_block_height, payload_type, payload
     //         FROM
-    //         paima.primitive_accounting;`,
+    //        effectstream.primitive_accounting;`,
     //   (res) => res.rows.length === sharedState.primitive_accounting_counter,
     //   (res) => {
     //     return res.rows.length === sharedState.primitive_accounting_counter;
@@ -80,7 +80,7 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
   // TODO: Server crashes with i = 100
   // Lowering to 20
   //
-  // 2025-06-27T18:55:43.612Z ERROR  paima-db: Error: Dynamic linking error: cannot resolve symbol setTempRet0
+  // 2025-06-27T18:55:43.612Z ERROR  effectstream-db: Error: Dynamic linking error: cannot resolve symbol setTempRet0
   // at e.<computed> (file:///Users/username/paima-engine/node_modules/.deno/@electric-sql+pglite@0.3.3/node_modules/@electric-sql/pglite/dist/index.js:1:89333)
   // at <anonymous> (wasm://wasm/0009251e:1:109038)
   // at invoke_ii (file:///Users/username/paima-engine/node_modules/.deno/@electric-sql+pglite@0.3.3/node_modules/@electric-sql/pglite/dist/index.js:3:238292)
@@ -123,9 +123,9 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
     //   "Check PaimaL2 sync-process (B)",
     //   db,
     //   `SELECT
-    //         primitive_name, id, paima_block_height, payload_type, payload
+    //         primitive_name, id, effectstream_block_height, payload_type, payload
     //         FROM
-    //         paima.primitive_accounting;`,
+    //        effectstream.primitive_accounting;`,
     //   (res) => res.rows.length === sharedState.primitive_accounting_counter,
     //   (res) => {
     //     return res.rows.length === sharedState.primitive_accounting_counter;
@@ -139,9 +139,9 @@ export async function tokenTests(db: Client, sharedState: SharedState) {
   //   "Check PaimaL2 sync-process",
   //   db,
   //   `SELECT
-  //         primitive_name, id, paima_block_height, payload_type, payload
+  //         primitive_name, id, effectstream_block_height, payload_type, payload
   //         FROM
-  //         paima.primitive_accounting;`,
+  //        effectstream.primitive_accounting;`,
   //   (res) => res.rows.length === sharedState.primitive_accounting_counter,
   //   (res) => {
   //     return res.rows.length === sharedState.primitive_accounting_counter;

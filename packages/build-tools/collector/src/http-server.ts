@@ -13,8 +13,8 @@ import {
   log as logger,
   type Namespace,
   SeverityNumber,
-} from "@paima/log";
-import { ENV } from "@paima/utils/node-env";
+} from "@effectstream/log";
+import { ENV } from "@effectstream/utils/node-env";
 
 // this file is based on https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
 

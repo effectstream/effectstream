@@ -41,7 +41,8 @@ batcher
   });
 
 main(function* () {
-  console.log("🚀 Starting EVM Midnight Template Paima Batcher...");
+  console.log("🚀 Starting EVM Midnight Template Batcher...");
+
   try {
     yield* batcher.runBatcher();
   } catch (error) {

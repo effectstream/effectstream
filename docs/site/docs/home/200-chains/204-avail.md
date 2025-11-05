@@ -1,6 +1,6 @@
 # Avail
 
-Avail is not a traditional smart contract platform, but a specialized **Data Availability (DA) Layer**. Its primary purpose is to provide a cheap, secure, and decentralized place to post data. For Paima Engine, it can act as an alternative to an L1 for storing the input data for your rollup, potentially leading to much lower "gas" costs.
+Avail is not a traditional smart contract platform, but a specialized **Data Availability (DA) Layer**. Its primary purpose is to provide a cheap, secure, and decentralized place to post data. For Effectstream, it can act as an alternative to an L1 for storing the input data for your rollup, potentially leading to much lower "gas" costs.
 
 ## Configuration
 
@@ -35,4 +35,4 @@ Avail is not a traditional smart contract platform, but a specialized **Data Ava
 Avail is not designed for complex, general-purpose smart contracts. Its main function is data submission and verification.
 
 ## Local Development Setup
-The `launchAvail` function (`@paima/orchestrator/start-avail`) can be used to spin up a local Avail node and the necessary light client for local testing.
+The `launchAvail` function (`@effectstream/orchestrator/start-avail`) can be used to spin up a local Avail node and the necessary light client for local testing.

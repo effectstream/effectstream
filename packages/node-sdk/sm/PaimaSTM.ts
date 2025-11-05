@@ -5,11 +5,11 @@ import {
   parseStmInput,
   toFullJsonGrammar,
   toKeyedJsonGrammar,
-} from "@paima/concise";
+} from "@effectstream/concise";
 import type { AppEvents } from "./types.ts";
 import type { Static, TSchema } from "@sinclair/typebox";
 import type { BaseStfInput, BaseStfOutput } from "./types.ts";
-import type { SyncStateUpdateStream } from "@paima/coroutine";
+import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 
 export type ParamToData<T extends readonly Readonly<[string, TSchema]>[]> = {
   [K in T[number] as K[0]]: Static<K[1]>;

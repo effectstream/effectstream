@@ -1,6 +1,6 @@
-import { CryptoManager } from "@paima/crypto";
-import { AddressType, Signature, WalletAddress } from "@paima/utils";
-import { type SyncStateUpdateStream, World } from "@paima/coroutine";
+import { CryptoManager } from "@effectstream/crypto";
+import { AddressType, Signature, WalletAddress } from "@effectstream/utils";
+import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import { assertNever } from "assert-never";
 
 /**

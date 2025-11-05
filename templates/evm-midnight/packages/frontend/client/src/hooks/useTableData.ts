@@ -255,7 +255,7 @@ export function useTableData() {
           if (
             primitive.primitive &&
             primitive.primitive.name &&
-            primitive.primitive.type !== "evm-rpc-paima-l2"
+            primitive.primitive.type !== "evm-rpc-effectstream-l2"
           ) {
             names.push(primitive.primitive.name);
           }

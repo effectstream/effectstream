@@ -12,6 +12,6 @@ const packageName = flags.package;
 
 import * as remappings from "./assets.ts";
 const hardhatRemappings = new TextDecoder().decode(remappings.default.files["remappings.hardhat"].content)
-  .replace(/@paima/g, packageName);
+  .replace(/@effectstream/g, packageName);
 
 Deno.writeTextFileSync("./remappings.txt", hardhatRemappings);

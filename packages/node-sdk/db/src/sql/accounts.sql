@@ -1,42 +1,42 @@
 /* @name newAddress */
-INSERT INTO paima.addresses (address, address_type) 
+INSERT INTO effectstream.addresses (address, address_type) 
 VALUES (:address!, :address_type);
 
 /* @name newAddressWithId */
-INSERT INTO paima.addresses (address, address_type, account_id) 
+INSERT INTO effectstream.addresses (address, address_type, account_id) 
 VALUES (:address!, :address_type!, :account_id!); 
 
 /* @name newAccount */
-INSERT INTO paima.accounts (primary_address) 
+INSERT INTO effectstream.accounts (primary_address) 
 VALUES (:primary_address)
 RETURNING id;
 
 /* @name updateAddressAccount */
-UPDATE paima.addresses
+UPDATE effectstream.addresses
 SET account_id = :account_id!
 WHERE address = :address!;
 
 /* @name removeAddressAccount */
-UPDATE paima.addresses
+UPDATE effectstream.addresses
 SET account_id = NULL
 WHERE address = :address!;
 
 /* @name updatePrimaryAddress */
-UPDATE paima.accounts
+UPDATE effectstream.accounts
 SET primary_address = :primary_address
 WHERE id = :account_id!;
 
 /* @name getAddressByAddress */
-SELECT * FROM paima.addresses
+SELECT * FROM effectstream.addresses
 WHERE address = :address!;
 
 /* @name getAddressByAccountId */
-SELECT * FROM paima.addresses
+SELECT * FROM effectstream.addresses
 WHERE account_id = :account_id!;
 
 /* @name getAccountById */
-SELECT account_id, address, address_type, primary_address, id as address_id FROM paima.accounts
-LEFT JOIN paima.addresses ON paima.accounts.primary_address = paima.addresses.address
+SELECT account_id, address, address_type, primary_address, id as address_id FROM effectstream.accounts
+LEFT JOIN effectstream.addresses ON effectstream.accounts.primary_address =effectstream.addresses.address
 WHERE id = :account_id!;
 
 
@@ -46,8 +46,8 @@ SELECT
     addresses.address_type as "address_type",
     addresses.account_id as "account_id",
     accounts.primary_address as "primary_address"
-FROM paima.addresses
-LEFT JOIN paima.accounts ON paima.accounts.primary_address = paima.addresses.address
+FROM effectstream.addresses
+LEFT JOIN effectstream.accounts ON effectstream.accounts.primary_address =effectstream.addresses.address
 WHERE
     -- This clause is for the first page fetch when no cursor is provided
     (:after_account_id::INT IS NULL AND :after_address::TEXT IS NULL)
@@ -74,4 +74,4 @@ LIMIT COALESCE(:limit, 1000);
 
 /* @name getAllAddressesCount */
 SELECT COUNT(*) as total
-FROM paima.addresses;
+FROM effectstream.addresses;

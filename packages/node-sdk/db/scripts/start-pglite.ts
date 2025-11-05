@@ -3,7 +3,7 @@ import { type DebugLevel, PGlite } from "@electric-sql/pglite";
 // import { pg_ivm } from "@electric-sql/pglite/pg_ivm";
 import net from "node:net";
 import { fromNodeSocket } from "pg-gateway/node";
-import { ENV } from "@paima/utils/node-env";
+import { ENV } from "@effectstream/utils/node-env";
 
 // TODO PORT be a ENV variable
 // Get port from arguments.

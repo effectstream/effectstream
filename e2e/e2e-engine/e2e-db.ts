@@ -1,4 +1,4 @@
-import { ENV } from "@paima/utils/node-env";
+import { ENV } from "@effectstream/utils/node-env";
 import type { Client } from "pg";
 
 export type QueryResult<RowType> = {

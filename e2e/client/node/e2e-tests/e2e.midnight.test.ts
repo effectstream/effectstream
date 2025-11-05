@@ -41,7 +41,7 @@ import {
 import type { Client } from "pg";
 import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
 import { dirname, resolve } from "node:path";
-import { AddressType } from "@paima/utils";
+import { AddressType } from "@effectstream/utils";
 
 const BATCHER_URL = "http://localhost:3334";
 globalThis.WebSocket = WebSocket;
@@ -488,7 +488,7 @@ async function joinAndIncrementTest(
         await assertSQL<{
           primitive_name: string;
           id: number;
-          paima_block_height: number;
+          effectstream_block_height: number;
           payload_type: string;
           payload: { 
             payload: {
@@ -498,7 +498,7 @@ async function joinAndIncrementTest(
         }>(
           "Midnight Rows Exists",
           db,
-          "SELECT * FROM paima.primitive_accounting WHERE primitive_name = 'MidnightContractState'",
+          "SELECT * FROM effectstream.primitive_accounting WHERE primitive_name = 'MidnightContractState'",
           (res) => true,
           (res) => {
             const countOK = res.rows.length === 2;

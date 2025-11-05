@@ -46,15 +46,15 @@ export function erc721Ivm(name: string) {
        NEW.primitive_name,
            NEW.payload->>'tokenId',
            lower(NEW.payload->>'to'),
-           NEW.paima_block_height,
+           NEW.effectstream_block_height,
            NEW.id
        )
        ON CONFLICT (primitive_name, token_id) DO UPDATE SET
            current_owner = lower(NEW.payload->>'to'),
-           last_transfer_block_height = NEW.paima_block_height,
+           last_transfer_block_height = NEW.effectstream_block_height,
            last_transfer_id = NEW.id
-       WHERE NEW.paima_block_height > ${ownershipTable}.last_transfer_block_height
-          OR (NEW.paima_block_height = ${ownershipTable}.last_transfer_block_height 
+       WHERE NEW.effectstream_block_height > ${ownershipTable}.last_transfer_block_height
+          OR (NEW.effectstream_block_height = ${ownershipTable}.last_transfer_block_height 
               AND NEW.id > ${ownershipTable}.last_transfer_id);
       END IF;
       
@@ -64,7 +64,7 @@ export function erc721Ivm(name: string) {
 
   -- Create trigger on primitive_accounting
   CREATE TRIGGER trigger_update_erc721_ownership_${validSQLName}
-      AFTER INSERT ON paima.primitive_accounting
+      AFTER INSERT ON effectstream.primitive_accounting
       FOR EACH ROW
       EXECUTE FUNCTION update_erc721_ownership_${validSQLName}();
 

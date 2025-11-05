@@ -80,7 +80,7 @@ RUN deno task -f @e2e/wallets-ui build
 
 # START E2E TESTS
 # Yaci Devkit failing on linux
-ENV DISABLE_LINUX_YACI=true
-# Show Paima-Engine logs
-ENV PAIMA_E2E_LOG_DEBUG=true
+ENV DISABLE_YACI=true
+# Show Effectstream logs
+ENV EFFECTSTREAM_STDOUT=true
 CMD ["deno", "task", "-f", "@e2e/node", "test"]

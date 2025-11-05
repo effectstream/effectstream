@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { ENV } from "@paima/utils/node-env";
+import { ENV } from "@effectstream/utils/node-env";
 
 interface Process {
   name?: string;

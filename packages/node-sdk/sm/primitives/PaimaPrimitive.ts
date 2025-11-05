@@ -1,13 +1,13 @@
-import type { AddressAndType, PaimaBlockNumber } from "@paima/utils";
+import type { AddressAndType, PaimaBlockNumber } from "@effectstream/utils";
 import type { StaticDecode, TSchema } from "@sinclair/typebox";
-import type { CommandTuple } from "@paima/concise";
+import type { CommandTuple } from "@effectstream/concise";
 import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
-import type { StateUpdateStream } from "@paima/coroutine";
+import type { StateUpdateStream } from "@effectstream/coroutine";
 import type { JsonObject } from "./types.ts";
 import type {
   FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
-} from "@paima/config";
+} from "@effectstream/config";
 import type { AnyPrimitiveType } from "./src/builtin.ts";
 
 /**
@@ -63,7 +63,7 @@ export abstract class PaimaPrimitive<
   // This returns the payload in the state machine format.
   // e.g., [stateMachinePrefix, v1, v2, v3]
   abstract getPayload(
-    paima_block_height: PaimaBlockNumber,
+    effectstream_block_height: PaimaBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<SyncProtocol>,
   ): StateUpdateStream<{
     isBatched: boolean;

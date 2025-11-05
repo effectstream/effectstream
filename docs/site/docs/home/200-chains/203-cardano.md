@@ -27,7 +27,7 @@ Paima supports connecting to Cardano via different indexer services.
 
 ## Contract Development
 *   **Languages**: Plutus, Aiken, and others.
-*   **Note**: Cardano contract development is an external process. Paima Engine integrates with your *deployed* Cardano contracts by monitoring on-chain activity.
+*   **Note**: Cardano contract development is an external process. Effectstream integrates with your *deployed* Cardano contracts by monitoring on-chain activity.
 
 ## Local Development Setup
-The `launchCardano` function (`@paima/orchestrator/start-cardano`) typically starts a local Cardano node and the Yaci Devkit, which provides a UTXO-RPC endpoint for local development.
+The `launchCardano` function (`@effectstream/orchestrator/start-cardano`) typically starts a local Cardano node and the Yaci Devkit, which provides a UTXO-RPC endpoint for local development.

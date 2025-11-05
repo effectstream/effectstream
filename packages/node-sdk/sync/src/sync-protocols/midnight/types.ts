@@ -6,14 +6,14 @@ import type {
   MidnightTxHash,
   TimestampIso8601,
   TimestampMs,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import type {
   ConfigNetworkType,
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
   PrimitiveEntry,
   SyncProtocolWithNetwork,
-} from "@paima/config";
+} from "@effectstream/config";
 import type { MidnightGqlBlockState } from "./MidnightClient.ts";
 
 export type CommonFunnelArgs = {

@@ -1,4 +1,4 @@
-import type { ProtocolPrimitiveMap } from "@paima/config";
+import type { ProtocolPrimitiveMap } from "@effectstream/config";
 import type { PaimaPrimitive } from "./PaimaPrimitive.ts";
 
 /**
@@ -9,7 +9,7 @@ import type { PaimaPrimitive } from "./PaimaPrimitive.ts";
  */
 type UnknownPrimitive = any;
 type UnknownSyncProtocol = any;
-// @paima/db packages cannot import this package.
+// @effectstream/db packages cannot import this package.
 // so we communicate via the globalThis object.
 (globalThis as any).PAIMA_REGISTRY =
   (globalThis as any).PAIMA_REGISTRY ??

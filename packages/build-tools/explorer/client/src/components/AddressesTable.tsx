@@ -3,7 +3,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
 import { ADDRESSES_ENDPOINT, BATCHER_ENDPOINT } from "../config.ts";
-import { createMessageForBatcher } from "@paima/concise";
+import { createMessageForBatcher } from "@effectstream/concise";
 
 interface AddressRow {
   account_id: number | null;

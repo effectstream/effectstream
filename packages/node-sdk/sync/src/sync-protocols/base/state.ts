@@ -4,14 +4,14 @@ import {
   type BlockNumber,
   conditionVariable,
   type CondVar,
-} from "@paima/utils";
+} from "@effectstream/utils";
 import stableStringify from "json-stable-stringify";
-import { bound } from "@paima/utils";
-import { ComponentNames, log, SeverityNumber } from "@paima/log";
+import { bound } from "@effectstream/utils";
+import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { BaseDataFetcher, DataFetched } from "./fetcher.ts";
 import type { PageRelation } from "./page.ts";
 import type { PoolClient } from "pg";
-import { acquireDBMutex, releaseDBMutex, upsertPage } from "@paima/db";
+import { acquireDBMutex, releaseDBMutex, upsertPage } from "@effectstream/db";
 
 export type LastPage<Page, RootPage> = {
   own: Page;

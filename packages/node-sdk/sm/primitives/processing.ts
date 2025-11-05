@@ -1,18 +1,18 @@
 import type {
   ConfigSyncProtocolType,
   FlattenSyncProtocolIOFor,
-} from "@paima/config";
-import { type StateUpdateStream, World } from "@paima/coroutine";
-import type { PaimaBlockNumber } from "@paima/utils";
+} from "@effectstream/config";
+import { type StateUpdateStream, World } from "@effectstream/coroutine";
+import type { PaimaBlockNumber } from "@effectstream/utils";
 import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
 import {
   createScheduledData,
   type IInsertPrimitiveAccountingParams,
   insertPrimitiveAccounting,
-} from "@paima/db";
+} from "@effectstream/db";
 
 export function* primitiveTransitionFunction(
-  paima_block_height: PaimaBlockNumber,
+  effectstream_block_height: PaimaBlockNumber,
   primitiveData: FlattenSyncProtocolIOFor<
     ConfigSyncProtocolType
   >,
@@ -26,7 +26,7 @@ export function* primitiveTransitionFunction(
   // TODO We don't need to pass the `primitive' rather the primitive.output
   const { isBatched, data } = yield* paimaPrimitive
     .getPayload(
-      paima_block_height,
+      effectstream_block_height,
       primitiveData,
     );
   // console.error("[primitivePayload]", isBatched, data);
@@ -43,7 +43,7 @@ export function* primitiveTransitionFunction(
     }
     const insertPrimitiveAccountingParams: IInsertPrimitiveAccountingParams = {
       primitive_name: paimaPrimitive.instanceName,
-      paima_block_height: paima_block_height,
+      effectstream_block_height: effectstream_block_height,
       payload_type: paimaPrimitive.internalTypeName,
       payload: accountingPayload,
     };
@@ -56,7 +56,7 @@ export function* primitiveTransitionFunction(
       yield* createScheduledData(
         JSON.stringify(stateMachinePayload),
         {
-          blockHeight: paima_block_height,
+          blockHeight: effectstream_block_height,
         },
         {
           primitiveName: primitiveName,

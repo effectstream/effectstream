@@ -11,9 +11,9 @@ export type IGetLatestProcessedBlockHeightParams = void;
 /** 'GetLatestProcessedBlockHeight' return type */
 export interface IGetLatestProcessedBlockHeightResult {
   block_height: number;
+  effectstream_block_hash: Buffer | null;
   main_chain_block_hash: Buffer;
   ms_timestamp: Date;
-  paima_block_hash: Buffer | null;
   seed: string;
   ver: number;
 }
@@ -24,13 +24,13 @@ export interface IGetLatestProcessedBlockHeightQuery {
   result: IGetLatestProcessedBlockHeightResult;
 }
 
-const getLatestProcessedBlockHeightIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM paima.paima_blocks\nWHERE paima_block_hash IS NOT NULL\nORDER BY block_height DESC\nLIMIT 1"};
+const getLatestProcessedBlockHeightIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM effectstream.effectstream_blocks\nWHERE effectstream_block_hash IS NOT NULL\nORDER BY block_height DESC\nLIMIT 1"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.paima_blocks
- * WHERE paima_block_hash IS NOT NULL
+ * SELECT * FROM effectstream.effectstream_blocks
+ * WHERE effectstream_block_hash IS NOT NULL
  * ORDER BY block_height DESC
  * LIMIT 1
  * ```
@@ -52,13 +52,13 @@ export interface IGetBlockSeedsQuery {
   result: IGetBlockSeedsResult;
 }
 
-const getBlockSeedsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT seed FROM paima.paima_blocks\nWHERE paima_block_hash IS NOT NULL\nORDER BY block_height DESC\nLIMIT 25"};
+const getBlockSeedsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT seed FROM effectstream.effectstream_blocks\nWHERE effectstream_block_hash IS NOT NULL\nORDER BY block_height DESC\nLIMIT 25"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT seed FROM paima.paima_blocks
- * WHERE paima_block_hash IS NOT NULL
+ * SELECT seed FROM effectstream.effectstream_blocks
+ * WHERE effectstream_block_hash IS NOT NULL
  * ORDER BY block_height DESC
  * LIMIT 25
  * ```
@@ -74,9 +74,9 @@ export interface IGetBlockHeightsParams {
 /** 'GetBlockHeights' return type */
 export interface IGetBlockHeightsResult {
   block_height: number;
+  effectstream_block_hash: Buffer | null;
   main_chain_block_hash: Buffer;
   ms_timestamp: Date;
-  paima_block_hash: Buffer | null;
   seed: string;
   ver: number;
 }
@@ -87,12 +87,12 @@ export interface IGetBlockHeightsQuery {
   result: IGetBlockHeightsResult;
 }
 
-const getBlockHeightsIR: any = {"usedParamSet":{"block_heights":true},"params":[{"name":"block_heights","required":true,"transform":{"type":"array_spread"},"locs":[{"a":56,"b":70}]}],"statement":"SELECT * FROM paima.paima_blocks \nWHERE block_height IN :block_heights!\nORDER BY block_height ASC"};
+const getBlockHeightsIR: any = {"usedParamSet":{"block_heights":true},"params":[{"name":"block_heights","required":true,"transform":{"type":"array_spread"},"locs":[{"a":70,"b":84}]}],"statement":"SELECT * FROM effectstream.effectstream_blocks \nWHERE block_height IN :block_heights!\nORDER BY block_height ASC"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM paima.paima_blocks 
+ * SELECT * FROM effectstream.effectstream_blocks 
  * WHERE block_height IN :block_heights!
  * ORDER BY block_height ASC
  * ```
@@ -108,9 +108,9 @@ export interface IGetBlockByHashParams {
 /** 'GetBlockByHash' return type */
 export interface IGetBlockByHashResult {
   block_height: number;
+  effectstream_block_hash: Buffer | null;
   main_chain_block_hash: Buffer;
   ms_timestamp: Date;
-  paima_block_hash: Buffer | null;
   prev_block: Buffer | null;
   seed: string;
   ver: number;
@@ -122,15 +122,15 @@ export interface IGetBlockByHashQuery {
   result: IGetBlockByHashResult;
 }
 
-const getBlockByHashIR: any = {"usedParamSet":{"block_hash":true},"params":[{"name":"block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":191,"b":202},{"a":236,"b":247}]}],"statement":"SELECT curr.*, prev.paima_block_hash as \"prev_block\"\nFROM paima.paima_blocks curr\nLEFT JOIN paima.paima_blocks prev ON prev.block_height = curr.block_height - 1\nWHERE curr.paima_block_hash = :block_hash! OR curr.main_chain_block_hash = :block_hash!"};
+const getBlockByHashIR: any = {"usedParamSet":{"block_hash":true},"params":[{"name":"block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":233,"b":244},{"a":278,"b":289}]}],"statement":"SELECT curr.*, prev.effectstream_block_hash as \"prev_block\"\nFROM effectstream.effectstream_blocks curr\nLEFT JOIN effectstream.effectstream_blocks prev ON prev.block_height = curr.block_height - 1\nWHERE curr.effectstream_block_hash = :block_hash! OR curr.main_chain_block_hash = :block_hash!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT curr.*, prev.paima_block_hash as "prev_block"
- * FROM paima.paima_blocks curr
- * LEFT JOIN paima.paima_blocks prev ON prev.block_height = curr.block_height - 1
- * WHERE curr.paima_block_hash = :block_hash! OR curr.main_chain_block_hash = :block_hash!
+ * SELECT curr.*, prev.effectstream_block_hash as "prev_block"
+ * FROM effectstream.effectstream_blocks curr
+ * LEFT JOIN effectstream.effectstream_blocks prev ON prev.block_height = curr.block_height - 1
+ * WHERE curr.effectstream_block_hash = :block_hash! OR curr.main_chain_block_hash = :block_hash!
  * ```
  */
 export const getBlockByHash = new PreparedQuery<IGetBlockByHashParams,IGetBlockByHashResult>(getBlockByHashIR);
@@ -154,12 +154,12 @@ export interface ISaveLastBlockQuery {
   result: ISaveLastBlockResult;
 }
 
-const saveLastBlockIR: any = {"usedParamSet":{"block_height":true,"ver":true,"main_chain_block_hash":true,"seed":true,"ms_timestamp":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":119,"b":132}]},{"name":"ver","required":true,"transform":{"type":"scalar"},"locs":[{"a":135,"b":139}]},{"name":"main_chain_block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":142,"b":164}]},{"name":"seed","required":true,"transform":{"type":"scalar"},"locs":[{"a":167,"b":172}]},{"name":"ms_timestamp","required":true,"transform":{"type":"scalar"},"locs":[{"a":175,"b":188}]}],"statement":"INSERT INTO paima.paima_blocks(block_height, ver, main_chain_block_hash, seed, ms_timestamp, paima_block_hash)\nVALUES (:block_height!, :ver!, :main_chain_block_hash!, :seed!, :ms_timestamp!, NULL)\nON CONFLICT (block_height)\nDO UPDATE SET\nblock_height = EXCLUDED.block_height,\nver = EXCLUDED.ver,\nmain_chain_block_hash = EXCLUDED.main_chain_block_hash,\nseed = EXCLUDED.seed,\nms_timestamp = EXCLUDED.ms_timestamp,\npaima_block_hash = EXCLUDED.paima_block_hash"};
+const saveLastBlockIR: any = {"usedParamSet":{"block_height":true,"ver":true,"main_chain_block_hash":true,"seed":true,"ms_timestamp":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":140,"b":153}]},{"name":"ver","required":true,"transform":{"type":"scalar"},"locs":[{"a":156,"b":160}]},{"name":"main_chain_block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":163,"b":185}]},{"name":"seed","required":true,"transform":{"type":"scalar"},"locs":[{"a":188,"b":193}]},{"name":"ms_timestamp","required":true,"transform":{"type":"scalar"},"locs":[{"a":196,"b":209}]}],"statement":"INSERT INTO effectstream.effectstream_blocks(block_height, ver, main_chain_block_hash, seed, ms_timestamp, effectstream_block_hash)\nVALUES (:block_height!, :ver!, :main_chain_block_hash!, :seed!, :ms_timestamp!, NULL)\nON CONFLICT (block_height)\nDO UPDATE SET\nblock_height = EXCLUDED.block_height,\nver = EXCLUDED.ver,\nmain_chain_block_hash = EXCLUDED.main_chain_block_hash,\nseed = EXCLUDED.seed,\nms_timestamp = EXCLUDED.ms_timestamp,\neffectstream_block_hash = EXCLUDED.effectstream_block_hash"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO paima.paima_blocks(block_height, ver, main_chain_block_hash, seed, ms_timestamp, paima_block_hash)
+ * INSERT INTO effectstream.effectstream_blocks(block_height, ver, main_chain_block_hash, seed, ms_timestamp, effectstream_block_hash)
  * VALUES (:block_height!, :ver!, :main_chain_block_hash!, :seed!, :ms_timestamp!, NULL)
  * ON CONFLICT (block_height)
  * DO UPDATE SET
@@ -168,7 +168,7 @@ const saveLastBlockIR: any = {"usedParamSet":{"block_height":true,"ver":true,"ma
  * main_chain_block_hash = EXCLUDED.main_chain_block_hash,
  * seed = EXCLUDED.seed,
  * ms_timestamp = EXCLUDED.ms_timestamp,
- * paima_block_hash = EXCLUDED.paima_block_hash
+ * effectstream_block_hash = EXCLUDED.effectstream_block_hash
  * ```
  */
 export const saveLastBlock = new PreparedQuery<ISaveLastBlockParams,ISaveLastBlockResult>(saveLastBlockIR);
@@ -189,14 +189,14 @@ export interface IBlockHeightDoneQuery {
   result: IBlockHeightDoneResult;
 }
 
-const blockHeightDoneIR: any = {"usedParamSet":{"block_hash":true,"block_height":true},"params":[{"name":"block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":49,"b":60}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":83,"b":96}]}],"statement":"UPDATE paima.paima_blocks\nSET\npaima_block_hash = :block_hash!\nWHERE block_height = :block_height!"};
+const blockHeightDoneIR: any = {"usedParamSet":{"block_hash":true,"block_height":true},"params":[{"name":"block_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":70,"b":81}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":104,"b":117}]}],"statement":"UPDATE effectstream.effectstream_blocks\nSET\neffectstream_block_hash = :block_hash!\nWHERE block_height = :block_height!"};
 
 /**
  * Query generated from SQL:
  * ```
- * UPDATE paima.paima_blocks
+ * UPDATE effectstream.effectstream_blocks
  * SET
- * paima_block_hash = :block_hash!
+ * effectstream_block_hash = :block_hash!
  * WHERE block_height = :block_height!
  * ```
  */

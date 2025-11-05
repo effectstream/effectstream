@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import * as paima from "./paima.ts";
+import * as effectstream from "./paima.ts";
 
 function App() {
   const [evmWallet, setEvmWallet] = useState<any>(null);
@@ -67,7 +67,7 @@ function App() {
 
   const handleEvmLogin = async () => {
     await withLoader("Connecting EVM Wallet...", async () => {
-      const { wallet, client } = await paima.loginEVM();
+      const { wallet, client } = await effectstream.loginEVM();
       setEvmWallet(wallet);
       setEvmClient(client);
       setEvmAddress(wallet.walletAddress);
@@ -76,7 +76,7 @@ function App() {
 
   const handleMidnightLogin = async () => {
     await withLoader("Connecting Midnight Wallet...", async () => {
-      const { wallet, addr, contract } = await paima.loginMidnight();
+      const { wallet, addr, contract } = await effectstream.loginMidnight();
       setMidnightWallet(wallet);
       setMidnightContract(contract);
       setMidnightAddress(addr);
@@ -86,14 +86,14 @@ function App() {
 
   const fetchEVMBalance = async () => {
     if (evmWallet) {
-      const balance = await paima.evm_balanceOf(evmWallet.walletAddress, 1n);
+      const balance = await effectstream.evm_balanceOf(evmWallet.walletAddress, 1n);
       setBalance(String(balance));
     }
   };
 
   const fetchMidnightBalance = async () => {
     if (midnightWallet && midnightContract) {
-      const balance = await paima.midnight_balanceOf(
+      const balance = await effectstream.midnight_balanceOf(
         midnightContract,
         midnightAddress
       );
@@ -117,7 +117,7 @@ function App() {
   const mintTokens = async () => {
     await withLoader("Minting EVM tokens...", async () => {
       if (evmWallet && evmClient && mintAmount) {
-        await paima.evm_mint(evmClient, evmWallet, BigInt(mintAmount));
+        await effectstream.evm_mint(evmClient, evmWallet, BigInt(mintAmount));
         // Update EVM balance after a delay to allow blockchain processing
         setTimeout(() => fetchEVMBalance(), 2000);
       } else {
@@ -129,7 +129,7 @@ function App() {
   const mintMidnightTokens = async () => {
     await withLoader("Minting Midnight tokens...", async () => {
       if (midnightWallet && midnightContract && midnightMintAmount) {
-        await paima.midnight_mint(
+        await effectstream.midnight_mint(
           midnightContract,
           midnightAddress,
           BigInt(midnightMintAmount)
@@ -146,7 +146,7 @@ function App() {
     await withLoader("Transferring to Midnight...", async () => {
       if (evmWallet && evmClient && transferToMidnightAmount) {
         const amount = BigInt(transferToMidnightAmount);
-        await paima.evm_transferToMidnight(
+        await effectstream.evm_transferToMidnight(
           evmClient,
           evmWallet,
           BigInt(transferToMidnightAmount),
@@ -172,7 +172,7 @@ function App() {
     await withLoader("Transferring to EVM...", async () => {
       if (midnightWallet && midnightContract && transferToEvmAmount) {
         const amount = BigInt(transferToEvmAmount);
-        await paima.midnight_transferToEVM(
+        await effectstream.midnight_transferToEVM(
           midnightContract,
           midnightAddress,
           evmAddress,
@@ -197,7 +197,7 @@ function App() {
   const writeToContractEVMERC1155 = async () => {
     await withLoader("Transferring EVM tokens...", async () => {
       if (evmWallet && evmClient && transferAmount && transferToAddress) {
-        await paima.evm_safeTransferFrom(
+        await effectstream.evm_safeTransferFrom(
           evmClient,
           evmWallet,
           transferToAddress as `0x${string}`,
@@ -222,7 +222,7 @@ function App() {
         const amounts = batchTransferAmounts
           .split(",")
           .map((amount) => BigInt(amount.trim()));
-        await paima.evm_safeBatchTransferFrom(
+        await effectstream.evm_safeBatchTransferFrom(
           evmClient,
           evmWallet,
           batchTransferToAddress as `0x${string}`,

@@ -1,5 +1,5 @@
 {
-  "name": "@paima/runtime",
+  "name": "@effectstream/runtime",
   "version": "0.3.0",
   "license": "MIT",
   "exports": "./src/mod.ts",

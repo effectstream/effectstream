@@ -5,15 +5,15 @@
 
 In any decentralized application, the user's wallet is their identity, their key, and their signature. It's the fundamental tool that allows them to interact with the blockchain and prove ownership of their assets and actions.
 
-A major challenge in building multi-chain dApps is that every blockchain ecosystem has its own wallet standards and connection methods. Paima Engine solves this problem by providing a single, unified interface that handles the complexity for you.
+A major challenge in building multi-chain dApps is that every blockchain ecosystem has its own wallet standards and connection methods. Effectstream solves this problem by providing a single, unified interface that handles the complexity for you.
 
-## The `@paima/wallet` Package
+## The `@effectstream/wallet` Package
 
-The `@paima/wallet` package is the core frontend library for managing user identity. It provides a single, easy-to-use API for connecting to and interacting with a wide variety of blockchain wallets, abstracting away the chain-specific implementation details.
+The `@effectstream/wallet` package is the core frontend library for managing user identity. It provides a single, easy-to-use API for connecting to and interacting with a wide variety of blockchain wallets, abstracting away the chain-specific implementation details.
 
 ## AddressType
 
-This table is a Paima Engine numeric representation of wallet address type. Normally addresses will be used with it's corresponding address type, so the correct cryptographic signer/verifiers can be selected.
+This table is a Effectstream numeric representation of wallet address type. Normally addresses will be used with it's corresponding address type, so the correct cryptographic signer/verifiers can be selected.
 
 | Address Type | Number |
 | ------------ | ------ |
@@ -31,9 +31,9 @@ This table is a Paima Engine numeric representation of wallet address type. Norm
 Integrating wallet connectivity into your dApp is streamlined with a single `login` function. You simply specify which type of wallet you want to connect to using the `WalletMode` enum, and the library handles the rest.
 
 ```ts
-import { WalletMode, login } from '@paima/wallet';
+import { WalletMode, login } from '@effectstream/wallet';
 
-const paimaEngineConfig = new PaimaEngineConfig(...); // see PaimaEngineConfig in the @paima/wallets package
+const paimaEngineConfig = new PaimaEngineConfig(...); // see PaimaEngineConfig in the @effectstream/wallets package
 
 async function connectWallet() {
   try {
@@ -66,7 +66,7 @@ The `WalletMode` enum allows you to support a broad range of ecosystems, enablin
 
 ## PaimaEngineConfig
 
-The `PaimaEngineConfig` is used to configure the Paima Engine.
+The `PaimaEngineConfig` is used to configure the Effectstream.
 
 Settings:
 * **App Name**: The name of the app, used to internally sign messages.
@@ -77,12 +77,12 @@ Settings:
 * **Batcher URL**: The url of the batcher to use.
 * **Prefer Batched Mode**: If true use batcher by default, otherwise use self-sequenced transaction.
 
-See the `PaimaEngineConfig` in the `@paima/wallets` package for more details.
+See the `PaimaEngineConfig` in the `@effectstream/wallets` package for more details.
 
 ```ts
 const paimaEngineConfig = new PaimaEngineConfig(
   "my-app",                       // app name
-  "paima-l2-sync-protocol-name",  // paima l2 sync protocol name
+  "effectstream-l2-sync-protocol-name",  // paima l2 sync protocol name
   "0x1234567890abcdef",           // paima l2 contract address
   hardhat,                        // paima l2 chain
   undefined,                      // if undefined, use default paima l2 abi
@@ -105,11 +105,11 @@ const conciseInput = ["my-action", "0x1", "0x2"]; // Your grammar-formatted inpu
 const result = await sendTransaction(walletClient, conciseInput, paimaEngineConfig);
 ```
 
-See the `sendTransaction` function in the `@paima/wallets` package for more details.
+See the `sendTransaction` function in the `@effectstream/wallets` package for more details.
 
 ### 2. Manually Signing Messages for the Batcher
 
-To provide a gasless, cross-chain experience, the user's wallet is used to **sign a message** containing their game input. This signed message is then sent to the [Batcher](./108-batcher.md), which handles the on-chain submission. This is the core mechanism that allows a Cardano user to play a game on an EVM chain without needing an EVM wallet or gas.
+To provide a gasless, cross-chain experience, the user's wallet is used to **sign a message** containing their game input. This signed message is then sent to the [Batcher](./108-batcher/1200-overview.md), which handles the on-chain submission. This is the core mechanism that allows a Cardano user to play a game on an EVM chain without needing an EVM wallet or gas.
 
 ```ts
 const conciseInput = ["my-action", "0x3", "0x4"]; // Your grammar-formatted input
@@ -130,7 +130,7 @@ const result = await sendSelfSequencedTransaction(walletClient, conciseInput, pa
 
 ### 4. User Identification
 
-The user's `walletAddress` is their primary identifier within the Paima Engine. When your State Machine receives an input, it knows which user performed the action based on the `signerAddress`. This address is used to query the database for the user's state, inventory, and other relevant information.
+The user's `walletAddress` is their primary identifier within the Effectstream. When your State Machine receives an input, it knows which user performed the action based on the `signerAddress`. This address is used to query the database for the user's state, inventory, and other relevant information.
 
 ### 4. Signing Messages
 

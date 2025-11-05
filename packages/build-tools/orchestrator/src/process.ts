@@ -1,7 +1,7 @@
 import { type LogHandler, streamTo, systemLog } from "./logging.ts";
-import type { Namespace } from "@paima/log";
-import { ComponentNames } from "@paima/log";
-import type { ValueOf } from "@paima/utils";
+import type { Namespace } from "@effectstream/log";
+import { ComponentNames } from "@effectstream/log";
+import type { ValueOf } from "@effectstream/utils";
 import { abortControllers } from "./start.ts";
 
 export type ProcessComponent = {
@@ -14,7 +14,7 @@ export type ProcessComponent = {
   date: string;
   link: string;
   // This is internal temporal flag to notify that the next
-  // "restart" is intended, so we do not stop paima-engine.
+  // "restart" is intended, so we do not stop effectstream-engine.
   _allow_restart?: boolean;
 };
 

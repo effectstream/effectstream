@@ -8,7 +8,7 @@ import {
   getLatestVersion,
   releaseDBMutex,
   tableExists,
-} from "@paima/db";
+} from "@effectstream/db";
 type VERSION = `${number}.${number}.${number}`;
 type VERSION_NUMBER = [number, number, number];
 // NOTE This must match the version of the root deno.json
@@ -128,7 +128,7 @@ export function* getVersionInfo(dbConn: Client): Operation<VersionInfo> {
     };
   }
 
-  // So let's check what is the latest version from the `paima_engine_version_history` table.
+  // So let's check what is the latest version from the `effectstream_version_history` table.
   yield* acquireDBMutex("get-version-info");
   const [latestVersion] = yield* until(getLatestVersion.run(undefined, dbConn));
   releaseDBMutex("get-version-info");

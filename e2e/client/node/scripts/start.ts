@@ -2,17 +2,17 @@ import {
   OrchestratorConfig,
   type ProcessComponent,
   start,
-} from "@paima/orchestrator";
-import { ComponentNames } from "@paima/log";
+} from "@effectstream/orchestrator";
+import { ComponentNames } from "@effectstream/log";
 import { Value } from "@sinclair/typebox/value";
-import { launchAvail } from "@paima/orchestrator/start-avail";
-import { launchCardano } from "@paima/orchestrator/start-cardano";
-import { launchEvm } from "@paima/orchestrator/start-evm";
-import { launchMidnight } from "@paima/orchestrator/start-midnight";
+import { launchAvail } from "@effectstream/orchestrator/start-avail";
+import { launchCardano } from "@effectstream/orchestrator/start-cardano";
+import { launchEvm } from "@effectstream/orchestrator/start-evm";
+import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
 
-const logs = Deno.env.get("PAIMA_E2E_LOG_DEBUG") ? "stdout" : "development";
+const logs = Deno.env.get("EFFECTSTREAM_STDOUT") ? "stdout" : "development";
 const external_db_enabled = Deno.env.get("EXTERNAL_DB_ENABLED") === "true";
-const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
+const yaci_enabled = Deno.env.get("DISABLE_YACI") === "true"
   ? false
   : true;
 
@@ -34,7 +34,7 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.COLLECTOR]: logs === "development",
   },
 
-  packageName: "@paima",
+  packageName: "@effectstream",
 
   // Launch my processes
   processesToLaunch: [
@@ -45,13 +45,13 @@ const config = Value.Parse(OrchestratorConfig, {
     { 
       name: "build explorer",
       stopProcessAtPort: [10590],
-      args: ["task", "-f", "paima/explorer", "build"],
+      args: ["task", "-f", "@effectstream/explorer", "build"],
       waitToExit: true,
       dependsOn: [],
     },
     {
       name: "serve explorer",
-      args: ["task", "-f", "@paima/explorer", "server:start"],
+      args: ["task", "-f", "@effectstream/explorer", "server:start"],
       waitToExit: false,
       type: "system-dependency",
       link: "http://localhost:10590",
@@ -64,7 +64,7 @@ const config = Value.Parse(OrchestratorConfig, {
       args: ["task", "-f", "@e2e/batcher", "start"],
       waitToExit: false,
       type: "system-dependency",
-      dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
+      dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined].filter(Boolean),
     }
   ],
 });

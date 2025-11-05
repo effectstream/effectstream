@@ -15,9 +15,9 @@ import type {
   RootConversion,
 } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
-import { bound } from "@paima/utils";
+import { bound } from "@effectstream/utils";
 import { MidnightClient, type MidnightGqlBlockState } from "./MidnightClient.ts";
-import type { EncodedStateValue } from "@paima/config";
+import type { EncodedStateValue } from "@effectstream/config";
 import { ContractState, NetworkId } from '@midnight-ntwrk/onchain-runtime';
 
 export class MidnightFetcher extends BaseDataFetcher<

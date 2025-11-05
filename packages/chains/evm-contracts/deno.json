@@ -1,5 +1,5 @@
 {
-  "name": "@paima/evm-contracts",
+  "name": "@effectstream/evm-contracts",
   "version": "0.3.0",
   "license": "MIT",
   "exports": "./mod.ts",

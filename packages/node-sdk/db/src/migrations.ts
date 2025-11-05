@@ -1,5 +1,5 @@
 // TODO: Circular dependency.
-// import type { DBMigrations } from "@paima/runtime";
+// import type { DBMigrations } from "@effectstream/runtime";
 
 /**
  * This function is used by Paima Engine to apply the migration at the correct block heights.

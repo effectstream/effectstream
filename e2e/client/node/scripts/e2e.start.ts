@@ -1,20 +1,20 @@
 import type { Client, PoolConfig } from "pg";
 import pg from "pg";
-import { OrchestratorConfig, start } from "@paima/orchestrator";
-import { ENV } from "@paima/utils/node-env";
+import { OrchestratorConfig, start } from "@effectstream/orchestrator";
+import { ENV } from "@effectstream/utils/node-env";
 import { Value } from "@sinclair/typebox/value";
-import { ComponentNames } from "@paima/log";
+import { ComponentNames } from "@effectstream/log";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
-import { launchCardano } from "@paima/orchestrator/start-cardano";
-import { launchEvm } from "@paima/orchestrator/start-evm";
-import { launchMidnight } from "@paima/orchestrator/start-midnight";
-import { launchAvail } from "@paima/orchestrator/start-avail";
+import { launchCardano } from "@effectstream/orchestrator/start-cardano";
+import { launchEvm } from "@effectstream/orchestrator/start-evm";
+import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
+import { launchAvail } from "@effectstream/orchestrator/start-avail";
 import { getPaimaEVMPublicClient } from "@e2e/engine";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const external_db_enabled = Deno.env.get("EXTERNAL_DB_ENABLED") === "true";
-const yaci_enabled = Deno.env.get("DISABLE_LINUX_YACI") === "true"
+const yaci_enabled = Deno.env.get("DISABLE_YACI") === "true"
   ? false
   : true;
 
@@ -31,7 +31,7 @@ const avail_enabled = Deno
  * and wait for the sync process to start and be ready.
  */
 export async function startup(): Promise<Client> {
-  const logs = Deno.env.get("PAIMA_E2E_LOG_DEBUG") ? "stdout" : "stdout-err";
+  const logs = Deno.env.get("EFFECTSTREAM_STDOUT") ? "stdout" : "stdout-err";
 
   const config = Value.Parse(OrchestratorConfig, {
     logs,
@@ -41,7 +41,7 @@ export async function startup(): Promise<Client> {
       [ComponentNames.TMUX]: false,
     },
 
-    packageName: "@paima",
+    packageName: "@effectstream",
 
     // Launch my processes
     processesToLaunch: [
@@ -51,7 +51,7 @@ export async function startup(): Promise<Client> {
       ...(avail_enabled ? launchAvail("@e2e/avail-contracts") : []),
       {
         name: "build explorer",
-        args: ["task", "-f", "@paima/explorer", "build"],
+        args: ["task", "-f", "@effectstream/explorer", "build"],
         waitToExit: true,
       },
       {
@@ -66,7 +66,7 @@ export async function startup(): Promise<Client> {
         args: ["task", "-f", "@e2e/batcher", "start"],
         waitToExit: false,
         type: "system-dependency",
-        dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
+        dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined].filter(Boolean),
       }
     ],
   });
@@ -182,7 +182,7 @@ export async function getDBConnection(): Promise<Client> {
       );
       didLock = true;
       await db.query(
-        `SELECT id FROM paima.primitive_accounting LIMIT 1`,
+        `SELECT id FROM effectstream.primitive_accounting LIMIT 1`,
       );
       isReady = true;
     } finally {

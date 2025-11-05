@@ -2,7 +2,7 @@ import Aedes from 'aedes';
 import type { Server } from 'aedes-server-factory';
 import { createServer } from "aedes-server-factory";
 import ip from "ip";
-import { ENV } from "@paima/utils/node-env";
+import { ENV } from "@effectstream/utils/node-env";
 
 const localhostIPv4Range = ip.cidrSubnet('127.0.0.0/8');
 const localhostIPv6Range = ip.cidrSubnet('::1/128');
@@ -29,7 +29,7 @@ function isLocalhost(ipAddress: string | undefined): boolean {
  * This class implements a local MQTT Broker.
  */
 export class PaimaEventBroker {
-  constructor(private broker: 'paima-engine' | 'Batcher') {}
+  constructor(private broker: 'effectstream-engine' | 'Batcher') {}
   private static aedes: Aedes.default | null = null;
   private static server: Server | null = null;
   /*
@@ -126,7 +126,7 @@ export class PaimaEventBroker {
   private getPort(): number {
     switch (this.broker) {
       // TODO: use env vars without duplicating default here
-    case 'paima-engine': {
+    case 'effectstream-engine': {
         return ENV.MQTT_ENGINE_BROKER_PORT;
       }
       case 'Batcher': {

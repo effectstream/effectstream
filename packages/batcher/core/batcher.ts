@@ -1,5 +1,5 @@
-import { CryptoManager } from "@paima/crypto";
-import { AddressType, TypeboxHelpers } from "@paima/utils";
+import { CryptoManager } from "@effectstream/crypto";
+import { AddressType, TypeboxHelpers } from "@effectstream/utils";
 import { Value } from "@sinclair/typebox/value";
 import { call, lift, resource, sleep, spawn, suspend } from "effection";
 import type { Operation } from "effection";
@@ -26,7 +26,7 @@ import {
   ShutdownManager,
 } from "./shutdown-manager.ts";
 import type { BatcherGrammar, BatcherListener } from "./batcher-events.ts";
-import { BuiltinEvents, PaimaEventManager } from "@paima/event-client";
+import { BuiltinEvents, PaimaEventManager } from "@effectstream/event-client";
 
 /**
  * Custom error class for input validation failures
@@ -439,7 +439,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   async batchInput(
     input: T,
-    confirmationLevel: "no-wait" | "wait-receipt" | "wait-paima-processed" =
+    confirmationLevel: "no-wait" | "wait-receipt" | "wait-effectstream-processed" =
       "wait-receipt",
     timeoutMs: number = 60000,
   ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
@@ -535,7 +535,7 @@ export class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     // If waiting for Paima processing, continue waiting
-    if (confirmationLevel === "wait-paima-processed") {
+    if (confirmationLevel === "wait-effectstream-processed") {
       const target = input.target || this.defaultTarget;
       if (!target) {
         throw new Error(

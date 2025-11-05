@@ -2,7 +2,7 @@ import {
   ConfigSyncProtocolType,
   type PrimitiveEntry,
   type SyncProtocolWithNetwork,
-} from "@paima/config";
+} from "@effectstream/config";
 import { BaseDataFetcher } from "../base/fetcher.ts";
 import type { DataFetched } from "../base/fetcher.ts";
 import type {
@@ -20,7 +20,7 @@ import type {
 } from "./types.ts";
 import { AvailClient } from "./AvailClient.ts";
 import { all, call, type Operation, sleep } from "effection";
-import { bound } from "@paima/utils";
+import { bound } from "@effectstream/utils";
 
 export class AvailFetcher extends BaseDataFetcher<
   Input,
