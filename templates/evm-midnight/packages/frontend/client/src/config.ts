@@ -1,11 +1,11 @@
 const ENV = {
-  PAIMA_API_PORT: 9999,
+  EFFECTSTREAM_API_PORT: 9999,
   BATCHER_PORT: 3334,
   DOCS_PORT: 10600,
-  PAIMA_EXPLORER_PORT: 10599,
+  EFFECTSTREAM_EXPLORER_PORT: 10599,
 };
 
-const BASE_URL_API = `http://127.0.0.1:${ENV.PAIMA_API_PORT}`;
+const BASE_URL_API = `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}`;
 const BASE_URL_BATCHER = `http://localhost:${ENV.BATCHER_PORT}`;
 const BASE_URL_DOCS = `http://127.0.0.1:${ENV.DOCS_PORT}`;
 const BASE_URL_MIDNIGHT_INDEXER = `http://127.0.0.1:8088`;
@@ -39,19 +39,19 @@ export const BATCHER_OPENAPI_URL = `${BASE_URL_BATCHER}/documentation`;
 export const DOCUMENTATION_URL =
   `https://effectstream.github.io/docs/`;
 
-const RPC_PAIMA = `http://127.0.0.1:${ENV.PAIMA_API_PORT}/rpc/evm`;
+const RPC_EFFECTSTREAM = `http://127.0.0.1:${ENV.EFFECTSTREAM_API_PORT}/rpc/evm`;
 const RPC_ARBITRUM = "http://127.0.0.1:8545/rpc/evm";
 // TODO: This should passed through the config
 // Initial configuration for each chain
 export const initialChainConfigs = {
-  Paima: {
+  Effectstream: {
     type: "EVM",
-    name: "Paima Engine",
+    name: "Effectstream",
     blockTime: 300,
     color: "#667eea",
     blocks: [],
     currentBlock: 1000000,
-    rpcEndpoint: RPC_PAIMA,
+    rpcEndpoint: RPC_EFFECTSTREAM,
     latestBlockNumber: 0,
     previousLatestBlockNumber: 0,
     isConnected: false,

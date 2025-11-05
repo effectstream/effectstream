@@ -7,7 +7,7 @@ interface ViteTypeOptions {
 }
 
 interface ImportMetaEnv {
-  readonly VITE_PAIMA_ENGINE_NODE_URL: string;
+  readonly VITE_EFFECTSTREAM_NODE_URL: string;
   readonly VITE_BATCHER_URL: string;
 }
 

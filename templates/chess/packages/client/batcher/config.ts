@@ -1,6 +1,6 @@
 import {
   FileStorage,
-  type PaimaBatcherConfig,
+  type BatcherConfig,
   PaimaL2DefaultAdapter,
 } from "@paimaexample/batcher";
 import { contractAddressesEvmMain } from "@chess/evm-contracts";
@@ -23,7 +23,7 @@ const paimaL2 = new PaimaL2DefaultAdapter(
   paimaSyncProtocolName,
 );
 
-export const config: PaimaBatcherConfig = {
+export const config: BatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   enableHttpServer: true,
   adapters: { paimaL2 },
@@ -33,7 +33,7 @@ export const config: PaimaBatcherConfig = {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },
   // TODO: rename to wait-effectstream-processed
-  confirmationLevel: "wait-paima-processed", // Connector expectation
+  confirmationLevel: "wait-effectstream-processed", // Connector expectation
   enableEventSystem: true,
   port,
 };
