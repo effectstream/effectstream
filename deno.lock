@@ -17932,8 +17932,10 @@
         "dependencies": [
           "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
           "npm:@nomicfoundation/hardhat-viem@3.0.0",
+          "npm:@opentelemetry/sdk-node@0.56.0",
           "npm:@wagmi/cli@2.3.1",
-          "npm:hardhat@3.0.4"
+          "npm:hardhat@3.0.4",
+          "npm:jsonc-parser@^3.3.1"
         ],
         "packageJson": {
           "dependencies": [

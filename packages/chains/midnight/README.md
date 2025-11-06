@@ -1,6 +1,6 @@
 # @effectstream/midnight
 
-Utilities for working with Midnight contracts in Paima Engine.
+Utilities for working with Midnight contracts in EffectStream.
 
 ## read-contract
 

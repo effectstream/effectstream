@@ -1,7 +1,7 @@
 {
   "name": "@effectstream/evm-contracts",
   "version": "0.3.0",
-  "description": "Paima EVM default contracts.",
+  "description": "Effectstream EVM default contracts.",
   "main": "index.js",
   "author": "Paima Studios",
   "license": "MIT",

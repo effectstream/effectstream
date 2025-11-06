@@ -7,7 +7,10 @@
     "@wagmi/cli": "npm:@wagmi/cli@2.3.1",
     "hardhat": "npm:hardhat@3.0.4",
     "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
+    "@nomicfoundation/hardhat-ignition-viem": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
     "@nomicfoundation/hardhat-viem": "npm:@nomicfoundation/hardhat-viem@3.0.0",
+    "jsonc-parser": "npm:jsonc-parser@^3.3.1",
+    "@opentelemetry/sdk-node": "npm:@opentelemetry/sdk-node@0.56.0"
   },
   "tasks": {
     // deno doesn't support installing packages from Github (https://github.com/denoland/deno/issues/18478)
