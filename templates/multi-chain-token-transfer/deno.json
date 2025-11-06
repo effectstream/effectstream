@@ -12,8 +12,8 @@
   },
   "imports": {
     // TODO: This is a workaround for a missing dependency.
-    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.99",
-    "@paimaexample/midnight": "jsr:@paimaexample/midnight@0.3.99",
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.101",
+    "@paimaexample/midnight": "jsr:@paimaexample/midnight@0.3.101",
     "@std/path": "jsr:@std/path@^1.1.2"
   },
   "lint": {

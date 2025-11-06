@@ -87,11 +87,11 @@ export const OrchestratorConfig = Type.Object({
   // Processes to start
   processes: Type.Object({
     // Main Processes
-    [ComponentNames.PAIMA_SYNC]: Type.Boolean({ default: true }),
+    [ComponentNames.EFFECTSTREAM_SYNC]: Type.Boolean({ default: true }),
 
     // Dev Tools
     [ComponentNames.CHECKER]: Type.Boolean({ default: true }),
-    [ComponentNames.PAIMA_PGLITE]: Type.Boolean({ default: false }),
+    [ComponentNames.EFFECTSTREAM_PGLITE]: Type.Boolean({ default: false }),
     [ComponentNames.TMUX]: Type.Boolean({ default: true }),
 
     // DevOps
@@ -133,7 +133,7 @@ const setupLogging = (config: OrchestratorConfigType): void => {
       break;
     case "stdout":
       // TODO: This is a hack to force the logs to be printed to stdout.
-      Deno && Deno.env.set("PAIMA_LOGS_FORCE_STDOUT", "true");
+      Deno && Deno.env.set("EFFECTSTREAM_LOGS_FORCE_STDOUT", "true");
       setCurrentOutput(["stdout"]);
       break;
     case "development":
@@ -200,8 +200,8 @@ export async function start(
     if (config.processes[ComponentNames.COLLECTOR]) {
       await startProcess[ComponentNames.COLLECTOR]();
     }
-    if (config.processes[ComponentNames.PAIMA_PGLITE]) {
-      await startProcess[ComponentNames.PAIMA_PGLITE]();
+    if (config.processes[ComponentNames.EFFECTSTREAM_PGLITE]) {
+      await startProcess[ComponentNames.EFFECTSTREAM_PGLITE]();
     }
     if (config.processes[ComponentNames.APPLY_MIGRATIONS]) {
       await startProcess[ComponentNames.APPLY_MIGRATIONS]();
@@ -339,7 +339,7 @@ export async function start(
 
     // Wait for all processes to finish
     // Launch Paima Engine Main Sync Process
-    await startProcess[ComponentNames.PAIMA_SYNC]();
+    await startProcess[ComponentNames.EFFECTSTREAM_SYNC]();
 
     
   } catch (e) {
@@ -386,7 +386,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.EXPLORER]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.PAIMA_EXPLORER_PORT] });
+      await dkill({ ports: [ENV.EFFECTSTREAM_EXPLORER_PORT] });
     }
     const explorer = $({
       args: ["task", "-f", config.packageName + "/explorer", "dev"],
@@ -438,15 +438,15 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     return checker;
   },
 
-  [ComponentNames.PAIMA_SYNC]: async (): Promise<ProcessComponent> => {
+  [ComponentNames.EFFECTSTREAM_SYNC]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.PAIMA_API_PORT] });
+      await dkill({ ports: [ENV.EFFECTSTREAM_API_PORT] });
     }
 
     const node = $({
       args: ["task", "node:start"],
       log: rawLogHandler,
-      component: ComponentNames.PAIMA_SYNC,
+      component: ComponentNames.EFFECTSTREAM_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically
       abortController: abortControllers.system,
     });
@@ -454,7 +454,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     return node;
   },
 
-  [ComponentNames.PAIMA_PGLITE]: async (): Promise<ProcessComponent> => {
+  [ComponentNames.EFFECTSTREAM_PGLITE]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
       await dkill({ ports: [ENV.DB_PORT] });
     }
@@ -469,7 +469,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         String(ENV.DB_PORT),
       ],
       log: logHandler,
-      component: ComponentNames.PAIMA_PGLITE,
+      component: ComponentNames.EFFECTSTREAM_PGLITE,
       abortController: abortControllers.system,
     });
     void paimaDb.process.status; // need to await sub-service start below

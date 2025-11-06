@@ -37,7 +37,7 @@ export function* startSync(
         continue;
       }
       log.remote(
-        ComponentNames.PAIMA_SYNC,
+        ComponentNames.EFFECTSTREAM_SYNC,
         [...state.getNamespace(), "data"],
         SeverityNumber.TRACE,
         (log) => log(result.data),

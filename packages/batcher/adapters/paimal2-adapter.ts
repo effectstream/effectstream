@@ -50,7 +50,7 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
   private readonly account: Account;
   private readonly paimaL2Address: EvmAddress;
   private readonly paimaL2Fee: bigint;
-  private readonly paimaSyncProtocolName: string;
+  private readonly effectstreamSyncProtocolName: string;
   public readonly maxBatchSize: number;
 
   // Private helper for building batch data
@@ -71,13 +71,13 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
     paimaL2Address: EvmAddress,
     batcherPrivateKey: EvmPrivateKey,
     paimaL2Fee: bigint,
-    paimaSyncProtocolName: string,
+    effectstreamSyncProtocolName: string,
     chain: Chain = chains.hardhat,
     maxBatchSize: number = 10000,
   ) {
     this.paimaL2Address = paimaL2Address;
     this.paimaL2Fee = paimaL2Fee;
-    this.paimaSyncProtocolName = paimaSyncProtocolName;
+    this.effectstreamSyncProtocolName = effectstreamSyncProtocolName;
     this.maxBatchSize = maxBatchSize;
 
     // Initialize viem clients
@@ -95,10 +95,10 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
   }
 
   /**
-   * Return the Paima Sync protocol name used for event filtering
+   * Return the EffectStream Sync protocol name used for event filtering
    */
   getSyncProtocolName(): string {
-    return this.paimaSyncProtocolName;
+    return this.effectstreamSyncProtocolName;
   }
 
   /**
@@ -106,8 +106,11 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
    */
   public buildBatchData(
     inputs: DefaultBatcherInput[],
-    options?: BatchBuildingOptions,
+    _options?: BatchBuildingOptions,
   ): BatchBuildingResult<string> | null {
+    const options = {
+      maxSize: this.maxBatchSize,
+    };
     // Cast is safe because we know our helper returns a string
     return this.batchBuilderLogic.buildBatchData(inputs, options) as BatchBuildingResult<string> | null;
   }

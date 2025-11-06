@@ -1,18 +1,18 @@
 import { createPublicClient, defineChain, http, type PublicClient } from "viem";
 import { ENV } from "@effectstream/utils/node-env";
 
-export function getPaimaEVMPublicClient(): PublicClient {
+export function getEffectstreamEVMPublicClient(): PublicClient {
   const paimaChain = defineChain({
-    id: ENV.PAIMA_CHAIN_ID,
-    name: "Paima",
+    id: ENV.EFFECTSTREAM_CHAIN_ID,
+    name: "Effectstream",
     nativeCurrency: {
       decimals: 18,
-      name: "Paima",
-      symbol: "PAIMA",
+      name: "Effectstream",
+      symbol: "EXS",
     },
     rpcUrls: {
       default: {
-        http: [`http://localhost:${ENV.PAIMA_API_PORT}/rpc/evm`],
+        http: [`http://localhost:${ENV.EFFECTSTREAM_API_PORT}/rpc/evm`],
       },
     },
   });

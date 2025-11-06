@@ -43,12 +43,12 @@ interface RoundExecutionState extends BaseRoundStatus {
 import { initClient } from "@ts-rest/core";
 import { apiLobbyContract } from "@chess/api-contract";
 export const client = initClient(apiLobbyContract, {
-  baseUrl: import.meta.env.VITE_PAIMA_ENGINE_NODE_URL,
+  baseUrl: import.meta.env.VITE_EFFECTSTREAM_NODE_URL,
 });
 
 export async function getBlockNumber(): Promise<number> {
   const response = await fetch(
-    import.meta.env.VITE_PAIMA_ENGINE_NODE_URL + "/rpc/evm",
+    import.meta.env.VITE_EFFECTSTREAM_NODE_URL + "/rpc/evm",
     {
       method: "POST",
       headers: {

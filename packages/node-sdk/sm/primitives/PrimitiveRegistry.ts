@@ -11,8 +11,8 @@ type UnknownPrimitive = any;
 type UnknownSyncProtocol = any;
 // @effectstream/db packages cannot import this package.
 // so we communicate via the globalThis object.
-(globalThis as any).PAIMA_REGISTRY =
-  (globalThis as any).PAIMA_REGISTRY ??
+(globalThis as any).EFFECTSTREAM_REGISTRY =
+  (globalThis as any).EFFECTSTREAM_REGISTRY ??
   ({} as Record<
     string,
     PaimaPrimitive<UnknownSyncProtocol, UnknownPrimitive>
@@ -23,7 +23,7 @@ export class PaimaPrimitiveRegistry {
   static primitives: Record<
     string,
     PaimaPrimitive<UnknownSyncProtocol, UnknownPrimitive>
-  > = (globalThis as any).PAIMA_REGISTRY;
+  > = (globalThis as any).EFFECTSTREAM_REGISTRY;
 
   static getPrimitive<
     SyncProtocol extends keyof ProtocolPrimitiveMap = UnknownSyncProtocol,

@@ -14,7 +14,7 @@ export interface BatcherStorage<
   /**
    * Add a new input to storage
    */
-  addInput(input: T): Promise<void>;
+  addInput(input: T, target: string): Promise<void>;
 
   /**
    * Get all pending inputs
@@ -25,7 +25,7 @@ export interface BatcherStorage<
    * Remove specific processed inputs from storage (after successful processing)
    * This ensures we remove exactly the inputs that were processed, not just the first N
    */
-  removeProcessedInputs(processedInputs: T[]): Promise<void>;
+  removeProcessedInputs(processedInputs: T[], target: string): Promise<void>;
 
   /**
    * Get the count of pending inputs
@@ -100,17 +100,18 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
 
   async removeProcessedInputs(
     processedInputs: T[],
+    target: string,
   ): Promise<void> {
     try {
       // Create a set of keys for the processed inputs for fast lookup
-      const processedKeys = new Set(processedInputs.map(this.createInputKey));
+      const processedKeys = new Set(processedInputs.map((input) => this.createInputKey(input, target)));
 
       // Read all current inputs
       const allInputs = await this.getAllInputs();
 
       // Filter out the processed inputs
       const remainingInputs = allInputs.filter((input) =>
-        !processedKeys.has(this.createInputKey(input))
+        !processedKeys.has(this.createInputKey(input, target))
       );
 
       // Write the remaining inputs back to the file
@@ -136,10 +137,10 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
   }
 
   /**
-   * Create a unique key for a BatchedSubunit for comparison
+   * Create a unique key for a DefaultBatcherInput for comparison
    */
-  private createInputKey(input: T): string {
-    return `${input.address}-${input.input}-${input.timestamp}-${input.signature}`;
+  private createInputKey(input: T, target: string): string {
+    return `${input.addressType}-${target}-${input.address}-${input.input}-${input.timestamp}-${input.signature ?? ""}`;
   }
 
   async getInputCountAndSize(): Promise<{ count: number; size: number }> {

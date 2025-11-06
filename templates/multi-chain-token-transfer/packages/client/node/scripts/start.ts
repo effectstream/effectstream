@@ -47,7 +47,7 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,
     // Launch Dev DB & Collector
-    [ComponentNames.PAIMA_PGLITE]: true,
+    [ComponentNames.EFFECTSTREAM_PGLITE]: true,
     [ComponentNames.COLLECTOR]: true,
   },
 

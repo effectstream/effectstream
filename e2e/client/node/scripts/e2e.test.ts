@@ -68,7 +68,7 @@ async function test() {
 
     // Optional pause to allow the user to inspect the DB,
     // check the logs, send more requests, etc.
-    const pauseTime = Deno.env.get("PAIMA_E2E_PAUSE_TIME");
+    const pauseTime = Deno.env.get("EFFECTSTREAM_E2E_PAUSE_TIME");
     if (pauseTime) {
       console.log("⏳ Pausing for", pauseTime, "seconds");
       await delay(parseInt(pauseTime, 10) * 1000);

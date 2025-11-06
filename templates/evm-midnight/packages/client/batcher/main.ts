@@ -1,8 +1,8 @@
 import { main, suspend } from "effection";
-import { PaimaBatcher } from "@paimaexample/batcher";
+import { createNewBatcher } from "@paimaexample/batcher";
 import { config, storage } from "./config.ts";
 
-const batcher = new PaimaBatcher(config, storage);
+const batcher = createNewBatcher(config, storage);
 
 main(function* () {
   console.log("🚀 Starting EVM Midnight Template Batcher...");

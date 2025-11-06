@@ -107,12 +107,6 @@ export interface BlockchainAdapter<TOutput> {
   getChainName(): string;
 
   /**
-   * Maximum batch payload size in bytes for this adapter/chain.
-   * Used by buildBatchData to limit batch size per target.
-   */
-  maxBatchSize?: number;
-
-  /**
    * Check if the adapter is ready to submit transactions
    * @returns True if the adapter is operational
    */
@@ -125,7 +119,7 @@ export interface BlockchainAdapter<TOutput> {
   getBlockNumber(): Promise<bigint>;
 
   /**
-   * Optional sync protocol name used to filter Paima Sync events
+   * Optional sync protocol name used to filter EffectStream Sync events
    * If not provided, the batcher will fall back to the adapter's chain name
    */
   getSyncProtocolName?(): string;

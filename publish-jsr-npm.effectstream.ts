@@ -122,8 +122,8 @@ async function processFile(filePath: string, reverse: boolean = false) {
 
   if (!reverse) {
     newContent = newContent.replace(
-      /@paimaexample\/(?!pgtyped-cli)([\w-]+)/g,
-      "@effectstream/$1",
+      /@effectstream\/(?!pgtyped-cli)([\w-]+)/g,
+      "@paimaexample/$1",
     );
   } else {
     newContent = newContent.replace(
@@ -137,8 +137,8 @@ async function processFile(filePath: string, reverse: boolean = false) {
   ) {
     if (!reverse) {
       newContent = newContent.replace(
-        /@effectstream\/(?!pgtyped-cli)([\w-]+)/g,
-        "@paimaexample/$1",
+        /@paimaexample\/(?!pgtyped-cli)([\w-]+)/g,
+        "@effectstream/$1",
       );
     } else {
       newContent = newContent.replace(

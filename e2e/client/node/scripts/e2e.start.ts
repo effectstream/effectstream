@@ -4,12 +4,11 @@ import { OrchestratorConfig, start } from "@effectstream/orchestrator";
 import { ENV } from "@effectstream/utils/node-env";
 import { Value } from "@sinclair/typebox/value";
 import { ComponentNames } from "@effectstream/log";
-import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { launchCardano } from "@effectstream/orchestrator/start-cardano";
 import { launchEvm } from "@effectstream/orchestrator/start-evm";
 import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
 import { launchAvail } from "@effectstream/orchestrator/start-avail";
-import { getPaimaEVMPublicClient } from "@e2e/engine";
+import { getEffectstreamEVMPublicClient } from "@e2e/engine";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -36,7 +35,7 @@ export async function startup(): Promise<Client> {
   const config = Value.Parse(OrchestratorConfig, {
     logs,
     processes: {
-      [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
+      [ComponentNames.EFFECTSTREAM_PGLITE]: !external_db_enabled,
       [ComponentNames.TUI]: false,
       [ComponentNames.TMUX]: false,
     },
@@ -82,7 +81,7 @@ export async function startup(): Promise<Client> {
         // This is a light weight check, that only assures that the node is running.
         // But it does not assure that the node is ready to accept requests.
         const healthResponse = await fetch(
-          `http://localhost:${ENV.PAIMA_API_PORT}/health`,
+          `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/health`,
         );
         const data = await healthResponse.json();
         if (data.status === "ok") {
@@ -97,7 +96,7 @@ export async function startup(): Promise<Client> {
 
   console.log("🔄 Sync process initialized\n");
 
-  const rpcClient = getPaimaEVMPublicClient();
+  const rpcClient = getEffectstreamEVMPublicClient();
   while (true) {
     try {
       const blockNumber = await rpcClient.getBlockNumber();
@@ -178,7 +177,7 @@ export async function getDBConnection(): Promise<Client> {
 
     try {
       await fetch(
-        `http://localhost:${ENV.PAIMA_API_PORT}/db_acquire_lock?name=e2e-loader`,
+        `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/db_acquire_lock?name=e2e-loader`,
       );
       didLock = true;
       await db.query(
@@ -188,7 +187,7 @@ export async function getDBConnection(): Promise<Client> {
     } finally {
       if (didLock) {
         await fetch(
-          `http://localhost:${ENV.PAIMA_API_PORT}/db_release_lock?name=e2e-loader`,
+          `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/db_release_lock?name=e2e-loader`,
         );
       }
     }

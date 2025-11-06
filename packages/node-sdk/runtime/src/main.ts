@@ -55,7 +55,7 @@ export function* start(config: StartConfig): Operation<void> {
   const syncProtocols = yield* startup(dbConn, syncInfo, config);
 
   log.remote(
-    ComponentNames.PAIMA_RUNTIME,
+    ComponentNames.EFFECTSTREAM_RUNTIME,
     [],
     SeverityNumber.INFO,
     (log) => log("start sync"),
@@ -115,7 +115,7 @@ export function* start(config: StartConfig): Operation<void> {
     );
 
     log.remote(
-      ComponentNames.PAIMA_SYNC,
+      ComponentNames.EFFECTSTREAM_SYNC,
       "block-merge",
       SeverityNumber.INFO,
       (log) =>
