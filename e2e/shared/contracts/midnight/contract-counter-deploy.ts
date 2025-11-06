@@ -1,4 +1,4 @@
-import { deployMidnightContract, type DeployConfig } from "@effectstream/midnight/deploy";
+import { deployMidnightContract, type DeployConfig } from "@effectstream/midnight-contracts/deploy";
 import {
   Counter,
   type CounterPrivateState,

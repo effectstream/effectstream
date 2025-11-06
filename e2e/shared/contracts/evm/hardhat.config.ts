@@ -18,7 +18,7 @@ import {
 const __dirname: any = import.meta.dirname;
 
 // Initialize telemetry
-initTelemetry("@effectstream/log", "./deno.json");
+initTelemetry("@paimaexample/log", "./deno.json");
 
 // Create node tasks
 const nodeTasks = createNodeTasks({

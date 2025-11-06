@@ -1,5 +1,5 @@
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
-import { readMidnightContract } from "@paimaexample/midnight/read-contract";
+import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
 import * as MultiChainMultiTokenContract from "@multi-chain-transfer/midnight-contract-eip-1155/contract";
 
 import {

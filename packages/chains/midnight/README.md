@@ -9,7 +9,7 @@ Provides a context-aware function to read Midnight contract information from JSO
 ### Usage
 
 ```typescript
-import { readMidnightContract } from "@effectstream/midnight/read-contract";
+import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 
 // Read contract with default contract.json filename
 const contractInfo = readMidnightContract("contract-counter");

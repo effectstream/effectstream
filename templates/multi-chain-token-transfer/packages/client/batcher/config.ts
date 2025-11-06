@@ -3,7 +3,7 @@ import {
   MidnightAdapter,
   type PaimaBatcherConfig,
 } from "@paimaexample/batcher";
-import { readMidnightContract } from "@paimaexample/midnight/read-contract";
+import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
 import { MultiChainMultiToken, witnesses } from "@multi-chain-transfer/midnight-contracts/multichain_multitoken";
 import { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import { hardhat } from "viem/chains";

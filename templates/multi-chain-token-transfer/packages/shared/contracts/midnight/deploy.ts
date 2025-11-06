@@ -1,4 +1,4 @@
-import { deployMidnightContract, type DeployConfig } from "@paimaexample/midnight/deploy";
+import { deployMidnightContract, type DeployConfig } from "@paimaexample/midnight-contracts/deploy";
 import {
   MultiChainMultiToken,
   witnesses,

@@ -311,7 +311,7 @@ export function createDefaultNetworks(
  * Note: This function uses dynamic imports and executes asynchronously.
  * Errors are caught and logged as warnings to avoid breaking Hardhat initialization.
  * 
- * @param logPackage Package name for log utilities (e.g., "@effectstream/log" or "@paimaexample/log")
+ * @param logPackage Package name for log utilities (e.g., "@effectstream/log" or "@effectstream/log")
  * @param denoJsonPath Path to deno.json file for version detection
  */
 export function initTelemetry(

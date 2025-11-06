@@ -1,5 +1,5 @@
 import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
-import { readMidnightContract } from "@paimaexample/midnight/read-contract";
+import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
 
 import {
   ConfigBuilder,
