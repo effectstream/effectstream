@@ -6,7 +6,7 @@ import {
   MidnightAdapter,
 } from "@effectstream/batcher";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
-import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
+import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { SimpleToken, witnesses } from "@e2e/midnight-contracts/eip-20";
 
 // Config values mirroring e2e/client/node/scripts/start.ts

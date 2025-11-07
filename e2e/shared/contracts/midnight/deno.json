@@ -2,7 +2,6 @@
     "name": "@e2e/midnight-contracts",
     "version": "0.3.0",
     "exports": {
-        "./read-contract": "./read-contract.ts",
         "./counter": "./contract-counter/src/index.ts",
         "./eip-20": "./contract-eip-20/src/index.original.ts"
     },

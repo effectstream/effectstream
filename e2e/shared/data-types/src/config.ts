@@ -1,4 +1,4 @@
-import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
+import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { readAvailApplication } from "@e2e/avail-contracts";
 import { getConnection } from "@effectstream/db";

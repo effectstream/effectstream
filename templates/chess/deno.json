@@ -3,6 +3,9 @@
     "./packages/**/*"
   ],
   "nodeModulesDir": "auto",
+  "imports": {
+    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.104"
+  },
   "tasks": {
     "build:evm": "deno task -f @chess/evm-contracts build:mod",
     "dev": "deno task -f @chess/node dev",
