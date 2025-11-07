@@ -399,7 +399,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
 
   await assert("Check User Defined API", async () => {
     const response = await fetch(
-      `http://localhost:${ENV.PAIMA_API_PORT}/api/my-game-state`,
+      `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/api/my-game-state`,
     );
     const data = await response.json();
     // 3 ERC20 updates
@@ -410,7 +410,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
 
   await assert("Health Check", async () => {
     const response = await fetch(
-      `http://localhost:${ENV.PAIMA_API_PORT}/health`,
+      `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/health`,
     );
     const data = await response.json();
     return data.status === "ok";
@@ -418,7 +418,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
 
   await assert("Check System API Table Schema", async () => {
     const response = await fetch(
-      `http://localhost:${ENV.PAIMA_API_PORT}/table-schema/user_state_machine`,
+      `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/table-schema/user_state_machine`,
     );
     const data = await response.json();
     return data.every((row: any) =>
@@ -434,7 +434,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
 
     do {
       let url =
-        `http://localhost:${ENV.PAIMA_API_PORT}/tables/user_state_machine?limit=10`;
+        `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/tables/user_state_machine?limit=10`;
       if (nextCursor) {
         url += `&after=${nextCursor}`;
       }

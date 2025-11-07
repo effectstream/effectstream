@@ -39,7 +39,7 @@ import {
   setNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import type { Client } from "pg";
-import { readMidnightContract } from "@e2e/midnight-contracts/read-contract";
+import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
 
@@ -378,7 +378,6 @@ async function sendMintToBatcher(
       addressType: AddressType.MIDNIGHT,
       input,
       timestamp: Date.now(),
-      signature: "signature",
     },
     confirmationLevel: confirmationLevel,
   };

@@ -1,9 +1,9 @@
 import { ENV } from "@effectstream/utils/node-env";
-import { assert, getPaimaEVMPublicClient, wallets } from "@e2e/engine";
+import { assert, getEffectstreamEVMPublicClient, wallets } from "@e2e/engine";
 
 export async function RPCTest() {
   // Test RPC
-  const rpcClient = getPaimaEVMPublicClient();
+  const rpcClient = getEffectstreamEVMPublicClient();
 
   await assert("RPC Block Number", async () => {
     const blockNumber = await rpcClient.getBlockNumber();
@@ -166,7 +166,7 @@ export async function RPCTest() {
     // Use a more direct approach since eth_syncing might not be in the viem type
     try {
       const syncing = await fetch(
-        `http://localhost:${ENV.PAIMA_API_PORT}/rpc/evm`,
+        `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/rpc/evm`,
         {
           method: "POST",
           headers: {

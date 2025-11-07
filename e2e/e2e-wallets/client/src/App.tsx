@@ -99,7 +99,7 @@ interface PrimitiveInfo {
   name: string;
   syncProtocol: string;
   network: string;
-  signature: string;
+  signature?: string;
   type: string;
   networkType: string;
 }

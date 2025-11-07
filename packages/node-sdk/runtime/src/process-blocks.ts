@@ -52,7 +52,7 @@ async function tryOrRollback<T>(
   } catch (err) {
     await dbTx.query(`ROLLBACK TO SAVEPOINT ${checkpointName}`);
     log.remote(
-      ComponentNames.PAIMA_SYNC,
+      ComponentNames.EFFECTSTREAM_SYNC,
       "block-processing",
       SeverityNumber.INFO,
       (log) =>
@@ -218,7 +218,7 @@ export function* processFinalizedBlock(
         } catch (err) {
           success = false;
           log.remote(
-            ComponentNames.PAIMA_SYNC,
+            ComponentNames.EFFECTSTREAM_SYNC,
             "block-processing",
             SeverityNumber.ERROR,
             (log) =>
@@ -294,7 +294,7 @@ export function* processFinalizedBlock(
   } catch (err) {
     yield* until(dbConn.query("ROLLBACK"));
     log.remote(
-      ComponentNames.PAIMA_SYNC,
+      ComponentNames.EFFECTSTREAM_SYNC,
       "block-processing",
       SeverityNumber.ERROR,
       (log) =>

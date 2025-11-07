@@ -13,7 +13,7 @@ import { localhostConfig } from "@multi-chain-transfer/data-types/localhostConfi
 import {
   type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,
-  withPaimaStaticConfig,
+  withEffectstreamStaticConfig,
 } from "@paimaexample/config";
 import { migrationTable } from "@multi-chain-transfer/database";
 import { gameStateTransitions } from "./state-machine.ts";
@@ -25,7 +25,7 @@ main(function* () {
   yield* init();
   console.log("Starting Paima Engine Node");
 
-  yield* withPaimaStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
     yield* start({
       appName: "multi-chain-token-transfer",
       appVersion: "0.3.21",

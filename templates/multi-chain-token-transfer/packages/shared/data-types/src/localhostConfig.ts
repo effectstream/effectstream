@@ -1,5 +1,5 @@
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
-import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
+import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
 import * as MultiChainMultiTokenContract from "@multi-chain-transfer/midnight-contract-eip-1155/contract";
 
 import {
@@ -140,7 +140,7 @@ export const localhostConfig = new ConfigBuilder()
           name: "MidnightContractState",
           type: PrimitiveTypeMidnightGeneric,
           startBlockHeight: 1,
-          contractAddress: readMidnightContract().contractAddress,
+          contractAddress: readMidnightContract("contract-eip-1155", "contract.json").contractAddress,
           stateMachinePrefix: "midnightContractState",
           contract: { ledger: MultiChainMultiTokenContract.ledger },
           networkId: 0,

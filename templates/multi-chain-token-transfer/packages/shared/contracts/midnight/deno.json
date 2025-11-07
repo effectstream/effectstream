@@ -2,7 +2,6 @@
     "name": "@multi-chain-transfer/midnight-contracts",
     "version": "0.3.22",
     "exports": {
-        ".": "./read-contract.ts",
         "./multichain_multitoken": "./contract-eip-1155/src/index.original.ts"
     },
     "tasks": {
@@ -17,9 +16,9 @@
         "midnight-faucet:start": "deno run -A faucet.ts"
     },
     "imports": {
-        "@paimaexample/npm-midnight-indexer": "npm:@paimaexample/npm-midnight-indexer@0.3.99",
-        "@paimaexample/npm-midnight-node": "npm:@paimaexample/npm-midnight-node@0.3.99",
-        "@paimaexample/npm-midnight-proof-server": "npm:@paimaexample/npm-midnight-proof-server@0.3.99",
+        "@paimaexample/npm-midnight-indexer": "npm:@paimaexample/npm-midnight-indexer@0.3.104",
+        "@paimaexample/npm-midnight-node": "npm:@paimaexample/npm-midnight-node@0.3.104",
+        "@paimaexample/npm-midnight-proof-server": "npm:@paimaexample/npm-midnight-proof-server@0.3.104",
         "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger",
         "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
         "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap",

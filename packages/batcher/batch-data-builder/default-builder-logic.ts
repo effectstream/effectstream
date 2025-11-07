@@ -5,13 +5,13 @@
  * but works with the generic DefaultBatcherInput type and supports target-specific configurations.
  */
 
-import { DefaultBatcherInput } from "../core/types.ts";
+import type { DefaultBatcherInput } from "../core/types.ts";
 
 const BATCHER_GRAMMAR_PREFIX = "&B";
 
 export class DefaultBatchBuilderLogic {
   /**
-   * Build batch data using the standard Paima batching algorithm
+   * Build batch data using the standard EffectStream batching algorithm
    *
    * @param inputs - Array of inputs to batch
    * @param options - Options for batch building
@@ -73,7 +73,7 @@ export class DefaultBatchBuilderLogic {
 
   /**
    * Generate STM input for individual batched subunit
-   * This replicates the logic from generateStmInput in @effectstream/concise
+   * This replicates the logic from generateStmInput in @effectstream/sdk/concise
    *
    * @param input - The batcher input data
    * @returns Array representation of the STM input

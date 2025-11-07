@@ -1,6 +1,6 @@
 /**
  * IMPORTANT:
- * This is BACKEND / PAIMA ENGINE only import.
+ * This is BACKEND / EFFECTSTREAM only import.
  * This should not be imported in frontend code as it will leak sensitive information.
  *
  * Usage:
@@ -158,21 +158,21 @@ const definitions: Record<string, ConfigDefinition> = {
     defaultValue: 8884,
     description: "MQTT Batcher Broker Port. Example: '8884'",
   },
-  PAIMA_API_PORT: {
-    key: "PAIMA_API_PORT",
+  EFFECTSTREAM_API_PORT: {
+    key: "EFFECTSTREAM_API_PORT",
     type: "number",
     defaultValue: 9999,
     description:
       "Main Paima API Port. Used by developers custom endpoints and RPC endpoints. Example: '9999'",
   },
-  PAIMA_EXPLORER_PORT: {
-    key: "PAIMA_EXPLORER_PORT",
+  EFFECTSTREAM_EXPLORER_PORT: {
+    key: "EFFECTSTREAM_EXPLORER_PORT",
     type: "number",
     defaultValue: 10590,
     description: "Explorer Port. Example: '10590'",
   },
-  PAIMA_CHAIN_ID: {
-    key: "PAIMA_CHAIN_ID",
+  EFFECTSTREAM_CHAIN_ID: {
+    key: "EFFECTSTREAM_CHAIN_ID",
     type: "number",
     defaultValue: 87401284021,
     description: "Paima Chain ID. Example: '87401284021'",
@@ -261,8 +261,8 @@ export class ENV {
   static get TMUX(): string {
     return ENV.getConfig(definitions.TMUX);
   }
-  static get PAIMA_API_PORT(): number {
-    return ENV.getConfig(definitions.PAIMA_API_PORT);
+  static get EFFECTSTREAM_API_PORT(): number {
+    return ENV.getConfig(definitions.EFFECTSTREAM_API_PORT);
   }
   static get RECAPTCHA_V3_FRONTEND(): string {
     return ENV.getConfig(definitions.RECAPTCHA_V3_FRONTEND);
@@ -270,11 +270,11 @@ export class ENV {
   static get BATCHER_PORT(): number {
     return ENV.getConfig(definitions.BATCHER_PORT);
   }
-  static get PAIMA_EXPLORER_PORT(): number {
-    return ENV.getConfig(definitions.PAIMA_EXPLORER_PORT);
+  static get EFFECTSTREAM_EXPLORER_PORT(): number {
+    return ENV.getConfig(definitions.EFFECTSTREAM_EXPLORER_PORT);
   }
-  static get PAIMA_CHAIN_ID(): number {
-    return ENV.getConfig(definitions.PAIMA_CHAIN_ID);
+  static get EFFECTSTREAM_CHAIN_ID(): number {
+    return ENV.getConfig(definitions.EFFECTSTREAM_CHAIN_ID);
   }
   static get PGLITE(): boolean {
     return ENV.getConfig(definitions.PGLITE);

@@ -30,7 +30,7 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.TMUX]: logs === "development",
     [ComponentNames.TUI]: logs === "development",
     // Launch Dev DB & Collector
-    [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
+    [ComponentNames.EFFECTSTREAM_PGLITE]: !external_db_enabled,
     [ComponentNames.COLLECTOR]: true,
   },
 

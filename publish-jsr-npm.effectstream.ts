@@ -84,6 +84,7 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/node-sdk/events" },
   { path: "./packages/node-sdk/runtime" }, // [@db, @sync, @sm]
   { path: "./packages/chains/evm-contracts" },
+  { path: "./packages/chains/midnight" },
   { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
   { path: "./packages/build-tools/tui" },
   { path: "./packages/build-tools/collector" },
@@ -122,8 +123,8 @@ async function processFile(filePath: string, reverse: boolean = false) {
 
   if (!reverse) {
     newContent = newContent.replace(
-      /@paimaexample\/(?!pgtyped-cli)([\w-]+)/g,
-      "@effectstream/$1",
+      /@effectstream\/(?!pgtyped-cli)([\w-]+)/g,
+      "@paimaexample/$1",
     );
   } else {
     newContent = newContent.replace(
@@ -137,8 +138,8 @@ async function processFile(filePath: string, reverse: boolean = false) {
   ) {
     if (!reverse) {
       newContent = newContent.replace(
-        /@effectstream\/(?!pgtyped-cli)([\w-]+)/g,
-        "@paimaexample/$1",
+        /@paimaexample\/(?!pgtyped-cli)([\w-]+)/g,
+        "@effectstream/$1",
       );
     } else {
       newContent = newContent.replace(
@@ -194,6 +195,9 @@ async function walkAndProcess(dir: string, reverse: boolean = false) {
     } else if (filePattern.test(entry.name)) {
       // Skip the script file itself to avoid self-modification
       if (entry.name === "publish-jsr-npm.effectstream.ts") {
+        continue;
+      }
+      if (entry.name === "session.tmux.ts") {
         continue;
       }
       if (entry.name === "deno.json" && dir === rootDir) {

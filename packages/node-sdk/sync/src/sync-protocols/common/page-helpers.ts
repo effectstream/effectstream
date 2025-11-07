@@ -43,7 +43,7 @@ export function* genInputRange<SyncProtocol extends PaginatedSyncProtocols>(
     ? `[${nextPage}]`
     : `[${nextPage}, ${clampedMax}]`;
   log.remote(
-    ComponentNames.PAIMA_SYNC,
+    ComponentNames.EFFECTSTREAM_SYNC,
     namespace,
     SeverityNumber.INFO,
     (log) => log(pageRange),

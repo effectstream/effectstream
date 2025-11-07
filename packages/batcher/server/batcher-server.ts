@@ -1,7 +1,7 @@
 import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { type Static, Type } from "@sinclair/typebox";
-import type { PaimaBatcher } from "../core/batcher.ts";
+import type { Batcher, DefaultBatcherInput } from "../core/mod.ts";
 import { InputValidationError } from "../core/batcher.ts";
 import fastifySwagger, {
   type FastifyDynamicSwaggerOptions,
@@ -10,12 +10,12 @@ import fastifySwaggerUi, {
   type FastifySwaggerUiOptions,
 } from "@fastify/swagger-ui";
 
-// TypeBox schema for BatchedSubunit (adapted for new batcher input format)
+// TypeBox schema for DefaultBatcherInput (adapted for new batcher input format)
 const BatcherInputSchema = Type.Object({
   address: Type.String(),
   addressType: Type.Number(),
   input: Type.String(),
-  signature: Type.String(),
+  signature: Type.Optional(Type.String()),
   timestamp: Type.String(),
   target: Type.Optional(Type.String()),
 });
@@ -142,11 +142,11 @@ async function registerOpenApiDocumentation(
 
 /**
  * Start the batcher HTTP server.
- * @param batcher - PaimaBatcher instance.
+ * @param batcher - Batcher instance.
  * @param port - The port to listen on.
  */
-export async function startBatcherHttpServer(
-  batcher: PaimaBatcher<any>,
+export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
+  batcher: Batcher<T>,
   port: number,
 ): Promise<any> {
   const server = fastify();
@@ -268,7 +268,7 @@ export async function startBatcherHttpServer(
           confirmationLevel = cfg;
         } else if (cfg && typeof batcher === "object") {
           const target = (body.data?.target as string) ||
-            batcher.getPublicConfig().defaultTarget;
+            (batcher.getPublicConfig().defaultTarget) || "undefined";
           confirmationLevel = cfg[target] ?? "wait-receipt";
         } else {
           confirmationLevel = "wait-receipt";
@@ -309,7 +309,7 @@ export async function startBatcherHttpServer(
         case "wait-effectstream-processed":
           return {
             success: true,
-            message: "Input processed and validated by Paima Engine",
+            message: "Input processed and validated by EffectStream",
             transactionHash: result?.hash,
             rollup: result?.rollup,
             inputsProcessed: 1,

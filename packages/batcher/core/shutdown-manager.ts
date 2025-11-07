@@ -1,7 +1,7 @@
 import { lift } from "effection";
 import type { Operation } from "effection";
 import type { DefaultBatcherInput } from "./types.ts";
-import type { PaimaBatcher } from "./batcher.ts";
+import type { Batcher } from "./batcher.ts";
 
 export interface BatcherShutdownState {
   isShuttingDown: boolean;
@@ -13,16 +13,16 @@ export interface BatcherShutdownState {
 export interface ShutdownHooks<
   T extends DefaultBatcherInput,
 > {
-  preShutdown?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
-  stopAcceptingInputs?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
-  waitForProcessing?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
-  cleanup?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
-  postShutdown?: (batcher: PaimaBatcher<T>) => Promise<void> | void;
+  preShutdown?: (batcher: Batcher<T>) => Promise<void> | void;
+  stopAcceptingInputs?: (batcher: Batcher<T>) => Promise<void> | void;
+  waitForProcessing?: (batcher: Batcher<T>) => Promise<void> | void;
+  cleanup?: (batcher: Batcher<T>) => Promise<void> | void;
+  postShutdown?: (batcher: Batcher<T>) => Promise<void> | void;
 }
 
 /**
  * Manages the graceful shutdown process for the batcher.
- * Separated from the main PaimaBatcher class to improve maintainability.
+ * Separated from the main Batcher class to improve maintainability.
  */
 export class ShutdownManager<T extends DefaultBatcherInput> {
   constructor(

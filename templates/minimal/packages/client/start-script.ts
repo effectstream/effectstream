@@ -11,7 +11,7 @@ const config = Value.Parse(OrchestratorConfig, {
   logs: "stdout",
   processes: {
     // Launch Dev DB & Collector
-    [ComponentNames.PAIMA_PGLITE]: true,
+    [ComponentNames.EFFECTSTREAM_PGLITE]: true,
     [ComponentNames.COLLECTOR]: false,
     [ComponentNames.TMUX]: false,
     [ComponentNames.TUI]: false,

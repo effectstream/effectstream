@@ -4,7 +4,7 @@ import { localhostConfig } from "@chess/data-types/localhostConfig";
 import {
   type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,
-  withPaimaStaticConfig,
+  withEffectstreamStaticConfig,
 } from "@paimaexample/config";
 import { migrationTable } from "@chess/db";
 import { gameStateTransitions } from "./state-machine.ts";
@@ -15,7 +15,7 @@ main(function* () {
   yield* init();
   console.log("Starting Chess Node");
 
-  yield* withPaimaStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
     yield* start({
       appName: "chess-game",
       appVersion: "0.3.21",

@@ -1,11 +1,9 @@
 import {
   FileStorage,
   MidnightAdapter,
-  MidnightBatchBuilderLogic,
   type PaimaBatcherConfig,
-  DefaultBatchBuilderLogic,
 } from "@paimaexample/batcher";
-import { readMidnightContract } from "@multi-chain-transfer/midnight-contracts";
+import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
 import { MultiChainMultiToken, witnesses } from "@multi-chain-transfer/midnight-contracts/multichain_multitoken";
 import { NetworkId } from "@midnight-ntwrk/compact-runtime";
 import { hardhat } from "viem/chains";
@@ -19,7 +17,7 @@ const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
 
-const { contractInfo, contractAddress, zkConfigPath } = readMidnightContract();
+const { contractInfo, contractAddress, zkConfigPath } = readMidnightContract("contract-eip-1155", "contract.json");
 
 const midnightAdapterConfig = {
   indexer: "http://localhost:8088/api/v1/graphql",
@@ -31,7 +29,7 @@ const midnightAdapterConfig = {
   privateStateId: "multiChainMultiTokenPrivateState", // On-chain contract ID (must match deploy.ts)
 }
 
-const midnightAdapter = new MidnightAdapter(
+export const midnightAdapter = new MidnightAdapter(
   contractAddress,
   GENESIS_MINT_WALLET_SEED,
   midnightAdapterConfig,
@@ -47,7 +45,7 @@ const erc1155Address = contractAddressesEvmMain()["chain31337"]["Erc1155DevModul
 const batcherPrivateKey = (Deno.env.get("BATCHER_PRIVATE_KEY") ??
   "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`;
 
-const erc1155Adapter = new ERC1155CustomAdapter(
+export const erc1155Adapter = new ERC1155CustomAdapter(
   erc1155Address,
   batcherPrivateKey,
   hardhat,
@@ -57,18 +55,8 @@ const erc1155Adapter = new ERC1155CustomAdapter(
 
 export const config: PaimaBatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
-  adapters: { 
-    midnight: midnightAdapter,
-    evm: erc1155Adapter,
-  },
-  defaultTarget: "midnight",
   namespace: "",
-  batchingCriteria: {
-    midnight: { criteriaType: "size", maxBatchSize: 1 },
-    evm: { criteriaType: "size", maxBatchSize: 1 },
-  },
-  // TODO: rename to wait-effectstream-processed
-  confirmationLevel: "wait-paima-processed", // Connector expectation
+  confirmationLevel: "wait-effectstream-processed", // Connector expectation
   enableHttpServer: true,
   enableEventSystem: true,
   port,
