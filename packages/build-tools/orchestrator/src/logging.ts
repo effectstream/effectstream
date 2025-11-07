@@ -4,6 +4,8 @@ import { NodeSDK } from "@opentelemetry/sdk-node";
 import { ComponentNames, defaultOtelSetup } from "@effectstream/log";
 import { log, type Namespace, SeverityNumber } from "@effectstream/log";
 import type { ValueOf } from "@effectstream/utils";
+import { ENV } from "@effectstream/utils/node-env";
+import { processes } from "./process.ts";
 
 const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
 
@@ -27,115 +29,227 @@ export function streamTo(
   });
 }
 
-export type LogSystemOutputs = "otel" | "stdout" | "stderr";
-// By default we pass the logs to the OTel collector.
-let currentOutputs: LogSystemOutputs[] = ["otel"];
-
-export const setCurrentOutput = (value: LogSystemOutputs[]) => {
-  currentOutputs = value;
-};
-export const getCurrentOutput = (): LogSystemOutputs[] => {
-  return currentOutputs;
-};
-
-// TODO: instead of starting at false,
-// we should check if there is a collector running on the otel port
-// since that's the logic we'll need to decide if we run our own collector or not
-let collectorStarted = false;
-
-export function setCollectorStarted() {
-  collectorStarted = true;
+// LOG Global Options
+// 1. Send logs to collector
+export const logsConfig: {
+  collectorStarted: boolean;
+  collectorPort: number | undefined;
+  tuiStarted: boolean;
+  tuiPort: number | undefined;
+  stdoutOutput: boolean;
+  stderrOutput: boolean;
+} = {
+  collectorStarted: false,
+  collectorPort: undefined,
+  tuiStarted: false,
+  tuiPort: undefined,
+  stdoutOutput: false,
+  stderrOutput: false,
 }
 
-export const systemLog = (string: string) => {
-  logHandler(
-    new TextEncoder().encode(string),
-    "stdout",
-    ComponentNames.ORCHESTRATOR,
-    "",
-  );
-};
+export function setCollectorStarted(port: number) {
+  logsConfig.collectorStarted = true;
+  logsConfig.collectorPort = port;
+}
 
-export const logHandler: LogHandler = (chunk, source, component, namespace) => {
-  // if the log collector hasn't started yet, there is no point sending logs to it
-  // so we just write to the console
-  if (!collectorStarted) {
-    return localLogHandler(chunk, source, component, namespace);
-  }
-  return remoteLogHandler(chunk, source, component, namespace);
-};
+export function setTUIStarted(port: number) {
+  logsConfig.tuiStarted = true;
+  logsConfig.tuiPort = port;
+}
+
+export function setStdoutOutput() {
+  logsConfig.stdoutOutput = true;
+}
+
+export function setStderrOutput() {
+  logsConfig.stderrOutput = true;
+}
 
 const decoder = new TextDecoder();
 
-/**
- * Print the string as-is directly to console
- * This is to avoid a formatting loop where @effectstream/collector wraps its own logs
- */
-export const rawLogHandler: LogHandler = (
+export type AdapterFunction = (
+  target: 'local' | 'remote' | 'format-message',
+  chunk: Uint8Array,
+  source: Source,
+  component: ValueOf<typeof ComponentNames>,
+  namespace: Namespace,
+  severity: SeverityNumber,
+) => boolean | { 
+  component: string; 
+  namespace: string[]; 
+  level: SeverityNumber; 
+  message: string[]; 
+}[];
+
+// If target === local or remote; return true if executed, false otherwise.
+// If target === format-message; return the formatted message or false if not executed.
+//
+// TODO Log stream might come combined, formatted or not, now we expect all or none to be formatted.
+export const tsLogOrchestratorAdapter: AdapterFunction = (
+  target: 'local' | 'remote' | 'format-message',
   chunk,
   source,
   component,
   namespace,
+  severity,
 ) => {
-  if (source === "stderr" && currentOutputs.includes("stderr")) {
-    Deno[source].write(chunk);
+  const logMethod = target === 'local' ?  log.localForce : 
+                    target === 'remote' ? log.remoteForce :
+                                          undefined;
+  // Messages from Effectstream processes can be either in
+  // tsLogOrchestrator format or raw-string.
+  // Also multiple message might get combined into a single chunk, so we need to parse it.
+  try {
+    const chunkString = decoder.decode(chunk);
+    const parts = chunkString.split("\n").filter(Boolean);
+    const parsed = parts.map(part => JSON.parse(part));
+    if (!parsed.every(p => p.__ORCHESTRATOR__)) throw new Error();
+    
+    const maybeMessageParts = [];
+    for (const part of parsed) {
+      // Here we use the encoded data to log the message.
+      let component: string;
+      let namespace: string[];
+      if (part.namespaces[0] === "effectstream") {
+        const [, _component, ..._namespace] = part.namespaces;
+        component = _component;
+        namespace = _namespace;
+      } else {
+        const [_component, ..._namespace] = part.namespaces;
+        component = _component;
+        namespace = _namespace;
+      }
+
+      const payload = {
+        component,
+        namespace,
+        level: part.level,
+        message: Array.isArray(part.data) ? part.data : [part.data],
+      };
+
+      if (logMethod) {
+        logMethod(
+          component,
+          namespace,
+          part.level,
+          (log) => log(...payload.message),
+        );
+      } else {
+        maybeMessageParts.push(payload);
+      }
+    }
+    return logMethod ? true : maybeMessageParts;
+  } catch {
+    return false;
   }
-  if (currentOutputs.includes("stdout")) {
-    Deno[source].write(chunk);
-  }
-  if (currentOutputs.includes("otel")) {
-    // This passes non-otel format logs to the collector.
-    // We try to avoid this as much as possible.
-    log.remote(
-      component,
-      namespace,
-      source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
-      (log) => {
-        log(decoder.decode(chunk).replace(/\x1B[[(?);]{0,2}(;?\d)*./g, ""));
-      },
-    );
-  }
-};
-export const localLogHandler: LogHandler = (
-  chunk,
-  source,
-  component,
-  namespace,
-) => {
-  if (source === "stderr" && currentOutputs.includes("stderr")) {
-    Deno[source].write(chunk);
-  }
-  if (currentOutputs.includes("stdout")) {
-    log.local(
-      component,
-      namespace,
-      source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
-      (log) => log(decoder.decode(chunk)),
-    );
+}
+
+export const logHandler = (options: {
+  disableCollector?: boolean;
+  disableTUI?: boolean;
+  disableStdOut?: boolean;
+  disableStderr?: boolean;
+} | undefined = {},
+  logAdapter?: AdapterFunction
+): LogHandler => {
+   
+  // Let's calculate the enabled flags for this specific log handler:
+  const enableStdErr = logsConfig.stderrOutput && !options.disableStderr;
+  const enableStdOut = logsConfig.stdoutOutput && !options.disableStdOut;
+  const enableCollector = logsConfig.collectorStarted && !options.disableCollector;
+  const enableTUI = logsConfig.tuiStarted && !options.disableTUI;
+
+  return (
+    chunk,
+    source,
+    component,
+    namespace,
+  ) => {
+    if (enableStdErr && source === "stderr") {
+      if (!(logAdapter &&  
+          logAdapter('local', chunk, source, component, namespace, SeverityNumber.ERROR))) {
+        // The adapter didn't handle the message.
+        log.localForce(
+          component,
+          namespace,
+          SeverityNumber.ERROR,
+          (log) => log(decoder.decode(chunk)),
+        );
+      }
+    }
+    
+    if (enableStdOut && source === "stdout") {
+      if (!(logAdapter &&  
+          logAdapter('local', chunk, source, component, namespace, SeverityNumber.INFO))) {
+        // The adapter didn't handle the message.
+        log.localForce(
+          component,
+          namespace,
+          SeverityNumber.INFO,
+          (log) => log(decoder.decode(chunk)),
+        );
+      }
+    }
+
+    if (enableTUI) {
+      const formattedMessages = logAdapter && logAdapter('format-message', chunk, source, component, namespace, SeverityNumber.INFO);
+      if (Array.isArray(formattedMessages)) {
+        messageQueue.push(...formattedMessages);
+      } else {
+        messageQueue.push({
+          component: component || 'unknown',
+          namespace: Array.isArray(namespace) ? namespace : [namespace],
+          level: source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
+          message: [decoder.decode(chunk)],
+        });
+      }
+      if (!timeout) {
+        timeout = setTimeout(() => {
+          timeout = null;
+          sendToTUI();
+        }, 100);
+      }
+    }
+
+    if (enableCollector) {
+      if (!(logAdapter &&  
+        logAdapter('remote', chunk, source, component, namespace, SeverityNumber.INFO))) {
+        // The adapter didn't handle the message.
+        log.remoteForce(
+          component,
+          namespace,
+          SeverityNumber.INFO,
+          (log) => log(decoder.decode(chunk)),
+        );
+      } 
+    }
   }
 };
 
-export const remoteLogHandler: LogHandler = (
-  chunk,
-  source,
-  component,
-  namespace,
-) => {
-  if (source === "stderr" && currentOutputs.includes("stderr")) {
-    Deno[source].write(chunk);
-  }
-  if (currentOutputs.includes("otel")) {
-    log.remote(
-      component,
-      namespace,
-      source === "stdout" ? SeverityNumber.INFO : SeverityNumber.ERROR,
-      (log) => log(decoder.decode(chunk)),
-    );
-  }
-  if (currentOutputs.includes("stdout")) {
-    localLogHandler(chunk, source, component, namespace);
-  }
-};
+let timeout: number | null = null;
+// TODO This should use the logsConfig.tuiPort instead of the ENV.TUI_LOG_PORT
+const tuiUrl = ENV.TUI_LOG_URL + ":" + ENV.TUI_LOG_PORT /* logsConfig.tuiPort */;
+
+const messageQueue: {
+  component: string;
+  namespace: string[];
+  level: SeverityNumber;
+  message: string[];
+}[] = [];
+
+function sendToTUI() {
+  if (messageQueue.length === 0) return;
+  const data = JSON.stringify(messageQueue);
+  messageQueue.length = 0;
+
+  fetch(tuiUrl + "/v1/data", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: data,
+  }).catch(() => {});
+}
 
 export function initTelemetry(): void {
   const sdk = new NodeSDK({
@@ -143,4 +257,34 @@ export function initTelemetry(): void {
   });
 
   sdk.start();
+}
+
+// Used by the orchestrator to log system messages.
+export const systemLog = (message: string): void => {
+  const isTMUXRunning = processes.find(p => p.component === ComponentNames.TMUX)?.alive;
+  if (isTMUXRunning) {
+    messageQueue.push({
+      component: "SYSTEM-LOG",
+      namespace: [],
+      level: SeverityNumber.INFO,
+      message: [message],
+    });
+    sendToTUI();
+  } else {
+    log.localForce(
+      "SYSTEM-LOG",
+      [],
+      SeverityNumber.INFO,
+      (log) => log(message),
+    );
+  }
+  
+  if (logsConfig.collectorStarted) {
+    log.remoteForce(
+      "SYSTEM-LOG",
+      [],
+      SeverityNumber.INFO,
+      (log) => log(message),
+    );
+  }
 }

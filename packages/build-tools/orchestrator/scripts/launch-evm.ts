@@ -28,7 +28,7 @@ export const launchEvm = (packageName: string): {
       name: ComponentNames.HARDHAT,
       args: ["task", "-f", packageName, "chain:start"],
       waitToExit: false,
-      logs: "otel-compatible",
+      logs: "tsLogOrchestratorAdapter",
       type: "system-dependency",
       dependsOn: [],
     },

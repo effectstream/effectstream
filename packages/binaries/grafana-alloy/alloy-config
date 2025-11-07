@@ -1,0 +1,45 @@
+// Example config file for Alloy.
+// Set the agent's global log level
+logging {
+    level  = "info"
+    format = "logfmt"
+}
+
+otelcol.receiver.otlp "default" {
+    grpc {}
+    http {}
+
+    output {
+        // Send metrics/traces to debug
+        // metrics = [otelcol.exporter.debug.default.input,]
+        // traces  = [otelcol.exporter.debug.default.input,]
+
+        logs = [
+          otelcol.processor.batch.default.input,
+          // otelcol.exporter.debug.default.input,
+        ]
+    }
+}
+
+// This processor receives from the receiver's output
+otelcol.processor.batch "default" {
+  output {
+    logs = [otelcol.exporter.otlphttp.default.input]
+  }
+}
+
+// This exporter receives from the receiver's output
+otelcol.exporter.debug "default" {
+    verbosity = "normal"
+}
+
+// This exporter receives from the batch processor's output
+otelcol.exporter.otlphttp "default" {
+  client {
+    endpoint = "http://localhost:3100/otlp"
+  }
+}
+
+livedebugging {
+  enabled = true
+}

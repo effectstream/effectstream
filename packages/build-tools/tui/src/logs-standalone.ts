@@ -45,10 +45,10 @@ class LogsViewer {
     // Only show logs for processes that have display enabled
     for (const logEntry of logs) {
       if (this.shouldDisplayLog(logEntry)) {
-        log.local(
+        log.localForce(
           logEntry.component,
           logEntry.namespace,
-          logEntry.level,
+          Number(logEntry.level),
           (log) => {
             log(...logEntry.message);
           },
