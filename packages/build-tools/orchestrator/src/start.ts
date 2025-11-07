@@ -197,6 +197,9 @@ export async function start(
     const startProcess = processFactory(config);
 
     // Add system processes
+    if (config.processes[ComponentNames.LOKI]) {
+      await startProcess[ComponentNames.LOKI]();
+    }
     if (config.processes[ComponentNames.CHECKER]) {
       await startProcess[ComponentNames.CHECKER]();
     }
@@ -212,10 +215,6 @@ export async function start(
     if (config.processes[ComponentNames.APPLY_MIGRATIONS]) {
       await startProcess[ComponentNames.APPLY_MIGRATIONS]();
     }
-    if (config.processes[ComponentNames.LOKI]) {
-      await startProcess[ComponentNames.LOKI]();
-    }
-
 
     // Start User-defined Processes
     const pending = new Set<string>(tasks.keys());

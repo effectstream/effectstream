@@ -1,10 +1,11 @@
 import { parse } from "jsonc-parser";
 import fs from "node:fs";
 import { NodeSDK } from "@opentelemetry/sdk-node";
-import { type ComponentNames, defaultOtelSetup } from "@effectstream/log";
+import { ComponentNames, defaultOtelSetup } from "@effectstream/log";
 import { log, type Namespace, SeverityNumber } from "@effectstream/log";
 import type { ValueOf } from "@effectstream/utils";
 import { ENV } from "@effectstream/utils/node-env";
+import { processes } from "./process.ts";
 
 const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
 
@@ -260,10 +261,30 @@ export function initTelemetry(): void {
 
 // Used by the orchestrator to log system messages.
 export const systemLog = (message: string): void => {
-  log.local(
-    "SYSTEM-LOG",
-    [],
-    SeverityNumber.INFO,
-    (log) => log(message),
-  );
+  const isTMUXRunning = processes.find(p => p.component === ComponentNames.TMUX)?.alive;
+  if (isTMUXRunning) {
+    messageQueue.push({
+      component: "SYSTEM-LOG",
+      namespace: [],
+      level: SeverityNumber.INFO,
+      message: [message],
+    });
+    sendToTUI();
+  } else {
+    log.localForce(
+      "SYSTEM-LOG",
+      [],
+      SeverityNumber.INFO,
+      (log) => log(message),
+    );
+  }
+  
+  if (logsConfig.collectorStarted) {
+    log.remoteForce(
+      "SYSTEM-LOG",
+      [],
+      SeverityNumber.INFO,
+      (log) => log(message),
+    );
+  }
 }
