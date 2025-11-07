@@ -1,6 +1,6 @@
 # Hardhat Config Builder
 
-This package provides a unified Hardhat configuration builder that consolidates common Hardhat setup logic used across e2e tests and templates. This eliminates code duplication and centralizes maintenance.
+This package provides a unified Hardhat configuration builder that consolidates common Hardhat setup logic used across e2e tests and templates. This centralizes maintenance.
 
 ## Overview
 
@@ -11,13 +11,13 @@ The unified config builder provides three main functions:
 3. **`initTelemetry()`** - Initializes OpenTelemetry for Hardhat
 
 **Key Features:**
-- **Automatic Default Networks**: If you don't specify `networks`, default networks (`evmMain`, `evmMainHttp`, `evmParallel`, `evmParallelHttp`) are automatically included
+- **Automatic Default Networks**: Default networks (`evmMain`, `evmMainHttp`, `evmParallel`, `evmParallelHttp`) are included when `networks` is not specified.
 - **Centralized Configuration**: All common Hardhat setup logic in one place
 - **Type Safe**: Full TypeScript support with proper types
 - **Flexible**: Supports both `@effectstream` and `@paimaexample` package namespaces
 
 **Additional Utilities:**
-- **`createDefaultNetworks()`** - Helper function to create default network configurations (used internally by `createHardhatConfig()`)
+- **`createDefaultNetworks()`** - Helper function to create default network configurations
 
 ## Usage
 
@@ -84,7 +84,7 @@ export default config;
 
 ### `createDefaultNetworks(options?: DefaultNetworkOptions): Record<string, NetworkConfig>`
 
-Creates default network configurations commonly used in e2e tests and templates. This function is used internally by `createHardhatConfig()` when default networks are enabled, but can also be called directly if you need to create networks separately or customize them.
+Creates default network configurations commonly used in e2e tests and templates. This function is used by `createHardhatConfig()` when default networks are enabled, but can also be called directly if you need to create networks separately or customize them.
 
 #### When to Use
 
@@ -150,7 +150,7 @@ Creates a unified Hardhat configuration.
 
 A complete `HardhatUserConfig` object ready to export.
 
-**Note:** By default, if you don't provide `networks`, the config will automatically include the default networks (`evmMain`, `evmMainHttp`, `evmParallel`, `evmParallelHttp`). This eliminates the need to define networks manually in most cases.
+**Note:** The config will automatically include the default networks (`evmMain`, `evmMainHttp`, `evmParallel`, `evmParallelHttp`) when `networks` is not provided.
 
 ### `createNodeTasks(deps: NodeTaskDependencies): HardhatUserConfig["tasks"]`
 
@@ -192,7 +192,7 @@ The functions work identically regardless of which package namespace you use.
 
 ## Benefits
 
-1. **Eliminates Duplication**: Common Hardhat configuration logic is centralized in one place
+1. **Centralized Configuration**: All common Hardhat setup logic in one place
 2. **Easier Maintenance**: Updates to Hardhat setup only need to be made once
 3. **Consistency**: All e2e tests and templates use the same configuration logic
 4. **Flexibility**: Still allows customization through parameters
