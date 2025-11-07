@@ -236,7 +236,7 @@ const config = {
           }
         }
       },
-      image: 'img/paima-banner.png',
+      image: 'img/no-image.png',
       navbar: {
         title: "Effectstream",
         logo: {

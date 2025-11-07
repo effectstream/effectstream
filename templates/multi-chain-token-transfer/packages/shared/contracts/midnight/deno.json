@@ -17,9 +17,9 @@
         "midnight-faucet:start": "deno run -A faucet.ts"
     },
     "imports": {
-        "@paimaexample/npm-midnight-indexer": "npm:@paimaexample/npm-midnight-indexer@0.3.99",
-        "@paimaexample/npm-midnight-node": "npm:@paimaexample/npm-midnight-node@0.3.99",
-        "@paimaexample/npm-midnight-proof-server": "npm:@paimaexample/npm-midnight-proof-server@0.3.99",
+        "@paimaexample/npm-midnight-indexer": "npm:@paimaexample/npm-midnight-indexer@0.3.101",
+        "@paimaexample/npm-midnight-node": "npm:@paimaexample/npm-midnight-node@0.3.101",
+        "@paimaexample/npm-midnight-proof-server": "npm:@paimaexample/npm-midnight-proof-server@0.3.101",
         "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger",
         "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
         "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap",

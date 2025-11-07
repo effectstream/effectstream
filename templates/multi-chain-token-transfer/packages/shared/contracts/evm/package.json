@@ -3,7 +3,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.1.0",
-    "@paimaexample/evm-contracts": "0.3.99"
+    "@paimaexample/evm-contracts": "0.3.101"
   },
   "devDependencies": {
     "jsonc-parser": "3.3.1",

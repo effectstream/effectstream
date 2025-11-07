@@ -5,9 +5,9 @@ import { SeverityNumber } from "@opentelemetry/api-logs";
  * These components get a "paima" prefix in the log.
  */
 export const PaimaComponents = {
-  PAIMA_SYNC: "sync",
-  PAIMA_RUNTIME: "runtime",
-  PAIMA_PGLITE: "pglite",
+  EFFECTSTREAM_SYNC: "sync",
+  EFFECTSTREAM_RUNTIME: "runtime",
+  EFFECTSTREAM_PGLITE: "pglite",
   APPLY_MIGRATIONS: "apply-migrations",
 };
 /**
@@ -54,7 +54,7 @@ export const SecondaryComponents = {
   AVAIL_CLIENT_WAIT: "avail-light-client-wait",
   HARDHAT_WAIT: "hardhat-wait",
   COLLECTOR_WAIT: "collector-wait",
-  PAIMA_DB_WAIT: "db-wait",
+  EFFECTSTREAM_DB_WAIT: "db-wait",
 };
 
 /** All the components that can be launched by the orchestrator */

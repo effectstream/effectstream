@@ -1,4 +1,4 @@
-// Midnight blockchain adapter for the Paima batcher
+// Midnight blockchain adapter for the EffectStream batcher
 // Handles transaction submission to Midnight contracts via circuit invocation
 
 import type {
@@ -94,7 +94,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     contractInfo: ContractInfo,
     networkId: NetworkId,
     syncProtocolName: string,
-    maxBatchSize?: number,
+    maxBatchSize: number = 10000,
   ) {
     this.contractAddress = contractAddress;
     this.config = config;
@@ -327,8 +327,11 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
 
   public buildBatchData(
     inputs: DefaultBatcherInput[],
-    options?: BatchBuildingOptions,
+    _options?: BatchBuildingOptions,
   ): BatchBuildingResult<MidnightBatchPayload | null> | null {
+    const options = {
+      maxSize: this.maxBatchSize,
+    };
     // Cast is safe because we know our helper returns this type
     return this.batchBuilderLogic.buildBatchData(inputs, options) as BatchBuildingResult<MidnightBatchPayload | null> | null;
   }

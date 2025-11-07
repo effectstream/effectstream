@@ -44,7 +44,7 @@ function* createDynamicTableForPrimitive(
   const name = p.primitive.name;
 
   // const primitive = PaimaPrimitiveRegistry.getPrimitive(name);
-  const primitive = (globalThis as any).PAIMA_REGISTRY[name];
+  const primitive = (globalThis as any).EFFECTSTREAM_REGISTRY[name];
   if (!primitive) {
     // This should never happen.
     console.error(`Cannot find primitive ${name} in the registry. If this is custom primitive, ensure it's registered.`);
@@ -85,7 +85,7 @@ export function getPrimitivePrefix(
   primitiveType: string,
 ): string[] {
   const expectedPrimitive: any = Object.values(
-    (globalThis as any).PAIMA_REGISTRY,
+    (globalThis as any).EFFECTSTREAM_REGISTRY,
   ).find((primitive: any) => primitive.internalTypeName === primitiveType);
   return expectedPrimitive?.getViewPrefix() || [];
 }
@@ -104,7 +104,7 @@ export function getPrimitiveIntermediatePrefix(
   primitiveType: string,
 ): string[] {
   const expectedPrimitive: any = Object.values(
-    (globalThis as any).PAIMA_REGISTRY,
+    (globalThis as any).EFFECTSTREAM_REGISTRY,
   ).find((primitive: any) => primitive.internalTypeName === primitiveType);
   return expectedPrimitive?.getIntermediatePrefix() || [];
 }

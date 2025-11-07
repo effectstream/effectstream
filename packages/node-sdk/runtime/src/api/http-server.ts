@@ -162,7 +162,7 @@ export const startHttpServer = function* (
   // This node is not specific for a specific website.
   const server = fastify();
   // OpenAPI Docs
-  yield* registerOpenApiDocumentation(server, ENV.PAIMA_API_PORT);
+  yield* registerOpenApiDocumentation(server, ENV.EFFECTSTREAM_API_PORT);
 
   // Register error-catching handler
   server.setErrorHandler((error, request, reply) => {
@@ -872,7 +872,7 @@ export const startHttpServer = function* (
 
   // Start the server
   server.listen(
-    { port: ENV.PAIMA_API_PORT, host: "0.0.0.0" },
+    { port: ENV.EFFECTSTREAM_API_PORT, host: "0.0.0.0" },
     (err: Error | null, address: string) => {
       if (err) {
         console.error("err", err);

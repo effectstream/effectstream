@@ -1,7 +1,7 @@
-export { PaimaBatcher } from "./batcher.ts";
+export { Batcher } from "./batcher.ts";
 export type {
   BatchingCriteriaConfig,
-  PaimaBatcherConfig,
+  BatcherConfig,
   ValidAdapterKey,
 } from "./config.ts";
 export { validateBatcherConfig, validateBatchingCriteria } from "./config.ts";

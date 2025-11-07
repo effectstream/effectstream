@@ -1,7 +1,7 @@
 import { contractAddressesEvmMain } from "@example-evm-midnight/evm-contracts";
 import {
   FileStorage,
-  PaimaBatcherConfig,
+  type BatcherConfig,
   PaimaL2DefaultAdapter,
 } from "@paimaexample/batcher";
 
@@ -25,7 +25,7 @@ const paimaL2 = new PaimaL2DefaultAdapter(
   paimaSyncProtocolName,
 );
 
-export const config: PaimaBatcherConfig = {
+export const config: BatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   adapters: { paimaL2 },
   defaultTarget: "paimaL2",
@@ -34,7 +34,7 @@ export const config: PaimaBatcherConfig = {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },
   // TODO: rename to wait-effectstream-processed
-  confirmationLevel: "wait-paima-processed", // Connector expectation
+  confirmationLevel: "wait-effectstream-processed", // Connector expectation
   enableHttpServer: true,
   enableEventSystem: true,
   port,

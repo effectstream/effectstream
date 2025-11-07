@@ -36,7 +36,7 @@ export function* startMerge(
       }
       if (i === 0) {
         log.remote(
-          ComponentNames.PAIMA_SYNC,
+          ComponentNames.EFFECTSTREAM_SYNC,
           "block-merge",
           SeverityNumber.DEBUG,
           (log) => log(`new block ${mergeInfo.newRoot?.blockNumber}`),
@@ -45,7 +45,7 @@ export function* startMerge(
     }
     if (newBlock == null) continue;
     log.remote(
-      ComponentNames.PAIMA_SYNC,
+      ComponentNames.EFFECTSTREAM_SYNC,
       "block-merge",
       SeverityNumber.INFO,
       (log) => log(`producing block ${newBlock?.blockNumber}`),
@@ -91,14 +91,14 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
   // 1) If we've never made a single query yet, wait
   while (state.lastPage == null) {
     log.remote(
-      ComponentNames.PAIMA_SYNC,
+      ComponentNames.EFFECTSTREAM_SYNC,
       state.getNamespace(),
       SeverityNumber.DEBUG,
       (log) => log("Merge blocked (first sync): waiting for page"),
     );
     yield* state.newPageCondVar.wait();
     log.remote(
-      ComponentNames.PAIMA_SYNC,
+      ComponentNames.EFFECTSTREAM_SYNC,
       state.getNamespace(),
       SeverityNumber.DEBUG,
       (log) => log("Merge unblocked (first sync): got page"),
@@ -109,14 +109,14 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
   if (rootInfo.value == null) {
     while (state.bufferedData.size() === 0) {
       log.remote(
-        ComponentNames.PAIMA_SYNC,
+        ComponentNames.EFFECTSTREAM_SYNC,
         state.getNamespace(),
         SeverityNumber.DEBUG,
         (log) => log("Merge blocked (missing main data): waiting for data"),
       );
       yield* state.newDataCondVar.wait();
       log.remote(
-        ComponentNames.PAIMA_SYNC,
+        ComponentNames.EFFECTSTREAM_SYNC,
         state.getNamespace(),
         SeverityNumber.DEBUG,
         (log) => log("Merge unblocked (missing main data): got data"),
@@ -142,14 +142,14 @@ export function* mergeIntoRoot<SyncProtocol extends AllSyncProtocols>(
     ) <= 0
   ) {
     log.remote(
-      ComponentNames.PAIMA_SYNC,
+      ComponentNames.EFFECTSTREAM_SYNC,
       state.getNamespace(),
       SeverityNumber.DEBUG,
       (log) => log("Merge blocked (missing parallel data): waiting for data"),
     );
     yield* state.newPageCondVar.wait();
     log.remote(
-      ComponentNames.PAIMA_SYNC,
+      ComponentNames.EFFECTSTREAM_SYNC,
       state.getNamespace(),
       SeverityNumber.DEBUG,
       (log) => log("Merge unblocked (missing parallel data): got data"),

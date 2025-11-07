@@ -163,7 +163,7 @@ export const getConnection = (
   const pool = new pg.Pool({ ...creds, max: MAX_CONNECTIONS });
   pool.on("error", (err: unknown) =>
     log.remote(
-      ComponentNames.PAIMA_PGLITE,
+      ComponentNames.EFFECTSTREAM_PGLITE,
       ["query"],
       SeverityNumber.ERROR,
       (log) => log(err),
@@ -173,7 +173,7 @@ export const getConnection = (
     // https://github.com/brianc/node-postgres/issues/2499#issuecomment-805477725
     _client.on("error", (err: Error) => {
       log.remote(
-        ComponentNames.PAIMA_PGLITE,
+        ComponentNames.EFFECTSTREAM_PGLITE,
         ["connect"],
         SeverityNumber.ERROR,
         (log) => log(err),
@@ -199,7 +199,7 @@ export const getPersistentConnection = (creds: PoolConfig): Client => {
   // On each new client initiated, need to register for error(this is a serious bug on pg, the client throw errors although it should not)
   client.on("error", (err: Error) => {
     log.remote(
-      ComponentNames.PAIMA_PGLITE,
+      ComponentNames.EFFECTSTREAM_PGLITE,
       ["query"],
       SeverityNumber.ERROR,
       (log) => log(err),

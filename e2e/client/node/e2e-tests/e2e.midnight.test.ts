@@ -378,7 +378,6 @@ async function sendMintToBatcher(
       addressType: AddressType.MIDNIGHT,
       input,
       timestamp: Date.now(),
-      signature: "signature",
     },
     confirmationLevel: confirmationLevel,
   };

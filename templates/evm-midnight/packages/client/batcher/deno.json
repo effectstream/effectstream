@@ -2,7 +2,7 @@
   "name": "@example-evm-midnight/batcher",
   "exports": "./main.ts",
   "imports": {
-    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.99",
+    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.101",
     "effection": "npm:effection@^3.5.0"
   },
   "tasks": {

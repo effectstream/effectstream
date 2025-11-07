@@ -17,7 +17,7 @@ type GlobalContext = {
   securityNamespace: SecurityNamespace;
 };
 
-export function* withPaimaStaticConfig(
+export function* withEffectstreamStaticConfig(
   config: {
     securityNamespace: SecurityNamespace;
     allNetworks: {

@@ -4,7 +4,7 @@ import { migrationTable } from "./src/migration-order.ts";
 import { localhostConfig } from "@e2e/data-types";
 import { EvmCounterPrimitive } from "@e2e/node/custom-primitive";
 
-// This helper applies Paima Engine Migrations to the database, so you can use it to generate the pgtyped files.
+// This helper applies Effectstream Migrations to the database, so you can use it to generate the pgtyped files.
 const db = await getConnection();
 await standAloneApplyMigrations(db, migrationTable, localhostConfig as any, {
   "EVM:CUSTOM-COUNTER": EvmCounterPrimitive,

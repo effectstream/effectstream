@@ -357,7 +357,7 @@ The `midnightExtended` function is a custom wrapper that not only launches the M
 
 ### 10. Engine Initialization (`main.ts`)
 
-Finally, the `main.ts` file brings all the components together. It uses `withPaimaStaticConfig` to load the `localhostConfig` and then calls the `start` function from `@effectstream/runtime`, passing it the grammar, state transitions, API router, and other configurations to launch a fully operational Effectstream Node.
+Finally, the `main.ts` file brings all the components together. It uses `withEffectstreamStaticConfig` to load the `localhostConfig` and then calls the `start` function from `@effectstream/runtime`, passing it the grammar, state transitions, API router, and other configurations to launch a fully operational Effectstream Node.
 
 ```ts
 // In packages/client/node/src/main.ts
@@ -370,7 +370,7 @@ main(function* () {
   yield* init();
   console.log("Starting Effectstream Node");
 
-  yield* withPaimaStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
     yield* start({
       appName: "multi-chain-token-transfer",
       appVersion: "0.3.21",
