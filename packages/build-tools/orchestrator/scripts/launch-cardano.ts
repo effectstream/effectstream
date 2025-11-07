@@ -29,7 +29,7 @@ export const launchCardano = (packageName: string): {
       name: ComponentNames.YACI_DEVKIT,
       args: ["task", "-f", packageName, "devkit:start"],
       waitToExit: false,
-      logs: "otel-compatible",
+      logs: "raw",
       type: "system-dependency",
     },
     {
@@ -41,6 +41,7 @@ export const launchCardano = (packageName: string): {
       name: ComponentNames.DOLOS,
       args: ["task", "-f", packageName, "dolos:start"],
       waitToExit: false,
+      logs: "raw",
       type: "system-dependency",
       dependsOn: [ComponentNames.YACI_DEVKIT_WAIT],
     },

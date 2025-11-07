@@ -135,25 +135,59 @@ const formatMessage = (
   );
 };
 
-export const tslogLog: TslogLogFunc = (
+
+const namespaces = (component: string, namespace: Namespace) => {
+  const subNamespaces = Array.isArray(namespace) ? namespace : [namespace];
+  if (
+    Object.values(PaimaComponents).includes(component as any) ||
+    Object.values(PaimaToolsComponents).includes(component as any)
+  ) {
+    return ["effectstream", component, ...subNamespaces];
+  }
+  return [component, ...subNamespaces];
+};
+
+export const tsLogFormatted: TslogLogFunc = (
   component,
   namespace,
   level,
   doLog,
 ): void => {
-  const namespaces = (() => {
-    const subNamespaces = Array.isArray(namespace) ? namespace : [namespace];
-    if (
-      Object.values(PaimaComponents).includes(component as any) ||
-      Object.values(PaimaToolsComponents).includes(component as any)
-    ) {
-      return ["paima", component, ...subNamespaces];
-    }
-    return [component, ...subNamespaces];
-  })();
   doLog((...data: unknown[]) =>
     getLogMethod(level)(
-      formatMessage(namespaces, ...data),
+      formatMessage(namespaces(component, namespace), ...data),
     )
   );
+};
+
+export const tsLogOrchestrator: TslogLogFunc = (
+  component,
+  namespace,
+  level,
+  doLog,
+): void => {
+  doLog((...data: unknown[]) =>
+      console.log(JSON.stringify({
+        "__ORCHESTRATOR__": true,
+        data,
+        namespaces: namespaces(component, namespace),
+        level,
+        date: new Date().getTime(),
+      }, 
+      (_, v) => typeof v === "bigint" ? v.toString() : v
+    ))
+  )
+};
+
+export const tsLogGetFormattedMessage = (
+  component: string,
+  namespace: Namespace,
+  level: SeverityNumber,
+  doLog: any,
+): string => {
+  let val = "";
+  doLog((...data: unknown[]) => {
+    val = formatMessage(namespaces(component, namespace), ...data);
+  });
+  return val;
 };

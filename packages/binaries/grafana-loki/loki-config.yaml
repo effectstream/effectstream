@@ -7,11 +7,12 @@ server:
 
 common:
   instance_addr: 127.0.0.1
-  path_prefix: /tmp/loki
-  storage:
-    filesystem:
-      chunks_directory: /tmp/loki/chunks
-      rules_directory: /tmp/loki/rules
+  # Setup dynamically for relative paths to work
+  # path_prefix: ./data/loki
+  # storage:
+  #   filesystem:
+  #     chunks_directory: ./data/loki/chunks
+  #     rules_directory: ./data/loki/rules
   replication_factor: 1
   ring:
     kvstore:

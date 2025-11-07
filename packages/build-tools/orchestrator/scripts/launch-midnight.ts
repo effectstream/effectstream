@@ -37,7 +37,7 @@ export const launchMidnight = (packageName: string): {
       ],
       waitToExit: false,
       type: "system-dependency",
-      logs: "none",
+      logs: "raw",
       dependsOn: [],
     },
     {
@@ -50,6 +50,7 @@ export const launchMidnight = (packageName: string): {
       ],
       waitToExit: false,
       type: "system-dependency",
+      logs: "raw",
       dependsOn: [ComponentNames.MIDNIGHT_NODE],
     },
     {
@@ -62,6 +63,7 @@ export const launchMidnight = (packageName: string): {
       ],
       waitToExit: false,
       type: "system-dependency",
+      logs: "raw",
       dependsOn: [ComponentNames.MIDNIGHT_NODE]
     },
     {

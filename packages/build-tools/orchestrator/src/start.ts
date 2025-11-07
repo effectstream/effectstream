@@ -7,10 +7,11 @@ import { dkill } from "@sylc/dkill";
 import {
   initTelemetry,
   logHandler,
-  rawLogHandler,
   setCollectorStarted,
-  setCurrentOutput,
-  noLogsHandler,
+  setTUIStarted,
+  setStdoutOutput,
+  setStderrOutput,
+  tsLogOrchestratorAdapter,
 } from "./logging.ts";
 import {
   $,
@@ -36,7 +37,7 @@ const ProcessLaunch = Type.Object({
   waitToExit: Type.Boolean({ default: true }),
   link: Type.String({ default: '' }),
   logs: Type.Union(
-    [Type.Literal('otel-compatible'), Type.Literal('raw'), Type.Literal('none')],
+    [Type.Literal('tsLogOrchestratorAdapter'), Type.Literal('raw'), Type.Literal('none')],
     { default: 'raw' }
   ),
   type: Type.Union(
@@ -56,12 +57,16 @@ export const OrchestratorConfig = Type.Object({
   logs: Type.Union([
     // No logs
     Type.Literal("none"),
+    
     // Print only errors to terminal
     Type.Literal("stdout-err"),
+    
     // Print all logs to terminal
     Type.Literal("stdout"),
-    // Send only to OTEL collector
+    
+    // Send to TUI and OTEL collector 
     Type.Literal("development"),
+    
     // Send to OTEL collector and print to terminal
     Type.Literal("production"),
   ], { default: "development" }),
@@ -76,7 +81,7 @@ export const OrchestratorConfig = Type.Object({
 
   // Custom user defined processes to launch.
   // For example you can launch hardhat evm chains, wait to be ready and deploy contracts.
-  processesToLaunch: Type.Array(ProcessLaunch, { default: [] }),
+  processesToLaunch: Type.Array(Type.Union([ProcessLaunch, Type.Boolean()]), { default: [] }),
 
   // This can be customized for different locations of the packages.
   // nightly: jsr:@paimaexample
@@ -119,31 +124,27 @@ type SystemProcess = {
 };
 
 const setupLogging = (config: OrchestratorConfigType): void => {
-  // Let's setup the output mode
-  // Config options:
-  //   none: no logs
-  //   stdout-err: print only errors to terminal - This mode is used by tests, so only errors are printed
-  //   stdout: print all logs to terminal - This mode is used by test in dev mode.
-  //   development: send only to OTEL collector - Default mode.
-  //   production: send to OTEL collector and print to terminal
+  // Let's setup the output mode for logs.
   switch (config.logs) {
-    case "none":
-      setCurrentOutput([]);
-      break;
+    case "none": break;
+
     case "stdout-err":
-      setCurrentOutput(["stderr"]);
+      setStderrOutput();
       break;
+  
     case "stdout":
-      // TODO: This is a hack to force the logs to be printed to stdout.
-      Deno && Deno.env.set("PAIMA_LOGS_FORCE_STDOUT", "true");
-      setCurrentOutput(["stdout"]);
+      setStdoutOutput();
+      setStderrOutput();
       break;
+   
     case "development":
-      setCurrentOutput(["otel"]);
+      setTUIStarted(ENV.TUI_LOG_PORT);
       initTelemetry();
       break;
+
     case "production":
-      setCurrentOutput(["otel", "stdout"]);
+      setStdoutOutput();
+      setStderrOutput();
       initTelemetry();
       break;
   }
@@ -152,13 +153,16 @@ const setupLogging = (config: OrchestratorConfigType): void => {
 export async function start(
   config: OrchestratorConfigType,
 ): Promise<void> {
+  // This is to redirect all logs.remote to the orchestrator, 
+  // where they will be redirected to the collector.
+  Deno.env.set("EFFECTSTREAM_ORCHESTRATOR", "true");
   appConfig = config;
   pFactory = processFactory(config);
   setupLogging(config);
   try {
 
     const tasks = new Map<string, Task>();
-    const processesToRun: (Static<typeof ProcessLaunch> | SystemProcess)[] = [...config.processesToLaunch];
+    const processesToRun: (Static<typeof ProcessLaunch> | SystemProcess)[] = [...config.processesToLaunch.filter(p => typeof p !== 'boolean')];
 
     // Build task graph
     for (const processConfig of processesToRun) {
@@ -234,27 +238,25 @@ export async function start(
         if (stopProcessAtPort.length > 0) {
           await dkill({ ports: stopProcessAtPort });
         }
-        let logHandler_: typeof logHandler;
-        switch (logs) {
-          case "none":
-            logHandler_ = () => {};
-            break;
-          case "otel-compatible":
-            logHandler_ = logHandler;
-            break;
-          case "raw":
-            logHandler_ = rawLogHandler;
-            break;
+
+        try {
+          processComponent = $({
+            args: args,
+            component: name,
+            log: logHandler({}, logs === 'tsLogOrchestratorAdapter' ? tsLogOrchestratorAdapter : undefined),
+            abortController: type === "system-dependency"
+              ? abortControllers.system
+              : abortControllers.noncritical,
+            link: link,
+          });
+        } catch (e) {
+          if (e instanceof AbortProcessStart) {
+            // We stopped all processes, a waiting process is trying to start - as the dependency finished.
+            return;
+          }
+          // Unknown error, throw error to be handled by the main loop.
+          throw e;
         }
-        processComponent = $({
-          args: args,
-          component: name,
-          log: logHandler_,
-          abortController: type === "system-dependency"
-            ? abortControllers.system
-            : abortControllers.noncritical,
-          link: link,
-        });
       }
       task.process = processComponent;
 
@@ -381,6 +383,8 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       ...tmux.getAttachCommand(),
       component: ComponentNames.TMUX,
       abortController: abortControllers.developerUI,
+      // log, this process must no be redirected to the collector
+      // this writes directly to the stdout
     });
     tmuxConsole.process.status.then(() => {
       tmux.killServer();
@@ -396,7 +400,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     const explorer = $({
       args: ["task", "-f", config.packageName + "/explorer", "dev"],
       component: ComponentNames.EXPLORER,
-      log: rawLogHandler,
+      log: logHandler(),
       abortController: abortControllers.developerUI,
     });
     await explorer.process.status;
@@ -413,7 +417,12 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       args: ["-A", "@effectstream/grafana-alloy", "grafana-alloy"],
       // collector always has to post logs directly to console
       // otherwise, it gets stuck in an infinite loop of sending to itself
-      log: rawLogHandler,
+      log: logHandler({
+        disableCollector: true,
+        disableTUI: true,
+        disableStdOut: true,
+        disableStderr: true,
+      }),
       component: ComponentNames.COLLECTOR,
       abortController: abortControllers.noncritical,
     });
@@ -423,7 +432,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       args: [`tcp:${ENV.OTEL_COLLECTOR_PORT}`],
     })).spawn().status;
 
-    setCollectorStarted();
+    setCollectorStarted(ENV.OTEL_COLLECTOR_PORT);
     return otlpCollector;
   },
 
@@ -434,7 +443,14 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     const loki = $({
       args: ["-A", "@effectstream/grafana-loki", "grafana-loki"],
       component: ComponentNames.LOKI,
-      log: noLogsHandler,
+      log: logHandler(
+      {
+        disableCollector: true,
+        disableTUI: true,
+        disableStdOut: true,
+        disableStderr: true,
+      }
+    ),
       abortController: abortControllers.noncritical,
     });
   
@@ -461,7 +477,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
     const node = $({
       args: ["task", "node:start"],
-      log: rawLogHandler,
+      log: logHandler({}, tsLogOrchestratorAdapter),
       component: ComponentNames.PAIMA_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically
       abortController: abortControllers.system,
@@ -484,7 +500,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         "--port",
         String(ENV.DB_PORT),
       ],
-      log: logHandler,
+      log: logHandler(),
       component: ComponentNames.PAIMA_PGLITE,
       abortController: abortControllers.system,
     });
@@ -505,6 +521,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
         config.packageName + "/db/apply-migrations",
       ],
       component: ComponentNames.APPLY_MIGRATIONS,
+      log: logHandler({}, tsLogOrchestratorAdapter),
       abortController: abortControllers.system,
     });
     await externalPaimaDb.process.status;

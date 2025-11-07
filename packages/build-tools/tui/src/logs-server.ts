@@ -15,8 +15,8 @@ const MAX_DATA_ITEMS = 1000;
 export const OTelLogSchema = Type.Object({
   component: Type.String(),
   namespace: Type.Union([Type.String(), Type.Array(Type.String())]),
-  level: Type.Number(),
-  message: Type.Array(Type.String()),
+  level: Type.Union([Type.Number(), Type.String()]),
+  message: Type.Array(Type.Any()),
 });
 export type OTelLog = Static<typeof OTelLogSchema>;
 

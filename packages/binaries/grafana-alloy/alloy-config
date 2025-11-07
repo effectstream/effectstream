@@ -1,4 +1,4 @@
-//  Example config file for Alloy.
+// Example config file for Alloy.
 // Set the agent's global log level
 logging {
     level  = "info"
@@ -11,12 +11,12 @@ otelcol.receiver.otlp "default" {
 
     output {
         // Send metrics/traces to debug
-        metrics = [otelcol.exporter.debug.default.input,]
-        traces  = [otelcol.exporter.debug.default.input,]
+        // metrics = [otelcol.exporter.debug.default.input,]
+        // traces  = [otelcol.exporter.debug.default.input,]
 
         logs = [
           otelcol.processor.batch.default.input,
-          otelcol.exporter.debug.default.input,
+          // otelcol.exporter.debug.default.input,
         ]
     }
 }

@@ -19,13 +19,13 @@ export const otelLog: OtelLogFunc = (
 
   // TODO: modify these constants
   const logger = otlApi.logs.getLogger(component, "0.3.0");
-  // TODO: fallback to log.local if no collector is running
   doLog((...data: unknown[]) => {
     return logger.emit({
       severityNumber: level,
-      body: data.map(toString),
+      body: data.map(toString).join(" "),
       attributes: {
-        namespace,
+        component,
+        namespace: Array.isArray(namespace) ? namespace.join(".") : namespace,
       },
     })
   });

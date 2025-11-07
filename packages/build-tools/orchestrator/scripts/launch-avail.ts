@@ -31,7 +31,7 @@ export const launchAvail = (packageName: string): {
       name: ComponentNames.AVAIL_NODE,
       args: ["task", "-f", packageName, "avail-node:start"],
       waitToExit: false,
-      logs: "none",
+      logs: "raw",
       type: "system-dependency",
     },
     {

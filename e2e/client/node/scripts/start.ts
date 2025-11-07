@@ -31,7 +31,7 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.TUI]: logs === "development",
     // Launch Dev DB & Collector
     [ComponentNames.PAIMA_PGLITE]: !external_db_enabled,
-    [ComponentNames.COLLECTOR]: logs === "development",
+    [ComponentNames.COLLECTOR]: true,
   },
 
   packageName: "@effectstream",
@@ -57,15 +57,15 @@ const config = Value.Parse(OrchestratorConfig, {
       link: "http://localhost:10590",
       dependsOn: [],
     },
-    { 
+    midnight_enabled ? { 
       // Launch the Batcher with our PaimaL2 Contract
       stopProcessAtPort: [3334],
       name: "batcher",
       args: ["task", "-f", "@e2e/batcher", "start"],
       waitToExit: false,
       type: "system-dependency",
-      dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined].filter(Boolean),
-    }
+      dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
+    } : false
   ],
 });
 

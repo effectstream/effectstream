@@ -67,6 +67,9 @@ async function runBinary(args = []) {
 		bin: bin.path(),
 		args: [
 			`-config.file=${path.join(import.meta.dirname, 'loki-config.yaml')}`,
+			`-common.path-prefix=${path.join(import.meta.dirname, 'data', 'loki')}`,
+			`-common.storage.filesystem.chunk-directory=${path.join(import.meta.dirname, 'data', 'loki', 'chunks')}`,
+			`-common.storage.filesystem.rules-directory=${path.join(import.meta.dirname, 'data', 'loki', 'rules')}`,
 			...args
 		]
 	};
