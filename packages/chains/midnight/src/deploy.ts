@@ -67,13 +67,29 @@ export interface DeployConfig {
   extractWalletAddress?: boolean;
 }
 
-interface StandaloneConfig {
-  logDir?: string;
-  indexer: string;
-  indexerWS: string;
-  node: string;
-  proofServer: string;
+/**
+ * Network endpoint URLs for connecting to Midnight infrastructure
+ */
+export interface NetworkUrls {
+  /** GraphQL indexer HTTP endpoint (default: http://127.0.0.1:8088/api/v1/graphql)*/
+  indexer?: string;
+  /** GraphQL indexer WebSocket endpoint (default: ws://127.0.0.1:8088/api/v1/graphql/ws)*/
+  indexerWS?: string;
+  /** Midnight node RPC endpoint (default: http://127.0.0.1:9944)*/
+  node?: string;
+  /** Proof server HTTP endpoint (default: http://127.0.0.1:6300)*/
+  proofServer?: string;
 }
+
+/**
+ * Default network URLs for undeployed/local development
+ */
+export const DEFAULT_NETWORK_URLS: Required<NetworkUrls> = {
+  indexer: "http://127.0.0.1:8088/api/v1/graphql",
+  indexerWS: "ws://127.0.0.1:8088/api/v1/graphql/ws",
+  node: "http://127.0.0.1:9944",
+  proofServer: "http://127.0.0.1:6300",
+};
 
 const waitForFunds = (wallet: Wallet) =>
   Rx.firstValueFrom(
@@ -95,8 +111,12 @@ const waitForFunds = (wallet: Wallet) =>
     ),
   );
 
+interface InternalNetworkConfig extends Required<NetworkUrls> {
+  logDir?: string;
+}
+
 const buildWalletAndWaitForFunds = async (
-  config: StandaloneConfig,
+  config: InternalNetworkConfig,
   seed: string,
 ): Promise<Wallet & Resource> => {
   log.info("Building wallet from scratch");
@@ -160,7 +180,7 @@ const createWalletAndMidnightProvider = async (
 
 const configureProviders = async (
   wallet: Wallet & Resource,
-  config: StandaloneConfig,
+  config: InternalNetworkConfig,
   privateStateStoreName: string,
   zkConfigPath: string,
 ) => {
@@ -189,10 +209,12 @@ const configureProviders = async (
  * and zkConfigPath automatically using readMidnightContract.
  * 
  * @param config - Deployment configuration
+ * @param networkUrls - Optional network endpoint URLs (defaults to local undeployed endpoints)
  * @returns The deployed contract address
  */
 export async function deployMidnightContract(
   config: DeployConfig,
+  networkUrls?: NetworkUrls,
 ): Promise<string> {
   await log.setup({
     handlers: {
@@ -250,12 +272,11 @@ export async function deployMidnightContract(
   const privateStateStoreName = config.privateStateStoreName ?? 
     `${config.contractName.replace("contract-", "")}-private-state`;
 
-  const standaloneConfig: StandaloneConfig = {
+  // Merge network URLs with defaults and add logDir from config
+  const networkConfig: InternalNetworkConfig = {
+    ...(DEFAULT_NETWORK_URLS),
+    ...(networkUrls ?? {}),
     logDir: config.logDir,
-    indexer: "http://127.0.0.1:8088/api/v1/graphql",
-    indexerWS: "ws://127.0.0.1:8088/api/v1/graphql/ws",
-    node: "http://127.0.0.1:9944",
-    proofServer: "http://127.0.0.1:6300",
   };
 
   setNetworkId(NetworkId.Undeployed);
@@ -265,7 +286,7 @@ export async function deployMidnightContract(
   try {
     log.info("Building wallet...");
     wallet = await buildWalletAndWaitForFunds(
-      standaloneConfig,
+      networkConfig,
       GENESIS_MINT_WALLET_SEED,
     );
 
@@ -302,7 +323,7 @@ export async function deployMidnightContract(
     log.info("Configuring providers...");
     const providers = await configureProviders(
       wallet,
-      standaloneConfig,
+      networkConfig,
       privateStateStoreName,
       zkConfigPath,
     );
