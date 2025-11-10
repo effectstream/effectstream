@@ -18,6 +18,7 @@
         "./json-rpc-server": "./src/json-rpc-server/json-rpc/server.ts",
         "./builder": "./src/builder/build.mod.ts",
         "./remappings-hardhat": "./src/remappings/remappings-hardhat.ts",
-        "./remappings-forge": "./src/remappings/remappings-forge.ts"
+        "./remappings-forge": "./src/remappings/remappings-forge.ts",
+        "./scaffold": "./src/scaffold/scaffold.ts"
     }
 }   
