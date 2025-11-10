@@ -1,12 +1,8 @@
 // import hre from "hardhat";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import * as config from "./hardhat.config.ts";
-import Erc20DevModule from "./ignition/modules/erc20dev.ts";
-import PaimaL2ContractModule from "./ignition/modules/paimaL2.ts";
-import Erc721DevModule from "./ignition/modules/erc721dev.ts";
 import type { buildModule } from "@nomicfoundation/ignition-core";
-import CounterModule from "./ignition/modules/counter.ts";
-import ERC1155DevModule from "./ignition/modules/erc1155dev.ts";
+import ExampleContractModule from "./ignition/modules/example-contract-module.ts";
 
 const __dirname: any = import.meta.dirname;
 
@@ -20,41 +16,34 @@ type Deployment = {
 // This is the list of contracts to deploy.
 // Add or remove contracts as needed.
 const myDeployments: Deployment[] = [
-  {
-    module: Erc20DevModule,
-    network: "evmMainHttp",
-  },
-  {
-    module: PaimaL2ContractModule,
-    network: "evmMainHttp",
-    parameters: {
-      PaimaL2ContractModule: {
-        owner: "0xEFfE522D441d971dDC7153439a7d10235Ae6301f",
-        fee: 0,
-      },
-    },
-  },
-  {
-    module: Erc721DevModule,
-    network: "evmMainHttp",
-  },
-  {
-    module: Erc20DevModule,
-    network: "evmParallelHttp",
-  },
-  {
-    module: Erc721DevModule,
-    network: "evmParallelHttp",
-  },
-  {
-    module: CounterModule,
-    network: "evmMainHttp",
-  },
-  {
-    module: ERC1155DevModule,
-    network: "evmMainHttp",
-  }
+ // Example Erc20
+ /* 
+  * {
+  *   module: Erc20DevModule,
+  *   network: "evmMainHttp",
+  * },
+  */
 
+  // Example PaimaL2 
+ /* 
+  * {
+  *   module: PaimaL2ContractModule,
+  *   network: "evmMainHttp",
+  *   parameters: {
+  *     PaimaL2ContractModule: {
+  *       owner: "0xEFfE522D441d971dDC7153439a7d10235Ae6301f",
+  *       fee: 0,
+  *     },
+  *   },
+  * },
+  */
+  
+  // [CUSTOM-CODE-1]
+   
+   {
+     module: ExampleContractModule,
+     network: "evmMainHttp",
+   },
 ] as const;
 
 /**
