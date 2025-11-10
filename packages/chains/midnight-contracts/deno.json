@@ -4,7 +4,11 @@
     "license": "MIT",
     "exports": {
         "./read-contract": "./src/read-contract.ts",
-        "./deploy": "./src/deploy.ts"
+        "./deploy": "./src/deploy.ts",
+        "./scaffold": "./src/scaffold/scaffold.ts"
+    },
+    "tasks": {
+        "scaffold": "deno run -A ./src/scaffold/scaffold.ts"
     },
     "imports": {
         "@std/path": "jsr:@std/path@^1.0.0",

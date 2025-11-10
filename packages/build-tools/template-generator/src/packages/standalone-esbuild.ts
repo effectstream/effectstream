@@ -208,7 +208,7 @@ export class StandaloneEsbuildPackage extends Package {
             return null;
         }
 
-        const frontendPath = path.join(this.projectPath, 'packages', 'frontend', 'standalone-esbuild');
+        const frontendPath = path.join(this.projectPath, 'frontend', 'standalone');
         const packageName = `${this.options.projectName}-frontend-esbuild`;
 
         await new StandalonePackageJson(path.join(frontendPath, 'package.json'), this.options.projectName).write();

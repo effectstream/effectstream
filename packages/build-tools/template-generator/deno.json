@@ -5,8 +5,12 @@
   "exports": {
     ".": "./mod.ts"
   },
+  "alias": {
+    "npm:/react-dom@18.3.1": "react-dom"
+  },
   "strict": true,
   "imports": {
+    "@effectstream/evm-hardhat": "../../chains/evm-hardhat/deno.json",
     "react": "npm:react@18.3.1",
     "react-dom": "npm:react-dom@18.3.1",
     "ink": "npm:ink@5.0.1",
@@ -16,6 +20,7 @@
     "ink-gradient": "npm:ink-gradient@3.0.0"
   },
   "tasks": {
+    "check": "deno check src/template-generator.tsx",
     "start": "deno run -A src/template-generator.tsx"
   },
   "compilerOptions": {

@@ -1,0 +1,14 @@
+{
+    "name": "@effectstream/avail-contracts",
+    "version": "0.3.0",
+    "license": "MIT",
+    "exports": {
+        "./scaffold": "./src/scaffold/scaffold.ts"
+    },
+    "tasks": {
+        "scaffold": "deno run -A ./src/scaffold/scaffold.ts"
+    },
+    "imports": {
+    }
+}
+

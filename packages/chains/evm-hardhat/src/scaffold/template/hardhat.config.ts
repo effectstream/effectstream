@@ -3,17 +3,17 @@ import {
   createHardhatConfig,
   createNodeTasks,
   initTelemetry,
-} from "@effectstream/evm-contracts";
+} from "@paimaexample/evm-contracts";
 import {
   JsonRpcServerImplementation,
-} from "@effectstream/evm-hardhat/json-rpc-server";
+} from "@paimaexample/evm-hardhat/json-rpc-server";
 import fs from "node:fs";
 import waitOn from "wait-on";
 import {
   ComponentNames,
   log,
   SeverityNumber,
-} from "@effectstream/log";
+} from "@paimaexample/log";
 
 const __dirname: any = import.meta.dirname;
 

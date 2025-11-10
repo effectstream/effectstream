@@ -84,7 +84,7 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/node-sdk/events" },
   { path: "./packages/node-sdk/runtime" }, // [@db, @sync, @sm]
   { path: "./packages/chains/evm-contracts" },
-  { path: "./packages/chains/midnight" },
+  { path: "./packages/chains/midnight-contracts" },
   { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
   { path: "./packages/build-tools/tui" },
   { path: "./packages/build-tools/collector" },

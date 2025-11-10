@@ -24,7 +24,6 @@ Expected structure.
  *
  */
 
-
 // Copy files
 async function copyFiles(sourceDir: string, targetDir: string, replacements: Record<string, string>): Promise<void> {
     const files = await Deno.readDir(sourceDir);
@@ -41,11 +40,9 @@ async function copyFiles(sourceDir: string, targetDir: string, replacements: Rec
     }
 }   
 
-// Get current directory
+// Get current directory - this has to be JSR compatible.
 function currentDir(): string {
-    const currentDir = path.dirname(path.fromFileUrl(import.meta.url));
-    console.log({currentDir});
-    return currentDir;
+    return path.dirname(path.fromFileUrl(import.meta.url));
 }
 
 function checkInputs(args: string[]): { targetFolder: string, packageName: string, version: string } {
@@ -71,8 +68,15 @@ function checkInputs(args: string[]): { targetFolder: string, packageName: strin
     };
 }
 
-async function main(): Promise<void> {
-    const { version,targetFolder, packageName } = checkInputs(Deno.args);
+export async function scaffoldEVMProject(
+    targetFolder: string, 
+    packageName: string, 
+    version: string
+): Promise<{
+    name: string;
+    path: string;
+}> {
+    const fullPackageName = `@${packageName}/evm-contracts`;
 
     const folders = [
         [""], 
@@ -85,12 +89,21 @@ async function main(): Promise<void> {
     }
 
     for (const folder of folders) {
+        console.log('copying files from', path.join(currentDir(), "template", ...folder), 'to', path.join(targetFolder, ...folder));
         await copyFiles(path.join(currentDir(), "template", ...folder), path.join(targetFolder, ...folder), {
             "\\[scope\\]": packageName,
             "\\[EFFECTSTREAM-VERSION\\]": version
         });
     }
 
+    return {
+        name: fullPackageName,
+        path: targetFolder
+    }
 };
 
-await main();
+if (import.meta.main) {
+    checkInputs(Deno.args);
+    const { targetFolder, packageName, version } = checkInputs(Deno.args);
+    await scaffoldEVMProject(targetFolder, packageName, version);
+}

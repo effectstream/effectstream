@@ -13,8 +13,10 @@ export class MidnightContractPackage extends Package {
     }
 
     public async generate(): Promise<PackageInfo> {
-        const contractPath = path.join(this.projectPath, 'packages', 'shared', 'contracts', 'midnight', this.contract);
-        const packageName = `@${this.options.projectName}/shared-contracts-midnight-${this.contract}`;
+        const safeContractName = this.contract.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+
+        const contractPath = path.join(this.projectPath, 'packages', 'shared', 'contracts', 'midnight-contracts', safeContractName);
+        const packageName = `@${this.options.projectName}/contracts-midnight-${safeContractName}`;
 
         await new DenoJsonFile(
             path.join(contractPath, 'deno.json'),

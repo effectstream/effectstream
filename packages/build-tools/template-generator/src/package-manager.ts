@@ -2,9 +2,11 @@ import { TemplateOptions } from './options.ts';
 import { ClientNodePackage } from './packages/client-node.ts';
 import { ClientDatabasePackage } from './packages/client-database.ts';
 import { ClientBatcherPackage } from './packages/client-batcher.ts';
-import { ChainPackage } from './packages/chain.ts';
-import { ChainContractsPackage } from './packages/chain-contracts.ts';
-import { MidnightContractPackage } from './packages/midnight-contract.ts';
+import { ChainCardanoPackage } from './packages/chain-cardano.ts';
+import { ChainBitcoinPackage } from './packages/chain-bitcoin.ts';
+import { ChainAvailPackage } from './packages/chain-avail.ts';
+import { ChainEVMPackage } from './packages/chain-evm.ts';
+import { ChainMidnightPackage } from './packages/chain-midnight.ts';
 import { SharedDataTypesPackage } from './packages/shared-data-types.ts';
 import { IntegratedViteDenoPackage } from './packages/integrated-vite-deno.ts';
 import { StandaloneEsbuildPackage } from './packages/standalone-esbuild.ts';
@@ -22,13 +24,22 @@ export class PackageManager {
         createdPackages.push(await new SharedDataTypesPackage(this.projectPath, this.options).generate());
 
         for (const chain of this.options.chains) {
-            createdPackages.push(await new ChainPackage(this.projectPath, this.options, chain).generate());
-            createdPackages.push(await new ChainContractsPackage(this.projectPath, this.options, chain).generate());
-
-            if (chain === 'midnight') {
-                for (const contract of this.options.contracts.midnight || []) {
-                    createdPackages.push(await new MidnightContractPackage(this.projectPath, this.options, contract).generate());
+            if (chain === 'evm') {
+                createdPackages.push(await new ChainEVMPackage(this.projectPath, this.options, chain).generate());
+            } else if (chain === 'midnight') {
+                const chainPackage = await new ChainMidnightPackage(this.projectPath, this.options, chain).generate();
+                createdPackages.push(chainPackage);
+                if (chainPackage.subPackages) {
+                    createdPackages.push(...chainPackage.subPackages);
                 }
+            } else if (chain === 'cardano') {
+                createdPackages.push(await new ChainCardanoPackage(this.projectPath, this.options, chain).generate());
+            } else if (chain === 'bitcoin') {
+                createdPackages.push(await new ChainBitcoinPackage(this.projectPath, this.options, chain).generate());
+            } else if (chain === 'avail') {
+                createdPackages.push(await new ChainAvailPackage(this.projectPath, this.options, chain).generate());
+            } else {    
+                throw new Error(`Chain ${chain} not supported`);
             }
         }
 
