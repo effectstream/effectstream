@@ -1,0 +1,9 @@
+{
+  "name": "@paima/bitcoin-core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./index.js",
+  "dependencies": {
+    "@xhmikosr/bin-wrapper": "^5.0.0"
+  }
+}
