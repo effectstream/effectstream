@@ -3,7 +3,7 @@ import {
   createHardhatConfig,
   createNodeTasks,
   initTelemetry,
-} from "@paimaexample/evm-contracts";
+} from "@paimaexample/evm-hardhat/hardhat-config-builder";
 import {
   JsonRpcServerImplementation,
 } from "@paimaexample/evm-hardhat/json-rpc-server";

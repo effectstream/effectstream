@@ -10,9 +10,9 @@
   // TODO: how these actually will work will depend on the hardhat v3 viem plugin
   //       See https://github.com/NomicFoundation/hardhat/issues/5978
   "imports": {
-    "@paimaexample/evm-hardhat": "jsr:@paimaexample/evm-hardhat@0.3.104",
-    "@paimaexample/log": "jsr:@paimaexample/log@0.3.104",
-    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.104",
+    "@paimaexample/evm-hardhat": "jsr:@paimaexample/evm-hardhat@0.3.108",
+    "@paimaexample/log": "jsr:@paimaexample/log@0.3.108",
+    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.108",
     "@wagmi/cli": "npm:@wagmi/cli@2.3.1",
     "hardhat": "npm:hardhat@3.0.4",
     "@nomicfoundation/hardhat-ignition-viem": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",

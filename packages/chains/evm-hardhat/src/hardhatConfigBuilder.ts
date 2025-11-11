@@ -5,6 +5,10 @@ import HardhatViem from "@nomicfoundation/hardhat-viem";
 import { overrideTask, task } from "hardhat/config";
 import { ArgumentType } from "hardhat/types/arguments";
 import HardhatIgnitionViem from "@nomicfoundation/hardhat-ignition-viem";
+import { defaultOtelSetup } from "@effectstream/log";
+import fs from "node:fs";
+import { parse } from "jsonc-parser";
+import { NodeSDK } from "@opentelemetry/sdk-node";
 
 /**
  * Dependencies required for creating node tasks.
@@ -308,25 +312,20 @@ export function createDefaultNetworks(
  * Initializes OpenTelemetry for Hardhat.
  * This should be called at the top level of your hardhat.config.ts file.
  * 
- * Note: This function uses dynamic imports and executes asynchronously.
+ * Note: This function executes asynchronously.
  * Errors are caught and logged as warnings to avoid breaking Hardhat initialization.
  * 
- * @param logPackage Package name for log utilities (e.g., "@effectstream/log" or "@effectstream/log")
+ * @param logPackage Package name for log utilities (kept for backward compatibility, but ignored)
  * @param denoJsonPath Path to deno.json file for version detection
  */
 export function initTelemetry(
   logPackage: string,
   denoJsonPath: string = "./deno.json",
 ): void {
-  // Dynamic import to support both @effectstream and @paimaexample packages
+  // Use static imports - import map will handle @effectstream -> @paimaexample conversion when published
   // Execute asynchronously - errors won't break Hardhat initialization
   (async () => {
     try {
-      const fs = await import("node:fs");
-      const { parse } = await import("jsonc-parser");
-      const { NodeSDK } = await import("@opentelemetry/sdk-node");
-      const { defaultOtelSetup } = await import(logPackage);
-
       const DenoConfig = parse(fs.readFileSync(denoJsonPath, "utf8"));
       const sdk = new NodeSDK({
         ...defaultOtelSetup("hardhat", DenoConfig.version),

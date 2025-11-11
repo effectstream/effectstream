@@ -37,9 +37,9 @@ import {
   createHardhatConfig,
   createNodeTasks,
   initTelemetry,
-} from "@effectstream/evm-contracts";
+} from "@effectstream/evm-hardhat/hardhat-config-builder";
 // or for templates:
-// } from "@paimaexample/evm-contracts";
+// } from "@paimaexample/evm-hardhat/hardhat-config-builder";
 
 import {
   JsonRpcServerImplementation,
@@ -60,6 +60,7 @@ import {
 const __dirname = import.meta.dirname;
 
 // Initialize telemetry (optional)
+// Note: logPackage parameter is kept for backward compatibility but ignored
 initTelemetry("@effectstream/log", "./deno.json");
 // or for templates:
 // initTelemetry("@paimaexample/log", "./deno.json");
@@ -185,17 +186,17 @@ Initializes OpenTelemetry for Hardhat. This should be called at the top level of
 
 #### Parameters
 
-- `logPackage` (required): Package name for log utilities (e.g., `"@effectstream/log"` or `"@paimaexample/log"`)
+- `logPackage` (required but ignored): Package name for log utilities - kept for backward compatibility but no longer used (uses static import instead)
 - `denoJsonPath` (optional): Path to `deno.json` file for version detection (defaults to `"./deno.json"`)
 
 ## Package Names
 
 The unified config builder supports both package naming conventions:
 
-- **E2E tests**: Use `@effectstream/evm-contracts`, `@effectstream/evm-hardhat`, `@effectstream/log`
-- **Templates**: Use `@paimaexample/evm-contracts`, `@paimaexample/evm-hardhat`, `@paimaexample/log`
+- **E2E tests**: Use `@effectstream/evm-hardhat/hardhat-config-builder`, `@effectstream/evm-hardhat/json-rpc-server`, `@effectstream/log`
+- **Templates**: Use `@paimaexample/evm-hardhat/hardhat-config-builder`, `@paimaexample/evm-hardhat/json-rpc-server`, `@paimaexample/log`
 
-The functions work identically regardless of which package namespace you use.
+Note: The functions are now exported from `evm-hardhat` package. The `evm-contracts` package re-exports them for backward compatibility, but new code should import directly from `evm-hardhat`.
 
 ## Benefits
 
