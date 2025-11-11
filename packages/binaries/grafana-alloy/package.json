@@ -1,6 +1,6 @@
 {
     "name": "@effectstream/grafana-alloy",
-    "version": "1.11.3",
+    "version": "0.3.0",
     "description": "A wrapper for the Grafana Alloy OTEL binary",
     "main": "install.js",
     "bin": {

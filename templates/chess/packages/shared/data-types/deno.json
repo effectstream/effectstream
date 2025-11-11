@@ -8,10 +8,10 @@
     "./types": "./src/chess-types.ts"
   },
   "imports": {
-    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.104",
-    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.104",
-    "@paimaexample/config": "jsr:@paimaexample/config@0.3.104",
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.104",
+    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.108",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.108",
+    "@paimaexample/config": "jsr:@paimaexample/config@0.3.108",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.108",
     "@sinclair/typemap": "npm:@sinclair/typemap@^0.10.1",
     "viem": "npm:viem@2.37.3",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
