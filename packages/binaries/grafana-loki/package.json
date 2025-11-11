@@ -1,6 +1,6 @@
 {
     "name": "@effectstream/grafana-loki",
-    "version": "3.5.8",
+    "version": "0.3.0",
     "description": "A wrapper for the Grafana Loki binary",
     "main": "index.js",
     "bin": {

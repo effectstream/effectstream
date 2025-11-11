@@ -57,7 +57,7 @@ const otpCode = otpIndex !== -1 ? Deno.args[otpIndex + 1] : null;
 const dirIndex = Deno.args.indexOf("--dir");
 const rootDir = dirIndex !== -1 ? Deno.args[dirIndex + 1] : Deno.cwd();
 
-const filePattern = /\.(ts|js|json|tsx|jsx)$/i;
+const filePattern = /\.(ts|js|json|tsx|jsx|tmux)$/i;
 
 // Packages to publish in order
 const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
@@ -83,13 +83,12 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/node-sdk/db-emulator" }, // [@db, @sm]
   { path: "./packages/node-sdk/events" },
   { path: "./packages/node-sdk/runtime" }, // [@db, @sync, @sm]
-  { path: "./packages/chains/evm-contracts" },
   { path: "./packages/chains/midnight-contracts" },
   { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
   { path: "./packages/build-tools/tui" },
-  { path: "./packages/build-tools/collector" },
   { path: "./packages/build-tools/orchestrator" },
   { path: "./packages/chains/evm-hardhat" },
+  { path: "./packages/chains/evm-contracts" }, // [@evm-hardhat]
   { path: "./packages/batcher" },
 ];
 
@@ -100,6 +99,8 @@ const npmPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/binaries/midnight-indexer" },
   { path: "./packages/binaries/midnight-node" },
   { path: "./packages/binaries/midnight-proof-server" },
+  { path: "./packages/binaries/grafana-alloy" },
+  { path: "./packages/binaries/grafana-loki" },
   { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
 ];
 
@@ -121,30 +122,63 @@ async function processFile(filePath: string, reverse: boolean = false) {
   let newContent = content;
   let didUpdate = false;
 
+  // Special handling for evm-hardhat/deno.json - log package must stay as @paimaexample/log
+  const isEvmHardhatDenoJson = filePath.includes("evm-hardhat/deno.json");
+  
+  // Special handling for orchestrator/start.ts - grafana packages need npm: prefix when publishing
+  const isOrchestratorStartTs = filePath.includes("orchestrator/src/start.ts");
+
   if (!reverse) {
+    // For orchestrator/start.ts, grafana packages need npm: prefix
+    if (isOrchestratorStartTs) {
+      newContent = newContent.replace(
+        /@effectstream\/grafana-(alloy|loki)/g,
+        "npm:@paimaexample/grafana-$1",
+      );
+    }
+    
     newContent = newContent.replace(
       /@effectstream\/(?!pgtyped-cli)([\w-]+)/g,
       "@paimaexample/$1",
     );
   } else {
-    newContent = newContent.replace(
-      /@paimaexample\/([\w-]+)/g,
-      "@effectstream/$1",
-    );
-  }
-  // Update session.tmux files
-  if (
-    filePath.endsWith("session.tmux") || filePath.endsWith("session.tmux.ts")
-  ) {
-    if (!reverse) {
+    // For orchestrator/start.ts, remove npm: prefix from grafana packages when reverting
+    if (isOrchestratorStartTs) {
       newContent = newContent.replace(
-        /@paimaexample\/(?!pgtyped-cli)([\w-]+)/g,
+        /npm:@paimaexample\/grafana-(alloy|loki)/g,
+        "@effectstream/grafana-$1",
+      );
+    }
+    
+    // When reversing, exclude log from replacement only for evm-hardhat/deno.json
+    // because it uses static import and the package doesn't exist as @effectstream/log on JSR
+    if (isEvmHardhatDenoJson) {
+      newContent = newContent.replace(
+        /@paimaexample\/(?!log)([\w-]+)/g,
         "@effectstream/$1",
       );
     } else {
       newContent = newContent.replace(
-        /@effectstream\/([\w-]+)/g,
+        /@paimaexample\/([\w-]+)/g,
+        "@effectstream/$1",
+      );
+    }
+  }
+  // Update session.tmux files - published should use @paimaexample, reverted should use @effectstream
+  if (
+    filePath.endsWith("session.tmux") || filePath.endsWith("session.tmux.ts")
+  ) {
+    if (!reverse) {
+      // When publishing, convert @effectstream/ to @paimaexample/ (normal conversion)
+      newContent = newContent.replace(
+        /@effectstream\/(?!pgtyped-cli)([\w-]+)/g,
         "@paimaexample/$1",
+      );
+    } else {
+      // When reverting, convert @paimaexample/ back to @effectstream/
+      newContent = newContent.replace(
+        /@paimaexample\/([\w-]+)/g,
+        "@effectstream/$1",
       );
     }
   }
@@ -195,9 +229,6 @@ async function walkAndProcess(dir: string, reverse: boolean = false) {
     } else if (filePattern.test(entry.name)) {
       // Skip the script file itself to avoid self-modification
       if (entry.name === "publish-jsr-npm.effectstream.ts") {
-        continue;
-      }
-      if (entry.name === "session.tmux.ts") {
         continue;
       }
       if (entry.name === "deno.json" && dir === rootDir) {
