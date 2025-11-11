@@ -1,4 +1,4 @@
-# Wallets Demo
+# Web Wallets
 
 *   Location: `/e2e/e2e-wallets/`
 *   Highlights: A comprehensive example frontend to use the `@effectstream/wallets` library, demonstrating multi-chain wallet connections and different transaction submission methods.
