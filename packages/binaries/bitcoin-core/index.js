@@ -24,12 +24,14 @@ export default bin;
 const DEFAULT_CONFIG = `
 server=1
 regtest=1
+fallbackfee=0.00001
 
 [regtest]
 rpcuser=dev
 rpcpassword=devpassword
 rpcport=18443
 port=18334
+fallbackfee=0.00001
 `;
 
 export async function run(options = {}) {

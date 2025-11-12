@@ -1,5 +1,5 @@
 {
-  "name": "@effectstream/bitcoin-core",
+  "name": "@effectstream/ord",
   "version": "0.1.0",
   "type": "module",
   "main": "./index.js",
@@ -7,3 +7,4 @@
     "@xhmikosr/bin-wrapper": "^5.0.0"
   }
 }
+
