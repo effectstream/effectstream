@@ -1,0 +1,122 @@
+// MultiChainMultiToken.compact
+pragma language_version >= 0.17.0;
+
+import CompactStandardLibrary;
+import "./base-contracts/src/token/MultiToken"
+  prefix MultiToken_;
+import "./base-contracts/src/access/Ownable"
+  prefix Ownable_;
+
+struct LastTransfer {
+  target_address: Opaque<'string'>;
+  amount: Uint<128>;
+}
+
+export ledger txHashes: Set<Bytes<16>>;
+export ledger lastTransfer: LastTransfer;
+
+export ledger actionName: Uint<128>;
+export ledger actionTarget: Either<ZswapCoinPublicKey, ContractAddress>;
+export ledger actionTargetAddress: Opaque<'string'>;
+export ledger actionValue: Uint<128>;
+
+constructor(
+  uri: Opaque<"string">,
+  initialOwner: Either<ZswapCoinPublicKey, ContractAddress>,
+) {
+  // Initialize the multi-token with URI
+  MultiToken_initialize(uri);
+  // Set the initial owner
+  // Ownable_initialize(initialOwner);
+}
+
+export circuit uri(id: Uint<128>): Opaque<"string"> {
+  // TODO This is a read-only function, but when called the proof is sent, 
+  //      and the transaction update the effectstream-engine midnight fetcher.
+  //      and we need to distinguish between function calls.
+  actionName = 900;
+  return MultiToken_uri(id);
+}
+
+// export circuit owner(): Either<ZswapCoinPublicKey, ContractAddress> {
+//   return Ownable_owner();
+// }
+
+export circuit balanceOf(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+): Uint<128> {
+  // TODO This is a read-only function
+  actionName = 901;
+  return MultiToken_balanceOf(account, 0);
+}
+
+export circuit mint(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): [] {
+  // This line protects the circuit - only the owner can continue past it
+  // Ownable_assertOnlyOwner();
+  // If we reach here, the caller is the owner
+  MultiToken__mint(account, 0, value);
+  actionName = 1001;
+  actionTarget = disclose(account);
+  actionValue = disclose(value);
+}
+
+export circuit transfer(
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): Boolean {
+  const caller = ownPublicKey();
+  const callerEither = left<ZswapCoinPublicKey, ContractAddress>(caller);
+  MultiToken__transfer(callerEither, to, 0, value);
+  actionName = 1002;
+  actionTarget = disclose(to);
+  actionValue = disclose(value);
+  return true;
+}
+
+// Allows the owner to burn tokens from any account
+export circuit burnFrom(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>
+): [] {
+  // Ownable_assertOnlyOwner();
+  const result = MultiToken__burn(account, 0, value);
+  actionName = 1005;
+  actionTarget = disclose(account);
+  actionValue = disclose(value);
+  return result;
+}
+
+export circuit transferFrom(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): [] {
+  const result = MultiToken_transferFrom(from, to, 0, value);
+  actionName = 1006;
+  actionTarget = disclose(to);
+  actionValue = disclose(value);
+}
+
+export circuit transferToEvm(
+  target_address: Opaque<'string'>,
+  amount: Uint<128>,
+  txHash: Bytes<16>,
+): [] {
+  const caller = ownPublicKey();
+  const callerEither = left<ZswapCoinPublicKey, ContractAddress>(caller);
+  const callerTokenBalance = MultiToken_balanceOf(callerEither, 0);
+  assert(!txHashes.member(disclose(txHash)), "Transaction already processed");
+  assert(callerTokenBalance >= amount, "Insufficient balance");
+  burnFrom(callerEither, amount);
+  txHashes.insert(disclose(txHash));
+  lastTransfer = LastTransfer{
+    disclose(target_address),
+    disclose(amount),
+  };
+  actionName = 1007;
+  actionTargetAddress = disclose(target_address);
+  actionValue = disclose(amount);
+}

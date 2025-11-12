@@ -20,7 +20,6 @@ export async function copyFiles(
         
         for (const [codeBlock, enabled] of Object.entries(codeBlocks)) {
             const r = `\\/\\*\\* ${codeBlock} \\*\\/([\\s\\S]+)\\/\\*\\* ${codeBlock} \\*\\/`;
-            console.log(r);
             const regex = new RegExp(r, 'g');
             if (enabled) {
                 content = content.replace(regex, `$1`);

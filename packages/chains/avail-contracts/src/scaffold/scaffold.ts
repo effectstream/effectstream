@@ -2,26 +2,6 @@ import * as path from "jsr:@std/path";
 
 /* 
  * This module is responsible for scaffolding a new project.
- * 
-Expected structure.
- evm-root
-   |- ignition
-   |   |- modules
-   |        |- contract1.ts
-   |        |- contract2.ts
-   |        |- ...
-   |- src/contracts
-   |   |- contract1.sol
-   |   |- contract2.sol
-   |   |- ...
-   |- deploy.ts
-   |- hardhat.config.ts
-   |- package.json
-   |- foundry.toml
-   |- deno.json
-   |- .gitignore
-   |- README.md
- *
  */
 
 // Copy files
@@ -68,7 +48,7 @@ function checkInputs(args: string[]): { targetFolder: string, packageName: strin
     };
 }
 
-export async function scaffoldEVMProject(
+export async function scaffoldAvailProject(
     targetFolder: string, 
     packageName: string, 
     version: string
@@ -76,12 +56,10 @@ export async function scaffoldEVMProject(
     name: string;
     path: string;
 }> {
-    const fullPackageName = `@${packageName}/evm-contracts`;
+    const fullPackageName = `@${packageName}/avail-contracts`;
 
     const folders = [
-        [""], 
-        ["ignition", "modules"], 
-        ["src", "contracts"]
+        [""],
     ];
 
     for (const folder of folders) {
@@ -104,5 +82,5 @@ export async function scaffoldEVMProject(
 if (import.meta.main) {
     checkInputs(Deno.args);
     const { targetFolder, packageName, version } = checkInputs(Deno.args);
-    await scaffoldEVMProject(targetFolder, packageName, version);
+    await scaffoldAvailProject(targetFolder, packageName, version);
 }

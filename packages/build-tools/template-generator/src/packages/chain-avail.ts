@@ -1,8 +1,7 @@
 import path from 'node:path';
 import { Package, PackageInfo } from './abstract-package.ts';
-import { DenoJsonFile } from '../file-types/index.ts';
 import { Chain, PAIMA_VERSION } from '../options.ts';
-import { scaffoldEVMProject } from '@effectstream/evm-hardhat/scaffold';
+import { scaffoldAvailProject } from '@effectstream/avail-contracts/scaffold';
 
 export class ChainAvailPackage extends Package {
     constructor(
@@ -15,13 +14,6 @@ export class ChainAvailPackage extends Package {
 
     public async generate(): Promise<PackageInfo> {
         const chainPath = path.join(this.projectPath, 'packages', 'shared', 'contracts', this.chain + '-contracts');
-        const packageName = `@${this.options.projectName}/${this.chain}-contracts`;
-
-        await new DenoJsonFile(
-            path.join(chainPath, 'deno.json'),
-            { name: packageName }
-        ).write();
-
-        return { name: packageName, path: chainPath };
+        return await scaffoldAvailProject(chainPath, this.options.projectName, PAIMA_VERSION);
     }
 }

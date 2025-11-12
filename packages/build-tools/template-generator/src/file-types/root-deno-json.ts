@@ -15,7 +15,7 @@ export class RootDenoJsonFile extends GeneratedFile {
             tasks['build:evm'] = `deno task -f @${projectName}/evm-contracts build:mod`;
         }
         if (chains.includes('midnight')) {
-            tasks['build:midnight'] = `deno task -f @${projectName}/midnight-contract-eip-1155 compact`;
+            tasks['build:midnight'] = `deno task -r compact`;
         }
         
         tasks['dev'] = `deno task -f @${projectName}/node dev`;

@@ -4,6 +4,7 @@
   "version": "0.3.0",
   "license": "MIT",
   "imports": {
+    "@nomicfoundation/ignition-core": "npm:@nomicfoundation/ignition-core@3.0.2",
     "@paimaexample/evm-hardhat": "jsr:@paimaexample/evm-hardhat@[EFFECTSTREAM-VERSION]",
     "@paimaexample/log": "jsr:@paimaexample/log@[EFFECTSTREAM-VERSION]",
     "@wagmi/cli": "npm:@wagmi/cli@2.3.1",

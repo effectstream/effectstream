@@ -1,5 +1,5 @@
 export const PAIMA_SCOPE = '@paimaexample';
-export const PAIMA_VERSION = '0.3.104';
+export const PAIMA_VERSION = '0.3.108';
 
 // Define types for the options
 export type Chain = 'evm' | 'midnight' | 'cardano' | 'bitcoin' | 'avail';

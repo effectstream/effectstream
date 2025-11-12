@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { Package, PackageInfo } from './abstract-package.ts';
-import { DenoJsonFile } from '../file-types/index.ts';
 import { Chain, PAIMA_VERSION } from '../options.ts';
-import { MidnightContractPackage } from './midnight-contract.ts';
+import { scaffoldMidnightProject } from '@effectstream/midnight-contracts/scaffold';
+import { scaffoldMidnightContract } from '@effectstream/midnight-contracts/scaffold-contract';
 
 export class ChainMidnightPackage extends Package {
     constructor(
@@ -15,18 +15,17 @@ export class ChainMidnightPackage extends Package {
 
     public async generate(): Promise<PackageInfo> {
         const chainPath = path.join(this.projectPath, 'packages', 'shared', 'contracts', this.chain + '-contracts');
-        const packageName = `@${this.options.projectName}/contracts-${this.chain}`;
 
-        await new DenoJsonFile(
-            path.join(chainPath, 'deno.json'),
-            { name: packageName }
-        ).write();
+        const packageInfo = await scaffoldMidnightProject(chainPath, this.options.projectName, PAIMA_VERSION);
 
         const subPackages: PackageInfo[] = [];
         for (const contract of this.options.contracts.midnight || []) {
-            subPackages.push(await new MidnightContractPackage(this.projectPath, this.options, contract).generate());
+            const contractPath = path.join(this.projectPath, 'packages', 'shared', 'contracts', 'midnight-contracts', contract);
+
+            const contractInfo = await scaffoldMidnightContract(contractPath, this.options.projectName, contract, PAIMA_VERSION);
+            subPackages.push(contractInfo);
         }
 
-        return { name: packageName, path: chainPath, subPackages };
+        return { name: packageInfo.name, path: packageInfo.path, subPackages };
     }
 }

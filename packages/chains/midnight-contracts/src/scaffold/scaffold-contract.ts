@@ -1,37 +1,21 @@
 import * as path from "jsr:@std/path";
 
 /* 
- * This module is responsible for scaffolding a new project.
- * 
-Expected structure.
- evm-root
-   |- ignition
-   |   |- modules
-   |        |- contract1.ts
-   |        |- contract2.ts
-   |        |- ...
-   |- src/contracts
-   |   |- contract1.sol
-   |   |- contract2.sol
-   |   |- ...
-   |- deploy.ts
-   |- hardhat.config.ts
-   |- package.json
-   |- foundry.toml
-   |- deno.json
-   |- .gitignore
-   |- README.md
- *
+ * This module is responsible for scaffolding a new midnight contract.
  */
 
 // Copy files
-async function copyFiles(sourceDir: string, targetDir: string, replacements: Record<string, string>): Promise<void> {
+async function copyFiles(sourceDir: string, targetDir: string, replacements: Record<string, string>, contractName: string): Promise<void> {
     const files = await Deno.readDir(sourceDir);
+    console.log(`Copying files from ${sourceDir} to ${targetDir}`);
     for await (const file of files) {
         if (file.isDirectory) {
             continue;
         }
-        const finalName = file.name.replace(".rename", "");
+        let finalName = file.name.replace(".rename", "");
+        if (finalName === 'contract-name.compact') {
+            finalName = `${contractName}.compact`;
+        }
         let content = await Deno.readTextFile(path.join(sourceDir, file.name));
         for (const [regex, replacement] of Object.entries(replacements)) {
             content = content.replace(new RegExp(regex, 'g'), replacement);
@@ -68,20 +52,24 @@ function checkInputs(args: string[]): { targetFolder: string, packageName: strin
     };
 }
 
-export async function scaffoldEVMProject(
+export async function scaffoldMidnightContract(
     targetFolder: string, 
     packageName: string, 
+    contractName: string,
     version: string
 ): Promise<{
     name: string;
     path: string;
 }> {
-    const fullPackageName = `@${packageName}/evm-contracts`;
+    const fullPackageName = `@${packageName}/midnight-contract-${contractName}`;
 
     const folders = [
         [""], 
-        ["ignition", "modules"], 
-        ["src", "contracts"]
+        ["src"],
+        ["src", "base-contracts", "src", "access"],
+        ["src", "base-contracts", "src", "security"],
+        ["src", "base-contracts", "src", "token"],
+        ["src", "base-contracts", "src", "utils"],
     ];
 
     for (const folder of folders) {
@@ -89,10 +77,11 @@ export async function scaffoldEVMProject(
     }
 
     for (const folder of folders) {
-        await copyFiles(path.join(currentDir(), "template", ...folder), path.join(targetFolder, ...folder), {
+        await copyFiles(path.join(currentDir(), "template", "contract-template", ...folder), path.join(targetFolder, ...folder), {
             "\\[scope\\]": packageName,
-            "\\[EFFECTSTREAM-VERSION\\]": version
-        });
+            "\\[contract-name\\]": contractName,
+            "\\[EFFECTSTREAM-VERSION\\]": version,
+        }, contractName);
     }
 
     return {

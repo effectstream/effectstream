@@ -5,7 +5,8 @@
     "exports": {
         "./read-contract": "./src/read-contract.ts",
         "./deploy": "./src/deploy.ts",
-        "./scaffold": "./src/scaffold/scaffold.ts"
+        "./scaffold": "./src/scaffold/scaffold.ts",
+        "./scaffold-contract": "./src/scaffold/scaffold-contract.ts"
     },
     "tasks": {
         "scaffold": "deno run -A ./src/scaffold/scaffold.ts"

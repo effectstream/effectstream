@@ -1,6 +1,5 @@
 import path from 'node:path';
 import { Package, PackageInfo } from './abstract-package.ts';
-import { DenoJsonFile } from '../file-types/index.ts';
 import { Chain, PAIMA_VERSION } from '../options.ts';
 import { scaffoldEVMProject } from '@effectstream/evm-hardhat/scaffold';
 

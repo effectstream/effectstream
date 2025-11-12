@@ -3,14 +3,23 @@ import { render, Box, Text, useApp, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import SelectInput from 'ink-select-input';
 import { ProjectGenerator } from './project-generator.ts';
-import { TemplateOptions, ALL_CHAINS, CONTRACTS_BY_CHAIN, ALL_FRONTENDS, Chain, Contract, Frontend, DEFAULT_DEV_OPTIONS } from './options.ts';
+import { type TemplateOptions, ALL_CHAINS, CONTRACTS_BY_CHAIN, ALL_FRONTENDS, type Chain, type Contract, type Frontend, DEFAULT_DEV_OPTIONS } from './options.ts';
 import path from 'node:path';
 import process from 'node:process';
+import fs from 'node:fs';
 
 
 const sanitizeProjectName = (name: string) => {
     return name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 };
+
+const Banner = () => (
+    <Box flexDirection="column" marginBottom={1}>
+        <Text>=========================================</Text>
+        <Text>     Effectstream Template Generator     </Text>
+        <Text>=========================================</Text>
+    </Box>
+);
 
 
 type Step =
@@ -195,6 +204,7 @@ class OptionsSelector {
                     <Box flexDirection="column">
                         <Text>Select contracts for {currentChain} (press space to select, enter to submit):</Text>
                         <CustomMultiSelect
+                            key={currentChain}
                             items={CONTRACTS_BY_CHAIN[currentChain]}
                             selected={new Set(options.contracts![currentChain])}
                             onToggle={(contract) => {
@@ -293,7 +303,12 @@ class OptionsSelector {
                 currentStepComponent = null;
         }
 
-        return currentStepComponent;
+        return (
+            <Box flexDirection="column">
+                <Banner />
+                {currentStepComponent}
+            </Box>
+        );
     }
 
     public getOptions(): Promise<TemplateOptions> {
@@ -309,8 +324,75 @@ class OptionsSelector {
 }
 
 async function main() {
-    const selector = new OptionsSelector();
-    const options = await selector.getOptions();
+    let options: TemplateOptions;
+    const configFile = process.env.TEMPLATE_CONFIG_FILE;
+    const allOptionsFile = process.env.TEMPLATE_CONFIG_FILE_ALL;
+
+    if (allOptionsFile) {
+        console.log(`Loading all options because TEMPLATE_CONFIG_FILE_ALL is set.`);
+        
+        const allChains = ALL_CHAINS.map(c => c.value as Chain);
+        const allContracts: TemplateOptions['contracts'] = {};
+        for (const chain of allChains) {
+            if (CONTRACTS_BY_CHAIN[chain]) {
+                allContracts[chain] = CONTRACTS_BY_CHAIN[chain].map(c => c.value as Contract);
+            }
+        }
+        
+        options = {
+            projectName: 'my-project-all',
+            folderPath: process.env.TEMPLATE_PATH || '.',
+            chains: allChains,
+            contracts: allContracts,
+            frontends: ALL_FRONTENDS.map(f => f.value as Frontend),
+            devOptions: {
+                inMemoryDb: true,
+                useBatcher: true,
+            },
+        };
+
+        options.projectName = sanitizeProjectName(options.projectName);
+
+    } else if (configFile) {
+        console.log(`Loading configuration from: ${configFile}`);
+        try {
+            if (!fs.existsSync(configFile)) {
+                console.error(`Configuration file not found: ${configFile}`);
+                process.exit(1);
+            }
+
+            const configContent = fs.readFileSync(configFile, 'utf-8');
+            const configFromFile = JSON.parse(configContent) as Partial<TemplateOptions>;
+
+            const defaultOptions = {
+                projectName: 'My Project',
+                folderPath: process.env.TEMPLATE_PATH || '.',
+                chains: [],
+                contracts: {},
+                frontends: [],
+                devOptions: DEFAULT_DEV_OPTIONS,
+            };
+
+            options = {
+                ...defaultOptions,
+                ...configFromFile,
+                devOptions: {
+                    ...defaultOptions.devOptions,
+                    ...(configFromFile.devOptions || {}),
+                },
+            };
+
+            options.projectName = sanitizeProjectName(options.projectName);
+
+        } catch (error) {
+            console.error(`Error processing configuration file: ${configFile}`);
+            console.error(error);
+            process.exit(1);
+        }
+    } else {
+        const selector = new OptionsSelector();
+        options = await selector.getOptions();
+    }
 
     const generator = new ProjectGenerator(options);
     const createdPackages = await generator.generate();

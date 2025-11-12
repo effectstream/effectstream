@@ -2,26 +2,6 @@ import * as path from "jsr:@std/path";
 
 /* 
  * This module is responsible for scaffolding a new project.
- * 
-Expected structure.
- evm-root
-   |- ignition
-   |   |- modules
-   |        |- contract1.ts
-   |        |- contract2.ts
-   |        |- ...
-   |- src/contracts
-   |   |- contract1.sol
-   |   |- contract2.sol
-   |   |- ...
-   |- deploy.ts
-   |- hardhat.config.ts
-   |- package.json
-   |- foundry.toml
-   |- deno.json
-   |- .gitignore
-   |- README.md
- *
  */
 
 // Copy files
@@ -68,7 +48,7 @@ function checkInputs(args: string[]): { targetFolder: string, packageName: strin
     };
 }
 
-export async function scaffoldEVMProject(
+export async function scaffoldMidnightProject(
     targetFolder: string, 
     packageName: string, 
     version: string
@@ -80,8 +60,7 @@ export async function scaffoldEVMProject(
 
     const folders = [
         [""], 
-        ["ignition", "modules"], 
-        ["src", "contracts"]
+        ["indexer-standalone"],
     ];
 
     for (const folder of folders) {
