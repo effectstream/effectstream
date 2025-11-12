@@ -1,4 +1,4 @@
-# Tarochi
+# Tarochi (Game)
 
 **Tarochi** is an online decentralized, on-chain, autonomous, Web3 game developed entirely with `Effectstream`.
 > **Decentralized**: The game runs on a decentralized network of nodes, and is not owned or controlled by a single entity.  
@@ -6,9 +6,9 @@
 > **Autonomous**: The game is self-governed and self-sustaining, without the need for external intervention.  
 > **Web3**: The game is built on top of blockchains, wallets, smart-contracts and other Web3 technologies.  
 
-<iframe src="https://drive.google.com/file/d/1--jE8nVOyhrPqh5IWmahys2aCrKn23aI/preview" width="640" height="480" allow="autoplay"></iframe>
+> NOTE This is a guide on how the game was designed and built using Effectstream.
 
-> This is a development stage video of the game
+<iframe src="https://drive.google.com/file/d/1--jE8nVOyhrPqh5IWmahys2aCrKn23aI/preview" width="640" height="480" allow="autoplay"></iframe>
 
 This guide is intended as a practical example of how a complex, fully on-chain game can be developed using `Effectstream`.
 
@@ -32,11 +32,11 @@ Nearly all Web3 tools are written in or compatible with JavaScript, primarily be
 
 Our GameMaker template introduces a custom-built adapter that allows GML code to call JavaScript functions and receive callbacks from them. This enables a GameMaker application to handle everything from wallet connections to direct interactions with Effectstream and other Web3 libraries.
 
-![](./1100-gm.png)
+![](./1250-gm.png)
 
 This adapter is not limited to Web3. In Tarochi, the same concept was used to build menus and overlays using the popular frontend framework Vue.js, demonstrating the flexibility of this approach.
 
-![](./1100-players-in-area.png)
+![](./1250-players-in-area.png)
 
 ## Architecture & Tokenomics
 
@@ -47,10 +47,11 @@ The stack is layered as follows:
 *   **L2: Arbitrum** (For liquidity and DEX interactions)
 *   **L3: Xai** (For fast, low-cost data availability and game actions)
 *   **L4: Tarochi** (The game's sovereign rollup, built with Effectstream)
+*   **L1: Cardano** (DEX interactions)
 
-Effectstream allows Tarochi to be a non-EVM application, enabling a more complex and dynamic world while maintaining decentralization. It achieves this by simultaneously monitoring multiple chains (Arbitrum, Xai, and Cardano), leveraging the low costs of Xai for gameplay while tapping into the liquidity of Arbitrum for its tokens and NFTs.
+Effectstream allows Tarochi to be a non-EVM application, enabling a more complex and dynamic world while maintaining decentralization. It achieves this by simultaneously monitoring multiple chains (Arbitrum, Xai, and Cardano), leveraging the low costs of Xai for gameplay while tapping into the liquidity of Arbitrum and Cardano for its tokens and NFTs.
 
-![](./1100-layers.png)
+![](./1250-layers.png)
 
 ### The Role of TGOLD
 
@@ -65,7 +66,7 @@ Trades made on the Arbitrum DEX are reflected directly in the Tarochi L4 without
 *   **ERC721 `Monsters`**: Can be minted on-chain or captured in-game and are convertible between their on-chain and in-game forms.
 *   **`Items`**: These exist only within the L4 game state and are not on-chain assets.
 
-### General Rules:
+### General Asset Rules:
 *   Common monsters are unlimited.
 *   Rare+ monsters are limited by time.
 *   Monsters are "sacrificed" to increase their max level.
@@ -73,7 +74,7 @@ Trades made on the Arbitrum DEX are reflected directly in the Tarochi L4 without
 *   A limited amount of new Gold was minted.
 *   Trainers are limited.
 
-### Exchanges and DEX:
+### Asset, Gold Exchanges and DEX:
 *   Gold, Trainers, and Monsters were available to mint on EVM and partially on Cardano.
 *   NFT marketplaces like OpenSea and Jpg.store were used for Monster and Trainer exchanges.
 *   The Effectstream DEX on Arbitrum was used for trading Gold.
@@ -84,10 +85,12 @@ Trades made on the Arbitrum DEX are reflected directly in the Tarochi L4 without
 *   **`IInverseAppProjectedNft`**: Standard ERC721, with the ability to represent L4 assets as NFTs on L1.
 *   **`IInverseAppProjected1155`**: Standard ERC1155, with the ability to represent L4 fungible/semi-fungible assets on L1.
 *   **`IOrderbookDex`**: TGold DEX Contract.
+*   **`ERC721`**: Trainer NFT Contract on Arbitrum and Cardano.
 
 ## Frontend & Wallets
 
-To interact with the `Effectstream L2` contract, the game used a browser EVM Wallet and sent transactions to the batcher. Players could connect their real EVM or Cardano wallets to mint monsters, use trainer effects, and perform other actions requiring a signature.
+To interact with the `Effectstream L2` contract, the game used a browser EVM Wallet and sent transactions to the batcher. 
+Players could connect their real EVM, Cardano or other wallets to mint monsters, use trainer effects, and perform other actions requiring a signature.
 
 ## State Machine
 
@@ -159,13 +162,44 @@ dex_order_cancelled     = dex_order_cancelled|payload
 dex_order_filled        = dex_order_filled|payload
 updateCardanoLink       = @co|token|address
 ```
+## Concepts about how the Game Works.
 
-## Processes
+### Players & Actions
+
+* Each time a new `wallet address` sends a transaction, we created a new `player` in the game state.
+* Each `player` has a main state either: "CITY", "WILD" or "BATTLE".
+  * This allowed to quickly determine the subset of valid commands. E.g., in `BATTLE` state, only battle-actions where valid.  
+* The game was represented by a matrix, where each `map` was a coordinate (x, y)
+  * `player` could send a transaction to move to a new coordinate, and the game engine checked if it was valid - then applied the move.
+* If a `players` is in the `WILD` state, each 10[s] it was checked if it encountered a monster by random, and if so, it entered a `BATTLE` state.
+* Battles had `turns` and on each turn the `player` could choose an action to perform, these actions where added to the game state with it's effects.
+* Monsters had multiple `attributes`, `power` and `level`
+* Special cards called `Trainers` where limited in supply and had unique effects.
+
+### Trainers
+
+Trainers had unique attributes and rarity.
+
+![trainer](./1250-trainers.png)
+
+### Monsters
+Monster had multiple `attributes` as `ATK`, `SATK`, `DEF`, `SDEF`, `SPD`, `HP` and `xp`/`level`.
+Some unique `attacks`
+
+![monster](./1250-monster.png)
+
+### Monster Store
+Monster could be sold and bought in the store.
+
+![monster-store](./1250-store.png)
+
+
+## Development Processes
 
 For the development of Tarochi, the following processes need to be run:
 *   EVM Main Chain with fast block times (emulating XAI) + RPC
 *   EVM Parallel Chain (emulating Arbitrum) + RPC
 *   Cardano Parallel Chain
-*   Game and Token Smart Contracts
+*   Game, Tokens and InverseProjected Smart Contracts.
 *   Database (Postgres)
 *   Batcher (to allow users to submit transactions to the Effectstream L2 contract without paying for gas or having a wallet)

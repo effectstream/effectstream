@@ -1,4 +1,4 @@
-#  EVM-Midnight Template
+#  EVM-Midnight Token Metadata
 
 -   **Location**: `/templates/evm-midnight`
 -   **Highlights**: EVM & Midnight Interoperability. Web Application to create ERC721 Tokens and add metadata through a Midnight Contract.

@@ -3,7 +3,7 @@ import {
   createHardhatConfig,
   createNodeTasks,
   initTelemetry,
-} from "@effectstream/evm-contracts";
+} from "@effectstream/evm-hardhat/hardhat-config-builder";
 import {
   JsonRpcServerImplementation,
 } from "@effectstream/evm-hardhat/json-rpc-server";

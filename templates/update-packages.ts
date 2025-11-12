@@ -91,6 +91,7 @@ async function main(): Promise<void> {
   console.log(`New version: ${version}`);
 
   const denoJsonRegex = /(jsr|npm):@paimaexample\/([\w-]+)@[\^~]?(\d+\.\d+\.\d+)/g;
+  const denoJsonEffectstreamLogRegex = /(jsr|npm):@effectstream\/log@[\^~]?(\d+\.\d+\.\d+)/g;
   const packageJsonRegex = /"@paimaexample\/([\w-]+)": "[\^~]?(\d+\.\d+\.\d+)"/g;
 
   for (const dir of packageDirs) {
@@ -134,19 +135,28 @@ async function main(): Promise<void> {
       const filePath = entry.path;
       const content = await Deno.readTextFile(filePath);
       const matches = [...content.matchAll(denoJsonRegex)];
+      const effectstreamLogMatches = [...content.matchAll(denoJsonEffectstreamLogRegex)];
 
-      if (matches.length > 0) {
+      if (matches.length > 0 || effectstreamLogMatches.length > 0) {
         if (dryRun) {
           console.log(`\n[dry-run] Changes for ${filePath}:`);
           for (const match of matches) {
             const newDep = `${match[1]}:@paimaexample/${match[2]}@${version}`;
             console.log(`  - ${match[0]} -> ${newDep}`);
           }
+          for (const match of effectstreamLogMatches) {
+            const newDep = `${match[1]}:@effectstream/log@${version}`;
+            console.log(`  - ${match[0]} -> ${newDep}`);
+          }
         } else {
           console.log(`\nUpdating ${filePath}...`);
-          const newContent = content.replace(
+          let newContent = content.replace(
             denoJsonRegex,
             `$1:@paimaexample/$2@${version}`,
+          );
+          newContent = newContent.replace(
+            denoJsonEffectstreamLogRegex,
+            `$1:@effectstream/log@${version}`,
           );
           await Deno.writeTextFile(filePath, newContent);
           console.log(`Successfully updated ${filePath}`);

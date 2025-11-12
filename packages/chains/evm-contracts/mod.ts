@@ -6,7 +6,7 @@ export {
   type HardhatConfigOptions,
   type DefaultNetworkOptions,
   type NodeTaskDependencies,
-} from "./src/hardhatConfigBuilder.ts";
+} from "@effectstream/evm-hardhat/hardhat-config-builder";
 
 export { defaultHardhatConfig } from "./src/recommendedHardhat.ts";
 
