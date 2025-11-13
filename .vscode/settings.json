@@ -1,5 +1,14 @@
 {
   "deno.enable": true,
+  "deno.documentPreloadLimit": 2000,
+  "deno.enablePaths": [
+    "e2e/**/*",
+    "packages/**/*",
+    "templates/**/*"
+  ],
+  "deno.disablePaths": [
+    "templates/minimal/frontend/*"
+  ],
   "deno.lint": true,
   "editor.formatOnSave": false,
   "editor.defaultFormatter": "denoland.vscode-deno",
