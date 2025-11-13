@@ -4,6 +4,7 @@ import { DenoJsonFile } from "../file-types/index.ts";
 import { copyFiles } from "../file-operations.ts";
 import { PAIMA_VERSION } from "../options.ts";
 import { ChainMidnightPackage } from "./chain-midnight.ts";
+import { ChainEVMPackage } from "./chain-evm.ts";
 
 export class SharedDataTypesPackage extends Package {
   public async generate(): Promise<PackageInfo> {
@@ -15,7 +16,7 @@ export class SharedDataTypesPackage extends Package {
     );
     const packageName = `@${this.options.projectName}/data-types`;
 
-    const evmPrimitiveBlock = `
+    const evmPrimitiveBlock = (contractPackageName: string) => `
       .addPrimitive(
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
@@ -23,7 +24,7 @@ export class SharedDataTypesPackage extends Package {
           type: PrimitiveTypeEVMERC20,
           startBlockHeight: 0,
           contractAddress: contractAddressesEvmMain()
-            .chain31337["ExampleContractModule#ExampleContract"],
+            .chain31337["${contractPackageName}Module#${contractPackageName}"],
           stateMachinePrefix: "transfer-erc20",
         })
       )
@@ -49,7 +50,7 @@ export class SharedDataTypesPackage extends Package {
         },
         {
           "EVM-IMPORT-BLOCK": "",
-          "EVM-PRIMITIVE-BLOCK": evmPrimitiveBlock,
+          "EVM-PRIMITIVE-BLOCK": this.options.contracts.evm?.map(contract => evmPrimitiveBlock(ChainEVMPackage.safePackageName(contract))).join("\n") || "",
           "MIDNIGHT-IMPORT-BLOCK": midnightImportBlockCode || "",
           "MIDNIGHT-PRIMITIVE-BLOCK": midnightPrimitiveBlockCode || "",
         }

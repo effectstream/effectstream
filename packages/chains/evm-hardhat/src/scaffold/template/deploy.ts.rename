@@ -2,7 +2,7 @@
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import * as config from "./hardhat.config.ts";
 import type { buildModule } from "@nomicfoundation/ignition-core";
-import ExampleContractModule from "./ignition/modules/example-contract-module.ts";
+/** EVM-MODULES-IMPORT */
 
 const __dirname: any = import.meta.dirname;
 
@@ -39,11 +39,7 @@ const myDeployments: Deployment[] = [
   */
   
   // [CUSTOM-CODE-1]
-   
-   {
-     module: ExampleContractModule,
-     network: "evmMainHttp",
-   },
+  /** EVM-MODULES */
 ] as const;
 
 /**

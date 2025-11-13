@@ -7,13 +7,26 @@ export class ChainEVMPackage extends Package {
     constructor(
         projectPath: string,
         options: Package['options'],
-        private chain: Chain,
+        public chain: Chain,
     ) {
         super(projectPath, options);
     }
 
+    public static safeCodeContractName(contract: string): string {
+        return contract.replace(/-/g, '_');
+    }
+
+    public static safePackageName(contract: string): string {
+        return contract.replace(/-/g, '_');
+    }
+
     public async generate(): Promise<PackageInfo> {
         const chainPath = path.join(this.projectPath, 'packages', 'shared', 'contracts', this.chain + '-contracts');
-        return await scaffoldEVMProject(chainPath, this.options.projectName, PAIMA_VERSION);
+        const contracts = this.options.contracts.evm?.map(contract => ({
+            safeCodeName: ChainEVMPackage.safeCodeContractName(contract),
+            safePackageName: ChainEVMPackage.safePackageName(contract),
+        })) || [];
+
+        return await scaffoldEVMProject(chainPath, this.options.projectName, PAIMA_VERSION, contracts);
     }
 }

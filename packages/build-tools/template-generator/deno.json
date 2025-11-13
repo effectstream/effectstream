@@ -17,7 +17,8 @@
     "ink-text-input": "npm:ink-text-input@6.0.0",
     "ink-select-input": "npm:ink-select-input@6.2.0",
     "ink-big-text": "npm:ink-big-text@2.0.0",
-    "ink-gradient": "npm:ink-gradient@3.0.0"
+    "ink-gradient": "npm:ink-gradient@3.0.0",
+    "@types/react": "npm:@types/react@18.3.1"
   },
   "tasks": {
     "check": "deno check src/template-generator.tsx",

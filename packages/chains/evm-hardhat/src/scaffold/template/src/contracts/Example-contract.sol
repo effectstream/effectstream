@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-contract ExampleContract {
+contract [contractPackageName] {
     int private count = 0;
 
     event changedCount(address indexed userAddress, int count);

@@ -38,7 +38,7 @@ replace_in_file() {
         
         # Use perl for more reliable string replacement
         # Only escape the search pattern, not the replacement text
-        perl -i -pe "s/\\Q$old_content\\E/$new_content/g" "$file"
+        perl -i -pe "s/\Q$old_content\E/$new_content/g" "$file"
         echo "✅ Replaced content in $file"
     else
         echo "⚠️  Warning: File $file not found"
@@ -84,14 +84,27 @@ with open('$file', 'w') as f:
 }
 
 # Apply Common Hardhat Patches
-echo "Commenting out await stdoutFileHandle.close()..."
-comment_line "./node_modules/.deno/hardhat@3.0.4/node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js" 48 "await stdoutFileHandle.close();"
+shopt -s nullglob # Expands to nothing if no match is found
 
-echo "Commenting out first await fileHandle?.close()..."
-comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 209 "await fileHandle?.close();"
+echo "Applying common Hardhat patches for versions 3.0.0-3.0.9..."
 
-echo "Commenting out second await fileHandle?.close()..."
-comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 275 "await fileHandle?.close();"
+# Patch hardhat compiler.js
+for dir in ./node_modules/.deno/hardhat@3.0.[0-9]*/ ; do
+    file_to_patch="\${dir}node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js"
+    echo "Commenting out await stdoutFileHandle.close() in \${file_to_patch}..."
+    comment_line "$file_to_patch" 48 "await stdoutFileHandle.close();"
+done
+
+# Patch hardhat-utils fs.js
+for dir in ./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.[0-9]*/ ; do
+    file_to_patch="\${dir}node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js"
+    echo "Commenting out first await fileHandle?.close() in \${file_to_patch}..."
+    comment_line "$file_to_patch" 209 "await fileHandle?.close();"
+    echo "Commenting out second await fileHandle?.close() in \${file_to_patch}..."
+    comment_line "$file_to_patch" 275 "await fileHandle?.close();"
+done
+
+shopt -u nullglob # Revert to default
 
 echo "✅ All patches applied successfully"
 
@@ -135,6 +148,7 @@ import { promises as stat } from 'node:fs'
 "
 
 echo "✅ All patches applied successfully"
+        
         `;
     }
 }
