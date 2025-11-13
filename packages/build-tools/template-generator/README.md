@@ -10,27 +10,24 @@ cd my-project
 chmod +x patch.sh
 deno install --allow-scripts && ./patch.sh
 deno task build:evm  
-deno task build:midnight
+deno task build:midnight 
+# deno task -f @[project-name]/database pgtyped:update
+# deno task -f @[project-name]/midnight-contracts midnight-contract:deploy
+
+
 # deno task build:cardano
 # deno task build:avail
 # deno task build:bitcoin
-deno task -f @my-project/database pgtyped:update
+deno task dev
 ```
 
 ## Test 
 ```sh
-
-TEMPLATE_CONFIG_FILE_ALL=true TEMPLATE_PATH=`pwd` deno task -f @effectstream/template-generator start
-cd my-project-all
-chmod +x patch.sh
-deno install --allow-scripts && ./patch.sh
-deno task build:evm
-deno task build:midnight
-# deno task build:cardano
-# deno task build:avail
-# deno task build:bitcoin
-deno task -f @my-project-all/database pgtyped:update
+TEMPLATE_CONFIG_FILE_ALL=true
+or 
+TEMPLATE_CONFIG_FILE_ALL_FAST=true
 ```
+To skip the interactive prompt and generate the project with all options.
 
 ## Packages (& Roadmap)
 

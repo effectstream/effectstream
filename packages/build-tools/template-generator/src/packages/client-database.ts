@@ -16,7 +16,7 @@ export class ClientDatabasePackage extends Package {
             await copyFiles(
                 path.join(currentDir, "templates", "database", ...folder),
                 path.join(dbPath, ...folder),
-                {"\\[scope\\]": this.options.projectName} // replacements
+                {"scope": this.options.projectName} // replacements
             );
         }
 

@@ -1,2 +1,2 @@
-export * as MultiChainMultiToken from "./managed/multichain_multitoken/contract/index.cjs";
+export * as [contract-code-name] from "./managed/[contract-name]/contract/index.cjs";
 export * from "./witnesses.ts";

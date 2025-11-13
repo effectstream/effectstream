@@ -36,15 +36,15 @@ const customProcesses = [
   /** EXPLORER-BLOCK */
 
   /** BATCHER-BLOCK */
-  {
-    name: "batcher",
-    args: ["task", "-f", "@[scope]/batcher", "start"],
-    waitToExit: false,
-    type: "system-dependency",
-    link: "http://localhost:3334",
-    stopProcessAtPort: [3334],
-    dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
-  },
+  // {
+  //   name: "batcher",
+  //   args: ["task", "-f", "@[scope]/batcher", "start"],
+  //   waitToExit: false,
+  //   type: "system-dependency",
+  //   link: "http://localhost:3334",
+  //   stopProcessAtPort: [3334],
+  //   dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
+  // },
   /** BATCHER-BLOCK */
 ]
 

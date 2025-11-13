@@ -327,15 +327,22 @@ async function main() {
     let options: TemplateOptions;
     const configFile = process.env.TEMPLATE_CONFIG_FILE;
     const allOptionsFile = process.env.TEMPLATE_CONFIG_FILE_ALL;
-
-    if (allOptionsFile) {
-        console.log(`Loading all options because TEMPLATE_CONFIG_FILE_ALL is set.`);
+    const allFastOptionsFile = process.env.TEMPLATE_CONFIG_FILE_ALL_FAST;
+    
+    if (allOptionsFile || allFastOptionsFile) {
+        
+        console.log(`Loading all options because ${allOptionsFile ? 'TEMPLATE_CONFIG_FILE_ALL' : 'TEMPLATE_CONFIG_FILE_ALL_FAST'} is set.`);
         
         const allChains = ALL_CHAINS.map(c => c.value as Chain);
         const allContracts: TemplateOptions['contracts'] = {};
+        
         for (const chain of allChains) {
             if (CONTRACTS_BY_CHAIN[chain]) {
-                allContracts[chain] = CONTRACTS_BY_CHAIN[chain].map(c => c.value as Contract);
+                if (allFastOptionsFile) {
+                    allContracts[chain] = CONTRACTS_BY_CHAIN[chain].map(c => c.value as Contract).slice(0, 1);
+                } else {
+                    allContracts[chain] = CONTRACTS_BY_CHAIN[chain].map(c => c.value as Contract);
+                }
             }
         }
         

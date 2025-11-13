@@ -19,7 +19,6 @@ import { migrationTable } from "@[scope]/database";
 import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "@[scope]/data-types/grammar";
-import { MCTErc1155Primitive } from "@[scope]/custom-primitive-mct-erc1155/erc1155-primitive";
 
 main(function* () {
   yield* init();
@@ -34,9 +33,7 @@ main(function* () {
       migrations: migrationTable,
       apiRouter,
       grammar,
-      userDefinedPrimitives: {
-        "EVM:MCT_ERC1155": MCTErc1155Primitive,
-      },
+      userDefinedPrimitives: {},
     });
   });
 

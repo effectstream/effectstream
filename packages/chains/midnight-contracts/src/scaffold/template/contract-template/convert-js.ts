@@ -6,7 +6,8 @@
 // We expect the compiler to generate the .mjs or .ts eventually.
 export async function convertJS(jsPath: string, tsPath: string) {
   const jsFile = await Deno.readTextFile(jsPath);
-  const output = jsFile
+  // Add "// @ts-nocheck" to the top of the file.
+  const output = "// @ts-nocheck\n" + jsFile
     // 1. Remove 'use strict'.
     .replace(/^["']use strict["'];?/, "")
     // 2. Replace const r = require('lib') with import * as r from 'lib'.

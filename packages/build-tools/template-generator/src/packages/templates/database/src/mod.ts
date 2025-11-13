@@ -1,2 +1,2 @@
-export * from "./sql/sm_example.queries.ts";
+export * from "./sql/example-queries.queries.ts";
 export { migrationTable } from "./migration-order.ts";

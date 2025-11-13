@@ -15,7 +15,7 @@ export class ClientNodePackage extends Package {
             await copyFiles(
                 path.join(currentDir, "templates", "node", ...folder),
                 path.join(nodePath, ...folder),
-                {"\\[scope\\]": this.options.projectName} // replacements
+                {"scope": this.options.projectName} // replacements
               );
         }
 

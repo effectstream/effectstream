@@ -1,6 +1,9 @@
 import { contractAddressesEvmMain } from "@[scope]/evm-contracts";
 import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
 
+/** EVM-IMPORT-BLOCK */
+/** MIDNIGHT-IMPORT-BLOCK */
+
 import {
   ConfigBuilder,
   ConfigNetworkType,
@@ -8,7 +11,15 @@ import {
 } from "@paimaexample/config";
 import { hardhat } from "viem/chains";
 import { getConnection } from "@paimaexample/db";
-import { PrimitiveTypeMidnightGeneric, PrimitiveTypeEVMERC1155 } from "@paimaexample/sm/builtin";
+
+import {
+  PrimitiveTypeAvailGeneric,
+  PrimitiveTypeEVMERC1155,
+  PrimitiveTypeEVMERC20,
+  PrimitiveTypeEVMERC721,
+  PrimitiveTypeEVMPaimaL2,
+  PrimitiveTypeMidnightGeneric,
+} from "@paimaexample/sm/builtin";
 
 /**
  * Let check if the db.
@@ -121,47 +132,8 @@ export const localhostConfig = new ConfigBuilder()
   )
   .buildPrimitives((builder) =>
     builder
-      /** EVM-BLOCK */
-      .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
-        (network, deployments, syncProtocol) => ({
-          name: "MULTI_CHAIN_TOKEN_EVM",
-          type: PrimitiveTypeEVMERC1155,
-          startBlockHeight: 0,
-          contractAddress: contractAddressesEvmMain()
-            .chain31337["Erc1155DevModule#MCT_ERC1155"],
-          stateMachinePrefix: "evm-transfer-erc1155",
-        })
-      )
-      /** EVM-BLOCK */
+      /** EVM-PRIMITIVE-BLOCK */
       
-      /** MIDNIGHT-BLOCK */
-      .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
-        (network, deployments, syncProtocol) => ({
-          name: "TRANSFER_TO_MIDNIGHT",
-          type: "EVM:MCT_ERC1155",
-          startBlockHeight: 0,
-          contractAddress: contractAddressesEvmMain()
-            .chain31337["Erc1155DevModule#MCT_ERC1155"],
-          stateMachinePrefix: "transfer-to-midnight",
-        })
-      )
-      /** MIDNIGHT-BLOCK */
-
-      /** MIDNIGHT-BLOCK */
-      .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelMidnight,
-        (network, deployments, syncProtocol) => ({
-          name: "MidnightContractState",
-          type: PrimitiveTypeMidnightGeneric,
-          startBlockHeight: 1,
-          contractAddress: readMidnightContract("contract-eip-1155", "contract.json").contractAddress,
-          stateMachinePrefix: "midnightContractState",
-          contract: { ledger: MultiChainMultiTokenContract.ledger },
-          networkId: 0,
-        })
-      )
-      /** MIDNIGHT-BLOCK */
+      /** MIDNIGHT-PRIMITIVE-BLOCK */
   )
   .build();

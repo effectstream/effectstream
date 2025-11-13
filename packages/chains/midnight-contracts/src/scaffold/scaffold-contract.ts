@@ -1,67 +1,28 @@
 import * as path from "jsr:@std/path";
+import { copyFiles } from "./scaffold-helpers.ts";
+import { currentDir } from "./scaffold-helpers.ts";
 
-/* 
+/**
  * This module is responsible for scaffolding a new midnight contract.
+ * 
+ * @param targetFolder - root where project will be scaffolded.
+ * @param packageName - name of the parent package.
+ * @param contractCodeName - someSafe_nameForJSCode
+ * @param contractPackageName - some-safe-name-for-package
+ * @param version - version of the effectstream packages
+ * @returns - name and path of the scaffolded contract package
  */
-
-// Copy files
-async function copyFiles(sourceDir: string, targetDir: string, replacements: Record<string, string>, contractName: string): Promise<void> {
-    const files = await Deno.readDir(sourceDir);
-    console.log(`Copying files from ${sourceDir} to ${targetDir}`);
-    for await (const file of files) {
-        if (file.isDirectory) {
-            continue;
-        }
-        let finalName = file.name.replace(".rename", "");
-        if (finalName === 'contract-name.compact') {
-            finalName = `${contractName}.compact`;
-        }
-        let content = await Deno.readTextFile(path.join(sourceDir, file.name));
-        for (const [regex, replacement] of Object.entries(replacements)) {
-            content = content.replace(new RegExp(regex, 'g'), replacement);
-        }
-        await Deno.writeTextFile(path.join(targetDir, finalName), content);
-    }
-}   
-
-// Get current directory - this has to be JSR compatible.
-function currentDir(): string {
-    return path.dirname(path.fromFileUrl(import.meta.url));
-}
-
-function checkInputs(args: string[]): { targetFolder: string, packageName: string, version: string } {
-    const targetFolder = args[0];
-    const packageName = args[1];
-    const version = args[2];
-    if (!targetFolder) {
-        console.error("Target folder is required");
-        Deno.exit(1);
-    }
-    if (!packageName) {
-        console.error("Package name is required");
-        Deno.exit(1);
-    }
-    if (!version) {
-        console.error("Version is required");
-        Deno.exit(1);
-    }
-    return { 
-        targetFolder: targetFolder.trim(), 
-        packageName: packageName.trim(),
-        version: version.trim()
-    };
-}
-
 export async function scaffoldMidnightContract(
     targetFolder: string, 
     packageName: string, 
-    contractName: string,
+    contractCodeName: string,
+    contractPackageName: string,
     version: string
 ): Promise<{
     name: string;
     path: string;
 }> {
-    const fullPackageName = `@${packageName}/midnight-contract-${contractName}`;
+    const fullPackageName = `@${packageName}/midnight-contract-${contractPackageName}`;
 
     const folders = [
         [""], 
@@ -77,11 +38,19 @@ export async function scaffoldMidnightContract(
     }
 
     for (const folder of folders) {
-        await copyFiles(path.join(currentDir(), "template", "contract-template", ...folder), path.join(targetFolder, ...folder), {
-            "\\[scope\\]": packageName,
-            "\\[contract-name\\]": contractName,
-            "\\[EFFECTSTREAM-VERSION\\]": version,
-        }, contractName);
+        await copyFiles(
+            path.join(currentDir(), "template", "contract-template", ...folder), 
+            path.join(targetFolder, ...folder), {
+            replacements: {
+                "scope": packageName,
+                "contract-name": contractPackageName,
+                "EFFECTSTREAM-VERSION": version,
+                "contract-code-name": contractCodeName,
+            },
+            replaceFileNames: {
+                "contract-name.compact": `${contractPackageName}.compact`,
+            }
+        });
     }
 
     return {
@@ -90,8 +59,54 @@ export async function scaffoldMidnightContract(
     }
 };
 
+
 if (import.meta.main) {
-    checkInputs(Deno.args);
-    const { targetFolder, packageName, version } = checkInputs(Deno.args);
-    await scaffoldEVMProject(targetFolder, packageName, version);
+    function checkInputs(args: string[]): { 
+        targetFolder: string, 
+        packageName: string, 
+        contractCodeName: string,
+        contractPackageName: string,
+        version: string 
+    } {
+        const targetFolder = args[0];
+        const packageName = args[1];
+        const contractCodeName = args[2];
+        const contractPackageName = args[3];
+        const version = args[4];
+        if (!targetFolder) {
+            console.error("Target folder is required");
+            Deno.exit(1);
+        }
+        if (!version) {
+            console.error("Version is required");
+            Deno.exit(1);
+        }
+        if (!contractCodeName) {
+            console.error("Contract code name is required");
+            Deno.exit(1);
+        }
+        if (!contractPackageName) {
+            console.error("Contract package name is required");
+            Deno.exit(1);
+        }
+        if (!packageName) {
+            console.error("Package name is required");
+            Deno.exit(1);
+        }
+        return { 
+            targetFolder: targetFolder.trim(), 
+            packageName: packageName.trim(),
+            contractCodeName: contractCodeName.trim(),
+            contractPackageName: contractPackageName.trim(),
+            version: version.trim()
+        };
+    }
+    const { targetFolder, packageName, contractCodeName, contractPackageName, version } = checkInputs(Deno.args);
+    await scaffoldMidnightContract(
+        targetFolder, 
+        packageName, 
+        contractCodeName, 
+        contractPackageName, 
+        version
+    );
 }
