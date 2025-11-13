@@ -1,0 +1,12 @@
+{
+  "name": "@world-map-2d/game-logic",
+  "version": "0.1.0",
+  "description": "Game logic for World Map 2D",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "imports": {
+    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.108",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.108"
+  }
+}

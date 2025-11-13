@@ -318,6 +318,7 @@
     "@paimaexample/log@0.3.105": {
       "integrity": "d4d9dad894e0b2268236871496c907c5667e1237925a409cf50e153c9d877d0c",
       "dependencies": [
+        "npm:@opentelemetry/api",
         "npm:@opentelemetry/api-logs",
         "npm:@opentelemetry/exporter-logs-otlp-http",
         "npm:@opentelemetry/exporter-metrics-otlp-http",
