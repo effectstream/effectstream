@@ -20,10 +20,15 @@ deno task dev
 In a separate terminal:
 
 ```sh
-cd frontend
+cd packages/frontend
 npm install
 node esbuild.js      # Build the frontend bundle
 npx http-server .    # Serve on http://127.0.0.1:8080
+```
+
+Or use the Deno task:
+```sh
+deno task -f @world-map-2d/frontend dev
 ```
 
 Then open http://127.0.0.1:8080 in your browser.
@@ -82,6 +87,16 @@ world-map-2d/
 │   │       └── scripts/
 │   │           └── start.ts                    # Orchestrator dev script
 │   │
+│   ├── frontend/                               # Simple HTML frontend
+│   │   ├── deno.json                           # Frontend package config
+│   │   ├── .npmrc                              # JSR registry config
+│   │   ├── package.json                        # Frontend dependencies
+│   │   ├── esbuild.js                          # Frontend build script
+│   │   ├── index.html                          # Main HTML page
+│   │   ├── index.js                            # Frontend application logic
+│   │   ├── paimaMiddleware.src.js              # Wallet/transaction middleware
+│   │   └── paimaMiddleware.js                  # Bundled middleware (generated)
+│   │
 │   └── shared/
 │       ├── contracts/evm/                      # EVM smart contracts
 │       │   ├── hardhat.config.ts               # Hardhat configuration
@@ -106,15 +121,6 @@ world-map-2d/
 │           └── src/
 │               ├── types.ts                    # Common type definitions
 │               └── random.ts                   # Random number utilities
-│
-└── frontend/                                    # Simple HTML frontend
-    ├── .npmrc                                   # JSR registry config
-    ├── package.json                             # Frontend dependencies
-    ├── esbuild.js                               # Frontend build script
-    ├── index.html                               # Main HTML page
-    ├── index.js                                 # Frontend application logic
-    ├── paimaMiddleware.src.js                   # Wallet/transaction middleware
-    └── paimaMiddleware.js                       # Bundled middleware (generated)
 ```
 
 ## Development

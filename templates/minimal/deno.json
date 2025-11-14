@@ -3,7 +3,8 @@
         "check": "deno task -f @minimal/node check"
     },
     "workspace": [
-        "./packages/**/*"
+        "./packages/client",
+        "./packages/evm-contracts"
     ],
     "nodeModulesDir": "auto"
 }
