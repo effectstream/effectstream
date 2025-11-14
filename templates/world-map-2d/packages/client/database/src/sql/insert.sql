@@ -1,5 +1,5 @@
-/* 
-  @name create_global_world_state
+/*
+  @name createGlobalWorldState
 */
 INSERT INTO global_world_state (
   x,
@@ -13,8 +13,8 @@ INSERT INTO global_world_state (
 ON CONFLICT(x, y)
 DO NOTHING;
 
-/* 
-  @name create_global_user_state
+/*
+  @name createGlobalUserState
 */
 INSERT INTO global_user_state (
   wallet, 

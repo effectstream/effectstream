@@ -1,10 +1,12 @@
 import { nodeModulesPolyfillPlugin } from "esbuild-plugins-node-modules-polyfill";
 import { build } from "esbuild";
+
 build({
-  entryPoints: ["./index.js"],
+  entryPoints: ["./paimaMiddleware.src.js"],
   bundle: true,
-  outfile: "min.js",
+  outfile: "paimaMiddleware.js",
   sourcemap: true,
+  format: "esm",
   plugins: [
     nodeModulesPolyfillPlugin({
       globals: {

@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paimaexample/runtime";
 import type fastify from "fastify";
-import { getUserStats, getWorldStats } from "@world-map-2d/db";
+import { getUserStats, getAllWorldStats } from "@world-map-2d/db";
 
 export const apiRouter: StartConfigApiRouter = async function (
   server: fastify.FastifyInstance,
@@ -23,19 +23,11 @@ export const apiRouter: StartConfigApiRouter = async function (
     }
   });
 
-  // Get world stats endpoint
+  // Get all world stats endpoint
   server.get("/world_stats", async (request, reply) => {
-    const { x, y } = request.query as { x: string; y: string };
-    if (x === undefined || y === undefined) {
-      return reply.code(400).send({ error: "x and y parameters required" });
-    }
-
     try {
-      const [worldStats] = await getWorldStats.run(
-        { x: parseInt(x), y: parseInt(y) },
-        dbConn
-      );
-      return reply.send(worldStats || null);
+      const worldStats = await getAllWorldStats.run(undefined, dbConn);
+      return reply.send(worldStats);
     } catch (error) {
       console.error("Error fetching world stats:", error);
       return reply.code(500).send({ error: "Internal server error" });

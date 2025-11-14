@@ -51,7 +51,7 @@ RUN deno install --allow-scripts
 RUN /app/patch.sh
 RUN deno task -f @world-map-2d/evm-contracts build:mod
 
-RUN cd packages/frontend && npm install && node esbuild.js
+RUN cd frontend && npm install && node esbuild.js
 
 COPY .docker-scripts/launch.sh /app/launch.sh
 RUN chmod +x /app/launch.sh

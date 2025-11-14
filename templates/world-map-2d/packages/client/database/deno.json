@@ -8,6 +8,7 @@
         "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.108",
         "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2",
         "@paimaexample/db": "jsr:@paimaexample/db@0.3.108",
+        "@paimaexample/db-emulator": "jsr:@paimaexample/db-emulator@0.3.108",
         "pg": "npm:pg@^8.14.0",
         "effection": "npm:effection@3.5.0"
     },

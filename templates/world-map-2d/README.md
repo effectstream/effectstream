@@ -20,7 +20,7 @@ deno task dev
 In another terminal:
 
 ```sh
-cd packages/frontend
+cd frontend
 npm install
 node esbuild.js
 npx http-server .
@@ -43,25 +43,25 @@ world-map-2d/
 ├── package.json                        # PGLite dependency
 ├── patch.sh                           # Post-install patches
 ├── Dockerfile                         # Docker configuration
-└── packages/
-    ├── client/
-    │   ├── database/                  # Database queries and migrations
-    │   └── node/                      # Backend node application
-    │       ├── src/
-    │       │   ├── main.ts           # Entry point
-    │       │   ├── state-machine.ts  # State transition logic
-    │       │   └── api.ts            # API endpoints
-    │       └── scripts/
-    │           └── start.ts          # Development startup script
-    ├── frontend/                      # Simple HTML frontend
-    │   ├── index.html
-    │   ├── index.js
-    │   └── esbuild.js
-    └── shared/
-        ├── contracts/evm/            # Smart contracts
-        ├── data-types/               # Grammar and configuration
-        ├── game-logic/               # Game logic
-        └── utils/                    # Shared utilities
+├── packages/
+│   ├── client/
+│   │   ├── database/                  # Database queries and migrations
+│   │   └── node/                      # Backend node application
+│   │       ├── src/
+│   │       │   ├── main.ts           # Entry point
+│   │       │   ├── state-machine.ts  # State transition logic
+│   │       │   └── api.ts            # API endpoints
+│   │       └── scripts/
+│   │           └── start.ts          # Development startup script
+│   └── shared/
+│       ├── contracts/evm/            # Smart contracts
+│       ├── data-types/               # Grammar and configuration
+│       ├── game-logic/               # Game logic
+│       └── utils/                    # Shared utilities
+└── frontend/                          # Simple HTML frontend
+    ├── index.html
+    ├── index.js
+    └── esbuild.js
 ```
 
 ## Development
