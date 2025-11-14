@@ -1,6 +1,7 @@
 import * as path from "jsr:@std/path";
 import { copyFiles } from "./scaffold-helpers.ts";
 import { currentDir } from "./scaffold-helpers.ts";
+
 /* 
  * This module is responsible for scaffolding a new project.
  */

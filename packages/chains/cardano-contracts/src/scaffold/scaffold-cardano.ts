@@ -133,5 +133,5 @@ if (import.meta.main) {
     }
     checkInputs(Deno.args);
     const { targetFolder, packageName, version } = checkInputs(Deno.args);
-    await scaffoldCardanoProject(targetFolder, packageName, version);
+    await scaffoldCardanoProject(targetFolder, packageName, version, []);
 }

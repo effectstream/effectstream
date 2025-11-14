@@ -127,5 +127,5 @@ if (import.meta.main) {
     
     checkInputs(Deno.args);
     const { targetFolder, packageName, version } = checkInputs(Deno.args);
-    await scaffoldCaradanoProject(targetFolder, packageName, version);
+    await scaffoldAvailProject(targetFolder, packageName, version);
 }

@@ -59,20 +59,3 @@ export async function copyFiles(
 export function currentDir(): string {
     return path.dirname(path.fromFileUrl(import.meta.url));
 }
-
-
-// TODO We can probably use some library or typebox for typechecking.
-export function checkInputs<T extends string[]>(
-    expectedArgs: T,
-    args: string[]
-): { [K in keyof T]: string } {
-    const result: { [K in keyof T]: string } = {} as { [K in keyof T]: string };
-    for (const [index, arg] of expectedArgs.entries()) {
-        result[arg] = args[index];
-        if (!result[arg]) {
-            console.error(`${arg} is required`);
-            Deno.exit(1);
-        }
-    }
-    return result;
-}

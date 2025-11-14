@@ -1,5 +1,9 @@
 export const PAIMA_SCOPE = '@paimaexample';
 export const EFFECTSTREAM_VERSION = '0.3.108';
+import { evmContractOptions } from '@effectstream/evm-hardhat/scaffold';
+import { availContractOptions } from '@effectstream/avail-contracts/scaffold';
+import { cardanoContractOptions } from '@effectstream/cardano-contracts/scaffold';
+import { midnightContractOptions } from '@effectstream/midnight-contracts/scaffold';
 
 // Define types for the options
 export type Chain = 'evm' | 'midnight' | 'cardano' | 'bitcoin' | 'avail';
@@ -12,32 +16,11 @@ export const ALL_CHAINS: { label: string; value: Chain }[] = [
 ];
 
 export const CONTRACTS_BY_CHAIN: Record<Chain, { label: string; value: string }[]> = {
-    evm: [
-        { label: 'ERC-20', value: 'erc-20' },
-        { label: 'ERC-721', value: 'erc-721' },
-        { label: 'ERC-1122', value: 'erc1122' },
-        { label: 'Effect-Stream L2', value: 'effectstream-L2' },
-        { label: 'Empty Contract', value: 'empty-contract' },
-    ],
-    midnight: [
-        { label: 'Unshielded ERC-20', value: 'unshielded-erc20' },
-        { label: 'Unshielded ERC-721', value: 'unshielded-erc721' },
-        { label: 'Unshielded ERC-1155', value: 'unshielded-erc1155' },
-        { label: 'Shielded ERC-20', value: 'shielded-erc20' },
-        { label: 'Shielded ERC-721', value: 'shielded-erc721' },
-        { label: 'Shielded ERC-1155', value: 'shielded-erc1155' },
-        { label: 'Empty Contract', value: 'empty-contract' },
-    ],
-    cardano: [
-        { label: 'Simple Token', value: 'simple-token' },
-        { label: 'Empty Contract', value: 'empty-contract' },
-    ],
-    bitcoin: [
-        { label: 'Empty Contract', value: 'empty-contract' },
-    ],
-    avail: [
-        { label: 'Empty Contract', value: 'empty-contract' },
-    ]
+    evm: evmContractOptions,
+    midnight: midnightContractOptions,
+    cardano: cardanoContractOptions,
+    bitcoin: [ { label: 'Empty Contract', value: 'empty-contract' } ],
+    avail: availContractOptions
 };
 
 type EvmContracts = typeof CONTRACTS_BY_CHAIN['evm'][number]['value'];
@@ -50,6 +33,7 @@ export type Contract = EvmContracts | MidnightContracts | CardanoContracts | Bit
 
 
 export type Frontend = 'intergrated-vite-deno' | 'standalone-esbuild';
+
 export const ALL_FRONTENDS: { label: string; value: Frontend }[] = [
     { label: 'Integrated Vite (Deno)', value: 'intergrated-vite-deno' },
     { label: 'Standalone (esbuild)', value: 'standalone-esbuild' },

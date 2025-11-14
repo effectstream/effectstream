@@ -1,10 +1,7 @@
 import path from 'node:path';
 import { Package, PackageInfo } from './abstract-package.ts';
 import { Chain, EFFECTSTREAM_VERSION } from '../options.ts';
-import { scaffoldMidnightProject } from '@effectstream/midnight-contracts/scaffold';
-import { scaffoldMidnightContract } from '@effectstream/midnight-contracts/scaffold-contract';
-import { DenoJsonFile } from '../file-types/index.ts';
-import { Contract } from '../options.ts';
+import { scaffoldMidnightProject, scaffoldMidnightContract } from '@effectstream/midnight-contracts/scaffold';
 
 export class ChainMidnightPackage extends Package {
     constructor(
