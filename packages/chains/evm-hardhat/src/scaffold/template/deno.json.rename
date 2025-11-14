@@ -17,8 +17,11 @@
     "@nomicfoundation/hardhat-utils": "npm:@nomicfoundation/hardhat-utils@3.0.0"
   },
   "tasks": {
-    "swap:remappings:forge": "deno -A @paimaexample/evm-hardhat/remappings-forge --depth 4",
-    "swap:remappings:hardhat": "deno -A @paimaexample/evm-hardhat/remappings-hardhat",
+    // "swap:remappings:forge": "deno -A @paimaexample/evm-hardhat/remappings-forge --depth 4",
+    // "swap:remappings:hardhat": "deno -A @paimaexample/evm-hardhat/remappings-hardhat",
+    "swap:remappings:forge": "cp remappings.forge.txt remappings.txt",
+    "swap:remappings:hardhat": "cp remappings.hardhat.txt remappings.txt",
+
     "check": "echo 'check'",
     "build:mod": {
       "command": "(deno task deploy:standalone || true) && deno run -A @paimaexample/evm-hardhat/builder"
