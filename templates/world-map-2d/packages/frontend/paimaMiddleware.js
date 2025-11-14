@@ -162670,13 +162670,13 @@ var PaimaEngineConfig = class {
     ];
   }
 };
-async function sendTransaction5(wallet2, conciseData, paimaEngineConfig2, waitForConfirmation = "wait-paima-processed", batcherTarget = void 0) {
+async function sendTransaction5(wallet2, conciseData, paimaEngineConfig2, waitForConfirmation = "wait-effectstream-processed", batcherTarget = void 0) {
   if (paimaEngineConfig2.preferBatchedMode) {
     return await sendBatcherTransaction(wallet2, conciseData, paimaEngineConfig2, waitForConfirmation, batcherTarget);
   }
   return await sendSelfSequencedTransaction(wallet2, conciseData, paimaEngineConfig2, waitForConfirmation);
 }
-async function sendSelfSequencedTransaction(wallet2, conciseData, paimaEngineConfig2, waitForConfirmation = "wait-paima-processed") {
+async function sendSelfSequencedTransaction(wallet2, conciseData, paimaEngineConfig2, waitForConfirmation = "wait-effectstream-processed") {
   const DEFAULT_GAS_PRICE = BigInt("61000000000");
   const provider = wallet2.provider;
   const addressAndType = provider.getAddress();
@@ -162760,7 +162760,7 @@ function waitForPaimaEngineBlockProcessed(blockNumber, paimaEngineConfig2, timeo
     }
   });
 }
-async function sendBatcherTransaction(wallet2, conciseData, paimaEngineConfig2, waitForConfirmation = "wait-paima-processed", batcherTarget = void 0) {
+async function sendBatcherTransaction(wallet2, conciseData, paimaEngineConfig2, waitForConfirmation = "wait-effectstream-processed", batcherTarget = void 0) {
   if (!paimaEngineConfig2.batcherURL) {
     throw new Error("Batcher URL is not set");
   }

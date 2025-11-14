@@ -30,6 +30,7 @@
     "jsr:@paimaexample/sm@0.3.108": "0.3.108",
     "jsr:@paimaexample/sm@~0.3.108": "0.3.108",
     "jsr:@paimaexample/sync@~0.3.108": "0.3.108",
+    "jsr:@paimaexample/tui@0.3.108": "0.3.108",
     "jsr:@paimaexample/utils@0.3.108": "0.3.108",
     "jsr:@paimaexample/utils@~0.3.108": "0.3.108",
     "jsr:@std/assert@~1.0.6": "1.0.15",
@@ -89,6 +90,7 @@
     "npm:@paimaexample/evm-contracts@0.3.108": "0.3.108_@openzeppelin+contracts@5.1.0",
     "npm:@paimaexample/explorer@0.3.108": "0.3.108",
     "npm:@paimaexample/grafana-alloy@*": "0.3.108",
+    "npm:@paimaexample/grafana-loki@*": "0.3.108",
     "npm:@pgtyped/parser@2.4.2": "2.4.2",
     "npm:@pgtyped/runtime@2.4.2": "2.4.2",
     "npm:@pgtyped/runtime@^2.4.2": "2.4.2",
@@ -134,6 +136,7 @@
     "npm:mqtt@^5.14.0": "5.14.1",
     "npm:ntp-time-sync@0.5": "0.5.0",
     "npm:pg@^8.14.0": "8.16.3",
+    "npm:rotating-file-stream@^3.2.6": "3.2.7",
     "npm:superjson@^2.2.1": "2.2.5",
     "npm:tslog@^4.9.3": "4.10.2",
     "npm:viem@2.23.10": "2.23.10_ws@8.18.1",
@@ -421,6 +424,16 @@
         "npm:ntp-time-sync",
         "npm:pg",
         "npm:viem@2.37.3"
+      ]
+    },
+    "@paimaexample/tui@0.3.108": {
+      "integrity": "b5076b79caa6b10e3b5945371d5de5ce58ba5e0cb3723d3a64076759e11fd4b3",
+      "dependencies": [
+        "jsr:@paimaexample/log@~0.3.108",
+        "jsr:@paimaexample/utils@~0.3.108",
+        "npm:@sinclair/typebox@~0.34.30",
+        "npm:fastify",
+        "npm:rotating-file-stream"
       ]
     },
     "@paimaexample/utils@0.3.108": {
@@ -2300,6 +2313,13 @@
     },
     "@paimaexample/grafana-alloy@0.3.108": {
       "integrity": "sha512-NwcMqX72VBwv7vU/Z9rZ1LguIozF/Ix7I+PpqnYpLnPJJqjEHB5KLaGd6w2dcBVudrbYpUzgjKncRmZifTu74w==",
+      "dependencies": [
+        "@xhmikosr/bin-wrapper"
+      ],
+      "bin": true
+    },
+    "@paimaexample/grafana-loki@0.3.108": {
+      "integrity": "sha512-TvCB+WbFOndCDZZojZRtlRJrgbPutX1XH2sIxj1H+BNA033BmUDVltvOWLpjM1/RjTkf9EXS0zPTeIRxsP027g==",
       "dependencies": [
         "@xhmikosr/bin-wrapper"
       ],
@@ -5489,6 +5509,9 @@
         "hash-base",
         "inherits"
       ]
+    },
+    "rotating-file-stream@3.2.7": {
+      "integrity": "sha512-SVquhBEVvRFY+nWLUc791Y0MIlyZrEClRZwZFLLRgJKldHyV1z4e2e/dp9LPqCS3AM//uq/c3PnOFgjqnm5P+A=="
     },
     "rxjs@7.8.2": {
       "integrity": "sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==",

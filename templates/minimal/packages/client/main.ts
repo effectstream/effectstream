@@ -106,12 +106,10 @@ export const apiRouter: StartConfigApiRouter = async function (
   dbConn: any, // Pool,
 ): Promise<void> {
   server.get("/fetch-primitive-accounting", async () => {
-    // TODO Update to effectstream.primitive_accounting
     const result = await dbConn.query(
-      `SELECT * FROM paima.primitive_accounting`,
+      `SELECT * FROM effectstream.primitive_accounting`,
     );
     return result.rows;
-    // reply.send(result.rows);
   });
 };
 

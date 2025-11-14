@@ -10,7 +10,7 @@
   "license": "ISC",
   "description": "World Map 2D frontend",
   "dependencies": {
-    "@jsr/paimaexample__wallets": "^0.3.108",
+    "@paimaexample/wallets": "npm:@jsr/paimaexample__wallets@^0.3.108",
     "viem": "^2.37.5"
   },
   "devDependencies": {

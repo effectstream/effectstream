@@ -1,6 +1,6 @@
 import {
   allInjectedWallets,
-  EffectstreamEngineConfig,
+  PaimaEngineConfig,
   sendTransaction,
   walletLogin,
   WalletMode,
@@ -8,7 +8,7 @@ import {
 
 import { hardhat } from "viem/chains";
 
-export const effectStreamConfig = new EffectstreamEngineConfig(
+export const paimaEngineConfig = new PaimaEngineConfig(
   "",
   "mainEvmRPC",
   "0x5FbDB2315678afecb367f032d93F642f64180aa3",
@@ -22,7 +22,7 @@ let wallet = null;
 async function login() {
   const result = await walletLogin({
     mode: WalletMode.EvmInjected,
-    chain: effectStreamConfig.paimaL2Chain,
+    chain: paimaEngineConfig.paimaL2Chain,
   });
   if (!result.success) throw new Error("Cannot login");
   wallet = result.result;
