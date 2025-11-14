@@ -1,0 +1,6 @@
+{
+  "name": "@night-bitcoin/frontend-vite",
+  "exports": {
+    ".": "./src/mod.ts"
+  }
+}

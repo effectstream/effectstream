@@ -1,0 +1,6 @@
+{
+  "name": "@night-bitcoin/bitcoin-contracts",
+  "exports": {
+    ".": "./src/mod.ts"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "index.cjs",
+  "sourceRoot": "../../../../",
+  "sources": ["src/erc7683.compact"],
+  "names": [],
+  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EACA;;;;;;;;;;MAUA,AAAA,SAEC;;;;;;;;;;;;;;;;;;;;;;OAAA;;;GA0HI;EAtIL;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;IAOA;;;;;;;;;uDAA6B;;;;;;;GA+HxB;EA5HL,AAAA,YAEC;UADC,KAAK;IAAL;;;;;;;;;;2EAAA,KAAK;;;;sDAAA;;GACN;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;IALD;qCAAA;;;;;;;;;;;wFAA6B;KAAA;;;;;;;;;;;;;;"
+}

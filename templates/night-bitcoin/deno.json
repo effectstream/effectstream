@@ -1,0 +1,29 @@
+{
+  "workspace": [
+    "./packages/**/*"
+  ],
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "build:midnight": "deno task -r compact",
+    "dev": "deno task -f @night-bitcoin/node dev",
+    "start:frontend": "deno task -f @night-bitcoin/frontend dev",
+    "check": "deno task -f @night-bitcoin/node check"
+  },
+  "imports": {
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.108",
+    "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.3.108",
+    "@std/path": "jsr:@std/path@^1.1.2"
+  },
+  "lint": {
+    "rules": {
+      "exclude": [
+        "no-this-alias",
+        "require-yield",
+        "no-explicit-any",
+        "ban-types",
+        "no-unused-vars",
+        "no-slow-types"
+      ]
+    }
+  }
+}

@@ -1,0 +1,607 @@
+{
+  "circuits": [
+    {
+      "name": "name",
+      "pure": false,
+      "arguments": [
+      ],
+      "result-type": {
+        "type-name": "Opaque",
+        "tsType": "string"
+      }
+    },
+    {
+      "name": "symbol",
+      "pure": false,
+      "arguments": [
+      ],
+      "result-type": {
+        "type-name": "Opaque",
+        "tsType": "string"
+      }
+    },
+    {
+      "name": "decimals",
+      "pure": false,
+      "arguments": [
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 255
+      }
+    },
+    {
+      "name": "totalSupply",
+      "pure": false,
+      "arguments": [
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 340282366920938463463374607431768211455
+      }
+    },
+    {
+      "name": "balanceOf",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "account",
+          "type": {
+            "type-name": "Struct",
+            "name": "Either",
+            "elements": [
+              {
+                "name": "is_left",
+                "type": {
+                  "type-name": "Boolean"
+                }
+              },
+              {
+                "name": "left",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ZswapCoinPublicKey",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "right",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ContractAddress",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 340282366920938463463374607431768211455
+      }
+    },
+    {
+      "name": "mint",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "account",
+          "type": {
+            "type-name": "Struct",
+            "name": "Either",
+            "elements": [
+              {
+                "name": "is_left",
+                "type": {
+                  "type-name": "Boolean"
+                }
+              },
+              {
+                "name": "left",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ZswapCoinPublicKey",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "right",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ContractAddress",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "value",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 340282366920938463463374607431768211455
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "transfer",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "to",
+          "type": {
+            "type-name": "Struct",
+            "name": "Either",
+            "elements": [
+              {
+                "name": "is_left",
+                "type": {
+                  "type-name": "Boolean"
+                }
+              },
+              {
+                "name": "left",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ZswapCoinPublicKey",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "right",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ContractAddress",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "value",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 340282366920938463463374607431768211455
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Boolean"
+      }
+    },
+    {
+      "name": "approve",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "spender",
+          "type": {
+            "type-name": "Struct",
+            "name": "Either",
+            "elements": [
+              {
+                "name": "is_left",
+                "type": {
+                  "type-name": "Boolean"
+                }
+              },
+              {
+                "name": "left",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ZswapCoinPublicKey",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "right",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ContractAddress",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "value",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 340282366920938463463374607431768211455
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Boolean"
+      }
+    },
+    {
+      "name": "allowance",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "owner",
+          "type": {
+            "type-name": "Struct",
+            "name": "Either",
+            "elements": [
+              {
+                "name": "is_left",
+                "type": {
+                  "type-name": "Boolean"
+                }
+              },
+              {
+                "name": "left",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ZswapCoinPublicKey",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "right",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ContractAddress",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "spender",
+          "type": {
+            "type-name": "Struct",
+            "name": "Either",
+            "elements": [
+              {
+                "name": "is_left",
+                "type": {
+                  "type-name": "Boolean"
+                }
+              },
+              {
+                "name": "left",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ZswapCoinPublicKey",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "right",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ContractAddress",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 340282366920938463463374607431768211455
+      }
+    },
+    {
+      "name": "burnFrom",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "account",
+          "type": {
+            "type-name": "Struct",
+            "name": "Either",
+            "elements": [
+              {
+                "name": "is_left",
+                "type": {
+                  "type-name": "Boolean"
+                }
+              },
+              {
+                "name": "left",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ZswapCoinPublicKey",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "right",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ContractAddress",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "value",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 340282366920938463463374607431768211455
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "transferFrom",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "from",
+          "type": {
+            "type-name": "Struct",
+            "name": "Either",
+            "elements": [
+              {
+                "name": "is_left",
+                "type": {
+                  "type-name": "Boolean"
+                }
+              },
+              {
+                "name": "left",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ZswapCoinPublicKey",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "right",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ContractAddress",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "to",
+          "type": {
+            "type-name": "Struct",
+            "name": "Either",
+            "elements": [
+              {
+                "name": "is_left",
+                "type": {
+                  "type-name": "Boolean"
+                }
+              },
+              {
+                "name": "left",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ZswapCoinPublicKey",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "right",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "ContractAddress",
+                  "elements": [
+                    {
+                      "name": "bytes",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "value",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 340282366920938463463374607431768211455
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Boolean"
+      }
+    },
+    {
+      "name": "transferToEvm",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "target_address",
+          "type": {
+            "type-name": "Opaque",
+            "tsType": "string"
+          }
+        },
+        {
+          "name": "amount",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 340282366920938463463374607431768211455
+          }
+        },
+        {
+          "name": "txHash",
+          "type": {
+            "type-name": "Bytes",
+            "length": 16
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    }
+  ],
+  "witnesses": [
+  ],
+  "contracts": [
+  ]
+}
