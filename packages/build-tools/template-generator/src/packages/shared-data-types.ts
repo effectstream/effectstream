@@ -2,9 +2,11 @@ import * as path from "jsr:@std/path";
 import { Package, PackageInfo } from "./abstract-package.ts";
 import { DenoJsonFile } from "../file-types/index.ts";
 import { copyFiles } from "../file-operations.ts";
-import { PAIMA_VERSION } from "../options.ts";
+import { EFFECTSTREAM_VERSION } from "../options.ts";
 import { ChainMidnightPackage } from "./chain-midnight.ts";
 import { ChainEVMPackage } from "./chain-evm.ts";
+import { ChainAvailPackage } from "./chain-avail.ts";
+import { ChainCardanoPackage } from "./chain-cardano.ts";
 
 export class SharedDataTypesPackage extends Package {
   public async generate(): Promise<PackageInfo> {
@@ -16,19 +18,7 @@ export class SharedDataTypesPackage extends Package {
     );
     const packageName = `@${this.options.projectName}/data-types`;
 
-    const evmPrimitiveBlock = (contractPackageName: string) => `
-      .addPrimitive(
-        (syncProtocols) => syncProtocols.mainEvmRPC,
-        (network, deployments, syncProtocol) => ({
-          name: "TRANSFER_TO_MIDNIGHT",
-          type: PrimitiveTypeEVMERC20,
-          startBlockHeight: 0,
-          contractAddress: contractAddressesEvmMain()
-            .chain31337["${contractPackageName}Module#${contractPackageName}"],
-          stateMachinePrefix: "transfer-erc20",
-        })
-      )
-    `;
+
 
     const midnightImportBlockCode = this.options.chains.includes("midnight") ? 
       this.options.contracts.midnight?.map(contract => ChainMidnightPackage.midnightImportBlock(this.options.projectName, contract)).join("\n") : ""
@@ -47,12 +37,18 @@ export class SharedDataTypesPackage extends Package {
         {
           "EVM-BLOCK": this.options.chains.includes("evm"),
           "MIDNIGHT-BLOCK": this.options.chains.includes("midnight"),
+          "AVAIL-BLOCK": this.options.chains.includes("avail"),
+          "CARDANO-BLOCK": this.options.chains.includes("cardano"),
         },
         {
           "EVM-IMPORT-BLOCK": "",
-          "EVM-PRIMITIVE-BLOCK": this.options.contracts.evm?.map(contract => evmPrimitiveBlock(ChainEVMPackage.safePackageName(contract))).join("\n") || "",
+          "EVM-PRIMITIVE-BLOCK": this.options.contracts.evm?.map(contract => ChainEVMPackage.evmPrimitiveBlock(ChainEVMPackage.safePackageName(contract))).join("\n") || "",
           "MIDNIGHT-IMPORT-BLOCK": midnightImportBlockCode || "",
           "MIDNIGHT-PRIMITIVE-BLOCK": midnightPrimitiveBlockCode || "",
+          "AVAIL-IMPORT-BLOCK": "",
+          "AVAIL-PRIMITIVE-BLOCK": this.options.contracts.avail?.map(contract => ChainAvailPackage.availPrimitiveBlock(contract)).join("\n") || "",
+          "CARDANO-IMPORT-BLOCK": "",
+          "CARDANO-PRIMITIVE-BLOCK": this.options.contracts.cardano?.map(contract => ChainCardanoPackage.cardanoPrimitiveBlock(contract)).join("\n") || "",
         }
       );
     }
@@ -66,11 +62,11 @@ export class SharedDataTypesPackage extends Package {
         "./grammar": "./src/grammar.ts",
       },
       imports: {
-        "@paimaexample/concise": "jsr:@paimaexample/concise@" + PAIMA_VERSION,
-        "@paimaexample/config": "jsr:@paimaexample/config@" + PAIMA_VERSION,
-        "@paimaexample/utils": "jsr:@paimaexample/utils@" + PAIMA_VERSION,
-        "@paimaexample/db": "jsr:@paimaexample/db@" + PAIMA_VERSION,
-        "@paimaexample/sm": "jsr:@paimaexample/sm@" + PAIMA_VERSION,
+        "@paimaexample/concise": "jsr:@paimaexample/concise@" + EFFECTSTREAM_VERSION,
+        "@paimaexample/config": "jsr:@paimaexample/config@" + EFFECTSTREAM_VERSION,
+        "@paimaexample/utils": "jsr:@paimaexample/utils@" + EFFECTSTREAM_VERSION,
+        "@paimaexample/db": "jsr:@paimaexample/db@" + EFFECTSTREAM_VERSION,
+        "@paimaexample/sm": "jsr:@paimaexample/sm@" + EFFECTSTREAM_VERSION,
         viem: "npm:viem@2.37.3",
         "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
       },

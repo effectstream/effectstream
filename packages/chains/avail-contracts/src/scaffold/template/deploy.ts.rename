@@ -55,7 +55,7 @@ console.log("Writing to file: ", fileName);
 await Deno.writeTextFile(fileName, data);
 
 const child = new Deno.Command("deno", {
-  args: ["task", "-f", "@e2e/avail-contracts", "avail-light-client:start"],
+  args: ["task", "-f", "@[scope]/avail-contracts", "avail-light-client:start"],
   env: {
     AVAIL_APP_ID: appId.toString(),
   },

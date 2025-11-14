@@ -1,6 +1,6 @@
 import { Package, PackageInfo } from "./abstract-package.ts";
 import { DenoJsonFile, TypescriptFile } from "../file-types/index.ts";
-import { PAIMA_VERSION } from "../options.ts";
+import { EFFECTSTREAM_VERSION } from "../options.ts";
 import * as path from "jsr:@std/path";
 import { copyFiles } from "../file-operations.ts";
 import { ChainMidnightPackage } from "./chain-midnight.ts";
@@ -46,11 +46,11 @@ export class ClientBatcherPackage extends Package {
         "@midnight-ntwrk/wallet-sdk-address-format": isMidnightEnabled
           ? "npm:@midnight-ntwrk/wallet-sdk-address-format@2.0.0"
           : undefined,
-        "@paimaexample/batcher": "jsr:@paimaexample/batcher@" + PAIMA_VERSION,
-        "@paimaexample/utils": "jsr:@paimaexample/utils@" + PAIMA_VERSION,
-        "@paimaexample/concise": "jsr:@paimaexample/concise@" + PAIMA_VERSION,
+        "@paimaexample/batcher": "jsr:@paimaexample/batcher@" + EFFECTSTREAM_VERSION,
+        "@paimaexample/utils": "jsr:@paimaexample/utils@" + EFFECTSTREAM_VERSION,
+        "@paimaexample/concise": "jsr:@paimaexample/concise@" + EFFECTSTREAM_VERSION,
         "@paimaexample/coroutine":
-          "jsr:@paimaexample/coroutine@" + PAIMA_VERSION,
+          "jsr:@paimaexample/coroutine@" + EFFECTSTREAM_VERSION,
         effection: "npm:effection@^3.5.0",
         "@std/path": "jsr:@std/path@^1.1.2",
         viem: "npm:viem@2.37.3",

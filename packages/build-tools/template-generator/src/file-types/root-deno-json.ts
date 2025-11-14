@@ -1,5 +1,5 @@
 import { GeneratedFile } from './index.ts';
-import { Chain, Frontend, PAIMA_SCOPE, PAIMA_VERSION } from '../options.ts';
+import { Chain, Frontend, PAIMA_SCOPE, EFFECTSTREAM_VERSION } from '../options.ts';
 
 export class RootDenoJsonFile extends GeneratedFile {
     private content: object;
@@ -27,12 +27,12 @@ export class RootDenoJsonFile extends GeneratedFile {
         tasks['check'] = `deno task -f @${projectName}/node check`;
 
         // Conditional imports
-        imports[`${PAIMA_SCOPE}/tui`] = `jsr:${PAIMA_SCOPE}/tui@${PAIMA_VERSION}`;
+        imports[`${PAIMA_SCOPE}/tui`] = `jsr:${PAIMA_SCOPE}/tui@${EFFECTSTREAM_VERSION}`;
         if (chains.includes('midnight')) {
-            imports[`${PAIMA_SCOPE}/midnight-contracts`] = `jsr:${PAIMA_SCOPE}/midnight-contracts@${PAIMA_VERSION}`;
+            imports[`${PAIMA_SCOPE}/midnight-contracts`] = `jsr:${PAIMA_SCOPE}/midnight-contracts@${EFFECTSTREAM_VERSION}`;
         }
         if (chains.includes('evm')) {
-            imports[`${PAIMA_SCOPE}/evm-contracts`] = `jsr:${PAIMA_SCOPE}/evm-contracts@${PAIMA_VERSION}`;
+            imports[`${PAIMA_SCOPE}/evm-contracts`] = `jsr:${PAIMA_SCOPE}/evm-contracts@${EFFECTSTREAM_VERSION}`;
         }
         imports['@std/path'] = 'jsr:@std/path@^1.1.2';
         

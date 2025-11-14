@@ -1,21 +1,23 @@
 import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
 import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
+import { launchCardano } from "@paimaexample/orchestrator/start-cardano";
 import { launchEvm } from "@paimaexample/orchestrator/start-evm";
 import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
+import { launchAvail } from "@paimaexample/orchestrator/start-avail";
 
 const customProcesses = [
   /** DENO-FRONTEND-BLOCK */
   {
     name: "frontend-build",
-    args: ["task", "-f", "@[scope]/frontend", "build"],
+    args: ["task", "-f", "@[scope]/frontend-vite", "build"],
     waitToExit: true,
     type: "system-dependency",
     dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
   },
   {
     name: "frontend-server",
-    args: ["task", "-f", "@[scope]/frontend", "serve"],
+    args: ["task", "-f", "@[scope]/frontend-vite", "serve"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10599",
@@ -68,6 +70,15 @@ const config = Value.Parse(OrchestratorConfig, {
     /** MIDNIGHT-BLOCK */
     ...launchMidnight("@[scope]/midnight-contracts"),
     /** MIDNIGHT-BLOCK */
+
+    /** CARDANO-BLOCK */
+    ...launchCardano("@[scope]/cardano-contracts"),
+    /** CARDANO-BLOCK */
+
+    /** AVAIL-BLOCK */
+    ...launchAvail("@[scope]/avail-contracts"),
+    /** AVAIL-BLOCK */
+
     ...customProcesses,
   ],
 });

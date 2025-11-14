@@ -1,6 +1,10 @@
 import { contractAddressesEvmMain } from "@[scope]/evm-contracts";
 import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
 
+/** AVAIL-BLOCK */
+import { readAvailApplication } from "@[scope]/avail-contracts";
+/** AVAIL-BLOCK */
+
 /** EVM-IMPORT-BLOCK */
 /** MIDNIGHT-IMPORT-BLOCK */
 
@@ -82,6 +86,26 @@ export const localhostConfig = new ConfigBuilder()
         nodeUrl: "http://127.0.0.1:9944",
       })
       /** MIDNIGHT-BLOCK */
+
+      /** AVAIL-BLOCK */
+      .addNetwork({
+        name: "avail",
+        type: ConfigNetworkType.AVAIL,
+        genesisSeed: "//Alice",
+        nodeUrl: "ws://127.0.0.1:9955/ws",
+        genesisHash: readAvailApplication().genesisHash,
+        caip2: `avail:local`,
+      })
+      /** AVAIL-BLOCK */
+
+      /** CARDANO-BLOCK */
+      .addNetwork({
+        name: "yaci",
+        type: ConfigNetworkType.CARDANO,
+        nodeUrl: "http://127.0.0.1:10000", // yaci-devkit default URL
+        network: "yaci",
+      })
+      /** CARDANO-BLOCK */
   )
   .buildDeployments((builder) =>
     builder
@@ -129,11 +153,44 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       /** MIDNIGHT-BLOCK */
+
+
+      /** AVAIL-BLOCK */
+      .addParallel(
+        (networks) => (networks as any).avail,
+        (network, deployments) => ({
+          name: "parallelAvail",
+          type: ConfigSyncProtocolType.AVAIL_PARALLEL,
+          rpc: network.nodeUrl,
+          lightClient: "http://127.0.0.1:7007",
+          startBlockHeight: 1,
+          pollingInterval: 1_000,
+          delayMs: 60_000, // 1 minute
+        }),
+      )
+      /** AVAIL-BLOCK */
+
+      /** CARDANO-BLOCK */
+      .addParallel(
+        (networks) => (networks as any).yaci,
+        (network, deployments) => ({
+          name: "parallelUtxoRpc",
+          type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
+          rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
+          startSlot: 1,
+          delayMs: 20000,
+        }),
+      )
+      /** CARDANO-BLOCK */
   )
   .buildPrimitives((builder) =>
     builder
       /** EVM-PRIMITIVE-BLOCK */
       
       /** MIDNIGHT-PRIMITIVE-BLOCK */
+
+      /** AVAIL-PRIMITIVE-BLOCK */
+
+      /** CARDANO-PRIMITIVE-BLOCK */
   )
   .build();

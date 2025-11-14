@@ -1,7 +1,8 @@
 import path from 'node:path';
 import { Package, PackageInfo } from './abstract-package.ts';
 import { DenoJsonFile } from '../file-types/index.ts';
-import { Chain, PAIMA_VERSION } from '../options.ts';
+import { Chain, EFFECTSTREAM_VERSION } from '../options.ts';
+import { scaffoldCardanoProject } from '@effectstream/cardano-contracts/scaffold';
 
 export class ChainCardanoPackage extends Package {
     constructor(
@@ -14,13 +15,15 @@ export class ChainCardanoPackage extends Package {
 
     public async generate(): Promise<PackageInfo> {
         const chainPath = path.join(this.projectPath, 'packages', 'shared', 'contracts', this.chain + '-contracts');
-        const packageName = `@${this.options.projectName}/${this.chain}-contracts`;
+        
+        return await scaffoldCardanoProject(
+            chainPath, 
+            this.options.projectName, 
+            EFFECTSTREAM_VERSION
+        );
+    }
 
-        await new DenoJsonFile(
-            path.join(chainPath, 'deno.json'),
-            { name: packageName }
-        ).write();
-
-        return { name: packageName, path: chainPath };
+    public static cardanoPrimitiveBlock(contract: string): string {
+        return ``
     }
 }

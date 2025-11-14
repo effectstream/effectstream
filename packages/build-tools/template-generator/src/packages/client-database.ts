@@ -2,7 +2,7 @@ import * as path from "jsr:@std/path";
 import { Package, PackageInfo } from './abstract-package.ts';
 import { DenoJsonFile, SqlFile } from '../file-types/index.ts';
 import { copyFiles } from '../file-operations.ts';
-import { PAIMA_VERSION } from '../options.ts';
+import { EFFECTSTREAM_VERSION } from '../options.ts';
 
 export class ClientDatabasePackage extends Package {
     public async generate(): Promise<PackageInfo> {
@@ -26,11 +26,11 @@ export class ClientDatabasePackage extends Package {
             "license": "MIT",
             "exports": "./src/mod.ts",
             "imports": {
-                "@paimaexample/config": "jsr:@paimaexample/config@" + PAIMA_VERSION,
-                "@paimaexample/runtime": "jsr:@paimaexample/runtime@" + PAIMA_VERSION,
-                "@paimaexample/sm": "jsr:@paimaexample/sm@" + PAIMA_VERSION,
+                "@paimaexample/config": "jsr:@paimaexample/config@" + EFFECTSTREAM_VERSION,
+                "@paimaexample/runtime": "jsr:@paimaexample/runtime@" + EFFECTSTREAM_VERSION,
+                "@paimaexample/sm": "jsr:@paimaexample/sm@" + EFFECTSTREAM_VERSION,
                 "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2",
-                "@paimaexample/db": "jsr:@paimaexample/db@" + PAIMA_VERSION,
+                "@paimaexample/db": "jsr:@paimaexample/db@" + EFFECTSTREAM_VERSION,
                 "pg": "npm:pg@^8.14.0",
                 "effection": "npm:effection@3.5.0"
             },

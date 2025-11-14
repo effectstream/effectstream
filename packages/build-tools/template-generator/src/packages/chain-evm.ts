@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { Package, PackageInfo } from './abstract-package.ts';
-import { Chain, PAIMA_VERSION } from '../options.ts';
+import { Chain, EFFECTSTREAM_VERSION } from '../options.ts';
 import { scaffoldEVMProject } from '@effectstream/evm-hardhat/scaffold';
 
 export class ChainEVMPackage extends Package {
@@ -27,6 +27,22 @@ export class ChainEVMPackage extends Package {
             safePackageName: ChainEVMPackage.safePackageName(contract),
         })) || [];
 
-        return await scaffoldEVMProject(chainPath, this.options.projectName, PAIMA_VERSION, contracts);
+        return await scaffoldEVMProject(chainPath, this.options.projectName, EFFECTSTREAM_VERSION, contracts);
+    }
+
+    public static evmPrimitiveBlock(contractPackageName: string): string {
+        return `
+          .addPrimitive(
+            (syncProtocols) => syncProtocols.mainEvmRPC,
+            (network, deployments, syncProtocol) => ({
+            name: "TRANSFER_TO_MIDNIGHT",
+            type: PrimitiveTypeEVMERC20,
+            startBlockHeight: 0,
+            contractAddress: contractAddressesEvmMain()
+                .chain31337["${contractPackageName}Module#${contractPackageName}"],
+            stateMachinePrefix: "transfer-erc20",
+            })
+          )
+        `;
     }
 }

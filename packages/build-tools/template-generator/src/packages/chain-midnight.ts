@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { Package, PackageInfo } from './abstract-package.ts';
-import { Chain, PAIMA_VERSION } from '../options.ts';
+import { Chain, EFFECTSTREAM_VERSION } from '../options.ts';
 import { scaffoldMidnightProject } from '@effectstream/midnight-contracts/scaffold';
 import { scaffoldMidnightContract } from '@effectstream/midnight-contracts/scaffold-contract';
 import { DenoJsonFile } from '../file-types/index.ts';
@@ -56,7 +56,7 @@ export class ChainMidnightPackage extends Package {
         const packageInfo = await scaffoldMidnightProject(
             chainPath, 
             this.options.projectName, 
-            PAIMA_VERSION,
+            EFFECTSTREAM_VERSION,
             this.options.contracts.midnight?.map(contract => ({
                 safeCodeName: ChainMidnightPackage.safeCodeContractName(contract),
                 safePackageName: ChainMidnightPackage.safePackageName(contract),
@@ -75,7 +75,7 @@ export class ChainMidnightPackage extends Package {
                 this.options.projectName, 
                 safeCodeContractName,
                 safePackageName,
-                PAIMA_VERSION
+                EFFECTSTREAM_VERSION
             );
             subPackages.push(contractInfo);
         }

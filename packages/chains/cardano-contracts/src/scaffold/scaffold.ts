@@ -22,7 +22,7 @@ export async function copyFiles(
         if (file.isDirectory) {
             continue;
         }
-        let finalName = file.name.replace(".rename", "");
+        let finalName = file.name.replace(/.rename$/, "");
         if (config.replaceFileNames?.[finalName]) {
             finalName = config.replaceFileNames[finalName];
         }
@@ -64,18 +64,25 @@ function currentDir(): string {
     return path.dirname(path.fromFileUrl(import.meta.url));
 }
 
-export async function scaffoldAvailProject(
+export async function scaffoldCardanoProject(
     targetFolder: string, 
     packageName: string, 
-    version: string
+    version: string,
+    contracts: {
+        safeCodeName: string,
+        safePackageName: string,
+    }[]
 ): Promise<{
     name: string;
     path: string;
 }> {
-    const fullPackageName = `@${packageName}/avail-contracts`;
+    const fullPackageName = `@${packageName}/cardano-contracts`;
 
     const folders = [
+        [""], 
         [""],
+        ["config"],
+        ["temp"],
     ];
 
     for (const folder of folders) {
@@ -83,14 +90,14 @@ export async function scaffoldAvailProject(
     }
 
     for (const folder of folders) {
-        await copyFiles(path.join(
-            currentDir(), "template", ...folder), 
+        await copyFiles(
+            path.join(currentDir(), "template", ...folder), 
             path.join(targetFolder, ...folder), 
             {
                 replacements: {
                     "scope": packageName,
                     "EFFECTSTREAM-VERSION": version
-                }
+                },
             }
         );
     }
@@ -124,8 +131,7 @@ if (import.meta.main) {
             version: version.trim()
         };
     }
-    
     checkInputs(Deno.args);
     const { targetFolder, packageName, version } = checkInputs(Deno.args);
-    await scaffoldCaradanoProject(targetFolder, packageName, version);
+    await scaffoldCardanoProject(targetFolder, packageName, version);
 }

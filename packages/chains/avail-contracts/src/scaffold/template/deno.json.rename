@@ -5,10 +5,10 @@
         ".": "./read-app.ts"
     },
     "tasks": {
-        "avail-node:start": "deno run -A --unstable-detect-cjs @jsr:@paimaexample/npm-avail-node --dev --rpc-port 9955 --no-telemetry",
+        "avail-node:start": "deno run -A --unstable-detect-cjs npm:@paimaexample/npm-avail-node --dev --rpc-port 9955 --no-telemetry",
         "avail-node:wait": "wait-on tcp:9955",
         "avail-light-client:deploy": "deno task avail-light-client:clean && deno run -A --unstable-detect-cjs ./deploy.ts",
-        "avail-light-client:start": "deno run -A --unstable-detect-cjs @jsr:@paimaexample/npm-avail-light-client --config ./config.yml --app-id $AVAIL_APP_ID",
+        "avail-light-client:start": "deno run -A --unstable-detect-cjs npm:@paimaexample/npm-avail-light-client --config ./config.yml --app-id $AVAIL_APP_ID",
         "avail-light-client:wait": "wait-on tcp:7007",
         "avail-light-client:clean": "rm -rf ./avail_path"
       },
