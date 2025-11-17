@@ -11,6 +11,7 @@ export const PrimitiveTypeEVMERC1155 = "EVM:ERC1155" as const;
 // export const PrimitiveTypeEVMGeneric = "EVM:Generic" as const;
 
 export const PrimitiveTypeAvailGeneric = "AVAIL:Generic" as const;
+export const PrimitiveTypeBitcoinAddress = "BITCOIN:Address" as const;
 
 type BuiltInPrimitives = 
     typeof PrimitiveTypeMidnightGeneric | 
@@ -18,7 +19,8 @@ type BuiltInPrimitives =
     typeof PrimitiveTypeEVMERC721 |
     typeof PrimitiveTypeEVMERC20 |
     typeof PrimitiveTypeAvailGeneric |
-    typeof PrimitiveTypeEVMERC1155 // |
+    typeof PrimitiveTypeEVMERC1155 |
+    typeof PrimitiveTypeBitcoinAddress // |
     // typeof PrimitiveTypeEVMGeneric
 ;
 

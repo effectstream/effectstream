@@ -25,6 +25,7 @@ const DEFAULT_CONFIG = `
 server=1
 regtest=1
 fallbackfee=0.00001
+txindex=1
 
 [regtest]
 rpcuser=dev
@@ -75,4 +76,19 @@ export async function run(options = {}) {
     configPath,
     stop: () => child.kill(),
   };
+}
+
+if (import.meta.main) {
+  const cliArgs = process.argv.slice(2);
+  const verbose = cliArgs.includes("--verbose");
+
+  (async () => {
+    try {
+      console.log("Starting Bitcoin Core regtest...");
+      await run({ verbose });
+    } catch (error) {
+      console.error("Failed to start Bitcoin Core:", error);
+      process.exit(1);
+    }
+  })();
 }

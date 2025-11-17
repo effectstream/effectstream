@@ -8,4 +8,5 @@ export enum ConfigNetworkType {
   SUBSTRATE = "substrate",
   AVAIL = "avail",
   MIDNIGHT = "midnight",
+  BITCOIN = "bitcoin",
 }

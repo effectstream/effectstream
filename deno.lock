@@ -129,6 +129,7 @@
     "npm:@opentelemetry/semantic-conventions@1.28.0": "1.28.0",
     "npm:@openzeppelin/contracts-upgradeable@^5.1.0": "5.4.0_@openzeppelin+contracts@5.1.0",
     "npm:@openzeppelin/contracts@5.1.0": "5.1.0",
+    "npm:@paima/pgtyped-cli@2.4.5": "2.4.5_typescript@5.6.3_fp-ts@2.16.11_io-ts@2.2.22__fp-ts@2.16.11_chokidar@4.0.1",
     "npm:@paima/pgtyped-cli@^2.4.5": "2.4.5_typescript@5.6.3_fp-ts@2.16.11_io-ts@2.2.22__fp-ts@2.16.11_chokidar@4.0.1",
     "npm:@paimaexample/grafana-loki@*": "0.3.105",
     "npm:@perawallet/connect@^1.4.2": "1.4.2_algosdk@3.5.2",
@@ -169,14 +170,19 @@
     "npm:axios@^1.6.8": "1.13.2",
     "npm:bech32@2": "2.0.0",
     "npm:bitcoind-rpc@*": "0.9.1",
+    "npm:bitcoinjs-lib@*": "6.1.7",
+    "npm:bitcoinjs-lib@6.1.5": "6.1.5",
     "npm:bs58@6": "6.0.0",
     "npm:bs58check@4": "4.0.0",
     "npm:buffer@^6.0.3": "6.0.3",
     "npm:chalk@5.4.1": "5.4.1",
     "npm:clsx@2": "2.1.1",
     "npm:concurrently@9.1.2": "9.1.2",
+    "npm:crypto@*": "1.0.1",
     "npm:denque@^2.1.0": "2.1.0",
     "npm:docusaurus-plugin-remote-content@4": "4.0.0_@docusaurus+core@3.8.1__@mdx-js+react@3.1.1___@types+react@19.1.0___react@18.3.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@types+react@19.1.0__webpack@5.102.1___acorn@8.15.0__react-router@5.3.4___react@18.3.1__typescript@5.6.3_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@19.1.0_typescript@5.6.3",
+    "npm:ecpair@*": "2.1.0",
+    "npm:ecpair@2.1.0": "2.1.0",
     "npm:effection@3.5.0": "3.5.0",
     "npm:effection@^3.5.0": "3.6.1",
     "npm:ethers@^6.15.0": "6.15.0",
@@ -224,6 +230,8 @@
     "npm:superjson@^2.2.1": "2.2.5",
     "npm:tailwindcss@^3.4.1": "3.4.18_postcss@8.5.6_jiti@1.21.7",
     "npm:tar@^6.2.0": "6.2.1",
+    "npm:tiny-secp256k1@*": "2.2.4",
+    "npm:tiny-secp256k1@2.2.3": "2.2.3",
     "npm:tslog@^4.9.3": "4.10.2",
     "npm:typescript@~5.6.2": "5.6.3",
     "npm:viem@*": "2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
@@ -238,6 +246,7 @@
     "npm:vite@^6.3.2": "6.4.1_picomatch@4.0.3_@types+node@24.2.0",
     "npm:vitest@^3.2.4": "3.2.4_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
     "npm:wagmi@^2.16.9": "2.19.2_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1",
+    "npm:wait-on@*": "8.0.3",
     "npm:wait-on@8.0.3": "8.0.3",
     "npm:web3-utils@^4.3.3": "4.3.3",
     "npm:web3@^4.16.0": "4.16.0_typescript@5.6.3",
@@ -5653,7 +5662,7 @@
         "bip32",
         "bip322-js",
         "bip39",
-        "bitcoinjs-lib",
+        "bitcoinjs-lib@6.1.7",
         "bitcoinjs-message",
         "buffer-reverse",
         "cross-fetch@3.2.0",
@@ -8671,7 +8680,7 @@
       "integrity": "sha512-e++avAwHuVhygO6w6BqAYs5BdR4mAtm5z/eKaGwBQqu2YseXzuVxRxyVMspZdVpp58BUatyTTW5hVtFO/IpsiA==",
       "dependencies": [
         "@bitcoinerlab/secp256k1",
-        "bitcoinjs-lib",
+        "bitcoinjs-lib@6.1.7",
         "bitcoinjs-message",
         "ecpair",
         "elliptic",
@@ -8702,6 +8711,17 @@
     },
     "bitcoind-rpc@0.9.1": {
       "integrity": "sha512-fWjepYe3I6W8pw8WiDUrHAMKZXyRqtm6HfcUaDeLAQLr1KoKcVzqR4xzdJFJgUMBShNmN4GRMg0rLFr6ZKGZ6A=="
+    },
+    "bitcoinjs-lib@6.1.5": {
+      "integrity": "sha512-yuf6xs9QX/E8LWE2aMJPNd0IxGofwfuVOiYdNUESkc+2bHHVKjhJd8qewqapeoolh9fihzHGoDCB5Vkr57RZCQ==",
+      "dependencies": [
+        "@noble/hashes@1.8.0",
+        "bech32@2.0.0",
+        "bip174",
+        "bs58check@3.0.1",
+        "typeforce",
+        "varuint-bitcoin"
+      ]
     },
     "bitcoinjs-lib@6.1.7": {
       "integrity": "sha512-tlf/r2DGMbF7ky1MgUqXHzypYHakkEnm0SZP23CJKIqNY/5uNAnMbFhMJdhjrL/7anfb/U8+AlpdjPWjPnAalg==",
@@ -9742,6 +9762,10 @@
       "dependencies": [
         "type-fest@1.4.0"
       ]
+    },
+    "crypto@1.0.1": {
+      "integrity": "sha512-VxBKmeNcqQdiUQUW2Tzq0t377b54N2bMtXO/qiLa+6eRRmmC4qT3D4OnTGoT/U6O9aklQ/jTwbOtRMTTY8G0Ig==",
+      "deprecated": true
     },
     "css-blank-pseudo@7.0.1_postcss@8.5.6": {
       "integrity": "sha512-jf+twWGDf6LDoXDUode+nc7ZlrqfaNphrBIBrcmeP3D8yw1uPaix1gCC8LUQUGQ6CycuK2opkbFFWFuq/a94ag==",
@@ -17435,6 +17459,18 @@
     "tiny-invariant@1.3.3": {
       "integrity": "sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg=="
     },
+    "tiny-secp256k1@2.2.3": {
+      "integrity": "sha512-SGcL07SxcPN2nGKHTCvRMkQLYPSoeFcvArUSCYtjVARiFAWU44cCIqYS0mYAU6nY7XfvwURuTIGo2Omt3ZQr0Q==",
+      "dependencies": [
+        "uint8array-tools"
+      ]
+    },
+    "tiny-secp256k1@2.2.4": {
+      "integrity": "sha512-FoDTcToPqZE454Q04hH9o2EhxWsm7pOSpicyHkgTwKhdKWdsTUuqfP5MLq3g+VjAtl2vSx6JpXGdwA2qpYkI0Q==",
+      "dependencies": [
+        "uint8array-tools"
+      ]
+    },
     "tiny-warning@1.0.3": {
       "integrity": "sha512-lBN9zLN/oAf68o3zNXYrdCt1kP8WsiGW8Oo2ka41b2IM5JL/S1CTyX1rW0mb/zSuJun0ZUrDxx4sqvYS2FWzPA=="
     },
@@ -17614,6 +17650,9 @@
     },
     "uint8array-extras@1.5.0": {
       "integrity": "sha512-rvKSBiC5zqCCiDZ9kAOszZcDvdAHwwIKJG33Ykj43OKcWsnmcBRL09YTU4nOeHZ8Y2a7l1MgTd08SBe9A8Qj6A=="
+    },
+    "uint8array-tools@0.0.7": {
+      "integrity": "sha512-vrrNZJiusLWoFWBqz5Y5KMCgP9W9hnjZHzZiZRT8oNAkq3d5Z5Oe76jAvVVSRh4U8GGR90N2X1dWtrhvx6L8UQ=="
     },
     "uint8arrays@3.1.0": {
       "integrity": "sha512-ei5rfKtoRO8OyOIor2Rz5fhzjThwIHJZ3uyDPnDHTXbP0aMQ1RN/6AI5B5d9dBxJOU+BvOAk7ZQ1xphsX8Lrog==",
@@ -19236,10 +19275,13 @@
           "npm:@sinclair/typebox@*",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:avail-js-sdk@~0.4.2",
+          "npm:bitcoinjs-lib@*",
+          "npm:ecpair@*",
           "npm:effection@^3.5.0",
           "npm:fastify@^5.4.0",
           "npm:pg@^8.14.0",
           "npm:rxjs@*",
+          "npm:tiny-secp256k1@*",
           "npm:viem@2.37.3",
           "npm:ws@*"
         ]
@@ -19278,6 +19320,13 @@
       "e2e/shared/contracts/avail": {
         "dependencies": [
           "npm:avail-js-sdk@~0.4.2"
+        ]
+      },
+      "e2e/shared/contracts/bitcoin": {
+        "dependencies": [
+          "npm:bitcoinjs-lib@6.1.5",
+          "npm:ecpair@2.1.0",
+          "npm:tiny-secp256k1@2.2.3"
         ]
       },
       "e2e/shared/contracts/cardano": {

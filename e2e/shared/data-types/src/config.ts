@@ -18,6 +18,7 @@ import {
   PrimitiveTypeEVMERC721,
   PrimitiveTypeEVMPaimaL2,
   PrimitiveTypeMidnightGeneric,
+  PrimitiveTypeBitcoinAddress,
 } from "@effectstream/sm/builtin";
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
@@ -38,6 +39,12 @@ const midnight_enabled = Deno
 const avail_enabled = Deno
   ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
   : true;
+
+// NOTE: This disable bitcoin sync, allowing for faster testing.
+const bitcoin_enabled = Deno
+  ? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
+  : true;
+
 /**
  * Let check if the db.
  * If empty then the db is not initialized, and use the current time for the NTP sync.
@@ -129,6 +136,19 @@ export const localhostConfig = new ConfigBuilder()
           nodeUrl: "http://127.0.0.1:10000", // yaci-devkit default URL
           network: "yaci",
         });
+    }
+    if (bitcoin_enabled) {
+      b = b.addNetwork({
+        name: "bitcoin",
+        type: ConfigNetworkType.BITCOIN,
+        rpcUrl: "http://127.0.0.1:18443", // bitcoin core address
+        rpcAuth: {
+          username: "dev",
+          password: "devpassword",
+        },
+        network: "regtest",
+        chainIdentifier: "regtest",
+      });
     }
     return b;
   })
@@ -238,6 +258,21 @@ export const localhostConfig = new ConfigBuilder()
             delayMs: 20000,
           }),
         );
+    }
+
+    if (bitcoin_enabled) {
+      result = result.addParallel(
+        (networks) => (networks as any).bitcoin,
+        (network, deployments) => ({
+          name: "parallelBitcoin",
+          type: ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL,
+          rpcUrl: "http://127.0.0.1:18443", // bitcoin core address
+          startBlockHeight: 0 as BlockNumber,
+          delayMs: 20000,
+          pollingInterval: 10_000,
+          confirmationDepth: 0,
+        }),
+      );
     }
 
     return result;
@@ -364,6 +399,18 @@ export const localhostConfig = new ConfigBuilder()
             networkId: 0, // NetworkId.Undeployed,
           }),
         );
+    }
+    if (bitcoin_enabled) {
+      builder = builder.addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelBitcoin,
+        (network, deployments, syncProtocol) => ({
+          name: "BitcoinAddress",
+          type: PrimitiveTypeBitcoinAddress,
+          startBlockHeight: 101,
+          watchAddress: "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03",
+          stateMachinePrefix: "bitcoin-transaction",
+        }),
+      );
     }
     return builder;
   })

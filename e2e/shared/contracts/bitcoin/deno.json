@@ -1,0 +1,16 @@
+{
+  "name": "@e2e/bitcoin-contracts",
+  "version": "0.3.0",
+  "exports": {
+    ".": "./generate-blocks.ts"
+  },
+  "tasks": {
+    "generate-blocks": "deno run -A generate-blocks.ts",
+    "wait": "wait-on tcp:18443"
+  },
+  "imports": {
+    "bitcoinjs-lib": "npm:bitcoinjs-lib@6.1.5",
+    "ecpair": "npm:ecpair@2.1.0",
+    "tiny-secp256k1": "npm:tiny-secp256k1@2.2.3"
+  }
+}

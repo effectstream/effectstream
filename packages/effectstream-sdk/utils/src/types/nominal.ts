@@ -28,13 +28,15 @@ export type EvmBlockNumber = FastFlavor<number, "EvmBlockNumber">;
 export type NtpBlockNumber = FastFlavor<number, "NtpBlockNumber">;
 export type MidnightBlockNumber = FastFlavor<number, "MidnightBlockNumber">;
 export type CardanoBlockNumber = FastFlavor<number, "CardanoBlockNumber">;
+export type BitcoinBlockNumber = FastFlavor<number, "BitcoinBlockNumber">;
 
 export type BlockNumber =
   | PaimaBlockNumber
   | EvmBlockNumber
   | NtpBlockNumber
   | MidnightBlockNumber
-  | CardanoBlockNumber;
+  | CardanoBlockNumber
+  | BitcoinBlockNumber;
 
 /**
  * recall: slots may be empty, so absolute slot number is not usually equal to block number
@@ -100,6 +102,10 @@ export type MinaAddress = FastFlavor<string, "MinaAddress">;
 // TODO: close to the regex /^[1-9A-HJ-NP-Za-km-z]{47,48}$/
 export type SubstrateAddress = FastFlavor<string, "SubstrateAddress">;
 
+export type BitcoinBlockHash = FastFlavor<string, "BitcoinBlockHash">;
+export type BitcoinTxId = FastFlavor<string, "BitcoinTxId">;
+export type BitcoinAddress = FastFlavor<string, "BitcoinAddress">;
+
 export type WalletAddress =
   | AlgorandAddress
   | AvailAddress
@@ -107,7 +113,8 @@ export type WalletAddress =
   | EvmAddress
   | MidnightAddress
   | MinaAddress
-  | SubstrateAddress;
+  | SubstrateAddress
+  | BitcoinAddress;
 
 /**
  * TODO: probably best to make this more granular to different cryptographic schemes
@@ -139,7 +146,8 @@ export type BlockHash =
   | MidnightBlockHash
   | MinaBlockHash
   | PaimaBlockHash
-  | NtpBlockHash;
+  | NtpBlockHash
+  | BitcoinBlockHash;
 // | SubstrateBlockHash;
 
 export type NtpPageJson = FastFlavor<string, "NTPPageJson">;
