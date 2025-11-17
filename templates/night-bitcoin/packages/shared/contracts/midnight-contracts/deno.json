@@ -2,7 +2,7 @@
     "name": "@night-bitcoin/midnight-contracts",
     "version": "0.3.0",
     "exports": {
-        "./[contract-name]": "./contract-[contract-name]/src/index.original.ts"
+        "./transfer-funds": "./transfer-funds.ts"
     },
     "tasks": {
         "midnight-node:start": "CFG_PRESET=dev deno run -A --unstable-detect-cjs npm:@paimaexample/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",

@@ -48,87 +48,87 @@ const customProcesses: any[] = [
 ]
 
 
-const launchMidnight_ = (packageName: string): {
-  stopProcessAtPort?: number[];
-  name: string;
-  args: string[];
-  waitToExit?: boolean;
-  logs?: string;
-  type?: string;
-  dependsOn?: string[];
-}[] => [
-    {
-      stopProcessAtPort: [9944, 8088, 6300],
-      name: ComponentNames.MIDNIGHT_NODE,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-node:start",
-      ],
-      waitToExit: false,
-      type: "system-dependency",
-      logs: "raw",
-      dependsOn: [],
-    },
-    {
-      name: ComponentNames.MIDNIGHT_INDEXER,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-indexer:start",
-      ],
-      waitToExit: false,
-      type: "system-dependency",
-      logs: "raw",
-      dependsOn: [ComponentNames.MIDNIGHT_NODE],
-    },
-    {
-      name: ComponentNames.MIDNIGHT_PROOF_SERVER,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-proof-server:start",
-      ],
-      waitToExit: false,
-      type: "system-dependency",
-      logs: "raw",
-      dependsOn: [ComponentNames.MIDNIGHT_NODE]
-    },
-    {
-      name: ComponentNames.MIDNIGHT_NODE_WAIT,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-node:wait",
-      ],
-      dependsOn: [ComponentNames.MIDNIGHT_NODE],
-    },
-    {
-      name: ComponentNames.MIDNIGHT_INDEXER_WAIT,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-indexer:wait",
-      ],
-      dependsOn: [ComponentNames.MIDNIGHT_INDEXER],
-    },
-    {
-      name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-proof-server:wait",
-      ],
-      dependsOn: [ComponentNames.MIDNIGHT_PROOF_SERVER],
-    },
+// const launchMidnight_ = (packageName: string): {
+//   stopProcessAtPort?: number[];
+//   name: string;
+//   args: string[];
+//   waitToExit?: boolean;
+//   logs?: string;
+//   type?: string;
+//   dependsOn?: string[];
+// }[] => [
+//     {
+//       stopProcessAtPort: [9944, 8088, 6300],
+//       name: ComponentNames.MIDNIGHT_NODE,
+//       args: [
+//         "task",
+//         "-f",
+//         packageName,
+//         "midnight-node:start",
+//       ],
+//       waitToExit: false,
+//       type: "system-dependency",
+//       logs: "raw",
+//       dependsOn: [],
+//     },
+//     {
+//       name: ComponentNames.MIDNIGHT_INDEXER,
+//       args: [
+//         "task",
+//         "-f",
+//         packageName,
+//         "midnight-indexer:start",
+//       ],
+//       waitToExit: false,
+//       type: "system-dependency",
+//       logs: "raw",
+//       dependsOn: [ComponentNames.MIDNIGHT_NODE],
+//     },
+//     {
+//       name: ComponentNames.MIDNIGHT_PROOF_SERVER,
+//       args: [
+//         "task",
+//         "-f",
+//         packageName,
+//         "midnight-proof-server:start",
+//       ],
+//       waitToExit: false,
+//       type: "system-dependency",
+//       logs: "raw",
+//       dependsOn: [ComponentNames.MIDNIGHT_NODE]
+//     },
+//     {
+//       name: ComponentNames.MIDNIGHT_NODE_WAIT,
+//       args: [
+//         "task",
+//         "-f",
+//         packageName,
+//         "midnight-node:wait",
+//       ],
+//       dependsOn: [ComponentNames.MIDNIGHT_NODE],
+//     },
+//     {
+//       name: ComponentNames.MIDNIGHT_INDEXER_WAIT,
+//       args: [
+//         "task",
+//         "-f",
+//         packageName,
+//         "midnight-indexer:wait",
+//       ],
+//       dependsOn: [ComponentNames.MIDNIGHT_INDEXER],
+//     },
+//     {
+//       name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
+//       args: [
+//         "task",
+//         "-f",
+//         packageName,
+//         "midnight-proof-server:wait",
+//       ],
+//       dependsOn: [ComponentNames.MIDNIGHT_PROOF_SERVER],
+//     },
     
-  ];
+//   ];
 
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
@@ -147,7 +147,7 @@ const config = Value.Parse(OrchestratorConfig, {
     
 
     
-    ...launchMidnight_("@night-bitcoin/midnight-contracts"),
+    ...launchMidnight("@night-bitcoin/midnight-contracts"),
     
 
 

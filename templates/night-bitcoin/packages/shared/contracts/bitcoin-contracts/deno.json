@@ -1,6 +1,10 @@
 {
   "name": "@night-bitcoin/bitcoin-contracts",
   "exports": {
-    ".": "./src/mod.ts"
+    ".": "./src/mod.ts",
+    "./transfer-funds": "./transfer-funds.ts"
+  },
+  "tasks": {
+    "transfer-funds": "deno run -A transfer-funds.ts"
   }
 }

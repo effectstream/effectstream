@@ -7,6 +7,11 @@ import "base-contracts/src/access/Ownable" prefix Ownable_;
 // THIS IS A EXAMPLE CONTRACT FOR DEMONSTRATION PURPOSES ONLY
 // DO NOT USE THIS CONTRACT IN PRODUCTION
 
+export ledger lastIntentType: Uint<8>;
+export ledger lastIntentEvent: Intent;
+export ledger lastFillerEvent: Either<ZswapCoinPublicKey, ContractAddress>;
+export ledger lastIntentOrderId: Bytes<32>;
+
 // Represents a cross-chain intent, based on a simplified ERC-7683 `ResolvedCrossChainOrder`.
 struct Intent {
   user: Either<ZswapCoinPublicKey, ContractAddress>;
@@ -92,7 +97,9 @@ export circuit initialize(
     originData: originData,
     status: 0,
   };
-
+  lastIntentOrderId = disclose(orderId);
+  lastIntentType = 0;
+  lastIntentEvent = disclose(newIntent);
   intents.insert(disclose(orderId), disclose(newIntent));
 }
 
@@ -125,6 +132,9 @@ export circuit validate_initialize(orderId: Bytes<32>): [] {
     originData: intent.originData,
     status: 1, // validated_initialized
   };
+  lastIntentOrderId = disclose(orderId);
+  lastIntentType = 1;
+  lastIntentEvent = disclose(updatedIntent);
   intents.insert(disclose(orderId), disclose(updatedIntent));
 }
 
@@ -160,6 +170,11 @@ export circuit resolve(orderId: Bytes<32>): [] {
     originData: intent.originData,
     status: 2, // resolved
   };
+  lastIntentOrderId = disclose(orderId);
+  lastIntentType = 2;
+  lastIntentEvent = disclose(updatedIntent);
+  lastFillerEvent = disclose(fillerEither);
+
   intents.insert(disclose(orderId), disclose(updatedIntent));
   fillers.insert(disclose(orderId), disclose(fillerEither));
 }
@@ -198,6 +213,9 @@ export circuit validate_resolve(orderId: Bytes<32>): [] {
     originData: intent.originData,
     status: 3, // validated_resolved
   };
+  lastIntentOrderId = disclose(orderId);
+  lastIntentType = 3;
+  lastIntentEvent = disclose(updatedIntent);
   intents.insert(disclose(orderId), disclose(updatedIntent));
 }
 

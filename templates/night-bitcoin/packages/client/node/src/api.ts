@@ -231,5 +231,59 @@ export const apiRouter: StartConfigApiRouter = function (
   //       message,
   //     };
   //   });
+
+  const FaucetQueryParamsSchema = Type.Object({
+    address: Type.String(),
+  });
+  const FaucetResponseSchema = Type.Object({
+    status: Type.String(),
+    message: Type.String(),
+  });
+  /** This is a faucet endpoint to get funds in the midnight network */
+  let isRunning = false;
+  server.get<{
+    Querystring: Static<typeof FaucetQueryParamsSchema>;
+    Reply: Static<typeof FaucetResponseSchema>;
+  }>("/api/faucet", async (request) => {
+    // This is unsafe, but it's only used for development purposes.
+    if (isRunning) {
+      return {
+        status: "error",
+        message: "Faucet is already running",
+      };
+    }
+    const { address } = request.query;
+    // TODO Validate if the address is valid midnight address
+    let status = "success";
+    let message = "";
+    try {
+      isRunning = true;
+      const command = new Deno.Command(Deno.execPath(), {
+        env: {
+          MIDNIGHT_ADDRESS: address,
+        },
+        args: [
+          "task",
+          "-f",
+          "@night-bitcoin/midnight-contracts",
+          "midnight-faucet:start",
+        ],
+      });
+      const { code, stdout, stderr } = await command.output();
+      status = "done";
+      message = "Faucet successfully completed";
+    } catch (error: any) {
+      status = "error";
+      message = String(error);
+    } finally {
+      isRunning = false;
+    }
+
+    return {
+      status,
+      message,
+    };
+  });
+
   return Promise.resolve();
 };

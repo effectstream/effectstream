@@ -50,7 +50,9 @@ const configs: DeployConfig[] = [
 
 
 const start = async () => {
-  await Promise.all(configs.map(config => deployMidnightContract(config)));
+  for (const config of configs) {
+    await deployMidnightContract(config);
+  }
 }
 
 start()

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "./App.css";
+import * as paima from './paima.ts';
 
 // Mock data for tokens and quotes
 const tokens = [
@@ -49,7 +50,9 @@ function App() {
   const [quotes, setQuotes] = useState<any[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [showPopup, setShowPopup] = useState(false);
+  const [popup, setPopup] = useState({ show: false, title: '', message: '' });
+  const [midnightWallet, setMidnightWallet] = useState<any>(null);
+  const [midnightAddress, setMidnightAddress] = useState('');
 
   useEffect(() => {
     setQuotes([]);
@@ -98,16 +101,61 @@ function App() {
     }
   };
 
+  const handleMidnightLogin = async () => {
+    setLoading(true);
+    try {
+      const data = await paima.loginMidnight();
+
+      paima.createIntent(data.contract.erc7683, data.addr, BigInt(amount));
+
+      setMidnightWallet(data.wallet);
+      setMidnightAddress(data.addr);
+    } catch (error) {
+      console.error("Failed to connect Midnight wallet:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDustFromFaucet = async () => {
+    if (!midnightAddress) {
+      alert('Please connect Midnight wallet first.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:9999/api/faucet?address=${midnightAddress}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Faucet request failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      setPopup({
+        show: true,
+        title: 'Faucet Success!',
+        message: 'Successfully received DUST from faucet! Your balance will update shortly.',
+      });
+    } catch (error) {
+      console.error('Failed to get DUST from faucet:', error);
+      alert(`Failed to get DUST from faucet. Check the console for details.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSwapNow = () => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      setShowPopup(true);
+      setPopup({
+        show: true,
+        title: 'Swap Successful!',
+        message: 'Your transaction has been completed.',
+      });
     }, 2000); // Simulate a 2-second swap process
   };
 
   const closePopup = () => {
-    setShowPopup(false);
+    setPopup({ show: false, title: '', message: '' });
     setQuotes([]);
     setSelectedQuote(null);
   };
@@ -117,7 +165,18 @@ function App() {
       <header className="app-header">
         <div className="header-container">
           <div className="wallet-buttons">
-            <button type="button" className="wallet-button">Connect Midnight Wallet</button>
+            {midnightAddress ? (
+              <>
+                <button type="button" className="wallet-button" disabled>
+                  {`Midnight: ${midnightAddress.substring(0, 12)}...${midnightAddress.substring(midnightAddress.length - 8)}`}
+                </button>
+                <button type="button" className="wallet-button" onClick={getDustFromFaucet}>
+                  Get DUST from Faucet
+                </button>
+              </>
+            ) : (
+                <button type="button" className="wallet-button" onClick={handleMidnightLogin}>Connect Midnight Wallet</button>
+            )}
             <button type="button" className="wallet-button">Connect Bitcoin Wallet</button>
           </div>
         </div>
@@ -207,11 +266,11 @@ function App() {
           </div>
         )}
 
-        {showPopup && (
+        {popup.show && (
           <div className="popup-overlay">
             <div className="popup">
-              <h3>Swap Successful!</h3>
-              <p>Your transaction has been completed.</p>
+              <h3>{popup.title}</h3>
+              <p>{popup.message}</p>
               <button type="button" onClick={closePopup}>Close</button>
             </div>
           </div>

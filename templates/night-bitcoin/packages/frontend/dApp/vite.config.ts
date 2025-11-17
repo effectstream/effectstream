@@ -76,54 +76,109 @@ export default defineConfig({
     wasm(),
     viteStaticCopy({
       targets: [
-        // {
-        //   src: normalizePath(
-        //     path.resolve(
-        //       "..",
-        //       "shared",
-        //       "contracts",
-        //       "midnight",
-        //       "contract-eip-1155",
-        //       "src",
-        //       "managed",
-        //       "multichain_multitoken",
-        //       "keys",
-        //       "*",
-        //     ),
-        //   ),
-        //   // src: "src/contract-round-value/src/managed/counter/keys/*",
-        //   dest: "keys",
-        // },
-        // {
-        //   src: normalizePath(
-        //     path.resolve(
-        //       "..",
-        //       "shared",
-        //       "contracts",
-        //       "midnight",
-        //       "contract-eip-1155",
-        //       "src",
-        //       "managed",
-        //       "multichain_multitoken",
-        //       "zkir",
-        //       "*",
-        //     ),
-        //   ),
-        //   // src: "src/contract-round-value/src/managed/counter/zkir/*",
-        //   dest: "zkir",
-        // },
-        // {
-        //   src: normalizePath(
-        //     path.resolve(
-        //       "..",
-        //       "shared",
-        //       "contracts",
-        //       "midnight",
-        //       "contract.json",
-        //     ),
-        //   ),
-        //   dest: "contract_address",
-        // },
+        {
+          src: normalizePath(
+            path.resolve(
+              "..",
+              "..",
+              "shared",
+              "contracts",
+              "midnight-contracts",
+              "unshielded-erc20",
+              "src",
+              "managed",
+              "unshielded-erc20",
+              "keys",
+              "*",
+            ),
+          ),
+          // src: "src/contract-round-value/src/managed/counter/keys/*",
+          dest: "keys",
+        },
+        {
+          src: normalizePath(
+            path.resolve(
+              "..",
+              "..",
+              "shared",
+              "contracts",
+              "midnight-contracts",
+              "unshielded-erc20",
+              "src",
+              "managed",
+              "unshielded-erc20",
+              "zkir",
+              "*",
+            ),
+          ),
+          // src: "src/contract-round-value/src/managed/counter/zkir/*",
+          dest: "zkir",
+        },
+        {
+          src: normalizePath(
+            path.resolve(
+              "..",
+              "..",
+              "shared",
+              "contracts",
+              "midnight-contracts",
+              "contract-unshielded-erc20.json",
+            ),
+          ),
+          dest: "contract_address",
+        },
+
+        {
+          src: normalizePath(
+            path.resolve(
+              "..",
+              "..",
+              "shared",
+              "contracts",
+              "midnight-contracts",
+              "erc7683",
+              "src",
+              "managed",
+              "erc7683",
+              "keys",
+              "*",
+            ),
+          ),
+          // src: "src/contract-round-value/src/managed/counter/keys/*",
+          dest: "keys",
+        },
+        {
+          src: normalizePath(
+            path.resolve(
+              "..",
+              "..",
+              "shared",
+              "contracts",
+              "midnight-contracts",
+              "erc7683",
+              "src",
+              "managed",
+              "erc7683",
+              "zkir",
+              "*",
+            ),
+          ),
+          // src: "src/contract-round-value/src/managed/counter/zkir/*",
+          dest: "zkir",
+        },
+        {
+          src: normalizePath(
+            path.resolve(
+              "..",
+              "..",
+              "shared",
+              "contracts",
+              "midnight-contracts",
+              "contract-erc7683.json",
+            ),
+          ),
+          dest: "contract_address",
+        },
       ],
     }),
   ],
