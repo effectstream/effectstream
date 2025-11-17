@@ -1,136 +1,211 @@
-// MultiChainMultiToken.compact
+// ERC-7683 Cross-Chain Intents Contract for Midnight
 pragma language_version >= 0.17.0;
 
 import CompactStandardLibrary;
+import "base-contracts/src/access/Ownable" prefix Ownable_;
 
+// THIS IS A EXAMPLE CONTRACT FOR DEMONSTRATION PURPOSES ONLY
+// DO NOT USE THIS CONTRACT IN PRODUCTION
 
-// START OF SIMPLE CONTRACT TEMPLATE
-// public state
-export ledger round: Counter;
+// Represents a cross-chain intent, based on a simplified ERC-7683 `ResolvedCrossChainOrder`.
+struct Intent {
+  user: Either<ZswapCoinPublicKey, ContractAddress>;
+  originChainId: Uint<128>;
+  openDeadline: Uint<32>;
+  fillDeadline: Uint<32>;
+  
+  // Simplified `maxSpent` (assuming one output)
+  maxSpent_token: Bytes<32>;
+  maxSpent_amount: Uint<128>;
+  maxSpent_recipient: Bytes<32>;
+  maxSpent_chainId: Uint<128>;
 
-// transition function changing public state
-export circuit increment(): [] {
-  round.increment(1);
+  // Simplified `minReceived` (assuming one output)
+  minReceived_token: Bytes<32>;
+  minReceived_amount: Uint<128>;
+  minReceived_recipient: Bytes<32>;
+  minReceived_chainId: Uint<128>;
+
+  // Simplified `fillInstructions` (assuming one instruction)
+  destinationChainId: Uint<64>;
+  destinationSettler: Bytes<32>;
+  originData: Bytes<256>;
+
+  // Status of the intent:
+  // 0: Initialized
+  // 1: Validated Initialized (funds locked)
+  // 2: Resolved
+  // 3: Validated Resolved (filler paid)
+  status: Uint<8>;
 }
-// END OF SIMPLE CONTRACT TEMPLATE
 
+export ledger intents: Map<Bytes<32>, Intent>;
+export ledger fillers: Map<Bytes<32>, Either<ZswapCoinPublicKey, ContractAddress>>;
 
-// import CompactStandardLibrary;
-// import "./base-contracts/src/token/MultiToken"
-//   prefix MultiToken_;
-// import "./base-contracts/src/access/Ownable"
-//   prefix Ownable_;
+constructor(initialOwner: Either<ZswapCoinPublicKey, ContractAddress>) {
+  Ownable_initialize(initialOwner);
+}
 
-// struct LastTransfer {
-//   target_address: Opaque<'string'>;
-//   amount: Uint<128>;
-// }
+/**
+ * @description Creates a new cross-chain intent.
+ * @param orderId A unique identifier for the intent.
+ */
+export circuit initialize(
+  orderId: Bytes<32>,
+  originChainId: Uint<128>,
+  openDeadline: Uint<32>,
+  fillDeadline: Uint<32>,
+  maxSpent_token: Bytes<32>,
+  maxSpent_amount: Uint<128>,
+  maxSpent_recipient: Bytes<32>,
+  maxSpent_chainId: Uint<128>,
+  minReceived_token: Bytes<32>,
+  minReceived_amount: Uint<128>,
+  minReceived_recipient: Bytes<32>,
+  minReceived_chainId: Uint<128>,
+  destinationChainId: Uint<64>,
+  destinationSettler: Bytes<32>,
+  originData: Bytes<256>
+): [] {
+  assert(!intents.member(disclose(orderId)), "Intent with this orderId already exists");
 
-// export ledger txHashes: Set<Bytes<16>>;
-// export ledger lastTransfer: LastTransfer;
+  const user = ownPublicKey();
+  const userEither = left<ZswapCoinPublicKey, ContractAddress>(user);
 
-// export ledger actionName: Uint<128>;
-// export ledger actionTarget: Either<ZswapCoinPublicKey, ContractAddress>;
-// export ledger actionTargetAddress: Opaque<'string'>;
-// export ledger actionValue: Uint<128>;
+  const newIntent = Intent {
+    user: userEither,
+    originChainId: originChainId,
+    openDeadline: openDeadline,
+    fillDeadline: fillDeadline,
+    maxSpent_token: maxSpent_token,
+    maxSpent_amount: maxSpent_amount,
+    maxSpent_recipient: maxSpent_recipient,
+    maxSpent_chainId: maxSpent_chainId,
+    minReceived_token: minReceived_token,
+    minReceived_amount: minReceived_amount,
+    minReceived_recipient: minReceived_recipient,
+    minReceived_chainId: minReceived_chainId,
+    destinationChainId: destinationChainId,
+    destinationSettler: destinationSettler,
+    originData: originData,
+    status: 0,
+  };
 
-// constructor(
-//   uri: Opaque<"string">,
-//   initialOwner: Either<ZswapCoinPublicKey, ContractAddress>,
-// ) {
-//   // Initialize the multi-token with URI
-//   MultiToken_initialize(uri);
-//   // Set the initial owner
-//   // Ownable_initialize(initialOwner);
-// }
+  intents.insert(disclose(orderId), disclose(newIntent));
+}
 
-// export circuit uri(id: Uint<128>): Opaque<"string"> {
-//   // TODO This is a read-only function, but when called the proof is sent, 
-//   //      and the transaction update the effectstream-engine midnight fetcher.
-//   //      and we need to distinguish between function calls.
-//   actionName = 900;
-//   return MultiToken_uri(id);
-// }
+/**
+ * @description Validates the initialization of an intent, marking funds as locked.
+ * @dev This function should only be callable by the contract owner.
+ * @param orderId The identifier of the intent to validate.
+ */
+export circuit validate_initialize(orderId: Bytes<32>): [] {
+  // Ownable_assertOnlyOwner();
+  assert(intents.member(disclose(orderId)), "Intent with this orderId does not exist");
+  const intent = intents.lookup(disclose(orderId));
+  assert(intent.status == 0, "Intent not in initialized state");
 
-// // export circuit owner(): Either<ZswapCoinPublicKey, ContractAddress> {
-// //   return Ownable_owner();
-// // }
+  const updatedIntent = Intent {
+    user: intent.user,
+    originChainId: intent.originChainId,
+    openDeadline: intent.openDeadline,
+    fillDeadline: intent.fillDeadline,
+    maxSpent_token: intent.maxSpent_token,
+    maxSpent_amount: intent.maxSpent_amount,
+    maxSpent_recipient: intent.maxSpent_recipient,
+    maxSpent_chainId: intent.maxSpent_chainId,
+    minReceived_token: intent.minReceived_token,
+    minReceived_amount: intent.minReceived_amount,
+    minReceived_recipient: intent.minReceived_recipient,
+    minReceived_chainId: intent.minReceived_chainId,
+    destinationChainId: intent.destinationChainId,
+    destinationSettler: intent.destinationSettler,
+    originData: intent.originData,
+    status: 1, // validated_initialized
+  };
+  intents.insert(disclose(orderId), disclose(updatedIntent));
+}
 
-// export circuit balanceOf(
-//   account: Either<ZswapCoinPublicKey, ContractAddress>,
-// ): Uint<128> {
-//   // TODO This is a read-only function
-//   actionName = 901;
-//   return MultiToken_balanceOf(account, 0);
-// }
+/**
+ * @description Marks an intent as resolved by a filler.
+ * @param orderId The identifier of the intent to resolve.
+ */
+export circuit resolve(orderId: Bytes<32>): [] {
+  const filler = ownPublicKey();
+  const fillerEither = left<ZswapCoinPublicKey, ContractAddress>(filler);
 
-// export circuit mint(
-//   account: Either<ZswapCoinPublicKey, ContractAddress>,
-//   value: Uint<128>,
-// ): [] {
-//   // This line protects the circuit - only the owner can continue past it
-//   // Ownable_assertOnlyOwner();
-//   // If we reach here, the caller is the owner
-//   MultiToken__mint(account, 0, value);
-//   actionName = 1001;
-//   actionTarget = disclose(account);
-//   actionValue = disclose(value);
-// }
+  assert(intents.member(disclose(orderId)), "Intent with this orderId does not exist");
+  const intent = intents.lookup(disclose(orderId));
+  assert(intent.status == 1, "Intent not in validated_initialized state");
 
-// export circuit transfer(
-//   to: Either<ZswapCoinPublicKey, ContractAddress>,
-//   value: Uint<128>,
-// ): Boolean {
-//   const caller = ownPublicKey();
-//   const callerEither = left<ZswapCoinPublicKey, ContractAddress>(caller);
-//   MultiToken__transfer(callerEither, to, 0, value);
-//   actionName = 1002;
-//   actionTarget = disclose(to);
-//   actionValue = disclose(value);
-//   return true;
-// }
+  // TODO: Add deadline checks once block timestamp functionality is available.
 
-// // Allows the owner to burn tokens from any account
-// export circuit burnFrom(
-//   account: Either<ZswapCoinPublicKey, ContractAddress>,
-//   value: Uint<128>
-// ): [] {
-//   // Ownable_assertOnlyOwner();
-//   const result = MultiToken__burn(account, 0, value);
-//   actionName = 1005;
-//   actionTarget = disclose(account);
-//   actionValue = disclose(value);
-//   return result;
-// }
+  const updatedIntent = Intent {
+    user: intent.user,
+    originChainId: intent.originChainId,
+    openDeadline: intent.openDeadline,
+    fillDeadline: intent.fillDeadline,
+    maxSpent_token: intent.maxSpent_token,
+    maxSpent_amount: intent.maxSpent_amount,
+    maxSpent_recipient: intent.maxSpent_recipient,
+    maxSpent_chainId: intent.maxSpent_chainId,
+    minReceived_token: intent.minReceived_token,
+    minReceived_amount: intent.minReceived_amount,
+    minReceived_recipient: intent.minReceived_recipient,
+    minReceived_chainId: intent.minReceived_chainId,
+    destinationChainId: intent.destinationChainId,
+    destinationSettler: intent.destinationSettler,
+    originData: intent.originData,
+    status: 2, // resolved
+  };
+  intents.insert(disclose(orderId), disclose(updatedIntent));
+  fillers.insert(disclose(orderId), disclose(fillerEither));
+}
 
-// export circuit transferFrom(
-//   from: Either<ZswapCoinPublicKey, ContractAddress>,
-//   to: Either<ZswapCoinPublicKey, ContractAddress>,
-//   value: Uint<128>,
-// ): [] {
-//   const result = MultiToken_transferFrom(from, to, 0, value);
-//   actionName = 1006;
-//   actionTarget = disclose(to);
-//   actionValue = disclose(value);
-// }
+/**
+ * @description Validates the resolution of an intent, marking the filler as paid.
+ * @dev This function should only be callable by the contract owner.
+ * @param orderId The identifier of the intent to validate.
+ */
+export circuit validate_resolve(orderId: Bytes<32>): [] {
+  // Ownable_assertOnlyOwner();
+  assert(intents.member(disclose(orderId)), "Intent with this orderId does not exist");
+  const intent = intents.lookup(disclose(orderId));
+  assert(intent.status == 2, "Intent not in resolved state");
+  
+  assert(fillers.member(disclose(orderId)), "Filler not found for this intent");
 
-// export circuit transferToEvm(
-//   target_address: Opaque<'string'>,
-//   amount: Uint<128>,
-//   txHash: Bytes<16>,
-// ): [] {
-//   const caller = ownPublicKey();
-//   const callerEither = left<ZswapCoinPublicKey, ContractAddress>(caller);
-//   const callerTokenBalance = MultiToken_balanceOf(callerEither, 0);
-//   assert(!txHashes.member(disclose(txHash)), "Transaction already processed");
-//   assert(callerTokenBalance >= amount, "Insufficient balance");
-//   burnFrom(callerEither, amount);
-//   txHashes.insert(disclose(txHash));
-//   lastTransfer = LastTransfer{
-//     disclose(target_address),
-//     disclose(amount),
-//   };
-//   actionName = 1007;
-//   actionTargetAddress = disclose(target_address);
-//   actionValue = disclose(amount);
-// }
+  // TODO: Implement logic to pay the filler. This would involve transferring
+  // `intent.minReceived_amount` of `intent.minReceived_token` to the filler.
+
+  const updatedIntent = Intent {
+    user: intent.user,
+    originChainId: intent.originChainId,
+    openDeadline: intent.openDeadline,
+    fillDeadline: intent.fillDeadline,
+    maxSpent_token: intent.maxSpent_token,
+    maxSpent_amount: intent.maxSpent_amount,
+    maxSpent_recipient: intent.maxSpent_recipient,
+    maxSpent_chainId: intent.maxSpent_chainId,
+    minReceived_token: intent.minReceived_token,
+    minReceived_amount: intent.minReceived_amount,
+    minReceived_recipient: intent.minReceived_recipient,
+    minReceived_chainId: intent.minReceived_chainId,
+    destinationChainId: intent.destinationChainId,
+    destinationSettler: intent.destinationSettler,
+    originData: intent.originData,
+    status: 3, // validated_resolved
+  };
+  intents.insert(disclose(orderId), disclose(updatedIntent));
+}
+
+/**
+ * @description Retrieves the current status of an intent.
+ * @param orderId The identifier of the intent to query.
+ * @return The status code of the intent.
+ */
+export circuit getIntentStatus(orderId: Bytes<32>): Uint<8> {
+    assert(intents.member(disclose(orderId)), "Intent with this orderId does not exist");
+    const intent = intents.lookup(disclose(orderId));
+    return intent.status;
+}

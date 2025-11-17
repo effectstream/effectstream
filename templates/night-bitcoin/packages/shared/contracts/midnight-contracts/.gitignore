@@ -1,3 +1,4 @@
 midnight-level-db/
-contract-eip-1155/src/managed
-contract.json
+erc7683/src/managed
+unshielded-erc20/src/managed
+contract-*.json

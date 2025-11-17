@@ -23,8 +23,8 @@ const configs: DeployConfig[] = [
         privateStateId: "unshielded_erc20State",
         initialPrivateState: {},
         deployArgs: [
-          "X",
-          "X",
+          "M20",
+          "M20",
           8n,
           null as any, // placeholder, will be replaced
         ],

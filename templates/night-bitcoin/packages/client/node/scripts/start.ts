@@ -5,33 +5,33 @@ import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 
 const customProcesses: any[] = [
   // /** DENO-FRONTEND-BLOCK */
-  // {
-  //   name: "frontend-build",
-  //   args: ["task", "-f", "@night-bitcoin/frontend-vite", "build"],
-  //   waitToExit: true,
-  //   type: "system-dependency",
-  //   dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
-  // },
-  // {
-  //   name: "frontend-server",
-  //   args: ["task", "-f", "@night-bitcoin/frontend-vite", "serve"],
-  //   waitToExit: false,
-  //   type: "system-dependency",
-  //   link: "http://localhost:10599",
-  //   stopProcessAtPort: [10599],
-  //   dependsOn: ["frontend-build"],
-  // },
+  {
+    name: "frontend-build",
+    args: ["task", "-f", "@night-bitcoin/frontend", "build"],
+    waitToExit: true,
+    type: "system-dependency",
+    dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
+  },
+  {
+    name: "frontend-server",
+    args: ["task", "-f", "@night-bitcoin/frontend", "serve"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:10599",
+    stopProcessAtPort: [10599],
+    dependsOn: ["frontend-build"],
+  },
   // /** DENO-FRONTEND-BLOCK */
   
   // /** EXPLORER-BLOCK */
-  // {
-  //   name: "explorer",
-  //   args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
-  //   waitToExit: false,
-  //   type: "system-dependency",
-  //   link: "http://localhost:10590",
-  //   stopProcessAtPort: [10590],
-  // },
+  {
+    name: "explorer",
+    args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:10590",
+    stopProcessAtPort: [10590],
+  },
   // /** EXPLORER-BLOCK */
 
   // /** BATCHER-BLOCK */
