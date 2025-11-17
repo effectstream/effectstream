@@ -42,8 +42,10 @@ struct Intent {
 export ledger intents: Map<Bytes<32>, Intent>;
 export ledger fillers: Map<Bytes<32>, Either<ZswapCoinPublicKey, ContractAddress>>;
 
-constructor(initialOwner: Either<ZswapCoinPublicKey, ContractAddress>) {
-  Ownable_initialize(initialOwner);
+constructor(
+  /*initialOwner: Either<ZswapCoinPublicKey, ContractAddress>*/
+  ) {
+  // Ownable_initialize(initialOwner);
 }
 
 /**

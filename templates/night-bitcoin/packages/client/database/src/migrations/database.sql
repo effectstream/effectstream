@@ -1,11 +1,13 @@
-CREATE TABLE example_table (
+CREATE TABLE quotes (
   id SERIAL PRIMARY KEY,
-  chain TEXT NOT NULL,
-  token_id TEXT NOT NULL,
-  amount numeric(78,0) NOT NULL,
-  contract_address TEXT NOT NULL,
-  owner TEXT NOT NULL,
-  block_height INTEGER NOT NULL
+  order_id TEXT NOT NULL,
+  from_token TEXT NOT NULL,
+  filler TEXT NOT NULL,
+  to_token TEXT NOT NULL,
+  from_amount NUMERIC(78,0) NOT NULL,
+  to_amount NUMERIC(78,0) NOT NULL,
+  fee NUMERIC(78,0) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX example_table_contract_address_index ON example_table(contract_address, token_id, owner);
+CREATE UNIQUE INDEX quotes_order_id_filler_index ON quotes(order_id, filler);

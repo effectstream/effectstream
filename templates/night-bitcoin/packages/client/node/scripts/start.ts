@@ -5,22 +5,22 @@ import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 
 const customProcesses: any[] = [
   // /** DENO-FRONTEND-BLOCK */
-  {
-    name: "frontend-build",
-    args: ["task", "-f", "@night-bitcoin/frontend", "build"],
-    waitToExit: true,
-    type: "system-dependency",
-    dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
-  },
-  {
-    name: "frontend-server",
-    args: ["task", "-f", "@night-bitcoin/frontend", "serve"],
-    waitToExit: false,
-    type: "system-dependency",
-    link: "http://localhost:10599",
-    stopProcessAtPort: [10599],
-    dependsOn: ["frontend-build"],
-  },
+  // {
+  //   name: "frontend-build",
+  //   args: ["task", "-f", "@night-bitcoin/frontend", "build"],
+  //   waitToExit: true,
+  //   type: "system-dependency",
+  //   dependsOn: [], // [ComponentNames.MIDNIGHT_CONTRACT],
+  // },
+  // {
+  //   name: "frontend-server",
+  //   args: ["task", "-f", "@night-bitcoin/frontend", "serve"],
+  //   waitToExit: false,
+  //   type: "system-dependency",
+  //   link: "http://localhost:10599",
+  //   stopProcessAtPort: [10599],
+  //   dependsOn: ["frontend-build"],
+  // },
   // /** DENO-FRONTEND-BLOCK */
   
   // /** EXPLORER-BLOCK */
@@ -47,6 +47,89 @@ const customProcesses: any[] = [
   // /** BATCHER-BLOCK */
 ]
 
+
+const launchMidnight_ = (packageName: string): {
+  stopProcessAtPort?: number[];
+  name: string;
+  args: string[];
+  waitToExit?: boolean;
+  logs?: string;
+  type?: string;
+  dependsOn?: string[];
+}[] => [
+    {
+      stopProcessAtPort: [9944, 8088, 6300],
+      name: ComponentNames.MIDNIGHT_NODE,
+      args: [
+        "task",
+        "-f",
+        packageName,
+        "midnight-node:start",
+      ],
+      waitToExit: false,
+      type: "system-dependency",
+      logs: "raw",
+      dependsOn: [],
+    },
+    {
+      name: ComponentNames.MIDNIGHT_INDEXER,
+      args: [
+        "task",
+        "-f",
+        packageName,
+        "midnight-indexer:start",
+      ],
+      waitToExit: false,
+      type: "system-dependency",
+      logs: "raw",
+      dependsOn: [ComponentNames.MIDNIGHT_NODE],
+    },
+    {
+      name: ComponentNames.MIDNIGHT_PROOF_SERVER,
+      args: [
+        "task",
+        "-f",
+        packageName,
+        "midnight-proof-server:start",
+      ],
+      waitToExit: false,
+      type: "system-dependency",
+      logs: "raw",
+      dependsOn: [ComponentNames.MIDNIGHT_NODE]
+    },
+    {
+      name: ComponentNames.MIDNIGHT_NODE_WAIT,
+      args: [
+        "task",
+        "-f",
+        packageName,
+        "midnight-node:wait",
+      ],
+      dependsOn: [ComponentNames.MIDNIGHT_NODE],
+    },
+    {
+      name: ComponentNames.MIDNIGHT_INDEXER_WAIT,
+      args: [
+        "task",
+        "-f",
+        packageName,
+        "midnight-indexer:wait",
+      ],
+      dependsOn: [ComponentNames.MIDNIGHT_INDEXER],
+    },
+    {
+      name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
+      args: [
+        "task",
+        "-f",
+        packageName,
+        "midnight-proof-server:wait",
+      ],
+      dependsOn: [ComponentNames.MIDNIGHT_PROOF_SERVER],
+    },
+    
+  ];
+
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
   packageName: "jsr:@paimaexample",
@@ -55,7 +138,8 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.TUI]: true,
     // Launch Dev DB & Collector
     [ComponentNames.EFFECTSTREAM_PGLITE]: true,
-    [ComponentNames.COLLECTOR]: true,
+    [ComponentNames.COLLECTOR]: false,
+    [ComponentNames.LOKI]: false,
   },
 
   // Launch my processes
@@ -63,7 +147,7 @@ const config = Value.Parse(OrchestratorConfig, {
     
 
     
-    ...launchMidnight("@night-bitcoin/midnight-contracts"),
+    ...launchMidnight_("@night-bitcoin/midnight-contracts"),
     
 
 
@@ -79,3 +163,4 @@ if (Deno.env.get("EFFECTSTREAM_STDOUT")) {
 }
 
 await start(config);
+

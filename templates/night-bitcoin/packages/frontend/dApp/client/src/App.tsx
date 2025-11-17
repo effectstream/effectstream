@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 
 // Mock data for tokens and quotes
@@ -8,11 +8,39 @@ const tokens = [
   { id: 'm20', name: 'Midnight Token', symbol: 'M20' },
 ];
 
-const mockQuotes = [
-  { id: 1, provider: 'SwapLuxe', toAmount: 19.8, fee: '0.1 ETH' },
-  { id: 2, provider: 'QuickBridge', toAmount: 20.1, fee: '0.05 ETH' },
-  { id: 3, provider: 'MidnightSwap', toAmount: 19.9, fee: '0.08 ETH' },
-];
+const formatNumber = (n: number | string) => {
+  const num = typeof n === 'string' ? parseFloat(n) : n;
+  if (isNaN(num)) return n;
+
+  if (num >= 1) {
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 3,
+      useGrouping: false,
+    });
+  }
+
+  if (num === 0) return '0';
+
+  // toFixed(20) to get a string representation for small numbers without scientific notation
+  const fullDecimalString = num.toFixed(20).split('.')[1];
+  if (!fullDecimalString) return num.toString();
+
+  let firstNonZeroIndex = -1;
+  for (let i = 0; i < fullDecimalString.length; i++) {
+    if (fullDecimalString[i] !== '0') {
+      firstNonZeroIndex = i;
+      break;
+    }
+  }
+
+  if (firstNonZeroIndex === -1) {
+    return '0';
+  }
+
+  const decimalPlacesToKeep = firstNonZeroIndex + 4;
+  return num.toFixed(decimalPlacesToKeep);
+};
 
 function App() {
   const [fromToken, setFromToken] = useState(tokens[0].symbol);
@@ -23,11 +51,51 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
 
-  const handleGetQuotes = () => {
-    // Sort quotes by most tokens received
-    const sortedQuotes = [...mockQuotes].sort((a, b) => b.toAmount - a.toAmount);
-    setQuotes(sortedQuotes);
-    setSelectedQuote(null); // Reset selection when getting new quotes
+  useEffect(() => {
+    setQuotes([]);
+    setSelectedQuote(null);
+  }, [fromToken, toToken, amount]);
+
+  const handleGetQuotes = async () => {
+    setLoading(true);
+    setQuotes([]);
+    setSelectedQuote(null);
+    try {
+      const response = await fetch('http://localhost:9999/api/get-quotes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: `order-${Date.now()}`,
+          fromToken: fromToken.toLowerCase(),
+          toToken: toToken.toLowerCase(),
+          fromAmount: parseFloat(amount),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const formattedQuotes = data.map((quote: any) => ({
+        id: quote.filler,
+        provider: quote.filler,
+        toAmount: quote.toAmount,
+        fee: quote.fee,
+      }));
+      
+      const sortedQuotes = [...formattedQuotes].sort((a, b) => b.toAmount - a.toAmount);
+      setQuotes(sortedQuotes);
+      if (sortedQuotes.length > 0) {
+        setSelectedQuote(sortedQuotes[0]);
+      }
+    } catch (error) {
+      console.error("Failed to get quotes:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSwapNow = () => {
@@ -49,8 +117,8 @@ function App() {
       <header className="app-header">
         <div className="header-container">
           <div className="wallet-buttons">
-            <button className="wallet-button">Connect Midnight Wallet</button>
-            <button className="wallet-button">Connect Bitcoin Wallet</button>
+            <button type="button" className="wallet-button">Connect Midnight Wallet</button>
+            <button type="button" className="wallet-button">Connect Bitcoin Wallet</button>
           </div>
         </div>
       </header>
@@ -95,8 +163,8 @@ function App() {
                 ))}
               </select>
             </div>
-            <div class="swap-now-container">
-            <button className="get-quotes-button" onClick={handleGetQuotes}>
+            <div className="swap-now-container">
+            <button type="button" className="get-quotes-button" onClick={handleGetQuotes}>
               Get Quotes
             </button>
             </div>
@@ -115,9 +183,9 @@ function App() {
                 >
                   <div className="quote-provider">{quote.provider}</div>
                   <div className="quote-amount">
-                    You get: {quote.toAmount} {toToken}
+                    You get: {formatNumber(quote.toAmount)} {toToken}
                   </div>
-                  <div className="quote-fee">Fee: {quote.fee}</div>
+                  <div className="quote-fee">Fee: {formatNumber(quote.fee)} {toToken}</div>
                 </div>
               ))}
             </div>
@@ -125,7 +193,7 @@ function App() {
 
           {selectedQuote && (
             <div className="swap-now-container">
-              <button className="swap-now-button" onClick={handleSwapNow}>
+              <button type="button" className="swap-now-button" onClick={handleSwapNow}>
                 Swap Now
               </button>
             </div>
@@ -144,7 +212,7 @@ function App() {
             <div className="popup">
               <h3>Swap Successful!</h3>
               <p>Your transaction has been completed.</p>
-              <button onClick={closePopup}>Close</button>
+              <button type="button" onClick={closePopup}>Close</button>
             </div>
           </div>
         )}

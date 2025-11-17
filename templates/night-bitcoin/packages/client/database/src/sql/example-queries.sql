@@ -1,33 +1,19 @@
-/* @name evmMidnightTableExists */
+/* @name tableExists */
 SELECT EXISTS (
     SELECT FROM information_schema.tables 
     WHERE  table_schema = 'public'
-    AND    table_name   = 'example_table'
+    AND    table_name   = 'quotes'
 );
 
-/* @name insertExampleTable */
-INSERT INTO example_table 
-    (contract_address, chain, token_id, amount, owner, block_height) 
+/* @name insertQuote */
+INSERT INTO quotes 
+(order_id, from_token, filler, to_token, from_amount, to_amount, fee) 
 VALUES 
-    (:contract_address!, :chain!, :token_id!, :amount!, :owner!, :block_height!) 
-ON CONFLICT (contract_address, token_id, owner) 
-DO UPDATE SET 
-    chain = EXCLUDED.chain,
-    block_height = EXCLUDED.block_height,
-    amount = EXCLUDED.amount
+(:order_id!, :from_token!, :filler!, :to_token!, :from_amount!, :to_amount!, :fee!) 
 ;
 
-/* @name getExampleTable */
-SELECT * FROM example_table;
-
-/* @name getExampleTableByTokenId */
-SELECT * FROM example_table 
-WHERE example_table.token_id = :token_id!
-AND example_table.contract_address = :contract_address!
+/* @name getQuoteById */
+SELECT * FROM quotes 
+WHERE order_id = :order_id!
 ;
 
-/* @name getExampleTableByOwner */
-SELECT * FROM example_table 
-WHERE example_table.owner = :owner!
-AND example_table.contract_address = :contract_address!
-;

@@ -47,10 +47,10 @@ const configs: DeployConfig[] = [
  
 ];
 
+
+
 const start = async () => {
-  for (const config of configs) {
-    await deployMidnightContract(config);
-  }
+  await Promise.all(configs.map(config => deployMidnightContract(config)));
 }
 
 start()

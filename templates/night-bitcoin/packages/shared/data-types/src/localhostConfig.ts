@@ -115,18 +115,18 @@ export const localhostConfig = new ConfigBuilder()
         )
       
 
-        .addPrimitive(
-          (syncProtocols) => syncProtocols.parallelMidnight,
-          (network, deployments, syncProtocol) => ({
-            name: "MidnightContractState",
-            type: PrimitiveTypeMidnightGeneric,
-            startBlockHeight: 1,
-            contractAddress: readMidnightContract("erc7683", "contract-erc7683.json").contractAddress,
-            stateMachinePrefix: "midnightContractState",
-            contract: { ledger: Erc7683Contract.ledger },
-            networkId: 0,
-          })
-        )
+        // .addPrimitive(
+        //   (syncProtocols) => syncProtocols.parallelMidnight,
+        //   (network, deployments, syncProtocol) => ({
+        //     name: "MidnightContractState",
+        //     type: PrimitiveTypeMidnightGeneric,
+        //     startBlockHeight: 1,
+        //     contractAddress: readMidnightContract("erc7683", "contract-erc7683.json").contractAddress,
+        //     stateMachinePrefix: "midnightContractState",
+        //     contract: { ledger: Erc7683Contract.ledger },
+        //     networkId: 0,
+        //   })
+        // )
         // TODO ADD BITCOIN .addPrimitive
   )
   .build();
