@@ -1,6 +1,8 @@
 /** Types generated for queries found in "src/sql/sm_example.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
+export type NumberOrString = number | string;
+
 /** 'InsertStateMachineInput' parameters type */
 export interface IInsertStateMachineInputParams {
   block_height: number;
@@ -230,5 +232,41 @@ const insertCounterInputIR: any = {"usedParamSet":{"counter":true,"block_height"
  * ```
  */
 export const insertCounterInput = new PreparedQuery<IInsertCounterInputParams,IInsertCounterInputResult>(insertCounterInputIR);
+
+
+/** 'InsertBitcoinTransaction' parameters type */
+export interface IInsertBitcoinTransactionParams {
+  address: string;
+  block_height: number;
+  direction: string;
+  index: number;
+  label: string;
+  transaction_id: string;
+  utxo_txid: string;
+  utxo_vout: number;
+  value_sats: NumberOrString;
+}
+
+/** 'InsertBitcoinTransaction' return type */
+export type IInsertBitcoinTransactionResult = void;
+
+/** 'InsertBitcoinTransaction' query type */
+export interface IInsertBitcoinTransactionQuery {
+  params: IInsertBitcoinTransactionParams;
+  result: IInsertBitcoinTransactionResult;
+}
+
+const insertBitcoinTransactionIR: any = {"usedParamSet":{"block_height":true,"direction":true,"address":true,"transaction_id":true,"index":true,"value_sats":true,"utxo_txid":true,"utxo_vout":true,"label":true},"params":[{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":140,"b":153}]},{"name":"direction","required":true,"transform":{"type":"scalar"},"locs":[{"a":156,"b":166}]},{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":169,"b":177}]},{"name":"transaction_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":180,"b":195}]},{"name":"index","required":true,"transform":{"type":"scalar"},"locs":[{"a":198,"b":204}]},{"name":"value_sats","required":true,"transform":{"type":"scalar"},"locs":[{"a":207,"b":218}]},{"name":"utxo_txid","required":true,"transform":{"type":"scalar"},"locs":[{"a":221,"b":231}]},{"name":"utxo_vout","required":true,"transform":{"type":"scalar"},"locs":[{"a":234,"b":244}]},{"name":"label","required":true,"transform":{"type":"scalar"},"locs":[{"a":247,"b":253}]}],"statement":"INSERT INTO bitcoin_transactions\n(block_height, direction, address, transaction_id, index, value_sats, utxo_txid, utxo_vout, label)\nVALUES\n(:block_height!, :direction!, :address!, :transaction_id!, :index!, :value_sats!, :utxo_txid!, :utxo_vout!, :label!)"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO bitcoin_transactions
+ * (block_height, direction, address, transaction_id, index, value_sats, utxo_txid, utxo_vout, label)
+ * VALUES
+ * (:block_height!, :direction!, :address!, :transaction_id!, :index!, :value_sats!, :utxo_txid!, :utxo_vout!, :label!)
+ * ```
+ */
+export const insertBitcoinTransaction = new PreparedQuery<IInsertBitcoinTransactionParams,IInsertBitcoinTransactionResult>(insertBitcoinTransactionIR);
 
 

@@ -38,4 +38,5 @@ export const grammar = {
   "transfer-assets": builtinGrammars.evmErc721,
   "transfer-erc20": builtinGrammars.evmErc20,
   "transfer-erc1155": builtinGrammars.evmErc1155,
+  "bitcoin-transaction": builtinGrammars.bitcoinAddress,
 } as const satisfies GrammarDefinition;

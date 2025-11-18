@@ -49,3 +49,10 @@ INSERT INTO counter_inputs
 VALUES 
 (:counter!, :block_height!) 
 ;
+
+/* @name insertBitcoinTransaction */
+INSERT INTO bitcoin_transactions
+(block_height, direction, address, transaction_id, index, value_sats, utxo_txid, utxo_vout, label)
+VALUES
+(:block_height!, :direction!, :address!, :transaction_id!, :index!, :value_sats!, :utxo_txid!, :utxo_vout!, :label!)
+;
