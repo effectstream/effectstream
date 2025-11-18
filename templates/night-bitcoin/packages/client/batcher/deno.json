@@ -1,5 +1,5 @@
 {
-  "name": "@multi-chain-transfer/batcher",
+  "name": "@night-bitcoin/batcher",
   "exports": {
     ".": "./src/main.ts",
     "./calls": "./src/calls.ts"

@@ -3,14 +3,12 @@ import { createNewBatcher } from "@paimaexample/batcher";
 import {
   config,
   midnightAdapter,
-  erc1155Adapter,
   storage,
 } from "./config.ts";
 
 const batcher = createNewBatcher(config, storage);
 
 batcher
-  .addBlockchainAdapter("evm", erc1155Adapter, { criteriaType: "size", maxBatchSize: 1 })
   .addBlockchainAdapter("midnight", midnightAdapter, { criteriaType: "size", maxBatchSize: 1 })
   .setDefaultTarget("midnight");
 
@@ -18,7 +16,7 @@ batcher
 batcher
   .addStateTransition("startup", ({ publicConfig }) => {
     const banner =
-      `🧱 Multi-Chain Token Transfer Batcher startup - polling every ${publicConfig.pollingIntervalMs} ms\n` +
+      `🧱 Night Bitcoin Batcher startup - polling every ${publicConfig.pollingIntervalMs} ms\n` +
       `      | 📍 Default Target: ${publicConfig.defaultTarget}\n` +
       `      | ⛓️ Blockchain Adapter Targets: ${
         publicConfig.adapterTargets.join(", ")

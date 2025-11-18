@@ -35,15 +35,15 @@ const customProcesses: any[] = [
   // /** EXPLORER-BLOCK */
 
   // /** BATCHER-BLOCK */
-  // {
-  //   name: "batcher",
-  //   args: ["task", "-f", "@night-bitcoin/batcher", "start"],
-  //   waitToExit: false,
-  //   type: "system-dependency",
-  //   link: "http://localhost:3334",
-  //   stopProcessAtPort: [3334],
-  //   dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
-  // },
+  {
+    name: "batcher",
+    args: ["task", "-f", "@night-bitcoin/batcher", "start"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:3334",
+    stopProcessAtPort: [3334],
+    dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
+  },
   // /** BATCHER-BLOCK */
 ]
 
