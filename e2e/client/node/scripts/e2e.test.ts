@@ -13,6 +13,7 @@ import { submitDataWithMessageAvailTest } from "../e2e-tests/e2e.avail.test.ts";
 import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
 import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
+import { bitcoinTest } from "../e2e-tests/e2e.bitcoin.test.ts";
 
 const yaci_enabled = Deno.env.get("DISABLE_YACI") === "true"
   ? false
@@ -24,6 +25,10 @@ const midnight_enabled = Deno
 
 const avail_enabled = Deno
   ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
+  : true;
+
+const bitcoin_enabled = Deno
+  ? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
   : true;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -45,6 +50,9 @@ async function test() {
     if (midnight_enabled) {
       sharedState.primitive_accounting_counter = 2;
     }
+    if (bitcoin_enabled) {
+      sharedState.primitive_accounting_counter += 3;
+    }
     await generalTest(db, sharedState);
     console.log(
       "generalTest completed",
@@ -60,6 +68,7 @@ async function test() {
     await sendMintToBatcherTest(db, sharedState);
     await submitDataWithMessageAvailTest(db, sharedState);
     await tokenTests(db, sharedState);
+    bitcoin_enabled && await bitcoinTest(db, sharedState);
     await testMigrations(db);
 
     // Done testing.

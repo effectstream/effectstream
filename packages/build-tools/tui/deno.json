@@ -22,7 +22,8 @@
     "react-dom": "npm:react-dom@18.3.1",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "@opentelemetry/otlp-transformer": "npm:@opentelemetry/otlp-transformer@0.56.0",
-    "rotating-file-stream": "npm:rotating-file-stream@^3.2.6"
+    "rotating-file-stream": "npm:rotating-file-stream@^3.2.6",
+    "@types/react": "npm:@types/react@18.3.1"
   },
   "compilerOptions": {
     "types": [

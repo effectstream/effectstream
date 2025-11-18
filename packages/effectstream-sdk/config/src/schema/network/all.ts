@@ -9,6 +9,7 @@ import type { ToMapping } from "../utils.ts";
 import { ConfigNetworkSchemaSubstrate } from "./substrate/common.ts";
 import { ConfigNetworkSchemaAlgorand } from "./algorand.ts";
 import { ConfigNetworkSchemaNtp } from "./ntp.ts";
+import { ConfigNetworkSchemaBitcoin } from "./bitcoin.ts";
 
 export const networkTypes = {
   [ConfigNetworkType.NTP]: ConfigNetworkSchemaNtp,
@@ -19,6 +20,7 @@ export const networkTypes = {
   [ConfigNetworkType.ALGORAND]: ConfigNetworkSchemaAlgorand,
   [ConfigNetworkType.MIDNIGHT]: ConfigNetworkSchemaMidnight,
   [ConfigNetworkType.SUBSTRATE]: ConfigNetworkSchemaSubstrate,
+  [ConfigNetworkType.BITCOIN]: ConfigNetworkSchemaBitcoin,
 } as const;
 
 export type ConfigNetworkSubmapping<T extends ConfigNetworkType> = ToMapping<
