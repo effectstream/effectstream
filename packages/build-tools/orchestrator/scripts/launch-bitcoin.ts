@@ -33,7 +33,7 @@ export const launchBitcoin = (packageName: string): {
   },
   {
     name: "btc-blocks",
-    args: ["task", "-f", packageName, "generate-blocks"],
+    args: ["task", "-f", "@effectstream/bitcoin-contracts", "generate:blocks"],
     waitToExit: false, // Loop keeps blocks being mined
     logs: "raw",
     type: "system-dependency",
