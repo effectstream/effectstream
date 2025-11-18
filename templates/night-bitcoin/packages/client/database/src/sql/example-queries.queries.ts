@@ -393,3 +393,35 @@ const getIntentByAddressAndAmountIR: any = {"usedParamSet":{"max_spent_recipient
 export const getIntentByAddressAndAmount = new PreparedQuery<IGetIntentByAddressAndAmountParams,IGetIntentByAddressAndAmountResult>(getIntentByAddressAndAmountIR);
 
 
+/** 'InsertTransfer' parameters type */
+export interface IInsertTransferParams {
+  amount: NumberOrString;
+  chain_id: string;
+  from_address: string;
+  to_address: string;
+  token: string;
+}
+
+/** 'InsertTransfer' return type */
+export type IInsertTransferResult = void;
+
+/** 'InsertTransfer' query type */
+export interface IInsertTransferQuery {
+  params: IInsertTransferParams;
+  result: IInsertTransferResult;
+}
+
+const insertTransferIR: any = {"usedParamSet":{"from_address":true,"to_address":true,"amount":true,"token":true,"chain_id":true},"params":[{"name":"from_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":85,"b":98}]},{"name":"to_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":101,"b":112}]},{"name":"amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":115,"b":122}]},{"name":"token","required":true,"transform":{"type":"scalar"},"locs":[{"a":125,"b":131}]},{"name":"chain_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":134,"b":143}]}],"statement":"INSERT INTO transfers \n(from_address, to_address, amount, token, chain_id) \nVALUES \n(:from_address!, :to_address!, :amount!, :token!, :chain_id!)"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO transfers 
+ * (from_address, to_address, amount, token, chain_id) 
+ * VALUES 
+ * (:from_address!, :to_address!, :amount!, :token!, :chain_id!)
+ * ```
+ */
+export const insertTransfer = new PreparedQuery<IInsertTransferParams,IInsertTransferResult>(insertTransferIR);
+
+

@@ -3,7 +3,7 @@ import { grammar } from "@night-bitcoin/data-types/grammar";
 import type { BaseStfInput, BaseStfOutput } from "@paimaexample/sm";
 import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
 import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
-import { getIntentByOrderId, getIntentByAddressAndAmount, IGetIntentByOrderIdResult, insertIntent } from "@night-bitcoin/database";
+import { getIntentByOrderId, getIntentByAddressAndAmount, IGetIntentByOrderIdResult, insertIntent, insertTransfer } from "@night-bitcoin/database";
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 import { transferFunds } from "@night-bitcoin/bitcoin-contracts/transfer-funds";
 import { transferFunds as transferFundsMidnight } from "@night-bitcoin/midnight-contracts/transfer-funds";
@@ -138,12 +138,22 @@ stm.addStateTransition("bitcoinWalletChange", function* (data) {
     "🎉 [BITCOIN] Wallet change:",
     JSON.stringify(data.parsedInput)
   );
-  const address = "bt1p...x";
-  const delta = "0.1";
+  const fromAddress = "bt1p...x";
+  const toAddress = "bt1p...x";
+  const amount = "12300";
+
+  yield* World.resolve(insertTransfer, {
+    from_address: fromAddress,
+    to_address: toAddress,
+    amount: parseInt(amount, 10),
+    token: TOKENS.BTC,
+    chain_id: CHAIN_IDS.BITCOIN,
+  });
+
   yield* checkAndTransferFunds({
     orderId: undefined,
-    address: address,
-    amount: delta,
+    address: fromAddress,
+    amount: amount,
     token: TOKENS.BTC,
   });
 });
@@ -167,8 +177,18 @@ stm.addStateTransition("midnightContractStateERC20", function* (data) {
     //   "actionValue":"100000000000"
     // } 
 
+    const targetWallet = decodeToByteString(data.parsedInput.payload.actionTarget.left.bytes);
+    const initiatorWallet = "0";
+
     // Mint action
     console.log("🎉 [MIDNIGHT] Mint action");
+    yield* World.resolve(insertTransfer, {
+      from_address: initiatorWallet,
+      to_address: targetWallet,
+      amount: parseInt(data.parsedInput.payload.actionValue, 10),
+      token: TOKENS.M20,
+      chain_id: CHAIN_IDS.MIDNIGHT,
+    });
   }
 
   if (data.parsedInput.payload.actionName === "1002") {
@@ -196,6 +216,14 @@ stm.addStateTransition("midnightContractStateERC20", function* (data) {
 
       const systemWallet = "220166137110127226240106199190331042231369820222674119411322414010010938131779810395";
 
+      yield* World.resolve(insertTransfer, {
+        from_address: initiatorWallet,
+        to_address: targetWallet,
+        amount: parseInt(amountTransferred, 10),
+        token: TOKENS.M20,
+        chain_id: CHAIN_IDS.MIDNIGHT,
+      });
+
       // TODO Check target wallet is validator wallet
       yield* checkAndTransferFunds({
         orderId: undefined,
@@ -204,8 +232,6 @@ stm.addStateTransition("midnightContractStateERC20", function* (data) {
         token: TOKENS.M20,
       });
   }
-
-
 
 });
 

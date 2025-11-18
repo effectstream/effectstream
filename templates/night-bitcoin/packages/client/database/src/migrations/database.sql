@@ -45,3 +45,13 @@ CREATE TABLE intents (
 );
 
 create unique index intents_order_id_index on intents(order_id);
+
+CREATE TABLE transfers (
+  id SERIAL PRIMARY KEY,
+  from_address TEXT NOT NULL,
+  to_address TEXT NOT NULL,
+  amount NUMERIC(78,0) NOT NULL,
+  token TEXT NOT NULL,
+  chain_id TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

@@ -109,3 +109,10 @@ WHERE max_spent_recipient = :max_spent_recipient!
 AND max_spent_amount = :max_spent_amount!
 AND max_spent_token = :max_spent_token!
 ;
+
+/* @name insertTransfer */
+INSERT INTO transfers 
+(from_address, to_address, amount, token, chain_id) 
+VALUES 
+(:from_address!, :to_address!, :amount!, :token!, :chain_id!) 
+;
