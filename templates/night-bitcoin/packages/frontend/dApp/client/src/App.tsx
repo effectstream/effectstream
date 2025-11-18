@@ -5,7 +5,7 @@ import * as paima from './paima.ts';
 // Mock data for tokens and quotes
 const tokens = [
   { id: 'btc', name: 'Bitcoin', symbol: 'BTC' },
-  { id: 'eth', name: 'Ethereum', symbol: 'ETH' },
+  // { id: 'eth', name: 'Ethereum', symbol: 'ETH' },
   { id: 'm20', name: 'Midnight Token', symbol: 'M20' },
 ];
 
@@ -50,13 +50,25 @@ function App() {
   const [quotes, setQuotes] = useState<any[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [popup, setPopup] = useState({ show: false, title: '', message: '' });
+  const [popup, setPopup] = useState<{ show: boolean; title: string; message: string; details?: Record<string, any> }>({ show: false, title: '', message: '' });
   const [showBtcPopup, setShowBtcPopup] = useState(false);
   const [btcAddress, setBtcAddress] = useState('');
   const [btcCheckbox, setBtcCheckbox] = useState(false);
   const [midnightWallet, setMidnightWallet] = useState<any>(null);
   const [midnightAddress, setMidnightAddress] = useState('');
   const [showActionsPopup, setShowActionsPopup] = useState(false);
+  const [showM20Popup, setShowM20Popup] = useState(false);
+  const [m20Recipient, setM20Recipient] = useState('');
+
+  const formatPopupValue = (value: any) => {
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+    if (typeof value === 'object' && value !== null) {
+      return JSON.stringify(value);
+    }
+    return String(value);
+  };
 
   useEffect(() => {
     setQuotes([]);
@@ -178,70 +190,87 @@ function App() {
     if (fromToken === 'BTC') {
       setShowBtcPopup(true);
     } else if (fromToken === 'M20') {
-      setLoading(true);
-      try {
-        const destinationChainId = toToken === 'BTC' ? 1n : toToken === 'ETH' ? 2n : 9999n;
-        const recipientAddress = toToken === 'BTC' ? btcAddress : midnightWallet.addr;
-        if (toToken === 'BTC' && !recipientAddress) {
-          setShowBtcPopup(true);
-          return;
-        }
-
-        const intentConfig = {
-          user: midnightWallet.addr,
-          orderId: selectedQuote.orderId,
-          originChainId: 9999n,
-          destinationChainId: destinationChainId,
-          maxSpent_token: "m20",
-          maxSpent_amount: BigInt(Math.round(parseFloat(amount) * Math.pow(10, 8))),
-          maxSpent_recipient: midnightWallet.contractAddress.erc7683,
-          maxSpent_chainId: 9999n,
-          minReceived_token: toToken.toLowerCase(),
-          minReceived_amount: BigInt(Math.round(selectedQuote.toAmount * Math.pow(10, 8))),
-          minReceived_recipient: recipientAddress,
-          minReceived_chainId: destinationChainId,
-          originData: {
-            targetWallet: midnightWallet.addr,
-          },
-        };
-        await paima.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, intentConfig);
-
-        const m20Amount = BigInt(parseFloat(amount) * Math.pow(10, 8));
-        await paima.m20_transferFrom(
-          midnightWallet.contract.unshielded_erc20,
-          midnightWallet.addr,
-          midnightWallet.contractAddress.erc7683,
-          m20Amount
-        );
-        setPopup({
-          show: true,
-          title: 'Swap Successful!',
-          message: 'Your M20 swap has been initiated.',
-        });
-      } catch (error) {
-        console.error('Failed to swap M20:', error);
-        setPopup({
-          show: true,
-          title: 'Error',
-          message: 'Failed to swap M20. See console for details.',
-        });
-      } finally {
-        setLoading(false);
+      if (toToken !== 'BTC') {
+        setM20Recipient(midnightWallet.addr);
+      } else {
+        setM20Recipient('');
       }
+      setShowM20Popup(true);
     } else {
-      setLoading(true);
-      // This is the part that needs to be connected to createIntent for other tokens
-      // For now, it shows a popup as a placeholder
-      console.log('Swap now for non-BTC token');
-      const intent = await paima.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, {});
-      setTimeout(() => {
-        setLoading(false);
-        setPopup({
-          show: true,
-          title: 'Swap Successful!',
-          message: 'Your transaction has been completed.',
-        });
-      }, 2000); // Simulate a 2-second swap process
+      // setLoading(true);
+      // // This is the part that needs to be connected to createIntent for other tokens
+      // // For now, it shows a popup as a placeholder
+      // console.log('Swap now for non-BTC token');
+      // const intent = await paima.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, {});
+      // setTimeout(() => {
+      //   setLoading(false);
+      //   setPopup({
+      //     show: true,
+      //     title: 'Swap Successful!',
+      //     message: 'Your transaction has been completed.',
+      //   });
+      // }, 2000); // Simulate a 2-second swap process
+    }
+  };
+
+  const handleTokenSwap = () => {
+    setFromToken(toToken);
+    setToToken(fromToken);
+  };
+
+  const handleM20SwapContinue = async () => {
+    setShowM20Popup(false);
+    setLoading(true);
+    try {
+      const destinationChainId = toToken === 'BTC' ? 1n : toToken === 'ETH' ? 2n : 9999n;
+      const recipientAddress = m20Recipient;
+      const intentConfig = {
+        user: midnightWallet.addr,
+        orderId: selectedQuote.orderId,
+        originChainId: 9999n,
+        destinationChainId: destinationChainId,
+        maxSpent_token: "m20",
+        maxSpent_amount: BigInt(Math.round(parseFloat(amount) * Math.pow(10, 8))),
+        maxSpent_recipient: midnightWallet.contractAddress.erc7683,
+        maxSpent_chainId: 9999n,
+        minReceived_token: toToken.toLowerCase(),
+        minReceived_amount: BigInt(Math.round(selectedQuote.toAmount * Math.pow(10, 8))),
+        minReceived_recipient: recipientAddress,
+        minReceived_chainId: destinationChainId,
+        originData: {
+          targetWallet: midnightWallet.addr,
+        },
+      };
+      const intentResult = await paima.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, intentConfig);
+
+      const m20Amount = BigInt(parseFloat(amount) * Math.pow(10, 8));
+      const transferResult = await paima.m20_transferFrom(
+        midnightWallet.contract.unshielded_erc20,
+        midnightWallet.addr,
+        "mn_shield-addr_undeployed1mjngjmnlutcq50trhcsk3hugvt9wyjnhq3c7prryd5nqmvtzva0sxqpvzkdy4k9u7eyffff53cge62tqylevq3wqps86tdjuahsquwvucsy9kffv",
+        m20Amount
+      );
+      setPopup({
+        show: true,
+        title: 'Swap Successful!',
+        message: `Your ${fromToken} to ${toToken} swap has been created.`,
+        details: {
+          'Intent Tx ID': intentResult.txId,
+          'Intent Block': intentResult.blockHeight,
+          'Transfer Tx ID': transferResult.txId,
+          'Transfer Block': transferResult.blockHeight,
+          ...intentConfig,
+        }
+      });
+    } catch (error) {
+      console.error('Failed to swap M20:', error);
+      setPopup({
+        show: true,
+        title: 'Error',
+        message: 'Failed to swap M20. See console for details.',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -250,8 +279,7 @@ function App() {
     setLoading(true);
 
     try {
-      await paima.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, {
-
+      const intentConfig = {
         user: midnightWallet.addr,
         orderId: selectedQuote.orderId,
         originChainId: 1n,
@@ -272,12 +300,18 @@ function App() {
         originData: {
           targetWallet: btcAddress,
         },
-      });
+      };
+      const intentResult = await paima.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, intentConfig);
 
       setPopup({
         show: true,
         title: 'Intent Created!',
-        message: 'Your BTC swap intent has been created successfully.',
+        message: `Your ${fromToken} to ${toToken} swap has been created.`,
+        details: {
+          'Intent Tx ID': intentResult.txId,
+          'Intent Block': intentResult.blockHeight,
+          ...intentConfig,
+        }
       });
     } catch (error) {
       console.error('Failed to create intent:', error);
@@ -345,6 +379,27 @@ function App() {
                 ))}
               </select>
             </div>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
+              <button
+                type="button"
+                onClick={handleTokenSwap}
+                style={{
+                  background: '#2a2a2a',
+                  border: '1px solid #444',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  cursor: 'pointer',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px'
+                }}
+              >
+                &#x2195;
+              </button>
+            </div>
             <div className="swap-label">receive</div>
             <div className="swap-input-line">
               <select
@@ -392,7 +447,7 @@ function App() {
 
           {selectedQuote && (
             <div className="swap-now-container">
-              <button type="button" className="swap-now-button" onClick={handleSwapNow}>
+              <button type="button" className="swap-now-button" onClick={handleSwapNow} disabled={!midnightAddress}>
                 Swap Now
               </button>
             </div>
@@ -411,6 +466,18 @@ function App() {
             <div className="popup">
               <h3>{popup.title}</h3>
               <p>{popup.message}</p>
+              {popup.details && (
+                <table className="popup-details-table">
+                  <tbody>
+                    {Object.entries(popup.details).map(([key, value]) => (
+                      <tr key={key}>
+                        <td>{key}</td>
+                        <td>{formatPopupValue(value)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
               <button type="button" onClick={closePopup}>Close</button>
             </div>
           </div>
@@ -496,6 +563,37 @@ function App() {
                   Continue
                 </button>
                 <button type="button" onClick={() => setShowBtcPopup(false)} style={{ marginLeft: '10px', backgroundColor: 'grey' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showM20Popup && (
+          <div className="popup-overlay">
+            <div className="popup">
+              <h3>Enter recipient address</h3>
+              <div className="step-content">
+                <label>Address to send {toToken} to</label>
+                <input
+                  type="text"
+                  style={{ width: '100%' }}
+                  value={m20Recipient}
+                  onChange={(e) => setM20Recipient(e.target.value)}
+                  placeholder={`Enter recipient ${toToken} address`}
+                />
+              </div>
+              <div className="popup-buttons" style={{ marginTop: '20px' }}>
+                <button
+                  type="button"
+                  onClick={handleM20SwapContinue}
+                  disabled={!m20Recipient}
+                  style={{ marginRight: '10px' }}
+                >
+                  Continue
+                </button>
+                <button type="button" onClick={() => setShowM20Popup(false)} style={{ marginLeft: '10px', backgroundColor: 'grey' }}>
                   Cancel
                 </button>
               </div>

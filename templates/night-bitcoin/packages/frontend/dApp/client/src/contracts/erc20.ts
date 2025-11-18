@@ -232,6 +232,11 @@ import {
     toAccount: string,
     amount: bigint,
   ): Promise<FinalizedTxData> => {
+    console.log("[TRANSFER FROM]", {
+      fromAccount,
+      toAccount,
+      amount,
+    });
     const shieldedAddress = ShieldedAddress.codec.decode(
       "undeployed",
       MidnightBech32m.parse(fromAccount),
@@ -250,7 +255,7 @@ import {
       left: { bytes: toShieldedAddress.coinPublicKey.data },
       right: { bytes: new Uint8Array(32) },
     };
-    const finalizedTxData = await (simpleTokenContract.callTx as any).transferFrom(fromEither, toEither, amount);
+    const finalizedTxData = await (simpleTokenContract.callTx as any).transfer(toEither, amount);
     console.log(
       `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
     );

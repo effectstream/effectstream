@@ -242,6 +242,7 @@ textarea {
 }
 
 .popup {
+  max-width: 80%;
   background-color: var(--card-bg);
   padding: 30px;
   border-radius: 10px;
@@ -264,4 +265,22 @@ textarea {
   font-size: 1em;
   font-weight: bold;
   margin-top: 10px;
+}
+
+.popup-details-table {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+}
+
+.popup-details-table td {
+  padding: 8px;
+  border: 1px solid #444;
+  text-align: left;
+  word-break: break-all;
+}
+
+.popup-details-table td:first-child {
+  font-weight: bold;
+  white-space: nowrap;
 }

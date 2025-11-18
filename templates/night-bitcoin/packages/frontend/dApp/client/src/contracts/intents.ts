@@ -223,7 +223,7 @@ import {
         destinationSettler?: string,
         originData?: Object,
     } = {}
-  ): Promise<FinalizedTxData> => {
+  ): Promise<FinalizedTxData & typeof config> => {
     console.log("Creating intent...");
     const shieldedAddress = ShieldedAddress.codec.decode(
       "undeployed",
@@ -268,7 +268,7 @@ import {
       `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
     );
     console.log(`Created intent ${config.orderId} for ${account}`);
-    return finalizedTxData.public;
+    return { ...finalizedTxData.public, ...config };
   };
   
   const balanceOf = async (

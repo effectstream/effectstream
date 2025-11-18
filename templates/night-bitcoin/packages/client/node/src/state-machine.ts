@@ -150,20 +150,68 @@ stm.addStateTransition("bitcoinWalletChange", function* (data) {
 
 stm.addStateTransition("midnightContractStateERC20", function* (data) {
   console.log(
-    "🎉 [MIDNIGHT] Transaction receipt:",
+    "🎉 [MIDNIGHT] Transaction receipt (erc20):",
     JSON.stringify(data.parsedInput.payload)
-  );
-  yield* checkAndTransferFunds({
-    orderId: undefined,
-    address: "0x1234...",
-    amount: "1.0",
-    token: TOKENS.M20,
-  });
+  );   
+
+  if (data.parsedInput.payload.actionName === "1001") {
+      // const sample = {
+    //   "txHashes":{},
+    //   "lastTransfer":{"target_address":"","amount":"0"},
+    //   "actionName":"1001",
+    //   "actionTarget":{"is_left":true,
+    //     "left":{"bytes":{"0":23,"1":202,"2":238,"3":167,"4":135,"5":235,"6":107,"7":52,"8":239,"9":210,"10":216,"11":238,"12":116,"13":114,"14":201,"15":159,"16":35,"17":250,"18":67,"19":115,"20":168,"21":238,"22":143,"23":152,"24":23,"25":215,"26":72,"27":196,"28":213,"29":53,"30":96,"31":187}},
+    //     "right":{"bytes":{"0":0,"1":0,"2":0,"3":0,"4":0,"5":0,"6":0,"7":0,"8":0,"9":0,"10":0,"11":0,"12":0,"13":0,"14":0,"15":0,"16":0,"17":0,"18":0,"19":0,"20":0,"21":0,"22":0,"23":0,"24":0,"25":0,"26":0,"27":0,"28":0,"29":0,"30":0,"31":0}}
+    //   },
+    //   "actionTargetAddress":"",
+    //   "actionValue":"100000000000"
+    // } 
+
+    // Mint action
+    console.log("🎉 [MIDNIGHT] Mint action");
+  }
+
+  if (data.parsedInput.payload.actionName === "1002") {
+      // const sample = {
+      //   "txHashes":{},
+      //   "lastTransfer":{"target_address":"","amount":"0"},
+      //   "actionName":"1002",
+      //   "actionTarget":{
+      //     "is_left":true,
+      //     "left":{"bytes":{"0":220,"1":166,"2":137,"3":110,"4":127,"5":226,"6":240,"7":10,"8":61,"9":99,"10":190,"11":33,"12":104,"13":223,"14":136,"15":98,"16":202,"17":226,"18":74,"19":119,"20":4,"21":113,"22":224,"23":140,"24":100,"25":109,"26":38,"27":13,"28":177,"29":98,"30":103,"31":95}},
+      //     "right":{"bytes":{"0":0,"1":0,"2":0,"3":0,"4":0,"5":0,"6":0,"7":0,"8":0,"9":0,"10":0,"11":0,"12":0,"13":0,"14":0,"15":0,"16":0,"17":0,"18":0,"19":0,"20":0,"21":0,"22":0,"23":0,"24":0,"25":0,"26":0,"27":0,"28":0,"29":0,"30":0,"31":0}}
+      //   },
+      //   "actionTargetAddress":"",
+      //   "actionValue":"100000000"
+      // }
+      // Transfer action
+      const targetWallet = decodeToByteString(data.parsedInput.payload.actionTarget.left.bytes);
+      const initiatorWallet = decodeToByteString(data.parsedInput.payload.actionInitiator.left.bytes);
+      const amountTransferred = data.parsedInput.payload.actionValue;
+      console.log("🎉 [MIDNIGHT] Transfer action", {
+        initiatorWallet,
+        targetWallet,
+        amountTransferred,
+      });
+
+      const systemWallet = "220166137110127226240106199190331042231369820222674119411322414010010938131779810395";
+
+      // TODO Check target wallet is validator wallet
+      yield* checkAndTransferFunds({
+        orderId: undefined,
+        address: initiatorWallet,
+        amount: amountTransferred,
+        token: TOKENS.M20,
+      });
+  }
+
+
+
 });
 
 stm.addStateTransition("midnightContractStateERC7683", function* (data) {
   console.log(
-    "🎉 [MIDNIGHT] Transaction receipt:",
+    "🎉 [MIDNIGHT] Transaction receipt (erc7683):",
     JSON.stringify(data.parsedInput.payload)
   );
 
