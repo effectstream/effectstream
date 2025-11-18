@@ -47,89 +47,6 @@ const customProcesses: any[] = [
   // /** BATCHER-BLOCK */
 ]
 
-
-// const launchMidnight_ = (packageName: string): {
-//   stopProcessAtPort?: number[];
-//   name: string;
-//   args: string[];
-//   waitToExit?: boolean;
-//   logs?: string;
-//   type?: string;
-//   dependsOn?: string[];
-// }[] => [
-//     {
-//       stopProcessAtPort: [9944, 8088, 6300],
-//       name: ComponentNames.MIDNIGHT_NODE,
-//       args: [
-//         "task",
-//         "-f",
-//         packageName,
-//         "midnight-node:start",
-//       ],
-//       waitToExit: false,
-//       type: "system-dependency",
-//       logs: "raw",
-//       dependsOn: [],
-//     },
-//     {
-//       name: ComponentNames.MIDNIGHT_INDEXER,
-//       args: [
-//         "task",
-//         "-f",
-//         packageName,
-//         "midnight-indexer:start",
-//       ],
-//       waitToExit: false,
-//       type: "system-dependency",
-//       logs: "raw",
-//       dependsOn: [ComponentNames.MIDNIGHT_NODE],
-//     },
-//     {
-//       name: ComponentNames.MIDNIGHT_PROOF_SERVER,
-//       args: [
-//         "task",
-//         "-f",
-//         packageName,
-//         "midnight-proof-server:start",
-//       ],
-//       waitToExit: false,
-//       type: "system-dependency",
-//       logs: "raw",
-//       dependsOn: [ComponentNames.MIDNIGHT_NODE]
-//     },
-//     {
-//       name: ComponentNames.MIDNIGHT_NODE_WAIT,
-//       args: [
-//         "task",
-//         "-f",
-//         packageName,
-//         "midnight-node:wait",
-//       ],
-//       dependsOn: [ComponentNames.MIDNIGHT_NODE],
-//     },
-//     {
-//       name: ComponentNames.MIDNIGHT_INDEXER_WAIT,
-//       args: [
-//         "task",
-//         "-f",
-//         packageName,
-//         "midnight-indexer:wait",
-//       ],
-//       dependsOn: [ComponentNames.MIDNIGHT_INDEXER],
-//     },
-//     {
-//       name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
-//       args: [
-//         "task",
-//         "-f",
-//         packageName,
-//         "midnight-proof-server:wait",
-//       ],
-//       dependsOn: [ComponentNames.MIDNIGHT_PROOF_SERVER],
-//     },
-    
-//   ];
-
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
   packageName: "jsr:@paimaexample",
@@ -138,20 +55,94 @@ const config = Value.Parse(OrchestratorConfig, {
     [ComponentNames.TUI]: true,
     // Launch Dev DB & Collector
     [ComponentNames.EFFECTSTREAM_PGLITE]: true,
-    [ComponentNames.COLLECTOR]: false,
-    [ComponentNames.LOKI]: false,
+    [ComponentNames.COLLECTOR]: true,
+    [ComponentNames.LOKI]: true,
   },
 
   // Launch my processes
   processesToLaunch: [
-    
-
-    
     ...launchMidnight("@night-bitcoin/midnight-contracts"),
-    
-
-
     ...customProcesses,
+    {
+      name: "filler:alpha-liquidity",
+      args: ["task", "-f", "@night-bitcoin/filler", "start", "Alpha Liquidity", "16101"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:16101",
+      stopProcessAtPort: [16101],
+    },
+    {
+      name: "filler:omega-swap",
+      args: ["task", "-f", "@night-bitcoin/filler", "start", "Omega Swap", "16102"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:16102",
+      stopProcessAtPort: [16102],
+    },
+    {
+      name: "filler:quantum-pools",
+      args: ["task", "-f", "@night-bitcoin/filler", "start", "Quantum Pools", "16103"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:16103",
+      stopProcessAtPort: [16103],
+    },
+    {
+      name: "filler:zenith-trade",
+      args: ["task", "-f", "@night-bitcoin/filler", "start", "Zenith Trade", "16104"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:16104",
+      stopProcessAtPort: [16104],
+    },
+    {
+      name: "filler:orion-exchange",
+      args: ["task", "-f", "@night-bitcoin/filler", "start", "Orion Exchange", "16105"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:16105",
+      stopProcessAtPort: [16105],
+    },
+    {
+      name: "filler:nexus-liquidity",
+      args: ["task", "-f", "@night-bitcoin/filler", "start", "Nexus Liquidity", "16106"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:16106",
+      stopProcessAtPort: [16106],
+    },
+    {
+      name: "filler:phoenix-finance",
+      args: ["task", "-f", "@night-bitcoin/filler", "start", "Phoenix Finance", "16107"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:16107",
+      stopProcessAtPort: [16107],
+    },
+    {
+      name: "filler:galaxy-swaps",
+      args: ["task", "-f", "@night-bitcoin/filler", "start", "Galaxy Swaps", "16108"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:16108",
+      stopProcessAtPort: [16108],
+    },
+    {
+      name: "filler:infinity-pools",
+      args: ["task", "-f", "@night-bitcoin/filler", "start", "Infinity Pools", "16109"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:16109",
+      stopProcessAtPort: [16109],
+    },
+    {
+      name: "filler:polaris-trade",
+      args: ["task", "-f", "@night-bitcoin/filler", "start", "Polaris Trade", "16110"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:16110",
+      stopProcessAtPort: [16110],
+    },
   ],
 });
 

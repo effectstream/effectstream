@@ -43,36 +43,17 @@ export const apiRouter: StartConfigApiRouter = function (
   });
   const GetQuotesResponseSchemaArray = Type.Array(GetQuotesResponseSchema);
 
-  const tokens = ["btc", "eth", "m20", "wbtc"];
-  const basePrices = [100000, 4000, 0.5, 100000];
-
-  const getConversion = (
-    fromAmount: number,
-    fromToken: string,
-    toToken: string
-  ) => {
-    const fromIndex = tokens.indexOf(fromToken);
-    const toIndex = tokens.indexOf(toToken);
-    if (fromIndex === -1 || toIndex === -1) {
-      return 0;
-    }
-    const ratio = basePrices[fromIndex] / basePrices[toIndex];
-    const randomPercent = Math.random() * 10 + 2; // [2, 12]
-    const rate = ratio * (1 - randomPercent / 100);
-    return rate * fromAmount;
-  };
-
-  const fillerNames = [
-    "Alpha Liquidity",
-    "Omega Swap",
-    "Quantum Pools",
-    "Zenith Trade",
-    "Orion Exchange",
-    "Nexus Liquidity",
-    "Phoenix Finance",
-    "Galaxy Swaps",
-    "Infinity Pools",
-    "Polaris Trade",
+  const fillers = [
+    { name: "Alpha Liquidity", port: 16101 },
+    { name: "Omega Swap", port: 16102 },
+    { name: "Quantum Pools", port: 16103 },
+    { name: "Zenith Trade", port: 16104 },
+    { name: "Orion Exchange", port: 16105 },
+    { name: "Nexus Liquidity", port: 16106 },
+    { name: "Phoenix Finance", port: 16107 },
+    { name: "Galaxy Swaps", port: 16108 },
+    { name: "Infinity Pools", port: 16109 },
+    { name: "Polaris Trade", port: 16110 },
   ];
 
   server.post<{
@@ -87,44 +68,55 @@ export const apiRouter: StartConfigApiRouter = function (
     const { orderId, fromToken, toToken, fromAmount } = request.body;
     const quotes: Static<typeof GetQuotesResponseSchemaArray> = [];
 
-    const basisPoints = 10; // 0.01% * 10 = 0.1% => 10 basis points
+    const quotePromises = fillers.map(filler => {
+      return fetch(`http://localhost:${filler.port}/api/quote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId,
+          fromToken,
+          toToken,
+          fromAmount
+        }),
+      }).then(res => {
+        if (!res.ok) {
+          throw new Error(`Filler ${filler.name} failed with status ${res.status}`);
+        }
+        return res.json();
+      });
+    });
 
-    for (let i = 0; i < 10; i++) {
-      try {
-        const filler = fillerNames[i];
+    const results = await Promise.allSettled(quotePromises);
 
-        const conversionRate = getConversion(fromAmount, fromToken, toToken);
-        const fee = (basisPoints * conversionRate) / 10000;
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        try {
+          const quote: Static<typeof GetQuotesResponseSchema> = result.value;
 
-        const quote: Static<typeof GetQuotesResponseSchema> = {
-          orderId: orderId,
-          fromToken: fromToken,
-          filler: filler,
-          toToken: toToken,
-          fromAmount: fromAmount,
-          toAmount: conversionRate - fee,
-          fee: fee,
-        };
+          await runPreparedQuery(
+            insertQuote.run(
+              {
+                order_id: quote.orderId,
+                from_token: quote.fromToken,
+                filler: quote.filler,
+                to_token: quote.toToken,
+                from_amount: quote.fromAmount,
+                to_amount: quote.toAmount,
+                fee: quote.fee,
+              },
+              dbConn
+            ),
+            "/api/get-quotes"
+          );
 
-        await runPreparedQuery(
-          insertQuote.run(
-            {
-              order_id: quote.orderId,
-              from_token: quote.fromToken,
-              filler: quote.filler,
-              to_token: quote.toToken,
-              from_amount: quote.fromAmount,
-              to_amount: quote.toAmount,
-              fee: quote.fee,
-            },
-            dbConn
-          ),
-          "/api/get-quotes"
-        );
-
-        quotes.push(quote);
-      } catch (error) {
-        console.error(">>>", error);
+          quotes.push(quote);
+        } catch (error) {
+          console.error(">>>", error);
+        }
+      } else {
+        console.error("Error fetching quote:", result.reason);
       }
     }
 

@@ -1,0 +1,14 @@
+{
+    "name": "@night-bitcoin/filler",
+    "version": "0.1.0",
+    "exports": {
+        ".": "./index.ts"
+    },
+    "tasks": {
+        "start": "deno run -A --unstable-detect-cjs index.ts"
+    },
+    "imports": {
+        "fastify": "npm:fastify@^4.26.2",
+        "@sinclair/typebox": "npm:@sinclair/typebox@^0.32.14"
+    }
+}
