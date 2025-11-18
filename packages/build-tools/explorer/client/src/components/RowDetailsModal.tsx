@@ -37,7 +37,7 @@ export function RowDetailsModal({
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="details-modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="details-modal-content" style={{ maxWidth: '80%' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">{title}</h3>
           <button type="button" className="modal-close" onClick={onClose}>

@@ -112,6 +112,11 @@ export function DataTable(
                     <tr key={rowIndex}>
                       <td className="actions-cell">
                         <button
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                          }}
                           type="button"
                           onClick={() => setSelectedRow(row)}
                           className="details-button"

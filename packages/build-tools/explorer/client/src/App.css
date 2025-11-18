@@ -692,9 +692,10 @@ body {
 }
 
 .modal-body {
-  /* padding: 30px; */
+  padding: 20px;
   overflow-y: auto;
   flex: 1;
+  background: white;
 }
 
 .documentation-content {
@@ -1001,4 +1002,30 @@ body {
 /* Container background to white */
 .table-selector .modal-body {
   background: white;
+}
+
+.details-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.details-table td {
+  padding: 8px;
+  border: 1px solid #f0f0f0;
+  text-align: left;
+  word-break: break-all;
+}
+
+.details-table tr:last-child td {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.details-table td:first-child {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.details-key {
+  font-weight: 600;
+  color: #555;
 }
