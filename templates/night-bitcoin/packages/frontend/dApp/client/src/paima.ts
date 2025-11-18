@@ -1,7 +1,7 @@
 import { walletLogin, WalletMode } from "@paimaexample/wallets";
-import { hardhat } from "viem/chains";
-import { createWalletClient, custom } from "viem";
-import { createPublicClient, http } from "viem";
+import type { hardhat } from "viem/chains";
+import type { createWalletClient, custom } from "viem";
+import type { createPublicClient, http } from "viem";
 
 import * as unshielded_erc20 from "./contracts/erc20.ts";
 import * as erc7683 from "./contracts/intents.ts";
@@ -123,12 +123,55 @@ export async function loginMidnight() {
 export async function createIntent(
   contract: any,
   addr: string,
-  amount: bigint
+  config: {
+    user: string,
+    orderId: string,
+
+    originChainId: bigint,
+    destinationChainId: bigint,
+    
+    maxSpent_token: string,
+    maxSpent_amount: bigint,
+    maxSpent_recipient: string,
+    maxSpent_chainId: bigint,
+
+    minReceived_token: string,
+    minReceived_amount: bigint,
+    minReceived_recipient: string,
+    minReceived_chainId: bigint,
+
+    originData: {
+      targetWallet: string,
+    },
+},
 ) {
   try {
-    return await erc7683.createIntent(contract, addr, {
-    
-    });
+    return await erc7683.createIntent(contract, addr, config);
+  } catch (error) {
+    console.error(1, { error });
+  }
+}
+
+export async function m20_mint(
+  contract: any,
+  account: string,
+  amount: bigint,
+) {
+  try {
+    return await unshielded_erc20.mint(contract, account, amount);
+  } catch (error) {
+    console.error(1, { error });
+  }
+}
+
+export async function m20_transferFrom(
+  contract: any,
+  fromAccount: string,
+  toAccount: string,
+  amount: bigint,
+) {
+  try {
+    return await unshielded_erc20.transferFrom(contract, fromAccount, toAccount, amount);
   } catch (error) {
     console.error(1, { error });
   }

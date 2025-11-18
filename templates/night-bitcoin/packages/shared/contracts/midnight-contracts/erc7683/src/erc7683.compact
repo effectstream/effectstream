@@ -9,12 +9,15 @@ import "base-contracts/src/access/Ownable" prefix Ownable_;
 
 export ledger lastIntentType: Uint<8>;
 export ledger lastIntentEvent: Intent;
-export ledger lastFillerEvent: Either<ZswapCoinPublicKey, ContractAddress>;
+export ledger lastFillerEvent: Bytes<128>;
 export ledger lastIntentOrderId: Bytes<32>;
+
+export ledger intents: Map<Bytes<32>, Intent>;
+export ledger fillers: Map<Bytes<32>, Bytes<128>>;
 
 // Represents a cross-chain intent, based on a simplified ERC-7683 `ResolvedCrossChainOrder`.
 struct Intent {
-  user: Either<ZswapCoinPublicKey, ContractAddress>;
+  user: Bytes<128>;
   originChainId: Uint<128>;
   openDeadline: Uint<32>;
   fillDeadline: Uint<32>;
@@ -44,8 +47,7 @@ struct Intent {
   status: Uint<8>;
 }
 
-export ledger intents: Map<Bytes<32>, Intent>;
-export ledger fillers: Map<Bytes<32>, Either<ZswapCoinPublicKey, ContractAddress>>;
+
 
 constructor(
   /*initialOwner: Either<ZswapCoinPublicKey, ContractAddress>*/
@@ -58,6 +60,7 @@ constructor(
  * @param orderId A unique identifier for the intent.
  */
 export circuit initialize(
+  user: Bytes<128>,
   orderId: Bytes<32>,
   originChainId: Uint<128>,
   openDeadline: Uint<32>,
@@ -76,11 +79,8 @@ export circuit initialize(
 ): [] {
   assert(!intents.member(disclose(orderId)), "Intent with this orderId already exists");
 
-  const user = ownPublicKey();
-  const userEither = left<ZswapCoinPublicKey, ContractAddress>(user);
-
-  const newIntent = Intent {
-    user: userEither,
+ const newIntent = Intent {
+    user: disclose(user),
     originChainId: originChainId,
     openDeadline: openDeadline,
     fillDeadline: fillDeadline,
@@ -108,14 +108,14 @@ export circuit initialize(
  * @dev This function should only be callable by the contract owner.
  * @param orderId The identifier of the intent to validate.
  */
-export circuit validate_initialize(orderId: Bytes<32>): [] {
+export circuit validate_initialize(user: Bytes<128>, orderId: Bytes<32>): [] {
   // Ownable_assertOnlyOwner();
   assert(intents.member(disclose(orderId)), "Intent with this orderId does not exist");
   const intent = intents.lookup(disclose(orderId));
   assert(intent.status == 0, "Intent not in initialized state");
 
   const updatedIntent = Intent {
-    user: intent.user,
+    user: disclose(user),
     originChainId: intent.originChainId,
     openDeadline: intent.openDeadline,
     fillDeadline: intent.fillDeadline,
@@ -142,9 +142,7 @@ export circuit validate_initialize(orderId: Bytes<32>): [] {
  * @description Marks an intent as resolved by a filler.
  * @param orderId The identifier of the intent to resolve.
  */
-export circuit resolve(orderId: Bytes<32>): [] {
-  const filler = ownPublicKey();
-  const fillerEither = left<ZswapCoinPublicKey, ContractAddress>(filler);
+export circuit resolve(filler: Bytes<128>, orderId: Bytes<32>): [] {
 
   assert(intents.member(disclose(orderId)), "Intent with this orderId does not exist");
   const intent = intents.lookup(disclose(orderId));
@@ -173,10 +171,10 @@ export circuit resolve(orderId: Bytes<32>): [] {
   lastIntentOrderId = disclose(orderId);
   lastIntentType = 2;
   lastIntentEvent = disclose(updatedIntent);
-  lastFillerEvent = disclose(fillerEither);
+  lastFillerEvent = disclose(filler);
 
   intents.insert(disclose(orderId), disclose(updatedIntent));
-  fillers.insert(disclose(orderId), disclose(fillerEither));
+  fillers.insert(disclose(orderId), disclose(filler));
 }
 
 /**
@@ -184,13 +182,14 @@ export circuit resolve(orderId: Bytes<32>): [] {
  * @dev This function should only be callable by the contract owner.
  * @param orderId The identifier of the intent to validate.
  */
-export circuit validate_resolve(orderId: Bytes<32>): [] {
+export circuit validate_resolve(filler: Bytes<128>, orderId: Bytes<32>): [] {
   // Ownable_assertOnlyOwner();
   assert(intents.member(disclose(orderId)), "Intent with this orderId does not exist");
   const intent = intents.lookup(disclose(orderId));
   assert(intent.status == 2, "Intent not in resolved state");
   
   assert(fillers.member(disclose(orderId)), "Filler not found for this intent");
+  assert(fillers.lookup(disclose(orderId)) == disclose(filler), "Filler mismatch");
 
   // TODO: Implement logic to pay the filler. This would involve transferring
   // `intent.minReceived_amount` of `intent.minReceived_token` to the filler.
@@ -216,6 +215,7 @@ export circuit validate_resolve(orderId: Bytes<32>): [] {
   lastIntentOrderId = disclose(orderId);
   lastIntentType = 3;
   lastIntentEvent = disclose(updatedIntent);
+  lastFillerEvent = disclose(filler);
   intents.insert(disclose(orderId), disclose(updatedIntent));
 }
 
@@ -224,8 +224,9 @@ export circuit validate_resolve(orderId: Bytes<32>): [] {
  * @param orderId The identifier of the intent to query.
  * @return The status code of the intent.
  */
-export circuit getIntentStatus(orderId: Bytes<32>): Uint<8> {
+export circuit getIntentStatus(user: Bytes<128>, orderId: Bytes<32>): Uint<8> {
     assert(intents.member(disclose(orderId)), "Intent with this orderId does not exist");
     const intent = intents.lookup(disclose(orderId));
+    assert(intent.user == disclose(user), "User mismatch");
     return intent.status;
 }

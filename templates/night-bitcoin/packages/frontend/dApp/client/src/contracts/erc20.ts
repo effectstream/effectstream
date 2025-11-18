@@ -225,6 +225,39 @@ import {
     console.log(`Minted ${value} tokens to ${account}`);
     return finalizedTxData.public;
   };
+
+  const transferFrom = async (
+    simpleTokenContract: DeployedSimpleTokenContract,
+    fromAccount: string,
+    toAccount: string,
+    amount: bigint,
+  ): Promise<FinalizedTxData> => {
+    const shieldedAddress = ShieldedAddress.codec.decode(
+      "undeployed",
+      MidnightBech32m.parse(fromAccount),
+    );
+    const fromEither = {
+      is_left: true,
+      left: { bytes: shieldedAddress.coinPublicKey.data },
+      right: { bytes: new Uint8Array(32) },
+    };
+    const toShieldedAddress = ShieldedAddress.codec.decode(
+      "undeployed",
+      MidnightBech32m.parse(toAccount),
+    );
+    const toEither = {
+      is_left: true,
+      left: { bytes: toShieldedAddress.coinPublicKey.data },
+      right: { bytes: new Uint8Array(32) },
+    };
+    const finalizedTxData = await (simpleTokenContract.callTx as any).transferFrom(fromEither, toEither, amount);
+    console.log(
+      `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
+    );
+    console.log(finalizedTxData);
+    console.log(`Transferred ${amount} tokens from ${fromAccount} to ${toAccount}`);
+    return finalizedTxData.public;
+  };
   
   const balanceOf = async (
     simpleTokenContract: any, // DeployedSimpleTokenContract,
@@ -853,8 +886,9 @@ import {
   };
   
   export {
-    // mint,
+    mint,
     // balanceOf,
+    transferFrom,
     connectMidnightWallet,
     connectToContract,
     // fetchCurrentCounterState,

@@ -343,3 +343,53 @@ const getIntentByOrderIdIR: any = {"usedParamSet":{"order_id":true},"params":[{"
 export const getIntentByOrderId = new PreparedQuery<IGetIntentByOrderIdParams,IGetIntentByOrderIdResult>(getIntentByOrderIdIR);
 
 
+/** 'GetIntentByAddressAndAmount' parameters type */
+export interface IGetIntentByAddressAndAmountParams {
+  max_spent_amount: string;
+  max_spent_recipient: string;
+  max_spent_token: string;
+}
+
+/** 'GetIntentByAddressAndAmount' return type */
+export interface IGetIntentByAddressAndAmountResult {
+  created_at: Date;
+  destination_chain_id: string;
+  destination_settler: string;
+  fill_deadline: string;
+  id: number;
+  max_spent_amount: string;
+  max_spent_chain_id: string;
+  max_spent_recipient: string;
+  max_spent_token: string;
+  min_received_amount: string;
+  min_received_chain_id: string;
+  min_received_recipient: string;
+  min_received_token: string;
+  open_deadline: string;
+  order_id: string;
+  origin_chain_id: string;
+  origin_data: string;
+  status: string;
+  user_address: string;
+}
+
+/** 'GetIntentByAddressAndAmount' query type */
+export interface IGetIntentByAddressAndAmountQuery {
+  params: IGetIntentByAddressAndAmountParams;
+  result: IGetIntentByAddressAndAmountResult;
+}
+
+const getIntentByAddressAndAmountIR: any = {"usedParamSet":{"max_spent_recipient":true,"max_spent_amount":true,"max_spent_token":true},"params":[{"name":"max_spent_recipient","required":true,"transform":{"type":"scalar"},"locs":[{"a":51,"b":71}]},{"name":"max_spent_amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":96,"b":113}]},{"name":"max_spent_token","required":true,"transform":{"type":"scalar"},"locs":[{"a":137,"b":153}]}],"statement":"SELECT * FROM intents \nWHERE max_spent_recipient = :max_spent_recipient!\nAND max_spent_amount = :max_spent_amount!\nAND max_spent_token = :max_spent_token!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM intents 
+ * WHERE max_spent_recipient = :max_spent_recipient!
+ * AND max_spent_amount = :max_spent_amount!
+ * AND max_spent_token = :max_spent_token!
+ * ```
+ */
+export const getIntentByAddressAndAmount = new PreparedQuery<IGetIntentByAddressAndAmountParams,IGetIntentByAddressAndAmountResult>(getIntentByAddressAndAmountIR);
+
+

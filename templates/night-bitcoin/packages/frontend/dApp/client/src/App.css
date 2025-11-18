@@ -193,6 +193,15 @@ textarea {
   font-weight: bold;
 }
 
+.best-deal-label {
+  background-color: var(--primary-accent);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 0.8em;
+  margin-left: 10px;
+}
+
 .swap-now-container {
   text-align: center;
   margin-top: 20px;
@@ -213,10 +222,14 @@ textarea {
   flex-direction: column;
 }
 
+.loader-overlay p {
+  color: white;
+}
+
 .spinner {
-  border: 4px solid rgba(0, 0, 0, 0.1);
+  border: 4px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  border-top: 4px solid var(--text-color);
+  border-top: 4px solid #fff;
   width: 40px;
   height: 40px;
   animation: spin 1s linear infinite;

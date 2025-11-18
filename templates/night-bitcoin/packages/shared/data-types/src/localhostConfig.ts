@@ -104,7 +104,7 @@ export const localhostConfig = new ConfigBuilder()
         .addPrimitive(
           (syncProtocols) => syncProtocols.parallelMidnight,
           (network, deployments, syncProtocol) => ({
-            name: "MidnightContractState",
+            name: "MidnightContractState-ERC20",
             type: PrimitiveTypeMidnightGeneric,
             startBlockHeight: 1,
             contractAddress: readMidnightContract("unshielded-erc20", "contract-unshielded-erc20.json").contractAddress,
@@ -118,7 +118,7 @@ export const localhostConfig = new ConfigBuilder()
         .addPrimitive(
           (syncProtocols) => syncProtocols.parallelMidnight,
           (network, deployments, syncProtocol) => ({
-            name: "MidnightContractState",
+            name: "MidnightContractState-ERC7683",
             type: PrimitiveTypeMidnightGeneric,
             startBlockHeight: 1,
             contractAddress: readMidnightContract("erc7683", "contract-erc7683.json").contractAddress,

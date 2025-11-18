@@ -206,6 +206,7 @@ import {
     erc7683Contract: DeployedErc7683Contract,
     account: string,
     config: {
+        user?: string,
         orderId?: string,
         originChainId?: bigint,
         openDeadline?: bigint,
@@ -220,7 +221,7 @@ import {
         minReceived_chainId?: bigint,
         destinationChainId?: bigint,
         destinationSettler?: string,
-        originData?: string,
+        originData?: Object,
     } = {}
   ): Promise<FinalizedTxData> => {
     console.log("Creating intent...");
@@ -234,33 +235,32 @@ import {
       left: { bytes: shieldedAddress.coinPublicKey.data },
       right: { bytes: new Uint8Array(32) },
     };
-    let orderId = new Uint8Array(32);
-    orderId[0] = Math.random() * 255 | 0;
-    orderId[1] = Math.random() * 255 | 0;
-    orderId[2] = Math.random() * 255 | 0;
-    orderId[3] = Math.random() * 255 | 0;
-    orderId[4] = Math.random() * 255 | 0;
-    orderId[5] = Math.random() * 255 | 0;
-    orderId[6] = Math.random() * 255 | 0;
-    orderId[7] = Math.random() * 255 | 0;
 
-    console.log("erc7683Contract.callTx", erc7683Contract.callTx);
+    const toEncodedString = (str: string, length: number): Uint8Array => {
+      const buffer = new Uint8Array(length);
+      const encoded = new TextEncoder().encode(str);
+      buffer.set(encoded.slice(0, length));
+      return buffer;
+    };
+
+    console.log("erc7683Contract.callTx.initialize", config);
     const finalizedTxData = await (erc7683Contract.callTx as any).initialize(
-      orderId, //config.orderId || new Uint8Array(32),  
+      toEncodedString(config.user || '', 128),
+      toEncodedString(config.orderId || '', 32),
       config.originChainId || 0n,
       config.openDeadline || 0n,
       config.fillDeadline || 0n,
-      config.maxSpent_token || new Uint8Array(32),
+      toEncodedString(config.maxSpent_token || '', 32),
       config.maxSpent_amount || 0n,
-      config.maxSpent_recipient || new Uint8Array(32),
+      toEncodedString(config.maxSpent_recipient || '', 32),
       config.maxSpent_chainId || 0n,
-      config.minReceived_token || new Uint8Array(32),
+      toEncodedString(config.minReceived_token || '', 32),
       config.minReceived_amount || 0n,
-      config.minReceived_recipient || new Uint8Array(32),
+      toEncodedString(config.minReceived_recipient || '', 32),
       config.minReceived_chainId || 0n,
       config.destinationChainId || 0n,
-      config.destinationSettler || new Uint8Array(32),
-      config.originData || new Uint8Array(256),
+      toEncodedString(config.destinationSettler || '', 32),
+      toEncodedString(JSON.stringify(config.originData || {}), 256),
     );
         // either, 
         // value);

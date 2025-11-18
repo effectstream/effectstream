@@ -102,3 +102,10 @@ ON CONFLICT (order_id) DO UPDATE SET
 SELECT * FROM intents 
 WHERE order_id = :order_id!
 ;
+
+/* @name getIntentByAddressAndAmount */
+SELECT * FROM intents 
+WHERE max_spent_recipient = :max_spent_recipient!
+AND max_spent_amount = :max_spent_amount!
+AND max_spent_token = :max_spent_token!
+;
