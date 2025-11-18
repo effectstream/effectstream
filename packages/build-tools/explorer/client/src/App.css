@@ -170,7 +170,7 @@ body {
   width: 100%;
 }
 .rows-container .row:first-child {
-  background: #00130c;
+  background: linear-gradient(135deg, #022418 0%, #19b17b 100%);
 }
 
 .rows-container .row:first-child .row-title {
@@ -183,7 +183,7 @@ body {
   border-radius: 15px;
   padding: 10px 5px 0px 5px;
   box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  /* border: 1px solid rgba(255, 255, 255, 0.18); */
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   min-width: 0;
   max-width: 100%;
@@ -424,16 +424,25 @@ body {
   margin-top: -20px;
 }
 
+.primitive-table-wrapper {
+  max-height: 225px;
+  overflow: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
 .primitive-tables {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 25px;
 }
 
 /* If the last card is alone on its row, make it span full width */
+/*
 .primitive-tables > .primitive-table-container:last-child:nth-child(odd) {
   grid-column: 1 / -1;
 }
+*/
 
 .primitive-table-container {
   background: rgba(255, 255, 255, 0.8);
@@ -469,28 +478,15 @@ body {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  display: block;
 }
 
 .primitive-table thead {
-  display: block;
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
 .primitive-table tbody {
-  display: block;
-  max-height: 180px; /* Approximately 6 rows at ~45px each */
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.primitive-table thead tr,
-.primitive-table tbody tr {
-  display: table;
-  width: 100%;
-  table-layout: fixed;
 }
 
 .primitive-table th {
@@ -502,6 +498,10 @@ body {
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .primitive-table td {
@@ -510,11 +510,10 @@ body {
   border-bottom: 1px solid #f0f0f0;
   font-size: 0.85rem;
   color: #555;
-  max-width: 200px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  word-break: break-all;
+  max-width: 300px;
 }
 
 .primitive-table tr:hover td {
