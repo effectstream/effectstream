@@ -19,21 +19,21 @@ export const launchBitcoin = (packageName: string): {
   {
     stopProcessAtPort: [18334, 18443],
     name: ComponentNames.BITCOIN_CORE,
-    args: ["-A", "@effectstream/bitcoin-core"],
+    args: ["task", "-f", packageName, "chain:start"],
     waitToExit: false,
     logs: "raw",
     type: "system-dependency",
   },
   {
     name: ComponentNames.BITCOIN_CORE_WAIT,
-    args: ["task", "-f", packageName, "wait"],
+    args: ["task", "-f", packageName, "chain:wait"],
     waitToExit: true,
     type: "system-dependency",
     dependsOn: [ComponentNames.BITCOIN_CORE],
   },
   {
     name: "btc-blocks",
-    args: ["task", "-f", "@effectstream/bitcoin-contracts", "generate:blocks"],
+    args: ["task", "-f", packageName, "generate:blocks"],
     waitToExit: false, // Loop keeps blocks being mined
     logs: "raw",
     type: "system-dependency",

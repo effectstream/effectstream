@@ -3,6 +3,12 @@
   "version": "0.3.0",
   "type": "module",
   "main": "./index.js",
+  "bin": {
+    "ord": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
     "@xhmikosr/bin-wrapper": "^5.0.0"
   }

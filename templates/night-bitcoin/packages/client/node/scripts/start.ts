@@ -2,6 +2,7 @@ import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
 import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
 import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
+import { launchBitcoin } from "@paimaexample/orchestrator/start-bitcoin";
 
 const customProcesses: any[] = [
   // /** DENO-FRONTEND-BLOCK */
@@ -62,6 +63,7 @@ const config = Value.Parse(OrchestratorConfig, {
   // Launch my processes
   processesToLaunch: [
     ...launchMidnight("@night-bitcoin/midnight-contracts"),
+    ...launchBitcoin("@night-bitcoin/bitcoin-contracts"),
     ...customProcesses,
     {
       name: "filler:alpha-liquidity",
