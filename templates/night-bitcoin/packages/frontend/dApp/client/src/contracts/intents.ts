@@ -245,18 +245,18 @@ import {
 
     console.log("erc7683Contract.callTx.initialize", config);
     const finalizedTxData = await (erc7683Contract.callTx as any).initialize(
-      toEncodedString(config.user || '', 128),
+      toEncodedString(config.user || '', 256),
       toEncodedString(config.orderId || '', 32),
       config.originChainId || 0n,
       config.openDeadline || 0n,
       config.fillDeadline || 0n,
       toEncodedString(config.maxSpent_token || '', 32),
       config.maxSpent_amount || 0n,
-      toEncodedString(config.maxSpent_recipient || '', 32),
+      toEncodedString(config.maxSpent_recipient || '', 256),
       config.maxSpent_chainId || 0n,
       toEncodedString(config.minReceived_token || '', 32),
       config.minReceived_amount || 0n,
-      toEncodedString(config.minReceived_recipient || '', 32),
+      toEncodedString(config.minReceived_recipient || '', 256),
       config.minReceived_chainId || 0n,
       config.destinationChainId || 0n,
       toEncodedString(config.destinationSettler || '', 32),

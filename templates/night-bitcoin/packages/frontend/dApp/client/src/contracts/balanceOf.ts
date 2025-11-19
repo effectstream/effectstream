@@ -51,7 +51,7 @@ const convertToEither = (rawValue: [Uint8Array, Uint8Array, Uint8Array]) => {
   };
 }
 
-function getBalanceMap(publicStates: PublicContractStates): Map<string, bigint> {
+function getBalanceMap(publicStates: PublicContractStates): bigint {
   //   Array(2) [
   //     Array(1) [
   //         Map {
@@ -92,8 +92,8 @@ function getBalanceMap(publicStates: PublicContractStates): Map<string, bigint> 
 
     const mapValue = BigInt("0x" + Array.from(tokenBalance?.reverse() ?? new Uint8Array())
     .map(b => b.toString(16).padStart(2, "0"))
-   
     .join(""));
+    
   return mapValue;
 }
 
@@ -103,5 +103,8 @@ export async function balanceOf(address: string): Promise<bigint> {
   const balance = getBalanceMap(publicStates);
   // const parsedAddress = address.startsWith("mn_") ? extractPublicCoinAddress(address) : address;
   // return balanceMap.get(parsedAddress) ?? 0n;
+  if (isNaN(Number(balance))) {
+    return 0n;
+  }
   return balance;
 }

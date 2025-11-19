@@ -12,14 +12,15 @@ CREATE TABLE quotes (
 
 CREATE UNIQUE INDEX quotes_order_id_filler_index ON quotes(order_id, filler);
 
-CREATE TABLE deposits (
+CREATE TABLE payments (
   id SERIAL PRIMARY KEY,
   amount NUMERIC(78,0) NOT NULL,
   token TEXT NOT NULL,
   chain_id TEXT NOT NULL,
-  user_address TEXT NOT NULL,
+  to_wallet TEXT NOT NULL,
+  from_wallet TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  used BOOLEAN NOT NULL DEFAULT FALSE
+  order_id TEXT NOT NULL
 );
 
 CREATE TABLE intents (
@@ -41,7 +42,8 @@ CREATE TABLE intents (
   destination_chain_id TEXT NOT NULL,
   destination_settler TEXT NOT NULL,
   origin_data TEXT NOT NULL,
-  status TEXT NOT NULL
+  status TEXT NOT NULL,
+  resolved_by TEXT DEFAULT NULL
 );
 
 create unique index intents_order_id_index on intents(order_id);
@@ -53,5 +55,6 @@ CREATE TABLE transfers (
   amount NUMERIC(78,0) NOT NULL,
   token TEXT NOT NULL,
   chain_id TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  used BOOLEAN NOT NULL DEFAULT FALSE
 );

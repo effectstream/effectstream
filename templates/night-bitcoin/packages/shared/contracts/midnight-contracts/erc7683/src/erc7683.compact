@@ -17,7 +17,7 @@ export ledger fillers: Map<Bytes<32>, Bytes<128>>;
 
 // Represents a cross-chain intent, based on a simplified ERC-7683 `ResolvedCrossChainOrder`.
 struct Intent {
-  user: Bytes<128>;
+  user: Bytes<256>;
   originChainId: Uint<128>;
   openDeadline: Uint<32>;
   fillDeadline: Uint<32>;
@@ -25,13 +25,13 @@ struct Intent {
   // Simplified `maxSpent` (assuming one output)
   maxSpent_token: Bytes<32>;
   maxSpent_amount: Uint<128>;
-  maxSpent_recipient: Bytes<32>;
+  maxSpent_recipient: Bytes<256>;
   maxSpent_chainId: Uint<128>;
 
   // Simplified `minReceived` (assuming one output)
   minReceived_token: Bytes<32>;
   minReceived_amount: Uint<128>;
-  minReceived_recipient: Bytes<32>;
+  minReceived_recipient: Bytes<256>;
   minReceived_chainId: Uint<128>;
 
   // Simplified `fillInstructions` (assuming one instruction)
@@ -60,18 +60,18 @@ constructor(
  * @param orderId A unique identifier for the intent.
  */
 export circuit initialize(
-  user: Bytes<128>,
+  user: Bytes<256>,
   orderId: Bytes<32>,
   originChainId: Uint<128>,
   openDeadline: Uint<32>,
   fillDeadline: Uint<32>,
   maxSpent_token: Bytes<32>,
   maxSpent_amount: Uint<128>,
-  maxSpent_recipient: Bytes<32>,
+  maxSpent_recipient: Bytes<256>,
   maxSpent_chainId: Uint<128>,
   minReceived_token: Bytes<32>,
   minReceived_amount: Uint<128>,
-  minReceived_recipient: Bytes<32>,
+  minReceived_recipient: Bytes<256>,
   minReceived_chainId: Uint<128>,
   destinationChainId: Uint<64>,
   destinationSettler: Bytes<32>,
@@ -108,7 +108,7 @@ export circuit initialize(
  * @dev This function should only be callable by the contract owner.
  * @param orderId The identifier of the intent to validate.
  */
-export circuit validate_initialize(user: Bytes<128>, orderId: Bytes<32>): [] {
+export circuit validate_initialize(user: Bytes<256>, orderId: Bytes<32>): [] {
   // Ownable_assertOnlyOwner();
   assert(intents.member(disclose(orderId)), "Intent with this orderId does not exist");
   const intent = intents.lookup(disclose(orderId));
@@ -224,7 +224,7 @@ export circuit validate_resolve(filler: Bytes<128>, orderId: Bytes<32>): [] {
  * @param orderId The identifier of the intent to query.
  * @return The status code of the intent.
  */
-export circuit getIntentStatus(user: Bytes<128>, orderId: Bytes<32>): Uint<8> {
+export circuit getIntentStatus(user: Bytes<256>, orderId: Bytes<32>): Uint<8> {
     assert(intents.member(disclose(orderId)), "Intent with this orderId does not exist");
     const intent = intents.lookup(disclose(orderId));
     assert(intent.user == disclose(user), "User mismatch");

@@ -102,102 +102,72 @@ const getQuoteByIdIR: any = {"usedParamSet":{"order_id":true},"params":[{"name":
 export const getQuoteById = new PreparedQuery<IGetQuoteByIdParams,IGetQuoteByIdResult>(getQuoteByIdIR);
 
 
-/** 'InsertDeposit' parameters type */
-export interface IInsertDepositParams {
+/** 'InsertPayment' parameters type */
+export interface IInsertPaymentParams {
   amount: NumberOrString;
   chain_id: string;
+  from_wallet: string;
+  order_id: string;
+  to_wallet: string;
   token: string;
-  user_address: string;
 }
 
-/** 'InsertDeposit' return type */
-export type IInsertDepositResult = void;
+/** 'InsertPayment' return type */
+export type IInsertPaymentResult = void;
 
-/** 'InsertDeposit' query type */
-export interface IInsertDepositQuery {
-  params: IInsertDepositParams;
-  result: IInsertDepositResult;
+/** 'InsertPayment' query type */
+export interface IInsertPaymentQuery {
+  params: IInsertPaymentParams;
+  result: IInsertPaymentResult;
 }
 
-const insertDepositIR: any = {"usedParamSet":{"amount":true,"token":true,"chain_id":true,"user_address":true},"params":[{"name":"amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":72,"b":79}]},{"name":"token","required":true,"transform":{"type":"scalar"},"locs":[{"a":82,"b":88}]},{"name":"chain_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":91,"b":100}]},{"name":"user_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":103,"b":116}]}],"statement":"INSERT INTO deposits \n(amount, token, chain_id, user_address) \nVALUES \n(:amount!, :token!, :chain_id!, :user_address!)"};
+const insertPaymentIR: any = {"usedParamSet":{"amount":true,"token":true,"chain_id":true,"to_wallet":true,"from_wallet":true,"order_id":true},"params":[{"name":"amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":92,"b":99}]},{"name":"token","required":true,"transform":{"type":"scalar"},"locs":[{"a":102,"b":108}]},{"name":"chain_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":111,"b":120}]},{"name":"to_wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":123,"b":133}]},{"name":"from_wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":136,"b":148}]},{"name":"order_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":151,"b":160}]}],"statement":"INSERT INTO payments \n(amount, token, chain_id, to_wallet, from_wallet, order_id) \nVALUES \n(:amount!, :token!, :chain_id!, :to_wallet!, :from_wallet!, :order_id!)"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO deposits 
- * (amount, token, chain_id, user_address) 
+ * INSERT INTO payments 
+ * (amount, token, chain_id, to_wallet, from_wallet, order_id) 
  * VALUES 
- * (:amount!, :token!, :chain_id!, :user_address!)
+ * (:amount!, :token!, :chain_id!, :to_wallet!, :from_wallet!, :order_id!)
  * ```
  */
-export const insertDeposit = new PreparedQuery<IInsertDepositParams,IInsertDepositResult>(insertDepositIR);
+export const insertPayment = new PreparedQuery<IInsertPaymentParams,IInsertPaymentResult>(insertPaymentIR);
 
 
-/** 'UpdateDepositUsed' parameters type */
-export interface IUpdateDepositUsedParams {
-  amount: NumberOrString;
-  chain_id: string;
-  token: string;
-  user_address: string;
+/** 'GetPayments' parameters type */
+export interface IGetPaymentsParams {
+  order_id: string;
 }
 
-/** 'UpdateDepositUsed' return type */
-export type IUpdateDepositUsedResult = void;
-
-/** 'UpdateDepositUsed' query type */
-export interface IUpdateDepositUsedQuery {
-  params: IUpdateDepositUsedParams;
-  result: IUpdateDepositUsedResult;
-}
-
-const updateDepositUsedIR: any = {"usedParamSet":{"user_address":true,"token":true,"chain_id":true,"amount":true},"params":[{"name":"user_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":55,"b":68}]},{"name":"token","required":true,"transform":{"type":"scalar"},"locs":[{"a":82,"b":88}]},{"name":"chain_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":105,"b":114}]},{"name":"amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":129,"b":136}]}],"statement":"UPDATE deposits \nSET used = TRUE \nWHERE user_address = :user_address!\nAND token = :token!\nAND chain_id = :chain_id!\nAND amount = :amount!"};
-
-/**
- * Query generated from SQL:
- * ```
- * UPDATE deposits 
- * SET used = TRUE 
- * WHERE user_address = :user_address!
- * AND token = :token!
- * AND chain_id = :chain_id!
- * AND amount = :amount!
- * ```
- */
-export const updateDepositUsed = new PreparedQuery<IUpdateDepositUsedParams,IUpdateDepositUsedResult>(updateDepositUsedIR);
-
-
-/** 'GetDeposits' parameters type */
-export interface IGetDepositsParams {
-  user_address: string;
-}
-
-/** 'GetDeposits' return type */
-export interface IGetDepositsResult {
+/** 'GetPayments' return type */
+export interface IGetPaymentsResult {
   amount: string;
   chain_id: string;
   created_at: Date;
+  from_wallet: string;
   id: number;
+  order_id: string;
+  to_wallet: string;
   token: string;
-  used: boolean;
-  user_address: string;
 }
 
-/** 'GetDeposits' query type */
-export interface IGetDepositsQuery {
-  params: IGetDepositsParams;
-  result: IGetDepositsResult;
+/** 'GetPayments' query type */
+export interface IGetPaymentsQuery {
+  params: IGetPaymentsParams;
+  result: IGetPaymentsResult;
 }
 
-const getDepositsIR: any = {"usedParamSet":{"user_address":true},"params":[{"name":"user_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":45,"b":58}]}],"statement":"SELECT * FROM deposits \nWHERE user_address = :user_address!"};
+const getPaymentsIR: any = {"usedParamSet":{"order_id":true},"params":[{"name":"order_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":41,"b":50}]}],"statement":"SELECT * FROM payments \nWHERE order_id = :order_id!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM deposits 
- * WHERE user_address = :user_address!
+ * SELECT * FROM payments 
+ * WHERE order_id = :order_id!
  * ```
  */
-export const getDeposits = new PreparedQuery<IGetDepositsParams,IGetDepositsResult>(getDepositsIR);
+export const getPayments = new PreparedQuery<IGetPaymentsParams,IGetPaymentsResult>(getPaymentsIR);
 
 
 /** 'InsertIntent' parameters type */
@@ -321,6 +291,7 @@ export interface IGetIntentByOrderIdResult {
   order_id: string;
   origin_chain_id: string;
   origin_data: string;
+  resolved_by: string | null;
   status: string;
   user_address: string;
 }
@@ -341,56 +312,6 @@ const getIntentByOrderIdIR: any = {"usedParamSet":{"order_id":true},"params":[{"
  * ```
  */
 export const getIntentByOrderId = new PreparedQuery<IGetIntentByOrderIdParams,IGetIntentByOrderIdResult>(getIntentByOrderIdIR);
-
-
-/** 'GetIntentByAddressAndAmount' parameters type */
-export interface IGetIntentByAddressAndAmountParams {
-  max_spent_amount: string;
-  max_spent_recipient: string;
-  max_spent_token: string;
-}
-
-/** 'GetIntentByAddressAndAmount' return type */
-export interface IGetIntentByAddressAndAmountResult {
-  created_at: Date;
-  destination_chain_id: string;
-  destination_settler: string;
-  fill_deadline: string;
-  id: number;
-  max_spent_amount: string;
-  max_spent_chain_id: string;
-  max_spent_recipient: string;
-  max_spent_token: string;
-  min_received_amount: string;
-  min_received_chain_id: string;
-  min_received_recipient: string;
-  min_received_token: string;
-  open_deadline: string;
-  order_id: string;
-  origin_chain_id: string;
-  origin_data: string;
-  status: string;
-  user_address: string;
-}
-
-/** 'GetIntentByAddressAndAmount' query type */
-export interface IGetIntentByAddressAndAmountQuery {
-  params: IGetIntentByAddressAndAmountParams;
-  result: IGetIntentByAddressAndAmountResult;
-}
-
-const getIntentByAddressAndAmountIR: any = {"usedParamSet":{"max_spent_recipient":true,"max_spent_amount":true,"max_spent_token":true},"params":[{"name":"max_spent_recipient","required":true,"transform":{"type":"scalar"},"locs":[{"a":51,"b":71}]},{"name":"max_spent_amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":96,"b":113}]},{"name":"max_spent_token","required":true,"transform":{"type":"scalar"},"locs":[{"a":137,"b":153}]}],"statement":"SELECT * FROM intents \nWHERE max_spent_recipient = :max_spent_recipient!\nAND max_spent_amount = :max_spent_amount!\nAND max_spent_token = :max_spent_token!"};
-
-/**
- * Query generated from SQL:
- * ```
- * SELECT * FROM intents 
- * WHERE max_spent_recipient = :max_spent_recipient!
- * AND max_spent_amount = :max_spent_amount!
- * AND max_spent_token = :max_spent_token!
- * ```
- */
-export const getIntentByAddressAndAmount = new PreparedQuery<IGetIntentByAddressAndAmountParams,IGetIntentByAddressAndAmountResult>(getIntentByAddressAndAmountIR);
 
 
 /** 'InsertTransfer' parameters type */
@@ -423,5 +344,271 @@ const insertTransferIR: any = {"usedParamSet":{"from_address":true,"to_address":
  * ```
  */
 export const insertTransfer = new PreparedQuery<IInsertTransferParams,IInsertTransferResult>(insertTransferIR);
+
+
+/** 'GetSomeUnusedTransfer' parameters type */
+export interface IGetSomeUnusedTransferParams {
+  amount: NumberOrString;
+  chain_id: string;
+  from_address: string;
+  to_address: string;
+  token: string;
+}
+
+/** 'GetSomeUnusedTransfer' return type */
+export interface IGetSomeUnusedTransferResult {
+  amount: string;
+  chain_id: string;
+  created_at: Date;
+  from_address: string;
+  id: number;
+  to_address: string;
+  token: string;
+  used: boolean;
+}
+
+/** 'GetSomeUnusedTransfer' query type */
+export interface IGetSomeUnusedTransferQuery {
+  params: IGetSomeUnusedTransferParams;
+  result: IGetSomeUnusedTransferResult;
+}
+
+const getSomeUnusedTransferIR: any = {"usedParamSet":{"from_address":true,"to_address":true,"amount":true,"token":true,"chain_id":true},"params":[{"name":"from_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":51,"b":64}]},{"name":"to_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":83,"b":94}]},{"name":"amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":109,"b":116}]},{"name":"token","required":true,"transform":{"type":"scalar"},"locs":[{"a":130,"b":136}]},{"name":"chain_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":153,"b":162}]}],"statement":"SELECT * FROM transfers \nWHERE \n    from_address = :from_address!\nAND to_address = :to_address!\nAND amount = :amount!\nAND token = :token!\nAND chain_id = :chain_id!\nAND used = FALSE"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM transfers 
+ * WHERE 
+ *     from_address = :from_address!
+ * AND to_address = :to_address!
+ * AND amount = :amount!
+ * AND token = :token!
+ * AND chain_id = :chain_id!
+ * AND used = FALSE
+ * ```
+ */
+export const getSomeUnusedTransfer = new PreparedQuery<IGetSomeUnusedTransferParams,IGetSomeUnusedTransferResult>(getSomeUnusedTransferIR);
+
+
+/** 'UpdateTransferUsed' parameters type */
+export interface IUpdateTransferUsedParams {
+  id: number;
+}
+
+/** 'UpdateTransferUsed' return type */
+export type IUpdateTransferUsedResult = void;
+
+/** 'UpdateTransferUsed' query type */
+export interface IUpdateTransferUsedQuery {
+  params: IUpdateTransferUsedParams;
+  result: IUpdateTransferUsedResult;
+}
+
+const updateTransferUsedIR: any = {"usedParamSet":{"id":true},"params":[{"name":"id","required":true,"transform":{"type":"scalar"},"locs":[{"a":46,"b":49}]}],"statement":"UPDATE transfers \nSET used = TRUE \nWHERE id = :id!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * UPDATE transfers 
+ * SET used = TRUE 
+ * WHERE id = :id!
+ * ```
+ */
+export const updateTransferUsed = new PreparedQuery<IUpdateTransferUsedParams,IUpdateTransferUsedResult>(updateTransferUsedIR);
+
+
+/** 'GetTransferToMatchIntent' parameters type */
+export interface IGetTransferToMatchIntentParams {
+  amount: NumberOrString;
+  chain_id: string;
+  to_address: string;
+  token: string;
+}
+
+/** 'GetTransferToMatchIntent' return type */
+export interface IGetTransferToMatchIntentResult {
+  amount: string;
+  chain_id: string;
+  created_at: Date;
+  from_address: string;
+  id: number;
+  to_address: string;
+  token: string;
+  used: boolean;
+}
+
+/** 'GetTransferToMatchIntent' query type */
+export interface IGetTransferToMatchIntentQuery {
+  params: IGetTransferToMatchIntentParams;
+  result: IGetTransferToMatchIntentResult;
+}
+
+const getTransferToMatchIntentIR: any = {"usedParamSet":{"amount":true,"token":true,"chain_id":true,"to_address":true},"params":[{"name":"amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":45,"b":52}]},{"name":"token","required":true,"transform":{"type":"scalar"},"locs":[{"a":66,"b":72}]},{"name":"chain_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":89,"b":98}]},{"name":"to_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":134,"b":145}]}],"statement":"SELECT * FROM transfers \nWHERE \n    amount = :amount!\nAND token = :token!\nAND chain_id = :chain_id!\nAND used = FALSE\nAND to_address = :to_address!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM transfers 
+ * WHERE 
+ *     amount = :amount!
+ * AND token = :token!
+ * AND chain_id = :chain_id!
+ * AND used = FALSE
+ * AND to_address = :to_address!
+ * ```
+ */
+export const getTransferToMatchIntent = new PreparedQuery<IGetTransferToMatchIntentParams,IGetTransferToMatchIntentResult>(getTransferToMatchIntentIR);
+
+
+/** 'GetIntentToMatchTransfer' parameters type */
+export interface IGetIntentToMatchTransferParams {
+  max_spent_amount: string;
+  max_spent_token: string;
+}
+
+/** 'GetIntentToMatchTransfer' return type */
+export interface IGetIntentToMatchTransferResult {
+  created_at: Date;
+  destination_chain_id: string;
+  destination_settler: string;
+  fill_deadline: string;
+  id: number;
+  max_spent_amount: string;
+  max_spent_chain_id: string;
+  max_spent_recipient: string;
+  max_spent_token: string;
+  min_received_amount: string;
+  min_received_chain_id: string;
+  min_received_recipient: string;
+  min_received_token: string;
+  open_deadline: string;
+  order_id: string;
+  origin_chain_id: string;
+  origin_data: string;
+  resolved_by: string | null;
+  status: string;
+  user_address: string;
+}
+
+/** 'GetIntentToMatchTransfer' query type */
+export interface IGetIntentToMatchTransferQuery {
+  params: IGetIntentToMatchTransferParams;
+  result: IGetIntentToMatchTransferResult;
+}
+
+const getIntentToMatchTransferIR: any = {"usedParamSet":{"max_spent_token":true,"max_spent_amount":true},"params":[{"name":"max_spent_token","required":true,"transform":{"type":"scalar"},"locs":[{"a":48,"b":64}]},{"name":"max_spent_amount","required":true,"transform":{"type":"scalar"},"locs":[{"a":89,"b":106}]}],"statement":"SELECT * FROM intents \nWHERE  max_spent_token = :max_spent_token!\nAND max_spent_amount = :max_spent_amount!\nAND status = '0'"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM intents 
+ * WHERE  max_spent_token = :max_spent_token!
+ * AND max_spent_amount = :max_spent_amount!
+ * AND status = '0'
+ * ```
+ */
+export const getIntentToMatchTransfer = new PreparedQuery<IGetIntentToMatchTransferParams,IGetIntentToMatchTransferResult>(getIntentToMatchTransferIR);
+
+
+/** 'UpdateIntentResolved' parameters type */
+export interface IUpdateIntentResolvedParams {
+  order_id: string;
+  resolved_by: string;
+}
+
+/** 'UpdateIntentResolved' return type */
+export type IUpdateIntentResolvedResult = void;
+
+/** 'UpdateIntentResolved' query type */
+export interface IUpdateIntentResolvedQuery {
+  params: IUpdateIntentResolvedParams;
+  result: IUpdateIntentResolvedResult;
+}
+
+const updateIntentResolvedIR: any = {"usedParamSet":{"resolved_by":true,"order_id":true},"params":[{"name":"resolved_by","required":true,"transform":{"type":"scalar"},"locs":[{"a":34,"b":46}]},{"name":"order_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":80,"b":89}]}],"statement":"UPDATE intents \nSET resolved_by = :resolved_by!,  status = '3'\nWHERE order_id = :order_id!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * UPDATE intents 
+ * SET resolved_by = :resolved_by!,  status = '3'
+ * WHERE order_id = :order_id!
+ * ```
+ */
+export const updateIntentResolved = new PreparedQuery<IUpdateIntentResolvedParams,IUpdateIntentResolvedResult>(updateIntentResolvedIR);
+
+
+/** 'GetTransferById' parameters type */
+export interface IGetTransferByIdParams {
+  id: number;
+}
+
+/** 'GetTransferById' return type */
+export interface IGetTransferByIdResult {
+  amount: string;
+  chain_id: string;
+  created_at: Date;
+  from_address: string;
+  id: number;
+  to_address: string;
+  token: string;
+  used: boolean;
+}
+
+/** 'GetTransferById' query type */
+export interface IGetTransferByIdQuery {
+  params: IGetTransferByIdParams;
+  result: IGetTransferByIdResult;
+}
+
+const getTransferByIdIR: any = {"usedParamSet":{"id":true},"params":[{"name":"id","required":true,"transform":{"type":"scalar"},"locs":[{"a":36,"b":39}]}],"statement":"SELECT * FROM transfers \nWHERE id = :id!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM transfers 
+ * WHERE id = :id!
+ * ```
+ */
+export const getTransferById = new PreparedQuery<IGetTransferByIdParams,IGetTransferByIdResult>(getTransferByIdIR);
+
+
+/** 'GetBestQuoteForOrder' parameters type */
+export interface IGetBestQuoteForOrderParams {
+  order_id: string;
+}
+
+/** 'GetBestQuoteForOrder' return type */
+export interface IGetBestQuoteForOrderResult {
+  created_at: Date;
+  fee: string;
+  filler: string;
+  from_amount: string;
+  from_token: string;
+  id: number;
+  order_id: string;
+  to_amount: string;
+  to_token: string;
+}
+
+/** 'GetBestQuoteForOrder' query type */
+export interface IGetBestQuoteForOrderQuery {
+  params: IGetBestQuoteForOrderParams;
+  result: IGetBestQuoteForOrderResult;
+}
+
+const getBestQuoteForOrderIR: any = {"usedParamSet":{"order_id":true},"params":[{"name":"order_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":39,"b":48}]}],"statement":"SELECT * FROM quotes \nWHERE order_id = :order_id!\nORDER BY to_amount ASC\nLIMIT 1"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM quotes 
+ * WHERE order_id = :order_id!
+ * ORDER BY to_amount ASC
+ * LIMIT 1
+ * ```
+ */
+export const getBestQuoteForOrder = new PreparedQuery<IGetBestQuoteForOrderParams,IGetBestQuoteForOrderResult>(getBestQuoteForOrderIR);
 
 

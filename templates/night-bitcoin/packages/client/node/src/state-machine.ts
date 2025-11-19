@@ -3,7 +3,20 @@ import { grammar } from "@night-bitcoin/data-types/grammar";
 import type { BaseStfInput, BaseStfOutput } from "@paimaexample/sm";
 import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
 import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
-import { getIntentByOrderId, getIntentByAddressAndAmount, IGetIntentByOrderIdResult, insertIntent, insertTransfer } from "@night-bitcoin/database";
+import { 
+  getIntentByOrderId, 
+  IGetIntentByOrderIdResult, 
+  insertIntent, 
+  insertTransfer, 
+  getTransferToMatchIntent, 
+  IGetTransferToMatchIntentResult,
+  getIntentToMatchTransfer,
+  getTransferById,
+  getSomeUnusedTransfer,
+  updateTransferUsed,
+  updateIntentResolved,
+  getBestQuoteForOrder,
+} from "@night-bitcoin/database";
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 import { transferFunds } from "@night-bitcoin/bitcoin-contracts/transfer-funds";
 import { transferFunds as transferFundsMidnight } from "@night-bitcoin/midnight-contracts/transfer-funds";
@@ -64,40 +77,78 @@ const decodeToByteString = (x: { [key: string]: number }): string =>
     return new TextDecoder().decode(uint8Bytes);
   }
 
-function* checkAndTransferFunds (params: {
-  orderId: string | undefined, 
-  address: string | undefined,
-  amount: string | undefined,
-  token: string | undefined,
-}) {
+type CheckParamsType = {
+  type: "intent-received";
+  orderId: string;
+} | {
+  type: "transfer-received";
+  id: number;
+  amount: string;
+  token: string;
+}
+
+function* checkAndTransferFunds (params: CheckParamsType) {
   // If it was a payment, let's check if there is intent waiting.
   let intentData: IGetIntentByOrderIdResult | undefined;
-  if (params.orderId) {
+  let paymentData: IGetTransferToMatchIntentResult | undefined;
+  
+  if (params.type === "intent-received") {
     const [intent] = yield* World.resolve(getIntentByOrderId, {
       order_id: params.orderId,
     });
  
     if (intent) {
       intentData = intent;
+    } else {
+      console.error("Critical error: No intent found", params);
+      return;
     }
-  }
 
-  if (params.address && params.amount && params.token) {
-    const [intent] = yield* World.resolve(getIntentByAddressAndAmount, {
-      max_spent_recipient: params.address,
+    const SYSTEM_WALLET_MIDNIGHT = "220166137110127226240106199190331042231369820222674119411322414010010938131779810395";
+    const SYSTEM_WALLET_BTC = "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03";
+    
+    const [payment] = yield* World.resolve(getTransferToMatchIntent, {
+      to_address: intent.max_spent_token === TOKENS.M20 ? SYSTEM_WALLET_MIDNIGHT : SYSTEM_WALLET_BTC,
+      amount: intent.max_spent_amount,
+      token: intent.max_spent_token,
+      chain_id: intent.max_spent_chain_id,
+    });
+
+    if (payment) {
+      paymentData = payment;
+    } else {
+      console.error("No payment found", params);
+      return;
+    }
+  } else if (params.type === "transfer-received") {
+
+    const [payment] = yield* World.resolve(getTransferById, {
+      id: params.id,
+    });
+    if (payment) {
+      paymentData = payment;
+    } else {
+      console.error("Critical error: No payment found", params);
+      return;
+    }
+
+    // TODO This is missing the chain id check.
+    const [intent] = yield* World.resolve(getIntentToMatchTransfer, {
       max_spent_amount: params.amount,
       max_spent_token: params.token,
     });
 
     if (intent) {
       intentData = intent;
+    } else {
+      console.error("No intent found", params);
+      return;
     }
   }
-
-  if (!intentData) {
-    console.error("No intent found", params);
-    return;
-  }
+  
+  // These are just guards, we know they are defined.
+  if (!intentData) {return;}
+  if (!paymentData) {return;}
 
 
   const toChainId = intentData.min_received_chain_id;
@@ -112,14 +163,47 @@ function* checkAndTransferFunds (params: {
   const fromAmount = intentData.max_spent_amount;
   const toAmount = intentData.min_received_amount;
 
+  // TODO This should be done by the fillers.
+  const [quote] = yield* World.resolve(getBestQuoteForOrder, {
+    order_id: intentData.order_id,
+  });
+  if (!quote) {
+    console.error("Critical error: No quote found", intentData);
+    return;
+  }
+
+  yield* World.resolve(updateTransferUsed, {
+    id: paymentData.id,
+  });
+
+  yield* World.resolve(updateIntentResolved, {
+    order_id: intentData.order_id,
+    resolved_by: quote.filler,
+  });
+
   if (toToken === TOKENS.BTC) {
-    const systemWallet = "bc1p...x";
-    yield* World.promise(transferFunds(systemWallet, toAddress, toAmount));
+    yield* World.promise(transferFunds("some-system-wallet-btc", toAddress, toAmount));
   } else if (toToken === TOKENS.M20) {
-    const systemWallet = "0x00000000000000000000000000000000000000001";
-    yield* World.promise(transferFundsMidnight(systemWallet, toAddress, toAmount));
+    yield* World.promise(transferFundsMidnight("some-system-wallet-midnight", toAddress, toAmount));
   } else {
-    console.error("No valid transfer found", {
+    console.error("No valid transfer found (0x01)", {
+      toChainId,
+      fromChainId,
+      fromToken,
+      toToken,
+      fromAddress,
+      toAddress,
+      fromAmount,
+      toAmount,
+    });
+  }
+
+  if (fromToken === TOKENS.BTC) {
+    yield* World.promise(transferFunds("filler-wallet-btc", fromAddress, fromAmount));
+  } else if (fromToken === TOKENS.M20) {
+    yield* World.promise(transferFundsMidnight("filler-midnight-walllet", fromAddress, fromAmount));
+  } else {
+    console.error("No valid transfer found (0x02)", {
       toChainId,
       fromChainId,
       fromToken,
@@ -162,12 +246,27 @@ stm.addStateTransition("bitcoin-transaction", function* (data) {
     chain_id: CHAIN_IDS.BITCOIN,
   });
 
-  yield* checkAndTransferFunds({
-    orderId: undefined,
-    address: fromAddress,
+  const [payment] = yield* World.resolve(getSomeUnusedTransfer, {
+    from_address: "",
+    to_address: toAddress,
     amount: String(amount),
     token: TOKENS.BTC,
+    chain_id: CHAIN_IDS.BITCOIN,
   });
+
+  const SYSTEM_WALLET_MIDNIGHT = "220166137110127226240106199190331042231369820222674119411322414010010938131779810395";
+  const SYSTEM_WALLET_BTC = "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03";
+
+  if (toAddress === SYSTEM_WALLET_BTC) {
+    yield* checkAndTransferFunds({
+      type: "transfer-received",
+      id: payment.id,
+      amount: String(amount),
+      token: TOKENS.BTC,
+    });
+  } else {
+    console.error("Transfer is not for system wallet", { toAddress, token:TOKENS.BTC, amount: String(amount) });
+  }
 });
 
 stm.addStateTransition("midnightContractStateERC20", function* (data) {
@@ -219,14 +318,15 @@ stm.addStateTransition("midnightContractStateERC20", function* (data) {
       // Transfer action
       const targetWallet = decodeToByteString(data.parsedInput.payload.actionTarget.left.bytes);
       const initiatorWallet = decodeToByteString(data.parsedInput.payload.actionInitiator.left.bytes);
-      const amountTransferred = data.parsedInput.payload.actionValue;
+      const amountTransferred: string = data.parsedInput.payload.actionValue;
       console.log("🎉 [MIDNIGHT] Transfer action", {
         initiatorWallet,
         targetWallet,
         amountTransferred,
       });
 
-      const systemWallet = "220166137110127226240106199190331042231369820222674119411322414010010938131779810395";
+      const SYSTEM_WALLET_MIDNIGHT = "220166137110127226240106199190331042231369820222674119411322414010010938131779810395";
+      const SYSTEM_WALLET_BTC = "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03";
 
       yield* World.resolve(insertTransfer, {
         from_address: initiatorWallet,
@@ -236,13 +336,25 @@ stm.addStateTransition("midnightContractStateERC20", function* (data) {
         chain_id: CHAIN_IDS.MIDNIGHT,
       });
 
-      // TODO Check target wallet is validator wallet
-      yield* checkAndTransferFunds({
-        orderId: undefined,
-        address: initiatorWallet,
+      const [payment] = yield* World.resolve(getSomeUnusedTransfer, {
+        from_address: initiatorWallet,
+        to_address: targetWallet,
         amount: amountTransferred,
         token: TOKENS.M20,
+        chain_id: CHAIN_IDS.MIDNIGHT,
       });
+
+      if (targetWallet === SYSTEM_WALLET_MIDNIGHT) {
+        // TODO Check target wallet is validator wallet
+        yield* checkAndTransferFunds({
+          type: "transfer-received",
+          id: payment.id,
+          amount: amountTransferred,
+          token: TOKENS.M20,
+        });
+      } else {
+        console.error("Transfer is not for system wallet", { targetWallet, token:TOKENS.M20, amount: String(amountTransferred) });
+      }
   }
 
 });
@@ -263,45 +375,34 @@ stm.addStateTransition("midnightContractStateERC7683", function* (data) {
     originData.status = "ok";
   } catch (error) {
     console.error("Malformed origin data:", error, data.parsedInput.payload.lastIntentEvent.originData);
-    originData.status = "error: " + String(error);
+    return;
   }
 
   const parsedPayload = {
     lastIntentType: data.parsedInput.payload.lastIntentType,
     lastIntentEvent: {
-      user: decodeToByteString(
-        data.parsedInput.payload.lastIntentEvent.user
-      ),
+      user: decodeToByteString(data.parsedInput.payload.lastIntentEvent.user),
+      orderId: decodePaddedString(decodeToByteString(data.parsedInput.payload.lastIntentOrderId)),
+
       originChainId: data.parsedInput.payload.lastIntentEvent.originChainId,
+      destinationChainId: data.parsedInput.payload.lastIntentEvent.destinationChainId,
+
       openDeadline: data.parsedInput.payload.lastIntentEvent.openDeadline,
       fillDeadline: data.parsedInput.payload.lastIntentEvent.fillDeadline,
-      maxSpent_token: decodeToByteString(
-        data.parsedInput.payload.lastIntentEvent.maxSpent_token
-      ),
+
+      maxSpent_token: decodePaddedString(decodeToByteString(data.parsedInput.payload.lastIntentEvent.maxSpent_token)),
       maxSpent_amount: data.parsedInput.payload.lastIntentEvent.maxSpent_amount,
-      maxSpent_recipient: decodeToByteString(
-        data.parsedInput.payload.lastIntentEvent.maxSpent_recipient
-      ),
-      maxSpent_chainId:
-        data.parsedInput.payload.lastIntentEvent.maxSpent_chainId,
-      minReceived_token: decodeToByteString(
-        data.parsedInput.payload.lastIntentEvent.minReceived_token
-      ),
-      minReceived_amount:
-        data.parsedInput.payload.lastIntentEvent.minReceived_amount,
-      minReceived_recipient: decodeToByteString(
-        data.parsedInput.payload.lastIntentEvent.minReceived_recipient
-      ),
-      minReceived_chainId:
-        data.parsedInput.payload.lastIntentEvent.minReceived_chainId,
-      destinationChainId:
-        data.parsedInput.payload.lastIntentEvent.destinationChainId,
-      destinationSettler: decodeToByteString(
-        data.parsedInput.payload.lastIntentEvent.destinationSettler
-      ),
+      maxSpent_recipient: decodePaddedString(decodeToByteString(data.parsedInput.payload.lastIntentEvent.maxSpent_recipient)),
+      maxSpent_chainId:data.parsedInput.payload.lastIntentEvent.maxSpent_chainId,
+
+      minReceived_token: decodePaddedString(decodeToByteString(data.parsedInput.payload.lastIntentEvent.minReceived_token)),
+      minReceived_amount:data.parsedInput.payload.lastIntentEvent.minReceived_amount,
+      minReceived_recipient: decodePaddedString(decodeToByteString(data.parsedInput.payload.lastIntentEvent.minReceived_recipient)),
+      minReceived_chainId:data.parsedInput.payload.lastIntentEvent.minReceived_chainId,
+      
+      destinationSettler: decodeToByteString(data.parsedInput.payload.lastIntentEvent.destinationSettler),
       originData: JSON.stringify(originData),
       status: data.parsedInput.payload.lastIntentEvent.status,
-      orderId: decodeToByteString(data.parsedInput.payload.lastIntentOrderId),
     },
     // lastFillerEvent: data.parsedInput.payload.lastFillerEvent,
   };
@@ -438,10 +539,8 @@ stm.addStateTransition("midnightContractStateERC7683", function* (data) {
   });
 
   yield* checkAndTransferFunds({
-    orderId: parsedPayload.lastIntentEvent.orderId,
-    address: undefined,
-    amount: undefined,
-    token: undefined,
+    type: "intent-received",
+    orderId: parsedPayload.lastIntentEvent.orderId as string,
   });
 
 });

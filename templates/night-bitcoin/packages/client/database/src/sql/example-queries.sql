@@ -17,25 +17,16 @@ SELECT * FROM quotes
 WHERE order_id = :order_id!
 ;
 
-/* @name insertDeposit */
-INSERT INTO deposits 
-(amount, token, chain_id, user_address) 
+/* @name insertPayment */
+INSERT INTO payments 
+(amount, token, chain_id, to_wallet, from_wallet, order_id) 
 VALUES 
-(:amount!, :token!, :chain_id!, :user_address!) 
+(:amount!, :token!, :chain_id!, :to_wallet!, :from_wallet!, :order_id!) 
 ;
 
-/* @name updateDepositUsed */
-UPDATE deposits 
-SET used = TRUE 
-WHERE user_address = :user_address!
-AND token = :token!
-AND chain_id = :chain_id!
-AND amount = :amount!
-;
-
-/* @name getDeposits */
-SELECT * FROM deposits 
-WHERE user_address = :user_address!
+/* @name getPayments */
+SELECT * FROM payments 
+WHERE order_id = :order_id!
 ;
 
 /* @name insertIntent */
@@ -103,16 +94,62 @@ SELECT * FROM intents
 WHERE order_id = :order_id!
 ;
 
-/* @name getIntentByAddressAndAmount */
-SELECT * FROM intents 
-WHERE max_spent_recipient = :max_spent_recipient!
-AND max_spent_amount = :max_spent_amount!
-AND max_spent_token = :max_spent_token!
-;
 
 /* @name insertTransfer */
 INSERT INTO transfers 
 (from_address, to_address, amount, token, chain_id) 
 VALUES 
 (:from_address!, :to_address!, :amount!, :token!, :chain_id!) 
+;
+
+/* @name getSomeUnusedTransfer */
+SELECT * FROM transfers 
+WHERE 
+    from_address = :from_address!
+AND to_address = :to_address!
+AND amount = :amount!
+AND token = :token!
+AND chain_id = :chain_id!
+AND used = FALSE
+;
+
+/* @name updateTransferUsed */
+UPDATE transfers 
+SET used = TRUE 
+WHERE id = :id!
+;
+
+/* @name getTransferToMatchIntent */
+SELECT * FROM transfers 
+WHERE 
+    amount = :amount!
+AND token = :token!
+AND chain_id = :chain_id!
+AND used = FALSE
+AND to_address = :to_address!
+;
+
+/* @name getIntentToMatchTransfer */
+SELECT * FROM intents 
+WHERE  max_spent_token = :max_spent_token!
+AND max_spent_amount = :max_spent_amount!
+AND status = '0'
+;
+
+/* @name updateIntentResolved */
+UPDATE intents 
+SET resolved_by = :resolved_by!,  status = '3'
+WHERE order_id = :order_id!
+;
+
+/* @name getTransferById */
+SELECT * FROM transfers 
+WHERE id = :id!
+;
+
+/* @name getBestQuoteForOrder */
+SELECT * FROM quotes 
+WHERE order_id = :order_id!
+ORDER BY to_amount ASC
+LIMIT 1
 ;
