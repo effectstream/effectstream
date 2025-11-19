@@ -71,6 +71,16 @@ textarea {
   opacity: 0.9;
 }
 
+.balance-display {
+  background-color: #3a3a3a;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 1em;
+  display: flex;
+  align-items: center;
+}
+
 .app-body {
   padding-top: 20px;
 }

@@ -232,13 +232,14 @@ export const apiRouter: StartConfigApiRouter = function (
     message: Type.String(),
   });
   /** This is a faucet endpoint to get funds in the midnight network */
-  let isRunning = false;
+  let isFaucetDustRunning = false;
+
   server.get<{
     Querystring: Static<typeof FaucetQueryParamsSchema>;
     Reply: Static<typeof FaucetResponseSchema>;
-  }>("/api/faucet", async (request) => {
+  }>("/api/faucet/dust", async (request) => {
     // This is unsafe, but it's only used for development purposes.
-    if (isRunning) {
+    if (isFaucetDustRunning) {
       return {
         status: "error",
         message: "Faucet is already running",
@@ -249,7 +250,7 @@ export const apiRouter: StartConfigApiRouter = function (
     let status = "success";
     let message = "";
     try {
-      isRunning = true;
+      isFaucetDustRunning = true;
       const command = new Deno.Command(Deno.execPath(), {
         env: {
           MIDNIGHT_ADDRESS: address,
@@ -268,7 +269,53 @@ export const apiRouter: StartConfigApiRouter = function (
       status = "error";
       message = String(error);
     } finally {
-      isRunning = false;
+      isFaucetDustRunning = false;
+    }
+
+    return {
+      status,
+      message,
+    };
+  });
+
+  let isFaucetBtcRunning = false;
+
+  server.get<{
+    Querystring: Static<typeof FaucetQueryParamsSchema>;
+    Reply: Static<typeof FaucetResponseSchema>;
+  }>("/api/faucet/btc", async (request) => {
+    // This is unsafe, but it's only used for development purposes.
+    if (isFaucetBtcRunning) {
+      return {
+        status: "error",
+        message: "Faucet is already running",
+      };
+    }
+    const { address } = request.query;
+    // TODO Validate if the address is valid midnight address
+    let status = "success";
+    let message = "";
+    try {
+      isFaucetBtcRunning = true;
+      const command = new Deno.Command(Deno.execPath(), {
+        env: {
+          BTC_ADDRESS: address,
+        },
+        args: [
+          "task",
+          "-f",
+          "@night-bitcoin/bitcoin-contracts",
+          "faucet:btc",
+        ],
+      });
+      const { code, stdout, stderr } = await command.output();
+      status = "done";
+      message = "Faucet successfully completed";
+    } catch (error: any) {
+      status = "error";
+      message = String(error);
+    } finally {
+      isFaucetBtcRunning = false;
     }
 
     return {

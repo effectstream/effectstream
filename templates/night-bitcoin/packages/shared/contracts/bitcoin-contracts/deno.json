@@ -8,6 +8,7 @@
     "chain:start": "deno run -A npm:@paimaexample/bitcoin-core",
     "chain:wait": "wait-on tcp:18443",
     "generate:blocks": "deno run -A jsr:@paimaexample/bitcoin-contracts",
-    "transfer-funds": "deno run -A transfer-funds.ts"
+    "transfer-funds": "deno run -A transfer-funds.ts",
+    "faucet:btc": "deno run -A faucet-btc.ts"
   }
 }

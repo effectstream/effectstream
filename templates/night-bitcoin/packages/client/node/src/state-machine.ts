@@ -133,19 +133,31 @@ function* checkAndTransferFunds (params: {
 
 }
 
-stm.addStateTransition("bitcoinWalletChange", function* (data) {
+stm.addStateTransition("bitcoin-transaction", function* (data) {
   console.log(
     "🎉 [BITCOIN] Wallet change:",
     JSON.stringify(data.parsedInput)
   );
-  const fromAddress = "bt1p...x";
-  const toAddress = "bt1p...x";
-  const amount = "12300";
+
+//  const sample = {
+//   "direction":"output",
+//   "address":"bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03",
+//   "transactionId":"c5a027e67698a2003084288695b015ad240fe1b4224d3d9b2c183f6ce9d275cd",
+//   "index":1,
+//   "valueSats":10000000,
+//   "utxoTxid":"c5a027e67698a2003084288695b015ad240fe1b4224d3d9b2c183f6ce9d275cd",
+//   "utxoVout":1,
+//   "label":""
+//   }
+
+  const fromAddress: string | undefined = undefined;
+  const toAddress: string = data.parsedInput.address;
+  const amount: number = data.parsedInput.valueSats;
 
   yield* World.resolve(insertTransfer, {
-    from_address: fromAddress,
+    from_address: "",
     to_address: toAddress,
-    amount: parseInt(amount, 10),
+    amount,
     token: TOKENS.BTC,
     chain_id: CHAIN_IDS.BITCOIN,
   });
@@ -153,7 +165,7 @@ stm.addStateTransition("bitcoinWalletChange", function* (data) {
   yield* checkAndTransferFunds({
     orderId: undefined,
     address: fromAddress,
-    amount: amount,
+    amount: String(amount),
     token: TOKENS.BTC,
   });
 });

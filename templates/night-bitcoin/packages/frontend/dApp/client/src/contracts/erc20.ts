@@ -4,6 +4,7 @@ import {
 } from "@night-bitcoin/midnight-contract-unshielded-erc20"
 
 console.log(SimpleToken, unshielded_erc20Witnesses);
+import { balanceOf as balanceOfQuery } from './balanceOf.ts';
 
 import {
     type ContractAddress,
@@ -892,7 +893,7 @@ import {
   
   export {
     mint,
-    // balanceOf,
+    balanceOf,
     transferFrom,
     connectMidnightWallet,
     connectToContract,

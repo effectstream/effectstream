@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import "./App.css";
 import * as paima from './paima.ts';
 
@@ -9,9 +9,9 @@ const tokens = [
   { id: 'm20', name: 'Midnight Token', symbol: 'M20' },
 ];
 
-const formatNumber = (n: number | string) => {
+const formatNumber = (n: number | string): string => {
   const num = typeof n === 'string' ? parseFloat(n) : n;
-  if (isNaN(num)) return n;
+  if (isNaN(num)) return String(n);
 
   if (num >= 1) {
     return num.toLocaleString('en-US', {
@@ -56,9 +56,11 @@ function App() {
   const [btcCheckbox, setBtcCheckbox] = useState(false);
   const [midnightWallet, setMidnightWallet] = useState<any>(null);
   const [midnightAddress, setMidnightAddress] = useState('');
+  const [m20Balance, setM20Balance] = useState<string>('');
   const [showActionsPopup, setShowActionsPopup] = useState(false);
   const [showM20Popup, setShowM20Popup] = useState(false);
   const [m20Recipient, setM20Recipient] = useState('');
+  const [btcFaucetAddress, setBtcFaucetAddress] = useState('');
 
   const formatPopupValue = (value: any) => {
     if (typeof value === 'bigint') {
@@ -74,6 +76,90 @@ function App() {
     setQuotes([]);
     setSelectedQuote(null);
   }, [fromToken, toToken, amount]);
+
+  const updateM20Balance = async (wallet: any) => {
+    if (!wallet) return;
+    try {
+      const balance = await paima.midnight_balanceOf(wallet.contract.unshielded_erc20, wallet.addr);
+      if (balance !== undefined && balance !== null) {
+        // M20 seems to have 8 decimal places from other parts of the code.
+        const formattedBalance = Number(balance) / 10**8;
+        const displayBalance = formatNumber(formattedBalance);
+        setM20Balance(displayBalance);
+        return displayBalance;
+      } else {
+        setM20Balance('0');
+        return '0';
+      }
+    } catch (error) {
+      console.error("Failed to fetch M20 balance:", error);
+      setM20Balance('Error');
+      return 'Error';
+    }
+  };
+
+  const handleCheckBalance = async () => {
+    setShowActionsPopup(false);
+    setLoading(true);
+    const balance = await updateM20Balance(midnightWallet);
+    setLoading(false);
+    setPopup({
+      show: true,
+      title: 'M20 Balance',
+      message: `Your M20 token balance is: ${balance}`,
+    });
+  };
+
+  const getDustFromFaucet = async () => {
+    if (!midnightAddress) {
+      alert('Please connect Midnight wallet first.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:9999/api/faucet/dust?address=${midnightAddress}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Faucet request failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      setPopup({
+        show: true,
+        title: 'Faucet Success!',
+        message: 'Successfully received DUST from faucet! Your balance will update shortly.',
+      });
+    } catch (error) {
+      console.error('Failed to get DUST from faucet:', error);
+      alert(`Failed to get DUST from faucet. Check the console for details.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGetBtcFromFaucet = async () => {
+    if (!btcFaucetAddress) {
+      alert('Please enter a BTC address.');
+      return;
+    }
+    setShowActionsPopup(false);
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:9999/api/faucet/btc?address=${btcFaucetAddress}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`BTC Faucet request failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      setPopup({
+        show: true,
+        title: 'Faucet Success!',
+        message: 'Successfully received BTC from faucet! Your balance will update shortly.',
+      });
+    } catch (error) {
+      console.error('Failed to get BTC from faucet:', error);
+      alert(`Failed to get BTC from faucet. Check the console for details.`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGetQuotes = async () => {
     setLoading(true);
@@ -133,33 +219,9 @@ function App() {
       const data = await paima.loginMidnight();
       setMidnightWallet(data);
       setMidnightAddress(data.addr);
+      await updateM20Balance(data);
     } catch (error) {
       console.error("Failed to connect Midnight wallet:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getDustFromFaucet = async () => {
-    if (!midnightAddress) {
-      alert('Please connect Midnight wallet first.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const response = await fetch(`http://localhost:9999/api/faucet?address=${midnightAddress}`);
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Faucet request failed: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-      setPopup({
-        show: true,
-        title: 'Faucet Success!',
-        message: 'Successfully received DUST from faucet! Your balance will update shortly.',
-      });
-    } catch (error) {
-      console.error('Failed to get DUST from faucet:', error);
-      alert(`Failed to get DUST from faucet. Check the console for details.`);
     } finally {
       setLoading(false);
     }
@@ -173,6 +235,7 @@ function App() {
     setLoading(true);
     try {
       await paima.m20_mint(midnightWallet.contract.unshielded_erc20, midnightWallet.addr, 1000n * 100000000n);
+      setTimeout(() => updateM20Balance(midnightWallet), 2000); // optimistic refresh
       setPopup({
         show: true,
         title: 'M20 Mint Successful!',
@@ -250,6 +313,17 @@ function App() {
         "mn_shield-addr_undeployed1mjngjmnlutcq50trhcsk3hugvt9wyjnhq3c7prryd5nqmvtzva0sxqpvzkdy4k9u7eyffff53cge62tqylevq3wqps86tdjuahsquwvucsy9kffv",
         m20Amount
       );
+
+      if (!intentResult || !transferResult) {
+        setPopup({
+          show: true,
+          title: 'Error',
+          message: 'Failed to process the swap. See console for details.',
+        });
+        return;
+      }
+
+      setTimeout(() => updateM20Balance(midnightWallet), 2000);
       setPopup({
         show: true,
         title: 'Swap Successful!',
@@ -303,6 +377,15 @@ function App() {
       };
       const intentResult = await paima.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, intentConfig);
 
+      if (!intentResult) {
+        setPopup({
+          show: true,
+          title: 'Error',
+          message: 'Failed to create swap intent. See console for details.',
+        });
+        return;
+      }
+
       setPopup({
         show: true,
         title: 'Intent Created!',
@@ -341,14 +424,15 @@ function App() {
                 <button type="button" className="wallet-button" disabled>
                   {`Midnight: ${midnightAddress.substring(0, 12)}...${midnightAddress.substring(midnightAddress.length - 8)}`}
                 </button>
-                <button type="button" className="wallet-button" onClick={() => setShowActionsPopup(true)}>
-                  &#x22EE;
-                </button>
+                {m20Balance && <div className="wallet-button balance-display">{`M20: ${m20Balance}`}</div>}
               </>
             ) : (
                 <button type="button" className="wallet-button" onClick={handleMidnightLogin}>Connect Midnight Wallet</button>
             )}
             <button type="button" className="wallet-button">Connect Bitcoin Wallet</button>
+            <button type="button" className="wallet-button" onClick={() => setShowActionsPopup(true)}>
+              &#x22EE;
+            </button>
           </div>
         </div>
       </header>
@@ -493,6 +577,7 @@ function App() {
                   className="dropdown-item"
                   onClick={() => { getDustFromFaucet(); setShowActionsPopup(false); }}
                   style={{ marginBottom: '10px' }}
+                  disabled={!midnightAddress}
                 >
                   Get DUST from Faucet
                 </button>
@@ -501,13 +586,43 @@ function App() {
                   className="dropdown-item"
                   onClick={() => { handleMintM20(); setShowActionsPopup(false); }}
                   style={{ marginBottom: '10px' }}
+                  disabled={!midnightAddress}
                 >
                   Mint M20 Tokens
                 </button>
                 <button
                   type="button"
+                  className="dropdown-item"
+                  onClick={handleCheckBalance}
+                  style={{ marginBottom: '10px' }}
+                  disabled={!midnightAddress}
+                >
+                  Check M20 Balance
+                </button>
+                <div style={{ borderTop: '1px solid #444', margin: '10px 0' }}></div>
+                <div className="step-content">
+                  <label>BTC Address for Faucet</label>
+                  <input
+                    type="text"
+                    style={{ width: '100%', marginTop: '5px' }}
+                    value={btcFaucetAddress}
+                    onChange={(e) => setBtcFaucetAddress(e.target.value)}
+                    placeholder="Enter your BTC address"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={handleGetBtcFromFaucet}
+                  disabled={!btcFaucetAddress}
+                  style={{ marginTop: '10px' }}
+                >
+                  Get BTC from Faucet
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowActionsPopup(false)}
-                  style={{ backgroundColor: 'grey' }}
+                  style={{ backgroundColor: 'grey', marginTop: '20px' }}
                 >
                   Cancel
                 </button>
@@ -548,7 +663,7 @@ function App() {
                         checked={btcCheckbox}
                         onChange={(e) => setBtcCheckbox(e.target.checked)}
                       />
-                      From this address send <b>{amount} {fromToken}</b> to 1At16qkNSZm2BVpUZGNvdufbCe9cKma8o3
+                      From this address send <b>{amount} {fromToken}</b> to bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03
                     </label>
                   </div>
                 </div>

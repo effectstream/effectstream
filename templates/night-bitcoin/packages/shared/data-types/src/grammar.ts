@@ -3,8 +3,8 @@ import { builtinGrammars } from "@paimaexample/sm/grammar";
 
 export const grammar = {
   
-  "bitcoinWalletChange": [],
-  
+  "bitcoin-transaction": builtinGrammars.bitcoinAddress,
+
   "midnightContractStateERC20": builtinGrammars.midnightGeneric,
   "midnightContractStateERC7683": builtinGrammars.midnightGeneric,
   

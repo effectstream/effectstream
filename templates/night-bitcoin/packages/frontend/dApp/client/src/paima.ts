@@ -111,14 +111,14 @@ export async function loginMidnight() {
 }
 
 
-// export async function midnight_balanceOf(contract: any, addr: string) {
-//   try {
-//     console.log("Balance of", contract, addr);
-//     return await Eip1155Interact.balanceOf(contract, addr);
-//   } catch (error) {
-//     console.error(0, { error });
-//   }
-// }
+export async function midnight_balanceOf(contract: any, addr: string) {
+  try {
+    console.log("Balance of", contract, addr);
+    return await unshielded_erc20.balanceOf(contract, addr);
+  } catch (error) {
+    console.error(0, { error });
+  }
+}
 
 export async function createIntent(
   contract: any,

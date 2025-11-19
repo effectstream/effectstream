@@ -17,7 +17,7 @@ class StandaloneConfig implements Config {
 }
 
 const getContractAddress = async (): Promise<string> => {
-  const r = await fetch("contract_address/contract.json");
+  const r = await fetch("contract_address/contract-unshielded-erc20.json");
   const json = await r.json();
   console.log("🔍 Contract address:", json.contractAddress);
   return json.contractAddress;
@@ -52,35 +52,56 @@ const convertToEither = (rawValue: [Uint8Array, Uint8Array, Uint8Array]) => {
 }
 
 function getBalanceMap(publicStates: PublicContractStates): Map<string, bigint> {
-  const balances = publicStates.contractState.data.asArray()![0]?.asMap();
+  //   Array(2) [
+  //     Array(1) [
+  //         Map {
+  //             <[01, 17caeea787eb6b34efd2d8ee7472c99f23fa4373a8ee8f9817d748c4d53560bb, -]: b1b32b32>: <[00d0ed902e]: b16>,
+  //         },
+  //     ],
+  //     Array(15) [
+  //         Map {},
+  //         <[00d0ed902e]: b16>,
+  //         <[4d3230]: c>,
+  //         <[4d3230]: c>,
+  //         <[08]: b1>,
+  //         <[01]: b1>,
+  //         <[-, -, -]: b1b32b32>,
+  //         <[-]: b1>,
+  //         Map {},
+  //         <[-, -]: cb16>,
+  //         <[e903]: b16>,
+  //         <[01, 17caeea787eb6b34efd2d8ee7472c99f23fa4373a8ee8f9817d748c4d53560bb, -]: b1b32b32>,
+  //         <[01, 17caeea787eb6b34efd2d8ee7472c99f23fa4373a8ee8f9817d748c4d53560bb, -]: b1b32b32>,
+  //         <[-]: c>,
+  //         <[00e8764817]: b16>,
+  //     ],
+  // ]
+
+
+  const balances = publicStates.contractState.data.asArray()![0]!.asArray()![0]!.asMap();
   const balanceKey = balances?.keys()[0];
   let tokenBalance;
 
   try {
-    tokenBalance = balances?.get(balanceKey!)?.asMap();
+    tokenBalance = balances?.get(balanceKey!)?.asCell().value[0];
   } catch (error) {
     console.error("Error getting balance map", error);
     return new Map<string, bigint>();
   }
   
-  const simplifiedBalanceMap = tokenBalance?.keys().reduce((acc, key) => {
-    const mapKeyEither = convertToEither(key.value as [Uint8Array, Uint8Array, Uint8Array]);
-    const mapKey = mapKeyEither.is_left ? mapKeyEither.left.bytes : mapKeyEither.right.bytes;
-    console.log("mapKey", mapKey, ' length: ', mapKey.length);
-    const mapValue = BigInt("0x" + Array.from(tokenBalance?.get(key)?.asCell().value[0].reverse() ?? new Uint8Array())
+
+    const mapValue = BigInt("0x" + Array.from(tokenBalance?.reverse() ?? new Uint8Array())
     .map(b => b.toString(16).padStart(2, "0"))
+   
     .join(""));
-    acc.set(mapKey, mapValue);
-    return acc;
-  }, new Map<string, bigint>())
-  console.log("simplified balance map", simplifiedBalanceMap);
-  return simplifiedBalanceMap ?? new Map<string, bigint>();
+  return mapValue;
 }
 
 export async function balanceOf(address: string): Promise<bigint> {
   const contractAddress = await getContractAddress();
   const publicStates = await getPublicStates(providers.publicDataProvider, contractAddress);
-  const balanceMap = getBalanceMap(publicStates);
-  const parsedAddress = address.startsWith("mn_") ? extractPublicCoinAddress(address) : address;
-  return balanceMap.get(parsedAddress) ?? 0n;
+  const balance = getBalanceMap(publicStates);
+  // const parsedAddress = address.startsWith("mn_") ? extractPublicCoinAddress(address) : address;
+  // return balanceMap.get(parsedAddress) ?? 0n;
+  return balance;
 }
