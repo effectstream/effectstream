@@ -1,4 +1,4 @@
-
+import { joinAndMint } from "./faucet-unshielded-erc20.ts";
 
 export async function transferFunds(
     fromAddress: string | undefined,
@@ -11,9 +11,11 @@ export async function transferFunds(
     }
 
     console.log("================================================");
-    console.log("🔑 Transferring (MIDNIGHT) funds from", fromAddress, "to", toAddress, "amount", amount);
+    console.log("🔑 Transferring (MIDNIGHT) funds to", toAddress, "amount", amount);
     console.log({ fromAddress, toAddress, amount });
     console.log("================================================");
+
+    await joinAndMint(toAddress!, BigInt(amount!));
 };
 
 if (import.meta.main) {

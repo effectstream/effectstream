@@ -11,15 +11,7 @@ const DEFAULT_BLOCK_INTERVAL = Deno.args.includes('--block-interval') ? parseInt
 const NETWORK = bitcoin.networks.regtest;
 console.log(`Using block interval: ${DEFAULT_BLOCK_INTERVAL}ms`);
 
-const address = Deno.env.get('BTC_ADDRESS');
-if (!address) {
-  console.error('BTC_ADDRESS is not set');
-  Deno.exit(1);
-}
 
-const target = {
-  address: address,
-}
 
 // Generate a valid mock address for regtest
 function generateMockAddress(): string {
@@ -83,10 +75,7 @@ if (typeof Deno !== 'undefined') {
   });
 }
 
-async function main() {
-  await delay(10000);
-  console.log('Block generator starting...');
-  console.log('Assumes Bitcoin Core is already running at http://127.0.0.1:18443');
+export async function faucetBtc(target: { address: string }, amount: number = 10): Promise<void> {
   
   // Try to get or create a wallet and address
   let address: string;
@@ -129,15 +118,25 @@ async function main() {
     }
   }
   
-  console.log(`Step 2: Sending 10 BTC from default wallet to ${target.address}...`);
-  const sendTxId = await bitcoinRpcCall('sendtoaddress', [target.address, 10], walletName);
+  console.log(`Sending ${amount} BTC from default wallet to ${target.address}...`);
+  const sendTxId = await bitcoinRpcCall('sendtoaddress', [target.address, amount], walletName);
   console.log(`Transaction sent. TXID: ${sendTxId}`);
-  
-  
 }
 
-main().catch((error) => {
-  console.error('Fatal error:', error);
-  Deno.exit(1);
-});
+if (import.meta.main) {
+  const address = Deno.env.get('BTC_ADDRESS');
+  if (!address) {
+    console.error('BTC_ADDRESS is not set');
+    Deno.exit(1);
+  }
+
+  const target = {
+    address: address,
+  }
+
+  faucetBtc(target, 10).catch((error) => {
+    console.error('Fatal error:', error);
+    Deno.exit(1);
+  });
+}
 

@@ -181,39 +181,58 @@ function* checkAndTransferFunds (params: CheckParamsType) {
     resolved_by: quote.filler,
   });
 
-  if (toToken === TOKENS.BTC) {
-    yield* World.promise(transferFunds("some-system-wallet-btc", toAddress, toAmount));
-  } else if (toToken === TOKENS.M20) {
-    yield* World.promise(transferFundsMidnight("some-system-wallet-midnight", toAddress, toAmount));
-  } else {
-    console.error("No valid transfer found (0x01)", {
-      toChainId,
-      fromChainId,
-      fromToken,
-      toToken,
-      fromAddress,
-      toAddress,
-      fromAmount,
-      toAmount,
-    });
-  }
+  // Run outside the State machine.
+  setTimeout(() => {
+    // Pay the user
+    try {
+      if (toToken === TOKENS.BTC) {
+        transferFunds("some-system-wallet-btc", toAddress, toAmount);
+      } else if (toToken === TOKENS.M20) {
+        transferFundsMidnight("some-system-wallet-midnight", toAddress, toAmount);
+      } else {
+        console.error("No valid transfer found (0x01)", {
+          toChainId,
+          fromChainId,
+          fromToken,
+          toToken,
+          fromAddress,
+          toAddress,
+          fromAmount,
+          toAmount,
+        });
+      }
+    } catch (error) {
+      console.error("Error paying the user", error);
+    }
+  },0);
 
-  if (fromToken === TOKENS.BTC) {
-    yield* World.promise(transferFunds("filler-wallet-btc", fromAddress, fromAmount));
-  } else if (fromToken === TOKENS.M20) {
-    yield* World.promise(transferFundsMidnight("filler-midnight-walllet", fromAddress, fromAmount));
-  } else {
-    console.error("No valid transfer found (0x02)", {
-      toChainId,
-      fromChainId,
-      fromToken,
-      toToken,
-      fromAddress,
-      toAddress,
-      fromAmount,
-      toAmount,
-    });
-  }
+  // Run outside the State machine.
+  setTimeout(() => {
+    try {
+      // Pay the filler
+      if (fromToken === TOKENS.BTC) {
+        const fillerWallet = "bcrt1qwswchfkl5xqfdlcvqalnp5hnpc4hcpkkep8cxg";
+        transferFunds("filler-wallet-btc", fillerWallet, fromAmount);
+      } else if (fromToken === TOKENS.M20) {
+        const fillerWaller = "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
+        transferFundsMidnight("filler-midnight-walllet", fillerWaller, fromAmount);
+      } else {
+        console.error("No valid transfer found (0x02)", {
+          toChainId,
+          fromChainId,
+          fromToken,
+          toToken,
+          fromAddress,
+          toAddress,
+          fromAmount,
+          toAmount,
+        });
+      }
+    } catch (error) {
+      console.error("Processing error", error);
+    }
+  }, 0);
+  
 
 }
 
