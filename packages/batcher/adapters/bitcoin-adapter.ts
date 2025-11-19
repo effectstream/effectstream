@@ -1,7 +1,8 @@
 import * as bitcoin from "bitcoinjs-lib";
 import * as bitcoinMessage from "bitcoinjs-message";
-import { ECPairFactory } from "ecpair";
+import * as ecpair from "ecpair";
 import * as tinysecp from "tiny-secp256k1";
+import { createHash } from "node:crypto";
 import type {
   BlockchainAdapter,
   BlockchainHash,
@@ -12,7 +13,7 @@ import type {
 } from "./adapter.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
 
-const ECPair = ECPairFactory(tinysecp);
+const ECPair = ecpair.ECPairFactory(tinysecp);
 
 // Interface for the input payload signed by the user
 interface BitcoinRequest {
@@ -20,7 +21,9 @@ interface BitcoinRequest {
   amountSats: number;
 }
 
-// The shape of data passed from Builder to Submitter
+/*
+The shape of data passed from Builder to Submitter
+*/
 export interface BitcoinBatchPayload {
   recipients: { address: string; value: number }[];
   totalAmountSats: number;
@@ -30,9 +33,14 @@ export interface BitcoinAdapterConfig {
   rpcUrl: string;
   rpcUser: string;
   rpcPass: string;
-  batcherWif: string; // Wallet Import Format private key
+  batcherWif?: string; // Wallet Import Format private key (optional if seed provided)
+  seed?: string; // Seed string to generate private key
   network?: bitcoin.Network; // Defaults to regtest
   maxBatchSize?: number;
+}
+
+export function buildBitcoinSignatureMessage(payload: BitcoinRequest, timestamp: string) {
+  return `send ${payload.amountSats} sats to ${payload.toAddress} at ${timestamp}`
 }
 
 export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
@@ -47,13 +55,27 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     this.rpcUrl = config.rpcUrl;
     this.rpcAuth = btoa(`${config.rpcUser}:${config.rpcPass}`);
     this.network = config.network ?? bitcoin.networks.regtest;
-    this.keyPair = ECPair.fromWIF(config.batcherWif, this.network);
+
+    if (config.seed) {
+      const privateKeyBuffer = createHash("sha256")
+        .update(config.seed)
+        .digest();
+      this.keyPair = ECPair.fromPrivateKey(privateKeyBuffer, {
+        network: this.network,
+      });
+    } else if (config.batcherWif) {
+      this.keyPair = ECPair.fromWIF(config.batcherWif, this.network);
+    } else {
+      throw new Error("BitcoinAdapter: Must provide either seed or batcherWif");
+    }
+
     this.maxBatchSize = config.maxBatchSize ?? 50;
 
     const { address } = bitcoin.payments.p2wpkh({ 
       pubkey: this.keyPair.publicKey, 
       network: this.network 
     });
+    console.log("BitcoinAdapter: Batcher address:", address);
     this.batcherAddress = address!;
   }
 
@@ -74,10 +96,6 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     return BigInt(count);
   }
 
-  // ----------------------------------------------------------------
-  // 1. Validation
-  // ----------------------------------------------------------------
-
   async verifySignature(input: DefaultBatcherInput): Promise<boolean> {
     try {
       // 1. Parse the intent
@@ -86,7 +104,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
       // 2. Reconstruct the message the user should have signed
       // Format: "I authorize sending <amt> to <addr> at <timestamp>"
       // This format must match exactly what your frontend generates
-      const message = `Send ${payload.amountSats} sats to ${payload.toAddress} at ${input.timestamp}`;
+      const message = buildBitcoinSignatureMessage(payload, input.timestamp);
 
       // 3. Verify signature using bitcoinjs-message
       // Note: input.address is the User's Bitcoin Address
@@ -125,10 +143,6 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     }
   }
 
-  // ----------------------------------------------------------------
-  // 2. Batch Building
-  // ----------------------------------------------------------------
-
   buildBatchData(
     inputs: DefaultBatcherInput[],
     options?: BatchBuildingOptions
@@ -160,10 +174,6 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     };
   }
 
-  // ----------------------------------------------------------------
-  // 3. Fee Estimation
-  // ----------------------------------------------------------------
-
   async estimateBatchFee(data: BitcoinBatchPayload): Promise<bigint> {
     // Estimate VBytes:
     // Overhead (10) + Input (148 * 1 assumption) + Outputs (34 * N)
@@ -181,10 +191,6 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     const feeSats = Math.ceil(estVBytes * feeRateSatsPerByte);
     return BigInt(feeSats);
   }
-
-  // ----------------------------------------------------------------
-  // 4. Submission
-  // ----------------------------------------------------------------
 
   async submitBatch(data: BitcoinBatchPayload, fee: string | bigint): Promise<BlockchainHash> {
     const feeSats = Number(fee);
@@ -207,7 +213,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     }
 
     if (inputSum < totalRequired) {
-      throw new Error(`Insufficient Batcher funds. Need ${totalRequired}, have ${inputSum}`);
+      throw new Error(`Insufficient Batcher funds. Need ${totalRequired}, have ${inputSum} in address ${this.batcherAddress}`);
     }
 
     // 2. Build Transaction
@@ -293,7 +299,6 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
         // TX might not be in mempool/block yet
       }
 
-      // Wait 2 seconds
       await new Promise(r => setTimeout(r, 2000));
     }
 

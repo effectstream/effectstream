@@ -1,6 +1,7 @@
 import * as bitcoin from 'bitcoinjs-lib';
 import * as ecpair from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
+import { createHash } from "node:crypto";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -11,11 +12,22 @@ const DEFAULT_BLOCK_INTERVAL = Deno.args.includes('--block-interval') ? parseInt
 const NETWORK = bitcoin.networks.regtest;
 console.log(`Using block interval: ${DEFAULT_BLOCK_INTERVAL}ms`);
 
+// Deterministic seed for the batcher wallet
+const mySeedString = 'my-super-secret-regtest-demo-seed-e2e';
+const privateKeyBuffer = createHash('sha256').update(mySeedString).digest();
+const batcherKeyPair = ECPair.fromPrivateKey(privateKeyBuffer, { network: NETWORK });
+const { address: batcherAddress } = bitcoin.payments.p2wpkh({
+  pubkey: batcherKeyPair.publicKey,
+  network: NETWORK,
+});
+
 const target = {
   address: "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03",
   privateKey: "cPNCP9RTgYu6aqw4cTFQgrrTKkz6oJPUnxuYeaDrWR5wAkDqwHjc",
   publicKey: "03a7b23111f236dcd23f6ed0313d0ee1af18dc9cffffb9b09b3f8d8212515e5c11",
 }
+
+console.log(`Target Address: ${target.address}`);
 
 // Generate a valid mock address for regtest
 function generateMockAddress(): string {
@@ -128,70 +140,90 @@ async function main() {
   // Try to get or create a wallet and address
   let address: string;
   let walletName: string | undefined;
-  
+
+  // Create a mining wallet for generating blocks
+  walletName = 'miner';
   try {
-    // Try to list wallets first
-    const wallets = await bitcoinRpcCall('listwallets', []);
-    if (wallets && wallets.length > 0) {
-      walletName = wallets[0];
-      console.log(`Using existing wallet: ${walletName}`);
-    } else {
-      // Create a default wallet
-      walletName = 'default';
-      try {
-        await bitcoinRpcCall('createwallet', [walletName]);
-        console.log(`Created wallet: ${walletName}`);
-      } catch (e) {
-        // Wallet might already exist, try to use it
-        walletName = undefined;
-      }
+    await bitcoinRpcCall('createwallet', [walletName]);
+    console.log(`Created mining wallet: ${walletName}`);
+  } catch (e: any) {
+    // Wallet might already exist, try to load it
+    try {
+      await bitcoinRpcCall('loadwallet', [walletName]);
+      console.log(`Loaded existing mining wallet: ${walletName}`);
+    } catch (loadError) {
+      console.error('Failed to create or load mining wallet:', e);
+      console.log('Attempting to generate blocks without wallet...');
+      walletName = undefined;
     }
-    
-    // Get a new address from the wallet or default
+  }
+
+  // Get a new address from the wallet or default
+  try {
     if (walletName) {
       address = await bitcoinRpcCall('getnewaddress', [], walletName);
     } else {
       address = await bitcoinRpcCall('getnewaddress', []);
     }
-    console.log(`Using address: ${address}`);
+    console.log(`Using mining wallet address: ${address}`);
   } catch (error) {
-    console.error('Error setting up wallet/address:', error);
-    console.log('Attempting to generate blocks without wallet...');
-    // Try to get an address without wallet
-    try {
-      address = await bitcoinRpcCall('getnewaddress', []);
-    } catch (e) {
-      console.error('Failed to get address. Make sure Bitcoin Core is running and accessible.');
-      Deno.exit(1);
-    }
+    console.error('Failed to get address. Make sure Bitcoin Core is running and accessible.');
+    Deno.exit(1);
   }
+  
+
+  // Rescan the blockchain for the imported key if necessary (e.g., if we crashed and restarted)
+  // But since we are in regtest and likely starting fresh or just need new blocks, mining new ones usually suffices.
+  // However, if we see 0 balance after mining, it might be that we are on a chain where previous blocks belonged to this address
+  // but the wallet doesn't know.
+  
+  // Let's force a rescan if we suspect issues, but rescan is slow.
+  // Instead, let's check balance *before* mining too.
+
+  // Rescan the blockchain for the imported key if necessary
+  // If the balance is 0, it might be because the wallet didn't see the mined blocks as ours?
+  // But we imported the descriptor/key BEFORE mining.
+  // Let's try to be explicit with rescan if we had to fallback.
   
   // Initialization: Generate funds and set up transactions
   console.log('\n=== Initialization Phase ===');
   
-  // Step 1: Generate 101 blocks to default wallet address to get funds
-  console.log('Step 1: Generating 101 blocks to default wallet address...');
-  const defaultWalletAddress = walletName 
-    ? await bitcoinRpcCall('getnewaddress', [], walletName)
-    : address;
-  
-  const initialBlocks = await bitcoinRpcCall('generatetoaddress', [101, defaultWalletAddress], walletName);
-  console.log(`Generated 101 blocks. Latest block: ${initialBlocks[initialBlocks.length - 1]}`);
-  
-  // Step 2: Send 10 BTC from default wallet to target.address
-  console.log(`Step 2: Sending 10 BTC from default wallet to ${target.address}...`);
+  // Step 1: Generate 105 blocks to mining wallet to get funds
+  console.log(`Step 1: Generating 105 blocks to mining wallet...`);
+
+  const initialBlocks = await bitcoinRpcCall('generatetoaddress', [105, address!], walletName);
+  console.log(`Generated 105 blocks. Latest block: ${initialBlocks[initialBlocks.length - 1]}`);
+
+  // Check mining wallet balance
+  await delay(1000);
+  const miningBalance = await bitcoinRpcCall('getbalance', [], walletName);
+  console.log(`Mining wallet balance: ${miningBalance} BTC`);
+
+  // Step 2: Send 100 BTC from mining wallet to batcher address
+  console.log(`Step 2: Sending 100 BTC from mining wallet to batcher address (${batcherAddress})...`);
+  const fundBatcherTxId = await bitcoinRpcCall('sendtoaddress', [batcherAddress!, 100], walletName);
+  console.log(`Funding transaction sent to ${batcherAddress}. TXID: ${fundBatcherTxId}`);
+
+  // Step 3: Generate 1 block to confirm the funding transaction
+  console.log('Step 3: Generating 1 block to confirm funding...');
+  const confirmBlocks = await bitcoinRpcCall('generatetoaddress', [1, address!], walletName);
+  console.log(`Confirmation block: ${confirmBlocks[0]}`);
+
+  // Step 4: Send 10 BTC from mining wallet to target.address
+  console.log(`Step 4: Sending 10 BTC from mining wallet to ${target.address}...`);
+
   const sendTxId = await bitcoinRpcCall('sendtoaddress', [target.address, 10], walletName);
   console.log(`Transaction sent. TXID: ${sendTxId}`);
-  
-  // Step 3: Generate 1 block to consolidate the transfer
-  console.log('Step 3: Generating 1 block to consolidate transfer...');
-  const consolidateBlocks = await bitcoinRpcCall('generatetoaddress', [1, defaultWalletAddress], walletName);
+
+  // Step 5: Generate 1 block to consolidate the transfer
+  console.log('Step 5: Generating 1 block to consolidate transfer...');
+  const consolidateBlocks = await bitcoinRpcCall('generatetoaddress', [1, address!], walletName);
   console.log(`Consolidation block: ${consolidateBlocks[0]}`);
   
-  // Step 4: Find a UTXO from target.address and build transaction to MOCK_ADDRESS
-  console.log(`Step 4: Building transaction to send 3 BTC to ${MOCK_ADDRESS}...`);
-  
-  // Get the transaction details from step 2 to find the UTXO
+  // Step 6: Find a UTXO from target.address and build transaction to MOCK_ADDRESS
+  console.log(`Step 6: Building transaction to send 3 BTC to ${MOCK_ADDRESS}...`);
+
+  // Get the transaction details from step 4 to find the UTXO
   console.log(`Fetching transaction details for ${sendTxId}...`);
   const txDetails = await bitcoinRpcCall('getrawtransaction', [sendTxId, true]);
   
@@ -249,7 +281,7 @@ async function main() {
   
   while (running) {
     try {
-      const blocks = await bitcoinRpcCall('generatetoaddress', [1, address], walletName);
+      const blocks = await bitcoinRpcCall('generatetoaddress', [1, address!], walletName);
       blockCount++;
       const blockHash = blocks && blocks.length > 0 ? blocks[0] : 'unknown';
       console.log(`[${new Date().toISOString()}] Generated block #${blockCount}: ${blockHash}`);

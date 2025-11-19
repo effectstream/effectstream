@@ -19662,7 +19662,11 @@
       },
       "e2e/client/batcher": {
         "dependencies": [
+          "npm:bitcoinjs-lib@^6.1.5",
+          "npm:bitcoinjs-message@^2.2.0",
+          "npm:ecpair@^2.1.0",
           "npm:effection@^3.5.0",
+          "npm:tiny-secp256k1@^2.2.1",
           "npm:viem@^2.21.3"
         ]
       },

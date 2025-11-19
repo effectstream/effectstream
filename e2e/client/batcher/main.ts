@@ -1,6 +1,6 @@
 import { main, suspend } from "effection";
 import { createNewBatcher } from "@effectstream/batcher";
-import { config, storage, paimaL2Adapter, midnightAdapter } from "./config.ts";
+import { config, storage, paimaL2Adapter, midnightAdapter, bitcoinAdapter } from "./config.ts";
 
 const batcher = createNewBatcher(config, storage);
 const batchIntervalMs = 1000;
@@ -8,6 +8,7 @@ const batchIntervalMs = 1000;
 batcher
   .addBlockchainAdapter("paimal2", paimaL2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
   .addBlockchainAdapter("midnight_eip20", midnightAdapter, { criteriaType: "size", maxBatchSize: 1 })
+  .addBlockchainAdapter("bitcoin", bitcoinAdapter, { criteriaType: "hybrid", maxBatchSize: 5, timeWindowMs: batchIntervalMs })
   .setDefaultTarget("paimal2")
 
 // E2E-specific startup banner via state transition

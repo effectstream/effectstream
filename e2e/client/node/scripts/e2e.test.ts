@@ -13,23 +13,23 @@ import { submitDataWithMessageAvailTest } from "../e2e-tests/e2e.avail.test.ts";
 import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
 import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
-import { bitcoinTest } from "../e2e-tests/e2e.bitcoin.test.ts";
+import { bitcoinTest, bitcoinBatcherTest } from "../e2e-tests/e2e.bitcoin.test.ts";
 
 const yaci_enabled = Deno.env.get("DISABLE_YACI") === "true"
-  ? false
-  : true;
+? false
+: true;
 
 const midnight_enabled = Deno
-  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
-  : true;
+? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
+: true;
 
 const avail_enabled = Deno
-  ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
-  : true;
+? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
+: true;
 
 const bitcoin_enabled = Deno
-  ? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
-  : true;
+? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
+: true;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -42,9 +42,9 @@ async function test() {
     // Launch the orchestrator, and wait for the sync process to start.
     // The contracts are deployed with the private key.
     db = await startup();
-
+    
     const sharedState: SharedState = newSharedState();
-
+    
     // Midnight triggers the event when read for first time.
     // In the E2E Test, we have 2 primitives.
     if (midnight_enabled) {
@@ -68,13 +68,16 @@ async function test() {
     await sendMintToBatcherTest(db, sharedState);
     await submitDataWithMessageAvailTest(db, sharedState);
     await tokenTests(db, sharedState);
-    bitcoin_enabled && await bitcoinTest(db, sharedState);
+    if (bitcoin_enabled) {
+      await bitcoinTest(db, sharedState);
+      await bitcoinBatcherTest(db, sharedState);
+    }
     await testMigrations(db);
-
+    
     // Done testing.
     printSummary();
     await cleanup(db);
-
+    
     // Optional pause to allow the user to inspect the DB,
     // check the logs, send more requests, etc.
     const pauseTime = Deno.env.get("EFFECTSTREAM_E2E_PAUSE_TIME");
@@ -82,13 +85,13 @@ async function test() {
       console.log("⏳ Pausing for", pauseTime, "seconds");
       await delay(parseInt(pauseTime, 10) * 1000);
     }
-
+    
     // // Disconnect so the process can exit.
     shutdown();
   } catch (e) {
     // Show partial summary of testing.
     printSummary();
-
+    
     console.error(e);
     await cleanup(db);
     shutdown();
@@ -108,13 +111,13 @@ async function test() {
 //
 // Deno.test("async test", { sanitizeResources: false }, async () => {
 test()
-  .then(() => {
-    console.log("🎉 Test completed");
-    Deno.exit(0);
-  }).catch((e) => {
-    console.log("❌ Test failed");
-    // kill -9 `ps aux | grep deno  | awk '{print $2}' | awk NF=NF RS= OFS=" "`
-    console.error(e);
-    Deno.exit(1);
-  });
+.then(() => {
+  console.log("🎉 Test completed");
+  Deno.exit(0);
+}).catch((e) => {
+  console.log("❌ Test failed");
+  // kill -9 `ps aux | grep deno  | awk '{print $2}' | awk NF=NF RS= OFS=" "`
+  console.error(e);
+  Deno.exit(1);
+});
 // });

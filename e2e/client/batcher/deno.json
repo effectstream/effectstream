@@ -2,10 +2,17 @@
   "name": "@e2e/batcher",
   "version": "0.3.0",
   "license": "MIT",
-  "exports": "./main.ts",
+  "exports": {
+    ".": "./main.ts",
+    "./calls": "./calls.ts"
+  },
   "imports": {
     "viem": "npm:viem@^2.21.3",
     "effection": "npm:effection@^3.5.0",
+    "bitcoinjs-lib": "npm:bitcoinjs-lib@^6.1.5",
+    "bitcoinjs-message": "npm:bitcoinjs-message@^2.2.0",
+    "ecpair": "npm:ecpair@^2.1.0",
+    "tiny-secp256k1": "npm:tiny-secp256k1@^2.2.1"
   },
   "tasks": {
     "start": "deno run -A --unstable-raw-imports main.ts"

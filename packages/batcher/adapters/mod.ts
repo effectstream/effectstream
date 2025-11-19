@@ -20,5 +20,6 @@ export { MidnightAdapter } from "./midnight-adapter.ts";
 export type { MidnightAdapterConfig } from "./midnight-adapter.ts";
 
 // Bitcoin adapter implementation
-export { BitcoinAdapter } from "./bitcoin-adapter.ts";
+export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./bitcoin-adapter.ts";
 export type { BitcoinAdapterConfig } from "./bitcoin-adapter.ts";
+
