@@ -144,7 +144,7 @@ export async function bitcoinBatcherTest(db: Client, sharedState: SharedState) {
     const result = await sendBitcoin(
       target.privateKeyWIF,
       payload,
-      "wait-effectstream-processed"
+      "wait-receipt"
     );
     
     console.log("Batcher result:", result);

@@ -170,22 +170,32 @@ async function main() {
     console.error('Failed to get address. Make sure Bitcoin Core is running and accessible.');
     Deno.exit(1);
   }
-  
 
-  // Rescan the blockchain for the imported key if necessary (e.g., if we crashed and restarted)
-  // But since we are in regtest and likely starting fresh or just need new blocks, mining new ones usually suffices.
-  // However, if we see 0 balance after mining, it might be that we are on a chain where previous blocks belonged to this address
-  // but the wallet doesn't know.
-  
-  // Let's force a rescan if we suspect issues, but rescan is slow.
-  // Instead, let's check balance *before* mining too.
+  // Import batcher address so we can track its funds
+  console.log(`Ensuring batcher address ${batcherAddress} is watched...`);
+  try {
+    // Try legacy importaddress first
+    await bitcoinRpcCall('importaddress', [batcherAddress, 'batcher', false], walletName);
+  } catch (e: any) {
+    // Fallback to descriptors
+    try {
+      const pubKeyHex = batcherKeyPair.publicKey.toString('hex');
+      // Assuming P2WPKH
+      const descBase = `wpkh(${pubKeyHex})`;
+      const descInfo = await bitcoinRpcCall('getdescriptorinfo', [descBase], walletName);
+      
+      await bitcoinRpcCall('importdescriptors', [[{
+        desc: descInfo.descriptor,
+        timestamp: 0,
+        active: true,
+        label: 'batcher'
+      }]], walletName);
+      console.log('Imported batcher descriptor');
+    } catch (err) {
+      console.error('Failed to import batcher address:', err);
+    }
+  }
 
-  // Rescan the blockchain for the imported key if necessary
-  // If the balance is 0, it might be because the wallet didn't see the mined blocks as ours?
-  // But we imported the descriptor/key BEFORE mining.
-  // Let's try to be explicit with rescan if we had to fallback.
-  
-  // Initialization: Generate funds and set up transactions
   console.log('\n=== Initialization Phase ===');
   
   // Step 1: Generate 105 blocks to mining wallet to get funds
@@ -208,6 +218,26 @@ async function main() {
   console.log('Step 3: Generating 1 block to confirm funding...');
   const confirmBlocks = await bitcoinRpcCall('generatetoaddress', [1, address!], walletName);
   console.log(`Confirmation block: ${confirmBlocks[0]}`);
+
+  // Wait a bit for the wallet to index the new block
+  await delay(1000);
+
+  // Check batcher balance
+  let batcherBalance = 0;
+  try {
+    const batcherUnspent = await bitcoinRpcCall('listunspent', [0, 9999999, [batcherAddress!]], walletName);
+    if (batcherUnspent.length > 0) {
+      batcherBalance = batcherUnspent.reduce((acc: number, utxo: any) => acc + utxo.amount, 0);
+    } else {
+      const scanResult = await bitcoinRpcCall('scantxoutset', ['start', [`addr(${batcherAddress})`]]);
+      batcherBalance = scanResult?.total_amount ?? 0;
+    }
+  } catch (error) {
+    console.warn('listunspent failed, falling back to scantxoutset:', error);
+    const scanResult = await bitcoinRpcCall('scantxoutset', ['start', [`addr(${batcherAddress})`]]);
+    batcherBalance = scanResult?.total_amount ?? 0;
+  }
+  console.log(`Batcher wallet balance (tracked): ${batcherBalance} BTC`);
 
   // Step 4: Send 10 BTC from mining wallet to target.address
   console.log(`Step 4: Sending 10 BTC from mining wallet to ${target.address}...`);

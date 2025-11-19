@@ -50,6 +50,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   private readonly network: bitcoin.Network;
   public readonly maxBatchSize: number;
   private readonly batcherAddress: string;
+  private addressChecked = false;
 
   constructor(config: BitcoinAdapterConfig) {
     this.rpcUrl = config.rpcUrl;
@@ -193,13 +194,13 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   }
 
   async submitBatch(data: BitcoinBatchPayload, fee: string | bigint): Promise<BlockchainHash> {
+    await this.ensureAddressWatched();
+
     const feeSats = Number(fee);
     const totalRequired = data.totalAmountSats + feeSats;
 
     // 1. Select UTXOs (Coin Selection)
-    const unspent = await this.rpcCall("listunspent", [
-      1, 9999999, [this.batcherAddress]
-    ]);
+    const unspent = await this.fetchBatcherUtxos(1);
 
     let inputSum = 0;
     const selectedUtxos: any[] = [];
@@ -309,6 +310,79 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   // Utils
   // ----------------------------------------------------------------
 
+  private async ensureAddressWatched(): Promise<void> {
+    if (this.addressChecked) return;
+
+    try {
+      const info = await this.rpcCall("getaddressinfo", [this.batcherAddress]);
+      
+      // If address is not mine and not watchonly, we need to import it
+      if (!info.ismine && !info.iswatchonly) {
+        console.log(`BitcoinAdapter: Address ${this.batcherAddress} not tracked. Importing...`);
+        
+        try {
+          // Try legacy importaddress first
+          await this.rpcCall("importaddress", [this.batcherAddress, "batcher", true]);
+        } catch (e: any) {
+          const errorString = e.toString();
+          console.warn(`BitcoinAdapter: importaddress failed (${errorString}). Attempting importdescriptors fallback...`);
+
+          // Fallback for descriptor wallets (default in newer Bitcoin Core)
+          // 1. Get public key hex
+          const pubKeyHex = this.keyPair.publicKey.toString("hex");
+          
+          // 2. Construct descriptor (wpkh for P2WPKH)
+          const descBase = `wpkh(${pubKeyHex})`;
+          
+          // 3. Get descriptor with checksum
+          const descInfo = await this.rpcCall("getdescriptorinfo", [descBase]);
+          const descriptor = descInfo.descriptor;
+          
+          // 4. Import descriptor (timestamp: 0 to rescan from genesis)
+          await this.rpcCall("importdescriptors", [[{
+            desc: descriptor,
+            timestamp: 0,
+            active: true,
+            label: "batcher"
+          }]]);
+        }
+        console.log("BitcoinAdapter: Address imported and rescanned.");
+      }
+      this.addressChecked = true;
+    } catch (e) {
+      console.error("BitcoinAdapter: Error ensuring address is watched:", e);
+      // Don't set addressChecked to true if it failed, so we retry next time
+      // But we shouldn't block everything forever if it's a different issue
+    }
+  }
+
+  private async fetchBatcherUtxos(minConf = 1): Promise<Array<{ txid: string; vout: number; amount: number }>> {
+    try {
+      const utxos = await this.rpcCall("listunspent", [minConf, 9999999, [this.batcherAddress]]);
+      if (utxos.length > 0) {
+        return utxos;
+      }
+      console.warn("BitcoinAdapter: listunspent returned no UTXOs for batcher address, attempting scantxoutset fallback.");
+    } catch (error) {
+      console.warn("BitcoinAdapter: listunspent failed, attempting scantxoutset fallback.", error);
+    }
+
+    const scanResult = await this.rpcCall("scantxoutset", ["start", [`addr(${this.batcherAddress})`]]);
+    const unspents = scanResult?.unspents;
+    if (!scanResult?.success || !Array.isArray(unspents) || unspents.length === 0) {
+      console.warn("BitcoinAdapter: scantxoutset did not return any spendable outputs for the batcher address.");
+      return [];
+    }
+
+    console.log(`BitcoinAdapter: scantxoutset found ${unspents.length} outputs totaling ${scanResult.total_amount ?? 0} BTC for the batcher.`);
+
+    return unspents.map((entry: any) => ({
+      txid: entry.txid,
+      vout: entry.vout,
+      amount: entry.amount,
+    }));
+  }
+
   private async rpcCall(method: string, params: any[]): Promise<any> {
     const response = await fetch(this.rpcUrl, {
       method: "POST",
@@ -325,7 +399,8 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     });
 
     if (!response.ok) {
-      throw new Error(`Bitcoin RPC HTTP Error: ${response.status}`);
+      const text = await response.text();
+      throw new Error(`Bitcoin RPC HTTP Error: ${response.status} ${response.statusText} - ${text}`);
     }
 
     const json = await response.json();
