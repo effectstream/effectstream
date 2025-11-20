@@ -138,6 +138,17 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
         return { valid: false, error: "Invalid Regtest address" };
       }
 
+      // Check if batcher has sufficient funds
+      const balance = await this.getBatcherBalance();
+      const estimatedFee = await this.estimateSingleTransactionFee(payload.amountSats);
+
+      if (balance < payload.amountSats + Number(estimatedFee)) {
+        return {
+          valid: false,
+          error: `Insufficient batcher funds. Balance: ${balance} sats, Required: ${payload.amountSats + Number(estimatedFee)} sats`
+        };
+      }
+
       return { valid: true };
     } catch (e) {
       return { valid: false, error: "Malformed JSON input" };
@@ -381,6 +392,48 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
       vout: entry.vout,
       amount: entry.amount,
     }));
+  }
+
+  private async getBatcherBalance(): Promise<number> {
+    try {
+      await this.ensureAddressWatched();
+      const utxos = await this.rpcCall("listunspent", [1, 9999999, [this.batcherAddress]]);
+      if (utxos.length > 0) {
+        return Math.round(utxos.reduce((sum: number, utxo: any) => sum + (utxo.amount * 100_000_000), 0));
+      }
+    } catch (error) {
+      console.warn("BitcoinAdapter: listunspent failed for balance check, trying getbalance", error);
+    }
+
+    try {
+      const balance = await this.rpcCall("getbalance", ["*", 1, false, this.batcherAddress]);
+      return Math.round(balance * 100_000_000);
+    } catch (error) {
+      console.warn("BitcoinAdapter: getbalance fallback failed", error);
+      return 0;
+    }
+  }
+
+  private async estimateSingleTransactionFee(amountSats: number): Promise<bigint> {
+    // Estimate fee for a single-output transaction
+    // Conservative estimate: overhead (10) + 1 input (148) + 2 outputs (34*2) = ~256 vbytes
+    const estVBytes = 10 + 148 + (2 * 34); // 1 recipient + 1 change output
+
+    try {
+      const feeRateResult = await this.rpcCall("estimatesmartfee", [6]);
+
+      // Fallback fee rate (0.00001 BTC/kB = 1 sat/vbyte) if regtest has no history
+      const feeRateBtcPerKvB = feeRateResult.feerate || 0.00001;
+      const feeRateSatsPerByte = (feeRateBtcPerKvB * 100_000_000) / 1000;
+
+      // Round up and add some buffer for safety
+      const feeSats = Math.ceil(estVBytes * feeRateSatsPerByte * 1.2); // 20% buffer
+      return BigInt(Math.max(feeSats, 1000)); // Minimum 1000 sats fee
+    } catch (error) {
+      console.warn("BitcoinAdapter: Fee estimation failed, using conservative default", error);
+      // Conservative default: 1000 sats for regtest
+      return BigInt(1000);
+    }
   }
 
   private async rpcCall(method: string, params: any[]): Promise<any> {
