@@ -54,7 +54,7 @@
     "npm:@docusaurus/core@3.8.1": "3.8.1_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@19.1.0_webpack@5.102.1__acorn@8.15.0_react-router@5.3.4__react@18.3.1_typescript@5.6.3",
     "npm:@docusaurus/module-type-aliases@3.8.1": "3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1",
     "npm:@docusaurus/plugin-client-redirects@3.8.1": "3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_typescript@5.6.3",
-    "npm:@docusaurus/preset-classic@3.8.1": "3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_@docusaurus+plugin-content-docs@3.8.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@mdx-js+react@3.1.1___@types+react@19.1.0___react@18.3.1__@types+react@19.1.0__typescript@5.6.3_@types+react@19.1.0_typescript@5.6.3",
+    "npm:@docusaurus/preset-classic@3.8.1": "3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_@docusaurus+plugin-content-docs@3.8.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@mdx-js+react@3.1.1___@types+react@19.1.0___react@18.3.1__@types+react@19.1.0__typescript@5.6.3_@types+react@19.1.0_typescript@5.6.3_@types+react@18.3.1",
     "npm:@docusaurus/theme-mermaid@3.8.1": "3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_typescript@5.6.3",
     "npm:@docusaurus/tsconfig@3.8.1": "3.8.1",
     "npm:@docusaurus/types@3.8.1": "3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1",
@@ -79,9 +79,9 @@
     "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@*": "2.0.2",
     "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@2.0.2": "2.0.2",
     "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@^2.0.2": "2.0.2",
-    "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@*": "2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0",
-    "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2": "2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0",
-    "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@^2.0.2": "2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0",
+    "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@*": "2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0_@types+react@18.3.1",
+    "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2": "2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0_@types+react@18.3.1",
+    "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@^2.0.2": "2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0_@types+react@18.3.1",
     "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@*": "2.0.2_fp-ts@2.16.11",
     "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@2.0.2": "2.0.2_fp-ts@2.16.11",
     "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@^2.0.2": "2.0.2_fp-ts@2.16.11",
@@ -149,6 +149,7 @@
     "npm:@txpipe/dolos@*": "0.19.1",
     "npm:@txpipe/dolos@0.19.1": "0.19.1",
     "npm:@types/node@*": "24.2.0",
+    "npm:@types/react@18.3.1": "18.3.1",
     "npm:@types/react@19.1.0": "19.1.0",
     "npm:@types/react@19.1.2": "19.1.2",
     "npm:@utxorpc/sdk@~0.6.8": "0.6.8_@connectrpc+connect@1.4.0__@bufbuild+protobuf@1.10.1",
@@ -172,6 +173,8 @@
     "npm:bitcoind-rpc@*": "0.9.1",
     "npm:bitcoinjs-lib@*": "6.1.7",
     "npm:bitcoinjs-lib@6.1.5": "6.1.5",
+    "npm:bitcoinjs-lib@^6.1.5": "6.1.5",
+    "npm:bitcoinjs-message@^2.2.0": "2.2.0",
     "npm:bs58@6": "6.0.0",
     "npm:bs58check@4": "4.0.0",
     "npm:buffer@^6.0.3": "6.0.3",
@@ -183,6 +186,7 @@
     "npm:docusaurus-plugin-remote-content@4": "4.0.0_@docusaurus+core@3.8.1__@mdx-js+react@3.1.1___@types+react@19.1.0___react@18.3.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@types+react@19.1.0__webpack@5.102.1___acorn@8.15.0__react-router@5.3.4___react@18.3.1__typescript@5.6.3_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@19.1.0_typescript@5.6.3",
     "npm:ecpair@*": "2.1.0",
     "npm:ecpair@2.1.0": "2.1.0",
+    "npm:ecpair@^2.1.0": "2.1.0",
     "npm:effection@3.5.0": "3.5.0",
     "npm:effection@^3.5.0": "3.6.1",
     "npm:ethers@^6.15.0": "6.15.0",
@@ -192,8 +196,8 @@
     "npm:hardhat@3.0.4": "3.0.4_zod@3.25.76",
     "npm:hi-base32@~0.5.1": "0.5.1",
     "npm:http-server@^14.1.1": "14.1.1",
-    "npm:ink-big-text@2": "2.0.0_ink@5.1.0__@types+react@19.1.0__react@18.3.1_react@18.3.1_@types+react@19.1.0",
-    "npm:ink@5.1.0": "5.1.0_@types+react@19.1.0_react@18.3.1",
+    "npm:ink-big-text@2": "2.0.0_ink@5.1.0__@types+react@19.1.0__react@18.3.1_react@18.3.1_@types+react@19.1.0_@types+react@18.3.1",
+    "npm:ink@5.1.0": "5.1.0_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
     "npm:ip@^2.0.1": "2.0.1",
     "npm:js-base64@^3.7.7": "3.7.8",
     "npm:js-sha3@~0.9.3": "0.9.3",
@@ -232,8 +236,10 @@
     "npm:tar@^6.2.0": "6.2.1",
     "npm:tiny-secp256k1@*": "2.2.4",
     "npm:tiny-secp256k1@2.2.3": "2.2.3",
+    "npm:tiny-secp256k1@^2.2.1": "2.2.3",
     "npm:tslog@^4.9.3": "4.10.2",
     "npm:typescript@~5.6.2": "5.6.3",
+    "npm:varuint-bitcoin@^1.1.2": "1.1.2",
     "npm:viem@*": "2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
     "npm:viem@2.23.10": "2.23.10_typescript@5.6.3_ws@8.18.1",
     "npm:viem@2.37.3": "2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
@@ -245,7 +251,7 @@
     "npm:vite@*": "6.4.1_picomatch@4.0.3_@types+node@24.2.0",
     "npm:vite@^6.3.2": "6.4.1_picomatch@4.0.3_@types+node@24.2.0",
     "npm:vitest@^3.2.4": "3.2.4_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
-    "npm:wagmi@^2.16.9": "2.19.2_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1",
+    "npm:wagmi@^2.16.9": "2.19.2_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1_@types+react@18.3.1",
     "npm:wait-on@*": "8.0.3",
     "npm:wait-on@8.0.3": "8.0.3",
     "npm:web3-utils@^4.3.3": "4.3.3",
@@ -617,7 +623,34 @@
         "prop-types",
         "react@18.3.1",
         "react-dom@18.3.1_react@18.3.1",
-        "rehackt",
+        "rehackt@0.1.0_@types+react@19.1.0_react@18.3.1",
+        "symbol-observable",
+        "ts-invariant",
+        "tslib@2.8.1",
+        "zen-observable-ts@1.2.5"
+      ],
+      "optionalPeers": [
+        "graphql-ws@6.0.6_graphql@16.12.0_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
+        "react@18.3.1",
+        "react-dom@18.3.1_react@18.3.1"
+      ]
+    },
+    "@apollo/client@3.14.0_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0_@types+react@18.3.1": {
+      "integrity": "sha512-0YQKKRIxiMlIou+SekQqdCo0ZTHxOcES+K8vKB53cIDpwABNR0P0yRzPgsbgcj3zRJniD93S/ontsnZsCLZrxQ==",
+      "dependencies": [
+        "@graphql-typed-document-node/core",
+        "@wry/caches",
+        "@wry/equality",
+        "@wry/trie",
+        "graphql",
+        "graphql-tag",
+        "graphql-ws@6.0.6_graphql@16.12.0_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
+        "hoist-non-react-statics",
+        "optimism",
+        "prop-types",
+        "react@18.3.1",
+        "react-dom@18.3.1_react@18.3.1",
+        "rehackt@0.1.0_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
         "symbol-observable",
         "ts-invariant",
         "tslib@2.8.1",
@@ -1539,6 +1572,20 @@
         "zustand@5.0.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1"
       ]
     },
+    "@base-org/account@2.4.0_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1_@types+react@18.3.1": {
+      "integrity": "sha512-A4Umpi8B9/pqR78D1Yoze4xHyQaujioVRqqO3d6xuDFw9VRtjg6tK3bPlwE0aW+nVH/ntllCpPa2PbI8Rnjcug==",
+      "dependencies": [
+        "@coinbase/cdp-sdk",
+        "@noble/hashes@1.4.0",
+        "clsx@1.2.1",
+        "eventemitter3@5.0.1",
+        "idb-keyval",
+        "ox@0.6.9_typescript@5.6.3",
+        "preact",
+        "viem@2.38.6_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
+        "zustand@5.0.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1"
+      ]
+    },
     "@bitcoinerlab/secp256k1@1.2.0": {
       "integrity": "sha512-jeujZSzb3JOZfmJYI0ph1PVpCRV5oaexCgy+RvCXV8XlY+XFB/2n3WOcvBsKLsOw78KYgnQrQWb2HrKE4be88Q==",
       "dependencies": [
@@ -1658,6 +1705,19 @@
         "preact",
         "viem@2.38.6_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
         "zustand@5.0.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1"
+      ]
+    },
+    "@coinbase/wallet-sdk@4.3.6_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1": {
+      "integrity": "sha512-4q8BNG1ViL4mSAAvPAtpwlOs1gpC+67eQtgIwNvT3xyeyFFd+guwkc8bcX5rTmQhXpqnhzC4f0obACbP9CqMSA==",
+      "dependencies": [
+        "@noble/hashes@1.4.0",
+        "clsx@1.2.1",
+        "eventemitter3@5.0.1",
+        "idb-keyval",
+        "ox@0.6.9_typescript@5.6.3",
+        "preact",
+        "viem@2.38.6_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
+        "zustand@5.0.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1"
       ]
     },
     "@colors/colors@1.5.0": {
@@ -2115,6 +2175,23 @@
         "react-dom@18.3.1_react@18.3.1"
       ]
     },
+    "@docsearch/react@3.9.0_@types+react@19.1.0_react@18.3.1_react-dom@18.3.1__react@18.3.1_algoliasearch@5.42.0_@types+react@18.3.1": {
+      "integrity": "sha512-mb5FOZYZIkRQ6s/NWnM98k879vu5pscWqTLubLFBO87igYYT4VzVazh4h5o/zCvTIZgEt3PvsCOMOswOUo9yHQ==",
+      "dependencies": [
+        "@algolia/autocomplete-core",
+        "@algolia/autocomplete-preset-algolia",
+        "@docsearch/css",
+        "@types/react@18.3.1",
+        "algoliasearch",
+        "react@18.3.1",
+        "react-dom@18.3.1_react@18.3.1"
+      ],
+      "optionalPeers": [
+        "@types/react@18.3.1",
+        "react@18.3.1",
+        "react-dom@18.3.1_react@18.3.1"
+      ]
+    },
     "@docusaurus/babel@3.8.1_@babel+core@7.28.5_react@18.3.1_react-dom@18.3.1__react@18.3.1": {
       "integrity": "sha512-3brkJrml8vUbn9aeoZUlJfsI/GqyFcDgQJwQkmBtclJgWDEQBKKeagZfOgx0WfUQhagL1sQLNW0iBdxnI863Uw==",
       "dependencies": [
@@ -2462,7 +2539,29 @@
         "@docusaurus/plugin-svgr",
         "@docusaurus/theme-classic",
         "@docusaurus/theme-common",
-        "@docusaurus/theme-search-algolia",
+        "@docusaurus/theme-search-algolia@3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@19.1.0_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_@docusaurus+plugin-content-docs@3.8.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@mdx-js+react@3.1.1___@types+react@19.1.0___react@18.3.1__@types+react@19.1.0__typescript@5.6.3_algoliasearch@5.42.0_typescript@5.6.3",
+        "@docusaurus/types",
+        "react@18.3.1",
+        "react-dom@18.3.1_react@18.3.1"
+      ]
+    },
+    "@docusaurus/preset-classic@3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_@docusaurus+plugin-content-docs@3.8.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@mdx-js+react@3.1.1___@types+react@19.1.0___react@18.3.1__@types+react@19.1.0__typescript@5.6.3_@types+react@19.1.0_typescript@5.6.3_@types+react@18.3.1": {
+      "integrity": "sha512-yJSjYNHXD8POMGc2mKQuj3ApPrN+eG0rO1UPgSx7jySpYU+n4WjBikbrA2ue5ad9A7aouEtMWUoiSRXTH/g7KQ==",
+      "dependencies": [
+        "@docusaurus/core",
+        "@docusaurus/plugin-content-blog",
+        "@docusaurus/plugin-content-docs",
+        "@docusaurus/plugin-content-pages",
+        "@docusaurus/plugin-css-cascade-layers",
+        "@docusaurus/plugin-debug",
+        "@docusaurus/plugin-google-analytics",
+        "@docusaurus/plugin-google-gtag",
+        "@docusaurus/plugin-google-tag-manager",
+        "@docusaurus/plugin-sitemap",
+        "@docusaurus/plugin-svgr",
+        "@docusaurus/theme-classic",
+        "@docusaurus/theme-common",
+        "@docusaurus/theme-search-algolia@3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@19.1.0_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_@docusaurus+plugin-content-docs@3.8.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@mdx-js+react@3.1.1___@types+react@19.1.0___react@18.3.1__@types+react@19.1.0__typescript@5.6.3_algoliasearch@5.42.0_typescript@5.6.3_@types+react@18.3.1",
         "@docusaurus/types",
         "react@18.3.1",
         "react-dom@18.3.1_react@18.3.1"
@@ -2545,7 +2644,30 @@
     "@docusaurus/theme-search-algolia@3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@19.1.0_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_@docusaurus+plugin-content-docs@3.8.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@mdx-js+react@3.1.1___@types+react@19.1.0___react@18.3.1__@types+react@19.1.0__typescript@5.6.3_algoliasearch@5.42.0_typescript@5.6.3": {
       "integrity": "sha512-NBFH5rZVQRAQM087aYSRKQ9yGEK9eHd+xOxQjqNpxMiV85OhJDD4ZGz6YJIod26Fbooy54UWVdzNU0TFeUUUzQ==",
       "dependencies": [
-        "@docsearch/react",
+        "@docsearch/react@3.9.0_@types+react@19.1.0_react@18.3.1_react-dom@18.3.1__react@18.3.1_algoliasearch@5.42.0",
+        "@docusaurus/core",
+        "@docusaurus/logger",
+        "@docusaurus/plugin-content-docs",
+        "@docusaurus/theme-common",
+        "@docusaurus/theme-translations@3.8.1",
+        "@docusaurus/utils",
+        "@docusaurus/utils-validation",
+        "algoliasearch",
+        "algoliasearch-helper",
+        "clsx@2.1.1",
+        "eta",
+        "fs-extra@11.3.2",
+        "lodash",
+        "react@18.3.1",
+        "react-dom@18.3.1_react@18.3.1",
+        "tslib@2.8.1",
+        "utility-types"
+      ]
+    },
+    "@docusaurus/theme-search-algolia@3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@19.1.0_@mdx-js+react@3.1.1__@types+react@19.1.0__react@18.3.1_@docusaurus+plugin-content-docs@3.8.1__react@18.3.1__react-dom@18.3.1___react@18.3.1__@mdx-js+react@3.1.1___@types+react@19.1.0___react@18.3.1__@types+react@19.1.0__typescript@5.6.3_algoliasearch@5.42.0_typescript@5.6.3_@types+react@18.3.1": {
+      "integrity": "sha512-NBFH5rZVQRAQM087aYSRKQ9yGEK9eHd+xOxQjqNpxMiV85OhJDD4ZGz6YJIod26Fbooy54UWVdzNU0TFeUUUzQ==",
+      "dependencies": [
+        "@docsearch/react@3.9.0_@types+react@19.1.0_react@18.3.1_react-dom@18.3.1__react@18.3.1_algoliasearch@5.42.0_@types+react@18.3.1",
         "@docusaurus/core",
         "@docusaurus/logger",
         "@docusaurus/plugin-content-docs",
@@ -3598,7 +3720,23 @@
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0": {
       "integrity": "sha512-yn2EriaclSNUwZqZNsgJv//6vPkW2NrA84e9S6zs7KEDDoCobtiFBlOHR54IXM2fNs3DnAojsVZiQaTY0Lq4vQ==",
       "dependencies": [
-        "@apollo/client",
+        "@apollo/client@3.14.0_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0",
+        "@midnight-ntwrk/midnight-js-network-id",
+        "@midnight-ntwrk/midnight-js-types",
+        "buffer@6.0.3",
+        "cross-fetch@4.1.0",
+        "graphql",
+        "graphql-ws@6.0.6_graphql@16.12.0_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
+        "isomorphic-ws@5.0.0_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
+        "rxjs",
+        "ws@8.18.3_bufferutil@4.0.9_utf-8-validate@5.0.10",
+        "zen-observable-ts@1.1.0"
+      ]
+    },
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0_@types+react@18.3.1": {
+      "integrity": "sha512-yn2EriaclSNUwZqZNsgJv//6vPkW2NrA84e9S6zs7KEDDoCobtiFBlOHR54IXM2fNs3DnAojsVZiQaTY0Lq4vQ==",
+      "dependencies": [
+        "@apollo/client@3.14.0_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10_@types+react@19.1.0_@types+react@18.3.1",
         "@midnight-ntwrk/midnight-js-network-id",
         "@midnight-ntwrk/midnight-js-types",
         "buffer@6.0.3",
@@ -5441,7 +5579,17 @@
         "@reown/appkit-common@1.7.8_typescript@5.6.3",
         "@reown/appkit-wallet",
         "@walletconnect/universal-provider@2.21.0_typescript@5.6.3",
-        "valtio",
+        "valtio@1.13.2_@types+react@19.1.0_react@18.3.1",
+        "viem@2.38.6_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10"
+      ]
+    },
+    "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1": {
+      "integrity": "sha512-IdXlJlivrlj6m63VsGLsjtPHHsTWvKGVzWIP1fXZHVqmK+rZCBDjCi9j267Rb9/nYRGHWBtlFQhO8dK35WfeDA==",
+      "dependencies": [
+        "@reown/appkit-common@1.7.8_typescript@5.6.3",
+        "@reown/appkit-wallet",
+        "@walletconnect/universal-provider@2.21.0_typescript@5.6.3",
+        "valtio@1.13.2_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
         "viem@2.38.6_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10"
       ]
     },
@@ -5449,11 +5597,22 @@
       "integrity": "sha512-OSGQ+QJkXx0FEEjlpQqIhT8zGJKOoHzVnyy/0QFrl3WrQTjCzg0L6+i91Ad5Iy1zb6V5JjqtfIFpRVRWN4M3pw==",
       "dependencies": [
         "@reown/appkit-common@1.7.8_typescript@5.6.3",
-        "@reown/appkit-controllers",
-        "@reown/appkit-ui",
-        "@reown/appkit-utils",
+        "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
+        "@reown/appkit-ui@1.7.8_typescript@5.6.3_@types+react@19.1.0_react@18.3.1",
+        "@reown/appkit-utils@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
         "lit",
-        "valtio"
+        "valtio@1.13.2_@types+react@19.1.0_react@18.3.1"
+      ]
+    },
+    "@reown/appkit-pay@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1": {
+      "integrity": "sha512-OSGQ+QJkXx0FEEjlpQqIhT8zGJKOoHzVnyy/0QFrl3WrQTjCzg0L6+i91Ad5Iy1zb6V5JjqtfIFpRVRWN4M3pw==",
+      "dependencies": [
+        "@reown/appkit-common@1.7.8_typescript@5.6.3",
+        "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
+        "@reown/appkit-ui@1.7.8_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
+        "@reown/appkit-utils@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
+        "lit",
+        "valtio@1.13.2_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1"
       ]
     },
     "@reown/appkit-polyfills@1.7.8": {
@@ -5466,9 +5625,20 @@
       "integrity": "sha512-RCeHhAwOrIgcvHwYlNWMcIDibdI91waaoEYBGw71inE0kDB8uZbE7tE6DAXJmDkvl0qPh+DqlC4QbJLF1FVYdQ==",
       "dependencies": [
         "@reown/appkit-common@1.7.8_typescript@5.6.3",
-        "@reown/appkit-controllers",
-        "@reown/appkit-ui",
-        "@reown/appkit-utils",
+        "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
+        "@reown/appkit-ui@1.7.8_typescript@5.6.3_@types+react@19.1.0_react@18.3.1",
+        "@reown/appkit-utils@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
+        "@reown/appkit-wallet",
+        "lit"
+      ]
+    },
+    "@reown/appkit-scaffold-ui@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1": {
+      "integrity": "sha512-RCeHhAwOrIgcvHwYlNWMcIDibdI91waaoEYBGw71inE0kDB8uZbE7tE6DAXJmDkvl0qPh+DqlC4QbJLF1FVYdQ==",
+      "dependencies": [
+        "@reown/appkit-common@1.7.8_typescript@5.6.3",
+        "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
+        "@reown/appkit-ui@1.7.8_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
+        "@reown/appkit-utils@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
         "@reown/appkit-wallet",
         "lit"
       ]
@@ -5477,7 +5647,17 @@
       "integrity": "sha512-1hjCKjf6FLMFzrulhl0Y9Vb9Fu4royE+SXCPSWh4VhZhWqlzUFc7kutnZKx8XZFVQH4pbBvY62SpRC93gqoHow==",
       "dependencies": [
         "@reown/appkit-common@1.7.8_typescript@5.6.3",
-        "@reown/appkit-controllers",
+        "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
+        "@reown/appkit-wallet",
+        "lit",
+        "qrcode"
+      ]
+    },
+    "@reown/appkit-ui@1.7.8_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1": {
+      "integrity": "sha512-1hjCKjf6FLMFzrulhl0Y9Vb9Fu4royE+SXCPSWh4VhZhWqlzUFc7kutnZKx8XZFVQH4pbBvY62SpRC93gqoHow==",
+      "dependencies": [
+        "@reown/appkit-common@1.7.8_typescript@5.6.3",
+        "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
         "@reown/appkit-wallet",
         "lit",
         "qrcode"
@@ -5487,12 +5667,25 @@
       "integrity": "sha512-8X7UvmE8GiaoitCwNoB86pttHgQtzy4ryHZM9kQpvjQ0ULpiER44t1qpVLXNM4X35O0v18W0Dk60DnYRMH2WRw==",
       "dependencies": [
         "@reown/appkit-common@1.7.8_typescript@5.6.3",
-        "@reown/appkit-controllers",
+        "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
         "@reown/appkit-polyfills",
         "@reown/appkit-wallet",
         "@walletconnect/logger",
         "@walletconnect/universal-provider@2.21.0_typescript@5.6.3",
-        "valtio",
+        "valtio@1.13.2_@types+react@19.1.0_react@18.3.1",
+        "viem@2.38.6_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10"
+      ]
+    },
+    "@reown/appkit-utils@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1": {
+      "integrity": "sha512-8X7UvmE8GiaoitCwNoB86pttHgQtzy4ryHZM9kQpvjQ0ULpiER44t1qpVLXNM4X35O0v18W0Dk60DnYRMH2WRw==",
+      "dependencies": [
+        "@reown/appkit-common@1.7.8_typescript@5.6.3",
+        "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
+        "@reown/appkit-polyfills",
+        "@reown/appkit-wallet",
+        "@walletconnect/logger",
+        "@walletconnect/universal-provider@2.21.0_typescript@5.6.3",
+        "valtio@1.13.2_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
         "viem@2.38.6_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10"
       ]
     },
@@ -5509,17 +5702,35 @@
       "integrity": "sha512-51kTleozhA618T1UvMghkhKfaPcc9JlKwLJ5uV+riHyvSoWPKPRIa5A6M1Wano5puNyW0s3fwywhyqTHSilkaA==",
       "dependencies": [
         "@reown/appkit-common@1.7.8_typescript@5.6.3",
-        "@reown/appkit-controllers",
-        "@reown/appkit-pay",
+        "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
+        "@reown/appkit-pay@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
         "@reown/appkit-polyfills",
-        "@reown/appkit-scaffold-ui",
-        "@reown/appkit-ui",
-        "@reown/appkit-utils",
+        "@reown/appkit-scaffold-ui@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_typescript@5.6.3_@types+react@19.1.0_react@18.3.1",
+        "@reown/appkit-ui@1.7.8_typescript@5.6.3_@types+react@19.1.0_react@18.3.1",
+        "@reown/appkit-utils@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
         "@reown/appkit-wallet",
         "@walletconnect/types@2.21.0",
         "@walletconnect/universal-provider@2.21.0_typescript@5.6.3",
         "bs58@6.0.0",
-        "valtio",
+        "valtio@1.13.2_@types+react@19.1.0_react@18.3.1",
+        "viem@2.38.6_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10"
+      ]
+    },
+    "@reown/appkit@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1": {
+      "integrity": "sha512-51kTleozhA618T1UvMghkhKfaPcc9JlKwLJ5uV+riHyvSoWPKPRIa5A6M1Wano5puNyW0s3fwywhyqTHSilkaA==",
+      "dependencies": [
+        "@reown/appkit-common@1.7.8_typescript@5.6.3",
+        "@reown/appkit-controllers@1.7.8_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
+        "@reown/appkit-pay@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
+        "@reown/appkit-polyfills",
+        "@reown/appkit-scaffold-ui@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
+        "@reown/appkit-ui@1.7.8_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
+        "@reown/appkit-utils@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
+        "@reown/appkit-wallet",
+        "@walletconnect/types@2.21.0",
+        "@walletconnect/universal-provider@2.21.0_typescript@5.6.3",
+        "bs58@6.0.0",
+        "valtio@1.13.2_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
         "viem@2.38.6_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10"
       ]
     },
@@ -7047,6 +7258,9 @@
     "@types/prismjs@1.26.5": {
       "integrity": "sha512-AUZTa7hQ2KY5L7AmtSiqxlhWxb4ina0yd8hNbl4TWuqnv/pFP0nDMb3YrfSBf4hJVGLh2YEIBfKaBW/9UEl6IQ=="
     },
+    "@types/prop-types@15.7.15": {
+      "integrity": "sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw=="
+    },
     "@types/qs@6.14.0": {
       "integrity": "sha512-eOunJqu0K1923aExK6y8p6fsihYEn/BYuQ4g0CxAAgFc4b/ZLN4CrsRZ55srTdqoiLzU2B2evC+apEIxprEzkQ=="
     },
@@ -7074,6 +7288,13 @@
       "dependencies": [
         "@types/history",
         "@types/react@19.1.2"
+      ]
+    },
+    "@types/react@18.3.1": {
+      "integrity": "sha512-V0kuGBX3+prX+DQ/7r2qsv1NsdfnCLnTgnRJ1pYnxykBhGMz+qj+box5lq7XsO5mtZsBqpjwwTu/7wszPfMBcw==",
+      "dependencies": [
+        "@types/prop-types",
+        "csstype"
       ]
     },
     "@types/react@19.1.0": {
@@ -7337,16 +7558,36 @@
     "@wagmi/connectors@6.1.3_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_wagmi@2.19.2__@tanstack+react-query@5.90.7___react@18.3.1__react@18.3.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@wagmi+core@2.22.1___typescript@5.6.3___viem@2.37.3____typescript@5.6.3____ws@8.18.3_____bufferutil@4.0.9_____utf-8-validate@5.0.10___@types+react@19.1.0___react@18.3.1___use-sync-external-store@1.4.0____react@18.3.1__@types+react@19.1.0__use-sync-external-store@1.4.0___react@18.3.1__ws@8.18.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1": {
       "integrity": "sha512-Rx3/4Rug3SrBC/WSuNUC0XEpWC/yP71BhQzz3u064ueemIWtvrIxXZxH2byWd0dF3osarjuHBr904bm3L6eNHg==",
       "dependencies": [
-        "@base-org/account",
+        "@base-org/account@2.4.0_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1",
         "@coinbase/wallet-sdk@4.3.6_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1",
         "@gemini-wallet/core",
         "@metamask/sdk",
         "@safe-global/safe-apps-provider",
         "@safe-global/safe-apps-sdk",
         "@wagmi/core@2.22.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1",
-        "@walletconnect/ethereum-provider",
+        "@walletconnect/ethereum-provider@2.21.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
         "cbw-sdk@npm:@coinbase/wallet-sdk@3.9.3",
-        "porto",
+        "porto@0.2.35_@tanstack+react-query@5.90.7__react@18.3.1_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_wagmi@2.19.2__@tanstack+react-query@5.90.7___react@18.3.1__react@18.3.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@wagmi+core@2.22.1___typescript@5.6.3___viem@2.37.3____typescript@5.6.3____ws@8.18.3_____bufferutil@4.0.9_____utf-8-validate@5.0.10___@types+react@19.1.0___react@18.3.1___use-sync-external-store@1.4.0____react@18.3.1__@types+react@19.1.0__use-sync-external-store@1.4.0___react@18.3.1__ws@8.18.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_zod@4.1.12_ws@8.18.1",
+        "typescript",
+        "viem@2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10"
+      ],
+      "optionalPeers": [
+        "typescript"
+      ]
+    },
+    "@wagmi/connectors@6.1.3_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_wagmi@2.19.2__@tanstack+react-query@5.90.7___react@18.3.1__react@18.3.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@wagmi+core@2.22.1___typescript@5.6.3___viem@2.37.3____typescript@5.6.3____ws@8.18.3_____bufferutil@4.0.9_____utf-8-validate@5.0.10___@types+react@19.1.0___react@18.3.1___use-sync-external-store@1.4.0____react@18.3.1__@types+react@19.1.0__use-sync-external-store@1.4.0___react@18.3.1__ws@8.18.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1_@types+react@18.3.1": {
+      "integrity": "sha512-Rx3/4Rug3SrBC/WSuNUC0XEpWC/yP71BhQzz3u064ueemIWtvrIxXZxH2byWd0dF3osarjuHBr904bm3L6eNHg==",
+      "dependencies": [
+        "@base-org/account@2.4.0_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1_@types+react@18.3.1",
+        "@coinbase/wallet-sdk@4.3.6_typescript@5.6.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1",
+        "@gemini-wallet/core",
+        "@metamask/sdk",
+        "@safe-global/safe-apps-provider",
+        "@safe-global/safe-apps-sdk",
+        "@wagmi/core@2.22.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1",
+        "@walletconnect/ethereum-provider@2.21.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
+        "cbw-sdk@npm:@coinbase/wallet-sdk@3.9.3",
+        "porto@0.2.35_@tanstack+react-query@5.90.7__react@18.3.1_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_wagmi@2.19.2__@tanstack+react-query@5.90.7___react@18.3.1__react@18.3.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@wagmi+core@2.22.1___typescript@5.6.3___viem@2.37.3____typescript@5.6.3____ws@8.18.3_____bufferutil@4.0.9_____utf-8-validate@5.0.10___@types+react@19.1.0___react@18.3.1___use-sync-external-store@1.4.0____react@18.3.1__@types+react@19.1.0__use-sync-external-store@1.4.0___react@18.3.1__ws@8.18.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_zod@4.1.12_ws@8.18.1_@types+react@18.3.1",
         "typescript",
         "viem@2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10"
       ],
@@ -7367,6 +7608,19 @@
         "typescript"
       ]
     },
+    "@wagmi/core@2.22.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1": {
+      "integrity": "sha512-cG/xwQWsBEcKgRTkQVhH29cbpbs/TdcUJVFXCyri3ZknxhMyGv0YEjTcrNpRgt2SaswL1KrvslSNYKKo+5YEAg==",
+      "dependencies": [
+        "eventemitter3@5.0.1",
+        "mipd",
+        "typescript",
+        "viem@2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
+        "zustand@5.0.0_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1"
+      ],
+      "optionalPeers": [
+        "typescript"
+      ]
+    },
     "@wagmi/core@2.22.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_zod@4.1.12": {
       "integrity": "sha512-cG/xwQWsBEcKgRTkQVhH29cbpbs/TdcUJVFXCyri3ZknxhMyGv0YEjTcrNpRgt2SaswL1KrvslSNYKKo+5YEAg==",
       "dependencies": [
@@ -7375,6 +7629,19 @@
         "typescript",
         "viem@2.37.3_typescript@5.6.3_zod@4.1.12_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
         "zustand@5.0.0_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1"
+      ],
+      "optionalPeers": [
+        "typescript"
+      ]
+    },
+    "@wagmi/core@2.22.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_zod@4.1.12_@types+react@18.3.1": {
+      "integrity": "sha512-cG/xwQWsBEcKgRTkQVhH29cbpbs/TdcUJVFXCyri3ZknxhMyGv0YEjTcrNpRgt2SaswL1KrvslSNYKKo+5YEAg==",
+      "dependencies": [
+        "eventemitter3@5.0.1",
+        "mipd",
+        "typescript",
+        "viem@2.37.3_typescript@5.6.3_zod@4.1.12_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
+        "zustand@5.0.0_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1"
       ],
       "optionalPeers": [
         "typescript"
@@ -7480,7 +7747,24 @@
     "@walletconnect/ethereum-provider@2.21.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3": {
       "integrity": "sha512-SSlIG6QEVxClgl1s0LMk4xr2wg4eT3Zn/Hb81IocyqNSGfXpjtawWxKxiC5/9Z95f1INyBD6MctJbL/R1oBwIw==",
       "dependencies": [
-        "@reown/appkit",
+        "@reown/appkit@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3",
+        "@walletconnect/jsonrpc-http-connection",
+        "@walletconnect/jsonrpc-provider",
+        "@walletconnect/jsonrpc-types",
+        "@walletconnect/jsonrpc-utils",
+        "@walletconnect/keyvaluestorage",
+        "@walletconnect/sign-client@2.21.1_typescript@5.6.3",
+        "@walletconnect/types@2.21.1",
+        "@walletconnect/universal-provider@2.21.1_typescript@5.6.3",
+        "@walletconnect/utils@2.21.1_typescript@5.6.3",
+        "events"
+      ],
+      "deprecated": true
+    },
+    "@walletconnect/ethereum-provider@2.21.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1": {
+      "integrity": "sha512-SSlIG6QEVxClgl1s0LMk4xr2wg4eT3Zn/Hb81IocyqNSGfXpjtawWxKxiC5/9Z95f1INyBD6MctJbL/R1oBwIw==",
+      "dependencies": [
+        "@reown/appkit@1.7.8_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_typescript@5.6.3_@types+react@18.3.1",
         "@walletconnect/jsonrpc-http-connection",
         "@walletconnect/jsonrpc-provider",
         "@walletconnect/jsonrpc-types",
@@ -10363,7 +10647,13 @@
     "derive-valtio@0.1.0_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1": {
       "integrity": "sha512-OCg2UsLbXK7GmmpzMXhYkdO64vhJ1ROUUGaTFyHjVwEdMEcTTRj7W1TxLbSBxdY8QLBPCcp66MTyaSy0RpO17A==",
       "dependencies": [
-        "valtio"
+        "valtio@1.13.2_@types+react@19.1.0_react@18.3.1"
+      ]
+    },
+    "derive-valtio@0.1.0_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1": {
+      "integrity": "sha512-OCg2UsLbXK7GmmpzMXhYkdO64vhJ1ROUUGaTFyHjVwEdMEcTTRj7W1TxLbSBxdY8QLBPCcp66MTyaSy0RpO17A==",
+      "dependencies": [
+        "valtio@1.13.2_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1"
       ]
     },
     "des.js@1.1.0": {
@@ -12353,7 +12643,16 @@
       "integrity": "sha512-Juzqv+rIOLGuhMJiE50VtS6dg6olWfzFdL7wsU/EARSL5Eaa5JNXMogMBm9AkjgzO2Y3UwWCOh87jbhSn8aNdw==",
       "dependencies": [
         "cfonts",
-        "ink",
+        "ink@5.1.0_@types+react@19.1.0_react@18.3.1",
+        "prop-types",
+        "react@18.3.1"
+      ]
+    },
+    "ink-big-text@2.0.0_ink@5.1.0__@types+react@19.1.0__react@18.3.1_react@18.3.1_@types+react@19.1.0_@types+react@18.3.1": {
+      "integrity": "sha512-Juzqv+rIOLGuhMJiE50VtS6dg6olWfzFdL7wsU/EARSL5Eaa5JNXMogMBm9AkjgzO2Y3UwWCOh87jbhSn8aNdw==",
+      "dependencies": [
+        "cfonts",
+        "ink@5.1.0_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
         "prop-types",
         "react@18.3.1"
       ]
@@ -12390,6 +12689,40 @@
       ],
       "optionalPeers": [
         "@types/react@19.1.0"
+      ]
+    },
+    "ink@5.1.0_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1": {
+      "integrity": "sha512-3vIO+CU4uSg167/dZrg4wHy75llUINYXxN4OsdaCkE40q4zyOTPwNc2VEpLnnWsIvIQeo6x6lilAhuaSt+rIsA==",
+      "dependencies": [
+        "@alcalzone/ansi-tokenize",
+        "@types/react@18.3.1",
+        "ansi-escapes@7.2.0",
+        "ansi-styles@6.2.3",
+        "auto-bind",
+        "chalk@5.4.1",
+        "cli-boxes",
+        "cli-cursor",
+        "cli-truncate",
+        "code-excerpt",
+        "es-toolkit@1.41.0",
+        "indent-string@5.0.0",
+        "is-in-ci",
+        "patch-console",
+        "react@18.3.1",
+        "react-reconciler",
+        "scheduler@0.23.2",
+        "signal-exit@3.0.7",
+        "slice-ansi@7.1.2",
+        "stack-utils",
+        "string-width@7.2.0",
+        "type-fest@4.41.0",
+        "widest-line@5.0.0",
+        "wrap-ansi@9.0.2",
+        "ws@8.18.3_bufferutil@4.0.9_utf-8-validate@5.0.10",
+        "yoga-wasm-web"
+      ],
+      "optionalPeers": [
+        "@types/react@18.3.1"
       ]
     },
     "inline-style-parser@0.2.6": {
@@ -15082,7 +15415,7 @@
         "react@18.3.1",
         "typescript",
         "viem@2.37.3_typescript@5.6.3_zod@4.1.12_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
-        "wagmi",
+        "wagmi@2.19.2_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1",
         "zod@4.1.12",
         "zustand@5.0.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1"
       ],
@@ -15090,7 +15423,31 @@
         "@tanstack/react-query",
         "react@18.3.1",
         "typescript",
-        "wagmi"
+        "wagmi@2.19.2_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1"
+      ],
+      "bin": true
+    },
+    "porto@0.2.35_@tanstack+react-query@5.90.7__react@18.3.1_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_wagmi@2.19.2__@tanstack+react-query@5.90.7___react@18.3.1__react@18.3.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@wagmi+core@2.22.1___typescript@5.6.3___viem@2.37.3____typescript@5.6.3____ws@8.18.3_____bufferutil@4.0.9_____utf-8-validate@5.0.10___@types+react@19.1.0___react@18.3.1___use-sync-external-store@1.4.0____react@18.3.1__@types+react@19.1.0__use-sync-external-store@1.4.0___react@18.3.1__ws@8.18.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_zod@4.1.12_ws@8.18.1_@types+react@18.3.1": {
+      "integrity": "sha512-gu9FfjjvvYBgQXUHWTp6n3wkTxVtEcqFotM7i3GEZeoQbvLGbssAicCz6hFZ8+xggrJWwi/RLmbwNra50SMmUQ==",
+      "dependencies": [
+        "@tanstack/react-query",
+        "@wagmi/core@2.22.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_zod@4.1.12_@types+react@18.3.1",
+        "hono",
+        "idb-keyval",
+        "mipd",
+        "ox@0.9.6_typescript@5.6.3_zod@4.1.12",
+        "react@18.3.1",
+        "typescript",
+        "viem@2.37.3_typescript@5.6.3_zod@4.1.12_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
+        "wagmi@2.19.2_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1_@types+react@18.3.1",
+        "zod@4.1.12",
+        "zustand@5.0.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1"
+      ],
+      "optionalPeers": [
+        "@tanstack/react-query",
+        "react@18.3.1",
+        "typescript",
+        "wagmi@2.19.2_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1_@types+react@18.3.1"
       ],
       "bin": true
     },
@@ -16234,6 +16591,17 @@
       ],
       "optionalPeers": [
         "@types/react@19.1.0",
+        "react@18.3.1"
+      ]
+    },
+    "rehackt@0.1.0_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1": {
+      "integrity": "sha512-7kRDOuLHB87D/JESKxQoRwv4DzbIdwkAGQ7p6QKGdVlY1IZheUnVhlk/4UZlNUVxdAXpyxikE3URsG067ybVzw==",
+      "dependencies": [
+        "@types/react@18.3.1",
+        "react@18.3.1"
+      ],
+      "optionalPeers": [
+        "@types/react@18.3.1",
         "react@18.3.1"
       ]
     },
@@ -17931,13 +18299,27 @@
       "integrity": "sha512-Qik0o+DSy741TmkqmRfjq+0xpZBXi/Y6+fXZLn0xNF1z/waFMbE3rkivv5Zcf9RrMUp6zswf2J7sbh2KBlba5A==",
       "dependencies": [
         "@types/react@19.1.0",
-        "derive-valtio",
+        "derive-valtio@0.1.0_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1",
         "proxy-compare",
         "react@18.3.1",
         "use-sync-external-store@1.2.0_react@18.3.1"
       ],
       "optionalPeers": [
         "@types/react@19.1.0",
+        "react@18.3.1"
+      ]
+    },
+    "valtio@1.13.2_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1": {
+      "integrity": "sha512-Qik0o+DSy741TmkqmRfjq+0xpZBXi/Y6+fXZLn0xNF1z/waFMbE3rkivv5Zcf9RrMUp6zswf2J7sbh2KBlba5A==",
+      "dependencies": [
+        "@types/react@18.3.1",
+        "derive-valtio@0.1.0_valtio@1.13.2__@types+react@19.1.0__react@18.3.1_@types+react@19.1.0_react@18.3.1_@types+react@18.3.1",
+        "proxy-compare",
+        "react@18.3.1",
+        "use-sync-external-store@1.2.0_react@18.3.1"
+      ],
+      "optionalPeers": [
+        "@types/react@18.3.1",
         "react@18.3.1"
       ]
     },
@@ -18315,8 +18697,23 @@
       "integrity": "sha512-UN8CQKNsUgQD2Lr2ybjAi07ZKq1SV4T/Pb9IN77t3oSXANr9C9tI3mijLNyINeA5ET4hJxIny3C2dWJ48zrFiA==",
       "dependencies": [
         "@tanstack/react-query",
-        "@wagmi/connectors",
+        "@wagmi/connectors@6.1.3_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_wagmi@2.19.2__@tanstack+react-query@5.90.7___react@18.3.1__react@18.3.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@wagmi+core@2.22.1___typescript@5.6.3___viem@2.37.3____typescript@5.6.3____ws@8.18.3_____bufferutil@4.0.9_____utf-8-validate@5.0.10___@types+react@19.1.0___react@18.3.1___use-sync-external-store@1.4.0____react@18.3.1__@types+react@19.1.0__use-sync-external-store@1.4.0___react@18.3.1__ws@8.18.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1",
         "@wagmi/core@2.22.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1",
+        "react@18.3.1",
+        "typescript",
+        "use-sync-external-store@1.4.0_react@18.3.1",
+        "viem@2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10"
+      ],
+      "optionalPeers": [
+        "typescript"
+      ]
+    },
+    "wagmi@2.19.2_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1_@types+react@18.3.1": {
+      "integrity": "sha512-UN8CQKNsUgQD2Lr2ybjAi07ZKq1SV4T/Pb9IN77t3oSXANr9C9tI3mijLNyINeA5ET4hJxIny3C2dWJ48zrFiA==",
+      "dependencies": [
+        "@tanstack/react-query",
+        "@wagmi/connectors@6.1.3_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@19.1.0__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_wagmi@2.19.2__@tanstack+react-query@5.90.7___react@18.3.1__react@18.3.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@wagmi+core@2.22.1___typescript@5.6.3___viem@2.37.3____typescript@5.6.3____ws@8.18.3_____bufferutil@4.0.9_____utf-8-validate@5.0.10___@types+react@19.1.0___react@18.3.1___use-sync-external-store@1.4.0____react@18.3.1__@types+react@19.1.0__use-sync-external-store@1.4.0___react@18.3.1__ws@8.18.1_@types+react@19.1.0_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1_@types+react@18.3.1",
+        "@wagmi/core@2.22.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1",
         "react@18.3.1",
         "typescript",
         "use-sync-external-store@1.4.0_react@18.3.1",
@@ -19089,6 +19486,19 @@
         "use-sync-external-store@1.4.0_react@18.3.1"
       ]
     },
+    "zustand@5.0.0_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1": {
+      "integrity": "sha512-LE+VcmbartOPM+auOjCCLQOsQ05zUTp8RkgwRzefUk+2jISdMMFnxvyTjA4YNWr5ZGXYbVsEMZosttuxUBkojQ==",
+      "dependencies": [
+        "@types/react@18.3.1",
+        "react@18.3.1",
+        "use-sync-external-store@1.4.0_react@18.3.1"
+      ],
+      "optionalPeers": [
+        "@types/react@18.3.1",
+        "react@18.3.1",
+        "use-sync-external-store@1.4.0_react@18.3.1"
+      ]
+    },
     "zustand@5.0.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1": {
       "integrity": "sha512-14fwWQtU3pH4dE0dOpdMiWjddcH+QzKIgk1cl8epwSE7yag43k/AD/m4L6+K7DytAOr9gGBe3/EXj9g7cdostg==",
       "dependencies": [
@@ -19098,6 +19508,19 @@
       ],
       "optionalPeers": [
         "@types/react@19.1.0",
+        "react@18.3.1",
+        "use-sync-external-store@1.4.0_react@18.3.1"
+      ]
+    },
+    "zustand@5.0.3_@types+react@19.1.0_react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_@types+react@18.3.1": {
+      "integrity": "sha512-14fwWQtU3pH4dE0dOpdMiWjddcH+QzKIgk1cl8epwSE7yag43k/AD/m4L6+K7DytAOr9gGBe3/EXj9g7cdostg==",
+      "dependencies": [
+        "@types/react@18.3.1",
+        "react@18.3.1",
+        "use-sync-external-store@1.4.0_react@18.3.1"
+      ],
+      "optionalPeers": [
+        "@types/react@18.3.1",
         "react@18.3.1",
         "use-sync-external-store@1.4.0_react@18.3.1"
       ]
@@ -19239,7 +19662,11 @@
       },
       "e2e/client/batcher": {
         "dependencies": [
+          "npm:bitcoinjs-lib@^6.1.5",
+          "npm:bitcoinjs-message@^2.2.0",
+          "npm:ecpair@^2.1.0",
           "npm:effection@^3.5.0",
+          "npm:tiny-secp256k1@^2.2.1",
           "npm:viem@^2.21.3"
         ]
       },
@@ -19423,9 +19850,14 @@
           "npm:@midnight-ntwrk/wallet@5.0.0",
           "npm:@midnight-ntwrk/zswap@4.0.0",
           "npm:@sinclair/typebox@~0.34.30",
+          "npm:bitcoinjs-lib@^6.1.5",
+          "npm:bitcoinjs-message@^2.2.0",
+          "npm:ecpair@^2.1.0",
           "npm:effection@^3.5.0",
           "npm:fastify@^5.4.0",
           "npm:rxjs@7.8.2",
+          "npm:tiny-secp256k1@^2.2.1",
+          "npm:varuint-bitcoin@^1.1.2",
           "npm:viem@^2.21.3"
         ]
       },
@@ -19538,6 +19970,7 @@
         "dependencies": [
           "npm:@opentelemetry/otlp-transformer@0.56.0",
           "npm:@sinclair/typebox@~0.34.30",
+          "npm:@types/react@18.3.1",
           "npm:fastify@^5.4.0",
           "npm:ink-big-text@2",
           "npm:ink@5.1.0",
