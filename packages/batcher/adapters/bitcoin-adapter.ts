@@ -50,6 +50,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   private readonly network: bitcoin.Network;
   public readonly maxBatchSize: number;
   private readonly batcherAddress: string;
+  private reservedSatFunds: number = 0;
   private addressChecked = false;
 
   constructor(config: BitcoinAdapterConfig) {
@@ -140,15 +141,21 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
 
       // Check if batcher has sufficient funds
       const balance = await this.getBatcherBalance();
+      const availableFunds = balance - this.reservedSatFunds;
       const estimatedFee = await this.estimateSingleTransactionFee(payload.amountSats);
 
-      if (balance < payload.amountSats + Number(estimatedFee)) {
+      if (availableFunds < payload.amountSats + Number(estimatedFee)) {
         return {
           valid: false,
-          error: `Insufficient batcher funds. Balance: ${balance} sats, Required: ${payload.amountSats + Number(estimatedFee)} sats`
+          error: `Insufficient batcher funds.
+          Available funds: ${availableFunds} sats:
+          - wallet balance: ${balance} sats,
+          - reserved funds: ${this.reservedSatFunds} sats,
+          Required funds: ${payload.amountSats + Number(estimatedFee)} sats`
         };
       }
-
+      // Reserve funds for the transaction
+      this.reservedSatFunds += payload.amountSats;
       return { valid: true };
     } catch (e) {
       return { valid: false, error: "Malformed JSON input" };
@@ -248,13 +255,14 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
         },
       });
     }
-
+    let liberatedSatFunds = 0;
     // Add Recipient Outputs
     for (const recipient of data.recipients) {
       psbt.addOutput({
         address: recipient.address,
         value: recipient.value,
       });
+      liberatedSatFunds += recipient.value;
     }
 
     // Add Change Output
@@ -278,8 +286,10 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     const tx = psbt.extractTransaction();
     const txHex = tx.toHex();
     const txId = await this.rpcCall("sendrawtransaction", [txHex]);
-
-    console.log(`🚀 Submitted Bitcoin Batch: ${txId}`);
+    this.reservedSatFunds -= liberatedSatFunds;
+    console.log(`🚀 Submitted Bitcoin Batch: ${txId}
+    - liberated funds: ${liberatedSatFunds} sats
+    - reserved funds: ${this.reservedSatFunds} sats`);
     return txId;
   }
 
