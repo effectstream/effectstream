@@ -211,7 +211,7 @@ function* checkAndTransferFunds (params: CheckParamsType) {
     try {
       // Pay the filler
       if (fromToken === TOKENS.BTC) {
-        const fillerWallet = "bcrt1qwswchfkl5xqfdlcvqalnp5hnpc4hcpkkep8cxg";
+        const fillerWallet = "bcrt1qpj3uq5pf7mpe8hs5f8wcm7xf8jt57fxrkhays7";
         transferFunds("filler-wallet-btc", fillerWallet, fromAmount);
       } else if (fromToken === TOKENS.M20) {
         const fillerWaller = "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
