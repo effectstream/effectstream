@@ -123,6 +123,22 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     }
   }
 
+  async recoverState(pendingInputs: DefaultBatcherInput[]): Promise<void> {
+    // Rebuild reserved funds from pending inputs in storage
+    this.reservedSatFunds = 0;
+    
+    for (const input of pendingInputs) {
+      try {
+        const payload: BitcoinRequest = JSON.parse(input.input);
+        this.reservedSatFunds += payload.amountSats;
+      } catch (e) {
+        console.warn(`BitcoinAdapter: Failed to parse input during state recovery:`, e);
+      }
+    }
+    
+    console.log(`BitcoinAdapter: Recovered state - ${this.reservedSatFunds} sats reserved across ${pendingInputs.length} pending inputs`);
+  }
+
   async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
     try {
       const payload: BitcoinRequest = JSON.parse(input.input);
