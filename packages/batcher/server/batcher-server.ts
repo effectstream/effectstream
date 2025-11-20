@@ -118,12 +118,12 @@ async function registerOpenApiDocumentation(
     console.error("[HTTP SERVER] Error: ", error, request.url);
 
     // Handle validation errors (return 400 instead of 500)
-    if (error.validation) {
+    if ((error as any).validation) {
       return reply.status(400).send({
         success: false,
         error: "Validation failed",
         message: "Invalid request data",
-        details: error.validation
+        details: (error as any).validation
       });
     }
 
@@ -136,7 +136,7 @@ async function registerOpenApiDocumentation(
       });
     }
 
-    reply.status(500).send({ ok: false, error: error.message ?? "Unknown error" });
+    reply.status(500).send({ ok: false, error: (error as any).message ?? "Unknown error" });
   });
 }
 
