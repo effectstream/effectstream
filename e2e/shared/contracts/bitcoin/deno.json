@@ -5,8 +5,11 @@
     ".": "./generate-blocks.ts"
   },
   "tasks": {
-    "generate-blocks": "deno run -A generate-blocks.ts",
-    "wait": "wait-on tcp:18443"
+    "chain:start": "deno run -A @effectstream/bitcoin-core",
+    "chain:wait": "wait-on tcp:18443",
+    "generate:blocks": "deno run -A @effectstream/bitcoin-contracts",
+    // "transfer-funds": "deno run -A transfer-funds.ts",
+    // "faucet:btc": "deno run -A faucet-btc.ts"
   },
   "imports": {
     "bitcoinjs-lib": "npm:bitcoinjs-lib@6.1.5",
