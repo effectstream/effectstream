@@ -2,13 +2,22 @@
   "name": "@night-bitcoin/bitcoin-contracts",
   "exports": {
     ".": "./src/mod.ts",
-    "./transfer-funds": "./transfer-funds.ts"
+    "./transfer-funds": "./transfer-funds.ts",
+    "./create-wallets": "./create-wallets.ts"
   },
   "tasks": {
     "chain:start": "deno run -A npm:@paimaexample/bitcoin-core",
     "chain:wait": "wait-on tcp:18443",
     "generate:blocks": "deno run -A jsr:@paimaexample/bitcoin-contracts",
     "transfer-funds": "deno run -A transfer-funds.ts",
-    "faucet:btc": "deno run -A faucet-btc.ts"
+    "faucet:btc": "deno run -A faucet-btc.ts",
+    "create-wallets": "deno run -A create-wallets.ts"
+  },
+  "imports": {
+    "bip32": "npm:bip32@^5.0.0",
+    "bitcoinjs-lib": "npm:bitcoinjs-lib@^6.1.5",
+    "bitcoinjs-message": "npm:bitcoinjs-message@^2.2.0",
+    "ecpair": "npm:ecpair@^2.1.0",
+    "tiny-secp256k1": "npm:tiny-secp256k1@^2.2.1"
   }
 }
