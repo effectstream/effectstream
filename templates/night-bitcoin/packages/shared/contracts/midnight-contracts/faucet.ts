@@ -84,10 +84,11 @@ const buildWalletAndWaitForFunds = async (
   return wallet;
 };
 
-const transfer = async (wallet: Wallet & Resource, receiverAddress: string, amount: bigint): Promise<void> => {
+const transfer = async (wallet: Wallet & Resource, receiverAddress: string, amount: bigint = 10000000n): Promise<void> => {
+  console.log(`Transferring ${amount} to ${receiverAddress}`);
   const transferRecipe = await wallet.transferTransaction([
     {
-      amount: 10000000n, // 10 Dust
+      amount, // 10 Dust
       type: nativeToken(), // "tDUST",
       receiverAddress,
     },
@@ -116,9 +117,11 @@ export const faucet = async (receiverAddresses: string | string[], seed: string 
     wallet = await buildWalletAndWaitForFunds(config, seed);
     console.log("✅ Wallet built successfully");
 
+    let i = 1;
     if (Array.isArray(receiverAddresses)) {
       for (const receiverAddress of receiverAddresses) {
-        await transfer(wallet, receiverAddress, 10000000n);
+        await transfer(wallet, receiverAddress, 10000000n + BigInt(i));
+        i++;
       }
     } else {
       await transfer(wallet, receiverAddresses, 10000000n);

@@ -227,15 +227,15 @@ const buildWalletAndWaitForFunds = async (
       wallet.start();
 
   const state = await Rx.firstValueFrom(wallet.state());
-  console.log(`Your wallet seed is: ${seed}`);
-  console.log(`Your wallet address is: ${state.address}`);
+  console.log(`Your master wallet seed is: ${seed}`);
+  console.log(`Your master wallet address is: ${state.address}`);
   let balance = state.balances[nativeToken()];
   if (balance === undefined || balance === 0n) {
     console.log(`Your wallet balance is: 0`);
     console.log(`Waiting to receive tokens...`);
     balance = await waitForFunds(wallet);
   }
-  console.log(`Your wallet balance is: ${balance}`);
+  console.log(`Your master wallet balance is: ${balance}`);
   return wallet;
 };
 
