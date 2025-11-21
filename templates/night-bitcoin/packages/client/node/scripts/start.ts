@@ -4,6 +4,23 @@ import { Value } from "@sinclair/typebox/value";
 import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 import { launchBitcoin } from "@paimaexample/orchestrator/start-bitcoin";
 
+const slugify = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") ||
+  "filler";
+
+const fillerDefinitions = [
+  { name: "Alpha Liquidity", fillerPort: 16101, batcherPort: 17101 },
+  { name: "Omega Swap", fillerPort: 16102, batcherPort: 17102 },
+  { name: "Quantum Pools", fillerPort: 16103, batcherPort: 17103 },
+  { name: "Zenith Trade", fillerPort: 16104, batcherPort: 17104 },
+  { name: "Orion Exchange", fillerPort: 16105, batcherPort: 17105 },
+  { name: "Nexus Liquidity", fillerPort: 16106, batcherPort: 17106 },
+  { name: "Phoenix Finance", fillerPort: 16107, batcherPort: 17107 },
+  { name: "Galaxy Swaps", fillerPort: 16108, batcherPort: 17108 },
+  { name: "Infinity Pools", fillerPort: 16109, batcherPort: 17109 },
+  { name: "Polaris Trade", fillerPort: 16110, batcherPort: 17110 },
+];
+
 const customProcesses: any[] = [
   // /** DENO-FRONTEND-BLOCK */
   // {
@@ -23,7 +40,7 @@ const customProcesses: any[] = [
   //   dependsOn: ["frontend-build"],
   // },
   // /** DENO-FRONTEND-BLOCK */
-  
+
   // /** EXPLORER-BLOCK */
   {
     name: "explorer",
@@ -34,19 +51,54 @@ const customProcesses: any[] = [
     stopProcessAtPort: [10590],
   },
   // /** EXPLORER-BLOCK */
+];
 
-  // /** BATCHER-BLOCK */
-  {
-    name: "batcher",
-    args: ["task", "-f", "@night-bitcoin/batcher", "start"],
-    waitToExit: false,
-    type: "system-dependency",
-    link: "http://localhost:3334",
-    stopProcessAtPort: [3334],
-    dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
-  },
-  // /** BATCHER-BLOCK */
-]
+const fillerProcesses = fillerDefinitions.flatMap((filler) => {
+  const slug = slugify(filler.name);
+  return [
+    {
+      name: `filler:${slug}`,
+      args: [
+        "task",
+        "-f",
+        "@night-bitcoin/filler",
+        "start",
+        filler.name,
+        String(filler.fillerPort),
+      ],
+      waitToExit: false,
+      type: "system-dependency",
+      link: `http://localhost:${filler.fillerPort}`,
+      stopProcessAtPort: [filler.fillerPort],
+    },
+    {
+      name: `filler-batcher:${slug}`,
+      args: [
+        "task",
+        "-f",
+        "@night-bitcoin/filler",
+        "batcher:start",
+        "--name",
+        filler.name,
+        "--port",
+        String(filler.batcherPort),
+        "--filler-port",
+        String(filler.fillerPort),
+        "--btc-rpc-url",
+        "http://127.0.0.1:18443",
+        "--btc-rpc-user",
+        "dev",
+        "--btc-rpc-pass",
+        "devpassword",
+      ],
+      waitToExit: false,
+      type: "system-dependency",
+      link: `http://localhost:${filler.batcherPort}`,
+      stopProcessAtPort: [filler.batcherPort],
+      dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
+    },
+  ];
+});
 
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
@@ -65,86 +117,7 @@ const config = Value.Parse(OrchestratorConfig, {
     ...launchMidnight("@night-bitcoin/midnight-contracts"),
     ...launchBitcoin("@night-bitcoin/bitcoin-contracts"),
     ...customProcesses,
-    {
-      name: "filler:alpha-liquidity",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Alpha Liquidity", "16101"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16101",
-      stopProcessAtPort: [16101],
-    },
-    {
-      name: "filler:omega-swap",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Omega Swap", "16102"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16102",
-      stopProcessAtPort: [16102],
-    },
-    {
-      name: "filler:quantum-pools",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Quantum Pools", "16103"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16103",
-      stopProcessAtPort: [16103],
-    },
-    {
-      name: "filler:zenith-trade",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Zenith Trade", "16104"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16104",
-      stopProcessAtPort: [16104],
-    },
-    {
-      name: "filler:orion-exchange",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Orion Exchange", "16105"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16105",
-      stopProcessAtPort: [16105],
-    },
-    {
-      name: "filler:nexus-liquidity",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Nexus Liquidity", "16106"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16106",
-      stopProcessAtPort: [16106],
-    },
-    {
-      name: "filler:phoenix-finance",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Phoenix Finance", "16107"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16107",
-      stopProcessAtPort: [16107],
-    },
-    {
-      name: "filler:galaxy-swaps",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Galaxy Swaps", "16108"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16108",
-      stopProcessAtPort: [16108],
-    },
-    {
-      name: "filler:infinity-pools",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Infinity Pools", "16109"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16109",
-      stopProcessAtPort: [16109],
-    },
-    {
-      name: "filler:polaris-trade",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Polaris Trade", "16110"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16110",
-      stopProcessAtPort: [16110],
-    },
+    ...fillerProcesses,
   ],
 });
 
@@ -156,4 +129,3 @@ if (Deno.env.get("EFFECTSTREAM_STDOUT")) {
 }
 
 await start(config);
-
