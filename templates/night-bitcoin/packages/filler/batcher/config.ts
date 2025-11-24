@@ -105,7 +105,7 @@ export function buildBatcherSetup(
     pollingIntervalMs: options.pollingIntervalMs,
     namespace,
     confirmationLevel: "wait-effectstream-processed",
-    enableHttpServer: true,
+    enableHttpServer: false,
     enableEventSystem: true,
     port: options.batcherPort,
   };

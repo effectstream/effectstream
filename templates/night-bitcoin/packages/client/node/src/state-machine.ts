@@ -87,6 +87,25 @@ type CheckParamsType = {
   token: string;
 }
 
+// Helper to map filler names to ports
+function getFillerPort(name: string): number {
+  const fillers = [
+    { name: "Alpha Liquidity", port: 16101 },
+    { name: "Omega Swap", port: 16102 },
+    { name: "Quantum Pools", port: 16103 },
+    { name: "Zenith Trade", port: 16104 },
+    { name: "Orion Exchange", port: 16105 },
+    { name: "Nexus Liquidity", port: 16106 },
+    { name: "Phoenix Finance", port: 16107 },
+    { name: "Galaxy Swaps", port: 16108 },
+    { name: "Infinity Pools", port: 16109 },
+    { name: "Polaris Trade", port: 16110 },
+  ];
+  const filler = fillers.find(f => f.name === name);
+  // Default to first one if not found (fallback)
+  return filler ? filler.port : 16101;
+}
+
 function* checkAndTransferFunds (params: CheckParamsType) {
   // If it was a payment, let's check if there is intent waiting.
   let intentData: IGetIntentByOrderIdResult | undefined;
@@ -182,34 +201,43 @@ function* checkAndTransferFunds (params: CheckParamsType) {
   });
 
   // Run outside the State machine.
-  setTimeout(() => {
-    // Pay the user
+  setTimeout(async () => {
+    // NOTIFY FILLER to Pay the user
+    const fillerPort = getFillerPort(quote.filler);
+    const fillerEndpoint = `http://localhost:${fillerPort}/api/notify-filler-intent-payment`;
+
+    console.log(`📣 Notifying filler ${quote.filler} (port ${fillerPort}) to pay user`, {
+        toAddress,
+        toAmount,
+        toToken
+    });
+
     try {
-      if (toToken === TOKENS.BTC) {
-        transferFunds("some-system-wallet-btc", toAddress, toAmount);
-      } else if (toToken === TOKENS.M20) {
-        transferFundsMidnight("some-system-wallet-midnight", toAddress, toAmount);
-      } else {
-        console.error("No valid transfer found (0x01)", {
-          toChainId,
-          fromChainId,
-          fromToken,
-          toToken,
-          fromAddress,
-          toAddress,
-          fromAmount,
-          toAmount,
-        });
-      }
-    } catch (error) {
-      console.error("Error paying the user", error);
+      const response = await fetch(fillerEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            orderId: intentData!.order_id,
+            toAddress: toAddress,
+            amount: parseFloat(toAmount), // Converting string to number as expected by schema
+            token: toToken,
+            chainId: toChainId
+        })
+      });
+      const data = await response.json();
+      console.log("Filler notified:", data);
+    } catch (err) {
+      console.error("Failed to notify filler:", err);
     }
+
   },0);
 
   // Run outside the State machine.
   setTimeout(() => {
     try {
       // Pay the filler
+      // NOTE: This logic remains here as Paima Engine "System" paying the filler back.
+      // For now we keep the simulation of "paying the filler back" using the system wallet.
       if (fromToken === TOKENS.BTC) {
         const fillerWallet = "bcrt1qpj3uq5pf7mpe8hs5f8wcm7xf8jt57fxrkhays7";
         transferFunds("filler-wallet-btc", fillerWallet, fromAmount);
@@ -448,7 +476,7 @@ stm.addStateTransition("midnightContractStateERC7683", function* (data) {
   //     destinationChainId: "0",
   //     destinationSettler: "00000000000000000000000000000000",
   //     originData:
-  //       "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  //       "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
   //     status: "0",
   //     orderId: "1311331412546410242185000000000000000000000000",
   //   },
