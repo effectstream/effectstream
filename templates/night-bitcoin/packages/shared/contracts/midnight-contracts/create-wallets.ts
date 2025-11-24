@@ -70,6 +70,10 @@ if (import.meta.main) {
             wallets.push(wallet);
         }
         console.log(`Loaded ${wallets.length} wallets from ${currentDir}/generated`);
+        if (!wallets.length) {
+            console.error('No wallets found');
+            Deno.exit(1);
+        }
     }
     if (mint) {
         await joinAndMint(wallets.map(wallet => wallet.address), 250000000000n);

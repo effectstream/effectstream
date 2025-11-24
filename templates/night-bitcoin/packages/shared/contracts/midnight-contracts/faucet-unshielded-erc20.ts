@@ -266,15 +266,7 @@ const configureProviders = async (
 };
 
 const getContractAddress = async (): Promise<string> => {
-  // First try to get from command line arguments
-  const contractAddressFromArgs = Deno.args[0];
 
-  if (contractAddressFromArgs) {
-    console.log(
-      `📋 Using contract address from arguments: ${contractAddressFromArgs}`,
-    );
-    return contractAddressFromArgs;
-  }
 
   // If not provided via args, try to read from contract_address.txt file
   const contractAddressFile = resolve(currentDir, "contract-unshielded-erc20.json");
@@ -307,6 +299,7 @@ const getContractAddress = async (): Promise<string> => {
 
 async function joinAndMint(accounts: string | string[], amount: bigint): Promise<boolean> {
 
+  const targets = Array.isArray(accounts) ? accounts : [accounts];
   // Initialize configuration
   const config = new StandaloneConfig();
 
@@ -348,40 +341,18 @@ async function joinAndMint(accounts: string | string[], amount: bigint): Promise
 
     // Increment the counter
     console.log("🔢 Minting simple token...");
-    if (Array.isArray(accounts) && accounts.length === 10) {
-      
-      for (const account of accounts) {
+    let i = 1;
+    for (const account of targets) {
         const incrementResult = await mint(simpleTokenContract, account, amount);
         console.log(
-          
-          `✅ Simple token minted! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`,
+          `✅ Simple token minted [${i} @ ${targets.length}]! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`,
         );
-      }
-        console.log('--------------------------------');
-
-        
-    } else if (typeof accounts === 'string') {
-      console.log('--------------------------------');
-
-      const account = accounts;
-      const incrementResult = await mint(simpleTokenContract, account, amount);
-
-      console.log(
-        `✅ Simple token minted successfully! Transaction ID: ${incrementResult.txId}`,
-      );
-      console.log(
-        `✅ Simple token minted! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`,
-      );
-  
-    } else {
-      throw new Error('Invalid account type');
+        i += 1;
     }
-   
-
-    console.log("🎉 Join and mint process completed successfully!");
+    console.log("🎉 Mint process completed successfully!");
     return true;
   } catch (error) {
-    console.error("❌ Error during join and mint process:", error);
+    console.error("❌ Error during join and mint process (0x1)", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
     return false;
   } finally {

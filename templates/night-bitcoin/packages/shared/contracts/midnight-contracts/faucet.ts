@@ -84,7 +84,11 @@ const buildWalletAndWaitForFunds = async (
   return wallet;
 };
 
-const transfer = async (wallet: Wallet & Resource, receiverAddress: string, amount: bigint = 10000000n): Promise<void> => {
+const transfer = async (
+  wallet: Wallet & Resource,
+  receiverAddress: string,
+  amount: bigint = 10000000n
+): Promise<void> => {
   console.log(`Transferring ${amount} to ${receiverAddress}`);
   const transferRecipe = await wallet.transferTransaction([
     {
@@ -101,45 +105,57 @@ const transfer = async (wallet: Wallet & Resource, receiverAddress: string, amou
     provenTransaction
   );
   console.log({ submittedTransaction });
-}
+};
 
-
-export const faucet = async (receiverAddresses: string | string[], seed: string = GENESIS_MINT_WALLET_SEED): Promise<void> => {
+export const faucet = async (
+  receiverAddresses: string | string[],
+  seed: string = GENESIS_MINT_WALLET_SEED
+): Promise<void> => {
   let wallet: (Wallet & Resource) | null = null;
-  
-  try {
-    // Initialize configuration
-    const config = new StandaloneConfig();
 
-    console.log("🔗 Building wallet with genesis seed for standalone mode...");
 
-    // Build wallet using genesis seed (which has initial funds in standalone mode)
-    wallet = await buildWalletAndWaitForFunds(config, seed);
-    console.log("✅ Wallet built successfully");
+  const targets = Array.isArray(receiverAddresses) ? receiverAddresses : [receiverAddresses];
+  const maxRetries = 5;
 
-    let i = 1;
-    if (Array.isArray(receiverAddresses)) {
-      for (const receiverAddress of receiverAddresses) {
-        await transfer(wallet, receiverAddress, 10000000n + BigInt(i));
-        i++;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Initialize configuration
+      const config = new StandaloneConfig();
+
+      console.log(
+        `🔗 Building wallet with genesis seed for standalone mode... (attempt ${attempt})`
+      );
+
+      // Build wallet using genesis seed (which has initial funds in standalone mode)
+      wallet = await buildWalletAndWaitForFunds(config, seed);
+      console.log("✅ Wallet built successfully");
+
+      let i = 1;
+      while (targets.length > 0) {
+        const receiverAddress = targets[0];
+        await transfer(wallet, receiverAddress, 10000000n);
+        targets.splice(targets.indexOf(receiverAddress), 1);
+        console.log(`✅ Successfully transferred dust to [${i} of ${targets.length}] (attempt ${attempt}) ${receiverAddress}`);
+        i += 1;
       }
-    } else {
-      await transfer(wallet, receiverAddresses, 10000000n);
+      console.log(`✅ Successfully transferred dust to all wallets`);
+      // If all targets are transferred, break the loop
+      break;
+    } catch (error) {
+      console.error("❌ Error during join and mint process (0x2)", error);
+      console.error(
+        "❌ Error:",
+        error instanceof Error ? error.message : error
+      );
     }
-
-    console.log("✅ Successfully transferred dust to receiver address ");
-  } catch (error) {
-    console.error("❌ Error during join and mint process:", error);
-    console.error("❌ Error:", error instanceof Error ? error.message : error);
-  } finally {
-    // Clean up wallet
-    if (wallet) {
-      try {
-        wallet.close();
-        console.log("🧹 Wallet closed successfully");
-      } catch (error) {
-        console.error("❌ Error closing wallet:", error);
-      }
+  }
+  
+  if (wallet) {
+    try {
+      wallet.close();
+      console.log("🧹 Wallet closed successfully");
+    } catch (error) {
+      console.error("❌ Error closing wallet:", error);
     }
   }
 };
