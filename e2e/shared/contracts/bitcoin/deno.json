@@ -7,9 +7,10 @@
   "tasks": {
     "chain:start": "deno run -A @effectstream/bitcoin-core",
     "chain:wait": "wait-on tcp:18443",
-    "generate:blocks": "deno run -A @effectstream/bitcoin-contracts",
+    "generate:blocks": "deno run -A ./generate-blocks.ts",
     // "transfer-funds": "deno run -A transfer-funds.ts",
-    // "faucet:btc": "deno run -A faucet-btc.ts"
+    // "faucet:btc": "deno run -A faucet-btc.ts",
+    "wait-for-block": "deno run -A wait-for-block.ts"
   },
   "imports": {
     "bitcoinjs-lib": "npm:bitcoinjs-lib@6.1.5",

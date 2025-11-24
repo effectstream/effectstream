@@ -64,14 +64,17 @@ export async function startup(): Promise<Client> {
         args: ["task", "-f", "@e2e/wallets-ui", "build"],
         waitToExit: true,
       },
-
       {
         stopProcessAtPort: [3334],
         name: "batcher",
         args: ["task", "-f", "@e2e/batcher", "start"],
         waitToExit: false,
         type: "system-dependency",
-        dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined].filter(Boolean),
+        dependsOn: [
+          ComponentNames.DEPLOY_EVM_CONTRACTS, 
+          midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined,
+          bitcoin_enabled ? ComponentNames.BITCOIN_WAIT_FOR_BLOCK : undefined,
+        ].filter(Boolean),
       }
     ],
   });

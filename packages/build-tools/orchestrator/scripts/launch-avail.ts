@@ -27,7 +27,7 @@ export const launchAvail = (packageName: string): {
   dependsOn?: string[];
 }[] => [
     {
-      stopProcessAtPort: [9955, 7007],
+      stopProcessAtPort: [9955, 7007, 30333],
       name: ComponentNames.AVAIL_NODE,
       args: ["task", "-f", packageName, "avail-node:start"],
       waitToExit: false,
