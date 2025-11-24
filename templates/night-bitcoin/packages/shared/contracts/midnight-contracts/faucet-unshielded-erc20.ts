@@ -266,9 +266,6 @@ const configureProviders = async (
 };
 
 const getContractAddress = async (): Promise<string> => {
-
-
-  // If not provided via args, try to read from contract_address.txt file
   const contractAddressFile = resolve(currentDir, "contract-unshielded-erc20.json");
 
   try {
