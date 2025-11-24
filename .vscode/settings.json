@@ -2,6 +2,7 @@
   "deno.enable": true,
   "deno.documentPreloadLimit": 2000,
   "deno.enablePaths": [
+    "deno.json",
     "e2e/**/*",
     "packages/**/*",
     "templates/**/*"
