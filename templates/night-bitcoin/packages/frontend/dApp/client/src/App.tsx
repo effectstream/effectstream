@@ -61,6 +61,7 @@ function App() {
   const [showM20Popup, setShowM20Popup] = useState(false);
   const [m20Recipient, setM20Recipient] = useState('');
   const [btcFaucetAddress, setBtcFaucetAddress] = useState('');
+  const [orderIdSearch, setOrderIdSearch] = useState('');
 
   const formatPopupValue = (value: any) => {
     if (typeof value === 'bigint') {
@@ -108,6 +109,41 @@ function App() {
       title: 'M20 Balance',
       message: `Your M20 token balance is: ${balance}`,
     });
+  };
+
+  const handleSearchIntent = async () => {
+    if (!orderIdSearch) {
+      setPopup({
+        show: true,
+        title: 'Error',
+        message: 'Please enter an Order ID.',
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:9999/api/intents?orderId=${orderIdSearch}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setPopup({
+        show: true,
+        title: `Intent Details for ${orderIdSearch}`,
+        message: '',
+        details: data,
+      });
+    } catch (error: any) {
+      console.error("Failed to fetch intent:", error);
+      setPopup({
+        show: true,
+        title: 'Error',
+        message: error.message || 'Failed to fetch intent. See console for details.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getDustFromFaucet = async () => {
@@ -417,7 +453,30 @@ function App() {
   return (
     <>
       <header className="app-header">
-        <div className="header-container">
+        <div className="header-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <div className="search-container" style={{ display: 'flex', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={orderIdSearch}
+              onChange={(e) => setOrderIdSearch(e.target.value)}
+              placeholder="Search by Order ID"
+              style={{
+                padding: '8px',
+                marginRight: '8px',
+                borderRadius: '4px',
+                border: '1px solid #444',
+                backgroundColor: '#2a2a2a',
+                color: '#fff'
+              }}
+            />
+            <button 
+              type="button"
+              onClick={handleSearchIntent} 
+              className="wallet-button"
+            >
+              Search
+            </button>
+          </div>
           <div className="wallet-buttons">
             {midnightAddress ? (
               <>

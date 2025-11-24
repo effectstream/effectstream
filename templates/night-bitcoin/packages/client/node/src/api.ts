@@ -5,6 +5,7 @@ import { insertQuote, tableExists } from "@night-bitcoin/database";
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paimaexample/runtime";
 import type fastify from "fastify";
+import { getIntentByOrderId } from "@night-bitcoin/database";
 
 let isReady = false;
 
@@ -26,6 +27,51 @@ export const apiRouter: StartConfigApiRouter = function (
   server: fastify.FastifyInstance,
   dbConn: Pool
 ): Promise<void> {
+
+  const GetIntentsParamsSchema = Type.Object({
+    orderId: Type.String(),
+  });
+  const GetIntentsResponseSchema = Type.Object({
+    order_id: Type.String(),
+    user_address: Type.String(),
+    origin_chain_id: Type.String(),
+    open_deadline: Type.String(),
+    fill_deadline: Type.String(),
+    max_spent_token: Type.String(),
+    max_spent_amount: Type.String(),
+    max_spent_recipient: Type.String(),
+    max_spent_chain_id: Type.String(),
+    min_received_token: Type.String(),
+    min_received_amount: Type.String(),
+    min_received_recipient: Type.String(),
+    min_received_chain_id: Type.String(),
+    destination_chain_id: Type.String(),
+    destination_settler: Type.String(),
+    origin_data: Type.String(),
+    status: Type.String(),
+    resolved_by: Type.Union([Type.Null(), Type.String()]),
+  });
+  server.get<{
+    Querystring: Static<typeof GetIntentsParamsSchema>;
+    Reply: Static<typeof GetIntentsResponseSchema>;
+  }>("/api/intents", async (request, reply) => {
+    await ensureReady(dbConn);
+    if (!isReady) {
+      reply.status(500).send({ message: "Database not ready" } as any);
+      return;
+    }
+    const { orderId } = request.query;
+    const [result] = await runPreparedQuery(
+      getIntentByOrderId.run({ order_id: orderId }, dbConn),
+      "/api/intents"
+    );
+    if (!result) {
+      reply.status(404).send({ message: "Intent not found" } as any);
+      return;
+    }
+    reply.send(result);
+  });
+
   const GetQuotesParamsSchema = Type.Object({
     orderId: Type.String(),
     fromToken: Type.String(),
@@ -122,107 +168,6 @@ export const apiRouter: StartConfigApiRouter = function (
 
     reply.send(quotes);
   });
-
-  // Definition of API Inputs and Outputs.
-  // These definition build the OpenAPI documentation.
-  // And allow to have type safety for the API Endpoints.
-  const TokenParamsSchema = Type.Object({});
-  const TokenResponseSchema = Type.Array(
-    Type.Object({
-      token_id: Type.String(),
-      owner: Type.Union([Type.Null(), Type.String()]),
-      block_height: Type.Number(),
-      chain: Type.String(),
-      contract_address: Type.String(),
-      amount: Type.String(),
-    })
-  );
-
-  server.get<{
-    Params: Static<typeof TokenParamsSchema>;
-    Reply: Static<typeof TokenResponseSchema>;
-  }>("/api/erc1155", (request, reply) => {
-    // const [tableExists] = await runPreparedQuery(
-    //   evmMidnightTableExists.run(undefined, dbConn),
-    //   "evmMidnightTableExists",
-    // );
-    // if (!tableExists.exists) {
-    //   reply.send([]);
-    //   return;
-    // }
-
-    // const result = await runPreparedQuery(
-    //   getEvmMidnight.run(undefined, dbConn),
-    //   "/api/erc1155",
-    // );
-    const result = [
-      {
-        token_id: "1",
-        owner: "0x1234567890123456789012345678901234567890",
-        block_height: 1,
-        chain: "evm",
-        contract_address: "0x1234567890123456789012345678901234567890",
-        amount: "100",
-      },
-    ];
-    reply.send(result);
-  });
-
-  // TODO This is good example when midnight is enabled.
-  //      We need to add the faucet script somewhere to be called.
-  //
-  //   const FaucetQueryParamsSchema = Type.Object({
-  //     address: Type.String(),
-  //   });
-  //   const FaucetResponseSchema = Type.Object({
-  //     status: Type.String(),
-  //     message: Type.String(),
-  //   });
-  //   /** This is a faucet endpoint to get funds in the midnight network */
-  //   let isRunning = false;
-  //   server.get<{
-  //     Querystring: Static<typeof FaucetQueryParamsSchema>;
-  //     Reply: Static<typeof FaucetResponseSchema>;
-  //   }>("/api/faucet", async (request) => {
-  //     // This is unsafe, but it's only used for development purposes.
-  //     if (isRunning) {
-  //       return {
-  //         status: "error",
-  //         message: "Faucet is already running",
-  //       };
-  //     }
-  //     const { address } = request.query;
-  //     // TODO Validate if the address is valid midnight address
-  //     let status = "success";
-  //     let message = "";
-  //     try {
-  //       isRunning = true;
-  //       const command = new Deno.Command(Deno.execPath(), {
-  //         env: {
-  //           MIDNIGHT_ADDRESS: address,
-  //         },
-  //         args: [
-  //           "task",
-  //           "-f",
-  //           "@night-bitcoin/midnight-contracts",
-  //           "midnight-faucet:start",
-  //         ],
-  //       });
-  //       const { code, stdout, stderr } = await command.output();
-  //       status = "done";
-  //       message = "Faucet successfully completed";
-  //     } catch (error: any) {
-  //       status = "error";
-  //       message = String(error);
-  //     } finally {
-  //       isRunning = false;
-  //     }
-
-  //     return {
-  //       status,
-  //       message,
-  //     };
-  //   });
 
   const FaucetQueryParamsSchema = Type.Object({
     address: Type.String(),
