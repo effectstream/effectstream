@@ -4,6 +4,18 @@ import * as bip32 from "bip32";
 import * as path from "node:path";
 import { waitForBlock } from "./wait-for-block.ts";
 
+/** 
+ *  This script creates a specified number of wallets and funds them with BTC.
+ *  Usage:
+ *  deno run -A create-wallets.ts 1.5 10 101 0xf8d62248c2abdacd7550e7a6cd5a9de
+ * 
+ *  Arguments:
+ *  - 1. Initial BTC amount
+ *  - 2. Number of wallets to create
+ *  - 3. Block height to wait for
+ *  - 4. Seed prefix
+ */
+
 const NETWORK = bitcoin.networks.regtest;
 const BIP32 = bip32.BIP32Factory(ecc);
 

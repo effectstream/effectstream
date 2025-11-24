@@ -1,4 +1,12 @@
-// Helper function to make Bitcoin RPC calls
+/**
+ *  This script waits for a specific block to be mined.
+ *  Usage:
+ *  deno run -A wait-for-block.ts 100
+ * 
+ *  Arguments:
+ *  - 1. Block height to wait for
+ */
+
 const bitcoinRpcCall = async (
   method: string,
   params: any[] = [],

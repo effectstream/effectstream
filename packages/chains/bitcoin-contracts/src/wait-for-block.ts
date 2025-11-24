@@ -1,10 +1,10 @@
 /**
- *  This script waits for a specific block to be mined.
- *  Usage:
- *  deno run -A wait-for-block.ts 100
  * 
- *  Arguments:
- *  - 1. Block height to wait for
+ * This script is used to wait for a specific block to be mined.
+ * This allows other processes to be coordinated to start only after a specific block is completed.
+ * 
+ * Usage:
+ *  deno run -A wait-for-block.ts --block-height 100
  */
 
 // Helper function to make Bitcoin RPC calls
@@ -60,4 +60,5 @@ export async function waitForBlock(targetBlock: number) {
 
 if (import.meta.main) {
   await waitForBlock(100);
+  Deno.exit(0);
 }
