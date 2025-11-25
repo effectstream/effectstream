@@ -8,17 +8,34 @@ const slugify = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") ||
   "filler";
 
-const fillerDefinitions = [
-  { name: "Alpha Liquidity", fillerPort: 16101, batcherPort: 17101 },
-  { name: "Omega Swap", fillerPort: 16102, batcherPort: 17102 },
-  { name: "Quantum Pools", fillerPort: 16103, batcherPort: 17103 },
-  { name: "Zenith Trade", fillerPort: 16104, batcherPort: 17104 },
-  { name: "Orion Exchange", fillerPort: 16105, batcherPort: 17105 },
-  { name: "Nexus Liquidity", fillerPort: 16106, batcherPort: 17106 },
-  { name: "Phoenix Finance", fillerPort: 16107, batcherPort: 17107 },
-  { name: "Galaxy Swaps", fillerPort: 16108, batcherPort: 17108 },
-  { name: "Infinity Pools", fillerPort: 16109, batcherPort: 17109 },
-  { name: "Polaris Trade", fillerPort: 16110, batcherPort: 17110 },
+type FillerDefinition = {
+  name: string;
+  fillerPort: number;
+  batcherPort: number;
+  walletIndex: number;
+};
+
+type WalletType = "bitcoin" | "midnight";
+
+const walletBasePaths: Record<WalletType, string> = {
+  bitcoin: "../../../shared/contracts/bitcoin-contracts/generated",
+  midnight: "../../shared/contracts/midnight-contracts/generated",
+};
+
+const getWalletPath = (type: WalletType, walletIndex: number) =>
+  `${walletBasePaths[type]}/wallet-${walletIndex}.json`;
+
+const fillerDefinitions: FillerDefinition[] = [
+  { name: "Alpha Liquidity", fillerPort: 16101, batcherPort: 17101, walletIndex: 0 },
+  { name: "Omega Swap", fillerPort: 16102, batcherPort: 17102, walletIndex: 1 },
+  { name: "Quantum Pools", fillerPort: 16103, batcherPort: 17103, walletIndex: 2 },
+  { name: "Zenith Trade", fillerPort: 16104, batcherPort: 17104, walletIndex: 3 },
+  { name: "Orion Exchange", fillerPort: 16105, batcherPort: 17105, walletIndex: 4 },
+  { name: "Nexus Liquidity", fillerPort: 16106, batcherPort: 17106, walletIndex: 5 },
+  { name: "Phoenix Finance", fillerPort: 16107, batcherPort: 17107, walletIndex: 6 },
+  { name: "Galaxy Swaps", fillerPort: 16108, batcherPort: 17108, walletIndex: 7 },
+  { name: "Infinity Pools", fillerPort: 16109, batcherPort: 17109, walletIndex: 8 },
+  { name: "Polaris Trade", fillerPort: 16110, batcherPort: 17110, walletIndex: 9 },
 ];
 
 const customProcesses: any[] = [
@@ -28,7 +45,7 @@ const customProcesses: any[] = [
     args: ["task", "-f", "@night-bitcoin/frontend", "build"],
     waitToExit: true,
     type: "system-dependency",
-    dependsOn: [], // [ComponentNames.MIDNIGHT_CONTRACT],
+    dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
   },
   {
     name: "frontend-dApp",
@@ -53,26 +70,30 @@ const customProcesses: any[] = [
   // /** EXPLORER-BLOCK */
 ];
 
-const fillerProcesses = fillerDefinitions.flatMap((filler) => {
+const fillerProcesses = fillerDefinitions.map((filler, index) => {
   const slug = slugify(filler.name);
-  return [
-    {
-      name: `filler:${slug}`,
-      args: [
-        "task",
-        "-f",
-        "@night-bitcoin/filler",
-        "start",
-        filler.name,
-        String(filler.fillerPort),
-      ],
-      waitToExit: false,
-      type: "system-dependency",
-      link: `http://localhost:${filler.fillerPort}`,
-      stopProcessAtPort: [filler.fillerPort],
-      dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
-    },
-  ];
+  const walletIndex = filler.walletIndex ?? index;
+  const bitcoinWallet = getWalletPath("bitcoin", walletIndex);
+  const midnightWallet = getWalletPath("midnight", walletIndex);
+
+  return {
+    name: `filler:${slug}`,
+    args: [
+      "task",
+      "-f",
+      "@night-bitcoin/filler",
+      "start",
+      filler.name,
+      String(filler.fillerPort),
+      bitcoinWallet,
+      midnightWallet,
+    ],
+    waitToExit: false,
+    type: "system-dependency",
+    link: `http://localhost:${filler.fillerPort}`,
+    stopProcessAtPort: [filler.fillerPort],
+    dependsOn: ['create-wallets'],
+  };
 });
 
 const config = Value.Parse(OrchestratorConfig, {
@@ -113,96 +134,7 @@ const config = Value.Parse(OrchestratorConfig, {
       type: "system-dependency",
       dependsOn: ['create-wallets-midnight'],
     },
-    {
-      name: "filler:alpha-liquidity",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Alpha Liquidity", "16101", "../../../shared/contracts/bitcoin-contracts/generated/wallet-0.json", "../../shared/contracts/midnight-contracts/generated/wallet-0.json"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16101",
-      stopProcessAtPort: [16101],
-      dependsOn: ['create-wallets'],
-    },
-    {
-      name: "filler:omega-swap",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Omega Swap", "16102", "../../../shared/contracts/bitcoin-contracts/generated/wallet-1.json", "../../shared/contracts/midnight-contracts/generated/wallet-1.json"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16102",
-      stopProcessAtPort: [16102],
-      dependsOn: ['create-wallets'],
-    },
-    {
-      name: "filler:quantum-pools",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Quantum Pools", "16103", "../../../shared/contracts/bitcoin-contracts/generated/wallet-2.json", "../../shared/contracts/midnight-contracts/generated/wallet-2.json"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16103",
-      stopProcessAtPort: [16103],
-      dependsOn: ['create-wallets'],
-    },
-    {
-      name: "filler:zenith-trade",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Zenith Trade", "16104", "../../../shared/contracts/bitcoin-contracts/generated/wallet-3.json", "../../shared/contracts/midnight-contracts/generated/wallet-3.json"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16104",
-      stopProcessAtPort: [16104],
-      dependsOn: ['create-wallets'],
-    },
-    {
-      name: "filler:orion-exchange",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Orion Exchange", "16105", "../../../shared/contracts/bitcoin-contracts/generated/wallet-4.json", "../../shared/contracts/midnight-contracts/generated/wallet-4.json"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16105",
-      stopProcessAtPort: [16105],
-      dependsOn: ['create-wallets'],
-    },
-    {
-      name: "filler:nexus-liquidity",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Nexus Liquidity", "16106", "../../../shared/contracts/bitcoin-contracts/generated/wallet-5.json", "../../shared/contracts/midnight-contracts/generated/wallet-5.json"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16106",
-      stopProcessAtPort: [16106],
-      dependsOn: ['create-wallets'],
-    },
-    {
-      name: "filler:phoenix-finance",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Phoenix Finance", "16107", "../../../shared/contracts/bitcoin-contracts/generated/wallet-6.json", "../../shared/contracts/midnight-contracts/generated/wallet-6.json"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16107",
-      stopProcessAtPort: [16107],
-      dependsOn: ['create-wallets'],
-    },
-    {
-      name: "filler:galaxy-swaps",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Galaxy Swaps", "16108", "../../../shared/contracts/bitcoin-contracts/generated/wallet-7.json", "../../shared/contracts/midnight-contracts/generated/wallet-7.json"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16108",
-      stopProcessAtPort: [16108],
-      dependsOn: ['create-wallets'],
-    },
-    {
-      name: "filler:infinity-pools",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Infinity Pools", "16109", "../../../shared/contracts/bitcoin-contracts/generated/wallet-8.json", "../../shared/contracts/midnight-contracts/generated/wallet-8.json"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16109",
-      stopProcessAtPort: [16109],
-      dependsOn: ['create-wallets'],
-    },
-    {
-      name: "filler:polaris-trade",
-      args: ["task", "-f", "@night-bitcoin/filler", "start", "Polaris Trade", "16110", "../../../shared/contracts/bitcoin-contracts/generated/wallet-9.json"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:16110",
-      stopProcessAtPort: [16110],
-      dependsOn: ['create-wallets'],
-    },
+    ...fillerProcesses,
   ],
 });
 

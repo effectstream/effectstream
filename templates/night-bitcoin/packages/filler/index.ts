@@ -1,17 +1,43 @@
 import fastify from "fastify";
 import { type Static, Type } from "@sinclair/typebox";
 import { main, suspend, spawn, call } from "effection";
-import { createNewBatcher } from "@paimaexample/batcher";
-import { AddressType } from "@effectstream/utils";
+import { createNewBatcher, buildBitcoinSignatureMessage } from "@paimaexample/batcher";
+import { AddressType } from "@paimaexample/utils";
 import { buildBatcherSetup, FILLER_BATCHER_DEFAULTS } from "./batcher/config.ts";
+// Bitcoin signature dependencies
+import * as bitcoin from "bitcoinjs-lib";
+import * as bitcoinMessage from "bitcoinjs-message";
+import * as ecpair from "ecpair";
+import * as tinysecp from "tiny-secp256k1";
+import * as bip32 from "bip32";
+
+const ECPair = ecpair.ECPairFactory(tinysecp);
+const BIP32 = bip32.BIP32Factory(tinysecp);
+const NETWORK = bitcoin.networks.regtest;
 
 const args = Deno.args;
 const FILLER_NAME = args[0];
 const PORT = parseInt(args[1], 10);
+const BITCOIN_WALLET_PATH = args[2];
+const MIDNIGHT_WALLET_PATH = args[3];
 
-if (!FILLER_NAME || !PORT) {
-  throw new Error("FILLER_NAME and PORT environment variables are required.");
+if (!FILLER_NAME || !PORT || !BITCOIN_WALLET_PATH || !MIDNIGHT_WALLET_PATH) {
+  throw new Error("FILLER_NAME, PORT, and wallet paths are required.");
 }
+
+// Load Bitcoin wallet
+const bitcoinWalletData = JSON.parse(Deno.readTextFileSync(BITCOIN_WALLET_PATH));
+const seedHex = bitcoinWalletData.seed.replace("0x", "");
+const bitcoinSeed = Buffer.from(seedHex, "hex");
+const masterNode = BIP32.fromSeed(bitcoinSeed, NETWORK);
+const derivedAccount = masterNode.derivePath(bitcoinWalletData.derivationPath);
+const bitcoinKeyPair = ECPair.fromPrivateKey(Buffer.from(derivedAccount.privateKey!), { network: NETWORK });
+const bitcoinAddress = bitcoin.payments.p2wpkh({
+  pubkey: bitcoinKeyPair.publicKey,
+  network: NETWORK
+}).address!;
+
+console.log(`🔑 Loaded Bitcoin wallet: ${bitcoinAddress}`);
 
 // --- Batcher Setup ---
 
@@ -135,16 +161,26 @@ server.post<{
       const satoshis = Math.floor(amount); 
       const timestamp = new Date().toISOString();
 
-      // TODO: sign and provide filler's batcher btc address
+      const payload = {
+        toAddress: toAddress,
+        amountSats: satoshis
+      };
+
+      // Build the message to sign
+      const message = buildBitcoinSignatureMessage(payload, timestamp);
+      
+      // Sign with Bitcoin private key
+      const signature = bitcoinMessage.sign(
+        message,
+        bitcoinKeyPair.privateKey!,
+        bitcoinKeyPair.compressed
+      ).toString('base64');
+
       await batcher.batchInput({
-        address: "filler-btc", 
-        addressType: 0,
-        input: JSON.stringify({
-           type: "transfer",
-           toAddress: toAddress,
-           amount: satoshis
-        }),
-        signature: "0x", // TODO: Sign with btc message using private key
+        address: bitcoinAddress,
+        addressType: -1,
+        input: JSON.stringify(payload),
+        signature,
         timestamp,
         target: "bitcoin"
       });

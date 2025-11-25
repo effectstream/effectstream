@@ -1,4 +1,4 @@
-import { ensureDirSync } from "@std/fs/ensure_dir.ts";
+import { ensureDirSync } from "@std/fs/ensure-dir";
 import { join } from "@std/path/join";
 import {
   type BatcherConfig,

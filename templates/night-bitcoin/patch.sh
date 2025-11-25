@@ -102,7 +102,8 @@ echo "✅ All patches applied successfully"
 
 # Apply Specific Patches
 echo "Replacing fetch-blob streams.cjs content..."
-replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/streams.cjs" "  // `node:stream/web` got introduced in v16.5.0 as experimental
+replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/streams.cjs" "if (!globalThis.ReadableStream) {
+  // \`node:stream/web\` got introduced in v16.5.0 as experimental
   // and it's preferred over the polyfilled version. So we also
   // suppress the warning that gets emitted by NodeJS for using it.
   try {
@@ -119,7 +120,10 @@ replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetc
   } catch (error) {
     // fallback to polyfill implementation
     Object.assign(globalThis, require('web-streams-polyfill/dist/ponyfill.es2018.js'))
-  }" "  Object.assign(globalThis, require('web-streams-polyfill/dist/ponyfill.es2018.js'))"
+  }
+}" "if (!globalThis.ReadableStream) {
+  Object.assign(globalThis, require('web-streams-polyfill/dist/ponyfill.es2018.js'))
+}"
 
 echo "Replacing fetch-blob from.js imports..."
 replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/from.js" "import { statSync, createReadStream, promises as fs } from 'node:fs'

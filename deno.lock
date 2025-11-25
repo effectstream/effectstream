@@ -242,6 +242,7 @@
     "npm:vite-plugin-static-copy@^3.1.1": "3.1.4_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
     "npm:vite-plugin-top-level-await@^1.6.0": "1.6.0_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
     "npm:vite-plugin-wasm@^3.5.0": "3.5.0_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
+    "npm:vite@*": "6.4.1_picomatch@4.0.3_@types+node@24.2.0",
     "npm:vite@^6.3.2": "6.4.1_picomatch@4.0.3_@types+node@24.2.0",
     "npm:vitest@^3.2.4": "3.2.4_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
     "npm:wagmi@^2.16.9": "2.19.2_@tanstack+react-query@5.90.7__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@18.3.1__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1",
