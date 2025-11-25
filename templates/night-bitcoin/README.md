@@ -23,3 +23,29 @@ deno task dev
 ```
 
 Once the `sync` process is running, open [http://localhost:10599](http://localhost:10599)`
+
+
+## Docker Build
+
+### Build the image
+```
+# If running in macos add env variable:
+# DOCKER_DEFAULT_PLATFORM=linux/amd64 
+docker build -t night-bitcoin-template -f ./Dockerfile .
+
+# Run the container
+# DOCKER_DEFAULT_PLATFORM=linux/amd64 
+docker run \
+  -p 10599:10599 \
+  -p 10590:10590 \
+  -p 3334:3334 \
+  -p 9944:9944 \
+  -p 8088:8088 \
+  -p 6300:6300 \
+  -p 8080:8080 \
+  -p 9999:9999 \
+  -p 18443:18443 \
+  -p 18334:18334 \
+  -p 16101-16110:16101-16110 \
+  night-bitcoin-template
+```

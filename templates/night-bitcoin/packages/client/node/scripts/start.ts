@@ -11,7 +11,7 @@ const customProcesses: any[] = [
     args: ["task", "-f", "@night-bitcoin/frontend", "build"],
     waitToExit: true,
     type: "system-dependency",
-    dependsOn: [], // [ComponentNames.MIDNIGHT_CONTRACT],
+    dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
   },
   {
     name: "frontend-dApp",
