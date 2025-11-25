@@ -50,7 +50,7 @@ function App() {
   const [quotes, setQuotes] = useState<any[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [popup, setPopup] = useState<{ show: boolean; title: string; message: string; details?: Record<string, any> }>({ show: false, title: '', message: '' });
+  const [popup, setPopup] = useState<{ show: boolean; title: string; message: React.ReactNode; details?: Record<string, any> }>({ show: false, title: '', message: '' });
   const [showBtcPopup, setShowBtcPopup] = useState(false);
   const [btcAddress, setBtcAddress] = useState('');
   const [btcCheckbox, setBtcCheckbox] = useState(false);
@@ -62,6 +62,7 @@ function App() {
   const [m20Recipient, setM20Recipient] = useState('');
   const [btcFaucetAddress, setBtcFaucetAddress] = useState('');
   const [orderIdSearch, setOrderIdSearch] = useState('');
+  const [showBtcConnectPopup, setShowBtcConnectPopup] = useState(false);
 
   const formatPopupValue = (value: any) => {
     if (typeof value === 'bigint') {
@@ -258,6 +259,23 @@ function App() {
       await updateM20Balance(data);
     } catch (error) {
       console.error("Failed to connect Midnight wallet:", error);
+      setPopup({
+        show: true,
+        title: 'Wallet Not Found',
+        message: (
+          <>
+            No wallet was found, please install{' '}
+            <a
+              href="https://chromewebstore.google.com/detail/lace-midnight-preview/hgeekaiplokcnmakghbdfbgnlfheichg"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Lace wallet preview
+            </a>
+            .
+          </>
+        ),
+      });
     } finally {
       setLoading(false);
     }
@@ -286,6 +304,14 @@ function App() {
   };
 
   const handleSwapNow = async () => {
+    if (!midnightAddress) {
+      setPopup({
+        show: true,
+        title: 'Wallet Not Connected',
+        message: 'Connect the midnight wallet first',
+      });
+      return;
+    }
     if (fromToken === 'BTC') {
       setShowBtcPopup(true);
     } else if (fromToken === 'M20') {
@@ -488,7 +514,7 @@ function App() {
             ) : (
                 <button type="button" className="wallet-button" onClick={handleMidnightLogin}>Connect Midnight Wallet</button>
             )}
-            <button type="button" className="wallet-button">Connect Bitcoin Wallet</button>
+            <button type="button" className="wallet-button" onClick={() => setShowBtcConnectPopup(true)}>Connect Bitcoin Wallet</button>
             <button type="button" className="wallet-button" onClick={() => setShowActionsPopup(true)}>
               &#x22EE;
             </button>
@@ -590,7 +616,7 @@ function App() {
 
           {selectedQuote && (
             <div className="swap-now-container">
-              <button type="button" className="swap-now-button" onClick={handleSwapNow} disabled={!midnightAddress}>
+              <button type="button" className="swap-now-button" onClick={handleSwapNow}>
                 Swap Now
               </button>
             </div>
@@ -771,6 +797,36 @@ function App() {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {showBtcConnectPopup && (
+          <div className="popup-overlay">
+            <div className="popup">
+              <h3>Connect Bitcoin Wallet</h3>
+              <div style={{ padding: '20px', textAlign: 'left', lineHeight: '1.6' }}>
+                Connect a bitcoin wallet, such as{' '}
+                <a href="https://sparrowwallet.com/" target="_blank" rel="noopener noreferrer">
+                  Sparrow
+                </a>
+                , and configure it for{' '}
+                <a
+                  href="https://sparrowwallet.com/docs/faq.html#how-can-i-run-testnet"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  regtest mode
+                </a>
+                .
+                <br />
+                <br />
+                Once connected, use the Faucet to get funds by pressing the three dots (&#x22EE;) in
+                the header.
+              </div>
+              <button type="button" onClick={() => setShowBtcConnectPopup(false)}>
+                Close
+              </button>
             </div>
           </div>
         )}

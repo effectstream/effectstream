@@ -6,22 +6,22 @@ import { launchBitcoin } from "@paimaexample/orchestrator/start-bitcoin";
 
 const customProcesses: any[] = [
   // /** DENO-FRONTEND-BLOCK */
-  // {
-  //   name: "frontend-build",
-  //   args: ["task", "-f", "@night-bitcoin/frontend", "build"],
-  //   waitToExit: true,
-  //   type: "system-dependency",
-  //   dependsOn: [], // [ComponentNames.MIDNIGHT_CONTRACT],
-  // },
-  // {
-  //   name: "frontend-server",
-  //   args: ["task", "-f", "@night-bitcoin/frontend", "serve"],
-  //   waitToExit: false,
-  //   type: "system-dependency",
-  //   link: "http://localhost:10599",
-  //   stopProcessAtPort: [10599],
-  //   dependsOn: ["frontend-build"],
-  // },
+  {
+    name: "frontend-build",
+    args: ["task", "-f", "@night-bitcoin/frontend", "build"],
+    waitToExit: true,
+    type: "system-dependency",
+    dependsOn: [], // [ComponentNames.MIDNIGHT_CONTRACT],
+  },
+  {
+    name: "frontend-dApp",
+    args: ["task", "-f", "@night-bitcoin/frontend", "serve"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:10599",
+    stopProcessAtPort: [10599],
+    dependsOn: ["frontend-build"],
+  },
   // /** DENO-FRONTEND-BLOCK */
   
   // /** EXPLORER-BLOCK */
