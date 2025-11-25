@@ -42,7 +42,9 @@ deno task dev
 
 Once the `sync`process starts, open [http://localhost:10599](http://localhost:10599)
 
-## Core Concept: Intent flow overview
+## Concepts
+
+### Core Concept: Intent flow overview
 
 Instead of executing a direct transaction to swap tokens, users sign an **Intent**—a message declaring *what* they want (e.g., "I offer 1 BTC to receive at least 1000 M20 on Midnight").
 
@@ -55,7 +57,7 @@ Instead of executing a direct transaction to swap tokens, users sign an **Intent
 5.  **Filler Execution**: The Fillers read the Intent and provides the liquidity, sending the funds to the user.
 6.  **Resolution**: The Verifier Nodes validates the trade and triggers the release of funds to the user and the Fillers.
 
-## Core Concepts: Effectstream Mapping
+### Core Concepts: Effectstream Mapping
 
 * The Verifier Nodes -> is implemented an Effectstream State Machine.
 * The Fillers -> is implemented as a Effectstream Batcher.
@@ -64,7 +66,7 @@ Instead of executing a direct transaction to swap tokens, users sign an **Intent
 
 Once the process starts, open [http://localhost:10599](http://localhost:10599).
 
-## Background Concepts: The ERC-7683 Standard
+### Background Concepts: The ERC-7683 Standard
 
 This template leverages **ERC-7683**, a standard interface for cross-chain trade execution systems.
 
