@@ -1,4 +1,11 @@
-# night-bitcoin Quick Start
+# Night-Bitcoin Quick Start
+
+
+## Prerequisites
+
+* Run `./../check.sh` to check for external dependencies
+* Midnight Wallet that supports undeployed networks (e.g., Lace MidnightPreview Wallet)
+* Bitcoin Wallet that supports regtest (e.g., Sparrow) 
 
 ```sh
 # Check for external dependencies
@@ -15,4 +22,4 @@ deno task build:bitcoin
 deno task dev
 ```
 
-Open [http://localhost:10599](http://localhost:10599)
+Once the `sync` process is running, open [http://localhost:10599](http://localhost:10599)`
