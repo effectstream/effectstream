@@ -78,17 +78,17 @@ with open('$file', 'w') as f:
 # Apply Common Hardhat Patches
 shopt -s nullglob # Expands to nothing if no match is found
 
-echo "Applying common Hardhat patches for versions 3.0.0-3.0.9..."
+echo "Applying common Hardhat patches for versions 3.0.0-3.1.x..."
 
 # Patch hardhat compiler.js
-for dir in ./node_modules/.deno/hardhat@3.0.[0-9]*/ ; do
+for dir in ./node_modules/.deno/hardhat@3.[0-1]*.[0-9]*/ ; do
     file_to_patch="${dir}node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js"
     echo "Commenting out await stdoutFileHandle.close() in ${file_to_patch}..."
     comment_line "$file_to_patch" 48 "await stdoutFileHandle.close();"
 done
 
-# Patch hardhat-utils fs.js
-for dir in ./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.[0-9]*/ ; do
+# Patch hardhat-utils fs.js 
+for dir in ./node_modules/.deno/@nomicfoundation+hardhat-utils@3.[0-1]*.[0-9]*/ ; do
     file_to_patch="${dir}node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js"
     echo "Commenting out first await fileHandle?.close() in ${file_to_patch}..."
     comment_line "$file_to_patch" 209 "await fileHandle?.close();"

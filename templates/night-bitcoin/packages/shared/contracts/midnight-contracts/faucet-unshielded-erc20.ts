@@ -2,7 +2,7 @@
 import {
   type ContractAddress,
   NetworkId,
-} from "npm:@midnight-ntwrk/compact-runtime";
+} from "@midnight-ntwrk/compact-runtime";
 import {
   SimpleToken,
   witnesses,
@@ -12,11 +12,11 @@ import {
   nativeToken,
   Transaction,
   type TransactionId,
-} from "npm:@midnight-ntwrk/ledger";
+} from "@midnight-ntwrk/ledger";
 import {
   MidnightBech32m,
   ShieldedAddress,
-} from "npm:@midnight-ntwrk/wallet-sdk-address-format";
+} from "@midnight-ntwrk/wallet-sdk-address-format";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -35,19 +35,17 @@ import {
   type UnbalancedTransaction,
   type WalletProvider,
 } from "npm:@midnight-ntwrk/midnight-js-types";
-import { type Resource, WalletBuilder } from "npm:@midnight-ntwrk/wallet";
-import { type Wallet } from "npm:@midnight-ntwrk/wallet-api";
-import { Transaction as ZswapTransaction } from "npm:@midnight-ntwrk/zswap";
+import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
+import { type Wallet } from "@midnight-ntwrk/wallet-api";
+import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
 import { levelPrivateStateProvider } from "npm:@midnight-ntwrk/midnight-js-level-private-state-provider";
-import * as Rx from "npm:rxjs";
-import { assertIsContractAddress } from "npm:@midnight-ntwrk/midnight-js-utils";
+import * as Rx from "rxjs";
 import {
   getLedgerNetworkId,
   getZswapNetworkId,
   setNetworkId,
 } from "npm:@midnight-ntwrk/midnight-js-network-id";
 import { dirname, resolve } from "@std/path";
-import { exists } from "@std/fs";
 
 globalThis.WebSocket = WebSocket;
 
@@ -110,35 +108,6 @@ const simpleTokenContractInstance: SimpleTokenContract = new SimpleToken
   witnesses,
 );
 
-const getSimpleTokenLedgerState = async (
-  providers: SimpleTokenProviders,
-  contractAddress: ContractAddress,
-): Promise<bigint | null> => {
-  assertIsContractAddress(contractAddress);
-  console.log("🔍 Checking contract ledger state...");
-
-  try {
-    const contractState = await providers.publicDataProvider.queryContractState(
-      contractAddress,
-    );
-    const state = contractState != null
-      ? SimpleToken.ledger(contractState.data)
-      : null;
-    console.log(
-      `📊 Ledger state: ${
-        state && JSON.stringify(
-          state,
-          (_key, value) => typeof value === "bigint" ? value.toString() : value,
-          2,
-        )
-      }`,
-    );
-    return state;
-  } catch (error) {
-    console.error("❌ Error getting simple token ledger state:", error);
-    throw error;
-  }
-};
 
 const joinContract = async (
   providers: SimpleTokenProviders,
@@ -157,21 +126,17 @@ const joinContract = async (
   return simpleTokenContract;
 };
 
-const balanceOf = async (
-  simpleTokenContract: DeployedSimpleTokenContract,
-  account: string,
-): Promise<bigint> => {
+const wrapAddress = (address: string): Either<ZswapCoinPublicKey, ContractAddress> => {
   const shieldedAddress = ShieldedAddress.codec.decode(
     "undeployed",
-    MidnightBech32m.parse(account),
+    MidnightBech32m.parse(address),
   );
-  const either = {
+
+  return {
     is_left: true,
     left: { bytes: shieldedAddress.coinPublicKey.data },
     right: { bytes: new Uint8Array(32) },
   };
-  const accountBalance = await simpleTokenContract.callTx.balanceOf(either);
-  return accountBalance.private.result as bigint;
 };
 
 const mint = async (
@@ -179,21 +144,14 @@ const mint = async (
   account: string,
   value: bigint,
 ): Promise<FinalizedTxData> => {
-  console.log("Minting...");
-  const shieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(account),
-  );
-  const either = {
-    is_left: true,
-    left: { bytes: shieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
+  console.log( "Minting...");
+
+  const either = wrapAddress(account);
   const finalizedTxData = await simpleTokenContract.callTx.mint(either, value);
   console.log(
-    `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
+     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
-  console.log(`Minted ${value} tokens to ${account}`);
+  console.log( `Minted ${value} tokens to ${account}`);
   return finalizedTxData.public;
 };
 
@@ -255,59 +213,8 @@ const buildWalletAndWaitForFunds = async (
   seed: string,
   filename: string,
 ): Promise<Wallet & Resource> => {
-  const directoryPath = Deno.env.get("SYNC_CACHE");
   let wallet: Wallet & Resource;
-  if (directoryPath !== undefined) {
-    const fullPath = `${directoryPath}/${filename}`;
-    if (await exists(fullPath)) {
-      console.log(
-        `Attempting to restore state from ${fullPath}`,
-      );
-      try {
-        const serialized = await Deno.readFile(fullPath);
-        wallet = await WalletBuilder.restore(
-          indexer,
-          indexerWS,
-          proofServer,
-          node,
-          seed,
-          serialized.toString(),
-        );
-        wallet.start();
-      } catch (error: unknown) {
-        console.log(
-          "Wallet was not able to restore using the stored state, building wallet from scratch",
-        );
-        wallet = await WalletBuilder.buildFromSeed(
-          indexer,
-          indexerWS,
-          proofServer,
-          node,
-          seed,
-          getZswapNetworkId(),
-          "info",
-        );
-        wallet.start();
-      }
-    } else {
-      console.log("Wallet save file not found, building wallet from scratch");
-      wallet = await WalletBuilder.buildFromSeed(
-        indexer,
-        indexerWS,
-        proofServer,
-        node,
-        seed,
-        getZswapNetworkId(),
-        "info",
-      );
-      wallet.start();
-    }
-  } else {
-    console.log(
-      "📁 File path for save file not found, building wallet from scratch",
-    );
 
-    try {
       wallet = await WalletBuilder.build(
         indexer,
         indexerWS,
@@ -318,22 +225,17 @@ const buildWalletAndWaitForFunds = async (
       );
       console.log("✅ Wallet built successfully");
       wallet.start();
-    } catch (error) {
-      console.error("❌ Error building wallet:", error);
-      throw error;
-    }
-  }
 
   const state = await Rx.firstValueFrom(wallet.state());
-  console.log(`Your wallet seed is: ${seed}`);
-  console.log(`Your wallet address is: ${state.address}`);
+  console.log(`Your master wallet seed is: ${seed}`);
+  console.log(`Your master wallet address is: ${state.address}`);
   let balance = state.balances[nativeToken()];
   if (balance === undefined || balance === 0n) {
     console.log(`Your wallet balance is: 0`);
     console.log(`Waiting to receive tokens...`);
     balance = await waitForFunds(wallet);
   }
-  console.log(`Your wallet balance is: ${balance}`);
+  console.log(`Your master wallet balance is: ${balance}`);
   return wallet;
 };
 
@@ -364,38 +266,18 @@ const configureProviders = async (
 };
 
 const getContractAddress = async (): Promise<string> => {
-  // First try to get from command line arguments
-  const contractAddressFromArgs = Deno.args[0];
-
-  if (contractAddressFromArgs) {
-    console.log(
-      `📋 Using contract address from arguments: ${contractAddressFromArgs}`,
-    );
-    return contractAddressFromArgs;
-  }
-
-  // If not provided via args, try to read from contract_address.txt file
   const contractAddressFile = resolve(currentDir, "contract-unshielded-erc20.json");
 
   try {
-    if (await exists(contractAddressFile)) {
       const contractAddressFromFile = JSON.parse(
         await Deno.readTextFile(contractAddressFile),
       ).contractAddress;
 
-      if (contractAddressFromFile) {
         console.log(
           `📄 Using contract address from file ${contractAddressFile}: ${contractAddressFromFile}`,
         );
         return contractAddressFromFile;
-      } else {
-        throw new Error("Contract address file is empty");
-      }
-    } else {
-      throw new Error(
-        `Contract address file not found at ${contractAddressFile}`,
-      );
-    }
+   
   } catch (error) {
     console.error(`❌ Error reading contract address from file: ${error}`);
     console.error("❌ Error: Contract address is required");
@@ -408,24 +290,27 @@ const getContractAddress = async (): Promise<string> => {
     console.error(
       "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678",
     );
-    Deno.exit(1);
+    throw error;
   }
 };
 
-async function joinAndMint(account: string, amount: bigint): Promise<void> {
-  // Get contract address from command line arguments or file
+async function joinAndMint(accounts: string | string[], amount: bigint): Promise<boolean> {
+
+  const targets = Array.isArray(accounts) ? accounts : [accounts];
+  // Initialize configuration
+  const config = new StandaloneConfig();
+
+  let wallet: Wallet & Resource | null = null;
+
+  try {
+      // Get contract address from command line arguments or file
   const contractAddress = await getContractAddress();
 
   console.log(
     `🚀 Starting join and mint process for contract: ${contractAddress}`,
   );
 
-  // Initialize configuration
-  const config = new StandaloneConfig();
 
-  let wallet = null;
-
-  try {
     console.log("🔗 Building wallet with genesis seed for standalone mode...");
 
     // Build wallet using genesis seed (which has initial funds in standalone mode)
@@ -453,26 +338,29 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
 
     // Increment the counter
     console.log("🔢 Minting simple token...");
-    const incrementResult = await mint(simpleTokenContract, account, amount);
-
-    console.log(
-      `✅ Simple token minted successfully! Transaction ID: ${incrementResult.txId}`,
-    );
-    console.log(
-      `✅ Simple token minted! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`,
-    );
-
-    const accountBalance = await balanceOf(simpleTokenContract, account);
-    console.log(
-      `Account balance: ${String(accountBalance)}`,
-    );
-    // Display simple token value after increment
-    await getSimpleTokenLedgerState(providers, contractAddress);
-
-    console.log("🎉 Join and mint process completed successfully!");
+    let i = 1;
+    for (const account of targets) {
+        const incrementResult = await mint(simpleTokenContract, account, amount);
+        console.log(
+          `✅ Simple token minted [${i} @ ${targets.length}]! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`,
+        );
+        i += 1;
+    }
+    console.log("🎉 Mint process completed successfully!");
+    return true;
   } catch (error) {
-    console.error("❌ Error during join and mint process:", error);
+    console.error("❌ Error during join and mint process (0x1)", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
+    return false;
+  } finally {
+    if (wallet) {
+      try {
+        wallet.close();
+        console.log("🧹 Wallet closed successfully");
+      } catch (error) {
+        console.error("❌ Error closing wallet:", error);
+      }
+    }
   }
 }
 

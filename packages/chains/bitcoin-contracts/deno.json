@@ -6,7 +6,8 @@
         ".": "./src/mod.ts"
     },
     "tasks": {
-        "generate:blocks": "deno run -A src/generate-blocks.ts"
+        "generate:blocks": "deno run -A src/generate-blocks.ts",
+        "wait-for-block": "deno run -A src/wait-for-block.ts"
     },
     "imports": {
         "bitcoinjs-lib": "npm:bitcoinjs-lib@^7.0.0",

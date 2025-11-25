@@ -1,30 +1,11 @@
-import * as bitcoin from 'npm:bitcoinjs-lib';
-import * as ecpair from 'npm:ecpair';
-import * as ecc from 'npm:tiny-secp256k1';
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const ECPair = ecpair.ECPairFactory(ecc);
-const SATS_PER_BTC = 100_000_000;
-
-const DEFAULT_BLOCK_INTERVAL = Deno.args.includes('--block-interval') ? parseInt(Deno.args[Deno.args.indexOf('--block-interval') + 1]) : 5000;
-const NETWORK = bitcoin.networks.regtest;
-console.log(`Using block interval: ${DEFAULT_BLOCK_INTERVAL}ms`);
-
-
-
-// Generate a valid mock address for regtest
-function generateMockAddress(): string {
-  const mockKeyPair = ECPair.makeRandom({ network: NETWORK });
-  const mockPayment = bitcoin.payments.p2wpkh({
-    pubkey: mockKeyPair.publicKey,
-    network: NETWORK,
-  });
-  return mockPayment.address!;
-}
-
-const MOCK_ADDRESS = generateMockAddress();
-console.log(`Generated mock address: ${MOCK_ADDRESS}`);
+/**
+ *  This script sends BTC to a specified address.
+ *  Usage:
+ *  deno run -A faucet-btc.ts bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03
+ * 
+ *  Arguments:
+ *  - 1. Target address
+ */
 
 // Helper function to make Bitcoin RPC calls
 const bitcoinRpcCall = async (method: string, params: any[] = [], walletName?: string) => {

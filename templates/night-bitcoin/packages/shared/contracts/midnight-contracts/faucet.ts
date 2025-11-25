@@ -1,78 +1,22 @@
-import {
-  type ContractAddress,
-  NetworkId,
-} from "npm:@midnight-ntwrk/compact-runtime";
-// import {
-//   MultiChainMultiToken,
-//   witnesses,
-// } from "./contract-eip-1155/src/index.original.ts";
-import {
-  type CoinInfo,
-  nativeToken,
-  Transaction,
-  type TransactionId,
-} from "npm:@midnight-ntwrk/ledger";
-import {
-  MidnightBech32m,
-  ShieldedAddress,
-} from "npm:@midnight-ntwrk/wallet-sdk-address-format";
-import {
-  type DeployedContract,
-  findDeployedContract,
-  type FoundContract,
-} from "npm:@midnight-ntwrk/midnight-js-contracts";
-import {
-  type BalancedTransaction,
-  createBalancedTx,
-  type FinalizedTxData,
-  type ImpureCircuitId,
-  type MidnightProvider,
-  type MidnightProviders,
-  type UnbalancedTransaction,
-  type WalletProvider,
-} from "npm:@midnight-ntwrk/midnight-js-types";
-import { type Resource, WalletBuilder } from "npm:@midnight-ntwrk/wallet";
-import { type Wallet } from "npm:@midnight-ntwrk/wallet-api";
-import { Transaction as ZswapTransaction } from "npm:@midnight-ntwrk/zswap";
-import * as Rx from "npm:rxjs";
-import { assertIsContractAddress } from "npm:@midnight-ntwrk/midnight-js-utils";
-import {
-  getLedgerNetworkId,
-  getZswapNetworkId,
-  setNetworkId,
-} from "npm:@midnight-ntwrk/midnight-js-network-id";
-import { dirname, resolve } from "@std/path";
-import { exists } from "@std/fs";
+import { NetworkId } from "@midnight-ntwrk/compact-runtime";
+import { nativeToken } from "@midnight-ntwrk/ledger";
+import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
+import { type Wallet } from "@midnight-ntwrk/wallet-api";
+import * as Rx from "rxjs";
+import { setNetworkId } from "npm:@midnight-ntwrk/midnight-js-network-id";
 
-/** 
- * This script transfers 10.0 dust from the default midnight wallet to a given address. 
+/**
+ * This script transfers 10.0 dust from the default midnight wallet to a given address.
  * This works only on the local undeployed network.
- * 
+ *
  * This is useful to pass dust to Lace wallets in the browser for testing purposes.
- * 
+ *
  * Usage:
  * MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts
- * 
+ *
  */
 
 globalThis.WebSocket = WebSocket;
-
-// Inlined common types for standalone script
-type MultiChainMultiTokenCircuits = ImpureCircuitId<MultiChainMultiToken.Contract>;
-
-const MultiChainMultiTokenPrivateStateId = "multiChainMultiTokenPrivateState";
-
-type MultiChainMultiTokenProviders = MidnightProviders<
-  MultiChainMultiTokenCircuits,
-  typeof MultiChainMultiTokenPrivateStateId,
-  {}
->;
-
-type MultiChainMultiTokenContract = MultiChainMultiToken.Contract;
-
-type DeployedMultiChainMultiTokenContract =
-  | DeployedContract<MultiChainMultiTokenContract>
-  | FoundContract<MultiChainMultiTokenContract>;
 
 interface Config {
   readonly indexer: string;
@@ -87,159 +31,12 @@ class StandaloneConfig implements Config {
   node = "http://127.0.0.1:9944";
   proofServer = "http://127.0.0.1:6300";
   constructor() {
-    setNetworkId("Undeployed" as unknown as NetworkId);
+    setNetworkId("Undeployed" as any);
   }
 }
 
-const config = new StandaloneConfig();
-
-const currentDir = resolve(dirname(new URL(import.meta.url).pathname));
-
-const contractConfig = {
-  privateStateStoreName: "multichain_multitoken-private-state",
-  zkConfigPath: resolve(
-    currentDir,
-    "contract-eip-1155",
-    "src",
-    "managed",
-    "multichain_multitoken"
-  ),
-};
-
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
-
-// const multiChainMultiTokenContractInstance: MultiChainMultiTokenContract =
-  // new MultiChainMultiToken.Contract(witnesses);
-
-const getMultiChainMultiTokenLedgerState = async (
-  providers: MultiChainMultiTokenProviders,
-  contractAddress: ContractAddress
-): Promise<bigint | null> => {
-  assertIsContractAddress(contractAddress);
-  console.log("🔍 Checking contract ledger state...");
-
-  try {
-    const contractState = await providers.publicDataProvider.queryContractState(
-      contractAddress
-    );
-    console.log("contractState", contractState);
-    console.log(
-      Object.entries(contractState).map(
-        ([key, value]) => `${key}: ${value} (${typeof value})`
-      )
-    );
-    const state =
-      contractState != null ? MultiChainMultiToken.ledger(contractState.data) : null;
-    console.log(
-      `📊 Ledger state: ${
-        state &&
-        JSON.stringify(
-          state,
-          (_key, value) =>
-            typeof value === "bigint" ? value.toString() : value,
-          2
-        )
-      }`
-    );
-    return state;
-  } catch (error) {
-    console.error("❌ Error getting multi chain multi token ledger state:", error);
-    throw error;
-  }
-};
-
-const joinContract = async (
-  providers: MultiChainMultiTokenProviders,
-  contractAddress: string
-): Promise<DeployedMultiChainMultiTokenContract> => {
-  console.log("Joining contract...🍋🍋🍋");
-  const multiChainMultiTokenContract = await findDeployedContract(providers, {
-    contractAddress,
-    contract: multiChainMultiTokenContractInstance,
-    privateStateId: "multiChainMultiTokenPrivateState",
-    initialPrivateState: {},
-  });
-  console.log(
-    `Joined contract at address: ${multiChainMultiTokenContract.deployTxData.public.contractAddress}`
-  );
-  return multiChainMultiTokenContract;
-};
-
-const balanceOf = async (
-  multiChainMultiTokenContract: DeployedMultiChainMultiTokenContract,
-  account: string
-): Promise<bigint> => {
-  const shieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(account)
-  );
-  const either = {
-    is_left: true,
-    left: { bytes: shieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
-  const accountBalance = await multiChainMultiTokenContract.callTx.balanceOf(either);
-  return accountBalance.private.result as bigint;
-};
-
-const mint = async (
-  multiChainMultiTokenContract: DeployedMultiChainMultiTokenContract,
-  account: string,
-  value: bigint
-): Promise<FinalizedTxData> => {
-  console.log("Minting...");
-  const shieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(account)
-  );
-  console.log("shieldedAddress", shieldedAddress.coinPublicKeyString());
-  const either = {
-    is_left: true,
-    left: { bytes: shieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
-  const finalizedTxData = await multiChainMultiTokenContract.callTx.mint(either, value);
-  console.log(
-    `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`
-  );
-  console.log(`Minted ${value} tokens to ${account}`);
-  return finalizedTxData.public;
-};
-
-const createWalletAndMidnightProvider = async (
-  wallet: Wallet
-): Promise<WalletProvider & MidnightProvider> => {
-  const state = await Rx.firstValueFrom(wallet.state());
-  return {
-    coinPublicKey: state.coinPublicKey,
-    encryptionPublicKey: state.encryptionPublicKey,
-    balanceTx(
-      tx: UnbalancedTransaction,
-      newCoins: CoinInfo[]
-    ): Promise<BalancedTransaction> {
-      return wallet
-        .balanceTransaction(
-          ZswapTransaction.deserialize(
-            tx.serialize(getLedgerNetworkId()),
-            getZswapNetworkId()
-          ),
-          newCoins
-        )
-        .then((tx) => wallet.proveTransaction(tx))
-        .then((zswapTx) =>
-          Transaction.deserialize(
-            zswapTx.serialize(getZswapNetworkId()),
-            getLedgerNetworkId()
-          )
-        )
-        .then(createBalancedTx);
-    },
-    submitTx(tx: BalancedTransaction): Promise<TransactionId> {
-      return wallet.submitTransaction(tx);
-    },
-  };
-};
 
 const waitForFunds = (wallet: Wallet) =>
   Rx.firstValueFrom(
@@ -262,76 +59,18 @@ const waitForFunds = (wallet: Wallet) =>
 
 const buildWalletAndWaitForFunds = async (
   { indexer, indexerWS, node, proofServer }: Config,
-  seed: string,
-  filename: string
+  seed: string
 ): Promise<Wallet & Resource> => {
-  const directoryPath = Deno.env.get("SYNC_CACHE");
-  let wallet: Wallet & Resource;
-  if (directoryPath !== undefined) {
-    const fullPath = `${directoryPath}/${filename}`;
-    if (await exists(fullPath)) {
-      console.log(`Attempting to restore state from ${fullPath}`);
-      try {
-        const serialized = await Deno.readFile(fullPath);
-        wallet = await WalletBuilder.restore(
-          indexer,
-          indexerWS,
-          proofServer,
-          node,
-          seed,
-          serialized.toString()
-        );
-        wallet.start();
-      } catch (error: unknown) {
-        console.log(
-          "Wallet was not able to restore using the stored state, building wallet from scratch"
-        );
-        wallet = await WalletBuilder.buildFromSeed(
-          indexer,
-          indexerWS,
-          proofServer,
-          node,
-          seed,
-          getZswapNetworkId(),
-          "info"
-        );
-        wallet.start();
-      }
-    } else {
-      console.log("Wallet save file not found, building wallet from scratch");
-      wallet = await WalletBuilder.buildFromSeed(
-        indexer,
-        indexerWS,
-        proofServer,
-        node,
-        seed,
-        getZswapNetworkId(),
-        "info"
-      );
-      wallet.start();
-    }
-  } else {
-    console.log(
-      "📁 File path for save file not found, building wallet from scratch"
-    );
-
-    try {
-      wallet = await WalletBuilder.build(
-        indexer,
-        indexerWS,
-        proofServer,
-        node,
-        seed,
-        NetworkId.Undeployed
-      );
-      console.log("✅ Wallet built successfully");
-      wallet.start();
-    } catch (error) {
-      console.error("❌ Error building wallet:", error);
-      throw error;
-    }
-  }
-
+  const wallet = await WalletBuilder.build(
+    indexer,
+    indexerWS,
+    proofServer,
+    node,
+    seed,
+    NetworkId.Undeployed
+  );
+  console.log("✅ Wallet built successfully");
+  wallet.start();
   const state = await Rx.firstValueFrom(wallet.state());
   console.log(`Your wallet seed is: ${seed}`);
   console.log(`Your wallet address is: ${state.address}`);
@@ -345,60 +84,78 @@ const buildWalletAndWaitForFunds = async (
   return wallet;
 };
 
+const transfer = async (
+  wallet: Wallet & Resource,
+  receiverAddress: string,
+  amount: bigint = 10000000n
+): Promise<void> => {
+  console.log(`Transferring ${amount} to ${receiverAddress}`);
+  const transferRecipe = await wallet.transferTransaction([
+    {
+      amount, // 10 Dust
+      type: nativeToken(), // "tDUST",
+      receiverAddress,
+    },
+  ]);
+  console.log({ transferRecipe });
+  const provenTransaction = await wallet.proveTransaction(transferRecipe);
+  console.log({ provenTransaction });
 
-const faucet = async (receiverAddress: string): Promise<void> => {
+  const submittedTransaction = await wallet.submitTransaction(
+    provenTransaction
+  );
+  console.log({ submittedTransaction });
+};
 
-  // Initialize configuration
-  const config = new StandaloneConfig();
-
-  let wallet = null;
-
-  try {
-    console.log("🔗 Building wallet with genesis seed for standalone mode...");
-
-    // Build wallet using genesis seed (which has initial funds in standalone mode)
-    wallet = await buildWalletAndWaitForFunds(
-      config,
-      GENESIS_MINT_WALLET_SEED,
-      "contract.json"
-    );
-
-    console.log("✅ Wallet built successfully");
-
-    /* Transfer dust to lace wallet */
-    const transferRecipe = await wallet.transferTransaction([
-      {
-        amount: 10000000n, // 10 Dust
-        type: nativeToken(), // "tDUST",
-        receiverAddress,
-      },
-    ]);
-    console.log({ transferRecipe });
-    
-    const provenTransaction = await wallet.proveTransaction(transferRecipe);
-    console.log({ provenTransaction });
-    
-    const submittedTransaction = await wallet.submitTransaction(
-      provenTransaction
-    );
-    console.log({ submittedTransaction });
-    
-    console.log("✅ Successfully transferred dust to receiver address ");
+export const faucet = async (
+  receiverAddresses: string | string[],
+  seed: string = GENESIS_MINT_WALLET_SEED
+): Promise<void> => {
+  let wallet: (Wallet & Resource) | null = null;
 
 
-  } catch (error) {
-    console.error("❌ Error during join and mint process:", error);
-    console.error("❌ Error:", error instanceof Error ? error.message : error);
-    Deno.exit(1);
-  } finally {
-    // Clean up wallet
-    if (wallet) {
-      try {
-        console.log("🧹 Wallet closed successfully");
-        Deno.exit(0);
-      } catch (error) {
-        console.error("❌ Error closing wallet:", error);
+  const targets = Array.isArray(receiverAddresses) ? receiverAddresses : [receiverAddresses];
+  const maxRetries = 5;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Initialize configuration
+      const config = new StandaloneConfig();
+
+      console.log(
+        `🔗 Building wallet with genesis seed for standalone mode... (attempt ${attempt})`
+      );
+
+      // Build wallet using genesis seed (which has initial funds in standalone mode)
+      wallet = await buildWalletAndWaitForFunds(config, seed);
+      console.log("✅ Wallet built successfully");
+
+      let i = 1;
+      while (targets.length > 0) {
+        const receiverAddress = targets[0];
+        await transfer(wallet, receiverAddress, 10000000n);
+        targets.splice(targets.indexOf(receiverAddress), 1);
+        console.log(`✅ Successfully transferred dust to [${i} of ${targets.length}] (attempt ${attempt}) ${receiverAddress}`);
+        i += 1;
       }
+      console.log(`✅ Successfully transferred dust to all wallets`);
+      // If all targets are transferred, break the loop
+      break;
+    } catch (error) {
+      console.error("❌ Error during join and mint process (0x2)", error);
+      console.error(
+        "❌ Error:",
+        error instanceof Error ? error.message : error
+      );
+    }
+  }
+  
+  if (wallet) {
+    try {
+      wallet.close();
+      console.log("🧹 Wallet closed successfully");
+    } catch (error) {
+      console.error("❌ Error closing wallet:", error);
     }
   }
 };
@@ -408,7 +165,9 @@ if (import.meta.main) {
   const midnightAddress = Deno.env.get("MIDNIGHT_ADDRESS");
   if (!midnightAddress) {
     console.error("❌ MIDNIGHT_ADDRESS environment variable is not set");
-    console.error("Example: MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts");
+    console.error(
+      "Example: MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts"
+    );
     Deno.exit(1);
   }
   try {

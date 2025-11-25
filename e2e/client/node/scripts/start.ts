@@ -63,14 +63,18 @@ const config = Value.Parse(OrchestratorConfig, {
       link: "http://localhost:10590",
       dependsOn: [],
     },
-    midnight_enabled ? { 
+    midnight_enabled && bitcoin_enabled ? { 
       // Launch the Batcher with our PaimaL2 Contract
       stopProcessAtPort: [3334],
       name: "batcher",
       args: ["task", "-f", "@e2e/batcher", "start"],
       waitToExit: false,
       type: "system-dependency",
-      dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
+      dependsOn: [
+        ComponentNames.DEPLOY_EVM_CONTRACTS, 
+        ComponentNames.MIDNIGHT_CONTRACT,
+        ComponentNames.BITCOIN_GENERATE_BLOCKS,
+      ].filter(Boolean),
     } : false
   ],
 });

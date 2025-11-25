@@ -32,12 +32,19 @@ export const launchBitcoin = (packageName: string): {
     dependsOn: [ComponentNames.BITCOIN_CORE],
   },
   {
-    name: "btc-blocks",
+    name: ComponentNames.BITCOIN_GENERATE_BLOCKS,
     args: ["task", "-f", packageName, "generate:blocks"],
     waitToExit: false, // Loop keeps blocks being mined
     logs: "raw",
     type: "system-dependency",
     dependsOn: [ComponentNames.BITCOIN_CORE_WAIT],
-  }
+  },
+  {
+    name: ComponentNames.BITCOIN_WAIT_FOR_BLOCK,
+    args: ["task", "-f", packageName, "wait-for-block"],
+    waitToExit: true,
+    type: "system-dependency",
+    dependsOn: [ComponentNames.BITCOIN_GENERATE_BLOCKS],
+  },
 ];
 

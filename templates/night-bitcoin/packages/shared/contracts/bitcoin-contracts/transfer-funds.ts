@@ -1,5 +1,16 @@
 import { faucetBtc } from "./faucet-btc.ts";
 
+/**
+ *  This script transfers BTC to a specified address.
+ *  Usage:
+ *  deno run -A transfer-funds.ts bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03 10
+ * 
+ *  Arguments:
+ *  - 1. From address [ NOT USED ]
+ *  - 2. To address
+ *  - 3. Amount in satoshis
+ */
+
 export async function transferFunds(
     fromAddress: string | undefined,
     toAddress: string | undefined,
@@ -12,7 +23,7 @@ export async function transferFunds(
 
     console.log("================================================");
     console.log("🔑 Transferring (BITCOIN) funds to", toAddress, "amount", amount);
-    console.log({ fromAddress, toAddress, amount });
+    console.log({ toAddress, amount });
     console.log("================================================");
 
     // amount is in satoshis.
