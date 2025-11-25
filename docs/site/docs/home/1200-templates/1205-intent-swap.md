@@ -346,17 +346,11 @@ server.post("/api/notify-filler-intent-payment", async (request, reply) => {
 
 ### 5. Database Schema
 
-The database acts as the order book and clearinghouse state:
+The database acts as the central clearinghouse state for the application. It persists the competitive quotes from fillers, tracks raw asset movements across Bitcoin and Midnight, and maintains the authoritative state of the ERC-7683 Intents.
 
 *   **`intents`**: Stores ERC-7683 Intent data (Order ID, deadlines, assets involved).
 *   **`transfers`**: Stores raw on-chain transfers detected (Chain ID, Amount, Token).
 *   **`quotes`**: Stores the quotes provided by fillers for audit trails.
-
-Here is the complete **Database Schema** section, updated with the exact SQL definitions provided and a detailed breakdown of the fields and their specific usage within the application's settlement logic.
-
-### 5. Database Schema
-
-The database acts as the central clearinghouse state for the application. It persists the competitive quotes from fillers, tracks raw asset movements across Bitcoin and Midnight, and maintains the authoritative state of the ERC-7683 Intents.
 
 #### 1. `intents` Table
 
