@@ -48,6 +48,19 @@ type AvailPrimitivePayload = {
   suppliedValue: string;
 };
 
+type BitcoinPrimitivePayload = {
+  direction: "input" | "output";
+  address: string;
+  transactionId: string;
+  index: number;
+  valueSats: number;
+  utxo: {
+    txid: string;
+    vout: number;
+  };
+  label?: string;
+};
+
 interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.NTP_MAIN]: NtpPrimitivePayload;
   [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: EVMPrimitivePayload;
@@ -57,4 +70,5 @@ interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.MINA_PARALLEL]: MinaPrimitivePayload;
   [ConfigSyncProtocolType.AVAIL_PARALLEL]: AvailPrimitivePayload;
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: MidnightTPrimitivePayload;
+  [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitivePayload;
 }

@@ -22,6 +22,7 @@ export const ExternalComponents = {
   MIDNIGHT_PROOF_SERVER: "midnight-proof-server",
   AVAIL_NODE: "avail-node",
   AVAIL_CLIENT: "avail-light-client",
+  BITCOIN_CORE: "bitcoin-core",
 };
 
 /**
@@ -50,6 +51,7 @@ export const SecondaryComponents = {
   MIDNIGHT_NODE_WAIT: "midnight-node-wait",
   MIDNIGHT_INDEXER_WAIT: "midnight-indexer-wait",
   MIDNIGHT_PROOF_SERVER_WAIT: "midnight-proof-server-wait",
+  BITCOIN_CORE_WAIT: "bitcoin-core-wait",
   AVAIL_NODE_WAIT: "avail-node-wait",
   AVAIL_CLIENT_WAIT: "avail-light-client-wait",
   HARDHAT_WAIT: "hardhat-wait",

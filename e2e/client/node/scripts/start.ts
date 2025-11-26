@@ -9,6 +9,7 @@ import { launchAvail } from "@effectstream/orchestrator/start-avail";
 import { launchCardano } from "@effectstream/orchestrator/start-cardano";
 import { launchEvm } from "@effectstream/orchestrator/start-evm";
 import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
+import { launchBitcoin } from "@effectstream/orchestrator/start-bitcoin";
 
 const logs = Deno.env.get("EFFECTSTREAM_STDOUT") ? "stdout" : "development";
 const external_db_enabled = Deno.env.get("EXTERNAL_DB_ENABLED") === "true";
@@ -22,6 +23,10 @@ const midnight_enabled = Deno
 
 const avail_enabled = Deno
   ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
+  : true;
+
+const bitcoin_enabled = Deno
+  ? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
   : true;
 
 const config = Value.Parse(OrchestratorConfig, {
@@ -39,6 +44,7 @@ const config = Value.Parse(OrchestratorConfig, {
   // Launch my processes
   processesToLaunch: [
     ...launchEvm("@e2e/evm-contracts"),
+    ...(bitcoin_enabled ? launchBitcoin("@e2e/bitcoin-contracts") : []),
     ...(yaci_enabled ? launchCardano("@e2e/cardano-contracts") : []),
     ...(avail_enabled ? launchAvail("@e2e/avail-contracts") : []),
     ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : []),

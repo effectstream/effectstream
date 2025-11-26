@@ -32,6 +32,10 @@ import {
   CommonResponseMidnightGraphqlParallel,
   ConfigSyncProtocolSchemaMidnightParallel,
 } from "./midnight/graphql.ts";
+import {
+  CommonResponseBitcoinRpcParallel,
+  ConfigSyncProtocolSchemaBitcoinParallel,
+} from "./bitcoin/rpc.ts";
 import type { ToMapping } from "../utils.ts";
 import { ConfigSyncProtocolDecorator } from "./decorators/all.ts";
 import {
@@ -60,6 +64,8 @@ export const parallelSyncProtocolTypes = {
     ConfigSyncProtocolSchemaAvailParallel,
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]:
     ConfigSyncProtocolSchemaMidnightParallel,
+  [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]:
+    ConfigSyncProtocolSchemaBitcoinParallel,
 } as const;
 
 export const syncProtocolCommonResponse = {
@@ -73,6 +79,8 @@ export const syncProtocolCommonResponse = {
   [ConfigSyncProtocolType.AVAIL_PARALLEL]: CommonResponseAvailRpcParallel,
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]:
     CommonResponseMidnightGraphqlParallel,
+  [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]:
+    CommonResponseBitcoinRpcParallel,
 } as const satisfies Record<ConfigSyncProtocolType, TSchema>;
 export type ConfigSyncProtocolCommonAll = typeof syncProtocolCommonResponse;
 

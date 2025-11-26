@@ -7,6 +7,9 @@ export * from "./midnight/state.ts";
 export * from "./avail/fetcher.ts";
 export * from "./avail/state.ts";
 
+export * from "./bitcoin/fetcher.ts";
+export * from "./bitcoin/state.ts";
+
 export * from "./ntp/fetcher.ts";
 export * from "./ntp/state.ts";
 
