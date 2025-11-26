@@ -12,6 +12,7 @@
     "test": "deno run -A --unstable-raw-imports --check scripts/e2e.test.ts"
   },
   "imports": {
+    "@std/path": "jsr:@std/path@^1.1.2",
     "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.111",
     "@paimaexample/config": "jsr:@paimaexample/config@0.3.111",
     "@paimaexample/log": "jsr:@paimaexample/log@0.3.111",

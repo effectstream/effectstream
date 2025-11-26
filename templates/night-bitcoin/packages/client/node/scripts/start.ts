@@ -3,6 +3,7 @@ import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
 import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 import { launchBitcoin } from "@paimaexample/orchestrator/start-bitcoin";
+import { dirname, fromFileUrl, resolve } from "@std/path";
 
 const slugify = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") ||
@@ -17,9 +18,13 @@ type FillerDefinition = {
 
 type WalletType = "bitcoin" | "midnight";
 
+// Get the directory of the current script
+const currentDir = dirname(fromFileUrl(import.meta.url));
+
+// Resolve wallet base paths to absolute paths
 const walletBasePaths: Record<WalletType, string> = {
-  bitcoin: "../../../shared/contracts/bitcoin-contracts/generated",
-  midnight: "../../shared/contracts/midnight-contracts/generated",
+  bitcoin: resolve(currentDir, "../../../shared/contracts/bitcoin-contracts/generated"),
+  midnight: resolve(currentDir, "../../../shared/contracts/midnight-contracts/generated"),
 };
 
 const getWalletPath = (type: WalletType, walletIndex: number) =>
@@ -118,7 +123,7 @@ const config = Value.Parse(OrchestratorConfig, {
       args: ["task", "-f", "@night-bitcoin/bitcoin-contracts", "create-wallets", "1.5", "10", "100"],
       waitToExit: true,
       type: "system-dependency",
-      dependsOn: ['btc-blocks'],
+      dependsOn: [ComponentNames.BITCOIN_GENERATE_BLOCKS],
     },
     {
       name: "create-wallets-midnight",

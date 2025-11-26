@@ -10,6 +10,11 @@ import * as bitcoinMessage from "bitcoinjs-message";
 import * as ecpair from "ecpair";
 import * as tinysecp from "tiny-secp256k1";
 import * as bip32 from "bip32";
+// Midnight dependencies
+import {
+  MidnightBech32m,
+  ShieldedAddress,
+} from "@midnight-ntwrk/wallet-sdk-address-format";
 
 const ECPair = ecpair.ECPairFactory(tinysecp);
 const BIP32 = bip32.BIP32Factory(tinysecp);
@@ -39,16 +44,22 @@ const bitcoinAddress = bitcoin.payments.p2wpkh({
 
 console.log(`🔑 Loaded Bitcoin wallet: ${bitcoinAddress}`);
 
+// Load Midnight wallet
+const midnightWalletData = JSON.parse(Deno.readTextFileSync(MIDNIGHT_WALLET_PATH));
+const midnightSeed = midnightWalletData.seed;
+
+console.log(`🔑 Loaded Midnight wallet: ${midnightWalletData.address}`);
+
 // --- Batcher Setup ---
 
 // NOTE: In production, each filler would have its own unique seed and config.
-// For this template, we reuse the default dev credentials but give them unique namespaces.
+// For this template, we load the wallet seed from the generated wallet file.
 const batcherSetup = buildBatcherSetup({
   fillerName: FILLER_NAME,
   // The batcher internal HTTP server is not needed as we trigger execution directly from the API.
   batcherPort: 0, 
   pollingIntervalMs: FILLER_BATCHER_DEFAULTS.pollingInterval,
-  midnightSeed: FILLER_BATCHER_DEFAULTS.midnightSeed,
+  midnightSeed: midnightSeed,
   bitcoin: {
     rpcUrl: FILLER_BATCHER_DEFAULTS.bitcoin.rpcUrl,
     rpcUser: FILLER_BATCHER_DEFAULTS.bitcoin.rpcUser,
@@ -105,6 +116,24 @@ const NotifyPaymentResponseSchema = Type.Object({
   orderId: Type.String(),
 });
 
+
+const toHex = (bytes: Uint8Array) => {
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+};
+
+const wrapInEither = (value: any) => ({
+  is_left: true,
+  left: value,
+  right: { bytes: toHex(new Uint8Array(32).fill(0)) },
+});
+
+const extractPublicAddress = (bech32mAddress: string) => {
+  const shieldedAddress = ShieldedAddress.codec.decode(
+    "undeployed",
+    MidnightBech32m.parse(bech32mAddress),
+  );
+  return toHex(shieldedAddress.coinPublicKey.data);
+};
 
 const tokens = ["btc", "eth", "m20", "wbtc"];
 const basePrices = [100000, 4000, 0.5, 100000];
@@ -187,19 +216,19 @@ server.post<{
 
     } else if (token === "m20") {
        const timestamp = new Date().toISOString();
+       const publicAddress = extractPublicAddress(toAddress);
        // Queue the transaction via the Batcher
        await batcher.batchInput({
           address: "filler-midnight",
           addressType: AddressType.MIDNIGHT,
           input: JSON.stringify({
-             type: "transfer",
-             toAddress: toAddress,
-             amount: Math.floor(amount)
+             circuit: "transfer",
+             args: [wrapInEither({bytes: publicAddress}), amount],
           }),
           signature: "0x",
           timestamp,
           target: "midnight"
-       });
+       }, "no-wait");
     }
   } catch (e) {
     console.error("Error executing payment:", e);
@@ -211,31 +240,57 @@ server.post<{
 });
 
 
+batcher.addStateTransition("error", (input) => {
+  console.error("------🦊🦊🦊🦊🦊🦊🦊🦊🦊🦊-----");
+  console.error("Error executing payment:", input);
+  console.error("------🦊🦊🦊🦊🦊🦊🦊🦊🦊🦊-----");
+  return;
+});
+
+batcher.addStateTransition("batch:submit", (input) => {
+  console.log("------🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸-----");
+  console.log("Batch submitted:", input);
+  console.log("------🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸-----");
+  return;
+});
+
+
 // --- Main Execution ---
 
 main(function* () {
   console.log(`🚀 Starting Filler "${FILLER_NAME}" Service on port ${PORT}`);
 
-  // Start the Batcher
+  // Initialize batcher synchronously - fail fast if wallet not ready
+  try {
+    console.log("🔄 Initializing batcher (waiting for Midnight wallet sync & funds)...");
+    yield* call(() => batcher.init());
+    console.log("✅ Batcher initialized and ready!");
+  } catch (error) {
+    console.error("❌ Batcher initialization failed:", error);
+    console.error("💡 Ensure the Midnight wallet is funded before starting the filler");
+    Deno.exit(1);
+  }
+
+  // Start batcher polling loop (batcher is already initialized)
   yield* spawn(function*() {
-      try {
-        yield* batcher.runBatcher();
-      } catch (error) {
-        console.error("❌ Batcher error:", error);
-        yield* batcher.gracefulShutdownOp();
-      }
+    try {
+      yield* batcher.runPollingLoop();
+    } catch (error) {
+      console.error("❌ Batcher polling error:", error);
+      Deno.exit(1);
+    }
   });
 
-  // Start the HTTP Server
+  // Start Filler HTTP Server (only after batcher is ready)
   yield* spawn(function*() {
     try {
         yield* call(() => server.listen({ port: PORT, host: '0.0.0.0' }));
-        console.log(`HTTP Server listening at http://0.0.0.0:${PORT}`);
+        console.log(`✅ Filler HTTP Server listening at http://0.0.0.0:${PORT}`);
         
         yield* suspend();
     } catch (err) {
         server.log.error(err);
-        process.exit(1);
+        Deno.exit(1);
     } finally {
         yield* call(() => server.close());
     }
