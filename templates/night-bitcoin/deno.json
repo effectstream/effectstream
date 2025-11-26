@@ -5,6 +5,7 @@
   "nodeModulesDir": "auto",
   "tasks": {
     "build:midnight": "deno task -r compact",
+    "build:bitcoin": "echo 'done'",
     "dev": "deno task -f @night-bitcoin/node dev",
     "start:frontend": "deno task -f @night-bitcoin/frontend dev",
     "check": "deno task -f @night-bitcoin/node check"

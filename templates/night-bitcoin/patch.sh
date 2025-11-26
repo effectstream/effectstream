@@ -54,7 +54,7 @@ replace_complex_content() {
         printf '%s' "$new_content" > "$temp_new"
         
         # Use python for reliable string replacement
-        python3 -c "
+        if python3 -c "
 import sys
 with open('$file', 'r') as f:
     content = f.read()
@@ -62,14 +62,21 @@ with open('$temp_old', 'r') as f:
     old = f.read()
 with open('$temp_new', 'r') as f:
     new = f.read()
+
+if old not in content:
+    sys.exit(1)
+
 content = content.replace(old, new)
 with open('$file', 'w') as f:
     f.write(content)
-"
+"; then
+            echo "✅ Replaced complex content in $file"
+        else
+            echo "❌ Failed to replace content in $file (pattern not found)"
+        fi
         
         # Clean up temp files
         rm "$temp_old" "$temp_new"
-        echo "✅ Replaced complex content in $file"
     else
         echo "⚠️  Warning: File $file not found"
     fi
@@ -102,8 +109,7 @@ echo "✅ All patches applied successfully"
 
 # Apply Specific Patches
 echo "Replacing fetch-blob streams.cjs content..."
-replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/streams.cjs" "if (!globalThis.ReadableStream) {
-  // \`node:stream/web\` got introduced in v16.5.0 as experimental
+replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/streams.cjs" "  // \`node:stream/web\` got introduced in v16.5.0 as experimental
   // and it's preferred over the polyfilled version. So we also
   // suppress the warning that gets emitted by NodeJS for using it.
   try {

@@ -17,18 +17,6 @@ SELECT * FROM quotes
 WHERE order_id = :order_id!
 ;
 
-/* @name insertPayment */
-INSERT INTO payments 
-(amount, token, chain_id, to_wallet, from_wallet, order_id) 
-VALUES 
-(:amount!, :token!, :chain_id!, :to_wallet!, :from_wallet!, :order_id!) 
-;
-
-/* @name getPayments */
-SELECT * FROM payments 
-WHERE order_id = :order_id!
-;
-
 /* @name insertIntent */
 INSERT INTO intents 
 (

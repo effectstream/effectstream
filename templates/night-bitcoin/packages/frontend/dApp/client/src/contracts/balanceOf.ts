@@ -1,6 +1,3 @@
-import {
-  MultiChainMultiToken,
-} from "@multi-chain-transfer/midnight-contract-eip-1155";
 import { getPublicStates, PublicContractStates } from '@midnight-ntwrk/midnight-js-contracts';
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
@@ -39,10 +36,17 @@ function extractPublicCoinAddress(bech32mAddress: string): string {
   ];
   return toHex(coinPublicKey);
 }
+
 const toHex = (bytes: Uint8Array) =>
   Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+
+function convertToBigInt(tokenBalance: Uint8Array) {
+  return BigInt("0x" + Array.from(tokenBalance?.reverse() ?? new Uint8Array())
+  .map(b => b.toString(16).padStart(2, "0"))
+  .join(""));
+}
+
 const convertToEither = (rawValue: [Uint8Array, Uint8Array, Uint8Array]) => {
-  console.log("rawValue", rawValue);
   const isLeft = rawValue[0].toString() === "1";
   return {
     is_left: isLeft,
@@ -50,8 +54,8 @@ const convertToEither = (rawValue: [Uint8Array, Uint8Array, Uint8Array]) => {
     right: { bytes: toHex(rawValue[2]) },
   };
 }
-
-function getBalanceMap(publicStates: PublicContractStates): bigint {
+function getBalanceMap(publicStates: PublicContractStates): Map<string, bigint> {
+  const balanceMap = new Map<string, bigint>();
   //   Array(2) [
   //     Array(1) [
   //         Map {
@@ -79,32 +83,28 @@ function getBalanceMap(publicStates: PublicContractStates): bigint {
 
 
   const balances = publicStates.contractState.data.asArray()![0]!.asArray()![0]!.asMap();
-  const balanceKey = balances?.keys()[0];
-  let tokenBalance;
-
+  const balanceKeys = balances?.keys()!;
   try {
-    tokenBalance = balances?.get(balanceKey!)?.asCell().value[0];
+    for (const balanceKey of balanceKeys) {
+      // Get Address from Map Key
+      const addressEither = convertToEither(balanceKey.value as any);
+      const address = addressEither.is_left ? addressEither.left.bytes : addressEither.right.bytes;
+      // Get Token Balance from Map Value
+      const cell = balances!.get(balanceKey!)!.asCell();
+      // Set in Map
+      balanceMap.set(address, convertToBigInt(cell!.value[0]));
+    }
   } catch (error) {
     console.error("Error getting balance map", error);
     return new Map<string, bigint>();
   }
-  
-
-    const mapValue = BigInt("0x" + Array.from(tokenBalance?.reverse() ?? new Uint8Array())
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join(""));
-    
-  return mapValue;
+  return balanceMap;
 }
 
 export async function balanceOf(address: string): Promise<bigint> {
   const contractAddress = await getContractAddress();
   const publicStates = await getPublicStates(providers.publicDataProvider, contractAddress);
-  const balance = getBalanceMap(publicStates);
-  // const parsedAddress = address.startsWith("mn_") ? extractPublicCoinAddress(address) : address;
-  // return balanceMap.get(parsedAddress) ?? 0n;
-  if (isNaN(Number(balance))) {
-    return 0n;
-  }
-  return balance;
+  const balanceMap = getBalanceMap(publicStates);
+  const parsedAddress = address.startsWith("mn_") ? extractPublicCoinAddress(address) : address;
+  return balanceMap.get(parsedAddress) ?? 0n;
 }

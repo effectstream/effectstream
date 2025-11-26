@@ -1,0 +1,140 @@
+import { walletLogin, WalletMode } from "@paimaexample/wallets";
+
+import * as unshielded_erc20 from "./contracts/erc20.ts";
+import * as erc7683 from "./contracts/intents.ts";
+
+export async function loginMidnight() {
+  const result = await walletLogin({
+    mode: WalletMode.Midnight,
+  });
+
+  if (!result.success) throw new Error("Cannot login");
+  const paimaWallet = result.result;
+
+  const response = {
+    addr: "",
+    contract: {
+      unshielded_erc20: null,
+      erc7683: null,
+    },
+    contractAddress: {
+      unshielded_erc20: "",
+      erc7683: "",
+    },
+    stateA: {
+      unshielded_erc20: null,
+      erc7683: null,
+    },
+    stateB: {
+      unshielded_erc20: null,
+      erc7683: null,
+    },
+    wallet: null,
+  } as any;
+
+  {
+    const { injectedWallet, providers } =
+      await unshielded_erc20.connectMidnightWallet(
+        (paimaWallet.provider as any).conn.api
+      );
+
+    response.stateA.unshielded_erc20 = await injectedWallet.state();
+    response.addr = response.stateA.unshielded_erc20.address;
+
+    const {
+      contract,
+      state: state2,
+      contractAddress,
+    } = await unshielded_erc20.connectToContract(providers);
+    response.contract.unshielded_erc20 = contract;
+    response.stateB.unshielded_erc20 = state2;
+    response.contractAddress.unshielded_erc20 = contractAddress;
+  }
+  {
+    const { injectedWallet, providers } =
+      await erc7683.connectMidnightWallet(
+        (paimaWallet.provider as any).conn.api
+      );
+
+    response.stateA.erc7683 = await injectedWallet.state();
+    response.addr = response.stateA.erc7683.address;
+
+    const {
+      contract: erc7683Contract,
+      state: erc7683State,
+      contractAddress: erc7683ContractAddress,
+    } = await erc7683.connectToContract(providers);
+    response.contract.erc7683 = erc7683Contract;
+    response.stateB.erc7683 = erc7683State;
+    response.contractAddress.erc7683 = erc7683ContractAddress;
+  }  
+
+  return response;
+}
+
+
+export async function midnight_balanceOf(contract: any, addr: string) {
+  try {
+    console.log("Balance of", contract, addr);
+    return await unshielded_erc20.balanceOf(contract, addr);
+  } catch (error) {
+    console.error(0, { error });
+  }
+}
+
+export async function createIntent(
+  contract: any,
+  addr: string,
+  config: {
+    user: string,
+    orderId: string,
+
+    originChainId: bigint,
+    destinationChainId: bigint,
+    
+    maxSpent_token: string,
+    maxSpent_amount: bigint,
+    maxSpent_recipient: string,
+    maxSpent_chainId: bigint,
+
+    minReceived_token: string,
+    minReceived_amount: bigint,
+    minReceived_recipient: string,
+    minReceived_chainId: bigint,
+
+    originData: {
+      targetWallet: string,
+    },
+},
+) {
+  try {
+    return await erc7683.createIntent(contract, addr, config);
+  } catch (error) {
+    console.error(1, { error });
+  }
+}
+
+export async function m20_mint(
+  contract: any,
+  account: string,
+  amount: bigint,
+) {
+  try {
+    return await unshielded_erc20.mint(contract, account, amount);
+  } catch (error) {
+    console.error(1, { error });
+  }
+}
+
+export async function m20_transferFrom(
+  contract: any,
+  fromAccount: string,
+  toAccount: string,
+  amount: bigint,
+) {
+  try {
+    return await unshielded_erc20.transferFrom(contract, fromAccount, toAccount, amount);
+  } catch (error) {
+    console.error(1, { error });
+  }
+}

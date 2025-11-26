@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import * as paima from './paima.ts';
+import * as apiInterface from './interface.ts';
 
 // Mock data for tokens and quotes
 const tokens = [
@@ -82,7 +82,7 @@ function App() {
   const updateM20Balance = async (wallet: any) => {
     if (!wallet) return;
     try {
-      const balance = await paima.midnight_balanceOf(wallet.contract.unshielded_erc20, wallet.addr);
+      const balance = await apiInterface.midnight_balanceOf(wallet.contract.unshielded_erc20, wallet.addr);
       if (balance !== undefined && balance !== null) {
         // M20 seems to have 8 decimal places from other parts of the code.
         const formattedBalance = Number(balance) / 10**8;
@@ -253,7 +253,7 @@ function App() {
   const handleMidnightLogin = async () => {
     setLoading(true);
     try {
-      const data = await paima.loginMidnight();
+      const data = await apiInterface.loginMidnight();
       setMidnightWallet(data);
       setMidnightAddress(data.addr);
       await updateM20Balance(data);
@@ -288,7 +288,7 @@ function App() {
     }
     setLoading(true);
     try {
-      await paima.m20_mint(midnightWallet.contract.unshielded_erc20, midnightWallet.addr, 1000n * 100000000n);
+      await apiInterface.m20_mint(midnightWallet.contract.unshielded_erc20, midnightWallet.addr, 1000n * 100000000n);
       setTimeout(() => updateM20Balance(midnightWallet), 2000); // optimistic refresh
       setPopup({
         show: true,
@@ -321,20 +321,6 @@ function App() {
         setM20Recipient('');
       }
       setShowM20Popup(true);
-    } else {
-      // setLoading(true);
-      // // This is the part that needs to be connected to createIntent for other tokens
-      // // For now, it shows a popup as a placeholder
-      // console.log('Swap now for non-BTC token');
-      // const intent = await paima.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, {});
-      // setTimeout(() => {
-      //   setLoading(false);
-      //   setPopup({
-      //     show: true,
-      //     title: 'Swap Successful!',
-      //     message: 'Your transaction has been completed.',
-      //   });
-      // }, 2000); // Simulate a 2-second swap process
     }
   };
 
@@ -366,10 +352,10 @@ function App() {
           targetWallet: midnightWallet.addr,
         },
       };
-      const intentResult = await paima.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, intentConfig);
+      const intentResult = await apiInterface.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, intentConfig);
 
       const m20Amount = BigInt(parseFloat(amount) * Math.pow(10, 8));
-      const transferResult = await paima.m20_transferFrom(
+      const transferResult = await apiInterface.m20_transferFrom(
         midnightWallet.contract.unshielded_erc20,
         midnightWallet.addr,
         "mn_shield-addr_undeployed1mjngjmnlutcq50trhcsk3hugvt9wyjnhq3c7prryd5nqmvtzva0sxqpvzkdy4k9u7eyffff53cge62tqylevq3wqps86tdjuahsquwvucsy9kffv",
@@ -437,7 +423,7 @@ function App() {
           targetWallet: btcAddress,
         },
       };
-      const intentResult = await paima.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, intentConfig);
+      const intentResult = await apiInterface.createIntent(midnightWallet.contract.erc7683, midnightWallet.addr, intentConfig);
 
       if (!intentResult) {
         setPopup({

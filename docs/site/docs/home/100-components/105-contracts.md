@@ -85,7 +85,7 @@ This approach has significant advantages:
 *   **Flexibility**: You can add new game actions without needing to deploy a new contract.
 *   **Chain Abstraction**: It is the entry point for the **Batcher**, which allows users to submit inputs from any chain, often without paying gas fees themselves.
 
-More in the [Paima L2 Contract Section](./104-effectstream-l2-contract.md)
+More in the [Paima L2 Contract Section](./104-l2-contract.md)
 
 ### Effectstream-Provided Contracts
 The `@effectstream/evm-contracts` package includes a variety of useful contracts, including implementations of common standards and the core `PaimaL2Contract`.

@@ -12,17 +12,6 @@ CREATE TABLE quotes (
 
 CREATE UNIQUE INDEX quotes_order_id_filler_index ON quotes(order_id, filler);
 
-CREATE TABLE payments (
-  id SERIAL PRIMARY KEY,
-  amount NUMERIC(78,0) NOT NULL,
-  token TEXT NOT NULL,
-  chain_id TEXT NOT NULL,
-  to_wallet TEXT NOT NULL,
-  from_wallet TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  order_id TEXT NOT NULL
-);
-
 CREATE TABLE intents (
   id SERIAL PRIMARY KEY,
   order_id TEXT NOT NULL,
