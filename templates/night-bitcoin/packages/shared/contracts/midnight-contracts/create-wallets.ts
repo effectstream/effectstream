@@ -76,7 +76,7 @@ if (import.meta.main) {
         }
     }
     if (mint) {
-        await joinAndMint(wallets.map(wallet => wallet.address), 250000000000n);
+        await joinAndMint(wallets.map(wallet => wallet.address), 250000000000000n);
         await faucet(wallets.map(wallet => wallet.address));
     }
 }

@@ -14,21 +14,21 @@
     "test": "deno run -A --unstable-raw-imports --check scripts/e2e.test.ts"
   },
   "imports": {
-    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.108",
-    "@paimaexample/config": "jsr:@paimaexample/config@0.3.108",
-    "@paimaexample/log": "jsr:@paimaexample/log@0.3.108",
-    "@paimaexample/orchestrator": "jsr:@paimaexample/orchestrator@0.3.108",
-    "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.108",
-    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.108",
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.108",
-    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.108",
-    "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.108",
-    "@paimaexample/db": "jsr:@paimaexample/db@0.3.108",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.115",
+    "@paimaexample/config": "jsr:@paimaexample/config@0.3.115",
+    "@paimaexample/log": "jsr:@paimaexample/log@0.3.115",
+    "@paimaexample/orchestrator": "jsr:@paimaexample/orchestrator@0.3.115",
+    "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.115",
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.115",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.115",
+    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.115",
+    "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.115",
+    "@paimaexample/db": "jsr:@paimaexample/db@0.3.115",
     "fastify": "npm:fastify@^5.4.0",
     "pg": "npm:pg@^8.14.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "effection": "npm:effection@^3.5.0",
-    "@paimaexample/explorer": "npm:@paimaexample/explorer@0.3.108",
+    "@paimaexample/explorer": "npm:@paimaexample/explorer@0.3.115",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.3.0"
   }
 }

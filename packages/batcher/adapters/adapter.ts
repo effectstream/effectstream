@@ -144,4 +144,13 @@ export interface BlockchainAdapter<TOutput> {
   validateInput?(
     input: DefaultBatcherInput,
   ): ValidationResult | Promise<ValidationResult>;
+
+  /**
+   * (Optional) Recover adapter state after batcher initialization.
+   * This is called after storage.init() but before processing starts,
+   * allowing adapters to rebuild internal state from persisted inputs.
+   * Useful for stateful adapters (e.g., Bitcoin tracking reserved funds).
+   * @param pendingInputs - All pending inputs for this adapter from storage.
+   */
+  recoverState?(pendingInputs: DefaultBatcherInput[]): Promise<void> | void;
 }

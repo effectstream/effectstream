@@ -36,13 +36,14 @@ type WalletData = {
   derivationPath: string;
   derivedAddress: string;
   derivedPrivateKey: string;
+  createdAt: string;
 };
 
 const generateWallet = async (
   _seed?: string | undefined
 ): Promise<WalletData> => {
   const seedString = _seed || getRandomString(256);
-  const seed = Buffer.from(seedString, "hex");
+  const seed = Buffer.from(seedString.replace("0x", ""), "hex");
   const masterNode = BIP32.fromSeed(seed, NETWORK);
 
   // ------------------------------------------------------------
@@ -58,7 +59,7 @@ const generateWallet = async (
   const xpubPath = "m/84'/1'/0'/0/0";
   const derivedAccount = masterNode.derivePath(xpubPath);
   const derivedAddress = bitcoin.payments.p2wpkh({
-    pubkey: Buffer.from(derivedAccount.publicKey as any, "hex"),
+    pubkey: Buffer.from(derivedAccount.publicKey!),
     network: NETWORK,
   }).address;
   const derivedPrivateKey = derivedAccount.toBase58();
@@ -70,6 +71,7 @@ const generateWallet = async (
   ${"Master Public Key (xpub):".padEnd(30, " ")} ${xpub}
   ${"Private Key [${xpubPath}]".padEnd(30, " ")} ${derivedPrivateKey}
   ${"Address [${xpubPath}]".padEnd(30, " ")} ${derivedAddress}
+  ${"Created At:".padEnd(30, " ")} ${new Date().toISOString()}
 --------------------------------`);
   return {
     seed: seedString,
@@ -78,6 +80,7 @@ const generateWallet = async (
     derivationPath: xpubPath,
     derivedAddress: derivedAddress!,
     derivedPrivateKey: derivedPrivateKey!,
+    createdAt: new Date().toISOString(),
   };
 };
 

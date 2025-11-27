@@ -34,6 +34,9 @@ interface BlockchainAdapter<TOutput> {
   verifySignature?(input): boolean | Promise<boolean>;
   validateInput?(input): ValidationResult | Promise<ValidationResult>;
   
+  // State recovery (optional)
+  recoverState?(pendingInputs): Promise<void> | void;
+  
   // Metadata and state
   getAccountAddress(): string;
   getChainName(): string;
@@ -757,6 +760,148 @@ async getBlockNumber(): Promise<bigint> {
   return await this.publicClient.getBlockNumber();
 }
 ```
+
+---
+
+### 8. `recoverState()` – Crash Recovery (Optional)
+
+**Pipeline Step:** Initialization (called after `storage.init()` but before polling starts)
+
+**Purpose:** Rebuild adapter internal state from persisted inputs after a batcher crash or restart. This is essential for stateful adapters that track information like reserved funds, pending operations, or caches.
+
+**Signature:**
+```typescript
+recoverState?(pendingInputs: DefaultBatcherInput[]): Promise<void> | void
+```
+
+**When to Implement:**
+- Your adapter maintains internal state based on queued inputs
+- You need to track reserved resources (e.g., Bitcoin reserved funds)
+- You cache information that must be rebuilt after restart
+- Your adapter performs pre-validation that affects later operations
+
+**Example: BitcoinAdapter (Fund Reservation Recovery)**
+
+The Bitcoin adapter tracks `reservedSatFunds` to prevent over-committing during validation. After a crash, this in-memory counter must be rebuilt from storage:
+
+```typescript
+async recoverState(pendingInputs: DefaultBatcherInput[]): Promise<void> {
+  // Rebuild reserved funds from pending inputs in storage
+  this.reservedSatFunds = 0;
+  
+  for (const input of pendingInputs) {
+    try {
+      const payload: BitcoinRequest = JSON.parse(input.input);
+      this.reservedSatFunds += payload.amountSats;
+    } catch (e) {
+      console.warn(`BitcoinAdapter: Failed to parse input during state recovery:`, e);
+    }
+  }
+  
+  console.log(
+    `BitcoinAdapter: Recovered state - ${this.reservedSatFunds} sats reserved ` +
+    `across ${pendingInputs.length} pending inputs`
+  );
+}
+
+async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
+  const payload: BitcoinRequest = JSON.parse(input.input);
+  
+  // Check if batcher has sufficient funds
+  const balance = await this.getBatcherBalance();
+  const availableFunds = balance - this.reservedSatFunds;  // Uses recovered state
+  
+  if (availableFunds < payload.amountSats + estimatedFee) {
+    return {
+      valid: false,
+      error: `Insufficient batcher funds. Available: ${availableFunds} sats`
+    };
+  }
+  
+  // Reserve funds for this transaction
+  this.reservedSatFunds += payload.amountSats;
+  return { valid: true };
+}
+
+async submitBatch(data: BitcoinBatchPayload, fee: string | bigint): Promise<BlockchainHash> {
+  // ... build and sign transaction ...
+  
+  const txId = await this.rpcCall("sendrawtransaction", [txHex]);
+  
+  // Liberate reserved funds after successful submission
+  this.reservedSatFunds -= data.totalAmountSats;
+  
+  return txId;
+}
+```
+
+**Example: Custom Caching Adapter**
+
+```typescript
+async recoverState(pendingInputs: DefaultBatcherInput[]): Promise<void> {
+  // Rebuild user action cache
+  this.userActionCache.clear();
+  
+  for (const input of pendingInputs) {
+    const userId = this.extractUserId(input);
+    if (!this.userActionCache.has(userId)) {
+      this.userActionCache.set(userId, []);
+    }
+    this.userActionCache.get(userId)!.push(input);
+  }
+  
+  console.log(
+    `Recovered cache for ${this.userActionCache.size} users with ` +
+    `${pendingInputs.length} pending actions`
+  );
+}
+```
+
+**Lifecycle Integration:**
+
+The batcher calls `recoverState()` during initialization for each registered adapter:
+
+```typescript
+// In batcher.init() or runBatcher()
+await storage.init();
+
+// Recover state for each adapter
+for (const [target, adapter] of Object.entries(this.adapters)) {
+  if (typeof adapter.recoverState === "function") {
+    const pendingInputs = await storage.getInputsByTarget(target, defaultTarget);
+    await adapter.recoverState(pendingInputs);
+  }
+}
+
+// Now start polling and processing batches
+```
+
+:::tip When to Skip Recovery
+If your adapter is stateless (e.g., it only needs configuration and doesn't track anything based on inputs), you don't need to implement `recoverState()`. Most simple adapters fall into this category.
+:::
+
+:::warning Memory Leak Prevention
+Without `recoverState()`, stateful adapters can experience memory leaks after crashes:
+
+**Without Recovery:**
+```
+1. Input A validated → reservedFunds = 5000 → stored to disk
+2. Input B validated → reservedFunds = 10000 → stored to disk
+3. 💥 CRASH
+4. Restart → reservedFunds = 0 (reset!) ❌
+5. Input C validation sees wrong available balance
+```
+
+**With Recovery:**
+```
+1. Input A validated → reservedFunds = 5000 → stored to disk
+2. Input B validated → reservedFunds = 10000 → stored to disk  
+3. 💥 CRASH
+4. Restart → storage.init()
+5. recoverState([A, B]) → reservedFunds = 10000 ✅
+6. Input C validation sees correct available balance
+```
+:::
 
 ---
 

@@ -50,6 +50,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   private readonly network: bitcoin.Network;
   public readonly maxBatchSize: number;
   private readonly batcherAddress: string;
+  private reservedSatFunds: number = 0;
   private addressChecked = false;
 
   constructor(config: BitcoinAdapterConfig) {
@@ -122,6 +123,22 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     }
   }
 
+  async recoverState(pendingInputs: DefaultBatcherInput[]): Promise<void> {
+    // Rebuild reserved funds from pending inputs in storage
+    this.reservedSatFunds = 0;
+    
+    for (const input of pendingInputs) {
+      try {
+        const payload: BitcoinRequest = JSON.parse(input.input);
+        this.reservedSatFunds += payload.amountSats;
+      } catch (e) {
+        console.warn(`BitcoinAdapter: Failed to parse input during state recovery:`, e);
+      }
+    }
+    
+    console.log(`BitcoinAdapter: Recovered state - ${this.reservedSatFunds} sats reserved across ${pendingInputs.length} pending inputs`);
+  }
+
   async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
     try {
       const payload: BitcoinRequest = JSON.parse(input.input);
@@ -138,6 +155,23 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
         return { valid: false, error: "Invalid Regtest address" };
       }
 
+      // Check if batcher has sufficient funds
+      const balance = await this.getBatcherBalance();
+      const availableFunds = balance - this.reservedSatFunds;
+      const estimatedFee = await this.estimateSingleTransactionFee(payload.amountSats);
+
+      if (availableFunds < payload.amountSats + Number(estimatedFee)) {
+        return {
+          valid: false,
+          error: `Insufficient batcher funds.
+          Available funds: ${availableFunds} sats:
+          - wallet balance: ${balance} sats,
+          - reserved funds: ${this.reservedSatFunds} sats,
+          Required funds: ${payload.amountSats + Number(estimatedFee)} sats`
+        };
+      }
+      // Reserve funds for the transaction
+      this.reservedSatFunds += payload.amountSats;
       return { valid: true };
     } catch (e) {
       return { valid: false, error: "Malformed JSON input" };
@@ -237,13 +271,14 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
         },
       });
     }
-
+    let liberatedSatFunds = 0;
     // Add Recipient Outputs
     for (const recipient of data.recipients) {
       psbt.addOutput({
         address: recipient.address,
         value: recipient.value,
       });
+      liberatedSatFunds += recipient.value;
     }
 
     // Add Change Output
@@ -267,8 +302,10 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     const tx = psbt.extractTransaction();
     const txHex = tx.toHex();
     const txId = await this.rpcCall("sendrawtransaction", [txHex]);
-
-    console.log(`🚀 Submitted Bitcoin Batch: ${txId}`);
+    this.reservedSatFunds -= liberatedSatFunds;
+    console.log(`🚀 Submitted Bitcoin Batch: ${txId}
+    - liberated funds: ${liberatedSatFunds} sats
+    - reserved funds: ${this.reservedSatFunds} sats`);
     return txId;
   }
 
@@ -381,6 +418,34 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
       vout: entry.vout,
       amount: entry.amount,
     }));
+  }
+
+  private async getBatcherBalance(): Promise<number> {
+    await this.ensureAddressWatched();
+    const utxos = await this.fetchBatcherUtxos(1);
+    return Math.round(utxos.reduce((sum, utxo) => sum + (utxo.amount * 100_000_000), 0));
+  }
+
+  private async estimateSingleTransactionFee(amountSats: number): Promise<bigint> {
+    // Estimate fee for a single-output transaction
+    // Conservative estimate: overhead (10) + 1 input (148) + 2 outputs (34*2) = ~256 vbytes
+    const estVBytes = 10 + 148 + (2 * 34); // 1 recipient + 1 change output
+
+    try {
+      const feeRateResult = await this.rpcCall("estimatesmartfee", [6]);
+
+      // Fallback fee rate (0.00001 BTC/kB = 1 sat/vbyte) if regtest has no history
+      const feeRateBtcPerKvB = feeRateResult.feerate || 0.00001;
+      const feeRateSatsPerByte = (feeRateBtcPerKvB * 100_000_000) / 1000;
+
+      // Round up and add some buffer for safety
+      const feeSats = Math.ceil(estVBytes * feeRateSatsPerByte * 1.2); // 20% buffer
+      return BigInt(Math.max(feeSats, 1000)); // Minimum 1000 sats fee
+    } catch (error) {
+      console.warn("BitcoinAdapter: Fee estimation failed, using conservative default", error);
+      // Conservative default: 1000 sats for regtest
+      return BigInt(1000);
+    }
   }
 
   private async rpcCall(method: string, params: any[]): Promise<any> {

@@ -11,8 +11,8 @@
     "check": "deno task -f @night-bitcoin/node check"
   },
   "imports": {
-    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.110",
-    "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.3.110",
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.115",
+    "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.3.115",
     "@std/path": "jsr:@std/path@^1.1.2"
   },
   "lint": {
