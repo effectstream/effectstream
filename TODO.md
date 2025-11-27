@@ -221,10 +221,12 @@
 - [ ] **Minimal Deno Version** Minimal version of deno 2.5.4 is required [This check is required for remoteAddr].
 - [ ] **Dependency Updates** Check if dependencies can be updated. 
 - [ ] **Default Task Scripts Names** Allow to override Orchestrator default expected task scripts names
-- [ ] **Multiple Packages** Issue with multiple packages with the same name get imported multiple times (e.g., @polkadot at startup)
+- [ ] **Multiple Packages** Issue with multiple packages with the same name get imported multiple times (e.g., @polkadot at startup and in vite/esbuild) @polkadot/keyring has multiple versions, ensure that there is only one installed. Either remove and explicitly install matching versions or dedupe using your package manager.
 - [ ] **Hardhat 3 Update** Update HARDHAT to latest version 3.x.x
 - [ ] **JSR/NPM Issues** Working locally with Templates & JSR packages is hard, as there is no (?) way to map the jsr:@paimaexample/package to the local package for development. Making publishing an updates to the registry required to work on the templates. One option would be to have a local JSR registry, but it does not look possible to do now. Deno Package patch/links might resolve this issue, but it's not completely implemented. Another alternative is publish to NPM, and use these packages - as there are more tools available for npm.
-
+- [ ] Fix message at templates: "No matching task or script 'clean' found in selected packages
+- [ ] Stablize deno.lock(s) so they don't get changed each time the system is ran in different computers. I'm guessing we have some dynamic imports, and that these scripts don't get always executed.
+  
 ---
 ## Project Generator / Scaffolding
 
