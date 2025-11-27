@@ -142,6 +142,7 @@
     "npm:@sinclair/typebox@~0.34.30": "0.34.41",
     "npm:@sinclair/typebox@~0.34.41": "0.34.41",
     "npm:@subsquid/ss58-codec@^1.2.3": "1.2.3",
+    "npm:@txpipe/dolos@*": "0.19.1",
     "npm:@txpipe/dolos@0.19.1": "0.19.1",
     "npm:@types/node@*": "24.2.0",
     "npm:@types/react@18.3.1": "18.3.1",
@@ -239,6 +240,7 @@
     "npm:typescript@~5.6.2": "5.6.3",
     "npm:varuint-bitcoin@^1.1.2": "1.1.2",
     "npm:viem@*": "2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
+    "npm:viem@2.23.10": "2.23.10_typescript@5.6.3_ws@8.18.1",
     "npm:viem@2.37.3": "2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
     "npm:viem@^2.21.3": "2.38.6_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
     "npm:vite-plugin-node-stdlib-browser@*": "0.2.1_node-stdlib-browser@1.3.1_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
@@ -12650,6 +12652,12 @@
         "ws@8.18.0"
       ]
     },
+    "isows@1.0.6_ws@8.18.1": {
+      "integrity": "sha512-lPHCayd40oW98/I0uvgaHKWCSvkzY27LjWLbtzOm64yQ+G3Q5npjjbdppU65iZXkK1Zt+kH9pfegli0AYfwYYw==",
+      "dependencies": [
+        "ws@8.18.1"
+      ]
+    },
     "isows@1.0.7_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10": {
       "integrity": "sha512-I1fSfDCZL5P0v33sVqeTDSpcstAg/N+wF5HS033mogOVIp4B+oHC7oOCsA3axAbBSGTJ8QubbNmnIRN/h8U7hg==",
       "dependencies": [
@@ -14430,7 +14438,7 @@
       "integrity": "sha512-wi5ShvzE4eOcTwQVsIPdFr+8ycyX+5le/96iAJutaZAvCes1J0+RvpEPg5QDPDiaR0XQQAvZVl7AwqQcINuUug==",
       "dependencies": [
         "@adraffy/ens-normalize@1.11.1",
-        "@noble/curves@1.9.1",
+        "@noble/curves@1.9.7",
         "@noble/hashes@1.8.0",
         "@scure/bip32@1.7.0",
         "@scure/bip39@1.6.0",
@@ -17933,6 +17941,23 @@
       "dependencies": [
         "@types/unist@3.0.3",
         "vfile-message"
+      ]
+    },
+    "viem@2.23.10_typescript@5.6.3_ws@8.18.1": {
+      "integrity": "sha512-va6Wde+v96PdfzdPEspCML1MjAqe+88O8BD+R9Kun/4s5KMUNcqfHbXdZP0ZZ2Zms80styvH2pDRAqCho6TqkA==",
+      "dependencies": [
+        "@noble/curves@1.8.1",
+        "@noble/hashes@1.7.1",
+        "@scure/bip32@1.6.2",
+        "@scure/bip39@1.5.4",
+        "abitype@1.0.8_typescript@5.6.3",
+        "isows@1.0.6_ws@8.18.1",
+        "ox@0.6.9_typescript@5.6.3",
+        "typescript",
+        "ws@8.18.1"
+      ],
+      "optionalPeers": [
+        "typescript"
       ]
     },
     "viem@2.23.2_typescript@5.6.3_ws@8.18.0": {

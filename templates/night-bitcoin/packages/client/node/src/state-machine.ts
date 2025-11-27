@@ -20,6 +20,7 @@ import {
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 import { transferFunds } from "@night-bitcoin/bitcoin-contracts/transfer-funds";
 import { transferFunds as transferFundsMidnight } from "@night-bitcoin/midnight-contracts/transfer-funds";
+import { dirname, fromFileUrl, resolve } from "@std/path";
 
 const CHAIN_IDS = {
   BITCOIN: "1",
@@ -87,23 +88,68 @@ type CheckParamsType = {
   token: string;
 }
 
+// Filler definitions matching start.ts
+const FILLER_DEFINITIONS = [
+  { name: "Alpha Liquidity", port: 16101, walletIndex: 0 },
+  { name: "Omega Swap", port: 16102, walletIndex: 1 },
+  { name: "Quantum Pools", port: 16103, walletIndex: 2 },
+  { name: "Zenith Trade", port: 16104, walletIndex: 3 },
+  { name: "Orion Exchange", port: 16105, walletIndex: 4 },
+  { name: "Nexus Liquidity", port: 16106, walletIndex: 5 },
+  { name: "Phoenix Finance", port: 16107, walletIndex: 6 },
+  { name: "Galaxy Swaps", port: 16108, walletIndex: 7 },
+  { name: "Infinity Pools", port: 16109, walletIndex: 8 },
+  { name: "Polaris Trade", port: 16110, walletIndex: 9 },
+];
+
 // Helper to map filler names to ports
 function getFillerPort(name: string): number {
-  const fillers = [
-    { name: "Alpha Liquidity", port: 16101 },
-    { name: "Omega Swap", port: 16102 },
-    { name: "Quantum Pools", port: 16103 },
-    { name: "Zenith Trade", port: 16104 },
-    { name: "Orion Exchange", port: 16105 },
-    { name: "Nexus Liquidity", port: 16106 },
-    { name: "Phoenix Finance", port: 16107 },
-    { name: "Galaxy Swaps", port: 16108 },
-    { name: "Infinity Pools", port: 16109 },
-    { name: "Polaris Trade", port: 16110 },
-  ];
-  const filler = fillers.find(f => f.name === name);
+  const filler = FILLER_DEFINITIONS.find(f => f.name === name);
   // Default to first one if not found (fallback)
   return filler ? filler.port : 16101;
+}
+
+// Preload all filler wallets at module initialization
+const currentDir = dirname(fromFileUrl(import.meta.url));
+const walletBasePaths = {
+  bitcoin: resolve(currentDir, "../../../shared/contracts/bitcoin-contracts/generated"),
+  midnight: resolve(currentDir, "../../../shared/contracts/midnight-contracts/generated"),
+};
+
+type FillerWalletAddresses = {
+  btc: string;
+  midnight: string;
+};
+
+const preloadedFillerWallets = new Map<string, FillerWalletAddresses>();
+
+// Preload all filler wallets
+try {
+  for (const filler of FILLER_DEFINITIONS) {
+    try {
+      const bitcoinWalletPath = `${walletBasePaths.bitcoin}/wallet-${filler.walletIndex}.json`;
+      const midnightWalletPath = `${walletBasePaths.midnight}/wallet-${filler.walletIndex}.json`;
+      
+      const bitcoinWalletData = JSON.parse(Deno.readTextFileSync(bitcoinWalletPath));
+      const midnightWalletData = JSON.parse(Deno.readTextFileSync(midnightWalletPath));
+      
+      preloadedFillerWallets.set(filler.name, {
+        btc: bitcoinWalletData.derivedAddress,
+        midnight: midnightWalletData.address,
+      });
+      
+      console.log(`✅ Preloaded wallets for filler: ${filler.name} (BTC: ${bitcoinWalletData.derivedAddress}, Midnight: ${midnightWalletData.address})`);
+    } catch (error) {
+      console.error(`❌ Failed to preload wallets for filler ${filler.name}:`, error);
+    }
+  }
+} catch (error) {
+  console.error("❌ Error during wallet preloading:", error);
+}
+
+// Helper to get preloaded wallet addresses
+function getFillerWalletAddresses(fillerName: string): FillerWalletAddresses | null {
+  return preloadedFillerWallets.get(fillerName) || null;
 }
 
 function* checkAndTransferFunds (params: CheckParamsType) {
@@ -238,12 +284,19 @@ function* checkAndTransferFunds (params: CheckParamsType) {
       // Pay the filler
       // NOTE: This logic remains here as Paima Engine "System" paying the filler back.
       // For now we keep the simulation of "paying the filler back" using the system wallet.
+      
+      // Get preloaded wallet addresses for the filler
+      const fillerWallets = getFillerWalletAddresses(quote.filler);
+      
+      if (!fillerWallets) {
+        console.error(`❌ No wallet addresses found for filler: ${quote.filler}`);
+        return;
+      }
+      
       if (fromToken === TOKENS.BTC) {
-        const fillerWallet = "bcrt1qpj3uq5pf7mpe8hs5f8wcm7xf8jt57fxrkhays7";
-        transferFunds("filler-wallet-btc", fillerWallet, fromAmount);
+        transferFunds("filler-wallet-btc", fillerWallets.btc, fromAmount);
       } else if (fromToken === TOKENS.M20) {
-        const fillerWaller = "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx";
-        transferFundsMidnight("filler-midnight-walllet", fillerWaller, fromAmount);
+        transferFundsMidnight("filler-midnight-wallet", fillerWallets.midnight, fromAmount);
       } else {
         console.error("No valid transfer found (0x02)", {
           toChainId,
