@@ -12186,7 +12186,7 @@
           "jsr:@paimaexample/batcher@0.3.115",
           "jsr:@paimaexample/midnight-contracts@0.3.115",
           "jsr:@paimaexample/utils@0.3.115",
-          "jsr:@std/flags@^1.0.6",
+          "jsr:@std/cli@^1.0.24",
           "jsr:@std/fs@^1.0.6",
           "jsr:@std/path@^1.1.2",
           "npm:@midnight-ntwrk/compact-runtime@0.9.0",

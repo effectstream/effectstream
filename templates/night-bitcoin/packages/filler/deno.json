@@ -17,7 +17,7 @@
         "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.115",
         "@night-bitcoin/midnight-contract-unshielded-erc20": "../shared/contracts/midnight-contracts/unshielded-erc20/src/_index.ts",
         "@midnight-ntwrk/wallet-sdk-address-format": "npm:@midnight-ntwrk/wallet-sdk-address-format@2.0.0",
-        "@std/flags": "jsr:@std/flags@^1.0.6",
+        "@std/cli": "jsr:@std/cli@^1.0.24",
         "@std/path": "jsr:@std/path@^1.1.2",
         "@std/fs": "jsr:@std/fs@^1.0.6",
         "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
