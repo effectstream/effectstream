@@ -87,7 +87,7 @@ export function onlyValue<
 /**
  * Helper function to filter and create PrimitiveEntry objects for a specific sync protocol
  */
-function getPrimitivesForSyncProtocol<T extends ConfigSyncProtocolType>(
+export function getPrimitivesForSyncProtocol<T extends ConfigSyncProtocolType>(
   primitives: Record<
     string,
     {

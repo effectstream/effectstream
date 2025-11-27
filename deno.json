@@ -7,7 +7,9 @@
   ],
   "nodeModulesDir": "auto",
   "tasks": {
-    "check": "deno task -f @e2e/node check"
+    "check": "deno task -f @e2e/node check",
+    "test:e2e": "deno task -f @e2e/node test",
+    "test:code": "./run-tests.sh"
   },
   "imports": {},
   "lint": {
