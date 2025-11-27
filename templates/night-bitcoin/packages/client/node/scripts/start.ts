@@ -36,11 +36,11 @@ const fillerDefinitions: FillerDefinition[] = [
   { name: "Quantum Pools", fillerPort: 16103, batcherPort: 17103, walletIndex: 2 },
   { name: "Zenith Trade", fillerPort: 16104, batcherPort: 17104, walletIndex: 3 },
   { name: "Orion Exchange", fillerPort: 16105, batcherPort: 17105, walletIndex: 4 },
-  { name: "Nexus Liquidity", fillerPort: 16106, batcherPort: 17106, walletIndex: 5 },
-  { name: "Phoenix Finance", fillerPort: 16107, batcherPort: 17107, walletIndex: 6 },
-  { name: "Galaxy Swaps", fillerPort: 16108, batcherPort: 17108, walletIndex: 7 },
-  { name: "Infinity Pools", fillerPort: 16109, batcherPort: 17109, walletIndex: 8 },
-  { name: "Polaris Trade", fillerPort: 16110, batcherPort: 17110, walletIndex: 9 },
+  //{ name: "Nexus Liquidity", fillerPort: 16106, batcherPort: 17106, walletIndex: 5 },
+  //{ name: "Phoenix Finance", fillerPort: 16107, batcherPort: 17107, walletIndex: 6 },
+  //{ name: "Galaxy Swaps", fillerPort: 16108, batcherPort: 17108, walletIndex: 7 },
+  //{ name: "Infinity Pools", fillerPort: 16109, batcherPort: 17109, walletIndex: 8 },
+  //{ name: "Polaris Trade", fillerPort: 16110, batcherPort: 17110, walletIndex: 9 },
 ];
 
 const customProcesses: any[] = [
@@ -97,7 +97,7 @@ const fillerProcesses = fillerDefinitions.map((filler, index) => {
     type: "system-dependency",
     link: `http://localhost:${filler.fillerPort}`,
     stopProcessAtPort: [filler.fillerPort],
-    dependsOn: ['create-wallets'],
+    dependsOn: ['create-wallets', 'create-wallets-midnight'],
   };
 });
 

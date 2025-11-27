@@ -57,6 +57,8 @@ export interface MidnightAdapterConfig {
   zkConfigPath: string;
   privateStateStoreName: string; // LevelDB store name (local)
   privateStateId?: string; // Contract private state ID (on-chain), defaults to privateStateStoreName if not provided
+  contractJoinTimeoutSeconds?: number; // Defaults to 120 seconds
+  walletFundingTimeoutSeconds?: number; // Defaults to 180 seconds
 }
 
 /**
@@ -85,6 +87,8 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   private contractJoiningPromise: Promise<void> | null = null;
   private contractInstance: any = null;
   private witnesses: any = null;
+  private readonly contractJoinTimeoutMs: number;
+  private readonly walletFundingTimeoutMs: number;
 
   constructor(
     contractAddress: string,
@@ -103,6 +107,8 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     this.networkId = networkId;
     this.syncProtocolName = syncProtocolName;
     this.maxBatchSize = maxBatchSize;
+    this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
+    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
 
     // Store contract info for lazy joining
     this.contractInstance = contractInstance;
@@ -223,7 +229,8 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
           this.config.privateStateStoreName;
         console.log(`🔑 Using privateStateId: ${privateStateId}`);
 
-        // Add timeout to contract joining (120 seconds)
+        // Add timeout to contract joining (configurable, defaults to 120 seconds)
+        const contractJoinTimeoutSeconds = Math.round(this.contractJoinTimeoutMs / 1000);
         this.deployedContract = await Promise.race([
           findDeployedContract(providers, {
             contractAddress: this.contractAddress,
@@ -233,9 +240,9 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
           }),
           new Promise((_, reject) => 
             setTimeout(() => reject(new Error(
-              "Timeout: Contract join operation did not complete within 120 seconds. " +
+              `Timeout: Contract join operation did not complete within ${contractJoinTimeoutSeconds} seconds. ` +
               "This may indicate issues with the Midnight network or private state synchronization."
-            )), 120000)
+            )), this.contractJoinTimeoutMs)
           )
         ]);
 
@@ -364,9 +371,9 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
           Rx.map((s) => s.balances[nativeToken()] ?? 0n),
           Rx.filter((balance) => balance > 0n),
           Rx.timeout({
-            each: 180000, // 180 second timeout
+            each: this.walletFundingTimeoutMs, // Configurable wallet funding timeout
             with: () => Rx.throwError(() => new Error(
-              "Timeout: Wallet did not receive funds or complete sync within 180 seconds. " +
+              `Timeout: Wallet did not receive funds or complete sync within ${Math.round(this.walletFundingTimeoutMs / 1000)} seconds. ` +
               "Please ensure the wallet is funded and the Midnight network is accessible."
             ))
           })

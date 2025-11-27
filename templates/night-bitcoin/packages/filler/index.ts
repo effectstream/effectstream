@@ -31,6 +31,7 @@ if (!FILLER_NAME || !PORT || !BITCOIN_WALLET_PATH || !MIDNIGHT_WALLET_PATH) {
 }
 
 // Load Bitcoin wallet
+console.log(`📁 Loading Bitcoin wallet JSON from: ${BITCOIN_WALLET_PATH}`);
 const bitcoinWalletData = JSON.parse(Deno.readTextFileSync(BITCOIN_WALLET_PATH));
 const seedHex = bitcoinWalletData.seed.replace("0x", "");
 const bitcoinSeed = Buffer.from(seedHex, "hex");
@@ -54,6 +55,8 @@ console.log(`🔑 Loaded Midnight wallet: ${midnightWalletData.address}`);
 
 // NOTE: In production, each filler would have its own unique seed and config.
 // For this template, we load the wallet seed from the generated wallet file.
+const batcherWif = derivedAccount.toWIF();
+
 const batcherSetup = buildBatcherSetup({
   fillerName: FILLER_NAME,
   // The batcher internal HTTP server is not needed as we trigger execution directly from the API.
@@ -62,11 +65,16 @@ const batcherSetup = buildBatcherSetup({
   midnightSeed: midnightSeed,
   bitcoin: {
     rpcUrl: FILLER_BATCHER_DEFAULTS.bitcoin.rpcUrl,
+    walletName: FILLER_BATCHER_DEFAULTS.bitcoin.walletName,
     rpcUser: FILLER_BATCHER_DEFAULTS.bitcoin.rpcUser,
     rpcPass: FILLER_BATCHER_DEFAULTS.bitcoin.rpcPass,
-    seed: FILLER_BATCHER_DEFAULTS.bitcoin.seed,
+    batcherWif,
   },
 });
+
+console.log(
+  `🧩 Batcher configured with wallet seed file ${BITCOIN_WALLET_PATH}, address ${bitcoinAddress}, WIF length ${batcherWif.length}`,
+);
 
 const batcher = createNewBatcher(batcherSetup.config, batcherSetup.storage);
 
@@ -183,7 +191,9 @@ server.post<{
   Reply: Static<typeof NotifyPaymentResponseSchema>;
 }>("/api/notify-filler-intent-payment", async (request, reply) => {
   const { orderId, toAddress, amount, token } = request.body;
-  console.log(`🔔 Notification received for Order ${orderId} - Paying ${amount} ${token} to ${toAddress}`);
+  console.log(
+    `🔔 Notification received: order=${orderId}, token=${token}, amount=${amount}, to=${toAddress}, fillerWallet=${bitcoinAddress}`,
+  );
 
   try {
     if (token === "btc") {
@@ -212,7 +222,7 @@ server.post<{
         signature,
         timestamp,
         target: "bitcoin"
-      });
+      }, "wait-receipt");
 
     } else if (token === "m20") {
        const timestamp = new Date().toISOString();

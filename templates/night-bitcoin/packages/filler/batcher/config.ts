@@ -20,6 +20,7 @@ export const FILLER_BATCHER_DEFAULTS = {
     "0000000000000000000000000000000000000000000000000000000000000001",
   bitcoin: {
     rpcUrl: "http://127.0.0.1:18443",
+    walletName: "default",
     rpcUser: "dev",
     rpcPass: "devpassword",
     seed: "night-bitcoin-filler-batcher",
@@ -30,7 +31,9 @@ export interface BitcoinOptions {
   rpcUrl: string;
   rpcUser: string;
   rpcPass: string;
-  seed: string;
+  walletName?: string;
+  seed?: string;
+  batcherWif?: string;
 }
 
 export interface BatcherBuilderOptions {
@@ -66,11 +69,16 @@ export function buildBatcherSetup(
   const storagePath = join(storageRoot, namespace);
   ensureDirSync(storagePath);
 
+  const bitcoinRpcUrl = options.bitcoin.walletName
+    ? `${options.bitcoin.rpcUrl.replace(/\/$/, "")}/wallet/${options.bitcoin.walletName}`
+    : options.bitcoin.rpcUrl;
+
   const bitcoinAdapter = new BitcoinAdapter({
-    rpcUrl: options.bitcoin.rpcUrl,
+    rpcUrl: bitcoinRpcUrl,
     rpcUser: options.bitcoin.rpcUser,
     rpcPass: options.bitcoin.rpcPass,
     seed: options.bitcoin.seed,
+    batcherWif: options.bitcoin.batcherWif,
   });
 
   const {
@@ -93,6 +101,8 @@ export function buildBatcherSetup(
       zkConfigPath,
       privateStateStoreName: "unshielded-erc20-private-state",
       privateStateId: "unshielded_erc20State",
+      contractJoinTimeoutSeconds: 600,
+      walletFundingTimeoutSeconds: 600,
     },
     new SimpleToken.Contract(witnesses),
     witnesses,

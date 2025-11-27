@@ -109,7 +109,8 @@ echo "✅ All patches applied successfully"
 
 # Apply Specific Patches
 echo "Replacing fetch-blob streams.cjs content..."
-replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/streams.cjs" "  // \`node:stream/web\` got introduced in v16.5.0 as experimental
+replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/streams.cjs" "if (!globalThis.ReadableStream) {
+  // \`node:stream/web\` got introduced in v16.5.0 as experimental
   // and it's preferred over the polyfilled version. So we also
   // suppress the warning that gets emitted by NodeJS for using it.
   try {

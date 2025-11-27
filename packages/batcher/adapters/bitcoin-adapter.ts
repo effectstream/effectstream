@@ -421,23 +421,9 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   }
 
   private async getBatcherBalance(): Promise<number> {
-    try {
-      await this.ensureAddressWatched();
-      const utxos = await this.rpcCall("listunspent", [1, 9999999, [this.batcherAddress]]);
-      if (utxos.length > 0) {
-        return Math.round(utxos.reduce((sum: number, utxo: any) => sum + (utxo.amount * 100_000_000), 0));
-      }
-    } catch (error) {
-      console.warn("BitcoinAdapter: listunspent failed for balance check, trying getbalance", error);
-    }
-
-    try {
-      const balance = await this.rpcCall("getbalance", ["*", 1, false, this.batcherAddress]);
-      return Math.round(balance * 100_000_000);
-    } catch (error) {
-      console.warn("BitcoinAdapter: getbalance fallback failed", error);
-      return 0;
-    }
+    await this.ensureAddressWatched();
+    const utxos = await this.fetchBatcherUtxos(1);
+    return Math.round(utxos.reduce((sum, utxo) => sum + (utxo.amount * 100_000_000), 0));
   }
 
   private async estimateSingleTransactionFee(amountSats: number): Promise<bigint> {
