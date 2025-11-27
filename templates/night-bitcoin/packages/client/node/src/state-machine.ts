@@ -93,13 +93,13 @@ const FILLER_DEFINITIONS = [
   { name: "Alpha Liquidity", port: 16101, walletIndex: 0 },
   { name: "Omega Swap", port: 16102, walletIndex: 1 },
   { name: "Quantum Pools", port: 16103, walletIndex: 2 },
-  { name: "Zenith Trade", port: 16104, walletIndex: 3 },
-  { name: "Orion Exchange", port: 16105, walletIndex: 4 },
-  { name: "Nexus Liquidity", port: 16106, walletIndex: 5 },
-  { name: "Phoenix Finance", port: 16107, walletIndex: 6 },
-  { name: "Galaxy Swaps", port: 16108, walletIndex: 7 },
-  { name: "Infinity Pools", port: 16109, walletIndex: 8 },
-  { name: "Polaris Trade", port: 16110, walletIndex: 9 },
+  // { name: "Zenith Trade", port: 16104, walletIndex: 3 },
+  // { name: "Orion Exchange", port: 16105, walletIndex: 4 },
+  // { name: "Nexus Liquidity", port: 16106, walletIndex: 5 },
+  // { name: "Phoenix Finance", port: 16107, walletIndex: 6 },
+  // { name: "Galaxy Swaps", port: 16108, walletIndex: 7 },
+  // { name: "Infinity Pools", port: 16109, walletIndex: 8 },
+  // { name: "Polaris Trade", port: 16110, walletIndex: 9 },
 ];
 
 // Helper to map filler names to ports

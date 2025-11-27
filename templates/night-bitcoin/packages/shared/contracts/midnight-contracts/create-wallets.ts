@@ -46,13 +46,13 @@ if (import.meta.main) {
             create = false;
             break;
     }
-    
+    const numberOfWallets = 3;
     const wallets: WalletState[] = [];
     if (create) {
         const currentDir = Deno.cwd();
         await Deno.mkdir(path.join(currentDir, "generated"), { recursive: true });
     
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < numberOfWallets; i++) {
             const wallet = await createWallet(DEFAULT_SEED_PREFIX + i.toString());
 
             const outputPath = path.join(currentDir, "generated", `wallet-${i}.json`);

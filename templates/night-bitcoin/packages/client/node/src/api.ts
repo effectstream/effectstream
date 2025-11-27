@@ -107,13 +107,13 @@ export const apiRouter: StartConfigApiRouter = function (
     { name: "Alpha Liquidity", port: 16101 },
     { name: "Omega Swap", port: 16102 },
     { name: "Quantum Pools", port: 16103 },
-    { name: "Zenith Trade", port: 16104 },
-    { name: "Orion Exchange", port: 16105 },
-    { name: "Nexus Liquidity", port: 16106 },
-    { name: "Phoenix Finance", port: 16107 },
-    { name: "Galaxy Swaps", port: 16108 },
-    { name: "Infinity Pools", port: 16109 },
-    { name: "Polaris Trade", port: 16110 },
+    // { name: "Zenith Trade", port: 16104 },
+    // { name: "Orion Exchange", port: 16105 },
+    // { name: "Nexus Liquidity", port: 16106 },
+    // { name: "Phoenix Finance", port: 16107 },
+    // { name: "Galaxy Swaps", port: 16108 },
+    // { name: "Infinity Pools", port: 16109 },
+    // { name: "Polaris Trade", port: 16110 },
   ];
 
   server.post<{
