@@ -64,7 +64,7 @@ if (import.meta.main) {
         }
     } else {
         const currentDir = Deno.cwd();
-        const files = Array(10).fill(0).map((_, i) => path.join(currentDir, "generated", `wallet-${i}.json`));
+        const files = Array(numberOfWallets).fill(0).map((_, i) => path.join(currentDir, "generated", `wallet-${i}.json`));
         for (const file of files) {
             const wallet = JSON.parse(await Deno.readTextFile(file)) as WalletState;
             wallets.push(wallet);
