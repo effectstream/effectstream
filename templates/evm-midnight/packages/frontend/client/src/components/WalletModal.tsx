@@ -10,11 +10,19 @@ interface WalletModalProps {
 
 async function getLocalWallet() {
   const chain = await getChainByChainIdAsync(paimaEngineConfig.paimaL2Chain.id);
+  chain.rpc = ["http://127.0.0.1:8545"];
+  chain.explorers = [];
+  chain.name = "Local Hardhat";
   const wallet = new LocalWallet({ chain });
-  await wallet.loadOrCreate({
-    strategy: "encryptedJson",
-    password: "",
-  });
+  // We will load a wallet that has preloaded funds.
+  // DO NOT EVER USE THIS KEY IN PRODUCTION.
+  await wallet.import({
+    privateKey: "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356",
+    encryption: {
+      decrypt: (message: string, password: string) => Promise.resolve(message),
+      password: "",
+    }
+  })
   await wallet.connect();
   return await wallet.getSigner();
 }
