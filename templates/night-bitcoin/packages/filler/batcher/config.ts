@@ -79,6 +79,7 @@ export function buildBatcherSetup(
     rpcPass: options.bitcoin.rpcPass,
     seed: options.bitcoin.seed,
     batcherWif: options.bitcoin.batcherWif,
+    syncProtocolName: "parallelBitcoin",
   });
 
   const {

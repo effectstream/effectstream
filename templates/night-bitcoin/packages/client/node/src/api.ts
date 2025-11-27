@@ -7,6 +7,20 @@ import type { StartConfigApiRouter } from "@paimaexample/runtime";
 import type fastify from "fastify";
 import { getIntentByOrderId } from "@night-bitcoin/database";
 
+const SATS_PER_BTC = 100_000_000n;
+const BTC_DUST_LIMIT_SATS = 546n;
+
+const toSatoshis = (amount: number): bigint | null => {
+  if (!Number.isFinite(amount)) return null;
+  const sats = Math.round(amount * Number(SATS_PER_BTC));
+  if (!Number.isFinite(sats)) return null;
+  try {
+    return BigInt(sats);
+  } catch (_) {
+    return null;
+  }
+};
+
 let isReady = false;
 
 async function ensureReady(dbConn: Pool) {
@@ -112,6 +126,25 @@ export const apiRouter: StartConfigApiRouter = function (
       return;
     }
     const { orderId, fromToken, toToken, fromAmount } = request.body;
+    const lowercaseFromToken = fromToken.toLowerCase();
+
+    if (lowercaseFromToken === "btc") {
+      const sats = toSatoshis(fromAmount);
+      if (sats === null) {
+        reply.status(400).send({
+          message: "Enter a valid BTC amount before requesting quotes.",
+        } as any);
+        return;
+      }
+      if (sats <= BTC_DUST_LIMIT_SATS) {
+        reply.status(400).send({
+          message: `Quote requests of ${Number(
+            BTC_DUST_LIMIT_SATS
+          )} sats or less fail due to the Bitcoin dust limit.`,
+        } as any);
+        return;
+      }
+    }
     const quotes: Static<typeof GetQuotesResponseSchemaArray> = [];
 
     const quotePromises = fillers.map(filler => {

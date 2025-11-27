@@ -1,9 +1,9 @@
-import { parse } from "@std/flags";
+import { parseArgs } from "@std/cli/parse-args";
 import { main, suspend } from "effection";
 import { createNewBatcher } from "@paimaexample/batcher";
 import { buildBatcherSetup, FILLER_BATCHER_DEFAULTS } from "./config.ts";
 
-const args = parse(Deno.args, {
+const args = parseArgs(Deno.args, {
   string: [
     "name",
     "port",
