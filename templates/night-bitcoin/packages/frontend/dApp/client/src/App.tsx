@@ -9,6 +9,91 @@ const tokens = [
   { id: 'm20', name: 'Midnight Token', symbol: 'M20' },
 ];
 
+const SATS_PER_BTC = 100_000_000n;
+const BTC_DUST_LIMIT_SATS = 546n;
+
+type SwapAllowance =
+  | { allowed: true; reason?: undefined }
+  | { allowed: false; reason: string };
+
+const toSatoshis = (amount: string | number): bigint | null => {
+  if (amount === null || amount === undefined) return null;
+
+  const parsed =
+    typeof amount === 'number'
+      ? amount
+      : (() => {
+          const trimmed = amount.trim();
+          if (!trimmed) return NaN;
+          return Number(trimmed);
+        })();
+
+  if (!Number.isFinite(parsed)) return null;
+
+  const sats = Math.round(parsed * Number(SATS_PER_BTC));
+  if (!Number.isFinite(sats)) return null;
+
+  try {
+    return BigInt(sats);
+  } catch {
+    return null;
+  }
+};
+
+const isSwapAllowed = ({
+  fromToken,
+  toToken,
+  amount,
+  selectedQuote,
+}: {
+  fromToken: string;
+  toToken: string;
+  amount: string;
+  selectedQuote: { toAmount: number } | null;
+}): SwapAllowance => {
+  if (fromToken === 'BTC') {
+    const sats = toSatoshis(amount);
+    if (sats === null) {
+      return {
+        allowed: false,
+        reason: 'Enter a valid BTC amount before swapping.',
+      };
+    }
+
+    if (sats <= BTC_DUST_LIMIT_SATS) {
+      return {
+        allowed: false,
+        reason: `Swaps of ${Number(BTC_DUST_LIMIT_SATS)} sats or less fail due to the Bitcoin dust limit.`,
+      };
+    }
+
+    return { allowed: true };
+  }
+
+  if (fromToken === 'M20' && toToken === 'BTC' && selectedQuote) {
+    const sats = toSatoshis(selectedQuote.toAmount);
+    if (sats === null) {
+      return {
+        allowed: false,
+        reason: 'Select a valid quote before swapping M20 to BTC.',
+      };
+    }
+
+    if (sats <= BTC_DUST_LIMIT_SATS) {
+      return {
+        allowed: false,
+        reason: `This quote would output ${
+          selectedQuote.toAmount
+        } BTC (${Number(
+          BTC_DUST_LIMIT_SATS
+        )} sats or less), which is below the Bitcoin dust limit.`,
+      };
+    }
+  }
+
+  return { allowed: true };
+};
+
 const formatNumber = (n: number | string): string => {
   const num = typeof n === 'string' ? parseFloat(n) : n;
   if (isNaN(num)) return String(n);
@@ -78,6 +163,8 @@ function App() {
     setQuotes([]);
     setSelectedQuote(null);
   }, [fromToken, toToken, amount]);
+
+  const swapAllowance = isSwapAllowed({ fromToken, toToken, amount, selectedQuote });
 
   const updateM20Balance = async (wallet: any) => {
     if (!wallet) return;
@@ -218,7 +305,16 @@ function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let errorMessage = `Failed to get quotes (status ${response.status}).`;
+        try {
+          const errorData = await response.json();
+          if (errorData?.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (_) {
+          // ignore JSON parsing errors
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -243,8 +339,13 @@ function App() {
           setSelectedQuote(quote);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to get quotes:", error);
+      setPopup({
+        show: true,
+        title: 'Unable to Get Quotes',
+        message: error?.message || 'Failed to get quotes. See console for details.',
+      });
     } finally {
       setLoading(false);
     }
@@ -312,6 +413,17 @@ function App() {
       });
       return;
     }
+
+    const allowance = isSwapAllowed({ fromToken, toToken, amount, selectedQuote });
+    if (!allowance.allowed) {
+      setPopup({
+        show: true,
+        title: 'Swap Not Allowed',
+        message: allowance.reason,
+      });
+      return;
+    }
+
     if (fromToken === 'BTC') {
       setShowBtcPopup(true);
     } else if (fromToken === 'M20') {
@@ -398,6 +510,15 @@ function App() {
 
   const handleBtcSwapContinue = async () => {
     setShowBtcPopup(false);
+    const allowance = isSwapAllowed({ fromToken, toToken, amount, selectedQuote });
+    if (!allowance.allowed) {
+      setPopup({
+        show: true,
+        title: 'Swap Not Allowed',
+        message: allowance.reason,
+      });
+      return;
+    }
     setLoading(true);
 
     try {
@@ -602,9 +723,20 @@ function App() {
 
           {selectedQuote && (
             <div className="swap-now-container">
-              <button type="button" className="swap-now-button" onClick={handleSwapNow}>
+              <button
+                type="button"
+                className="swap-now-button"
+                onClick={handleSwapNow}
+                disabled={!swapAllowance.allowed}
+                title={!swapAllowance.allowed ? swapAllowance.reason : undefined}
+              >
                 Swap Now
               </button>
+              {!swapAllowance.allowed && (
+                <div style={{ marginTop: '8px', color: '#ff8a80', textAlign: 'center' }}>
+                  {swapAllowance.reason}
+                </div>
+              )}
             </div>
           )}
         </main>

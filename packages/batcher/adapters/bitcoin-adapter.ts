@@ -37,6 +37,7 @@ export interface BitcoinAdapterConfig {
   seed?: string; // Seed string to generate private key
   network?: bitcoin.Network; // Defaults to regtest
   maxBatchSize?: number;
+  syncProtocolName?: string;
 }
 
 export function buildBitcoinSignatureMessage(payload: BitcoinRequest, timestamp: string) {
@@ -52,12 +53,13 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   private readonly batcherAddress: string;
   private reservedSatFunds: number = 0;
   private addressChecked = false;
+  private readonly syncProtocolName: string;
 
   constructor(config: BitcoinAdapterConfig) {
     this.rpcUrl = config.rpcUrl;
     this.rpcAuth = btoa(`${config.rpcUser}:${config.rpcPass}`);
     this.network = config.network ?? bitcoin.networks.regtest;
-
+    this.syncProtocolName = config.syncProtocolName ?? "parallelBitcoin";
     if (config.seed) {
       const privateKeyBuffer = createHash("sha256")
         .update(config.seed)
@@ -80,7 +82,9 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     console.log("BitcoinAdapter: Batcher address:", address);
     this.batcherAddress = address!;
   }
-
+  getSyncProtocolName(): string {
+    return this.syncProtocolName;
+  }
   getChainName(): string {
     return "Bitcoin Regtest";
   }
