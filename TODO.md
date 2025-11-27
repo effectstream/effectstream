@@ -223,6 +223,7 @@
 - [ ] **Default Task Scripts Names** Allow to override Orchestrator default expected task scripts names
 - [ ] **Multiple Packages** Issue with multiple packages with the same name get imported multiple times (e.g., @polkadot at startup)
 - [ ] **Hardhat 3 Update** Update HARDHAT to latest version 3.x.x
+- [ ] **JSR/NPM Issues** Working locally with Templates & JSR packages is hard, as there is no (?) way to map the jsr:@paimaexample/package to the local package for development. Making publishing an updates to the registry required to work on the templates. One option would be to have a local JSR registry, but it does not look possible to do now. Deno Package patch/links might resolve this issue, but it's not completely implemented. Another alternative is publish to NPM, and use these packages - as there are more tools available for npm.
 
 ---
 ## Project Generator / Scaffolding
@@ -252,6 +253,18 @@
 - [ ] **E2E Test for Templates** Add E2E Test for Templates.
 
 ---
+## Monitoring
+
+### UI
+- [ ] **Metrics UI** UI app can be bundled, as Grafana UI.
+
+### Metrics
+- [ ] **Process Metrics** We need to share some metrics about current processes, some memory usage / cpu usage, etc.
+- [ ] **HTTP Traces** Traces for HTTP requests. Something as https://github.com/fastify/otel 
+- [ ] **Sync Loop Traces** Trace the Sync Protocols.
+- [ ] **Main Loop Traces** Trace the Main Loop.
+
+---
 ## Non functional requirements
 
 - [ ] **New Name** Update Name to TBD (paima/effectstream)
@@ -268,6 +281,10 @@
 
 ---
 ## Landing
+
+### Infrastructure
 - [ ] **Code** Do we move landing page source to monorepo?
+
+### Improvements
 - [ ] **Landing Responsive** Landing responsive is working incorrectly on physical mobile devices.
 - [ ] **Documentation Links** Connect "color" boxes with corresponding section in the documentation.
