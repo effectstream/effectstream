@@ -11,11 +11,13 @@
 # Check for external dependencies
 ./../check.sh
 
+# Generate midnight ts files
+deno task build:midnight
+
 # Install packages
 deno install --allow-scripts && ./patch.sh
 
 # Compile contracts
-deno task build:midnight
 deno task build:bitcoin
 
 # Launch Paima Engine Node

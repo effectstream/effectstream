@@ -6,6 +6,7 @@ import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paimaexample/runtime";
 import type fastify from "fastify";
 import { getIntentByOrderId } from "@night-bitcoin/database";
+import { ENV } from "@paimaexample/utils/node-env";
 
 const SATS_PER_BTC = 100_000_000n;
 const BTC_DUST_LIMIT_SATS = 546n;
@@ -300,6 +301,37 @@ export const apiRouter: StartConfigApiRouter = function (
       status,
       message,
     };
+  });
+
+  server.get("/api/check-processes", async (_request, reply) => {
+    try {
+      const response = await fetch(`http://localhost:${ENV.ORCHESTRATOR_PORT}/processes`);
+      if (!response.ok) {
+        return "LOADING";
+      }
+      const data = await response.json();
+      const processes: any[] = data.processes || [];
+
+      const syncProcess = processes.find((p: any) => p.name === "sync");
+      const mintProcess = processes.find((p: any) => p.name === "mint-wallets-midnight");
+
+      // We consider the process "there" if it is alive
+      const isSyncRunning = syncProcess?.alive === true;
+      const isMintRunning = mintProcess?.alive === true;
+
+      if (!isSyncRunning) {
+        return "LOADING";
+      }
+
+      if (isMintRunning) {
+        return "FILLERS-NOT-READY";
+      }
+
+      return "READY";
+    } catch (error) {
+      console.error("Error in /api/check-processes:", error);
+      return "LOADING";
+    }
   });
 
   return Promise.resolve();

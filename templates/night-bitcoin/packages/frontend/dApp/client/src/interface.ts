@@ -76,7 +76,7 @@ export async function loginMidnight() {
 export async function midnight_balanceOf(contract: any, addr: string) {
   try {
     console.log("Balance of", contract, addr);
-    return await unshielded_erc20.balanceOf(contract, addr);
+    return await unshielded_erc20.balanceOf(addr);
   } catch (error) {
     console.error(0, { error });
   }

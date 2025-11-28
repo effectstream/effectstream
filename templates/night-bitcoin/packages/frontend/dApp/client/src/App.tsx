@@ -148,6 +148,41 @@ function App() {
   const [btcFaucetAddress, setBtcFaucetAddress] = useState('');
   const [orderIdSearch, setOrderIdSearch] = useState('');
   const [showBtcConnectPopup, setShowBtcConnectPopup] = useState(false);
+  const [systemState, setSystemState] = useState("LOADING");
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let isMounted = true;
+
+    const checkSystemState = async () => {
+      try {
+        const response = await fetch("http://localhost:9999/api/check-processes");
+        if (isMounted && response.ok) {
+          const state = await response.text();
+          setSystemState(state);
+          if (state === "READY") {
+            return; // Stop polling when ready
+          }
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error("Failed to check system state:", error);
+        }
+      }
+
+      if (isMounted) {
+        timeoutId = setTimeout(checkSystemState, 5000);
+      }
+    };
+
+    // Check immediately
+    checkSystemState();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   const formatPopupValue = (value: any) => {
     if (typeof value === 'bigint') {
@@ -585,7 +620,23 @@ function App() {
 
   return (
     <>
-      <header className="app-header">
+        {systemState !== "READY" && (
+          <div className="system-banner" style={{
+            backgroundColor: '#ff9800',
+            color: '#fff',
+            textAlign: 'center',
+            padding: '10px',
+            fontWeight: 'bold',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            zIndex: 1000
+          }}>
+            The Fillers/Solvers wallets are being created and filled... please wait
+          </div>
+        )}
+      <header className="app-header" style={{ marginTop: systemState !== "READY" ? '40px' : '0' }}>
         <div className="header-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <div className="search-container" style={{ display: 'flex', alignItems: 'center' }}>
             <input
