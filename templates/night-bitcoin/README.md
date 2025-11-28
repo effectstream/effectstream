@@ -11,13 +11,11 @@
 # Check for external dependencies
 ./../check.sh
 
-# Generate midnight ts files
-deno task build:midnight
-
 # Install packages
 deno install --allow-scripts && ./patch.sh
 
 # Compile contracts
+deno task build:midnight
 deno task build:bitcoin
 
 # Launch Paima Engine Node
@@ -26,6 +24,7 @@ deno task dev
 
 Once the `sync` process is running, open [http://localhost:10599](http://localhost:10599)`
 
+The explorer is available on [http://localhost:10590](http://localhost:10590)
 
 ## Docker Build
 
@@ -45,6 +44,7 @@ docker run \
   -p 8088:8088 \
   -p 6300:6300 \
   -p 8080:8080 \
+  -p 8333:8333 \
   -p 9999:9999 \
   -p 18443:18443 \
   -p 18334:18334 \

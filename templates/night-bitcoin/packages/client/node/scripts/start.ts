@@ -54,7 +54,7 @@ const customProcesses: any[] = [
   },
   {
     name: "frontend-dApp",
-    args: ["task", "-f", "@night-bitcoin/frontend", "serve"],
+    args: ["task", "-f", "@night-bitcoin/frontend", "server:start"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10599",
@@ -130,7 +130,7 @@ const config = Value.Parse(OrchestratorConfig, {
       args: ["task", "-f", "@night-bitcoin/midnight-contracts", "create-wallets"],
       waitToExit: true,
       type: "system-dependency",
-      dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
+      dependsOn: [ComponentNames.MIDNIGHT_CONTRACT, "frontend-dApp"],
     },
     {
       name: "mint-wallets-midnight",

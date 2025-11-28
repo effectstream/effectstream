@@ -40,7 +40,7 @@ Use `BITCOIN_RPC_PARALLEL` to poll the Bitcoin node for blocks.
 ```
 
 ### Primitives
-*   **`PrimitiveTypeBitcoinAddress`**: Monitors a specific Bitcoin address (P2PKH, P2WPKH, etc.) for incoming or outgoing transactions.
+*   **`PrimitiveTypeBitcoinAddress`**: Monitors a specific Bitcoin address, where some pattern as (P2PKH, P2WPKH, etc.) can be implemented, for incoming or outgoing transactions.
 
 ```ts
 import { PrimitiveTypeBitcoinAddress } from "@effectstream/sm/builtin";
