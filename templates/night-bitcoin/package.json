@@ -1,0 +1,8 @@
+{
+    "dependencies": {
+        "@electric-sql/pglite": "^0.3.14"
+    },
+    "devDependencies": {
+        "wait-on": "8.0.3"
+    }
+}

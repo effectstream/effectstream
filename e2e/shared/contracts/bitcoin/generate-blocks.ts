@@ -3,6 +3,18 @@ import * as ecpair from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { createHash } from "node:crypto";
 
+/**
+ * 
+ * This script generates blocks continuously, so the blockchain is always progressing.
+ * As a side effect this script will seed some addresses with funds.
+ * 
+ * Usage:
+ *  deno run -A generate-blocks.ts --block-interval 5000
+ * 
+ * Arguments:
+ *  - 1. Block interval in milliseconds
+ */
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const ECPair = ecpair.ECPairFactory(ecc);

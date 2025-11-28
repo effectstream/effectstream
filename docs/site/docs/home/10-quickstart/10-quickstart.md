@@ -197,7 +197,7 @@ stm.addStateTransition("create", function* (data) {
 });
 ```
 
-If the contract [Effectstream L2 Event](../100-components/104-effectstream-l2-contract.md) function `submitGameInput` is called with payload `["create", "0x1234"]`, this creates a row in your `games` table, with id = `0x1234`
+If the contract [Effectstream L2 Event](../100-components/104-l2-contract.md) function `submitGameInput` is called with payload `["create", "0x1234"]`, this creates a row in your `games` table, with id = `0x1234`
 
 Now your application can read the database and use the created "game" from the table.
 
@@ -227,7 +227,7 @@ More about the [API](../100-components/103-api.md)
 
 ## Chain Config & Sync Service
 
-The Sync Service is the bridge between the blockchain world and your application's logic. You configure this service using the `ConfigBuilder` to define **Primitives**. A primitive is a specific listener for on-chain events, such as a token transfer or an interaction with your [Effectstream L2 contract](../100-components/104-effectstream-l2-contract.md).
+The Sync Service is the bridge between the blockchain world and your application's logic. You configure this service using the `ConfigBuilder` to define **Primitives**. A primitive is a specific listener for on-chain events, such as a token transfer or an interaction with your [Effectstream L2 contract](../100-components/104-l2-contract.md).
 
 When a primitive detects an event, it uses a `scheduledPrefix` to trigger the corresponding State Transition Function (STF) in your [state machine](../100-components/102-state-machine.md). This setup allows your application to react to events from multiple chains in a deterministic way.
 
@@ -295,7 +295,7 @@ While any contract works, Effectstream provides the specialized **`Effectstream 
 You connect a contract event to your State Machine by defining a **Primitive** in your chain configuration, which links the event to a `scheduledPrefix` that triggers your game logic.
 
 Learn more about [Contracts](../100-components/105-contracts.md)
-More about [Effectstream L2](../100-components/104-effectstream-l2-contract.md)
+More about [Effectstream L2](../100-components/104-l2-contract.md)
 
 ## Process Orchestrator
 
@@ -404,7 +404,7 @@ Paima Request for Comments (PRCs) are open standards that enable interoperabilit
 
 To see how all these components come together to build a complete, complex, and successful on-chain game, dive into our comprehensive tutorial based on a real-world example.
 
-- [**Building Tarochi with Effectstream**](../1100-example-tarochi/1100-example-tarochi.md)
+- [**Building Tarochi with Effectstream**](../1200-templates/1250-example-tarochi.md)
 
 ### Contributing to Effectstream
 

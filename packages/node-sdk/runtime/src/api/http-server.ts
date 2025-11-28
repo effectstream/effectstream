@@ -166,9 +166,9 @@ export const startHttpServer = function* (
   yield* registerOpenApiDocumentation(server, ENV.EFFECTSTREAM_API_PORT);
 
   // Register error-catching handler
-  server.setErrorHandler((error, request, reply) => {
+  server.setErrorHandler((error: any, request, reply) => {
     console.error("[HTTP SERVER] Error: ", error, request.url);
-    reply.status(500).send({ ok: false, error: error.message });
+    reply.status(500).send({ ok: false, error: error?.message ?? "Unknown error" });
   });
 
   yield* until(

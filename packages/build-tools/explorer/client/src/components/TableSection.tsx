@@ -54,7 +54,7 @@ export function TableSection({
         {tableEntries.length === 0
           ? (
             <div className="table-error">
-              No {title.toLowerCase()} configured
+              {/* No {title.toLowerCase()} configured */}
             </div>
           )
           : (
