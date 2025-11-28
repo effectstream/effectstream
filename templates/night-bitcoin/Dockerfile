@@ -72,6 +72,8 @@ EXPOSE 18443
 # Bitcoin Core P2P
 EXPOSE 18334
 EXPOSE 18433
+# Node WS
+EXPOSE 8883
 # Midnight 
 EXPOSE 8080
 # Effectstream Node API

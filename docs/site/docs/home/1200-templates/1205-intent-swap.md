@@ -123,7 +123,7 @@ The template uses two main contracts located in `packages/shared/contracts/midni
 *   **`unshielded-erc20.compact`**: Openzepplin Standard ERC20 Unshielded "M20" token used for swapping against Bitcoin.
 
 #### Bitcoin
-There are no smart contracts on Bitcoin. Instead, the engine tracks specific P2WPKH (Pay-to-Witness-Public-Key-Hash) addresses and transaction inputs/outputs using the Bitcoin RPC.
+There are no smart contracts on Bitcoin. Instead, the engine tracks specific addresses and transaction inputs/outputs using the Bitcoin RPC.
 
 ### 2. Chain Configuration (`localhostConfig.ts`)
 
@@ -224,6 +224,7 @@ This block configures the connection to the local Bitcoin Core node (Regtest), t
 ### 3. The State Machine (`state-machine.ts`)
 
 The logic is driven by three main `State Transition Functions`:
+This implements a simplified the Verifier/Settlement layer.
 
 #### `bitcoin-transaction`
 Triggered when funds move on the watched `Bitcoin address`.
