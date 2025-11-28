@@ -412,6 +412,17 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     await this.storage.init();
+
+    for (const [target, adapter] of Object.entries(this.adapters)) {
+      if (typeof adapter.recoverState === "function") {
+        const pendingInputs = await this.storage.getInputsByTarget(
+          target,
+          this.defaultTarget!, // defaultTarget is guaranteed to be set at this point
+        );
+        await adapter.recoverState(pendingInputs);
+      }
+    }
+
     this.pollingIntervalID = setInterval(
       async () => {
         await this.pollBatcher();
@@ -1237,13 +1248,26 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     // 3. Perform sequential setup tasks
     yield* call(() => this.storage.init());
+
+    // 4. Recover adapter state from storage (e.g., Bitcoin reserved funds)
+    if (this.defaultTarget) {
+      for (const [target, adapter] of Object.entries(this.adapters)) {
+        if (typeof adapter.recoverState === "function") {
+          const pendingInputs = yield* call(() =>
+            this.storage.getInputsByTarget(target, this.defaultTarget!)
+          );
+          yield* call(async () => await adapter.recoverState!(pendingInputs));
+        }
+      }
+    }
+
     this.isInitialized = true;
     yield* this.emitStateTransition("startup", {
       publicConfig: this.getPublicConfig(),
       time: Date.now(),
     });
 
-    // 2. Run the main background tasks concurrently
+    // 5. Run the main background tasks concurrently
     // Spawn ensures that if one task fails or stops, the other is also stopped.
     // This is the essence of structured concurrency.
     yield* spawn(() => this.runHttpServer());

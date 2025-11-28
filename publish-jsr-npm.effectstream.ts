@@ -89,11 +89,14 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/build-tools/orchestrator" },
   { path: "./packages/chains/evm-hardhat" },
   { path: "./packages/chains/evm-contracts" }, // [@evm-hardhat]
+  { path: "./packages/chains/bitcoin-contracts" },
   { path: "./packages/batcher" },
 ];
 
 const npmPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/chains/evm-contracts" },
+  { path: "./packages/binaries/bitcoin-core" },
+  { path: "./packages/binaries/ord" },
   { path: "./packages/binaries/avail-light-client" },
   { path: "./packages/binaries/avail-node" },
   { path: "./packages/binaries/midnight-indexer" },

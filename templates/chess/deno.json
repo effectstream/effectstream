@@ -4,7 +4,7 @@
   ],
   "nodeModulesDir": "auto",
   "imports": {
-    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.108"
+    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.116"
   },
   "tasks": {
     "build:evm": "deno task -f @chess/evm-contracts build:mod",

@@ -52,6 +52,8 @@ export const SecondaryComponents = {
   MIDNIGHT_INDEXER_WAIT: "midnight-indexer-wait",
   MIDNIGHT_PROOF_SERVER_WAIT: "midnight-proof-server-wait",
   BITCOIN_CORE_WAIT: "bitcoin-core-wait",
+  BITCOIN_GENERATE_BLOCKS: "bitcoin-mine-blocks",
+  BITCOIN_WAIT_FOR_BLOCK: "bitcoin-wait-for-block",
   AVAIL_NODE_WAIT: "avail-node-wait",
   AVAIL_CLIENT_WAIT: "avail-light-client-wait",
   HARDHAT_WAIT: "hardhat-wait",

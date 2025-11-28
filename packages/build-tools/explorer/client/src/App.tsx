@@ -15,6 +15,8 @@ import { useTableData } from "./hooks/useTableData.ts";
 function App() {
   const [selectedPrimitives, setSelectedPrimitives] = useState<string[]>([]);
   const [selectedUserTables, setSelectedUserTables] = useState<string[]>([]);
+  const [primitivesInitialized, setPrimitivesInitialized] = useState(false);
+  const [userTablesInitialized, setUserTablesInitialized] = useState(false);
   const [isPrimitivesModalOpen, setIsPrimitivesModalOpen] = useState(false);
   const [isUserTablesModalOpen, setIsUserTablesModalOpen] = useState(false);
 
@@ -47,16 +49,18 @@ function App() {
   } = useTableData();
 
   useEffect(() => {
-    if (primitiveNames.length > 0 && selectedPrimitives.length === 0) {
+    if (primitiveNames.length > 0 && !primitivesInitialized) {
       setSelectedPrimitives(primitiveNames);
+      setPrimitivesInitialized(true);
     }
-  }, [primitiveNames, selectedPrimitives]);
+  }, [primitiveNames, primitivesInitialized]);
 
   useEffect(() => {
-    if (userTableNames.length > 0 && selectedUserTables.length === 0) {
-      setSelectedUserTables([userTableNames[0]]);
+    if (userTableNames.length > 0 && !userTablesInitialized) {
+      setSelectedUserTables(userTableNames.slice(0, 4));
+      setUserTablesInitialized(true);
     }
-  }, [userTableNames, selectedUserTables]);
+  }, [userTableNames, userTablesInitialized]);
 
   // Error handling for uncaught promises
   useEffect(() => {
@@ -186,10 +190,7 @@ function App() {
           title="Select Primitives"
           tableNames={primitiveNames}
           selectedNames={selectedPrimitives}
-          onApply={(names) =>
-            setSelectedPrimitives(
-              names.length ? names : [primitiveNames[0]].filter(Boolean),
-            )}
+          onApply={(names) => setSelectedPrimitives(names)}
         />
       </TableSection>
 
@@ -221,12 +222,9 @@ function App() {
           title="Select Custom Tables"
           tableNames={userTableNames}
           selectedNames={selectedUserTables}
-          onApply={(names) =>
-            setSelectedUserTables(
-              names.length ? names : [userTableNames[0]].filter(Boolean),
-            )}
+          onApply={(names) => setSelectedUserTables(names)}
         />
-        <BatcherInput />
+        {/* <BatcherInput /> */}
       </TableSection>
 
       <TableSection

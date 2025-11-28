@@ -57,6 +57,8 @@ export interface MidnightAdapterConfig {
   zkConfigPath: string;
   privateStateStoreName: string; // LevelDB store name (local)
   privateStateId?: string; // Contract private state ID (on-chain), defaults to privateStateStoreName if not provided
+  contractJoinTimeoutSeconds?: number; // Defaults to 120 seconds
+  walletFundingTimeoutSeconds?: number; // Defaults to 180 seconds
 }
 
 /**
@@ -82,8 +84,11 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   private initializationPromise: Promise<void> | null = null;
   private walletAddress: string | null = null;
   private contractJoined = false;
+  private contractJoiningPromise: Promise<void> | null = null;
   private contractInstance: any = null;
   private witnesses: any = null;
+  private readonly contractJoinTimeoutMs: number;
+  private readonly walletFundingTimeoutMs: number;
 
   constructor(
     contractAddress: string,
@@ -102,6 +107,8 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     this.networkId = networkId;
     this.syncProtocolName = syncProtocolName;
     this.maxBatchSize = maxBatchSize;
+    this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
+    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
 
     // Store contract info for lazy joining
     this.contractInstance = contractInstance;
@@ -112,7 +119,8 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   }
 
   /**
-   * Initialize wallet and providers (but NOT contract - that's done lazily)
+   * Initialize wallet and providers, wait for funds, and join contract
+   * This ensures the adapter is fully ready before accepting transactions
    */
   private async initialize(walletSeed: string): Promise<void> {
     try {
@@ -154,6 +162,16 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
         this.config.indexerWS,
       );
 
+      // Wait for wallet to be funded and synced before starting batcher
+      console.log("💰 Waiting for wallet to be funded and synced before starting batcher...");
+      await this.ensureFunds();
+      
+      // Join contract during initialization so we're ready to process immediately
+      console.log("🔗 Joining contract during initialization...");
+      await this.ensureContractJoined();
+      
+      console.log("✅ Midnight adapter fully initialized and ready!");
+
       this.isInitialized = true;
     } catch (error) {
       console.error("❌ Failed to initialize Midnight adapter:", error);
@@ -166,72 +184,105 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
    * This mirrors what the interact script does
    */
   private async ensureContractJoined(): Promise<void> {
-    if (this.contractJoined || !this.wallet) {
+    // If already joined, return immediately
+    if (this.contractJoined) {
       return;
     }
 
-    console.log("⚙️ Configuring providers for contract join...");
-
-    // Create fresh providers right before joining (like interact script does)
-    const walletAndMidnightProvider = await this
-      .createWalletAndMidnightProvider(
-        this.wallet,
-      );
-
-    const providers = {
-      privateStateProvider: levelPrivateStateProvider({
-        privateStateStoreName: this.config.privateStateStoreName,
-      }),
-      publicDataProvider: this.publicDataProvider,
-      zkConfigProvider: new NodeZkConfigProvider(this.config.zkConfigPath),
-      proofProvider: httpClientProofProvider(this.config.proofServer),
-      walletProvider: walletAndMidnightProvider,
-      midnightProvider: walletAndMidnightProvider,
-    };
-
-    console.log("🔗 Joining contract at address:", this.contractAddress);
-
-    // Use privateStateId if provided, otherwise fall back to privateStateStoreName
-    const privateStateId = this.config.privateStateId ??
-      this.config.privateStateStoreName;
-    console.log(`🔑 Using privateStateId: ${privateStateId}`);
-
-    this.deployedContract = await findDeployedContract(providers, {
-      contractAddress: this.contractAddress,
-      contract: this.contractInstance,
-      privateStateId: privateStateId,
-      initialPrivateState: {},
-    });
-
-    console.log("✅ Contract joined successfully");
-
-    // CRITICAL: Wait for private state to fully sync after joining
-    // The contract needs to download and decrypt historical transactions
-    console.log("⏳ Verifying contract private state is accessible...");
-
-    // Try to read from the contract to ensure private state is ready
-    // Use a pure circuit call (like balanceOf or owner) to verify
-    try {
-      const circuitNames = Object.keys(this.deployedContract.call);
-      console.log(
-        `🔍 Available circuits for testing: ${circuitNames.join(", ")}`,
-      );
-
-      console.log(
-        "⏳ Waiting 10 seconds for contract private state to sync...",
-      );
-      await new Promise((resolve) => setTimeout(resolve, 10000));
-      console.log("✅ Private state sync delay complete");
-    } catch (error) {
-      console.warn("⚠️ Contract state test query failed, waiting longer...");
-      console.log(
-        "⏳ Waiting 5 seconds for contract private state to sync...",
-      );
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      console.log("✅ Private state sync delay complete");
+    // If already joining, wait for existing join to complete
+    if (this.contractJoiningPromise) {
+      console.log("⏳ Contract join already in progress, waiting...");
+      await this.contractJoiningPromise;
+      return;
     }
 
-    this.contractJoined = true;
+    // Guard against concurrent join attempts
+    if (!this.wallet) {
+      throw new Error("Cannot join contract: wallet not initialized");
+    }
+
+    // Start the join process
+    this.contractJoiningPromise = (async () => {
+      try {
+        console.log("⚙️ Configuring providers for contract join...");
+
+        const walletAndMidnightProvider = await this
+          .createWalletAndMidnightProvider(
+            this.wallet!,
+          );
+
+        const providers = {
+          privateStateProvider: levelPrivateStateProvider({
+            privateStateStoreName: this.config.privateStateStoreName,
+          }),
+          publicDataProvider: this.publicDataProvider,
+          zkConfigProvider: new NodeZkConfigProvider(this.config.zkConfigPath),
+          proofProvider: httpClientProofProvider(this.config.proofServer),
+          walletProvider: walletAndMidnightProvider,
+          midnightProvider: walletAndMidnightProvider,
+        };
+
+        console.log("🔗 Joining contract at address:", this.contractAddress);
+
+        // Use privateStateId if provided, otherwise fall back to privateStateStoreName
+        const privateStateId = this.config.privateStateId ??
+          this.config.privateStateStoreName;
+        console.log(`🔑 Using privateStateId: ${privateStateId}`);
+
+        // Add timeout to contract joining (configurable, defaults to 120 seconds)
+        const contractJoinTimeoutSeconds = Math.round(this.contractJoinTimeoutMs / 1000);
+        this.deployedContract = await Promise.race([
+          findDeployedContract(providers, {
+            contractAddress: this.contractAddress,
+            contract: this.contractInstance,
+            privateStateId: privateStateId,
+            initialPrivateState: {},
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error(
+              `Timeout: Contract join operation did not complete within ${contractJoinTimeoutSeconds} seconds. ` +
+              "This may indicate issues with the Midnight network or private state synchronization."
+            )), this.contractJoinTimeoutMs)
+          )
+        ]);
+
+        console.log("✅ Contract joined successfully");
+
+        // CRITICAL: Wait for private state to fully sync after joining
+        // The contract needs to download and decrypt historical transactions
+        console.log("⏳ Verifying contract private state is accessible...");
+
+        // Try to read from the contract to ensure private state is ready
+        // Use a pure circuit call (like balanceOf or owner) to verify
+        try {
+          const circuitNames = Object.keys(this.deployedContract.call);
+          console.log(
+            `🔍 Available circuits for testing: ${circuitNames.join(", ")}`,
+          );
+
+          console.log(
+            "⏳ Waiting 10 seconds for contract private state to sync...",
+          );
+          await new Promise((resolve) => setTimeout(resolve, 10000));
+          console.log("✅ Private state sync delay complete");
+        } catch (error) {
+          console.warn("⚠️ Contract state test query failed, waiting longer...");
+          console.log(
+            "⏳ Waiting 5 seconds for contract private state to sync...",
+          );
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          console.log("✅ Private state sync delay complete");
+        }
+
+        this.contractJoined = true;
+      } catch (error) {
+        console.error("❌ Failed to join contract:", error);
+        this.contractJoiningPromise = null; // Reset so it can be retried
+        throw error;
+      }
+    })();
+
+    await this.contractJoiningPromise;
   }
 
   /**
@@ -301,28 +352,47 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       console.log("⏳ Wallet has balance but not synced, waiting for sync...");
     }
 
-    // Wait for BOTH sync AND funds
-    await Rx.firstValueFrom(
-      this.wallet.state().pipe(
-        Rx.throttleTime(10_000),
-        Rx.tap((state) => {
-          const applyGap = state.syncProgress?.lag.applyGap ?? 0n;
-          const sourceGap = state.syncProgress?.lag.sourceGap ?? 0n;
-          const synced = state.syncProgress?.synced === true;
-          const bal = state.balances[nativeToken()] ?? 0n;
-          console.log(
-            `Wallet status: synced=${synced}, balance=${bal}, Backend lag: ${sourceGap}, wallet lag: ${applyGap}`,
-          );
-        }),
-        // CRITICAL: Must be synced before submitting transactions
-        Rx.filter((state) => state.syncProgress?.synced === true),
-        Rx.map((s) => s.balances[nativeToken()] ?? 0n),
-        Rx.filter((balance) => balance > 0n),
-      ),
-    );
+    // Wait for BOTH sync AND funds with timeout
+    try {
+      await Rx.firstValueFrom(
+        this.wallet.state().pipe(
+          Rx.throttleTime(10_000),
+          Rx.tap((state) => {
+            const applyGap = state.syncProgress?.lag.applyGap ?? 0n;
+            const sourceGap = state.syncProgress?.lag.sourceGap ?? 0n;
+            const synced = state.syncProgress?.synced === true;
+            const bal = state.balances[nativeToken()] ?? 0n;
+            console.log(
+              `Wallet status: synced=${synced}, balance=${bal}, Backend lag: ${sourceGap}, wallet lag: ${applyGap}`,
+            );
+          }),
+          // CRITICAL: Must be synced before submitting transactions
+          Rx.filter((state) => state.syncProgress?.synced === true),
+          Rx.map((s) => s.balances[nativeToken()] ?? 0n),
+          Rx.filter((balance) => balance > 0n),
+          Rx.timeout({
+            each: this.walletFundingTimeoutMs, // Configurable wallet funding timeout
+            with: () => Rx.throwError(() => new Error(
+              `Timeout: Wallet did not receive funds or complete sync within ${Math.round(this.walletFundingTimeoutMs / 1000)} seconds. ` +
+              "Please ensure the wallet is funded and the Midnight network is accessible."
+            ))
+          })
+        ),
+      );
 
-    console.log("✅ Wallet fully synced and funded");
-    this.hasFunds = true;
+      console.log("✅ Wallet fully synced and funded");
+      this.hasFunds = true;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Timeout")) {
+        console.error("❌ " + error.message);
+        throw error;
+      }
+      throw new Error(
+        `Failed to ensure wallet funds: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 
   public buildBatchData(
