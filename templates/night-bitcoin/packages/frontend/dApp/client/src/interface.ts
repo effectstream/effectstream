@@ -79,6 +79,7 @@ export async function midnight_balanceOf(contract: any, addr: string) {
     return await unshielded_erc20.balanceOf(addr);
   } catch (error) {
     console.error(0, { error });
+    throw error;
   }
 }
 
@@ -111,6 +112,7 @@ export async function createIntent(
     return await erc7683.createIntent(contract, addr, config);
   } catch (error) {
     console.error(1, { error });
+    throw error;
   }
 }
 
@@ -123,6 +125,7 @@ export async function m20_mint(
     return await unshielded_erc20.mint(contract, account, amount);
   } catch (error) {
     console.error(1, { error });
+    throw error;
   }
 }
 
@@ -136,5 +139,6 @@ export async function m20_transferFrom(
     return await unshielded_erc20.transferFrom(contract, fromAccount, toAccount, amount);
   } catch (error) {
     console.error(1, { error });
+    throw error;
   }
 }
