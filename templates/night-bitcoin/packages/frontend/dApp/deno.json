@@ -7,9 +7,8 @@
   },
   "tasks": {
     "dev": "deno run -A --node-modules-dir=auto npm:vite --port 10598",
-    "build": "deno run -A --node-modules-dir=auto npm:vite build",
+    "build": "../build.sh",
     "server:start": "deno run -A --node-modules-dir --watch ./server/main.ts",
-    "serve": "deno task build && deno task server:start"
   },
   "imports": {
     "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.9.0",
