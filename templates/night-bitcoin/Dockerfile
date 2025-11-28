@@ -50,9 +50,9 @@ RUN chmod +x /app/patch.sh
 # Clone the repository
 COPY . .
 
-RUN deno task build:midnight
 RUN deno install --allow-scripts
 RUN /app/patch.sh
+RUN deno task build:midnight
 RUN deno task build:bitcoin
 
 # Frontend dApp
