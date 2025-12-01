@@ -1,5 +1,5 @@
 {
-  "name": "world-map-2d-frontend",
+  "name": "@world-map-2d/frontend",
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",

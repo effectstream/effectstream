@@ -30,8 +30,8 @@ export const joinWorld = async (
   blockHeight: number,
   input: JoinWorldInput,
   randomnessGenerator: Prando
-): Promise<SQLUpdate[]> => {
-  return [persistNewUser(player)];
+): Promise<SQLUpdate> => {
+  return persistNewUser(player);
 };
 
 // State transition when a user submits a move
@@ -40,8 +40,8 @@ export const submitMove = async (
   blockHeight: number,
   input: SubmitMoveInput,
   randomnessGenerator: Prando
-): Promise<SQLUpdate[]> => {
-  return [persistUserPosition(player, input.x, input.y)];
+): Promise<SQLUpdate> => {
+  return persistUserPosition(player, input.x, input.y);
 };
 
 // State transition when a user submits an increment
@@ -50,8 +50,8 @@ export const submitIncrement = async (
   blockHeight: number,
   input: SubmitIncrementInput,
   randomnessGenerator: Prando
-): Promise<SQLUpdate[]> => {
-  return [persistWorldCount(input.x, input.y)];
+): Promise<SQLUpdate> => {
+  return persistWorldCount(input.x, input.y);
 };
 
 function persistWorldCount(x: number, y: number): SQLUpdate {

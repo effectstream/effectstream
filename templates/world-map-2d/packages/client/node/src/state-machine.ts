@@ -13,9 +13,8 @@ const stm = new PaimaSTM<typeof grammar, any>(grammar);
 type SQLUpdate = [any, any];
 
 stm.addStateTransition("joinWorld", function* (data) {
-  const user = data.signerAddress;
-  const { blockHeight, parsedInput, randomGenerator } = data;
-  const result = yield* World.promise<SQLUpdate[]>(
+  const { blockHeight, parsedInput, randomGenerator, signerAddress: user } = data;
+  const result = yield* World.promise<SQLUpdate>(
     joinWorld(
       user!,
       blockHeight,
@@ -26,16 +25,13 @@ stm.addStateTransition("joinWorld", function* (data) {
       randomGenerator
     )
   );
-  for (let i = 0; i < result.length; i++) {
-    yield* printSQLQueries(i, result[i]);
-    yield* World.resolve(result[i][0], result[i][1]);
-  }
+  yield* printSQLQuery(result);
+  yield* World.resolve(result[0], result[1]);
 });
 
 stm.addStateTransition("submitMove", function* (data) {
-  const user = data.signerAddress;
-  const { blockHeight, parsedInput, randomGenerator } = data;
-  const result = yield* World.promise<SQLUpdate[]>(
+  const { blockHeight, parsedInput, randomGenerator, signerAddress: user } = data;
+  const result = yield* World.promise<SQLUpdate>(
     submitMove(
       user!,
       blockHeight,
@@ -46,16 +42,13 @@ stm.addStateTransition("submitMove", function* (data) {
       randomGenerator
     )
   );
-  for (let i = 0; i < result.length; i++) {
-    yield* printSQLQueries(i, result[i]);
-    yield* World.resolve(result[i][0], result[i][1]);
-  }
+  yield* printSQLQuery(result);
+  yield* World.resolve(result[0], result[1]);
 });
 
 stm.addStateTransition("submitIncrement", function* (data) {
-  const user = data.signerAddress;
-  const { blockHeight, parsedInput, randomGenerator } = data;
-  const result = yield* World.promise<SQLUpdate[]>(
+  const { blockHeight, parsedInput, randomGenerator, signerAddress: user } = data;
+  const result = yield* World.promise<SQLUpdate>(
     submitIncrement(
       user!,
       blockHeight,
@@ -66,15 +59,13 @@ stm.addStateTransition("submitIncrement", function* (data) {
       randomGenerator
     )
   );
-  for (let i = 0; i < result.length; i++) {
-    yield* printSQLQueries(i, result[i]);
-    yield* World.resolve(result[i][0], result[i][1]);
-  }
+  yield* printSQLQuery(result);
+  yield* World.resolve(result[0], result[1]);
 });
 
-function* printSQLQueries(index: number, result: any) {
+function* printSQLQuery(result: any) {
   console.error("--------------------------------");
-  console.error(`Processing Query ${index + 1}`);
+  console.error(`Processing Query`);
   console.error(`Prepared Query:\n${result[0].queryIR.statement}\n\n`);
   console.error(`Parameters:\n${JSON.stringify(result[1], null, 2)}\n\n`);
 }

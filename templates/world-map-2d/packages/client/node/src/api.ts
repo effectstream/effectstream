@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paimaexample/runtime";
 import type fastify from "fastify";
+import { runPreparedQuery } from "@paimaexample/db";
 import { getUserStats, getAllWorldStats } from "@world-map-2d/db";
 
 export const apiRouter: StartConfigApiRouter = async function (
@@ -15,7 +16,10 @@ export const apiRouter: StartConfigApiRouter = async function (
     }
 
     try {
-      const [userStats] = await getUserStats.run({ wallet }, dbConn);
+      const [userStats] = await runPreparedQuery(
+        getUserStats.run({ wallet }, dbConn),
+        "getUserStats"
+      );
       return reply.send(userStats || null);
     } catch (error) {
       console.error("Error fetching user stats:", error);
@@ -26,7 +30,10 @@ export const apiRouter: StartConfigApiRouter = async function (
   // Get all world stats endpoint
   server.get("/world_stats", async (request, reply) => {
     try {
-      const worldStats = await getAllWorldStats.run(undefined, dbConn);
+      const worldStats = await runPreparedQuery(
+        getAllWorldStats.run(undefined, dbConn),
+        "getAllWorldStats"
+      );
       return reply.send(worldStats);
     } catch (error) {
       console.error("Error fetching world stats:", error);
