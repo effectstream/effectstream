@@ -1,6 +1,6 @@
 # World Map 2D (Open World Game)
 
-* **Location**: `/templates/world-map-2d`
+* **Path**: `/templates/world-map-2d`
 * **Highlights**: A 2D open-world exploration game showcasing spatial game state, movement mechanics, and world interaction using Effectstream's L2.
 
 The `world-map-2d` template demonstrates how to build an open-world game where players can explore a 2D grid-based world. It's an excellent example for games requiring spatial state management, player movement, and location-based interactions, all processed deterministically through an Effectstream L2 contract on an EVM chain.
@@ -482,7 +482,7 @@ function* (data) {
 This pattern ensures:
 - **Deterministic execution**: All side effects are managed by the Effectstream runtime
 - **Testability**: Transition functions return SQL update descriptions rather than executing queries directly
-- **Simplicity**: Each transition returns a single update operation (array returns were a V1 necessity)
+- **Simplicity**: Each transition returns a single update operation
 
 ### Separation of Concerns
 
