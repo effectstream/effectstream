@@ -364,14 +364,14 @@ const configureProviders = async (
 
 const getContractAddress = async (): Promise<string> => {
   // First try to get from command line arguments
-  const contractAddressFromArgs = Deno.args[0];
+  // const contractAddressFromArgs = Deno.args[0];
 
-  if (contractAddressFromArgs) {
-    console.log(
-      `📋 Using contract address from arguments: ${contractAddressFromArgs}`,
-    );
-    return contractAddressFromArgs;
-  }
+  // if (contractAddressFromArgs) {
+  //   console.log(
+  //     `📋 Using contract address from arguments: ${contractAddressFromArgs}`,
+  //   );
+  //   return contractAddressFromArgs;
+  // }
 
   // If not provided via args, try to read from contract_address.txt file
   const contractAddressFile = resolve(currentDir, "contract-eip-20.json");

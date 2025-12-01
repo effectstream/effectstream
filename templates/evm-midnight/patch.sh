@@ -30,7 +30,7 @@ replace_in_file() {
         
         # Use perl for more reliable string replacement
         # Only escape the search pattern, not the replacement text
-        perl -i -pe "s/\Q$old_content\E/$new_content/g" "$file"
+        perl -i -pe "s/Q$old_contentE/$new_content/g" "$file"
         echo "✅ Replaced content in $file"
     else
         echo "⚠️  Warning: File $file not found"
@@ -54,7 +54,7 @@ replace_complex_content() {
         printf '%s' "$new_content" > "$temp_new"
         
         # Use python for reliable string replacement
-        python3 -c "
+        if python3 -c "
 import sys
 with open('$file', 'r') as f:
     content = f.read()
@@ -62,34 +62,55 @@ with open('$temp_old', 'r') as f:
     old = f.read()
 with open('$temp_new', 'r') as f:
     new = f.read()
+
+if old not in content:
+    sys.exit(1)
+
 content = content.replace(old, new)
 with open('$file', 'w') as f:
     f.write(content)
-"
+"; then
+            echo "✅ Replaced complex content in $file"
+        else
+            echo "❌ Failed to replace content in $file (pattern not found)"
+        fi
         
         # Clean up temp files
         rm "$temp_old" "$temp_new"
-        echo "✅ Replaced complex content in $file"
     else
         echo "⚠️  Warning: File $file not found"
     fi
 }
 
 # Apply Common Hardhat Patches
-echo "Commenting out await stdoutFileHandle.close()..."
-comment_line "./node_modules/.deno/hardhat@3.0.4/node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js" 48 "await stdoutFileHandle.close();"
+shopt -s nullglob # Expands to nothing if no match is found
 
-echo "Commenting out first await fileHandle?.close()..."
-comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 209 "await fileHandle?.close();"
+echo "Applying common Hardhat patches for versions 3.0.0-3.1.x..."
 
-echo "Commenting out second await fileHandle?.close()..."
-comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 275 "await fileHandle?.close();"
+# Patch hardhat compiler.js
+for dir in ./node_modules/.deno/hardhat@3.[0-1]*.[0-9]*/ ; do
+    file_to_patch="${dir}node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js"
+    echo "Commenting out await stdoutFileHandle.close() in ${file_to_patch}..."
+    comment_line "$file_to_patch" 48 "await stdoutFileHandle.close();"
+done
+
+# Patch hardhat-utils fs.js 
+for dir in ./node_modules/.deno/@nomicfoundation+hardhat-utils@3.[0-1]*.[0-9]*/ ; do
+    file_to_patch="${dir}node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js"
+    echo "Commenting out first await fileHandle?.close() in ${file_to_patch}..."
+    comment_line "$file_to_patch" 209 "await fileHandle?.close();"
+    echo "Commenting out second await fileHandle?.close() in ${file_to_patch}..."
+    comment_line "$file_to_patch" 275 "await fileHandle?.close();"
+done
+
+shopt -u nullglob # Revert to default
 
 echo "✅ All patches applied successfully"
 
 # Apply Specific Patches
 echo "Replacing fetch-blob streams.cjs content..."
-replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/streams.cjs" "  // \`node:stream/web\` got introduced in v16.5.0 as experimental
+replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/streams.cjs" "if (!globalThis.ReadableStream) {
+  // \`node:stream/web\` got introduced in v16.5.0 as experimental
   // and it's preferred over the polyfilled version. So we also
   // suppress the warning that gets emitted by NodeJS for using it.
   try {
@@ -106,7 +127,10 @@ replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetc
   } catch (error) {
     // fallback to polyfill implementation
     Object.assign(globalThis, require('web-streams-polyfill/dist/ponyfill.es2018.js'))
-  }" "  Object.assign(globalThis, require('web-streams-polyfill/dist/ponyfill.es2018.js'))"
+  }
+}" "if (!globalThis.ReadableStream) {
+  Object.assign(globalThis, require('web-streams-polyfill/dist/ponyfill.es2018.js'))
+}"
 
 echo "Replacing fetch-blob from.js imports..."
 replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/from.js" "import { statSync, createReadStream, promises as fs } from 'node:fs'

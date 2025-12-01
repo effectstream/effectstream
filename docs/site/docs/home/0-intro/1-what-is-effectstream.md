@@ -223,7 +223,7 @@ Unfortunately there is no "free lunch", and so usage of sovereign rollups comes 
 
 ### Extra work for trading L2 assets on the L1
 
-Although assets that stay on the L1 are supported, if assets are stored on the L2, extra work is required to make these assets from the L2 available on the L1 (that is to say, supporting the ability to put \$5 into the L2, make some money, then take \$10 out require extra work). Effectstream supports this through its concept of *inverse projections* which supports both [NFT](../400-effectstream-standards/prc3.md) and [fungible tokens](../400-effectstream-standards/prc4.md). You can learn more about this in our [blogpost](https://blog.paimastudios.com/self-sovereign-rollup/).
+Although assets that stay on the L1 are supported, if assets are stored on the L2, extra work is required to make these assets from the L2 available on the L1 (that is to say, supporting the ability to put \$5 into the L2, make some money, then take \$10 out require extra work). Effectstream supports this through its concept of *inverse projections* which supports both [NFT](../400-paima-standards/prc3.md) and [fungible tokens](../400-paima-standards/prc4.md). You can learn more about this in our [blogpost](https://blog.paimastudios.com/self-sovereign-rollup/).
 
 ### Optional compatibility with other L1 dApps
 

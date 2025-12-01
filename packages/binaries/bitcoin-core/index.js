@@ -28,6 +28,8 @@ fallbackfee=0.00001
 txindex=1
 
 [regtest]
+rpcallowip=0.0.0.0/0
+rpcbind=0.0.0.0
 rpcuser=dev
 rpcpassword=devpassword
 rpcport=18443

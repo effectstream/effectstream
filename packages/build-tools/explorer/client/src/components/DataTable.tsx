@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { RowDetailsModal } from "./RowDetailsModal.tsx";
+
 interface Field {
   name: string;
   dataTypeID: number;
@@ -65,6 +68,10 @@ export function DataTable(
   { title, data, pagination, onPrev, onNext, onFirst, onLimitChange }:
     DataTableProps,
 ) {
+  const [selectedRow, setSelectedRow] = useState<Record<string, any> | null>(
+    null,
+  );
+
   // Always show the table container with title
   const hasData = data && data.rows && data.fields && data.rows.length > 0;
   const fields = data?.fields || [];
@@ -76,104 +83,132 @@ export function DataTable(
   const hideControls = !pagination || (!canGoPrev && !canGoNext);
 
   return (
-    <div
-      className={`primitive-table-container ${
-        rows.length > 6 ? "has-scroll" : ""
-      }`}
-    >
-      <h3 className="primitive-table-title">{title}</h3>
-      {!hasData
-        ? <div className="table-error">No data available</div>
-        : (
-          <table className="primitive-table">
-            <thead>
-              <tr>
-                {fields.map((field) => (
-                  <th key={field.name}>
-                    {field.name.replace(/_/g, " ").toUpperCase()}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.slice().reverse().map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {fields.map((field) => {
-                    const value = row[field.name];
-                    const formattedValue = formatCellValue(value, field.name);
-                    const plainTextValue = value ? value.toString() : "";
+    <>
+      <div
+        className={`primitive-table-container ${
+          rows.length > 6 ? "has-scroll" : ""
+        }`}
+      >
+        <h3 className="primitive-table-title">{title}</h3>
+        {!hasData
+          ? <div className="table-error">
+            {/* No data available */}
+            </div>
+          : (
+            <div className="primitive-table-wrapper">
+              <table className="primitive-table">
+                <thead>
+                  <tr>
+                    <th className="actions-column" />
+                    {fields.map((field) => (
+                      <th key={field.name}>
+                        {field.name.replace(/_/g, " ").toUpperCase()}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.slice().reverse().map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      <td className="actions-cell">
+                        <button
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                          }}
+                          type="button"
+                          onClick={() => setSelectedRow(row)}
+                          className="details-button"
+                        >
+                          🔍
+                        </button>
+                      </td>
+                      {fields.map((field) => {
+                        const value = row[field.name];
+                        const formattedValue = formatCellValue(value, field.name);
+                        const plainTextValue = value ? value.toString() : "";
 
-                    return (
-                      <td
-                        key={field.name}
-                        dangerouslySetInnerHTML={{ __html: formattedValue }}
-                        title={plainTextValue.length > 30
-                          ? plainTextValue
-                          : undefined}
-                      />
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      {/* Pagination Controls */}
-      {pagination && !hideControls && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: 8,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              type="button"
-              onClick={onFirst}
-              disabled={!canGoPrev}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 6,
-                border: "1px solid #ddd",
-                background: canGoPrev ? "white" : "#f3f4f6",
-                cursor: canGoPrev ? "pointer" : "not-allowed",
-              }}
-            >
-              First
-            </button>
-            <button
-              type="button"
-              onClick={onPrev}
-              disabled={!canGoPrev}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 6,
-                border: "1px solid #ddd",
-                background: canGoPrev ? "white" : "#f3f4f6",
-                cursor: canGoPrev ? "pointer" : "not-allowed",
-              }}
-            >
-              Prev
-            </button>
-            <button
-              type="button"
-              onClick={onNext}
-              disabled={!canGoNext}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 6,
-                border: "1px solid #ddd",
-                background: canGoNext ? "white" : "#f3f4f6",
-                cursor: canGoNext ? "pointer" : "not-allowed",
-              }}
-            >
-              Next
-            </button>
+                        return (
+                          <td
+                            key={field.name}
+                            dangerouslySetInnerHTML={{ __html: formattedValue }}
+                            title={plainTextValue.length > 30
+                              ? plainTextValue
+                              : undefined}
+                          />
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        {/* Pagination Controls */}
+        {pagination && !hideControls && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 8,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                type="button"
+                onClick={onFirst}
+                disabled={!canGoPrev}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
+                  background: canGoPrev ? "white" : "#f3f4f6",
+                  cursor: canGoPrev ? "pointer" : "not-allowed",
+                }}
+              >
+                First
+              </button>
+              <button
+                type="button"
+                onClick={onPrev}
+                disabled={!canGoPrev}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
+                  background: canGoPrev ? "white" : "#f3f4f6",
+                  cursor: canGoPrev ? "pointer" : "not-allowed",
+                }}
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={onNext}
+                disabled={!canGoNext}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
+                  background: canGoNext ? "white" : "#f3f4f6",
+                  cursor: canGoNext ? "pointer" : "not-allowed",
+                }}
+              >
+                Next
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+      <RowDetailsModal
+        isOpen={!!selectedRow}
+        onClose={() => setSelectedRow(null)}
+        rowData={selectedRow}
+        fields={fields}
+        title={`${title} Row Details`}
+      />
+    </>
   );
 }
