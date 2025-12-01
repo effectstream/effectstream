@@ -4,6 +4,7 @@ import {
   type DefaultBatcherInput,
   PaimaL2DefaultAdapter,
   MidnightAdapter,
+  BitcoinAdapter,
 } from "@effectstream/batcher";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
@@ -53,6 +54,15 @@ export const midnightAdapter = new MidnightAdapter(
   0, // NetworkId.Undeployed,
   "parallelMidnight",
 );
+
+// Bitcoin Adapter
+const BITCOIN_SEED = "my-super-secret-regtest-demo-seed-e2e";
+export const bitcoinAdapter = new BitcoinAdapter({
+  rpcUrl: "http://127.0.0.1:18443",
+  rpcUser: "dev",
+  rpcPass: "devpassword",
+  seed: BITCOIN_SEED,
+});
 
 // Batcher config matching old behavior
 export const config: BatcherConfig<DefaultBatcherInput> = {

@@ -13,6 +13,7 @@ export enum ConfigSyncProtocolType {
   MINA_PARALLEL = "mina-sql-parallel",
   AVAIL_PARALLEL = "avail-rpc-parallel",
   MIDNIGHT_PARALLEL = "midnight-graphql-parallel",
+  BITCOIN_RPC_PARALLEL = "bitcoin-rpc-parallel",
 }
 
 export const SyncProtocolToNetwork = {
@@ -23,6 +24,7 @@ export const SyncProtocolToNetwork = {
   [ConfigSyncProtocolType.MINA_PARALLEL]: ConfigNetworkType.MINA,
   [ConfigSyncProtocolType.AVAIL_PARALLEL]: ConfigNetworkType.AVAIL,
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: ConfigNetworkType.MIDNIGHT,
+  [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: ConfigNetworkType.BITCOIN,
 } satisfies Record<ConfigSyncProtocolType, ConfigNetworkType>;
 
 export type NetworkTypeFromSyncProtocol<T extends ConfigSyncProtocolType> =
@@ -75,6 +77,24 @@ type AvailPrimitive = BasePrimitive & {
 
 type NtpMainPrimitive = BasePrimitive & {};
 
+export type BitcoinPrimitiveDirection = "inputs" | "outputs" | "both";
+
+type BitcoinPrimitive = BasePrimitive & {
+  /**
+   * The address to watch for transactions. Must be a fixed address, for now multi address wallets are not supported.
+   */
+  watchAddress: string;
+  /**
+   * Allows narrowing notifications to only creations or spends.
+   * Defaults to `both`.
+   */
+  direction?: BitcoinPrimitiveDirection;
+  /**
+   * Optional human label for this address (e.g. exchange name).
+   */
+  label?: string;
+};
+
 /**
  * A mapping between specific sync protocols and their corresponding primitive types.
  * This helps in creating a discriminated union for PrimitiveEntry.
@@ -87,6 +107,7 @@ export type ProtocolPrimitiveMap = {
   [ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL]: CardanoUtxoRpcPrimitive;
   [ConfigSyncProtocolType.MINA_PARALLEL]: MinaPrimitive;
   [ConfigSyncProtocolType.AVAIL_PARALLEL]: AvailPrimitive;
+  [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitive;
 };
 
 /**

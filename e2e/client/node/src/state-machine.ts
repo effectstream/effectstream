@@ -4,6 +4,7 @@ import type { BaseStfInput, BaseStfOutput } from "@effectstream/sm";
 import {
   getLastSumFromExampleTable,
   insertAvailMessage,
+  insertBitcoinTransaction,
   insertCounterInput,
   insertStateMachineInput,
   insertSumIntoExampleTable,
@@ -165,6 +166,22 @@ stm.addStateTransition("counter-stm", function* (data) {
   yield* World.resolve(insertCounterInput, {
     counter,
     block_height: data.blockHeight,
+  });
+  return;
+});
+
+stm.addStateTransition("bitcoin-transaction", function* (data) {
+  const { direction, address, transactionId, index, valueSats, utxoTxid, utxoVout, label } = data.parsedInput;
+  yield* World.resolve(insertBitcoinTransaction, {
+    block_height: data.blockHeight,
+    direction,
+    address,
+    transaction_id: transactionId,
+    index,
+    value_sats: valueSats,
+    utxo_txid: utxoTxid,
+    utxo_vout: utxoVout,
+    label: label || '',
   });
   return;
 });

@@ -21,6 +21,7 @@ import { ENV } from "@effectstream/utils/node-env";
 import type {
   AllSyncProtocols,
   AvailFetcher,
+  BitcoinFetcher,
   EvmFetcher,
   MidnightFetcher,
   NtpFetcher,
@@ -295,6 +296,14 @@ export const startHttpServer = function* (
                 n,
               );
               if (result) blocks.push(result);
+            }
+            break;
+          }
+          case ConfigNetworkType.BITCOIN: {
+            const bitcoinFetcher = fetcher as BitcoinFetcher;
+            for (let n = from; n <= to; n++) {
+              const block = await bitcoinFetcher.rpcClient.getBlockByHeight(n);
+              blocks.push(block);
             }
             break;
           }
