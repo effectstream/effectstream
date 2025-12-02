@@ -10,6 +10,7 @@
     "jsr:@cliffy/table@1.0.0-rc.7": "1.0.0-rc.7",
     "jsr:@oak/commons@1": "1.0.1",
     "jsr:@oak/oak@^17.1.4": "17.1.6",
+    "jsr:@paimaexample/log@0.3.105": "0.3.105",
     "jsr:@std/assert@1": "1.0.15",
     "jsr:@std/assert@^1.0.12": "1.0.15",
     "jsr:@std/assert@~1.0.6": "1.0.15",
@@ -329,6 +330,26 @@
         "jsr:@std/media-types",
         "jsr:@std/path@1",
         "npm:path-to-regexp"
+      ]
+    },
+    "@paimaexample/log@0.3.105": {
+      "integrity": "d4d9dad894e0b2268236871496c907c5667e1237925a409cf50e153c9d877d0c",
+      "dependencies": [
+        "npm:@opentelemetry/api",
+        "npm:@opentelemetry/api-logs",
+        "npm:@opentelemetry/exporter-logs-otlp-http",
+        "npm:@opentelemetry/exporter-metrics-otlp-http",
+        "npm:@opentelemetry/exporter-trace-otlp-http",
+        "npm:@opentelemetry/resources",
+        "npm:@opentelemetry/sdk-logs",
+        "npm:@opentelemetry/sdk-metrics",
+        "npm:@opentelemetry/sdk-trace-base",
+        "npm:@opentelemetry/semantic-conventions",
+        "npm:chalk",
+        "npm:effection@3.5.0",
+        "npm:material-chalk",
+        "npm:superjson",
+        "npm:tslog"
       ]
     },
     "@std/assert@1.0.15": {

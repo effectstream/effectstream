@@ -10,10 +10,15 @@ deno task -f @minimal/node dev
 
 ```sh
 # another terminal
-cd frontend
+cd packages/frontend
 npm install
 node esbuild.js
 npx http-server .
+```
+
+Or use the Deno task:
+```sh
+deno task -f @minimal/frontend dev
 ```
 
 ## Run in Docker 
