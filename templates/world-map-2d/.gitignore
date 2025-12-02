@@ -38,7 +38,8 @@ snapshots
 # Frontend
 build.zip
 WebGL
-frontend/paimaMiddleware.js
+packages/frontend/paimaMiddleware.js
+packages/frontend/paimaMiddleware.js.map
 
 # recompiled code for standalone purposes
 packaged/*
