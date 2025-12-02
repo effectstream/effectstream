@@ -65,6 +65,61 @@ For development, import Hardhat's test account into MetaMask:
 
 ⚠️ **Never use this private key on a real network** - it's publicly known and only for local development.
 
+## Docker Setup
+
+You can run the entire stack (EVM node, Effectstream backend, and frontend) in a single Docker container:
+
+### Building the Docker Image
+
+```sh
+# For macOS
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build -t world-map-2d-sample -f Dockerfile .
+
+# For Linux
+docker build -t world-map-2d-sample -f Dockerfile .
+```
+
+This will:
+- Install all dependencies (Deno, Node.js, Foundry)
+- Build the EVM contracts
+- Build the frontend bundle
+- Set up the launch script
+
+### Running the Container
+
+```sh
+# For macOS
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run -p 8080:8080 -p 8545:8545 -p 9999:9999 -p 3334:3334 world-map-2d-sample
+
+# For Linux
+docker run -p 8080:8080 -p 8545:8545 -p 9999:9999 -p 3334:3334 world-map-2d-sample
+```
+
+The container exposes:
+- **Port 8080**: Frontend (http://localhost:8080)
+- **Port 8545**: Local EVM node (Hardhat)
+- **Port 9999**: Effectstream backend API
+- **Port 3334**: Explorer
+
+Once the container is running, you'll see the Effectstream node start up and the frontend will be available at http://localhost:8080.
+
+![Docker Setup Running](./1206-docker.png)
+
+### Debugging Docker Issues
+
+To inspect the running container:
+```sh
+# View logs
+docker logs <container-id>
+
+# Open a shell inside the container
+docker exec -it <container-id> /bin/bash
+
+# Verify files exist
+docker run --rm world-map-2d-sample ls -la /app/.docker-scripts/
+docker run --rm world-map-2d-sample ls -la /app/packages/frontend/
+```
+
 ## The Components in Action
 
 When you run `deno task dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
