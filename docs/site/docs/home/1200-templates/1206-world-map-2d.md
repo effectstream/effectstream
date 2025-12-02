@@ -5,6 +5,10 @@
 
 The `world-map-2d` template demonstrates how to build an open-world game where players can explore a 2D grid-based world. It's an excellent example for games requiring spatial state management, player movement, and location-based interactions, all processed deterministically through an Effectstream L2 contract on an EVM chain.
 
+Screenshot of running application:
+
+![Docker Setup Running](./1206-gameplay.png)
+
 ## Core Concept: Grid-Based Open World
 
 The goal of this template is to demonstrate an open-world game where players move freely across a 10×10 grid and interact with specific locations. The game state tracks both individual player positions and aggregate world statistics.
