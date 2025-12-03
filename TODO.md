@@ -104,17 +104,22 @@
 ## Templates
 
 ### Migrations:
-- [ ] **Migrate Farcaster Frame**
-- [ ] **Migrate Gamemaker**
+
+
+#### Game Engine and Novel Integrations
+- [x] **Migrate Gamemaker**
+- [ ] **Migrate Web 2.5** - (example of partially decentralized application that still relies on some local server-side data)
+- [ ] **Migrate Farcaster Frame** ( Integration with Farcaster )
+- [ ] **Migrate Rock Paper Scissors** ( Integrates with Phaser game engine )
 - [ ] **Migrate Generic (unity)**
-- [ ] **Migrate Hex Battle**
-- [ ] **Migrate Mina** (?) Probably not needed.
-- [ ] **Migrate NFT LvLUP**
-- [ ] **Migrate Open World**
+- [ ] **Migrate & Convert Mina -> Midnight**
+
+#### Web App Template Examples
+- [x] **Migrate Open World** ( Renamed to world-map-2d ) (
 - [ ] **Migrate Paima Dice**
-- [ ] **Migrate Rock Paper Scissors**
-- [ ] **Migrate Trading Cards**
-- [ ] **Migrate Web 2.5**
+- [ ] **Migrate Trading Cards** 
+- [ ] **Migrate NFT LvLUP**
+- [ ] **Migrate Hex Battle** ( Integrates with custom typescript engine )
 
 ### Template Issues
 - [ ] **Midnight/EVM Localwallet stopped working** In EVM-Midnight template, the local wallet stopped working "Details: Unknown account 0xF83C3d894bD0c250a466bE599d46104fe11919AB"
