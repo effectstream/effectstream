@@ -112,7 +112,7 @@
 - [ ] **Migrate Farcaster Frame** ( Integration with Farcaster )
 - [ ] **Migrate Rock Paper Scissors** ( Integrates with Phaser game engine )
 - [ ] **Migrate Generic (unity)**
-- [ ] **Migrate Mina** (?) Probably not needed.
+- [ ] **Migrate & Convert Mina -> Midnight**
 
 #### Web App Template Examples
 - [x] **Migrate Open World** ( Renamed to world-map-2d ) (
