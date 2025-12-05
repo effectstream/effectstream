@@ -4,7 +4,7 @@
   "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
-    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41",
     "js-sha3": "npm:js-sha3@^0.9.3",
     "viem": "npm:viem@2.37.3"
   }

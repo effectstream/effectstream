@@ -58,6 +58,6 @@ async function login(loginInfo: LoginInfo): Promise<Result<IProvider<unknown>>> 
       return await midnightLoginWrapper(loginInfo);
     }
     default:
-      throw new Error(`Unsupported wallet mode: ${loginInfo.mode}`);
+      throw new Error(`Unsupported wallet mode: ${(loginInfo as any).mode}`);
   }
 };
