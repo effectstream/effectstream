@@ -1,4 +1,4 @@
-import { deployMidnightContract, type DeployConfig } from "@effectstream/midnight-contracts/deploy";
+import { deployMidnightContract, type DeployConfig } from "@effectstream/midnight-contracts/deploy-ledger6";
 import {
   SimpleToken,
   witnesses,

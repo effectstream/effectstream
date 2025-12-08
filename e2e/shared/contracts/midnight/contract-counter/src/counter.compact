@@ -1,4 +1,4 @@
-pragma language_version >= 0.16;
+pragma language_version >= 0.18.0;
 
 import CompactStandardLibrary;
 

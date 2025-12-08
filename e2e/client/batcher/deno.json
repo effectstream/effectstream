@@ -7,6 +7,7 @@
     "./bitcoin-calls": "./adapter-bitcoin.ts"
   },
   "imports": {
+    "@std/path": "jsr:@std/path",
     "viem": "npm:viem@^2.21.3",
     "effection": "npm:effection@^3.5.0",
     "bitcoinjs-lib": "npm:bitcoinjs-lib@^6.1.5",
