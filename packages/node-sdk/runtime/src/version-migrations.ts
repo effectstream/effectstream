@@ -29,6 +29,7 @@ export function* applySystemMigrations(
   if (
     versionInfo.engine_current_version === versionInfo.engine_previous_version
   ) {
+    console.log("[MIGRATIONS] Nothing to apply.");
     // Nothing to apply.
     return;
   }

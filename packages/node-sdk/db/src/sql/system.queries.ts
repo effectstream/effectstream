@@ -87,7 +87,7 @@ export interface ITableExistsQuery {
   result: ITableExistsResult;
 }
 
-const tableExistsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT EXISTS (\n    SELECT FROM information_schema.tables \n    WHERE  table_schema = 'paima'\n    AND    table_name   = 'effectstream_version_history'\n)"};
+const tableExistsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT EXISTS (\n    SELECT FROM information_schema.tables \n    WHERE  table_schema = 'effectstream'\n    AND    table_name   = 'effectstream_version_history'\n)"};
 
 /**
  * Query generated from SQL:
