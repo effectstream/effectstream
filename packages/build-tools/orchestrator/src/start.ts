@@ -487,7 +487,8 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       component: ComponentNames.EFFECTSTREAM_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically
       abortController: abortControllers.system,
-      critical: true,
+      // Allow sync to fail without killing the orchestrator; TUI/R restart can recover it.
+      critical: false,
     });
     await Promise.all([node.process.status]);
     return node;
