@@ -13,6 +13,7 @@ export type ProcessComponent = {
   alive: boolean;
   date: string;
   link: string;
+  critical: boolean;
   // This is internal temporal flag to notify that the next
   // "restart" is intended, so we do not stop effectstream-engine.
   _allow_restart?: boolean;
@@ -144,6 +145,7 @@ export const $ = (params: {
   stdout?: "inherit" | "piped" | "null" | undefined;
   stderr?: "inherit" | "piped" | "null" | undefined;
   link?: string;
+  critical?: boolean;
 }): ProcessComponent => {
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
@@ -171,6 +173,7 @@ export const $ = (params: {
       stdout: params.stdout === "piped",
     },
     link: params.link ?? "",
+    critical: params.critical ?? true,
   };
   processes.push(processComponent);
 
@@ -209,6 +212,14 @@ export const $ = (params: {
       return;
     }
     if (!status.success) {
+      if (!processComponent.critical) {
+        systemLog(
+          `Non-critical process ${processComponent.component} (${
+            processComponent.process.pid
+          }) exited with status ${status.signal ?? status.code}; keeping orchestrator alive.`,
+        );
+        return;
+      }
       if (!failed) {
         // usually if a :wait command fails, it because another command failed first
         // and we don't want the :wait command failure to swallow the real failure reason

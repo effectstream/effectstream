@@ -20,6 +20,7 @@ function mapProcess(p: ProcessComponent) {
     args: p.args,
     date: p.date,
     link: p.link,
+    critical: p.critical,
   };
 }
 server.get("/processes", function handler() {
