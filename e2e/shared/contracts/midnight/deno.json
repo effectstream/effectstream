@@ -39,6 +39,6 @@
         "@midnight-ntwrk/wallet-sdk-shielded": "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.11",
         "@midnight-ntwrk/wallet-sdk-shielded/v1": "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.11/v1",
         "@midnight-ntwrk/wallet-sdk-dust-wallet": "npm:@midnight-ntwrk/wallet-sdk-dust-wallet@1.0.0-beta.10",
-        "@midnight-ntwrk/ledger-v6": "npm:@midnight-ntwrk/ledger-v6@6.1.0-alpha.6"
+        "@midnight-ntwrk/ledger-v6": "npm:@midnight-ntwrk/ledger-v6@6.2.0-rc.1"
     }
 }

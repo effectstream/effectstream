@@ -49,7 +49,7 @@
     "npm:@coderspirit/nominal@^4.1.1": "4.1.1_typescript@5.6.3",
     "npm:@dcspark/carp-client@^3.3.0": "3.3.0",
     "npm:@dcspark/cip34-js@3.0.1": "3.0.1",
-    "npm:@deno/vite-plugin@^1.0.4": "1.0.5_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
+    "npm:@deno/vite-plugin@^1.0.4": "1.0.5_vite@6.4.1__picomatch@4.0.3",
     "npm:@docusaurus/core@3.8.1": "3.8.1_@mdx-js+react@3.1.1__@types+react@18.3.1__react@18.3.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@18.3.1_webpack@5.103.0__acorn@8.15.0_react-router@5.3.4__react@18.3.1_typescript@5.6.3",
     "npm:@docusaurus/module-type-aliases@3.8.1": "3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1",
     "npm:@docusaurus/plugin-client-redirects@3.8.1": "3.8.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@mdx-js+react@3.1.1__@types+react@18.3.1__react@18.3.1_@types+react@18.3.1_typescript@5.6.3",
@@ -70,6 +70,7 @@
     "npm:@midnight-ntwrk/compact-runtime@0.9": "0.9.0",
     "npm:@midnight-ntwrk/compact-runtime@0.9.0": "0.9.0",
     "npm:@midnight-ntwrk/ledger-v6@6.1.0-alpha.6": "6.1.0-alpha.6",
+    "npm:@midnight-ntwrk/ledger-v6@6.2.0-rc.1": "6.2.0-rc.1",
     "npm:@midnight-ntwrk/ledger@4.0.0": "4.0.0",
     "npm:@midnight-ntwrk/midnight-js-contracts@2.0.2": "2.0.2",
     "npm:@midnight-ntwrk/midnight-js-contracts@3.0.0-alpha.9": "3.0.0-alpha.9",
@@ -96,6 +97,7 @@
     "npm:@midnight-ntwrk/midnight-js-utils@2.0.2": "2.0.2",
     "npm:@midnight-ntwrk/midnight-js-utils@3.0.0-alpha.9": "3.0.0-alpha.9",
     "npm:@midnight-ntwrk/midnight-js-utils@^2.0.2": "2.1.0",
+    "npm:@midnight-ntwrk/onchain-runtime-v1@^1.0.0-alpha.5": "1.0.0-alpha.5",
     "npm:@midnight-ntwrk/onchain-runtime@0.3": "0.3.0",
     "npm:@midnight-ntwrk/wallet-api@5": "5.0.0_rxjs@7.8.2",
     "npm:@midnight-ntwrk/wallet-api@5.0.0": "5.0.0_rxjs@7.8.2",
@@ -145,15 +147,13 @@
     "npm:@sinclair/typebox@~0.34.30": "0.34.41",
     "npm:@sinclair/typebox@~0.34.41": "0.34.41",
     "npm:@subsquid/ss58-codec@^1.2.3": "1.2.3",
-    "npm:@txpipe/dolos@*": "0.19.1",
     "npm:@txpipe/dolos@0.19.1": "0.19.1",
-    "npm:@types/node@*": "24.2.0",
     "npm:@types/react@18.3.1": "18.3.1",
     "npm:@types/react@19.1.0": "19.1.0",
     "npm:@types/react@19.1.2": "19.1.2",
     "npm:@utxorpc/sdk@~0.6.8": "0.6.8_@connectrpc+connect@1.4.0__@bufbuild+protobuf@1.10.1",
     "npm:@utxorpc/spec@0.16": "0.16.0",
-    "npm:@vitejs/plugin-react@^4.4.1": "4.7.0_vite@6.4.1__picomatch@4.0.3_@babel+core@7.28.5_@types+node@24.2.0",
+    "npm:@vitejs/plugin-react@^4.4.1": "4.7.0_vite@6.4.1__picomatch@4.0.3_@babel+core@7.28.5",
     "npm:@wagmi/cli@2.3.1": "2.3.1_typescript@5.6.3_zod@3.25.76_esbuild@0.25.12_picomatch@3.0.1",
     "npm:@xhmikosr/bin-wrapper@5": "5.0.1",
     "npm:@xhmikosr/bin-wrapper@^13.2.0": "13.2.0",
@@ -241,16 +241,14 @@
     "npm:typescript@~5.6.2": "5.6.3",
     "npm:varuint-bitcoin@^1.1.2": "1.1.2",
     "npm:viem@*": "2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
-    "npm:viem@2.23.10": "2.23.10_typescript@5.6.3_ws@8.18.1",
     "npm:viem@2.37.3": "2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
     "npm:viem@^2.21.3": "2.41.2_typescript@5.6.3_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10",
-    "npm:vite-plugin-node-stdlib-browser@*": "0.2.1_node-stdlib-browser@1.3.1_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
-    "npm:vite-plugin-static-copy@^3.1.1": "3.1.4_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
-    "npm:vite-plugin-top-level-await@^1.6.0": "1.6.0_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
-    "npm:vite-plugin-wasm@^3.5.0": "3.5.0_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
-    "npm:vite@*": "6.4.1_picomatch@4.0.3_@types+node@24.2.0",
-    "npm:vite@^6.3.2": "6.4.1_picomatch@4.0.3_@types+node@24.2.0",
-    "npm:vitest@^3.2.4": "3.2.4_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
+    "npm:vite-plugin-node-stdlib-browser@*": "0.2.1_node-stdlib-browser@1.3.1_vite@6.4.1__picomatch@4.0.3",
+    "npm:vite-plugin-static-copy@^3.1.1": "3.1.4_vite@6.4.1__picomatch@4.0.3",
+    "npm:vite-plugin-top-level-await@^1.6.0": "1.6.0_vite@6.4.1__picomatch@4.0.3",
+    "npm:vite-plugin-wasm@^3.5.0": "3.5.0_vite@6.4.1__picomatch@4.0.3",
+    "npm:vite@^6.3.2": "6.4.1_picomatch@4.0.3",
+    "npm:vitest@^3.2.4": "3.2.4_vite@6.4.1__picomatch@4.0.3",
     "npm:wagmi@^2.16.9": "2.19.5_@tanstack+react-query@5.90.12__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.0.9___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.0.9____utf-8-validate@5.0.10__@types+react@18.3.1__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1",
     "npm:wait-on@8.0.3": "8.0.3",
     "npm:web3-utils@^4.3.3": "4.3.3",
@@ -2063,13 +2061,7 @@
     "@deno/vite-plugin@1.0.5_vite@6.4.1__picomatch@4.0.3": {
       "integrity": "sha512-tLja5n4dyMhcze1NzvSs2iiriBymfBlDCZIrjMTxb9O2ru0gvmV6mn5oBD2teNw5Sd92cj3YJzKwsAs8tMJXlg==",
       "dependencies": [
-        "vite@6.4.1_picomatch@4.0.3"
-      ]
-    },
-    "@deno/vite-plugin@1.0.5_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0": {
-      "integrity": "sha512-tLja5n4dyMhcze1NzvSs2iiriBymfBlDCZIrjMTxb9O2ru0gvmV6mn5oBD2teNw5Sd92cj3YJzKwsAs8tMJXlg==",
-      "dependencies": [
-        "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
     },
     "@discoveryjs/json-ext@0.5.7": {
@@ -3696,6 +3688,9 @@
     "@midnight-ntwrk/ledger-v6@6.1.0-alpha.6": {
       "integrity": "sha512-EwmapuQx2eREsunLHM8eyy5M9T6mAtgybyANsnZ89LjFKDOSFQcZG/MDNq45IK5gv1UMHBKI+HJo+CQ7gbYIkA=="
     },
+    "@midnight-ntwrk/ledger-v6@6.2.0-rc.1": {
+      "integrity": "sha512-Y7m7yHM2cehCCWKhMkh2C04rF0mQoKAjWxK60bsycPZVr2UhWcEkxcLZqM4uBA0dF7nHSiWP0qXe/mxEI6TKPg=="
+    },
     "@midnight-ntwrk/ledger@4.0.0": {
       "integrity": "sha512-cnJisY8uQ4NO54miDnjs/ov6n102ZPfKEPxtiDKVEdlKijcc70jz/CI2yBCc0itlwwaqma7FM2Ou5N4pWpbwbg=="
     },
@@ -3910,6 +3905,9 @@
         "@scure/base@2.0.0"
       ]
     },
+    "@midnight-ntwrk/onchain-runtime-v1@1.0.0-alpha.5": {
+      "integrity": "sha512-f2l6PaWFycNukB8kk8w/E5TuR2P8DX1TJ1papbIoEFPYJadHozzMwg0OW9IEYWNIDw3S/adL0B9Qx7F8VODlPQ=="
+    },
     "@midnight-ntwrk/onchain-runtime@0.3.0": {
       "integrity": "sha512-vZWPoz7MhXO5UgWZET50g7APOcT5dbAfADDcrSreeOagV8lj7JJzlnYIIhrcUaMOv+NHWxPaUcJUYUkmu9LoTA=="
     },
@@ -3936,7 +3934,7 @@
     "@midnight-ntwrk/wallet-sdk-address-format@3.0.0-beta.9": {
       "integrity": "sha512-HU60iB1uLTJj++wnOpJgrBGMbOk3nmzjCL2kkVDuvo8Q9xr9SHAuuUx8IiWRGJeoYIuU1ZIROJvxeKTkQF9rdA==",
       "dependencies": [
-        "@midnight-ntwrk/ledger-v6",
+        "@midnight-ntwrk/ledger-v6@6.1.0-alpha.6",
         "@scure/base@1.2.6",
         "@subsquid/scale-codec"
       ]
@@ -3958,7 +3956,7 @@
     "@midnight-ntwrk/wallet-sdk-dust-wallet@1.0.0-beta.10_ws@8.18.1": {
       "integrity": "sha512-Ep+uLpiNJaCh9pZSRnGTapOCck/fxXTBb02Nl7RytYdLh8FOq06wDNtArnq/oRowNdwq5djc2d7UMVJbHCPxmg==",
       "dependencies": [
-        "@midnight-ntwrk/ledger-v6",
+        "@midnight-ntwrk/ledger-v6@6.1.0-alpha.6",
         "@midnight-ntwrk/wallet-sdk-abstractions",
         "@midnight-ntwrk/wallet-sdk-address-format@3.0.0-beta.9",
         "@midnight-ntwrk/wallet-sdk-capabilities@3.0.0-beta.9",
@@ -3975,7 +3973,7 @@
     "@midnight-ntwrk/wallet-sdk-facade@1.0.0-beta.11_ws@8.18.1": {
       "integrity": "sha512-4aToJOFfl50cZH74s8j4dl+tJfoja3RohqjFQgMzqf/GNu5bwQuMUh6DKCd1459hMMAG8qeJcFTEy0La2r0j2A==",
       "dependencies": [
-        "@midnight-ntwrk/ledger-v6",
+        "@midnight-ntwrk/ledger-v6@6.1.0-alpha.6",
         "@midnight-ntwrk/wallet-sdk-abstractions",
         "@midnight-ntwrk/wallet-sdk-address-format@3.0.0-beta.9",
         "@midnight-ntwrk/wallet-sdk-dust-wallet",
@@ -4051,7 +4049,7 @@
       "integrity": "sha512-ctAYUOwNr5bZnf77uykVrVhbqaCcpzeLApLs+EBCyliUXzLPQoj3r3Cl6rauKncJshw8HvdTPHBUSFpRPJYLMQ==",
       "dependencies": [
         "@effect/platform",
-        "@midnight-ntwrk/ledger-v6",
+        "@midnight-ntwrk/ledger-v6@6.1.0-alpha.6",
         "@midnight-ntwrk/wallet-sdk-abstractions",
         "@midnight-ntwrk/wallet-sdk-utilities",
         "effect"
@@ -4069,7 +4067,7 @@
     "@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.11_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10": {
       "integrity": "sha512-6iMYv1lM2wW8a6/532Oj3X+N29m3T8lXRNzZatUWlSOJ43Eb3JklqVsEXLiaX+acSf0n6gpOMWgWgIkTSFrVsg==",
       "dependencies": [
-        "@midnight-ntwrk/ledger-v6",
+        "@midnight-ntwrk/ledger-v6@6.1.0-alpha.6",
         "@midnight-ntwrk/wallet-sdk-abstractions",
         "@midnight-ntwrk/wallet-sdk-address-format@3.0.0-beta.9",
         "@midnight-ntwrk/wallet-sdk-capabilities@3.0.0-beta.9",
@@ -4096,7 +4094,7 @@
     "@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.13_ws@8.18.1": {
       "integrity": "sha512-7SHRGJVxKmZueEQ/HEa4y5uCv/hAJhPuilFLAuBZN0+R9Jlyd+MYQLBw/LEHPGmegtgVUwbrDcpZrVuqpCzm2A==",
       "dependencies": [
-        "@midnight-ntwrk/ledger-v6",
+        "@midnight-ntwrk/ledger-v6@6.1.0-alpha.6",
         "@midnight-ntwrk/wallet-sdk-abstractions",
         "@midnight-ntwrk/wallet-sdk-address-format@3.0.0-beta.9",
         "@midnight-ntwrk/wallet-sdk-capabilities@3.0.0-beta.9",
@@ -7917,19 +7915,7 @@
         "@rolldown/pluginutils",
         "@types/babel__core",
         "react-refresh",
-        "vite@6.4.1_picomatch@4.0.3"
-      ]
-    },
-    "@vitejs/plugin-react@4.7.0_vite@6.4.1__picomatch@4.0.3_@babel+core@7.28.5_@types+node@24.2.0": {
-      "integrity": "sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==",
-      "dependencies": [
-        "@babel/core",
-        "@babel/plugin-transform-react-jsx-self",
-        "@babel/plugin-transform-react-jsx-source",
-        "@rolldown/pluginutils",
-        "@types/babel__core",
-        "react-refresh",
-        "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
     },
     "@vitest/expect@3.2.4": {
@@ -7948,22 +7934,10 @@
         "@vitest/spy",
         "estree-walker@3.0.3",
         "magic-string",
-        "vite@6.4.1_picomatch@4.0.3"
+        "vite"
       ],
       "optionalPeers": [
-        "vite@6.4.1_picomatch@4.0.3"
-      ]
-    },
-    "@vitest/mocker@3.2.4_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0": {
-      "integrity": "sha512-46ryTE9RZO/rfDd7pEqFl7etuyzekzEhUbTW3BvmeO/BcCMEgq59BKhek3dXDWgAj4oMK6OZi+vRr1wPW6qjEQ==",
-      "dependencies": [
-        "@vitest/spy",
-        "estree-walker@3.0.3",
-        "magic-string",
-        "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0"
-      ],
-      "optionalPeers": [
-        "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
     },
     "@vitest/pretty-format@3.2.4": {
@@ -13602,12 +13576,6 @@
         "ws@8.18.0"
       ]
     },
-    "isows@1.0.6_ws@8.18.1": {
-      "integrity": "sha512-lPHCayd40oW98/I0uvgaHKWCSvkzY27LjWLbtzOm64yQ+G3Q5npjjbdppU65iZXkK1Zt+kH9pfegli0AYfwYYw==",
-      "dependencies": [
-        "ws@8.18.1"
-      ]
-    },
     "isows@1.0.7_ws@8.18.3__bufferutil@4.0.9__utf-8-validate@5.0.10": {
       "integrity": "sha512-I1fSfDCZL5P0v33sVqeTDSpcstAg/N+wF5HS033mogOVIp4B+oHC7oOCsA3axAbBSGTJ8QubbNmnIRN/h8U7hg==",
       "dependencies": [
@@ -15435,7 +15403,7 @@
       "integrity": "sha512-wi5ShvzE4eOcTwQVsIPdFr+8ycyX+5le/96iAJutaZAvCes1J0+RvpEPg5QDPDiaR0XQQAvZVl7AwqQcINuUug==",
       "dependencies": [
         "@adraffy/ens-normalize@1.11.1",
-        "@noble/curves@1.9.7",
+        "@noble/curves@1.9.1",
         "@noble/hashes@1.8.0",
         "@scure/bip32@1.7.0",
         "@scure/bip39@1.6.0",
@@ -19051,23 +19019,6 @@
         "vfile-message"
       ]
     },
-    "viem@2.23.10_typescript@5.6.3_ws@8.18.1": {
-      "integrity": "sha512-va6Wde+v96PdfzdPEspCML1MjAqe+88O8BD+R9Kun/4s5KMUNcqfHbXdZP0ZZ2Zms80styvH2pDRAqCho6TqkA==",
-      "dependencies": [
-        "@noble/curves@1.8.1",
-        "@noble/hashes@1.7.1",
-        "@scure/bip32@1.6.2",
-        "@scure/bip39@1.5.4",
-        "abitype@1.0.8_typescript@5.6.3",
-        "isows@1.0.6_ws@8.18.1",
-        "ox@0.6.9_typescript@5.6.3",
-        "typescript",
-        "ws@8.18.1"
-      ],
-      "optionalPeers": [
-        "typescript"
-      ]
-    },
     "viem@2.23.2_typescript@5.6.3_ws@8.18.0": {
       "integrity": "sha512-NVmW/E0c5crMOtbEAqMF0e3NmvQykFXhLOc/CkLIXOlzHSA6KXVz3CYVmaKqBF8/xtjsjHAGjdJN3Ru1kFJLaA==",
       "dependencies": [
@@ -19177,18 +19128,7 @@
         "debug@4.4.3",
         "es-module-lexer",
         "pathe@2.0.3",
-        "vite@6.4.1_picomatch@4.0.3"
-      ],
-      "bin": true
-    },
-    "vite-node@3.2.4_@types+node@24.2.0": {
-      "integrity": "sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==",
-      "dependencies": [
-        "cac",
-        "debug@4.4.3",
-        "es-module-lexer",
-        "pathe@2.0.3",
-        "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ],
       "bin": true
     },
@@ -19197,15 +19137,7 @@
       "dependencies": [
         "@rollup/plugin-inject",
         "node-stdlib-browser",
-        "vite@6.4.1_picomatch@4.0.3"
-      ]
-    },
-    "vite-plugin-node-stdlib-browser@0.2.1_node-stdlib-browser@1.3.1_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0": {
-      "integrity": "sha512-6u2i613Dkqj5KaTNIrnZvE6y3/awWAp0S5TjucTvGxdhetftB1Mgvblc+nwYzlw6sntPlac8UOC7ttXNh+LZKA==",
-      "dependencies": [
-        "@rollup/plugin-inject",
-        "node-stdlib-browser",
-        "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
     },
     "vite-plugin-static-copy@3.1.4_vite@6.4.1__picomatch@4.0.3": {
@@ -19215,17 +19147,7 @@
         "p-map@7.0.4",
         "picocolors",
         "tinyglobby",
-        "vite@6.4.1_picomatch@4.0.3"
-      ]
-    },
-    "vite-plugin-static-copy@3.1.4_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0": {
-      "integrity": "sha512-iCmr4GSw4eSnaB+G8zc2f4dxSuDjbkjwpuBLLGvQYR9IW7rnDzftnUjOH5p4RYR+d4GsiBqXRvzuFhs5bnzVyw==",
-      "dependencies": [
-        "chokidar@3.6.0",
-        "p-map@7.0.4",
-        "picocolors",
-        "tinyglobby",
-        "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
     },
     "vite-plugin-top-level-await@1.6.0_vite@6.4.1__picomatch@4.0.3": {
@@ -19235,29 +19157,13 @@
         "@swc/core",
         "@swc/wasm",
         "uuid@10.0.0",
-        "vite@6.4.1_picomatch@4.0.3"
-      ]
-    },
-    "vite-plugin-top-level-await@1.6.0_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0": {
-      "integrity": "sha512-bNhUreLamTIkoulCR9aDXbTbhLk6n1YE8NJUTTxl5RYskNRtzOR0ASzSjBVRtNdjIfngDXo11qOsybGLNsrdww==",
-      "dependencies": [
-        "@rollup/plugin-virtual",
-        "@swc/core",
-        "@swc/wasm",
-        "uuid@10.0.0",
-        "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
     },
     "vite-plugin-wasm@3.5.0_vite@6.4.1__picomatch@4.0.3": {
       "integrity": "sha512-X5VWgCnqiQEGb+omhlBVsvTfxikKtoOgAzQ95+BZ8gQ+VfMHIjSHr0wyvXFQCa0eKQ0fKyaL0kWcEnYqBac4lQ==",
       "dependencies": [
-        "vite@6.4.1_picomatch@4.0.3"
-      ]
-    },
-    "vite-plugin-wasm@3.5.0_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0": {
-      "integrity": "sha512-X5VWgCnqiQEGb+omhlBVsvTfxikKtoOgAzQ95+BZ8gQ+VfMHIjSHr0wyvXFQCa0eKQ0fKyaL0kWcEnYqBac4lQ==",
-      "dependencies": [
-        "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
     },
     "vite@6.4.1_picomatch@4.0.3": {
@@ -19275,31 +19181,12 @@
       ],
       "bin": true
     },
-    "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0": {
-      "integrity": "sha512-+Oxm7q9hDoLMyJOYfUYBuHQo+dkAloi33apOPP56pzj+vsdJDzr+j1NISE5pyaAuKL4A3UD34qd0lx5+kfKp2g==",
-      "dependencies": [
-        "@types/node@24.2.0",
-        "esbuild@0.25.12",
-        "fdir@6.5.0_picomatch@4.0.3",
-        "picomatch@4.0.3",
-        "postcss",
-        "rollup",
-        "tinyglobby"
-      ],
-      "optionalDependencies": [
-        "fsevents"
-      ],
-      "optionalPeers": [
-        "@types/node@24.2.0"
-      ],
-      "bin": true
-    },
     "vitest@3.2.4_vite@6.4.1__picomatch@4.0.3": {
       "integrity": "sha512-LUCP5ev3GURDysTWiP47wRRUpLKMOfPh+yKTx3kVIEiu5KOMeqzpnYNsKyOoVrULivR8tLcks4+lga33Whn90A==",
       "dependencies": [
         "@types/chai",
         "@vitest/expect",
-        "@vitest/mocker@3.2.4_vite@6.4.1__picomatch@4.0.3",
+        "@vitest/mocker",
         "@vitest/pretty-format",
         "@vitest/runner",
         "@vitest/snapshot",
@@ -19317,42 +19204,9 @@
         "tinyglobby",
         "tinypool",
         "tinyrainbow",
-        "vite@6.4.1_picomatch@4.0.3",
-        "vite-node@3.2.4",
+        "vite",
+        "vite-node",
         "why-is-node-running"
-      ],
-      "bin": true
-    },
-    "vitest@3.2.4_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0": {
-      "integrity": "sha512-LUCP5ev3GURDysTWiP47wRRUpLKMOfPh+yKTx3kVIEiu5KOMeqzpnYNsKyOoVrULivR8tLcks4+lga33Whn90A==",
-      "dependencies": [
-        "@types/chai",
-        "@types/node@24.2.0",
-        "@vitest/expect",
-        "@vitest/mocker@3.2.4_vite@6.4.1__picomatch@4.0.3_@types+node@24.2.0",
-        "@vitest/pretty-format",
-        "@vitest/runner",
-        "@vitest/snapshot",
-        "@vitest/spy",
-        "@vitest/utils",
-        "chai",
-        "debug@4.4.3",
-        "expect-type",
-        "magic-string",
-        "pathe@2.0.3",
-        "picomatch@4.0.3",
-        "std-env",
-        "tinybench",
-        "tinyexec@0.3.2",
-        "tinyglobby",
-        "tinypool",
-        "tinyrainbow",
-        "vite@6.4.1_picomatch@4.0.3_@types+node@24.2.0",
-        "vite-node@3.2.4_@types+node@24.2.0",
-        "why-is-node-running"
-      ],
-      "optionalPeers": [
-        "@types/node@24.2.0"
       ],
       "bin": true
     },
@@ -20363,7 +20217,7 @@
           "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@^2.0.2",
           "npm:@midnight-ntwrk/midnight-js-types@^2.0.2",
           "npm:@midnight-ntwrk/midnight-js-utils@^2.0.2",
-          "npm:@midnight-ntwrk/onchain-runtime@0.3",
+          "npm:@midnight-ntwrk/onchain-runtime-v1@^1.0.0-alpha.5",
           "npm:@midnight-ntwrk/wallet-api@5",
           "npm:@midnight-ntwrk/wallet@5",
           "npm:@midnight-ntwrk/zswap@4",
@@ -20395,7 +20249,7 @@
           "jsr:@oak/oak@^17.1.4",
           "jsr:@std/assert@^1.0.12",
           "npm:@deno/vite-plugin@^1.0.4",
-          "npm:@midnight-ntwrk/onchain-runtime@0.3",
+          "npm:@midnight-ntwrk/onchain-runtime-v1@^1.0.0-alpha.5",
           "npm:@types/react@19.1.0",
           "npm:@vitejs/plugin-react@^4.4.1",
           "npm:ethers@^6.15.0",
@@ -20464,7 +20318,7 @@
           "jsr:@std/fs@*",
           "jsr:@std/path@*",
           "npm:@midnight-ntwrk/compact-runtime@*",
-          "npm:@midnight-ntwrk/ledger-v6@6.1.0-alpha.6",
+          "npm:@midnight-ntwrk/ledger-v6@6.2.0-rc.1",
           "npm:@midnight-ntwrk/midnight-js-contracts@3.0.0-alpha.9",
           "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@3.0.0-alpha.9",
           "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@3.0.0-alpha.9",
@@ -20497,7 +20351,7 @@
       },
       "e2e/shared/data-types": {
         "dependencies": [
-          "npm:@midnight-ntwrk/onchain-runtime@0.3",
+          "npm:@midnight-ntwrk/onchain-runtime-v1@^1.0.0-alpha.5",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:viem@2.37.3"
         ]
