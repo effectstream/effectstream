@@ -447,7 +447,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
           signerAddressAndType: {
             type: AddressType.EVM,
             // This is a EVM contract, so the signer is always EVM.
-            address: outerLayerData.userAddress,
+            address: CryptoManager.getCryptoManager(AddressType.EVM).decodeAddress(outerLayerData.userAddress),
           },
         }),
       );
