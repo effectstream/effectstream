@@ -42,4 +42,8 @@ export class MinaCrypto implements IVerify {
       return false;
     }
   };
+
+  decodeAddress(address: WalletAddress): WalletAddress{
+    return Value.Decode(TypeboxHelpers.Mina.Address, address);
+  }
 }

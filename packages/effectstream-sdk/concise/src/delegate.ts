@@ -15,6 +15,7 @@ AddressType,
   type WalletAddress,
 } from "@effectstream/utils";
 import { Value } from "@sinclair/typebox/value";
+import { CryptoManager } from "@effectstream/crypto";
 
 export function extractDelegateWallet(inputData: string) {
   const parsed = parseStmInput<
@@ -91,25 +92,10 @@ export const accountPayload = {
     accountId: number,
     isNewPrimary: boolean,
   ): Promise<['&linkAddress', number, string, number, string, string, number, boolean]> => {
-    
-    // TODO Unify for any wallet type.
-    let primaryAddress: WalletAddress;
-    switch (primaryAccountAddressType) {
-      case AddressType.EVM:
-        primaryAddress = Value.Decode(TypeboxHelpers.Evm.Address, _primaryAddress);
-        break;
-      default:
-        throw new Error("NYI: Primary account address type is not EVM");
-    }
-
-    let newAddress: WalletAddress;
-    switch (newAccountAddressType) {
-      case AddressType.EVM:
-        newAddress = Value.Decode(TypeboxHelpers.Evm.Address, _newAddress);
-        break;
-      default:
-        throw new Error("NYI: New account address type is not EVM");
-    }    
+    const primaryCryptoManager = CryptoManager.getCryptoManager(primaryAccountAddressType);
+    const primaryAddress = primaryCryptoManager.decodeAddress(_primaryAddress);
+    const newCryptoManager = CryptoManager.getCryptoManager(newAccountAddressType);
+    const newAddress = newCryptoManager.decodeAddress(_newAddress);
 
     const signatureFromPrimary = await signMessage(
       accountMessages.linkAccount(
@@ -164,31 +150,18 @@ export const accountPayload = {
     _newPrimary: WalletAddress | null,
     newPrimaryType: AddressType | null,
   ): Promise<['&unlinkAddress', number, string, number, string, number, string, number]> => {
-    // TODO Unify for any wallet type.
-    let targetAddress: WalletAddress;
-    switch (targetAddressType) {
-      case AddressType.EVM:
-        targetAddress = Value.Decode(TypeboxHelpers.Evm.Address, _targetAddress);
-        break;
-      default:
-        throw new Error("NYI: Target address type is not EVM");
+    const targetCryptoManager = CryptoManager.getCryptoManager(targetAddressType);
+    const targetAddress = targetCryptoManager.decodeAddress(_targetAddress);
+    let newPrimaryAddress: WalletAddress | null = null;
+    if (_newPrimary && newPrimaryType) {
+      const newPrimaryCryptoManager = CryptoManager.getCryptoManager(newPrimaryType);
+      newPrimaryAddress = newPrimaryCryptoManager.decodeAddress(_newPrimary);
     }
-    let newPrimary: WalletAddress | null = null;
-    if (_newPrimary) {
-      switch (newPrimaryType) {
-        case AddressType.EVM:
-          newPrimary = Value.Decode(TypeboxHelpers.Evm.Address, _newPrimary);
-          break;
-        default:
-          throw new Error("NYI: New primary address type is not EVM");
-      }
-    }
-    
     const signatureFromPrimary = await signMessage(
       accountMessages.unlinkAccountWithPrimary(
         accountId,
         targetAddress,
-        newPrimary,
+        newPrimaryAddress,
       ),
       primaryAccountPrivateKey,
     );
@@ -200,7 +173,7 @@ export const accountPayload = {
       primaryAccountAddressType,
       targetAddress,
       targetAddressType,
-      newPrimary ?? "",
+      newPrimaryAddress ?? "",
       newPrimaryType ?? -1,
     ];
   },

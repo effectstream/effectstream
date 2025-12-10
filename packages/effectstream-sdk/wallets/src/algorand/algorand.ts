@@ -110,7 +110,18 @@ export class AlgorandProvider implements IProvider<AlgorandApi> {
   static init = async (
     conn: ActiveConnection<AlgorandApi>
   ): Promise<AlgorandProvider> => {
-    const newAccounts = await conn.api.connect();
+    let newAccounts: string[] = [];
+    // conn.api.isConnected starts as false, even if connected
+    // if connected and connected() is called, then an error is thrown
+    try { 
+      newAccounts = await conn.api.reconnectSession();
+      if ( newAccounts.length < 1) {
+        throw new Error("[peraLogin] no addresses returned!");
+      }
+    } catch (error) {
+      newAccounts = await conn.api.connect();
+    }
+
     if (newAccounts.length < 1) {
       throw new Error("[peraLogin] no addresses returned!");
     }

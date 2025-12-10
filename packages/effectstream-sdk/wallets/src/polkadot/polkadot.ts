@@ -128,7 +128,9 @@ export class PolkadotProvider implements IProvider<PolkadotApi> {
   static init = async (
     conn: ActiveConnection<PolkadotApi>
   ): Promise<PolkadotProvider> => {
-    const account = (await conn.api.accounts.get(false))[0]?.address;
+    // { address, name, type: "sr25519" }
+    const addresses = await conn.api.accounts.get(true);
+    const account = addresses.filter(a => a.type === "sr25519")[0]?.address;
     if (account == null) {
       throw new Error("Unknown error while receiving Polkadot accounts");
     }

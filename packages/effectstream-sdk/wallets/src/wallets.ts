@@ -1,8 +1,8 @@
 import type { IProvider } from "./IProvider.ts";
-// import { algorandLoginWrapper } from "./algorand/wrapper.ts";
+import { algorandLoginWrapper } from "./algorand/wrapper.ts";
 import { cardanoLoginWrapper } from "./cardano/wrapper.ts";
 import { evmLoginWrapper } from "./evm/wrapper-injected.ts";
-// import { polkadotLoginWrapper } from "./polkadot/wrapper.ts";
+import { polkadotLoginWrapper } from "./polkadot/wrapper.ts";
 import { ethersLoginWrapper } from "./evm/wrapper-ethers.ts";
 import { minaLoginWrapper } from "./mina/wrapper.ts";
 import { availJsLoginWrapper } from "./avail/wrapper.ts";
@@ -41,13 +41,12 @@ async function login(loginInfo: LoginInfo): Promise<Result<IProvider<unknown>>> 
     case WalletMode.Cardano: {
       return await cardanoLoginWrapper(loginInfo);
     }
-    // TODO: Disabled as these did not compile with deno-vite or deno-fresh
-    // case WalletMode.Polkadot: {
-    //   return await polkadotLoginWrapper(loginInfo);
-    // }
-    // case WalletMode.Algorand: {
-    //   return await algorandLoginWrapper(loginInfo);
-    // }
+    case WalletMode.Polkadot: {
+      return await polkadotLoginWrapper(loginInfo);
+    }
+    case WalletMode.Algorand: {
+      return await algorandLoginWrapper(loginInfo);
+    }
     case WalletMode.Mina: {
       return await minaLoginWrapper(loginInfo);
     }

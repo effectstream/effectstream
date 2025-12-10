@@ -206,8 +206,13 @@ export const TypeboxHelpers = {
     TxHash: Type.Unsafe<Nominal.MidnightTxHash>(
       forceLowercase(Type.RegExp(/^0x[a-fA-F0-9]{64}$/)),
     ),
+    // TODO Temporal placeholder for midnight address
     Address: Type.Unsafe<Nominal.MidnightAddress>(
-      forceLowercase(Type.RegExp(/^[a-fA-F0-9]{181}$/)),
+      forceLowercase(Type.RegExp(/^mn_(shield-addr|addr|dust-addr|shield-esk|shield-cpk)_(test|dev|undeployed)[a-zA-Z0-9]+$/)),
+    ),
+    // TODO Temporal placeholder for midnight signature
+    Signature: Type.Unsafe<Nominal.MidnightSignature>(
+      Type.RegExp(/^.*$/),
     ),
   },
   Mina: {
@@ -221,17 +226,15 @@ export const TypeboxHelpers = {
       Type.String({ format: "mina-address" }),
     ),
   },
-  // TODO THIS IS WRONG TYPE - ONLY A PLACEHOLDER
+  // TODO: PLACEHOLDER TYPES FOR POLKADOT
   Polkadot: {
-    BlockHash: Type.Unsafe<Nominal.MinaBlockHash>(
-      Type.String({ format: "mina-blockhash" }),
+    BlockHash: Type.Unsafe<Nominal.PolkadotBlockHash>(
+      Type.String({ format: "polkadot-blockhash" }),
     ),
-    TxHash: Type.Unsafe<Nominal.MinaTxHash>(
-      Type.String({ format: "mina-txid" }),
+    TxHash: Type.Unsafe<Nominal.PolkadotTxHash>(
+      Type.String({ format: "polkadot-txid" }),
     ),
-    Address: Type.Unsafe<Nominal.MinaAddress>(
-      Type.String({ format: "mina-address" }),
-    ),
+    Address: Type.Unsafe<Nominal.PolkadotAddress>(Type.String({ format: "ss58" })),
   },
   Caip2: Type.Unsafe<Nominal.Caip2>(Type.String()),
   WalletAddress: () =>

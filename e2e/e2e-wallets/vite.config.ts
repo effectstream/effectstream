@@ -34,7 +34,7 @@ export default defineConfig({
       "@effectstream/config": configPath + "src/mod.ts",
       "@effectstream/concise": concisePath + "src/mod.ts",
       "@effectstream/crypto": cryptoPath + "src/mod.ts",
-      "@effectstream/wallets": walletPath + "src/mod.ts",
+      "@effectstream/wallets": walletPath + "npm/esm/wallets/src/mod.js",
       // "@effectstream/crypto": cryptoPath + "src/mod.ts",
       "@e2e/data-types": dataTypesPath + "src/mod.ts",
       "@effectstream/db": dbEmptyPath,

@@ -5,7 +5,7 @@ import {
   TypeboxHelpers,
   type WalletAddress,
 } from "@effectstream/utils";
-import type { InputDataString } from "@effectstream/chain-types";
+import { CryptoManager } from "@effectstream/crypto";
 import {
   BatcherGrammar,
   BatcherGrammarPrefix,
@@ -47,15 +47,9 @@ export function createBatcherSubunit(
   inputData: string,
 ): DefaultBatcherInput {
   let walletAddress;
-  switch (walletAddressType) {
-    case AddressType.EVM:
-      walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, _walletAddress);
-      break;
-    default:
-      throw new Error(
-        "NYI: Unsupported wallet address type: " + walletAddressType,
-      );
-  }
+  const cryptoManager = CryptoManager.getCryptoManager(walletAddressType);
+  walletAddress = cryptoManager.decodeAddress(_walletAddress);
+ 
   return {
     addressType: walletAddressType,
     address: walletAddress,
@@ -74,16 +68,8 @@ export function createMessageForBatcher(
   inputData: string,
   target: string | undefined = undefined,
 ): BatcherMessage {
-  let walletAddress;
-  switch (walletAddressType) {
-    case AddressType.EVM:
-      walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, _walletAddress);
-      break;
-    default:
-      throw new Error(
-        "NYI: Unsupported wallet address type: " + walletAddressType,
-      );
-  }
+  const cryptoManager = CryptoManager.getCryptoManager(walletAddressType);
+  const walletAddress = cryptoManager.decodeAddress(_walletAddress);
 
   return ((namespace ?? "") + (target ?? "") + millisecondTimestamp +
     walletAddress + inputData)
@@ -99,20 +85,8 @@ export function createMessageForBatcher(
  *       So it contains the address indirectly
  */
 export function hashBatchSubunit(input: DefaultBatcherInput): string {
-  let walletAddress;
-  switch (input.addressType) {
-    case AddressType.EVM:
-      walletAddress = Value.Decode(
-        TypeboxHelpers.Evm.Address,
-        input.address,
-      );
-      break;
-    default:
-      throw new Error(
-        "NYI: Unsupported wallet address type: " + input.addressType,
-      );
-  }
-
+  const cryptoManager = CryptoManager.getCryptoManager(input.addressType);
+  const walletAddress = cryptoManager.decodeAddress(input.address);
   return "0x" +
     keccak_256(
       walletAddress + input.input + input.timestamp,
