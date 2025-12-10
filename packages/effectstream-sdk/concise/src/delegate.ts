@@ -153,7 +153,7 @@ export const accountPayload = {
     const targetCryptoManager = CryptoManager.getCryptoManager(targetAddressType);
     const targetAddress = targetCryptoManager.decodeAddress(_targetAddress);
     let newPrimaryAddress: WalletAddress | null = null;
-    if (_newPrimary && newPrimaryType) {
+    if (_newPrimary && newPrimaryType !== null) {
       const newPrimaryCryptoManager = CryptoManager.getCryptoManager(newPrimaryType);
       newPrimaryAddress = newPrimaryCryptoManager.decodeAddress(_newPrimary);
     }
