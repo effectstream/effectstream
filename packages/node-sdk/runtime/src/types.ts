@@ -53,4 +53,7 @@ export type StartConfig = {
   apiRouter?: StartConfigApiRouter;
   grammar?: GrammarDefinition;
   userDefinedPrimitives?: Record<string, PaimaPrimitiveConstructor<any>>;
+  dev?: {
+    resetPublicData?: boolean;
+  };
 };

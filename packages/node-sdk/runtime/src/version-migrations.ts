@@ -10,6 +10,7 @@ import type { Operation } from "effection";
 import { until } from "npm:effection@3.5.0";
 import {
   getMigrationsForBlockHeight,
+  findMigrationByName,
   insertPaimaEngineVersion,
 } from "@effectstream/db";
 import type { DBMigrations, VERSION } from "@effectstream/runtime";
@@ -104,6 +105,18 @@ export function* applyUserMigrations(
 
   // Apply all missing User Migrations
   for (const migration of migrations) {
+    const [alreadyApplied] = yield* until(
+      findMigrationByName.run({
+        name: migration.name,
+        isSystemMigration: false,
+      }, dbConn),
+    );
+    if (alreadyApplied) {
+      console.log(
+        `[MIGRATIONS] Skipping already applied user migration ${migration.name}`,
+      );
+      continue;
+    }
     yield* until(
       applyMigrations(
         dbConn,
