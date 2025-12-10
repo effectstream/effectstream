@@ -7,6 +7,9 @@ The Wallets Demo is a developer tool and an interactive example that showcases h
 
 ![Wallets Demo](./e2e-wallets.png)
 
+Video Demo:
+<iframe src="https://drive.google.com/file/d/1UBTiI7ZWSK8hkoleKaYsOfx6M-1sbjJE/preview" width="640" height="480" allow="autoplay"></iframe>
+
 ## Core Concept: A Unified Wallet Experience
 
 The primary goal of this demo is to illustrate the power and flexibility of the `@effectstream/wallets` library. It answers the question: "How can my dApp seamlessly handle wallets from different ecosystems like EVM, Cardano, Polkadot, and more?"
