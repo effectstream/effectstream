@@ -1,0 +1,29 @@
+{
+    "name": "@night-bitcoin/filler",
+    "version": "0.1.0",
+    "exports": {
+        ".": "./index.ts"
+    },
+    "tasks": {
+        "start": "deno run -A --unstable-detect-cjs index.ts",
+        "batcher:start": "deno run -A --unstable-detect-cjs batcher/main.ts"
+    },
+    "imports": {
+        "fastify": "npm:fastify@^4.26.2",
+        "effection": "npm:effection@^3.5.0",
+        "@sinclair/typebox": "npm:@sinclair/typebox@^0.32.14",
+        "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.116",
+        "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.3.116",
+        "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.116",
+        "@midnight-ntwrk/wallet-sdk-address-format": "npm:@midnight-ntwrk/wallet-sdk-address-format@2.0.0",
+        "@std/cli": "jsr:@std/cli@^1.0.24",
+        "@std/path": "jsr:@std/path@^1.1.2",
+        "@std/fs": "jsr:@std/fs@^1.0.6",
+        "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
+        "bitcoinjs-lib": "npm:bitcoinjs-lib@^6.1.5",
+        "bitcoinjs-message": "npm:bitcoinjs-message@^2.2.0",
+        "ecpair": "npm:ecpair@^2.1.0",
+        "tiny-secp256k1": "npm:tiny-secp256k1@^2.2.1",
+        "bip32": "npm:bip32@^5.0.0"
+    }
+}

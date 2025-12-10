@@ -8,6 +8,7 @@ import { launchCardano } from "@effectstream/orchestrator/start-cardano";
 import { launchEvm } from "@effectstream/orchestrator/start-evm";
 import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
 import { launchAvail } from "@effectstream/orchestrator/start-avail";
+import { launchBitcoin } from "@effectstream/orchestrator/start-bitcoin";
 import { getEffectstreamEVMPublicClient } from "@e2e/engine";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -23,6 +24,10 @@ const midnight_enabled = Deno
 
 const avail_enabled = Deno
   ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
+  : true;
+
+const bitcoin_enabled = Deno
+  ? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
   : true;
 
 /**
@@ -45,6 +50,7 @@ export async function startup(): Promise<Client> {
     // Launch my processes
     processesToLaunch: [
       ...launchEvm("@e2e/evm-contracts"),
+      ...(bitcoin_enabled ? launchBitcoin("@e2e/bitcoin-contracts") : []),
       ...(yaci_enabled ? launchCardano("@e2e/cardano-contracts") : []),
       ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : []),
       ...(avail_enabled ? launchAvail("@e2e/avail-contracts") : []),
@@ -58,14 +64,17 @@ export async function startup(): Promise<Client> {
         args: ["task", "-f", "@e2e/wallets-ui", "build"],
         waitToExit: true,
       },
-
       {
         stopProcessAtPort: [3334],
         name: "batcher",
         args: ["task", "-f", "@e2e/batcher", "start"],
         waitToExit: false,
         type: "system-dependency",
-        dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined].filter(Boolean),
+        dependsOn: [
+          ComponentNames.DEPLOY_EVM_CONTRACTS, 
+          midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined,
+          bitcoin_enabled ? ComponentNames.BITCOIN_WAIT_FOR_BLOCK : undefined,
+        ].filter(Boolean),
       }
     ],
   });

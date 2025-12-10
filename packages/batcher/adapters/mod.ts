@@ -18,3 +18,8 @@ export { PaimaL2DefaultAdapter } from "./paimal2-adapter.ts";
 // Midnight adapter implementation
 export { MidnightAdapter } from "./midnight-adapter.ts";
 export type { MidnightAdapterConfig } from "./midnight-adapter.ts";
+
+// Bitcoin adapter implementation
+export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./bitcoin-adapter.ts";
+export type { BitcoinAdapterConfig } from "./bitcoin-adapter.ts";
+

@@ -19,6 +19,11 @@ import { AvailFetcher } from "./sync-protocols/avail/fetcher.ts";
 import { AvailSyncState } from "./sync-protocols/avail/state.ts";
 import { NtpFetcher } from "./sync-protocols/ntp/fetcher.ts";
 import { NtpSyncState } from "./sync-protocols/ntp/state.ts";
+import {
+  BitcoinFetcher,
+  BitcoinRpcClient,
+} from "./sync-protocols/bitcoin/fetcher.ts";
+import { BitcoinSyncState } from "./sync-protocols/bitcoin/state.ts";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -90,6 +95,21 @@ export function* genSyncProtocols(
     ) {
       const fetcher = new AvailFetcher(entry);
       const state = yield* AvailSyncState.restoreState(
+        dbConn,
+        entry,
+        fetcher,
+      );
+      result.push(state);
+    } else if (
+      entry.networkType === ConfigNetworkType.BITCOIN
+    ) {
+      const rpcClient = new BitcoinRpcClient({
+        url: entry.network.rpcUrl,
+        username: entry.network.rpcAuth?.username ?? null,
+        password: entry.network.rpcAuth?.password ?? null,
+      });
+      const fetcher = new BitcoinFetcher(entry, rpcClient);
+      const state = yield* BitcoinSyncState.restoreState(
         dbConn,
         entry,
         fetcher,

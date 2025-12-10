@@ -43,6 +43,9 @@
     "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@^4.0.0",
     "rxjs": "npm:rxjs",
     "ws": "npm:ws",
-    "@polkadot/util-crypto": "npm:@polkadot/util-crypto@^13.4.3"
+    "@polkadot/util-crypto": "npm:@polkadot/util-crypto@^13.4.3",
+    "bitcoin": "npm:bitcoinjs-lib@^7.0.0",
+    "ecpair": "npm:ecpair@^3.0.0",
+    "tiny-secp256k1": "npm:tiny-secp256k1@^2.2.4"
   }
 }

@@ -1,0 +1,143 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Open World Game</title>
+</head>
+
+<body>
+  <div>
+    <div id="login"></div>
+    <table id="openworld" style="border: solid black 1px;">
+    </table>
+  </div>
+</body>
+<script type="module">
+  import endpoints, { WalletMode } from './paimaMiddleware.js';
+
+  function inrange(user, x_i, y_i) {
+    const distance = Math.pow(x_i - user.stats.x, 2) + Math.pow(y_i - user.stats.y, 2);
+    return distance <= Math.sqrt(2);
+  }
+
+  async function start() {
+    // Get data for wallet and world
+    const wallet = await endpoints.userWalletLogin({
+      mode: WalletMode.EvmInjected,
+      preferBatchedMode: false,
+    });
+    if (!wallet.success) throw new Error('Wallet Error');
+
+    const user = await endpoints.getUserStats(wallet.result.walletAddress);
+    if (!user.success) {
+      throw new Error('User Error');
+    }
+    if (!user.stats) {
+      const loginDiv = document.getElementById("login");
+      let login = document.createElement("button");
+      login.style = 'width:50px; margin: 4px;'
+      login.innerHTML = "Join World";
+      login.onclick = () => {
+        endpoints.joinWorld().then(x => {
+          if (x.success) {
+            loginDiv.innerHTML = "<span>Please wait...</span>";
+            setTimeout(() => {
+              window.location.reload();
+            }, 10 * 1000); // wait 10 seconds
+          }
+        })
+      }
+      loginDiv.appendChild(login);
+      return;
+    }
+
+    const world = await endpoints.getWorldStats();
+    if (!world.success) throw new Error('World Error');
+
+    let max_Y = Number.NEGATIVE_INFINITY;
+    let min_Y = Number.POSITIVE_INFINITY;
+    let min_X = Number.POSITIVE_INFINITY;
+    let max_X = Number.NEGATIVE_INFINITY;
+
+    // Get matrix size
+    world.stats.forEach(stat => {
+      if (stat.x < min_X) min_X = stat.x;
+      if (stat.y < min_Y) min_Y = stat.y;
+      if (stat.x > max_X) max_X = stat.x;
+      if (stat.y > max_Y) max_Y = stat.y;
+    });
+
+    /** @type HTMLButtonElement[] */
+    const buttons = [];
+
+    // Draw table Y: rows, X: Columns
+    const table = document.getElementById("openworld");
+    for (let y_i = min_Y; y_i <= max_Y; y_i += 1) {
+      const row = table.insertRow(y_i);
+      for (let x_i = min_X; x_i <= max_X; x_i += 1) {
+        const cell = row.insertCell(x_i);
+        const stat = world.stats.find(s => s.x === x_i && s.y === y_i);
+        let style = 'text-align:center;height:80px;width:80px; overflow:hidden;border: solid black 1px;'
+
+        // If user in square, paint green.
+        if (user.stats.x === x_i && user.stats.y === y_i) {
+          style += 'background: #2ecc71; color: #2c3e50;'
+        } else {
+          const c = ['#2c3e50', "#34495e", "#222f3e", "#576574"].sort(() => 0.5 - Math.random());
+          style += `background: ${c[0]}; color: #ecf0f1;`;
+        }
+        cell.innerHTML = `<div style="font-size:12px">(${stat.x}, ${stat.y})</div><div># ${stat.counter}</div>`;
+        cell.style = style;
+
+        // If cell near then allow to move there
+        if (inrange(user, x_i, y_i)) {
+          if (!(user.stats.x === x_i && user.stats.y === y_i)) {
+            let move = document.createElement("button");
+            buttons.push(move);
+            move.style = 'width:50px; margin: 4px;'
+            move.innerHTML = "move";
+            move.onclick = () => {
+              endpoints.submitMoves(x_i, y_i).then(x => {
+                if (x.success) {
+                  for (const button of buttons) {
+                    button.disabled = true;
+                  }
+                  // change color for pending txs
+                  console.log(x);
+                  cell.style.background = '#27ae60';
+                  cell.style.color = '#2c3e50';
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 10 * 1000); // wait 10 seconds
+                }
+              })
+            }
+            cell.appendChild(move);
+          }
+
+          let increment = document.createElement("button");
+          buttons.push(increment);
+          increment.style = 'width:50px;  margin: 4px;'
+          increment.innerHTML = "+1";
+          increment.onclick = () => {
+            endpoints.submitIncrement(x_i, y_i).then(x => {
+              if (x.success) {
+                stat.counter += 1;
+                cell.innerHTML = cell.innerHTML.replace(/\# \d+/, `# ${stat.counter}`);
+              }
+              setTimeout(() => {
+                window.location.reload();
+              }, 10 * 1000); // wait 10 seconds
+            })
+          };
+          cell.appendChild(increment);
+        }
+      }
+    }
+  }
+
+  start().then(r => r);
+</script>
+
+</html>

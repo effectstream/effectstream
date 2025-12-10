@@ -3,6 +3,7 @@ export * from "./cardano/mod.ts";
 export * from "./mina/graphql.ts";
 export * from "./avail/rpc.ts";
 export * from "./midnight/graphql.ts";
+export * from "./bitcoin/rpc.ts";
 export * from "./types.ts";
 export * from "./all.ts";
 export * from "./decorators/mod.ts";

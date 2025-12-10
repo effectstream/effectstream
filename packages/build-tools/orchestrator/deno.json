@@ -7,7 +7,8 @@
     "./start-evm": "./scripts/launch-evm.ts",
     "./start-cardano": "./scripts/launch-cardano.ts",
     "./start-avail": "./scripts/launch-avail.ts",
-    "./start-midnight": "./scripts/launch-midnight.ts"
+    "./start-midnight": "./scripts/launch-midnight.ts",
+    "./start-bitcoin": "./scripts/launch-bitcoin.ts"
   },
   "tasks": {
     // "db:up": "deno task -f @effectstream/db db:up",

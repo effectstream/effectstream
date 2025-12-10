@@ -1,38 +1,89 @@
 # Avail
 
-Avail is not a traditional smart contract platform, but a specialized **Data Availability (DA) Layer**. Its primary purpose is to provide a cheap, secure, and decentralized place to post data. For Effectstream, it can act as an alternative to an L1 for storing the input data for your rollup, potentially leading to much lower "gas" costs.
+Avail is a Data Availability (DA) layer. In Effectstream, it is often used to store the raw input data of the application cheaply and securely.
 
-## Configuration
+## 1. Configuration (Read)
 
-*   **Network Definition (`buildNetworks`)**:
-    ```ts
-    .buildNetworks(builder =>
-      builder.addNetwork({
-        name: "avail",
-        type: ConfigNetworkType.AVAIL,
-        // ... avail specific configuration
-      })
-    )
-    ```
+### Network Definition
+```ts
+.buildNetworks(builder =>
+  builder.addNetwork({
+    name: "avail",
+    type: ConfigNetworkType.AVAIL,
+    nodeUrl: "ws://127.0.0.1:9955/ws",
+    // ... genesis config
+  })
+)
+```
 
-*   **Sync Protocol Definition (`buildSyncProtocols`)**:
-    The `AVAIL_PARALLEL` protocol connects to an Avail light client to fetch application-specific data blobs.
-    ```ts
-    .addParallel(
-      (networks) => networks.avail,
-      (network, deployments) => ({
-        name: "parallelAvail",
-        type: ConfigSyncProtocolType.AVAIL_PARALLEL,
-        // ... config for the avail light client
-      }),
-    )
-    ```
+### Sync Protocol
+The `AVAIL_PARALLEL` protocol connects to an Avail **Light Client**. This allows the node to verify data availability without running a full node.
 
-## Supported Primitives
-> TODO: Clarify the specific primitives for Avail. The primary interaction is likely reading raw data blobs associated with a specific Paima application ID, rather than tracking structured events like with EVM.
+```ts
+.addParallel(
+  (networks) => networks.avail,
+  (network, deployments) => ({
+    name: "parallelAvail",
+    type: ConfigSyncProtocolType.AVAIL_PARALLEL,
+    rpc: network.nodeUrl,
+    lightClient: "http://127.0.0.1:7007", // Local light client API
+    startBlockHeight: 1,
+  })
+)
+```
 
-## Contract Development
-Avail is not designed for complex, general-purpose smart contracts. Its main function is data submission and verification.
+### Primitives
+*   **`PrimitiveTypeAvailGeneric`**: Listens for data blobs submitted to a specific `AppId`.
 
-## Local Development Setup
-The `launchAvail` function (`@effectstream/orchestrator/start-avail`) can be used to spin up a local Avail node and the necessary light client for local testing.
+```ts
+import { PrimitiveTypeAvailGeneric } from "@effectstream/sm/builtin";
+
+.addPrimitive(
+  (syncProtocols) => syncProtocols.parallelAvail,
+  (network, deployments, syncProtocol) => ({
+    name: "AvailData",
+    type: PrimitiveTypeAvailGeneric,
+    appId: 123, // Your Avail App ID
+    stateMachinePrefix: "avail-data",
+  })
+)
+```
+
+## 2. Batcher Adapters (Write)
+
+To submit data to Avail, use an adapter that interacts with the Avail SDK or Light Client.
+
+```ts
+// Conceptual usage
+// The adapter would use `avail-js-sdk` to submit data blobs.
+const availAdapter = new AvailAdapter(appId, seed, endpoint);
+```
+
+## 3. Orchestration
+
+Use `launchAvail` from `@effectstream/orchestrator/start-avail`. This starts:
+1.  A local Avail Node.
+2.  An Avail Light Client connected to that node.
+
+```ts
+// in start.ts
+processesToLaunch: [
+  ...launchAvail("@my-project/avail-contracts"),
+]
+```
+
+> NOTE: To use this launcher you need to implement some `deno task` in your project. A working implementation is provided in the `template generator`, `templates` or `e2e tests`.
+
+```json
+{
+  "name": "@e2e/avail-contracts",
+  ...
+  "tasks": {
+    "avail-node:start": "deno run -A --unstable-detect-cjs @effectstream/npm-avail-node --dev --rpc-port 9955 --no-telemetry",
+    "avail-node:wait": "wait-on tcp:9955",
+    "avail-light-client:deploy": "deno task avail-light-client:clean && deno run -A --unstable-detect-cjs ./deploy.ts",
+    "avail-light-client:start": "deno run -A --unstable-detect-cjs @effectstream/npm-avail-light-client --config ./config.yml --app-id $AVAIL_APP_ID",
+    "avail-light-client:wait": "wait-on tcp:7007",
+    "avail-light-client:clean": "rm -rf ./avail_path"
+  }
+}
