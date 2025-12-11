@@ -21,6 +21,7 @@ export const launchCardano = (packageName: string): {
   args: string[];
   waitToExit?: boolean;
   logs?: string;
+  logsStartDisabled?: boolean;
   type?: string;
   dependsOn?: string[];
 }[] => [
@@ -42,6 +43,7 @@ export const launchCardano = (packageName: string): {
       args: ["task", "-f", packageName, "dolos:start"],
       waitToExit: false,
       logs: "raw",
+      logsStartDisabled: true,
       type: "system-dependency",
       dependsOn: [ComponentNames.YACI_DEVKIT_WAIT],
     },

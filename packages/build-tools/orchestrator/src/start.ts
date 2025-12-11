@@ -36,6 +36,7 @@ const ProcessLaunch = Type.Object({
   args: Type.Array(Type.String()),
   waitToExit: Type.Boolean({ default: true }),
   link: Type.String({ default: '' }),
+  logsStartDisabled: Type.Boolean({ default: false }),
   logs: Type.Union(
     [Type.Literal('tsLogOrchestratorAdapter'), Type.Literal('raw'), Type.Literal('none')],
     { default: 'raw' }
@@ -233,16 +234,33 @@ export async function start(
       if ('launch' in task.config) { // System process
         processComponent = await task.config.launch();
       } else { // User-defined process
-        const { name, args, logs, type, link, stopProcessAtPort } = task.config;
+        const {
+          name,
+          args,
+          logs,
+          type,
+          link,
+          stopProcessAtPort,
+          logsStartDisabled,
+        } = task.config;
         if (stopProcessAtPort.length > 0) {
           await dkill({ ports: stopProcessAtPort });
         }
+
+        // Prime the TUI log display state for this process and optionally
+        // stop forwarding logs to the TUI entirely when starting disabled.
+        const logOptions = logsStartDisabled ? { disableTUI: true } : {};
 
         try {
           processComponent = $({
             args: args,
             component: name,
-            log: logHandler({}, logs === 'tsLogOrchestratorAdapter' ? tsLogOrchestratorAdapter : undefined),
+            log: logHandler(
+              logOptions,
+              logs === 'tsLogOrchestratorAdapter'
+                ? tsLogOrchestratorAdapter
+                : undefined,
+            ),
             abortController: type === "system-dependency"
               ? abortControllers.system
               : abortControllers.noncritical,

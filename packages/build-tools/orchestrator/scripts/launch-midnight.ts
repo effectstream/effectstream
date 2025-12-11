@@ -23,6 +23,7 @@ export const launchMidnight = (packageName: string): {
   args: string[];
   waitToExit?: boolean;
   logs?: string;
+  logsStartDisabled?: boolean;
   type?: string;
   dependsOn?: string[];
 }[] => [
@@ -37,6 +38,7 @@ export const launchMidnight = (packageName: string): {
       ],
       waitToExit: false,
       type: "system-dependency",
+      logsStartDisabled: true,
       logs: "raw",
       dependsOn: [],
     },
@@ -88,6 +90,8 @@ export const launchMidnight = (packageName: string): {
     },
     {
       name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
+      logsStartDisabled: true,
+      logs: "raw",
       args: [
         "task",
         "-f",

@@ -23,6 +23,7 @@ export const launchAvail = (packageName: string): {
   args: string[];
   waitToExit?: boolean;
   logs?: string;
+  logsStartDisabled?: boolean;
   type?: string;
   dependsOn?: string[];
 }[] => [
@@ -32,6 +33,7 @@ export const launchAvail = (packageName: string): {
       args: ["task", "-f", packageName, "avail-node:start"],
       waitToExit: false,
       logs: "raw",
+      logsStartDisabled: true,
       type: "system-dependency",
     },
     {
@@ -48,6 +50,7 @@ export const launchAvail = (packageName: string): {
         "avail-light-client:deploy",
       ],
       waitToExit: false,
+      logsStartDisabled: true,
       type: "system-dependency",  
       dependsOn: [ComponentNames.AVAIL_NODE_WAIT],
     },
