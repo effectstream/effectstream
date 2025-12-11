@@ -67,6 +67,13 @@ The `start()` function is the most important call. It accepts a single configura
 | **`apiRouter`** | The custom API router function from your `api.ts` file. This is how you add your own custom endpoints to the node's API. | [API](./103-api.md) |
 | **`grammar`** | The grammar definition from your `grammar.ts` file. This is used to parse and validate all incoming on-chain data. | [Grammar](./111-grammar.md) |
 
+### Development reset option (`config.dev.resetPublicData`)
+
+- Opt-in, development-only flag placed in your runtime config (`config.dev?.resetPublicData`).
+- Runs once at startup after the DB mutex is acquired and **before** system migrations, dynamic tables, or sync begin.
+- Enumerates all tables in the `public` schema and executes `TRUNCATE ... RESTART IDENTITY CASCADE`, clearing user/app data and resetting sequences while leaving system schemas (notably `effectstream`) untouched.
+- Cross-reference: see [Database](./109-database.md) for schema overview and migration flow.
+
 ### The Big Picture: From Orchestrator to Running Node
 
 This `main.ts` file is the final link in the chain of command for starting your dApp.

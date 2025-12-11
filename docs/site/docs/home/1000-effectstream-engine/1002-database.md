@@ -12,6 +12,8 @@ Your dApp's database is organized into three main schemas:
 *   **`primitives`**: This schema holds the **Dynamic Tables** that are automatically created and managed by the Effectstream to represent the state of your configured Primitives. For example, an `ERC20` primitive will create a table in this schema to track token balances.
 *   **`public`**: This is **your schema**. All of your dApp's custom tables, such as `players`, `games`, or `inventories`, should be created here.
 
+In development, you can opt into `config.dev.resetPublicData` to truncate every table in `public` (sequences reset) right after the startup DB mutex is acquired and before migrations or sync run. **Only use this on development**. See [Node Startup](../100-components/117-node-startup.md#development-reset-option-configdevresetpublicdata) for details.
+
 ### Defining Custom Tables & Migrations
 
 The process of defining and evolving your database schema is managed through a robust **migration system**. A migration is simply a SQL file containing `CREATE TABLE`, `ALTER TABLE`, or other DDL statements.

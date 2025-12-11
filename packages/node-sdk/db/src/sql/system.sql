@@ -19,7 +19,7 @@ LIMIT 1
 /* @name tableExists */
 SELECT EXISTS (
     SELECT FROM information_schema.tables 
-    WHERE  table_schema = 'paima'
+    WHERE  table_schema = 'effectstream'
     AND    table_name   = 'effectstream_version_history'
 );
 
