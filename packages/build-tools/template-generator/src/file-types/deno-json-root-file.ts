@@ -1,4 +1,4 @@
-import { GeneratedFile } from './index.ts';
+import { GeneratedFile } from './generated-file.ts';
 import { Chain, Frontend, PAIMA_SCOPE, EFFECTSTREAM_VERSION } from '../options.ts';
 
 export class RootDenoJsonFile extends GeneratedFile {

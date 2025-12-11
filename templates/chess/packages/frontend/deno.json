@@ -34,7 +34,7 @@
     "rxjs": "npm:rxjs@^7.8.2",
     "sass-embedded": "npm:sass-embedded@^1.90.0",
     "stream-browserify": "npm:stream-browserify@3.0.0",
-    "vite": "npm:vite@^6.3.2",
+    "vite": "npm:vite@7.1.3",
     "viem": "npm:viem@2.37.3",
     "viem/accounts": "npm:viem/accounts",
     "viem/chains": "npm:viem/chains",

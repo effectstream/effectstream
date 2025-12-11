@@ -1,8 +1,8 @@
 import path from 'node:path';
-import { MainReadmeFile } from './file-types/main-readme.ts';
-import { RootDenoJsonFile } from './file-types/root-deno-json.ts';
-import { GitignoreFile } from './file-types/gitignore.ts';
-import { RootPackageJsonFile } from './file-types/root-package-json.ts';
+import { MainReadmeFile } from './file-types/readme-file.ts';
+import { RootDenoJsonFile } from './file-types/deno-json-root-file.ts';
+import { GitignoreFile } from './file-types/gitignore-file.ts';
+import { RootPackageJsonFile } from './file-types/package-json-root-file.ts';
 import { PatchFile } from './file-types/patch-file.ts';
 import { TemplateOptions } from './options.ts';
 import { PackageManager } from './package-manager.ts';

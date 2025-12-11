@@ -1,5 +1,19 @@
 import * as path from "jsr:@std/path";
 
+
+export function joinFile(...parts: string[]): string {
+    const filePath = path.join(...parts);
+    try {
+        const exists = Deno.statSync(filePath);
+        if (!exists.isFile) {
+            throw new Error(`File ${filePath} is not a file`);
+        }
+        return filePath;
+    } catch (error) {
+        throw new Error(`File ${filePath} does not exist`);
+    }
+}
+
 // Copy files
 export async function copyFiles(
     sourceDir: string, 
@@ -11,6 +25,7 @@ export async function copyFiles(
         replaceFileNames?: Record<string, string>,
     } = {},
 ): Promise<void> {
+    // console.log("Copying files from", sourceDir, "to", targetDir);
     const files = await Deno.readDir(sourceDir);
     await Deno.mkdir(targetDir, { recursive: true });
 

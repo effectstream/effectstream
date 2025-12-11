@@ -10,7 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@paimaexample/wallets": "npm:@jsr/paimaexample__wallets@^0.3.108",
+    "@paimaexample/wallets": "0.3.117",
     "viem": "^2.37.5"
   },
   "devDependencies": {

@@ -1,6 +1,7 @@
 import * as path from "jsr:@std/path";
 import { Package, PackageInfo } from './abstract-package.ts';
-import { DenoJsonFile, SqlFile } from '../file-types/index.ts';
+import { DenoJsonFile } from '../file-types/deno-json-file.ts';
+import { SqlFile } from '../file-types/sql-file.ts';
 import { copyFiles } from '../file-operations.ts';
 import { EFFECTSTREAM_VERSION } from '../options.ts';
 

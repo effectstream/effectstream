@@ -1,5 +1,6 @@
 import { Package, PackageInfo } from "./abstract-package.ts";
-import { DenoJsonFile, TypescriptFile } from "../file-types/index.ts";
+import { DenoJsonFile } from "../file-types/deno-json-file.ts";
+import { TypescriptFile } from "../file-types/typescript-file.ts";
 import { EFFECTSTREAM_VERSION } from "../options.ts";
 import * as path from "jsr:@std/path";
 import { copyFiles } from "../file-operations.ts";

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { Package, PackageInfo } from './abstract-package.ts';
-import { DenoJsonFile, TypescriptFile } from '../file-types/index.ts';
+import { DenoJsonFile } from '../file-types/deno-json-file.ts';
+import { TypescriptFile } from '../file-types/typescript-file.ts';
 
 export class IntegratedViteDenoPackage extends Package {
     public async generate(): Promise<PackageInfo | null> {

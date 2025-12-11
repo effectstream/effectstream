@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Compact Contracts v0.0.1-alpha.0 (token/FungibleToken.compact)
+// OpenZeppelin Compact Contracts v0.0.1-alpha.1 (token/FungibleToken.compact)
 
-pragma language_version >= 0.17.0;
+pragma language_version >= 0.18.0;
 
 /**
  * @module FungibleToken

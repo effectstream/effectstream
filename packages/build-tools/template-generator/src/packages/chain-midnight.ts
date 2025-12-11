@@ -2,6 +2,7 @@ import path from 'node:path';
 import { Package, PackageInfo } from './abstract-package.ts';
 import { Chain, EFFECTSTREAM_VERSION } from '../options.ts';
 import { scaffoldMidnightProject, scaffoldMidnightContract } from '@effectstream/midnight-contracts/scaffold';
+import { midnightContractOptions } from '@effectstream/midnight-contracts/scaffold';
 
 export class ChainMidnightPackage extends Package {
     constructor(
@@ -66,12 +67,14 @@ export class ChainMidnightPackage extends Package {
             const safePackageName = ChainMidnightPackage.safePackageName(contract);
             const contractPath = path.join(this.projectPath, 'packages', 'shared', 'contracts', 'midnight-contracts', safePackageName);
 
+            const contractFile = midnightContractOptions.find(o => o.value === contract)!.file;
 
             const contractInfo = await scaffoldMidnightContract(
                 contractPath, 
                 this.options.projectName, 
                 safeCodeContractName,
                 safePackageName,
+                contractFile,
                 EFFECTSTREAM_VERSION
             );
             subPackages.push(contractInfo);

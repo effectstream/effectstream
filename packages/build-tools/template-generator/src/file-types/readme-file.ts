@@ -1,4 +1,4 @@
-import { MarkdownFile } from './index.ts';
+import { MarkdownFile } from './markdown-file.ts';
 import { Chain } from '../options.ts';
 
 export class MainReadmeFile extends MarkdownFile {

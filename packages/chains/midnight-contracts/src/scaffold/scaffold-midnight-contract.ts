@@ -17,6 +17,7 @@ export async function scaffoldMidnightContract(
     packageName: string, 
     contractCodeName: string,
     contractPackageName: string,
+    contractFile: string,
     version: string
 ): Promise<{
     name: string;
@@ -52,6 +53,11 @@ export async function scaffoldMidnightContract(
             }
         });
     }
+
+    await Deno.copyFile(
+        path.join(contractFile),
+        path.join(targetFolder, "src", `${contractPackageName}.compact`),
+    );
 
     return {
         name: fullPackageName,
@@ -93,20 +99,26 @@ if (import.meta.main) {
             console.error("Package name is required");
             Deno.exit(1);
         }
+        if (!contractFileName) {
+            console.error("Contract file name is required");
+            Deno.exit(1);
+        }   
         return { 
             targetFolder: targetFolder.trim(), 
             packageName: packageName.trim(),
             contractCodeName: contractCodeName.trim(),
             contractPackageName: contractPackageName.trim(),
+            contractFileName: contractFileName.trim(),
             version: version.trim()
         };
     }
-    const { targetFolder, packageName, contractCodeName, contractPackageName, version } = checkInputs(Deno.args);
+    const { targetFolder, packageName, contractCodeName, contractPackageName, contractFileName, version } = checkInputs(Deno.args);
     await scaffoldMidnightContract(
         targetFolder, 
         packageName, 
         contractCodeName, 
-        contractPackageName, 
+        contractPackageName,
+        contractFileName,
         version
     );
 }

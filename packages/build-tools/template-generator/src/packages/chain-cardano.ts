@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { Package, PackageInfo } from './abstract-package.ts';
-import { DenoJsonFile } from '../file-types/index.ts';
+import { DenoJsonFile } from '../file-types/deno-json-file.ts';
 import { Chain, EFFECTSTREAM_VERSION } from '../options.ts';
 import { scaffoldCardanoProject } from '@effectstream/cardano-contracts/scaffold';
 

@@ -44,6 +44,9 @@ const ProcessLaunch = Type.Object({
     [Type.Literal('system-dependency'), Type.Literal('secondary')],
     { default: 'secondary' }
   ),
+  // If not provided, the default command is "deno"
+  command: Type.Optional(Type.String()),
+  cwd: Type.Optional(Type.String()),
 });
 
 /**
@@ -233,16 +236,18 @@ export async function start(
       if ('launch' in task.config) { // System process
         processComponent = await task.config.launch();
       } else { // User-defined process
-        const { name, args, logs, type, link, stopProcessAtPort } = task.config;
+        const { name, args, logs, type, link, stopProcessAtPort, command, cwd } = task.config;
         if (stopProcessAtPort.length > 0) {
           await dkill({ ports: stopProcessAtPort });
         }
 
         try {
           processComponent = $({
-            args: args,
+            command,
+            args,
             component: name,
             log: logHandler({}, logs === 'tsLogOrchestratorAdapter' ? tsLogOrchestratorAdapter : undefined),
+            cwd,
             abortController: type === "system-dependency"
               ? abortControllers.system
               : abortControllers.noncritical,

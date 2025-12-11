@@ -1,4 +1,4 @@
-import { GeneratedFile } from './index.ts';
+import { GeneratedFile } from './generated-file.ts';
 
 export class GitignoreFile extends GeneratedFile {
     constructor(filePath: string) {
