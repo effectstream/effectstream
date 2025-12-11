@@ -25,6 +25,37 @@ import { Tmux } from "./tmux/tmux.ts";
 import type { LaunchableComponents } from "@effectstream/log";
 import { type Static, Type } from "@sinclair/typebox";
 
+const LOG_DISPLAY_CONTROL_URL =
+  `${ENV.TUI_LOG_URL}:${ENV.TUI_LOG_PORT}/v1/display-control`;
+
+const setInitialLogDisplayDisabled = async (
+  processName: string,
+): Promise<void> => {
+  const maxAttempts = 5;
+  const delayMs = 300;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await fetch(LOG_DISPLAY_CONTROL_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ processName, enabled: false }),
+      });
+      if (response.ok) return;
+    } catch (_error) {
+      // best-effort retry below
+    }
+
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  console.warn(
+    `Failed to set initial log display disabled for ${processName} after ${maxAttempts} attempts`,
+  );
+};
+
 let appConfig: OrchestratorConfigType | null = null;
 let pFactory: ReturnType<typeof processFactory> | null = null;
 
@@ -249,6 +280,9 @@ export async function start(
 
         // Prime the TUI log display state for this process and optionally
         // stop forwarding logs to the TUI entirely when starting disabled.
+        if (logsStartDisabled) {
+          void setInitialLogDisplayDisabled(name);
+        }
         const logOptions = logsStartDisabled ? { disableTUI: true } : {};
 
         try {
