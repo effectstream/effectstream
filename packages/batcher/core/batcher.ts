@@ -664,15 +664,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     let walletAddress;
-    switch (input.addressType) {
-      case AddressType.EVM:
-        walletAddress = Value.Decode(TypeboxHelpers.Evm.Address, input.address);
-        break;
-      default:
-        throw new Error(
-          `Unsupported address type for signature verification: ${input.addressType}`,
-        );
-    }
+
+    const cryptoManager = CryptoManager.getCryptoManager(input.addressType);
+    walletAddress = cryptoManager.decodeAddress(input.address);
 
     const message = (
       this.namespace +
@@ -683,12 +677,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     )
       .replace(/[^a-zA-Z0-9]/g, "-")
       .toLocaleLowerCase();
-
-    return await CryptoManager.Evm().verifySignature(
-      input.address,
-      message,
-      input.signature,
-    );
+    return await cryptoManager.verifySignature(input.address, message, input.signature);
   }
 
   private getInputCallbackKey(input: T): string {

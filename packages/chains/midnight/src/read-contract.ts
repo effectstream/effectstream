@@ -246,7 +246,7 @@ export function readMidnightContract(
   if (baseDir) {
     // Explicit base directory provided
     moduleDir = path.resolve(baseDir);
-  } else {
+  } else if (Deno) {
     // Search for the directory containing the contract file
     // Start from current working directory and walk up
     // Pass contractName to validate we found the right contract.json (not an EVM one)
@@ -263,6 +263,9 @@ export function readMidnightContract(
     }
     
     moduleDir = foundDir;
+  } else {
+    // This is a browser environment, so we can't read the contract files
+    return { contractAddress: "", contractInfo: { circuits: [], witnesses: [], contracts: [] }, zkConfigPath: "", contractDir: "" };
   }
   
   // Use cache key that includes the resolved directory path to ensure cache works correctly

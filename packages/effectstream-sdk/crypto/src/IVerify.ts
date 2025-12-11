@@ -7,4 +7,5 @@ export interface IVerify {
     message: string,
     signature: Signature,
   ): Promise<boolean>;
+  decodeAddress(address: WalletAddress): string;
 }

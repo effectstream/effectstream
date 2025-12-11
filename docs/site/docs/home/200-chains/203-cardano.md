@@ -56,7 +56,57 @@ class CardanoAdapter implements BlockchainAdapter {
 }
 ```
 
-## 3. Orchestration
+## 3. Browser Wallets (Connect)
+
+Use `WalletMode.Cardano` to connect to Cardano wallets (Nami, Eternl, Flint, etc.).
+
+```typescript
+import { walletLogin, WalletMode } from "@effectstream/wallets";
+
+const result = await walletLogin({
+  mode: WalletMode.Cardano,
+  // Optional: prefer a specific wallet extension
+  preference: { name: "nami" }, 
+});
+
+if (result.success) {
+  const wallet = result.result;
+  console.log("Connected Cardano Address:", wallet.walletAddress);
+}
+```
+
+## 4. Cryptography (Verify)
+
+Effectstream includes the logic to verify **CIP-30/CIP-8 Data Signatures**. This allows you to authenticate user actions signed by Cardano wallets.
+
+### Signing Messages
+```typescript
+import { signMessage } from "@effectstream/wallets";
+
+// Note: Cardano wallets often sign hex payloads or structured data
+const signature = await signMessage(wallet, "Hello Cardano");
+```
+
+### Verifying Signatures
+```typescript
+import { CryptoManager } from "@effectstream/crypto";
+import { AddressType } from "@effectstream/utils";
+
+const crypto = CryptoManager.getCryptoManager(AddressType.CARDANO);
+
+// 1. Verify Cardano Address (Bech32)
+const isValidAddr = crypto.verifyAddress("addr_test1...");
+
+// 2. Verify Data Signature (CIP-30)
+// Note: 'signatureStruct' usually contains the signature + key (e.g., "sig+key")
+const isValidSig = await crypto.verifySignature(
+  userAddress, 
+  "Hello Cardano", 
+  signatureStruct
+);
+```
+
+## 5. Orchestration
 
 Use `launchCardano` from `@effectstream/orchestrator/start-cardano` to launch a local environment using **Yaci Devkit** and **Dolos**.
 

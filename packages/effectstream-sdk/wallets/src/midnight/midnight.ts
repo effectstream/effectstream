@@ -24,7 +24,7 @@ export class MidnightConnector implements IConnector<MidnightApi>, IInjectedConn
     if (midnightApi == null) return [];
 
     const options = Object.entries(midnightApi).reduce((options, [key, info]) => {
-      if (info.name != null && info.enable != null && info.name === 'lace') {
+      if (info.name != null && info.enable != null) {
         options.push({
           metadata: {
             name: key,

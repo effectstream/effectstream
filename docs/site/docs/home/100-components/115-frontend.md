@@ -53,7 +53,7 @@ Supported wallet modes include `EvmInjected`, `Cardano`, `Mina`, `AvailJs`, and 
 Here is an example of a frontend submitting an input to the batcher:
 ```ts
 import { createMessageForBatcher } from '@effectstream/concise';
-import { AddressType } from '@effectstream/utils-backend';
+import { AddressType } from '@effectstream/utils';
 
 const appName = "";
 const timestamp = Date.now();
