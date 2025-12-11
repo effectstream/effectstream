@@ -4,8 +4,8 @@
   "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
-    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
-    "abitype": "npm:abitype@^1.0.8",
+    "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41",
+    "abitype": "npm:abitype@1.1.0",
     "buffer": "npm:buffer@^6.0.3",
     "effection": "npm:effection@^3.5.0",
     "viem": "npm:viem@2.37.3",

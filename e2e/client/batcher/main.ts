@@ -5,11 +5,27 @@ import { config, storage, paimaL2Adapter, midnightAdapter, bitcoinAdapter } from
 const batcher = createNewBatcher(config, storage);
 const batchIntervalMs = 1000;
 
+const midnight_enabled = Deno
+  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
+  : true;
+
+const bitcoin_enabled = Deno
+  ? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
+  : true;
+
 batcher
   .addBlockchainAdapter("paimal2", paimaL2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
-  .addBlockchainAdapter("midnight_eip20", midnightAdapter, { criteriaType: "size", maxBatchSize: 1 })
-  .addBlockchainAdapter("bitcoin", bitcoinAdapter, { criteriaType: "hybrid", maxBatchSize: 5, timeWindowMs: batchIntervalMs })
-  .setDefaultTarget("paimal2")
+  .setDefaultTarget("paimal2");
+
+if (midnight_enabled) {
+batcher
+  .addBlockchainAdapter("midnight_eip20", midnightAdapter, { criteriaType: "size", maxBatchSize: 1 });
+}
+
+if (bitcoin_enabled) {
+batcher
+  .addBlockchainAdapter("bitcoin", bitcoinAdapter, { criteriaType: "hybrid", maxBatchSize: 5, timeWindowMs: batchIntervalMs });
+}
 
 // E2E-specific startup banner via state transition
 batcher.addStateTransition("startup", ({ publicConfig }) => {

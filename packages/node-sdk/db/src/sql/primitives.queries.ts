@@ -20,13 +20,14 @@ export interface IInsertPrimitiveAccountingQuery {
   result: IInsertPrimitiveAccountingResult;
 }
 
-const insertPrimitiveAccountingIR: any = {"usedParamSet":{"primitive_name":true,"effectstream_block_height":true,"payload_type":true,"payload":true},"params":[{"name":"primitive_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":120,"b":135}]},{"name":"effectstream_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":138,"b":164}]},{"name":"payload_type","required":true,"transform":{"type":"scalar"},"locs":[{"a":167,"b":180}]},{"name":"payload","required":true,"transform":{"type":"scalar"},"locs":[{"a":183,"b":191}]}],"statement":"INSERT INTO effectstream.primitive_accounting(primitive_name, effectstream_block_height, payload_type, payload)\nVALUES (:primitive_name!, :effectstream_block_height!, :payload_type!, :payload!)"};
+const insertPrimitiveAccountingIR: any = {"usedParamSet":{"primitive_name":true,"effectstream_block_height":true,"payload_type":true,"payload":true},"params":[{"name":"primitive_name","required":true,"transform":{"type":"scalar"},"locs":[{"a":120,"b":135}]},{"name":"effectstream_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":138,"b":164}]},{"name":"payload_type","required":true,"transform":{"type":"scalar"},"locs":[{"a":167,"b":180}]},{"name":"payload","required":true,"transform":{"type":"scalar"},"locs":[{"a":183,"b":191}]}],"statement":"INSERT INTO effectstream.primitive_accounting(primitive_name, effectstream_block_height, payload_type, payload)\nVALUES (:primitive_name!, :effectstream_block_height!, :payload_type!, :payload!)\nON CONFLICT (primitive_name, effectstream_block_height, payload_hash) DO NOTHING"};
 
 /**
  * Query generated from SQL:
  * ```
  * INSERT INTO effectstream.primitive_accounting(primitive_name, effectstream_block_height, payload_type, payload)
  * VALUES (:primitive_name!, :effectstream_block_height!, :payload_type!, :payload!)
+ * ON CONFLICT (primitive_name, effectstream_block_height, payload_hash) DO NOTHING
  * ```
  */
 export const insertPrimitiveAccounting = new PreparedQuery<IInsertPrimitiveAccountingParams,IInsertPrimitiveAccountingResult>(insertPrimitiveAccountingIR);

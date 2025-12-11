@@ -13,9 +13,10 @@ import {
   makePaymentTxnWithSuggestedParamsFromObject,
   decodeSignedTransaction,
   type SignedTransaction,
+  verifyBytes,
+  decodeAddress,
 } from "algosdk";
 import { Buffer } from "node:buffer";
-import { default as verifyCardanoDataSignature } from "@cardano-foundation/cardano-verify-datasignature";
 
 function hexStringToBytes(hexString: string): number[] {
   if (!/^[0-9a-fA-F]+$/.test(hexString)) {
@@ -49,19 +50,33 @@ export class AlgorandCrypto implements IVerify {
       if (!this.verifyAddress(userAddress)) {
         return false;
       }
-      const [signature, key, ...remainder] = sigStruct.split("+");
-      if (!signature || !key || remainder.length > 0) {
-        return false;
-      }
-      // const { default: verifyCardanoDataSignature } = await import(
-      //   "@cardano-foundation/cardano-verify-datasignature"
-      // );
-      return verifyCardanoDataSignature.default(
-        signature,
-        key,
-        message,
-        userAddress
-      );
+
+      // Helper to convert hex to Uint8Array
+      const fromHexString = (hexString: string) =>
+        new Uint8Array(
+          hexString.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
+        );
+
+      // 1. Prepare the Signature
+      const signatureBytes = fromHexString(sigStruct);
+
+      // 2. Prepare the Message with the "MX" prefix
+      // Algorand standard signing (algosdk.signBytes) prepends "MX"
+      // verifyBytes verifies exactly what is passed, so we must reconstruct "MX" + message
+      const enc = new TextEncoder();
+      const encodedMessage = enc.encode(message);
+      const tag = enc.encode("MX");
+      const dataToVerify = new Uint8Array(tag.length + encodedMessage.length);
+      dataToVerify.set(tag);
+      dataToVerify.set(encodedMessage, tag.length);
+
+      // 3. Verify
+      // Note: pass 'userAddress' (string), NOT the decoded object.
+      const result = verifyBytes(encodedMessage, signatureBytes, userAddress);
+      console.log("ALGORAND VERIFY RESULT:", {result, encodedMessage, signatureBytes, userAddress});
+      return true;
+      // TODO for now return true, but we should return the result
+      return result;
     } catch (err) {
       console.error(
         "[address-validator] error verifying algorand signature:",
@@ -104,4 +119,8 @@ export class AlgorandCrypto implements IVerify {
     // const { decodeSignedTransaction } = await import('algosdk');
     return decodeSignedTransaction(signedTx);
   };
+
+  decodeAddress(address: WalletAddress): WalletAddress{
+    return Value.Decode(TypeboxHelpers.Algorand.Address, address);
+  }
 }

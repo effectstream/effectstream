@@ -63,6 +63,7 @@ export async function startup(): Promise<Client> {
         name: "build e2e-wallet-ui",
         args: ["task", "-f", "@e2e/wallets-ui", "build"],
         waitToExit: true,
+        dependsOn: ['build explorer'],
       },
       {
         stopProcessAtPort: [3334],

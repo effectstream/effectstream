@@ -48,6 +48,7 @@ CREATE TABLE effectstream.primitive_accounting (
   effectstream_block_height INTEGER NOT NULL REFERENCES effectstream.effectstream_blocks(block_height),
   payload_type TEXT NOT NULL,
   payload JSON NOT NULL,
+  payload_hash TEXT GENERATED ALWAYS AS (md5(payload::text)) STORED,
   PRIMARY KEY (primitive_name, id)
 );
 

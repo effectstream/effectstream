@@ -15,8 +15,8 @@ export { DefaultLogLevels } from "./tslog.ts";
 // so that we don't need to re-import opentelemetry in every component
 export { SeverityNumber };
 
-const localLogger = Deno.env.get("EFFECTSTREAM_ORCHESTRATOR") ? tsLogOrchestrator : tsLogFormatted;
-const remoteLogger = Deno.env.get("EFFECTSTREAM_ORCHESTRATOR") ? tsLogOrchestrator : otelLog;
+const localLogger = Deno && Deno.env.get("EFFECTSTREAM_ORCHESTRATOR") ? tsLogOrchestrator : tsLogFormatted;
+const remoteLogger = Deno && Deno.env.get("EFFECTSTREAM_ORCHESTRATOR") ? tsLogOrchestrator : otelLog;
 
 export const log: {
   local: TslogLogFunc;

@@ -261,7 +261,7 @@ export function waitForPaimaEngineBlockProcessed(
 ): Promise<{ latestBlock: number; rollup: number } | void> {
   let subscriptionReference: symbol | undefined = undefined;
   let latestBlock = 0;
-  let timer: number | undefined = undefined;
+  let timer: any = undefined; // node & deno differ in type of timer
 
   return Promise.race([
     new Promise<void>((_, reject) => {
@@ -369,7 +369,13 @@ export async function sendBatcherTransaction(
   );
 
   return await {
-    ...(await response.json()),
+    ...(await (response.json() as Promise<{
+      success: boolean;
+      message: string;
+      blockNumber: number;
+      blockHash: string;
+      rollup: number;
+    }>)),
     type: "batcher",
     success: response.ok,
   };

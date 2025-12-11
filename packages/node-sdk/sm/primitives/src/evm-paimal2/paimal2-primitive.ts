@@ -9,6 +9,7 @@ import {
   TypeboxHelpers,
   type WalletAddress,
 } from "@effectstream/utils";
+import { type Signature } from "@effectstream/utils";
 import { hexToString, stringToHex } from "viem";
 import type {
   ConfigSyncProtocolType,
@@ -30,13 +31,12 @@ import {
   type ExtractedBatchSubunit,
   type GrammarDefinition,
 } from "@effectstream/concise";
-
+import { CryptoManager } from "@effectstream/crypto";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import {
   account_createAccount,
   account_linkAddress,
   account_unlinkAddress,
-  verifySignature,
 } from "@effectstream/sm";
 import { BuiltinGrammarPrefix } from "@effectstream/concise";
 
@@ -388,24 +388,8 @@ export class PaimaL2Primitive extends PaimaPrimitive<
           userSignature,
         );
 
-        // TODO: This is only for EVM at the time.
-        //       How should we handle this?
-        //       Just guess the chain by the format?
-        //       We need to format this, as it's not parsed or validated before.
-        let signerAddress: WalletAddress;
-        switch (addressType) {
-          case AddressType.NONE:
-            throw new Error("Invalid address type: " + addressType);
-          case AddressType.EVM:
-            signerAddress = Value.Decode(
-              TypeboxHelpers.Evm.Address,
-              userAddress,
-            );
-            break;
-          default:
-            signerAddress = userAddress;
-            break;
-        }
+        const cryptoManager = CryptoManager.getCryptoManager(addressType);
+        const signerAddress = cryptoManager.decodeAddress(userAddress);
 
         if (validSignature) {
           commands.push(
@@ -449,6 +433,8 @@ export class PaimaL2Primitive extends PaimaPrimitive<
       }
     } else {
       // !isBatched
+      // This is a EVM contract, so the signer is always EVM.
+      const signerAddress: EvmAddress = CryptoManager.getCryptoManager(AddressType.EVM).decodeAddress(outerLayerData.userAddress) as EvmAddress;
       commands.push(
         yield* this.executePaimaL2Input({
           effectstream_block_height,
@@ -462,8 +448,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
           primitiveName: response.primitive,
           signerAddressAndType: {
             type: AddressType.EVM,
-            // This is a EVM contract, so the signer is always EVM.
-            address: outerLayerData.userAddress,
+            address: signerAddress,
           },
         }),
       );
@@ -473,6 +458,22 @@ export class PaimaL2Primitive extends PaimaPrimitive<
       data: commands,
       isBatched,
     };
+  }
+}
+
+function* verifySignature(
+  addressType: AddressType,
+  address: WalletAddress,
+  message: string,
+  signature: Signature
+): StateUpdateStream<boolean> {
+  try {
+    const cryptoManager = CryptoManager.getCryptoManager(addressType);
+    return yield* World.promise(
+      cryptoManager.verifySignature(address, message, signature)
+    );
+  } catch (error) {
+    return false;
   }
 }
 
