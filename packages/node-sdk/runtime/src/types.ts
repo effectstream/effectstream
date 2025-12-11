@@ -43,6 +43,8 @@ export type PaimaPrimitiveConstructor<T extends PaimaPrimitive<any, any>> = new 
  * @param gameStateTransitions - (optional) Game State Transition Router.
  * @param migrationRouter - (optional) SQL Migrations Router.
  * @param apiRouter - (optional) API Router.
+ * @param dev - (optional) Development configuration.
+ * @param dev.resetPublicData - (optional) With this flag, the public schema tables data will be reset on sync process reset. This is useful for testing purposes.
  */
 export type StartConfig = {
   appName: string;
