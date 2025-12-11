@@ -433,6 +433,8 @@ export class PaimaL2Primitive extends PaimaPrimitive<
       }
     } else {
       // !isBatched
+      // This is a EVM contract, so the signer is always EVM.
+      const signerAddress: EvmAddress = CryptoManager.getCryptoManager(AddressType.EVM).decodeAddress(outerLayerData.userAddress) as EvmAddress;
       commands.push(
         yield* this.executePaimaL2Input({
           effectstream_block_height,
@@ -446,8 +448,7 @@ export class PaimaL2Primitive extends PaimaPrimitive<
           primitiveName: response.primitive,
           signerAddressAndType: {
             type: AddressType.EVM,
-            // This is a EVM contract, so the signer is always EVM.
-            address: CryptoManager.getCryptoManager(AddressType.EVM).decodeAddress(outerLayerData.userAddress),
+            address: signerAddress,
           },
         }),
       );
