@@ -15,6 +15,8 @@
  *   --token <token>    Authentication token for JSR publishing
  *   --otp <code>       One-time password for npm publishing (enables npm publishing when used with --publish)
  *   --dir <path>       Directory to process (default: current working directory)
+ *   --skip-prepublish  Skip the pre-publish phase (builds etc.)
+ *   --only-prepublish  Exit after the pre-publish phase is done
  *
  * EXAMPLES:
  *   # Dry run - show what would be published
@@ -45,6 +47,7 @@
  * - Skips node_modules directories
  * - Without --publish flag, shows what commands would be executed
  */
+import * as path from "node:path";
 
 const shouldPublish = Deno.args.includes("--publish");
 const shouldReverse = Deno.args.includes("--reverse");
@@ -56,8 +59,24 @@ const otpIndex = Deno.args.indexOf("--otp");
 const otpCode = otpIndex !== -1 ? Deno.args[otpIndex + 1] : null;
 const dirIndex = Deno.args.indexOf("--dir");
 const rootDir = dirIndex !== -1 ? Deno.args[dirIndex + 1] : Deno.cwd();
+const skipPrepublish = Deno.args.includes("--skip-prepublish");
+const onlyPrepublish = Deno.args.includes("--only-prepublish");
 
 const filePattern = /\.(ts|js|json|tsx|jsx|tmux)$/i;
+
+async function fetchLatestVersion(): Promise<string> {
+  // If manual version is provided, use it
+  if (manualVersion) {
+    console.log(`Using manual version: ${manualVersion}`);
+    return manualVersion;
+  }
+  const denoFile = (await Deno.readTextFile("./deno.json")).replace(
+    /\/\/.+?$/gm,
+    "",
+  );
+  return JSON.parse(denoFile).version;
+}
+
 
 // Packages to publish in order
 const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
@@ -70,7 +89,7 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/effectstream-sdk/concise" }, // [@chain-types, @precompile]
   { path: "./packages/effectstream-sdk/crypto" },
   { path: "./packages/effectstream-sdk/events" },
-  { path: "./packages/effectstream-sdk/wallets" }, // [@concise, @crypto, @events-client]
+  // { path: "./packages/effectstream-sdk/wallets" }, // [@concise, @crypto, @events-client]
   { path: "./packages/effectstream-sdk/coroutine" },
 
   // /* Docs */
@@ -93,32 +112,20 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/batcher" },
 ];
 
-const npmPackagesToPublish: { path: string; prepublish?: string[] }[] = [
-  { path: "./packages/chains/evm-contracts" },
-  { path: "./packages/binaries/bitcoin-core" },
-  { path: "./packages/binaries/ord" },
-  { path: "./packages/binaries/avail-light-client" },
-  { path: "./packages/binaries/avail-node" },
-  { path: "./packages/binaries/midnight-indexer" },
-  { path: "./packages/binaries/midnight-node" },
-  { path: "./packages/binaries/midnight-proof-server" },
-  { path: "./packages/binaries/grafana-alloy" },
-  { path: "./packages/binaries/grafana-loki" },
-  { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
+const npmPackagesToPublish: { path: string; prepublish?: string[], build?: string }[] = [
+  // { path: "./packages/chains/evm-contracts" },
+  // { path: "./packages/binaries/bitcoin-core" },
+  // { path: "./packages/binaries/ord" },
+  // { path: "./packages/binaries/avail-light-client" },
+  // { path: "./packages/binaries/avail-node" },
+  // { path: "./packages/binaries/midnight-indexer" },
+  // { path: "./packages/binaries/midnight-node" },
+  // { path: "./packages/binaries/midnight-proof-server" },
+  // { path: "./packages/binaries/grafana-alloy" },
+  // { path: "./packages/binaries/grafana-loki" },
+  // { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
+  { path: "./packages/effectstream-sdk/wallets", prepublish: ["task", "build:npm", await fetchLatestVersion()], build: 'npm'  },
 ];
-
-async function fetchLatestVersion(): Promise<string> {
-  // If manual version is provided, use it
-  if (manualVersion) {
-    console.log(`Using manual version: ${manualVersion}`);
-    return manualVersion;
-  }
-  const denoFile = (await Deno.readTextFile("./deno.json")).replace(
-    /\/\/.+?$/gm,
-    "",
-  );
-  return JSON.parse(denoFile).version;
-}
 
 async function processFile(filePath: string, reverse: boolean = false) {
   const content = await Deno.readTextFile(filePath);
@@ -299,8 +306,15 @@ async function publishNPMPackages() {
 
   for (const packagePath of npmPackagesToPublish) {
     try {
-      console.log(`> Publishing ${packagePath.path}...`);
-      Deno.chdir(packagePath.path);
+      console.log(Array(20).fill("*").join(""));
+      console.log(`> Publishing [${packagePath.path}] ${packagePath.build ? `<${packagePath.build}>` : ''}`);
+      if (packagePath.build) {
+         const finalPath = path.join(packagePath.path, packagePath.build);
+         Deno.chdir(finalPath);
+      } else {
+        Deno.chdir(packagePath.path);
+      }
+
       const command = new Deno.Command("npm", {
         args: ["publish", "--access", "public", "--otp", otpCode!],
         stdout: "inherit",
@@ -402,7 +416,15 @@ async function main() {
     await walkAndProcess(rootDir, true);
   } else {
     console.log("Starting replacement...");
-    await prePublishPackages();
+    if (!skipPrepublish) {
+      await prePublishPackages();
+    }
+
+    if (onlyPrepublish) {
+      console.log("Completed pre-publish phase. Exiting due to --only-prepublish.");
+      return;
+    }
+
     await walkAndProcess(rootDir, false);
   }
 
