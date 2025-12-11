@@ -61,7 +61,7 @@ const config = Value.Parse(OrchestratorConfig, {
       waitToExit: false,
       type: "system-dependency",
       link: "http://localhost:10590",
-      dependsOn: [],
+      dependsOn: ['build explorer'],
     },
     { 
       // Launch the Batcher with our PaimaL2 Contract

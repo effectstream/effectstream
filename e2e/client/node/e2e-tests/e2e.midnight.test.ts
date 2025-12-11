@@ -390,9 +390,9 @@ async function sendMintToBatcher(
   });
   const result = await response.json();
   if (response.ok) {
-    console.log("✅ Mint sent to batcher successfully");
+    console.log("Mint sent to batcher successfully");
   } else {
-    console.error("❌ Error sending mint to batcher:", result);
+    console.error("[ERROR] Sending mint to batcher:", result);
   }
   return response.status;
 }
