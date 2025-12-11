@@ -1,9 +1,13 @@
-import type { Client } from "pg";
-import { Account, Pallets, SDK } from "avail-js-sdk";
-import { assertSQL, blockWatcher, type SharedState } from "@e2e/engine";
-import { readAvailApplication } from "@e2e/avail-contracts";
 import { cryptoWaitReady } from "@polkadot/util-crypto";
 await cryptoWaitReady();
+
+import type { Client } from "pg";
+import { Account, Pallets, SDK,  } from "avail-js-sdk";
+import { assertSQL, blockWatcher, type SharedState } from "@e2e/engine";
+import { readAvailApplication } from "@e2e/avail-contracts";
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+await sleep(1000);
 
 const AVAIL_NODE_URL = "ws://localhost:9955/ws";
 const AVAIL_SEED: string = "//Alice";

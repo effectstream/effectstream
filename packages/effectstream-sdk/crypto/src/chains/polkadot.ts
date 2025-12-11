@@ -7,6 +7,7 @@ import type { IVerify } from "../IVerify.ts";
 import { Value } from "@sinclair/typebox/value";
 import { cryptoWaitReady, decodeAddress, signatureVerify } from "@polkadot/util-crypto";
 import { u8aToHex } from "@polkadot/util";
+import { WalletAddress } from "../../../utils/src/types/nominal.ts";
 
 export class PolkadotCrypto implements IVerify {
   verifyAddress = (address: string): address is SubstrateAddress => {
@@ -34,4 +35,8 @@ export class PolkadotCrypto implements IVerify {
       return false;
     }
   };
+
+  decodeAddress(address: WalletAddress): WalletAddress{
+    return Value.Decode(TypeboxHelpers.Polkadot.Address, address);
+  }
 }

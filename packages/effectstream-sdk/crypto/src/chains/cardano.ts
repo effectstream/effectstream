@@ -28,7 +28,7 @@ export class CardanoCrypto implements IVerify {
       // const { default: verifyCardanoDataSignature } = await import(
       //   "@cardano-foundation/cardano-verify-datasignature"
       // );
-      return verifyCardanoDataSignature.default(
+      return (verifyCardanoDataSignature as any)(
         signature,
         key,
         message,
@@ -42,4 +42,8 @@ export class CardanoCrypto implements IVerify {
       return false;
     }
   };
+
+  decodeAddress(address: WalletAddress): WalletAddress{
+    return Value.Decode(TypeboxHelpers.Cardano.Address, address);
+  }
 }

@@ -17,7 +17,9 @@ export type EvmSignature = FastFlavor<HexString0x, "EvmSignature">;
 export type GenericSignature = FastFlavor<string, "OtherSignature">;
 export type Signature =
   | EvmSignature
-  | GenericSignature;
+  | GenericSignature
+  | MidnightSignature
+  ;
 
 export type VersionString = `${number}.${number}.${number}`;
 
@@ -94,10 +96,15 @@ export type Evm4ByteSelector = FastFlavor<HexString0x, "Evm4ByteSelector">;
 export type MidnightBlockHash = FastFlavor<HexString0x, "MidnightBlockHash">;
 export type MidnightTxHash = FastFlavor<HexString0x, "MidnightTxHash">;
 export type MidnightAddress = FastFlavor<string, "MidnightAddress">;
+export type MidnightSignature = FastFlavor<string, "MidnightSignature">;
 
 export type MinaBlockHash = FastFlavor<UnknownFormat, "MinaBlockHash">;
 export type MinaTxHash = FastFlavor<UnknownFormat, "MinaTxHash">;
 export type MinaAddress = FastFlavor<string, "MinaAddress">;
+
+export type PolkadotAddress = SubstrateAddress;
+export type PolkadotBlockHash = FastFlavor<UnknownFormat, "PolkadotBlockHash">;
+export type PolkadotTxHash = FastFlavor<UnknownFormat, "PolkadotTxHash">;
 
 // TODO: close to the regex /^[1-9A-HJ-NP-Za-km-z]{47,48}$/
 export type SubstrateAddress = FastFlavor<string, "SubstrateAddress">;

@@ -1,6 +1,6 @@
 import type { ApiPromise } from "avail-js-sdk";
 import type { Result } from "@effectstream/utils";
-// import type { AlgorandApi } from "./algorand/algorand.ts";
+import type { AlgorandApi } from "./algorand/algorand.ts";
 import type { CardanoApi } from "./cardano/cardano.ts";
 import type { EthersApi } from "./evm/ethers.ts";
 import type { EvmApi } from "./evm/injected.ts";
@@ -10,14 +10,16 @@ import type {
   IProvider,
 } from "./IProvider.ts";
 import type { MinaApi } from "./mina/mina.ts";
-// import type { PolkadotApi } from "./polkadot/polkadot.ts";
+import type { PolkadotApi } from "./polkadot/polkadot.ts";
 import {
   connectInjectedWallet,
   type InjectionPreference,
-  type WalletMode,
+  WalletMode,
 } from "./utils.ts";
+import { AddressType } from "@effectstream/utils";
 import type { MidnightApi } from "./midnight/midnight.ts";
 import type { Chain } from "viem/chains";
+import { Wallet } from "ethers";
 
 export type BaseLoginInfo<Api> = {
   preference?: InjectionPreference<Api>;
@@ -41,8 +43,8 @@ export type LoginInfoMap = {
     preferBatchedMode: boolean;
   };
   [WalletMode.Cardano]: BaseLoginInfo<CardanoApi>;
-  // [WalletMode.Polkadot]: BaseLoginInfo<PolkadotApi>;
-  // [WalletMode.Algorand]: BaseLoginInfo<AlgorandApi>;
+  [WalletMode.Polkadot]: BaseLoginInfo<PolkadotApi>;
+  [WalletMode.Algorand]: BaseLoginInfo<AlgorandApi>;
   [WalletMode.Mina]: BaseLoginInfo<MinaApi>;
   [WalletMode.AvailJs]: {
     connection: ActiveConnection<ApiPromise>;
@@ -93,3 +95,28 @@ export async function connectInjected<Api>(
     };
   }
 }
+
+export function getAddressType(mode: WalletMode): AddressType {
+  switch (mode) {
+
+    case WalletMode.EvmInjected:
+    case WalletMode.EvmEthers:
+      return AddressType.EVM;
+    case WalletMode.Cardano:
+      return AddressType.CARDANO;
+    case WalletMode.Polkadot:
+      return AddressType.POLKADOT;
+    case WalletMode.Algorand:
+      return AddressType.ALGORAND;
+    case WalletMode.Mina:
+      return AddressType.MINA;
+    case WalletMode.Midnight:
+      return AddressType.MIDNIGHT;
+    case WalletMode.AvailJs:
+      return AddressType.AVAIL;
+    case WalletMode.Polkadot:
+      return AddressType.POLKADOT;
+    default:
+      throw new Error(`Unsupported wallet mode: ${mode}`);
+  }
+};

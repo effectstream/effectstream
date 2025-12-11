@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import "./App.css";
 
 import {
@@ -8,6 +8,7 @@ import {
   walletLogin,
   WalletMode,
   WalletNameMap,
+  getAddressType,
 } from "@effectstream/wallets";
 import {
   sendBatcherTransaction,
@@ -16,12 +17,24 @@ import {
 } from "@effectstream/wallets";
 
 import { createWalletClient, http } from "viem";
-import { hardhat } from "viem/chains";
+import { hardhat as hardhatChain } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { BrowserProvider, JsonRpcSigner } from "ethers";
 import { useMemo } from "react";
 import { grammar } from "@e2e/data-types";
 import { localhostConfig } from "@e2e/data-types";
+import { AddressValidator } from "@effectstream/utils";
+import { AddressType } from "@effectstream/utils";
+import { Value } from "@sinclair/typebox/value";
+import { CryptoManager } from "@effectstream/crypto";
+
+const hardhat = hardhatChain;
+hardhat.name = "local hardhat";
+hardhat.rpcUrls = {
+  default: {
+    http: ["http://localhost:8545"],
+  },
+};
 
 const paimaEngineConfig = new PaimaEngineConfig(
   undefined, // no app name
@@ -45,55 +58,6 @@ const viemClient = createWalletClient({
   chain: hardhat,
   transport: http(),
 });
-
-const InjectedWalletsPopup = (
-  { wallets, onClose }: {
-    wallets: Record<WalletMode, any> | null;
-    onClose: () => void;
-  },
-) => {
-  if (!wallets) return null;
-
-  return (
-    <div className="popup-overlay">
-      <div className="popup-content">
-        <button type="button" onClick={onClose} className="close-button">
-          X
-        </button>
-        <h2>Available Injected Wallets</h2>
-        {Object.entries(wallets).map(([chainId, walletList]) => (
-          <div key={chainId}>
-            <h3>{chainIdToWalletType(chainId as unknown as WalletMode)}</h3>
-            <div className="wallets-grid">
-              {(walletList as any[]).length > 0
-                ? (
-                  (walletList as any[]).map((wallet) => (
-                    <div key={wallet.metadata.name} className="wallet-item">
-                      {wallet.metadata.icon
-                        ? (
-                          <img
-                            src={wallet.metadata.icon}
-                            alt={wallet.metadata.displayName}
-                          />
-                        )
-                        : (
-                          <div className="wallet-icon-placeholder">
-                            <span>{wallet.metadata.displayName.charAt(0)}</span>
-                          </div>
-                        )}
-                      <p>{wallet.metadata.displayName}</p>
-                      <p>[{wallet.metadata.name}]</p>
-                    </div>
-                  ))
-                )
-                : <p>No injected wallets found for this chain.</p>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 interface PrimitiveInfo {
   name: string;
@@ -121,23 +85,89 @@ function clientToSigner(client: any) { // Client<Transport, Chain, Account>) {
 
 function App() {
   const [error, setError] = useState<string | null>(null);
-  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [wallet, setWallet] = useState<(Wallet & { mode: WalletMode }) | null>(null);
+  const [isAddressValid, setIsAddressValid] = useState<boolean | null>(null);
   const [selectedFunction, setSelectedFunction] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [selectedPrimitive, setSelectedPrimitive] = useState<
-    PrimitiveInfo | null
-  >(null);
+    PrimitiveInfo | undefined
+  >();
   const [actionResult, setActionResult] = useState<string | null>(null);
+  const [signatureVerification, setSignatureVerification] = useState<boolean | null>(null);
+  const [messageToVerify, setMessageToVerify] = useState<string | null>(null);
+  const [signatureToVerify, setSignatureToVerify] = useState<string | null>(null);
+  const [verificationArgs, setVerificationArgs] = useState<object | null>(null);
+  const [editableUserAddress, setEditableUserAddress] = useState<string>('');
+  const [editableMessage, setEditableMessage] = useState<string>('');
+  const [editableSignature, setEditableSignature] = useState<string>('');
   const [selectedAction, setSelectedAction] = useState<string>("signMessage");
-  const [showInjectedWalletsPopup, setShowInjectedWalletsPopup] = useState(
-    false,
-  );
   const [injectedWallets, setInjectedWallets] = useState<
     Record<WalletMode, any> | null
   >(null);
+  const [messageToSign, setMessageToSign] = useState<string>("");
+  const [messageToBatch, setMessageToBatch] = useState<string>(
+    '["attack","1","1"]',
+  );
+
+  useEffect(() => {
+    if (wallet) {
+      const addressType = getAddressType(wallet.mode);
+      if (addressType !== null) {
+        try {
+          Value.Decode(AddressValidator[addressType], wallet.walletAddress);
+          setIsAddressValid(true);
+        } catch (e) {
+          setIsAddressValid(false);
+        }
+      } else {
+        setIsAddressValid(null);
+      }
+    } else {
+      setIsAddressValid(null);
+    }
+  }, [wallet]);
+
+  useEffect(() => {
+    const fetchWallets = async () => {
+      try {
+        const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+        // Some wallets take a while to load, so we need to wait for them.
+        await sleep(200);
+        const wallets = await allInjectedWallets() as unknown as Record<
+          WalletMode,
+          any
+        >;
+        setInjectedWallets(wallets);
+      } catch (e) {
+        console.error("Failed to fetch injected wallets:", e);
+      }
+    };
+    fetchWallets();
+    setSelectedPrimitive({
+      name: "Show All Wallets",
+      syncProtocol: "",
+      network: "",
+      type: "",
+      networkType: "all",
+    });
+  }, []);
+
+
+  const handlePrimitiveChange = (primitive: PrimitiveInfo) => {
+    setWallet(null);
+    setSelectedFunction(null);
+    setFormValues({});
+    setActionResult(null);
+    setSignatureVerification(null);
+    setMessageToVerify(null);
+    setSignatureToVerify(null);
+    setVerificationArgs(null);
+    setMessageToSign("");
+    setSelectedPrimitive(primitive);
+  };
 
   const primitives = useMemo<PrimitiveInfo[]>(() => {
-    return Object.entries(localhostConfig.primitives).map(
+    const basePrimitives = Object.entries(localhostConfig.primitives).map(
       ([name, primitiveData]: [string, any]) => {
         const syncProtocol: any = primitiveData.syncProtocol;
         // @ts-ignore - TODO: fix types in config
@@ -159,18 +189,36 @@ function App() {
         };
       },
     );
+
+    return [
+      {
+        name: "Show All Wallets",
+        syncProtocol: "",
+        network: "",
+        type: "",
+        networkType: "all",
+      },
+      ...basePrimitives,
+    ];
   }, []);
 
-  const handleLogin = async (loginAction: () => Promise<any>) => {
+  const handleLogin = async (loginAction: () => Promise<any>, mode: WalletMode) => {
     setError(null);
     setWallet(null);
     setSelectedFunction(null);
     setFormValues({});
     setActionResult(null);
+    setSignatureVerification(null);
+    setMessageToVerify(null);
+    setSignatureToVerify(null);
+    setVerificationArgs(null);
+    setEditableUserAddress('');
+    setEditableMessage('');
+    setEditableSignature('');
     try {
       const result = await loginAction();
       if (result.success) {
-        setWallet(result.result);
+        setWallet({ ...result.result, mode });
 
         console.log("wallet set", result.result);
       } else {
@@ -181,13 +229,21 @@ function App() {
     }
   };
 
-  const handleShowInjectedWallets = async () => {
-    const wallets = await allInjectedWallets() as unknown as Record<
-      WalletMode,
-      any
-    >;
-    setInjectedWallets(wallets);
-    setShowInjectedWalletsPopup(true);
+  const handleConnectInjected = (mode: WalletMode, wallet: any) => {
+    handleLogin(() => {
+      let checkChainId = true;
+      if (wallet.metadata.name === "app.phantom" || wallet.metadata.name === "com.exodus.web3-wallet") {
+        checkChainId= false;
+      }
+      
+      return walletLogin(({
+        mode,
+        preference: { name: wallet.metadata.name },
+        preferBatchedMode: false,
+        chain: mode === WalletMode.EvmInjected || WalletMode.EvmEthers ? hardhat : undefined,
+        checkChainId,
+      } as any))
+    }, mode);
   };
 
   const handleInputChange = (path: string, value: any) => {
@@ -256,59 +312,42 @@ function App() {
     return (
       <input
         type={inputType}
-        value={value}
+        value={typeof value === "object" ? JSON.stringify(value) : value}
         onChange={(e) => handleInputChange(path, e.target.value)}
       />
     );
   };
 
-  const availableWallets = useMemo(() => [
-    {
-      name: "EVM Injected",
-      mode: WalletMode.EvmInjected,
-      login: () =>
-        handleLogin(() =>
-          walletLogin({
-            mode: WalletMode.EvmInjected,
-            preference: { name: "io.metamask" },
-            preferBatchedMode: false,
-            checkChainId: true,
-            chain: paimaEngineConfig.paimaL2Chain,
-          })
-        ),
-      types: ["evm"],
-    },
-    {
-      name: "EVM (Phantom)",
-      mode: WalletMode.EvmInjected,
-      login: () =>
-        handleLogin(() =>
-          walletLogin({
-            mode: WalletMode.EvmInjected,
-            preference: { name: "app.phantom" },
-            preferBatchedMode: false,
-            checkChainId: true,
-            chain: paimaEngineConfig.paimaL2Chain,
-          })
-        ),
-      types: ["evm"],
-    },
-    {
-      name: "EVM [test error]",
-      mode: WalletMode.EvmInjected,
-      login: () =>
-        handleLogin(() =>
-          walletLogin({
-            mode: WalletMode.EvmInjected,
-            preference: { name: "No wallet" },
-            preferBatchedMode: false,
-            checkChainId: true,
-            chain: paimaEngineConfig.paimaL2Chain,
-          })
-        ),
-      types: ["evm"],
-    },
-    {
+  const availableWallets = useMemo(() => {
+    const wallets: {
+      name: string;
+      mode: WalletMode;
+      login: () => void;
+      types: string[];
+      metadata: any;
+    }[] = [];
+
+    if (injectedWallets) {
+      for (const [modeStr, walletList] of Object.entries(injectedWallets)) {
+        const mode = Number(modeStr) as WalletMode;
+        if (Array.isArray(walletList) && walletList.length > 0) {
+          for (const wallet of walletList as any[]) {
+            // Get a lower-case network type like 'evm' or 'cardano' from the wallet mode.
+            const networkType = WalletNameMap[mode].toLowerCase();
+
+            wallets.push({
+              name: wallet.metadata.displayName,
+              mode,
+              login: () => handleConnectInjected(mode, wallet),
+              types: [networkType],
+              metadata: wallet.metadata,
+            });
+          }
+        }
+      }
+    }
+
+    wallets.push({
       name: "EVM (Viem Local Wallet)",
       mode: WalletMode.EvmEthers,
       login: () =>
@@ -323,96 +362,43 @@ function App() {
               api: clientToSigner(viemClient),
             },
             preferBatchedMode: false,
-          })
+          }),
+          WalletMode.EvmEthers,
         ),
       types: ["evm"],
-    },
-    {
-      name: "Cardano (Subwallet)",
-      mode: WalletMode.Cardano,
+      metadata: {
+        name: "Viem Local Wallet",
+        displayName: "EVM (Viem Local Wallet)",
+      },
+    });
+
+    wallets.push({
+      name: "EVM [test error]",
+      mode: WalletMode.EvmInjected,
       login: () =>
         handleLogin(() =>
           walletLogin({
-            mode: WalletMode.Cardano,
-            preference: { name: "subwallet" },
-          })
+            mode: WalletMode.EvmInjected,
+            preference: { name: "No wallet" },
+            preferBatchedMode: false,
+            checkChainId: true,
+            chain: paimaEngineConfig.paimaL2Chain,
+          }),
+          WalletMode.EvmInjected,
         ),
-      types: ["cardano"],
-    },
-    {
-      name: "Cardano (Eternl)",
-      mode: WalletMode.Cardano,
-      login: () =>
-        handleLogin(() =>
-          walletLogin({
-            mode: WalletMode.Cardano,
-            preference: { name: "eternl" },
-          })
-        ),
-      types: ["cardano"],
-    },
-    {
-      name: "Cardano (Exodus)",
-      mode: WalletMode.Cardano,
-      login: () =>
-        handleLogin(() =>
-          walletLogin({
-            mode: WalletMode.Cardano,
-            preference: { name: "exodus" },
-          })
-        ),
-      types: ["cardano"],
-    },
-    {
-      name: "Cardano (Lace)",
-      mode: WalletMode.Cardano,
-      login: () =>
-        handleLogin(() =>
-          walletLogin({
-            mode: WalletMode.Cardano,
-            preference: { name: "lace" },
-          })
-        ),
-      types: ["cardano"],
-    },
-    // // Disabled until we update @effectstream/wallets
-    // {
-    //   name: "Polkadot",
-    //   mode: WalletMode.Polkadot,
-    //   login: () =>
-    //     handleLogin(() => walletLogin({ mode: WalletMode.Polkadot })),
-    //   types: ["polkadot"],
-    // },
-    // {
-    //   name: "Algorand",
-    //   mode: WalletMode.Algorand,
-    //   login: () =>
-    //     handleLogin(() =>
-    //       walletLogin({
-    //         mode: WalletMode.Algorand,
-    //         preference: { name: "exodus" },
-    //       })
-    //     ),
-    //   types: ["algorand"],
-    // },
-    {
-      name: "Mina",
-      mode: WalletMode.Mina,
-      login: () => handleLogin(() => walletLogin({ mode: WalletMode.Mina })),
-      types: ["mina"],
-    },
-    {
-      name: "Midnight",
-      mode: WalletMode.Midnight,
-      login: () =>
-        handleLogin(() => walletLogin({ mode: WalletMode.Midnight })),
-      types: ["midnight"],
-    },
-  ], []);
+      types: ["evm"],
+      metadata: {
+        name: "EVM Test Error",
+        displayName: "EVM [test error]",
+      },
+    });
+
+    return wallets;
+  }, [injectedWallets]);
 
   const displayedWallets = useMemo(() => {
-    if (!selectedPrimitive) {
-      return [];
+    if (!selectedPrimitive || selectedPrimitive.name === "Show All Wallets") {
+      return availableWallets;
     }
     if (selectedPrimitive.type === "evm-rpc-effectstream-l2") {
       return availableWallets;
@@ -421,6 +407,79 @@ function App() {
       wallet.types.includes(selectedPrimitive.networkType)
     );
   }, [selectedPrimitive, availableWallets]);
+
+  const handleSignMessage = async () => {
+    if (!wallet) return;
+    setActionResult(null);
+    setSignatureVerification(null);
+    setMessageToVerify(null);
+    setSignatureToVerify(null);
+    setVerificationArgs(null);
+    try {
+      const signedMessage = await signMessage(
+        wallet,
+        messageToSign,
+      );
+      console.log(signedMessage);
+      setActionResult(JSON.stringify(signedMessage, null, 2));
+      setMessageToVerify(messageToSign);
+      setSignatureToVerify(signedMessage);
+      if (wallet) {
+        setEditableUserAddress(wallet.walletAddress);
+      }
+      setEditableMessage(messageToSign);
+      setEditableSignature(signedMessage);
+    } catch (e) {
+      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const handleSendBatcherTransaction = async () => {
+    if (!wallet) return;
+    setActionResult(null);
+    setSignatureVerification(null);
+    setMessageToVerify(null);
+    setSignatureToVerify(null);
+    setVerificationArgs(null);
+    setActionResult("Sending signed message to batcher...");
+    try {
+      const result = await sendBatcherTransaction(
+        wallet,
+        JSON.parse(messageToBatch),
+        paimaEngineConfig,
+        "wait-effectstream-processed",
+      );
+      console.log(result);
+      setActionResult(
+        `Batcher transaction sent. Result: ${JSON.stringify(result, null, 2)}`,
+      );
+    } catch (e) {
+      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const handleVerifySignature = async () => {
+    if (!wallet) return;
+
+    try {
+      let isCorrect = false;
+      const { mode } = wallet;
+      const addressType = getAddressType(mode);
+      const args: { userAddress: string; message: string; signature: string; cryptoManager?: string } = {
+        userAddress: editableUserAddress,
+        message: editableMessage,
+        signature: editableSignature,
+      };
+
+      const cryptoManager = CryptoManager.getCryptoManager(addressType);
+      args.cryptoManager = cryptoManager.constructor.name;
+      isCorrect = await cryptoManager.verifySignature(args.userAddress, args.message, args.signature);
+      setVerificationArgs(args);
+      setSignatureVerification(isCorrect);
+    } catch (e) {
+      setActionResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
 
   const handleFunctionSelect = (func: string) => {
     setSelectedFunction(func);
@@ -446,6 +505,7 @@ function App() {
 
   const handleSubmit = async () => {
     setActionResult(null);
+    setSignatureVerification(null);
     if (!wallet || !selectedFunction) return;
 
     try {
@@ -546,93 +606,331 @@ function App() {
     <div className="container">
       <h1>E2E Wallets</h1>
 
-      <h2>Select a Primitive</h2>
-      <div className="card primitives-list">
-        {primitives.map((primitive) => (
-          <div key={primitive.name}>
-            <input
-              type="radio"
-              id={primitive.name}
-              name="primitive"
-              value={primitive.name}
-              checked={selectedPrimitive?.name === primitive.name}
-              onChange={() => setSelectedPrimitive(primitive)}
-            />
-            <label htmlFor={primitive.name}>
-              <strong>{primitive.name}</strong>{" "}
-              <i>@ {primitive.syncProtocol}</i>
-            </label>
+      <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: "300px" }}>
+          <h2>Select a Primitive</h2>
+          <div className="card primitives-list">
+            {primitives.map((primitive) => (
+              <div key={primitive.name} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '1rem' }}>
+                <div>
+                  <input
+                    type="radio"
+                    id={primitive.name}
+                    name="primitive"
+                    value={primitive.name}
+                    checked={selectedPrimitive?.name === primitive.name}
+                    onChange={() => handlePrimitiveChange(primitive)}
+                  />
+                  <label htmlFor={primitive.name} style={{ marginLeft: '0.5rem' }}>
+                    <strong>{primitive.name}</strong>
+                  </label>
+                </div>
+                {primitive.syncProtocol && (
+                  <i style={{ color: 'white' }}>@ {primitive.syncProtocol}</i>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
 
-      <h2>Connect Wallet</h2>
-      <div className="card">
-        <button
-          className="button-2"
-          type="button"
-          onClick={handleShowInjectedWallets}
-        >
-          Show Injected Wallets
-        </button>
-
-        {displayedWallets.map((wallet) => (
-          <button key={wallet.name} type="button" onClick={wallet.login}>
-            {wallet.name}
-          </button>
-        ))}
+        <div style={{ flex: 1, minWidth: "300px" }}>
+          <h2>Wallets</h2>
+          <div
+            className="card"
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              flexWrap: "wrap",
+              gap: "10px",
+            }}
+          >
+            {displayedWallets.length > 0
+              ? (
+                displayedWallets.map((wallet) => (
+                  <div
+                    key={`${wallet.metadata.name} :: ${wallet.mode}`}
+                    onClick={wallet.login}
+                    style={{
+                      display: "flex",
+                      flexGrow: 1,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: "1rem",
+                      padding: "12px",
+                      background: "rgba(255, 255, 255, 0.05)",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "rgba(255, 255, 255, 0.1)";
+                      e.currentTarget.style.transform = "translateX(5px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background =
+                        "rgba(255, 255, 255, 0.05)";
+                      e.currentTarget.style.transform = "translateX(0)";
+                    }}
+                    title={`Connect to ${wallet.metadata.displayName}`}
+                  >
+                    {wallet.metadata.icon
+                      ? (
+                        <img
+                          src={wallet.metadata.icon}
+                          alt={wallet.metadata.displayName}
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "4px",
+                          }}
+                        />
+                      )
+                      : (
+                        <div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "4px",
+                            background: "#4a5568",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            fontWeight: "bold",
+                            color: "white",
+                          }}
+                        >
+                          <span>
+                            {wallet.metadata.displayName.charAt(0)}
+                          </span>
+                        </div>
+                      )}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: 0,
+                          fontWeight: "bold",
+                          color: "white",
+                        }}
+                      >
+                        {wallet.metadata.displayName}
+                      </p>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.8rem",
+                          color: "#aaa",
+                        }}
+                      >
+                        {wallet.metadata.name}
+                      </p>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.7rem",
+                          color: "#888",
+                          textTransform: "capitalize",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {wallet.types.join(", ")}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )
+              : (
+                <p style={{ color: "white" }}>
+                  {selectedPrimitive
+                    ? "No compatible wallets found."
+                    : "Select a primitive to see available wallets."}
+                </p>
+              )}
+          </div>
+        </div>
       </div>
 
       {wallet && (
-        <div className="info-box">
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            {wallet.metadata?.icon && (
-              <img
-                src={wallet.metadata.icon}
-                width="35"
-                height="34"
-                alt="wallet icon"
-              />
-            )}
-            <h2>Wallet Info</h2>
-          </div>
-          <pre>{JSON.stringify({walletAddress: wallet.walletAddress, metadata: wallet.metadata }, null, 2)}</pre>
-        </div>
-      )}
-
-      {wallet && selectedPrimitive && (
-        <div className="info-box-large info-box">
-          {selectedPrimitive.type === "EVM:PaimaL2"
-            ? (selectedFunction ? renderForm() : (
+        <div style={{ display: "flex", gap: "2rem", marginTop: "2rem" }}>
+          {/* Left Column: Logs */}
+          <div style={{ flex: '0 0 50%' }}>
+            <div className="info-box">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                }}
+              >
+                {wallet.metadata?.icon && (
+                  <img
+                    src={wallet.metadata.icon}
+                    width="35"
+                    height="34"
+                    alt="wallet icon"
+                  />
+                )}
+                <h2>Wallet Info</h2>
+              </div>
               <div>
-                <h2>Select a function</h2>
-                <div className="card">
-                  {Object.keys(grammar).map((func) => (
-                    <button
-                      key={func}
-                      type="button"
-                      onClick={() => handleFunctionSelect(func)}
-                    >
-                      {func}
-                    </button>
-                  ))}
+                <p><strong>Address:</strong> {wallet.walletAddress}</p>
+                <p>
+                  <strong>Address Validity:</strong>{" "}
+                  {isAddressValid === true
+                    ? "✅ Valid"
+                    : isAddressValid === false
+                    ? "❌ Invalid"
+                    : "⏳ Unknown"}
+                </p>
+                <p><strong>Metadata:</strong></p>
+                <pre>
+                  {JSON.stringify(wallet.metadata, null, 2)}
+                </pre>
+              </div>
+            </div>
+            {selectedPrimitive && (
+              <div
+                className="info-box-large info-box"
+                style={{ marginTop: "1rem" }}
+              >
+                {selectedPrimitive.type === "EVM:PaimaL2"
+                  ? (selectedFunction ? renderForm() : (
+                    <div>
+                      <h2>Select a function</h2>
+                      <div className="card">
+                        {Object.keys(grammar).map((func) => (
+                          <button
+                            key={func}
+                            type="button"
+                            onClick={() => handleFunctionSelect(func)}
+                          >
+                            {func}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                  : selectedPrimitive.name !== "Show All Wallets"
+                  ? (
+                    <div>
+                      <p>
+                        To interact with this contract, use the native wallet
+                      </p>
+                      <pre>{JSON.stringify(selectedPrimitive, null, 2)}</pre>
+                    </div>
+                  )
+                  : null}
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Actions */}
+          <div style={{ flex: '0 0 50%' }}>
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h2>Actions</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '1rem', alignItems: 'center' }}>
+                <label style={{ color: 'white' }}>Sign Message:</label>
+                <input
+                  type="text"
+                  value={messageToSign}
+                  onChange={(e) => setMessageToSign(e.target.value)}
+                  placeholder="message to sign"
+                  style={{
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    width: "100%",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSignMessage}
+                  disabled={!messageToSign}
+                  style={{ width: "80px" }}
+                >
+                  Sign
+                </button>
+
+                <label style={{ color: 'white' }}>Send to Batcher:</label>
+                <input
+                  type="text"
+                  value={messageToBatch}
+                  onChange={(e) => setMessageToBatch(e.target.value)}
+                  placeholder='["attack","1","1"]'
+                  style={{
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    width: "100%",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendBatcherTransaction}
+                  disabled={!messageToBatch}
+                  style={{ width: "80px" }}
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+
+            {actionResult && (
+              <div className="info-box result-box" style={{ marginTop: "1rem" }}>
+                <h3>Result</h3>
+                <pre>{actionResult}</pre>
+              </div>
+            )}
+
+            {signatureToVerify && (
+              <div className="card info-box" style={{ marginTop: "1rem" }}>
+                <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem' }}>
+                  <h3>Verify Signature</h3>
+                  <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label>User Address:</label>
+                    <input type="text" value={editableUserAddress} onChange={(e) => setEditableUserAddress(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
+                  </div>
+                  <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label>Message:</label>
+                    <input type="text" value={editableMessage} onChange={(e) => setEditableMessage(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
+                  </div>
+                  <div className="form-field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label>Signature:</label>
+                    <input type="text" value={editableSignature} onChange={(e) => setEditableSignature(e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleVerifySignature}
+                    style={{ marginTop: '0.5rem' }}
+                  >
+                    Verify Signature
+                  </button>
                 </div>
               </div>
-            ))
-            : (
-              <div>
-                <p>To interact with this contract, use the native wallet</p>
-                <pre>{JSON.stringify(selectedPrimitive, null, 2)}</pre>
+            )}
+
+            {verificationArgs && (
+              <div className="info-box result-box" style={{ marginTop: "1rem" }}>
+                <h3>Signature Verification Arguments</h3>
+                <pre>{JSON.stringify(verificationArgs, null, 2)}</pre>
               </div>
             )}
-        </div>
-      )}
 
-      {showInjectedWalletsPopup && (
-        <InjectedWalletsPopup
-          wallets={injectedWallets}
-          onClose={() => setShowInjectedWalletsPopup(false)}
-        />
+            {signatureVerification !== null && (
+              <div className="info-box result-box" style={{ marginTop: "1rem" }}>
+                <h3>Signature Verification</h3>
+                <p>{signatureVerification ? '✅ Signature is valid' : '❌ Signature is invalid'}</p>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {error && (
