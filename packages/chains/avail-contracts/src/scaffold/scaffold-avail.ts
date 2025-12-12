@@ -101,6 +101,44 @@ export async function scaffoldAvailProject(
     }
 };
 
+export function availPrimitiveBlock(): string {
+    return `
+        .addPrimitive(
+            (syncProtocols) => (syncProtocols as any).parallelAvail,
+            (network, deployments, syncProtocol) => ({
+                name: "AvailContractState",
+                type: PrimitiveTypeAvailGeneric,
+                startBlockHeight: 1,
+                appId: readAvailApplication().appId,
+                applicationKey: readAvailApplication().ApplicationKey,
+                genesisHash: readAvailApplication().genesisHash,
+                stateMachinePrefix: "avail-app-state",
+            })
+        )
+        `;
+}
+
+export function availStateMachine(contract: string): string {
+    return `
+        stm.addStateTransition("event_avail_${contract}", function* (data) {
+            console.log(
+                "🎉 [AVAIL] Transaction receipt:",
+                JSON.stringify(data.parsedInput)
+            );
+        });
+    `;
+}
+
+export function availGrammar(contract: string): {
+    customGrammar: string;
+    builtInGrammar: string;
+} {
+    return { 
+        builtInGrammar: `"event_avail_${contract}": builtinGrammars.availGeneric,`, 
+        customGrammar: '',
+    }
+}
+
 if (import.meta.main) {
     function checkInputs(args: string[]): { targetFolder: string, packageName: string, version: string } {
         const targetFolder = args[0];

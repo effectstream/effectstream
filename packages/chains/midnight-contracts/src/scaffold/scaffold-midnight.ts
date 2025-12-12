@@ -17,7 +17,7 @@ export async function scaffoldMidnightProject(
     name: string;
     path: string;
 }> {
-    const fullPackageName = `@${packageName}/evm-contracts`;
+    const fullPackageName = `@${packageName}/midnight-contracts`;
 
     const folders = [
         [""], 
@@ -53,6 +53,46 @@ export async function scaffoldMidnightProject(
         path: targetFolder
     }
 };
+
+export function midnightPrimitiveBlock(safeCodeContractName: string, safePackageName: string): string {
+    return `
+        .addPrimitive(
+          (syncProtocols) => syncProtocols.parallelMidnight,
+          (network, deployments, syncProtocol) => ({
+            name: "primitive_${safePackageName}",
+            type: builtin.PrimitiveTypeMidnightGeneric,
+            startBlockHeight: 1,
+            contractAddress: readMidnightContract("${safePackageName}", "contract-${safePackageName}.json").contractAddress,
+            stateMachinePrefix: "event_midnight_${safePackageName}",
+            contract: { ledger: ${safeCodeContractName}Contract.ledger },
+            networkId: 0,
+          })
+        )
+      `;
+}
+
+export function midnightGrammar(safePackageName: string): {
+    customGrammar: string;
+    builtInGrammar: string;
+} {
+    return {
+        builtInGrammar: `"event_midnight_${safePackageName}": builtinGrammars.midnightGeneric,`,
+        customGrammar: '',
+    }
+}
+
+export function midnightStateMachine(safePackageName: string): string {
+    return `
+        stm.addStateTransition("event_midnight_${safePackageName}", function* (data) {
+            console.log(
+                "🎉 [MIDNIGHT:${safePackageName}] Transaction receipt:",
+                JSON.stringify(data.parsedInput.payload)
+            );
+            // Insert into database
+            // yield* World.resolve(insert, { params });
+        });
+`;
+}
 
 const importDeployContract = (contractCodeName: string, contractPackageName: string) => {
     return `

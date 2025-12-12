@@ -5,6 +5,7 @@ import { launchCardano } from "@paimaexample/orchestrator/start-cardano";
 import { launchEvm } from "@paimaexample/orchestrator/start-evm";
 import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 import { launchAvail } from "@paimaexample/orchestrator/start-avail";
+import { launchBitcoin } from "@paimaexample/orchestrator/start-bitcoin";
 
 const customProcesses = [
   /** DENO-FRONTEND-BLOCK */
@@ -35,6 +36,7 @@ const customProcesses = [
     link: "http://127.0.0.1:8080",
     type: "system-dependency",
     dependsOn: ["build-frontend"],
+    logs: 'none',
   },
   // {
   //   name: "frontend-build",
@@ -107,6 +109,10 @@ const config = Value.Parse(OrchestratorConfig, {
     ...launchAvail("@[scope]/avail-contracts"),
     /** AVAIL-BLOCK */
 
+    /** BITCOIN-BLOCK */
+    ...launchBitcoin("@[scope]/bitcoin-contracts"),
+    /** BITCOIN-BLOCK */
+    
     ...customProcesses,
   ],
 });

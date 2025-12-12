@@ -96,7 +96,78 @@ export async function scaffoldEVMProject(
     }
 };
 
+export function evmPrimitiveBlock(contract: string, contractPackageName: string): string {
+    const option = evmContractOptions.find(o => o.value === contract);
+    if (!option) {
+        throw new Error(`Contract option ${contract} not found`);
+    }
+    return `
+          .addPrimitive(
+            (syncProtocols) => syncProtocols.mainEvmRPC,
+            (network, deployments, syncProtocol) => ({
+                name: "primitive_${option.value}",
+                type: builtin.${option.builtInPrimitive},
+                startBlockHeight: 0,
+                contractAddress: contractAddressesEvmMain()
+                    .chain31337["${contractPackageName}Module#${contractPackageName}"],
+                stateMachinePrefix: \`event_evm_${option.value}\`,
+            })
+          )
+    `;
+}
 
+export function evmGrammar(contract: string): {
+    customGrammar: string;
+    builtInGrammar: string;
+} {
+    const option = evmContractOptions.find(o => o.value === contract);
+    if (!option) {
+        throw new Error(`Contract option ${contract} not found`);
+    }
+
+    if (option.builtInGrammar === '<CUSTOM-GRAMMAR>') {
+        return {
+            builtInGrammar: '',
+            customGrammar: `
+            state_${contract}: [
+                ["input_a", Type.Integer()],
+                ["input_b", Type.Integer()],
+            ],
+        `,
+        }
+    }
+
+    return {
+        builtInGrammar: `"event_evm_${option.value}": builtinGrammars.${option.builtInGrammar},`,
+        customGrammar: '',
+    }
+}
+
+export function evmStateMachine(contract: string): string {
+    const option = evmContractOptions.find(o => o.value === contract);
+    if (!option) {
+        throw new Error(`Contract option ${contract} not found`);
+    }
+
+    if (option.builtInGrammar === '<CUSTOM-GRAMMAR>') {
+        return `
+            stm.addStateTransition("state_${contract}", function* (data) {
+                console.log(
+                    "🎉 [EVM:${option.value}] Transaction receipt:",
+                    JSON.stringify(data.parsedInput)
+                );
+            });
+        `;
+    }
+    return `
+        stm.addStateTransition("event_evm_${option.value}", function* (data) {
+            console.log(
+                "🎉 [EVM:${option.value}] Transaction receipt:",
+                JSON.stringify(data.parsedInput)
+            );
+        });
+    `;
+}
 
 async function scaffoldEVMContract(
     targetFolder: string,

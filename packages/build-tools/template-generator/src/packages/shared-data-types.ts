@@ -7,6 +7,7 @@ import { ChainMidnightPackage } from "./chain-midnight.ts";
 import { ChainEVMPackage } from "./chain-evm.ts";
 import { ChainAvailPackage } from "./chain-avail.ts";
 import { ChainCardanoPackage } from "./chain-cardano.ts";
+import { ChainBitcoinPackage } from "./chain-bitcoin.ts";
 
 export class SharedDataTypesPackage extends Package {
   public async generate(): Promise<PackageInfo> {
@@ -39,16 +40,29 @@ export class SharedDataTypesPackage extends Package {
           "MIDNIGHT-BLOCK": this.options.chains.includes("midnight"),
           "AVAIL-BLOCK": this.options.chains.includes("avail"),
           "CARDANO-BLOCK": this.options.chains.includes("cardano"),
+          "BITCOIN-BLOCK": this.options.chains.includes("bitcoin"),
         },
         {
           "EVM-IMPORT-BLOCK": "",
-          "EVM-PRIMITIVE-BLOCK": this.options.contracts.evm?.map(contract => ChainEVMPackage.evmPrimitiveBlock(ChainEVMPackage.safePackageName(contract))).join("\n") || "",
+          "EVM-PRIMITIVE-BLOCK": this.options.contracts.evm?.map(contract => ChainEVMPackage.evmPrimitiveBlock(contract, ChainEVMPackage.safePackageName(contract))).join("\n") || "",
+          "EVM-GRAMMAR-BLOCK": this.options.contracts.evm?.map(contract => ChainEVMPackage.evmGrammar(contract)).map(grammar => grammar.builtInGrammar).join("\n") || "",
+          "EVM-GRAMMAR-L2-BLOCK": this.options.contracts.evm?.map(contract => ChainEVMPackage.evmGrammar(contract)).map(grammar => grammar.customGrammar).join("\n") || "",
+
           "MIDNIGHT-IMPORT-BLOCK": midnightImportBlockCode || "",
           "MIDNIGHT-PRIMITIVE-BLOCK": midnightPrimitiveBlockCode || "",
+          "MIDNIGHT-GRAMMAR-BLOCK": this.options.contracts.midnight?.map(contract => ChainMidnightPackage.midnightGrammar(contract)).map(grammar => grammar.builtInGrammar).join("\n") || "",
+          
           "AVAIL-IMPORT-BLOCK": "",
           "AVAIL-PRIMITIVE-BLOCK": this.options.contracts.avail?.map(contract => ChainAvailPackage.availPrimitiveBlock(contract)).join("\n") || "",
+          "AVAIL-GRAMMAR-BLOCK": this.options.contracts.avail?.map(contract => ChainAvailPackage.availGrammar(contract)).map(grammar => grammar.builtInGrammar).join("\n") || "",
+          
           "CARDANO-IMPORT-BLOCK": "",
           "CARDANO-PRIMITIVE-BLOCK": this.options.contracts.cardano?.map(contract => ChainCardanoPackage.cardanoPrimitiveBlock(contract)).join("\n") || "",
+          "CARDANO-GRAMMAR-BLOCK": this.options.contracts.cardano?.map(contract => ChainCardanoPackage.cardanoGrammar(contract)).map(grammar => grammar.builtInGrammar).join("\n") || "",
+          
+          "BITCOIN-IMPORT-BLOCK": "",
+          "BITCOIN-PRIMITIVE-BLOCK": this.options.contracts.bitcoin?.map(contract => ChainBitcoinPackage.bitcoinPrimitiveBlock(contract)).join("\n") || "",
+          "BITCOIN-GRAMMAR-BLOCK": this.options.contracts.bitcoin?.map(contract => ChainBitcoinPackage.bitcoinGrammar(contract)).map(grammar => grammar.builtInGrammar).join("\n") || "",
         }
       );
     }
@@ -68,7 +82,7 @@ export class SharedDataTypesPackage extends Package {
         "@paimaexample/db": "jsr:@paimaexample/db@" + EFFECTSTREAM_VERSION,
         "@paimaexample/sm": "jsr:@paimaexample/sm@" + EFFECTSTREAM_VERSION,
         viem: "npm:viem@2.37.3",
-        "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+        "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41",
       },
     };
     await new DenoJsonFile(path.join(dataTypesPath, "deno.json"), deno).write();

@@ -4,6 +4,11 @@ import { DenoJsonFile } from '../file-types/deno-json-file.ts';
 import { TypescriptFile } from '../file-types/typescript-file.ts';
 import { copyFiles } from '../file-operations.ts';
 import { EFFECTSTREAM_VERSION } from '../options.ts';
+import { ChainEVMPackage } from './chain-evm.ts';
+import { ChainMidnightPackage } from './chain-midnight.ts';
+import { ChainAvailPackage } from './chain-avail.ts';
+import { ChainCardanoPackage } from './chain-cardano.ts';
+import { ChainBitcoinPackage } from './chain-bitcoin.ts';
 
 export class ClientNodePackage extends Package {
     public async generate(): Promise<PackageInfo> {
@@ -24,6 +29,14 @@ export class ClientNodePackage extends Package {
                   "AVAIL-BLOCK": this.options.chains.includes("avail"),
                   "MIDNIGHT-BLOCK": this.options.chains.includes("midnight"),
                   "EVM-BLOCK": this.options.chains.includes("evm"),
+                  "BITCOIN-BLOCK": this.options.chains.includes("bitcoin"),
+                },
+                {
+                  "EVM-STM-BLOCK": this.options.contracts.evm?.map(contract => ChainEVMPackage.evmStateMachine(contract)).join("\n") || "",
+                  "MIDNIGHT-STM-BLOCK": this.options.contracts.midnight?.map(contract => ChainMidnightPackage.midnightStateMachine(contract)).join("\n") || "",
+                  "AVAIL-STM-BLOCK": this.options.contracts.avail?.map(contract => ChainAvailPackage.availStateMachine(contract)).join("\n") || "",
+                  "CARDANO-STM-BLOCK": this.options.contracts.cardano?.map(contract => ChainCardanoPackage.cardanoStateMachine(contract)).join("\n") || "",
+                  "BITCOIN-STM-BLOCK": this.options.contracts.bitcoin?.map(contract => ChainBitcoinPackage.bitcoinStateMachine(contract)).join("\n") || "",
                 }
               );
         }

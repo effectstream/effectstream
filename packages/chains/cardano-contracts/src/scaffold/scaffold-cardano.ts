@@ -108,6 +108,24 @@ export async function scaffoldCardanoProject(
     }
 };
 
+export function cardanoPrimitiveBlock(): string {
+    return ``;
+}
+
+export function cardanoGrammar(): {
+    customGrammar: string;
+    builtInGrammar: string;
+} {
+    return { 
+        builtInGrammar: '', 
+        customGrammar: '',
+    }
+}
+
+export function cardanoStateMachine(): string {
+    return ``;
+}
+
 if (import.meta.main) {
     function checkInputs(args: string[]): { targetFolder: string, packageName: string, version: string } {
         const targetFolder = args[0];

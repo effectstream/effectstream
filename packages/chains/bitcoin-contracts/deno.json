@@ -3,13 +3,16 @@
     "version": "0.3.0",
     "license": "MIT",
     "exports": {
-        ".": "./src/mod.ts"
+        ".": "./src/mod.ts",
+        "./scaffold": "./src/scaffold/mod.ts"
     },
     "tasks": {
+        "scaffold": "deno run -A ./src/scaffold/scaffold-bitcoin.ts",
         "generate:blocks": "deno run -A src/generate-blocks.ts",
         "wait-for-block": "deno run -A src/wait-for-block.ts"
     },
     "imports": {
+        "@std/path": "jsr:@std/path@^1.1.2",
         "bitcoinjs-lib": "npm:bitcoinjs-lib@^7.0.0",
         "ecpair": "npm:ecpair@^3.0.0",
         "tiny-secp256k1": "npm:tiny-secp256k1@^2.2.4"

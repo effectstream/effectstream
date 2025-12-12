@@ -14,12 +14,15 @@ const decodeToByteString = (x: { [key: string]: number }): string =>
     .join('')
     .trim();
 
-stm.addStateTransition("midnightContractState", function* (data) {
-    console.log(
-      "🎉 [MIDNIGHT] Transaction receipt:",
-      JSON.stringify(data.parsedInput.payload)
-    );  
-});
+/** MIDNIGHT-STM-BLOCK */
+
+/** EVM-STM-BLOCK */
+
+/** AVAIL-STM-BLOCK */
+
+/** CARDANO-STM-BLOCK */
+
+/** BITCOIN-STM-BLOCK */
 
 // stm.finalize(); // this avoids people dynamically calling stm.addStateTransition after initialization
 

@@ -1,5 +1,6 @@
 import { contractAddressesEvmMain } from "@[scope]/evm-contracts";
 import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
+import type { BlockNumber } from "@paimaexample/utils";
 
 /** AVAIL-BLOCK */
 import { readAvailApplication } from "@[scope]/avail-contracts";
@@ -7,6 +8,7 @@ import { readAvailApplication } from "@[scope]/avail-contracts";
 
 /** EVM-IMPORT-BLOCK */
 /** MIDNIGHT-IMPORT-BLOCK */
+/** BITCOIN-IMPORT-BLOCK */
 
 import {
   ConfigBuilder,
@@ -16,6 +18,8 @@ import {
 import { hardhat } from "viem/chains";
 import { getConnection } from "@paimaexample/db";
 
+import * as builtin from "@paimaexample/sm/builtin";
+
 import {
   PrimitiveTypeAvailGeneric,
   PrimitiveTypeEVMERC1155,
@@ -23,6 +27,7 @@ import {
   PrimitiveTypeEVMERC721,
   PrimitiveTypeEVMPaimaL2,
   PrimitiveTypeMidnightGeneric,
+  PrimitiveTypeBitcoinAddress,
 } from "@paimaexample/sm/builtin";
 
 /**
@@ -106,6 +111,21 @@ export const localhostConfig = new ConfigBuilder()
         network: "yaci",
       })
       /** CARDANO-BLOCK */
+
+      /** BITCOIN-BLOCK */
+      .addNetwork({
+        name: "bitcoin",
+        type: ConfigNetworkType.BITCOIN,
+        rpcUrl: "http://127.0.0.1:18443", // bitcoin core address
+        rpcAuth: {
+          username: "dev",
+          password: "devpassword",
+        },
+        network: "regtest",
+        chainIdentifier: "regtest",
+      })
+      /** BITCOIN-BLOCK */
+
   )
   .buildDeployments((builder) =>
     builder
@@ -154,7 +174,6 @@ export const localhostConfig = new ConfigBuilder()
       )
       /** MIDNIGHT-BLOCK */
 
-
       /** AVAIL-BLOCK */
       .addParallel(
         (networks) => (networks as any).avail,
@@ -182,6 +201,21 @@ export const localhostConfig = new ConfigBuilder()
         }),
       )
       /** CARDANO-BLOCK */
+
+      /** BITCOIN-BLOCK */
+      .addParallel(
+        (networks) => (networks as any).bitcoin,
+        (network, deployments) => ({
+          name: "parallelBitcoin",
+          type: ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL,
+          rpcUrl: "http://127.0.0.1:18443", // bitcoin core address
+          startBlockHeight: 0 as BlockNumber,
+          delayMs: 20000,
+          pollingInterval: 10_000,
+          confirmationDepth: 0,
+        }),
+      )
+      /** BITCOIN-BLOCK */
   )
   .buildPrimitives((builder) =>
     builder
@@ -192,5 +226,7 @@ export const localhostConfig = new ConfigBuilder()
       /** AVAIL-PRIMITIVE-BLOCK */
 
       /** CARDANO-PRIMITIVE-BLOCK */
+
+      /** BITCOIN-PRIMITIVE-BLOCK */
   )
   .build();
