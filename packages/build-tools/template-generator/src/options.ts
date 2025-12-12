@@ -1,5 +1,5 @@
 export const PAIMA_SCOPE = '@paimaexample';
-export const EFFECTSTREAM_VERSION = '0.3.108';
+export const EFFECTSTREAM_VERSION = '0.3.120';
 import { evmContractOptions } from '@effectstream/evm-hardhat/scaffold';
 import { availContractOptions } from '@effectstream/avail-contracts/scaffold';
 import { cardanoContractOptions } from '@effectstream/cardano-contracts/scaffold';
