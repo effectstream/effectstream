@@ -10,9 +10,12 @@ class LogsViewer {
   public isRunning = false;
   private logDisplayStates: Record<string, boolean> = {};
   private logServer: LogServer;
+  private readonly logDirectory: string;
 
   constructor() {
     this.logServer = new LogServer();
+    const calledFrom = Deno.env.get("INIT_CWD") ?? ".";
+    this.logDirectory = `${calledFrom}/logs`;
   }
 
   private streams: Record<string, RotatingFileStream> = {};
@@ -22,7 +25,7 @@ class LogsViewer {
     if (this.streams[namespace]) {
       return { isNew: false, stream: this.streams[namespace] };
     }
-    this.streams[namespace] = createStream(`./logs/${namespace}.log`, {
+    this.streams[namespace] = createStream(`${this.logDirectory}/${namespace}.log`, {
       size: "10M", // rotate every 10 MegaBytes written
       interval: "1d", // rotate daily
       compress: "gzip", // compress rotated files
@@ -72,9 +75,9 @@ class LogsViewer {
     console.log("🔍 Starting log server...");
 
     try {
-      Deno.lstatSync("./logs");
+      Deno.lstatSync(this.logDirectory);
     } catch (error) {
-      Deno.mkdirSync("./logs", { recursive: true });
+      Deno.mkdirSync(this.logDirectory, { recursive: true });
     }
 
     // Set up displayLogs's destination
