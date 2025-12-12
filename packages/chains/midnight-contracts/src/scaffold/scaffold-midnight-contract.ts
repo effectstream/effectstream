@@ -1,4 +1,4 @@
-import * as path from "jsr:@std/path";
+import * as path from "@std/path";
 import { copyFiles } from "./scaffold-helpers.ts";
 import { currentDir } from "./scaffold-helpers.ts";
 

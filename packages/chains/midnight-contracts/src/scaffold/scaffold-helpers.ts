@@ -1,5 +1,4 @@
-import * as path from "jsr:@std/path";
-
+import * as path from "@std/path";
 
 export function joinFile(...parts: string[]): string {
     const filePath = path.join(...parts);

@@ -113,17 +113,17 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
 ];
 
 const npmPackagesToPublish: { path: string; prepublish?: string[], build?: string }[] = [
-  // { path: "./packages/chains/evm-contracts" },
-  // { path: "./packages/binaries/bitcoin-core" },
-  // { path: "./packages/binaries/ord" },
-  // { path: "./packages/binaries/avail-light-client" },
-  // { path: "./packages/binaries/avail-node" },
-  // { path: "./packages/binaries/midnight-indexer" },
-  // { path: "./packages/binaries/midnight-node" },
-  // { path: "./packages/binaries/midnight-proof-server" },
-  // { path: "./packages/binaries/grafana-alloy" },
-  // { path: "./packages/binaries/grafana-loki" },
-  // { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
+  { path: "./packages/chains/evm-contracts" },
+  { path: "./packages/binaries/bitcoin-core" },
+  { path: "./packages/binaries/ord" },
+  { path: "./packages/binaries/avail-light-client" },
+  { path: "./packages/binaries/avail-node" },
+  { path: "./packages/binaries/midnight-indexer" },
+  { path: "./packages/binaries/midnight-node" },
+  { path: "./packages/binaries/midnight-proof-server" },
+  { path: "./packages/binaries/grafana-alloy" },
+  { path: "./packages/binaries/grafana-loki" },
+  { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
   { path: "./packages/effectstream-sdk/wallets", prepublish: ["task", "build:npm", await fetchLatestVersion()], build: 'npm'  },
 ];
 

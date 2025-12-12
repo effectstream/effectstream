@@ -6,7 +6,8 @@
         "build:assets": "deno run --allow-read jsr:@codemonument/asset-builder --import-file ./src/remappings/assets-config.json > ./src/remappings/assets.ts"
     },
     "imports": {
-        "@std/cli": "jsr:@std/cli@^1.0.22",
+        "@std/cli": "jsr:@std/cli@^1.0.24",
+        "@std/path": "jsr:@std/path@^1.1.2",
         "ws": "npm:ws@8.18.1",
         "hardhat": "npm:hardhat@3.0.4",
         "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
