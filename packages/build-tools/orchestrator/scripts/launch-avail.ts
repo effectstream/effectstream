@@ -1,5 +1,14 @@
 import { ComponentNames } from "@effectstream/log";
 
+// Substrate nodes (and many forks like Avail and Midnight) use the Rust tracing/log
+// stack wired through sc-cli/sc-service, which by default writes formatted log output to stderr.
+// This is intentional so stdout can remain a clean data channel (e.g., for RPC JSON),
+// while human-readable logs go to stderr. For E2E testing, we want to disable this,
+// unless the user explicitly wants to see the logs, so if EFFECTSTREAM_STDOUT is true,
+// we enable stderr for this as well.
+
+const disableStderr = Deno.env.get("EFFECTSTREAM_STDOUT") === "true" ? false : true;
+
 // Start Avail Node and Light Client.
 //
 // This is a example launcher for Avail Chains and Contracts.
@@ -24,6 +33,7 @@ export const launchAvail = (packageName: string): {
   waitToExit?: boolean;
   logs?: string;
   logsStartDisabled?: boolean;
+  disableStderr?: boolean;
   type?: string;
   dependsOn?: string[];
 }[] => [
@@ -34,6 +44,7 @@ export const launchAvail = (packageName: string): {
       waitToExit: false,
       logs: "raw",
       logsStartDisabled: true,
+      disableStderr,
       type: "system-dependency",
     },
     {
@@ -51,6 +62,7 @@ export const launchAvail = (packageName: string): {
       ],
       waitToExit: false,
       logsStartDisabled: true,
+      disableStderr,
       type: "system-dependency",  
       dependsOn: [ComponentNames.AVAIL_NODE_WAIT],
     },

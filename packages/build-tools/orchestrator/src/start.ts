@@ -68,6 +68,7 @@ const ProcessLaunch = Type.Object({
   waitToExit: Type.Boolean({ default: true }),
   link: Type.String({ default: '' }),
   logsStartDisabled: Type.Boolean({ default: false }),
+  disableStderr: Type.Boolean({ default: false }),
   logs: Type.Union(
     [Type.Literal('tsLogOrchestratorAdapter'), Type.Literal('raw'), Type.Literal('none')],
     { default: 'raw' }
@@ -271,6 +272,7 @@ export async function start(
           logs,
           type,
           link,
+          disableStderr,
           stopProcessAtPort,
           logsStartDisabled,
         } = task.config;
@@ -289,7 +291,7 @@ export async function start(
             args: args,
             component: name,
             log: logHandler(
-              {},
+              { disableStderr: disableStderr ?? false },
               logs === 'tsLogOrchestratorAdapter'
                 ? tsLogOrchestratorAdapter
                 : undefined,
