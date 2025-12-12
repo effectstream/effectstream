@@ -69,6 +69,7 @@ const ProcessLaunch = Type.Object({
   link: Type.String({ default: '' }),
   logsStartDisabled: Type.Boolean({ default: false }),
   disableStderr: Type.Boolean({ default: false }),
+  critical: Type.Boolean({ default: true }),
   logs: Type.Union(
     [Type.Literal('tsLogOrchestratorAdapter'), Type.Literal('raw'), Type.Literal('none')],
     { default: 'raw' }
@@ -275,6 +276,7 @@ export async function start(
           disableStderr,
           stopProcessAtPort,
           logsStartDisabled,
+          critical,
         } = task.config;
         if (stopProcessAtPort.length > 0) {
           await dkill({ ports: stopProcessAtPort });
@@ -300,6 +302,7 @@ export async function start(
               ? abortControllers.system
               : abortControllers.noncritical,
             link: link,
+            critical: critical,
           });
         } catch (e) {
           if (e instanceof AbortProcessStart) {
@@ -435,6 +438,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       ...tmux.getAttachCommand(),
       component: ComponentNames.TMUX,
       abortController: abortControllers.developerUI,
+      critical: true,
       // log, this process must no be redirected to the collector
       // this writes directly to the stdout
     });
@@ -454,6 +458,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       component: ComponentNames.EXPLORER,
       log: logHandler(),
       abortController: abortControllers.developerUI,
+      critical: false,
     });
     await explorer.process.status;
     return explorer;
@@ -477,6 +482,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       }),
       component: ComponentNames.COLLECTOR,
       abortController: abortControllers.noncritical,
+      critical: false,
     });
     void otlpCollector.process.status;
 
@@ -504,6 +510,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       }
     ),
       abortController: abortControllers.noncritical,
+      critical: false,
     });
   
     void loki.process.status;
@@ -517,6 +524,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       stdout: "inherit",
       stderr: "inherit",
       abortController: abortControllers.noncritical,
+      critical: true,
     });
     await Promise.all([checker.process.status]);
     return checker;
@@ -533,6 +541,8 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       component: ComponentNames.EFFECTSTREAM_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically
       abortController: abortControllers.system,
+      // Allow sync to fail without killing the orchestrator; TUI/R restart can recover it.
+      critical: false,
     });
     await Promise.all([node.process.status]);
     return node;
@@ -555,6 +565,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       log: logHandler(),
       component: ComponentNames.EFFECTSTREAM_PGLITE,
       abortController: abortControllers.system,
+      critical: true,
     });
     void paimaDb.process.status; // need to await sub-service start below
 
@@ -575,6 +586,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       component: ComponentNames.APPLY_MIGRATIONS,
       log: logHandler({}, tsLogOrchestratorAdapter),
       abortController: abortControllers.system,
+      critical: true,
     });
     await externalPaimaDb.process.status;
     return externalPaimaDb;

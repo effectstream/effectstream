@@ -7,7 +7,7 @@
     "check": "deno check ./mod.ts"
   },
   "imports": {
-    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41",
     "viem": "npm:viem@^2.21.3",
     "viem/accounts": "npm:viem@^2.21.3/accounts",
     "effection": "npm:effection@^3.5.0",

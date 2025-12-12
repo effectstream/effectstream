@@ -34,4 +34,8 @@ export class EvmCrypto implements IVerify {
     }
     return false;
   };
+
+  decodeAddress(address: WalletAddress): WalletAddress{
+    return Value.Decode(TypeboxHelpers.Evm.Address, address);
+  }
 }

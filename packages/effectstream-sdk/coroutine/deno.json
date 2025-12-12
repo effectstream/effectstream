@@ -10,6 +10,6 @@
     "@pgtyped/parser": "npm:@pgtyped/parser@2.4.2",
     "pg": "npm:pg@^8.14.0",
     "pg-tx": "npm:pg-tx@^1.0.1",
-    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
+    "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41"
   }
 }

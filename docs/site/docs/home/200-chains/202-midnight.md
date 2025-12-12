@@ -152,7 +152,52 @@ const midnightAdapter = new MidnightAdapter(
 
 The adapter uses `MidnightBatchBuilderLogic` to format inputs into circuit arguments compatible with the Compact runtime.
 
-## 3. Orchestration
+## 3. Browser Wallets (Connect)
+
+Use `WalletMode.Midnight` to connect to Midnight wallets (like Lace).
+
+```typescript
+import { walletLogin, WalletMode } from "@effectstream/wallets";
+
+const result = await walletLogin({
+  mode: WalletMode.Midnight,
+});
+
+if (result.success) {
+  const wallet = result.result;
+  console.log("Connected to Midnight:", wallet.walletAddress);
+}
+```
+
+## 4. Cryptography (Verify)
+
+You can validate Midnight addresses (`mn_...`) and specific Midnight-related cryptographic primitives using the `CryptoManager`.
+
+### Signing Messages
+```typescript
+import { signMessage } from "@effectstream/wallets";
+
+const signature = await signMessage(wallet, "Hello Midnight");
+```
+
+### Verifying Signatures
+```typescript
+import { CryptoManager } from "@effectstream/crypto";
+import { AddressType } from "@effectstream/utils";
+
+const crypto = CryptoManager.getCryptoManager(AddressType.MIDNIGHT);
+
+// Validates 'mn_...' addresses for testnet/devnet/undeployed
+const isValidAddress = crypto.verifyAddress(midnightAddress);
+
+const isValidSig = await crypto.verifySignature(
+  midnightAddress,
+  "Hello Midnight",
+  signature
+);
+```
+
+## 5. Orchestration
 
 Use `launchMidnight` from `@effectstream/orchestrator/start-midnight` to launch the full stack:
 *   Midnight Node
@@ -191,4 +236,3 @@ processesToLaunch: [
     "contract-eip20:deploy": "deno --unstable-detect-cjs -A contract-eip-20-deploy.ts"
   }
 }
-```

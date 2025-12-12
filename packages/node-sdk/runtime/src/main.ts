@@ -7,8 +7,10 @@ import {
   acquireDBMutex,
   createDynamicTables,
   getConnection,
+  getAllTableNames,
   releaseDBMutex,
 } from "@effectstream/db";
+import type { IGetAllTableNamesResult } from "@effectstream/db";
 import { PaimaEventBroker } from "@effectstream/event-server";
 import {
   BuiltinEvents,
@@ -183,6 +185,29 @@ function* startup(
 
   
   yield* acquireDBMutex(`startup-node`);
+
+  // Dev-only reset of user-owned public tables
+  if (config.dev?.resetPublicData) {
+    const tableRows = (yield* until(
+      getAllTableNames.run(undefined, dbConn),
+    )) as IGetAllTableNamesResult[];
+    const tableNames = tableRows
+      .map((row) => row.tablename)
+      .filter((name): name is string => Boolean(name));
+    if (tableNames.length > 0) {
+      const qualified = tableNames
+        .map((name) => `"public"."${name}"`)
+        .join(", ");
+      console.log(`[DEV RESET] Truncating public tables: ${qualified}`);
+      yield* until(
+        dbConn.query(
+          `TRUNCATE TABLE ${qualified} RESTART IDENTITY CASCADE`,
+        ),
+      );
+    } else {
+      console.log("[DEV RESET] No public tables found to truncate.");
+    }
+  }
 
   // When the node is started, we apply system migrations.
   // Either system initial migrations, or migrations given a Paima Engine Update.

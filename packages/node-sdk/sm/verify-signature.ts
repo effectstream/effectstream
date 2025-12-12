@@ -1,7 +1,6 @@
 import { CryptoManager } from "@effectstream/crypto";
 import { AddressType, Signature, WalletAddress } from "@effectstream/utils";
 import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
-import { assertNever } from "assert-never";
 
 /**
  * Verify a signature for a given wallet address and message.
@@ -20,54 +19,33 @@ export function* verifySignature(
   addressType: AddressType,
   walletAddress: WalletAddress,
   message: string,
-  signature: Signature,
+  signature: Signature
 ): SyncStateUpdateStream<boolean> {
   if (!walletAddress || !signature) throw new Error("No Signature");
+  const cryptoManager = CryptoManager.getCryptoManager(addressType);
 
-  switch (addressType) {
-    case AddressType.NONE:
-      throw new Error("Invalid address type: " + addressType);
-    case AddressType.EVM:
-      break;
-    case AddressType.CARDANO:
-    case AddressType.SUBSTRATE:
-    case AddressType.AVAIL:
-    case AddressType.ALGORAND:
-    case AddressType.MINA:
-    case AddressType.MIDNIGHT:
-    case AddressType.POLKADOT:
-      // TODO Implement the signature verification for the other address types
-      throw new Error("NYI address type: " + addressType);
-    default:
-      assertNever(addressType);
-  }
-
-  // TODO: Add other chains here.
-  const WALLET_VALIDATORS = [
-    CryptoManager.Evm(),
-    // CryptoManager.Cardano(),
-    // CryptoManager.Algorand(),
-    // CryptoManager.Polkadot(),
-  ];
-  for (const validator of WALLET_VALIDATORS) {
-    try {
-      if (!validator.verifyAddress(walletAddress)) continue;
-
-      // IMPORTANT: sync generator cannot resolve promises.
-      //            so we pass the promise back to generator caller
-      //            and resolves the promise for us.
-      const validSignature = yield* World.promise(validator.verifySignature(
-        walletAddress,
-        message,
-        signature,
-      ));
-      if (validSignature) {
-        return true;
-      }
-    } catch {
-      // do nothing, some validators throw errors if the signature is invalid
+  try {
+    if (!cryptoManager.verifyAddress(walletAddress)) {
+      console.error(`Invalid Address for ${walletAddress} : ${message}`);
+      throw new Error(`Invalid Address for ${walletAddress} : ${message}`);
     }
+
+    const validSignature = yield* World.promise(
+      cryptoManager.verifySignature(walletAddress, message, signature)
+    );
+    if (validSignature) {
+      console.log(`Valid Signature for ${walletAddress} : ${message}`);
+      return true;
+    } else {
+      throw new Error(`Invalid Signature for ${walletAddress} : ${message}`);
+    }
+  } catch (error) {
+    console.log(
+      `Error verifying signature for ${walletAddress} : ${message} : ${String(
+        error
+      )}`
+    );
+    return false;
   }
-  console.error(`Invalid Signature for ${walletAddress} : ${message}`);
-  return false;
 }
+

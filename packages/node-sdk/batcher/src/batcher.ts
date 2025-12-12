@@ -151,41 +151,28 @@ export class Batcher {
       );
     }
 
-    switch (addressType) {
-      case AddressType.EVM:
-        {
-          const messageVerified = yield* until(
-            CryptoManager.Evm().verifySignature(
-              batchedSubunit.userAddress,
-              createMessageForBatcher(
-                null,
-                batchedSubunit.millisecondTimestamp,
-                batchedSubunit.userAddress,
-                batchedSubunit.addressType,
-                batchedSubunit.conciseInput,
-              ),
-              batchedSubunit.userSignature,
-            ),
-          );
-          if (!messageVerified) {
-            throw new Error(
-              "Invalid signature for " + JSON.stringify(batchedSubunit),
-            );
-          }
-        }
-        break;
-      case AddressType.CARDANO:
-      case AddressType.SUBSTRATE:
-      case AddressType.AVAIL:
-      case AddressType.ALGORAND:
-      case AddressType.MINA:
-      case AddressType.MIDNIGHT:
-      case AddressType.POLKADOT:
-        // TODO Implement the signature verification for the other address types
-        throw new Error("NYI address type: " + batchedSubunit.addressType);
-      default:
-        assertNever(addressType);
+    const cryptoManager = CryptoManager.getCryptoManager(addressType);
+    
+    const messageVerified = yield* until(
+      cryptoManager.verifySignature(
+        batchedSubunit.userAddress,
+        createMessageForBatcher(
+          null,
+          batchedSubunit.millisecondTimestamp,
+          batchedSubunit.userAddress,
+          batchedSubunit.addressType,
+          batchedSubunit.conciseInput,
+        ),
+        batchedSubunit.userSignature,
+      ),
+    );
+
+    if (!messageVerified) {
+      throw new Error(
+        "Invalid signature for " + JSON.stringify(batchedSubunit),
+      );
     }
+
     // Add to storage
     yield* this.storage.addInput(batchedSubunit);
 

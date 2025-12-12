@@ -9,6 +9,10 @@
 			"calledName": "system-up-v-0-0-1"
 		},
 		{
+			"importPath": "./migrations/system-up-v-0.0.2.sql",
+			"calledName": "system-up-v-0-0-2"
+		},
+		{
 			"importPath": "./migrations/system-down-v-0.0.0.sql",
 			"calledName": "system-down-v-0-0-0"
 		},

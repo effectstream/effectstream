@@ -165,7 +165,7 @@ export class CardanoProvider implements IProvider<CardanoApi> {
   };
   signMessage = async (message: string): Promise<UserSignature> => {
     const hexMessage = utf8ToHex(message).slice(2);
-    const address = this.conn.metadata.name === 'nami' ? this.address.hex : this.address.bech32;
+    const address = (this.conn.metadata.name === 'nami' || this.conn.metadata.name === 'subwallet') ? this.address.hex : this.address.bech32;
     const { signature, key } = await this.conn.api.signData(address, hexMessage);
     return `${signature}+${key}`;
   };

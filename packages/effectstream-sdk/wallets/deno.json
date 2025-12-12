@@ -3,8 +3,12 @@
     "version": "0.3.0",
     "license": "MIT",
     "exports": "./src/mod.ts",
+    "tasks": {
+        "build:npm": "deno run -A scripts/build_npm.ts"
+    },
     "imports": {
         "@aurowallet/mina-provider": "npm:@aurowallet/mina-provider@^1.0.12",
+        "@deno/dnt": "jsr:@deno/dnt@^0.42.3",
         "@metamask/providers": "npm:@metamask/providers@^22.1.0",
         "@perawallet/connect": "npm:@perawallet/connect@^1.4.2",
         "@polkadot/api": "npm:@polkadot/api@15.10.2",
