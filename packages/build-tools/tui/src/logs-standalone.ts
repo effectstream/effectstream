@@ -15,7 +15,8 @@ class LogsViewer {
   constructor() {
     this.logServer = new LogServer();
     const calledFrom = Deno.env.get("INIT_CWD") ?? ".";
-    this.logDirectory = `${calledFrom}/logs`;
+    const envLogsPath = Deno.env.get("LOGS_PATH");
+    this.logDirectory = envLogsPath ?? `${calledFrom}/logs`;
   }
 
   private streams: Record<string, RotatingFileStream> = {};
