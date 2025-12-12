@@ -283,14 +283,13 @@ export async function start(
         if (logsStartDisabled) {
           void setInitialLogDisplayDisabled(name);
         }
-        const logOptions = logsStartDisabled ? { disableTUI: true } : {};
 
         try {
           processComponent = $({
             args: args,
             component: name,
             log: logHandler(
-              logOptions,
+              {},
               logs === 'tsLogOrchestratorAdapter'
                 ? tsLogOrchestratorAdapter
                 : undefined,
