@@ -247,13 +247,16 @@ export async function start(
             command,
             args,
             component: name,
-            log: logHandler({}, logs === 'tsLogOrchestratorAdapter' ? tsLogOrchestratorAdapter : undefined),
+            log: logs === 'none' ? undefined : logHandler({}, logs === 'tsLogOrchestratorAdapter' ? tsLogOrchestratorAdapter : undefined),
             cwd,
             abortController: type === "system-dependency"
               ? abortControllers.system
               : abortControllers.noncritical,
             link: link,
             critical: critical,
+            stdin: logs === 'none' ? 'null' : undefined,
+            stdout: logs === 'none' ? 'null' : undefined,
+            stderr: logs === 'none' ? 'null' : undefined,
           });
         } catch (e) {
           if (e instanceof AbortProcessStart) {
