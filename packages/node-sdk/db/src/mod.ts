@@ -50,6 +50,7 @@ export * from "./event-indexing.ts";
 export * from "./register-events.ts";
 export * from "./pg-connection.ts";
 export * from "./scheduled-constructors.ts";
+export * from "./system.ts";
 
 export {
   createDynamicTables,
