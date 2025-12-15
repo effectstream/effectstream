@@ -207,6 +207,13 @@ export const ProcessesSection = () => {
         setError(null);
         setLastUpdated(new Date().toLocaleTimeString());
 
+        // Refresh log display states to catch orchestrator defaults and runtime toggles
+        getAllLogDisplayStates().then((states) => {
+          setProcessLogStates(states);
+        }).catch((error) => {
+          console.error("Failed to refresh log display states:", error);
+        });
+
         // Reset selected index if it's out of bounds
         if (selectedIndex >= filteredProcesses.length) {
           setSelectedIndex(Math.max(0, filteredProcesses.length - 1));

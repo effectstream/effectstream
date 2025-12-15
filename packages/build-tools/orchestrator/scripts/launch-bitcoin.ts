@@ -13,6 +13,7 @@ export const launchBitcoin = (packageName: string): {
   args: string[];
   waitToExit?: boolean;
   logs?: string;
+  logsStartDisabled?: boolean;
   type?: string;
   dependsOn?: string[];
 }[] => [
@@ -22,6 +23,7 @@ export const launchBitcoin = (packageName: string): {
     args: ["task", "-f", packageName, "chain:start"],
     waitToExit: false,
     logs: "raw",
+    logsStartDisabled: true,
     type: "system-dependency",
   },
   {
@@ -36,6 +38,7 @@ export const launchBitcoin = (packageName: string): {
     args: ["task", "-f", packageName, "generate:blocks"],
     waitToExit: false, // Loop keeps blocks being mined
     logs: "raw",
+    logsStartDisabled: true,
     type: "system-dependency",
     dependsOn: [ComponentNames.BITCOIN_CORE_WAIT],
   },
