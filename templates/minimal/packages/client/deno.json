@@ -14,24 +14,6 @@
     //   "test": "deno run -A --unstable-raw-imports --check scripts/e2e.test.ts"
   },
   "imports": {
-    // THESE DEPENDENCIES ARE USED FOR MIDNIGHT
-    // TODO These dependencies should be included in the corresponding package @paima/*
-    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.9.0",
-    "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger@^4.0.0",
-    "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts@^2.0.2",
-    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-fetch-zk-config-provider@^2.0.2",
-    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@^2.0.2",
-    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@^2.0.2",
-    "@midnight-ntwrk/midnight-js-level-private-state-provider": "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@^2.0.2",
-    "@midnight-ntwrk/midnight-js-network-id": "npm:@midnight-ntwrk/midnight-js-network-id@^2.0.2",
-    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@^2.0.2",
-    "@midnight-ntwrk/midnight-js-types": "npm:@midnight-ntwrk/midnight-js-types@^2.0.2",
-    "@midnight-ntwrk/midnight-js-utils": "npm:@midnight-ntwrk/midnight-js-utils@^2.0.2",
-    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime@^0.3.0",
-    "@midnight-ntwrk/wallet": "npm:@midnight-ntwrk/wallet@^5.0.0",
-    "@midnight-ntwrk/wallet-api": "npm:@midnight-ntwrk/wallet-api@^5.0.0",
-    "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@^4.0.0",
-    // END OF THESE DEPENDENCIES ARE NOT USED
     "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.3.116",
     "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.116",
     "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.116",

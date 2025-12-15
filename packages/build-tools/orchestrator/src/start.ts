@@ -25,6 +25,37 @@ import { Tmux } from "./tmux/tmux.ts";
 import type { LaunchableComponents } from "@effectstream/log";
 import { type Static, Type } from "@sinclair/typebox";
 
+const LOG_DISPLAY_CONTROL_URL =
+  `${ENV.TUI_LOG_URL}:${ENV.TUI_LOG_PORT}/v1/display-control`;
+
+const setInitialLogDisplayDisabled = async (
+  processName: string,
+): Promise<void> => {
+  const maxAttempts = 5;
+  const delayMs = 300;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await fetch(LOG_DISPLAY_CONTROL_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ processName, enabled: false }),
+      });
+      if (response.ok) return;
+    } catch (_error) {
+      // best-effort retry below
+    }
+
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  console.warn(
+    `Failed to set initial log display disabled for ${processName} after ${maxAttempts} attempts`,
+  );
+};
+
 let appConfig: OrchestratorConfigType | null = null;
 let pFactory: ReturnType<typeof processFactory> | null = null;
 
@@ -36,6 +67,8 @@ const ProcessLaunch = Type.Object({
   args: Type.Array(Type.String()),
   waitToExit: Type.Boolean({ default: true }),
   link: Type.String({ default: '' }),
+  logsStartDisabled: Type.Boolean({ default: false }),
+  disableStderr: Type.Boolean({ default: false }),
   critical: Type.Boolean({ default: true }),
   logs: Type.Union(
     [Type.Literal('tsLogOrchestratorAdapter'), Type.Literal('raw'), Type.Literal('none')],
@@ -237,9 +270,27 @@ export async function start(
       if ('launch' in task.config) { // System process
         processComponent = await task.config.launch();
       } else { // User-defined process
-        const { name, args, logs, type, link, stopProcessAtPort, critical, command, cwd } = task.config;
+        const {
+          name,
+          args,
+          logs,
+          type,
+          link,
+          disableStderr,
+          stopProcessAtPort,
+          logsStartDisabled,
+          critical,
+          command,
+          cwd,
+        } = task.config
         if (stopProcessAtPort.length > 0) {
           await dkill({ ports: stopProcessAtPort });
+        }
+
+        // Prime the TUI log display state for this process and optionally
+        // stop forwarding logs to the TUI entirely when starting disabled.
+        if (logsStartDisabled) {
+          void setInitialLogDisplayDisabled(name);
         }
 
         try {
@@ -247,8 +298,13 @@ export async function start(
             command,
             args,
             component: name,
-            log: logs === 'none' ? undefined : logHandler({}, logs === 'tsLogOrchestratorAdapter' ? tsLogOrchestratorAdapter : undefined),
-            cwd,
+
+            log: logs === 'none' ? undefined : logHandler(
+              { disableStderr: disableStderr ?? false },
+              logs === 'tsLogOrchestratorAdapter'
+                ? tsLogOrchestratorAdapter
+                : undefined,
+            ),
             abortController: type === "system-dependency"
               ? abortControllers.system
               : abortControllers.noncritical,
