@@ -34,6 +34,11 @@ export type { BlockchainAdapter, BatchBuildingOptions, BatchBuildingResult } fro
 export { PaimaL2DefaultAdapter } from "./adapters/paimal2-adapter.ts";
 export { MidnightAdapter } from "./adapters/midnight-adapter.ts";
 export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./adapters/bitcoin-adapter.ts";
+export {
+  EvmContractAdapter,
+  type EvmContractAdapterConfig,
+  type HardhatArtifact,
+} from "./adapters/evm-contract-adapter.ts";
 
 export type { BitcoinAdapterConfig } from "./adapters/bitcoin-adapter.ts";
 export type { MidnightAdapterConfig } from "./adapters/midnight-adapter.ts";
@@ -49,4 +54,11 @@ export type { BatcherGrammar, BatcherListener } from "./core/batcher-events.ts";
 export { attachDefaultConsoleListeners } from "./core/batcher-events.ts";
 
 export { DefaultBatchBuilderLogic } from "./batch-data-builder/default-builder-logic.ts";
-export { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "./batch-data-builder/midnight-builder-logic.ts";
+export {
+  EvmBatchBuilderLogic,
+  type EvmBatchPayload,
+} from "./batch-data-builder/evm-builder-logic.ts";
+export {
+  MidnightBatchBuilderLogic,
+  type MidnightBatchPayload,
+} from "./batch-data-builder/midnight-builder-logic.ts";

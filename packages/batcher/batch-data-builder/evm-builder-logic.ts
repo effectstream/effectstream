@@ -120,7 +120,9 @@ export class EvmBatchBuilderLogic {
         };
       } catch (error) {
         console.error(
-          "Skipping invalid EVM batcher input:",
+          "[EvmBatchBuilder] Skipping invalid input for address",
+          input.address,
+          "-",
           error instanceof Error ? error.message : String(error),
         );
         continue;
@@ -128,6 +130,7 @@ export class EvmBatchBuilderLogic {
 
       const entrySize = encoder.encode(JSON.stringify(payloadEntry)).length;
       if (currentSize + entrySize > maxSize) {
+        console.error("[EvmBatchBuilder] Batch size exceeded maxSize", currentSize + entrySize, maxSize);
         break;
       }
 

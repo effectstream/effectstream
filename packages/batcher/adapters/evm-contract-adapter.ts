@@ -162,6 +162,10 @@ export class EvmContractAdapter
     }
 
     const payload = this.normalizePayload(data.payloads[0]);
+    console.log(
+      `[EvmAdapter] Submitting payload for ${this.contractAddress} ::`,
+      payload,
+    );
     const fn = this.findMatchingFunction(payload.method, payload.args);
 
     if (isViewFunction(fn)) {
@@ -171,9 +175,21 @@ export class EvmContractAdapter
         functionName: payload.method,
         args: payload.args as any[],
       });
+      console.log(
+        `[EvmAdapter] Pure/view call result for ${payload.method}:`,
+        result,
+      );
       return `query:${payload.method}:${JSON.stringify(result)}`;
     }
 
+    console.log(
+      "[EvmAdapter] Calling impure method",
+      payload.method,
+      "with args",
+      payload.args,
+      "value",
+      payload.value,
+    );
     const hash = await this.walletClient.writeContract({
       account: this.account,
       address: this.contractAddress,
@@ -183,6 +199,7 @@ export class EvmContractAdapter
       value: payload.value,
       chain: this.walletClient.chain,
     });
+    console.log("[EvmAdapter] Submitted tx hash:", hash);
 
     return hash;
   }
@@ -191,10 +208,17 @@ export class EvmContractAdapter
     hash: BlockchainHash,
     timeout?: number,
   ): Promise<BlockchainTransactionReceipt> {
+    console.log(`[EvmAdapter] Waiting for receipt: ${hash}`);
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: hash as Hash,
       timeout,
     });
+    console.log(
+      `[EvmAdapter] Receipt confirmed for ${hash}:`,
+      receipt.status,
+      "block",
+      receipt.blockNumber,
+    );
 
     return {
       hash,
