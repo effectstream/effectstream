@@ -15,21 +15,12 @@ import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
 import { bitcoinTest, bitcoinBatcherTest } from "../e2e-tests/e2e.bitcoin.test.ts";
 
-const yaci_enabled = Deno.env.get("DISABLE_YACI") === "true"
-? false
-: true;
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
 
-const midnight_enabled = Deno
-? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
-: true;
-
-const avail_enabled = Deno
-? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
-: true;
-
-const bitcoin_enabled = Deno
-? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
-: true;
+const yaci_enabled = !isEnvTrue("DISABLE_YACI");
+const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
+const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
+const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

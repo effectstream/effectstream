@@ -1,20 +1,21 @@
 import { main, suspend } from "effection";
 import { createNewBatcher } from "@effectstream/batcher";
-import { config, storage, paimaL2Adapter, midnightAdapter, bitcoinAdapter } from "./config.ts";
+import { config, storage } from "./config.ts";
+
+import { bitcoinAdapter } from "./adapter-bitcoin.ts";
+import { effectstreaml2Adapter } from "./adapter-effectstreaml2.ts";
+import { midnightAdapter } from "./adapter-midnight.ts";
 
 const batcher = createNewBatcher(config, storage);
 const batchIntervalMs = 1000;
 
-const midnight_enabled = Deno
-  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
-  : true;
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
 
-const bitcoin_enabled = Deno
-  ? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
-  : true;
+const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
+const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
 batcher
-  .addBlockchainAdapter("paimal2", paimaL2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
+  .addBlockchainAdapter("paimal2", effectstreaml2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
   .setDefaultTarget("paimal2");
 
 if (midnight_enabled) {

@@ -35,8 +35,7 @@ export type Contract = EvmContracts | MidnightContracts | CardanoContracts | Bit
 export type Frontend = 'intergrated-vite-deno' | 'standalone-esbuild';
 
 export const ALL_FRONTENDS: { label: string; value: Frontend }[] = [
-    { label: 'Integrated Vite (Deno)', value: 'intergrated-vite-deno' },
-    { label: 'Standalone (esbuild)', value: 'standalone-esbuild' },
+    { label: 'Web Frontend', value: 'standalone-esbuild' },
 ];
 
 export const DEFAULT_DEV_OPTIONS = {

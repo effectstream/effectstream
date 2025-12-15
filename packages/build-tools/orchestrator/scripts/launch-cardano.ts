@@ -15,7 +15,7 @@ import { ComponentNames } from "@effectstream/log";
 //
 // packageName: the name of the package that implements the tasks.
 //
-export const launchCardano = (packageName: string): {
+export const launchCardano = (packageName: string, logs: 'none' | 'default' = 'default'): {
   stopProcessAtPort?: number[];
   name: string;
   args: string[];
@@ -29,7 +29,7 @@ export const launchCardano = (packageName: string): {
       name: ComponentNames.YACI_DEVKIT,
       args: ["task", "-f", packageName, "devkit:start"],
       waitToExit: false,
-      logs: "raw",
+      logs: logs === 'default' ? "raw" : 'none',
       type: "system-dependency",
     },
     {
@@ -41,7 +41,7 @@ export const launchCardano = (packageName: string): {
       name: ComponentNames.DOLOS,
       args: ["task", "-f", packageName, "dolos:start"],
       waitToExit: false,
-      logs: "raw",
+      logs: logs === 'default' ? "raw" : 'none',
       type: "system-dependency",
       dependsOn: [ComponentNames.YACI_DEVKIT_WAIT],
     },

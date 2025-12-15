@@ -4,7 +4,7 @@
   "license": "MIT",
   "exports": {
     ".": "./main.ts",
-    "./calls": "./calls.ts"
+    "./bitcoin-calls": "./adapter-bitcoin.ts"
   },
   "imports": {
     "viem": "npm:viem@^2.21.3",

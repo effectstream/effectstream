@@ -12,23 +12,14 @@ import { launchBitcoin } from "@effectstream/orchestrator/start-bitcoin";
 import { getEffectstreamEVMPublicClient } from "@e2e/engine";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
 
-const external_db_enabled = Deno.env.get("EXTERNAL_DB_ENABLED") === "true";
-const yaci_enabled = Deno.env.get("DISABLE_YACI") === "true"
-  ? false
-  : true;
+const external_db_enabled = isEnvTrue("EXTERNAL_DB_ENABLED");
 
-const midnight_enabled = Deno
-  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
-  : true;
-
-const avail_enabled = Deno
-  ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
-  : true;
-
-const bitcoin_enabled = Deno
-  ? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
-  : true;
+const yaci_enabled = !isEnvTrue("DISABLE_YACI")
+const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
+const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
+const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
 /**
  * Launch the Sync through the orchestrator,
@@ -50,10 +41,10 @@ export async function startup(): Promise<Client> {
     // Launch my processes
     processesToLaunch: [
       ...launchEvm("@e2e/evm-contracts"),
-      ...(bitcoin_enabled ? launchBitcoin("@e2e/bitcoin-contracts") : []),
-      ...(yaci_enabled ? launchCardano("@e2e/cardano-contracts") : []),
-      ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : []),
-      ...(avail_enabled ? launchAvail("@e2e/avail-contracts") : []),
+      ...(bitcoin_enabled ? launchBitcoin("@e2e/bitcoin-contracts", 'none') : []),
+      ...(yaci_enabled ? launchCardano("@e2e/cardano-contracts", 'none') : []),
+      ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts", 'none') : []),
+      ...(avail_enabled ? launchAvail("@e2e/avail-contracts", 'none') : []),
       {
         name: "build explorer",
         args: ["task", "-f", "@effectstream/explorer", "build"],

@@ -1,6 +1,6 @@
 import { assertSQL, type SharedState } from "@e2e/engine";
 import type { Client } from "pg";
-import { sendBitcoin } from "@e2e/batcher/calls";
+import { sendBitcoin } from "@e2e/batcher/bitcoin-calls";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

@@ -1,10 +1,26 @@
+
 import * as bitcoinMessage from "bitcoinjs-message";
-import { buildBitcoinSignatureMessage } from "@effectstream/batcher";
-import type { DefaultBatcherInput } from "@effectstream/batcher";
+import { buildBitcoinSignatureMessage, BitcoinAdapter } from "@effectstream/batcher";
 import * as bitcoin from "bitcoinjs-lib";
 import * as ecpair from "ecpair";
 import * as tinysecp from "tiny-secp256k1";
 
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+
+const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
+
+// Bitcoin Adapter
+const BITCOIN_SEED = "my-super-secret-regtest-demo-seed-e2e";
+export const bitcoinAdapter = bitcoin_enabled ? new BitcoinAdapter({
+  rpcUrl: "http://127.0.0.1:18443",
+  rpcUser: "dev",
+  rpcPass: "devpassword",
+  seed: BITCOIN_SEED,
+}) : undefined;
+
+
+// Bitcoin Adapter Caller
+// This is used to call the adapter defined above.
 const BATCHER_ENDPOINT = "http://localhost:3334/send-input";
 
 const ECPair = ecpair.ECPairFactory(tinysecp);
@@ -38,7 +54,7 @@ export async function sendBitcoin(
   const message = buildBitcoinSignatureMessage(payload, timestamp);
   
   // Sign the message
-  const signature = bitcoinMessage.sign(message, keyPair.privateKey!, keyPair.compressed).toString('base64');
+  const signature = bitcoinMessage.sign(message, keyPair.privateKey! as any, keyPair.compressed).toString('base64');
 
   const body = {
     address,

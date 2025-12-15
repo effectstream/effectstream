@@ -17,7 +17,7 @@ import { ComponentNames } from "@effectstream/log";
 //
 // packageName: the name of the package that implements the tasks.
 //
-export const launchMidnight = (packageName: string): {
+export const launchMidnight = (packageName: string, logs: 'none' | 'default' = 'default'): {
   stopProcessAtPort?: number[];
   name: string;
   args: string[];
@@ -37,7 +37,7 @@ export const launchMidnight = (packageName: string): {
       ],
       waitToExit: false,
       type: "system-dependency",
-      logs: "raw",
+      logs: logs === 'default' ? "raw" : 'none',
       dependsOn: [],
     },
     {
@@ -50,7 +50,7 @@ export const launchMidnight = (packageName: string): {
       ],
       waitToExit: false,
       type: "system-dependency",
-      logs: "raw",
+      logs: logs === 'default' ? "raw" : 'none',
       dependsOn: [ComponentNames.MIDNIGHT_NODE],
     },
     {
@@ -63,7 +63,7 @@ export const launchMidnight = (packageName: string): {
       ],
       waitToExit: false,
       type: "system-dependency",
-      logs: "raw",
+      logs: logs === 'default' ? "raw" : 'none',
       dependsOn: [ComponentNames.MIDNIGHT_NODE]
     },
     {

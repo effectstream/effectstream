@@ -14,7 +14,7 @@ import { ComponentNames } from "@effectstream/log";
 //
 // packageName: the name of the package that implements the tasks.
 //
-export const launchEvm = (packageName: string): {
+export const launchEvm = (packageName: string, logs: 'none' | 'default' = 'default'): {
   stopProcessAtPort?: number[];
   name: string;
   args: string[];
@@ -28,7 +28,7 @@ export const launchEvm = (packageName: string): {
       name: ComponentNames.HARDHAT,
       args: ["task", "-f", packageName, "chain:start"],
       waitToExit: false,
-      logs: "tsLogOrchestratorAdapter",
+      logs: logs === 'default' ? "tsLogOrchestratorAdapter" : 'none',
       type: "system-dependency",
       dependsOn: [],
     },

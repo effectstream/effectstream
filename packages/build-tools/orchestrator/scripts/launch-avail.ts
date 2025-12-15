@@ -17,7 +17,7 @@ import { ComponentNames } from "@effectstream/log";
 //
 // packageName: the name of the package that implements the tasks.
 //
-export const launchAvail = (packageName: string): {
+export const launchAvail = (packageName: string, logs: 'none' | 'default' = 'default'): {
   stopProcessAtPort?: number[];
   name: string;
   args: string[];
@@ -31,7 +31,7 @@ export const launchAvail = (packageName: string): {
       name: ComponentNames.AVAIL_NODE,
       args: ["task", "-f", packageName, "avail-node:start"],
       waitToExit: false,
-      logs: "raw",
+      logs: logs === 'default' ? "tsLogOrchestratorAdapter" : 'none',
       type: "system-dependency",
     },
     {
@@ -50,6 +50,7 @@ export const launchAvail = (packageName: string): {
       waitToExit: false,
       type: "system-dependency",  
       dependsOn: [ComponentNames.AVAIL_NODE_WAIT],
+      logs: logs === 'default' ? "raw" : 'none',
     },
     {
       name: ComponentNames.AVAIL_CLIENT_WAIT,
