@@ -82,23 +82,22 @@ export const ProcessesSection = () => {
 
   useInput((input, key) => {
     if (input === "r" || input === "R") {
-      const syncProcess = processes.find((p) => p.name === "sync" && p.alive);
-      if (syncProcess) {
-        setRestartStatus("Restarting sync process...");
-        fetch(`${ENV.ORCHESTRATOR_URL}:${ENV.ORCHESTRATOR_PORT}/restart-sync`)
-          .then(() => {
-            setRestartStatus("Sync process restarted successfully.");
-            setTimeout(() => setRestartStatus(""), 3000);
-          })
-          .catch((error) => {
-            setRestartStatus("Failed to restart sync process.");
-            console.error("Failed to restart sync process:", error);
-            setTimeout(() => setRestartStatus(""), 3000);
-          });
-      } else {
-        setRestartStatus("Sync process is not active, cannot restart.");
+    setRestartStatus("Restarting sync process...");
+    fetch(`${ENV.ORCHESTRATOR_URL}:${ENV.ORCHESTRATOR_PORT}/restart-sync`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+      })
+      .then(() => {
+        setRestartStatus("Sync process restarted successfully.");
         setTimeout(() => setRestartStatus(""), 3000);
-      }
+      })
+      .catch((error) => {
+        setRestartStatus("Failed to restart sync process.");
+        console.error("Failed to restart sync process:", error);
+        setTimeout(() => setRestartStatus(""), 3000);
+      });
       return;
     }
     // Handle individual process log display toggle with space
