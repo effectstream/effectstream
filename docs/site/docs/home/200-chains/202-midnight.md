@@ -205,6 +205,11 @@ Use `launchMidnight` from `@effectstream/orchestrator/start-midnight` to launch 
 *   Proof Server
 *   Contract Deployment
 
+**Optional log controls (per process)**
+
+* `logsStartDisabled` (default: `false`): start with logs hidden in the TUI.
+* `disableStderr` (default: `false`): stop forwarding stderr for that process (useful because Substrate-based binaries like Avail Node and Midnight Node emit INFO/DEBUG on stderr).
+
 ```ts
 // in start.ts
 processesToLaunch: [

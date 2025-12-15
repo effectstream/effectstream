@@ -1,5 +1,14 @@
 import { ComponentNames } from "@effectstream/log";
 
+// Substrate nodes (and many forks like Avail and Midnight) use the Rust tracing/log
+// stack wired through sc-cli/sc-service, which by default writes formatted log output to stderr.
+// This is intentional so stdout can remain a clean data channel (e.g., for RPC JSON),
+// while human-readable logs go to stderr. For E2E testing, we want to disable this,
+// unless the user explicitly wants to see the logs, so if EFFECTSTREAM_STDOUT is true,
+// we enable stderr for this as well.
+
+const disableStderr = Deno.env.get("EFFECTSTREAM_STDOUT") === "true" ? false : true;
+
 // Start Avail Node and Light Client.
 //
 // This is a example launcher for Avail Chains and Contracts.
@@ -17,12 +26,14 @@ import { ComponentNames } from "@effectstream/log";
 //
 // packageName: the name of the package that implements the tasks.
 //
-export const launchAvail = (packageName: string, logs: 'none' | 'default' = 'default'): {
+export const launchAvail = (packageName: string): {
   stopProcessAtPort?: number[];
   name: string;
   args: string[];
   waitToExit?: boolean;
   logs?: string;
+  logsStartDisabled?: boolean;
+  disableStderr?: boolean;
   type?: string;
   dependsOn?: string[];
 }[] => [
@@ -31,7 +42,9 @@ export const launchAvail = (packageName: string, logs: 'none' | 'default' = 'def
       name: ComponentNames.AVAIL_NODE,
       args: ["task", "-f", packageName, "avail-node:start"],
       waitToExit: false,
-      logs: logs === 'default' ? "tsLogOrchestratorAdapter" : 'none',
+      logs: "raw",
+      logsStartDisabled: true,
+      disableStderr,
       type: "system-dependency",
     },
     {
@@ -48,9 +61,11 @@ export const launchAvail = (packageName: string, logs: 'none' | 'default' = 'def
         "avail-light-client:deploy",
       ],
       waitToExit: false,
+      disableStderr,
+      logsStartDisabled: true,
       type: "system-dependency",  
       dependsOn: [ComponentNames.AVAIL_NODE_WAIT],
-      logs: logs === 'default' ? "raw" : 'none',
+      logs: "raw",
     },
     {
       name: ComponentNames.AVAIL_CLIENT_WAIT,

@@ -1,5 +1,15 @@
 import { ComponentNames } from "@effectstream/log";
 
+
+// Substrate nodes (and many forks like Avail and Midnight) use the Rust tracing/log
+// stack wired through sc-cli/sc-service, which by default writes formatted log output to stderr.
+// This is intentional so stdout can remain a clean data channel (e.g., for RPC JSON),
+// while human-readable logs go to stderr. For E2E testing, we want to disable this,
+// unless the user explicitly wants to see the logs, so if EFFECTSTREAM_STDOUT is true,
+// we enable stderr for this as well.
+
+const disableStderr = Deno.env.get("EFFECTSTREAM_STDOUT") === "true" ? false : true;
+
 // Start Midnight Node and Indexer.
 //
 // This is a example launcher for Midnight Chains and Contracts.
@@ -17,12 +27,14 @@ import { ComponentNames } from "@effectstream/log";
 //
 // packageName: the name of the package that implements the tasks.
 //
-export const launchMidnight = (packageName: string, logs: 'none' | 'default' = 'default'): {
+export const launchMidnight = (packageName: string): {
   stopProcessAtPort?: number[];
   name: string;
   args: string[];
   waitToExit?: boolean;
   logs?: string;
+  logsStartDisabled?: boolean;
+  disableStderr?: boolean;
   type?: string;
   dependsOn?: string[];
 }[] => [
@@ -37,7 +49,9 @@ export const launchMidnight = (packageName: string, logs: 'none' | 'default' = '
       ],
       waitToExit: false,
       type: "system-dependency",
-      logs: logs === 'default' ? "raw" : 'none',
+      logsStartDisabled: true,
+      disableStderr,
+      logs: "raw",
       dependsOn: [],
     },
     {
@@ -50,7 +64,9 @@ export const launchMidnight = (packageName: string, logs: 'none' | 'default' = '
       ],
       waitToExit: false,
       type: "system-dependency",
-      logs: logs === 'default' ? "raw" : 'none',
+      logsStartDisabled: true,
+      disableStderr,
+      logs: "raw",
       dependsOn: [ComponentNames.MIDNIGHT_NODE],
     },
     {
@@ -61,9 +77,9 @@ export const launchMidnight = (packageName: string, logs: 'none' | 'default' = '
         packageName,
         "midnight-proof-server:start",
       ],
+      logsStartDisabled: true,
       waitToExit: false,
       type: "system-dependency",
-      logs: logs === 'default' ? "raw" : 'none',
       dependsOn: [ComponentNames.MIDNIGHT_NODE]
     },
     {
@@ -88,6 +104,7 @@ export const launchMidnight = (packageName: string, logs: 'none' | 'default' = '
     },
     {
       name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
+      logs: "raw",
       args: [
         "task",
         "-f",

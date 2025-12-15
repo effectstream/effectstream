@@ -41,10 +41,10 @@ export async function startup(): Promise<Client> {
     // Launch my processes
     processesToLaunch: [
       ...launchEvm("@e2e/evm-contracts"),
-      ...(bitcoin_enabled ? launchBitcoin("@e2e/bitcoin-contracts", 'none') : []),
-      ...(yaci_enabled ? launchCardano("@e2e/cardano-contracts", 'none') : []),
-      ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts", 'none') : []),
-      ...(avail_enabled ? launchAvail("@e2e/avail-contracts", 'none') : []),
+      ...(bitcoin_enabled ? launchBitcoin("@e2e/bitcoin-contracts") : []),
+      ...(yaci_enabled ? launchCardano("@e2e/cardano-contracts") : []),
+      ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : []),
+      ...(avail_enabled ? launchAvail("@e2e/avail-contracts") : []),
       {
         name: "build explorer",
         args: ["task", "-f", "@effectstream/explorer", "build"],

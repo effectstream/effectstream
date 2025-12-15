@@ -11,7 +11,6 @@ import {
   Transaction,
   type TransactionId,
 } from "@midnight-ntwrk/ledger";
-import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
@@ -25,6 +24,7 @@ import {
   type UnbalancedTransaction,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
+import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
 import type { Wallet } from "@midnight-ntwrk/wallet-api";
 import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";

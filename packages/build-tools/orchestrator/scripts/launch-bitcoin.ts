@@ -7,12 +7,14 @@ import { ComponentNames } from "@effectstream/log";
 //
 // packageName: the npm package that should be launched through deno.
 //
-export const launchBitcoin = (packageName: string, logs: 'none' | 'default' = 'default'): {
+export const launchBitcoin = (packageName: string): {
   stopProcessAtPort?: number[];
   name: string;
   args: string[];
   waitToExit?: boolean;
   logs?: string;
+  logsStartDisabled?: boolean;
+  disableStderr?: boolean;
   type?: string;
   dependsOn?: string[];
 }[] => [
@@ -21,7 +23,8 @@ export const launchBitcoin = (packageName: string, logs: 'none' | 'default' = 'd
     name: ComponentNames.BITCOIN_CORE,
     args: ["task", "-f", packageName, "chain:start"],
     waitToExit: false,
-    logs: logs === 'default' ? "tsLogOrchestratorAdapter" : 'none',
+    logs: "raw",
+    logsStartDisabled: true,
     type: "system-dependency",
   },
   {
@@ -35,7 +38,8 @@ export const launchBitcoin = (packageName: string, logs: 'none' | 'default' = 'd
     name: ComponentNames.BITCOIN_GENERATE_BLOCKS,
     args: ["task", "-f", packageName, "generate:blocks"],
     waitToExit: false, // Loop keeps blocks being mined
-    logs: logs === 'default' ? "raw" : 'none',
+    logs: "raw",
+    logsStartDisabled: true,
     type: "system-dependency",
     dependsOn: [ComponentNames.BITCOIN_CORE_WAIT],
   },
