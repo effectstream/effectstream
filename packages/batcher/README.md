@@ -120,6 +120,13 @@ interface BlockchainAdapter {
 }
 ```
 
+Out of the box we ship adapters for the most common targets:
+
+- `PaimaL2DefaultAdapter` – EffectStream's default L2 contract entrypoint.
+- `EvmContractAdapter` – generic viem-powered adapter that loads any Hardhat artifact and validates `{ method, args, value }` inputs.
+- `MidnightAdapter` – circuit-based submission flow for the Midnight chain.
+- `BitcoinAdapter` – UTXO batching + signature validation for regtest/local setups.
+
 ### Batching Criteria
 
 Configure when batches are submitted per adapter:
@@ -339,7 +346,10 @@ packages/batcher/
 │
 ├── adapters/                      # Blockchain adapters (✨ pluggable)
 │   ├── adapter.ts                 # Base adapter interface
-│   └── paimal2-adapter.ts         # PaimaL2 EVM implementation
+│   ├── paimal2-adapter.ts         # PaimaL2 EVM implementation
+│   ├── evm-contract-adapter.ts    # Generic ABI-driven EVM adapter
+│   ├── midnight-adapter.ts        # Midnight circuit adapter
+│   └── bitcoin-adapter.ts         # Bitcoin regtest adapter
 │
 └── server/                        # HTTP API
     └── batcher-server.ts          # Fastify server implementation
