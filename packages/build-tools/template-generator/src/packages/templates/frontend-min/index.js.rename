@@ -9,6 +9,7 @@ import {
 
 import { hardhat } from "viem/chains";
 import mqtt from "mqtt";
+import { bitcoinBatcher } from "./batcher-bitcoin.js";
 
 export const effectStreamConfig = new EffectstreamEngineConfig(
   "",
@@ -134,6 +135,7 @@ window.effectstream = {
   login,
   sendTransactionPaimaL2,
   getAvailableWallets, // Now exposes the combined list getter
+  bitcoinBatcher,
 };
 
 // UI Logic moved from index.html
@@ -213,6 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Wallet UI Elements
     const connectWalletBtn = document.getElementById('connect-wallet-btn');
+    const sendBitcoinBtn = document.getElementById('send-bitcoin-btn');
     const walletModal = document.getElementById('wallet-modal');
     const closeModal = document.getElementById('close-modal');
     const walletList = document.getElementById('wallet-list');
@@ -227,6 +230,16 @@ document.addEventListener('DOMContentLoaded', () => {
         connectWalletBtn.addEventListener('click', () => {
             walletModal.style.display = 'block';
             renderWalletList();
+        });
+    }
+
+    if (sendBitcoinBtn) {
+        sendBitcoinBtn.addEventListener('click', async () => {
+            try {
+                await bitcoinBatcher();
+            } catch (err) {
+                console.error("Error in bitcoin batcher:", err);
+            }
         });
     }
 

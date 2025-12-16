@@ -5,6 +5,9 @@ build({
   bundle: true,
   outfile: "min.js",
   sourcemap: true,
+  loader: {
+    ".wasm": "binary",
+  },
   plugins: [
     nodeModulesPolyfillPlugin({
       globals: {
