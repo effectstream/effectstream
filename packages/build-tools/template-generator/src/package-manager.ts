@@ -8,7 +8,6 @@ import { ChainAvailPackage } from './packages/chain-avail.ts';
 import { ChainEVMPackage } from './packages/chain-evm.ts';
 import { ChainMidnightPackage } from './packages/chain-midnight.ts';
 import { SharedDataTypesPackage } from './packages/shared-data-types.ts';
-import { IntegratedViteDenoPackage } from './packages/integrated-vite-deno.ts';
 import { StandaloneEsbuildPackage } from './packages/standalone-esbuild.ts';
 import { PackageInfo } from './packages/abstract-package.ts';
 
@@ -42,9 +41,9 @@ export class PackageManager {
                 throw new Error(`Chain ${chain} not supported`);
             }
         }
-
-        createdPackages.push(await new IntegratedViteDenoPackage(this.projectPath, this.options).generate());
-        createdPackages.push(await new StandaloneEsbuildPackage(this.projectPath, this.options).generate());
+        if (this.options.frontends.includes('standalone-esbuild')) {
+            createdPackages.push(await new StandaloneEsbuildPackage(this.projectPath, this.options).generate());
+        }
 
         return createdPackages.filter((p): p is PackageInfo => p != null);
     }

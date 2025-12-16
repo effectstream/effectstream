@@ -16,6 +16,9 @@ deno install --allow-scripts && ./patch.sh
 # Compile contracts
 ${buildCommands}
 
+# TODO this can be ran after the first launch of the node
+# deno task -f @my-project-all pgtyped:update
+
 # Launch Paima Engine Node
 deno task dev
         `.trim();

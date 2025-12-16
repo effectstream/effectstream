@@ -28,23 +28,19 @@
         .wallet-info-box { margin-bottom: 20px; padding: 15px; background: #eef; border-radius: 5px; border: 1px solid #ccf; }
         .injected-group { margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
     </style>
-    <!-- <script src="https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js"></script> -->
     <script src="./min.js"></script>
 </head>
 <body>
     <div class="header">
         <h1>Example dApp</h1>
         <button id="connect-wallet-btn" class="btn">Connect Wallet</button>
+        <button id="send-mint-btn" class="btn">Send Mint</button>
     </div>
 
     <div id="wallet-info-container" class="wallet-info-box" style="display: none;">
         <h3>Connected Wallet</h3>
         <pre id="wallet-details"></pre>
     </div>
-
-    <!-- <div class="section">
-        <h2>MQTT Status: <span id="mqtt-status" class="status-disconnected">Disconnected</span></h2>
-    </div> -->
 
     <div class="section">
         <h2>Sync Protocols Status</h2>
@@ -80,7 +76,32 @@
             </tbody>
         </table>
     </div>
-    
+
+    <div class="section">
+        <h2>Chain Data</h2>
+        <div style="margin-bottom: 10px;">
+            <button class="chain-btn btn" data-chain="avail">Avail</button>
+            <button class="chain-btn btn" data-chain="bitcoin">Bitcoin</button>
+            <button class="chain-btn btn" data-chain="cardano">Cardano</button>
+            <button class="chain-btn btn" data-chain="evm">EVM</button>
+            <button class="chain-btn btn" data-chain="midnight">Midnight</button>
+        </div>
+        <table id="chain-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Chain</th>
+                    <th>Action</th>
+                    <th>Data</th>
+                    <th>Block Height</th>
+                </tr>
+            </thead>
+            <tbody id="chain-table-body">
+            </tbody>
+        </table>
+        <div id="chain-data-status"></div>
+    </div>
+
     <div class="section" style="display: none;">
         <h2>Configuration</h2>
         <div id="config-display">Loading config...</div>
@@ -98,5 +119,25 @@
         </div>
     </div>
 
+    <script>
+        // Global constants for batcher-midnight.js
+        const BATCHER_URL = "http://localhost:3334";
+        const AddressType = {
+            MIDNIGHT: 5
+        };
+    </script>
+    <script src="./batcher-midnight.js"></script>
+    <script>
+        document.getElementById('send-mint-btn').addEventListener('click', async () => {
+            try {
+                const amount = 10;
+                console.log(`Sending mint of ${amount}...`);
+                await sendMintToBatcher(amount);
+            } catch (err) {
+                console.error("Error sending mint:", err);
+                alert("Error sending mint: " + err.message);
+            }
+        });
+    </script>
 </body>
 </html>

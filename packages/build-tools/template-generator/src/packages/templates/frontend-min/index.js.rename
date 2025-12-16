@@ -145,6 +145,72 @@ document.addEventListener('DOMContentLoaded', () => {
     const primitivesTableBody = document.getElementById('primitives-table-body');
     const mqttStatusSpan = document.getElementById('mqtt-status');
 
+    // Chain Data UI Elements
+    const chainButtons = document.querySelectorAll('.chain-btn');
+    const chainTable = document.getElementById('chain-table');
+    const chainTableBody = document.getElementById('chain-table-body');
+    const chainDataStatus = document.getElementById('chain-data-status');
+
+    if (chainButtons) {
+        chainButtons.forEach(btn => {
+            btn.addEventListener('click', () => fetchChainData(btn.dataset.chain));
+        });
+    }
+
+    async function fetchChainData(chain) {
+        if (!chainTable || !chainTableBody || !chainDataStatus) return;
+
+        chainDataStatus.textContent = `Loading data for ${chain}...`;
+        chainTable.style.display = 'none';
+        chainTableBody.innerHTML = '';
+
+        try {
+            const response = await fetch(`http://localhost:9999/api/table/${chain}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                renderChainTable(data);
+                chainTable.style.display = 'table';
+                chainDataStatus.textContent = '';
+            } else {
+                chainDataStatus.textContent = 'No data found for this chain.';
+            }
+
+        } catch (error) {
+            console.error('Error fetching chain data:', error);
+            chainDataStatus.textContent = `Error: ${error.message}`;
+        }
+    }
+
+    function renderChainTable(data) {
+        chainTableBody.innerHTML = '';
+        data.forEach(item => {
+            const row = document.createElement('tr');
+            
+            // Format data object for display if it's a stringified JSON
+            let displayData = item.data;
+            try {
+                // formatting to be prettier
+                const parsed = JSON.parse(item.data);
+                displayData = `<pre style="margin:0; padding:5px; font-size: 0.8em; max-height: 200px; overflow: auto;">${JSON.stringify(parsed, null, 2)}</pre>`;
+            } catch (e) {
+                // keep as is if not valid json
+            }
+
+            row.innerHTML = `
+                <td>${item.id}</td>
+                <td>${item.chain}</td>
+                <td>${item.action}</td>
+                <td>${displayData}</td>
+                <td>${item.block_height}</td>
+            `;
+            chainTableBody.appendChild(row);
+        });
+    }
+
     // Wallet UI Elements
     const connectWalletBtn = document.getElementById('connect-wallet-btn');
     const walletModal = document.getElementById('wallet-modal');

@@ -38,22 +38,6 @@ const customProcesses = [
     dependsOn: ["build-frontend"],
     logs: 'none',
   },
-  // {
-  //   name: "frontend-build",
-  //   args: ["task", "-f", "@[scope]/frontend-vite", "build"],
-  //   waitToExit: true,
-  //   type: "system-dependency",
-  //   dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
-  // },
-  // {
-  //   name: "frontend-server",
-  //   args: ["task", "-f", "@[scope]/frontend-vite", "serve"],
-  //   waitToExit: false,
-  //   type: "system-dependency",
-  //   link: "http://localhost:10599",
-  //   stopProcessAtPort: [10599],
-  //   dependsOn: ["frontend-build"],
-  // },
   /** DENO-FRONTEND-BLOCK */
   
   /** EXPLORER-BLOCK */
@@ -68,15 +52,15 @@ const customProcesses = [
   /** EXPLORER-BLOCK */
 
   /** BATCHER-BLOCK */
-  // {
-  //   name: "batcher",
-  //   args: ["task", "-f", "@[scope]/batcher", "start"],
-  //   waitToExit: false,
-  //   type: "system-dependency",
-  //   link: "http://localhost:3334",
-  //   stopProcessAtPort: [3334],
-  //   dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
-  // },
+  {
+    name: "batcher",
+    args: ["task", "-f", "@[scope]/batcher", "start"],
+    waitToExit: false,
+    type: "system-dependency",
+    link: "http://localhost:3334",
+    stopProcessAtPort: [3334],
+    dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
+  },
   /** BATCHER-BLOCK */
 ]
 

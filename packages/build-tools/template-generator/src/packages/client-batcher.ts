@@ -21,18 +21,52 @@ export class ClientBatcherPackage extends Package {
     const packageName = `@${this.options.projectName}/batcher`;
 
     const isMidnightEnabled = !!this.options.contracts.midnight;
+    const isBitcoinEnabled = !!this.options.contracts.bitcoin;
+    const isCardanoEnabled = !!this.options.contracts.cardano;
+    const isEvmEnabled = !!this.options.contracts.evm;
+    const isAvailEnabled = !!this.options.contracts.avail;
+    const isEffectstreaml2Enabled = !!this.options.contracts.evm?.some(contract => contract === "effectstreaml2");
 
-    const midnightImportBlockCode = this.options.chains.includes("midnight") ? 
-    this.options.contracts.midnight?.map(contract => ChainMidnightPackage.midnightImportBlock(this.options.projectName, contract)).join("\n") : ""
-  
-    // TODO This is not working.
+    const midnightImportBlockCodeA = this.options.chains.includes("midnight") ? 
+    this.options.contracts.midnight?.map(contract => ChainMidnightPackage.midnightImportBlock(this.options.projectName, contract, "", "Info")).join("\n") : ""
+    const midnightImportBlockCodeB = this.options.chains.includes("midnight") ? 
+    this.options.contracts.midnight?.map(contract => ChainMidnightPackage.midnightImportBlock(this.options.projectName, contract, "/contract", "Contract")).join("\n") : ""
+    const midnightReadContractCodeA = this.options.chains.includes("midnight") ? 
+    this.options.contracts.midnight?.map((contract, index): string => {
+      return ChainMidnightPackage.midnightReadContractCode(contract, index)
+    }).join("\n") : ""
+
+    const midnightReadContractCode = isMidnightEnabled ? 
+      this.options.contracts.midnight?.map((contract, index): string => {
+        return `const { contractInfo${index}, contractAddress${index}, zkConfigPath${index} } = ${ChainMidnightPackage.getReadContractCode(contract)}`
+      }).join("\n") : ""
+
     const currentDir = path.dirname(path.fromFileUrl(import.meta.url));
     await copyFiles(
       path.join(currentDir, "templates", "batcher", "src"),
       path.join(batcherPath, "src"),
-      {"scope": this.options.projectName}, // replacements
-      {}, // no code blocks
-      {"MIDNIGHT-IMPORT-BLOCK": midnightImportBlockCode}
+      {
+        "scope": this.options.projectName,
+      }, // replacements
+      {
+        "BITCOIN-BLOCK": isBitcoinEnabled,
+        "CARDANO-BLOCK": isCardanoEnabled,
+        "EVM-BLOCK": isEvmEnabled,
+        "AVAIL-BLOCK": isAvailEnabled,
+        "EFFECTSTREAM-L2-BLOCK": isEffectstreaml2Enabled,
+        "MIDNIGHT-BLOCK": isMidnightEnabled,
+      }, // enable code blocks
+      {
+        "MIDNIGHT-IMPORT-BLOCK": midnightImportBlockCodeA + "\n" + midnightImportBlockCodeB + "\n" + midnightReadContractCodeA,
+        "MIDNIGHT-READ-CONTRACT-BLOCK": midnightReadContractCode || "",
+        "MIDNIGHT-ADAPTER-BLOCK": this.options.contracts.midnight?.map((contract, index): string => {
+          return ChainMidnightPackage.contractBatcher(contract, index)
+        }).join("\n") || "",
+        "MIDNIGHT-EXPORT-BLOCK": 
+          `export const midnightAdapters = { ${this.options.contracts.midnight?.map((contract, index): string => {
+            return `"${contract}": midnightAdapter_${ChainMidnightPackage.safeCodeContractName(contract)}`
+          }).join(",") || ""} };`,
+      }
     );
 
     const deno = {
@@ -53,8 +87,12 @@ export class ClientBatcherPackage extends Package {
         "@paimaexample/coroutine":
           "jsr:@paimaexample/coroutine@" + EFFECTSTREAM_VERSION,
         effection: "npm:effection@^3.5.0",
-        "@std/path": "jsr:@std/path@^1.1.2",
+        "@std/path": "jsr:@std/path@^1.1.3",
         viem: "npm:viem@2.37.3",
+        "bitcoinjs-message": isBitcoinEnabled ? "npm:bitcoinjs-message@^2.2.0" : undefined,
+        "bitcoinjs-lib": isBitcoinEnabled ? "npm:bitcoinjs-lib@6.1.5" : undefined,
+        "ecpair": isBitcoinEnabled ? "npm:ecpair@2.1.0" : undefined,
+        "tiny-secp256k1": isBitcoinEnabled ? "npm:tiny-secp256k1@2.2.3" : undefined,
       },
       tasks: {
         start: "deno run -A --unstable-detect-cjs src/main.ts",
