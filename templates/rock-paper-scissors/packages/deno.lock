@@ -17,14 +17,11 @@
     "jsr:@paimaexample/coroutine@~0.3.108": "0.3.108",
     "jsr:@paimaexample/crypto@0.3.108": "0.3.108",
     "jsr:@paimaexample/crypto@~0.3.108": "0.3.108",
-    "jsr:@paimaexample/db-emulator@0.3.108": "0.3.108",
     "jsr:@paimaexample/db@0.3.108": "0.3.108",
     "jsr:@paimaexample/db@~0.3.108": "0.3.108",
     "jsr:@paimaexample/event-client@~0.3.108": "0.3.108",
     "jsr:@paimaexample/event-server@~0.3.108": "0.3.108",
-    "jsr:@paimaexample/evm-contracts@0.3.108": "0.3.108",
     "jsr:@paimaexample/evm-hardhat@0.3.108": "0.3.108",
-    "jsr:@paimaexample/evm-hardhat@~0.3.108": "0.3.108",
     "jsr:@paimaexample/log@0.3.105": "0.3.105",
     "jsr:@paimaexample/log@0.3.108": "0.3.108",
     "jsr:@paimaexample/log@~0.3.108": "0.3.108",
@@ -43,22 +40,19 @@
     "jsr:@std/encoding@~1.0.5": "1.0.10",
     "jsr:@std/encoding@~1.0.8": "1.0.10",
     "jsr:@std/fmt@~1.0.2": "1.0.8",
-    "jsr:@std/internal@^1.0.9": "1.0.12",
     "jsr:@std/io@~0.224.9": "0.224.9",
-    "jsr:@std/path@1.1.1": "1.1.1",
     "jsr:@std/path@~1.0.6": "1.0.9",
     "jsr:@std/text@~1.0.7": "1.0.16",
     "jsr:@sylc/dkill@~0.12.3": "0.12.3",
     "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11": "1.0.11",
     "npm:@coderspirit/nominal@^4.1.1": "4.1.1",
     "npm:@dcspark/cip34-js@3.0.1": "3.0.1",
-    "npm:@electric-sql/pglite@~0.3.10": "0.3.14",
     "npm:@fastify/cors@^11.0.1": "11.1.0",
     "npm:@fastify/swagger-ui@^5.2.3": "5.2.3",
     "npm:@fastify/swagger@^9.5.1": "9.6.0",
     "npm:@foxglove/crc@^1.0.1": "1.0.1",
     "npm:@metamask/json-rpc-engine@^10.0.3": "10.1.1",
-    "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@^2.0.2": "2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3_react@18.3.1_ws@8.18.3",
+    "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@^2.0.2": "2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3_ws@8.18.3_react@18.3.1",
     "npm:@midnight-ntwrk/onchain-runtime@0.3": "0.3.0",
     "npm:@nomicfoundation/hardhat-errors@3.0.1": "3.0.1",
     "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2": "3.0.2_@nomicfoundation+hardhat-ignition@3.0.5__@nomicfoundation+hardhat-verify@3.0.6___hardhat@3.0.4____zod@3.25.76___zod@3.25.76__hardhat@3.0.4___zod@3.25.76_@nomicfoundation+hardhat-verify@3.0.6__hardhat@3.0.4___zod@3.25.76__zod@3.25.76_@nomicfoundation+hardhat-viem@3.0.0__hardhat@3.0.4___zod@3.25.76__viem@2.37.3___ws@8.18.3_@nomicfoundation+ignition-core@3.0.2_hardhat@3.0.4__zod@3.25.76_viem@2.37.3__ws@8.18.3",
@@ -116,7 +110,6 @@
     "npm:graphql-ws@^6.0.6": "6.0.6_graphql@16.12.0_ws@8.18.1",
     "npm:hardhat@3.0.4": "3.0.4_zod@3.25.76",
     "npm:hi-base32@~0.5.1": "0.5.1",
-    "npm:http-server@14.1.1": "14.1.1",
     "npm:ink@5.1.0": "5.1.0_react@18.3.1",
     "npm:ip@^2.0.1": "2.0.1",
     "npm:js-base64@^3.7.7": "3.7.8",
@@ -130,7 +123,6 @@
     "npm:mqtt-pattern@^2.1.0": "2.1.0",
     "npm:mqtt@^5.14.0": "5.14.1",
     "npm:ntp-time-sync@0.5": "0.5.0",
-    "npm:pg-gateway@~0.3.0-beta.4": "0.3.0-beta.4",
     "npm:pg@^8.14.0": "8.16.3",
     "npm:react@18.3.1": "18.3.1",
     "npm:rotating-file-stream@^3.2.6": "3.2.7",
@@ -182,7 +174,7 @@
         "jsr:@std/assert",
         "jsr:@std/fmt",
         "jsr:@std/io",
-        "jsr:@std/path@~1.0.6",
+        "jsr:@std/path",
         "jsr:@std/text"
       ]
     },
@@ -255,21 +247,8 @@
         "jsr:@paimaexample/log@~0.3.108",
         "jsr:@paimaexample/utils@~0.3.108",
         "jsr:@std/encoding@~1.0.8",
-        "jsr:@std/path@1.1.1",
-        "npm:@electric-sql/pglite",
         "npm:@pgtyped/runtime@2.4.2",
         "npm:effection@3.5.0",
-        "npm:effection@^3.5.0",
-        "npm:pg",
-        "npm:pg-gateway"
-      ]
-    },
-    "@paimaexample/db-emulator@0.3.108": {
-      "integrity": "d29b10a8619a92869214bec6689588fbc3294e640a2f7a18847e9ab77a850332",
-      "dependencies": [
-        "jsr:@paimaexample/config@~0.3.108",
-        "jsr:@paimaexample/db@~0.3.108",
-        "jsr:@paimaexample/sm@~0.3.108",
         "npm:effection@^3.5.0",
         "npm:pg"
       ]
@@ -294,14 +273,6 @@
         "npm:ip"
       ]
     },
-    "@paimaexample/evm-contracts@0.3.108": {
-      "integrity": "91c39bf57db5f61032d4f9404f90bade10dd99eab844bfa7d2bc69438b15a604",
-      "dependencies": [
-        "jsr:@paimaexample/evm-hardhat@~0.3.108",
-        "npm:@nomicfoundation/hardhat-viem",
-        "npm:hardhat"
-      ]
-    },
     "@paimaexample/evm-hardhat@0.3.108": {
       "integrity": "91255e271532237cf49dab6c87c225b0448809ea406664718e505440d248e342",
       "dependencies": [
@@ -321,7 +292,6 @@
     "@paimaexample/log@0.3.105": {
       "integrity": "d4d9dad894e0b2268236871496c907c5667e1237925a409cf50e153c9d877d0c",
       "dependencies": [
-        "npm:@opentelemetry/api",
         "npm:@opentelemetry/api-logs",
         "npm:@opentelemetry/exporter-logs-otlp-http",
         "npm:@opentelemetry/exporter-metrics-otlp-http",
@@ -454,8 +424,7 @@
         "npm:fastify",
         "npm:ink",
         "npm:react",
-        "npm:rotating-file-stream",
-        "npm:tslog"
+        "npm:rotating-file-stream"
       ]
     },
     "@paimaexample/utils@0.3.108": {
@@ -488,20 +457,11 @@
     "@std/fmt@1.0.8": {
       "integrity": "71e1fc498787e4434d213647a6e43e794af4fd393ef8f52062246e06f7e372b7"
     },
-    "@std/internal@1.0.12": {
-      "integrity": "972a634fd5bc34b242024402972cd5143eac68d8dffaca5eaa4dba30ce17b027"
-    },
     "@std/io@0.224.9": {
       "integrity": "4414664b6926f665102e73c969cfda06d2c4c59bd5d0c603fd4f1b1c840d6ee3"
     },
     "@std/path@1.0.9": {
       "integrity": "260a49f11edd3db93dd38350bf9cd1b4d1366afa98e81b86167b4e3dd750129e"
-    },
-    "@std/path@1.1.1": {
-      "integrity": "fe00026bd3a7e6a27f73709b83c607798be40e20c81dde655ce34052fd82ec76",
-      "dependencies": [
-        "jsr:@std/internal"
-      ]
     },
     "@std/text@1.0.16": {
       "integrity": "ddb9853b75119a2473857d691cf1ec02ad90793a2e8b4a4ac49d7354281a0cf8"
@@ -528,7 +488,30 @@
         "is-fullwidth-code-point@4.0.0"
       ]
     },
-    "@apollo/client@3.14.0_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3_react@18.3.1_ws@8.18.3": {
+    "@apollo/client@3.14.0_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3_ws@8.18.3": {
+      "integrity": "sha512-0YQKKRIxiMlIou+SekQqdCo0ZTHxOcES+K8vKB53cIDpwABNR0P0yRzPgsbgcj3zRJniD93S/ontsnZsCLZrxQ==",
+      "dependencies": [
+        "@graphql-typed-document-node/core",
+        "@wry/caches",
+        "@wry/equality",
+        "@wry/trie",
+        "graphql",
+        "graphql-tag",
+        "graphql-ws@6.0.6_graphql@16.12.0_ws@8.18.3",
+        "hoist-non-react-statics",
+        "optimism",
+        "prop-types",
+        "rehackt@0.1.0",
+        "symbol-observable",
+        "ts-invariant",
+        "tslib@2.8.1",
+        "zen-observable-ts@1.2.5"
+      ],
+      "optionalPeers": [
+        "graphql-ws@6.0.6_graphql@16.12.0_ws@8.18.3"
+      ]
+    },
+    "@apollo/client@3.14.0_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3_ws@8.18.3_react@18.3.1": {
       "integrity": "sha512-0YQKKRIxiMlIou+SekQqdCo0ZTHxOcES+K8vKB53cIDpwABNR0P0yRzPgsbgcj3zRJniD93S/ontsnZsCLZrxQ==",
       "dependencies": [
         "@graphql-typed-document-node/core",
@@ -542,7 +525,7 @@
         "optimism",
         "prop-types",
         "react",
-        "rehackt",
+        "rehackt@0.1.0_react@18.3.1",
         "symbol-observable",
         "ts-invariant",
         "tslib@2.8.1",
@@ -607,9 +590,6 @@
     },
     "@dcspark/cip34-js@3.0.1": {
       "integrity": "sha512-xUChOH4fDAuAPImnRQs/5XXzBF6oWeLsRcwjjL5mFC2CXFAxhJrOavijQpbl67IcYUypOVSLg+8c2FCJonfH3Q=="
-    },
-    "@electric-sql/pglite@0.3.14": {
-      "integrity": "sha512-3DB258dhqdsArOI1fIt7cb9RpUOgcDg5hXWVgVHAeqVQ/qxtFy605QKs4gx6mFq3jWsSPqDN8TgSEsqC3OfV9Q=="
     },
     "@esbuild/aix-ppc64@0.25.12": {
       "integrity": "sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==",
@@ -1125,10 +1105,26 @@
         "uuid@9.0.1"
       ]
     },
-    "@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3_react@18.3.1_ws@8.18.3": {
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3_ws@8.18.3": {
       "integrity": "sha512-yn2EriaclSNUwZqZNsgJv//6vPkW2NrA84e9S6zs7KEDDoCobtiFBlOHR54IXM2fNs3DnAojsVZiQaTY0Lq4vQ==",
       "dependencies": [
-        "@apollo/client",
+        "@apollo/client@3.14.0_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3_ws@8.18.3",
+        "@midnight-ntwrk/midnight-js-network-id",
+        "@midnight-ntwrk/midnight-js-types",
+        "buffer@6.0.3",
+        "cross-fetch",
+        "graphql",
+        "graphql-ws@6.0.6_graphql@16.12.0_ws@8.18.3",
+        "isomorphic-ws",
+        "rxjs",
+        "ws@8.18.3",
+        "zen-observable-ts@1.1.0"
+      ]
+    },
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider@2.0.2_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3_ws@8.18.3_react@18.3.1": {
+      "integrity": "sha512-yn2EriaclSNUwZqZNsgJv//6vPkW2NrA84e9S6zs7KEDDoCobtiFBlOHR54IXM2fNs3DnAojsVZiQaTY0Lq4vQ==",
+      "dependencies": [
+        "@apollo/client@3.14.0_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.18.3_ws@8.18.3_react@18.3.1",
         "@midnight-ntwrk/midnight-js-network-id",
         "@midnight-ntwrk/midnight-js-types",
         "buffer@6.0.3",
@@ -3165,9 +3161,6 @@
     "abitype@1.0.8": {
       "integrity": "sha512-ZeiI6h3GnW06uYDLx0etQtX/p8E24UaHHBj57RSjK7YBFe7iuVn07EDpOeP451D06sF27VOz9JJPlIKJmXgkEg=="
     },
-    "abitype@1.1.0": {
-      "integrity": "sha512-6Vh4HcRxNMLA0puzPjM5GBgT4aAcFGKZzSgAXvuZ27shJP6NEpielTuqbBmZILR5/xd0PizkBGy5hReKz9jl5A=="
-    },
     "abitype@1.1.0_zod@3.25.76": {
       "integrity": "sha512-6Vh4HcRxNMLA0puzPjM5GBgT4aAcFGKZzSgAXvuZ27shJP6NEpielTuqbBmZILR5/xd0PizkBGy5hReKz9jl5A==",
       "dependencies": [
@@ -5182,9 +5175,6 @@
     "pg-connection-string@2.9.1": {
       "integrity": "sha512-nkc6NpDcvPVpZXxrreI/FOtX3XemeLl8E0qFr6F2Lrm/I8WOnaWNhIPK2Z7OHpw7gh5XJThi6j6ppgNoaT1w4w=="
     },
-    "pg-gateway@0.3.0-beta.4": {
-      "integrity": "sha512-CTjsM7Z+0Nx2/dyZ6r8zRsc3f9FScoD5UAOlfUx1Fdv/JOIWvRbF7gou6l6vP+uypXQVoYPgw8xZDXgMGvBa4Q=="
-    },
     "pg-int8@1.0.1": {
       "integrity": "sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw=="
     },
@@ -5339,7 +5329,7 @@
         "@protobufjs/path",
         "@protobufjs/pool",
         "@protobufjs/utf8",
-        "@types/node@22.7.5",
+        "@types/node@24.2.0",
         "long"
       ],
       "scripts": true
@@ -5420,6 +5410,9 @@
     },
     "real-require@0.2.0": {
       "integrity": "sha512-57frrGM/OCTLqLOAh0mhVA9VBMHd+9U7Zb2THMGdBUoZVOtGbJzjxsYGDJ3A9AYYCP4hn6y1TVbaOfzWtm5GFg=="
+    },
+    "rehackt@0.1.0": {
+      "integrity": "sha512-7kRDOuLHB87D/JESKxQoRwv4DzbIdwkAGQ7p6QKGdVlY1IZheUnVhlk/4UZlNUVxdAXpyxikE3URsG067ybVzw=="
     },
     "rehackt@0.1.0_react@18.3.1": {
       "integrity": "sha512-7kRDOuLHB87D/JESKxQoRwv4DzbIdwkAGQ7p6QKGdVlY1IZheUnVhlk/4UZlNUVxdAXpyxikE3URsG067ybVzw==",
@@ -6287,13 +6280,8 @@
     "dependencies": [
       "jsr:@paimaexample/evm-contracts@0.3.108"
     ],
-    "packageJson": {
-      "dependencies": [
-        "npm:@electric-sql/pglite@~0.3.10"
-      ]
-    },
     "members": {
-      "packages/client/database": {
+      "client/database": {
         "dependencies": [
           "jsr:@paimaexample/config@0.3.108",
           "jsr:@paimaexample/db-emulator@0.3.108",
@@ -6310,7 +6298,7 @@
           ]
         }
       },
-      "packages/client/node": {
+      "client/node": {
         "dependencies": [
           "jsr:@paimaexample/concise@0.3.108",
           "jsr:@paimaexample/config@0.3.108",
@@ -6330,7 +6318,7 @@
           "npm:pg@^8.14.0"
         ]
       },
-      "packages/shared/contracts/evm": {
+      "shared/contracts/evm": {
         "dependencies": [
           "jsr:@paimaexample/evm-contracts@0.3.108",
           "jsr:@paimaexample/evm-hardhat@0.3.108",
@@ -6356,20 +6344,27 @@
           ]
         }
       },
-      "packages/shared/data-types": {
+      "shared/data-types": {
         "dependencies": [
           "jsr:@paimaexample/concise@0.3.108",
           "jsr:@paimaexample/config@0.3.108",
           "jsr:@paimaexample/sm@0.3.108",
           "jsr:@paimaexample/utils@0.3.108",
+          "jsr:@rock-paper-scissors/evm-contracts@0.1.0",
           "npm:@sinclair/typebox@~0.34.30",
           "npm:@sinclair/typemap@~0.10.1",
           "npm:viem@2.37.3"
         ]
       },
-      "packages/shared/utils": {
+      "shared/game-logic": {
         "dependencies": [
-          "jsr:@paimaexample/utils@0.3.108"
+          "jsr:@paimaexample/concise@0.3.108",
+          "jsr:@paimaexample/config@0.3.108",
+          "jsr:@paimaexample/crypto@0.3.108",
+          "jsr:@paimaexample/runtime@0.3.108",
+          "jsr:@paimaexample/sm@0.3.108",
+          "jsr:@paimaexample/utils@0.3.108",
+          "jsr:@rock-paper-scissors/db@*"
         ]
       }
     }

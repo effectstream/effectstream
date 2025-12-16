@@ -1,0 +1,21 @@
+{
+  "name": "@rock-paper-scissors/frontend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "Rock Paper Scissors frontend",
+  "dependencies": {
+    "@paimaexample/wallets": "npm:@jsr/paimaexample__wallets@^0.3.108",
+    "phaser": "^3.70.0",
+    "viem": "^2.37.5"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.9",
+    "esbuild-plugins-node-modules-polyfill": "^1.7.1"
+  }
+}

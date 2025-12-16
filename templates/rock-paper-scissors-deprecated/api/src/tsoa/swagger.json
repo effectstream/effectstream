@@ -1,0 +1,1393 @@
+{
+	"openapi": "3.0.0",
+	"components": {
+		"examples": {},
+		"headers": {},
+		"parameters": {},
+		"requestBodies": {},
+		"responses": {},
+		"schemas": {
+			"IGetUserStatsResult": {
+				"description": "'GetUserStats' return type",
+				"properties": {
+					"losses": {
+						"type": "number",
+						"format": "double"
+					},
+					"ties": {
+						"type": "number",
+						"format": "double"
+					},
+					"wallet": {
+						"type": "string"
+					},
+					"wins": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"losses",
+					"ties",
+					"wallet",
+					"wins"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"UserStats": {
+				"$ref": "#/components/schemas/IGetUserStatsResult"
+			},
+			"GetUserStatsResponse": {
+				"properties": {
+					"stats": {
+						"$ref": "#/components/schemas/UserStats"
+					}
+				},
+				"required": [
+					"stats"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"IGetNewLobbiesByUserAndBlockHeightResult": {
+				"description": "'GetNewLobbiesByUserAndBlockHeight' return type",
+				"properties": {
+					"lobby_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"lobby_id"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"NewLobby": {
+				"$ref": "#/components/schemas/IGetNewLobbiesByUserAndBlockHeightResult"
+			},
+			"GetUserLobbiesBlockheightResponse": {
+				"properties": {
+					"lobbies": {
+						"items": {
+							"$ref": "#/components/schemas/NewLobby"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"lobbies"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"LobbyStatus": {
+				"type": "string",
+				"enum": [
+					"active",
+					"closed",
+					"finished",
+					"open"
+				]
+			},
+			"UserLobby": {
+				"properties": {
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"creation_block_height": {
+						"type": "number",
+						"format": "double"
+					},
+					"current_round": {
+						"type": "number",
+						"format": "double"
+					},
+					"hidden": {
+						"type": "boolean"
+					},
+					"latest_match_state": {
+						"type": "string"
+					},
+					"lobby_creator": {
+						"type": "string"
+					},
+					"lobby_id": {
+						"type": "string"
+					},
+					"lobby_state": {
+						"$ref": "#/components/schemas/LobbyStatus"
+					},
+					"num_of_rounds": {
+						"type": "number",
+						"format": "double"
+					},
+					"player_two": {
+						"type": "string",
+						"nullable": true
+					},
+					"practice": {
+						"type": "boolean"
+					},
+					"round_length": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_winner": {
+						"type": "string"
+					},
+					"myTurn": {
+						"type": "boolean"
+					}
+				},
+				"required": [
+					"created_at",
+					"creation_block_height",
+					"current_round",
+					"hidden",
+					"latest_match_state",
+					"lobby_creator",
+					"lobby_id",
+					"lobby_state",
+					"num_of_rounds",
+					"player_two",
+					"practice",
+					"round_length",
+					"round_winner"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"GetUserLobbiesResponse": {
+				"properties": {
+					"lobbies": {
+						"items": {
+							"$ref": "#/components/schemas/UserLobby"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"lobbies"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"IGetOpenLobbyByIdResult": {
+				"description": "'GetOpenLobbyById' return type",
+				"properties": {
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"creation_block_height": {
+						"type": "number",
+						"format": "double"
+					},
+					"current_round": {
+						"type": "number",
+						"format": "double"
+					},
+					"hidden": {
+						"type": "boolean"
+					},
+					"latest_match_state": {
+						"type": "string"
+					},
+					"lobby_creator": {
+						"type": "string"
+					},
+					"lobby_id": {
+						"type": "string"
+					},
+					"lobby_state": {
+						"$ref": "#/components/schemas/LobbyStatus"
+					},
+					"num_of_rounds": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_length": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_winner": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"created_at",
+					"creation_block_height",
+					"current_round",
+					"hidden",
+					"latest_match_state",
+					"lobby_creator",
+					"lobby_id",
+					"lobby_state",
+					"num_of_rounds",
+					"round_length",
+					"round_winner"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ISearchPaginatedOpenLobbiesResult": {
+				"description": "'SearchPaginatedOpenLobbies' return type",
+				"properties": {
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"creation_block_height": {
+						"type": "number",
+						"format": "double"
+					},
+					"current_round": {
+						"type": "number",
+						"format": "double"
+					},
+					"hidden": {
+						"type": "boolean"
+					},
+					"latest_match_state": {
+						"type": "string"
+					},
+					"lobby_creator": {
+						"type": "string"
+					},
+					"lobby_id": {
+						"type": "string"
+					},
+					"lobby_state": {
+						"$ref": "#/components/schemas/LobbyStatus"
+					},
+					"num_of_rounds": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_length": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_winner": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"created_at",
+					"creation_block_height",
+					"current_round",
+					"hidden",
+					"latest_match_state",
+					"lobby_creator",
+					"lobby_id",
+					"lobby_state",
+					"num_of_rounds",
+					"round_length",
+					"round_winner"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"SearchOpenLobbiesResponse": {
+				"properties": {
+					"lobbies": {
+						"anyOf": [
+							{
+								"items": {
+									"$ref": "#/components/schemas/IGetOpenLobbyByIdResult"
+								},
+								"type": "array"
+							},
+							{
+								"items": {
+									"$ref": "#/components/schemas/ISearchPaginatedOpenLobbiesResult"
+								},
+								"type": "array"
+							}
+						]
+					}
+				},
+				"required": [
+					"lobbies"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ETHAddress": {
+				"type": "string"
+			},
+			"CardanoAddress": {
+				"type": "string"
+			},
+			"PolkadotAddress": {
+				"type": "string"
+			},
+			"AlgorandAddress": {
+				"type": "string"
+			},
+			"WalletAddress": {
+				"anyOf": [
+					{
+						"$ref": "#/components/schemas/ETHAddress"
+					},
+					{
+						"$ref": "#/components/schemas/CardanoAddress"
+					},
+					{
+						"$ref": "#/components/schemas/PolkadotAddress"
+					},
+					{
+						"$ref": "#/components/schemas/AlgorandAddress"
+					}
+				]
+			},
+			"RoundStatusData": {
+				"properties": {
+					"executed": {
+						"type": "boolean"
+					},
+					"usersWhoSubmittedMoves": {
+						"items": {
+							"$ref": "#/components/schemas/WalletAddress"
+						},
+						"type": "array"
+					},
+					"roundStarted": {
+						"type": "number",
+						"format": "double"
+					},
+					"roundLength": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"executed",
+					"usersWhoSubmittedMoves",
+					"roundStarted",
+					"roundLength"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RoundStatusError": {
+				"properties": {
+					"error": {
+						"type": "string",
+						"enum": [
+							"round not found",
+							"lobby not found"
+						]
+					}
+				},
+				"required": [
+					"error"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"GetRoundStatusResponse": {
+				"anyOf": [
+					{
+						"$ref": "#/components/schemas/RoundStatusData"
+					},
+					{
+						"$ref": "#/components/schemas/RoundStatusError"
+					}
+				]
+			},
+			"IGetLobbyByIdResult": {
+				"description": "'GetLobbyById' return type",
+				"properties": {
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"creation_block_height": {
+						"type": "number",
+						"format": "double"
+					},
+					"current_round": {
+						"type": "number",
+						"format": "double"
+					},
+					"hidden": {
+						"type": "boolean"
+					},
+					"latest_match_state": {
+						"type": "string"
+					},
+					"lobby_creator": {
+						"type": "string"
+					},
+					"lobby_id": {
+						"type": "string"
+					},
+					"lobby_state": {
+						"$ref": "#/components/schemas/LobbyStatus"
+					},
+					"num_of_rounds": {
+						"type": "number",
+						"format": "double"
+					},
+					"player_two": {
+						"type": "string",
+						"nullable": true
+					},
+					"practice": {
+						"type": "boolean"
+					},
+					"round_length": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_winner": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"created_at",
+					"creation_block_height",
+					"current_round",
+					"hidden",
+					"latest_match_state",
+					"lobby_creator",
+					"lobby_id",
+					"lobby_state",
+					"num_of_rounds",
+					"player_two",
+					"practice",
+					"round_length",
+					"round_winner"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RockPaperScissors": {
+				"type": "string",
+				"enum": [
+					"P",
+					"R",
+					"S"
+				]
+			},
+			"IGetMovesByLobbyResult": {
+				"description": "'GetMovesByLobby' return type",
+				"properties": {
+					"id": {
+						"type": "number",
+						"format": "double"
+					},
+					"lobby_id": {
+						"type": "string"
+					},
+					"move_rps": {
+						"$ref": "#/components/schemas/RockPaperScissors"
+					},
+					"round": {
+						"type": "number",
+						"format": "double"
+					},
+					"wallet": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"lobby_id",
+					"move_rps",
+					"round",
+					"wallet"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"IGetBlockHeightsResult": {
+				"description": "'GetBlockHeights' return type",
+				"properties": {
+					"block_height": {
+						"type": "number",
+						"format": "double"
+					},
+					"done": {
+						"type": "boolean"
+					},
+					"seed": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"block_height",
+					"done",
+					"seed"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RoundExecutorData": {
+				"properties": {
+					"lobby": {
+						"$ref": "#/components/schemas/IGetLobbyByIdResult"
+					},
+					"moves": {
+						"items": {
+							"$ref": "#/components/schemas/IGetMovesByLobbyResult"
+						},
+						"type": "array"
+					},
+					"block_height": {
+						"$ref": "#/components/schemas/IGetBlockHeightsResult"
+					}
+				},
+				"required": [
+					"lobby",
+					"moves",
+					"block_height"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RoundExecutorError": {
+				"properties": {
+					"error": {
+						"type": "string",
+						"enum": [
+							"lobby not found",
+							"bad round number",
+							"round not found"
+						]
+					}
+				},
+				"required": [
+					"error"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"GetRoundExecutorResponse": {
+				"anyOf": [
+					{
+						"$ref": "#/components/schemas/RoundExecutorData"
+					},
+					{
+						"$ref": "#/components/schemas/RoundExecutorError"
+					}
+				]
+			},
+			"IGetRandomLobbyResult": {
+				"description": "'GetRandomLobby' return type",
+				"properties": {
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"creation_block_height": {
+						"type": "number",
+						"format": "double"
+					},
+					"current_round": {
+						"type": "number",
+						"format": "double"
+					},
+					"hidden": {
+						"type": "boolean"
+					},
+					"latest_match_state": {
+						"type": "string"
+					},
+					"lobby_creator": {
+						"type": "string"
+					},
+					"lobby_id": {
+						"type": "string"
+					},
+					"lobby_state": {
+						"$ref": "#/components/schemas/LobbyStatus"
+					},
+					"num_of_rounds": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_length": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_winner": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"created_at",
+					"creation_block_height",
+					"current_round",
+					"hidden",
+					"latest_match_state",
+					"lobby_creator",
+					"lobby_id",
+					"lobby_state",
+					"num_of_rounds",
+					"round_length",
+					"round_winner"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RandomLobbyResponse": {
+				"properties": {
+					"lobby": {
+						"allOf": [
+							{
+								"$ref": "#/components/schemas/IGetRandomLobbyResult"
+							}
+						],
+						"nullable": true
+					}
+				},
+				"required": [
+					"lobby"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"IGetRandomActiveLobbyResult": {
+				"description": "'GetRandomActiveLobby' return type",
+				"properties": {
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"creation_block_height": {
+						"type": "number",
+						"format": "double"
+					},
+					"current_round": {
+						"type": "number",
+						"format": "double"
+					},
+					"hidden": {
+						"type": "boolean"
+					},
+					"latest_match_state": {
+						"type": "string"
+					},
+					"lobby_creator": {
+						"type": "string"
+					},
+					"lobby_id": {
+						"type": "string"
+					},
+					"lobby_state": {
+						"$ref": "#/components/schemas/LobbyStatus"
+					},
+					"num_of_rounds": {
+						"type": "number",
+						"format": "double"
+					},
+					"player_two": {
+						"type": "string",
+						"nullable": true
+					},
+					"practice": {
+						"type": "boolean"
+					},
+					"round_length": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_winner": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"created_at",
+					"creation_block_height",
+					"current_round",
+					"hidden",
+					"latest_match_state",
+					"lobby_creator",
+					"lobby_id",
+					"lobby_state",
+					"num_of_rounds",
+					"player_two",
+					"practice",
+					"round_length",
+					"round_winner"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RandomActiveLobbyResponse": {
+				"properties": {
+					"lobby": {
+						"allOf": [
+							{
+								"$ref": "#/components/schemas/IGetRandomActiveLobbyResult"
+							}
+						],
+						"nullable": true
+					}
+				},
+				"required": [
+					"lobby"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"IGetPaginatedOpenLobbiesResult": {
+				"description": "'GetPaginatedOpenLobbies' return type",
+				"properties": {
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"creation_block_height": {
+						"type": "number",
+						"format": "double"
+					},
+					"current_round": {
+						"type": "number",
+						"format": "double"
+					},
+					"hidden": {
+						"type": "boolean"
+					},
+					"latest_match_state": {
+						"type": "string"
+					},
+					"lobby_creator": {
+						"type": "string"
+					},
+					"lobby_id": {
+						"type": "string"
+					},
+					"lobby_state": {
+						"$ref": "#/components/schemas/LobbyStatus"
+					},
+					"num_of_rounds": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_length": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_winner": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"created_at",
+					"creation_block_height",
+					"current_round",
+					"hidden",
+					"latest_match_state",
+					"lobby_creator",
+					"lobby_id",
+					"lobby_state",
+					"num_of_rounds",
+					"round_length",
+					"round_winner"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"OpenLobbiesResponse": {
+				"properties": {
+					"lobbies": {
+						"items": {
+							"$ref": "#/components/schemas/IGetPaginatedOpenLobbiesResult"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"lobbies"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"MatchWinnerResponse": {
+				"properties": {
+					"match_status": {
+						"$ref": "#/components/schemas/LobbyStatus"
+					},
+					"winner_address": {
+						"type": "string"
+					}
+				},
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ExecutorDataSeed": {
+				"properties": {
+					"seed": {
+						"type": "string"
+					},
+					"block_height": {
+						"type": "number",
+						"format": "double"
+					},
+					"round": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"seed",
+					"block_height",
+					"round"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"MatchExecutorData": {
+				"properties": {
+					"lobby": {
+						"$ref": "#/components/schemas/IGetLobbyByIdResult"
+					},
+					"moves": {
+						"items": {
+							"$ref": "#/components/schemas/IGetMovesByLobbyResult"
+						},
+						"type": "array"
+					},
+					"seeds": {
+						"items": {
+							"$ref": "#/components/schemas/ExecutorDataSeed"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"lobby",
+					"moves",
+					"seeds"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"GetMatchExecutorResponse": {
+				"allOf": [
+					{
+						"$ref": "#/components/schemas/MatchExecutorData"
+					}
+				],
+				"nullable": true
+			},
+			"LobbyStateQuery": {
+				"properties": {
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"creation_block_height": {
+						"type": "number",
+						"format": "double"
+					},
+					"current_round": {
+						"type": "number",
+						"format": "double"
+					},
+					"hidden": {
+						"type": "boolean"
+					},
+					"latest_match_state": {
+						"type": "string"
+					},
+					"lobby_creator": {
+						"type": "string"
+					},
+					"lobby_id": {
+						"type": "string"
+					},
+					"lobby_state": {
+						"$ref": "#/components/schemas/LobbyStatus"
+					},
+					"num_of_rounds": {
+						"type": "number",
+						"format": "double"
+					},
+					"player_two": {
+						"type": "string",
+						"nullable": true
+					},
+					"practice": {
+						"type": "boolean"
+					},
+					"round_length": {
+						"type": "number",
+						"format": "double"
+					},
+					"round_winner": {
+						"type": "string"
+					},
+					"round_start_height": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"created_at",
+					"creation_block_height",
+					"current_round",
+					"hidden",
+					"latest_match_state",
+					"lobby_creator",
+					"lobby_id",
+					"lobby_state",
+					"num_of_rounds",
+					"player_two",
+					"practice",
+					"round_length",
+					"round_winner",
+					"round_start_height"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"GetLobbyStateResponse": {
+				"properties": {
+					"lobby": {
+						"allOf": [
+							{
+								"$ref": "#/components/schemas/LobbyStateQuery"
+							}
+						],
+						"nullable": true
+					}
+				},
+				"required": [
+					"lobby"
+				],
+				"type": "object",
+				"additionalProperties": false
+			}
+		},
+		"securitySchemes": {}
+	},
+	"info": {
+		"title": "@game/api",
+		"version": "1.0.0",
+		"description": "Webserver REST API for the middleware to interact with game node.",
+		"license": {
+			"name": "ISC"
+		},
+		"contact": {}
+	},
+	"paths": {
+		"/user_stats": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/GetUserStatsResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "wallet",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/user_lobbies_blockheight": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/GetUserLobbiesBlockheightResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "wallet",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "blockHeight",
+						"required": true,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					}
+				]
+			}
+		},
+		"/user_lobbies": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/GetUserLobbiesResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "wallet",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "count",
+						"required": false,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"required": false,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					}
+				]
+			}
+		},
+		"/search_open_lobbies": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/SearchOpenLobbiesResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "wallet",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "searchQuery",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"required": false,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					},
+					{
+						"in": "query",
+						"name": "count",
+						"required": false,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					}
+				]
+			}
+		},
+		"/round_status": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/GetRoundStatusResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "lobbyID",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "round",
+						"required": true,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					}
+				]
+			}
+		},
+		"/round_executor": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/GetRoundExecutorResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "lobbyID",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "round",
+						"required": true,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					}
+				]
+			}
+		},
+		"/random_lobby": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/RandomLobbyResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/random_active_lobby": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/RandomActiveLobbyResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": []
+			}
+		},
+		"/open_lobbies": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OpenLobbiesResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "wallet",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "query",
+						"name": "count",
+						"required": false,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					},
+					{
+						"in": "query",
+						"name": "page",
+						"required": false,
+						"schema": {
+							"format": "double",
+							"type": "number"
+						}
+					}
+				]
+			}
+		},
+		"/match_winner": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/MatchWinnerResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "lobbyID",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/match_executor": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/GetMatchExecutorResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "lobbyID",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/lobby_state": {
+			"get": {
+				"operationId": "Get",
+				"responses": {
+					"200": {
+						"description": "Ok",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/GetLobbyStateResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"in": "query",
+						"name": "lobbyID",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		}
+	},
+	"servers": [
+		{
+			"url": "/"
+		}
+	]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@rock-paper-scissors/game-logic",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "imports": {
+    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.108",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.108",
+    "@paimaexample/config": "jsr:@paimaexample/config@0.3.108",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.108",
+    "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.108",
+    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.3.108",
+    "@rock-paper-scissors/db": "jsr:@rock-paper-scissors/db"
+  }
+}

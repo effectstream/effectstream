@@ -1,0 +1,17 @@
+{
+  "name": "@game/game-logic",
+  "version": "1.0.0",
+  "description": "",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@game/db": "1.0.0",
+    "@game/utils": "1.0.0"
+  }
+}

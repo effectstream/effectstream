@@ -1,0 +1,25 @@
+{
+  "transforms": [
+    {
+      "mode": "sql",
+      "include": "queries/*.sql",
+      "emitTemplate": "{{dir}}/../{{name}}.queries.ts"
+    }
+  ],
+  "srcDir": "./src/",
+  "failOnError": false,
+  "camelCaseColumnNames": false,
+  "db": {
+    "dbName": "postgres",
+    "user": "postgres",
+    "password": "postgres",
+    "host": "localhost",
+    "port": 5432,
+    "ssl": false
+  },
+  "typesOverrides": {
+    "lobby_status": "@src/common.js#LobbyStatus",
+    "match_result": "@src/common.js#MatchResult",
+    "rock_paper_scissors": "@src/common.js#RockPaperScissors"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+.vscode
+cache
+out
+volume
+packages/frontend/paimaMiddleware.js
+packages/frontend/paimaMiddleware.js.map
+packages/shared/contracts/evm/build/*
+packages/shared/contracts/evm/ignition/deployments/*
+packages/shared/contracts/evm/remappings.txt

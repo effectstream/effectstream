@@ -1,0 +1,15 @@
+{
+  "name": "@game/utils",
+  "version": "1.0.0",
+  "description": "Helper library for Paima Studios game [GAME_NAME]",
+  "main": "build/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@game/db": "1.0.0"
+  }
+}

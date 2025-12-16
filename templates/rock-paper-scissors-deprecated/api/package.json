@@ -1,0 +1,27 @@
+{
+  "name": "@game/api",
+  "version": "1.0.0",
+  "description": "Webserver REST API for the middleware to interact with game node.",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "compile": "npx tsoa spec-and-routes"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@game/db": "1.0.0",
+    "@game/utils": "1.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "fp-ts": "^2.16.2",
+    "io-ts": "^2.2.21",
+    "tsoa": "^6.0.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21"
+  }
+}

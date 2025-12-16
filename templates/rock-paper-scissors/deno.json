@@ -1,0 +1,32 @@
+{
+  "workspace": [
+    "./packages/client/*",
+    "./packages/shared/*",
+    "./packages/shared/**/*",
+    "!./packages/frontend"
+  ],
+  "nodeModulesDir": "auto",
+  "imports": {
+    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.108"
+  },
+  "tasks": {
+    "build:evm": "deno task -f @rock-paper-scissors/evm-contracts build:mod",
+    "dev": "deno task -f @rock-paper-scissors/node dev",
+    "check": "deno task -f @rock-paper-scissors/node check"
+  },
+  "lint": {
+    "rules": {
+      "exclude": [
+        // needed for generators since you can't use the arrow function syntax
+        "no-this-alias",
+        // this is too strict to play well with effection
+        "require-yield",
+        // way too many typescript things that require using `any`
+        "no-explicit-any",
+        "ban-types", // `Function` and `{}` are occasionally useful
+        "no-unused-vars", // maybe enable this at some point
+        "no-slow-types" // would be nice to have, but this is a lot of work
+      ]
+    }
+  }
+}
