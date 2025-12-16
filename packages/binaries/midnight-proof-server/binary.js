@@ -35,8 +35,7 @@ function getBinaryUrl() {
     throw new Error(`Unsupported platform for binary execution: ${platform}`);
   }
 
-  // TODO: Replace placeholder link with real URL once available
-  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/midnight-proof-server-${platform}-${CURRENT_BINARY_VERSION}.zip`;
+  return `https://github.com/effectstream/binaries/releases/download/0.3.120/midnight-proof-server-${platform}-${CURRENT_BINARY_VERSION}.zip`;
 }
 
 async function downloadAndSaveBinary() {
