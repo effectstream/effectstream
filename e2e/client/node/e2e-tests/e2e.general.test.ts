@@ -663,4 +663,60 @@ export async function generalTest(db: Client, sharedState: SharedState) {
       return res.rows.length === 1 && res.rows[0].counter === 1;
     },
   );
+
+  // Interact with counter through the generic EVM batcher adapter
+  const COUNTER_TARGET = "evmCounter";
+  const counterBatchTimestamp = Date.now().toString();
+  const counterPayload = JSON.stringify({
+    method: "incrementCounter",
+    args: [],
+  });
+
+  const counterSignature = await walletClient.signMessage({
+    message: createMessageForBatcher(
+      null,
+      counterBatchTimestamp,
+      account.address,
+      AddressType.EVM,
+      counterPayload,
+      COUNTER_TARGET,
+    ),
+  });
+
+  const counterBatchInput = {
+    address: account.address,
+    addressType: AddressType.EVM,
+    input: counterPayload,
+    signature: counterSignature,
+    timestamp: counterBatchTimestamp,
+    target: COUNTER_TARGET,
+  };
+  const bodyForReceipt = {
+    data: counterBatchInput,
+    confirmationLevel: "wait-effectstream-processed",
+  };
+  const counterBatchResponse = await fetch(`http://localhost:${ENV.BATCHER_PORT}/send-input`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(bodyForReceipt),
+  });
+  if (!counterBatchResponse.ok) {
+    throw new Error(`Failed to send counter batch: ${counterBatchResponse.statusText}`);
+  }
+  const counterBatchResult = await counterBatchResponse.json();
+  console.log("Counter batch result:", counterBatchResult);
+
+  const counterBlock = blockWatcher.getLatestBlock("parallelEvmRPC_fast");
+  await blockWatcher.waitForBlock("parallelEvmRPC_fast", counterBlock + 60);
+
+  await assertSQL<{ counter: number }>(
+    "Check Counter via Batcher",
+    db,
+    `SELECT * FROM counter_inputs;`,
+    (res) => true,
+    (res) => {
+      return res.rows.length === 2 && res.rows[1].counter === 2;
+    },
+  );
+  sharedState.primitive_accounting_counter += 1;
 }
