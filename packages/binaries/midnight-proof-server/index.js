@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-const { binary } = require("./binary.js");
+const { binary, getPlatform } = require("./binary.js");
 const { runMidnightProofServer } = require("./run_midnight_proof_server.js");
 const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
   "./docker.js",
