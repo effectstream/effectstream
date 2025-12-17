@@ -1,4 +1,4 @@
-const { binary, getPlatform } = require("./binary");
+const { binary } = require("./binary");
 const { runMidnightIndexer } = require("./run_midnight_indexer");
 const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
   "./docker",
@@ -8,12 +8,11 @@ const path = require("path");
 const readline = require("readline");
 const os = require("os");
 
+const FINAL_BINARY_NAME = "indexer-standalone";
+
 function checkIfBinaryExists() {
-  const platform = getPlatform();
-  const parts = platform.split("-");
-  const binaryName = `indexer-standalone-${platform}`;
   return fs.existsSync(
-    path.join(__dirname, "indexer-standalone", binaryName),
+    path.join(__dirname, "indexer-standalone", FINAL_BINARY_NAME),
   );
 }
 

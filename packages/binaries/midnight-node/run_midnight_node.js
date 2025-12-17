@@ -1,6 +1,7 @@
 const { spawn } = require("child_process");
 const path = require("path");
-const { getPlatform } = require("./binary");
+
+const BINARY_NAME = "midnight-node";
 /**
  * Executes the midnight-node binary as a child process
  * @param {Object} env - Environment variables to pass to the child process
@@ -8,10 +9,7 @@ const { getPlatform } = require("./binary");
  * @returns {ChildProcess} The spawned child process
  */
 function runMidnightNode(env = process.env, args = []) {
-  const platform = getPlatform();
-  const parts = platform.split("-");
-  const binaryName = `midnight-node-${platform}`;
-  const binaryPath = path.join(__dirname, "midnight-node", binaryName);
+  const binaryPath = path.join(__dirname, "midnight-node", BINARY_NAME);
 
   console.log(
     `Starting midnight-node binary at: ${binaryPath} ${args.join(" ")}`,

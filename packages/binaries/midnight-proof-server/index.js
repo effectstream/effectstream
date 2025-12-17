@@ -3,16 +3,18 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-const { binary, getPlatform } = require("./binary.js");
+const { binary } = require("./binary.js");
 const { runMidnightProofServer } = require("./run_midnight_proof_server.js");
 const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
   "./docker.js",
 );
 
+const FINAL_BINARY_NAME = "midnight-proof-server";
+
 function checkIfBinaryExists() {
-  const platform = getPlatform();
-  const binaryName = `midnight-proof-server-${platform}`;
-  return fs.existsSync(path.join(__dirname, "proof-server", binaryName));
+  return fs.existsSync(
+    path.join(__dirname, "proof-server", FINAL_BINARY_NAME),
+  );
 }
 
 function isBinarySupported() {

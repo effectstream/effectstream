@@ -5,6 +5,7 @@ const extract = require("extract-zip");
 const path = require("path");
 
 const CURRENT_BINARY_VERSION = "0.12.0";
+const FINAL_BINARY_NAME = "midnight-node";
 
 /*
 @returns {string} The platform and architecture of the current machine.
@@ -64,18 +65,29 @@ async function downloadAndSaveBinary() {
 @returns {Promise<void>} Unzips the binary for the current platform.
 */
 async function unzipBinary() {
-  await extract(path.join(__dirname, FILE_NAME), {
-    dir: path.join(__dirname, "midnight-node"),
-  });
+  const binaryDir = path.join(__dirname, "midnight-node");
+  await extract(path.join(__dirname, FILE_NAME), { dir: binaryDir });
   const platform = getPlatform();
-  const parts = platform.split("-");
-  const binaryName = `midnight-node-${platform}`;
-  if (parts[0] === "linux") {
-    fs.chmodSync(
-      path.join(__dirname, "midnight-node", binaryName),
-      0o755,
-    );
+  const extractedBinaryPath = path.join(
+    binaryDir,
+    `midnight-node-${platform}`,
+  );
+  const finalBinaryPath = path.join(binaryDir, FINAL_BINARY_NAME);
+
+  if (fs.existsSync(extractedBinaryPath) &&
+      extractedBinaryPath !== finalBinaryPath) {
+    if (fs.existsSync(finalBinaryPath)) {
+      fs.unlinkSync(finalBinaryPath);
+    }
+    fs.renameSync(extractedBinaryPath, finalBinaryPath);
   }
+
+  if (!fs.existsSync(finalBinaryPath)) {
+    throw new Error(`Expected binary not found: ${finalBinaryPath}`);
+  }
+
+  fs.chmodSync(finalBinaryPath, 0o755);
+
   fs.unlinkSync(
     path.join(
       __dirname,
