@@ -1,6 +1,3 @@
-// Import PGlite patch FIRST, before the runtime imports PreparedQuery
-import "./pglite-patch.ts";
-
 import { init, start } from "@paimaexample/runtime";
 import { main, suspend } from "effection";
 import { localhostConfig } from "@rock-paper-scissors/data-types/localhostConfig";

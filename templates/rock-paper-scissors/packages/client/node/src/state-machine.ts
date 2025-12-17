@@ -17,6 +17,7 @@ import {
   updateUserStats,
   type SQLUpdate,
 } from "./state-machine/v1/transition.ts";
+// import { processSQLQueryIR } from "@pgtyped/runtime";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 
@@ -25,24 +26,22 @@ stm.addStateTransition("createdLobby", function* (data) {
   const { blockHeight, parsedInput, randomGenerator, signerAddress: user } = data;
 
   // Call pure transition function
-  const result = createdLobby(
-    // @ts-ignore - version mismatch between @paimaexample/utils versions
-    user!,
-    blockHeight,
-    {
-      input: "createdLobby",
-      ...parsedInput,
-    },
-    randomGenerator
+  const result = yield* World.promise<SQLUpdate>(
+    createdLobby(
+      // @ts-ignore - version mismatch between @paimaexample/utils versions
+      user!,
+      blockHeight,
+      {
+        input: "createdLobby",
+        ...parsedInput,
+      },
+      randomGenerator
+    )
   );
 
   yield* printSQLQuery(result);
-  // Check if this is a RawSQLQuery - if so, execute it directly
-  if (result[0]?.queryIR?._rawSQL) {
-    yield* executePgliteQuery(result[0], result[1]);
-  } else {
-    yield* World.resolve(result[0], result[1]);
-  }
+  yield* World.resolve(result[0], result[1]);
+  console.log("DID WE REACH THIS POINT?")
 });
 
 // Join lobby
@@ -54,15 +53,17 @@ stm.addStateTransition("joinedLobby", function* (data) {
   const lobbyData = lobby && lobby.length > 0 ? lobby[0] : null;
 
   // Call pure transition function
-  const results = joinedLobby(
-    // @ts-ignore - version mismatch between @paimaexample/utils versions
-    user!,
-    blockHeight,
-    {
-      input: "joinedLobby",
-      ...parsedInput,
-    },
-    lobbyData
+  const results = yield* World.promise<SQLUpdate[]>(
+    joinedLobby(
+      // @ts-ignore - version mismatch between @paimaexample/utils versions
+      user!,
+      blockHeight,
+      {
+        input: "joinedLobby",
+        ...parsedInput,
+      },
+      lobbyData
+    )
   );
 
   // Execute all SQL updates
@@ -81,14 +82,16 @@ stm.addStateTransition("closedLobby", function* (data) {
   const lobbyData = lobby && lobby.length > 0 ? lobby[0] : null;
 
   // Call pure transition function
-  const results = closedLobby(
-    // @ts-ignore - version mismatch between @paimaexample/utils versions
-    user!,
-    {
-      input: "closedLobby",
-      ...parsedInput,
-    },
-    lobbyData
+  const results = yield* World.promise<SQLUpdate[]>(
+    closedLobby(
+      // @ts-ignore - version mismatch between @paimaexample/utils versions
+      user!,
+      {
+        input: "closedLobby",
+        ...parsedInput,
+      },
+      lobbyData
+    )
   );
 
   // Execute all SQL updates
@@ -118,18 +121,20 @@ stm.addStateTransition("submittedMoves", function* (data) {
   });
 
   // Call pure transition function
-  const results = submittedMoves(
-    // @ts-ignore - version mismatch between @paimaexample/utils versions
-    user!,
-    blockHeight,
-    {
-      input: "submittedMoves",
-      ...parsedInput,
-    },
-    lobbyData,
-    roundData,
-    cachedMoves || [],
-    randomGenerator
+  const results = yield* World.promise<SQLUpdate[]>(
+    submittedMoves(
+      // @ts-ignore - version mismatch between @paimaexample/utils versions
+      user!,
+      blockHeight,
+      {
+        input: "submittedMoves",
+        ...parsedInput,
+      },
+      lobbyData,
+      roundData,
+      cachedMoves || [],
+      randomGenerator
+    )
   );
 
   // Execute all SQL updates
@@ -168,16 +173,18 @@ stm.addStateTransition("zombieScheduledData", function* (data) {
   }
 
   // Call pure transition function
-  const results = zombieRound(
-    blockHeight,
-    {
-      input: "zombieScheduledData",
-      ...parsedInput,
-    },
-    lobbyData,
-    roundData,
-    moves,
-    randomGenerator
+  const results = yield* World.promise<SQLUpdate[]>(
+    zombieRound(
+      blockHeight,
+      {
+        input: "zombieScheduledData",
+        ...parsedInput,
+      },
+      lobbyData,
+      roundData,
+      moves,
+      randomGenerator
+    )
   );
 
   // Execute all SQL updates
@@ -192,37 +199,37 @@ stm.addStateTransition("userScheduledData", function* (data) {
   const { parsedInput } = data;
 
   // Call pure transition function
-  const result = updateUserStats({
-    input: "userScheduledData",
-    ...parsedInput,
-  });
+  const result = yield* World.promise<SQLUpdate>(
+    updateUserStats({
+      input: "userScheduledData",
+      ...parsedInput,
+    })
+  );
 
   yield* printSQLQuery(result);
-  // Check if this is a RawSQLQuery - if so, execute it directly
-  if (result[0]?.queryIR?._rawSQL) {
-    yield* executePgliteQuery(result[0], result[1]);
-  } else {
-    yield* World.resolve(result[0], result[1]);
-  }
+  yield* World.resolve(result[0], result[1]);
 });
 
 function* printSQLQuery(result: any) {
   console.error("--------------------------------");
   console.error(`Processing RPS Query`);
+  console.error(`PreparedQuery type:`, typeof result[0]);
+  console.error(`PreparedQuery constructor:`, result[0]?.constructor?.name);
+  console.error(`PreparedQuery.run type:`, typeof result[0]?.run);
+  console.error(`PreparedQuery.run source:`, result[0]?.run?.toString().substring(0, 200));
+  console.error(`PreparedQuery.queryIR:`, result[0]?.queryIR ? 'EXISTS' : 'MISSING');
   console.error(`Prepared Query:\n${result[0].queryIR.statement}\n\n`);
   console.error(`Parameters:\n${JSON.stringify(result[1], null, 2)}\n\n`);
-}
 
-// Custom executor for PGlite queries that need parameter inlining
-function* executePgliteQuery(query: any, params: any): any {
-  console.error("!!!!! EXECUTING PGLITE QUERY WITH PARAMETER INLINING !!!!!");
-
-  // Use World.resolve but pass our RawSQLQuery instance which has the _rawSQL flag
-  // The runtime will create a PreparedQuery from query.queryIR, and our pglite-patch.ts
-  // will intercept the constructor to patch the run() method
-  const result = yield* World.resolve(query, params);
-
-  return result;
+  // // TEST: manually call processSQLQueryIR to see if it works
+  // try {
+  //   const { query: processedQuery, bindings } = processSQLQueryIR(result[0].queryIR, result[1]);
+  //   console.error(`MANUAL PROCESSING TEST:`);
+  //   console.error(`Processed Query (first 200 chars):\n${processedQuery.substring(0, 200)}\n`);
+  //   console.error(`Bindings:`, bindings);
+  // } catch (e) {
+  //   console.error(`MANUAL PROCESSING FAILED:`, e);
+  // }
 }
 
 /**

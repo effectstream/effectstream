@@ -1,7 +1,3 @@
-const MODULE_VERSION = "v2025-12-15-T17:32:00-FORCE-RELOAD";
-console.error(`!!!!!!!!!! TRANSITION MODULE LOADING ${MODULE_VERSION} AT`, new Date().toISOString(), "!!!!!!!!!!");
-console.error(`MODULE FILE PATH: ${import.meta.url}`);
-
 import type { Prando } from "@paimaexample/crypto";
 import type { WalletAddress } from "@paimaexample/utils";
 import type {
@@ -17,176 +13,20 @@ import {
   type RPSSummary,
 } from "@rock-paper-scissors/game-logic";
 
-// Import PreparedQuery directly from @pgtyped/runtime to ensure we patch the same class the runtime uses
-import { PreparedQuery } from "@pgtyped/runtime";
-
-console.error("!!!!!!!!!! PreparedQuery constructor obtained:", !!PreparedQuery, "!!!!!!!!!!");
-
-// Monkey-patch PreparedQuery constructor to intercept instance creation
-console.error(`!!!!! PATCHING PreparedQuery CONSTRUCTOR (${MODULE_VERSION}) !!!!!`);
-
-const OriginalPreparedQuery = PreparedQuery;
-
-// @ts-ignore - Replace the PreparedQuery class
-(globalThis as any).PreparedQuery = class PatchedPreparedQuery extends OriginalPreparedQuery {
-  constructor(queryIR: any) {
-    super(queryIR);
-
-    console.error(`!!!!! PreparedQuery instance created (${MODULE_VERSION}) !!!!!`);
-    console.error("Has _rawSQL flag:", !!queryIR?._rawSQL);
-
-    // If this is our custom query with inlined parameters, replace the run method
-    if (queryIR?._rawSQL) {
-      const paramsList = queryIR._pgliteParamsList || [];
-
-      (this as any).run = async (params: any, dbConn: any) => {
-        console.error(`>>>>>> ${MODULE_VERSION} INLINING PARAMETERS <<<<<<`);
-        console.error("Parameters:", JSON.stringify(params, null, 2));
-
-        let statement = queryIR.statement;
-
-        // Replace each $N with escaped values
-        for (let i = 0; i < paramsList.length; i++) {
-          const paramName = paramsList[i];
-          const value = params[paramName];
-          const escapedValue = escapeSqlValue(value);
-
-          console.error(`Replacing $${i + 1} with ${escapedValue} (param: ${paramName})`);
-          statement = statement.replace(`$${i + 1}`, escapedValue);
-        }
-
-        console.error("Final SQL:", statement);
-        console.error("Executing with empty bindings...");
-
-        // Call query with empty bindings array
-        const result = await dbConn.query(statement, []);
-        console.error("Success! Rows:", result.rows?.length || 0);
-        return result.rows || [];
-      };
-    }
-  }
-};
-
-console.error(`!!!!! CONSTRUCTOR PATCH COMPLETE (${MODULE_VERSION}) !!!!!`);
-
-// Helper to escape SQL values for inline substitution
-function escapeSqlValue(value: any): string {
-  if (value === null || value === undefined) {
-    return 'NULL';
-  }
-  if (typeof value === 'number') {
-    return String(value);
-  }
-  if (typeof value === 'boolean') {
-    return value ? 'true' : 'false';
-  }
-  if (value instanceof Date) {
-    return `'${value.toISOString()}'`;
-  }
-  // String - escape single quotes
-  return `'${String(value).replace(/'/g, "''")}'`;
-}
-
-// PGlite-compatible raw SQL wrapper
-// This bypasses PreparedQuery entirely and executes raw SQL
-class RawSQLQuery {
-  constructor(private sql: string, private paramNames: string[]) {
-    console.error(`!!!!! RawSQLQuery created (${MODULE_VERSION}): ${sql.substring(0, 50)}...`);
-  }
-
-  async run(params: any, dbConn: any): Promise<any[]> {
-    console.error(`>>>>>> ${MODULE_VERSION} RAW SQL EXECUTING <<<<<<`);
-    console.error("Parameters:", JSON.stringify(params, null, 2));
-
-    let statement = this.sql;
-
-    // Replace each placeholder with the escaped value
-    for (let i = 0; i < this.paramNames.length; i++) {
-      const paramName = this.paramNames[i];
-      const value = params[paramName];
-      const escapedValue = escapeSqlValue(value);
-
-      console.error(`Replacing $${i + 1} with ${escapedValue} (param: ${paramName})`);
-      statement = statement.replace(`$${i + 1}`, escapedValue);
-    }
-
-    console.error("Final SQL:", statement);
-    console.error("Executing with empty bindings array...");
-
-    // Call query with an empty bindings array since we've inlined the parameters
-    const result = await dbConn.query(statement, []);
-    console.error("Success! Rows:", result.rows?.length || 0);
-    return result.rows || [];
-  }
-
-  // Expose queryIR for compatibility with Effectstream runtime
-  get queryIR() {
-    return {
-      statement: this.sql,
-      params: this.paramNames.map(name => ({ name })),
-      _rawSQL: true,
-      _pgliteParamsList: this.paramNames, // For compatibility with old monkey-patch
-    };
-  }
-}
-
-console.error(`!!!!! RawSQLQuery class defined (${MODULE_VERSION}) !!!!!`);
-
-// PGlite-compatible query wrapper that converts pgtyped IR to raw SQL
-function createPgliteQuery(pgtypedQuery: any) {
-  console.error(`!!!!! createPgliteQuery called (${MODULE_VERSION}) !!!!!`);
-
-  const originalQueryIR = (pgtypedQuery as any).queryIR;
-
-  // Sort params by their first location to maintain correct order
-  const sortedParams = [...originalQueryIR.params].sort((a: any, b: any) => a.locs[0].a - b.locs[0].a);
-
-  // Build parameter name list in correct order
-  const paramsList: string[] = sortedParams.map((p: any) => p.name);
-
-  // Convert named parameters (:param!) to positional parameters ($1, $2, etc.)
-  let statement = originalQueryIR.statement;
-  for (let i = 0; i < sortedParams.length; i++) {
-    const param = sortedParams[i];
-    const regex = new RegExp(`:${param.name}!`, 'g');
-    statement = statement.replace(regex, `$${i + 1}`);
-  }
-
-  console.error(`!!!!! Returning RawSQLQuery for: ${statement.substring(0, 60)}...`);
-
-  // Return a RawSQLQuery instance that will execute raw SQL
-  return new RawSQLQuery(statement, paramsList);
-}
-
-// Import pgtyped queries and wrap them
+// Import pgtyped queries directly
 import {
-  createLobby as createLobbyPgtyped,
-  createRound as createRoundPgtyped,
-  createMove as createMovePgtyped,
-  createUserStats as createUserStatsPgtyped,
-  createFinalMatchState as createFinalMatchStatePgtyped,
+  createLobby,
+  createRound,
+  createMove,
+  createUserStats,
+  createFinalMatchState,
+  updateLobbyPlayerTwo,
+  updateMatchState,
+  updateRoundExecution,
+  updateUserStats as updateUserStatsQuery,
+  closeLobby,
+  finishLobby,
 } from "@rock-paper-scissors/db";
-import {
-  updateLobbyPlayerTwo as updateLobbyPlayerTwoPgtyped,
-  updateMatchState as updateMatchStatePgtyped,
-  updateRoundExecution as updateRoundExecutionPgtyped,
-  updateUserStats as updateUserStatsPgtyped,
-  closeLobby as closeLobbyPgtyped,
-  finishLobby as finishLobbyPgtyped,
-} from "@rock-paper-scissors/db";
-
-// Create PGlite-compatible versions
-const createLobby = createPgliteQuery(createLobbyPgtyped);
-const createRound = createPgliteQuery(createRoundPgtyped);
-const createMove = createPgliteQuery(createMovePgtyped);
-const createUserStats = createPgliteQuery(createUserStatsPgtyped);
-const createFinalMatchState = createPgliteQuery(createFinalMatchStatePgtyped);
-const updateLobbyPlayerTwo = createPgliteQuery(updateLobbyPlayerTwoPgtyped);
-const updateMatchState = createPgliteQuery(updateMatchStatePgtyped);
-const updateRoundExecution = createPgliteQuery(updateRoundExecutionPgtyped);
-const updateUserStatsQuery = createPgliteQuery(updateUserStatsPgtyped);
-const closeLobby = createPgliteQuery(closeLobbyPgtyped);
-const finishLobby = createPgliteQuery(finishLobbyPgtyped);
 
 export type SQLUpdate = [any, any];
 
@@ -227,12 +67,12 @@ export interface UserScheduledDataInput {
 }
 
 // State transition when a create lobby input is processed
-export function createdLobby(
+export async function createdLobby(
   player: WalletAddress,
   blockHeight: number,
   input: CreatedLobbyInput,
   randomnessGenerator: Prando
-): SQLUpdate {
+): Promise<SQLUpdate> {
   // Generate 12-character lobby ID
   const lobby_id = randomnessGenerator.nextString(12);
 
@@ -256,12 +96,12 @@ export function createdLobby(
 }
 
 // State transition when a player joins an existing lobby
-export function joinedLobby(
+export async function joinedLobby(
   player: WalletAddress,
   blockHeight: number,
   input: JoinedLobbyInput,
   lobby: IGetLobbyByIdResult | null
-): SQLUpdate[] {
+): Promise<SQLUpdate[]> {
   // Validate lobby exists
   if (!lobby) return [];
 
@@ -300,11 +140,11 @@ export function joinedLobby(
 }
 
 // State transition when creator closes lobby before anyone joins
-export function closedLobby(
+export async function closedLobby(
   player: WalletAddress,
   input: ClosedLobbyInput,
   lobby: IGetLobbyByIdResult | null
-): SQLUpdate[] {
+): Promise<SQLUpdate[]> {
   // Validate lobby exists
   if (!lobby) return [];
 
@@ -322,7 +162,7 @@ export function closedLobby(
 }
 
 // State transition when a player submits a move for a round
-export function submittedMoves(
+export async function submittedMoves(
   player: WalletAddress,
   blockHeight: number,
   input: SubmittedMovesInput,
@@ -330,7 +170,7 @@ export function submittedMoves(
   round: IGetRoundDataResult | null,
   cachedMoves: IGetCachedMovesResult[],
   randomnessGenerator: Prando
-): SQLUpdate[] {
+): Promise<SQLUpdate[]> {
   // Validate lobby and round exist
   if (!lobby || !round) return [];
 
@@ -480,14 +320,14 @@ export function executeRound(
 }
 
 // Zombie round - handles timeouts when players don't submit moves
-export function zombieRound(
+export async function zombieRound(
   blockHeight: number,
   input: ZombieScheduledDataInput,
   lobby: IGetLobbyByIdResult | null,
   round: IGetRoundDataResult | null,
   moves: IGetCachedMovesResult[],
   randomnessGenerator: Prando
-): SQLUpdate[] {
+): Promise<SQLUpdate[]> {
   if (!lobby) {
     console.log(`Error: Lobby ${input.lobbyID} not found for zombie round`);
     return [];
@@ -514,9 +354,9 @@ export function zombieRound(
 }
 
 // Update user stats - scheduled after a game ends
-export function updateUserStats(
+export async function updateUserStats(
   input: UserScheduledDataInput
-): SQLUpdate {
+): Promise<SQLUpdate> {
   const { user, result } = input;
 
   // Convert result to stat increments

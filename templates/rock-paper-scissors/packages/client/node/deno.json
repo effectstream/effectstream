@@ -19,16 +19,13 @@
     "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.3.108",
     "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.108",
     "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.108",
-    "@paimaexample/utils/": "jsr:@paimaexample/utils@0.3.108/",
     "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.108",
     "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.108",
     "@paimaexample/db": "jsr:@paimaexample/db@0.3.108",
-    "@pgtyped/runtime": "./src/pgtyped-runtime-wrapper.ts",
     "fastify": "npm:fastify@^5.4.0",
     "pg": "npm:pg@^8.14.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
     "effection": "npm:effection@^3.5.0",
-    "@paimaexample/explorer": "npm:@paimaexample/explorer@0.3.108",
-    "wait-on": "npm:wait-on@^9.0.3"
+    "@paimaexample/explorer": "npm:@paimaexample/explorer@0.3.108"
   }
 }

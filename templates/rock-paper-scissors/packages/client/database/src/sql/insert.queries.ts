@@ -1,21 +1,27 @@
 /** Types generated for queries found in "src/sql/insert.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
-import { LobbyStatus, MatchResult, RockPaperScissors } from '../common.ts';
+export type lobby_status_1 = 'active' | 'closed' | 'finished' | 'open';
+
+export type match_result_1 = 'loss' | 'tie' | 'win';
+
+export type rock_paper_scissors_1 = 'P' | 'R' | 'S';
+
+export type DateOrString = Date | string;
 
 /** 'CreateLobby' parameters type */
 export interface ICreateLobbyParams {
-  lobby_id: string;
-  num_of_rounds: number;
-  round_length: number;
-  round_winner: string;
-  created_at: Date;
+  created_at: DateOrString;
   creation_block_height: number;
   hidden: boolean;
-  practice: boolean;
-  lobby_creator: string;
-  lobby_state: LobbyStatus;
   latest_match_state: string;
+  lobby_creator: string;
+  lobby_id: string;
+  lobby_state: lobby_status_1;
+  num_of_rounds: number;
+  practice: boolean;
+  round_length: number;
+  round_winner: string;
 }
 
 /** 'CreateLobby' return type */
@@ -27,7 +33,7 @@ export interface ICreateLobbyQuery {
   result: ICreateLobbyResult;
 }
 
-const createLobbyIR: any = {"usedParamSet":{"lobby_id":true,"num_of_rounds":true,"round_length":true,"round_winner":true,"created_at":true,"creation_block_height":true,"hidden":true,"practice":true,"lobby_creator":true,"lobby_state":true,"latest_match_state":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":181,"b":190}]},{"name":"num_of_rounds","required":true,"transform":{"type":"scalar"},"locs":[{"a":195,"b":209}]},{"name":"round_length","required":true,"transform":{"type":"scalar"},"locs":[{"a":214,"b":227}]},{"name":"round_winner","required":true,"transform":{"type":"scalar"},"locs":[{"a":232,"b":245}]},{"name":"created_at","required":true,"transform":{"type":"scalar"},"locs":[{"a":250,"b":261}]},{"name":"creation_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":266,"b":288}]},{"name":"hidden","required":true,"transform":{"type":"scalar"},"locs":[{"a":293,"b":300}]},{"name":"practice","required":true,"transform":{"type":"scalar"},"locs":[{"a":305,"b":314}]},{"name":"lobby_creator","required":true,"transform":{"type":"scalar"},"locs":[{"a":319,"b":333}]},{"name":"lobby_state","required":true,"transform":{"type":"scalar"},"locs":[{"a":338,"b":350}]},{"name":"latest_match_state","required":true,"transform":{"type":"scalar"},"locs":[{"a":355,"b":374}]}],"statement":"INSERT INTO lobbies (\n  lobby_id,\n  num_of_rounds,\n  round_length,\n  round_winner,\n  created_at,\n  creation_block_height,\n  hidden,\n  practice,\n  lobby_creator,\n  lobby_state,\n  latest_match_state\n) VALUES (\n  :lobby_id!,\n  :num_of_rounds!,\n  :round_length!,\n  :round_winner!,\n  :created_at!,\n  :creation_block_height!,\n  :hidden!,\n  :practice!,\n  :lobby_creator!,\n  :lobby_state!,\n  :latest_match_state!\n)"};
+const createLobbyIR: any = {"usedParamSet":{"lobby_id":true,"num_of_rounds":true,"round_length":true,"round_winner":true,"created_at":true,"creation_block_height":true,"hidden":true,"practice":true,"lobby_creator":true,"lobby_state":true,"latest_match_state":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":210,"b":219}]},{"name":"num_of_rounds","required":true,"transform":{"type":"scalar"},"locs":[{"a":224,"b":238}]},{"name":"round_length","required":true,"transform":{"type":"scalar"},"locs":[{"a":243,"b":256}]},{"name":"round_winner","required":true,"transform":{"type":"scalar"},"locs":[{"a":261,"b":274}]},{"name":"created_at","required":true,"transform":{"type":"scalar"},"locs":[{"a":279,"b":290}]},{"name":"creation_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":295,"b":317}]},{"name":"hidden","required":true,"transform":{"type":"scalar"},"locs":[{"a":322,"b":329}]},{"name":"practice","required":true,"transform":{"type":"scalar"},"locs":[{"a":334,"b":343}]},{"name":"lobby_creator","required":true,"transform":{"type":"scalar"},"locs":[{"a":348,"b":362}]},{"name":"lobby_state","required":true,"transform":{"type":"scalar"},"locs":[{"a":367,"b":379}]},{"name":"latest_match_state","required":true,"transform":{"type":"scalar"},"locs":[{"a":384,"b":403}]}],"statement":"INSERT INTO lobbies (\n  lobby_id,\n  num_of_rounds,\n  round_length,\n  round_winner,\n  created_at,\n  creation_block_height,\n  hidden,\n  practice,\n  lobby_creator,\n  lobby_state,\n  latest_match_state\n) VALUES (\n  :lobby_id!,\n  :num_of_rounds!,\n  :round_length!,\n  :round_winner!,\n  :created_at!,\n  :creation_block_height!,\n  :hidden!,\n  :practice!,\n  :lobby_creator!,\n  :lobby_state!,\n  :latest_match_state!\n)"};
 
 /**
  * Query generated from SQL:
@@ -78,7 +84,7 @@ export interface ICreateRoundQuery {
   result: ICreateRoundResult;
 }
 
-const createRoundIR: any = {"usedParamSet":{"lobby_id":true,"round_within_match":true,"starting_block_height":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":89,"b":98}]},{"name":"round_within_match","required":true,"transform":{"type":"scalar"},"locs":[{"a":103,"b":122}]},{"name":"starting_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":127,"b":149}]}],"statement":"INSERT INTO rounds (\n  lobby_id,\n  round_within_match,\n  starting_block_height\n) VALUES (\n  :lobby_id!,\n  :round_within_match!,\n  :starting_block_height!\n)"};
+const createRoundIR: any = {"usedParamSet":{"lobby_id":true,"round_within_match":true,"starting_block_height":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":92,"b":101}]},{"name":"round_within_match","required":true,"transform":{"type":"scalar"},"locs":[{"a":106,"b":125}]},{"name":"starting_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":130,"b":152}]}],"statement":"INSERT INTO rounds (\n  lobby_id,\n  round_within_match,\n  starting_block_height\n) VALUES (\n  :lobby_id!,\n  :round_within_match!,\n  :starting_block_height!\n)"};
 
 /**
  * Query generated from SQL:
@@ -100,9 +106,9 @@ export const createRound = new PreparedQuery<ICreateRoundParams,ICreateRoundResu
 /** 'CreateMove' parameters type */
 export interface ICreateMoveParams {
   lobby_id: string;
-  wallet: string;
+  move_rps: rock_paper_scissors_1;
   round: number;
-  move_rps: RockPaperScissors;
+  wallet: string;
 }
 
 /** 'CreateMove' return type */
@@ -114,7 +120,7 @@ export interface ICreateMoveQuery {
   result: ICreateMoveResult;
 }
 
-const createMoveIR: any = {"usedParamSet":{"lobby_id":true,"wallet":true,"round":true,"move_rps":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":77,"b":86}]},{"name":"wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":91,"b":98}]},{"name":"round","required":true,"transform":{"type":"scalar"},"locs":[{"a":103,"b":109}]},{"name":"move_rps","required":true,"transform":{"type":"scalar"},"locs":[{"a":114,"b":123}]}],"statement":"INSERT INTO match_moves (\n  lobby_id,\n  wallet,\n  round,\n  move_rps\n) VALUES (\n  :lobby_id!,\n  :wallet!,\n  :round!,\n  :move_rps!\n)"};
+const createMoveIR: any = {"usedParamSet":{"lobby_id":true,"wallet":true,"round":true,"move_rps":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":81,"b":90}]},{"name":"wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":95,"b":102}]},{"name":"round","required":true,"transform":{"type":"scalar"},"locs":[{"a":107,"b":113}]},{"name":"move_rps","required":true,"transform":{"type":"scalar"},"locs":[{"a":118,"b":127}]}],"statement":"INSERT INTO match_moves (\n  lobby_id,\n  wallet,\n  round,\n  move_rps\n) VALUES (\n  :lobby_id!,\n  :wallet!,\n  :round!,\n  :move_rps!\n)"};
 
 /**
  * Query generated from SQL:
@@ -149,7 +155,7 @@ export interface ICreateUserStatsQuery {
   result: ICreateUserStatsResult;
 }
 
-const createUserStatsIR: any = {"usedParamSet":{"wallet":true},"params":[{"name":"wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":54,"b":61}]}],"statement":"INSERT INTO global_user_state (wallet)\nVALUES (:wallet!)\nON CONFLICT (wallet) DO NOTHING"};
+const createUserStatsIR: any = {"usedParamSet":{"wallet":true},"params":[{"name":"wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":47,"b":54}]}],"statement":"INSERT INTO global_user_state (wallet)\nVALUES (:wallet!)\nON CONFLICT (wallet) DO NOTHING"};
 
 /**
  * Query generated from SQL:
@@ -164,13 +170,13 @@ export const createUserStats = new PreparedQuery<ICreateUserStatsParams,ICreateU
 
 /** 'CreateFinalMatchState' parameters type */
 export interface ICreateFinalMatchStateParams {
-  lobby_id: string;
-  player_one_wallet: string;
-  player_one_result: MatchResult;
-  player_two_wallet: string;
-  player_two_result: MatchResult;
-  total_time: number;
   game_moves: string;
+  lobby_id: string;
+  player_one_result: match_result_1;
+  player_one_wallet: string;
+  player_two_result: match_result_1;
+  player_two_wallet: string;
+  total_time: number;
 }
 
 /** 'CreateFinalMatchState' return type */
@@ -182,7 +188,7 @@ export interface ICreateFinalMatchStateQuery {
   result: ICreateFinalMatchStateResult;
 }
 
-const createFinalMatchStateIR: any = {"usedParamSet":{"lobby_id":true,"player_one_wallet":true,"player_one_result":true,"player_two_wallet":true,"player_two_result":true,"total_time":true,"game_moves":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":132,"b":141}]},{"name":"player_one_wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":146,"b":164}]},{"name":"player_one_result","required":true,"transform":{"type":"scalar"},"locs":[{"a":169,"b":187}]},{"name":"player_two_wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":192,"b":210}]},{"name":"player_two_result","required":true,"transform":{"type":"scalar"},"locs":[{"a":215,"b":233}]},{"name":"total_time","required":true,"transform":{"type":"scalar"},"locs":[{"a":238,"b":249}]},{"name":"game_moves","required":true,"transform":{"type":"scalar"},"locs":[{"a":254,"b":265}]}],"statement":"INSERT INTO final_match_state (\n  lobby_id,\n  player_one_wallet,\n  player_one_result,\n  player_two_wallet,\n  player_two_result,\n  total_time,\n  game_moves\n) VALUES (\n  :lobby_id!,\n  :player_one_wallet!,\n  :player_one_result!,\n  :player_two_wallet!,\n  :player_two_result!,\n  :total_time!,\n  :game_moves!\n)"};
+const createFinalMatchStateIR: any = {"usedParamSet":{"lobby_id":true,"player_one_wallet":true,"player_one_result":true,"player_two_wallet":true,"player_two_result":true,"total_time":true,"game_moves":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":168,"b":177}]},{"name":"player_one_wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":182,"b":200}]},{"name":"player_one_result","required":true,"transform":{"type":"scalar"},"locs":[{"a":205,"b":223}]},{"name":"player_two_wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":228,"b":246}]},{"name":"player_two_result","required":true,"transform":{"type":"scalar"},"locs":[{"a":251,"b":269}]},{"name":"total_time","required":true,"transform":{"type":"scalar"},"locs":[{"a":274,"b":285}]},{"name":"game_moves","required":true,"transform":{"type":"scalar"},"locs":[{"a":290,"b":301}]}],"statement":"INSERT INTO final_match_state (\n  lobby_id,\n  player_one_wallet,\n  player_one_result,\n  player_two_wallet,\n  player_two_result,\n  total_time,\n  game_moves\n) VALUES (\n  :lobby_id!,\n  :player_one_wallet!,\n  :player_one_result!,\n  :player_two_wallet!,\n  :player_two_result!,\n  :total_time!,\n  :game_moves!\n)"};
 
 /**
  * Query generated from SQL:
@@ -207,3 +213,5 @@ const createFinalMatchStateIR: any = {"usedParamSet":{"lobby_id":true,"player_on
  * ```
  */
 export const createFinalMatchState = new PreparedQuery<ICreateFinalMatchStateParams,ICreateFinalMatchStateResult>(createFinalMatchStateIR);
+
+

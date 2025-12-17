@@ -60,6 +60,21 @@ export const apiRouter: StartConfigApiRouter = async function (
     }
   });
 
+  // Alias for frontend compatibility
+  server.get("/user/:walletAddress/stats", async (request, reply) => {
+    const { walletAddress } = request.params as { walletAddress: string };
+    try {
+      const [userStats] = await runPreparedQuery(
+        getUserStats.run({ wallet: walletAddress }, dbConn),
+        "getUserStats"
+      );
+      return reply.send(userStats || { wallet: walletAddress, wins: 0, losses: 0, ties: 0 });
+    } catch (error) {
+      console.error("Error fetching user stats:", error);
+      return reply.code(500).send({ error: "Internal server error" });
+    }
+  });
+
   // Get open lobbies (paginated)
   server.get("/open_lobbies", async (request, reply) => {
     const { page = 0, count = 10 } = request.query as { page?: number; count?: number };
@@ -75,6 +90,44 @@ export const apiRouter: StartConfigApiRouter = async function (
       return reply.send(result.rows);
     } catch (error) {
       console.error("Error fetching open lobbies:", error);
+      return reply.code(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // Alias for frontend compatibility
+  server.get("/lobbies/open", async (request, reply) => {
+    const { page = 0, count = 10 } = request.query as { page?: number; count?: number };
+
+    try {
+      const result = await dbConn.query(
+        `SELECT * FROM lobbies
+         WHERE lobby_state = 'open' AND hidden = false
+         ORDER BY created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [Number(count), Number(page)]
+      );
+      return reply.send(result.rows);
+    } catch (error) {
+      console.error("Error fetching open lobbies:", error);
+      return reply.code(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // Get active lobbies (for frontend compatibility)
+  server.get("/lobbies/active", async (request, reply) => {
+    const { page = 0, count = 10 } = request.query as { page?: number; count?: number };
+
+    try {
+      const result = await dbConn.query(
+        `SELECT * FROM lobbies
+         WHERE lobby_state = 'active'
+         ORDER BY created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [Number(count), Number(page)]
+      );
+      return reply.send(result.rows);
+    } catch (error) {
+      console.error("Error fetching active lobbies:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
   });
@@ -151,6 +204,49 @@ export const apiRouter: StartConfigApiRouter = async function (
       return reply.send(finalState || null);
     } catch (error) {
       console.error("Error fetching final match state:", error);
+      return reply.code(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // Alias for frontend compatibility
+  server.get("/lobby/:lobbyId/result", async (request, reply) => {
+    const { lobbyId } = request.params as { lobbyId: string };
+
+    try {
+      const [finalState] = await runPreparedQuery(
+        getFinalMatchState.run({ lobby_id: lobbyId }, dbConn),
+        "getFinalMatchState"
+      );
+      return reply.send(finalState || null);
+    } catch (error) {
+      console.error("Error fetching final match state:", error);
+      return reply.code(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // Get all moves for a lobby (for frontend compatibility)
+  server.get("/lobby/:lobbyId/moves", async (request, reply) => {
+    const { lobbyId } = request.params as { lobbyId: string };
+
+    try {
+      const rounds = await runPreparedQuery(
+        getAllRounds.run({ lobby_id: lobbyId }, dbConn),
+        "getAllRounds"
+      );
+
+      // Fetch moves for all rounds
+      const allMoves = [];
+      for (const round of rounds) {
+        const moves = await runPreparedQuery(
+          getCachedMoves.run({ lobby_id: lobbyId, round: round.round_within_match }, dbConn),
+          "getCachedMoves"
+        );
+        allMoves.push(...moves);
+      }
+
+      return reply.send(allMoves);
+    } catch (error) {
+      console.error("Error fetching all moves:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
   });

@@ -1,12 +1,12 @@
 /** Types generated for queries found in "src/sql/update.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
-import { LobbyStatus } from '../common.ts';
+export type lobby_status = 'active' | 'closed' | 'finished' | 'open';
 
 /** 'UpdateLobbyState' parameters type */
 export interface IUpdateLobbyStateParams {
-  lobby_state: LobbyStatus;
   lobby_id: string;
+  lobby_state: lobby_status;
 }
 
 /** 'UpdateLobbyState' return type */
@@ -18,7 +18,7 @@ export interface IUpdateLobbyStateQuery {
   result: IUpdateLobbyStateResult;
 }
 
-const updateLobbyStateIR: any = {"usedParamSet":{"lobby_state":true,"lobby_id":true},"params":[{"name":"lobby_state","required":true,"transform":{"type":"scalar"},"locs":[{"a":35,"b":47}]},{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":64,"b":73}]}],"statement":"UPDATE lobbies\nSET lobby_state = :lobby_state!\nWHERE lobby_id = :lobby_id!"};
+const updateLobbyStateIR: any = {"usedParamSet":{"lobby_state":true,"lobby_id":true},"params":[{"name":"lobby_state","required":true,"transform":{"type":"scalar"},"locs":[{"a":33,"b":45}]},{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":64,"b":73}]}],"statement":"UPDATE lobbies\nSET lobby_state = :lobby_state!\nWHERE lobby_id = :lobby_id!"};
 
 /**
  * Query generated from SQL:
@@ -33,8 +33,8 @@ export const updateLobbyState = new PreparedQuery<IUpdateLobbyStateParams,IUpdat
 
 /** 'UpdateLobbyPlayerTwo' parameters type */
 export interface IUpdateLobbyPlayerTwoParams {
-  player_two: string;
   lobby_id: string;
+  player_two: string;
 }
 
 /** 'UpdateLobbyPlayerTwo' return type */
@@ -46,7 +46,7 @@ export interface IUpdateLobbyPlayerTwoQuery {
   result: IUpdateLobbyPlayerTwoResult;
 }
 
-const updateLobbyPlayerTwoIR: any = {"usedParamSet":{"player_two":true,"lobby_id":true},"params":[{"name":"player_two","required":true,"transform":{"type":"scalar"},"locs":[{"a":32,"b":43}]},{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":79,"b":88}]}],"statement":"UPDATE lobbies\nSET player_two = :player_two!, lobby_state = 'active'\nWHERE lobby_id = :lobby_id!"};
+const updateLobbyPlayerTwoIR: any = {"usedParamSet":{"player_two":true,"lobby_id":true},"params":[{"name":"player_two","required":true,"transform":{"type":"scalar"},"locs":[{"a":32,"b":43}]},{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":86,"b":95}]}],"statement":"UPDATE lobbies\nSET player_two = :player_two!, lobby_state = 'active'\nWHERE lobby_id = :lobby_id!"};
 
 /**
  * Query generated from SQL:
@@ -62,8 +62,8 @@ export const updateLobbyPlayerTwo = new PreparedQuery<IUpdateLobbyPlayerTwoParam
 /** 'UpdateMatchState' parameters type */
 export interface IUpdateMatchStateParams {
   latest_match_state: string;
-  round_winner: string;
   lobby_id: string;
+  round_winner: string;
 }
 
 /** 'UpdateMatchState' return type */
@@ -75,7 +75,7 @@ export interface IUpdateMatchStateQuery {
   result: IUpdateMatchStateResult;
 }
 
-const updateMatchStateIR: any = {"usedParamSet":{"latest_match_state":true,"round_winner":true,"lobby_id":true},"params":[{"name":"latest_match_state","required":true,"transform":{"type":"scalar"},"locs":[{"a":44,"b":63}]},{"name":"round_winner","required":true,"transform":{"type":"scalar"},"locs":[{"a":83,"b":96}]},{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":113,"b":122}]}],"statement":"UPDATE lobbies\nSET\n  latest_match_state = :latest_match_state!,\n  round_winner = :round_winner!\nWHERE lobby_id = :lobby_id!"};
+const updateMatchStateIR: any = {"usedParamSet":{"latest_match_state":true,"round_winner":true,"lobby_id":true},"params":[{"name":"latest_match_state","required":true,"transform":{"type":"scalar"},"locs":[{"a":42,"b":61}]},{"name":"round_winner","required":true,"transform":{"type":"scalar"},"locs":[{"a":81,"b":94}]},{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":113,"b":122}]}],"statement":"UPDATE lobbies\nSET\n  latest_match_state = :latest_match_state!,\n  round_winner = :round_winner!\nWHERE lobby_id = :lobby_id!"};
 
 /**
  * Query generated from SQL:
@@ -106,7 +106,7 @@ export interface IUpdateRoundExecutionQuery {
   result: IUpdateRoundExecutionResult;
 }
 
-const updateRoundExecutionIR: any = {"usedParamSet":{"execution_block_height":true,"lobby_id":true,"round_within_match":true},"params":[{"name":"execution_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":52,"b":75}]},{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":92,"b":101}]},{"name":"round_within_match","required":true,"transform":{"type":"scalar"},"locs":[{"a":128,"b":147}]}],"statement":"UPDATE rounds\nSET execution_block_height = :execution_block_height!\nWHERE lobby_id = :lobby_id! AND round_within_match = :round_within_match!"};
+const updateRoundExecutionIR: any = {"usedParamSet":{"execution_block_height":true,"lobby_id":true,"round_within_match":true},"params":[{"name":"execution_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":43,"b":66}]},{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":85,"b":94}]},{"name":"round_within_match","required":true,"transform":{"type":"scalar"},"locs":[{"a":121,"b":140}]}],"statement":"UPDATE rounds\nSET execution_block_height = :execution_block_height!\nWHERE lobby_id = :lobby_id! AND round_within_match = :round_within_match!"};
 
 /**
  * Query generated from SQL:
@@ -121,10 +121,10 @@ export const updateRoundExecution = new PreparedQuery<IUpdateRoundExecutionParam
 
 /** 'UpdateUserStats' parameters type */
 export interface IUpdateUserStatsParams {
-  wins: number;
   losses: number;
   ties: number;
   wallet: string;
+  wins: number;
 }
 
 /** 'UpdateUserStats' return type */
@@ -136,7 +136,7 @@ export interface IUpdateUserStatsQuery {
   result: IUpdateUserStatsResult;
 }
 
-const updateUserStatsIR: any = {"usedParamSet":{"wins":true,"losses":true,"ties":true,"wallet":true},"params":[{"name":"wins","required":true,"transform":{"type":"scalar"},"locs":[{"a":52,"b":57}]},{"name":"losses","required":true,"transform":{"type":"scalar"},"locs":[{"a":79,"b":86}]},{"name":"ties","required":true,"transform":{"type":"scalar"},"locs":[{"a":103,"b":108}]},{"name":"wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":125,"b":132}]}],"statement":"UPDATE global_user_state\nSET\n  wins = wins + :wins!,\n  losses = losses + :losses!,\n  ties = ties + :ties!\nWHERE wallet = :wallet!"};
+const updateUserStatsIR: any = {"usedParamSet":{"wins":true,"losses":true,"ties":true,"wallet":true},"params":[{"name":"wins","required":true,"transform":{"type":"scalar"},"locs":[{"a":45,"b":50}]},{"name":"losses","required":true,"transform":{"type":"scalar"},"locs":[{"a":73,"b":80}]},{"name":"ties","required":true,"transform":{"type":"scalar"},"locs":[{"a":99,"b":104}]},{"name":"wallet","required":true,"transform":{"type":"scalar"},"locs":[{"a":121,"b":128}]}],"statement":"UPDATE global_user_state\nSET\n  wins = wins + :wins!,\n  losses = losses + :losses!,\n  ties = ties + :ties!\nWHERE wallet = :wallet!"};
 
 /**
  * Query generated from SQL:
@@ -166,7 +166,7 @@ export interface ICloseLobbyQuery {
   result: ICloseLobbyResult;
 }
 
-const closeLobbyIR: any = {"usedParamSet":{"lobby_id":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":60,"b":69}]}],"statement":"UPDATE lobbies\nSET lobby_state = 'closed'\nWHERE lobby_id = :lobby_id!"};
+const closeLobbyIR: any = {"usedParamSet":{"lobby_id":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":59,"b":68}]}],"statement":"UPDATE lobbies\nSET lobby_state = 'closed'\nWHERE lobby_id = :lobby_id!"};
 
 /**
  * Query generated from SQL:
@@ -193,7 +193,7 @@ export interface IFinishLobbyQuery {
   result: IFinishLobbyResult;
 }
 
-const finishLobbyIR: any = {"usedParamSet":{"lobby_id":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":62,"b":71}]}],"statement":"UPDATE lobbies\nSET lobby_state = 'finished'\nWHERE lobby_id = :lobby_id!"};
+const finishLobbyIR: any = {"usedParamSet":{"lobby_id":true},"params":[{"name":"lobby_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":61,"b":70}]}],"statement":"UPDATE lobbies\nSET lobby_state = 'finished'\nWHERE lobby_id = :lobby_id!"};
 
 /**
  * Query generated from SQL:
@@ -204,3 +204,5 @@ const finishLobbyIR: any = {"usedParamSet":{"lobby_id":true},"params":[{"name":"
  * ```
  */
 export const finishLobby = new PreparedQuery<IFinishLobbyParams,IFinishLobbyResult>(finishLobbyIR);
+
+
