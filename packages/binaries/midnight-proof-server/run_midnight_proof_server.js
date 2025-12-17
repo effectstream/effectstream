@@ -1,6 +1,7 @@
 const { spawn } = require("child_process");
 const path = require("path");
-const { getPlatform } = require("./binary.js");
+
+const BINARY_NAME = "midnight-proof-server";
 
 /**
  * Executes the midnight-proof-server binary as a child process.
@@ -9,9 +10,7 @@ const { getPlatform } = require("./binary.js");
  * @returns {import('child_process').ChildProcess}
  */
 function runMidnightProofServer(env = process.env, args = []) {
-  const platform = getPlatform();
-  const binaryName = `midnight-proof-server-${platform}`;
-  const binaryPath = path.join(__dirname, "proof-server", binaryName);
+  const binaryPath = path.join(__dirname, "proof-server", BINARY_NAME);
 
   console.log(`Starting midnight proof server binary at: ${binaryPath}`);
 

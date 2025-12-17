@@ -4,7 +4,8 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
-const CURRENT_BINARY_VERSION = "0.12.0";
+const CURRENT_BINARY_VERSION = "0.12.1";
+const FINAL_BINARY_NAME = "midnight-node";
 
 /*
 @returns {string} The platform and architecture of the current machine.
@@ -64,25 +65,66 @@ async function downloadAndSaveBinary() {
 /*
 @returns {Promise<void>} Unzips the binary for the current platform.
 */
+function findExtractedBinary(binaryDir, platform) {
+  const candidateNames = new Set([
+    FINAL_BINARY_NAME,
+    `midnight-node-${platform}`,
+    `midnight-node-${platform}-${CURRENT_BINARY_VERSION}`,
+  ]);
+
+  const explore = (dir) => {
+    for (const entry of fs.readdirSync(dir)) {
+      const entryPath = path.join(dir, entry);
+      const entryStats = fs.statSync(entryPath);
+
+      if (entryStats.isFile() && candidateNames.has(entry)) {
+        return entryPath;
+      }
+
+      if (entryStats.isDirectory()) {
+        for (const candidate of candidateNames) {
+          const nestedPath = path.join(entryPath, candidate);
+          if (fs.existsSync(nestedPath) && fs.statSync(nestedPath).isFile()) {
+            return nestedPath;
+          }
+        }
+        const nestedResult = explore(entryPath);
+        if (nestedResult) return nestedResult;
+      }
+    }
+    return null;
+  };
+
+  return explore(binaryDir);
+}
+
 async function unzipBinary() {
-  await extract(path.join(__dirname, FILE_NAME), {
-    dir: path.join(__dirname, "midnight-node"),
-  });
+  const binaryDir = path.join(__dirname, "midnight-node");
+  await extract(path.join(__dirname, FILE_NAME), { dir: binaryDir });
   const platform = getPlatform();
-  const parts = platform.split("-");
-  const binaryName = `midnight-node-${platform}`;
-  if (parts[0] === "linux") {
-    fs.chmodSync(
-      path.join(__dirname, "midnight-node", binaryName),
-      0o755,
+  const finalBinaryPath = path.join(binaryDir, FINAL_BINARY_NAME);
+  const extractedBinaryPath = findExtractedBinary(binaryDir, platform);
+
+  if (!extractedBinaryPath) {
+    throw new Error(
+      `Expected binary not found after extraction in ${binaryDir}`,
     );
   }
-  fs.unlinkSync(
-    path.join(
-      __dirname,
-      FILE_NAME,
-    ),
-  );
+
+  if (extractedBinaryPath !== finalBinaryPath) {
+    if (fs.existsSync(finalBinaryPath)) {
+      fs.unlinkSync(finalBinaryPath);
+    }
+    fs.renameSync(extractedBinaryPath, finalBinaryPath);
+  }
+
+  if (!fs.existsSync(finalBinaryPath)) {
+    throw new Error(`Expected binary not found: ${finalBinaryPath}`);
+  }
+
+  fs.chmodSync(finalBinaryPath, 0o755);
+
+  fs.unlinkSync(path.join(__dirname, FILE_NAME));
 }
 
 async function binary() {

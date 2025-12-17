@@ -5,6 +5,7 @@ const extract = require("extract-zip");
 const path = require("path");
 
 const CURRENT_BINARY_VERSION = "ledger-4.0.0";
+const FINAL_BINARY_NAME = "midnight-proof-server";
 
 /**
  * @returns {string} The platform and architecture of the current machine. Example: "linux-amd64"
@@ -62,13 +63,26 @@ async function unzipBinary() {
   }
   await extract(zipPath, { dir: destDir });
   const platform = getPlatform();
-  const parts = platform.split("-");
-  if (parts[0] === "linux") {
-    fs.chmodSync(
-      path.join(destDir, `midnight-proof-server-${platform}`),
-      0o755,
-    );
+  const extractedBinaryPath = path.join(
+    destDir,
+    `midnight-proof-server-${platform}`,
+  );
+  const finalBinaryPath = path.join(destDir, FINAL_BINARY_NAME);
+
+  if (fs.existsSync(extractedBinaryPath) &&
+      extractedBinaryPath !== finalBinaryPath) {
+    if (fs.existsSync(finalBinaryPath)) {
+      fs.unlinkSync(finalBinaryPath);
+    }
+    fs.renameSync(extractedBinaryPath, finalBinaryPath);
   }
+
+  if (!fs.existsSync(finalBinaryPath)) {
+    throw new Error(`Expected binary not found: ${finalBinaryPath}`);
+  }
+
+  fs.chmodSync(finalBinaryPath, 0o755);
+
   fs.unlinkSync(zipPath);
 }
 

@@ -22,7 +22,7 @@ const main = async () => {
 
     for (let i = 0; i < rawArgs.length; i++) {
         const arg = rawArgs[i]
-        if (arg === '--docker') {
+        if (arg === '--docker' || arg === '--binary') {
             continue
         }
         if (arg === '--docker-tag') {
