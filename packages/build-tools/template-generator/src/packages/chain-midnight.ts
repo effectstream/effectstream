@@ -8,9 +8,12 @@ import {
 import { midnightContractOptions } from "@effectstream/midnight-contracts/scaffold";
 import {
   midnightPrimitiveBlock as midnightPrimitiveBlock_,
+  getReadContractCode as getReadContractCode_,
+  contractBatcher as contractBatcher_,
   midnightGrammar as midnightGrammar_,
   midnightStateMachine as midnightStateMachine_,
 } from "@effectstream/midnight-contracts/scaffold";
+
 export class ChainMidnightPackage extends Package {
   constructor(
     projectPath: string,
@@ -20,12 +23,16 @@ export class ChainMidnightPackage extends Package {
     super(projectPath, options);
   }
 
-  static midnightImportBlock = (projectName: string, contractName: string) => {
+  static midnightReadContractCode = (contractName: string, index: number) => {
+    return `const { contractInfo: contractInfo${index}, contractAddress: contractAddress${index}, zkConfigPath: zkConfigPath${index} } = readMidnightContract("${contractName}", "contract-${contractName}.json");`
+  }
+
+  static midnightImportBlock = (projectName: string, contractName: string, extension: string = "/contract", importPostfix: string = "Contract") => {
     const safeCodeContractName =
       ChainMidnightPackage.safeCodeContractName(contractName);
     const safePackageName = ChainMidnightPackage.safePackageName(contractName);
     return `
-          import * as ${safeCodeContractName}Contract from "@${projectName}/midnight-contract-${safePackageName}/contract";
+          import * as ${safeCodeContractName}${importPostfix} from "@${projectName}/midnight-contract-${safePackageName}${extension || ''}";
         `;
   };
 
@@ -34,6 +41,18 @@ export class ChainMidnightPackage extends Package {
       ChainMidnightPackage.safeCodeContractName(contractName);
     const safePackageName = ChainMidnightPackage.safePackageName(contractName);
     return midnightPrimitiveBlock_(safeCodeContractName, safePackageName);
+  };
+
+  static contractBatcher = (contractName: string, index: number) => {
+    const safeCodeContractName =
+      ChainMidnightPackage.safeCodeContractName(contractName);
+    const safePackageName = ChainMidnightPackage.safePackageName(contractName);
+    return contractBatcher_(safeCodeContractName, safePackageName, index);
+  };
+
+  static getReadContractCode = (contractName: string) => {
+    const safePackageName = ChainMidnightPackage.safePackageName(contractName);
+    return getReadContractCode_(safePackageName);
   };
 
   static safeCodeContractName(contractName: string): string {

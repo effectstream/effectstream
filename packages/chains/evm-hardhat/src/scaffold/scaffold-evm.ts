@@ -156,6 +156,13 @@ export function evmStateMachine(contract: string): string {
                     "🎉 [EVM:${option.value}] Transaction receipt:",
                     JSON.stringify(data.parsedInput)
                 );
+
+                yield* World.resolve(insertData, { 
+                    chain: "evm", 
+                    action: "${contract}", 
+                    data: JSON.stringify(data.parsedInput), 
+                    block_height: data.blockHeight
+                });
             });
         `;
     }

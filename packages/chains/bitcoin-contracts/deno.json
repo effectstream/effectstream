@@ -12,7 +12,7 @@
         "wait-for-block": "deno run -A src/wait-for-block.ts"
     },
     "imports": {
-        "@std/path": "jsr:@std/path@^1.1.2",
+        "@std/path": "jsr:@std/path@^1.1.3",
         "bitcoinjs-lib": "npm:bitcoinjs-lib@^7.0.0",
         "ecpair": "npm:ecpair@^3.0.0",
         "tiny-secp256k1": "npm:tiny-secp256k1@^2.2.4"

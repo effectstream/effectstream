@@ -4,6 +4,7 @@ import type { BaseStfInput, BaseStfOutput } from "@paimaexample/sm";
 import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
 import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
 import { contractAddressesEvmMain } from "@[scope]/evm-contracts";
+import { insertData } from "@[scope]/database";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 

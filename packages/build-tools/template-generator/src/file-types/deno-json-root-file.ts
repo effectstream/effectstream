@@ -34,7 +34,7 @@ export class RootDenoJsonFile extends GeneratedFile {
         if (chains.includes('evm')) {
             imports[`${PAIMA_SCOPE}/evm-contracts`] = `jsr:${PAIMA_SCOPE}/evm-contracts@${EFFECTSTREAM_VERSION}`;
         }
-        imports['@std/path'] = 'jsr:@std/path@^1.1.2';
+        imports['@std/path'] = 'jsr:@std/path@^1.1.3';
         
         this.content = {
             workspace: ['./packages/**/*'],

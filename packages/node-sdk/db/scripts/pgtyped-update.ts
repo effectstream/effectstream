@@ -3,7 +3,7 @@
  * Runs database startup and pgtyped generation concurrently
  */
 
-import { dirname, join } from "jsr:@std/path@1.1.1";
+import { dirname, join } from "jsr:@std/path@1.1.3";
 
 const __dirname = dirname(import.meta.url.replace("file://", ""));
 

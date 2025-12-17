@@ -86,8 +86,8 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/effectstream-sdk/config" },
   { path: "./packages/effectstream-sdk/precompile" },
   { path: "./packages/effectstream-sdk/chain-types" }, // [@utils, @config]
-  { path: "./packages/effectstream-sdk/concise" }, // [@chain-types, @precompile]
   { path: "./packages/effectstream-sdk/crypto" },
+  { path: "./packages/effectstream-sdk/concise" }, // [@chain-types, @precompile, @crypto]
   { path: "./packages/effectstream-sdk/events" },
   // { path: "./packages/effectstream-sdk/wallets" }, // [@concise, @crypto, @events-client]
   { path: "./packages/effectstream-sdk/coroutine" },
@@ -416,6 +416,9 @@ async function main() {
     await walkAndProcess(rootDir, true);
   } else {
     console.log("Starting replacement...");
+
+    await walkAndProcess(rootDir, false);
+
     if (!skipPrepublish) {
       await prePublishPackages();
     }
@@ -424,8 +427,6 @@ async function main() {
       console.log("Completed pre-publish phase. Exiting due to --only-prepublish.");
       return;
     }
-
-    await walkAndProcess(rootDir, false);
   }
 
   if (shouldPublish) {

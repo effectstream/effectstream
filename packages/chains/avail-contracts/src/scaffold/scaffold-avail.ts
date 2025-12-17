@@ -125,6 +125,13 @@ export function availStateMachine(contract: string): string {
                 "🎉 [AVAIL] Transaction receipt:",
                 JSON.stringify(data.parsedInput)
             );
+
+            yield* World.resolve(insertData, { 
+                chain: "avail", 
+                action: "${contract}", 
+                data: JSON.stringify(data.parsedInput), 
+                block_height: data.blockHeight
+            });
         });
     `;
 }

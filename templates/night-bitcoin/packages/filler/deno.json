@@ -17,7 +17,7 @@
         "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.116",
         "@midnight-ntwrk/wallet-sdk-address-format": "npm:@midnight-ntwrk/wallet-sdk-address-format@2.0.0",
         "@std/cli": "jsr:@std/cli@^1.0.24",
-        "@std/path": "jsr:@std/path@^1.1.2",
+        "@std/path": "jsr:@std/path@^1.1.3",
         "@std/fs": "jsr:@std/fs@^1.0.6",
         "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
         "bitcoinjs-lib": "npm:bitcoinjs-lib@^6.1.5",

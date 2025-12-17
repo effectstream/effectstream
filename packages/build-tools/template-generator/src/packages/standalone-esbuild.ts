@@ -1,17 +1,8 @@
-import * as path from "jsr:@std/path";
+import * as path from "@std/path";
 import { Package, PackageInfo } from './abstract-package.ts';
-import { GeneratedFile } from '../file-types/generated-file.ts';
 import { copyFiles } from "../file-operations.ts";
+import { EFFECTSTREAM_VERSION } from "../options.ts";
 
-class StandaloneNpmrcFile extends GeneratedFile {
-    constructor(filePath: string) {
-        super(filePath);
-    }
-
-    getContent(): string {
-        return '@jsr:registry=https://npm.jsr.io';
-    }
-}
 
 export class StandaloneEsbuildPackage extends Package {
     public async generate(): Promise<PackageInfo | null> {
@@ -30,10 +21,9 @@ export class StandaloneEsbuildPackage extends Package {
             frontendPath,
             {
                 "projectName": this.options.projectName,
+                "EFFECTSTREAM-VERSION": EFFECTSTREAM_VERSION,
             }
         );
-
-        await new StandaloneNpmrcFile(path.join(frontendPath, '.npmrc')).write();
 
         return { name: packageName, path: frontendPath };
     }

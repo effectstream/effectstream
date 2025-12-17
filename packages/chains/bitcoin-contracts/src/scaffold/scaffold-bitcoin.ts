@@ -75,35 +75,14 @@ export function bitcoinStateMachine(): string {
                 "🎉 [BITCOIN] Transaction receipt:",
                 JSON.stringify(data.parsedInput)
             );
+
+            yield* World.resolve(insertData, { 
+                chain: "bitcoin", 
+                action: "transaction", 
+                data: JSON.stringify(data.parsedInput), 
+                block_height: data.blockHeight
+            });
         });
     `;
 }
 
-if (import.meta.main) {
-    function checkInputs(args: string[]): { targetFolder: string, packageName: string, version: string } {
-        const targetFolder = args[0];
-        const packageName = args[1];
-        const version = args[2];
-        if (!targetFolder) {
-            console.error("Target folder is required");
-            Deno.exit(1);
-        }
-        if (!packageName) {
-            console.error("Package name is required");
-            Deno.exit(1);
-        }
-        if (!version) {
-            console.error("Version is required");
-            Deno.exit(1);
-        }
-        return { 
-            targetFolder: targetFolder.trim(), 
-            packageName: packageName.trim(),
-            version: version.trim()
-        };
-    }
- 
-    checkInputs(Deno.args);
-    const { targetFolder, packageName, version } = checkInputs(Deno.args);
-    await scaffoldBitcoinProject(targetFolder, packageName, version);
-}

@@ -54,6 +54,40 @@ export async function scaffoldMidnightProject(
     }
 };
 
+export function getReadContractCode(safePackageName: string): string {
+    return `
+        readMidnightContract("${safePackageName}", "contract-${safePackageName}.json")
+    `;
+}
+
+export function contractBatcher(_safeCodeContractName: string, safePackageName: string, index: number): string {
+    const safeCodeContractName  = _safeCodeContractName + 'Contract';
+    const infoImport = _safeCodeContractName + 'Info';
+    return `
+    /** MIDNIGHT-READ-CONTRACT-BLOCK */
+  const midnightAdapterConfig${index} = {
+    indexer,
+    indexerWS,
+    node,
+    proofServer,
+    zkConfigPath: zkConfigPath${index},
+    privateStateStoreName: "private-state-${safeCodeContractName}", // Local LevelDB store
+    privateStateId: "${safeCodeContractName}PrivateState", // On-chain contract ID (must match deploy.ts)
+  }
+  export const midnightAdapter_${_safeCodeContractName} = new MidnightAdapter(
+    contractAddress${index},
+    GENESIS_MINT_WALLET_SEED,
+    midnightAdapterConfig${index},
+    new ${safeCodeContractName}.Contract(${infoImport}.witnesses),
+    ${infoImport}.witnesses,
+    contractInfo${index},
+    networkID,
+    syncProtocolName,
+  );
+  `;
+}
+
+
 export function midnightPrimitiveBlock(safeCodeContractName: string, safePackageName: string): string {
     return `
         .addPrimitive(
@@ -88,8 +122,12 @@ export function midnightStateMachine(safePackageName: string): string {
                 "🎉 [MIDNIGHT:${safePackageName}] Transaction receipt:",
                 JSON.stringify(data.parsedInput.payload)
             );
-            // Insert into database
-            // yield* World.resolve(insert, { params });
+            yield* World.resolve(insertData, { 
+                chain: "midnight", 
+                action: "${safePackageName}", 
+                data: JSON.stringify(data.parsedInput.payload), 
+                block_height: data.blockHeight
+            });
         });
 `;
 }

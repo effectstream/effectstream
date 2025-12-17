@@ -10,8 +10,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@paimaexample/wallets": "npm:@jsr/paimaexample__wallets@0.3.99",
+    "@bitcoinerlab/secp256k1": "^1.2.0",
+    "@paimaexample/wallets": "[EFFECTSTREAM-VERSION]",
+    "bitcoinjs-lib": "^7.0.0",
+    "bitcoinjs-message": "^2.2.0",
+    "ecpair": "^3.0.0",
     "mqtt": "^5.14.1",
+    "tiny-secp256k1": "^2.2.4",
     "viem": "^2.37.5"
   },
   "devDependencies": {

@@ -1,0 +1,18 @@
+import { MidnightAdapter } from "@paimaexample/batcher";
+import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
+
+
+/** MIDNIGHT-IMPORT-BLOCK */
+/** MIDNIGHT-READ-CONTRACT-BLOCK  */
+
+const GENESIS_MINT_WALLET_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
+const indexer = "http://localhost:8088/api/v1/graphql";
+const indexerWS = "ws://localhost:8088/api/v1/graphql/ws";
+const node = "http://localhost:9944";
+const proofServer = "http://localhost:6300";
+const networkID = 0;  // NetworkId.Undeployed,
+const syncProtocolName = "parallelMidnight";
+
+/** MIDNIGHT-ADAPTER-BLOCK */  
+
+/** MIDNIGHT-EXPORT-BLOCK */

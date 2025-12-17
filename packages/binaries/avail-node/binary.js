@@ -13,7 +13,7 @@ const downloadLinks = {
   'x86_64-fedora-41': 'https://github.com/availproject/avail/releases/download/v2.3.0.1-rc1/x86_64-fedora-41-avail-node.tar.gz',
   'x86_64-arch': 'https://github.com/availproject/avail/releases/download/v2.3.0.1-rc1/x86_64-arch-avail-node.tar.gz',
   'x86_64-debian-12': 'https://github.com/availproject/avail/releases/download/v2.3.0.1-rc1/x86_64-debian-12-avail-node.tar.gz',
-  'arm64-macos': 'https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/arm64-macos-avail-node.tar.gz',
+  'arm64-macos': 'https://github.com/effectstream/binaries/releases/download/0.3.120/avail-node-macos-arm64-v2.3.0.1.tar.gz',
 }
 
 const checkIfSupported = () => {
