@@ -1,8 +1,0 @@
-db/src/*.queries.ts
-api/src/tsoa/routes.ts
-
-build
-lib
-dist
-
-packaged
