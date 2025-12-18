@@ -14,6 +14,6 @@
     },
     "tasks": {
         "_pgtyped:my-sql": "deno run -A @paimaexample/db/db-wait && deno run -A @paimaexample/db/apply-migrations && deno run -A --unstable-raw-imports sql-to-ts.ts && pgtyped -c ./pgtypedconfig.json",
-        "pgtyped:update": "concurrently --raw --kill-others \"deno run -A @paimaexample/db/db-up\" \"deno task _pgtyped:my-sql\""
+        "pgtyped:update": "(deno run -A @paimaexample/db/db-up &) && deno task _pgtyped:my-sql"
     }
 }

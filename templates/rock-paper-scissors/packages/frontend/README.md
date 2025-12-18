@@ -1,38 +1,41 @@
-# Rock Paper Scissors Wars Frontend Game Template
+# Rock Paper Scissors Wars - Frontend
 
 Paima Game Template built with:
-Phaser 3 https://phaser.io/phaser3
-Typescript
-Webpack
-Typescript Paima-Middleware
-
-## Installation
-
-Install dependencies with `npm ci`
-
-Tested with:
-node v16.19.1
-npm 8.19.3
+- Phaser 3 (https://phaser.io/phaser3)
+- TypeScript
+- esbuild for bundling
+- Paima Middleware
 
 ## Prerequisites
 
-Game Node running (database/game backend)
-middleware located `./../middleware/`
-
-## Env Setup:
-
-.env.localhost or .env.mainnet must be in `./../../.env.name`
+- Node.js 24.x (for npm dependencies)
+- Deno 2.5.4+ (for task running)
 
 ## Development
 
-`npm run dev` to start the frontend game.
-Changes to the `/src/**/*.ts` files will reload the browser.
+The frontend is managed via Deno tasks defined in `deno.json`:
 
-## Production
+```bash
+# Install npm dependencies
+deno task install
 
-`npm run prod` to build the game.
-`/public` contains the public compiled files.
+# Build the frontend bundle
+deno task build
 
-This template does not provide the file server.
-But you can test it with http-server:
-`npm install -g http-server && http-server ./public`
+# Serve the frontend (development server)
+deno task serve
+```
+
+## Integration
+
+This frontend is automatically built and served when running `deno task dev` from the project root. The orchestrator handles:
+1. Installing dependencies
+2. Building the bundle
+3. Serving on http://localhost:8080
+
+## Structure
+
+- `/src` - TypeScript source files
+- `/public` - Static assets and compiled bundles
+- `esbuild.js` - Build configuration
+- `paimaMiddleware.src.js` - Middleware entry point

@@ -41,10 +41,9 @@ deno install --allow-scripts
 
 # Build EVM contracts
 deno task build:evm
-
-# Build frontend
-cd packages/frontend && npm install && node esbuild.js && cd ../..
 ```
+
+Note: The frontend will be automatically installed, built, and served when you run `deno task dev`.
 
 ### Development
 
