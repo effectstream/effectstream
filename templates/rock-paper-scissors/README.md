@@ -35,12 +35,7 @@ This template uses the Paima Effectstream architecture with:
 ```bash
 # Install dependencies
 npm install
-
-# Remove lock file to ensure Deno recreates node_modules symlinks
-# Note: Required because npm install may clear node_modules, and Deno
-# won't recreate symlinks without a fresh lock file
 rm -rf deno.lock
-
 deno install --allow-scripts
 
 # Run patch script
@@ -198,25 +193,3 @@ node esbuild.js
 2. Add type definition to `packages/shared/data-types/src/types.ts`
 3. Create transition function in `packages/client/node/src/state-machine/v1/transition.ts`
 4. Register in `packages/client/node/src/state-machine.ts`
-
-## Migration Status
-
-This template has been fully migrated from the V1 Paima architecture to Effectstream. Key improvements:
-
-- ✅ Simplified state transitions (direct SQLUpdate returns)
-- ✅ Type-safe database queries with pgtyped
-- ✅ Generator-based coroutine pattern
-- ✅ Modular package structure
-- ✅ Docker support
-- ✅ Middleware layer (`paimaMiddleware.src.js`) with wallet integration
-- ✅ Frontend Phaser scenes migrated to use Effectstream middleware
-- ✅ Frontend build system using esbuild
-
-All components are now fully operational!
-
-## Resources
-
-- [Paima Documentation](https://docs.paimastudios.com)
-- [Effectstream Guide](https://docs.paimastudios.com/effectstream)
-- [Deno Documentation](https://deno.land/manual)
-- [Phaser Documentation](https://phaser.io/docs)
