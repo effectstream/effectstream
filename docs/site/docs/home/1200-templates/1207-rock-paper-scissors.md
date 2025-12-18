@@ -5,6 +5,8 @@
 
 The `rock-paper-scissors` template demonstrates how to build a competitive multiplayer game with lobby management, turn-based rounds, and player statistics. It's an excellent example for games requiring matchmaking, simultaneous hidden moves, and game state progression, all processed deterministically through an Effectstream L2 contract on an EVM chain.
 
+![Rock Paper Scissors Lobby System](./1207-rock-paper-scissors.md)
+
 ## Core Concept: Turn-Based Combat with Lobbies
 
 The goal of this template is to demonstrate a competitive multiplayer game where players create or join lobbies, play best-of-N matches, and track their win/loss records. The game implements classic Rock Paper Scissors rules with a robust lobby and round management system.
@@ -687,11 +689,3 @@ Check that:
 2. You have test ETH in your account
 3. The Effectstream node is running (`deno task dev`)
 4. Check browser console for errors
-
-## Learn More
-
-- [Effectstream State Machine Guide](../200-state-machine/index.md)
-- [Multi-Chain Primitives](../300-primitives/index.md)
-- [Process Orchestrator](../100-components/106-processes.md)
-- [World Map 2D Template](./1206-world-map-2d.md) - For spatial game patterns
-- [Chess Template](./1203-chess.md) - For another turn-based example

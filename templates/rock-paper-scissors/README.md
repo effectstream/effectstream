@@ -34,8 +34,6 @@ This template uses the Paima Effectstream architecture with:
 
 ```bash
 # Install dependencies
-npm install
-rm -rf deno.lock
 deno install --allow-scripts
 
 # Run patch script
