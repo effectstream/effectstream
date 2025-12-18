@@ -17,7 +17,6 @@ import {
   updateUserStats,
   type SQLUpdate,
 } from "./state-machine/v1/transition.ts";
-// import { processSQLQueryIR } from "@pgtyped/runtime";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 
@@ -39,9 +38,7 @@ stm.addStateTransition("createdLobby", function* (data) {
     )
   );
 
-  yield* printSQLQuery(result);
   yield* World.resolve(result[0], result[1]);
-  console.log("DID WE REACH THIS POINT?")
 });
 
 // Join lobby
@@ -68,7 +65,6 @@ stm.addStateTransition("joinedLobby", function* (data) {
 
   // Execute all SQL updates
   for (const result of results) {
-    yield* printSQLQuery(result);
     yield* World.resolve(result[0], result[1]);
   }
 });
@@ -96,7 +92,6 @@ stm.addStateTransition("closedLobby", function* (data) {
 
   // Execute all SQL updates
   for (const result of results) {
-    yield* printSQLQuery(result);
     yield* World.resolve(result[0], result[1]);
   }
 });
@@ -139,7 +134,6 @@ stm.addStateTransition("submittedMoves", function* (data) {
 
   // Execute all SQL updates
   for (const result of results) {
-    yield* printSQLQuery(result);
     yield* World.resolve(result[0], result[1]);
   }
 });
@@ -189,7 +183,6 @@ stm.addStateTransition("zombieScheduledData", function* (data) {
 
   // Execute all SQL updates
   for (const result of results) {
-    yield* printSQLQuery(result);
     yield* World.resolve(result[0], result[1]);
   }
 });
@@ -206,31 +199,8 @@ stm.addStateTransition("userScheduledData", function* (data) {
     })
   );
 
-  yield* printSQLQuery(result);
   yield* World.resolve(result[0], result[1]);
 });
-
-function* printSQLQuery(result: any) {
-  console.error("--------------------------------");
-  console.error(`Processing RPS Query`);
-  console.error(`PreparedQuery type:`, typeof result[0]);
-  console.error(`PreparedQuery constructor:`, result[0]?.constructor?.name);
-  console.error(`PreparedQuery.run type:`, typeof result[0]?.run);
-  console.error(`PreparedQuery.run source:`, result[0]?.run?.toString().substring(0, 200));
-  console.error(`PreparedQuery.queryIR:`, result[0]?.queryIR ? 'EXISTS' : 'MISSING');
-  console.error(`Prepared Query:\n${result[0].queryIR.statement}\n\n`);
-  console.error(`Parameters:\n${JSON.stringify(result[1], null, 2)}\n\n`);
-
-  // // TEST: manually call processSQLQueryIR to see if it works
-  // try {
-  //   const { query: processedQuery, bindings } = processSQLQueryIR(result[0].queryIR, result[1]);
-  //   console.error(`MANUAL PROCESSING TEST:`);
-  //   console.error(`Processed Query (first 200 chars):\n${processedQuery.substring(0, 200)}\n`);
-  //   console.error(`Bindings:`, bindings);
-  // } catch (e) {
-  //   console.error(`MANUAL PROCESSING FAILED:`, e);
-  // }
-}
 
 /**
  * This function allows you to route between different State Transition Functions
