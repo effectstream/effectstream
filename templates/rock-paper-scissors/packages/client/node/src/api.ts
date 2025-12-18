@@ -1,6 +1,6 @@
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paimaexample/runtime";
-import type fastify from "fastify";
+import type { FastifyInstance } from "fastify";
 import { runPreparedQuery } from "@paimaexample/db";
 import {
   getLobbyById,
@@ -14,17 +14,9 @@ import {
 } from "@rock-paper-scissors/db";
 
 export const apiRouter: StartConfigApiRouter = async function (
-  server: fastify.FastifyInstance,
+  server: FastifyInstance,
   dbConn: Pool,
 ): Promise<void> {
-
-  // Add CORS headers for all routes
-  server.addHook('onRequest', async (request, reply) => {
-    reply.header('Access-Control-Allow-Origin', '*');
-    reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  });
-
   // Get lobby by ID
   server.get("/lobby/:lobbyId", async (request, reply) => {
     const { lobbyId } = request.params as { lobbyId: string };

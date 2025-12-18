@@ -54,15 +54,12 @@ RUN deno task -f @rock-paper-scissors/evm-contracts build:mod
 
 RUN cd packages/frontend && npm install && node esbuild.js
 
-COPY .docker-scripts/launch.sh /app/launch.sh
-RUN chmod +x /app/launch.sh
-
 # Frontend / Explorer / Hardhat 1&2 / API / Batcher
 EXPOSE 8080
 EXPOSE 8545
 EXPOSE 9999
-EXPOSE 3334
+EXPOSE 10590
 
 ENV RUN_IN_DOCKER=true
 ENV EFFECTSTREAM_STDOUT=true
-CMD ["/app/launch.sh"]
+CMD ["deno", "task", "dev"]
