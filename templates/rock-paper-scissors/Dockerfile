@@ -52,7 +52,8 @@ RUN deno install npm:wait-on
 RUN /app/patch.sh
 RUN deno task -f @rock-paper-scissors/evm-contracts build:mod
 
-RUN cd packages/frontend && npm install && node esbuild.js
+RUN deno task -f @rock-paper-scissors/frontend install
+RUN deno task -f @rock-paper-scissors/frontend build
 
 # Frontend / Explorer / Hardhat 1&2 / API / Batcher
 EXPOSE 8080

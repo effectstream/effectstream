@@ -13,12 +13,26 @@ const customProcesses = [
     stopProcessAtPort: [10590],
   },
   {
-    name: "frontend",
-    args: ["run", "-A", "npm:http-server@14.1.1", "../../../packages/frontend/public", "-p", "8080"],
+    name: "install-frontend",
+    args: ["task", "-f", "@rock-paper-scissors/frontend", "install"],
+    waitToExit: true,
+    type: "system-dependency",
+  },
+  {
+    name: "build-frontend",
+    args: ["task", "-f", "@rock-paper-scissors/frontend", "build"],
+    waitToExit: true,
+    type: "system-dependency",
+    dependsOn: ["install-frontend"],
+  },
+  {
+    name: "serve-frontend",
+    args: ["task", "-f", "@rock-paper-scissors/frontend", "serve"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:8080",
     stopProcessAtPort: [8080],
+    dependsOn: ["build-frontend"],
   },
 ];
 

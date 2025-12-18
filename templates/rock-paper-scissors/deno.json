@@ -3,7 +3,7 @@
     "./packages/client/*",
     "./packages/shared/*",
     "./packages/shared/**/*",
-    "!./packages/frontend"
+    "./packages/frontend"
   ],
   "nodeModulesDir": "auto",
   "imports": {
