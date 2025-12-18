@@ -20,6 +20,8 @@ export const launchEvm = (packageName: string): {
   args: string[];
   waitToExit?: boolean;
   logs?: string;
+  logsStartDisabled?: boolean;
+  disableStderr?: boolean;
   type?: string;
   dependsOn?: string[];
 }[] => [
@@ -29,6 +31,8 @@ export const launchEvm = (packageName: string): {
       args: ["task", "-f", packageName, "chain:start"],
       waitToExit: false,
       logs: "tsLogOrchestratorAdapter",
+      logsStartDisabled: true,
+      disableStderr: true,
       type: "system-dependency",
       dependsOn: [],
     },

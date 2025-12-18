@@ -20,6 +20,7 @@ function mapProcess(p: ProcessComponent) {
     args: p.args,
     date: p.date,
     link: p.link,
+    critical: p.critical,
   };
 }
 server.get("/processes", function handler() {
@@ -32,13 +33,16 @@ server.get("/restart-sync", async function handler() {
   const syncProcessI = processes.findIndex(
     (p) => (p.component === ComponentNames.EFFECTSTREAM_SYNC && p.alive),
   );
-  if (syncProcessI !== -1) {
+  const wasRunning = syncProcessI !== -1;
+  if (wasRunning) {
     terminateProcess(syncProcessI);
-    await pFactory![ComponentNames.EFFECTSTREAM_SYNC]();
   }
+  // Always attempt to start (even if it was already down).
+  await pFactory![ComponentNames.EFFECTSTREAM_SYNC]();
 
   return {
     success: true,
+    wasRunning,
   };
 });
 

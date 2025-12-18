@@ -1,6 +1,5 @@
 import type { Static } from "@sinclair/typebox";
 import { type Caip2, type MergeIntersects, strip0x } from "@effectstream/utils";
-import assertNever from "assert-never";
 import { registry, toChainId } from "@dcspark/cip34-js";
 import { ConfigNetworkType } from "./types.ts";
 import type { ConfigNetworkAll } from "./all.ts";
@@ -37,9 +36,8 @@ function networkToCip34(
         networkId: 0,
         networkMagic: 42,
       });
-    default:
-      assertNever.default(config.network);
   }
+  throw new Error(`Unknown network: ${config.network}`);
 }
 
 export function caip2PrefixFor(
@@ -86,7 +84,6 @@ export function caip2PrefixFor(
       const identifier = "algorand:" + prefix;
       return identifier;
     }
-    default:
-      assertNever.default(type);
   }
+  throw new Error(`Unknown network type: ${type}`);
 }

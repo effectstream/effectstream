@@ -8,6 +8,7 @@ import {
   createDynamicTables,
   getConnection,
   releaseDBMutex,
+  resetPublicTables,
 } from "@effectstream/db";
 import { PaimaEventBroker } from "@effectstream/event-server";
 import {
@@ -183,6 +184,11 @@ function* startup(
 
   
   yield* acquireDBMutex(`startup-node`);
+
+  // Dev-only reset of user-owned public tables
+  if (config.dev?.resetPublicData) {
+    yield* resetPublicTables(dbConn);
+  }
 
   // When the node is started, we apply system migrations.
   // Either system initial migrations, or migrations given a Paima Engine Update.

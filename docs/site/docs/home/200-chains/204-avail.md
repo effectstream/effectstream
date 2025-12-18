@@ -58,8 +58,57 @@ To submit data to Avail, use an adapter that interacts with the Avail SDK or Lig
 // The adapter would use `avail-js-sdk` to submit data blobs.
 const availAdapter = new AvailAdapter(appId, seed, endpoint);
 ```
+## 3. Browser Wallets (Connect)
 
-## 3. Orchestration
+You can connect using `WalletMode.AvailJs`. This is often used for development with a seed or connecting to specific Avail extensions.
+
+```typescript
+import { walletLogin, WalletMode } from "@effectstream/wallets";
+// Note: For Polkadot.js extension wallets, you might also use WalletMode.Polkadot
+
+const result = await walletLogin({
+  mode: WalletMode.AvailJs,
+  // For dev mode, you might provide a connection with a keyring seed
+  seed: "your test seed phrase", 
+  preferBatchedMode: true,
+});
+
+if (result.success) {
+  const wallet = result.result;
+  console.log("Connected Avail Address:", wallet.walletAddress);
+}
+```
+
+## 4. Cryptography (Verify)
+
+Avail uses the Substrate address format (SS58). You can verify these addresses and signatures using the `CryptoManager`'s Polkadot implementation.
+
+### Signing Messages
+```typescript
+import { signMessage } from "@effectstream/wallets";
+
+const signature = await signMessage(wallet, "Hello Avail");
+```
+
+### Verifying Signatures
+```typescript
+import { CryptoManager } from "@effectstream/crypto";
+import { AddressType } from "@effectstream/utils";
+
+const crypto = CryptoManager.getCryptoManager(AddressType.AVAIL);
+
+// 1. Verify Avail/Substrate Address
+const isValid = crypto.verifyAddress(userAddress);
+
+// 2. Verify Signature (sr25519/ed25519)
+const isAuthorized = await crypto.verifySignature(
+  userAddress,
+  "Hello Avail",
+  signature
+);
+```
+
+## 5. Orchestration
 
 Use `launchAvail` from `@effectstream/orchestrator/start-avail`. This starts:
 1.  A local Avail Node.

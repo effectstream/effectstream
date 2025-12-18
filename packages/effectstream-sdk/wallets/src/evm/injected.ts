@@ -50,15 +50,17 @@ interface EIP6963AnnounceProviderEvent extends CustomEvent {
 
 const eip5953Providers: EIP6963ProviderDetail[] = [];
 
-(getWindow() as any)?.addEventListener(
+const windowObj = getWindow();
+if (windowObj && (windowObj as any).addEventListener) {
+    (windowObj as any).addEventListener(
   "eip6963:announceProvider",
   (event: EIP6963AnnounceProviderEvent) => {
     eip5953Providers.push(event.detail);
-  },
-);
-
-getWindow()?.dispatchEvent(new Event("eip6963:requestProvider"));
-
+  });
+}
+if (windowObj && windowObj.dispatchEvent) {
+    windowObj?.dispatchEvent(new Event("eip6963:requestProvider"));
+}
 const CHAIN_NOT_ADDED_ERROR_CODE = 4902;
 
 /**
@@ -272,7 +274,7 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
             : undefined,
         });
       } else {
-        throw new Error(`[switchChain] error: ${se?.message}`, se?.code);
+        throw new Error(`[switchChain] error: ${se?.message} ` +  se?.code);
       }
     }
   };
@@ -284,7 +286,7 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
       return parseInt(walletChain as string, 16) === parseInt(chainId, 16);
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      throw new Error(`[verifyWalletChain] error: ${e?.message}`, e?.code);
+      throw new Error(`[verifyWalletChain] error: ${e?.message} ` + e?.code);
     }
   };
   addChain = async (newChain: AddEthereumChainParameter): Promise<void> => {
@@ -296,7 +298,7 @@ export class EvmInjectedConnector implements IInjectedConnector<EvmApi> {
       });
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      throw new Error(`[addChain] error: ${e?.message}`, e?.code);
+      throw new Error(`[addChain] error: ${e?.message} ` + e?.code);
     }
   };
 }
@@ -372,7 +374,7 @@ export class EvmInjectedProvider implements IProvider<EvmApi> {
       // );
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      throw new Error(`[verifyWalletChain] error: ${e?.message}`, e?.code);
+      throw new Error(`[verifyWalletChain] error: ${e?.message} ` + e?.code);
     }
   };
   addChain = async (newChain: AddEthereumChainParameter): Promise<void> => {
@@ -384,7 +386,7 @@ export class EvmInjectedProvider implements IProvider<EvmApi> {
       });
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      throw new Error(`[addChain] error: ${e?.message}`, e?.code);
+      throw new Error(`[addChain] error: ${e?.message} ` + e?.code);
     }
   };
   switchChain = async (hexChainId: string): Promise<void> => {
@@ -396,7 +398,7 @@ export class EvmInjectedProvider implements IProvider<EvmApi> {
       });
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      throw new Error(`[switchChain] error: ${e?.message}`, e?.code);
+      throw new Error(`[switchChain] error: ${e?.message} ` + e?.code);
     }
   };
   sendTransaction = async (
@@ -421,7 +423,7 @@ export class EvmInjectedProvider implements IProvider<EvmApi> {
       };
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      throw new Error(`[sendTransaction] error: ${e?.message}`, e?.code);
+      throw new Error(`[sendTransaction] error: ${e?.message} ` + e?.code);
     }
   };
 }
