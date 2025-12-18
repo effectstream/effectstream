@@ -35,7 +35,12 @@ This template uses the Paima Effectstream architecture with:
 ```bash
 # Install dependencies
 npm install
+
+# Remove lock file to ensure Deno recreates node_modules symlinks
+# Note: Required because npm install may clear node_modules, and Deno
+# won't recreate symlinks without a fresh lock file
 rm -rf deno.lock
+
 deno install --allow-scripts
 
 # Run patch script

@@ -7,7 +7,7 @@
   ],
   "nodeModulesDir": "auto",
   "imports": {
-    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.108"
+    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.124"
   },
   "tasks": {
     "build:evm": "deno task -f @rock-paper-scissors/evm-contracts build:mod",
