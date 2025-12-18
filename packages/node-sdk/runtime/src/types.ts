@@ -55,6 +55,10 @@ export type StartConfig = {
   apiRouter?: StartConfigApiRouter;
   grammar?: GrammarDefinition;
   userDefinedPrimitives?: Record<string, PaimaPrimitiveConstructor<any>>;
+  snapshotConfig?: {
+    interval?: number;
+    path?: string;
+  };
   dev?: {
     resetPublicData?: boolean;
   };

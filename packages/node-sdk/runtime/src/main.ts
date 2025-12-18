@@ -97,6 +97,16 @@ export function* start(config: StartConfig): Operation<void> {
         dbClient,
         blockHash,
       );
+
+      // Trigger Snapshot if configured and interval matches
+      if (
+        config.snapshotConfig?.interval &&
+        value.blockNumber % config.snapshotConfig.interval === 0
+      ) {
+         // The trigger is a special SQL comment/string intercepted by Pglite wrapper
+         // We verify it's the correct block height
+         yield* until(dbClient.query(`SELECT 'PAIMA_SNAPSHOT_TRIGGER', ${value.blockNumber}`));
+      }
     } finally {
       releaseDBMutex(`processing-blocks:${value.blockNumber}`);
       if (dbClient) {

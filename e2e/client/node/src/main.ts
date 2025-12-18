@@ -37,6 +37,9 @@ main(function* () {
       apiRouter,
       grammar,
       userDefinedPrimitives,
+      snapshotConfig: Deno.env.get("PAIMA_SNAPSHOT_INTERVAL")
+        ? { interval: parseInt(Deno.env.get("PAIMA_SNAPSHOT_INTERVAL")!) }
+        : undefined,
     });
   });
 

@@ -14,6 +14,7 @@ import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
 import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
 import { bitcoinTest, bitcoinBatcherTest } from "../e2e-tests/e2e.bitcoin.test.ts";
+import { snapshotTest } from "../e2e-tests/e2e.snapshot.test.ts";
 
 const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
 
@@ -63,6 +64,7 @@ async function test() {
       await bitcoinTest(db, sharedState);
       await bitcoinBatcherTest(db, sharedState);
     }
+    await snapshotTest(db);
     await testMigrations(db);
     
     // Done testing.
