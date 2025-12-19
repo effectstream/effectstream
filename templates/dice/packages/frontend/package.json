@@ -1,0 +1,29 @@
+{
+  "name": "@dice/frontend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "description": "Dice Web using Paima Engine",
+  "license": "MIT",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "dependencies": {
+    "@paimaexample/wallets": "0.3.124",
+    "@mui/icons-material": "5.15.5",
+    "@mui/lab": "^5.0.0-alpha.161",
+    "@mui/material": "^5.15.5",
+    "clsx": "1.2.1",
+    "date-fns": "2.29.3",
+    "react": "18.2.0",
+    "react-dice-complete": "2.2.0",
+    "react-dom": "18.2.0",
+    "react-router-dom": "6.21.3",
+    "viem": "^2.37.5"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.9",
+    "esbuild-plugins-node-modules-polyfill": "^1.7.1"
+  }
+}

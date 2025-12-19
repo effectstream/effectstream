@@ -1,0 +1,6 @@
+# hardhat
+artifacts/
+cache/
+abi/
+typechain-types/
+ignition/deployments/chain-31337

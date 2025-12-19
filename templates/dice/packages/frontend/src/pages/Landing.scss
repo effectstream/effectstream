@@ -1,0 +1,26 @@
+.landing-page {
+  display: flex;
+  flex-flow: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1em;
+  padding: 20px;
+
+  h1,
+  h2 {
+    color: white;
+  }
+
+  .accept-tos {
+    display: flex;
+    align-items: center;
+
+    input[type="checkbox"] {
+      margin-right: 0.5em;
+    }
+
+    span {
+      color: white;
+    }
+  }
+}
