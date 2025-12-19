@@ -3,7 +3,32 @@ import { assertEquals } from "jsr:@std/assert";
 import { EvmContractAdapter } from "./evm-contract-adapter.ts";
 import type { HardhatArtifact } from "./evm-contract-adapter.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
-import CounterArtifact from "./__fixtures__/counter-artifact.json" with { type: "json" };
+
+const CounterArtifact = {
+  "contractName": "Counter",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getCount",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "incrementCounter",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]
+} as const;
 
 const TEST_CONFIG = {
   contractAddress: "0x0000000000000000000000000000000000000001" as const,
