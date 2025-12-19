@@ -35,6 +35,5 @@
     "tiny-secp256k1": "npm:tiny-secp256k1@^2.2.1",
     "varuint-bitcoin": "npm:varuint-bitcoin@^1.1.2",
     "rxjs": "npm:rxjs@7.8.2",
-    "@effectstream/utils": "../effectstream-sdk/utils/src/mod.ts"
   }
 }
