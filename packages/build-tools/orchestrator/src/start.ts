@@ -298,7 +298,7 @@ export async function start(
             command,
             args,
             component: name,
-
+            cwd,
             log: logs === 'none' ? undefined : logHandler(
               { disableStderr: disableStderr ?? false },
               logs === 'tsLogOrchestratorAdapter'
