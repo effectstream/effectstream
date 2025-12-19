@@ -1,6 +1,7 @@
 export type { IProvider, AddressAndType, UserSignature, WalletOption } from "./IProvider.ts";
 export type { Wallet } from "./types.ts";
-export type { WalletAddress } from "@effectstream/utils";
+export type { AddressType, WalletAddress } from "@effectstream/utils";
+export { accountPayload_, accountMessages } from "@effectstream/concise";
 export { WalletMode, WalletNameMap } from "./utils.ts";
 // Main entry point
 export { walletLogin } from "./wallets.ts";
