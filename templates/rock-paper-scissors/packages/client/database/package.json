@@ -1,0 +1,9 @@
+{
+  "name": "@rock-paper-scissors/database",
+  "version": "0.1.0",
+  "description": "Database schema and queries for rock-paper-scissors",
+  "type": "module",
+  "devDependencies": {
+    "@paima/pgtyped-cli": "^2.4.5"
+  }
+}
