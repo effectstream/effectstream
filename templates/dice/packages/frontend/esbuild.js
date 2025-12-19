@@ -30,6 +30,7 @@ await build({
   outfile: "public/paimaMiddleware.js",
   sourcemap: true,
   format: "esm",
+  logLevel: "error", // Suppress polyfill warnings
   plugins: [
     nodeModulesPolyfillPlugin({
       globals: {
@@ -78,6 +79,7 @@ await build({
     '@dice/db': resolve(__dirname, '../client/database/src/mod.ts'),
     '@dice/utils': resolve(__dirname, '../shared/data-types/src/types.ts'),
     '@dice/data-types/types': resolve(__dirname, '../shared/data-types/src/types.ts'),
+    '@dice/evm-contracts': resolve(__dirname, '../shared/contracts/evm/mod.ts'),
 
     // Map old Paima SDK imports to new package
     '@paima/sdk/providers': '@paimaexample/wallets',
