@@ -12,13 +12,7 @@ import {
   NativeNftSale__factory,
   AnnotatedMintNft__factory,
 } from "@typechain/index";
-import type { WalletMode } from "@paima/providers";
-import { WalletModeMap } from "@paima/providers";
-
 export type SignerProvider = BrowserProvider | JsonRpcProvider;
-
-// we have to use a type alias because Vite requires isolatedModules which disallows const enums
-const evmInjectedMode: WalletMode.EvmInjected = 0;
 
 const DECIMALS = 10n ** BigInt(CHAIN_CURRENCY_DECIMALS);
 
@@ -26,10 +20,11 @@ const getPublicClient = (): JsonRpcProvider => {
   return new JsonRpcProvider(CHAIN_URI);
 };
 const getWalletClient = (_account: string): BrowserProvider => {
-  const provider = new BrowserProvider(
-    WalletModeMap[evmInjectedMode].getOrThrowProvider().getConnection().api,
-  );
-  return provider;
+  // Use window.ethereum directly for wallet connection
+  if (typeof window !== 'undefined' && (window as any).ethereum) {
+    return new BrowserProvider((window as any).ethereum);
+  }
+  throw new Error("No Ethereum wallet detected");
 };
 export const getProvider = (account?: string): SignerProvider => {
   if (account) {
