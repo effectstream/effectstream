@@ -5,6 +5,10 @@ import { config, storage } from "./config.ts";
 import { bitcoinAdapter } from "./adapter-bitcoin.ts";
 import { effectstreaml2Adapter } from "./adapter-effectstreaml2.ts";
 import { midnightAdapter } from "./adapter-midnight.ts";
+import {
+  counterAdapter,
+  counterAdapterTarget,
+} from "./adapter-counter.ts";
 
 const batcher = createNewBatcher(config, storage);
 const batchIntervalMs = 1000;
@@ -16,6 +20,11 @@ const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
 batcher
   .addBlockchainAdapter("paimal2", effectstreaml2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
+  .addBlockchainAdapter(
+    counterAdapterTarget,
+    counterAdapter,
+    { criteriaType: "size", maxBatchSize: 1 },
+  )
   .setDefaultTarget("paimal2");
 
 if (midnight_enabled) {

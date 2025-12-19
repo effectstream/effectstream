@@ -1292,14 +1292,15 @@ The Batcher uses **Effection** for structured concurrency, providing automatic r
 
 ### Why Use Effection with the Batcher?
 
-The batcher has two long-running concurrent tasks:
+The batcher has independent concurrent tasks for each adapter:
 1. **HTTP Server** - Accepts incoming requests
-2. **Polling Loop** - Periodically checks batching criteria
+2. **Polling Loops** - One independent loop per adapter that periodically checks batching criteria
 
 Effection ensures that:
-- Both tasks start together
-- If one fails, the other is automatically stopped
-- On shutdown (Ctrl+C), both tasks are gracefully cancelled
+- All tasks start together
+- If one fails, others can be automatically stopped if desired (structured concurrency)
+- A slow adapter (e.g., waiting for on-chain confirmation) does not block other adapters
+- On shutdown (Ctrl+C), all tasks are gracefully cancelled
 - Resources (server sockets, timers) are automatically cleaned up
 
 Without structured concurrency, you'd need manual bookkeeping to track and stop these tasks.
@@ -1440,13 +1441,8 @@ main(function* () {
     yield* spawn(() => batcher.runHttpServer());
   }
   
-  // 4. Start polling loop
-  yield* spawn(function* () {
-    while (true) {
-      yield* sleep(config.pollingIntervalMs);
-      yield* call(() => batcher.pollBatcher());
-    }
-  });
+  // 4. Start independent polling loops
+  yield* spawn(() => batcher.runPollingLoop());
   
   yield* suspend();
 });
@@ -1588,12 +1584,12 @@ main(function* () {
 
 #### `runPollingLoop(): Operation<void>`
 
-Start only the polling loop (useful for custom setups).
+Starts independent polling loops for each configured adapter target.
 
 ```typescript
 main(function* () {
   yield* call(() => batcher.storage.init());
-  yield* batcher.runPollingLoop();  // Just polling, no HTTP
+  yield* batcher.runPollingLoop();
   yield* suspend();
 });
 ```

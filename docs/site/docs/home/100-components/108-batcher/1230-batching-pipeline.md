@@ -129,11 +129,11 @@ The caller doesn't wait for the batch to be submitted or confirmed.
 
 ### Step 5: Polling & Criteria Check
 
-The main `PaimaBatcher` loop runs at intervals defined by `pollingIntervalMs` (e.g., every 1000ms). On each iteration:
+The `PaimaBatcher` runs independent polling loops for each adapter target at intervals defined by `pollingIntervalMs` (e.g., every 1000ms). On each iteration for a specific target:
 
-1. For each adapter target (e.g., "evm", "midnight"), the batcher checks the batching criteria
+1. The batcher checks the batching criteria for that target
 2. The criteria determine if enough inputs have accumulated or enough time has passed
-3. Different targets can have different criteria
+3. Because loops are independent, a slow adapter (e.g., waiting for confirmation on a slow chain) does not block the polling or processing of other adapters.
 
 #### Batching Criteria Types
 

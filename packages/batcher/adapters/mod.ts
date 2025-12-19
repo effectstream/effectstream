@@ -19,6 +19,13 @@ export { PaimaL2DefaultAdapter } from "./paimal2-adapter.ts";
 export { MidnightAdapter } from "./midnight-adapter.ts";
 export type { MidnightAdapterConfig } from "./midnight-adapter.ts";
 
+// Generic EVM adapter implementation
+export {
+  EvmContractAdapter,
+  type EvmContractAdapterConfig,
+  type HardhatArtifact,
+} from "./evm-contract-adapter.ts";
+
 // Bitcoin adapter implementation
 export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./bitcoin-adapter.ts";
 export type { BitcoinAdapterConfig } from "./bitcoin-adapter.ts";

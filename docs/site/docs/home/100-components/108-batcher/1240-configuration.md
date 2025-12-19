@@ -142,7 +142,7 @@ const baseConfig: PaimaBatcherConfig = {
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `pollingIntervalMs` | `number` | `1000` | How often to check if batching criteria are met (milliseconds) |
+| `pollingIntervalMs` | `number` | `1000` | How often each independent adapter loop checks if batching criteria are met (milliseconds) |
 | `port` | `number` | `3000` | HTTP server port |
 | `enableHttpServer` | `boolean` | `true` | Whether to start the HTTP REST API |
 | `enableEventSystem` | `boolean` | `false` | Whether to enable state transition events |
@@ -614,7 +614,7 @@ stopAcceptingInputs: async (batcher) => {
 
 #### 3. `waitForProcessing` Hook
 
-**Executes:** While waiting for any in-progress batch processing to complete.
+**Executes:** While waiting for any in-progress batch processing to complete across all adapters.
 
 **Signature:**
 ```typescript
@@ -622,7 +622,7 @@ waitForProcessing?: (batcher: PaimaBatcher<T>) => Promise<void> | void
 ```
 
 **What Happens Before This Hook:**
-- The batcher waits for `isProcessingBatch` to become false
+- The batcher waits for all adapters in the `processingAdapters` set to finish
 - This respects the `timeoutMs` setting
 
 **Use Cases:**
@@ -705,11 +705,11 @@ The complete shutdown sequence:
 1. preShutdown hook
    ↓
 2. Stop HTTP server
-   Stop polling interval
+   Stop all polling loops
    ↓
 3. stopAcceptingInputs hook
    ↓
-4. Wait for isProcessingBatch === false (respects timeoutMs)
+4. Wait for all adapters to finish processing (respects timeoutMs)
    ↓
 5. waitForProcessing hook
    ↓
