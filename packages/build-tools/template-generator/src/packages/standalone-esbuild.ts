@@ -22,7 +22,14 @@ export class StandaloneEsbuildPackage extends Package {
             {
                 "projectName": this.options.projectName,
                 "EFFECTSTREAM-VERSION": EFFECTSTREAM_VERSION,
-            }
+            },
+            {
+                "EVM-BLOCK": this.options.chains.includes("evm"),
+                "MIDNIGHT-BLOCK": this.options.chains.includes("midnight"),
+                "AVAIL-BLOCK": this.options.chains.includes("avail"),
+                "CARDANO-BLOCK": this.options.chains.includes("cardano"),
+                "BITCOIN-BLOCK": this.options.chains.includes("bitcoin"),
+              },
         );
 
         return { name: packageName, path: frontendPath };

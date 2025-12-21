@@ -33,7 +33,7 @@ export async function copyFiles(
         // Enable/disable entire inlined code blocks
         for (const [codeBlock, enabled] of Object.entries(codeBlocks)) {
             // Search for block of code between /** TAG */ ... /** TAG */
-            const r = `\\/\\*\\* ${codeBlock} \\*\\/([\\s\\S]+)\\/\\*\\* ${codeBlock} \\*\\/`;
+            const r = `\\/\\*\\* ${codeBlock} \\*\\/([\\s\\S]+?)\\/\\*\\* ${codeBlock} \\*\\/`;
             const regex = new RegExp(r, 'g');
             if (enabled) {
                 content = content.replace(regex, `$1`);

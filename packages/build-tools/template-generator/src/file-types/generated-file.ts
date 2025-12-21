@@ -6,10 +6,10 @@ export abstract class GeneratedFile {
 
     protected abstract getContent(): string;
 
-    public async write(): Promise<void> {
+    public async write(mode?: number): Promise<void> {
         const dir = path.dirname(this.filePath);
         await fs.mkdir(dir, { recursive: true });
-        await fs.writeFile(this.filePath, this.getContent());
+        await fs.writeFile(this.filePath, this.getContent(), { mode });
     }
 }
 

@@ -34,8 +34,12 @@
     <div class="header">
         <h1>Example dApp</h1>
         <button id="connect-wallet-btn" class="btn">Connect Wallet</button>
-        <button id="send-mint-btn" class="btn">Send Mint</button>
-        <button id="send-bitcoin-btn" class="btn">Send Bitcoin Batch</button>
+/** MIDNIGHT-BLOCK */
+        <button id="send-mint-btn" class="btn">Midnight Batcher (Mint)</button>
+/** MIDNIGHT-BLOCK */
+/** BITCOIN-BLOCK */
+        <button id="send-bitcoin-btn" class="btn">Bitcoin Batcher (Send)</button>
+/** BITCOIN-BLOCK */
     </div>
 
     <div id="wallet-info-container" class="wallet-info-box" style="display: none;">
@@ -81,11 +85,21 @@
     <div class="section">
         <h2>Chain Data</h2>
         <div style="margin-bottom: 10px;">
+            /** AVAIL-BLOCK */
             <button class="chain-btn btn" data-chain="avail">Avail</button>
+            /** AVAIL-BLOCK */
+            /** BITCOIN-BLOCK */
             <button class="chain-btn btn" data-chain="bitcoin">Bitcoin</button>
+            /** BITCOIN-BLOCK */
+            /** CARDANO-BLOCK */
             <button class="chain-btn btn" data-chain="cardano">Cardano</button>
+            /** CARDANO-BLOCK */
+            /** EVM-BLOCK */
             <button class="chain-btn btn" data-chain="evm">EVM</button>
+            /** EVM-BLOCK */
+            /** MIDNIGHT-BLOCK */
             <button class="chain-btn btn" data-chain="midnight">Midnight</button>
+            /** MIDNIGHT-BLOCK */
         </div>
         <table id="chain-table" style="display: none;">
             <thead>
@@ -132,7 +146,7 @@
         document.getElementById('send-mint-btn').addEventListener('click', async () => {
             try {
                 const amount = 10;
-                console.log(`Sending mint of ${amount}...`);
+                console.log(`Sending Midnight mint of ${amount}...`);
                 await sendMintToBatcher(amount);
             } catch (err) {
                 console.error("Error sending mint:", err);

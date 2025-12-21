@@ -27,7 +27,7 @@ export class ProjectGenerator {
         await new MainReadmeFile(path.join(projectPath, 'README.md'), this.options.projectName, this.options.chains).write();
         await new GitignoreFile(path.join(projectPath, '.gitignore')).write();
         await new RootPackageJsonFile(path.join(projectPath, 'package.json')).write();
-        await new PatchFile(path.join(projectPath, 'patch.sh')).write();
+        await new PatchFile(path.join(projectPath, 'patch.sh')).write(0o755);
     }
 
     private async createPackages(projectPath: string): Promise<PackageInfo[]> {
