@@ -1,5 +1,11 @@
+/** EVM-BLOCK */
 import { contractAddressesEvmMain } from "@[scope]/evm-contracts";
+/** EVM-BLOCK */
+
+/** MIDNIGHT-BLOCK */
 import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
+/** MIDNIGHT-BLOCK */
+
 import type { BlockNumber } from "@paimaexample/utils";
 
 /** AVAIL-BLOCK */
@@ -129,14 +135,14 @@ export const localhostConfig = new ConfigBuilder()
   )
   .buildDeployments((builder) =>
     builder
-      .addDeployment(
-        (networks) => networks.evmMain,
-        (_network) => ({
-          name: "Erc721DevModule#Erc721Dev",
-          address: contractAddressesEvmMain()
-            .chain31337["Erc721DevModule#Erc721Dev"],
-        }),
-      )
+      // .addDeployment(
+      //   (networks) => networks.evmMain,
+      //   (_network) => ({
+      //     name: "Erc721DevModule#Erc721Dev",
+      //     address: contractAddressesEvmMain()
+      //       .chain31337["Erc721DevModule#Erc721Dev"],
+      //   }),
+      // )
   ).buildSyncProtocols((builder) =>
     builder
       .addMain(

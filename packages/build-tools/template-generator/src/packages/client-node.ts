@@ -15,6 +15,10 @@ export class ClientNodePackage extends Package {
         const nodePath = path.join(this.projectPath, 'packages', 'client', 'node');
         const packageName = `@${this.options.projectName}/node`;
 
+        const batcher_block = true;
+        const explorer_block = this.options.frontends.includes('explorer');
+        const standalone_frontend_block = this.options.frontends.includes('standalone-esbuild');
+
         const currentDir = path.dirname(path.fromFileUrl(import.meta.url));
         const folders = [[], ["src"], ["scripts"]];
         for (const folder of folders) {
@@ -22,9 +26,17 @@ export class ClientNodePackage extends Package {
                 path.join(currentDir, "templates", "node", ...folder),
                 path.join(nodePath, ...folder),
                 {
-                  "scope": this.options.projectName
+                  "scope": this.options.projectName,
+                  "isCardano": this.options.chains.includes("cardano") ? "true" : "false",
+                  "isAvail": this.options.chains.includes("avail") ? "true" : "false",
+                  "isMidnight": this.options.chains.includes("midnight") ? "true" : "false",
+                  "isEvm": this.options.chains.includes("evm") ? "true" : "false",
+                  "isBitcoin": this.options.chains.includes("bitcoin") ? "true" : "false",
                 }, 
                 {
+                  "STANDALONE-FRONTEND-BLOCK": standalone_frontend_block,
+                  "EXPLORER-BLOCK": explorer_block,
+                  "BATCHER-BLOCK": batcher_block,
                   "CARDANO-BLOCK": this.options.chains.includes("cardano"),
                   "AVAIL-BLOCK": this.options.chains.includes("avail"),
                   "MIDNIGHT-BLOCK": this.options.chains.includes("midnight"),

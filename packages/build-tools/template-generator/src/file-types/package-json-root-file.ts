@@ -9,6 +9,9 @@ export class RootPackageJsonFile extends GeneratedFile {
         const content = {
             dependencies: {
                 "@electric-sql/pglite": "^0.3.14"
+            },
+            devDependencies: {
+                "wait-on": "8.0.3"
             }
         };
         return JSON.stringify(content, null, 4);

@@ -3,17 +3,22 @@ import { grammar } from "@[scope]/data-types/grammar";
 import type { BaseStfInput, BaseStfOutput } from "@paimaexample/sm";
 import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
 import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
+/** EVM-BLOCK */
 import { contractAddressesEvmMain } from "@[scope]/evm-contracts";
+/** EVM-BLOCK */
+
 import { insertData } from "@[scope]/database";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
-
+/** MIDNIGHT-BLOCK */
 const decodeToByteString = (x: { [key: string]: number }): string => 
   Array(Object.keys(x).length)
     .fill(0)
     .map((_,i)=>x[i])
     .join('')
     .trim();
+/** MIDNIGHT-BLOCK */
+
 
 /** MIDNIGHT-STM-BLOCK */
 

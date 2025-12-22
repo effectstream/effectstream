@@ -7,8 +7,14 @@ import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 import { launchAvail } from "@paimaexample/orchestrator/start-avail";
 import { launchBitcoin } from "@paimaexample/orchestrator/start-bitcoin";
 
+const isCardano = [isCardano];
+const isAvail = [isAvail];
+const isMidnight = [isMidnight];
+const isEvm = [isEvm];
+const isBitcoin = [isBitcoin];
+
 const customProcesses = [
-  /** DENO-FRONTEND-BLOCK */
+  /** STANDALONE-FRONTEND-BLOCK */
   {
     name: "install-frontend",
     command: "npm",
@@ -38,7 +44,7 @@ const customProcesses = [
     dependsOn: ["build-frontend"],
     logs: 'none',
   },
-  /** DENO-FRONTEND-BLOCK */
+  /** STANDALONE-FRONTEND-BLOCK */
   
   /** EXPLORER-BLOCK */
   {
@@ -59,7 +65,10 @@ const customProcesses = [
     type: "system-dependency",
     link: "http://localhost:3334",
     stopProcessAtPort: [3334],
-    dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
+    dependsOn: [
+      isEvm ? ComponentNames.DEPLOY_EVM_CONTRACTS : false, 
+      isMidnight ? ComponentNames.MIDNIGHT_CONTRACT : false,
+    ].filter(Boolean),
   },
   /** BATCHER-BLOCK */
 ]

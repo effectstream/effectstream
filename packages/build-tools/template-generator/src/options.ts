@@ -19,6 +19,7 @@ export const CONTRACTS_BY_CHAIN: Record<Chain, { label: string; value: string }[
     evm: evmContractOptions,
     midnight: midnightContractOptions,
     cardano: cardanoContractOptions,
+    // TODO Move to Bitcoin Contracts
     bitcoin: [ { label: 'Empty Contract', value: 'empty-contract' } ],
     avail: availContractOptions
 };
@@ -31,8 +32,7 @@ type AvailContracts = typeof CONTRACTS_BY_CHAIN['avail'][number]['value'];
 
 export type Contract = EvmContracts | MidnightContracts | CardanoContracts | BitcoinContracts | AvailContracts;
 
-
-export type Frontend = 'intergrated-vite-deno' | 'standalone-esbuild';
+export type Frontend = 'standalone-esbuild';
 
 export const ALL_FRONTENDS: { label: string; value: Frontend }[] = [
     { label: 'Web Frontend', value: 'standalone-esbuild' },
@@ -41,6 +41,7 @@ export const ALL_FRONTENDS: { label: string; value: Frontend }[] = [
 export const DEFAULT_DEV_OPTIONS = {
     inMemoryDb: true,
     useBatcher: true,
+    useExplorer: true,
 };
 export type DevOptions = typeof DEFAULT_DEV_OPTIONS;
 
