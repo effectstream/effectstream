@@ -34,6 +34,9 @@
     "ecpair": "npm:ecpair@^2.1.0",
     "tiny-secp256k1": "npm:tiny-secp256k1@^2.2.1",
     "varuint-bitcoin": "npm:varuint-bitcoin@^1.1.2",
-    "rxjs": "npm:rxjs@7.8.2"
+    "rxjs": "npm:rxjs@7.8.2",
+    "aedes": "npm:aedes@^0.51.3",
+    "aedes-server-factory": "npm:aedes-server-factory@^0.2.1",
+    "ip": "npm:ip@^2.0.1"
   }
 }

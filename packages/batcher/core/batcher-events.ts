@@ -39,6 +39,21 @@ export type BatcherGrammar = Record<string, unknown> & {
     success: boolean;
     time: number;
   };
+  "input:update": {
+    inputId: string;
+    target: string;
+    phase:
+      | "accepted"
+      | "submitted"
+      | "receipt"
+      | "effectstream-processed"
+      | "error";
+    txHash?: string;
+    blockNumber?: number | bigint;
+    rollup?: number;
+    error?: string;
+    time: number;
+  };
   error: { phase: string; target?: string; error: unknown; time: number };
 };
 

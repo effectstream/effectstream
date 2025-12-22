@@ -140,6 +140,9 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
    * Create a unique key for a DefaultBatcherInput for comparison
    */
   private createInputKey(input: T, target: string): string {
+    if (input.inputId) {
+      return `id-${input.inputId}`;
+    }
     return `${input.addressType}-${target}-${input.address}-${input.input}-${input.timestamp}-${input.signature ?? ""}`;
   }
 

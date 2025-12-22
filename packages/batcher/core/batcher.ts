@@ -1,5 +1,5 @@
 import { CryptoManager } from "@effectstream/crypto";
-import { call, lift, resource, sleep, spawn, suspend } from "effection";
+import { call, resource, sleep, spawn, suspend } from "effection";
 import type { Operation } from "effection";
 import type { BatcherStorage } from "./storage.ts";
 import type { DefaultBatcherInput } from "./types.ts";
@@ -11,11 +11,16 @@ import type { BatchingCriteriaConfig, BatcherConfig } from "./config.ts";
 import {
   applyBatcherConfigDefaults,
   DEFAULT_BATCHING_CRITERIA,
+  DEFAULT_CONFIG_VALUES,
   validateBatcherConfig,
   validateBatchingCriteria,
   validatePreInit,
 } from "./config.ts";
 import { startBatcherHttpServer } from "../server/batcher-server.ts";
+import {
+  BatcherMqttServer,
+  type BatcherMqttServerOptions,
+} from "../server/mqtt-server.ts";
 import { BatcherFileStorage } from "./mod.ts";
 import { BatchProcessor } from "./batch-processor.ts";
 import {
@@ -101,6 +106,17 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   > = new Map();
   /** Batch processor for handling complex batch operations */
   private readonly batchProcessor: BatchProcessor<T>;
+  /** Async state transition dispatcher for non-Effection contexts */
+  private readonly stateTransitionInvoker: (
+    prefix: string,
+    payload: any,
+  ) => Promise<void>;
+  /** Embedded MQTT server for per-input updates */
+  private mqttServer?: BatcherMqttServer;
+  private readonly enableMqtt: boolean;
+  private readonly mqttOptions: BatcherMqttServerOptions;
+  /** Set of pending input IDs to prevent duplicates */
+  private readonly pendingInputIds: Set<string> = new Set();
   /** Shutdown manager for handling graceful shutdowns */
   private readonly shutdownManager: ShutdownManager<T>;
   /** State transition listeners keyed by prefix */
@@ -167,33 +183,35 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // Initialize last process times map (will be populated in init()/runBatcher())
     this.lastProcessTime = new Map();
 
+    this.stateTransitionInvoker = async (prefix, payload) => {
+      if (!this.enableEventSystem) return;
+      const listener = this.stateTransitionListeners.get(prefix);
+      if (!listener) return;
+      try {
+        await listener(payload);
+      } catch (error) {
+        const hasErrorListener = this.stateTransitionListeners.has("error");
+        if (prefix !== "error" && hasErrorListener) {
+          try {
+            await this.stateTransitionListeners.get("error")!({
+              phase: `event-listener:${prefix}`,
+              error,
+              time: Date.now(),
+            });
+          } catch {
+            // swallow
+          }
+        }
+      }
+    };
+
     this.batchProcessor = new BatchProcessor<T>({
-      emitStateTransition: async (prefix: string, payload: any) => {
-        // For async contexts, we need to handle this differently
-        // Since we're in an async method but need to call an Effection operation,
-        // we'll create a simple non-blocking implementation
-        if (this.enableEventSystem) {
-          const listener = this.stateTransitionListeners.get(prefix);
-          if (listener) {
-            try {
-              // Execute the listener asynchronously without blocking
-              await listener(payload);
-            } catch (error) {
-              const hasErrorListener = this.stateTransitionListeners.has(
-                "error",
-              );
-              if (prefix !== "error" && hasErrorListener) {
-                try {
-                  await this.stateTransitionListeners.get("error")!({
-                    phase: `event-listener:${prefix}`,
-                    error,
-                    time: Date.now(),
-                  });
-                } catch {
-                  // swallow
-                }
-              }
-            }
+      emitStateTransition: this.stateTransitionInvoker,
+      emitInputUpdate: (input, payload) => this.emitInputUpdate(input, payload),
+      removeProcessedIds: (inputs) => {
+        for (const input of inputs) {
+          if (input.inputId) {
+            this.pendingInputIds.delete(input.inputId);
           }
         }
       },
@@ -219,6 +237,17 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     this.enableHttpServer = this.config.enableHttpServer!;
     this.enableEventSystem = this.config.enableEventSystem!;
     this.namespace = this.config.namespace ?? this.namespace;
+    this.enableMqtt = !!this.config.mqtt?.enabled;
+    this.mqttOptions = {
+      host: this.config.mqtt?.host ?? DEFAULT_CONFIG_VALUES.mqtt.host,
+      port: this.config.mqtt?.port ?? DEFAULT_CONFIG_VALUES.mqtt.port,
+      allowRemotePublish:
+        this.config.mqtt?.allowRemotePublish ??
+          DEFAULT_CONFIG_VALUES.mqtt.allowRemotePublish,
+      retainLastMessage:
+        this.config.mqtt?.retainLastMessage ??
+          DEFAULT_CONFIG_VALUES.mqtt.retainLastMessage,
+    };
   }
 
   /**
@@ -250,28 +279,8 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    */
   *emitStateTransition(prefix: string, payload: any): Operation<void> {
     if (!this.enableEventSystem) return;
-    const listener = this.stateTransitionListeners.get(prefix);
-    if (!listener) return;
-
-    // `spawn` starts the listener in the background.
-    // The `emitStateTransition` operation can return immediately.
     yield* spawn((function* (this: Batcher<T>) {
-      try {
-        // We still use `call` here to handle the listener being async.
-        yield* lift(listener)(payload);
-      } catch (error) {
-        // Error handling now happens inside the spawned fiber,
-        // preventing a listener crash from taking down the whole batcher.
-        const hasErrorListener = this.stateTransitionListeners.has("error");
-        if (prefix !== "error" && hasErrorListener) {
-          // Re-emit the error, again in a supervised manner.
-          yield* lift(this.stateTransitionListeners.get("error")!)({
-            phase: `event-listener:${prefix}`,
-            error,
-            time: Date.now(),
-          });
-        }
-      }
+      yield* call(() => this.stateTransitionInvoker(prefix, payload));
     }).bind(this));
   }
 
@@ -410,6 +419,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     await this.storage.init();
+    await this.populatePendingInputIds();
 
     for (const [target, adapter] of Object.entries(this.adapters)) {
       if (typeof adapter.recoverState === "function") {
@@ -431,6 +441,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // Start HTTP server if enabled
     if (this.enableHttpServer) {
       await this.startHttpServer();
+    }
+    if (this.enableMqtt) {
+      await this.startMqttServer();
     }
 
     this.isInitialized = true;
@@ -460,7 +473,16 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       );
     }
 
-    if (!this.defaultTarget && !input.target) {
+    const inputWithId = this.ensureInputHasId(input);
+
+    if (this.pendingInputIds.has(inputWithId.inputId!)) {
+      throw new InputValidationError(
+        `Input with ID ${inputWithId.inputId} is already pending`,
+        409, // Conflict
+      );
+    }
+
+    if (!this.defaultTarget && !inputWithId.target) {
       throw new InputValidationError(
         "No default target configured and input.target not specified. " +
           "Add adapters using addBlockchainAdapter() before initialization.",
@@ -468,7 +490,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       );
     }
 
-    const target = input.target || this.defaultTarget!;
+    const target = inputWithId.target || this.defaultTarget!;
     const adapter = this.adapters[target];
     if (!adapter) {
       throw new InputValidationError(`Adapter for target ${target} not found. Available targets: ${Object.keys(this.adapters).join(", ")}`, 404);
@@ -478,10 +500,10 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     let verifiedSignature: boolean;
 
     if (adapter && typeof adapter.verifySignature === "function") {
-      verifiedSignature = await adapter.verifySignature(input);
-    } else if (input.signature) {
+      verifiedSignature = await adapter.verifySignature(inputWithId);
+    } else if (inputWithId.signature) {
       // Fall back to the batcher's default EVM verification when a signature is provided
-      verifiedSignature = await this._defaultVerifyInputSignature(input);
+      verifiedSignature = await this._defaultVerifyInputSignature(inputWithId);
     } else {
       throw new InputValidationError(
         `Adapter for target ${target} requires either a signature or a custom verifySignature implementation`,
@@ -494,7 +516,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     // 2. Adapter-Specific Input Validation (Pre-Queue)
     if (adapter && typeof adapter.validateInput === "function") {
-      const validationResult = await adapter.validateInput(input);
+      const validationResult = await adapter.validateInput(inputWithId);
       if (!validationResult.valid) {
         throw new InputValidationError(
           validationResult.error || "Invalid input for target adapter",
@@ -503,10 +525,12 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     // 3. Add to Storage (Only if all validation passes)
-    await this.addInput(input);
+    await this.addInput(inputWithId);
+    this.pendingInputIds.add(inputWithId.inputId!);
     const { count, size } = await this.storage.getInputCountAndSize();
+    await this.emitInputUpdate(inputWithId, { phase: "accepted" });
     console.log(
-      `✅ Added input from ${input.address} to batch queue. Queue size: ${count} inputs, ${size} bytes`,
+      `✅ Added input from ${inputWithId.address} to batch queue. Queue size: ${count} inputs, ${size} bytes`,
     );
 
     if (confirmationLevel === "no-wait") {
@@ -516,7 +540,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     // Create promise for callback with timeout
     const receiptPromise = new Promise<BlockchainTransactionReceipt>(
       (resolve, reject) => {
-        const callbackKey = this.getInputCallbackKey(input);
+        const callbackKey = this.getInputCallbackKey(inputWithId);
         const timeoutId = setTimeout(() => {
           this.submissionCallbacks.delete(callbackKey);
           reject(new Error("Receipt confirmation timeout"));
@@ -545,7 +569,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     // If waiting for EffectStream processing, continue waiting
     if (confirmationLevel === "wait-effectstream-processed") {
-      const target = input.target || this.defaultTarget;
+      const target = inputWithId.target || this.defaultTarget;
       if (!target) {
         throw new Error(
           "Cannot wait for EffectStream processing: no target specified and no default target configured.",
@@ -641,13 +665,14 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Storage is the single source of truth - no pool needed
    */
   async addInput(input: T): Promise<void> {
-    const target = input.target ?? this.defaultTarget;
+    const normalizedInput = this.ensureInputHasId(input);
+    const target = normalizedInput.target ?? this.defaultTarget;
     if (!target) {
       throw new Error(
         "Cannot add input: no target specified and no default target configured.",
       );
     }
-    await this.storage.addInput(input, target);
+    await this.storage.addInput(normalizedInput, target);
   }
 
   private async _defaultVerifyInputSignature(
@@ -678,7 +703,47 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     return await cryptoManager.verifySignature(input.address, message, input.signature);
   }
 
+  private async populatePendingInputIds(): Promise<void> {
+    const allPending = await this.storage.getAllInputs();
+    for (const input of allPending) {
+      if (input.inputId) {
+        this.pendingInputIds.add(input.inputId);
+      }
+    }
+  }
+
+  private ensureInputHasId(input: T): T {
+    if (!input.inputId) {
+      input.inputId = crypto.randomUUID();
+    }
+    return input;
+  }
+
+  private async emitInputUpdate(
+    input: T,
+    details: Omit<BatcherGrammar["input:update"], "inputId" | "target" | "time">,
+  ): Promise<void> {
+    const normalizedInput = this.ensureInputHasId(input);
+    const target = normalizedInput.target || this.defaultTarget;
+    if (!target) return;
+    const payload = {
+      ...details,
+      inputId: normalizedInput.inputId!,
+      target,
+      time: Date.now(),
+    };
+    if (this.enableEventSystem) {
+      await this.stateTransitionInvoker("input:update", payload);
+    }
+    if (this.enableMqtt) {
+      await this.publishInputUpdate(payload);
+    }
+  }
+
   private getInputCallbackKey(input: T): string {
+    if (input.inputId) {
+      return input.inputId;
+    }
     const target = input.target || this.defaultTarget;
     if (!target) {
       throw new Error(
@@ -693,6 +758,20 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       input.signature ?? "",
       input.input,
     ].join("|");
+  }
+
+  private async publishInputUpdate(
+    payload: BatcherGrammar["input:update"],
+  ): Promise<void> {
+    if (!this.enableMqtt || !this.mqttServer) return;
+    try {
+      await this.mqttServer.publish(
+        `batcher/inputs/${payload.inputId}`,
+        payload,
+      );
+    } catch (error) {
+      console.error("❌ Failed to publish MQTT update:", error);
+    }
   }
 
   async pollBatcher(): Promise<void> {
@@ -870,6 +949,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     }
 
     await this.storage.clearAllInputs();
+    this.pendingInputIds.clear();
   }
 
   /**
@@ -903,6 +983,19 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       this.httpServer = undefined;
       await this.emitStateTransition("http:stop", { time: Date.now() });
     }
+  }
+
+  private async startMqttServer(): Promise<void> {
+    if (!this.enableMqtt) return;
+    if (this.mqttServer) return;
+    this.mqttServer = new BatcherMqttServer(this.mqttOptions);
+    await this.mqttServer.start();
+  }
+
+  private async stopMqttServer(): Promise<void> {
+    if (!this.mqttServer) return;
+    await this.mqttServer.stop();
+    this.mqttServer = undefined;
   }
 
   /**
@@ -986,6 +1079,12 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     adapterTargets: string[];
     /** Per-adapter batching criteria types */
     criteriaTypes: Record<string, string>;
+    mqtt: {
+      enabled: boolean;
+      host: string;
+      port: number;
+      allowRemotePublish: boolean;
+    };
   } {
     const criteriaTypes: Record<string, string> = {};
     for (const [target, criteria] of this.batchingCriteria) {
@@ -1001,6 +1100,12 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       port: this.port,
       adapterTargets: Object.keys(this.adapters),
       criteriaTypes,
+      mqtt: {
+        enabled: this.enableMqtt,
+        host: this.mqttOptions.host,
+        port: this.mqttOptions.port,
+        allowRemotePublish: this.mqttOptions.allowRemotePublish,
+      },
     };
   }
 
@@ -1040,7 +1145,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Cleanup additional resources (can be overridden by subclasses)
    */
   protected async cleanupResources(): Promise<void> {
-    // Default implementation - can be extended by subclasses
+    await this.stopMqttServer();
   }
 
   /**
@@ -1287,6 +1392,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     // 3. Perform sequential setup tasks
     yield* call(() => this.storage.init());
+    yield* call(() => this.populatePendingInputIds());
 
     // 4. Recover adapter state from storage (e.g., Bitcoin reserved funds)
     if (this.defaultTarget) {
@@ -1305,6 +1411,9 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       publicConfig: this.getPublicConfig(),
       time: Date.now(),
     });
+    if (this.enableMqtt) {
+      yield* call(() => this.startMqttServer());
+    }
 
     // 5. Run the main background tasks concurrently
     // Spawn ensures that if one task fails or stops, the other is also stopped.

@@ -17,6 +17,14 @@ import { Value } from "@sinclair/typebox/value";
  */
 export type ValidAdapterKey<T> = T extends Record<infer K, any> ? K : never;
 
+export interface BatcherMqttConfig {
+  enabled?: boolean;
+  port?: number;
+  host?: string;
+  allowRemotePublish?: boolean;
+  retainLastMessage?: boolean;
+}
+
 /**
  * Configuration for when and how batches should be processed.
  * Supports time-based, size-based, value-based, hybrid, and custom criteria.
@@ -136,6 +144,7 @@ export interface BatcherConfig<
   port?: number;
   enableHttpServer?: boolean;
   enableEventSystem?: boolean;
+  mqtt?: BatcherMqttConfig;
 
   // Batching behavior
   batchingCriteria?: PerAdapterBatchingCriteria<TInput, TAdapters>;
@@ -167,6 +176,13 @@ export const DEFAULT_CONFIG_VALUES = {
   port: 3000,
   enableHttpServer: true,
   enableEventSystem: false,
+  mqtt: {
+    enabled: false,
+    port: 8883,
+    host: "0.0.0.0",
+    allowRemotePublish: false,
+    retainLastMessage: true,
+  },
   maxRetries: 3,
   retryDelayMs: 1000,
   shutdown: {
@@ -235,6 +251,25 @@ export const BatcherConfigSchema = Type.Object({
   enableEventSystem: Type.Optional(
     Type.Boolean({ default: DEFAULT_CONFIG_VALUES.enableEventSystem }),
   ),
+  mqtt: Type.Optional(Type.Object({
+    enabled: Type.Optional(
+      Type.Boolean({ default: DEFAULT_CONFIG_VALUES.mqtt.enabled }),
+    ),
+    port: Type.Optional(Type.Number({
+      minimum: 1,
+      maximum: 65535,
+      default: DEFAULT_CONFIG_VALUES.mqtt.port,
+    })),
+    host: Type.Optional(
+      Type.String({ default: DEFAULT_CONFIG_VALUES.mqtt.host }),
+    ),
+    allowRemotePublish: Type.Optional(Type.Boolean({
+      default: DEFAULT_CONFIG_VALUES.mqtt.allowRemotePublish,
+    })),
+    retainLastMessage: Type.Optional(Type.Boolean({
+      default: DEFAULT_CONFIG_VALUES.mqtt.retainLastMessage,
+    })),
+  }, { additionalProperties: false })),
 
   shutdown: Type.Optional(Type.Object({
     hooks: Type.Optional(Type.Object({

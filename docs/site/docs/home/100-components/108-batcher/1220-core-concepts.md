@@ -214,6 +214,12 @@ const config: PaimaBatcherConfig = {
   enableHttpServer: true,
   port: 3334,
   enableEventSystem: true,
+  mqtt: {
+    enabled: true,
+    port: 8883,
+    host: "0.0.0.0",
+    retainLastMessage: true,
+  },
 };
 ```
 
@@ -252,6 +258,74 @@ const config: PaimaBatcherConfig = {
   }
 };
 ```
+
+### Realtime MQTT Updates
+
+The batcher can host a lightweight MQTT broker (powered by [Aedes](https://github.com/moscajs/aedes)) so React or mobile clients can subscribe to lifecycle updates for each submitted input.
+
+```typescript
+const config: PaimaBatcherConfig = {
+  // ...
+  enableEventSystem: true,
+  mqtt: {
+    enabled: true,
+    port: 8883,           // TCP + WebSocket listeners
+    host: "0.0.0.0",
+    allowRemotePublish: false, // only the batcher can publish
+    retainLastMessage: true,   // keep the latest state for late subscribers
+  },
+};
+```
+
+Every successful `POST /send-input` response now includes an `inputId`:
+
+```json
+{
+  "success": true,
+  "message": "Input processed successfully",
+  "inputsProcessed": 1,
+  "transactionHash": "0x...",
+  "inputId": "ef07c6dd-e9c4-4bd7-99fb-9eae17f0f4c0"
+}
+```
+
+Use that identifier to subscribe to the topic `batcher/inputs/{inputId}`. Each payload contains the phase, optional transaction metadata, and any errors:
+
+```json
+{
+  "inputId": "ef07c6dd-e9c4-4bd7-99fb-9eae17f0f4c0",
+  "target": "ethereum",
+  "phase": "receipt",
+  "txHash": "0x...",
+  "blockNumber": 19823423,
+  "time": 1734629912000
+}
+```
+
+Phases include `accepted`, `submitted`, `receipt`, `effectstream-processed`, and `error`.
+
+Clients can subscribe with [MQTT.js](https://github.com/mqttjs/MQTT.js):
+
+```typescript
+import mqtt from "mqtt";
+
+const client = mqtt.connect("ws://localhost:8883");
+const topic = `batcher/inputs/${inputId}`;
+
+client.on("connect", () => {
+  client.subscribe(topic, (err) => {
+    if (err) console.error("Subscription failed", err);
+  });
+});
+
+client.on("message", (t, payload) => {
+  if (t !== topic) return;
+  const update = JSON.parse(payload.toString());
+  // React components can set state directly from update.phase
+});
+```
+
+If you already consume batcher lifecycle events via `addStateTransition`, there is also a typed `input:update` event with the same payload for local observability or custom bridges.
 
 **What happens?**
 1. Batcher queues inputs until it has **100 inputs** (criteria threshold)

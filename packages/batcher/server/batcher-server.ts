@@ -251,6 +251,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           inputsProcessed: Type.Number(),
           transactionHash: Type.Optional(Type.String()),
           rollup: Type.Optional(Type.Number()),
+          inputId: Type.String(),
         }),
       },
     },
@@ -292,12 +293,14 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
       );
 
       // Return appropriate response based on confirmation level
+      const inputId = (adaptedInput as any).inputId as string;
       switch (confirmationLevel) {
         case "no-wait":
           return {
             success: true,
             message: "Input queued for batching",
             inputsProcessed: 1,
+            inputId,
           };
         case "wait-receipt":
           return {
@@ -305,6 +308,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
             message: "Input processed successfully",
             transactionHash: result?.hash,
             inputsProcessed: 1,
+            inputId,
           };
         case "wait-effectstream-processed":
           return {
@@ -313,12 +317,14 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
             transactionHash: result?.hash,
             rollup: result?.rollup,
             inputsProcessed: 1,
+            inputId,
           };
         default:
           return {
             success: true,
             message: "Input processed successfully",
             inputsProcessed: 1,
+            inputId,
           };
       }
     } catch (error) {

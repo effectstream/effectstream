@@ -2,6 +2,7 @@ export { Batcher } from "./batcher.ts";
 export type {
   BatchingCriteriaConfig,
   BatcherConfig,
+  BatcherMqttConfig,
   ValidAdapterKey,
 } from "./config.ts";
 export { validateBatcherConfig, validateBatchingCriteria } from "./config.ts";

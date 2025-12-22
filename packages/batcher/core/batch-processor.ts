@@ -3,6 +3,7 @@ import type {
   BlockchainTransactionReceipt,
 } from "../adapters/adapter.ts";
 import type { DefaultBatcherInput } from "./types.ts";
+import type { BatcherGrammar } from "./batcher-events.ts";
 
 
 /**
@@ -13,6 +14,11 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
   constructor(
     private batcher: {
       emitStateTransition: (prefix: string, payload: any) => Promise<void>;
+      emitInputUpdate: (
+        input: T,
+        payload: Omit<BatcherGrammar["input:update"], "inputId" | "target" | "time">,
+      ) => Promise<void>;
+      removeProcessedIds: (inputs: T[]) => void;
       storage: { removeProcessedInputs: (inputs: T[], target: string) => Promise<void> };
       submissionCallbacks: Map<
         string,
@@ -49,13 +55,21 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
 
     const { selectedInputs, data } = batchResult; // data is 'unknown'
 
-    await this.submitAndConfirmTransaction(
-      adapter,
-      target,
-      data,
-      selectedInputs as T[],
-      timeout,
-    );
+    try {
+      await this.submitAndConfirmTransaction(
+        adapter,
+        target,
+        data,
+        selectedInputs as T[],
+        timeout,
+      );
+    } catch (error) {
+      await this.emitInputUpdates(selectedInputs as T[], {
+        phase: "error",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error;
+    }
   }
 
   private async submitAndConfirmTransaction(
@@ -82,6 +96,10 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       txHash: hash,
       time: Date.now(),
     });
+    await this.emitInputUpdates(selectedInputs, {
+      phase: "submitted",
+      txHash: hash,
+    });
 
     // Wait for confirmation and EffectStream processing
     await this.handleTransactionConfirmation(
@@ -106,9 +124,15 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       blockNumber: receipt.blockNumber,
       time: Date.now(),
     });
+    await this.emitInputUpdates(selectedInputs, {
+      phase: "receipt",
+      txHash: hash,
+      blockNumber: receipt.blockNumber,
+    });
 
     // Remove processed inputs from storage after successful receipt
     await this.batcher.storage.removeProcessedInputs(selectedInputs, target);
+    this.batcher.removeProcessedIds(selectedInputs);
 
     // Resolve all callbacks with the receipt
     // Individual callers will decide if they want to continue waiting for EffectStream
@@ -120,6 +144,8 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       adapter,
       target,
       timeout,
+      selectedInputs,
+      hash,
     ).catch((error) => {
       console.error(
         `⚠️ Error waiting for EffectStream processing for target ${target}:`,
@@ -133,6 +159,8 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     adapter: BlockchainAdapter<any>,
     target: string,
     timeout: number,
+    selectedInputs: T[],
+    txHash: string,
   ): Promise<void> {
     try {
       const processingResult = await this.batcher.waitForEffectStreamProcessed(
@@ -148,6 +176,11 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           rollup: processingResult.rollup,
           time: Date.now(),
         });
+        await this.emitInputUpdates(selectedInputs, {
+          phase: "effectstream-processed",
+          txHash,
+          rollup: processingResult.rollup,
+        });
       } else {
         console.error(
           `❌ EffectStream processing validation failed for target ${target}`,
@@ -157,6 +190,11 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
           target,
           error: new Error("EffectStream processing validation failed"),
           time: Date.now(),
+        });
+        await this.emitInputUpdates(selectedInputs, {
+          phase: "error",
+          txHash,
+          error: "EffectStream processing validation failed",
         });
       }
     } catch (error) {
@@ -170,7 +208,21 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         error,
         time: Date.now(),
       });
+      await this.emitInputUpdates(selectedInputs, {
+        phase: "error",
+        txHash,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
     }
+  }
+
+  private async emitInputUpdates(
+    inputs: T[],
+    payload: Omit<BatcherGrammar["input:update"], "inputId" | "target" | "time">,
+  ): Promise<void> {
+    await Promise.all(inputs.map((input) =>
+      this.batcher.emitInputUpdate(input, payload)
+    ));
   }
 
   private resolveInputCallbacks(

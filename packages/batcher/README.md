@@ -291,6 +291,11 @@ batcher.addStateTransition(
 batcher.addStateTransition("error", ({ phase, error }) => {
   errorReporter.report(phase, error);
 });
+
+// Watch individual input lifecycles (accepted/submitted/receipt/etc.)
+batcher.addStateTransition("input:update", (payload) => {
+  console.log(`[${payload.phase}] ${payload.inputId} -> ${payload.target}`);
+});
 ```
 
 ## API Overview
@@ -378,3 +383,49 @@ curl -X POST http://localhost:3334/batch-input \
 ```
 
 `signature` is optional for chains/adapters that override `verifySignature` (for example Midnight). When omitted, the adapter must implement its own verification semantics.
+
+Successful responses now include the generated `inputId` so frontend apps can subscribe to MQTT updates:
+
+```json
+{
+  "success": true,
+  "message": "Input processed successfully",
+  "inputsProcessed": 1,
+  "transactionHash": "0x...",
+  "inputId": "ef07c6dd-e9c4-4bd7-99fb-9eae17f0f4c0"
+}
+```
+
+## Realtime client updates via MQTT
+
+Set `mqtt.enabled: true` to start the embedded Aedes broker (TCP + WebSocket) and emit per-input updates on the topic `batcher/inputs/{inputId}`:
+
+```typescript
+const batcher = createNewBatcher({
+  // ...
+  enableEventSystem: true,
+  mqtt: {
+    enabled: true,
+    port: 8883,
+    host: "0.0.0.0",
+    retainLastMessage: true,
+  },
+});
+```
+
+Each payload contains the `phase` (`accepted`, `submitted`, `receipt`, `effectstream-processed`, or `error`), and optional metadata such as `txHash`, `blockNumber`, or `rollup`.
+
+```typescript
+import mqtt from "mqtt";
+
+const client = mqtt.connect("ws://localhost:8883");
+const topic = `batcher/inputs/${inputId}`;
+
+client.on("connect", () => client.subscribe(topic));
+client.on("message", (_topic, msg) => {
+  const update = JSON.parse(msg.toString());
+  console.log(`Input ${update.inputId} is now ${update.phase}`);
+});
+```
+
+The snippet uses [MQTT.js](https://github.com/mqttjs/MQTT.js), the reference client library for browsers and Node.js.
