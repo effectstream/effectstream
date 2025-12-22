@@ -1,4 +1,4 @@
-import Aedes, { type Client, type PublishPacket } from "aedes";
+import { createBroker, type Client, type PublishPacket } from "aedes";
 import type { Server } from "aedes-server-factory";
 import { createServer } from "aedes-server-factory";
 import ip from "ip";
@@ -42,12 +42,11 @@ function extractRemoteAddress(client: Client | null): string | undefined {
 export interface BatcherMqttServerOptions {
   host: string;
   port: number;
-  allowRemotePublish: boolean;
   retainLastMessage: boolean;
 }
 
 export class BatcherMqttServer {
-  private broker: ReturnType<typeof Aedes.createBroker> | null = null;
+  private broker: ReturnType<typeof createBroker> | null = null;
   private server: Server | null = null;
 
   constructor(private readonly options: BatcherMqttServerOptions) {}
@@ -55,17 +54,12 @@ export class BatcherMqttServer {
   async start(): Promise<void> {
     if (this.server) return;
 
-    this.broker = Aedes.createBroker();
+    this.broker = createBroker();
     this.broker.authorizePublish = (
       client: Client | null,
       packet: PublishPacket,
       callback: (error?: Error | null) => void,
     ): void => {
-      if (this.options.allowRemotePublish) {
-        callback(null);
-        return;
-      }
-
       if (isLocalhost(extractRemoteAddress(client))) {
         callback(null);
         return;
@@ -100,6 +94,15 @@ export class BatcherMqttServer {
         else resolve();
       });
     });
+
+    if (this.broker) {
+      await new Promise<void>((resolve) => {
+        this.broker!.close(() => {
+          resolve();
+        });
+      });
+    }
+    
     this.server = null;
     this.broker = null;
   }

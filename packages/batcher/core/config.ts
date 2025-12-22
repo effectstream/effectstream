@@ -21,7 +21,6 @@ export interface BatcherMqttConfig {
   enabled?: boolean;
   port?: number;
   host?: string;
-  allowRemotePublish?: boolean;
   retainLastMessage?: boolean;
 }
 
@@ -180,7 +179,6 @@ export const DEFAULT_CONFIG_VALUES = {
     enabled: false,
     port: 8883,
     host: "0.0.0.0",
-    allowRemotePublish: false,
     retainLastMessage: true,
   },
   maxRetries: 3,
@@ -263,9 +261,6 @@ export const BatcherConfigSchema = Type.Object({
     host: Type.Optional(
       Type.String({ default: DEFAULT_CONFIG_VALUES.mqtt.host }),
     ),
-    allowRemotePublish: Type.Optional(Type.Boolean({
-      default: DEFAULT_CONFIG_VALUES.mqtt.allowRemotePublish,
-    })),
     retainLastMessage: Type.Optional(Type.Boolean({
       default: DEFAULT_CONFIG_VALUES.mqtt.retainLastMessage,
     })),

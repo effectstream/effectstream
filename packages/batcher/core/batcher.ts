@@ -241,9 +241,6 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     this.mqttOptions = {
       host: this.config.mqtt?.host ?? DEFAULT_CONFIG_VALUES.mqtt.host,
       port: this.config.mqtt?.port ?? DEFAULT_CONFIG_VALUES.mqtt.port,
-      allowRemotePublish:
-        this.config.mqtt?.allowRemotePublish ??
-          DEFAULT_CONFIG_VALUES.mqtt.allowRemotePublish,
       retainLastMessage:
         this.config.mqtt?.retainLastMessage ??
           DEFAULT_CONFIG_VALUES.mqtt.retainLastMessage,
@@ -1083,7 +1080,6 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       enabled: boolean;
       host: string;
       port: number;
-      allowRemotePublish: boolean;
     };
   } {
     const criteriaTypes: Record<string, string> = {};
@@ -1104,7 +1100,6 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         enabled: this.enableMqtt,
         host: this.mqttOptions.host,
         port: this.mqttOptions.port,
-        allowRemotePublish: this.mqttOptions.allowRemotePublish,
       },
     };
   }

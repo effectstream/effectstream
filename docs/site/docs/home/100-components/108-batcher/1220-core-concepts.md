@@ -270,8 +270,7 @@ const config: PaimaBatcherConfig = {
   mqtt: {
     enabled: true,
     port: 8883,           // TCP + WebSocket listeners
-    host: "0.0.0.0",
-    allowRemotePublish: false, // only the batcher can publish
+    host: "0.0.0.0",      // Listen on all interfaces
     retainLastMessage: true,   // keep the latest state for late subscribers
   },
 };
@@ -326,6 +325,29 @@ client.on("message", (t, payload) => {
 ```
 
 If you already consume batcher lifecycle events via `addStateTransition`, there is also a typed `input:update` event with the same payload for local observability or custom bridges.
+
+#### MQTT Security: Publish Authorization
+
+The batcher implements a **security-first approach** to MQTT publish operations. Only the batcher itself (localhost connections) can publish messages to prevent unauthorized actors from tampering with input status updates.
+
+**How it works:**
+
+The MQTT broker enforces **localhost-only publishing**:
+
+- ✅ **Localhost connections** (127.0.0.1, ::1) can publish → Only the batcher itself
+- ❌ **Remote connections** cannot publish → Always rejected with error
+
+**Authorization flow for publish attempts:**
+
+```
+Client publishes → Check if localhost
+                 ├─ If localhost → ✅ Allow
+                 └─ If remote → ❌ Reject with error
+```
+
+This ensures that only the batcher process can update input statuses. There is no configuration option to disable this security — it's always enforced.
+
+**Subscribing remains unrestricted** — all clients (local or remote) can subscribe to topics to receive real-time status updates. This allows frontend apps running on different machines to monitor input progress without being able to forge status messages.
 
 **What happens?**
 1. Batcher queues inputs until it has **100 inputs** (criteria threshold)

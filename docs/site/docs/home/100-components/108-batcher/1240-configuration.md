@@ -154,6 +154,52 @@ const baseConfig: PaimaBatcherConfig = {
 Set `pollingIntervalMs` to match your shortest batching time window. For example, if using `timeWindowMs: 5000`, a `pollingIntervalMs` of 1000 ensures responsive batch submission.
 :::
 
+#### MQTT Configuration
+
+The `mqtt` object controls the embedded MQTT broker for real-time input status updates:
+
+```typescript
+const config: PaimaBatcherConfig = {
+  // ...
+  enableEventSystem: true,  // Required for MQTT to work
+  mqtt: {
+    enabled: true,                 // Enable the MQTT broker
+    port: 8883,                    // Port for TCP + WebSocket
+    host: "0.0.0.0",               // Listen on all interfaces
+    retainLastMessage: true,       // Keep latest state for late subscribers
+  },
+};
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `mqtt.enabled` | `boolean` | `false` | Whether to start the embedded MQTT broker |
+| `mqtt.port` | `number` | `8883` | Port for MQTT TCP and WebSocket connections |
+| `mqtt.host` | `string` | `"0.0.0.0"` | Network interface to bind to (`"0.0.0.0"` = all interfaces, `"127.0.0.1"` = localhost only) |
+| `mqtt.retainLastMessage` | `boolean` | `true` | Whether the broker should retain the latest message on each topic |
+
+**Security Note:**
+
+The MQTT broker **always** restricts publishing to localhost connections only. Only the batcher itself (running on 127.0.0.1 or ::1) can publish messages. Remote clients can subscribe to receive updates but cannot publish. This security is enforced and cannot be disabled.
+
+:::warning MQTT + Event System Dependency
+The MQTT broker requires `enableEventSystem: true` to function, as it relies on state transition events to publish input status updates.
+
+```typescript
+const config: PaimaBatcherConfig = {
+  enableEventSystem: true,  // ✅ Required
+  mqtt: {
+    enabled: true,
+    // ...
+  },
+};
+```
+:::
+
+:::tip
+Set `pollingIntervalMs` to match your shortest batching time window. For example, if using `timeWindowMs: 5000`, a `pollingIntervalMs` of 1000 ensures responsive batch submission.
+:::
+
 ### Step 2: Instantiate Blockchain Adapters
 
 Instantiate each blockchain adapter you want to use:
