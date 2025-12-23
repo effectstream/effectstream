@@ -12,3 +12,4 @@ export {
   FileStorage as BatcherFileStorage,
 } from "./storage.ts";
 export type { DefaultBatcherInput } from "./types.ts";
+export type { BatcherResponse, InputUpdatePayload } from "./api-types.ts";

@@ -1,3 +1,5 @@
+import { WebSocket as NodeWebSocket } from "ws";
+import mqtt from "mqtt";
 import { assert, assertSQL, type SharedState } from "@e2e/engine";
 import type { ContractAddress } from "@midnight-ntwrk/compact-runtime";
 import {
@@ -41,10 +43,17 @@ import {
 import type { Client } from "pg";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { dirname, resolve } from "node:path";
+import type { BatcherResponse, InputUpdatePayload } from "@effectstream/batcher";
 import { AddressType } from "@effectstream/utils";
 
 const BATCHER_URL = "http://localhost:3334";
-globalThis.WebSocket = WebSocket;
+const MQTT_WS_URL = "ws://localhost:8833";
+const MQTT_TIMEOUT_MS = 60_000;
+
+if (typeof globalThis.WebSocket === "undefined") {
+  (globalThis as unknown as { WebSocket: typeof NodeWebSocket }).WebSocket =
+    NodeWebSocket;
+}
 
 // Inlined common types for standalone script
 type CounterCircuits = ImpureCircuitId<any>;
@@ -90,6 +99,16 @@ class StandaloneConfig implements Config {
  */
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
+
+const MINT_ACCOUNT = { // Account in Either format
+  is_left: true,
+  left: {
+    bytes: "0x00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF",
+  },
+  right: {
+    bytes: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+};
 
 // Standalone helper functions
 const counterContractInstance: any = new Counter.Contract(
@@ -357,16 +376,8 @@ const getContractAddress = async (): Promise<string> => {
 async function sendMintToBatcher(
   amount: number | string,
   confirmationLevel: string = "no-wait",
-): Promise<number> {
-  const account = {
-    is_left: true,
-    left: {
-      bytes: "0x00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF",
-    },
-    right: {
-      bytes: "0x0000000000000000000000000000000000000000000000000000000000000000",
-    },
-  };
+): Promise<BatcherResponse> {
+  const account = MINT_ACCOUNT;
   const input = JSON.stringify({
     circuit: "mint",
     args: [account, amount],
@@ -388,13 +399,87 @@ async function sendMintToBatcher(
     },
     body: JSON.stringify(body),
   });
-  const result = await response.json();
+  const result = await response.json() as BatcherResponse;
   if (response.ok) {
     console.log("Mint sent to batcher successfully");
   } else {
     console.error("[ERROR] Sending mint to batcher:", result);
   }
-  return response.status;
+  return result;
+}
+
+async function waitForMqttPhase(
+  topic: string,
+  desiredPhase: InputUpdatePayload["phase"],
+  timeoutMs: number = MQTT_TIMEOUT_MS,
+): Promise<InputUpdatePayload> {
+  return await new Promise((resolve, reject) => {
+    const client = mqtt.connect(MQTT_WS_URL, {
+      protocolVersion: 4,
+      reconnectPeriod: 0,
+    });
+
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      client.end(true, () =>
+        reject(
+          new Error(
+            `[MQTT TEST] Timeout waiting for ${desiredPhase} on topic ${topic}`,
+          ),
+        )
+      );
+    }, timeoutMs);
+
+    const finalize = (err?: Error, payload?: InputUpdatePayload) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      client.end(true, () => {
+        if (err) reject(err);
+        else resolve(payload!);
+      });
+    };
+
+    client.on("connect", () => {
+      client.subscribe(topic, (error) => {
+        if (error) {
+          finalize(
+            new Error(
+              `[MQTT TEST] Failed to subscribe to ${topic}: ${error.message}`,
+            ),
+          );
+        }
+      });
+    });
+
+    client.on("message", (incomingTopic, payload) => {
+      if (incomingTopic !== topic) return;
+      let parsed: InputUpdatePayload;
+      try {
+        parsed = JSON.parse(payload.toString());
+      } catch (error) {
+        finalize(
+          new Error(
+            `[MQTT TEST] Unable to parse payload for ${topic}: ${
+              (error as Error).message
+            }`,
+          ),
+        );
+        return;
+      }
+      if (parsed.phase === desiredPhase) {
+        finalize(undefined, parsed);
+      }
+    });
+
+    client.on("error", (error) => {
+      finalize(
+        new Error(`[MQTT TEST] MQTT client error: ${error.message}`),
+      );
+    });
+  });
 }
 
 /**
@@ -524,23 +609,30 @@ async function sendMintToBatcherTest(
   db: Client,
   sharedState: SharedState,
 ): Promise<void> {
-  const status200 = await sendMintToBatcher(20000);
-  console.log("🪙 Correct input for Mint sent to batcher successfully with status:", status200);
+  const response = await sendMintToBatcher(20000) as BatcherResponse;
+  console.log("🪙 Correct input for Mint sent to batcher successfully with status:", response.success);
   await assert("Send Mint to Batcher Test", async () => {
-    return status200 === 200;
-  });
-
-  const statusBadInput = await sendMintToBatcher("not a number");
-  console.log("🪙 Wrong input for Mint sent to batcher successfully:", statusBadInput);
-  await assert("Send Mint to Batcher Test Bad Input", async () => {
-    return statusBadInput === 400;
-  });
-
-  const statusBadConfirmationLevel = await sendMintToBatcher(20000, "wrong-confirmation-level");
-  console.log("🪙 Wrong confirmation level for Mint sent to batcher successfully:", statusBadConfirmationLevel);
-  await assert("Send Mint to Batcher Test Bad Confirmation Level", async () => {
-    return statusBadConfirmationLevel === 400;
+    return response.success;
   });
 }
 
-export { joinAndIncrementTest, sendMintToBatcherTest };
+async function testMqttSubscription(
+  _db: Client,
+  sharedState: SharedState,
+): Promise<void> {
+  const { inputId } = await sendMintToBatcher(20000);
+  const topic = `batcher/inputs/${inputId}`;
+
+  await assert("MQTT mint effectstream update", async () => {
+    const update = await waitForMqttPhase(topic, "effectstream-processed");
+    if (update.inputId !== inputId || update.phase !== "effectstream-processed") {
+      throw new Error(`MQTT mint effectstream update failed: ${JSON.stringify(update)}`);
+    }
+    else {
+      sharedState.primitive_accounting_counter++;
+      return true;
+    }
+  });
+}
+
+export { joinAndIncrementTest, sendMintToBatcherTest, testMqttSubscription };

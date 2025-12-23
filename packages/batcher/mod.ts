@@ -53,6 +53,9 @@ export type { DefaultBatcherInput } from "./core/types.ts";
 export type { BatcherGrammar, BatcherListener } from "./core/batcher-events.ts";
 export { attachDefaultConsoleListeners } from "./core/batcher-events.ts";
 
+// API types
+export type { BatcherResponse, InputUpdatePayload } from "./core/api-types.ts";
+
 export { DefaultBatchBuilderLogic } from "./batch-data-builder/default-builder-logic.ts";
 export {
   EvmBatchBuilderLogic,
