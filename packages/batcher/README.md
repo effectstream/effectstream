@@ -418,7 +418,7 @@ Each payload contains the `phase` (`accepted`, `submitted`, `receipt`, `effectst
 ```typescript
 import mqtt from "mqtt";
 
-const client = mqtt.connect("ws://localhost:8883");
+const client = mqtt.connect("ws://localhost:8833");
 const topic = `batcher/inputs/${inputId}`;
 
 client.on("connect", () => client.subscribe(topic));

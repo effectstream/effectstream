@@ -177,7 +177,7 @@ export const DEFAULT_CONFIG_VALUES = {
   enableEventSystem: false,
   mqtt: {
     enabled: false,
-    port: 8883,
+    port: 8833,
     host: "0.0.0.0",
     retainLastMessage: true,
   },

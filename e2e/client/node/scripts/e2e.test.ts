@@ -14,6 +14,7 @@ import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
 import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
 import { bitcoinTest, bitcoinBatcherTest } from "../e2e-tests/e2e.bitcoin.test.ts";
+import { testMqttSubscription } from "../e2e-tests/e2e.mqtt-subscription.test.ts";
 
 const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
 
@@ -57,6 +58,7 @@ async function test() {
     );
     await joinAndIncrementTest(db, sharedState);
     await sendMintToBatcherTest(db, sharedState);
+    await testMqttSubscription(sharedState);
     await submitDataWithMessageAvailTest(db, sharedState);
     await tokenTests(db, sharedState);
     if (bitcoin_enabled) {

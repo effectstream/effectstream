@@ -15,6 +15,12 @@ export const config: BatcherConfig<DefaultBatcherInput> = {
   confirmationLevel: "wait-effectstream-processed",
   enableEventSystem: true, // Important for adding state transitions to console logs
   port,
+  mqtt: {
+    enabled: true,
+    port: 8833,
+    host: "0.0.0.0",
+    retainLastMessage: true,
+  },
 };
 
 export const storage = new FileStorage("./batcher-data");

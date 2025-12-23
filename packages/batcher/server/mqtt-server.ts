@@ -1,4 +1,4 @@
-import { createBroker, type Client, type PublishPacket } from "aedes";
+import AedesModule, { type Client, type PublishPacket } from "aedes";
 import type { Server } from "aedes-server-factory";
 import { createServer } from "aedes-server-factory";
 import ip from "ip";
@@ -45,8 +45,29 @@ export interface BatcherMqttServerOptions {
   retainLastMessage: boolean;
 }
 
+type AedesConstructor = typeof import("aedes")["default"];
+type BrokerInstance = InstanceType<AedesConstructor>;
+type AedesFactory = (opts?: ConstructorParameters<AedesConstructor>[0]) => BrokerInstance;
+
+const createAedesInstance: AedesFactory = (() => {
+  const moduleWithDefault = AedesModule as unknown as {
+    default?: AedesFactory;
+  };
+  if (typeof moduleWithDefault.default === "function") {
+    return moduleWithDefault.default;
+  }
+  return AedesModule as unknown as AedesFactory;
+})();
+
+function stringifyPayload(payload: unknown): string {
+  return JSON.stringify(
+    payload,
+    (_key, value) => (typeof value === "bigint" ? value.toString() : value),
+  );
+}
+
 export class BatcherMqttServer {
-  private broker: ReturnType<typeof createBroker> | null = null;
+  private broker: BrokerInstance | null = null;
   private server: Server | null = null;
 
   constructor(private readonly options: BatcherMqttServerOptions) {}
@@ -54,7 +75,7 @@ export class BatcherMqttServer {
   async start(): Promise<void> {
     if (this.server) return;
 
-    this.broker = createBroker();
+    this.broker = createAedesInstance();
     this.broker.authorizePublish = (
       client: Client | null,
       packet: PublishPacket,
@@ -112,7 +133,7 @@ export class BatcherMqttServer {
     const packet: PublishPacket = {
       cmd: "publish",
       topic,
-      payload: Buffer.from(JSON.stringify(payload)),
+      payload: Buffer.from(stringifyPayload(payload)),
       qos: 0,
       dup: false,
       retain: this.options.retainLastMessage,
