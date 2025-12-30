@@ -3,7 +3,7 @@ import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Toolbar from "@mui/material/Toolbar";
 import { IconButton } from "@mui/material";
-import BackIcon from "@mui/icons-material/ArrowBack";
+import { ArrowBack } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Logo from "./Logo";
 interface NavbarProps {
@@ -24,7 +24,7 @@ const Navbar: React.FC<NavbarProps> = ({ children }) => {
             sx={{ mr: 2 }}
             onClick={() => navigate(-1)}
           >
-            <BackIcon />
+            <ArrowBack />
           </IconButton>
           <Logo height={64} />
           {children}

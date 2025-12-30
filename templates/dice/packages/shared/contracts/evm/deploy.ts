@@ -26,16 +26,48 @@ const myDeployments: Deployment[] = [
       AccountNft: {
         name: "Dice Account",
         ticker: "DICE",
-        price: 0,
+        price: 1000000000000000, // 0.001 ETH
       },
     },
   },
 ] as const;
 
 /**
+ * Wait for network to be ready by attempting to connect
+ */
+async function waitForNetwork(maxAttempts = 20, delayMs = 500): Promise<void> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch("http://localhost:8545", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "eth_blockNumber",
+          params: [],
+          id: 1,
+        }),
+      });
+      if (response.ok) {
+        console.log(`Network ready after ${i + 1} attempts`);
+        return;
+      }
+    } catch (e) {
+      // Network not ready yet
+    }
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  throw new Error("Network failed to become ready");
+}
+
+/**
  * Deploy the contracts to the network.
  */
 export async function deploy(): Promise<void> {
+  // Wait for Hardhat network to be ready
+  console.log("Waiting for Hardhat network to be ready...");
+  await waitForNetwork();
+
   const hre = await createHardhatRuntimeEnvironment(config.default, __dirname);
   const messages: string[] = [];
   for (const deployment of myDeployments) {

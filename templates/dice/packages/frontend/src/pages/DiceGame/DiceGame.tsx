@@ -17,7 +17,7 @@ import {
 } from "@dice/game-logic";
 import * as Paima from "@dice/middleware";
 import { DiceService } from "./GameLogic";
-import Prando from '@paima/sdk/prando';
+import Prando from 'prando';
 import Player from "./Player";
 import { DiceRef } from "./Dice";
 
@@ -67,6 +67,14 @@ const DiceGame: React.FC<DiceGameProps> = ({
     if (result == null) throw new Error(`DiceGame: nft not in lobby`);
     return result;
   }, [lobbyState, selectedNft]);
+
+  // Update displayedState.players when lobbyState.players changes
+  useEffect(() => {
+    setDisplayedState((prev) => ({
+      ...prev,
+      players: lobbyState.players,
+    }));
+  }, [lobbyState.players]);
 
   // "forced moves", user has to roll until he gets score 16
   const [initialRollQueue, setInitialRollQueue] = React.useState<
@@ -322,6 +330,38 @@ const DiceGame: React.FC<DiceGameProps> = ({
   const canPass = !disableInteraction && playerScore >= 16;
 
   if (lobbyState == null) return <></>;
+
+  // Check if this player is actually in the lobby
+  const playerInLobby = lobbyState.players.some(
+    (player) => player.nftId === selectedNft
+  );
+
+  if (!playerInLobby) {
+    return (
+      <Box sx={{ textAlign: "center", padding: 4 }}>
+        <Typography variant="h5" sx={{ marginBottom: 2 }}>
+          Joining lobby...
+        </Typography>
+        <Typography variant="body1">
+          Please wait while your join request is being processed.
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Check if the match has started (lobby is active with match/round data)
+  if (lobbyState.current_match == null || lobbyState.current_round == null) {
+    return (
+      <Box sx={{ textAlign: "center", padding: 4 }}>
+        <Typography variant="h5" sx={{ marginBottom: 2 }}>
+          Waiting for opponent...
+        </Typography>
+        <Typography variant="body1">
+          The game will start when another player joins the lobby.
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <>

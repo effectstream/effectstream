@@ -29,7 +29,7 @@ CREATE TABLE lobby_match(
   id SERIAL PRIMARY KEY,
   lobby_id TEXT NOT NULL references lobbies(lobby_id),
   match_within_lobby INTEGER NOT NULL,
-  starting_block_height INTEGER NOT NULL references block_heights(block_height)
+  starting_block_height INTEGER NOT NULL
 );
 
 CREATE TABLE match_round(
@@ -37,8 +37,8 @@ CREATE TABLE match_round(
   lobby_id TEXT NOT NULL references lobbies(lobby_id),
   match_within_lobby INTEGER NOT NULL,
   round_within_match INTEGER NOT NULL,
-  starting_block_height INTEGER NOT NULL references block_heights(block_height),
-  execution_block_Height INTEGER references block_heights(block_height)
+  starting_block_height INTEGER NOT NULL,
+  execution_block_Height INTEGER
 );
 
 CREATE TABLE round_move (

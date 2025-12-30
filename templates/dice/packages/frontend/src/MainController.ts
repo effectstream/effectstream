@@ -1,8 +1,7 @@
 import { MatchState, TickEvent, LobbyState } from "@dice/utils";
 import * as Paima from "@dice/middleware";
-import type { MatchExecutor } from '@paima/sdk/executors';
 import { IGetLobbyByIdResult, IGetPaginatedUserLobbiesResult } from "@dice/db";
-import { WalletMode } from "@paima/sdk/providers";
+import { WalletMode } from "@paimaexample/wallets";
 
 // The MainController is a React component that will be used to control the state of the application
 // It will be used to check if the user has metamask installed and if they are connected to the correct network
@@ -234,24 +233,6 @@ class MainController {
       throw new Error("Could not get open lobbies");
     }
     return response.lobbies;
-  }
-
-  async getMatchExecutor(
-    lobbyId: string,
-    matchWithinLobby: number
-  ): Promise<MatchExecutor<MatchState, TickEvent>> {
-    await this.enforceWalletConnected();
-    this.callback(null, true, null);
-    const response = await Paima.default.getMatchExecutor(
-      lobbyId,
-      matchWithinLobby
-    );
-    console.log("get match executor: ", response);
-    this.callback(null, false, null);
-    if (!response.success) {
-      throw new Error("Could not get match executor");
-    }
-    return response.result;
   }
 
   initialState(): Page {

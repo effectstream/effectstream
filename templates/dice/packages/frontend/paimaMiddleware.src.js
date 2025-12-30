@@ -71,8 +71,14 @@ const endpoints = {
     }
   },
 
-  async getOpenLobbies(page = 0, count = 10) {
+  // Alias for getLobbyState
+  async getLobbyRaw(lobbyId) {
+    return this.getLobbyState(lobbyId);
+  },
+
+  async getOpenLobbies(nftId, page = 0, count = 10) {
     try {
+      // Note: nftId is passed for compatibility but not used - open lobbies are public
       const response = await fetch(
         `http://localhost:9999/open_lobbies?page=${page}&count=${count}`
       );
@@ -195,9 +201,9 @@ const endpoints = {
     }
   },
 
-  async createLobby(numOfRounds, roundLength, isHidden = false, isPractice = false) {
+  async createLobby(creatorNftId, numOfRounds, roundLength, timePerPlayer, isHidden = false, isPractice = false) {
     try {
-      const params = ["createdLobby", numOfRounds, roundLength, isHidden, isPractice];
+      const params = ["createdLobby", creatorNftId, numOfRounds, roundLength, timePerPlayer, isHidden, isPractice];
 
       const result = await sendTransaction(wallet, params, paimaEngineConfig);
 
@@ -206,12 +212,14 @@ const endpoints = {
       }
 
       // Wait for the transaction to be processed and indexed
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 8000));
 
       // Query for the user's most recent lobby
       try {
+        // Get wallet address - handle both direct address string and wallet object
+        const walletAddr = typeof wallet === 'string' ? wallet : wallet?.walletAddress?.address || wallet?.address;
         const response = await fetch(
-          `http://localhost:9999/user_lobbies?wallet=${wallet.walletAddress.address}&page=0&count=1`
+          `http://localhost:9999/user_lobbies?wallet=${walletAddr}&page=0&count=1`
         );
         if (!response.ok) {
           return { success: false, errorMessage: "Failed to fetch created lobby" };
@@ -239,11 +247,11 @@ const endpoints = {
     }
   },
 
-  async joinLobby(lobbyId) {
+  async joinLobby(nftId, lobbyId) {
     try {
       const result = await sendTransaction(
         wallet,
-        ["joinedLobby", lobbyId],
+        ["joinedLobby", nftId, lobbyId],
         paimaEngineConfig
       );
       return result;
@@ -267,16 +275,36 @@ const endpoints = {
     }
   },
 
-  async submitMoves(lobbyId, matchWithinLobby, roundWithinMatch, rollAgain) {
+  async submitMoves(nftId, lobbyId, matchWithinLobby, roundWithinMatch, rollAgain) {
     try {
       const result = await sendTransaction(
         wallet,
-        ["submittedMoves", lobbyId, matchWithinLobby, roundWithinMatch, rollAgain],
+        ["submittedMoves", nftId, lobbyId, matchWithinLobby, roundWithinMatch, rollAgain],
         paimaEngineConfig
       );
       return result;
     } catch (error) {
       console.error("Error submitting move:", error);
+      return { success: false };
+    }
+  },
+
+  async getNftsForWallet(walletAddress) {
+    try {
+      const response = await fetch(
+        `http://localhost:9999/nfts?wallet=${walletAddress}`
+      );
+      if (!response.ok) {
+        console.error(`Error fetching NFTs: ${response.status} ${response.statusText}`);
+        return { success: false };
+      }
+      const data = await response.json();
+      return {
+        success: true,
+        result: data.nfts || [],
+      };
+    } catch (error) {
+      console.error("Error fetching NFTs:", error);
       return { success: false };
     }
   },

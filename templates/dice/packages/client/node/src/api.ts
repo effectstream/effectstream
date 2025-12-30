@@ -24,7 +24,30 @@ export const apiRouter: StartConfigApiRouter = async function (
         getLobbyById.run({ lobby_id: lobbyId }, dbConn),
         "getLobbyById"
       );
-      return reply.send(lobby || null);
+
+      if (!lobby) {
+        console.log(`Lobby ${lobbyId} not found`);
+        return reply.send(null);
+      }
+
+      // Fetch players for this lobby
+      const players = await runPreparedQuery(
+        getLobbyPlayers.run({ lobby_id: lobbyId }, dbConn),
+        "getLobbyPlayers"
+      );
+
+      console.log(`Lobby ${lobbyId} has ${players.length} players:`, players);
+
+      // Transform players to camelCase format expected by frontend
+      const transformedPlayers = players.map((player: any) => ({
+        nftId: player.nft_id,
+        turn: player.turn,
+        points: player.points,
+        score: player.score,
+      }));
+
+      // Return lobby with players included
+      return reply.send({ ...lobby, players: transformedPlayers });
     } catch (error) {
       console.error("Error fetching lobby:", error);
       return reply.code(500).send({ error: "Internal server error" });
@@ -82,6 +105,25 @@ export const apiRouter: StartConfigApiRouter = async function (
     }
   });
 
+  // Alias for /lobbies/open (for frontend compatibility)
+  server.get("/open_lobbies", async (request, reply) => {
+    const { page = 0, count = 10 } = request.query as { page?: number; count?: number };
+
+    try {
+      const result = await dbConn.query(
+        `SELECT * FROM lobbies
+         WHERE lobby_state = 'open' AND hidden = false
+         ORDER BY creation_block_height DESC
+         LIMIT $1 OFFSET $2`,
+        [Number(count), Number(page) * Number(count)]
+      );
+      return reply.send(result.rows);
+    } catch (error) {
+      console.error("Error fetching open lobbies:", error);
+      return reply.code(500).send({ error: "Internal server error" });
+    }
+  });
+
   // Get active lobbies
   server.get("/lobbies/active", async (request, reply) => {
     const { page = 0, count = 10 } = request.query as { page?: number; count?: number };
@@ -97,6 +139,43 @@ export const apiRouter: StartConfigApiRouter = async function (
       return reply.send(result.rows);
     } catch (error) {
       console.error("Error fetching active lobbies:", error);
+      return reply.code(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // Get user lobbies by wallet address (for compatibility with frontend)
+  server.get("/user_lobbies", async (request, reply) => {
+    const { wallet, page = 0, count = 10 } = request.query as { wallet?: string; page?: number; count?: number };
+
+    if (!wallet) {
+      return reply.code(400).send({ error: "Wallet address required" });
+    }
+
+    try {
+      // First, get NFT IDs for this wallet
+      const nftResult = await dbConn.query(
+        `SELECT nft_id FROM nft_ownership WHERE wallet_address = $1`,
+        [wallet.toLowerCase()]
+      );
+
+      // If no NFTs found in database, return empty array (or use mock NFT ID 1 for dev)
+      const nftIds = nftResult.rows.length > 0
+        ? nftResult.rows.map((row: { nft_id: number }) => row.nft_id)
+        : [1]; // Default to NFT ID 1 for development
+
+      // Then get lobbies for those NFT IDs
+      const result = await dbConn.query(
+        `SELECT DISTINCT l.* FROM lobbies l
+         INNER JOIN lobby_player lp ON l.lobby_id = lp.lobby_id
+         WHERE lp.nft_id = ANY($1::int[])
+           AND l.lobby_state IN ('active', 'finished', 'open')
+         ORDER BY l.creation_block_height DESC
+         LIMIT $2 OFFSET $3`,
+        [nftIds, Number(count), Number(page) * Number(count)]
+      );
+      return reply.send(result.rows);
+    } catch (error) {
+      console.error("Error fetching user lobbies:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
   });
@@ -222,6 +301,31 @@ export const apiRouter: StartConfigApiRouter = async function (
       return reply.send(result.rows);
     } catch (error) {
       console.error("Error fetching moves:", error);
+      return reply.code(500).send({ error: "Internal server error" });
+    }
+  });
+
+  // Get NFTs owned by wallet
+  server.get("/nfts", async (request, reply) => {
+    const { wallet } = request.query as { wallet: string };
+
+    if (!wallet) {
+      return reply.code(400).send({ error: "Wallet address required" });
+    }
+
+    try {
+      // Query custom nft_ownership table populated by nftMint state transition
+      const result = await dbConn.query(
+        `SELECT nft_id FROM nft_ownership WHERE wallet_address = $1 ORDER BY nft_id`,
+        [wallet.toLowerCase()]
+      );
+
+      const nfts = result.rows.map((row: { nft_id: number }) => row.nft_id);
+      console.log(`Found ${nfts.length} NFTs for wallet ${wallet}:`, nfts);
+
+      return reply.send({ nfts });
+    } catch (error) {
+      console.error("Error fetching NFTs:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
   });

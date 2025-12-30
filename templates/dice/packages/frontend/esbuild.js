@@ -24,13 +24,16 @@ try {
 }
 
 // Build middleware
-await build({
+const middlewareResult = await build({
   entryPoints: ["./paimaMiddleware.src.js"],
   bundle: true,
   outfile: "public/paimaMiddleware.js",
   sourcemap: true,
   format: "esm",
-  logLevel: "error", // Suppress polyfill warnings
+  logOverride: {
+    'direct-eval': 'silent',
+    'impossible-typeof': 'silent',
+  },
   plugins: [
     nodeModulesPolyfillPlugin({
       globals: {
@@ -46,8 +49,12 @@ await build({
   entryPoints: ["./src/main.tsx"],
   bundle: true,
   outfile: "public/dist/bundle.js",
-  sourcemap: true,
+  sourcemap: false,
   format: "esm",
+  logOverride: {
+    'direct-eval': 'silent',
+    'impossible-typeof': 'silent',
+  },
   loader: {
     '.tsx': 'tsx',
     '.ts': 'ts',
@@ -96,7 +103,7 @@ await build({
       },
     }),
   ],
-  publicPath: '/',
+  publicPath: '/dist/',
   assetNames: 'assets/[name]-[hash]',
 });
 

@@ -1,6 +1,6 @@
 import { LobbyState } from "@dice/utils";
 import * as Paima from "@dice/middleware";
-import { OldResult } from '@paima/sdk/mw-core';
+import { OldResult } from '@paimaexample/wallets';
 
 export class DiceService {
   // Get Lobby State

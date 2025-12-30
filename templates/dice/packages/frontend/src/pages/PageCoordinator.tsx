@@ -12,6 +12,7 @@ import { AppContext } from "@src/main";
 import { Lobby } from "./DiceGame/Lobby";
 import { useGlobalStateContext } from "@src/GlobalStateContext";
 import { IGetLobbyByIdResult } from "@dice/db";
+import ConnectingModal from "@src/ConnectingModal";
 
 const PageCoordinator: React.FC = () => {
   const mainController: MainController = useContext(AppContext);
@@ -38,10 +39,15 @@ const PageCoordinator: React.FC = () => {
         navigate(newPage);
       }
     };
+
+    // Navigate to initial state on mount
+    const initialPage = mainController.initialState();
+    navigate(initialPage);
   }, []);
 
   return (
     <div className="dice-app">
+      <ConnectingModal open={loading} />
       <Routes>
         <Route path={Page.MainMenu} element={<MainMenu />} />
         <Route path={Page.OpenLobbies} element={<OpenLobbies />} />

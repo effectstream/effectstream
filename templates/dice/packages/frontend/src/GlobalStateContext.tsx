@@ -2,14 +2,16 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import MainController from "./MainController";
 import { AppContext } from "./main";
 import { UseStateResponse } from "./utils";
-import type { WalletAddress } from '@paima/sdk/utils';
+
+// WalletAddress is just a string representing the wallet's address
+type WalletAddress = string;
 
 import * as Paima from "@dice/middleware";
 import ConnectingModal from "./ConnectingModal";
 import { PaimaNotice } from "./components/PaimaNotice";
 import { OasysNotice } from "./components/PaimaNotice";
 import { Box } from "@mui/material";
-import { WalletMode } from "@paima/sdk/providers";
+import { WalletMode } from "@paimaexample/wallets";
 
 type GlobalState = {
   connectedWallet?: WalletAddress;
@@ -52,20 +54,20 @@ export function GlobalStateProvider({
   }, [mainController, connectedWallet]);
 
   useEffect(() => {
-    // poll connection to wallet
-    const interval = setInterval(async () => {
-      const connectResult = await Paima.default.userWalletLogin({
-        mode: WalletMode.EvmInjected,
-        preferBatchedMode: false,
-      });
-      const newWallet = connectResult.success
-        ? connectResult.result.walletAddress
-        : undefined;
-      console.log('connectResult ', connectResult )
-      setConnectedWallet(newWallet);
-    }, 8000);
+    // Check wallet connection status periodically
+    // This doesn't trigger a connection popup, just checks if wallet is already connected
+    const checkWalletConnection = async () => {
+      // Check if the wallet is connected by seeing if we have an address in mainController
+      if (mainController.userAddress) {
+        setConnectedWallet(mainController.userAddress);
+      }
+    };
+
+    const interval = setInterval(checkWalletConnection, 2000);
+    checkWalletConnection(); // Check immediately on mount
+
     return () => clearInterval(interval);
-  }, [connectedWallet, mainController]);
+  }, [mainController]);
 
   // if a user disconnects, we will suspend the pages the previously connected wallet
   // instead of setting connected wallet back to undefined
@@ -89,7 +91,6 @@ export function GlobalStateProvider({
 
   return (
     <GlobalStateContext.Provider value={value}>
-      <ConnectingModal open={connectedWallet == null} />
       {children}
       <PaimaNotice />
       <Box sx={{ marginRight: 1 }} />

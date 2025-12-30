@@ -59,10 +59,8 @@
       ]
     },
     "deploy": {
-      "command": "deno run -A deploy.ts",
-      "dependencies": [
-        "deploy:clean"
-      ]
+      "command": "deno run -A deploy-simple.ts",
+      "dependencies": []
     },
     "chain:start": "deno run -A npm:hardhat@3.0.4 node",
     "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",

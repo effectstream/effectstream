@@ -1,9 +1,9 @@
 import * as React from "react";
 import { styled, alpha } from "@mui/material/styles";
 import InputBase from "@mui/material/InputBase";
-import SearchIcon from "@mui/icons-material/Search";
+import { Search as SearchIcon } from "@mui/icons-material";
 import { IconButton } from "@mui/material";
-import RefreshIcon from "@mui/icons-material/Refresh";
+import { Refresh as RefreshIcon } from "@mui/icons-material";
 
 // inspired by https://mui.com/material-ui/react-app-bar/#app-bar-with-search-field
 const Search = styled("div")(({ theme }) => ({

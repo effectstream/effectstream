@@ -1,6 +1,13 @@
 import { Box } from "@mui/material";
 import React, { useEffect } from "react";
-import ReactDice, { ReactDiceProps, ReactDiceRef } from "react-dice-complete";
+// @ts-ignore - react-dice-complete has type issues
+import ReactDiceModule from "react-dice-complete";
+
+// Handle both CommonJS and ESM exports
+const ReactDice = (ReactDiceModule as any).default || ReactDiceModule;
+
+type ReactDiceProps = any;
+type ReactDiceRef = any;
 
 export type DiceRef = {
   roll: (result: [number] | [number, number]) => Promise<void>;
@@ -86,3 +93,5 @@ export const Dice = React.forwardRef<
     </Box>
   );
 });
+
+Dice.displayName = "Dice";

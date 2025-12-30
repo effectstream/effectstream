@@ -1,7 +1,7 @@
-/** Types generated for queries found in "src/queries/insert.sql" */
+/** Types generated for queries found in "src/sql/insert.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
-import type { LobbyStatus } from '../common.ts';
+import type { LobbyStatus } from '../../../common.ts';
 
 export type DateOrString = Date | string;
 
@@ -302,5 +302,35 @@ const updateStatsIR: any = {"usedParamSet":{"stats":true},"params":[{"name":"sta
  * ```
  */
 export const updateStats = new PreparedQuery<IUpdateStatsParams,IUpdateStatsResult>(updateStatsIR);
+
+
+/** 'InsertNftOwnership' parameters type */
+export interface IInsertNftOwnershipParams {
+  nft_id: number;
+  wallet_address: string;
+}
+
+/** 'InsertNftOwnership' return type */
+export type IInsertNftOwnershipResult = void;
+
+/** 'InsertNftOwnership' query type */
+export interface IInsertNftOwnershipQuery {
+  params: IInsertNftOwnershipParams;
+  result: IInsertNftOwnershipResult;
+}
+
+const insertNftOwnershipIR: any = {"usedParamSet":{"nft_id":true,"wallet_address":true},"params":[{"name":"nft_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":59,"b":66}]},{"name":"wallet_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":69,"b":84}]}],"statement":"INSERT INTO nft_ownership (nft_id, wallet_address)\nVALUES (:nft_id!, :wallet_address!)\nON CONFLICT (nft_id)\nDO UPDATE SET\n  wallet_address = EXCLUDED.wallet_address"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO nft_ownership (nft_id, wallet_address)
+ * VALUES (:nft_id!, :wallet_address!)
+ * ON CONFLICT (nft_id)
+ * DO UPDATE SET
+ *   wallet_address = EXCLUDED.wallet_address
+ * ```
+ */
+export const insertNftOwnership = new PreparedQuery<IInsertNftOwnershipParams,IInsertNftOwnershipResult>(insertNftOwnershipIR);
 
 

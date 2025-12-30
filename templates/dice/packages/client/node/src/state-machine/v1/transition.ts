@@ -25,6 +25,7 @@ import {
   addWin,
   addLoss,
   addTie,
+  insertNftOwnership,
 } from "@dice/db";
 import type {
   MatchEnvironment,
@@ -45,8 +46,10 @@ export type SQLUpdate = [any, any];
 // Input types for state transitions
 export interface NftMintInput {
   input: "nftMint";
-  tokenId: string;
-  address: WalletAddress;
+  to: WalletAddress;    // Address the NFT is transferred to (recipient)
+  from: WalletAddress;  // Address the NFT is transferred from (0x0 for mint)
+  tokenId: string;      // NFT token ID
+  isBurn: boolean;      // Whether this is a burn operation
 }
 
 export interface CreatedLobbyInput {
@@ -112,19 +115,51 @@ function isLobbyWithStateProps(lobby: IGetLobbyByIdResult | null): lobby is Lobb
   );
 }
 
-// NFT Mint - create initial player stats
-export async function mintNft(input: NftMintInput): Promise<SQLUpdate> {
-  return [
-    newStats,
-    {
-      stats: [{
-        nft_id: parseInt(input.tokenId),
+// NFT Mint - create initial player stats and NFT ownership
+export async function mintNft(input: NftMintInput): Promise<SQLUpdate[]> {
+  console.log("mintNft called with input:", JSON.stringify(input, null, 2));
+
+  const tokenId = parseInt(input.tokenId);
+  const ownerAddress = input.to; // 'to' is the recipient of the NFT
+
+  console.log("Parsed tokenId:", tokenId, "Type:", typeof tokenId);
+  console.log("Owner address:", ownerAddress);
+  console.log("From address:", input.from);
+  console.log("Is burn?:", input.isBurn);
+
+  // Only process mints (from = 0x0) and transfers, skip burns
+  if (input.isBurn) {
+    console.log(`DISCARD: NFT ${tokenId} burn event`);
+    return [];
+  }
+
+  const updates: SQLUpdate[] = [];
+
+  // If this is a mint (from = 0x0), create initial stats
+  const isMint = input.from.toLowerCase() === '0x0000000000000000000000000000000000000000';
+  console.log("Is mint?:", isMint);
+
+  if (isMint) {
+    console.log("Creating initial stats for NFT", tokenId);
+    updates.push([newStats, {
+      stats: {
+        nft_id: tokenId,
         wins: 0,
         losses: 0,
         ties: 0,
-      }],
-    },
-  ];
+      },
+    }]);
+  }
+
+  // Always update ownership on transfer (including mints)
+  console.log("Adding ownership update for NFT", tokenId, "to", ownerAddress);
+  updates.push([insertNftOwnership, {
+    nft_id: tokenId,
+    wallet_address: ownerAddress.toLowerCase(),
+  }]);
+
+  console.log("Returning", updates.length, "updates");
+  return updates;
 }
 
 // Create Lobby
@@ -135,6 +170,8 @@ export async function createdLobby(
   randomGenerator: Prando
 ): Promise<SQLUpdate[]> {
   const lobby_id = randomGenerator.nextString(12);
+
+  console.log("Creating lobby:", lobby_id, "with creator NFT:", input.creatorNftId);
 
   const updates: SQLUpdate[] = [
     [createLobby, {
@@ -155,6 +192,8 @@ export async function createdLobby(
       nft_id: input.creatorNftId,
     }],
   ];
+
+  console.log("Lobby creation updates:", updates.length);
 
   return updates;
 }
@@ -217,10 +256,10 @@ export async function joinedLobby(
     ];
 
     // Assign turns randomly
-    const turnOrder = randomGenerator.shuffle([0, 1]);
-    allPlayers.forEach((player, idx) => {
-      player.turn = turnOrder[idx];
-    });
+    // Prando doesn't have a shuffle method, so we randomly assign turns
+    const firstPlayerIndex = randomGenerator.next() < 0.5 ? 0 : 1;
+    allPlayers[firstPlayerIndex].turn = 0;
+    allPlayers[1 - firstPlayerIndex].turn = 1;
 
     // Create match
     updates.push([newMatch, {

@@ -36,7 +36,7 @@ const customProcesses = [
   },
 ];
 
-const evmProcesses = launchEvm("@dice/evm-contracts").filter(process => process.name !== "deploy-evm-contracts");
+const evmProcesses = launchEvm("@dice/evm-contracts");
 
 const config = Value.Parse(OrchestratorConfig, {
   packageName: "jsr:@paimaexample",

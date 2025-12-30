@@ -1,7 +1,7 @@
-/** Types generated for queries found in "src/queries/select.sql" */
+/** Types generated for queries found in "src/sql/select.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
-import type { LobbyStatus } from '../common.ts';
+import type { LobbyStatus } from '../../../common.ts';
 
 export type NumberOrString = number | string;
 

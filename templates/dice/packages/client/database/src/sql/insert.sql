@@ -98,7 +98,7 @@ VALUES :stats
 ON CONFLICT (nft_id)
 DO NOTHING;
 
-/* 
+/*
   @name updateStats
   @param stats -> (nft_id!, wins!, losses!, ties!)
 */
@@ -109,3 +109,10 @@ DO UPDATE SET
 wins = EXCLUDED.wins,
 losses = EXCLUDED.losses,
 ties = EXCLUDED.ties;
+
+/* @name insertNftOwnership */
+INSERT INTO nft_ownership (nft_id, wallet_address)
+VALUES (:nft_id!, :wallet_address!)
+ON CONFLICT (nft_id)
+DO UPDATE SET
+  wallet_address = EXCLUDED.wallet_address;

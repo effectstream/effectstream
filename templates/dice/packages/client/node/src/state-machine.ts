@@ -29,14 +29,18 @@ const stm = new PaimaSTM<typeof grammar, any>(grammar);
 stm.addStateTransition("nftMint", function* (data) {
   const { parsedInput } = data;
 
-  const result = yield* World.promise<SQLUpdate>(
+  console.log("NFT Mint - parsedInput:", JSON.stringify(parsedInput, null, 2));
+
+  const results = yield* World.promise<SQLUpdate[]>(
     mintNft({
       input: "nftMint",
       ...parsedInput,
     })
   );
 
-  yield* World.resolve(result[0], result[1]);
+  for (const result of results) {
+    yield* World.resolve(result[0], result[1]);
+  }
 });
 
 // Create lobby

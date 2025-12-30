@@ -1,7 +1,7 @@
-/** Types generated for queries found in "src/queries/update.sql" */
+/** Types generated for queries found in "src/sql/update.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
-import type { LobbyStatus } from '../common.ts';
+import type { LobbyStatus } from '../../../common.ts';
 
 /** 'UpdateLobbyState' parameters type */
 export interface IUpdateLobbyStateParams {

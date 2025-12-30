@@ -86,5 +86,11 @@ export const buyNft = async (account: string) => {
     gasLimit: 800000,
     value: tokenPrice.toString(),
   });
-  return tx;
+
+  // Wait for the transaction to be mined
+  console.log("Waiting for NFT purchase transaction to be confirmed...");
+  const receipt = await tx.wait();
+  console.log("NFT purchase confirmed in block:", receipt.blockNumber);
+
+  return receipt;
 };

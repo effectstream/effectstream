@@ -1,5 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import type { GrammarDefinition } from "@paimaexample/concise";
+import { builtinGrammars } from "@paimaexample/sm/grammar";
 
 // Helper type for lobby ID validation (12 characters)
 const LobbyID = Type.String({ minLength: 12, maxLength: 12 });
@@ -15,11 +16,9 @@ const MatchResult = Type.Union([
 ]);
 
 export const grammar = {
-  // NFT mint event: nftmint|address|tokenId
-  nftMint: [
-    ["address", Type.String()], // Wallet address
-    ["tokenId", Type.String()],
-  ],
+  // NFT mint event - uses built-in ERC721 grammar for Transfer events
+  // Receives: from, to, tokenId from the ERC721 Transfer event
+  nftMint: builtinGrammars.evmErc721,
 
   // Create a new lobby: c|creatorNftId|numOfRounds|roundLength|playTimePerPlayer|isHidden?|isPractice?
   createdLobby: [

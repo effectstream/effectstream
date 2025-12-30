@@ -1,5 +1,5 @@
 import { contractAddressesEvmMain } from "@dice/evm-contracts";
-import { PrimitiveTypeEVMPaimaL2 } from "@paimaexample/sm/builtin";
+import { PrimitiveTypeEVMPaimaL2, PrimitiveTypeEVMERC721 } from "@paimaexample/sm/builtin";
 import {
   ConfigBuilder,
   ConfigNetworkType,
@@ -60,8 +60,21 @@ export const localhostConfig = new ConfigBuilder()
             startBlockHeight: 0,
             contractAddress:
               contractAddressesEvmMain()
-                .chain31337["PaimaL2ContractModule#MyPaimaL2Contract"],
+                .chain31337["L2Contract#PaimaL2Contract"],
             paimaL2Grammar: grammar,
+          }),
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (network, deployments, syncProtocol) =>
+          ({
+            name: "Dice_AccountNFT",
+            type: PrimitiveTypeEVMERC721,
+            startBlockHeight: 0,
+            contractAddress:
+              contractAddressesEvmMain()
+                .chain31337["AccountNft#AnnotatedMintNft"],
+            stateMachinePrefix: "nftMint",
           }),
       )
   )
