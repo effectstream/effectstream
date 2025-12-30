@@ -235,35 +235,41 @@ const endpoints = {
         return { success: false, errorMessage: "Failed to create lobby" };
       }
 
-      // Wait for the transaction to be processed and indexed
-      await new Promise(resolve => setTimeout(resolve, 8000));
+      // Get wallet address - handle both direct address string and wallet object
+      const walletAddr = typeof wallet === 'string' ? wallet : wallet?.walletAddress?.address || wallet?.address;
+      console.log("Waiting for lobby to be indexed for wallet:", walletAddr);
 
-      // Query for the user's most recent lobby
-      try {
-        // Get wallet address - handle both direct address string and wallet object
-        const walletAddr = typeof wallet === 'string' ? wallet : wallet?.walletAddress?.address || wallet?.address;
-        const response = await fetch(
-          `http://localhost:9999/user_lobbies?wallet=${walletAddr}&page=0&count=1`
-        );
-        if (!response.ok) {
-          return { success: false, errorMessage: "Failed to fetch created lobby" };
+      // Poll for the lobby with retries
+      for (let attempt = 0; attempt < 15; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between attempts
+
+        try {
+          const response = await fetch(
+            `http://localhost:9999/user_lobbies?wallet=${walletAddr}&page=0&count=1`
+          );
+          if (!response.ok) {
+            console.log(`Attempt ${attempt + 1}: Failed to fetch lobbies (${response.status})`);
+            continue;
+          }
+          const lobbies = await response.json();
+          console.log(`Attempt ${attempt + 1}: Found ${lobbies.length} lobbies`);
+          if (lobbies && lobbies.length > 0) {
+            console.log("Found lobby:", lobbies[0].lobby_id);
+            return {
+              success: true,
+              lobbyID: lobbies[0].lobby_id,
+              lobbyStatus: lobbies[0].lobby_state,
+            };
+          }
+        } catch (fetchError) {
+          console.error(`Attempt ${attempt + 1}: Error fetching created lobby:`, fetchError);
         }
-        const lobbies = await response.json();
-        if (lobbies && lobbies.length > 0) {
-          return {
-            success: true,
-            lobbyID: lobbies[0].lobby_id,
-            lobbyStatus: lobbies[0].lobby_state,
-          };
-        }
-      } catch (fetchError) {
-        console.error("Error fetching created lobby:", fetchError);
       }
 
-      // Fallback: return error if we couldn't find the lobby
+      // Fallback: return error if we couldn't find the lobby after all retries
       return {
         success: false,
-        errorMessage: "Lobby created but could not retrieve lobby ID",
+        errorMessage: "Lobby created but could not retrieve lobby ID after 15 attempts",
       };
     } catch (error) {
       console.error("Error creating lobby:", error);
