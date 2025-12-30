@@ -202,6 +202,31 @@ export const apiRouter: StartConfigApiRouter = async function (
     }
   });
 
+  // Alias for user/:nftId/lobbies using query parameter format
+  server.get("/user_lobbies_by_nft", async (request, reply) => {
+    const { nft_id, page = 0, count = 10 } = request.query as { nft_id?: string; page?: number; count?: number };
+
+    if (!nft_id) {
+      return reply.code(400).send({ error: "NFT ID required" });
+    }
+
+    try {
+      const result = await dbConn.query(
+        `SELECT DISTINCT l.* FROM lobbies l
+         INNER JOIN lobby_player lp ON l.lobby_id = lp.lobby_id
+         WHERE lp.nft_id = $1
+           AND l.lobby_state IN ('active', 'finished', 'open')
+         ORDER BY l.creation_block_height DESC
+         LIMIT $2 OFFSET $3`,
+        [parseInt(nft_id), Number(count), Number(page) * Number(count)]
+      );
+      return reply.send(result.rows);
+    } catch (error) {
+      console.error("Error fetching user lobbies by NFT:", error);
+      return reply.code(500).send({ error: "Internal server error" });
+    }
+  });
+
   // Get match data
   server.get("/lobby/:lobbyId/match/:matchId", async (request, reply) => {
     const { lobbyId, matchId } = request.params as { lobbyId: string; matchId: string };

@@ -137,6 +137,30 @@ const endpoints = {
     }
   },
 
+  async getUserLobbiesMatches(nftId, page = 0, count = 10) {
+    try {
+      // For now, use the same endpoint as getUserLobbies
+      // We need to get the wallet address for this NFT first
+      // Since we don't have a direct NFT->wallet lookup in the middleware,
+      // we'll query lobbies where this NFT is a player
+      const response = await fetch(
+        `http://localhost:9999/user_lobbies_by_nft?nft_id=${nftId}&page=${page}&count=${count}`
+      );
+      if (!response.ok) {
+        console.error(`Error fetching user lobbies by NFT: ${response.status} ${response.statusText}`);
+        return { success: false };
+      }
+      const data = await response.json();
+      return {
+        success: true,
+        lobbies: data,
+      };
+    } catch (error) {
+      console.error("Error fetching user lobbies by NFT:", error);
+      return { success: false };
+    }
+  },
+
   async getRoundData(lobbyId, roundNumber) {
     try {
       const response = await fetch(

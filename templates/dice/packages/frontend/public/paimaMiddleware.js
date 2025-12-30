@@ -338542,6 +338542,25 @@ var endpoints = {
       return { success: false };
     }
   },
+  async getUserLobbiesMatches(nftId, page = 0, count = 10) {
+    try {
+      const response = await fetch(
+        `http://localhost:9999/user_lobbies_by_nft?nft_id=${nftId}&page=${page}&count=${count}`
+      );
+      if (!response.ok) {
+        console.error(`Error fetching user lobbies by NFT: ${response.status} ${response.statusText}`);
+        return { success: false };
+      }
+      const data = await response.json();
+      return {
+        success: true,
+        lobbies: data
+      };
+    } catch (error) {
+      console.error("Error fetching user lobbies by NFT:", error);
+      return { success: false };
+    }
+  },
   async getRoundData(lobbyId, roundNumber) {
     try {
       const response = await fetch(

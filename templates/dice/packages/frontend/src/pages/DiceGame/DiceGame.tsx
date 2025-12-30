@@ -68,13 +68,15 @@ const DiceGame: React.FC<DiceGameProps> = ({
     return result;
   }, [lobbyState, selectedNft]);
 
-  // Update displayedState.players when lobbyState.players changes
+  // Update displayedState when lobby state changes (e.g., when second player joins)
   useEffect(() => {
     setDisplayedState((prev) => ({
       ...prev,
+      turn: lobbyState.current_turn ?? prev.turn,
+      properRound: lobbyState.current_proper_round ?? prev.properRound,
       players: lobbyState.players,
     }));
-  }, [lobbyState.players]);
+  }, [lobbyState.current_turn, lobbyState.current_proper_round, lobbyState.players]);
 
   // "forced moves", user has to roll until he gets score 16
   const [initialRollQueue, setInitialRollQueue] = React.useState<
