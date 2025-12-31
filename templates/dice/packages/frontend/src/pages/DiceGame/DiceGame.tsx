@@ -70,13 +70,22 @@ const DiceGame: React.FC<DiceGameProps> = ({
   }, [lobbyState, selectedNft]);
 
   // Update displayedState when lobby state changes (e.g., when second player joins)
+  // Only update players if they're structurally different (e.g., new player joined)
+  // Don't update during gameplay as it would reset visual state (dice rolls, scores)
   useEffect(() => {
-    setDisplayedState((prev) => ({
-      ...prev,
-      turn: lobbyState.current_turn ?? prev.turn,
-      properRound: lobbyState.current_proper_round ?? prev.properRound,
-      players: lobbyState.players,
-    }));
+    setDisplayedState((prev) => {
+      // Only update players if the number of players changed or NFT IDs changed
+      const playersChanged =
+        prev.players.length !== lobbyState.players.length ||
+        prev.players.some((p, i) => p.nftId !== lobbyState.players[i]?.nftId);
+
+      return {
+        ...prev,
+        turn: lobbyState.current_turn ?? prev.turn,
+        properRound: lobbyState.current_proper_round ?? prev.properRound,
+        players: playersChanged ? lobbyState.players : prev.players,
+      };
+    });
   }, [lobbyState.current_turn, lobbyState.current_proper_round, lobbyState.players]);
 
   // "forced moves", user has to roll until he gets score 16

@@ -227,6 +227,11 @@ const endpoints = {
 
   async getRoundExecutor(lobbyId, matchWithinLobby, roundWithinMatch, initialMatchState) {
     try {
+      // Validate inputs
+      if (matchWithinLobby == null || roundWithinMatch == null) {
+        return { success: false, errorMessage: "Invalid match or round number" };
+      }
+
       // Fetch the round moves
       const movesResponse = await fetch(
         `http://localhost:9999/lobby/${lobbyId}/match/${matchWithinLobby}/round/${roundWithinMatch}/moves`

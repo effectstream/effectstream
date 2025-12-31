@@ -258,12 +258,20 @@ export const apiRouter: StartConfigApiRouter = async function (
       roundId: string;
     };
 
+    // Validate that roundId and matchId are valid integers
+    const parsedMatchId = parseInt(matchId);
+    const parsedRoundId = parseInt(roundId);
+
+    if (isNaN(parsedMatchId) || isNaN(parsedRoundId)) {
+      return reply.code(400).send({ error: "Invalid match or round ID" });
+    }
+
     try {
       const moves = await runPreparedQuery(
         getRoundMoves.run({
           lobby_id: lobbyId,
-          match_within_lobby: parseInt(matchId),
-          round_within_match: parseInt(roundId),
+          match_within_lobby: parsedMatchId,
+          round_within_match: parsedRoundId,
         }, dbConn),
         "getRoundMoves"
       );
