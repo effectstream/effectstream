@@ -26,7 +26,6 @@ export const apiRouter: StartConfigApiRouter = async function (
       );
 
       if (!lobby) {
-        console.log(`Lobby ${lobbyId} not found`);
         return reply.send(null);
       }
 
@@ -35,8 +34,6 @@ export const apiRouter: StartConfigApiRouter = async function (
         getLobbyPlayers.run({ lobby_id: lobbyId }, dbConn),
         "getLobbyPlayers"
       );
-
-      console.log(`Lobby ${lobbyId} has ${players.length} players:`, players);
 
       // Transform players to camelCase format expected by frontend
       const transformedPlayers = players.map((player: any) => ({
@@ -108,20 +105,11 @@ export const apiRouter: StartConfigApiRouter = async function (
   // Alias for /lobbies/open (for frontend compatibility)
   server.get("/open_lobbies", async (request, reply) => {
     const { page = 0, count = 10 } = request.query as { page?: number; count?: number };
-
-    try {
-      const result = await dbConn.query(
-        `SELECT * FROM lobbies
-         WHERE lobby_state = 'open' AND hidden = false
-         ORDER BY creation_block_height DESC
-         LIMIT $1 OFFSET $2`,
-        [Number(count), Number(page) * Number(count)]
-      );
-      return reply.send(result.rows);
-    } catch (error) {
-      console.error("Error fetching open lobbies:", error);
-      return reply.code(500).send({ error: "Internal server error" });
-    }
+    const queryString = new URLSearchParams({
+      page: String(page),
+      count: String(count)
+    }).toString();
+    return reply.redirect(`/lobbies/open?${queryString}`);
   });
 
   // Get active lobbies
@@ -158,10 +146,12 @@ export const apiRouter: StartConfigApiRouter = async function (
         [wallet.toLowerCase()]
       );
 
-      // If no NFTs found in database, return empty array (or use mock NFT ID 1 for dev)
-      const nftIds = nftResult.rows.length > 0
-        ? nftResult.rows.map((row: { nft_id: number }) => row.nft_id)
-        : [1]; // Default to NFT ID 1 for development
+      // If no NFTs found in database, return empty array
+      if (nftResult.rows.length === 0) {
+        return reply.send([]);
+      }
+
+      const nftIds = nftResult.rows.map((row: { nft_id: number }) => row.nft_id);
 
       // Then get lobbies for those NFT IDs
       const result = await dbConn.query(
@@ -210,21 +200,11 @@ export const apiRouter: StartConfigApiRouter = async function (
       return reply.code(400).send({ error: "NFT ID required" });
     }
 
-    try {
-      const result = await dbConn.query(
-        `SELECT DISTINCT l.* FROM lobbies l
-         INNER JOIN lobby_player lp ON l.lobby_id = lp.lobby_id
-         WHERE lp.nft_id = $1
-           AND l.lobby_state IN ('active', 'finished', 'open')
-         ORDER BY l.creation_block_height DESC
-         LIMIT $2 OFFSET $3`,
-        [parseInt(nft_id), Number(count), Number(page) * Number(count)]
-      );
-      return reply.send(result.rows);
-    } catch (error) {
-      console.error("Error fetching user lobbies by NFT:", error);
-      return reply.code(500).send({ error: "Internal server error" });
-    }
+    const queryString = new URLSearchParams({
+      page: String(page),
+      count: String(count)
+    }).toString();
+    return reply.redirect(`/user/${nft_id}/lobbies?${queryString}`);
   });
 
   // Get match data
@@ -346,14 +326,10 @@ export const apiRouter: StartConfigApiRouter = async function (
       );
 
       const nfts = result.rows.map((row: { nft_id: number }) => row.nft_id);
-      console.log(`Found ${nfts.length} NFTs for wallet ${wallet}:`, nfts);
-
       return reply.send({ nfts });
     } catch (error) {
       console.error("Error fetching NFTs:", error);
       return reply.code(500).send({ error: "Internal server error" });
     }
   });
-
-  console.log("API routes registered for Dice Game");
 };

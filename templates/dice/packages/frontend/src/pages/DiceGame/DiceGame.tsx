@@ -18,6 +18,7 @@ import {
 import * as Paima from "@dice/middleware";
 import { DiceService } from "./GameLogic";
 import Prando from 'prando';
+import { RoundExecutorWrapper } from "./RoundExecutorWrapper";
 import Player from "./Player";
 import { DiceRef } from "./Dice";
 
@@ -298,9 +299,16 @@ const DiceGame: React.FC<DiceGameProps> = ({
       )
       .then((newRoundExecutor) => {
         if (newRoundExecutor.success) {
+          // Wrap the result in RoundExecutorWrapper
+          const wrapper = new RoundExecutorWrapper(
+            newRoundExecutor.result.moves,
+            newRoundExecutor.result.lobbyData,
+            newRoundExecutor.result.initialMatchState
+          );
+
           const newRoundExecutorResults = {
-            tickEvents: newRoundExecutor.result.processAllTicks(),
-            endState: newRoundExecutor.result.endState(),
+            tickEvents: wrapper.processAllTicks(),
+            endState: wrapper.endState(),
           };
 
           setRoundExecutor(newRoundExecutorResults);
@@ -351,8 +359,8 @@ const DiceGame: React.FC<DiceGameProps> = ({
     );
   }
 
-  // Check if the match has started (lobby is active with match/round data)
-  if (lobbyState.current_match == null || lobbyState.current_round == null) {
+  // Check if the match has started (lobby is active with match/round data AND has enough players)
+  if (lobbyState.current_match == null || lobbyState.current_round == null || lobbyState.players.length < 2) {
     return (
       <Box sx={{ textAlign: "center", padding: 4 }}>
         <Typography variant="h5" sx={{ marginBottom: 2 }}>

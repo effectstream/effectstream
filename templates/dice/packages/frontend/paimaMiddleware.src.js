@@ -225,6 +225,39 @@ const endpoints = {
     }
   },
 
+  async getRoundExecutor(lobbyId, matchWithinLobby, roundWithinMatch, initialMatchState) {
+    try {
+      // Fetch the round moves
+      const movesResponse = await fetch(
+        `http://localhost:9999/lobby/${lobbyId}/match/${matchWithinLobby}/round/${roundWithinMatch}/moves`
+      );
+      if (!movesResponse.ok) {
+        return { success: false, errorMessage: "Failed to fetch round moves" };
+      }
+      const moves = await movesResponse.json();
+
+      // Fetch the lobby state to get round seed and num of rounds
+      const lobbyResponse = await fetch(`http://localhost:9999/lobby/${lobbyId}`);
+      if (!lobbyResponse.ok) {
+        return { success: false, errorMessage: "Failed to fetch lobby state" };
+      }
+      const lobbyData = await lobbyResponse.json();
+
+      // Return data needed for RoundExecutorWrapper (created in TypeScript frontend code)
+      return {
+        success: true,
+        result: {
+          moves,
+          lobbyData,
+          initialMatchState,
+        },
+      };
+    } catch (error) {
+      console.error("Error fetching round executor data:", error);
+      return { success: false, errorMessage: error.message };
+    }
+  },
+
   async createLobby(creatorNftId, numOfRounds, roundLength, timePerPlayer, isHidden = false, isPractice = false) {
     try {
       const params = ["createdLobby", creatorNftId, numOfRounds, roundLength, timePerPlayer, isHidden, isPractice];
@@ -235,26 +268,19 @@ const endpoints = {
         return { success: false, errorMessage: "Failed to create lobby" };
       }
 
-      // Get wallet address - handle both direct address string and wallet object
-      const walletAddr = typeof wallet === 'string' ? wallet : wallet?.walletAddress?.address || wallet?.address;
-      console.log("Waiting for lobby to be indexed for wallet:", walletAddr);
-
-      // Poll for the lobby with retries
+      // Poll for the lobby by NFT ID (more reliable than wallet address)
       for (let attempt = 0; attempt < 15; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between attempts
 
         try {
           const response = await fetch(
-            `http://localhost:9999/user_lobbies?wallet=${walletAddr}&page=0&count=1`
+            `http://localhost:9999/user/${creatorNftId}/lobbies?page=0&count=1`
           );
           if (!response.ok) {
-            console.log(`Attempt ${attempt + 1}: Failed to fetch lobbies (${response.status})`);
             continue;
           }
           const lobbies = await response.json();
-          console.log(`Attempt ${attempt + 1}: Found ${lobbies.length} lobbies`);
           if (lobbies && lobbies.length > 0) {
-            console.log("Found lobby:", lobbies[0].lobby_id);
             return {
               success: true,
               lobbyID: lobbies[0].lobby_id,
@@ -262,7 +288,8 @@ const endpoints = {
             };
           }
         } catch (fetchError) {
-          console.error(`Attempt ${attempt + 1}: Error fetching created lobby:`, fetchError);
+          // Continue polling on error
+          continue;
         }
       }
 

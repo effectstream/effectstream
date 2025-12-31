@@ -117,19 +117,11 @@ function isLobbyWithStateProps(lobby: IGetLobbyByIdResult | null): lobby is Lobb
 
 // NFT Mint - create initial player stats and NFT ownership
 export async function mintNft(input: NftMintInput): Promise<SQLUpdate[]> {
-  console.log("mintNft called with input:", JSON.stringify(input, null, 2));
-
   const tokenId = parseInt(input.tokenId);
   const ownerAddress = input.to; // 'to' is the recipient of the NFT
 
-  console.log("Parsed tokenId:", tokenId, "Type:", typeof tokenId);
-  console.log("Owner address:", ownerAddress);
-  console.log("From address:", input.from);
-  console.log("Is burn?:", input.isBurn);
-
   // Only process mints (from = 0x0) and transfers, skip burns
   if (input.isBurn) {
-    console.log(`DISCARD: NFT ${tokenId} burn event`);
     return [];
   }
 
@@ -137,10 +129,8 @@ export async function mintNft(input: NftMintInput): Promise<SQLUpdate[]> {
 
   // If this is a mint (from = 0x0), create initial stats
   const isMint = input.from.toLowerCase() === '0x0000000000000000000000000000000000000000';
-  console.log("Is mint?:", isMint);
 
   if (isMint) {
-    console.log("Creating initial stats for NFT", tokenId);
     updates.push([newStats, {
       stats: {
         nft_id: tokenId,
@@ -152,13 +142,11 @@ export async function mintNft(input: NftMintInput): Promise<SQLUpdate[]> {
   }
 
   // Always update ownership on transfer (including mints)
-  console.log("Adding ownership update for NFT", tokenId, "to", ownerAddress);
   updates.push([insertNftOwnership, {
     nft_id: tokenId,
     wallet_address: ownerAddress.toLowerCase(),
   }]);
 
-  console.log("Returning", updates.length, "updates");
   return updates;
 }
 
@@ -193,8 +181,6 @@ export async function createdLobby(
     }],
   ];
 
-  console.log("Lobby creation updates:", updates.length);
-
   return updates;
 }
 
@@ -208,12 +194,10 @@ export async function joinedLobby(
   randomGenerator: Prando
 ): Promise<SQLUpdate[]> {
   if (!lobbyData) {
-    console.log("DISCARD: lobby does not exist");
     return [];
   }
 
   if (lobbyData.lobby_state !== "open" || players.length >= lobbyData.max_players) {
-    console.log("DISCARD: lobby does not accept more players");
     return [];
   }
 
@@ -322,7 +306,6 @@ export async function closedLobby(
   lobbyData: IGetLobbyByIdResult | null
 ): Promise<SQLUpdate[]> {
   if (!lobbyData) {
-    console.log("DISCARD: lobby does not exist");
     return [];
   }
 
@@ -349,47 +332,39 @@ export async function submittedMoves(
   randomGenerator: Prando
 ): Promise<SQLUpdate[]> {
   if (!lobbyData || !isLobbyWithStateProps(lobbyData)) {
-    console.log("DISCARD: lobby does not exist or has no state");
     return [];
   }
 
   if (lobbyData.lobby_state !== "active") {
-    console.log("DISCARD: lobby not active");
     return [];
   }
 
   if (players.length !== 2) {
-    console.log(`DISCARD: wrong number of players ${players.length}`);
     return [];
   }
 
   if (!roundData) {
-    console.log("DISCARD: round does not exist");
     return [];
   }
 
   // Check if it's the right player's turn
   const turnPlayer = players.find(p => p.turn === lobbyData.current_turn);
   if (!turnPlayer || input.nftId !== turnPlayer.nft_id) {
-    console.log("DISCARD: not player's turn");
     return [];
   }
 
   // Validate the match and round numbers
   if (input.matchWithinLobby !== lobbyData.current_match) {
-    console.log("DISCARD: incorrect match");
     return [];
   }
 
   if (input.roundWithinMatch !== lobbyData.current_round) {
-    console.log("DISCARD: incorrect round");
     return [];
   }
 
   // Validate the move using game logic
   const matchState = buildCurrentMatchState(lobbyData, players);
   if (!isValidMove(randomGenerator, matchState, input.rollAgain)) {
-    console.log("DISCARD: invalid move");
     return [];
   }
 
@@ -508,7 +483,6 @@ export async function practiceMoves(
   randomGenerator: Prando
 ): Promise<SQLUpdate[]> {
   if (!lobbyData || !isLobbyWithStateProps(lobbyData)) {
-    console.log("DISCARD: lobby does not exist or has no state");
     return [];
   }
 
@@ -551,11 +525,9 @@ export async function zombieRound(
   randomGenerator: Prando
 ): Promise<SQLUpdate[]> {
   if (!lobbyData || !isLobbyWithStateProps(lobbyData)) {
-    console.log("DISCARD: lobby not active for zombie round");
     return [];
   }
 
-  console.log(`Executing zombie round for lobby ${input.lobbyID}`);
 
   // TODO: Implement proper zombie round logic
   // For now, just skip the turn
@@ -580,7 +552,6 @@ export async function updateUserStats(
   statsData: IGetUserStatsResult | null
 ): Promise<SQLUpdate> {
   if (!statsData) {
-    console.log(`DISCARD: no stats for NFT ${input.nftId}`);
     return [newStats, {
       stats: [{
         nft_id: input.nftId,

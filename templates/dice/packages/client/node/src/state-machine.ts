@@ -300,10 +300,6 @@ export const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput
 ): SyncStateUpdateStream<void> {
-  if (blockHeight >= 0) {
-    yield* stm.processInput(input);
-  } else {
-    yield* stm.processInput(input);
-  }
+  yield* stm.processInput(input);
   return;
 };
