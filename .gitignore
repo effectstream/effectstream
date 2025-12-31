@@ -20,3 +20,5 @@ tmp/
 .DS_Store
 .cursor
 
+# Snapshots
+snapshots/

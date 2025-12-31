@@ -58,6 +58,10 @@ export type StartConfig = {
   snapshotConfig?: {
     interval?: number;
     path?: string;
+    retention?: {
+      maxSnapshots?: number;        // Keep only last N snapshots
+      maxBlockRange?: number;        // Keep snapshots within last N blocks
+    };
   };
   dev?: {
     resetPublicData?: boolean;

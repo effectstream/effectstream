@@ -104,8 +104,12 @@ export function* start(config: StartConfig): Operation<void> {
         value.blockNumber % config.snapshotConfig.interval === 0
       ) {
          // The trigger is a special SQL comment/string intercepted by Pglite wrapper
-         // We verify it's the correct block height
-         yield* until(dbClient.query(`SELECT 'PAIMA_SNAPSHOT_TRIGGER', ${value.blockNumber}`));
+         const snapshotConfigJson = JSON.stringify({
+           path: config.snapshotConfig.path,
+           retention: config.snapshotConfig.retention,
+         });
+         const escapedConfig = snapshotConfigJson.replace(/'/g, "''");
+         yield* until(dbClient.query(`SELECT 'PAIMA_SNAPSHOT_TRIGGER', ${value.blockNumber}, '${escapedConfig}'`));
       }
     } finally {
       releaseDBMutex(`processing-blocks:${value.blockNumber}`);

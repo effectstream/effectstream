@@ -38,7 +38,21 @@ main(function* () {
       grammar,
       userDefinedPrimitives,
       snapshotConfig: Deno.env.get("PAIMA_SNAPSHOT_INTERVAL")
-        ? { interval: parseInt(Deno.env.get("PAIMA_SNAPSHOT_INTERVAL")!) }
+        ? {
+            interval: parseInt(Deno.env.get("PAIMA_SNAPSHOT_INTERVAL")!),
+            path: Deno.env.get("PAIMA_SNAPSHOT_PATH"),
+            retention: Deno.env.get("PAIMA_SNAPSHOT_MAX_SNAPSHOTS")
+              ? {
+                  maxSnapshots: parseInt(Deno.env.get("PAIMA_SNAPSHOT_MAX_SNAPSHOTS")!),
+                }
+              : Deno.env.get("PAIMA_SNAPSHOT_MAX_BLOCK_RANGE")
+              ? {
+                  maxBlockRange: parseInt(Deno.env.get("PAIMA_SNAPSHOT_MAX_BLOCK_RANGE")!),
+                }
+              : {
+                  maxSnapshots: 1, // Hardcoded to 1 for E2E tests
+                },
+          }
         : undefined,
     });
   });
