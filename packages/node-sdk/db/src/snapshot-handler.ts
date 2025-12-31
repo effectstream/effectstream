@@ -77,6 +77,15 @@ async function applyRetentionPolicy(
     return;
   }
   try {
+    if (retention.maxSnapshots !== undefined && retention.maxSnapshots <= 0) {
+      console.warn(`[Pglite] Invalid maxSnapshots value: ${retention.maxSnapshots}. Must be > 0.`);
+      return;
+    }
+    if (retention.maxBlockRange !== undefined && retention.maxBlockRange <= 0) {
+      console.warn(`[Pglite] Invalid maxBlockRange value: ${retention.maxBlockRange}. Must be > 0.`);
+      return;
+    }
+
     const snapshotFiles: Array<{ name: string; blockHeight: number; path: string }> = [];
     
     try {

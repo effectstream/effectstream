@@ -3,6 +3,19 @@ import type { Client } from "pg";
 
 const isSnapshotEnabled = Deno.env.get("PAIMA_SNAPSHOT_INTERVAL") !== undefined;
 
+async function pollCondition(condition: () => Promise<boolean>, timeout = 5000, interval = 200): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    try {
+      if (await condition()) return true;
+    } catch (e) {
+      // Ignore errors during polling
+    }
+    await new Promise(r => setTimeout(r, interval));
+  }
+  return false;
+}
+
 export async function snapshotTest(db: Client) {
   if (!isSnapshotEnabled) {
     console.log("Skipping snapshotTest (PAIMA_SNAPSHOT_INTERVAL not set)");
@@ -29,14 +42,18 @@ export async function snapshotTest(db: Client) {
   const snapshotAbsPath = new URL(snapshotPath, `file://${Deno.cwd()}/`).pathname;
   
   await assert(`Snapshot created at ${snapshotPath}`, async () => {
-    try {
-      const stats = await Deno.stat(snapshotPath);
-      console.log(`Snapshot found: ${snapshotPath}, size: ${stats.size}`);
-      return stats.isFile && stats.size > 0;
-    } catch (e) {
-      console.error(`Snapshot not found at ${snapshotPath} (absolute path: ${snapshotAbsPath})`);
+    return await pollCondition(async () => {
+      try {
+        const stats = await Deno.stat(snapshotPath);
+        if (stats.isFile && stats.size > 0) {
+          console.log(`Snapshot found: ${snapshotPath}, size: ${stats.size}`);
+          return true;
+        }
+      } catch (e) {
+        // Ignore not found during polling
+      }
       return false;
-    }
+    });
   });
 }
 
@@ -61,8 +78,6 @@ export async function snapshotRetentionTest(db: Client) {
   
   if (snapshotsCreatedSoFar >= 2) {
     // Enough blocks have elapsed - check if we already have snapshots
-    // Give a small delay to ensure any pending snapshots are created
-    await new Promise(resolve => setTimeout(resolve, 500));
     console.log(`Current block ${currentBlock} suggests ${snapshotsCreatedSoFar} snapshot(s) should already exist. Checking...`);
   } else {
     // Need to wait for more snapshots to be created
@@ -76,31 +91,26 @@ export async function snapshotRetentionTest(db: Client) {
     await blockWatcher.waitForBlock("__main__", secondTargetBlock + 1);
   }
 
-  // Give a small delay to ensure retention cleanup has completed
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
   // Count snapshot files in the directory
   await assert(`Only ${maxSnapshots} snapshot(s) exist with retention policy`, async () => {
-    try {
-      const snapshotFiles: string[] = [];
-      for await (const entry of Deno.readDir(snapshotDir)) {
-        if (entry.isFile && entry.name.startsWith("snapshot-") && entry.name.endsWith(".tar.gz")) {
-          snapshotFiles.push(entry.name);
+    return await pollCondition(async () => {
+      try {
+        const snapshotFiles: string[] = [];
+        for await (const entry of Deno.readDir(snapshotDir)) {
+          if (entry.isFile && entry.name.startsWith("snapshot-") && entry.name.endsWith(".tar.gz")) {
+            snapshotFiles.push(entry.name);
+          }
         }
-      }
-      
-      console.log(`Found ${snapshotFiles.length} snapshot(s) in ${snapshotDir}:`, snapshotFiles);
-      
-      if (snapshotFiles.length === maxSnapshots) {
-        console.log(`✓ Retention policy working correctly: ${snapshotFiles.length} snapshot(s) found (expected ${maxSnapshots})`);
-        return true;
-      } else {
-        console.error(`✗ Retention policy failed: found ${snapshotFiles.length} snapshot(s), expected ${maxSnapshots}`);
+        
+        if (snapshotFiles.length === maxSnapshots) {
+          console.log(`✓ Retention policy working correctly: ${snapshotFiles.length} snapshot(s) found (expected ${maxSnapshots})`);
+          return true;
+        }
+        return false;
+      } catch (e) {
+        console.error(`Error reading snapshot directory ${snapshotDir}:`, e);
         return false;
       }
-    } catch (e) {
-      console.error(`Error reading snapshot directory ${snapshotDir}:`, e);
-      return false;
-    }
+    });
   });
 }

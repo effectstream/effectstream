@@ -73,7 +73,11 @@ const db = new PGlite(
         }
 
         const dataStr = new TextDecoder().decode(data);
-        if (dataStr.includes("PAIMA_SNAPSHOT_TRIGGER")) {
+
+        if (
+          data[0] === 0x51 // 'Q' (Query) is a query message
+          && dataStr.includes("PAIMA_SNAPSHOT_TRIGGER")
+        ) {
           await handleSnapshotTrigger(db, dataStr);
         }
 
