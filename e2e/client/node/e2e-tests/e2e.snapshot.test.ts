@@ -13,20 +13,20 @@ export async function snapshotTest(db: Client) {
   console.log(`Running snapshotTest with interval ${interval}...`);
 
   // Wait for at least one snapshot interval
-  // We assume the chain is running.
   // We'll wait for block height to cross a multiple of interval.
-  
-  const currentBlock = await blockWatcher.getLatestBlock("parallelEvmRPC_fast");
+
+  const currentBlock = blockWatcher.getLatestBlock();
   const targetBlock = Math.ceil((currentBlock + 1) / interval) * interval; // next multiple
   
-  console.log(`Waiting for block ${targetBlock} to trigger snapshot...`);
-  await blockWatcher.waitForBlock("parallelEvmRPC_fast", targetBlock + 1); // wait past the trigger block
+  console.log(`Running snapshotTest: waiting for rollup block ${targetBlock} to trigger snapshot... (Current rollup block: ${currentBlock})`);
+  await blockWatcher.waitForBlock("__main__", targetBlock + 1); // wait past the trigger block
 
   // Check if snapshot file exists
   // The path relative to CWD (which is typically e2e/client/node when running the test task?)
   // start-pglite.ts writes to ./snapshots relative to where IT runs.
   // The Pglite process runs in e2e/client/node (workspace).
   const snapshotPath = `./snapshots/snapshot-${targetBlock}.tar.gz`;
+  const snapshotAbsPath = new URL(snapshotPath, `file://${Deno.cwd()}/`).pathname;
   
   await assert(`Snapshot created at ${snapshotPath}`, async () => {
     try {
@@ -34,7 +34,7 @@ export async function snapshotTest(db: Client) {
       console.log(`Snapshot found: ${snapshotPath}, size: ${stats.size}`);
       return stats.isFile && stats.size > 0;
     } catch (e) {
-      console.error(`Snapshot not found at ${snapshotPath}`);
+      console.error(`Snapshot not found at ${snapshotPath} (absolute path: ${snapshotAbsPath})`);
       return false;
     }
   });
