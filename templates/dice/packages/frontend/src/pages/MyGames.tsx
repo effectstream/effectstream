@@ -161,7 +161,7 @@ const MyGames: React.FC = () => {
                   <TableCell
                     key={column.id}
                     align="left"
-                    sx={{ minWidth: column.minWidth }}
+                    sx={{ minWidth: column.minWidth, color: '#000', fontWeight: 'bold' }}
                   >
                     {column.label}
                   </TableCell>
@@ -181,7 +181,7 @@ const MyGames: React.FC = () => {
                     >
                       {columns.map((column) => {
                         return (
-                          <TableCell key={column.id} align="left">
+                          <TableCell key={column.id} align="left" sx={{ color: '#333' }}>
                             {column.id === "action" ? (
                               <ActionButton lobby={lobby} />
                             ) : (
