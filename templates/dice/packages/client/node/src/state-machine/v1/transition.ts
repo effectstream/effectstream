@@ -201,6 +201,12 @@ export async function joinedLobby(
     return [];
   }
 
+  // Prevent the same NFT from joining twice
+  if (players.some(p => p.nft_id === input.nftId)) {
+    console.log(`NFT ${input.nftId} is already in lobby ${input.lobbyID}`);
+    return [];
+  }
+
   const updates: SQLUpdate[] = [];
 
   // Add player to lobby

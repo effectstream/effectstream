@@ -71,7 +71,7 @@ const DiceGame: React.FC<DiceGameProps> = ({
 
   // Update displayedState when lobby state changes (e.g., when second player joins)
   // Only update players if they're structurally different (e.g., new player joined)
-  // Don't update during gameplay as it would reset visual state (dice rolls, scores)
+  // Update turn/properRound when game starts, but not during active gameplay
   useEffect(() => {
     setDisplayedState((prev) => {
       // Only update players if the number of players changed or NFT IDs changed
@@ -79,10 +79,14 @@ const DiceGame: React.FC<DiceGameProps> = ({
         prev.players.length !== lobbyState.players.length ||
         prev.players.some((p, i) => p.nftId !== lobbyState.players[i]?.nftId);
 
+      // Only update turn/properRound when transitioning from null (game starting)
+      // Once gameplay begins, the round executor handles these updates
+      const gameJustStarted = prev.turn == null && lobbyState.current_turn != null;
+
       return {
         ...prev,
-        turn: lobbyState.current_turn ?? prev.turn,
-        properRound: lobbyState.current_proper_round ?? prev.properRound,
+        turn: gameJustStarted ? lobbyState.current_turn : prev.turn,
+        properRound: gameJustStarted ? lobbyState.current_proper_round : prev.properRound,
         players: playersChanged ? lobbyState.players : prev.players,
       };
     });
@@ -203,6 +207,9 @@ const DiceGame: React.FC<DiceGameProps> = ({
       const tickEvents = roundExecutor.tickEvents;
       const endState = roundExecutor.endState;
 
+      console.log(`[DiceGame] Playing ${tickEvents.length} tick events for round ${displayedRound}`);
+      console.log(`[DiceGame] This player turn: ${thisPlayer.turn}, displayed turn: ${displayedState.turn}`);
+
       for (const tickEvent of tickEvents) {
         // skip replay of this player's actions that already happened interactively
         if (
@@ -212,6 +219,7 @@ const DiceGame: React.FC<DiceGameProps> = ({
           continue;
 
         if (tickEvent.kind === TickEventKind.roll) {
+          console.log(`[DiceGame] Rolling dice for turn ${displayedState.turn}:`, tickEvent.diceRolls);
           await diceRefs.current[displayedState.turn].roll(tickEvent.diceRolls);
         }
         setDisplayedState((oldDisplayedState) => {

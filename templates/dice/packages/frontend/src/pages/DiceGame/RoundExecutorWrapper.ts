@@ -24,6 +24,7 @@ export class RoundExecutorWrapper {
   }
 
   processAllTicks(): TickEvent[] {
+    console.log(`[RoundExecutorWrapper] Processing round with ${this.moves.length} moves`);
     const allEvents: TickEvent[] = [];
     let currentState = cloneMatchState(this.initialMatchState);
     let currentTick = 0;
@@ -42,9 +43,11 @@ export class RoundExecutorWrapper {
         break;
       }
 
+      console.log(`[RoundExecutorWrapper] Tick ${currentTick} generated ${tickEvents.length} events`);
       allEvents.push(...tickEvents);
     }
 
+    console.log(`[RoundExecutorWrapper] Total: ${allEvents.length} events`);
     return allEvents;
   }
 
