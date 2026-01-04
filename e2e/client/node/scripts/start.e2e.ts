@@ -1,5 +1,3 @@
-import type { Client, PoolConfig } from "pg";
-import pg from "pg";
 import { OrchestratorConfig, start } from "@effectstream/orchestrator";
 import { ENV } from "@effectstream/utils/node-env";
 import { Value } from "@sinclair/typebox/value";
@@ -9,24 +7,39 @@ import { launchEvm } from "@effectstream/orchestrator/start-evm";
 import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
 import { launchAvail } from "@effectstream/orchestrator/start-avail";
 import { launchBitcoin } from "@effectstream/orchestrator/start-bitcoin";
+import {
+    anyError,
+    newSharedState,
+    printSummary,
+    type SharedState,
+  } from "@e2e/engine";
+import { accountTests } from "../e2e-tests/e2e.account.test.ts";
+import { generalTest } from "../e2e-tests/e2e.general.test.ts";
+import { joinAndIncrementTest, sendMintToBatcherTest } from "../e2e-tests/e2e.midnight.test.ts";
+import { submitDataWithMessageAvailTest } from "../e2e-tests/e2e.avail.test.ts";
+import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
+import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
+import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
+import { bitcoinTest, bitcoinBatcherTest } from "../e2e-tests/e2e.bitcoin.test.ts";
 import { getEffectstreamEVMPublicClient } from "@e2e/engine";
+import type { Client, PoolConfig } from "pg";
+import pg from "pg";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
 
-const external_db_enabled = isEnvTrue("EXTERNAL_DB_ENABLED");
+const external_db_enabled = ENV.getBoolean("EXTERNAL_DB_ENABLED");
 
-const yaci_enabled = !isEnvTrue("DISABLE_YACI")
-const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
-const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
-const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
+const yaci_enabled = !ENV.getBoolean("DISABLE_YACI")
+const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
+const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
+const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
 
 /**
  * Launch the Sync through the orchestrator,
  * and wait for the sync process to start and be ready.
  */
 export async function startup(): Promise<Client> {
-  const logs = Deno.env.get("EFFECTSTREAM_STDOUT") ? "stdout" : "stdout-err";
+  const logs = ENV.getBoolean("EFFECTSTREAM_STDOUT") ? "stdout" : "stdout-err";
 
   const config = Value.Parse(OrchestratorConfig, {
     logs,
@@ -203,3 +216,83 @@ export async function getDBConnection(): Promise<Client> {
     }
   }
 }
+
+  // Start Test
+  async function test() {
+    // Do not use this db connection directly.
+    // As PGLite does not support multiple connections.
+    let db: Client;
+    try {
+      // Launch the orchestrator, and wait for the sync process to start.
+      // The contracts are deployed with the private key.
+      db = await startup();
+      
+      const sharedState: SharedState = newSharedState();
+      
+      // Midnight triggers the event when read for first time.
+      // In the E2E Test, we have 2 primitives.
+      if (midnight_enabled) {
+        sharedState.primitive_accounting_counter = 2;
+      }
+      if (bitcoin_enabled) {
+        sharedState.primitive_accounting_counter += 3;
+      }
+      await generalTest(db, sharedState);
+      console.log(
+        "generalTest completed",
+        sharedState,
+      );
+      await RPCTest();
+      await accountTests(db, sharedState);
+      console.log(
+        "accountTests completed",
+        sharedState,
+      );
+      await joinAndIncrementTest(db, sharedState);
+      await sendMintToBatcherTest(db, sharedState);
+      await submitDataWithMessageAvailTest(db, sharedState);
+      await tokenTests(db, sharedState);
+      if (bitcoin_enabled) {
+        await bitcoinTest(db, sharedState);
+        await bitcoinBatcherTest(db, sharedState);
+      }
+      await testMigrations(db);
+      
+      // Done testing.
+      printSummary();
+      await cleanup(db);
+      
+      // Optional pause to allow the user to inspect the DB,
+      // check the logs, send more requests, etc.
+      const pauseTime = Deno.env.get("EFFECTSTREAM_E2E_PAUSE_TIME");
+      if (pauseTime) {
+        console.log("⏳ Pausing for", pauseTime, "seconds");
+        await delay(parseInt(pauseTime, 10) * 1000);
+      }
+      
+      // // Disconnect so the process can exit.
+      shutdown();
+    } catch (e) {
+      // Show partial summary of testing.
+      printSummary();
+      
+      console.error(e);
+      await cleanup(db);
+      shutdown();
+    } finally {
+      if (anyError()) {
+        Deno.exit(1);
+      }
+    }
+  }
+  
+  test()
+  .then(() => {
+    console.log("🎉 Test completed");
+    Deno.exit(0);
+  }).catch((e) => {
+    console.log("❌ Test failed");
+    console.error(e);
+    Deno.exit(1);
+  });
+  

@@ -545,8 +545,10 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       await dkill({ ports: [ENV.EFFECTSTREAM_API_PORT] });
     }
 
+    // if EFFECTSTREAM_ENV is set, then launch the node:start:{EFFECTSTREAM_ENV}
+    const effectstreamEnv = Deno.env.get("EFFECTSTREAM_ENV");
     const node = $({
-      args: ["task", "node:start"],
+      args: ["task", effectstreamEnv ? `node:start:${effectstreamEnv}` : "node:start"],
       log: logHandler({}, tsLogOrchestratorAdapter),
       component: ComponentNames.EFFECTSTREAM_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically

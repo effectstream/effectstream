@@ -23,6 +23,8 @@ export const localhostConfig = new ConfigBuilder()
     .build();
 ```
 
+> This file is normally located at `/shared/data-types/src/config.{env}.ts` in the template project.
+
 ### Step 1: Defining Networks (`buildNetworks`)
 
 This is where you list all the blockchains your application will interact with. Each network is given a unique name for reference in later steps. Effectstream supports various network types.
