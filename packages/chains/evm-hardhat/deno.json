@@ -6,7 +6,8 @@
         "build:assets": "deno run --allow-read jsr:@codemonument/asset-builder --import-file ./src/remappings/assets-config.json > ./src/remappings/assets.ts"
     },
     "imports": {
-        "@std/cli": "jsr:@std/cli@^1.0.22",
+        "@std/cli": "jsr:@std/cli@^1.0.24",
+        "@std/path": "jsr:@std/path@^1.1.3",
         "ws": "npm:ws@8.18.1",
         "hardhat": "npm:hardhat@3.0.4",
         "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
@@ -23,6 +24,10 @@
         "./builder": "./src/builder/build.mod.ts",
         "./remappings-hardhat": "./src/remappings/remappings-hardhat.ts",
         "./remappings-forge": "./src/remappings/remappings-forge.ts",
+        "./scaffold": "./src/scaffold/mod.ts",
         "./hardhat-config-builder": "./src/hardhatConfigBuilder.ts"
+    },
+    "tasks": {
+        "scaffold": "deno run -A ./src/scaffold/scaffold-evm.ts"
     }
 }   

@@ -5,6 +5,7 @@ const extract = require("extract-zip");
 const path = require("path");
 
 const CURRENT_BINARY_VERSION = "v2.1.4";
+const FINAL_BINARY_NAME = "indexer-standalone";
 
 /*
 @returns {string} The platform and architecture of the current machine. Example: "linux-amd64"
@@ -39,7 +40,8 @@ function getBinaryUrl() {
   if (!supportedPlatforms.includes(platform)) {
     throw new Error(`Unsupported platform: ${platform}`);
   }
-  return `https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/indexer-standalone-${platform}-${CURRENT_BINARY_VERSION}.zip`;
+
+  return `https://github.com/effectstream/binaries/releases/download/0.3.120/indexer-standalone-${platform}-${CURRENT_BINARY_VERSION}.zip`;
 }
 
 /*
@@ -75,20 +77,32 @@ async function unzipBinary() {
     fs.mkdirSync(dir, { recursive: true });
   }
   await extract(path.join(__dirname, "indexer-standalone.zip"), { dir });
-  fs.unlinkSync(path.join(__dirname, "indexer-standalone.zip"));
+  const dataDir = path.join(dir, "data");
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
 
   const platform = getPlatform();
-  const parts = platform.split("-");
-  if (parts[0] === "linux") {
-    fs.chmodSync(
-      path.join(
-        __dirname,
-        "indexer-standalone",
-        `indexer-standalone-${platform}`,
-      ),
-      0o755,
-    );
+  const extractedBinaryPath = path.join(
+    dir,
+    `indexer-standalone-${platform}`,
+  );
+  const finalBinaryPath = path.join(dir, FINAL_BINARY_NAME);
+
+  if (fs.existsSync(extractedBinaryPath) &&
+      extractedBinaryPath !== finalBinaryPath) {
+    if (fs.existsSync(finalBinaryPath)) {
+      fs.unlinkSync(finalBinaryPath);
+    }
+    fs.renameSync(extractedBinaryPath, finalBinaryPath);
   }
+
+  if (!fs.existsSync(finalBinaryPath)) {
+    throw new Error(`Expected binary not found: ${finalBinaryPath}`);
+  }
+
+  fs.chmodSync(finalBinaryPath, 0o755);
+  fs.unlinkSync(path.join(__dirname, "indexer-standalone.zip"));
 }
 
 async function binary() {

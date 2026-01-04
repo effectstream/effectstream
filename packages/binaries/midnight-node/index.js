@@ -1,14 +1,14 @@
 const { binary } = require("./binary");
 const { runMidnightNode } = require("./run_midnight_node");
-const { getPlatform } = require("./binary");
 const fs = require("fs");
 const path = require("path");
 
+const FINAL_BINARY_NAME = "midnight-node";
+
 function checkIfBinaryExists() {
-  const platform = getPlatform();
-  const parts = platform.split("-");
-  const binaryName = `midnight-node-${platform}`;
-  return fs.existsSync(path.join(__dirname, "midnight-node", binaryName));
+  return fs.existsSync(
+    path.join(__dirname, "midnight-node", FINAL_BINARY_NAME),
+  );
 }
 
 async function main(args) {

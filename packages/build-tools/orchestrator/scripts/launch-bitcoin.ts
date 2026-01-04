@@ -14,6 +14,7 @@ export const launchBitcoin = (packageName: string): {
   waitToExit?: boolean;
   logs?: string;
   logsStartDisabled?: boolean;
+  disableStderr?: boolean;
   type?: string;
   dependsOn?: string[];
 }[] => [

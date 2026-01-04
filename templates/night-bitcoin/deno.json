@@ -13,7 +13,7 @@
   "imports": {
     "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.116",
     "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.3.116",
-    "@std/path": "jsr:@std/path@^1.1.2"
+    "@std/path": "jsr:@std/path@^1.1.3"
   },
   "lint": {
     "rules": {

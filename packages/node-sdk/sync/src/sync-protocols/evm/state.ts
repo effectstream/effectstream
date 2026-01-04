@@ -55,7 +55,7 @@ export class EvmSyncState extends SyncState<
   override *stateToInput(): Operation<Input | undefined> {
     return yield* genInputRange(
       this as EvmSyncState,
-      1, // TODO: do we skip block 0 for EVM?
+      this.config.syncProtocol.startBlockHeight as EvmBlockNumber,
       {
         name: this.config.syncProtocol.name,
         startPage: this.config.syncProtocol.startBlockHeight as EvmBlockNumber,

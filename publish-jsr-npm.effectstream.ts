@@ -86,8 +86,8 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/effectstream-sdk/config" },
   { path: "./packages/effectstream-sdk/precompile" },
   { path: "./packages/effectstream-sdk/chain-types" }, // [@utils, @config]
-  { path: "./packages/effectstream-sdk/concise" }, // [@chain-types, @precompile]
   { path: "./packages/effectstream-sdk/crypto" },
+  { path: "./packages/effectstream-sdk/concise" }, // [@chain-types, @precompile, @crypto]
   { path: "./packages/effectstream-sdk/events" },
   // { path: "./packages/effectstream-sdk/wallets" }, // [@concise, @crypto, @events-client]
   { path: "./packages/effectstream-sdk/coroutine" },
@@ -102,7 +102,7 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/node-sdk/db-emulator" }, // [@db, @sm]
   { path: "./packages/node-sdk/events" },
   { path: "./packages/node-sdk/runtime" }, // [@db, @sync, @sm]
-  { path: "./packages/chains/midnight" },
+  { path: "./packages/chains/midnight-contracts" },
   { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
   { path: "./packages/build-tools/tui" },
   { path: "./packages/build-tools/orchestrator" },
@@ -113,17 +113,17 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
 ];
 
 const npmPackagesToPublish: { path: string; prepublish?: string[], build?: string }[] = [
-  // { path: "./packages/chains/evm-contracts" },
-  // { path: "./packages/binaries/bitcoin-core" },
-  // { path: "./packages/binaries/ord" },
-  // { path: "./packages/binaries/avail-light-client" },
-  // { path: "./packages/binaries/avail-node" },
-  // { path: "./packages/binaries/midnight-indexer" },
-  // { path: "./packages/binaries/midnight-node" },
-  // { path: "./packages/binaries/midnight-proof-server" },
-  // { path: "./packages/binaries/grafana-alloy" },
-  // { path: "./packages/binaries/grafana-loki" },
-  // { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
+  { path: "./packages/chains/evm-contracts" },
+  { path: "./packages/binaries/bitcoin-core" },
+  { path: "./packages/binaries/ord" },
+  { path: "./packages/binaries/avail-light-client" },
+  { path: "./packages/binaries/avail-node" },
+  { path: "./packages/binaries/midnight-indexer" },
+  { path: "./packages/binaries/midnight-node" },
+  { path: "./packages/binaries/midnight-proof-server" },
+  { path: "./packages/binaries/grafana-alloy" },
+  { path: "./packages/binaries/grafana-loki" },
+  { path: "./packages/build-tools/explorer", prepublish: ["task", "build"] }, // @utils
   { path: "./packages/effectstream-sdk/wallets", prepublish: ["task", "build:npm", await fetchLatestVersion()], build: 'npm'  },
 ];
 
@@ -416,6 +416,9 @@ async function main() {
     await walkAndProcess(rootDir, true);
   } else {
     console.log("Starting replacement...");
+
+    await walkAndProcess(rootDir, false);
+
     if (!skipPrepublish) {
       await prePublishPackages();
     }
@@ -424,8 +427,6 @@ async function main() {
       console.log("Completed pre-publish phase. Exiting due to --only-prepublish.");
       return;
     }
-
-    await walkAndProcess(rootDir, false);
   }
 
   if (shouldPublish) {

@@ -137,7 +137,7 @@ export const $ = (params: {
   command?: string;
   args: string[]; // parsing string->string[] automatically is blocked on https://github.com/denoland/deno_task_shell/pull/137
   log?: LogHandler;
-  // cwd?: string;
+  cwd?: string;
   component: ValueOf<typeof ComponentNames>;
   namespace?: Namespace;
   abortController: AbortController;
@@ -158,6 +158,7 @@ export const $ = (params: {
     stdout: params.stdout ?? "piped",
     stdin: params.stdin ?? "inherit",
     env: { FORCE_COLOR: "true" },
+    cwd: params.cwd,
   }).spawn();
   process.ref(); // wait until all child processes die before killing parent
 

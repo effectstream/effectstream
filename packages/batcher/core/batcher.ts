@@ -1,6 +1,4 @@
 import { CryptoManager } from "@effectstream/crypto";
-import { AddressType, TypeboxHelpers } from "@effectstream/utils";
-import { Value } from "@sinclair/typebox/value";
 import { call, lift, resource, sleep, spawn, suspend } from "effection";
 import type { Operation } from "effection";
 import type { BatcherStorage } from "./storage.ts";
@@ -90,7 +88,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     isShuttingDown: false,
     shutdownInitiatedAt: null,
     shutdownTimeoutMs: 30000,
-    isProcessingBatch: false,
+    processingAdapters: new Set<string>(),
   };
   /** Callbacks to return the transaction receipt after the transaction is confirmed */
   private submissionCallbacks: Map<
@@ -1065,49 +1063,48 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     console.log(`🚀 Processing ${pendingInputs.length} pending inputs...`);
 
-    this.shutdownState.isProcessingBatch = true;
+    // Group inputs by target (adapter)
+    const inputsByTarget = new Map<string, T[]>();
 
-    try {
-      // Group inputs by target (adapter)
-      const inputsByTarget = new Map<string, T[]>();
+    for (const input of pendingInputs) {
+      const target = input.target || this.defaultTarget;
+      if (!target) {
+        console.error(
+          `❌ Skipping input: no target specified and no default target configured.`,
+        );
+        continue;
+      }
+      if (!inputsByTarget.has(target)) {
+        inputsByTarget.set(target, []);
+      }
+      inputsByTarget.get(target)!.push(input);
+    }
 
-      for (const input of pendingInputs) {
-        const target = input.target || this.defaultTarget;
-        if (!target) {
-          console.error(
-            `❌ Skipping input: no target specified and no default target configured.`,
-          );
-          continue;
-        }
-        if (!inputsByTarget.has(target)) {
-          inputsByTarget.set(target, []);
-        }
-        inputsByTarget.get(target)!.push(input);
+    for (const [target, inputs] of inputsByTarget) {
+      const adapter = this.adapters[target];
+      if (!adapter) {
+        console.error(`❌ No adapter available for target: ${target}`);
+        continue;
       }
 
-      for (const [target, inputs] of inputsByTarget) {
-        const adapter = this.adapters[target];
-        if (!adapter) {
-          console.error(`❌ No adapter available for target: ${target}`);
-          continue;
-        }
-
-        try {
-          await this.batchProcessor.processBatchForTarget(
-            adapter,
-            target,
-            inputs,
-          );
-        } catch (error) {
-          console.error(
-            `❌ Error processing batch for target ${target}:`,
-            error,
-          );
-          // Continue processing other targets even if one fails
-        }
+      // Mark target as processing when it enters
+      this.shutdownState.processingAdapters.add(target);
+      try {
+        await this.batchProcessor.processBatchForTarget(
+          adapter,
+          target,
+          inputs,
+        );
+      } catch (error) {
+        console.error(
+          `❌ Error processing batch for target ${target}:`,
+          error,
+        );
+        // Continue processing other targets even if one fails
+      } finally {
+        // Remove target from processing when it finishes
+        this.shutdownState.processingAdapters.delete(target);
       }
-    } finally {
-      this.shutdownState.isProcessingBatch = false;
     }
   }
 
@@ -1122,59 +1119,58 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       return;
     }
 
-    this.shutdownState.isProcessingBatch = true;
-
-    try {
-      for (const target of targetsToProcess) {
-        const adapter = this.adapters[target];
-        if (!adapter) {
-          console.error(`❌ No adapter available for target: ${target}`);
-          continue;
-        }
-
-        // Get inputs for this specific target
-        if (!this.defaultTarget) {
-          console.error(
-            `❌ Cannot process batches: no default target configured.`,
-          );
-          continue;
-        }
-        const targetInputs = await this.storage.getInputsByTarget(
-          target,
-          this.defaultTarget,
-        );
-
-        if (targetInputs.length === 0) {
-          continue;
-        }
-
-        try {
-          await this.emitStateTransition("batch:process:start", {
-            target,
-            inputCount: targetInputs.length,
-            time: Date.now(),
-          });
-          await this.batchProcessor.processBatchForTarget(
-            adapter,
-            target,
-            targetInputs,
-          );
-        } catch (error) {
-          console.error(
-            `❌ Error processing batch for target ${target}:`,
-            error,
-          );
-          await this.emitStateTransition("error", {
-            phase: "batch",
-            target,
-            error,
-            time: Date.now(),
-          });
-          // Continue processing other targets even if one fails
-        }
+    for (const target of targetsToProcess) {
+      const adapter = this.adapters[target];
+      if (!adapter) {
+        console.error(`❌ No adapter available for target: ${target}`);
+        continue;
       }
-    } finally {
-      this.shutdownState.isProcessingBatch = false;
+
+      // Get inputs for this specific target
+      if (!this.defaultTarget) {
+        console.error(
+          `❌ Cannot process batches: no default target configured.`,
+        );
+        continue;
+      }
+      const targetInputs = await this.storage.getInputsByTarget(
+        target,
+        this.defaultTarget,
+      );
+
+      if (targetInputs.length === 0) {
+        continue;
+      }
+
+      // Mark target as processing when it enters
+      this.shutdownState.processingAdapters.add(target);
+      try {
+        await this.emitStateTransition("batch:process:start", {
+          target,
+          inputCount: targetInputs.length,
+          time: Date.now(),
+        });
+        await this.batchProcessor.processBatchForTarget(
+          adapter,
+          target,
+          targetInputs,
+        );
+      } catch (error) {
+        console.error(
+          `❌ Error processing batch for target ${target}:`,
+          error,
+        );
+        await this.emitStateTransition("error", {
+          phase: "batch",
+          target,
+          error,
+          time: Date.now(),
+        });
+        // Continue processing other targets even if one fails
+      } finally {
+        // Remove target from processing when it finishes
+        this.shutdownState.processingAdapters.delete(target);
+      }
     }
   }
 
@@ -1207,15 +1203,69 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
-   * An Effection operation that runs the polling loop indefinitely.
-   * This operation is intended to be spawned as a background task that
-   * is automatically cancelled when its parent scope terminates.
+   * An Effection operation that runs the polling loop for a specific adapter target.
+   * Each adapter gets its own independent polling loop, eliminating cross-adapter blocking.
+   * 
+   * @param target - The adapter target name to poll for
    */
-  *runPollingLoop(): Operation<void> {
+  *runAdapterPollingLoop(target: string): Operation<void> {
     while (true) {
       yield* sleep(this.config.pollingIntervalMs);
-      yield* call(() => this.pollBatcher());
+
+      if (this.shutdownState.isShuttingDown) return;
+
+      const isReady = yield* call(() => this.isTargetReadyForBatching(target));
+      if (!isReady) continue;
+
+      this.shutdownState.processingAdapters.add(target);
+
+      try {
+        const targetInputs = yield* call(() =>
+          this.storage.getInputsByTarget(target, this.defaultTarget!)
+        );
+
+        if (targetInputs.length > 0) {
+          yield* this.emitStateTransition("batch:process:start", {
+            target,
+            inputCount: targetInputs.length,
+            time: Date.now(),
+          });
+
+          const adapter = this.adapters[target];
+          yield* call(() =>
+            this.batchProcessor.processBatchForTarget(
+              adapter,
+              target,
+              targetInputs
+            )
+          );
+        }
+
+        this.lastProcessTime.set(target, Date.now());
+      } catch (error) {
+        console.error(`❌ Error processing batch for target ${target}:`, error);
+        yield* this.emitStateTransition("error", {
+          phase: "batch",
+          target,
+          error,
+          time: Date.now(),
+        });
+      } finally {
+        this.shutdownState.processingAdapters.delete(target);
+      }
     }
+  }
+
+  /**
+   * An Effection operation that runs independent polling loops for each adapter.
+   * This operation spawns a separate polling loop for each adapter target,
+   * ensuring that slow adapters don't block fast ones.
+   */
+  *runPollingLoop(): Operation<void> {
+    for (const target of Object.keys(this.adapters)) {
+      yield* spawn(() => this.runAdapterPollingLoop(target));
+    }
+    yield* suspend(); // Keep alive while spawned tasks run
   }
 
   /**

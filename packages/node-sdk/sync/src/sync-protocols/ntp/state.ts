@@ -61,7 +61,7 @@ export class NtpSyncState extends SyncState<
   override *stateToInput(): Operation<Input | undefined> {
     return yield* genInputRange(
       this as NtpSyncState,
-      1, // TODO: do we skip block 0 for NTP?
+      1, // NTP Pages start from 1, and the fetcher offsets using the start page (date)
       {
         name: this.config.syncProtocol.name,
         startPage: this.config.syncProtocol.startBlockHeight as NtpBlockNumber,

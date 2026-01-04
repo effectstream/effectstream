@@ -7,7 +7,8 @@ export interface BatcherShutdownState {
   isShuttingDown: boolean;
   shutdownInitiatedAt: number | null;
   shutdownTimeoutMs: number;
-  isProcessingBatch: boolean;
+  /** Set of adapter targets currently processing batches */
+  processingAdapters: Set<string>;
 }
 
 export interface ShutdownHooks<
@@ -151,32 +152,36 @@ export class ShutdownManager<T extends DefaultBatcherInput> {
       this.batcherInterface.shutdownState.shutdownTimeoutMs;
     const startTime = Date.now();
 
-    if (!this.batcherInterface.shutdownState.isProcessingBatch) {
+    const processingAdapters = this.batcherInterface.shutdownState.processingAdapters;
+
+    if (processingAdapters.size === 0) {
       return;
     }
 
-    console.log("⏳ Waiting for current batch processing to complete...");
+    console.log(`⏳ Waiting for ${processingAdapters.size} adapters to complete: ${[...processingAdapters].join(', ')}`);
 
-    while (this.batcherInterface.shutdownState.isProcessingBatch) {
+    while (processingAdapters.size > 0) {
       if (Date.now() - startTime > timeout) {
         throw new Error(
-          `Shutdown timeout: batch processing did not complete within ${timeout}ms`,
+          `Shutdown timeout: adapters still processing: ${[...processingAdapters].join(', ')}`,
         );
       }
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 
   /**
    * Get shutdown status information
+   * Returns backward-compatible isProcessingBatch derived from processingAdapters
    */
-  getShutdownStatus(): BatcherShutdownState {
+  getShutdownStatus(): BatcherShutdownState & { isProcessingBatch: boolean } {
     return {
       isShuttingDown: this.batcherInterface.shutdownState.isShuttingDown,
       shutdownInitiatedAt:
         this.batcherInterface.shutdownState.shutdownInitiatedAt,
       shutdownTimeoutMs: this.batcherInterface.shutdownState.shutdownTimeoutMs,
-      isProcessingBatch: this.batcherInterface.shutdownState.isProcessingBatch,
+      processingAdapters: this.batcherInterface.shutdownState.processingAdapters,
+      isProcessingBatch: this.batcherInterface.shutdownState.processingAdapters.size > 0,
     };
   }
 }

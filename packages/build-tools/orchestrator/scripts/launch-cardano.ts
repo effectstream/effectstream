@@ -31,8 +31,8 @@ export const launchCardano = (packageName: string): {
       name: ComponentNames.YACI_DEVKIT,
       args: ["task", "-f", packageName, "devkit:start"],
       waitToExit: false,
-      logs: "raw",
       type: "system-dependency",
+      logsStartDisabled: true,
     },
     {
       name: ComponentNames.YACI_DEVKIT_WAIT,

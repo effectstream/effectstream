@@ -36,7 +36,7 @@
         "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
         "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@^4.0.0",
         "@std/fs": "jsr:@std/fs@^1.0.19",
-        "@std/path": "jsr:@std/path@^1.1.2",
+        "@std/path": "jsr:@std/path@^1.1.3",
         "rxjs": "npm:rxjs@^7.8.2"
     }
 }

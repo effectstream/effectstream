@@ -23,27 +23,21 @@ import {
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
  
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno && Deno.env.get(key) || "").toLowerCase());
+
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
-const yaci_enabled = Deno
-  ? (Deno.env.get("DISABLE_YACI") === "true" ? false : true)
-  : false;
+const yaci_enabled = !isEnvTrue("DISABLE_YACI");
 
 // NOTE: This disable midnight sync, allowing for faster testing.
-const midnight_enabled = Deno
-  ? (Deno.env.get("DISABLE_MIDNIGHT") === "true" ? false : true)
-  : true;
+const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 
 // NOTE: This disable avail sync, allowing for faster testing.
-const avail_enabled = Deno
-  ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
-  : true;
+const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
 
 // NOTE: This disable bitcoin sync, allowing for faster testing.
-const bitcoin_enabled = Deno
-  ? (Deno.env.get("DISABLE_BITCOIN") === "true" ? false : true)
-  : true;
+const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
 /**
  * Let check if the db.

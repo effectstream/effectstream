@@ -64,6 +64,7 @@ export const launchMidnight = (packageName: string): {
       ],
       waitToExit: false,
       type: "system-dependency",
+      logsStartDisabled: true,
       disableStderr,
       logs: "raw",
       dependsOn: [ComponentNames.MIDNIGHT_NODE],
@@ -76,9 +77,9 @@ export const launchMidnight = (packageName: string): {
         packageName,
         "midnight-proof-server:start",
       ],
+      logsStartDisabled: true,
       waitToExit: false,
       type: "system-dependency",
-      logs: "raw",
       dependsOn: [ComponentNames.MIDNIGHT_NODE]
     },
     {
@@ -103,7 +104,6 @@ export const launchMidnight = (packageName: string): {
     },
     {
       name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
-      logsStartDisabled: true,
       logs: "raw",
       args: [
         "task",

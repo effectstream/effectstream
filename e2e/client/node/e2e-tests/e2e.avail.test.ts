@@ -13,9 +13,9 @@ const AVAIL_NODE_URL = "ws://localhost:9955/ws";
 const AVAIL_SEED: string = "//Alice";
 const account = Account.new(AVAIL_SEED);
 
-const avail_enabled = Deno
-  ? (Deno.env.get("DISABLE_AVAIL") === "true" ? false : true)
-  : true;
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+
+const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
 
 async function submitData(appId: number, data: string) {
   const sdk = await SDK.New(AVAIL_NODE_URL);

@@ -61,10 +61,11 @@ export const launchAvail = (packageName: string): {
         "avail-light-client:deploy",
       ],
       waitToExit: false,
-      logsStartDisabled: true,
       disableStderr,
+      logsStartDisabled: true,
       type: "system-dependency",  
       dependsOn: [ComponentNames.AVAIL_NODE_WAIT],
+      logs: "raw",
     },
     {
       name: ComponentNames.AVAIL_CLIENT_WAIT,

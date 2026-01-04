@@ -54,6 +54,17 @@ const getBinaryPath = () => {
   return path.join(__dirname, "bin", exeName);
 };
 
+const ensureExecutable = (binaryPath) => {
+  if (!fs.existsSync(binaryPath)) {
+    throw new Error(`Binary not found at path: ${binaryPath}`);
+  }
+  try {
+    fs.chmodSync(binaryPath, 0o755);
+  } catch (error) {
+    console.warn(`Failed to chmod ${binaryPath}: ${error.message}`);
+  }
+};
+
 const downloadBinary = async () => {
   const binaryLink = getBinaryLink();
   const key = getBinaryKey();
@@ -137,9 +148,7 @@ const downloadBinary = async () => {
     throw new Error(`Binary not found at expected path: ${binaryPath}`);
   }
 
-  if (os.platform() !== "win32") {
-    fs.chmodSync(binaryPath, "755");
-  }
+  ensureExecutable(binaryPath);
 
   console.log("Binary ready at:", binaryPath);
   return binaryPath;

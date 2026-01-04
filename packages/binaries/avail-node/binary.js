@@ -5,6 +5,8 @@ const fs = require('fs')
 const path = require('path')
 const { spawn } = require('child_process')
 
+const FINAL_BINARY_NAME = 'avail-node'
+
 const downloadLinks = {
   'x86_64-ubuntu-2404': 'https://github.com/availproject/avail/releases/download/v2.3.0.1-rc1/x86_64-ubuntu-2404-avail-node.tar.gz',
   'arm64-ubuntu-2204': 'https://github.com/availproject/avail/releases/download/v2.3.0.1-rc1/arm64-ubuntu-2204-avail-node.tar.gz',
@@ -13,7 +15,7 @@ const downloadLinks = {
   'x86_64-fedora-41': 'https://github.com/availproject/avail/releases/download/v2.3.0.1-rc1/x86_64-fedora-41-avail-node.tar.gz',
   'x86_64-arch': 'https://github.com/availproject/avail/releases/download/v2.3.0.1-rc1/x86_64-arch-avail-node.tar.gz',
   'x86_64-debian-12': 'https://github.com/availproject/avail/releases/download/v2.3.0.1-rc1/x86_64-debian-12-avail-node.tar.gz',
-  'arm64-macos': 'https://paima-midnight.nyc3.cdn.digitaloceanspaces.com/binaries/arm64-macos-avail-node.tar.gz',
+  'arm64-macos': 'https://github.com/effectstream/binaries/releases/download/0.3.120/avail-node-macos-arm64-v2.3.0.1.tar.gz',
 }
 
 const checkIfSupported = () => {
@@ -61,6 +63,27 @@ const getBinaryKey = () => {
   })
 }
 
+const findExtractedBinary = (dir) => {
+    const stack = [dir]
+    while (stack.length > 0) {
+        const currentDir = stack.pop()
+        const entries = fs.readdirSync(currentDir, { withFileTypes: true })
+        for (const entry of entries) {
+            const entryPath = path.join(currentDir, entry.name)
+            if (entry.isDirectory()) {
+                stack.push(entryPath)
+            } else if (
+                entry.isFile() &&
+                entry.name.startsWith('avail-node') &&
+                !entry.name.endsWith('.tar.gz')
+            ) {
+                return entryPath
+            }
+        }
+    }
+    return null
+}
+
 const downloadBinary = async (distroKey) => {
     const link = downloadLinks[distroKey]
     if (!link) {
@@ -86,21 +109,35 @@ const downloadBinary = async (distroKey) => {
     dest.end();
 
     return new Promise((resolve, reject) => {
-        dest.on('finish', () => {
-            console.log('Extracting binary...');
-            tar.x({
-                file: tarPath,
-                cwd: binDir,
-                strip: 0, 
-            }).then(() => {
-                const binaryPath = path.join(binDir, 'avail-node')
-                fs.chmodSync(binaryPath, '755')
+        dest.on('finish', async () => {
+            try {
+                console.log('Extracting binary...');
+                await tar.x({
+                    file: tarPath,
+                    cwd: binDir,
+                    strip: 0, 
+                })
+
+                const extractedBinary = findExtractedBinary(binDir)
+                if (!extractedBinary) {
+                    throw new Error('Failed to locate extracted avail-node binary')
+                }
+
+                const finalBinaryPath = path.join(binDir, FINAL_BINARY_NAME)
+                if (extractedBinary !== finalBinaryPath) {
+                    if (fs.existsSync(finalBinaryPath)) {
+                        fs.unlinkSync(finalBinaryPath)
+                    }
+                    fs.renameSync(extractedBinary, finalBinaryPath)
+                }
+
+                fs.chmodSync(finalBinaryPath, 0o755)
                 fs.unlinkSync(tarPath); 
-                resolve(binaryPath);
-            }).catch((e) => {
-              console.log("error", e);
-              reject(e);
-            });
+                resolve(finalBinaryPath);
+            } catch (e) {
+                console.log("error", e);
+                reject(e);
+            }
         });
         dest.on('error', reject);
     });
