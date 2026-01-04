@@ -24,6 +24,7 @@ export function* genInputRange<SyncProtocol extends PaginatedSyncProtocols>(
   const nextPage = state.lastPage == null
     ? genesisPage
     : state.fetcher.nextInterval(state.lastPage.own).from;
+  // TODO This will always be false as the genesis page is the startPage
   const isPresync = state.pageRelation.compare(nextPage, config.startPage) < 0;
 
   const maxPage = isPresync

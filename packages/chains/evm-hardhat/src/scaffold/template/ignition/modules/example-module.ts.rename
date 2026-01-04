@@ -1,6 +1,0 @@
-import { buildModule } from "@nomicfoundation/ignition-core";
-
-export default buildModule("[contractPackageName]Module", (m) => {
-  const contract = m.contract("[contractPackageName]");
-  return { contract };
-});
