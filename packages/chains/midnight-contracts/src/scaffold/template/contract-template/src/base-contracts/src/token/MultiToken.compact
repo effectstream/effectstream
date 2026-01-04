@@ -1,0 +1,544 @@
+// SPDX-License-Identifier: MIT
+// OpenZeppelin Compact Contracts v0.0.1-alpha.1 (token/MultiToken.compact)
+
+pragma language_version >= 0.18.0;
+
+/**
+ * @module MultiToken
+ * @description An unshielded MultiToken library. This library is inspired by
+ * ERC1155. Many aspects of the EIP-1155 spec cannot be implemented in Compact;
+ * therefore, the MultiToken module should be treated as an approximation of
+ * the ERC1155 standard and not necessarily a compliant implementation.
+ *
+ * @notice One notable difference regarding this implementation and the EIP1155 spec
+ * consists of the token size. Uint<128> is used as the token size because Uint<256>
+ * cannot be supported. This is true for both token IDs and for amounts.
+ * This is due to encoding limits on the midnight circuit backend:
+ * https://github.com/midnightntwrk/compactc/issues/929
+ *
+ * @notice Some features defined in th EIP1155 spec are NOT included.
+ * Such features include:
+ *
+ * 1. Batch mint, burn, transfer - Without support for dynamic arrays,
+ * batching transfers is difficult to do without a hacky solution.
+ * For instance, we could change the `to` and `from` parameters to be
+ * vectors. This would change the signature and would be both difficult
+ * to use and easy to misuse.
+ *
+ * 2. Querying batched balances - This can be somewhat supported.
+ * The issue, without dynamic arrays, is that the module circuit must use
+ * Vector<n> for accounts and ids; therefore, the implementing contract must
+ * explicitly define the number of balances to query in the circuit i.e.
+ *
+ * balanceOfBatch_10(
+ *    accounts: Vector<10, Either<ZswapCoinPublicKey, ContractAddress>>,
+ *    ids: Vector<10, Uint<128>>
+ * ): Vector<10, Uint<128>>
+ *
+ * Since this module does not offer mint or transfer batching,
+ * balance batching is also not included at this time.
+ *
+ * 3. Introspection - Compact currently cannot support contract-to-contract
+ * queries for introspection. ERC165 (or an equivalent thereof) is NOT
+ * included in the contract.
+ *
+ * 4. Safe transfers - The lack of an introspection mechanism means
+ * safe transfers of any kind can not be supported.
+ * BE AWARE: Tokens sent to a contract address MAY be lost forever.
+ *
+ * Due to the vast incompatibilities with the EIP1155 spec, it is our
+ * opinion that this implementation should not be called ERC1155 at this time
+ * as this would be both very confusing and misleading. This may change as more
+ * features become available. The list of missing features is as follows:
+ *
+ * - Full uint256 support.
+ * - Events.
+ * - Dynamic arrays.
+ * - Introspection.
+ * - Contract-to-contract calls for acceptance callback.
+ *
+ * @notice Further discussion and consideration required:
+ *
+ * - Consider changing the underscore in the internal methods to `unsafe` or
+ * adopting dot notation for prefixing imports.
+ * - Revise logic once contract-to-contract interactions are available on midnight.
+ */
+module MultiToken {
+  import CompactStandardLibrary;
+  import "../security/Initializable" prefix Initializable_;
+  import "../utils/Utils" prefix Utils_;
+
+  /**
+   * @description Mapping from token ID to account balances.
+   * @type {Uint<128>} id - The token identifier.
+   * @type {Either<ZswapCoinPublicKey, ContractAddress>} account - The account address.
+   * @type {Uint<128>} balance - The balance of the account for the token.
+   * @type {Map<id, Map<account, balance>>}
+   * @type {Map<Uint<128>, Map<Either<ZswapCoinPublicKey, ContractAddress>, Uint<128>>>} _balances
+   */
+  export ledger _balances: Map<Uint<128>, Map<Either<ZswapCoinPublicKey, ContractAddress>, Uint<128>>>;
+
+  /**
+   * @description Mapping from account to operator approvals.
+   * @type {Either<ZswapCoinPublicKey, ContractAddress>} account - The account address.
+   * @type {Either<ZswapCoinPublicKey, ContractAddress>} operator - The operator address.
+   * @type {Boolean} approved - The approval status of the operator for the account.
+   * @type {Map<account, Map<operator, approved>>}
+   * @type {Map<Either<ZswapCoinPublicKey, ContractAddress>, Map<Either<ZswapCoinPublicKey, ContractAddress>, Boolean>>}
+   */
+  export ledger _operatorApprovals: Map<Either<ZswapCoinPublicKey, ContractAddress>, Map<Either<ZswapCoinPublicKey, ContractAddress>, Boolean>>;
+
+  /**
+   * @description Base URI for computing token URIs.
+   * Used as the URI for all token types by relying on ID substitution, e.g. https://token-cdn-domain/{id}.json
+   * @type {Opaque<"string">} _uri - The base URI for all token URIs.
+   */
+  export ledger _uri: Opaque<"string">;
+
+  /**
+   * @description Initializes the contract by setting the base URI for all tokens.
+   *
+   * @circuitInfo k=10, rows=45
+   *
+   * Requirements:
+   *
+   * - Must be called in the contract's constructor.
+   *
+   * @param {Opaque<"string">} uri_ - The base URI for all token URIs.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit initialize(uri_: Opaque<"string">): [] {
+    Initializable_initialize();
+    _setURI(uri_);
+  }
+
+  /**
+   * @description This implementation returns the same URI for *all* token types. It relies
+   * on the token type ID substitution mechanism defined in the EIP:
+   * https://eips.ethereum.org/EIPS/eip-1155#metadata.
+   * Clients calling this function must replace the `\{id\}` substring with the
+   * actual token type ID.
+   *
+   * @circuitInfo k=10, rows=90
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   *
+   * @param {Uint<128>} id - The token identifier to query.
+   * return {Opaque<"string">} - The base URI for all tokens.
+   */
+  export circuit uri(id: Uint<128>): Opaque<"string"> {
+    Initializable_assertInitialized();
+
+    return _uri;
+  }
+
+  /**
+   * @description Returns the amount of `id` tokens owned by `account`.
+   *
+   * @circuitInfo k=10, rows=439
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account balance to query.
+   * @param {Uint<128>} id - The token identifier to query.
+   * return {Uint<128>} - The quantity of `id` tokens that `account` owns.
+   */
+  export circuit balanceOf(account: Either<ZswapCoinPublicKey, ContractAddress>, id: Uint<128>): Uint<128> {
+    Initializable_assertInitialized();
+
+    if (!_balances.member(disclose(id)) || !_balances.lookup(id).member(disclose(account))) {
+      return 0;
+    }
+    return _balances.lookup(id).lookup(disclose(account));
+  }
+
+  /**
+   * @description Enables or disables approval for `operator` to manage all of the caller's assets.
+   *
+   * @circuitInfo k=10, rows=404
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   * - `operator` is not the zero address.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} operator - The ZswapCoinPublicKey or ContractAddress
+   * whose approval is set for the caller's assets.
+   * @param {Boolean} approved - The boolean value determining if the operator may or may not handle the
+   * caller's assets.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit setApprovalForAll(operator: Either<ZswapCoinPublicKey, ContractAddress>, approved: Boolean): [] {
+    Initializable_assertInitialized();
+
+    // TODO: Contract-to-contract calls not yet supported.
+    const caller = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
+    _setApprovalForAll(caller, operator, approved);
+  }
+
+  /**
+   * @description Queries if `operator` is an authorized operator for `owner`.
+   *
+   * @circuitInfo k=10, rows=619
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The queried possessor of assets.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} operator - The queried handler of `account`'s assets.
+   * @return {Boolean} - Whether or not `operator` has permission to handle `account`'s assets.
+   */
+  export circuit isApprovedForAll(
+    account: Either<ZswapCoinPublicKey, ContractAddress>,
+    operator: Either<ZswapCoinPublicKey, ContractAddress>
+  ): Boolean {
+    Initializable_assertInitialized();
+
+    if (!_operatorApprovals.member(disclose(account)) || !_operatorApprovals.lookup(account).member(disclose(operator))) {
+      return false;
+    }
+
+    return _operatorApprovals.lookup(account).lookup(disclose(operator));
+  }
+
+  /**
+   * @description Transfers ownership of `value` amount of `id` tokens from `from` to `to`.
+   * The caller must be `from` or approved to transfer on their behalf.
+   *
+   * @circuitInfo k=11, rows=1882
+   *
+   * @notice Transfers to contract addresses are currently disallowed until contract-to-contract
+   * interactions are supported in Compact. This restriction prevents assets from
+   * being inadvertently locked in contracts that cannot currently handle token receipt.
+   *
+   * @extensibility External circuit. Can be used directly by consumers of this module.
+   * See **Extensibility** documentation for usage patterns.
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   * - `to` is not a ContractAddress.
+   * - `to` is not the zero address.
+   * - `from` is not the zero address.
+   * - Caller must be `from` or approved via `setApprovalForAll`.
+   * - `from` must have an `id` balance of at least `value`.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} from - The owner from which the transfer originates.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The recipient of the transferred assets.
+   * @param {Uint<128>} id - The unique identifier of the asset type.
+   * @param {Uint<128>} value - The quantity of `id` tokens to transfer.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit transferFrom(
+    from: Either<ZswapCoinPublicKey, ContractAddress>,
+    to: Either<ZswapCoinPublicKey, ContractAddress>,
+    id: Uint<128>,
+    value: Uint<128>
+  ): [] {
+    assert(!Utils_isContractAddress(to), "MultiToken: unsafe transfer");
+    _unsafeTransferFrom(from, to, id, value);
+  }
+
+  /**
+   * @description Transfers ownership of `value` amount of `id` tokens from `from` to `to`.
+   * Does not impose restrictions on the caller, making it suitable for composition
+   * in higher-level contract logic.
+   *
+   * @circuitInfo k=11, rows=1487
+   *
+   * @notice Transfers to contract addresses are currently disallowed until contract-to-contract
+   * interactions are supported in Compact. This restriction prevents assets from
+   * being inadvertently locked in contracts that cannot currently handle token receipt.
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   * - `to` is not a ContractAddress.
+   * - `to` is not the zero address.
+   * - `from` is not the zero address.
+   * - `from` must have an `id` balance of at least `value`.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} from - The owner from which the transfer originates.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The recipient of the transferred assets.
+   * @param {Uint<128>} id - The unique identifier of the asset type.
+   * @param {Uint<128>} value - The quantity of `id` tokens to transfer.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _transfer(
+    from: Either<ZswapCoinPublicKey, ContractAddress>,
+    to: Either<ZswapCoinPublicKey, ContractAddress>,
+    id: Uint<128>,
+    value: Uint<128>
+  ): [] {
+    assert(!Utils_isContractAddress(to), "MultiToken: unsafe transfer");
+    _unsafeTransfer(from, to, id, value);
+  }
+
+  /**
+   * @description Transfers a value amount of tokens of type id from from to to.
+   * This circuit will mint (or burn) if `from` (or `to`) is the zero address.
+   *
+   * @circuitInfo k=11, rows=1482
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   * - If `from` is not zero, the balance of `id` of `from` must be >= `value`.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} from - The origin of the transfer.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The destination of the transfer.
+   * @param {Uint<128>} id - The unique identifier of the asset type.
+   * @param {Uint<128>} value - The quantity of `id` tokens to transfer.
+   * @return {[]} - Empty tuple.
+   */
+  circuit _update(
+    from: Either<ZswapCoinPublicKey, ContractAddress>,
+    to: Either<ZswapCoinPublicKey, ContractAddress>,
+    id: Uint<128>,
+    value: Uint<128>
+  ): [] {
+    Initializable_assertInitialized();
+
+    if (!Utils_isKeyOrAddressZero(disclose(from))) {
+      const fromBalance = balanceOf(from, id);
+      assert(fromBalance >= value, "MultiToken: insufficient balance");
+      // overflow not possible
+      const newBalance = fromBalance - value;
+      _balances.lookup(id).insert(disclose(from), disclose(newBalance));
+    }
+
+    if (!Utils_isKeyOrAddressZero(disclose(to))) {
+      // id not initialized
+      if (!_balances.member(disclose(id))) {
+        _balances.insert(disclose(id), default<Map<Either<ZswapCoinPublicKey, ContractAddress>, Uint<128>>>);
+        _balances.lookup(id).insert(disclose(to), disclose(value as Uint<128>));
+      } else {
+        const toBalance = balanceOf(to, id), MAX_UINT128 = 340282366920938463463374607431768211455;
+        assert(MAX_UINT128 - toBalance >= value, "MultiToken: arithmetic overflow");
+        _balances.lookup(id).insert(disclose(to), disclose(toBalance + value as Uint<128>));
+      }
+    }
+  }
+
+  /**
+   * @description Unsafe variant of `transferFrom` which allows transfers to contract addresses.
+   * The caller must be `from` or approved to transfer on their behalf.
+   *
+   * @circuitInfo k=11, rows=1881
+   *
+   * @warning Transfers to contract addresses are considered unsafe because contract-to-contract
+   * calls are not currently supported. Tokens sent to a contract address may become irretrievable.
+   * Once contract-to-contract calls are supported, this circuit may be deprecated.
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   * - `to` is not the zero address.
+   * - `from` is not the zero address.
+   * - Caller must be `from` or approved via `setApprovalForAll`.
+   * - `from` must have an `id` balance of at least `value`.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} from - The owner from which the transfer originates.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The recipient of the transferred assets.
+   * @param {Uint<128>} id - The unique identifier of the asset type.
+   * @param {Uint<128>} value - The quantity of `id` tokens to transfer.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _unsafeTransferFrom(
+    from: Either<ZswapCoinPublicKey, ContractAddress>,
+    to: Either<ZswapCoinPublicKey, ContractAddress>,
+    id: Uint<128>,
+    value: Uint<128>
+  ): [] {
+    Initializable_assertInitialized();
+
+    // TODO: Contract-to-contract calls not yet supported.
+    // Once available, handle ContractAddress recipients here.
+    const caller = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
+    if (disclose(from) != caller) {
+      assert(isApprovedForAll(from, caller), "MultiToken: unauthorized operator");
+    }
+
+    _unsafeTransfer(from, to, id, value);
+  }
+
+  /**
+   * @description Unsafe variant of `_transfer` which allows transfers to contract addresses.
+   * Does not impose restrictions on the caller, making it suitable as a low-level
+   * building block for advanced contract logic.
+   *
+   * @circuitInfo k=11, rows=1486
+   *
+   * @warning Transfers to contract addresses are considered unsafe because contract-to-contract
+   * calls are not currently supported. Tokens sent to a contract address may become irretrievable.
+   * Once contract-to-contract calls are supported, this circuit may be deprecated.
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   * - `from` is not the zero address.
+   * - `to` is not the zero address.
+   * - `from` must have an `id` balance of at least `value`.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} from - The owner from which the transfer originates.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The recipient of the transferred assets.
+   * @param {Uint<128>} id - The unique identifier of the asset type.
+   * @param {Uint<128>} value - The quantity of `id` tokens to transfer.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _unsafeTransfer(
+    from: Either<ZswapCoinPublicKey, ContractAddress>,
+    to: Either<ZswapCoinPublicKey, ContractAddress>,
+    id: Uint<128>,
+    value: Uint<128>
+  ): [] {
+    Initializable_assertInitialized();
+
+    assert(!Utils_isKeyOrAddressZero(from), "MultiToken: invalid sender");
+    assert(!Utils_isKeyOrAddressZero(to), "MultiToken: invalid receiver");
+    _update(from, to, id, value);
+  }
+
+  /**
+   * @description Sets a new URI for all token types, by relying on the token type ID
+   * substitution mechanism defined in the MultiToken standard.
+   * See https://eips.ethereum.org/EIPS/eip-1155#metadata.
+   *
+   * @circuitInfo k=10, rows=39
+   *
+   * @notice By this mechanism, any occurrence of the `\{id\}` substring in either the
+   * URI or any of the values in the JSON file at said URI will be replaced by
+   * clients with the token type ID.
+   *
+   * For example, the `https://token-cdn-domain/\{id\}.json` URI would be
+   * interpreted by clients as
+   * `https://token-cdn-domain/000000000000000000000000000000000000000000000000000000000004cce0.json`
+   * for token type ID 0x4cce0.
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   *
+   * @param {Opaque<"string">} newURI - The new base URI for all tokens.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _setURI(newURI: Opaque<"string">): [] {
+    Initializable_assertInitialized();
+
+    _uri = disclose(newURI);
+  }
+
+  /**
+   * @description Creates a `value` amount of tokens of type `token_id`, and assigns them to `to`.
+   *
+   * @circuitInfo k=10, rows=912
+   *
+   * @notice Transfers to contract addresses are currently disallowed until contract-to-contract
+   * interactions are supported in Compact. This restriction prevents assets from
+   * being inadvertently locked in contracts that cannot currently handle token receipt.
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   * - `to` is not the zero address.
+   * - `to` is not a ContractAddress.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The recipient of the minted tokens.
+   * @param {Uint<128>} id - The unique identifier for the token type.
+   * @param {Uint<128>} value - The quantity of `id` tokens that are minted to `to`.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _mint(to: Either<ZswapCoinPublicKey, ContractAddress>, id: Uint<128>, value: Uint<128>): [] {
+    assert(!Utils_isContractAddress(to), "MultiToken: unsafe transfer");
+    _unsafeMint(to, id, value);
+  }
+
+  /**
+   * @description Unsafe variant of `_mint` which allows transfers to contract addresses.
+   *
+   * @circuitInfo k=10, rows=911
+   *
+   * @warning Transfers to contract addresses are considered unsafe because contract-to-contract
+   * calls are not currently supported. Tokens sent to a contract address may become irretrievable.
+   * Once contract-to-contract calls are supported, this circuit may be deprecated.
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   * - `to` is not the zero address.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The recipient of the minted tokens.
+   * @param {Uint<128>} id - The unique identifier for the token type.
+   * @param {Uint<128>} value - The quantity of `id` tokens that are minted to `to`.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _unsafeMint(to: Either<ZswapCoinPublicKey, ContractAddress>, id: Uint<128>, value: Uint<128>): [] {
+    Initializable_assertInitialized();
+
+    assert(!Utils_isKeyOrAddressZero(to), "MultiToken: invalid receiver");
+    _update(burnAddress(), to, id, value);
+  }
+
+  /**
+   * @description Destroys a `value` amount of tokens of type `token_id` from `from`.
+   *
+   * @circuitInfo k=10, rows=688
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   * - `from` is not the zero address.
+   * - `from` must have an `id` balance of at least `value`.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} from - The owner whose tokens will be destroyed.
+   * @param {Uint<128>} id - The unique identifier of the token type.
+   * @param {Uint<128>} value - The quantity of `id` tokens that will be destroyed from `from`.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _burn(from: Either<ZswapCoinPublicKey, ContractAddress>, id: Uint<128>, value: Uint<128>): [] {
+    Initializable_assertInitialized();
+
+    assert(!Utils_isKeyOrAddressZero(from), "MultiToken: invalid sender");
+    _update(from, burnAddress(), id, value);
+  }
+
+  /**
+   * @description Enables or disables approval for `operator` to manage all of the caller's assets.
+   *
+   * @circuitInfo k=10, rows=518
+   *
+   * @notice This circuit does not check for access permissions but can be useful as a building block
+   * for more complex contract logic.
+   *
+   * Requirements:
+   *
+   * - Contract is initialized.
+   * - `operator` is not the zero address.
+   *
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} owner - The ZswapCoinPublicKey or ContractAddress of the target owner.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} operator - The ZswapCoinPublicKey or ContractAddress whose approval is set for the
+   * `owner`'s assets.
+   * @param {Boolean} approved - The boolean value determining if the operator may or may not handle the
+   * `owner`'s assets.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _setApprovalForAll(
+    owner: Either<ZswapCoinPublicKey, ContractAddress>,
+    operator: Either<ZswapCoinPublicKey, ContractAddress>,
+    approved: Boolean
+  ): [] {
+    Initializable_assertInitialized();
+
+    assert(!Utils_isKeyOrAddressZero(operator), "MultiToken: invalid operator");
+    if (!_operatorApprovals.member(disclose(owner))) {
+      _operatorApprovals.insert(disclose(owner), default<Map<Either<ZswapCoinPublicKey, ContractAddress>, Boolean>>);
+    }
+
+    _operatorApprovals.lookup(owner).insert(disclose(operator), disclose(approved));
+  }
+}

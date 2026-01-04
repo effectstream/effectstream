@@ -1,0 +1,16 @@
+{
+  "name": "@[scope]/midnight-contract-[contract-name]",
+  "exports": {
+    ".": "./src/_index.ts",
+    "./witnesses": "./src/witnesses.ts",
+    "./contract": "./src/managed/[contract-name]/contract/index.cjs"
+  },
+  "tasks": {
+    "compact": "compact compile src/[contract-name].compact src/managed/[contract-name] && deno task convert:js",
+    "convert:js": "deno run -A convert-js.ts src/managed/[contract-name]/contract/index.cjs src/managed/[contract-name]/contract/index.ts",
+    "contract:compile": "deno task compact"
+  },
+  "imports": {
+    "vitest": "npm:vitest@^3.2.4"
+  }
+}

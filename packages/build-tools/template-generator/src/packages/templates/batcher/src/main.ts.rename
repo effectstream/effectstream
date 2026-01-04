@@ -1,0 +1,87 @@
+import { main, suspend } from "effection";
+import { createNewBatcher } from "@paimaexample/batcher";
+import { config, storage } from "./config.ts";
+
+/** AVAIL-BLOCK */
+/** AVAIL-BLOCK */
+
+/** BITCOIN-BLOCK */
+import { bitcoinAdapter } from "./adapter-bitcoin.ts";
+/** BITCOIN-BLOCK */
+
+/** CARDANO-BLOCK */
+/** CARDANO-BLOCK */
+
+/** EVM-BLOCK */
+/** EVM-BLOCK */
+
+/** MIDNIGHT-BLOCK */
+import * as midnightAdapters  from "./adapter-midnight.ts";
+/** MIDNIGHT-BLOCK */
+
+/** EFFECTSTREAM-L2-BLOCK */
+import { effectstreaml2Adapter } from "./adapter-effectstreaml2.ts";
+/** EFFECTSTREAM-L2-BLOCK */
+
+const batcher = createNewBatcher(config, storage);
+const batchIntervalMs = 1000;
+
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+
+/** EFFECTSTREAM-L2-BLOCK */
+batcher
+  .addBlockchainAdapter("effectstreaml2", effectstreaml2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
+  .setDefaultTarget("effectstreaml2");
+/** EFFECTSTREAM-L2-BLOCK */
+
+/** MIDNIGHT-BLOCK */
+for (const [contract, adapter] of Object.entries(midnightAdapters)) {
+batcher
+  .addBlockchainAdapter(contract, adapter, { criteriaType: "size", maxBatchSize: 1 });
+}
+/** MIDNIGHT-BLOCK */
+
+/** BITCOIN-BLOCK */
+batcher
+  .addBlockchainAdapter("bitcoin", bitcoinAdapter, { criteriaType: "hybrid", maxBatchSize: 5, timeWindowMs: batchIntervalMs });
+/** BITCOIN-BLOCK */
+
+// E2E-specific startup banner via state transition
+batcher.addStateTransition("startup", ({ publicConfig }) => {
+  const banner =
+    `🧪 E2E Batcher startup - polling every ${publicConfig.pollingIntervalMs} ms\n` +
+    `      | 📍 Default Target: ${publicConfig.defaultTarget}\n` +
+    `      | ⛓️ Blockchain Adapter Targets: ${
+      publicConfig.adapterTargets.join(", ")
+    }\n` +
+    `      | 📦 Batching Criteria: ${
+      Object.entries(publicConfig.criteriaTypes).map(([target, type]) =>
+        `${target}=${type}`
+      ).join(", ")
+    }\n` +
+    `      | 📋 Press Ctrl+C to stop gracefully`;
+  console.log(banner);
+})
+.addStateTransition("http:start", ({ port }) => {
+  const publicConfig = batcher.getPublicConfig();
+  const httpInfo = `🌐 HTTP Server started for E2E\n` +
+    `      | URL: http://localhost:${port}\n` +
+    `      | Confirmation: ${publicConfig.confirmationLevel}\n` +
+    `      | Events Enabled: ${publicConfig.enableEventSystem}\n` +
+    `      | Polling: ${publicConfig.pollingIntervalMs} ms`;
+  console.log(httpInfo);
+});
+
+main(function* () {
+  console.log("🚀 Starting Batcher...");
+  try {
+    // Run the batcher with Effection structured concurrency
+    yield* batcher.runBatcher();
+  } catch (error) {
+    console.error("❌ Batcher error:", error);
+    // Trigger graceful shutdown on error
+    yield* batcher.gracefulShutdownOp();
+  }
+  // Keep the main operation alive
+  yield* suspend();
+});

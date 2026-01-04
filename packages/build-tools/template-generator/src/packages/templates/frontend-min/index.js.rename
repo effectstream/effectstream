@@ -1,0 +1,517 @@
+import {
+  allInjectedWallets,
+  PaimaEngineConfig as EffectstreamEngineConfig,
+  sendTransaction,
+  walletLogin,
+  WalletMode,
+  WalletNameMap,
+} from "@paimaexample/wallets";
+
+import { hardhat } from "viem/chains";
+import mqtt from "mqtt";
+import { bitcoinBatcher } from "./batcher-bitcoin.js";
+
+export const effectStreamConfig = new EffectstreamEngineConfig(
+  "",
+  "mainEvmRPC",
+  "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  hardhat,
+  undefined,
+  undefined,
+  false,
+);
+
+let wallet = null;
+
+// Helper to map chainId to wallet type name
+const chainIdToWalletType = (chainId) => {
+  return WalletNameMap[chainId] || `Unknown (${chainId})`;
+};
+
+// Instead of a static list, we will now generate available wallets dynamically
+// combining injected wallets and static local test wallets.
+async function getAvailableWallets() {
+  const wallets = [];
+  
+  // 1. Fetch Injected Wallets
+  try {
+    // Wait a bit for wallets to inject (as seen in example)
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    const injectedWallets = await allInjectedWallets();
+    
+    if (injectedWallets) {
+      for (const [modeStr, walletList] of Object.entries(injectedWallets)) {
+        const mode = Number(modeStr);
+        if (Array.isArray(walletList) && walletList.length > 0) {
+          for (const w of walletList) {
+            // Get a lower-case network type like 'evm' or 'cardano' from the wallet mode.
+            const networkType = (WalletNameMap[mode] || "").toLowerCase();
+
+            wallets.push({
+              name: w.metadata.displayName,
+              mode,
+              preference: { name: w.metadata.name }, // Store preference for login
+              types: [networkType],
+              metadata: w.metadata,
+              // We'll attach a specific login function or handle it via generic login
+              isInjected: true,
+            });
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch injected wallets:", e);
+  }
+
+  // 2. Add Static/Local Wallets
+  // "Viem Local Wallet" - emulated for now since we don't have the full Viem setup in this JS file 
+  // exactly as the React example (which imports privateKeyToAccount etc directly).
+  // If we can't easily polyfill viem/accounts here without more build steps, we might skip implementation details 
+  // or use the simple version if possible. 
+  // For now, let's keep the structure but note it might need the viem imports if we want it to actually work 
+  // fully locally. The original index.js didn't import privateKeyToAccount.
+  // We'll keep the "EVM [test error]" as it's simple.
+  
+  wallets.push({
+    name: "EVM [test error]",
+    mode: WalletMode.EvmInjected,
+    preference: { name: "No wallet" },
+    types: ["evm"],
+    metadata: {
+      name: "EVM Test Error",
+      displayName: "EVM [test error]",
+    },
+    checkChainId: true,
+  });
+
+  return wallets;
+}
+
+async function login(walletOption) {
+  // Logic adapted from handleLogin and handleConnectInjected in App.tsx
+  
+  let checkChainId = true;
+  // Special case for Phantom/Exodus as per example
+  if (walletOption.metadata && (walletOption.metadata.name === "app.phantom" || walletOption.metadata.name === "com.exodus.web3-wallet")) {
+    checkChainId = false;
+  }
+  // If explicitly set in option (like for test error wallet)
+  if (walletOption.checkChainId !== undefined) {
+    checkChainId = walletOption.checkChainId;
+  }
+
+  const loginOptions = {
+    mode: walletOption.mode,
+    preference: walletOption.preference,
+    preferBatchedMode: false,
+    // Logic for chain: only for EVM injected/ethers
+    chain: (walletOption.mode === WalletMode.EvmInjected || walletOption.mode === WalletMode.EvmEthers) ? hardhat : undefined,
+    checkChainId: checkChainId,
+  };
+  
+  console.log("Logging in with options:", loginOptions);
+  
+  const result = await walletLogin(loginOptions);
+  
+  if (!result.success) throw new Error("Cannot login: " + result.errorMessage);
+  wallet = { ...result.result, mode: walletOption.mode };
+  return wallet;
+}
+
+async function sendTransactionPaimaL2(input) {
+  if (!wallet) throw new Error("Wallet not connected");
+  const result = await sendTransaction(
+    wallet,
+    ["my_action_name", input ?? "no-text"],
+    effectStreamConfig,
+  );
+  return result;
+}
+
+// Expose functions to window
+window.effectstream = {
+  login,
+  sendTransactionPaimaL2,
+  getAvailableWallets, // Now exposes the combined list getter
+  bitcoinBatcher,
+};
+
+// UI Logic moved from index.html
+document.addEventListener('DOMContentLoaded', () => {
+    const configDisplay = document.getElementById('config-display');
+    const syncStatusDiv = document.getElementById('sync-status');
+    const syncTable = document.getElementById('sync-table');
+    const syncTableBody = document.getElementById('sync-table-body');
+    const primitivesTableBody = document.getElementById('primitives-table-body');
+    const mqttStatusSpan = document.getElementById('mqtt-status');
+
+    // Chain Data UI Elements
+    const chainButtons = document.querySelectorAll('.chain-btn');
+    const chainTable = document.getElementById('chain-table');
+    const chainTableBody = document.getElementById('chain-table-body');
+    const chainDataStatus = document.getElementById('chain-data-status');
+
+    if (chainButtons) {
+        chainButtons.forEach(btn => {
+            btn.addEventListener('click', () => fetchChainData(btn.dataset.chain));
+        });
+    }
+
+    async function fetchChainData(chain) {
+        if (!chainTable || !chainTableBody || !chainDataStatus) return;
+
+        chainDataStatus.textContent = `Loading data for ${chain}...`;
+        chainTable.style.display = 'none';
+        chainTableBody.innerHTML = '';
+
+        try {
+            const response = await fetch(`http://localhost:9999/api/table/${chain}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                renderChainTable(data);
+                chainTable.style.display = 'table';
+                chainDataStatus.textContent = '';
+            } else {
+                chainDataStatus.textContent = 'No data found for this chain.';
+            }
+
+        } catch (error) {
+            console.error('Error fetching chain data:', error);
+            chainDataStatus.textContent = `Error: ${error.message}`;
+        }
+    }
+
+    function renderChainTable(data) {
+        chainTableBody.innerHTML = '';
+        data.forEach(item => {
+            const row = document.createElement('tr');
+            
+            // Format data object for display if it's a stringified JSON
+            let displayData = item.data;
+            try {
+                // formatting to be prettier
+                const parsed = JSON.parse(item.data);
+                displayData = `<pre style="margin:0; padding:5px; font-size: 0.8em; max-height: 200px; overflow: auto;">${JSON.stringify(parsed, null, 2)}</pre>`;
+            } catch (e) {
+                // keep as is if not valid json
+            }
+
+            row.innerHTML = `
+                <td>${item.id}</td>
+                <td>${item.chain}</td>
+                <td>${item.action}</td>
+                <td>${displayData}</td>
+                <td>${item.block_height}</td>
+            `;
+            chainTableBody.appendChild(row);
+        });
+    }
+
+    // Wallet UI Elements
+    const connectWalletBtn = document.getElementById('connect-wallet-btn');
+    const sendBitcoinBtn = document.getElementById('send-bitcoin-btn');
+    const walletModal = document.getElementById('wallet-modal');
+    const closeModal = document.getElementById('close-modal');
+    const walletList = document.getElementById('wallet-list');
+    const loadingWallets = document.getElementById('loading-wallets');
+    const walletInfoContainer = document.getElementById('wallet-info-container');
+    const walletDetails = document.getElementById('wallet-details');
+
+    let knownProtocols = {}; // Map name -> row element
+
+    // Wallet Logic
+    if (connectWalletBtn) {
+        connectWalletBtn.addEventListener('click', () => {
+            walletModal.style.display = 'block';
+            renderWalletList();
+        });
+    }
+
+    if (sendBitcoinBtn) {
+        sendBitcoinBtn.addEventListener('click', async () => {
+            try {
+                await bitcoinBatcher();
+            } catch (err) {
+                console.error("Error in bitcoin batcher:", err);
+            }
+        });
+    }
+
+    if (closeModal) {
+        closeModal.addEventListener('click', () => {
+            walletModal.style.display = 'none';
+        });
+    }
+
+    window.onclick = (event) => {
+        if (event.target == walletModal) {
+            walletModal.style.display = 'none';
+        }
+    };
+
+    async function renderWalletList() {
+        walletList.innerHTML = '';
+        loadingWallets.style.display = 'block';
+
+        if (window.effectstream && window.effectstream.getAvailableWallets) {
+            try {
+                const wallets = await window.effectstream.getAvailableWallets();
+                loadingWallets.style.display = 'none';
+                
+                if (wallets && wallets.length > 0) {
+                    wallets.forEach(wallet => {
+                        const li = document.createElement('li');
+                        const btn = document.createElement('button');
+                        btn.className = 'wallet-btn';
+                        
+                        // Richer button content with icon if available
+                        let iconHtml = '';
+                        if (wallet.metadata && wallet.metadata.icon) {
+                            iconHtml = `<img src="${wallet.metadata.icon}" width="20" height="20" style="margin-right: 10px; vertical-align: middle;">`;
+                        } else {
+                            const initial = wallet.metadata && wallet.metadata.displayName ? wallet.metadata.displayName.charAt(0) : '?';
+                            iconHtml = `<span style="display:inline-block; width:20px; text-align:center; background:#ccc; margin-right:10px; border-radius:3px;">${initial}</span>`;
+                        }
+
+                        btn.innerHTML = `
+                            <div style="display:flex; align-items:center;">
+                                ${iconHtml}
+                                <div style="display:flex; flex-direction:column; align-items:flex-start;">
+                                    <span style="font-weight:bold;">${wallet.name}</span>
+                                    <span style="font-size:0.8em; color:#666;">${wallet.types.join(', ')}</span>
+                                </div>
+                            </div>
+                        `;
+                        
+                        btn.onclick = () => handleLogin(wallet);
+                        li.appendChild(btn);
+                        walletList.appendChild(li);
+                    });
+                } else {
+                    walletList.innerHTML = '<li>No wallets found.</li>';
+                }
+            } catch (e) {
+                loadingWallets.style.display = 'none';
+                walletList.innerHTML = `<li>Error loading wallets: ${e.message}</li>`;
+            }
+        } else {
+            loadingWallets.style.display = 'none';
+            walletList.innerHTML = '<li>Wallet SDK not loaded.</li>';
+        }
+    }
+
+    async function handleLogin(walletOption) {
+        try {
+            walletModal.style.display = 'none';
+            connectWalletBtn.textContent = 'Connecting...';
+            
+            const wallet = await window.effectstream.login(walletOption);
+            
+            connectWalletBtn.textContent = 'Connected';
+            walletInfoContainer.style.display = 'block';
+            walletDetails.textContent = JSON.stringify({
+                address: wallet.walletAddress,
+                metadata: wallet.metadata,
+                mode: wallet.mode
+            }, null, 2);
+            
+        } catch (err) {
+            console.error(err);
+            alert('Login failed: ' + err.message);
+            connectWalletBtn.textContent = 'Connect Wallet';
+        }
+    }
+
+    // Configuration Fetching (Existing)
+    async function fetchConfig() {
+        try {
+            const response = await fetch('http://localhost:9999/config');
+            const config = await response.json();
+            
+            // Display Config (Hidden but available)
+            if (configDisplay) configDisplay.innerHTML = `<pre>${JSON.stringify(config, null, 2)}</pre>`;
+
+            // Initialize Tables
+            initializeSyncTable(config);
+            initializePrimitivesTable(config);
+
+            // Start MQTT
+            startMqtt();
+
+        } catch (error) {
+            if (configDisplay) configDisplay.textContent = 'Error loading config: ' + error.message;
+            if (syncStatusDiv) syncStatusDiv.textContent = 'Error loading sync status.';
+        }
+    }
+    
+    function initializePrimitivesTable(config) {
+        if (!primitivesTableBody) return;
+        primitivesTableBody.innerHTML = '';
+        config.forEach(networkConfig => {
+            if (networkConfig.primitives && networkConfig.primitives.length > 0) {
+                networkConfig.primitives.forEach(prim => {
+                    const p = prim.primitive;
+                    const row = document.createElement('tr');
+                    
+                    let details = '';
+                    if (p.contractAddress) details += `Contract: ${p.contractAddress.substring(0, 10)}... <br>`;
+                    if (p.startBlockHeight !== undefined) details += `Start Block: ${p.startBlockHeight} <br>`;
+                    if (p.scheduledPrefix) details += `Prefix: ${p.scheduledPrefix}`;
+
+                    row.innerHTML = `
+                        <td>${p.name}</td>
+                        <td>${p.type}</td>
+                        <td>${networkConfig.networkType}</td>
+                        <td>${prim.syncProtocol}</td>
+                        <td>${details}</td>
+                    `;
+                    primitivesTableBody.appendChild(row);
+                });
+            }
+        });
+        
+        if (primitivesTableBody.children.length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = '<td colspan="5">No primitives configured</td>';
+            primitivesTableBody.appendChild(row);
+        }
+    }
+
+    function initializeSyncTable(config) {
+        if (!syncStatusDiv || !syncTable) return;
+        syncStatusDiv.style.display = 'none';
+        syncTable.style.display = 'table';
+        
+        // Extract unique sync protocols
+        const syncProtocols = config.map(c => c.syncProtocol).filter(p => p && p.name);
+        
+        syncProtocols.forEach(protocol => {
+            const row = document.createElement('tr');
+            row.id = `row-${protocol.name}`;
+            row.innerHTML = `
+                <td>${protocol.name}</td>
+                <td>${protocol.type}</td>
+                <td id="block-${protocol.name}">Waiting...</td>
+                <td id="time-${protocol.name}">-</td>
+            `;
+            syncTableBody.appendChild(row);
+            knownProtocols[protocol.name] = {
+                blockEl: row.querySelector(`#block-${protocol.name}`),
+                timeEl: row.querySelector(`#time-${protocol.name}`)
+            };
+        });
+
+        // Add Effectstream Engine (Main) row
+        const mainRow = document.createElement('tr');
+        mainRow.style.backgroundColor = "#e8f4fd";
+        mainRow.innerHTML = `
+            <td><strong>Effectstream Engine (Rollup)</strong></td>
+            <td>Core</td>
+            <td id="block-__main__">Waiting...</td>
+            <td id="time-__main__">-</td>
+        `;
+        // Insert at top
+        syncTableBody.insertBefore(mainRow, syncTableBody.firstChild);
+        knownProtocols['__main__'] = {
+            blockEl: mainRow.querySelector(`#block-__main__`),
+            timeEl: mainRow.querySelector(`#time-__main__`)
+        };
+    }
+
+    function updateProtocolStatus(name, block, timestamp) {
+        // Normalize name if needed (some might come as 'mainEvmRPC' etc)
+        // If we don't know it, maybe add it dynamically? For now only update known.
+        
+        if (knownProtocols[name]) {
+            knownProtocols[name].blockEl.textContent = block;
+            if (timestamp) {
+                const date = new Date(Number(timestamp) < 10000000000 ? Number(timestamp) * 1000 : Number(timestamp));
+                knownProtocols[name].timeEl.textContent = date.toLocaleTimeString();
+            }
+        } else {
+            console.log(Object.keys(knownProtocols));
+            console.log(block);
+            console.warn(`Received update for unknown protocol: ${name}`);
+        }
+    }
+
+    function startMqtt() {
+        // Using ws://localhost:8883 as seen in event-connect.ts
+        // Note: browser uses WS, node uses MQTT protocol over TCP usually, but here it seems to be WS.
+        // Check if mqtt is defined (it's a global from the script tag in HTML)
+        if (typeof mqtt === 'undefined') {
+            console.error("MQTT library not loaded");
+            return;
+        }
+
+        const client = mqtt.connect('ws://localhost:8883');
+
+        client.on('connect', () => {
+            if (mqttStatusSpan) {
+                mqttStatusSpan.textContent = 'Connected';
+                mqttStatusSpan.className = 'status-connected';
+            }
+            console.log('MQTT Connected');
+
+            // Subscribe to topics
+            // node/block/+ -> RollupBlock
+            client.subscribe('node/block/+', (err) => {
+                if (err) console.error('Subscribe error node/block/+:', err);
+            });
+
+            // node/chain/+/block/+ -> SyncChains
+            client.subscribe('node/chain/+/block/+', (err) => {
+                if (err) console.error('Subscribe error node/chain/+/block/+:', err);
+            });
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const payload = JSON.parse(message.toString());
+                
+                const parts = topic.split('/');
+
+                // Parse topic to determine type
+                // node/block/{block}
+                if (topic.startsWith('node/block/')) {
+                    // RollupBlock: block is in topic
+                    const blockHeight = parts[2];
+                    updateProtocolStatus('__main__', blockHeight, payload.timestamp);
+                } 
+                // node/chain/{chain}/block/{block}
+                else if (topic.startsWith('node/chain/')) {
+                    // SyncChains: chain and block are in topic
+                    const chain = parts[2];
+                    const blockHeight = parts[4];
+                    updateProtocolStatus(chain, blockHeight, null); 
+                }
+
+            } catch (e) {
+                console.error('Error processing message:', e);
+            }
+        });
+
+        client.on('error', (err) => {
+            console.error('MQTT Error:', err);
+            if (mqttStatusSpan) {
+                mqttStatusSpan.textContent = 'Error';
+                mqttStatusSpan.className = 'status-disconnected';
+            }
+        });
+
+        client.on('close', () => {
+            if (mqttStatusSpan) {
+                mqttStatusSpan.textContent = 'Disconnected';
+                mqttStatusSpan.className = 'status-disconnected';
+            }
+        });
+    }
+
+    fetchConfig();
+});

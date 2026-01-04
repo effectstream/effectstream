@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: MIT
+// OpenZeppelin Compact Contracts v0.0.1-alpha.1 (security/Pausable.compact)
+
+pragma language_version >= 0.18.0;
+
+/**
+ * @module Pausable
+ * @description Pausable allows the implementing contract to implement
+ * an emergency stop mechanism. Only circuits that call `assertPaused`
+ * or `assertNotPaused` will be affected by this mechanism.
+ */
+module Pausable {
+  import CompactStandardLibrary;
+
+  export ledger _isPaused: Boolean;
+
+  /**
+   * @description Returns true if the contract is paused, and false otherwise.
+   *
+   * @circuitInfo k=10, rows=32
+   *
+   * @return {Boolean} True if paused.
+   */
+  export circuit isPaused(): Boolean {
+    return _isPaused;
+  }
+
+  /**
+   * @description Makes a circuit only callable when the contract is paused.
+   *
+   * @circuitInfo k=10, rows=31
+   *
+   * Requirements:
+   *
+   * - Contract must be paused.
+   *
+   * @return {[]} - Empty tuple.
+   */
+  export circuit assertPaused(): [] {
+    assert(_isPaused, "Pausable: not paused");
+  }
+
+  /**
+   * @description Makes a circuit only callable when the contract is not paused.
+   *
+   * @circuitInfo k=10, rows=35
+   *
+   * Requirements:
+   *
+   * - Contract must not be paused.
+   *
+   * @return {[]} - Empty tuple.
+   */
+  export circuit assertNotPaused(): [] {
+    assert(!_isPaused, "Pausable: paused");
+  }
+
+  /**
+   * @description Triggers a stopped state.
+   *
+   * @circuitInfo k=10, rows=38
+   *
+   * Requirements:
+   *
+   * - Contract must not be paused.
+   *
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _pause(): [] {
+    assertNotPaused();
+    _isPaused = true;
+  }
+
+  /**
+   * @description Lifts the pause on the contract.
+   *
+   * @circuitInfo k=10, rows=34
+   *
+   * Requirements:
+   *
+   * - Contract must be paused.
+   *
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _unpause(): [] {
+    assertPaused();
+    _isPaused = false;
+  }
+}

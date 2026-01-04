@@ -1,0 +1,119 @@
+pragma language_version >= 0.16.0;
+
+import CompactStandardLibrary;
+import "./base-contracts/src/token/FungibleToken"
+  prefix FungibleToken_;
+
+export ledger effectstream_action_name: Uint<128>;
+export ledger effectstream_action_target: Either<ZswapCoinPublicKey, ContractAddress>;
+export ledger effectstream_action_target2: Either<ZswapCoinPublicKey, ContractAddress>;
+export ledger effectstream_action_value: Uint<128>;
+export ledger effectstream_action_initiator: Either<ZswapCoinPublicKey, ContractAddress>;
+
+constructor(
+//   name: Opaque<"string">,
+//   symbol: Opaque<"string">,
+//   decimals: Uint<8>,
+//   recipient: Either<ZswapCoinPublicKey, ContractAddress>,
+//   fixedSupply: Uint<128>,
+) {
+  const name: Opaque<"string"> = default<Opaque<"string">>;
+  const symbol: Opaque<"string"> = default<Opaque<"string">>;
+  const decimals: Uint<8> = 8;
+  FungibleToken_initialize(name, symbol, decimals);
+  // FungibleToken__mint(recipient, fixedSupply);
+}
+
+export circuit mint(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): [] {
+  // This is to allow effectstream-engine to track the action
+  // NOTE This will be removed once events are supported
+  effectstream_action_name = 1001;
+  effectstream_action_target = disclose(account);
+  effectstream_action_value = disclose(value);
+  effectstream_action_initiator = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
+
+  FungibleToken__mint(account, value);
+}
+
+export circuit name(): Opaque<"string"> {
+  return FungibleToken_name();
+}
+
+export circuit symbol(): Opaque<"string"> {
+  return FungibleToken_symbol();
+}
+
+export circuit decimals(): Uint<8> {
+  return FungibleToken_decimals();
+}
+
+export circuit totalSupply(): Uint<128> {
+  return FungibleToken_totalSupply();
+}
+
+export circuit balanceOf(
+  account: Either<ZswapCoinPublicKey, ContractAddress>,
+): Uint<128> {
+  return FungibleToken_balanceOf(account);
+}
+
+export circuit transfer(
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): Boolean {
+  // This is to allow effectstream-engine to track the action
+  // NOTE This will be removed once events are supported
+  effectstream_action_name = 1002;
+  effectstream_action_target = disclose(to);
+  effectstream_action_value = disclose(value);
+  effectstream_action_initiator = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
+
+  return FungibleToken_transfer(to, value);
+}
+
+export circuit approve(
+  spender: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): Boolean {
+  // This is to allow effectstream-engine to track the action
+  // NOTE This will be removed once events are supported
+  effectstream_action_name = 1003;
+  effectstream_action_target = disclose(spender);
+  effectstream_action_value = disclose(value);
+  effectstream_action_initiator = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
+
+  return FungibleToken_approve(spender, value);
+}
+
+export circuit allowance(
+  owner: Either<ZswapCoinPublicKey, ContractAddress>,
+  spender: Either<ZswapCoinPublicKey, ContractAddress>,
+): Uint<128> {
+  // This is to allow effectstream-engine to track the action
+  // NOTE This will be removed once events are supported
+  effectstream_action_name = 1004;
+  effectstream_action_target = disclose(owner);
+  effectstream_action_target2 = disclose(spender);
+  effectstream_action_initiator = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
+
+  return FungibleToken_allowance(owner, spender);
+}
+
+export circuit transferFrom(
+  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  to: Either<ZswapCoinPublicKey, ContractAddress>,
+  value: Uint<128>,
+): Boolean {
+  // This is to allow effectstream-engine to track the action
+  // NOTE This will be removed once events are supported
+  effectstream_action_name = 1005;
+  effectstream_action_target = disclose(from);
+  effectstream_action_target2 = disclose(to);
+  effectstream_action_value = disclose(value);
+  effectstream_action_initiator = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
+
+  return FungibleToken_transferFrom(from, to, value);
+}
