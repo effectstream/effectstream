@@ -3,7 +3,9 @@
   "version": "0.3.0",
   "license": "MIT",
   "exports": {
-    ".": "./src/mod.ts"
+    ".": "./src/mod.ts",
+    "./config-localhost": "./src/config.ts",
+    "./config-testnet": "./src/config.testnet.ts"
   },
   "imports": {
     "viem": "npm:viem@2.37.3",

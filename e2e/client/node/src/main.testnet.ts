@@ -8,7 +8,7 @@ NetworkId.Undeployed;
 
 import { init, start } from "@effectstream/runtime";
 import { main, suspend } from "effection";
-import { config } from "@e2e/data-types/config-localhost";
+import { config } from "@e2e/data-types/config-testnet";
 import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
