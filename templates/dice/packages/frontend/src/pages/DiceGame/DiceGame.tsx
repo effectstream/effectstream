@@ -10,14 +10,11 @@ import {
 } from "@dice/utils";
 import {
   applyEvent,
-  genDieRoll,
-  genInitialDiceRolls,
   getPlayerScore,
   cloneMatchState,
 } from "@dice/game-logic";
 import * as Paima from "@dice/middleware";
 import { DiceService } from "./GameLogic";
-import Prando from 'prando';
 import { RoundExecutorWrapper } from "./RoundExecutorWrapper";
 import Player from "./Player";
 import { DiceRef } from "./Dice";
@@ -98,11 +95,6 @@ const DiceGame: React.FC<DiceGameProps> = ({
     });
   }, [lobbyState.current_turn, lobbyState.current_proper_round, lobbyState.current_round, lobbyState.players]);
 
-  // "forced moves", user has to roll until he gets score 16
-  const [initialRollQueue, setInitialRollQueue] = React.useState<
-    [number, number][]
-  >([]);
-
   async function submit(rollAgain: boolean) {
     const moveResult = await DiceService.submitMove(
       selectedNft,
@@ -112,87 +104,14 @@ const DiceGame: React.FC<DiceGameProps> = ({
     console.log("Move result:", moveResult);
     await refetchLobbyState();
   }
+
   async function handleRoll(): Promise<void> {
-    const startingScore = getPlayerScore(displayedState);
-    const diceRef = diceRefs.current[displayedState.turn];
-
-    async function playInitialRollFromQueue(queue: [number, number][]) {
-      setIsTickDisplaying(true);
-      const [playedInitialRoll, ...restInitialRolls] = queue;
-      setInitialRollQueue(restInitialRolls);
-      await diceRef?.roll(playedInitialRoll);
-      setDisplayedState((oldDisplayedState) => {
-        const newDisplayedState = cloneMatchState(oldDisplayedState);
-        applyEvent(newDisplayedState, {
-          kind: TickEventKind.roll,
-          diceRolls: playedInitialRoll,
-          // won't be used, just mock value
-          rollAgain: true,
-        });
-        return newDisplayedState;
-      });
-      setIsTickDisplaying(false);
-    }
-
-    // create initial roll queue and roll first
-    if (startingScore === 0 && initialRollQueue.length === 0) {
-      const newInitialRolls = genInitialDiceRolls(
-        new Prando(lobbyState.roundSeed)
-      ).dice;
-      playInitialRollFromQueue(newInitialRolls);
-      return;
-    }
-
-    // initial roll from existing queue
-    if (startingScore < 16 && initialRollQueue.length > 0) {
-      playInitialRollFromQueue(initialRollQueue);
-      return;
-    }
-
-    // real move: submit
+    console.log(`[DiceGame] User clicked ROLL, submitting move with roll_again=true`);
     submit(true);
   }
 
-  // User submitted "roll again", we are expecting an extra roll to be shown.
-  // This requires a different animation. Basically, we want to show the first roll tick event
-  // of the next round, before the next round is complete, and also apply its state changes.
-  const isExtraRoll = useMemo(
-    () =>
-      lobbyState.current_round === displayedRound + 1 &&
-      thisPlayer.turn === displayedState.turn &&
-      thisPlayer.turn === lobbyState.current_turn,
-    [lobbyState, displayedRound, thisPlayer]
-  );
-
-  useEffect(() => {
-    // after user submits an extra roll, we have to wait for the lobby to update
-    // and then automatically display the roll
-    if (isTickDisplaying || !isExtraRoll) return;
-
-    void (async () => {
-      setIsTickDisplaying(true);
-      const diceRef = diceRefs.current[displayedState.turn];
-      const dieRoll = genDieRoll(new Prando(lobbyState.roundSeed));
-      await diceRef.roll([dieRoll]);
-      setDisplayedState((oldDisplayedState) => {
-        const newDisplayedState = cloneMatchState(oldDisplayedState);
-        applyEvent(newDisplayedState, {
-          kind: TickEventKind.roll,
-          diceRolls: [dieRoll],
-          // won't be used, just mock value
-          rollAgain: true,
-        });
-        return newDisplayedState;
-      });
-      setDisplayedRound(displayedRound + 1);
-      // This is a special case, where we didn't use round executor to show replay,
-      // but it still got fetched. We have to unset it to allow fetching next round.
-      setRoundExecutor(undefined);
-      setIsTickDisplaying(false);
-    })();
-  }, [isTickDisplaying, displayedRound, lobbyState, diceRefs]);
-
   async function handlePass(): Promise<void> {
+    console.log(`[DiceGame] User clicked PASS, submitting move with roll_again=false`);
     submit(false);
   }
 
@@ -201,9 +120,7 @@ const DiceGame: React.FC<DiceGameProps> = ({
 
     if (
       isTickDisplaying ||
-      roundExecutor == null ||
-      // see comment before definition of this
-      isExtraRoll
+      roundExecutor == null
     )
       return;
 
@@ -217,16 +134,14 @@ const DiceGame: React.FC<DiceGameProps> = ({
       console.log(`[DiceGame] This player turn: ${thisPlayer.turn}, displayed turn: ${displayedState.turn}`);
 
       for (const tickEvent of tickEvents) {
-        // skip replay of this player's actions that already happened interactively
-        if (
-          thisPlayer.turn === displayedState.turn &&
-          tickEvent.kind === TickEventKind.roll
-        )
-          continue;
-
         if (tickEvent.kind === TickEventKind.roll) {
-          console.log(`[DiceGame] Rolling dice for turn ${displayedState.turn}:`, tickEvent.diceRolls);
-          await diceRefs.current[displayedState.turn].roll(tickEvent.diceRolls);
+          const diceRef = diceRefs.current[displayedState.turn];
+          console.log(`[DiceGame] Rolling dice for turn ${displayedState.turn}:`, tickEvent.diceRolls, `diceRef available: ${diceRef != null}`);
+          if (diceRef) {
+            await diceRef.roll(tickEvent.diceRolls);
+          } else {
+            console.warn(`[DiceGame] Dice ref not available for turn ${displayedState.turn}, skipping animation`);
+          }
         }
         setDisplayedState((oldDisplayedState) => {
           const newDisplayedState = cloneMatchState(oldDisplayedState);
@@ -282,10 +197,16 @@ const DiceGame: React.FC<DiceGameProps> = ({
         }
       }
 
-      console.log(`[DiceGame] Round ${displayedRound} complete. New state:`, endState);
-      setDisplayedRound(displayedRound + 1);
-      setDisplayedState(endState);
+      // Check if round actually completed (has roundEnd event)
+      const roundCompleted = tickEvents.some(e => e.kind === TickEventKind.roundEnd);
 
+      console.log(`[DiceGame] Ticks complete for round ${displayedRound}. Round completed: ${roundCompleted}`);
+
+      if (roundCompleted) {
+        setDisplayedRound(displayedRound + 1);
+      }
+
+      setDisplayedState(endState);
       setIsTickDisplaying(false);
       setRoundExecutor(undefined);
     })();
