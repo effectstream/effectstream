@@ -11,7 +11,9 @@
     "test:e2e": "deno task -f @e2e/node test",
     "test:code": "./run-tests.sh"
   },
-  "imports": {},
+  "imports": {
+    "@midnight-ntwrk/ledger-v6": "npm:@midnight-ntwrk/ledger-v6@6.1.0-alpha.6"
+  },
   "lint": {
     "rules": {
       "exclude": [

@@ -3,15 +3,15 @@
     "exports": {
       ".": "./src/_index.ts",
       "./witnesses": "./src/witnesses.ts",
-      "./contract": "./src/managed/counter/contract/index.cjs"
+      "./contract": "./src/managed/contract/index.cjs"
     },
     "tasks": {
-      "compact": "compact compile src/counter.compact src/managed/counter && deno task convert:js",
+      "compact": "COMPACTC_BASE_DIR=$PWD deno task -f @effectstream/compactc-binwrapped compactc src/counter.compact src/managed/ && deno task convert:js",
       "convert:js": "deno run -A convert-js.ts src/managed/counter/contract/index.cjs src/managed/counter/contract/index.ts",
       "contract:compile": "deno task compact"
     },
     "imports": {
       "vitest": "npm:vitest@^3.2.4",
-      "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.9.0"
+      "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.11.0-rc.1"
     }
   }

@@ -101,6 +101,50 @@ function isValidMidnightContractDir(dir: string, contractName: string): boolean 
 }
 
 /**
+ * Determine whether a directory contains the expected Midnight compiler artifacts.
+ */
+function hasManagedArtifacts(dir: string): boolean {
+  const requiredDirs = ["compiler", "contract"];
+  try {
+    return requiredDirs.every((entry) => {
+      const stats = Deno.statSync(path.join(dir, entry));
+      return stats.isDirectory;
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolves the directory that actually holds the managed compiler artifacts.
+ * Supports both nested structures (src/managed/<name>/...) and flattened ones
+ * (src/managed/...).
+ */
+function resolveManagedArtifactsDir(managedDir: string): string {
+  try {
+    for (const entry of Deno.readDirSync(managedDir)) {
+      if (!entry.isDirectory) continue;
+      const candidate = path.join(managedDir, entry.name);
+      if (hasManagedArtifacts(candidate)) {
+        return candidate;
+      }
+    }
+  } catch {
+    // handled below
+  }
+
+  if (hasManagedArtifacts(managedDir)) {
+    return managedDir;
+  }
+
+  throw new Error(
+    `Managed compiler artifacts not found under ${managedDir}. ` +
+      `Expected either src/managed/<subdir>/{contract,compiler,...} or ` +
+      `src/managed/{contract,compiler,...}.`
+  );
+}
+
+/**
 * Finds the directory containing a Midnight contract by searching for the contract directory structure.
 * This is used during deployment when the contract.json file doesn't exist yet.
 * Searches for directories matching {contractName}/src/managed/ pattern.
@@ -239,7 +283,6 @@ export function readMidnightContract(
   contractFileName: string = "contract.json",
   baseDir?: string
 ): MidnightContractInfo {
-  let compilerSubdir = "";
   let moduleDir: string;
   
   // Determine the base directory for contract resolution first
@@ -273,6 +316,7 @@ export function readMidnightContract(
   const cacheKey = `${path.resolve(moduleDir)}:${contractName}:${contractFileName}`;
   if (cachedContractInfo[cacheKey]) return cachedContractInfo[cacheKey];
   
+  let managedArtifactsDir = "";
   try {
     
     // Construct the full paths relative to the determined base directory
@@ -281,37 +325,20 @@ export function readMidnightContract(
     // Find the first directory inside the managed directory
     const managedDir = path.join(moduleDir, contractName, "src/managed/");
     try {
-      for (const entry of Deno.readDirSync(managedDir)) {
-        if (entry.isDirectory) {
-          compilerSubdir = entry.name;
-          break;
-        }
-      }
+      managedArtifactsDir = resolveManagedArtifactsDir(managedDir);
     } catch (error) {
-      throw new Error(`Managed directory not found: ${managedDir}`);
-    }
-    
-    if (!compilerSubdir) {
-      throw new Error(`No subdirectory found in managed directory: ${managedDir}`);
+      throw new Error(
+        `Managed directory not found or invalid: ${managedDir}. ${(error as Error).message}`
+      );
     }
 
-    // Construct the full path to the contract info file using the first found subdirectory
+    // Construct the full path to the contract info file using the resolved managed directory
     const contractInfoPath = path.join(
-      moduleDir,
-      contractName,
-      "src/managed",
-      compilerSubdir,
+      managedArtifactsDir,
       "compiler/contract-info.json"
     );
     console.log(`contractInfoPath: ${contractInfoPath}`);
-    const zkConfigPath = path.resolve(
-      path.join(
-        moduleDir,
-        contractName,
-        "src/managed",
-        compilerSubdir
-      )
-    );
+    const zkConfigPath = path.resolve(managedArtifactsDir);
     const contractAddressJson = Deno.readTextFileSync(contractPath);
     const contractInfoJson = Deno.readTextFileSync(contractInfoPath);
     const contractAddressInfo = JSON.parse(contractAddressJson) as MidnightContractAddressInfo;
@@ -327,7 +354,9 @@ export function readMidnightContract(
     return cachedContractInfo[cacheKey];
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {
-      throw new Error(`Contract files not found - expected: ${contractFileName} and ${contractName}/src/managed/${compilerSubdir}/compiler/contract-info.json`);
+      throw new Error(
+        `Contract files not found - expected: ${contractFileName} and compiler artifacts under ${managedArtifactsDir}`
+      );
     }
     throw new Error(`Failed to read contract files: ${String(err)}`);
   }

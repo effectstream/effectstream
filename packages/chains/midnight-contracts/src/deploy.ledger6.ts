@@ -34,6 +34,7 @@ import {
 } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
 import {
   type CoinPublicKey,
+  DustParameters,
   DustSecretKey,
   type EncPublicKey,
   type FinalizedTransaction,
@@ -135,7 +136,15 @@ export const DEFAULT_NETWORK_URLS: Required<NetworkUrls> = {
 interface WalletResult {
   wallet: WalletFacade;
   zswapSecretKeys: ZswapSecretKeys;
+  /**
+   * Zswap secret keys instantiated from ledger-v6@6.1.x for ShieldedWallet compatibility.
+   */
+  walletZswapSecretKeys: ZswapSecretKeys;
   dustSecretKey: DustSecretKey;
+  /**
+   * Dust secret key instantiated from ledger-v6@6.1.x for DustWallet compatibility.
+   */
+  walletDustSecretKey: DustSecretKey;
   /** Encoded dust address to use as receiver when minting dust */
   dustAddress: string;
 }
@@ -262,16 +271,21 @@ function buildDustWallet(
   config: DefaultV1Configuration,
   seed: Uint8Array
 ): ReturnType<ReturnType<typeof DustWallet>["startWithSeed"]> {
+  const legacyLedgerParams = LedgerParameters.initialParameters();
   const dustConfig = {
     ...config,
     costParameters: {
-      ledgerParams: LedgerParameters.initialParameters(),
+      ledgerParams: legacyLedgerParams as unknown as LedgerParameters,
       additionalFeeOverhead: DUST_FEE_OVERHEAD,
       feeBlocksMargin: DUST_FEE_BLOCKS_MARGIN,
     },
   };
   const dustBuilder = DustWallet(dustConfig);
-  const dustParameters = LedgerParameters.initialParameters().dust;
+
+  // DustWallet still links against ledger-v6@6.1.x, so we must provide LedgerParameters
+  // (and embedded DustParameters) created from that version to satisfy its runtime instanceof checks.
+  const dustParameters = legacyLedgerParams.dust;
+
   return dustBuilder.startWithSeed(seed, dustParameters);
 }
 
@@ -292,6 +306,13 @@ async function buildUnshieldedWallet(
     networkId: WALLET_NETWORK_ID,
     indexerUrl: networkUrls.indexerWS,
   });
+
+  // Fix the state property to be an observable instead of a function
+  // The WalletFacade expects all wallets to have a state property that is an observable
+  if (typeof unshieldedWallet.state === 'function') {
+    const stateObservable = unshieldedWallet.state();
+    (unshieldedWallet as any).state = stateObservable;
+  }
 
   return unshieldedWallet;
 }
@@ -327,14 +348,23 @@ async function buildWalletFacade(
   const wallet = new WalletFacade(shieldedWallet, unshieldedWallet, dustWallet);
 
   const zswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
+  const walletZswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
   const dustSecretKey = DustSecretKey.fromSeed(dustSeed);
+  const walletDustSecretKey = DustSecretKey.fromSeed(dustSeed);
 
   log.info("Starting wallet...");
-  await wallet.start(zswapSecretKeys, dustSecretKey);
+  await wallet.start(walletZswapSecretKeys, walletDustSecretKey);
 
   const dustState = await getInitialDustState(wallet.dust);
 
-  return { wallet, zswapSecretKeys, dustSecretKey, dustAddress: dustState.dustAddress };
+  return {
+    wallet,
+    zswapSecretKeys,
+    walletZswapSecretKeys,
+    dustSecretKey,
+    walletDustSecretKey,
+    dustAddress: dustState.dustAddress,
+  };
 }
 
 /** Shielded wallet state shape */
@@ -583,7 +613,9 @@ async function buildWalletAndWaitForFunds(
 function createWalletAndMidnightProvider(
   wallet: WalletFacade,
   zswapSecretKeys: ZswapSecretKeys,
-  dustSecretKey: DustSecretKey
+  walletZswapSecretKeys: ZswapSecretKeys,
+  dustSecretKey: DustSecretKey,
+  walletDustSecretKey: DustSecretKey
 ): WalletProvider & MidnightProvider {
   return {
     getCoinPublicKey(): CoinPublicKey {
@@ -598,8 +630,8 @@ function createWalletAndMidnightProvider(
       ttl?: Date
     ): Promise<BalancedProvingRecipe> {
       return wallet.balanceTransaction(
-        zswapSecretKeys,
-        dustSecretKey,
+        walletZswapSecretKeys,
+        walletDustSecretKey,
         tx,
         ttl ?? createTtl()
       );
@@ -616,7 +648,9 @@ function createWalletAndMidnightProvider(
 function configureProviders(
   wallet: WalletFacade,
   zswapSecretKeys: ZswapSecretKeys,
+  walletZswapSecretKeys: ZswapSecretKeys,
   dustSecretKey: DustSecretKey,
+  walletDustSecretKey: DustSecretKey,
   networkUrls: Required<NetworkUrls>,
   privateStateStoreName: string,
   zkConfigPath: string
@@ -625,7 +659,9 @@ function configureProviders(
   const walletAndMidnightProvider = createWalletAndMidnightProvider(
     wallet,
     zswapSecretKeys,
-    dustSecretKey
+    walletZswapSecretKeys,
+    dustSecretKey,
+    walletDustSecretKey
   );
   return {
     privateStateProvider: levelPrivateStateProvider({
@@ -672,10 +708,24 @@ async function extractInitialOwnerFromWallet(
 /**
  * Find the compiler subdirectory in the managed directory
  */
+function hasManagedArtifacts(dir: string): boolean {
+  const requiredDirs = ["contract", "compiler"];
+  try {
+    return requiredDirs.every((name) => {
+      const stats = Deno.statSync(path.join(dir, name));
+      return stats.isDirectory;
+    });
+  } catch {
+    return false;
+  }
+}
+
 function findCompilerSubdirectory(managedDir: string): string {
   try {
     for (const entry of Deno.readDirSync(managedDir)) {
-      if (entry.isDirectory) {
+      if (!entry.isDirectory) continue;
+      const candidate = path.join(managedDir, entry.name);
+      if (hasManagedArtifacts(candidate)) {
         return entry.name;
       }
     }
@@ -683,7 +733,14 @@ function findCompilerSubdirectory(managedDir: string): string {
     throw new Error(`Managed directory not found: ${managedDir}`);
   }
 
-  throw new Error(`No subdirectory found in managed directory: ${managedDir}`);
+  if (hasManagedArtifacts(managedDir)) {
+    return "";
+  }
+
+  throw new Error(
+    `No compiler artifacts found in managed directory: ${managedDir}. ` +
+      `Ensure the directory contains compiler, contract, keys, and zkir assets.`
+  );
 }
 
 // ============================================================================
@@ -769,7 +826,14 @@ export async function deployMidnightContract(
       GENESIS_MINT_WALLET_SEED
     );
 
-    const { wallet, zswapSecretKeys, dustSecretKey, dustAddress } = walletResult;
+    const {
+      wallet,
+      zswapSecretKeys,
+      walletZswapSecretKeys,
+      dustSecretKey,
+      walletDustSecretKey,
+      dustAddress,
+    } = walletResult;
     const resolvedDustReceiverAddress =
       Deno.env.get("MIDNIGHT_DUST_RECEIVER_ADDRESS") ?? dustAddress;
     if (resolvedDustReceiverAddress === dustAddress) {
@@ -793,7 +857,9 @@ export async function deployMidnightContract(
     const providers = configureProviders(
       wallet,
       zswapSecretKeys,
+      walletZswapSecretKeys,
       dustSecretKey,
+      walletDustSecretKey,
       resolvedNetworkUrls,
       privateStateStoreName,
       zkConfigPath
