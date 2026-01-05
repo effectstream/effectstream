@@ -23,11 +23,11 @@ try {
   console.warn("No assets directory found, skipping copy");
 }
 
-// Build middleware
+// Build Effectstream API
 const middlewareResult = await build({
-  entryPoints: ["./paimaMiddleware.src.js"],
+  entryPoints: ["./effectstreamAPI.src.js"],
   bundle: true,
-  outfile: "public/paimaMiddleware.js",
+  outfile: "public/effectstreamAPI.js",
   sourcemap: true,
   format: "esm",
   logOverride: {
@@ -82,7 +82,7 @@ await build({
 
     // Package aliases - map old imports to new locations
     '@dice/game-logic': resolve(__dirname, '../shared/game-logic/src/mod.ts'),
-    '@dice/middleware': resolve(__dirname, './public/paimaMiddleware.js'),
+    '@dice/middleware': resolve(__dirname, './public/effectstreamAPI.js'),
     '@dice/db': resolve(__dirname, '../client/database/src/mod.ts'),
     '@dice/utils': resolve(__dirname, '../shared/data-types/src/types.ts'),
     '@dice/data-types/types': resolve(__dirname, '../shared/data-types/src/types.ts'),

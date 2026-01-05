@@ -87,3 +87,9 @@ typings/
 
 # Distributions
 dist/
+# Built files
+public/
+paimaMiddleware.js
+paimaMiddleware.js.map
+effectstreamAPI.js
+effectstreamAPI.js.map

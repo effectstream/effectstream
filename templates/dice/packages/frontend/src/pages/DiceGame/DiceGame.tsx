@@ -200,13 +200,17 @@ const DiceGame: React.FC<DiceGameProps> = ({
       // Check if round actually completed (has roundEnd event)
       const roundCompleted = tickEvents.some(e => e.kind === TickEventKind.roundEnd);
 
-      console.log(`[DiceGame] Ticks complete for round ${displayedRound}. Round completed: ${roundCompleted}`);
+      console.log(`[DiceGame] Ticks complete for round ${displayedRound}. Round completed: ${roundCompleted}, had ${tickEvents.length} events`);
 
       if (roundCompleted) {
         setDisplayedRound(displayedRound + 1);
       }
 
-      setDisplayedState(endState);
+      // Only update displayed state if we actually had events to process
+      if (tickEvents.length > 0) {
+        setDisplayedState(endState);
+      }
+
       setIsTickDisplaying(false);
       setRoundExecutor(undefined);
     })();
@@ -222,9 +226,10 @@ const DiceGame: React.FC<DiceGameProps> = ({
   const [nextFetchedRound, setFetchedRound] = useState(
     lobbyState.current_round
   );
+
   useEffect(() => {
     // fetch new round data
-    console.log(`[DiceGame] Fetch check: nextFetchedRound=${nextFetchedRound}, current_round=${lobbyState.current_round}, hasExecutor=${roundExecutor != null}, isFetching=${isFetchingRound}`);
+    console.log(`[DiceGame] Fetch check: displayedRound=${displayedRound}, nextFetchedRound=${nextFetchedRound}, current_round=${lobbyState.current_round}, hasExecutor=${roundExecutor != null}, isFetching=${isFetchingRound}`);
 
     if (
       // we're up-to-date
@@ -259,6 +264,8 @@ const DiceGame: React.FC<DiceGameProps> = ({
             endState: wrapper.endState(),
           };
 
+          console.log(`[DiceGame] Fetched round ${nextFetchedRound} with ${newRoundExecutor.result.moves.length} moves, ${newRoundExecutorResults.tickEvents.length} tick events`);
+
           setRoundExecutor(newRoundExecutorResults);
           setFetchedRound(nextFetchedRound + 1);
           setFetchedEndState(newRoundExecutorResults.endState);
@@ -280,12 +287,14 @@ const DiceGame: React.FC<DiceGameProps> = ({
 
   const disableInteraction =
     matchOver ||
-    displayedRound !== lobbyState.current_round ||
     thisPlayer.turn !== displayedState.turn ||
     isTickDisplaying;
-  const playerScore = getPlayerScore(displayedState);
-  const canRoll = !disableInteraction && playerScore <= 21;
-  const canPass = !disableInteraction && playerScore >= 16;
+
+  // Safety check: ensure displayedState has a valid turn player
+  const turnPlayerExists = displayedState.players.some(p => p.turn === displayedState.turn);
+  const playerScore = turnPlayerExists ? getPlayerScore(displayedState) : 0;
+  const canRoll = !disableInteraction && turnPlayerExists && playerScore <= 21;
+  const canPass = !disableInteraction && turnPlayerExists && playerScore >= 16;
 
   if (lobbyState == null) return <></>;
 
