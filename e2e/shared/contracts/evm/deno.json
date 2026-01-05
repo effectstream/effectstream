@@ -39,9 +39,6 @@
     },
     "build": {
       "command": "deno task build:forge && deno task build:hardhat",
-      "dependencies": [
-        "build:clean"
-      ]
     },
     "contract:compile": "deno task build:mod",
     "deploy:clean": "rm -rf ignition/deployments || true",
@@ -51,11 +48,14 @@
         "build"
       ]
     },
-    "deploy": {
-      "command": "deno run -A deploy.ts",
+    "deploy:testnet": {
+      "command": "deno run -A deploy.testnet.ts",
       "dependencies": [
-        "deploy:clean"
+        "build"
       ]
+    },
+    "deploy": {
+      "command": "deno run -A deploy.ts"
     },
     "chain:start": "deno run -A npm:hardhat@3.0.4 node",
     "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",
