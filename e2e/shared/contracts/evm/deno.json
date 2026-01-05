@@ -41,7 +41,7 @@
       "command": "deno task build:forge && deno task build:hardhat",
     },
     "contract:compile": "deno task build:mod",
-    "deploy:clean": "rm -rf ignition/deployments || true",
+    "deploy:clean": "((rm -rf ignition/deployments/chain-31337); (rm -rf ignition/deployments/chain-31338)) || true",
     "deploy:standalone": {
       "command": "(((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && deno task chain:stop) || true",
       "dependencies": [
@@ -55,7 +55,10 @@
       ]
     },
     "deploy": {
-      "command": "deno run -A deploy.ts"
+      "command": "deno run -A deploy.ts",
+      "dependencies": [
+        "deploy:clean"
+      ]
     },
     "chain:start": "deno run -A npm:hardhat@3.0.4 node",
     "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",
