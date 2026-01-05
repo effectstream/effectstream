@@ -10,7 +10,7 @@ Once configured your [chains](./101-sync-service.md), defined your [grammar](./1
 
 The entry point file is concise but powerful. It uses the `effection` library for structured concurrency to manage the node's lifecycle and the `@effectstream/runtime` package to start the engine.
 
-Let's break down a typical `main.ts` file:
+Let's break down a typical `main.ts` or `main.{env}.ts` file:
 
 ```ts
 import { main, suspend } from "effection";

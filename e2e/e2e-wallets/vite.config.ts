@@ -34,6 +34,8 @@ export default defineConfig({
       "@effectstream/config": configPath + "src/mod.ts",
       "@effectstream/concise": concisePath + "src/mod.ts",
       "@effectstream/crypto": cryptoPath + "src/mod.ts",
+      "@e2e/data-types/config-localhost": dataTypesPath + "src/config.ts",
+      "@e2e/data-types/config-testnet": dataTypesPath + "src/config.testnet.ts",
       // Link to NPM compiled package version
       // "@effectstream/wallets": walletPath + "npm/esm/wallets/src/mod.js",
       // Link to Deno package version

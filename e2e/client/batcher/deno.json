@@ -16,6 +16,7 @@
     "tiny-secp256k1": "npm:tiny-secp256k1@^2.2.1"
   },
   "tasks": {
-    "start": "deno run -A --unstable-raw-imports main.ts"
+    "start": "deno run -A --unstable-raw-imports main.ts",
+    "start:testnet": "deno run -A --unstable-raw-imports main.testnet.ts"
   }
 }

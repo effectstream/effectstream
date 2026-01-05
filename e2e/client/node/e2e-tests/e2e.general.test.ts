@@ -22,6 +22,12 @@ import { createMessageForBatcher } from "@effectstream/concise";
 
 // Start Test
 export async function generalTest(db: Client, sharedState: SharedState) {
+
+  // Let's test envs got loaded correctly
+  const nonExistentEnvTest = ENV.getString("API_SECRET_KEY");
+  const existEnvTest = ENV.getString("SECRET_TEST");
+  await assert("ENV Loading", async () => existEnvTest === "test" && nonExistentEnvTest === "");
+  
   // Lazy load the contracts.
   const erc20 = erc20Builder(sharedState);
   const erc721 = erc721Builder(sharedState);

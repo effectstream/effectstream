@@ -1,0 +1,10 @@
+{
+  "name": "@rock-paper-scissors/frontend",
+  "version": "1.0.0",
+  "exports": {},
+  "tasks": {
+    "install": "npm install",
+    "build": "node esbuild.js",
+    "serve": "deno run -A npm:http-server@14.1.1 ./public -p 8080"
+  }
+}

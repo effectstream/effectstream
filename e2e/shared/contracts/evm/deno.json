@@ -39,14 +39,17 @@
     },
     "build": {
       "command": "deno task build:forge && deno task build:hardhat",
-      "dependencies": [
-        "build:clean"
-      ]
     },
     "contract:compile": "deno task build:mod",
-    "deploy:clean": "rm -rf ignition/deployments || true",
+    "deploy:clean": "((rm -rf ignition/deployments/chain-31337); (rm -rf ignition/deployments/chain-31338)) || true",
     "deploy:standalone": {
       "command": "(((deno task chain:start) &) && (deno task chain:wait) && (deno task deploy) && deno task chain:stop) || true",
+      "dependencies": [
+        "build"
+      ]
+    },
+    "deploy:testnet": {
+      "command": "deno run -A deploy.testnet.ts",
       "dependencies": [
         "build"
       ]

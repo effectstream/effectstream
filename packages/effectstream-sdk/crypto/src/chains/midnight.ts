@@ -22,8 +22,8 @@ import {
     ): Promise<boolean> => {
       try {
         if (this.verifyAddress(signerAddress) && this.isMidnightSignature(signature)) {
-          console.log("TODO MIDNIGHT VERIFY SIGNATURE:", {signerAddress, message, signature});
-          return true;
+          console.log("TODO: MIDNIGHT SIGNATURE NYI:", {signerAddress, message, signature});
+          return false;
         }
       } catch {
         // do nothing, error messages are expected if the signature is invalid

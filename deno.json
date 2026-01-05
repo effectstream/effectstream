@@ -1,5 +1,5 @@
 {
-  "version": "0.3.125",
+  "version": "0.3.126",
   "workspace": [
     "./packages/**/*",
     "./e2e/**/*",
@@ -10,9 +10,6 @@
     "check": "deno task -f @e2e/node check",
     "test:e2e": "deno task -f @e2e/node test",
     "test:code": "./run-tests.sh"
-  },
-  "imports": {
-    "@midnight-ntwrk/ledger-v6": "npm:@midnight-ntwrk/ledger-v6@6.1.0-alpha.6"
   },
   "lint": {
     "rules": {

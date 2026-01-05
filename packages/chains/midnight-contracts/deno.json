@@ -6,7 +6,7 @@
         "./read-contract": "./src/read-contract.ts",
         "./deploy": "./src/deploy.ts",
         "./deploy-ledger6": "./src/deploy.ledger6.ts",
-        "./scaffold": "./src/scaffold/mod.ts"
+        //"./scaffold": "./src/scaffold/mod.ts"
     },
     "tasks": {
         "scaffold": "deno run -A ./src/scaffold/scaffold-midnight.ts"

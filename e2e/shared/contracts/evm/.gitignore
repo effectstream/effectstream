@@ -6,7 +6,4 @@ mod.ts
 # build
 /build
 
-# deployments
-/ignition/deployments
-
 remappings.txt

@@ -8,7 +8,7 @@ NetworkId.Undeployed;
 
 import { init, start } from "@effectstream/runtime";
 import { main, suspend } from "effection";
-import { localhostConfig } from "@e2e/data-types";
+import { config } from "@e2e/data-types/config-localhost";
 import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
@@ -27,11 +27,11 @@ main(function* () {
   yield* init();
   console.log("Starting Paima Engine Node");
 
-  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(config, function* () {
     yield* start({
       appName: "e2e-client",
       appVersion: "1.0.0",
-      syncInfo: toSyncProtocolWithNetwork(localhostConfig),
+      syncInfo: toSyncProtocolWithNetwork(config),
       gameStateTransitions,
       migrations: migrationTable,
       apiRouter,

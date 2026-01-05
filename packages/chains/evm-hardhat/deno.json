@@ -15,7 +15,7 @@
         "@nomicfoundation/hardhat-viem": "npm:@nomicfoundation/hardhat-viem@3.0.0",
         "@nomicfoundation/hardhat-errors": "npm:@nomicfoundation/hardhat-errors@3.0.1",
         "@nomicfoundation/hardhat-utils": "npm:@nomicfoundation/hardhat-utils@3.0.0",
-        "@paimaexample/log": "jsr:@paimaexample/log@0.3.105",
+        "@paimaexample/log": "jsr:@paimaexample/log@0.3.126",
         "jsonc-parser": "npm:jsonc-parser@^3.3.1",
         "@opentelemetry/sdk-node": "npm:@opentelemetry/sdk-node@0.56.0"
     },
@@ -24,7 +24,7 @@
         "./builder": "./src/builder/build.mod.ts",
         "./remappings-hardhat": "./src/remappings/remappings-hardhat.ts",
         "./remappings-forge": "./src/remappings/remappings-forge.ts",
-        "./scaffold": "./src/scaffold/mod.ts",
+        // "./scaffold": "./src/scaffold/mod.ts",
         "./hardhat-config-builder": "./src/hardhatConfigBuilder.ts"
     },
     "tasks": {

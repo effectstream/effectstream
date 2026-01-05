@@ -48,6 +48,7 @@ const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
 
+// @ts-ignore
 if (Deno) {
   // NOTE: This does not work when imported by the browser.
   //       We setup a Deno as undefined in the browser, to make it skip this import.
@@ -71,7 +72,7 @@ if (Deno) {
   }
 }
 
-export const localhostConfig = new ConfigBuilder()
+export const config = new ConfigBuilder()
   .setNamespace(
     (builder) => builder.setSecurityNamespace("example-e2e-test"),
   )

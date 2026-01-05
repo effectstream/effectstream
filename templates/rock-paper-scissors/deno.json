@@ -1,0 +1,44 @@
+{
+  "workspace": [
+    "./packages/client/*",
+    "./packages/shared/*",
+    "./packages/shared/**/*",
+    "./packages/frontend"
+  ],
+  "nodeModulesDir": "auto",
+  "imports": {
+    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.124",
+    "@electric-sql/pglite": "npm:@electric-sql/pglite@^0.3.10",
+    "@midnight-ntwrk/ledger": "npm:@midnight-ntwrk/ledger@4.0.0",
+    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.9.0",
+    "@midnight-ntwrk/wallet": "npm:@midnight-ntwrk/wallet@5.0.0",
+    "@midnight-ntwrk/wallet-api": "npm:@midnight-ntwrk/wallet-api@5.0.0",
+    "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@4.0.0",
+    "@midnight-ntwrk/midnight-js-utils": "npm:@midnight-ntwrk/midnight-js-utils@2.0.2",
+    "@midnight-ntwrk/midnight-js-types": "npm:@midnight-ntwrk/midnight-js-types@2.0.2",
+    "@midnight-ntwrk/midnight-js-network-id": "npm:@midnight-ntwrk/midnight-js-network-id@2.0.2",
+    "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts@2.0.2",
+    "tslib": "npm:tslib@^2.8.1",
+    "wait-on": "npm:wait-on@^9.0.3"
+  },
+  "tasks": {
+    "build:evm": "deno task -f @rock-paper-scissors/evm-contracts build:mod",
+    "dev": "deno task -f @rock-paper-scissors/node dev",
+    "check": "deno task -f @rock-paper-scissors/node check"
+  },
+  "lint": {
+    "rules": {
+      "exclude": [
+        // needed for generators since you can't use the arrow function syntax
+        "no-this-alias",
+        // this is too strict to play well with effection
+        "require-yield",
+        // way too many typescript things that require using `any`
+        "no-explicit-any",
+        "ban-types", // `Function` and `{}` are occasionally useful
+        "no-unused-vars", // maybe enable this at some point
+        "no-slow-types" // would be nice to have, but this is a lot of work
+      ]
+    }
+  }
+}

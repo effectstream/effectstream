@@ -60,7 +60,13 @@ export type InjectionPreference<T> =
     connection: ActiveConnection<T>;
   };
 
-export async function allInjectedWallets(): Promise<{
+export async function allInjectedWallets(config: {
+  signatureSupport: boolean,
+  transactionSupport: boolean,
+} = { 
+  signatureSupport: true,
+  transactionSupport: true,
+}): Promise<{
   [WalletMode.EvmInjected]: ReturnType<
     typeof EvmInjectedConnector.getWalletOptions
   >;
@@ -72,14 +78,21 @@ export async function allInjectedWallets(): Promise<{
   [WalletMode.Mina]: ReturnType<typeof MinaConnector.getWalletOptions>;
   [WalletMode.Midnight]: ReturnType<typeof MidnightConnector.getWalletOptions>;
 }> {
-  return {
+  const signatureSupport = config.signatureSupport;
+  const transactionSupport = config.transactionSupport;
+  const wallets = {
+    // EVM, CARDANO, MINA, POLKADOR Wallets have full support for signatures and transactions.
     [WalletMode.EvmInjected]: EvmInjectedConnector.getWalletOptions(),
     [WalletMode.Cardano]: CardanoConnector.getWalletOptions(),
     [WalletMode.Polkadot]: await PolkadotConnector.getWalletOptions(),
-    [WalletMode.Algorand]: AlgorandConnector.getWalletOptions(),
     [WalletMode.Mina]: MinaConnector.getWalletOptions(),
-    [WalletMode.Midnight]: MidnightConnector.getWalletOptions(),
+    // TODO: Algorand signature support is not implemented yet.
+    // NOTE: Midnight Do not support signature yet.
+    [WalletMode.Algorand]: signatureSupport? [] : AlgorandConnector.getWalletOptions(),
+    [WalletMode.Midnight]: signatureSupport? [] : MidnightConnector.getWalletOptions(),
   };
+
+  return wallets;
 }
 export async function connectInjectedWallet<Api>(
   typeName: string,

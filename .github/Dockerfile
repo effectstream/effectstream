@@ -83,4 +83,4 @@ RUN deno task -f @e2e/wallets-ui build
 ENV DISABLE_YACI=true
 # Show Effectstream logs
 ENV EFFECTSTREAM_STDOUT=true
-CMD ["deno", "task", "-f", "@e2e/node", "test"]
+CMD ["deno", "task", "-f", "@e2e/node", "e2e"]

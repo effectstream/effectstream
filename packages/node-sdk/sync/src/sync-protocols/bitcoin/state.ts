@@ -77,7 +77,7 @@ export class BitcoinSyncState extends SyncState<
   override *stateToInput(): Operation<Input | undefined> {
     return yield* genInputRange(
       this as BitcoinSyncState,
-      0 as Page,
+      this.config.syncProtocol.startBlockHeight as Page,
       {
         name: this.config.syncProtocol.name,
         startPage: this.config.syncProtocol.startBlockHeight as Page,
