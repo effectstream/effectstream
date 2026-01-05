@@ -71,7 +71,7 @@ const DiceGame: React.FC<DiceGameProps> = ({
 
   // Update displayedState when lobby state changes (e.g., when second player joins)
   // Only update players if they're structurally different (e.g., new player joined)
-  // Update turn/properRound when game starts, but not during active gameplay
+  // Update turn/properRound/displayedRound when game starts, but not during active gameplay
   useEffect(() => {
     setDisplayedState((prev) => {
       // Only update players if the number of players changed or NFT IDs changed
@@ -83,6 +83,12 @@ const DiceGame: React.FC<DiceGameProps> = ({
       // Once gameplay begins, the round executor handles these updates
       const gameJustStarted = prev.turn == null && lobbyState.current_turn != null;
 
+      // Also update displayedRound and nextFetchedRound when game starts
+      if (gameJustStarted && lobbyState.current_round != null) {
+        setDisplayedRound(lobbyState.current_round);
+        setFetchedRound(lobbyState.current_round);
+      }
+
       return {
         ...prev,
         turn: gameJustStarted ? lobbyState.current_turn : prev.turn,
@@ -90,7 +96,7 @@ const DiceGame: React.FC<DiceGameProps> = ({
         players: playersChanged ? lobbyState.players : prev.players,
       };
     });
-  }, [lobbyState.current_turn, lobbyState.current_proper_round, lobbyState.players]);
+  }, [lobbyState.current_turn, lobbyState.current_proper_round, lobbyState.current_round, lobbyState.players]);
 
   // "forced moves", user has to roll until he gets score 16
   const [initialRollQueue, setInitialRollQueue] = React.useState<
@@ -276,6 +282,7 @@ const DiceGame: React.FC<DiceGameProps> = ({
         }
       }
 
+      console.log(`[DiceGame] Round ${displayedRound} complete. New state:`, endState);
       setDisplayedRound(displayedRound + 1);
       setDisplayedState(endState);
 
@@ -296,6 +303,8 @@ const DiceGame: React.FC<DiceGameProps> = ({
   );
   useEffect(() => {
     // fetch new round data
+    console.log(`[DiceGame] Fetch check: nextFetchedRound=${nextFetchedRound}, current_round=${lobbyState.current_round}, hasExecutor=${roundExecutor != null}, isFetching=${isFetchingRound}`);
+
     if (
       // we're up-to-date
       nextFetchedRound >= lobbyState.current_round ||
@@ -306,6 +315,7 @@ const DiceGame: React.FC<DiceGameProps> = ({
     )
       return;
 
+    console.log(`[DiceGame] Fetching round ${nextFetchedRound}`);
     setIsFetchingRound(true);
     Paima.default
       .getRoundExecutor(
