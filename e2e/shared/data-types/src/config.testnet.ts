@@ -1,16 +1,20 @@
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
+import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
+import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import { getConnection } from "@effectstream/db";
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@effectstream/config";
+import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
+import {
+  PrimitiveTypeEVMPaimaL2,
+  PrimitiveTypeMidnightGeneric,
+} from "@effectstream/sm/builtin";
 import { arbitrumSepolia } from "viem/chains";
 
 import { paimaL2Grammar } from "./grammar.ts";
-import {
-  PrimitiveTypeEVMPaimaL2,
-} from "@effectstream/sm/builtin";
  
 /**
  * Let check if the db.
@@ -21,18 +25,46 @@ import {
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
 let arbSepoliaTip: number = 230666729;
+let midnightTip: number | undefined;
 
  // IMPORTANT: For testing purposes. Setting it to true, will 
  // use a new tip on each restart, making the db inconsistent.
 const USE_TESTING_TIP = true;
+const arbitrumSepoliaRpc = Deno ? Deno.env.get("ARBITRUM_SEPOLIA_RPC") : undefined;
+
+// Midnight node/indexer live on the remote chain; proof server continues to run locally.
+const midnightIndexerHttp = Deno ? Deno.env.get("MIDNIGHT_INDEXER_HTTP") : undefined;
+const midnightIndexerWs = Deno ? Deno.env.get("MIDNIGHT_INDEXER_WS") : undefined;
+const midnightNodeHttp = Deno ? Deno.env.get("MIDNIGHT_NODE_HTTP") : undefined;
+const midnightGenesisHash = Deno
+  ? (Deno.env.get("MIDNIGHT_GENESIS_HASH") as `0x${string}` | undefined)
+  : undefined;
+const midnightNetworkIdRaw = Deno ? Deno.env.get("MIDNIGHT_NETWORK_ID") : undefined;
+const midnightNetworkId = midnightNetworkIdRaw !== undefined
+  ? Number(midnightNetworkIdRaw)
+  : undefined;
+
+type ContractAddressBook = Record<string, Record<string, `0x${string}`>>;
+const contractAddressBook = contractAddressesEvmMain() as ContractAddressBook;
+const paimaL2TestnetContractAddress =
+  contractAddressBook["chain421614"]["PaimaL2ContractModule#MyPaimaL2Contract"];
+
+const midnightNetworkInputsValid = Boolean(
+  midnightIndexerHttp && midnightIndexerWs && midnightNodeHttp &&
+    midnightGenesisHash && midnightNetworkId !== undefined && !Number.isNaN(midnightNetworkId),
+);
+
+let midnightCounterAddress: string | undefined;
+let midnightEip20Address: string | undefined;
+let midnightArtifactsReady = false;
 
 if (Deno) {
   // NOTE: This does not work when imported by the browser.
   //       We setup a Deno as undefined in the browser, to make it skip this import.
   // const { getConnection } = await import("@effectstream/db");
-  if (USE_TESTING_TIP) {
+  if (USE_TESTING_TIP && arbitrumSepoliaRpc) {
     /* Get the latest block number from the Arbitrum Sepolia chain */
-    const response = await fetch(Deno.env.get("ARBITRUM_SEPOLIA_RPC"), {
+    const response = await fetch(arbitrumSepoliaRpc, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -46,6 +78,61 @@ if (Deno) {
     });
     const data = await response.json();
     arbSepoliaTip = parseInt(data.result, 16);
+  } else if (USE_TESTING_TIP && !arbitrumSepoliaRpc) {
+    console.warn(
+      "[evm] ARBITRUM_SEPOLIA_RPC is not defined; using static tip override instead.",
+    );
+  }
+
+  if (midnightNetworkInputsValid) {
+    try {
+      const response = await fetch(midnightIndexerHttp!, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: "query { block { height } }",
+          variables: {},
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to query Midnight indexer: ${response.statusText}`);
+      }
+      const data = await response.json();
+      const height = data?.data?.block?.height;
+      if (typeof height === "number") {
+        midnightTip = height;
+      } else if (typeof height === "string") {
+        const parsed = Number(height);
+        midnightTip = Number.isNaN(parsed) ? undefined : parsed;
+      }
+    } catch (error) {
+      console.warn(
+        `[midnight] Failed to fetch tip from indexer: ${(error as Error).message}`,
+      );
+    }
+
+    try {
+      const counterContract = readMidnightContract(
+        "contract-counter",
+        "contract.testnet.json",
+      );
+      const eip20Contract = readMidnightContract(
+        "contract-eip-20",
+        "contract.testnet.json",
+      );
+      midnightCounterAddress = counterContract.contractAddress;
+      midnightEip20Address = eip20Contract.contractAddress;
+      midnightArtifactsReady = Boolean(
+        midnightCounterAddress && midnightEip20Address,
+      );
+    } catch (error) {
+      console.warn(
+        `[midnight] Failed to read contract artifacts: ${(error as Error).message}`,
+      );
+      midnightArtifactsReady = false;
+    }
   }
   
   const dbConn = getConnection();
@@ -71,8 +158,8 @@ export const config = new ConfigBuilder()
   .setNamespace(
     (builder) => builder.setSecurityNamespace("example-e2e-test"),
   )
-  .buildNetworks((builder) => 
-    builder
+  .buildNetworks((builder) => {
+    let networksBuilder = builder
       .addNetwork({
         name: "ntp",
         type: ConfigNetworkType.NTP,
@@ -88,16 +175,28 @@ export const config = new ConfigBuilder()
         ...arbitrumSepolia,
         rpcUrls: {
           default: {
-            // @ts-ignore
-            http: [Deno ? Deno.env.get("ARBITRUM_SEPOLIA_RPC") : ""],
+            // @ts-ignore: viem chains expect at least one compile-time RPC URL
+            http: [arbitrumSepoliaRpc ?? ""],
           },
         },
         name: "evmParallel_fast",
-      })
-  )
+      });
+
+    if (midnightNetworkInputsValid) {
+      networksBuilder = networksBuilder.addNetwork({
+        name: "midnight",
+        type: ConfigNetworkType.MIDNIGHT,
+        genesisHash: midnightGenesisHash!,
+        networkId: midnightNetworkId!,
+        nodeUrl: midnightNodeHttp!,
+      });
+    }
+
+    return networksBuilder;
+  })
   .buildDeployments((builder) => builder)
-  .buildSyncProtocols((builder) => 
-    builder
+  .buildSyncProtocols((builder) => {
+    let syncBuilder = builder
       .addMain(
         (networks) => networks.ntp,
         (network, deployments) => ({
@@ -119,10 +218,28 @@ export const config = new ConfigBuilder()
           stepSize: 9,
           confirmationDepth: 1,
         }),
-      )  
-  )
-  .buildPrimitives((builder) => 
-    builder
+      );
+
+    if (midnightNetworkInputsValid) {
+      // Cast builder since the helper currently narrows additions per parallel type.
+      syncBuilder = (syncBuilder as any).addParallel(
+        (networks) => (networks as any).midnight,
+        () => ({
+          name: "parallelMidnightTestnet",
+          type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
+          startBlockHeight: midnightTip ?? 1,
+          pollingInterval: 2000,
+          delayMs: 6000, // give the managed indexer a little room
+          indexer: midnightIndexerHttp!,
+          indexerWs: midnightIndexerWs!,
+        }),
+      );
+    }
+
+    return syncBuilder;
+  })
+  .buildPrimitives((builder) => {
+    let primitivesBuilder = builder
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
         (network, deployments, syncProtocol) =>
@@ -130,11 +247,39 @@ export const config = new ConfigBuilder()
             name: "PaimaGameInteraction",
             type: PrimitiveTypeEVMPaimaL2,
             startBlockHeight: 0,
-            contractAddress: contractAddressesEvmMain()["chain421614"][
-              "PaimaL2ContractModule#MyPaimaL2Contract"
-            ],
+            contractAddress: paimaL2TestnetContractAddress,
             paimaL2Grammar: paimaL2Grammar,
           }),
-      )
-  )
+      );
+
+    if (midnightArtifactsReady) {
+      primitivesBuilder = primitivesBuilder
+        .addPrimitive(
+          (syncProtocols) => (syncProtocols as any).parallelMidnightTestnet,
+          () => ({
+            name: "MidnightContractState",
+            type: PrimitiveTypeMidnightGeneric,
+            startBlockHeight: 1,
+            contractAddress: midnightCounterAddress!,
+            stateMachinePrefix: "midnightContractState",
+            contract: { ledger: CounterContract.ledger },
+            networkId: midnightNetworkId!,
+          }),
+        )
+        .addPrimitive(
+          (syncProtocols) => (syncProtocols as any).parallelMidnightTestnet,
+          () => ({
+            name: "Midnight-EIP-20",
+            type: PrimitiveTypeMidnightGeneric,
+            startBlockHeight: 1,
+            contractAddress: midnightEip20Address!,
+            stateMachinePrefix: "eip20ContractState",
+            contract: { ledger: SimpleTokenContract.ledger },
+            networkId: midnightNetworkId!,
+          }),
+        );
+    }
+
+    return primitivesBuilder;
+  })
   .build();
