@@ -2,7 +2,7 @@ import { PaimaL2DefaultAdapter } from "@effectstream/batcher";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { ENV } from "@effectstream/utils/node-env";
 import * as chains from "viem/chains";
-import { Chain } from "viem";
+import type { Chain } from "viem";
 
 // This file loads either a local hardhat chain contract or a testnet contract.
 //
@@ -13,9 +13,7 @@ const paimaSyncProtocolName = "parallelEvmRPC_fast";
 
 const paimaL2Address = contractAddressesEvmMain()[chainNameId]["PaimaL2ContractModule#MyPaimaL2Contract"] as `0x${string}`;
 
-const batcherPrivateKey = ENV.getString(
-  "BATCHER_EVM_SECRET_KEY"
-) as `0x${string}`;
+const batcherPrivateKey = ENV.getString("BATCHER_EVM_SECRET_KEY") as `0x${string}`;
 
 // Defaults consistent with E2E usage
 const paimaL2Fee = 0n; // old batcher defaulted to 0 for local dev
