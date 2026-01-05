@@ -10,6 +10,7 @@
     "@coderspirit/nominal": "npm:@coderspirit/nominal@^4.1.1",
     "@foxglove/crc": "npm:@foxglove/crc@^1.0.1",
     "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.6",
     "@subsquid/ss58-codec": "npm:@subsquid/ss58-codec@^1.2.3",
     "buffer": "npm:buffer@^6.0.3",
     "viem": "npm:viem@2.37.3",

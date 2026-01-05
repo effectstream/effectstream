@@ -9,6 +9,15 @@
 
 // NOTE: To register a new config, we need to add it in the definitions, and then add the getter in the ENV class.
 // TODO: Is it possible to do this automatically, or just once?
+import { load } from "@std/dotenv";
+
+const EFFECTSTREAM_ENV = Deno.env.get("EFFECTSTREAM_ENV");
+if (EFFECTSTREAM_ENV) {
+  await load({
+    envPath: `.env.${EFFECTSTREAM_ENV}`, // Uses .env_<EFFECTSTREAM_ENV>
+    export: true, // Exports all variables to the environment
+  });
+}
 
 export type ConfigDefinition = {
   // Unique identifier for the config.
@@ -31,6 +40,12 @@ export type ConfigDefinition = {
 });
 
 const definitions: Record<string, ConfigDefinition> = {
+  EFFECTSTREAM_ENV: {
+    key: "EFFECTSTREAM_ENV",
+    type: "string",
+    defaultValue: undefined,
+    description: "Effectstream Environment. Example: 'local' or 'testnet'",
+  },
   DB_HOST: {
     key: "DB_HOST",
     type: "string",
@@ -207,6 +222,9 @@ const definitions: Record<string, ConfigDefinition> = {
 type ENV_TYPES = string | number | boolean | undefined;
 
 export class ENV {
+  static get EFFECTSTREAM_ENV(): string {
+    return ENV.getConfig(definitions.EFFECTSTREAM_ENV);
+  }
   static get MQTT_BROKER(): boolean {
     return ENV.getConfig(definitions.MQTT_BROKER);
   }
@@ -333,7 +351,7 @@ export class ENV {
     );
   }
 
-  private static getBoolean(
+  public static getBoolean(
     key: string,
     defaultValue = false,
   ): boolean {
@@ -342,7 +360,7 @@ export class ENV {
     return ["true", "t", "1", "yes", "y"].includes(value.toLowerCase());
   }
 
-  private static getNumber(
+  public static getNumber(
     key: string,
     defaultValue = 0,
   ): number {
@@ -351,7 +369,7 @@ export class ENV {
     return parseInt(value, 10);
   }
 
-  private static getString(
+  public static getString(
     key: string,
     defaultValue = "",
   ): string {

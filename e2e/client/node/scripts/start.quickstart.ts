@@ -10,16 +10,14 @@ import { launchCardano } from "@effectstream/orchestrator/start-cardano";
 import { launchEvm } from "@effectstream/orchestrator/start-evm";
 import { launchMidnight } from "@effectstream/orchestrator/start-midnight";
 import { launchBitcoin } from "@effectstream/orchestrator/start-bitcoin";
+import { ENV } from "@effectstream/utils/node-env";
 
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
-
-const logs = Deno.env.get("EFFECTSTREAM_STDOUT") ? "stdout" : "development";
-const external_db_enabled = isEnvTrue("EXTERNAL_DB_ENABLED");
-
-const yaci_enabled = !isEnvTrue("DISABLE_YACI");
-const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
-const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
-const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
+const logs = ENV.getBoolean("EFFECTSTREAM_STDOUT") ? "stdout" : "development";
+const external_db_enabled = ENV.getBoolean("EXTERNAL_DB_ENABLED");
+const yaci_enabled = !ENV.getBoolean("DISABLE_YACI");
+const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
+const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
+const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
 
 const config = Value.Parse(OrchestratorConfig, {
   logs,

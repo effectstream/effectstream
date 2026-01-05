@@ -18,7 +18,7 @@ deno task -r contract:compile
 
 # If running on linux set env DISABLE_YACI=true
 # Run Example Deployment Mode
-deno task -f @e2e/node dev
+deno task -f @e2e/node quickstart
 ```
 
 ## Run Tests
@@ -26,7 +26,7 @@ deno task -f @e2e/node dev
 > NOTE: first install dependencies and build contracts
 
 ```sh
-deno task -f @e2e/node test
+deno task -f @e2e/node e2e
 ```
 
 ## Contracts
