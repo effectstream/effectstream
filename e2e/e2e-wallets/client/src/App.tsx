@@ -22,27 +22,33 @@ import { privateKeyToAccount } from "viem/accounts";
 import { BrowserProvider, JsonRpcSigner } from "ethers";
 import { useMemo } from "react";
 import { grammar } from "@e2e/data-types";
-import { localhostConfig } from "@e2e/data-types";
+import { config } from "@e2e/data-types/config-localhost";
 import { AddressValidator } from "@effectstream/utils";
 import { AddressType } from "@effectstream/utils";
 import { Value } from "@sinclair/typebox/value";
 import { CryptoManager } from "@effectstream/crypto";
+import type { Chain } from "viem";
 
-const hardhat = hardhatChain;
-hardhat.name = "local hardhat";
-hardhat.rpcUrls = {
+// LOCAL CONFIG
+const network: Chain = hardhatChain;
+network.name = "local hardhat";
+network.rpcUrls = {
   default: {
     http: ["http://localhost:8545"],
   },
 };
+const contractAddressOnNetwork = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+const batcherUrl = "http://localhost:3334";
+const syncProtocolName = "parallelEvmRPC_fast";
+// END LOCAL CONFIG
 
 const paimaEngineConfig = new PaimaEngineConfig(
   undefined, // no app name
-  "parallelEvmRPC_fast", // paima l2 sync protocol name
-  "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", // paima l2 contract address
-  hardhat, // paima l2 chain
+  syncProtocolName, // paima l2 sync protocol name
+  contractAddressOnNetwork, // paima l2 contract address
+  network, // paima l2 chain
   undefined, // use default paima l2 abi
-  "http://localhost:3334", // batcher url
+  batcherUrl, // batcher url
 );
 
 const chainIdToWalletType = (chainId: WalletMode): string => {
@@ -55,7 +61,7 @@ const viemAccount = privateKeyToAccount(
 );
 const viemClient = createWalletClient({
   account: viemAccount,
-  chain: hardhat,
+  chain: network,
   transport: http(),
 });
 
@@ -167,16 +173,16 @@ function App() {
   };
 
   const primitives = useMemo<PrimitiveInfo[]>(() => {
-    const basePrimitives = Object.entries(localhostConfig.primitives).map(
+    const basePrimitives = Object.entries(config.primitives).map(
       ([name, primitiveData]: [string, any]) => {
         const syncProtocol: any = primitiveData.syncProtocol;
         // @ts-ignore - TODO: fix types in config
         const network =
-          (localhostConfig.syncProtocols.parallel as any)[syncProtocol]
+          (config.syncProtocols.parallel as any)[syncProtocol]
             ?.network || "";
         // @ts-ignore - TODO: fix types in config
         const networkType =
-          (localhostConfig.allNetworks.networks as any)[network]?.type ||
+          (config.allNetworks.networks as any)[network]?.type ||
           "unknown";
 
         return {
@@ -232,7 +238,10 @@ function App() {
   const handleConnectInjected = (mode: WalletMode, wallet: any) => {
     handleLogin(() => {
       let checkChainId = true;
-      if (wallet.metadata.name === "app.phantom" || wallet.metadata.name === "com.exodus.web3-wallet") {
+      if (
+           wallet.metadata.name === "io.xdefi"
+        || wallet.metadata.name === "app.phantom" 
+        || wallet.metadata.name === "com.exodus.web3-wallet") {
         checkChainId= false;
       }
       
@@ -240,7 +249,7 @@ function App() {
         mode,
         preference: { name: wallet.metadata.name },
         preferBatchedMode: false,
-        chain: mode === WalletMode.EvmInjected || WalletMode.EvmEthers ? hardhat : undefined,
+        chain: mode === WalletMode.EvmInjected || WalletMode.EvmEthers ? network : undefined,
         checkChainId,
       } as any))
     }, mode);

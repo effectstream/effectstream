@@ -35,8 +35,8 @@ const evmMainPort = 8545;
 const evmParallelPort = 8546;
 const evmMainChainId = 31337;
 const evmParallelChainId = 31338;
-const evmMainInterval = 5000;
-const evmParallelInterval = 12000;
+const evmMainInterval = 250;
+const evmParallelInterval = 1000;
 
 // Create unified config with default networks
 const config: HardhatUserConfig = createHardhatConfig({

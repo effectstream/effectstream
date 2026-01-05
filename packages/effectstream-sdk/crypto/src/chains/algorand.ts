@@ -73,9 +73,7 @@ export class AlgorandCrypto implements IVerify {
       // 3. Verify
       // Note: pass 'userAddress' (string), NOT the decoded object.
       const result = verifyBytes(encodedMessage, signatureBytes, userAddress);
-      console.log("ALGORAND VERIFY RESULT:", {result, encodedMessage, signatureBytes, userAddress});
-      return true;
-      // TODO for now return true, but we should return the result
+      console.log("TODO: ALGORAND VERIFY RESULT IS ALWAYS FALSE:", {result, encodedMessage, signatureBytes, userAddress});
       return result;
     } catch (err) {
       console.error(
