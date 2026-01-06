@@ -78,7 +78,6 @@ class MainController {
 
   async fetchNfts(address: string): Promise<undefined | number[]> {
     const response = await Paima.default.getNftsForWallet(address);
-    console.log("fetch nfts response: ", address,response);
     if (!response.success) return;
     return response.result;
   }

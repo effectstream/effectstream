@@ -24,9 +24,6 @@ const NoNFTMenu = () => {
   // if user successfully submitted a tx, keep loading until we fetch the nft
   const [buyDone, setBuyDone] = React.useState<boolean>(false);
 
-  console.log('connectedWallet ', connectedWallet)
-  console.log('nft ', nfts)
-
   if (!connectedWallet || nfts == null)
     return (
       <Box

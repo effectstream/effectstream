@@ -280,6 +280,11 @@ const DiceGame: React.FC<DiceGameProps> = ({
           };
 
           console.log(`[DiceGame] Fetched round ${nextFetchedRound} with ${newRoundExecutor.result.moves.length} moves, ${newRoundExecutorResults.tickEvents.length} tick events`);
+          console.log(`[DiceGame] Round ${nextFetchedRound} endState after processing:`, {
+            turn: newRoundExecutorResults.endState.turn,
+            properRound: newRoundExecutorResults.endState.properRound,
+            players: newRoundExecutorResults.endState.players.map((p: any) => ({ nftId: p.nftId, turn: p.turn, score: p.score, points: p.points }))
+          });
 
           setRoundExecutor(newRoundExecutorResults);
           setFetchedRound(nextFetchedRound + 1);
@@ -291,10 +296,17 @@ const DiceGame: React.FC<DiceGameProps> = ({
             // Add any players from lobby that aren't in endState (players who joined after round started)
             ...lobbyPlayers.filter((lp: any) => !endStatePlayers.some((ep: any) => ep.nftId === lp.nftId))
           ];
-          setFetchedEndState({
+
+          const newFetchedEndState = {
             ...newRoundExecutorResults.endState,
             players: mergedPlayers,
+          };
+          console.log(`[DiceGame] Setting fetchedEndState for next round:`, {
+            turn: newFetchedEndState.turn,
+            properRound: newFetchedEndState.properRound,
+            players: newFetchedEndState.players.map((p: any) => ({ nftId: p.nftId, turn: p.turn, score: p.score, points: p.points }))
           });
+          setFetchedEndState(newFetchedEndState);
           setIsFetchingRound(false);
         } else {
           console.error(
