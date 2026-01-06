@@ -241,12 +241,24 @@ const endpoints = {
       }
       const moves = await movesResponse.json();
 
-      // Fetch the lobby state to get round seed and num of rounds
+      // Fetch the round data to get the seed
+      const roundResponse = await fetch(
+        `http://localhost:9999/lobby/${lobbyId}/match/${matchWithinLobby}/round/${roundWithinMatch}`
+      );
+      if (!roundResponse.ok) {
+        return { success: false, errorMessage: "Failed to fetch round data" };
+      }
+      const roundData = await roundResponse.json();
+
+      // Fetch the lobby state to get num of rounds
       const lobbyResponse = await fetch(`http://localhost:9999/lobby/${lobbyId}`);
       if (!lobbyResponse.ok) {
         return { success: false, errorMessage: "Failed to fetch lobby state" };
       }
       const lobbyData = await lobbyResponse.json();
+
+      // Add the round seed to lobbyData
+      lobbyData.roundSeed = roundData?.roundSeed || "default-seed";
 
       // Return data needed for RoundExecutorWrapper (created in TypeScript frontend code)
       return {

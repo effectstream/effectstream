@@ -20,11 +20,18 @@ export class RoundExecutorWrapper {
       numberOfRounds: lobbyData.num_of_rounds,
     };
     this.initialMatchState = cloneMatchState(initialMatchState);
-    this.randomnessGenerator = new Prando(lobbyData.roundSeed || "default-seed");
+    const seed = lobbyData.roundSeed || "default-seed";
+    console.log(`[RoundExecutorWrapper] Using seed: ${seed}`);
+    this.randomnessGenerator = new Prando(seed);
   }
 
   processAllTicks(): TickEvent[] {
     console.log(`[RoundExecutorWrapper] Processing round with ${this.moves.length} moves`);
+    console.log(`[RoundExecutorWrapper] initialMatchState:`, {
+      turn: this.initialMatchState.turn,
+      properRound: this.initialMatchState.properRound,
+      players: this.initialMatchState.players.map(p => ({ nftId: p.nftId, turn: p.turn, score: p.score, points: p.points }))
+    });
     const allEvents: TickEvent[] = [];
     let currentState = cloneMatchState(this.initialMatchState);
     let currentTick = 0;

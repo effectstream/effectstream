@@ -243,7 +243,24 @@ export const apiRouter: StartConfigApiRouter = async function (
         }, dbConn),
         "getRound"
       );
-      return reply.send(round || null);
+
+      if (!round) {
+        return reply.send(null);
+      }
+
+      // If round has been executed, fetch the seed from block_heights
+      if (round.execution_block_height != null) {
+        const seedResult = await dbConn.query(
+          `SELECT seed FROM block_heights WHERE block_height = $1`,
+          [round.execution_block_height]
+        );
+
+        if (seedResult.rows.length > 0) {
+          return reply.send({ ...round, roundSeed: seedResult.rows[0].seed });
+        }
+      }
+
+      return reply.send(round);
     } catch (error) {
       console.error("Error fetching round:", error);
       return reply.code(500).send({ error: "Internal server error" });
