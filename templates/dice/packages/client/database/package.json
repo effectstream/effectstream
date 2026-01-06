@@ -1,0 +1,9 @@
+{
+  "name": "@dice/database",
+  "version": "0.1.0",
+  "description": "Database schema and queries for dice",
+  "type": "module",
+  "devDependencies": {
+    "@paima/pgtyped-cli": "^2.4.5"
+  }
+}

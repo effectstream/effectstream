@@ -1,0 +1,17 @@
+.wrapper {
+  padding: 40px;
+  background: rgba(119, 109, 104, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+
+  border-radius: 32px;
+
+  display: flex;
+  flex-flow: column;
+  gap: 40px;
+
+  /* Note: backdrop-filter doesn't work nicely with our Chessboard library so it's not used during play */
+  &--blurred {
+    background: rgba(119, 109, 104, 0.3);
+    backdrop-filter: blur(24px);
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@openzeppelin/contracts": "5.1.0",
+    "@openzeppelin/contracts-upgradeable": "^5.1.0",
+    "@paimaexample/evm-contracts": "0.3.124"
+  },
+  "devDependencies": {
+    "jsonc-parser": "3.3.1",
+    "@opentelemetry/sdk-node": "0.56.0",
+    "hardhat": "3.0.4",
+    "wait-on": "8.0.3"
+  }
+}
