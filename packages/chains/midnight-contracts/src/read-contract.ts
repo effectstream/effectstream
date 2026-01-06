@@ -14,16 +14,19 @@ export type MidnightContractCompilerInfo = {
 
 /**
 * Address information for a deployed contract
+* Supports both legacy format (string) and new format (network-keyed object)
 */
 export type MidnightContractAddressInfo = {
-  /** The deployed contract address */
-  contractAddress: string;
+  /** The deployed contract address - can be a string (legacy) or network-keyed object */
+  contractAddress: string
 };
 
 /**
 * Complete contract information combining address and compiler info
 */
-export type MidnightContractInfo = MidnightContractAddressInfo & {
+export type MidnightContractInfo = {
+  /** The deployed contract address for the specified network */
+  contractAddress: string;
   /** Compiler-generated contract information */
   contractInfo: MidnightContractCompilerInfo;
   zkConfigPath: string;
@@ -275,14 +278,16 @@ function findContractDirectory(
 * 
 * @param contractName - The name of the contract directory (e.g., 'contract-eip-1155', 'contract-counter')
 * @param contractFileName - The name of the contract address file (default: 'contract.json')
-* @param baseDir - Optional base directory override. If not provided, searches from Deno.cwd() upward
+* @param options - Optional configuration: baseDir to override search location, networkId to select specific network
 * @returns The complete contract information including address and compiler data
 */
 export function readMidnightContract(
   contractName: string,
   contractFileName: string = "contract.json",
-  baseDir?: string
+  options?: { baseDir?: string; networkId?: string }
 ): MidnightContractInfo {
+  const baseDir = options?.baseDir;
+  const networkId = options?.networkId || "undeployed";
   let moduleDir: string;
   
   // Determine the base directory for contract resolution first
@@ -308,7 +313,14 @@ export function readMidnightContract(
     moduleDir = foundDir;
   } else {
     // This is a browser environment, so we can't read the contract files
-    return { contractAddress: "", contractInfo: { circuits: [], witnesses: [], contracts: [] }, zkConfigPath: "", contractDir: "" };
+    // Check for MIDNIGHT_CONTRACT_ADDRESS env var if Deno is available
+    const envContractAddress = typeof Deno !== "undefined" ? Deno.env.get("MIDNIGHT_CONTRACT_ADDRESS") : undefined;
+    return { 
+      contractAddress: envContractAddress || "",
+      contractInfo: { circuits: [], witnesses: [], contracts: [] }, 
+      zkConfigPath: "", 
+      contractDir: "" 
+    };
   }
   
   // Use cache key that includes the resolved directory path to ensure cache works correctly
@@ -344,8 +356,35 @@ export function readMidnightContract(
     const contractAddressInfo = JSON.parse(contractAddressJson) as MidnightContractAddressInfo;
     const contractInfo = JSON.parse(contractInfoJson) as MidnightContractCompilerInfo;
     
+    // Handle both legacy format (string) and new format (network-keyed object)
+    let contractAddress: string;
+    let contractAddresses: Record<string, string>;
+    
+    if (typeof contractAddressInfo.contractAddress === "string") {
+      // Legacy format - single string address
+      contractAddress = contractAddressInfo.contractAddress;
+      contractAddresses = { [networkId]: contractAddress };
+    } else {
+      contractAddresses = contractAddressInfo.contractAddress;
+      contractAddress = contractAddresses[networkId];
+      
+      if (!contractAddress) {
+        throw new Error(
+          `Contract address not found for network "${networkId}". ` +
+          `Available networks: ${Object.keys(contractAddresses).join(", ")}`
+        );
+      }
+    }
+    
+    // Override contract address if MIDNIGHT_CONTRACT_ADDRESS env var is set
+    const envContractAddress = Deno.env.get("MIDNIGHT_CONTRACT_ADDRESS");
+    if (envContractAddress) {
+      contractAddress = envContractAddress;
+      contractAddresses[networkId] = envContractAddress;
+    }
+    
     cachedContractInfo[cacheKey] = {
-      ...contractAddressInfo,
+      contractAddress,
       contractInfo,
       zkConfigPath,
       contractDir: moduleDir,

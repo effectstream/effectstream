@@ -1,8 +1,4 @@
 import * as log from "@std/log";
-import {
-  MidnightBech32m,
-  ShieldedAddress,
-} from "@midnight-ntwrk/wallet-sdk-address-format";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import {
@@ -15,30 +11,27 @@ import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-p
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import * as path from "@std/path";
-import * as Rx from "rxjs";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { findContractDirectoryForDeploy } from "./read-contract.ts";
+import {
+  type WalletResult,
+  buildWalletFacade,
+  syncAndWaitForFunds,
+  getInitialShieldedState,
+  resolveWalletSyncTimeoutMs,
+  safeStringifyProgress,
+} from "./get-wallet-info.ts";
 
 // Declare Deno global for type-checking when not executed under Deno tooling.
 declare const Deno: typeof globalThis.Deno;
 
 // Modular wallet SDK imports
-import { HDWallet, Roles } from "@midnight-ntwrk/wallet-sdk-hd";
-import { WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
-import { ShieldedWallet } from "@midnight-ntwrk/wallet-sdk-shielded";
-import { DustWallet } from "@midnight-ntwrk/wallet-sdk-dust-wallet";
-import {
-  WalletBuilder as UnshieldedWalletBuilder,
-  createKeystore,
-  PublicKey,
-} from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
+import { type WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
 import {
   type CoinPublicKey,
-  DustParameters,
-  DustSecretKey,
+  type DustSecretKey,
   type EncPublicKey,
   type FinalizedTransaction,
-  LedgerParameters,
   type ShieldedCoinInfo,
   shieldedToken,
   type TransactionId,
@@ -46,7 +39,6 @@ import {
   ZswapSecretKeys,
 } from "@midnight-ntwrk/ledger-v6";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import { type DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded/v1";
 
 // ============================================================================
 // Constants
@@ -132,22 +124,7 @@ export const DEFAULT_NETWORK_URLS: Required<NetworkUrls> = {
   proofServer: "http://127.0.0.1:6300",
 };
 
-/** Wallet result containing facade and secret keys */
-interface WalletResult {
-  wallet: WalletFacade;
-  zswapSecretKeys: ZswapSecretKeys;
-  /**
-   * Zswap secret keys instantiated from ledger-v6@6.1.x for ShieldedWallet compatibility.
-   */
-  walletZswapSecretKeys: ZswapSecretKeys;
-  dustSecretKey: DustSecretKey;
-  /**
-   * Dust secret key instantiated from ledger-v6@6.1.x for DustWallet compatibility.
-   */
-  walletDustSecretKey: DustSecretKey;
-  /** Encoded dust address to use as receiver when minting dust */
-  dustAddress: string;
-}
+// WalletResult is now imported from get-wallet-info.ts
 
 /** Initial owner structure for contracts that need wallet address */
 interface InitialOwner {
@@ -156,48 +133,12 @@ interface InitialOwner {
   right: { bytes: Uint8Array };
 }
 
-// ============================================================================
-// Key Derivation
-// ============================================================================
-
-type DerivationRole = typeof Roles.Zswap | typeof Roles.Dust | typeof Roles.NightExternal;
-
-/**
- * Derive a seed for a specific role from wallet seed using HDWallet
- */
-function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Array {
-  const seedBuffer = Buffer.from(seed, "hex");
-  const hdWalletResult = HDWallet.fromSeed(seedBuffer);
-
-  if (hdWalletResult.type !== "seedOk") {
-    throw new Error(`Failed to create HD wallet: ${hdWalletResult.type}`);
-  }
-
-  const derivationResult = hdWalletResult.hdWallet
-    .selectAccount(0)
-    .selectRole(role)
-    .deriveKeyAt(0);
-
-  if (derivationResult.type === "keyOutOfBounds") {
-    throw new Error(`Key derivation out of bounds for role: ${role}`);
-  }
-
-  return Buffer.from(derivationResult.key);
-}
+// Key derivation functions are now imported from get-wallet-info.ts
 
 // ============================================================================
 // Wallet Configuration
 // ============================================================================
-
-/**
- * Get initial dust wallet state to access the dust address.
- */
-function getInitialDustState(
-  // deno-lint-ignore no-explicit-any
-  dustWallet: any
-): Promise<{ dustAddress: string }> {
-  return Rx.firstValueFrom(dustWallet.state);
-}
+// Wallet configuration and building functions are now imported from get-wallet-info.ts
 
 /**
  * Create a TTL date for transactions
@@ -206,343 +147,16 @@ function createTtl(): Date {
   return new Date(Date.now() + TTL_DURATION_MS);
 }
 
-/**
- * Resolve sync timeout from env or default.
- */
-function resolveWalletSyncTimeoutMs(): number {
-  const envValue = Deno.env.get("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");
-  if (!envValue) return WALLET_SYNC_TIMEOUT_MS;
-  const parsed = Number(envValue);
-  if (Number.isFinite(parsed) && parsed > 0) return parsed;
-  log.warning(
-    `Invalid MIDNIGHT_WALLET_SYNC_TIMEOUT_MS="${envValue}", using default ${WALLET_SYNC_TIMEOUT_MS}ms`
-  );
-  return WALLET_SYNC_TIMEOUT_MS;
-}
-
-/**
- * Safely stringify progress objects that may contain bigint.
- */
-function safeStringifyProgress(value: unknown): string {
-  try {
-    return JSON.stringify(value, (_key, v) =>
-      typeof v === "bigint" ? v.toString() : v
-    );
-  } catch (_err) {
-    return String(value);
+function checkEnvVariables(): void {
+  if (!Deno.env.get("MIDNIGHT_STORAGE_PASSWORD")) {
+    throw new Error("MIDNIGHT_STORAGE_PASSWORD is not set (Use a 16 char string)");
   }
-}
-
-/**
- * Map network URLs to wallet SDK configuration
- */
-function createWalletConfiguration(
-  networkUrls: Required<NetworkUrls>
-): DefaultV1Configuration {
-  log.info(
-    `Preflight network config -> networkId=${WALLET_NETWORK_ID}, indexerHttp=${networkUrls.indexer}, indexerWs=${networkUrls.indexerWS}, node=${networkUrls.node}, proofServer=${networkUrls.proofServer}`
-  );
-  return {
-    indexerClientConnection: {
-      indexerHttpUrl: networkUrls.indexer,
-      indexerWsUrl: networkUrls.indexerWS,
-    },
-    provingServerUrl: new URL(networkUrls.proofServer),
-    relayURL: new URL(networkUrls.node.replace("http", "ws")),
-    networkId: WALLET_NETWORK_ID,
-  };
-}
-
-/**
- * Build shielded wallet instance
- */
-function buildShieldedWallet(
-  config: DefaultV1Configuration,
-  seed: Uint8Array
-): ReturnType<ReturnType<typeof ShieldedWallet>["startWithShieldedSeed"]> {
-  const shieldedBuilder = ShieldedWallet(config);
-  return shieldedBuilder.startWithShieldedSeed(seed);
-}
-
-/**
- * Build dust wallet instance
- */
-function buildDustWallet(
-  config: DefaultV1Configuration,
-  seed: Uint8Array
-): ReturnType<ReturnType<typeof DustWallet>["startWithSeed"]> {
-  const legacyLedgerParams = LedgerParameters.initialParameters();
-  const dustConfig = {
-    ...config,
-    costParameters: {
-      ledgerParams: legacyLedgerParams as unknown as LedgerParameters,
-      additionalFeeOverhead: DUST_FEE_OVERHEAD,
-      feeBlocksMargin: DUST_FEE_BLOCKS_MARGIN,
-    },
-  };
-  const dustBuilder = DustWallet(dustConfig);
-
-  // DustWallet still links against ledger-v6@6.1.x, so we must provide LedgerParameters
-  // (and embedded DustParameters) created from that version to satisfy its runtime instanceof checks.
-  const dustParameters = legacyLedgerParams.dust;
-
-  return dustBuilder.startWithSeed(seed, dustParameters);
-}
-
-/**
- * Build unshielded wallet instance
- */
-async function buildUnshieldedWallet(
-  networkUrls: Required<NetworkUrls>,
-  seed: Uint8Array
-): Promise<Awaited<ReturnType<typeof UnshieldedWalletBuilder.build>>> {
-  // Create keystore from the seed
-  const keystore = createKeystore(seed, WALLET_NETWORK_ID);
-  const publicKey = PublicKey.fromKeyStore(keystore);
-
-  // Build the unshielded wallet
-  const unshieldedWallet = await UnshieldedWalletBuilder.build({
-    publicKey,
-    networkId: WALLET_NETWORK_ID,
-    indexerUrl: networkUrls.indexerWS,
-  });
-
-  // Fix the state property to be an observable instead of a function
-  // The WalletFacade expects all wallets to have a state property that is an observable
-  if (typeof unshieldedWallet.state === 'function') {
-    const stateObservable = unshieldedWallet.state();
-    (unshieldedWallet as any).state = stateObservable;
-  }
-
-  return unshieldedWallet;
 }
 
 // ============================================================================
-// Wallet Facade
+// Wallet Facade  
 // ============================================================================
-
-/**
- * Build wallet facade with shielded, unshielded, and dust wallets
- */
-async function buildWalletFacade(
-  networkUrls: Required<NetworkUrls>,
-  seed: string
-): Promise<WalletResult> {
-  log.info("Deriving keys from seed using HDWallet...");
-  const shieldedSeed = deriveSeedForRole(seed, Roles.Zswap);
-  const dustSeed = deriveSeedForRole(seed, Roles.Dust);
-  const unshieldedSeed = deriveSeedForRole(seed, Roles.NightExternal);
-
-  const config = createWalletConfiguration(networkUrls);
-
-  log.info("Initializing ShieldedWallet...");
-  const shieldedWallet = buildShieldedWallet(config, shieldedSeed);
-
-  log.info("Initializing DustWallet...");
-  const dustWallet = buildDustWallet(config, dustSeed);
-
-  log.info("Initializing UnshieldedWallet...");
-  const unshieldedWallet = await buildUnshieldedWallet(networkUrls, unshieldedSeed);
-
-  log.info("Creating WalletFacade...");
-  const wallet = new WalletFacade(shieldedWallet, unshieldedWallet, dustWallet);
-
-  const zswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
-  const walletZswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
-  const dustSecretKey = DustSecretKey.fromSeed(dustSeed);
-  const walletDustSecretKey = DustSecretKey.fromSeed(dustSeed);
-
-  log.info("Starting wallet...");
-  await wallet.start(walletZswapSecretKeys, walletDustSecretKey);
-
-  const dustState = await getInitialDustState(wallet.dust);
-
-  return {
-    wallet,
-    zswapSecretKeys,
-    walletZswapSecretKeys,
-    dustSecretKey,
-    walletDustSecretKey,
-    dustAddress: dustState.dustAddress,
-  };
-}
-
-/** Shielded wallet state shape */
-interface ShieldedWalletState {
-  address: {
-    coinPublicKeyString(): string;
-  };
-  balances: Record<string, bigint>;
-}
-
-/**
- * Get initial state from shielded wallet
- */
-function getInitialShieldedState(
-  // deno-lint-ignore no-explicit-any
-  shieldedWallet: any
-): Promise<ShieldedWalletState> {
-  return Rx.firstValueFrom(shieldedWallet.state);
-}
-
-/**
- * Wait for wallet to be synced and funded
- */
-async function syncAndWaitForFunds(
-  wallet: WalletFacade
-): Promise<{ shieldedBalance: bigint; unshieldedBalance: bigint }> {
-  log.info(
-    "Waiting for wallet to sync and receive funds (shielded/unshielded/dust)..."
-  );
-
-  const syncTimeoutMs = resolveWalletSyncTimeoutMs();
-  let latestState: any = null;
-  const periodicLogger = setInterval(() => {
-    if (!latestState) return;
-    const shieldedSynced =
-      latestState.shielded.state.progress.isStrictlyComplete();
-    const dustSynced = latestState.dust.state.progress.isStrictlyComplete();
-    const unshieldedSynced =
-      latestState.unshielded?.state?.progress?.isStrictlyComplete?.() ?? true;
-    log.info(
-      `[wait] shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
-    );
-    log.debug(
-      `[wait detail] shielded=${safeStringifyProgress(
-        latestState.shielded.state.progress
-      )} | unshielded=${safeStringifyProgress(
-        latestState.unshielded?.state?.progress ?? "n/a"
-      )} | dust=${safeStringifyProgress(latestState.dust.state.progress)}`
-    );
-  }, WALLET_SYNC_THROTTLE_MS);
-
-  const state = await Rx.firstValueFrom(
-    wallet.state().pipe(
-      Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
-      Rx.tap((state: any) => {
-        latestState = state;
-        const shieldedSynced =
-          state.shielded.state.progress.isStrictlyComplete();
-        const dustSynced = state.dust.state.progress.isStrictlyComplete();
-        // unshielded progress may not be present in all configs
-        const unshieldedSynced =
-          state.unshielded?.state?.progress?.isStrictlyComplete?.() ?? true;
-        log.info(
-          `Wallet sync progress: shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
-        );
-        log.info(
-          `Progress detail | shielded=${safeStringifyProgress(
-            state.shielded.state.progress
-          )} | unshielded=${safeStringifyProgress(
-            state.unshielded?.state?.progress ?? "n/a"
-          )} | dust=${safeStringifyProgress(state.dust.state.progress)}`
-        );
-      }),
-      Rx.filter(
-        (state: any) =>
-          state.shielded.state.progress.isStrictlyComplete() &&
-          state.dust.state.progress.isStrictlyComplete() &&
-          (state.unshielded?.state?.progress?.isStrictlyComplete?.() ?? true)
-      ),
-      Rx.tap(() => log.info("Wallet sync complete")),
-      Rx.timeout({
-        each: syncTimeoutMs,
-        with: () =>
-          Rx.throwError(
-            () => new Error(`Wallet sync timeout after ${syncTimeoutMs}ms`)
-          ),
-      })
-    )
-  );
-
-  clearInterval(periodicLogger);
-
-  const shieldedBalance = state.shielded.balances[shieldedToken().tag] ?? 0n;
-  const unshieldedBalances =
-    // deno-lint-ignore no-explicit-any
-    ((state as any).unshielded?.balances as Record<string, bigint> | undefined) ??
-    {};
-  const unshieldedBalance = Object.values(unshieldedBalances).reduce(
-    (acc, v) => acc + (v ?? 0n),
-    0n
-  );
-  log.info(`Wallet shielded balance: ${shieldedBalance}`);
-  log.info(`Wallet unshielded balance: ${unshieldedBalance}`);
-  return { shieldedBalance, unshieldedBalance };
-}
-
-/**
- * Wait for dust wallet sync and return dust balance if available.
- */
-async function waitForDustFunds(
-  wallet: WalletFacade,
-  syncTimeoutMs: number
-): Promise<bigint> {
-  log.info("Waiting for dust wallet to sync and receive funds...");
-  // deno-lint-ignore no-explicit-any
-  const dustWallet = (wallet as any).dust;
-  if (!dustWallet || !dustWallet.state) {
-    log.warning("Dust wallet state not available; skipping dust balance wait.");
-    return 0n;
-  }
-
-  const dustBalance = (await Rx.firstValueFrom(
-    dustWallet.state.pipe(
-      Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
-      Rx.tap((state: unknown) => {
-        try {
-          // best-effort progress logging
-          const progress = (state as { state?: { progress?: { isCompleteWithin?: (gap: bigint) => boolean } } })
-            ?.state?.progress;
-          const complete = progress?.isCompleteWithin?.(0n);
-          log.info(`Dust wallet sync progress: complete=${complete ?? "unknown"}`);
-        } catch (_err) {
-          // ignore logging errors
-        }
-      }),
-      Rx.filter((state: unknown) => {
-        try {
-          const progress = (state as { state?: { progress?: { isCompleteWithin?: (gap: bigint) => boolean } } })
-            ?.state?.progress;
-          return progress?.isCompleteWithin?.(0n) === true;
-        } catch (_err) {
-          return false;
-        }
-      }),
-      Rx.map((state: unknown) => {
-        // Try to read balance from wallet state helper if present.
-        try {
-          if (typeof (state as { walletBalance?: (d: Date) => bigint }).walletBalance === "function") {
-            return (state as { walletBalance: (d: Date) => bigint }).walletBalance(new Date());
-          }
-          // Fallback to balances map if exposed
-          const balances = (state as { balances?: Record<string, bigint> }).balances;
-          if (balances) {
-            const total = Object.values(balances).reduce(
-              (acc: bigint, v) => acc + BigInt(v ?? 0),
-              0n
-            );
-            return total;
-          }
-        } catch (_err) {
-          // ignore and fall through
-        }
-        return 0n;
-      }),
-      Rx.timeout({
-        each: syncTimeoutMs,
-        with: () =>
-          Rx.throwError(
-            () => new Error(`Dust wallet sync timeout after ${syncTimeoutMs}ms`)
-          ),
-      }),
-      Rx.filter((balance: bigint) => balance > 0n),
-      Rx.tap((balance: bigint) => log.info(`Dust wallet balance: ${balance}`))
-    )
-  )) as bigint;
-
-  return dustBalance;
-}
+// Wallet facade building and sync functions are now imported from get-wallet-info.ts
 
 /**
  * Build wallet and wait for funds
@@ -552,7 +166,7 @@ async function buildWalletAndWaitForFunds(
   seed: string
 ): Promise<WalletResult> {
   log.info("Building wallet using modular SDK");
-  const result = await buildWalletFacade(networkUrls, seed);
+  const result = await buildWalletFacade(networkUrls, seed, WALLET_NETWORK_ID);
 
   const initialState = await getInitialShieldedState(result.wallet.shielded);
   const address = initialState.address.coinPublicKeyString();
@@ -580,7 +194,7 @@ async function buildWalletAndWaitForFunds(
       }
     } catch (e) {
       if (skipWait) {
-        log.warning(
+        log.warn(
           `Skipping wait for shielded funds after timeout: ${(e as Error).message}`
         );
       } else {
@@ -590,13 +204,7 @@ async function buildWalletAndWaitForFunds(
   }
   log.info(`Wallet balance: ${balance}`);
 
-  // Always attempt to fetch dust balance; do not block deploy if unavailable.
-  try {
-    await waitForDustFunds(result.wallet, syncTimeoutMs);
-  } catch (e) {
-    log.warning(`Dust balance check failed: ${(e as Error).message}`);
-  }
-
+  // Dust syncing is handled by syncAndWaitForFunds above
   return result;
 }
 
@@ -761,6 +369,7 @@ export async function deployMidnightContract(
   config: DeployConfig,
   networkUrls?: NetworkUrls
 ): Promise<string> {
+  checkEnvVariables();
   await log.setup({
     handlers: {
       console: new log.ConsoleHandler("INFO"),
@@ -895,13 +504,36 @@ export async function deployMidnightContract(
       deployedContract.deployTxData.public.contractAddress;
     log.info(`Contract address: ${contractAddress}`);
 
-    // Save contract address to file
+    // Save contract address to file (merge with existing entries for other networks)
     const outputPath = path.join(contractDir, config.contractFileName);
+    
+    // Read existing file if it exists
+    let existingAddresses: Record<string, string> = {};
+    try {
+      const existingJson = await Deno.readTextFile(outputPath);
+      const existing = JSON.parse(existingJson);
+      
+      // Handle both legacy format (string) and new format (object)
+      if (typeof existing.contractAddress === "string") {
+        // Legacy format - preserve as "undeployed" network
+        existingAddresses = { undeployed: existing.contractAddress };
+      } else if (typeof existing.contractAddress === "object") {
+        // New format - use existing addresses
+        existingAddresses = existing.contractAddress;
+      }
+    } catch {
+      // File doesn't exist or can't be read - start fresh
+    }
+    
+    // Merge new address for this network
+    existingAddresses[WALLET_NETWORK_ID] = contractAddress;
+    
+    // Write merged addresses
     await Deno.writeTextFile(
       outputPath,
-      JSON.stringify({ contractAddress }, null, 2)
+      JSON.stringify({ contractAddress: existingAddresses }, null, 2)
     );
-    log.info(`Contract address saved to ${outputPath}`);
+    log.info(`Contract address saved to ${outputPath} (network: ${WALLET_NETWORK_ID})`);
 
     return contractAddress;
   } catch (e) {
