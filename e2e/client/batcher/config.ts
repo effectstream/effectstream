@@ -50,6 +50,7 @@ const midnightAdapterConfig = {
   zkConfigPath,
   privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
   privateStateId: "simpletokenPrivateState", // On-chain contract ID (must match deploy.ts)
+  walletNetworkId: "undeployed",
 }
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
