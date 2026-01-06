@@ -257,8 +257,10 @@ const endpoints = {
       }
       const lobbyData = await lobbyResponse.json();
 
-      // Add the round seed to lobbyData
+      // Add the round seed and actual round number to lobbyData
+      // Use the roundWithinMatch parameter (the round we're fetching) instead of lobbyData.current_round
       lobbyData.roundSeed = roundData?.roundSeed || "default-seed";
+      lobbyData.roundWithinMatch = roundWithinMatch;
 
       // Return data needed for RoundExecutorWrapper (created in TypeScript frontend code)
       return {

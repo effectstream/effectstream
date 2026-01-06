@@ -37,9 +37,7 @@ const DiceGame: React.FC<DiceGameProps> = ({
   // round being currently shown
   // interactive if this player's round,
   // passive replay if other player's round
-  const [displayedRound, setDisplayedRound] = useState<number>(
-    lobbyState.current_round
-  );
+  const [displayedRound, setDisplayedRound] = useState<number>(0);
   // end state of last round (latest finished round)
   const [displayedState, setDisplayedState] = useState<MatchState>({
     turn: lobbyState.current_turn,
@@ -82,8 +80,8 @@ const DiceGame: React.FC<DiceGameProps> = ({
 
       // Also update displayedRound and nextFetchedRound when game starts
       if (gameJustStarted && lobbyState.current_round != null) {
-        setDisplayedRound(lobbyState.current_round);
-        setFetchedRound(lobbyState.current_round);
+        setDisplayedRound(0); // Always start displaying from round 0
+        setFetchedRound(0);   // Always start fetching from round 0
       }
 
       return {
@@ -238,9 +236,7 @@ const DiceGame: React.FC<DiceGameProps> = ({
     players: lobbyState.players,
     result: undefined,
   });
-  const [nextFetchedRound, setFetchedRound] = useState(
-    lobbyState.current_round
-  );
+  const [nextFetchedRound, setFetchedRound] = useState(0);
 
   useEffect(() => {
     // fetch new round data
