@@ -370,7 +370,7 @@ export async function submittedMoves(
 
   // Validate the move using game logic
   const matchState = buildCurrentMatchState(lobbyData, players);
-  if (!isValidMove(randomGenerator, matchState, input.rollAgain)) {
+  if (!isValidMove(matchState, input.rollAgain)) {
     return [];
   }
 

@@ -94,16 +94,21 @@ const DiceGame: React.FC<DiceGameProps> = ({
       };
     });
 
-    // Also update fetchedEndState players when they change
+    // Also update fetchedEndState when lobby state changes (players, turn, properRound)
     setFetchedEndState((prev: MatchState) => {
       const playersChanged =
         prev.players.length !== lobbyState.players.length ||
         prev.players.some((p: any, i: number) => p.nftId !== lobbyState.players[i]?.nftId);
 
-      if (playersChanged) {
+      // When game starts (turn changes from null to a number), update turn and properRound
+      const gameJustStarted = prev.turn == null && lobbyState.current_turn != null;
+
+      if (playersChanged || gameJustStarted) {
         return {
           ...prev,
           players: lobbyState.players,
+          turn: gameJustStarted ? lobbyState.current_turn : prev.turn,
+          properRound: gameJustStarted ? lobbyState.current_proper_round : prev.properRound,
         };
       }
 
@@ -180,13 +185,11 @@ const DiceGame: React.FC<DiceGameProps> = ({
                 (_, i) => i !== thisPlayerIndex
               );
 
-              if (you === 2) return "21! You get 2 points";
-              if (you === 1) return "You win! You get a point";
+              // New game rules: lower score wins, winner gets 1 point
+              if (you === 1) return "You win this round! +1 point";
               if (opponents.some((points) => points === 1))
-                return "You lose! Opponent gets a point";
-              if (opponents.some((points) => points === 2))
-                return "You lose! Opponent gets 2 points";
-              return "It's a tie";
+                return "You lose this round. Opponent gets +1 point";
+              return "Round tied - no points awarded";
             })()
           );
           await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -200,9 +203,10 @@ const DiceGame: React.FC<DiceGameProps> = ({
             );
             const thisPlayerResult = tickEvent.result[thisPlayerIndex];
 
-            if (thisPlayerResult === "w") return "You win!";
-            if (thisPlayerResult === "l") return "You lose!";
-            return "It's a tie!";
+            // New game rules: lowest total points wins the match
+            if (thisPlayerResult === "w") return "🎉 You win the match!";
+            if (thisPlayerResult === "l") return "You lose the match";
+            return "Match tied!";
           });
           setMatchOver(true);
         }
@@ -318,9 +322,10 @@ const DiceGame: React.FC<DiceGameProps> = ({
 
   // Safety check: ensure displayedState has a valid turn player
   const turnPlayerExists = displayedState.players.some(p => p.turn === displayedState.turn);
-  const playerScore = turnPlayerExists ? getPlayerScore(displayedState) : 0;
-  const canRoll = !disableInteraction && turnPlayerExists && playerScore <= 21;
-  const canPass = !disableInteraction && turnPlayerExists && playerScore >= 16;
+
+  // New game rules: Roll any time, Pass any time
+  const canRoll = !disableInteraction && turnPlayerExists;
+  const canPass = !disableInteraction && turnPlayerExists;
 
   if (lobbyState == null) return <></>;
 

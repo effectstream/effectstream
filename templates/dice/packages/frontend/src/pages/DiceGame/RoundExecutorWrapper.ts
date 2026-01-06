@@ -20,8 +20,14 @@ export class RoundExecutorWrapper {
       numberOfRounds: lobbyData.num_of_rounds,
     };
     this.initialMatchState = cloneMatchState(initialMatchState);
-    const seed = lobbyData.roundSeed || "default-seed";
-    console.log(`[RoundExecutorWrapper] Using seed: ${seed}`);
+
+    // Use roundSeed + current_round to create unique seed per database round
+    // This ensures each move gets different dice while remaining deterministic
+    const baseSeed = lobbyData.roundSeed || "default-seed";
+    const roundNumber = lobbyData.current_round || 0;
+    const seed = `${baseSeed}-${roundNumber}`;
+
+    console.log(`[RoundExecutorWrapper] Using seed: ${seed} (base: ${baseSeed}, round: ${roundNumber})`);
     this.randomnessGenerator = new Prando(seed);
   }
 

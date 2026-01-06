@@ -248,18 +248,22 @@ export const apiRouter: StartConfigApiRouter = async function (
         return reply.send(null);
       }
 
-      // If round has been executed, fetch the seed from block_heights
-      if (round.execution_block_height != null) {
-        const seedResult = await dbConn.query(
-          `SELECT seed FROM block_heights WHERE block_height = $1`,
-          [round.execution_block_height]
-        );
+      // Fetch seed from block_heights using execution_block_height (if executed) or starting_block_height
+      const blockHeight = round.execution_block_height ?? round.starting_block_height;
+      console.log(`[API] Fetching seed for round ${roundId}, blockHeight: ${blockHeight} (execution: ${round.execution_block_height}, starting: ${round.starting_block_height})`);
 
-        if (seedResult.rows.length > 0) {
-          return reply.send({ ...round, roundSeed: seedResult.rows[0].seed });
-        }
+      const seedResult = await dbConn.query(
+        `SELECT seed FROM block_heights WHERE block_height = $1`,
+        [blockHeight]
+      );
+
+      console.log(`[API] Seed query returned ${seedResult.rows.length} rows`);
+      if (seedResult.rows.length > 0) {
+        console.log(`[API] Found seed: ${seedResult.rows[0].seed}`);
+        return reply.send({ ...round, roundSeed: seedResult.rows[0].seed });
       }
 
+      console.log(`[API] No seed found, sending round without roundSeed`);
       return reply.send(round);
     } catch (error) {
       console.error("Error fetching round:", error);

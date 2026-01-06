@@ -10,7 +10,7 @@ import {
   type TickEvent,
   TickEventKind,
 } from '@dice/data-types/types';
-import { genDiceRolls, getPlayerScore, matchResults } from './dice-logic.ts';
+import { genTwoDiceRoll, matchResults, calculateRoundPoints } from './dice-logic.ts';
 import type { IGetRoundMovesResult } from '@dice/db';
 
 // TODO: variable number of players
@@ -20,101 +20,72 @@ const numPlayers = 2;
 export function processTick(
   matchEnvironment: MatchEnvironment,
   matchState: MatchState,
-  // TODO: type for round and match moves is the same, not sure which is provided here
   moves: IGetRoundMovesResult[],
   currentTick: number,
   randomnessGenerator: Prando
 ): TickEvent[] | null {
   const events: TickEvent[] = [];
+
   // Every tick we intend to process a single move.
   const move = moves[currentTick - 1];
 
   // Round ends (by returning null) if no more moves in round or game is finished.
-  // This is nearly identical to writing a recursive function, where you want to check
-  // the base/halt case before running the rest of the logic.
   if (!move) return null;
 
-  // If a move does exist, we continue processing the tick by generating the event.
-  // Required for frontend visualization and applying match state updates.
-  const score = getPlayerScore(matchState);
-  const diceRolls = genDiceRolls(score, randomnessGenerator);
-  const rollEvents: RollTickEvent[] = diceRolls.dice.map((dice, i) => {
-    const isLast = i === diceRolls.dice.length - 1;
-    return {
-      kind: TickEventKind.roll,
-      diceRolls: dice,
-      rollAgain: !isLast || move.roll_again,
-    };
-  });
+  // If player passed (roll_again = false), end their turn immediately
+  if (!move.roll_again) {
+    // Store the turn BEFORE ending it
+    const turnThatJustPassed = matchState.turn;
 
-  // We then call `applyEvents` to mutate the `matchState` based off of the event.
-  for (const event of rollEvents) {
-    applyEvent(matchState, event);
-    events.push(event);
-  }
+    const turnEndEvents: TurnEndTickEvent[] = [{ kind: TickEventKind.turnEnd }];
+    for (const event of turnEndEvents) {
+      applyEvent(matchState, event);
+      events.push(event);
+    }
 
-  const turnEnds = !rollEvents[rollEvents.length - 1].rollAgain;
-  const roundEnds = turnEnds && matchState.turn === numPlayers - 1;
-  const matchEnds = roundEnds && matchState.properRound === matchEnvironment.numberOfRounds - 1;
+    // Round ends when turn cycles back to 0 after player 1 (last player) passes
+    // This means all players have taken their turns
+    const roundEnds = turnThatJustPassed === numPlayers - 1 && matchState.turn === 0;
+    const matchEnds = roundEnds && matchState.properRound === matchEnvironment.numberOfRounds - 1;
 
-  const applyPointsEvents: ApplyPointsTickEvent[] = (() => {
-    if (!roundEnds) return [];
-
-    // rules:
-    // Anyone who scored 21 gets 2 points.
-    // If nobody scored 21:
-    //   Over 21 gets 0 points.
-    //   Closest to 21 gets 1 point, but tie is 0 points.
-
-    const points = (() => {
-      // replace going over 21 with -1 score, simplifies logic
-      const scores = matchState.players.map(player => (player.score > 21 ? -1 : player.score));
-      const someoneScored21 = scores.some(score => score === 21);
-      if (someoneScored21) {
-        return scores.map(score => (score === 21 ? 2 : 0));
-      } else {
-        const max = Math.max(...scores);
-
-        if (scores.filter(value => value === max).length > 1) return scores.map(() => 0);
-
-        return scores.map(score => (score === max ? 1 : 0));
-      }
-    })();
-
-    return [
-      {
+    if (roundEnds) {
+      // Calculate points based on final scores
+      const points = calculateRoundPoints(matchState.players);
+      const applyPointsEvent: ApplyPointsTickEvent = {
         kind: TickEventKind.applyPoints,
         points,
-      },
-    ];
-  })();
-  for (const event of applyPointsEvents) {
-    applyEvent(matchState, event);
-    events.push(event);
+      };
+      applyEvent(matchState, applyPointsEvent);
+      events.push(applyPointsEvent);
+
+      const roundEndEvent: RoundEndTickEvent = { kind: TickEventKind.roundEnd };
+      applyEvent(matchState, roundEndEvent);
+      events.push(roundEndEvent);
+
+      if (matchEnds) {
+        const matchEndEvent: MatchEndTickEvent = {
+          kind: TickEventKind.matchEnd,
+          result: matchResults(matchState),
+        };
+        applyEvent(matchState, matchEndEvent);
+        events.push(matchEndEvent);
+      }
+    }
+
+    return events;
   }
 
-  const turnEndEvents: TurnEndTickEvent[] = turnEnds ? [{ kind: TickEventKind.turnEnd }] : [];
-  for (const event of turnEndEvents) {
-    applyEvent(matchState, event);
-    events.push(event);
-  }
+  // Player chose to roll - generate dice roll event
+  const diceRolls = genTwoDiceRoll(randomnessGenerator);
+  const rollEvent: RollTickEvent = {
+    kind: TickEventKind.roll,
+    diceRolls: diceRolls,
+    rollAgain: true, // Player stays in their turn after rolling
+  };
 
-  const roundEndEvents: RoundEndTickEvent[] = roundEnds ? [{ kind: TickEventKind.roundEnd }] : [];
-  for (const event of roundEndEvents) {
-    applyEvent(matchState, event);
-    events.push(event);
-  }
+  applyEvent(matchState, rollEvent);
+  events.push(rollEvent);
 
-  const matchEndEvents: MatchEndTickEvent[] = matchEnds
-    ? [{ kind: TickEventKind.matchEnd, result: matchResults(matchState) }]
-    : [];
-  for (const event of matchEndEvents) {
-    applyEvent(matchState, event);
-    events.push(event);
-  }
-
-  // We return the tick event which gets emitted by the round executor. This is explicitly
-  // for the frontend to know what happened during the current tick.
   return events;
 }
 
@@ -123,6 +94,13 @@ export function applyEvent(matchState: MatchState, event: TickEvent): void {
   if (event.kind === TickEventKind.roll) {
     const addedScore = event.diceRolls.reduce((acc, next) => acc + next, 0);
     const turnPlayerIndex = matchState.players.findIndex(player => player.turn === matchState.turn);
+    if (turnPlayerIndex === -1) {
+      console.error(`applyEvent(roll): No player found with turn ${matchState.turn}`, {
+        matchStateTurn: matchState.turn,
+        players: matchState.players.map(p => ({ nftId: p.nftId, turn: p.turn }))
+      });
+      return;
+    }
     matchState.players[turnPlayerIndex].score += addedScore;
     return;
   }
@@ -140,6 +118,7 @@ export function applyEvent(matchState: MatchState, event: TickEvent): void {
 
   if (event.kind === TickEventKind.roundEnd) {
     matchState.properRound++;
+    // Reset scores for next round
     for (const i in matchState.players) {
       matchState.players[i].score = 0;
     }

@@ -1,8 +1,6 @@
 import type { IGetLobbyPlayersResult, IGetLobbyByIdResult } from '@dice/db';
 import {
-  RoundKind,
   type MatchState,
-  type DiceRolls,
   type LobbyPlayer,
   type ConciseResult,
   type MatchResult,
@@ -14,77 +12,87 @@ type LobbyStateProps = 'current_match' | 'current_round' | 'current_turn' | 'cur
 export type LobbyWithStateProps = Omit<IGetLobbyByIdResult, LobbyStateProps> &
   Required<Pick<IGetLobbyByIdResult, LobbyStateProps>>;
 
+/**
+ * Roll a single die (1-6)
+ */
 export function genDieRoll(randomnessGenerator: Prando): number {
   return randomnessGenerator.nextInt(1, 6);
 }
 
-export function genInitialDiceRolls(randomnessGenerator: Prando): {
-  dice: [number, number][];
-  finalScore: number;
-} {
-  const result: {
-    dice: [number, number][];
-    finalScore: number;
-  } = {
-    dice: [],
-    finalScore: 0,
-  };
-  while (result.finalScore < 16) {
-    const dice: [number, number] = [
-      genDieRoll(randomnessGenerator),
-      genDieRoll(randomnessGenerator),
-    ];
-    const sum = dice.reduce((acc, next) => acc + next, 0);
-    result.dice.push(dice);
-    result.finalScore += sum;
-  }
-
-  return result;
+/**
+ * Roll two dice for a single move
+ * Returns the two dice values
+ */
+export function genTwoDiceRoll(randomnessGenerator: Prando): [number, number] {
+  return [
+    genDieRoll(randomnessGenerator),
+    genDieRoll(randomnessGenerator)
+  ];
 }
 
-export function genDiceRolls(startingScore: number, randomnessGenerator: Prando): DiceRolls {
-  if (startingScore < 16)
-    return {
-      roundKind: RoundKind.initial,
-      ...genInitialDiceRolls(randomnessGenerator),
-    };
-
-  const extraDie = genDieRoll(randomnessGenerator);
-  return {
-    roundKind: RoundKind.extra,
-    dice: [[extraDie]],
-    finalScore: startingScore + extraDie,
-  };
+/**
+ * Calculate final score for a player
+ * Score = abs(21 - sum of all rolls)
+ * Lower score is better
+ */
+export function calculateFinalScore(totalRolled: number): number {
+  return Math.abs(21 - totalRolled);
 }
 
-export function canRollAgain(dice: [number, number]): boolean {
-  return dice[0] + dice[1] >= 7; // TODO: update to blackjack dice logic
-}
-
+/**
+ * Check if a move is valid
+ * Players can always roll if they haven't passed
+ * Players can always pass
+ */
 export function isValidMove(
-  randomnessGenerator: Prando,
   matchState: MatchState,
   rollAgain: boolean
 ): boolean {
+  // Pass is always valid
   if (!rollAgain) return true;
 
-  const score = getPlayerScore(matchState);
-  if (score < 16) return genInitialDiceRolls(randomnessGenerator).finalScore <= 21;
-
-  return score + genDieRoll(randomnessGenerator) <= 21;
+  // Rolling is always valid (player chooses when to stop)
+  return true;
 }
 
+/**
+ * Determine match results based on accumulated points
+ * Player with LOWEST total points wins
+ * Ties result in 't' for all tied players
+ */
 export function matchResults(matchState: MatchState): MatchResult {
-  // We compute the winner
-  const maxPoints = matchState.players.reduce((acc, next) => Math.max(acc, next.points), 0);
-  const maxPlayers = matchState.players.filter(player => player.points === maxPoints);
+  const minPoints = matchState.players.reduce((acc, next) => Math.min(acc, next.points), Infinity);
+  const minPlayers = matchState.players.filter(player => player.points === minPoints);
+
   const results: ConciseResult[] = matchState.players.map(player => {
-    if (player.points < maxPoints) return 'l';
-    if (maxPlayers.length > 1) return 't';
+    if (player.points > minPoints) return 'l';
+    if (minPlayers.length > 1) return 't';
     return 'w';
   });
 
   return results;
+}
+
+/**
+ * Calculate points for the round based on final scores
+ * Player with lower score gets 1 point
+ * If tied, both get 0 points
+ */
+export function calculateRoundPoints(players: LobbyPlayer[]): number[] {
+  // Calculate final score for each player: abs(21 - totalRolled)
+  const scores = players.map(player => calculateFinalScore(player.score));
+  const minScore = Math.min(...scores);
+
+  // Count how many players have the minimum score
+  const winnersCount = scores.filter(score => score === minScore).length;
+
+  // If tied, everyone gets 0 points
+  if (winnersCount > 1) {
+    return scores.map(() => 0);
+  }
+
+  // Otherwise, player with lowest score gets 1 point
+  return scores.map(score => score === minScore ? 1 : 0);
 }
 
 export function buildCurrentMatchState(
