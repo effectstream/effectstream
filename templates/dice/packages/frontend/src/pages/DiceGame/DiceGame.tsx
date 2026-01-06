@@ -309,7 +309,7 @@ const DiceGame: React.FC<DiceGameProps> = ({
           }, 1000);
         }
       });
-  }, [isFetchingRound, displayedRound, lobbyState.current_round]);
+  }, [isFetchingRound, displayedRound, lobbyState.current_round, roundExecutor]);
 
   const disableInteraction =
     matchOver ||
