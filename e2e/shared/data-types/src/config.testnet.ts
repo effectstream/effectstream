@@ -25,7 +25,7 @@ import { paimaL2Grammar } from "./grammar.ts";
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
 let arbSepoliaTip: number = 230666729;
-let midnightTip: number | undefined;
+let midnightTip: number = 437152;
 
  // IMPORTANT: For testing purposes. Setting it to true, will 
  // use a new tip on each restart, making the db inconsistent.
@@ -51,7 +51,7 @@ const paimaL2TestnetContractAddress =
 
 const midnightNetworkInputsValid = Boolean(
   midnightIndexerHttp && midnightIndexerWs && midnightNodeHttp &&
-    midnightGenesisHash && midnightNetworkId !== undefined && !Number.isNaN(midnightNetworkId),
+    midnightGenesisHash && !Number.isNaN(midnightNetworkId),
 );
 
 let midnightCounterAddress: string | undefined;
@@ -105,7 +105,7 @@ if (Deno) {
         midnightTip = height;
       } else if (typeof height === "string") {
         const parsed = Number(height);
-        midnightTip = Number.isNaN(parsed) ? undefined : parsed;
+        midnightTip = Number.isNaN(parsed) ? 0 : parsed;
       }
     } catch (error) {
       console.warn(

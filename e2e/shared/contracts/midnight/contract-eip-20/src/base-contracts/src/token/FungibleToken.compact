@@ -305,13 +305,13 @@ module FungibleToken {
    * @return {Boolean} - As per the IERC20 spec, this MUST return true.
    */
   export circuit transferFrom(
-    from: Either<ZswapCoinPublicKey, ContractAddress>,
+    fromAddress: Either<ZswapCoinPublicKey, ContractAddress>,
     to: Either<ZswapCoinPublicKey, ContractAddress>,
     value: Uint<128>
   ): Boolean {
     Initializable_assertInitialized();
     assert(!Utils_isContractAddress(to), "FungibleToken: Unsafe Transfer");
-    return _unsafeTransferFrom(from, to, value);
+    return _unsafeTransferFrom(fromAddress, to, value);
   }
 
   /**
@@ -337,15 +337,15 @@ module FungibleToken {
    * @return {Boolean} - As per the IERC20 spec, this MUST return true.
    */
   export circuit _unsafeTransferFrom(
-    from: Either<ZswapCoinPublicKey, ContractAddress>,
+    fromAddress: Either<ZswapCoinPublicKey, ContractAddress>,
     to: Either<ZswapCoinPublicKey, ContractAddress>,
     value: Uint<128>
   ): Boolean {
     Initializable_assertInitialized();
 
     const spender = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
-    _spendAllowance(from, spender, value);
-    _unsafeUncheckedTransfer(from, to, value);
+    _spendAllowance(fromAddress, spender, value);
+    _unsafeUncheckedTransfer(fromAddress, to, value);
     return true;
   }
 
@@ -374,13 +374,13 @@ module FungibleToken {
    * @return {[]} - Empty tuple.
    */
   export circuit _transfer(
-    from: Either<ZswapCoinPublicKey, ContractAddress>,
+    fromAddress: Either<ZswapCoinPublicKey, ContractAddress>,
     to: Either<ZswapCoinPublicKey, ContractAddress>,
     value: Uint<128>
   ): [] {
     Initializable_assertInitialized();
     assert(!Utils_isContractAddress(to), "FungibleToken: Unsafe Transfer");
-    _unsafeUncheckedTransfer(from, to, value);
+    _unsafeUncheckedTransfer(fromAddress, to, value);
   }
 
   /**
@@ -404,15 +404,15 @@ module FungibleToken {
    * @return {[]} - Empty tuple.
    */
   export circuit _unsafeUncheckedTransfer(
-    from: Either<ZswapCoinPublicKey, ContractAddress>,
+    fromAddress: Either<ZswapCoinPublicKey, ContractAddress>,
     to: Either<ZswapCoinPublicKey, ContractAddress>,
     value: Uint<128>
   ): [] {
     Initializable_assertInitialized();
-    assert(!Utils_isKeyOrAddressZero(from), "FungibleToken: invalid sender");
+    assert(!Utils_isKeyOrAddressZero(fromAddress), "FungibleToken: invalid sender");
     assert(!Utils_isKeyOrAddressZero(to), "FungibleToken: invalid receiver");
 
-    _update(from, to, value);
+    _update(fromAddress, to, value);
   }
 
   /**
@@ -432,21 +432,21 @@ module FungibleToken {
    * @return {[]} - Empty tuple.
    */
   circuit _update(
-    from: Either<ZswapCoinPublicKey, ContractAddress>,
+    fromAddress: Either<ZswapCoinPublicKey, ContractAddress>,
     to: Either<ZswapCoinPublicKey, ContractAddress>,
     value: Uint<128>
   ): [] {
     Initializable_assertInitialized();
-    if (Utils_isKeyOrAddressZero(disclose(from))) {
+    if (Utils_isKeyOrAddressZero(disclose(fromAddress))) {
       // Mint
       const MAX_UINT128 = 340282366920938463463374607431768211455;
       assert(MAX_UINT128 - _totalSupply >= value, "FungibleToken: arithmetic overflow");
 
       _totalSupply = disclose(_totalSupply + value as Uint<128>);
     } else {
-      const fromBal = balanceOf(from);
+      const fromBal = balanceOf(fromAddress);
       assert(fromBal >= value, "FungibleToken: insufficient balance");
-      _balances.insert(disclose(from), disclose(fromBal - value as Uint<128>));
+      _balances.insert(disclose(fromAddress), disclose(fromBal - value as Uint<128>));
     }
 
     if (Utils_isKeyOrAddressZero(disclose(to))) {
@@ -511,7 +511,7 @@ module FungibleToken {
   ): [] {
     Initializable_assertInitialized();
     assert(!Utils_isKeyOrAddressZero(account), "FungibleToken: invalid receiver");
-    _update(burnAddress(), account, value);
+    _update(shieldedBurnAddress(), account, value);
   }
 
   /**
@@ -536,7 +536,7 @@ module FungibleToken {
   ): [] {
     Initializable_assertInitialized();
     assert(!Utils_isKeyOrAddressZero(account), "FungibleToken: invalid sender");
-    _update(account, burnAddress(), value);
+    _update(account, shieldedBurnAddress(), value);
   }
 
   /**
