@@ -44,6 +44,8 @@ function getBinaryUrl() {
   return `https://github.com/effectstream/binaries/releases/download/0.3.120/indexer-standalone-${platform}-${CURRENT_BINARY_VERSION}.zip`;
 }
 
+const ZIP_FILE_PATH = path.join(__dirname, "indexer-standalone.zip");
+
 /*
 @returns {Promise<void>} Downloads and saves the binary for the current platform.
 */
@@ -52,9 +54,7 @@ async function downloadAndSaveBinary() {
   try {
     console.error(`Downloading... ${url}`);
     const response = await axios.get(url, { responseType: "stream" });
-    const writer = fs.createWriteStream(
-      path.join(__dirname, "indexer-standalone.zip"),
-    );
+    const writer = fs.createWriteStream(ZIP_FILE_PATH);
 
     response.data.pipe(writer);
 
@@ -76,27 +76,65 @@ async function unzipBinary() {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  await extract(path.join(__dirname, "indexer-standalone.zip"), { dir });
+  await extract(ZIP_FILE_PATH, { dir });
   const dataDir = path.join(dir, "data");
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
   const platform = getPlatform();
-  const extractedBinaryPath = path.join(
-    dir,
+  const possibleBinaryNames = [
+    `indexer-standalone-${platform}-${CURRENT_BINARY_VERSION}`,
     `indexer-standalone`,
-  );
+    `indexer-standalone-${platform}`
+  ];
+
+  let extractedBinaryPath = null;
+  for (const name of possibleBinaryNames) {
+    const p = path.join(dir, name);
+    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+      extractedBinaryPath = p;
+      break;
+    }
+  }
+
   const finalBinaryPath = path.join(dir, FINAL_BINARY_NAME);
 
   // Rename the extracted file to indexer-standalone
-  if (fs.existsSync(extractedBinaryPath)) {
-    if (fs.existsSync(finalBinaryPath)) {
-      fs.unlinkSync(finalBinaryPath);
+  if (extractedBinaryPath) {
+    if (extractedBinaryPath !== finalBinaryPath) {
+      if (fs.existsSync(finalBinaryPath)) {
+        fs.unlinkSync(finalBinaryPath);
+      }
+      fs.renameSync(extractedBinaryPath, finalBinaryPath);
     }
-    fs.renameSync(extractedBinaryPath, finalBinaryPath);
   } else {
-    throw new Error(`Extracted binary not found at: ${extractedBinaryPath}`);
+    throw new Error(`Extracted binary not found in: ${dir}. Expected one of: ${possibleBinaryNames.join(", ")}`);
+  }
+
+  // Clean up any other extracted files (e.g., readme.md)
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const filePath = path.join(dir, file);
+    // Explicitly protect config.yaml and other potential config files
+    const isConfigFile =
+      file === "config.yaml" ||
+      file === "config.yml" ||
+      file.endsWith(".yaml") ||
+      file.endsWith(".yml") ||
+      file.endsWith(".toml") ||
+      file.endsWith(".json");
+
+    if (
+      filePath !== finalBinaryPath &&
+      file !== "data" &&
+      !isConfigFile &&
+      fs.existsSync(filePath) &&
+      fs.statSync(filePath).isFile()
+    ) {
+      console.log(`Cleaning up extracted file: ${file}`);
+      fs.unlinkSync(filePath);
+    }
   }
 
   if (!fs.existsSync(finalBinaryPath)) {
@@ -104,7 +142,7 @@ async function unzipBinary() {
   }
 
   fs.chmodSync(finalBinaryPath, 0o755);
-  fs.unlinkSync(path.join(__dirname, "indexer-standalone.zip"));
+  fs.unlinkSync(ZIP_FILE_PATH);
 }
 
 async function binary() {
