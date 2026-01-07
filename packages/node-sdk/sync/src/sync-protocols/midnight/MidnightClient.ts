@@ -28,8 +28,8 @@ export interface MidnightGqlBlockState {
 
 
 // Replace with your actual endpoints and contract address
-const queryURL = "http://127.0.0.1:8088/api/v1/graphql";
-const subscriptionURL = "ws://127.0.0.1:8088/api/v1/graphql/ws";
+const queryURL = "http://127.0.0.1:8088/api/v3/graphql";
+const subscriptionURL = "ws://127.0.0.1:8088/api/v3/graphql/ws";
 
 const publicDataProvider = indexerPublicDataProvider(queryURL, subscriptionURL);
 export class MidnightClient {

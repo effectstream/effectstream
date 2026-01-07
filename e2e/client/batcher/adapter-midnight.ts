@@ -24,6 +24,8 @@ export const midnightAdapter = midnightContractData ? new MidnightAdapter(
     privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
     privateStateId: "simpletokenPrivateState", // On-chain contract ID (must match deploy.ts)
     walletNetworkId: "undeployed",
+    contractJoinTimeoutSeconds: 300, // Increase timeout to 5 minutes for private state sync
+    walletFundingTimeoutSeconds: 300, // Increase wallet funding timeout to 5 minutes
   },
   new SimpleToken.Contract(witnesses),
   witnesses,

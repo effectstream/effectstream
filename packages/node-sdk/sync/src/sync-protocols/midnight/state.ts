@@ -139,7 +139,7 @@ export class MidnightSyncState extends SyncState<
       new MidnightClient(
         config.syncProtocol.indexer,
         config.syncProtocol.indexerWS ??
-          "ws://127.0.0.1:8088/api/v1/graphql/ws",
+          "ws://127.0.0.1:8088/api/v3/graphql/ws",
       ),
       dbConn,
     );

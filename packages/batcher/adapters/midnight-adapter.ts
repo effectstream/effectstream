@@ -15,10 +15,10 @@ import type { DefaultBatcherInput } from "../core/types.ts";
 import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "../batch-data-builder/midnight-builder-logic.ts";
 import { hexStringToUint8Array } from "@effectstream/utils";
 import type { NetworkId } from "@midnight-ntwrk/compact-runtime";
-import {
-  type BalancedProvingRecipe,
-  type MidnightProvider,
-  type WalletProvider,
+import type {
+  BalancedProvingRecipe,
+  MidnightProvider,
+  WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import {
   type CoinPublicKey,
@@ -47,6 +47,7 @@ import {
   type NetworkUrls as MidnightNetworkUrls,
   type WalletResult,
 } from "@effectstream/midnight-contracts/wallet-info";
+import { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 
 export interface MidnightAdapterConfig {
   indexer: string;
@@ -58,19 +59,11 @@ export interface MidnightAdapterConfig {
   privateStateId?: string; // Contract private state ID (on-chain), defaults to privateStateStoreName if not provided
   contractJoinTimeoutSeconds?: number; // Defaults to 120 seconds
   walletFundingTimeoutSeconds?: number; // Defaults to 180 seconds
-  walletNetworkId?: WalletNetworkId; // Optional override for modular wallet network id
+  walletNetworkId?: WalletNetworkId.NetworkId; // Optional override for modular wallet network id
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
-type WalletNetworkId =
-  | "mainnet"
-  | "testnet"
-  | "devnet"
-  | "qanet"
-  | "undeployed"
-  | "preview"
-  | "preprod";
 
 /**
  * Midnight blockchain adapter implementing BlockchainAdapter interface
@@ -101,7 +94,8 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   private witnesses: any = null;
   private readonly contractJoinTimeoutMs: number;
   private readonly walletFundingTimeoutMs: number;
-  private readonly walletNetworkId: WalletNetworkId;
+  private readonly walletNetworkId: WalletNetworkId.NetworkId;
+  private readonly instanceId: string;
 
   constructor(
     contractAddress: string,
@@ -122,7 +116,11 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     this.maxBatchSize = maxBatchSize;
     this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
     this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
+    // Default to lowercase "undeployed" (NetworkId.NetworkId uses lowercase strings)
     this.walletNetworkId = config.walletNetworkId ?? "undeployed";
+    
+    // Generate unique instance ID to prevent conflicts when multiple adapters are created in same process
+    this.instanceId = `${Deno.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
     // Store contract info for lazy joining
     this.contractInstance = contractInstance;
@@ -155,6 +153,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
         proofServer: this.config.proofServer,
       };
 
+      // Pass NetworkId enum directly - no normalization needed
       this.walletResult = await buildWalletFacade(
         networkUrls,
         walletSeed,
@@ -187,9 +186,9 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       );
       await this.ensureFunds();
 
-      // Join contract during initialization so we're ready to process immediately
-      console.log("🔗 Joining contract during initialization...");
-      await this.ensureContractJoined();
+      // NOTE: We skip joining the contract during initialization to avoid long startup times
+      // The contract will be joined lazily when the first transaction is submitted
+      console.log("⚠️ Contract join deferred until first transaction (lazy join)");
 
       console.log("✅ Midnight adapter fully initialized and ready!");
 
@@ -229,11 +228,16 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
 
         const walletAndMidnightProvider = this.walletProvider!;
 
+        // Use instance-specific database name to avoid conflicts when multiple adapters exist
+        const dbName = `midnight-level-db-${this.instanceId}`;
+        
         const providers = {
           privateStateProvider: levelPrivateStateProvider({
+            midnightDbName: dbName,
             privateStateStoreName: this.config.privateStateStoreName,
             signingKeyStoreName: `${this.config.privateStateStoreName}-signing-keys`,
-          }),
+            walletProvider: walletAndMidnightProvider, // Use wallet's encryption key for private state
+          } as any), // Type assertion: runtime supports walletProvider even though types don't reflect it yet
           publicDataProvider: this.publicDataProvider,
           zkConfigProvider: new NodeZkConfigProvider(this.config.zkConfigPath),
           proofProvider: httpClientProofProvider(this.config.proofServer),
@@ -377,6 +381,31 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     };
     // Cast is safe because we know our helper returns this type
     return this.batchBuilderLogic.buildBatchData(inputs, options) as BatchBuildingResult<MidnightBatchPayload | null> | null;
+  }
+
+  /**
+   * Cleanup method to properly release resources
+   * Should be called when the adapter is being destroyed/shutdown
+   */
+  public async cleanup(): Promise<void> {
+    console.log("🧹 Cleaning up Midnight adapter resources...");
+    
+    // Close wallet
+    if (this.walletResult?.wallet) {
+      try {
+        await this.walletResult.wallet.stop();
+        console.log("✅ Wallet stopped");
+      } catch (error) {
+        console.warn("⚠️ Error stopping wallet:", error);
+      }
+    }
+    
+    // Note: The deployedContract and privateStateProvider don't have explicit close methods
+    // The LevelDB connections are managed per-operation by levelPrivateStateProvider
+    // However, we should allow a small delay for any pending async operations
+    console.log("⏳ Waiting for pending operations to complete...");
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log("✅ Midnight adapter cleanup complete");
   }
 
   /**
@@ -744,20 +773,6 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
    */
   getSyncProtocolName(): string {
     return this.syncProtocolName;
-  }
-
-  /**
-   * Cleanup resources (for graceful shutdown)
-   */
-  cleanup(): void {
-    if (this.walletResult?.wallet) {
-      console.log("🧹 Closing Midnight wallet...");
-      try {
-        this.walletResult.wallet.stop();
-      } catch (error) {
-        console.warn("Warning: Error closing wallet:", error);
-      }
-    }
   }
 
   private parseBatchPayload(

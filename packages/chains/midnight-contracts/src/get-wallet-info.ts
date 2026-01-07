@@ -1,7 +1,7 @@
 import * as log from "@std/log";
 import { load } from "@std/dotenv";
 import { parseArgs } from "@std/cli/parse-args";
-import {
+import type {
   MidnightBech32m,
   ShieldedAddress,
 } from "@midnight-ntwrk/wallet-sdk-address-format";
@@ -24,7 +24,7 @@ import {
   shieldedToken,
 } from "@midnight-ntwrk/ledger-v6";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import { type DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded/v1";
+import type { DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded/v1";
 
 // ============================================================================
 // Constants
@@ -344,10 +344,27 @@ export function getInitialDustState(
   return Rx.firstValueFrom(dustWallet.state);
 }
 
+/**
+ * Capitalize the network ID for ledger operations
+ * The wallet SDK accepts lowercase network IDs (e.g., "undeployed"), but
+ * ledger operations expect capitalized format (e.g., "Undeployed")
+ */
+function capitalizeNetworkId(networkId: NetworkId.NetworkId): NetworkId.NetworkId {
+  if (typeof networkId !== 'string') return networkId;
+  return (networkId.charAt(0).toUpperCase() + networkId.slice(1).toLowerCase()) as NetworkId.NetworkId;
+}
+
+/**
+ * Create wallet configuration for the modular Midnight SDK
+ * Accepts NetworkId enum values and normalizes them for ledger compatibility
+ */
 export function createWalletConfiguration(
   networkUrls: Required<NetworkUrls>,
   networkId: NetworkId.NetworkId
 ): DefaultV1Configuration {
+  // Capitalize network ID for ledger operations (e.g., "undeployed" -> "Undeployed")
+  const capitalizedNetworkId = capitalizeNetworkId(networkId);
+  
   return {
     indexerClientConnection: {
       indexerHttpUrl: networkUrls.indexer,
@@ -355,7 +372,7 @@ export function createWalletConfiguration(
     },
     provingServerUrl: new URL(networkUrls.proofServer),
     relayURL: new URL(networkUrls.node.replace("http", "ws")),
-    networkId: networkId,
+    networkId: capitalizedNetworkId,
   };
 }
 
@@ -401,6 +418,10 @@ export async function buildUnshieldedWallet(
   });
 }
 
+/**
+ * Build a complete wallet facade with shielded, unshielded, and dust wallets
+ * Expects NetworkId enum values (capitalized format required by ledger operations)
+ */
 export async function buildWalletFacade(
   networkUrls: Required<NetworkUrls>,
   seed: string,

@@ -4,7 +4,7 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
-const CURRENT_BINARY_VERSION = "ledger-4.0.0";
+const CURRENT_BINARY_VERSION = "ledger-6.1.0-alpha.6";
 const FINAL_BINARY_NAME = "midnight-proof-server";
 
 /**
@@ -62,19 +62,31 @@ async function unzipBinary() {
     fs.mkdirSync(destDir, { recursive: true });
   }
   await extract(zipPath, { dir: destDir });
+  
   const platform = getPlatform();
   const extractedBinaryPath = path.join(
     destDir,
-    `midnight-proof-server-${platform}`,
+    `midnight-proof-server-${platform}-${CURRENT_BINARY_VERSION}`,
   );
   const finalBinaryPath = path.join(destDir, FINAL_BINARY_NAME);
 
-  if (fs.existsSync(extractedBinaryPath) &&
-      extractedBinaryPath !== finalBinaryPath) {
+  // Rename the extracted file to midnight-proof-server
+  if (fs.existsSync(extractedBinaryPath)) {
     if (fs.existsSync(finalBinaryPath)) {
       fs.unlinkSync(finalBinaryPath);
     }
     fs.renameSync(extractedBinaryPath, finalBinaryPath);
+  } else {
+    throw new Error(`Extracted binary not found at: ${extractedBinaryPath}`);
+  }
+
+  // Clean up any other extracted files (e.g., readme.md)
+  const files = fs.readdirSync(destDir);
+  for (const file of files) {
+    const filePath = path.join(destDir, file);
+    if (filePath !== finalBinaryPath && fs.statSync(filePath).isFile()) {
+      fs.unlinkSync(filePath);
+    }
   }
 
   if (!fs.existsSync(finalBinaryPath)) {

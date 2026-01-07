@@ -222,8 +222,8 @@ const configureProviders = (
       typeof CounterPrivateStateId
     >({
       privateStateStoreName: contractConfig.privateStateStoreName,
-      signingKeyStoreName: `${contractConfig.privateStateStoreName}-signing-keys`,
-    }),
+      walletProvider: walletAndMidnightProvider, // Use wallet's encryption key for private state
+    } as any), // Type assertion: runtime supports walletProvider even though types don't reflect it yet
     publicDataProvider: indexerPublicDataProvider(
       config.indexer,
       config.indexerWS,

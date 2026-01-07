@@ -1,6 +1,5 @@
 const { spawn } = require("child_process");
 const path = require("path");
-const { getPlatform } = require("./binary");
 
 /**
  * Applies default environment variables for midnight-node if not already set
@@ -27,9 +26,7 @@ function applyDefaultEnv(env) {
 function runMidnightNode(env = process.env, args = []) {
   const newEnv = applyDefaultEnv(env);
 
-  const platform = getPlatform();
-  const parts = platform.split("-");
-  const binaryName = `midnight-node-${platform}`;
+  const binaryName = "midnight-node";
   const binaryPath = path.join(__dirname, "midnight-node", binaryName);
 
   console.log(

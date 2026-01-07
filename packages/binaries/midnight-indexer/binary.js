@@ -4,7 +4,7 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
-const CURRENT_BINARY_VERSION = "v2.1.4";
+const CURRENT_BINARY_VERSION = "v3.0.0-alpha.21";
 const FINAL_BINARY_NAME = "indexer-standalone";
 
 /*
@@ -85,16 +85,18 @@ async function unzipBinary() {
   const platform = getPlatform();
   const extractedBinaryPath = path.join(
     dir,
-    `indexer-standalone-${platform}`,
+    `indexer-standalone-${platform}-${CURRENT_BINARY_VERSION}`,
   );
   const finalBinaryPath = path.join(dir, FINAL_BINARY_NAME);
 
-  if (fs.existsSync(extractedBinaryPath) &&
-      extractedBinaryPath !== finalBinaryPath) {
+  // Rename the extracted file to indexer-standalone
+  if (fs.existsSync(extractedBinaryPath)) {
     if (fs.existsSync(finalBinaryPath)) {
       fs.unlinkSync(finalBinaryPath);
     }
     fs.renameSync(extractedBinaryPath, finalBinaryPath);
+  } else {
+    throw new Error(`Extracted binary not found at: ${extractedBinaryPath}`);
   }
 
   if (!fs.existsSync(finalBinaryPath)) {

@@ -1,3 +1,34 @@
+// Cleanup stale LevelDB BEFORE importing adapters (adapters initialize on import)
+import * as path from "@std/path";
+
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
+
+if (midnight_enabled) {
+  const baseDir = path.dirname(path.fromFileUrl(import.meta.url));
+  
+  // Clean up all midnight LevelDB directories (including process-specific ones from previous runs)
+  try {
+    for await (const entry of Deno.readDir(baseDir)) {
+      if (entry.isDirectory && entry.name.startsWith("midnight-level-db")) {
+        const dbPath = path.join(baseDir, entry.name);
+        try {
+          await Deno.remove(dbPath, { recursive: true });
+          console.log(`🧹 Cleaned up stale Midnight LevelDB directory: ${entry.name}`);
+        } catch (error) {
+          console.warn(`⚠️ Could not clean up ${entry.name}:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    // Ignore if baseDir doesn't exist or can't be read
+    if (!(error instanceof Deno.errors.NotFound)) {
+      console.warn("⚠️ Error cleaning up LevelDB directories:", error);
+    }
+  }
+}
+
+// Now import adapters after cleanup
 import { main, suspend } from "effection";
 import { createNewBatcher } from "@effectstream/batcher";
 import { config, storage } from "./config.ts";
@@ -13,9 +44,6 @@ import {
 const batcher = createNewBatcher(config, storage);
 const batchIntervalMs = 1000;
 
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
-
-const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
 batcher

@@ -71,9 +71,9 @@ export interface DeployConfig {
  * Network endpoint URLs for connecting to Midnight infrastructure
  */
 export interface NetworkUrls {
-  /** GraphQL indexer HTTP endpoint (default: http://127.0.0.1:8088/api/v1/graphql)*/
+  /** GraphQL indexer HTTP endpoint (default: http://127.0.0.1:8088/api/v3/graphql)*/
   indexer?: string;
-  /** GraphQL indexer WebSocket endpoint (default: ws://127.0.0.1:8088/api/v1/graphql/ws)*/
+  /** GraphQL indexer WebSocket endpoint (default: ws://127.0.0.1:8088/api/v3/graphql/ws)*/
   indexerWS?: string;
   /** Midnight node RPC endpoint (default: http://127.0.0.1:9944)*/
   node?: string;
@@ -85,8 +85,8 @@ export interface NetworkUrls {
  * Default network URLs for undeployed/local development
  */
 export const DEFAULT_NETWORK_URLS: Required<NetworkUrls> = {
-  indexer: "http://127.0.0.1:8088/api/v1/graphql",
-  indexerWS: "ws://127.0.0.1:8088/api/v1/graphql/ws",
+  indexer: "http://127.0.0.1:8088/api/v3/graphql",
+  indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
   node: "http://127.0.0.1:9944",
   proofServer: "http://127.0.0.1:6300",
 };
@@ -189,8 +189,10 @@ const configureProviders = async (
   );
   return {
     privateStateProvider: levelPrivateStateProvider({
+      midnightDbName: "midnight-level-db-deploy", // Use separate DB for deployment to avoid lock conflicts
       privateStateStoreName,
-    }),
+      walletProvider: walletAndMidnightProvider, // Use wallet's encryption key for private state
+    } as any), // Type assertion: runtime supports walletProvider even though types don't reflect it yet
     publicDataProvider: indexerPublicDataProvider(
       config.indexer,
       config.indexerWS,
@@ -282,6 +284,7 @@ export async function deployMidnightContract(
   setNetworkId(NetworkId.Undeployed);
 
   let wallet: (Wallet & Resource) | null = null;
+  let providers: Awaited<ReturnType<typeof configureProviders>> | null = null;
 
   try {
     log.info("Building wallet...");
@@ -320,11 +323,14 @@ export async function deployMidnightContract(
 
     log.info("Wallet built successfully.");
 
+    // Use a separate LevelDB directory for deployment to avoid lock conflicts with batcher
+    const deployPrivateStateStoreName = `${privateStateStoreName}-deploy`;
+    
     log.info("Configuring providers...");
-    const providers = await configureProviders(
+    providers = await configureProviders(
       wallet,
       networkConfig,
-      privateStateStoreName,
+      deployPrivateStateStoreName,
       zkConfigPath,
     );
     log.info("Providers configured.");
@@ -371,10 +377,17 @@ export async function deployMidnightContract(
     }
     throw e;
   } finally {
+    // Close wallet
     if (wallet) {
       log.info("Closing wallet...");
       log.info("Wallet closed.");
     }
+    
+    // Wait a moment for Level DB to finish any async close operations
+    // The levelPrivateStateProvider opens/closes DB for each operation in withSubLevel
+    // But there might be pending async operations
+    log.info("Waiting for Level DB cleanup...");
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 }
 
