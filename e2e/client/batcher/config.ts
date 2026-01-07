@@ -62,7 +62,6 @@ export const midnightAdapter = new MidnightAdapter(
   new SimpleToken.Contract(witnesses),
   witnesses,
   contractInfo,
-  0, // NetworkId.Undeployed,
   "parallelMidnight",
 );
 

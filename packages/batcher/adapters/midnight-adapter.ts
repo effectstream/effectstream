@@ -73,7 +73,6 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   private readonly contractAddress: string;
   private readonly config: MidnightAdapterConfig;
   private readonly contractInfo: ContractInfo;
-  private readonly networkId: number; // Legacy compact runtime network ID enum (0=Undeployed, 1=Devnet, 2=Testnet, 3=Mainnet)
   private readonly syncProtocolName: string;
   public readonly maxBatchSize?: number;
 
@@ -106,14 +105,12 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     contractInstance: any,
     witnesses: any,
     contractInfo: ContractInfo,
-    networkId: number, // Legacy compact runtime network ID enum (0=Undeployed, 1=Devnet, 2=Testnet, 3=Mainnet)
     syncProtocolName: string,
     maxBatchSize: number = 10000,
   ) {
     this.contractAddress = contractAddress;
     this.config = config;
     this.contractInfo = contractInfo;
-    this.networkId = networkId;
     this.syncProtocolName = syncProtocolName;
     this.maxBatchSize = maxBatchSize;
     this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
