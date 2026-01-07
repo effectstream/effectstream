@@ -115,7 +115,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     this.maxBatchSize = maxBatchSize;
     this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
     this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
-    this.walletNetworkId = config.walletNetworkId ?? "undeployed";
+    this.walletNetworkId = config.walletNetworkId ?? "undeployed" as WalletNetworkId.NetworkId;
 
     // Store contract info for lazy joining
     this.contractInstance = contractInstance;

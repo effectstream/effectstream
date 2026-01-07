@@ -479,6 +479,9 @@ async function sendMintToBatcherTest(
     "Send Mint to Batcher Test",
     () => Promise.resolve(status200 === 200),
   );
+  if (status200 === 200) {
+    sharedState.primitive_accounting_counter += 1;
+  }
 
   const statusBadInput = await sendMintToBatcher("not a number");
   console.log("🪙 Wrong input for Mint sent to batcher successfully:", statusBadInput);

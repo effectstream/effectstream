@@ -28,13 +28,30 @@ export class MidnightFetcher extends BaseDataFetcher<
   RootPage
 > {
   readonly client: MidnightClient;
+  private readonly networkId?: string;
   constructor(
     readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
+    const indexerHttp = config.syncProtocol.indexer;
+    const indexerWs =
+      (config.syncProtocol as any).indexerWS ??
+      (config.syncProtocol as any).indexerWs;
+    if (!indexerHttp || !indexerWs) {
+      throw new Error(
+        `Midnight sync protocol "${
+          config.syncProtocol.name
+        }" requires both indexer and indexerWS URLs. Received indexer=${
+          indexerHttp ?? "undefined"
+        }, indexerWS=${indexerWs ?? "undefined"}.`,
+      );
+    }
+    this.networkId = config.network?.networkId ??
+      (config.network as any)?.id;
     this.client = new MidnightClient(
-      config.syncProtocol.indexer ?? "http://127.0.0.1:8088/api/v3/graphql",
-      config.syncProtocol.indexerWS ?? "ws://127.0.0.1:8088/api/v3/graphql/ws",
+      indexerHttp,
+      indexerWs,
+      this.networkId,
     );
   }
 
@@ -45,7 +62,7 @@ export class MidnightFetcher extends BaseDataFetcher<
   ): Operation<DataFetched<Output, Page, RootPage>> {
     const outputs: OutputAndCleanup<Output>[] = [];
     console.log(
-      `[Midnight] Fetching blocks from ${data.from} to ${data.to}. ${
+      `[Midnight${this.networkId ? `:${this.networkId}` : ""}] Fetching blocks from ${data.from} to ${data.to}. ${
         data.isPresync ? "[presync]" : ""
       }`,
     );
