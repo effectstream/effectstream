@@ -75,8 +75,8 @@ const contractAddress = await deployMidnightContract(config);
 
 // Deploy with custom network URLs
 const networkUrls: NetworkUrls = {
-  indexer: "http://localhost:8088/api/v1/graphql",
-  indexerWS: "ws://localhost:8088/api/v1/graphql/ws",
+  indexer: "http://localhost:8088/api/v3/graphql",
+  indexerWS: "ws://localhost:8088/api/v3/graphql/ws",
   node: "http://localhost:9944",
   proofServer: "http://localhost:6300",
 };
@@ -109,8 +109,8 @@ function deployMidnightContract(
   - `extractWalletAddress`: Optional flag to extract wallet address info (for contracts that need initialOwner)
 
 - `networkUrls`: Optional network endpoint URLs. If not provided, defaults to local undeployed endpoints:
-  - `indexer`: GraphQL indexer HTTP endpoint (default: "http://127.0.0.1:8088/api/v1/graphql")
-  - `indexerWS`: GraphQL indexer WebSocket endpoint (default: "ws://127.0.0.1:8088/api/v1/graphql/ws")
+  - `indexer`: GraphQL indexer HTTP endpoint (default: "http://127.0.0.1:8088/api/v3/graphql")
+  - `indexerWS`: GraphQL indexer WebSocket endpoint (default: "ws://127.0.0.1:8088/api/v3/graphql/ws")
   - `node`: Midnight node RPC endpoint (default: "http://127.0.0.1:9944")
   - `proofServer`: Proof server HTTP endpoint (default: "http://127.0.0.1:6300")
 

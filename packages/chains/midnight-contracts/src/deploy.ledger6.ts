@@ -272,6 +272,11 @@ function configureProviders(
     walletDustSecretKey
   );
   return {
+    // For deployment, we use full private state config because we may need to verify
+    // the deployed contract state. For batcher/transaction submission use cases,
+    // a minimal config with just walletProvider is sufficient and much faster:
+    //   levelPrivateStateProvider({ walletProvider })
+    // Omitting privateStateStoreName/midnightDbName avoids historical private state sync.
     privateStateProvider: levelPrivateStateProvider({
       midnightDbName: "midnight-level-db-deploy", // Use separate DB for deployment to avoid lock conflicts
       privateStateStoreName,

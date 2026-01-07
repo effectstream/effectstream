@@ -135,7 +135,7 @@ export function safeStringifyProgress(value: unknown): string {
 export async function syncAndWaitForFunds(
   wallet: WalletFacade,
   options?: { timeoutMs?: number },
-): Promise<{ shieldedBalance: bigint; unshieldedBalance: bigint }> {
+): Promise<{ shieldedBalance: bigint; unshieldedBalance: bigint; dustBalance: bigint }> {
   log.info(
     "Waiting for wallet to sync and receive funds (shielded/unshielded/dust)..."
   );
@@ -260,13 +260,21 @@ export async function syncAndWaitForFunds(
     }
   }
   
-  return { shieldedBalance, unshieldedBalance };
+  // Try to resolve dust balance; if unavailable or times out, return 0n
+  let dustBalance = 0n;
+  try {
+    dustBalance = await waitForDustFunds(wallet, syncTimeoutMs);
+  } catch (_err) {
+    log.warn("Dust wallet did not report funds within timeout; continuing with dustBalance=0");
+  }
+  
+  return { shieldedBalance, unshieldedBalance, dustBalance };
 }
 
 /**
  * Wait for dust wallet sync and return dust balance if available.
  */
-async function waitForDustFunds(
+export async function waitForDustFunds(
   wallet: WalletFacade,
   syncTimeoutMs: number
 ): Promise<bigint> {
@@ -344,14 +352,20 @@ export function getInitialDustState(
   return Rx.firstValueFrom(dustWallet.state);
 }
 
+type NetworkIdCasing = "lower" | "upper";
+
 /**
- * Capitalize the network ID for ledger operations
- * The wallet SDK accepts lowercase network IDs (e.g., "undeployed"), but
- * ledger operations expect capitalized format (e.g., "Undeployed")
+ * Normalize network ID for ledger operations.
+ * Some ledger flows expect lowercase ("undeployed"), others expect capitalized ("Undeployed").
  */
-function capitalizeNetworkId(networkId: NetworkId.NetworkId): NetworkId.NetworkId {
-  if (typeof networkId !== 'string') return networkId;
-  return (networkId.charAt(0).toUpperCase() + networkId.slice(1).toLowerCase()) as NetworkId.NetworkId;
+function normalizeNetworkId(
+  networkId: NetworkId.NetworkId,
+  casing: NetworkIdCasing = "lower",
+): NetworkId.NetworkId {
+  if (typeof networkId !== "string") return networkId;
+  return (casing === "upper"
+    ? networkId.charAt(0).toUpperCase() + networkId.slice(1).toLowerCase()
+    : networkId.toLowerCase()) as NetworkId.NetworkId;
 }
 
 /**
@@ -360,10 +374,13 @@ function capitalizeNetworkId(networkId: NetworkId.NetworkId): NetworkId.NetworkI
  */
 export function createWalletConfiguration(
   networkUrls: Required<NetworkUrls>,
-  networkId: NetworkId.NetworkId
+  networkId: NetworkId.NetworkId,
+  options?: { ledgerNetworkCasing?: NetworkIdCasing },
 ): DefaultV1Configuration {
-  // Capitalize network ID for ledger operations (e.g., "undeployed" -> "Undeployed")
-  const capitalizedNetworkId = capitalizeNetworkId(networkId);
+  const normalizedNetworkId = normalizeNetworkId(
+    networkId,
+    options?.ledgerNetworkCasing ?? "lower",
+  );
   
   return {
     indexerClientConnection: {
@@ -372,7 +389,7 @@ export function createWalletConfiguration(
     },
     provingServerUrl: new URL(networkUrls.proofServer),
     relayURL: new URL(networkUrls.node.replace("http", "ws")),
-    networkId: capitalizedNetworkId,
+    networkId: normalizedNetworkId,
   };
 }
 
@@ -425,13 +442,14 @@ export async function buildUnshieldedWallet(
 export async function buildWalletFacade(
   networkUrls: Required<NetworkUrls>,
   seed: string,
-  networkId: NetworkId.NetworkId
+  networkId: NetworkId.NetworkId,
+  options?: { ledgerNetworkCasing?: NetworkIdCasing },
 ): Promise<WalletResult> {
   const shieldedSeed = deriveSeedForRole(seed, Roles.Zswap);
   const dustSeed = deriveSeedForRole(seed, Roles.Dust);
   const unshieldedSeed = deriveSeedForRole(seed, Roles.NightExternal);
 
-  const config = createWalletConfiguration(networkUrls, networkId);
+  const config = createWalletConfiguration(networkUrls, networkId, options);
 
   const shieldedWallet = buildShieldedWallet(config, shieldedSeed);
   const dustWallet = buildDustWallet(config, dustSeed);
