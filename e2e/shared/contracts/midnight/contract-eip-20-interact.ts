@@ -344,11 +344,8 @@ const configureProviders = async (
     wallet,
   );
   return {
-    privateStateProvider: levelPrivateStateProvider<
-      typeof SimpleTokenPrivateStateId
-    >({
-      privateStateStoreName: contractConfig.privateStateStoreName,
-    }),
+    // Old SDK: Empty config works fine - avoids historical private state sync
+    privateStateProvider: levelPrivateStateProvider({}),
     publicDataProvider: indexerPublicDataProvider(
       config.indexer,
       config.indexerWS,

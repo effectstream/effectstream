@@ -9,7 +9,8 @@ const config: DeployConfig = {
   contractFileName: "contract-eip-20.json",
   contractClass: SimpleToken.Contract,
   witnesses,
-  privateStateId: "simpletokenPrivateState",
+  // Must match interact + batcher adapter privateStateId
+  privateStateId: "simpleTokenPrivateState",
   initialPrivateState: {},
   deployArgs: [
     "TokenName",

@@ -22,7 +22,8 @@ export const midnightAdapter = midnightContractData ? new MidnightAdapter(
     proofServer: "http://localhost:6300",
     zkConfigPath: midnightContractData.zkConfigPath,
     privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
-    privateStateId: "simpletokenPrivateState", // On-chain contract ID (must match deploy.ts)
+    // Keep in sync with the contract deploy config / interact scripts
+    privateStateId: "simpleTokenPrivateState", // On-chain contract ID (must match deploy.ts)
     walletNetworkId: "undeployed",
     contractJoinTimeoutSeconds: 300, // Increase timeout to 5 minutes for private state sync
     walletFundingTimeoutSeconds: 300, // Increase wallet funding timeout to 5 minutes

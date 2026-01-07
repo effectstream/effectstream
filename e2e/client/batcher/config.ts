@@ -49,7 +49,8 @@ const midnightAdapterConfig = {
   proofServer: "http://localhost:6300",
   zkConfigPath,
   privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
-  privateStateId: "simpletokenPrivateState", // On-chain contract ID (must match deploy.ts)
+  // Keep in sync with deploy + interact scripts
+  privateStateId: "simpleTokenPrivateState", // On-chain contract ID (must match deploy.ts)
   walletNetworkId: "undeployed", // lowercase is the standard format
 }
 const GENESIS_MINT_WALLET_SEED =

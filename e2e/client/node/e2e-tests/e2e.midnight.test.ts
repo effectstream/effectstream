@@ -8,12 +8,12 @@ import {
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
-import {
-  type FinalizedTxData,
-  type ImpureCircuitId,
-  type MidnightProvider,
-  type MidnightProviders,
-  type WalletProvider,
+import type {
+  FinalizedTxData,
+  ImpureCircuitId,
+  MidnightProvider,
+  MidnightProviders,
+  WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
@@ -51,7 +51,7 @@ const contractConfig = {
   privateStateStoreName: "counter-private-state",
   zkConfigPath: resolve(
     dirname(new URL(import.meta.url).pathname),
-    "../../../shared/contracts/midnight/contract-counter/src/managed/counter",
+    "../../../shared/contracts/midnight/contract-counter/src/managed",
   ),
 };
 
@@ -73,9 +73,27 @@ class StandaloneConfig implements Config {
   node = "http://127.0.0.1:9944";
   proofServer = "http://127.0.0.1:6300";
   constructor() {
-    setNetworkId("Undeployed" as unknown as any);
+    // Use lowercase to match modular wallet network id ("undeployed")
+    setNetworkId("undeployed" as unknown as any);
   }
 }
+
+const assertIndexerHealthy = async (
+  config: Config,
+): Promise<void> => {
+  const blockQuery = `query { block { height } }`;
+  const res = await fetch(config.indexer, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: blockQuery }),
+  });
+  if (!res.ok) {
+    throw new Error(`Indexer unhealthy: HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const height = data?.data?.block?.height;
+  console.log(`✅ Indexer healthy. Current height: ${height ?? "unknown"}`);
+};
 
 /**
  * This seed gives access to tokens minted in the genesis block of a local development node - only
@@ -218,12 +236,14 @@ const configureProviders = (
     walletResult,
   );
   return {
-    privateStateProvider: levelPrivateStateProvider<
-      typeof CounterPrivateStateId
-    >({
+    // Use minimal private state config with privateStateStoreName and walletProvider.
+    // Omitting midnightDbName uses in-memory storage and avoids persisting/syncing
+    // full historical private state which can take minutes and timeout.
+    // We only need to submit transactions and read public ledger state.
+    privateStateProvider: levelPrivateStateProvider({
       privateStateStoreName: contractConfig.privateStateStoreName,
-      walletProvider: walletAndMidnightProvider, // Use wallet's encryption key for private state
-    } as any), // Type assertion: runtime supports walletProvider even though types don't reflect it yet
+      walletProvider: walletAndMidnightProvider,
+    } as any),
     publicDataProvider: indexerPublicDataProvider(
       config.indexer,
       config.indexerWS,
@@ -240,7 +260,7 @@ const configureProviders = (
 /**
  * Get contract address from command line arguments or from a file
  */
-const getContractAddress = async (): Promise<string> => {
+const getContractAddress = (): string => {
   // First try to get from command line arguments
   const contractAddressFromArgs = Deno.args[0];
 
@@ -339,7 +359,7 @@ async function joinAndIncrementTest(
   sharedState: SharedState,
 ): Promise<void> {
   // Get contract address from command line arguments or file
-  const contractAddress = await getContractAddress();
+  const contractAddress = getContractAddress();
 
   console.log(
     `🚀 Starting join and increment process for contract: ${contractAddress}`,
@@ -351,6 +371,9 @@ async function joinAndIncrementTest(
   let walletResult: WalletResult | null = null;
 
   try {
+    // Fail fast if indexer is down instead of waiting for join timeout
+    await assertIndexerHealthy(config);
+
     console.log("🔗 Building wallet with genesis seed for standalone mode...");
 
     // Build wallet using genesis seed (which has initial funds in standalone mode)
@@ -362,7 +385,7 @@ async function joinAndIncrementTest(
     console.log("✅ Wallet built successfully");
 
     // Configure providers
-    console.log("⚙️ Configuring providers...");
+    console.log("⚙️ - Configuring providers...");
     const providers = configureProviders(walletResult, config);
 
     console.log("✅ Providers configured successfully");
@@ -452,21 +475,25 @@ async function sendMintToBatcherTest(
 ): Promise<void> {
   const status200 = await sendMintToBatcher(20000);
   console.log("🪙 Correct input for Mint sent to batcher successfully with status:", status200);
-  await assert("Send Mint to Batcher Test", async () => {
-    return status200 === 200;
-  });
+  await assert(
+    "Send Mint to Batcher Test",
+    () => Promise.resolve(status200 === 200),
+  );
 
   const statusBadInput = await sendMintToBatcher("not a number");
   console.log("🪙 Wrong input for Mint sent to batcher successfully:", statusBadInput);
-  await assert("Send Mint to Batcher Test Bad Input", async () => {
-    return statusBadInput === 400;
-  });
+  await assert(
+    "Send Mint to Batcher Test Bad Input",
+    () => Promise.resolve(statusBadInput === 400),
+  );
 
   const statusBadConfirmationLevel = await sendMintToBatcher(20000, "wrong-confirmation-level");
   console.log("🪙 Wrong confirmation level for Mint sent to batcher successfully:", statusBadConfirmationLevel);
-  await assert("Send Mint to Batcher Test Bad Confirmation Level", async () => {
-    return statusBadConfirmationLevel === 400;
-  });
+  await assert(
+    "Send Mint to Batcher Test Bad Confirmation Level",
+    () => Promise.resolve(statusBadConfirmationLevel === 400),
+  );
 }
 
 export { joinAndIncrementTest, sendMintToBatcherTest };
+
