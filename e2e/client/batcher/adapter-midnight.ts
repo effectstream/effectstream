@@ -16,8 +16,8 @@ export const midnightAdapter = midnightContractData ? new MidnightAdapter(
   midnightContractData.contractAddress,
   Deno.env.get("MIDNIGHT_WALLET_SEED") ?? GENESIS_MINT_WALLET_SEED,
   {
-    indexer: "http://localhost:8088/api/v1/graphql",
-    indexerWS: "ws://localhost:8088/api/v1/graphql/ws",
+    indexer: "http://localhost:8088/api/v3/graphql",
+    indexerWS: "ws://localhost:8088/api/v3/graphql/ws",
     node: "http://localhost:9944",
     proofServer: "http://localhost:6300",
     zkConfigPath: midnightContractData.zkConfigPath,

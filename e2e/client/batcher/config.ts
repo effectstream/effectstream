@@ -43,14 +43,14 @@ const { contractInfo, contractAddress, zkConfigPath } = readMidnightContract(
   midnightContractsDir
 );
 const midnightAdapterConfig = {
-  indexer: "http://localhost:8088/api/v1/graphql",
-  indexerWS: "ws://localhost:8088/api/v1/graphql/ws",
+  indexer: "http://localhost:8088/api/v3/graphql",
+  indexerWS: "ws://localhost:8088/api/v3/graphql/ws",
   node: "http://localhost:9944",
   proofServer: "http://localhost:6300",
   zkConfigPath,
   privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
   privateStateId: "simpletokenPrivateState", // On-chain contract ID (must match deploy.ts)
-  walletNetworkId: "undeployed",
+  walletNetworkId: "undeployed", // lowercase is the standard format
 }
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";

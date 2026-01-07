@@ -235,8 +235,8 @@ export const config = new ConfigBuilder()
             startBlockHeight: 1,
             pollingInterval: 1000,
             delayMs: 18000,
-            indexer: "http://127.0.0.1:8088/api/v1/graphql",
-            indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
+            indexer: "http://127.0.0.1:8088/api/v3/graphql",
+            indexerWs: "ws://127.0.0.1:8088/api/v3/graphql/ws",
           }),
         );
     }
