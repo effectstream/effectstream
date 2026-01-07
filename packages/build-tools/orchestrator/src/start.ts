@@ -81,6 +81,7 @@ const ProcessLaunch = Type.Object({
   // If not provided, the default command is "deno"
   command: Type.Optional(Type.String()),
   cwd: Type.Optional(Type.String()),
+  env: Type.Optional(Type.Record(Type.String(), Type.String())),
 });
 
 /**
@@ -282,6 +283,7 @@ export async function start(
           critical,
           command,
           cwd,
+          env,
         } = task.config
         if (stopProcessAtPort.length > 0) {
           await dkill({ ports: stopProcessAtPort });
@@ -299,6 +301,7 @@ export async function start(
             args,
             component: name,
             cwd,
+            env,
             log: logs === 'none' ? undefined : logHandler(
               { disableStderr: disableStderr ?? false },
               logs === 'tsLogOrchestratorAdapter'

@@ -1,4 +1,5 @@
 import { ComponentNames } from "@effectstream/log";
+import { ENV } from "@effectstream/utils/node-env";
 
 
 // Substrate nodes (and many forks like Avail and Midnight) use the Rust tracing/log
@@ -37,6 +38,7 @@ export const launchMidnight = (packageName: string): {
   disableStderr?: boolean;
   type?: string;
   dependsOn?: string[];
+  env?: Record<string, string>;
 }[] => [
     {
       stopProcessAtPort: [9944, 8088, 6300],
@@ -121,6 +123,9 @@ export const launchMidnight = (packageName: string): {
         packageName,
         "midnight-contract:deploy",
       ],
+      env: {
+        MIDNIGHT_STORAGE_PASSWORD: ENV.MIDNIGHT_STORAGE_PASSWORD,
+      },
       dependsOn: [
         ComponentNames.MIDNIGHT_NODE_WAIT,
         ComponentNames.MIDNIGHT_INDEXER_WAIT,

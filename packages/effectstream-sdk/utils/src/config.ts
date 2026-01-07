@@ -11,6 +11,15 @@
 // TODO: Is it possible to do this automatically, or just once?
 import { load } from "@std/dotenv";
 
+// Generate a random 16-character hex string for Midnight storage password
+function generateRandomHex(length: number): string {
+  const bytes = new Uint8Array(length / 2);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+const MIDNIGHT_STORAGE_PASSWORD_DEFAULT = generateRandomHex(16);
+
 const EFFECTSTREAM_ENV = Deno.env.get("EFFECTSTREAM_ENV");
 if (EFFECTSTREAM_ENV) {
   await load({
@@ -217,6 +226,13 @@ const definitions: Record<string, ConfigDefinition> = {
     defaultValue: 10600,
     description: "Docs Port. Example: '10600'",
   },
+  MIDNIGHT_STORAGE_PASSWORD: {
+    key: "MIDNIGHT_STORAGE_PASSWORD",
+    isSecret: true,
+    type: "string",
+    defaultValue: MIDNIGHT_STORAGE_PASSWORD_DEFAULT,
+    description: "Midnight Storage Password. Used to run the new node version or deploy contracts on Midnight. A random 16-character hex string is generated if not provided.",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -305,6 +321,9 @@ export class ENV {
   }
   static get DOCS_PORT(): number {
     return ENV.getConfig(definitions.DOCS_PORT);
+  }
+  static get MIDNIGHT_STORAGE_PASSWORD(): string {
+    return ENV.getConfig(definitions.MIDNIGHT_STORAGE_PASSWORD);
   }
 
   public static getConfig<T>(config: ConfigDefinition): T {
