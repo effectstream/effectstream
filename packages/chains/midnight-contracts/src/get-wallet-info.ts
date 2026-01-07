@@ -352,36 +352,14 @@ export function getInitialDustState(
   return Rx.firstValueFrom(dustWallet.state);
 }
 
-type NetworkIdCasing = "lower" | "upper";
-
-/**
- * Normalize network ID for ledger operations.
- * Some ledger flows expect lowercase ("undeployed"), others expect capitalized ("Undeployed").
- */
-function normalizeNetworkId(
-  networkId: NetworkId.NetworkId,
-  casing: NetworkIdCasing = "lower",
-): NetworkId.NetworkId {
-  if (typeof networkId !== "string") return networkId;
-  return (casing === "upper"
-    ? networkId.charAt(0).toUpperCase() + networkId.slice(1).toLowerCase()
-    : networkId.toLowerCase()) as NetworkId.NetworkId;
-}
-
 /**
  * Create wallet configuration for the modular Midnight SDK
- * Accepts NetworkId enum values and normalizes them for ledger compatibility
+ * Accepts NetworkId enum values directly without normalization
  */
 export function createWalletConfiguration(
   networkUrls: Required<NetworkUrls>,
   networkId: NetworkId.NetworkId,
-  options?: { ledgerNetworkCasing?: NetworkIdCasing },
 ): DefaultV1Configuration {
-  const normalizedNetworkId = normalizeNetworkId(
-    networkId,
-    options?.ledgerNetworkCasing ?? "lower",
-  );
-  
   return {
     indexerClientConnection: {
       indexerHttpUrl: networkUrls.indexer,
@@ -389,7 +367,7 @@ export function createWalletConfiguration(
     },
     provingServerUrl: new URL(networkUrls.proofServer),
     relayURL: new URL(networkUrls.node.replace("http", "ws")),
-    networkId: normalizedNetworkId,
+    networkId: networkId,
   };
 }
 
@@ -437,19 +415,18 @@ export async function buildUnshieldedWallet(
 
 /**
  * Build a complete wallet facade with shielded, unshielded, and dust wallets
- * Expects NetworkId enum values (capitalized format required by ledger operations)
+ * Accepts NetworkId enum values directly
  */
 export async function buildWalletFacade(
   networkUrls: Required<NetworkUrls>,
   seed: string,
   networkId: NetworkId.NetworkId,
-  options?: { ledgerNetworkCasing?: NetworkIdCasing },
 ): Promise<WalletResult> {
   const shieldedSeed = deriveSeedForRole(seed, Roles.Zswap);
   const dustSeed = deriveSeedForRole(seed, Roles.Dust);
   const unshieldedSeed = deriveSeedForRole(seed, Roles.NightExternal);
 
-  const config = createWalletConfiguration(networkUrls, networkId, options);
+  const config = createWalletConfiguration(networkUrls, networkId);
 
   const shieldedWallet = buildShieldedWallet(config, shieldedSeed);
   const dustWallet = buildDustWallet(config, dustSeed);

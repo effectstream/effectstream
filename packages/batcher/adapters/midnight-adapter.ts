@@ -115,7 +115,6 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     this.maxBatchSize = maxBatchSize;
     this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
     this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
-    // Default to lowercase "undeployed" (NetworkId.NetworkId uses lowercase strings)
     this.walletNetworkId = config.walletNetworkId ?? "undeployed";
 
     // Store contract info for lazy joining
@@ -132,10 +131,9 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
    */
   private async initialize(walletSeed: string): Promise<void> {
     try {
-      // Derive compact runtime network name from walletNetworkId (capitalize first letter)
-      const compactNetworkId = this.walletNetworkId.charAt(0).toUpperCase() + 
-        this.walletNetworkId.slice(1).toLowerCase();
-      setNetworkId(compactNetworkId as any);
+      // Use lowercase network ID to match the wallet SDK expectations
+      // This is consistent with the working e2e tests and manual scripts
+      setNetworkId(this.walletNetworkId as any);
 
       console.log("🔗 Building Midnight wallet (modular SDK)...");
 
@@ -146,12 +144,10 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
         proofServer: this.config.proofServer,
       };
 
-      // Pass NetworkId enum directly - no normalization needed
       this.walletResult = await buildWalletFacade(
         networkUrls,
         walletSeed,
         this.walletNetworkId,
-        { ledgerNetworkCasing: "upper" }, // dust/ledger expect capitalized here
       );
 
       const initialState = await getInitialShieldedState(
@@ -652,6 +648,10 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
 
   /**
    * Query transaction status from indexer using GraphQL API
+   * 
+   * Note: The Midnight indexer v3 schema does not have an `applyStage` field.
+   * Instead, we check if the transaction is included in a block, which indicates
+   * successful execution. Transactions that fail validation are not included in blocks.
    */
   private async queryTransactionStatus(
     txId: string,
@@ -677,9 +677,12 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       );
 
       // Query the indexer for transaction details by hash
+      // The v3 indexer schema uses `transactions(offset: { hash })` and returns
+      // transaction with block info. If a transaction is included in a block,
+      // it's considered confirmed (failed transactions are rejected before inclusion).
       const query = `query ($hash: String!) {
         transactions(offset: { hash: $hash }) {
-          applyStage
+          hash
           block {
             height
           }
@@ -698,17 +701,16 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
 
       const tx = response.transactions[0];
 
-      if (!tx.block || !tx.applyStage) {
-        // Transaction exists but doesn't have complete data yet
+      if (!tx.block) {
+        // Transaction exists but not yet included in a block
         return null;
       }
 
-      // Transaction is confirmed if applyStage is SucceedEntirely
-      const applyStage = tx.applyStage;
-      const confirmed = applyStage === "SucceedEntirely";
-
+      // Transaction is confirmed if it's included in a block
+      // In Midnight, transactions that fail validation are rejected before inclusion,
+      // so presence in a block indicates successful execution
       return {
-        confirmed,
+        confirmed: true,
         blockNumber: BigInt(tx.block.height),
       };
     } catch (error) {
