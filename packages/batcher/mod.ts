@@ -34,6 +34,7 @@ export type { BlockchainAdapter, BatchBuildingOptions, BatchBuildingResult } fro
 export { PaimaL2DefaultAdapter } from "./adapters/paimal2-adapter.ts";
 export { MidnightAdapter } from "./adapters/midnight-adapter.ts";
 export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./adapters/bitcoin-adapter.ts";
+export { parseCircuitArgs } from "./adapters/mod.ts";
 export {
   EvmContractAdapter,
   type EvmContractAdapterConfig,

@@ -34,7 +34,7 @@ export class MidnightFetcher extends BaseDataFetcher<
     super(config.syncProtocol.name);
     this.client = new MidnightClient(
       config.syncProtocol.indexer,
-      config.syncProtocol.indexerWS ?? "ws://127.0.0.1:8088/api/v1/graphql/ws",
+      config.syncProtocol.indexerWS ?? "ws://127.0.0.1:8088/api/v3/graphql/ws",
     );
   }
 
