@@ -18,7 +18,7 @@ import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type MidnightGqlBlockState } from "./MidnightClient.ts";
 import type { EncodedStateValue } from "@effectstream/config";
-import { ContractState, NetworkId } from '@midnight-ntwrk/onchain-runtime';
+import { ContractState } from "@midnight-ntwrk/onchain-runtime";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -33,7 +33,7 @@ export class MidnightFetcher extends BaseDataFetcher<
   ) {
     super(config.syncProtocol.name);
     this.client = new MidnightClient(
-      config.syncProtocol.indexer,
+      config.syncProtocol.indexer ?? "http://127.0.0.1:8088/api/v3/graphql",
       config.syncProtocol.indexerWS ?? "ws://127.0.0.1:8088/api/v3/graphql/ws",
     );
   }
@@ -135,7 +135,7 @@ export class MidnightFetcher extends BaseDataFetcher<
         return c.address.padStart(longest, '0') === contractAddress.padStart(longest, '0');
       })!.state!;
       const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-      const contractState = ContractState.deserialize(byteState, primitiveEntry.primitive.networkId || NetworkId.Undeployed);
+      const contractState = ContractState.deserialize(byteState);
       const contract = primitiveEntry.primitive.contract;
       const state = contract.ledger(contractState.data as any);
       const pojoState = JSON.parse(JSON.stringify(

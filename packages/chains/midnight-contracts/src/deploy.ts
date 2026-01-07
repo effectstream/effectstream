@@ -377,7 +377,6 @@ export async function deployMidnightContract(
     }
     throw e;
   } finally {
-    // Close wallet
     if (wallet) {
       log.info("Closing wallet...");
       log.info("Wallet closed.");

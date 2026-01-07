@@ -19,4 +19,4 @@ tmp/
 # System files
 .DS_Store
 .cursor
-
+midnight-level-db*

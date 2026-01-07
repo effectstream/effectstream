@@ -20,14 +20,10 @@ export const ConfigNetworkSchemaMidnight = new ConfigSchema({
     name: Type.String(),
     type: Type.Literal(ConfigNetworkType.MIDNIGHT),
     /**
-     * TODO: possibly this should switch to either
-     * - a string following @midnight-ntwrk/midnight-js-network-id
-     * - a genesis hash (following Substrate standard)
-     *
-     * 0 for localhost
-     * 1 for devnet
+     * Canonical Midnight network identifier string
+     * (e.g. "undeployed", "devnet", "testnet", "preview").
      */
-    networkId: Type.Number(),
+    networkId: Type.String(),
     genesisHash: SubstrateGenesisHash,
   }),
   optional: Type.Object({}),

@@ -53,7 +53,7 @@ type MidnightPrimitive = BasePrimitive & {
   contract: {
     ledger: (data: EncodedStateValue) => any;
   };
-  networkId?: number;
+  networkId?: string;
   genesisHash?: string;
 };
 

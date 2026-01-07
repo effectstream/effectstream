@@ -85,7 +85,7 @@ async function unzipBinary() {
   const platform = getPlatform();
   const extractedBinaryPath = path.join(
     dir,
-    `indexer-standalone-${platform}-${CURRENT_BINARY_VERSION}`,
+    `indexer-standalone`,
   );
   const finalBinaryPath = path.join(dir, FINAL_BINARY_NAME);
 
