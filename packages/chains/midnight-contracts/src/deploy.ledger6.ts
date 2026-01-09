@@ -46,7 +46,7 @@ import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
-
+const MIDNIGHT_WALLET_SEED = Deno.env.get("MIDNIGHT_WALLET_SEED") ?? GENESIS_MINT_WALLET_SEED;
 /** Transaction TTL duration in milliseconds (1 hour) */
 const TTL_DURATION_MS = 60 * 60 * 1000;
 
@@ -57,7 +57,7 @@ const WALLET_SYNC_THROTTLE_MS = 10_000;
 const WALLET_SYNC_TIMEOUT_MS = 300_000;
 
 /** Network ID for local/undeployed development (align with SDK snippets) */
-const WALLET_NETWORK_ID: NetworkId.NetworkId = "undeployed";
+const MIDNIGHT_NETWORK_ID = Deno.env.get("MIDNIGHT_NETWORK_ID") as NetworkId.NetworkId ?? "undeployed";
 
 /** Additional fee overhead for dust transactions (in smallest unit) */
 const DUST_FEE_OVERHEAD = 300_000_000_000_000n;
@@ -103,6 +103,8 @@ export interface DeployConfig {
  * Network endpoint URLs for connecting to Midnight infrastructure
  */
 export interface NetworkUrls {
+  /** Optional network ID override */
+  id?: string;
   /** GraphQL indexer HTTP endpoint (default: http://127.0.0.1:8088/api/v3/graphql)*/
   indexer?: string;
   /** GraphQL indexer WebSocket endpoint (default: ws://127.0.0.1:8088/api/v3/graphql/ws)*/
@@ -116,7 +118,7 @@ export interface NetworkUrls {
 /**
  * Default network URLs for undeployed/local development
  */
-export const DEFAULT_NETWORK_URLS: Required<NetworkUrls> = {
+export const DEFAULT_NETWORK_URLS: Required<Omit<NetworkUrls, "id">> = {
   // Use v3 endpoints as in midnight-wallet docs snippets
   indexer: "http://127.0.0.1:8088/api/v3/graphql",
   indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
@@ -162,11 +164,12 @@ function checkEnvVariables(): void {
  * Build wallet and wait for funds
  */
 async function buildWalletAndWaitForFunds(
-  networkUrls: Required<NetworkUrls>,
-  seed: string
+  networkUrls: Required<Omit<NetworkUrls, "id">>,
+  seed: string,
+  networkId: NetworkId.NetworkId
 ): Promise<WalletResult> {
   log.info("Building wallet using modular SDK");
-  const result = await buildWalletFacade(networkUrls, seed, WALLET_NETWORK_ID);
+  const result = await buildWalletFacade(networkUrls, seed, networkId);
 
   const initialState = await getInitialShieldedState(result.wallet.shielded);
   const address = initialState.address.coinPublicKeyString();
@@ -259,7 +262,7 @@ function configureProviders(
   walletZswapSecretKeys: ZswapSecretKeys,
   dustSecretKey: DustSecretKey,
   walletDustSecretKey: DustSecretKey,
-  networkUrls: Required<NetworkUrls>,
+  networkUrls: Required<Omit<NetworkUrls, "id">>,
   privateStateStoreName: string,
   zkConfigPath: string
 ) {
@@ -422,16 +425,18 @@ export async function deployMidnightContract(
     `${config.contractName.replace("contract-", "")}-private-state`;
 
   // Merge network URLs with defaults
-  const resolvedNetworkUrls: Required<NetworkUrls> = {
+  const { id: networkIdOverride, ...endpoints } = networkUrls ?? {};
+  const resolvedNetworkUrls: Required<Omit<NetworkUrls, "id">> = {
     ...DEFAULT_NETWORK_URLS,
-    ...(networkUrls ?? {}),
+    ...endpoints,
   };
+  const resolvedNetworkId = (networkIdOverride ?? MIDNIGHT_NETWORK_ID) as NetworkId.NetworkId;
 
   log.info(
-    `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${WALLET_NETWORK_ID}`
+    `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${resolvedNetworkId}`
   );
 
-  setNetworkId(WALLET_NETWORK_ID);
+  setNetworkId(resolvedNetworkId);
 
   let walletResult: WalletResult | null = null;
   let providers: ReturnType<typeof configureProviders> | null = null;
@@ -440,7 +445,8 @@ export async function deployMidnightContract(
     log.info("Building wallet...");
     walletResult = await buildWalletAndWaitForFunds(
       resolvedNetworkUrls,
-      GENESIS_MINT_WALLET_SEED
+      MIDNIGHT_WALLET_SEED,
+      resolvedNetworkId
     );
 
     const {
@@ -537,14 +543,14 @@ export async function deployMidnightContract(
     }
     
     // Merge new address for this network
-    existingAddresses[WALLET_NETWORK_ID] = contractAddress;
+    existingAddresses[resolvedNetworkId] = contractAddress;
     
     // Write merged addresses
     await Deno.writeTextFile(
       outputPath,
       JSON.stringify({ contractAddress: existingAddresses }, null, 2)
     );
-    log.info(`Contract address saved to ${outputPath} (network: ${WALLET_NETWORK_ID})`);
+    log.info(`Contract address saved to ${outputPath} (network: ${resolvedNetworkId})`);
 
     return contractAddress;
   } catch (e) {

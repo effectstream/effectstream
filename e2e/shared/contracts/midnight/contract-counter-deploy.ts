@@ -1,4 +1,5 @@
 import { deployMidnightContract, type DeployConfig } from "@effectstream/midnight-contracts/deploy-ledger6";
+import { midnightNetworkConfig } from "../../midnight-env.ts";
 import {
   Counter,
   type CounterPrivateState,
@@ -15,7 +16,10 @@ const config: DeployConfig = {
   privateStateStoreName: "counter-private-state",
 };
 
-deployMidnightContract(config)
+
+console.log("Deploying contract with network config:", midnightNetworkConfig);
+
+deployMidnightContract(config, midnightNetworkConfig)
   .then(() => {
     console.log("Deployment successful");
     Deno.exit(0);

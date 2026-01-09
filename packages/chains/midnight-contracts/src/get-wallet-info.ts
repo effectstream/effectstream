@@ -465,6 +465,24 @@ export function getInitialShieldedState(
 }
 
 /**
+ * Get initial state of unshielded wallet
+ */
+function getInitialUnshieldedState(
+  // deno-lint-ignore no-explicit-any
+  unshieldedWallet: any
+// deno-lint-ignore no-explicit-any
+): Promise<any> {
+  if (!unshieldedWallet) return Promise.resolve(null);
+  if (unshieldedWallet.state && typeof unshieldedWallet.state.pipe === 'function') {
+    return Rx.firstValueFrom(unshieldedWallet.state);
+  }
+  if (typeof unshieldedWallet.state === 'function') {
+    return Rx.firstValueFrom(unshieldedWallet.state());
+  }
+  return Promise.resolve(null);
+}
+
+/**
  * Register unshielded Night UTXOs for dust generation
  * This is required before the wallet can pay transaction fees
  */

@@ -10,12 +10,15 @@ const DEFAULT_NETWORK_ID = "undeployed";
 export const midnightNetworkId = (Deno.env.get("MIDNIGHT_NETWORK_ID") ??
   DEFAULT_NETWORK_ID).toLowerCase();
 
+const DEFAULT_WALLET_SEED = "0000000000000000000000000000000000000000000000000000000000000001";
+
 export const midnightNetworkConfig = {
   id: midnightNetworkId,
   indexer: env("MIDNIGHT_INDEXER_HTTP", DEFAULT_INDEXER_HTTP),
   indexerWS: env("MIDNIGHT_INDEXER_WS", DEFAULT_INDEXER_WS),
   node: env("MIDNIGHT_NODE_HTTP", DEFAULT_NODE_HTTP),
   proofServer: env("MIDNIGHT_PROOF_SERVER", DEFAULT_PROOF_SERVER),
+  walletSeed: env("MIDNIGHT_WALLET_SEED", DEFAULT_WALLET_SEED),
 };
 
 export type MidnightNetworkConfig = typeof midnightNetworkConfig;
