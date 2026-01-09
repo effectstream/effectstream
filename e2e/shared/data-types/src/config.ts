@@ -13,8 +13,7 @@ import type { BlockNumber } from "@effectstream/utils";
 import { paimaL2Grammar } from "./grammar.ts";
 import {
   midnightNetworkConfig,
-  midnightNetworkId,
-} from "../../midnight-env.ts";
+} from "@effectstream/midnight-contracts/midnight-env";
 import {
   PrimitiveTypeAvailGeneric,
   PrimitiveTypeEVMERC1155,
@@ -120,9 +119,7 @@ export const config = new ConfigBuilder()
         .addNetwork({
           name: "midnight",
           type: ConfigNetworkType.MIDNIGHT,
-          genesisHash:
-            "0x0000000000000000000000000000000000000000000000000000000000000001",
-          networkId: midnightNetworkId,
+          networkId: midnightNetworkConfig.id,
           nodeUrl: midnightNetworkConfig.node,
         });
     }
@@ -384,7 +381,7 @@ export const config = new ConfigBuilder()
             contractAddress: counterAddress,
             stateMachinePrefix: "midnightContractState",
             contract: { ledger: CounterContract.ledger },
-            networkId: "undeployed",
+            networkId: midnightNetworkConfig.id,
           }),
         ).addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
@@ -395,7 +392,7 @@ export const config = new ConfigBuilder()
             contractAddress: eip20Address,
             stateMachinePrefix: "eip20ContractState",
             contract: { ledger: SimpleTokenContract.ledger },
-            networkId: "undeployed",
+            networkId: midnightNetworkConfig.id,
           }),
         );
     }

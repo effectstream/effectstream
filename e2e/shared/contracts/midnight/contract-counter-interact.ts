@@ -114,8 +114,13 @@ class StandaloneConfig implements Config {
  * This seed gives access to tokens minted in the genesis block of a local development node - only
  * used in standalone networks to build a wallet with initial funds.
  */
-const GENESIS_MINT_WALLET_SEED =
-  "0000000000000000000000000000000000000000000000000000000000000001";
+import { midnightNetworkConfig } from "../../midnight-env.ts";
+
+/**
+ * Default wallet seed.
+ * In the case of the undeployed (local) network, this is the genesis seed that has initial funds.
+ */
+const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
 // Standalone helper functions
 const counterContractInstance: CounterContract = new Counter.Contract(
@@ -426,12 +431,12 @@ async function joinAndIncrement(): Promise<void> {
   let wallet = null;
 
   try {
-    console.log("🔗 Building wallet with genesis seed for standalone mode...");
+    console.log("🔗 Building wallet with default wallet seed...");
 
-    // Build wallet using genesis seed (which has initial funds in standalone mode)
+    // Build wallet using default wallet seed (genesis seed in standalone mode)
     wallet = await buildWalletAndWaitForFunds(
       config,
-      GENESIS_MINT_WALLET_SEED,
+      DEFAULT_WALLET_SEED,
       "contract-counter.json",
     );
 

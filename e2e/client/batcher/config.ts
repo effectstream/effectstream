@@ -10,7 +10,7 @@ import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { SimpleToken, witnesses } from "@e2e/midnight-contracts/eip-20";
 import { dirname, resolve } from "@std/path";
-import { midnightNetworkConfig, midnightNetworkId } from "../../shared/midnight-env.ts";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 
 // Resolve the base directory for midnight contracts
 const currentDir = dirname(new URL(import.meta.url).pathname);
@@ -52,13 +52,12 @@ const midnightAdapterConfig = {
   privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
   // Keep in sync with deploy + interact scripts
   privateStateId: "simpleTokenPrivateState", // On-chain contract ID (must match deploy.ts)
-  walletNetworkId: midnightNetworkId, // lowercase is the standard format
+  walletNetworkId: midnightNetworkConfig.id, // lowercase is the standard format
 }
-const GENESIS_MINT_WALLET_SEED =
-  "0000000000000000000000000000000000000000000000000000000000000001";
+const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 export const midnightAdapter = new MidnightAdapter(
   contractAddress,
-  GENESIS_MINT_WALLET_SEED,
+  DEFAULT_WALLET_SEED,
   midnightAdapterConfig,
   new SimpleToken.Contract(witnesses),
   witnesses,

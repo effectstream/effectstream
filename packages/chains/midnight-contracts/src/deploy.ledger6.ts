@@ -12,15 +12,9 @@ import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import * as path from "@std/path";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
-import { findContractDirectoryForDeploy } from "./read-contract.ts";
 import {
-  type WalletResult,
-  buildWalletFacade,
-  syncAndWaitForFunds,
-  getInitialShieldedState,
-  resolveWalletSyncTimeoutMs,
-  safeStringifyProgress,
-} from "./get-wallet-info.ts";
+  midnightNetworkConfig,
+} from "./midnight-env.ts";
 
 // Declare Deno global for type-checking when not executed under Deno tooling.
 declare const Deno: typeof globalThis.Deno;
@@ -44,9 +38,6 @@ import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 // Constants
 // ============================================================================
 
-const GENESIS_MINT_WALLET_SEED =
-  "0000000000000000000000000000000000000000000000000000000000000001";
-const MIDNIGHT_WALLET_SEED = Deno.env.get("MIDNIGHT_WALLET_SEED") ?? GENESIS_MINT_WALLET_SEED;
 /** Transaction TTL duration in milliseconds (1 hour) */
 const TTL_DURATION_MS = 60 * 60 * 1000;
 
@@ -55,9 +46,6 @@ const WALLET_SYNC_THROTTLE_MS = 10_000;
 
 /** Wallet sync timeout (5 minutes) */
 const WALLET_SYNC_TIMEOUT_MS = 300_000;
-
-/** Network ID for local/undeployed development (align with SDK snippets) */
-const MIDNIGHT_NETWORK_ID = Deno.env.get("MIDNIGHT_NETWORK_ID") as NetworkId.NetworkId ?? "undeployed";
 
 /** Additional fee overhead for dust transactions (in smallest unit) */
 const DUST_FEE_OVERHEAD = 300_000_000_000_000n;
@@ -114,17 +102,6 @@ export interface NetworkUrls {
   /** Proof server HTTP endpoint (default: http://127.0.0.1:6300)*/
   proofServer?: string;
 }
-
-/**
- * Default network URLs for undeployed/local development
- */
-export const DEFAULT_NETWORK_URLS: Required<Omit<NetworkUrls, "id">> = {
-  // Use v3 endpoints as in midnight-wallet docs snippets
-  indexer: "http://127.0.0.1:8088/api/v3/graphql",
-  indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
-  node: "http://127.0.0.1:9944",
-  proofServer: "http://127.0.0.1:6300",
-};
 
 // WalletResult is now imported from get-wallet-info.ts
 
@@ -427,10 +404,12 @@ export async function deployMidnightContract(
   // Merge network URLs with defaults
   const { id: networkIdOverride, ...endpoints } = networkUrls ?? {};
   const resolvedNetworkUrls: Required<Omit<NetworkUrls, "id">> = {
-    ...DEFAULT_NETWORK_URLS,
-    ...endpoints,
+    indexer: endpoints.indexer ?? midnightNetworkConfig.indexer,
+    indexerWS: endpoints.indexerWS ?? midnightNetworkConfig.indexerWS,
+    node: endpoints.node ?? midnightNetworkConfig.node,
+    proofServer: endpoints.proofServer ?? midnightNetworkConfig.proofServer,
   };
-  const resolvedNetworkId = (networkIdOverride ?? MIDNIGHT_NETWORK_ID) as NetworkId.NetworkId;
+  const resolvedNetworkId = (networkIdOverride ?? midnightNetworkConfig.id) as NetworkId.NetworkId;
 
   log.info(
     `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${resolvedNetworkId}`
@@ -445,7 +424,7 @@ export async function deployMidnightContract(
     log.info("Building wallet...");
     walletResult = await buildWalletAndWaitForFunds(
       resolvedNetworkUrls,
-      MIDNIGHT_WALLET_SEED,
+      midnightNetworkConfig.walletSeed!,
       resolvedNetworkId
     );
 

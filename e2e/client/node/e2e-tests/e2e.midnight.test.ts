@@ -29,9 +29,13 @@ import {
   type NetworkUrls as MidnightNetworkUrls,
   type WalletResult,
 } from "@effectstream/midnight-contracts/wallet-info";
+import {
+  midnightNetworkConfig,
+} from "@effectstream/midnight-contracts/midnight-env";
 import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
 import { WebSocket } from "ws";
+
 
 const BATCHER_URL = "http://localhost:3334";
 globalThis.WebSocket = WebSocket;
@@ -68,13 +72,12 @@ interface Config {
 
 class StandaloneConfig implements Config {
   logDir = "logs/standalone";
-  indexer = "http://127.0.0.1:8088/api/v3/graphql";
-  indexerWS = "ws://127.0.0.1:8088/api/v3/graphql/ws";
-  node = "http://127.0.0.1:9944";
-  proofServer = "http://127.0.0.1:6300";
+  indexer = midnightNetworkConfig.indexer;
+  indexerWS = midnightNetworkConfig.indexerWS;
+  node = midnightNetworkConfig.node;
+  proofServer = midnightNetworkConfig.proofServer;
   constructor() {
-    // Use lowercase to match modular wallet network id ("undeployed")
-    setNetworkId("undeployed" as unknown as any);
+    setNetworkId(midnightNetworkConfig.id as any);
   }
 }
 
@@ -96,11 +99,10 @@ const assertIndexerHealthy = async (
 };
 
 /**
- * This seed gives access to tokens minted in the genesis block of a local development node - only
- * used in standalone networks to build a wallet with initial funds.
+ * Default wallet seed. 
+ * For the undeployed (local) network, this is the genesis seed that has initial funds.
  */
-const GENESIS_MINT_WALLET_SEED =
-  "0000000000000000000000000000000000000000000000000000000000000001";
+const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
 // Standalone helper functions
 const counterContractInstance: any = new Counter.Contract(
@@ -215,7 +217,7 @@ const buildWalletAndWaitForFunds = async (
   const walletResult = await buildWalletFacade(
     networkUrls,
     seed,
-    "undeployed",
+    midnightNetworkConfig.id,
   );
 
   const shieldedState = await getInitialShieldedState(
@@ -374,12 +376,12 @@ async function joinAndIncrementTest(
     // Fail fast if indexer is down instead of waiting for join timeout
     await assertIndexerHealthy(config);
 
-    console.log("🔗 Building wallet with genesis seed for standalone mode...");
+    console.log("🔗 Building wallet with default wallet seed...");
 
-    // Build wallet using genesis seed (which has initial funds in standalone mode)
+    // Build wallet using default wallet seed (genesis seed in standalone mode)
     walletResult = await buildWalletAndWaitForFunds(
       config,
-      GENESIS_MINT_WALLET_SEED,
+      DEFAULT_WALLET_SEED,
     );
 
     console.log("✅ Wallet built successfully");

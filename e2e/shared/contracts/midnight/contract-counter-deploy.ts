@@ -1,5 +1,5 @@
 import { deployMidnightContract, type DeployConfig } from "@effectstream/midnight-contracts/deploy-ledger6";
-import { midnightNetworkConfig } from "../../midnight-env.ts";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import {
   Counter,
   type CounterPrivateState,
