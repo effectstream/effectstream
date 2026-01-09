@@ -276,7 +276,10 @@ const getContractAddress = (): string => {
   // If not provided via args, try to read from contract_address.txt file
 
   try {
-    const contractAddressFromFile = readMidnightContract("contract-counter", "contract-counter.json").contractAddress;
+    const contractAddressFromFile = readMidnightContract(
+      "contract-counter",
+      { networkId: midnightNetworkConfig.id },
+    ).contractAddress;
 
     if (contractAddressFromFile) {
       console.log(

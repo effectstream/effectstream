@@ -11,7 +11,6 @@ const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 const midnightContractData = midnight_enabled
   ? readMidnightContract(
     "contract-eip-20",
-    "contract-eip-20.json", // use common contract.json
     { networkId: midnightNetworkConfig.id },
   )
   : null;

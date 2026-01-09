@@ -369,8 +369,14 @@ export const config = new ConfigBuilder()
       );
     }
     if (midnight_enabled) {
-      const counterAddress = readMidnightContract("contract-counter", "contract-counter.json").contractAddress;
-      const eip20Address = readMidnightContract("contract-eip-20", "contract-eip-20.json").contractAddress;
+      const counterAddress = readMidnightContract(
+        "contract-counter",
+        { networkId: midnightNetworkConfig.id },
+      ).contractAddress;
+      const eip20Address = readMidnightContract(
+        "contract-eip-20",
+        { networkId: midnightNetworkConfig.id },
+      ).contractAddress;
       builder = builder
         .addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,

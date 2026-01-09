@@ -113,12 +113,10 @@ if (Deno) {
     try {
       const counterContract = readMidnightContract(
         "contract-counter",
-        "contract-counter.json", // same file for all networks
         { networkId: midnightNetworkConfig.id },
       );
       const eip20Contract = readMidnightContract(
         "contract-eip-20",
-        "contract-eip-20.json", // same file for all networks
         { networkId: midnightNetworkConfig.id },
       );
       midnightCounterAddress = counterContract.contractAddress;

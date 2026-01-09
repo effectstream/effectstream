@@ -12,7 +12,7 @@
         "midnight-indexer:wait": "wait-on tcp:8088",
         "midnight-proof-server:start": "RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @effectstream/npm-midnight-proof-server",
         "midnight-proof-server:wait": "wait-on tcp:6300",
-        "midnight-contract:clean": "rm -rf midnight-level-db contract-eip-20.json contract-counter.json",
+        "midnight-contract:clean": "rm -rf midnight-level-db contract-eip-20.undeployed.json contract-counter.undeployed.json",
         "midnight-contract:deploy": "deno task contract-eip20:deploy && deno task contract-counter:deploy",
         "contract-counter:deploy": "deno --unstable-detect-cjs -A contract-counter-deploy.ts",
         "contract-eip20:deploy": "deno --unstable-detect-cjs -A contract-eip-20-deploy.ts"

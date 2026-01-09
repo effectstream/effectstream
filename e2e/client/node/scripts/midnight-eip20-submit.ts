@@ -88,7 +88,6 @@ async function main() {
 
   const { contractAddress, contractInfo, zkConfigPath } = readMidnightContract(
     "contract-eip-20",
-    "contract-eip-20.json",
     { networkId: midnightNetworkConfig.id },
   );
 

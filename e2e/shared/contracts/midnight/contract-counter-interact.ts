@@ -116,6 +116,9 @@ class StandaloneConfig implements Config {
  */
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 
+const contractNetworkId = midnightNetworkConfig.id ?? "undeployed";
+const contractAddressFileName = `contract-counter.${contractNetworkId}.json`;
+
 /**
  * Default wallet seed.
  * In the case of the undeployed (local) network, this is the genesis seed that has initial funds.
@@ -370,7 +373,7 @@ const getContractAddress = async (): Promise<string> => {
   }
 
   // If not provided via args, try to read from contract_address.txt file
-  const contractAddressFile = resolve(currentDir, "contract-counter.json");
+  const contractAddressFile = resolve(currentDir, contractAddressFileName);
 
   try {
     if (await exists(contractAddressFile)) {
@@ -437,7 +440,7 @@ async function joinAndIncrement(): Promise<void> {
     wallet = await buildWalletAndWaitForFunds(
       config,
       DEFAULT_WALLET_SEED,
-      "contract-counter.json",
+      contractAddressFileName,
     );
 
     console.log("✅ Wallet built successfully");

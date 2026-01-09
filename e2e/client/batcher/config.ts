@@ -40,8 +40,10 @@ export const paimaL2Adapter = new PaimaL2DefaultAdapter(
 
 const { contractInfo, contractAddress, zkConfigPath } = readMidnightContract(
   "contract-eip-20",
-  "contract-eip-20.json",
-  { baseDir: midnightContractsDir }
+  {
+    baseDir: midnightContractsDir,
+    networkId: midnightNetworkConfig.id,
+  },
 );
 const midnightAdapterConfig = {
   indexer: midnightNetworkConfig.indexer,
