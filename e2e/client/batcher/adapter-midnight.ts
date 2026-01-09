@@ -3,7 +3,7 @@ import { SimpleToken, witnesses } from "@e2e/midnight-contracts/eip-20";
 import { MidnightAdapter } from "@effectstream/batcher";
 import {
   midnightNetworkConfig,
-} from "../../shared/midnight-env.ts";
+} from "@effectstream/midnight-contracts/midnight-env";
 
 const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
@@ -11,7 +11,7 @@ const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 const midnightContractData = midnight_enabled
   ? readMidnightContract(
     "contract-eip-20",
-    "contract.json", // use common contract.json
+    "contract-eip-20.json", // use common contract.json
     { networkId: midnightNetworkConfig.id },
   )
   : null;
