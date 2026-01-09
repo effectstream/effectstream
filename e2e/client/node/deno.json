@@ -48,7 +48,7 @@
     "@midnight-ntwrk/wallet-sdk-facade": "npm:@midnight-ntwrk/wallet-sdk-facade@1.0.0-beta.12",
     "@midnight-ntwrk/wallet-sdk-hd": "npm:@midnight-ntwrk/wallet-sdk-hd@3.0.0-beta.7",
     "@midnight-ntwrk/wallet-sdk-shielded": "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.11",
-    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.13",
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.14",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v1@1.0.0-alpha.5",
     "@midnight-ntwrk/wallet": "npm:@midnight-ntwrk/wallet@^5.0.0",
     "@midnight-ntwrk/wallet-api": "npm:@midnight-ntwrk/wallet-api@^5.0.0",

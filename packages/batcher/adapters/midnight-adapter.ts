@@ -355,7 +355,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
         try {
           const dust = await waitForDustFunds(
             this.walletResult.wallet,
-            this.walletFundingTimeoutMs,
+            { timeoutMs: this.walletFundingTimeoutMs, waitNonZero: true }
           );
           if (this.lastFundingBalances) {
             this.lastFundingBalances.dustBalance = dust;
@@ -381,13 +381,14 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     try {
       const balances = await syncAndWaitForFunds(this.walletResult.wallet, {
         timeoutMs: this.walletFundingTimeoutMs,
+        waitNonZero: false, // We want to proceed even if 0, and check dust specifically after
       });
       // If dust is missing but we have unshielded funds, try to sync dust explicitly
       if (balances.dustBalance === 0n && balances.unshieldedBalance > 0n) {
         try {
           const dust = await waitForDustFunds(
             this.walletResult.wallet,
-            this.walletFundingTimeoutMs,
+            { timeoutMs: this.walletFundingTimeoutMs, waitNonZero: true }
           );
           balances.dustBalance = dust;
         } catch (_err) {

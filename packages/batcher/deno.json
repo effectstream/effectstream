@@ -23,7 +23,7 @@
     "@midnight-ntwrk/wallet-sdk-shielded": "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.11",
     "@midnight-ntwrk/wallet-sdk-shielded/v1": "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.11/v1",
     "@midnight-ntwrk/wallet-sdk-dust-wallet": "npm:@midnight-ntwrk/wallet-sdk-dust-wallet@1.0.0-beta.11",
-    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.13",
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.14",
     "@midnight-ntwrk/ledger-v6": "npm:@midnight-ntwrk/ledger-v6@6.1.0-alpha.6",
     "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts@3.0.0-alpha.11",
     "@midnight-ntwrk/midnight-js-types": "npm:@midnight-ntwrk/midnight-js-types@3.0.0-alpha.11",

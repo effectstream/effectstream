@@ -103,7 +103,6 @@
     "npm:@midnight-ntwrk/wallet-sdk-facade@1.0.0-beta.12": "1.0.0-beta.12_ws@8.18.1",
     "npm:@midnight-ntwrk/wallet-sdk-hd@3.0.0-beta.7": "3.0.0-beta.7",
     "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.11": "1.0.0-beta.11_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10",
-    "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.13": "1.0.0-beta.13_ws@8.18.1",
     "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.14": "1.0.0-beta.14_ws@8.18.1",
     "npm:@midnight-ntwrk/wallet@5": "5.0.0_rxjs@7.8.2_@midnight-ntwrk+zswap@4.0.0_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10",
     "npm:@midnight-ntwrk/wallet@5.0.0": "5.0.0_rxjs@7.8.2_@midnight-ntwrk+zswap@4.0.0_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10",
@@ -142,6 +141,7 @@
     "npm:@sinclair/typebox@*": "0.34.41",
     "npm:@sinclair/typebox@0.34.41": "0.34.41",
     "npm:@subsquid/ss58-codec@^1.2.3": "1.2.3",
+    "npm:@txpipe/dolos@*": "0.19.1",
     "npm:@txpipe/dolos@0.19.1": "0.19.1",
     "npm:@types/node@*": "24.2.0",
     "npm:@types/react@18.3.1": "18.3.1",
@@ -233,12 +233,14 @@
     "npm:typescript@~5.6.2": "5.6.3",
     "npm:varuint-bitcoin@^1.1.2": "1.1.2",
     "npm:viem@*": "2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.1.0__utf-8-validate@5.0.10",
+    "npm:viem@2.23.10": "2.23.10_typescript@5.6.3_ws@8.18.1",
     "npm:viem@2.37.3": "2.37.3_typescript@5.6.3_ws@8.18.3__bufferutil@4.1.0__utf-8-validate@5.0.10",
     "npm:viem@^2.21.3": "2.43.5_typescript@5.6.3_ws@8.18.3__bufferutil@4.1.0__utf-8-validate@5.0.10",
     "npm:vite-plugin-node-stdlib-browser@*": "0.2.1_node-stdlib-browser@1.3.1_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0",
     "npm:vite-plugin-static-copy@^3.1.1": "3.1.4_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0",
     "npm:vite-plugin-top-level-await@^1.6.0": "1.6.0_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0",
     "npm:vite-plugin-wasm@^3.5.0": "3.5.0_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0",
+    "npm:vite@*": "7.1.3_picomatch@4.0.3_@types+node@24.2.0",
     "npm:vite@7.1.3": "7.1.3_picomatch@4.0.3_@types+node@24.2.0",
     "npm:vitest@^3.2.4": "3.2.4_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0",
     "npm:wagmi@^2.16.9": "2.19.5_@tanstack+react-query@5.90.16__react@18.3.1_react@18.3.1_typescript@5.6.3_viem@2.37.3__typescript@5.6.3__ws@8.18.3___bufferutil@4.1.0___utf-8-validate@5.0.10_@wagmi+core@2.22.1__typescript@5.6.3__viem@2.37.3___typescript@5.6.3___ws@8.18.3____bufferutil@4.1.0____utf-8-validate@5.0.10__@types+react@18.3.1__react@18.3.1__use-sync-external-store@1.4.0___react@18.3.1_@types+react@18.3.1_use-sync-external-store@1.4.0__react@18.3.1_ws@8.18.1",
@@ -3960,7 +3962,7 @@
         "@midnight-ntwrk/wallet-sdk-dust-wallet",
         "@midnight-ntwrk/wallet-sdk-hd",
         "@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.12_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10",
-        "@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.14_ws@8.18.1",
+        "@midnight-ntwrk/wallet-sdk-unshielded-wallet",
         "rxjs"
       ]
     },
@@ -3970,19 +3972,6 @@
         "@scure/base@1.2.6",
         "@scure/bip32@1.7.0",
         "@scure/bip39@1.6.0"
-      ]
-    },
-    "@midnight-ntwrk/wallet-sdk-indexer-client@1.0.0-beta.12_effect@3.19.14_graphql@16.12.0_ws@8.18.1": {
-      "integrity": "sha512-n1B0vX3i60xs/rdFk+2QQIk6V5QODI/0Z4jzroiOLP3PRsKRptimr+WoBuz+o4NBMwyEve25sgh7f34frEuOGg==",
-      "dependencies": [
-        "@effect/platform",
-        "@graphql-typed-document-node/core",
-        "@midnight-ntwrk/wallet-sdk-abstractions",
-        "@midnight-ntwrk/wallet-sdk-utilities",
-        "effect",
-        "graphql",
-        "graphql-http",
-        "graphql-ws@6.0.6_graphql@16.12.0_ws@8.18.1"
       ]
     },
     "@midnight-ntwrk/wallet-sdk-indexer-client@1.0.0-beta.12_effect@3.19.14_graphql@16.12.0_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10": {
@@ -4109,21 +4098,6 @@
       "integrity": "sha512-IwaqiKRRJ9d9DSbGnB6gLlcrtJaukTX02MbAuThH5U4aEJAd8qPxEaxbF6KIqfAjHF/B2jlnuBEaR6+G/iaizA==",
       "dependencies": [
         "effect"
-      ]
-    },
-    "@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.13_ws@8.18.1": {
-      "integrity": "sha512-7SHRGJVxKmZueEQ/HEa4y5uCv/hAJhPuilFLAuBZN0+R9Jlyd+MYQLBw/LEHPGmegtgVUwbrDcpZrVuqpCzm2A==",
-      "dependencies": [
-        "@midnight-ntwrk/ledger-v6",
-        "@midnight-ntwrk/wallet-sdk-abstractions",
-        "@midnight-ntwrk/wallet-sdk-address-format@3.0.0-beta.9",
-        "@midnight-ntwrk/wallet-sdk-capabilities@3.0.0-beta.9",
-        "@midnight-ntwrk/wallet-sdk-hd",
-        "@midnight-ntwrk/wallet-sdk-indexer-client@1.0.0-beta.12_effect@3.19.14_graphql@16.12.0_ws@8.18.1",
-        "@midnight-ntwrk/wallet-sdk-unshielded-state",
-        "@midnight-ntwrk/wallet-sdk-utilities",
-        "effect",
-        "rxjs"
       ]
     },
     "@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.14_ws@8.18.1": {
@@ -13750,6 +13724,12 @@
         "ws@8.18.0"
       ]
     },
+    "isows@1.0.6_ws@8.18.1": {
+      "integrity": "sha512-lPHCayd40oW98/I0uvgaHKWCSvkzY27LjWLbtzOm64yQ+G3Q5npjjbdppU65iZXkK1Zt+kH9pfegli0AYfwYYw==",
+      "dependencies": [
+        "ws@8.18.1"
+      ]
+    },
     "isows@1.0.7_ws@8.18.3__bufferutil@4.1.0__utf-8-validate@5.0.10": {
       "integrity": "sha512-I1fSfDCZL5P0v33sVqeTDSpcstAg/N+wF5HS033mogOVIp4B+oHC7oOCsA3axAbBSGTJ8QubbNmnIRN/h8U7hg==",
       "dependencies": [
@@ -15617,7 +15597,7 @@
       "integrity": "sha512-wi5ShvzE4eOcTwQVsIPdFr+8ycyX+5le/96iAJutaZAvCes1J0+RvpEPg5QDPDiaR0XQQAvZVl7AwqQcINuUug==",
       "dependencies": [
         "@adraffy/ens-normalize@1.11.1",
-        "@noble/curves@1.9.1",
+        "@noble/curves@1.9.7",
         "@noble/hashes@1.8.0",
         "@scure/bip32@1.7.0",
         "@scure/bip39@1.6.0",
@@ -19165,6 +19145,23 @@
         "vfile-message"
       ]
     },
+    "viem@2.23.10_typescript@5.6.3_ws@8.18.1": {
+      "integrity": "sha512-va6Wde+v96PdfzdPEspCML1MjAqe+88O8BD+R9Kun/4s5KMUNcqfHbXdZP0ZZ2Zms80styvH2pDRAqCho6TqkA==",
+      "dependencies": [
+        "@noble/curves@1.8.1",
+        "@noble/hashes@1.7.1",
+        "@scure/bip32@1.6.2",
+        "@scure/bip39@1.5.4",
+        "abitype@1.0.8_typescript@5.6.3",
+        "isows@1.0.6_ws@8.18.1",
+        "ox@0.6.9_typescript@5.6.3",
+        "typescript",
+        "ws@8.18.1"
+      ],
+      "optionalPeers": [
+        "typescript"
+      ]
+    },
     "viem@2.23.2_typescript@5.6.3_ws@8.18.0": {
       "integrity": "sha512-NVmW/E0c5crMOtbEAqMF0e3NmvQykFXhLOc/CkLIXOlzHSA6KXVz3CYVmaKqBF8/xtjsjHAGjdJN3Ru1kFJLaA==",
       "dependencies": [
@@ -20369,7 +20366,7 @@
           "npm:@midnight-ntwrk/wallet-sdk-facade@1.0.0-beta.12",
           "npm:@midnight-ntwrk/wallet-sdk-hd@3.0.0-beta.7",
           "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.11",
-          "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.13",
+          "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.14",
           "npm:@midnight-ntwrk/wallet@5",
           "npm:@midnight-ntwrk/zswap@^4.0.0-alpha.11",
           "npm:@polkadot/util-crypto@^13.4.3",
