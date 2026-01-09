@@ -75,7 +75,7 @@ const DUST_FEE_BLOCKS_MARGIN = 5;
 export interface DeployConfig {
   /** Name of the contract directory (e.g., "contract-counter", "contract-eip-20") */
   contractName: string;
-  /** Output filename for contract address (e.g., "contract-counter.json") */
+  /** Base filename for contract address (e.g., "contract-counter.json"); a network suffix is appended */
   contractFileName: string;
   /** The Contract class to deploy */
   // deno-lint-ignore no-explicit-any
@@ -512,34 +512,26 @@ export async function deployMidnightContract(
       deployedContract.deployTxData.public.contractAddress;
     log.info(`Contract address: ${contractAddress}`);
 
-    // Save contract address to file (merge with existing entries for other networks)
-    const outputPath = path.join(contractDir, config.contractFileName);
-    
-    // Read existing file if it exists
-    let existingAddresses: Record<string, string> = {};
-    try {
-      const existingJson = await Deno.readTextFile(outputPath);
-      const existing = JSON.parse(existingJson);
-      
-      // Handle both legacy format (string) and new format (object)
-      if (typeof existing.contractAddress === "string") {
-        // Legacy format - preserve as "undeployed" network
-        existingAddresses = { undeployed: existing.contractAddress };
-      } else if (typeof existing.contractAddress === "object") {
-        // New format - use existing addresses
-        existingAddresses = existing.contractAddress;
-      }
-    } catch {
-      // File doesn't exist or can't be read - start fresh
-    }
-    
-    // Merge new address for this network
-    existingAddresses[resolvedNetworkId] = contractAddress;
-    
-    // Write merged addresses
+    const baseContractFileName =
+      config.contractFileName ?? `${config.contractName}.json`;
+    const { dir: contractFileDir, name: contractFileBaseName, ext: contractFileExt } =
+      path.parse(baseContractFileName);
+    const normalizedExt = contractFileExt || ".json";
+    const networkSuffix = `.${resolvedNetworkId}`;
+    const fileBaseWithNetwork =
+      contractFileBaseName.endsWith(networkSuffix)
+        ? contractFileBaseName
+        : `${contractFileBaseName}${networkSuffix}`;
+    const outputFileName = `${fileBaseWithNetwork}${normalizedExt}`;
+    const outputPath = path.join(
+      contractDir,
+      contractFileDir,
+      outputFileName,
+    );
+
     await Deno.writeTextFile(
       outputPath,
-      JSON.stringify({ contractAddress: existingAddresses }, null, 2)
+      JSON.stringify({ contractAddress }, null, 2),
     );
     log.info(`Contract address saved to ${outputPath} (network: ${resolvedNetworkId})`);
 

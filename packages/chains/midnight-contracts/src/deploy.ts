@@ -45,7 +45,7 @@ const GENESIS_MINT_WALLET_SEED =
 export interface DeployConfig {
   /** Name of the contract directory (e.g., "contract-counter", "contract-eip-20") */
   contractName: string;
-  /** Output filename for contract address (e.g., "contract-counter.json") */
+  /** Base filename for contract address (e.g., "contract-counter.json"); a network suffix is appended */
   contractFileName: string;
   /** The Contract class to deploy */
   contractClass: any;
@@ -358,14 +358,29 @@ export async function deployMidnightContract(
     console.log(contractAddress);
     
     // Determine output path - use the directory where contract file was found
-    // We need to find the actual directory containing the contract file
-    // For now, try to find it relative to where we are
-    const outputPath = path.join(outputBaseDir, config.contractFileName);
+    const resolvedNetworkId = NetworkId.Undeployed;
+    const baseContractFileName =
+      config.contractFileName ?? `${config.contractName}.json`;
+    const { dir: contractFileDir, name: contractFileBaseName, ext: contractFileExt } =
+      path.parse(baseContractFileName);
+    const normalizedExt = contractFileExt || ".json";
+    const networkSuffix = `.${resolvedNetworkId}`;
+    const fileBaseWithNetwork =
+      contractFileBaseName.endsWith(networkSuffix)
+        ? contractFileBaseName
+        : `${contractFileBaseName}${networkSuffix}`;
+    const outputFileName = `${fileBaseWithNetwork}${normalizedExt}`;
+    const outputPath = path.join(
+      outputBaseDir,
+      contractFileDir,
+      outputFileName,
+    );
+
     await Deno.writeTextFile(
       outputPath,
       JSON.stringify({ contractAddress }, null, 2),
     );
-    log.info(`Contract address saved to ${outputPath}`);
+    log.info(`Contract address saved to ${outputPath} (network: ${resolvedNetworkId})`);
     
     return contractAddress;
   } catch (e) {
