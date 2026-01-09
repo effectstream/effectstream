@@ -8,7 +8,7 @@ import type { Chain } from "viem";
 //
 // Config values mirroring e2e/client/node/scripts/start.{env}.ts
 const isTestnet = ENV.EFFECTSTREAM_ENV === "testnet";
-const chainNameId = 'chain' + (isTestnet ? 421614 : 31337);
+const chainNameId: "chain31338" | "chain31337" | "chain421614" = ('chain' + (isTestnet ? 421614 : 31337)) as "chain31338" | "chain31337" | "chain421614";
 const paimaSyncProtocolName = "parallelEvmRPC_fast";
 
 const paimaL2Address = contractAddressesEvmMain()[chainNameId]["PaimaL2ContractModule#MyPaimaL2Contract"] as `0x${string}`;

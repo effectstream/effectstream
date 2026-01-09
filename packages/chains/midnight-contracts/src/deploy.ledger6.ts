@@ -15,6 +15,18 @@ import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-pri
 import {
   midnightNetworkConfig,
 } from "./midnight-env.ts";
+import {
+  findContractDirectoryForDeploy,
+} from "./read-contract.ts";
+import {
+  buildWalletFacade,
+  getInitialShieldedState,
+  resolveWalletSyncTimeoutMs,
+  syncAndWaitForFunds,
+  safeStringifyProgress,
+  type WalletResult,
+} from "./get-wallet-info.ts";
+
 
 // Declare Deno global for type-checking when not executed under Deno tooling.
 declare const Deno: typeof globalThis.Deno;

@@ -8,7 +8,7 @@ import {
   ConfigSyncProtocolType,
 } from "@effectstream/config";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
-import { midnightNetworkConfig } from "../../midnight-env.ts";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import {
   PrimitiveTypeEVMPaimaL2,
   PrimitiveTypeMidnightGeneric,
@@ -16,7 +16,7 @@ import {
 import { arbitrumSepolia } from "viem/chains";
 
 import { paimaL2Grammar } from "./grammar.ts";
- 
+
 /**
  * Let check if the db.
  * If empty then the db is not initialized, and use the current time for the NTP sync.
@@ -28,10 +28,12 @@ let launchStartTime: number | undefined;
 let arbSepoliaTip: number = 230666729;
 let midnightTip: number = 437152;
 
- // IMPORTANT: For testing purposes. Setting it to true, will 
- // use a new tip on each restart, making the db inconsistent.
+// IMPORTANT: For testing purposes. Setting it to true, will
+// use a new tip on each restart, making the db inconsistent.
 const USE_TESTING_TIP = true;
-const arbitrumSepoliaRpc = Deno ? Deno.env.get("ARBITRUM_SEPOLIA_RPC") : undefined;
+const arbitrumSepoliaRpc = Deno
+  ? Deno.env.get("ARBITRUM_SEPOLIA_RPC")
+  : undefined;
 
 type ContractAddressBook = Record<string, Record<string, `0x${string}`>>;
 const contractAddressBook = contractAddressesEvmMain() as ContractAddressBook;
@@ -39,9 +41,9 @@ const paimaL2TestnetContractAddress =
   contractAddressBook["chain421614"]["PaimaL2ContractModule#MyPaimaL2Contract"];
 
 const midnightNetworkInputsValid = Boolean(
-  midnightNetworkConfig.indexer && 
-  midnightNetworkConfig.indexerWS && 
-  midnightNetworkConfig.node
+  midnightNetworkConfig.indexer &&
+    midnightNetworkConfig.indexerWS &&
+    midnightNetworkConfig.node,
 );
 
 let midnightCounterAddress: string | undefined;
@@ -53,15 +55,15 @@ if (Deno) {
     /* Get the latest block number from the Arbitrum Sepolia chain */
     try {
       const response = await fetch(arbitrumSepoliaRpc, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          jsonrpc: '2.0',
+          jsonrpc: "2.0",
           id: 1,
-          method: 'eth_blockNumber',
-          params: []
+          method: "eth_blockNumber",
+          params: [],
         }),
       });
       const data = await response.json();
@@ -88,7 +90,9 @@ if (Deno) {
         }),
       });
       if (!response.ok) {
-        throw new Error(`Failed to query Midnight indexer: ${response.statusText}`);
+        throw new Error(
+          `Failed to query Midnight indexer: ${response.statusText}`,
+        );
       }
       const data = await response.json();
       const height = data?.data?.block?.height;
@@ -100,20 +104,22 @@ if (Deno) {
       }
     } catch (error) {
       console.warn(
-        `[midnight] Failed to fetch tip from indexer: ${(error as Error).message}`,
+        `[midnight] Failed to fetch tip from indexer: ${
+          (error as Error).message
+        }`,
       );
     }
 
     try {
       const counterContract = readMidnightContract(
         "contract-counter",
-        "contract.json", // same file for all networks
-        { networkId: midnightNetworkConfig.id }
+        "contract-counter.json", // same file for all networks
+        { networkId: midnightNetworkConfig.id },
       );
       const eip20Contract = readMidnightContract(
         "contract-eip-20",
-        "contract.json", // same file for all networks
-        { networkId: midnightNetworkConfig.id }
+        "contract-eip-20.json", // same file for all networks
+        { networkId: midnightNetworkConfig.id },
       );
       midnightCounterAddress = counterContract.contractAddress;
       midnightEip20Address = eip20Contract.contractAddress;
@@ -122,12 +128,14 @@ if (Deno) {
       );
     } catch (error) {
       console.warn(
-        `[midnight] Failed to read contract artifacts: ${(error as Error).message}`,
+        `[midnight] Failed to read contract artifacts: ${
+          (error as Error).message
+        }`,
       );
       midnightArtifactsReady = false;
     }
   }
-  
+
   const dbConn = getConnection();
   try {
     const result = await dbConn.query(`
@@ -226,20 +234,20 @@ export const config = new ConfigBuilder()
     let primitivesBuilder = builder
       .addPrimitive(
         (syncProtocols: any) => syncProtocols.parallelEvmRPC_fast,
-        () =>
-          ({
-            name: "PaimaGameInteraction",
-            type: PrimitiveTypeEVMPaimaL2,
-            startBlockHeight: 0,
-            contractAddress: paimaL2TestnetContractAddress,
-            paimaL2Grammar: paimaL2Grammar,
-          }),
+        () => ({
+          name: "PaimaGameInteraction",
+          type: PrimitiveTypeEVMPaimaL2,
+          startBlockHeight: 0,
+          contractAddress: paimaL2TestnetContractAddress,
+          paimaL2Grammar: paimaL2Grammar,
+        }),
       );
 
     if (midnightArtifactsReady) {
       primitivesBuilder = primitivesBuilder
         .addPrimitive(
-          (syncProtocols: any) => (syncProtocols as any).parallelMidnightTestnet,
+          (syncProtocols: any) =>
+            (syncProtocols as any).parallelMidnightTestnet,
           () => ({
             name: "MidnightContractState",
             type: PrimitiveTypeMidnightGeneric,
@@ -251,7 +259,8 @@ export const config = new ConfigBuilder()
           }),
         )
         .addPrimitive(
-          (syncProtocols: any) => (syncProtocols as any).parallelMidnightTestnet,
+          (syncProtocols: any) =>
+            (syncProtocols as any).parallelMidnightTestnet,
           () => ({
             name: "Midnight-EIP-20",
             type: PrimitiveTypeMidnightGeneric,

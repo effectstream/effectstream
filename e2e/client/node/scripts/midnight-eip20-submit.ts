@@ -16,20 +16,17 @@ import type {
   MidnightProvider,
   WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
-import {
-  SimpleToken,
-  witnesses,
-} from "@e2e/midnight-contracts/eip-20";
+import { SimpleToken, witnesses } from "@e2e/midnight-contracts/eip-20";
 import {
   readMidnightContract,
 } from "@effectstream/midnight-contracts/read-contract";
 import {
   buildWalletFacade,
   syncAndWaitForFunds,
-  DEFAULT_NETWORK_URLS,
   type WalletResult,
 } from "@effectstream/midnight-contracts/wallet-info";
 import { parseCircuitArgs } from "@effectstream/batcher";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 
 const GENESIS_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
@@ -92,15 +89,22 @@ async function main() {
   const { contractAddress, contractInfo, zkConfigPath } = readMidnightContract(
     "contract-eip-20",
     "contract-eip-20.json",
-    { networkId: "undeployed" },
+    { networkId: midnightNetworkConfig.id },
   );
 
-  setNetworkId("undeployed" as any);
+  setNetworkId(midnightNetworkConfig.id as any);
+
+  const networkUrls = {
+    indexer: midnightNetworkConfig.indexer,
+    indexerWS: midnightNetworkConfig.indexerWS,
+    node: midnightNetworkConfig.node,
+    proofServer: midnightNetworkConfig.proofServer,
+  };
 
   const walletResult = await buildWalletFacade(
-    DEFAULT_NETWORK_URLS,
+    networkUrls,
     seed,
-    "undeployed",
+    midnightNetworkConfig.id as any,
   );
 
   console.log("Waiting for wallet sync...");
@@ -115,11 +119,11 @@ async function main() {
       walletProvider,
     } as any),
     publicDataProvider: indexerPublicDataProvider(
-      DEFAULT_NETWORK_URLS.indexer,
-      DEFAULT_NETWORK_URLS.indexerWS,
+      networkUrls.indexer,
+      networkUrls.indexerWS,
     ),
     zkConfigProvider: new NodeZkConfigProvider(zkConfigPath),
-    proofProvider: httpClientProofProvider(DEFAULT_NETWORK_URLS.proofServer),
+    proofProvider: httpClientProofProvider(networkUrls.proofServer),
     walletProvider,
     midnightProvider: walletProvider,
   };
@@ -154,4 +158,3 @@ if (import.meta.main) {
     Deno.exit(1);
   });
 }
-

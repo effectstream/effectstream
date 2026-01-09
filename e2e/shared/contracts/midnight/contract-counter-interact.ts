@@ -101,12 +101,12 @@ class StandaloneConfig implements Config {
     "standalone",
     `${new Date().toISOString()}.log`,
   );
-  indexer = "http://127.0.0.1:8088/api/v3/graphql";
-  indexerWS = "ws://127.0.0.1:8088/api/v3/graphql/ws";
-  node = "http://127.0.0.1:9944";
-  proofServer = "http://127.0.0.1:6300";
+  indexer = midnightNetworkConfig.indexer;
+  indexerWS = midnightNetworkConfig.indexerWS;
+  node = midnightNetworkConfig.node;
+  proofServer = midnightNetworkConfig.proofServer;
   constructor() {
-    setNetworkId("Undeployed" as unknown as NetworkId);
+    setNetworkId(midnightNetworkConfig.id as NetworkId);
   }
 }
 
@@ -114,7 +114,7 @@ class StandaloneConfig implements Config {
  * This seed gives access to tokens minted in the genesis block of a local development node - only
  * used in standalone networks to build a wallet with initial funds.
  */
-import { midnightNetworkConfig } from "../../midnight-env.ts";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 
 /**
  * Default wallet seed.

@@ -1,7 +1,12 @@
-import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 
 const env = (key: string, fallback?: string): string =>
   Deno.env.get(key)?.trim() || fallback || "";
+
+const envFirst = (keys: string[], fallback?: string): string =>
+  keys.map((key) => Deno.env.get(key)?.trim()).find((value) => !!value) ||
+  fallback ||
+  "";
 
 const EFFECTSTREAM_ENV = Deno.env.get("EFFECTSTREAM_ENV") || "local";
 export const isTestnet = EFFECTSTREAM_ENV === "testnet";
@@ -14,24 +19,29 @@ const CONFIGS = {
     node: "http://127.0.0.1:9944",
     networkId: "undeployed" as NetworkId.NetworkId,
     // In local mode, the Genesis Wallet Seed determines the initial funded wallet
-    genesisWalletSeed: "0000000000000000000000000000000000000000000000000000000000000001",
+    genesisWalletSeed:
+      "0000000000000000000000000000000000000000000000000000000000000001",
   },
   testnet: {
-    indexer: "https://indexer.preview-testnet.midnight.network/api/v3/graphql",
-    indexerWS: "wss://indexer.preview-testnet.midnight.network/api/v3/graphql/ws",
-    node: "https://rpc.preview-testnet.midnight.network",
+    indexer: "https://indexer.preview.midnight.network/api/v3/graphql",
+    indexerWS:
+      "wss://indexer.preview.midnight.network/api/v3/graphql/ws",
+    node: "https://rpc.preview.midnight.network",
     networkId: "preview" as NetworkId.NetworkId,
   },
 } as const;
 
 const currentDefaults = isTestnet ? CONFIGS.testnet : CONFIGS.local;
 
-export const midnightNetworkId = env("MIDNIGHT_NETWORK_ID", currentDefaults.networkId).toLowerCase();
+export const midnightNetworkId = env(
+  "MIDNIGHT_NETWORK_ID",
+  currentDefaults.networkId,
+).toLowerCase();
 
 /**
  * 1. NETWORK GENESIS PARAMETER
  * This is the hash of the genesis block, required to connect to the network.
- * 
+ *
  * - Local Mode: Defaults to being derived from the local Genesis Wallet Seed.
  * - Testnet Mode: We default to empty string as we don't have a fixed genesis hash for testnets yet.
  */
@@ -41,14 +51,10 @@ const getGenesisBlockHash = () => {
   return "0x" + CONFIGS.local.genesisWalletSeed;
 };
 
-const rawGenesisConfig = getGenesisBlockHash();
-// Ensure it starts with 0x if it has content
-const genesisHash = (rawGenesisConfig && !rawGenesisConfig.startsWith("0x") ? `0x${rawGenesisConfig}` : rawGenesisConfig) as `0x${string}`;
-
 /**
  * 2. WALLET SEED (MIDNIGHT_WALLET_SEED)
  * This is the seed used to derive the wallet keys for signing transactions.
- * 
+ *
  * - Local Mode: Defaults to the Genesis Wallet Seed (the initially funded account).
  * - Testnet Mode: User MUST provide their own funded wallet seed.
  */
@@ -58,21 +64,32 @@ const getFallbackWalletSeed = () => {
   return CONFIGS.local.genesisWalletSeed;
 };
 
+const resolvedProofServer = envFirst(
+  ["MIDNIGHT_PROOF_SERVER_URL", "MIDNIGHT_PROOF_SERVER"],
+  "http://127.0.0.1:6300",
+);
+
 export const midnightNetworkConfig = {
   id: midnightNetworkId as NetworkId.NetworkId,
   indexer: env("MIDNIGHT_INDEXER_HTTP", currentDefaults.indexer),
   indexerWS: env("MIDNIGHT_INDEXER_WS", currentDefaults.indexerWS),
   node: env("MIDNIGHT_NODE_HTTP", currentDefaults.node),
-  proofServer: env("MIDNIGHT_PROOF_SERVER", "http://127.0.0.1:6300"),
+  proofServer: resolvedProofServer,
   // Wallet signing parameter
   walletSeed: env("MIDNIGHT_WALLET_SEED", getFallbackWalletSeed()),
 };
+
+export const isExternalProofServerConfigured = !!envFirst([
+  "MIDNIGHT_PROOF_SERVER_URL",
+]);
 
 export type MidnightNetworkConfig = typeof midnightNetworkConfig;
 
 // Validation for testnet
 if (isTestnet) {
   if (!midnightNetworkConfig.walletSeed) {
-    console.warn("WARNING: MIDNIGHT_WALLET_SEED is not set but EFFECTSTREAM_ENV=testnet. A wallet seed is mandatory for non-local networks.");
+    console.warn(
+      "WARNING: MIDNIGHT_WALLET_SEED is not set but EFFECTSTREAM_ENV=testnet. A wallet seed is mandatory for non-local networks.",
+    );
   }
 }
