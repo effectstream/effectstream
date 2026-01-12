@@ -1,2 +1,2 @@
-export * as Counter from "./managed/counter/contract/index.ts";
+export * as Counter from "./managed/contract/index.js";
 export * from "./witnesses.ts";

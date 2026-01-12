@@ -13,9 +13,9 @@
   },
   "imports": {
     // TODO: This is a workaround for a missing dependency.
-    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.128",
-    "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.3.128",
-    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.128"
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.129",
+    "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.3.129",
+    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.129"
   },
   "lint": {
     "rules": {

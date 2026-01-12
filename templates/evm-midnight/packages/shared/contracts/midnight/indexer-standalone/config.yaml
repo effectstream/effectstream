@@ -1,29 +1,26 @@
 run_migrations: true
-network_id: &network_id "Undeployed"
 
-chain_indexer_application:
-  network_id: *network_id
-  blocks_buffer: 60
-  save_zswap_state_after: 1000
-  caught_up_max_distance: 60
-  caught_up_leeway: 30
-
-wallet_indexer_application:
-  network_id: *network_id
-  active_wallets_repeat_delay: "100ms"
+application:
+  network_id: "undeployed"
+  blocks_buffer: 10
+  save_ledger_state_after: 1000
+  caught_up_max_distance: 10
+  caught_up_leeway: 5
+  active_wallets_query_delay: "500ms"
   active_wallets_ttl: "30m"
-  transaction_batch_size: 10
-  # Number of cores by default.
-  # parallelism:
+  transaction_batch_size: 50
+  # 1 by default
+  # concurrency_limit:
 
 infra:
+  storage:
+    cnn_url: "./data/indexer.sqlite"
+
   node:
     url: "ws://localhost:9944"
     reconnect_max_delay: "10s" # 10ms, 100ms, 1s, 10s
     reconnect_max_attempts: 30 # Roughly 5m
-
-  storage:
-    cnn_url: "./indexer.sqlite"
+    subscription_recovery_timeout: "30s" # Re-subscribe if no block received within this time
 
   api:
     address: "0.0.0.0"
@@ -31,7 +28,6 @@ infra:
     request_body_limit: "1MiB"
     max_complexity: 200
     max_depth: 15
-    network_id: *network_id
 
 telemetry:
   tracing:
