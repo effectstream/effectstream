@@ -3,16 +3,16 @@
   "version": "0.3.22",
   "license": "MIT",
   "exports": {
-    "./localhostConfig": "./src/localhostConfig.ts",
+    "./config": "./src/config.ts",
     "./grammar": "./src/grammar.ts"
   },
   "imports": {
-    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.116",
-    "@paimaexample/config": "jsr:@paimaexample/config@0.3.116",
-    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.116",
-    "@paimaexample/db": "jsr:@paimaexample/db@0.3.116",
-    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.116",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.3.129",
+    "@paimaexample/config": "jsr:@paimaexample/config@0.3.129",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.3.129",
+    "@paimaexample/db": "jsr:@paimaexample/db@0.3.129",
+    "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.129",
     "viem": "npm:viem@2.37.3",
-    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30"
+    "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41"
   }
 }

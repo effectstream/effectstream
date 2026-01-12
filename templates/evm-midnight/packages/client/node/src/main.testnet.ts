@@ -1,15 +1,11 @@
 // NOTE & TODO:
 // Importing "@midnight-ntwrk/onchain-runtime" here is a workaround.
-// Loading this package in a dependency makes the onchain-runtime wasm
-// fail in runtime when trying to parse the state.
-// The next line is so that the wasm is loaded and not optimized away.
 import "@midnight-ntwrk/onchain-runtime";
 
 import { init, start } from "@paimaexample/runtime";
 import { main, suspend } from "effection";
-import { config as nodeConfig } from "@example-evm-midnight/data-types/config";
+import { config as testnetConfig } from "@example-evm-midnight/data-types/config.testnet";
 import {
-  type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@paimaexample/config";
@@ -20,13 +16,13 @@ import { grammar } from "@example-evm-midnight/data-types/grammar";
 
 main(function* () {
   yield* init();
-  console.log("Starting EffectStream Node (Local)");
+  console.log("Starting EffectStream Node (Testnet)");
 
-  yield* withEffectstreamStaticConfig(nodeConfig, function* () {
+  yield* withEffectstreamStaticConfig(testnetConfig, function* () {
     yield* start({
       appName: "evm-midnight-example",
       appVersion: "0.3.21",
-      syncInfo: toSyncProtocolWithNetwork(nodeConfig),
+      syncInfo: toSyncProtocolWithNetwork(testnetConfig),
       gameStateTransitions,
       migrations: migrationTable,
       apiRouter,

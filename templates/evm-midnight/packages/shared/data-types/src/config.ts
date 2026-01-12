@@ -10,6 +10,7 @@ import { hardhat } from "viem/chains";
 import { getConnection } from "@paimaexample/db";
 import { PrimitiveTypeEVMERC721, PrimitiveTypeMidnightGeneric } from "@paimaexample/sm/builtin";
 import * as CounterContract from "@example-evm-midnight/my-midnight-contract/contract";
+import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
 
 /**
  * Let check if the db.
@@ -21,9 +22,8 @@ const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
 const dbConn = getConnection();
 try {
-  // TODO Update to effectstream.sync_protocol_pagination
   const result = await dbConn.query(`
-    SELECT * FROM paima.sync_protocol_pagination 
+    SELECT * FROM effectstream.sync_protocol_pagination 
     WHERE protocol_name = '${mainSyncProtocolName}' 
     ORDER BY page_number ASC
     LIMIT 1
@@ -38,7 +38,7 @@ try {
   // Do nothing, the DB has not been initialized yet.
 }
 
-export const localhostConfig = new ConfigBuilder()
+export const config = new ConfigBuilder()
   .setNamespace(
     (builder) => builder.setSecurityNamespace("evm-midnight-node"),
   )
@@ -62,10 +62,8 @@ export const localhostConfig = new ConfigBuilder()
       .addNetwork({
         name: "midnight",
         type: ConfigNetworkType.MIDNIGHT,
-        genesisHash:
-          "0x0000000000000000000000000000000000000000000000000000000000000001",
-        networkId: 0,
-        nodeUrl: "http://127.0.0.1:9944",
+        networkId: midnightNetworkConfig.id,
+        nodeUrl: midnightNetworkConfig.node,
       })
   )
   .buildDeployments((builder) =>
@@ -105,8 +103,8 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
           startBlockHeight: 1,
           pollingInterval: 1000,
-          indexer: "http://127.0.0.1:8088/api/v1/graphql",
-          indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
+          indexer: midnightNetworkConfig.indexer,
+          indexerWs: midnightNetworkConfig.indexerWS,
         }),
       )
   )
@@ -129,10 +127,13 @@ export const localhostConfig = new ConfigBuilder()
           name: "MidnightContractState",
           type: PrimitiveTypeMidnightGeneric,
           startBlockHeight: 1,
-          contractAddress: readMidnightContract("contract-round-value", "contract.json").contractAddress,
+          contractAddress: readMidnightContract(
+            "contract-round-value",
+            { networkId: midnightNetworkConfig.id },
+          ).contractAddress,
           stateMachinePrefix: "midnightContractState",
           contract: { ledger: CounterContract.ledger },
-          networkId: 0, // NetworkId.Undeployed,
+          networkId: midnightNetworkConfig.id,
         })
       )
   )

@@ -3,11 +3,11 @@
   "exports": {
     ".": "./src/_index.ts",
     "./witnesses": "./src/witnesses.ts",
-    "./contract": "./src/managed/counter/contract/index.cjs"
+    "./contract": "./src/managed/contract/index.js"
   },
   "tasks": {
-    "compact": "compact compile src/counter.compact src/managed/counter && deno task convert:js",
-    "convert:js": "deno run -A convert-js.ts src/managed/counter/contract/index.cjs src/managed/counter/contract/index.ts",
+    "compact": "compact compile +0.27.0 src/counter.compact src/managed",
+    "convert:js": "deno run -A convert-js.ts src/managed/contract/index.cjs src/managed/contract/index.ts",
     "contract:compile": "deno task compact"
   },
   "imports": {

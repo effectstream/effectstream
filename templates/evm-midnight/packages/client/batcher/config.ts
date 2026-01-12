@@ -3,12 +3,21 @@ import {
   FileStorage,
   type BatcherConfig,
   PaimaL2DefaultAdapter,
+  MidnightAdapter,
 } from "@paimaexample/batcher";
+import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
+import { Counter, witnesses } from "@example-evm-midnight/my-midnight-contract";
+import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
+
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 
 const batchIntervalMs = 1000;
-const paimaL2Address = contractAddressesEvmMain()["chain31337"][
+
+const paimaL2Address = (contractAddressesEvmMain() as any)["chain31337"]?.[
   "PaimaL2ContractModule#MyPaimaL2Contract"
-] as `0x${string}`;
+] || (contractAddressesEvmMain() as any)["chain421614"]?.["PaimaL2ContractModule#MyPaimaL2Contract"] as `0x${string}`;
+
 const paimaSyncProtocolName = "mainEvmRPC";
 const batcherPrivateKey =
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
@@ -25,13 +34,48 @@ const paimaL2 = new PaimaL2DefaultAdapter(
   paimaSyncProtocolName,
 );
 
+// Midnight adapter configuration
+const midnightContractData = midnight_enabled
+  ? readMidnightContract(
+    "contract-round-value",
+    { networkId: midnightNetworkConfig.id },
+  )
+  : null;
+
+const midnightAdapter = midnightContractData
+  ? new MidnightAdapter(
+    midnightContractData.contractAddress,
+    midnightNetworkConfig.walletSeed!,
+    {
+      indexer: midnightNetworkConfig.indexer,
+      indexerWS: midnightNetworkConfig.indexerWS,
+      node: midnightNetworkConfig.node,
+      proofServer: midnightNetworkConfig.proofServer,
+      zkConfigPath: midnightContractData.zkConfigPath,
+      privateStateStoreName: "counter-private-state",
+      privateStateId: "counterPrivateState",
+      contractJoinTimeoutSeconds: 300,
+      walletFundingTimeoutSeconds: 300,
+      walletNetworkId: midnightNetworkConfig.id,
+    },
+    new Counter.Contract(witnesses),
+    witnesses,
+    midnightContractData.contractInfo,
+    "parallelMidnight",
+  )
+  : undefined;
+
 export const config: BatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
-  adapters: { paimaL2 },
+  adapters: {
+    paimaL2,
+    ...(midnightAdapter ? { midnight: midnightAdapter } : {}),
+  },
   defaultTarget: "paimaL2",
   namespace: "",
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
+    ...(midnightAdapter ? { midnight: { criteriaType: "time", timeWindowMs: batchIntervalMs } } : {}),
   },
   // TODO: rename to wait-effectstream-processed
   confirmationLevel: "wait-effectstream-processed", // Connector expectation

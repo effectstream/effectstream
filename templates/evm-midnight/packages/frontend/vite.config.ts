@@ -25,6 +25,7 @@ export default defineConfig({
       "npm:@polkadot/util-crypto@^13.5.6": "@polkadot/util-crypto",
       "npm:@polkadot/util@^13.5.6": "@polkadot/util",
       "npm:@sinclair/typebox@^0.34.41": "@sinclair/typebox",
+      "npm:@sinclair/typebox@0.34.41": "@sinclair/typebox",
       "npm:/@sinclair/typebox@^0.34.41/value": "@sinclair/typebox/value",
       "npm:@sinclair/typebox@^0.34.41/value": "@sinclair/typebox/value",
       "npm:/@sinclair/typebox@~0.34.41/value": "@sinclair/typebox/value",
@@ -86,12 +87,11 @@ export default defineConfig({
               "contract-round-value",
               "src",
               "managed",
-              "counter",
               "keys",
               "*",
             ),
           ),
-          // src: "src/contract-round-value/src/managed/counter/keys/*",
+          // src: "src/contract-round-value/src/managed/keys/*",
           dest: "keys",
         },
         {
@@ -104,12 +104,11 @@ export default defineConfig({
               "contract-round-value",
               "src",
               "managed",
-              "counter",
               "zkir",
               "*",
             ),
           ),
-          // src: "src/contract-round-value/src/managed/counter/zkir/*",
+          // src: "src/contract-round-value/src/managed/zkir/*",
           dest: "zkir",
         },
         {
@@ -119,11 +118,15 @@ export default defineConfig({
               "shared",
               "contracts",
               "midnight",
-              "contract.json",
+              // Support both legacy `contract.json` and the new network-suffixed manifests:
+              // - contract-round-value.undeployed.json
+              // - contract-round-value.preview.json
+              // - etc
+              "contract-round-value.*.json",
             ),
           ),
           dest: "contract_address",
-        },
+        }
       ],
     }),
   ],
