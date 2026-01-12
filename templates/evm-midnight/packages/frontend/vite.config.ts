@@ -25,6 +25,7 @@ export default defineConfig({
       "npm:@polkadot/util-crypto@^13.5.6": "@polkadot/util-crypto",
       "npm:@polkadot/util@^13.5.6": "@polkadot/util",
       "npm:@sinclair/typebox@^0.34.41": "@sinclair/typebox",
+      "npm:@sinclair/typebox@0.34.41": "@sinclair/typebox",
       "npm:/@sinclair/typebox@^0.34.41/value": "@sinclair/typebox/value",
       "npm:@sinclair/typebox@^0.34.41/value": "@sinclair/typebox/value",
       "npm:/@sinclair/typebox@~0.34.41/value": "@sinclair/typebox/value",
@@ -125,21 +126,7 @@ export default defineConfig({
             ),
           ),
           dest: "contract_address",
-        },
-        {
-          // Keep legacy copy target for backwards compatibility / older builds.
-          // If this file is missing, the plugin will simply skip it.
-          src: normalizePath(
-            path.resolve(
-              "..",
-              "shared",
-              "contracts",
-              "midnight",
-              "contract.json",
-            ),
-          ),
-          dest: "contract_address",
-        },
+        }
       ],
     }),
   ],
