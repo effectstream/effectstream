@@ -119,6 +119,24 @@ export default defineConfig({
               "shared",
               "contracts",
               "midnight",
+              // Support both legacy `contract.json` and the new network-suffixed manifests:
+              // - contract-round-value.undeployed.json
+              // - contract-round-value.preview.json
+              // - etc
+              "contract-round-value.*.json",
+            ),
+          ),
+          dest: "contract_address",
+        },
+        {
+          // Keep legacy copy target for backwards compatibility / older builds.
+          // If this file is missing, the plugin will simply skip it.
+          src: normalizePath(
+            path.resolve(
+              "..",
+              "shared",
+              "contracts",
+              "midnight",
               "contract.json",
             ),
           ),
