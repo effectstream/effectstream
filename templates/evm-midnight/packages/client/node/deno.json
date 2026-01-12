@@ -26,6 +26,7 @@
     "@paimaexample/sm": "jsr:@paimaexample/sm@0.3.129",
     "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.3.129",
     "@paimaexample/db": "jsr:@paimaexample/db@0.3.129",
+    "node-gyp": "npm:node-gyp@^10.3.0",
     "fastify": "npm:fastify@^5.4.0",
     "pg": "npm:pg@^8.14.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41",
