@@ -25,9 +25,16 @@ import { paimaL2Grammar } from "./grammar.ts";
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
-let arbSepoliaTip: number = 230666729;
-let midnightTip: number = 437152;
+// Random tips for testing purposes.
+let arbSepoliaTip: number = 1111111111;
+let midnightTip: number = 1111111;
 
+/**
+ * WARNING: This template fetches the current network tip to avoid long sync times
+ * when starting the template. In production implementations, you should sync from
+ * at least the contract deployment blockheight to ensure all events are captured.
+ * Starting from the current tip means historical events will be missed.
+ */
 // IMPORTANT: For testing purposes. Setting it to true, will
 // use a new tip on each restart, making the db inconsistent.
 const USE_TESTING_TIP = true;

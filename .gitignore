@@ -5,6 +5,7 @@ logs/
 # e2e tests
 /cache
 /out
+journal.jsonl
 
 # Frontend
 .vite
