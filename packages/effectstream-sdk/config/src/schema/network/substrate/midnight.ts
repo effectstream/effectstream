@@ -3,7 +3,6 @@ import type { Static } from "@sinclair/typebox";
 import { ConfigSchema } from "../../utils.ts";
 import { ConfigNetworkType } from "../types.ts";
 import type { MergeIntersects } from "@effectstream/utils";
-import { SubstrateGenesisHash } from "./common.ts";
 
 // =====
 // Utils
@@ -20,15 +19,10 @@ export const ConfigNetworkSchemaMidnight = new ConfigSchema({
     name: Type.String(),
     type: Type.Literal(ConfigNetworkType.MIDNIGHT),
     /**
-     * TODO: possibly this should switch to either
-     * - a string following @midnight-ntwrk/midnight-js-network-id
-     * - a genesis hash (following Substrate standard)
-     *
-     * 0 for localhost
-     * 1 for devnet
+     * Canonical Midnight network identifier string
+     * (e.g. "undeployed", "devnet", "testnet", "preview").
      */
-    networkId: Type.Number(),
-    genesisHash: SubstrateGenesisHash,
+    networkId: Type.String(),
   }),
   optional: Type.Object({}),
 });

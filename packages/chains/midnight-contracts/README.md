@@ -11,14 +11,20 @@ Provides a context-aware function to read Midnight contract information from JSO
 ```typescript
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 
-// Read contract with default contract.json filename
+// Read contract for the current network (defaults to contract-counter.<networkId>.json)
 const contractInfo = readMidnightContract("contract-counter");
 
-// Read contract with custom filename
-const contractInfo = readMidnightContract("contract-eip-20", "contract-eip-20.json");
+// Read contract for another network (e.g., preview)
+const previewInfo = readMidnightContract(
+  "contract-counter",
+  { networkId: "preview" },
+);
 
-// With explicit base directory
-const contractInfo = readMidnightContract("contract-counter", "contract.json", "/path/to/contracts");
+// With explicit base directory (still respects network-specific files)
+const customDirInfo = readMidnightContract(
+  "contract-counter",
+  { baseDir: "/path/to/contracts", networkId: "undeployed" },
+);
 ```
 
 ### Features
@@ -35,15 +41,15 @@ const contractInfo = readMidnightContract("contract-counter", "contract.json", "
 function readMidnightContract(
   contractName: string,
   contractFileName?: string,
-  baseDir?: string
+  options?: { baseDir?: string; networkId?: string }
 ): MidnightContractInfo
 ```
 
 ### Parameters
 
 - `contractName`: The name of the contract directory (e.g., 'contract-counter', 'contract-eip-20')
-- `contractFileName`: Optional. The name of the contract address file (default: 'contract.json')
-- `baseDir`: Optional. Explicit base directory override. If not provided, recursively searches from `Deno.cwd()` upward through parent directories, searching up to 5 levels deep in each directory
+- `contractFileName`: Optional override. Defaults to `${contractName}.${networkId}.json`, so you can keep per-network files.
+- `options`: Optional configuration object. `baseDir` overrides the search location, and `networkId` selects the file (default: `undeployed`).
 
 ### Returns
 
@@ -75,8 +81,8 @@ const contractAddress = await deployMidnightContract(config);
 
 // Deploy with custom network URLs
 const networkUrls: NetworkUrls = {
-  indexer: "http://localhost:8088/api/v1/graphql",
-  indexerWS: "ws://localhost:8088/api/v1/graphql/ws",
+  indexer: "http://localhost:8088/api/v3/graphql",
+  indexerWS: "ws://localhost:8088/api/v3/graphql/ws",
   node: "http://localhost:9944",
   proofServer: "http://localhost:6300",
 };
@@ -97,7 +103,7 @@ function deployMidnightContract(
 
 - `config`: Deployment configuration object containing:
   - `contractName`: Name of the contract directory (e.g., "contract-counter", "contract-eip-20")
-  - `contractFileName`: Output filename for contract address (e.g., "contract-counter.json")
+  - `contractFileName`: Base filename for the contract address. The deployed file will append the network id (e.g., `contract-counter.undeployed.json`).
   - `contractClass`: The Contract class to deploy
   - `witnesses`: Witness definitions
   - `privateStateId`: On-chain private state ID
@@ -109,8 +115,8 @@ function deployMidnightContract(
   - `extractWalletAddress`: Optional flag to extract wallet address info (for contracts that need initialOwner)
 
 - `networkUrls`: Optional network endpoint URLs. If not provided, defaults to local undeployed endpoints:
-  - `indexer`: GraphQL indexer HTTP endpoint (default: "http://127.0.0.1:8088/api/v1/graphql")
-  - `indexerWS`: GraphQL indexer WebSocket endpoint (default: "ws://127.0.0.1:8088/api/v1/graphql/ws")
+  - `indexer`: GraphQL indexer HTTP endpoint (default: "http://127.0.0.1:8088/api/v3/graphql")
+  - `indexerWS`: GraphQL indexer WebSocket endpoint (default: "ws://127.0.0.1:8088/api/v3/graphql/ws")
   - `node`: Midnight node RPC endpoint (default: "http://127.0.0.1:9944")
   - `proofServer`: Proof server HTTP endpoint (default: "http://127.0.0.1:6300")
 

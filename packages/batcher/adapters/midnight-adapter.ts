@@ -14,23 +14,21 @@ import { parseCircuitArgs } from "./midnight-arg-parser.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
 import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "../batch-data-builder/midnight-builder-logic.ts";
 import { hexStringToUint8Array } from "@effectstream/utils";
-import type { NetworkId } from "@midnight-ntwrk/compact-runtime";
-import { WalletBuilder } from "@midnight-ntwrk/wallet";
-import type { Resource } from "@midnight-ntwrk/wallet";
-import type { Wallet } from "@midnight-ntwrk/wallet-api";
 import type {
-  BalancedTransaction,
+  BalancedProvingRecipe,
   MidnightProvider,
-  UnbalancedTransaction,
   WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
-import {
-  type CoinInfo,
-  nativeToken,
-  Transaction,
-  type TransactionId,
-} from "@midnight-ntwrk/ledger";
-import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
+import type {
+  CoinPublicKey,
+  DustSecretKey,
+  EncPublicKey,
+  FinalizedTransaction,
+  ShieldedCoinInfo,
+  TransactionId,
+  UnprovenTransaction,
+  ZswapSecretKeys,
+} from "@midnight-ntwrk/ledger-v6";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -40,14 +38,16 @@ import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-p
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
-import { createBalancedTx } from "@midnight-ntwrk/midnight-js-types";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
-  getLedgerNetworkId,
-  getZswapNetworkId,
-  setNetworkId,
-} from "@midnight-ntwrk/midnight-js-network-id";
-import * as Rx from "rxjs";
-import { Buffer } from "node:buffer";
+  buildWalletFacade,
+  getInitialShieldedState,
+  syncAndWaitForFunds,
+  waitForDustFunds,
+  type NetworkUrls as MidnightNetworkUrls,
+  type WalletResult,
+} from "@effectstream/midnight-contracts/wallet-info";
+import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 
 export interface MidnightAdapterConfig {
   indexer: string;
@@ -59,7 +59,11 @@ export interface MidnightAdapterConfig {
   privateStateId?: string; // Contract private state ID (on-chain), defaults to privateStateStoreName if not provided
   contractJoinTimeoutSeconds?: number; // Defaults to 120 seconds
   walletFundingTimeoutSeconds?: number; // Defaults to 180 seconds
+  walletNetworkId?: WalletNetworkId.NetworkId; // Optional override for modular wallet network id
 }
+
+const TTL_DURATION_MS = 60 * 60 * 1000;
+const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
 /**
  * Midnight blockchain adapter implementing BlockchainAdapter interface
@@ -69,17 +73,20 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   private readonly contractAddress: string;
   private readonly config: MidnightAdapterConfig;
   private readonly contractInfo: ContractInfo;
-  private readonly networkId: NetworkId;
   private readonly syncProtocolName: string;
   public readonly maxBatchSize?: number;
 
   // Private helper for building batch data
   private readonly batchBuilderLogic = new MidnightBatchBuilderLogic();
 
-  private wallet: (Wallet & Resource) | null = null;
+  private walletResult: WalletResult | null = null;
+  private walletProvider: (WalletProvider & MidnightProvider) | null = null;
   private deployedContract: any = null;
   private publicDataProvider: any | null = null;
   private hasFunds = false;
+  private lastFundingBalances:
+    | { shieldedBalance: bigint; unshieldedBalance: bigint; dustBalance: bigint }
+    | null = null;
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
   private walletAddress: string | null = null;
@@ -89,6 +96,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   private witnesses: any = null;
   private readonly contractJoinTimeoutMs: number;
   private readonly walletFundingTimeoutMs: number;
+  private readonly walletNetworkId: WalletNetworkId.NetworkId;
 
   constructor(
     contractAddress: string,
@@ -97,18 +105,17 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     contractInstance: any,
     witnesses: any,
     contractInfo: ContractInfo,
-    networkId: NetworkId,
     syncProtocolName: string,
     maxBatchSize: number = 10000,
   ) {
     this.contractAddress = contractAddress;
     this.config = config;
     this.contractInfo = contractInfo;
-    this.networkId = networkId;
     this.syncProtocolName = syncProtocolName;
     this.maxBatchSize = maxBatchSize;
     this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
     this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
+    this.walletNetworkId = config.walletNetworkId ?? "undeployed" as WalletNetworkId.NetworkId;
 
     // Store contract info for lazy joining
     this.contractInstance = contractInstance;
@@ -124,37 +131,39 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
    */
   private async initialize(walletSeed: string): Promise<void> {
     try {
-      const networkId = [
-        "Undeployed",
-        "Devnet",
-        "Testnet",
-        "Mainnet",
-      ][this.networkId];
-      setNetworkId(networkId as any);
+      // Use lowercase network ID to match the wallet SDK expectations
+      // This is consistent with the working e2e tests and manual scripts
+      setNetworkId(this.walletNetworkId as any);
 
-      console.log("🔗 Building Midnight wallet...");
+      console.log("🔗 Building Midnight wallet (modular SDK)...");
 
-      this.wallet = await WalletBuilder.buildFromSeed(
-        this.config.indexer,
-        this.config.indexerWS,
-        this.config.proofServer,
-        this.config.node,
+      const networkUrls: MidnightNetworkUrls = {
+        indexer: this.config.indexer,
+        indexerWS: this.config.indexerWS,
+        node: this.config.node,
+        proofServer: this.config.proofServer,
+      };
+
+      this.walletResult = await buildWalletFacade(
+        networkUrls,
         walletSeed,
-        getZswapNetworkId(), // Use zswap network ID after setting network
-        "info",
+        this.walletNetworkId,
       );
 
-      this.wallet.start();
-
-      // Get and log wallet address for debugging
-      const initialState = await Rx.firstValueFrom(this.wallet.state());
-      this.walletAddress = initialState.address;
+      const initialState = await getInitialShieldedState(
+        this.walletResult.wallet.shielded,
+      );
+      this.walletAddress = initialState.address.coinPublicKeyString();
       console.log("✅ Wallet built and sync started");
       console.log(`📍 Batcher wallet address: ${this.walletAddress}`);
+      console.log(`📍 Batcher dust address: ${this.walletResult.dustAddress}`);
+      console.log(`🔑 Coin public key: ${initialState.address.coinPublicKeyString()}`);
       console.log(
-        `🔑 Coin public key: ${
-          Buffer.from(initialState.coinPublicKey).toString("hex")
-        }`,
+        `🛡️ Encryption public key: ${initialState.address.encryptionPublicKeyString()}`,
+      );
+
+      this.walletProvider = this.createWalletAndMidnightProvider(
+        this.walletResult,
       );
 
       this.publicDataProvider = indexerPublicDataProvider(
@@ -163,13 +172,15 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       );
 
       // Wait for wallet to be funded and synced before starting batcher
-      console.log("💰 Waiting for wallet to be funded and synced before starting batcher...");
+      console.log(
+        "💰 Waiting for wallet to be funded and synced before starting batcher...",
+      );
       await this.ensureFunds();
-      
-      // Join contract during initialization so we're ready to process immediately
-      console.log("🔗 Joining contract during initialization...");
-      await this.ensureContractJoined();
-      
+
+      // NOTE: We skip joining the contract during initialization to avoid long startup times
+      // The contract will be joined lazily when the first transaction is submitted
+      console.log("⚠️ Contract join deferred until first transaction (lazy join)");
+
       console.log("✅ Midnight adapter fully initialized and ready!");
 
       this.isInitialized = true;
@@ -197,7 +208,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     }
 
     // Guard against concurrent join attempts
-    if (!this.wallet) {
+    if (!this.walletResult || !this.walletProvider) {
       throw new Error("Cannot join contract: wallet not initialized");
     }
 
@@ -206,15 +217,17 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       try {
         console.log("⚙️ Configuring providers for contract join...");
 
-        const walletAndMidnightProvider = await this
-          .createWalletAndMidnightProvider(
-            this.wallet!,
-          );
+        const walletAndMidnightProvider = this.walletProvider!;
 
+        // For the batcher, we use minimal private state config.
+        // We provide privateStateStoreName but omit midnightDbName to use in-memory storage.
+        // This avoids persisting/syncing historical private state which can take minutes and timeout.
+        // The batcher only needs to submit transactions, not read historical private state.
         const providers = {
           privateStateProvider: levelPrivateStateProvider({
             privateStateStoreName: this.config.privateStateStoreName,
-          }),
+            walletProvider: walletAndMidnightProvider,
+          } as any),
           publicDataProvider: this.publicDataProvider,
           zkConfigProvider: new NodeZkConfigProvider(this.config.zkConfigPath),
           proofProvider: httpClientProofProvider(this.config.proofServer),
@@ -224,56 +237,64 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
 
         console.log("🔗 Joining contract at address:", this.contractAddress);
 
+        // Check if indexer is responding before attempting to join
+        try {
+          console.log("🔍 Checking indexer health...");
+          const blockQuery = `query { block { height } }`;
+          const healthResponse = await fetch(this.config.indexer, {
+            method: "POST",
+            body: JSON.stringify({ query: blockQuery }),
+            headers: { "Content-Type": "application/json" },
+          });
+          if (!healthResponse.ok) {
+            throw new Error(`Indexer returned ${healthResponse.status}`);
+          }
+          const healthData = await healthResponse.json();
+          console.log(`✅ Indexer is responding. Current block: ${healthData.data?.block?.height || "unknown"}`);
+        } catch (error) {
+          console.error("❌ Indexer health check failed:", error);
+          throw new Error(`Cannot join contract: Midnight indexer is not responding at ${this.config.indexer}`);
+        }
+
         // Use privateStateId if provided, otherwise fall back to privateStateStoreName
         const privateStateId = this.config.privateStateId ??
           this.config.privateStateStoreName;
         console.log(`🔑 Using privateStateId: ${privateStateId}`);
 
-        // Add timeout to contract joining (configurable, defaults to 120 seconds)
+        // With minimal private state config, joining should be fast (no historical sync needed)
+        // But we still keep a timeout as a safety measure
         const contractJoinTimeoutSeconds = Math.round(this.contractJoinTimeoutMs / 1000);
+        console.log(`⏱️ Contract join timeout: ${contractJoinTimeoutSeconds}s`);
+        console.log("🔍 Starting findDeployedContract...");
+        
+        const joinStartTime = Date.now();
         this.deployedContract = await Promise.race([
-          findDeployedContract(providers, {
-            contractAddress: this.contractAddress,
-            contract: this.contractInstance,
-            privateStateId: privateStateId,
-            initialPrivateState: {},
-          }),
+          (async () => {
+            const result = await findDeployedContract(providers, {
+              contractAddress: this.contractAddress,
+              contract: this.contractInstance,
+              privateStateId: privateStateId,
+              initialPrivateState: {},
+            });
+            const joinDuration = Math.round((Date.now() - joinStartTime) / 1000);
+            console.log(`✅ findDeployedContract completed in ${joinDuration}s`);
+            return result;
+          })(),
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error(
-              `Timeout: Contract join operation did not complete within ${contractJoinTimeoutSeconds} seconds. ` +
-              "This may indicate issues with the Midnight network or private state synchronization."
-            )), this.contractJoinTimeoutMs)
+            setTimeout(() => {
+              const elapsed = Math.round((Date.now() - joinStartTime) / 1000);
+              reject(new Error(
+                `Timeout: Contract join operation did not complete within ${contractJoinTimeoutSeconds} seconds ` +
+                `(elapsed: ${elapsed}s). This indicates the Midnight indexer/node is not responding properly ` +
+                "or there's an issue with private state synchronization even with minimal config."
+              ));
+            }, this.contractJoinTimeoutMs)
           )
         ]);
 
         console.log("✅ Contract joined successfully");
 
-        // CRITICAL: Wait for private state to fully sync after joining
-        // The contract needs to download and decrypt historical transactions
-        console.log("⏳ Verifying contract private state is accessible...");
-
-        // Try to read from the contract to ensure private state is ready
-        // Use a pure circuit call (like balanceOf or owner) to verify
-        try {
-          const circuitNames = Object.keys(this.deployedContract.call);
-          console.log(
-            `🔍 Available circuits for testing: ${circuitNames.join(", ")}`,
-          );
-
-          console.log(
-            "⏳ Waiting 10 seconds for contract private state to sync...",
-          );
-          await new Promise((resolve) => setTimeout(resolve, 10000));
-          console.log("✅ Private state sync delay complete");
-        } catch (error) {
-          console.warn("⚠️ Contract state test query failed, waiting longer...");
-          console.log(
-            "⏳ Waiting 5 seconds for contract private state to sync...",
-          );
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-          console.log("✅ Private state sync delay complete");
-        }
-
+        // With empty private state config, no sync is needed - ready immediately
         this.contractJoined = true;
       } catch (error) {
         console.error("❌ Failed to join contract:", error);
@@ -288,36 +309,37 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   /**
    * Create wallet and midnight provider wrapper
    */
-  private async createWalletAndMidnightProvider(
-    wallet: Wallet,
-  ): Promise<WalletProvider & MidnightProvider> {
-    const state = await Rx.firstValueFrom(wallet.state());
-    this.walletAddress = state.address;
+  private createWalletAndMidnightProvider(
+    walletResult: WalletResult,
+  ): WalletProvider & MidnightProvider {
+    const {
+      wallet,
+      zswapSecretKeys,
+      walletZswapSecretKeys,
+      dustSecretKey,
+      walletDustSecretKey,
+    } = walletResult;
+
     return {
-      coinPublicKey: state.coinPublicKey,
-      encryptionPublicKey: state.encryptionPublicKey,
-      balanceTx(
-        tx: UnbalancedTransaction,
-        newCoins: CoinInfo[],
-      ): Promise<BalancedTransaction> {
-        return wallet
-          .balanceTransaction(
-            ZswapTransaction.deserialize(
-              tx.serialize(getLedgerNetworkId()),
-              getZswapNetworkId(),
-            ),
-            newCoins,
-          )
-          .then((tx) => wallet.proveTransaction(tx))
-          .then((zswapTx) =>
-            Transaction.deserialize(
-              zswapTx.serialize(getZswapNetworkId()),
-              getLedgerNetworkId(),
-            )
-          )
-          .then(createBalancedTx);
+      getCoinPublicKey(): CoinPublicKey {
+        return zswapSecretKeys.coinPublicKey;
       },
-      submitTx(tx: BalancedTransaction): Promise<TransactionId> {
+      getEncryptionPublicKey(): EncPublicKey {
+        return zswapSecretKeys.encryptionPublicKey;
+      },
+      balanceTx(
+        tx: UnprovenTransaction,
+        _newCoins?: ShieldedCoinInfo[],
+        ttl?: Date,
+      ): Promise<BalancedProvingRecipe> {
+        return wallet.balanceTransaction(
+          walletZswapSecretKeys,
+          walletDustSecretKey,
+          tx,
+          ttl ?? createTtl(),
+        );
+      },
+      submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
         return wallet.submitTransaction(tx);
       },
     };
@@ -327,70 +349,65 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
    * Wait for wallet to be synced and have funds (called lazily on first transaction)
    */
   private async ensureFunds(): Promise<void> {
-    if (this.hasFunds || !this.wallet) {
+    if (this.hasFunds || !this.walletResult) {
+      // Even if we previously had funds, make sure dust is still available
+      if (this.walletResult && (!this.lastFundingBalances || this.lastFundingBalances.dustBalance === 0n)) {
+        try {
+          const dust = await waitForDustFunds(
+            this.walletResult.wallet,
+            { timeoutMs: this.walletFundingTimeoutMs, waitNonZero: true }
+          );
+          if (this.lastFundingBalances) {
+            this.lastFundingBalances.dustBalance = dust;
+          } else {
+            this.lastFundingBalances = {
+              shieldedBalance: 0n,
+              unshieldedBalance: 0n,
+              dustBalance: dust,
+            };
+          }
+          if (dust > 0n) {
+            this.hasFunds = true;
+          }
+        } catch (_err) {
+          // If dust still not available, keep existing state; callTx will log balances
+        }
+      }
       return;
     }
 
-    console.log("💰 Checking wallet sync and balance...");
+    console.log("💰 Checking wallet sync and balance with modular SDK...");
 
-    const state = await Rx.firstValueFrom(this.wallet.state());
-    const balance = state.balances[nativeToken()] ?? 0n;
-    const isSynced = state.syncProgress?.synced === true;
-
-    console.log(`Wallet status: synced=${isSynced}, balance=${balance}`);
-
-    // Check both balance AND sync status
-    if (balance > 0n && isSynced) {
-      console.log(`✅ Wallet has balance and is synced: ${balance}`);
-      this.hasFunds = true;
-      return;
-    }
-
-    if (balance === 0n) {
-      console.log("⏳ Waiting for wallet to receive funds...");
-    } else {
-      console.log("⏳ Wallet has balance but not synced, waiting for sync...");
-    }
-
-    // Wait for BOTH sync AND funds with timeout
     try {
-      await Rx.firstValueFrom(
-        this.wallet.state().pipe(
-          Rx.throttleTime(10_000),
-          Rx.tap((state) => {
-            const applyGap = state.syncProgress?.lag.applyGap ?? 0n;
-            const sourceGap = state.syncProgress?.lag.sourceGap ?? 0n;
-            const synced = state.syncProgress?.synced === true;
-            const bal = state.balances[nativeToken()] ?? 0n;
-            console.log(
-              `Wallet status: synced=${synced}, balance=${bal}, Backend lag: ${sourceGap}, wallet lag: ${applyGap}`,
-            );
-          }),
-          // CRITICAL: Must be synced before submitting transactions
-          Rx.filter((state) => state.syncProgress?.synced === true),
-          Rx.map((s) => s.balances[nativeToken()] ?? 0n),
-          Rx.filter((balance) => balance > 0n),
-          Rx.timeout({
-            each: this.walletFundingTimeoutMs, // Configurable wallet funding timeout
-            with: () => Rx.throwError(() => new Error(
-              `Timeout: Wallet did not receive funds or complete sync within ${Math.round(this.walletFundingTimeoutMs / 1000)} seconds. ` +
-              "Please ensure the wallet is funded and the Midnight network is accessible."
-            ))
-          })
-        ),
-      );
-
+      const balances = await syncAndWaitForFunds(this.walletResult.wallet, {
+        timeoutMs: this.walletFundingTimeoutMs,
+        waitNonZero: false, // We want to proceed even if 0, and check dust specifically after
+      });
+      // If dust is missing but we have unshielded funds, try to sync dust explicitly
+      if (balances.dustBalance === 0n && balances.unshieldedBalance > 0n) {
+        try {
+          const dust = await waitForDustFunds(
+            this.walletResult.wallet,
+            { timeoutMs: this.walletFundingTimeoutMs, waitNonZero: true }
+          );
+          balances.dustBalance = dust;
+        } catch (_err) {
+          // keep dustBalance as-is; will be logged on failure
+        }
+      }
+      this.lastFundingBalances = {
+        shieldedBalance: balances.shieldedBalance,
+        unshieldedBalance: balances.unshieldedBalance,
+        // fallback to 0n if older syncAndWaitForFunds doesn't return dustBalance
+        dustBalance: balances.dustBalance ?? 0n,
+      };
       console.log("✅ Wallet fully synced and funded");
       this.hasFunds = true;
     } catch (error) {
-      if (error instanceof Error && error.message.includes("Timeout")) {
-        console.error("❌ " + error.message);
-        throw error;
-      }
       throw new Error(
         `Failed to ensure wallet funds: ${
           error instanceof Error ? error.message : String(error)
-        }`
+        }`,
       );
     }
   }
@@ -407,6 +424,31 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   }
 
   /**
+   * Cleanup method to properly release resources
+   * Should be called when the adapter is being destroyed/shutdown
+   */
+  public async cleanup(): Promise<void> {
+    console.log("🧹 Cleaning up Midnight adapter resources...");
+    
+    // Close wallet
+    if (this.walletResult?.wallet) {
+      try {
+        await this.walletResult.wallet.stop();
+        console.log("✅ Wallet stopped");
+      } catch (error) {
+        console.warn("⚠️ Error stopping wallet:", error);
+      }
+    }
+    
+    // Note: The deployedContract and privateStateProvider don't have explicit close methods
+    // The LevelDB connections are managed per-operation by levelPrivateStateProvider
+    // However, we should allow a small delay for any pending async operations
+    console.log("⏳ Waiting for pending operations to complete...");
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log("✅ Midnight adapter cleanup complete");
+  }
+
+  /**
    * Submit a batch transaction to the Midnight contract
    */
   async submitBatch(
@@ -418,7 +460,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       this.initializationPromise = null;
     }
 
-    if (!this.isInitialized || !this.wallet) {
+    if (!this.isInitialized || !this.walletResult) {
       throw new Error("Midnight adapter not initialized");
     }
 
@@ -525,6 +567,13 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
             "  Error stack:",
             callTxError instanceof Error ? callTxError.stack : "N/A",
           );
+          if (this.lastFundingBalances) {
+            console.error(
+              `  Last synced balances -> shielded: ${this.lastFundingBalances.shieldedBalance.toString()}, unshielded: ${this.lastFundingBalances.unshieldedBalance.toString()}, dust: ${this.lastFundingBalances.dustBalance.toString()}`,
+            );
+          } else {
+            console.error("  Last synced balances: unavailable (ensureFunds did not complete)");
+          }
           throw callTxError; // Re-throw to be caught by outer catch
         }
 
@@ -600,6 +649,10 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
 
   /**
    * Query transaction status from indexer using GraphQL API
+   * 
+   * Note: The Midnight indexer v3 schema does not have an `applyStage` field.
+   * Instead, we check if the transaction is included in a block, which indicates
+   * successful execution. Transactions that fail validation are not included in blocks.
    */
   private async queryTransactionStatus(
     txId: string,
@@ -625,9 +678,12 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       );
 
       // Query the indexer for transaction details by hash
+      // The v3 indexer schema uses `transactions(offset: { hash })` and returns
+      // transaction with block info. If a transaction is included in a block,
+      // it's considered confirmed (failed transactions are rejected before inclusion).
       const query = `query ($hash: String!) {
         transactions(offset: { hash: $hash }) {
-          applyStage
+          hash
           block {
             height
           }
@@ -646,17 +702,16 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
 
       const tx = response.transactions[0];
 
-      if (!tx.block || !tx.applyStage) {
-        // Transaction exists but doesn't have complete data yet
+      if (!tx.block) {
+        // Transaction exists but not yet included in a block
         return null;
       }
 
-      // Transaction is confirmed if applyStage is SucceedEntirely
-      const applyStage = tx.applyStage;
-      const confirmed = applyStage === "SucceedEntirely";
-
+      // Transaction is confirmed if it's included in a block
+      // In Midnight, transactions that fail validation are rejected before inclusion,
+      // so presence in a block indicates successful execution
       return {
-        confirmed,
+        confirmed: true,
         blockNumber: BigInt(tx.block.height),
       };
     } catch (error) {
@@ -705,7 +760,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
    * Get the current account/address for this adapter
    */
   getAccountAddress(): string {
-    if (!this.wallet || !this.walletAddress) {
+    if (!this.walletResult || !this.walletAddress) {
       throw new Error("Wallet not initialized");
     }
     return this.walletAddress;
@@ -715,7 +770,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
    * Get the current chain name or identifier
    */
   getChainName(): string {
-    return `Midnight (${this.networkId})`;
+    return `Midnight (${this.walletNetworkId})`;
   }
 
   /**
@@ -731,7 +786,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
    * Check if the adapter is ready to submit transactions
    */
   isReady(): boolean {
-    return this.isInitialized && this.wallet !== null;
+    return this.isInitialized && this.walletResult !== null;
   }
 
   /**
@@ -771,21 +826,6 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
    */
   getSyncProtocolName(): string {
     return this.syncProtocolName;
-  }
-
-  /**
-   * Cleanup resources (for graceful shutdown)
-   */
-  cleanup(): void {
-    if (this.wallet) {
-      console.log("🧹 Closing Midnight wallet...");
-      try {
-        // Wallet cleanup if needed
-        // this.wallet.close();
-      } catch (error) {
-        console.warn("Warning: Error closing wallet:", error);
-      }
-    }
   }
 
   private parseBatchPayload(

@@ -1,2 +1,2 @@
-export * as SimpleToken from "./managed/simpletoken/contract/index.ts";
+export * as SimpleToken from "./managed/contract/index.js";
 export * from "./witnesses.ts";

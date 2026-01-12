@@ -12,6 +12,9 @@ import type { BlockNumber } from "@effectstream/utils";
 
 import { paimaL2Grammar } from "./grammar.ts";
 import {
+  midnightNetworkConfig,
+} from "@effectstream/midnight-contracts/midnight-env";
+import {
   PrimitiveTypeAvailGeneric,
   PrimitiveTypeEVMERC1155,
   PrimitiveTypeEVMERC20,
@@ -116,10 +119,8 @@ export const config = new ConfigBuilder()
         .addNetwork({
           name: "midnight",
           type: ConfigNetworkType.MIDNIGHT,
-          genesisHash:
-            "0x0000000000000000000000000000000000000000000000000000000000000001",
-          networkId: 0, // NetworkId.Undeployed,
-          nodeUrl: "http://127.0.0.1:9944",
+          networkId: midnightNetworkConfig.id,
+          nodeUrl: midnightNetworkConfig.node,
         });
     }
 
@@ -235,8 +236,8 @@ export const config = new ConfigBuilder()
             startBlockHeight: 1,
             pollingInterval: 1000,
             delayMs: 18000,
-            indexer: "http://127.0.0.1:8088/api/v1/graphql",
-            indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
+            indexer: midnightNetworkConfig.indexer,
+            indexerWs: midnightNetworkConfig.indexerWS,
           }),
         );
     }
@@ -368,8 +369,14 @@ export const config = new ConfigBuilder()
       );
     }
     if (midnight_enabled) {
-      const counterAddress = readMidnightContract("contract-counter", "contract-counter.json").contractAddress;
-      const eip20Address = readMidnightContract("contract-eip-20", "contract-eip-20.json").contractAddress;
+      const counterAddress = readMidnightContract(
+        "contract-counter",
+        { networkId: midnightNetworkConfig.id },
+      ).contractAddress;
+      const eip20Address = readMidnightContract(
+        "contract-eip-20",
+        { networkId: midnightNetworkConfig.id },
+      ).contractAddress;
       builder = builder
         .addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
@@ -380,7 +387,7 @@ export const config = new ConfigBuilder()
             contractAddress: counterAddress,
             stateMachinePrefix: "midnightContractState",
             contract: { ledger: CounterContract.ledger },
-            networkId: 0, // NetworkId.Undeployed,
+            networkId: midnightNetworkConfig.id,
           }),
         ).addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
@@ -391,7 +398,7 @@ export const config = new ConfigBuilder()
             contractAddress: eip20Address,
             stateMachinePrefix: "eip20ContractState",
             contract: { ledger: SimpleTokenContract.ledger },
-            networkId: 0, // NetworkId.Undeployed,
+            networkId: midnightNetworkConfig.id,
           }),
         );
     }

@@ -18,7 +18,7 @@ import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type MidnightGqlBlockState } from "./MidnightClient.ts";
 import type { EncodedStateValue } from "@effectstream/config";
-import { ContractState, NetworkId } from '@midnight-ntwrk/onchain-runtime';
+import { ContractState } from "@midnight-ntwrk/onchain-runtime";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -28,13 +28,30 @@ export class MidnightFetcher extends BaseDataFetcher<
   RootPage
 > {
   readonly client: MidnightClient;
+  private readonly networkId?: string;
   constructor(
     readonly config: ConfigType,
   ) {
     super(config.syncProtocol.name);
+    const indexerHttp = config.syncProtocol.indexer;
+    const indexerWs =
+      (config.syncProtocol as any).indexerWS ??
+      (config.syncProtocol as any).indexerWs;
+    if (!indexerHttp || !indexerWs) {
+      throw new Error(
+        `Midnight sync protocol "${
+          config.syncProtocol.name
+        }" requires both indexer and indexerWS URLs. Received indexer=${
+          indexerHttp ?? "undefined"
+        }, indexerWS=${indexerWs ?? "undefined"}.`,
+      );
+    }
+    this.networkId = config.network?.networkId ??
+      (config.network as any)?.id;
     this.client = new MidnightClient(
-      config.syncProtocol.indexer,
-      config.syncProtocol.indexerWS ?? "ws://127.0.0.1:8088/api/v1/graphql/ws",
+      indexerHttp,
+      indexerWs,
+      this.networkId,
     );
   }
 
@@ -45,7 +62,7 @@ export class MidnightFetcher extends BaseDataFetcher<
   ): Operation<DataFetched<Output, Page, RootPage>> {
     const outputs: OutputAndCleanup<Output>[] = [];
     console.log(
-      `[Midnight] Fetching blocks from ${data.from} to ${data.to}. ${
+      `[Midnight${this.networkId ? `:${this.networkId}` : ""}] Fetching blocks from ${data.from} to ${data.to}. ${
         data.isPresync ? "[presync]" : ""
       }`,
     );
@@ -135,7 +152,7 @@ export class MidnightFetcher extends BaseDataFetcher<
         return c.address.padStart(longest, '0') === contractAddress.padStart(longest, '0');
       })!.state!;
       const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-      const contractState = ContractState.deserialize(byteState, primitiveEntry.primitive.networkId || NetworkId.Undeployed);
+      const contractState = ContractState.deserialize(byteState);
       const contract = primitiveEntry.primitive.contract;
       const state = contract.ledger(contractState.data as any);
       const pojoState = JSON.parse(JSON.stringify(

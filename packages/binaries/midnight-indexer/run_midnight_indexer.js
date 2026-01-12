@@ -4,6 +4,91 @@ const fs = require("fs");
 const yaml = require("js-yaml");
 
 const BINARY_NAME = "indexer-standalone";
+
+/**
+ * Resolves the configuration file path
+ * @param {Object} env - Environment variables
+ * @param {string} workingDir - The working directory where the indexer runs
+ * @returns {string} The resolved configuration file path
+ */
+function resolveConfigPath(env, workingDir) {
+  if (env.CONFIG_FILE) {
+    return path.isAbsolute(env.CONFIG_FILE)
+      ? env.CONFIG_FILE
+      : path.resolve(workingDir, env.CONFIG_FILE);
+  }
+  // Fall back to config.yaml in the current working directory
+  return path.join(workingDir, "config.yaml");
+}
+
+/**
+ * Ensures that a configuration file exists at the given path
+ * @param {string} configPath - The path to the configuration file
+ * @param {Object} env - Environment variables
+ */
+function ensureConfigExists(configPath, env) {
+  if (fs.existsSync(configPath)) {
+    return;
+  }
+
+  console.log(
+    `Config file not found. Generating default config at: ${configPath}`,
+  );
+
+  const networkId = env.LEDGER_NETWORK_ID || "Undeployed";
+  const nodeUrl = env.SUBSTRATE_NODE_WS_URL ||
+    env.APP__INFRA__NODE__URL ||
+    "ws://localhost:9944";
+  const cnnUrl = env.APP__INFRA__STORAGE__CNN_URL || "./data/indexer.sqlite";
+  const apiPort = env.APP__INFRA__API__PORT || 8088;
+
+  const defaultConfig = `
+run_migrations: true
+network_id: &network_id "${networkId}"
+
+chain_indexer_application:
+  network_id: *network_id
+  blocks_buffer: 60
+  save_zswap_state_after: 1000
+  caught_up_max_distance: 60
+  caught_up_leeway: 30
+
+wallet_indexer_application:
+  network_id: *network_id
+  active_wallets_repeat_delay: "100ms"
+  active_wallets_ttl: "30m"
+  transaction_batch_size: 10
+
+infra:
+  node:
+    url: "${nodeUrl}"
+    reconnect_max_delay: "10s"
+    reconnect_max_attempts: 30
+
+  storage:
+    cnn_url: "${cnnUrl}"
+
+  api:
+    address: "0.0.0.0"
+    port: ${apiPort}
+    request_body_limit: "1MiB"
+    max_complexity: 200
+    max_depth: 15
+    network_id: *network_id
+
+telemetry:
+  tracing:
+    enabled: false
+    service_name: "indexer"
+  metrics:
+    enabled: false
+    address: "0.0.0.0"
+    port: 9000
+`;
+
+  fs.writeFileSync(configPath, defaultConfig.trim());
+}
+
 /**
  * Resolves the SQLite database path using the midnight-indexer configuration rules
  * @param {Object} env - Environment variables
@@ -18,17 +103,7 @@ function resolveSqlitePath(env, workingDir) {
     return envCnnUrl;
   }
 
-  // Determine config file path using the configuration resolution rules
-  let configPath;
-  if (env.CONFIG_FILE) {
-    configPath = path.isAbsolute(env.CONFIG_FILE)
-      ? env.CONFIG_FILE
-      : path.resolve(workingDir, env.CONFIG_FILE);
-  } else {
-    // Fall back to config.yaml in the current working directory
-    configPath = path.join(workingDir, "config.yaml");
-  }
-
+  const configPath = resolveConfigPath(env, workingDir);
   console.log(`Looking for config file at: ${configPath}`);
 
   // Check if config file exists
@@ -66,6 +141,24 @@ function resolveSqlitePath(env, workingDir) {
 }
 
 /**
+ * Resolves the SQLite database path with a fallback to the default location
+ * @param {Object} env - Environment variables
+ * @param {string} workingDir - The working directory where the indexer runs
+ * @returns {string} The resolved SQLite database path
+ */
+function resolveSqlitePathWithFallback(env, workingDir) {
+  const sqlitePath = resolveSqlitePath(env, workingDir);
+  if (sqlitePath) {
+    return sqlitePath;
+  }
+
+  // Fallback to default indexer location: data/indexer.sqlite
+  const defaultPath = path.join(workingDir, "data", "indexer.sqlite");
+  console.log(`Using default SQLite path: ${defaultPath}`);
+  return defaultPath;
+}
+
+/**
  * Handles the --clean flag by deleting the SQLite database file
  * @param {Object} env - Environment variables
  * @param {string} workingDir - The working directory where the indexer runs
@@ -73,12 +166,7 @@ function resolveSqlitePath(env, workingDir) {
 function handleCleanFlag(env, workingDir) {
   console.log("Processing --clean flag...");
 
-  const sqlitePath = resolveSqlitePath(env, workingDir);
-
-  if (!sqlitePath) {
-    console.warn("Could not resolve SQLite database path. Skipping cleanup.");
-    return;
-  }
+  const sqlitePath = resolveSqlitePathWithFallback(env, workingDir);
 
   // Handle sqlite:// URLs and extract the file path
   let filePath = sqlitePath;
@@ -117,6 +205,9 @@ function runMidnightIndexer(env = process.env, args = []) {
     BINARY_NAME,
   );
   const workingDir = path.join(__dirname, "indexer-standalone");
+
+  const configPath = resolveConfigPath(env, workingDir);
+  ensureConfigExists(configPath, env);
 
   // Check for --clean flag and handle it
   const cleanFlagIndex = args.indexOf("--clean");

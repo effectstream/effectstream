@@ -14,16 +14,19 @@ export type MidnightContractCompilerInfo = {
 
 /**
 * Address information for a deployed contract
+* Supports both legacy format (string) and new format (network-keyed object)
 */
 export type MidnightContractAddressInfo = {
-  /** The deployed contract address */
-  contractAddress: string;
+  /** The deployed contract address - can be a string (legacy) or network-keyed object */
+  contractAddress: string
 };
 
 /**
 * Complete contract information combining address and compiler info
 */
-export type MidnightContractInfo = MidnightContractAddressInfo & {
+export type MidnightContractInfo = {
+  /** The deployed contract address for the specified network */
+  contractAddress: string;
   /** Compiler-generated contract information */
   contractInfo: MidnightContractCompilerInfo;
   zkConfigPath: string;
@@ -98,6 +101,50 @@ function isValidMidnightContractDir(dir: string, contractName: string): boolean 
   } catch {
     return false;
   }
+}
+
+/**
+ * Determine whether a directory contains the expected Midnight compiler artifacts.
+ */
+function hasManagedArtifacts(dir: string): boolean {
+  const requiredDirs = ["compiler", "contract"];
+  try {
+    return requiredDirs.every((entry) => {
+      const stats = Deno.statSync(path.join(dir, entry));
+      return stats.isDirectory;
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolves the directory that actually holds the managed compiler artifacts.
+ * Supports both nested structures (src/managed/<name>/...) and flattened ones
+ * (src/managed/...).
+ */
+function resolveManagedArtifactsDir(managedDir: string): string {
+  try {
+    for (const entry of Deno.readDirSync(managedDir)) {
+      if (!entry.isDirectory) continue;
+      const candidate = path.join(managedDir, entry.name);
+      if (hasManagedArtifacts(candidate)) {
+        return candidate;
+      }
+    }
+  } catch {
+    // handled below
+  }
+
+  if (hasManagedArtifacts(managedDir)) {
+    return managedDir;
+  }
+
+  throw new Error(
+    `Managed compiler artifacts not found under ${managedDir}. ` +
+      `Expected either src/managed/<subdir>/{contract,compiler,...} or ` +
+      `src/managed/{contract,compiler,...}.`
+  );
 }
 
 /**
@@ -231,103 +278,159 @@ function findContractDirectory(
 * 
 * @param contractName - The name of the contract directory (e.g., 'contract-eip-1155', 'contract-counter')
 * @param contractFileName - The name of the contract address file (default: 'contract.json')
-* @param baseDir - Optional base directory override. If not provided, searches from Deno.cwd() upward
+* @param options - Optional configuration: baseDir to override search location, networkId to select specific network
 * @returns The complete contract information including address and compiler data
 */
 export function readMidnightContract(
   contractName: string,
-  contractFileName: string = "contract.json",
-  baseDir?: string
+  options?: { baseDir?: string; networkId?: string; contractFileName?: string }
 ): MidnightContractInfo {
-  let compilerSubdir = "";
+  const baseDir = options?.baseDir;
+  const resolvedNetworkId = options?.networkId || "undeployed";
+  const networkFileName = `${contractName}.${resolvedNetworkId}.json`;
+  const candidateFileNames = [
+    networkFileName,
+    `${contractName}.json`,
+    "contract.json",
+  ];
+
+
   let moduleDir: string;
-  
-  // Determine the base directory for contract resolution first
+
   if (baseDir) {
-    // Explicit base directory provided
     moduleDir = path.resolve(baseDir);
-  } else if (Deno) {
-    // Search for the directory containing the contract file
-    // Start from current working directory and walk up
-    // Pass contractName to validate we found the right contract.json (not an EVM one)
-    const foundDir = findContractDirectory(Deno.cwd(), contractFileName, contractName);
-    
+  } else if (typeof Deno !== "undefined") {
+    let foundDir: string | null = null;
+
+    for (const candidate of candidateFileNames) {
+      const dir = findContractDirectory(Deno.cwd(), candidate, contractName);
+      if (dir) {
+        foundDir = dir;
+        break;
+      }
+    }
+
     if (!foundDir) {
       throw new Error(
         `Could not find Midnight contract directory for "${contractName}". ` +
-        `Searched for ${contractFileName} starting from ${Deno.cwd()}. ` +
-        `Please ensure you're running from a directory that contains or is a parent of the Midnight contract files, ` +
-        `or provide an explicit baseDir parameter. ` +
-        `Note: This function only finds Midnight contracts (with src/managed/ structure), not EVM contracts.`
+          `Searched for ${candidateFileNames.join(", ")} starting from ${path.resolve(Deno.cwd())}. ` +
+          `Please ensure you're running from a directory that contains or is a parent of the Midnight contract files, ` +
+          `or provide an explicit baseDir parameter. ` +
+          `Note: This function only finds Midnight contracts (with src/managed/ structure), not EVM contracts.`
       );
     }
-    
+
     moduleDir = foundDir;
   } else {
-    // This is a browser environment, so we can't read the contract files
-    return { contractAddress: "", contractInfo: { circuits: [], witnesses: [], contracts: [] }, zkConfigPath: "", contractDir: "" };
+    const envContractAddress =
+      typeof Deno !== "undefined"
+        ? Deno.env.get("MIDNIGHT_CONTRACT_ADDRESS")
+        : undefined;
+    return {
+      contractAddress: envContractAddress || "",
+      contractInfo: { circuits: [], witnesses: [], contracts: [] },
+      zkConfigPath: "",
+      contractDir: "",
+    };
   }
-  
-  // Use cache key that includes the resolved directory path to ensure cache works correctly
-  // across different working directories and explicit baseDir parameters
-  const cacheKey = `${path.resolve(moduleDir)}:${contractName}:${contractFileName}`;
-  if (cachedContractInfo[cacheKey]) return cachedContractInfo[cacheKey];
-  
+
+  const normalizedModuleDir = path.resolve(moduleDir);
+  for (const candidate of candidateFileNames) {
+    const cacheKey = `${normalizedModuleDir}:${contractName}:${candidate}`;
+    if (cachedContractInfo[cacheKey]) return cachedContractInfo[cacheKey];
+  }
+
+  let contractAddressJson: string | undefined;
+  let actualContractFileName: string | undefined;
+
+  for (const candidate of candidateFileNames) {
+    const candidatePath = path.join(moduleDir, candidate);
+    try {
+      contractAddressJson = Deno.readTextFileSync(candidatePath);
+      actualContractFileName = candidate;
+      break;
+    } catch (err) {
+      if (err instanceof Deno.errors.NotFound) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (!contractAddressJson || !actualContractFileName) {
+    throw new Error(
+      `Contract files not found for "${contractName}". Tried: ${candidateFileNames.join(
+        ", ",
+      )} under ${moduleDir}. Please verify the compiler artifacts and contract JSON exist.`
+    );
+  }
+
+  let managedArtifactsDir = "";
   try {
-    
-    // Construct the full paths relative to the determined base directory
-    const contractPath = path.join(moduleDir, contractFileName);
-    
     // Find the first directory inside the managed directory
     const managedDir = path.join(moduleDir, contractName, "src/managed/");
     try {
-      for (const entry of Deno.readDirSync(managedDir)) {
-        if (entry.isDirectory) {
-          compilerSubdir = entry.name;
-          break;
-        }
-      }
+      managedArtifactsDir = resolveManagedArtifactsDir(managedDir);
     } catch (error) {
-      throw new Error(`Managed directory not found: ${managedDir}`);
-    }
-    
-    if (!compilerSubdir) {
-      throw new Error(`No subdirectory found in managed directory: ${managedDir}`);
+      throw new Error(
+        `Managed directory not found or invalid: ${managedDir}. ${(error as Error).message}`
+      );
     }
 
-    // Construct the full path to the contract info file using the first found subdirectory
+    // Construct the full path to the contract info file using the resolved managed directory
     const contractInfoPath = path.join(
-      moduleDir,
-      contractName,
-      "src/managed",
-      compilerSubdir,
+      managedArtifactsDir,
       "compiler/contract-info.json"
     );
-    console.log(`contractInfoPath: ${contractInfoPath}`);
-    const zkConfigPath = path.resolve(
-      path.join(
-        moduleDir,
-        contractName,
-        "src/managed",
-        compilerSubdir
-      )
-    );
-    const contractAddressJson = Deno.readTextFileSync(contractPath);
+    const zkConfigPath = path.resolve(managedArtifactsDir);
     const contractInfoJson = Deno.readTextFileSync(contractInfoPath);
     const contractAddressInfo = JSON.parse(contractAddressJson) as MidnightContractAddressInfo;
     const contractInfo = JSON.parse(contractInfoJson) as MidnightContractCompilerInfo;
     
+    // Handle both legacy format (string) and new format (network-keyed object)
+    let contractAddress: string;
+    let contractAddresses: Record<string, string>;
+    
+    if (typeof contractAddressInfo.contractAddress === "string") {
+      // Legacy format - single string address
+      contractAddress = contractAddressInfo.contractAddress;
+      contractAddresses = { [resolvedNetworkId]: contractAddress };
+    } else {
+      contractAddresses = contractAddressInfo.contractAddress;
+      contractAddress = contractAddresses[resolvedNetworkId];
+      
+      if (!contractAddress) {
+        throw new Error(
+          `Contract address not found for network "${resolvedNetworkId}". ` +
+          `Available networks: ${Object.keys(contractAddresses).join(", ")}`
+        );
+      }
+    }
+    
+    // Override contract address if MIDNIGHT_CONTRACT_ADDRESS env var is set
+    const envContractAddress = Deno.env.get("MIDNIGHT_CONTRACT_ADDRESS");
+    if (envContractAddress) {
+      contractAddress = envContractAddress;
+      contractAddresses[resolvedNetworkId] = envContractAddress;
+    }
+    
+    const cacheKey = `${normalizedModuleDir}:${contractName}:${actualContractFileName}`;
     cachedContractInfo[cacheKey] = {
-      ...contractAddressInfo,
+      contractAddress,
       contractInfo,
       zkConfigPath,
       contractDir: moduleDir,
     };
-    
+
     return cachedContractInfo[cacheKey];
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {
-      throw new Error(`Contract files not found - expected: ${contractFileName} and ${contractName}/src/managed/${compilerSubdir}/compiler/contract-info.json`);
+      const fileList = candidateFileNames
+        .map((name) => path.join(moduleDir, name))
+        .join(", ");
+      throw new Error(
+        `Contract files not found - expected one of [${fileList}] and compiler artifacts under ${managedArtifactsDir}.`
+      );
     }
     throw new Error(`Failed to read contract files: ${String(err)}`);
   }

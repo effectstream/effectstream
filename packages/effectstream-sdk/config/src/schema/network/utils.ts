@@ -64,7 +64,7 @@ export function caip2PrefixFor(
       return `polkadot:${strip0x(config.genesisHash).slice(0, 32)}`;
     case ConfigNetworkType.MIDNIGHT:
       // https://github.com/ChainAgnostic/namespaces/blob/main/polkadot/caip2.md
-      return `polkadot:${strip0x(config.genesisHash).slice(0, 32)}`;
+      return `polkadot:${config.networkId}`;
     case ConfigNetworkType.BITCOIN: {
       const chainIdentifier =
         (config as { chainIdentifier?: string | null }).chainIdentifier ??

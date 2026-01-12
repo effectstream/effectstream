@@ -19,6 +19,9 @@ export { PaimaL2DefaultAdapter } from "./paimal2-adapter.ts";
 export { MidnightAdapter } from "./midnight-adapter.ts";
 export type { MidnightAdapterConfig } from "./midnight-adapter.ts";
 
+// Midnight helper utilities
+export { parseCircuitArgs } from "./midnight-arg-parser.ts";
+
 // Generic EVM adapter implementation
 export {
   EvmContractAdapter,

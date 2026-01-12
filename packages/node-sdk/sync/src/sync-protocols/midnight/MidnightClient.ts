@@ -26,23 +26,25 @@ export interface MidnightGqlBlockState {
   };
 };
 
-
-// Replace with your actual endpoints and contract address
-const queryURL = "http://127.0.0.1:8088/api/v1/graphql";
-const subscriptionURL = "ws://127.0.0.1:8088/api/v1/graphql/ws";
-
-const publicDataProvider = indexerPublicDataProvider(queryURL, subscriptionURL);
+type PublicDataProvider = ReturnType<typeof indexerPublicDataProvider>;
 export class MidnightClient {
   private readonly queryURL: string;
   private readonly subscriptionURL: string;
-  private readonly publicDataProvider: typeof publicDataProvider;
+  private readonly publicDataProvider: PublicDataProvider;
+  private readonly networkId?: string;
 
-  constructor(queryURL: string, subscriptionURL: string) {
+  constructor(queryURL: string, subscriptionURL: string, networkId?: string) {
     this.queryURL = queryURL;
     this.subscriptionURL = subscriptionURL;
+    this.networkId = networkId;
     this.publicDataProvider = indexerPublicDataProvider(
       queryURL,
       subscriptionURL,
+    );
+    console.log(
+      `[MidnightClient] Using indexer ${queryURL} (network: ${
+        networkId ?? "unknown"
+      })`,
     );
   }
 

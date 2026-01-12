@@ -1,4 +1,5 @@
-import { deployMidnightContract, type DeployConfig } from "@effectstream/midnight-contracts/deploy";
+import { deployMidnightContract, type DeployConfig } from "@effectstream/midnight-contracts/deploy-ledger6";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import {
   SimpleToken,
   witnesses,
@@ -9,7 +10,8 @@ const config: DeployConfig = {
   contractFileName: "contract-eip-20.json",
   contractClass: SimpleToken.Contract,
   witnesses,
-  privateStateId: "simpletokenPrivateState",
+  // Must match interact + batcher adapter privateStateId
+  privateStateId: "simpleTokenPrivateState",
   initialPrivateState: {},
   deployArgs: [
     "TokenName",
@@ -22,7 +24,10 @@ const config: DeployConfig = {
   extractWalletAddress: true, // Extract wallet address and replace last arg with initialOwner
 };
 
-deployMidnightContract(config)
+
+console.log("Deploying contract with network config:", midnightNetworkConfig);
+
+deployMidnightContract(config, midnightNetworkConfig)
   .then(() => {
     console.log("Deployment successful");
     Deno.exit(0);

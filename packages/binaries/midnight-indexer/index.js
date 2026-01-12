@@ -1,4 +1,4 @@
-const { binary } = require("./binary");
+const { binary, getPlatform } = require("./binary");
 const { runMidnightIndexer } = require("./run_midnight_indexer");
 const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
   "./docker",
@@ -21,20 +21,8 @@ function checkIfBinaryExists() {
  * @returns {boolean} True if binary execution is supported
  */
 function isBinarySupported() {
-  const platform = os.platform();
-  const arch = os.arch();
-
-  // Check if the current platform-arch combination is supported
+  const platformString = getPlatform();
   const supportedPlatforms = require("./package.json").supportedPlatforms;
-
-  let platformString;
-  if (platform === "darwin") {
-    platformString = arch === "x64" ? "macos-amd64" : `macos-${arch}`;
-  } else {
-    platformString = arch === "x64"
-      ? `${platform}-amd64`
-      : `${platform}-${arch}`;
-  }
 
   return supportedPlatforms.includes(platformString);
 }

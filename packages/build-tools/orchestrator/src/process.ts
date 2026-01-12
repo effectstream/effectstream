@@ -146,6 +146,7 @@ export const $ = (params: {
   stderr?: "inherit" | "piped" | "null" | undefined;
   link?: string;
   critical?: boolean;
+  env?: Record<string, string>;
 }): ProcessComponent => {
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
@@ -157,7 +158,7 @@ export const $ = (params: {
     stderr: params.stderr ?? "piped",
     stdout: params.stdout ?? "piped",
     stdin: params.stdin ?? "inherit",
-    env: { FORCE_COLOR: "true" },
+    env: { ...params.env, FORCE_COLOR: "true" },
     cwd: params.cwd,
   }).spawn();
   process.ref(); // wait until all child processes die before killing parent

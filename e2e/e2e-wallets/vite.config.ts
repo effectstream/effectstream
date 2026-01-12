@@ -16,8 +16,8 @@ const concisePath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/
 const configPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/config/");
 const utilsPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/utils/");
 
-const midnightContractEip20Path = join(dirname(fromFileUrl(import.meta.url)), "../shared/contracts/midnight/contract-eip-20/src/managed/simpletoken/contract/");
-const midnightContractCounterBasicPath = join(dirname(fromFileUrl(import.meta.url)), "../shared/contracts/midnight/contract-counter/src/managed/counter/contract/");
+const midnightContractEip20Path = join(dirname(fromFileUrl(import.meta.url)), "../shared/contracts/midnight/contract-eip-20/src/managed/contract/");
+const midnightContractCounterBasicPath = join(dirname(fromFileUrl(import.meta.url)), "../shared/contracts/midnight/contract-counter/src/managed/contract/");
 
 // This is a mock for @effectstream/db so it doesn't get loaded in the browser.
 const dbEmptyPath = join(dirname(fromFileUrl(import.meta.url)), "effectstream-db-empty.ts");
@@ -28,8 +28,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@e2e/midnight-contract-eip-20/contract": midnightContractEip20Path + "index.ts",
-      "@e2e/midnight-contract-counter-basic/contract": midnightContractCounterBasicPath + "index.ts",
+      "@e2e/midnight-contract-eip-20/contract": midnightContractEip20Path + "index.js",
+      "@e2e/midnight-contract-counter-basic/contract": midnightContractCounterBasicPath + "index.js",
       "@effectstream/utils": utilsPath + "src/mod.ts",
       "@effectstream/config": configPath + "src/mod.ts",
       "@effectstream/concise": concisePath + "src/mod.ts",

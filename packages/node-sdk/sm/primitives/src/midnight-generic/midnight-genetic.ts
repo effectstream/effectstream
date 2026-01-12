@@ -33,7 +33,7 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
   readonly contract: {
     ledger: (data: EncodedStateValue) => any;
   };
-  readonly networkId: number;
+  readonly networkId: string;
   readonly genesisHash: string;
   // No dynamic tables for midnight generic primitive
   override dynamicTables = undefined;
@@ -52,13 +52,13 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
     contract: {
       ledger: (data: EncodedStateValue) => any;
     }
-    networkId?: number;
+    networkId?: string;
     genesisHash?: string;
   }) {
     super(config);
     this.contractAddress = config.contractAddress;
     this.contract = config.contract;
-    this.networkId = config.networkId || 0;
+    this.networkId = config.networkId ?? "undeployed";
     this.genesisHash = config.genesisHash || "";
   }
 
@@ -130,9 +130,9 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
       // TODO This should be optional
       scheduledPrefix: this.stateMachinePrefix ?? "",
       contract: this.contract,
-      // TODO Using "NetworkId.Undeployed" generated issues in 
-      // runtime with the onchain-runtime wasm.
-      networkId: this.networkId || 0, 
+      // FIXME: historically we relied on NetworkId enum values, but
+      // the v1 runtime expects canonical string identifiers instead.
+      networkId: this.networkId,
       // TODO This is unused for now.
       genesisHash: this.genesisHash || "", 
     } as const;

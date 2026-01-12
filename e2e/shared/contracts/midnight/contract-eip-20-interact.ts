@@ -75,12 +75,12 @@ interface Config {
 }
 
 class StandaloneConfig implements Config {
-  indexer = "http://127.0.0.1:8088/api/v1/graphql";
-  indexerWS = "ws://127.0.0.1:8088/api/v1/graphql/ws";
-  node = "http://127.0.0.1:9944";
-  proofServer = "http://127.0.0.1:6300";
+  indexer = midnightNetworkConfig.indexer;
+  indexerWS = midnightNetworkConfig.indexerWS;
+  node = midnightNetworkConfig.node;
+  proofServer = midnightNetworkConfig.proofServer;
   constructor() {
-    setNetworkId("Undeployed" as unknown as NetworkId);
+    setNetworkId(midnightNetworkConfig.id as NetworkId);
   }
 }
 
@@ -101,8 +101,16 @@ const contractConfig = {
   ),
 };
 
-const GENESIS_MINT_WALLET_SEED =
-  "0000000000000000000000000000000000000000000000000000000000000001";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
+
+const contractNetworkId = midnightNetworkConfig.id ?? "undeployed";
+const contractAddressFileName = `contract-eip-20.${contractNetworkId}.json`;
+
+/**
+ * Default wallet seed.
+ * In the case of the undeployed (local) network, this is the genesis seed that has initial funds.
+ */
+const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
 const simpleTokenContractInstance: SimpleTokenContract = new SimpleToken
   .Contract(
@@ -344,11 +352,8 @@ const configureProviders = async (
     wallet,
   );
   return {
-    privateStateProvider: levelPrivateStateProvider<
-      typeof SimpleTokenPrivateStateId
-    >({
-      privateStateStoreName: contractConfig.privateStateStoreName,
-    }),
+    // Old SDK: Empty config works fine - avoids historical private state sync
+    privateStateProvider: levelPrivateStateProvider({}),
     publicDataProvider: indexerPublicDataProvider(
       config.indexer,
       config.indexerWS,
@@ -374,7 +379,7 @@ const getContractAddress = async (): Promise<string> => {
   // }
 
   // If not provided via args, try to read from contract_address.txt file
-  const contractAddressFile = resolve(currentDir, "contract-eip-20.json");
+  const contractAddressFile = resolve(currentDir, contractAddressFileName);
 
   try {
     if (await exists(contractAddressFile)) {
@@ -425,13 +430,13 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
   let wallet = null;
 
   try {
-    console.log("🔗 Building wallet with genesis seed for standalone mode...");
+    console.log("🔗 Building wallet with default wallet seed...");
 
-    // Build wallet using genesis seed (which has initial funds in standalone mode)
+    // Build wallet using default wallet seed (genesis seed in standalone mode)
     wallet = await buildWalletAndWaitForFunds(
       config,
-      GENESIS_MINT_WALLET_SEED,
-      "contract-eip-20.json",
+      DEFAULT_WALLET_SEED,
+      contractAddressFileName,
     );
 
     console.log("✅ Wallet built successfully");
@@ -493,8 +498,8 @@ if (import.meta.main) {
     config.indexerWS,
     config.proofServer,
     config.node,
-    GENESIS_MINT_WALLET_SEED,
-    NetworkId.Undeployed,
+    DEFAULT_WALLET_SEED,
+    midnightNetworkConfig.id as any,
   );
   const address = (await Rx.firstValueFrom(wallet.state())).address;
   joinAndMint(address, 20000n).catch((error) => {

@@ -1,7 +1,22 @@
 const { spawn } = require("child_process");
 const path = require("path");
 
-const BINARY_NAME = "midnight-node";
+/**
+ * Applies default environment variables for midnight-node if not already set
+ * @param {Object} env - Environment variables object
+ * @returns {Object} Environment variables with defaults applied
+ */
+function applyDefaultEnv(env) {
+  const newEnv = { ...env };
+  if (!("MC__SLOT_DURATION_MILLIS" in newEnv)) {
+    newEnv.MC__SLOT_DURATION_MILLIS = "1000";
+  }
+  if (!("MOCK_REGISTRATIONS_FILE" in newEnv)) {
+    newEnv.MOCK_REGISTRATIONS_FILE = path.join(__dirname, "local-mock.json");
+  }
+  return newEnv;
+}
+
 /**
  * Executes the midnight-node binary as a child process
  * @param {Object} env - Environment variables to pass to the child process
@@ -9,14 +24,17 @@ const BINARY_NAME = "midnight-node";
  * @returns {ChildProcess} The spawned child process
  */
 function runMidnightNode(env = process.env, args = []) {
-  const binaryPath = path.join(__dirname, "midnight-node", BINARY_NAME);
+  const newEnv = applyDefaultEnv(env);
+
+  const binaryName = "midnight-node";
+  const binaryPath = path.join(__dirname, "midnight-node", binaryName);
 
   console.log(
     `Starting midnight-node binary at: ${binaryPath} ${args.join(" ")}`,
   );
 
   const childProcess = spawn(binaryPath, args, {
-    env: env,
+    env: newEnv,
     stdio: "inherit", // Inherit stdin, stdout, stderr from parent process
     cwd: path.join(__dirname, "midnight-node"), // Run from inside the midnight-node directory
   });
