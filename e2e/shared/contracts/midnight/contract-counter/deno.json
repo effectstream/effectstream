@@ -12,6 +12,6 @@
     },
     "imports": {
       "vitest": "npm:vitest@^3.2.4",
-      "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@^0.11.0-rc.1"
+      "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.11.0-rc.1"
     }
   }
