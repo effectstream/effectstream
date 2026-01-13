@@ -4,6 +4,7 @@
   "license": "MIT",
   "exports": {
     "./config": "./src/config.ts",
+    "./config.testnet": "./src/config.testnet.ts",
     "./grammar": "./src/grammar.ts"
   },
   "imports": {

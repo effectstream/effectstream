@@ -209,7 +209,7 @@ export const config = new ConfigBuilder()
       syncBuilder = (syncBuilder as any).addParallel(
         (networks: any) => (networks as any).midnight,
         () => ({
-          name: "parallelMidnightTestnet",
+          name: "parallelMidnight",
           type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
           startBlockHeight: midnightTip ?? 1,
           pollingInterval: 2000,
@@ -239,7 +239,7 @@ export const config = new ConfigBuilder()
       primitivesBuilder = primitivesBuilder
         .addPrimitive(
           (syncProtocols: any) =>
-            (syncProtocols as any).parallelMidnightTestnet,
+            (syncProtocols as any).parallelMidnight,
           () => ({
             name: "MidnightContractState",
             type: PrimitiveTypeMidnightGeneric,
