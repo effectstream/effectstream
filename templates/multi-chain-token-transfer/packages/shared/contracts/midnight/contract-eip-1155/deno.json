@@ -11,6 +11,6 @@
     "contract:compile": "deno task compact"
   },
   "imports": {
-    "vitest": "npm:vitest@^3.2.4",
+    "vitest": "npm:vitest@^3.2.4"
   }
 }
