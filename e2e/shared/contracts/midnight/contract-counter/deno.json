@@ -6,7 +6,7 @@
       "./contract": "./src/managed/contract/index.js"
     },
     "tasks": {
-      "compact": "COMPACTC_BASE_DIR=$PWD deno task -f @effectstream/compactc-binwrapped compactc src/counter.compact src/managed/ && deno task convert:js",
+      "compact": "compact compile +0.27.0 src/counter.compact src/managed/",
       "convert:js": "deno run -A convert-js.ts src/managed/contract/index.js src/managed/contract/index.ts",
       "contract:compile": "deno task compact"
     },
