@@ -1,5 +1,5 @@
 # Use Ubuntu as base image
-FROM denoland/deno:ubuntu-2.5.6
+FROM denoland/deno:ubuntu-2.6.5
 
 
 # Set environment variables
@@ -22,6 +22,9 @@ RUN apt-get update && apt-get install -y \
     iproute2 \
     # xz is required for compactc
     xz-utils \
+    clang \
+    build-essential \
+    llvm \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js
