@@ -511,7 +511,7 @@ module FungibleToken {
   ): [] {
     Initializable_assertInitialized();
     assert(!Utils_isKeyOrAddressZero(account), "FungibleToken: invalid receiver");
-    _update(burnAddress(), account, value);
+    _update(shieldedBurnAddress(), account, value);
   }
 
   /**
@@ -536,7 +536,7 @@ module FungibleToken {
   ): [] {
     Initializable_assertInitialized();
     assert(!Utils_isKeyOrAddressZero(account), "FungibleToken: invalid sender");
-    _update(account, burnAddress(), value);
+    _update(account, shieldedBurnAddress(), value);
   }
 
   /**
