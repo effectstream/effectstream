@@ -59,17 +59,6 @@ export async function startup(): Promise<Client> {
       ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : []),
       ...(avail_enabled ? launchAvail("@e2e/avail-contracts") : []),
       {
-        name: "build explorer",
-        args: ["task", "-f", "@effectstream/explorer", "build"],
-        waitToExit: true,
-      },
-      {
-        name: "build e2e-wallet-ui",
-        args: ["task", "-f", "@e2e/wallets-ui", "build"],
-        waitToExit: true,
-        dependsOn: ['build explorer'],
-      },
-      {
         stopProcessAtPort: [3334],
         name: "batcher",
         args: ["task", "-f", "@e2e/batcher", "start"],
@@ -80,7 +69,24 @@ export async function startup(): Promise<Client> {
           midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined,
           bitcoin_enabled ? ComponentNames.BITCOIN_WAIT_FOR_BLOCK : undefined,
         ].filter(Boolean),
-      }
+      },
+      {
+        name: "build explorer",
+        args: ["task", "-f", "@effectstream/explorer", "build"],
+        waitToExit: true,
+        dependsOn: [
+          'batcher',
+          yaci_enabled ? ComponentNames.DOLOS_WAIT : undefined,
+          avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
+        ].filter(Boolean),
+      },
+      {
+        name: "build e2e-wallet-ui",
+        args: ["task", "-f", "@e2e/wallets-ui", "build"],
+        waitToExit: true,
+        dependsOn: ['build explorer'],
+      },
+
     ],
   });
   start(config);

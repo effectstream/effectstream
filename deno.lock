@@ -8,12 +8,17 @@
     "jsr:@cliffy/keycode@1.0.0-rc.7": "1.0.0-rc.7",
     "jsr:@cliffy/prompt@1.0.0-rc.7": "1.0.0-rc.7",
     "jsr:@cliffy/table@1.0.0-rc.7": "1.0.0-rc.7",
+    "jsr:@david/code-block-writer@^13.0.3": "13.0.3",
+    "jsr:@deno/dnt@~0.42.3": "0.42.3",
     "jsr:@oak/commons@1": "1.0.1",
     "jsr:@oak/oak@^17.1.4": "17.2.0",
+    "jsr:@paimaexample/log@0.3.126": "0.3.126",
     "jsr:@std/assert@1": "1.0.16",
+    "jsr:@std/assert@^1.0.12": "1.0.16",
     "jsr:@std/assert@~1.0.6": "1.0.16",
     "jsr:@std/bytes@1": "1.0.6",
     "jsr:@std/cli@1": "1.0.25",
+    "jsr:@std/cli@^1.0.24": "1.0.25",
     "jsr:@std/collections@^1.1.3": "1.1.3",
     "jsr:@std/crypto@1": "1.0.5",
     "jsr:@std/dotenv@0.225": "0.225.6",
@@ -22,8 +27,11 @@
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/encoding@~1.0.5": "1.0.10",
     "jsr:@std/encoding@~1.0.8": "1.0.10",
+    "jsr:@std/fmt@1": "1.0.8",
     "jsr:@std/fmt@^1.0.5": "1.0.8",
     "jsr:@std/fmt@~1.0.2": "1.0.8",
+    "jsr:@std/fs@*": "1.0.21",
+    "jsr:@std/fs@1": "1.0.21",
     "jsr:@std/fs@^1.0.11": "1.0.21",
     "jsr:@std/http@1": "1.0.23",
     "jsr:@std/internal@^1.0.12": "1.0.12",
@@ -34,10 +42,13 @@
     "jsr:@std/path@*": "1.1.4",
     "jsr:@std/path@1": "1.1.4",
     "jsr:@std/path@^1.1.3": "1.1.4",
+    "jsr:@std/path@^1.1.4": "1.1.4",
     "jsr:@std/path@~1.0.6": "1.0.9",
     "jsr:@std/text@~1.0.7": "1.0.16",
     "jsr:@std/toml@*": "1.0.11",
     "jsr:@sylc/dkill@~0.12.3": "0.12.3",
+    "jsr:@ts-morph/bootstrap@0.27": "0.27.0",
+    "jsr:@ts-morph/common@0.27": "0.27.0",
     "npm:@aurowallet/mina-provider@^1.0.12": "1.0.12",
     "npm:@bloxbean/yaci-devkit@*": "0.10.6",
     "npm:@bloxbean/yaci-devkit@0.10.6": "0.10.6",
@@ -282,6 +293,19 @@
         "jsr:@std/fmt@~1.0.2"
       ]
     },
+    "@david/code-block-writer@13.0.3": {
+      "integrity": "f98c77d320f5957899a61bfb7a9bead7c6d83ad1515daee92dbacc861e13bb7f"
+    },
+    "@deno/dnt@0.42.3": {
+      "integrity": "62a917a0492f3c8af002dce90605bb0d41f7d29debc06aca40dba72ab65d8ae3",
+      "dependencies": [
+        "jsr:@david/code-block-writer",
+        "jsr:@std/fmt@1",
+        "jsr:@std/fs@1",
+        "jsr:@std/path@1",
+        "jsr:@ts-morph/bootstrap"
+      ]
+    },
     "@oak/commons@1.0.1": {
       "integrity": "889ff210f0b4292591721be07244ecb1b5c118742f5273c70cf30d7cd4184d0c",
       "dependencies": [
@@ -305,14 +329,40 @@
         "npm:path-to-regexp"
       ]
     },
+    "@paimaexample/log@0.3.126": {
+      "integrity": "177a6bc772b6ebff7d0cea0507e59994fe742fb9c8e570906fb43f7805459c68",
+      "dependencies": [
+        "npm:@opentelemetry/api",
+        "npm:@opentelemetry/api-logs",
+        "npm:@opentelemetry/exporter-logs-otlp-http",
+        "npm:@opentelemetry/exporter-metrics-otlp-http",
+        "npm:@opentelemetry/exporter-trace-otlp-http",
+        "npm:@opentelemetry/resources",
+        "npm:@opentelemetry/sdk-logs",
+        "npm:@opentelemetry/sdk-metrics",
+        "npm:@opentelemetry/sdk-trace-base",
+        "npm:@opentelemetry/semantic-conventions",
+        "npm:chalk",
+        "npm:effection@3.5.0",
+        "npm:material-chalk",
+        "npm:superjson",
+        "npm:tslog"
+      ]
+    },
     "@std/assert@1.0.16": {
-      "integrity": "6a7272ed1eaa77defe76e5ff63ca705d9c495077e2d5fd0126d2b53fc5bd6532"
+      "integrity": "6a7272ed1eaa77defe76e5ff63ca705d9c495077e2d5fd0126d2b53fc5bd6532",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
     },
     "@std/bytes@1.0.6": {
       "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
     },
     "@std/cli@1.0.25": {
-      "integrity": "1f85051b370c97a7a9dfc6ba626e7ed57a91bea8c081597276d1e78d929d8c91"
+      "integrity": "1f85051b370c97a7a9dfc6ba626e7ed57a91bea8c081597276d1e78d929d8c91",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
     },
     "@std/collections@1.1.3": {
       "integrity": "bf8b0818886df6a32b64c7d3b037a425111f28278d69fd0995aeb62777c986b0"
@@ -330,7 +380,11 @@
       "integrity": "71e1fc498787e4434d213647a6e43e794af4fd393ef8f52062246e06f7e372b7"
     },
     "@std/fs@1.0.21": {
-      "integrity": "d720fe1056d78d43065a4d6e0eeb2b19f34adb8a0bc7caf3a4dbf1d4178252cd"
+      "integrity": "d720fe1056d78d43065a4d6e0eeb2b19f34adb8a0bc7caf3a4dbf1d4178252cd",
+      "dependencies": [
+        "jsr:@std/internal",
+        "jsr:@std/path@^1.1.4"
+      ]
     },
     "@std/http@1.0.23": {
       "integrity": "6634e9e034c589bf35101c1b5ee5bbf052a5987abca20f903e58bdba85c80dee",
@@ -351,7 +405,7 @@
       "integrity": "257f7adceee3b53bb2bc86c7242e7d1bc59729e57d4981c4a7e5b876c808f05e",
       "dependencies": [
         "jsr:@std/fmt@^1.0.5",
-        "jsr:@std/fs",
+        "jsr:@std/fs@^1.0.11",
         "jsr:@std/io@~0.225.2"
       ]
     },
@@ -381,6 +435,19 @@
       "dependencies": [
         "jsr:@cliffy/command",
         "jsr:@cliffy/prompt"
+      ]
+    },
+    "@ts-morph/bootstrap@0.27.0": {
+      "integrity": "b8d7bc8f7942ce853dde4161b28f9aa96769cef3d8eebafb379a81800b9e2448",
+      "dependencies": [
+        "jsr:@ts-morph/common"
+      ]
+    },
+    "@ts-morph/common@0.27.0": {
+      "integrity": "c7b73592d78ce8479b356fd4f3d6ec3c460d77753a8680ff196effea7a939052",
+      "dependencies": [
+        "jsr:@std/fs@1",
+        "jsr:@std/path@1"
       ]
     }
   },
@@ -2046,16 +2113,10 @@
     "@dcspark/cip34-js@3.0.1": {
       "integrity": "sha512-xUChOH4fDAuAPImnRQs/5XXzBF6oWeLsRcwjjL5mFC2CXFAxhJrOavijQpbl67IcYUypOVSLg+8c2FCJonfH3Q=="
     },
-    "@deno/vite-plugin@1.0.6_vite@7.1.3__picomatch@4.0.3": {
-      "integrity": "sha512-Sh5XqvFuKAwjARTesi0n6xRpEXm1V0UeqKh+SxIrexCofxOaieNDMqXZD02RiZCg0mrJ43V8eCMuVrDfq6mLmg==",
-      "dependencies": [
-        "vite@7.1.3_picomatch@4.0.3"
-      ]
-    },
     "@deno/vite-plugin@1.0.6_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0": {
       "integrity": "sha512-Sh5XqvFuKAwjARTesi0n6xRpEXm1V0UeqKh+SxIrexCofxOaieNDMqXZD02RiZCg0mrJ43V8eCMuVrDfq6mLmg==",
       "dependencies": [
-        "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
     },
     "@discoveryjs/json-ext@0.5.7": {
@@ -8140,18 +8201,6 @@
         "@bufbuild/protobuf"
       ]
     },
-    "@vitejs/plugin-react@4.7.0_vite@7.1.3__picomatch@4.0.3_@babel+core@7.28.6": {
-      "integrity": "sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==",
-      "dependencies": [
-        "@babel/core",
-        "@babel/plugin-transform-react-jsx-self",
-        "@babel/plugin-transform-react-jsx-source",
-        "@rolldown/pluginutils",
-        "@types/babel__core",
-        "react-refresh",
-        "vite@7.1.3_picomatch@4.0.3"
-      ]
-    },
     "@vitejs/plugin-react@4.7.0_vite@7.1.3__picomatch@4.0.3_@babel+core@7.28.6_@types+node@24.2.0": {
       "integrity": "sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==",
       "dependencies": [
@@ -8161,7 +8210,7 @@
         "@rolldown/pluginutils",
         "@types/babel__core",
         "react-refresh",
-        "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
     },
     "@vitest/expect@3.2.4": {
@@ -8174,28 +8223,16 @@
         "tinyrainbow"
       ]
     },
-    "@vitest/mocker@3.2.4_vite@7.1.3__picomatch@4.0.3": {
-      "integrity": "sha512-46ryTE9RZO/rfDd7pEqFl7etuyzekzEhUbTW3BvmeO/BcCMEgq59BKhek3dXDWgAj4oMK6OZi+vRr1wPW6qjEQ==",
-      "dependencies": [
-        "@vitest/spy",
-        "estree-walker@3.0.3",
-        "magic-string",
-        "vite@7.1.3_picomatch@4.0.3"
-      ],
-      "optionalPeers": [
-        "vite@7.1.3_picomatch@4.0.3"
-      ]
-    },
     "@vitest/mocker@3.2.4_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0": {
       "integrity": "sha512-46ryTE9RZO/rfDd7pEqFl7etuyzekzEhUbTW3BvmeO/BcCMEgq59BKhek3dXDWgAj4oMK6OZi+vRr1wPW6qjEQ==",
       "dependencies": [
         "@vitest/spy",
         "estree-walker@3.0.3",
         "magic-string",
-        "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ],
       "optionalPeers": [
-        "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
     },
     "@vitest/pretty-format@3.2.4": {
@@ -19306,17 +19343,6 @@
         "typescript"
       ]
     },
-    "vite-node@3.2.4": {
-      "integrity": "sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==",
-      "dependencies": [
-        "cac",
-        "debug@4.4.3",
-        "es-module-lexer@1.7.0",
-        "pathe@2.0.3",
-        "vite@7.1.3_picomatch@4.0.3"
-      ],
-      "bin": true
-    },
     "vite-node@3.2.4_@types+node@24.2.0": {
       "integrity": "sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==",
       "dependencies": [
@@ -19324,34 +19350,16 @@
         "debug@4.4.3",
         "es-module-lexer@1.7.0",
         "pathe@2.0.3",
-        "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ],
       "bin": true
-    },
-    "vite-plugin-node-stdlib-browser@0.2.1_node-stdlib-browser@1.3.1_vite@7.1.3__picomatch@4.0.3": {
-      "integrity": "sha512-6u2i613Dkqj5KaTNIrnZvE6y3/awWAp0S5TjucTvGxdhetftB1Mgvblc+nwYzlw6sntPlac8UOC7ttXNh+LZKA==",
-      "dependencies": [
-        "@rollup/plugin-inject",
-        "node-stdlib-browser",
-        "vite@7.1.3_picomatch@4.0.3"
-      ]
     },
     "vite-plugin-node-stdlib-browser@0.2.1_node-stdlib-browser@1.3.1_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0": {
       "integrity": "sha512-6u2i613Dkqj5KaTNIrnZvE6y3/awWAp0S5TjucTvGxdhetftB1Mgvblc+nwYzlw6sntPlac8UOC7ttXNh+LZKA==",
       "dependencies": [
         "@rollup/plugin-inject",
         "node-stdlib-browser",
-        "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0"
-      ]
-    },
-    "vite-plugin-static-copy@3.1.4_vite@7.1.3__picomatch@4.0.3": {
-      "integrity": "sha512-iCmr4GSw4eSnaB+G8zc2f4dxSuDjbkjwpuBLLGvQYR9IW7rnDzftnUjOH5p4RYR+d4GsiBqXRvzuFhs5bnzVyw==",
-      "dependencies": [
-        "chokidar@3.6.0",
-        "p-map@7.0.4",
-        "picocolors",
-        "tinyglobby",
-        "vite@7.1.3_picomatch@4.0.3"
+        "vite"
       ]
     },
     "vite-plugin-static-copy@3.1.4_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0": {
@@ -19361,17 +19369,7 @@
         "p-map@7.0.4",
         "picocolors",
         "tinyglobby",
-        "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0"
-      ]
-    },
-    "vite-plugin-top-level-await@1.6.0_vite@7.1.3__picomatch@4.0.3": {
-      "integrity": "sha512-bNhUreLamTIkoulCR9aDXbTbhLk6n1YE8NJUTTxl5RYskNRtzOR0ASzSjBVRtNdjIfngDXo11qOsybGLNsrdww==",
-      "dependencies": [
-        "@rollup/plugin-virtual",
-        "@swc/core",
-        "@swc/wasm",
-        "uuid@10.0.0",
-        "vite@7.1.3_picomatch@4.0.3"
+        "vite"
       ]
     },
     "vite-plugin-top-level-await@1.6.0_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0": {
@@ -19381,35 +19379,14 @@
         "@swc/core",
         "@swc/wasm",
         "uuid@10.0.0",
-        "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0"
-      ]
-    },
-    "vite-plugin-wasm@3.5.0_vite@7.1.3__picomatch@4.0.3": {
-      "integrity": "sha512-X5VWgCnqiQEGb+omhlBVsvTfxikKtoOgAzQ95+BZ8gQ+VfMHIjSHr0wyvXFQCa0eKQ0fKyaL0kWcEnYqBac4lQ==",
-      "dependencies": [
-        "vite@7.1.3_picomatch@4.0.3"
+        "vite"
       ]
     },
     "vite-plugin-wasm@3.5.0_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0": {
       "integrity": "sha512-X5VWgCnqiQEGb+omhlBVsvTfxikKtoOgAzQ95+BZ8gQ+VfMHIjSHr0wyvXFQCa0eKQ0fKyaL0kWcEnYqBac4lQ==",
       "dependencies": [
-        "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0"
+        "vite"
       ]
-    },
-    "vite@7.1.3_picomatch@4.0.3": {
-      "integrity": "sha512-OOUi5zjkDxYrKhTV3V7iKsoS37VUM7v40+HuwEmcrsf11Cdx9y3DIr2Px6liIcZFwt3XSRpQvFpL3WVy7ApkGw==",
-      "dependencies": [
-        "esbuild@0.25.12",
-        "fdir@6.5.0_picomatch@4.0.3",
-        "picomatch@4.0.3",
-        "postcss",
-        "rollup",
-        "tinyglobby"
-      ],
-      "optionalDependencies": [
-        "fsevents"
-      ],
-      "bin": true
     },
     "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0": {
       "integrity": "sha512-OOUi5zjkDxYrKhTV3V7iKsoS37VUM7v40+HuwEmcrsf11Cdx9y3DIr2Px6liIcZFwt3XSRpQvFpL3WVy7ApkGw==",
@@ -19430,42 +19407,13 @@
       ],
       "bin": true
     },
-    "vitest@3.2.4_vite@7.1.3__picomatch@4.0.3": {
-      "integrity": "sha512-LUCP5ev3GURDysTWiP47wRRUpLKMOfPh+yKTx3kVIEiu5KOMeqzpnYNsKyOoVrULivR8tLcks4+lga33Whn90A==",
-      "dependencies": [
-        "@types/chai",
-        "@vitest/expect",
-        "@vitest/mocker@3.2.4_vite@7.1.3__picomatch@4.0.3",
-        "@vitest/pretty-format",
-        "@vitest/runner",
-        "@vitest/snapshot",
-        "@vitest/spy",
-        "@vitest/utils",
-        "chai",
-        "debug@4.4.3",
-        "expect-type",
-        "magic-string",
-        "pathe@2.0.3",
-        "picomatch@4.0.3",
-        "std-env",
-        "tinybench",
-        "tinyexec@0.3.2",
-        "tinyglobby",
-        "tinypool",
-        "tinyrainbow",
-        "vite@7.1.3_picomatch@4.0.3",
-        "vite-node@3.2.4",
-        "why-is-node-running"
-      ],
-      "bin": true
-    },
     "vitest@3.2.4_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0": {
       "integrity": "sha512-LUCP5ev3GURDysTWiP47wRRUpLKMOfPh+yKTx3kVIEiu5KOMeqzpnYNsKyOoVrULivR8tLcks4+lga33Whn90A==",
       "dependencies": [
         "@types/chai",
         "@types/node@24.2.0",
         "@vitest/expect",
-        "@vitest/mocker@3.2.4_vite@7.1.3__picomatch@4.0.3_@types+node@24.2.0",
+        "@vitest/mocker",
         "@vitest/pretty-format",
         "@vitest/runner",
         "@vitest/snapshot",
@@ -19483,8 +19431,8 @@
         "tinyglobby",
         "tinypool",
         "tinyrainbow",
-        "vite@7.1.3_picomatch@4.0.3_@types+node@24.2.0",
-        "vite-node@3.2.4_@types+node@24.2.0",
+        "vite",
+        "vite-node",
         "why-is-node-running"
       ],
       "optionalPeers": [
@@ -20596,13 +20544,6 @@
           ]
         }
       },
-      "packages/binaries/compactc": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@xhmikosr/bin-wrapper@5"
-          ]
-        }
-      },
       "packages/binaries/grafana-alloy": {
         "packageJson": {
           "dependencies": [
@@ -20887,43 +20828,6 @@
           "npm:web3-utils@^4.3.3",
           "npm:web3@^4.16.0"
         ]
-      },
-      "packages/effectstream-sdk/wallets/npm": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@aurowallet/mina-provider@^1.0.12",
-            "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11",
-            "npm:@coderspirit/nominal@^4.1.1",
-            "npm:@foxglove/crc@^1.0.1",
-            "npm:@metamask/providers@^22.1.0",
-            "npm:@perawallet/connect@^1.4.2",
-            "npm:@polkadot/extension-dapp@~0.58.10",
-            "npm:@polkadot/extension-inject@~0.58.10",
-            "npm:@polkadot/util-crypto@^13.4.3",
-            "npm:@polkadot/util@^13.4.3",
-            "npm:@sinclair/typebox@0.34.41",
-            "npm:@subsquid/ss58-codec@^1.2.3",
-            "npm:abitype@1.1.0",
-            "npm:algosdk@^3.4.0",
-            "npm:assert-never@^1.4.0",
-            "npm:avail-js-sdk@~0.4.2",
-            "npm:bech32@2",
-            "npm:bs58@6",
-            "npm:bs58check@4",
-            "npm:effection@^3.5.0",
-            "npm:ethers@^6.15.0",
-            "npm:hi-base32@~0.5.1",
-            "npm:js-base64@^3.7.7",
-            "npm:js-sha3@~0.9.3",
-            "npm:js-sha512@0.9",
-            "npm:mina-signer@^3.0.7",
-            "npm:mqtt-pattern@^2.1.0",
-            "npm:mqtt@^5.14.0",
-            "npm:viem@2.37.3",
-            "npm:web3-utils@^4.3.3",
-            "npm:web3@^4.16.0"
-          ]
-        }
       },
       "packages/node-sdk/batcher": {
         "dependencies": [

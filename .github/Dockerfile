@@ -1,5 +1,5 @@
 # Use Ubuntu as base image
-FROM denoland/deno:ubuntu-2.5.4
+FROM denoland/deno:ubuntu-2.5.6
 
 
 # Set environment variables

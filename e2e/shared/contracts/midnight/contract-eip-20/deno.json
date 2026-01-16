@@ -6,7 +6,7 @@
     "./contract": "./src/managed/contract/index.js"
   },
   "tasks": {
-    "compact": "compact compile src/simpletoken.compact src/managed",
+    "compact": "compact compile +0.27.0 src/simpletoken.compact src/managed",
     "contract:compile": "deno task compact"
   },
   "imports": {
