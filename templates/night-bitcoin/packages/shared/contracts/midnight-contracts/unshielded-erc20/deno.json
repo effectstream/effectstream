@@ -6,7 +6,7 @@
     "./contract": "./src/managed/unshielded-erc20/contract/index.cjs"
   },
   "tasks": {
-    "compact": "compact compile src/unshielded-erc20.compact src/managed/unshielded-erc20 && deno task convert:js",
+    "compact": "compact compile src/unshielded-erc20.compact src/managed/unshielded-erc20",
     "clean": "rm -rf src/managed",
     "convert:js": "deno run -A convert-js.ts src/managed/unshielded-erc20/contract/index.cjs src/managed/unshielded-erc20/contract/index.ts",
     "contract:compile": "deno task compact"

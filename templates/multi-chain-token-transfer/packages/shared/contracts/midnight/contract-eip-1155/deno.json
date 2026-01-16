@@ -6,7 +6,7 @@
     "./contract": "./src/managed/multichain_multitoken/contract/index.cjs"
   },
   "tasks": {
-    "compact": "compact compile src/multichain_multitoken.compact src/managed/multichain_multitoken && deno task convert:js",
+    "compact": "compact compile src/multichain_multitoken.compact src/managed/multichain_multitoken",
     "convert:js": "deno run -A convert-js.ts src/managed/multichain_multitoken/contract/index.cjs src/managed/multichain_multitoken/contract/index.ts",
     "contract:compile": "deno task compact"
   },
