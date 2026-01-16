@@ -39,21 +39,6 @@ const config = Value.Parse(OrchestratorConfig, {
     ...(avail_enabled ? launchAvail("@e2e/avail-contracts") : []),
     ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : []),
     { 
-      name: "build explorer",
-      stopProcessAtPort: [10590],
-      args: ["task", "-f", "@effectstream/explorer", "build"],
-      waitToExit: true,
-      dependsOn: [],
-    },
-    {
-      name: "serve explorer",
-      args: ["task", "-f", "@effectstream/explorer", "server:start"],
-      waitToExit: false,
-      type: "system-dependency",
-      link: "http://localhost:10590",
-      dependsOn: ['build explorer'],
-    },
-    { 
       // Launch the Batcher with our PaimaL2 Contract
       stopProcessAtPort: [3334],
       name: "batcher",
@@ -65,7 +50,27 @@ const config = Value.Parse(OrchestratorConfig, {
         midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined,
         bitcoin_enabled ? ComponentNames.BITCOIN_GENERATE_BLOCKS : undefined,
       ].filter(Boolean),
-    }
+    },
+    { 
+      name: "build explorer",
+      stopProcessAtPort: [10590],
+      args: ["task", "-f", "@effectstream/explorer", "build"],
+      waitToExit: true,
+      dependsOn: [
+        'batcher',
+        yaci_enabled ? ComponentNames.DOLOS_WAIT : undefined,
+        avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
+      ].filter(Boolean),
+    },
+    {
+      name: "serve explorer",
+      args: ["task", "-f", "@effectstream/explorer", "server:start"],
+      waitToExit: false,
+      type: "system-dependency",
+      link: "http://localhost:10590",
+      dependsOn: ['build explorer'],
+    },
+
   ],
 });
 

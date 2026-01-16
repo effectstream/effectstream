@@ -1,5 +1,5 @@
 # Use Ubuntu as base image
-FROM denoland/deno:ubuntu-2.5.4
+FROM denoland/deno:ubuntu-2.6.5
 
 
 # Set environment variables
@@ -22,6 +22,9 @@ RUN apt-get update && apt-get install -y \
     iproute2 \
     # xz is required for compactc
     xz-utils \
+    clang \
+    build-essential \
+    llvm \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js
@@ -56,6 +59,12 @@ RUN which compact
 RUN compact update
 RUN compact --version
 RUN compact compile --version
+
+# Install compactc prerelease binary
+RUN mkdir -p /root/.compact/versions/0.27.0/x86_64-unknown-linux-musl \
+    && curl -L https://raw.githubusercontent.com/midnightntwrk/compact/main/prerelease/compactc-0.27/compactc_v0.27.0-rc.1_x86_64-unknown-linux-musl.zip -o /tmp/compactc.zip \
+    && unzip -q /tmp/compactc.zip -d /root/.compact/versions/0.27.0/x86_64-unknown-linux-musl \
+    && rm -f /tmp/compactc.zip
 
 # Copy the patch script
 COPY ./patch.sh /app/patch.sh
