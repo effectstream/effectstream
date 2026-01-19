@@ -12,7 +12,7 @@ import {
   PrimitiveTypeEVMERC721,
   PrimitiveTypeMidnightGeneric,
 } from "@paimaexample/sm/builtin";
-import { arbitrumSepolia } from "viem/chains";
+import { hardhat } from "viem/chains";
 
 /**
  * Let check if the db.
@@ -22,24 +22,12 @@ import { arbitrumSepolia } from "viem/chains";
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
-// Random tips for testing purposes.
-let arbSepoliaTip: number = 230666729;
 let midnightTip: number = 437152;
-
-/**
- * WARNING: This template fetches the current network tip to avoid long sync times
- * when starting the template. In production implementations, you should sync from
- * at least the contract deployment blockheight to ensure all events are captured.
- * Starting from the current tip means historical events will be missed.
- */
-const arbitrumSepoliaRpc = Deno
-  ? Deno.env.get("ARBITRUM_SEPOLIA_RPC")
-  : undefined;
 
 type ContractAddressBook = Record<string, Record<string, `0x${string}`>>;
 const contractAddressBook = contractAddressesEvmMain() as ContractAddressBook;
-const erc721TestnetContractAddress =
-  contractAddressBook["chain421614"]?.["Erc721DevModule#Erc721Dev"] || "0x0000000000000000000000000000000000000000";
+const erc721LocalContractAddress =
+  contractAddressBook["chain31337"]?.["Erc721DevModule#Erc721Dev"] || "0x0000000000000000000000000000000000000000";
 
 const midnightNetworkInputsValid = Boolean(
   midnightNetworkConfig.indexer &&
@@ -51,33 +39,6 @@ let midnightCounterAddress: string | undefined;
 let midnightArtifactsReady = false;
 
 if (Deno) {
-  // Always fetch current tip for templates to avoid sync times
-  if (arbitrumSepoliaRpc) {
-    /* Get the latest block number from the Arbitrum Sepolia chain */
-    try {
-      const response = await fetch(arbitrumSepoliaRpc, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "eth_blockNumber",
-          params: [],
-        }),
-      });
-      const data = await response.json();
-      arbSepoliaTip = parseInt(data.result, 16);
-    } catch (error) {
-      console.warn(`[evm] Failed to fetch tip: ${(error as Error).message}`);
-    }
-  } else {
-    console.warn(
-      "[evm] ARBITRUM_SEPOLIA_RPC is not defined; using static tip override instead.",
-    );
-  }
-
   if (midnightNetworkInputsValid) {
     try {
       const response = await fetch(midnightNetworkConfig.indexer, {
@@ -158,11 +119,10 @@ export const config = new ConfigBuilder()
         blockTimeMS: 1000,
       })
       .addViemNetwork({
-        ...arbitrumSepolia,
+        ...hardhat,
         rpcUrls: {
           default: {
-            // @ts-ignore: viem chains expect at least one compile-time RPC URL
-            http: [arbitrumSepoliaRpc ?? ""],
+            http: ["http://localhost:8545"],
           },
         },
         name: "evmParallel_fast",
@@ -198,7 +158,7 @@ export const config = new ConfigBuilder()
           name: "parallelEvmRPC_fast",
           type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
           chainUri: network.rpcUrls.default.http[0],
-          startBlockHeight: arbSepoliaTip,
+          startBlockHeight: 0,
           pollingInterval: 1000,
           stepSize: 9,
           confirmationDepth: 1,
@@ -230,7 +190,7 @@ export const config = new ConfigBuilder()
           name: "Arbitrum_ERC721",
           type: PrimitiveTypeEVMERC721,
           startBlockHeight: 0,
-          contractAddress: erc721TestnetContractAddress,
+          contractAddress: erc721LocalContractAddress,
           stateMachinePrefix: "transfer-assets",
         }),
       );

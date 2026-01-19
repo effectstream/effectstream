@@ -6,6 +6,7 @@ import {
   isExternalProofServerConfigured,
   midnightNetworkConfig,
 } from "@paimaexample/midnight-contracts/midnight-env";
+import { launchEvm } from "@paimaexample/orchestrator/start-evm";
 
 const logs = ENV.getBoolean("EFFECTSTREAM_STDOUT") ? "stdout" : "development";
 const disableStderr = logs !== "stdout";
@@ -39,6 +40,7 @@ const customProcesses = [
     args: ["task", "-f", "@example-evm-midnight/frontend", "build"],
     waitToExit: true,
     type: "system-dependency",
+    dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS],
     env: frontendEnv,
   },
   {
@@ -66,6 +68,7 @@ const customProcesses = [
     type: "system-dependency",
     link: "http://localhost:3334",
     stopProcessAtPort: [3334],
+    dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS],
   },
 ];
 
@@ -113,6 +116,7 @@ const config = Value.Parse(OrchestratorConfig, {
         },
       ]
       : []),
+    ...launchEvm("@example-evm-midnight/evm-contracts"),
     ...customProcesses,
   ],
 });
