@@ -12,6 +12,7 @@
     "contract:compile": "deno task compact"
   },
   "imports": {
+    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.11.0-rc.1",
     "vitest": "npm:vitest@^3.2.4"
   }
 }

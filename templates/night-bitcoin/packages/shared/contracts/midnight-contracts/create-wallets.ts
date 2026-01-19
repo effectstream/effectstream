@@ -1,13 +1,14 @@
-import { WalletBuilder } from '@midnight-ntwrk/wallet';
-import { NetworkId } from '@midnight-ntwrk/zswap';
-import { firstValueFrom } from 'rxjs';
-import { joinAndMint } from './faucet-unshielded-erc20.ts';
-import { type WalletState } from '@midnight-ntwrk/wallet-api';
-import * as path from "node:path";
+import { buildWalletFacade, type WalletResult } from './faucet.ts';
 import { generateRandomSeed } from '@midnight-ntwrk/wallet-sdk-hd';
-import { faucet } from './faucet.ts';
+import * as path from "node:path";
+import { Buffer } from "node:buffer";
 
 const DEFAULT_SEED_PREFIX = "97be3ee35553d827846c1490bcc571f8a29ffd448912b9f023a7b177de7877c";
+
+interface WalletState {
+  seed: string;
+  address: string;
+}
 
 async function createWallet(seed: string): Promise<WalletState> {
     let seedString = seed;
@@ -19,20 +20,30 @@ async function createWallet(seed: string): Promise<WalletState> {
         seedString = seedBuffer.toString();
     }
 
-    const wallet = await WalletBuilder.build(
-        'http://localhost:8088/api/v1/graphql', // Indexer URL
-        'ws://localhost:8088/api/v1/graphql/ws', // Indexer WebSocket URL
-        'http://localhost:6300', // Proving Server URL
-        'http://localhost:9944', // Node URL
-        seedString,
-        NetworkId.Undeployed,
-        'error' // LogLevel (optional)
+    const networkUrls = {
+      indexer: "http://localhost:8088/api/v3/graphql",
+      indexerWS: "ws://localhost:8088/api/v3/graphql/ws",
+      node: "http://localhost:9944",
+      proofServer: "http://localhost:6300",
+    };
+
+    const walletResult = await buildWalletFacade(
+      networkUrls,
+      seedString,
+      "Undeployed" as any
     );
 
-    wallet.start();
-    const data = await firstValueFrom(wallet.state())
-    await wallet.close();
-    return { ...data, seed: seedString } as WalletState;
+    const initialState = await (await import('./faucet.ts')).getInitialShieldedState(walletResult.wallet.shielded);
+
+    const walletState: WalletState = {
+      ...initialState,
+      seed: seedString,
+      address: initialState.address.coinPublicKeyString()
+    } as any;
+
+    await walletResult.wallet.stop();
+
+    return walletState;
 }
 
 if (import.meta.main) {
@@ -51,7 +62,7 @@ if (import.meta.main) {
     if (create) {
         const currentDir = Deno.cwd();
         await Deno.mkdir(path.join(currentDir, "generated"), { recursive: true });
-    
+
         for (let i = 0; i < numberOfWallets; i++) {
             const wallet = await createWallet(DEFAULT_SEED_PREFIX + i.toString());
 
@@ -59,7 +70,6 @@ if (import.meta.main) {
             Deno.writeTextFileSync(outputPath, JSON.stringify(wallet, null, 2));
             console.log(`Wallet saved to ${outputPath}`);
 
-            
             wallets.push(wallet);
         }
     } else {
@@ -76,6 +86,8 @@ if (import.meta.main) {
         }
     }
     if (mint) {
+        const { faucet } = await import('./faucet.ts');
+        const { joinAndMint } = await import('./faucet-unshielded-erc20.ts');
         await joinAndMint(wallets.map(wallet => wallet.address), 250000000000000n);
         await faucet(wallets.map(wallet => wallet.address));
     }

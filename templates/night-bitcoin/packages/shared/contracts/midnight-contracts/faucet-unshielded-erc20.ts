@@ -1,18 +1,4 @@
-// @ts-nocheck
-import {
-  type ContractAddress,
-  NetworkId,
-} from "@midnight-ntwrk/compact-runtime";
-import {
-  SimpleToken,
-  witnesses,
-} from "@night-bitcoin/midnight-contract-unshielded-erc20";
-import {
-  type CoinInfo,
-  nativeToken,
-  Transaction,
-  type TransactionId,
-} from "@midnight-ntwrk/ledger";
+import * as log from "@std/log";
 import {
   MidnightBech32m,
   ShieldedAddress,
@@ -26,38 +12,57 @@ import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-cl
 import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import {
-  type BalancedTransaction,
-  createBalancedTx,
-  type FinalizedTxData,
-  type ImpureCircuitId,
+  type BalancedProvingRecipe,
   type MidnightProvider,
   type MidnightProviders,
-  type UnbalancedTransaction,
+  type UnprovenTransaction,
   type WalletProvider,
 } from "npm:@midnight-ntwrk/midnight-js-types";
-import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
-import { type Wallet } from "@midnight-ntwrk/wallet-api";
-import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
 import { levelPrivateStateProvider } from "npm:@midnight-ntwrk/midnight-js-level-private-state-provider";
-import * as Rx from "rxjs";
-import {
-  getLedgerNetworkId,
-  getZswapNetworkId,
-  setNetworkId,
-} from "npm:@midnight-ntwrk/midnight-js-network-id";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { dirname, resolve } from "@std/path";
+import { Buffer } from "node:buffer";
+import * as Rx from "rxjs";
+import { HDWallet, Roles } from "@midnight-ntwrk/wallet-sdk-hd";
+import { WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
+import { ShieldedWallet } from "@midnight-ntwrk/wallet-sdk-shielded";
+import { DustWallet } from "@midnight-ntwrk/wallet-sdk-dust-wallet";
+import {
+  UnshieldedWallet,
+  createKeystore,
+  PublicKey,
+  InMemoryTransactionHistoryStorage,
+} from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
+import {
+  LedgerParameters,
+  ZswapSecretKeys,
+  DustSecretKey,
+  shieldedToken,
+} from "@midnight-ntwrk/ledger-v6";
+import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import type { DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded/v1";
+import {
+  type CoinPublicKey,
+  type EncPublicKey,
+  type FinalizedTransaction,
+  type TransactionId,
+} from "@midnight-ntwrk/ledger-v6";
+import {
+  SimpleToken,
+  witnesses,
+} from "@night-bitcoin/midnight-contract-unshielded-erc20";
 
 globalThis.WebSocket = WebSocket;
 
 // Inlined common types for standalone script
-type SimpleTokenCircuits = ImpureCircuitId<SimpleToken.Contract>;
+type SimpleTokenCircuits = any;
 
 const SimpleTokenPrivateStateId = "simpleTokenPrivateState";
 
 type SimpleTokenProviders = MidnightProviders<
   SimpleTokenCircuits,
   typeof SimpleTokenPrivateStateId,
-  SimpleToken.Contract.PrivateState
+  any
 >;
 
 type SimpleTokenContract = SimpleToken.Contract;
@@ -73,13 +78,356 @@ interface Config {
   readonly proofServer: string;
 }
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Transaction TTL duration in milliseconds (1 hour) */
+const TTL_DURATION_MS = 60 * 60 * 1000;
+
+/** Additional fee overhead for dust transactions (in smallest unit) */
+const DUST_FEE_OVERHEAD = 300_000_000_000_000n;
+
+/** Fee blocks margin for dust wallet */
+const DUST_FEE_BLOCKS_MARGIN = 5;
+
+/** Wallet sync progress logging throttle interval */
+const WALLET_SYNC_THROTTLE_MS = 10_000;
+
+/** Wallet sync timeout (5 minutes) */
+const WALLET_SYNC_TIMEOUT_MS = 300_000;
+
+const GENESIS_MINT_WALLET_SEED =
+  "0000000000000000000000000000000000000000000000000000000000001";
+
+const simpleTokenContractInstance: SimpleTokenContract = new SimpleToken
+  .Contract(
+  witnesses,
+);
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface WalletResult {
+  wallet: WalletFacade;
+  zswapSecretKeys: ZswapSecretKeys;
+  walletZswapSecretKeys: ZswapSecretKeys;
+  dustSecretKey: DustSecretKey;
+  walletDustSecretKey: DustSecretKey;
+  dustAddress: string;
+  unshieldedAddress: string;
+}
+
+export type DerivationRole = typeof Roles.Zswap | typeof Roles.Dust | typeof Roles.NightExternal;
+
+export interface ShieldedWalletState {
+  address: {
+    coinPublicKeyString(): string;
+    encryptionPublicKeyString(): string;
+  };
+  balances: Record<string, bigint>;
+}
+
+// ============================================================================
+// Key Derivation
+// ============================================================================
+
+export function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Array {
+  const seedBuffer = Buffer.from(seed, "hex");
+  const hdWalletResult = HDWallet.fromSeed(seedBuffer);
+
+  if (hdWalletResult.type !== "seedOk") {
+    throw new Error(`Failed to create HD wallet: ${hdWalletResult.type}`);
+  }
+
+  const derivationResult = hdWalletResult.hdWallet
+    .selectAccount(0)
+    .selectRole(role)
+    .deriveKeyAt(0);
+
+  if (derivationResult.type === "keyOutOfBounds") {
+    throw new Error(`Key derivation out of bounds for role: ${role}`);
+  }
+
+  return Buffer.from(derivationResult.key);
+}
+
+// ============================================================================
+// Wallet Configuration
+// ============================================================================
+
+export function createWalletConfiguration(
+  networkUrls: Required<Omit<Config, "constructor">>,
+  networkId: NetworkId.NetworkId
+): DefaultV1Configuration {
+  return {
+    indexerClientConnection: {
+      indexerHttpUrl: networkUrls.indexer,
+      indexerWsUrl: networkUrls.indexerWS,
+    },
+    provingServerUrl: new URL(networkUrls.proofServer),
+    relayURL: new URL(networkUrls.node.replace("http", "ws")),
+    networkId: networkId,
+  };
+}
+
+export function buildShieldedWallet(
+  config: DefaultV1Configuration,
+  seed: Uint8Array
+): ReturnType<ReturnType<typeof ShieldedWallet>["startWithShieldedSeed"]> {
+  const shieldedBuilder = ShieldedWallet(config);
+  return shieldedBuilder.startWithShieldedSeed(seed);
+}
+
+export function buildDustWallet(
+  config: DefaultV1Configuration,
+  seed: Uint8Array
+): ReturnType<ReturnType<typeof DustWallet>["startWithSeed"]> {
+  const legacyLedgerParams = LedgerParameters.initialParameters();
+  const dustConfig = {
+    ...config,
+    costParameters: {
+      ledgerParams: legacyLedgerParams as unknown as LedgerParameters,
+      additionalFeeOverhead: DUST_FEE_OVERHEAD,
+      feeBlocksMargin: DUST_FEE_BLOCKS_MARGIN,
+    },
+  };
+  const dustBuilder = DustWallet(dustConfig);
+  const dustParameters = legacyLedgerParams.dust;
+
+  return dustBuilder.startWithSeed(seed, dustParameters);
+}
+
+export function buildUnshieldedWallet(
+  networkUrls: Required<Omit<Config, "constructor">>,
+  seed: Uint8Array,
+  networkId: NetworkId.NetworkId
+): ReturnType<ReturnType<typeof UnshieldedWallet>["startWithPublicKey"]> {
+  const keystore = createKeystore(seed, networkId);
+  const publicKey = PublicKey.fromKeyStore(keystore);
+
+  return UnshieldedWallet({
+    networkId,
+    indexerClientConnection: {
+      indexerHttpUrl: networkUrls.indexer,
+      indexerWsUrl: networkUrls.indexerWS,
+    },
+    txHistoryStorage: new InMemoryTransactionHistoryStorage(),
+  } as any).startWithPublicKey(publicKey);
+}
+
+export async function buildWalletFacade(
+  networkUrls: Required<Omit<Config, "constructor">>,
+  seed: string,
+  networkId: NetworkId.NetworkId
+): Promise<WalletResult> {
+  const shieldedSeed = deriveSeedForRole(seed, Roles.Zswap);
+  const dustSeed = deriveSeedForRole(seed, Roles.Dust);
+  const unshieldedSeed = deriveSeedForRole(seed, Roles.NightExternal);
+
+  const walletConfig = createWalletConfiguration(networkUrls, networkId);
+
+  const shieldedWallet = buildShieldedWallet(walletConfig, shieldedSeed);
+  const dustWallet = buildDustWallet(walletConfig, dustSeed);
+  const unshieldedWallet = buildUnshieldedWallet(networkUrls, unshieldedSeed, networkId);
+
+  const unshieldedKeystore = createKeystore(unshieldedSeed, networkId);
+  const unshieldedAddress = unshieldedKeystore.getBech32Address().asString();
+
+  const wallet = new WalletFacade(shieldedWallet as any, unshieldedWallet as any, dustWallet);
+
+  const zswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
+  const walletZswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
+  const dustSecretKey = DustSecretKey.fromSeed(dustSeed);
+  const walletDustSecretKey = DustSecretKey.fromSeed(dustSeed);
+
+  await wallet.start(walletZswapSecretKeys, walletDustSecretKey);
+
+  const dustState = await Rx.firstValueFrom(dustWallet.state) as any;
+
+  return {
+    wallet,
+    zswapSecretKeys,
+    walletZswapSecretKeys,
+    dustSecretKey,
+    walletDustSecretKey,
+    dustAddress: dustState.dustAddress,
+    unshieldedAddress,
+  };
+}
+
+export function getInitialShieldedState(
+  shieldedWallet: any
+): Promise<ShieldedWalletState> {
+  return Rx.firstValueFrom(shieldedWallet.state);
+}
+
+export async function syncAndWaitForFunds(
+  wallet: WalletFacade,
+  options?: { timeoutMs?: number; waitNonZero?: boolean }
+): Promise<{ shieldedBalance: bigint; dustBalance: bigint }> {
+  log.info("Waiting for wallet to sync and receive funds (shielded/dust)...");
+
+  const syncTimeoutMs = options?.timeoutMs ?? WALLET_SYNC_TIMEOUT_MS;
+  const waitNonZero = options?.waitNonZero ?? false;
+  let latestState: any = null;
+  const periodicLogger = setInterval(() => {
+    if (!latestState) return;
+    const shieldedSynced =
+      latestState.shielded.state.progress.isStrictlyComplete() ||
+      (latestState.isSynced ?? false);
+    const dustSynced =
+      latestState.dust.state.progress.isStrictlyComplete() ||
+      (latestState.isSynced ?? false);
+    const unshieldedSynced =
+      latestState.unshielded?.syncProgress?.synced ??
+      (latestState.isSynced ?? false);
+    log.info(
+      `[wait] shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
+    );
+  }, WALLET_SYNC_THROTTLE_MS);
+
+  const state = await Rx.firstValueFrom(
+    wallet.state().pipe(
+      Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
+      Rx.tap((state: any) => {
+        latestState = state;
+        const isSynced = state.isSynced ?? false;
+        const shieldedSynced =
+          state.shielded.state.progress.isStrictlyComplete() || isSynced;
+        const dustSynced =
+          state.dust.state.progress.isStrictlyComplete() || isSynced;
+        const unshieldedSynced =
+          state.unshielded?.syncProgress?.synced ?? isSynced;
+        log.info(
+          `Wallet sync progress: shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced} (isSynced: ${isSynced})`
+        );
+      }),
+      Rx.filter((state: any) => {
+        const isSynced = state.isSynced ?? false;
+        const shieldedSynced =
+          state.shielded.state.progress.isStrictlyComplete() || isSynced;
+        const dustSynced =
+          state.dust.state.progress.isStrictlyComplete() || isSynced;
+        const unshieldedSynced =
+          state.unshielded?.syncProgress?.synced ?? isSynced;
+
+        if (!shieldedSynced || !dustSynced || !unshieldedSynced) return false;
+
+        if (waitNonZero) {
+          const shieldedBalance = state.shielded.balances[shieldedToken().tag] ?? 0n;
+          return shieldedBalance > 0n;
+        }
+
+        return true;
+      }),
+      Rx.tap(() => log.info("Wallet sync complete")),
+      Rx.timeout({
+        each: syncTimeoutMs,
+        with: () =>
+          Rx.throwError(
+            () => new Error(`Wallet sync timeout after ${syncTimeoutMs}ms`)
+          ),
+      })
+    )
+  );
+
+  clearInterval(periodicLogger);
+
+  const shieldedBalance = (state as any).shielded.balances[shieldedToken().tag] ?? 0n;
+
+  const dustBalance = await waitForDustFunds(wallet, {
+    timeoutMs: syncTimeoutMs,
+    waitNonZero,
+  });
+
+  return { shieldedBalance, dustBalance };
+}
+
+export async function waitForDustFunds(
+  wallet: WalletFacade,
+  optionsOrTimeout?: number | { timeoutMs?: number; waitNonZero?: boolean }
+): Promise<bigint> {
+  log.info("Waiting for dust wallet to sync and receive funds...");
+
+  const options =
+    typeof optionsOrTimeout === "number"
+      ? { timeoutMs: optionsOrTimeout }
+      : optionsOrTimeout;
+
+  const syncTimeoutMs = options?.timeoutMs ?? WALLET_SYNC_TIMEOUT_MS;
+  const waitNonZero = options?.waitNonZero ?? false;
+
+  const dustWallet = (wallet as any).dust;
+  if (!dustWallet || !dustWallet.state) {
+    log.warn("Dust wallet state not available; skipping dust balance wait.");
+    return 0n;
+  }
+
+  const dustBalance = (await Rx.firstValueFrom(
+    dustWallet.state.pipe(
+      Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
+      Rx.tap((state: any) => {
+        try {
+          const progress = (state as any).state?.progress;
+          const complete = progress?.isCompleteWithin?.(0n);
+          log.info(`Dust wallet sync progress: complete=${complete ?? "unknown"}`);
+        } catch (_err) {
+        }
+      }),
+      Rx.filter((state: any) => {
+        try {
+          const progress = (state as any).state?.progress;
+          return progress?.isCompleteWithin?.(0n) === true;
+        } catch (_err) {
+          return false;
+        }
+      }),
+      Rx.map((state: any) => {
+        try {
+          if (typeof state.walletBalance === "function") {
+            return state.walletBalance(new Date());
+          }
+          const balances = state.balances;
+          if (balances) {
+            return Object.values(balances).reduce(
+              (acc: bigint, v) => acc + BigInt((v as any) ?? 0),
+              0n
+            );
+          }
+        } catch (_err) {
+        }
+        return 0n;
+      }),
+      Rx.timeout({
+        each: syncTimeoutMs,
+        with: () =>
+          Rx.throwError(
+            () => new Error(`Dust wallet sync timeout after ${syncTimeoutMs}ms`)
+          ),
+      }),
+      Rx.filter((balance: bigint) => !waitNonZero || balance > 0n),
+      Rx.tap((balance: bigint) => {
+        if (balance > 0n) log.info(`Dust wallet balance: ${balance}`);
+      })
+    )
+  )) as bigint;
+
+  return dustBalance;
+}
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
 class StandaloneConfig implements Config {
-  indexer = "http://127.0.0.1:8088/api/v1/graphql";
-  indexerWS = "ws://127.0.0.1:8088/api/v1/graphql/ws";
+  indexer = "http://127.0.0.1:8088/api/v3/graphql";
+  indexerWS = "ws://127.0.0.1:8088/api/v3/graphql/ws";
   node = "http://127.0.0.1:9944";
   proofServer = "http://127.0.0.1:6300";
   constructor() {
-    setNetworkId("Undeployed" as unknown as NetworkId);
+    setNetworkId(NetworkId.NetworkId.Undeployed);
   }
 }
 
@@ -100,14 +448,9 @@ const contractConfig = {
   ),
 };
 
-const GENESIS_MINT_WALLET_SEED =
-  "0000000000000000000000000000000000000000000000000000000000000001";
-
-const simpleTokenContractInstance: SimpleTokenContract = new SimpleToken
-  .Contract(
-  witnesses,
-);
-
+// ============================================================================
+// Contract Functions
+// ============================================================================
 
 const joinContract = async (
   providers: SimpleTokenProviders,
@@ -126,7 +469,7 @@ const joinContract = async (
   return simpleTokenContract;
 };
 
-const wrapAddress = (address: string): Either<ZswapCoinPublicKey, ContractAddress> => {
+const wrapAddress = (address: string): any => {
   const shieldedAddress = ShieldedAddress.codec.decode(
     "undeployed",
     MidnightBech32m.parse(address),
@@ -143,7 +486,7 @@ const mint = async (
   simpleTokenContract: DeployedSimpleTokenContract,
   account: string,
   value: bigint,
-): Promise<FinalizedTxData> => {
+): Promise<any> => {
   console.log( "Minting...");
 
   const either = wrapAddress(account);
@@ -155,103 +498,68 @@ const mint = async (
   return finalizedTxData.public;
 };
 
-const createWalletAndMidnightProvider = async (
-  wallet: Wallet,
-): Promise<WalletProvider & MidnightProvider> => {
-  const state = await Rx.firstValueFrom(wallet.state());
+// ============================================================================
+// Provider Functions
+// ============================================================================
+
+/**
+ * Create wallet and midnight provider adapter for WalletFacade
+ *
+ * Implements the WalletProvider and MidnightProvider interfaces
+ * as defined in @midnight-ntwrk/midnight-js-types v3.x
+ */
+function createWalletAndMidnightProvider(
+  wallet: WalletFacade,
+  zswapSecretKeys: ZswapSecretKeys,
+  walletZswapSecretKeys: ZswapSecretKeys,
+  dustSecretKey: DustSecretKey,
+  walletDustSecretKey: DustSecretKey
+): WalletProvider & MidnightProvider {
   return {
-    coinPublicKey: state.coinPublicKey,
-    encryptionPublicKey: state.encryptionPublicKey,
-    balanceTx(
-      tx: UnbalancedTransaction,
-      newCoins: CoinInfo[],
-    ): Promise<BalancedTransaction> {
-      return wallet
-        .balanceTransaction(
-          ZswapTransaction.deserialize(
-            tx.serialize(getLedgerNetworkId()),
-            getZswapNetworkId(),
-          ),
-          newCoins,
-        )
-        .then((tx) => wallet.proveTransaction(tx))
-        .then((zswapTx) =>
-          Transaction.deserialize(
-            zswapTx.serialize(getZswapNetworkId()),
-            getLedgerNetworkId(),
-          )
-        )
-        .then(createBalancedTx);
+    getCoinPublicKey(): CoinPublicKey {
+      return zswapSecretKeys.coinPublicKey;
     },
-    submitTx(tx: BalancedTransaction): Promise<TransactionId> {
+    getEncryptionPublicKey(): EncPublicKey {
+      return zswapSecretKeys.encryptionPublicKey;
+    },
+    async balanceTx(
+      tx: UnprovenTransaction,
+      _newCoins?: any[],
+      ttl?: Date
+    ): Promise<BalancedProvingRecipe> {
+      return wallet.balanceTransaction(
+        walletZswapSecretKeys,
+        walletDustSecretKey,
+        tx,
+        ttl ?? new Date(Date.now() + TTL_DURATION_MS)
+      );
+    },
+    submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
       return wallet.submitTransaction(tx);
     },
   };
-};
-
-const waitForFunds = (wallet: Wallet) =>
-  Rx.firstValueFrom(
-    wallet.state().pipe(
-      Rx.throttleTime(10_000),
-      Rx.tap((state: any) => {
-        const applyGap = state.syncProgress?.lag.applyGap ?? 0n;
-        const sourceGap = state.syncProgress?.lag.sourceGap ?? 0n;
-        console.log(
-          `Waiting for funds. Backend lag: ${sourceGap}, wallet lag: ${applyGap}, transactions=${state.transactionHistory.length}`,
-        );
-      }),
-      Rx.filter((state: any) => {
-        return state.syncProgress?.synced === true;
-      }),
-      Rx.map((s: any) => s.balances[nativeToken()] ?? 0n),
-      Rx.filter((balance: bigint) => balance > 0n),
-    ),
-  );
-
-const buildWalletAndWaitForFunds = async (
-  { indexer, indexerWS, node, proofServer }: Config,
-  seed: string,
-  filename: string,
-): Promise<Wallet & Resource> => {
-  let wallet: Wallet & Resource;
-
-      wallet = await WalletBuilder.build(
-        indexer,
-        indexerWS,
-        proofServer,
-        node,
-        seed,
-        NetworkId.Undeployed,
-      );
-      console.log("✅ Wallet built successfully");
-      wallet.start();
-
-  const state = await Rx.firstValueFrom(wallet.state());
-  console.log(`Your master wallet seed is: ${seed}`);
-  console.log(`Your master wallet address is: ${state.address}`);
-  let balance = state.balances[nativeToken()];
-  if (balance === undefined || balance === 0n) {
-    console.log(`Your wallet balance is: 0`);
-    console.log(`Waiting to receive tokens...`);
-    balance = await waitForFunds(wallet);
-  }
-  console.log(`Your master wallet balance is: ${balance}`);
-  return wallet;
-};
+}
 
 const configureProviders = async (
-  wallet: Wallet & Resource,
+  wallet: WalletFacade,
+  walletZswapSecretKeys: ZswapSecretKeys,
+  walletDustSecretKey: DustSecretKey,
   config: Config,
 ) => {
-  const walletAndMidnightProvider = await createWalletAndMidnightProvider(
+  const walletAndMidnightProvider = createWalletAndMidnightProvider(
     wallet,
+    walletZswapSecretKeys,
+    walletZswapSecretKeys,
+    walletDustSecretKey,
+    walletDustSecretKey
   );
   return {
     privateStateProvider: levelPrivateStateProvider<
       typeof SimpleTokenPrivateStateId
     >({
       privateStateStoreName: contractConfig.privateStateStoreName,
-    }),
+      walletProvider: walletAndMidnightProvider,
+    } as any),
     publicDataProvider: indexerPublicDataProvider(
       config.indexer,
       config.indexerWS,
@@ -277,7 +585,7 @@ const getContractAddress = async (): Promise<string> => {
           `📄 Using contract address from file ${contractAddressFile}: ${contractAddressFromFile}`,
         );
         return contractAddressFromFile;
-   
+
   } catch (error) {
     console.error(`❌ Error reading contract address from file: ${error}`);
     console.error("❌ Error: Contract address is required");
@@ -294,13 +602,21 @@ const getContractAddress = async (): Promise<string> => {
   }
 };
 
+// ============================================================================
+// Main Function
+// ============================================================================
+
 async function joinAndMint(accounts: string | string[], amount: bigint): Promise<boolean> {
 
   const targets = Array.isArray(accounts) ? accounts : [accounts];
-  // Initialize configuration
-  const config = new StandaloneConfig();
+  const networkUrls = {
+    indexer: config.indexer,
+    indexerWS: config.indexerWS,
+    node: config.node,
+    proofServer: config.proofServer,
+  };
 
-  let wallet: Wallet & Resource | null = null;
+  let wallet: WalletFacade | null = null;
 
   try {
       // Get contract address from command line arguments or file
@@ -310,21 +626,37 @@ async function joinAndMint(accounts: string | string[], amount: bigint): Promise
     `🚀 Starting join and mint process for contract: ${contractAddress}`,
   );
 
-
     console.log("🔗 Building wallet with genesis seed for standalone mode...");
 
     // Build wallet using genesis seed (which has initial funds in standalone mode)
-    wallet = await buildWalletAndWaitForFunds(
-      config,
+    const walletResult = await buildWalletFacade(
+      networkUrls,
       GENESIS_MINT_WALLET_SEED,
-      "contract-unshielded-erc20.json",
+      NetworkId.NetworkId.Undeployed,
     );
+    wallet = walletResult.wallet;
+    console.log("✅ Wallet built successfully");
+
+    const initialState = await getInitialShieldedState(wallet.shielded);
+    console.log(`Your master wallet seed is: ${GENESIS_MINT_WALLET_SEED}`);
+    console.log(`Your master wallet address is: ${initialState.address.coinPublicKeyString()}`);
+
+    const { shieldedBalance, dustBalance } = await syncAndWaitForFunds(wallet, {
+      waitNonZero: true,
+    });
+    console.log(`Shielded balance: ${shieldedBalance}`);
+    console.log(`Dust balance: ${dustBalance}`);
 
     console.log("✅ Wallet built successfully");
 
     // Configure providers
     console.log("⚙️ Configuring providers...");
-    const providers = await configureProviders(wallet, config);
+    const providers = await configureProviders(
+      wallet,
+      walletResult.walletZswapSecretKeys,
+      walletResult.walletDustSecretKey,
+      config,
+    );
 
     console.log("✅ Providers configured successfully");
 
@@ -355,7 +687,7 @@ async function joinAndMint(accounts: string | string[], amount: bigint): Promise
   } finally {
     if (wallet) {
       try {
-        wallet.close();
+        await wallet.stop();
         console.log("🧹 Wallet closed successfully");
       } catch (error) {
         console.error("❌ Error closing wallet:", error);
@@ -366,15 +698,18 @@ async function joinAndMint(accounts: string | string[], amount: bigint): Promise
 
 // Run the script if this file is executed directly
 if (import.meta.main) {
-  const wallet = await WalletBuilder.build(
-    config.indexer,
-    config.indexerWS,
-    config.proofServer,
-    config.node,
-    GENESIS_MINT_WALLET_SEED,
-    NetworkId.Undeployed,
-  );
-  // const address = (await Rx.firstValueFrom(wallet.state())).address;
+  await log.setup({
+    handlers: {
+      console: new log.ConsoleHandler("INFO"),
+    },
+    loggers: {
+      default: {
+        level: "INFO",
+        handlers: ["console"],
+      },
+    },
+  });
+
   const address = "mn_shield-addr_undeployed1zl9wafu8ad4nfm7jmrh8gukfnu3l5smn4rhglxqh6ayvf4f4vzasxqzn5va92vps2xxpdgy856z6cpzrllj3n35k5r3trp0unzskh9lwsvdzgnft";
   joinAndMint(address, 250000000000n).catch((error) => {
     console.error("❌ Unhandled error:", error);
