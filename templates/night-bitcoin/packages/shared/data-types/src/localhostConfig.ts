@@ -1,4 +1,5 @@
 import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
+import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
 import { getConnection } from "@paimaexample/db";
 import {
   ConfigBuilder,
@@ -59,8 +60,8 @@ export const localhostConfig = new ConfigBuilder()
         type: ConfigNetworkType.MIDNIGHT,
         genesisHash:
           "0x0000000000000000000000000000000000000000000000000000000000000001",
-        networkId: 0, // NetworkId.Undeployed,
-        nodeUrl: "http://127.0.0.1:9944",
+        networkId: midnightNetworkConfig.id,
+        nodeUrl: midnightNetworkConfig.node,
       })
       .addNetwork({
         name: "bitcoin",
@@ -95,8 +96,8 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1,
           pollingInterval: 1000,
           delayMs: 18000,
-          indexer: "http://127.0.0.1:8088/api/v1/graphql",
-          indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
+          indexer: midnightNetworkConfig.indexer,
+          indexerWs: midnightNetworkConfig.indexerWS,
         })
       )
       .addParallel(
@@ -122,11 +123,11 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1,
           contractAddress: readMidnightContract(
             "unshielded-erc20",
-            "contract-unshielded-erc20.json"
+            { networkId: midnightNetworkConfig.id }
           ).contractAddress,
           stateMachinePrefix: "midnightContractStateERC20",
           contract: { ledger: UnshieldedErc20Contract.ledger },
-          networkId: 0,
+          networkId: midnightNetworkConfig.id,
         })
       )
 
@@ -138,11 +139,11 @@ export const localhostConfig = new ConfigBuilder()
           startBlockHeight: 1,
           contractAddress: readMidnightContract(
             "erc7683",
-            "contract-erc7683.json"
+            { networkId: midnightNetworkConfig.id }
           ).contractAddress,
           stateMachinePrefix: "midnightContractStateERC7683",
           contract: { ledger: Erc7683Contract.ledger },
-          networkId: 0,
+          networkId: midnightNetworkConfig.id,
         })
       )
       .addPrimitive(

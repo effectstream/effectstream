@@ -131,11 +131,11 @@ export circuit burnFrom(
 }
 
 export circuit transferFrom(
-  from: Either<ZswapCoinPublicKey, ContractAddress>,
+  fromAddress: Either<ZswapCoinPublicKey, ContractAddress>,
   to: Either<ZswapCoinPublicKey, ContractAddress>,
   value: Uint<128>,
 ): Boolean {
-  const result = FungibleToken_transferFrom(from, to, value);
+  const result = FungibleToken_transferFrom(fromAddress, to, value);
   actionName = 1006;
   actionTarget = disclose(to);
   actionValue = disclose(value);

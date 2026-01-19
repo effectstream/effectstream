@@ -3,12 +3,12 @@
   "exports": {
     ".": "./src/_index.ts",
     "./witnesses": "./src/witnesses.ts",
-    "./contract": "./src/managed/unshielded-erc20/contract/index.cjs"
+    "./contract": "./src/managed/contract/index.js"
   },
   "tasks": {
-    "compact": "compact compile src/unshielded-erc20.compact src/managed/unshielded-erc20 && deno task convert:js",
+    "compact": "compact compile +0.27.0 src/unshielded-erc20.compact src/managed",
     "clean": "rm -rf src/managed",
-    "convert:js": "deno run -A convert-js.ts src/managed/unshielded-erc20/contract/index.cjs src/managed/unshielded-erc20/contract/index.ts",
+    "convert:js": "deno run -A convert-js.ts src/managed/contract/index.js src/managed/contract/index.ts",
     "contract:compile": "deno task compact"
   },
   "imports": {

@@ -1,4 +1,5 @@
 import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
+import type { Static } from "@sinclair/typebox";
 import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
 import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
@@ -110,7 +111,6 @@ const config = Value.Parse(OrchestratorConfig, {
     // Launch Dev DB & Collector
     [ComponentNames.EFFECTSTREAM_PGLITE]: true,
     [ComponentNames.COLLECTOR]: true,
-    [ComponentNames.LOKI]: true,
   },
 
   // Launch my processes
