@@ -106,7 +106,7 @@ const downloadBinary = async (distroKey) => {
     for await (const chunk of response.body) {
         dest.write(chunk);
     }
-    dest.end();
+    // dest.end();
 
     return new Promise((resolve, reject) => {
         dest.on('finish', async () => {

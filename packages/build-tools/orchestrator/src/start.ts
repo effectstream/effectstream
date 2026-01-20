@@ -1,8 +1,15 @@
-#!/usr/bin/env -S deno run --allow-all
+#!/usr/bin/env node
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import process from "node:process";
 import { ENV } from "@effectstream/utils/node-env";
 import type { ValueOf } from "@effectstream/utils";
 import "./http-server.ts";
-import { dkill } from "@sylc/dkill";
+import { kill } from 'kill-port-bun'
+
+const dkill = async ({ ports }: { ports: number[] }): Promise<void> => {
+  await Promise.all(ports.map(port => kill(port)));
+};
 
 import {
   initTelemetry,
@@ -193,10 +200,10 @@ export async function start(
 ): Promise<void> {
   // This is to redirect all logs.remote to the orchestrator, 
   // where they will be redirected to the collector.
-  Deno.env.set("EFFECTSTREAM_ORCHESTRATOR", "true");
+  process.env.EFFECTSTREAM_ORCHESTRATOR = "true";
   appConfig = config;
   pFactory = processFactory(config);
-  setupLogging(config);
+  setupLogging({ ...config, logs: 'stdout' }); // config);
   try {
 
     const tasks = new Map<string, Task>();
@@ -236,22 +243,22 @@ export async function start(
 
     // Add system processes
     if (config.processes[ComponentNames.LOKI]) {
-      await startProcess[ComponentNames.LOKI]();
+      // await startProcess[ComponentNames.LOKI]();
     }
     if (config.processes[ComponentNames.CHECKER]) {
-      await startProcess[ComponentNames.CHECKER]();
+      // await startProcess[ComponentNames.CHECKER]();
     }
     if (config.processes[ComponentNames.TMUX]) {
-      await startProcess[ComponentNames.TMUX]();
+      // await startProcess[ComponentNames.TMUX]();
     }
     if (config.processes[ComponentNames.COLLECTOR]) {
-      await startProcess[ComponentNames.COLLECTOR]();
+      // await startProcess[ComponentNames.COLLECTOR]();
     }
     if (config.processes[ComponentNames.EFFECTSTREAM_PGLITE]) {
-      await startProcess[ComponentNames.EFFECTSTREAM_PGLITE]();
+      // await startProcess[ComponentNames.EFFECTSTREAM_PGLITE]();
     }
     if (config.processes[ComponentNames.APPLY_MIGRATIONS]) {
-      await startProcess[ComponentNames.APPLY_MIGRATIONS]();
+      // await startProcess[ComponentNames.APPLY_MIGRATIONS]();
     }
 
     // Start User-defined Processes
@@ -377,9 +384,6 @@ export async function start(
                 }
             }
         } else if (runningWaitToFinish.size > 0) {
-            for (const pendingTaskName of pending) {
-                const pendingTask = tasks.get(pendingTaskName)!;
-            }
             await new Promise<void>(resolve => {
                 waiter = resolve;
             });
@@ -424,6 +428,14 @@ export async function start(
   }
 }
 
+const runCommand = async (command: string, args: string[]): Promise<void> => {
+  const child = spawn(command, args, { stdio: "inherit" });
+  const [code] = await once(child, "exit");
+  if (code !== 0) {
+    throw new Error(`Command ${command} ${args.join(" ")} exited with ${code}`);
+  }
+};
+
 export { appConfig, pFactory };
 
 export const abortControllers = {
@@ -467,7 +479,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       await dkill({ ports: [ENV.EFFECTSTREAM_EXPLORER_PORT] });
     }
     const explorer = $({
-      args: ["task", "-f", config.packageName + "/explorer", "dev"],
+      args: ["--filter", config.packageName + "/explorer", "dev"],
       component: ComponentNames.EXPLORER,
       log: logHandler(),
       abortController: abortControllers.developerUI,
@@ -484,7 +496,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
     // deno -A @effectstream/grafana-alloy grafana-alloy
     const otlpCollector = $({
-      args: ["-A", "@effectstream/grafana-alloy", "grafana-alloy"],
+      args: ["--filter", "@effectstream/grafana-alloy", "grafana-alloy"],
       // collector always has to post logs directly to console
       // otherwise, it gets stuck in an infinite loop of sending to itself
       log: logHandler({
@@ -499,9 +511,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     });
     void otlpCollector.process.status;
 
-    await (new Deno.Command("wait-on", {
-      args: [`tcp:${ENV.OTEL_COLLECTOR_PORT}`],
-    })).spawn().status;
+    await runCommand("wait-on", [`tcp:${ENV.OTEL_COLLECTOR_PORT}`]);
 
     setCollectorStarted(ENV.OTEL_COLLECTOR_PORT);
     return otlpCollector;
@@ -512,7 +522,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
       await dkill({ ports: [3100] });
     }
     const loki = $({
-      args: ["-A", "@effectstream/grafana-loki", "grafana-loki"],
+      args: ["--filter", "@effectstream/grafana-loki", "start:bun"],
       component: ComponentNames.LOKI,
       log: logHandler(
       {
@@ -530,18 +540,18 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     return loki;
   },
 
-  [ComponentNames.CHECKER]: async (): Promise<ProcessComponent> => {
-    const checker = $({
-      args: ["task", "check"],
-      component: ComponentNames.CHECKER,
-      stdout: "inherit",
-      stderr: "inherit",
-      abortController: abortControllers.noncritical,
-      critical: true,
-    });
-    await Promise.all([checker.process.status]);
-    return checker;
-  },
+  // [ComponentNames.CHECKER]: async (): Promise<ProcessComponent> => {
+  //   const checker = $({
+  //     args: ["task", "check"],
+  //     component: ComponentNames.CHECKER,
+  //     stdout: "inherit",
+  //     stderr: "inherit",
+  //     abortController: abortControllers.noncritical,
+  //     critical: true,
+  //   });
+  //   await Promise.all([checker.process.status]);
+  //   return checker;
+  // },
 
   [ComponentNames.EFFECTSTREAM_SYNC]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
@@ -549,9 +559,9 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     // if EFFECTSTREAM_ENV is set, then launch the node:start:{EFFECTSTREAM_ENV}
-    const effectstreamEnv = Deno.env.get("EFFECTSTREAM_ENV");
+    const effectstreamEnv = process.env.EFFECTSTREAM_ENV;
     const node = $({
-      args: ["task", effectstreamEnv ? `node:start:${effectstreamEnv}` : "node:start"],
+      args: ["--filter", effectstreamEnv ? `node:start:${effectstreamEnv}` : "node:start"],
       log: logHandler({}, tsLogOrchestratorAdapter),
       component: ComponentNames.EFFECTSTREAM_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically
@@ -571,9 +581,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     const paimaDb = $({
       // TODO: run pgtyped:up only depending on parameters?
       args: [
-        "run",
-        "-A",
-        config.packageName + "/db/start-pglite",
+        "--filter", config.packageName + "/db/start-pglite",
         "--port",
         String(ENV.DB_PORT),
       ],
@@ -584,9 +592,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     });
     void paimaDb.process.status; // need to await sub-service start below
 
-    await (new Deno.Command("wait-on", {
-      args: [`tcp:${ENV.DB_PORT}`],
-    })).spawn().status;
+    await runCommand("wait-on", [`tcp:${ENV.DB_PORT}`]);
 
     return paimaDb;
   },
@@ -594,10 +600,8 @@ export const processFactory = (config: OrchestratorConfigType): Record<
   [ComponentNames.APPLY_MIGRATIONS]: async (): Promise<ProcessComponent> => {
     const externalPaimaDb = $({
       args: [
-        "run",
-        "-A",
-        config.packageName + "/db/apply-migrations",
-      ],
+        "--filter", config.packageName + "/db/apply-migrations",
+      ],  
       component: ComponentNames.APPLY_MIGRATIONS,
       log: logHandler({}, tsLogOrchestratorAdapter),
       abortController: abortControllers.system,

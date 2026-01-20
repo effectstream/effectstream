@@ -7,7 +7,8 @@ import type { ValueOf } from "@effectstream/utils";
 import { ENV } from "@effectstream/utils/node-env";
 import { processes } from "./process.ts";
 
-const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
+// const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
+const VERSION = "0.3.129";
 
 type Source = "stdout" | "stderr";
 export type LogHandler = (
@@ -253,7 +254,7 @@ function sendToTUI() {
 
 export function initTelemetry(): void {
   const sdk = new NodeSDK({
-    ...defaultOtelSetup("@effectstream/orchestrator", DenoConfig.version),
+    ...defaultOtelSetup("@effectstream/orchestrator", VERSION),
   });
 
   sdk.start();

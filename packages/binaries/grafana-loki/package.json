@@ -7,7 +7,8 @@
         "grafana-loki": "index.js"
     },
     "scripts": {
-        "start": "node index.js"
+        "start": "node index.js",
+        "bun:start": "bun run index.js"
     },
     "dependencies": {
         "@xhmikosr/bin-wrapper": "^13.2.0"

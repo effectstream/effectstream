@@ -29,19 +29,19 @@ export const launchCardano = (packageName: string): {
     {
       stopProcessAtPort: [8090, 10000, 50051, 3001],
       name: ComponentNames.YACI_DEVKIT,
-      args: ["task", "-f", packageName, "devkit:start"],
+      args: ["--filter", packageName, "devkit:start"],
       waitToExit: false,
       type: "system-dependency",
       logsStartDisabled: true,
     },
     {
       name: ComponentNames.YACI_DEVKIT_WAIT,
-      args: ["task", "-f", packageName, "devkit:wait"],
+      args: ["--filter", packageName, "devkit:wait"],
       dependsOn: [ComponentNames.YACI_DEVKIT],
     },
     {
       name: ComponentNames.DOLOS,
-      args: ["task", "-f", packageName, "dolos:start"],
+      args: ["--filter", packageName, "dolos:start"],
       waitToExit: false,
       logs: "raw",
       logsStartDisabled: true,
@@ -51,7 +51,7 @@ export const launchCardano = (packageName: string): {
     },
     {
       name: ComponentNames.DOLOS_WAIT,
-      args: ["task", "-f", packageName, "dolos:wait"],
+      args: ["--filter", packageName, "dolos:wait"],
       dependsOn: [ComponentNames.DOLOS],
     },
   ];

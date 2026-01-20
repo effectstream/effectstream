@@ -9,14 +9,14 @@ export {
   type Namespace,
 } from "./const.ts";
 export { attachTransport } from "./tslog.ts";
-export { DefaultLogLevels } from "./tslog.ts";
+// export { DefaultLogLevels } from "./tslog.ts";
 
 // re-exporting this
 // so that we don't need to re-import opentelemetry in every component
 export { SeverityNumber };
 
-const localLogger = Deno && Deno.env.get("EFFECTSTREAM_ORCHESTRATOR") ? tsLogOrchestrator : tsLogFormatted;
-const remoteLogger = Deno && Deno.env.get("EFFECTSTREAM_ORCHESTRATOR") ? tsLogOrchestrator : otelLog;
+const localLogger = typeof process !== "undefined" && process.env.EFFECTSTREAM_ORCHESTRATOR ? tsLogOrchestrator : tsLogFormatted;
+const remoteLogger = typeof process !== "undefined" && process.env.EFFECTSTREAM_ORCHESTRATOR ? tsLogOrchestrator : otelLog;
 
 export const log: {
   local: TslogLogFunc;

@@ -1,5 +1,5 @@
 
-  import { decodeBase64 } from "jsr:@std/encoding@~1.0.8";
+  const decodeBase64 = (str: string) => Buffer.from(str, 'base64').toString();
   
   const bundledObject = {
     files:{

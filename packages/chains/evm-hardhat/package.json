@@ -1,0 +1,29 @@
+{
+  "name": "@effectstream/evm-hardhat",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./json-rpc-server": "./src/json-rpc-server/json-rpc/server.ts",
+    "./builder": "./src/builder/build.mod.ts",
+    "./remappings-hardhat": "./src/remappings/remappings-hardhat.ts",
+    "./remappings-forge": "./src/remappings/remappings-forge.ts",
+    "./hardhat-config-builder": "./src/hardhatConfigBuilder.ts"
+  },
+  "scripts": {
+    "build:assets": "bun run --bun jsr:@codemonument/asset-builder --import-file ./src/remappings/assets-config.json > ./src/remappings/assets.ts",
+    "scaffold": "bun run --bun ./src/scaffold/scaffold-evm.ts"
+  },
+  "dependencies": {
+    "ws": "8.18.1",
+    "hardhat": "3.0.4",
+    "@nomicfoundation/hardhat-ignition": "3.0.2",
+    "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
+    "@nomicfoundation/hardhat-viem": "3.0.0",
+    "@nomicfoundation/hardhat-errors": "3.0.1",
+    "@nomicfoundation/hardhat-utils": "3.0.0",
+    "@effectstream/log": "workspace:*",
+    "jsonc-parser": "^3.3.1",
+    "@opentelemetry/sdk-node": "0.56.0"
+  }
+}

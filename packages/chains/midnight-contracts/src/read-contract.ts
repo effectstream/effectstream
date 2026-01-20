@@ -323,8 +323,8 @@ export function readMidnightContract(
     moduleDir = foundDir;
   } else {
     const envContractAddress =
-      typeof Deno !== "undefined"
-        ? Deno.env.get("MIDNIGHT_CONTRACT_ADDRESS")
+      typeof process !== "undefined"
+        ? process.env.MIDNIGHT_CONTRACT_ADDRESS
         : undefined;
     return {
       contractAddress: envContractAddress || "",
@@ -408,7 +408,7 @@ export function readMidnightContract(
     }
     
     // Override contract address if MIDNIGHT_CONTRACT_ADDRESS env var is set
-    const envContractAddress = Deno.env.get("MIDNIGHT_CONTRACT_ADDRESS");
+    const envContractAddress = process.env.MIDNIGHT_CONTRACT_ADDRESS;
     if (envContractAddress) {
       contractAddress = envContractAddress;
       contractAddresses[resolvedNetworkId] = envContractAddress;

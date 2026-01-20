@@ -3,23 +3,24 @@ import { type DebugLevel, PGlite } from "@electric-sql/pglite";
 // import { pg_ivm } from "@electric-sql/pglite/pg_ivm";
 import net from "node:net";
 import { fromNodeSocket } from "pg-gateway/node";
-import { ENV } from "@effectstream/utils/node-env";
+import { ENV } from "@effectstream/utils";
+import fs from "node:fs";
 
 // TODO PORT be a ENV variable
 // Get port from arguments.
 const portArgName = "--port";
-const portArgIndex = Deno.args.indexOf(portArgName);
-const portValue = portArgIndex !== -1 ? Deno.args[portArgIndex + 1] : "5432";
+const portArgIndex = process.argv.indexOf(portArgName);
+const portValue = portArgIndex !== -1 ? process.argv[portArgIndex + 1] : "5432";
 const port = parseInt(portValue);
 if (isNaN(port)) {
   throw new Error(`Port argument ${portArgName} is not a number`);
 }
 
 // TODO: find nearest node_modules folder, as import { pg_ivm } is not working
-let nodeModulesPath = Deno.cwd();
+let nodeModulesPath = process.cwd();
 while (true) {
   try {
-    !Deno.statSync(nodeModulesPath + "/node_modules").isDirectory;
+    !fs.existsSync(nodeModulesPath + "/node_modules");
     break;
   } catch (e) {
     if (!nodeModulesPath || nodeModulesPath === "/") {
@@ -36,11 +37,11 @@ const db = new PGlite(
     database: ENV.DB_NAME,
     extensions: {
       // pg_ivm: pg_ivm,
-      pg_ivm: new URL(
-        nodeModulesPath +
-          "/node_modules/@electric-sql/pglite/dist/pg_ivm.tar.gz",
-        "file://",
-      ),
+      // pg_ivm: new URL(
+      //   nodeModulesPath +
+      //     "/node_modules/@electric-sql/pglite/dist/pg_ivm.tar.gz",
+      //   "file://",
+      // ),
     },
     debug: (ENV.DEBUG_PGLITE as DebugLevel) || 0,
   },

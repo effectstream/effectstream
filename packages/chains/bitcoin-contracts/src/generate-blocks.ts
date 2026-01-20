@@ -7,7 +7,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const ECPair = ecpair.ECPairFactory(ecc);
 const SATS_PER_BTC = 100_000_000;
 
-const DEFAULT_BLOCK_INTERVAL = Deno.args.includes('--block-interval') ? parseInt(Deno.args[Deno.args.indexOf('--block-interval') + 1]) : 5000;
+const DEFAULT_BLOCK_INTERVAL = process.argv.includes('--block-interval') ? parseInt(process.argv[process.argv.indexOf('--block-interval') + 1]) : 5000;
 const NETWORK = bitcoin.networks.regtest;
 console.log(`Using block interval: ${DEFAULT_BLOCK_INTERVAL}ms`);
 

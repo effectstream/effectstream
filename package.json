@@ -1,0 +1,19 @@
+{
+  "name": "@effectstream/engine",
+  "version": "0.3.129",
+  "description": "Effectstream Engine - A framework for building blockchain applications",
+  "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "packages/**/*",
+    "e2e/**/*"
+  ],
+  "scripts": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.15",
+    "wait-on": "^7.2.0"
+  }
+}

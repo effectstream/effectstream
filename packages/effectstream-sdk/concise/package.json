@@ -1,0 +1,15 @@
+{
+  "name": "@effectstream/concise",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "0.34.41",
+    "js-sha3": "^0.9.3",
+    "viem": "2.37.3"
+  }
+}

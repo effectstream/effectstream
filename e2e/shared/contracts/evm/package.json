@@ -1,15 +1,43 @@
 {
+  "name": "@e2e/evm-contracts",
+  "version": "0.3.0",
+  "license": "MIT",
   "type": "module",
-  "dependencies": {
-    "@nomicfoundation/ignition-core": "3.0.2",
-    "@openzeppelin/contracts": "5.1.0",
-    "@openzeppelin/contracts-upgradeable": "^5.1.0",
-    "@effectstream/evm-contracts": "file:./../../../../packages/chains/evm-contracts"
+  "main": "./mod.ts",
+  "exports": {
+    ".": "./mod.ts"
   },
-  "devDependencies": {
-    "jsonc-parser": "3.3.1",
-    "@opentelemetry/sdk-node": "0.56.0",
+  "scripts": {
+    "@effectstream/log": "workspace:*",
+    "swap:remappings:forge": "bun run --bun @effectstream/evm-hardhat/remappings-forge --depth 4",
+    "swap:remappings:hardhat": "bun run --bun @effectstream/evm-hardhat/remappings-hardhat",
+    "check": "echo 'check'",
+    "build:mod": "(bun run deploy:standalone || true) && bun run --bun @effectstream/evm-hardhat/builder",
+    "build:clean": "rm -rf build || true",
+    "build:forge": "forge build",
+    "build:hardhat": "bun run hardhat compile",
+    "build": "bun run build:forge && bun run build:hardhat",
+    "contract:compile": "bun run build:mod",
+    "deploy:clean": "((rm -rf ignition/deployments/chain-31337); (rm -rf ignition/deployments/chain-31338)) || true",
+    "deploy:standalone": "(((bun run chain:start) &) && (bun run chain:wait) && (bun run deploy) && bun run chain:stop) || true",
+    "deploy:testnet": "bun run --bun deploy.testnet.ts",
+    "deploy": "bun run --bun deploy.ts",
+    "chain:start": "bun run hardhat node",
+    "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",
+    "chain:wait": "bun run hardhat node wait"
+  },
+  "dependencies": {
+    "@effectstream/evm-contracts": "workspace:*",
+    "@effectstream/evm-hardhat": "workspace:*",
+    "@effectstream/log": "workspace:*",
+    "@nomicfoundation/hardhat-errors": "3.0.1",
+    "@nomicfoundation/hardhat-ignition": "3.0.2",
+    "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
+    "@nomicfoundation/hardhat-utils": "3.0.0",
+    "@nomicfoundation/hardhat-viem": "3.0.0",
+    "@nomicfoundation/ignition-core": "3.0.7",
+    "@wagmi/cli": "2.3.1",
     "hardhat": "3.0.4",
-    "wait-on": "8.0.3"
+    "ws": "8.18.1"
   }
 }

@@ -1,17 +1,31 @@
-#!/usr/bin/env -S deno run -A
+#!/usr/bin/env node
 /**
  * Runs database startup and pgtyped generation concurrently
  */
 
-import { dirname, join } from "jsr:@std/path@1.1.3";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createInterface } from "node:readline";
 
-const __dirname = dirname(import.meta.url.replace("file://", ""));
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 interface ProcessInfo {
   name: string;
   command: string;
   args: string[];
   wait: boolean;
+}
+
+async function streamLines(
+  stream: NodeJS.ReadableStream | null,
+  onLine: (line: string) => void,
+): Promise<void> {
+  if (!stream) return;
+  const rl = createInterface({ input: stream });
+  rl.on("line", onLine);
+  await once(rl, "close");
 }
 
 function createPrefix(name: string): string {
@@ -29,70 +43,34 @@ async function runProcess(processInfo: ProcessInfo): Promise<void> {
 
   console.log(`${prefix}Starting...`);
 
-  const command = new Deno.Command(processInfo.command, {
-    args: processInfo.args,
-    stdout: "piped",
-    stderr: "piped",
+  const child = spawn(processInfo.command, processInfo.args, {
+    stdio: ["ignore", "pipe", "pipe"],
   });
 
-  const process = command.spawn();
-
-  // Handle stdout
-  const stdoutReader = process.stdout.getReader();
-  const stderrReader = process.stderr.getReader();
-
-  // Stream stdout
-  const stdoutPromise = (async () => {
-    const decoder = new TextDecoder();
-    try {
-      while (true) {
-        const { done, value } = await stdoutReader.read();
-        if (done) break;
-        const text = decoder.decode(value);
-        // Print each line with prefix
-        text.split("\n").forEach((line) => {
-          if (line.trim()) {
-            console.log(`${prefix}${line}`);
-          }
-        });
-      }
-    } finally {
-      stdoutReader.releaseLock();
+  const stdoutPromise = streamLines(child.stdout, (line) => {
+    if (line.trim()) {
+      console.log(`${prefix}${line}`);
     }
-  })();
+  });
 
-  // Stream stderr
-  const stderrPromise = (async () => {
-    const decoder = new TextDecoder();
-    try {
-      while (true) {
-        const { done, value } = await stderrReader.read();
-        if (done) break;
-        const text = decoder.decode(value);
-        // Print each line with prefix
-        text.split("\n").forEach((line) => {
-          if (line.trim()) {
-            console.error(`${prefix}${line}`);
-          }
-        });
-      }
-    } finally {
-      stderrReader.releaseLock();
+  const stderrPromise = streamLines(child.stderr, (line) => {
+    if (line.trim()) {
+      console.error(`${prefix}${line}`);
     }
-  })();
+  });
 
   if (processInfo.wait) {
     // Wait for process to complete
     const [status] = await Promise.all([
-      process.status,
+      once(child, "exit").then(([code]) => ({ code })),
       stdoutPromise,
       stderrPromise,
     ]);
 
-    if (status.success) {
+    if (status.code === 0) {
       console.log(`${prefix}✅ Completed successfully`);
     } else {
-      console.error(`${prefix}❌ Failed with exit code ${status.code}`);
+      console.error(`${prefix}❌ Failed with exit code ${status.code ?? "unknown"}`);
       throw new Error(`Process ${processInfo.name} failed`);
     }
   }
@@ -135,10 +113,10 @@ async function main() {
     console.log("\n✅ All processes completed successfully");
   } catch (error) {
     console.error("\n❌ One or more processes failed:", error);
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 
-if (import.meta.main) {
+if (process.argv[1] && process.argv[1].endsWith("pgtyped-update.ts")) {
   await main();
 }

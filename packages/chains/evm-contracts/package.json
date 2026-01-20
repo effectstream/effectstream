@@ -1,13 +1,30 @@
 {
   "name": "@effectstream/evm-contracts",
   "version": "0.3.0",
-  "description": "Effectstream EVM default contracts.",
-  "main": "index.js",
-  "author": "Paima Studios",
   "license": "MIT",
   "type": "module",
+  "main": "./mod.ts",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "scripts": {
+    "link:forge": "bash -c 'if ! [ -L ../../../../node_modules/forge-std ]; then ln -s ../forge-std ../../../../node_modules/forge-std; fi'",
+    "build:contracts": "forge build && bun run --bun hardhat compile",
+    "build:publish": "bun run --bun prepare.ts",
+    "prebuild": "rm -rf ./build",
+    "build": "bun run prebuild && bun run build:contracts && bun run build:publish",
+    "clean": "rm -rf ./artifacts && rm -rf ./cache && rm -rf ./build",
+    "test": "forge test",
+    "prettier": "prettier --write '**/*.{sol,js,ts}' --ignore-path .gitignore"
+  },
   "dependencies": {
-    "@openzeppelin/contracts": "5.1.0",
-    "@openzeppelin/contracts-upgradeable": "^5.1.0"
+    "@effectstream/log": "workspace:*",
+    "@wagmi/cli": "2.3.1",
+    "hardhat": "3.0.4",
+    "@nomicfoundation/hardhat-ignition": "3.0.2",
+    "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
+    "@nomicfoundation/hardhat-viem": "3.0.0",
+    "jsonc-parser": "^3.3.1",
+    "@opentelemetry/sdk-node": "0.56.0"
   }
 }

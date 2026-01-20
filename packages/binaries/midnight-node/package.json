@@ -4,7 +4,7 @@
   "description": "Downloads and starts the binary for Midnight Node",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "bun run index.js"
   },
   "bin": {
     "npm-midnight-node": "index.js"

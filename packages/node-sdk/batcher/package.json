@@ -1,0 +1,26 @@
+{
+  "name": "@effectstream/batcher-old",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./start": "./src/start.ts"
+  },
+  "description": "Batcher for the Paima Engine",
+  "scripts": {
+    "check": "bun run --bun ./src/batcher.ts",
+    "standalone": "bun run --bun ./src/start.ts"
+  },
+  "dependencies": {
+    "@fastify/swagger": "^9.5.1",
+    "@fastify/swagger-ui": "^5.2.3",
+    "assert-never": "^1.4.0",
+    "fastify": "^5.4.0",
+    "@fastify/cors": "^11.0.1",
+    "effection": "^3.5.0",
+    "@sinclair/typebox": "0.34.41",
+    "viem": "2.37.3"
+  }
+}

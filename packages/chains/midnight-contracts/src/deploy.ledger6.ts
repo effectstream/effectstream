@@ -1,4 +1,11 @@
-import * as log from "@std/log";
+// import * as log from "@std/log";
+const log = {
+  info: console.log,
+  warn: console.warn,
+  error: console.error,
+  debug: console.debug,
+};
+
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import {
@@ -139,7 +146,7 @@ function createTtl(): Date {
 }
 
 function checkEnvVariables(): void {
-  if (!Deno.env.get("MIDNIGHT_STORAGE_PASSWORD")) {
+  if (!process.env.MIDNIGHT_STORAGE_PASSWORD) {
     throw new Error("MIDNIGHT_STORAGE_PASSWORD is not set (Use a 16 char string)");
   }
 }
@@ -171,7 +178,7 @@ async function buildWalletAndWaitForFunds(
   const syncTimeoutMs = resolveWalletSyncTimeoutMs();
   if (balance === 0n) {
     const skipWait =
-      Deno.env.get("MIDNIGHT_SKIP_WAIT_FOR_FUNDS")?.toLowerCase() === "true";
+      process.env.MIDNIGHT_SKIP_WAIT_FOR_FUNDS?.toLowerCase() === "true";
     log.info("Wallet shielded balance: 0");
     log.info(
       `Waiting to receive tokens... (timeout ${syncTimeoutMs}ms${skipWait ? ", skip on timeout enabled" : ""})`
@@ -449,7 +456,7 @@ export async function deployMidnightContract(
       dustAddress,
     } = walletResult;
     const resolvedDustReceiverAddress =
-      Deno.env.get("MIDNIGHT_DUST_RECEIVER_ADDRESS") ?? dustAddress;
+      process.env.MIDNIGHT_DUST_RECEIVER_ADDRESS ?? dustAddress;
     if (resolvedDustReceiverAddress === dustAddress) {
       log.info(`Using derived dust address: ${resolvedDustReceiverAddress}`);
     } else {

@@ -7,7 +7,7 @@
     "npm-avail-node": "index.js"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "bun run index.js"
   },
   "dependencies": {
     "linus": "^0.0.6",

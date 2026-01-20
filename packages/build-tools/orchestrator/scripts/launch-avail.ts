@@ -7,7 +7,7 @@ import { ComponentNames } from "@effectstream/log";
 // unless the user explicitly wants to see the logs, so if EFFECTSTREAM_STDOUT is true,
 // we enable stderr for this as well.
 
-const disableStderr = Deno.env.get("EFFECTSTREAM_STDOUT") === "true" ? false : true;
+const disableStderr = process.env.EFFECTSTREAM_STDOUT === "true" ? false : true;
 
 // Start Avail Node and Light Client.
 //
@@ -40,7 +40,7 @@ export const launchAvail = (packageName: string): {
     {
       stopProcessAtPort: [9955, 7007, 30333],
       name: ComponentNames.AVAIL_NODE,
-      args: ["task", "-f", packageName, "avail-node:start"],
+      args: ["--filter", packageName, "avail-node:start"],
       waitToExit: false,
       logs: "raw",
       logsStartDisabled: true,
@@ -49,14 +49,13 @@ export const launchAvail = (packageName: string): {
     },
     {
       name: ComponentNames.AVAIL_NODE_WAIT,
-      args: ["task", "-f", packageName, "avail-node:wait"],
+      args: ["--filter", packageName, "avail-node:wait"],
       dependsOn: [ComponentNames.AVAIL_NODE],
     },
     {
       name: ComponentNames.AVAIL_CLIENT,
       args: [
-        "task",
-        "-f",
+        "--filter",
         packageName,
         "avail-light-client:deploy",
       ],

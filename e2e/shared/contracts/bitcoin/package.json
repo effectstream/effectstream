@@ -1,0 +1,25 @@
+{
+  "name": "@e2e/bitcoin-contracts",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./generate-blocks.ts",
+  "exports": {
+    ".": "./generate-blocks.ts"
+  },
+  "scripts": {
+    "chain:start": "bun run --filter @effectstream/bitcoin-core start",
+    "chain:wait": "wait-on tcp:18443",
+    "generate:blocks": "bun run --bun ./generate-blocks.ts",
+    "wait-for-block": "bun run --bun wait-for-block.ts"
+  },
+  "dependencies": {
+    "@effectstream/bitcoin-contracts": "workspace:*",
+    "bitcoinjs-lib": "6.1.5",
+    "ecpair": "2.1.0",
+    "tiny-secp256k1": "2.2.3"
+  },
+  "devDependencies": {
+    "wait-on": "^7.2.0"
+  }
+}

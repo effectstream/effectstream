@@ -16,36 +16,36 @@ const ENV = { NODE_ENV: 'development' } // TODO This should come from @effectstr
 /**
  * https://github.com/fullstack-build/tslog/pull/308
  */
-export enum DefaultLogLevels {
-  SILLY = 0,
-  TRACE = 1,
-  DEBUG = 2,
-  INFO = 3,
-  WARN = 4,
-  ERROR = 5,
-  FATAL = 6,
-}
+// export enum DefaultLogLevels {
+//   SILLY = 0,
+//   TRACE = 1,
+//   DEBUG = 2,
+//   INFO = 3,
+//   WARN = 4,
+//   ERROR = 5,
+//   FATAL = 6,
+// }
 
-export function mapSeverity(level: SeverityNumber): DefaultLogLevels {
+export function mapSeverity(level: number): number {
   if (level === SeverityNumber.UNSPECIFIED) {
-    return DefaultLogLevels.INFO;
+    return 0; // DefaultLogLevels.INFO;
   }
   if (level < SeverityNumber.DEBUG) {
-    return DefaultLogLevels.TRACE;
+    return 1; // DefaultLogLevels.TRACE;
   }
   if (level < SeverityNumber.INFO) {
-    return DefaultLogLevels.DEBUG;
+    return 2; // DefaultLogLevels.DEBUG;
   }
   if (level < SeverityNumber.WARN) {
-    return DefaultLogLevels.INFO;
+    return 3; // DefaultLogLevels.INFO;
   }
   if (level < SeverityNumber.ERROR) {
-    return DefaultLogLevels.WARN;
+    return 4; // DefaultLogLevels.WARN;
   }
   if (level < SeverityNumber.FATAL) {
-    return DefaultLogLevels.ERROR;
+    return 5; // DefaultLogLevels.ERROR;
   }
-  return DefaultLogLevels.FATAL;
+  return 6; // DefaultLogLevels.FATAL;
 }
 
 const chalkFormat = Format.Chalk(chalk);

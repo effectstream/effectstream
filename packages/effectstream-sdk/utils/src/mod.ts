@@ -5,3 +5,4 @@ export * from "./captcha.ts";
 export * from "./binary-search.ts";
 export * from "./concurrency/mod.ts";
 export * from "./decorators/mod.ts";
+export * from "./config.ts";

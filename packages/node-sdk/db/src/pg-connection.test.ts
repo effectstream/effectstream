@@ -7,7 +7,7 @@ import {
 import { run, sleep, spawn } from "effection";
 
 // Force PGLITE env var to true for testing mutex logic
-Deno.env.set("PGLITE", "true");
+process.env.PGLITE = "true";
 
 Deno.test("DB Mutex - acquires and releases lock", async () => {
   await run(function* () {

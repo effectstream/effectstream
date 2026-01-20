@@ -318,6 +318,7 @@ export function createDefaultNetworks(
  * @param logPackage Package name for log utilities (kept for backward compatibility, but ignored)
  * @param denoJsonPath Path to deno.json file for version detection
  */
+const VERSION = "0.3.129";
 export function initTelemetry(
   logPackage: string,
   denoJsonPath: string = "./deno.json",
@@ -326,9 +327,8 @@ export function initTelemetry(
   // Execute asynchronously - errors won't break Hardhat initialization
   (async () => {
     try {
-      const DenoConfig = parse(fs.readFileSync(denoJsonPath, "utf8"));
       const sdk = new NodeSDK({
-        ...defaultOtelSetup("hardhat", DenoConfig.version),
+        ...defaultOtelSetup("hardhat", VERSION),
       });
       sdk.start();
     } catch (error) {

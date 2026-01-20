@@ -1,18 +1,30 @@
 {
-    "name": "@effectstream/explorer",
-    "version": "0.3.0",
-    "main": "client/dist/index.html",
-    "bin": {
-        "explorer": "cli.cjs"
-    },
-    "type": "commonjs",
-    "files": [
-        "cli.cjs",
-        "client/dist/index.html",
-        "client/dist/**",
-        "server/**"
-    ],
-    "dependencies": {
-        "http-server": "^14.1.1"
-    }
+  "name": "@effectstream/explorer",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./server/main.ts",
+  "exports": {
+    ".": "./server/main.ts"
+  },
+  "scripts": {
+    "dev": "bun run vite",
+    "build": "bun run vite build",
+    "server:start": "bun run --watch ./server/main.ts",
+    "serve": "bun run build && bun run server:start"
+  },
+  "dependencies": {
+    "@deno/vite-plugin": "^1.0.4",
+    "@types/react": "19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-router-dom": "^7.5.1",
+    "vite": "7.1.3",
+    "viem": "latest",
+    "vite-plugin-node-stdlib-browser": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  }
 }

@@ -1,26 +1,22 @@
 {
-  "name": "@midnight-ntwrk/counter-contract",
+  "name": "@e2e/midnight-contract-counter-basic",
   "version": "0.3.0",
-  "license": "Apache-2.0",
-  "private": true,
+  "license": "MIT",
   "type": "module",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/_index.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    }
+    ".": "./src/_index.ts",
+    "./witnesses": "./src/witnesses.ts",
+    "./contract": "./src/managed/contract/index.js"
   },
   "scripts": {
-    "compact": "compactc src/counter.compact src/managed/counter",
-    "test": "vitest run",
-    "test:compile": "npm run compact && vitest run",
-    "build": "rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/counter.compact ./dist",
-    "lint": "eslint src",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "compact": "compact compile +0.27.0 src/counter.compact src/managed/",
+    "contract:compile": "bun run compact"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.11.0-rc.1"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   }
 }

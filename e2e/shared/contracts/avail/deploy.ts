@@ -1,7 +1,11 @@
 import { Account, Pallets, SDK } from "avail-js-sdk";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { writeFile } from "node:fs/promises";
+import process from "node:process";
 
 const sdk = await SDK.New("ws://localhost:9955/ws");
-const seed: string = Deno.env.get("SEED") ?? "//Alice";
+const seed: string = process.env.SEED ?? "//Alice";
 if (!seed) {
   throw new Error("SEED environment variable is not set");
 }
@@ -50,17 +54,22 @@ export async function createApplicationKey() {
 const { appId, txHash } = await createApplicationKey();
 console.log("Transaction Hash: ", txHash.toString());
 const data = JSON.stringify({ appId, txHash, ApplicationKey, genesisHash });
-const fileName = Deno.cwd() + "/avail_app.json";
+const fileName = process.cwd() + "/avail_app.json";
 console.log("Writing to file: ", fileName);
-await Deno.writeTextFile(fileName, data);
+await writeFile(fileName, data, "utf8");
 
-const child = new Deno.Command("deno", {
-  args: ["task", "-f", "@e2e/avail-contracts", "avail-light-client:start"],
-  env: {
-    AVAIL_APP_ID: appId.toString(),
+const child = spawn(
+  "bun",
+  ["run", "--filter", "@e2e/avail-contracts", "avail-light-client:start"],
+  {
+    env: { ...process.env, AVAIL_APP_ID: appId.toString() },
+    stdio: "inherit",
   },
-}).spawn();
+);
 
 console.log("Light Client Started");
 
-await child.status;
+const [exitCode] = await once(child, "exit");
+if (exitCode !== 0) {
+  throw new Error(`Light client exited with code ${exitCode}`);
+}

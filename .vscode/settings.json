@@ -1,19 +1,4 @@
 {
-  "deno.enable": true,
-  "deno.documentPreloadLimit": 10000,
-  "deno.lint": true,
-  "deno.disablePaths": [
-    "packages/build-tools/explorer",
-    "templates",
-    "templates/chess",
-    "templates/evm-midnight",
-    "templates/minimal",
-    "templates/multi-chain-token-transfer",
-    "templates/night-bitcoin",
-    "templates/rock-paper-scissors",
-    "templates/world-map-2d",
-    "docs/site"
-  ],
   "editor.formatOnSave": false,
   "editor.defaultFormatter": "denoland.vscode-deno",
   "[typescript]": {

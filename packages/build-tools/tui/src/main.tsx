@@ -32,11 +32,12 @@ const App = () => {
   }, []);
   useInput((input, key) => {
     if (input === "c" && key.ctrl) {
-      if (Deno.env.get("TMUX")) {
-        const cmd = new Deno.Command("tmux", { args: ["kill-session"] });
-        cmd.spawn();
+      if (process.env.TMUX) {
+        // TODO make this async
+        const { spawn } = await import("child_process");
+        spawn("tmux", ["kill-session"]);
       }
-      Deno.exit(0);
+      process.exit(0);
       return;
     }
     // Handle left/right arrow keys for tab navigation

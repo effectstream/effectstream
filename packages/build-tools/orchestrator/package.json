@@ -1,5 +1,28 @@
 {
-  "devDependencies": {
-    "wait-on": "8.0.3"
+  "name": "@effectstream/orchestrator",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./start-evm": "./scripts/launch-evm.ts",
+    "./start-cardano": "./scripts/launch-cardano.ts",
+    "./start-avail": "./scripts/launch-avail.ts",
+    "./start-midnight": "./scripts/launch-midnight.ts",
+    "./start-bitcoin": "./scripts/launch-bitcoin.ts"
+  },
+  "scripts": {
+    "node:wait": "bun run @effectstream/db/db-wait && bun run @e2e/evm-contracts chain:wait"
+  },
+  "dependencies": {
+    "@effectstream/log": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@opentelemetry/sdk-node": "0.56.0",
+    "@sinclair/typebox": "0.34.41",
+    "fastify": "^5.4.0",
+    "jsonc-parser": "^3.3.1",
+    "kill-port-bun": "^0.0.3",
+    "kill-port-process": "^3.2.1"
   }
 }

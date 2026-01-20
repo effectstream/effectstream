@@ -1,5 +1,23 @@
 {
+  "name": "@e2e/cardano-contracts",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": {},
+  "scripts": {
+    "devkit:start": "bunx @bloxbean/yaci-devkit up",
+    "devkit:wait": "wait-on tcp:3001",
+    "dolos:fill-template": "bun run --bun ./fill-template.ts",
+    "dolos:start": "rm -rf ./data && rm -rf ./dolos.socket && bun run dolos:fill-template && bunx @txpipe/dolos bootstrap relay && bunx @txpipe/dolos daemon",
+    "dolos:wait": "wait-on tcp:50051"
+  },
+  "dependencies": {
+    "@bloxbean/yaci-devkit": "0.10.6",
+    "@iarna/toml": "^2.2.5",
+    "@txpipe/dolos": "0.19.1",
+    "toml": "^3.0.0"
+  },
   "devDependencies": {
-    "wait-on": "8.0.3"
+    "wait-on": "^7.2.0"
   }
 }

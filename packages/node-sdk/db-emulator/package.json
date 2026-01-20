@@ -1,0 +1,15 @@
+{
+  "name": "@effectstream/db-emulator",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./mod.ts",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "dependencies": {
+    "@pgtyped/runtime": "2.4.2",
+    "pg": "^8.14.0",
+    "effection": "^3.5.0"
+  }
+}

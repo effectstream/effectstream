@@ -1,9 +1,31 @@
 {
-  "devDependencies": {
-    "@paima/pgtyped-cli": "^2.4.5",
-    "@electric-sql/pglite": "^0.3.14",
-    "pg-gateway": "^0.3.0-beta.4",
-    "wait-on": "8.0.3",
-    "concurrently": "9.1.2"
+  "name": "@effectstream/db",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./start-pglite": "./scripts/start-pglite.ts",
+    "./apply-migrations": "./scripts/apply-migrations.ts",
+    "./db-up": "./scripts/start-pglite.ts",
+    "./db-wait": "./scripts/wait-for-db.ts",
+    "./pgtyped-update": "./scripts/pgtyped-update.ts",
+    "./version": "./migrations/system-version.ts"
+  },
+  "scripts": {
+    "pgtyped:update": "bun run _build:assets && ((kill -9 $(lsof -ti:5432)) || true) && bun run ./scripts/pgtyped-update.ts",
+    "_build:assets": "",
+    "__build:assets": "(rm migrations/assets.ts || true) && bun run --bun jsr:@codemonument/asset-builder --import-file assets-config.json > ./migrations/assets.ts",
+    "start-pglite": "bun run --bun ./scripts/start-pglite.ts"
+  },
+  "dependencies": {
+    "@effectstream/utils": "workspace:*",
+    "@pgtyped/runtime": "2.4.2",
+    "@pgtyped/parser": "2.4.2",
+    "pg": "^8.14.0",
+    "pg-tx": "^1.0.1",
+    "effection": "^3.5.0",
+    "pg-gateway": "^0.3.0-beta.4"
   }
 }

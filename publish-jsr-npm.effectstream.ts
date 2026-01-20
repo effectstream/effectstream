@@ -47,20 +47,24 @@
  * - Skips node_modules directories
  * - Without --publish flag, shows what commands would be executed
  */
+import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
 import * as path from "node:path";
+import process from "node:process";
 
-const shouldPublish = Deno.args.includes("--publish");
-const shouldReverse = Deno.args.includes("--reverse");
-const versionIndex = Deno.args.indexOf("--version");
-const manualVersion = versionIndex !== -1 ? Deno.args[versionIndex + 1] : null;
-const tokenIndex = Deno.args.indexOf("--token");
-const authToken = tokenIndex !== -1 ? Deno.args[tokenIndex + 1] : null;
-const otpIndex = Deno.args.indexOf("--otp");
-const otpCode = otpIndex !== -1 ? Deno.args[otpIndex + 1] : null;
-const dirIndex = Deno.args.indexOf("--dir");
-const rootDir = dirIndex !== -1 ? Deno.args[dirIndex + 1] : Deno.cwd();
-const skipPrepublish = Deno.args.includes("--skip-prepublish");
-const onlyPrepublish = Deno.args.includes("--only-prepublish");
+const args = process.argv.slice(2);
+const shouldPublish = args.includes("--publish");
+const shouldReverse = args.includes("--reverse");
+const versionIndex = args.indexOf("--version");
+const manualVersion = versionIndex !== -1 ? args[versionIndex + 1] : null;
+const tokenIndex = args.indexOf("--token");
+const authToken = tokenIndex !== -1 ? args[tokenIndex + 1] : null;
+const otpIndex = args.indexOf("--otp");
+const otpCode = otpIndex !== -1 ? args[otpIndex + 1] : null;
+const dirIndex = args.indexOf("--dir");
+const rootDir = dirIndex !== -1 ? args[dirIndex + 1] : process.cwd();
+const skipPrepublish = args.includes("--skip-prepublish");
+const onlyPrepublish = args.includes("--only-prepublish");
 
 const filePattern = /\.(ts|js|json|tsx|jsx|tmux)$/i;
 
@@ -70,7 +74,7 @@ async function fetchLatestVersion(): Promise<string> {
     console.log(`Using manual version: ${manualVersion}`);
     return manualVersion;
   }
-  const denoFile = (await Deno.readTextFile("./deno.json")).replace(
+  const denoFile = (await fs.readFile("./deno.json", "utf8")).replace(
     /\/\/.+?$/gm,
     "",
   );
@@ -128,7 +132,7 @@ const npmPackagesToPublish: { path: string; prepublish?: string[], build?: strin
 ];
 
 async function processFile(filePath: string, reverse: boolean = false) {
-  const content = await Deno.readTextFile(filePath);
+  const content = await fs.readFile(filePath, "utf8");
   let newContent = content;
   let didUpdate = false;
 
@@ -206,7 +210,7 @@ async function processFile(filePath: string, reverse: boolean = false) {
   }
 
   if (newContent !== content) {
-    await Deno.writeTextFile(filePath, newContent);
+    await fs.writeFile(filePath, newContent, "utf8");
     console.log(`Updated: ${filePath}`);
   } else if (didUpdate) {
     // If only version was updated, still log
@@ -222,10 +226,11 @@ const skipDirectories = [
 ];
 
 async function walkAndProcess(dir: string, reverse: boolean = false) {
-  for await (const entry of Deno.readDir(dir)) {
-    const fullPath = `${dir}/${entry.name}`;
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
 
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       // Skip node_modules folder
       if (entry.name === "node_modules") {
         continue;
@@ -254,11 +259,11 @@ async function publishJSRPackages() {
   console.log("Starting JSR package publishing...");
   console.log(Array(20).fill("-").join(""));
   // Change to the package directory
-  const originalCwd = Deno.cwd();
+  const originalCwd = process.cwd();
   for (const packagePath of jsrPackagesToPublish) {
     try {
       console.log(`> Publishing ${packagePath.path}...`);
-      Deno.chdir(packagePath.path);
+      process.chdir(packagePath.path);
 
       // Run the publish command
       const publishArgs = [
@@ -271,17 +276,11 @@ async function publishJSRPackages() {
         publishArgs.push("--token", authToken);
       }
 
-      const command = new Deno.Command("deno", {
-        args: publishArgs,
-        stdout: "inherit",
-        stderr: "inherit",
-      });
-
-      const { success } = await command.output();
+      const { success } = await runCommand("deno", publishArgs);
 
       if (!success) {
         console.error(`Failed to publish ${packagePath.path}`);
-        Deno.chdir(originalCwd);
+        process.chdir(originalCwd);
         continue;
       }
 
@@ -291,7 +290,7 @@ async function publishJSRPackages() {
       continue;
     } finally {
       // Return to original directory
-      Deno.chdir(originalCwd);
+      process.chdir(originalCwd);
     }
   }
 
@@ -302,7 +301,7 @@ async function publishNPMPackages() {
   console.log(Array(20).fill("-").join(""));
   console.log("Starting NPM package publishing...");
   console.log(Array(20).fill("-").join(""));
-  const originalCwd = Deno.cwd();
+  const originalCwd = process.cwd();
 
   for (const packagePath of npmPackagesToPublish) {
     try {
@@ -310,17 +309,18 @@ async function publishNPMPackages() {
       console.log(`> Publishing [${packagePath.path}] ${packagePath.build ? `<${packagePath.build}>` : ''}`);
       if (packagePath.build) {
          const finalPath = path.join(packagePath.path, packagePath.build);
-         Deno.chdir(finalPath);
+         process.chdir(finalPath);
       } else {
-        Deno.chdir(packagePath.path);
+        process.chdir(packagePath.path);
       }
 
-      const command = new Deno.Command("npm", {
-        args: ["publish", "--access", "public", "--otp", otpCode!],
-        stdout: "inherit",
-        stderr: "inherit",
-      });
-      const { success } = await command.output();
+      const { success } = await runCommand("npm", [
+        "publish",
+        "--access",
+        "public",
+        "--otp",
+        otpCode!,
+      ]);
 
       if (!success) {
         console.error(`Failed to publish ${packagePath.path}`);
@@ -330,7 +330,7 @@ async function publishNPMPackages() {
     } catch (error) {
       console.error(`Error publishing ${packagePath.path}:`, error);
     } finally {
-      Deno.chdir(originalCwd);
+      process.chdir(originalCwd);
     }
   }
 }
@@ -378,20 +378,15 @@ async function showPublishCommands() {
 
 async function prePublishPackages() {
   // execute prepublish scripts for all packages
-  const originalCwd = Deno.cwd();
+  const originalCwd = process.cwd();
   for (
     const packagePath of [...jsrPackagesToPublish, ...npmPackagesToPublish]
   ) {
     if (packagePath.prepublish) {
       try {
         console.log(`Pre-publishing ${packagePath.path}...`);
-        Deno.chdir(packagePath.path);
-        const command = new Deno.Command("deno", {
-          args: packagePath.prepublish,
-          stdout: "inherit",
-          stderr: "inherit",
-        });
-        const { success } = await command.output();
+        process.chdir(packagePath.path);
+        const { success } = await runCommand("deno", packagePath.prepublish);
         if (!success) {
           throw new Error(`Failed to pre-publish ${packagePath.path}`);
         }
@@ -404,11 +399,23 @@ async function prePublishPackages() {
         console.error(`Error pre-publishing ${packagePath.path}:`, error);
         throw error;
       } finally {
-        Deno.chdir(originalCwd);
+        process.chdir(originalCwd);
       }
     }
   }
 }
+
+const runCommand = async (
+  command: string,
+  commandArgs: string[],
+): Promise<{ success: boolean; code: number | null }> => {
+  const child = spawn(command, commandArgs, { stdio: "inherit" });
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("exit", (exitCode) => resolve(exitCode));
+  });
+  return { success: code === 0, code };
+};
 
 async function main() {
   if (shouldReverse) {

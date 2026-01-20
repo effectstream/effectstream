@@ -111,7 +111,7 @@ export function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Arra
  * Resolve sync timeout from env or default.
  */
 export function resolveWalletSyncTimeoutMs(): number {
-  const envValue = Deno.env.get("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");
+  const envValue = process.env.MIDNIGHT_WALLET_SYNC_TIMEOUT_MS;
   if (!envValue) return WALLET_SYNC_TIMEOUT_MS;
   const parsed = Number(envValue);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
@@ -579,7 +579,7 @@ async function main() {
     }
   }
 
-  const envSeed = Deno.env.get("MIDNIGHT_WALLET_SEED");
+  const envSeed = process.env.MIDNIGHT_WALLET_SEED;
   const argSeed = args.seed;
   let seed = argSeed || envSeed;
 
@@ -607,14 +607,14 @@ async function main() {
   }
 
   // Network Configuration
-  const indexer = Deno.env.get("MIDNIGHT_INDEXER_URL") || DEFAULT_NETWORK_URLS.indexer;
-  const indexerWS = Deno.env.get("MIDNIGHT_INDEXER_WS_URL") || DEFAULT_NETWORK_URLS.indexerWS;
-  const node = Deno.env.get("MIDNIGHT_NODE_URL") || DEFAULT_NETWORK_URLS.node;
-  const proofServer = Deno.env.get("MIDNIGHT_PROOF_SERVER_URL") || DEFAULT_NETWORK_URLS.proofServer;
+  const indexer = process.env.MIDNIGHT_INDEXER_URL || DEFAULT_NETWORK_URLS.indexer;
+  const indexerWS = process.env.MIDNIGHT_INDEXER_WS_URL || DEFAULT_NETWORK_URLS.indexerWS;
+  const node = process.env.MIDNIGHT_NODE_URL || DEFAULT_NETWORK_URLS.node;
+  const proofServer = process.env.MIDNIGHT_PROOF_SERVER_URL || DEFAULT_NETWORK_URLS.proofServer;
   
   const networkUrls: Required<NetworkUrls> = { indexer, indexerWS, node, proofServer };
   
-  const networkIdRaw = Deno.env.get("MIDNIGHT_NETWORK_ID") || "undeployed";
+  const networkIdRaw = process.env.MIDNIGHT_NETWORK_ID || "undeployed";
   
   // Map common network names to NetworkId enum values
   // Based on midnight-js testkit examples and Lace wallet compatibility

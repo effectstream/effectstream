@@ -2,11 +2,29 @@ import { type LogHandler, streamTo, systemLog } from "./logging.ts";
 import type { Namespace } from "@effectstream/log";
 import { ComponentNames } from "@effectstream/log";
 import type { ValueOf } from "@effectstream/utils";
+import { spawn } from "node:child_process";
+import process from "node:process";
+import { Readable } from "node:stream";
 import { abortControllers } from "./start.ts";
+
+type ProcessStatus = {
+  success: boolean;
+  code: number | null;
+  signal: NodeJS.Signals | number | null;
+};
+
+type ChildProcessLike = {
+  pid: number;
+  stdout: ReadableStream<Uint8Array> | null;
+  stderr: ReadableStream<Uint8Array> | null;
+  status: Promise<ProcessStatus>;
+  kill: (signal?: NodeJS.Signals | number) => void;
+  ref?: () => void;
+};
 
 export type ProcessComponent = {
   abortController: AbortController;
-  process: Deno.ChildProcess;
+  process: ChildProcessLike;
   is_piped: { stderr: boolean; stdout: boolean };
   component: ValueOf<typeof ComponentNames>;
   args: string[];
@@ -26,15 +44,15 @@ export class AbortProcessStart extends Error {
   }
 }
 
-let foregroundProcess: Deno.ChildProcess | null = null;
-export function setForegroundProcess(proc: Deno.ChildProcess) {
+let foregroundProcess: ChildProcessLike | null = null;
+export function setForegroundProcess(proc: ChildProcessLike) {
   foregroundProcess = proc;
 }
 
 let shutdownCalled = false;
 export async function shutdown(
   exitCode: number = 0,
-  reason?: any,
+  reason?: unknown,
 ): Promise<void> {
   if (shutdownCalled) {
     return;
@@ -68,7 +86,7 @@ export async function shutdown(
     "Orchestrator has shut down. Press ^C again to kill background processes that we don't currently kill automatically.",
   );
   if (exitCode) {
-    Deno.exitCode = exitCode;
+    // Deno.exitCode = exitCode;
   }
 }
 
@@ -89,10 +107,10 @@ async function awaitShutdown(): Promise<ProcessComponent[]> {
   for (const p of processes) {
     // Cancel pipes.
     if (p.is_piped.stderr) {
-      p.process.stderr.cancel();
+      void p.process.stderr?.cancel();
     }
     if (p.is_piped.stdout) {
-      p.process.stdout.cancel();
+      void p.process.stdout?.cancel();
     }
     if (p.component !== ComponentNames.TMUX) {
       if (p.alive) {
@@ -119,7 +137,7 @@ export const terminateProcess = (processIndex: number) => {
 };
 
 /** Send SIGTERM first, then SIGKILL after one second. */
-async function kill(proc: Deno.ChildProcess): Promise<void> {
+async function kill(proc: ChildProcessLike): Promise<void> {
   try {
     proc.kill("SIGTERM");
     const hardKillTimer = setTimeout(
@@ -128,10 +146,82 @@ async function kill(proc: Deno.ChildProcess): Promise<void> {
     );
     await proc.status;
     clearTimeout(hardKillTimer);
-  } catch (e) {
+  } catch (_e) {
     // Usually "Child process has already terminated".
   }
 }
+
+const toNodeStdio = (
+  stdio: "inherit" | "piped" | "null" | undefined,
+) => {
+  switch (stdio) {
+    case "piped":
+      return "pipe";
+    case "null":
+      return "ignore";
+    default:
+      return stdio ?? "pipe";
+  }
+};
+
+const spawnProcess = (params: {
+  command: string;
+  args: string[];
+  cwd?: string;
+  abortController: AbortController;
+  stdin?: "inherit" | "piped" | "null" | undefined;
+  stdout?: "inherit" | "piped" | "null" | undefined;
+  stderr?: "inherit" | "piped" | "null" | undefined;
+  env?: Record<string, string>;
+}): ChildProcessLike => {
+  const child = spawn(params.command, params.args, {
+    cwd: params.cwd,
+    env: {
+      ...processEnvSafe(),
+      ...params.env,
+      FORCE_COLOR: "true",
+    },
+    stdio: [
+      toNodeStdio(params.stdin),
+      toNodeStdio(params.stdout),
+      toNodeStdio(params.stderr),
+    ],
+    signal: params.abortController.signal,
+  });
+
+  const status = new Promise<ProcessStatus>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      resolve({
+        success: code === 0,
+        code,
+        signal,
+      });
+    });
+  });
+
+  return {
+    pid: child.pid ?? -1,
+    stdout: child.stdout
+      ? (Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>)
+      : null,
+    stderr: child.stderr
+      ? (Readable.toWeb(child.stderr) as ReadableStream<Uint8Array>)
+      : null,
+    status,
+    kill: (signal?: NodeJS.Signals | number) => {
+      child.kill(signal);
+    },
+    ref: child.ref ? () => child.ref() : undefined,
+  };
+};
+
+const processEnvSafe = (): Record<string, string> => {
+  if (process?.env) {
+    return process.env as Record<string, string>;
+  }
+  return {};
+};
 
 export const $ = (params: {
   command?: string;
@@ -148,20 +238,24 @@ export const $ = (params: {
   critical?: boolean;
   env?: Record<string, string>;
 }): ProcessComponent => {
+  console.log("Spawning process", params.command || "bun", params.args);
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
   }
-  const command = params.command ?? "deno";
-  const process = new Deno.Command(command, {
+  const command = params.command ?? "bun";
+  const process = spawnProcess({
+    command,
     args: params.args,
-    signal: params.abortController.signal,
     stderr: params.stderr ?? "piped",
     stdout: params.stdout ?? "piped",
     stdin: params.stdin ?? "inherit",
-    env: { ...params.env, FORCE_COLOR: "true" },
+    env: params.env,
     cwd: params.cwd,
-  }).spawn();
-  process.ref(); // wait until all child processes die before killing parent
+    abortController: params.abortController,
+  });
+  if (process.ref) {
+    process.ref(); // wait until all child processes die before killing parent
+  }
 
   const processComponent: ProcessComponent = {
     process,
@@ -180,7 +274,7 @@ export const $ = (params: {
   processes.push(processComponent);
 
   if (params.log != null) {
-    process.stdout.pipeTo(
+    process.stdout?.pipeTo(
       streamTo(
         params.log,
         "stdout",
@@ -188,7 +282,7 @@ export const $ = (params: {
         params.namespace ?? [],
       ),
     );
-    process.stderr.pipeTo(
+    process.stderr?.pipeTo(
       streamTo(
         params.log,
         "stderr",

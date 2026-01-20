@@ -1,0 +1,20 @@
+{
+  "name": "@effectstream/bitcoin-contracts",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "scripts": {
+    "scaffold": "bun run --bun ./src/scaffold/scaffold-bitcoin.ts",
+    "generate:blocks": "bun run --bun src/generate-blocks.ts",
+    "wait-for-block": "bun run --bun src/wait-for-block.ts"
+  },
+  "dependencies": {
+    "bitcoinjs-lib": "^7.0.0",
+    "ecpair": "^3.0.0",
+    "tiny-secp256k1": "^2.2.4"
+  }
+}

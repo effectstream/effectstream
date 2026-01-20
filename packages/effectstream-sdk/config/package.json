@@ -1,0 +1,21 @@
+{
+  "name": "@effectstream/config",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "0.34.41",
+    "abitype": "1.1.0",
+    "buffer": "^6.0.3",
+    "effection": "^3.5.0",
+    "viem": "2.37.3",
+    "@dcspark/cip34-js": "3.0.1",
+    "assert-never": "^1.4.0",
+    "@dcspark/carp-client": "^3.3.0",
+    "@midnight-ntwrk/onchain-runtime-v1": "1.0.0-alpha.5"
+  }
+}

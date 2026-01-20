@@ -25,6 +25,7 @@
 
 // TODO: Use `with { type: "text" }` when it no longer requires `--unstable-raw-imports`.
 // https://github.com/denoland/deno/issues/29904
+import { spawn } from "node:child_process";
 import install_sh from "./install.sh.ts";
 import session_tmux from "./session.tmux.ts";
 
@@ -45,25 +46,13 @@ export interface TmuxOptions {
  */
 export class Tmux {
   static async install() {
-    // Pipe the built-in `install.sh` to `sh` directly.
-    const cmd = new Deno.Command("sh", {
-      stdin: "piped",
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const child = cmd.spawn();
-    const writer = child.stdin.getWriter();
-    await writer.write(new TextEncoder().encode(install_sh));
-    await writer.close();
-    const output = await child.output();
-
-    if (output.stdout.length > 0) {
-      console.log(new TextDecoder().decode(output.stdout));
+    const output = await runCommand("sh", [], install_sh);
+    if (output.stdout) {
+      console.log(output.stdout);
     }
-    if (output.stderr.length > 0) {
-      console.log(new TextDecoder().decode(output.stderr));
+    if (output.stderr) {
+      console.log(output.stderr);
     }
-
     if (!output.success) {
       console.error("Error running install.sh: exit code", output.code);
     }
@@ -81,8 +70,9 @@ export class Tmux {
 
   /** Tell the server to start our session. */
   public async startSession() {
-    const cmd = new Deno.Command(this.options.command, {
-      args: [
+    const output = await runCommand(
+      this.options.command,
+      [
         "-L",
         this.options.socket,
         "start-server",
@@ -90,16 +80,9 @@ export class Tmux {
         "source-file",
         "-",
       ],
-      stdin: "piped",
-      stdout: "piped",
-      stderr: "piped",
-    });
-
-    const child = cmd.spawn();
-    const writer = child.stdin.getWriter();
-    await writer.write(new TextEncoder().encode(session_tmux));
-    await writer.close();
-    this._checkExit(await child.output());
+      session_tmux,
+    );
+    this._checkExit(output);
   }
 
   /** Attach to the session in the foreground and wait for it to be detached. */
@@ -121,22 +104,59 @@ export class Tmux {
 
   /** Kill the server, if it hasn't already exited. */
   public async killServer() {
-    const cmd = new Deno.Command(this.options.command, {
-      args: ["-L", this.options.socket, "-N", "kill-server"],
-      stdin: "null",
-      stdout: "piped",
-      stderr: "piped",
-    });
-    // Ignore exit status. We're okay with failing to kill something that isn't there.
-    await cmd.output();
+    await runCommand(this.options.command, [
+      "-L",
+      this.options.socket,
+      "-N",
+      "kill-server",
+    ]);
   }
 
-  private _checkExit(output: Deno.CommandOutput) {
+  private _checkExit(output: CommandOutput) {
     if (!output.success) {
-      const errorText = new TextDecoder().decode(output.stderr);
+      const errorText = output.stderr ?? "";
       throw new Error(
         errorText || `Command failed with exit code ${output.code}`,
       );
     }
   }
 }
+
+type CommandOutput = {
+  success: boolean;
+  code: number | null;
+  stdout?: string;
+  stderr?: string;
+};
+
+const runCommand = async (
+  command: string,
+  args: string[],
+  stdin?: string,
+): Promise<CommandOutput> => {
+  const child = spawn(command, args, {
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  if (stdin) {
+    child.stdin?.write(stdin);
+  }
+  child.stdin?.end();
+
+  const stdoutChunks: Buffer[] = [];
+  const stderrChunks: Buffer[] = [];
+  child.stdout?.on("data", (chunk) => stdoutChunks.push(Buffer.from(chunk)));
+  child.stderr?.on("data", (chunk) => stderrChunks.push(Buffer.from(chunk)));
+
+  const code = await new Promise<number | null>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("exit", (exitCode) => resolve(exitCode));
+  });
+
+  return {
+    success: code === 0,
+    code,
+    stdout: stdoutChunks.length ? Buffer.concat(stdoutChunks).toString() : "",
+    stderr: stderrChunks.length ? Buffer.concat(stderrChunks).toString() : "",
+  };
+};

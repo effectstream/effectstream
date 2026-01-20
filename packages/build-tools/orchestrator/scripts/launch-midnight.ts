@@ -9,7 +9,7 @@ import { ENV } from "@effectstream/utils/node-env";
 // unless the user explicitly wants to see the logs, so if EFFECTSTREAM_STDOUT is true,
 // we enable stderr for this as well.
 
-const disableStderr = Deno.env.get("EFFECTSTREAM_STDOUT") === "true" ? false : true;
+const disableStderr = process.env.EFFECTSTREAM_STDOUT === "true" ? false : true;
 
 // Start Midnight Node and Indexer.
 //
@@ -44,8 +44,7 @@ export const launchMidnight = (packageName: string): {
       stopProcessAtPort: [9944, 8088, 6300],
       name: ComponentNames.MIDNIGHT_NODE,
       args: [
-        "task",
-        "-f",
+          "--filter",
         packageName,
         "midnight-node:start",
       ],
@@ -59,8 +58,7 @@ export const launchMidnight = (packageName: string): {
     {
       name: ComponentNames.MIDNIGHT_INDEXER,
       args: [
-        "task",
-        "-f",
+        "--filter",
         packageName,
         "midnight-indexer:start",
       ],
@@ -74,8 +72,7 @@ export const launchMidnight = (packageName: string): {
     {
       name: ComponentNames.MIDNIGHT_PROOF_SERVER,
       args: [
-        "task",
-        "-f",
+        "--filter",
         packageName,
         "midnight-proof-server:start",
       ],
@@ -87,8 +84,7 @@ export const launchMidnight = (packageName: string): {
     {
       name: ComponentNames.MIDNIGHT_NODE_WAIT,
       args: [
-        "task",
-        "-f",
+        "--filter",
         packageName,
         "midnight-node:wait",
       ],
@@ -97,8 +93,7 @@ export const launchMidnight = (packageName: string): {
     {
       name: ComponentNames.MIDNIGHT_INDEXER_WAIT,
       args: [
-        "task",
-        "-f",
+        "--filter",
         packageName,
         "midnight-indexer:wait",
       ],
@@ -108,8 +103,7 @@ export const launchMidnight = (packageName: string): {
       name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
       logs: "raw",
       args: [
-        "task",
-        "-f",
+        "--filter",
         packageName,
         "midnight-proof-server:wait",
       ],
@@ -118,8 +112,7 @@ export const launchMidnight = (packageName: string): {
     {
       name: ComponentNames.MIDNIGHT_CONTRACT,
       args: [
-        "task",
-        "-f",
+        "--filter",
         packageName,
         "midnight-contract:deploy",
       ],

@@ -1,14 +1,14 @@
 import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 
 const env = (key: string, fallback?: string): string =>
-  Deno.env.get(key)?.trim() || fallback || "";
+  process.env[key]?.trim() || fallback || "";
 
 const envFirst = (keys: string[], fallback?: string): string =>
-  keys.map((key) => Deno.env.get(key)?.trim()).find((value) => !!value) ||
+  keys.map((key) => process.env[key]?.trim()).find((value) => !!value) ||
   fallback ||
   "";
 
-const EFFECTSTREAM_ENV = Deno.env.get("EFFECTSTREAM_ENV") || "local";
+const EFFECTSTREAM_ENV = process.env.EFFECTSTREAM_ENV || "local";
 export const isTestnet = EFFECTSTREAM_ENV === "testnet";
 
 // Midnight Network default configurations

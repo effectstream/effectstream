@@ -1,0 +1,27 @@
+{
+  "name": "@effectstream/runtime",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/mod.ts",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.1",
+    "@metamask/json-rpc-engine": "^10.0.3",
+    "pg": "^8.14.0",
+    "effection": "^3.5.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.54.0",
+    "@opentelemetry/sdk-node": "0.56.0",
+    "jsonc-parser": "^3.3.1",
+    "fastify": "^5.4.0",
+    "@fastify/swagger": "^9.5.1",
+    "@fastify/swagger-ui": "^5.2.3",
+    "@sinclair/typebox": "0.34.41",
+    "viem": "2.37.3",
+    "js-sha3": "^0.9.3",
+    "@pgtyped/runtime": "2.4.2"
+  }
+}

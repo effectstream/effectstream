@@ -1,0 +1,24 @@
+{
+  "name": "@e2e/batcher",
+  "version": "0.3.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./main.ts",
+  "exports": {
+    ".": "./main.ts",
+    "./bitcoin-calls": "./adapter-bitcoin.ts"
+  },
+  "scripts": {
+    "start": "bun run --bun main.ts",
+    "start:testnet": "bun run --bun main.testnet.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher": "workspace:*",
+    "viem": "^2.21.3",
+    "effection": "^3.5.0",
+    "bitcoinjs-lib": "^6.1.5",
+    "bitcoinjs-message": "^2.2.0",
+    "ecpair": "^2.1.0",
+    "tiny-secp256k1": "^2.2.1"
+  }
+}
