@@ -7,18 +7,17 @@ import {
   type DeployedContract,
   findDeployedContract,
   type FoundContract,
-} from "npm:@midnight-ntwrk/midnight-js-contracts";
-import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider";
+} from "@midnight-ntwrk/midnight-js-contracts";
+import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import {
   type BalancedProvingRecipe,
   type MidnightProvider,
   type MidnightProviders,
-  type UnprovenTransaction,
   type WalletProvider,
-} from "npm:@midnight-ntwrk/midnight-js-types";
-import { levelPrivateStateProvider } from "npm:@midnight-ntwrk/midnight-js-level-private-state-provider";
+} from "@midnight-ntwrk/midnight-js-types";
+import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { dirname, resolve } from "@std/path";
 import { Buffer } from "node:buffer";
@@ -46,6 +45,7 @@ import {
   type EncPublicKey,
   type FinalizedTransaction,
   type TransactionId,
+  type UnprovenTransaction,
 } from "@midnight-ntwrk/ledger-v6";
 import {
   SimpleToken,
@@ -68,8 +68,8 @@ type SimpleTokenProviders = MidnightProviders<
 type SimpleTokenContract = SimpleToken.Contract;
 
 type DeployedSimpleTokenContract =
-  | DeployedContract<SimpleTokenContract>
-  | FoundContract<SimpleTokenContract>;
+  | DeployedContract<any>
+  | FoundContract<any>;
 
 interface Config {
   readonly indexer: string;
@@ -459,7 +459,7 @@ const joinContract = async (
   console.log("Joining contract...🍋🍋🍋");
   const simpleTokenContract = await findDeployedContract(providers, {
     contractAddress,
-    contract: simpleTokenContractInstance,
+    contract: simpleTokenContractInstance as any,
     privateStateId: "simpleTokenPrivateState",
     initialPrivateState: {},
   });
@@ -490,7 +490,7 @@ const mint = async (
   console.log( "Minting...");
 
   const either = wrapAddress(account);
-  const finalizedTxData = await simpleTokenContract.callTx.mint(either, value);
+  const finalizedTxData = await (simpleTokenContract.callTx as any).mint(either, value);
   console.log(
      `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
@@ -530,11 +530,11 @@ function createWalletAndMidnightProvider(
       return wallet.balanceTransaction(
         walletZswapSecretKeys,
         walletDustSecretKey,
-        tx,
+        tx as any,
         ttl ?? new Date(Date.now() + TTL_DURATION_MS)
       );
     },
-    submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
+    submitTx(tx: any): Promise<TransactionId> {
       return wallet.submitTransaction(tx);
     },
   };
