@@ -14,6 +14,13 @@ import {
   Transaction,
   type TransactionId,
 } from "@midnight-ntwrk/ledger";
+import type {
+  CoinPublicKey,
+  EncPublicKey,
+  ShieldedCoinInfo,
+  UnprovenTransaction,
+  FinalizedTransaction,
+} from "@midnight-ntwrk/ledger-v6";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -24,14 +31,11 @@ import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-p
 import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
 
 import {
-  type BalancedTransaction,
+  type BalancedProvingRecipe,
   Contract,
-  createBalancedTx,
-  type FinalizedTxData,
   type ImpureCircuitId,
   type MidnightProvider,
   type MidnightProviders,
-  type UnbalancedTransaction,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
@@ -40,20 +44,16 @@ import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import {
-  getLedgerNetworkId,
-  getZswapNetworkId,
   setNetworkId,
+  getNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import { dirname, resolve } from "node:path";
 import {
   MidnightBech32m,
   ShieldedAddress,
 } from "@midnight-ntwrk/wallet-sdk-address-format";
-import {
-  type DAppConnectorAPI,
-  type DAppConnectorWalletAPI,
-  type ServiceUriConfig,
-} from "@midnight-ntwrk/dapp-connector-api";
+import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
+import { NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
   concatMap,
   filter,
@@ -81,6 +81,14 @@ const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
 const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v1/graphql`;
 const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v1/graphql/ws`;
 
+const MIDNIGHT_NETWORK_ID: NetworkId = "undeployed";
+
+type ShieldedAddresses = Awaited<
+  ReturnType<ConnectedAPI["getShieldedAddresses"]>
+>;
+
+type SimpleTokenPrivateStateId = "simpleTokenPrivateState";
+
 type PrivateState = {};
 
 export type MultiChainContract = Contract<
@@ -93,8 +101,8 @@ type SimpleTokenCircuits = ImpureCircuitId<SimpleToken.Contract>;
 
 export type SimpleTokenProviders = MidnightProviders<
   SimpleTokenCircuits,
-  undefined,
-  undefined
+  typeof SimpleTokenPrivateStateId,
+  {}
 >;
 
 type SimpleTokenContract = SimpleToken.Contract;
@@ -128,7 +136,7 @@ class StandaloneConfig implements Config {
   proofServer = BASE_URL_PROOF_SERVER;
   constructor(nodeUrl: string) {
     this.node = nodeUrl;
-    setNetworkId("Undeployed" as any);
+    setNetworkId(MIDNIGHT_NETWORK_ID);
   }
 }
 
@@ -168,7 +176,7 @@ const joinContract = async (
     initialPrivateState: {},
   });
   console.log(
-    `Joined contract at address: ${simpleTokenContract.deployTxData.public.contractAddress}`
+    `Joined contract at address: ${(simpleTokenContract as any).deployTxData.public.contractAddress}`
   );
   return simpleTokenContract;
 };
@@ -177,7 +185,7 @@ const mint = async (
   simpleTokenContract: DeployedSimpleTokenContract,
   account: string,
   value: bigint
-): Promise<FinalizedTxData> => {
+): Promise<any> => {
   console.log("Minting...");
   const shieldedAddress = ShieldedAddress.codec.decode(
     "undeployed",
@@ -205,7 +213,7 @@ const transferFrom = async (
   fromAccount: string,
   toAccount: string,
   amount: bigint
-): Promise<FinalizedTxData> => {
+): Promise<any> => {
   console.log("[TRANSFER FROM]", {
     fromAccount,
     toAccount,
@@ -251,48 +259,122 @@ const displaySimpleTokenValue = async (
   providers: SimpleTokenProviders,
   simpleTokenContract: DeployedSimpleTokenContract
 ): Promise<{ state: any | null; contractAddress: string }> => {
-  const contractAddress =
-    simpleTokenContract.deployTxData.public.contractAddress;
+  const contractAddress = (simpleTokenContract as any).deployTxData.public.contractAddress;
   const state = await getSimpleTokenLedgerState(providers, contractAddress);
   return { contractAddress, state };
 };
 
-const createWalletAndSimpleTokenProvider = async (
-  wallet: Wallet
-): Promise<WalletProvider & MidnightProvider> => {
-  const state = await wallet.state();
-  console.log({ state });
+const connectToWallet = async (networkId: string): Promise<ConnectedAPI> => {
+  const COMPATIBLE_CONNECTOR_API_VERSION = '>=1.0.0';
+  const midnight = (window as any).midnight;
+  
+  if (!midnight) {
+    throw new Error("Midnight Lace wallet not found. Extension installed?");
+  }
+  
+  const wallets = Object.entries(midnight).filter(([_, api]: [string, any]) => 
+    api.apiVersion && semver.satisfies(api.apiVersion, COMPATIBLE_CONNECTOR_API_VERSION)
+  ) as [string, any][];
+  
+  if (wallets.length === 0) {
+    throw new Error("No compatible Midnight wallet found.");
+  }
+  
+  const [name, api] = wallets[0];
+  console.log(`Connecting to wallet: ${name} (version ${api.apiVersion})`);
+  
+  // KEY: Hardcoded Password Provider
+  const passwordProvider = async () => "PAIMA_STORAGE_PASSWORD";
+  
+  const apiWithPassword: any = { ...api };
+  if (typeof apiWithPassword.connect !== 'function') {
+    apiWithPassword.connect = api.connect;
+  }
+  apiWithPassword.privateStoragePasswordProvider = passwordProvider;
+  
+  return await apiWithPassword.connect(networkId);
+};
 
-  const object = {
-    coinPublicKey: state.coinPublicKey,
-    encryptionPublicKey: state.encryptionPublicKey,
-    balanceTx(
-      tx: UnbalancedTransaction,
-      newCoins: CoinInfo[]
-    ): Promise<BalancedTransaction> {
-      return wallet
-        .balanceTransaction(
-          ZswapTransaction.deserialize(
-            tx.serialize(getLedgerNetworkId()),
-            getZswapNetworkId()
-          ),
-          newCoins
-        )
-        .then((tx) => wallet.proveTransaction(tx))
-        .then((zswapTx) =>
-          Transaction.deserialize(
-            zswapTx.serialize(getZswapNetworkId()),
-            getLedgerNetworkId()
-          )
-        )
-        .then(createBalancedTx);
+const createWalletAndMidnightProvider = (
+  connectedAPI: ConnectedAPI,
+  coinPublicKey: CoinPublicKey,
+  encryptionPublicKey: EncPublicKey
+): WalletProvider & MidnightProvider => {
+  return {
+    getCoinPublicKey(): CoinPublicKey {
+      return coinPublicKey;
     },
-    submitTx(tx: BalancedTransaction): Promise<TransactionId> {
-      return wallet.submitTransaction(tx);
+    getEncryptionPublicKey(): EncPublicKey {
+      return encryptionPublicKey;
+    },
+    async balanceTx(
+      tx: UnprovenTransaction,
+      _newCoins?: ShieldedCoinInfo[],
+      _ttl?: Date
+    ): Promise<BalancedProvingRecipe> {
+      const serializedTx = tx.serialize();
+      const hexTx = Array.from(serializedTx)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      
+      const result = await connectedAPI.balanceUnsealedTransaction(hexTx);
+      return result as unknown as BalancedProvingRecipe;
+    },
+    submitTx(tx: BalancedProvingRecipe): Promise<TransactionId> {
+      const serializedTx = tx.serialize();
+      const hexTx = Array.from(serializedTx)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      
+      return connectedAPI.submitTransaction(hexTx) as unknown as Promise<TransactionId>;
     },
   };
-  console.log({ object });
-  return object;
+};
+
+const initializeProviders = async (
+  connectedAPI: ConnectedAPI,
+  shieldedAddresses: ShieldedAddresses
+): Promise<SimpleTokenProviders> => {
+  const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = shieldedAddresses;
+  
+  console.log(`Connecting to wallet with network ID: ${MIDNIGHT_NETWORK_ID}`);
+  
+  const walletAndMidnightProvider = createWalletAndMidnightProvider(
+    connectedAPI,
+    shieldedCoinPublicKey as any,
+    shieldedEncryptionPublicKey as any
+  );
+  
+  const zkConfigPath = window.location.origin;
+  
+  return {
+    privateStateProvider: levelPrivateStateProvider({
+      privateStoragePasswordProvider: async () => "PAIMA_STORAGE_PASSWORD"
+    } as any),
+    zkConfigProvider: new FetchZkConfigProvider(
+      zkConfigPath,
+      fetch.bind(window)
+    ),
+    proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER),
+    publicDataProvider: indexerPublicDataProvider(
+      BASE_URL_MIDNIGHT_INDEXER_API,
+      BASE_URL_MIDNIGHT_INDEXER_WS
+    ),
+    walletProvider: walletAndMidnightProvider,
+    midnightProvider: walletAndMidnightProvider,
+  };
+};
+
+const configureProviders = async (
+  connectedAPI: ConnectedAPI,
+  injectedWallet: Wallet & Resource
+) => {
+  const shieldedAddresses = await connectedAPI.getShieldedAddresses();
+  const providers = await initializeProviders(connectedAPI, shieldedAddresses);
+  return {
+    ...providers,
+    injectedWalletProvider: injectedWallet,
+  };
 };
 
 class MidnightAlternativeLogin {
@@ -471,19 +553,6 @@ class MidnightAlternativeLogin {
   }
 }
 
-const configureProviders = async (
-  injectedWallet: Wallet & Resource,
-  config: Config
-) => {
-  const injectedWalletAndSimpleTokenProvider =
-    await createWalletAndSimpleTokenProvider(injectedWallet);
-  const providers = await new MidnightAlternativeLogin().getProviders();
-  return {
-    ...providers,
-    injectedWalletProvider: injectedWalletAndSimpleTokenProvider,
-  };
-};
-
 /**
  * Get contract address from command line arguments or from a file
  */
@@ -495,20 +564,18 @@ const getContractAddress = async (): Promise<string> => {
 };
 
 const connectMidnightWallet = async (
-  injectedWallet: any
+  connectedAPI: ConnectedAPI
 ): Promise<{
-  injectedWallet: Wallet & Resource;
   providers: SimpleTokenProviders;
+  addresses: ShieldedAddresses;
 }> => {
-  console.log("🔗 Building Midnight wallet with genesis seed...");
+  console.log("🔗 Building Midnight wallet with v4 connector...");
 
-  const midnightNodeUrl = await getMidnightNodeUrl();
-  const config = new StandaloneConfig(midnightNodeUrl);
-
-  const providers = await configureProviders(injectedWallet, config);
+  const addresses = await connectedAPI.getShieldedAddresses();
+  const providers = await initializeProviders(connectedAPI, addresses);
   console.log("✅ Providers configured successfully");
 
-  return { injectedWallet, providers };
+  return { providers, addresses };
 };
 
 const connectToContract = async (

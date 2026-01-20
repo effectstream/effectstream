@@ -1,4 +1,5 @@
 import { walletLogin, WalletMode } from "@paimaexample/wallets";
+import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 
 import * as unshielded_erc20 from "./contracts/erc20.ts";
 import * as erc7683 from "./contracts/intents.ts";
@@ -6,6 +7,7 @@ import * as erc7683 from "./contracts/intents.ts";
 export async function loginMidnight() {
   const result = await walletLogin({
     mode: WalletMode.Midnight,
+    networkId: "undeployed",
   });
 
   if (!result.success) throw new Error("Cannot login");
@@ -33,13 +35,13 @@ export async function loginMidnight() {
   } as any;
 
   {
-    const { injectedWallet, providers } =
-      await unshielded_erc20.connectMidnightWallet(
-        (paimaWallet.provider as any).conn.api
-      );
+    const connectedApi = paimaWallet.provider.getConnection()
+      .api as ConnectedAPI;
+    const { providers, addresses } =
+      await unshielded_erc20.connectMidnightWallet(connectedApi);
 
-    response.stateA.unshielded_erc20 = await injectedWallet.state();
-    response.addr = response.stateA.unshielded_erc20.address;
+    response.stateA.unshielded_erc20 = addresses;
+    response.addr = addresses.shieldedAddress;
 
     const {
       contract,
@@ -51,13 +53,13 @@ export async function loginMidnight() {
     response.contractAddress.unshielded_erc20 = contractAddress;
   }
   {
-    const { injectedWallet, providers } =
-      await erc7683.connectMidnightWallet(
-        (paimaWallet.provider as any).conn.api
-      );
+    const connectedApi = paimaWallet.provider.getConnection()
+      .api as ConnectedAPI;
+    const { providers, addresses } =
+      await erc7683.connectMidnightWallet(connectedApi);
 
-    response.stateA.erc7683 = await injectedWallet.state();
-    response.addr = response.stateA.erc7683.address;
+    response.stateA.erc7683 = addresses;
+    response.addr = addresses.shieldedAddress;
 
     const {
       contract: erc7683Contract,

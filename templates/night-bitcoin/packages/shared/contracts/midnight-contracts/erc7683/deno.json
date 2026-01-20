@@ -8,7 +8,7 @@
   "tasks": {
     "compact": "compact compile +0.27.0 src/erc7683.compact src/managed",
     "clean": "rm -rf src/managed",
-    "convert:js": "deno run -A convert-js.ts src/managed/erc7683/contract/index.cjs src/managed/erc7683/contract/index.ts",
+    "convert:js": "deno run -A convert-js.ts src/managed/contract/index.js src/managed/contract/index.ts",
     "contract:compile": "deno task compact"
   },
   "imports": {

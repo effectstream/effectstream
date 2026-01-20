@@ -67,7 +67,7 @@ if (import.meta.main) {
             const wallet = await createWallet(DEFAULT_SEED_PREFIX + i.toString());
 
             const outputPath = path.join(currentDir, "generated", `wallet-${i}.json`);
-            Deno.writeTextFileSync(outputPath, JSON.stringify(wallet, null, 2));
+            Deno.writeTextFileSync(outputPath, JSON.stringify(wallet, (_key, value) => typeof value === 'bigint' ? value.toString() : value, 2));
             console.log(`Wallet saved to ${outputPath}`);
 
             wallets.push(wallet);
