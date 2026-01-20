@@ -606,42 +606,6 @@ const resolveNetworkId = (): NetworkId.NetworkId => {
   }
 };
 
-const waitForFunds = async (wallet: WalletFacade) => {
-  const { shieldedBalance, dustBalance } = await syncAndWaitForFunds(wallet, {
-    waitNonZero: true,
-  });
-  return dustBalance;
-};
-
-const buildWalletAndWaitForFunds = async (
-  networkUrls: Required<Config>,
-  seed: string
-): Promise<WalletResult> => {
-  const networkId = resolveNetworkId();
-  setNetworkId(networkId);
-  const walletResult = await buildWalletFacade(
-    networkUrls,
-    seed,
-    networkId
-  );
-  console.log("✅ Wallet built successfully");
-  const initialState = await getInitialShieldedState(walletResult.wallet.shielded);
-  console.log(`Your wallet seed is: ${seed}`);
-  console.log(`Your wallet address (coin key): ${initialState.address.coinPublicKeyString()}`);
-  console.log(`Your unshielded address: ${walletResult.unshieldedAddress}`);
-  console.log(`Your dust address: ${walletResult.dustAddress}`);
-  console.log("Checking balances for genesis wallet...");
-  const { shieldedBalance, unshieldedBalance, dustBalance } = await syncAndWaitForFunds(walletResult.wallet, {
-    waitNonZero: true,
-  });
-  console.log(`Genesis Shielded balance: ${shieldedBalance}`);
-  console.log(`Genesis Unshielded balance: ${unshieldedBalance}`);
-  console.log(`Genesis Dust balance: ${dustBalance}`);
-  
-  // Return total balance for informational purposes
-  return walletResult;
-};
-
 const transfer = async (
   walletResult: WalletResult,
   receiverAddress: string,
