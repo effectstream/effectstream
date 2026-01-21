@@ -98,7 +98,7 @@ const fillerProcesses = fillerDefinitions.map((filler, index) => {
     type: "system-dependency",
     link: `http://localhost:${filler.fillerPort}`,
     stopProcessAtPort: [filler.fillerPort],
-    dependsOn: ['create-wallets', 'create-wallets-midnight'],
+    dependsOn: ['create-wallets', 'create-wallets-midnight', 'mint-wallets-midnight'],
   };
 });
 
@@ -135,7 +135,7 @@ const config = Value.Parse(OrchestratorConfig, {
     {
       name: "mint-wallets-midnight",
       args: ["task", "-f", "@night-bitcoin/midnight-contracts", "mint-wallets"],
-      waitToExit: false,
+      waitToExit: true,
       type: "system-dependency",
       dependsOn: ['create-wallets-midnight'],
     },

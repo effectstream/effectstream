@@ -268,9 +268,10 @@ export function getInitialShieldedState(
 
 export async function syncAndWaitForFunds(
   wallet: WalletFacade,
-  options?: { timeoutMs?: number; waitNonZero?: boolean }
+  options?: { timeoutMs?: number; waitNonZero?: boolean; logLabel?: string }
 ): Promise<{ shieldedBalance: bigint; dustBalance: bigint }> {
-  log.info("Waiting for wallet to sync and receive funds (shielded/dust)...");
+  const logPrefix = options?.logLabel ? `[${options.logLabel}] ` : "";
+  log.info(`${logPrefix}Waiting for wallet to sync and receive funds (shielded/dust)...`);
 
   const syncTimeoutMs = options?.timeoutMs ?? WALLET_SYNC_TIMEOUT_MS;
   const waitNonZero = options?.waitNonZero ?? false;
@@ -287,56 +288,59 @@ export async function syncAndWaitForFunds(
       latestState.unshielded?.syncProgress?.synced ??
       (latestState.isSynced ?? false);
     log.info(
-      `[wait] shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
+      `${logPrefix}[wait] shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
     );
   }, WALLET_SYNC_THROTTLE_MS);
 
-  const state = await Rx.firstValueFrom(
-    wallet.state().pipe(
-      Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
-      Rx.tap((state: any) => {
-        latestState = state;
-        const isSynced = state.isSynced ?? false;
-        const shieldedSynced =
-          state.shielded.state.progress.isStrictlyComplete() || isSynced;
-        const dustSynced =
-          state.dust.state.progress.isStrictlyComplete() || isSynced;
-        const unshieldedSynced =
-          state.unshielded?.syncProgress?.synced ?? isSynced;
-        log.info(
-          `Wallet sync progress: shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced} (isSynced: ${isSynced})`
-        );
-      }),
-      Rx.filter((state: any) => {
-        const isSynced = state.isSynced ?? false;
-        const shieldedSynced =
-          state.shielded.state.progress.isStrictlyComplete() || isSynced;
-        const dustSynced =
-          state.dust.state.progress.isStrictlyComplete() || isSynced;
-        const unshieldedSynced =
-          state.unshielded?.syncProgress?.synced ?? isSynced;
+  let state: any;
+  try {
+    state = await Rx.firstValueFrom(
+      wallet.state().pipe(
+        Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
+        Rx.tap((state: any) => {
+          latestState = state;
+          const isSynced = state.isSynced ?? false;
+          const shieldedSynced =
+            state.shielded.state.progress.isStrictlyComplete() || isSynced;
+          const dustSynced =
+            state.dust.state.progress.isStrictlyComplete() || isSynced;
+          const unshieldedSynced =
+            state.unshielded?.syncProgress?.synced ?? isSynced;
+          log.info(
+            `${logPrefix}Wallet sync progress: shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced} (isSynced: ${isSynced})`
+          );
+        }),
+        Rx.filter((state: any) => {
+          const isSynced = state.isSynced ?? false;
+          const shieldedSynced =
+            state.shielded.state.progress.isStrictlyComplete() || isSynced;
+          const dustSynced =
+            state.dust.state.progress.isStrictlyComplete() || isSynced;
+          const unshieldedSynced =
+            state.unshielded?.syncProgress?.synced ?? isSynced;
 
-        if (!shieldedSynced || !dustSynced || !unshieldedSynced) return false;
+          if (!shieldedSynced || !dustSynced || !unshieldedSynced) return false;
 
-        if (waitNonZero) {
-          const shieldedBalance = state.shielded.balances[shieldedToken().raw] ?? 0n;
-          return shieldedBalance > 0n;
-        }
+          if (waitNonZero) {
+            const shieldedBalance = state.shielded.balances[shieldedToken().raw] ?? 0n;
+            return shieldedBalance > 0n;
+          }
 
-        return true;
-      }),
-      Rx.tap(() => log.info("Wallet sync complete")),
-      Rx.timeout({
-        each: syncTimeoutMs,
-        with: () =>
-          Rx.throwError(
-            () => new Error(`Wallet sync timeout after ${syncTimeoutMs}ms`)
-          ),
-      })
-    )
-  );
-
-  clearInterval(periodicLogger);
+          return true;
+        }),
+        Rx.tap(() => log.info(`${logPrefix}Wallet sync complete`)),
+        Rx.timeout({
+          each: syncTimeoutMs,
+          with: () =>
+            Rx.throwError(
+              () => new Error(`Wallet sync timeout after ${syncTimeoutMs}ms`)
+            ),
+        })
+      )
+    );
+  } finally {
+    clearInterval(periodicLogger);
+  }
 
   const shieldedBalance = (state as any).shielded.balances[shieldedToken().raw] ?? 0n;
 
@@ -490,7 +494,7 @@ const mint = async (
   account: string,
   value: bigint,
 ): Promise<any> => {
-  console.log( "Minting...");
+  console.log(`Minting ${value} tokens to ${account}...`);
 
   const either = wrapAddress(account);
   const finalizedTxData = await (simpleTokenContract.callTx as any).mint(either, value);
@@ -646,6 +650,7 @@ async function joinAndMint(accounts: string | string[], amount: bigint): Promise
 
     const { shieldedBalance, dustBalance } = await syncAndWaitForFunds(wallet, {
       waitNonZero: true,
+      logLabel: "mint",
     });
     console.log(`Shielded balance: ${shieldedBalance}`);
     console.log(`Dust balance: ${dustBalance}`);
@@ -675,11 +680,12 @@ async function joinAndMint(accounts: string | string[], amount: bigint): Promise
     console.log("🔢 Minting simple token...");
     let i = 1;
     for (const account of targets) {
-        const incrementResult = await mint(simpleTokenContract, account, amount);
-        console.log(
-          `✅ Simple token minted [${i} @ ${targets.length}]! Transaction: ${incrementResult.txId} in block ${incrementResult.blockHeight}`,
-        );
-        i += 1;
+      console.log(`🧾 Mint tx [${i} of ${targets.length}] starting for ${account}`);
+      const mintResult = await mint(simpleTokenContract, account, amount);
+      console.log(
+        `✅ Simple token minted [${i} of ${targets.length}] txId=${mintResult.txId} block=${mintResult.blockHeight} account=${account}`
+      );
+      i += 1;
     }
     console.log("🎉 Mint process completed successfully!");
     return true;

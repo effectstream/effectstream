@@ -181,24 +181,23 @@ const joinContract = async (
   return simpleTokenContract;
 };
 
+const wrapAddress = (address: string) => {
+  return {
+    is_left: true,
+    left: { bytes: new Uint8Array(Buffer.from(address, 'hex')) },
+    right: { bytes: new Uint8Array(32) },
+  };
+};
+
 const mint = async (
   simpleTokenContract: DeployedSimpleTokenContract,
   account: string,
   value: bigint
 ): Promise<any> => {
   console.log("Minting...");
-  const shieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(account)
-  );
-  console.log("shieldedAddress", shieldedAddress.coinPublicKeyString());
-  const either = {
-    is_left: true,
-    left: { bytes: shieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
+  console.log("account", account);
   const finalizedTxData = await (simpleTokenContract.callTx as any).mint(
-    either,
+    wrapAddress(account),
     value
   );
   console.log(
@@ -219,24 +218,8 @@ const transferFrom = async (
     toAccount,
     amount,
   });
-  const shieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(fromAccount)
-  );
-  const fromEither = {
-    is_left: true,
-    left: { bytes: shieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
-  const toShieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(toAccount)
-  );
-  const toEither = {
-    is_left: true,
-    left: { bytes: toShieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
+  const fromEither = wrapAddress(fromAccount);
+  const toEither = wrapAddress(toAccount);
   const finalizedTxData = await (simpleTokenContract.callTx as any).transfer(
     toEither,
     amount

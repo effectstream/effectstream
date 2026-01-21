@@ -30,7 +30,7 @@ import type { DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded
  * This is useful to pass dust to Lace wallets in the browser for testing purposes.
  *
  * Usage:
- * MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts
+ * MIDNIGHT_ADDRESS=mn_addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts
  *
  */
 
@@ -289,9 +289,10 @@ const resolveUnshieldedTokenId = async (wallet: WalletFacade): Promise<string> =
  */
 export async function syncAndWaitForFunds(
   wallet: WalletFacade,
-  options?: { timeoutMs?: number; waitNonZero?: boolean }
+  options?: { timeoutMs?: number; waitNonZero?: boolean; logLabel?: string }
 ): Promise<{ shieldedBalance: bigint; unshieldedBalance: bigint; dustBalance: bigint }> {
-  log.info("Waiting for wallet to sync and receive funds (shielded/dust)...");
+  const logPrefix = options?.logLabel ? `[${options.logLabel}] ` : "";
+  log.info(`${logPrefix}Waiting for wallet to sync and receive funds (shielded/dust)...`);
 
   const syncTimeoutMs = options?.timeoutMs ?? resolveWalletSyncTimeoutMs();
   const waitNonZero = options?.waitNonZero ?? false;
@@ -315,77 +316,80 @@ export async function syncAndWaitForFunds(
     );
 
     log.info(
-      `[wait] shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced} | shieldedKeys: [${balanceKeys.join(', ')}] | unshieldedBalance: ${unshieldedBalanceLog}`
+      `${logPrefix}[wait] shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced} | shieldedKeys: [${balanceKeys.join(', ')}] | unshieldedBalance: ${unshieldedBalanceLog}`
     );
   }, WALLET_SYNC_THROTTLE_MS);
 
-  const state = await Rx.firstValueFrom(
-    wallet.state().pipe(
-      Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
-      Rx.tap((state: any) => {
-        latestState = state;
-        const isSynced = state.isSynced ?? false;
-        const shieldedSynced =
-          state.shielded.state.progress.isStrictlyComplete() || isSynced;
-        const dustSynced =
-          state.dust.state.progress.isStrictlyComplete() || isSynced;
-        const unshieldedSynced =
-          state.unshielded?.syncProgress?.synced ?? isSynced;
-        const tokenRaw = shieldedToken().raw;
-        const tokenTag = shieldedToken().tag;
-        const shieldedBalance = state.shielded.balances[tokenRaw] ?? 0n;
-        const keys = Object.keys(state.shielded.balances);
-        
-        const unshieldedBalanceLog = sumUnshieldedBalances(
-          state.unshielded?.balances
-        );
-
-        log.info(
-          `Wallet sync progress: shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced} (isSynced: ${isSynced})`
-        );
-        log.info(
-          `Balance check: tokenRaw=${tokenRaw}, tokenTag=${tokenTag}, shieldedBal=${shieldedBalance}, unshieldedBal=${unshieldedBalanceLog}, availableKeys=[${keys.join(', ')}]`
-        );
-      }),
-      Rx.filter((state: any) => {
-        const isSynced = state.isSynced ?? false;
-        const shieldedSynced =
-          state.shielded.state.progress.isStrictlyComplete() || isSynced;
-        const dustSynced =
-          state.dust.state.progress.isStrictlyComplete() || isSynced;
-        const unshieldedSynced =
-          state.unshielded?.syncProgress?.synced ?? isSynced;
-
-        if (!shieldedSynced || !dustSynced || !unshieldedSynced) return false;
-
-        if (waitNonZero) {
-          const shieldedBalance = state.shielded.balances[shieldedToken().raw] ?? 0n;
+  let state: any;
+  try {
+    state = await Rx.firstValueFrom(
+      wallet.state().pipe(
+        Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
+        Rx.tap((state: any) => {
+          latestState = state;
+          const isSynced = state.isSynced ?? false;
+          const shieldedSynced =
+            state.shielded.state.progress.isStrictlyComplete() || isSynced;
+          const dustSynced =
+            state.dust.state.progress.isStrictlyComplete() || isSynced;
+          const unshieldedSynced =
+            state.unshielded?.syncProgress?.synced ?? isSynced;
+          const tokenRaw = shieldedToken().raw;
+          const tokenTag = shieldedToken().tag;
+          const shieldedBalance = state.shielded.balances[tokenRaw] ?? 0n;
+          const keys = Object.keys(state.shielded.balances);
           
-          const unshieldedBalanceCheck = sumUnshieldedBalances(
+          const unshieldedBalanceLog = sumUnshieldedBalances(
             state.unshielded?.balances
           );
 
-          if (shieldedBalance > 0n || unshieldedBalanceCheck > 0n) {
-             return true;
+          log.info(
+            `${logPrefix}Wallet sync progress: shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced} (isSynced: ${isSynced})`
+          );
+          log.info(
+            `${logPrefix}Balance check: tokenRaw=${tokenRaw}, tokenTag=${tokenTag}, shieldedBal=${shieldedBalance}, unshieldedBal=${unshieldedBalanceLog}, availableKeys=[${keys.join(', ')}]`
+          );
+        }),
+        Rx.filter((state: any) => {
+          const isSynced = state.isSynced ?? false;
+          const shieldedSynced =
+            state.shielded.state.progress.isStrictlyComplete() || isSynced;
+          const dustSynced =
+            state.dust.state.progress.isStrictlyComplete() || isSynced;
+          const unshieldedSynced =
+            state.unshielded?.syncProgress?.synced ?? isSynced;
+
+          if (!shieldedSynced || !dustSynced || !unshieldedSynced) return false;
+
+          if (waitNonZero) {
+            const shieldedBalance = state.shielded.balances[shieldedToken().raw] ?? 0n;
+            
+            const unshieldedBalanceCheck = sumUnshieldedBalances(
+              state.unshielded?.balances
+            );
+
+            if (shieldedBalance > 0n || unshieldedBalanceCheck > 0n) {
+               return true;
+            }
+            
+            return false;
           }
-          
-          return false;
-        }
 
-        return true;
-      }),
-      Rx.tap(() => log.info("Wallet sync complete")),
-      Rx.timeout({
-        each: syncTimeoutMs,
-        with: () =>
-          Rx.throwError(
-            () => new Error(`Wallet sync timeout after ${syncTimeoutMs}ms`)
-          ),
-      })
-    )
-  );
-
-  clearInterval(periodicLogger);
+          return true;
+        }),
+        Rx.tap(() => log.info(`${logPrefix}Wallet sync complete`)),
+        Rx.timeout({
+          each: syncTimeoutMs,
+          with: () =>
+            Rx.throwError(
+              () => new Error(`Wallet sync timeout after ${syncTimeoutMs}ms`)
+            ),
+        })
+      )
+    );
+  } finally {
+    clearInterval(periodicLogger);
+  }
 
   const tokenObj = shieldedToken();
   const tokenId = tokenObj.raw;
@@ -704,6 +708,7 @@ export const faucet = async (
 
       let { shieldedBalance, unshieldedBalance, dustBalance } = await syncAndWaitForFunds(wallet, {
         waitNonZero: false,
+        logLabel: "faucet",
       });
       console.log(`Shielded balance: ${shieldedBalance}`);
       console.log(`Unshielded balance: ${unshieldedBalance}`);
@@ -786,7 +791,7 @@ if (import.meta.main) {
   if (!midnightAddress) {
     console.error("❌ MIDNIGHT_ADDRESS environment variable is not set");
     console.error(
-      "Example: MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts"
+      "Example: MIDNIGHT_ADDRESS=mn_addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts"
     );
     Deno.exit(1);
   }

@@ -39,7 +39,7 @@ async function createWallet(seed: string): Promise<WalletState> {
     const walletResult = await buildWalletFacade(
       networkUrls,
       seedString,
-      "Undeployed" as any
+      "undeployed" as any
     );
 
     const initialState = await (await import('./faucet.ts')).getInitialShieldedState(walletResult.wallet.shielded);
@@ -102,9 +102,13 @@ if (import.meta.main) {
     if (mint) {
         const { faucet } = await import('./faucet.ts');
         const { joinAndMint } = await import('./faucet-unshielded-erc20.ts');
+        const shieldedTargets = wallets.map(wallet => wallet.shieldedAddress);
+        const unshieldedTargets = wallets.map(wallet => wallet.unshieldedAddress);
         // ERC20 minting uses shielded address (contract extracts coinPublicKey)
-        await joinAndMint(wallets.map(wallet => wallet.shieldedAddress), 250000000000000n);
+        await joinAndMint(shieldedTargets, 250000000000000n);
         // NIGHT token transfer uses unshielded address (bech32m format)
-        await faucet(wallets.map(wallet => wallet.unshieldedAddress));
+        await faucet(unshieldedTargets);
+        console.log("✅ Minting and NIGHT transfers completed. Exiting.");
+        Deno.exit(0);
     }
 }

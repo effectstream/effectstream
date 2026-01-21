@@ -18,6 +18,7 @@ export async function loginMidnight() {
 
   const response = {
     addr: "",
+    unshieldedAddr: "",
     contract: {
       unshielded_erc20: null,
       erc7683: null,
@@ -63,6 +64,7 @@ export async function loginMidnight() {
 
     response.stateA.erc7683 = addresses;
     response.addr = addresses.shieldedAddress;
+    response.unshieldedAddr = addresses.unshieldedAddress;
 
     const {
       contract: erc7683Contract,
