@@ -557,7 +557,7 @@ class MidnightAlternativeLogin {
  * Get contract address from command line arguments or from a file
  */
 const getContractAddress = async (): Promise<string> => {
-  const r = await fetch("contract_address/contract-unshielded-erc20.json");
+  const r = await fetch("contract_address/unshielded-erc20.undeployed.json");
   const json = await r.json();
   console.log("🔍 Contract address:", json.contractAddress);
   return json.contractAddress;

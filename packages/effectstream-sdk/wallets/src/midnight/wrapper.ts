@@ -19,10 +19,12 @@ export async function checkMidnightWalletStatus(): Promise<Result<string>> {
 export async function midnightLoginWrapper(
   loginInfo: LoginInfoMap[WalletMode.Midnight]
 ): Promise<Result<IProvider<ApiForMode<WalletMode.Midnight>>>> {
+  const connector = MidnightConnector.instance();
+  connector.setNetworkId(loginInfo.networkId ?? "undeployed");
   const loginResult = await connectInjected(
     "midnightLoginWrapper",
     loginInfo,
-    MidnightConnector.instance()
+    connector
   );
   if (loginResult.success === false) {
     return loginResult;

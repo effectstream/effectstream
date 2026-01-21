@@ -51,7 +51,9 @@ export type LoginInfoMap = {
     preferBatchedMode: boolean;
     seed: string;
   };
-  [WalletMode.Midnight]: BaseLoginInfo<MidnightApi>;
+  [WalletMode.Midnight]: BaseLoginInfo<MidnightApi> & {
+    networkId?: string;
+  };
 };
 
 type ToUnion<T> = {

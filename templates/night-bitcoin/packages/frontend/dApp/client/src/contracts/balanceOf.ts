@@ -14,7 +14,7 @@ class StandaloneConfig implements Config {
 }
 
 const getContractAddress = async (): Promise<string> => {
-  const r = await fetch("contract_address/contract-unshielded-erc20.json");
+  const r = await fetch("contract_address/unshielded-erc20.undeployed.json");
   const json = await r.json();
   console.log("🔍 Contract address:", json.contractAddress);
   return json.contractAddress;
@@ -82,7 +82,7 @@ function getBalanceMap(publicStates: PublicContractStates): Map<string, bigint> 
   // ]
 
 
-  const balances = publicStates.contractState.data.asArray()![0]!.asArray()![0]!.asMap();
+  const balances = publicStates.contractState.balance;
   const balanceKeys = balances?.keys()!;
   try {
     for (const balanceKey of balanceKeys) {

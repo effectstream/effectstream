@@ -244,7 +244,7 @@ type DeployedErc7683Contract =
    * Get contract address from command line arguments or from a file
    */
   const getContractAddress = async (): Promise<string> => {
-    const r = await fetch("contract_address/contract-erc7683.json");
+    const r = await fetch("contract_address/erc7683.undeployed.json");
     const json = await r.json();
     console.log("🔍 Contract address:", json.contractAddress);
     return json.contractAddress;

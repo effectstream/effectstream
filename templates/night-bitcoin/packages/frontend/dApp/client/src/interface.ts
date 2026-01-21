@@ -10,7 +10,10 @@ export async function loginMidnight() {
     networkId: "undeployed",
   });
 
-  if (!result.success) throw new Error("Cannot login");
+  if (!result.success) {
+    console.log("loginMidnight: walletLogin failed", result);
+    throw new Error("Cannot login");
+  }
   const paimaWallet = result.result;
 
   const response = {
