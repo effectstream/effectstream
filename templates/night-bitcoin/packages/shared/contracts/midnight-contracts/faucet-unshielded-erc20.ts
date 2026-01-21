@@ -31,6 +31,7 @@ import {
   createKeystore,
   PublicKey,
   InMemoryTransactionHistoryStorage,
+  type UnshieldedKeystore,
 } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
 import {
   LedgerParameters,
@@ -117,6 +118,7 @@ export interface WalletResult {
   walletDustSecretKey: DustSecretKey;
   dustAddress: string;
   unshieldedAddress: string;
+  unshieldedKeystore: UnshieldedKeystore;  // Needed for signing unshielded transactions
 }
 
 export type DerivationRole = typeof Roles.Zswap | typeof Roles.Dust | typeof Roles.NightExternal;
@@ -254,6 +256,7 @@ export async function buildWalletFacade(
     walletDustSecretKey,
     dustAddress: dustState.dustAddress,
     unshieldedAddress,
+    unshieldedKeystore,  // Return keystore for signing operations
   };
 }
 
@@ -316,7 +319,7 @@ export async function syncAndWaitForFunds(
         if (!shieldedSynced || !dustSynced || !unshieldedSynced) return false;
 
         if (waitNonZero) {
-          const shieldedBalance = state.shielded.balances[shieldedToken().tag] ?? 0n;
+          const shieldedBalance = state.shielded.balances[shieldedToken().raw] ?? 0n;
           return shieldedBalance > 0n;
         }
 
@@ -335,7 +338,7 @@ export async function syncAndWaitForFunds(
 
   clearInterval(periodicLogger);
 
-  const shieldedBalance = (state as any).shielded.balances[shieldedToken().tag] ?? 0n;
+  const shieldedBalance = (state as any).shielded.balances[shieldedToken().raw] ?? 0n;
 
   const dustBalance = await waitForDustFunds(wallet, {
     timeoutMs: syncTimeoutMs,
@@ -574,7 +577,7 @@ const configureProviders = async (
 };
 
 const getContractAddress = async (): Promise<string> => {
-  const contractAddressFile = resolve(currentDir, "contract-unshielded-erc20.json");
+  const contractAddressFile = resolve(currentDir, "unshielded-erc20.undeployed.json");
 
   try {
       const contractAddressFromFile = JSON.parse(

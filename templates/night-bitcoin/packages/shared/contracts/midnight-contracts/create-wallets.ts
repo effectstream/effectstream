@@ -3,11 +3,20 @@ import { generateRandomSeed } from '@midnight-ntwrk/wallet-sdk-hd';
 import * as path from "node:path";
 import { Buffer } from "node:buffer";
 
+/**
+ * LEDGER 6 PARADIGM:
+ * - Wallets receive unshielded NIGHT tokens (not dust directly)
+ * - Addresses must be in bech32m format (mn_addr_undeployed1...) for unshielded transfers
+ * - Wallets must register their unshielded NIGHT UTXOs to generate dust for transaction fees
+ * - Dust is no longer transferable directly; it's generated from registered NIGHT tokens
+ */
+
 const DEFAULT_SEED_PREFIX = "97be3ee35553d827846c1490bcc571f8a29ffd448912b9f023a7b177de7877c";
 
 interface WalletState {
   seed: string;
-  address: string;
+  shieldedAddress: string;  // mn_shield-addr_undeployed1... (for ERC20 minting - uses coinPublicKey)
+  unshieldedAddress: string; // mn_addr_undeployed1... (for NIGHT token transfers)
 }
 
 async function createWallet(seed: string): Promise<WalletState> {
@@ -35,11 +44,16 @@ async function createWallet(seed: string): Promise<WalletState> {
 
     const initialState = await (await import('./faucet.ts')).getInitialShieldedState(walletResult.wallet.shielded);
 
+    // Store both addresses for different purposes in Ledger 6:
+    // - shieldedAddress: for ERC20 minting (contract extracts coinPublicKey from it)
+    // - unshieldedAddress: for NIGHT token transfers (requires bech32m unshielded format)
     const walletState: WalletState = {
-      ...initialState,
       seed: seedString,
-      address: initialState.address.coinPublicKeyString()
-    } as any;
+      // The address object should have asString() method to get bech32m format
+      shieldedAddress: (initialState.address as any).asString?.() || 
+                       `${initialState.address.coinPublicKeyString()}_${initialState.address.encryptionPublicKeyString()}`,
+      unshieldedAddress: walletResult.unshieldedAddress
+    };
 
     await walletResult.wallet.stop();
 
@@ -88,7 +102,9 @@ if (import.meta.main) {
     if (mint) {
         const { faucet } = await import('./faucet.ts');
         const { joinAndMint } = await import('./faucet-unshielded-erc20.ts');
-        await joinAndMint(wallets.map(wallet => wallet.address), 250000000000000n);
-        await faucet(wallets.map(wallet => wallet.address));
+        // ERC20 minting uses shielded address (contract extracts coinPublicKey)
+        await joinAndMint(wallets.map(wallet => wallet.shieldedAddress), 250000000000000n);
+        // NIGHT token transfer uses unshielded address (bech32m format)
+        await faucet(wallets.map(wallet => wallet.unshieldedAddress));
     }
 }
