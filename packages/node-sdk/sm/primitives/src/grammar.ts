@@ -7,6 +7,7 @@ import { erc20Grammar } from "./evm-erc20/erc20-grammar.ts";
 import { availGenericGrammar } from "./avail-generic/avail-generic-grammar.ts";
 import { erc1155Grammar } from "./evm-erc1155/erc1155-grammar.ts";
 import { bitcoinAddressGrammar } from "./bitcoin-address/bitcoin-grammar.ts";
+import { utxorpcGenericGrammar } from "./utxorpc-generic/utxorpc-generic-grammar.ts";
 
 export const builtinGrammars = {
   midnightGeneric: midnightGenericGrammar,
@@ -15,4 +16,5 @@ export const builtinGrammars = {
   availGeneric: availGenericGrammar,
   evmErc1155: erc1155Grammar,
   bitcoinAddress: bitcoinAddressGrammar,
+  utxorpcGeneric: utxorpcGenericGrammar,
 } as const;

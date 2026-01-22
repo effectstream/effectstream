@@ -3,7 +3,7 @@ import { ConfigNetworkType } from "../network/mod.ts";
 import type { ConfigSyncProtocolDecoratorType } from "./decorators/types.ts";
 import type { NetworkConfig } from "../../config/parts/network.ts";
 import type { ConfigSyncProtocolMapping } from "./all.ts";
-import type { EncodedStateValue, getEvmEvent } from "@effectstream/config";
+import type { EncodedStateValue, UtxorpcTxPredicate, getEvmEvent } from "@effectstream/config";
 
 export enum ConfigSyncProtocolType {
   NTP_MAIN = "ntp-main",
@@ -58,7 +58,7 @@ type MidnightPrimitive = BasePrimitive & {
 };
 
 type CardanoUtxoRpcPrimitive = BasePrimitive & {
-  TODO_ADD_MISSING_FIELDS: string;
+  predicate: UtxorpcTxPredicate;
 };
 
 type CardanoCarpPrimitive = BasePrimitive & {

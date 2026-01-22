@@ -25,5 +25,11 @@
         "no-slow-types" // would be nice to have, but this is a lot of work
       ]
     }
+  },
+  "scopes": {
+    "file:/home/simon/cardano/node-sdk/lib/browser/index.mjs": {
+      "@utxorpc/spec": "npm:@utxorpc/spec@^0.18.1",
+      "buffer": "npm:buffer@^6.0.3"
+    }
   }
 }

@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
 import { ConfigSyncProtocolType } from "../types.ts";
-import { NameField, PollingSyncProtocol, StartStopSlot } from "../../common.ts";
+import { NameField, StartStopSlot } from "../../common.ts";
 import {
   CommonResponseParallelSyncProtocol,
   type ConfigSyncProtocolCommonResponse,
@@ -19,6 +19,42 @@ import {
 // =====
 // Utils
 // =====
+
+export const UtxorpcAddressPattern = Type.Object({
+  exactAddress: Type.Optional(Type.String()),
+  paymentPart: Type.Optional(Type.String()),
+  delegationPart: Type.Optional(Type.String()),
+});
+export type UtxorpcAddressPattern = Static<typeof UtxorpcAddressPattern>;
+
+export const UtxorpcAssetPattern = Type.Object({
+  policyId: Type.Optional(Type.String()),
+  assetName: Type.Optional(Type.String()),
+});
+export type UtxorpcAssetPattern = Static<typeof UtxorpcAssetPattern>;
+
+export const UtxorpcTxOutputPattern = Type.Object({
+  address: Type.Optional(UtxorpcAddressPattern),
+  asset: Type.Optional(UtxorpcAssetPattern),
+});
+export type UtxorpcTxOutputPattern = Static<typeof UtxorpcTxOutputPattern>;
+
+export const UtxorpcTxPattern = Type.Object({
+  consumes: Type.Optional(UtxorpcTxOutputPattern),
+  produces: Type.Optional(UtxorpcTxOutputPattern),
+  hasAddress: Type.Optional(UtxorpcAddressPattern),
+  movesAsset: Type.Optional(UtxorpcAssetPattern),
+  mintsAsset: Type.Optional(UtxorpcAssetPattern),
+});
+export type UtxorpcTxPattern = Static<typeof UtxorpcTxPattern>;
+
+export const UtxorpcTxPredicate = Type.Recursive(This => Type.Object({
+  match: Type.Optional(UtxorpcTxPattern),
+  not: Type.Optional(Type.Array(This)),
+  allOf: Type.Optional(Type.Array(This)),
+  anyOf: Type.Optional(Type.Array(This)),
+}));
+export type UtxorpcTxPredicate = Static<typeof UtxorpcTxPredicate>;
 
 // ===========
 // Base schema
@@ -75,7 +111,7 @@ export const ConfigSyncProtocolSchemaCardanoUtxoRpcParallel =
         }),
       }),
     });
-export type ConfigSyncProtocolCardanoParallel = MergeIntersects<
+export type ConfigSyncProtocolCardanoUtxoRpcParallel = MergeIntersects<
   Static<
     ReturnType<
       typeof ConfigSyncProtocolSchemaCardanoUtxoRpcParallel.allProperties<true>

@@ -1,24 +1,27 @@
 import { BaseDataFetcher, type DataFetched } from "../base/fetcher.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { Operation } from "effection";
-import { bound } from "@effectstream/utils";
-import type { Input, Output, Page } from "./types.ts";
+import { bound, uint8ArrayToHexString } from "@effectstream/utils";
+import type { ChainPoint, ConfigType, Input, Output, Page, PrimitiveType } from "./types.ts";
 import type { OutputAndCleanup, RootConversion } from "../base/state.ts";
-import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/config";
 import type { BufferedRpc } from "./BufferedRpc.ts";
 import { Buffer } from "node:buffer";
+import type { cardano } from "@utxorpc/spec";
+import { hashEqual, matchesPredicate } from "./utils.ts";
 
 export class UtxoRpcFetcher
   extends BaseDataFetcher<Input, Output, RootOutput, Page, RootPage> // PrimitiveFetcher<Input, Page, cardano.Block, PrimitiveType>,
 {
   constructor(
-    readonly config: Extract<
-      SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.CARDANO }
-    >,
+    readonly config: ConfigType,
     readonly client: BufferedRpc,
   ) {
     super(config.syncProtocol.name);
+  }
+
+  @bound
+  async startAsync(point: ChainPoint | undefined) {
+    await this.client.start(point, this.config.primitives);
   }
 
   @bound
@@ -39,14 +42,8 @@ export class UtxoRpcFetcher
         output: {
           // TODO: What is the correct block hash?
           blockHashes: [String(block.output.block.header?.hash)],
-          raw: block.output,
-          // TODO: https://github.com/utxorpc/spec/issues/135
-          //       mock data for now
-          primitives: [{
-            value: Math.round(Math.random() * 1000000),
-            block: block.output.block,
-            timestamp: block.output.timestamp,
-          } as any],
+          raw: block.output.block,
+          primitives: this.findPrimitives(block.output.block, new Uint8Array(), block.output.txs),
         },
         cleanup: block.cleanup,
       });
@@ -57,13 +54,13 @@ export class UtxoRpcFetcher
         ownBlockNumber: Number(data.to),
         own: {
           slot: Number(
-            outputs[outputs.length - 1].output.raw.block.header!.slot,
+            outputs[outputs.length - 1].output.raw.header!.slot,
           ),
           height: Number(
-            outputs[outputs.length - 1].output.raw.block.header!.height,
+            outputs[outputs.length - 1].output.raw.header!.height,
           ),
           hash: Buffer.from(
-            outputs[outputs.length - 1].output.raw.block.header!.hash,
+            outputs[outputs.length - 1].output.raw.header!.hash,
           )
             .toString("hex"),
         },
@@ -74,5 +71,36 @@ export class UtxoRpcFetcher
         }),
       },
     };
+  }
+
+  @bound
+  findPrimitives(block: cardano.Block, blockBytes: Uint8Array, txs: cardano.Tx[]): PrimitiveType[] {
+    const primitiveResponses: PrimitiveType[] = [];
+    for (const tx of txs) {
+      let logIndex = 0;
+      for (const primitveEntry of this.config.primitives) {
+        if (!matchesPredicate(tx, primitveEntry.primitive.predicate)) {
+          continue;
+        }
+        const transactionIndex = block.body?.tx.findIndex(t => hashEqual(t.hash, tx.hash));
+        primitiveResponses.push({
+          syncProtocol: {
+            name: primitveEntry.syncProtocol,
+            blockNumber: Number(block.header!.height),
+            transactionHash: uint8ArrayToHexString(tx.hash),
+            transactionIndex,
+            contractAddress: '',
+            logIndex,
+          },
+          primitive: primitveEntry.primitive.name,
+          output: {
+            payloadType: 'utxorpc-response',
+            payload: { tx }
+          }
+        });
+        ++logIndex;
+      }
+    }
+    return primitiveResponses;
   }
 }

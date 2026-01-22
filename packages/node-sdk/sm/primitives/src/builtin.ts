@@ -2,6 +2,8 @@
 // this list is exposed to the effectstream-sdk modules via the @effectstream/sm/builtin module
 export const PrimitiveTypeMidnightGeneric = "Midnight:Generic" as const;
 
+export const PrimitiveTypeUtxorpcGeneric = "Utxorpc:Generic" as const;
+
 export const PrimitiveTypeEVMPaimaL2 = "EVM:PaimaL2" as const;
 export const PrimitiveTypeEVMERC721 = "EVM:ERC721" as const;
 export const PrimitiveTypeEVMERC20 = "EVM:ERC20" as const;
@@ -20,6 +22,7 @@ type BuiltInPrimitives =
     typeof PrimitiveTypeEVMERC20 |
     typeof PrimitiveTypeAvailGeneric |
     typeof PrimitiveTypeEVMERC1155 |
+    typeof PrimitiveTypeUtxorpcGeneric |
     typeof PrimitiveTypeBitcoinAddress // |
     // typeof PrimitiveTypeEVMGeneric
 ;

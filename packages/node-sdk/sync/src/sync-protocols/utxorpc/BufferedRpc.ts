@@ -1,27 +1,22 @@
-import type { CardanoSyncClient } from "@utxorpc/sdk";
+import type { CardanoSyncClient, CardanoWatchClient } from "@utxorpc/sdk";
 import type { cardano } from "@utxorpc/spec";
 import type { OutputAndCleanup } from "../base/state.ts";
 import Deque from "denque";
 import type { BlockNumber } from "@effectstream/utils";
 import type { Operation } from "effection";
 import { conditionVariable } from "@effectstream/utils";
-import type { BlockAndTimestamp, Page } from "./types.ts";
+import type { BlockAndTxs, ChainPoint, Page, PrimitiveEntryType } from "./types.ts";
+import { hashEqual } from "./utils.ts";
 import { Buffer } from "node:buffer";
 
-// TODO: https://github.com/utxorpc/node-sdk/pull/38
-type ChainPoint = {
-  slot: number | string;
-  hash: string;
-};
-
 export class BufferedRpc {
-  private readonly buffer: Deque<OutputAndCleanup<BlockAndTimestamp>> =
+  private readonly buffer: Deque<OutputAndCleanup<BlockAndTxs>> =
     new Deque();
   private readonly newDataCondVar = conditionVariable<void>();
-  private bestBlock: undefined | Page = undefined;
 
   constructor(
-    public readonly client: CardanoSyncClient,
+    public readonly syncClient: CardanoSyncClient,
+    public readonly watchClient: CardanoWatchClient,
     /**
      * Finality should ensure that we never expose data that could be affected by `undo`
      * recall: finality is in terms of blocks created (not in terms of slots)
@@ -29,93 +24,63 @@ export class BufferedRpc {
     private readonly finality: BlockNumber,
   ) {}
 
-  public async start(point: undefined | ChainPoint): Promise<void> {
-    // TODO: these parameters can change
-    //       see: https://github.com/utxorpc/spec/issues/149
-    const byronGenesis = await fetch(
-      "http://localhost:10000/local-cluster/api/admin/devnet/genesis/byron",
-    );
-    const byronGenesisJson = await byronGenesis.json();
-    const shelleyGenesis = await fetch(
-      "http://localhost:10000/local-cluster/api/admin/devnet/genesis/shelley",
-    );
-    const shelleyGenesisJson = await shelleyGenesis.json();
-    const toTimestamp = (block: cardano.Block) => {
-      // TODO: hardcoded to yaci-devkit magic number until https://github.com/utxorpc/spec/pull/147
-      if (block.header!.slot < 600) {
-        return new Date(
-          1000 * byronGenesisJson.startTime +
-            (Number(block.header!.slot) *
-              byronGenesisJson.blockVersionData.slotDuration),
-        ).getTime();
-      }
-      // TODO: in yaci-devkit, systemStart starts at the time Shelley starts
-      //       but on mainnet, it starts at Byron start
-      //       so we hardcode the yaci-devkit behavior until https://github.com/utxorpc/spec/issues/149
-      return new Date(
-        shelleyGenesisJson.systemStart,
-      ).getTime() +
-        (1000 * (Number(block.header!.slot) - 600) *
-          shelleyGenesisJson.slotLength);
+  public async start(point: undefined | ChainPoint, primitives: PrimitiveEntryType[]): Promise<void> {
+    const predicate = {
+      anyOf: primitives.map(p => p.primitive.predicate),
     };
+    const intersect = point ? [point] : [];
+    const txEvents = this.watchClient.watchTxByPredicate(predicate, intersect);
 
-    if (point != null) {
-      const startBlock = await this.client.fetchBlock(point);
-      this.bestBlock = {
-        slot: Number(point.slot),
-        hash: point.hash,
-        height: Number(startBlock.header!.height),
-      };
-    } else {
-      const firstBlock = await this.client.fetchHistory(undefined);
-      point = {
-        slot: Number(firstBlock.header!.slot),
-        hash: Buffer.from(firstBlock.header!.hash).toString("hex"),
-      };
+    const cleanupBlock = (hash: Uint8Array) => {
+      for (let i = this.buffer.length; i >= 0; --i) {
+        const entry = this.buffer.peekAt(i)!;
+        if (hashEqual(entry.output.block.header!.hash, hash)) {
+          this.buffer.removeOne(i);
+          return;
+        }
+      }
     }
 
-    let seenReset = false; // chainsync always returns "reset" as the first event
-    // TODO: replace with watchTxByMatch once we have https://github.com/utxorpc/spec/issues/135
-    const tip = this.client.followTip([point]);
-    for await (
-      const event of tip
-    ) {
-      if (event.action === "apply") {
-        this.bestBlock = toPage(event.block);
+    for await (const txEvent of txEvents) {
+      if (txEvent.action === "idle") {
+        const block = await this.syncClient.fetchBlock(txEvent.BlockRef);
         this.buffer.push({
           output: {
-            block: event.block,
-            timestamp: toTimestamp(event.block),
+            block: block.parsedBlock,
+            txs: [],
           },
-          cleanup: () => {
-            // we have to look up the position in the buffer again
-            // since the position may have changed by the time we run the cleanup
-            // note: cleanup is typically called in an ordered way, so we search from the start of the buffer
-            const index = this.findFromStart(
-              Number(event.block.header!.height),
-            );
-            if (index == null) {
-              throw new Error(
-                `Block not found for slot ${event.block.header!.height}`,
-              );
-            }
-            this.buffer.remove(index, 1);
-          },
+          cleanup: () => cleanupBlock(block.parsedBlock.header!.hash),
         });
         this.newDataCondVar.wake();
-      } else if (event.action === "undo") {
-        this.buffer.pop();
-      } else if (event.action === "reset") {
-        if (!seenReset) {
-          seenReset = true;
-          continue;
+      } else if (txEvent.action === "apply") {
+        const lastBlock = this.buffer.peekBack();
+        if (lastBlock && hashEqual(lastBlock.output.block.header!.hash, txEvent.Block.header!.hash)) {
+          lastBlock.output.txs.push(txEvent.Tx);
+        } else {
+          this.buffer.push({
+            output: {
+              block: txEvent.Block,
+              txs: [txEvent.Tx],
+            },
+            cleanup: () => cleanupBlock(txEvent.Block.header!.hash),
+          });
+          this.newDataCondVar.wake();
         }
-
-        throw new Error(
-          `Paima node stuck on fork. Currently at point ${
-            JSON.stringify(point)
-          }`,
-        );
+      } else if (txEvent.action === "undo") {
+        for (let lastBlock = this.buffer.peekBack(); lastBlock; lastBlock = this.buffer.peekBack()) {
+          if (lastBlock.output.block.header!.height > txEvent.Block.header!.height) {
+            // rolled back past this apparently-empty block
+            this.buffer.pop();
+            continue;
+          }
+          if (lastBlock.output.block.header!.height === txEvent.Block.header!.height) {
+            lastBlock.output.txs = lastBlock.output.txs.filter(tx => !hashEqual(tx.hash, txEvent.Tx.hash));
+            if (!lastBlock.output.txs.length) {
+              this.buffer.pop();
+            }
+          }
+          break;
+        }
       }
     }
   }
@@ -181,8 +146,8 @@ export class BufferedRpc {
   public fetchBlocks(
     from: BlockNumber, // (inclusive)
     to: BlockNumber, // (inclusive)
-  ): OutputAndCleanup<BlockAndTimestamp>[] {
-    const blocks: OutputAndCleanup<BlockAndTimestamp>[] = [];
+  ): OutputAndCleanup<BlockAndTxs>[] {
+    const blocks: OutputAndCleanup<BlockAndTxs>[] = [];
     for (let i = 0; i < this.buffer.length; i++) {
       const block = this.buffer.peekAt(i)!;
       if (Number(block.output.block.header!.height) >= from) {
@@ -194,17 +159,6 @@ export class BufferedRpc {
     }
     return blocks;
   }
-
-  findFromStart = (height: BlockNumber): undefined | number => {
-    for (let i = 0; i < this.buffer.length; i++) {
-      if (
-        Number(this.buffer.peekAt(i)!.output.block.header!.height) === height
-      ) {
-        return i;
-      }
-    }
-    return undefined;
-  };
 }
 
 function toPage(block: cardano.Block): Page {

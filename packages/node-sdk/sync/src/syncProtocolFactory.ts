@@ -10,7 +10,7 @@ import {
   ConfigSyncProtocolType,
   getViemNetwork,
 } from "@effectstream/config";
-import { CardanoSyncClient } from "@utxorpc/sdk";
+import { CardanoSyncClient, CardanoWatchClient } from "@utxorpc/sdk";
 import { BufferedRpc } from "./sync-protocols/utxorpc/BufferedRpc.ts";
 import { UtxoRpcFetcher } from "./sync-protocols/utxorpc/fetcher.ts";
 import { UtxoRpcSyncState } from "./sync-protocols/utxorpc/state.ts";
@@ -59,15 +59,19 @@ export function* genSyncProtocols(
       entry.networkType === ConfigNetworkType.CARDANO
     ) {
       if (
-        entry.syncProtocol.type === ConfigSyncProtocolType.CARDANO_CARP_PARALLEL
+        entry.syncProtocolType === ConfigSyncProtocolType.CARDANO_CARP_PARALLEL
       ) {
         throw new Error("CARP not supported yet");
       }
-      const client = new CardanoSyncClient({
+      const syncClient = new CardanoSyncClient({
+        uri: entry.syncProtocol.rpcUrl,
+      });
+      const watchClient = new CardanoWatchClient({
         uri: entry.syncProtocol.rpcUrl,
       });
       const bufferedRpc = new BufferedRpc(
-        client,
+        syncClient,
+        watchClient,
         entry.syncProtocol.confirmationDepth,
       );
       const fetcher = new UtxoRpcFetcher(
