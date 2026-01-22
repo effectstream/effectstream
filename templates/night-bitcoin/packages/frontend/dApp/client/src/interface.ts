@@ -119,6 +119,7 @@ export async function createIntent(
     return await erc7683.createIntent(contract, addr, config);
   } catch (error) {
     console.error(" interface.ts: createIntent failed", { error, addr, config });
+    console.error(" interface.ts: error cause message", (error as any).cause?.failure?.message);
     if (error instanceof Error) {
       console.error(" interface.ts: error message", error.message);
       console.error(" interface.ts: error stack", error.stack);

@@ -398,13 +398,11 @@ const initializeProviders = async (
   shieldedAddresses: ShieldedAddresses
 ): Promise<Erc7683Providers> => {
   const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = shieldedAddresses;
-  const coinPublicKey = toHex(MidnightBech32m.parse(shieldedCoinPublicKey).data);
-  const encryptionPublicKey = toHex(MidnightBech32m.parse(shieldedEncryptionPublicKey).data);
 
   const walletAndMidnightProvider = createWalletAndMidnightProvider(
     connectedAPI,
-    coinPublicKey as any,
-    encryptionPublicKey as any
+    shieldedCoinPublicKey as any,
+    shieldedEncryptionPublicKey as any
   );
   
   const zkConfigPath = window.location.origin;
