@@ -53,13 +53,10 @@ import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-pri
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import {
   setNetworkId,
-  getNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import { dirname, resolve } from "node:path";
-import {
-  MidnightBech32m,
-  ShieldedAddress,
-} from "@midnight-ntwrk/wallet-sdk-address-format";
+
+import { wrapPublicDataProvider } from "./midnight-utils.ts";
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 import { NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
@@ -86,8 +83,8 @@ const getMidnightNodeUrl = async (): Promise<string> => {
 const BASE_URL_MIDNIGHT_INDEXER = `http://127.0.0.1:8088`;
 const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
 const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
-const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v1/graphql`;
-const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v1/graphql/ws`;
+const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
+const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
 
 const toHex = (data: Uint8Array): string =>
   Array.from(data)
@@ -350,9 +347,20 @@ const createWalletAndMidnightProvider = (
         const hexTx = toHex(tx.serialize());
         console.log(" erc20.ts: Submitting final balanced transaction to submitTransaction", { hexTx });
         
-        const txId = await connectedAPI.submitTransaction(hexTx) as unknown as Promise<TransactionId>;
-        console.log(" erc20.ts: transaction submitted successfully", { txId });
-        return txId;
+        // Compute transaction ID (hash) locally from the serialized transaction
+        const txId = LedgerV6Transaction.deserialize(
+          'signature' as const,
+          'proof' as const,
+          'binding' as const,
+          fromHex(hexTx)
+        ).transactionHash();
+        
+        console.log(" erc20.ts: Computed transaction ID:", txId);
+        
+        await connectedAPI.submitTransaction(hexTx);
+        console.log(" erc20.ts: transaction submitted successfully");
+        
+        return txId as unknown as TransactionId;
       } catch (error) {
         console.error(" erc20.ts: submitTransaction failed", error);
         if (error instanceof Error) {
@@ -387,15 +395,18 @@ const initializeProviders = async (
       fetch.bind(window)
     ),
     proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER),
-    publicDataProvider: indexerPublicDataProvider(
+    publicDataProvider: wrapPublicDataProvider(
+      indexerPublicDataProvider(
+        BASE_URL_MIDNIGHT_INDEXER_API,
+        BASE_URL_MIDNIGHT_INDEXER_WS,
+      ),
       BASE_URL_MIDNIGHT_INDEXER_API,
-      BASE_URL_MIDNIGHT_INDEXER_WS
+      "erc20.ts"
     ),
     walletProvider: walletAndMidnightProvider,
     midnightProvider: walletAndMidnightProvider,
   };
 };
-
 const configureProviders = async (
   connectedAPI: ConnectedAPI,
   injectedWallet: Wallet & Resource

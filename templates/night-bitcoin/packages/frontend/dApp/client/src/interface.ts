@@ -4,6 +4,14 @@ import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 import * as unshielded_erc20 from "./contracts/erc20.ts";
 import * as erc7683 from "./contracts/intents.ts";
 
+const wrapAddress = (address: string) => {
+  return {
+    is_left: true,
+    left: { bytes: new Uint8Array(Buffer.from(address, 'hex')) },
+    right: { bytes: new Uint8Array(32) },
+  };
+};
+
 export async function loginMidnight() {
   const result = await walletLogin({
     mode: WalletMode.Midnight,
@@ -83,7 +91,8 @@ export async function loginMidnight() {
 export async function midnight_balanceOf(contract: any, addr: string) {
   try {
     console.log("Balance of", contract, addr);
-    return await unshielded_erc20.balanceOf(addr);
+    return await contract.callTx.balanceOf(wrapAddress(addr));
+    //return await unshielded_erc20.balanceOf(addr);
   } catch (error) {
     console.error(0, { error });
     throw error;

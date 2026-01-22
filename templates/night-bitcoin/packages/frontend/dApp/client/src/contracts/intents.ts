@@ -17,12 +17,13 @@ import {
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
-import type {
+import {
   CoinPublicKey,
   EncPublicKey,
   FinalizedTransaction,
   ShieldedCoinInfo,
   UnprovenTransaction,
+  Transaction as LedgerV6Transaction,
 } from "@midnight-ntwrk/ledger-v6";
 import {
   type BalancedProvingRecipe,
@@ -32,6 +33,12 @@ import {
   type MidnightProvider,
   type MidnightProviders,
   type WalletProvider,
+  TRANSACTION_TO_PROVE,
+  SucceedEntirely,
+  FailFallible,
+  FailEntirely,
+  SegmentSuccess,
+  SegmentFail,
 } from "@midnight-ntwrk/midnight-js-types";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
@@ -40,13 +47,14 @@ import {
   MidnightBech32m,
   ShieldedAddress,
 } from "@midnight-ntwrk/wallet-sdk-address-format";
+import { wrapPublicDataProvider } from "./midnight-utils.ts";
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 
 const BASE_URL_MIDNIGHT_INDEXER = `http://127.0.0.1:8088`;
 const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
 const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
-const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v1/graphql`;
-const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v1/graphql/ws`;
+const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
+const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
 
 const toHex = (data: Uint8Array): string =>
   Array.from(data)
@@ -379,9 +387,20 @@ const createWalletAndMidnightProvider = (
         const hexTx = toHex(tx.serialize());
         console.log(" intents.ts: Submitting final balanced transaction to submitTransaction", { hexTx });
         
-        const txId = await connectedAPI.submitTransaction(hexTx) as unknown as Promise<TransactionId>;
-        console.log(" intents.ts: transaction submitted successfully", { txId });
-        return txId;
+        // Compute transaction ID (hash) locally from the serialized transaction
+        const txId = LedgerV6Transaction.deserialize(
+          'signature' as const,
+          'proof' as const,
+          'binding' as const,
+          fromHex(hexTx)
+        ).transactionHash();
+        
+        console.log(" intents.ts: Computed transaction ID:", txId);
+        
+        await connectedAPI.submitTransaction(hexTx);
+        console.log(" intents.ts: transaction submitted successfully");
+        
+        return txId as unknown as TransactionId;
       } catch (error) {
         console.error(" intents.ts: submitTransaction failed", error);
         if (error instanceof Error) {
@@ -416,9 +435,13 @@ const initializeProviders = async (
       fetch.bind(window)
     ),
     proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER),
-    publicDataProvider: indexerPublicDataProvider(
+    publicDataProvider: wrapPublicDataProvider(
+      indexerPublicDataProvider(
+        BASE_URL_MIDNIGHT_INDEXER_API,
+        BASE_URL_MIDNIGHT_INDEXER_WS,
+      ),
       BASE_URL_MIDNIGHT_INDEXER_API,
-      BASE_URL_MIDNIGHT_INDEXER_WS
+      "intents.ts"
     ),
     walletProvider: walletAndMidnightProvider,
     midnightProvider: walletAndMidnightProvider,

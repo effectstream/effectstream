@@ -9,8 +9,8 @@ interface Config {
 }
 
 class StandaloneConfig implements Config {
-  indexer = "http://127.0.0.1:8088/api/v1/graphql";
-  indexerWS = "ws://127.0.0.1:8088/api/v1/graphql/ws";
+  indexer = "http://127.0.0.1:8088/api/v3/graphql";
+  indexerWS = "ws://127.0.0.1:8088/api/v3/graphql/ws";
 }
 
 const getContractAddress = async (): Promise<string> => {
@@ -21,11 +21,26 @@ const getContractAddress = async (): Promise<string> => {
 };
 
 const config = new StandaloneConfig();
+const wrapPublicDataProvider = (provider: any) => {
+  const wrapOffset = (offset: any) => {
+    if (offset && typeof offset === 'object' && Object.keys(offset).length === 0) {
+      return undefined;
+    }
+    return offset;
+  };
+
+  return {
+    ...provider,
+    queryContractState: (address: string, offset?: any) => 
+      provider.queryContractState(address, wrapOffset(offset)),
+  };
+};
+
 const providers = {
-  publicDataProvider: indexerPublicDataProvider(
+  publicDataProvider: wrapPublicDataProvider(indexerPublicDataProvider(
     config.indexer,
     config.indexerWS,
-  ),
+  )),
 };
 
 function extractPublicCoinAddress(bech32mAddress: string): string {
