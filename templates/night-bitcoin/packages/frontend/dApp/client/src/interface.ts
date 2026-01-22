@@ -118,7 +118,11 @@ export async function createIntent(
   try {
     return await erc7683.createIntent(contract, addr, config);
   } catch (error) {
-    console.error(1, { error });
+    console.error(" interface.ts: createIntent failed", { error, addr, config });
+    if (error instanceof Error) {
+      console.error(" interface.ts: error message", error.message);
+      console.error(" interface.ts: error stack", error.stack);
+    }
     throw error;
   }
 }
@@ -131,7 +135,11 @@ export async function m20_mint(
   try {
     return await unshielded_erc20.mint(contract, account, amount);
   } catch (error) {
-    console.error(1, { error });
+    console.error(" interface.ts: m20_mint failed", { error, account, amount });
+    if (error instanceof Error) {
+      console.error(" interface.ts: error message", error.message);
+      console.error(" interface.ts: error stack", error.stack);
+    }
     throw error;
   }
 }
@@ -145,7 +153,11 @@ export async function m20_transferFrom(
   try {
     return await unshielded_erc20.transferFrom(contract, fromAccount, toAccount, amount);
   } catch (error) {
-    console.error(1, { error });
+    console.error(" interface.ts: m20_transferFrom failed", { error, fromAccount, toAccount, amount });
+    if (error instanceof Error) {
+      console.error(" interface.ts: error message", error.message);
+      console.error(" interface.ts: error stack", error.stack);
+    }
     throw error;
   }
 }

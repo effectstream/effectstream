@@ -48,6 +48,17 @@ const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
 const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v1/graphql`;
 const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v1/graphql/ws`;
 
+const toHex = (data: Uint8Array): string =>
+  Array.from(data)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+const fromHex = (hex: string): Uint8Array => {
+  const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex;
+  const match = cleanHex.match(/.{1,2}/g);
+  return new Uint8Array(match ? match.map((byte) => parseInt(byte, 16)) : []);
+};
+
 const MIDNIGHT_NETWORK_ID: NetworkId = "undeployed";
 
 type ShieldedAddresses = Awaited<
@@ -332,21 +343,52 @@ const createWalletAndMidnightProvider = (
       _newCoins?: ShieldedCoinInfo[],
       _ttl?: Date
     ): Promise<BalancedProvingRecipe> {
-      const serializedTx = tx.serialize();
-      const hexTx = Array.from(serializedTx)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
+      console.log(" intents.ts: balanceTx called", { tx, _newCoins, _ttl });
       
-      const result = await connectedAPI.balanceUnsealedTransaction(hexTx);
-      return result as unknown as BalancedProvingRecipe;
+      try {
+        const hexTx = toHex(tx.serialize());
+        console.log(" intents.ts: Sending UNPROVEN transaction to balanceUnsealedTransaction", { hexTx });
+        
+        const result = await connectedAPI.balanceUnsealedTransaction(hexTx);
+        console.log(" intents.ts: received result from balanceUnsealedTransaction", result);
+        
+        const balancedTx = LedgerV6Transaction.deserialize(
+          'signature' as const,
+          'pre-proof' as const,
+          'pre-binding' as const,
+          fromHex(result.tx)
+        ) as UnprovenTransaction;
+        
+        return {
+          type: TRANSACTION_TO_PROVE,
+          transaction: balancedTx,
+        };
+      } catch (error) {
+        console.error(" intents.ts: balanceUnsealedTransaction failed", error);
+        if (error instanceof Error) {
+           console.error(" intents.ts: error message", error.message);
+           console.error(" intents.ts: error stack", error.stack);
+        }
+        throw error;
+      }
     },
-    submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
-      const serializedTx = tx.serialize();
-      const hexTx = Array.from(serializedTx)
-        .map((b: number) => b.toString(16).padStart(2, "0"))
-        .join("");
+    async submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
+      console.log(" intents.ts: submitTx called", { tx });
       
-      return connectedAPI.submitTransaction(hexTx) as unknown as Promise<TransactionId>;
+      try {
+        const hexTx = toHex(tx.serialize());
+        console.log(" intents.ts: Submitting final balanced transaction to submitTransaction", { hexTx });
+        
+        const txId = await connectedAPI.submitTransaction(hexTx) as unknown as Promise<TransactionId>;
+        console.log(" intents.ts: transaction submitted successfully", { txId });
+        return txId;
+      } catch (error) {
+        console.error(" intents.ts: submitTransaction failed", error);
+        if (error instanceof Error) {
+           console.error(" intents.ts: error message", error.message);
+        }
+        throw error;
+      }
     },
   };
 };
@@ -356,13 +398,13 @@ const initializeProviders = async (
   shieldedAddresses: ShieldedAddresses
 ): Promise<Erc7683Providers> => {
   const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = shieldedAddresses;
-  
-  console.log(`Connecting to wallet with network ID: ${MIDNIGHT_NETWORK_ID}`);
-  
+  const coinPublicKey = toHex(MidnightBech32m.parse(shieldedCoinPublicKey).data);
+  const encryptionPublicKey = toHex(MidnightBech32m.parse(shieldedEncryptionPublicKey).data);
+
   const walletAndMidnightProvider = createWalletAndMidnightProvider(
     connectedAPI,
-    shieldedCoinPublicKey as any,
-    shieldedEncryptionPublicKey as any
+    coinPublicKey as any,
+    encryptionPublicKey as any
   );
   
   const zkConfigPath = window.location.origin;

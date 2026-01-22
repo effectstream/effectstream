@@ -14,6 +14,7 @@ import {
   Transaction,
   type TransactionId,
 } from "@midnight-ntwrk/ledger";
+import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
 import type {
   CoinPublicKey,
   EncPublicKey,
@@ -21,6 +22,13 @@ import type {
   UnprovenTransaction,
   FinalizedTransaction,
 } from "@midnight-ntwrk/ledger-v6";
+import {
+  Transaction as LedgerV6Transaction,
+  SignatureEnabled,
+  PreProof,
+  PreBinding,
+} from "@midnight-ntwrk/ledger-v6";
+import { Buffer } from "buffer";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -37,10 +45,10 @@ import {
   type MidnightProvider,
   type MidnightProviders,
   type WalletProvider,
+  TRANSACTION_TO_PROVE,
 } from "@midnight-ntwrk/midnight-js-types";
 import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
 import type { Wallet } from "@midnight-ntwrk/wallet-api";
-import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import {
@@ -80,6 +88,17 @@ const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
 const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
 const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v1/graphql`;
 const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v1/graphql/ws`;
+
+const toHex = (data: Uint8Array): string =>
+  Array.from(data)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+const fromHex = (hex: string): Uint8Array => {
+  const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex;
+  const match = cleanHex.match(/.{1,2}/g);
+  return new Uint8Array(match ? match.map((byte) => parseInt(byte, 16)) : []);
+};
 
 const MIDNIGHT_NETWORK_ID: NetworkId = "undeployed";
 
@@ -295,21 +314,52 @@ const createWalletAndMidnightProvider = (
       _newCoins?: ShieldedCoinInfo[],
       _ttl?: Date
     ): Promise<BalancedProvingRecipe> {
-      const serializedTx = tx.serialize();
-      const hexTx = Array.from(serializedTx)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
+      console.log(" erc20.ts: balanceTx called", { tx, _newCoins, _ttl });
       
-      const result = await connectedAPI.balanceUnsealedTransaction(hexTx);
-      return result as unknown as BalancedProvingRecipe;
+      try {
+        const hexTx = toHex(tx.serialize());
+        console.log(" erc20.ts: Sending UNPROVEN transaction to balanceUnsealedTransaction", { hexTx });
+        
+        const result = await connectedAPI.balanceUnsealedTransaction(hexTx);
+        console.log(" erc20.ts: received result from balanceUnsealedTransaction", result);
+        
+        const balancedTx = LedgerV6Transaction.deserialize(
+          'signature' as const,
+          'pre-proof' as const,
+          'pre-binding' as const,
+          fromHex(result.tx)
+        ) as UnprovenTransaction;
+        
+        return {
+          type: TRANSACTION_TO_PROVE,
+          transaction: balancedTx,
+        };
+      } catch (error) {
+        console.error(" erc20.ts: balanceUnsealedTransaction failed", error);
+        if (error instanceof Error) {
+           console.error(" erc20.ts: error message", error.message);
+           console.error(" erc20.ts: error stack", error.stack);
+        }
+        throw error;
+      }
     },
-    submitTx(tx: BalancedProvingRecipe): Promise<TransactionId> {
-      const serializedTx = tx.serialize();
-      const hexTx = Array.from(serializedTx)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
+    async submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
+      console.log(" erc20.ts: submitTx called", { tx });
       
-      return connectedAPI.submitTransaction(hexTx) as unknown as Promise<TransactionId>;
+      try {
+        const hexTx = toHex(tx.serialize());
+        console.log(" erc20.ts: Submitting final balanced transaction to submitTransaction", { hexTx });
+        
+        const txId = await connectedAPI.submitTransaction(hexTx) as unknown as Promise<TransactionId>;
+        console.log(" erc20.ts: transaction submitted successfully", { txId });
+        return txId;
+      } catch (error) {
+        console.error(" erc20.ts: submitTransaction failed", error);
+        if (error instanceof Error) {
+           console.error(" erc20.ts: error message", error.message);
+        }
+        throw error;
+      }
     },
   };
 };
@@ -319,13 +369,13 @@ const initializeProviders = async (
   shieldedAddresses: ShieldedAddresses
 ): Promise<SimpleTokenProviders> => {
   const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = shieldedAddresses;
-  
-  console.log(`Connecting to wallet with network ID: ${MIDNIGHT_NETWORK_ID}`);
-  
+  const coinPublicKey = toHex(MidnightBech32m.parse(shieldedCoinPublicKey).data);
+  const encryptionPublicKey = toHex(MidnightBech32m.parse(shieldedEncryptionPublicKey).data);
+
   const walletAndMidnightProvider = createWalletAndMidnightProvider(
     connectedAPI,
-    shieldedCoinPublicKey as any,
-    shieldedEncryptionPublicKey as any
+    coinPublicKey as any,
+    encryptionPublicKey as any
   );
   
   const zkConfigPath = window.location.origin;
