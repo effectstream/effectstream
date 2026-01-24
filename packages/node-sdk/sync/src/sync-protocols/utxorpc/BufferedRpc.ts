@@ -5,18 +5,16 @@ import Deque from "denque";
 import type { BlockNumber } from "@effectstream/utils";
 import type { Operation } from "effection";
 import { conditionVariable } from "@effectstream/utils";
-import type { BlockAndTxs, ChainPoint, Page, PrimitiveEntryType } from "./types.ts";
-import { hashEqual } from "./utils.ts";
+import type { ChainPoint, Page } from "./types.ts";
 import { Buffer } from "node:buffer";
 
 export class BufferedRpc {
-  private readonly buffer: Deque<OutputAndCleanup<BlockAndTxs>> =
+  private readonly buffer: Deque<OutputAndCleanup<cardano.Block>> =
     new Deque();
   private readonly newDataCondVar = conditionVariable<void>();
 
   constructor(
     public readonly syncClient: CardanoSyncClient,
-    public readonly watchClient: CardanoWatchClient,
     /**
      * Finality should ensure that we never expose data that could be affected by `undo`
      * recall: finality is in terms of blocks created (not in terms of slots)
@@ -24,63 +22,35 @@ export class BufferedRpc {
     private readonly finality: BlockNumber,
   ) {}
 
-  public async start(point: undefined | ChainPoint, primitives: PrimitiveEntryType[]): Promise<void> {
-    const predicate = {
-      anyOf: primitives.map(p => p.primitive.predicate),
-    };
+  public async start(point: undefined | ChainPoint): Promise<void> {
     const intersect = point ? [point] : [];
-    const txEvents = this.watchClient.watchTxByPredicate(predicate, intersect);
+    const blockEvents = this.syncClient.followTip(intersect);
 
-    const cleanupBlock = (hash: Uint8Array) => {
-      for (let i = this.buffer.length; i >= 0; --i) {
-        const entry = this.buffer.peekAt(i)!;
-        if (hashEqual(entry.output.block.header!.hash, hash)) {
-          this.buffer.removeOne(i);
-          return;
-        }
-      }
-    }
+    let seenReset = false;
 
-    for await (const txEvent of txEvents) {
-      if (txEvent.action === "idle") {
-        const block = await this.syncClient.fetchBlock(txEvent.BlockRef);
+    for await (const blockEvent of blockEvents) {
+      if (blockEvent.action === "apply") {
         this.buffer.push({
-          output: {
-            block: block.parsedBlock,
-            txs: [],
-          },
-          cleanup: () => cleanupBlock(block.parsedBlock.header!.hash),
+          output: blockEvent.block,
+          cleanup: () => {},
         });
         this.newDataCondVar.wake();
-      } else if (txEvent.action === "apply") {
+      } else if (blockEvent.action === "undo") {
+        this.buffer.pop();
+      } else if (blockEvent.action === "reset") {
+        if (!seenReset) {
+          seenReset = true;
+          continue;
+        }
+
         const lastBlock = this.buffer.peekBack();
-        if (lastBlock && hashEqual(lastBlock.output.block.header!.hash, txEvent.Block.header!.hash)) {
-          lastBlock.output.txs.push(txEvent.Tx);
-        } else {
-          this.buffer.push({
-            output: {
-              block: txEvent.Block,
-              txs: [txEvent.Tx],
-            },
-            cleanup: () => cleanupBlock(txEvent.Block.header!.hash),
-          });
-          this.newDataCondVar.wake();
-        }
-      } else if (txEvent.action === "undo") {
-        for (let lastBlock = this.buffer.peekBack(); lastBlock; lastBlock = this.buffer.peekBack()) {
-          if (lastBlock.output.block.header!.height > txEvent.Block.header!.height) {
-            // rolled back past this apparently-empty block
-            this.buffer.pop();
-            continue;
-          }
-          if (lastBlock.output.block.header!.height === txEvent.Block.header!.height) {
-            lastBlock.output.txs = lastBlock.output.txs.filter(tx => !hashEqual(tx.hash, txEvent.Tx.hash));
-            if (!lastBlock.output.txs.length) {
-              this.buffer.pop();
-            }
-          }
-          break;
-        }
+        const lastPoint = lastBlock ? JSON.stringify({
+          slot: Number(lastBlock.output.header!.slot),
+          hash: Buffer.from(lastBlock.output.header!.hash).toString("hex"),
+        }) : "<none>";
+        throw new Error(
+          `Paima node stuck on fork. Currently at point ${lastPoint}`,
+        );
       }
     }
   }
@@ -98,7 +68,7 @@ export class BufferedRpc {
     while (
       this.buffer.length == 0 ||
       lastElement == null ||
-      height >= Number(lastElement.output.block.header!.height) - this.finality
+      height >= Number(lastElement.output.header!.height) - this.finality
     ) {
       yield* this.newDataCondVar.wait();
       lastElement = this.buffer.peekBack();
@@ -107,11 +77,11 @@ export class BufferedRpc {
     const endIndex = (() => {
       let endIndex = this.buffer.length - 1;
       const highestValid =
-        Number(this.buffer.peekBack()!.output.block.header!.height) -
+        Number(this.buffer.peekBack()!.output.header!.height) -
         this.finality;
       while (
         endIndex > 0 &&
-        Number(this.buffer.peekAt(endIndex)!.output.block.header!.height) >
+        Number(this.buffer.peekAt(endIndex)!.output.header!.height) >
           highestValid
       ) {
         endIndex--;
@@ -124,7 +94,7 @@ export class BufferedRpc {
       while (
         startIndex > 0 &&
         Number(
-            this.buffer.peekAt(startIndex - 1)!.output.block.header!.height,
+            this.buffer.peekAt(startIndex - 1)!.output.header!.height,
           ) >
           height
       ) {
@@ -133,8 +103,8 @@ export class BufferedRpc {
       return startIndex;
     })();
     return {
-      from: toPage(this.buffer.peekAt(startIndex)!.output.block),
-      to: toPage(this.buffer.peekAt(endIndex)!.output.block),
+      from: toPage(this.buffer.peekAt(startIndex)!.output),
+      to: toPage(this.buffer.peekAt(endIndex)!.output),
     };
   }
 
@@ -146,14 +116,14 @@ export class BufferedRpc {
   public fetchBlocks(
     from: BlockNumber, // (inclusive)
     to: BlockNumber, // (inclusive)
-  ): OutputAndCleanup<BlockAndTxs>[] {
-    const blocks: OutputAndCleanup<BlockAndTxs>[] = [];
+  ): OutputAndCleanup<cardano.Block>[] {
+    const blocks: OutputAndCleanup<cardano.Block>[] = [];
     for (let i = 0; i < this.buffer.length; i++) {
       const block = this.buffer.peekAt(i)!;
-      if (Number(block.output.block.header!.height) >= from) {
+      if (Number(block.output.header!.height) >= from) {
         blocks.push(block);
       }
-      if (Number(block.output.block.header!.height) >= to) {
+      if (Number(block.output.header!.height) >= to) {
         break;
       }
     }

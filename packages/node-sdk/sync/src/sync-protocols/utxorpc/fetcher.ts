@@ -21,7 +21,7 @@ export class UtxoRpcFetcher
 
   @bound
   async startAsync(point: ChainPoint | undefined) {
-    await this.client.start(point, this.config.primitives);
+    await this.client.start(point);
   }
 
   @bound
@@ -41,9 +41,9 @@ export class UtxoRpcFetcher
       outputs.push({
         output: {
           // TODO: What is the correct block hash?
-          blockHashes: [String(block.output.block.header?.hash)],
-          raw: block.output.block,
-          primitives: this.findPrimitives(block.output.block, new Uint8Array(), block.output.txs),
+          blockHashes: [String(block.output.header?.hash)],
+          raw: block.output,
+          primitives: this.findPrimitives(block.output),
         },
         cleanup: block.cleanup,
       });
@@ -74,9 +74,9 @@ export class UtxoRpcFetcher
   }
 
   @bound
-  findPrimitives(block: cardano.Block, blockBytes: Uint8Array, txs: cardano.Tx[]): PrimitiveType[] {
+  findPrimitives(block: cardano.Block): PrimitiveType[] {
     const primitiveResponses: PrimitiveType[] = [];
-    for (const tx of txs) {
+    for (const tx of block.body?.tx ?? []) {
       let logIndex = 0;
       for (const primitveEntry of this.config.primitives) {
         if (!matchesPredicate(tx, primitveEntry.primitive.predicate)) {

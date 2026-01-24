@@ -21,11 +21,6 @@ export type ChainPoint = {
   hash: string;
 };
 
-export type BlockAndTxs = {
-  block: cardano.Block;
-  txs: cardano.Tx[];
-};
-
 export type Page = {
   slot: AbsoluteSlotNumber;
   height: CardanoBlockNumber;
