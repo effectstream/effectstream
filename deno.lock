@@ -142,6 +142,7 @@
     "npm:@types/react@18.3.1": "18.3.1",
     "npm:@types/react@19.1.0": "19.1.0",
     "npm:@types/react@19.1.2": "19.1.2",
+    "npm:@utxorpc/sdk@0.8": "0.8.0_@connectrpc+connect@1.4.0__@bufbuild+protobuf@1.10.1",
     "npm:@utxorpc/spec@~0.18.1": "0.18.1",
     "npm:@vitejs/plugin-react@^4.4.1": "4.7.0_vite@7.1.3__@types+node@24.2.0__picomatch@4.0.3_@babel+core@7.28.6_@types+node@24.2.0",
     "npm:@wagmi/cli@2.3.1": "2.3.1_typescript@5.6.3_zod@3.25.76_esbuild@0.25.12_picomatch@3.0.1",
@@ -1763,6 +1764,27 @@
     "@colors/colors@1.5.0": {
       "integrity": "sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ=="
     },
+    "@connectrpc/connect-node@1.4.0_@bufbuild+protobuf@1.10.1_@connectrpc+connect@1.4.0__@bufbuild+protobuf@1.10.1": {
+      "integrity": "sha512-0ANnrr6SvsjevsWEgdzHy7BaHkluZyS6s4xNoVt7RBHFR5V/kT9lPokoIbYUOU9JHzdRgTaS3x5595mwUsu15g==",
+      "dependencies": [
+        "@bufbuild/protobuf",
+        "@connectrpc/connect",
+        "undici@5.29.0"
+      ]
+    },
+    "@connectrpc/connect-web@1.4.0_@bufbuild+protobuf@1.10.1_@connectrpc+connect@1.4.0__@bufbuild+protobuf@1.10.1": {
+      "integrity": "sha512-13aO4psFbbm7rdOFGV0De2Za64DY/acMspgloDlcOKzLPPs0yZkhp1OOzAQeiAIr7BM/VOHIA3p8mF0inxCYTA==",
+      "dependencies": [
+        "@bufbuild/protobuf",
+        "@connectrpc/connect"
+      ]
+    },
+    "@connectrpc/connect@1.4.0_@bufbuild+protobuf@1.10.1": {
+      "integrity": "sha512-vZeOkKaAjyV4+RH3+rJZIfDFJAfr+7fyYr6sLDKbYX3uuTVszhFe9/YKf5DNqrDb5cKdKVlYkGn6DTDqMitAnA==",
+      "dependencies": [
+        "@bufbuild/protobuf"
+      ]
+    },
     "@csstools/cascade-layer-name-parser@2.0.5_@csstools+css-parser-algorithms@3.0.5__@csstools+css-tokenizer@3.0.4_@csstools+css-tokenizer@3.0.4": {
       "integrity": "sha512-p1ko5eHgV+MgXFVa4STPKpvPxr6ReS8oS2jzTukjR74i5zJNyWO1ZM1m8YKBXnzDKWfBN1ztLYlHxbVemDD88A==",
       "dependencies": [
@@ -3279,6 +3301,9 @@
         "fast-uri"
       ]
     },
+    "@fastify/busboy@2.1.1": {
+      "integrity": "sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA=="
+    },
     "@fastify/cors@11.2.0": {
       "integrity": "sha512-LbLHBuSAdGdSFZYTLVA3+Ch2t+sA6nq3Ejc6XLAKiQ6ViS2qFnvicpj0htsx03FyYeLs04HfRNBsz/a8SvbcUw==",
       "dependencies": [
@@ -3815,16 +3840,13 @@
         "@midnight-ntwrk/onchain-runtime-v1",
         "@types/object-inspect",
         "object-inspect"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/compact-runtime/0.11.0-rc.1/811dda48339e7be77aa8f88e4e99c0f022a1c3f3"
+      ]
     },
     "@midnight-ntwrk/ledger-v6@6.1.0-alpha.6": {
-      "integrity": "sha512-EwmapuQx2eREsunLHM8eyy5M9T6mAtgybyANsnZ89LjFKDOSFQcZG/MDNq45IK5gv1UMHBKI+HJo+CQ7gbYIkA==",
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/ledger-v6/6.1.0-alpha.6/f403540eca387202cd690dba171e97c682924ecd"
+      "integrity": "sha512-EwmapuQx2eREsunLHM8eyy5M9T6mAtgybyANsnZ89LjFKDOSFQcZG/MDNq45IK5gv1UMHBKI+HJo+CQ7gbYIkA=="
     },
     "@midnight-ntwrk/ledger@4.0.0": {
-      "integrity": "sha512-cnJisY8uQ4NO54miDnjs/ov6n102ZPfKEPxtiDKVEdlKijcc70jz/CI2yBCc0itlwwaqma7FM2Ou5N4pWpbwbg==",
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/ledger/4.0.0/2cf7370ff6e27482cce60724f114935512b5e473"
+      "integrity": "sha512-cnJisY8uQ4NO54miDnjs/ov6n102ZPfKEPxtiDKVEdlKijcc70jz/CI2yBCc0itlwwaqma7FM2Ou5N4pWpbwbg=="
     },
     "@midnight-ntwrk/midnight-js-contracts@3.0.0-alpha.11": {
       "integrity": "sha512-zk/Nfs24yFggbv6WpnGW5UCUABwce+YksX83qWyrX3oG2OSXlyurW3/hM8w1yEgzlNipgcbt6Lo5jY3DYLjTMQ==",
@@ -3832,16 +3854,14 @@
         "@midnight-ntwrk/midnight-js-network-id@3.0.0-alpha.11",
         "@midnight-ntwrk/midnight-js-types@3.0.0-alpha.11",
         "@midnight-ntwrk/midnight-js-utils@3.0.0-alpha.11"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-contracts/3.0.0-alpha.11/74a6f94d8b2de0c8f8ba1706b99c03e696853ef4"
+      ]
     },
     "@midnight-ntwrk/midnight-js-fetch-zk-config-provider@2.1.0": {
       "integrity": "sha512-oWztVa4A+/trjSFjEFID6pCYYip/r3JoMfjtoboby17Um/wncUTxu35dZybgmhQzM0BiGKuyq7zVVodI5bbl/Q==",
       "dependencies": [
         "@midnight-ntwrk/midnight-js-types@2.1.0",
         "cross-fetch@4.1.0"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-fetch-zk-config-provider/2.1.0/d5f394117dd68f8abe4cb989324bcde331db4ba5"
+      ]
     },
     "@midnight-ntwrk/midnight-js-http-client-proof-provider@3.0.0-alpha.11": {
       "integrity": "sha512-k4BMjor03gw0iaPiZWRiGWwjxCAZm1kdSJ2/KD2JAGY6weGbj+Vxv9SaHu5DQf7goWgdFUoVWlpf3FhQ9QEm2Q==",
@@ -3853,8 +3873,7 @@
         "cross-fetch@4.1.0",
         "fetch-retry",
         "lodash"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-http-client-proof-provider/3.0.0-alpha.11/bdd2d12ab846ad974f552a009d94d2e0fc0676b6"
+      ]
     },
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider@3.0.0-alpha.11_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.19.0___bufferutil@4.1.0___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10_@types+react@18.3.1": {
       "integrity": "sha512-5LgjP9uNcJ5ynq2pTG9Y2IVEpU0abcmkOtExd9afPQyv+admGdnwJ1PHXP20SIlwNjb2+Ss1KIkuFTieU45r5Q==",
@@ -3871,8 +3890,7 @@
         "rxjs",
         "ws@8.19.0_bufferutil@4.1.0_utf-8-validate@5.0.10",
         "zen-observable-ts"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-indexer-public-data-provider/3.0.0-alpha.11/c1cc295e76bf6c2f60767828a349f312523da431"
+      ]
     },
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider@3.0.0-alpha.12_graphql@16.12.0_graphql-ws@6.0.6__graphql@16.12.0__ws@8.19.0___bufferutil@4.1.0___utf-8-validate@5.0.10_react@18.3.1_react-dom@18.3.1__react@18.3.1_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10_@types+react@18.3.1": {
       "integrity": "sha512-he4ZogEWVDeVnsOljP0XO/DPAVeLW4zIpMjkW40SOB/Bb+JDNmx/i+sNogZIbylDwdNOj8lYMWaanzQNRr+cTw==",
@@ -3889,8 +3907,7 @@
         "rxjs",
         "ws@8.19.0_bufferutil@4.1.0_utf-8-validate@5.0.10",
         "zen-observable-ts"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-indexer-public-data-provider/3.0.0-alpha.12/d66074c8f5452fca011819d898fcfffa2cde98ec"
+      ]
     },
     "@midnight-ntwrk/midnight-js-level-private-state-provider@3.0.0-alpha.11_fp-ts@2.16.11": {
       "integrity": "sha512-hrB5oSCNV027/ANDF19D4zxhhF/BSkDKy5zW1wEzyhI+tAghkVPULofnNcTUD4GTI/8SSzqgwj8YUv+24tNdIA==",
@@ -3903,87 +3920,74 @@
         "level",
         "lodash",
         "superjson"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-level-private-state-provider/3.0.0-alpha.11/ab032ce2cfc1c626a837214e425a66a695b89ae1"
+      ]
     },
     "@midnight-ntwrk/midnight-js-network-id@3.0.0-alpha.11": {
-      "integrity": "sha512-E4I69HpRRai34Upbb4rk3inUdWPlUvnsrRm4GwjKe6Oe/Gt+GizBVI8BZl0R5XLxvx0/4oklPapYOXpkhT9tqQ==",
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-network-id/3.0.0-alpha.11/7193828eb6477d872b89ab31be40ddc31558b6e6"
+      "integrity": "sha512-E4I69HpRRai34Upbb4rk3inUdWPlUvnsrRm4GwjKe6Oe/Gt+GizBVI8BZl0R5XLxvx0/4oklPapYOXpkhT9tqQ=="
     },
     "@midnight-ntwrk/midnight-js-network-id@3.0.0-alpha.12": {
-      "integrity": "sha512-C2tFkUMo38CxH+/jLLQ5ykl/AV38PnHZIfnyM8gkq7Noj0KYTmktkCYRZhkipeaoYVRwDHQS0K1SiGlwdRKi7A==",
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-network-id/3.0.0-alpha.12/0aa85ec4828c981699730088eaac260219eddbd7"
+      "integrity": "sha512-C2tFkUMo38CxH+/jLLQ5ykl/AV38PnHZIfnyM8gkq7Noj0KYTmktkCYRZhkipeaoYVRwDHQS0K1SiGlwdRKi7A=="
     },
     "@midnight-ntwrk/midnight-js-node-zk-config-provider@3.0.0-alpha.11": {
       "integrity": "sha512-LglvcwSQSLSE6HJF96QnBe+k+gbJAQftyV1PdcyvOuDkbHCFYkYZUsiYT3Ma8m/yN8UgC9nPltTlOw8tX30HJw==",
       "dependencies": [
         "@midnight-ntwrk/midnight-js-types@3.0.0-alpha.11"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-node-zk-config-provider/3.0.0-alpha.11/2fcbb352f8486524b52ba89d3d185c5a44dc1b07"
+      ]
     },
     "@midnight-ntwrk/midnight-js-types@2.1.0": {
       "integrity": "sha512-bU7f2gdXt1/BR2XatKNPx9o6FDq1exYcWLQg4kn78d1SX39OVD33PVOavg2mFMoeC00YpcG2T1xH0eD/CMwXgA==",
       "dependencies": [
         "rxjs"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-types/2.1.0/7879d71a3d31f74a7021bb2b698eb6782b7d62c4"
+      ]
     },
     "@midnight-ntwrk/midnight-js-types@3.0.0-alpha.11": {
       "integrity": "sha512-gdNVrAmN6mo1jNWUsQERneZ38ie1idmqJSOK7qj4/yG6mjTjFjWNvyeC1WxFXmDotqRpW5LiAR9hT/VIWzh2Xw==",
       "dependencies": [
         "rxjs"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-types/3.0.0-alpha.11/061d9f8558fba96cbb0938a7073d5878d0f5f213"
+      ]
     },
     "@midnight-ntwrk/midnight-js-types@3.0.0-alpha.12": {
       "integrity": "sha512-ClyjWjWAJ2BJJtxAHoa4gLiIakfoFnLh0mW1QSTUaHzuwtXW673UlixS2XVb2f8HUs6/YqGW0nBOvGFtaRsDfg==",
       "dependencies": [
         "rxjs"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-types/3.0.0-alpha.12/53a58ac880a7fe1d1f179e1ec053cd6566e55979"
+      ]
     },
     "@midnight-ntwrk/midnight-js-utils@3.0.0-alpha.11": {
       "integrity": "sha512-gdETtSPdEsc58oBtM+5aev0tFKoEulyoX6PnNt2vSsJVan825yPoF0cEgGUVMxkTIkWgDFmhSKeJ0pAhuO8TZA==",
       "dependencies": [
         "@midnight-ntwrk/midnight-js-network-id@3.0.0-alpha.11",
         "@scure/base@2.0.0"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-utils/3.0.0-alpha.11/b9d7023a14ad31b046588fc94ab4c39aab101f8a"
+      ]
     },
     "@midnight-ntwrk/midnight-js-utils@3.0.0-alpha.12": {
       "integrity": "sha512-I+WBbhJvK7k6mPHAixRWA3tfgYhiGc0WS3yNUu1nD31MpdlBzl+XrJe+yPhY2KYecxIohPHkxWSKW2fFvxB6Og==",
       "dependencies": [
         "@midnight-ntwrk/midnight-js-network-id@3.0.0-alpha.12",
         "@scure/base@2.0.0"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/midnight-js-utils/3.0.0-alpha.12/de290661a133e8aba9f9406cce84356aae67aa00"
+      ]
     },
     "@midnight-ntwrk/onchain-runtime-v1@1.0.0-alpha.5": {
-      "integrity": "sha512-f2l6PaWFycNukB8kk8w/E5TuR2P8DX1TJ1papbIoEFPYJadHozzMwg0OW9IEYWNIDw3S/adL0B9Qx7F8VODlPQ==",
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/onchain-runtime-v1/1.0.0-alpha.5/c7f885988b50886d1d78a0d25141c77302cef984"
+      "integrity": "sha512-f2l6PaWFycNukB8kk8w/E5TuR2P8DX1TJ1papbIoEFPYJadHozzMwg0OW9IEYWNIDw3S/adL0B9Qx7F8VODlPQ=="
     },
     "@midnight-ntwrk/wallet-api@5.0.0_rxjs@7.8.2": {
       "integrity": "sha512-L5Z9+v+ouqTtPLoXpngtBVHZ0SmC3zLrCZbuYnd/ul6p9UbwUQ3AQeqMhclv2jhwFRNYsL0fBOqpD5dvs4SvLQ==",
       "dependencies": [
         "@midnight-ntwrk/zswap",
         "rxjs"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-api/5.0.0/3fdac91d3019d1e0e8f440a6444d9fd840f72741"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-abstractions@1.0.0-beta.9": {
       "integrity": "sha512-p1KPyDTa8yGrGEkzS+YFQ1WwRLSxEd4Q9AjxAkAT6Vi0ATKhD8v+i9tlnAawSvwlqwBJOQTByrt4WpfrZcdmrg==",
       "dependencies": [
         "effect"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-abstractions/1.0.0-beta.9/512269a27eb670465450bfce200c4b720b9f89d8"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-address-format@2.0.0_@midnight-ntwrk+zswap@4.0.0": {
       "integrity": "sha512-S/3uIfXXUcklYocO0UPey+15uI095CFuCyJRYgxnTmkIXrgjOn8IfSHnReHDtE6JKkvdN2EXlYVt4ufRdCMuPA==",
       "dependencies": [
         "@midnight-ntwrk/zswap",
         "@scure/base@1.2.6"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-address-format/2.0.0/655a703be8e7281b08cfe84c0478026f5212d240"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-address-format@3.0.0-beta.9": {
       "integrity": "sha512-HU60iB1uLTJj++wnOpJgrBGMbOk3nmzjCL2kkVDuvo8Q9xr9SHAuuUx8IiWRGJeoYIuU1ZIROJvxeKTkQF9rdA==",
@@ -3991,15 +3995,13 @@
         "@midnight-ntwrk/ledger-v6",
         "@scure/base@1.2.6",
         "@subsquid/scale-codec"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-address-format/3.0.0-beta.9/cf3025932bb42818a6e5184c88b19e7ddf48032d"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-capabilities@2.0.0_@midnight-ntwrk+zswap@4.0.0": {
       "integrity": "sha512-zl1uZwy8bMlpNfze6rRTEMZiOCKr4dYBYoIVKLPkck1vKcz3nhsjFAkNfsYtFyND/K7/7mLZBtuHxGWX4gYxXQ==",
       "dependencies": [
         "@midnight-ntwrk/zswap"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-capabilities/2.0.0/2be32fb38122603c262184c024bf8b99e8ce3573"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-capabilities@3.0.0-beta.9": {
       "integrity": "sha512-tpgjk9c1KpNMwoEw7t3ZXeKPAXdfR9FazzVELV2TcnXW7D4daFE5jcrcIKNTZQ2OCZUPyxo4WzGtzKOORKuDXw==",
@@ -4007,8 +4009,7 @@
         "@midnight-ntwrk/wallet-sdk-address-format@3.0.0-beta.9",
         "@midnight-ntwrk/wallet-sdk-hd",
         "effect"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-capabilities/3.0.0-beta.9/346cf9cb1148418b073ade60b98c38e922f4fd0d"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-dust-wallet@1.0.0-beta.11_ws@8.18.1": {
       "integrity": "sha512-HFC7cuyjOREMHtbGi6L873pv3QUHjC6bDf/xWnkwJ7H753lgf3fz1xwYi8S9PuR6FjEwruLwflRhv+p2vwjyjw==",
@@ -4025,8 +4026,7 @@
         "@midnight-ntwrk/wallet-sdk-utilities",
         "effect",
         "rxjs"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-dust-wallet/1.0.0-beta.11/a2f73c964f9a59cab2966b062363fed78bcee0a1"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-facade@1.0.0-beta.12_ws@8.18.1": {
       "integrity": "sha512-+ARnm4nnQ/sG+wO0BVcl5yygJhALk1MIhD/+4/C4xmbWaSte6gStLD3p1M4yb3DehgxGhn7pxgo00D4yvw2Veg==",
@@ -4039,8 +4039,7 @@
         "@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.12_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10",
         "@midnight-ntwrk/wallet-sdk-unshielded-wallet",
         "rxjs"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-facade/1.0.0-beta.12/56afbecb5f464ae8a43fb1d0ce70af2d7fe30f5a"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-hd@3.0.0-beta.7": {
       "integrity": "sha512-9WGZsAILQ8IMEhCaDesbpXobyAmvLbUAws/zL/YzOCzITUVxH4VIi51FnIu/wiZXHcjXdqfRAZZBYhFcVOsI4Q==",
@@ -4048,8 +4047,7 @@
         "@scure/base@1.2.6",
         "@scure/bip32@1.7.0",
         "@scure/bip39@1.6.0"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-hd/3.0.0-beta.7/40f050d92d726cd87f45ff701476e341d83403f7"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-indexer-client@1.0.0-beta.12_effect@3.19.14_graphql@16.12.0_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10": {
       "integrity": "sha512-n1B0vX3i60xs/rdFk+2QQIk6V5QODI/0Z4jzroiOLP3PRsKRptimr+WoBuz+o4NBMwyEve25sgh7f34frEuOGg==",
@@ -4062,8 +4060,7 @@
         "graphql",
         "graphql-http",
         "graphql-ws@6.0.6_graphql@16.12.0_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-indexer-client/1.0.0-beta.12/e6bc51605d7e2a8e9e42d71b691eedfca2191791"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-indexer-client@1.0.0-beta.13_effect@3.19.14_graphql@16.12.0_ws@8.18.1": {
       "integrity": "sha512-f0S94gDk9VMD4WC+bTntqNndv2tRQeeg38hPcuhGwdI0wDmQAbhEeu7kVDk5T3cW39J7KJx6w0a1ppxqlISEXg==",
@@ -4076,8 +4073,7 @@
         "graphql",
         "graphql-http",
         "graphql-ws@6.0.6_graphql@16.12.0_ws@8.18.1"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-indexer-client/1.0.0-beta.13/da11a811beb42ef7c9c1c87b1175834c4848731c"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-indexer-client@1.0.0-beta.13_effect@3.19.14_graphql@16.12.0_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10": {
       "integrity": "sha512-f0S94gDk9VMD4WC+bTntqNndv2tRQeeg38hPcuhGwdI0wDmQAbhEeu7kVDk5T3cW39J7KJx6w0a1ppxqlISEXg==",
@@ -4090,8 +4086,7 @@
         "graphql",
         "graphql-http",
         "graphql-ws@6.0.6_graphql@16.12.0_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-indexer-client/1.0.0-beta.13/da11a811beb42ef7c9c1c87b1175834c4848731c"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-node-client@1.0.0-beta.10": {
       "integrity": "sha512-UMESShY4QXv7J9MfaAHjCEFTN7/oaP5gt01JjZ+uJ2LbivN4gQv+6B3OpNzTR7GImVQYvdntz3xZ850dH2hotA==",
@@ -4111,8 +4106,7 @@
         "effect",
         "rxjs",
         "testcontainers"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-node-client/1.0.0-beta.10/c6fb0a9dcf203d147bb11399e26d89e893073ea0"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-prover-client@1.0.0-beta.10_effect@3.19.14": {
       "integrity": "sha512-ctAYUOwNr5bZnf77uykVrVhbqaCcpzeLApLs+EBCyliUXzLPQoj3r3Cl6rauKncJshw8HvdTPHBUSFpRPJYLMQ==",
@@ -4122,8 +4116,7 @@
         "@midnight-ntwrk/wallet-sdk-abstractions",
         "@midnight-ntwrk/wallet-sdk-utilities",
         "effect"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-prover-client/1.0.0-beta.10/700f3dee04a8daa67dfe43797aebcd79a686d734"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-runtime@1.0.0-beta.8": {
       "integrity": "sha512-tKdohxKLGEsSR9JMBTIf6kzIgIurXMdmIQznMWqmZ0nT2E6FxbrcjCRPoXuNkfmSsWAYwdvx+AZdvq8NljerQw==",
@@ -4132,8 +4125,7 @@
         "@midnight-ntwrk/wallet-sdk-utilities",
         "effect",
         "rxjs"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-runtime/1.0.0-beta.8/8da13169a64f4ed32b6da687e89419ed6dd2a922"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.11_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10": {
       "integrity": "sha512-6iMYv1lM2wW8a6/532Oj3X+N29m3T8lXRNzZatUWlSOJ43Eb3JklqVsEXLiaX+acSf0n6gpOMWgWgIkTSFrVsg==",
@@ -4154,8 +4146,7 @@
         "rxjs",
         "scale-ts",
         "ws@8.19.0_bufferutil@4.1.0_utf-8-validate@5.0.10"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-shielded/1.0.0-beta.11/dd45fc4d556171ccce500176b8ee3bee73be08de"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-shielded@1.0.0-beta.12_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10": {
       "integrity": "sha512-XVNHIPoytYIdnPUCyO0JrchGTQb0KN17NeCGPJPMmK/oreh9gOI2NiqgnHmXPJn+a73Z+FGEfVPDaTb9AfAcXg==",
@@ -4176,15 +4167,13 @@
         "rxjs",
         "scale-ts",
         "ws@8.19.0_bufferutil@4.1.0_utf-8-validate@5.0.10"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-shielded/1.0.0-beta.12/ad87dc989c2a4b4b7d49edaf249a37b2f613a1d8"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-unshielded-state@1.0.0-beta.11": {
       "integrity": "sha512-IwaqiKRRJ9d9DSbGnB6gLlcrtJaukTX02MbAuThH5U4aEJAd8qPxEaxbF6KIqfAjHF/B2jlnuBEaR6+G/iaizA==",
       "dependencies": [
         "effect"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-unshielded-state/1.0.0-beta.11/a0f509d8388642aa28ad00e075f81f9dcf46697d"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0-beta.14_ws@8.18.1": {
       "integrity": "sha512-rPZOVOm55JRYi9Be+3kPUUjVFg4TOjRJ6wUXyoEMwq9YOdRowLCZdOK/svvrqd/FqHrLRz7Z6brXmJJ09zhXWA==",
@@ -4199,8 +4188,7 @@
         "@midnight-ntwrk/wallet-sdk-utilities",
         "effect",
         "rxjs"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-unshielded-wallet/1.0.0-beta.14/e2b616c71cb5c5a881f709dc50821011cc549d49"
+      ]
     },
     "@midnight-ntwrk/wallet-sdk-utilities@1.0.0-beta.7": {
       "integrity": "sha512-f7gVrsmcXKl/peAFiWxbftt+mFIBqoCtOOy9+ZdqBmzjpvegIYDURg/q9NiWUTviBb0w99MxoIa732Cpdtm/AQ==",
@@ -4209,8 +4197,7 @@
         "portfinder",
         "rxjs",
         "testcontainers"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet-sdk-utilities/1.0.0-beta.7/9f2215eff2b5542e7299ee29f6e6d1f588dd0cb0"
+      ]
     },
     "@midnight-ntwrk/wallet@5.0.0_rxjs@7.8.2_@midnight-ntwrk+zswap@4.0.0_ws@8.19.0__bufferutil@4.1.0__utf-8-validate@5.0.10": {
       "integrity": "sha512-30NjR0w4lOtFrJmwrV0MiFg6QtoKLmCd3e0vy5RxKOvdE8Au6N7O9jiEyZc13c2pk4Pj9ShKL8qukybQhhCuTQ==",
@@ -4224,12 +4211,10 @@
         "rxjs",
         "scale-ts",
         "ws@8.19.0_bufferutil@4.1.0_utf-8-validate@5.0.10"
-      ],
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/wallet/5.0.0/0019bbe327e49af96b27b9dc99bbe2015397a4e2"
+      ]
     },
     "@midnight-ntwrk/zswap@4.0.0": {
-      "integrity": "sha512-yKfzp4M/wUkqxUJv1D2SizojYdWYnF3FDeKaxPehLPOFC4BrR9KnLZsNR2Y/occ8a4yFDtQXf7bN1QvK5k7Grw==",
-      "tarball": "https://npm.pkg.github.com/download/@midnight-ntwrk/zswap/4.0.0/cf83884fe94a4f03aadfc82e5161c05d54822053"
+      "integrity": "sha512-yKfzp4M/wUkqxUJv1D2SizojYdWYnF3FDeKaxPehLPOFC4BrR9KnLZsNR2Y/occ8a4yFDtQXf7bN1QvK5k7Grw=="
     },
     "@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.3": {
       "integrity": "sha512-QZHtlVgbAdy2zAqNA9Gu1UpIuI8Xvsd1v8ic6B2pZmeFnFcMWiPLfWXh7TVw4eGEZ/C9TH281KwhVoeQUKbyjw==",
@@ -8349,6 +8334,16 @@
     },
     "@ungap/structured-clone@1.3.0": {
       "integrity": "sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g=="
+    },
+    "@utxorpc/sdk@0.8.0_@connectrpc+connect@1.4.0__@bufbuild+protobuf@1.10.1": {
+      "integrity": "sha512-bOm9bHmPEVOCTZD+kziCVgzQmttNoPy8okX3M84hYgrmuNL+rTwskELQDM2gx2VSliDGkjqjHx/Nzzfr72bi+g==",
+      "dependencies": [
+        "@connectrpc/connect",
+        "@connectrpc/connect-node",
+        "@connectrpc/connect-web",
+        "@utxorpc/spec",
+        "buffer@6.0.3"
+      ]
     },
     "@utxorpc/spec@0.18.1": {
       "integrity": "sha512-XNUhgYImEQlmYxWzHhtRSHcKU/VhJ2fbZPzjBgtEyU/3iZgAev9JdjZc5GWEBXO8iWifqaqK1TarANwMbOftVQ==",
@@ -19154,6 +19149,12 @@
     "undici-types@7.18.2": {
       "integrity": "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="
     },
+    "undici@5.29.0": {
+      "integrity": "sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg==",
+      "dependencies": [
+        "@fastify/busboy"
+      ]
+    },
     "undici@6.23.0": {
       "integrity": "sha512-VfQPToRA5FZs/qJxLIinmU59u0r7LXqoJkCzinq3ckNJp3vKEh7jTWN589YQ5+aoAC/TGRLyJLCPKcLQbM8r9g=="
     },
@@ -20531,14 +20532,7 @@
       "integrity": "sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A=="
     }
   },
-  "remote": {
-    "https://raw.githubusercontent.com/utxorpc/node-sdk/626068a7a2737d81e399c546ce79f9ad3836b5f8/package.json": "f3ad0f06c32f5577edc70a6dfac8d7f0ac16fa33d422e30cb6a9b2c0a077c4ad"
-  },
   "workspace": {
-    "dependencies": [
-      "npm:@utxorpc/spec@~0.18.1",
-      "npm:buffer@^6.0.3"
-    ],
     "members": {
       "docs/site": {
         "packageJson": {
@@ -21176,6 +21170,7 @@
           "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@3.0.0-alpha.12",
           "npm:@midnight-ntwrk/onchain-runtime-v1@1.0.0-alpha.5",
           "npm:@sinclair/typebox@0.34.41",
+          "npm:@utxorpc/sdk@0.8",
           "npm:@utxorpc/spec@~0.18.1",
           "npm:avail-js-sdk@~0.4.2",
           "npm:buffer@^6.0.3",

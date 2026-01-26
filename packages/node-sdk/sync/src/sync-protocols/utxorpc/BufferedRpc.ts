@@ -1,4 +1,4 @@
-import type { CardanoSyncClient, CardanoWatchClient } from "@utxorpc/sdk";
+import type { CardanoSyncClient } from "@utxorpc/sdk";
 import type { cardano } from "@utxorpc/spec";
 import type { OutputAndCleanup } from "../base/state.ts";
 import Deque from "denque";
