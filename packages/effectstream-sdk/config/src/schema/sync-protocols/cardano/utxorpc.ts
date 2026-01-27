@@ -68,7 +68,9 @@ export const ConfigSyncProtocolSchemaCardanoUtxoRpcBase = NameField
       name: Type.String(),
       rpcUrl: Type.String(),
     }),
-    optional: Type.Object({}),
+    optional: Type.Object({
+      headers: Type.Record(Type.String(), Type.String()),
+    }),
   });
 
 export const CommonResponseCardanoUtxoRpcBase = {

@@ -65,6 +65,7 @@ export function* genSyncProtocols(
       }
       const syncClient = new CardanoSyncClient({
         uri: entry.syncProtocol.rpcUrl,
+        headers: entry.syncProtocol.headers,
       });
       const bufferedRpc = new BufferedRpc(
         syncClient,
