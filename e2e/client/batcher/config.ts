@@ -22,14 +22,6 @@ const midnightContractsDir = resolve(currentDir, "..", "..", "shared", "contract
 const batchIntervalMs = 1000;
 const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
 
-// PaimaL2 EVM adapter
-export const paimaL2Adapter = new PaimaL2DefaultAdapter(
-  paimaL2Address,
-  batcherPrivateKey,
-  paimaL2Fee,
-  paimaSyncProtocolName,
-);
-
 const { contractInfo, contractAddress, zkConfigPath } = readMidnightContract(
   "contract-eip-20",
   {

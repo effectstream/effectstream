@@ -76,10 +76,12 @@ if (Deno) {
   }
 
     // We fetch the latest block from the dolos mini blockfrost endpoint
-    const response = await fetch("http://localhost:3000/blocks/latest");
-    yaciDevKitStartTime = (await response.json()).time * 1000;
-    yaciDevKitStartTime = new Date().getTime() - yaciDevKitStartTime;
-    console.log("yaciDevKitStartTime", yaciDevKitStartTime);
+    if (yaci_enabled) {
+      const response = await fetch("http://localhost:3000/blocks/latest");
+      yaciDevKitStartTime = (await response.json()).time * 1000;
+      yaciDevKitStartTime = new Date().getTime() - yaciDevKitStartTime;
+      console.log("yaciDevKitStartTime", yaciDevKitStartTime);
+    }
 }
 
 export const config = new ConfigBuilder()
