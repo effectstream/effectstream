@@ -86,6 +86,15 @@ const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
 const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
 const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
 
+export class DelegatedBalancingSentError extends Error {
+  constructor() {
+    super("Delegated balancing flow handed off to batcher");
+  }
+}
+
+let lastCapturedTx: string | null = null;
+export const getLastCapturedTx = () => lastCapturedTx;
+
 const toHex = (data: Uint8Array): string =>
   Array.from(data)
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -311,63 +320,25 @@ const createWalletAndMidnightProvider = (
       _newCoins?: ShieldedCoinInfo[],
       _ttl?: Date
     ): Promise<BalancedProvingRecipe> {
-      console.log(" erc20.ts: balanceTx called", { tx, _newCoins, _ttl });
+      console.log(" erc20.ts: balanceTx called (delegated)", { tx, _newCoins, _ttl });
       
       try {
         const hexTx = toHex(tx.serialize());
-        console.log(" erc20.ts: Sending UNPROVEN transaction to balanceUnsealedTransaction", { hexTx });
-        
-        const result = await connectedAPI.balanceUnsealedTransaction(hexTx);
-        console.log(" erc20.ts: received result from balanceUnsealedTransaction", result);
-        
-        const balancedTx = LedgerV6Transaction.deserialize(
-          'signature' as const,
-          'pre-proof' as const,
-          'pre-binding' as const,
-          fromHex(result.tx)
-        ) as UnprovenTransaction;
+        console.log(" erc20.ts: Capturing UNPROVEN transaction for delegation", { hexTxLength: hexTx.length });
+        lastCapturedTx = hexTx;
         
         return {
           type: TRANSACTION_TO_PROVE,
-          transaction: balancedTx,
+          transaction: tx,
         };
       } catch (error) {
-        console.error(" erc20.ts: balanceUnsealedTransaction failed", error);
-        if (error instanceof Error) {
-           console.error(" erc20.ts: error message", error.message);
-           console.error(" erc20.ts: error stack", error.stack);
-        }
+        console.error(" erc20.ts: balanceTx failed", error);
         throw error;
       }
     },
     async submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
-      console.log(" erc20.ts: submitTx called", { tx });
-      
-      try {
-        const hexTx = toHex(tx.serialize());
-        console.log(" erc20.ts: Submitting final balanced transaction to submitTransaction", { hexTx });
-        
-        // Compute transaction ID (hash) locally from the serialized transaction
-        const txId = LedgerV6Transaction.deserialize(
-          'signature' as const,
-          'proof' as const,
-          'binding' as const,
-          fromHex(hexTx)
-        ).transactionHash();
-        
-        console.log(" erc20.ts: Computed transaction ID:", txId);
-        
-        await connectedAPI.submitTransaction(hexTx);
-        console.log(" erc20.ts: transaction submitted successfully");
-        
-        return txId as unknown as TransactionId;
-      } catch (error) {
-        console.error(" erc20.ts: submitTransaction failed", error);
-        if (error instanceof Error) {
-           console.error(" erc20.ts: error message", error.message);
-        }
-        throw error;
-      }
+      console.log(" erc20.ts: submitTx called (delegated)", { tx });
+      throw new DelegatedBalancingSentError();
     },
   };
 };
@@ -419,181 +390,6 @@ const configureProviders = async (
   };
 };
 
-class MidnightAlternativeLogin {
-  private initializedProviders:
-    | Promise<MultiChainMultiTokenProviders>
-    | undefined;
-  private logger = {
-    info: (...message: any[]) => console.log(...message),
-    error: (...message: any[]) => console.error(...message),
-  };
-
-  constructor() {}
-
-  public getProviders(): Promise<MultiChainMultiTokenProviders> {
-    // We use a cached `Promise` to hold the providers. This will:
-    //
-    // 1. Cache and re-use the providers (including the configured connector API), and
-    // 2. Act as a synchronization point if multiple contract deploys or joins run concurrently.
-    //    Concurrent calls to `getProviders()` will receive, and ultimately await, the same
-    //    `Promise`.
-    return (
-      this.initializedProviders ??
-      (this.initializedProviders = this.initializeProviders())
-    );
-  }
-
-  /** @internal */
-  private async initializeProviders(): Promise<MultiChainMultiTokenProviders> {
-    const { wallet, uris } = await this.connectToWallet();
-    const walletState = await wallet.state();
-    const zkConfigPath = window.location.origin; // '../../../contract/src/managed/bboard';
-
-    console.log(
-      `Connecting to wallet with network ID: ${getLedgerNetworkId()}`
-    );
-
-    return {
-      privateStateProvider: levelPrivateStateProvider({}),
-      zkConfigProvider: new FetchZkConfigProvider(
-        zkConfigPath,
-        fetch.bind(window)
-      ),
-      proofProvider: httpClientProofProvider(uris.proverServerUri),
-      publicDataProvider: indexerPublicDataProvider(
-        uris.indexerUri,
-        uris.indexerWsUri
-      ),
-      walletProvider: {
-        coinPublicKey: walletState.coinPublicKey,
-        encryptionPublicKey: walletState.encryptionPublicKey,
-        balanceTx(
-          tx: UnbalancedTransaction,
-          newCoins: CoinInfo[]
-        ): Promise<BalancedTransaction> {
-          return wallet
-            .balanceAndProveTransaction(
-              ZswapTransaction.deserialize(
-                tx.serialize(getLedgerNetworkId()),
-                getZswapNetworkId()
-              ),
-              newCoins
-            )
-            .then((zswapTx: any) =>
-              Transaction.deserialize(
-                zswapTx.serialize(getZswapNetworkId()),
-                getLedgerNetworkId()
-              )
-            )
-            .then(createBalancedTx);
-        },
-      },
-      midnightProvider: {
-        submitTx(tx: BalancedTransaction): Promise<TransactionId> {
-          return wallet.submitTransaction(tx);
-        },
-      },
-    };
-  }
-
-  /** @internal */
-  private async connectToWallet(): Promise<{
-    wallet: DAppConnectorWalletAPI;
-    uris: ServiceUriConfig;
-  }> {
-    const COMPATIBLE_CONNECTOR_API_VERSION = "1.x";
-
-    return firstValueFrom(
-      fnPipe(
-        interval(100),
-        map(() => window.midnight?.mnLace),
-        tap((connectorAPI) => {
-          this.logger.info(connectorAPI, "Check for wallet connector API");
-        }),
-        filter(
-          (connectorAPI): connectorAPI is DAppConnectorAPI => !!connectorAPI
-        ),
-        concatMap((connectorAPI) =>
-          semver.satisfies(
-            connectorAPI.apiVersion,
-            COMPATIBLE_CONNECTOR_API_VERSION
-          )
-            ? of(connectorAPI)
-            : throwError(() => {
-                this.logger.error(
-                  {
-                    expected: COMPATIBLE_CONNECTOR_API_VERSION,
-                    actual: connectorAPI.apiVersion,
-                  },
-                  "Incompatible version of wallet connector API"
-                );
-
-                return new Error(
-                  `Incompatible version of Midnight Lace wallet found. Require '${COMPATIBLE_CONNECTOR_API_VERSION}', got '${connectorAPI.apiVersion}'.`
-                );
-              })
-        ),
-        tap((connectorAPI) => {
-          this.logger.info(
-            connectorAPI,
-            "Compatible wallet connector API found. Connecting."
-          );
-        }),
-        take(1),
-        timeout({
-          first: 1_000,
-          with: () =>
-            throwError(() => {
-              this.logger.error("Could not find wallet connector API");
-
-              return new Error(
-                "Could not find Midnight Lace wallet. Extension installed?"
-              );
-            }),
-        }),
-        concatMap(async (connectorAPI) => {
-          const isEnabled = await connectorAPI.isEnabled();
-
-          this.logger.info(isEnabled, "Wallet connector API enabled status");
-
-          return connectorAPI;
-        }),
-        timeout({
-          first: 5_000,
-          with: () =>
-            throwError(() => {
-              this.logger.error("Wallet connector API has failed to respond");
-
-              return new Error(
-                "Midnight Lace wallet has failed to respond. Extension enabled?"
-              );
-            }),
-        }),
-        concatMap(async (connectorAPI) => ({
-          walletConnectorAPI: await connectorAPI.enable(),
-          connectorAPI,
-        })),
-        catchError((error, apis) =>
-          error
-            ? throwError(() => {
-                this.logger.error("Unable to enable connector API");
-                return new Error("Application is not authorized");
-              })
-            : apis
-        ),
-        concatMap(async ({ walletConnectorAPI, connectorAPI }) => {
-          const uris = await connectorAPI.serviceUriConfig();
-
-          this.logger.info(
-            "Connected to wallet connector API and retrieved service configuration"
-          );
-
-          return { wallet: walletConnectorAPI, uris };
-        })
-      )
-    );
-  }
-}
 
 /**
  * Get contract address from command line arguments or from a file

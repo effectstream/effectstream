@@ -4,6 +4,44 @@ import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 import * as unshielded_erc20 from "./contracts/erc20.ts";
 import * as erc7683 from "./contracts/intents.ts";
 
+enum AddressType {
+  MIDNIGHT = 5,
+}
+
+const BATCHER_URL = "http://127.0.0.1:3334";
+
+async function submitToBatcher(serializedTx: string, circuitId: string, addr: string) {
+  console.log(`🚀 Sending ${circuitId} transaction to Batcher...`);
+  
+  const body = {
+    data: {
+      target: "midnight_balancing",
+      address: addr,
+      addressType: AddressType.MIDNIGHT,
+      input: JSON.stringify({
+        tx: serializedTx,
+        circuitId: circuitId,
+      }),
+      timestamp: Date.now(),
+    },
+    confirmationLevel: "no-wait",
+  };
+
+  const response = await fetch(`${BATCHER_URL}/send-input`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    throw new Error(`Batcher failed: ${result.message || response.statusText}`);
+  }
+  
+  console.log("📬 Batcher accepted transaction:", result);
+  return result;
+}
+
 const wrapAddress = (address: string) => {
   return {
     is_left: true,
@@ -127,11 +165,16 @@ export async function createIntent(
   try {
     return await erc7683.createIntent(contract, addr, config);
   } catch (error) {
+    if (error instanceof erc7683.DelegatedBalancingSentError) {
+      const tx = erc7683.getLastCapturedTx();
+      if (!tx) throw new Error("No transaction captured for delegation");
+      await submitToBatcher(tx, "initialize", addr);
+      // Return a mock result for the UI, as the batcher handles submission
+      return { txId: "delegated", blockHeight: 0 };
+    }
     console.error(" interface.ts: createIntent failed", { error, addr, config });
-    console.error(" interface.ts: error cause message", (error as any).cause?.failure?.message);
     if (error instanceof Error) {
       console.error(" interface.ts: error message", error.message);
-      console.error(" interface.ts: error stack", error.stack);
     }
     throw error;
   }
@@ -145,10 +188,15 @@ export async function m20_mint(
   try {
     return await unshielded_erc20.mint(contract, account, amount);
   } catch (error) {
+    if (error instanceof unshielded_erc20.DelegatedBalancingSentError) {
+      const tx = unshielded_erc20.getLastCapturedTx();
+      if (!tx) throw new Error("No transaction captured for delegation");
+      await submitToBatcher(tx, "mint", account);
+      return { txId: "delegated", blockHeight: 0 };
+    }
     console.error(" interface.ts: m20_mint failed", { error, account, amount });
     if (error instanceof Error) {
       console.error(" interface.ts: error message", error.message);
-      console.error(" interface.ts: error stack", error.stack);
     }
     throw error;
   }
@@ -163,10 +211,15 @@ export async function m20_transferFrom(
   try {
     return await unshielded_erc20.transferFrom(contract, fromAccount, toAccount, amount);
   } catch (error) {
+    if (error instanceof unshielded_erc20.DelegatedBalancingSentError) {
+      const tx = unshielded_erc20.getLastCapturedTx();
+      if (!tx) throw new Error("No transaction captured for delegation");
+      await submitToBatcher(tx, "transfer", fromAccount);
+      return { txId: "delegated", blockHeight: 0 };
+    }
     console.error(" interface.ts: m20_transferFrom failed", { error, fromAccount, toAccount, amount });
     if (error instanceof Error) {
       console.error(" interface.ts: error message", error.message);
-      console.error(" interface.ts: error stack", error.stack);
     }
     throw error;
   }

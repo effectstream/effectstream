@@ -5,6 +5,7 @@ import {
   BitcoinAdapter,
   FileStorage,
   MidnightAdapter,
+  MidnightBalancingAdapter,
 } from "@paimaexample/batcher";
 import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
 import {
@@ -51,6 +52,7 @@ export interface BatcherSetup {
   adapters: {
     bitcoin: BitcoinAdapter;
     midnight: MidnightAdapter;
+    midnightBalancing: MidnightBalancingAdapter;
   };
   namespace: string;
   storagePath: string;
@@ -112,11 +114,33 @@ export function buildBatcherSetup(
     "parallelMidnight",
   );
 
+  const midnightBalancingAdapter = new MidnightBalancingAdapter(
+    contractAddress,
+    options.midnightSeed,
+    {
+      indexer: midnightNetworkConfig.indexer,
+      indexerWS: midnightNetworkConfig.indexerWS,
+      node: midnightNetworkConfig.node,
+      proofServer: midnightNetworkConfig.proofServer,
+      zkConfigPath,
+      privateStateStoreName: "unshielded-erc20-balancing-private-state",
+      privateStateId: "unshielded_erc20BalancingState",
+      contractJoinTimeoutSeconds: 600,
+      walletFundingTimeoutSeconds: 600,
+      circuitId: "initialize", // Default circuitId
+    },
+    new SimpleToken.Contract(witnesses),
+    witnesses,
+    contractInfo,
+    midnightNetworkConfig.id,
+    "parallelMidnight",
+  );
+
   const config: BatcherConfig = {
     pollingIntervalMs: options.pollingIntervalMs,
     namespace,
     confirmationLevel: "wait-effectstream-processed",
-    enableHttpServer: false,
+    enableHttpServer: options.batcherPort > 0,
     enableEventSystem: true,
     port: options.batcherPort,
   };
@@ -129,6 +153,7 @@ export function buildBatcherSetup(
     adapters: {
       bitcoin: bitcoinAdapter,
       midnight: midnightAdapter,
+      midnightBalancing: midnightBalancingAdapter,
     },
     namespace,
     storagePath,

@@ -8,6 +8,9 @@ import {
   SegmentSuccess,
   SegmentFail,
 } from "@midnight-ntwrk/midnight-js-types";
+import { getPublicStates, PublicContractStates } from '@midnight-ntwrk/midnight-js-contracts';
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
 
 const fromHex = (hex: string): Uint8Array => {
   const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex;
@@ -132,3 +135,61 @@ export const wrapPublicDataProvider = (provider: any, indexerApiUrl: string, log
       provider.subscribeContractState(address, wrapOffset(offset)),
   };
 };
+
+export const getContractState = async (
+  indexerUri: string,
+  indexerWsUri: string,
+  contractAddress: string,
+  logPrefix: string = "midnight-utils.ts"
+): Promise<PublicContractStates> => {
+  console.log(`${logPrefix}: Querying contract state for:`, contractAddress);
+  const publicDataProvider = indexerPublicDataProvider(indexerUri, indexerWsUri);
+  // Wrap to handle empty offsets if needed, similar to what's in balanceOf.ts
+  const wrappedProvider = {
+    ...publicDataProvider,
+    queryContractState: (address: string, offset?: any) => {
+      const cleanOffset = (offset && typeof offset === 'object' && Object.keys(offset).length === 0) ? undefined : offset;
+      return publicDataProvider.queryContractState(address, cleanOffset);
+    }
+  };
+  return await getPublicStates(wrappedProvider as any, contractAddress);
+};
+
+export const extractBalances = (publicStates: PublicContractStates): Map<string, bigint> => {
+  console.log("extractBalances: state", publicStates.contractState.data.state.asArray()![1]?.asArray()![0]?.asMap());
+  const balanceMap = new Map<string, bigint>();
+  const balances = (publicStates as any).contractState?.balance;
+  if (!balances) return balanceMap;
+
+  const toHex = (bytes: Uint8Array) => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  const convertToBigInt = (tokenBalance: Uint8Array) => BigInt("0x" + Array.from(tokenBalance?.reverse() ?? new Uint8Array()).map(b => b.toString(16).padStart(2, "0")).join(""));
+  const convertToEither = (rawValue: [Uint8Array, Uint8Array, Uint8Array]) => {
+    const isLeft = rawValue[0].toString() === "1";
+    return {
+      is_left: isLeft,
+      left: { bytes: toHex(rawValue[1]) },
+      right: { bytes: toHex(rawValue[2]) },
+    };
+  };
+
+  try {
+    const balanceKeys = balances.keys();
+    for (const balanceKey of balanceKeys) {
+      const addressEither = convertToEither(balanceKey.value as any);
+      const address = addressEither.is_left ? addressEither.left.bytes : addressEither.right.bytes;
+      const cell = balances.get(balanceKey)!.asCell();
+      balanceMap.set(address, convertToBigInt(cell!.value[0]));
+    }
+  } catch (error) {
+    console.error("Error extracting balance map", error);
+  }
+  return balanceMap;
+};
+
+export function extractPublicCoinAddress(bech32mAddress: string): string {
+  const shieldedAddress = MidnightBech32m.parse(bech32mAddress);
+  const [coinPublicKey] = [
+    Uint8Array.prototype.slice.call(shieldedAddress.data, 0, 32),
+  ];
+  return Array.from(coinPublicKey as Uint8Array, b => b.toString(16).padStart(2, '0')).join('');
+}

@@ -55,6 +55,16 @@ const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
 const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
 const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
 const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
+const BATCHER_URL = `http://127.0.0.1:3334`;
+
+export class DelegatedBalancingSentError extends Error {
+  constructor() {
+    super("Delegated balancing flow handed off to batcher");
+  }
+}
+
+let lastCapturedTx: string | null = null;
+export const getLastCapturedTx = () => lastCapturedTx;
 
 const toHex = (data: Uint8Array): string =>
   Array.from(data)
@@ -351,63 +361,25 @@ const createWalletAndMidnightProvider = (
       _newCoins?: ShieldedCoinInfo[],
       _ttl?: Date
     ): Promise<BalancedProvingRecipe> {
-      console.log(" intents.ts: balanceTx called", { tx, _newCoins, _ttl });
+      console.log(" intents.ts: balanceTx called (delegated)", { tx, _newCoins, _ttl });
       
       try {
         const hexTx = toHex(tx.serialize());
-        console.log(" intents.ts: Sending UNPROVEN transaction to balanceUnsealedTransaction", { hexTx });
-        
-        const result = await connectedAPI.balanceUnsealedTransaction(hexTx);
-        console.log(" intents.ts: received result from balanceUnsealedTransaction", result);
-        
-        const balancedTx = LedgerV6Transaction.deserialize(
-          'signature' as const,
-          'pre-proof' as const,
-          'pre-binding' as const,
-          fromHex(result.tx)
-        ) as UnprovenTransaction;
+        console.log(" intents.ts: Capturing UNPROVEN transaction for delegation", { hexTxLength: hexTx.length });
+        lastCapturedTx = hexTx;
         
         return {
           type: TRANSACTION_TO_PROVE,
-          transaction: balancedTx,
+          transaction: tx,
         };
       } catch (error) {
-        console.error(" intents.ts: balanceUnsealedTransaction failed", error);
-        if (error instanceof Error) {
-           console.error(" intents.ts: error message", error.message);
-           console.error(" intents.ts: error stack", error.stack);
-        }
+        console.error(" intents.ts: balanceTx failed", error);
         throw error;
       }
     },
     async submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
-      console.log(" intents.ts: submitTx called", { tx });
-      
-      try {
-        const hexTx = toHex(tx.serialize());
-        console.log(" intents.ts: Submitting final balanced transaction to submitTransaction", { hexTx });
-        
-        // Compute transaction ID (hash) locally from the serialized transaction
-        const txId = LedgerV6Transaction.deserialize(
-          'signature' as const,
-          'proof' as const,
-          'binding' as const,
-          fromHex(hexTx)
-        ).transactionHash();
-        
-        console.log(" intents.ts: Computed transaction ID:", txId);
-        
-        await connectedAPI.submitTransaction(hexTx);
-        console.log(" intents.ts: transaction submitted successfully");
-        
-        return txId as unknown as TransactionId;
-      } catch (error) {
-        console.error(" intents.ts: submitTransaction failed", error);
-        if (error instanceof Error) {
-           console.error(" intents.ts: error message", error.message);
-        }
-        throw error;
-      }
+      console.log(" intents.ts: submitTx called (delegated)", { tx });
+      throw new DelegatedBalancingSentError();
     },
   };
 };

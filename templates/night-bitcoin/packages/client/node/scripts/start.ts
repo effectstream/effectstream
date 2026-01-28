@@ -139,6 +139,14 @@ const config = Value.Parse(OrchestratorConfig, {
       type: "system-dependency",
       dependsOn: ['create-wallets-midnight'],
     },
+    {
+      name: "balancing-batcher",
+      args: ["task", "-f", "@night-bitcoin/filler", "batcher:start", "--port", "3334", "--filler-name", "Balancing Batcher"],
+      waitToExit: false,
+      type: "system-dependency",
+      stopProcessAtPort: [3334],
+      dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
+    },
     ...fillerProcesses,
   ],
 });
