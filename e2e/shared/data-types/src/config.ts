@@ -22,6 +22,7 @@ import {
   PrimitiveTypeEVMPaimaL2,
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeBitcoinAddress,
+  PrimitiveTypeUtxorpcGeneric,
 } from "@effectstream/sm/builtin";
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
@@ -243,6 +244,9 @@ export const config = new ConfigBuilder()
     }
 
     if (yaci_enabled) {
+      // TODO This should be exported from the cardano contracts.
+      const byronGenesis = JSON.parse(Deno.readTextFileSync("../../shared/contracts/cardano/temp/byron-genesis.json"));
+      const startTime = byronGenesis.startTime;
       result = result
         .addParallel(
           (networks) => (networks as any).yaci,
@@ -251,8 +255,11 @@ export const config = new ConfigBuilder()
             type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
             rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
             startSlot: 1,
-            // TODO byron-genesis.json startTime
-            delayMs: new Date().getTime() - 1769555320000, 
+            // TODO: The exact delay is not correct, but it's close.
+            // byron-genesis.json startTime
+            // 633 skipped slots
+            // 20 minutes delay
+            delayMs: new Date().getTime() - (startTime * 1000) + 633000 - (20 * 60 * 1000), 
             pollingInterval: 1000,
             headers: {
               'x-rpc-key': 'dev'
@@ -416,6 +423,26 @@ export const config = new ConfigBuilder()
           startBlockHeight: 101,
           watchAddress: "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03",
           stateMachinePrefix: "bitcoin-transaction",
+        }),
+      );
+    }
+    if (yaci_enabled) {
+      builder = builder.addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
+        (network, deployments, syncProtocol) => ({
+          name: "UtxoRpcGeneric",
+          type: PrimitiveTypeUtxorpcGeneric,
+          startBlockHeight: 1,
+          stateMachinePrefix: "cardano-utxo-rpc-generic",
+          predicate: {
+            match: {
+              cardano: {
+                has_address: {
+                  exact_address: "cD0ktC/NQ3j7hUmyY1iMF3lu2gFFPU+MCRxVFYw="
+                }
+              }
+            }
+          },
         }),
       );
     }

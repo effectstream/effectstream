@@ -43,6 +43,12 @@ async function paimaV1Operation(): Promise<SQLUpdate[]> {
   ];
 }
 
+stm.addStateTransition("cardano-utxo-rpc-generic", function* (data) {
+  const { hash, bytes } = data.parsedInput;
+  console.log("🎉 [UTXORPC] Transaction receipt:", JSON.stringify({ hash, bytes }));
+  return;
+});
+
 stm.addStateTransition("attack", function* (data) {
   // Example 1:
   // How to write in the DB.

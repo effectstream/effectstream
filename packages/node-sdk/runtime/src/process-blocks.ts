@@ -161,11 +161,6 @@ export function* processFinalizedBlock(
 
     /* STEP 3: Process the primitives. */
     for (const primitive of value.primitives) {
-      // TODO:
-      // This "if" for this example process only evm primitives.
-      if (primitive.source === "parallelUtxoRpc") {
-        continue;
-      }
       const generator = primitiveTransitionFunction(
         value.blockNumber,
         primitive,
