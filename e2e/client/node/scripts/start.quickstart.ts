@@ -19,6 +19,8 @@ const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
 const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
 
+const cardano_processes = (yaci_enabled ? launchCardano("@e2e/cardano-contracts") : []);
+
 const config = Value.Parse(OrchestratorConfig, {
   logs,
   processes: {
@@ -35,7 +37,7 @@ const config = Value.Parse(OrchestratorConfig, {
   processesToLaunch: [
     ...launchEvm("@e2e/evm-contracts"),
     ...(bitcoin_enabled ? launchBitcoin("@e2e/bitcoin-contracts") : []),
-    ...(yaci_enabled ? launchCardano("@e2e/cardano-contracts") : []),
+    ...cardano_processes,
     ...(avail_enabled ? launchAvail("@e2e/avail-contracts") : []),
     ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : []),
     { 
@@ -58,7 +60,7 @@ const config = Value.Parse(OrchestratorConfig, {
       waitToExit: true,
       dependsOn: [
         'batcher',
-        yaci_enabled ? ComponentNames.DOLOS_WAIT : undefined,
+        (yaci_enabled && cardano_processes.length > 0) ? ComponentNames.DOLOS_WAIT : undefined,
         avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
       ].filter(Boolean),
     },
