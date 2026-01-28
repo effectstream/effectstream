@@ -35,7 +35,7 @@ import { config, storage } from "./config.ts";
 
 import { bitcoinAdapter } from "./adapter-bitcoin.ts";
 import { effectstreaml2Adapter } from "./adapter-effectstreaml2.ts";
-import { midnightAdapter } from "./adapter-midnight.ts";
+import { midnightAdapter, midnightBalancingAdapter } from "./config.ts";
 import {
   counterAdapter,
   counterAdapterTarget,
@@ -57,7 +57,8 @@ batcher
 
 if (midnight_enabled) {
 batcher
-  .addBlockchainAdapter("midnight_eip20", midnightAdapter!, { criteriaType: "size", maxBatchSize: 1 });
+  .addBlockchainAdapter("midnight_eip20", midnightAdapter!, { criteriaType: "size", maxBatchSize: 1 })
+  .addBlockchainAdapter("midnight_balancing", midnightBalancingAdapter!, { criteriaType: "size", maxBatchSize: 1 });
 }
 
 if (bitcoin_enabled) {
