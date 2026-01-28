@@ -57,12 +57,12 @@ batcher
 
 if (midnight_enabled) {
 batcher
-  .addBlockchainAdapter("midnight_eip20", midnightAdapter, { criteriaType: "size", maxBatchSize: 1 });
+  .addBlockchainAdapter("midnight_eip20", midnightAdapter!, { criteriaType: "size", maxBatchSize: 1 });
 }
 
 if (bitcoin_enabled) {
 batcher
-  .addBlockchainAdapter("bitcoin", bitcoinAdapter, { criteriaType: "hybrid", maxBatchSize: 5, timeWindowMs: batchIntervalMs });
+  .addBlockchainAdapter("bitcoin", bitcoinAdapter!, { criteriaType: "hybrid", maxBatchSize: 5, timeWindowMs: batchIntervalMs });
 }
 
 // E2E-specific startup banner via state transition

@@ -58,34 +58,57 @@ export class UtxoRpcSyncState extends SyncState<
   @bound
   override toRootPage(data: Output): RootPage {
     return applyDelay(
-      Number(data.raw.timestamp),
+      Number(data.raw.timestamp * 1000n),
       this.config.syncProtocol.delayMs,
     );
   }
 
   @bound
-  override *stateToInput(): Operation<Input | undefined> {
-    const storedBlocks = yield* this.fetcher.client.storedBlocks(
-      this.lastPage?.own.height,
-    );
-    if (storedBlocks.from.slot < this.config.syncProtocol.startSlot) {
-      return {
-        from: storedBlocks.from.height,
-        to: Math.max(
-          storedBlocks.to.height,
-          // TODO: this should be a height and not a slot number
-          //       either we need to resolve the actual block at that slot
-          //       (blocked by https://github.com/utxorpc/spec/issues/148)
-          //       or we need to guess and refine if wrong
-          this.config.syncProtocol.startSlot - 1,
-        ),
-        isPresync: true,
-      };
+  override *stateToInput(): Operation<Input | undefined> {  
+    // Get the value of the latest block height.
+    const tipHeight = yield* call(() => this.fetcher.lastHeight());
+    if (!tipHeight) {
+      return undefined;
     }
+
+    // TODO This might be wrong, we are using block heights - not slots (?)
+    const startHeight = this.lastPage?.own.height ?? this.config.syncProtocol.startSlot - 1;
+
+    if (BigInt(startHeight) >= tipHeight) {
+      return undefined;
+    }
+
+    // TODO We need to check how to handle the presync process.
+    // const storedBlocks = yield* this.fetcher.client.storedBlocks(
+    //   this.lastPage?.own.height,
+    // );
+    // if (storedBlocks.from.slot < this.config.syncProtocol.startSlot) {
+    //   return {
+    //     from: storedBlocks.from.height,
+    //     to: Math.max(
+    //       storedBlocks.to.height,
+    //       // TODO: this should be a height and not a slot number
+    //       //       either we need to resolve the actual block at that slot
+    //       //       (blocked by https://github.com/utxorpc/spec/issues/148)
+    //       //       or we need to guess and refine if wrong
+    //       this.config.syncProtocol.startSlot - 1,
+    //     ),
+    //     isPresync: true,
+    //   };
+    // }
+    
+    // TODO Is this correct?
+    // EVM Handles this with `genInputRange`
+    const from = startHeight + 1;
+    const to = tipHeight ? Math.min(
+      from + 1,
+      Number(tipHeight),
+    ) : from + 1;
+
     return {
-      from: storedBlocks.from.height,
-      to: storedBlocks.to.height,
-      isPresync: false,
+      from,
+      to,
+      isPresync: false, // TODO: handle presync
     };
   }
 

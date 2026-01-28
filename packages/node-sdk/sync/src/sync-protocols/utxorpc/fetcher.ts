@@ -37,7 +37,6 @@ export class UtxoRpcFetcher
     const outputs: OutputAndCleanup<Output>[] = [];
     const blocks = this.client.fetchBlocks(data.from, data.to);
     for (const block of blocks) {
-      // console.log(block.output.block.toJson({ emitDefaultValues: true }));
       outputs.push({
         output: {
           // TODO: What is the correct block hash?
@@ -102,5 +101,11 @@ export class UtxoRpcFetcher
       }
     }
     return primitiveResponses;
+  }
+
+  lastHeight(): bigint | undefined {
+    // Calling this.client.syncClient.getTip(); 
+    // returns the hash and slot, but not the block height
+    return this.client.lastHeight();
   }
 }

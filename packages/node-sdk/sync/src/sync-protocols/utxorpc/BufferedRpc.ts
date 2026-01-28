@@ -22,7 +22,19 @@ export class BufferedRpc {
     private readonly finality: BlockNumber,
   ) {}
 
+  static lastHeight: bigint | undefined = undefined;
+  static initialized = false;
+ 
+  public lastHeight(): bigint | undefined {
+    return BufferedRpc.lastHeight;
+  }
+
   public async start(point: undefined | ChainPoint): Promise<void> {
+    if (BufferedRpc.initialized) {
+      // We do not want to follow the tip again.
+      throw new Error("BufferedRpc already initialized");
+    }
+    BufferedRpc.initialized = true;
     const intersect = point ? [point] : [];
     const blockEvents = this.syncClient.followTip(intersect);
 
@@ -30,12 +42,18 @@ export class BufferedRpc {
 
     for await (const blockEvent of blockEvents) {
       if (blockEvent.action === "apply") {
+        if (blockEvent.block.header?.height) {
+          BufferedRpc.lastHeight = blockEvent.block.header?.height;
+        }
         this.buffer.push({
           output: blockEvent.block,
           cleanup: () => {},
         });
         this.newDataCondVar.wake();
       } else if (blockEvent.action === "undo") {
+        if (blockEvent.block.header?.height) {
+          BufferedRpc.lastHeight = blockEvent.block.header?.height;
+        }
         this.buffer.pop();
       } else if (blockEvent.action === "reset") {
         if (!seenReset) {

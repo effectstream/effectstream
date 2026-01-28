@@ -8,7 +8,8 @@
     "devkit:wait": "wait-on tcp:3001",
     "dolos:fill-template": "deno run -A ./fill-template.ts",
     // rm -rf is required because of this issue: https://github.com/txpipe/dolos/issues/398
-    "dolos:start": "rm -rf ./data && rm -rf ./dolos.socket && deno task dolos:fill-template && deno run -A --node-modules-dir npm:@txpipe/dolos bootstrap relay && deno run -A --node-modules-dir npm:@txpipe/dolos daemon",
+    // TODO we need to provide newer versions of dolos binaries.
+    "dolos:start": "rm -rf ./data && rm -rf ./dolos.socket && deno task dolos:fill-template && ./dolos bootstrap relay && ./dolos daemon",
     "dolos:wait": "wait-on tcp:50051" // utxorpc port
   },
   "imports": {

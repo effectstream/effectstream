@@ -251,7 +251,12 @@ export const config = new ConfigBuilder()
             type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
             rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
             startSlot: 1,
-            delayMs: 20000,
+            // TODO byron-genesis.json startTime
+            delayMs: new Date().getTime() - 1769555320000, 
+            pollingInterval: 1000,
+            headers: {
+              'x-rpc-key': 'dev'
+            }
           }),
         );
     }
