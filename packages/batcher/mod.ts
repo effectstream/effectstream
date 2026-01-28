@@ -33,6 +33,7 @@ export { DatabaseStorage, FileStorage } from "./core/storage.ts";
 export type { BlockchainAdapter, BatchBuildingOptions, BatchBuildingResult } from "./adapters/adapter.ts";
 export { PaimaL2DefaultAdapter } from "./adapters/paimal2-adapter.ts";
 export { MidnightAdapter } from "./adapters/midnight-adapter.ts";
+export { MidnightBalancingAdapter } from "./adapters/midnight-balancing-adapter.ts";
 export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./adapters/bitcoin-adapter.ts";
 export { parseCircuitArgs } from "./adapters/mod.ts";
 export {
@@ -43,6 +44,7 @@ export {
 
 export type { BitcoinAdapterConfig } from "./adapters/bitcoin-adapter.ts";
 export type { MidnightAdapterConfig } from "./adapters/midnight-adapter.ts";
+export type { MidnightBalancingAdapterConfig } from "./adapters/midnight-balancing-adapter.ts";
 
 // HTTP server
 export { startBatcherHttpServer } from "./server/batcher-server.ts";

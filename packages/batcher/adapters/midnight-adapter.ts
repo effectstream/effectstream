@@ -41,7 +41,9 @@ import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-pri
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
   buildWalletFacade,
+  getInitialDustState,
   getInitialShieldedState,
+  registerNightForDust,
   syncAndWaitForFunds,
   waitForDustFunds,
   type NetworkUrls as MidnightNetworkUrls,
@@ -60,6 +62,7 @@ export interface MidnightAdapterConfig {
   contractJoinTimeoutSeconds?: number; // Defaults to 120 seconds
   walletFundingTimeoutSeconds?: number; // Defaults to 180 seconds
   walletNetworkId?: WalletNetworkId.NetworkId; // Optional override for modular wallet network id
+  walletResult?: WalletResult | Promise<WalletResult>;
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
@@ -98,6 +101,27 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   private readonly walletFundingTimeoutMs: number;
   private readonly walletNetworkId: WalletNetworkId.NetworkId;
 
+  private async logDustState(context: string): Promise<void> {
+    if (!this.walletResult) return;
+    try {
+      const dustState = await getInitialDustState(this.walletResult.wallet.dust);
+      const walletBalance = typeof dustState.walletBalance === "function"
+        ? dustState.walletBalance(new Date())
+        : undefined;
+      const balances = dustState.balances && typeof dustState.balances === "object"
+        ? Object.values(dustState.balances).reduce(
+            (acc: bigint, v: unknown) => acc + BigInt((v as bigint) ?? 0n),
+            0n,
+          )
+        : undefined;
+      console.log(
+        `🧪 [${context}] Dust wallet state: walletBalance=${walletBalance ?? "unknown"} balancesTotal=${balances ?? "unknown"}`,
+      );
+    } catch (error) {
+      console.warn(`⚠️ [${context}] Failed to read dust wallet state:`, error);
+    }
+  }
+
   constructor(
     contractAddress: string,
     walletSeed: string,
@@ -135,20 +159,25 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       // This is consistent with the working e2e tests and manual scripts
       setNetworkId(this.walletNetworkId as any);
 
-      console.log("🔗 Building Midnight wallet (modular SDK)...");
+      if (this.config.walletResult) {
+        console.log("🔗 Using shared Midnight wallet (modular SDK)...");
+        this.walletResult = await this.config.walletResult;
+      } else {
+        console.log("🔗 Building Midnight wallet (modular SDK)...");
 
-      const networkUrls: MidnightNetworkUrls = {
-        indexer: this.config.indexer,
-        indexerWS: this.config.indexerWS,
-        node: this.config.node,
-        proofServer: this.config.proofServer,
-      };
+        const networkUrls: MidnightNetworkUrls = {
+          indexer: this.config.indexer,
+          indexerWS: this.config.indexerWS,
+          node: this.config.node,
+          proofServer: this.config.proofServer,
+        };
 
-      this.walletResult = await buildWalletFacade(
-        networkUrls,
-        walletSeed,
-        this.walletNetworkId,
-      );
+        this.walletResult = await buildWalletFacade(
+          networkUrls,
+          walletSeed,
+          this.walletNetworkId,
+        );
+      }
 
       const initialState = await getInitialShieldedState(
         this.walletResult.wallet.shielded,
@@ -176,6 +205,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
         "💰 Waiting for wallet to be funded and synced before starting batcher...",
       );
       await this.ensureFunds();
+      await this.logDustState("initialize");
 
       // NOTE: We skip joining the contract during initialization to avoid long startup times
       // The contract will be joined lazily when the first transaction is submitted
@@ -386,6 +416,8 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       // If dust is missing but we have unshielded funds, try to sync dust explicitly
       if (balances.dustBalance === 0n && balances.unshieldedBalance > 0n) {
         try {
+          console.log("🪙 Registering unshielded NIGHT for dust generation...");
+          await registerNightForDust(this.walletResult);
           const dust = await waitForDustFunds(
             this.walletResult.wallet,
             { timeoutMs: this.walletFundingTimeoutMs, waitNonZero: true }
@@ -549,6 +581,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
           "🔄 circuit method available?:",
           !!this.deployedContract?.callTx?.[circuit],
         );
+        await this.logDustState(`callTx:${String(circuit)}`);
 
         try {
           result = await this.deployedContract.callTx[circuit](

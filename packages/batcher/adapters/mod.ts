@@ -18,6 +18,8 @@ export { PaimaL2DefaultAdapter } from "./paimal2-adapter.ts";
 // Midnight adapter implementation
 export { MidnightAdapter } from "./midnight-adapter.ts";
 export type { MidnightAdapterConfig } from "./midnight-adapter.ts";
+export { MidnightBalancingAdapter } from "./midnight-balancing-adapter.ts";
+export type { MidnightBalancingAdapterConfig } from "./midnight-balancing-adapter.ts";
 
 // Midnight helper utilities
 export { parseCircuitArgs } from "./midnight-arg-parser.ts";
