@@ -26,7 +26,7 @@ import {
 } from "@effectstream/sm/builtin";
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
- 
+
 const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno && Deno.env.get(key) || "").toLowerCase());
 
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
@@ -51,7 +51,7 @@ const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
-
+let yaciDevKitStartTime: number | undefined;
 // @ts-ignore
 if (Deno) {
   // NOTE: This does not work when imported by the browser.
@@ -74,6 +74,12 @@ if (Deno) {
     // This is not an error.
     // Do nothing, the DB has not been initialized yet.
   }
+
+    // We fetch the latest block from the dolos mini blockfrost endpoint
+    const response = await fetch("http://localhost:3000/blocks/latest");
+    yaciDevKitStartTime = (await response.json()).time * 1000;
+    yaciDevKitStartTime = new Date().getTime() - yaciDevKitStartTime;
+    console.log("yaciDevKitStartTime", yaciDevKitStartTime);
 }
 
 export const config = new ConfigBuilder()
@@ -244,9 +250,7 @@ export const config = new ConfigBuilder()
     }
 
     if (yaci_enabled) {
-      // TODO This should be exported from the cardano contracts.
-      const byronGenesis = JSON.parse(Deno.readTextFileSync("../../shared/contracts/cardano/temp/byron-genesis.json"));
-      const startTime = byronGenesis.startTime;
+
       result = result
         .addParallel(
           (networks) => (networks as any).yaci,
@@ -259,7 +263,7 @@ export const config = new ConfigBuilder()
             // byron-genesis.json startTime
             // 633 skipped slots
             // 20 minutes delay
-            delayMs: new Date().getTime() - (startTime * 1000) + 633000 - (20 * 60 * 1000), 
+            delayMs: yaciDevKitStartTime || 0,
             pollingInterval: 1000,
             headers: {
               'x-rpc-key': 'dev'
