@@ -6,7 +6,7 @@
     ".": "./mod.ts"
   },
   "imports": {
-    "@effectstream/log": "jsr:@effectstream/log@0.3.129",
+    "@effectstream/log": "jsr:@effectstream/log@0.4.0",
     "@wagmi/cli": "npm:@wagmi/cli@2.3.1",
     "hardhat": "npm:hardhat@3.0.4",
     "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
