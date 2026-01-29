@@ -114,7 +114,7 @@ export async function startup(): Promise<Client> {
         waitToExit: false,
         type: "system-dependency",
         dependsOn: [
-          is_serial ? undefined : lastProcess,
+          is_serial ? lastProcess : undefined,
           ComponentNames.DEPLOY_EVM_CONTRACTS, 
           midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined,
           bitcoin_enabled ? ComponentNames.BITCOIN_WAIT_FOR_BLOCK : undefined,
@@ -125,7 +125,7 @@ export async function startup(): Promise<Client> {
         args: ["task", "-f", "@effectstream/explorer", "build"],
         waitToExit: true,
         dependsOn: [
-          is_serial ? undefined : lastProcess,
+          is_serial ? lastProcess : undefined,
           'batcher',
           (yaci_enabled && cardano_processes.length > 0) ? ComponentNames.DOLOS_WAIT : undefined,
           avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
@@ -136,7 +136,7 @@ export async function startup(): Promise<Client> {
         args: ["task", "-f", "@e2e/wallets-ui", "build"],
         waitToExit: true,
         dependsOn: [
-          is_serial ? undefined : lastProcess,
+          is_serial ? lastProcess : undefined,
           'build explorer',
         ].filter(Boolean),
       },
