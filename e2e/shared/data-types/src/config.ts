@@ -27,7 +27,9 @@ import {
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
 
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno && Deno.env.get(key) || "").toLowerCase());
+const isEnvTrue = (typeof Deno !== 'undefined' && Deno) ? 
+  ((key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase()))
+  : ((key: string) => ["true", "1", "yes", "y"].includes(((import.meta as any).env['VITE_' + key] || "").toLowerCase()));
 
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
@@ -53,7 +55,7 @@ const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
 let yaciDevKitStartTime: number | undefined;
 // @ts-ignore
-if (Deno) {
+if (typeof Deno !== 'undefined' && Deno) {
   // NOTE: This does not work when imported by the browser.
   //       We setup a Deno as undefined in the browser, to make it skip this import.
   // const { getConnection } = await import("@effectstream/db");

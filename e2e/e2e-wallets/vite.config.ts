@@ -7,6 +7,9 @@ import "react-dom";
 import { fromFileUrl } from "jsr:@std/path";
 import { join, dirname } from "node:path";
 import wasm from "vite-plugin-wasm";
+import { viteStaticCopy } from "vite-plugin-static-copy";
+
+const projectRoot = dirname(fromFileUrl(import.meta.url));
 
 // This is a workaround to make the workspace imports work.
 const walletPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/wallets/");
@@ -24,7 +27,7 @@ const dbEmptyPath = join(dirname(fromFileUrl(import.meta.url)), "effectstream-db
 
 export default defineConfig({
   define: {
-    "Deno": undefined,
+    "process.env.EFFECTSTREAM_ENV": JSON.stringify("local"),
   },
   resolve: {
     alias: {
@@ -58,6 +61,23 @@ export default defineConfig({
     react(),
     deno(),
     nodePolyfills(),
+    viteStaticCopy({
+      targets: [
+        {
+          src: join(projectRoot, "../shared/contracts/midnight/contract-counter.undeployed.json"),
+          dest: "contract_address",
+          rename: "counter.undeployed.json",
+        },
+        {
+          src: join(projectRoot, "../shared/contracts/midnight/contract-counter/src/managed/keys/*"),
+          dest: "keys",
+        },
+        {
+          src: join(projectRoot, "../shared/contracts/midnight/contract-counter/src/managed/zkir/*"),
+          dest: "zkir",
+        },
+      ],
+    }),
   ],
 
   optimizeDeps: {

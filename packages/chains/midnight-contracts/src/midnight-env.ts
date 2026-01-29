@@ -1,14 +1,36 @@
 import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 
+const getEnvValue = (key: string): string | undefined => {
+  try {
+    // @ts-ignore: Deno global check
+    if (typeof Deno !== "undefined" && Deno?.env?.get) {
+      // @ts-ignore: Deno global access
+      return Deno.env.get(key);
+    }
+  } catch (_e) { /* ignore */ }
+
+  try {
+    // @ts-ignore: Node/Process global check
+    if (typeof process !== "undefined" && process?.env) {
+      // @ts-ignore: Node/Process global access
+      return process.env[key];
+    }
+  } catch (_e) { /* ignore */ }
+
+  // Fallback for some Vite setups if process.env isn't shimmed but replace is used
+  // Note: Direct import.meta.env usage is avoided to prevent TS/Build errors in non-ESM targets
+  return undefined;
+};
+
 const env = (key: string, fallback?: string): string =>
-  Deno.env.get(key)?.trim() || fallback || "";
+  getEnvValue(key)?.trim() || fallback || "";
 
 const envFirst = (keys: string[], fallback?: string): string =>
-  keys.map((key) => Deno.env.get(key)?.trim()).find((value) => !!value) ||
+  keys.map((key) => getEnvValue(key)?.trim()).find((value) => !!value) ||
   fallback ||
   "";
 
-const EFFECTSTREAM_ENV = Deno.env.get("EFFECTSTREAM_ENV") || "local";
+const EFFECTSTREAM_ENV = getEnvValue("EFFECTSTREAM_ENV") || "local";
 export const isTestnet = EFFECTSTREAM_ENV === "testnet";
 
 // Midnight Network default configurations

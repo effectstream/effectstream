@@ -202,7 +202,7 @@ export const contractAddressesEvmMain: () => Record<
 
   ${chainLets.join("\n")}
 
-  ${chainIds.map((chainId) => `if (Deno && Deno.statSync(file${chainToIndex[`chain${chainId}`]}).isFile) {
+  ${chainIds.map((chainId) => `if (typeof Deno !== 'undefined' && Deno && Deno.statSync(file${chainToIndex[`chain${chainId}`]}).isFile) {
     chain${chainId} = JSON.parse(Deno.readTextFileSync(file${chainToIndex[`chain${chainId}`]}));
   }`).join("\n")}
 

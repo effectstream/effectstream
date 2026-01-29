@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "./App.css";
+import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 
 import {
   allInjectedWallets,
@@ -28,6 +29,8 @@ import { AddressType } from "@effectstream/utils";
 import { Value } from "@sinclair/typebox/value";
 import { CryptoManager } from "@effectstream/crypto";
 import type { Chain } from "viem";
+
+import * as counter from "./contracts/counter.ts";
 
 // LOCAL CONFIG
 const network: Chain = hardhatChain;
@@ -110,6 +113,11 @@ function App() {
   const [injectedWallets, setInjectedWallets] = useState<
     Record<WalletMode, any> | null
   >(null);
+  const [midnightMode, setMidnightMode] = useState<"direct" | "delegated">("direct");
+  const [addressType, setAddressType] = useState<AddressType | null>(null);
+  const [midnightProviders, setMidnightProviders] = useState<counter.CounterProviders | null>(null);
+  const [midnightAddresses, setMidnightAddresses] = useState<any | null>(null);
+  const [midnightContract, setMidnightContract] = useState<any | null>(null);
   const [messageToSign, setMessageToSign] = useState<string>("");
   const [messageToBatch, setMessageToBatch] = useState<string>(
     '["attack","1","1"]',
@@ -157,6 +165,18 @@ function App() {
       networkType: "all",
     });
   }, []);
+
+  // Handle mode changes: disconnect wallet to force reconnection with new mode
+  useEffect(() => {
+    if (wallet?.mode === WalletMode.Midnight) {
+      console.log("Midnight mode changed, clearing connection to force reconnection");
+      setWallet(null);
+      setMidnightProviders(null);
+      setMidnightAddresses(null);
+      setMidnightContract(null);
+      setError("Midnight mode changed. Please reconnect your wallet.");
+    }
+  }, [midnightMode]);
 
 
   const handlePrimitiveChange = (primitive: PrimitiveInfo) => {
@@ -232,6 +252,58 @@ function App() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const submitToBatcher = async (serializedTx: string, circuitId: string, addr: string) => {
+    console.log(`🚀 Sending ${circuitId} transaction to Batcher...`);
+    
+    const body = {
+      data: {
+        target: "midnight_balancing",
+        address: addr,
+        addressType: AddressType.MIDNIGHT,
+        input: JSON.stringify({
+          tx: serializedTx,
+          circuitId: circuitId,
+        }),
+        timestamp: Date.now(),
+      },
+      confirmationLevel: "wait-receipt",
+    };
+
+    const response = await fetch(`${batcherUrl}/send-input`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(`Batcher failed: ${result.message || response.statusText}`);
+    }
+    
+    console.log("📬 Batcher accepted transaction:", result);
+    return result;
+  };
+
+  const handleMidnightIncrement = async () => {
+    if (!midnightContract || !midnightAddresses) return;
+    setActionResult(null);
+    try {
+      const result = await counter.increment(midnightContract);
+      console.log("Increment result:", result);
+      setActionResult(`Transaction successful: ${result.txId}`);
+    } catch (error) {
+      if (error instanceof counter.DelegatedBalancingSentError) {
+        const tx = counter.getLastCapturedTx();
+        if (!tx) throw new Error("No transaction captured for delegation");
+        await submitToBatcher(tx, "increment", midnightAddresses.shieldedAddress);
+        setActionResult("Transaction delegated to batcher");
+        return;
+      }
+      console.error("Increment failed:", error);
+      setError(error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -402,8 +474,46 @@ function App() {
       },
     });
 
+    wallets.push({
+      name: `Connect Midnight Wallet (${midnightMode})`,
+      mode: WalletMode.Midnight,
+      login: async () => {
+        try {
+          setError(null);
+          const currentMode = midnightMode; // Capture current mode for connection
+          const result = await walletLogin({
+            mode: WalletMode.Midnight,
+            networkId: "undeployed",
+          });
+          if (result.success) {
+            const paimaWallet = result.result;
+            const connectedApi = paimaWallet.provider.getConnection().api as ConnectedAPI;
+            
+            // Connect to providers and contract
+            const { providers, addresses } = await counter.connectMidnightWallet(connectedApi, currentMode === "delegated");
+            const { contract, state, contractAddress } = await counter.connectToContract(providers);
+            
+            setWallet({ ...result.result, mode: WalletMode.Midnight, connectionMode: currentMode });
+            setMidnightProviders(providers);
+            setMidnightAddresses(addresses);
+            setMidnightContract(contract);
+            setAddressType(AddressType.MIDNIGHT);
+          } else {
+            setError(result.errorMessage);
+          }
+        } catch (e) {
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      },
+      types: ["midnight"],
+      metadata: {
+        name: "Midnight Wallet",
+        displayName: `Midnight Wallet (${midnightMode})`,
+      },
+    });
+
     return wallets;
-  }, [injectedWallets]);
+  }, [injectedWallets, midnightMode]);
 
   const displayedWallets = useMemo(() => {
     if (!selectedPrimitive || selectedPrimitive.name === "Show All Wallets") {
@@ -800,7 +910,10 @@ function App() {
                 </p>
                 <p><strong>Metadata:</strong></p>
                 <pre>
-                  {JSON.stringify(wallet.metadata, null, 2)}
+                  {JSON.stringify({
+                    ...(wallet.metadata || {}),
+                    ...(wallet.connectionMode ? { connectionMode: wallet.connectionMode } : {})
+                  }, null, 2)}
                 </pre>
               </div>
             </div>
@@ -889,6 +1002,32 @@ function App() {
                   Send
                 </button>
               </div>
+
+              {wallet?.mode === WalletMode.Midnight && (
+                <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "1rem" }}>
+                  <h3>Midnight Counter Actions</h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+                      <label style={{ color: "white" }}>Mode:</label>
+                      <select 
+                        value={midnightMode} 
+                        onChange={(e) => setMidnightMode(e.target.value as "direct" | "delegated")}
+                        style={{ padding: "4px" }}
+                      >
+                        <option value="direct">Direct (Lace pays fees)</option>
+                        <option value="delegated">Delegated (Batcher pays fees)</option>
+                      </select>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={handleMidnightIncrement}
+                      style={{ padding: "10px", background: "#4a90e2", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                    >
+                      Increment Counter
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {actionResult && (
