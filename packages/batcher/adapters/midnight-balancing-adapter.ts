@@ -19,7 +19,7 @@ import {
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import type { ProofProvider, ZKConfigProvider } from "@midnight-ntwrk/midnight-js-types";
+import type { ProofProvider, PublicDataProvider, ZKConfigProvider } from "@midnight-ntwrk/midnight-js-types";
 import {
   buildWalletFacade,
   getInitialDustState,
@@ -65,7 +65,7 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
   private walletAddress: string | null = null;
-  private publicDataProvider: any | null = null;
+  private publicDataProvider: PublicDataProvider | null = null;
   private zkConfigProvider: ZKConfigProvider<string> | null = null;
   private proofProvider: ProofProvider<string> | null = null;
   private currentCircuitId: string | null = null;
@@ -84,34 +84,15 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
             0n,
           )
         : undefined;
-      const utxos = Array.isArray(dustState.utxos) ? dustState.utxos : undefined;
-      const availableCoins = Array.isArray(dustState.availableCoins)
-        ? dustState.availableCoins
-        : undefined;
-      console.log(
-        `🧪 [${context}] Dust wallet state: walletBalance=${walletBalance ?? "unknown"} balancesTotal=${balances ?? "unknown"} utxos=${utxos ? utxos.length : "unknown"} availableCoins=${availableCoins ? availableCoins.length : "unknown"}`,
-      );
-      if (utxos && utxos.length > 0) {
-        console.log(
-          `🧪 [${context}] Dust UTXO sample:`,
-          utxos.slice(0, 3),
-        );
-      }
-      if (availableCoins && availableCoins.length > 0) {
-        console.log(
-          `🧪 [${context}] Dust availableCoins sample:`,
-          availableCoins.slice(0, 3),
-        );
-      }
       if (typeof dustState.availableCoinsWithFullInfo === "function") {
         try {
           const fullInfo = dustState.availableCoinsWithFullInfo(new Date());
           console.log(
-            `🧪 [${context}] Dust availableCoinsWithFullInfo count: ${fullInfo.length}`,
+            `[${context}] Dust availableCoinsWithFullInfo count: ${fullInfo.length}`,
           );
           if (fullInfo.length > 0) {
             console.log(
-              `🧪 [${context}] Dust full info sample:`,
+              `[${context}] Dust full info sample:`,
               fullInfo.slice(0, 2),
             );
           }
@@ -174,7 +155,6 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
     if (this.config.zkConfigPath) {
         this.zkConfigProvider = new NodeZkConfigProvider(this.config.zkConfigPath);
         this.proofProvider = httpClientProofProvider(this.config.proofServer);
-      console.log("🔐 Loaded ZK config for balancing adapter.");
       } else {
         console.warn(
         "⚠️ Missing zkConfigPath for balancing adapter. Proving may fail.",
@@ -243,6 +223,25 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
   }
 
   /**
+   * Parses hex input, handling both plain hex strings and JSON format.
+   * Returns the cleaned hex string and optional circuitId.
+   */
+  private parseHexInput(input: string): { hex: string; circuitId?: string } {
+    const trimmed = input.trim();
+    if (trimmed.startsWith("{")) {
+      const parsed = JSON.parse(trimmed) as { tx?: string; circuitId?: string };
+      if (!parsed.tx) throw new Error("Missing tx field in JSON input");
+      if (parsed.circuitId && typeof parsed.circuitId !== "string") {
+        throw new Error("circuitId must be a string");
+      }
+      const cleanHex = parsed.tx.startsWith("0x") ? parsed.tx.slice(2) : parsed.tx;
+      return { hex: cleanHex, circuitId: parsed.circuitId };
+    }
+    const cleanHex = trimmed.startsWith("0x") ? trimmed.slice(2) : trimmed;
+    return { hex: cleanHex };
+  }
+
+  /**
    * Deserialize the input hex string into an UnprovenTransaction
    */
   buildBatchData(
@@ -255,17 +254,7 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
     const input = inputs[0];
     
     try {
-      let hexTx = input.input;
-      let circuitId: string | null = null;
-      if (input.input.trim().startsWith("{")) {
-        const parsed = JSON.parse(input.input) as { tx?: string; circuitId?: string };
-        if (!parsed.tx) {
-          throw new Error("Missing tx field in JSON input");
-        }
-        hexTx = parsed.tx;
-        circuitId = parsed.circuitId ?? null;
-      }
-      const cleanHex = hexTx.startsWith("0x") ? hexTx.slice(2) : hexTx;
+      const { hex: cleanHex, circuitId } = this.parseHexInput(input.input);
       this.currentCircuitId = circuitId ?? this.config.circuitId ?? null;
       console.log(
         `🧾 [balancing] Received tx hex length=${cleanHex.length} target=${input.target} circuitId=${this.currentCircuitId ?? "none"}`,
@@ -315,9 +304,6 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
     if (!this.walletResult) {
       throw new Error("Adapter not initialized");
     }
-
-    console.log("⚖️ Balancing transaction with filler funds...");
-    console.log("🧾 [balancing] submitBatch invoked");
     // Ensure dust wallet has synced before attempting to add fees.
     try {
       console.log("🧾 [balancing] waiting for dust sync (pre-balance)...");
@@ -351,7 +337,7 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
       try {
         const serialized = Buffer.from(unprovenTx.serialize()).toString("hex");
         console.error(
-          `🧾 [balancing] Unproven tx serialized length=${serialized.length}`,
+          `[balancing] Unproven tx serialized length=${serialized.length}`,
         );
       } catch (serError) {
         console.error("⚠️ [balancing] Failed to serialize unproven tx:", serError);
@@ -365,7 +351,7 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
 
     let txHash = txId.toString();
     try {
-      const derivedHash = (finalizedTx as any).transactionHash?.();
+      const derivedHash = finalizedTx.transactionHash();
       if (derivedHash) {
         txHash = derivedHash.toString();
       }
@@ -469,24 +455,13 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
 
   validateInput(input: DefaultBatcherInput): ValidationResult {
     try {
-      let hexTx = input.input;
-      if (input.input.trim().startsWith("{")) {
-        const parsed = JSON.parse(input.input) as { tx?: string; circuitId?: string };
-        if (!parsed.tx) {
-          return { valid: false, error: "Missing tx field in JSON input" };
-        }
-        if (parsed.circuitId && typeof parsed.circuitId !== "string") {
-          return { valid: false, error: "circuitId must be a string" };
-        }
-        hexTx = parsed.tx;
-      }
-      const cleanHex = hexTx.startsWith("0x") ? hexTx.slice(2) : hexTx;
+      const { hex: cleanHex } = this.parseHexInput(input.input);
       if (!/^[0-9a-fA-F]+$/.test(cleanHex)) {
         return { valid: false, error: "Input is not a valid hex string" };
       }
       
       // Optional: try to deserialize here to fail fast
-      // const bytes = fromHex(hexTx);
+      // const bytes = fromHex(cleanHex);
       // LedgerV6Transaction.deserialize(...) 
       
       return { valid: true };
