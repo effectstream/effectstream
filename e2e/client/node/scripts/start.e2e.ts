@@ -62,10 +62,13 @@ if (bitcoin_enabled) {
 
 if (yaci_enabled) {
   cardano_processes = launchCardano("@e2e/cardano-contracts");
-  if (!is_serial) {
-    cardano_processes[0].dependsOn = [lastProcess];
+  // TODO Cardano processes are skipped if the dependencies are not met.
+  if (cardano_processes.length > 0) {
+    if (!is_serial) {
+      cardano_processes[0].dependsOn = [lastProcess];
+    }
+    lastProcess = cardano_processes[cardano_processes.length - 1].name;
   }
-  lastProcess = cardano_processes[cardano_processes.length - 1].name;
 }
 
 if (midnight_enabled) {
