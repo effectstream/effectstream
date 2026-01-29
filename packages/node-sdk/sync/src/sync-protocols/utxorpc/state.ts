@@ -7,10 +7,8 @@ import { bound, type TimestampMs } from "@effectstream/utils";
 import { type LastPage, SyncState } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import type { UtxoRpcFetcher } from "./fetcher.ts";
-import type { Input, Output, Page } from "./types.ts";
+import type { ConfigType, Input, Output, Page } from "./types.ts";
 import { chainPointRelation } from "./types.ts";
-import type { ConfigNetworkType, SyncProtocolWithNetwork } from "@effectstream/config";
-import { ConfigSyncProtocolType } from "@effectstream/config";
 import { Buffer } from "node:buffer";
 
 export class UtxoRpcSyncState extends SyncState<
@@ -23,10 +21,7 @@ export class UtxoRpcSyncState extends SyncState<
 > {
   constructor(
     lastPage: undefined | LastPage<Page, RootPage>,
-    readonly config: Extract<
-      SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.CARDANO }
-    >,
+    readonly config: ConfigType,
     fetcher: UtxoRpcFetcher,
     dbConn: PoolClient,
   ) {
@@ -45,10 +40,10 @@ export class UtxoRpcSyncState extends SyncState<
       // TODO: get startSlot if lastPage doesn't exist
       // problem: utxorpc "fetchBlock" requires a ChainPoint
       // see: https://github.com/utxorpc/spec/issues/148
-      yield* call(() => this.fetcher.client.start(undefined));
+      yield* call(() => this.fetcher.startAsync(undefined));
     }
     yield* call(() =>
-      this.fetcher.client.start({
+      this.fetcher.startAsync({
         slot: this.lastPage!.own.slot,
         hash: this.lastPage!.own.hash,
       })
@@ -63,34 +58,57 @@ export class UtxoRpcSyncState extends SyncState<
   @bound
   override toRootPage(data: Output): RootPage {
     return applyDelay(
-      data.raw.timestamp,
+      Number(data.raw.timestamp * 1000n),
       this.config.syncProtocol.delayMs,
     );
   }
 
   @bound
-  override *stateToInput(): Operation<Input | undefined> {
-    const storedBlocks = yield* this.fetcher.client.storedBlocks(
-      this.lastPage?.own.height,
-    );
-    if (storedBlocks.from.slot < this.config.syncProtocol.startSlot) {
-      return {
-        from: storedBlocks.from.height,
-        to: Math.max(
-          storedBlocks.to.height,
-          // TODO: this should be a height and not a slot number
-          //       either we need to resolve the actual block at that slot
-          //       (blocked by https://github.com/utxorpc/spec/issues/148)
-          //       or we need to guess and refine if wrong
-          this.config.syncProtocol.startSlot - 1,
-        ),
-        isPresync: true,
-      };
+  override *stateToInput(): Operation<Input | undefined> {  
+    // Get the value of the latest block height.
+    const tipHeight = yield* call(() => this.fetcher.lastHeight());
+    if (!tipHeight) {
+      return undefined;
     }
+
+    // TODO This might be wrong, we are using block heights - not slots (?)
+    const startHeight = this.lastPage?.own.height ?? this.config.syncProtocol.startSlot - 1;
+
+    if (BigInt(startHeight) >= tipHeight) {
+      return undefined;
+    }
+
+    // TODO We need to check how to handle the presync process.
+    // const storedBlocks = yield* this.fetcher.client.storedBlocks(
+    //   this.lastPage?.own.height,
+    // );
+    // if (storedBlocks.from.slot < this.config.syncProtocol.startSlot) {
+    //   return {
+    //     from: storedBlocks.from.height,
+    //     to: Math.max(
+    //       storedBlocks.to.height,
+    //       // TODO: this should be a height and not a slot number
+    //       //       either we need to resolve the actual block at that slot
+    //       //       (blocked by https://github.com/utxorpc/spec/issues/148)
+    //       //       or we need to guess and refine if wrong
+    //       this.config.syncProtocol.startSlot - 1,
+    //     ),
+    //     isPresync: true,
+    //   };
+    // }
+    
+    // TODO Is this correct?
+    // EVM Handles this with `genInputRange`
+    const from = startHeight + 1;
+    const to = tipHeight ? Math.min(
+      from + 1,
+      Number(tipHeight),
+    ) : from + 1;
+
     return {
-      from: storedBlocks.from.height,
-      to: storedBlocks.to.height,
-      isPresync: false,
+      from,
+      to,
+      isPresync: false, // TODO: handle presync
     };
   }
 
@@ -100,9 +118,9 @@ export class UtxoRpcSyncState extends SyncState<
     data: Output[],
   ): Page {
     return {
-      slot: Number(data[data.length - 1].raw.block.header!.slot),
-      height: Number(data[data.length - 1].raw.block.header!.height),
-      hash: Buffer.from(data[data.length - 1].raw.block.header!.hash).toString(
+      slot: Number(data[data.length - 1].raw.header!.slot),
+      height: Number(data[data.length - 1].raw.header!.height),
+      hash: Buffer.from(data[data.length - 1].raw.header!.hash).toString(
         "hex",
       ),
     };
@@ -119,7 +137,7 @@ export class UtxoRpcSyncState extends SyncState<
     }));
     const blockInfo = ourOutput.blockHashes.map((h) => ({
       protocol_name: this.config.syncProtocol.name,
-      block_number: Number(ourOutput.raw.block.header!.height),
+      block_number: Number(ourOutput.raw.header!.height),
       blockHash: h,
     }));
     rootOutput.primitives.push(...primitives);
@@ -133,10 +151,7 @@ export class UtxoRpcSyncState extends SyncState<
 
   static *restoreState(
     dbConn: PoolClient,
-    config: Extract<
-      SyncProtocolWithNetwork,
-      { networkType: ConfigNetworkType.CARDANO }
-    >,
+    config: ConfigType,
     fetcher: UtxoRpcFetcher,
   ): Operation<UtxoRpcSyncState> {
     // TODO: move this DB query into page-helpers?

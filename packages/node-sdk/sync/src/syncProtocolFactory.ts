@@ -59,15 +59,16 @@ export function* genSyncProtocols(
       entry.networkType === ConfigNetworkType.CARDANO
     ) {
       if (
-        entry.syncProtocol.type === ConfigSyncProtocolType.CARDANO_CARP_PARALLEL
+        entry.syncProtocolType === ConfigSyncProtocolType.CARDANO_CARP_PARALLEL
       ) {
         throw new Error("CARP not supported yet");
       }
-      const client = new CardanoSyncClient({
+      const syncClient = new CardanoSyncClient({
         uri: entry.syncProtocol.rpcUrl,
+        headers: entry.syncProtocol.headers,
       });
       const bufferedRpc = new BufferedRpc(
-        client,
+        syncClient,
         entry.syncProtocol.confirmationDepth,
       );
       const fetcher = new UtxoRpcFetcher(

@@ -22,16 +22,17 @@ import {
   PrimitiveTypeEVMPaimaL2,
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeBitcoinAddress,
+  PrimitiveTypeUtxorpcGeneric,
 } from "@effectstream/sm/builtin";
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
- 
+
 const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno && Deno.env.get(key) || "").toLowerCase());
 
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
-const yaci_enabled = !isEnvTrue("DISABLE_YACI");
+const yaci_enabled = false; //!isEnvTrue("DISABLE_YACI");
 
 // NOTE: This disable midnight sync, allowing for faster testing.
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
@@ -50,7 +51,7 @@ const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
-
+let yaciDevKitStartTime: number | undefined;
 // @ts-ignore
 if (Deno) {
   // NOTE: This does not work when imported by the browser.
@@ -73,6 +74,14 @@ if (Deno) {
     // This is not an error.
     // Do nothing, the DB has not been initialized yet.
   }
+
+    // We fetch the latest block from the dolos mini blockfrost endpoint
+    if (yaci_enabled) {
+      const response = await fetch("http://localhost:3000/blocks/latest");
+      yaciDevKitStartTime = (await response.json()).time * 1000;
+      yaciDevKitStartTime = new Date().getTime() - yaciDevKitStartTime;
+      console.log("yaciDevKitStartTime", yaciDevKitStartTime);
+    }
 }
 
 export const config = new ConfigBuilder()
@@ -243,6 +252,7 @@ export const config = new ConfigBuilder()
     }
 
     if (yaci_enabled) {
+
       result = result
         .addParallel(
           (networks) => (networks as any).yaci,
@@ -251,7 +261,15 @@ export const config = new ConfigBuilder()
             type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
             rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
             startSlot: 1,
-            delayMs: 20000,
+            // TODO: The exact delay is not correct, but it's close.
+            // byron-genesis.json startTime
+            // 633 skipped slots
+            // 20 minutes delay
+            delayMs: yaciDevKitStartTime || 0,
+            pollingInterval: 1000,
+            headers: {
+              'x-rpc-key': 'dev'
+            }
           }),
         );
     }
@@ -411,6 +429,26 @@ export const config = new ConfigBuilder()
           startBlockHeight: 101,
           watchAddress: "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03",
           stateMachinePrefix: "bitcoin-transaction",
+        }),
+      );
+    }
+    if (yaci_enabled) {
+      builder = builder.addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
+        (network, deployments, syncProtocol) => ({
+          name: "UtxoRpcGeneric",
+          type: PrimitiveTypeUtxorpcGeneric,
+          startBlockHeight: 1,
+          stateMachinePrefix: "cardano-utxo-rpc-generic",
+          predicate: {
+            match: {
+              cardano: {
+                has_address: {
+                  exact_address: "cD0ktC/NQ3j7hUmyY1iMF3lu2gFFPU+MCRxVFYw="
+                }
+              }
+            }
+          },
         }),
       );
     }

@@ -3,6 +3,7 @@ import type {
   ProtocolPrimitiveMap,
 } from "../sync-protocols/types.ts";
 import type { EncodedStateValue } from "@midnight-ntwrk/onchain-runtime";
+import type { cardano } from '@utxorpc/spec';
 
 export type { EncodedStateValue };
 
@@ -35,7 +36,7 @@ type CardanoCarpPrimitivePayload = {
 };
 
 type CardanoUtxoRpcPrimitivePayload = {
-  TODO_MISSING_FIELDS: string;
+  tx: cardano.Tx;
 };
 
 type MinaPrimitivePayload = {
