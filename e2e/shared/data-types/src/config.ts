@@ -34,7 +34,7 @@ const isEnvTrue = (typeof Deno !== 'undefined' && Deno) ?
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
-const yaci_enabled = !isEnvTrue("DISABLE_YACI");
+const yaci_enabled = false; //!isEnvTrue("DISABLE_YACI");
 
 // NOTE: This disable midnight sync, allowing for faster testing.
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");

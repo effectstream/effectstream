@@ -88,8 +88,8 @@ RUN deno task -r contract:compile
 RUN deno task -f @e2e/wallets-ui build
 
 # START E2E TESTS
-# Yaci Devkit failing on linux
-ENV DISABLE_YACI=true
+# Launching processes en parallel generates issues on linux
+ENV EFFECTSTREAM_ORCHESTRATOR_SERIAL=true
 # Show Effectstream logs
 ENV EFFECTSTREAM_STDOUT=true
 CMD ["deno", "task", "-f", "@e2e/node", "e2e"]

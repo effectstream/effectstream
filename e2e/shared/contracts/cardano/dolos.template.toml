@@ -4,7 +4,7 @@ network_magic = 42
 is_testnet = true
 
 [storage]
-version = "v2"
+version = "v3"
 path = "data"
 max_wal_history = 10000
 
@@ -45,6 +45,7 @@ tx_logs = true
 account_logs = true
 pool_logs = true
 epoch_logs = true
+datum_state = false
 
 [logging]
 max_level = "INFO"

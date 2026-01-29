@@ -29,15 +29,64 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const external_db_enabled = ENV.getBoolean("EXTERNAL_DB_ENABLED");
 
-const yaci_enabled = !ENV.getBoolean("DISABLE_YACI")
+const yaci_enabled = false; //!ENV.getBoolean("DISABLE_YACI")
 const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
 const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
 
+const is_serial = ENV.getBoolean("EFFECTSTREAM_ORCHESTRATOR_SERIAL");
 /**
  * Launch the Sync through the orchestrator,
  * and wait for the sync process to start and be ready.
  */
+
+type Process = {
+  name: string;
+  dependsOn?: string[];
+};
+const evm_processes = launchEvm("@e2e/evm-contracts");
+let bitcoin_processes: Process[] = [];
+let cardano_processes: Process[] = [];
+let midnight_processes: Process[] = [];
+let avail_processes: Process[] = [];
+
+let lastProcess = evm_processes[evm_processes.length - 1].name;
+
+if (bitcoin_enabled) {
+  bitcoin_processes = launchBitcoin("@e2e/bitcoin-contracts");
+  if (!is_serial) {
+    bitcoin_processes[0].dependsOn = [lastProcess];
+  }
+  lastProcess = bitcoin_processes[bitcoin_processes.length - 1].name;
+}
+
+if (yaci_enabled) {
+  cardano_processes = launchCardano("@e2e/cardano-contracts");
+  // TODO Cardano processes are skipped if the dependencies are not met.
+  if (cardano_processes.length > 0) {
+    if (!is_serial) {
+      cardano_processes[0].dependsOn = [lastProcess];
+    }
+    lastProcess = cardano_processes[cardano_processes.length - 1].name;
+  }
+}
+
+if (midnight_enabled) {
+  midnight_processes = launchMidnight("@e2e/midnight-contracts");
+  if (!is_serial) {
+    midnight_processes[0].dependsOn = [lastProcess];
+  }
+  lastProcess = midnight_processes[midnight_processes.length - 1].name;
+}
+
+if (avail_enabled) {
+  avail_processes = launchAvail("@e2e/avail-contracts");
+  if (!is_serial) {
+    avail_processes[0].dependsOn = [lastProcess];
+  }
+  lastProcess = avail_processes[avail_processes.length - 1].name;
+}
+
 export async function startup(): Promise<Client> {
   const logs = ENV.getBoolean("EFFECTSTREAM_STDOUT") ? "stdout" : "stdout-err";
 
@@ -53,11 +102,11 @@ export async function startup(): Promise<Client> {
 
     // Launch my processes
     processesToLaunch: [
-      ...launchEvm("@e2e/evm-contracts"),
-      ...(bitcoin_enabled ? launchBitcoin("@e2e/bitcoin-contracts") : []),
-      ...(yaci_enabled ? launchCardano("@e2e/cardano-contracts") : []),
-      ...(midnight_enabled ? launchMidnight("@e2e/midnight-contracts") : []),
-      ...(avail_enabled ? launchAvail("@e2e/avail-contracts") : []),
+      ...evm_processes,
+      ...bitcoin_processes,
+      ...cardano_processes,
+      ...midnight_processes,
+      ...avail_processes,
       {
         stopProcessAtPort: [3334],
         name: "batcher",
@@ -65,6 +114,7 @@ export async function startup(): Promise<Client> {
         waitToExit: false,
         type: "system-dependency",
         dependsOn: [
+          is_serial ? lastProcess : undefined,
           ComponentNames.DEPLOY_EVM_CONTRACTS, 
           midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined,
           bitcoin_enabled ? ComponentNames.BITCOIN_WAIT_FOR_BLOCK : undefined,
@@ -75,8 +125,9 @@ export async function startup(): Promise<Client> {
         args: ["task", "-f", "@effectstream/explorer", "build"],
         waitToExit: true,
         dependsOn: [
+          is_serial ? lastProcess : undefined,
           'batcher',
-          yaci_enabled ? ComponentNames.DOLOS_WAIT : undefined,
+          (yaci_enabled && cardano_processes.length > 0) ? ComponentNames.DOLOS_WAIT : undefined,
           avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
         ].filter(Boolean),
       },
@@ -84,7 +135,10 @@ export async function startup(): Promise<Client> {
         name: "build e2e-wallet-ui",
         args: ["task", "-f", "@e2e/wallets-ui", "build"],
         waitToExit: true,
-        dependsOn: ['build explorer'],
+        dependsOn: [
+          is_serial ? lastProcess : undefined,
+          'build explorer',
+        ].filter(Boolean),
       },
 
     ],

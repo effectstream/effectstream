@@ -4,16 +4,16 @@
   "license": "MIT",
   "exports": {},
   "tasks": {
+    "dolos:exists": "test -f ./dolos",
     "devkit:start": "deno run -A --node-modules-dir npm:@bloxbean/yaci-devkit up",
     "devkit:wait": "wait-on tcp:3001",
     "dolos:fill-template": "deno run -A ./fill-template.ts",
     // rm -rf is required because of this issue: https://github.com/txpipe/dolos/issues/398
     // TODO we need to provide newer versions of dolos binaries.
-    "dolos:start": "rm -rf ./data && rm -rf ./dolos.socket && deno task dolos:fill-template && ./dolos bootstrap relay && ./dolos daemon",
+    "dolos:start": "rm -rf ./data ./dolos.socket && ./dolos bootstrap relay && ./dolos daemon",
     "dolos:wait": "wait-on tcp:50051" // utxorpc port
   },
   "imports": {
-    "@bloxbean/yaci-devkit": "npm:@bloxbean/yaci-devkit@0.10.6",
     "@txpipe/dolos": "npm:@txpipe/dolos@0.19.1",
     "toml": "jsr:@std/toml"
   }
