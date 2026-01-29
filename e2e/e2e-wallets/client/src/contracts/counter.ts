@@ -58,6 +58,12 @@ export class DelegatedBalancingSentError extends Error {
 let lastCapturedTx: string | null = null;
 export const getLastCapturedTx = () => lastCapturedTx;
 
+let useDelegatedBalancing = false;
+export const setUseDelegatedBalancing = (value: boolean) => {
+  console.log(`Setting delegation mode to: ${value}`);
+  useDelegatedBalancing = value;
+};
+
 const toHex = (data: Uint8Array): string =>
   Array.from(data)
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -109,7 +115,7 @@ const counterContractInstance = new Counter.Contract(
   counterWitnesses,
 );
 
-const getCounterLedgerState = async (
+export const getCounterLedgerState = async (
   providers: CounterProviders,
   contractAddress: ContractAddress,
 ): Promise<any | null> => {
@@ -128,6 +134,39 @@ const getCounterLedgerState = async (
   } catch (error) {
     console.error("❌ Error getting counter ledger state:", error);
     throw error;
+  }
+};
+
+export const queryTransactionStatus = async (txId: string): Promise<boolean> => {
+  // Normalize hash format
+  let normalizedHash = txId.toLowerCase().replace(/^0x/, "");
+  if (normalizedHash.length > 64) {
+    normalizedHash = normalizedHash.slice(-64);
+  } else if (normalizedHash.length < 64) {
+    normalizedHash = normalizedHash.padStart(64, "0");
+  }
+
+  const query = `query ($hash: String!) {
+    transactions(offset: { hash: $hash }) {
+      hash
+      block {
+        height
+      }
+    }
+  }`;
+
+  try {
+    const response = await fetch(BASE_URL_MIDNIGHT_INDEXER_API, {
+      method: "POST",
+      body: JSON.stringify({ query, variables: { hash: normalizedHash } }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const result = await response.json();
+    const confirmed = result?.data?.transactions?.[0]?.block?.height != null;
+    return confirmed;
+  } catch (e) {
+    console.error("Failed to query tx status:", e);
+    return false;
   }
 };
 
@@ -185,7 +224,6 @@ const fetchWalletAddresses = async (
 
 export const connectMidnightWallet = async (
   connectedAPI: ConnectedAPI,
-  useDelegatedBalancing: boolean = false
 ): Promise<{
   providers: CounterProviders;
   addresses: WalletAddresses;
@@ -193,7 +231,7 @@ export const connectMidnightWallet = async (
   console.log("🔗 Building Midnight wallet with connector...");
 
   const addresses = await fetchWalletAddresses(connectedAPI);
-  const providers = await initializeProviders(connectedAPI, addresses, useDelegatedBalancing);
+  const providers = await initializeProviders(connectedAPI, addresses);
   console.log("✅ Providers configured successfully");
 
   return { providers, addresses };
@@ -233,8 +271,7 @@ export const connectToContract = async (
 const createWalletAndMidnightProvider = (
   connectedAPI: ConnectedAPI,
   coinPublicKey: CoinPublicKey,
-  encryptionPublicKey: EncPublicKey,
-  useDelegatedBalancing: boolean
+  encryptionPublicKey: EncPublicKey
 ): WalletProvider & MidnightProvider => {
   return {
     getCoinPublicKey(): CoinPublicKey {
@@ -298,16 +335,14 @@ const createWalletAndMidnightProvider = (
 
 const initializeProviders = async (
   connectedAPI: ConnectedAPI,
-  addresses: WalletAddresses,
-  useDelegatedBalancing: boolean
+  addresses: WalletAddresses
 ): Promise<CounterProviders> => {
   const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = addresses;
 
   const walletAndMidnightProvider = createWalletAndMidnightProvider(
     connectedAPI,
     shieldedCoinPublicKey as any,
-    shieldedEncryptionPublicKey as any,
-    useDelegatedBalancing
+    shieldedEncryptionPublicKey as any
   );
   
   const zkConfigPath = window.location.origin;

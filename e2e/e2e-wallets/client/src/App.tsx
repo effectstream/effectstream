@@ -113,7 +113,6 @@ function App() {
   const [injectedWallets, setInjectedWallets] = useState<
     Record<WalletMode, any> | null
   >(null);
-  const [midnightMode, setMidnightMode] = useState<"direct" | "delegated">("direct");
   const [addressType, setAddressType] = useState<AddressType | null>(null);
   const [midnightProviders, setMidnightProviders] = useState<counter.CounterProviders | null>(null);
   const [midnightAddresses, setMidnightAddresses] = useState<any | null>(null);
@@ -122,6 +121,7 @@ function App() {
   const [messageToBatch, setMessageToBatch] = useState<string>(
     '["attack","1","1"]',
   );
+  const [midnightCounterValue, setMidnightCounterValue] = useState<bigint | null>(null);
 
   useEffect(() => {
     if (wallet) {
@@ -166,17 +166,7 @@ function App() {
     });
   }, []);
 
-  // Handle mode changes: disconnect wallet to force reconnection with new mode
-  useEffect(() => {
-    if (wallet?.mode === WalletMode.Midnight) {
-      console.log("Midnight mode changed, clearing connection to force reconnection");
-      setWallet(null);
-      setMidnightProviders(null);
-      setMidnightAddresses(null);
-      setMidnightContract(null);
-      setError("Midnight mode changed. Please reconnect your wallet.");
-    }
-  }, [midnightMode]);
+
 
 
   const handlePrimitiveChange = (primitive: PrimitiveInfo) => {
@@ -287,19 +277,50 @@ function App() {
     return result;
   };
 
-  const handleMidnightIncrement = async () => {
+  const refreshMidnightCounter = async () => {
+    if (!midnightProviders || !midnightContract) return;
+    try {
+      const contractAddress = midnightContract.deployTxData.public.contractAddress;
+      const state = await counter.getCounterLedgerState(midnightProviders, contractAddress);
+      if (state) {
+        setMidnightCounterValue(state.value);
+      }
+    } catch (e) {
+      console.error("Failed to refresh counter:", e);
+    }
+  };
+
+  const pollForMidnightConfirmation = async (txHash: string) => {
+    console.log(`Polling for confirmation of ${txHash}...`);
+    for (let i = 0; i < 60; i++) { // Poll for up to 2 mins (2s intervals)
+      const confirmed = await counter.queryTransactionStatus(txHash);
+      if (confirmed) {
+        console.log("Transaction confirmed!");
+        setActionResult(`Transaction successful and confirmed: ${txHash}`);
+        await refreshMidnightCounter();
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    setActionResult("Polling timed out. Please refresh manually later.");
+  };
+
+  const handleMidnightIncrement = async (delegated: boolean) => {
     if (!midnightContract || !midnightAddresses) return;
+    counter.setUseDelegatedBalancing(delegated);
     setActionResult(null);
     try {
       const result = await counter.increment(midnightContract);
       console.log("Increment result:", result);
       setActionResult(`Transaction successful: ${result.txId}`);
+      await refreshMidnightCounter();
     } catch (error) {
       if (error instanceof counter.DelegatedBalancingSentError) {
         const tx = counter.getLastCapturedTx();
         if (!tx) throw new Error("No transaction captured for delegation");
-        await submitToBatcher(tx, "increment", midnightAddresses.shieldedAddress);
-        setActionResult("Transaction delegated to batcher");
+        const res = await submitToBatcher(tx, "increment", midnightAddresses.shieldedAddress);
+        setActionResult("Transaction delegated to batcher. Polling for confirmation...");
+        pollForMidnightConfirmation(res.transactionHash);
         return;
       }
       console.error("Increment failed:", error);
@@ -475,12 +496,11 @@ function App() {
     });
 
     wallets.push({
-      name: `Connect Midnight Wallet (${midnightMode})`,
+      name: "Connect Midnight Wallet",
       mode: WalletMode.Midnight,
       login: async () => {
         try {
           setError(null);
-          const currentMode = midnightMode; // Capture current mode for connection
           const result = await walletLogin({
             mode: WalletMode.Midnight,
             networkId: "undeployed",
@@ -490,13 +510,14 @@ function App() {
             const connectedApi = paimaWallet.provider.getConnection().api as ConnectedAPI;
             
             // Connect to providers and contract
-            const { providers, addresses } = await counter.connectMidnightWallet(connectedApi, currentMode === "delegated");
+            const { providers, addresses } = await counter.connectMidnightWallet(connectedApi);
             const { contract, state, contractAddress } = await counter.connectToContract(providers);
             
-            setWallet({ ...result.result, mode: WalletMode.Midnight, connectionMode: currentMode });
+            setWallet({ ...result.result, mode: WalletMode.Midnight });
             setMidnightProviders(providers);
             setMidnightAddresses(addresses);
             setMidnightContract(contract);
+            if (state) setMidnightCounterValue(state.value);
             setAddressType(AddressType.MIDNIGHT);
           } else {
             setError(result.errorMessage);
@@ -508,12 +529,12 @@ function App() {
       types: ["midnight"],
       metadata: {
         name: "Midnight Wallet",
-        displayName: `Midnight Wallet (${midnightMode})`,
+        displayName: "Midnight Wallet",
       },
     });
 
     return wallets;
-  }, [injectedWallets, midnightMode]);
+  }, [injectedWallets]);
 
   const displayedWallets = useMemo(() => {
     if (!selectedPrimitive || selectedPrimitive.name === "Show All Wallets") {
@@ -910,10 +931,7 @@ function App() {
                 </p>
                 <p><strong>Metadata:</strong></p>
                 <pre>
-                  {JSON.stringify({
-                    ...(wallet.metadata || {}),
-                    ...(wallet.connectionMode ? { connectionMode: wallet.connectionMode } : {})
-                  }, null, 2)}
+                  {JSON.stringify(wallet.metadata || {}, null, 2)}
                 </pre>
               </div>
             </div>
@@ -1007,23 +1025,26 @@ function App() {
                 <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "1rem" }}>
                   <h3>Midnight Counter Actions</h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-                      <label style={{ color: "white" }}>Mode:</label>
-                      <select 
-                        value={midnightMode} 
-                        onChange={(e) => setMidnightMode(e.target.value as "direct" | "delegated")}
-                        style={{ padding: "4px" }}
-                      >
-                        <option value="direct">Direct (Lace pays fees)</option>
-                        <option value="delegated">Delegated (Batcher pays fees)</option>
-                      </select>
+                    <div style={{ padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', textAlign: 'center' }}>
+                      <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.7 }}>Current Counter Value</p>
+                      <p style={{ margin: '5px 0 0 0', fontSize: '2rem', fontWeight: 'bold', color: '#4a90e2' }}>
+                        {midnightCounterValue !== null ? midnightCounterValue.toString() : "..."}
+                      </p>
                     </div>
+
                     <button 
                       type="button" 
-                      onClick={handleMidnightIncrement}
+                      onClick={() => handleMidnightIncrement(false)}
                       style={{ padding: "10px", background: "#4a90e2", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
                     >
-                      Increment Counter
+                      Increment (Direct)
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => handleMidnightIncrement(true)}
+                      style={{ padding: "10px", background: "#4a90e2", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                    >
+                      Increment (Delegated)
                     </button>
                   </div>
                 </div>
