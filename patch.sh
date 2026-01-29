@@ -53,4 +53,7 @@ for dir in ./node_modules/.deno/@nomicfoundation+hardhat-utils@3.[0-1]*.[0-9]*/ 
     comment_line "$file_to_patch" 275 "await fileHandle?.close();"
 done
 
+cp ./node_modules/.deno/libsodium-wrappers-sumo@0.7.16/node_modules/libsodium-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs ./node_modules/.deno/libsodium-wrappers-sumo@0.7.16/node_modules/libsodium-wrappers-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs
+echo "✅ Copied libsodium-sumo.mjs to libsodium-wrappers-sumo.mjs"
+
 echo "✅ All patches applied successfully"

@@ -36,10 +36,9 @@ export const launchCardano = (packageName: string): {
   try {
     Deno.statSync(yaciCliPath);
   } catch (_error) {
-    console.warn(
+    throw new Error(
       `Cardano launcher skipped: missing ${yaciCliPath}. Run yaci-cli setup.`,
     );
-    return [];
   }
   // TODO We require the latest dolos binary built from source.
   // At the time there is not npm package for the latest dolos binary.
@@ -47,17 +46,11 @@ export const launchCardano = (packageName: string): {
     const dolosExists = new Deno.Command("deno", {
       args: ["task", "-f", "@e2e/cardano-contracts", "dolos:exists"],
     }).outputSync();
-    if (!dolosExists.success) {
-      console.warn(
-        "Cardano launcher skipped: dolos binary is missing.",
-      );
-      return [];
-    }
+    if (!dolosExists.success) throw new Error();
   } catch (_error) {
-    console.warn(
+    throw new Error(
       "Cardano launcher skipped: dolos binary is missing.",
     );
-    return [];
   }
 
  

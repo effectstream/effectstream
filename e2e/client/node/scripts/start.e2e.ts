@@ -29,7 +29,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const external_db_enabled = ENV.getBoolean("EXTERNAL_DB_ENABLED");
 
-const yaci_enabled = !ENV.getBoolean("DISABLE_YACI")
+const yaci_enabled = false; //!ENV.getBoolean("DISABLE_YACI")
 const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
 const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");

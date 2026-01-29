@@ -32,7 +32,7 @@ const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno && D
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
-const yaci_enabled = !isEnvTrue("DISABLE_YACI");
+const yaci_enabled = false; //!isEnvTrue("DISABLE_YACI");
 
 // NOTE: This disable midnight sync, allowing for faster testing.
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
@@ -76,10 +76,12 @@ if (Deno) {
   }
 
     // We fetch the latest block from the dolos mini blockfrost endpoint
-    const response = await fetch("http://localhost:3000/blocks/latest");
-    yaciDevKitStartTime = (await response.json()).time * 1000;
-    yaciDevKitStartTime = new Date().getTime() - yaciDevKitStartTime;
-    console.log("yaciDevKitStartTime", yaciDevKitStartTime);
+    if (yaci_enabled) {
+      const response = await fetch("http://localhost:3000/blocks/latest");
+      yaciDevKitStartTime = (await response.json()).time * 1000;
+      yaciDevKitStartTime = new Date().getTime() - yaciDevKitStartTime;
+      console.log("yaciDevKitStartTime", yaciDevKitStartTime);
+    }
 }
 
 export const config = new ConfigBuilder()
