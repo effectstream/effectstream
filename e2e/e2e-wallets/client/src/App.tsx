@@ -283,7 +283,7 @@ function App() {
       const contractAddress = midnightContract.deployTxData.public.contractAddress;
       const state = await counter.getCounterLedgerState(midnightProviders, contractAddress);
       if (state) {
-        setMidnightCounterValue(state.value);
+        setMidnightCounterValue(state.round);
       }
     } catch (e) {
       console.error("Failed to refresh counter:", e);
@@ -517,7 +517,7 @@ function App() {
             setMidnightProviders(providers);
             setMidnightAddresses(addresses);
             setMidnightContract(contract);
-            if (state) setMidnightCounterValue(state.value);
+            if (state) setMidnightCounterValue(state.round);
             setAddressType(AddressType.MIDNIGHT);
           } else {
             setError(result.errorMessage);
@@ -1028,7 +1028,7 @@ function App() {
                     <div style={{ padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', textAlign: 'center' }}>
                       <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.7 }}>Current Counter Value</p>
                       <p style={{ margin: '5px 0 0 0', fontSize: '2rem', fontWeight: 'bold', color: '#4a90e2' }}>
-                        {midnightCounterValue !== null ? midnightCounterValue.toString() : "..."}
+                        {typeof midnightCounterValue === 'bigint' ? midnightCounterValue.toString() : "..."}
                       </p>
                     </div>
 

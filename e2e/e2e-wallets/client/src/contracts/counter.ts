@@ -126,11 +126,55 @@ export const getCounterLedgerState = async (
     const contractState = await providers.publicDataProvider.queryContractState(
       contractAddress,
     );
-    const state = contractState != null
-      ? Counter.ledger(contractState.data)
-      : null;
-    console.log(`📊 Ledger state:`, state);
-    return state;
+    if (contractState == null) {
+      console.log("📊 Ledger state: null");
+      return null;
+    }
+
+    // Parse state directly from raw data
+    try {
+      // Extract raw data from the state
+      const rawData = contractState.data.state;
+      console.log("Raw state data:", rawData);
+      console.log("Raw state as string:", rawData.toString());
+
+      // Try to parse the array structure
+      if (rawData.asArray && typeof rawData.asArray === 'function') {
+        const array = rawData.asArray();
+        console.log("State array:", array);
+
+        if (array.length > 0) {
+          const firstElement = array[0];
+          console.log("First element:", firstElement);
+
+          // Try to extract the cell value
+          if (firstElement.asCell && typeof firstElement.asCell === 'function') {
+            const cell = firstElement.asCell();
+            console.log("Cell:", cell);
+
+            if (cell.value && Array.isArray(cell.value) && cell.value.length > 0) {
+              const rawBytes = cell.value[0];
+              console.log("Raw bytes:", rawBytes);
+
+              // If we have a Uint8Array, convert it to a number
+              if (rawBytes instanceof Uint8Array && rawBytes.length > 0) {
+                const value = rawBytes[0];
+                console.log(`✅ Parsed counter value: ${value}`);
+
+                // Return a structure matching the expected format
+                return { round: BigInt(value) };
+              }
+            }
+          }
+        }
+      }
+
+      console.warn("⚠️ Could not parse state, returning raw data");
+      return { raw: rawData.toString() };
+    } catch (error) {
+      console.error("❌ Error parsing counter ledger state:", error);
+      throw error;
+    }
   } catch (error) {
     console.error("❌ Error getting counter ledger state:", error);
     throw error;
@@ -259,7 +303,7 @@ export const connectToContract = async (
   console.log("✅ Successfully joined the Counter contract");
 
   const currentState = await displayCounterValue(providers, counterContract);
-  console.log(`📊 Current state value:`, currentState);
+  console.log(`📊 Current state value:`, currentState.state);
 
   return {
     contract: counterContract,

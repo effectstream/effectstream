@@ -29,6 +29,7 @@ export default defineConfig({
   define: {
     "process.env.EFFECTSTREAM_ENV": JSON.stringify("local"),
   },
+  sourcemap: true,
   resolve: {
     alias: {
       "@e2e/midnight-contract-eip-20/contract": midnightContractEip20Path + "index.js",
@@ -51,6 +52,7 @@ export default defineConfig({
   build: {
     target: "esnext",
     minify: false,
+    sourcemap: true,
   },
   server: {
     port: 4001,
