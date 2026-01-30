@@ -92,6 +92,16 @@ function clientToSigner(client: any) { // Client<Transport, Chain, Account>) {
   return signer;
 }
 
+function logMidnightWalletAddresses(addresses: any): void {
+  console.log("🔗 Midnight Wallet Connected Successfully!");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("📋 Wallet Addresses:");
+  console.log(`  Shielded Address:       ${addresses.shieldedAddress}`);
+  console.log(`  Unshielded Address:     ${addresses.unshieldedAddress}`);
+  console.log(`  Dust Address:           ${addresses.dustAddress}`);
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+}
+
 function App() {
   const [error, setError] = useState<string | null>(null);
   const [wallet, setWallet] = useState<(Wallet & { mode: WalletMode }) | null>(null);
@@ -508,11 +518,14 @@ function App() {
           if (result.success) {
             const paimaWallet = result.result;
             const connectedApi = paimaWallet.provider.getConnection().api as ConnectedAPI;
-            
+
             // Connect to providers and contract
             const { providers, addresses } = await counter.connectMidnightWallet(connectedApi);
             const { contract, state, contractAddress } = await counter.connectToContract(providers);
-            
+
+            // Log wallet addresses
+            logMidnightWalletAddresses(addresses);
+
             setWallet({ ...result.result, mode: WalletMode.Midnight });
             setMidnightProviders(providers);
             setMidnightAddresses(addresses);

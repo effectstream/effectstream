@@ -261,8 +261,8 @@ const fetchWalletAddresses = async (
 
   return {
     ...shieldedAddresses,
-    unshieldedAddress,
-    dustAddress,
+    ...unshieldedAddress,
+    ...dustAddress,
   };
 };
 
