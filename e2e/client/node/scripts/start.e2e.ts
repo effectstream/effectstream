@@ -117,6 +117,8 @@ export async function startup(): Promise<Client> {
           is_serial ? lastProcess : undefined,
           ComponentNames.DEPLOY_EVM_CONTRACTS, 
           midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined,
+          avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
+          yaci_enabled ? ComponentNames.DOLOS_WAIT : undefined,
           bitcoin_enabled ? ComponentNames.BITCOIN_WAIT_FOR_BLOCK : undefined,
         ].filter(Boolean),
       },
