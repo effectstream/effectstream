@@ -3,15 +3,16 @@
   "exports": {
     ".": "./src/_index.ts",
     "./witnesses": "./src/witnesses.ts",
-    "./contract": "./src/managed/erc7683/contract/index.cjs"
+    "./contract": "./src/managed/contract/index.js"
   },
   "tasks": {
-    "compact": "compact compile src/erc7683.compact src/managed/erc7683 && deno task convert:js",
+    "compact": "compact compile +0.27.0 src/erc7683.compact src/managed",
     "clean": "rm -rf src/managed",
-    "convert:js": "deno run -A convert-js.ts src/managed/erc7683/contract/index.cjs src/managed/erc7683/contract/index.ts",
+    "convert:js": "deno run -A convert-js.ts src/managed/contract/index.js src/managed/contract/index.ts",
     "contract:compile": "deno task compact"
   },
   "imports": {
-    "vitest": "npm:vitest@^3.2.4"
+    "vitest": "npm:vitest@^3.2.4",
+    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.11.0-rc.1"
   }
 }

@@ -1,4 +1,5 @@
 import { OrchestratorConfig, start } from "@paimaexample/orchestrator";
+import type { Static } from "@sinclair/typebox";
 import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
 import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
@@ -97,7 +98,7 @@ const fillerProcesses = fillerDefinitions.map((filler, index) => {
     type: "system-dependency",
     link: `http://localhost:${filler.fillerPort}`,
     stopProcessAtPort: [filler.fillerPort],
-    dependsOn: ['create-wallets', 'create-wallets-midnight'],
+    dependsOn: ['create-wallets', 'create-wallets-midnight', 'mint-wallets-midnight'],
   };
 });
 
@@ -110,7 +111,6 @@ const config = Value.Parse(OrchestratorConfig, {
     // Launch Dev DB & Collector
     [ComponentNames.EFFECTSTREAM_PGLITE]: true,
     [ComponentNames.COLLECTOR]: true,
-    [ComponentNames.LOKI]: true,
   },
 
   // Launch my processes
@@ -135,9 +135,17 @@ const config = Value.Parse(OrchestratorConfig, {
     {
       name: "mint-wallets-midnight",
       args: ["task", "-f", "@night-bitcoin/midnight-contracts", "mint-wallets"],
-      waitToExit: false,
+      waitToExit: true,
       type: "system-dependency",
       dependsOn: ['create-wallets-midnight'],
+    },
+    {
+      name: "balancing-batcher",
+      args: ["task", "-f", "@night-bitcoin/filler", "batcher:start", "--port", "3334", "--filler-name", "Balancing Batcher"],
+      waitToExit: false,
+      type: "system-dependency",
+      stopProcessAtPort: [3334],
+      dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
     },
     ...fillerProcesses,
   ],

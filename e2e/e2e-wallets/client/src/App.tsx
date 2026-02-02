@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "./App.css";
+import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 
 import {
   allInjectedWallets,
@@ -28,6 +29,8 @@ import { AddressType } from "@effectstream/utils";
 import { Value } from "@sinclair/typebox/value";
 import { CryptoManager } from "@effectstream/crypto";
 import type { Chain } from "viem";
+
+import * as counter from "./contracts/counter.ts";
 
 // LOCAL CONFIG
 const network: Chain = hardhatChain;
@@ -89,6 +92,16 @@ function clientToSigner(client: any) { // Client<Transport, Chain, Account>) {
   return signer;
 }
 
+function logMidnightWalletAddresses(addresses: any): void {
+  console.log("🔗 Midnight Wallet Connected Successfully!");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("📋 Wallet Addresses:");
+  console.log(`  Shielded Address:       ${addresses.shieldedAddress}`);
+  console.log(`  Unshielded Address:     ${addresses.unshieldedAddress}`);
+  console.log(`  Dust Address:           ${addresses.dustAddress}`);
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+}
+
 function App() {
   const [error, setError] = useState<string | null>(null);
   const [wallet, setWallet] = useState<(Wallet & { mode: WalletMode }) | null>(null);
@@ -110,10 +123,15 @@ function App() {
   const [injectedWallets, setInjectedWallets] = useState<
     Record<WalletMode, any> | null
   >(null);
+  const [addressType, setAddressType] = useState<AddressType | null>(null);
+  const [midnightProviders, setMidnightProviders] = useState<counter.CounterProviders | null>(null);
+  const [midnightAddresses, setMidnightAddresses] = useState<any | null>(null);
+  const [midnightContract, setMidnightContract] = useState<any | null>(null);
   const [messageToSign, setMessageToSign] = useState<string>("");
   const [messageToBatch, setMessageToBatch] = useState<string>(
     '["attack","1","1"]',
   );
+  const [midnightCounterValue, setMidnightCounterValue] = useState<bigint | null>(null);
 
   useEffect(() => {
     if (wallet) {
@@ -157,6 +175,8 @@ function App() {
       networkType: "all",
     });
   }, []);
+
+
 
 
   const handlePrimitiveChange = (primitive: PrimitiveInfo) => {
@@ -232,6 +252,89 @@ function App() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const submitToBatcher = async (serializedTx: string, circuitId: string, addr: string) => {
+    console.log(`🚀 Sending ${circuitId} transaction to Batcher...`);
+    
+    const body = {
+      data: {
+        target: "midnight_balancing",
+        address: addr,
+        addressType: AddressType.MIDNIGHT,
+        input: JSON.stringify({
+          tx: serializedTx,
+          circuitId: circuitId,
+        }),
+        timestamp: Date.now(),
+      },
+      confirmationLevel: "wait-receipt",
+    };
+
+    const response = await fetch(`${batcherUrl}/send-input`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(`Batcher failed: ${result.message || response.statusText}`);
+    }
+    
+    console.log("📬 Batcher accepted transaction:", result);
+    return result;
+  };
+
+  const refreshMidnightCounter = async () => {
+    if (!midnightProviders || !midnightContract) return;
+    try {
+      const contractAddress = midnightContract.deployTxData.public.contractAddress;
+      const state = await counter.getCounterLedgerState(midnightProviders, contractAddress);
+      if (state) {
+        setMidnightCounterValue(state.round);
+      }
+    } catch (e) {
+      console.error("Failed to refresh counter:", e);
+    }
+  };
+
+  const pollForMidnightConfirmation = async (txHash: string) => {
+    console.log(`Polling for confirmation of ${txHash}...`);
+    for (let i = 0; i < 60; i++) { // Poll for up to 2 mins (2s intervals)
+      const confirmed = await counter.queryTransactionStatus(txHash);
+      if (confirmed) {
+        console.log("Transaction confirmed!");
+        setActionResult(`Transaction successful and confirmed: ${txHash}`);
+        await refreshMidnightCounter();
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    setActionResult("Polling timed out. Please refresh manually later.");
+  };
+
+  const handleMidnightIncrement = async (delegated: boolean) => {
+    if (!midnightContract || !midnightAddresses) return;
+    counter.setUseDelegatedBalancing(delegated);
+    setActionResult(null);
+    try {
+      const result = await counter.increment(midnightContract);
+      console.log("Increment result:", result);
+      setActionResult(`Transaction successful: ${result.txId}`);
+      await refreshMidnightCounter();
+    } catch (error) {
+      if (error instanceof counter.DelegatedBalancingSentError) {
+        const tx = counter.getLastCapturedTx();
+        if (!tx) throw new Error("No transaction captured for delegation");
+        const res = await submitToBatcher(tx, "increment", midnightAddresses.shieldedAddress);
+        setActionResult("Transaction delegated to batcher. Polling for confirmation...");
+        pollForMidnightConfirmation(res.transactionHash);
+        return;
+      }
+      console.error("Increment failed:", error);
+      setError(error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -399,6 +502,47 @@ function App() {
       metadata: {
         name: "EVM Test Error",
         displayName: "EVM [test error]",
+      },
+    });
+
+    wallets.push({
+      name: "Connect Midnight Wallet",
+      mode: WalletMode.Midnight,
+      login: async () => {
+        try {
+          setError(null);
+          const result = await walletLogin({
+            mode: WalletMode.Midnight,
+            networkId: "undeployed",
+          });
+          if (result.success) {
+            const paimaWallet = result.result;
+            const connectedApi = paimaWallet.provider.getConnection().api as ConnectedAPI;
+
+            // Connect to providers and contract
+            const { providers, addresses } = await counter.connectMidnightWallet(connectedApi);
+            const { contract, state, contractAddress } = await counter.connectToContract(providers);
+
+            // Log wallet addresses
+            logMidnightWalletAddresses(addresses);
+
+            setWallet({ ...result.result, mode: WalletMode.Midnight });
+            setMidnightProviders(providers);
+            setMidnightAddresses(addresses);
+            setMidnightContract(contract);
+            if (state) setMidnightCounterValue(state.round);
+            setAddressType(AddressType.MIDNIGHT);
+          } else {
+            setError(result.errorMessage);
+          }
+        } catch (e) {
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      },
+      types: ["midnight"],
+      metadata: {
+        name: "Midnight Wallet",
+        displayName: "Midnight Wallet",
       },
     });
 
@@ -800,7 +944,7 @@ function App() {
                 </p>
                 <p><strong>Metadata:</strong></p>
                 <pre>
-                  {JSON.stringify(wallet.metadata, null, 2)}
+                  {JSON.stringify(wallet.metadata || {}, null, 2)}
                 </pre>
               </div>
             </div>
@@ -889,6 +1033,35 @@ function App() {
                   Send
                 </button>
               </div>
+
+              {wallet?.mode === WalletMode.Midnight && (
+                <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "1rem" }}>
+                  <h3>Midnight Counter Actions</h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <div style={{ padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', textAlign: 'center' }}>
+                      <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.7 }}>Current Counter Value</p>
+                      <p style={{ margin: '5px 0 0 0', fontSize: '2rem', fontWeight: 'bold', color: '#4a90e2' }}>
+                        {typeof midnightCounterValue === 'bigint' ? midnightCounterValue.toString() : "..."}
+                      </p>
+                    </div>
+
+                    <button 
+                      type="button" 
+                      onClick={() => handleMidnightIncrement(false)}
+                      style={{ padding: "10px", background: "#4a90e2", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                    >
+                      Increment (Direct)
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => handleMidnightIncrement(true)}
+                      style={{ padding: "10px", background: "#4a90e2", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+                    >
+                      Increment (Delegated)
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {actionResult && (

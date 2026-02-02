@@ -117,6 +117,7 @@ export const launchMidnight = (packageName: string): {
     },
     {
       name: ComponentNames.MIDNIGHT_CONTRACT,
+      // logs: "raw",
       args: [
         "task",
         "-f",

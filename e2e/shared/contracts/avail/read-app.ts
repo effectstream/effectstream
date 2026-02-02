@@ -20,7 +20,7 @@ export function readAvailApplication(): AvailApplicationInfo {
     cachedAppInfo = appInfo;
     return appInfo;
   } catch (err) {
-    if (Deno) {
+    if (typeof Deno !== 'undefined' && Deno) {
       console.error(err);
       throw new Error("avail_app.json not found in the current directory");
     }

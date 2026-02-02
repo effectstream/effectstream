@@ -1,4 +1,10 @@
 import { AddressType, type MidnightAddress } from "@effectstream/utils";
+import type {
+  ConnectedAPI,
+  InitialAPI,
+  Signature,
+} from "@midnight-ntwrk/dapp-connector-api";
+import semver from "semver";
 import {
   type IInjectedConnector,
   type ActiveConnection,
@@ -11,31 +17,46 @@ import {
 } from "../IProvider.ts";
 import { getWindow } from "../windows.ts";
 
-// TODO: proper type definitions for MidnightApi
-export type MidnightApi = any;
+export type MidnightApi = ConnectedAPI;
+
+const COMPATIBLE_CONNECTOR_API_VERSION = ">=1.0.0";
+const DEFAULT_NETWORK_ID = "undeployed";
 
 // TODO Implement this class
-export class MidnightConnector implements IConnector<MidnightApi>, IInjectedConnector<MidnightApi> {
+export class MidnightConnector
+  implements IConnector<MidnightApi>, IInjectedConnector<MidnightApi> {
   private provider: MidnightProvider | undefined;
   private static INSTANCE: undefined | MidnightConnector = undefined;
+  private static networkId = DEFAULT_NETWORK_ID;
   
   static getWalletOptions(): ConnectionOption<MidnightApi>[] {
-    const midnightApi: Record<string, { name?: string; enable?: () => Promise<MidnightApi> }> = (getWindow() as any)?.midnight;
-    if (midnightApi == null) return [];
-
-    const options = Object.entries(midnightApi).reduce((options, [key, info]) => {
-      if (info.name != null && info.enable != null) {
-        options.push({
-          metadata: {
-            name: key,
-            displayName: info.name,
-            icon: 'icon' in info ? (info.icon as string) : undefined,
-          },
-          api: info.enable,
-        });
+    const midnightApi: Record<string, InitialAPI> = (getWindow() as any)
+      ?.midnight ?? {};
+    console.log("MidnightConnector.getWalletOptions: window.midnight content:", midnightApi);
+    const options = Object.entries(midnightApi).reduce((options, [key, api]) => {
+      console.log(`MidnightConnector.getWalletOptions: Checking wallet "${key}"`, api);
+      if (!isInitialApi(api)) {
+        console.log(`MidnightConnector.getWalletOptions: Wallet "${key}" is NOT a valid InitialAPI (missing connect or apiVersion)`);
+        return options;
       }
+      if (!isCompatibleApiVersion(api.apiVersion)) {
+        console.log(`MidnightConnector.getWalletOptions: Wallet "${key}" has incompatible version ${api.apiVersion} (required: ${COMPATIBLE_CONNECTOR_API_VERSION})`);
+        return options;
+      }
+      const name = api.rdns?.trim() || key;
+      const displayName = api.name?.trim() || name;
+      console.log(`MidnightConnector.getWalletOptions: Wallet "${key}" is COMPATIBLE. Name: ${name}, DisplayName: ${displayName}`);
+      options.push({
+        metadata: {
+          name,
+          displayName,
+          icon: api.icon,
+        },
+        api: () => connectWithNetwork(api, MidnightConnector.networkId),
+      });
       return options;
     }, [] as ConnectionOption<MidnightApi>[]);
+    console.log(`MidnightConnector.getWalletOptions: Found ${options.length} compatible wallets`);
     return options;
   }
   
@@ -46,6 +67,10 @@ export class MidnightConnector implements IConnector<MidnightApi>, IInjectedConn
     }
     return MidnightConnector.INSTANCE;
   }
+
+  setNetworkId = (networkId: string): void => {
+    MidnightConnector.networkId = networkId || DEFAULT_NETWORK_ID;
+  };
 
   getOrThrowProvider = (): MidnightProvider => {
     if (this.provider == null) {
@@ -119,9 +144,15 @@ export class MidnightProvider implements IProvider<MidnightApi> {
     return this.conn;
   }
   
-  signMessage = async (message: string): Promise<UserSignature> => {
-    console.log('NYI LACE: MidnightProvider.signMessage', message);
-    return message; // this.conn.api.signMessage(message);
+  signMessage = async (
+    message: string,
+    keyType: "unshielded" = "unshielded"
+  ): Promise<UserSignature> => {
+    const signature = (await this.conn.api.signData(message, {
+      encoding: "text",
+      keyType,
+    })) as Signature;
+    return signature.signature;
   };
 
   getAddress(): AddressAndType {
@@ -132,13 +163,34 @@ export class MidnightProvider implements IProvider<MidnightApi> {
   }
 
   static fetchAddress = async (conn: ActiveConnection<MidnightApi>): Promise<string> => {
-    const state = await conn.api.state();
-    // address : "mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lta07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx"
-    // addressLegacy : "b79b05e801bcd60d902eed77727d76f16ae357ebebfd6be47fc149ac7f9483a1|030065366a2f2cc438e18fb6f9c7a7bdd7dc96309f409623dc23ea4eedef64b63b60"
-    // coinPublicKey : "mn_shield-cpk_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lta07kherlc9y6clu5swsspxas0m"
-    // coinPublicKeyLegacy : "b79b05e801bcd60d902eed77727d76f16ae357ebebfd6be47fc149ac7f9483a1"
-    // encryptionPublicKey : "mn_shield-epk_undeployed1qvqx2dn29ukvgw8p37m0n3a8hhtae93snaqfvg7uy04yam00vjmrkcqtdla9r"
-    // encryptionPublicKeyLegacy : "030065366a2f2cc438e18fb6f9c7a7bdd7dc96309f409623dc23ea4eedef64b63b60"
-    return state.address;
+    const addresses = await conn.api.getShieldedAddresses();
+    if (!addresses?.shieldedAddress) {
+      throw new Error("Midnight wallet did not return a shielded address");
+    }
+    return addresses.shieldedAddress;
   };
 }
+
+const isInitialApi = (api: InitialAPI | undefined): api is InitialAPI => {
+  return (
+    !!api &&
+    typeof api.connect === "function" &&
+    typeof api.apiVersion === "string"
+  );
+};
+
+const isCompatibleApiVersion = (apiVersion: string): boolean => {
+  return semver.satisfies(
+    apiVersion,
+    COMPATIBLE_CONNECTOR_API_VERSION,
+    { includePrerelease: true }
+  );
+};
+
+const connectWithNetwork = async (
+  api: InitialAPI,
+  networkId: string
+): Promise<ConnectedAPI> => {
+  const connect = api.connect.bind(api);
+  return await connect(networkId);
+};

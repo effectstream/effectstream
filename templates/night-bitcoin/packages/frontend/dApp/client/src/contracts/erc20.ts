@@ -14,6 +14,21 @@ import {
   Transaction,
   type TransactionId,
 } from "@midnight-ntwrk/ledger";
+import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
+import type {
+  CoinPublicKey,
+  EncPublicKey,
+  ShieldedCoinInfo,
+  UnprovenTransaction,
+  FinalizedTransaction,
+} from "@midnight-ntwrk/ledger-v6";
+import {
+  Transaction as LedgerV6Transaction,
+  SignatureEnabled,
+  PreProof,
+  PreBinding,
+} from "@midnight-ntwrk/ledger-v6";
+import { Buffer } from "buffer";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -24,36 +39,26 @@ import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-p
 import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
 
 import {
-  type BalancedTransaction,
+  type BalancedProvingRecipe,
   Contract,
-  createBalancedTx,
-  type FinalizedTxData,
   type ImpureCircuitId,
   type MidnightProvider,
   type MidnightProviders,
-  type UnbalancedTransaction,
   type WalletProvider,
+  TRANSACTION_TO_PROVE,
 } from "@midnight-ntwrk/midnight-js-types";
 import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
 import type { Wallet } from "@midnight-ntwrk/wallet-api";
-import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import {
-  getLedgerNetworkId,
-  getZswapNetworkId,
   setNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import { dirname, resolve } from "node:path";
-import {
-  MidnightBech32m,
-  ShieldedAddress,
-} from "@midnight-ntwrk/wallet-sdk-address-format";
-import {
-  type DAppConnectorAPI,
-  type DAppConnectorWalletAPI,
-  type ServiceUriConfig,
-} from "@midnight-ntwrk/dapp-connector-api";
+
+import { wrapPublicDataProvider } from "./midnight-utils.ts";
+import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
+import { NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
   concatMap,
   filter,
@@ -78,8 +83,36 @@ const getMidnightNodeUrl = async (): Promise<string> => {
 const BASE_URL_MIDNIGHT_INDEXER = `http://127.0.0.1:8088`;
 const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
 const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
-const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v1/graphql`;
-const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v1/graphql/ws`;
+const BASE_URL_MIDNIGHT_INDEXER_API = `${BASE_URL_MIDNIGHT_INDEXER}/api/v3/graphql`;
+const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql/ws`;
+
+export class DelegatedBalancingSentError extends Error {
+  constructor() {
+    super("Delegated balancing flow handed off to batcher");
+  }
+}
+
+let lastCapturedTx: string | null = null;
+export const getLastCapturedTx = () => lastCapturedTx;
+
+const toHex = (data: Uint8Array): string =>
+  Array.from(data)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+const fromHex = (hex: string): Uint8Array => {
+  const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex;
+  const match = cleanHex.match(/.{1,2}/g);
+  return new Uint8Array(match ? match.map((byte) => parseInt(byte, 16)) : []);
+};
+
+const MIDNIGHT_NETWORK_ID: NetworkId = "undeployed";
+
+type ShieldedAddresses = Awaited<
+  ReturnType<ConnectedAPI["getShieldedAddresses"]>
+>;
+
+type SimpleTokenPrivateStateId = "simpleTokenPrivateState";
 
 type PrivateState = {};
 
@@ -93,8 +126,8 @@ type SimpleTokenCircuits = ImpureCircuitId<SimpleToken.Contract>;
 
 export type SimpleTokenProviders = MidnightProviders<
   SimpleTokenCircuits,
-  undefined,
-  undefined
+  typeof SimpleTokenPrivateStateId,
+  {}
 >;
 
 type SimpleTokenContract = SimpleToken.Contract;
@@ -128,7 +161,7 @@ class StandaloneConfig implements Config {
   proofServer = BASE_URL_PROOF_SERVER;
   constructor(nodeUrl: string) {
     this.node = nodeUrl;
-    setNetworkId("Undeployed" as any);
+    setNetworkId(MIDNIGHT_NETWORK_ID);
   }
 }
 
@@ -168,29 +201,28 @@ const joinContract = async (
     initialPrivateState: {},
   });
   console.log(
-    `Joined contract at address: ${simpleTokenContract.deployTxData.public.contractAddress}`
+    `Joined contract at address: ${(simpleTokenContract as any).deployTxData.public.contractAddress}`
   );
   return simpleTokenContract;
+};
+
+const wrapAddress = (address: string) => {
+  return {
+    is_left: true,
+    left: { bytes: new Uint8Array(Buffer.from(address, 'hex')) },
+    right: { bytes: new Uint8Array(32) },
+  };
 };
 
 const mint = async (
   simpleTokenContract: DeployedSimpleTokenContract,
   account: string,
   value: bigint
-): Promise<FinalizedTxData> => {
+): Promise<any> => {
   console.log("Minting...");
-  const shieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(account)
-  );
-  console.log("shieldedAddress", shieldedAddress.coinPublicKeyString());
-  const either = {
-    is_left: true,
-    left: { bytes: shieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
+  console.log("account", account);
   const finalizedTxData = await (simpleTokenContract.callTx as any).mint(
-    either,
+    wrapAddress(account),
     value
   );
   console.log(
@@ -205,30 +237,14 @@ const transferFrom = async (
   fromAccount: string,
   toAccount: string,
   amount: bigint
-): Promise<FinalizedTxData> => {
+): Promise<any> => {
   console.log("[TRANSFER FROM]", {
     fromAccount,
     toAccount,
     amount,
   });
-  const shieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(fromAccount)
-  );
-  const fromEither = {
-    is_left: true,
-    left: { bytes: shieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
-  const toShieldedAddress = ShieldedAddress.codec.decode(
-    "undeployed",
-    MidnightBech32m.parse(toAccount)
-  );
-  const toEither = {
-    is_left: true,
-    left: { bytes: toShieldedAddress.coinPublicKey.data },
-    right: { bytes: new Uint8Array(32) },
-  };
+  const fromEither = wrapAddress(fromAccount);
+  const toEither = wrapAddress(toAccount);
   const finalizedTxData = await (simpleTokenContract.callTx as any).transfer(
     toEither,
     amount
@@ -251,264 +267,153 @@ const displaySimpleTokenValue = async (
   providers: SimpleTokenProviders,
   simpleTokenContract: DeployedSimpleTokenContract
 ): Promise<{ state: any | null; contractAddress: string }> => {
-  const contractAddress =
-    simpleTokenContract.deployTxData.public.contractAddress;
+  const contractAddress = (simpleTokenContract as any).deployTxData.public.contractAddress;
   const state = await getSimpleTokenLedgerState(providers, contractAddress);
   return { contractAddress, state };
 };
 
-const createWalletAndSimpleTokenProvider = async (
-  wallet: Wallet
-): Promise<WalletProvider & MidnightProvider> => {
-  const state = await wallet.state();
-  console.log({ state });
-
-  const object = {
-    coinPublicKey: state.coinPublicKey,
-    encryptionPublicKey: state.encryptionPublicKey,
-    balanceTx(
-      tx: UnbalancedTransaction,
-      newCoins: CoinInfo[]
-    ): Promise<BalancedTransaction> {
-      return wallet
-        .balanceTransaction(
-          ZswapTransaction.deserialize(
-            tx.serialize(getLedgerNetworkId()),
-            getZswapNetworkId()
-          ),
-          newCoins
-        )
-        .then((tx) => wallet.proveTransaction(tx))
-        .then((zswapTx) =>
-          Transaction.deserialize(
-            zswapTx.serialize(getZswapNetworkId()),
-            getLedgerNetworkId()
-          )
-        )
-        .then(createBalancedTx);
-    },
-    submitTx(tx: BalancedTransaction): Promise<TransactionId> {
-      return wallet.submitTransaction(tx);
-    },
-  };
-  console.log({ object });
-  return object;
+const connectToWallet = async (networkId: string): Promise<ConnectedAPI> => {
+  const COMPATIBLE_CONNECTOR_API_VERSION = '>=1.0.0';
+  const midnight = (window as any).midnight;
+  
+  if (!midnight) {
+    throw new Error("Midnight Lace wallet not found. Extension installed?");
+  }
+  
+  const wallets = Object.entries(midnight).filter(([_, api]: [string, any]) => 
+    api.apiVersion && semver.satisfies(api.apiVersion, COMPATIBLE_CONNECTOR_API_VERSION)
+  ) as [string, any][];
+  
+  if (wallets.length === 0) {
+    throw new Error("No compatible Midnight wallet found.");
+  }
+  
+  const [name, api] = wallets[0];
+  console.log(`Connecting to wallet: ${name} (version ${api.apiVersion})`);
+  
+  // KEY: Hardcoded Password Provider
+  const passwordProvider = async () => "PAIMA_STORAGE_PASSWORD";
+  
+  const apiWithPassword: any = { ...api };
+  if (typeof apiWithPassword.connect !== 'function') {
+    apiWithPassword.connect = api.connect;
+  }
+  apiWithPassword.privateStoragePasswordProvider = passwordProvider;
+  
+  return await apiWithPassword.connect(networkId);
 };
 
-class MidnightAlternativeLogin {
-  private initializedProviders:
-    | Promise<MultiChainMultiTokenProviders>
-    | undefined;
-  private logger = {
-    info: (...message: any[]) => console.log(...message),
-    error: (...message: any[]) => console.error(...message),
+const createWalletAndMidnightProvider = (
+  connectedAPI: ConnectedAPI,
+  coinPublicKey: CoinPublicKey,
+  encryptionPublicKey: EncPublicKey
+): WalletProvider & MidnightProvider => {
+  return {
+    getCoinPublicKey(): CoinPublicKey {
+      return coinPublicKey;
+    },
+    getEncryptionPublicKey(): EncPublicKey {
+      return encryptionPublicKey;
+    },
+    async balanceTx(
+      tx: UnprovenTransaction,
+      _newCoins?: ShieldedCoinInfo[],
+      _ttl?: Date
+    ): Promise<BalancedProvingRecipe> {
+      console.log(" erc20.ts: balanceTx called (delegated)", { tx, _newCoins, _ttl });
+      
+      try {
+        const hexTx = toHex(tx.serialize());
+        console.log(" erc20.ts: Capturing UNPROVEN transaction for delegation", { hexTxLength: hexTx.length });
+        lastCapturedTx = hexTx;
+        
+        return {
+          type: TRANSACTION_TO_PROVE,
+          transaction: tx,
+        };
+      } catch (error) {
+        console.error(" erc20.ts: balanceTx failed", error);
+        throw error;
+      }
+    },
+    async submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
+      console.log(" erc20.ts: submitTx called (delegated)", { tx });
+      throw new DelegatedBalancingSentError();
+    },
   };
+};
 
-  constructor() {}
+const initializeProviders = async (
+  connectedAPI: ConnectedAPI,
+  shieldedAddresses: ShieldedAddresses
+): Promise<SimpleTokenProviders> => {
+  const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = shieldedAddresses;
 
-  public getProviders(): Promise<MultiChainMultiTokenProviders> {
-    // We use a cached `Promise` to hold the providers. This will:
-    //
-    // 1. Cache and re-use the providers (including the configured connector API), and
-    // 2. Act as a synchronization point if multiple contract deploys or joins run concurrently.
-    //    Concurrent calls to `getProviders()` will receive, and ultimately await, the same
-    //    `Promise`.
-    return (
-      this.initializedProviders ??
-      (this.initializedProviders = this.initializeProviders())
-    );
-  }
-
-  /** @internal */
-  private async initializeProviders(): Promise<MultiChainMultiTokenProviders> {
-    const { wallet, uris } = await this.connectToWallet();
-    const walletState = await wallet.state();
-    const zkConfigPath = window.location.origin; // '../../../contract/src/managed/bboard';
-
-    console.log(
-      `Connecting to wallet with network ID: ${getLedgerNetworkId()}`
-    );
-
-    return {
-      privateStateProvider: levelPrivateStateProvider({}),
-      zkConfigProvider: new FetchZkConfigProvider(
-        zkConfigPath,
-        fetch.bind(window)
+  const walletAndMidnightProvider = createWalletAndMidnightProvider(
+    connectedAPI,
+    shieldedCoinPublicKey as any,
+    shieldedEncryptionPublicKey as any
+  );
+  
+  const zkConfigPath = window.location.origin;
+  
+  return {
+    privateStateProvider: levelPrivateStateProvider({
+      privateStoragePasswordProvider: async () => "PAIMA_STORAGE_PASSWORD"
+    } as any),
+    zkConfigProvider: new FetchZkConfigProvider(
+      zkConfigPath,
+      fetch.bind(window)
+    ),
+    proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER),
+    publicDataProvider: wrapPublicDataProvider(
+      indexerPublicDataProvider(
+        BASE_URL_MIDNIGHT_INDEXER_API,
+        BASE_URL_MIDNIGHT_INDEXER_WS,
       ),
-      proofProvider: httpClientProofProvider(uris.proverServerUri),
-      publicDataProvider: indexerPublicDataProvider(
-        uris.indexerUri,
-        uris.indexerWsUri
-      ),
-      walletProvider: {
-        coinPublicKey: walletState.coinPublicKey,
-        encryptionPublicKey: walletState.encryptionPublicKey,
-        balanceTx(
-          tx: UnbalancedTransaction,
-          newCoins: CoinInfo[]
-        ): Promise<BalancedTransaction> {
-          return wallet
-            .balanceAndProveTransaction(
-              ZswapTransaction.deserialize(
-                tx.serialize(getLedgerNetworkId()),
-                getZswapNetworkId()
-              ),
-              newCoins
-            )
-            .then((zswapTx: any) =>
-              Transaction.deserialize(
-                zswapTx.serialize(getZswapNetworkId()),
-                getLedgerNetworkId()
-              )
-            )
-            .then(createBalancedTx);
-        },
-      },
-      midnightProvider: {
-        submitTx(tx: BalancedTransaction): Promise<TransactionId> {
-          return wallet.submitTransaction(tx);
-        },
-      },
-    };
-  }
-
-  /** @internal */
-  private async connectToWallet(): Promise<{
-    wallet: DAppConnectorWalletAPI;
-    uris: ServiceUriConfig;
-  }> {
-    const COMPATIBLE_CONNECTOR_API_VERSION = "1.x";
-
-    return firstValueFrom(
-      fnPipe(
-        interval(100),
-        map(() => window.midnight?.mnLace),
-        tap((connectorAPI) => {
-          this.logger.info(connectorAPI, "Check for wallet connector API");
-        }),
-        filter(
-          (connectorAPI): connectorAPI is DAppConnectorAPI => !!connectorAPI
-        ),
-        concatMap((connectorAPI) =>
-          semver.satisfies(
-            connectorAPI.apiVersion,
-            COMPATIBLE_CONNECTOR_API_VERSION
-          )
-            ? of(connectorAPI)
-            : throwError(() => {
-                this.logger.error(
-                  {
-                    expected: COMPATIBLE_CONNECTOR_API_VERSION,
-                    actual: connectorAPI.apiVersion,
-                  },
-                  "Incompatible version of wallet connector API"
-                );
-
-                return new Error(
-                  `Incompatible version of Midnight Lace wallet found. Require '${COMPATIBLE_CONNECTOR_API_VERSION}', got '${connectorAPI.apiVersion}'.`
-                );
-              })
-        ),
-        tap((connectorAPI) => {
-          this.logger.info(
-            connectorAPI,
-            "Compatible wallet connector API found. Connecting."
-          );
-        }),
-        take(1),
-        timeout({
-          first: 1_000,
-          with: () =>
-            throwError(() => {
-              this.logger.error("Could not find wallet connector API");
-
-              return new Error(
-                "Could not find Midnight Lace wallet. Extension installed?"
-              );
-            }),
-        }),
-        concatMap(async (connectorAPI) => {
-          const isEnabled = await connectorAPI.isEnabled();
-
-          this.logger.info(isEnabled, "Wallet connector API enabled status");
-
-          return connectorAPI;
-        }),
-        timeout({
-          first: 5_000,
-          with: () =>
-            throwError(() => {
-              this.logger.error("Wallet connector API has failed to respond");
-
-              return new Error(
-                "Midnight Lace wallet has failed to respond. Extension enabled?"
-              );
-            }),
-        }),
-        concatMap(async (connectorAPI) => ({
-          walletConnectorAPI: await connectorAPI.enable(),
-          connectorAPI,
-        })),
-        catchError((error, apis) =>
-          error
-            ? throwError(() => {
-                this.logger.error("Unable to enable connector API");
-                return new Error("Application is not authorized");
-              })
-            : apis
-        ),
-        concatMap(async ({ walletConnectorAPI, connectorAPI }) => {
-          const uris = await connectorAPI.serviceUriConfig();
-
-          this.logger.info(
-            "Connected to wallet connector API and retrieved service configuration"
-          );
-
-          return { wallet: walletConnectorAPI, uris };
-        })
-      )
-    );
-  }
-}
-
+      BASE_URL_MIDNIGHT_INDEXER_API,
+      "erc20.ts"
+    ),
+    walletProvider: walletAndMidnightProvider,
+    midnightProvider: walletAndMidnightProvider,
+  };
+};
 const configureProviders = async (
-  injectedWallet: Wallet & Resource,
-  config: Config
+  connectedAPI: ConnectedAPI,
+  injectedWallet: Wallet & Resource
 ) => {
-  const injectedWalletAndSimpleTokenProvider =
-    await createWalletAndSimpleTokenProvider(injectedWallet);
-  const providers = await new MidnightAlternativeLogin().getProviders();
+  const shieldedAddresses = await connectedAPI.getShieldedAddresses();
+  const providers = await initializeProviders(connectedAPI, shieldedAddresses);
   return {
     ...providers,
-    injectedWalletProvider: injectedWalletAndSimpleTokenProvider,
+    injectedWalletProvider: injectedWallet,
   };
 };
+
 
 /**
  * Get contract address from command line arguments or from a file
  */
 const getContractAddress = async (): Promise<string> => {
-  const r = await fetch("contract_address/contract-unshielded-erc20.json");
+  const r = await fetch("contract_address/unshielded-erc20.undeployed.json");
   const json = await r.json();
   console.log("🔍 Contract address:", json.contractAddress);
   return json.contractAddress;
 };
 
 const connectMidnightWallet = async (
-  injectedWallet: any
+  connectedAPI: ConnectedAPI
 ): Promise<{
-  injectedWallet: Wallet & Resource;
   providers: SimpleTokenProviders;
+  addresses: ShieldedAddresses;
 }> => {
-  console.log("🔗 Building Midnight wallet with genesis seed...");
+  console.log("🔗 Building Midnight wallet with v4 connector...");
 
-  const midnightNodeUrl = await getMidnightNodeUrl();
-  const config = new StandaloneConfig(midnightNodeUrl);
-
-  const providers = await configureProviders(injectedWallet, config);
+  const addresses = await connectedAPI.getShieldedAddresses();
+  const providers = await initializeProviders(connectedAPI, addresses);
   console.log("✅ Providers configured successfully");
 
-  return { injectedWallet, providers };
+  return { providers, addresses };
 };
 
 const connectToContract = async (

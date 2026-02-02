@@ -1,2 +1,2 @@
-export * as erc7683 from "./managed/erc7683/contract/index.cjs";
+export * as erc7683 from "./managed/contract/index.js";
 export * from "./witnesses.ts";

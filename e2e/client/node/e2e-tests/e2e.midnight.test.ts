@@ -9,12 +9,14 @@ import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import type {
+  BalancedProvingRecipe,
   FinalizedTxData,
   ImpureCircuitId,
   MidnightProvider,
   MidnightProviders,
   WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
+import { TRANSACTION_TO_PROVE } from "@midnight-ntwrk/midnight-js-types";
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
@@ -32,6 +34,11 @@ import {
 import {
   midnightNetworkConfig,
 } from "@effectstream/midnight-contracts/midnight-env";
+import {
+  type UnprovenTransaction,
+  Transaction as LedgerTransaction,
+} from "@midnight-ntwrk/ledger-v6";
+import { fromHex, toHex } from "@midnight-ntwrk/midnight-js-utils";
 import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
 import { WebSocket } from "ws";
@@ -503,5 +510,198 @@ async function sendMintToBatcherTest(
   );
 }
 
-export { joinAndIncrementTest, sendMintToBatcherTest };
+// === Delegated Balancing Test (Party A) ===
 
+class DelegatedBalancingSentError extends Error {
+  constructor() {
+    super("Delegated balancing flow handed off to batcher");
+  }
+}
+
+async function testDelegatedBalancing(
+  db: Client,
+  sharedState: SharedState,
+): Promise<void> {
+  console.log("🧪 Starting Delegated Balancing E2E Test (Party A Flow)");
+
+  const contractAddress = getContractAddress();
+  const config = new StandaloneConfig();
+
+  // 1. Setup Party A wallet (random seed, simulates user)
+  // Generate a random seed for Party A
+  const randomBytes = new Uint8Array(32);
+  crypto.getRandomValues(randomBytes);
+  const partyASeed = Array.from(randomBytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  
+  console.log("👤 Party A Seed (Random):", partyASeed);
+
+  let walletResult: WalletResult | null = null;
+
+  try {
+    // Build Party A wallet
+    // We don't need funds for Party A since they are delegating payment!
+    const networkUrls = {
+      indexer: config.indexer,
+      indexerWS: config.indexerWS,
+      node: config.node,
+      proofServer: config.proofServer,
+    };
+    
+    walletResult = await buildWalletFacade(
+      networkUrls,
+      partyASeed,
+      midnightNetworkConfig.id,
+    );
+
+    // 2. Create Provider that captures unproven tx and defers balancing
+    let serializedTx: string | null = null;
+    const interceptingProvider: WalletProvider & MidnightProvider = {
+      getCoinPublicKey() {
+        return walletResult!.zswapSecretKeys.coinPublicKey;
+      },
+      getEncryptionPublicKey() {
+        return walletResult!.zswapSecretKeys.encryptionPublicKey;
+      },
+      balanceTx(
+        tx,
+        _newCoins,
+        _ttl,
+      ): Promise<BalancedProvingRecipe> {
+        console.log("🧾 Capturing UnprovenTransaction from contract call...");
+
+        const serialized = toHex(tx.serialize());
+        console.log("📦 Serialized UnprovenTransaction (Hex length):", serialized.length);
+
+        // Validate the serialized payload can round-trip with expected states.
+        LedgerTransaction.deserialize(
+          "signature" as const,
+          "pre-proof" as const,
+          "pre-binding" as const,
+          fromHex(serialized),
+        );
+
+        serializedTx = serialized;
+
+        // Return an explicit recipe without throwing; proofing/submission is delegated.
+        return Promise.resolve({
+          type: TRANSACTION_TO_PROVE,
+          transaction: tx,
+        });
+      },
+      submitTx(_tx) {
+        throw new DelegatedBalancingSentError();
+      },
+    };
+
+    // 3. Configure Providers with Interceptor
+    // Use per-seed names to avoid decrypting stale state from previous runs.
+    const privateStateStoreName = `party-a-private-state-${partyASeed.slice(0, 8)}`;
+    const midnightDbName = `midnight-level-db-party-a-${partyASeed.slice(0, 8)}`;
+    console.log("🗄️ Party A private state store:", privateStateStoreName);
+    console.log("🗄️ Party A midnight DB:", midnightDbName);
+    const providers = {
+      privateStateProvider: levelPrivateStateProvider({
+        midnightDbName,
+        privateStateStoreName,
+        walletProvider: interceptingProvider,
+      } as any),
+      publicDataProvider: indexerPublicDataProvider(
+        config.indexer,
+        config.indexerWS,
+      ),
+      zkConfigProvider: new NodeZkConfigProvider<"increment">(
+        contractConfig.zkConfigPath,
+      ),
+      proofProvider: httpClientProofProvider(config.proofServer),
+      walletProvider: interceptingProvider,
+      midnightProvider: interceptingProvider,
+    };
+
+    // 4. Join Contract as Party A
+    console.log("🔗 Joining contract as Party A...");
+    console.log("📎 Party A contract address:", contractAddress);
+    try {
+      const counterContract = await findDeployedContract(providers, {
+        contractAddress,
+        contract: counterContractInstance,
+        privateStateId: "partyAPrivateState",
+        initialPrivateState: { privateCounter: 0 },
+      });
+      // 5. Call Circuit & Capture
+      try {
+        console.log("🔄 Calling increment() circuit...");
+        await (counterContract.callTx as any).increment();
+      } catch (error) {
+        if (error instanceof DelegatedBalancingSentError) {
+          console.log("✅ Transaction captured; delegated balancing will handle submission.");
+        } else {
+          throw error; // Unexpected error
+        }
+      }
+    } catch (error) {
+      console.error("❌ Failed to join contract as Party A:", error);
+      console.error("🧩 Debug context:", {
+        privateStateStoreName,
+        networkId: midnightNetworkConfig.id,
+        indexer: config.indexer,
+        indexerWS: config.indexerWS,
+        node: config.node,
+        proofServer: config.proofServer,
+      });
+      throw error;
+    }
+
+    if (!serializedTx) {
+      throw new Error("Failed to intercept transaction");
+    }
+
+    // 6. Send to Batcher (Party B)
+    console.log("🚀 Sending serialized transaction to Batcher (Party B)...");
+    
+    // We send to the 'midnight_balancing' target
+    const body = {
+      data: {
+        target: "midnight_balancing",
+        address: "party_a_delegated", // Arbitrary ID for logs
+        addressType: AddressType.MIDNIGHT,
+        input: JSON.stringify({
+          tx: serializedTx,
+          circuitId: "increment",
+        }),
+        timestamp: Date.now(),
+      },
+      confirmationLevel: "wait-effectstream-processed", // Wait for it to be processed
+    };
+
+    const response = await fetch(`${BATCHER_URL}/send-input`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const result = await response.json();
+    console.log("📬 Batcher response:", JSON.stringify(result, null, 2));
+
+    if (!response.ok || !result.success) {
+      throw new Error(`Batcher failed to process delegated transaction: ${result.message || response.statusText}`);
+    }
+
+    console.log("✅ Delegated transaction submitted successfully!");
+    
+    // 7. Verify Increment (Optional, but good practice)
+    // We can use the existing provider to check state if we want, or just rely on batcher success
+    // sharedState.primitive_accounting_counter += 1; // If we want to track state changes
+
+  } catch (error) {
+    console.error("❌ Delegated balancing test failed:", error);
+    throw error;
+  } finally {
+    if (walletResult) {
+      await walletResult.wallet.stop();
+    }
+  }
+}
+
+export { joinAndIncrementTest, sendMintToBatcherTest, testDelegatedBalancing };

@@ -1,13 +1,23 @@
-import { WalletBuilder } from '@midnight-ntwrk/wallet';
-import { NetworkId } from '@midnight-ntwrk/zswap';
-import { firstValueFrom } from 'rxjs';
-import { joinAndMint } from './faucet-unshielded-erc20.ts';
-import { type WalletState } from '@midnight-ntwrk/wallet-api';
-import * as path from "node:path";
+import { buildWalletFacade, type WalletResult } from './faucet.ts';
 import { generateRandomSeed } from '@midnight-ntwrk/wallet-sdk-hd';
-import { faucet } from './faucet.ts';
+import * as path from "node:path";
+import { Buffer } from "node:buffer";
+
+/**
+ * LEDGER 6 PARADIGM:
+ * - Wallets receive unshielded NIGHT tokens (not dust directly)
+ * - Addresses must be in bech32m format (mn_addr_undeployed1...) for unshielded transfers
+ * - Wallets must register their unshielded NIGHT UTXOs to generate dust for transaction fees
+ * - Dust is no longer transferable directly; it's generated from registered NIGHT tokens
+ */
 
 const DEFAULT_SEED_PREFIX = "97be3ee35553d827846c1490bcc571f8a29ffd448912b9f023a7b177de7877c";
+
+interface WalletState {
+  seed: string;
+  shieldedAddress: string;  // mn_shield-addr_undeployed1... (for ERC20 minting - uses coinPublicKey)
+  unshieldedAddress: string; // mn_addr_undeployed1... (for NIGHT token transfers)
+}
 
 async function createWallet(seed: string): Promise<WalletState> {
     let seedString = seed;
@@ -19,20 +29,35 @@ async function createWallet(seed: string): Promise<WalletState> {
         seedString = seedBuffer.toString();
     }
 
-    const wallet = await WalletBuilder.build(
-        'http://localhost:8088/api/v1/graphql', // Indexer URL
-        'ws://localhost:8088/api/v1/graphql/ws', // Indexer WebSocket URL
-        'http://localhost:6300', // Proving Server URL
-        'http://localhost:9944', // Node URL
-        seedString,
-        NetworkId.Undeployed,
-        'error' // LogLevel (optional)
+    const networkUrls = {
+      indexer: "http://localhost:8088/api/v3/graphql",
+      indexerWS: "ws://localhost:8088/api/v3/graphql/ws",
+      node: "http://localhost:9944",
+      proofServer: "http://localhost:6300",
+    };
+
+    const walletResult = await buildWalletFacade(
+      networkUrls,
+      seedString,
+      "undeployed" as any
     );
 
-    wallet.start();
-    const data = await firstValueFrom(wallet.state())
-    await wallet.close();
-    return { ...data, seed: seedString } as WalletState;
+    const initialState = await (await import('./faucet.ts')).getInitialShieldedState(walletResult.wallet.shielded);
+
+    // Store both addresses for different purposes in Ledger 6:
+    // - shieldedAddress: for ERC20 minting (contract extracts coinPublicKey from it)
+    // - unshieldedAddress: for NIGHT token transfers (requires bech32m unshielded format)
+    const walletState: WalletState = {
+      seed: seedString,
+      // The address object should have asString() method to get bech32m format
+      shieldedAddress: (initialState.address as any).asString?.() || 
+                       `${initialState.address.coinPublicKeyString()}_${initialState.address.encryptionPublicKeyString()}`,
+      unshieldedAddress: walletResult.unshieldedAddress
+    };
+
+    await walletResult.wallet.stop();
+
+    return walletState;
 }
 
 if (import.meta.main) {
@@ -51,15 +76,14 @@ if (import.meta.main) {
     if (create) {
         const currentDir = Deno.cwd();
         await Deno.mkdir(path.join(currentDir, "generated"), { recursive: true });
-    
+
         for (let i = 0; i < numberOfWallets; i++) {
             const wallet = await createWallet(DEFAULT_SEED_PREFIX + i.toString());
 
             const outputPath = path.join(currentDir, "generated", `wallet-${i}.json`);
-            Deno.writeTextFileSync(outputPath, JSON.stringify(wallet, null, 2));
+            Deno.writeTextFileSync(outputPath, JSON.stringify(wallet, (_key, value) => typeof value === 'bigint' ? value.toString() : value, 2));
             console.log(`Wallet saved to ${outputPath}`);
 
-            
             wallets.push(wallet);
         }
     } else {
@@ -76,7 +100,15 @@ if (import.meta.main) {
         }
     }
     if (mint) {
-        await joinAndMint(wallets.map(wallet => wallet.address), 250000000000000n);
-        await faucet(wallets.map(wallet => wallet.address));
+        const { faucet } = await import('./faucet.ts');
+        const { joinAndMint } = await import('./faucet-unshielded-erc20.ts');
+        const shieldedTargets = wallets.map(wallet => wallet.shieldedAddress);
+        const unshieldedTargets = wallets.map(wallet => wallet.unshieldedAddress);
+        // ERC20 minting uses shielded address (contract extracts coinPublicKey)
+        await joinAndMint(shieldedTargets, 250000000000000n);
+        // NIGHT token transfer uses unshielded address (bech32m format)
+        await faucet(unshieldedTargets);
+        console.log("✅ Minting and NIGHT transfers completed. Exiting.");
+        Deno.exit(0);
     }
 }

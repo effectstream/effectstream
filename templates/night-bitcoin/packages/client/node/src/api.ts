@@ -216,7 +216,7 @@ export const apiRouter: StartConfigApiRouter = function (
   server.get<{
     Querystring: Static<typeof FaucetQueryParamsSchema>;
     Reply: Static<typeof FaucetResponseSchema>;
-  }>("/api/faucet/dust", async (request) => {
+  }>("/api/faucet/nights", async (request) => {
     // This is unsafe, but it's only used for development purposes.
     if (isFaucetDustRunning) {
       return {

@@ -5,13 +5,14 @@ import {
   BitcoinAdapter,
   FileStorage,
   MidnightAdapter,
+  MidnightBalancingAdapter,
 } from "@paimaexample/batcher";
 import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
 import {
   SimpleToken,
   witnesses,
 } from "@night-bitcoin/midnight-contract-unshielded-erc20";
-import { NetworkId } from "@midnight-ntwrk/compact-runtime";
+import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
 
 export const FILLER_BATCHER_DEFAULTS = {
   pollingInterval: 1000,
@@ -51,6 +52,7 @@ export interface BatcherSetup {
   adapters: {
     bitcoin: BitcoinAdapter;
     midnight: MidnightAdapter;
+    midnightBalancing: MidnightBalancingAdapter;
   };
   namespace: string;
   storagePath: string;
@@ -88,17 +90,17 @@ export function buildBatcherSetup(
     zkConfigPath,
   } = readMidnightContract(
     "unshielded-erc20",
-    "contract-unshielded-erc20.json",
+    { networkId: midnightNetworkConfig.id }
   );
 
   const midnightAdapter = new MidnightAdapter(
     contractAddress,
     options.midnightSeed,
     {
-      indexer: "http://localhost:8088/api/v1/graphql",
-      indexerWS: "ws://localhost:8088/api/v1/graphql/ws",
-      node: "http://localhost:9944",
-      proofServer: "http://localhost:6300",
+      indexer: midnightNetworkConfig.indexer,
+      indexerWS: midnightNetworkConfig.indexerWS,
+      node: midnightNetworkConfig.node,
+      proofServer: midnightNetworkConfig.proofServer,
       zkConfigPath,
       privateStateStoreName: "unshielded-erc20-private-state",
       privateStateId: "unshielded_erc20State",
@@ -108,7 +110,29 @@ export function buildBatcherSetup(
     new SimpleToken.Contract(witnesses),
     witnesses,
     contractInfo,
-    NetworkId.Undeployed,
+    midnightNetworkConfig.id,
+    "parallelMidnight",
+  );
+
+  const midnightBalancingAdapter = new MidnightBalancingAdapter(
+    contractAddress,
+    options.midnightSeed,
+    {
+      indexer: midnightNetworkConfig.indexer,
+      indexerWS: midnightNetworkConfig.indexerWS,
+      node: midnightNetworkConfig.node,
+      proofServer: midnightNetworkConfig.proofServer,
+      zkConfigPath,
+      privateStateStoreName: "unshielded-erc20-balancing-private-state",
+      privateStateId: "unshielded_erc20BalancingState",
+      contractJoinTimeoutSeconds: 600,
+      walletFundingTimeoutSeconds: 600,
+      circuitId: "initialize", // Default circuitId
+    },
+    new SimpleToken.Contract(witnesses),
+    witnesses,
+    contractInfo,
+    midnightNetworkConfig.id,
     "parallelMidnight",
   );
 
@@ -116,7 +140,7 @@ export function buildBatcherSetup(
     pollingIntervalMs: options.pollingIntervalMs,
     namespace,
     confirmationLevel: "wait-effectstream-processed",
-    enableHttpServer: false,
+    enableHttpServer: options.batcherPort > 0,
     enableEventSystem: true,
     port: options.batcherPort,
   };
@@ -129,6 +153,7 @@ export function buildBatcherSetup(
     adapters: {
       bitcoin: bitcoinAdapter,
       midnight: midnightAdapter,
+      midnightBalancing: midnightBalancingAdapter,
     },
     namespace,
     storagePath,

@@ -141,6 +141,7 @@ function App() {
   const [btcCheckbox, setBtcCheckbox] = useState(false);
   const [midnightWallet, setMidnightWallet] = useState<any>(null);
   const [midnightAddress, setMidnightAddress] = useState('');
+  const [unshieldedAddress, setUnshieldedAddress] = useState('');
   const [m20Balance, setM20Balance] = useState<string>('');
   const [showActionsPopup, setShowActionsPopup] = useState(false);
   const [showM20Popup, setShowM20Popup] = useState(false);
@@ -269,14 +270,14 @@ function App() {
     }
   };
 
-  const getDustFromFaucet = async () => {
-    if (!midnightAddress) {
+  const getNightsFromFaucet = async () => {
+    if (!unshieldedAddress) {
       alert('Please connect Midnight wallet first.');
       return;
     }
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:9999/api/faucet/dust?address=${midnightAddress}`);
+      const response = await fetch(`http://localhost:9999/api/faucet/nights?address=${unshieldedAddress}`);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Faucet request failed: ${response.status} ${response.statusText} - ${errorText}`);
@@ -284,11 +285,11 @@ function App() {
       setPopup({
         show: true,
         title: 'Faucet Success!',
-        message: 'Successfully received DUST from faucet! Your balance will update shortly.',
+        message: 'Successfully received NIGHTs from faucet! Your balance will update shortly.',
       });
     } catch (error) {
-      console.error('Failed to get DUST from faucet:', error);
-      alert(`Failed to get DUST from faucet. Check the console for details.`);
+      console.error('Failed to get NIGHTs from faucet:', error);
+      alert(`Failed to get NIGHTs from faucet. Check the console for details.`);
     } finally {
       setLoading(false);
     }
@@ -390,8 +391,10 @@ function App() {
     setLoading(true);
     try {
       const data = await apiInterface.loginMidnight();
+      console.log("Midnight login data:", data);
       setMidnightWallet(data);
       setMidnightAddress(data.addr);
+      setUnshieldedAddress(data.unshieldedAddr);
       await updateM20Balance(data);
     } catch (error) {
       console.error("Failed to connect Midnight wallet:", error);
@@ -829,11 +832,11 @@ function App() {
                 <button
                   type="button"
                   className="dropdown-item"
-                  onClick={() => { getDustFromFaucet(); setShowActionsPopup(false); }}
+                  onClick={() => { getNightsFromFaucet(); setShowActionsPopup(false); }}
                   style={{ marginBottom: '10px' }}
-                  disabled={!midnightAddress}
+                  disabled={!unshieldedAddress}
                 >
-                  Get DUST from Faucet
+                  Get NIGHTs from Faucet
                 </button>
                 <button
                   type="button"

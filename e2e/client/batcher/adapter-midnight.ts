@@ -1,40 +1,59 @@
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { SimpleToken, witnesses } from "@e2e/midnight-contracts/eip-20";
 import { MidnightAdapter } from "@effectstream/batcher";
-import {
-  midnightNetworkConfig,
-} from "@effectstream/midnight-contracts/midnight-env";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
+import { buildWalletFacade } from "@effectstream/midnight-contracts/wallet-info";
 
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+import { dirname, resolve } from "@std/path";
+
+// Resolve the base directory for midnight contracts
+const currentDir = dirname(new URL(import.meta.url).pathname);
+const midnightContractsDir = resolve(currentDir, "..", "..", "shared", "contracts", "midnight");
+
+
+const isEnvTrue = (key: string) =>
+  ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 
-const midnightContractData = midnight_enabled
-  ? readMidnightContract(
-    "contract-eip-20",
-    { networkId: midnightNetworkConfig.id },
-  )
-  : null;
+const { contractInfo, contractAddress, zkConfigPath } = readMidnightContract(
+  "contract-eip-20",
+  {
+    baseDir: midnightContractsDir,
+    networkId: midnightNetworkConfig.id,
+  }
+);
 
-export const midnightAdapter = midnightContractData
-  ? new MidnightAdapter(
-    midnightContractData.contractAddress,
-    midnightNetworkConfig.walletSeed!,
-    {
-      indexer: midnightNetworkConfig.indexer,
-      indexerWS: midnightNetworkConfig.indexerWS,
-      node: midnightNetworkConfig.node,
-      proofServer: midnightNetworkConfig.proofServer,
-      zkConfigPath: midnightContractData.zkConfigPath,
-      privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
-      // Keep in sync with the contract deploy config / interact scripts
-      privateStateId: "simpleTokenPrivateState", // On-chain contract ID (must match deploy.ts)
-      walletNetworkId: midnightNetworkConfig.id,
-      contractJoinTimeoutSeconds: 300, // Increase timeout to 5 minutes for private state sync
-      walletFundingTimeoutSeconds: 300, // Increase wallet funding timeout to 5 minutes
-    },
-    new SimpleToken.Contract(witnesses),
-    witnesses,
-    midnightContractData.contractInfo,
-    "parallelMidnight",
-  )
-  : undefined;
+const midnightNetworkUrls = {
+  indexer: midnightNetworkConfig.indexer,
+  indexerWS: midnightNetworkConfig.indexerWS,
+  node: midnightNetworkConfig.node,
+  proofServer: midnightNetworkConfig.proofServer,
+};
+const midnightAdapterConfig = {
+  ...midnightNetworkUrls,
+  zkConfigPath,
+  privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
+  // Keep in sync with deploy + interact scripts
+  privateStateId: "simpleTokenPrivateState", // On-chain contract ID (must match deploy.ts)
+  walletNetworkId: midnightNetworkConfig.id, // lowercase is the standard format
+};
+const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
+export const sharedWalletResult = buildWalletFacade(
+  midnightNetworkUrls,
+  DEFAULT_WALLET_SEED,
+  midnightNetworkConfig.id
+);
+
+export const midnightAdapter = new MidnightAdapter(
+  contractAddress,
+  DEFAULT_WALLET_SEED,
+  {
+    ...midnightAdapterConfig,
+    walletResult: sharedWalletResult,
+  },
+  new SimpleToken.Contract(witnesses),
+  witnesses,
+  contractInfo,
+  "parallelMidnight"
+);
