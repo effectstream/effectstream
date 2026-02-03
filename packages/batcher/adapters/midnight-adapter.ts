@@ -15,7 +15,8 @@ import type { DefaultBatcherInput } from "../core/types.ts";
 import { MidnightBatchBuilderLogic, type MidnightBatchPayload } from "../batch-data-builder/midnight-builder-logic.ts";
 import { hexStringToUint8Array } from "@effectstream/utils";
 import type {
-  BalancedProvingRecipe,
+  UnboundTransaction,
+  // BalancedProvingRecipe,
   MidnightProvider,
   WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
@@ -28,7 +29,7 @@ import type {
   TransactionId,
   UnprovenTransaction,
   ZswapSecretKeys,
-} from "@midnight-ntwrk/ledger-v6";
+} from "@midnight-ntwrk/ledger-v7";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -253,14 +254,15 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
         // We provide privateStateStoreName but omit midnightDbName to use in-memory storage.
         // This avoids persisting/syncing historical private state which can take minutes and timeout.
         // The batcher only needs to submit transactions, not read historical private state.
+        const zkConfigProvider = new NodeZkConfigProvider(this.config.zkConfigPath);
         const providers = {
           privateStateProvider: levelPrivateStateProvider({
             privateStateStoreName: this.config.privateStateStoreName,
             walletProvider: walletAndMidnightProvider,
           } as any),
           publicDataProvider: this.publicDataProvider,
-          zkConfigProvider: new NodeZkConfigProvider(this.config.zkConfigPath),
-          proofProvider: httpClientProofProvider(this.config.proofServer),
+          zkConfigProvider,
+          proofProvider: httpClientProofProvider(this.config.proofServer, zkConfigProvider),
           walletProvider: walletAndMidnightProvider,
           midnightProvider: walletAndMidnightProvider,
         };
@@ -300,7 +302,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
         const joinStartTime = Date.now();
         this.deployedContract = await Promise.race([
           (async () => {
-            const result = await findDeployedContract(providers, {
+            const result = await (findDeployedContract as any)(providers, {
               contractAddress: this.contractAddress,
               contract: this.contractInstance,
               privateStateId: privateStateId,
@@ -357,11 +359,13 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       getEncryptionPublicKey(): EncPublicKey {
         return zswapSecretKeys.encryptionPublicKey;
       },
+
+      // balanceTx(tx: UnboundTransaction, ttl?: Date): Promise<FinalizedTransaction>;
       balanceTx(
-        tx: UnprovenTransaction,
-        _newCoins?: ShieldedCoinInfo[],
+        tx: UnboundTransaction,
+        // _newCoins?: ShieldedCoinInfo[],
         ttl?: Date,
-      ): Promise<BalancedProvingRecipe> {
+      ): Promise</*BalancedProvingRecipe */FinalizedTransaction> {
         return wallet.balanceTransaction(
           walletZswapSecretKeys,
           walletDustSecretKey,

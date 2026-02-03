@@ -67,7 +67,7 @@ function* createDynamicTableForPrimitive(
   if (migration) return;
 
   yield* until(applyMigrations(
-    dbConn,
+    dbConn as any, // Client,
     lastBlockHeight,
     migrationName,
     code,

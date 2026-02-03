@@ -9,14 +9,15 @@ import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import type {
-  BalancedProvingRecipe,
+  // FinalizedTransaction, // replaces: BalancedProvingRecipe - but not exported?
   FinalizedTxData,
-  ImpureCircuitId,
+  // ImpureCircuitId // TODO:Not sure about new version
   MidnightProvider,
   MidnightProviders,
   WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
-import { TRANSACTION_TO_PROVE } from "@midnight-ntwrk/midnight-js-types";
+// TODO: Not sure about new version of string
+// import { TRANSACTION_TO_PROVE } from "@midnight-ntwrk/midnight-js-types";
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
@@ -37,7 +38,7 @@ import {
 import {
   type UnprovenTransaction,
   Transaction as LedgerTransaction,
-} from "@midnight-ntwrk/ledger-v6";
+} from "@midnight-ntwrk/ledger-v7";
 import { fromHex, toHex } from "@midnight-ntwrk/midnight-js-utils";
 import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
@@ -45,10 +46,12 @@ import { WebSocket } from "ws";
 
 
 const BATCHER_URL = "http://localhost:3334";
+// @ts-ignore - WebSocket is not defined in the global scope
 globalThis.WebSocket = WebSocket;
 
 // Inlined common types for standalone script
-type CounterCircuits = ImpureCircuitId<any>;
+// type CounterCircuits = ImpureCircuitId<any>;
+type CounterCircuits = any;
 
 const CounterPrivateStateId = "counterPrivateState";
 
@@ -142,9 +145,9 @@ const joinContract = async (
   providers: CounterProviders,
   contractAddress: string,
 ): Promise<any> => {
-  const counterContract = await findDeployedContract(providers, {
+  const counterContract = await (findDeployedContract)(providers, {
     contractAddress,
-    contract: counterContractInstance,
+    compiledContract: counterContractInstance,
     privateStateId: "counterPrivateState",
     initialPrivateState: { privateCounter: 0 },
   });
@@ -196,7 +199,8 @@ const createWalletAndMidnightProvider = (
     getEncryptionPublicKey() {
       return zswapSecretKeys.encryptionPublicKey;
     },
-    balanceTx(tx, _newCoins, ttl) {
+    balanceTx(tx/*, _newCoins*/, ttl) {
+      console.log("🧪 Balance Tx", wallet);
       return wallet.balanceTransaction(
         walletZswapSecretKeys,
         walletDustSecretKey,
@@ -244,6 +248,9 @@ const configureProviders = (
   const walletAndMidnightProvider = createWalletAndMidnightProvider(
     walletResult,
   );
+  const zkConfigProvider = new NodeZkConfigProvider<"increment">(
+    contractConfig.zkConfigPath,
+  );
   return {
     // Use minimal private state config with privateStateStoreName and walletProvider.
     // Omitting midnightDbName uses in-memory storage and avoids persisting/syncing
@@ -257,10 +264,8 @@ const configureProviders = (
       config.indexer,
       config.indexerWS,
     ),
-    zkConfigProvider: new NodeZkConfigProvider<"increment">(
-      contractConfig.zkConfigPath,
-    ),
-    proofProvider: httpClientProofProvider(config.proofServer),
+    zkConfigProvider,
+    proofProvider: httpClientProofProvider(config.proofServer, zkConfigProvider),
     walletProvider: walletAndMidnightProvider,
     midnightProvider: walletAndMidnightProvider,
   };
@@ -566,9 +571,9 @@ async function testDelegatedBalancing(
       },
       balanceTx(
         tx,
-        _newCoins,
+        // _newCoins,
         _ttl,
-      ): Promise<BalancedProvingRecipe> {
+      ): Promise</*BalancedProvingRecipe */any> {
         console.log("🧾 Capturing UnprovenTransaction from contract call...");
 
         const serialized = toHex(tx.serialize());
@@ -586,7 +591,7 @@ async function testDelegatedBalancing(
 
         // Return an explicit recipe without throwing; proofing/submission is delegated.
         return Promise.resolve({
-          type: TRANSACTION_TO_PROVE,
+          type: 'TransactionToProve' as const, // TODO: TRANSACTION_TO_PROVE,
           transaction: tx,
         });
       },
@@ -601,6 +606,9 @@ async function testDelegatedBalancing(
     const midnightDbName = `midnight-level-db-party-a-${partyASeed.slice(0, 8)}`;
     console.log("🗄️ Party A private state store:", privateStateStoreName);
     console.log("🗄️ Party A midnight DB:", midnightDbName);
+    const zkConfigProvider = new NodeZkConfigProvider<"increment">(
+      contractConfig.zkConfigPath,
+    );
     const providers = {
       privateStateProvider: levelPrivateStateProvider({
         midnightDbName,
@@ -611,10 +619,8 @@ async function testDelegatedBalancing(
         config.indexer,
         config.indexerWS,
       ),
-      zkConfigProvider: new NodeZkConfigProvider<"increment">(
-        contractConfig.zkConfigPath,
-      ),
-      proofProvider: httpClientProofProvider(config.proofServer),
+      zkConfigProvider,
+      proofProvider: httpClientProofProvider(config.proofServer, zkConfigProvider),
       walletProvider: interceptingProvider,
       midnightProvider: interceptingProvider,
     };
@@ -623,9 +629,9 @@ async function testDelegatedBalancing(
     console.log("🔗 Joining contract as Party A...");
     console.log("📎 Party A contract address:", contractAddress);
     try {
-      const counterContract = await findDeployedContract(providers, {
+      const counterContract = await (findDeployedContract)(providers, {
         contractAddress,
-        contract: counterContractInstance,
+        compiledContract: counterContractInstance,
         privateStateId: "partyAPrivateState",
         initialPrivateState: { privateCounter: 0 },
       });

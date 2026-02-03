@@ -335,7 +335,7 @@ export async function deployMidnightContract(
     );
     log.info("Providers configured.");
 
-    log.info("Deploying contract...");
+    log.info("Deploying contract...[1]");
     const contract = new config.contractClass(config.witnesses);
     
     // deployContract has different overloads - build options object conditionally

@@ -26,7 +26,12 @@ import {
   safeStringifyProgress,
   type WalletResult,
 } from "./get-wallet-info.ts";
+import { type MidnightProviders, type PrivateStateId } from '@midnight-ntwrk/midnight-js-types';
 
+// import { deployContract } from '@midnight-ntwrk/midnight-js-contracts';
+import { CompiledContract } from '@midnight-ntwrk/compact-js';
+// import * as CompiledMyContract from './compiled/my-contract/contract/index.js';
+// import { witnesses, type MyPrivateState } from './witnesses';
 
 // Declare Deno global for type-checking when not executed under Deno tooling.
 declare const Deno: typeof globalThis.Deno;
@@ -43,7 +48,7 @@ import {
   type TransactionId,
   type UnprovenTransaction,
   ZswapSecretKeys,
-} from "@midnight-ntwrk/ledger-v6";
+} from "@midnight-ntwrk/ledger-v7";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 
 // ============================================================================
@@ -228,7 +233,7 @@ function createWalletAndMidnightProvider(
       tx: UnprovenTransaction,
       _newCoins?: ShieldedCoinInfo[],
       ttl?: Date
-    ): Promise<BalancedProvingRecipe> {
+    ): Promise<FinalizedTransaction> {
       return wallet.balanceTransaction(
         walletZswapSecretKeys,
         walletDustSecretKey,
@@ -254,7 +259,7 @@ function configureProviders(
   networkUrls: Required<Omit<NetworkUrls, "id">>,
   privateStateStoreName: string,
   zkConfigPath: string
-) {
+): MidnightProviders {
   const signingKeyStoreName = `${privateStateStoreName}-signing-keys`;
   const walletAndMidnightProvider = createWalletAndMidnightProvider(
     wallet,
@@ -263,6 +268,7 @@ function configureProviders(
     dustSecretKey,
     walletDustSecretKey
   );
+  const zkConfigProvider = new NodeZkConfigProvider(zkConfigPath);
   return {
     // For deployment, we use full private state config because we may need to verify
     // the deployed contract state. For batcher/transaction submission use cases,
@@ -274,13 +280,13 @@ function configureProviders(
       privateStateStoreName,
       signingKeyStoreName,
       walletProvider: walletAndMidnightProvider, // Use wallet's encryption key for private state
-    } as any), // Type assertion: runtime supports walletProvider even though types don't reflect it yet
+    }), // Type assertion: runtime supports walletProvider even though types don't reflect it yet
     publicDataProvider: indexerPublicDataProvider(
       networkUrls.indexer,
       networkUrls.indexerWS
     ),
-    zkConfigProvider: new NodeZkConfigProvider(zkConfigPath),
-    proofProvider: httpClientProofProvider(networkUrls.proofServer),
+    zkConfigProvider,
+    proofProvider: httpClientProofProvider(networkUrls.proofServer, zkConfigProvider),
     walletProvider: walletAndMidnightProvider,
     midnightProvider: walletAndMidnightProvider,
   };
@@ -483,28 +489,47 @@ export async function deployMidnightContract(
     );
     log.info("Providers configured.");
 
-    log.info("Deploying contract...");
+    log.info("Deploying contract...[2]");
     const contract = new config.contractClass(config.witnesses);
 
-    const deployOptions: {
-      contract: unknown;
-      privateStateId: string;
-      initialPrivateState: unknown;
-      args?: unknown[];
-    } = {
-      contract,
-      privateStateId: config.privateStateId,
-      initialPrivateState: config.initialPrivateState,
-    };
 
-    if (deployArgs && deployArgs.length > 0) {
-      deployOptions.args = deployArgs;
-    }
+      // Find the compiler subdirectory to determine zkConfigPath
+  const managedDir = path.join(
+    contractDir,
+    config.contractName,
+    "src/managed"
+  );
 
-    // deno-lint-ignore no-explicit-any
+  log.info("Stage1");
+// First, create the compiled contract
+const MyCompiledContract = CompiledContract.make<
+  CompiledMyContract.Contract<MyPrivateState>
+>(config.contractName, contract).pipe(
+  CompiledContract.withWitnesses(config.witnesses),
+  CompiledContract.withCompiledFileAssets(managedDir)
+);
+
+log.info("Stage2");
+const deployOptions: {
+  compiledContract: unknown;
+  privateStateId: string;
+  initialPrivateState: unknown;
+  args?: unknown[];
+} = {
+  compiledContract: MyCompiledContract,
+  privateStateId: config.privateStateId,
+  initialPrivateState: config.initialPrivateState,
+};
+
+if (deployArgs && deployArgs.length > 0) {
+  deployOptions.args = deployArgs;
+}
+
+
+log.info("Stage3");
     const deployedContract = await deployContract(
-      providers as any,
-      deployOptions as any
+      providers,
+      deployOptions
     );
     log.info("Contract deployed.");
 

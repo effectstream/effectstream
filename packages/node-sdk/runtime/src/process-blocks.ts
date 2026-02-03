@@ -154,7 +154,7 @@ export function* processFinalizedBlock(
     if (migrations) {
       yield* applyUserMigrations(
         value.blockNumber,
-        dbConn,
+        dbConn as any, // Client,
         migrations,
       );
     }

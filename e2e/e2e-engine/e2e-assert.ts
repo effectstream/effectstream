@@ -106,7 +106,7 @@ export async function assert(
  */
 export async function assertSQL<RowType>(
   testName: string,
-  db: Pool,
+  db: any, // Pool,
   query: string,
   waitUntil: (res: QueryResult<RowType>) => boolean,
   check: (res: QueryResult<RowType>) => boolean,
@@ -177,7 +177,7 @@ export async function assertSQL<RowType>(
  */
 export async function assertSQL2<WaitType, CheckType>(
   testName: string,
-  db: Pool,
+  db: any, // Pool,
   waitUntil: { query: string; check: (res: QueryResult<WaitType>) => boolean },
   check: { query: string; check: (res: QueryResult<CheckType>) => boolean },
 ): Promise<QueryResult<WaitType | CheckType>> {

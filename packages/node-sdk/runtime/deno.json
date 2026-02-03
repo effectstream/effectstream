@@ -7,7 +7,7 @@
     "@fastify/cors": "npm:@fastify/cors@^11.0.1",
     "@metamask/json-rpc-engine": "npm:@metamask/json-rpc-engine@^10.0.3",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
-    "pg": "npm:pg@^8.14.0",
+    "pg": "npm:pg@8.17.2",
     "effection": "npm:effection@^3.5.0",
     "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "npm:@opentelemetry/auto-instrumentations-node@^0.54.0",

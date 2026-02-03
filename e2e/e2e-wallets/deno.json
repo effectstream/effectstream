@@ -30,7 +30,7 @@
     "vite-plugin-wasm": "npm:vite-plugin-wasm@^3.5.0",
     "wagmi": "npm:wagmi@^2.16.9",
     "ws": "npm:ws@^8.18.3",
-    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v1@1.0.0-alpha.5"
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0"
   },
   "compilerOptions": {
     "types": [

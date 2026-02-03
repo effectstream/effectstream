@@ -128,7 +128,7 @@ export abstract class SyncState<
         protocol_name: this.name,
         page_number: data.lastPage.ownBlockNumber,
         page: JSON.stringify(data.lastPage),
-      }, this.dbConn));
+      }, this.dbConn as any)); // Client,
       releaseDBMutex(`update-state-${this.name}`);
       this.lastPage = data.lastPage;
       this.newPageCondVar.wake();

@@ -22,7 +22,7 @@ export async function safeQuery<T>(
       `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/db_acquire_lock?name=${testName}`,
     );
     didLock = true;
-    result = await dbQuery(db.query(query));
+    result = await dbQuery<any>(db.query<any>(query));
   } finally {
     if (didLock) {
       await fetch(

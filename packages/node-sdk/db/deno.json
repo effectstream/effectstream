@@ -18,7 +18,7 @@
   "imports": {
     "@pgtyped/runtime": "npm:@pgtyped/runtime@2.4.2",
     "@pgtyped/parser": "npm:@pgtyped/parser@2.4.2",
-    "pg": "npm:pg@^8.14.0",
+    "pg": "npm:pg@8.17.2",
     "pg-tx": "npm:pg-tx@^1.0.1",
     "effection": "npm:effection@^3.5.0",
     // note: in `package.json` we fork @pgtyped/cli because of https://github.com/adelsz/pgtyped/pull/595
