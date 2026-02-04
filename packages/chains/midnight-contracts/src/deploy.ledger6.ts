@@ -1,3 +1,6 @@
+// TODO Rename to deploy.ts
+// TODO Remove references to "src/managed" as this is not standard.
+
 import * as log from "@std/log";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
@@ -28,10 +31,7 @@ import {
 } from "./get-wallet-info.ts";
 import { type MidnightProviders, type PrivateStateId } from '@midnight-ntwrk/midnight-js-types';
 
-// import { deployContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
-// import * as CompiledMyContract from './compiled/my-contract/contract/index.js';
-// import { witnesses, type MyPrivateState } from './witnesses';
 
 // Declare Deno global for type-checking when not executed under Deno tooling.
 declare const Deno: typeof globalThis.Deno;
@@ -231,7 +231,6 @@ function createWalletAndMidnightProvider(
     },
     async balanceTx(
       tx: UnboundTransaction,
-      // _newCoins?: ShieldedCoinInfo[],
       ttl?: Date
     ): Promise<FinalizedTransaction> {
       const bound = tx.bind();

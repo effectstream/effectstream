@@ -98,7 +98,6 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private walletAddress: string | null = null;
   private contractJoined = false;
   private contractJoiningPromise: Promise<void> | null = null;
-  // private contractInstance: any = null;
   private witnesses: any = null;
   private readonly contractJoinTimeoutMs: number;
   private readonly walletFundingTimeoutMs: number;

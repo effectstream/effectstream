@@ -9,9 +9,7 @@ import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import type {
-  // FinalizedTransaction, // replaces: BalancedProvingRecipe - but not exported?
   FinalizedTxData,
-  // ImpureCircuitId // TODO:Not sure about new version
   MidnightProvider,
   MidnightProviders,
   UnboundTransaction,
@@ -35,8 +33,6 @@ import {
   midnightNetworkConfig,
 } from "@effectstream/midnight-contracts/midnight-env";
 import {
-  type UnprovenTransaction,
-  DustSecretKey,
   FinalizedTransaction,
   Transaction as LedgerTransaction,
 } from "@midnight-ntwrk/ledger-v7";
@@ -45,6 +41,7 @@ import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
 import { WebSocket } from "ws";
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
+import { Contract } from '@midnight-ntwrk/compact-js';
 
 
 const BATCHER_URL = "http://localhost:3334";
@@ -52,8 +49,7 @@ const BATCHER_URL = "http://localhost:3334";
 globalThis.WebSocket = WebSocket;
 
 // Inlined common types for standalone script
-// type CounterCircuits = ImpureCircuitId<any>;
-type CounterCircuits = any;
+type CounterCircuits = Contract.ImpureCircuitId<Counter.Contract<CounterPrivateState>>;
 
 const CounterPrivateStateId = "counterPrivateState";
 
@@ -116,12 +112,6 @@ const assertIndexerHealthy = async (
  */
 const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
-// Standalone helper functions
-// const counterContractInstance: any = new Counter.Contract(
-//   witnesses,
-// );
-// 
-
 const getCounterLedgerState = async (
   providers: CounterProviders,
   contractAddress: ContractAddress,
@@ -148,9 +138,14 @@ const joinContract = async (
   providers: CounterProviders,
   contractAddress: string,
 ): Promise<any> => {
+  const MyCompiledContract = CompiledContract.make('contract-counter', Counter.Contract).pipe(
+    CompiledContract.withWitnesses(witnesses),
+    CompiledContract.withCompiledFileAssets('./')
+  );
+
   const counterContract = await (findDeployedContract)(providers, {
     contractAddress,
-    compiledContract: Counter.Contract as any,
+    compiledContract: MyCompiledContract,
     privateStateId: "counterPrivateState",
     initialPrivateState: { privateCounter: 0 },
   });
@@ -191,8 +186,6 @@ const createWalletAndMidnightProvider = (
   const {
     wallet,
     zswapSecretKeys,
-    walletZswapSecretKeys,
-    walletDustSecretKey,
     dustSecretKey,
     unshieldedKeystore,
   } = walletResult;
@@ -206,15 +199,13 @@ const createWalletAndMidnightProvider = (
     },
     async balanceTx(
       tx: UnboundTransaction,
-      // _newCoins?: ShieldedCoinInfo[],
       ttl?: Date
     ): Promise<FinalizedTransaction> {
       const bound = tx.bind();
-      // { shieldedSecretKeys: this.zswapSecretKeys, dustSecretKey: this.dustSecretKey}, { ttl }
       const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(bound, {
         shieldedSecretKeys: zswapSecretKeys, 
         dustSecretKey: dustSecretKey,
-       }, { /* bound, */ ttl: ttl ?? createTtl() } );
+       }, { ttl: ttl ?? createTtl() } );
       const x = await wallet.signRecipe(finalizedTransactionRecipe, (payload) => unshieldedKeystore.signData(payload));
       return wallet.finalizeRecipe(x);
     },

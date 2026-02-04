@@ -32,7 +32,6 @@ import {
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-// import type { BalancedProvingRecipe } from "@midnight-ntwrk/midnight-js-types";
 import { Buffer } from "node:buffer";
 
 export interface MidnightBalancingAdapterConfig {
@@ -321,6 +320,8 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
     // This adds dust inputs/outputs for fees, generates proofs, and computes binding
     let balancedRecipe: /*BalancedProvingRecipe */any;
     try {
+      // TODO FIX ME
+      console.log("THIS WILL FAIL. balanceTransaction IS NOT IMPLEMENTED IN LEDGER7")
       balancedRecipe = await (this.walletResult.wallet as any).balanceTransaction(
         this.walletResult.walletZswapSecretKeys,
         this.walletResult.walletDustSecretKey,
