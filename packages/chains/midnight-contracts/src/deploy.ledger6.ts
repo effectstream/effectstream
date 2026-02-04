@@ -2,7 +2,7 @@ import * as log from "@std/log";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import {
-  type BalancedProvingRecipe,
+  UnboundTransaction,
   type MidnightProvider,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
@@ -43,13 +43,12 @@ import {
   type DustSecretKey,
   type EncPublicKey,
   type FinalizedTransaction,
-  type ShieldedCoinInfo,
   shieldedToken,
   type TransactionId,
-  type UnprovenTransaction,
   ZswapSecretKeys,
 } from "@midnight-ntwrk/ledger-v7";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import { UnshieldedKeystore } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
 
 // ============================================================================
 // Constants
@@ -220,7 +219,8 @@ function createWalletAndMidnightProvider(
   zswapSecretKeys: ZswapSecretKeys,
   walletZswapSecretKeys: ZswapSecretKeys,
   dustSecretKey: DustSecretKey,
-  walletDustSecretKey: DustSecretKey
+  walletDustSecretKey: DustSecretKey,
+  unshieldedKeystore: UnshieldedKeystore
 ): WalletProvider & MidnightProvider {
   return {
     getCoinPublicKey(): CoinPublicKey {
@@ -230,16 +230,17 @@ function createWalletAndMidnightProvider(
       return zswapSecretKeys.encryptionPublicKey;
     },
     async balanceTx(
-      tx: UnprovenTransaction,
-      _newCoins?: ShieldedCoinInfo[],
+      tx: UnboundTransaction,
+      // _newCoins?: ShieldedCoinInfo[],
       ttl?: Date
     ): Promise<FinalizedTransaction> {
-      return wallet.balanceTransaction(
-        walletZswapSecretKeys,
-        walletDustSecretKey,
-        tx,
-        ttl ?? createTtl()
-      );
+      const bound = tx.bind();
+      const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(bound, {
+        shieldedSecretKeys: zswapSecretKeys, 
+        dustSecretKey: dustSecretKey,
+       }, { ttl: ttl ?? createTtl() } );
+      const x = await wallet.signRecipe(finalizedTransactionRecipe, (payload) => unshieldedKeystore.signData(payload));
+      return wallet.finalizeRecipe(x);
     },
     submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
       return wallet.submitTransaction(tx);
@@ -258,7 +259,8 @@ function configureProviders(
   walletDustSecretKey: DustSecretKey,
   networkUrls: Required<Omit<NetworkUrls, "id">>,
   privateStateStoreName: string,
-  zkConfigPath: string
+  zkConfigPath: string,
+  unshieldedKeystore: UnshieldedKeystore
 ): MidnightProviders {
   const signingKeyStoreName = `${privateStateStoreName}-signing-keys`;
   const walletAndMidnightProvider = createWalletAndMidnightProvider(
@@ -266,7 +268,8 @@ function configureProviders(
     zswapSecretKeys,
     walletZswapSecretKeys,
     dustSecretKey,
-    walletDustSecretKey
+    walletDustSecretKey,
+    unshieldedKeystore
   );
   const zkConfigProvider = new NodeZkConfigProvider(zkConfigPath);
   return {
@@ -453,6 +456,7 @@ export async function deployMidnightContract(
       dustSecretKey,
       walletDustSecretKey,
       dustAddress,
+      unshieldedKeystore,
     } = walletResult;
     const resolvedDustReceiverAddress =
       Deno.env.get("MIDNIGHT_DUST_RECEIVER_ADDRESS") ?? dustAddress;
@@ -485,7 +489,8 @@ export async function deployMidnightContract(
       walletDustSecretKey,
       resolvedNetworkUrls,
       deployPrivateStateStoreName,
-      zkConfigPath
+      zkConfigPath,
+      unshieldedKeystore
     );
     log.info("Providers configured.");
 
@@ -500,33 +505,27 @@ export async function deployMidnightContract(
     "src/managed"
   );
 
-  log.info("Stage1");
-// First, create the compiled contract
-const MyCompiledContract = CompiledContract.make<
-  CompiledMyContract.Contract<MyPrivateState>
->(config.contractName, contract).pipe(
-  CompiledContract.withWitnesses(config.witnesses),
-  CompiledContract.withCompiledFileAssets(managedDir)
-);
+  // First, create the compiled contract
+  const MyCompiledContract = CompiledContract.make(config.contractName, config.contractClass).pipe(
+    CompiledContract.withWitnesses(config.witnesses as never),
+    CompiledContract.withCompiledFileAssets(managedDir)
+  );
 
-log.info("Stage2");
-const deployOptions: {
-  compiledContract: unknown;
-  privateStateId: string;
-  initialPrivateState: unknown;
-  args?: unknown[];
-} = {
-  compiledContract: MyCompiledContract,
-  privateStateId: config.privateStateId,
-  initialPrivateState: config.initialPrivateState,
-};
+  const deployOptions: {
+    compiledContract: unknown;
+    privateStateId: string;
+    initialPrivateState: unknown;
+    args?: unknown[];
+  } = {
+    compiledContract: MyCompiledContract,
+    privateStateId: config.privateStateId,
+    initialPrivateState: config.initialPrivateState,
+  };
 
-if (deployArgs && deployArgs.length > 0) {
-  deployOptions.args = deployArgs;
-}
+  if (deployArgs && deployArgs.length > 0) {
+    deployOptions.args = deployArgs;
+  }
 
-
-log.info("Stage3");
     const deployedContract = await deployContract(
       providers,
       deployOptions

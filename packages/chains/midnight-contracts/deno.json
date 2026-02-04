@@ -41,7 +41,6 @@
         "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0",
         "@midnight-ntwrk/ledger-v7": "npm:@midnight-ntwrk/ledger-v7@7.0.0",
         "@midnight-ntwrk/compact-js": "npm:@midnight-ntwrk/compact-js@2.4.0"
-    // "@midnight-ntwrk/ledger-v6": "npm:@midnight-ntwrk/ledger-v6@6.1.0-alpha.6"
     }
 }
 

@@ -4,7 +4,7 @@ const axios = require("axios");
 const extract = require("extract-zip");
 const path = require("path");
 
-const CURRENT_BINARY_VERSION = "ledger-6.1.0-alpha.6";
+const CURRENT_BINARY_VERSION = "ledger-7.0.0";
 const FINAL_BINARY_NAME = "midnight-proof-server";
 
 /**

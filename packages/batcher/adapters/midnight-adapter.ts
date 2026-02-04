@@ -51,6 +51,7 @@ import {
   type WalletResult,
 } from "@effectstream/midnight-contracts/wallet-info";
 import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import { CompiledContract } from "@midnight-ntwrk/compact-js";
 
 export interface MidnightAdapterConfig {
   indexer: string;
@@ -73,13 +74,14 @@ const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
  * Midnight blockchain adapter implementing BlockchainAdapter interface
  * Enables batcher to submit transactions by invoking Compact contract circuits
  */
-export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload | null> {
+export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBatchPayload | null> {
   private readonly contractAddress: string;
   private readonly config: MidnightAdapterConfig;
   private readonly contractInfo: ContractInfo;
   private readonly syncProtocolName: string;
   public readonly maxBatchSize?: number;
-
+  private readonly contractClass: TContract;
+  
   // Private helper for building batch data
   private readonly batchBuilderLogic = new MidnightBatchBuilderLogic();
 
@@ -96,7 +98,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
   private walletAddress: string | null = null;
   private contractJoined = false;
   private contractJoiningPromise: Promise<void> | null = null;
-  private contractInstance: any = null;
+  // private contractInstance: any = null;
   private witnesses: any = null;
   private readonly contractJoinTimeoutMs: number;
   private readonly walletFundingTimeoutMs: number;
@@ -127,7 +129,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     contractAddress: string,
     walletSeed: string,
     config: MidnightAdapterConfig,
-    contractInstance: any,
+    contractClass: TContract,
     witnesses: any,
     contractInfo: ContractInfo,
     syncProtocolName: string,
@@ -138,12 +140,12 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
     this.contractInfo = contractInfo;
     this.syncProtocolName = syncProtocolName;
     this.maxBatchSize = maxBatchSize;
+    this.contractClass = contractClass;
     this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
     this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
     this.walletNetworkId = config.walletNetworkId ?? "undeployed" as WalletNetworkId.NetworkId;
 
     // Store contract info for lazy joining
-    this.contractInstance = contractInstance;
     this.witnesses = witnesses;
 
     // Start async initialization but don't await
@@ -298,13 +300,16 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
         const contractJoinTimeoutSeconds = Math.round(this.contractJoinTimeoutMs / 1000);
         console.log(`⏱️ Contract join timeout: ${contractJoinTimeoutSeconds}s`);
         console.log("🔍 Starting findDeployedContract...");
-        
+        const MyCompiledContract = CompiledContract.make('contract-counter', this.contractClass as any).pipe(
+          CompiledContract.withWitnesses(this.witnesses as never),
+          CompiledContract.withCompiledFileAssets('./')
+        );
         const joinStartTime = Date.now();
         this.deployedContract = await Promise.race([
           (async () => {
-            const result = await (findDeployedContract as any)(providers, {
+            const result = await findDeployedContract(providers, {
               contractAddress: this.contractAddress,
-              contract: this.contractInstance,
+              compiledContract: MyCompiledContract as any,
               privateStateId: privateStateId,
               initialPrivateState: {},
             });
@@ -350,6 +355,7 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
       walletZswapSecretKeys,
       dustSecretKey,
       walletDustSecretKey,
+      unshieldedKeystore,
     } = walletResult;
 
     return {
@@ -360,18 +366,21 @@ export class MidnightAdapter implements BlockchainAdapter<MidnightBatchPayload |
         return zswapSecretKeys.encryptionPublicKey;
       },
 
-      // balanceTx(tx: UnboundTransaction, ttl?: Date): Promise<FinalizedTransaction>;
-      balanceTx(
+      async balanceTx(
         tx: UnboundTransaction,
-        // _newCoins?: ShieldedCoinInfo[],
         ttl?: Date,
-      ): Promise</*BalancedProvingRecipe */FinalizedTransaction> {
-        return wallet.balanceTransaction(
-          walletZswapSecretKeys,
-          walletDustSecretKey,
-          tx,
-          ttl ?? createTtl(),
+      ): Promise<FinalizedTransaction> {
+        const bound = tx.bind();
+        const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(
+          bound, {
+            shieldedSecretKeys: zswapSecretKeys, 
+            dustSecretKey: dustSecretKey,
+          }, { 
+            ttl: ttl ?? createTtl(),
+          }
         );
+        const x = await wallet.signRecipe(finalizedTransactionRecipe, (payload) => unshieldedKeystore.signData(payload));
+        return wallet.finalizeRecipe(x);
       },
       submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
         return wallet.submitTransaction(tx);

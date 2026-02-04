@@ -14,10 +14,9 @@ import type {
   // ImpureCircuitId // TODO:Not sure about new version
   MidnightProvider,
   MidnightProviders,
+  UnboundTransaction,
   WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
-// TODO: Not sure about new version of string
-// import { TRANSACTION_TO_PROVE } from "@midnight-ntwrk/midnight-js-types";
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
@@ -37,12 +36,15 @@ import {
 } from "@effectstream/midnight-contracts/midnight-env";
 import {
   type UnprovenTransaction,
+  DustSecretKey,
+  FinalizedTransaction,
   Transaction as LedgerTransaction,
 } from "@midnight-ntwrk/ledger-v7";
 import { fromHex, toHex } from "@midnight-ntwrk/midnight-js-utils";
 import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
 import { WebSocket } from "ws";
+import { CompiledContract } from '@midnight-ntwrk/compact-js';
 
 
 const BATCHER_URL = "http://localhost:3334";
@@ -115,9 +117,10 @@ const assertIndexerHealthy = async (
 const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
 // Standalone helper functions
-const counterContractInstance: any = new Counter.Contract(
-  witnesses,
-);
+// const counterContractInstance: any = new Counter.Contract(
+//   witnesses,
+// );
+// 
 
 const getCounterLedgerState = async (
   providers: CounterProviders,
@@ -147,7 +150,7 @@ const joinContract = async (
 ): Promise<any> => {
   const counterContract = await (findDeployedContract)(providers, {
     contractAddress,
-    compiledContract: counterContractInstance,
+    compiledContract: Counter.Contract as any,
     privateStateId: "counterPrivateState",
     initialPrivateState: { privateCounter: 0 },
   });
@@ -190,6 +193,8 @@ const createWalletAndMidnightProvider = (
     zswapSecretKeys,
     walletZswapSecretKeys,
     walletDustSecretKey,
+    dustSecretKey,
+    unshieldedKeystore,
   } = walletResult;
 
   return {
@@ -199,14 +204,19 @@ const createWalletAndMidnightProvider = (
     getEncryptionPublicKey() {
       return zswapSecretKeys.encryptionPublicKey;
     },
-    balanceTx(tx/*, _newCoins*/, ttl) {
-      console.log("🧪 Balance Tx", wallet);
-      return wallet.balanceTransaction(
-        walletZswapSecretKeys,
-        walletDustSecretKey,
-        tx,
-        ttl ?? createTtl(),
-      );
+    async balanceTx(
+      tx: UnboundTransaction,
+      // _newCoins?: ShieldedCoinInfo[],
+      ttl?: Date
+    ): Promise<FinalizedTransaction> {
+      const bound = tx.bind();
+      // { shieldedSecretKeys: this.zswapSecretKeys, dustSecretKey: this.dustSecretKey}, { ttl }
+      const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(bound, {
+        shieldedSecretKeys: zswapSecretKeys, 
+        dustSecretKey: dustSecretKey,
+       }, { /* bound, */ ttl: ttl ?? createTtl() } );
+      const x = await wallet.signRecipe(finalizedTransactionRecipe, (payload) => unshieldedKeystore.signData(payload));
+      return wallet.finalizeRecipe(x);
     },
     submitTx(tx) {
       return wallet.submitTransaction(tx);
@@ -569,11 +579,10 @@ async function testDelegatedBalancing(
       getEncryptionPublicKey() {
         return walletResult!.zswapSecretKeys.encryptionPublicKey;
       },
-      balanceTx(
+      async balanceTx(
         tx,
-        // _newCoins,
         _ttl,
-      ): Promise</*BalancedProvingRecipe */any> {
+      ): Promise<FinalizedTransaction> {
         console.log("🧾 Capturing UnprovenTransaction from contract call...");
 
         const serialized = toHex(tx.serialize());
@@ -588,12 +597,27 @@ async function testDelegatedBalancing(
         );
 
         serializedTx = serialized;
+        const bound = tx.bind();
+        return Promise.resolve(bound);
 
+        // Ledger7 style
+        // const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(
+        //   bound, {
+        //     shieldedSecretKeys: zswapSecretKeys, 
+        //     dustSecretKey: dustSecretKey,
+        //   }, { 
+        //     ttl: ttl ?? createTtl(),
+        //   }
+        // );
+        // const x = await walletResult!.wallet.signRecipe(finalizedTransactionRecipe, (payload) => walletResult!.unshieldedKeystore.signData(payload));
+        // return walletResult!.wallet.finalizeRecipe(x);
+
+        // Balancer Mode
         // Return an explicit recipe without throwing; proofing/submission is delegated.
-        return Promise.resolve({
-          type: 'TransactionToProve' as const, // TODO: TRANSACTION_TO_PROVE,
-          transaction: tx,
-        });
+        // return Promise.resolve({
+        //   type: 'TransactionToProve' as const, // TODO: TRANSACTION_TO_PROVE,
+        //   transaction: tx,
+        // }); 
       },
       submitTx(_tx) {
         throw new DelegatedBalancingSentError();
@@ -625,20 +649,26 @@ async function testDelegatedBalancing(
       midnightProvider: interceptingProvider,
     };
 
+    // First, create the compiled contract
+    const MyCompiledContract = CompiledContract.make('contract-counter', Counter.Contract).pipe(
+      CompiledContract.withWitnesses(witnesses as never),
+      CompiledContract.withCompiledFileAssets('./')
+    );
+
     // 4. Join Contract as Party A
     console.log("🔗 Joining contract as Party A...");
     console.log("📎 Party A contract address:", contractAddress);
     try {
-      const counterContract = await (findDeployedContract)(providers, {
+      const counterContract = await findDeployedContract(providers, {
         contractAddress,
-        compiledContract: counterContractInstance,
+        compiledContract: MyCompiledContract,
         privateStateId: "partyAPrivateState",
         initialPrivateState: { privateCounter: 0 },
       });
       // 5. Call Circuit & Capture
       try {
         console.log("🔄 Calling increment() circuit...");
-        await (counterContract.callTx as any).increment();
+        await (counterContract.callTx).increment();
       } catch (error) {
         if (error instanceof DelegatedBalancingSentError) {
           console.log("✅ Transaction captured; delegated balancing will handle submission.");

@@ -22,7 +22,7 @@ import {
   ShieldedCoinInfo,
   UnprovenTransaction,
   Transaction as LedgerV6Transaction,
-} from "@midnight-ntwrk/ledger-v6";
+} from "@midnight-ntwrk/ledger-v7";
 import {
   type BalancedProvingRecipe,
   Contract,
@@ -31,8 +31,6 @@ import {
   type MidnightProvider,
   type MidnightProviders,
   type WalletProvider,
-  TRANSACTION_TO_PROVE,
-  NOTHING_TO_PROVE,
 } from "@midnight-ntwrk/midnight-js-types";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
@@ -337,8 +335,9 @@ const createWalletAndMidnightProvider = (
           console.log(" counter.ts: Capturing UNPROVEN transaction for delegation", { hexTxLength: hexTx.length });
           lastCapturedTx = hexTx;
           
+          // TODO: TRANSACTION_TO_PROVE is removed in ledger7.
           return {
-            type: TRANSACTION_TO_PROVE,
+            type: 'TransactionToProve' as const, // TRANSACTION_TO_PROVE,
             transaction: tx,
           };
         } catch (error) {
