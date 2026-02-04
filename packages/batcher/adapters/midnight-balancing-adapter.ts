@@ -369,7 +369,7 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
   ): Promise<FinalizedTransaction> {
     const circuitId = this.currentCircuitId ?? this.config.circuitId ?? null;
     if (!this.proofProvider || !this.zkConfigProvider || !circuitId) {
-      return await this.walletResult!.wallet.finalizeTransaction(recipe as any);
+      return await this.walletResult!.wallet.finalizeTransaction(recipe);
     }
 
     const zkConfig = await this.zkConfigProvider.get(circuitId);

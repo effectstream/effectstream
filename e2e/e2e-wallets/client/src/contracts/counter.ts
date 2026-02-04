@@ -3,10 +3,7 @@ import {
   witnesses as counterWitnesses,
 } from "../../../../shared/contracts/midnight/contract-counter/src/index.ts";
 
-import {
-  type ContractAddress,
-} from "@midnight-ntwrk/compact-runtime";
-import type { TransactionId } from "@midnight-ntwrk/ledger";
+import type { ContractAddress } from "@midnight-ntwrk/compact-runtime";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -19,27 +16,22 @@ import {
   CoinPublicKey,
   EncPublicKey,
   FinalizedTransaction,
-  ShieldedCoinInfo,
-  UnprovenTransaction,
   Transaction as LedgerV6Transaction,
 } from "@midnight-ntwrk/ledger-v7";
+
+import { Contract } from '@midnight-ntwrk/compact-js';
 import {
-  type BalancedProvingRecipe,
-  Contract,
   type FinalizedTxData,
-  type ImpureCircuitId,
   type MidnightProvider,
   type MidnightProviders,
+  UnboundTransaction,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import { NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import {
-  MidnightBech32m,
-  ShieldedAddress,
-} from "@midnight-ntwrk/wallet-sdk-address-format";
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
+import { CompiledContract } from '@midnight-ntwrk/compact-js';
 
 const BASE_URL_MIDNIGHT_INDEXER = `http://127.0.0.1:8088`;
 const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
@@ -97,7 +89,7 @@ export type CounterChainContract = Contract<
 
 type CounterContract = Counter.Contract;
 
-type CounterCircuits = ImpureCircuitId<CounterContract>;
+type CounterCircuits = Contract.ImpureCircuitId<CounterContract>;
 
 export type CounterProviders = MidnightProviders<
   CounterCircuits,
@@ -108,10 +100,6 @@ export type CounterProviders = MidnightProviders<
 type DeployedCounterContract =
   | DeployedContract<CounterContract>
   | FoundContract<CounterContract>;
-
-const counterContractInstance = new Counter.Contract(
-  counterWitnesses,
-);
 
 export const getCounterLedgerState = async (
   providers: CounterProviders,
@@ -141,7 +129,7 @@ export const getCounterLedgerState = async (
         const array = rawData.asArray();
         console.log("State array:", array);
 
-        if (array.length > 0) {
+        if (array && array.length > 0) {
           const firstElement = array[0];
           console.log("First element:", firstElement);
 
@@ -155,12 +143,17 @@ export const getCounterLedgerState = async (
               console.log("Raw bytes:", rawBytes);
 
               // If we have a Uint8Array, convert it to a number
-              if (rawBytes instanceof Uint8Array && rawBytes.length > 0) {
-                const value = rawBytes[0];
-                console.log(`✅ Parsed counter value: ${value}`);
-
-                // Return a structure matching the expected format
-                return { round: BigInt(value) };
+              if (rawBytes instanceof Uint8Array)  {
+                if (rawBytes.length === 0) {
+                  console.log(`✅ Parsed counter value: 0`);
+                  return { round: BigInt(0) };
+                }
+                if (rawBytes.length > 0) {
+                  const value = rawBytes[0];
+                  console.log(`✅ Parsed counter value: ${value}`);
+                  // Return a structure matching the expected format
+                  return { round: BigInt(value) };
+                }
               }
             }
           }
@@ -216,7 +209,7 @@ export const increment = async (
   counterContract: DeployedCounterContract,
 ): Promise<FinalizedTxData> => {
   console.log("Incrementing counter...");
-  const finalizedTxData = await (counterContract.callTx as any).increment();
+  const finalizedTxData = await counterContract.callTx.increment();
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
@@ -258,9 +251,11 @@ const fetchWalletAddresses = async (
     ]);
 
   return {
-    ...shieldedAddresses,
-    ...unshieldedAddress,
-    ...dustAddress,
+    shieldedAddress: shieldedAddresses.shieldedAddress,
+    shieldedCoinPublicKey: shieldedAddresses.shieldedCoinPublicKey,
+    shieldedEncryptionPublicKey: shieldedAddresses.shieldedEncryptionPublicKey,
+    unshieldedAddress: { unshieldedAddress: unshieldedAddress.unshieldedAddress },
+    dustAddress: { dustAddress: dustAddress.dustAddress },
   };
 };
 
@@ -283,7 +278,7 @@ export const connectToContract = async (
   providers: CounterProviders,
   contractAddress?: string
 ): Promise<{
-    contract: DeployedCounterContract;
+    contract: FoundContract<CounterContract>;
     state: any | null;
     contractAddress: string;
   }> => {
@@ -292,9 +287,15 @@ export const connectToContract = async (
     `🔗 Joining Counter contract at address: ${address}`
   );
 
-  const counterContract = await findDeployedContract(providers, {
+  // First, create the compiled contract
+  const MyCompiledContract = CompiledContract.make('contract-counter', Counter.Contract).pipe(
+    CompiledContract.withWitnesses(counterWitnesses as never),
+    CompiledContract.withCompiledFileAssets('./')
+  );
+
+  const counterContract: FoundContract<CounterContract> = await findDeployedContract(providers, {
     contractAddress: address,
-    contract: counterContractInstance,
+    compiledContract: MyCompiledContract as any,
     privateStateId: "counterPrivateState",
     initialPrivateState: {},
   });
@@ -323,13 +324,13 @@ const createWalletAndMidnightProvider = (
       return encryptionPublicKey;
     },
     async balanceTx(
-      tx: UnprovenTransaction,
-      _newCoins?: ShieldedCoinInfo[],
-      _ttl?: Date
-    ): Promise<BalancedProvingRecipe> {
+      tx: UnboundTransaction,
+      ttl?: Date
+    ): Promise<FinalizedTransaction> {
       console.log(" counter.ts: balanceTx called", { useDelegatedBalancing });
       
       if (useDelegatedBalancing) {
+        throw new Error("TODO: Delegated balancing is not supported our implementation with ledger7");
         try {
           const hexTx = toHex(tx.serialize());
           console.log(" counter.ts: Capturing UNPROVEN transaction for delegation", { hexTxLength: hexTx.length });
@@ -346,21 +347,41 @@ const createWalletAndMidnightProvider = (
         }
       }
 
+      const TTL_DURATION_MS = 60 * 60 * 1000;
+      const createTtl = () => new Date(Date.now() + TTL_DURATION_MS);
+
       // Direct mode: use DApp Connector to balance and prove
       console.log(" counter.ts: Balancing transaction via Lace...");
       // For some reason the dapp-connector-api types might be slightly off or we need to pass hex
-      const result = await (connectedAPI as any).balanceUnsealedTransaction(toHex(tx.serialize()));
-      const balancedTx = LedgerV6Transaction.deserialize(
+      
+      // Ledger7 style
+        // const bound = tx.bind();      
+        // const finalizedTransactionRecipe = await connectedAPI.balanceFinalizedTransaction(
+        //   bound, {
+        //     shieldedSecretKeys: connectedAPI.zswapSecretKeys, 
+        //     dustSecretKey: connectedAPI.dustSecretKey,
+        //   }, { 
+        //     ttl: ttl ?? createTtl(),
+        //   }
+        // );
+        // const x = await connectedAPI.signRecipe(finalizedTransactionRecipe, (payload: any) => connectedAPI.unshieldedKeystore.signData(payload));
+        // return connectedAPI.finalizeRecipe(x);
+      const serializedTx = toHex(tx.serialize());
+      // const balancedTx2: { tx: string } = await connectedAPI.balanceSealedTransaction(serializedTx);
+      const balancedTx1: { tx: string } = await connectedAPI.balanceUnsealedTransaction(serializedTx);
+
+      // connectedAPI.balanceUnsealedTransaction
+      // LedgerV6Transaction.
+
+      const balancedTx: FinalizedTransaction = LedgerV6Transaction.deserialize(
         'signature',
         'proof',
         'binding',
-        fromHex(result.tx)
+        fromHex(balancedTx1.tx)
       );
-
-      return {
-        type: NOTHING_TO_PROVE,
-        transaction: balancedTx as any,
-      };
+      
+       
+      return balancedTx;
     },
     async submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
       console.log(" counter.ts: submitTx called", { useDelegatedBalancing });
@@ -370,7 +391,7 @@ const createWalletAndMidnightProvider = (
       
       // Direct submission via Lace
       console.log(" counter.ts: Submitting balanced transaction via Lace...");
-      const txId = await (connectedAPI as any).submitTransaction(toHex(tx.serialize()));
+      const txId = await connectedAPI.submitTransaction(toHex(tx.serialize()));
       return txId;
     },
   };
@@ -389,16 +410,16 @@ const initializeProviders = async (
   );
   
   const zkConfigPath = window.location.origin;
-  
+  const zkConfigProvider = new FetchZkConfigProvider<"increment">(
+    zkConfigPath,
+    fetch.bind(window)
+  );
   return {
     privateStateProvider: levelPrivateStateProvider({
       privateStoragePasswordProvider: async () => "PAIMA_STORAGE_PASSWORD"
     } as any),
-    zkConfigProvider: new FetchZkConfigProvider(
-      zkConfigPath,
-      fetch.bind(window)
-    ) as any,
-    proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER),
+    zkConfigProvider,
+    proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER, zkConfigProvider),
     publicDataProvider: indexerPublicDataProvider(
         BASE_URL_MIDNIGHT_INDEXER_API,
         BASE_URL_MIDNIGHT_INDEXER_WS,

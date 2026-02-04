@@ -517,7 +517,7 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
     );
 
     log.info("Submitting dust registration transaction...");
-    const txId = await walletResult.wallet.submitTransaction(await walletResult.wallet.finalizeTransaction(recipe as any));
+    const txId = await walletResult.wallet.submitTransaction(await walletResult.wallet.finalizeTransaction(recipe));
     log.info(`Dust registration submitted with tx id: ${txId}`);
 
     // Wait for dust to be available

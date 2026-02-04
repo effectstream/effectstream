@@ -15,8 +15,8 @@
         "midnight-contract:clean": "rm -rf midnight-level-db contract-eip-20.undeployed.json contract-counter.undeployed.json",
         "midnight-contract:deploy": "deno task contract-eip20:deploy && echo 'Finished deploying contract-eip20' && sleep 1  && deno task contract-counter:deploy && echo 'Finished deploying contract-counter' && sleep 1",
         "contract-counter:deploy": "deno --unstable-detect-cjs -A contract-counter-deploy.ts",
-        "contract-eip20:deploy": "deno --unstable-detect-cjs -A contract-eip-20-deploy.ts"
-
+        "contract-eip20:deploy": "deno --unstable-detect-cjs -A contract-eip-20-deploy.ts",
+        "faucet": "deno run -A faucet.ts"
     },
     "imports": {
         "@std/path": "jsr:@std/path",

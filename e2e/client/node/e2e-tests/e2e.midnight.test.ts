@@ -575,6 +575,7 @@ async function testDelegatedBalancing(
         _ttl,
       ): Promise<FinalizedTransaction> {
         console.log("🧾 Capturing UnprovenTransaction from contract call...");
+        throw new Error("TODO: Delegated balancing is not supported our implementation with ledger7");
 
         const serialized = toHex(tx.serialize());
         console.log("📦 Serialized UnprovenTransaction (Hex length):", serialized.length);
