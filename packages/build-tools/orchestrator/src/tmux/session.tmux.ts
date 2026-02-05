@@ -3,6 +3,6 @@ export default `
 set -g mouse on
 
 # Spawn our children.
-new-session -d -- bun -A @effectstream/tui # /logs
-split-window -h -- bun -A @effectstream/tui # /tui
+new-session -d -- bun run packages/build-tools/tui/src/logs-standalone.ts
+split-window -h -- bun run packages/build-tools/tui/src/mod.ts
 `;

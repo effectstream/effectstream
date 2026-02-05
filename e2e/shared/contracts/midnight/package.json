@@ -4,9 +4,9 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./deploy.ts"
-    // "./counter": "./contract-counter/src/index.ts",
-    // "./eip-20": "./contract-eip-20/src/index.original.ts"
+    ".": "./deploy.ts",
+    "./counter": "./contract-counter/src/index.ts",
+    "./eip-20": "./contract-eip-20/src/index.original.ts"
   },
   "scripts": {
     "midnight-node:start": "MIDNIGHT_STORAGE_PASSWORD=yourpasswordmypassword CFG_PRESET=dev bun run --filter @effectstream/npm-midnight-node start --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",

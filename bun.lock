@@ -16,7 +16,9 @@
       "name": "@e2e/batcher",
       "version": "0.3.0",
       "dependencies": {
+        "@e2e/midnight-contracts": "workspace:*",
         "@effectstream/batcher": "workspace:*",
+        "@effectstream/midnight-contracts": "workspace:*",
         "bitcoinjs-lib": "^6.1.5",
         "bitcoinjs-message": "^2.2.0",
         "ecpair": "^2.1.0",
@@ -419,6 +421,8 @@
       "name": "@effectstream/tui",
       "version": "0.3.0",
       "dependencies": {
+        "@effectstream/log": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "@opentelemetry/otlp-transformer": "0.56.0",
         "@sinclair/typebox": "0.34.41",
         "@types/react": "19.1.0",

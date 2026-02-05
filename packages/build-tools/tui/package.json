@@ -15,6 +15,8 @@
     "logs": "bun run --bun src/logs-standalone.ts"
   },
   "dependencies": {
+    "@effectstream/log": "workspace:*",
+    "@effectstream/utils": "workspace:*",
     "tslog": "^4.9.3",
     "fastify": "^5.4.0",
     "ink": "6.6.0",
