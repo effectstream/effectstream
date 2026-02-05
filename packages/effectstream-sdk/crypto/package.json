@@ -8,6 +8,7 @@
     ".": "./src/mod.ts"
   },
   "dependencies": {
+    "@effectstream/utils": "workspace:",
     "@cardano-foundation/cardano-verify-datasignature": "1.0.11",
     "@polkadot/util": "^13.4.3",
     "@polkadot/util-crypto": "^13.4.3",

@@ -5,7 +5,7 @@ import {
   midnightNetworkConfig,
 } from "@effectstream/midnight-contracts/midnight-env";
 
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((process.env[key] || "").toLowerCase());
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 
 const midnightContractData = midnight_enabled
