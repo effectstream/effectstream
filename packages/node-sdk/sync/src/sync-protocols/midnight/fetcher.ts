@@ -154,11 +154,7 @@ export class MidnightFetcher extends BaseDataFetcher<
       const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
       const contractState = ContractState.deserialize(byteState);
       const contract = primitiveEntry.primitive.contract;
-      const state = contract.ledger(contractState.data as any);
-      const pojoState = JSON.parse(JSON.stringify(
-        state,
-        (_key, value) => typeof value === "bigint" ? value.toString() : value
-      ));
+      const state = contract.ledger(contractState.data.state);
       return {
         syncProtocol: {
           name: primitiveEntry.syncProtocol,
@@ -169,7 +165,7 @@ export class MidnightFetcher extends BaseDataFetcher<
         primitive: primitiveEntry.primitive.name,
         output: {
           payloadType: "midnight-contract-state",
-          payload: pojoState as unknown as EncodedStateValue,
+          payload: state,
         },
       }
     });

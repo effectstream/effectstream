@@ -4,6 +4,7 @@ import {
   AddressType,
   type MidnightAddress,
   type PaimaBlockNumber,
+  uint8ArrayToHexString,
 } from "@effectstream/utils";
 import type { StaticDecode } from "@sinclair/typebox";
 import {
@@ -17,6 +18,7 @@ import type {
   FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
 } from "@effectstream/config";
+import { StateValue } from '@midnight-ntwrk/onchain-runtime';
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { PrimitiveTypeMidnightGeneric } from "../builtin.ts";
 import { midnightGenericGrammar } from "./midnight-genetic-grammar.ts"
@@ -31,7 +33,7 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
   override readonly grammar = midnightGenericGrammar;
   readonly contractAddress: string;
   readonly contract: {
-    ledger: (data: EncodedStateValue) => any;
+    ledger: (data: StateValue) => any;
   };
   readonly networkId: string;
   readonly genesisHash: string;
@@ -50,7 +52,7 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
     contractAddress: MidnightAddress;
     stateMachinePrefix: string;
     contract: {
-      ledger: (data: EncodedStateValue) => any;
+      ledger: (data: StateValue) => any;
     }
     networkId?: string;
     genesisHash?: string;
@@ -82,8 +84,8 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
       const isBatched = false;
      
       const accountingPayload: ParamToData<typeof this.grammar> = {
-        payload,
-      } as unknown as ParamToData<typeof this.grammar>;
+        payload: makeJsonSafe(payload),
+      };
      
       const stateMachinePayload:
         | StaticDecode<
@@ -137,6 +139,28 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
       genesisHash: this.genesisHash || "", 
     } as const;
   }
+}
+
+function makeJsonSafe(data: unknown): any {
+  if (typeof data === 'boolean' || typeof data === 'number' || typeof data === 'string') {
+    return data;
+  }
+  if (typeof data === 'bigint') {
+    return data.toString();
+  }
+  if (data === null || data === undefined) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map(makeJsonSafe);
+  }
+  if (data instanceof Uint8Array) {
+    return uint8ArrayToHexString(data);
+  }
+  if (typeof data === 'object') {
+    return Object.fromEntries(Object.entries(data).map(([k, v]) => [k, makeJsonSafe(v)]));
+  }
+  return data;
 }
 
 // declare module "@effectstream/sm" {

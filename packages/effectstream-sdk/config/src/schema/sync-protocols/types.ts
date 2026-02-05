@@ -3,7 +3,8 @@ import { ConfigNetworkType } from "../network/mod.ts";
 import type { ConfigSyncProtocolDecoratorType } from "./decorators/types.ts";
 import type { NetworkConfig } from "../../config/parts/network.ts";
 import type { ConfigSyncProtocolMapping } from "./all.ts";
-import type { EncodedStateValue, UtxorpcTxPredicate, getEvmEvent } from "@effectstream/config";
+import type { UtxorpcTxPredicate, getEvmEvent } from "@effectstream/config";
+import type { StateValue } from "@midnight-ntwrk/onchain-runtime"
 
 export enum ConfigSyncProtocolType {
   NTP_MAIN = "ntp-main",
@@ -51,7 +52,7 @@ type MidnightPrimitive = BasePrimitive & {
   name: string;
   contractAddress: string;
   contract: {
-    ledger: (data: EncodedStateValue) => any;
+    ledger: (data: StateValue) => Record<string, any>;
   };
   networkId?: string;
   genesisHash?: string;

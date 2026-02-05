@@ -27,7 +27,7 @@ export type FlattenSyncProtocolIOFor<
 
 type EVMPrimitivePayload = Record<string, any>;
 
-type MidnightTPrimitivePayload = EncodedStateValue;
+type MidnightTPrimitivePayload = Record<string, any>;
 
 type NtpPrimitivePayload = never;
 
