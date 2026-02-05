@@ -14,11 +14,10 @@ import {
 } from "@effectstream/concise";
 import type {
   ConfigSyncProtocolType,
-  EncodedStateValue,
   FlattenSyncProtocolIOFor,
   ProtocolPrimitiveMap,
+  StateValue,
 } from "@effectstream/config";
-import { StateValue } from '@midnight-ntwrk/onchain-runtime';
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { PrimitiveTypeMidnightGeneric } from "../builtin.ts";
 import { midnightGenericGrammar } from "./midnight-genetic-grammar.ts"

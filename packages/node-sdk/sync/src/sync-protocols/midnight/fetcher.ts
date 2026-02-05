@@ -17,7 +17,6 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type MidnightGqlBlockState } from "./MidnightClient.ts";
-import type { EncodedStateValue } from "@effectstream/config";
 import { ContractState } from "@midnight-ntwrk/onchain-runtime";
 
 export class MidnightFetcher extends BaseDataFetcher<

@@ -2,10 +2,10 @@ import type {
   ConfigSyncProtocolType,
   ProtocolPrimitiveMap,
 } from "../sync-protocols/types.ts";
-import type { EncodedStateValue } from "@midnight-ntwrk/onchain-runtime";
+import type { StateValue } from "@midnight-ntwrk/onchain-runtime";
 import type { cardano } from '@utxorpc/spec';
 
-export type { EncodedStateValue };
+export type { StateValue };
 
 export type FlattenSyncProtocolIOFor<
   SyncProtocol extends keyof ProtocolPrimitiveMap,
