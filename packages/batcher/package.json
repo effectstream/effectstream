@@ -11,7 +11,11 @@
     "check": "bun run --bun ./mod.ts"
   },
   "dependencies": {
-    "@sinclair/typebox": "0.34.41",
+    "@effectstream/crypto": "workspace:",
+    "@effectstream/event-client": "workspace:",
+    "@effectstream/midnight-contracts": "workspace:",
+    "@effectstream/utils": "workspace:",
+    "@sinclair/typebox": "0.34.40",
     "viem": "^2.21.3",
     "effection": "^3.5.0",
     "fastify": "^5.4.0",

@@ -14,6 +14,10 @@
     "standalone": "bun run --bun ./src/start.ts"
   },
   "dependencies": {
+    "@effectstream/concise": "workspace:",
+    "@effectstream/crypto": "workspace:",
+    "@effectstream/event-client": "workspace:",
+    "@effectstream/utils": "workspace:",
     "@fastify/swagger": "^9.5.1",
     "@fastify/swagger-ui": "^5.2.3",
     "assert-never": "^1.4.0",
