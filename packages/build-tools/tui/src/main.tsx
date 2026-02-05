@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, render, Text, useInput, useStdin, useStdout } from "ink";
+import { Box, render, Text, useInput, useStdout } from "ink";
 import { ProcessesSection } from "./tab/ProcessesSection.tsx";
 import { SetupSection } from "./tab/SetupSection.tsx";
 import { HelpSection } from "./tab/HelpSection.tsx";
@@ -17,25 +17,25 @@ const App = () => {
   const [width, setWidth] = useState(() => stdout.columns);
   const [height, setHeight] = useState(() => stdout.rows);
 
-  const { setRawMode } = useStdin();
-  setRawMode(true);
   useEffect(() => {
     const handleTerminalResize = () => {
-      const { columns, rows } = Deno.consoleSize();
+      const { columns, rows } = stdout;
       setWidth(() => columns);
       setHeight(() => rows);
     };
-    Deno.addSignalListener("SIGWINCH", handleTerminalResize);
+    process.addListener("SIGWINCH", handleTerminalResize);
     return () => {
-      Deno.removeSignalListener("SIGWINCH", handleTerminalResize);
-    };
+      process.removeListener("SIGWINCH", handleTerminalResize);
+    }
   }, []);
   useInput((input, key) => {
     if (input === "c" && key.ctrl) {
       if (process.env.TMUX) {
         // TODO make this async
-        const { spawn } = await import("child_process");
-        spawn("tmux", ["kill-session"]);
+        (async () => {
+          const { spawn } = await import("child_process");
+          spawn("tmux", ["kill-session"]);
+        });
       }
       process.exit(0);
       return;
