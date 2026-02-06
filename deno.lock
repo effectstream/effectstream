@@ -20866,7 +20866,7 @@
       },
       "packages/chains/evm-contracts": {
         "dependencies": [
-          "jsr:@effectstream/log@0.4.0",
+          "jsr:@effectstream/log@0.6.0",
           "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
           "npm:@nomicfoundation/hardhat-viem@3.0.0",
           "npm:@opentelemetry/sdk-node@0.56.0",
@@ -21058,6 +21058,7 @@
             "npm:@coderspirit/nominal@^4.1.1",
             "npm:@foxglove/crc@^1.0.1",
             "npm:@metamask/providers@^22.1.0",
+            "npm:@midnight-ntwrk/dapp-connector-api@4.0.0",
             "npm:@perawallet/connect@^1.4.2",
             "npm:@polkadot/extension-dapp@~0.58.10",
             "npm:@polkadot/extension-inject@~0.58.10",
@@ -21081,6 +21082,7 @@
             "npm:mina-signer@^3.0.7",
             "npm:mqtt-pattern@^2.1.0",
             "npm:mqtt@^5.14.0",
+            "npm:semver@^7.7.3",
             "npm:viem@2.37.3",
             "npm:web3-utils@^4.3.3",
             "npm:web3@^4.16.0"

@@ -5,7 +5,6 @@
     "exports": {
         "./read-contract": "./src/read-contract.ts",
         "./deploy": "./src/deploy.ts",
-        "./deploy-ledger6": "./src/deploy.ledger6.ts",
         "./wallet-info": "./src/get-wallet-info.ts",
         "./midnight-env": "./src/midnight-env.ts"
     },
