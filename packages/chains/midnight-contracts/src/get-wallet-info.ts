@@ -25,7 +25,7 @@ import {
   ZswapSecretKeys,
   DustSecretKey,
   shieldedToken,
-  nativeToken,
+  type UnprovenTransaction,
 } from "@midnight-ntwrk/ledger-v7";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import type { DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded/v1";
@@ -516,8 +516,14 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
       (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload)
     );
 
+    const signedRecipe: UnprovenTransaction = await walletResult.wallet.signUnprovenTransaction(recipe.transaction, (payload: Uint8Array) =>
+      walletResult.unshieldedKeystore.signData(payload),
+    );
+
     log.info("Submitting dust registration transaction...");
-    const txId = await walletResult.wallet.submitTransaction(await walletResult.wallet.finalizeTransaction(recipe));
+    const txId = await walletResult.wallet.submitTransaction(
+      await walletResult.wallet.finalizeTransaction(signedRecipe)
+    );
     log.info(`Dust registration submitted with tx id: ${txId}`);
 
     // Wait for dust to be available

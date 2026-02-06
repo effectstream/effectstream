@@ -620,13 +620,13 @@ export async function registerNightForDust(
           walletResult.unshieldedKeystore.signData(payload),
       );
 
-    const x: UnprovenTransaction = await walletResult.wallet.signUnprovenTransaction(recipe.transaction, (payload: Uint8Array) =>
+    const signedRecipe: UnprovenTransaction = await walletResult.wallet.signUnprovenTransaction(recipe.transaction, (payload: Uint8Array) =>
       walletResult.unshieldedKeystore.signData(payload),
     );
 
     console.info("Submitting dust registration transaction...");
     const txId = await walletResult.wallet.submitTransaction(
-      await walletResult.wallet.finalizeTransaction(x),
+      await walletResult.wallet.finalizeTransaction(signedRecipe),
     );
     console.info(`Dust registration submitted with tx id: ${txId}`);
 
