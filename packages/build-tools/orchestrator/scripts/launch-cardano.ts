@@ -44,7 +44,7 @@ export const launchCardano = (packageName: string): {
   // At the time there is not npm package for the latest dolos binary.
   try {
     const dolosExists = new Deno.Command("deno", {
-      args: ["task", "-f", "@e2e/cardano-contracts", "dolos:exists"],
+      args: ["task", "-f", packageName, "dolos:exists"],
     }).outputSync();
     if (!dolosExists.success) throw new Error();
   } catch (_error) {
