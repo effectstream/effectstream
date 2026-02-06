@@ -53,7 +53,8 @@ export function* start(config: StartConfig): Operation<void> {
 
   const dbConn = getConnection();
 
-  const syncProtocols = yield* startup(dbConn, syncInfo, config);
+  const syncProtocols = yield* startup(dbConn as any, // Client,
+    syncInfo, config);
 
   log.remote(
     ComponentNames.EFFECTSTREAM_RUNTIME,
@@ -89,18 +90,18 @@ export function* start(config: StartConfig): Operation<void> {
     let dbClient: Client | undefined;
     try {
       yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
-      dbClient = yield* until(dbConn.connect());
+      dbClient = yield* until((dbConn as any).connect()); // Client,
 
       blockHash = yield* processFinalizedBlock(
         value,
         config,
-        dbClient,
+        dbClient as any, // Client,
         blockHash,
       );
     } finally {
       releaseDBMutex(`processing-blocks:${value.blockNumber}`);
       if (dbClient) {
-        dbClient.release();
+        (dbClient as any).release(); // Client,
       }
     }
 
@@ -187,7 +188,7 @@ function* startup(
 
   // Dev-only reset of user-owned public tables
   if (config.dev?.resetPublicData) {
-    yield* resetPublicTables(dbConn);
+    yield* resetPublicTables(dbConn as any); // Client,
   }
 
   // When the node is started, we apply system migrations.
@@ -200,12 +201,13 @@ function* startup(
     config.migrations,
   );
 
-  const syncProtocols = yield* genSyncProtocols(dbConn, syncInfo);
+  const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
+    syncInfo);
 
   yield* createDynamicTables(
     versionInfo,
     lastBlockHeight,
-    dbConn,
+    dbConn as any, // Client,
     syncProtocols,
   );
 

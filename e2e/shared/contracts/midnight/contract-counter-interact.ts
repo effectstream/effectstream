@@ -5,7 +5,7 @@ import {
 import {
   Counter,
   type CounterPrivateState,
-  witnesses,
+  witnesses as counterWitnesses,
 } from "./contract-counter/src/index.ts";
 import {
   type CoinInfo,
@@ -48,6 +48,7 @@ import {
 } from "@midnight-ntwrk/midnight-js-network-id";
 import { dirname, resolve } from "@std/path";
 import { exists } from "@std/fs";
+import { CompiledContract } from '@midnight-ntwrk/compact-js';
 
 // @ts-expect-error: It's needed to enable WebSocket usage through apollo
 globalThis.WebSocket = WebSocket;
@@ -125,11 +126,6 @@ const contractAddressFileName = `contract-counter.${contractNetworkId}.json`;
  */
 const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
-// Standalone helper functions
-const counterContractInstance: CounterContract = new Counter.Contract(
-  witnesses,
-);
-
 const getCounterLedgerState = async (
   providers: CounterProviders,
   contractAddress: ContractAddress,
@@ -156,9 +152,15 @@ const joinContract = async (
   providers: CounterProviders,
   contractAddress: string,
 ): Promise<DeployedCounterContract> => {
+  // First, create the compiled contract
+  const MyCompiledContract = CompiledContract.make('contract-counter', Counter.Contract).pipe(
+    CompiledContract.withWitnesses(counterWitnesses as never),
+    CompiledContract.withCompiledFileAssets('./')
+  );
+
   const counterContract = await findDeployedContract(providers, {
     contractAddress,
-    contract: counterContractInstance,
+    compiledContract: MyCompiledContract as any,
     privateStateId: "counterPrivateState",
     initialPrivateState: { privateCounter: 0 },
   });

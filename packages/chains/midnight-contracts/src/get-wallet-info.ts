@@ -19,13 +19,14 @@ import {
   InMemoryTransactionHistoryStorage,
   type UnshieldedKeystore,
 } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
+
 import {
   LedgerParameters,
   ZswapSecretKeys,
   DustSecretKey,
   shieldedToken,
-  nativeToken,
-} from "@midnight-ntwrk/ledger-v6";
+  type UnprovenTransaction,
+} from "@midnight-ntwrk/ledger-v7";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import type { DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded/v1";
 
@@ -426,7 +427,7 @@ export async function buildWalletFacade(
   const unshieldedAddress = unshieldedKeystore.getBech32Address().asString();
 
   // deno-lint-ignore no-explicit-any
-  const wallet = new WalletFacade(shieldedWallet as any, unshieldedWallet as any, dustWallet);
+  const wallet = new WalletFacade(shieldedWallet as any, unshieldedWallet as any, dustWallet as any);
 
   const zswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
   const walletZswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
@@ -515,8 +516,14 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
       (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload)
     );
 
+    const signedRecipe: UnprovenTransaction = await walletResult.wallet.signUnprovenTransaction(recipe.transaction, (payload: Uint8Array) =>
+      walletResult.unshieldedKeystore.signData(payload),
+    );
+
     log.info("Submitting dust registration transaction...");
-    const txId = await walletResult.wallet.submitTransaction(await walletResult.wallet.finalizeTransaction(recipe));
+    const txId = await walletResult.wallet.submitTransaction(
+      await walletResult.wallet.finalizeTransaction(signedRecipe)
+    );
     log.info(`Dust registration submitted with tx id: ${txId}`);
 
     // Wait for dust to be available

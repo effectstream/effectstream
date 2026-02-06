@@ -52,7 +52,7 @@ export const midnightAdapter = new MidnightAdapter(
     ...midnightAdapterConfig,
     walletResult: sharedWalletResult,
   },
-  new SimpleToken.Contract(witnesses),
+  SimpleToken.Contract,
   witnesses,
   contractInfo,
   "parallelMidnight"

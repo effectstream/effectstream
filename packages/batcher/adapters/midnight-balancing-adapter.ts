@@ -15,7 +15,7 @@ import {
   Transaction as LedgerV6Transaction,
   type UnprovenTransaction,
   type FinalizedTransaction,
-} from "@midnight-ntwrk/ledger-v6";
+} from "@midnight-ntwrk/ledger-v7";
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
@@ -32,7 +32,6 @@ import {
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import type { BalancedProvingRecipe } from "@midnight-ntwrk/midnight-js-types";
 import { Buffer } from "node:buffer";
 
 export interface MidnightBalancingAdapterConfig {
@@ -67,7 +66,7 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
   private walletAddress: string | null = null;
   private publicDataProvider: PublicDataProvider | null = null;
   private zkConfigProvider: ZKConfigProvider<string> | null = null;
-  private proofProvider: ProofProvider<string> | null = null;
+  private proofProvider: ProofProvider | null = null;
   private currentCircuitId: string | null = null;
   private syncProtocolName: string;
 
@@ -154,7 +153,7 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
 
     if (this.config.zkConfigPath) {
         this.zkConfigProvider = new NodeZkConfigProvider(this.config.zkConfigPath);
-        this.proofProvider = httpClientProofProvider(this.config.proofServer);
+        this.proofProvider = httpClientProofProvider(this.config.proofServer, this.zkConfigProvider);
       } else {
         console.warn(
         "⚠️ Missing zkConfigPath for balancing adapter. Proving may fail.",
@@ -319,9 +318,11 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
 
     // Balance and Prove
     // This adds dust inputs/outputs for fees, generates proofs, and computes binding
-    let balancedRecipe: BalancedProvingRecipe;
+    let balancedRecipe: /*BalancedProvingRecipe */any;
     try {
-      balancedRecipe = await this.walletResult.wallet.balanceTransaction(
+      // TODO FIX ME
+      console.log("THIS WILL FAIL. balanceTransaction IS NOT IMPLEMENTED IN LEDGER7")
+      balancedRecipe = await (this.walletResult.wallet as any).balanceTransaction(
         this.walletResult.walletZswapSecretKeys,
         this.walletResult.walletDustSecretKey,
         unprovenTx,
@@ -364,11 +365,11 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
   }
 
   private async finalizeWithProver(
-    recipe: BalancedProvingRecipe,
+    recipe: /*BalancedProvingRecipe */any,
   ): Promise<FinalizedTransaction> {
     const circuitId = this.currentCircuitId ?? this.config.circuitId ?? null;
     if (!this.proofProvider || !this.zkConfigProvider || !circuitId) {
-      return await this.walletResult!.wallet.finalizeTransaction(recipe as any);
+      return await this.walletResult!.wallet.finalizeTransaction(recipe);
     }
 
     const zkConfig = await this.zkConfigProvider.get(circuitId);
@@ -377,12 +378,12 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
       case "BalanceTransactionToProve": {
         const txToProve = (recipe as any).transactionToProve as UnprovenTransaction;
         const txToBalance = (recipe as any).transactionToBalance as FinalizedTransaction;
-        const proven = await this.proofProvider.proveTx(txToProve, { zkConfig });
+        const proven = await (this.proofProvider as any).proveTx(txToProve, { zkConfig });
         return txToBalance.merge(proven.bind()) as FinalizedTransaction;
       }
       case "TransactionToProve": {
         const txToProve = (recipe as any).transaction as UnprovenTransaction;
-        const proven = await this.proofProvider.proveTx(txToProve, { zkConfig });
+        const proven = await (this.proofProvider as any).proveTx(txToProve, { zkConfig });
         return proven.bind() as FinalizedTransaction;
       }
       case "NothingToProve":

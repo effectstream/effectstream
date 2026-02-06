@@ -9,14 +9,12 @@ import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import type {
-  BalancedProvingRecipe,
   FinalizedTxData,
-  ImpureCircuitId,
   MidnightProvider,
   MidnightProviders,
+  UnboundTransaction,
   WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
-import { TRANSACTION_TO_PROVE } from "@midnight-ntwrk/midnight-js-types";
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
@@ -35,20 +33,23 @@ import {
   midnightNetworkConfig,
 } from "@effectstream/midnight-contracts/midnight-env";
 import {
-  type UnprovenTransaction,
+  FinalizedTransaction,
   Transaction as LedgerTransaction,
-} from "@midnight-ntwrk/ledger-v6";
+} from "@midnight-ntwrk/ledger-v7";
 import { fromHex, toHex } from "@midnight-ntwrk/midnight-js-utils";
 import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
 import { WebSocket } from "ws";
+import { CompiledContract } from '@midnight-ntwrk/compact-js';
+import { Contract } from '@midnight-ntwrk/compact-js';
 
 
 const BATCHER_URL = "http://localhost:3334";
+// @ts-ignore - WebSocket is not defined in the global scope
 globalThis.WebSocket = WebSocket;
 
 // Inlined common types for standalone script
-type CounterCircuits = ImpureCircuitId<any>;
+type CounterCircuits = Contract.ImpureCircuitId<Counter.Contract<CounterPrivateState>>;
 
 const CounterPrivateStateId = "counterPrivateState";
 
@@ -111,11 +112,6 @@ const assertIndexerHealthy = async (
  */
 const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
-// Standalone helper functions
-const counterContractInstance: any = new Counter.Contract(
-  witnesses,
-);
-
 const getCounterLedgerState = async (
   providers: CounterProviders,
   contractAddress: ContractAddress,
@@ -142,9 +138,14 @@ const joinContract = async (
   providers: CounterProviders,
   contractAddress: string,
 ): Promise<any> => {
-  const counterContract = await findDeployedContract(providers, {
+  const MyCompiledContract = CompiledContract.make('contract-counter', Counter.Contract).pipe(
+    CompiledContract.withWitnesses(witnesses),
+    CompiledContract.withCompiledFileAssets('./')
+  );
+
+  const counterContract = await (findDeployedContract)(providers, {
     contractAddress,
-    contract: counterContractInstance,
+    compiledContract: MyCompiledContract,
     privateStateId: "counterPrivateState",
     initialPrivateState: { privateCounter: 0 },
   });
@@ -185,8 +186,8 @@ const createWalletAndMidnightProvider = (
   const {
     wallet,
     zswapSecretKeys,
-    walletZswapSecretKeys,
-    walletDustSecretKey,
+    dustSecretKey,
+    unshieldedKeystore,
   } = walletResult;
 
   return {
@@ -196,13 +197,17 @@ const createWalletAndMidnightProvider = (
     getEncryptionPublicKey() {
       return zswapSecretKeys.encryptionPublicKey;
     },
-    balanceTx(tx, _newCoins, ttl) {
-      return wallet.balanceTransaction(
-        walletZswapSecretKeys,
-        walletDustSecretKey,
-        tx,
-        ttl ?? createTtl(),
-      );
+    async balanceTx(
+      tx: UnboundTransaction,
+      ttl?: Date
+    ): Promise<FinalizedTransaction> {
+      const bound = tx.bind();
+      const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(bound, {
+        shieldedSecretKeys: zswapSecretKeys, 
+        dustSecretKey: dustSecretKey,
+       }, { ttl: ttl ?? createTtl() } );
+      const x = await wallet.signRecipe(finalizedTransactionRecipe, (payload) => unshieldedKeystore.signData(payload));
+      return wallet.finalizeRecipe(x);
     },
     submitTx(tx) {
       return wallet.submitTransaction(tx);
@@ -244,6 +249,9 @@ const configureProviders = (
   const walletAndMidnightProvider = createWalletAndMidnightProvider(
     walletResult,
   );
+  const zkConfigProvider = new NodeZkConfigProvider<"increment">(
+    contractConfig.zkConfigPath,
+  );
   return {
     // Use minimal private state config with privateStateStoreName and walletProvider.
     // Omitting midnightDbName uses in-memory storage and avoids persisting/syncing
@@ -257,10 +265,8 @@ const configureProviders = (
       config.indexer,
       config.indexerWS,
     ),
-    zkConfigProvider: new NodeZkConfigProvider<"increment">(
-      contractConfig.zkConfigPath,
-    ),
-    proofProvider: httpClientProofProvider(config.proofServer),
+    zkConfigProvider,
+    proofProvider: httpClientProofProvider(config.proofServer, zkConfigProvider),
     walletProvider: walletAndMidnightProvider,
     midnightProvider: walletAndMidnightProvider,
   };
@@ -564,12 +570,12 @@ async function testDelegatedBalancing(
       getEncryptionPublicKey() {
         return walletResult!.zswapSecretKeys.encryptionPublicKey;
       },
-      balanceTx(
+      async balanceTx(
         tx,
-        _newCoins,
         _ttl,
-      ): Promise<BalancedProvingRecipe> {
+      ): Promise<FinalizedTransaction> {
         console.log("🧾 Capturing UnprovenTransaction from contract call...");
+        throw new Error("TODO: Delegated balancing is not supported our implementation with ledger7");
 
         const serialized = toHex(tx.serialize());
         console.log("📦 Serialized UnprovenTransaction (Hex length):", serialized.length);
@@ -583,12 +589,27 @@ async function testDelegatedBalancing(
         );
 
         serializedTx = serialized;
+        const bound = tx.bind();
+        return Promise.resolve(bound);
 
+        // Ledger7 style
+        // const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(
+        //   bound, {
+        //     shieldedSecretKeys: zswapSecretKeys, 
+        //     dustSecretKey: dustSecretKey,
+        //   }, { 
+        //     ttl: ttl ?? createTtl(),
+        //   }
+        // );
+        // const x = await walletResult!.wallet.signRecipe(finalizedTransactionRecipe, (payload) => walletResult!.unshieldedKeystore.signData(payload));
+        // return walletResult!.wallet.finalizeRecipe(x);
+
+        // Balancer Mode
         // Return an explicit recipe without throwing; proofing/submission is delegated.
-        return Promise.resolve({
-          type: TRANSACTION_TO_PROVE,
-          transaction: tx,
-        });
+        // return Promise.resolve({
+        //   type: 'TransactionToProve' as const, // TODO: TRANSACTION_TO_PROVE,
+        //   transaction: tx,
+        // }); 
       },
       submitTx(_tx) {
         throw new DelegatedBalancingSentError();
@@ -601,6 +622,9 @@ async function testDelegatedBalancing(
     const midnightDbName = `midnight-level-db-party-a-${partyASeed.slice(0, 8)}`;
     console.log("🗄️ Party A private state store:", privateStateStoreName);
     console.log("🗄️ Party A midnight DB:", midnightDbName);
+    const zkConfigProvider = new NodeZkConfigProvider<"increment">(
+      contractConfig.zkConfigPath,
+    );
     const providers = {
       privateStateProvider: levelPrivateStateProvider({
         midnightDbName,
@@ -611,13 +635,17 @@ async function testDelegatedBalancing(
         config.indexer,
         config.indexerWS,
       ),
-      zkConfigProvider: new NodeZkConfigProvider<"increment">(
-        contractConfig.zkConfigPath,
-      ),
-      proofProvider: httpClientProofProvider(config.proofServer),
+      zkConfigProvider,
+      proofProvider: httpClientProofProvider(config.proofServer, zkConfigProvider),
       walletProvider: interceptingProvider,
       midnightProvider: interceptingProvider,
     };
+
+    // First, create the compiled contract
+    const MyCompiledContract = CompiledContract.make('contract-counter', Counter.Contract).pipe(
+      CompiledContract.withWitnesses(witnesses as never),
+      CompiledContract.withCompiledFileAssets('./')
+    );
 
     // 4. Join Contract as Party A
     console.log("🔗 Joining contract as Party A...");
@@ -625,14 +653,14 @@ async function testDelegatedBalancing(
     try {
       const counterContract = await findDeployedContract(providers, {
         contractAddress,
-        contract: counterContractInstance,
+        compiledContract: MyCompiledContract,
         privateStateId: "partyAPrivateState",
         initialPrivateState: { privateCounter: 0 },
       });
       // 5. Call Circuit & Capture
       try {
         console.log("🔄 Calling increment() circuit...");
-        await (counterContract.callTx as any).increment();
+        await (counterContract.callTx).increment();
       } catch (error) {
         if (error instanceof DelegatedBalancingSentError) {
           console.log("✅ Transaction captured; delegated balancing will handle submission.");

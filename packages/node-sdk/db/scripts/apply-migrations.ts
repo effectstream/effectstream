@@ -26,7 +26,7 @@ export async function applyMigrations(
 
 // Functions for standalone execution
 async function standAloneApplyInitialMigrations(
-  db: Client,
+  db: any, // Client,
   blockHeight: number,
 ) {
   const migrations = await getMigrations();

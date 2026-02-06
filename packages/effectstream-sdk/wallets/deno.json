@@ -10,7 +10,7 @@
         "@aurowallet/mina-provider": "npm:@aurowallet/mina-provider@^1.0.12",
         "@deno/dnt": "jsr:@deno/dnt@^0.42.3",
         "@metamask/providers": "npm:@metamask/providers@^22.1.0",
-        "@midnight-ntwrk/dapp-connector-api": "npm:@midnight-ntwrk/dapp-connector-api@^4.0.0-beta.2",
+        "@midnight-ntwrk/dapp-connector-api": "npm:@midnight-ntwrk/dapp-connector-api@4.0.0",
         "@perawallet/connect": "npm:@perawallet/connect@^1.4.2",
         "@polkadot/api": "npm:@polkadot/api@15.10.2",
         "@polkadot/extension-dapp": "npm:@polkadot/extension-dapp@^0.58.10",

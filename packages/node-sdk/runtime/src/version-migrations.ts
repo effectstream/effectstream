@@ -37,7 +37,7 @@ export function* applySystemMigrations(
   const migrations = yield* getAllSystemMigrations(
     versionInfo,
     migrationOrder,
-    dbConn,
+    dbConn as any, // Client,
   );
 
   // Apply all missing System Migrations

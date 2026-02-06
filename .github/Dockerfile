@@ -60,11 +60,11 @@ RUN compact update
 RUN compact --version
 RUN compact compile --version
 
-# Install compactc prerelease binary
-RUN mkdir -p /root/.compact/versions/0.27.0/x86_64-unknown-linux-musl \
-    && curl -L https://raw.githubusercontent.com/midnightntwrk/compact/main/prerelease/compactc-0.27/compactc_v0.27.0-rc.1_x86_64-unknown-linux-musl.zip -o /tmp/compactc.zip \
-    && unzip -q /tmp/compactc.zip -d /root/.compact/versions/0.27.0/x86_64-unknown-linux-musl \
-    && rm -f /tmp/compactc.zip
+# # Install compactc prerelease binary
+# RUN mkdir -p /root/.compact/versions/0.27.0/x86_64-unknown-linux-musl \
+#     && curl -L https://raw.githubusercontent.com/midnightntwrk/compact/main/prerelease/compactc-0.27/compactc_v0.27.0-rc.1_x86_64-unknown-linux-musl.zip -o /tmp/compactc.zip \
+#     && unzip -q /tmp/compactc.zip -d /root/.compact/versions/0.27.0/x86_64-unknown-linux-musl \
+#     && rm -f /tmp/compactc.zip
 
 # Copy the patch script
 COPY ./patch.sh /app/patch.sh
@@ -84,8 +84,6 @@ RUN deno install --allow-scripts
 RUN /app/patch.sh
 
 RUN deno task -r contract:compile
-
-RUN deno task -f @e2e/wallets-ui build
 
 # START E2E TESTS
 # Launching processes en parallel generates issues on linux
