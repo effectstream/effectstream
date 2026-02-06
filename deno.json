@@ -3,7 +3,8 @@
   "workspace": [
     "./packages/**/*",
     "./e2e/**/*",
-    "./docs/**/*"
+    "./docs/**/*",
+    "./cardano-effectstream-local/**/*"
   ],
   "nodeModulesDir": "auto",
   "tasks": {
