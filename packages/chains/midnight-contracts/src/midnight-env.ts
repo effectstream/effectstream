@@ -1,4 +1,6 @@
 import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import { mnemonicToSeed } from "@scure/bip39";
+import { Buffer } from "node:buffer";
 
 const getEnvValue = (key: string): string | undefined => {
   try {
@@ -20,98 +22,81 @@ const getEnvValue = (key: string): string | undefined => {
   // Fallback for some Vite setups if process.env isn't shimmed but replace is used
   // Note: Direct import.meta.env usage is avoided to prevent TS/Build errors in non-ESM targets
   return undefined;
-};
+}
 
-const env = (key: string, fallback?: string): string =>
-  getEnvValue(key)?.trim() || fallback || "";
+const env = (key: string | string[], fallback?: string): string => {
+  if (typeof key === 'string') {
+    return getEnvValue(key)?.trim() || fallback || "";
+  }
+  if (Array.isArray(key)) {
+    return key.map((k) => getEnvValue(k)?.trim()).find((value) => !!value) ||
+    fallback ||
+    "";
+  }
+  throw new Error('Invalid key type');
+}  
 
-const envFirst = (keys: string[], fallback?: string): string =>
-  keys.map((key) => getEnvValue(key)?.trim()).find((value) => !!value) ||
-  fallback ||
-  "";
-
-const EFFECTSTREAM_ENV = getEnvValue("EFFECTSTREAM_ENV") || "local";
-export const isTestnet = EFFECTSTREAM_ENV === "testnet";
+type NetworkConfig = {
+    indexer: string;
+    indexerWS: string;
+    node: string;
+    proofServer: string;
+    networkId: NetworkId.NetworkId;
+    genesisWalletSeed: string;
+}
 
 // Midnight Network default configurations
-const CONFIGS = {
-  local: {
+const undeployedNetworkConfig: NetworkConfig = {
     indexer: "http://127.0.0.1:8088/api/v3/graphql",
     indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
     node: "http://127.0.0.1:9944",
     networkId: "undeployed" as NetworkId.NetworkId,
+    proofServer: "http://127.0.0.1:6300",
     // In local mode, the Genesis Wallet Seed determines the initial funded wallet
-    genesisWalletSeed:
-      "0000000000000000000000000000000000000000000000000000000000000001",
-  },
-  testnet: {
-    indexer: "https://indexer.preview.midnight.network/api/v3/graphql",
-    indexerWS:
-      "wss://indexer.preview.midnight.network/api/v3/graphql/ws",
-    node: "https://rpc.preview.midnight.network",
-    networkId: "preview" as NetworkId.NetworkId,
-  },
+    genesisWalletSeed: "0000000000000000000000000000000000000000000000000000000000000001",
 } as const;
 
-const currentDefaults = isTestnet ? CONFIGS.testnet : CONFIGS.local;
+const previewNetworkConfig: NetworkConfig = {
+    indexer: "https://indexer.preview.midnight.network/api/v3/graphql",
+    indexerWS: "wss://indexer.preview.midnight.network/api/v3/graphql/ws",
+    node: "https://rpc.preview.midnight.network",
+    proofServer: "http://127.0.0.1:6300",
+    networkId: "preview" as NetworkId.NetworkId,
+    genesisWalletSeed: '',
+} as const;
 
-export const midnightNetworkId = env(
-  "MIDNIGHT_NETWORK_ID",
-  currentDefaults.networkId,
-).toLowerCase();
+let selectedNetworkConfig: NetworkConfig;
+switch (env("MIDNIGHT_NETWORK_ID")) {
+  case "preview":
+    selectedNetworkConfig = previewNetworkConfig;
+    break;
+  case "undeployed":
+  default:
+    selectedNetworkConfig = undeployedNetworkConfig;
+    break;
+}
 
-/**
- * 1. NETWORK GENESIS PARAMETER
- * This is the hash of the genesis block, required to connect to the network.
- *
- * - Local Mode: Defaults to being derived from the local Genesis Wallet Seed.
- * - Testnet Mode: We default to empty string as we don't have a fixed genesis hash for testnets yet.
- */
-const getGenesisBlockHash = () => {
-  if (isTestnet) return "";
-  // In local mode, the genesis block hash corresponds to the genesis wallet seed (prefixed with 0x)
-  return "0x" + CONFIGS.local.genesisWalletSeed;
-};
-
-/**
- * 2. WALLET SEED (MIDNIGHT_WALLET_SEED)
- * This is the seed used to derive the wallet keys for signing transactions.
- *
- * - Local Mode: Defaults to the Genesis Wallet Seed (the initially funded account).
- * - Testnet Mode: User MUST provide their own funded wallet seed.
- */
-const getFallbackWalletSeed = () => {
-  if (isTestnet) return "";
-  // In local mode, use the Genesis Wallet Seed
-  return CONFIGS.local.genesisWalletSeed;
-};
-
-const resolvedProofServer = envFirst(
-  ["MIDNIGHT_PROOF_SERVER_URL", "MIDNIGHT_PROOF_SERVER"],
-  "http://127.0.0.1:6300",
-);
+let walletSeed: string;
+if (env("MIDNIGHT_WALLET_SEED")) {
+  walletSeed = env("MIDNIGHT_WALLET_SEED");
+} else if (env("MIDNIGHT_WALLET_MNEMONIC")) {
+  walletSeed = Buffer.from(await mnemonicToSeed(env("MIDNIGHT_WALLET_MNEMONIC"))).toString('hex');
+} else {
+  walletSeed = selectedNetworkConfig.genesisWalletSeed;
+}
 
 export const midnightNetworkConfig = {
-  id: midnightNetworkId as NetworkId.NetworkId,
-  indexer: env("MIDNIGHT_INDEXER_HTTP", currentDefaults.indexer),
-  indexerWS: env("MIDNIGHT_INDEXER_WS", currentDefaults.indexerWS),
-  node: env("MIDNIGHT_NODE_HTTP", currentDefaults.node),
-  proofServer: resolvedProofServer,
-  // Wallet signing parameter
-  walletSeed: env("MIDNIGHT_WALLET_SEED", getFallbackWalletSeed()),
+  id: selectedNetworkConfig.networkId,
+  indexer: env("MIDNIGHT_INDEXER_HTTP", selectedNetworkConfig.indexer),
+  indexerWS: env("MIDNIGHT_INDEXER_WS", selectedNetworkConfig.indexerWS),
+  node: env("MIDNIGHT_NODE_HTTP", selectedNetworkConfig.node),
+  proofServer: env(["MIDNIGHT_PROOF_SERVER_URL", "MIDNIGHT_PROOF_SERVER"], selectedNetworkConfig.proofServer),
+  walletSeed,
 };
 
-export const isExternalProofServerConfigured = !!envFirst([
-  "MIDNIGHT_PROOF_SERVER_URL",
-]);
+const isLocalProofServer = !!midnightNetworkConfig.proofServer.match(/(localhost|127\.0\.0\.1)/);
+export const isExternalProofServerConfigured = !isLocalProofServer;
 
+// Set this using MIDNIGHT_NETWORK_ID=<network-id>
 export type MidnightNetworkConfig = typeof midnightNetworkConfig;
 
-// Validation for testnet
-if (isTestnet) {
-  if (!midnightNetworkConfig.walletSeed) {
-    console.warn(
-      "WARNING: MIDNIGHT_WALLET_SEED is not set but EFFECTSTREAM_ENV=testnet. A wallet seed is mandatory for non-local networks.",
-    );
-  }
-}
