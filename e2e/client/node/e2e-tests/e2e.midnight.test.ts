@@ -33,7 +33,7 @@ import {
   midnightNetworkConfig,
 } from "@effectstream/midnight-contracts/midnight-env";
 import {
-  FinalizedTransaction,
+  type FinalizedTransaction,
   Transaction as LedgerTransaction,
 } from "@midnight-ntwrk/ledger-v7";
 import { fromHex, toHex } from "@midnight-ntwrk/midnight-js-utils";
@@ -41,7 +41,7 @@ import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
 import { WebSocket } from "ws";
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
-import { Contract } from '@midnight-ntwrk/compact-js';
+import type { Contract } from '@midnight-ntwrk/compact-js';
 
 
 const BATCHER_URL = "http://localhost:3334";
@@ -516,13 +516,13 @@ async function sendMintToBatcherTest(
   );
 }
 
-// === Delegated Balancing Test (Party A) ===
-
 class DelegatedBalancingSentError extends Error {
   constructor() {
     super("Delegated balancing flow handed off to batcher");
   }
 }
+
+// === Delegated Balancing Test (Party A) ===
 
 async function testDelegatedBalancing(
   db: Client,
@@ -570,26 +570,25 @@ async function testDelegatedBalancing(
       getEncryptionPublicKey() {
         return walletResult!.zswapSecretKeys.encryptionPublicKey;
       },
-      async balanceTx(
+      balanceTx(
         tx,
         _ttl,
       ): Promise<FinalizedTransaction> {
-        console.log("🧾 Capturing UnprovenTransaction from contract call...");
-        throw new Error("TODO: Delegated balancing is not supported our implementation with ledger7");
+        console.log("🧾 Capturing FinalizedTransaction from contract call...");
 
-        const serialized = toHex(tx.serialize());
-        console.log("📦 Serialized UnprovenTransaction (Hex length):", serialized.length);
+        const bound = tx.bind();
+        const serialized = toHex(bound.serialize());
+        console.log("📦 Serialized FinalizedTransaction (Hex length):", serialized.length);
 
         // Validate the serialized payload can round-trip with expected states.
         LedgerTransaction.deserialize(
           "signature" as const,
-          "pre-proof" as const,
-          "pre-binding" as const,
+          "proof" as const,
+          "binding" as const,
           fromHex(serialized),
         );
 
         serializedTx = serialized;
-        const bound = tx.bind();
         return Promise.resolve(bound);
 
         // Ledger7 style
@@ -612,6 +611,7 @@ async function testDelegatedBalancing(
         // }); 
       },
       submitTx(_tx) {
+        // Delegated mode: stop the default submit/wait flow.
         throw new DelegatedBalancingSentError();
       },
     };
@@ -658,14 +658,19 @@ async function testDelegatedBalancing(
         initialPrivateState: { privateCounter: 0 },
       });
       // 5. Call Circuit & Capture
+      console.log("🔄 Calling increment() circuit...");
       try {
-        console.log("🔄 Calling increment() circuit...");
         await (counterContract.callTx).increment();
+        console.log("✅ Transaction captured; delegated balancing will handle submission.");
       } catch (error) {
-        if (error instanceof DelegatedBalancingSentError) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (
+          error instanceof DelegatedBalancingSentError ||
+          message.includes("Delegated balancing flow handed off to batcher")
+        ) {
           console.log("✅ Transaction captured; delegated balancing will handle submission.");
         } else {
-          throw error; // Unexpected error
+          throw error;
         }
       }
     } catch (error) {
@@ -696,6 +701,7 @@ async function testDelegatedBalancing(
         addressType: AddressType.MIDNIGHT,
         input: JSON.stringify({
           tx: serializedTx,
+          txStage: "finalized",
           circuitId: "increment",
         }),
         timestamp: Date.now(),

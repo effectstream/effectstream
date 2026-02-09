@@ -330,7 +330,6 @@ const createWalletAndMidnightProvider = (
       console.log(" counter.ts: balanceTx called", { useDelegatedBalancing });
       
       if (useDelegatedBalancing) {
-        throw new Error("TODO: Delegated balancing is not supported our implementation with ledger7");
         try {
           const hexTx = toHex(tx.serialize());
           console.log(" counter.ts: Capturing UNPROVEN transaction for delegation", { hexTxLength: hexTx.length });
