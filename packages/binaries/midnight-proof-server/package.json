@@ -7,7 +7,9 @@
         "npm-midnight-proof-server": "index.js"
     },
     "scripts": {
-        "start": "node index.js"
+        "start": "node index.js",
+        "clean": "node index.js --clean-binaries",
+        "clean-only": "node index.js --only-clean"
     },
     "supportedPlatforms": [
         "linux-amd64",

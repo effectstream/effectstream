@@ -108,7 +108,35 @@ async function binary() {
   await unzipBinary();
 }
 
+async function cleanBinaries() {
+  const binaryDir = path.join(__dirname, "midnight-node");
+  const zipPath = path.join(__dirname, FILE_NAME);
+
+  let deletedFiles = [];
+
+  if (fs.existsSync(binaryDir)) {
+    try {
+      fs.rmSync(binaryDir, { recursive: true, force: true });
+      deletedFiles.push(binaryDir);
+    } catch (error) {
+      console.error(`Error removing directory ${binaryDir}:`, error.message);
+    }
+  }
+
+  if (fs.existsSync(zipPath)) {
+    try {
+      fs.unlinkSync(zipPath);
+      deletedFiles.push(zipPath);
+    } catch (error) {
+      console.error(`Error removing file ${zipPath}:`, error.message);
+    }
+  }
+
+  return deletedFiles;
+}
+
 module.exports = {
   binary,
   getPlatform,
+  cleanBinaries,
 };
