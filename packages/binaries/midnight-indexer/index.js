@@ -1,4 +1,4 @@
-const { binary, getPlatform } = require("./binary");
+const { binary, getPlatform, cleanBinaries } = require("./binary");
 const { runMidnightIndexer } = require("./run_midnight_indexer");
 const { checkIfDockerExists, pullDockerImage, runDockerContainer } = require(
   "./docker",
@@ -56,9 +56,12 @@ function showUsage() {
 Usage: node index.js [options] [args...]
 
 Options:
-  --docker    Force use of Docker container
-  --binary    Force use of binary execution (supports Linux and macOS arm64)
-  --help      Show this help message
+  --docker         Force use of Docker container
+  --binary         Force use of binary execution (supports Linux and macOS arm64)
+  --clean-binaries Delete downloaded binaries and download them again
+  --only-clean     Only delete downloaded binaries without downloading them again
+  --clean          Clean the SQLite database (existing flag)
+  --help           Show this help message
 
 Environment Variables:
   APP__INFRA__SECRET             Required: Secret key for the application
@@ -74,10 +77,12 @@ Environment Variables:
 Note: macOS Intel users will automatically use Docker. macOS arm64 supports both binary and Docker execution.
 
 Examples:
-  APP__INFRA__SECRET=mysecret node index.js --docker    # Use Docker
-  APP__INFRA__SECRET=mysecret node index.js --binary    # Use binary (if supported)
-  APP__INFRA__SECRET=mysecret node index.js             # Interactive mode (or auto-Docker on unsupported platforms)
-  node index.js --help                                  # Show this help
+  APP__INFRA__SECRET=mysecret node index.js --docker          # Use Docker
+  APP__INFRA__SECRET=mysecret node index.js --binary          # Use binary (if supported)
+  APP__INFRA__SECRET=mysecret node index.js --clean-binaries   # Delete and redownload binaries
+  node index.js --only-clean                                 # Only delete downloaded binaries
+  APP__INFRA__SECRET=mysecret node index.js --clean           # Clean SQLite database
+  node index.js --help                                       # Show this help
 `);
 }
 
@@ -90,6 +95,8 @@ function parseFlags(args) {
   const flags = {
     useDocker: false,
     useBinary: false,
+    cleanBinaries: false,
+    onlyClean: false,
     showHelp: false,
     remainingArgs: [],
   };
@@ -99,6 +106,10 @@ function parseFlags(args) {
       flags.useDocker = true;
     } else if (args[i] === "--binary") {
       flags.useBinary = true;
+    } else if (args[i] === "--clean-binaries") {
+      flags.cleanBinaries = true;
+    } else if (args[i] === "--only-clean") {
+      flags.onlyClean = true;
     } else if (args[i] === "--help" || args[i] === "-h") {
       flags.showHelp = true;
     } else {
@@ -153,7 +164,7 @@ function setBinaryDefaults(env) {
   return binaryEnv;
 }
 
-async function runWithBinary(env, args) {
+async function runWithBinary(env, args, forceClean = false) {
   console.log("Using binary to run midnight indexer...");
 
   // Check for required environment variable
@@ -163,8 +174,12 @@ async function runWithBinary(env, args) {
     process.exit(1);
   }
 
-  if (!checkIfBinaryExists()) {
-    console.log("Binary not found, downloading...");
+  if (forceClean || !checkIfBinaryExists()) {
+    if (forceClean) {
+      console.log("Cleaning downloaded binaries...");
+      await cleanBinaries();
+    }
+    console.log("Downloading binary...");
     await binary();
   }
 
@@ -184,10 +199,30 @@ async function main(args) {
     process.exit(0);
   }
 
+  // Handle --only-clean flag
+  if (flags.onlyClean) {
+    console.log("Cleaning downloaded binaries...");
+    const deletedFiles = await cleanBinaries();
+    if (deletedFiles.length > 0) {
+      console.log("Deleted:", deletedFiles.join(", "));
+    } else {
+      console.log("No downloaded binaries found to delete.");
+    }
+    process.exit(0);
+  }
+
   // If both flags are provided, show error
   if (flags.useDocker && flags.useBinary) {
     console.error(
       "Error: Cannot use both --docker and --binary flags simultaneously",
+    );
+    process.exit(1);
+  }
+
+  // Validate clean flag usage
+  if (flags.cleanBinaries && flags.useDocker) {
+    console.error(
+      "Error: --clean-binaries flag cannot be used with --docker flag",
     );
     process.exit(1);
   }
@@ -229,7 +264,7 @@ async function main(args) {
       );
       process.exit(1);
     }
-    return runWithBinary(env, flags.remainingArgs);
+    return runWithBinary(env, flags.remainingArgs, flags.cleanBinaries);
   }
 
   // No explicit flag provided - determine best execution method
@@ -285,7 +320,7 @@ async function main(args) {
   }
 
   // Default to binary execution (only on supported platforms)
-  return runWithBinary(env, flags.remainingArgs);
+  return runWithBinary(env, flags.remainingArgs, flags.clean);
 }
 
 // Handle unhandled promise rejections
@@ -299,5 +334,9 @@ process.on("SIGINT", () => {
   console.log("\nShutting down gracefully...");
   process.exit(0);
 });
+
+module.exports = {
+  cleanBinaries,
+};
 
 main(process.argv.slice(2));
