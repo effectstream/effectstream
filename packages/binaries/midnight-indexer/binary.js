@@ -150,7 +150,68 @@ async function binary() {
   await unzipBinary();
 }
 
+async function cleanBinaries() {
+  const binaryDir = path.join(__dirname, "indexer-standalone");
+  const binaryPath = path.join(binaryDir, FINAL_BINARY_NAME);
+  const zipPath = path.join(__dirname, "indexer-standalone.zip");
+
+  let deletedFiles = [];
+
+  // Delete the binary executable if it exists
+  if (fs.existsSync(binaryPath)) {
+    try {
+      fs.unlinkSync(binaryPath);
+      deletedFiles.push(binaryPath);
+    } catch (error) {
+      console.error(`Error removing binary ${binaryPath}:`, error.message);
+    }
+  }
+
+  // Delete the zip file if it exists
+  if (fs.existsSync(zipPath)) {
+    try {
+      fs.unlinkSync(zipPath);
+      deletedFiles.push(zipPath);
+    } catch (error) {
+      console.error(`Error removing file ${zipPath}:`, error.message);
+    }
+  }
+
+  // Delete any other binary-related files from the directory, preserving config files
+  if (fs.existsSync(binaryDir)) {
+    const files = fs.readdirSync(binaryDir);
+    for (const file of files) {
+      const filePath = path.join(binaryDir, file);
+      const stat = fs.statSync(filePath);
+
+      // Preserve config files and readme
+      const isConfigFile =
+        file === "config.yaml" ||
+        file === "config.yml" ||
+        file.endsWith(".yaml") ||
+        file.endsWith(".yml") ||
+        file.endsWith(".toml") ||
+        file.endsWith(".json") ||
+        file.toLowerCase().startsWith("readme") ||
+        file.toLowerCase().startsWith("license") ||
+        file.toLowerCase().startsWith("changelog");
+
+      if (!isConfigFile && stat.isFile() && fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+          deletedFiles.push(filePath);
+        } catch (error) {
+          console.error(`Error removing file ${filePath}:`, error.message);
+        }
+      }
+    }
+  }
+
+  return deletedFiles;
+}
+
 module.exports = {
   binary,
   getPlatform,
+  cleanBinaries,
 };

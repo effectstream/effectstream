@@ -19,7 +19,12 @@ import {
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import type { ProofProvider, PublicDataProvider, ZKConfigProvider } from "@midnight-ntwrk/midnight-js-types";
+import type {
+  ProofProvider,
+  PublicDataProvider,
+  UnboundTransaction,
+  ZKConfigProvider,
+} from "@midnight-ntwrk/midnight-js-types";
 import {
   buildWalletFacade,
   getInitialDustState,
@@ -50,12 +55,31 @@ export interface MidnightBalancingAdapterConfig {
 const TTL_DURATION_MS = 60 * 60 * 1000;
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
+type DelegatedTxStage = "unproven" | "unbound" | "finalized";
+type DelegatedTx = UnprovenTransaction | UnboundTransaction | FinalizedTransaction;
+type DelegatedBatchData = {
+  tx: DelegatedTx;
+  txStage: DelegatedTxStage;
+};
+type FacadeBalancingRecipe = {
+  type: "UNPROVEN_TRANSACTION";
+  transaction: UnprovenTransaction;
+} | {
+  type: "UNBOUND_TRANSACTION";
+  baseTransaction: UnboundTransaction;
+  balancingTransaction?: UnprovenTransaction;
+} | {
+  type: "FINALIZED_TRANSACTION";
+  originalTransaction: FinalizedTransaction;
+  balancingTransaction: UnprovenTransaction;
+};
+
 /**
  * Midnight Balancing Adapter (Party B)
- * Receives a serialized unproven transaction (hex), balances it with local dust funds,
+ * Receives a serialized delegated transaction (hex), balances it with local dust funds,
  * generates proofs, and submits it to the blockchain.
  */
-export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTransaction> {
+export class MidnightBalancingAdapter implements BlockchainAdapter<DelegatedBatchData> {
   private readonly config: MidnightBalancingAdapterConfig;
   private readonly walletNetworkId: WalletNetworkId.NetworkId;
   private readonly walletFundingTimeoutMs: number;
@@ -222,19 +246,37 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
   }
 
   /**
-   * Parses hex input, handling both plain hex strings and JSON format.
-   * Returns the cleaned hex string and optional circuitId.
+   * Parses delegated input, handling both plain hex strings and JSON format.
+   * Returns the cleaned hex string, optional circuitId, and transaction stage.
    */
-  private parseHexInput(input: string): { hex: string; circuitId?: string } {
+  private parseHexInput(
+    input: string,
+  ): { hex: string; circuitId?: string; txStage?: DelegatedTxStage } {
     const trimmed = input.trim();
     if (trimmed.startsWith("{")) {
-      const parsed = JSON.parse(trimmed) as { tx?: string; circuitId?: string };
+      const parsed = JSON.parse(trimmed) as {
+        tx?: string;
+        circuitId?: string;
+        txStage?: DelegatedTxStage;
+      };
       if (!parsed.tx) throw new Error("Missing tx field in JSON input");
       if (parsed.circuitId && typeof parsed.circuitId !== "string") {
         throw new Error("circuitId must be a string");
       }
+      if (
+        parsed.txStage !== undefined &&
+        parsed.txStage !== "unproven" &&
+        parsed.txStage !== "unbound" &&
+        parsed.txStage !== "finalized"
+      ) {
+        throw new Error("txStage must be 'unproven', 'unbound', or 'finalized'");
+      }
       const cleanHex = parsed.tx.startsWith("0x") ? parsed.tx.slice(2) : parsed.tx;
-      return { hex: cleanHex, circuitId: parsed.circuitId };
+      return {
+        hex: cleanHex,
+        circuitId: parsed.circuitId,
+        txStage: parsed.txStage,
+      };
     }
     const cleanHex = trimmed.startsWith("0x") ? trimmed.slice(2) : trimmed;
     return { hex: cleanHex };
@@ -246,32 +288,73 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
   buildBatchData(
     inputs: DefaultBatcherInput[],
     _options?: BatchBuildingOptions
-  ): BatchBuildingResult<UnprovenTransaction> | null {
+  ): BatchBuildingResult<DelegatedBatchData> | null {
     if (inputs.length === 0) return null;
     
     // We only process one transaction at a time for this adapter
     const input = inputs[0];
     
     try {
-      const { hex: cleanHex, circuitId } = this.parseHexInput(input.input);
+      const { hex: cleanHex, circuitId, txStage } = this.parseHexInput(input.input);
       this.currentCircuitId = circuitId ?? this.config.circuitId ?? null;
       console.log(
-        `🧾 [balancing] Received tx hex length=${cleanHex.length} target=${input.target} circuitId=${this.currentCircuitId ?? "none"}`,
+        `🧾 [balancing] Received tx hex length=${cleanHex.length} target=${input.target} stage=${txStage ?? "auto"} circuitId=${this.currentCircuitId ?? "none"}`,
       );
       const bytes = fromHex(cleanHex);
-      
-      // Deserialize as: Signed (by Party A), Pre-Proof, Pre-Binding
-      const unprovenTx = LedgerV6Transaction.deserialize(
-        'signature' as const,
-        'pre-proof' as const,
-        'pre-binding' as const,
-        bytes
-      ) as UnprovenTransaction;
+
+      let delegatedTx: DelegatedTx;
+      let delegatedTxStage: DelegatedTxStage;
+
+      if (txStage === "unbound") {
+        delegatedTx = LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "proof" as const,
+          "pre-binding" as const,
+          bytes,
+        ) as UnboundTransaction;
+        delegatedTxStage = "unbound";
+      } else if (txStage === "finalized") {
+        delegatedTx = LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "proof" as const,
+          "binding" as const,
+          bytes,
+        ) as FinalizedTransaction;
+        delegatedTxStage = "finalized";
+      } else if (txStage === "unproven") {
+        delegatedTx = LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "pre-proof" as const,
+          "pre-binding" as const,
+          bytes,
+        ) as UnprovenTransaction;
+        delegatedTxStage = "unproven";
+      } else {
+        // Backward-compatible auto-detection:
+        // v7 delegated calls generally send UnboundTransaction from WalletProvider.balanceTx.
+        try {
+          delegatedTx = LedgerV6Transaction.deserialize(
+            "signature" as const,
+            "proof" as const,
+            "pre-binding" as const,
+            bytes,
+          ) as UnboundTransaction;
+          delegatedTxStage = "unbound";
+        } catch {
+          delegatedTx = LedgerV6Transaction.deserialize(
+            "signature" as const,
+            "pre-proof" as const,
+            "pre-binding" as const,
+            bytes,
+          ) as UnprovenTransaction;
+          delegatedTxStage = "unproven";
+        }
+      }
 
       try {
-        const roundTripHex = Buffer.from(unprovenTx.serialize()).toString("hex");
+        const roundTripHex = Buffer.from(delegatedTx.serialize()).toString("hex");
         console.log(
-          `🧾 [balancing] Round-trip serialized length=${roundTripHex.length}`,
+          `🧾 [balancing] Round-trip serialized length=${roundTripHex.length} stage=${delegatedTxStage}`,
         );
       } catch (error) {
         console.warn("⚠️ [balancing] Failed to round-trip serialize tx:", error);
@@ -279,7 +362,10 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
 
       return {
         selectedInputs: [input],
-        data: unprovenTx,
+        data: {
+          tx: delegatedTx,
+          txStage: delegatedTxStage,
+        },
       };
     } catch (error) {
       console.error("❌ Failed to deserialize transaction:", error);
@@ -293,7 +379,7 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
   }
 
   async submitBatch(
-    unprovenTx: UnprovenTransaction,
+    delegatedBatchData: DelegatedBatchData,
     _fee?: string | bigint
   ): Promise<BlockchainHash> {
     if (this.initializationPromise) {
@@ -314,40 +400,87 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
     } catch (error) {
       console.warn("⚠️ Dust wallet sync wait failed before balancing:", error);
     }
-    await this.logDustState("balanceTransaction");
+    const { tx: delegatedTx, txStage } = delegatedBatchData;
+    await this.logDustState(
+      txStage === "unbound"
+        ? "balanceUnboundTransaction"
+        : txStage === "finalized"
+        ? "balanceFinalizedTransaction"
+        : "balanceUnprovenTransaction",
+    );
 
     // Balance and Prove
     // This adds dust inputs/outputs for fees, generates proofs, and computes binding
     let balancedRecipe: /*BalancedProvingRecipe */any;
     try {
-      // TODO FIX ME
-      console.log("THIS WILL FAIL. balanceTransaction IS NOT IMPLEMENTED IN LEDGER7")
-      balancedRecipe = await (this.walletResult.wallet as any).balanceTransaction(
-        this.walletResult.walletZswapSecretKeys,
-        this.walletResult.walletDustSecretKey,
-        unprovenTx,
-        createTtl()
-      );
+      if (txStage === "unbound") {
+        balancedRecipe = await this.walletResult.wallet.balanceUnboundTransaction(
+          delegatedTx as UnboundTransaction,
+          {
+            shieldedSecretKeys: this.walletResult.walletZswapSecretKeys,
+            dustSecretKey: this.walletResult.walletDustSecretKey,
+          },
+          { ttl: createTtl() },
+        );
+      } else if (txStage === "finalized") {
+        balancedRecipe = await this.walletResult.wallet.balanceFinalizedTransaction(
+          delegatedTx as FinalizedTransaction,
+          {
+            shieldedSecretKeys: this.walletResult.walletZswapSecretKeys,
+            dustSecretKey: this.walletResult.walletDustSecretKey,
+          },
+          { ttl: createTtl() },
+        );
+      } else {
+        balancedRecipe = await this.walletResult.wallet.balanceUnprovenTransaction(
+          delegatedTx as UnprovenTransaction,
+          {
+            shieldedSecretKeys: this.walletResult.walletZswapSecretKeys,
+            dustSecretKey: this.walletResult.walletDustSecretKey,
+          },
+          { ttl: createTtl() },
+        );
+      }
     } catch (error) {
-      console.error("❌ balanceTransaction failed in midnight balancing adapter:", error);
+      console.error(
+        `❌ balance${
+          txStage === "unbound"
+            ? "Unbound"
+            : txStage === "finalized"
+            ? "Finalized"
+            : "Unproven"
+        }Transaction failed in midnight balancing adapter:`,
+        error,
+      );
       try {
-        await this.logDustState("balanceTransaction:failed");
+        await this.logDustState(
+          txStage === "unbound"
+            ? "balanceUnboundTransaction:failed"
+            : txStage === "finalized"
+            ? "balanceFinalizedTransaction:failed"
+            : "balanceUnprovenTransaction:failed",
+        );
       } catch (_err) {
         // ignore
       }
       try {
-        const serialized = Buffer.from(unprovenTx.serialize()).toString("hex");
+        const serialized = Buffer.from(delegatedTx.serialize()).toString("hex");
         console.error(
-          `[balancing] Unproven tx serialized length=${serialized.length}`,
+          `[balancing] Delegated tx serialized length=${serialized.length} stage=${txStage}`,
         );
       } catch (serError) {
-        console.error("⚠️ [balancing] Failed to serialize unproven tx:", serError);
+        console.error("⚠️ [balancing] Failed to serialize delegated tx:", serError);
       }
       throw error;
     }
 
+    const signedRecipe = await this.walletResult.wallet.signRecipe(
+      balancedRecipe,
+      (payload: Uint8Array) => this.walletResult!.unshieldedKeystore.signData(payload),
+    );
+
     console.log("🚀 Finalizing and submitting transaction...");
-    const finalizedTx = await this.finalizeWithProver(balancedRecipe);
+    const finalizedTx = await this.finalizeWithProver(signedRecipe);
     const txId = await this.walletResult.wallet.submitTransaction(finalizedTx);
 
     let txHash = txId.toString();
@@ -365,31 +498,41 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
   }
 
   private async finalizeWithProver(
-    recipe: /*BalancedProvingRecipe */any,
+    recipe: FacadeBalancingRecipe,
   ): Promise<FinalizedTransaction> {
     const circuitId = this.currentCircuitId ?? this.config.circuitId ?? null;
     if (!this.proofProvider || !this.zkConfigProvider || !circuitId) {
-      return await this.walletResult!.wallet.finalizeTransaction(recipe);
+      return await this.walletResult!.wallet.finalizeRecipe(recipe);
     }
 
     const zkConfig = await this.zkConfigProvider.get(circuitId);
 
-    switch ((recipe as any).type) {
-      case "BalanceTransactionToProve": {
-        const txToProve = (recipe as any).transactionToProve as UnprovenTransaction;
-        const txToBalance = (recipe as any).transactionToBalance as FinalizedTransaction;
-        const proven = await (this.proofProvider as any).proveTx(txToProve, { zkConfig });
-        return txToBalance.merge(proven.bind()) as FinalizedTransaction;
-      }
-      case "TransactionToProve": {
-        const txToProve = (recipe as any).transaction as UnprovenTransaction;
-        const proven = await (this.proofProvider as any).proveTx(txToProve, { zkConfig });
+    switch (recipe.type) {
+      case "UNPROVEN_TRANSACTION": {
+        const proven = await (this.proofProvider as any).proveTx(
+          recipe.transaction,
+          { zkConfig },
+        );
         return proven.bind() as FinalizedTransaction;
       }
-      case "NothingToProve":
-        return (recipe as any).transaction as FinalizedTransaction;
-      default:
-        throw new Error(`Unknown proving recipe type: ${(recipe as any).type}`);
+      case "UNBOUND_TRANSACTION": {
+        if (!recipe.balancingTransaction) {
+          return await this.walletResult!.wallet.finalizeRecipe(recipe);
+        }
+        const proven = await (this.proofProvider as any).proveTx(
+          recipe.balancingTransaction,
+          { zkConfig },
+        );
+        const merged = recipe.baseTransaction.merge(proven.bind());
+        return merged.bind() as FinalizedTransaction;
+      }
+      case "FINALIZED_TRANSACTION": {
+        const proven = await (this.proofProvider as any).proveTx(
+          recipe.balancingTransaction,
+          { zkConfig },
+        );
+        return recipe.originalTransaction.merge(proven.bind()) as FinalizedTransaction;
+      }
     }
   }
 
@@ -446,7 +589,7 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<UnprovenTrans
     throw new Error(`Transaction confirmation timeout: ${hash}`);
   }
 
-  estimateBatchFee(_data: UnprovenTransaction): bigint {
+  estimateBatchFee(_data: DelegatedBatchData): bigint {
     return 0n; // Handled by wallet
   }
 

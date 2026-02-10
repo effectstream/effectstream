@@ -313,8 +313,7 @@ export async function getDBConnection(): Promise<Client> {
       );
       await joinAndIncrementTest(db, sharedState);
       await sendMintToBatcherTest(db, sharedState);
-      // TODO NOT WORKING WITH LEDGER 7
-      // await testDelegatedBalancing(db, sharedState);
+      await testDelegatedBalancing(db, sharedState);
       await submitDataWithMessageAvailTest(db, sharedState);
       await tokenTests(db, sharedState);
       if (bitcoin_enabled) {
