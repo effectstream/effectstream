@@ -13,6 +13,7 @@
         "wallet-info": "deno run -A ./src/get-wallet-info.ts"
     },
     "imports": {
+        "@scure/bip39": "npm:@scure/bip39@^2.0.1",
         "@std/path": "jsr:@std/path@^1.1.3",
         "@std/log": "jsr:@std/log@^0.224.0",
         "@std/cli": "jsr:@std/cli@^1.0.0",

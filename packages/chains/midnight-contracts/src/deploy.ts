@@ -1,14 +1,9 @@
-// TODO Rename to deploy.ts
 // TODO Remove references to "src/managed" as this is not standard.
 
 import * as log from "@std/log";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
-import {
-  UnboundTransaction,
-  type MidnightProvider,
-  type WalletProvider,
-} from "@midnight-ntwrk/midnight-js-types";
+import type { UnboundTransaction, MidnightProvider, WalletProvider } from "@midnight-ntwrk/midnight-js-types";
 import { deployContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
@@ -29,26 +24,27 @@ import {
   safeStringifyProgress,
   type WalletResult,
 } from "./get-wallet-info.ts";
-import { type MidnightProviders, type PrivateStateId } from '@midnight-ntwrk/midnight-js-types';
-
-import { CompiledContract } from '@midnight-ntwrk/compact-js';
+import type { MidnightProviders, PrivateStateId } from '@midnight-ntwrk/midnight-js-types';
+import { CompiledContract, type Witnesses, type Contract } from '@midnight-ntwrk/compact-js';
 
 // Declare Deno global for type-checking when not executed under Deno tooling.
 declare const Deno: typeof globalThis.Deno;
 
 // Modular wallet SDK imports
-import { type WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
+import type { WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
 import {
   type CoinPublicKey,
   type DustSecretKey,
   type EncPublicKey,
   type FinalizedTransaction,
   shieldedToken,
+  type SigningKey,
   type TransactionId,
-  ZswapSecretKeys,
+  type ZswapSecretKeys,
 } from "@midnight-ntwrk/ledger-v7";
-import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import { UnshieldedKeystore } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
+import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import type { UnshieldedKeystore } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
+import { mnemonicToSeed } from "./mnemonicToSeed.ts";
 
 // ============================================================================
 // Constants
@@ -374,7 +370,9 @@ function findCompilerSubdirectory(managedDir: string): string {
  */
 export async function deployMidnightContract(
   config: DeployConfig,
-  networkUrls?: NetworkUrls
+  networkUrls?: NetworkUrls,
+  seedOrMnemonic?: { seed: string, mnemonic: string },
+
 ): Promise<string> {
   checkEnvVariables();
   await log.setup({
@@ -442,9 +440,21 @@ export async function deployMidnightContract(
 
   try {
     log.info("Building wallet...");
+    let seed;
+    if (seedOrMnemonic?.seed) {
+      seed = seedOrMnemonic.seed;
+    } else if (seedOrMnemonic?.mnemonic) {
+      seed = Buffer.from(await mnemonicToSeed(seedOrMnemonic.mnemonic)).toString('hex');
+    } else {
+      seed = midnightNetworkConfig.walletSeed;
+    }
+    if (!seed) {
+      throw new Error('No seed or mnemonic provided');
+    }
+
     walletResult = await buildWalletAndWaitForFunds(
       resolvedNetworkUrls,
-      midnightNetworkConfig.walletSeed!,
+      seed,
       resolvedNetworkId
     );
 
@@ -511,19 +521,18 @@ export async function deployMidnightContract(
   );
 
   const deployOptions: {
-    compiledContract: unknown;
-    privateStateId: string;
-    initialPrivateState: unknown;
-    args?: unknown[];
+    compiledContract: CompiledContract.CompiledContract<Contract<undefined, Witnesses<undefined>>, undefined, never>;
+    privateStateId: PrivateStateId;
+    initialPrivateState: Contract.PrivateState<any>
+    signingKey?: SigningKey;
+    args: Contract.InitializeParameters<any>;
   } = {
-    compiledContract: MyCompiledContract,
-    privateStateId: config.privateStateId,
-    initialPrivateState: config.initialPrivateState,
+    compiledContract: MyCompiledContract as any,
+    privateStateId: config.privateStateId as PrivateStateId,
+    initialPrivateState: config.initialPrivateState as Contract.PrivateState<any>,
+    args: (deployArgs && deployArgs.length > 0 ? deployArgs : []) as Contract.InitializeParameters<any>,
+    signingKey: undefined,
   };
-
-  if (deployArgs && deployArgs.length > 0) {
-    deployOptions.args = deployArgs;
-  }
 
     const deployedContract = await deployContract(
       providers,

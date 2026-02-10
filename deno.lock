@@ -129,6 +129,7 @@
     "npm:@polkadot/extension-inject@~0.58.10": "0.58.10_@polkadot+api@15.10.2__@polkadot+util@13.5.9__@polkadot+util-crypto@13.5.9___@polkadot+util@13.5.9___@polkadot+x-randomvalues@13.5.9____@polkadot+util@13.5.9____@polkadot+wasm-util@7.5.4_____@polkadot+util@13.5.9___@polkadot+wasm-util@7.5.4____@polkadot+util@13.5.9_@polkadot+util@13.5.9",
     "npm:@polkadot/util-crypto@^13.4.3": "13.5.9_@polkadot+util@13.5.9_@polkadot+x-randomvalues@13.5.9__@polkadot+util@13.5.9__@polkadot+wasm-util@7.5.4___@polkadot+util@13.5.9_@polkadot+wasm-util@7.5.4__@polkadot+util@13.5.9",
     "npm:@polkadot/util@^13.4.3": "13.5.9",
+    "npm:@scure/bip39@^2.0.1": "2.0.1",
     "npm:@sinclair/typebox@*": "0.34.41",
     "npm:@sinclair/typebox@0.34.41": "0.34.41",
     "npm:@subsquid/ss58-codec@^1.2.3": "1.2.3",
@@ -4404,6 +4405,9 @@
     "@noble/hashes@1.8.0": {
       "integrity": "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="
     },
+    "@noble/hashes@2.0.1": {
+      "integrity": "sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw=="
+    },
     "@node-rs/jieba-android-arm-eabi@1.10.4": {
       "integrity": "sha512-MhyvW5N3Fwcp385d0rxbCWH42kqDBatQTyP8XbnYbju2+0BO/eTeCCLYj7Agws4pwxn2LtdldXRSKavT7WdzNA==",
       "os": ["android"],
@@ -6628,6 +6632,13 @@
       "dependencies": [
         "@noble/hashes@1.8.0",
         "@scure/base@1.2.6"
+      ]
+    },
+    "@scure/bip39@2.0.1": {
+      "integrity": "sha512-PsxdFj/d2AcJcZDX1FXN3dDgitDDTmwf78rKZq1a6c1P1Nan1X/Sxc7667zU3U+AN60g7SxxP0YCVw2H/hBycg==",
+      "dependencies": [
+        "@noble/hashes@2.0.1",
+        "@scure/base@2.0.0"
       ]
     },
     "@scure/sr25519@0.2.0": {
@@ -20923,6 +20934,7 @@
           "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0",
           "npm:@midnight-ntwrk/wallet@5.0.0",
           "npm:@midnight-ntwrk/zswap@4.0.0",
+          "npm:@scure/bip39@^2.0.1",
           "npm:rxjs@^7.8.2"
         ]
       },
@@ -21058,7 +21070,6 @@
             "npm:@coderspirit/nominal@^4.1.1",
             "npm:@foxglove/crc@^1.0.1",
             "npm:@metamask/providers@^22.1.0",
-            "npm:@midnight-ntwrk/dapp-connector-api@4.0.0",
             "npm:@perawallet/connect@^1.4.2",
             "npm:@polkadot/extension-dapp@~0.58.10",
             "npm:@polkadot/extension-inject@~0.58.10",
@@ -21082,7 +21093,6 @@
             "npm:mina-signer@^3.0.7",
             "npm:mqtt-pattern@^2.1.0",
             "npm:mqtt@^5.14.0",
-            "npm:semver@^7.7.3",
             "npm:viem@2.37.3",
             "npm:web3-utils@^4.3.3",
             "npm:web3@^4.16.0"

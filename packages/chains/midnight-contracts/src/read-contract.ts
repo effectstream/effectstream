@@ -1,3 +1,5 @@
+// TODO Remove references to "src/managed" as this is not standard.
+
 import * as path from "@std/path";
 
 /**
