@@ -105,8 +105,8 @@ export async function startup(): Promise<Client> {
       ...evm_processes,
       ...bitcoin_processes,
       ...cardano_processes,
-      ...midnight_processes,
       ...avail_processes,
+      ...midnight_processes,
       {
         stopProcessAtPort: [3334],
         name: "batcher",
@@ -115,7 +115,7 @@ export async function startup(): Promise<Client> {
         type: "system-dependency",
         dependsOn: [
           is_serial ? lastProcess : undefined,
-          ComponentNames.DEPLOY_EVM_CONTRACTS, 
+          ComponentNames.DEPLOY_EVM_CONTRACTS,
           midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined,
           avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
           yaci_enabled ? ComponentNames.DOLOS_WAIT : undefined,
