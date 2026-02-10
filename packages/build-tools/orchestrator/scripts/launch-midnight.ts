@@ -41,7 +41,7 @@ export const launchMidnight = (packageName: string): {
   env?: Record<string, string>;
 }[] => [
     {
-      stopProcessAtPort: [9944, 8088, 6300],
+      stopProcessAtPort: [9944, 8088, 6300, 30333],
       name: ComponentNames.MIDNIGHT_NODE,
       args: [
         "task",
