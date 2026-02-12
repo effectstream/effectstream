@@ -45,8 +45,8 @@ export const launchMidnight = (packageName: string): {
       stopProcessAtPort: [9944, 8088, 6300, 30333],
       name: ComponentNames.MIDNIGHT_NODE,
       args: [
-        "task",
-        "-f",
+        "run",
+        "--filter",
         packageName,
         "midnight-node:start",
       ],
@@ -60,8 +60,8 @@ export const launchMidnight = (packageName: string): {
     {
       name: ComponentNames.MIDNIGHT_INDEXER,
       args: [
-        "task",
-        "-f",
+        "run",
+        "--filter",
         packageName,
         "midnight-indexer:start",
       ],
@@ -75,8 +75,8 @@ export const launchMidnight = (packageName: string): {
     {
       name: ComponentNames.MIDNIGHT_PROOF_SERVER,
       args: [
-        "task",
-        "-f",
+        "run",
+        "--filter",
         packageName,
         "midnight-proof-server:start",
       ],
@@ -88,8 +88,8 @@ export const launchMidnight = (packageName: string): {
     {
       name: ComponentNames.MIDNIGHT_NODE_WAIT,
       args: [
-        "task",
-        "-f",
+        "run",
+        "--filter",
         packageName,
         "midnight-node:wait",
       ],
@@ -98,8 +98,8 @@ export const launchMidnight = (packageName: string): {
     {
       name: ComponentNames.MIDNIGHT_INDEXER_WAIT,
       args: [
-        "task",
-        "-f",
+        "run",
+        "--filter",
         packageName,
         "midnight-indexer:wait",
       ],
@@ -109,8 +109,8 @@ export const launchMidnight = (packageName: string): {
       name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
       logs: "raw",
       args: [
-        "task",
-        "-f",
+        "run",
+        "--filter",
         packageName,
         "midnight-proof-server:wait",
       ],
@@ -120,8 +120,8 @@ export const launchMidnight = (packageName: string): {
       name: ComponentNames.MIDNIGHT_CONTRACT,
       // logs: "raw",
       args: [
-        "task",
-        "-f",
+        "run",
+        "--filter",
         packageName,
         "midnight-contract:deploy",
       ],

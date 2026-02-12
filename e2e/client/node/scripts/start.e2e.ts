@@ -111,7 +111,7 @@ export async function startup(): Promise<Client> {
       {
         stopProcessAtPort: [3334],
         name: "batcher",
-        args: ["task", "-f", "@e2e/batcher", "start"],
+        args: ["run", "--filter", "@e2e/batcher", "start"],
         waitToExit: false,
         type: "system-dependency",
         dependsOn: [
@@ -125,7 +125,7 @@ export async function startup(): Promise<Client> {
       },
       {
         name: "build explorer",
-        args: ["task", "-f", "@effectstream/explorer", "build"],
+        args: ["run", "--filter", "@effectstream/explorer", "build"],
         waitToExit: true,
         dependsOn: [
           is_serial ? lastProcess : undefined,
@@ -136,7 +136,7 @@ export async function startup(): Promise<Client> {
       },
       {
         name: "build e2e-wallet-ui",
-        args: ["task", "-f", "@e2e/wallets-ui", "build"],
+        args: ["run", "--filter", "@e2e/wallets-ui", "build"],
         waitToExit: true,
         dependsOn: [
           is_serial ? lastProcess : undefined,

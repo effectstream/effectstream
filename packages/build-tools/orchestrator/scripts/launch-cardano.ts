@@ -46,7 +46,7 @@ export const launchCardano = (packageName: string): {
   // TODO We require the latest dolos binary built from source.
   // At the time there is not npm package for the latest dolos binary.
   try {
-    const dolosExists = spawnSync("bun", ["task", "-f", packageName, "dolos:exists"], { encoding: "utf-8" });
+    const dolosExists = spawnSync("bun", ["run", "--filter", packageName, "dolos:exists"], { encoding: "utf-8" });
     if (dolosExists.status !== 0) throw new Error();
   } catch (_error) {
     throw new Error(
@@ -68,12 +68,12 @@ export const launchCardano = (packageName: string): {
     },
     {
       name: ComponentNames.YACI_DEVKIT_WAIT,
-      args: ["task", "-f", packageName, "devkit:wait"],
+      args: ["run", "--filter", packageName, "devkit:wait"],
       // dependsOn: [ComponentNames.YACI_DEVKIT],
     },
     {
       name: ComponentNames.DOLOS,
-      args: ["task", "-f", packageName, "dolos:start"],
+      args: ["run", "--filter", packageName, "dolos:start"],
       waitToExit: false,
       logs: "raw",
       logsStartDisabled: true,
@@ -83,7 +83,7 @@ export const launchCardano = (packageName: string): {
     },
     {
       name: ComponentNames.DOLOS_WAIT,
-      args: ["task", "-f", packageName, "dolos:wait"],
+      args: ["run", "--filter", packageName, "dolos:wait"],
       dependsOn: [ComponentNames.DOLOS],
     },
   ];

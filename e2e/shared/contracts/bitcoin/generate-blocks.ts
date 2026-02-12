@@ -92,7 +92,7 @@ const bitcoinRpcCall = async (method: string, params: any[] = [], walletName?: s
 
 let running = true;
 
-// Handle process signals (Node-style; Deno 2 has node compat for process)
+// Handle process signals
 process.on("SIGINT", () => {
   console.log('\nReceived SIGINT, stopping block generation...');
   running = false;
@@ -181,8 +181,8 @@ async function main() {
     }
     console.log(`Using mining wallet address: ${address}`);
   } catch (error) {
-      console.error('Failed to get address. Make sure Bitcoin Core is running and accessible.');
-      exit(1);
+    console.error('Failed to get address. Make sure Bitcoin Core is running and accessible.');
+    exit(1);
   }
 
   // Import batcher address so we can track its funds

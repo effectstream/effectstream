@@ -42,7 +42,7 @@ export const launchAvail = (packageName: string): {
     {
       stopProcessAtPort: [9955, 7007, 30334],
       name: ComponentNames.AVAIL_NODE,
-      args: ["task", "-f", packageName, "avail-node:start"],
+      args: ["run", "--filter", packageName, "avail-node:start"],
       waitToExit: false,
       logs: "raw",
       logsStartDisabled: true,
@@ -51,14 +51,14 @@ export const launchAvail = (packageName: string): {
     },
     {
       name: ComponentNames.AVAIL_NODE_WAIT,
-      args: ["task", "-f", packageName, "avail-node:wait"],
+      args: ["run", "--filter", packageName, "avail-node:wait"],
       dependsOn: [ComponentNames.AVAIL_NODE],
     },
     {
       name: ComponentNames.AVAIL_CLIENT,
       args: [
-        "task",
-        "-f",
+        "run",
+        "--filter",
         packageName,
         "avail-light-client:deploy",
       ],
@@ -72,8 +72,8 @@ export const launchAvail = (packageName: string): {
     {
       name: ComponentNames.AVAIL_CLIENT_WAIT,
       args: [
-        "task",
-        "-f",
+        "run",
+        "--filter",
         packageName,
         "avail-light-client:wait",
       ],

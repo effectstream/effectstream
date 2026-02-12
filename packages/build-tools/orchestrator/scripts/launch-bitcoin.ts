@@ -5,7 +5,7 @@ import { ComponentNames } from "@effectstream/log";
 // This launcher expects the @effectstream/bitcoin-core package to provide an entry
 // point that bootstraps bitcoind in regtest mode.
 //
-// packageName: the npm package that should be launched through deno.
+// packageName: the npm package that should be launched through bun.
 //
 export const launchBitcoin = (packageName: string): {
   stopProcessAtPort?: number[];
@@ -21,7 +21,7 @@ export const launchBitcoin = (packageName: string): {
   {
     stopProcessAtPort: [18334, 18443],
     name: ComponentNames.BITCOIN_CORE,
-    args: ["task", "-f", packageName, "chain:start"],
+    args: ["run", "--filter", packageName, "chain:start"],
     waitToExit: false,
     logs: "raw",
     logsStartDisabled: true,
@@ -29,14 +29,14 @@ export const launchBitcoin = (packageName: string): {
   },
   {
     name: ComponentNames.BITCOIN_CORE_WAIT,
-    args: ["task", "-f", packageName, "chain:wait"],
+    args: ["run", "--filter", packageName, "chain:wait"],
     waitToExit: true,
     type: "system-dependency",
     dependsOn: [ComponentNames.BITCOIN_CORE],
   },
   {
     name: ComponentNames.BITCOIN_GENERATE_BLOCKS,
-    args: ["task", "-f", packageName, "generate:blocks"],
+    args: ["run", "--filter", packageName, "generate:blocks"],
     waitToExit: false, // Loop keeps blocks being mined
     logs: "raw",
     logsStartDisabled: true,
@@ -45,7 +45,7 @@ export const launchBitcoin = (packageName: string): {
   },
   {
     name: ComponentNames.BITCOIN_WAIT_FOR_BLOCK,
-    args: ["task", "-f", packageName, "wait-for-block"],
+    args: ["run", "--filter", packageName, "wait-for-block"],
     waitToExit: true,
     type: "system-dependency",
     dependsOn: [ComponentNames.BITCOIN_GENERATE_BLOCKS],
