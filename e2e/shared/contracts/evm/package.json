@@ -1,4 +1,6 @@
 {
+  "name": "@e2e/evm-contracts",
+  "version": "0.3.0",
   "type": "module",
   "dependencies": {
     "@nomicfoundation/ignition-core": "3.0.2",

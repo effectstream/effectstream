@@ -1,4 +1,6 @@
 {
+  "name": "@effectstream/db",
+  "version": "0.3.0",
   "devDependencies": {
     "@paima/pgtyped-cli": "^2.4.5",
     "@electric-sql/pglite": "^0.3.14",

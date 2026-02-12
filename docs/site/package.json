@@ -1,4 +1,6 @@
 {
+  "name": "@effectstream/docs",
+  "version": "0.3.0",
   "dependencies": {
     "@docusaurus/core": "3.8.1",
     "@docusaurus/preset-classic": "3.8.1",

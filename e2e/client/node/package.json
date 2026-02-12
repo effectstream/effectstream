@@ -1,4 +1,6 @@
 {
+  "name": "@e2e/node",
+  "version": "0.3.0",
   "devDependencies": {
   }
 }
