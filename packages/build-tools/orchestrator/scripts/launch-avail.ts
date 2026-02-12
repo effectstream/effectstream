@@ -11,7 +11,6 @@ import { getEnv } from "@effectstream/utils/runtime";
 const isTrue = (value: string | undefined) => value != null && ["true", "1", "yes", "y"].includes(value.toLowerCase());
 const disableStderr = !isTrue(getEnv("EFFECTSTREAM_STDOUT"));
 
-
 // Start Avail Node and Light Client.
 //
 // This is a example launcher for Avail Chains and Contracts.

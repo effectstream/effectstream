@@ -1,8 +1,13 @@
-#!/usr/bin/env -S deno run --allow-all
+#!/usr/bin/env bun
 import { ENV } from "@effectstream/utils/node-env";
 import type { ValueOf } from "@effectstream/utils";
 import "./http-server.ts";
-import { dkill } from "@sylc/dkill";
+import fkill from "fkill";
+
+/** Kill processes listening on the given ports (best-effort). */
+async function killPorts(ports: number[]): Promise<void> {
+  await fkill(ports.map(p => `:${p}`), { silent: true });
+}
 
 import {
   initTelemetry,
@@ -123,10 +128,10 @@ export const OrchestratorConfig = Type.Object({
   processesToLaunch: Type.Array(Type.Union([ProcessLaunch, Type.Boolean()]), { default: [] }),
 
   // This can be customized for different locations of the packages.
-  // nightly: jsr:@paimaexample
-  // release: jsr:@paima
-  // local development: @paima
-  packageName: Type.String({ default: "jsr:@effectstream" }),
+  // nightly: @paimaexample
+  // release: @paima
+  // local development: @effectstream
+  packageName: Type.String({ default: "@effectstream" }),
   packageVersion: Type.String({ default: "" }),
 
   // Processes to start
@@ -287,7 +292,7 @@ export async function start(
           env,
         } = task.config
         if (stopProcessAtPort.length > 0) {
-          await dkill({ ports: stopProcessAtPort });
+          await killPorts(stopProcessAtPort);
         }
 
         // Prime the TUI log display state for this process and optionally
@@ -442,7 +447,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 > => ({
   [ComponentNames.TMUX]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.TUI_LOG_PORT] });
+      await killPorts([ENV.TUI_LOG_PORT]);
     }
 
     await Tmux.install();
@@ -465,7 +470,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.EXPLORER]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.EFFECTSTREAM_EXPLORER_PORT] });
+      await killPorts([ENV.EFFECTSTREAM_EXPLORER_PORT]);
     }
     const explorer = $({
       args: ["task", "-f", config.packageName + "/explorer", "dev"],
@@ -480,7 +485,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.OTEL_COLLECTOR_PORT, 12345] }); // 12345 is the port for the Grafana Alloy web UI
+      await killPorts([ENV.OTEL_COLLECTOR_PORT, 12345]); // 12345 is the port for the Grafana Alloy web UI
     }
 
     // deno -A @effectstream/grafana-alloy grafana-alloy
@@ -508,7 +513,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.LOKI]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [3100] });
+      await killPorts([3100]);
     }
     const loki = $({
       args: ["-A", "@effectstream/grafana-loki", "grafana-loki"],
@@ -544,7 +549,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.EFFECTSTREAM_SYNC]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.EFFECTSTREAM_API_PORT] });
+      await killPorts([ENV.EFFECTSTREAM_API_PORT]);
     }
 
     // if EFFECTSTREAM_ENV is set, then launch the node:start:{EFFECTSTREAM_ENV}
@@ -564,7 +569,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.EFFECTSTREAM_PGLITE]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.DB_PORT] });
+      await killPorts([ENV.DB_PORT]);
     }
 
     const paimaDb = $({

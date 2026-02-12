@@ -36,7 +36,6 @@ export const launchCardano = (packageName: string): {
   const yaciCliPath = `${yaciDir}/yaci-cli`;
 
   // TODO $HOME/.yaci-cli/yaci-cli must be installed to allow this to work.
-  // At the time the npm packages is incompatible with deno.
   try {
     statSync(yaciCliPath);
   } catch (_error) {
@@ -47,7 +46,7 @@ export const launchCardano = (packageName: string): {
   // TODO We require the latest dolos binary built from source.
   // At the time there is not npm package for the latest dolos binary.
   try {
-    const dolosExists = spawnSync("deno", ["task", "-f", packageName, "dolos:exists"], { encoding: "utf-8" });
+    const dolosExists = spawnSync("bun", ["task", "-f", packageName, "dolos:exists"], { encoding: "utf-8" });
     if (dolosExists.status !== 0) throw new Error();
   } catch (_error) {
     throw new Error(
