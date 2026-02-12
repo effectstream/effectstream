@@ -2,12 +2,20 @@
   "name": "@effectstream/evm-contracts",
   "version": "0.3.0",
   "description": "Effectstream EVM default contracts.",
-  "main": "index.js",
-  "author": "Paima Studios",
   "license": "MIT",
   "type": "module",
+  "exports": {
+    ".": "./mod.ts"
+  },
   "dependencies": {
     "@openzeppelin/contracts": "5.1.0",
-    "@openzeppelin/contracts-upgradeable": "^5.1.0"
+    "@openzeppelin/contracts-upgradeable": "^5.1.0",
+    "@wagmi/cli": "2.3.1",
+    "hardhat": "3.0.4",
+    "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
+    "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
+    "@nomicfoundation/hardhat-viem": "3.0.0",
+    "jsonc-parser": "^3.3.1",
+    "@opentelemetry/sdk-node": "0.56.0"
   }
 }

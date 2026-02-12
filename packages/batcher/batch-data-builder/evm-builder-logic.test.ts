@@ -1,6 +1,5 @@
 import { AddressType } from "@effectstream/utils";
-import { test } from "@effectstream/utils/runtime";
-import { assertEquals } from "jsr:@std/assert";
+import { test, expect } from "bun:test";
 import { EvmBatchBuilderLogic } from "./evm-builder-logic.ts";
 
 function makeInput(overrides: Partial<Record<string, unknown>> = {}) {
@@ -20,7 +19,7 @@ function makeInput(overrides: Partial<Record<string, unknown>> = {}) {
 test("EvmBatchBuilderLogic - returns null for empty inputs", () => {
   const builder = new EvmBatchBuilderLogic();
   const result = builder.buildBatchData([], { maxSize: 1000 });
-  assertEquals(result, null);
+  expect(result).toEqual(null);
 });
 
 test("EvmBatchBuilderLogic - batches valid input", () => {
@@ -28,12 +27,12 @@ test("EvmBatchBuilderLogic - batches valid input", () => {
   const input = makeInput();
   const result = builder.buildBatchData([input], { maxSize: 1000 });
 
-  assertEquals(result?.selectedInputs.length, 1);
-  assertEquals(result?.selectedInputs[0], input);
-  assertEquals(result?.data?.prefix, "&B");
-  assertEquals(result?.data?.payloads.length, 1);
-  assertEquals(result?.data?.payloads[0].method, "incrementCounter");
-  assertEquals(result?.data?.payloads[0].address, input.address);
+  expect(result?.selectedInputs.length).toEqual(1);
+  expect(result?.selectedInputs[0]).toEqual(input);
+  expect(result?.data?.prefix).toEqual("&B");
+  expect(result?.data?.payloads.length).toEqual(1);
+  expect(result?.data?.payloads[0].method).toEqual("incrementCounter");
+  expect(result?.data?.payloads[0].address).toEqual(input.address);
 });
 
 test("EvmBatchBuilderLogic - skips malformed payloads", () => {
@@ -44,17 +43,17 @@ test("EvmBatchBuilderLogic - skips malformed payloads", () => {
   });
 
   const result = builder.buildBatchData([badInput, goodInput], { maxSize: 1000 });
-  assertEquals(result?.selectedInputs.length, 1);
-  assertEquals(result?.selectedInputs[0], goodInput);
-  assertEquals(result?.data?.payloads.length, 1);
-  assertEquals(result?.data?.payloads[0].method, "setValue");
+  expect(result?.selectedInputs.length).toEqual(1);
+  expect(result?.selectedInputs[0]).toEqual(goodInput);
+  expect(result?.data?.payloads.length).toEqual(1);
+  expect(result?.data?.payloads[0].method).toEqual("setValue");
 });
 
 test("EvmBatchBuilderLogic - enforces max size", () => {
   const builder = new EvmBatchBuilderLogic();
   const input = makeInput();
   const result = builder.buildBatchData([input], { maxSize: 10 });
-  assertEquals(result, { selectedInputs: [], data: null });
+  expect(result).toEqual({ selectedInputs: [], data: null });
 });
 
 test("EvmBatchBuilderLogic - supports hex encoded payloads", () => {
@@ -68,6 +67,5 @@ test("EvmBatchBuilderLogic - supports hex encoded payloads", () => {
   });
 
   const result = builder.buildBatchData([hexInput], { maxSize: 1000 });
-  assertEquals(result?.data?.payloads[0].method, "hexCall");
+  expect(result?.data?.payloads[0].method).toEqual("hexCall");
 });
-

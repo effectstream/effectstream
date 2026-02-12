@@ -1,0 +1,13 @@
+{
+  "name": "@effectstream/bitcoin-contracts",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "dependencies": {
+    "bitcoinjs-lib": "^7.0.0",
+    "ecpair": "^3.0.0",
+    "tiny-secp256k1": "^2.2.4"
+  }
+}
