@@ -44,12 +44,13 @@ import {
   buildWalletFacade,
   getInitialDustState,
   getInitialShieldedState,
+  type NetworkUrls,
   registerNightForDust,
   syncAndWaitForFunds,
   waitForDustFunds,
   type NetworkUrls as MidnightNetworkUrls,
   type WalletResult,
-} from "@effectstream/midnight-contracts/wallet-info";
+} from "@effectstream/midnight-contracts";
 import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 
@@ -167,7 +168,8 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       } else {
         console.log("🔗 Building Midnight wallet (modular SDK)...");
 
-        const networkUrls: MidnightNetworkUrls = {
+        const networkUrls: Required<NetworkUrls> = {
+          id: this.walletNetworkId,
           indexer: this.config.indexer,
           indexerWS: this.config.indexerWS,
           node: this.config.node,
