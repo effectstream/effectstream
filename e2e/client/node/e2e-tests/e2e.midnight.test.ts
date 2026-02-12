@@ -308,13 +308,13 @@ const getContractAddress = (): string => {
     console.error(`❌ Error reading contract address from file: ${error}`);
     console.error("❌ Error: Contract address is required");
     console.error(
-      "Usage: deno run --allow-all increment.ts <CONTRACT_ADDRESS>",
+      "Usage: bun increment.ts <CONTRACT_ADDRESS>",
     );
     console.error(
       "Or create a contract_address.txt file with the contract address",
     );
     console.error(
-      "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678",
+      "Example: bun increment.ts 0x1234567890abcdef1234567890abcdef12345678",
     );
     exit(1);
   }
@@ -368,11 +368,11 @@ async function sendMintToBatcher(
  * Standalone script that joins a counter contract with a specific address and increments its value.
  *
  * Usage:
- *   deno run --allow-all increment.ts <CONTRACT_ADDRESS>
+ *   bun increment.ts <CONTRACT_ADDRESS>
  *   or create a contract_address.txt file with the contract address
  *
  * Example:
- *   deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678
+ *   bun increment.ts 0x1234567890abcdef1234567890abcdef12345678
  */
 async function joinAndIncrementTest(
   db: Client,
