@@ -21,17 +21,16 @@ import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import { blockWatcher } from "@e2e/engine";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import type { Client } from "pg";
-import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import {
+  readMidnightContract,
   buildWalletFacade,
   getInitialShieldedState,
   syncAndWaitForFunds,
   type NetworkUrls as MidnightNetworkUrls,
   type WalletResult,
-} from "@effectstream/midnight-contracts/wallet-info";
-import {
   midnightNetworkConfig,
-} from "@effectstream/midnight-contracts/midnight-env";
+  type NetworkUrls,
+} from "@effectstream/midnight-contracts";
 import {
   type FinalizedTransaction,
   Transaction as LedgerTransaction,
@@ -219,11 +218,12 @@ const buildWalletAndWaitForFunds = async (
   { indexer, indexerWS, node, proofServer }: Config,
   seed: string,
 ): Promise<WalletResult> => {
-  const networkUrls: MidnightNetworkUrls = {
+  const networkUrls: Required<NetworkUrls> = {
     indexer,
     indexerWS,
     node,
     proofServer,
+    id: midnightNetworkConfig.id,
   };
 
   const walletResult = await buildWalletFacade(
@@ -549,6 +549,7 @@ async function testDelegatedBalancing(
     // Build Party A wallet
     // We don't need funds for Party A since they are delegating payment!
     const networkUrls = {
+      id: midnightNetworkConfig.id,
       indexer: config.indexer,
       indexerWS: config.indexerWS,
       node: config.node,
