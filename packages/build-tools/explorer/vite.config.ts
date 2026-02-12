@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import deno from "@deno/vite-plugin";
 import nodePolyfills from "vite-plugin-node-stdlib-browser";
 
 import "react";
@@ -14,7 +13,6 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    deno(),
     nodePolyfills(),
   ],
   optimizeDeps: {

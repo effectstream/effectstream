@@ -1,21 +1,26 @@
-import { Application } from "@oak/oak/application";
-import { Router } from "@oak/oak/router";
-import routeStaticFilesFrom from "./util/routeStaticFilesFrom.ts";
+import Fastify from "fastify";
+import fastifyStatic from "@fastify/static";
+import * as path from "node:path";
 import { ENV } from "@effectstream/utils/node-env";
 
-export const app = new Application();
-const router = new Router();
+export const app = Fastify();
 
-app.use(router.routes());
-app.use(routeStaticFilesFrom([
-  `${process.cwd()}/client/dist`,
-  `${process.cwd()}/client/public`,
-]));
+// Serve built client assets, falling back to public folder
+app.register(fastifyStatic, {
+  root: [
+    path.join(process.cwd(), "client", "dist"),
+    path.join(process.cwd(), "client", "public"),
+  ],
+  prefix: "/",
+});
 
-// If this is the entry point, start the server
 if (import.meta.main) {
-  console.log(
-    `Server listening on port http://localhost:${ENV.EFFECTSTREAM_EXPLORER_PORT}`,
-  );
-  await app.listen({ port: ENV.EFFECTSTREAM_EXPLORER_PORT });
+  const port = ENV.EFFECTSTREAM_EXPLORER_PORT;
+  app.listen({ port, host: "0.0.0.0" }, (err, address) => {
+    if (err) {
+      console.error(err);
+      process.exit(1);
+    }
+    console.log(`Server listening on ${address}`);
+  });
 }
