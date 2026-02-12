@@ -327,6 +327,9 @@ export const $ = (params: {
         if (params.args.includes("midnight-contract:deploy")) {
           return;
         }
+        console.error(`Shutdown caused by \`${
+          processComponent.args.join(" ")
+        }\`, status ${status.signal ?? status.code}`);
         shutdown(
           1,
           shutdownCalled

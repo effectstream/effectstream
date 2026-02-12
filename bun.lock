@@ -16,9 +16,11 @@
       "name": "@e2e/batcher",
       "version": "0.3.0",
       "dependencies": {
+        "@e2e/evm-contracts": "workspace:*",
         "@e2e/midnight-contracts": "workspace:*",
         "@effectstream/batcher": "workspace:*",
         "@effectstream/midnight-contracts": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "bitcoinjs-lib": "^6.1.5",
         "bitcoinjs-message": "^2.2.0",
         "ecpair": "^2.1.0",
@@ -45,13 +47,20 @@
       "version": "0.3.0",
       "dependencies": {
         "@deno/vite-plugin": "^1.0.4",
+        "@e2e/avail-contracts": "workspace:*",
+        "@e2e/batcher": "workspace:*",
+        "@e2e/bitcoin-contracts": "workspace:*",
+        "@e2e/cardano-contracts": "workspace:*",
         "@e2e/data-types": "workspace:*",
         "@e2e/engine": "workspace:*",
+        "@e2e/midnight-contracts": "workspace:*",
         "@effectstream/batcher": "workspace:*",
+        "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
         "@effectstream/db": "workspace:*",
         "@effectstream/event-server": "workspace:*",
         "@effectstream/log": "workspace:*",
+        "@effectstream/midnight-contracts": "workspace:*",
         "@effectstream/orchestrator": "workspace:*",
         "@effectstream/runtime": "workspace:*",
         "@effectstream/sm": "workspace:*",
@@ -101,7 +110,10 @@
       "name": "@e2e/engine",
       "version": "0.3.0",
       "dependencies": {
+        "@e2e/evm-contracts": "workspace:*",
         "@effectstream/db": "workspace:*",
+        "@effectstream/event-client": "workspace:*",
+        "@effectstream/log": "workspace:*",
         "@effectstream/utils": "workspace:*",
         "@sinclair/typebox": "0.34.41",
         "effection": "^3.5.0",
@@ -510,7 +522,7 @@
         "@midnight-ntwrk/wallet-sdk-shielded": "1.0.0-beta.11",
         "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "1.0.0-beta.14",
         "@midnight-ntwrk/zswap": "4.0.0",
-        "dotenv": "^16.4.5",
+        "dotenv": "^17.2.4",
         "rxjs": "^7.8.2",
       },
     },
@@ -2395,7 +2407,7 @@
 
     "domain-browser": ["domain-browser@4.22.0", "", {}, "sha512-IGBwjF7tNk3cwypFNH/7bfzBcgSCbaMOD3GsaY1AU/JRrnHnYgEM0+9kQt52iZxjNsjBtJYtao146V+f8jFZNw=="],
 
-    "dotenv": ["dotenv@16.6.1", "", {}, "sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow=="],
+    "dotenv": ["dotenv@17.2.4", "", {}, "sha512-mudtfb4zRB4bVvdj0xRo+e6duH1csJRM8IukBqfTRvHotn9+LBXB8ynAidP9zHqoRC/fsllXgk4kCKlR21fIhw=="],
 
     "dotenv-expand": ["dotenv-expand@10.0.0", "", {}, "sha512-GopVGCpVS1UKH75VKHGuQFqS1Gusej0z4FyQkPdwjil2gNIv+LNsqBlboOzpJFZKVT95GkCyWJbBSdFEFUWI2A=="],
 
@@ -3759,6 +3771,8 @@
 
     "@effectstream/sync/viem": ["viem@2.37.3", "", { "dependencies": { "@noble/curves": "1.9.1", "@noble/hashes": "1.8.0", "@scure/bip32": "1.7.0", "@scure/bip39": "1.6.0", "abitype": "1.1.0", "isows": "1.0.7", "ox": "0.9.3", "ws": "8.18.3" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-hwoZqkFSy13GCFzIftgfIH8hNENvdlcHIvtLt73w91tL6rKmZjQisXWTahi1Vn5of8/JQ1FBKfwUus3YkDXwbw=="],
 
+    "@effectstream/utils/dotenv": ["dotenv@16.6.1", "", {}, "sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow=="],
+
     "@effectstream/utils/viem": ["viem@2.37.3", "", { "dependencies": { "@noble/curves": "1.9.1", "@noble/hashes": "1.8.0", "@scure/bip32": "1.7.0", "@scure/bip39": "1.6.0", "abitype": "1.1.0", "isows": "1.0.7", "ox": "0.9.3", "ws": "8.18.3" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-hwoZqkFSy13GCFzIftgfIH8hNENvdlcHIvtLt73w91tL6rKmZjQisXWTahi1Vn5of8/JQ1FBKfwUus3YkDXwbw=="],
 
     "@effectstream/wallets/viem": ["viem@2.37.3", "", { "dependencies": { "@noble/curves": "1.9.1", "@noble/hashes": "1.8.0", "@scure/bip32": "1.7.0", "@scure/bip39": "1.6.0", "abitype": "1.1.0", "isows": "1.0.7", "ox": "0.9.3", "ws": "8.18.3" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-hwoZqkFSy13GCFzIftgfIH8hNENvdlcHIvtLt73w91tL6rKmZjQisXWTahi1Vn5of8/JQ1FBKfwUus3YkDXwbw=="],
@@ -3986,6 +4000,8 @@
     "@vitest/snapshot/pathe": ["pathe@2.0.3", "", {}, "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w=="],
 
     "@wagmi/cli/abitype": ["abitype@1.2.3", "", { "peerDependencies": { "typescript": ">=5.0.4", "zod": "^3.22.0 || ^4.0.0" }, "optionalPeers": ["typescript", "zod"] }, "sha512-Ofer5QUnuUdTFsBRwARMoWKOH1ND5ehwYhJ3OJ/BQO+StkwQjHw0XyVh4vDttzHB7QOFhPHa/o413PJ82gU/Tg=="],
+
+    "@wagmi/cli/dotenv": ["dotenv@16.6.1", "", {}, "sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow=="],
 
     "@walletconnect/browser-utils/@walletconnect/safe-json": ["@walletconnect/safe-json@1.0.0", "", {}, "sha512-QJzp/S/86sUAgWY6eh5MKYmSfZaRpIlmCJdi5uG4DJlKkZrHEF7ye7gA+VtbVzvTtpM/gRwO2plQuiooIeXjfg=="],
 

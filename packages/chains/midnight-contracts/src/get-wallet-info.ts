@@ -1,6 +1,8 @@
-import * as log from "@std/log";
-import { load } from "@std/dotenv";
-import { parseArgs } from "@std/cli/parse-args";
+// import * as log from "@std/log";
+
+import log from "@effectstream/log";
+import * as load from "dotenv";
+// import { parseArgs } from "@std/cli/parse-args";
 import type {
   MidnightBech32m,
   ShieldedAddress,
@@ -28,6 +30,8 @@ import {
 } from "@midnight-ntwrk/ledger-v6";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import type { DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded/v1";
+
+const log = (...args: any[]) => console.log(...args);
 
 // ============================================================================
 // Constants

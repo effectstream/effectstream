@@ -11,14 +11,15 @@ Effectstream development mode & tests can be run through e2e testing environment
 
 ```sh
 # Install dependencies
-deno install --allow-scripts && ./patch.sh
+bun install
 
 # Build All Contracts
-deno task -r contract:compile
+bun --filter @e2e/evm-contracts contract:compile
+bun --filter @e2e/midnight-contract-counter-basic compact
+bun --filter @e2e/midnight-contract-eip-20 compact
 
-# If running on linux set env DISABLE_YACI=true
 # Run Example Deployment Mode
-deno task -f @e2e/node quickstart
+bun --filter @e2e/node quickstart
 ```
 
 ## Run Tests

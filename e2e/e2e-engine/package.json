@@ -10,6 +10,9 @@
   "dependencies": {
     "@effectstream/db": "workspace:*",
     "@effectstream/utils": "workspace:*",
+    "@effectstream/event-client": "workspace:*",
+    "@e2e/evm-contracts": "workspace:*",
+    "@effectstream/log": "workspace:*",
     "pg": "^8.14.0",
     "viem": "2.37.3",
     "@sinclair/typebox": "0.34.41",

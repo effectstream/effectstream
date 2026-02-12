@@ -11,6 +11,7 @@
     "./hardhat-config-builder": "./src/hardhatConfigBuilder.ts"
   },
   "scripts": {
+    "builder": "bun run --bun ./src/builder/build.mod.ts",
     "build:assets": "bun run --bun jsr:@codemonument/asset-builder --import-file ./src/remappings/assets-config.json > ./src/remappings/assets.ts",
     "scaffold": "bun run --bun ./src/scaffold/scaffold-evm.ts"
   },

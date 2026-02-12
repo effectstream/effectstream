@@ -13,9 +13,11 @@
     "start:testnet": "bun run --bun main.testnet.ts"
   },
   "dependencies": {
+    "@e2e/evm-contracts": "workspace:*",
     "@e2e/midnight-contracts": "workspace:*",
     "@effectstream/batcher": "workspace:*",
     "@effectstream/midnight-contracts": "workspace:*",
+    "@effectstream/utils": "workspace:*",
     "viem": "^2.21.3",
     "effection": "^3.5.0",
     "bitcoinjs-lib": "^6.1.5",

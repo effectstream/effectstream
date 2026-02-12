@@ -8,7 +8,13 @@ import "./http-server.ts";
 import { kill } from 'kill-port-bun'
 
 const dkill = async ({ ports }: { ports: number[] }): Promise<void> => {
-  await Promise.all(ports.map(port => kill(port)));
+  await Promise.all(ports.map(async (port) => {
+    try {
+      await kill(port);
+    } catch (e) {
+      console.error(`Error killing process on port ${port}: ${e}`);
+    }
+  }));
 };
 
 import {

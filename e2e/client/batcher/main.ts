@@ -1,22 +1,24 @@
 // Cleanup stale LevelDB BEFORE importing adapters (adapters initialize on import)
-import * as path from "@std/path";
+import path from "node:path";
+import fs from "node:fs/promises";
 
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((process.env[key] || "").toLowerCase());
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 
 if (midnight_enabled) {
-  const baseDir = path.dirname(path.fromFileUrl(import.meta.url));
+  const baseDir = path.dirname(new URL(import.meta.url).pathname);
   
   // Clean up all midnight LevelDB directories (including process-specific ones from previous runs)
   try {
-    for await (const entry of Deno.readDir(baseDir)) {
-      if (entry.isDirectory && entry.name.startsWith("midnight-level-db")) {
-        const dbPath = path.join(baseDir, entry.name);
+    for await (const entry of await fs.readdir(baseDir)) {
+      const isDirectory = (await fs.stat(path.join(baseDir, entry))).isDirectory();
+      if (isDirectory && entry.startsWith("midnight-level-db")) {
+        const dbPath = path.join(baseDir, entry);
         try {
-          await Deno.remove(dbPath, { recursive: true });
-          console.log(`🧹 Cleaned up stale Midnight LevelDB directory: ${entry.name}`);
+          await fs.rm(dbPath, { recursive: true });
+          console.log(`🧹 Cleaned up stale Midnight LevelDB directory: ${entry}`);
         } catch (error) {
-          console.warn(`⚠️ Could not clean up ${entry.name}:`, error);
+          console.warn(`⚠️ Could not clean up ${entry}:`, error);
         }
       }
     }

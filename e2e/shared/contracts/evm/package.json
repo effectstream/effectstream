@@ -12,7 +12,7 @@
     "swap:remappings:forge": "bun run --bun @effectstream/evm-hardhat/remappings-forge --depth 4",
     "swap:remappings:hardhat": "bun run --bun @effectstream/evm-hardhat/remappings-hardhat",
     "check": "echo 'check'",
-    "build:mod": "(bun run deploy:standalone || true) && bun run --bun @effectstream/evm-hardhat/builder",
+    "build:mod": "(bun run deploy:standalone || true) && bun --filter @effectstream/evm-hardhat builder",
     "build:clean": "rm -rf build || true",
     "build:forge": "forge build",
     "build:hardhat": "bun run hardhat compile",

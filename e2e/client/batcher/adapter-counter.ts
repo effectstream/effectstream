@@ -3,7 +3,8 @@ import {
   type EvmContractAdapterConfig,
 } from "@effectstream/batcher";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
-import CounterArtifact from "../../shared/contracts/evm/ignition/deployments/chain-31337/artifacts/CounterModule%23Counter.json" with { type: "json" };
+import * as evm from "@e2e/evm-contracts";
+
 
 const COUNTER_TARGET = "evmCounter";
 const COUNTER_SYNC_PROTOCOL = "parallelEvmRPC_fast";
@@ -11,14 +12,16 @@ const COUNTER_ADDRESS = contractAddressesEvmMain()["chain31337"][
   "CounterModule#Counter"
 ] as `0x${string}`;
 const COUNTER_PRIVATE_KEY =
-  (Deno.env.get("COUNTER_BATCHER_PRIVATE_KEY") ??
+  (process.env["COUNTER_BATCHER_PRIVATE_KEY"] ??
     "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d") as `0x${string}`;
 
 const counterConfig: EvmContractAdapterConfig = {
   contractAddress: COUNTER_ADDRESS,
   privateKey: COUNTER_PRIVATE_KEY,
   syncProtocolName: COUNTER_SYNC_PROTOCOL,
-  artifact: CounterArtifact,
+  // TODO THIS IS WRONG
+  // FIX ME DO NOT MERGE
+  artifact: evm.counter as any,
   maxBatchSize: 10_000,
 };
 

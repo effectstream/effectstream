@@ -9,12 +9,12 @@ import {
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { SimpleToken, witnesses } from "@e2e/midnight-contracts/eip-20";
-import { dirname, resolve } from "@std/path";
+import path from "node:path";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 
 // Resolve the base directory for midnight contracts
-const currentDir = dirname(new URL(import.meta.url).pathname);
-const midnightContractsDir = resolve(currentDir, "..", "..", "shared", "contracts", "midnight");
+const currentDir = path.dirname(new URL(import.meta.url).pathname);
+const midnightContractsDir = path.resolve(currentDir, "..", "..", "shared", "contracts", "midnight");
 
 // Config values mirroring e2e/client/node/scripts/start.ts
 const batchIntervalMs = 1000;
@@ -28,7 +28,7 @@ const batcherPrivateKey =
 
 // Defaults consistent with E2E usage
 const paimaL2Fee = 0n; // old batcher defaulted to 0 for local dev
-const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
+const port = Number(process.env["BATCHER_PORT"] ?? "3334");
 
 // PaimaL2 EVM adapter
 export const paimaL2Adapter = new PaimaL2DefaultAdapter(
