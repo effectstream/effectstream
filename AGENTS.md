@@ -36,7 +36,6 @@ There are 4 main parts:
 │   │   ├── utils/                                          # "@effectstream/utils"
 │   │   └── wallets/                                        # "@effectstream/wallets"
 │   └── node-sdk/
-│       ├── batcher/                                        # "@effectstream/batcher-old"
 │       ├── db/                                             # "@effectstream/db"
 │       ├── db-emulator/                                    # "@effectstream/db-emulator"
 │       ├── events/                                         # "@effectstream/event-server"
