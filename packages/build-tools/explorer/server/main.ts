@@ -8,8 +8,8 @@ const router = new Router();
 
 app.use(router.routes());
 app.use(routeStaticFilesFrom([
-  `${Deno.cwd()}/client/dist`,
-  `${Deno.cwd()}/client/public`,
+  `${typeof process !== "undefined" ? process.cwd() : (typeof Deno !== "undefined" ? (Deno as any).cwd() : ".")}/client/dist`,
+  `${typeof process !== "undefined" ? process.cwd() : (typeof Deno !== "undefined" ? (Deno as any).cwd() : ".")}/client/public`,
 ]));
 
 // If this is the entry point, start the server

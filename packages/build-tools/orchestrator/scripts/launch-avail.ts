@@ -7,7 +7,7 @@ import { ComponentNames } from "@effectstream/log";
 // unless the user explicitly wants to see the logs, so if EFFECTSTREAM_STDOUT is true,
 // we enable stderr for this as well.
 
-const disableStderr = Deno.env.get("EFFECTSTREAM_STDOUT") === "true" ? false : true;
+const disableStderr = (typeof process !== "undefined" ? process.env?.EFFECTSTREAM_STDOUT : (typeof Deno !== "undefined" ? (Deno as any).env?.get?.("EFFECTSTREAM_STDOUT") : undefined)) === "true" ? false : true;
 
 // Start Avail Node and Light Client.
 //

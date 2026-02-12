@@ -12,7 +12,7 @@ const midnightContractsDir = resolve(currentDir, "..", "..", "shared", "contract
 
 
 const isEnvTrue = (key: string) =>
-  ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+  (() => { const v = typeof process !== "undefined" ? process.env?.[key] : (typeof Deno !== "undefined" ? (Deno as any).env?.get(key) : undefined); return ["true", "1", "yes", "y"].includes((v || "").toLowerCase()); })();
 
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 

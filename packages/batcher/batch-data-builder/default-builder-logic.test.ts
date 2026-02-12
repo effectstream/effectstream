@@ -1,4 +1,5 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert";
+import { test } from "@effectstream/utils/runtime";
 import { DefaultBatchBuilderLogic } from "./default-builder-logic.ts";
 import { AddressType } from "@effectstream/utils";
 
@@ -10,13 +11,13 @@ const MOCK_INPUT = {
   timestamp: "1234567890",
 };
 
-Deno.test("DefaultBatchBuilderLogic - returns null for empty inputs", () => {
+test("DefaultBatchBuilderLogic - returns null for empty inputs", () => {
   const builder = new DefaultBatchBuilderLogic();
   const result = builder.buildBatchData([], { maxSize: 1000 });
   assertEquals(result, null);
 });
 
-Deno.test("DefaultBatchBuilderLogic - builds batch with single input", () => {
+test("DefaultBatchBuilderLogic - builds batch with single input", () => {
   const builder = new DefaultBatchBuilderLogic();
   const result = builder.buildBatchData([MOCK_INPUT], { maxSize: 1000 });
   
@@ -35,7 +36,7 @@ Deno.test("DefaultBatchBuilderLogic - builds batch with single input", () => {
   assertEquals(inner[4], MOCK_INPUT.timestamp);
 });
 
-Deno.test("DefaultBatchBuilderLogic - respects maxSize", () => {
+test("DefaultBatchBuilderLogic - respects maxSize", () => {
   const builder = new DefaultBatchBuilderLogic();
   // Provide a very small max size that shouldn't fit even one input
   const result = builder.buildBatchData([MOCK_INPUT], { maxSize: 10 });
@@ -45,7 +46,7 @@ Deno.test("DefaultBatchBuilderLogic - respects maxSize", () => {
   assertEquals(result, null);
 });
 
-Deno.test("DefaultBatchBuilderLogic - batches multiple inputs if they fit", () => {
+test("DefaultBatchBuilderLogic - batches multiple inputs if they fit", () => {
     const builder = new DefaultBatchBuilderLogic();
     const result = builder.buildBatchData([MOCK_INPUT, MOCK_INPUT], { maxSize: 1000 });
     

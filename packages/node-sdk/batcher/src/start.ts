@@ -7,7 +7,7 @@ import { Value } from "@sinclair/typebox/value";
 import * as chains from "viem/chains";
 import { run } from "effection";
 import { ENV } from "@effectstream/utils/node-env";
-import { TypeboxHelpers } from "@effectstream/utils";
+import { TypeboxHelpers, args } from "@effectstream/utils";
 // Standalone Batcher service start script.
 // Example usage:
 // deno run -A --check packages/node-sdk/batcher/src/start.ts \
@@ -64,7 +64,7 @@ let args: Args;
 try {
   args = Value.Parse(
     ArgsSchema,
-    parseArgs(Deno.args, {
+    parseArgs(args(), {
       string: [
         "paimaL2Address",
         "batcherPrivateKey",
@@ -88,14 +88,14 @@ try {
   );
 } catch (error) {
   console.error(error);
-  Deno.exit(1);
+  process.exit(1);
 }
 
 // TODO We want to probably let custom chains be passed in.
 const chain = chains[args.chainName as keyof typeof chains] as Chain;
 if (!chain) {
   console.error(`Chain ${args.chainName} not found`);
-  Deno.exit(1);
+  process.exit(1);
 }
 
 await run(() =>

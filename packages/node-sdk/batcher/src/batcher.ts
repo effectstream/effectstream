@@ -457,12 +457,12 @@ export function* createAndLaunchBatcher(
   const shutdown = async (signal: string) => {
     console.log(`\n🛑 Received ${signal}, initiating graceful shutdown...`);
     await batcher.gracefulShutdown();
-    Deno.exit(0);
+    process.exit(0);
   };
 
   // Listen for common shutdown signals
-  Deno.addSignalListener("SIGINT", () => shutdown("SIGINT"));
-  Deno.addSignalListener("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
   // Initialize storage before starting
 
   yield* until(batcher.init());

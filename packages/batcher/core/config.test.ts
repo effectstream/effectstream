@@ -1,10 +1,11 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert";
+import { test } from "@effectstream/utils/runtime";
 import {
   validateBatchingCriteria,
   type BatchingCriteriaConfig,
 } from "./config.ts";
 
-Deno.test("validateBatchingCriteria - valid time criteria", () => {
+test("validateBatchingCriteria - valid time criteria", () => {
   const criteria: BatchingCriteriaConfig = {
     criteriaType: "time",
     timeWindowMs: 1000,
@@ -12,7 +13,7 @@ Deno.test("validateBatchingCriteria - valid time criteria", () => {
   validateBatchingCriteria(criteria); // Should not throw
 });
 
-Deno.test("validateBatchingCriteria - invalid time criteria", () => {
+test("validateBatchingCriteria - invalid time criteria", () => {
   const criteria: BatchingCriteriaConfig = {
     criteriaType: "time",
   };
@@ -23,7 +24,7 @@ Deno.test("validateBatchingCriteria - invalid time criteria", () => {
   );
 });
 
-Deno.test("validateBatchingCriteria - valid size criteria", () => {
+test("validateBatchingCriteria - valid size criteria", () => {
   const criteria: BatchingCriteriaConfig = {
     criteriaType: "size",
     maxBatchSize: 10,
@@ -31,7 +32,7 @@ Deno.test("validateBatchingCriteria - valid size criteria", () => {
   validateBatchingCriteria(criteria);
 });
 
-Deno.test("validateBatchingCriteria - invalid size criteria", () => {
+test("validateBatchingCriteria - invalid size criteria", () => {
     const criteria: BatchingCriteriaConfig = {
       criteriaType: "size",
     };
@@ -42,7 +43,7 @@ Deno.test("validateBatchingCriteria - invalid size criteria", () => {
     );
 });
 
-Deno.test("validateBatchingCriteria - valid hybrid criteria", () => {
+test("validateBatchingCriteria - valid hybrid criteria", () => {
     const criteria: BatchingCriteriaConfig = {
       criteriaType: "hybrid",
       timeWindowMs: 1000,
@@ -51,7 +52,7 @@ Deno.test("validateBatchingCriteria - valid hybrid criteria", () => {
     validateBatchingCriteria(criteria);
 });
 
-Deno.test("validateBatchingCriteria - invalid hybrid criteria", () => {
+test("validateBatchingCriteria - invalid hybrid criteria", () => {
     const criteria: BatchingCriteriaConfig = {
         criteriaType: "hybrid",
         timeWindowMs: 1000,

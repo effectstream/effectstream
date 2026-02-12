@@ -3,6 +3,9 @@
 import * as log from "@std/log";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
+import { statSync, readdirSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
+import { getEnv, cwd } from "@effectstream/utils/runtime";
 import type { UnboundTransaction, MidnightProvider, WalletProvider } from "@midnight-ntwrk/midnight-js-types";
 import { deployContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
@@ -139,7 +142,7 @@ function createTtl(): Date {
 }
 
 function checkEnvVariables(): void {
-  if (!Deno.env.get("MIDNIGHT_STORAGE_PASSWORD")) {
+  if (!getEnv("MIDNIGHT_STORAGE_PASSWORD")) {
     throw new Error("MIDNIGHT_STORAGE_PASSWORD is not set (Use a 16 char string)");
   }
 }
@@ -171,7 +174,7 @@ async function buildWalletAndWaitForFunds(
   const syncTimeoutMs = resolveWalletSyncTimeoutMs();
   if (balance === 0n) {
     const skipWait =
-      Deno.env.get("MIDNIGHT_SKIP_WAIT_FOR_FUNDS")?.toLowerCase() === "true";
+      getEnv("MIDNIGHT_SKIP_WAIT_FOR_FUNDS")?.toLowerCase() === "true";
     log.info("Wallet shielded balance: 0");
     log.info(
       `Waiting to receive tokens... (timeout ${syncTimeoutMs}ms${skipWait ? ", skip on timeout enabled" : ""})`
@@ -323,8 +326,8 @@ function hasManagedArtifacts(dir: string): boolean {
   const requiredDirs = ["contract", "compiler"];
   try {
     return requiredDirs.every((name) => {
-      const stats = Deno.statSync(path.join(dir, name));
-      return stats.isDirectory;
+      const stats = statSync(path.join(dir, name));
+      return stats.isDirectory();
     });
   } catch {
     return false;
@@ -333,8 +336,8 @@ function hasManagedArtifacts(dir: string): boolean {
 
 function findCompilerSubdirectory(managedDir: string): string {
   try {
-    for (const entry of Deno.readDirSync(managedDir)) {
-      if (!entry.isDirectory) continue;
+    for (const entry of readdirSync(managedDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
       const candidate = path.join(managedDir, entry.name);
       if (hasManagedArtifacts(candidate)) {
         return entry.name;
@@ -396,7 +399,7 @@ export async function deployMidnightContract(
   if (!contractDir) {
     throw new Error(
       `Could not find Midnight contract directory for "${config.contractName}". ` +
-        `Searched starting from ${config.baseDir || Deno.cwd()}. ` +
+        `Searched starting from ${config.baseDir || cwd()}. ` +
         `Please ensure you're running from a directory that contains or is a parent of the Midnight contract directory, ` +
         `or provide an explicit baseDir parameter.`
     );
@@ -468,7 +471,7 @@ export async function deployMidnightContract(
       unshieldedKeystore,
     } = walletResult;
     const resolvedDustReceiverAddress =
-      Deno.env.get("MIDNIGHT_DUST_RECEIVER_ADDRESS") ?? dustAddress;
+      getEnv("MIDNIGHT_DUST_RECEIVER_ADDRESS") ?? dustAddress;
     if (resolvedDustReceiverAddress === dustAddress) {
       log.info(`Using derived dust address: ${resolvedDustReceiverAddress}`);
     } else {
@@ -561,7 +564,7 @@ export async function deployMidnightContract(
       outputFileName,
     );
 
-    await Deno.writeTextFile(
+    await writeFile(
       outputPath,
       JSON.stringify({ contractAddress }, null, 2),
     );

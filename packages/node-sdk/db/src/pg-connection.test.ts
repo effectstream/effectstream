@@ -5,11 +5,12 @@ import {
   waitUntilFree,
 } from "./pg-connection.ts";
 import { run, sleep, spawn } from "effection";
+import { test, setEnv } from "@effectstream/utils/runtime";
 
 // Force PGLITE env var to true for testing mutex logic
-Deno.env.set("PGLITE", "true");
+setEnv("PGLITE", "true");
 
-Deno.test("DB Mutex - acquires and releases lock", async () => {
+test("DB Mutex - acquires and releases lock", async () => {
   await run(function* () {
     const lockName = "test-lock";
     
@@ -25,7 +26,7 @@ Deno.test("DB Mutex - acquires and releases lock", async () => {
   });
 });
 
-Deno.test("DB Mutex - queues requests", async () => {
+test("DB Mutex - queues requests", async () => {
   await run(function* () {
     const lock1 = "lock-1";
     const lock2 = "lock-2";
@@ -59,7 +60,7 @@ Deno.test("DB Mutex - queues requests", async () => {
   });
 });
 
-Deno.test("DB Mutex - respects priority", async () => {
+test("DB Mutex - respects priority", async () => {
   await run(function* () {
     const mainLock = "main";
     const lowPrio = "low";

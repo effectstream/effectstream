@@ -60,5 +60,5 @@ export async function waitForBlock(targetBlock: number) {
 
 if (import.meta.main) {
   await waitForBlock(100);
-  Deno.exit(0);
+  process.exit(0);
 }

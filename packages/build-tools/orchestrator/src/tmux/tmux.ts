@@ -27,6 +27,7 @@
 // https://github.com/denoland/deno/issues/29904
 import install_sh from "./install.sh.ts";
 import session_tmux from "./session.tmux.ts";
+import { spawnOutput, type SpawnOutputResult } from "@effectstream/utils/runtime";
 
 export interface TmuxOptions {
   /**
@@ -45,17 +46,11 @@ export interface TmuxOptions {
  */
 export class Tmux {
   static async install() {
-    // Pipe the built-in `install.sh` to `sh` directly.
-    const cmd = new Deno.Command("sh", {
-      stdin: "piped",
+    const output = await spawnOutput("sh", {
+      stdinInput: new TextEncoder().encode(install_sh),
       stdout: "piped",
       stderr: "piped",
     });
-    const child = cmd.spawn();
-    const writer = child.stdin.getWriter();
-    await writer.write(new TextEncoder().encode(install_sh));
-    await writer.close();
-    const output = await child.output();
 
     if (output.stdout.length > 0) {
       console.log(new TextDecoder().decode(output.stdout));
@@ -81,7 +76,7 @@ export class Tmux {
 
   /** Tell the server to start our session. */
   public async startSession() {
-    const cmd = new Deno.Command(this.options.command, {
+    const output = await spawnOutput(this.options.command, {
       args: [
         "-L",
         this.options.socket,
@@ -90,16 +85,11 @@ export class Tmux {
         "source-file",
         "-",
       ],
-      stdin: "piped",
+      stdinInput: new TextEncoder().encode(session_tmux),
       stdout: "piped",
       stderr: "piped",
     });
-
-    const child = cmd.spawn();
-    const writer = child.stdin.getWriter();
-    await writer.write(new TextEncoder().encode(session_tmux));
-    await writer.close();
-    this._checkExit(await child.output());
+    this._checkExit(output);
   }
 
   /** Attach to the session in the foreground and wait for it to be detached. */
@@ -121,17 +111,16 @@ export class Tmux {
 
   /** Kill the server, if it hasn't already exited. */
   public async killServer() {
-    const cmd = new Deno.Command(this.options.command, {
+    await spawnOutput(this.options.command, {
       args: ["-L", this.options.socket, "-N", "kill-server"],
       stdin: "null",
       stdout: "piped",
       stderr: "piped",
     });
     // Ignore exit status. We're okay with failing to kill something that isn't there.
-    await cmd.output();
   }
 
-  private _checkExit(output: Deno.CommandOutput) {
+  private _checkExit(output: SpawnOutputResult) {
     if (!output.success) {
       const errorText = new TextDecoder().decode(output.stderr);
       throw new Error(

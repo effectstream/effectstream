@@ -1346,11 +1346,11 @@ class SignalHandler {
         } catch (error) {
           console.error(`❌ Error during shutdown on ${signal}:`, error);
         } finally {
-          Deno.exit(config.exitCode || 0);
+          process.exit(config.exitCode || 0);
         }
       };
 
-      Deno.addSignalListener(signal as Deno.Signal, listener);
+      process.on(signal, listener);
       this.listeners.push(listener);
     }
   }

@@ -1,8 +1,11 @@
 #!/usr/bin/env -S deno run -A
+import { spawn } from "node:child_process";
+
 // Get port from arguments.
 const portArgName = "--port";
-const portArgIndex = Deno.args.indexOf(portArgName);
-const portValue = portArgIndex !== -1 ? Deno.args[portArgIndex + 1] : "5432";
+const argv = typeof process !== "undefined" ? process.argv.slice(2) : (typeof Deno !== "undefined" ? (Deno as any).args : []);
+const portArgIndex = argv.indexOf(portArgName);
+const portValue = portArgIndex !== -1 ? argv[portArgIndex + 1] : "5432";
 const port = parseInt(portValue);
 if (isNaN(port)) {
   throw new Error(`Port argument ${portArgName} is not a number`);
@@ -11,24 +14,24 @@ if (isNaN(port)) {
 async function waitForDb() {
   try {
     console.log("waiting for db on port", port);
-    const command = new Deno.Command("deno", {
-      args: ["-A", "npm:wait-on", `tcp:${port}`],
-      stdout: "inherit",
-      stderr: "inherit",
+    const child = spawn("npx", ["wait-on", `tcp:${port}`], {
+      stdio: "inherit",
+      shell: true,
     });
 
-    const child = command.spawn();
-    const status = await child.status;
+    const code = await new Promise<number | null>((resolve) => {
+      child.on("close", (code, _sig) => resolve(code));
+    });
 
-    if (status.success) {
+    if (code === 0) {
       console.log("✅ Database is ready on port 5432");
     } else {
       console.error("❌ Failed to connect to database on port 5432");
-      Deno.exit(status.code);
+      (typeof process !== "undefined" ? process : (Deno as any)).exit(code ?? 1);
     }
   } catch (error) {
     console.error("❌ Error waiting for database:", error);
-    Deno.exit(1);
+    (typeof process !== "undefined" ? process : (Deno as any)).exit(1);
   }
 }
 

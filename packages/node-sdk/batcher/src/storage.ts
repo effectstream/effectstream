@@ -1,5 +1,6 @@
 import type { BatchedSubunit } from "@effectstream/concise";
-import { promises as fs } from "node:fs";
+import fs from "node:fs";
+import { promises as fsPromises } from "node:fs";
 import { join } from "node:path";
 import { type Operation, until } from "effection";
 
@@ -47,14 +48,14 @@ export class FileStorage implements BatcherStorage {
   private readonly dataDirectory: string;
 
   constructor(dataDirectory: string = "./batcher-data") {
-    Deno.mkdirSync(dataDirectory, { recursive: true });
+    fs.mkdirSync(dataDirectory, { recursive: true });
     this.dataDirectory = dataDirectory;
     this.filePath = join(dataDirectory, "pending-inputs.jsonl");
   }
 
   *init(): Operation<void> {
     try {
-      yield* until(fs.mkdir(this.dataDirectory, { recursive: true }));
+      yield* until(fsPromises.mkdir(this.dataDirectory, { recursive: true }));
     } catch (error) {
       console.error("Error creating data directory:", error);
       throw new Error(`Failed to initialize storage: ${error}`);
@@ -63,7 +64,7 @@ export class FileStorage implements BatcherStorage {
 
   *addInput(input: BatchedSubunit): Operation<void> {
     try {
-      yield* until(fs.appendFile(this.filePath, JSON.stringify(input) + "\n"));
+      yield* until(fsPromises.appendFile(this.filePath, JSON.stringify(input) + "\n"));
     } catch (error) {
       console.error("Error adding input to storage:", error);
       throw new Error(`Failed to add input: ${error}`);
@@ -72,7 +73,7 @@ export class FileStorage implements BatcherStorage {
 
   *getAllInputs(): Operation<BatchedSubunit[]> {
     try {
-      const content = yield* until(fs.readFile(this.filePath, "utf-8"));
+      const content = yield* until(fsPromises.readFile(this.filePath, "utf-8"));
       const lines = content.trim().split("\n").filter((line) => line.trim());
       return lines.map((line) => JSON.parse(line));
     } catch (error) {
@@ -103,7 +104,7 @@ export class FileStorage implements BatcherStorage {
       // Write the remaining inputs back to the file
       const content = remainingInputs.map((input) => JSON.stringify(input))
         .join("\n");
-      yield* until(fs.writeFile(
+      yield* until(fsPromises.writeFile(
         this.filePath,
         content + (remainingInputs.length > 0 ? "\n" : ""),
       ));
@@ -143,7 +144,7 @@ export class FileStorage implements BatcherStorage {
 
   *clearAllInputs(): Operation<void> {
     try {
-      yield* until(fs.unlink(this.filePath));
+      yield* until(fsPromises.unlink(this.filePath));
     } catch (error) {
       if ((error as any).code !== "ENOENT") {
         console.error("Error clearing inputs:", error);

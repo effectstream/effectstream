@@ -7,7 +7,8 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const ECPair = ecpair.ECPairFactory(ecc);
 const SATS_PER_BTC = 100_000_000;
 
-const DEFAULT_BLOCK_INTERVAL = Deno.args.includes('--block-interval') ? parseInt(Deno.args[Deno.args.indexOf('--block-interval') + 1]) : 5000;
+const argv = typeof process !== "undefined" ? process.argv.slice(2) : (typeof Deno !== "undefined" ? (Deno as any).args : []);
+const DEFAULT_BLOCK_INTERVAL = argv.includes('--block-interval') ? parseInt(argv[argv.indexOf('--block-interval') + 1]) : 5000;
 const NETWORK = bitcoin.networks.regtest;
 console.log(`Using block interval: ${DEFAULT_BLOCK_INTERVAL}ms`);
 
@@ -65,18 +66,17 @@ const bitcoinRpcCall = async (method: string, params: any[] = [], walletName?: s
 let running = true;
 
 // Handle process signals
-if (typeof Deno !== 'undefined') {
-  Deno.addSignalListener('SIGINT', () => {
-    console.log('\nReceived SIGINT, stopping block generation...');
-    running = false;
-    Deno.exit(130);
-  });
-
-  Deno.addSignalListener('SIGTERM', () => {
-    console.log('\nReceived SIGTERM, stopping block generation...');
-    running = false;
-    Deno.exit(143);
-  });
+const onSignal = (sig: string, code: number) => () => {
+  console.log(`\nReceived ${sig}, stopping block generation...`);
+  running = false;
+  (typeof process !== "undefined" ? process : (Deno as any)).exit(code);
+};
+if (typeof process !== "undefined") {
+  process.on("SIGINT", onSignal("SIGINT", 130));
+  process.on("SIGTERM", onSignal("SIGTERM", 143));
+} else if (typeof Deno !== "undefined") {
+  (Deno as any).addSignalListener("SIGINT", onSignal("SIGINT", 130));
+  (Deno as any).addSignalListener("SIGTERM", onSignal("SIGTERM", 143));
 }
 
 async function main() {
@@ -121,7 +121,7 @@ async function main() {
       address = await bitcoinRpcCall('getnewaddress', []);
     } catch (e) {
       console.error('Failed to get address. Make sure Bitcoin Core is running and accessible.');
-      Deno.exit(1);
+      (typeof process !== "undefined" ? process : (Deno as any)).exit(1);
     }
   }
   
@@ -160,6 +160,6 @@ async function main() {
 
 main().catch((error) => {
   console.error('Fatal error:', error);
-  Deno.exit(1);
+  (typeof process !== "undefined" ? process : (Deno as any)).exit(1);
 });
 

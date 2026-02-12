@@ -1,4 +1,5 @@
 import { AddressType } from "@effectstream/utils";
+import { test } from "@effectstream/utils/runtime";
 import { assertEquals } from "jsr:@std/assert";
 import { EvmBatchBuilderLogic } from "./evm-builder-logic.ts";
 
@@ -16,13 +17,13 @@ function makeInput(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-Deno.test("EvmBatchBuilderLogic - returns null for empty inputs", () => {
+test("EvmBatchBuilderLogic - returns null for empty inputs", () => {
   const builder = new EvmBatchBuilderLogic();
   const result = builder.buildBatchData([], { maxSize: 1000 });
   assertEquals(result, null);
 });
 
-Deno.test("EvmBatchBuilderLogic - batches valid input", () => {
+test("EvmBatchBuilderLogic - batches valid input", () => {
   const builder = new EvmBatchBuilderLogic();
   const input = makeInput();
   const result = builder.buildBatchData([input], { maxSize: 1000 });
@@ -35,7 +36,7 @@ Deno.test("EvmBatchBuilderLogic - batches valid input", () => {
   assertEquals(result?.data?.payloads[0].address, input.address);
 });
 
-Deno.test("EvmBatchBuilderLogic - skips malformed payloads", () => {
+test("EvmBatchBuilderLogic - skips malformed payloads", () => {
   const builder = new EvmBatchBuilderLogic();
   const badInput = makeInput({ input: "not-json" });
   const goodInput = makeInput({
@@ -49,14 +50,14 @@ Deno.test("EvmBatchBuilderLogic - skips malformed payloads", () => {
   assertEquals(result?.data?.payloads[0].method, "setValue");
 });
 
-Deno.test("EvmBatchBuilderLogic - enforces max size", () => {
+test("EvmBatchBuilderLogic - enforces max size", () => {
   const builder = new EvmBatchBuilderLogic();
   const input = makeInput();
   const result = builder.buildBatchData([input], { maxSize: 10 });
   assertEquals(result, { selectedInputs: [], data: null });
 });
 
-Deno.test("EvmBatchBuilderLogic - supports hex encoded payloads", () => {
+test("EvmBatchBuilderLogic - supports hex encoded payloads", () => {
   const builder = new EvmBatchBuilderLogic();
   const json = JSON.stringify({ method: "hexCall", args: ["0x1"] });
   const hexInput = makeInput({

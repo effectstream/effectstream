@@ -4,6 +4,7 @@ import {
 } from "./utils.ts";
 import type { IInjectedConnector, IProvider } from "./IProvider.ts";
 import { AddressType } from "@effectstream/utils";
+import { test } from "@effectstream/utils/runtime";
 
 const MOCK_ADDRESS = "0xmock";
 const MOCK_METADATA = { name: "MockWallet", displayName: "Mock Wallet", icon: "", version: "1.0" };
@@ -31,20 +32,20 @@ const createMockConnector = (shouldFail = false): IInjectedConnector<unknown> =>
   },
 });
 
-Deno.test("connectInjectedWallet - simple login success", async () => {
+test("connectInjectedWallet - simple login success", async () => {
   const connector = createMockConnector();
   const provider = await connectInjectedWallet("Test", undefined, connector);
   assertEquals(provider.getAddress().address, MOCK_ADDRESS);
 });
 
-Deno.test("connectInjectedWallet - named login success", async () => {
+test("connectInjectedWallet - named login success", async () => {
   const connector = createMockConnector();
   const preference = { name: "MockWallet" };
   const provider = await connectInjectedWallet("Test", preference, connector);
   assertEquals(provider.getAddress().address, MOCK_ADDRESS);
 });
 
-Deno.test("connectInjectedWallet - external connection success", async () => {
+test("connectInjectedWallet - external connection success", async () => {
   const connector = createMockConnector();
   const preference = { 
     connection: { 
@@ -56,7 +57,7 @@ Deno.test("connectInjectedWallet - external connection success", async () => {
   assertEquals(provider.getAddress().address, MOCK_ADDRESS);
 });
 
-Deno.test("connectInjectedWallet - handles failure", async () => {
+test("connectInjectedWallet - handles failure", async () => {
   const connector = createMockConnector(true);
   await assertRejects(
     () => connectInjectedWallet("Test", undefined, connector),

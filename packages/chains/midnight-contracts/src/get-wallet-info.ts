@@ -1,6 +1,7 @@
 import * as log from "@std/log";
 import { load } from "@std/dotenv";
 import { parseArgs } from "@std/cli/parse-args";
+import { getEnv, args, exit, isNotFoundError } from "@effectstream/utils/runtime";
 import type {
   MidnightBech32m,
   ShieldedAddress,
@@ -112,7 +113,7 @@ export function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Arra
  * Resolve sync timeout from env or default.
  */
 export function resolveWalletSyncTimeoutMs(): number {
-  const envValue = Deno.env.get("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");
+  const envValue = getEnv("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");
   if (!envValue) return WALLET_SYNC_TIMEOUT_MS;
   const parsed = Number(envValue);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
@@ -569,7 +570,7 @@ async function main() {
   });
 
   // Parse command-line arguments
-  const args = parseArgs(Deno.args, {
+  const parsedArgs = parseArgs(args(), {
     string: ["seed"],
     boolean: ["balance"],
     default: {
@@ -581,13 +582,13 @@ async function main() {
   try {
     await load({ envPath: ".env.testnet", export: true });
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) {
+    if (!isNotFoundError(error)) {
         log.warn(`Failed to load .env.testnet: ${error}`);
     }
   }
 
-  const envSeed = Deno.env.get("MIDNIGHT_WALLET_SEED");
-  const argSeed = args.seed;
+  const envSeed = getEnv("MIDNIGHT_WALLET_SEED");
+  const argSeed = parsedArgs.seed;
   let seed = argSeed || envSeed;
 
   if (!seed) {
@@ -614,14 +615,14 @@ async function main() {
   }
 
   // Network Configuration
-  const indexer = Deno.env.get("MIDNIGHT_INDEXER_URL") || DEFAULT_NETWORK_URLS.indexer;
-  const indexerWS = Deno.env.get("MIDNIGHT_INDEXER_WS_URL") || DEFAULT_NETWORK_URLS.indexerWS;
-  const node = Deno.env.get("MIDNIGHT_NODE_URL") || DEFAULT_NETWORK_URLS.node;
-  const proofServer = Deno.env.get("MIDNIGHT_PROOF_SERVER_URL") || DEFAULT_NETWORK_URLS.proofServer;
+  const indexer = getEnv("MIDNIGHT_INDEXER_URL") || DEFAULT_NETWORK_URLS.indexer;
+  const indexerWS = getEnv("MIDNIGHT_INDEXER_WS_URL") || DEFAULT_NETWORK_URLS.indexerWS;
+  const node = getEnv("MIDNIGHT_NODE_URL") || DEFAULT_NETWORK_URLS.node;
+  const proofServer = getEnv("MIDNIGHT_PROOF_SERVER_URL") || DEFAULT_NETWORK_URLS.proofServer;
   
   const networkUrls: Required<NetworkUrls> = { indexer, indexerWS, node, proofServer };
   
-  const networkIdRaw = Deno.env.get("MIDNIGHT_NETWORK_ID") || "undeployed";
+  const networkIdRaw = getEnv("MIDNIGHT_NETWORK_ID") || "undeployed";
   
   // Map common network names to NetworkId enum values
   // Based on midnight-js testkit examples and Lace wallet compatibility
@@ -670,7 +671,7 @@ async function main() {
     log.info("==========================================");
 
     // Only fetch balances if --balance flag is provided
-    if (args.balance) {
+    if (parsedArgs.balance) {
       log.info("==========================================");
       log.info("Fetching Balances...");
       log.info("==========================================");
@@ -764,7 +765,7 @@ async function main() {
     await walletResult.wallet.stop();
   } catch (error) {
     log.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    Deno.exit(1);
+    exit(1);
   }
 }
 

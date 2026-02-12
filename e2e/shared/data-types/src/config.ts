@@ -26,10 +26,15 @@ import {
 } from "@effectstream/sm/builtin";
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
+import { getEnv } from "@effectstream/utils/runtime";
 
-const isEnvTrue = (typeof Deno !== 'undefined' && Deno) ? 
-  ((key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase()))
-  : ((key: string) => ["true", "1", "yes", "y"].includes(((import.meta as any).env['VITE_' + key] || "").toLowerCase()));
+const isBackendEnvironment = typeof process !== "undefined" && process.env;
+
+const isEnvTrue = (key: string) =>
+  isBackendEnvironment ? 
+      ((key: string) => ["true", "1", "yes", "y"].includes((getEnv(key) || "").toLowerCase()))
+    : ((key: string) => ["true", "1", "yes", "y"].includes(((import.meta as any).env['VITE_' + key] || "").toLowerCase()));
+
 
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.

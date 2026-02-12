@@ -1,8 +1,9 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert";
+import { test } from "@effectstream/utils/runtime";
 import { retry, tryYield } from "./retry.ts";
 import { run, sleep } from "effection";
 
-Deno.test("retry - succeeds immediately", async () => {
+test("retry - succeeds immediately", async () => {
   await run(function* () {
     const result = yield* retry(
       function* () { return "success"; },
@@ -12,7 +13,7 @@ Deno.test("retry - succeeds immediately", async () => {
   });
 });
 
-Deno.test("retry - retries until success", async () => {
+test("retry - retries until success", async () => {
   await run(function* () {
     let attempts = 0;
     const result = yield* retry(
@@ -27,7 +28,7 @@ Deno.test("retry - retries until success", async () => {
   });
 });
 
-Deno.test("retry - fails after max attempts", async () => {
+test("retry - fails after max attempts", async () => {
   await assertRejects(async () => {
     await run(function* () {
       yield* retry(
@@ -40,7 +41,7 @@ Deno.test("retry - fails after max attempts", async () => {
   }, Error, "Max attempts reached");
 });
 
-Deno.test("tryYield - success case", async () => {
+test("tryYield - success case", async () => {
     await run(function* () {
         const op = function* () { return 42; };
         const result = yield* tryYield(op());
@@ -49,7 +50,7 @@ Deno.test("tryYield - success case", async () => {
     });
 });
 
-Deno.test("tryYield - failure case", async () => {
+test("tryYield - failure case", async () => {
     await run(function* () {
         const op = function* () { throw new Error("fail"); };
         const result = yield* tryYield(op());

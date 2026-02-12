@@ -1,30 +1,32 @@
 #!/usr/bin/env -S deno run -A
+import { spawn } from "node:child_process";
 import { waitForDb } from "./wait-for-db.ts";
 import { dirname, join } from "jsr:@std/path@1.1.3";
+import { fileURLToPath } from "node:url";
 
 async function runPgtyped() {
   try {
     console.log("🔄 Running pgtyped...");
-    const __dirname = dirname(import.meta.url.replace("file://", ""));
+    const __dirname = dirname(import.meta.url?.startsWith("file:") ? fileURLToPath(import.meta.url) : import.meta.url.replace("file://", ""));
     const configPath = join(__dirname, "../pgtypedconfig.json");
-    const command = new Deno.Command("npx", {
-      args: ["pgtyped", "-c", configPath],
-      stdout: "inherit",
-      stderr: "inherit",
+    const child = spawn("npx", ["pgtyped", "-c", configPath], {
+      stdio: "inherit",
+      shell: true,
     });
 
-    const child = command.spawn();
-    const status = await child.status;
+    const code = await new Promise<number | null>((resolve) => {
+      child.on("close", (code) => resolve(code));
+    });
 
-    if (status.success) {
+    if (code === 0) {
       console.log("✅ pgtyped completed successfully");
     } else {
       console.error("❌ pgtyped failed");
-      Deno.exit(status.code);
+      process.exit(code ?? 1);
     }
   } catch (error) {
     console.error("❌ Error running pgtyped:", error);
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 

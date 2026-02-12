@@ -2,11 +2,13 @@ import { type LogHandler, streamTo, systemLog } from "./logging.ts";
 import type { Namespace } from "@effectstream/log";
 import { ComponentNames } from "@effectstream/log";
 import type { ValueOf } from "@effectstream/utils";
+import type { SpawnChild } from "@effectstream/utils/runtime";
+import { spawn } from "@effectstream/utils/runtime";
 import { abortControllers } from "./start.ts";
 
 export type ProcessComponent = {
   abortController: AbortController;
-  process: Deno.ChildProcess;
+  process: SpawnChild;
   is_piped: { stderr: boolean; stdout: boolean };
   component: ValueOf<typeof ComponentNames>;
   args: string[];
@@ -26,8 +28,8 @@ export class AbortProcessStart extends Error {
   }
 }
 
-let foregroundProcess: Deno.ChildProcess | null = null;
-export function setForegroundProcess(proc: Deno.ChildProcess) {
+let foregroundProcess: SpawnChild | null = null;
+export function setForegroundProcess(proc: SpawnChild) {
   foregroundProcess = proc;
 }
 
@@ -68,7 +70,7 @@ export async function shutdown(
     "Orchestrator has shut down. Press ^C again to kill background processes that we don't currently kill automatically.",
   );
   if (exitCode) {
-    Deno.exitCode = exitCode;
+    (typeof process !== "undefined" ? (process as any).exitCode = exitCode : (typeof Deno !== "undefined" ? (Deno as any).exitCode = exitCode : undefined));
   }
 }
 
@@ -119,7 +121,7 @@ export const terminateProcess = (processIndex: number) => {
 };
 
 /** Send SIGTERM first, then SIGKILL after one second. */
-async function kill(proc: Deno.ChildProcess): Promise<void> {
+async function kill(proc: SpawnChild): Promise<void> {
   try {
     proc.kill("SIGTERM");
     const hardKillTimer = setTimeout(
@@ -152,7 +154,7 @@ export const $ = (params: {
     throw new AbortProcessStart("Shutdown already called");
   }
   const command = params.command ?? "deno";
-  const process = new Deno.Command(command, {
+  const child = spawn(command, {
     args: params.args,
     signal: params.abortController.signal,
     stderr: params.stderr ?? "piped",
@@ -160,11 +162,11 @@ export const $ = (params: {
     stdin: params.stdin ?? "inherit",
     env: { ...params.env, FORCE_COLOR: "true" },
     cwd: params.cwd,
-  }).spawn();
-  process.ref(); // wait until all child processes die before killing parent
+  });
+  child.ref();
 
   const processComponent: ProcessComponent = {
-    process,
+    process: child,
     abortController: params.abortController,
     args: [command, ...params.args],
     alive: true,
@@ -180,7 +182,7 @@ export const $ = (params: {
   processes.push(processComponent);
 
   if (params.log != null) {
-    process.stdout.pipeTo(
+    child.stdout.pipeTo(
       streamTo(
         params.log,
         "stdout",
@@ -188,7 +190,7 @@ export const $ = (params: {
         params.namespace ?? [],
       ),
     );
-    process.stderr.pipeTo(
+    child.stderr.pipeTo(
       streamTo(
         params.log,
         "stderr",
@@ -199,7 +201,7 @@ export const $ = (params: {
   }
 
   // note: don't block on this
-  void process.status.then((status) => {
+  void child.status.then((status) => {
     systemLog(
       `Process ${processComponent.component} (${processComponent.process.pid}) finished.\n`,
     );
@@ -216,9 +218,7 @@ export const $ = (params: {
     if (!status.success) {
       if (!processComponent.critical) {
         systemLog(
-          `Non-critical process ${processComponent.component} (${
-            processComponent.process.pid
-          }) exited with status ${status.signal ?? status.code}; keeping orchestrator alive.`,
+          `Non-critical process ${processComponent.component} (${processComponent.process.pid}) exited with status ${status.signal ?? status.code}; keeping orchestrator alive.`,
         );
         return;
       }

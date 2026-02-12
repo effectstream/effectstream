@@ -1,8 +1,9 @@
 import { assertEquals } from "jsr:@std/assert";
 import { generatePaimaBlockHash } from "./paima-hash.ts";
 import type { BlockHash, PaimaBlockHash } from "@effectstream/utils";
+import { test } from "@effectstream/utils/runtime";
 
-Deno.test("generatePaimaBlockHash - generates hash correctly", () => {
+test("generatePaimaBlockHash - generates hash correctly", () => {
   const mockBlock = {
     blockInfo: [
       { blockHash: "0x123" as BlockHash },
@@ -17,7 +18,7 @@ Deno.test("generatePaimaBlockHash - generates hash correctly", () => {
   assertEquals(result.startsWith("0x"), true);
 });
 
-Deno.test("generatePaimaBlockHash - handles null previous hash", () => {
+test("generatePaimaBlockHash - handles null previous hash", () => {
     const mockBlock = {
         blockInfo: [
           { blockHash: "0x123" as BlockHash }

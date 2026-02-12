@@ -1,7 +1,8 @@
 // Cleanup stale LevelDB BEFORE importing adapters (adapters initialize on import)
 import * as path from "@std/path";
 
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+import { getEnv } from "@effectstream/utils/runtime";
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((getEnv(key) || (typeof process !== "undefined" ? process.env?.[key] : undefined) || "").toLowerCase());
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 
 // if (midnight_enabled) {

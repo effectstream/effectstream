@@ -45,5 +45,5 @@ if (import.meta.main) {
   const db = await getConnection();
   await standAloneApplyInitialMigrations(db, 0);
   console.log("✅ System migrations applied");
-  Deno.exit(0);
+  process.exit(0);
 }

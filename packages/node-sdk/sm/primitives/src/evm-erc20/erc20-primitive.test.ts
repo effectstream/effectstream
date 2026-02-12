@@ -1,5 +1,6 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert";
 import type { EvmAddress } from "@effectstream/utils";
+import { test } from "@effectstream/utils/runtime";
 import { run } from "effection";
 import type { ConfigSyncProtocolType, FlattenSyncProtocolIOFor } from "@effectstream/config";
 import { Erc20Primitive } from "./../mod.ts";
@@ -18,7 +19,7 @@ function cleanup() {
     PaimaPrimitiveRegistry.primitives = {};
 }
 
-Deno.test("Erc20Primitive - initializes correctly", () => {
+test("Erc20Primitive - initializes correctly", () => {
   cleanup();
   const primitive = new Erc20Primitive({
     instanceName: "test-token",
@@ -38,7 +39,7 @@ Deno.test("Erc20Primitive - initializes correctly", () => {
   assertEquals(config.contractAddress, MOCK_CONTRACT_ADDRESS);
 });
 
-Deno.test("Erc20Primitive - throws on invalid address", () => {
+test("Erc20Primitive - throws on invalid address", () => {
   cleanup();
   assertThrows(() => {
     new Erc20Primitive({
@@ -50,7 +51,7 @@ Deno.test("Erc20Primitive - throws on invalid address", () => {
   });
 });
 
-Deno.test("Erc20Primitive - getPayload generates correct state update", async () => {
+test("Erc20Primitive - getPayload generates correct state update", async () => {
   cleanup();
   const primitive = new Erc20Primitive({
     instanceName: "test-token",
@@ -91,7 +92,7 @@ Deno.test("Erc20Primitive - getPayload generates correct state update", async ()
   });
 });
 
-Deno.test("Erc20Primitive - getPayload skips state machine payload if no prefix", async () => {
+test("Erc20Primitive - getPayload skips state machine payload if no prefix", async () => {
     cleanup();
     const primitive = new Erc20Primitive({
       instanceName: "test-token",

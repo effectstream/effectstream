@@ -202,8 +202,13 @@ export const contractAddressesEvmMain: () => Record<
 
   ${chainLets.join("\n")}
 
-  ${chainIds.map((chainId) => `if (typeof Deno !== 'undefined' && Deno && Deno.statSync(file${chainToIndex[`chain${chainId}`]}).isFile) {
-    chain${chainId} = JSON.parse(Deno.readTextFileSync(file${chainToIndex[`chain${chainId}`]}));
+  ${chainIds.map((chainId) => `if (typeof process !== 'undefined') {
+    try {
+      const _fs = require('node:fs');
+      if (_fs.existsSync(file${chainToIndex[`chain${chainId}`]}) && _fs.statSync(file${chainToIndex[`chain${chainId}`]}).isFile()) {
+        chain${chainId} = JSON.parse(_fs.readFileSync(file${chainToIndex[`chain${chainId}`}]}, 'utf-8'));
+      }
+    } catch (_) { /* ignore */ }
   }`).join("\n")}
 
   return {

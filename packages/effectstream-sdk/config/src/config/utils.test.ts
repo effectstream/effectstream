@@ -1,4 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
+import { test } from "@effectstream/utils/runtime";
 import {
   getPrimitivesForSyncProtocol,
   onlyOnce,
@@ -9,7 +10,7 @@ import type {
   ConfigSyncProtocolType,
 } from "../schema/sync-protocols/types.ts";
 
-Deno.test("onlyOnce - returns built value", () => {
+test("onlyOnce - returns built value", () => {
   const expected = { some: "value" };
   const result = onlyOnce({
     key: () => undefined,
@@ -18,7 +19,7 @@ Deno.test("onlyOnce - returns built value", () => {
   assertEquals(result, expected);
 });
 
-Deno.test("onlyNotError - returns built value", () => {
+test("onlyNotError - returns built value", () => {
   const expected = { some: "value" };
   const result = onlyNotError({
     key: () => undefined,
@@ -27,7 +28,7 @@ Deno.test("onlyNotError - returns built value", () => {
   assertEquals(result, expected);
 });
 
-Deno.test("onlyValue - returns built value when targets match", () => {
+test("onlyValue - returns built value when targets match", () => {
   const expected = { some: "value" };
   const result = onlyValue({
     value: () => "test",
@@ -37,7 +38,7 @@ Deno.test("onlyValue - returns built value when targets match", () => {
   assertEquals(result, expected);
 });
 
-Deno.test("getPrimitivesForSyncProtocol - filters primitives correctly", () => {
+test("getPrimitivesForSyncProtocol - filters primitives correctly", () => {
   const primitives = {
     "prim1": { syncProtocol: "evm", primitive: {} },
     "prim2": { syncProtocol: "cardano", primitive: {} },
@@ -53,7 +54,7 @@ Deno.test("getPrimitivesForSyncProtocol - filters primitives correctly", () => {
   assertEquals(result[0].syncProtocol, "evm");
 });
 
-Deno.test("getPrimitivesForSyncProtocol - returns empty array for no matches", () => {
+test("getPrimitivesForSyncProtocol - returns empty array for no matches", () => {
   const primitives = {
     "prim1": { syncProtocol: "evm", primitive: {} },
   };
@@ -64,7 +65,7 @@ Deno.test("getPrimitivesForSyncProtocol - returns empty array for no matches", (
   assertEquals(result.length, 0);
 });
 
-Deno.test("getPrimitivesForSyncProtocol - handles empty primitives", () => {
+test("getPrimitivesForSyncProtocol - handles empty primitives", () => {
     // @ts-ignore: Testing internal logic
     const result = getPrimitivesForSyncProtocol({}, "evm");
     assertEquals(result.length, 0);

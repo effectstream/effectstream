@@ -1,8 +1,9 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert";
+import { test } from "@effectstream/utils/runtime";
 import { countdownLatch } from "./latch.ts";
 import { run, sleep, spawn } from "effection";
 
-Deno.test("countdownLatch - waits for countdown", async () => {
+test("countdownLatch - waits for countdown", async () => {
   await run(function* () {
     const { wait, countDown } = countdownLatch(2);
     let done = false;
@@ -25,7 +26,7 @@ Deno.test("countdownLatch - waits for countdown", async () => {
   });
 });
 
-Deno.test("countdownLatch - respects timeout", async () => {
+test("countdownLatch - respects timeout", async () => {
     await assertRejects(async () => {
         await run(function* () {
             const { wait } = countdownLatch(1);
@@ -34,7 +35,7 @@ Deno.test("countdownLatch - respects timeout", async () => {
     }, Error, "timeout");
 });
 
-Deno.test("countdownLatch - no-op if already zero", async () => {
+test("countdownLatch - no-op if already zero", async () => {
     await run(function* () {
         const { wait, countDown } = countdownLatch(1);
         countDown();
