@@ -1,0 +1,16 @@
+{
+  "name": "@effectstream/event-client",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "0.34.41",
+    "abitype": "1.1.0",
+    "assert-never": "^1.4.0",
+    "js-sha3": "^0.9.3",
+    "mqtt": "^5.14.0",
+    "mqtt-pattern": "^2.1.0"
+  }
+}

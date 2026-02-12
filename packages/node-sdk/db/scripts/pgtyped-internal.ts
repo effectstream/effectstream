@@ -1,7 +1,7 @@
-#!/usr/bin/env -S deno run -A
+#!/usr/bin/env bun
 import { spawn } from "node:child_process";
 import { waitForDb } from "./wait-for-db.ts";
-import { dirname, join } from "jsr:@std/path@1.1.3";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 async function runPgtyped() {

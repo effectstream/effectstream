@@ -1,0 +1,26 @@
+{
+  "name": "@effectstream/wallets",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": "./src/mod.ts",
+  "dependencies": {
+    "@aurowallet/mina-provider": "^1.0.12",
+    "@metamask/providers": "^22.1.0",
+    "@midnight-ntwrk/dapp-connector-api": "4.0.0",
+    "@perawallet/connect": "^1.4.2",
+    "@polkadot/api": "15.10.2",
+    "@polkadot/extension-dapp": "^0.58.10",
+    "@polkadot/extension-inject": "^0.58.10",
+    "@polkadot/util": "^13.4.3",
+    "@polkadot/util-crypto": "^13.4.3",
+    "@types/semver": "7.7.1",
+    "assert-never": "^1.4.0",
+    "avail-js-sdk": "^0.4.2",
+    "bech32": "^2.0.0",
+    "ethers": "^6.15.0",
+    "semver": "^7.7.3",
+    "viem": "2.37.3",
+    "web3": "^4.16.0",
+    "web3-utils": "^4.3.3"
+  }
+}

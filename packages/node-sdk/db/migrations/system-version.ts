@@ -1,6 +1,6 @@
 import type { Client } from "pg";
 import type { Operation } from "effection";
-import { until } from "npm:effection@3.5.0";
+import { until } from "effection";
 import * as migrationFiles from "./assets.ts";
 import {
   acquireDBMutex,
@@ -25,7 +25,6 @@ export function parseVersion(version: VERSION): VERSION_NUMBER {
   return [major, minor, patch];
 }
 
-// deno-lint-ignore require-await
 export async function getMigrations(
   from_version: VERSION | undefined = undefined,
   to_version: VERSION = EFFECTSTREAM_ENGINE_VERSION,

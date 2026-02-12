@@ -1,10 +1,27 @@
 {
   "name": "@effectstream/db",
   "version": "0.3.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./start-pglite": "./scripts/start-pglite.ts",
+    "./apply-migrations": "./scripts/apply-migrations.ts",
+    "./db-up": "./scripts/start-pglite.ts",
+    "./db-wait": "./scripts/wait-for-db.ts",
+    "./pgtyped-update": "./scripts/pgtyped-update.ts",
+    "./version": "./migrations/system-version.ts"
+  },
+  "dependencies": {
+    "@pgtyped/runtime": "2.4.2",
+    "@pgtyped/parser": "2.4.2",
+    "pg": "8.17.2",
+    "pg-tx": "^1.0.1",
+    "effection": "^3.5.0",
+    "pg-gateway": "^0.3.0-beta.4"
+  },
   "devDependencies": {
     "@paima/pgtyped-cli": "^2.4.5",
     "@electric-sql/pglite": "^0.3.14",
-    "pg-gateway": "^0.3.0-beta.4",
     "wait-on": "8.0.3",
     "concurrently": "9.1.2"
   }
