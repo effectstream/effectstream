@@ -1,7 +1,7 @@
 import {
   type ContractAddress,
   NetworkId,
-} from "npm:@midnight-ntwrk/compact-runtime";
+} from "@midnight-ntwrk/compact-runtime";
 import {
   SimpleToken,
   witnesses,
@@ -11,19 +11,19 @@ import {
   nativeToken,
   Transaction,
   type TransactionId,
-} from "npm:@midnight-ntwrk/ledger";
+} from "@midnight-ntwrk/ledger";
 import {
   MidnightBech32m,
   ShieldedAddress,
-} from "npm:@midnight-ntwrk/wallet-sdk-address-format";
+} from "@midnight-ntwrk/wallet-sdk-address-format";
 import {
   type DeployedContract,
   findDeployedContract,
   type FoundContract,
-} from "npm:@midnight-ntwrk/midnight-js-contracts";
-import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider";
+} from "@midnight-ntwrk/midnight-js-contracts";
+import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import {
   type BalancedTransaction,
   createBalancedTx,
@@ -33,22 +33,22 @@ import {
   type MidnightProviders,
   type UnbalancedTransaction,
   type WalletProvider,
-} from "npm:@midnight-ntwrk/midnight-js-types";
-import { type Resource, WalletBuilder } from "npm:@midnight-ntwrk/wallet";
-import { type Wallet } from "npm:@midnight-ntwrk/wallet-api";
-import { Transaction as ZswapTransaction } from "npm:@midnight-ntwrk/zswap";
-import { levelPrivateStateProvider } from "npm:@midnight-ntwrk/midnight-js-level-private-state-provider";
-import * as Rx from "npm:rxjs";
-import { assertIsContractAddress } from "npm:@midnight-ntwrk/midnight-js-utils";
+} from "@midnight-ntwrk/midnight-js-types";
+import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
+import { type Wallet } from "@midnight-ntwrk/wallet-api";
+import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
+import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
+import * as Rx from "rxjs";
+import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import {
   getLedgerNetworkId,
   getZswapNetworkId,
   setNetworkId,
-} from "npm:@midnight-ntwrk/midnight-js-network-id";
-import { dirname, resolve } from "@std/path";
-import { exists } from "@std/fs";
+} from "@midnight-ntwrk/midnight-js-network-id";
+import { dirname, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { getEnv, args, exit } from "@effectstream/utils/runtime";
-import { readFile, readTextFile } from "node:fs/promises";
 
 globalThis.WebSocket = WebSocket;
 
@@ -268,7 +268,7 @@ const buildWalletAndWaitForFunds = async (
   let wallet: Wallet & Resource;
   if (directoryPath !== undefined) {
     const fullPath = `${directoryPath}/${filename}`;
-    if (await exists(fullPath)) {
+    if (existsSync(fullPath)) {
       console.log(
         `Attempting to restore state from ${fullPath}`,
       );
@@ -384,9 +384,9 @@ const getContractAddress = async (): Promise<string> => {
   const contractAddressFile = resolve(currentDir, contractAddressFileName);
 
   try {
-    if (await exists(contractAddressFile)) {
+    if (existsSync(contractAddressFile)) {
       const contractAddressFromFile = JSON.parse(
-        await readTextFile(contractAddressFile, "utf-8"),
+        await readFile(contractAddressFile, "utf-8"),
       ).contractAddress;
 
       if (contractAddressFromFile) {
@@ -406,13 +406,13 @@ const getContractAddress = async (): Promise<string> => {
     console.error(`❌ Error reading contract address from file: ${error}`);
     console.error("❌ Error: Contract address is required");
     console.error(
-      "Usage: deno run --allow-all increment.ts <CONTRACT_ADDRESS>",
+      "Usage: bun increment.ts <CONTRACT_ADDRESS>",
     );
     console.error(
       "Or create a contract_address.txt file with the contract address",
     );
     console.error(
-      "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678",
+      "Example: bun increment.ts 0x1234567890abcdef1234567890abcdef12345678",
     );
     exit(1);
   }

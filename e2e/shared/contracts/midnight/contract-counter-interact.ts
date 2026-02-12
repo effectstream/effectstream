@@ -46,11 +46,11 @@ import {
   getZswapNetworkId,
   setNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
-import { dirname, resolve } from "@std/path";
-import { exists } from "@std/fs";
+import { dirname, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import { getEnv, args, exit } from "@effectstream/utils/runtime";
-import { readFile, readTextFile } from "node:fs/promises";
 
 // @ts-expect-error: It's needed to enable WebSocket usage through apollo
 globalThis.WebSocket = WebSocket;
@@ -259,7 +259,7 @@ const buildWalletAndWaitForFunds = async (
   let wallet: Wallet & Resource;
   if (directoryPath !== undefined) {
     const fullPath = `${directoryPath}/${filename}`;
-    if (await exists(fullPath)) {
+    if (existsSync(fullPath)) {
       console.log(
         `Attempting to restore state from ${fullPath}`,
       );
@@ -380,9 +380,9 @@ const getContractAddress = async (): Promise<string> => {
   const contractAddressFile = resolve(currentDir, contractAddressFileName);
 
   try {
-    if (await exists(contractAddressFile)) {
+    if (existsSync(contractAddressFile)) {
       const contractAddressFromFile = JSON.parse(
-        await readTextFile(contractAddressFile, "utf-8"),
+        await readFile(contractAddressFile, "utf-8"),
       ).contractAddress;
 
       if (contractAddressFromFile) {
@@ -402,13 +402,13 @@ const getContractAddress = async (): Promise<string> => {
     console.error(`❌ Error reading contract address from file: ${error}`);
     console.error("❌ Error: Contract address is required");
     console.error(
-      "Usage: deno run --allow-all increment.ts <CONTRACT_ADDRESS>",
+      "Usage: bun increment.ts <CONTRACT_ADDRESS>",
     );
     console.error(
       "Or create a contract_address.txt file with the contract address",
     );
     console.error(
-      "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678",
+      "Example: bun increment.ts 0x1234567890abcdef1234567890abcdef12345678",
     );
     exit(1);
   }
@@ -418,11 +418,11 @@ const getContractAddress = async (): Promise<string> => {
  * Standalone script that joins a counter contract with a specific address and increments its value.
  *
  * Usage:
- *   deno run --allow-all increment.ts <CONTRACT_ADDRESS>
+ *   bun increment.ts <CONTRACT_ADDRESS>
  *   or create a contract_address.txt file with the contract address
  *
  * Example:
- *   deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678
+ *   bun increment.ts 0x1234567890abcdef1234567890abcdef12345678
  */
 async function joinAndIncrement(): Promise<void> {
   // Get contract address from command line arguments or file
