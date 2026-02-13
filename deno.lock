@@ -20582,32 +20582,6 @@
           "npm:viem@2.37.3"
         ]
       },
-      "e2e/e2e-offer-files/packages/midnight": {
-        "dependencies": [
-          "jsr:@std/fs@*",
-          "jsr:@std/path@*",
-          "npm:@midnight-ntwrk/compact-js@2.4.0",
-          "npm:@midnight-ntwrk/compact-runtime@0.14.0",
-          "npm:@midnight-ntwrk/ledger-v7@7.0.0",
-          "npm:@midnight-ntwrk/midnight-js-contracts@3.0.0",
-          "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@3.0.0",
-          "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@3.0.0",
-          "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@3.0.0",
-          "npm:@midnight-ntwrk/midnight-js-network-id@3.0.0",
-          "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@3.0.0",
-          "npm:@midnight-ntwrk/midnight-js-types@3.0.0",
-          "npm:@midnight-ntwrk/midnight-js-utils@3.0.0",
-          "npm:@midnight-ntwrk/wallet-sdk-abstractions@1.0.0",
-          "npm:@midnight-ntwrk/wallet-sdk-address-format@3.0.0",
-          "npm:@midnight-ntwrk/wallet-sdk-dust-wallet@1.0.0",
-          "npm:@midnight-ntwrk/wallet-sdk-facade@1.0.0",
-          "npm:@midnight-ntwrk/wallet-sdk-hd@3.0.0",
-          "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0",
-          "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0",
-          "npm:rxjs@^7.8.2",
-          "npm:ws@*"
-        ]
-      },
       "e2e/e2e-wallets": {
         "dependencies": [
           "jsr:@oak/oak@^17.1.4",
@@ -21091,56 +21065,6 @@
           "npm:viem@2.37.3",
           "npm:web3-utils@^4.3.3",
           "npm:web3@^4.16.0"
-        ]
-      },
-      "packages/effectstream-sdk/wallets/npm": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@aurowallet/mina-provider@^1.0.12",
-            "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11",
-            "npm:@coderspirit/nominal@^4.1.1",
-            "npm:@foxglove/crc@^1.0.1",
-            "npm:@metamask/providers@^22.1.0",
-            "npm:@perawallet/connect@^1.4.2",
-            "npm:@polkadot/extension-dapp@~0.58.10",
-            "npm:@polkadot/extension-inject@~0.58.10",
-            "npm:@polkadot/util-crypto@^13.4.3",
-            "npm:@polkadot/util@^13.4.3",
-            "npm:@sinclair/typebox@0.34.41",
-            "npm:@subsquid/ss58-codec@^1.2.3",
-            "npm:abitype@1.1.0",
-            "npm:algosdk@^3.4.0",
-            "npm:assert-never@^1.4.0",
-            "npm:avail-js-sdk@~0.4.2",
-            "npm:bech32@2",
-            "npm:bs58@6",
-            "npm:bs58check@4",
-            "npm:effection@^3.5.0",
-            "npm:ethers@^6.15.0",
-            "npm:hi-base32@~0.5.1",
-            "npm:js-base64@^3.7.7",
-            "npm:js-sha3@~0.9.3",
-            "npm:js-sha512@0.9",
-            "npm:mina-signer@^3.0.7",
-            "npm:mqtt-pattern@^2.1.0",
-            "npm:mqtt@^5.14.0",
-            "npm:viem@2.37.3",
-            "npm:web3-utils@^4.3.3",
-            "npm:web3@^4.16.0"
-          ]
-        }
-      },
-      "packages/node-sdk/batcher": {
-        "dependencies": [
-          "jsr:@std/cli@^1.0.24",
-          "npm:@fastify/cors@^11.0.1",
-          "npm:@fastify/swagger-ui@^5.2.3",
-          "npm:@fastify/swagger@^9.5.1",
-          "npm:@sinclair/typebox@0.34.41",
-          "npm:assert-never@^1.4.0",
-          "npm:effection@^3.5.0",
-          "npm:fastify@^5.4.0",
-          "npm:viem@2.37.3"
         ]
       },
       "packages/node-sdk/db": {

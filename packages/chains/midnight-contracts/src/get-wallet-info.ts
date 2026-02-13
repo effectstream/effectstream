@@ -26,6 +26,8 @@ import type { DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded
 import { CONSTANTS } from "./constants.ts";
 import type { NetworkUrls, WalletResult } from "./types.ts";
 import { midnightNetworkConfig } from "./midnight-env.ts";
+import { exit } from "node:process";
+import { getEnv, args, isNotFoundError } from "@effectstream/utils/runtime";
 
 // ============================================================================
 // Key Derivation
@@ -61,7 +63,7 @@ function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Array {
  * Resolve sync timeout from env or default.
  */
 export function resolveWalletSyncTimeoutMs(): number {
-  const envValue = getEnv("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");a
+  const envValue = getEnv("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");
   if (!envValue) return CONSTANTS.WALLET_SYNC_TIMEOUT_MS;
   const parsed = Number(envValue);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;

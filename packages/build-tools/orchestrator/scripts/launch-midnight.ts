@@ -126,7 +126,7 @@ export const launchMidnight = (packageName: string): {
         "midnight-contract:deploy",
       ],
       env: {
-        MIDNIGHT_STORAGE_PASSWORD: ENV.MIDNIGHT_STORAGE_PASSWORD,
+        MIDNIGHT_STORAGE_PASSWORD: getEnv("MIDNIGHT_STORAGE_PASSWORD") ?? ""
       },
       dependsOn: [
         ComponentNames.MIDNIGHT_NODE_WAIT,
