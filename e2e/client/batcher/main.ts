@@ -44,7 +44,7 @@ import {
 const batcher = createNewBatcher(config, storage);
 const batchIntervalMs = 1000;
 
-const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
+const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
 
 batcher
   .addBlockchainAdapter("paimal2", effectstreaml2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
