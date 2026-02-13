@@ -56,7 +56,7 @@ let midnightCounterAddress: string | undefined;
 let midnightEip20Address: string | undefined;
 let midnightArtifactsReady = false;
 
-if (typeof Deno !== 'undefined' && Deno) {
+if (typeof process !== 'undefined') {
   if (USE_TESTING_TIP && arbitrumSepoliaRpc) {
     /* Get the latest block number from the Arbitrum Sepolia chain */
     try {

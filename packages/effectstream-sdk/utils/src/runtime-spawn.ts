@@ -12,8 +12,12 @@ export interface SpawnChild {
   readonly stdin?: WritableStream<Uint8Array>;
   readonly stdout: ReadableStream<Uint8Array>;
   readonly stderr: ReadableStream<Uint8Array>;
-  readonly status: Promise<{ success: boolean; code?: number; signal?: string }>;
-  kill(signal?: string): void;
+  readonly status: Promise<{
+    success: boolean;
+    code?: number;
+    signal?: string;
+  }>;
+  kill(signal?: NodeJS.Signals): void;
   ref(): void;
 }
 
@@ -52,9 +56,21 @@ function emptyReadableStream(): ReadableStream<Uint8Array> {
 export function spawn(command: string, options: SpawnOptions = {}): SpawnChild {
   const args = options.args ?? [];
   const stdio: ("inherit" | "pipe" | "ignore")[] = [
-    options.stdin === "piped" ? "pipe" : options.stdin === "null" ? "ignore" : "inherit",
-    options.stdout === "piped" ? "pipe" : options.stdout === "null" ? "ignore" : "inherit",
-    options.stderr === "piped" ? "pipe" : options.stderr === "null" ? "ignore" : "inherit",
+    options.stdin === "piped"
+      ? "pipe"
+      : options.stdin === "null"
+        ? "ignore"
+        : "inherit",
+    options.stdout === "piped"
+      ? "pipe"
+      : options.stdout === "null"
+        ? "ignore"
+        : "inherit",
+    options.stderr === "piped"
+      ? "pipe"
+      : options.stderr === "null"
+        ? "ignore"
+        : "inherit",
   ];
 
   const cp = nodeSpawn(command, args, {
@@ -73,17 +89,19 @@ export function spawn(command: string, options: SpawnOptions = {}): SpawnChild {
       ? (Readable.toWeb(cp.stderr) as ReadableStream<Uint8Array>)
       : emptyReadableStream();
 
-  const status = new Promise<{ success: boolean; code?: number; signal?: string }>(
-    (resolve) => {
-      cp.on("close", (code: number | null, signal: string | null) => {
-        resolve({
-          success: code === 0,
-          code: code ?? undefined,
-          signal: signal ?? undefined,
-        });
+  const status = new Promise<{
+    success: boolean;
+    code?: number;
+    signal?: string;
+  }>((resolve) => {
+    cp.on("close", (code: number | null, signal: string | null) => {
+      resolve({
+        success: code === 0,
+        code: code ?? undefined,
+        signal: signal ?? undefined,
       });
-    }
-  );
+    });
+  });
 
   let stdinStream: WritableStream<Uint8Array> | undefined;
   if (options.stdin === "piped" && cp.stdin) {
@@ -98,7 +116,7 @@ export function spawn(command: string, options: SpawnOptions = {}): SpawnChild {
     stdout,
     stderr,
     status,
-    kill(signal?: string) {
+    kill(signal?: NodeJS.Signals) {
       cp.kill(signal ?? "SIGTERM");
     },
     ref() {
@@ -113,7 +131,7 @@ export function spawn(command: string, options: SpawnOptions = {}): SpawnChild {
  */
 export async function spawnOutput(
   command: string,
-  options: SpawnOptions & { stdinInput?: Uint8Array } = {}
+  options: SpawnOptions & { stdinInput?: Uint8Array } = {},
 ): Promise<SpawnOutputResult> {
   const { stdinInput, ...spawnOpts } = options;
   const useStdin = stdinInput != null;
@@ -145,7 +163,9 @@ export async function spawnOutput(
   };
 }
 
-async function streamToUint8Array(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+async function streamToUint8Array(
+  stream: ReadableStream<Uint8Array>,
+): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   const reader = stream.getReader();
   try {

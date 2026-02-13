@@ -88,9 +88,7 @@ class StandaloneConfig implements Config {
 
 const config = new StandaloneConfig();
 
-const currentDir = resolve(
-  dirname(new URL(import.meta.url).pathname),
-);
+const currentDir = resolve(dirname(new URL(import.meta.url).pathname));
 
 const contractConfig = {
   privateStateStoreName: "counter-private-state",
@@ -114,10 +112,8 @@ const contractAddressFileName = `contract-eip-20.${contractNetworkId}.json`;
  */
 const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
-const simpleTokenContractInstance: SimpleTokenContract = new SimpleToken
-  .Contract(
-  witnesses,
-);
+const simpleTokenContractInstance: SimpleTokenContract =
+  new SimpleToken.Contract(witnesses);
 
 const getSimpleTokenLedgerState = async (
   providers: SimpleTokenProviders,
@@ -127,17 +123,17 @@ const getSimpleTokenLedgerState = async (
   console.log("🔍 Checking contract ledger state...");
 
   try {
-    const contractState = await providers.publicDataProvider.queryContractState(
-      contractAddress,
-    );
-    const state = contractState != null
-      ? SimpleToken.ledger(contractState.data)
-      : null;
+    const contractState =
+      await providers.publicDataProvider.queryContractState(contractAddress);
+    const state =
+      contractState != null ? SimpleToken.ledger(contractState.data) : null;
     console.log(
       `📊 Ledger state: ${
-        state && JSON.stringify(
+        state &&
+        JSON.stringify(
           state,
-          (_key, value) => typeof value === "bigint" ? value.toString() : value,
+          (_key, value) =>
+            typeof value === "bigint" ? value.toString() : value,
           2,
         )
       }`,
@@ -230,7 +226,7 @@ const createWalletAndMidnightProvider = async (
           Transaction.deserialize(
             zswapTx.serialize(getZswapNetworkId()),
             getLedgerNetworkId(),
-          )
+          ),
         )
         .then(createBalancedTx);
     },
@@ -269,9 +265,7 @@ const buildWalletAndWaitForFunds = async (
   if (directoryPath !== undefined) {
     const fullPath = `${directoryPath}/${filename}`;
     if (existsSync(fullPath)) {
-      console.log(
-        `Attempting to restore state from ${fullPath}`,
-      );
+      console.log(`Attempting to restore state from ${fullPath}`);
       try {
         const serialized = await readFile(fullPath);
         wallet = await WalletBuilder.restore(
@@ -350,9 +344,8 @@ const configureProviders = async (
   wallet: Wallet & Resource,
   config: Config,
 ) => {
-  const walletAndMidnightProvider = await createWalletAndMidnightProvider(
-    wallet,
-  );
+  const walletAndMidnightProvider =
+    await createWalletAndMidnightProvider(wallet);
   return {
     // Old SDK: Empty config works fine - avoids historical private state sync
     privateStateProvider: levelPrivateStateProvider({}),
@@ -405,9 +398,7 @@ const getContractAddress = async (): Promise<string> => {
   } catch (error) {
     console.error(`❌ Error reading contract address from file: ${error}`);
     console.error("❌ Error: Contract address is required");
-    console.error(
-      "Usage: bun increment.ts <CONTRACT_ADDRESS>",
-    );
+    console.error("Usage: bun increment.ts <CONTRACT_ADDRESS>");
     console.error(
       "Or create a contract_address.txt file with the contract address",
     );
@@ -469,9 +460,7 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
     );
 
     const accountBalance = await balanceOf(simpleTokenContract, account);
-    console.log(
-      `Account balance: ${String(accountBalance)}`,
-    );
+    console.log(`Account balance: ${String(accountBalance)}`);
     // Display simple token value after increment
     await getSimpleTokenLedgerState(providers, contractAddress);
 

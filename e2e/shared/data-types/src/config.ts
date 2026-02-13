@@ -59,10 +59,8 @@ const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
 let yaciDevKitStartTime: number | undefined;
-// @ts-ignore
-if (typeof Deno !== 'undefined' && Deno) {
-  // NOTE: This does not work when imported by the browser.
-  //       We setup a Deno as undefined in the browser, to make it skip this import.
+if (typeof process !== 'undefined') {
+  // NOTE: This guard prevents this code from running in the browser.
   // const { getConnection } = await import("@effectstream/db");
   const dbConn = getConnection();
   try {
