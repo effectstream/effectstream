@@ -225,7 +225,7 @@ export const logHandler = (options: {
   }
 };
 
-let timeout: number | null = null;
+let timeout: ReturnType<typeof setTimeout> | null = null;
 // TODO This should use the logsConfig.tuiPort instead of the ENV.TUI_LOG_PORT
 const tuiUrl = ENV.TUI_LOG_URL + ":" + ENV.TUI_LOG_PORT /* logsConfig.tuiPort */;
 

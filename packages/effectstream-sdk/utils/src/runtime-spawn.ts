@@ -82,11 +82,11 @@ export function spawn(command: string, options: SpawnOptions = {}): SpawnChild {
 
   const stdout: ReadableStream<Uint8Array> =
     options.stdout === "piped" && cp.stdout
-      ? (Readable.toWeb(cp.stdout) as ReadableStream<Uint8Array>)
+      ? (Readable.toWeb(cp.stdout) as unknown as ReadableStream<Uint8Array>)
       : emptyReadableStream();
   const stderr: ReadableStream<Uint8Array> =
     options.stderr === "piped" && cp.stderr
-      ? (Readable.toWeb(cp.stderr) as ReadableStream<Uint8Array>)
+      ? (Readable.toWeb(cp.stderr) as unknown as ReadableStream<Uint8Array>)
       : emptyReadableStream();
 
   const status = new Promise<{
