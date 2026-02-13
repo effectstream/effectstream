@@ -1,11 +1,6 @@
 import * as log from "@std/log";
 import { load } from "@std/dotenv";
 import { parseArgs } from "@std/cli/parse-args";
-import { getEnv, args, exit, isNotFoundError } from "@effectstream/utils/runtime";
-import type {
-  MidnightBech32m,
-  ShieldedAddress,
-} from "@midnight-ntwrk/wallet-sdk-address-format";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import * as Rx from "rxjs";
@@ -18,9 +13,7 @@ import {
   createKeystore,
   PublicKey,
   InMemoryTransactionHistoryStorage,
-  type UnshieldedKeystore,
 } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
-
 import {
   LedgerParameters,
   ZswapSecretKeys,
@@ -30,62 +23,17 @@ import {
 } from "@midnight-ntwrk/ledger-v7";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import type { DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded/v1";
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-/** Transaction TTL duration in milliseconds (1 hour) */
-const TTL_DURATION_MS = 60 * 60 * 1000;
-
-/** Additional fee overhead for dust transactions (in smallest unit) */
-const DUST_FEE_OVERHEAD = 300_000_000_000_000n;
-
-/** Fee blocks margin for dust wallet */
-const DUST_FEE_BLOCKS_MARGIN = 5;
-
-/** Wallet sync progress logging throttle interval */
-const WALLET_SYNC_THROTTLE_MS = 10_000;
-
-/** Wallet sync timeout (5 minutes) */
-const WALLET_SYNC_TIMEOUT_MS = 300_000;
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface NetworkUrls {
-  indexer: string;
-  indexerWS: string;
-  node: string;
-  proofServer: string;
-}
-
-export const DEFAULT_NETWORK_URLS: Required<NetworkUrls> = {
-  indexer: "http://127.0.0.1:8088/api/v3/graphql",
-  indexerWS: "ws://127.0.0.1:8088/api/v3/graphql/ws",
-  node: "http://127.0.0.1:9944",
-  proofServer: "http://127.0.0.1:6300",
-};
-
-export interface WalletResult {
-  wallet: WalletFacade;
-  zswapSecretKeys: ZswapSecretKeys;
-  walletZswapSecretKeys: ZswapSecretKeys;
-  dustSecretKey: DustSecretKey;
-  walletDustSecretKey: DustSecretKey;
-  dustAddress: string;
-  unshieldedAddress: string;
-  unshieldedKeystore: UnshieldedKeystore;
-}
+import { CONSTANTS } from "./constants.ts";
+import type { NetworkUrls, WalletResult } from "./types.ts";
+import { midnightNetworkConfig } from "./midnight-env.ts";
 
 // ============================================================================
 // Key Derivation
 // ============================================================================
 
-export type DerivationRole = typeof Roles.Zswap | typeof Roles.Dust | typeof Roles.NightExternal;
+type DerivationRole = typeof Roles.Zswap | typeof Roles.Dust | typeof Roles.NightExternal;
 
-export function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Array {
+function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Array {
   const seedBuffer = Buffer.from(seed, "hex");
   const hdWalletResult = HDWallet.fromSeed(seedBuffer);
 
@@ -113,14 +61,14 @@ export function deriveSeedForRole(seed: string, role: DerivationRole): Uint8Arra
  * Resolve sync timeout from env or default.
  */
 export function resolveWalletSyncTimeoutMs(): number {
-  const envValue = getEnv("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");
-  if (!envValue) return WALLET_SYNC_TIMEOUT_MS;
+  const envValue = getEnv("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");a
+  if (!envValue) return CONSTANTS.WALLET_SYNC_TIMEOUT_MS;
   const parsed = Number(envValue);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
   log.warn(
-    `Invalid MIDNIGHT_WALLET_SYNC_TIMEOUT_MS="${envValue}", using default ${WALLET_SYNC_TIMEOUT_MS}ms`
+    `Invalid MIDNIGHT_WALLET_SYNC_TIMEOUT_MS="${envValue}", using default ${CONSTANTS.WALLET_SYNC_TIMEOUT_MS}ms`
   );
-  return WALLET_SYNC_TIMEOUT_MS;
+  return CONSTANTS.WALLET_SYNC_TIMEOUT_MS;
 }
 
 /**
@@ -160,11 +108,11 @@ export async function syncAndWaitForFunds(
     log.info(
       `[wait] shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
     );
-  }, WALLET_SYNC_THROTTLE_MS);
+  }, CONSTANTS.WALLET_SYNC_THROTTLE_MS);
 
   const state = await Rx.firstValueFrom(
     wallet.state().pipe(
-      Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
+      Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS),
       Rx.tap((state: any) => {
         latestState = state;
         const isSynced = state.isSynced ?? false;
@@ -220,6 +168,7 @@ export async function syncAndWaitForFunds(
   log.info(`Looking for token ID: ${tokenId}`);
   
   const shieldedBalance = shieldedBalancesObj[tokenId] ?? 0n;
+  console.log("All shielded balances", shieldedBalancesObj);
   log.info(`Shielded balance for token ${tokenId}: ${shieldedBalance}`);
   
   // Handle unshielded balances - could be Map or Record
@@ -278,7 +227,7 @@ export async function waitForDustFunds(
 
   const dustBalance = (await Rx.firstValueFrom(
     dustWallet.state.pipe(
-      Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
+      Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS),
       Rx.tap((state: any) => {
         try {
           const progress = state.state?.progress;
@@ -344,7 +293,7 @@ export function getInitialDustState(
  * Create wallet configuration for the modular Midnight SDK
  * Accepts NetworkId enum values directly without normalization
  */
-export function createWalletConfiguration(
+function createWalletConfiguration(
   networkUrls: Required<NetworkUrls>,
   networkId: NetworkId.NetworkId,
 ): DefaultV1Configuration {
@@ -359,7 +308,7 @@ export function createWalletConfiguration(
   };
 }
 
-export function buildShieldedWallet(
+function buildShieldedWallet(
   config: DefaultV1Configuration,
   seed: Uint8Array
 ): ReturnType<ReturnType<typeof ShieldedWallet>["startWithShieldedSeed"]> {
@@ -367,7 +316,7 @@ export function buildShieldedWallet(
   return shieldedBuilder.startWithShieldedSeed(seed);
 }
 
-export function buildDustWallet(
+function buildDustWallet(
   config: DefaultV1Configuration,
   seed: Uint8Array
 ): ReturnType<ReturnType<typeof DustWallet>["startWithSeed"]> {
@@ -376,8 +325,8 @@ export function buildDustWallet(
     ...config,
     costParameters: {
       ledgerParams: legacyLedgerParams as unknown as LedgerParameters,
-      additionalFeeOverhead: DUST_FEE_OVERHEAD,
-      feeBlocksMargin: DUST_FEE_BLOCKS_MARGIN,
+      additionalFeeOverhead: CONSTANTS.DUST_FEE_OVERHEAD,
+      feeBlocksMargin: CONSTANTS.DUST_FEE_BLOCKS_MARGIN,
     },
   };
   const dustBuilder = DustWallet(dustConfig);
@@ -386,7 +335,7 @@ export function buildDustWallet(
   return dustBuilder.startWithSeed(seed, dustParameters);
 }
 
-export function buildUnshieldedWallet(
+function buildUnshieldedWallet(
   networkUrls: Required<NetworkUrls>,
   seed: Uint8Array,
   networkId: NetworkId.NetworkId
@@ -451,7 +400,7 @@ export async function buildWalletFacade(
   };
 }
 
-export interface ShieldedWalletState {
+interface ShieldedWalletState {
   address: {
     coinPublicKeyString(): string;
     encryptionPublicKeyString(): string;
@@ -531,7 +480,7 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
     log.info("Waiting for dust to be generated...");
     await Rx.firstValueFrom(
       walletResult.wallet.state().pipe(
-        Rx.throttleTime(WALLET_SYNC_THROTTLE_MS),
+        Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS),
         Rx.tap((s: any) => {
           const dustBalance = s.dust?.walletBalance?.(new Date()) ?? 0n;
           log.info(`Current dust balance: ${dustBalance}`);
@@ -615,12 +564,18 @@ async function main() {
   }
 
   // Network Configuration
-  const indexer = getEnv("MIDNIGHT_INDEXER_URL") || DEFAULT_NETWORK_URLS.indexer;
-  const indexerWS = getEnv("MIDNIGHT_INDEXER_WS_URL") || DEFAULT_NETWORK_URLS.indexerWS;
-  const node = getEnv("MIDNIGHT_NODE_URL") || DEFAULT_NETWORK_URLS.node;
-  const proofServer = getEnv("MIDNIGHT_PROOF_SERVER_URL") || DEFAULT_NETWORK_URLS.proofServer;
-  
-  const networkUrls: Required<NetworkUrls> = { indexer, indexerWS, node, proofServer };
+  const indexer = getEnv("MIDNIGHT_INDEXER_URL") || midnightNetworkConfig.indexer;
+  const indexerWS = getEnv("MIDNIGHT_INDEXER_WS_URL") || midnightNetworkConfig.indexerWS;
+  const node = getEnv("MIDNIGHT_NODE_URL") || midnightNetworkConfig.node;
+  const proofServer = getEnv("MIDNIGHT_PROOF_SERVER_URL") || midnightNetworkConfig.proofServer;
+
+  const networkUrls: Required<NetworkUrls> = { 
+    id: "placeholder-value",
+    indexer, 
+    indexerWS, 
+    node, 
+    proofServer
+  };
   
   const networkIdRaw = getEnv("MIDNIGHT_NETWORK_ID") || "undeployed";
   
@@ -648,6 +603,7 @@ async function main() {
       log.warn(`Unknown network ID "${networkIdRaw}", using as-is. Valid values: undeployed, testnet, devnet, preview`);
       networkId = networkIdRaw as NetworkId.NetworkId;
   }
+  networkUrls.id = networkId;
 
   log.info(`Using network ID: ${networkId}`);
   log.info(`Indexer: ${indexer}`);

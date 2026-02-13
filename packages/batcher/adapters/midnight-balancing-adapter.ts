@@ -32,8 +32,8 @@ import {
   syncAndWaitForFunds,
   type WalletResult,
   waitForDustFunds,
-  type NetworkUrls as MidnightNetworkUrls,
-} from "@effectstream/midnight-contracts/wallet-info";
+  type NetworkUrls,
+} from "@effectstream/midnight-contracts";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
@@ -154,7 +154,8 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<DelegatedBatc
       } else {
         console.log("🔗 Building Midnight Balancing Adapter wallet...");
 
-        const networkUrls: MidnightNetworkUrls = {
+        const networkUrls: Required<NetworkUrls> = {
+          id: this.walletNetworkId,
           indexer: this.config.indexer,
           indexerWS: this.config.indexerWS,
           node: this.config.node,

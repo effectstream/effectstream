@@ -3,6 +3,8 @@
     "version": "0.3.0",
     "license": "MIT",
     "exports": {
+        ".": "./src/mod.ts",
+        "./types": "./src/types.ts",
         "./read-contract": "./src/read-contract.ts",
         "./deploy": "./src/deploy.ts",
         "./wallet-info": "./src/get-wallet-info.ts",

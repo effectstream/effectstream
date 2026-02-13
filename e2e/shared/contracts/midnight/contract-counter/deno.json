@@ -6,7 +6,7 @@
       "./contract": "./src/managed/contract/index.js"
     },
     "tasks": {
-      "compact": "compact compile +0.28.0 src/counter.compact src/managed/",
+      "compact": "compact compile +0.29.0 src/counter.compact src/managed/",
       "contract:compile": "deno task compact"
     },
     "imports": {
