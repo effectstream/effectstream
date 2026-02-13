@@ -37,23 +37,28 @@ replace_in_file() {
     fi
 }
 
+# NOTE: These patches were originally workarounds for Deno-specific issues.
+# They may no longer be needed with Bun. If builds work without them, they can be removed.
+
 # Patch hardhat compiler.js
-for dir in ./node_modules/.deno/hardhat@3.[0-1]*.[0-9]*/ ; do
-    file_to_patch="${dir}node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js"
+file_to_patch="./node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js"
+if [[ -f "$file_to_patch" ]]; then
     echo "Commenting out await stdoutFileHandle.close() in ${file_to_patch}..."
     comment_line "$file_to_patch" 48 "await stdoutFileHandle.close();"
-done
+fi
 
-# Patch hardhat-utils fs.js 
-for dir in ./node_modules/.deno/@nomicfoundation+hardhat-utils@3.[0-1]*.[0-9]*/ ; do
-    file_to_patch="${dir}node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js"
+# Patch hardhat-utils fs.js
+file_to_patch="./node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js"
+if [[ -f "$file_to_patch" ]]; then
     echo "Commenting out first await fileHandle?.close() in ${file_to_patch}..."
     comment_line "$file_to_patch" 209 "await fileHandle?.close();"
     echo "Commenting out second await fileHandle?.close() in ${file_to_patch}..."
     comment_line "$file_to_patch" 275 "await fileHandle?.close();"
-done
+fi
 
-cp ./node_modules/.deno/libsodium-wrappers-sumo@0.7.16/node_modules/libsodium-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs ./node_modules/.deno/libsodium-wrappers-sumo@0.7.16/node_modules/libsodium-wrappers-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs
-echo "✅ Copied libsodium-sumo.mjs to libsodium-wrappers-sumo.mjs"
+if [[ -f "./node_modules/libsodium-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs" ]]; then
+    cp ./node_modules/libsodium-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs ./node_modules/libsodium-wrappers-sumo/dist/modules-sumo-esm/libsodium-sumo.mjs
+    echo "✅ Copied libsodium-sumo.mjs to libsodium-wrappers-sumo.mjs"
+fi
 
 echo "✅ All patches applied successfully"

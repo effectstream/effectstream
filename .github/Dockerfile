@@ -1,11 +1,8 @@
 # Use Ubuntu as base image
-FROM denoland/deno:ubuntu-2.6.5
-
+FROM oven/bun:1-ubuntu
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
-ENV DENO_INSTALL=/root/.deno
-ENV PATH=$DENO_INSTALL/bin:$PATH
 
 # Update package list and install required dependencies
 RUN apt-get update && apt-get install -y \
@@ -18,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     sed \
     # We have some scripts that use lsof
     lsof \
-    # iproute2 is required for ss command - for dkill.
+    # iproute2 is required for ss command - for fkill.
     iproute2 \
     # xz is required for compactc
     xz-utils \
@@ -33,8 +30,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Verify Deno installation
-RUN deno --version
+# Verify Bun installation
+RUN bun --version
 
 # Verify Node.js installation
 RUN node --version && npm --version
@@ -73,21 +70,17 @@ RUN chmod +x /app/patch.sh
 # Clone the repository
 COPY . .
 
-# Ensure the script can run tests properly in Docker
-RUN echo "export DENO_DIR=/tmp/.deno" >> /root/.bashrc
-
 # Set environment variables for better script execution
 ENV NODE_ENV=development
-ENV DENO_DIR=/tmp/.deno
 
-RUN deno install --allow-scripts
+RUN bun install
 RUN /app/patch.sh
 
-RUN deno task -r contract:compile
+RUN bun run --filter '*' contract:compile
 
 # START E2E TESTS
 # Launching processes en parallel generates issues on linux
 ENV EFFECTSTREAM_ORCHESTRATOR_SERIAL=true
 # Show Effectstream logs
 ENV EFFECTSTREAM_STDOUT=true
-CMD ["deno", "task", "-f", "@e2e/node", "e2e"]
+CMD ["bun", "run", "--filter", "@e2e/node", "e2e"]
