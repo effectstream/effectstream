@@ -56,7 +56,6 @@ export function getRuntime(): {runtime: Runtime, environment: RuntimeEnvironment
 /** Get environment variable. Works in Node, Bun, and Deno. */
 export function getEnv(key: string): string | undefined {
   if (typeof process !== "undefined" && process.env) return process.env[key];
-  if (typeof Deno !== "undefined" && (Deno as any).env?.get) return (Deno as any).env.get(key);
   return undefined;
 }
 
@@ -64,29 +63,26 @@ export function getEnv(key: string): string | undefined {
 export function setEnv(key: string, value: string): void {
   if (typeof process !== "undefined" && process.env) {
     process.env[key] = value;
-    return;
   }
-  if (typeof Deno !== "undefined" && (Deno as any).env?.set) (Deno as any).env.set(key, value);
 }
 
 /** CLI arguments (argv without script path). */
 export function args(): string[] {
-  if (typeof process !== "undefined" && process.argv) return process.argv.slice(2);
-  if (typeof Deno !== "undefined" && (Deno as any).args) return (Deno as any).args;
-  return [];
+  return process.argv.slice(2);
 }
 
 /** Exit process with code. */
-export function exit(code: number): never {
-  if (typeof process !== "undefined" && process.exit) process.exit(code);
-  if (typeof Deno !== "undefined" && (Deno as any).exit) (Deno as any).exit(code);
-  throw new Error(`exit(${code})`);
+export function exit(code: number | undefined): never {
+  if (code === undefined && (process as any).exitCode !== undefined) {
+    process.exit((process as any).exitCode);
+    } else {
+    process.exit(code);
+  }
 }
 
 /** Current working directory. */
 export function cwd(): string {
   if (typeof process !== "undefined" && process.cwd) return process.cwd();
-  if (typeof Deno !== "undefined" && (Deno as any).cwd) return (Deno as any).cwd();
   return ".";
 }
 
@@ -95,16 +91,12 @@ export function consoleSize(): { columns: number; rows: number } {
   if (typeof process !== "undefined" && process.stdout?.columns != null) {
     return { columns: process.stdout.columns ?? 80, rows: (process.stdout as any).rows ?? 24 };
   }
-  if (typeof Deno !== "undefined" && (Deno as any).consoleSize) {
-    return (Deno as any).consoleSize();
-  }
   return { columns: 80, rows: 24 };
 }
 
 /** Set process exit code (for graceful shutdown). */
 export function setExitCode(code: number): void {
-  if (typeof process !== "undefined") (process as any).exitCode = code;
-  if (typeof Deno !== "undefined") (Deno as any).exitCode = code;
+  (process as any).exitCode = code;
 }
 
 /**
@@ -115,10 +107,6 @@ export function test(
   name: string,
   fn: () => void | Promise<void>,
 ): void {
-  if (typeof Deno !== "undefined" && (Deno as any).test) {
-    (Deno as any).test(name, fn);
-    return;
-  }
   if (typeof process !== "undefined") {
     try {
       // dynamic import for ESM; require for CJS
@@ -131,7 +119,7 @@ export function test(
       // node:test not available
     }
   }
-  throw new Error("No test runner (Deno.test or node:test) available");
+  throw new Error("No test runner available");
 }
 
 /** Check if error is "file/dir not found". */
