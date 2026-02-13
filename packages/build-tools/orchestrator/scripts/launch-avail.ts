@@ -1,4 +1,5 @@
 import { ComponentNames } from "@effectstream/log";
+import { getEnv } from "@effectstream/utils/runtime";
 
 // Substrate nodes (and many forks like Avail and Midnight) use the Rust tracing/log
 // stack wired through sc-cli/sc-service, which by default writes formatted log output to stderr.
@@ -7,7 +8,9 @@ import { ComponentNames } from "@effectstream/log";
 // unless the user explicitly wants to see the logs, so if EFFECTSTREAM_STDOUT is true,
 // we enable stderr for this as well.
 
-const disableStderr = (typeof process !== "undefined" ? process.env?.EFFECTSTREAM_STDOUT : (typeof Deno !== "undefined" ? (Deno as any).env?.get?.("EFFECTSTREAM_STDOUT") : undefined)) === "true" ? false : true;
+const isTrue = (value: string | undefined) => value != null && ["true", "1", "yes", "y"].includes(value.toLowerCase());
+const disableStderr = !isTrue(getEnv("EFFECTSTREAM_STDOUT"));
+
 
 // Start Avail Node and Light Client.
 //

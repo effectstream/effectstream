@@ -14,15 +14,15 @@ import {
   const disableStderr = logs !== "stdout";
   const external_db_enabled = ENV.getBoolean("EXTERNAL_DB_ENABLED");
 
-  const midnightWalletSeed = Deno.env.get("MIDNIGHT_WALLET_SEED");
+  const midnightWalletSeed = ENV.getString("MIDNIGHT_WALLET_SEED");
   if (!midnightWalletSeed) {
     throw new Error("MIDNIGHT_WALLET_SEED is not set");
   }
 
   const shouldLaunchProofServer = !isExternalProofServerConfigured;
   const shouldInjectProofServerEnv =
-    !Deno.env.get("MIDNIGHT_PROOF_SERVER_URL") &&
-    !Deno.env.get("MIDNIGHT_PROOF_SERVER");
+    !ENV.getString("MIDNIGHT_PROOF_SERVER_URL") &&
+    !ENV.getString("MIDNIGHT_PROOF_SERVER");
   const proofServerEnv = shouldInjectProofServerEnv
     ? { MIDNIGHT_PROOF_SERVER_URL: midnightNetworkConfig.proofServer }
     : undefined;

@@ -22,6 +22,7 @@ import {
 } from "@midnight-ntwrk/ledger-v7";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import type { DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded/v1";
+import { getEnv, exit } from "@effectstream/utils/runtime";
 
 /**
  * This script transfers 10.0 dust from the default midnight wallet to a given address.
@@ -254,7 +255,7 @@ export function getInitialShieldedState(
  * Resolve sync timeout from env or default.
  */
 export function resolveWalletSyncTimeoutMs(): number {
-  const envValue = Deno.env.get("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");
+  const envValue = getEnv("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");
   if (!envValue) return WALLET_SYNC_TIMEOUT_MS;
   const parsed = Number(envValue);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
@@ -265,7 +266,7 @@ export function resolveWalletSyncTimeoutMs(): number {
 }
 
 const resolveDustFeeBlocksMargin = (): number => {
-  const envValue = Deno.env.get("MIDNIGHT_DUST_FEE_BLOCKS_MARGIN");
+  const envValue = getEnv("MIDNIGHT_DUST_FEE_BLOCKS_MARGIN");
   if (!envValue) return DUST_FEE_BLOCKS_MARGIN;
   const parsed = Number(envValue);
   if (Number.isFinite(parsed) && parsed >= 0) return Math.floor(parsed);
@@ -276,7 +277,7 @@ const resolveDustFeeBlocksMargin = (): number => {
 };
 
 const resolveDustFeeOverhead = (): bigint => {
-  const envValue = Deno.env.get("MIDNIGHT_DUST_FEE_OVERHEAD");
+  const envValue = getEnv("MIDNIGHT_DUST_FEE_OVERHEAD");
   if (!envValue) return DUST_FEE_OVERHEAD;
   try {
     return BigInt(envValue);
@@ -662,16 +663,16 @@ export async function registerNightForDust(
 }
 
 const resolveNetworkUrls = (): Required<Config> => ({
-  indexer: Deno.env.get("MIDNIGHT_INDEXER_URL") || DEFAULT_NETWORK_URLS.indexer,
-  indexerWS: Deno.env.get("MIDNIGHT_INDEXER_WS_URL") ||
+  indexer: getEnv("MIDNIGHT_INDEXER_URL") || DEFAULT_NETWORK_URLS.indexer,
+  indexerWS: getEnv("MIDNIGHT_INDEXER_WS_URL") ||
     DEFAULT_NETWORK_URLS.indexerWS,
-  node: Deno.env.get("MIDNIGHT_NODE_URL") || DEFAULT_NETWORK_URLS.node,
-  proofServer: Deno.env.get("MIDNIGHT_PROOF_SERVER_URL") ||
+  node: getEnv("MIDNIGHT_NODE_URL") || DEFAULT_NETWORK_URLS.node,
+  proofServer: getEnv("MIDNIGHT_PROOF_SERVER_URL") ||
     DEFAULT_NETWORK_URLS.proofServer,
 });
 
 const resolveNetworkId = (): NetworkId.NetworkId => {
-  const networkIdRaw = Deno.env.get("MIDNIGHT_NETWORK_ID") || "undeployed";
+  const networkIdRaw = getEnv("MIDNIGHT_NETWORK_ID") || "undeployed";
   switch (networkIdRaw.toLowerCase()) {
     case "undeployed":
       return NetworkId.NetworkId.Undeployed;
@@ -876,19 +877,19 @@ export const faucet = async (
 };
 
 if (import.meta.main) {
-  const midnightAddress = Deno.env.get("MIDNIGHT_ADDRESS");
+  const midnightAddress = getEnv("MIDNIGHT_ADDRESS");
   if (!midnightAddress) {
     console.error("❌ MIDNIGHT_ADDRESS environment variable is not set");
     console.error(
       "Example: MIDNIGHT_ADDRESS=mn_addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts",
     );
-    Deno.exit(1);
+    exit(1);
   }
   try {
     await faucet(midnightAddress);
-    Deno.exit(0);
+    exit(0);
   } catch (error) {
     console.error("❌ Error during faucet process:", error);
-    Deno.exit(1);
+    exit(1);
   }
 }

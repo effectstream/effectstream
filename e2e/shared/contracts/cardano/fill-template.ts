@@ -25,7 +25,7 @@ async function fetchAndSaveGenesis(
   const filePath = `${TEMP_DIR}/${type}-genesis.json`;
 
   await fs.mkdir(TEMP_DIR, { recursive: true });
-  await Deno.writeTextFile(filePath, JSON.stringify(json, null, 2));
+  await fs.writeFile(filePath, JSON.stringify(json, null, 2), "utf-8");
 
   return filePath;
 }
@@ -39,7 +39,7 @@ async function updateDolosConfig() {
   );
 
   // Read the template file
-  const templateContent = await Deno.readTextFile(TEMPLATE_FILE);
+  const templateContent = await fs.readFile(TEMPLATE_FILE, "utf-8");
   const config = parseToml(templateContent);
 
   // Update genesis paths
@@ -51,7 +51,7 @@ async function updateDolosConfig() {
   };
 
   // Write updated config back to file
-  await Deno.writeTextFile(FINAL_TOML, stringifyToml(config));
+  await fs.writeFile(FINAL_TOML, stringifyToml(config), "utf-8");
 }
 
 // Execute the update

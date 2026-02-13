@@ -3,6 +3,8 @@ import { LogServer, type OTelLog } from "./logs-server.ts";
 import { createStream, type RotatingFileStream } from "rotating-file-stream";
 import type { ILogObj } from "tslog";
 import { ENV } from "@effectstream/utils/node-env";
+import { getEnv, spawn, exit } from "@effectstream/utils/runtime";
+import { lstatSync, mkdirSync } from "node:fs";
 
 // This is a standalone script that can be used to view logs from the collector.
 // Its purpose is to be used in a tmux session, and not as a part of the TUI.
@@ -14,8 +16,8 @@ class LogsViewer {
 
   constructor() {
     this.logServer = new LogServer();
-    const calledFrom = Deno.env.get("INIT_CWD") ?? ".";
-    const envLogsPath = Deno.env.get("LOGS_PATH");
+    const calledFrom = getEnv("INIT_CWD") ?? process.cwd();
+    const envLogsPath = getEnv("LOGS_PATH");
     this.logDirectory = envLogsPath ?? `${calledFrom}/logs`;
   }
 
@@ -76,9 +78,9 @@ class LogsViewer {
     console.log("🔍 Starting log server...");
 
     try {
-      Deno.lstatSync(this.logDirectory);
+      lstatSync(this.logDirectory);
     } catch (error) {
-      Deno.mkdirSync(this.logDirectory, { recursive: true });
+      mkdirSync(this.logDirectory, { recursive: true });
     }
 
     // Set up displayLogs's destination
@@ -110,17 +112,16 @@ const viewer = new LogsViewer();
 // so that ctrl+c terminates the entire effectstream-engine process`
 const killTmux = () => {
   if (ENV.TMUX) {
-    const cmd = new Deno.Command("tmux", { args: ["kill-session"] });
-    cmd.spawn();
+    spawn("tmux", { args: ["kill-session"], stdout: "inherit", stderr: "inherit" });
   }
 };
 
-// Handle graceful shutdown
-Deno.addSignalListener("SIGINT", () => {
+// Handle graceful shutdown (Node-style; Deno 2 has node compat for process)
+process.on("SIGINT", () => {
   console.log("\n👋 Stopping log viewer...");
   viewer.isRunning = false;
   killTmux();
-  Deno.exit(0);
+  exit(0);
 });
 
 try {
@@ -128,5 +129,5 @@ try {
 } catch (error) {
   console.error(error);
   killTmux();
-  Deno.exit(1);
+  exit(1);
 }

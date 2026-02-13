@@ -14,6 +14,45 @@ declare const process: {
   kill?(pid: number, sig?: string): void;
 };
 
+type RuntimeEnvironment = 'backend' | 'frontend' | 'unknown';
+type Runtime = 'node' | 'deno' | 'bun' | 'browser' | 'unknown';
+
+export function getRuntime(): {runtime: Runtime, environment: RuntimeEnvironment} {
+  // Check for Deno
+  // @ts-ignore: Deno is added to global scope in Deno environments
+  if (typeof Deno !== 'undefined') {
+    return { runtime: 'deno', environment: 'backend' };
+  }
+
+  // Check for Bun
+  // @ts-ignore: Bun is added to global scope in Bun environments
+  if (typeof Bun !== 'undefined') {
+    return { runtime: 'bun', environment: 'backend' };
+  }
+
+  // Check for Node.js
+  // Node environments have a `process` object with versions
+  if (
+    typeof process !== 'undefined' &&
+    (process as any).versions &&
+    (process as any).versions.node
+  ) {
+    return { runtime: 'node', environment: 'backend' };
+  }
+
+  // Check for Browser
+  // Browsers typically have `window` and `document`
+  if (
+    typeof window !== 'undefined' &&
+    // @ts-ignore: document is added to global scope in browser environments
+    typeof document !== 'undefined'
+  ) {
+    return { runtime: 'browser', environment: 'frontend' };
+  }
+
+  return { runtime: 'unknown', environment: 'unknown' };
+}
+
 /** Get environment variable. Works in Node, Bun, and Deno. */
 export function getEnv(key: string): string | undefined {
   if (typeof process !== "undefined" && process.env) return process.env[key];

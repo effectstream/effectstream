@@ -13,7 +13,7 @@ import {
   setStderrOutput,
   tsLogOrchestratorAdapter,
 } from "./logging.ts";
-import { spawn } from "@effectstream/utils/runtime";
+import { spawn, setEnv, getEnv } from "@effectstream/utils/runtime";
 import {
   $,
   AbortProcessStart,
@@ -194,7 +194,7 @@ export async function start(
 ): Promise<void> {
   // This is to redirect all logs.remote to the orchestrator, 
   // where they will be redirected to the collector.
-  (typeof process !== "undefined" ? (process.env.EFFECTSTREAM_ORCHESTRATOR = "true") : (typeof Deno !== "undefined" ? (Deno as any).env.set("EFFECTSTREAM_ORCHESTRATOR", "true") : undefined));
+  setEnv("EFFECTSTREAM_ORCHESTRATOR", "true");
   appConfig = config;
   pFactory = processFactory(config);
   setupLogging(config);
@@ -548,7 +548,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     // if EFFECTSTREAM_ENV is set, then launch the node:start:{EFFECTSTREAM_ENV}
-    const effectstreamEnv = (typeof process !== "undefined" ? process.env.EFFECTSTREAM_ENV : (typeof Deno !== "undefined" ? (Deno as any).env.get("EFFECTSTREAM_ENV") : undefined));
+    const effectstreamEnv = getEnv("EFFECTSTREAM_ENV");
     const node = $({
       args: ["task", effectstreamEnv ? `node:start:${effectstreamEnv}` : "node:start"],
       log: logHandler({}, tsLogOrchestratorAdapter),

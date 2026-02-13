@@ -10,8 +10,9 @@ const COUNTER_SYNC_PROTOCOL = "parallelEvmRPC_fast";
 const COUNTER_ADDRESS = contractAddressesEvmMain()["chain31337"][
   "CounterModule#Counter"
 ] as `0x${string}`;
+import { getEnv } from "@effectstream/utils/runtime";
 const COUNTER_PRIVATE_KEY =
-  (Deno.env.get("COUNTER_BATCHER_PRIVATE_KEY") ??
+  (getEnv("COUNTER_BATCHER_PRIVATE_KEY") ??
     "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d") as `0x${string}`;
 
 const counterConfig: EvmContractAdapterConfig = {

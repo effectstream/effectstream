@@ -2,7 +2,7 @@
 
 import * as path from "@std/path";
 import { readdirSync, statSync, readFileSync } from "node:fs";
-import { getEnv, cwd, isNotFoundError } from "@effectstream/utils/runtime";
+import { getEnv, cwd, isNotFoundError, getRuntime } from "@effectstream/utils/runtime";
 
 /**
 * Information about a compiled Midnight contract
@@ -303,7 +303,7 @@ export function readMidnightContract(
 
   if (baseDir) {
     moduleDir = path.resolve(baseDir);
-  } else {
+  } else if (getRuntime().environment === 'backend') {
     let foundDir: string | null = null;
 
     for (const candidate of candidateFileNames) {
@@ -325,6 +325,17 @@ export function readMidnightContract(
     }
 
     moduleDir = foundDir;
+  } else {
+    const envContractAddress =
+      typeof Deno !== "undefined"
+        ? Deno.env.get("MIDNIGHT_CONTRACT_ADDRESS")
+        : undefined;
+    return {
+      contractAddress: envContractAddress || "",
+      contractInfo: { circuits: [], witnesses: [], contracts: [] },
+      zkConfigPath: "",
+      contractDir: "",
+    }; 
   }
 
   const normalizedModuleDir = path.resolve(moduleDir);

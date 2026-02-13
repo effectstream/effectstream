@@ -1,9 +1,10 @@
 #!/usr/bin/env -S deno run -A
 import { spawn } from "node:child_process";
+import { args, exit } from "@effectstream/utils/runtime";
 
 // Get port from arguments.
 const portArgName = "--port";
-const argv = typeof process !== "undefined" ? process.argv.slice(2) : (typeof Deno !== "undefined" ? (Deno as any).args : []);
+const argv = args();
 const portArgIndex = argv.indexOf(portArgName);
 const portValue = portArgIndex !== -1 ? argv[portArgIndex + 1] : "5432";
 const port = parseInt(portValue);
@@ -27,11 +28,11 @@ async function waitForDb() {
       console.log("✅ Database is ready on port 5432");
     } else {
       console.error("❌ Failed to connect to database on port 5432");
-      (typeof process !== "undefined" ? process : (Deno as any)).exit(code ?? 1);
+      exit(code ?? 1);
     }
   } catch (error) {
     console.error("❌ Error waiting for database:", error);
-    (typeof process !== "undefined" ? process : (Deno as any)).exit(1);
+    exit(1);
   }
 }
 

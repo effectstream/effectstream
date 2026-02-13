@@ -5,11 +5,12 @@ import net from "node:net";
 import { statSync } from "node:fs";
 import { fromNodeSocket } from "pg-gateway/node";
 import { ENV } from "@effectstream/utils/node-env";
+import { args, cwd } from "@effectstream/utils/runtime";
 
 // TODO PORT be a ENV variable
 // Get port from arguments.
 const portArgName = "--port";
-const argv = typeof process !== "undefined" ? process.argv.slice(2) : (typeof Deno !== "undefined" ? (Deno as any).args : []);
+const argv = args();
 const portArgIndex = argv.indexOf(portArgName);
 const portValue = portArgIndex !== -1 ? argv[portArgIndex + 1] : "5432";
 const port = parseInt(portValue);
@@ -18,8 +19,7 @@ if (isNaN(port)) {
 }
 
 // TODO: find nearest node_modules folder, as import { pg_ivm } is not working
-const cwd = typeof process !== "undefined" ? process.cwd() : (typeof Deno !== "undefined" ? (Deno as any).cwd() : ".");
-let nodeModulesPath = cwd;
+let nodeModulesPath = cwd();
 while (true) {
   try {
     const st = statSync(nodeModulesPath + "/node_modules");

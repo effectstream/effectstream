@@ -1,14 +1,17 @@
 import * as bitcoin from 'bitcoinjs-lib';
 import * as ecpair from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
+import { args, exit } from "@effectstream/utils/runtime";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const ECPair = ecpair.ECPairFactory(ecc);
 const SATS_PER_BTC = 100_000_000;
 
-const argv = typeof process !== "undefined" ? process.argv.slice(2) : (typeof Deno !== "undefined" ? (Deno as any).args : []);
-const DEFAULT_BLOCK_INTERVAL = argv.includes('--block-interval') ? parseInt(argv[argv.indexOf('--block-interval') + 1]) : 5000;
+const argv = args();
+const DEFAULT_BLOCK_INTERVAL = argv.includes('--block-interval') ? 
+  parseInt(argv[argv.indexOf('--block-interval') + 1]) :
+  5000;
 const NETWORK = bitcoin.networks.regtest;
 console.log(`Using block interval: ${DEFAULT_BLOCK_INTERVAL}ms`);
 
@@ -68,8 +71,8 @@ let running = true;
 // Handle process signals
 const onSignal = (sig: string, code: number) => () => {
   console.log(`\nReceived ${sig}, stopping block generation...`);
-  running = false;
-  (typeof process !== "undefined" ? process : (Deno as any)).exit(code);
+  running = false; 
+  exit(code);
 };
 if (typeof process !== "undefined") {
   process.on("SIGINT", onSignal("SIGINT", 130));
@@ -121,7 +124,7 @@ async function main() {
       address = await bitcoinRpcCall('getnewaddress', []);
     } catch (e) {
       console.error('Failed to get address. Make sure Bitcoin Core is running and accessible.');
-      (typeof process !== "undefined" ? process : (Deno as any)).exit(1);
+      exit(1);
     }
   }
   
@@ -160,6 +163,6 @@ async function main() {
 
 main().catch((error) => {
   console.error('Fatal error:', error);
-  (typeof process !== "undefined" ? process : (Deno as any)).exit(1);
+  exit(1);
 });
 

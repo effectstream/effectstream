@@ -1,28 +1,11 @@
 import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { mnemonicToSeed } from "@scure/bip39";
 import { Buffer } from "node:buffer";
+import { getEnv } from "@effectstream/utils/runtime";
 
 const getEnvValue = (key: string): string | undefined => {
-  try {
-    // @ts-ignore: Deno global check
-    if (typeof Deno !== "undefined" && Deno?.env?.get) {
-      // @ts-ignore: Deno global access
-      return Deno.env.get(key);
-    }
-  } catch (_e) { /* ignore */ }
-
-  try {
-    // @ts-ignore: Node/Process global check
-    if (typeof process !== "undefined" && process?.env) {
-      // @ts-ignore: Node/Process global access
-      return process.env[key];
-    }
-  } catch (_e) { /* ignore */ }
-
-  // Fallback for some Vite setups if process.env isn't shimmed but replace is used
-  // Note: Direct import.meta.env usage is avoided to prevent TS/Build errors in non-ESM targets
-  return undefined;
-}
+  return getEnv(key);
+};
 
 const env = (key: string | string[], fallback?: string): string => {
   if (typeof key === 'string') {

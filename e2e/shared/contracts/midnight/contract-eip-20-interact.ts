@@ -47,6 +47,8 @@ import {
 } from "npm:@midnight-ntwrk/midnight-js-network-id";
 import { dirname, resolve } from "@std/path";
 import { exists } from "@std/fs";
+import { getEnv, args, exit } from "@effectstream/utils/runtime";
+import { readFile, readTextFile } from "node:fs/promises";
 
 globalThis.WebSocket = WebSocket;
 
@@ -262,7 +264,7 @@ const buildWalletAndWaitForFunds = async (
   seed: string,
   filename: string,
 ): Promise<Wallet & Resource> => {
-  const directoryPath = Deno.env.get("SYNC_CACHE");
+  const directoryPath = getEnv("SYNC_CACHE");
   let wallet: Wallet & Resource;
   if (directoryPath !== undefined) {
     const fullPath = `${directoryPath}/${filename}`;
@@ -271,7 +273,7 @@ const buildWalletAndWaitForFunds = async (
         `Attempting to restore state from ${fullPath}`,
       );
       try {
-        const serialized = await Deno.readFile(fullPath);
+        const serialized = await readFile(fullPath);
         wallet = await WalletBuilder.restore(
           indexer,
           indexerWS,
@@ -369,7 +371,7 @@ const configureProviders = async (
 
 const getContractAddress = async (): Promise<string> => {
   // First try to get from command line arguments
-  // const contractAddressFromArgs = Deno.args[0];
+  // const contractAddressFromArgs = args()[0];
 
   // if (contractAddressFromArgs) {
   //   console.log(
@@ -384,7 +386,7 @@ const getContractAddress = async (): Promise<string> => {
   try {
     if (await exists(contractAddressFile)) {
       const contractAddressFromFile = JSON.parse(
-        await Deno.readTextFile(contractAddressFile),
+        await readTextFile(contractAddressFile, "utf-8"),
       ).contractAddress;
 
       if (contractAddressFromFile) {
@@ -412,7 +414,7 @@ const getContractAddress = async (): Promise<string> => {
     console.error(
       "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678",
     );
-    Deno.exit(1);
+    exit(1);
   }
 };
 
@@ -477,13 +479,13 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
   } catch (error) {
     console.error("❌ Error during join and mint process:", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
-    Deno.exit(1);
+    exit(1);
   } finally {
     // Clean up wallet
     if (wallet) {
       try {
         console.log("🧹 Wallet closed successfully");
-        Deno.exit(0);
+        exit(0);
       } catch (error) {
         console.error("❌ Error closing wallet:", error);
       }
@@ -504,7 +506,7 @@ if (import.meta.main) {
   const address = (await Rx.firstValueFrom(wallet.state())).address;
   joinAndMint(address, 20000n).catch((error) => {
     console.error("❌ Unhandled error:", error);
-    Deno.exit(1);
+    exit(1);
   });
 }
 

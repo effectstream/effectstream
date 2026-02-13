@@ -31,7 +31,7 @@ export const launchCardano = (packageName: string): {
   cwd?: string;
   command?: string;
 }[] => {
-  const home = getEnv("HOME") ?? (typeof process !== "undefined" ? process.env.HOME : "");
+  const home = getEnv("HOME");
   const yaciDir = `${home}/.yaci-cli`;
   const yaciCliPath = `${yaciDir}/yaci-cli`;
 

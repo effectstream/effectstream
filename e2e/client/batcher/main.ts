@@ -1,9 +1,7 @@
 // Cleanup stale LevelDB BEFORE importing adapters (adapters initialize on import)
-import * as path from "@std/path";
+import { ENV } from "@effectstream/utils/node-env";
 
-import { getEnv } from "@effectstream/utils/runtime";
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((getEnv(key) || (typeof process !== "undefined" ? process.env?.[key] : undefined) || "").toLowerCase());
-const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
+const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 
 // if (midnight_enabled) {
 //   const baseDir = path.dirname(path.fromFileUrl(import.meta.url));

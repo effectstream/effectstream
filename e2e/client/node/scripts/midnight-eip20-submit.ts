@@ -1,4 +1,5 @@
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+import { args, getEnv, exit } from "@effectstream/utils/runtime";
 import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 import {
   httpClientProofProvider,
@@ -81,10 +82,10 @@ function createWalletProvider(
 }
 
 async function main() {
-  const payloadArg = Deno.args[0];
+  const payloadArg = args()[0];
   const payload = payloadArg ? JSON.parse(payloadArg) : DEFAULT_PAYLOAD;
 
-  const seed = Deno.env.get("MIDNIGHT_WALLET_SEED") ?? GENESIS_SEED;
+  const seed = getEnv("MIDNIGHT_WALLET_SEED") ?? GENESIS_SEED;
 
   const { contractAddress, contractInfo, zkConfigPath } = readMidnightContract(
     "contract-eip-20",
@@ -154,6 +155,6 @@ async function main() {
 if (import.meta.main) {
   main().catch((err) => {
     console.error("Mint submission failed:", err);
-    Deno.exit(1);
+    exit(1);
   });
 }

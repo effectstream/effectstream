@@ -3,18 +3,15 @@ import { SimpleToken, witnesses } from "@e2e/midnight-contracts/eip-20";
 import { MidnightAdapter } from "@effectstream/batcher";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { buildWalletFacade } from "@effectstream/midnight-contracts/wallet-info";
-
 import { dirname, resolve } from "@std/path";
+import { ENV } from "@effectstream/utils/node-env";
 
 // Resolve the base directory for midnight contracts
 const currentDir = dirname(new URL(import.meta.url).pathname);
 const midnightContractsDir = resolve(currentDir, "..", "..", "shared", "contracts", "midnight");
 
-
-const isEnvTrue = (key: string) =>
-  (() => { const v = typeof process !== "undefined" ? process.env?.[key] : (typeof Deno !== "undefined" ? (Deno as any).env?.get(key) : undefined); return ["true", "1", "yes", "y"].includes((v || "").toLowerCase()); })();
-
-const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
+// TODO if midnight disabled we should skip the adapter construction, as it will fail.
+const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 
 const { contractInfo, contractAddress, zkConfigPath } = readMidnightContract(
   "contract-eip-20",

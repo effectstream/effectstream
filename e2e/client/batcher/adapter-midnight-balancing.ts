@@ -1,5 +1,6 @@
 import { MidnightBalancingAdapter } from "@effectstream/batcher";
 import { dirname, resolve } from "@std/path";
+import { ENV } from "@effectstream/utils/node-env";
 
 const currentDir = dirname(new URL(import.meta.url).pathname);
 
@@ -12,10 +13,9 @@ import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight
 
 const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
-const isEnvTrue = (key: string) =>
-  ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+// TODO We should disable this adapter if midnight is disabled.
+const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 
-const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 
 
 const midnightNetworkUrls = {
