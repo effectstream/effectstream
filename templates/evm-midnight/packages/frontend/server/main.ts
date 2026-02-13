@@ -7,8 +7,8 @@ const router = new Router();
 
 app.use(router.routes());
 app.use(routeStaticFilesFrom([
-  `${Deno.cwd()}/client/dist`,
-  `${Deno.cwd()}/client/public`,
+  `${process.cwd()}/client/dist`,
+  `${process.cwd()}/client/public`,
 ]));
 
 // Default EVM-Midnight dApp Port

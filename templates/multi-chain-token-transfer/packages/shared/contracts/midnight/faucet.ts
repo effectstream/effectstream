@@ -1,7 +1,7 @@
 import {
   type ContractAddress,
   NetworkId,
-} from "npm:@midnight-ntwrk/compact-runtime";
+} from "@midnight-ntwrk/compact-runtime";
 import {
   MultiChainMultiToken,
   witnesses,
@@ -11,16 +11,16 @@ import {
   nativeToken,
   Transaction,
   type TransactionId,
-} from "npm:@midnight-ntwrk/ledger";
+} from "@midnight-ntwrk/ledger";
 import {
   MidnightBech32m,
   ShieldedAddress,
-} from "npm:@midnight-ntwrk/wallet-sdk-address-format";
+} from "@midnight-ntwrk/wallet-sdk-address-format";
 import {
   type DeployedContract,
   findDeployedContract,
   type FoundContract,
-} from "npm:@midnight-ntwrk/midnight-js-contracts";
+} from "@midnight-ntwrk/midnight-js-contracts";
 import {
   type BalancedTransaction,
   createBalancedTx,
@@ -30,29 +30,33 @@ import {
   type MidnightProviders,
   type UnbalancedTransaction,
   type WalletProvider,
-} from "npm:@midnight-ntwrk/midnight-js-types";
-import { type Resource, WalletBuilder } from "npm:@midnight-ntwrk/wallet";
-import { type Wallet } from "npm:@midnight-ntwrk/wallet-api";
-import { Transaction as ZswapTransaction } from "npm:@midnight-ntwrk/zswap";
-import * as Rx from "npm:rxjs";
-import { assertIsContractAddress } from "npm:@midnight-ntwrk/midnight-js-utils";
+} from "@midnight-ntwrk/midnight-js-types";
+import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
+import { type Wallet } from "@midnight-ntwrk/wallet-api";
+import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
+import * as Rx from "rxjs";
+import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import {
   getLedgerNetworkId,
   getZswapNetworkId,
   setNetworkId,
-} from "npm:@midnight-ntwrk/midnight-js-network-id";
-import { dirname, resolve } from "@std/path";
-import { exists } from "@std/fs";
+} from "@midnight-ntwrk/midnight-js-network-id";
+import { dirname, resolve } from "node:path";
+import { access, readFile } from "node:fs/promises";
 
-/** 
- * This script transfers 10.0 dust from the default midnight wallet to a given address. 
+const exists = async (path: string): Promise<boolean> => {
+  try { await access(path); return true; } catch { return false; }
+};
+
+/**
+ * This script transfers 10.0 dust from the default midnight wallet to a given address.
  * This works only on the local undeployed network.
- * 
+ *
  * This is useful to pass dust to Lace wallets in the browser for testing purposes.
- * 
+ *
  * Usage:
- * MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts
- * 
+ * MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx bun run faucet.ts
+ *
  */
 
 globalThis.WebSocket = WebSocket;
@@ -265,14 +269,14 @@ const buildWalletAndWaitForFunds = async (
   seed: string,
   filename: string
 ): Promise<Wallet & Resource> => {
-  const directoryPath = Deno.env.get("SYNC_CACHE");
+  const directoryPath = process.env.SYNC_CACHE;
   let wallet: Wallet & Resource;
   if (directoryPath !== undefined) {
     const fullPath = `${directoryPath}/${filename}`;
     if (await exists(fullPath)) {
       console.log(`Attempting to restore state from ${fullPath}`);
       try {
-        const serialized = await Deno.readFile(fullPath);
+        const serialized = await readFile(fullPath);
         wallet = await WalletBuilder.restore(
           indexer,
           indexerWS,
@@ -374,28 +378,28 @@ const faucet = async (receiverAddress: string): Promise<void> => {
       },
     ]);
     console.log({ transferRecipe });
-    
+
     const provenTransaction = await wallet.proveTransaction(transferRecipe);
     console.log({ provenTransaction });
-    
+
     const submittedTransaction = await wallet.submitTransaction(
       provenTransaction
     );
     console.log({ submittedTransaction });
-    
+
     console.log("✅ Successfully transferred dust to receiver address ");
 
 
   } catch (error) {
     console.error("❌ Error during join and mint process:", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
-    Deno.exit(1);
+    process.exit(1);
   } finally {
     // Clean up wallet
     if (wallet) {
       try {
         console.log("🧹 Wallet closed successfully");
-        Deno.exit(0);
+        process.exit(0);
       } catch (error) {
         console.error("❌ Error closing wallet:", error);
       }
@@ -405,17 +409,17 @@ const faucet = async (receiverAddress: string): Promise<void> => {
 
 // Run the script if this file is executed directly
 if (import.meta.main) {
-  const midnightAddress = Deno.env.get("MIDNIGHT_ADDRESS");
+  const midnightAddress = process.env.MIDNIGHT_ADDRESS;
   if (!midnightAddress) {
     console.error("❌ MIDNIGHT_ADDRESS environment variable is not set");
-    console.error("Example: MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts");
-    Deno.exit(1);
+    console.error("Example: MIDNIGHT_ADDRESS=mn_shield-addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx bun run faucet.ts");
+    process.exit(1);
   }
   try {
     await faucet(midnightAddress);
-    Deno.exit(0);
+    process.exit(0);
   } catch (error) {
     console.error("❌ Error during faucet process:", error);
-    Deno.exit(1);
+    process.exit(1);
   }
 }

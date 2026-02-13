@@ -3,14 +3,14 @@
 # DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run dice-sample
 
 # Use Ubuntu as base image
-FROM denoland/deno:ubuntu-2.5.4
+FROM oven/bun:1-ubuntu
 
 # # Update package list and install required dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     # We have some scripts that use lsof
     lsof \
-    # iproute2 is required for ss command - for dkill.
+    # iproute2 is required for ss command - for fkill.
     iproute2 \
     unzip \
     && rm -rf /var/lib/apt/lists/*
@@ -22,10 +22,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# # Verify Deno installation
-RUN deno --version
+# Verify Bun installation
+RUN bun --version
 
-# # Verify Node.js installation
+# Verify Node.js installation
 RUN node --version && npm --version
 
 # Install Foundry
@@ -47,13 +47,12 @@ WORKDIR /app
 # Clone the repository
 COPY . .
 
-RUN deno install --allow-scripts
-RUN deno install npm:wait-on
+RUN bun install
 # RUN /app/patch.sh || true
-RUN deno task -f @dice/evm-contracts build:mod
+RUN bun run --filter @dice/evm-contracts build:mod
 
-RUN deno task -f @dice/frontend install
-RUN deno task -f @dice/frontend build
+RUN bun run --filter @dice/frontend install
+RUN bun run --filter @dice/frontend build
 
 # Frontend / Explorer / Hardhat 1&2 / API / Batcher
 EXPOSE 8080
@@ -63,4 +62,4 @@ EXPOSE 10590
 
 ENV RUN_IN_DOCKER=true
 ENV EFFECTSTREAM_STDOUT=true
-CMD ["deno", "task", "dev"]
+CMD ["bun", "run", "dev"]

@@ -13,4 +13,4 @@ await standAloneApplyMigrations(db, migrationTable, localhostConfig as any, {
 });
 console.log("✅ System & User migrations applied");
 
-Deno.exit(0);
+process.exit(0);

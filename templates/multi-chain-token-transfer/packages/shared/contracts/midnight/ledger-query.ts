@@ -3,14 +3,18 @@ import {
 } from "./contract-eip-1155/src/index.original.ts";
 import {
   type ContractAddress,
-} from "npm:@midnight-ntwrk/compact-runtime";
-import { MidnightProviders } from "npm:@midnight-ntwrk/midnight-js-types";
-import { assertIsContractAddress } from "npm:@midnight-ntwrk/midnight-js-utils";
-import { getPublicStates } from 'npm:@midnight-ntwrk/midnight-js-contracts';
-import { resolve, dirname } from "@std/path";
-import { exists } from "@std/fs";
-import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { LedgerState } from "npm:@midnight-ntwrk/ledger";
+} from "@midnight-ntwrk/compact-runtime";
+import { MidnightProviders } from "@midnight-ntwrk/midnight-js-types";
+import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
+import { getPublicStates } from '@midnight-ntwrk/midnight-js-contracts';
+import { resolve, dirname } from "node:path";
+import { access, readFile } from "node:fs/promises";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { LedgerState } from "@midnight-ntwrk/ledger";
+
+const exists = async (path: string): Promise<boolean> => {
+  try { await access(path); return true; } catch { return false; }
+};
 
 // Simplified types - using any to avoid complex type constraints
 type MultiChainMultiTokenProviders = MidnightProviders<any, any, any>;
@@ -71,7 +75,7 @@ export const queryLedgerState = async (
 
 const getContractAddress = async (): Promise<string> => {
   // First try to get from command line arguments
-  const contractAddressFromArgs = Deno.args[0];
+  const contractAddressFromArgs = process.argv[2];
 
   if (contractAddressFromArgs) {
     console.log(
@@ -86,7 +90,7 @@ const getContractAddress = async (): Promise<string> => {
   try {
     if (await exists(contractAddressFile)) {
       const contractAddressFromFile = JSON.parse(
-        await Deno.readTextFile(contractAddressFile),
+        await readFile(contractAddressFile, "utf-8"),
       ).contractAddress;
 
       if (contractAddressFromFile) {
@@ -106,12 +110,12 @@ const getContractAddress = async (): Promise<string> => {
     console.error(`❌ Error reading contract address from file: ${error}`);
     console.error("❌ Error: Contract address is required");
     console.error(
-      "Usage: deno run --allow-all ledger-query.ts <CONTRACT_ADDRESS>",
+      "Usage: bun run ledger-query.ts <CONTRACT_ADDRESS>",
     );
     console.error(
       "Or create a contract.json file with the contract address",
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 };
 
@@ -160,7 +164,7 @@ if (import.meta.main) {
       return simplifiedBalanceMap;
     } catch (error) {
       console.error("❌ Error during ledger query:", error);
-      Deno.exit(1);
+      process.exit(1);
     }
   })();
 }

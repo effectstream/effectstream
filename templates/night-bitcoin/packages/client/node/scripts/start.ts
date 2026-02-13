@@ -4,7 +4,8 @@ import { ComponentNames } from "@paimaexample/log";
 import { Value } from "@sinclair/typebox/value";
 import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 import { launchBitcoin } from "@paimaexample/orchestrator/start-bitcoin";
-import { dirname, fromFileUrl, resolve } from "@std/path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const slugify = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") ||
@@ -20,7 +21,7 @@ type FillerDefinition = {
 type WalletType = "bitcoin" | "midnight";
 
 // Get the directory of the current script
-const currentDir = dirname(fromFileUrl(import.meta.url));
+const currentDir = dirname(fileURLToPath(import.meta.url));
 
 // Resolve wallet base paths to absolute paths
 const walletBasePaths: Record<WalletType, string> = {
@@ -48,14 +49,14 @@ const customProcesses: any[] = [
   // /** DENO-FRONTEND-BLOCK */
   {
     name: "frontend-build",
-    args: ["task", "-f", "@night-bitcoin/frontend", "build"],
+    args: ["run", "--filter", "@night-bitcoin/frontend", "build"],
     waitToExit: true,
     type: "system-dependency",
     dependsOn: [ComponentNames.MIDNIGHT_CONTRACT],
   },
   {
     name: "frontend-dApp",
-    args: ["task", "-f", "@night-bitcoin/frontend", "server:start"],
+    args: ["run", "--filter", "@night-bitcoin/frontend", "server:start"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10599",
@@ -67,7 +68,7 @@ const customProcesses: any[] = [
   // /** EXPLORER-BLOCK */
   {
     name: "explorer",
-    args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
+    args: ["run", "@paimaexample/explorer"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10590",
@@ -85,8 +86,8 @@ const fillerProcesses = fillerDefinitions.map((filler, index) => {
   return {
     name: `filler:${slug}`,
     args: [
-      "task",
-      "-f",
+      "run",
+      "--filter",
       "@night-bitcoin/filler",
       "start",
       filler.name,
@@ -104,7 +105,7 @@ const fillerProcesses = fillerDefinitions.map((filler, index) => {
 
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
-  packageName: "jsr:@paimaexample",
+  packageName: "@paimaexample",
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,
@@ -120,28 +121,28 @@ const config = Value.Parse(OrchestratorConfig, {
     ...customProcesses,
     {
       name: "create-wallets",
-      args: ["task", "-f", "@night-bitcoin/bitcoin-contracts", "create-wallets", "1.5", "3", "100"],
+      args: ["run", "--filter", "@night-bitcoin/bitcoin-contracts", "create-wallets", "1.5", "3", "100"],
       waitToExit: true,
       type: "system-dependency",
       dependsOn: [ComponentNames.BITCOIN_GENERATE_BLOCKS],
     },
     {
       name: "create-wallets-midnight",
-      args: ["task", "-f", "@night-bitcoin/midnight-contracts", "create-wallets"],
+      args: ["run", "--filter", "@night-bitcoin/midnight-contracts", "create-wallets"],
       waitToExit: true,
       type: "system-dependency",
       dependsOn: [ComponentNames.MIDNIGHT_CONTRACT, "frontend-dApp"],
     },
     {
       name: "mint-wallets-midnight",
-      args: ["task", "-f", "@night-bitcoin/midnight-contracts", "mint-wallets"],
+      args: ["run", "--filter", "@night-bitcoin/midnight-contracts", "mint-wallets"],
       waitToExit: true,
       type: "system-dependency",
       dependsOn: ['create-wallets-midnight'],
     },
     {
       name: "balancing-batcher",
-      args: ["task", "-f", "@night-bitcoin/filler", "batcher:start", "--port", "3334", "--filler-name", "Balancing Batcher"],
+      args: ["run", "--filter", "@night-bitcoin/filler", "batcher:start", "--port", "3334", "--filler-name", "Balancing Batcher"],
       waitToExit: false,
       type: "system-dependency",
       stopProcessAtPort: [3334],
@@ -151,7 +152,7 @@ const config = Value.Parse(OrchestratorConfig, {
   ],
 });
 
-if (Deno.env.get("EFFECTSTREAM_STDOUT")) {
+if (process.env.EFFECTSTREAM_STDOUT) {
   config.logs = "stdout";
   config.processes[ComponentNames.TMUX] = false;
   config.processes[ComponentNames.TUI] = false;

@@ -65,20 +65,20 @@ else
 fi
 echo
 
-# Check if deno >= 2.4.3 is installed
-echo "Checking deno..."
-if command -v deno &> /dev/null; then
-    DENO_VERSION=$(deno --version | head -n1 | cut -d' ' -f2)
-    REQUIRED_DENO_VERSION="2.4.3"
-    if version_ge "$DENO_VERSION" "$REQUIRED_DENO_VERSION"; then
-        print_success "deno is installed (version: $DENO_VERSION) - meets requirement >= $REQUIRED_DENO_VERSION"
+# Check if bun >= 1.0.0 is installed
+echo "Checking bun..."
+if command -v bun &> /dev/null; then
+    BUN_VERSION=$(bun --version)
+    REQUIRED_BUN_VERSION="1.0.0"
+    if version_ge "$BUN_VERSION" "$REQUIRED_BUN_VERSION"; then
+        print_success "bun is installed (version: $BUN_VERSION) - meets requirement >= $REQUIRED_BUN_VERSION"
     else
-        print_error "deno version $DENO_VERSION is installed but version >= $REQUIRED_DENO_VERSION is required. Please upgrade deno."
-        echo "🌐 https://docs.deno.com/runtime/getting_started/installation/"
+        print_error "bun version $BUN_VERSION is installed but version >= $REQUIRED_BUN_VERSION is required. Please upgrade bun."
+        echo "🌐 https://bun.sh/docs/installation"
     fi
 else
-    print_error "deno is not installed. Please install deno >= $REQUIRED_DENO_VERSION."
-    echo "🌐 https://docs.deno.com/runtime/getting_started/installation/"
+    print_error "bun is not installed. Please install bun >= $REQUIRED_BUN_VERSION."
+    echo "🌐 https://bun.sh/docs/installation"
 fi
 echo
 
@@ -100,14 +100,14 @@ else
 fi
 echo
 
-# Check for dkill dependencies (platform-specific)
-echo "Checking dkill dependencies..."
+# Check for fkill dependencies (platform-specific)
+echo "Checking fkill dependencies..."
 OS=$(uname -s)
 case "$OS" in
     Linux*)
         echo "Detected Linux - checking for 'ss' command..."
         if command -v ss &> /dev/null; then
-            print_success "ss command is available (Linux dkill dependency)"
+            print_success "ss command is available (Linux fkill dependency)"
         else
             print_error "ss command is not available. Please install iproute2 package."
         fi
@@ -115,13 +115,13 @@ case "$OS" in
     Darwin*)
         echo "Detected macOS - checking for 'lsof' command..."
         if command -v lsof &> /dev/null; then
-            print_success "lsof command is available (macOS dkill dependency)"
+            print_success "lsof command is available (macOS fkill dependency)"
         else
             print_error "lsof command is not available on macOS. Please install lsof."
         fi
         ;;
     *)
-        print_warning "Unknown operating system: $OS. Cannot check dkill dependencies."
+        print_warning "Unknown operating system: $OS. Cannot check fkill dependencies."
         ;;
 esac
 echo

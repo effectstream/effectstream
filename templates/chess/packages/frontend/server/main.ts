@@ -8,8 +8,8 @@ const PORT = 10599;
 
 app.use(router.routes());
 app.use(routeStaticFilesFrom([
-  `${Deno.cwd()}/client/dist`,
-  `${Deno.cwd()}/client/public`,
+  `${process.cwd()}/client/dist`,
+  `${process.cwd()}/client/public`,
 ]));
 
 // If this is the entry point, start the server

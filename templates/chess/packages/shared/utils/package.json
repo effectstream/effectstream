@@ -1,0 +1,10 @@
+{
+  "name": "@chess/utils",
+  "description": "Helper library for Paima Chess",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "dependencies": {
+    "@paimaexample/utils": "0.3.116"
+  }
+}

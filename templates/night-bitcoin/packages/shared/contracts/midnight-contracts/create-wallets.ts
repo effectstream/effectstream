@@ -63,7 +63,7 @@ async function createWallet(seed: string): Promise<WalletState> {
 if (import.meta.main) {
     let create = true;
     let mint = true;
-    switch (Deno.args[0]) {
+    switch (process.argv[2]) {
         case 'ONLY_CREATE':
             mint = false;
             break;
@@ -73,30 +73,32 @@ if (import.meta.main) {
     }
     const numberOfWallets = 3;
     const wallets: WalletState[] = [];
+    const { mkdir, readFile } = await import("node:fs/promises");
+    const { writeFileSync } = await import("node:fs");
     if (create) {
-        const currentDir = Deno.cwd();
-        await Deno.mkdir(path.join(currentDir, "generated"), { recursive: true });
+        const currentDir = process.cwd();
+        await mkdir(path.join(currentDir, "generated"), { recursive: true });
 
         for (let i = 0; i < numberOfWallets; i++) {
             const wallet = await createWallet(DEFAULT_SEED_PREFIX + i.toString());
 
             const outputPath = path.join(currentDir, "generated", `wallet-${i}.json`);
-            Deno.writeTextFileSync(outputPath, JSON.stringify(wallet, (_key, value) => typeof value === 'bigint' ? value.toString() : value, 2));
+            writeFileSync(outputPath, JSON.stringify(wallet, (_key, value) => typeof value === 'bigint' ? value.toString() : value, 2));
             console.log(`Wallet saved to ${outputPath}`);
 
             wallets.push(wallet);
         }
     } else {
-        const currentDir = Deno.cwd();
+        const currentDir = process.cwd();
         const files = Array(numberOfWallets).fill(0).map((_, i) => path.join(currentDir, "generated", `wallet-${i}.json`));
         for (const file of files) {
-            const wallet = JSON.parse(await Deno.readTextFile(file)) as WalletState;
+            const wallet = JSON.parse(await readFile(file, "utf-8")) as WalletState;
             wallets.push(wallet);
         }
         console.log(`Loaded ${wallets.length} wallets from ${currentDir}/generated`);
         if (!wallets.length) {
             console.error('No wallets found');
-            Deno.exit(1);
+            process.exit(1);
         }
     }
     if (mint) {
@@ -109,6 +111,6 @@ if (import.meta.main) {
         // NIGHT token transfer uses unshielded address (bech32m format)
         await faucet(unshieldedTargets);
         console.log("✅ Minting and NIGHT transfers completed. Exiting.");
-        Deno.exit(0);
+        process.exit(0);
     }
 }

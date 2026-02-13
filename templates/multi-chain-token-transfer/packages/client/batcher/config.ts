@@ -12,7 +12,7 @@ import { ERC1155CustomAdapter } from "./erc1155-adapter.ts";
 import { contractAddressesEvmMain } from "@multi-chain-transfer/evm-contracts";
 
 const batchIntervalMs = 1000;
-const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
+const port = Number(process.env.BATCHER_PORT ?? "3334");
 
 const GENESIS_MINT_WALLET_SEED =
   "0000000000000000000000000000000000000000000000000000000000000001";
@@ -42,7 +42,7 @@ export const midnightAdapter = new MidnightAdapter(
 
 // ERC1155 adapter configuration
 const erc1155Address = contractAddressesEvmMain()["chain31337"]["Erc1155DevModule#MCT_ERC1155"] as EvmAddress;
-const batcherPrivateKey = (Deno.env.get("BATCHER_PRIVATE_KEY") ??
+const batcherPrivateKey = (process.env.BATCHER_PRIVATE_KEY ??
   "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`;
 
 export const erc1155Adapter = new ERC1155CustomAdapter(

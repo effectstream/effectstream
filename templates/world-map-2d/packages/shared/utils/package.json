@@ -1,0 +1,10 @@
+{
+  "name": "@world-map-2d/utils",
+  "description": "Helper library for World Map 2D",
+  "exports": {
+    ".": "./src/mod.ts"
+  },
+  "dependencies": {
+    "@paimaexample/utils": "0.3.108"
+  }
+}

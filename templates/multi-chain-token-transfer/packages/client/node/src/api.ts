@@ -7,6 +7,10 @@ import {
 import type { Pool } from "pg";
 import type { StartConfigApiRouter } from "@paimaexample/runtime";
 import type fastify from "fastify";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Example for User Defined API Routes.
@@ -78,18 +82,17 @@ export const apiRouter: StartConfigApiRouter = async function (
     let message = "";
     try {
       isRunning = true;
-      const command = new Deno.Command(Deno.execPath(), {
+      await execFileAsync(process.execPath, [
+        "run",
+        "--filter",
+        "@multi-chain-transfer/midnight-contracts",
+        "midnight-faucet:start",
+      ], {
         env: {
+          ...process.env,
           MIDNIGHT_ADDRESS: address,
         },
-        args: [
-          "task",
-          "-f",
-          "@multi-chain-transfer/midnight-contracts",
-          "midnight-faucet:start",
-        ],
       });
-      const { code, stdout, stderr } = await command.output();
       status = "done";
       message = "Faucet successfully completed";
     } catch (error: any) {

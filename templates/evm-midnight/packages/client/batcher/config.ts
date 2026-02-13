@@ -9,7 +9,7 @@ import { readMidnightContract } from "@paimaexample/midnight-contracts/read-cont
 import { Counter, witnesses } from "@example-evm-midnight/my-midnight-contract";
 import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
 
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((process.env[key] || "").toLowerCase());
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
 
 const batchIntervalMs = 1000;
@@ -19,12 +19,12 @@ const paimaL2Address = (contractAddressesEvmMain() as any)["chain31337"]?.[
 ] || (contractAddressesEvmMain() as any)["chain421614"]?.["PaimaL2ContractModule#MyPaimaL2Contract"] as `0x${string}`;
 
 const paimaSyncProtocolName = "mainEvmRPC";
-const batcherPrivateKey = Deno.env.get("EVM_PRIVATE_KEY") ??
+const batcherPrivateKey = process.env.EVM_PRIVATE_KEY ??
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
 // Defaults consistent with local template usage
 const paimaL2Fee = 0n; // Old batcher defaulted to 0 for local dev
-const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
+const port = Number(process.env.BATCHER_PORT ?? "3334");
 
 // EVM PaimaL2 adapter mirroring batcher-start.ts configuration
 const paimaL2 = new PaimaL2DefaultAdapter(

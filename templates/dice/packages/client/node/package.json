@@ -1,0 +1,33 @@
+{
+  "name": "@dice/node",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/main.ts"
+  },
+  "scripts": {
+    "check": "echo 'Type checking skipped'",
+    "node:start": "bun --inspect run src/main.ts",
+    "dev": "NODE_ENV=development PAIMA_API_PORT=9999 bun run scripts/start.ts"
+  },
+  "dependencies": {
+    "@paimaexample/concise": "0.3.124",
+    "@paimaexample/config": "0.3.124",
+    "@paimaexample/log": "0.3.124",
+    "@paimaexample/crypto": "0.3.124",
+    "@paimaexample/orchestrator": "0.3.124",
+    "@paimaexample/runtime": "0.3.124",
+    "@paimaexample/tui": "0.3.124",
+    "@paimaexample/utils": "0.3.124",
+    "@paimaexample/sm": "0.3.124",
+    "@paimaexample/coroutine": "0.3.124",
+    "@paimaexample/db": "0.3.124",
+    "@paimaexample/explorer": "0.3.124",
+    "fastify": "^5.4.0",
+    "pg": "^8.14.0",
+    "@sinclair/typebox": "^0.34.30",
+    "effection": "^3.5.0"
+  }
+}

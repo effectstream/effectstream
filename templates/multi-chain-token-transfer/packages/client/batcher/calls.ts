@@ -6,9 +6,9 @@ import { World } from "@paimaexample/coroutine";
 import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 
 // Batcher configuration
-const BATCHER_PORT = Deno.env.get("BATCHER_PORT") || "3334";
+const BATCHER_PORT = process.env.BATCHER_PORT || "3334";
 const BATCHER_ENDPOINT = `http://localhost:${BATCHER_PORT}/send-input`;
-const WALLET_PRIVATE_KEY = (Deno.env.get("WALLET_PRIVATE_KEY") || 
+const WALLET_PRIVATE_KEY = (process.env.WALLET_PRIVATE_KEY ||
   "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") as `0x${string}`; // Hardhat default account #0
 
 const AddressType = {

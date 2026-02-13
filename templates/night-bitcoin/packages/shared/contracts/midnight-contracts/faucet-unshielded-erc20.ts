@@ -1,4 +1,4 @@
-import * as log from "@std/log";
+const log = { info: console.log, warn: console.warn, error: console.error };
 import {
   MidnightBech32m,
   ShieldedAddress,
@@ -19,8 +19,9 @@ import {
 } from "@midnight-ntwrk/midnight-js-types";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { dirname, resolve } from "@std/path";
+import { dirname, resolve } from "node:path";
 import { Buffer } from "node:buffer";
+import { readFile } from "node:fs/promises";
 import * as Rx from "rxjs";
 import { HDWallet, Roles } from "@midnight-ntwrk/wallet-sdk-hd";
 import { WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
@@ -585,7 +586,7 @@ const getContractAddress = async (): Promise<string> => {
 
   try {
       const contractAddressFromFile = JSON.parse(
-        await Deno.readTextFile(contractAddressFile),
+        await readFile(contractAddressFile, "utf-8"),
       ).contractAddress;
 
         console.log(
@@ -707,22 +708,10 @@ async function joinAndMint(accounts: string | string[], amount: bigint): Promise
 
 // Run the script if this file is executed directly
 if (import.meta.main) {
-  await log.setup({
-    handlers: {
-      console: new log.ConsoleHandler("INFO"),
-    },
-    loggers: {
-      default: {
-        level: "INFO",
-        handlers: ["console"],
-      },
-    },
-  });
-
   const address = "mn_shield-addr_undeployed1zl9wafu8ad4nfm7jmrh8gukfnu3l5smn4rhglxqh6ayvf4f4vzasxqzn5va92vps2xxpdgy856z6cpzrllj3n35k5r3trp0unzskh9lwsvdzgnft";
   joinAndMint(address, 250000000000n).catch((error) => {
     console.error("❌ Unhandled error:", error);
-    Deno.exit(1);
+    process.exit(1);
   });
 }
 

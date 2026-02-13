@@ -12,8 +12,8 @@ const disableStderr = logs !== "stdout";
 
 const shouldLaunchProofServer = !isExternalProofServerConfigured;
 const shouldInjectProofServerEnv =
-  !Deno.env.get("MIDNIGHT_PROOF_SERVER_URL") &&
-  !Deno.env.get("MIDNIGHT_PROOF_SERVER");
+  !process.env.MIDNIGHT_PROOF_SERVER_URL &&
+  !process.env.MIDNIGHT_PROOF_SERVER;
 const proofServerEnv = shouldInjectProofServerEnv
   ? { MIDNIGHT_PROOF_SERVER_URL: midnightNetworkConfig.proofServer }
   : undefined;
@@ -36,14 +36,14 @@ const frontendEnv = {
 const customProcesses = [
   {
     name: "frontend-build",
-    args: ["task", "-f", "@example-evm-midnight/frontend", "build"],
+    args: ["run", "--filter", "@example-evm-midnight/frontend", "build"],
     waitToExit: true,
     type: "system-dependency",
     env: frontendEnv,
   },
   {
     name: "frontend-server",
-    args: ["task", "-f", "@example-evm-midnight/frontend", "serve"],
+    args: ["run", "--filter", "@example-evm-midnight/frontend", "serve"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10599",
@@ -53,7 +53,7 @@ const customProcesses = [
   },
   {
     name: "explorer",
-    args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
+    args: ["run", "@paimaexample/explorer"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10590",
@@ -61,7 +61,7 @@ const customProcesses = [
   },
   {
     name: "batcher",
-    args: ["task", "-f", "@example-evm-midnight/batcher", "start"],
+    args: ["run", "--filter", "@example-evm-midnight/batcher", "start"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:3334",
@@ -71,7 +71,7 @@ const customProcesses = [
 
 const config = Value.Parse(OrchestratorConfig, {
   logs,
-  packageName: "jsr:@paimaexample",
+  packageName: "@paimaexample",
   processes: {
     [ComponentNames.TMUX]: logs === "development",
     [ComponentNames.TUI]: logs === "development",

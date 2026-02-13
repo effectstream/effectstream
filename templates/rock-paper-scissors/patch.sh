@@ -1,16 +1,10 @@
 #!/bin/bash
 
+# NOTE: These patches were originally workarounds for Deno-specific issues.
+# They may not be needed with Bun, but are preserved until verified.
+
 # Apply patches
 echo "🔧 Applying patches..."
-
-# Install wait-on binary (required by orchestrator)
-echo "Installing wait-on binary..."
-if command -v deno &> /dev/null; then
-    deno install npm:wait-on
-    echo "✅ wait-on installed successfully"
-else
-    echo "⚠️  Warning: Deno not found, skipping wait-on installation"
-fi
 
 # Function to comment out a line at specific line number
 comment_line() {
@@ -47,13 +41,19 @@ replace_in_file() {
 }
 
 # Apply patches
-echo "Commenting out await stdoutFileHandle.close()..."
-comment_line "./node_modules/.deno/hardhat@3.0.4/node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js" 48 "await stdoutFileHandle.close();"
+file_to_patch="./node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js"
+if [[ -f "$file_to_patch" ]]; then
+    echo "Commenting out await stdoutFileHandle.close()..."
+    comment_line "$file_to_patch" 48 "await stdoutFileHandle.close();"
+fi
 
-echo "Commenting out first await fileHandle?.close()..."
-comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 209 "await fileHandle?.close();"
+file_to_patch="./node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js"
+if [[ -f "$file_to_patch" ]]; then
+    echo "Commenting out first await fileHandle?.close()..."
+    comment_line "$file_to_patch" 209 "await fileHandle?.close();"
 
-echo "Commenting out second await fileHandle?.close()..."
-comment_line "./node_modules/.deno/@nomicfoundation+hardhat-utils@3.0.0/node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js" 275 "await fileHandle?.close();"
+    echo "Commenting out second await fileHandle?.close()..."
+    comment_line "$file_to_patch" 275 "await fileHandle?.close();"
+fi
 
 echo "✅ All patches applied successfully"

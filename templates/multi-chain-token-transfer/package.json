@@ -1,5 +1,19 @@
 {
-    "dependencies": {
-        "@electric-sql/pglite": "^0.3.14"
-    }
+  "private": true,
+  "workspaces": [
+    "packages/**/*"
+  ],
+  "scripts": {
+    "build:evm": "bun run --filter @multi-chain-transfer/evm-contracts build:mod",
+    "build:midnight": "bun run --filter @multi-chain-transfer/midnight-contract-eip-1155 compact",
+    "dev": "bun run --filter @multi-chain-transfer/node dev",
+    "start:frontend": "bun run --filter @multi-chain-transfer/frontend dev",
+    "check": "bun run --filter @multi-chain-transfer/node check"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@paimaexample/tui": "0.3.116",
+    "@paimaexample/midnight-contracts": "0.3.116",
+    "@paimaexample/evm-contracts": "0.3.116"
+  }
 }

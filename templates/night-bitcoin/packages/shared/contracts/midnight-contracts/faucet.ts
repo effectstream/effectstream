@@ -1,4 +1,4 @@
-import * as log from "@std/log";
+const log = { info: console.log, warn: console.warn, error: console.error };
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { Buffer } from "node:buffer";
 import * as Rx from "rxjs";
@@ -240,7 +240,7 @@ export function getInitialShieldedState(
  * Resolve sync timeout from env or default.
  */
 export function resolveWalletSyncTimeoutMs(): number {
-  const envValue = Deno.env.get("MIDNIGHT_WALLET_SYNC_TIMEOUT_MS");
+  const envValue = process.env.MIDNIGHT_WALLET_SYNC_TIMEOUT_MS;
   if (!envValue) return WALLET_SYNC_TIMEOUT_MS;
   const parsed = Number(envValue);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
@@ -582,14 +582,14 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
 }
 
 const resolveNetworkUrls = (): Required<Config> => ({
-  indexer: Deno.env.get("MIDNIGHT_INDEXER_URL") || DEFAULT_NETWORK_URLS.indexer,
-  indexerWS: Deno.env.get("MIDNIGHT_INDEXER_WS_URL") || DEFAULT_NETWORK_URLS.indexerWS,
-  node: Deno.env.get("MIDNIGHT_NODE_URL") || DEFAULT_NETWORK_URLS.node,
-  proofServer: Deno.env.get("MIDNIGHT_PROOF_SERVER_URL") || DEFAULT_NETWORK_URLS.proofServer,
+  indexer: process.env.MIDNIGHT_INDEXER_URL || DEFAULT_NETWORK_URLS.indexer,
+  indexerWS: process.env.MIDNIGHT_INDEXER_WS_URL || DEFAULT_NETWORK_URLS.indexerWS,
+  node: process.env.MIDNIGHT_NODE_URL || DEFAULT_NETWORK_URLS.node,
+  proofServer: process.env.MIDNIGHT_PROOF_SERVER_URL || DEFAULT_NETWORK_URLS.proofServer,
 });
 
 const resolveNetworkId = (): NetworkId.NetworkId => {
-  const networkIdRaw = Deno.env.get("MIDNIGHT_NETWORK_ID") || "undeployed";
+  const networkIdRaw = process.env.MIDNIGHT_NETWORK_ID || "undeployed";
   switch (networkIdRaw.toLowerCase()) {
     case "undeployed":
       return NetworkId.NetworkId.Undeployed;
@@ -775,31 +775,19 @@ export const faucet = async (
 };
 
 if (import.meta.main) {
-  await log.setup({
-    handlers: {
-      console: new log.ConsoleHandler("INFO"),
-    },
-    loggers: {
-      default: {
-        level: "INFO",
-        handlers: ["console"],
-      },
-    },
-  });
-
-  const midnightAddress = Deno.env.get("MIDNIGHT_ADDRESS");
+  const midnightAddress = process.env.MIDNIGHT_ADDRESS;
   if (!midnightAddress) {
     console.error("❌ MIDNIGHT_ADDRESS environment variable is not set");
     console.error(
       "Example: MIDNIGHT_ADDRESS=mn_addr_undeployed1k7dst6qphntqmypwa4mhyltk794wx4lt07kherlc9y6clu5swssxqr9xe4z7txy8rscldhec7nmm47ujccf7syky0wz86jwahhkfd3mvq9wu8qx deno run -A faucet.ts"
     );
-    Deno.exit(1);
+    process.exit(1);
   }
   try {
     await faucet(midnightAddress);
-    Deno.exit(0);
+    process.exit(0);
   } catch (error) {
     console.error("❌ Error during faucet process:", error);
-    Deno.exit(1);
+    process.exit(1);
   }
 }

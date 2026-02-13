@@ -48,8 +48,8 @@ const start = async () => {
 start()
   .then(() => {
     console.log("Deployment successful");
-    Deno.exit(0);
+    process.exit(0);
   }).catch((e: unknown) => {
     console.error("Unhandled error:", e);
-    Deno.exit(1);
+    process.exit(1);
   });
