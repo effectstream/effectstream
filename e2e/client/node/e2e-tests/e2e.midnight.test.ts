@@ -448,7 +448,6 @@ async function joinAndIncrementTest(
   } catch (error) {
     console.error("❌ Error during join and increment process:", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
-    // Deno.exit(1);
   } finally {
     // Clean up wallet
     if (walletResult) {

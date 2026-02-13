@@ -15,6 +15,7 @@ import {
 
 import type { WalletResult, NetworkUrls } from "./types.ts";
 import type { InitialOwner } from "./types.ts";
+import { getEnv } from "@effectstream/utils/runtime";
 
 // ============================================================================
 // Wallet Facade  
@@ -42,7 +43,7 @@ export async function buildWalletAndWaitForFunds(
     const syncTimeoutMs = resolveWalletSyncTimeoutMs();
     if (balance === 0n) {
       const skipWait =
-        Deno.env.get("MIDNIGHT_SKIP_WAIT_FOR_FUNDS")?.toLowerCase() === "true";
+        getEnv("MIDNIGHT_SKIP_WAIT_FOR_FUNDS")?.toLowerCase() === "true";
       log.info("Wallet shielded balance: 0");
       log.info(
         `Waiting to receive tokens... (timeout ${syncTimeoutMs}ms${skipWait ? ", skip on timeout enabled" : ""})`

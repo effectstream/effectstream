@@ -1,8 +1,3 @@
-/**
- * Cross-runtime helpers for Node, Bun, and Deno.
- * Prefer these over Deno.* or process.* when you need code to run in multiple runtimes.
- */
-
 declare const process: {
   env: Record<string, string | undefined>;
   argv: string[];
@@ -53,13 +48,13 @@ export function getRuntime(): {runtime: Runtime, environment: RuntimeEnvironment
   return { runtime: 'unknown', environment: 'unknown' };
 }
 
-/** Get environment variable. Works in Node, Bun, and Deno. */
+/** Get environment variable. */
 export function getEnv(key: string): string | undefined {
   if (typeof process !== "undefined" && process.env) return process.env[key];
   return undefined;
 }
 
-/** Set environment variable. Works in Node, Bun, and Deno. */
+/** Set environment variable. */
 export function setEnv(key: string, value: string): void {
   if (typeof process !== "undefined" && process.env) {
     process.env[key] = value;
@@ -100,7 +95,7 @@ export function setExitCode(code: number): void {
 }
 
 /**
- * Register a test. Uses Deno.test when in Deno, node:test when in Node.
+ * Register a test.
  * Use: import { test } from "@effectstream/utils/runtime";
  */
 export function test(

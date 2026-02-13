@@ -326,10 +326,7 @@ export function readMidnightContract(
 
     moduleDir = foundDir;
   } else {
-    const envContractAddress =
-      typeof Deno !== "undefined"
-        ? Deno.env.get("MIDNIGHT_CONTRACT_ADDRESS")
-        : undefined;
+    const envContractAddress = getEnv("MIDNIGHT_CONTRACT_ADDRESS");
     return {
       contractAddress: envContractAddress || "",
       contractInfo: { circuits: [], witnesses: [], contracts: [] },

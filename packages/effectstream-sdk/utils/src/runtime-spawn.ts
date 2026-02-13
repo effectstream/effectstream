@@ -2,6 +2,8 @@
  * Cross-runtime process spawn abstraction.
  * Use this instead of Deno.Command or node:child_process.spawn when you need
  * code to run on Node, Bun, or Deno.
+ * 
+ * This will be refactored to only use standard packages compatible with all runtimes.
  */
 
 /** Result of a spawned process. stdout/stderr are Web ReadableStreams so they can be pipeTo()'d. */
