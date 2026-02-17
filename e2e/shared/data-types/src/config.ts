@@ -30,10 +30,12 @@ import { getEnv } from "@effectstream/utils/runtime";
 
 const isBackendEnvironment = typeof process !== "undefined" && process.env;
 
-const isEnvTrue = (key: string) =>
-  isBackendEnvironment ? 
-      ((key: string) => ["true", "1", "yes", "y"].includes((getEnv(key) || "").toLowerCase()))
-    : ((key: string) => ["true", "1", "yes", "y"].includes(((import.meta as any).env['VITE_' + key] || "").toLowerCase()));
+const isEnvTrue = (key: string) => {
+  const val = isBackendEnvironment
+    ? getEnv(key)
+    : (import.meta as any).env["VITE_" + key];
+  return ["true", "1", "yes", "y"].includes((val || "").toLowerCase());
+};
 
 
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.

@@ -16,7 +16,7 @@
     "node:start:e2e": "deno run -A --inspect --unstable-raw-imports src/main.ts",
     "node:start:testnet": "deno run -A --inspect --unstable-raw-imports src/main.testnet.ts",
     "clean_binaries": "cd ../../../packages/binaries/midnight-node && npm run clean && cd ../midnight-indexer && npm run clean && cd ../midnight-proof-server && npm run clean",
-    "quickstart": "deno task -f @effectstream/tui clean && EFFECTSTREAM_ENV=quickstart NODE_ENV=development deno run -A --check --unstable-raw-imports scripts/start.quickstart.ts",
+    "quickstart": "deno task -f @effectstream/tui clean && EFFECTSTREAM_ENV=quickstart NODE_ENV=development MIDNIGHT_STORAGE_PASSWORD=yourpasswordmypassword deno run -A --check --unstable-raw-imports scripts/start.quickstart.ts",
     "e2e": "EFFECTSTREAM_ENV=e2e deno run -A --unstable-raw-imports --check scripts/start.e2e.ts",
     "testnet": "EFFECTSTREAM_ENV=testnet deno run -A --unstable-raw-imports --check scripts/start.testnet.ts"
   },
