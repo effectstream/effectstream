@@ -12,14 +12,7 @@
 import { load } from "@std/dotenv";
 import { getEnv, setEnv } from "./runtime.ts";
 
-// Generate a random 16-character hex string for Midnight storage password
-function generateRandomHex(length: number): string {
-  const bytes = new Uint8Array(length / 2);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-const MIDNIGHT_STORAGE_PASSWORD_DEFAULT = generateRandomHex(16);
+const MIDNIGHT_STORAGE_PASSWORD_DEFAULT = 'yourpasswordmypassword';
 
 const EFFECTSTREAM_ENV = getEnv("EFFECTSTREAM_ENV");
 if (EFFECTSTREAM_ENV) {
