@@ -21,7 +21,11 @@ const batcher = createNewBatcher(config, storage);
 const batchIntervalMs = 1000;
 
 const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
+const evm_enabled = !ENV.getBoolean("DISABLE_EVM");
 
+let adapterCount = 0;
+
+if (evm_enabled) {
 batcher
   .addBlockchainAdapter("paimal2", effectstreaml2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
   .addBlockchainAdapter(
@@ -30,18 +34,23 @@ batcher
     { criteriaType: "size", maxBatchSize: 1 },
   )
   .setDefaultTarget("paimal2");
+adapterCount += 2;
+}
 
 if (midnight_enabled) {
 batcher
   .addBlockchainAdapter("midnight_eip20", midnightAdapter!, { criteriaType: "size", maxBatchSize: 1 })
   .addBlockchainAdapter("midnight_balancing", midnightBalancingAdapter!, { criteriaType: "size", maxBatchSize: 1 });
+adapterCount += 2;
 }
 
 if (bitcoin_enabled) {
 batcher
   .addBlockchainAdapter("bitcoin", bitcoinAdapter!, { criteriaType: "hybrid", maxBatchSize: 5, timeWindowMs: batchIntervalMs });
+adapterCount += 1;
 }
 
+if (adapterCount > 0) {
 // E2E-specific startup banner via state transition
 batcher.addStateTransition("startup", ({ publicConfig }) => {
   const banner =
@@ -81,3 +90,4 @@ main(function* () {
   // Keep the main operation alive
   yield* suspend();
 });
+}
