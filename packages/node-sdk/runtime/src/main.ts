@@ -60,7 +60,7 @@ export function* start(config: StartConfig): Operation<void> {
     ComponentNames.EFFECTSTREAM_RUNTIME,
     [],
     SeverityNumber.INFO,
-    (log) => log("start sync"),
+    (log) => log("start sync", syncProtocols.map(p => p.name)),
   );
   for (const syncProtocol of syncProtocols) {
     yield* startSync(syncProtocol);

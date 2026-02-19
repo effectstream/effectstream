@@ -95,6 +95,8 @@ Locked by ${_waitUntilFree.running.name}. This is a critical error, please resta
  * Do not call this function if you did not call `acquireDBMutex()` before.
  */
 export function releaseDBMutex(lockName: string) {
+  if (!ENV.PGLITE) return;
+
   if (_waitUntilFree.running.name !== lockName) {
     console.error(
       "releasing mutex",
