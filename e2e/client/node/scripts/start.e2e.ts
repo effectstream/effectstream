@@ -14,7 +14,7 @@ import {
     type SharedState,
   } from "@e2e/engine";
 import { accountTests } from "../e2e-tests/e2e.account.test.ts";
-import { generalTest } from "../e2e-tests/e2e.general.test.ts";
+import { generalTest, evmTests } from "../e2e-tests/e2e.general.test.ts";
 import { joinAndIncrementTest, sendMintToBatcherTest, testDelegatedBalancing } from "../e2e-tests/e2e.midnight.test.ts";
 import { submitDataWithMessageAvailTest } from "../e2e-tests/e2e.avail.test.ts";
 import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
@@ -30,6 +30,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const external_db_enabled = ENV.getBoolean("EXTERNAL_DB_ENABLED");
 
+const evm_enabled = !ENV.getBoolean("DISABLE_EVM");
 const yaci_enabled = false; //!ENV.getBoolean("DISABLE_YACI")
 const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
@@ -45,17 +46,25 @@ type Process = {
   name: string;
   dependsOn?: string[];
 };
-const evm_processes = launchEvm("@e2e/evm-contracts");
+let evm_processes: Process[] = [];
 let bitcoin_processes: Process[] = [];
 let cardano_processes: Process[] = [];
 let midnight_processes: Process[] = [];
 let avail_processes: Process[] = [];
 
-let lastProcess = evm_processes[evm_processes.length - 1].name;
+let lastProcess = "";
+
+if (evm_enabled) {
+  evm_processes = launchEvm("@e2e/evm-contracts");
+  if (!is_serial && lastProcess) {
+    evm_processes[0].dependsOn = [lastProcess];
+  }
+  lastProcess = evm_processes[evm_processes.length - 1].name;
+}
 
 if (bitcoin_enabled) {
   bitcoin_processes = launchBitcoin("@e2e/bitcoin-contracts");
-  if (!is_serial) {
+  if (!is_serial && lastProcess) {
     bitcoin_processes[0].dependsOn = [lastProcess];
   }
   lastProcess = bitcoin_processes[bitcoin_processes.length - 1].name;
@@ -65,7 +74,7 @@ if (yaci_enabled) {
   cardano_processes = launchCardano("@e2e/cardano-contracts");
   // TODO Cardano processes are skipped if the dependencies are not met.
   if (cardano_processes.length > 0) {
-    if (!is_serial) {
+    if (!is_serial && lastProcess) {
       cardano_processes[0].dependsOn = [lastProcess];
     }
     lastProcess = cardano_processes[cardano_processes.length - 1].name;
@@ -74,7 +83,7 @@ if (yaci_enabled) {
 
 if (midnight_enabled) {
   midnight_processes = launchMidnight("@e2e/midnight-contracts");
-  if (!is_serial) {
+  if (!is_serial && lastProcess) {
     midnight_processes[0].dependsOn = [lastProcess];
   }
   lastProcess = midnight_processes[midnight_processes.length - 1].name;
@@ -82,7 +91,7 @@ if (midnight_enabled) {
 
 if (avail_enabled) {
   avail_processes = launchAvail("@e2e/avail-contracts");
-  if (!is_serial) {
+  if (!is_serial && lastProcess) {
     avail_processes[0].dependsOn = [lastProcess];
   }
   lastProcess = avail_processes[avail_processes.length - 1].name;
@@ -116,7 +125,7 @@ export async function startup(): Promise<Client> {
         type: "system-dependency",
         dependsOn: [
           is_serial ? lastProcess : undefined,
-          ComponentNames.DEPLOY_EVM_CONTRACTS,
+          evm_enabled ? ComponentNames.DEPLOY_EVM_CONTRACTS : undefined,
           midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined,
           avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
           yaci_enabled ? ComponentNames.DOLOS_WAIT : undefined,
@@ -302,25 +311,41 @@ export async function getDBConnection(): Promise<Client> {
         sharedState.primitive_accounting_counter += 3;
       }
       await generalTest(db, sharedState);
+      await RPCTest();
+      
       console.log(
         "generalTest completed",
         sharedState,
       );
-      await RPCTest();
-      await accountTests(db, sharedState);
-      console.log(
-        "accountTests completed",
-        sharedState,
-      );
-      await joinAndIncrementTest(db, sharedState);
-      await sendMintToBatcherTest(db, sharedState);
-      await testDelegatedBalancing(db, sharedState);
-      await submitDataWithMessageAvailTest(db, sharedState);
-      await tokenTests(db, sharedState);
+
+      if (evm_enabled) {
+        await evmTests(db, sharedState);
+        await accountTests(db, sharedState);
+        console.log(
+          "accountTests completed",
+          sharedState,
+        );
+      }
+
+      if (midnight_enabled) {
+        await joinAndIncrementTest(db, sharedState);
+        await sendMintToBatcherTest(db, sharedState);
+        await testDelegatedBalancing(db, sharedState);
+      }
+
+      if (avail_enabled) {
+        await submitDataWithMessageAvailTest(db, sharedState);
+      }
+
+      if (evm_enabled) {
+        await tokenTests(db, sharedState);
+      }
+      
       if (bitcoin_enabled) {
         await bitcoinTest(db, sharedState);
         await bitcoinBatcherTest(db, sharedState);
       }
+      
       await testMigrations(db);
       
       // Done testing.

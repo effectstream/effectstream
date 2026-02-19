@@ -52,6 +52,8 @@ const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
 // NOTE: This disable bitcoin sync, allowing for faster testing.
 const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
+const evm_enabled = !isEnvTrue("DISABLE_EVM");
+
 /**
  * Let check if the db.
  * If empty then the db is not initialized, and use the current time for the NTP sync.
@@ -109,7 +111,10 @@ export const config = new ConfigBuilder()
         // Block size is milliseconds, this will be used to sync other chains.
         // Block times will be exact, and not affected by the network latency, or server time.
         blockTimeMS: 1000,
-      })
+      });
+
+    if (evm_enabled) {
+      b = b
       .addViemNetwork({
         ...hardhat,
         name: "evmParallel_fast",
@@ -122,6 +127,8 @@ export const config = new ConfigBuilder()
         },
         id: 31338, // taken from hardhat.config.ts
       });
+    }
+
     if (avail_enabled) {
       b = b.addNetwork({
         name: "avail",
@@ -166,34 +173,7 @@ export const config = new ConfigBuilder()
     }
     return b;
   })
-  .buildDeployments((builder) =>
-    builder
-      .addDeployment(
-        (networks) => networks.evmParallel_fast,
-        (_network) => ({
-          name: "PaimaErc20DevModule#PaimaErc20Dev",
-          address: contractAddressesEvmMain()
-            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
-        }),
-      )
-      .addDeployment(
-        (networks) => networks.evmParallel_fast,
-        (_network) => ({
-          name: "PaimaL2ContractModule#MyPaimaL2Contract",
-          address: contractAddressesEvmMain().chain31337[
-            "PaimaL2ContractModule#MyPaimaL2Contract"
-          ],
-        }),
-      )
-      .addDeployment(
-        (networks) => networks.evmParallel_slow,
-        (_network) => ({
-          name: "PaimaErc20DevModule#PaimaErc20Dev",
-          address: contractAddressesEvmMain()
-            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
-        }),
-      )
-  ).buildSyncProtocols((builder) => {
+  .buildDeployments((builder) => builder).buildSyncProtocols((builder) => {
     let result = builder
       .addMain(
         (networks) => networks.ntp,
@@ -204,9 +184,11 @@ export const config = new ConfigBuilder()
           startBlockHeight: 1,
           pollingInterval: 500,
         }),
-      )
+      );
+    if (evm_enabled) {
+      result = result
       .addParallel(
-        (networks) => networks.evmParallel_fast,
+        (networks) => (networks as any).evmParallel_fast,
         (network, deployments) => ({
           name: "parallelEvmRPC_fast",
           type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
@@ -217,7 +199,7 @@ export const config = new ConfigBuilder()
         }),
       )
       .addParallel(
-        (networks) => networks.evmParallel_slow,
+        (networks) => (networks as any).evmParallel_slow,
         (network, deployments) => ({
           name: "parallelEvmRPC_slow",
           type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
@@ -228,6 +210,7 @@ export const config = new ConfigBuilder()
           confirmationDepth: 2, // TODO: test this
         }),
       );
+    }
 
     if (avail_enabled) {
       result = result.addParallel(
@@ -301,8 +284,12 @@ export const config = new ConfigBuilder()
     return result;
   })
   .buildPrimitives((builder) => {
-    builder.addPrimitive(
-      (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
+
+    let b = builder;
+
+    if (evm_enabled) {
+    b = b.addPrimitive(
+      (syncProtocols) => (syncProtocols as any).parallelEvmRPC_fast,
       (network, deployments, syncProtocol) => ({
         name: "Aribitrum_Token",
         type: PrimitiveTypeEVMERC20,
@@ -313,7 +300,7 @@ export const config = new ConfigBuilder()
       })
     )
     .addPrimitive(
-      (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
+      (syncProtocols) => (syncProtocols as any).parallelEvmRPC_fast,
       (network, deployments, syncProtocol) => ({
         name: "Counter",
         type: 'EVM:CUSTOM-COUNTER',
@@ -324,7 +311,7 @@ export const config = new ConfigBuilder()
       })
     )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
+        (syncProtocols) => (syncProtocols as any).parallelEvmRPC_fast,
         (network, deployments, syncProtocol) =>
           ({
             name: "PaimaGameInteraction",
@@ -337,7 +324,7 @@ export const config = new ConfigBuilder()
           }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
+        (syncProtocols) => (syncProtocols as any).parallelEvmRPC_fast,
         (network, deployments, syncProtocol) =>
           ({
             name: "Arbitrum_ERC721",
@@ -349,7 +336,7 @@ export const config = new ConfigBuilder()
           }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelEvmRPC_slow,
+        (syncProtocols) => (syncProtocols as any).parallelEvmRPC_slow,
         (network, deployments, syncProtocol) => ({
           name: "L1_ERC721_Token",
           type: PrimitiveTypeEVMERC721,
@@ -360,7 +347,7 @@ export const config = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelEvmRPC_slow,
+        (syncProtocols) => (syncProtocols as any).parallelEvmRPC_slow,
         (network, deployments, syncProtocol) => ({
           name: "ETH_L1_ERC20",
           type: PrimitiveTypeEVMERC20,
@@ -371,7 +358,7 @@ export const config = new ConfigBuilder()
         }),
       )
       .addPrimitive(
-        (syncProtocols) => syncProtocols.parallelEvmRPC_fast,
+        (syncProtocols) => (syncProtocols as any).parallelEvmRPC_fast,
         (network, deployments, syncProtocol) => ({
           name: "L1_ERC1155_TOKEN",
           type: PrimitiveTypeEVMERC1155,
@@ -381,8 +368,9 @@ export const config = new ConfigBuilder()
           stateMachinePrefix: "transfer-erc1155",
         }),
       )
+    }
     if (avail_enabled) {
-      builder = builder.addPrimitive(
+      b = b.addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelAvail,
         (network, deployments, syncProtocol) => ({
           name: "AvailContractState",
@@ -404,7 +392,7 @@ export const config = new ConfigBuilder()
         "contract-eip-20",
         { networkId: midnightNetworkConfig.id },
       ).contractAddress;
-      builder = builder
+      b = b
         .addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
           (network, deployments, syncProtocol) => ({
@@ -430,7 +418,7 @@ export const config = new ConfigBuilder()
         );
     }
     if (bitcoin_enabled) {
-      builder = builder.addPrimitive(
+      b = b.addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelBitcoin,
         (network, deployments, syncProtocol) => ({
           name: "BitcoinAddress",
@@ -442,7 +430,7 @@ export const config = new ConfigBuilder()
       );
     }
     if (yaci_enabled) {
-      builder = builder.addPrimitive(
+      b = b.addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
         (network, deployments, syncProtocol) => ({
           name: "UtxoRpcGeneric",
@@ -461,6 +449,6 @@ export const config = new ConfigBuilder()
         }),
       );
     }
-    return builder;
+    return b;
   })
   .build();
