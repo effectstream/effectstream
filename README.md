@@ -5,6 +5,15 @@
 Start at [Effectstream's Template](./templates/evm-midnight/) for quickstart
 project
 
+## Bun 
+```sh
+rm -rf bun.lock && \
+bun install && \
+bun run --filter '@e2e/midnight-contract-counter-basic' contract:compile && \
+bun run --filter '@e2e/midnight-contract-eip-20' contract:compile  && \
+DISABLE_EVM=true DISABLE_BITCOIN=true DISABLE_AVAIL=true bun run --filter @e2e/node e2e
+```
+
 ## Testing Development
 
 Effectstream development mode & tests can be run through e2e testing environment.

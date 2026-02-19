@@ -10,12 +10,13 @@
     "./start-bitcoin": "./scripts/launch-bitcoin.ts"
   },
   "dependencies": {
+    "wait-on": "8.0.3",
     "fkill": "^10.0.3",
     "@opentelemetry/sdk-node": "0.56.0",
     "@sinclair/typebox": "0.34.41",
-    "fastify": "^5.4.0"
-  },
-  "devDependencies": {
-    "wait-on": "8.0.3"
+    "fastify": "^5.4.0",
+    "@effectstream/log": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@effectstream/db": "workspace:*"
   }
 }

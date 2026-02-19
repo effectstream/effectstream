@@ -14,7 +14,7 @@
     "node:start:testnet": "bun --inspect src/main.testnet.ts",
     "clean_binaries": "cd ../../../packages/binaries/midnight-node && npm run clean && cd ../midnight-indexer && npm run clean && cd ../midnight-proof-server && npm run clean",
     "quickstart": "bun run --filter @effectstream/tui clean && EFFECTSTREAM_ENV=quickstart NODE_ENV=development bun scripts/start.quickstart.ts",
-    "e2e": "EFFECTSTREAM_ENV=e2e bun scripts/start.e2e.ts",
+    "e2e": "EFFECTSTREAM_ENV=e2e bun --elide-lines=0 scripts/start.e2e.ts",
     "testnet": "EFFECTSTREAM_ENV=testnet bun scripts/start.testnet.ts"
   },
   "dependencies": {
@@ -54,6 +54,14 @@
     "@polkadot/util-crypto": "^13.4.3",
     "bitcoin": "npm:bitcoinjs-lib@^7.0.0",
     "ecpair": "^3.0.0",
-    "tiny-secp256k1": "^2.2.4"
+    "tiny-secp256k1": "^2.2.4",
+    "@effectstream/utils": "workspace:*",
+    "@effectstream/log": "workspace:*",
+    "@e2e/engine": "workspace:*",
+    "@e2e/avail-contracts": "workspace:*",
+    "@e2e/batcher": "workspace:*",
+    "@effectstream/concise": "workspace:*",
+    "@e2e/midnight-contracts": "workspace:*",
+    "@effectstream/midnight-contracts": "workspace:*"
   }
 }

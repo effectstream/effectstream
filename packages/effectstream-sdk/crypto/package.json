@@ -11,6 +11,7 @@
     "algosdk": "^3.4.0",
     "mina-signer": "^3.0.7",
     "viem": "2.37.3",
-    "web3-utils": "^4.3.3"
+    "web3-utils": "^4.3.3",
+    "@effectstream/utils": "workspace:*"
   }
 }
