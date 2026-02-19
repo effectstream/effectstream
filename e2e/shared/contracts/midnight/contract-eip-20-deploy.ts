@@ -4,6 +4,7 @@ import {
   SimpleToken,
   witnesses,
 } from "./contract-eip-20/src/index.original.ts";
+import { exit } from "@effectstream/utils/runtime";
 
 const config: DeployConfig = {
   contractName: "contract-eip-20",
@@ -30,9 +31,9 @@ console.log("Deploying contract with network config:", midnightNetworkConfig);
 deployMidnightContract(config, midnightNetworkConfig)
   .then(() => {
     console.log("Deployment successful");
-    Deno.exit(0);
+    exit(0);
   })
   .catch((e) => {
     console.error("Unhandled error:", e);
-    Deno.exit(1);
+    exit(1);
   });

@@ -13,7 +13,8 @@ const AVAIL_NODE_URL = "ws://localhost:9955/ws";
 const AVAIL_SEED: string = "//Alice";
 const account = Account.new(AVAIL_SEED);
 
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+import { getEnv } from "@effectstream/utils/runtime";
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((getEnv(key) || "").toLowerCase());
 
 const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
 

@@ -4,8 +4,9 @@ import { buildBitcoinSignatureMessage, BitcoinAdapter } from "@effectstream/batc
 import * as bitcoin from "bitcoinjs-lib";
 import * as ecpair from "ecpair";
 import * as tinysecp from "tiny-secp256k1";
+import { getEnv } from "@effectstream/utils/runtime";
 
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((Deno.env.get(key) || "").toLowerCase());
+const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((getEnv(key) || "").toLowerCase());
 
 const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 

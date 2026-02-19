@@ -1,7 +1,9 @@
 import { Account, Pallets, SDK } from "avail-js-sdk";
+import { getEnv, cwd, spawn } from "@effectstream/utils/runtime";
+import { writeFile } from "node:fs/promises";
 
 const sdk = await SDK.New("ws://localhost:9955/ws");
-const seed: string = Deno.env.get("SEED") ?? "//Alice";
+const seed: string = getEnv("SEED") ?? "//Alice";
 if (!seed) {
   throw new Error("SEED environment variable is not set");
 }
@@ -50,16 +52,18 @@ export async function createApplicationKey() {
 const { appId, txHash } = await createApplicationKey();
 console.log("Transaction Hash: ", txHash.toString());
 const data = JSON.stringify({ appId, txHash, ApplicationKey, genesisHash });
-const fileName = Deno.cwd() + "/avail_app.json";
+const fileName = cwd() + "/avail_app.json";
 console.log("Writing to file: ", fileName);
-await Deno.writeTextFile(fileName, data);
+await writeFile(fileName, data, "utf-8");
 
-const child = new Deno.Command("deno", {
+const child = spawn("deno", {
   args: ["task", "-f", "@e2e/avail-contracts", "avail-light-client:start"],
   env: {
     AVAIL_APP_ID: appId.toString(),
   },
-}).spawn();
+  stdout: "inherit",
+  stderr: "inherit",
+});
 
 console.log("Light Client Started");
 

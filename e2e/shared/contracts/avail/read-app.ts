@@ -1,3 +1,4 @@
+import fs from "node:fs";
 export type AvailApplicationInfo = {
   appId: number;
   txHash: { // The txHash of the apps creation transaction
@@ -15,7 +16,7 @@ export function readAvailApplication(): AvailApplicationInfo {
     const dir = new URL(".", import.meta.url);
     // Construct the full path to avail_app.json
     const appInfoPath = new URL("avail_app.json", dir);
-    const appInfoJson = Deno.readTextFileSync(appInfoPath);
+    const appInfoJson = fs.readFileSync(appInfoPath, "utf-8");
     const appInfo = JSON.parse(appInfoJson) as AvailApplicationInfo;
     cachedAppInfo = appInfo;
     return appInfo;

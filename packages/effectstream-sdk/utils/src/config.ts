@@ -10,17 +10,11 @@
 // NOTE: To register a new config, we need to add it in the definitions, and then add the getter in the ENV class.
 // TODO: Is it possible to do this automatically, or just once?
 import { load } from "@std/dotenv";
+import { getEnv, setEnv } from "./runtime.ts";
 
-// Generate a random 16-character hex string for Midnight storage password
-function generateRandomHex(length: number): string {
-  const bytes = new Uint8Array(length / 2);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
+const MIDNIGHT_STORAGE_PASSWORD_DEFAULT = 'yourpasswordmypassword';
 
-const MIDNIGHT_STORAGE_PASSWORD_DEFAULT = generateRandomHex(16);
-
-const EFFECTSTREAM_ENV = Deno.env.get("EFFECTSTREAM_ENV");
+const EFFECTSTREAM_ENV = getEnv("EFFECTSTREAM_ENV");
 if (EFFECTSTREAM_ENV) {
   await load({
     envPath: `.env.${EFFECTSTREAM_ENV}`, // Uses .env_<EFFECTSTREAM_ENV>
@@ -281,7 +275,7 @@ export class ENV {
     return ENV.getConfig(definitions.ORCHESTRATOR_PORT);
   }
   static set ORCHESTRATOR_PORT(port: number) {
-    Deno.env.set(definitions.ORCHESTRATOR_PORT.key, String(port));
+    setEnv(definitions.ORCHESTRATOR_PORT.key, String(port));
   }
   static get TUI_LOG_URL(): string {
     return ENV.getConfig(definitions.TUI_LOG_URL);
@@ -399,6 +393,6 @@ export class ENV {
   private static getEnv(
     key: string,
   ): string | undefined {
-    return Deno.env.get(key);
+    return getEnv(key);
   }
 }

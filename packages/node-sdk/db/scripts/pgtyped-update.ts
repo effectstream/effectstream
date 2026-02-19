@@ -3,9 +3,11 @@
  * Runs database startup and pgtyped generation concurrently
  */
 
+import { spawn } from "node:child_process";
 import { dirname, join } from "jsr:@std/path@1.1.3";
+import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(import.meta.url.replace("file://", ""));
+const __dirname = dirname(import.meta.url?.startsWith("file:") ? fileURLToPath(import.meta.url) : import.meta.url.replace("file://", ""));
 
 interface ProcessInfo {
   name: string;
@@ -29,70 +31,43 @@ async function runProcess(processInfo: ProcessInfo): Promise<void> {
 
   console.log(`${prefix}Starting...`);
 
-  const command = new Deno.Command(processInfo.command, {
-    args: processInfo.args,
-    stdout: "piped",
-    stderr: "piped",
+  const child = spawn(processInfo.command, processInfo.args, {
+    stdio: ["inherit", "pipe", "pipe"],
+    shell: processInfo.command === "npx",
   });
 
-  const process = command.spawn();
+  const stdoutPromise = new Promise<void>((resolve) => {
+    child.stdout?.on("data", (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      text.split("\n").forEach((line) => {
+        if (line.trim()) console.log(`${prefix}${line}`);
+      });
+    });
+    child.stdout?.on("end", resolve);
+    if (!child.stdout) resolve();
+  });
 
-  // Handle stdout
-  const stdoutReader = process.stdout.getReader();
-  const stderrReader = process.stderr.getReader();
+  const stderrPromise = new Promise<void>((resolve) => {
+    child.stderr?.on("data", (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      text.split("\n").forEach((line) => {
+        if (line.trim()) console.error(`${prefix}${line}`);
+      });
+    });
+    child.stderr?.on("end", resolve);
+    if (!child.stderr) resolve();
+  });
 
-  // Stream stdout
-  const stdoutPromise = (async () => {
-    const decoder = new TextDecoder();
-    try {
-      while (true) {
-        const { done, value } = await stdoutReader.read();
-        if (done) break;
-        const text = decoder.decode(value);
-        // Print each line with prefix
-        text.split("\n").forEach((line) => {
-          if (line.trim()) {
-            console.log(`${prefix}${line}`);
-          }
-        });
-      }
-    } finally {
-      stdoutReader.releaseLock();
-    }
-  })();
-
-  // Stream stderr
-  const stderrPromise = (async () => {
-    const decoder = new TextDecoder();
-    try {
-      while (true) {
-        const { done, value } = await stderrReader.read();
-        if (done) break;
-        const text = decoder.decode(value);
-        // Print each line with prefix
-        text.split("\n").forEach((line) => {
-          if (line.trim()) {
-            console.error(`${prefix}${line}`);
-          }
-        });
-      }
-    } finally {
-      stderrReader.releaseLock();
-    }
-  })();
+  const exitCode = new Promise<number | null>((resolve) => {
+    child.on("close", (code) => resolve(code));
+  });
 
   if (processInfo.wait) {
-    // Wait for process to complete
-    const [status] = await Promise.all([
-      process.status,
-      stdoutPromise,
-      stderrPromise,
-    ]);
-
-    if (status.success) {
+    const [code] = await Promise.all([exitCode, stdoutPromise, stderrPromise]);
+    if (code === 0) {
       console.log(`${prefix}✅ Completed successfully`);
     } else {
-      console.error(`${prefix}❌ Failed with exit code ${status.code}`);
+      console.error(`${prefix}❌ Failed with exit code ${code}`);
       throw new Error(`Process ${processInfo.name} failed`);
     }
   }
@@ -135,7 +110,7 @@ async function main() {
     console.log("\n✅ All processes completed successfully");
   } catch (error) {
     console.error("\n❌ One or more processes failed:", error);
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 

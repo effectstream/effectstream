@@ -1,4 +1,5 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert";
+import { test } from "@effectstream/utils/runtime";
 import {
   AddressType,
   type TimestampMsStr,
@@ -15,7 +16,7 @@ const MOCK_TIMESTAMP = "1234567890000" as TimestampMsStr;
 const MOCK_SIGNATURE = "0xsignature";
 const MOCK_INPUT = "some-input";
 
-Deno.test("createBatcherSubunit - creates valid subunit for EVM", () => {
+test("createBatcherSubunit - creates valid subunit for EVM", () => {
   const subunit = createBatcherSubunit(
     MOCK_TIMESTAMP,
     MOCK_ADDRESS,
@@ -31,7 +32,7 @@ Deno.test("createBatcherSubunit - creates valid subunit for EVM", () => {
   assertEquals(subunit.timestamp, MOCK_TIMESTAMP);
 });
 
-Deno.test("createBatcherSubunit - throws for unsupported address type", () => {
+test("createBatcherSubunit - throws for unsupported address type", () => {
   assertThrows(
     () => {
       createBatcherSubunit(
@@ -47,7 +48,7 @@ Deno.test("createBatcherSubunit - throws for unsupported address type", () => {
   );
 });
 
-Deno.test("createMessageForBatcher - creates valid message", () => {
+test("createMessageForBatcher - creates valid message", () => {
   const msg = createMessageForBatcher(
     "namespace",
     MOCK_TIMESTAMP,
@@ -72,7 +73,7 @@ Deno.test("createMessageForBatcher - creates valid message", () => {
   assertEquals(msg.includes(MOCK_INPUT.toLowerCase()), true);
 });
 
-Deno.test("hashBatchSubunit - returns hash starting with 0x", () => {
+test("hashBatchSubunit - returns hash starting with 0x", () => {
    const subunit = createBatcherSubunit(
     MOCK_TIMESTAMP,
     MOCK_ADDRESS,
@@ -86,7 +87,7 @@ Deno.test("hashBatchSubunit - returns hash starting with 0x", () => {
   assertEquals(hash.length > 10, true);
 });
 
-Deno.test("hashBatchSubunit - throws for unsupported address type", () => {
+test("hashBatchSubunit - throws for unsupported address type", () => {
     const subunit = {
         addressType: 999 as AddressType,
         address: MOCK_ADDRESS,

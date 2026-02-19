@@ -22,6 +22,7 @@ import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
 import { bitcoinTest, bitcoinBatcherTest } from "../e2e-tests/e2e.bitcoin.test.ts";
 import { getEffectstreamEVMPublicClient } from "@e2e/engine";
+import { getEnv, exit } from "@effectstream/utils/runtime";
 import type { Client, PoolConfig } from "pg";
 import pg from "pg";
 
@@ -328,7 +329,7 @@ export async function getDBConnection(): Promise<Client> {
       
       // Optional pause to allow the user to inspect the DB,
       // check the logs, send more requests, etc.
-      const pauseTime = Deno.env.get("EFFECTSTREAM_E2E_PAUSE_TIME");
+      const pauseTime = getEnv("EFFECTSTREAM_E2E_PAUSE_TIME");
       if (pauseTime) {
         console.log("⏳ Pausing for", pauseTime, "seconds");
         await delay(parseInt(pauseTime, 10) * 1000);
@@ -345,7 +346,7 @@ export async function getDBConnection(): Promise<Client> {
       shutdown();
     } finally {
       if (anyError()) {
-        Deno.exit(1);
+        exit(1);
       }
     }
   }
@@ -353,10 +354,10 @@ export async function getDBConnection(): Promise<Client> {
   test()
   .then(() => {
     console.log("🎉 Test completed");
-    Deno.exit(0);
+    exit(0);
   }).catch((e) => {
     console.log("❌ Test failed");
     console.error(e);
-    Deno.exit(1);
+    exit(1);
   });
   

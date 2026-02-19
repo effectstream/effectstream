@@ -1,4 +1,7 @@
 import type { DefaultBatcherInput } from "./types.ts";
+import { mkdirSync } from "node:fs";
+import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { isNotFoundError } from "@effectstream/utils/runtime";
 
 /**
  * Interface for batcher storage operations
@@ -54,14 +57,14 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
   private readonly dataDirectory: string;
 
   constructor(dataDirectory: string = "./batcher-data") {
-    Deno.mkdirSync(dataDirectory, { recursive: true });
+    mkdirSync(dataDirectory, { recursive: true });
     this.dataDirectory = dataDirectory;
     this.filePath = `${dataDirectory}/pending-inputs.jsonl`;
   }
 
   async init(): Promise<void> {
     try {
-      await Deno.mkdir(this.dataDirectory, { recursive: true });
+      await mkdir(this.dataDirectory, { recursive: true });
     } catch (error) {
       console.error("Error creating data directory:", error);
       throw new Error(`Failed to initialize storage: ${error}`);
@@ -70,11 +73,7 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
 
   async addInput(input: T): Promise<void> {
     try {
-      await Deno.writeFile(
-        this.filePath,
-        new TextEncoder().encode(JSON.stringify(input) + "\n"),
-        { append: true },
-      );
+      await writeFile(this.filePath, JSON.stringify(input) + "\n", { flag: "a" });
     } catch (error) {
       console.error("Error adding input to storage:", error);
       throw new Error(`Failed to add input: ${error}`);
@@ -83,13 +82,11 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
 
   async getAllInputs(): Promise<T[]> {
     try {
-      const content = new TextDecoder().decode(
-        await Deno.readFile(this.filePath),
-      );
+      const content = await readFile(this.filePath, "utf-8");
       const lines = content.trim().split("\n").filter((line) => line.trim());
       return lines.map((line) => JSON.parse(line));
     } catch (error) {
-      if ((error as any).name === "NotFound") {
+      if (isNotFoundError(error)) {
         // File doesn't exist yet, return empty array
         return [];
       }
@@ -117,11 +114,9 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
       // Write the remaining inputs back to the file
       const content = remainingInputs.map((input) => JSON.stringify(input))
         .join("\n");
-      await Deno.writeFile(
+      await writeFile(
         this.filePath,
-        new TextEncoder().encode(
-          content + (remainingInputs.length > 0 ? "\n" : ""),
-        ),
+        content + (remainingInputs.length > 0 ? "\n" : ""),
       );
 
       const removedCount = allInputs.length - remainingInputs.length;
@@ -171,9 +166,9 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
 
   async clearAllInputs(): Promise<void> {
     try {
-      await Deno.remove(this.filePath);
+      await rm(this.filePath);
     } catch (error) {
-      if ((error as any).name !== "NotFound") {
+      if (!isNotFoundError(error)) {
         console.error("Error clearing inputs:", error);
         throw new Error(`Failed to clear inputs: ${error}`);
       }

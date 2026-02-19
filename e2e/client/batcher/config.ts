@@ -3,10 +3,11 @@ import {
   type BatcherConfig,
   type DefaultBatcherInput,
 } from "@effectstream/batcher";
+import { ENV } from "@effectstream/utils/node-env";
 
 // Config values mirroring e2e/client/node/scripts/start.ts
 const batchIntervalMs = 1000;
-const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
+const port = ENV.getNumber("BATCHER_PORT", 3334);
 
 // Batcher config matching old behavior
 export const config: BatcherConfig<DefaultBatcherInput> = {

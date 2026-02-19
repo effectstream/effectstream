@@ -1,14 +1,10 @@
 import type { Pool } from "pg";
 import { type QueryResult, safeQuery } from "./e2e-db.ts";
+import { ENV } from "@effectstream/utils/node-env";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const getMaxTimeout = (): number => {
-  if (Deno.env.get("E2E_MAX_TIMEOUT")) {
-    return parseInt(Deno.env.get("E2E_MAX_TIMEOUT")!, 10);
-  }
-  return 20000;
-};
+const getMaxTimeout = (): number => ENV.getNumber("E2E_MAX_TIMEOUT", 20000);
 
 const testResults = {
   count: 0,

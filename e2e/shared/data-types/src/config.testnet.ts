@@ -14,6 +14,7 @@ import {
   PrimitiveTypeMidnightGeneric,
 } from "@effectstream/sm/builtin";
 import { arbitrumSepolia } from "viem/chains";
+import { getEnv } from "@effectstream/utils/runtime";
 
 import { paimaL2Grammar } from "./grammar.ts";
 
@@ -38,9 +39,7 @@ let midnightTip: number = 1111111;
 // IMPORTANT: For testing purposes. Setting it to true, will
 // use a new tip on each restart, making the db inconsistent.
 const USE_TESTING_TIP = true;
-const arbitrumSepoliaRpc = Deno
-  ? Deno.env.get("ARBITRUM_SEPOLIA_RPC")
-  : undefined;
+const arbitrumSepoliaRpc = getEnv("ARBITRUM_SEPOLIA_RPC");
 
 type ContractAddressBook = Record<string, Record<string, `0x${string}`>>;
 const contractAddressBook = contractAddressesEvmMain() as ContractAddressBook;

@@ -1,14 +1,15 @@
 import { Application } from "@oak/oak/application";
 import { Router } from "@oak/oak/router";
 import routeStaticFilesFrom from "./util/routeStaticFilesFrom.ts";
+import { cwd } from "@effectstream/utils/runtime";
 
 export const app = new Application();
 const router = new Router();
 
 app.use(router.routes());
 app.use(routeStaticFilesFrom([
-  `${Deno.cwd()}/client/dist`,
-  `${Deno.cwd()}/client/public`,
+  `${cwd()}/client/dist`,
+  `${cwd()}/client/public`,
 ]));
 
 // Default Wallets E2E

@@ -2,31 +2,35 @@ import { type DebugLevel, PGlite } from "@electric-sql/pglite";
 // TODO This is not working, so we load the pg_ivm extension from the node_modules folder
 // import { pg_ivm } from "@electric-sql/pglite/pg_ivm";
 import net from "node:net";
+import { statSync } from "node:fs";
 import { fromNodeSocket } from "pg-gateway/node";
 import { ENV } from "@effectstream/utils/node-env";
+import { args, cwd } from "@effectstream/utils/runtime";
 
 // TODO PORT be a ENV variable
 // Get port from arguments.
 const portArgName = "--port";
-const portArgIndex = Deno.args.indexOf(portArgName);
-const portValue = portArgIndex !== -1 ? Deno.args[portArgIndex + 1] : "5432";
+const argv = args();
+const portArgIndex = argv.indexOf(portArgName);
+const portValue = portArgIndex !== -1 ? argv[portArgIndex + 1] : "5432";
 const port = parseInt(portValue);
 if (isNaN(port)) {
   throw new Error(`Port argument ${portArgName} is not a number`);
 }
 
 // TODO: find nearest node_modules folder, as import { pg_ivm } is not working
-let nodeModulesPath = Deno.cwd();
+let nodeModulesPath = cwd();
 while (true) {
   try {
-    !Deno.statSync(nodeModulesPath + "/node_modules").isDirectory;
-    break;
-  } catch (e) {
-    if (!nodeModulesPath || nodeModulesPath === "/") {
-      throw new Error("Node modules not found");
-    }
-    nodeModulesPath = nodeModulesPath.split("/").slice(0, -1).join("/");
+    const st = statSync(nodeModulesPath + "/node_modules");
+    if (st.isDirectory()) break;
+  } catch (_e) {
+    // not found or not dir
   }
+  if (!nodeModulesPath || nodeModulesPath === "/") {
+    throw new Error("Node modules not found");
+  }
+  nodeModulesPath = nodeModulesPath.split("/").slice(0, -1).join("/");
 }
 
 const db = new PGlite(

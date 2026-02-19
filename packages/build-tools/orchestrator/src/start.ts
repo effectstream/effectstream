@@ -13,6 +13,7 @@ import {
   setStderrOutput,
   tsLogOrchestratorAdapter,
 } from "./logging.ts";
+import { spawn, setEnv, getEnv } from "@effectstream/utils/runtime";
 import {
   $,
   AbortProcessStart,
@@ -193,7 +194,7 @@ export async function start(
 ): Promise<void> {
   // This is to redirect all logs.remote to the orchestrator, 
   // where they will be redirected to the collector.
-  Deno.env.set("EFFECTSTREAM_ORCHESTRATOR", "true");
+  setEnv("EFFECTSTREAM_ORCHESTRATOR", "true");
   appConfig = config;
   pFactory = processFactory(config);
   setupLogging(config);
@@ -499,9 +500,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     });
     void otlpCollector.process.status;
 
-    await (new Deno.Command("wait-on", {
-      args: [`tcp:${ENV.OTEL_COLLECTOR_PORT}`],
-    })).spawn().status;
+    await spawn("wait-on", { args: [`tcp:${ENV.OTEL_COLLECTOR_PORT}`] }).status;
 
     setCollectorStarted(ENV.OTEL_COLLECTOR_PORT);
     return otlpCollector;
@@ -549,7 +548,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     }
 
     // if EFFECTSTREAM_ENV is set, then launch the node:start:{EFFECTSTREAM_ENV}
-    const effectstreamEnv = Deno.env.get("EFFECTSTREAM_ENV");
+    const effectstreamEnv = getEnv("EFFECTSTREAM_ENV");
     const node = $({
       args: ["task", effectstreamEnv ? `node:start:${effectstreamEnv}` : "node:start"],
       log: logHandler({}, tsLogOrchestratorAdapter),
@@ -584,9 +583,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
     });
     void paimaDb.process.status; // need to await sub-service start below
 
-    await (new Deno.Command("wait-on", {
-      args: [`tcp:${ENV.DB_PORT}`],
-    })).spawn().status;
+    await spawn("wait-on", { args: [`tcp:${ENV.DB_PORT}`] }).status;
 
     return paimaDb;
   },

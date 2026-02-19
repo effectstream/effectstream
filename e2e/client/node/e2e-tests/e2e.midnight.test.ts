@@ -275,9 +275,11 @@ const configureProviders = (
 /**
  * Get contract address from command line arguments or from a file
  */
+import { args, exit } from "@effectstream/utils/runtime";
+
 const getContractAddress = (): string => {
   // First try to get from command line arguments
-  const contractAddressFromArgs = Deno.args[0];
+  const contractAddressFromArgs = args()[0];
 
   if (contractAddressFromArgs) {
     console.log(
@@ -314,7 +316,7 @@ const getContractAddress = (): string => {
     console.error(
       "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678",
     );
-    Deno.exit(1);
+    exit(1);
   }
 };
 
@@ -446,7 +448,6 @@ async function joinAndIncrementTest(
   } catch (error) {
     console.error("❌ Error during join and increment process:", error);
     console.error("❌ Error:", error instanceof Error ? error.message : error);
-    // Deno.exit(1);
   } finally {
     // Clean up wallet
     if (walletResult) {

@@ -80,5 +80,5 @@ try {
   }
 } catch (err) {
   server.log.error(err);
-  Deno.exit(1);
+  process.exit(1);
 }

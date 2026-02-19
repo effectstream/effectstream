@@ -2,6 +2,7 @@ import * as bitcoin from 'bitcoinjs-lib';
 import * as ecpair from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { createHash } from "node:crypto";
+import { args, exit } from "@effectstream/utils/runtime";
 
 /**
  * 
@@ -20,7 +21,10 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const ECPair = ecpair.ECPairFactory(ecc);
 const SATS_PER_BTC = 100_000_000;
 
-const DEFAULT_BLOCK_INTERVAL = Deno.args.includes('--block-interval') ? parseInt(Deno.args[Deno.args.indexOf('--block-interval') + 1]) : 5000;
+const argv = args();
+const DEFAULT_BLOCK_INTERVAL = argv.includes('--block-interval')
+  ? parseInt(argv[argv.indexOf('--block-interval') + 1])
+  : 5000;
 const NETWORK = bitcoin.networks.regtest;
 console.log(`Using block interval: ${DEFAULT_BLOCK_INTERVAL}ms`);
 
@@ -88,20 +92,18 @@ const bitcoinRpcCall = async (method: string, params: any[] = [], walletName?: s
 
 let running = true;
 
-// Handle process signals
-if (typeof Deno !== 'undefined') {
-  Deno.addSignalListener('SIGINT', () => {
-    console.log('\nReceived SIGINT, stopping block generation...');
-    running = false;
-    Deno.exit(130);
-  });
+// Handle process signals (Node-style; Deno 2 has node compat for process)
+process.on("SIGINT", () => {
+  console.log('\nReceived SIGINT, stopping block generation...');
+  running = false;
+  exit(130);
+});
 
-  Deno.addSignalListener('SIGTERM', () => {
-    console.log('\nReceived SIGTERM, stopping block generation...');
-    running = false;
-    Deno.exit(143);
-  });
-}
+process.on("SIGTERM", () => {
+  console.log('\nReceived SIGTERM, stopping block generation...');
+  running = false;
+  exit(143);
+});
 
 async function generateTXHex(address: string, amountSats: number, inputUTXO: { txid: string, vout: number }) {
   const keyPair = ECPair.fromWIF(target.privateKey, NETWORK);
@@ -179,8 +181,8 @@ async function main() {
     }
     console.log(`Using mining wallet address: ${address}`);
   } catch (error) {
-    console.error('Failed to get address. Make sure Bitcoin Core is running and accessible.');
-    Deno.exit(1);
+      console.error('Failed to get address. Make sure Bitcoin Core is running and accessible.');
+      exit(1);
   }
 
   // Import batcher address so we can track its funds
@@ -337,6 +339,6 @@ async function main() {
 
 main().catch((error) => {
   console.error('Fatal error:', error);
-  Deno.exit(1);
+  exit(1);
 });
 

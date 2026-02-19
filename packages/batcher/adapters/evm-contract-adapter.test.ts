@@ -1,4 +1,5 @@
 import { AddressType } from "@effectstream/utils";
+import { test } from "@effectstream/utils/runtime";
 import { assertEquals } from "jsr:@std/assert";
 import { EvmContractAdapter } from "./evm-contract-adapter.ts";
 import type { HardhatArtifact } from "./evm-contract-adapter.ts";
@@ -49,14 +50,14 @@ function makeInput(payload: unknown): DefaultBatcherInput {
   };
 }
 
-Deno.test("EvmContractAdapter.validateInput accepts known method", async () => {
+test("EvmContractAdapter.validateInput accepts known method", async () => {
   const adapter = new EvmContractAdapter(TEST_CONFIG);
   const input = makeInput({ method: "incrementCounter", args: [] });
   const result = await adapter.validateInput(input);
   assertEquals(result.valid, true);
 });
 
-Deno.test("EvmContractAdapter.validateInput rejects unknown method", async () => {
+test("EvmContractAdapter.validateInput rejects unknown method", async () => {
   const adapter = new EvmContractAdapter(TEST_CONFIG);
   const input = makeInput({ method: "doesNotExist", args: [] });
   const result = await adapter.validateInput(input);
@@ -67,7 +68,7 @@ Deno.test("EvmContractAdapter.validateInput rejects unknown method", async () =>
   );
 });
 
-Deno.test("EvmContractAdapter.validateInput enforces nonpayable value", async () => {
+test("EvmContractAdapter.validateInput enforces nonpayable value", async () => {
   const adapter = new EvmContractAdapter(TEST_CONFIG);
   const input = makeInput({
     method: "incrementCounter",

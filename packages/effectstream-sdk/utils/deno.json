@@ -4,7 +4,8 @@
   "license": "MIT",
   "exports": {
     ".": "./src/mod.ts",
-    "./node-env": "./src/config.ts"
+    "./node-env": "./src/config.ts",
+    "./runtime": "./src/runtime.ts"
   },
   "imports": {
     "@coderspirit/nominal": "npm:@coderspirit/nominal@^4.1.1",

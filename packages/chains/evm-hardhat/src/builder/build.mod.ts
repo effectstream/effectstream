@@ -190,24 +190,25 @@ async function buildModFile(): Promise<void> {
 
   // Copy mod.ts to root and update paths to include ./build/ prefix
   const rootModContent = `// this is a auto-generated file.
-
+import fs from "node:fs";
 export * from "./build/mod.ts";
 export { contracts } from "./build/contracts.ts";
 const __dirname = import.meta.dirname ?? "";
 export const contractAddressesEvmMain: () => Record<
-  ${chainIds.map((chainId) => `"chain${chainId}"`).join(" | ")}, 
+${chainIds.map((chainId) => `"chain${chainId}"`).join(" | ")}, 
   Record<string, \`0x\${string}\`>> = () => {
 
-  ${chainFiles.join("\n")}
+  ${chainFiles.join("\n  ")}
 
-  ${chainLets.join("\n")}
+  ${chainLets.join("\n  ")}
 
-  ${chainIds.map((chainId) => `if (typeof Deno !== 'undefined' && Deno && Deno.statSync(file${chainToIndex[`chain${chainId}`]}).isFile) {
-    chain${chainId} = JSON.parse(Deno.readTextFileSync(file${chainToIndex[`chain${chainId}`]}));
+  ${chainIds.map((chainId) => `
+  if (fs.statSync(file${chainToIndex[`chain${chainId}`]}).isFile()) {
+    chain${chainId} = JSON.parse(fs.readFileSync(file${chainToIndex[`chain${chainId}`]}, 'utf-8'));
   }`).join("\n")}
 
   return {
-    ${chainIds.map((chainId) => `chain${chainId}`).join(",\n")}
+    ${chainIds.map((chainId) => `chain${chainId}`).join(",\n    ")}
   };
 }
 `;

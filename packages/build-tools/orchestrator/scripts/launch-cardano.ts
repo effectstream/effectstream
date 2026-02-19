@@ -1,4 +1,7 @@
 import { ComponentNames } from "@effectstream/log";
+import { statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { getEnv } from "@effectstream/utils/runtime";
 
 // Start Cardano Node and Indexer.
 //
@@ -28,13 +31,14 @@ export const launchCardano = (packageName: string): {
   cwd?: string;
   command?: string;
 }[] => {
-  const yaciDir = `${Deno.env.get("HOME")}/.yaci-cli`;
+  const home = getEnv("HOME");
+  const yaciDir = `${home}/.yaci-cli`;
   const yaciCliPath = `${yaciDir}/yaci-cli`;
 
   // TODO $HOME/.yaci-cli/yaci-cli must be installed to allow this to work.
   // At the time the npm packages is incompatible with deno.
   try {
-    Deno.statSync(yaciCliPath);
+    statSync(yaciCliPath);
   } catch (_error) {
     throw new Error(
       `Cardano launcher skipped: missing ${yaciCliPath}. Run yaci-cli setup.`,
@@ -43,10 +47,8 @@ export const launchCardano = (packageName: string): {
   // TODO We require the latest dolos binary built from source.
   // At the time there is not npm package for the latest dolos binary.
   try {
-    const dolosExists = new Deno.Command("deno", {
-      args: ["task", "-f", packageName, "dolos:exists"],
-    }).outputSync();
-    if (!dolosExists.success) throw new Error();
+    const dolosExists = spawnSync("deno", ["task", "-f", packageName, "dolos:exists"], { encoding: "utf-8" });
+    if (dolosExists.status !== 0) throw new Error();
   } catch (_error) {
     throw new Error(
       "Cardano launcher skipped: dolos binary is missing.",

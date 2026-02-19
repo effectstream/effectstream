@@ -1,6 +1,6 @@
 import { ComponentNames } from "@effectstream/log";
+import { getEnv } from "@effectstream/utils/runtime";
 import { ENV } from "@effectstream/utils/node-env";
-
 
 // Substrate nodes (and many forks like Avail and Midnight) use the Rust tracing/log
 // stack wired through sc-cli/sc-service, which by default writes formatted log output to stderr.
@@ -9,7 +9,8 @@ import { ENV } from "@effectstream/utils/node-env";
 // unless the user explicitly wants to see the logs, so if EFFECTSTREAM_STDOUT is true,
 // we enable stderr for this as well.
 
-const disableStderr = Deno.env.get("EFFECTSTREAM_STDOUT") === "true" ? false : true;
+const isTrue = (value: string | undefined) => value != null && ["true", "1", "yes", "y"].includes(value.toLowerCase());
+const disableStderr = !isTrue(getEnv("EFFECTSTREAM_STDOUT"));
 
 // Start Midnight Node and Indexer.
 //
@@ -125,7 +126,7 @@ export const launchMidnight = (packageName: string): {
         "midnight-contract:deploy",
       ],
       env: {
-        MIDNIGHT_STORAGE_PASSWORD: ENV.MIDNIGHT_STORAGE_PASSWORD,
+        MIDNIGHT_STORAGE_PASSWORD: ENV.MIDNIGHT_STORAGE_PASSWORD
       },
       dependsOn: [
         ComponentNames.MIDNIGHT_NODE_WAIT,

@@ -28,12 +28,15 @@ const dbEmptyPath = join(dirname(fromFileUrl(import.meta.url)), "effectstream-db
 export default defineConfig({
   define: {
     "process.env.EFFECTSTREAM_ENV": JSON.stringify("local"),
+    Deno: undefined,
+    Bun: undefined,
   },
   sourcemap: true,
   resolve: {
     alias: {
       "@e2e/midnight-contract-eip-20/contract": midnightContractEip20Path + "index.js",
       "@e2e/midnight-contract-counter-basic/contract": midnightContractCounterBasicPath + "index.js",
+      "@effectstream/utils/runtime": utilsPath + "src/runtime.ts",
       "@effectstream/utils": utilsPath + "src/mod.ts",
       "@effectstream/config": configPath + "src/mod.ts",
       "@effectstream/concise": concisePath + "src/mod.ts",

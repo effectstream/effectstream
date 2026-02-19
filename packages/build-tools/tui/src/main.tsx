@@ -9,6 +9,8 @@ import {
   SECTION_ORDER,
   SECTIONS,
 } from "./tab/BottomBar.tsx";
+import { spawn, exit } from "@effectstream/utils/runtime";
+import { ENV } from "@effectstream/utils/node-env";
 
 // Main App Component
 const App = () => {
@@ -21,22 +23,23 @@ const App = () => {
   setRawMode(true);
   useEffect(() => {
     const handleTerminalResize = () => {
-      const { columns, rows } = Deno.consoleSize();
-      setWidth(() => columns);
-      setHeight(() => rows);
+      setWidth(stdout.columns);
+      setHeight(stdout.rows);
     };
-    Deno.addSignalListener("SIGWINCH", handleTerminalResize);
+    // Ink's stdout is a TTY in Node; listen for resize events where supported.
+    // deno-lint-ignore no-explicit-any
+    (stdout as any).on?.("resize", handleTerminalResize);
     return () => {
-      Deno.removeSignalListener("SIGWINCH", handleTerminalResize);
+      // deno-lint-ignore no-explicit-any
+      (stdout as any).off?.("resize", handleTerminalResize);
     };
-  }, []);
+  }, [stdout]);
   useInput((input, key) => {
     if (input === "c" && key.ctrl) {
-      if (Deno.env.get("TMUX")) {
-        const cmd = new Deno.Command("tmux", { args: ["kill-session"] });
-        cmd.spawn();
+      if (ENV.TMUX) {
+        spawn("tmux", { args: ["kill-session"], stdout: "inherit", stderr: "inherit" });
       }
-      Deno.exit(0);
+      exit(0);
       return;
     }
     // Handle left/right arrow keys for tab navigation

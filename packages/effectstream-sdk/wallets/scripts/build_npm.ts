@@ -1,6 +1,8 @@
 import { build, emptyDir } from "@deno/dnt";
+import { copyFileSync } from "node:fs";
+import { args } from "@effectstream/utils/runtime";
 
-const version = Deno.args[0];
+const version = args()[0];
 if (!version) {
     throw new Error("Version is required");
 }
@@ -29,8 +31,8 @@ await build({
   },
   postBuild() {
     // steps to run after building and before running the tests
-    // Deno.copyFileSync("LICENSE", "npm/LICENSE");
-    Deno.copyFileSync("README.md", "npm/README.md");
+    // copyFileSync("LICENSE", "npm/LICENSE");
+    copyFileSync("README.md", "npm/README.md");
   },
   configFile: import.meta.resolve("../deno.json"),
   compilerOptions: {

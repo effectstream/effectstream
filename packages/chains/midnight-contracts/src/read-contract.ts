@@ -1,6 +1,8 @@
 // TODO Remove references to "src/managed" as this is not standard.
 
 import * as path from "@std/path";
+import { readdirSync, statSync, readFileSync } from "node:fs";
+import { getEnv, cwd, isNotFoundError, getRuntime } from "@effectstream/utils/runtime";
 
 /**
 * Information about a compiled Midnight contract
@@ -59,11 +61,11 @@ function findAllFilesRecursive(
   }
   
   try {
-    const entries = Array.from(Deno.readDirSync(dir));
+    const entries = readdirSync(dir, { withFileTypes: true });
     
     // First check if the file exists in the current directory
-    const hasFile = entries.some(entry => 
-      entry.isFile && entry.name === fileName
+    const hasFile = entries.some(entry =>
+      entry.isFile() && entry.name === fileName
     );
     
     if (hasFile) {
@@ -72,7 +74,7 @@ function findAllFilesRecursive(
     
     // Then recursively search subdirectories
     for (const entry of entries) {
-      if (entry.isDirectory) {
+      if (entry.isDirectory()) {
         // Skip common directories that are unlikely to contain contracts
         const skipDirs = ["node_modules", ".git", "dist", "build", ".deno"];
         if (skipDirs.includes(entry.name)) {
@@ -98,8 +100,8 @@ function findAllFilesRecursive(
 function isValidMidnightContractDir(dir: string, contractName: string): boolean {
   const managedDir = path.join(dir, contractName, "src/managed");
   try {
-    const stats = Deno.statSync(managedDir);
-    return stats.isDirectory;
+    const stats = statSync(managedDir);
+    return stats.isDirectory();
   } catch {
     return false;
   }
@@ -112,8 +114,8 @@ function hasManagedArtifacts(dir: string): boolean {
   const requiredDirs = ["compiler", "contract"];
   try {
     return requiredDirs.every((entry) => {
-      const stats = Deno.statSync(path.join(dir, entry));
-      return stats.isDirectory;
+      const stats = statSync(path.join(dir, entry));
+      return stats.isDirectory();
     });
   } catch {
     return false;
@@ -127,8 +129,8 @@ function hasManagedArtifacts(dir: string): boolean {
  */
 function resolveManagedArtifactsDir(managedDir: string): string {
   try {
-    for (const entry of Deno.readDirSync(managedDir)) {
-      if (!entry.isDirectory) continue;
+    for (const entry of readdirSync(managedDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
       const candidate = path.join(managedDir, entry.name);
       if (hasManagedArtifacts(candidate)) {
         return candidate;
@@ -163,7 +165,7 @@ export function findContractDirectoryForDeploy(
   if (baseDir) {
     startDir = path.resolve(baseDir);
   } else {
-    startDir = Deno.cwd();
+    startDir = cwd();
   }
   
   let currentDir = path.resolve(startDir);
@@ -171,11 +173,11 @@ export function findContractDirectoryForDeploy(
   
   while (currentDir !== root) {
     try {
-      const entries = Array.from(Deno.readDirSync(currentDir));
+      const entries = readdirSync(currentDir, { withFileTypes: true });
       
       // Check if contract directory exists here
       for (const entry of entries) {
-        if (entry.isDirectory && entry.name === contractName) {
+        if (entry.isDirectory() && entry.name === contractName) {
           // Validate it's a Midnight contract by checking for src/managed/
           if (isValidMidnightContractDir(currentDir, contractName)) {
             return currentDir;
@@ -185,7 +187,7 @@ export function findContractDirectoryForDeploy(
       
       // Also search recursively in subdirectories (up to 3 levels deep)
       for (const entry of entries) {
-        if (entry.isDirectory) {
+        if (entry.isDirectory()) {
           const skipDirs = ["node_modules", ".git", "dist", "build", ".deno"];
           if (skipDirs.includes(entry.name)) {
             continue;
@@ -193,11 +195,11 @@ export function findContractDirectoryForDeploy(
           
           try {
             const subDir = path.join(currentDir, entry.name);
-            const subEntries = Array.from(Deno.readDirSync(subDir));
+            const subEntries = readdirSync(subDir, { withFileTypes: true });
             
             // Check direct subdirectory
             for (const subEntry of subEntries) {
-              if (subEntry.isDirectory && subEntry.name === contractName) {
+              if (subEntry.isDirectory() && subEntry.name === contractName) {
                 if (isValidMidnightContractDir(subDir, contractName)) {
                   return subDir;
                 }
@@ -206,12 +208,12 @@ export function findContractDirectoryForDeploy(
             
             // Check one more level deep
             for (const subEntry of subEntries) {
-              if (subEntry.isDirectory && !skipDirs.includes(subEntry.name)) {
+              if (subEntry.isDirectory() && !skipDirs.includes(subEntry.name)) {
                 const subSubDir = path.join(subDir, subEntry.name);
                 try {
-                  const subSubEntries = Array.from(Deno.readDirSync(subSubDir));
+                  const subSubEntries = readdirSync(subSubDir, { withFileTypes: true });
                   for (const subSubEntry of subSubEntries) {
-                    if (subSubEntry.isDirectory && subSubEntry.name === contractName) {
+                    if (subSubEntry.isDirectory() && subSubEntry.name === contractName) {
                       if (isValidMidnightContractDir(subSubDir, contractName)) {
                         return subSubDir;
                       }
@@ -301,11 +303,11 @@ export function readMidnightContract(
 
   if (baseDir) {
     moduleDir = path.resolve(baseDir);
-  } else if (typeof Deno !== "undefined") {
+  } else if (getRuntime().environment === 'backend') {
     let foundDir: string | null = null;
 
     for (const candidate of candidateFileNames) {
-      const dir = findContractDirectory(Deno.cwd(), candidate, contractName);
+      const dir = findContractDirectory(cwd(), candidate, contractName);
       if (dir) {
         foundDir = dir;
         break;
@@ -315,7 +317,7 @@ export function readMidnightContract(
     if (!foundDir) {
       throw new Error(
         `Could not find Midnight contract directory for "${contractName}". ` +
-          `Searched for ${candidateFileNames.join(", ")} starting from ${path.resolve(Deno.cwd())}. ` +
+          `Searched for ${candidateFileNames.join(", ")} starting from ${path.resolve(cwd())}. ` +
           `Please ensure you're running from a directory that contains or is a parent of the Midnight contract files, ` +
           `or provide an explicit baseDir parameter. ` +
           `Note: This function only finds Midnight contracts (with src/managed/ structure), not EVM contracts.`
@@ -324,16 +326,13 @@ export function readMidnightContract(
 
     moduleDir = foundDir;
   } else {
-    const envContractAddress =
-      typeof Deno !== "undefined"
-        ? Deno.env.get("MIDNIGHT_CONTRACT_ADDRESS")
-        : undefined;
+    const envContractAddress = getEnv("MIDNIGHT_CONTRACT_ADDRESS");
     return {
       contractAddress: envContractAddress || "",
       contractInfo: { circuits: [], witnesses: [], contracts: [] },
       zkConfigPath: "",
       contractDir: "",
-    };
+    }; 
   }
 
   const normalizedModuleDir = path.resolve(moduleDir);
@@ -348,11 +347,11 @@ export function readMidnightContract(
   for (const candidate of candidateFileNames) {
     const candidatePath = path.join(moduleDir, candidate);
     try {
-      contractAddressJson = Deno.readTextFileSync(candidatePath);
+      contractAddressJson = readFileSync(candidatePath, "utf-8");
       actualContractFileName = candidate;
       break;
     } catch (err) {
-      if (err instanceof Deno.errors.NotFound) {
+      if (isNotFoundError(err)) {
         continue;
       }
       throw err;
@@ -385,7 +384,7 @@ export function readMidnightContract(
       "compiler/contract-info.json"
     );
     const zkConfigPath = path.resolve(managedArtifactsDir);
-    const contractInfoJson = Deno.readTextFileSync(contractInfoPath);
+    const contractInfoJson = readFileSync(contractInfoPath, "utf-8");
     const contractAddressInfo = JSON.parse(contractAddressJson) as MidnightContractAddressInfo;
     const contractInfo = JSON.parse(contractInfoJson) as MidnightContractCompilerInfo;
     
@@ -410,7 +409,7 @@ export function readMidnightContract(
     }
     
     // Override contract address if MIDNIGHT_CONTRACT_ADDRESS env var is set
-    const envContractAddress = Deno.env.get("MIDNIGHT_CONTRACT_ADDRESS");
+    const envContractAddress = getEnv("MIDNIGHT_CONTRACT_ADDRESS");
     if (envContractAddress) {
       contractAddress = envContractAddress;
       contractAddresses[resolvedNetworkId] = envContractAddress;
@@ -426,7 +425,7 @@ export function readMidnightContract(
 
     return cachedContractInfo[cacheKey];
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
+    if (isNotFoundError(err)) {
       const fileList = candidateFileNames
         .map((name) => path.join(moduleDir, name))
         .join(", ");
