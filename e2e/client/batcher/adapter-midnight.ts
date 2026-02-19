@@ -26,6 +26,7 @@ const midnightNetworkUrls = {
   indexerWS: midnightNetworkConfig.indexerWS,
   node: midnightNetworkConfig.node,
   proofServer: midnightNetworkConfig.proofServer,
+  id: midnightNetworkConfig.id,
 };
 const midnightAdapterConfig = midnight_enabled ? {
   ...midnightNetworkUrls,

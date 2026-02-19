@@ -20,14 +20,8 @@ import { hardhat } from "viem/chains";
 import { ENV } from "@effectstream/utils/node-env";
 import { createMessageForBatcher } from "@effectstream/concise";
 
-// Start Test
-export async function generalTest(db: Client, sharedState: SharedState) {
 
-  // Let's test envs got loaded correctly
-  const nonExistentEnvTest = ENV.getString("API_SECRET_KEY");
-  const existEnvTest = ENV.getString("SECRET_TEST");
-  await assert("ENV Loading", async () => existEnvTest === "test" && nonExistentEnvTest === "");
-  
+export async function evmTests(db: Client, sharedState: SharedState) {
   // Lazy load the contracts.
   const erc20 = erc20Builder(sharedState);
   const erc721 = erc721Builder(sharedState);
@@ -403,66 +397,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     },
   );
 
-  await assert("Check User Defined API", async () => {
-    const response = await fetch(
-      `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/api/my-game-state`,
-    );
-    const data = await response.json();
-    // 3 ERC20 updates
-    // 2 PaimaL2 updates
-    // 1 Batcher update
-    return data.length === sharedState.paima_state_machine_counter;
-  });
-
-  await assert("Health Check", async () => {
-    const response = await fetch(
-      `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/health`,
-    );
-    const data = await response.json();
-    return data.status === "ok";
-  });
-
-  await assert("Check System API Table Schema", async () => {
-    const response = await fetch(
-      `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/table-schema/user_state_machine`,
-    );
-    const data = await response.json();
-    return data.every((row: any) =>
-      row.column_name === "id" ||
-      row.column_name === "inputs" ||
-      row.column_name === "block_height"
-    );
-  });
-
-  await assert("Check System API Table Data", async () => {
-    const allData = [];
-    let nextCursor: string | undefined = undefined;
-
-    do {
-      let url =
-        `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/tables/user_state_machine?limit=10`;
-      if (nextCursor) {
-        url += `&after=${nextCursor}`;
-      }
-
-      const response = await fetch(url);
-      const { data, pagination } = await response.json();
-      allData.push(...data);
-      nextCursor = pagination.nextCursor;
-    } while (nextCursor);
-
-    const dataLengthAsserts =
-      allData.length === sharedState.paima_state_machine_counter;
-    if (!dataLengthAsserts) {
-      console.error(
-        "Data length mismatch: Data length",
-        allData.length,
-        "expected (sharedState.paima_state_machine_counter)",
-        sharedState.paima_state_machine_counter,
-      );
-    }
-    return dataLengthAsserts;
-  });
+  // API TEST REMOVED FROM HERE 
 
   const tokens = {
     tokenA: 1n,
@@ -725,4 +660,79 @@ export async function generalTest(db: Client, sharedState: SharedState) {
     },
   );
   sharedState.primitive_accounting_counter += 1;
+
+}
+
+// Start Test
+export async function generalTest(db: Client, sharedState: SharedState) {
+
+  // Let's test envs got loaded correctly
+  const nonExistentEnvTest = ENV.getString("API_SECRET_KEY");
+  const existEnvTest = ENV.getString("SECRET_TEST");
+  await assert("ENV Loading", async () => existEnvTest === "test" && nonExistentEnvTest === "");
+  
+
+  await assert("Check User Defined API", async () => {
+    const response = await fetch(
+      `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/api/my-game-state`,
+    );
+    const data = await response.json();
+    // 3 ERC20 updates
+    // 2 PaimaL2 updates
+    // 1 Batcher update
+    return data.length === sharedState.paima_state_machine_counter;
+  });
+
+  await assert("Health Check", async () => {
+    const response = await fetch(
+      `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/health`,
+    );
+    const data = await response.json();
+    return data.status === "ok";
+  });
+
+  await assert("Check System API Table Schema", async () => {
+    const response = await fetch(
+      `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/table-schema/user_state_machine`,
+    );
+    const data = await response.json();
+    return data.every((row: any) =>
+      row.column_name === "id" ||
+      row.column_name === "inputs" ||
+      row.column_name === "block_height"
+    );
+  });
+
+  await assert("Check System API Table Data", async () => {
+    const allData = [];
+    let nextCursor: string | undefined = undefined;
+
+    do {
+      let url =
+        `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/tables/user_state_machine?limit=10`;
+      if (nextCursor) {
+        url += `&after=${nextCursor}`;
+      }
+
+      const response = await fetch(url);
+      const { data, pagination } = await response.json();
+      allData.push(...data);
+      nextCursor = pagination.nextCursor;
+    } while (nextCursor);
+
+    const dataLengthAsserts =
+      allData.length === sharedState.paima_state_machine_counter;
+    if (!dataLengthAsserts) {
+      console.error(
+        "Data length mismatch: Data length",
+        allData.length,
+        "expected (sharedState.paima_state_machine_counter)",
+        sharedState.paima_state_machine_counter,
+      );
+    }
+    return dataLengthAsserts;
+  });
+  
+
+  
 }

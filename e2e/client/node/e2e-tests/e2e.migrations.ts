@@ -1,5 +1,12 @@
 import type { Client } from "pg";
-import { assert, safeQuery } from "@e2e/engine";
+import { assert, blockWatcher, safeQuery } from "@e2e/engine";
+import { ENV } from "@effectstream/utils/node-env";
+
+const evm_enabled = !ENV.getBoolean("DISABLE_EVM");
+const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
+const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
+const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
+const yaci_enabled = false; //!ENV.getBoolean("DISABLE_YACI");
 
 export async function testMigrations(db: Client) {
   const version = await safeQuery<{
@@ -38,17 +45,35 @@ export async function testMigrations(db: Client) {
     "test-migrations",
   );
 
-  assert(
-    "test-migrations",
-    async () => {
-      // 3 system migrations
-      // 5 dynamic tables
-      // 5 user migration
-      if (migrations.rows.length !== 13) {
-        console.error("Migrations rows length is not 13", migrations.rows);
-        return false;
-      }
-      return true;
-    },
-  );
+  let expectedMigrations = 3; // 3 system migrations
+  expectedMigrations += 5;    // 5 user migrations
+  if (evm_enabled) {
+    expectedMigrations += 5; // 5 dynamic tables
+  }
+
+  if (!midnight_enabled && !avail_enabled && !bitcoin_enabled && !yaci_enabled && !evm_enabled) {
+    // if no other chain is enabled, then we might hit this code before blocks are generated.
+    // So we know between 5 and 8 migration are expected.
+    assert(
+      "test-migrations",
+      async () => {
+        if (migrations.rows.length < 5 || migrations.rows.length > 8) {
+          console.error(`Migrations rows length is not expected between 5 and 8, got ${migrations.rows.length}`, migrations.rows);
+          return false;
+        }
+        return true;
+      },
+    );
+  } else {
+    assert(
+      "test-migrations",
+      async () => {
+        if (migrations.rows.length !== expectedMigrations) {
+          console.error(`Migrations rows length is not expected ${expectedMigrations}, got ${migrations.rows.length}`, migrations.rows);
+          return false;
+        }
+        return true;
+      },
+    );
+  }
 }

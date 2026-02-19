@@ -14,7 +14,7 @@ import {
     type SharedState,
   } from "@e2e/engine";
 import { accountTests } from "../e2e-tests/e2e.account.test.ts";
-import { generalTest } from "../e2e-tests/e2e.general.test.ts";
+import { generalTest, evmTests } from "../e2e-tests/e2e.general.test.ts";
 import { joinAndIncrementTest, sendMintToBatcherTest, testDelegatedBalancing } from "../e2e-tests/e2e.midnight.test.ts";
 import { submitDataWithMessageAvailTest } from "../e2e-tests/e2e.avail.test.ts";
 import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
@@ -311,25 +311,41 @@ export async function getDBConnection(): Promise<Client> {
         sharedState.primitive_accounting_counter += 3;
       }
       await generalTest(db, sharedState);
+      await RPCTest();
+      
       console.log(
         "generalTest completed",
         sharedState,
       );
-      await RPCTest();
-      await accountTests(db, sharedState);
-      console.log(
-        "accountTests completed",
-        sharedState,
-      );
-      await joinAndIncrementTest(db, sharedState);
-      await sendMintToBatcherTest(db, sharedState);
-      await testDelegatedBalancing(db, sharedState);
-      await submitDataWithMessageAvailTest(db, sharedState);
-      await tokenTests(db, sharedState);
+
+      if (evm_enabled) {
+        await evmTests(db, sharedState);
+        await accountTests(db, sharedState);
+        console.log(
+          "accountTests completed",
+          sharedState,
+        );
+      }
+
+      if (midnight_enabled) {
+        await joinAndIncrementTest(db, sharedState);
+        await sendMintToBatcherTest(db, sharedState);
+        await testDelegatedBalancing(db, sharedState);
+      }
+
+      if (avail_enabled) {
+        await submitDataWithMessageAvailTest(db, sharedState);
+      }
+
+      if (evm_enabled) {
+        await tokenTests(db, sharedState);
+      }
+      
       if (bitcoin_enabled) {
         await bitcoinTest(db, sharedState);
         await bitcoinBatcherTest(db, sharedState);
       }
+      
       await testMigrations(db);
       
       // Done testing.
