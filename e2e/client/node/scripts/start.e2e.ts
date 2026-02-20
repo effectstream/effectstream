@@ -21,6 +21,7 @@ import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
 import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
 import { bitcoinTest, bitcoinBatcherTest } from "../e2e-tests/e2e.bitcoin.test.ts";
+import { submitBlobCelestiaTest } from "../e2e-tests/e2e.celestia.test.ts";
 import { getEffectstreamEVMPublicClient } from "@e2e/engine";
 import { getEnv, exit } from "@effectstream/utils/runtime";
 import type { Client, PoolConfig } from "pg";
@@ -35,6 +36,7 @@ const yaci_enabled = false; //!ENV.getBoolean("DISABLE_YACI")
 const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
 const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
+const celestia_enabled = !ENV.getBoolean("DISABLE_CELESTIA");
 
 const is_serial = ENV.getBoolean("EFFECTSTREAM_ORCHESTRATOR_SERIAL");
 /**
@@ -345,7 +347,11 @@ export async function getDBConnection(): Promise<Client> {
         await bitcoinTest(db, sharedState);
         await bitcoinBatcherTest(db, sharedState);
       }
-      
+
+      if (celestia_enabled) {
+        await submitBlobCelestiaTest(db, sharedState);
+      }
+
       await testMigrations(db);
       
       // Done testing.

@@ -24,6 +24,8 @@ import {
   BitcoinRpcClient,
 } from "./sync-protocols/bitcoin/fetcher.ts";
 import { BitcoinSyncState } from "./sync-protocols/bitcoin/state.ts";
+import { CelestiaFetcher } from "./sync-protocols/celestia/fetcher.ts";
+import { CelestiaSyncState } from "./sync-protocols/celestia/state.ts";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -111,6 +113,16 @@ export function* genSyncProtocols(
       });
       const fetcher = new BitcoinFetcher(entry, rpcClient);
       const state = yield* BitcoinSyncState.restoreState(
+        dbConn,
+        entry,
+        fetcher,
+      );
+      result.push(state);
+    } else if (
+      entry.networkType === ConfigNetworkType.CELESTIA
+    ) {
+      const fetcher = new CelestiaFetcher(entry);
+      const state = yield* CelestiaSyncState.restoreState(
         dbConn,
         entry,
         fetcher,
