@@ -25,19 +25,12 @@ import type {
   UnboundTransaction,
   ZKConfigProvider,
 } from "@midnight-ntwrk/midnight-js-types";
-import {
-  buildWalletFacade,
-  getInitialDustState,
-  registerNightForDust,
-  syncAndWaitForFunds,
-  type WalletResult,
-  waitForDustFunds,
-  type NetworkUrls,
-} from "@effectstream/midnight-contracts";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { Buffer } from "node:buffer";
+import { getInitialDustState } from "@effectstream/midnight-contracts/wallet-info";
+import { WalletResult } from "@effectstream/midnight-contracts/types";
 
 export interface MidnightBalancingAdapterConfig {
   indexer: string;

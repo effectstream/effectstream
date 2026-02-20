@@ -5,6 +5,7 @@ import type { Client } from "pg";
 import { Account, Pallets, SDK,  } from "avail-js-sdk";
 import { assertSQL, blockWatcher, type SharedState } from "@e2e/engine";
 import { readAvailApplication } from "@e2e/avail-contracts";
+import { ENV } from "@effectstream/utils/node-env";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 await sleep(1000);
@@ -13,10 +14,8 @@ const AVAIL_NODE_URL = "ws://localhost:9955/ws";
 const AVAIL_SEED: string = "//Alice";
 const account = Account.new(AVAIL_SEED);
 
-import { getEnv } from "@effectstream/utils/runtime";
-const isEnvTrue = (key: string) => ["true", "1", "yes", "y"].includes((getEnv(key) || "").toLowerCase());
+const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
 
-const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
 
 async function submitData(appId: number, data: string) {
   const sdk = await SDK.New(AVAIL_NODE_URL);

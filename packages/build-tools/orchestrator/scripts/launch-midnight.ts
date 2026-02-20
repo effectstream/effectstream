@@ -1,6 +1,6 @@
 import { ComponentNames } from "@effectstream/log";
 import { getEnv } from "@effectstream/utils/runtime";
-
+import { ENV } from "@effectstream/utils/node-env";
 
 // Substrate nodes (and many forks like Avail and Midnight) use the Rust tracing/log
 // stack wired through sc-cli/sc-service, which by default writes formatted log output to stderr.
@@ -126,7 +126,7 @@ export const launchMidnight = (packageName: string): {
         "midnight-contract:deploy",
       ],
       env: {
-        MIDNIGHT_STORAGE_PASSWORD: getEnv("MIDNIGHT_STORAGE_PASSWORD") ?? ""
+        MIDNIGHT_STORAGE_PASSWORD: ENV.MIDNIGHT_STORAGE_PASSWORD
       },
       dependsOn: [
         ComponentNames.MIDNIGHT_NODE_WAIT,

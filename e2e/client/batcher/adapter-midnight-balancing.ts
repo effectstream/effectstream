@@ -13,10 +13,7 @@ import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight
 
 const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
-// TODO We should disable this adapter if midnight is disabled.
 const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
-
-
 
 const midnightNetworkUrls = {
     indexer: midnightNetworkConfig.indexer,
@@ -25,24 +22,24 @@ const midnightNetworkUrls = {
     proofServer: midnightNetworkConfig.proofServer,
   };
 
-const { zkConfigPath: counterZkConfigPath } = readMidnightContract(
+const { zkConfigPath: counterZkConfigPath } = midnight_enabled ? readMidnightContract(
     "contract-counter",
     {
       baseDir: midnightContractsDir,
       networkId: midnightNetworkConfig.id,
     },
-  );
+  ) : { zkConfigPath: undefined };
 
 // Midnight Balancing Adapter (Party B)
-const balancingAdapterConfig = {
+const balancingAdapterConfig = midnight_enabled ? {
   ...midnightNetworkUrls,
   walletNetworkId: midnightNetworkConfig.id,
   walletResult: sharedWalletResult,
   zkConfigPath: counterZkConfigPath,
   syncProtocolName: "parallelMidnight",
-};
+} : undefined;
 
-export const midnightBalancingAdapter = new MidnightBalancingAdapter(
+export const midnightBalancingAdapter: MidnightBalancingAdapter = midnight_enabled ? new MidnightBalancingAdapter(
   DEFAULT_WALLET_SEED,
-  balancingAdapterConfig
-);
+  balancingAdapterConfig!
+) : (undefined as any);
