@@ -21,15 +21,15 @@ import {
 // =====
 
 export const UtxorpcAddressPattern = Type.Object({
-  exactAddress: Type.Optional(Type.String()),
-  paymentPart: Type.Optional(Type.String()),
-  delegationPart: Type.Optional(Type.String()),
+  exact_address: Type.Optional(Type.String()),
+  payment_part: Type.Optional(Type.String()),
+  delegation_part: Type.Optional(Type.String()),
 });
 export type UtxorpcAddressPattern = Static<typeof UtxorpcAddressPattern>;
 
 export const UtxorpcAssetPattern = Type.Object({
-  policyId: Type.Optional(Type.String()),
-  assetName: Type.Optional(Type.String()),
+  policy_id: Type.Optional(Type.String()),
+  asset_name: Type.Optional(Type.String()),
 });
 export type UtxorpcAssetPattern = Static<typeof UtxorpcAssetPattern>;
 
@@ -40,19 +40,22 @@ export const UtxorpcTxOutputPattern = Type.Object({
 export type UtxorpcTxOutputPattern = Static<typeof UtxorpcTxOutputPattern>;
 
 export const UtxorpcTxPattern = Type.Object({
-  consumes: Type.Optional(UtxorpcTxOutputPattern),
-  produces: Type.Optional(UtxorpcTxOutputPattern),
-  hasAddress: Type.Optional(UtxorpcAddressPattern),
-  movesAsset: Type.Optional(UtxorpcAssetPattern),
-  mintsAsset: Type.Optional(UtxorpcAssetPattern),
+  has_address: Type.Optional(UtxorpcAddressPattern),
+  moves_asset: Type.Optional(UtxorpcAssetPattern),
+  mints_asset: Type.Optional(UtxorpcAssetPattern),
 });
 export type UtxorpcTxPattern = Static<typeof UtxorpcTxPattern>;
 
+export const UtxorpcAnyChainTxPattern = Type.Object({
+  cardano: Type.Optional(UtxorpcTxPattern),
+});
+export type UtxorpcAnyChainTxPattern = Static<typeof UtxorpcAnyChainTxPattern>;
+
 export const UtxorpcTxPredicate = Type.Recursive(This => Type.Object({
-  match: Type.Optional(UtxorpcTxPattern),
+  match: Type.Optional(UtxorpcAnyChainTxPattern),
   not: Type.Optional(Type.Array(This)),
-  allOf: Type.Optional(Type.Array(This)),
-  anyOf: Type.Optional(Type.Array(This)),
+  all_of: Type.Optional(Type.Array(This)),
+  any_of: Type.Optional(Type.Array(This)),
 }));
 export type UtxorpcTxPredicate = Static<typeof UtxorpcTxPredicate>;
 

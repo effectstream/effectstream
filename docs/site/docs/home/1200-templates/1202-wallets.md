@@ -31,7 +31,6 @@ deno install --allow-scripts && ./patch.sh
 deno task -f @e2e/evm-contracts build
 deno task -f @e2e/evm-contracts deploy:standalone
 deno task -f @e2e/midnight-contracts midnight-contract:compile
-# If running on linux set env DISABLE_YACI=true
 deno task -f @e2e/node dev
 ```
 In another terminal, run the demo:

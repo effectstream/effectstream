@@ -41,7 +41,7 @@ const isEnvTrue = (key: string) => {
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
-const yaci_enabled = false; //!isEnvTrue("DISABLE_YACI");
+const cardano_enabled = !isEnvTrue("DISABLE_CARDANO");
 
 // NOTE: This disable midnight sync, allowing for faster testing.
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
@@ -87,7 +87,7 @@ if (typeof Deno !== 'undefined' && Deno) {
   }
 
     // We fetch the latest block from the dolos mini blockfrost endpoint
-    if (yaci_enabled) {
+    if (cardano_enabled) {
       const response = await fetch("http://localhost:3000/blocks/latest");
       yaciDevKitStartTime = (await response.json()).time * 1000;
       yaciDevKitStartTime = new Date().getTime() - yaciDevKitStartTime;
@@ -149,7 +149,7 @@ export const config = new ConfigBuilder()
         });
     }
 
-    if (yaci_enabled) {
+    if (cardano_enabled) {
       b = b
         .addNetwork({
           name: "yaci",
@@ -243,7 +243,7 @@ export const config = new ConfigBuilder()
         );
     }
 
-    if (yaci_enabled) {
+    if (cardano_enabled) {
 
       result = result
         .addParallel(
@@ -429,7 +429,7 @@ export const config = new ConfigBuilder()
         }),
       );
     }
-    if (yaci_enabled) {
+    if (cardano_enabled) {
       b = b.addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
         (network, deployments, syncProtocol) => ({
