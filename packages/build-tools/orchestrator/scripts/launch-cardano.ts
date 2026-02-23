@@ -31,20 +31,7 @@ export const launchCardano = (packageName: string): {
   cwd?: string;
   command?: string;
 }[] => {
-  const home = getEnv("HOME");
-  const yaciDir = `${home}/.yaci-cli`;
-  const yaciCliPath = `${yaciDir}/yaci-cli`;
 
-  // TODO $HOME/.yaci-cli/yaci-cli must be installed to allow this to work.
-  // At the time the npm packages is incompatible with deno.
-  try {
-    statSync(yaciCliPath);
-  } catch (_error) {
-    throw new Error(
-      `Cardano launcher skipped: missing ${yaciCliPath}. Run yaci-cli setup.`,
-    );
-  }
- 
  return [
     {
       stopProcessAtPort: [8090, 10000, 50051, 3001],
@@ -57,7 +44,7 @@ export const launchCardano = (packageName: string): {
     {
       name: ComponentNames.YACI_DEVKIT_WAIT,
       args: ["task", "-f", packageName, "devkit:wait"],
-      // dependsOn: [ComponentNames.YACI_DEVKIT],
+      dependsOn: [ComponentNames.YACI_DEVKIT],
     },
     {
       name: ComponentNames.DOLOS,
