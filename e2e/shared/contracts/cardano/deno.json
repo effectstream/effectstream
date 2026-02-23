@@ -4,7 +4,6 @@
   "license": "MIT",
   "exports": {},
   "tasks": {
-    "dolos:exists": "test -f ./dolos",
     "devkit:start": "deno run -A --node-modules-dir npm:@bloxbean/yaci-devkit up",
     "devkit:wait": "wait-on tcp:3001",
     "dolos:fill-template": "deno run -A ./fill-template.ts",
