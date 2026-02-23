@@ -1,7 +1,4 @@
 import { ComponentNames } from "@effectstream/log";
-import { statSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { getEnv } from "@effectstream/utils/runtime";
 
 // Start Cardano Node and Indexer.
 //

@@ -80,6 +80,8 @@ RUN echo "export DENO_DIR=/tmp/.deno" >> /root/.bashrc
 ENV NODE_ENV=development
 ENV DENO_DIR=/tmp/.deno
 
+RUN deno install npm:@bloxbean/yaci-devkit@0.11.0-beta1
+
 RUN deno install --allow-scripts
 RUN /app/patch.sh
 
