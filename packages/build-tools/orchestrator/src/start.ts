@@ -13,7 +13,9 @@ import {
   setStderrOutput,
   tsLogOrchestratorAdapter,
 } from "./logging.ts";
-import { spawn, setEnv, getEnv } from "@effectstream/utils/runtime";
+import { setEnv, getEnv } from "@effectstream/utils/runtime";
+import { spawn } from "@effectstream/utils/runtime-spawn";
+
 import {
   $,
   AbortProcessStart,

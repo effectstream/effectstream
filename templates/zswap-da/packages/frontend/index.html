@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZSwap DA — Celestia Swap Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e0e0e0; padding: 24px; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 1.6rem; margin-bottom: 6px; color: #fff; }
+    .subtitle { font-size: 0.85rem; color: #6070a0; margin-bottom: 28px; }
+    h2 { font-size: 1.05rem; margin-bottom: 12px; color: #a0a8c0; border-bottom: 1px solid #2a2d3a; padding-bottom: 6px; }
+    section { background: #1a1d2e; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    label { display: block; font-size: 0.85rem; color: #8890a8; margin-bottom: 4px; margin-top: 10px; }
+    input, select { width: 100%; padding: 8px 10px; border-radius: 4px; border: 1px solid #3a3d4e; background: #12141f; color: #e0e0e0; font-size: 0.9rem; }
+    button { padding: 8px 18px; border: none; border-radius: 4px; background: #4f6ef7; color: #fff; font-size: 0.9rem; cursor: pointer; margin-top: 12px; margin-right: 6px; }
+    button:hover { background: #3b5ae0; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .result { margin-top: 12px; padding: 10px; background: #12141f; border-radius: 4px; font-family: monospace; font-size: 0.82rem; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+    .offer-card { background: #12141f; border-radius: 4px; padding: 14px; margin-bottom: 10px; border: 1px solid #23263a; }
+    .offer-card .meta { font-size: 0.8rem; color: #8890a8; margin-top: 6px; line-height: 1.6; }
+    .status-pending  { color: #f0c040; }
+    .status-accepted { color: #40d080; }
+    .error { color: #f05050; }
+    .badge { display: inline-block; font-size: 0.7rem; font-weight: 700; border-radius: 3px; padding: 1px 6px; letter-spacing: 0.04em; }
+    .badge-da { background: #1a2e4a; color: #60b0ff; border: 1px solid #2a4a70; }
+    .token-entry { background: #1a1f30; border: 1px solid #2a3050; border-radius: 4px; padding: 10px; margin-bottom: 8px; }
+    .btn-small  { padding: 4px 10px; font-size: 0.8rem; margin-top: 4px; }
+    .btn-danger { background: #7a2020; }
+    .btn-danger:hover { background: #a03030; }
+    .btn-success { background: #205a20; }
+    .btn-success:hover { background: #307a30; }
+    .info-box { background: #13192a; border: 1px solid #2a3550; border-radius: 4px; padding: 10px 14px; font-size: 0.83rem; color: #8898c0; margin-bottom: 14px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>ZSwap DA <span class="badge badge-da">CELESTIA</span></h1>
+  <p class="subtitle">Create token swap offers stored on Celestia Data Availability layer, indexed by the local node.</p>
+
+  <!-- Create ZSwap Offer -->
+  <section>
+    <h2>Create ZSwap Offer</h2>
+    <div class="info-box">
+      Offers are submitted as JSON blobs to the Celestia DA layer. The node watches Celestia for blobs in the configured namespace and indexes them into the local database.
+    </div>
+
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <!-- Gives -->
+      <div style="flex:1;min-width:240px;">
+        <h3 style="font-size:0.92rem;color:#c0c8e0;margin-bottom:8px;">Giving</h3>
+        <div id="gives-entries"></div>
+        <button class="btn-small btn-success" onclick="addEntry('gives')">+ Add Token</button>
+      </div>
+
+      <!-- Wants -->
+      <div style="flex:1;min-width:240px;">
+        <h3 style="font-size:0.92rem;color:#c0c8e0;margin-bottom:8px;">Wanting</h3>
+        <div id="wants-entries"></div>
+        <button class="btn-small btn-success" onclick="addEntry('wants')">+ Add Token</button>
+      </div>
+    </div>
+
+    <button id="btn-submit" onclick="submitOffer()">Submit to Celestia</button>
+    <div id="submit-result" class="result" style="display:none;"></div>
+  </section>
+
+  <!-- ZSwaps List -->
+  <section>
+    <h2>ZSwap Offers <span id="zswap-count" style="font-size:0.8rem;color:#606880;"></span></h2>
+    <button onclick="loadZSwaps()">Refresh</button>
+    <div id="zswaps-list" style="margin-top:14px;">
+      <span style="color:#606880;font-size:0.85rem;">Click Refresh to load offers from the node.</span>
+    </div>
+  </section>
+
+  <script>
+    // ── Config ───────────────────────────────────────────────────────────────────
+    // Set window.API_BASE before this script to override (e.g. for production).
+    const API_BASE = window.API_BASE ?? `http://${location.hostname}:9999`;
+
+    // ── Entry Builder ────────────────────────────────────────────────────────────
+
+    let givesCount = 0;
+    let wantsCount = 0;
+
+    function addEntry(side) {
+      const container = document.getElementById(side + '-entries');
+      const idx = side === 'gives' ? givesCount++ : wantsCount++;
+      const id = `${side}-${idx}`;
+
+      const div = document.createElement('div');
+      div.className = 'token-entry';
+      div.id = 'entry-' + id;
+      div.innerHTML = `
+        <div class="row">
+          <div>
+            <label>Token Type / Address</label>
+            <input id="${id}-token" type="text" placeholder="e.g. 0xabc123… or NATIVE">
+          </div>
+          <div style="max-width:130px;">
+            <label>Amount</label>
+            <input id="${id}-amount" type="number" placeholder="100" min="1">
+          </div>
+        </div>
+        <div style="margin-top:6px;">
+          <button class="btn-small btn-danger" onclick="removeEntry('${id}')">Remove</button>
+        </div>`;
+      container.appendChild(div);
+    }
+
+    function removeEntry(id) {
+      const el = document.getElementById('entry-' + id);
+      if (el) el.remove();
+    }
+
+    function collectEntries(side) {
+      const container = document.getElementById(side + '-entries');
+      const entries = [];
+      for (const div of container.querySelectorAll('.token-entry')) {
+        const rawId = div.id.replace('entry-', '');
+        const tokenEl  = document.getElementById(rawId + '-token');
+        const amountEl = document.getElementById(rawId + '-amount');
+        if (!tokenEl || !amountEl) continue;
+        const token  = tokenEl.value.trim();
+        const amount = amountEl.value.trim();
+        if (!token || !amount) continue;
+        entries.push({ token, amount });
+      }
+      return entries;
+    }
+
+    // ── Submit ────────────────────────────────────────────────────────────────────
+
+    async function submitOffer() {
+      const btn = document.getElementById('btn-submit');
+      const el  = document.getElementById('submit-result');
+      el.style.display = 'block';
+
+      const gives = collectEntries('gives');
+      const wants = collectEntries('wants');
+
+      if (!gives.length || !wants.length) {
+        el.innerHTML = '<span class="error">Add at least one token entry for both Giving and Wanting.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+      el.textContent = 'Submitting blob to Celestia…';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/zswap/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gives, wants }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
+        el.textContent = JSON.stringify(data, null, 2);
+        // Refresh list after a short delay (node needs to pick up the blob)
+        setTimeout(loadZSwaps, 2000);
+      } catch (e) {
+        el.innerHTML = `<span class="error">${e.message}</span>`;
+      }
+
+      btn.disabled = false;
+    }
+
+    // ── Accept ────────────────────────────────────────────────────────────────────
+
+    async function acceptOffer(id) {
+      const el = document.getElementById('accept-result-' + id);
+      if (el) el.textContent = 'Accepting…';
+      try {
+        const res = await fetch(`${API_BASE}/api/zswap/${id}/accept`, { method: 'POST' });
+        const data = await res.json();
+        if (el) el.textContent = JSON.stringify(data, null, 2);
+        loadZSwaps();
+      } catch (e) {
+        if (el) el.innerHTML = `<span class="error">${e.message}</span>`;
+      }
+    }
+
+    // ── List ──────────────────────────────────────────────────────────────────────
+
+    function renderTokens(arr) {
+      if (!arr?.length) return '—';
+      return arr.map(t => `${t.token ? shortToken(t.token) : '?'} × ${t.amount ?? '?'}`).join(', ');
+    }
+
+    function shortToken(t) {
+      if (!t) return '?';
+      if (t.length <= 12) return t;
+      return t.slice(0, 6) + '…' + t.slice(-4);
+    }
+
+    async function loadZSwaps() {
+      const el = document.getElementById('zswaps-list');
+      const countEl = document.getElementById('zswap-count');
+      try {
+        const res = await fetch(`${API_BASE}/api/zswaps`);
+        const zswaps = await res.json();
+
+        if (!Array.isArray(zswaps) || !zswaps.length) {
+          countEl.textContent = '(0)';
+          el.innerHTML = '<span style="color:#606880;font-size:0.85rem;">No ZSwap offers indexed yet. Submit one above and wait for the node to pick it up from Celestia.</span>';
+          return;
+        }
+
+        countEl.textContent = `(${zswaps.length})`;
+        el.innerHTML = zswaps.map(z => `
+          <div class="offer-card">
+            <strong>Offer #${z.id}</strong>
+            <span class="status-${z.status}">[${z.status}]</span>
+            <span style="font-size:0.75rem;color:#505878;margin-left:8px;">Celestia block ${z.height ?? '—'}</span>
+            <div class="meta">
+              <div>Giving: ${renderTokens(z.gives)}</div>
+              <div>Wanting: ${renderTokens(z.wants)}</div>
+              <div>Indexed at: ${z.created_at ? new Date(z.created_at).toLocaleString() : '—'}</div>
+            </div>
+            ${z.status === 'pending'
+              ? `<button class="btn-small" onclick="acceptOffer(${z.id})">Accept</button>
+                 <div id="accept-result-${z.id}" class="result" style="display:none;margin-top:6px;"></div>`
+              : ''}
+          </div>`).join('');
+
+        // Show accept result divs (toggle display on use)
+        document.querySelectorAll('[id^="accept-result-"]').forEach(el => el.style.display = 'none');
+      } catch (e) {
+        el.innerHTML = `<span class="error">Failed to load: ${e.message}</span>`;
+      }
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────────
+
+    addEntry('gives');
+    addEntry('wants');
+    loadZSwaps();
+  </script>
+</body>
+</html>

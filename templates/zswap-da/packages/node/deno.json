@@ -1,0 +1,33 @@
+{
+  "name": "@zswap-da/node",
+  "version": "0.3.23",
+  "license": "MIT",
+  "exports": {
+    ".": "./main.ts"
+  },
+  "tasks": {
+    "check": "deno check --unstable-raw-imports main.ts",
+    "node:start": "deno run -A --inspect --unstable-raw-imports main.ts",
+    "dev": "deno task -f @paimaexample/tui clean && NODE_ENV=development deno run -A --check --unstable-raw-imports start-script.ts"
+  },
+  "imports": {
+    "@paimaexample/batcher": "jsr:@paimaexample/batcher@0.7.2",
+    "@paimaexample/crypto": "jsr:@paimaexample/crypto@0.7.2",
+    "@paimaexample/concise": "jsr:@paimaexample/concise@0.7.2",
+    "@paimaexample/config": "jsr:@paimaexample/config@0.7.2",
+    "@paimaexample/explorer": "npm:@paimaexample/explorer@0.7.2",
+    "@paimaexample/log": "jsr:@paimaexample/log@0.7.2",
+    "@paimaexample/orchestrator": "jsr:@paimaexample/orchestrator@0.7.2",
+    "@paimaexample/runtime": "jsr:@paimaexample/runtime@0.7.2",
+    "@paimaexample/utils": "jsr:@paimaexample/utils@0.7.2",
+    "@paimaexample/sm": "jsr:@paimaexample/sm@0.7.2",
+    "@paimaexample/coroutine": "jsr:@paimaexample/coroutine@0.7.2",
+    "@paimaexample/db": "jsr:@paimaexample/db@0.7.2",
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.7.2",
+    "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.30",
+    "effection": "npm:effection@^3.5.0"
+  },
+  "compilerOptions": {
+    "strict": true
+  }
+}

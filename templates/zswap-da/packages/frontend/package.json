@@ -1,0 +1,12 @@
+{
+  "name": "zswap-da-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npx http-server . -p 8080 --cors",
+    "serve": "npx http-server . -p 8080 --cors"
+  },
+  "devDependencies": {
+    "http-server": "14.1.1"
+  }
+}

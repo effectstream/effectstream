@@ -1,0 +1,13 @@
+{
+    "tasks": {
+        "dev": "deno task -f @zswap-da/node dev",
+        "check": "deno task -f @zswap-da/node check"
+    },
+    "workspace": [
+        "./packages/node",
+        "./packages/frontend",
+        "./packages/midnight-contracts",
+        "./packages/midnight-contracts/contract-offer-files"
+    ],
+    "nodeModulesDir": "auto"
+}

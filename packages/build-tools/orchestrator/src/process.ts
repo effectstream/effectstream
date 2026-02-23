@@ -2,8 +2,9 @@ import { type LogHandler, streamTo, systemLog } from "./logging.ts";
 import type { Namespace } from "@effectstream/log";
 import { ComponentNames } from "@effectstream/log";
 import type { ValueOf } from "@effectstream/utils";
-import type { SpawnChild } from "@effectstream/utils/runtime";
-import { setExitCode, spawn } from "@effectstream/utils/runtime";
+import type { SpawnChild } from "@effectstream/utils/runtime-spawn";
+import { setExitCode } from "@effectstream/utils/runtime";
+import { spawn } from "@effectstream/utils/runtime-spawn";
 import { abortControllers } from "./start.ts";
 
 export type ProcessComponent = {

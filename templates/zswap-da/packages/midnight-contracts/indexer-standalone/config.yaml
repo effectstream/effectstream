@@ -1,0 +1,38 @@
+run_migrations: true
+
+application:
+  network_id: "undeployed"
+  blocks_buffer: 10
+  save_ledger_state_after: 1000
+  caught_up_max_distance: 10
+  caught_up_leeway: 5
+  active_wallets_query_delay: "500ms"
+  active_wallets_ttl: "30m"
+  transaction_batch_size: 50
+
+infra:
+  storage:
+    cnn_url: "./data/indexer.sqlite"
+
+  node:
+    url: "ws://localhost:9944"
+    reconnect_max_delay: "10s"
+    reconnect_max_attempts: 30
+    subscription_recovery_timeout: "30s"
+
+  api:
+    address: "0.0.0.0"
+    port: 8088
+    request_body_limit: "1MiB"
+    max_complexity: 200
+    max_depth: 15
+
+telemetry:
+  tracing:
+    enabled: false
+    service_name: "indexer"
+    otlp_exporter_endpoint: "http://localhost:4317"
+  metrics:
+    enabled: false
+    address: "0.0.0.0"
+    port: 9000

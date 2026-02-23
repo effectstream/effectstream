@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: MIT
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+// import Zswap;
+witness print(u: Uint<64>): Uint<64>;
+ 
+/**
+ * @title MyToken
+ * @description A contract that acts as a Minting Authority for a specific asset
+ *              within the Zswap protocol.
+ */
+// -------------------------------------------------------------------------
+  // Ledger State
+  // -------------------------------------------------------------------------
+  
+  // The Public Key allowed to mint new tokens
+  export ledger admin: ZswapCoinPublicKey;
+
+  // The unique identifier (color) for this token
+  export ledger tokenColor: Bytes<32>;
+
+  // -------------------------------------------------------------------------
+  // Constructor
+  // -------------------------------------------------------------------------
+
+/**
+  * @circuit constructor
+  * @param owner The public key that can mint tokens.
+  * @param color The 32-byte identifier for this token (pad this in JS).
+  */
+constructor(/* owner: ZswapCoinPublicKey, */color: Bytes<32>) {
+    // admin = disclose(owner);
+    // Fix: Assign directly. 'pad' only works with literal strings like "USD"
+    tokenColor = disclose(color); 
+}
+
+// struct CoinPreimage {
+//   // `midnight:zswap-cc[v1]` / `midnight:zswap-cn[v1]`
+//   domain_sep: Bytes<21>,
+//   info: ShieldedCoinInfo,
+//   dataType: Boolean,
+//   data: Bytes<32>,
+// }
+
+// circuit coinCommitment(
+//   coin: ShieldedCoinInfo,
+//   recipient: Either<ZswapCoinPublicKey, ContractAddress>
+// ): Bytes<32> {
+//   return persistentHash<CoinPreimage>(
+//     CoinPreimage{
+//       domain_sep: "midnight:zswap-cc[v1]",
+//       info: coin,
+//       dataType: recipient.is_left,
+//       data: recipient.is_left ? recipient.left.bytes : recipient.right.bytes,
+//     });
+// }
+
+export ledger counter: Uint<128>;
+
+export circuit dao_token_domain_separator(): Bytes<32> {
+  return pad(32, "my_domain_sep");
+}
+
+export circuit mintx(
+  domain_sep: Bytes<32>,
+  amount: Uint<64>,
+  nonce: Uint<128>,
+) : ShieldedCoinInfo {
+  return mintShieldedToken(
+    disclose(domain_sep),
+    disclose(amount),
+    evolveNonce(disclose(nonce), disclose(domain_sep)),
+    // "a45e2fb0d013cc02180d9cade32af600", // evolveNonce(0 as Uint<128>, disclose(domain_sep)),
+    left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey())
+  );
+}
+
+export circuit mintUnshieldedToSelfAndReceiveTest(
+  domainSep: Bytes<32>, 
+  amount: Uint<64>): Bytes<32> {
+  const color = mintUnshieldedToken(disclose(domainSep), disclose(amount), left<ContractAddress, UserAddress>(kernel.self()));
+  receiveUnshielded(color, disclose(amount) as Uint<128>);
+  return color;
+}
+
+export circuit incrementNoun(): [] {
+  counter = counter + 1 as Uint<128>;
+}

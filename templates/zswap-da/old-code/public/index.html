@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZSwap Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e0e0e0; padding: 24px; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 1.6rem; margin-bottom: 24px; color: #fff; }
+    h2 { font-size: 1.1rem; margin-bottom: 12px; color: #a0a8c0; border-bottom: 1px solid #2a2d3a; padding-bottom: 6px; }
+    section { background: #1a1d2e; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    label { display: block; font-size: 0.85rem; color: #8890a8; margin-bottom: 4px; margin-top: 10px; }
+    input, select { width: 100%; padding: 8px 10px; border-radius: 4px; border: 1px solid #3a3d4e; background: #12141f; color: #e0e0e0; font-size: 0.9rem; }
+    button { padding: 8px 18px; border: none; border-radius: 4px; background: #4f6ef7; color: #fff; font-size: 0.9rem; cursor: pointer; margin-top: 12px; margin-right: 6px; }
+    button:hover { background: #3b5ae0; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .result { margin-top: 12px; padding: 10px; background: #12141f; border-radius: 4px; font-family: monospace; font-size: 0.82rem; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+    .offer-card { background: #12141f; border-radius: 4px; padding: 12px; margin-bottom: 8px; }
+    .offer-card .meta { font-size: 0.8rem; color: #8890a8; }
+    .status-pending { color: #f0c040; }
+    .status-accepted { color: #40d080; }
+    .error { color: #f05050; }
+
+    /* Token kind badges */
+    .badge { display: inline-block; font-size: 0.7rem; font-weight: 700; border-radius: 3px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; letter-spacing: 0.03em; }
+    .badge-shielded   { background: #1e3a5f; color: #6ab0ff; border: 1px solid #2a5080; }
+    .badge-unshielded { background: #3a1e1e; color: #ff9060; border: 1px solid #7a3020; }
+
+    /* Mint section side-by-side */
+    .mint-row { display: flex; gap: 12px; }
+    .mint-row > section { flex: 1; margin-bottom: 0; }
+
+    /* Token list item */
+    .token-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #2a2d3a; font-size: 0.82rem; font-family: monospace; }
+    .token-item:last-child { border-bottom: none; }
+
+    /* Offer token entries */
+    .token-entry { background: #1a1f30; border: 1px solid #2a3050; border-radius: 4px; padding: 10px; margin-bottom: 8px; }
+    .token-entry .row { margin-top: 6px; }
+
+    /* Add/remove entry buttons */
+    .btn-small { padding: 4px 10px; font-size: 0.8rem; margin-top: 4px; }
+    .btn-danger { background: #7a2020; }
+    .btn-danger:hover { background: #a03030; }
+    .btn-success { background: #205a20; }
+    .btn-success:hover { background: #307a30; }
+  </style>
+</head>
+<body>
+  <h1>ZSwap Dashboard</h1>
+
+  <!-- Balances -->
+  <section>
+    <h2>Wallet Balances</h2>
+    <div class="row">
+      <div>
+        <button onclick="getBalance('wallet1')">Get Balance Wallet 1</button>
+        <div id="balance-wallet1" class="result">--</div>
+      </div>
+      <div>
+        <button onclick="getBalance('wallet2')">Get Balance Wallet 2</button>
+        <div id="balance-wallet2" class="result">--</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mint (side by side) -->
+  <div class="mint-row">
+    <section>
+      <h2>Mint <span class="badge badge-shielded">SHIELDED</span> Tokens (Wallet 1)</h2>
+      <p style="font-size:0.85rem;color:#8890a8;">Mints 1,000,000 shielded tokens via the contract. Coins are private and only visible to the owner.</p>
+      <button id="btn-mint" onclick="doMint()">Mint Shielded</button>
+      <div id="mint-result" class="result">--</div>
+    </section>
+
+    <section>
+      <h2>Mint <span class="badge badge-unshielded">UNSHIELDED</span> Tokens (Wallet 1)</h2>
+      <p style="font-size:0.85rem;color:#8890a8;">Mints publicly visible tokens via the new circuit. Token type is derived on-chain.</p>
+      <label>Amount</label>
+      <input id="mint-unshielded-amount" type="number" value="1000000" min="1">
+      <button id="btn-mint-unshielded" onclick="doMintUnshielded()">Mint Unshielded</button>
+      <div id="mint-unshielded-result" class="result">--</div>
+    </section>
+  </div>
+  <div style="margin-bottom:20px;"></div>
+
+  <!-- Transfer -->
+  <section>
+    <h2>Transfer Tokens (Wallet 1)</h2>
+    <div class="row">
+      <div>
+        <label>Token Type</label>
+        <select id="transfer-token"></select>
+      </div>
+      <div>
+        <label>Amount</label>
+        <input id="transfer-amount" type="number" placeholder="10">
+      </div>
+    </div>
+    <label>Receiver Address (bech32)</label>
+    <input id="transfer-receiver" placeholder="mn_shield-addr_...">
+    <button id="btn-transfer" onclick="doTransfer()">Transfer</button>
+    <div id="transfer-result" class="result">--</div>
+  </section>
+
+  <!-- Create ZSwap Offer -->
+  <section>
+    <h2>Create ZSwap Offer (Wallet 1)</h2>
+    <p style="font-size:0.85rem;color:#8890a8;margin-bottom:10px;">Select whether each token entry is <span class="badge badge-shielded">SHIELDED</span> or <span class="badge badge-unshielded">UNSHIELDED</span>. Only tokens of the correct kind are valid for each slot.</p>
+
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <!-- Gives -->
+      <div style="flex:1;min-width:240px;">
+        <h3 style="font-size:0.95rem;color:#e0e0e0;margin-bottom:8px;">Giving (from Wallet 1)</h3>
+        <div id="gives-entries"></div>
+        <button class="btn-small btn-success" onclick="addEntry('gives')">+ Add Token</button>
+      </div>
+
+      <!-- Wants -->
+      <div style="flex:1;min-width:240px;">
+        <h3 style="font-size:0.95rem;color:#e0e0e0;margin-bottom:8px;">Wanting (to Wallet 1)</h3>
+        <div id="wants-entries"></div>
+        <button class="btn-small btn-success" onclick="addEntry('wants')">+ Add Token</button>
+      </div>
+    </div>
+
+    <button id="btn-create-offer" onclick="doCreateOffer()">Create Offer</button>
+    <div id="offer-result" class="result">--</div>
+  </section>
+
+  <!-- Offers List -->
+  <section>
+    <h2>ZSwap Offers</h2>
+    <button onclick="loadOffers()">Refresh Offers</button>
+    <div id="offers-list" style="margin-top:12px;">--</div>
+  </section>
+
+  <!-- Tokens List -->
+  <section>
+    <h2>Minted Tokens</h2>
+    <button onclick="loadTokens()">Refresh Tokens</button>
+    <div id="tokens-list" style="margin-top:12px;">--</div>
+  </section>
+
+  <script>
+    const NATIVE = '0000000000000000000000000000000000000000000000000000000000000000';
+
+    // All tokens we know about (from /api/tokens). tokenKind = "shielded" | "unshielded"
+    let allTokens = [];
+
+    async function api(path, opts) {
+      const res = await fetch(path, opts);
+      return res.json();
+    }
+
+    // ── Balances ────────────────────────────────────────────────────────────────
+
+    async function getBalance(wallet) {
+      const el = document.getElementById('balance-' + wallet);
+      el.textContent = 'Loading...';
+      try {
+        const data = await api('/api/balance/' + wallet);
+        el.textContent = 'Address: ' + data.address + '\n\nBalances:\n' + JSON.stringify(data.balances, null, 2);
+      } catch (e) { el.innerHTML = '<span class="error">' + e.message + '</span>'; }
+    }
+
+    // ── Mint Shielded ────────────────────────────────────────────────────────────
+
+    async function doMint() {
+      const btn = document.getElementById('btn-mint');
+      const el = document.getElementById('mint-result');
+      btn.disabled = true; el.textContent = 'Minting shielded tokens...';
+      try {
+        const data = await api('/api/mint', { method: 'POST' });
+        el.textContent = JSON.stringify(data, null, 2);
+        await refreshTokenSelects();
+      } catch (e) { el.innerHTML = '<span class="error">' + e.message + '</span>'; }
+      btn.disabled = false;
+    }
+
+    // ── Mint Unshielded ──────────────────────────────────────────────────────────
+
+    async function doMintUnshielded() {
+      const btn = document.getElementById('btn-mint-unshielded');
+      const el = document.getElementById('mint-unshielded-result');
+      const amount = document.getElementById('mint-unshielded-amount').value;
+      btn.disabled = true; el.textContent = 'Minting unshielded tokens...';
+      try {
+        const data = await api('/api/mint-unshielded', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount }),
+        });
+        el.textContent = JSON.stringify(data, null, 2);
+        await refreshTokenSelects();
+      } catch (e) { el.innerHTML = '<span class="error">' + e.message + '</span>'; }
+      btn.disabled = false;
+    }
+
+    // ── Transfer ─────────────────────────────────────────────────────────────────
+
+    async function doTransfer() {
+      const btn = document.getElementById('btn-transfer');
+      const el = document.getElementById('transfer-result');
+      btn.disabled = true; el.textContent = 'Transferring...';
+      try {
+        const data = await api('/api/transfer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tokenType: document.getElementById('transfer-token').value,
+            amount: document.getElementById('transfer-amount').value,
+            receiverAddress: document.getElementById('transfer-receiver').value,
+          }),
+        });
+        el.textContent = JSON.stringify(data, null, 2);
+      } catch (e) { el.innerHTML = '<span class="error">' + e.message + '</span>'; }
+      btn.disabled = false;
+    }
+
+    // ── Offer Builder ─────────────────────────────────────────────────────────────
+
+    function kindBadgeHtml(kind) {
+      if (kind === 'unshielded') return '<span class="badge badge-unshielded">UNSHIELDED</span>';
+      return '<span class="badge badge-shielded">SHIELDED</span>';
+    }
+
+    // Build <option> list for a token select, pre-selecting prevValue
+    function buildTokenOptions(prevValue) {
+      let opts = `<option value="${NATIVE}" data-kind="shielded">NATIVE (000…000) [SHIELDED]</option>`;
+      for (const t of allTokens) {
+        const kind = t.tokenKind || 'shielded';
+        const label = `${shortType(t.type)} [${kind.toUpperCase()}]`;
+        const sel = t.type === prevValue ? ' selected' : '';
+        opts += `<option value="${t.type}" data-kind="${kind}"${sel}>${label}</option>`;
+      }
+      return opts;
+    }
+
+    let givesCount = 0;
+    let wantsCount = 0;
+
+    function addEntry(side) {
+      const container = document.getElementById(side + '-entries');
+      const idx = side === 'gives' ? givesCount++ : wantsCount++;
+      const id = side + '-' + idx;
+
+      const div = document.createElement('div');
+      div.className = 'token-entry';
+      div.id = 'entry-' + id;
+      div.innerHTML = `
+        <div class="row">
+          <div>
+            <label>Token</label>
+            <select id="${id}-token" onchange="updateKindBadge('${id}')">${buildTokenOptions('')}</select>
+          </div>
+          <div style="max-width:120px;">
+            <label>Amount</label>
+            <input id="${id}-amount" type="number" placeholder="100" min="1">
+          </div>
+        </div>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+          <span id="${id}-badge">${kindBadgeHtml('shielded')}</span>
+          <button class="btn-small btn-danger" onclick="removeEntry('${id}')">Remove</button>
+        </div>`;
+      container.appendChild(div);
+    }
+
+    function removeEntry(id) {
+      const el = document.getElementById('entry-' + id);
+      if (el) el.remove();
+    }
+
+    function updateKindBadge(id) {
+      const sel = document.getElementById(id + '-token');
+      const opt = sel.options[sel.selectedIndex];
+      const kind = opt.getAttribute('data-kind') || 'shielded';
+      document.getElementById(id + '-badge').innerHTML = kindBadgeHtml(kind);
+    }
+
+    function collectEntries(side) {
+      const container = document.getElementById(side + '-entries');
+      const entries = [];
+      for (const div of container.querySelectorAll('.token-entry')) {
+        const rawId = div.id.replace('entry-', '');
+        const sel = document.getElementById(rawId + '-token');
+        const amtEl = document.getElementById(rawId + '-amount');
+        if (!sel || !amtEl) continue;
+        const opt = sel.options[sel.selectedIndex];
+        const kind = opt ? (opt.getAttribute('data-kind') || 'shielded') : 'shielded';
+        entries.push({
+          token: sel.value,
+          amount: amtEl.value,
+          type: kind,
+        });
+      }
+      return entries;
+    }
+
+    async function doCreateOffer() {
+      const btn = document.getElementById('btn-create-offer');
+      const el = document.getElementById('offer-result');
+      btn.disabled = true; el.textContent = 'Creating offer...';
+      try {
+        const gives = collectEntries('gives');
+        const wants = collectEntries('wants');
+        if (!gives.length || !wants.length) {
+          el.innerHTML = '<span class="error">Add at least one token entry for both Giving and Wanting.</span>';
+          btn.disabled = false;
+          return;
+        }
+        const data = await api('/api/zswap/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gives, wants }),
+        });
+        el.textContent = JSON.stringify(data, null, 2);
+        loadOffers();
+      } catch (e) { el.innerHTML = '<span class="error">' + e.message + '</span>'; }
+      btn.disabled = false;
+    }
+
+    // ── Accept Offer ──────────────────────────────────────────────────────────────
+
+    async function doAcceptOffer(offerId) {
+      const el = document.getElementById('accept-result-' + offerId);
+      if (el) el.textContent = 'Accepting...';
+      try {
+        const data = await api('/api/zswap/accept', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ offerId }),
+        });
+        if (el) el.textContent = JSON.stringify(data, null, 2);
+        loadOffers();
+      } catch (e) { if (el) el.innerHTML = '<span class="error">' + e.message + '</span>'; }
+    }
+
+    // ── Offers List ───────────────────────────────────────────────────────────────
+
+    function renderTokenEntry(e) {
+      const kind = e.type || 'shielded';
+      const badge = kind === 'unshielded'
+        ? '<span class="badge badge-unshielded">UNSHIELDED</span>'
+        : '<span class="badge badge-shielded">SHIELDED</span>';
+      return `${badge} ${shortType(e.token)} &times; ${e.amount}`;
+    }
+
+    async function loadOffers() {
+      const el = document.getElementById('offers-list');
+      const offers = await api('/api/offers');
+      if (!offers.length) { el.textContent = 'No offers yet.'; return; }
+      el.innerHTML = offers.map(o => {
+        const gives = (o.gives || []).map(renderTokenEntry).join(', ') || '—';
+        const wants = (o.wants || []).map(renderTokenEntry).join(', ') || '—';
+        return `
+        <div class="offer-card">
+          <strong>Offer #${o.id}</strong> <span class="status-${o.status}">[${o.status}]</span>
+          <div class="meta" style="margin-top:6px;">
+            <div>Giving: ${gives}</div>
+            <div>Wanting: ${wants}</div>
+            <div>Created: ${o.createdAt || o.metadata?.createdAt || '—'}</div>
+          </div>
+          ${o.status === 'pending' ? `<button onclick="doAcceptOffer(${o.id})">Accept (Wallet 2)</button><div id="accept-result-${o.id}" class="result"></div>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    // ── Tokens List ───────────────────────────────────────────────────────────────
+
+    async function loadTokens() {
+      const el = document.getElementById('tokens-list');
+      const tokens = await api('/api/tokens');
+      if (!tokens.length) { el.textContent = 'No tokens minted yet.'; return; }
+      el.innerHTML = tokens.map(t => {
+        const kind = t.tokenKind || 'shielded';
+        const badge = kind === 'unshielded'
+          ? '<span class="badge badge-unshielded">UNSHIELDED</span>'
+          : '<span class="badge badge-shielded">SHIELDED</span>';
+        return `<div class="token-item">${badge}<span title="${t.type}">${shortType(t.type)}</span><span style="color:#8890a8;">amount: ${t.value}</span><span style="color:#606880;font-size:0.75rem;">${t.mintedAt || ''}</span></div>`;
+      }).join('');
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────────
+
+    function shortType(t) {
+      if (t === NATIVE) return 'NATIVE';
+      return t.slice(0, 8) + '…' + t.slice(-8);
+    }
+
+    function populateSelect(selectId) {
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      const prev = sel.value;
+      sel.innerHTML = buildTokenOptions(prev);
+    }
+
+    async function refreshTokenSelects() {
+      allTokens = await api('/api/tokens');
+      // Update static selects
+      populateSelect('transfer-token');
+      // Refresh dynamic offer entry selects (re-render options in place)
+      for (const optEl of document.querySelectorAll('.token-entry select')) {
+        const prev = optEl.value;
+        optEl.innerHTML = buildTokenOptions(prev);
+        // Re-apply prev value if still available
+        optEl.value = prev;
+        // Also refresh the badge for this entry
+        const id = optEl.id.replace('-token', '');
+        updateKindBadge(id);
+      }
+      await loadTokens();
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────────
+
+    // Seed initial offer entries
+    addEntry('gives');
+    addEntry('wants');
+
+    refreshTokenSelects();
+    loadOffers();
+  </script>
+</body>
+</html>

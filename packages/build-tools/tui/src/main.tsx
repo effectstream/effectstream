@@ -9,7 +9,8 @@ import {
   SECTION_ORDER,
   SECTIONS,
 } from "./tab/BottomBar.tsx";
-import { spawn, exit } from "@effectstream/utils/runtime";
+import { exit } from "@effectstream/utils/runtime";
+import { spawn } from "@effectstream/utils/runtime-spawn";
 import { ENV } from "@effectstream/utils/node-env";
 
 // Main App Component
