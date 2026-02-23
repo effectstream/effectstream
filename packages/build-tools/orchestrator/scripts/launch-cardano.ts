@@ -48,10 +48,8 @@ export const launchCardano = (packageName: string): {
  return [
     {
       stopProcessAtPort: [8090, 10000, 50051, 3001],
-      cwd: yaciDir,
-      command: "./yaci-cli",
-      args: ["up"],
       name: ComponentNames.YACI_DEVKIT,
+      args: ["task", "-f", packageName, "devkit:start"],
       waitToExit: false,
       type: "system-dependency",
       logsStartDisabled: true,
