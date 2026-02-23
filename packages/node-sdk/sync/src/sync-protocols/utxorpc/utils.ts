@@ -51,7 +51,7 @@ function matchesOutputPattern(outputs: cardano.TxOutput[], pattern: UtxorpcTxOut
 
 function matchesAddress(outputs: cardano.TxOutput[], pattern: UtxorpcAddressPattern): boolean {
   if (pattern.exact_address) {
-    const address = hexStringToUint8Array(pattern.exact_address);
+    const address = Uint8Array.from(atob(pattern.exact_address), c => c.charCodeAt(0));
     if (!outputs.some(o => hashEqual(o.address, address))) {
       return false;
     }

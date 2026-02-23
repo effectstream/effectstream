@@ -44,17 +44,6 @@ export const launchCardano = (packageName: string): {
       `Cardano launcher skipped: missing ${yaciCliPath}. Run yaci-cli setup.`,
     );
   }
-  // TODO We require the latest dolos binary built from source.
-  // At the time there is not npm package for the latest dolos binary.
-  try {
-    const dolosExists = spawnSync("deno", ["task", "-f", packageName, "dolos:exists"], { encoding: "utf-8" });
-    if (dolosExists.status !== 0) throw new Error();
-  } catch (_error) {
-    throw new Error(
-      "Cardano launcher skipped: dolos binary is missing.",
-    );
-  }
-
  
  return [
     {
