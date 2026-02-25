@@ -37,10 +37,11 @@ export class UtxoRpcSyncState extends SyncState<
   @bound
   override *startAsync(): Operation<void> {
     if (this.lastPage == null) {
-      // TODO: get startSlot if lastPage doesn't exist
-      // problem: utxorpc "fetchBlock" requires a ChainPoint
-      // see: https://github.com/utxorpc/spec/issues/148
-      yield* call(() => this.fetcher.startAsync(undefined));
+      yield* call(() => this.fetcher.startAsync({
+        slot: this.config.syncProtocol.startChainPoint.slot,
+        hash: this.config.syncProtocol.startChainPoint.hash,
+      }));
+      return;
     }
     yield* call(() =>
       this.fetcher.startAsync({
@@ -72,7 +73,7 @@ export class UtxoRpcSyncState extends SyncState<
     }
 
     // TODO This might be wrong, we are using block heights - not slots (?)
-    const startHeight = this.lastPage?.own.height ?? this.config.syncProtocol.startSlot - 1;
+    const startHeight = this.lastPage?.own.height ?? this.config.syncProtocol.startChainPoint.slot - 1;
 
     if (BigInt(startHeight) >= tipHeight) {
       return undefined;

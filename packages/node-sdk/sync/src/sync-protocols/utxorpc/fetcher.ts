@@ -20,7 +20,7 @@ export class UtxoRpcFetcher
   }
 
   @bound
-  async startAsync(point: ChainPoint | undefined) {
+  async startAsync(point: ChainPoint) {
     await this.client.start(point);
   }
 

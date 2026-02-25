@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
 import { ConfigSyncProtocolType } from "../types.ts";
-import { NameField, StartStopSlot } from "../../common.ts";
+import { NameField, StartStopChainPoint } from "../../common.ts";
 import {
   CommonResponseParallelSyncProtocol,
   type ConfigSyncProtocolCommonResponse,
@@ -65,7 +65,7 @@ export type UtxorpcTxPredicate = Static<typeof UtxorpcTxPredicate>;
 
 export const ConfigSyncProtocolSchemaCardanoUtxoRpcBase = NameField
   .cloneMerge(
-    StartStopSlot,
+    StartStopChainPoint,
   ).cloneMerge({
     required: Type.Object({
       name: Type.String(),

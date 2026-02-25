@@ -29,13 +29,13 @@ export class BufferedRpc {
     return BufferedRpc.lastHeight;
   }
 
-  public async start(point: undefined | ChainPoint): Promise<void> {
+  public async start(point: ChainPoint): Promise<void> {
     if (BufferedRpc.initialized) {
       // We do not want to follow the tip again.
       throw new Error("BufferedRpc already initialized");
     }
     BufferedRpc.initialized = true;
-    const intersect = point ? [point] : [];
+    const intersect = [point];
     const blockEvents = this.syncClient.followTip(intersect);
 
     let seenReset = false;

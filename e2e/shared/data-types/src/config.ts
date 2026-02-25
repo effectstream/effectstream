@@ -71,8 +71,8 @@ if (typeof Deno !== 'undefined' && Deno) {
   const dbConn = getConnection();
   try {
     const result = await dbConn.query(`
-      SELECT * FROM effectstream.sync_protocol_pagination 
-      WHERE protocol_name = '${mainSyncProtocolName}' 
+      SELECT * FROM effectstream.sync_protocol_pagination
+      WHERE protocol_name = '${mainSyncProtocolName}'
       ORDER BY page_number ASC
       LIMIT 1
     `);
@@ -252,7 +252,8 @@ export const config = new ConfigBuilder()
             name: "parallelUtxoRpc",
             type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
             rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
-            startSlot: 1,
+            // TODO: startChainPoint requires a real block hash from the yaci-devkit genesis. This may need to be fetched dynamically
+            startChainPoint: { slot: 1, hash: "" as any },
             // TODO: The exact delay is not correct, but it's close.
             // byron-genesis.json startTime
             // 633 skipped slots
