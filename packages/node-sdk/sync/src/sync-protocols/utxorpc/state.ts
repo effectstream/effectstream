@@ -37,10 +37,15 @@ export class UtxoRpcSyncState extends SyncState<
   @bound
   override *startAsync(): Operation<void> {
     if (this.lastPage == null) {
-      yield* call(() => this.fetcher.startAsync({
-        slot: this.config.syncProtocol.startChainPoint.slot,
-        hash: this.config.syncProtocol.startChainPoint.hash,
-      }));
+      const cp = this.config.syncProtocol.startChainPoint;
+      if (cp === "origin") {
+        const origin = yield* call(() => this.fetcher.resolveOrigin());
+        yield* call(() => this.fetcher.startAsync(origin));
+      } else if (cp === "tip") {
+        yield* call(() => this.fetcher.startAsync(undefined));
+      } else {
+        yield* call(() => this.fetcher.startAsync({ slot: cp.slot, hash: cp.hash }));
+      }
       return;
     }
     yield* call(() =>
@@ -73,7 +78,13 @@ export class UtxoRpcSyncState extends SyncState<
     }
 
     // TODO This might be wrong, we are using block heights - not slots (?)
-    const startHeight = this.lastPage?.own.height ?? this.config.syncProtocol.startChainPoint.slot - 1;
+    const cp = this.config.syncProtocol.startChainPoint;
+    const startHeight = this.lastPage?.own.height ??
+      (cp === "tip"
+        ? Number(tipHeight) - 1
+        : cp === "origin"
+          ? 0
+          : cp.slot - 1);
 
     if (BigInt(startHeight) >= tipHeight) {
       return undefined;

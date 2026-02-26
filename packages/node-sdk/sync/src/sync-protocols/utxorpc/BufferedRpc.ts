@@ -29,13 +29,23 @@ export class BufferedRpc {
     return BufferedRpc.lastHeight;
   }
 
-  public async start(point: ChainPoint): Promise<void> {
+  public async resolveOrigin(): Promise<ChainPoint> {
+    const blocks = await this.syncClient.fetchHistory(undefined, 1);
+    if (!blocks.length) throw new Error("No blocks found on chain");
+    const header = blocks[0].parsedBlock.header!;
+    return {
+      slot: Number(header.slot),
+      hash: Buffer.from(header.hash).toString("hex"),
+    };
+  }
+
+  public async start(point?: ChainPoint): Promise<void> {
     if (BufferedRpc.initialized) {
       // We do not want to follow the tip again.
       throw new Error("BufferedRpc already initialized");
     }
     BufferedRpc.initialized = true;
-    const intersect = [point];
+    const intersect = point ? [point] : [];
     const blockEvents = this.syncClient.followTip(intersect);
 
     let seenReset = false;

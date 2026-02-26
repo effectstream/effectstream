@@ -43,9 +43,15 @@ export const CardanoChainPoint = Type.Object({
   hash: TypeboxHelpers.Cardano.BlockHash,
 });
 
+export const StartChainPointValue = Type.Union([
+  Type.Literal("origin"),
+  Type.Literal("tip"),
+  CardanoChainPoint,
+]);
+
 export const StartStopChainPoint = new ConfigSchema({
   required: Type.Object({
-    startChainPoint: CardanoChainPoint,
+    startChainPoint: StartChainPointValue,
   }),
   optional: Type.Object({
     stopChainPoint: TypeboxHelpers.Nullable(CardanoChainPoint, {

@@ -88,10 +88,12 @@ if (typeof Deno !== 'undefined' && Deno) {
 
     // We fetch the latest block from the dolos mini blockfrost endpoint
     if (cardano_enabled) {
-      const response = await fetch("http://localhost:3000/blocks/latest");
-      yaciDevKitStartTime = (await response.json()).time * 1000;
+      const latestResponse = await fetch("http://localhost:3000/blocks/latest");
+      const latestBlock = await latestResponse.json();
+      yaciDevKitStartTime = latestBlock.time * 1000;
       yaciDevKitStartTime = new Date().getTime() - yaciDevKitStartTime;
       console.log("yaciDevKitStartTime", yaciDevKitStartTime);
+
     }
 }
 
@@ -252,8 +254,7 @@ export const config = new ConfigBuilder()
             name: "parallelUtxoRpc",
             type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
             rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
-            // TODO: startChainPoint requires a real block hash from the yaci-devkit genesis. This may need to be fetched dynamically
-            startChainPoint: { slot: 1, hash: "" as any },
+            startChainPoint: "origin",
             // TODO: The exact delay is not correct, but it's close.
             // byron-genesis.json startTime
             // 633 skipped slots

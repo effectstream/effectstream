@@ -44,6 +44,12 @@ export const launchCardano = (packageName: string): {
       // dependsOn: [ComponentNames.YACI_DEVKIT],
     },
     {
+      name: ComponentNames.DOLOS_FILL_TEMPLATE,
+      args: ["task", "-f", packageName, "dolos:fill-template"],
+      waitToExit: true,
+      dependsOn: [ComponentNames.YACI_DEVKIT_WAIT],
+    },
+    {
       name: ComponentNames.DOLOS,
       args: ["task", "-f", packageName, "dolos:start"],
       waitToExit: false,
@@ -51,7 +57,7 @@ export const launchCardano = (packageName: string): {
       logsStartDisabled: true,
       disableStderr: true,
       type: "system-dependency",
-      dependsOn: [ComponentNames.YACI_DEVKIT_WAIT],
+      dependsOn: [ComponentNames.DOLOS_FILL_TEMPLATE],
     },
     {
       name: ComponentNames.DOLOS_WAIT,
