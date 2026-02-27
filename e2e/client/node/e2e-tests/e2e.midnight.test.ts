@@ -165,6 +165,19 @@ const increment = async (
   return finalizedTxData.public;
 };
 
+const addEntry = async (
+  counterContract: any,
+  id: string,
+  value: bigint,
+): Promise<FinalizedTxData> => {
+  console.log(`Adding entry ${id} = ${value}...`);
+  const finalizedTxData = await counterContract.callTx.add_entry(id, value);
+  console.log(
+    `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
+  );
+  return finalizedTxData.public;
+};
+
 const displayCounterValue = async (
   providers: CounterProviders,
   counterContract: any,
@@ -434,6 +447,18 @@ async function joinAndIncrementTest(
 
     sharedState.primitive_accounting_counter += 1;
 
+    // Add an entry to the map
+    console.log("📝 Adding entry to map...");
+    const testId = "0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+    const testValue = 42n;
+    const addEntryResult = await addEntry(counterContract, testId, testValue);
+    
+    console.log(
+      `✅ Entry added successfully! Transaction ID: ${addEntryResult.txId}`,
+    );
+    
+    sharedState.primitive_accounting_counter += 1;
+
     // Display counter value after increment
     console.log("📊 Displaying counter value after increment...");
     const afterResult = await displayCounterValue(providers, counterContract);
@@ -441,8 +466,8 @@ async function joinAndIncrementTest(
 
     console.log("🎉 Join and increment process completed successfully!");
 
-    console.log("🔍 Waiting for block...", incrementResult.blockHeight, '@ parallelMidnight');
-    await blockWatcher.waitForBlock("parallelMidnight", incrementResult.blockHeight);
+    console.log("🔍 Waiting for block...", addEntryResult.blockHeight, '@ parallelMidnight');
+    await blockWatcher.waitForBlock("parallelMidnight", addEntryResult.blockHeight);
 
 
   } catch (error) {
@@ -462,6 +487,7 @@ async function joinAndIncrementTest(
           payload: { 
             payload: {
               round: string;
+              entries?: Record<string, string>;
             }
           };
         }>(
@@ -470,12 +496,18 @@ async function joinAndIncrementTest(
           "SELECT * FROM effectstream.primitive_accounting WHERE primitive_name = 'MidnightContractState'",
           (res) => true,
           (res) => {
-            const countOK = res.rows.length === 2;
+            const countOK = res.rows.length >= 2;
             const row0_OK = res.rows[0].payload.payload.round === "0";
             const row1_OK = res.rows[1].payload.payload.round === "1";
-            const OK = countOK && row0_OK && row1_OK;
+            
+            // Check if the entry was added in the latest row
+            const lastRow = res.rows[res.rows.length - 1];
+            const entriesOK = lastRow.payload.payload.entries !== undefined && 
+                              Object.keys(lastRow.payload.payload.entries).length > 0;
+            
+            const OK = countOK && row0_OK && row1_OK && entriesOK;
             if (!OK) {
-              console.log({countOK, row0_OK, row1_OK, row: res.rows});
+              console.log({countOK, row0_OK, row1_OK, entriesOK, row: res.rows});
             }
             return OK;
           },

@@ -6,6 +6,7 @@ import {
   insertAvailMessage,
   insertBitcoinTransaction,
   insertCounterInput,
+  insertCounterEntry,
   insertStateMachineInput,
   insertSumIntoExampleTable,
 } from "@e2e/database";
@@ -96,6 +97,17 @@ stm.addStateTransition("attack", function* (data) {
 stm.addStateTransition("midnightContractState", function* (data) {
   const { payload } = data.parsedInput;
   console.log("🎉 [MIDNIGHT] Transaction receipt:", JSON.stringify(payload));
+  
+  if (payload.entries) {
+    for (const [id, value] of Object.entries(payload.entries)) {
+      yield* World.resolve(insertCounterEntry, {
+        entry_id: id,
+        value: String(value),
+        block_height: data.blockHeight,
+      });
+    }
+  }
+  
   return;
 });
 

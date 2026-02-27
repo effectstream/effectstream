@@ -33,6 +33,7 @@ export const ConfigSyncProtocolSchemaMidnightBase = NameField.cloneMerge(
     indexerWS: TypeboxHelpers.Nullable(Type.String(), { default: null }),
     stepSize: Type.Number({ default: 1000 }),
     paginationLimit: Type.Number({ default: 50 }),
+    customStateParser: Type.Optional(Type.Any()),
   }),
 });
 

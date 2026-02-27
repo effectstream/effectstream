@@ -151,9 +151,18 @@ export class MidnightFetcher extends BaseDataFetcher<
         return c.address.padStart(longest, '0') === contractAddress.padStart(longest, '0');
       })!.state!;
       const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-      const contractState = ContractState.deserialize(byteState);
       const contract = primitiveEntry.primitive.contract;
-      const state = contract.ledger(contractState.data.state);
+      let state;
+      
+      if (this.config.syncProtocol.customStateParser) {
+        state = this.config.syncProtocol.customStateParser(contractAddress, byteState);
+      }
+      
+      if (state === undefined) {
+        const contractState = ContractState.deserialize(byteState);
+        state = contract.ledger(contractState.data.state);
+      }
+
       return {
         syncProtocol: {
           name: primitiveEntry.syncProtocol,

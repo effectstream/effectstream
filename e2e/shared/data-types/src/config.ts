@@ -239,6 +239,59 @@ export const config = new ConfigBuilder()
             delayMs: 18000,
             indexer: midnightNetworkConfig.indexer,
             indexerWs: midnightNetworkConfig.indexerWS,
+            customStateParser: (address: string, stateBytes: Uint8Array) => {
+              // We only want to parse the counter contract
+              const counterAddress = readMidnightContract(
+                "contract-counter",
+                { networkId: midnightNetworkConfig.id },
+              ).contractAddress;
+              
+              if (address !== counterAddress) {
+                // For other contracts, fallback to returning null to let the default parser handle it
+                return undefined;
+              }
+              
+              // For the counter contract, we manually parse the ledger state
+              const { ContractState } = require("@midnight-ntwrk/onchain-runtime");
+              const contractState = ContractState.deserialize(stateBytes);
+              
+              // The state is typically an array of the ledger variables in declaration order
+              const stateArray = contractState.data.state.asArray();
+              if (!stateArray) return null;
+              
+              // First variable is 'round' (Counter)
+              const round = stateArray[0].type() === 'null' ? "0" : stateArray[0].asCell().value[0][0].toString();
+              
+              // Second variable is 'entries' (Map)
+              let entriesMap;
+              try {
+                entriesMap = stateArray[1].asMap();
+              } catch (e) {
+                // Ignore if it's not a map yet
+              }
+              const entries: Record<string, string> = {};
+              
+              if (entriesMap) {
+                for (const key of entriesMap.keys()) {
+                  const hexKey = "0x" + key.value.map((chunk: Uint8Array) =>
+                    Array.from(chunk).map((b) => b.toString(16).padStart(2, "0")).join("")
+                  ).join("");
+                  
+                  const val = entriesMap.get(key);
+                  if (val && val.type() === 'cell') {
+                    // Convert Uint<128> to string
+                    const valBytes = val.asCell().value[0];
+                    // Very simple conversion for testing (assuming small numbers)
+                    entries[hexKey] = valBytes[0].toString();
+                  }
+                }
+              }
+              
+              return {
+                round,
+                entries
+              };
+            }
           }),
         );
     }

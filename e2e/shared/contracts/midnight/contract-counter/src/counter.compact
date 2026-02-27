@@ -4,8 +4,13 @@ import CompactStandardLibrary;
 
 // public state
 export ledger round: Counter;
+export ledger entries: Map<Bytes<32>, Uint<128>>;
 
 // transition function changing public state
 export circuit increment(): [] {
   round.increment(1);
+}
+
+export circuit add_entry(id: Bytes<32>, value: Uint<128>): [] {
+  entries.insert(id, value);
 }
