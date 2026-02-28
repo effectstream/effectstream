@@ -36,7 +36,7 @@ const yaci_enabled = false; //!ENV.getBoolean("DISABLE_YACI")
 const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
 const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
-const celestia_enabled = !ENV.getBoolean("DISABLE_CELESTIA");
+const celestia_enabled = !ENV.getBoolean("DISABLE_CELESTIA", true);
 
 const is_serial = ENV.getBoolean("EFFECTSTREAM_ORCHESTRATOR_SERIAL");
 /**

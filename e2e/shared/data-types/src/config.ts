@@ -31,10 +31,11 @@ import { getEnv } from "@effectstream/utils/runtime";
 
 const isBackendEnvironment = typeof process !== "undefined" && process.env;
 
-const isEnvTrue = (key: string) => {
+const isEnvTrue = (key: string, defaultValue?: boolean) => {
   const val = isBackendEnvironment
     ? getEnv(key)
     : (import.meta as any).env["VITE_" + key];
+  if (val == null && typeof defaultValue === 'boolean') return defaultValue; 
   return ["true", "1", "yes", "y"].includes((val || "").toLowerCase());
 };
 
@@ -56,7 +57,7 @@ const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 const evm_enabled = !isEnvTrue("DISABLE_EVM");
 
 // NOTE: This disables celestia sync, allowing for faster testing.
-const celestia_enabled = !isEnvTrue("DISABLE_CELESTIA");
+const celestia_enabled = !isEnvTrue("DISABLE_CELESTIA", true);
 
 /**
  * Let check if the db.
