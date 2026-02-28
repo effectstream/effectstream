@@ -23,6 +23,7 @@ import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeBitcoinAddress,
   PrimitiveTypeUtxorpcGeneric,
+  PrimitiveTypeCelestiaGeneric,
 } from "@effectstream/sm/builtin";
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
@@ -30,10 +31,11 @@ import { getEnv } from "@effectstream/utils/runtime";
 
 const isBackendEnvironment = typeof process !== "undefined" && process.env;
 
-const isEnvTrue = (key: string) => {
+const isEnvTrue = (key: string, defaultValue?: boolean) => {
   const val = isBackendEnvironment
     ? getEnv(key)
     : (import.meta as any).env["VITE_" + key];
+  if (val == null && typeof defaultValue === 'boolean') return defaultValue; 
   return ["true", "1", "yes", "y"].includes((val || "").toLowerCase());
 };
 
@@ -53,6 +55,9 @@ const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
 const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
 const evm_enabled = !isEnvTrue("DISABLE_EVM");
+
+// NOTE: This disables celestia sync, allowing for faster testing.
+const celestia_enabled = !isEnvTrue("DISABLE_CELESTIA", true);
 
 /**
  * Let check if the db.
@@ -173,6 +178,14 @@ export const config = new ConfigBuilder()
         chainIdentifier: "regtest",
       });
     }
+    if (celestia_enabled) {
+      b = b.addNetwork({
+        name: "celestia",
+        type: ConfigNetworkType.CELESTIA,
+        // Celestia Light Node RPC (default port 26658)
+        rpcUrl: "http://127.0.0.1:26658",
+      });
+    }
     return b;
   })
   .buildDeployments((builder) => builder).buildSyncProtocols((builder) => {
@@ -279,6 +292,20 @@ export const config = new ConfigBuilder()
           delayMs: 20000,
           pollingInterval: 10_000,
           confirmationDepth: 0,
+        }),
+      );
+    }
+
+    if (celestia_enabled) {
+      result = result.addParallel(
+        (networks) => (networks as any).celestia,
+        (network, deployments) => ({
+          name: "parallelCelestia",
+          type: ConfigSyncProtocolType.CELESTIA_PARALLEL,
+          startBlockHeight: 1 as BlockNumber,
+          pollingInterval: 6_000, // ~6s polling (Celestia ~12s block time)
+          delayMs: 12_000,        // 1 block delay for safety
+          confirmationDepth: 1,
         }),
       );
     }
@@ -448,6 +475,20 @@ export const config = new ConfigBuilder()
               }
             }
           },
+        }),
+      );
+    }
+    if (celestia_enabled) {
+      b = b.addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelCelestia,
+        (network, deployments, syncProtocol) => ({
+          name: "CelestiaBlob",
+          type: PrimitiveTypeCelestiaGeneric,
+          startBlockHeight: 1,
+          // The hex-encoded Celestia namespace to watch for blobs.
+          // Replace with your application's actual namespace.
+          namespace: "000000000000deadbeef",
+          stateMachinePrefix: "celestia-blob",
         }),
       );
     }

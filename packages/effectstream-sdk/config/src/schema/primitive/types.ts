@@ -62,6 +62,17 @@ type BitcoinPrimitivePayload = {
   label?: string;
 };
 
+type CelestiaPrimitivePayload = {
+  /** Decoded blob data (UTF-8 string from base64) */
+  suppliedValue: string;
+  /** Hex-encoded Celestia namespace */
+  namespace: string;
+  /** Base64-encoded blob commitment hash */
+  commitment: string;
+  /** Index of the blob within the block */
+  blobIndex: number;
+};
+
 interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.NTP_MAIN]: NtpPrimitivePayload;
   [ConfigSyncProtocolType.EVM_RPC_PARALLEL]: EVMPrimitivePayload;
@@ -72,4 +83,5 @@ interface ProtocolPayloadMap {
   [ConfigSyncProtocolType.AVAIL_PARALLEL]: AvailPrimitivePayload;
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: MidnightTPrimitivePayload;
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitivePayload;
+  [ConfigSyncProtocolType.CELESTIA_PARALLEL]: CelestiaPrimitivePayload;
 }
