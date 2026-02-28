@@ -15,11 +15,8 @@ import type {
   SyncProtocolWithNetwork,
 } from "@effectstream/config";
 
-// TODO: https://github.com/utxorpc/node-sdk/pull/38
-export type ChainPoint = {
-  slot: number | string;
-  hash: string;
-};
+import type { CardanoChainPoint } from "@utxorpc/sdk";
+export type ChainPoint = CardanoChainPoint;
 
 export type Page = {
   slot: AbsoluteSlotNumber;

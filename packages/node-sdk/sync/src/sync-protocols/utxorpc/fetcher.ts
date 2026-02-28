@@ -20,8 +20,13 @@ export class UtxoRpcFetcher
   }
 
   @bound
-  async startAsync(point: ChainPoint | undefined) {
+  async startAsync(point?: ChainPoint) {
     await this.client.start(point);
+  }
+
+  @bound
+  async resolveOrigin(): Promise<ChainPoint> {
+    return this.client.resolveOrigin();
   }
 
   @bound

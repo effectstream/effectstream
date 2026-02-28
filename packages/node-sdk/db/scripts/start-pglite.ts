@@ -19,16 +19,17 @@ if (isNaN(port)) {
 }
 
 // TODO: find nearest node_modules folder, as import { pg_ivm } is not working
+const extensionSubPath = "/node_modules/@electric-sql/pglite/dist/pg_ivm.tar.gz";
 let nodeModulesPath = cwd();
 while (true) {
   try {
-    const st = statSync(nodeModulesPath + "/node_modules");
-    if (st.isDirectory()) break;
+    const st = statSync(nodeModulesPath + extensionSubPath);
+    if (st.isFile()) break;
   } catch (_e) {
-    // not found or not dir
+    // not found
   }
   if (!nodeModulesPath || nodeModulesPath === "/") {
-    throw new Error("Node modules not found");
+    throw new Error("Could not find pglite pg_ivm extension in any parent node_modules");
   }
   nodeModulesPath = nodeModulesPath.split("/").slice(0, -1).join("/");
 }

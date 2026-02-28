@@ -43,7 +43,7 @@ const isEnvTrue = (key: string, defaultValue?: boolean) => {
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
-const yaci_enabled = false; //!isEnvTrue("DISABLE_YACI");
+const cardano_enabled = !isEnvTrue("DISABLE_CARDANO");
 
 // NOTE: This disable midnight sync, allowing for faster testing.
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
@@ -76,8 +76,8 @@ if (typeof Deno !== 'undefined' && Deno) {
   const dbConn = getConnection();
   try {
     const result = await dbConn.query(`
-      SELECT * FROM effectstream.sync_protocol_pagination 
-      WHERE protocol_name = '${mainSyncProtocolName}' 
+      SELECT * FROM effectstream.sync_protocol_pagination
+      WHERE protocol_name = '${mainSyncProtocolName}'
       ORDER BY page_number ASC
       LIMIT 1
     `);
@@ -92,11 +92,13 @@ if (typeof Deno !== 'undefined' && Deno) {
   }
 
     // We fetch the latest block from the dolos mini blockfrost endpoint
-    if (yaci_enabled) {
-      const response = await fetch("http://localhost:3000/blocks/latest");
-      yaciDevKitStartTime = (await response.json()).time * 1000;
+    if (cardano_enabled) {
+      const latestResponse = await fetch("http://localhost:3000/blocks/latest");
+      const latestBlock = await latestResponse.json();
+      yaciDevKitStartTime = latestBlock.time * 1000;
       yaciDevKitStartTime = new Date().getTime() - yaciDevKitStartTime;
       console.log("yaciDevKitStartTime", yaciDevKitStartTime);
+
     }
 }
 
@@ -154,7 +156,7 @@ export const config = new ConfigBuilder()
         });
     }
 
-    if (yaci_enabled) {
+    if (cardano_enabled) {
       b = b
         .addNetwork({
           name: "yaci",
@@ -256,7 +258,7 @@ export const config = new ConfigBuilder()
         );
     }
 
-    if (yaci_enabled) {
+    if (cardano_enabled) {
 
       result = result
         .addParallel(
@@ -265,7 +267,7 @@ export const config = new ConfigBuilder()
             name: "parallelUtxoRpc",
             type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
             rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
-            startSlot: 1,
+            startChainPoint: "origin",
             // TODO: The exact delay is not correct, but it's close.
             // byron-genesis.json startTime
             // 633 skipped slots
@@ -456,7 +458,7 @@ export const config = new ConfigBuilder()
         }),
       );
     }
-    if (yaci_enabled) {
+    if (cardano_enabled) {
       b = b.addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
         (network, deployments, syncProtocol) => ({
