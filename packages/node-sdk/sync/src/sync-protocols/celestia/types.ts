@@ -1,0 +1,46 @@
+import type {
+  ConfigSyncProtocolType,
+  FlattenSyncProtocolIOFor,
+  SyncProtocolWithNetwork,
+} from "@effectstream/config";
+import type { BlockNumber } from "@effectstream/utils";
+import type { PageSyncRange } from "../common/page-helpers.ts";
+import type { PageRelation } from "../base/page.ts";
+
+// =====================
+// Sync protocol typings
+// =====================
+
+/** The page identifier for Celestia: a block height + hash pair */
+export type Page = {
+  height: BlockNumber;
+  hash: string;
+};
+
+export type PrimitiveType = FlattenSyncProtocolIOFor<
+  ConfigSyncProtocolType.CELESTIA_PARALLEL
+>;
+
+export type Input = PageSyncRange<BlockNumber>;
+
+export type Output = {
+  /** ISO 8601 timestamp from the block header */
+  timestamp: string;
+  /** Block height */
+  height: number;
+  /** Hex block hash from last_block_id */
+  hash: string;
+  primitives: PrimitiveType[];
+};
+
+export const pageRelation: PageRelation<Page> = {
+  compare: (p1, p2) => p1.height - p2.height,
+  equals: (p1, p2) => p1.height === p2.height,
+  min: (p1, p2) => (p1.height < p2.height ? p1 : p2),
+  max: (p1, p2) => (p1.height > p2.height ? p1 : p2),
+};
+
+export type ConfigType = Extract<
+  SyncProtocolWithNetwork,
+  { syncProtocolType: ConfigSyncProtocolType.CELESTIA_PARALLEL }
+>;

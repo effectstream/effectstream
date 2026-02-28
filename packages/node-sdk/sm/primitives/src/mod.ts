@@ -7,6 +7,7 @@ import {
   PrimitiveTypeEVMERC1155,
   PrimitiveTypeBitcoinAddress,
   PrimitiveTypeUtxorpcGeneric,
+  PrimitiveTypeCelestiaGeneric,
 //   PrimitiveTypeEVMGeneric,
 } from "./builtin.ts";
 
@@ -18,6 +19,7 @@ import { AvailGenericPrimitive } from "./avail-generic/avail-primitive.ts";
 import { Erc1155Primitive } from "./evm-erc1155/erc1155-primitive.ts";
 import { BitcoinAddressPrimitive } from "./bitcoin-address/bitcoin-primitive.ts";
 import { UtxorpcGenericPrimitive } from "./utxorpc-generic/utxorpc-generic.ts";
+import { CelestiaGenericPrimitive } from "./celestia-generic/celestia-primitive.ts";
 // import { EvmGenericPrimitive } from "./evm-generic/evm-generic-primitive.ts";
 
 const builtInPrimitivesMap = {
@@ -29,6 +31,7 @@ const builtInPrimitivesMap = {
   [PrimitiveTypeEVMERC1155]: Erc1155Primitive,
   [PrimitiveTypeBitcoinAddress]: BitcoinAddressPrimitive,
   [PrimitiveTypeUtxorpcGeneric]: UtxorpcGenericPrimitive,
+  [PrimitiveTypeCelestiaGeneric]: CelestiaGenericPrimitive,
 //   [PrimitiveTypeEVMGeneric]: EvmGenericPrimitive,
 } as const;
 
@@ -45,5 +48,6 @@ export {
   Erc1155Primitive,
   BitcoinAddressPrimitive,
   UtxorpcGenericPrimitive,
+  CelestiaGenericPrimitive,
   // EvmGenericPrimitive,
 };
