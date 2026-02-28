@@ -34,7 +34,7 @@ while (true) {
 }
 
 const db = new PGlite(
-  "memory://", // TODO: use different values for in-browser & production builds
+  ENV.PGLITE_DATA_DIR,
   {
     username: ENV.DB_USER,
     database: ENV.DB_NAME,
