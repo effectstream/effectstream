@@ -15,7 +15,7 @@ import type {
   UnboundTransaction,
   WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
-import { findDeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
+import { findDeployedContract, type FoundContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import { blockWatcher } from "@e2e/engine";
@@ -142,7 +142,7 @@ const joinContract = async (
     CompiledContract.withCompiledFileAssets('./')
   );
 
-  const counterContract = await (findDeployedContract)(providers, {
+  const counterContract: FoundContract<Counter.Contract<CounterPrivateState>> = await (findDeployedContract)(providers, {
     contractAddress,
     compiledContract: MyCompiledContract,
     privateStateId: "counterPrivateState",
@@ -155,7 +155,7 @@ const joinContract = async (
 };
 
 const increment = async (
-  counterContract: any,
+  counterContract: FoundContract<Counter.Contract<CounterPrivateState>>,
 ): Promise<FinalizedTxData> => {
   console.log("Incrementing...");
   const finalizedTxData = await counterContract.callTx.increment();
@@ -166,12 +166,12 @@ const increment = async (
 };
 
 const addEntry = async (
-  counterContract: any,
+  counterContract: FoundContract<Counter.Contract<CounterPrivateState>>,
   id: string,
   value: bigint,
 ): Promise<FinalizedTxData> => {
   console.log(`Adding entry ${id} = ${value}...`);
-  const finalizedTxData = await counterContract.callTx.add_entry(id, value);
+  const finalizedTxData = await counterContract.callTx.add_entry(Uint8Array.from(Buffer.from(id, 'hex')), value);
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
@@ -289,6 +289,7 @@ const configureProviders = (
  * Get contract address from command line arguments or from a file
  */
 import { args, exit } from "@effectstream/utils/runtime";
+import { Buffer } from "node:buffer";
 
 const getContractAddress = (): string => {
   // First try to get from command line arguments
@@ -449,7 +450,7 @@ async function joinAndIncrementTest(
 
     // Add an entry to the map
     console.log("📝 Adding entry to map...");
-    const testId = "0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+    const testId = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
     const testValue = 42n;
     const addEntryResult = await addEntry(counterContract, testId, testValue);
     
@@ -488,6 +489,7 @@ async function joinAndIncrementTest(
             payload: {
               round: string;
               entries?: Record<string, string>;
+              map_of_map?: Record<string, Record<string, string>>;
             }
           };
         }>(
@@ -496,6 +498,7 @@ async function joinAndIncrementTest(
           "SELECT * FROM effectstream.primitive_accounting WHERE primitive_name = 'MidnightContractState'",
           (res) => true,
           (res) => {
+            // console.log("🔍 res.rows:", res.rows);
             const countOK = res.rows.length >= 2;
             const row0_OK = res.rows[0].payload.payload.round === "0";
             const row1_OK = res.rows[1].payload.payload.round === "1";
@@ -504,10 +507,13 @@ async function joinAndIncrementTest(
             const lastRow = res.rows[res.rows.length - 1];
             const entriesOK = lastRow.payload.payload.entries !== undefined && 
                               Object.keys(lastRow.payload.payload.entries).length > 0;
+                              
+            const mapOfMapOK = lastRow.payload.payload.map_of_map !== undefined && 
+                               Object.keys(lastRow.payload.payload.map_of_map).length > 0;
             
-            const OK = countOK && row0_OK && row1_OK && entriesOK;
+            const OK = countOK && row0_OK && row1_OK && entriesOK && mapOfMapOK;
             if (!OK) {
-              console.log({countOK, row0_OK, row1_OK, entriesOK, row: res.rows});
+              console.log({countOK, row0_OK, row1_OK, entriesOK, mapOfMapOK, row: res.rows});
             }
             return OK;
           },
@@ -685,7 +691,7 @@ async function testDelegatedBalancing(
     console.log("🔗 Joining contract as Party A...");
     console.log("📎 Party A contract address:", contractAddress);
     try {
-      const counterContract = await findDeployedContract(providers, {
+      const counterContract: FoundContract<Counter.Contract<CounterPrivateState>> = await findDeployedContract(providers, {
         contractAddress,
         compiledContract: MyCompiledContract,
         privateStateId: "partyAPrivateState",

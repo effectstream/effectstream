@@ -151,17 +151,16 @@ export class MidnightFetcher extends BaseDataFetcher<
         return c.address.padStart(longest, '0') === contractAddress.padStart(longest, '0');
       })!.state!;
       const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-      const contract = primitiveEntry.primitive.contract;
-      let state;
-      
-      if (this.config.syncProtocol.customStateParser) {
-        state = this.config.syncProtocol.customStateParser(contractAddress, byteState);
-      }
-      
-      if (state === undefined) {
-        const contractState = ContractState.deserialize(byteState);
-        state = contract.ledger(contractState.data.state);
-      }
+      const primitive = primitiveEntry.primitive;
+      const contractState = ContractState.deserialize(byteState);
+      const stateValue = contractState.data.state;
+
+      // Parse additional fields from the schema (defined per-contract on the primitive)
+      const additionalFields = primitive.parseAdditionalLedgerFields?.(stateValue) ?? {};
+      // Keep generated ledger fields, but let schema-parsed fields override.
+      // This is important for map-like fields where contract.ledger() exposes
+      // iterable wrappers that are not directly JSON-serializable.
+      const state = { ...primitive.contract.ledger(stateValue), ...additionalFields };
 
       return {
         syncProtocol: {

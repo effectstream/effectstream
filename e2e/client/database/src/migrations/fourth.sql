@@ -10,3 +10,11 @@ CREATE TABLE counter_entries (
   entry_id TEXT NOT NULL,
   value TEXT NOT NULL
 );
+
+CREATE TABLE counter_map_of_map (
+  id SERIAL PRIMARY KEY,
+  block_height INTEGER NOT NULL,
+  outer_id TEXT NOT NULL,
+  inner_id TEXT NOT NULL,
+  value TEXT NOT NULL
+);

@@ -7,6 +7,7 @@ import {
   insertBitcoinTransaction,
   insertCounterInput,
   insertCounterEntry,
+  insertCounterMapOfMap,
   insertStateMachineInput,
   insertSumIntoExampleTable,
 } from "@e2e/database";
@@ -105,6 +106,19 @@ stm.addStateTransition("midnightContractState", function* (data) {
         value: String(value),
         block_height: data.blockHeight,
       });
+    }
+  }
+  
+  if (payload.map_of_map) {
+    for (const [outerId, innerMap] of Object.entries(payload.map_of_map)) {
+      for (const [innerId, value] of Object.entries(innerMap as Record<string, string>)) {
+        yield* World.resolve(insertCounterMapOfMap, {
+          outer_id: outerId,
+          inner_id: innerId,
+          value: String(value),
+          block_height: data.blockHeight,
+        });
+      }
     }
   }
   
