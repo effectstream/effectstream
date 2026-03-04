@@ -7,31 +7,39 @@ import { builtinGrammars } from "@effectstream/sm/grammar";
 import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
 import { Transaction, type UnprovenTransaction } from "@midnight-ntwrk/ledger-v7";
 import { Buffer } from "node:buffer";
+import { newScheduledTimestampData } from "@effectstream/db";
+import { AddressType } from "@effectstream/utils";
+import { Type } from "@sinclair/typebox";
 
 import {
   insertOfferFile,
   insertOfferFileNullifier,
   insertOfferFileToken,
+  archiveOfferByNullifier,
+  archiveOfferByIdTtl,
 } from "@zswap-da/database";
-import { archiveOfferByNullifier } from "@zswap-da/database";
 
 import { extractMidnightLedgerSnapshot } from "./zswap-logic.ts";
 
 export const grammar = {
+  // Primitives
   "celestia-zswap": builtinGrammars.celestiaGeneric,
   "midnight-zswap": builtinGrammars.midnightGeneric,
   "midnight-nullifier": builtinGrammars.midnightNullifier,
+
+  // Scheduled game input used for TTL cleanup.
+  "zswap-ttl-cleanup": [["offerId", Type.Integer()]],
 } as const satisfies GrammarDefinition;
 
 const stm = new PaimaSTM<typeof grammar, {}>(grammar);
 
 stm.addStateTransition("midnight-nullifier", function* (data) {
   const { payload } = data.parsedInput;
-  // {                                                                                        │ [✓] 98490    collector             deno -A @effectstream/grafana-alloy grafana-alloy
-  //   nullifier: "00000000d4d29d97e1c4f4417a8162e5a99a7d20dbb958111ae7f401520f40ad",                                                                 │ [✓] 98600    pglite                deno run -A @effectstream/db/start-pglite --port 5432
-  //   txHash: "04001901c7da9522a9ea787bfbb20a883753075a02cd229c096e8f5568a0fe0b",                                                                    │ [✗] 98732    midnight-node         deno task -f @zswap-da/midnight-contracts midnight-node:start
-  //   eventId: 65,                                                                                                                                   │ [✗] 98764    midnight-indexer      deno task -f @zswap-da/midnight-contracts midnight-indexer:start
-  //   logicalSegment: 61663                                                                                                                          │ [✗] 98765    midnight-proof-server deno task -f @zswap-da/midnight-contracts midnight-proof-server:start
+  // {                                                                                
+  //   nullifier: "00000000d4d29d97e1c4f4417a8162e5a99a7d20dbb958111ae7f401520f40ad", 
+  //   txHash: "04001901c7da9522a9ea787bfbb20a883753075a02cd229c096e8f5568a0fe0b",    
+  //   eventId: 65,                                                                   
+  //   logicalSegment: 61663                                                          
   // }
   const { nullifier } = payload;
 
@@ -72,6 +80,13 @@ stm.addStateTransition("celestia-zswap", function* (data) {
   }
 
   try {
+    const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
+    const ttlSecondsRaw = parsed.metadata?.ttlSeconds;
+    const ttlSeconds =
+      typeof ttlSecondsRaw === "number" && Number.isFinite(ttlSecondsRaw) && ttlSecondsRaw > 0
+        ? Math.floor(ttlSecondsRaw)
+        : DEFAULT_TTL_SECONDS;
+
     const offerFileRes = yield* World.resolve(insertOfferFile, {
       celestia_height: data.blockHeight,
       transaction_hex: parsed.transaction,
@@ -81,6 +96,7 @@ stm.addStateTransition("celestia-zswap", function* (data) {
       auth_signer_public_key: parsed.auth?.signerPublicKey,
       auth_signature: parsed.auth?.signature,
       auth_scheme: parsed.auth?.scheme,
+      ttl_seconds: ttlSeconds,
     });
 
     const offerFileId = offerFileRes[0].id;
@@ -131,6 +147,17 @@ stm.addStateTransition("celestia-zswap", function* (data) {
       });
     }
 
+    // Schedule a follow-up STM input to run after the TTL expires.
+    // This uses the same scheduled-data pattern as the e2e example.
+    yield* World.resolve(newScheduledTimestampData, {
+      from_address: "0x0",
+      from_address_type: AddressType.NONE,
+      future_ms_timestamp: new Date(data.blockTimestamp + ttlSeconds * 1000),
+      // This payload will be delivered back into the STM as a game input.
+      // You can handle it with a dedicated state transition, e.g. "zswap-ttl-cleanup".
+      input_data: JSON.stringify(["zswap-ttl-cleanup", offerFileId]),
+    });
+
     console.log(`🌌 [ZSWAP] Saved at Celestia block ${data.blockHeight}`);
   } catch (e) {
     console.error("[ZSWAP] Failed to save offer file", e);
@@ -145,6 +172,38 @@ stm.addStateTransition("midnight-zswap", function* (data) {
     `🌌 [MIDNIGHT] Ledger snapshot at block ${data.blockHeight}`,
     snapshot,
   );
+});
+
+// Scheduled TTL cleanup: if the offer is still active in the main table,
+// move it to history and mark it as archived due to TTL.
+stm.addStateTransition("zswap-ttl-cleanup", function* (data) {
+  const { offerId } = data.parsedInput;
+
+  try {
+    const archived = yield* World.resolve(archiveOfferByIdTtl, {
+      offer_file_id: offerId,
+    });
+
+    if (archived.length === 0) {
+      console.log(
+        "[ZSWAP] TTL cleanup: offer already consumed or missing",
+        offerId,
+      );
+      return;
+    }
+
+    console.log(
+      "[ZSWAP] TTL cleanup archived offer",
+      offerId,
+      archived,
+    );
+  } catch (e) {
+    console.error(
+      "[ZSWAP] Failed to archive offer by TTL",
+      offerId,
+      e,
+    );
+  }
 });
 
 export const gameStateTransitions: StartConfigGameStateTransitions = function* (

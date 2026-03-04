@@ -20,6 +20,9 @@ CREATE TABLE offer_file (
     auth_signer_public_key TEXT,
     auth_signature TEXT,
     auth_scheme TEXT,
+    -- TTL in seconds for how long this offer should remain active.
+    -- Defaults to 7 days when not explicitly provided.
+    ttl_seconds BIGINT NOT NULL DEFAULT 604800,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -59,6 +62,11 @@ CREATE TABLE offer_file_history (
     auth_signature TEXT,
     auth_scheme TEXT,
     created_at TIMESTAMPTZ,
+    -- Copy of the TTL (in seconds) that was active for the original offer.
+    ttl_seconds BIGINT,
+    -- Reason why this offer was moved out of the main table.
+    -- For example: 'CONSUMED' or 'TTL'.
+    archive_reason TEXT,
     archived_at TIMESTAMPTZ DEFAULT NOW()
 );
 

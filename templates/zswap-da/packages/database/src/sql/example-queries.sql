@@ -15,7 +15,8 @@ INSERT INTO offer_file (
     metadata_maker_note,
     auth_signer_public_key,
     auth_signature,
-    auth_scheme
+    auth_scheme,
+    ttl_seconds
 ) VALUES (
     :celestia_height!,
     :transaction_hex!,
@@ -24,7 +25,8 @@ INSERT INTO offer_file (
     :metadata_maker_note,
     :auth_signer_public_key,
     :auth_signature,
-    :auth_scheme
+    :auth_scheme,
+    COALESCE(:ttl_seconds, 604800)
 ) RETURNING id;
 
 /* @name InsertOfferFileToken */
@@ -84,7 +86,9 @@ archived_offer AS (
         auth_signer_public_key,
         auth_signature,
         auth_scheme,
-        created_at
+        created_at,
+        ttl_seconds,
+        archive_reason
     )
     SELECT
         id,
@@ -96,7 +100,78 @@ archived_offer AS (
         auth_signer_public_key,
         auth_signature,
         auth_scheme,
-        created_at
+        created_at,
+        ttl_seconds,
+        'CONSUMED'
+    FROM offer_file
+    WHERE id IN (SELECT offer_file_id FROM matched)
+    RETURNING id
+),
+archived_tokens AS (
+    INSERT INTO offer_file_tokens_history (
+        offer_file_id,
+        token_color,
+        amount,
+        direction
+    )
+    SELECT
+        offer_file_id,
+        token_color,
+        amount,
+        direction
+    FROM offer_file_tokens
+    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)
+),
+archived_nullifiers AS (
+    INSERT INTO offer_file_nullifiers_history (
+        offer_file_id,
+        nullifier
+    )
+    SELECT
+        offer_file_id,
+        nullifier
+    FROM offer_file_nullifiers
+    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)
+)
+DELETE FROM offer_file
+WHERE id IN (SELECT offer_file_id FROM matched)
+RETURNING id;
+
+/* @name ArchiveOfferByIdTtl */
+WITH matched AS (
+    SELECT id AS offer_file_id
+    FROM offer_file
+    WHERE id = :offer_file_id!
+    LIMIT 1
+),
+archived_offer AS (
+    INSERT INTO offer_file_history (
+        id,
+        celestia_height,
+        transaction_hex,
+        metadata_created_at,
+        metadata_expires_at,
+        metadata_maker_note,
+        auth_signer_public_key,
+        auth_signature,
+        auth_scheme,
+        created_at,
+        ttl_seconds,
+        archive_reason
+    )
+    SELECT
+        id,
+        celestia_height,
+        transaction_hex,
+        metadata_created_at,
+        metadata_expires_at,
+        metadata_maker_note,
+        auth_signer_public_key,
+        auth_signature,
+        auth_scheme,
+        created_at,
+        ttl_seconds,
+        'TTL'
     FROM offer_file
     WHERE id IN (SELECT offer_file_id FROM matched)
     RETURNING id
