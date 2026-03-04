@@ -63,7 +63,7 @@ export async function getContractInstance() {
         walletResult.walletDustSecretKey,
         networkUrls,
         "offerFilesPrivateState",
-        midnightContract.zkConfigPath,
+        midnightContract!.zkConfigPath,
         walletResult.unshieldedKeystore,
     );
 

@@ -557,7 +557,6 @@
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Status</th>
                 <th>Giving</th>
                 <th>Wanting</th>
                 <th>Celestia Height</th>
@@ -572,16 +571,13 @@
         html += zswaps.map(z => `
               <tr>
                 <td>#${z.id}</td>
-                <td><span class="status-${z.is_active ? 'accepted' : 'pending'}">${z.is_active ? 'Active' : 'Inactive'}</span></td>
                 <td>${renderTokens(z.gives)}</td>
                 <td>${renderTokens(z.wants)}</td>
                 <td>${z.celestia_height ?? '—'}</td>
                 <td title="${z.transaction_hex}">${z.transaction_hex ? shortToken(z.transaction_hex) : '—'}</td>
                 <td>
-                  ${z.is_active
-                    ? `<button class="btn-small" style="margin:0;" onclick="completeOffer(${z.id})">Complete</button>
-                       <div id="complete-result-${z.id}" class="result" style="display:none;margin-top:6px;position:absolute;z-index:10;"></div>`
-                    : '<span style="color:#94a3b8;font-size:0.85rem;">—</span>'}
+                  <button class="btn-small" style="margin:0;" onclick="completeOffer(${z.id})">Complete</button>
+                  <div id="complete-result-${z.id}" class="result" style="display:none;margin-top:6px;position:absolute;z-index:10;"></div>
                 </td>
               </tr>
         `).join('');

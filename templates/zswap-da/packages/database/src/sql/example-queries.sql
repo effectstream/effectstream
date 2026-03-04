@@ -15,8 +15,7 @@ INSERT INTO offer_file (
     metadata_maker_note,
     auth_signer_public_key,
     auth_signature,
-    auth_scheme,
-    is_active
+    auth_scheme
 ) VALUES (
     :celestia_height!,
     :transaction_hex!,
@@ -25,8 +24,7 @@ INSERT INTO offer_file (
     :metadata_maker_note,
     :auth_signer_public_key,
     :auth_signature,
-    :auth_scheme,
-    :is_active!
+    :auth_scheme
 ) RETURNING id;
 
 /* @name InsertOfferFileToken */
@@ -59,3 +57,68 @@ INSERT INTO offer_file_nullifiers (
 
 /* @name GetOfferFileNullifiers */
 SELECT * FROM offer_file_nullifiers WHERE offer_file_id = :offer_file_id!;
+
+/* @name ArchiveOfferByNullifier */
+WITH matched AS (
+    SELECT offer_file_id
+    FROM offer_file_nullifiers
+    WHERE nullifier = :nullifier!
+    LIMIT 1
+),
+archived_offer AS (
+    INSERT INTO offer_file_history (
+        id,
+        celestia_height,
+        transaction_hex,
+        metadata_created_at,
+        metadata_expires_at,
+        metadata_maker_note,
+        auth_signer_public_key,
+        auth_signature,
+        auth_scheme,
+        created_at
+    )
+    SELECT
+        id,
+        celestia_height,
+        transaction_hex,
+        metadata_created_at,
+        metadata_expires_at,
+        metadata_maker_note,
+        auth_signer_public_key,
+        auth_signature,
+        auth_scheme,
+        created_at
+    FROM offer_file
+    WHERE id IN (SELECT offer_file_id FROM matched)
+    RETURNING id
+),
+archived_tokens AS (
+    INSERT INTO offer_file_tokens_history (
+        offer_file_id,
+        token_color,
+        amount,
+        direction
+    )
+    SELECT
+        offer_file_id,
+        token_color,
+        amount,
+        direction
+    FROM offer_file_tokens
+    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)
+),
+archived_nullifiers AS (
+    INSERT INTO offer_file_nullifiers_history (
+        offer_file_id,
+        nullifier
+    )
+    SELECT
+        offer_file_id,
+        nullifier
+    FROM offer_file_nullifiers
+    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)
+)
+DELETE FROM offer_file
+WHERE id IN (SELECT offer_file_id FROM matched)
+RETURNING id;

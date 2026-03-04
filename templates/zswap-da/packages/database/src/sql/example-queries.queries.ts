@@ -66,7 +66,6 @@ export interface IInsertOfferFileParams {
   auth_signature?: string | null | void;
   auth_signer_public_key?: string | null | void;
   celestia_height: NumberOrString;
-  is_active: boolean;
   metadata_created_at?: DateOrString | null | void;
   metadata_expires_at?: DateOrString | null | void;
   metadata_maker_note?: string | null | void;
@@ -84,7 +83,7 @@ export interface IInsertOfferFileQuery {
   result: IInsertOfferFileResult;
 }
 
-const insertOfferFileIR: any = {"usedParamSet":{"celestia_height":true,"transaction_hex":true,"metadata_created_at":true,"metadata_expires_at":true,"metadata_maker_note":true,"auth_signer_public_key":true,"auth_signature":true,"auth_scheme":true,"is_active":true},"params":[{"name":"celestia_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":236,"b":252}]},{"name":"transaction_hex","required":true,"transform":{"type":"scalar"},"locs":[{"a":259,"b":275}]},{"name":"metadata_created_at","required":false,"transform":{"type":"scalar"},"locs":[{"a":282,"b":301}]},{"name":"metadata_expires_at","required":false,"transform":{"type":"scalar"},"locs":[{"a":308,"b":327}]},{"name":"metadata_maker_note","required":false,"transform":{"type":"scalar"},"locs":[{"a":334,"b":353}]},{"name":"auth_signer_public_key","required":false,"transform":{"type":"scalar"},"locs":[{"a":360,"b":382}]},{"name":"auth_signature","required":false,"transform":{"type":"scalar"},"locs":[{"a":389,"b":403}]},{"name":"auth_scheme","required":false,"transform":{"type":"scalar"},"locs":[{"a":410,"b":421}]},{"name":"is_active","required":true,"transform":{"type":"scalar"},"locs":[{"a":428,"b":438}]}],"statement":"INSERT INTO offer_file (\n    celestia_height,\n    transaction_hex,\n    metadata_created_at,\n    metadata_expires_at,\n    metadata_maker_note,\n    auth_signer_public_key,\n    auth_signature,\n    auth_scheme,\n    is_active\n) VALUES (\n    :celestia_height!,\n    :transaction_hex!,\n    :metadata_created_at,\n    :metadata_expires_at,\n    :metadata_maker_note,\n    :auth_signer_public_key,\n    :auth_signature,\n    :auth_scheme,\n    :is_active!\n) RETURNING id"};
+const insertOfferFileIR: any = {"usedParamSet":{"celestia_height":true,"transaction_hex":true,"metadata_created_at":true,"metadata_expires_at":true,"metadata_maker_note":true,"auth_signer_public_key":true,"auth_signature":true,"auth_scheme":true},"params":[{"name":"celestia_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":221,"b":237}]},{"name":"transaction_hex","required":true,"transform":{"type":"scalar"},"locs":[{"a":244,"b":260}]},{"name":"metadata_created_at","required":false,"transform":{"type":"scalar"},"locs":[{"a":267,"b":286}]},{"name":"metadata_expires_at","required":false,"transform":{"type":"scalar"},"locs":[{"a":293,"b":312}]},{"name":"metadata_maker_note","required":false,"transform":{"type":"scalar"},"locs":[{"a":319,"b":338}]},{"name":"auth_signer_public_key","required":false,"transform":{"type":"scalar"},"locs":[{"a":345,"b":367}]},{"name":"auth_signature","required":false,"transform":{"type":"scalar"},"locs":[{"a":374,"b":388}]},{"name":"auth_scheme","required":false,"transform":{"type":"scalar"},"locs":[{"a":395,"b":406}]}],"statement":"INSERT INTO offer_file (\n    celestia_height,\n    transaction_hex,\n    metadata_created_at,\n    metadata_expires_at,\n    metadata_maker_note,\n    auth_signer_public_key,\n    auth_signature,\n    auth_scheme\n) VALUES (\n    :celestia_height!,\n    :transaction_hex!,\n    :metadata_created_at,\n    :metadata_expires_at,\n    :metadata_maker_note,\n    :auth_signer_public_key,\n    :auth_signature,\n    :auth_scheme\n) RETURNING id"};
 
 /**
  * Query generated from SQL:
@@ -97,8 +96,7 @@ const insertOfferFileIR: any = {"usedParamSet":{"celestia_height":true,"transact
  *     metadata_maker_note,
  *     auth_signer_public_key,
  *     auth_signature,
- *     auth_scheme,
- *     is_active
+ *     auth_scheme
  * ) VALUES (
  *     :celestia_height!,
  *     :transaction_hex!,
@@ -107,8 +105,7 @@ const insertOfferFileIR: any = {"usedParamSet":{"celestia_height":true,"transact
  *     :metadata_maker_note,
  *     :auth_signer_public_key,
  *     :auth_signature,
- *     :auth_scheme,
- *     :is_active!
+ *     :auth_scheme
  * ) RETURNING id
  * ```
  */
@@ -164,7 +161,6 @@ export interface IGetOfferFilesResult {
   celestia_height: string;
   created_at: Date | null;
   id: number;
-  is_active: boolean | null;
   metadata_created_at: Date | null;
   metadata_expires_at: Date | null;
   metadata_maker_note: string | null;
@@ -278,5 +274,94 @@ const getOfferFileNullifiersIR: any = {"usedParamSet":{"offer_file_id":true},"pa
  * ```
  */
 export const getOfferFileNullifiers = new PreparedQuery<IGetOfferFileNullifiersParams,IGetOfferFileNullifiersResult>(getOfferFileNullifiersIR);
+
+
+/** 'ArchiveOfferByNullifier' parameters type */
+export interface IArchiveOfferByNullifierParams {
+  nullifier: string;
+}
+
+/** 'ArchiveOfferByNullifier' return type */
+export interface IArchiveOfferByNullifierResult {
+  id: number;
+}
+
+/** 'ArchiveOfferByNullifier' query type */
+export interface IArchiveOfferByNullifierQuery {
+  params: IArchiveOfferByNullifierParams;
+  result: IArchiveOfferByNullifierResult;
+}
+
+const archiveOfferByNullifierIR: any = {"usedParamSet":{"nullifier":true},"params":[{"name":"nullifier","required":true,"transform":{"type":"scalar"},"locs":[{"a":96,"b":106}]}],"statement":"WITH matched AS (\n    SELECT offer_file_id\n    FROM offer_file_nullifiers\n    WHERE nullifier = :nullifier!\n    LIMIT 1\n),\narchived_offer AS (\n    INSERT INTO offer_file_history (\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at\n    )\n    SELECT\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at\n    FROM offer_file\n    WHERE id IN (SELECT offer_file_id FROM matched)\n    RETURNING id\n),\narchived_tokens AS (\n    INSERT INTO offer_file_tokens_history (\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    )\n    SELECT\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    FROM offer_file_tokens\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n),\narchived_nullifiers AS (\n    INSERT INTO offer_file_nullifiers_history (\n        offer_file_id,\n        nullifier\n    )\n    SELECT\n        offer_file_id,\n        nullifier\n    FROM offer_file_nullifiers\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n)\nDELETE FROM offer_file\nWHERE id IN (SELECT offer_file_id FROM matched)\nRETURNING id"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * WITH matched AS (
+ *     SELECT offer_file_id
+ *     FROM offer_file_nullifiers
+ *     WHERE nullifier = :nullifier!
+ *     LIMIT 1
+ * ),
+ * archived_offer AS (
+ *     INSERT INTO offer_file_history (
+ *         id,
+ *         celestia_height,
+ *         transaction_hex,
+ *         metadata_created_at,
+ *         metadata_expires_at,
+ *         metadata_maker_note,
+ *         auth_signer_public_key,
+ *         auth_signature,
+ *         auth_scheme,
+ *         created_at
+ *     )
+ *     SELECT
+ *         id,
+ *         celestia_height,
+ *         transaction_hex,
+ *         metadata_created_at,
+ *         metadata_expires_at,
+ *         metadata_maker_note,
+ *         auth_signer_public_key,
+ *         auth_signature,
+ *         auth_scheme,
+ *         created_at
+ *     FROM offer_file
+ *     WHERE id IN (SELECT offer_file_id FROM matched)
+ *     RETURNING id
+ * ),
+ * archived_tokens AS (
+ *     INSERT INTO offer_file_tokens_history (
+ *         offer_file_id,
+ *         token_color,
+ *         amount,
+ *         direction
+ *     )
+ *     SELECT
+ *         offer_file_id,
+ *         token_color,
+ *         amount,
+ *         direction
+ *     FROM offer_file_tokens
+ *     WHERE offer_file_id IN (SELECT offer_file_id FROM matched)
+ * ),
+ * archived_nullifiers AS (
+ *     INSERT INTO offer_file_nullifiers_history (
+ *         offer_file_id,
+ *         nullifier
+ *     )
+ *     SELECT
+ *         offer_file_id,
+ *         nullifier
+ *     FROM offer_file_nullifiers
+ *     WHERE offer_file_id IN (SELECT offer_file_id FROM matched)
+ * )
+ * DELETE FROM offer_file
+ * WHERE id IN (SELECT offer_file_id FROM matched)
+ * RETURNING id
+ * ```
+ */
+export const archiveOfferByNullifier = new PreparedQuery<IArchiveOfferByNullifierParams,IArchiveOfferByNullifierResult>(archiveOfferByNullifierIR);
 
 

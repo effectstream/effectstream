@@ -21,10 +21,11 @@ import {
 import { normalizeHex32 } from "./zswap-logic.ts";
 import { submitToCelestia } from "./celestia-api.ts";
 import { getContractInstance, getWalletInstance } from "./midnight-api.ts";
+import { OfferFilesContract } from "../midnight-contracts/contract-offer-files/src/index.ts";
 
 // ─── Midnight Contract Helper ─────────────────────────────────────────────────
 
-async function getContract(): Promise<FoundContract<unknown>> {
+async function getContract() /*: Promise<FoundContract<OfferFilesContract.Contract>> */ {
   if (!midnightContract) {
     throw new Error("Midnight contract metadata is not available");
   }

@@ -4,7 +4,7 @@ import { ComponentNames } from "@effectstream/log";
 import type { ValueOf } from "@effectstream/utils";
 import type { SpawnChild } from "@effectstream/utils/runtime-spawn";
 import { spawn } from "@effectstream/utils/runtime-spawn";
-import { setExitCode } from "@effectstream/utils/runtime";>>>>>>> feature/midnight-sync-nullifier
+import { setExitCode } from "@effectstream/utils/runtime";
 import { abortControllers } from "./start.ts";
 
 export type ProcessComponent = {

@@ -9,6 +9,7 @@ import { erc1155Grammar } from "./evm-erc1155/erc1155-grammar.ts";
 import { bitcoinAddressGrammar } from "./bitcoin-address/bitcoin-grammar.ts";
 import { utxorpcGenericGrammar } from "./utxorpc-generic/utxorpc-generic-grammar.ts";
 import { celestiaGenericGrammar } from "./celestia-generic/celestia-generic-grammar.ts";
+import { midnightNullifierGrammar } from "./midnight-nullifier/midnight-nullifier-grammar.ts";
 
 export const builtinGrammars = {
   midnightGeneric: midnightGenericGrammar,
@@ -19,4 +20,5 @@ export const builtinGrammars = {
   bitcoinAddress: bitcoinAddressGrammar,
   utxorpcGeneric: utxorpcGenericGrammar,
   celestiaGeneric: celestiaGenericGrammar,
+  midnightNullifier: midnightNullifierGrammar,
 } as const;

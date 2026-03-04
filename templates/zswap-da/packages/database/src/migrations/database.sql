@@ -20,7 +20,6 @@ CREATE TABLE offer_file (
     auth_signer_public_key TEXT,
     auth_signature TEXT,
     auth_scheme TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -37,4 +36,34 @@ CREATE TABLE offer_file_nullifiers (
     id SERIAL PRIMARY KEY,
     offer_file_id INTEGER NOT NULL REFERENCES offer_file(id) ON DELETE CASCADE,
     nullifier TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE offer_file_history (
+    id INTEGER PRIMARY KEY,
+    celestia_height BIGINT NOT NULL,
+    transaction_hex TEXT NOT NULL,
+    metadata_created_at TIMESTAMPTZ,
+    metadata_expires_at TIMESTAMPTZ,
+    metadata_maker_note TEXT,
+    auth_signer_public_key TEXT,
+    auth_signature TEXT,
+    auth_scheme TEXT,
+    created_at TIMESTAMPTZ,
+    archived_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE offer_file_tokens_history (
+    id SERIAL PRIMARY KEY,
+    offer_file_id INTEGER NOT NULL,
+    token_color TEXT NOT NULL,
+    amount TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    archived_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE offer_file_nullifiers_history (
+    id SERIAL PRIMARY KEY,
+    offer_file_id INTEGER NOT NULL,
+    nullifier TEXT NOT NULL,
+    archived_at TIMESTAMPTZ DEFAULT NOW()
 );

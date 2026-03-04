@@ -1,4 +1,3 @@
-
 import {
   ConfigBuilder,
   ConfigNetworkType,
@@ -7,6 +6,7 @@ import {
 import {
   PrimitiveTypeCelestiaGeneric,
   PrimitiveTypeMidnightGeneric,
+  PrimitiveTypeMidnightNullifier,
 } from "@effectstream/sm/builtin";
 import type { BlockNumber } from "@effectstream/utils";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
@@ -15,11 +15,14 @@ import { OfferFilesContract } from "../midnight-contracts/contract-offer-files/s
 
 import { getEnv } from "@effectstream/utils/runtime";
 
-export const CELESTIA_RPC_URL = getEnv("CELESTIA_RPC_URL") ?? "http://127.0.0.1:26658";
-export const CELESTIA_NAMESPACE = getEnv("CELESTIA_NAMESPACE") ?? "000000000000deadbeef";
+export const CELESTIA_RPC_URL = getEnv("CELESTIA_RPC_URL") ??
+  "http://127.0.0.1:26658";
+export const CELESTIA_NAMESPACE = getEnv("CELESTIA_NAMESPACE") ??
+  "000000000000deadbeef";
 export const CELESTIA_FEE = parseInt(getEnv("CELESTIA_FEE") ?? "2000");
-export const CELESTIA_GAS_LIMIT = parseInt(getEnv("CELESTIA_GAS_LIMIT") ?? "100000");
-
+export const CELESTIA_GAS_LIMIT = parseInt(
+  getEnv("CELESTIA_GAS_LIMIT") ?? "100000",
+);
 
 export const midnightContract = (() => {
   try {
@@ -42,7 +45,7 @@ export const localhostConfig = new ConfigBuilder()
       .addNetwork({
         name: "ntp",
         type: ConfigNetworkType.NTP,
-        startTime: new Date().getTime() - 11082*1000,
+        startTime: new Date().getTime() - 11700 * 1000,
         blockTimeMS: 1000,
       })
       .addNetwork({
@@ -96,7 +99,7 @@ export const localhostConfig = new ConfigBuilder()
       )
   )
   .buildPrimitives((builder) => {
-    let b = builder.addPrimitive(
+    return builder.addPrimitive(
       (syncProtocols) => (syncProtocols as any).parallelCelestia,
       (_network, _deployments, _syncProtocol) => ({
         name: "ZswapBlob",
@@ -105,22 +108,26 @@ export const localhostConfig = new ConfigBuilder()
         namespace: CELESTIA_NAMESPACE,
         stateMachinePrefix: "celestia-zswap",
       }),
+    ).addPrimitive(
+      (syncProtocols) => (syncProtocols as any).parallelMidnight,
+      (_network, _deployments, _syncProtocol) => ({
+        name: "ZswapMidnightState",
+        type: PrimitiveTypeMidnightGeneric,
+        startBlockHeight: 1,
+        contractAddress: midnightContract!.contractAddress,
+        stateMachinePrefix: "midnight-zswap",
+        contract: { ledger: OfferFilesContract.ledger },
+        networkId: midnightNetworkConfig.id,
+      }),
+    ).addPrimitive(
+      (syncProtocols) => (syncProtocols as any).parallelMidnight,
+      (network, deployments, syncProtocol) => ({
+        name: "Midnight-Nullifier",
+        type: PrimitiveTypeMidnightNullifier,
+        startBlockHeight: 1,
+        stateMachinePrefix: "midnight-nullifier",
+        networkId: midnightNetworkConfig.id,
+      }),
     );
-
-    if (midnightContract) {
-      b = b.addPrimitive(
-        (syncProtocols) => (syncProtocols as any).parallelMidnight,
-        (_network, _deployments, _syncProtocol) => ({
-          name: "ZswapMidnightState",
-          type: PrimitiveTypeMidnightGeneric,
-          startBlockHeight: 1,
-          contractAddress: midnightContract.contractAddress,
-          stateMachinePrefix: "midnight-zswap",
-          contract: { ledger: OfferFilesContract.ledger },
-          networkId: midnightNetworkConfig.id,
-        }),
-      );
-    }
-    return b;
   })
   .build();
