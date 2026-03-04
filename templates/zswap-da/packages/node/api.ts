@@ -35,12 +35,45 @@ async function getContract() /*: Promise<FoundContract<OfferFilesContract.Contra
 // ─── API Router ───────────────────────────────────────────────────────────────
 
 export const apiRouter: StartConfigApiRouter = async function (
-  server: any,
+  server: any, // fastify.FastifyInstance,
   dbConn: any,
 ): Promise<void> {
-  // GET /api/zswaps — list all ZSWAPs ordered by newest first
-  server.get("/api/zswaps", async () => {
-    const offers = await getOfferFiles.run(undefined, dbConn);
+  // GET /api/zswaps — list ZSWAPs ordered by newest first, with optional filtering & pagination
+  server.get("/api/zswaps", async (request: any) => {
+    const query = request?.query ?? {};
+
+    const rawLimit = Number.parseInt((query as any).limit ?? "", 10);
+    const rawOffset = Number.parseInt((query as any).offset ?? "", 10);
+
+    // Enforce sensible defaults and bounds: max/default 100 per-page
+    let limit = Number.isFinite(rawLimit) ? rawLimit : 100;
+    if (limit <= 0) limit = 100;
+    if (limit > 100) limit = 100;
+
+    let offset = Number.isFinite(rawOffset) ? rawOffset : 0;
+    if (offset < 0) offset = 0;
+
+    const token = (query as any).token as string | undefined;
+    const directionRaw = ((query as any).direction as string | undefined)
+      ?.toUpperCase();
+    const direction =
+      directionRaw === "GIVING" || directionRaw === "WANTING"
+        ? directionRaw
+        : undefined;
+
+    const effectiveToken = token ?? "";
+    const effectiveDirection = direction ?? "ANY";
+
+    const offers = await getOfferFiles.run(
+      {
+        token: effectiveToken,
+        direction: effectiveDirection,
+        limit,
+        offset,
+      } as any,
+      dbConn,
+    );
+
     const result: {
       id: number;
       celestia_height: string;
@@ -55,6 +88,7 @@ export const apiRouter: StartConfigApiRouter = async function (
       gives: { token: string; amount: string }[];
       wants: { token: string; amount: string }[];
     }[] = [];
+
     for (const offer of offers) {
       const tokens = await getOfferFileTokens.run(
         { offer_file_id: offer.id },
@@ -68,6 +102,7 @@ export const apiRouter: StartConfigApiRouter = async function (
         .map((t) => ({ token: t.token_color, amount: t.amount }));
       result.push({ ...offer, gives, wants });
     }
+
     return result;
   });
 

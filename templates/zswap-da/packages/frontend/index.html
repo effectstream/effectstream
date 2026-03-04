@@ -181,6 +181,51 @@
       <h2 style="margin: 0; border: none; padding: 0;">ZSwap Offers <span id="zswap-count" style="font-size:0.8rem;color:#64748b;font-weight:normal;"></span></h2>
       <button onclick="loadZSwaps()" style="margin: 0; padding: 6px 12px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;">↻ Refresh</button>
     </div>
+    <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 10px; align-items:flex-end;">
+      <div style="flex:1; min-width: 220px;">
+        <label for="zswap-filter-token-select">Filter by token</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="zswap-filter-token-select" onchange="onZswapFilterTokenChange()" style="flex:0 0 180px;">
+            <option value="">Any token</option>
+            <option value="custom">Custom token...</option>
+          </select>
+          <input
+            id="zswap-filter-token-custom"
+            type="text"
+            placeholder="Token hex address..."
+            style="display:none; flex:1;"
+          />
+        </div>
+      </div>
+      <div style="width: 140px;">
+        <label for="zswap-filter-side">Side</label>
+        <select id="zswap-filter-side">
+          <option value="any">Any</option>
+          <option value="GIVING">Giving</option>
+          <option value="WANTING">Wanting</option>
+        </select>
+      </div>
+      <div style="width: 140px;">
+        <label for="zswap-limit">Per page</label>
+        <select id="zswap-limit">
+          <option value="10">10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100" selected>100</option>
+        </select>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-small" style="margin-top: 0;" onclick="applyZswapFilters()">Apply</button>
+        <button class="btn-small" style="margin-top: 0; background:#e5e7eb;color:#374151;" onclick="resetZswapFilters()">Clear</button>
+      </div>
+    </div>
+    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 8px;">
+      <div id="zswap-page-info" style="font-size:0.8rem;color:#64748b;"></div>
+      <div style="display:flex; gap:6px;">
+        <button id="zswap-prev-btn" class="btn-small" style="margin:0; background:#e5e7eb;color:#374151;" onclick="prevZswapPage()" disabled>Prev</button>
+        <button id="zswap-next-btn" class="btn-small" style="margin:0; background:#e5e7eb;color:#374151;" onclick="nextZswapPage()" disabled>Next</button>
+      </div>
+    </div>
     <div id="zswaps-list" class="table-responsive">
       <span style="color:#64748b;font-size:0.85rem;">Click Refresh to load offers from the node.</span>
     </div>
@@ -193,6 +238,10 @@
     const API_BASE = window.API_BASE ?? `http://${location.hostname}:9999`;
 
     let knownTokens = [];
+    let zswapLimit = 100;
+    let zswapOffset = 0;
+    let zswapFilterToken = "";
+    let zswapFilterSide = "any";
 
     async function loadKnownTokens() {
       try {
@@ -215,6 +264,18 @@
           // Restore selection
           if (currentVal) select.value = currentVal;
         });
+
+        // Update ZSwap filter token select with known tokens
+        const filterSelect = document.getElementById('zswap-filter-token-select');
+        if (filterSelect) {
+          const currentVal = filterSelect.value;
+          filterSelect.innerHTML = `
+            <option value="">Any token</option>
+            ${knownTokens.map(t => `<option value="${t.token_color}">${t.name}</option>`).join('')}
+            <option value="custom">Custom token...</option>
+          `;
+          if (currentVal) filterSelect.value = currentVal;
+        }
       } catch (e) {
         console.error("Failed to load known tokens", e);
       }
@@ -536,21 +597,113 @@
       return t.slice(0, 6) + '…' + t.slice(-4);
     }
 
+    function onZswapFilterTokenChange() {
+      const select = document.getElementById('zswap-filter-token-select');
+      const customInput = document.getElementById('zswap-filter-token-custom');
+      if (!select || !customInput) return;
+
+      if (select.value === 'custom') {
+        customInput.style.display = 'block';
+      } else {
+        customInput.style.display = 'none';
+      }
+    }
+
+    function applyZswapFilters() {
+      const tokenSelect = document.getElementById('zswap-filter-token-select');
+      const customTokenInput = document.getElementById('zswap-filter-token-custom');
+      const sideSelect = document.getElementById('zswap-filter-side');
+      const limitSelect = document.getElementById('zswap-limit');
+
+      let tokenValue = "";
+      if (tokenSelect) {
+        if (tokenSelect.value === 'custom' && customTokenInput) {
+          tokenValue = customTokenInput.value.trim();
+        } else {
+          tokenValue = tokenSelect.value;
+        }
+      }
+      zswapFilterToken = tokenValue;
+      if (sideSelect) zswapFilterSide = sideSelect.value || "any";
+      if (limitSelect) {
+        const parsed = parseInt(limitSelect.value, 10);
+        zswapLimit = Number.isFinite(parsed) ? parsed : 100;
+      }
+
+      zswapOffset = 0;
+      loadZSwaps();
+    }
+
+    function resetZswapFilters() {
+      const tokenSelect = document.getElementById('zswap-filter-token-select');
+      const customTokenInput = document.getElementById('zswap-filter-token-custom');
+      const sideSelect = document.getElementById('zswap-filter-side');
+      const limitSelect = document.getElementById('zswap-limit');
+
+      if (tokenSelect) tokenSelect.value = "";
+      if (customTokenInput) {
+        customTokenInput.value = "";
+        customTokenInput.style.display = 'none';
+      }
+      if (sideSelect) sideSelect.value = "any";
+      if (limitSelect) limitSelect.value = "100";
+
+      zswapFilterToken = "";
+      zswapFilterSide = "any";
+      zswapLimit = 100;
+      zswapOffset = 0;
+      loadZSwaps();
+    }
+
+    function nextZswapPage() {
+      zswapOffset += zswapLimit;
+      loadZSwaps();
+    }
+
+    function prevZswapPage() {
+      zswapOffset = Math.max(0, zswapOffset - zswapLimit);
+      loadZSwaps();
+    }
+
     async function loadZSwaps() {
       const el = document.getElementById('zswaps-list');
       const countEl = document.getElementById('zswap-count');
+      const pageInfoEl = document.getElementById('zswap-page-info');
+      const prevBtn = document.getElementById('zswap-prev-btn');
+      const nextBtn = document.getElementById('zswap-next-btn');
+
       try {
-        const res = await fetch(`${API_BASE}/api/zswaps`);
+        const params = new URLSearchParams();
+        params.set('limit', String(zswapLimit));
+        params.set('offset', String(zswapOffset));
+        if (zswapFilterToken) params.set('token', zswapFilterToken);
+        if (zswapFilterSide && zswapFilterSide !== "any") {
+          params.set('direction', zswapFilterSide);
+        }
+
+        const res = await fetch(`${API_BASE}/api/zswaps?${params.toString()}`);
         const zswaps = await res.json();
 
         if (!Array.isArray(zswaps) || !zswaps.length) {
           countEl.textContent = '(0)';
           el.innerHTML = '<span style="color:#64748b;font-size:0.85rem;">No ZSwap offers indexed yet. Submit one above and wait for the node to pick it up from Celestia.</span>';
+          if (pageInfoEl) pageInfoEl.textContent = '';
+          if (prevBtn) prevBtn.disabled = zswapOffset <= 0;
+          if (nextBtn) nextBtn.disabled = true;
           return;
         }
 
         countEl.textContent = `(${zswaps.length})`;
-        
+
+        if (pageInfoEl) {
+          const from = zswapOffset + 1;
+          const to = zswapOffset + zswaps.length;
+          pageInfoEl.textContent = `Showing ${from}–${to}`;
+        }
+
+        if (prevBtn) prevBtn.disabled = zswapOffset <= 0;
+        if (nextBtn) nextBtn.disabled = zswaps.length < zswapLimit;
+
         // Build table header
         let html = `
           <table>
@@ -566,7 +719,6 @@
             </thead>
             <tbody>
         `;
-        
         // Build table rows
         html += zswaps.map(z => `
               <tr>
@@ -581,7 +733,7 @@
                 </td>
               </tr>
         `).join('');
-        
+
         html += `
             </tbody>
           </table>
@@ -594,6 +746,9 @@
         });
       } catch (e) {
         el.innerHTML = `<span class="error">Failed to load: ${e.message}</span>`;
+        if (pageInfoEl) pageInfoEl.textContent = '';
+        if (prevBtn) prevBtn.disabled = zswapOffset <= 0;
+        if (nextBtn) nextBtn.disabled = true;
       }
     }
 

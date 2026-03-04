@@ -41,7 +41,15 @@ INSERT INTO offer_file_tokens (
 );
 
 /* @name GetOfferFiles */
-SELECT * FROM offer_file ORDER BY created_at DESC;
+SELECT DISTINCT of.*
+FROM offer_file of
+LEFT JOIN offer_file_tokens oft ON oft.offer_file_id = of.id
+WHERE
+  (:token = '' OR oft.token_color = :token!)
+  AND (:direction = 'ANY' OR oft.direction = :direction!)
+ORDER BY of.created_at DESC
+LIMIT :limit!
+OFFSET :offset!;
 
 /* @name GetOfferFileTokens */
 SELECT * FROM offer_file_tokens WHERE offer_file_id = :offer_file_id!;

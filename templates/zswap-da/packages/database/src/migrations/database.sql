@@ -32,6 +32,16 @@ CREATE TABLE offer_file_tokens (
     UNIQUE(offer_file_id, token_color, direction)
 );
 
+-- Indexes to optimize common offer queries:
+CREATE INDEX IF NOT EXISTS idx_offer_file_created_at
+    ON offer_file (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_offer_file_tokens_token_direction_offer
+    ON offer_file_tokens (token_color, direction, offer_file_id);
+
+CREATE INDEX IF NOT EXISTS idx_offer_file_tokens_offer_file_id
+    ON offer_file_tokens (offer_file_id);
+
 CREATE TABLE offer_file_nullifiers (
     id SERIAL PRIMARY KEY,
     offer_file_id INTEGER NOT NULL REFERENCES offer_file(id) ON DELETE CASCADE,

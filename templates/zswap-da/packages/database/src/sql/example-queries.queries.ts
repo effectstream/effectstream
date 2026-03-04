@@ -151,7 +151,12 @@ export const insertOfferFileToken = new PreparedQuery<IInsertOfferFileTokenParam
 
 
 /** 'GetOfferFiles' parameters type */
-export type IGetOfferFilesParams = void;
+export interface IGetOfferFilesParams {
+  direction: string;
+  limit: NumberOrString;
+  offset: NumberOrString;
+  token: string;
+}
 
 /** 'GetOfferFiles' return type */
 export interface IGetOfferFilesResult {
@@ -173,12 +178,20 @@ export interface IGetOfferFilesQuery {
   result: IGetOfferFilesResult;
 }
 
-const getOfferFilesIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT * FROM offer_file ORDER BY created_at DESC"};
+const getOfferFilesIR: any = {"usedParamSet":{"token":true,"direction":true,"limit":true,"offset":true},"params":[{"name":"token","required":true,"transform":{"type":"scalar"},"locs":[{"a":110,"b":115},{"a":143,"b":149}]},{"name":"direction","required":true,"transform":{"type":"scalar"},"locs":[{"a":159,"b":168},{"a":197,"b":207}]},{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":244,"b":250}]},{"name":"offset","required":true,"transform":{"type":"scalar"},"locs":[{"a":259,"b":266}]}],"statement":"SELECT DISTINCT of.*\nFROM offer_file of\nLEFT JOIN offer_file_tokens oft ON oft.offer_file_id = of.id\nWHERE\n  (:token = '' OR oft.token_color = :token!)\n  AND (:direction = 'ANY' OR oft.direction = :direction!)\nORDER BY of.created_at DESC\nLIMIT :limit!\nOFFSET :offset!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT * FROM offer_file ORDER BY created_at DESC
+ * SELECT DISTINCT of.*
+ * FROM offer_file of
+ * LEFT JOIN offer_file_tokens oft ON oft.offer_file_id = of.id
+ * WHERE
+ *   (:token = '' OR oft.token_color = :token!)
+ *   AND (:direction = 'ANY' OR oft.direction = :direction!)
+ * ORDER BY of.created_at DESC
+ * LIMIT :limit!
+ * OFFSET :offset!
  * ```
  */
 export const getOfferFiles = new PreparedQuery<IGetOfferFilesParams,IGetOfferFilesResult>(getOfferFilesIR);
