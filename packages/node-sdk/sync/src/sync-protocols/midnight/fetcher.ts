@@ -16,8 +16,9 @@ import type {
 } from "../base/state.ts";
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
-import { MidnightClient, type MidnightGqlBlockState } from "./MidnightClient.ts";
+import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
 import { ContractState } from "@midnight-ntwrk/onchain-runtime";
+import { decodeZswapInputEvent } from "./zswap-decoder.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
   Input,
@@ -47,6 +48,20 @@ export class MidnightFetcher extends BaseDataFetcher<
     }
     this.networkId = config.network?.networkId ??
       (config.network as any)?.id;
+
+    if (this.networkId != null) {
+      for (const entry of config.primitives) {
+        const primitiveNetworkId = (entry.primitive as any).networkId;
+        if (primitiveNetworkId != null && primitiveNetworkId !== this.networkId) {
+          throw new Error(
+            `Midnight primitive "${entry.primitive.name}" has networkId "${primitiveNetworkId}" ` +
+            `but the network "${config.network.name}" uses networkId "${this.networkId}". ` +
+            `These must match.`,
+          );
+        }
+      }
+    }
+
     this.client = new MidnightClient(
       indexerHttp,
       indexerWs,
@@ -65,8 +80,18 @@ export class MidnightFetcher extends BaseDataFetcher<
         data.isPresync ? "[presync]" : ""
       }`,
     );
+    const blockFetchOptions: BlockFetchOptions = {
+      contractActions: this.config.primitives.some(
+        (p) => p.primitive.type !== "Midnight:Nullifier",
+      ),
+      zswapLedgerEvents: this.config.primitives.some(
+        (p) => p.primitive.type === "Midnight:Nullifier",
+      ),
+    };
     for (let height = data.from; height <= data.to; height++) {
-      const result: MidnightGqlBlockState = yield* call(() => this.client.fetchBlock(height));
+      const result: MidnightGqlBlockState = yield* call(() =>
+        this.client.fetchBlock(height, blockFetchOptions)
+      );
       const primitives = yield* this.readPrimitives(
         height,
         result,
@@ -102,20 +127,55 @@ export class MidnightFetcher extends BaseDataFetcher<
     primitiveEntries: PrimitiveEntryType[],
   ): Operation<PrimitiveType[]> {
     const client = this.client;
-    const allOperations: Operation<PrimitiveType[]>[] = [];
+    const asyncOps: Operation<PrimitiveType[]>[] = [];
+    const syncResults: PrimitiveType[] = [];
+
     for (const primitiveEntry of primitiveEntries) {
-        allOperations.push(
-          this.fetchContractState(
-            height,
-            client,
-            primitiveEntry,
-            block,
-          )
+      if (primitiveEntry.primitive.type === "Midnight:Nullifier") {
+        syncResults.push(...this.fetchNullifiers(height, primitiveEntry, block));
+      } else {
+        asyncOps.push(
+          this.fetchContractState(height, client, primitiveEntry, block),
         );
+      }
     }
-    return (yield* all(allOperations)).flat().filter(
-      Boolean,
-    ) as PrimitiveType[];
+
+    const asyncResults = (yield* all(asyncOps)).flat();
+    return [...syncResults, ...asyncResults].filter(Boolean) as PrimitiveType[];
+  }
+
+  @bound
+  fetchNullifiers(
+    height: number,
+    primitiveEntry: PrimitiveEntryType,
+    block: MidnightGqlBlockState,
+  ): PrimitiveType[] {
+    const results: PrimitiveType[] = [];
+    for (const tx of block.block.transactions) {
+      for (const event of tx.zswapLedgerEvents ?? []) {
+        const decoded = decodeZswapInputEvent(event.raw);
+        if (!decoded) continue;
+        results.push({
+          syncProtocol: {
+            name: primitiveEntry.syncProtocol,
+            blockNumber: height,
+            transactionHash: tx.hash,
+            contractAddress: "",
+          },
+          primitive: primitiveEntry.primitive.name,
+          output: {
+            payloadType: "midnight-nullifier",
+            payload: {
+              nullifier: decoded.nullifier,
+              txHash: decoded.txHash,
+              eventId: event.id,
+              logicalSegment: decoded.logicalSegment,
+            },
+          },
+        });
+      }
+    }
+    return results;
   }
 
   @bound
@@ -125,7 +185,7 @@ export class MidnightFetcher extends BaseDataFetcher<
     primitiveEntry: PrimitiveEntryType,
     block: MidnightGqlBlockState,
   ): Operation<PrimitiveType[]> {
-    const contractAddress = primitiveEntry.primitive.contractAddress;
+    const contractAddress = primitiveEntry.primitive.contractAddress!;
     const blockFinalState = yield* call(() =>
       client.fetchContractState(contractAddress, height)
     );
@@ -152,7 +212,7 @@ export class MidnightFetcher extends BaseDataFetcher<
       })!.state!;
       const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
       const contractState = ContractState.deserialize(byteState);
-      const contract = primitiveEntry.primitive.contract;
+      const contract = primitiveEntry.primitive.contract!;
       const state = contract.ledger(contractState.data.state);
       return {
         syncProtocol: {

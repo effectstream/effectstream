@@ -23,6 +23,7 @@ import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeBitcoinAddress,
   PrimitiveTypeUtxorpcGeneric,
+  PrimitiveTypeMidnightNullifier,
   PrimitiveTypeCelestiaGeneric,
 } from "@effectstream/sm/builtin";
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
@@ -442,6 +443,15 @@ export const config = new ConfigBuilder()
             contractAddress: eip20Address,
             stateMachinePrefix: "eip20ContractState",
             contract: { ledger: SimpleTokenContract.ledger },
+            networkId: midnightNetworkConfig.id,
+          }),
+        ).addPrimitive(
+          (syncProtocols) => (syncProtocols as any).parallelMidnight,
+          (network, deployments, syncProtocol) => ({
+            name: "Midnight-Nullifier",
+            type: PrimitiveTypeMidnightNullifier,
+            startBlockHeight: 1,
+            stateMachinePrefix: "midnightNullifierState",
             networkId: midnightNetworkConfig.id,
           }),
         );

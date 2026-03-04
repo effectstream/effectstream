@@ -51,9 +51,8 @@ type EVMPrimitive = BasePrimitive & {
 };
 
 type MidnightPrimitive = BasePrimitive & {
-  name: string;
-  contractAddress: string;
-  contract: {
+  contractAddress?: string;
+  contract?: {
     ledger: (data: StateValue) => Record<string, any>;
   };
   networkId?: string;

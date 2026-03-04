@@ -1,5 +1,6 @@
 import {
   PrimitiveTypeMidnightGeneric,
+  PrimitiveTypeMidnightNullifier,
   PrimitiveTypeEVMPaimaL2,
   PrimitiveTypeEVMERC721,
   PrimitiveTypeEVMERC20,
@@ -12,6 +13,7 @@ import {
 } from "./builtin.ts";
 
 import { MidnightGenericPrimitive } from "./midnight-generic/midnight-genetic.ts";
+import { MidnightNullifierPrimitive } from "./midnight-nullifier/midnight-nullifier.ts";
 import { PaimaL2Primitive } from "./evm-paimal2/paimal2-primitive.ts";
 import { Erc721Primitive } from "./evm-erc721/erc721-primitive.ts";
 import { Erc20Primitive } from "./evm-erc20/erc20-primitive.ts";
@@ -24,6 +26,7 @@ import { CelestiaGenericPrimitive } from "./celestia-generic/celestia-primitive.
 
 const builtInPrimitivesMap = {
   [PrimitiveTypeMidnightGeneric]: MidnightGenericPrimitive,
+  [PrimitiveTypeMidnightNullifier]: MidnightNullifierPrimitive,
   [PrimitiveTypeEVMPaimaL2]: PaimaL2Primitive,
   [PrimitiveTypeEVMERC721]: Erc721Primitive,
   [PrimitiveTypeEVMERC20]: Erc20Primitive,
@@ -41,6 +44,7 @@ export {
 
   // Built-in Primitives
   MidnightGenericPrimitive,
+  MidnightNullifierPrimitive,
   PaimaL2Primitive,
   Erc721Primitive,
   Erc20Primitive,
