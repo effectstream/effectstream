@@ -48,6 +48,20 @@ export class MidnightFetcher extends BaseDataFetcher<
     }
     this.networkId = config.network?.networkId ??
       (config.network as any)?.id;
+
+    if (this.networkId != null) {
+      for (const entry of config.primitives) {
+        const primitiveNetworkId = (entry.primitive as any).networkId;
+        if (primitiveNetworkId != null && primitiveNetworkId !== this.networkId) {
+          throw new Error(
+            `Midnight primitive "${entry.primitive.name}" has networkId "${primitiveNetworkId}" ` +
+            `but the network "${config.network.name}" uses networkId "${this.networkId}". ` +
+            `These must match.`,
+          );
+        }
+      }
+    }
+
     this.client = new MidnightClient(
       indexerHttp,
       indexerWs,
