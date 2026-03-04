@@ -13,15 +13,41 @@ import {
   insertOfferFileNullifier,
   insertOfferFileToken,
 } from "@zswap-da/database";
+import { archiveOfferByNullifier } from "@zswap-da/database";
 
 import { extractMidnightLedgerSnapshot } from "./zswap-logic.ts";
 
 export const grammar = {
   "celestia-zswap": builtinGrammars.celestiaGeneric,
   "midnight-zswap": builtinGrammars.midnightGeneric,
+  "midnight-nullifier": builtinGrammars.midnightNullifier,
 } as const satisfies GrammarDefinition;
 
 const stm = new PaimaSTM<typeof grammar, {}>(grammar);
+
+stm.addStateTransition("midnight-nullifier", function* (data) {
+  const { payload } = data.parsedInput;
+  // {                                                                                        │ [✓] 98490    collector             deno -A @effectstream/grafana-alloy grafana-alloy
+  //   nullifier: "00000000d4d29d97e1c4f4417a8162e5a99a7d20dbb958111ae7f401520f40ad",                                                                 │ [✓] 98600    pglite                deno run -A @effectstream/db/start-pglite --port 5432
+  //   txHash: "04001901c7da9522a9ea787bfbb20a883753075a02cd229c096e8f5568a0fe0b",                                                                    │ [✗] 98732    midnight-node         deno task -f @zswap-da/midnight-contracts midnight-node:start
+  //   eventId: 65,                                                                                                                                   │ [✗] 98764    midnight-indexer      deno task -f @zswap-da/midnight-contracts midnight-indexer:start
+  //   logicalSegment: 61663                                                                                                                          │ [✗] 98765    midnight-proof-server deno task -f @zswap-da/midnight-contracts midnight-proof-server:start
+  // }
+  const { nullifier } = payload;
+
+  try {
+    const archived = yield* World.resolve(archiveOfferByNullifier, {
+      nullifier,
+    });
+    if (archived.length === 0) {
+      console.log("[MIDNIGHT] Nullifier not found in offer_file_nullifiers", nullifier);
+      return;
+    }
+    console.log("[MIDNIGHT] Archived offer(s) for nullifier", nullifier, archived);
+  } catch (e) {
+    console.error("[MIDNIGHT] Failed to archive offer for nullifier", nullifier, e);
+  }
+});
 
 stm.addStateTransition("celestia-zswap", function* (data) {
   const { payload } = data.parsedInput;
@@ -55,7 +81,6 @@ stm.addStateTransition("celestia-zswap", function* (data) {
       auth_signer_public_key: parsed.auth?.signerPublicKey,
       auth_signature: parsed.auth?.signature,
       auth_scheme: parsed.auth?.scheme,
-      is_active: true,
     });
 
     const offerFileId = offerFileRes[0].id;
@@ -74,10 +99,11 @@ stm.addStateTransition("celestia-zswap", function* (data) {
         ? offerTx.guaranteedOffer.inputs.map((input: any) => input.nullifier)
         : [];
       for (const nullifier of nullifiers) {
-        const hex = Buffer.from(nullifier).toString("hex");
+        // nullifier is already a hex string from the deserialized transaction
+        const nullifierStr = typeof nullifier === "string" ? nullifier : Buffer.from(nullifier).toString("hex");
         yield* World.resolve(insertOfferFileNullifier, {
           offer_file_id: offerFileId,
-          nullifier: Buffer.from(hex, "hex").toString("ascii").padStart(72, "0"),
+          nullifier: nullifierStr,
         });
       }
     } catch (e) {

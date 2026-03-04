@@ -51,7 +51,6 @@ export const apiRouter: StartConfigApiRouter = async function (
       auth_signer_public_key: string | null;
       auth_signature: string | null;
       auth_scheme: string | null;
-      is_active: boolean | null;
       created_at: Date | null;
       gives: { token: string; amount: string }[];
       wants: { token: string; amount: string }[];
@@ -334,11 +333,6 @@ export const apiRouter: StartConfigApiRouter = async function (
       finalizedTx,
       txId,
     });
-
-    await dbConn.query(
-      `UPDATE offer_file SET is_active = FALSE WHERE id = $1`,
-      [id],
-    );
 
     return { success: true, txId };
   });

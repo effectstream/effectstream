@@ -51,7 +51,7 @@ function bytesToHex(bytes: Uint8Array): string {
 //    2 bytes   EventSource.physical_segment (LE u16, skipped)
 //   SCALE u32  EventDetails variant: 0=ZswapInput, 1=ZswapOutput, 2+=other
 //
-//   ZswapInput: 32-byte CoinNullifier
+//   ZswapInput: 4-byte contract_id + 32-byte CoinNullifier
 
 const OUTER_TAG = "midnight:event[v9]:";
 
@@ -83,6 +83,8 @@ export function decodeZswapInputEvent(rawHex: string): DecodedZswapInput | null 
     if (variant !== 0) {
       return null; // ZswapOutput or other — not a nullifier event
     }
+
+    pos += 4; // skip 4-byte contract_id
 
     const nullifier = bytesToHex(b.slice(pos, pos + 32));
     return { txHash, logicalSegment, nullifier };
