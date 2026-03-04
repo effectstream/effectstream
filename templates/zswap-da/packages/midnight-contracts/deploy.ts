@@ -1,8 +1,8 @@
 import {
   deployMidnightContract,
   type DeployConfig,
-} from "@paimaexample/midnight-contracts";
-import { midnightNetworkConfig } from "@paimaexample/midnight-contracts";
+} from "@effectstream/midnight-contracts";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts";
 import {
   OfferFilesContract,
   type OfferFilesPrivateState,
@@ -11,7 +11,7 @@ import {
 
 // The offer-files contract constructor takes a `color: Bytes<32>` argument
 // that sets the initial token color / domain separator.
-const DOMAIN_SEPARATOR = new Uint8Array(32).fill(1);
+// const DOMAIN_SEPARATOR = new Uint8Array(32).fill(1);
 
 const config: DeployConfig = {
   contractName: "contract-offer-files",
@@ -21,7 +21,7 @@ const config: DeployConfig = {
   privateStateId: "offerFilesPrivateState",
   initialPrivateState: {} as OfferFilesPrivateState,
   privateStateStoreName: "offer-files-private-state",
-  deployArgs: [DOMAIN_SEPARATOR],
+  deployArgs: [],
 };
 
 deployMidnightContract(config, midnightNetworkConfig)

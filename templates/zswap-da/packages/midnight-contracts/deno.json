@@ -15,10 +15,10 @@
         "contract:compile": "deno task -f @zswap-da/contract-offer-files contract:compile"
     },
     "imports": {
-        "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.7.2",
-        "@paimaexample/npm-midnight-indexer": "npm:@paimaexample/npm-midnight-indexer@0.7.2",
-        "@paimaexample/npm-midnight-node": "npm:@paimaexample/npm-midnight-node@0.7.2",
-        "@paimaexample/npm-midnight-proof-server": "npm:@paimaexample/npm-midnight-proof-server@0.7.2",
+        // "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.7.2",
+        // "@paimaexample/npm-midnight-indexer": "npm:@paimaexample/npm-midnight-indexer@0.7.2",
+        // "@paimaexample/npm-midnight-node": "npm:@paimaexample/npm-midnight-node@0.7.2",
+        // "@paimaexample/npm-midnight-proof-server": "npm:@paimaexample/npm-midnight-proof-server@0.7.2",
         "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.14.0",
         "@midnight-ntwrk/compact-js": "npm:@midnight-ntwrk/compact-js@2.4.0",
         "@zswap-da/contract-offer-files": "./contract-offer-files"
