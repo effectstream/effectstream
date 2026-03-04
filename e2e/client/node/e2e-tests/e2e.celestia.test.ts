@@ -9,7 +9,7 @@ const CELESTIA_FEE = ENV.getNumber("CELESTIA_FEE", 2000);
 const CELESTIA_GAS_LIMIT = ENV.getNumber("CELESTIA_GAS_LIMIT", 100000);
 const CELESTIA_NODE_URL = ENV.getString("CELESTIA_NODE_URL", "http://localhost:26658");
 
-const celestia_enabled = !ENV.getBoolean("DISABLE_CELESTIA");
+const celestia_enabled = !ENV.getBoolean("DISABLE_CELESTIA", true);
 
 function celestiaNamespaceBase64(hex: string): string {
   const cleanHex = hex.replace(/^0x/, "");

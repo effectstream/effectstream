@@ -18,7 +18,8 @@
     "clean_binaries": "cd ../../../packages/binaries/midnight-node && npm run clean && cd ../midnight-indexer && npm run clean && cd ../midnight-proof-server && npm run clean",
     "quickstart": "deno task -f @effectstream/tui clean && EFFECTSTREAM_ENV=quickstart NODE_ENV=development MIDNIGHT_STORAGE_PASSWORD=yourpasswordmypassword deno run -A --check --unstable-raw-imports scripts/start.quickstart.ts",
     "e2e": "EFFECTSTREAM_ENV=e2e deno run -A --unstable-raw-imports --check scripts/start.e2e.ts",
-    "testnet": "EFFECTSTREAM_ENV=testnet deno run -A --unstable-raw-imports --check scripts/start.testnet.ts"
+    "testnet": "EFFECTSTREAM_ENV=testnet deno run -A --unstable-raw-imports --check scripts/start.testnet.ts",
+    "cardano-midnight": "DISABLE_EVM=true DISABLE_AVAIL=true DISABLE_BITCOIN=true EFFECTSTREAM_ENV=e2e MIDNIGHT_STORAGE_PASSWORD=yourpasswordmypassword deno run -A --unstable-raw-imports --check scripts/start.cardano-midnight.ts"
   },
   "imports": {
     "pg": "npm:pg@^8.14.0",

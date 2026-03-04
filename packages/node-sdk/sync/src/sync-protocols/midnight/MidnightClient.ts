@@ -22,9 +22,21 @@ export interface MidnightGqlBlockState {
         address:    string;
         state:      string;
       }[];
+      zswapLedgerEvents?: {
+        id:    number;
+        raw:   string;
+        maxId: number;
+      }[];
     }[];
   };
 };
+
+export interface BlockFetchOptions {
+  /** Include contractActions in the transaction fields (needed for MidnightGenericPrimitive). Default: true */
+  contractActions?: boolean;
+  /** Include zswapLedgerEvents in the transaction fields (needed for MidnightNullifierPrimitive). Default: true */
+  zswapLedgerEvents?: boolean;
+}
 
 type PublicDataProvider = ReturnType<typeof indexerPublicDataProvider>;
 export class MidnightClient {
@@ -101,7 +113,17 @@ export class MidnightClient {
     return ex.value.data;
   }
 
-  async fetchBlock(blockHeight: number): Promise<MidnightGqlBlockState> {
+  async fetchBlock(
+    blockHeight: number,
+    options: BlockFetchOptions = {},
+  ): Promise<MidnightGqlBlockState> {
+    const { contractActions = true, zswapLedgerEvents = true } = options;
+    const contractActionsField = contractActions
+      ? `contractActions { address state }`
+      : "";
+    const zswapField = zswapLedgerEvents
+      ? `zswapLedgerEvents { id raw maxId }`
+      : "";
     const query = `query {
       block(offset: { height: ${blockHeight} }) {
         hash
@@ -113,10 +135,8 @@ export class MidnightClient {
         }
         transactions {
           hash
-          contractActions {
-            address
-            state
-          }
+          ${contractActionsField}
+          ${zswapField}
         }
       }
     }`;

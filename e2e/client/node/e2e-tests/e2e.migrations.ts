@@ -6,7 +6,7 @@ const evm_enabled = !ENV.getBoolean("DISABLE_EVM");
 const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
 const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
-const yaci_enabled = false; //!ENV.getBoolean("DISABLE_YACI");
+const cardano_enabled = !ENV.getBoolean("DISABLE_CARDANO");
 
 export async function testMigrations(db: Client) {
   const version = await safeQuery<{
@@ -51,7 +51,7 @@ export async function testMigrations(db: Client) {
     expectedMigrations += 5; // 5 dynamic tables
   }
 
-  if (!midnight_enabled && !avail_enabled && !bitcoin_enabled && !yaci_enabled && !evm_enabled) {
+  if (!midnight_enabled && !avail_enabled && !bitcoin_enabled && !cardano_enabled && !evm_enabled) {
     // if no other chain is enabled, then we might hit this code before blocks are generated.
     // So we know between 5 and 8 migration are expected.
     assert(

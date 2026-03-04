@@ -27,7 +27,7 @@ Effectstream supports syncing via **UTXO-RPC** (using Dolos/Yaci) or **Carp**.
     name: "parallelUtxoRpc",
     type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
     rpcUrl: "http://127.0.0.1:50051", // UTXO-RPC endpoint
-    startSlot: 1,
+    startChainPoint: { slot: 1, hash: "abc123..." }, // slot and block hash to start syncing from
   })
 )
 ```
