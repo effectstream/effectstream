@@ -6,84 +6,236 @@
   <title>ZSwap DA — Celestia Swap Dashboard</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e0e0e0; padding: 24px; max-width: 960px; margin: 0 auto; }
-    h1 { font-size: 1.6rem; margin-bottom: 6px; color: #fff; }
-    .subtitle { font-size: 0.85rem; color: #6070a0; margin-bottom: 28px; }
-    h2 { font-size: 1.05rem; margin-bottom: 12px; color: #a0a8c0; border-bottom: 1px solid #2a2d3a; padding-bottom: 6px; }
-    section { background: #1a1d2e; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-    label { display: block; font-size: 0.85rem; color: #8890a8; margin-bottom: 4px; margin-top: 10px; }
-    input, select { width: 100%; padding: 8px 10px; border-radius: 4px; border: 1px solid #3a3d4e; background: #12141f; color: #e0e0e0; font-size: 0.9rem; }
-    button { padding: 8px 18px; border: none; border-radius: 4px; background: #4f6ef7; color: #fff; font-size: 0.9rem; cursor: pointer; margin-top: 12px; margin-right: 6px; }
-    button:hover { background: #3b5ae0; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .result { margin-top: 12px; padding: 10px; background: #12141f; border-radius: 4px; font-family: monospace; font-size: 0.82rem; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+    body { font-family: system-ui, sans-serif; background: #f8fafc; color: #334155; padding: 24px; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 1.6rem; margin-bottom: 6px; color: #0f172a; display: flex; align-items: center; justify-content: space-between; }
+    .subtitle { font-size: 0.85rem; color: #64748b; margin-bottom: 28px; }
+    h2 { font-size: 1.05rem; margin-bottom: 12px; color: #475569; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+    section { background: #ffffff; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0; }
+    label { display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 4px; margin-top: 10px; font-weight: 500; }
+    input, select { width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; font-size: 0.95rem; transition: border-color 0.15s ease-in-out; }
+    input:focus, select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+    button { padding: 10px 20px; border: none; border-radius: 6px; background: #3b82f6; color: #fff; font-size: 0.95rem; font-weight: 500; cursor: pointer; margin-top: 12px; transition: background-color 0.15s ease-in-out; }
+    button:hover { background: #2563eb; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .result { margin-top: 12px; padding: 12px; background: #f1f5f9; border-radius: 6px; border: 1px solid #e2e8f0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; color: #475569; }
     .row { display: flex; gap: 12px; }
     .row > div { flex: 1; }
-    .offer-card { background: #12141f; border-radius: 4px; padding: 14px; margin-bottom: 10px; border: 1px solid #23263a; }
-    .offer-card .meta { font-size: 0.8rem; color: #8890a8; margin-top: 6px; line-height: 1.6; }
-    .status-pending  { color: #f0c040; }
-    .status-accepted { color: #40d080; }
-    .error { color: #f05050; }
-    .badge { display: inline-block; font-size: 0.7rem; font-weight: 700; border-radius: 3px; padding: 1px 6px; letter-spacing: 0.04em; }
-    .badge-da { background: #1a2e4a; color: #60b0ff; border: 1px solid #2a4a70; }
-    .token-entry { background: #1a1f30; border: 1px solid #2a3050; border-radius: 4px; padding: 10px; margin-bottom: 8px; }
-    .btn-small  { padding: 4px 10px; font-size: 0.8rem; margin-top: 4px; }
-    .btn-danger { background: #7a2020; }
-    .btn-danger:hover { background: #a03030; }
-    .btn-success { background: #205a20; }
-    .btn-success:hover { background: #307a30; }
-    .info-box { background: #13192a; border: 1px solid #2a3550; border-radius: 4px; padding: 10px 14px; font-size: 0.83rem; color: #8898c0; margin-bottom: 14px; line-height: 1.5; }
+    
+    /* Table styles */
+    table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 16px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+    th { background: #f8fafc; color: #475569; font-weight: 600; text-align: left; padding: 12px 16px; font-size: 0.85rem; border-bottom: 1px solid #e2e8f0; }
+    td { padding: 12px 16px; font-size: 0.9rem; border-bottom: 1px solid #e2e8f0; color: #334155; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f1f5f9; }
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    
+    .status-pending  { color: #d97706; background: #fef3c7; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+    .status-accepted { color: #059669; background: #d1fae5; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+    .error { color: #dc2626; }
+    .badge { display: inline-flex; align-items: center; font-size: 0.75rem; font-weight: 700; border-radius: 4px; padding: 2px 8px; letter-spacing: 0.05em; }
+    .badge-midnight { background: #1e293b; color: #f8fafc; border: 1px solid #0f172a; margin-left: 12px; }
+    .badge-da { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; margin-left: 8px; }
+    .badge-token { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; cursor: help; font-weight: 600; padding: 2px 6px; letter-spacing: normal; }
+    
+    /* Dex/Swap Interface Styles */
+    .dex-container { max-width: 480px; margin: 0 auto; }
+    .dex-swap-icon { display: flex; justify-content: center; margin: -10px 0; z-index: 10; position: relative; }
+    .dex-swap-btn { background: #f1f5f9; border: 4px solid #ffffff; color: #64748b; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; margin: 0; transition: transform 0.2s, background-color 0.2s; }
+    .dex-swap-btn:hover { background: #e2e8f0; color: #3b82f6; transform: rotate(180deg); }
+    .token-panel { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; transition: border-color 0.2s; }
+    .token-panel:hover { border-color: #cbd5e1; }
+    .token-panel-header { display: flex; justify-content: space-between; font-size: 0.85rem; color: #64748b; margin-bottom: 8px; font-weight: 500; }
+    .token-entry-dex { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
+    .token-entry-dex:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
+    .token-input-row { display: flex; align-items: center; gap: 12px; }
+    .token-amount-input { flex: 1; font-size: 1.5rem; background: transparent; border: none; padding: 0; color: #0f172a; }
+    .token-amount-input:focus { outline: none; box-shadow: none; border: none; }
+    .token-amount-input::placeholder { color: #cbd5e1; }
+    .token-selector { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 20px; padding: 6px 12px 6px 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05); }
+    .token-selector:hover { background: #f8fafc; }
+    .token-selector select { border: none; background: transparent; padding: 0; font-weight: 600; width: auto; font-size: 1rem; color: #0f172a; appearance: none; cursor: pointer; }
+    .token-selector select:focus { box-shadow: none; }
+    .dex-submit-btn { width: 100%; padding: 14px; font-size: 1.1rem; border-radius: 12px; margin-top: 16px; font-weight: 600; }
+    
+    .btn-small  { padding: 6px 12px; font-size: 0.85rem; margin-top: 4px; border-radius: 4px; }
+    .btn-danger { background: #ef4444; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: #10b981; }
+    .btn-success:hover { background: #059669; }
+    .info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 16px; font-size: 0.9rem; color: #1e40af; margin-bottom: 20px; line-height: 1.5; display: flex; gap: 12px; align-items: flex-start; }
+    
+    /* Modal Styles */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; z-index: 100; opacity: 0; transition: opacity 0.2s; }
+    .modal-overlay.active { display: flex; opacity: 1; }
+    .modal-content { background: #ffffff; border-radius: 16px; padding: 24px; width: 100%; max-width: 440px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); transform: scale(0.95); transition: transform 0.2s; max-height: 90vh; overflow-y: auto; }
+    .modal-overlay.active .modal-content { transform: scale(1); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; }
+    .modal-title { font-size: 1.25rem; font-weight: 600; color: #0f172a; margin: 0; border: none; padding: 0; }
+    .modal-close { background: transparent; color: #64748b; border: none; font-size: 1.5rem; cursor: pointer; padding: 4px; margin: 0; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; line-height: 1; }
+    .modal-close:hover { background: #f1f5f9; color: #0f172a; }
+    
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .mint-btn-top { margin: 0; background: #ffffff; color: #3b82f6; border: 1px solid #3b82f6; font-weight: 600; padding: 8px 16px; }
+    .mint-btn-top:hover { background: #eff6ff; }
   </style>
 </head>
 <body>
-  <h1>ZSwap DA <span class="badge badge-da">CELESTIA</span></h1>
-  <p class="subtitle">Create token swap offers stored on Celestia Data Availability layer, indexed by the local node.</p>
+  <div class="header-container" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px;">
+    <!-- Left: 3D Logo -->
+    <div id="logo-container" style="width: 80px; height: 80px; flex-shrink: 0; position: relative; z-index: 10;"></div>
+    
+    <!-- Center: Title -->
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 20px;">
+      <h1 style="justify-content: center; width: 100%; margin-bottom: 4px;">ZSwap DA <span class="badge badge-midnight">MIDNIGHT</span><span class="badge badge-da">CELESTIA</span></h1>
+      <p class="subtitle" style="margin-bottom: 0;">Create token mints and swap offers, submit offers to Celestia, and track completion status from Midnight.</p>
+    </div>
+    
+    <!-- Right: Actions -->
+    <div class="header-actions" style="display: flex; flex-direction: column; align-items: stretch; gap: 8px;">
+      <button class="mint-btn-top" onclick="openMintModal()">+ Mint New Token</button>
+      <button class="mint-btn-top" style="background: #3b82f6; color: white; border-color: #3b82f6;">Connect Wallet</button>
+    </div>
+  </div>
+
+  <!-- Mint Modal -->
+  <div id="mint-modal" class="modal-overlay" onclick="if(event.target === this) closeMintModal()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Mint New Token</h2>
+        <button class="modal-close" onclick="closeMintModal()">&times;</button>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label>Mint Type</label>
+        <select id="mint-type" onchange="onMintTypeChange()">
+          <option value="shielded">Shielded (mint_shielded)</option>
+          <option value="unshielded">Unshielded (mint_unshielded)</option>
+        </select>
+      </div>
+      <div class="row">
+        <div>
+          <label>Domain Separator (hex, 32 bytes)</label>
+          <input id="mint-domain-sep" type="text" placeholder="0x01 or 64-hex chars">
+        </div>
+        <div style="max-width:180px;">
+          <label>Amount</label>
+          <input id="mint-amount" type="number" min="1" placeholder="100">
+        </div>
+      </div>
+      <div id="mint-nonce-row" style="margin-top:10px;">
+        <label>Nonce (Uint128)</label>
+        <input id="mint-nonce" type="text" placeholder="0" style="max-width:220px;">
+      </div>
+      <button id="btn-mint" onclick="mintToken()" style="width: 100%; margin-top: 20px;">Mint on Midnight</button>
+      <div id="mint-result" class="result" style="display:none;"></div>
+    </div>
+  </div>
 
   <!-- Create ZSwap Offer -->
-  <section>
-    <h2>Create ZSwap Offer</h2>
-    <div class="info-box">
-      Offers are submitted as JSON blobs to the Celestia DA layer. The node watches Celestia for blobs in the configured namespace and indexes them into the local database.
+  <section class="dex-container">
+    <h2 style="text-align: center; border: none; font-size: 1.25rem; font-weight: 600; color: #0f172a; margin-bottom: 20px;">Swap</h2>
+    
+    <div class="info-box" style="text-align: center; margin-bottom: 24px; font-size: 0.8rem; justify-content: center;">
+      Offers are submitted as JSON blobs to the Celestia DA layer.
     </div>
 
-    <div style="display:flex;gap:16px;flex-wrap:wrap;">
-      <!-- Gives -->
-      <div style="flex:1;min-width:240px;">
-        <h3 style="font-size:0.92rem;color:#c0c8e0;margin-bottom:8px;">Giving</h3>
-        <div id="gives-entries"></div>
-        <button class="btn-small btn-success" onclick="addEntry('gives')">+ Add Token</button>
+    <!-- Giving Panel -->
+    <div class="token-panel">
+      <div class="token-panel-header">
+        <span>You pay</span>
       </div>
-
-      <!-- Wants -->
-      <div style="flex:1;min-width:240px;">
-        <h3 style="font-size:0.92rem;color:#c0c8e0;margin-bottom:8px;">Wanting</h3>
-        <div id="wants-entries"></div>
-        <button class="btn-small btn-success" onclick="addEntry('wants')">+ Add Token</button>
+      <div id="gives-entries">
+        <!-- Replaced dynamically, structured differently now -->
+      </div>
+      <div style="margin-top: 8px; text-align: center;">
+        <button onclick="addEntry('gives')" style="background: transparent; color: #94a3b8; border: none; font-size: 0.8rem; padding: 4px; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'">+ Add another token</button>
+      </div>
+    </div>
+    
+    <!-- Swap Icon -->
+    <div class="dex-swap-icon">
+      <button class="dex-swap-btn" onclick="swapSides()" title="Swap Give and Want">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+      </button>
+    </div>
+    
+    <!-- Wanting Panel -->
+    <div class="token-panel">
+      <div class="token-panel-header">
+        <span>You receive</span>
+      </div>
+      <div id="wants-entries">
+        <!-- Replaced dynamically, structured differently now -->
+      </div>
+      <div style="margin-top: 8px; text-align: center;">
+        <button onclick="addEntry('wants')" style="background: transparent; color: #94a3b8; border: none; font-size: 0.8rem; padding: 4px; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#94a3b8'">+ Add another token</button>
       </div>
     </div>
 
-    <button id="btn-submit" onclick="submitOffer()">Submit to Celestia</button>
-    <div id="submit-result" class="result" style="display:none;"></div>
+    <button id="btn-submit" class="dex-submit-btn" onclick="submitOffer()">Create Transaction</button>
+    <div id="submit-result" class="result" style="display:none; margin-top: 16px;"></div>
   </section>
 
   <!-- ZSwaps List -->
   <section>
-    <h2>ZSwap Offers <span id="zswap-count" style="font-size:0.8rem;color:#606880;"></span></h2>
-    <button onclick="loadZSwaps()">Refresh</button>
-    <div id="zswaps-list" style="margin-top:14px;">
-      <span style="color:#606880;font-size:0.85rem;">Click Refresh to load offers from the node.</span>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2 style="margin: 0; border: none; padding: 0;">ZSwap Offers <span id="zswap-count" style="font-size:0.8rem;color:#64748b;font-weight:normal;"></span></h2>
+      <button onclick="loadZSwaps()" style="margin: 0; padding: 6px 12px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;">↻ Refresh</button>
+    </div>
+    <div id="zswaps-list" class="table-responsive">
+      <span style="color:#64748b;font-size:0.85rem;">Click Refresh to load offers from the node.</span>
     </div>
   </section>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     // ── Config ───────────────────────────────────────────────────────────────────
     // Set window.API_BASE before this script to override (e.g. for production).
     const API_BASE = window.API_BASE ?? `http://${location.hostname}:9999`;
 
+    let knownTokens = [];
+
+    async function loadKnownTokens() {
+      try {
+        const res = await fetch(`${API_BASE}/api/known-tokens`);
+        knownTokens = await res.json();
+        // Since we're injecting into dynamically generated inputs,
+        // we'll update any existing token entries that have been generated
+        const selects = document.querySelectorAll('select[id$="-token"]');
+        selects.forEach(select => {
+          // Keep the current selection if any
+          const currentVal = select.value;
+          
+          // Rebuild options
+          select.innerHTML = `
+            <option value="">Select Token</option>
+            ${knownTokens.map(t => `<option value="${t.token_color}">${t.name}</option>`).join('')}
+            <option value="custom">Custom Token...</option>
+          `;
+          
+          // Restore selection
+          if (currentVal) select.value = currentVal;
+        });
+      } catch (e) {
+        console.error("Failed to load known tokens", e);
+      }
+    }
+
     // ── Entry Builder ────────────────────────────────────────────────────────────
 
     let givesCount = 0;
     let wantsCount = 0;
+
+    // ── Modal ────────────────────────────────────────────────────────────────────
+    
+    function openMintModal() {
+      document.getElementById('mint-modal').classList.add('active');
+    }
+    
+    function closeMintModal() {
+      document.getElementById('mint-modal').classList.remove('active');
+      document.getElementById('mint-result').style.display = 'none';
+      document.getElementById('mint-result').textContent = '';
+    }
 
     function addEntry(side) {
       const container = document.getElementById(side + '-entries');
@@ -91,23 +243,61 @@
       const id = `${side}-${idx}`;
 
       const div = document.createElement('div');
-      div.className = 'token-entry';
+      div.className = 'token-entry-dex';
       div.id = 'entry-' + id;
+      
+      // Only show remove button if there's more than one entry in this panel
+      // We evaluate this by checking if the container already has children
+      const hasExistingEntries = container.children.length > 0;
+      
       div.innerHTML = `
-        <div class="row">
-          <div>
-            <label>Token Type / Address</label>
-            <input id="${id}-token" type="text" placeholder="e.g. 0xabc123… or NATIVE">
-          </div>
-          <div style="max-width:130px;">
-            <label>Amount</label>
-            <input id="${id}-amount" type="number" placeholder="100" min="1">
+        <div class="token-input-row">
+          <input id="${id}-amount" type="number" class="token-amount-input" placeholder="0.0" min="0">
+          
+          <div class="token-selector">
+            <select id="${id}-token" onchange="updateTokenType('${id}')">
+              <option value="">Select Token</option>
+              ${knownTokens.map(t => `<option value="${t.token_color}">${t.name}</option>`).join('')}
+              <option value="custom">Custom Token...</option>
+            </select>
           </div>
         </div>
-        <div style="margin-top:6px;">
-          <button class="btn-small btn-danger" onclick="removeEntry('${id}')">Remove</button>
-        </div>`;
+        
+        <div id="${id}-custom-row" style="display:none; margin-top:12px;">
+          <input id="${id}-custom-token" type="text" placeholder="Token hex address..." style="margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <select id="${id}-type" style="width: auto; padding: 4px 8px;">
+              <option value="shielded">Shielded</option>
+              <option value="unshielded">Unshielded</option>
+            </select>
+          </div>
+        </div>
+        
+        ${hasExistingEntries ? `
+          <div style="text-align: right; margin-top: 8px;">
+            <button class="btn-small btn-danger" onclick="removeEntry('${id}')" style="margin:0; padding: 2px 8px; font-size: 0.75rem; background: transparent; color: #ef4444; border: 1px solid #ef4444;">Remove</button>
+          </div>
+        ` : ''}
+        
+        <!-- Hidden input to store type for known tokens, default to shielded -->
+        <input type="hidden" id="${id}-hidden-type" value="shielded">
+      `;
       container.appendChild(div);
+    }
+
+    function updateTokenType(id) {
+      const select = document.getElementById(`${id}-token`);
+      const customRow = document.getElementById(`${id}-custom-row`);
+      const hiddenType = document.getElementById(`${id}-hidden-type`);
+      
+      if (select.value === 'custom') {
+        customRow.style.display = 'block';
+      } else {
+        customRow.style.display = 'none';
+        // When using known tokens, assume shielded for simplicity in this UI
+        // In a real app, this would be determined by the token metadata
+        hiddenType.value = 'shielded'; 
+      }
     }
 
     function removeEntry(id) {
@@ -118,20 +308,144 @@
     function collectEntries(side) {
       const container = document.getElementById(side + '-entries');
       const entries = [];
-      for (const div of container.querySelectorAll('.token-entry')) {
+      for (const div of container.querySelectorAll('.token-entry-dex')) {
         const rawId = div.id.replace('entry-', '');
-        const tokenEl  = document.getElementById(rawId + '-token');
+        
+        const tokenSelect = document.getElementById(rawId + '-token');
+        const customTokenInput = document.getElementById(rawId + '-custom-token');
         const amountEl = document.getElementById(rawId + '-amount');
-        if (!tokenEl || !amountEl) continue;
-        const token  = tokenEl.value.trim();
+        const typeSelect = document.getElementById(rawId + '-type');
+        const hiddenType = document.getElementById(rawId + '-hidden-type');
+        
+        if (!tokenSelect || !amountEl) continue;
+        
+        let token = tokenSelect.value;
+        let type = hiddenType.value;
+        
+        if (token === 'custom') {
+          token = customTokenInput.value.trim();
+          type = typeSelect.value;
+        } else if (token === '') {
+          continue; // Skip empty selections
+        }
+        
         const amount = amountEl.value.trim();
-        if (!token || !amount) continue;
-        entries.push({ token, amount });
+        if (!token || !amount || amount <= 0) continue;
+        
+        entries.push({ type, token, amount });
       }
       return entries;
     }
+    
+    function swapSides() {
+      // Get all current entries for both sides
+      const givesEntries = collectEntries('gives');
+      const wantsEntries = collectEntries('wants');
+      
+      // Clear containers
+      document.getElementById('gives-entries').innerHTML = '';
+      document.getElementById('wants-entries').innerHTML = '';
+      
+      // Reset counters to keep IDs clean
+      givesCount = 0;
+      wantsCount = 0;
+      
+      // Re-add wants to gives
+      if (wantsEntries.length === 0) {
+        addEntry('gives');
+      } else {
+        wantsEntries.forEach(entry => {
+          addEntry('gives');
+          const id = `gives-${givesCount - 1}`;
+          populateEntry(id, entry);
+        });
+      }
+      
+      // Re-add gives to wants
+      if (givesEntries.length === 0) {
+        addEntry('wants');
+      } else {
+        givesEntries.forEach(entry => {
+          addEntry('wants');
+          const id = `wants-${wantsCount - 1}`;
+          populateEntry(id, entry);
+        });
+      }
+    }
+    
+    function populateEntry(id, data) {
+      setTimeout(() => {
+        const amountEl = document.getElementById(`${id}-amount`);
+        const tokenSelect = document.getElementById(`${id}-token`);
+        
+        if (amountEl) amountEl.value = data.amount;
+        
+        if (tokenSelect) {
+          // Check if token exists in dropdown
+          const options = Array.from(tokenSelect.options).map(o => o.value);
+          if (options.includes(data.token)) {
+            tokenSelect.value = data.token;
+            updateTokenType(id);
+          } else {
+            // It's a custom token
+            tokenSelect.value = 'custom';
+            updateTokenType(id);
+            
+            const customInput = document.getElementById(`${id}-custom-token`);
+            const typeSelect = document.getElementById(`${id}-type`);
+            
+            if (customInput) customInput.value = data.token;
+            if (typeSelect) typeSelect.value = data.type;
+          }
+        }
+      }, 0);
+    }
+
+    // ── Mint type toggle ─────────────────────────────────────────────────────────
+
+    function onMintTypeChange() {
+      const type = document.getElementById('mint-type').value;
+      document.getElementById('mint-nonce-row').style.display = type === 'shielded' ? 'block' : 'none';
+    }
 
     // ── Submit ────────────────────────────────────────────────────────────────────
+
+    async function mintToken() {
+      const btn = document.getElementById('btn-mint');
+      const el = document.getElementById('mint-result');
+      const type = document.getElementById('mint-type').value;
+      const domainSep = document.getElementById('mint-domain-sep').value.trim();
+      const amount = document.getElementById('mint-amount').value.trim();
+      const nonce = document.getElementById('mint-nonce').value.trim() || '0';
+      el.style.display = 'block';
+
+      if (!domainSep || !amount) {
+        el.innerHTML = '<span class="error">Domain separator and amount are required.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+      el.textContent = 'Submitting token mint to Midnight…';
+      try {
+        const endpoint = type === 'shielded' ? '/api/token/mint-shielded' : '/api/token/mint-unshielded';
+        const body = type === 'shielded'
+          ? { domainSep, amount, nonce }
+          : { domainSep, amount };
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
+        el.textContent = JSON.stringify(data, null, 2);
+        loadKnownTokens();
+      } catch (e) {
+        el.innerHTML = `<span class="error">${e.message}</span>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
 
     async function submitOffer() {
       const btn = document.getElementById('btn-submit');
@@ -147,17 +461,29 @@
       }
 
       btn.disabled = true;
-      el.textContent = 'Submitting blob to Celestia…';
+      el.textContent = 'Generating Midnight swap transaction…';
 
       try {
-        const res = await fetch(`${API_BASE}/api/zswap/submit`, {
+        const resCreate = await fetch(`${API_BASE}/api/zswap/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ gives, wants }),
         });
+        const dataCreate = await resCreate.json();
+        if (!resCreate.ok) throw new Error(dataCreate.message || 'Failed to create swap offer');
+
+        const transaction = dataCreate.transaction;
+        el.textContent = 'Submitting blob to Celestia…';
+
+        const res = await fetch(`${API_BASE}/api/zswap/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transaction, gives, wants }),
+        });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
-        el.textContent = JSON.stringify(data, null, 2);
+        el.textContent = "Transaction created and submitted successfully!\n\n" + JSON.stringify(data, null, 2);
+        
         // Refresh list after a short delay (node needs to pick up the blob)
         setTimeout(loadZSwaps, 2000);
       } catch (e) {
@@ -169,14 +495,22 @@
 
     // ── Accept ────────────────────────────────────────────────────────────────────
 
-    async function acceptOffer(id) {
-      const el = document.getElementById('accept-result-' + id);
-      if (el) el.textContent = 'Accepting…';
+    function loadMidnightState() {
+      // Stub function since it's referenced but undefined
+    }
+
+    async function completeOffer(id) {
+      const el = document.getElementById('complete-result-' + id);
+      if (el) {
+        el.style.display = 'block';
+        el.textContent = 'Submitting completion to Midnight…';
+      }
       try {
-        const res = await fetch(`${API_BASE}/api/zswap/${id}/accept`, { method: 'POST' });
+        const res = await fetch(`${API_BASE}/api/zswap/${id}/complete`, { method: 'POST' });
         const data = await res.json();
         if (el) el.textContent = JSON.stringify(data, null, 2);
         loadZSwaps();
+        loadMidnightState();
       } catch (e) {
         if (el) el.innerHTML = `<span class="error">${e.message}</span>`;
       }
@@ -186,7 +520,14 @@
 
     function renderTokens(arr) {
       if (!arr?.length) return '—';
-      return arr.map(t => `${t.token ? shortToken(t.token) : '?'} × ${t.amount ?? '?'}`).join(', ');
+      return arr.map(t => {
+        if (!t.token) return `? × ${t.amount ?? '?'}`;
+        const known = knownTokens.find(k => k.token_color === t.token);
+        if (known) {
+          return `<span class="badge badge-token" title="${t.token}">${known.name}</span> × ${t.amount ?? '?'}`;
+        }
+        return `${shortToken(t.token)} × ${t.amount ?? '?'}`;
+      }).join(', ');
     }
 
     function shortToken(t) {
@@ -204,39 +545,222 @@
 
         if (!Array.isArray(zswaps) || !zswaps.length) {
           countEl.textContent = '(0)';
-          el.innerHTML = '<span style="color:#606880;font-size:0.85rem;">No ZSwap offers indexed yet. Submit one above and wait for the node to pick it up from Celestia.</span>';
+          el.innerHTML = '<span style="color:#64748b;font-size:0.85rem;">No ZSwap offers indexed yet. Submit one above and wait for the node to pick it up from Celestia.</span>';
           return;
         }
 
         countEl.textContent = `(${zswaps.length})`;
-        el.innerHTML = zswaps.map(z => `
-          <div class="offer-card">
-            <strong>Offer #${z.id}</strong>
-            <span class="status-${z.status}">[${z.status}]</span>
-            <span style="font-size:0.75rem;color:#505878;margin-left:8px;">Celestia block ${z.height ?? '—'}</span>
-            <div class="meta">
-              <div>Giving: ${renderTokens(z.gives)}</div>
-              <div>Wanting: ${renderTokens(z.wants)}</div>
-              <div>Indexed at: ${z.created_at ? new Date(z.created_at).toLocaleString() : '—'}</div>
-            </div>
-            ${z.status === 'pending'
-              ? `<button class="btn-small" onclick="acceptOffer(${z.id})">Accept</button>
-                 <div id="accept-result-${z.id}" class="result" style="display:none;margin-top:6px;"></div>`
-              : ''}
-          </div>`).join('');
+        
+        // Build table header
+        let html = `
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Status</th>
+                <th>Giving</th>
+                <th>Wanting</th>
+                <th>Celestia Height</th>
+                <th>Transaction</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        // Build table rows
+        html += zswaps.map(z => `
+              <tr>
+                <td>#${z.id}</td>
+                <td><span class="status-${z.is_active ? 'accepted' : 'pending'}">${z.is_active ? 'Active' : 'Inactive'}</span></td>
+                <td>${renderTokens(z.gives)}</td>
+                <td>${renderTokens(z.wants)}</td>
+                <td>${z.celestia_height ?? '—'}</td>
+                <td title="${z.transaction_hex}">${z.transaction_hex ? shortToken(z.transaction_hex) : '—'}</td>
+                <td>
+                  ${z.is_active
+                    ? `<button class="btn-small" style="margin:0;" onclick="completeOffer(${z.id})">Complete</button>
+                       <div id="complete-result-${z.id}" class="result" style="display:none;margin-top:6px;position:absolute;z-index:10;"></div>`
+                    : '<span style="color:#94a3b8;font-size:0.85rem;">—</span>'}
+                </td>
+              </tr>
+        `).join('');
+        
+        html += `
+            </tbody>
+          </table>
+        `;
+        
+        el.innerHTML = html;
 
-        // Show accept result divs (toggle display on use)
-        document.querySelectorAll('[id^="accept-result-"]').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('[id^="complete-result-"]').forEach(elem => {
+          if (!elem.textContent) elem.style.display = 'none';
+        });
       } catch (e) {
         el.innerHTML = `<span class="error">Failed to load: ${e.message}</span>`;
       }
     }
 
+    // ── 3D Logo Setup ────────────────────────────────────────────────────────────
+
+    let scene, camera, renderer, logoGroup;
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+
+    function init3DLogo() {
+        const container = document.getElementById('logo-container');
+        const width = 100; // container.clientWidth;
+        const height = 100; // container.clientHeight;
+
+        scene = new THREE.Scene();
+        scene.background = null;
+
+        const aspect = width / height;
+        camera = new THREE.PerspectiveCamera(40, aspect, 0.1, 1000);
+        camera.position.set(0, 0, 14);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(width, height);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.physicallyCorrectLights = true;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        container.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        scene.add(ambientLight);
+
+        const frontLight = new THREE.DirectionalLight(0xffffff, 2.5);
+        frontLight.position.set(0, 0, 20);
+        scene.add(frontLight);
+
+        const frontLight2 = new THREE.DirectionalLight(0xffffff, 2.5);
+        frontLight2.position.set(0, 0, -20);
+        scene.add(frontLight2);
+
+        const topFrontLight = new THREE.PointLight(0xffffff, 1.0);
+        topFrontLight.position.set(0, 10, 10);
+        scene.add(topFrontLight);
+
+        const rimLight = new THREE.PointLight(0xffffff, 1.2);
+        rimLight.position.set(-10, -5, -10);
+        scene.add(rimLight);
+
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x0a0a0a,
+            metalness: 0.9,
+            roughness: 0.15,
+        });
+
+        logoGroup = new THREE.Group();
+
+        const outerRadius = 3.6;
+        const innerRadius = 3.1;
+        const ringWidth = outerRadius - innerRadius;
+        
+        const ringShape = new THREE.Shape();
+        ringShape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false);
+        const holePath = new THREE.Path();
+        holePath.absarc(0, 0, innerRadius, 0, Math.PI * 2, true);
+        ringShape.holes.push(holePath);
+
+        const extrudeSettings = {
+            depth: 0.8,
+            bevelEnabled: true,
+            bevelThickness: 0.04,
+            bevelSize: 0.04,
+            bevelSegments: 8,
+            curveSegments: 128 
+        };
+
+        const ringGeo = new THREE.ExtrudeGeometry(ringShape, extrudeSettings);
+        const ring = new THREE.Mesh(ringGeo, material);
+        ring.position.z = -0.4; 
+        logoGroup.add(ring);
+
+        const cubeSize = ringWidth * 1.5; 
+        const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+        
+        const g = (innerRadius - (2.5 * cubeSize)) / 3;
+        const yPositions = [0, cubeSize + g, cubeSize * 2 + g * 2];
+
+        for (let i = 0; i < 3; i++) {
+            const cube = new THREE.Mesh(cubeGeo, material);
+            cube.position.y = yPositions[i];
+            cube.position.x = 0;
+            logoGroup.add(cube);
+        }
+
+        logoGroup.rotation.x = Math.PI * 0.05;
+        logoGroup.rotation.y = -Math.PI * 0.1;
+
+        logoGroup.scale.set(0.9, 0.9, 0.9);
+
+        scene.add(logoGroup);
+
+        setupLogoEvents(container);
+        animateLogo();
+    }
+
+    function setupLogoEvents(container) {
+        container.addEventListener('mousedown', (e) => { 
+            isDragging = true; 
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            updateRotation(e.clientX, e.clientY);
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        container.addEventListener('touchstart', (e) => { 
+            isDragging = true; 
+            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }, {passive: false});
+        window.addEventListener('touchend', () => { isDragging = false; });
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            updateRotation(e.touches[0].clientX, e.touches[0].clientY);
+            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            e.preventDefault();
+        }, {passive: false});
+
+        container.style.cursor = 'grab';
+        container.addEventListener('mousedown', () => container.style.cursor = 'grabbing');
+        window.addEventListener('mouseup', () => container.style.cursor = 'grab');
+    }
+
+    function updateRotation(currentX, currentY) {
+        const deltaMove = {
+            x: currentX - previousMousePosition.x,
+            y: currentY - previousMousePosition.y
+        };
+        const deltaRotationQuaternion = new THREE.Quaternion()
+            .setFromEuler(new THREE.Euler(
+                (deltaMove.y * 0.4) * (Math.PI / 180), 
+                (deltaMove.x * 0.4) * (Math.PI / 180), 
+                0, 
+                'XYZ'
+            ));
+        logoGroup.quaternion.multiplyQuaternions(deltaRotationQuaternion, logoGroup.quaternion);
+    }
+
+    function animateLogo() {
+        requestAnimationFrame(animateLogo);
+        if (!isDragging) {
+            logoGroup.rotation.y += 0.005;
+        }
+        renderer.render(scene, camera);
+    }
+
     // ── Init ──────────────────────────────────────────────────────────────────────
 
+    loadKnownTokens();
     addEntry('gives');
     addEntry('wants');
     loadZSwaps();
+    init3DLogo();
   </script>
 </body>
 </html>
