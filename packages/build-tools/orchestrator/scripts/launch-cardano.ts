@@ -1,7 +1,4 @@
 import { ComponentNames } from "@effectstream/log";
-import { statSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { getEnv } from "@effectstream/utils/runtime";
 
 // Start Cardano Node and Indexer.
 //
@@ -31,38 +28,12 @@ export const launchCardano = (packageName: string): {
   cwd?: string;
   command?: string;
 }[] => {
-  const home = getEnv("HOME");
-  const yaciDir = `${home}/.yaci-cli`;
-  const yaciCliPath = `${yaciDir}/yaci-cli`;
 
-  // TODO $HOME/.yaci-cli/yaci-cli must be installed to allow this to work.
-  // At the time the npm packages is incompatible with deno.
-  try {
-    statSync(yaciCliPath);
-  } catch (_error) {
-    throw new Error(
-      `Cardano launcher skipped: missing ${yaciCliPath}. Run yaci-cli setup.`,
-    );
-  }
-  // TODO We require the latest dolos binary built from source.
-  // At the time there is not npm package for the latest dolos binary.
-  try {
-    const dolosExists = spawnSync("deno", ["task", "-f", packageName, "dolos:exists"], { encoding: "utf-8" });
-    if (dolosExists.status !== 0) throw new Error();
-  } catch (_error) {
-    throw new Error(
-      "Cardano launcher skipped: dolos binary is missing.",
-    );
-  }
-
- 
  return [
     {
       stopProcessAtPort: [8090, 10000, 50051, 3001],
-      cwd: yaciDir,
-      command: "./yaci-cli",
-      args: ["up"],
       name: ComponentNames.YACI_DEVKIT,
+      args: ["task", "-f", packageName, "devkit:start"],
       waitToExit: false,
       type: "system-dependency",
       logsStartDisabled: true,
@@ -73,6 +44,12 @@ export const launchCardano = (packageName: string): {
       // dependsOn: [ComponentNames.YACI_DEVKIT],
     },
     {
+      name: ComponentNames.DOLOS_FILL_TEMPLATE,
+      args: ["task", "-f", packageName, "dolos:fill-template"],
+      waitToExit: true,
+      dependsOn: [ComponentNames.YACI_DEVKIT_WAIT],
+    },
+    {
       name: ComponentNames.DOLOS,
       args: ["task", "-f", packageName, "dolos:start"],
       waitToExit: false,
@@ -80,7 +57,7 @@ export const launchCardano = (packageName: string): {
       logsStartDisabled: true,
       disableStderr: true,
       type: "system-dependency",
-      dependsOn: [ComponentNames.YACI_DEVKIT_WAIT],
+      dependsOn: [ComponentNames.DOLOS_FILL_TEMPLATE],
     },
     {
       name: ComponentNames.DOLOS_WAIT,

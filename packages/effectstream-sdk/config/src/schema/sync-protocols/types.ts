@@ -15,6 +15,7 @@ export enum ConfigSyncProtocolType {
   AVAIL_PARALLEL = "avail-rpc-parallel",
   MIDNIGHT_PARALLEL = "midnight-graphql-parallel",
   BITCOIN_RPC_PARALLEL = "bitcoin-rpc-parallel",
+  CELESTIA_PARALLEL = "celestia-rpc-parallel",
 }
 
 export const SyncProtocolToNetwork = {
@@ -26,6 +27,7 @@ export const SyncProtocolToNetwork = {
   [ConfigSyncProtocolType.AVAIL_PARALLEL]: ConfigNetworkType.AVAIL,
   [ConfigSyncProtocolType.MIDNIGHT_PARALLEL]: ConfigNetworkType.MIDNIGHT,
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: ConfigNetworkType.BITCOIN,
+  [ConfigSyncProtocolType.CELESTIA_PARALLEL]: ConfigNetworkType.CELESTIA,
 } satisfies Record<ConfigSyncProtocolType, ConfigNetworkType>;
 
 export type NetworkTypeFromSyncProtocol<T extends ConfigSyncProtocolType> =
@@ -69,9 +71,8 @@ export type LedgerFieldType =
 export type LedgerSchema = Record<string, LedgerFieldType>;
 
 type MidnightPrimitive = BasePrimitive & {
-  name: string;
-  contractAddress: string;
-  contract: {
+  contractAddress?: string;
+  contract?: {
     ledger: (data: StateValue) => Record<string, any>;
   };
   /**
@@ -99,6 +100,14 @@ type AvailPrimitive = BasePrimitive & {
   appId: number; // readAvailApplication().appId,
   applicationKey: string; // readAvailApplication().ApplicationKey,
   genesisHash: string; // readAvailApplication().genesisHash,
+};
+
+type CelestiaPrimitive = BasePrimitive & {
+  /**
+   * The Celestia namespace to watch for blobs, as a hex string.
+   * Example: "000000000000deadbeef"
+   */
+  namespace: string;
 };
 
 type NtpMainPrimitive = BasePrimitive & {};
@@ -134,6 +143,7 @@ export type ProtocolPrimitiveMap = {
   [ConfigSyncProtocolType.MINA_PARALLEL]: MinaPrimitive;
   [ConfigSyncProtocolType.AVAIL_PARALLEL]: AvailPrimitive;
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]: BitcoinPrimitive;
+  [ConfigSyncProtocolType.CELESTIA_PARALLEL]: CelestiaPrimitive;
 };
 
 /**

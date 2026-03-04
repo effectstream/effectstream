@@ -38,6 +38,28 @@ export const StartStopSlot = new ConfigSchema({
   }),
 });
 
+export const CardanoChainPoint = Type.Object({
+  slot: TypeboxHelpers.AbsoluteSlotNumber(),
+  hash: TypeboxHelpers.Cardano.BlockHash,
+});
+
+export const StartChainPointValue = Type.Union([
+  Type.Literal("origin"),
+  Type.Literal("tip"),
+  CardanoChainPoint,
+]);
+
+export const StartStopChainPoint = new ConfigSchema({
+  required: Type.Object({
+    startChainPoint: StartChainPointValue,
+  }),
+  optional: Type.Object({
+    stopChainPoint: TypeboxHelpers.Nullable(CardanoChainPoint, {
+      default: null,
+    }),
+  }),
+});
+
 export const StartStopTimestamp = new ConfigSchema({
   required: Type.Object({
     startTimestamp: TypeboxHelpers.TimestampMs(),

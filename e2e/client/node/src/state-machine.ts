@@ -202,6 +202,26 @@ stm.addStateTransition("counter-stm", function* (data) {
   return;
 });
 
+stm.addStateTransition("celestia-blob", function* (data) {
+  const { payload } = data.parsedInput;
+  let parsedPayload: unknown;
+  try {
+    parsedPayload = JSON.parse(payload.suppliedValue);
+  } catch {
+    parsedPayload = payload.suppliedValue;
+  }
+  console.log(
+    `[${Date.now()}]`,
+    "🌌 [CELESTIA] Blob received at block",
+    data.blockHeight,
+    "| content:",
+    typeof parsedPayload === "object"
+      ? JSON.stringify(parsedPayload)
+      : parsedPayload,
+  );
+  return;
+});
+
 stm.addStateTransition("bitcoin-transaction", function* (data) {
   const { direction, address, transactionId, index, valueSats, utxoTxid, utxoVout, label } = data.parsedInput;
   yield* World.resolve(insertBitcoinTransaction, {
