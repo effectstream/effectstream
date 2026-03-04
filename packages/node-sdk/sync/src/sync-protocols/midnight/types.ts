@@ -63,6 +63,12 @@ interface Transaction {
   merkleTreeRoot?: string;
 }
 
+export interface ZswapLedgerEvent {
+  id:    number;
+  raw:   string;
+  maxId: number;
+}
+
 export interface Block {
   hash:            MidnightBlockHash;
   height:          MidnightBlockNumber;
@@ -77,6 +83,7 @@ export interface Block {
       address:    MidnightAddress;
       state:      string;
     }[];
+    zswapLedgerEvents?: ZswapLedgerEvent[];
   }[];
 }
 

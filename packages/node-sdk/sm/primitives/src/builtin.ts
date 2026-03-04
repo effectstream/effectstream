@@ -1,6 +1,7 @@
 // list of built-in primitives
 // this list is exposed to the effectstream-sdk modules via the @effectstream/sm/builtin module
 export const PrimitiveTypeMidnightGeneric = "Midnight:Generic" as const;
+export const PrimitiveTypeMidnightNullifier = "Midnight:Nullifier" as const;
 
 export const PrimitiveTypeUtxorpcGeneric = "Utxorpc:Generic" as const;
 
@@ -15,8 +16,9 @@ export const PrimitiveTypeEVMERC1155 = "EVM:ERC1155" as const;
 export const PrimitiveTypeAvailGeneric = "AVAIL:Generic" as const;
 export const PrimitiveTypeBitcoinAddress = "BITCOIN:Address" as const;
 
-type BuiltInPrimitives = 
-    typeof PrimitiveTypeMidnightGeneric | 
+type BuiltInPrimitives =
+    typeof PrimitiveTypeMidnightGeneric |
+    typeof PrimitiveTypeMidnightNullifier |
     typeof PrimitiveTypeEVMPaimaL2 |
     typeof PrimitiveTypeEVMERC721 |
     typeof PrimitiveTypeEVMERC20 |
