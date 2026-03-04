@@ -1,3 +1,26 @@
+import { Buffer } from "node:buffer";
+import * as ledger from '@midnight-ntwrk/ledger-v7';
+
+// TODO This alternative implementation should be the native way to decode the event.
+function new_decodeZswapInputEvent(rawHex: string): ledger.Event | null {
+  try {
+    const bytes = Uint8Array.from(
+      Buffer.from(rawHex.replace(/^0x/, ""), "hex"),
+    );
+    const event = ledger.Event.deserialize(bytes);
+
+    if (event.type === "ZswapInput") {
+      // event.nullifier  — Uint8Array (32 bytes)
+      // event.source.transactionHash
+      // event.source.logicalSegment
+    } else if (event.type === "ZswapOutput") {
+      // event.commitment, etc.
+    }
+  } catch {
+    return null;
+  }
+}
+
 // ─── SCALE compact integer decoder ───────────────────────────────────────────
 //
 // Bottom 2 bits of the first byte are the mode:
@@ -51,7 +74,7 @@ function bytesToHex(bytes: Uint8Array): string {
 //    2 bytes   EventSource.physical_segment (LE u16, skipped)
 //   SCALE u32  EventDetails variant: 0=ZswapInput, 1=ZswapOutput, 2+=other
 //
-//   ZswapInput: 32-byte CoinNullifier
+//   ZswapInput: 4-byte contract_id + 32-byte CoinNullifier
 
 const OUTER_TAG = "midnight:event[v9]:";
 
@@ -69,20 +92,27 @@ export interface DecodedZswapInput {
  * Returns the decoded data if the event is a ZswapInput (nullifier spend),
  * or `null` for ZswapOutput / other variants.
  */
-export function decodeZswapInputEvent(rawHex: string): DecodedZswapInput | null {
+export function decodeZswapInputEvent(
+  rawHex: string,
+): DecodedZswapInput | null {
   try {
     const b = hexToBytes(rawHex);
     let pos = OUTER_TAG.length;
 
-    const txHash = bytesToHex(b.slice(pos, pos + 32)); pos += 32;
-    const logicalSegment = b[pos] | (b[pos + 1] << 8); pos += 2;
+    const txHash = bytesToHex(b.slice(pos, pos + 32));
+    pos += 32;
+    const logicalSegment = b[pos] | (b[pos + 1] << 8);
+    pos += 2;
     pos += 2; // skip physical segment
 
-    const [variant, p1] = readScaleU32(b, pos); pos = p1;
+    const [variant, p1] = readScaleU32(b, pos);
+    pos = p1;
 
     if (variant !== 0) {
       return null; // ZswapOutput or other — not a nullifier event
     }
+
+    pos += 4; // skip 4-byte contract_id
 
     const nullifier = bytesToHex(b.slice(pos, pos + 32));
     return { txHash, logicalSegment, nullifier };
