@@ -21150,6 +21150,7 @@
         "dependencies": [
           "npm:@cardano-sdk/core@~0.46.11",
           "npm:@cardano-sdk/util@~0.17.1",
+          "npm:@midnight-ntwrk/ledger-v7@7.0.0",
           "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@3.0.0",
           "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
           "npm:@sinclair/typebox@0.34.41",

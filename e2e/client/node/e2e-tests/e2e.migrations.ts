@@ -30,8 +30,8 @@ export async function testMigrations(db: Client) {
         version.rows[0].app_version_minor >= 0 &&
         version.rows[0].app_version_patch >= 0 &&
         version.rows[0].engine_version_major >= 0 &&
-        version.rows[0].engine_version_minor >= 3 &&
-        version.rows[0].engine_version_patch >= 20;
+        version.rows[0].engine_version_minor >= 8 &&
+        version.rows[0].engine_version_patch >= 1;
     },
   );
 
@@ -45,7 +45,7 @@ export async function testMigrations(db: Client) {
     "test-migrations",
   );
 
-  let expectedMigrations = 3; // 3 system migrations
+  let expectedMigrations = 4; // 4 system migrations
   expectedMigrations += 5;    // 5 user migrations
   if (evm_enabled) {
     expectedMigrations += 5; // 5 dynamic tables
