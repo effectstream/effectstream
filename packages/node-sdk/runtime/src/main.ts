@@ -34,6 +34,7 @@ import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
 import type { SyncProtocolWithNetwork } from "@effectstream/config";
 import { builtInPrimitivesMap } from "@effectstream/sm";
+import { validateAndSnapshotConfig } from "./config-snapshot.ts";
 
 export function* init() {
   // initialize OpenTelemetry
@@ -200,6 +201,11 @@ function* startup(
     dbConn,
     config.migrations,
   );
+
+  // Validate that immutable config fields (e.g. NTP startTime, startBlockHeight)
+  // have not changed since the last run. Persists a snapshot on first start.
+  // Must run after system migrations so the snapshot table exists.
+  yield* validateAndSnapshotConfig(syncInfo, dbConn);
 
   const syncProtocols = yield* genSyncProtocols(dbConn as any, // Client,
     syncInfo);
