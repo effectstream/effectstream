@@ -126,12 +126,3 @@ export function isNotFoundError(err: unknown): boolean {
   }
   return false;
 }
-
-/** Cross-runtime process spawn. Re-exported from runtime-spawn. */
-export {
-  spawn,
-  spawnOutput,
-  type SpawnChild,
-  type SpawnOptions,
-  type SpawnOutputResult,
-} from "./runtime-spawn.ts";

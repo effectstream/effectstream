@@ -16,6 +16,9 @@ export * from "./ntp/state.ts";
 export * from "./utxorpc/fetcher.ts";
 export * from "./utxorpc/state.ts";
 
+export * from "./celestia/fetcher.ts";
+export * from "./celestia/state.ts";
+
 export type * from "./base/fetcher.ts";
 export type * from "./base/state.ts";
 export * from "./orchestration/merge.ts";

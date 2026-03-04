@@ -14,12 +14,12 @@ import { ENV } from "@effectstream/utils/node-env";
 
 const logs = ENV.getBoolean("EFFECTSTREAM_STDOUT") ? "stdout" : "development";
 const external_db_enabled = ENV.getBoolean("EXTERNAL_DB_ENABLED");
-const yaci_enabled = false; //!ENV.getBoolean("DISABLE_YACI");
+const cardano_enabled = !ENV.getBoolean("DISABLE_CARDANO");
 const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
 const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
 
-const cardano_processes = (yaci_enabled ? launchCardano("@e2e/cardano-contracts") : []);
+const cardano_processes = (cardano_enabled ? launchCardano("@e2e/cardano-contracts") : []);
 
 const config = Value.Parse(OrchestratorConfig, {
   logs,
@@ -60,7 +60,7 @@ const config = Value.Parse(OrchestratorConfig, {
       waitToExit: true,
       dependsOn: [
         'batcher',
-        (yaci_enabled && cardano_processes.length > 0) ? ComponentNames.DOLOS_WAIT : undefined,
+        (cardano_enabled && cardano_processes.length > 0) ? ComponentNames.DOLOS_WAIT : undefined,
         avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
       ].filter(Boolean),
     },

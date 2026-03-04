@@ -1,5 +1,5 @@
 import type { cardano } from '@utxorpc/spec';
-import type { UtxorpcAddressPattern, UtxorpcAssetPattern, UtxorpcTxOutputPattern, UtxorpcTxPattern, UtxorpcTxPredicate } from "@effectstream/config";
+import type { UtxorpcAddressPattern, UtxorpcAnyChainTxPattern, UtxorpcAssetPattern, UtxorpcTxOutputPattern, UtxorpcTxPredicate } from "@effectstream/config";
 import { hexStringToUint8Array } from "@effectstream/utils";
 import { Cardano } from '@cardano-sdk/core';
 import { HexBlob } from '@cardano-sdk/util';
@@ -23,24 +23,24 @@ export function matchesPredicate(tx: cardano.Tx, predicate: UtxorpcTxPredicate):
   if (predicate.not && predicate.not.some(p => matchesPredicate(tx, p))) {
     return false;
   }
-  if (predicate.allOf && !predicate.allOf.every(p => matchesPredicate(tx, p))) {
+  if (predicate.all_of && !predicate.all_of.every(p => matchesPredicate(tx, p))) {
     return false;
   }
-  if (predicate.anyOf && !predicate.anyOf.some(p => matchesPredicate(tx, p))) {
+  if (predicate.any_of && !predicate.any_of.some(p => matchesPredicate(tx, p))) {
     return false;
   }
   return true;
 }
 
-function matchesPattern(tx: cardano.Tx, pattern: UtxorpcTxPattern): boolean {
+function matchesPattern(tx: cardano.Tx, pattern: UtxorpcAnyChainTxPattern): boolean {
+  const cardanoPattern = pattern.cardano;
+  if (!cardanoPattern) return false;
   const outputs = tx.outputs;
   const inputs = tx.inputs.map(input => input.asOutput!).filter(x => x);
-  const matchConsumes = !pattern.consumes || matchesOutputPattern(outputs, pattern.consumes);
-  const matchProduces = !pattern.produces || matchesOutputPattern(inputs, pattern.produces);
-  const matchHasAddress = !pattern.hasAddress || matchesAddress(outputs, pattern.hasAddress) || matchesAddress(inputs, pattern.hasAddress);
-  const matchMovesAsset = !pattern.movesAsset || matchesAsset(inputs, pattern.movesAsset);
-  const matchMintsAsset = !pattern.mintsAsset || matchesAsset(outputs, pattern.mintsAsset);
-  return matchConsumes && matchProduces && matchHasAddress && matchMovesAsset && matchMintsAsset;
+  const matchHasAddress = !cardanoPattern.has_address || matchesAddress(outputs, cardanoPattern.has_address) || matchesAddress(inputs, cardanoPattern.has_address);
+  const matchMovesAsset = !cardanoPattern.moves_asset || matchesAsset(inputs, cardanoPattern.moves_asset);
+  const matchMintsAsset = !cardanoPattern.mints_asset || matchesAsset(outputs, cardanoPattern.mints_asset);
+  return matchHasAddress && matchMovesAsset && matchMintsAsset;
 }
 
 function matchesOutputPattern(outputs: cardano.TxOutput[], pattern: UtxorpcTxOutputPattern): boolean {
@@ -50,18 +50,18 @@ function matchesOutputPattern(outputs: cardano.TxOutput[], pattern: UtxorpcTxOut
 }
 
 function matchesAddress(outputs: cardano.TxOutput[], pattern: UtxorpcAddressPattern): boolean {
-  if (pattern.exactAddress) {
-    const address = hexStringToUint8Array(pattern.exactAddress);
+  if (pattern.exact_address) {
+    const address = Uint8Array.from(atob(pattern.exact_address), c => c.charCodeAt(0));
     if (!outputs.some(o => hashEqual(o.address, address))) {
       return false;
     }
   }
-  if (pattern.paymentPart || pattern.delegationPart) {
+  if (pattern.payment_part || pattern.delegation_part) {
     const addresses = outputs.map(o => Cardano.Address.fromBytes(HexBlob.fromBytes(o.address)));
-    if (pattern.paymentPart && !addresses.some(a => a.getProps()?.paymentPart?.hash === pattern.paymentPart)) {
+    if (pattern.payment_part && !addresses.some(a => a.getProps()?.paymentPart?.hash === pattern.payment_part)) {
       return false;
     }
-    if (pattern.delegationPart && !addresses.some(a => a.getProps()?.delegationPart?.hash === pattern.delegationPart)) {
+    if (pattern.delegation_part && !addresses.some(a => a.getProps()?.delegationPart?.hash === pattern.delegation_part)) {
       return false;
     }
   }
@@ -69,8 +69,8 @@ function matchesAddress(outputs: cardano.TxOutput[], pattern: UtxorpcAddressPatt
 }
 
 function matchesAsset(outputs: cardano.TxOutput[], pattern: UtxorpcAssetPattern): boolean {
-  const policyId = pattern.policyId ? hexStringToUint8Array(pattern.policyId) : null;
-  const assetName = pattern.assetName ? hexStringToUint8Array(pattern.assetName) : null;
+  const policyId = pattern.policy_id ? hexStringToUint8Array(pattern.policy_id) : null;
+  const assetName = pattern.asset_name ? hexStringToUint8Array(pattern.asset_name) : null;
   return outputs.some(o => o.assets.some(ma => {
     if (policyId && !hashEqual(policyId, ma.policyId)) {
       return false;

@@ -3,7 +3,8 @@ import { LogServer, type OTelLog } from "./logs-server.ts";
 import { createStream, type RotatingFileStream } from "rotating-file-stream";
 import type { ILogObj } from "tslog";
 import { ENV } from "@effectstream/utils/node-env";
-import { getEnv, spawn, exit } from "@effectstream/utils/runtime";
+import { getEnv, exit } from "@effectstream/utils/runtime";
+import { spawn } from "@effectstream/utils/runtime-spawn";
 import { lstatSync, mkdirSync } from "node:fs";
 
 // This is a standalone script that can be used to view logs from the collector.
