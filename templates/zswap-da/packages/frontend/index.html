@@ -77,6 +77,7 @@
     .header-actions { display: flex; align-items: center; gap: 12px; }
     .mint-btn-top { margin: 0; background: #ffffff; color: #3b82f6; border: 1px solid #3b82f6; font-weight: 600; padding: 8px 16px; }
     .mint-btn-top:hover { background: #eff6ff; }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -179,9 +180,12 @@
   <section>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
       <h2 style="margin: 0; border: none; padding: 0;">ZSwap Offers <span id="zswap-count" style="font-size:0.8rem;color:#64748b;font-weight:normal;"></span></h2>
-      <button onclick="loadZSwaps()" style="margin: 0; padding: 6px 12px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;">↻ Refresh</button>
+      <div style="display:flex; gap:8px;">
+        <button onclick="loadZSwaps()" style="margin: 0; padding: 6px 12px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;">↻ Refresh</button>
+        <button id="zswap-filters-toggle" class="btn-small" style="margin: 0;" onclick="toggleZswapFilters()">Filter</button>
+      </div>
     </div>
-    <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 10px; align-items:flex-end;">
+    <div id="zswap-filters-container" class="hidden" style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 10px; align-items:flex-end;">
       <div style="flex:1; min-width: 220px;">
         <label for="zswap-filter-token-select">Filter by token</label>
         <div style="display:flex; gap:8px; align-items:center;">
@@ -653,6 +657,14 @@
       zswapLimit = 100;
       zswapOffset = 0;
       loadZSwaps();
+    }
+
+    function toggleZswapFilters() {
+      const container = document.getElementById('zswap-filters-container');
+      const btn = document.getElementById('zswap-filters-toggle');
+      if (!container || !btn) return;
+      const isHidden = container.classList.toggle('hidden');
+      btn.textContent = isHidden ? 'Filter' : 'Hide Filters';
     }
 
     function nextZswapPage() {
