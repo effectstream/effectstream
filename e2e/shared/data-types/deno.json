@@ -10,6 +10,6 @@
   "imports": {
     "viem": "npm:viem@2.37.3",
     "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41",
-    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0"
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.1"
   }
 }

@@ -49,7 +49,7 @@
     "@midnight-ntwrk/wallet-sdk-hd": "npm:@midnight-ntwrk/wallet-sdk-hd@3.0.0",
     "@midnight-ntwrk/wallet-sdk-shielded": "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0",
     "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0",
-    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.1",
     "@midnight-ntwrk/wallet": "npm:@midnight-ntwrk/wallet@5.0.0",
     "@midnight-ntwrk/wallet-api": "npm:@midnight-ntwrk/wallet-api@5.0.0",
     "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@4.0.0",
