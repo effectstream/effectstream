@@ -17,7 +17,7 @@ const env = (key: string | string[], fallback?: string): string => {
     "";
   }
   throw new Error('Invalid key type');
-}  
+}
 
 type NetworkConfig = {
     indexer: string;
@@ -39,23 +39,29 @@ const undeployedNetworkConfig: NetworkConfig = {
     genesisWalletSeed: "0000000000000000000000000000000000000000000000000000000000000001",
 } as const;
 
-const previewNetworkConfig: NetworkConfig = {
-    indexer: "https://indexer.preview.midnight.network/api/v3/graphql",
-    indexerWS: "wss://indexer.preview.midnight.network/api/v3/graphql/ws",
-    node: "https://rpc.preview.midnight.network",
+const deployedNetworkConfig = (networkId: NetworkId.NetworkId): NetworkConfig => ({
+    indexer: `https://indexer.${networkId}.midnight.network/api/v3/graphql`,
+    indexerWS: `wss://indexer.${networkId}.midnight.network/api/v3/graphql/ws`,
+    node: `https://rpc.${networkId}.midnight.network`,
     proofServer: "http://127.0.0.1:6300",
-    networkId: "preview" as NetworkId.NetworkId,
+    networkId,
     genesisWalletSeed: '',
-} as const;
+});
 
+const networkId = env("MIDNIGHT_NETWORK_ID") || "undeployed";
 let selectedNetworkConfig: NetworkConfig;
-switch (env("MIDNIGHT_NETWORK_ID")) {
-  case "preview":
-    selectedNetworkConfig = previewNetworkConfig;
-    break;
+switch (networkId) {
   case "undeployed":
-  default:
     selectedNetworkConfig = undeployedNetworkConfig;
+    break;
+  case "mainnet":
+  case "testnet":
+  case "devnet":
+  case "qanet":
+  case "preview":
+  case "preprod":
+  default:
+    selectedNetworkConfig = deployedNetworkConfig(networkId as NetworkId.NetworkId);
     break;
 }
 
@@ -82,4 +88,3 @@ export const isExternalProofServerConfigured = !isLocalProofServer;
 
 // Set this using MIDNIGHT_NETWORK_ID=<network-id>
 export type MidnightNetworkConfig = typeof midnightNetworkConfig;
-
