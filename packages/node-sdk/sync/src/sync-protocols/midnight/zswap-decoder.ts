@@ -8,17 +8,18 @@ function new_decodeZswapInputEvent(rawHex: string): ledger.Event | null {
       Buffer.from(rawHex.replace(/^0x/, ""), "hex"),
     );
     const event = ledger.Event.deserialize(bytes);
-
-    if (event.type === "ZswapInput") {
+    console.log("event", event);
+    // if (event.type === "ZswapInput") {
       // event.nullifier  — Uint8Array (32 bytes)
       // event.source.transactionHash
       // event.source.logicalSegment
-    } else if (event.type === "ZswapOutput") {
+    // } else if (event.type === "ZswapOutput") {
       // event.commitment, etc.
-    }
+    // }
   } catch {
     return null;
   }
+  return null;
 }
 
 // ─── SCALE compact integer decoder ───────────────────────────────────────────

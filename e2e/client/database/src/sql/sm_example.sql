@@ -50,6 +50,20 @@ VALUES
 (:counter!, :block_height!) 
 ;
 
+/* @name insertCounterEntry */
+INSERT INTO counter_entries
+(entry_id, value, block_height)
+VALUES
+(:entry_id!, :value!, :block_height!)
+;
+
+/* @name insertCounterMapOfMap */
+INSERT INTO counter_map_of_map
+(outer_id, inner_id, value, block_height)
+VALUES
+(:outer_id!, :inner_id!, :value!, :block_height!)
+;
+
 /* @name insertBitcoinTransaction */
 INSERT INTO bitcoin_transactions
 (block_height, direction, address, transaction_id, index, value_sats, utxo_txid, utxo_vout, label)

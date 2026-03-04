@@ -4,6 +4,7 @@
   "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
+    "@midnight-ntwrk/ledger-v7": "npm:@midnight-ntwrk/ledger-v7@7.0.0",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@3.0.0",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
     "effection": "npm:effection@3.5.0",

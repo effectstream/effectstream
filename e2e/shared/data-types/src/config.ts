@@ -433,6 +433,15 @@ export const config = new ConfigBuilder()
             stateMachinePrefix: "midnightContractState",
             contract: { ledger: CounterContract.ledger },
             networkId: midnightNetworkConfig.id,
+            // Schema lists all ledger fields in Compact declaration order.
+            // The generic parser uses these to parse fields that contract.ledger()
+            // does not return (e.g. Map types). contract.ledger() results take
+            // precedence for fields it does handle (e.g. round).
+            ledgerSchema: {
+              round: "uint128",
+              entries: { type: "map", value: "uint128" },
+              map_of_map: { type: "map", value: { type: "map", value: "uint128" } },
+            },
           }),
         ).addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,

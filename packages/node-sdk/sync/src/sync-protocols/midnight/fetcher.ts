@@ -17,7 +17,7 @@ import type {
 import type { RootOutput, RootPage } from "../types.ts";
 import { bound } from "@effectstream/utils";
 import { MidnightClient, type BlockFetchOptions, type MidnightGqlBlockState } from "./MidnightClient.ts";
-import { ContractState } from "@midnight-ntwrk/onchain-runtime";
+import { ContractState, StateValue } from "@midnight-ntwrk/onchain-runtime";
 import { decodeZswapInputEvent } from "./zswap-decoder.ts";
 
 export class MidnightFetcher extends BaseDataFetcher<
@@ -211,9 +211,16 @@ export class MidnightFetcher extends BaseDataFetcher<
         return c.address.padStart(longest, '0') === contractAddress.padStart(longest, '0');
       })!.state!;
       const byteState = new Uint8Array(rawState.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+      const primitive = primitiveEntry.primitive;
       const contractState = ContractState.deserialize(byteState);
-      const contract = primitiveEntry.primitive.contract!;
-      const state = contract.ledger(contractState.data.state);
+      const stateValue = contractState.data.state;
+      // Parse additional fields from the schema (defined per-contract on the primitive)
+      const additionalFields = primitive.parseAdditionalLedgerFields?.(stateValue) ?? {};
+      // Keep generated ledger fields, but let schema-parsed fields override.
+      // This is important for map-like fields where contract.ledger() exposes
+      // iterable wrappers that are not directly JSON-serializable.
+      const f = primitive.contract ?? { ledger: (_: StateValue): Record<string, any> => ({}) };
+      const state = { ...f.ledger(stateValue), ...additionalFields };
       return {
         syncProtocol: {
           name: primitiveEntry.syncProtocol,
