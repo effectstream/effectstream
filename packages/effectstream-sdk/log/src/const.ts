@@ -1,4 +1,5 @@
 import { SeverityNumber } from "@opentelemetry/api-logs";
+import { getEnv } from "@effectstream/utils/runtime";
 
 /**
  * Main components
@@ -75,8 +76,15 @@ export const ComponentNames = {
   ...SecondaryComponents,
 };
 
-// TODO: this try some ENV var before defaulting to INFO
-export const defaultSeverity = SeverityNumber.INFO;
+const parseSeverity = (): SeverityNumber => {
+  const level = getEnv("EFFECTSTREAM_LOG_LEVEL")?.toUpperCase();
+  if (level && level in SeverityNumber) {
+    return SeverityNumber[level as keyof typeof SeverityNumber];
+  }
+  return SeverityNumber.INFO;
+};
+
+export const defaultSeverity = parseSeverity();
 
 /**
  * extra step in the logger to avoid performance degradation.
