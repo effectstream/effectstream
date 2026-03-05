@@ -61,3 +61,15 @@ SELECT tablename
 FROM pg_tables
 WHERE schemaname = 'public'
 ;
+
+/* @name upsertSyncProtocolConfigSnapshot */
+INSERT INTO effectstream.sync_protocol_config_snapshot (protocol_name, network_type, immutable_config)
+VALUES (:protocolName!, :networkType!, :immutableConfig!)
+ON CONFLICT (protocol_name) DO NOTHING
+;
+
+/* @name getSyncProtocolConfigSnapshot */
+SELECT protocol_name, network_type, immutable_config
+FROM effectstream.sync_protocol_config_snapshot
+WHERE protocol_name = :protocolName!
+;

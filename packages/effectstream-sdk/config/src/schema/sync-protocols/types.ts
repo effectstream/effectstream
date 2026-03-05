@@ -50,11 +50,36 @@ type EVMPrimitive = BasePrimitive & {
   contractAddress: string;
 };
 
+export type LedgerPrimitiveType =
+  | "uint8"
+  | "uint16"
+  | "uint32"
+  | "uint64"
+  | "uint128"
+  | "bytes"
+  | "boolean";
+
+export type LedgerFieldType =
+  | LedgerPrimitiveType
+  | { type: "map"; value: LedgerFieldType }
+  | { type: "option"; value: LedgerFieldType };
+
+/**
+ * Maps ledger field names (in Compact declaration order) to their types.
+ * The parser accesses state array positions by key insertion order.
+ */
+export type LedgerSchema = Record<string, LedgerFieldType>;
+
 type MidnightPrimitive = BasePrimitive & {
   contractAddress?: string;
   contract?: {
     ledger: (data: StateValue) => Record<string, any>;
   };
+  /**
+   * Parses ledger fields defined in `ledgerSchema` from the raw Midnight StateValue.
+   * Present only when the primitive is constructed with a `ledgerSchema`.
+   */
+  parseAdditionalLedgerFields?: (stateValue: StateValue) => Record<string, any>;
   networkId?: string;
   genesisHash?: string;
 };

@@ -234,6 +234,67 @@ const insertCounterInputIR: any = {"usedParamSet":{"counter":true,"block_height"
 export const insertCounterInput = new PreparedQuery<IInsertCounterInputParams,IInsertCounterInputResult>(insertCounterInputIR);
 
 
+/** 'InsertCounterEntry' parameters type */
+export interface IInsertCounterEntryParams {
+  block_height: number;
+  entry_id: string;
+  value: string;
+}
+
+/** 'InsertCounterEntry' return type */
+export type IInsertCounterEntryResult = void;
+
+/** 'InsertCounterEntry' query type */
+export interface IInsertCounterEntryQuery {
+  params: IInsertCounterEntryParams;
+  result: IInsertCounterEntryResult;
+}
+
+const insertCounterEntryIR: any = {"usedParamSet":{"entry_id":true,"value":true,"block_height":true},"params":[{"name":"entry_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":68,"b":77}]},{"name":"value","required":true,"transform":{"type":"scalar"},"locs":[{"a":80,"b":86}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":89,"b":102}]}],"statement":"INSERT INTO counter_entries\n(entry_id, value, block_height)\nVALUES\n(:entry_id!, :value!, :block_height!)"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO counter_entries
+ * (entry_id, value, block_height)
+ * VALUES
+ * (:entry_id!, :value!, :block_height!)
+ * ```
+ */
+export const insertCounterEntry = new PreparedQuery<IInsertCounterEntryParams,IInsertCounterEntryResult>(insertCounterEntryIR);
+
+
+/** 'InsertCounterMapOfMap' parameters type */
+export interface IInsertCounterMapOfMapParams {
+  block_height: number;
+  inner_id: string;
+  outer_id: string;
+  value: string;
+}
+
+/** 'InsertCounterMapOfMap' return type */
+export type IInsertCounterMapOfMapResult = void;
+
+/** 'InsertCounterMapOfMap' query type */
+export interface IInsertCounterMapOfMapQuery {
+  params: IInsertCounterMapOfMapParams;
+  result: IInsertCounterMapOfMapResult;
+}
+
+const insertCounterMapOfMapIR: any = {"usedParamSet":{"outer_id":true,"inner_id":true,"value":true,"block_height":true},"params":[{"name":"outer_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":81,"b":90}]},{"name":"inner_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":93,"b":102}]},{"name":"value","required":true,"transform":{"type":"scalar"},"locs":[{"a":105,"b":111}]},{"name":"block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":114,"b":127}]}],"statement":"INSERT INTO counter_map_of_map\n(outer_id, inner_id, value, block_height)\nVALUES\n(:outer_id!, :inner_id!, :value!, :block_height!)"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO counter_map_of_map
+ * (outer_id, inner_id, value, block_height)
+ * VALUES
+ * (:outer_id!, :inner_id!, :value!, :block_height!)
+ * ```
+ */
+export const insertCounterMapOfMap = new PreparedQuery<IInsertCounterMapOfMapParams,IInsertCounterMapOfMapResult>(insertCounterMapOfMapIR);
+
+
 /** 'InsertBitcoinTransaction' parameters type */
 export interface IInsertBitcoinTransactionParams {
   address: string;
