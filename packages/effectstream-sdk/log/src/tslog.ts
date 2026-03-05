@@ -166,6 +166,7 @@ export const tsLogOrchestrator: TslogLogFunc = (
   level,
   doLog,
 ): void => {
+  if (level < defaultSeverity) return;
   doLog((...data: unknown[]) =>
       console.log(JSON.stringify({
         "__ORCHESTRATOR__": true,
