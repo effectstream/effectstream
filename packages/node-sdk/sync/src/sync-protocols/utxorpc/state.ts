@@ -70,21 +70,22 @@ export class UtxoRpcSyncState extends SyncState<
   }
 
   @bound
-  override *stateToInput(): Operation<Input | undefined> {  
+  override *stateToInput(): Operation<Input | undefined> {
     // Get the value of the latest block height.
     const tipHeight = yield* call(() => this.fetcher.lastHeight());
     if (!tipHeight) {
       return undefined;
     }
 
-    // TODO This might be wrong, we are using block heights - not slots (?)
+    // Using 0 as the startHeight for both "origin" and a specified ChainPoint is safe because:
+    // the FollowTip stream only buffers blocks starting from the intersection,
+    // so fetchBlocks(from=1) will match the first block, regardless of it's height.
+    // After that first block, lastPage.own.height will give a real height value.
     const cp = this.config.syncProtocol.startChainPoint;
     const startHeight = this.lastPage?.own.height ??
       (cp === "tip"
         ? Number(tipHeight) - 1
-        : cp === "origin"
-          ? 0
-          : cp.slot - 1);
+        : 0);
 
     if (BigInt(startHeight) >= tipHeight) {
       return undefined;
@@ -108,7 +109,7 @@ export class UtxoRpcSyncState extends SyncState<
     //     isPresync: true,
     //   };
     // }
-    
+
     // TODO Is this correct?
     // EVM Handles this with `genInputRange`
     const from = startHeight + 1;
