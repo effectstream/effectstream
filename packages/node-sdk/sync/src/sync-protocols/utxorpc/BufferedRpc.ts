@@ -24,7 +24,7 @@ export class BufferedRpc {
 
   static lastHeight: bigint | undefined = undefined;
   static initialized = false;
- 
+
   public lastHeight(): bigint | undefined {
     return BufferedRpc.lastHeight;
   }
@@ -55,9 +55,10 @@ export class BufferedRpc {
         if (blockEvent.block.header?.height) {
           BufferedRpc.lastHeight = blockEvent.block.header?.height;
         }
+        // This works ONLY because the buffer is processed FIFO
         this.buffer.push({
           output: blockEvent.block,
-          cleanup: () => {},
+          cleanup: () => this.buffer.shift(),
         });
         this.newDataCondVar.wake();
       } else if (blockEvent.action === "undo") {
