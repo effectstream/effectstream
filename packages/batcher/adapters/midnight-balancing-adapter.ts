@@ -527,6 +527,8 @@ export class MidnightBalancingAdapter
     }
 
     // --- Phase 3: Submit sequentially ---
+    let hasDroppedFirst = false;
+
     for (let i = 0; i < pipeline.length; i++) {
       const p = pipeline[i];
       if (p.error || !p.finalized) continue;
@@ -555,11 +557,20 @@ export class MidnightBalancingAdapter
           errMsg ===
             "Transaction got dropped, the mempool likely is full and network congested"
         ) {
-          debugLog(
-            `[balancing] Submit failed for tx ${label} due to expected dropped error. Marking as dropped to remove from queue.`,
-          );
-          p.hash = "dropped_" + (txHashStr || Date.now() + "_" + i);
-          p.error = undefined;
+          if (!hasDroppedFirst) {
+            debugLog(
+              `[balancing] Submit failed for tx ${label} due to expected dropped error. Marking as dropped to remove from queue (first in batch).`,
+            );
+            p.hash = "dropped_" + (txHashStr || Date.now() + "_" + i);
+            p.error = undefined;
+            hasDroppedFirst = true;
+          } else {
+            debugLog(
+              `[balancing] Submit failed for tx ${label} with dropped error, but keeping in queue since a prior tx was already dropped.`,
+            );
+            p.error = err;
+            p.hash = undefined;
+          }
         } else {
           p.error = err;
           p.hash = undefined; // clear hash if it failed
