@@ -17,14 +17,11 @@ import {
   type FinalizedTransaction,
 } from "@midnight-ntwrk/ledger-v7";
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
-import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
-import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import type {
-  ProofProvider,
   PublicDataProvider,
   UnboundTransaction,
-  ZKConfigProvider,
 } from "@midnight-ntwrk/midnight-js-types";
+import type { BalancingRecipe } from "@midnight-ntwrk/wallet-sdk-facade";
 import {
   buildWalletFacade,
   getInitialDustState,
@@ -44,8 +41,6 @@ export interface MidnightBalancingAdapterConfig {
   indexerWS: string;
   node: string;
   proofServer: string;
-  zkConfigPath?: string;
-  circuitId?: string;
   walletNetworkId?: WalletNetworkId.NetworkId;
   walletFundingTimeoutSeconds?: number;
   walletResult?: WalletResult | Promise<WalletResult>;
@@ -57,21 +52,14 @@ const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
 type DelegatedTxStage = "unproven" | "unbound" | "finalized";
 type DelegatedTx = UnprovenTransaction | UnboundTransaction | FinalizedTransaction;
-type DelegatedBatchData = {
+type DelegatedTxEntry = {
   tx: DelegatedTx;
   txStage: DelegatedTxStage;
 };
-type FacadeBalancingRecipe = {
-  type: "UNPROVEN_TRANSACTION";
-  transaction: UnprovenTransaction;
-} | {
-  type: "UNBOUND_TRANSACTION";
-  baseTransaction: UnboundTransaction;
-  balancingTransaction?: UnprovenTransaction;
-} | {
-  type: "FINALIZED_TRANSACTION";
-  originalTransaction: FinalizedTransaction;
-  balancingTransaction: UnprovenTransaction;
+// Each batch can contain multiple transactions; they will be balanced speculatively
+// (no block confirmation needed between them) using the wallet's pendingDustTokens mechanism.
+type DelegatedBatchData = {
+  txs: DelegatedTxEntry[];
 };
 
 /**
@@ -89,10 +77,26 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<DelegatedBatc
   private initializationPromise: Promise<void> | null = null;
   private walletAddress: string | null = null;
   private publicDataProvider: PublicDataProvider | null = null;
-  private zkConfigProvider: ZKConfigProvider<string> | null = null;
-  private proofProvider: ProofProvider | null = null;
-  private currentCircuitId: string | null = null;
   private syncProtocolName: string;
+  // Tracks how many dust UTXOs are currently available (speculatively).
+  // Updated before and after each submitBatch so buildBatchData can cap batch
+  // size and avoid "No dust tokens" mid-batch failures.
+  private cachedDustCount: number = Infinity;
+
+  /** Query dust UTXO count and update cachedDustCount. Safe to call concurrently. */
+  private async updateDustCount(): Promise<void> {
+    if (!this.walletResult) return;
+    try {
+      const dustState = await getInitialDustState(this.walletResult.wallet.dust);
+      if (typeof dustState.availableCoinsWithFullInfo === "function") {
+        const coins = dustState.availableCoinsWithFullInfo(new Date());
+        this.cachedDustCount = coins.length;
+        console.log(`💰 [balancing] Available dust UTXOs: ${this.cachedDustCount}`);
+      }
+    } catch (err) {
+      console.warn("⚠️ [balancing] Failed to query dust UTXO count:", err);
+    }
+  }
 
   private async logDustState(context: string): Promise<void> {
     if (!this.walletResult) return;
@@ -176,18 +180,10 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<DelegatedBatc
         this.config.indexerWS
       );
 
-    if (this.config.zkConfigPath) {
-        this.zkConfigProvider = new NodeZkConfigProvider(this.config.zkConfigPath);
-        this.proofProvider = httpClientProofProvider(this.config.proofServer, this.zkConfigProvider);
-      } else {
-        console.warn(
-        "⚠️ Missing zkConfigPath for balancing adapter. Proving may fail.",
-        );
-      }
-
       console.log("✅ Wallet built. Waiting for funds...");
       await this.ensureFunds();
       await this.logDustState("initialize");
+      await this.updateDustCount();
 
       this.isInitialized = true;
       console.log("✅ Midnight Balancing Adapter ready!");
@@ -252,18 +248,14 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<DelegatedBatc
    */
   private parseHexInput(
     input: string,
-  ): { hex: string; circuitId?: string; txStage?: DelegatedTxStage } {
+  ): { hex: string; txStage?: DelegatedTxStage } {
     const trimmed = input.trim();
     if (trimmed.startsWith("{")) {
       const parsed = JSON.parse(trimmed) as {
         tx?: string;
-        circuitId?: string;
         txStage?: DelegatedTxStage;
       };
       if (!parsed.tx) throw new Error("Missing tx field in JSON input");
-      if (parsed.circuitId && typeof parsed.circuitId !== "string") {
-        throw new Error("circuitId must be a string");
-      }
       if (
         parsed.txStage !== undefined &&
         parsed.txStage !== "unproven" &&
@@ -273,40 +265,52 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<DelegatedBatc
         throw new Error("txStage must be 'unproven', 'unbound', or 'finalized'");
       }
       const cleanHex = parsed.tx.startsWith("0x") ? parsed.tx.slice(2) : parsed.tx;
-      return {
-        hex: cleanHex,
-        circuitId: parsed.circuitId,
-        txStage: parsed.txStage,
-      };
+      return { hex: cleanHex, txStage: parsed.txStage };
     }
     const cleanHex = trimmed.startsWith("0x") ? trimmed.slice(2) : trimmed;
     return { hex: cleanHex };
   }
 
   /**
-   * Deserialize the input hex string into an UnprovenTransaction
+   * Deserialize one transaction hex into a DelegatedTxEntry.
    */
-  buildBatchData(
-    inputs: DefaultBatcherInput[],
-    _options?: BatchBuildingOptions
-  ): BatchBuildingResult<DelegatedBatchData> | null {
-    if (inputs.length === 0) return null;
-    
-    // We only process one transaction at a time for this adapter
-    const input = inputs[0];
-    
-    try {
-      const { hex: cleanHex, circuitId, txStage } = this.parseHexInput(input.input);
-      this.currentCircuitId = circuitId ?? this.config.circuitId ?? null;
-      console.log(
-        `🧾 [balancing] Received tx hex length=${cleanHex.length} target=${input.target} stage=${txStage ?? "auto"} circuitId=${this.currentCircuitId ?? "none"}`,
-      );
-      const bytes = fromHex(cleanHex);
+  private deserializeTxEntry(input: DefaultBatcherInput): DelegatedTxEntry {
+    const { hex: cleanHex, txStage } = this.parseHexInput(input.input);
+    console.log(
+      `🧾 [balancing] Received tx hex length=${cleanHex.length} target=${input.target} stage=${txStage ?? "auto"}`,
+    );
+    const bytes = fromHex(cleanHex);
 
-      let delegatedTx: DelegatedTx;
-      let delegatedTxStage: DelegatedTxStage;
+    let delegatedTx: DelegatedTx;
+    let delegatedTxStage: DelegatedTxStage;
 
-      if (txStage === "unbound") {
+    if (txStage === "unbound") {
+      delegatedTx = LedgerV6Transaction.deserialize(
+        "signature" as const,
+        "proof" as const,
+        "pre-binding" as const,
+        bytes,
+      ) as UnboundTransaction;
+      delegatedTxStage = "unbound";
+    } else if (txStage === "finalized") {
+      delegatedTx = LedgerV6Transaction.deserialize(
+        "signature" as const,
+        "proof" as const,
+        "binding" as const,
+        bytes,
+      ) as FinalizedTransaction;
+      delegatedTxStage = "finalized";
+    } else if (txStage === "unproven") {
+      delegatedTx = LedgerV6Transaction.deserialize(
+        "signature" as const,
+        "pre-proof" as const,
+        "pre-binding" as const,
+        bytes,
+      ) as UnprovenTransaction;
+      delegatedTxStage = "unproven";
+    } else {
+      // Backward-compatible auto-detection
+      try {
         delegatedTx = LedgerV6Transaction.deserialize(
           "signature" as const,
           "proof" as const,
@@ -314,15 +318,7 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<DelegatedBatc
           bytes,
         ) as UnboundTransaction;
         delegatedTxStage = "unbound";
-      } else if (txStage === "finalized") {
-        delegatedTx = LedgerV6Transaction.deserialize(
-          "signature" as const,
-          "proof" as const,
-          "binding" as const,
-          bytes,
-        ) as FinalizedTransaction;
-        delegatedTxStage = "finalized";
-      } else if (txStage === "unproven") {
+      } catch {
         delegatedTx = LedgerV6Transaction.deserialize(
           "signature" as const,
           "pre-proof" as const,
@@ -330,57 +326,134 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<DelegatedBatc
           bytes,
         ) as UnprovenTransaction;
         delegatedTxStage = "unproven";
-      } else {
-        // Backward-compatible auto-detection:
-        // v7 delegated calls generally send UnboundTransaction from WalletProvider.balanceTx.
-        try {
-          delegatedTx = LedgerV6Transaction.deserialize(
-            "signature" as const,
-            "proof" as const,
-            "pre-binding" as const,
-            bytes,
-          ) as UnboundTransaction;
-          delegatedTxStage = "unbound";
-        } catch {
-          delegatedTx = LedgerV6Transaction.deserialize(
-            "signature" as const,
-            "pre-proof" as const,
-            "pre-binding" as const,
-            bytes,
-          ) as UnprovenTransaction;
-          delegatedTxStage = "unproven";
-        }
       }
+    }
 
-      try {
-        const roundTripHex = Buffer.from(delegatedTx.serialize()).toString("hex");
-        console.log(
-          `🧾 [balancing] Round-trip serialized length=${roundTripHex.length} stage=${delegatedTxStage}`,
-        );
-      } catch (error) {
-        console.warn("⚠️ [balancing] Failed to round-trip serialize tx:", error);
-      }
-
-      return {
-        selectedInputs: [input],
-        data: {
-          tx: delegatedTx,
-          txStage: delegatedTxStage,
-        },
-      };
+    try {
+      const roundTripHex = Buffer.from(delegatedTx.serialize()).toString("hex");
+      console.log(
+        `🧾 [balancing] Round-trip serialized length=${roundTripHex.length} stage=${delegatedTxStage}`,
+      );
     } catch (error) {
-      console.error("❌ Failed to deserialize transaction:", error);
-      // If we can't deserialize, we can't batch it. 
-      // In a real batcher, we might want to mark it as invalid/failed.
-      // Returning null means "nothing to batch", which keeps it in the queue indefinitely 
-      // unless we handle validation earlier.
-      // Ideally validateInput should have caught this.
+      console.warn("⚠️ [balancing] Failed to round-trip serialize tx:", error);
+    }
+
+    return { tx: delegatedTx, txStage: delegatedTxStage };
+  }
+
+  /**
+   * Deserialize all inputs into DelegatedTxEntries for speculative batching.
+   * Caps batch size to cachedDustCount so we never attempt more transactions
+   * than available dust UTXOs, preventing mid-batch "No dust tokens" failures.
+   * Also fires a background dust count refresh so the next call has fresh data.
+   */
+  buildBatchData(
+    inputs: DefaultBatcherInput[],
+    _options?: BatchBuildingOptions
+  ): BatchBuildingResult<DelegatedBatchData> | null {
+    // Refresh dust count in the background for the next call.
+    this.updateDustCount().catch(() => {});
+
+    if (inputs.length === 0) return null;
+
+    // If we know there are no dust UTXOs available, defer to the next cycle.
+    if (this.cachedDustCount === 0) {
+      console.log("⏳ [balancing] No dust UTXOs available, deferring batch until next block");
       return null;
+    }
+
+    // Cap batch size to available dust UTXOs.
+    const maxBatch = this.cachedDustCount === Infinity
+      ? inputs.length
+      : Math.min(inputs.length, this.cachedDustCount);
+    const cappedInputs = inputs.slice(0, maxBatch);
+    if (cappedInputs.length < inputs.length) {
+      console.log(
+        `⚠️ [balancing] Capping batch to ${cappedInputs.length}/${inputs.length} (dust UTXOs: ${this.cachedDustCount})`,
+      );
+    }
+
+    const txs: DelegatedTxEntry[] = [];
+    const selectedInputs: DefaultBatcherInput[] = [];
+
+    for (const input of cappedInputs) {
+      try {
+        txs.push(this.deserializeTxEntry(input));
+        selectedInputs.push(input);
+      } catch (error) {
+        console.error(`❌ Failed to deserialize transaction for input ${input.target}:`, error);
+        // Stop at the first bad input to avoid a gap in accounting
+        break;
+      }
+    }
+
+    if (txs.length === 0) return null;
+
+    console.log(`🧾 [balancing] Built batch of ${txs.length} transaction(s)`);
+    return { selectedInputs, data: { txs } };
+  }
+
+  /**
+   * Balance a single transaction entry against the dust wallet.
+   * Each call speculatively marks the consumed UTXOs as pending in the wallet's
+   * CoreWallet state (via SubscriptionRef.modifyEffect / spendCoins), so the
+   * next call in the same block window automatically picks different UTXOs —
+   * no chain confirmation needed between calls.
+   */
+  private async balanceEntry(entry: DelegatedTxEntry): Promise<any> {
+    const { tx: delegatedTx, txStage } = entry;
+    await this.logDustState(
+      txStage === "unbound"
+        ? "balanceUnboundTransaction"
+        : txStage === "finalized"
+        ? "balanceFinalizedTransaction"
+        : "balanceUnprovenTransaction",
+    );
+
+    try {
+      if (txStage === "unbound") {
+        return await this.walletResult!.wallet.balanceUnboundTransaction(
+          delegatedTx as UnboundTransaction,
+          {
+            shieldedSecretKeys: this.walletResult!.walletZswapSecretKeys,
+            dustSecretKey: this.walletResult!.walletDustSecretKey,
+          },
+          { ttl: createTtl() },
+        );
+      } else if (txStage === "finalized") {
+        return await this.walletResult!.wallet.balanceFinalizedTransaction(
+          delegatedTx as FinalizedTransaction,
+          {
+            shieldedSecretKeys: this.walletResult!.walletZswapSecretKeys,
+            dustSecretKey: this.walletResult!.walletDustSecretKey,
+          },
+          { ttl: createTtl() },
+        );
+      } else {
+        return await this.walletResult!.wallet.balanceUnprovenTransaction(
+          delegatedTx as UnprovenTransaction,
+          {
+            shieldedSecretKeys: this.walletResult!.walletZswapSecretKeys,
+            dustSecretKey: this.walletResult!.walletDustSecretKey,
+          },
+          { ttl: createTtl() },
+        );
+      }
+    } catch (error) {
+      console.error(
+        `❌ balance${txStage === "unbound" ? "Unbound" : txStage === "finalized" ? "Finalized" : "Unproven"}Transaction failed:`,
+        error,
+      );
+      try {
+        const serialized = Buffer.from(delegatedTx.serialize()).toString("hex");
+        console.error(`[balancing] Delegated tx serialized length=${serialized.length} stage=${txStage}`);
+      } catch (_serError) { /* ignore */ }
+      throw error;
     }
   }
 
   async submitBatch(
-    delegatedBatchData: DelegatedBatchData,
+    batchData: DelegatedBatchData,
     _fee?: string | bigint
   ): Promise<BlockchainHash> {
     if (this.initializationPromise) {
@@ -390,151 +463,85 @@ export class MidnightBalancingAdapter implements BlockchainAdapter<DelegatedBatc
     if (!this.walletResult) {
       throw new Error("Adapter not initialized");
     }
-    // Ensure dust wallet has synced before attempting to add fees.
+
+    const { txs } = batchData;
+    console.log(`🚀 [balancing] Processing batch of ${txs.length} transaction(s)`);
+
+    // Update dust count before processing so we have an accurate reading
+    // before speculative spending begins.
+    await this.updateDustCount();
+
+    // Process each transaction individually: balance → prove → submit fire-and-forget.
+    // Submitting each tx to the mempool before balancing the next ensures the wallet's
+    // pending-transaction state is consistent and avoids gas conflicts that arise when
+    // multiple transactions are all balanced against the same ledger state and then
+    // submitted together (the second tx's proof can fail pre-dispatch validation once
+    // the first tx has mutated shared contract state, e.g. a map's trie structure).
+    const hashes: string[] = [];
     try {
-      console.log("🧾 [balancing] waiting for dust sync (pre-balance)...");
-      await waitForDustFunds(this.walletResult.wallet, {
-        timeoutMs: this.walletFundingTimeoutMs,
-        waitNonZero: true,
-      });
-      console.log("🧾 [balancing] dust sync wait complete");
-    } catch (error) {
-      console.warn("⚠️ Dust wallet sync wait failed before balancing:", error);
-    }
-    const { tx: delegatedTx, txStage } = delegatedBatchData;
-    await this.logDustState(
-      txStage === "unbound"
-        ? "balanceUnboundTransaction"
-        : txStage === "finalized"
-        ? "balanceFinalizedTransaction"
-        : "balanceUnprovenTransaction",
-    );
+      for (let i = 0; i < txs.length; i++) {
+        const entry = txs[i];
+        const label = `${i + 1}/${txs.length}`;
 
-    // Balance and Prove
-    // This adds dust inputs/outputs for fees, generates proofs, and computes binding
-    let balancedRecipe: /*BalancedProvingRecipe */any;
-    try {
-      if (txStage === "unbound") {
-        balancedRecipe = await this.walletResult.wallet.balanceUnboundTransaction(
-          delegatedTx as UnboundTransaction,
-          {
-            shieldedSecretKeys: this.walletResult.walletZswapSecretKeys,
-            dustSecretKey: this.walletResult.walletDustSecretKey,
-          },
-          { ttl: createTtl() },
+        console.log(`🧾 [balancing] Balancing tx ${label} (stage=${entry.txStage})`);
+        const recipe = await this.balanceEntry(entry);
+        const signedRecipe = await this.walletResult.wallet.signRecipe(
+          recipe,
+          (payload: Uint8Array) => this.walletResult!.unshieldedKeystore.signData(payload),
         );
-      } else if (txStage === "finalized") {
-        balancedRecipe = await this.walletResult.wallet.balanceFinalizedTransaction(
-          delegatedTx as FinalizedTransaction,
-          {
-            shieldedSecretKeys: this.walletResult.walletZswapSecretKeys,
-            dustSecretKey: this.walletResult.walletDustSecretKey,
-          },
-          { ttl: createTtl() },
-        );
-      } else {
-        balancedRecipe = await this.walletResult.wallet.balanceUnprovenTransaction(
-          delegatedTx as UnprovenTransaction,
-          {
-            shieldedSecretKeys: this.walletResult.walletZswapSecretKeys,
-            dustSecretKey: this.walletResult.walletDustSecretKey,
-          },
-          { ttl: createTtl() },
-        );
-      }
-    } catch (error) {
-      console.error(
-        `❌ balance${
-          txStage === "unbound"
-            ? "Unbound"
-            : txStage === "finalized"
-            ? "Finalized"
-            : "Unproven"
-        }Transaction failed in midnight balancing adapter:`,
-        error,
-      );
-      try {
-        await this.logDustState(
-          txStage === "unbound"
-            ? "balanceUnboundTransaction:failed"
-            : txStage === "finalized"
-            ? "balanceFinalizedTransaction:failed"
-            : "balanceUnprovenTransaction:failed",
-        );
-      } catch (_err) {
-        // ignore
-      }
-      try {
-        const serialized = Buffer.from(delegatedTx.serialize()).toString("hex");
-        console.error(
-          `[balancing] Delegated tx serialized length=${serialized.length} stage=${txStage}`,
-        );
-      } catch (serError) {
-        console.error("⚠️ [balancing] Failed to serialize delegated tx:", serError);
-      }
-      throw error;
-    }
 
-    const signedRecipe = await this.walletResult.wallet.signRecipe(
-      balancedRecipe,
-      (payload: Uint8Array) => this.walletResult!.unshieldedKeystore.signData(payload),
-    );
-
-    console.log("🚀 Finalizing and submitting transaction...");
-    const finalizedTx = await this.finalizeWithProver(signedRecipe);
-    const txId = await this.walletResult.wallet.submitTransaction(finalizedTx);
-
-    let txHash = txId.toString();
-    try {
-      const derivedHash = finalizedTx.transactionHash();
-      if (derivedHash) {
-        txHash = derivedHash.toString();
-      }
-    } catch (error) {
-      console.warn("⚠️ Failed to derive transaction hash from finalized tx:", error);
-    }
-
-    console.log(`✅ Transaction submitted: ${txHash}`);
-    return txHash;
-  }
-
-  private async finalizeWithProver(
-    recipe: FacadeBalancingRecipe,
-  ): Promise<FinalizedTransaction> {
-    const circuitId = this.currentCircuitId ?? this.config.circuitId ?? null;
-    if (!this.proofProvider || !this.zkConfigProvider || !circuitId) {
-      return await this.walletResult!.wallet.finalizeRecipe(recipe);
-    }
-
-    const zkConfig = await this.zkConfigProvider.get(circuitId);
-
-    switch (recipe.type) {
-      case "UNPROVEN_TRANSACTION": {
-        const proven = await (this.proofProvider as any).proveTx(
-          recipe.transaction,
-          { zkConfig },
-        );
-        return proven.bind() as FinalizedTransaction;
-      }
-      case "UNBOUND_TRANSACTION": {
-        if (!recipe.balancingTransaction) {
-          return await this.walletResult!.wallet.finalizeRecipe(recipe);
+        console.log(`🔐 [balancing] Finalizing tx ${label}`);
+        let finalizedTx: FinalizedTransaction;
+        switch (signedRecipe.type) {
+          case "FINALIZED_TRANSACTION": {
+            const finalizedBalancing = await this.walletResult.wallet.shielded.finalizeTransaction(
+              signedRecipe.balancingTransaction,
+            );
+            finalizedTx = signedRecipe.originalTransaction.merge(finalizedBalancing);
+            break;
+          }
+          case "UNBOUND_TRANSACTION": {
+            const boundBase = signedRecipe.baseTransaction.bind();
+            if (signedRecipe.balancingTransaction) {
+              const finalizedBalancing = await this.walletResult.wallet.shielded.finalizeTransaction(
+                signedRecipe.balancingTransaction,
+              );
+              finalizedTx = boundBase.merge(finalizedBalancing);
+            } else {
+              finalizedTx = boundBase;
+            }
+            break;
+          }
+          case "UNPROVEN_TRANSACTION": {
+            finalizedTx = await this.walletResult.wallet.shielded.finalizeTransaction(signedRecipe.transaction);
+            break;
+          }
         }
-        const proven = await (this.proofProvider as any).proveTx(
-          recipe.balancingTransaction,
-          { zkConfig },
-        );
-        const merged = recipe.baseTransaction.merge(proven.bind());
-        return merged.bind() as FinalizedTransaction;
+
+        let txHash: string | null = null;
+        try {
+          const derivedHash = finalizedTx!.transactionHash();
+          if (derivedHash) txHash = derivedHash.toString();
+        } catch (_error) { /* ignore */ }
+
+        if (txHash !== null) {
+          hashes.push(txHash);
+          const hash = txHash;
+          this.walletResult.wallet.submitTransaction(finalizedTx!)
+            .then(() => console.log(`✅ [balancing] Transaction ${label} submitted: ${hash}`))
+            .catch((err) => console.error(`❌ [balancing] Transaction ${label} submission failed:`, err));
+        } else {
+          const txId = await this.walletResult.wallet.submitTransaction(finalizedTx!);
+          hashes.push(txId.toString());
+          console.log(`✅ [balancing] Transaction ${label} submitted (sync): ${hashes[hashes.length - 1]}`);
+        }
       }
-      case "FINALIZED_TRANSACTION": {
-        const proven = await (this.proofProvider as any).proveTx(
-          recipe.balancingTransaction,
-          { zkConfig },
-        );
-        return recipe.originalTransaction.merge(proven.bind()) as FinalizedTransaction;
-      }
+    } finally {
+      this.updateDustCount().catch(() => {});
     }
+
+    // Return the first hash (batcher framework expects a single receipt hash)
+    return hashes[0];
   }
 
   async waitForTransactionReceipt(

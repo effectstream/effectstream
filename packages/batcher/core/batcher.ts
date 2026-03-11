@@ -730,6 +730,13 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       // This shouldn't happen after init(), but handle gracefully
       return false;
     }
+
+    // Skip targets that are currently being processed to prevent concurrent batches
+    // for the same target, which can cause UTXO/nonce conflicts.
+    if (this.shutdownState.processingAdapters.has(target)) {
+      return false;
+    }
+
     const targetInputs = await this.storage.getInputsByTarget(
       target,
       this.defaultTarget,

@@ -6,7 +6,7 @@ import {
   terminateProcess,
 } from "./process.ts";
 import { ENV } from "@effectstream/utils/node-env";
-import { pFactory } from "./start.ts";
+import { pFactory, processRestarters } from "./start.ts";
 import { ComponentNames } from "@effectstream/log";
 // This file is a HTTP server to expose process information to the TUI.
 
@@ -44,6 +44,30 @@ server.get("/restart-sync", async function handler() {
     success: true,
     wasRunning,
   };
+});
+
+server.post("/restart-process", async function handler(request) {
+  const { name } = request.body as { name: string };
+  const processIndex = processes.findIndex(
+    (p) => p.component === name && p.alive,
+  );
+  const wasRunning = processIndex !== -1;
+  if (wasRunning) {
+    terminateProcess(processIndex);
+  }
+
+  const restarter = processRestarters.get(name);
+  if (restarter) {
+    await restarter();
+    return { success: true, wasRunning };
+  }
+
+  if (pFactory && name in pFactory) {
+    await pFactory[name as keyof typeof pFactory]();
+    return { success: true, wasRunning };
+  }
+
+  return { success: false, wasRunning, error: `No restart handler for "${name}"` };
 });
 
 server.get("/setup", function handler() {

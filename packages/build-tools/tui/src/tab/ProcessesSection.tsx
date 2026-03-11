@@ -81,25 +81,51 @@ export const ProcessesSection = () => {
   };
 
   useInput((input, key) => {
-    if (input === "r" || input === "R") {
-    setRestartStatus("Restarting sync process...");
-    fetch(`${ENV.ORCHESTRATOR_URL}:${ENV.ORCHESTRATOR_PORT}/restart-sync`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-      })
-      .then(() => {
-        setRestartStatus("Sync process restarted successfully.");
-        setTimeout(() => setRestartStatus(""), 3000);
-      })
-      .catch((error) => {
-        setRestartStatus("Failed to restart sync process.");
-        console.error("Failed to restart sync process:", error);
-        setTimeout(() => setRestartStatus(""), 3000);
-      });
+    // Confirmation mode: waiting for user to confirm or cancel restart
+    if (processToRestart) {
+      if (key.return || input === "y" || input === "Y") {
+        const processName = processToRestart.name ??
+          `pid-${processToRestart.pid}`;
+        setRestartStatus(`Restarting ${processName}...`);
+        setProcessToRestart(null);
+        fetch(
+          `${ENV.ORCHESTRATOR_URL}:${ENV.ORCHESTRATOR_PORT}/restart-process`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: processToRestart.name }),
+          },
+        )
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(
+                `HTTP ${response.status}: ${response.statusText}`,
+              );
+            }
+          })
+          .then(() => {
+            setRestartStatus(`${processName} restarted successfully.`);
+            setTimeout(() => setRestartStatus(""), 3000);
+          })
+          .catch((error) => {
+            setRestartStatus(`Failed to restart ${processName}.`);
+            console.error(`Failed to restart ${processName}:`, error);
+            setTimeout(() => setRestartStatus(""), 3000);
+          });
+      } else {
+        setProcessToRestart(null);
+      }
       return;
     }
+
+    // R to initiate restart of the selected process
+    if (input === "r" || input === "R") {
+      if (processes.length > 0 && selectedIndex < processes.length) {
+        setProcessToRestart(processes[selectedIndex]);
+      }
+      return;
+    }
+
     // Handle individual process log display toggle with space
     if (input === " ") {
       if (processes.length > 0 && selectedIndex < processes.length) {
@@ -278,6 +304,12 @@ export const ProcessesSection = () => {
       <Text color={areAllProcessesDisabled() ? "red" : "green"}>
         All Processes: {getAllProcessesStatus()} (Press L to toggle all)
       </Text>
+      {processToRestart && (
+        <Text color="yellow" bold>
+          Restart "{processToRestart.name ?? `pid-${processToRestart.pid}`}"?
+          Press Enter or Y to confirm, any other key to cancel.
+        </Text>
+      )}
       {restartStatus ? <Text color="yellow">{restartStatus}</Text> : null}
       <Text></Text>
 
@@ -315,7 +347,7 @@ export const ProcessesSection = () => {
       {processes.length > 0 && (
         <Text color="gray">
           Use ↑↓ arrows to navigate, SPACE to toggle selected, L to toggle all,
-          R to restart sync
+          R to restart selected process
         </Text>
       )}
     </Box>

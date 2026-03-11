@@ -132,16 +132,16 @@ export async function syncAndWaitForFunds(
           const shieldedSynced = state.shielded.state.progress.isStrictlyComplete() || isSynced;
           const dustSynced = state.dust.state.progress.isStrictlyComplete() || isSynced;
           const unshieldedSynced = state.unshielded?.syncProgress?.synced ?? isSynced;
-          
+
           if (!shieldedSynced || !dustSynced || !unshieldedSynced) return false;
-          
+
           if (waitNonZero) {
             const tokenObj = shieldedToken();
             const tokenId = tokenObj.raw;
             const shieldedBalance = state.shielded.balances[tokenId] ?? 0n;
             return shieldedBalance > 0n;
           }
-          
+
           return true;
         }
       ),

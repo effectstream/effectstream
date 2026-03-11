@@ -60,6 +60,7 @@ const setInitialLogDisplayDisabled = async (
 
 let appConfig: OrchestratorConfigType | null = null;
 let pFactory: ReturnType<typeof processFactory> | null = null;
+export const processRestarters = new Map<string, () => Promise<ProcessComponent>>();
 
 const ProcessLaunch = Type.Object({
   name: Type.String(),
@@ -198,6 +199,7 @@ export async function start(
   setEnv("EFFECTSTREAM_ORCHESTRATOR", "true");
   appConfig = config;
   pFactory = processFactory(config);
+  processRestarters.set(ComponentNames.EFFECTSTREAM_SYNC, () => pFactory![ComponentNames.EFFECTSTREAM_SYNC]());
   setupLogging(config);
   try {
 
@@ -297,28 +299,30 @@ export async function start(
           void setInitialLogDisplayDisabled(name);
         }
 
+        const launchUserProcess = () => $({
+          command,
+          args,
+          component: name,
+          cwd,
+          env,
+          log: logs === 'none' ? undefined : logHandler(
+            { disableStderr: disableStderr ?? false },
+            logs === 'tsLogOrchestratorAdapter'
+              ? tsLogOrchestratorAdapter
+              : undefined,
+          ),
+          abortController: type === "system-dependency"
+            ? abortControllers.system
+            : abortControllers.noncritical,
+          link: link,
+          critical: critical,
+          stdin: logs === 'none' ? 'null' : undefined,
+          stdout: logs === 'none' ? 'null' : undefined,
+          stderr: logs === 'none' ? 'null' : undefined,
+        });
+        processRestarters.set(name, () => Promise.resolve(launchUserProcess()));
         try {
-          processComponent = $({
-            command,
-            args,
-            component: name,
-            cwd,
-            env,
-            log: logs === 'none' ? undefined : logHandler(
-              { disableStderr: disableStderr ?? false },
-              logs === 'tsLogOrchestratorAdapter'
-                ? tsLogOrchestratorAdapter
-                : undefined,
-            ),
-            abortController: type === "system-dependency"
-              ? abortControllers.system
-              : abortControllers.noncritical,
-            link: link,
-            critical: critical,
-            stdin: logs === 'none' ? 'null' : undefined,
-            stdout: logs === 'none' ? 'null' : undefined,
-            stderr: logs === 'none' ? 'null' : undefined,
-          });
+          processComponent = launchUserProcess();
         } catch (e) {
           if (e instanceof AbortProcessStart) {
             // We stopped all processes, a waiting process is trying to start - as the dependency finished.
