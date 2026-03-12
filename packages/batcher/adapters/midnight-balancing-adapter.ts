@@ -41,6 +41,7 @@ import {
   syncAndWaitForFunds,
   waitForDustFunds,
   type WalletResult,
+  getInitialShieldedState,
 } from "@effectstream/midnight-contracts";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
@@ -72,6 +73,7 @@ export interface MidnightBalancingAdapterConfig {
   walletFundingTimeoutSeconds?: number;
   walletResult?: WalletResult | Promise<WalletResult>;
   syncProtocolName?: string;
+  addShieldedPadding?: boolean;
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
@@ -417,26 +419,124 @@ export class MidnightBalancingAdapter
     };
     const opts = { ttl: createTtl() };
 
+    // Apply shielded padding BEFORE dust balancing so the balance call accounts
+    // for the full padded transaction size (including padding proof costs).
+    // Only applicable for unproven transactions, which can be merged with the
+    // self-transfer before balance. payFees: false ensures the self-transfer
+    // brings no dust of its own — the subsequent balance call covers everything.
+    if (this.config.addShieldedPadding && entry.txStage === "unproven") {
+      try {
+        const paddedTx = await this.applyShieldedPadding(entry.tx as UnprovenTransaction);
+        entry = { tx: paddedTx, txStage: "unproven" };
+      } catch (e) {
+        console.warn(
+          "[balancing] Shielded padding unavailable, submitting without padding. " +
+          "Ensure the batcher wallet has shielded NIGHT tokens.",
+          e,
+        );
+        debugLog(`[balancing] Shielded padding failed: ${e}`);
+      }
+    }
+
+    let recipe: BalancingRecipe;
+
     switch (entry.txStage) {
       case "unbound":
-        return this.walletResult!.wallet.balanceUnboundTransaction(
+        recipe = await this.walletResult!.wallet.balanceUnboundTransaction(
           entry.tx as UnboundTransaction,
           keys,
           opts,
         );
+        // For unbound/finalized the balance step produces a separate balancingTransaction.
+        // Padding must be applied after balance since there is no UnprovenTransaction
+        // to merge into beforehand. payFees: false so no extra dust is added.
+        if (this.config.addShieldedPadding && recipe.balancingTransaction) {
+          try {
+            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction);
+          } catch (e) {
+            console.warn(
+              "[balancing] Shielded padding unavailable, submitting without padding. " +
+              "Ensure the batcher wallet has shielded NIGHT tokens.",
+              e,
+            );
+            debugLog(`[balancing] Shielded padding failed: ${e}`);
+          }
+        }
+        break;
       case "finalized":
-        return this.walletResult!.wallet.balanceFinalizedTransaction(
+        recipe = await this.walletResult!.wallet.balanceFinalizedTransaction(
           entry.tx as FinalizedTransaction,
           keys,
           opts,
         );
+        if (this.config.addShieldedPadding && recipe.balancingTransaction) {
+          try {
+            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction);
+          } catch (e) {
+            console.warn(
+              "[balancing] Shielded padding unavailable, submitting without padding. " +
+              "Ensure the batcher wallet has shielded NIGHT tokens.",
+              e,
+            );
+            debugLog(`[balancing] Shielded padding failed: ${e}`);
+          }
+        }
+        break;
       case "unproven":
-        return this.walletResult!.wallet.balanceUnprovenTransaction(
+        recipe = await this.walletResult!.wallet.balanceUnprovenTransaction(
           entry.tx as UnprovenTransaction,
           keys,
           opts,
         );
+        break;
     }
+
+    return recipe;
+  }
+
+  /**
+   * Merges a shielded NIGHT self-transfer into the balancing transaction.
+   * The transfer is zero-sum (spend 1 unit, receive 1 unit back to self),
+   * so it adds no token imbalance. After proveTx, the INPUT_PROOF_SIZE +
+   * OUTPUT_PROOF_SIZE bytes appear in the finalized transaction's est_size().
+   */
+  private async applyShieldedPadding(
+    balancingTx: UnprovenTransaction,
+  ): Promise<UnprovenTransaction> {
+    if (!this.walletResult) throw new Error("Wallet not initialized");
+
+    debugLog("[balancing] Adding shielded padding...");
+    const keys = this.walletResult.walletZswapSecretKeys;
+    
+    // Get the shielded address using getInitialShieldedState to ensure we have the correct bech32 format
+    // deno-lint-ignore no-explicit-any
+    // const initialState = await getInitialShieldedState((this.walletResult.wallet as any).shielded);
+    // const receiverAddress = initialState.address.coinPublicKeyString();
+    const receiverAddress = 'mn_shield-addr_undeployed1jy8cy2attgg3vmtpyfsz0xfvf9zl9zcf70je90jl3ual67hcuy898ge625crq5vvz6sg0f594szy8ll9r8rfdg8zkxzlex9pdwt7aqcsme28p';
+    const type = '0000000000000000000000000000000000000000000000000000000000000000';
+    // Build a self-transfer: send 1 unit of shielded NIGHT back to ourselves.
+    // payFees: false — dust fees are already in the balancingTx.
+    const paddingRecipe = await this.walletResult.wallet.transferTransaction(
+      [
+        {
+          type: "shielded",
+          outputs: [{
+            type,
+            receiverAddress,
+            amount: 1n
+          }]
+        }
+      ],
+      {
+        shieldedSecretKeys: keys,
+        dustSecretKey: this.walletResult.walletDustSecretKey,
+      },
+      { ttl: createTtl(), payFees: false },
+    );
+
+    // Merge: dust fee inputs stay, shielded input+output are added.
+    // Both are UnprovenTransaction so merge is type-safe.
+    return balancingTx.merge(paddingRecipe.transaction);
   }
 
   /**

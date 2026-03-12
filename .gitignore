@@ -21,3 +21,4 @@ tmp/
 .DS_Store
 .cursor
 midnight-level-db*
+batcher-debug.log

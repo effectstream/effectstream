@@ -37,6 +37,7 @@ const balancingAdapterConfig = midnight_enabled ? {
   walletResult: sharedWalletResult,
   zkConfigPath: counterZkConfigPath,
   syncProtocolName: "parallelMidnight",
+  addShieldedPadding: ENV.getBoolean("MIDNIGHT_ADD_SHIELDED_PADDING", false),
 } : undefined;
 
 export const midnightBalancingAdapter: MidnightBalancingAdapter = midnight_enabled ? new MidnightBalancingAdapter(
