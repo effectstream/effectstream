@@ -29,6 +29,7 @@ const BatcherInputWrapper = Type.Object({
   ], {
     default: "wait-receipt",
   }),
+  timeoutMs: Type.Optional(Type.Number({ description: "Receipt confirmation timeout in milliseconds (default: 60000)" })),
 });
 
 type BatcherInputWrapper = Static<typeof BatcherInputWrapper>;
@@ -289,6 +290,7 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
       const result = await batcher.batchInput(
         adaptedInput as any,
         confirmationLevel,
+        body.timeoutMs,
       );
 
       // Return appropriate response based on confirmation level

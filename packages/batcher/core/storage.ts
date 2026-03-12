@@ -2,6 +2,19 @@ import type { DefaultBatcherInput } from "./types.ts";
 import { mkdirSync } from "node:fs";
 import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { isNotFoundError } from "@effectstream/utils/runtime";
+import * as fs from "node:fs";
+
+// Custom logger for debugging
+function debugLog(message: string) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}\n`;
+  try {
+    fs.appendFileSync("batcher-debug.log", logMessage);
+  } catch (e) {
+    // Ignore if we can't write
+  }
+  console.log(message);
+}
 
 /**
  * Interface for batcher storage operations
@@ -100,16 +113,29 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
     target: string,
   ): Promise<void> {
     try {
+      debugLog(`[Storage] Removing ${processedInputs.length} inputs for target ${target}`);
       // Create a set of keys for the processed inputs for fast lookup
-      const processedKeys = new Set(processedInputs.map((input) => this.createInputKey(input, target)));
+      const processedKeys = new Set(processedInputs.map((input) => {
+        const key = this.createInputKey(input, target);
+        debugLog(`[Storage] Key to remove: ${key}`);
+        return key;
+      }));
 
       // Read all current inputs
       const allInputs = await this.getAllInputs();
+      debugLog(`[Storage] Total inputs in storage: ${allInputs.length}`);
 
       // Filter out the processed inputs
-      const remainingInputs = allInputs.filter((input) =>
-        !processedKeys.has(this.createInputKey(input, target))
-      );
+      const remainingInputs = allInputs.filter((input) => {
+        const key = this.createInputKey(input, target);
+        const shouldRemove = processedKeys.has(key);
+        if (shouldRemove) {
+          debugLog(`[Storage] Found match to remove: ${key}`);
+        }
+        return !shouldRemove;
+      });
+
+      debugLog(`[Storage] Remaining inputs: ${remainingInputs.length}`);
 
       // Write the remaining inputs back to the file
       const content = remainingInputs.map((input) => JSON.stringify(input))
@@ -135,7 +161,14 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
    * Create a unique key for a DefaultBatcherInput for comparison
    */
   private createInputKey(input: T, target: string): string {
-    return `${input.addressType}-${target}-${input.address}-${input.input}-${input.timestamp}-${input.signature ?? ""}`;
+    return [
+      input.addressType,
+      target,
+      input.address,
+      input.timestamp,
+      input.signature ?? "",
+      input.input,
+    ].join("|");
   }
 
   async getInputCountAndSize(): Promise<{ count: number; size: number }> {
