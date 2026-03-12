@@ -74,6 +74,8 @@ export interface MidnightBalancingAdapterConfig {
   walletResult?: WalletResult | Promise<WalletResult>;
   syncProtocolName?: string;
   addShieldedPadding?: boolean;
+  /** Maximum number of transactions to include in a single batch. Defaults to unlimited. */
+  maxBatchSize?: number;
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
@@ -375,7 +377,9 @@ export class MidnightBalancingAdapter
     const txs: DelegatedTxEntry[] = [];
     const selectedInputs: DefaultBatcherInput[] = [];
 
+    const limit = this.config.maxBatchSize ?? Infinity;
     for (const input of inputs) {
+      if (txs.length >= limit) break;
       try {
         txs.push(this.deserializeTxEntry(input));
         selectedInputs.push(input);
@@ -426,7 +430,7 @@ export class MidnightBalancingAdapter
     // brings no dust of its own — the subsequent balance call covers everything.
     if (this.config.addShieldedPadding && entry.txStage === "unproven") {
       try {
-        const paddedTx = await this.applyShieldedPadding(entry.tx as UnprovenTransaction);
+        const paddedTx = await this.applyShieldedPadding(entry.tx as UnprovenTransaction, true);
         entry = { tx: paddedTx, txStage: "unproven" };
       } catch (e) {
         console.warn(
@@ -439,7 +443,7 @@ export class MidnightBalancingAdapter
     }
 
     let recipe: BalancingRecipe;
-
+    // console.log('> BALANCING', entry.txStage, entry.tx);
     switch (entry.txStage) {
       case "unbound":
         recipe = await this.walletResult!.wallet.balanceUnboundTransaction(
@@ -452,7 +456,7 @@ export class MidnightBalancingAdapter
         // to merge into beforehand. payFees: false so no extra dust is added.
         if (this.config.addShieldedPadding && recipe.balancingTransaction) {
           try {
-            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction);
+            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true);
           } catch (e) {
             console.warn(
               "[balancing] Shielded padding unavailable, submitting without padding. " +
@@ -471,7 +475,7 @@ export class MidnightBalancingAdapter
         );
         if (this.config.addShieldedPadding && recipe.balancingTransaction) {
           try {
-            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction);
+            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true);
           } catch (e) {
             console.warn(
               "[balancing] Shielded padding unavailable, submitting without padding. " +
@@ -502,6 +506,7 @@ export class MidnightBalancingAdapter
    */
   private async applyShieldedPadding(
     balancingTx: UnprovenTransaction,
+    payFees: boolean
   ): Promise<UnprovenTransaction> {
     if (!this.walletResult) throw new Error("Wallet not initialized");
 
@@ -531,7 +536,7 @@ export class MidnightBalancingAdapter
         shieldedSecretKeys: keys,
         dustSecretKey: this.walletResult.walletDustSecretKey,
       },
-      { ttl: createTtl(), payFees: false },
+      { ttl: createTtl(), payFees },
     );
 
     // Merge: dust fee inputs stay, shielded input+output are added.

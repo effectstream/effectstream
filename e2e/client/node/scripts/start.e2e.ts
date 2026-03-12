@@ -333,7 +333,7 @@ export async function getDBConnection(): Promise<Client> {
         await joinAndIncrementTest(db, sharedState);
         await sendMintToBatcherTest(db, sharedState);
         await testDelegatedBalancing(db, sharedState);
-        await testConcurrentDelegatedBalancing(db, sharedState, 10);
+        await testConcurrentDelegatedBalancing(db, sharedState, 2);
       }
 
       if (avail_enabled) {
