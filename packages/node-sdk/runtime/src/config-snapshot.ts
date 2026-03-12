@@ -110,11 +110,16 @@ export function* validateAndSnapshotConfig(
     const saved = rows[0].immutable_config as Record<string, unknown>;
     const mismatches: string[] = [];
     console.log("saved", saved);
-    for (const [key, savedValue] of Object.entries(saved)) {
-      console.log("key", key, savedValue, currentImmutable[key]);
-      if (currentImmutable[key] !== savedValue) {
-        mismatches.push(`  ${key}: saved=${JSON.stringify(savedValue)}, current=${JSON.stringify(currentImmutable[key])}`);
+    if (typeof savedValue === "object" && savedValue !== null) {
+      for (const [k, v] of Object.entries(savedValue)) {
+        if (currentImmutable[key][k] !== v) {
+          mismatches.push(`  ${key}.${k}: saved=${JSON.stringify(v)},
+    current=${JSON.stringify(currentImmutable[key][k])}`);
+        }
       }
+    } else if (currentImmutable[key] !== savedValue) {
+      mismatches.push(`  ${key}: saved=${JSON.stringify(savedValue)},
+    current=${JSON.stringify(currentImmutable[key])}`);
     }
 
     if (mismatches.length === 0) {
