@@ -528,6 +528,7 @@ export class MidnightBalancingAdapter
 
     // --- Phase 3: Submit sequentially ---
     let hasDroppedFirst = false;
+    const submitPromises: Promise<void>[] = [];
 
     for (let i = 0; i < pipeline.length; i++) {
       const p = pipeline[i];
@@ -535,51 +536,73 @@ export class MidnightBalancingAdapter
 
       const label = `${i + 1}/${pipeline.length}`;
       let txHashStr = "";
-      try {
-        debugLog(`[balancing] Submitting tx ${label} to node...`);
+      
+      debugLog(`[balancing] Submitting tx ${label} to node...`);
 
-        txHashStr = p.finalized.transactionHash().toString();
-        p.hash = txHashStr;
+      txHashStr = p.finalized.transactionHash().toString();
+      p.hash = txHashStr;
 
-        const data = await this.walletResult!.wallet.submitTransaction(
-          p.finalized,
-        );
-        debugLog(`[balancing] Submission data: ${JSON.stringify(data)}`);
-        debugLog(`[balancing] Submission successful for tx ${label}`);
-        debugLog(`[balancing] Submitted tx ${label}: ${p.hash}`);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        const errMsg = err.message.trim();
-        // Only drop if it's EXACTLY the mempool full error. Any other details mean it should stay in the queue.
-        if (
-          errMsg ===
-            "Transaction submission error: Transaction got dropped, the mempool likely is full and network congested" ||
-          errMsg ===
-            "Transaction got dropped, the mempool likely is full and network congested"
-        ) {
-          if (!hasDroppedFirst) {
+      const submitPromise = this.walletResult!.wallet.submitTransaction(
+        p.finalized,
+      )
+        .then((data) => {
+          debugLog(`[balancing] Submission data: ${JSON.stringify(data)}`);
+          debugLog(`[balancing] Submission successful for tx ${label}`);
+          debugLog(`[balancing] Submitted tx ${label}: ${p.hash}`);
+        })
+        .catch((error) => {
+          const err = error instanceof Error ? error : new Error(String(error));
+          const errMsg = err.message.trim();
+          // Only drop if it's EXACTLY the mempool full error. Any other details mean it should stay in the queue.
+          if (
+            errMsg ===
+              "Transaction submission error: Transaction got dropped, the mempool likely is full and network congested" ||
+            errMsg ===
+              "Transaction got dropped, the mempool likely is full and network congested"
+          ) {
+            if (!hasDroppedFirst) {
+              debugLog(
+                `[balancing] Submit failed for tx ${label} due to expected dropped error. Marking as dropped to remove from queue (first in batch).`,
+              );
+              p.hash = "dropped_" + (txHashStr || Date.now() + "_" + i);
+              p.error = undefined;
+              hasDroppedFirst = true;
+            } else {
+              debugLog(
+                `[balancing] Submit failed for tx ${label} with dropped error, but keeping in queue since a prior tx was already dropped.`,
+              );
+              p.error = err;
+              p.hash = undefined;
+            }
+          } else if (
+            errMsg === "Transaction submission error: Transaction submission failed" ||
+            errMsg === "Transaction submission failed" ||
+            errMsg.includes("Invalid Transaction")
+          ) {
             debugLog(
-              `[balancing] Submit failed for tx ${label} due to expected dropped error. Marking as dropped to remove from queue (first in batch).`,
+              `[balancing] Submit failed for tx ${label} due to unprocessable error. Marking as dropped to remove from queue.`,
             );
             p.hash = "dropped_" + (txHashStr || Date.now() + "_" + i);
             p.error = undefined;
-            hasDroppedFirst = true;
           } else {
-            debugLog(
-              `[balancing] Submit failed for tx ${label} with dropped error, but keeping in queue since a prior tx was already dropped.`,
-            );
             p.error = err;
-            p.hash = undefined;
+            p.hash = undefined; // clear hash if it failed
+            debugLog(
+              `[balancing] Submit failed for tx ${label}: ${p.error.message}`,
+            );
           }
-        } else {
-          p.error = err;
-          p.hash = undefined; // clear hash if it failed
-          debugLog(
-            `[balancing] Submit failed for tx ${label}: ${p.error.message}`,
-          );
-        }
+        });
+
+      submitPromises.push(submitPromise);
+
+      // Wait 100ms before submitting the next element in the pipeline
+      if (i < pipeline.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
+
+    // Wait for all submissions to finish
+    await Promise.all(submitPromises);
 
     // --- Collect results ---
     const succeeded = pipeline.filter((p) => p.hash != null);

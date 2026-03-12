@@ -17,7 +17,6 @@ function debugLog(message: string) {
   console.log(message);
 }
 
-
 /**
  * Handles the complex batch processing logic for a specific target.
  * Separated from the main Batcher class to improve maintainability.
@@ -26,7 +25,9 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
   constructor(
     private batcher: {
       emitStateTransition: (prefix: string, payload: any) => Promise<void>;
-      storage: { removeProcessedInputs: (inputs: T[], target: string) => Promise<void> };
+      storage: {
+        removeProcessedInputs: (inputs: T[], target: string) => Promise<void>;
+      };
       submissionCallbacks: Map<
         string,
         {
@@ -78,7 +79,9 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     selectedInputs: T[],
     timeout: number,
   ): Promise<void> {
-    debugLog(`[BatchProcessor] Starting submitAndConfirmTransaction for target ${target} with ${selectedInputs.length} inputs`);
+    debugLog(
+      `[BatchProcessor] Starting submitAndConfirmTransaction for target ${target} with ${selectedInputs.length} inputs`,
+    );
     const estimatedFee = await adapter.estimateBatchFee(data);
 
     this.batcher.emitStateTransition("batch:fee-estimate", {
@@ -87,7 +90,9 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       time: Date.now(),
     });
 
-    debugLog(`[BatchProcessor] Calling adapter.submitBatch for target ${target}`);
+    debugLog(
+      `[BatchProcessor] Calling adapter.submitBatch for target ${target}`,
+    );
     const hash = await adapter.submitBatch(data, estimatedFee);
     debugLog(`[BatchProcessor] adapter.submitBatch returned hash: ${hash}`);
 
@@ -101,18 +106,27 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     // Check if the adapter mutated selectedInputs in the data object
     // This is a pattern used by some adapters (like midnight-balancing) to handle partial failures
     let finalSelectedInputs = selectedInputs;
-    if (data && typeof data === 'object' && 'selectedInputs' in data && Array.isArray((data as any).selectedInputs)) {
+    if (
+      data && typeof data === "object" && "selectedInputs" in data &&
+      Array.isArray((data as any).selectedInputs)
+    ) {
       finalSelectedInputs = (data as any).selectedInputs as T[];
-      debugLog(`[BatchProcessor] Adapter mutated selectedInputs. New length: ${finalSelectedInputs.length}`);
+      debugLog(
+        `[BatchProcessor] Adapter mutated selectedInputs. New length: ${finalSelectedInputs.length}`,
+      );
     }
 
-    debugLog(`[BatchProcessor] Submitting ${finalSelectedInputs.length} inputs for target ${target} with hash ${hash}`);
+    debugLog(
+      `[BatchProcessor] Submitting ${finalSelectedInputs.length} inputs for target ${target} with hash ${hash}`,
+    );
 
     // Wait for confirmation and EffectStream processing
     // Use the adapter's specific timeout if available, otherwise fallback to the default
     const adapterTimeout = (adapter as any).config?.receiptTimeoutMs || timeout;
-    
-    debugLog(`[BatchProcessor] Calling handleTransactionConfirmation for hash ${hash} with timeout ${adapterTimeout}`);
+
+    debugLog(
+      `[BatchProcessor] Calling handleTransactionConfirmation for hash ${hash} with timeout ${adapterTimeout}`,
+    );
     await this.handleTransactionConfirmation(
       adapter,
       target,
@@ -129,10 +143,14 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     selectedInputs: T[],
     timeout: number,
   ): Promise<void> {
-    debugLog(`[BatchProcessor] Waiting for transaction receipt for ${hash} (timeout: ${timeout}ms)...`);
+    debugLog(
+      `[BatchProcessor] Waiting for transaction receipt for ${hash} (timeout: ${timeout}ms)...`,
+    );
     const receipt = await adapter.waitForTransactionReceipt(hash, timeout);
-    debugLog(`[BatchProcessor] Got transaction receipt for ${hash} at block ${receipt.blockNumber}`);
-    
+    debugLog(
+      `[BatchProcessor] Got transaction receipt for ${hash} at block ${receipt.blockNumber}`,
+    );
+
     this.batcher.emitStateTransition("batch:receipt", {
       target,
       blockNumber: receipt.blockNumber,
@@ -140,7 +158,9 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     });
 
     // Remove processed inputs from storage after successful receipt
-    debugLog(`[BatchProcessor] Removing ${selectedInputs.length} processed inputs from storage for target ${target}...`);
+    debugLog(
+      `[BatchProcessor] Removing ${selectedInputs.length} processed inputs from storage for target ${target}...`,
+    );
     await this.batcher.storage.removeProcessedInputs(selectedInputs, target);
     debugLog(`[BatchProcessor] Successfully removed inputs from storage.`);
 
@@ -219,10 +239,21 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       const callbackKey = this.batcher.getCallbackKey(input);
       const callbacks = this.batcher.submissionCallbacks.get(callbackKey);
       if (callbacks) {
-        const inputReceipt = isMultiHash 
-          ? { ...receipt, hash: hashes[i] }
-          : receipt;
-        callbacks.resolve(inputReceipt);
+        const inputHash = isMultiHash ? hashes[i] : receipt.hash;
+
+        if (inputHash.startsWith("dropped_")) {
+          callbacks.reject(new Error(`Transaction dropped: ${inputHash}`));
+        } else if (receipt.status === 0 && !isMultiHash) {
+          callbacks.reject(
+            new Error(`Transaction failed on-chain: ${inputHash}`),
+          );
+        } else {
+          const inputReceipt = isMultiHash
+            ? { ...receipt, hash: inputHash }
+            : receipt;
+          callbacks.resolve(inputReceipt);
+        }
+
         clearTimeout(callbacks.timeoutId);
         this.batcher.submissionCallbacks.delete(callbackKey);
       }
