@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import * as ledger from '@midnight-ntwrk/ledger-v7';
+import * as ledger from '@midnight-ntwrk/ledger-v7'; // '@midnight-ntwrk/ledger-v8';
 
 // TODO This alternative implementation should be the native way to decode the event.
 function new_decodeZswapInputEvent(rawHex: string): ledger.Event | null {

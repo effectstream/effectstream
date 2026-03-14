@@ -17,7 +17,7 @@ import {
   EncPublicKey,
   FinalizedTransaction,
   Transaction as LedgerV6Transaction,
-} from "@midnight-ntwrk/ledger-v7";
+} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
 
 import { Contract } from '@midnight-ntwrk/compact-js';
 import {

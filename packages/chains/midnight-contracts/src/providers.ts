@@ -2,17 +2,19 @@
 // Provider Configuration
 // ============================================================================
 
+import { Buffer } from "node:buffer";
 import type { ZswapSecretKeys, DustSecretKey, CoinPublicKey, EncPublicKey, FinalizedTransaction, TransactionId } from "@midnight-ntwrk/ledger-v7";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
-import type { WalletProvider, MidnightProvider, MidnightProviders } from "@midnight-ntwrk/midnight-js-types";
-import type { UnboundTransaction, WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
+import type { WalletProvider, MidnightProvider, MidnightProviders, UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
+import type { WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
 import type { NetworkUrls } from "./types.ts";
 import type { UnshieldedKeystore } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
 import { CONSTANTS } from "./constants.ts";
-import { Contract } from "@midnight-ntwrk/compact-js";
+// import { Contract } from "@midnight-ntwrk/compact-js";
+import { getEnv } from "@effectstream/utils/runtime";
 
 /**
  * Create a TTL date for transactions
@@ -98,7 +100,9 @@ function createWalletAndMidnightProvider(
         midnightDbName: "midnight-level-db-deploy", // Use separate DB for deployment to avoid lock conflicts
         privateStateStoreName,
         signingKeyStoreName,
-        walletProvider: walletAndMidnightProvider, // Use wallet's encryption key for private state
+        // walletProvider: walletAndMidnightProvider, // Use wallet's encryption key for private state
+        privateStoragePasswordProvider: async () => getEnv("MIDNIGHT_STORAGE_PASSWORD") ?? "YourPasswordMy1!",
+        accountId: Buffer.from(zswapSecretKeys.coinPublicKey).toString('hex'),
       }), // Type assertion: runtime supports walletProvider even though types don't reflect it yet
       publicDataProvider: indexerPublicDataProvider(
         networkUrls.indexer,
