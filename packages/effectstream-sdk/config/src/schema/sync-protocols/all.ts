@@ -36,6 +36,10 @@ import {
   CommonResponseBitcoinRpcParallel,
   ConfigSyncProtocolSchemaBitcoinParallel,
 } from "./bitcoin/rpc.ts";
+import {
+  CommonResponseCelestiaRpcParallel,
+  ConfigSyncProtocolSchemaCelestiaParallel,
+} from "./celestia/rpc.ts";
 import type { ToMapping } from "../utils.ts";
 import { ConfigSyncProtocolDecorator } from "./decorators/all.ts";
 import {
@@ -66,6 +70,8 @@ export const parallelSyncProtocolTypes = {
     ConfigSyncProtocolSchemaMidnightParallel,
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]:
     ConfigSyncProtocolSchemaBitcoinParallel,
+  [ConfigSyncProtocolType.CELESTIA_PARALLEL]:
+    ConfigSyncProtocolSchemaCelestiaParallel,
 } as const;
 
 export const syncProtocolCommonResponse = {
@@ -81,6 +87,8 @@ export const syncProtocolCommonResponse = {
     CommonResponseMidnightGraphqlParallel,
   [ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL]:
     CommonResponseBitcoinRpcParallel,
+  [ConfigSyncProtocolType.CELESTIA_PARALLEL]:
+    CommonResponseCelestiaRpcParallel,
 } as const satisfies Record<ConfigSyncProtocolType, TSchema>;
 export type ConfigSyncProtocolCommonAll = typeof syncProtocolCommonResponse;
 

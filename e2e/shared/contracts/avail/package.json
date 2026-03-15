@@ -14,6 +14,7 @@
     "avail-light-client:clean": "rm -rf ./avail_path"
   },
   "dependencies": {
+    "@effectstream/utils": "workspace:*",
     "avail-js-sdk": "^0.4.2"
   },
   "devDependencies": {

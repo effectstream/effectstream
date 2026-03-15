@@ -6,6 +6,8 @@ import {
   insertAvailMessage,
   insertBitcoinTransaction,
   insertCounterInput,
+  insertCounterEntry,
+  insertCounterMapOfMap,
   insertStateMachineInput,
   insertSumIntoExampleTable,
 } from "@e2e/database";
@@ -96,6 +98,30 @@ stm.addStateTransition("attack", function* (data) {
 stm.addStateTransition("midnightContractState", function* (data) {
   const { payload } = data.parsedInput;
   console.log("🎉 [MIDNIGHT] Transaction receipt:", JSON.stringify(payload));
+  
+  if (payload.entries) {
+    for (const [id, value] of Object.entries(payload.entries)) {
+      yield* World.resolve(insertCounterEntry, {
+        entry_id: id,
+        value: String(value),
+        block_height: data.blockHeight,
+      });
+    }
+  }
+  
+  if (payload.map_of_map) {
+    for (const [outerId, innerMap] of Object.entries(payload.map_of_map)) {
+      for (const [innerId, value] of Object.entries(innerMap as Record<string, string>)) {
+        yield* World.resolve(insertCounterMapOfMap, {
+          outer_id: outerId,
+          inner_id: innerId,
+          value: String(value),
+          block_height: data.blockHeight,
+        });
+      }
+    }
+  }
+  
   return;
 });
 
@@ -173,6 +199,26 @@ stm.addStateTransition("counter-stm", function* (data) {
     counter,
     block_height: data.blockHeight,
   });
+  return;
+});
+
+stm.addStateTransition("celestia-blob", function* (data) {
+  const { payload } = data.parsedInput;
+  let parsedPayload: unknown;
+  try {
+    parsedPayload = JSON.parse(payload.suppliedValue);
+  } catch {
+    parsedPayload = payload.suppliedValue;
+  }
+  console.log(
+    `[${Date.now()}]`,
+    "🌌 [CELESTIA] Blob received at block",
+    data.blockHeight,
+    "| content:",
+    typeof parsedPayload === "object"
+      ? JSON.stringify(parsedPayload)
+      : parsedPayload,
+  );
   return;
 });
 

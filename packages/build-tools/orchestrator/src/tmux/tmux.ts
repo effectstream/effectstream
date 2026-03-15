@@ -27,7 +27,8 @@
 // https://github.com/denoland/deno/issues/29904
 import install_sh from "./install.sh.ts";
 import session_tmux from "./session.tmux.ts";
-import { spawnOutput, type SpawnOutputResult } from "@effectstream/utils/runtime";
+import { type SpawnOutputResult } from "@effectstream/utils/runtime-spawn";
+import { spawnOutput } from "@effectstream/utils/runtime-spawn";
 
 export interface TmuxOptions {
   /**

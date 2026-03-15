@@ -12,7 +12,7 @@ import {
 type VERSION = `${number}.${number}.${number}`;
 type VERSION_NUMBER = [number, number, number];
 // NOTE This must match the version of the root deno.json
-export const EFFECTSTREAM_ENGINE_VERSION: VERSION = "0.3.20";
+export const EFFECTSTREAM_ENGINE_VERSION: VERSION = "0.8.1";
 
 export { applyMigrations } from "../scripts/apply-migrations.ts";
 

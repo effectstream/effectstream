@@ -46,6 +46,7 @@ export const SecondaryComponents = {
   // This is the entry point, so it gets launched by default.
   ORCHESTRATOR: "orchestrator",
   // Thses processes are launched by their counterpart.
+  DOLOS_FILL_TEMPLATE: "dolos-fill-template",
   DOLOS_WAIT: "dolos-wait",
   YACI_DEVKIT_WAIT: "yaci-devkit-wait",
   MIDNIGHT_NODE_WAIT: "midnight-node-wait",

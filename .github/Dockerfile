@@ -81,6 +81,7 @@ RUN bun run --filter '*' contract:compile
 # START E2E TESTS
 # Launching processes en parallel generates issues on linux
 ENV EFFECTSTREAM_ORCHESTRATOR_SERIAL=true
+ENV DISABLE_CARDANO=true
 # Show Effectstream logs
 ENV EFFECTSTREAM_STDOUT=true
 CMD ["bun", "run", "--filter", "@e2e/node", "e2e"]

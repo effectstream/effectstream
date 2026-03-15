@@ -202,6 +202,13 @@ const definitions: Record<string, ConfigDefinition> = {
     description:
       "Enable single connection mode and other specific PGLite features. IMPORTANT enable only for development. ('true' or 'false')",
   },
+  PGLITE_DATA_DIR: {
+    key: "PGLITE_DATA_DIR",
+    type: "string",
+    defaultValue: "memory://",
+    description:
+      "PGLite data directory. Use 'memory://' for in-memory (default) or a file path for persistent storage. Example: './pglite-data'",
+  },
   DEBUG_PGLITE: {
     key: "DEBUG_PGLITE",
     type: "number",
@@ -306,6 +313,9 @@ export class ENV {
   }
   static get PGLITE(): boolean {
     return ENV.getConfig(definitions.PGLITE);
+  }
+  static get PGLITE_DATA_DIR(): string {
+    return ENV.getConfig(definitions.PGLITE_DATA_DIR);
   }
   static get DEBUG_PGLITE(): number {
     return ENV.getConfig(definitions.DEBUG_PGLITE);

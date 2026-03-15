@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/mod.ts",
     "./node-env": "./src/config.ts",
-    "./runtime": "./src/runtime.ts"
+    "./runtime": "./src/runtime.ts",
+    "./runtime-spawn": "./src/runtime-spawn.ts"
   },
   "dependencies": {
     "@coderspirit/nominal": "^4.1.1",

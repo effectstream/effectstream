@@ -1,6 +1,8 @@
 /** Types generated for queries found in "src/sql/system.sql" */
 import { PreparedQuery } from '@pgtyped/runtime';
 
+export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+
 /** 'GetTableSchema' parameters type */
 export interface IGetTableSchemaParams {
   tableName: string;
@@ -290,5 +292,65 @@ const getAllTableNamesIR: any = {"usedParamSet":{},"params":[],"statement":"SELE
  * ```
  */
 export const getAllTableNames = new PreparedQuery<IGetAllTableNamesParams,IGetAllTableNamesResult>(getAllTableNamesIR);
+
+
+/** 'UpsertSyncProtocolConfigSnapshot' parameters type */
+export interface IUpsertSyncProtocolConfigSnapshotParams {
+  immutableConfig: Json;
+  networkType: string;
+  protocolName: string;
+}
+
+/** 'UpsertSyncProtocolConfigSnapshot' return type */
+export type IUpsertSyncProtocolConfigSnapshotResult = void;
+
+/** 'UpsertSyncProtocolConfigSnapshot' query type */
+export interface IUpsertSyncProtocolConfigSnapshotQuery {
+  params: IUpsertSyncProtocolConfigSnapshotParams;
+  result: IUpsertSyncProtocolConfigSnapshotResult;
+}
+
+const upsertSyncProtocolConfigSnapshotIR: any = {"usedParamSet":{"protocolName":true,"networkType":true,"immutableConfig":true},"params":[{"name":"protocolName","required":true,"transform":{"type":"scalar"},"locs":[{"a":111,"b":124}]},{"name":"networkType","required":true,"transform":{"type":"scalar"},"locs":[{"a":127,"b":139}]},{"name":"immutableConfig","required":true,"transform":{"type":"scalar"},"locs":[{"a":142,"b":158}]}],"statement":"INSERT INTO effectstream.sync_protocol_config_snapshot (protocol_name, network_type, immutable_config)\nVALUES (:protocolName!, :networkType!, :immutableConfig!)\nON CONFLICT (protocol_name) DO NOTHING"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO effectstream.sync_protocol_config_snapshot (protocol_name, network_type, immutable_config)
+ * VALUES (:protocolName!, :networkType!, :immutableConfig!)
+ * ON CONFLICT (protocol_name) DO NOTHING
+ * ```
+ */
+export const upsertSyncProtocolConfigSnapshot = new PreparedQuery<IUpsertSyncProtocolConfigSnapshotParams,IUpsertSyncProtocolConfigSnapshotResult>(upsertSyncProtocolConfigSnapshotIR);
+
+
+/** 'GetSyncProtocolConfigSnapshot' parameters type */
+export interface IGetSyncProtocolConfigSnapshotParams {
+  protocolName: string;
+}
+
+/** 'GetSyncProtocolConfigSnapshot' return type */
+export interface IGetSyncProtocolConfigSnapshotResult {
+  immutable_config: Json;
+  network_type: string;
+  protocol_name: string;
+}
+
+/** 'GetSyncProtocolConfigSnapshot' query type */
+export interface IGetSyncProtocolConfigSnapshotQuery {
+  params: IGetSyncProtocolConfigSnapshotParams;
+  result: IGetSyncProtocolConfigSnapshotResult;
+}
+
+const getSyncProtocolConfigSnapshotIR: any = {"usedParamSet":{"protocolName":true},"params":[{"name":"protocolName","required":true,"transform":{"type":"scalar"},"locs":[{"a":123,"b":136}]}],"statement":"SELECT protocol_name, network_type, immutable_config\nFROM effectstream.sync_protocol_config_snapshot\nWHERE protocol_name = :protocolName!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT protocol_name, network_type, immutable_config
+ * FROM effectstream.sync_protocol_config_snapshot
+ * WHERE protocol_name = :protocolName!
+ * ```
+ */
+export const getSyncProtocolConfigSnapshot = new PreparedQuery<IGetSyncProtocolConfigSnapshotParams,IGetSyncProtocolConfigSnapshotResult>(getSyncProtocolConfigSnapshotIR);
 
 

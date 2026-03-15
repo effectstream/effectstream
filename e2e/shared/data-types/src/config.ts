@@ -23,6 +23,8 @@ import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeBitcoinAddress,
   PrimitiveTypeUtxorpcGeneric,
+  PrimitiveTypeMidnightNullifier,
+  PrimitiveTypeCelestiaGeneric,
 } from "@effectstream/sm/builtin";
 import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
 import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
@@ -30,10 +32,11 @@ import { getEnv } from "@effectstream/utils/runtime";
 
 const isBackendEnvironment = typeof process !== "undefined" && process.env;
 
-const isEnvTrue = (key: string) => {
+const isEnvTrue = (key: string, defaultValue?: boolean) => {
   const val = isBackendEnvironment
     ? getEnv(key)
     : (import.meta as any).env["VITE_" + key];
+  if (val == null && typeof defaultValue === 'boolean') return defaultValue; 
   return ["true", "1", "yes", "y"].includes((val || "").toLowerCase());
 };
 
@@ -41,7 +44,7 @@ const isEnvTrue = (key: string) => {
 // TODO: This is a workaround to disable yaci-devkit in linux for testing.
 //       There is a unknown error when launching this process.
 //       error: Text file busy (os error 26)
-const yaci_enabled = false; //!isEnvTrue("DISABLE_YACI");
+const cardano_enabled = !isEnvTrue("DISABLE_CARDANO");
 
 // NOTE: This disable midnight sync, allowing for faster testing.
 const midnight_enabled = !isEnvTrue("DISABLE_MIDNIGHT");
@@ -53,6 +56,9 @@ const avail_enabled = !isEnvTrue("DISABLE_AVAIL");
 const bitcoin_enabled = !isEnvTrue("DISABLE_BITCOIN");
 
 const evm_enabled = !isEnvTrue("DISABLE_EVM");
+
+// NOTE: This disables celestia sync, allowing for faster testing.
+const celestia_enabled = !isEnvTrue("DISABLE_CELESTIA", true);
 
 /**
  * Let check if the db.
@@ -69,8 +75,8 @@ if (typeof process !== 'undefined') {
   const dbConn = getConnection();
   try {
     const result = await dbConn.query(`
-      SELECT * FROM effectstream.sync_protocol_pagination 
-      WHERE protocol_name = '${mainSyncProtocolName}' 
+      SELECT * FROM effectstream.sync_protocol_pagination
+      WHERE protocol_name = '${mainSyncProtocolName}'
       ORDER BY page_number ASC
       LIMIT 1
     `);
@@ -85,11 +91,13 @@ if (typeof process !== 'undefined') {
   }
 
     // We fetch the latest block from the dolos mini blockfrost endpoint
-    if (yaci_enabled) {
-      const response = await fetch("http://localhost:3000/blocks/latest");
-      yaciDevKitStartTime = (await response.json()).time * 1000;
+    if (cardano_enabled) {
+      const latestResponse = await fetch("http://localhost:3000/blocks/latest");
+      const latestBlock = await latestResponse.json();
+      yaciDevKitStartTime = latestBlock.time * 1000;
       yaciDevKitStartTime = new Date().getTime() - yaciDevKitStartTime;
       console.log("yaciDevKitStartTime", yaciDevKitStartTime);
+
     }
 }
 
@@ -147,7 +155,7 @@ export const config = new ConfigBuilder()
         });
     }
 
-    if (yaci_enabled) {
+    if (cardano_enabled) {
       b = b
         .addNetwork({
           name: "yaci",
@@ -167,6 +175,14 @@ export const config = new ConfigBuilder()
         },
         network: "regtest",
         chainIdentifier: "regtest",
+      });
+    }
+    if (celestia_enabled) {
+      b = b.addNetwork({
+        name: "celestia",
+        type: ConfigNetworkType.CELESTIA,
+        // Celestia Light Node RPC (default port 26658)
+        rpcUrl: "http://127.0.0.1:26658",
       });
     }
     return b;
@@ -241,7 +257,7 @@ export const config = new ConfigBuilder()
         );
     }
 
-    if (yaci_enabled) {
+    if (cardano_enabled) {
 
       result = result
         .addParallel(
@@ -250,7 +266,7 @@ export const config = new ConfigBuilder()
             name: "parallelUtxoRpc",
             type: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
             rpcUrl: "http://127.0.0.1:50051", // dolos utxorpc address
-            startSlot: 1,
+            startChainPoint: "origin",
             // TODO: The exact delay is not correct, but it's close.
             // byron-genesis.json startTime
             // 633 skipped slots
@@ -275,6 +291,20 @@ export const config = new ConfigBuilder()
           delayMs: 20000,
           pollingInterval: 10_000,
           confirmationDepth: 0,
+        }),
+      );
+    }
+
+    if (celestia_enabled) {
+      result = result.addParallel(
+        (networks) => (networks as any).celestia,
+        (network, deployments) => ({
+          name: "parallelCelestia",
+          type: ConfigSyncProtocolType.CELESTIA_PARALLEL,
+          startBlockHeight: 1 as BlockNumber,
+          pollingInterval: 6_000, // ~6s polling (Celestia ~12s block time)
+          delayMs: 12_000,        // 1 block delay for safety
+          confirmationDepth: 1,
         }),
       );
     }
@@ -401,6 +431,15 @@ export const config = new ConfigBuilder()
             stateMachinePrefix: "midnightContractState",
             contract: { ledger: CounterContract.ledger },
             networkId: midnightNetworkConfig.id,
+            // Schema lists all ledger fields in Compact declaration order.
+            // The generic parser uses these to parse fields that contract.ledger()
+            // does not return (e.g. Map types). contract.ledger() results take
+            // precedence for fields it does handle (e.g. round).
+            ledgerSchema: {
+              round: "uint128",
+              entries: { type: "map", value: "uint128" },
+              map_of_map: { type: "map", value: { type: "map", value: "uint128" } },
+            },
           }),
         ).addPrimitive(
           (syncProtocols) => (syncProtocols as any).parallelMidnight,
@@ -411,6 +450,15 @@ export const config = new ConfigBuilder()
             contractAddress: eip20Address,
             stateMachinePrefix: "eip20ContractState",
             contract: { ledger: SimpleTokenContract.ledger },
+            networkId: midnightNetworkConfig.id,
+          }),
+        ).addPrimitive(
+          (syncProtocols) => (syncProtocols as any).parallelMidnight,
+          (network, deployments, syncProtocol) => ({
+            name: "Midnight-Nullifier",
+            type: PrimitiveTypeMidnightNullifier,
+            startBlockHeight: 1,
+            stateMachinePrefix: "midnightNullifierState",
             networkId: midnightNetworkConfig.id,
           }),
         );
@@ -427,7 +475,7 @@ export const config = new ConfigBuilder()
         }),
       );
     }
-    if (yaci_enabled) {
+    if (cardano_enabled) {
       b = b.addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelUtxoRpc,
         (network, deployments, syncProtocol) => ({
@@ -444,6 +492,20 @@ export const config = new ConfigBuilder()
               }
             }
           },
+        }),
+      );
+    }
+    if (celestia_enabled) {
+      b = b.addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelCelestia,
+        (network, deployments, syncProtocol) => ({
+          name: "CelestiaBlob",
+          type: PrimitiveTypeCelestiaGeneric,
+          startBlockHeight: 1,
+          // The hex-encoded Celestia namespace to watch for blobs.
+          // Replace with your application's actual namespace.
+          namespace: "000000000000deadbeef",
+          stateMachinePrefix: "celestia-blob",
         }),
       );
     }

@@ -1,6 +1,8 @@
 import { Account, Pallets, SDK } from "avail-js-sdk";
 import { getEnv } from "@effectstream/utils/runtime";
-import { spawn } from "node:child_process";
+//import { spawn } from "node:child_process";
+import { cwd } from "@effectstream/utils/runtime";
+import { spawn } from "@effectstream/utils/runtime-spawn";
 import { writeFile } from "node:fs/promises";
 
 const sdk = await SDK.New("ws://localhost:9955/ws");

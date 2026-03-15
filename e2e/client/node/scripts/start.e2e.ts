@@ -21,6 +21,7 @@ import { testMigrations } from "../e2e-tests/e2e.migrations.ts";
 import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
 import { bitcoinTest, bitcoinBatcherTest } from "../e2e-tests/e2e.bitcoin.test.ts";
+import { submitBlobCelestiaTest } from "../e2e-tests/e2e.celestia.test.ts";
 import { getEffectstreamEVMPublicClient } from "@e2e/engine";
 import { getEnv, exit } from "@effectstream/utils/runtime";
 import type { Client, PoolConfig } from "pg";
@@ -31,10 +32,11 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const external_db_enabled = ENV.getBoolean("EXTERNAL_DB_ENABLED");
 
 const evm_enabled = !ENV.getBoolean("DISABLE_EVM");
-const yaci_enabled = false; //!ENV.getBoolean("DISABLE_YACI")
+const cardano_enabled = !ENV.getBoolean("DISABLE_CARDANO");
 const midnight_enabled = !ENV.getBoolean("DISABLE_MIDNIGHT");
 const avail_enabled = !ENV.getBoolean("DISABLE_AVAIL");
 const bitcoin_enabled = !ENV.getBoolean("DISABLE_BITCOIN");
+const celestia_enabled = !ENV.getBoolean("DISABLE_CELESTIA", true);
 
 const is_serial = ENV.getBoolean("EFFECTSTREAM_ORCHESTRATOR_SERIAL");
 /**
@@ -70,7 +72,7 @@ if (bitcoin_enabled) {
   lastProcess = bitcoin_processes[bitcoin_processes.length - 1].name;
 }
 
-if (yaci_enabled) {
+if (cardano_enabled) {
   cardano_processes = launchCardano("@e2e/cardano-contracts");
   // TODO Cardano processes are skipped if the dependencies are not met.
   if (cardano_processes.length > 0) {
@@ -128,7 +130,7 @@ export async function startup(): Promise<Client> {
           evm_enabled ? ComponentNames.DEPLOY_EVM_CONTRACTS : undefined,
           midnight_enabled ? ComponentNames.MIDNIGHT_CONTRACT : undefined,
           avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
-          yaci_enabled ? ComponentNames.DOLOS_WAIT : undefined,
+          cardano_enabled ? ComponentNames.DOLOS_WAIT : undefined,
           bitcoin_enabled ? ComponentNames.BITCOIN_WAIT_FOR_BLOCK : undefined,
         ].filter(Boolean),
       },
@@ -139,7 +141,7 @@ export async function startup(): Promise<Client> {
         dependsOn: [
           is_serial ? lastProcess : undefined,
           'batcher',
-          (yaci_enabled && cardano_processes.length > 0) ? ComponentNames.DOLOS_WAIT : undefined,
+          (cardano_enabled && cardano_processes.length > 0) ? ComponentNames.DOLOS_WAIT : undefined,
           avail_enabled ? ComponentNames.AVAIL_CLIENT_WAIT : undefined,
         ].filter(Boolean),
       },
@@ -345,7 +347,11 @@ export async function getDBConnection(): Promise<Client> {
         await bitcoinTest(db, sharedState);
         await bitcoinBatcherTest(db, sharedState);
       }
-      
+
+      if (celestia_enabled) {
+        await submitBlobCelestiaTest(db, sharedState);
+      }
+
       await testMigrations(db);
       
       // Done testing.
