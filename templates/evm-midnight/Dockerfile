@@ -1,9 +1,9 @@
-# For macos build & run: 
-# DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build -t evm-midnight-sample -f Dockerfile . 
+# For macos build & run:
+# DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build -t evm-midnight-sample -f Dockerfile .
 # DOCKER_DEFAULT_PLATFORM=linux/amd64 docker run evm-midnight-sample
 
 # Use Ubuntu as base image
-FROM denoland/deno:ubuntu-2.5.4
+FROM oven/bun:1-ubuntu
 
 
 # # Update package list and install required dependencies
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     # We have some scripts that use lsof
     lsof \
-    # iproute2 is required for ss command - for dkill.
+    # iproute2 is required for ss command - for fkill.
     iproute2 \
     # xz is required for compactc
     xz-utils \
@@ -25,8 +25,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# # Verify Deno installation
-RUN deno --version
+# # Verify Bun installation
+RUN bun --version
 
 # # Verify Node.js installation
 RUN node --version && npm --version
@@ -58,10 +58,10 @@ RUN chmod +x /app/patch.sh
 # Clone the repository
 COPY . .
 
-RUN deno install --allow-scripts
+RUN bun install
 RUN /app/patch.sh
-RUN deno task build:evm
-RUN deno task build:midnight
+RUN bun run build:evm
+RUN bun run build:midnight
 
 # Frontend / Explorer / API / Hardhat 1&2 / Midnight Proof
 EXPOSE 10599
@@ -75,4 +75,4 @@ EXPOSE 6300
 
 ENV RUN_IN_DOCKER=true
 ENV EFFECTSTREAM_STDOUT=true
-CMD ["deno", "task", "dev"]
+CMD ["bun", "run", "dev"]

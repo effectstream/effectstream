@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run -A
+#!/usr/bin/env bun
 import { spawn } from "node:child_process";
 import { args, exit } from "@effectstream/utils/runtime";
 

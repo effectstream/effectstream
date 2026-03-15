@@ -1,7 +1,6 @@
-import { assertEquals } from "jsr:@std/assert";
+import { test, expect } from "bun:test";
 import { generatePaimaBlockHash } from "./paima-hash.ts";
 import type { BlockHash, PaimaBlockHash } from "@effectstream/utils";
-import { test } from "@effectstream/utils/runtime";
 
 test("generatePaimaBlockHash - generates hash correctly", () => {
   const mockBlock = {
@@ -13,9 +12,9 @@ test("generatePaimaBlockHash - generates hash correctly", () => {
   const prevHash = "0xabc" as PaimaBlockHash;
 
   const result = generatePaimaBlockHash(mockBlock, prevHash);
-  
-  assertEquals(typeof result, "string");
-  assertEquals(result.startsWith("0x"), true);
+
+  expect(typeof result).toEqual("string");
+  expect(result.startsWith("0x")).toEqual(true);
 });
 
 test("generatePaimaBlockHash - handles null previous hash", () => {
@@ -25,10 +24,9 @@ test("generatePaimaBlockHash - handles null previous hash", () => {
         ]
       };
       const prevHash = null;
-    
-      const result = generatePaimaBlockHash(mockBlock, prevHash);
-      
-      assertEquals(typeof result, "string");
-      assertEquals(result.startsWith("0x"), true);
-});
 
+      const result = generatePaimaBlockHash(mockBlock, prevHash);
+
+      expect(typeof result).toEqual("string");
+      expect(result.startsWith("0x")).toEqual(true);
+});

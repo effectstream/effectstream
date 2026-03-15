@@ -1,5 +1,19 @@
 {
-    "dependencies": {
-        "@electric-sql/pglite": "^0.3.14"
-    }
+  "private": true,
+  "workspaces": [
+    "packages/client/*",
+    "packages/shared/*",
+    "packages/shared/**/*",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "build:evm": "bun run --filter @chess/evm-contracts build:mod",
+    "dev": "bun run --filter @chess/node dev",
+    "start:frontend": "bun run --filter @chess/frontend dev",
+    "check": "bun run --filter @chess/node check"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@paimaexample/evm-contracts": "0.3.116"
+  }
 }

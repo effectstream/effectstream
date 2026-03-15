@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run -A
+#!/usr/bin/env bun
 /**
  * Manual deployment script for NFT contracts
  * Run this after the dev server is running to deploy contracts
@@ -7,7 +7,7 @@
 import { deploy } from "./deploy.ts";
 
 console.log("Starting manual contract deployment...");
-console.log("Make sure the dev server is running with 'deno task dev' in another terminal");
+console.log("Make sure the dev server is running with 'bun run dev' in another terminal");
 console.log("");
 
 try {
@@ -29,7 +29,7 @@ try {
   }
   console.error("");
   console.error("Make sure:");
-  console.error("  1. The dev server is running (deno task dev)");
+  console.error("  1. The dev server is running (bun run dev)");
   console.error("  2. The Hardhat network is accessible on localhost:8545");
-  Deno.exit(1);
+  process.exit(1);
 }

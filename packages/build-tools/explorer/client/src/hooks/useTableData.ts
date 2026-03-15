@@ -776,9 +776,9 @@ export function useTableData() {
 
   // Initialize and setup refresh intervals
   useEffect(() => {
-    let primitiveRefreshInterval: number;
-    let userTableRefreshInterval: number;
-    let scheduledDataRefreshInterval: number;
+    let primitiveRefreshInterval: ReturnType<typeof setInterval>;
+    let userTableRefreshInterval: ReturnType<typeof setInterval>;
+    let scheduledDataRefreshInterval: ReturnType<typeof setInterval>;
 
     const initialize = async () => {
       // Initialize tables

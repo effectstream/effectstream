@@ -1,5 +1,4 @@
-import { assertEquals, assertRejects } from "jsr:@std/assert";
-import { test } from "@effectstream/utils/runtime";
+import { test, expect } from "bun:test";
 import { countdownLatch } from "./latch.ts";
 import { run, sleep, spawn } from "effection";
 
@@ -14,25 +13,25 @@ test("countdownLatch - waits for countdown", async () => {
     });
 
     yield* sleep(10);
-    assertEquals(done, false);
+    expect(done).toEqual(false);
     countDown();
 
     yield* sleep(10);
-    assertEquals(done, false);
+    expect(done).toEqual(false);
     countDown();
 
     yield* sleep(10);
-    assertEquals(done, true);
+    expect(done).toEqual(true);
   });
 });
 
 test("countdownLatch - respects timeout", async () => {
-    await assertRejects(async () => {
+    await expect(async () => {
         await run(function* () {
             const { wait } = countdownLatch(1);
             yield* wait(10); // 10ms timeout
         });
-    }, Error, "timeout");
+    }).toThrow("timeout");
 });
 
 test("countdownLatch - no-op if already zero", async () => {
@@ -40,14 +39,13 @@ test("countdownLatch - no-op if already zero", async () => {
         const { wait, countDown } = countdownLatch(1);
         countDown();
         countDown(); // Should not error
-        
+
         let done = false;
         yield* spawn(function* () {
             yield* wait();
             done = true;
         });
         yield* sleep(10);
-        assertEquals(done, true);
+        expect(done).toEqual(true);
     });
 });
-

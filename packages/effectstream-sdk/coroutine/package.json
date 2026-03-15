@@ -1,0 +1,14 @@
+{
+  "name": "@effectstream/coroutine",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": "./src/mod.ts",
+  "dependencies": {
+    "@coderspirit/nominal": "^4.1.1",
+    "@pgtyped/parser": "2.4.2",
+    "@pgtyped/runtime": "2.4.2",
+    "@sinclair/typebox": "0.34.41",
+    "pg": "^8.14.0",
+    "pg-tx": "^1.0.1"
+  }
+}

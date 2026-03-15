@@ -1,0 +1,20 @@
+{
+  "name": "@effectstream/sm",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts",
+    "./builtin": "./primitives/src/builtin.ts",
+    "./grammar": "./primitives/src/grammar.ts"
+  },
+  "dependencies": {
+    "pg": "8.17.2",
+    "pg-tx": "^1.0.1",
+    "@sinclair/typebox": "0.34.41",
+    "assert-never": "^1.4.0",
+    "viem": "2.37.3",
+    "@pgtyped/runtime": "^2.4.2",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
+    "effection": "^3.5.0"
+  }
+}

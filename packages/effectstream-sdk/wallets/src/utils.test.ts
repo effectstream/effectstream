@@ -1,10 +1,9 @@
-import { assertEquals, assertRejects } from "jsr:@std/assert";
+import { test, expect } from "bun:test";
 import {
   connectInjectedWallet,
 } from "./utils.ts";
 import type { IInjectedConnector, IProvider } from "./IProvider.ts";
 import { AddressType } from "@effectstream/utils";
-import { test } from "@effectstream/utils/runtime";
 
 const MOCK_ADDRESS = "0xmock";
 const MOCK_METADATA = { name: "MockWallet", displayName: "Mock Wallet", icon: "", version: "1.0" };
@@ -35,33 +34,31 @@ const createMockConnector = (shouldFail = false): IInjectedConnector<unknown> =>
 test("connectInjectedWallet - simple login success", async () => {
   const connector = createMockConnector();
   const provider = await connectInjectedWallet("Test", undefined, connector);
-  assertEquals(provider.getAddress().address, MOCK_ADDRESS);
+  expect(provider.getAddress().address).toEqual(MOCK_ADDRESS);
 });
 
 test("connectInjectedWallet - named login success", async () => {
   const connector = createMockConnector();
   const preference = { name: "MockWallet" };
   const provider = await connectInjectedWallet("Test", preference, connector);
-  assertEquals(provider.getAddress().address, MOCK_ADDRESS);
+  expect(provider.getAddress().address).toEqual(MOCK_ADDRESS);
 });
 
 test("connectInjectedWallet - external connection success", async () => {
   const connector = createMockConnector();
-  const preference = { 
-    connection: { 
-        api: {}, 
-        metadata: MOCK_METADATA 
-    } 
+  const preference = {
+    connection: {
+        api: {},
+        metadata: MOCK_METADATA
+    }
   };
   const provider = await connectInjectedWallet("Test", preference, connector);
-  assertEquals(provider.getAddress().address, MOCK_ADDRESS);
+  expect(provider.getAddress().address).toEqual(MOCK_ADDRESS);
 });
 
 test("connectInjectedWallet - handles failure", async () => {
   const connector = createMockConnector(true);
-  await assertRejects(
-    () => connectInjectedWallet("Test", undefined, connector),
-    Error,
-    "Simple connect failed"
-  );
+  expect(
+    connectInjectedWallet("Test", undefined, connector),
+  ).rejects.toThrow("Simple connect failed");
 });

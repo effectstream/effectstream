@@ -1,14 +1,10 @@
-import { assertEquals } from "jsr:@std/assert";
-import { test } from "@effectstream/utils/runtime";
+import { test, expect } from "bun:test";
 import {
   getPrimitivesForSyncProtocol,
   onlyOnce,
   onlyNotError,
   onlyValue,
 } from "./utils.ts";
-import type {
-  ConfigSyncProtocolType,
-} from "../schema/sync-protocols/types.ts";
 
 test("onlyOnce - returns built value", () => {
   const expected = { some: "value" };
@@ -16,7 +12,7 @@ test("onlyOnce - returns built value", () => {
     key: () => undefined,
     build: expected,
   });
-  assertEquals(result, expected);
+  expect(result).toEqual(expected);
 });
 
 test("onlyNotError - returns built value", () => {
@@ -25,7 +21,7 @@ test("onlyNotError - returns built value", () => {
     key: () => undefined,
     build: expected,
   });
-  assertEquals(result, expected);
+  expect(result).toEqual(expected);
 });
 
 test("onlyValue - returns built value when targets match", () => {
@@ -35,7 +31,7 @@ test("onlyValue - returns built value when targets match", () => {
     target: () => "test",
     build: expected,
   });
-  assertEquals(result, expected);
+  expect(result).toEqual(expected);
 });
 
 test("getPrimitivesForSyncProtocol - filters primitives correctly", () => {
@@ -48,10 +44,10 @@ test("getPrimitivesForSyncProtocol - filters primitives correctly", () => {
   // @ts-ignore: Testing internal logic with partial mocks
   const result = getPrimitivesForSyncProtocol(primitives as any, "evm");
 
-  assertEquals(result.length, 2);
-  assertEquals(result[0].id, "prim1");
-  assertEquals(result[1].id, "prim3");
-  assertEquals(result[0].syncProtocol, "evm");
+  expect(result.length).toEqual(2);
+  expect(result[0].id).toEqual("prim1");
+  expect(result[1].id).toEqual("prim3");
+  expect(result[0].syncProtocol).toEqual("evm");
 });
 
 test("getPrimitivesForSyncProtocol - returns empty array for no matches", () => {
@@ -62,11 +58,11 @@ test("getPrimitivesForSyncProtocol - returns empty array for no matches", () => 
   // @ts-ignore: Testing internal logic with partial mocks
   const result = getPrimitivesForSyncProtocol(primitives as any, "bitcoin");
 
-  assertEquals(result.length, 0);
+  expect(result.length).toEqual(0);
 });
 
 test("getPrimitivesForSyncProtocol - handles empty primitives", () => {
     // @ts-ignore: Testing internal logic
     const result = getPrimitivesForSyncProtocol({}, "evm");
-    assertEquals(result.length, 0);
+    expect(result.length).toEqual(0);
 });

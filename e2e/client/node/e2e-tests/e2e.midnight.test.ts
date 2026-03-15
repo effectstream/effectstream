@@ -21,15 +21,14 @@ import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import { blockWatcher } from "@e2e/engine";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import type { Client } from "pg";
-import {
-  readMidnightContract,
-  buildWalletFacade,
-  getInitialShieldedState,
-  syncAndWaitForFunds,
-  type NetworkUrls as MidnightNetworkUrls,
-  type WalletResult,
-  midnightNetworkConfig,
-  type NetworkUrls,
+import { 
+  midnightNetworkConfig, 
+  type WalletResult, 
+  type NetworkUrls, 
+  buildWalletFacade, 
+  getInitialShieldedState, 
+  syncAndWaitForFunds, 
+  readMidnightContract 
 } from "@effectstream/midnight-contracts";
 import {
   type FinalizedTransaction,
@@ -41,7 +40,8 @@ import { AddressType } from "@effectstream/utils";
 import { WebSocket } from "ws";
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import type { Contract } from '@midnight-ntwrk/compact-js';
-
+import { args, exit } from "@effectstream/utils/runtime";
+import { Buffer } from "node:buffer";
 
 const BATCHER_URL = "http://localhost:3334";
 // @ts-ignore - WebSocket is not defined in the global scope
@@ -338,8 +338,6 @@ const configureProviders = (
 /**
  * Get contract address from command line arguments or from a file
  */
-import { args, exit } from "@effectstream/utils/runtime";
-import { Buffer } from "node:buffer";
 
 const getContractAddress = (): string => {
   // First try to get from command line arguments
@@ -372,13 +370,13 @@ const getContractAddress = (): string => {
     console.error(`❌ Error reading contract address from file: ${error}`);
     console.error("❌ Error: Contract address is required");
     console.error(
-      "Usage: deno run --allow-all increment.ts <CONTRACT_ADDRESS>",
+      "Usage: bun increment.ts <CONTRACT_ADDRESS>",
     );
     console.error(
       "Or create a contract_address.txt file with the contract address",
     );
     console.error(
-      "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678",
+      "Example: bun increment.ts 0x1234567890abcdef1234567890abcdef12345678",
     );
     exit(1);
   }
@@ -432,11 +430,11 @@ async function sendMintToBatcher(
  * Standalone script that joins a counter contract with a specific address and increments its value.
  *
  * Usage:
- *   deno run --allow-all increment.ts <CONTRACT_ADDRESS>
+ *   bun increment.ts <CONTRACT_ADDRESS>
  *   or create a contract_address.txt file with the contract address
  *
  * Example:
- *   deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678
+ *   bun increment.ts 0x1234567890abcdef1234567890abcdef12345678
  */
 async function joinAndIncrementTest(
   db: Client,

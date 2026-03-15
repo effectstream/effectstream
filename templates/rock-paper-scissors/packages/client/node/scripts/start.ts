@@ -6,7 +6,7 @@ import { launchEvm } from "@paimaexample/orchestrator/start-evm";
 const customProcesses = [
   {
     name: "explorer",
-    args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
+    args: ["run", "@paimaexample/explorer"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10590",
@@ -14,20 +14,20 @@ const customProcesses = [
   },
   {
     name: "install-frontend",
-    args: ["task", "-f", "@rock-paper-scissors/frontend", "install"],
+    args: ["run", "--filter", "@rock-paper-scissors/frontend", "install"],
     waitToExit: true,
     type: "system-dependency",
   },
   {
     name: "build-frontend",
-    args: ["task", "-f", "@rock-paper-scissors/frontend", "build"],
+    args: ["run", "--filter", "@rock-paper-scissors/frontend", "build"],
     waitToExit: true,
     type: "system-dependency",
     dependsOn: ["install-frontend"],
   },
   {
     name: "serve-frontend",
-    args: ["task", "-f", "@rock-paper-scissors/frontend", "serve"],
+    args: ["run", "--filter", "@rock-paper-scissors/frontend", "serve"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:8080",
@@ -37,7 +37,7 @@ const customProcesses = [
 ];
 
 const config = Value.Parse(OrchestratorConfig, {
-  packageName: "jsr:@paimaexample",
+  packageName: "@paimaexample",
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,
@@ -51,7 +51,7 @@ const config = Value.Parse(OrchestratorConfig, {
   ],
 });
 
-if (Deno.env.get("EFFECTSTREAM_STDOUT")) {
+if (process.env.EFFECTSTREAM_STDOUT) {
   config.logs = "stdout";
   config.processes[ComponentNames.TMUX] = false;
   config.processes[ComponentNames.TUI] = false;

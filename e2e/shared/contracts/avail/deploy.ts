@@ -54,19 +54,18 @@ export async function createApplicationKey() {
 const { appId, txHash } = await createApplicationKey();
 console.log("Transaction Hash: ", txHash.toString());
 const data = JSON.stringify({ appId, txHash, ApplicationKey, genesisHash });
-const fileName = cwd() + "/avail_app.json";
+const fileName = process.cwd() + "/avail_app.json";
 console.log("Writing to file: ", fileName);
 await writeFile(fileName, data, "utf-8");
 
-const child = spawn("deno", {
-  args: ["task", "-f", "@e2e/avail-contracts", "avail-light-client:start"],
-  env: {
-    AVAIL_APP_ID: appId.toString(),
-  },
-  stdout: "inherit",
-  stderr: "inherit",
+const child = spawn("bun", ["run", "--filter", "@e2e/avail-contracts", "avail-light-client:start"], {
+  env: { ...process.env, AVAIL_APP_ID: appId.toString() },
+  stdio: "inherit",
 });
 
 console.log("Light Client Started");
 
-await child.status;
+await new Promise<void>((resolve, reject) => {
+  child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`Process exited with code ${code}`)));
+  child.on("error", reject);
+});

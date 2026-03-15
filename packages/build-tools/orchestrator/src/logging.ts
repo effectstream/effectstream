@@ -1,4 +1,3 @@
-import { parse } from "jsonc-parser";
 import fs from "node:fs";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { ComponentNames, defaultOtelSetup } from "@effectstream/log";
@@ -7,7 +6,7 @@ import type { ValueOf } from "@effectstream/utils";
 import { ENV } from "@effectstream/utils/node-env";
 import { processes } from "./process.ts";
 
-const DenoConfig = parse(fs.readFileSync("./deno.json", "utf8"));
+const PackageConfig = JSON.parse(fs.readFileSync("./package.json", "utf8"));
 
 type Source = "stdout" | "stderr";
 export type LogHandler = (
@@ -226,7 +225,7 @@ export const logHandler = (options: {
   }
 };
 
-let timeout: number | null = null;
+let timeout: ReturnType<typeof setTimeout> | null = null;
 // TODO This should use the logsConfig.tuiPort instead of the ENV.TUI_LOG_PORT
 const tuiUrl = ENV.TUI_LOG_URL + ":" + ENV.TUI_LOG_PORT /* logsConfig.tuiPort */;
 
@@ -253,7 +252,7 @@ function sendToTUI() {
 
 export function initTelemetry(): void {
   const sdk = new NodeSDK({
-    ...defaultOtelSetup("@effectstream/orchestrator", DenoConfig.version),
+    ...defaultOtelSetup("@effectstream/orchestrator", PackageConfig.version),
   });
 
   sdk.start();

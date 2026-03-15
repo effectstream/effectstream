@@ -1,0 +1,18 @@
+{
+  "name": "@e2e/database",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": "./src/mod.ts",
+  "scripts": {
+    "_db-wait": "bun -e 'await import(\"@effectstream/db/db-wait\")'",
+    "_db-apply-migrations": "bun -e 'await import(\"@effectstream/db/apply-migrations\")'",
+    "_db-up": "bun -e 'await import(\"@effectstream/db/db-up\")'",
+    "_pgtyped:my-sql": "bun run _db-wait && bun run _db-apply-migrations && bun ./sql-to-ts.ts && pgtyped -c ./pgtypedconfig.json",
+    "pgtyped:update": "concurrently --raw --kill-others \"bun run _db-up\" \"bun run _pgtyped:my-sql\""
+  },
+  "dependencies": {
+    "@pgtyped/runtime": "2.4.2",
+    "pg": "^8.14.0",
+    "effection": "3.5.0"
+  }
+}

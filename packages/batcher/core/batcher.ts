@@ -64,7 +64,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /** Namespace used for signature verification messages */
   namespace: string = "effectstream_batcher";
   /** Timer ID for periodic batch processing */
-  private pollingIntervalID?: number;
+  private pollingIntervalID?: ReturnType<typeof setInterval>;
   /** Available blockchain adapters keyed by target name */
   private adapters: Record<string, BlockchainAdapter<any>>;
   /** Default target to use when input.target is not specified */
@@ -96,7 +96,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     {
       resolve: (result: BlockchainTransactionReceipt) => void;
       reject: (error: Error) => void;
-      timeoutId: number;
+      timeoutId: ReturnType<typeof setTimeout>;
     }
   > = new Map();
   /** Batch processor for handling complex batch operations */
@@ -596,7 +596,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
 
     let subscriptionReference: symbol | undefined = undefined;
     let latestBlock = 0;
-    let timer: number | undefined = undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined = undefined;
 
     try {
       const result = await Promise.race([

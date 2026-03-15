@@ -1,5 +1,5 @@
-import { parse as parseToml, stringify as stringifyToml } from "toml";
-import fs from "node:fs/promises";
+import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
+import * as fs from "node:fs/promises";
 
 const TEMP_DIR = "./temp";
 const TEMPLATE_FILE = "./dolos.template.toml";

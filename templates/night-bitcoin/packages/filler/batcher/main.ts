@@ -1,17 +1,22 @@
-import { parseArgs } from "@std/cli/parse-args";
+import { parseArgs } from "node:util";
 import { main, suspend } from "effection";
 import { createNewBatcher } from "@paimaexample/batcher";
 import { buildBatcherSetup, FILLER_BATCHER_DEFAULTS } from "./config.ts";
 
-const args = parseArgs(Deno.args, {
-  string: ["btc-rpc-url", "btc-rpc-user", "btc-rpc-pass", "btc-seed", "midnight-seed", "storage-dir", "polling-interval", "filler-name"],
-  alias: {
-    p: "port",
+const { values: args } = parseArgs({
+  args: process.argv.slice(2),
+  options: {
+    "btc-rpc-url": { type: "string" },
+    "btc-rpc-user": { type: "string" },
+    "btc-rpc-pass": { type: "string" },
+    "btc-seed": { type: "string" },
+    "midnight-seed": { type: "string" },
+    "storage-dir": { type: "string" },
+    "polling-interval": { type: "string" },
+    "filler-name": { type: "string", default: "Balancing Batcher" },
+    port: { type: "string", short: "p", default: "3334" },
   },
-  default: {
-    port: 3334,
-    "filler-name": "Balancing Batcher",
-  }
+  strict: false,
 });
 
 const { config, storage, adapters } = buildBatcherSetup({

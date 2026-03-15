@@ -1,5 +1,4 @@
-import { assertEquals, assertThrows } from "jsr:@std/assert";
-import { test } from "@effectstream/utils/runtime";
+import { test, expect } from "bun:test";
 import {
   AddressType,
   type TimestampMsStr,
@@ -25,15 +24,15 @@ test("createBatcherSubunit - creates valid subunit for EVM", () => {
     MOCK_INPUT
   );
 
-  assertEquals(subunit.addressType, AddressType.EVM);
-  assertEquals(subunit.address, MOCK_ADDRESS);
-  assertEquals(subunit.signature, MOCK_SIGNATURE);
-  assertEquals(subunit.input, MOCK_INPUT);
-  assertEquals(subunit.timestamp, MOCK_TIMESTAMP);
+  expect(subunit.addressType).toEqual(AddressType.EVM);
+  expect(subunit.address).toEqual(MOCK_ADDRESS);
+  expect(subunit.signature).toEqual(MOCK_SIGNATURE);
+  expect(subunit.input).toEqual(MOCK_INPUT);
+  expect(subunit.timestamp).toEqual(MOCK_TIMESTAMP);
 });
 
 test("createBatcherSubunit - throws for unsupported address type", () => {
-  assertThrows(
+  expect(
     () => {
       createBatcherSubunit(
         MOCK_TIMESTAMP,
@@ -43,9 +42,7 @@ test("createBatcherSubunit - throws for unsupported address type", () => {
         MOCK_INPUT
       );
     },
-    Error,
-    "NYI: Unsupported wallet address type"
-  );
+  ).toThrow("Unsupported address type");
 });
 
 test("createMessageForBatcher - creates valid message", () => {
@@ -56,21 +53,10 @@ test("createMessageForBatcher - creates valid message", () => {
     AddressType.EVM,
     MOCK_INPUT
   );
-  
-  const expected = ("namespacenull" + MOCK_TIMESTAMP + MOCK_ADDRESS + MOCK_INPUT)
-      .replace(/[^a-zA-Z0-9]/g, "-")
-      .toLocaleLowerCase();
-      
-  // NOTE: The function joins (target ?? "") which is "undefined" if not provided?
-  // Wait, (target ?? "") is "" if undefined.
-  // Let's check the implementation logic again.
-  // return ((namespace ?? "") + (target ?? "") + ...
-  // If namespace="namespace", target=undefined -> "namespace" + "" -> "namespace"
-  
-  // Let's just verify the output matches a regex or specific structure since exact string might depend on implementation details of replacing.
-  assertEquals(typeof msg, "string");
-  assertEquals(msg.includes("namespace"), true);
-  assertEquals(msg.includes(MOCK_INPUT.toLowerCase()), true);
+
+  expect(typeof msg).toEqual("string");
+  expect(msg.includes("namespace")).toEqual(true);
+  expect(msg.includes(MOCK_INPUT.toLowerCase())).toEqual(true);
 });
 
 test("hashBatchSubunit - returns hash starting with 0x", () => {
@@ -81,10 +67,10 @@ test("hashBatchSubunit - returns hash starting with 0x", () => {
     MOCK_SIGNATURE,
     MOCK_INPUT
   );
-  
+
   const hash = hashBatchSubunit(subunit);
-  assertEquals(hash.startsWith("0x"), true);
-  assertEquals(hash.length > 10, true);
+  expect(hash.startsWith("0x")).toEqual(true);
+  expect(hash.length > 10).toEqual(true);
 });
 
 test("hashBatchSubunit - throws for unsupported address type", () => {
@@ -95,7 +81,6 @@ test("hashBatchSubunit - throws for unsupported address type", () => {
         input: MOCK_INPUT,
         timestamp: MOCK_TIMESTAMP
     };
-    
-    assertThrows(() => hashBatchSubunit(subunit), Error, "NYI: Unsupported wallet address type");
-});
 
+    expect(() => hashBatchSubunit(subunit)).toThrow("Unsupported address type");
+});

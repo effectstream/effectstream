@@ -154,7 +154,7 @@ export const $ = (params: {
   if (failed) {
     throw new AbortProcessStart("Shutdown already called");
   }
-  const command = params.command ?? "deno";
+  const command = params.command ?? "bun";
   const child = spawn(command, {
     args: params.args,
     signal: params.abortController.signal,

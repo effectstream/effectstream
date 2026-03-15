@@ -13,7 +13,6 @@
 //
 // This eliminates the need to wait for block confirmation between txs while still
 // producing valid proofs and respecting mempool ordering constraints.
-
 import type {
   BatchBuildingOptions,
   BatchBuildingResult,
@@ -33,6 +32,9 @@ import type {
   PublicDataProvider,
   UnboundTransaction,
 } from "@midnight-ntwrk/midnight-js-types";
+
+// import { WalletResult } from "@effectstream/midnight-contracts/types";
+
 import type { BalancingRecipe } from "@midnight-ntwrk/wallet-sdk-facade";
 import {
   buildWalletFacade,

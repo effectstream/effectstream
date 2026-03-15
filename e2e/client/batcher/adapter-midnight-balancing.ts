@@ -1,5 +1,5 @@
 import { MidnightBalancingAdapter } from "@effectstream/batcher";
-import { dirname, resolve } from "@std/path";
+import { dirname, resolve } from "node:path";
 import { ENV } from "@effectstream/utils/node-env";
 
 const currentDir = dirname(new URL(import.meta.url).pathname);

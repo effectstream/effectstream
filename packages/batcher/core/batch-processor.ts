@@ -33,7 +33,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
         {
           resolve: (result: any) => void;
           reject: (error: Error) => void;
-          timeoutId: number;
+          timeoutId: ReturnType<typeof setTimeout>;
         }
       >;
       waitForEffectStreamProcessed: (
