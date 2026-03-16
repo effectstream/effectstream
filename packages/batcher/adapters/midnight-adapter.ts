@@ -29,7 +29,7 @@ import type {
   TransactionId,
   UnprovenTransaction,
   ZswapSecretKeys,
-} from "@midnight-ntwrk/ledger-v7";
+} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -53,6 +53,7 @@ import {
 } from "@effectstream/midnight-contracts";
 import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
+import { Buffer } from "node:buffer";
 
 export interface MidnightAdapterConfig {
   indexer: string;
@@ -261,8 +262,10 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         const providers = {
           privateStateProvider: levelPrivateStateProvider({
             privateStateStoreName: this.config.privateStateStoreName,
-            walletProvider: walletAndMidnightProvider,
-          } as any),
+            // walletProvider: walletAndMidnightProvider,
+            privateStoragePasswordProvider: async () => "YourPasswordMy1!",
+            accountId: Buffer.from(this.walletResult!.zswapSecretKeys.coinPublicKey).toString('hex'),
+          }),
           publicDataProvider: this.publicDataProvider,
           zkConfigProvider,
           proofProvider: httpClientProofProvider(this.config.proofServer, zkConfigProvider),

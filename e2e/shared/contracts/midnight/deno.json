@@ -6,7 +6,7 @@
         "./eip-20": "./contract-eip-20/src/index.original.ts"
     },
     "tasks": {
-        "midnight-node:start": "MIDNIGHT_STORAGE_PASSWORD=yourpasswordmypassword CFG_PRESET=dev deno run -A --unstable-detect-cjs @effectstream/npm-midnight-node --dev --rpc-port 9944 --port 30333 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
+        "midnight-node:start": "MIDNIGHT_STORAGE_PASSWORD=YourPasswordMy1! CFG_PRESET=dev deno run -A --unstable-detect-cjs @effectstream/npm-midnight-node --dev --tmp --rpc-port 9944 --port 30333 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
         "midnight-node:wait": "wait-on tcp:9944",
         "midnight-indexer:start": "RUST_BACKTRACE=1 LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" deno run -A --unstable-detect-cjs @effectstream/npm-midnight-indexer --binary --clean",
         "midnight-indexer:wait": "wait-on tcp:8088",
@@ -16,7 +16,8 @@
         "midnight-contract:deploy": "deno task contract-eip20:deploy && echo 'Finished deploying contract-eip20' && sleep 1  && deno task contract-counter:deploy && echo 'Finished deploying contract-counter' && sleep 1",
         "contract-counter:deploy": "deno --unstable-detect-cjs -A contract-counter-deploy.ts",
         "contract-eip20:deploy": "deno --unstable-detect-cjs -A contract-eip-20-deploy.ts",
-        "faucet": "deno run -A faucet.ts"
+        "faucet": "deno run -A faucet.ts",
+        "create-wallets": "deno run -A create-wallets.ts"
     },
     "imports": {
         "@std/path": "jsr:@std/path",
@@ -24,22 +25,22 @@
         "rxjs": "npm:rxjs@^7.8.2",
         "ws": "npm:ws",
         "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.14.0",
-        "@midnight-ntwrk/wallet-sdk-address-format": "npm:@midnight-ntwrk/wallet-sdk-address-format@3.0.0",
-        "@midnight-ntwrk/midnight-js-network-id": "npm:@midnight-ntwrk/midnight-js-network-id@3.0.0",
-        "@midnight-ntwrk/midnight-js-types": "npm:@midnight-ntwrk/midnight-js-types@3.0.0",
-        "@midnight-ntwrk/midnight-js-utils": "npm:@midnight-ntwrk/midnight-js-utils@3.0.0",
-        "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts@3.0.0",
-        "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@3.0.0",
-        "@midnight-ntwrk/midnight-js-http-client-proof-provider": "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@3.0.0",
-        "@midnight-ntwrk/midnight-js-node-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@3.0.0",
-        "@midnight-ntwrk/midnight-js-level-private-state-provider": "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@3.0.0",
+        "@midnight-ntwrk/wallet-sdk-address-format": "npm:@midnight-ntwrk/wallet-sdk-address-format@3.0.1",
+        "@midnight-ntwrk/midnight-js-network-id": "npm:@midnight-ntwrk/midnight-js-network-id@3.2.0",
+        "@midnight-ntwrk/midnight-js-types": "npm:@midnight-ntwrk/midnight-js-types@3.2.0",
+        "@midnight-ntwrk/midnight-js-utils": "npm:@midnight-ntwrk/midnight-js-utils@3.2.0",
+        "@midnight-ntwrk/midnight-js-contracts": "npm:@midnight-ntwrk/midnight-js-contracts@3.2.0",
+        "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider@3.2.0",
+        "@midnight-ntwrk/midnight-js-http-client-proof-provider": "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider@3.2.0",
+        "@midnight-ntwrk/midnight-js-node-zk-config-provider": "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider@3.2.0",
+        "@midnight-ntwrk/midnight-js-level-private-state-provider": "npm:@midnight-ntwrk/midnight-js-level-private-state-provider@3.2.0",
         "@midnight-ntwrk/wallet-sdk-abstractions": "npm:@midnight-ntwrk/wallet-sdk-abstractions@1.0.0",
-        "@midnight-ntwrk/wallet-sdk-facade": "npm:@midnight-ntwrk/wallet-sdk-facade@1.0.0",
-        "@midnight-ntwrk/wallet-sdk-hd": "npm:@midnight-ntwrk/wallet-sdk-hd@3.0.0",
-        "@midnight-ntwrk/wallet-sdk-shielded": "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0",
-        "@midnight-ntwrk/wallet-sdk-shielded/v1": "npm:@midnight-ntwrk/wallet-sdk-shielded@1.0.0/v1",
-        "@midnight-ntwrk/wallet-sdk-dust-wallet": "npm:@midnight-ntwrk/wallet-sdk-dust-wallet@1.0.0",
-        "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@1.0.0",
-        "@midnight-ntwrk/ledger-v7": "npm:@midnight-ntwrk/ledger-v7@7.0.0"
+        "@midnight-ntwrk/wallet-sdk-facade": "npm:@midnight-ntwrk/wallet-sdk-facade@2.0.0",
+        "@midnight-ntwrk/wallet-sdk-hd": "npm:@midnight-ntwrk/wallet-sdk-hd@3.0.1",
+        "@midnight-ntwrk/wallet-sdk-shielded": "npm:@midnight-ntwrk/wallet-sdk-shielded@2.0.0",
+        "@midnight-ntwrk/wallet-sdk-dust-wallet": "npm:@midnight-ntwrk/wallet-sdk-dust-wallet@2.0.0",
+        "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "npm:@midnight-ntwrk/wallet-sdk-unshielded-wallet@2.0.0",
+        "@midnight-ntwrk/ledger-v7": "npm:@midnight-ntwrk/ledger-v7@7.0.3",
+        "@midnight-ntwrk/ledger-v8": "npm:@midnight-ntwrk/ledger-v8@8.0.2"
     }
 }

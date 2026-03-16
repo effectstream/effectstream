@@ -1,4 +1,4 @@
-run_migrations: true
+thread_stack_size: "24MiB"
 
 application:
   network_id: "undeployed"
@@ -12,9 +12,17 @@ application:
   # 1 by default
   # concurrency_limit:
 
+# CHECK: linux binary requires this flag in the root.
+run_migrations: true
+
 infra:
+  run_migrations: true
   storage:
-    cnn_url: "./data/indexer.sqlite"
+    cnn_url: "data/indexer.sqlite"
+
+  ledger_db:
+    cache_size: "1kiB"
+    cnn_url: "data/ledger-db.sqlite"
 
   node:
     url: "ws://localhost:9944"
@@ -28,6 +36,22 @@ infra:
     request_body_limit: "1MiB"
     max_complexity: 200
     max_depth: 15
+    subscription:
+      blocks:
+        batch_size: 20
+      contract_actions:
+        batch_size: 20
+      dust_ledger_events:
+        batch_size: 20
+      shielded_transactions:
+        batch_size: 20
+        progress_update_interval: "30s"
+        keep_wallet_alive_interval: "1m"
+      unshielded_transactions:
+        batch_size: 20
+        progress_update_interval: "30s"
+      zswap_ledger_events:
+        batch_size: 20
 
 telemetry:
   tracing:
