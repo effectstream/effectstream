@@ -27,6 +27,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       emitStateTransition: (prefix: string, payload: any) => Promise<void>;
       storage: {
         removeProcessedInputs: (inputs: T[], target: string) => Promise<void>;
+        incrementRetryCount: (inputs: T[], target: string, maxRetries: number) => Promise<void>;
       };
       submissionCallbacks: Map<
         string,
@@ -93,7 +94,26 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     debugLog(
       `[BatchProcessor] Calling adapter.submitBatch for target ${target}`,
     );
-    const hash = await adapter.submitBatch(data, estimatedFee);
+    // Snapshot before submitBatch: the adapter may splice elements from the
+    // same array (batchData.selectedInputs === selectedInputs) before throwing,
+    // so we need the original list to know which inputs actually failed.
+    const inputsSnapshot = [...selectedInputs];
+
+    let hash: string;
+    try {
+      hash = await adapter.submitBatch(data, estimatedFee);
+    } catch (error) {
+      // All inputs failed — increment retry counts; storage drops those that hit the limit
+      debugLog(
+        `[BatchProcessor] submitBatch threw for target ${target}, incrementing retry counts for ${inputsSnapshot.length} inputs`,
+      );
+      await this.batcher.storage
+        .incrementRetryCount(inputsSnapshot, target, 3)
+        .catch((e) =>
+          debugLog(`[BatchProcessor] Failed to increment retry counts: ${e}`)
+        );
+      throw error;
+    }
     debugLog(`[BatchProcessor] adapter.submitBatch returned hash: ${hash}`);
 
     this.batcher.emitStateTransition("batch:submit", {
@@ -114,6 +134,19 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       debugLog(
         `[BatchProcessor] Adapter mutated selectedInputs. New length: ${finalSelectedInputs.length}`,
       );
+      // Diff against the snapshot (not the mutated selectedInputs) to find failed inputs
+      const finalSet = new Set(finalSelectedInputs);
+      const failedInputs = inputsSnapshot.filter((i) => !finalSet.has(i));
+      if (failedInputs.length > 0) {
+        debugLog(
+          `[BatchProcessor] Incrementing retry count for ${failedInputs.length} failed inputs`,
+        );
+        await this.batcher.storage
+          .incrementRetryCount(failedInputs, target, 3)
+          .catch((e) =>
+            debugLog(`[BatchProcessor] Failed to increment retry counts: ${e}`)
+          );
+      }
     }
 
     debugLog(
@@ -184,7 +217,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
 
   private async waitForEffectStreamProcessing(
     receipt: BlockchainTransactionReceipt,
-    adapter: BlockchainAdapter<any>,
+    _adapter: BlockchainAdapter<any>,
     target: string,
     timeout: number,
   ): Promise<void> {
