@@ -34,7 +34,7 @@ import {
 import {
   type FinalizedTransaction,
   Transaction as LedgerTransaction,
-} from "@midnight-ntwrk/ledger-v7";
+} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
 import { fromHex, toHex } from "@midnight-ntwrk/midnight-js-utils";
 import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
@@ -322,8 +322,9 @@ const configureProviders = (
     // We only need to submit transactions and read public ledger state.
     privateStateProvider: levelPrivateStateProvider({
       privateStateStoreName: contractConfig.privateStateStoreName,
-      walletProvider: walletAndMidnightProvider,
-    } as any),
+      privateStoragePasswordProvider: async () => "YourPasswordMy1!",
+      accountId: Buffer.from(walletResult!.zswapSecretKeys.coinPublicKey).toString('hex'),
+    }),
     publicDataProvider: indexerPublicDataProvider(
       config.indexer,
       config.indexerWS,
@@ -726,8 +727,9 @@ async function testDelegatedBalancing(
       privateStateProvider: levelPrivateStateProvider({
         midnightDbName,
         privateStateStoreName,
-        walletProvider: interceptingProvider,
-      } as any),
+        privateStoragePasswordProvider: async () => "YourPasswordMy1!",
+        accountId: Buffer.from(walletResult!.zswapSecretKeys.coinPublicKey).toString('hex'),
+      }),
       publicDataProvider: indexerPublicDataProvider(
         config.indexer,
         config.indexerWS,
@@ -898,8 +900,9 @@ async function buildDelegatedTx(
     privateStateProvider: levelPrivateStateProvider({
       midnightDbName,
       privateStateStoreName: `concurrent-party-${partyIndex}-${seed.slice(0, 8)}`,
-      walletProvider: interceptingProvider,
-    } as any),
+      privateStoragePasswordProvider: async () => "YourPasswordMy1!",
+      accountId: Buffer.from(walletResult!.zswapSecretKeys.coinPublicKey).toString('hex'),
+    }),
     publicDataProvider: indexerPublicDataProvider(
       config.indexer,
       config.indexerWS,

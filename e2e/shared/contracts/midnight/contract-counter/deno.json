@@ -12,6 +12,6 @@
     "imports": {
       "vitest": "npm:vitest@^3.2.4",
       "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.14.0",
-      "@midnight-ntwrk/compact-js": "npm:@midnight-ntwrk/compact-js@2.4.0"
+      "@midnight-ntwrk/compact-js": "npm:@midnight-ntwrk/compact-js@2.4.3"
     }
   }

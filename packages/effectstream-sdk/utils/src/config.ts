@@ -12,7 +12,7 @@
 import { load } from "@std/dotenv";
 import { getEnv, setEnv } from "./runtime.ts";
 
-const MIDNIGHT_STORAGE_PASSWORD_DEFAULT = 'yourpasswordmypassword';
+const MIDNIGHT_STORAGE_PASSWORD_DEFAULT = 'YourPasswordMy1!';
 
 const EFFECTSTREAM_ENV = getEnv("EFFECTSTREAM_ENV");
 if (EFFECTSTREAM_ENV) {

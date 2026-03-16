@@ -27,7 +27,7 @@ import {
   type FinalizedTransaction,
   Transaction as LedgerV6Transaction,
   type UnprovenTransaction,
-} from "@midnight-ntwrk/ledger-v7";
+} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
 import type {
   PublicDataProvider,
@@ -42,6 +42,7 @@ import {
   waitForDustFunds,
   type WalletResult,
   getInitialShieldedState,
+  getInitialDustState,
 } from "@effectstream/midnight-contracts";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
@@ -132,6 +133,8 @@ export class MidnightBalancingAdapter
   private initializationPromise: Promise<void> | null = null;
   private walletAddress: string | null = null;
   private publicDataProvider: PublicDataProvider | null = null;
+  /** Number of available dust UTXOs at last wallet sync. Used to auto-cap batch size. */
+  private availableDustUtxoCount: number | null = null;
 
   constructor(
     walletSeed: string,
@@ -231,6 +234,21 @@ export class MidnightBalancingAdapter
       console.warn(
         "[balancing] WARNING: 0 dust balance, submissions will fail",
       );
+    }
+
+    // Query available dust UTXOs so we know how many concurrent balance calls
+    // we can safely make (one UTXO is spent per balancing call).
+    try {
+      const dustState = await getInitialDustState(
+        // deno-lint-ignore no-explicit-any
+        (this.walletResult.wallet as any).dust,
+      );
+      // deno-lint-ignore no-explicit-any
+      this.availableDustUtxoCount = dustState.availableCoins?.length ?? null;
+      console.log('Dust state:', dustState.availableCoins);
+      console.log(`[balancing] Available dust UTXOs: ${this.availableDustUtxoCount ?? "unknown"}`);
+    } catch (e) {
+      console.warn("[balancing] Could not read dust UTXO count:", e);
     }
   }
 
@@ -377,7 +395,17 @@ export class MidnightBalancingAdapter
     const txs: DelegatedTxEntry[] = [];
     const selectedInputs: DefaultBatcherInput[] = [];
 
-    const limit = this.config.maxBatchSize ?? Infinity;
+    // Cap batch to explicit maxBatchSize, or to the number of available dust UTXOs
+    // (one UTXO is consumed per balance call), whichever is smaller.
+    const limit = Math.min(
+      this.config.maxBatchSize ?? Infinity,
+      this.availableDustUtxoCount ?? Infinity,
+    );
+    console.log('Limit:', { 
+      config: this.config.maxBatchSize, 
+      dust: this.availableDustUtxoCount,
+      limit,
+    });
     for (const input of inputs) {
       if (txs.length >= limit) break;
       try {
@@ -513,11 +541,10 @@ export class MidnightBalancingAdapter
     debugLog("[balancing] Adding shielded padding...");
     const keys = this.walletResult.walletZswapSecretKeys;
     
-    // Get the shielded address using getInitialShieldedState to ensure we have the correct bech32 format
+    // Get the shielded address as a ShieldedAddress object (required by transferTransaction)
     // deno-lint-ignore no-explicit-any
-    // const initialState = await getInitialShieldedState((this.walletResult.wallet as any).shielded);
-    // const receiverAddress = initialState.address.coinPublicKeyString();
-    const receiverAddress = 'mn_shield-addr_undeployed1jy8cy2attgg3vmtpyfsz0xfvf9zl9zcf70je90jl3ual67hcuy898ge625crq5vvz6sg0f594szy8ll9r8rfdg8zkxzlex9pdwt7aqcsme28p';
+    const initialState = await getInitialShieldedState((this.walletResult.wallet as any).shielded);
+    const receiverAddress = initialState.address;
     const type = '0000000000000000000000000000000000000000000000000000000000000000';
     // Build a self-transfer: send 1 unit of shielded NIGHT back to ourselves.
     // payFees: false — dust fees are already in the balancingTx.
@@ -585,6 +612,23 @@ export class MidnightBalancingAdapter
           `[balancing] Phase 1 — balance tx ${label} (${p.entry.txStage})`,
         );
         p.recipe = await this.balanceEntry(p.entry);
+        // Log the dust fee for this transaction.
+        // For unbound/finalized recipes the fee lives in the separate balancingTransaction;
+        // for unproven recipes it is merged into the single transaction field.
+        const feeTx =
+          "balancingTransaction" in p.recipe && p.recipe.balancingTransaction
+            ? p.recipe.balancingTransaction
+            : "transaction" in p.recipe
+              ? p.recipe.transaction
+              : null;
+        if (feeTx) {
+          try {
+            const fee = await this.walletResult!.wallet.calculateTransactionFee(feeTx);
+            debugLog(`[balancing] Phase 1 — tx ${label} dust fee: ${fee} SPECKs`);
+          } catch {
+            // non-critical — skip if fee calculation fails
+          }
+        }
       } catch (error) {
         p.error = error instanceof Error ? error : new Error(String(error));
         debugLog(
@@ -679,6 +723,15 @@ export class MidnightBalancingAdapter
               p.error = err;
               p.hash = undefined;
             }
+          } else if (errMsg.includes("IntentAlreadyExists")) {
+            // The transaction is already in the mempool (submitted in a prior attempt whose
+            // response was lost). Treat as success so the input is removed from the queue
+            // and receipt polling proceeds with the hash we already computed.
+            debugLog(
+              `[balancing] Submit for tx ${label} got IntentAlreadyExists — tx already in mempool, treating as success.`,
+            );
+            p.error = undefined;
+            // p.hash is already set to txHashStr above
           } else if (
             errMsg === "Transaction submission error: Transaction submission failed" ||
             errMsg === "Transaction submission failed" ||
