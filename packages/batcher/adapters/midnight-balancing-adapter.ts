@@ -244,7 +244,8 @@ export class MidnightBalancingAdapter
         (this.walletResult.wallet as any).dust,
       );
       // deno-lint-ignore no-explicit-any
-      this.availableDustUtxoCount = (dustState as any).availableCoins?.length ?? null;
+      this.availableDustUtxoCount = dustState.availableCoins?.length ?? null;
+      console.log('Dust state:', dustState.availableCoins);
       console.log(`[balancing] Available dust UTXOs: ${this.availableDustUtxoCount ?? "unknown"}`);
     } catch (e) {
       console.warn("[balancing] Could not read dust UTXO count:", e);
@@ -400,6 +401,11 @@ export class MidnightBalancingAdapter
       this.config.maxBatchSize ?? Infinity,
       this.availableDustUtxoCount ?? Infinity,
     );
+    console.log('Limit:', { 
+      config: this.config.maxBatchSize, 
+      dust: this.availableDustUtxoCount,
+      limit,
+    });
     for (const input of inputs) {
       if (txs.length >= limit) break;
       try {
@@ -606,6 +612,23 @@ export class MidnightBalancingAdapter
           `[balancing] Phase 1 — balance tx ${label} (${p.entry.txStage})`,
         );
         p.recipe = await this.balanceEntry(p.entry);
+        // Log the dust fee for this transaction.
+        // For unbound/finalized recipes the fee lives in the separate balancingTransaction;
+        // for unproven recipes it is merged into the single transaction field.
+        const feeTx =
+          "balancingTransaction" in p.recipe && p.recipe.balancingTransaction
+            ? p.recipe.balancingTransaction
+            : "transaction" in p.recipe
+              ? p.recipe.transaction
+              : null;
+        if (feeTx) {
+          try {
+            const fee = await this.walletResult!.wallet.calculateTransactionFee(feeTx);
+            debugLog(`[balancing] Phase 1 — tx ${label} dust fee: ${fee} SPECKs`);
+          } catch {
+            // non-critical — skip if fee calculation fails
+          }
+        }
       } catch (error) {
         p.error = error instanceof Error ? error : new Error(String(error));
         debugLog(
@@ -700,6 +723,15 @@ export class MidnightBalancingAdapter
               p.error = err;
               p.hash = undefined;
             }
+          } else if (errMsg.includes("IntentAlreadyExists")) {
+            // The transaction is already in the mempool (submitted in a prior attempt whose
+            // response was lost). Treat as success so the input is removed from the queue
+            // and receipt polling proceeds with the hash we already computed.
+            debugLog(
+              `[balancing] Submit for tx ${label} got IntentAlreadyExists — tx already in mempool, treating as success.`,
+            );
+            p.error = undefined;
+            // p.hash is already set to txHashStr above
           } else if (
             errMsg === "Transaction submission error: Transaction submission failed" ||
             errMsg === "Transaction submission failed" ||
