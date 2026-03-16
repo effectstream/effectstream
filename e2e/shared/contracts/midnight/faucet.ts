@@ -19,9 +19,10 @@ import {
   shieldedToken,
   UnprovenTransaction,
   ZswapSecretKeys,
-} from "@midnight-ntwrk/ledger-v7";
+} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import type { DefaultV1Configuration } from "@midnight-ntwrk/wallet-sdk-shielded/v1";
+import { makeServerProvingService } from "@midnight-ntwrk/wallet-sdk-capabilities/proving";
+import { MidnightBech32m, UnshieldedAddress } from "@midnight-ntwrk/wallet-sdk-address-format";
 import { getEnv, exit } from "@effectstream/utils/runtime";
 
 /**
@@ -83,6 +84,7 @@ export interface WalletResult {
   dustAddress: string;
   unshieldedAddress: string;
   unshieldedKeystore: UnshieldedKeystore;
+  networkId: NetworkId.NetworkId;
 }
 
 // ============================================================================
@@ -127,62 +129,20 @@ export function deriveSeedForRole(
 export function createWalletConfiguration(
   networkUrls: Required<Config>,
   networkId: NetworkId.NetworkId,
-): DefaultV1Configuration {
+) {
   return {
     indexerClientConnection: {
       indexerHttpUrl: networkUrls.indexer,
       indexerWsUrl: networkUrls.indexerWS,
     },
-    provingServerUrl: new URL(networkUrls.proofServer),
     relayURL: new URL(networkUrls.node.replace("http", "ws")),
     networkId: networkId,
-  };
-}
-
-export function buildShieldedWallet(
-  config: DefaultV1Configuration,
-  seed: Uint8Array,
-): ReturnType<ReturnType<typeof ShieldedWallet>["startWithShieldedSeed"]> {
-  const shieldedBuilder = ShieldedWallet(config);
-  return shieldedBuilder.startWithShieldedSeed(seed);
-}
-
-export function buildDustWallet(
-  config: DefaultV1Configuration,
-  seed: Uint8Array,
-): ReturnType<ReturnType<typeof DustWallet>["startWithSeed"]> {
-  const legacyLedgerParams = LedgerParameters.initialParameters();
-  const resolvedFeeBlocksMargin = resolveDustFeeBlocksMargin();
-  const resolvedFeeOverhead = resolveDustFeeOverhead();
-  const dustConfig = {
-    ...config,
     costParameters: {
-      additionalFeeOverhead: resolvedFeeOverhead,
-      feeBlocksMargin: resolvedFeeBlocksMargin,
-    },
-  };
-  const dustBuilder = DustWallet(dustConfig);
-  const dustParameters = legacyLedgerParams.dust;
-
-  return dustBuilder.startWithSeed(seed, dustParameters);
-}
-
-export function buildUnshieldedWallet(
-  networkUrls: Required<Config>,
-  seed: Uint8Array,
-  networkId: NetworkId.NetworkId,
-): ReturnType<ReturnType<typeof UnshieldedWallet>["startWithPublicKey"]> {
-  const keystore = createKeystore(seed, networkId);
-  const publicKey = PublicKey.fromKeyStore(keystore);
-
-  return UnshieldedWallet({
-    networkId,
-    indexerClientConnection: {
-      indexerHttpUrl: networkUrls.indexer,
-      indexerWsUrl: networkUrls.indexerWS,
+      additionalFeeOverhead: resolveDustFeeOverhead(),
+      feeBlocksMargin: resolveDustFeeBlocksMargin(),
     },
     txHistoryStorage: new InMemoryTransactionHistoryStorage(),
-  } as any).startWithPublicKey(publicKey);
+  };
 }
 
 /**
@@ -199,22 +159,22 @@ export async function buildWalletFacade(
 
   const walletConfig = createWalletConfiguration(networkUrls, networkId);
 
-  const shieldedWallet = buildShieldedWallet(walletConfig, shieldedSeed);
-  const dustWallet = buildDustWallet(walletConfig, dustSeed);
-  const unshieldedWallet = buildUnshieldedWallet(
-    networkUrls,
-    unshieldedSeed,
-    networkId,
-  );
-
   const unshieldedKeystore = createKeystore(unshieldedSeed, networkId);
   const unshieldedAddress = unshieldedKeystore.getBech32Address().asString();
+  const unshieldedPublicKey = PublicKey.fromKeyStore(unshieldedKeystore);
+  const dustParameters = LedgerParameters.initialParameters().dust;
 
-  const wallet = new WalletFacade(
-    shieldedWallet as any,
-    unshieldedWallet as any,
-    dustWallet,
-  );
+  const wallet = await WalletFacade.init({
+    configuration: walletConfig,
+    shielded: (config) => ShieldedWallet(config).startWithSeed(shieldedSeed),
+    unshielded: (config) =>
+      UnshieldedWallet(config).startWithPublicKey(unshieldedPublicKey),
+    dust: (config) => DustWallet(config).startWithSeed(dustSeed, dustParameters),
+    provingService: () =>
+      makeServerProvingService({
+        provingServerUrl: new URL(networkUrls.proofServer),
+      }),
+  });
 
   const zswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
   const walletZswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);
@@ -223,7 +183,7 @@ export async function buildWalletFacade(
 
   await wallet.start(walletZswapSecretKeys, walletDustSecretKey);
 
-  const dustState = await Rx.firstValueFrom(dustWallet.state) as any;
+  const dustState = await Rx.firstValueFrom(wallet.dust.state);
 
   return {
     wallet,
@@ -231,9 +191,10 @@ export async function buildWalletFacade(
     walletZswapSecretKeys,
     dustSecretKey,
     walletDustSecretKey,
-    dustAddress: dustState.dustAddress,
+    dustAddress: MidnightBech32m.encode(networkId, dustState.address).asString(),
     unshieldedAddress,
     unshieldedKeystore,
+    networkId,
   };
 }
 
@@ -707,13 +668,17 @@ const transfer = async (
 
   try {
     const ttl = new Date(Date.now() + TTL_DURATION_MS);
+    const parsedReceiverAddress = MidnightBech32m.parse(receiverAddress).decode(
+      UnshieldedAddress,
+      walletResult.networkId,
+    );
     const recipe = await walletResult.wallet.transferTransaction(
       [{
         type: "unshielded",
         outputs: [{
           amount,
           type: tokenId,
-          receiverAddress,
+          receiverAddress: parsedReceiverAddress,
         }],
       }],
       {

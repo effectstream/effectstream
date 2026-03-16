@@ -56,6 +56,7 @@
     "@midnight-ntwrk/wallet-api": "npm:@midnight-ntwrk/wallet-api@5.0.0",
     "@midnight-ntwrk/zswap": "npm:@midnight-ntwrk/zswap@4.0.0",
     "@midnight-ntwrk/compact-js": "npm:@midnight-ntwrk/compact-js@2.4.3",
+    "@midnight-ntwrk/wallet-sdk-capabilities": "npm:@midnight-ntwrk/wallet-sdk-capabilities@3.1.0",
     "rxjs": "npm:rxjs",
     "ws": "npm:ws",
     "@polkadot/util-crypto": "npm:@polkadot/util-crypto@^13.4.3",

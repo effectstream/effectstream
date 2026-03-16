@@ -80,6 +80,7 @@ export interface MidnightBalancingAdapterConfig {
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
+const SUBMIT_TX_TIMEOUT_MS = 90 * 1000; // 1 minute
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
 type DelegatedTxStage = "unproven" | "unbound" | "finalized";
@@ -691,9 +692,18 @@ export class MidnightBalancingAdapter
       txHashStr = p.finalized.transactionHash().toString();
       p.hash = txHashStr;
 
-      const submitPromise = this.walletResult!.wallet.submitTransaction(
-        p.finalized,
-      )
+      const submitPromise = Promise.race([
+        this.walletResult!.wallet.submitTransaction(p.finalized),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error("submitTransaction timed out after 60 seconds"),
+              ),
+            SUBMIT_TX_TIMEOUT_MS,
+          )
+        ),
+      ])
         .then((data) => {
           debugLog(`[balancing] Submission data: ${JSON.stringify(data)}`);
           debugLog(`[balancing] Submission successful for tx ${label}`);

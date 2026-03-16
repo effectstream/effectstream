@@ -56,6 +56,12 @@ export interface BatcherStorage<
   getInputsByTarget(target: string, defaultTarget: string): Promise<T[]>;
 
   /**
+   * Increment the retry count for the given inputs.
+   * Inputs whose retry count reaches or exceeds maxRetries are removed from storage.
+   */
+  incrementRetryCount(inputs: T[], target: string, maxRetries: number): Promise<void>;
+
+  /**
    * Clear all inputs (useful for testing)
    */
   clearAllInputs(): Promise<void>;
@@ -197,6 +203,42 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
     }
   }
 
+  async incrementRetryCount(
+    inputs: T[],
+    target: string,
+    maxRetries: number,
+  ): Promise<void> {
+    if (inputs.length === 0) return;
+    try {
+      const allInputs = await this.getAllInputs();
+      const keySet = new Set(inputs.map((i) => this.createInputKey(i, target)));
+      const updated: T[] = [];
+      for (const input of allInputs) {
+        const key = this.createInputKey(input, target);
+        if (!keySet.has(key)) {
+          updated.push(input);
+          continue;
+        }
+        const newRetryCount = (input.retryCount ?? 0) + 1;
+        if (newRetryCount >= maxRetries) {
+          debugLog(
+            `[Storage] Dropping input after ${newRetryCount} failed retries: ${key}`,
+          );
+          continue; // drop it from storage
+        }
+        updated.push({ ...input, retryCount: newRetryCount });
+      }
+      const content = updated.map((i) => JSON.stringify(i)).join("\n");
+      await writeFile(
+        this.filePath,
+        content + (updated.length > 0 ? "\n" : ""),
+      );
+    } catch (error) {
+      console.error("Error incrementing retry counts:", error);
+      throw new Error(`Failed to increment retry counts: ${error}`);
+    }
+  }
+
   async clearAllInputs(): Promise<void> {
     try {
       await rm(this.filePath);
@@ -239,6 +281,9 @@ export class DatabaseStorage<
     throw new Error("DatabaseStorage not implemented yet");
   }
   getInputsByTarget(target: string, defaultTarget: string): Promise<T[]> {
+    throw new Error("DatabaseStorage not implemented yet");
+  }
+  incrementRetryCount(_inputs: T[], _target: string, _maxRetries: number): Promise<void> {
     throw new Error("DatabaseStorage not implemented yet");
   }
   clearAllInputs(): Promise<void> {
