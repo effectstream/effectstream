@@ -1,4 +1,5 @@
 // this is a auto-generated file.
+import { existsSync, readFileSync } from "node:fs";
 
 export * from "./build/mod.ts";
 export { contracts } from "./build/contracts.ts";
@@ -11,8 +12,8 @@ export const contractAddressesEvmMain: () => Record<
 
   let chain31337: Record<string, `0x${string}`> = {};
 
-  if (Deno && Deno.statSync(file1).isFile) {
-    chain31337 = JSON.parse(Deno.readTextFileSync(file1));
+  if (existsSync(file1)) {
+    chain31337 = JSON.parse(readFileSync(file1, "utf-8"));
   }
 
   return {

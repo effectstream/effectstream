@@ -168,10 +168,10 @@ export async function createWalletsWithFunds(
 // Usage
 // deno run -A create-wallets.ts 1.5 10 101 0xf8d62248c2abdacd7550e7a6cd5a9de
 if (import.meta.main) {
-  const INITIAL_BTC = Deno.args[0] ? parseFloat(Deno.args[0]!) : 1;
-  const NUMBER_OF_WALLETS = Deno.args[1] ? parseInt(Deno.args[1]!) : 1;
-  const WAIT_FOR_BLOCK = Deno.args[2] ? parseInt(Deno.args[2]!) : undefined;
-  const SEED_PREFIX = Deno.args[3] ?? undefined;
+  const INITIAL_BTC = process.argv[2] ? parseFloat(process.argv[2]!) : 1;
+  const NUMBER_OF_WALLETS = process.argv[3] ? parseInt(process.argv[3]!) : 1;
+  const WAIT_FOR_BLOCK = process.argv[4] ? parseInt(process.argv[4]!) : undefined;
+  const SEED_PREFIX = process.argv[5] ?? undefined;
 
   if (WAIT_FOR_BLOCK) {
     await waitForBlock(WAIT_FOR_BLOCK);
@@ -183,12 +183,14 @@ if (import.meta.main) {
     SEED_PREFIX
   );
 
-  const currentDir = Deno.cwd();
-  await Deno.mkdir(path.join(currentDir, "generated"), { recursive: true });
+  const currentDir = process.cwd();
+  const { mkdir } = await import("node:fs/promises");
+  const { writeFileSync } = await import("node:fs");
+  await mkdir(path.join(currentDir, "generated"), { recursive: true });
   for (let i = 0; i < wallets.length; i++) {
     const wallet = wallets[i];
     const outputPath = path.join(currentDir, "generated", `wallet-${i}.json`);
-    Deno.writeTextFileSync(outputPath, JSON.stringify(wallet, null, 2));
+    writeFileSync(outputPath, JSON.stringify(wallet, null, 2));
     console.log(`Wallet saved to ${outputPath}`);
   }
 

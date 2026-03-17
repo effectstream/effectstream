@@ -32,9 +32,7 @@ let midnightTip: number = 437152;
  * at least the contract deployment blockheight to ensure all events are captured.
  * Starting from the current tip means historical events will be missed.
  */
-const arbitrumSepoliaRpc = Deno
-  ? Deno.env.get("ARBITRUM_SEPOLIA_RPC")
-  : undefined;
+const arbitrumSepoliaRpc = process.env.ARBITRUM_SEPOLIA_RPC;
 
 type ContractAddressBook = Record<string, Record<string, `0x${string}`>>;
 const contractAddressBook = contractAddressesEvmMain() as ContractAddressBook;
@@ -50,7 +48,7 @@ const midnightNetworkInputsValid = Boolean(
 let midnightCounterAddress: string | undefined;
 let midnightArtifactsReady = false;
 
-if (Deno) {
+if (typeof process !== "undefined") {
   // Always fetch current tip for templates to avoid sync times
   if (arbitrumSepoliaRpc) {
     /* Get the latest block number from the Arbitrum Sepolia chain */

@@ -1,5 +1,14 @@
 {
-    "dependencies": {
-        "@electric-sql/pglite": "^0.3.14"
-    }
+  "private": true,
+  "workspaces": [
+    "packages/client",
+    "packages/evm-contracts"
+  ],
+  "scripts": {
+    "dev": "bun run --filter @minimal/node dev",
+    "check": "bun run --filter @minimal/node check"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14"
+  }
 }

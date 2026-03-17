@@ -1,4 +1,4 @@
-import * as log from "@std/log";
+const log = console;
 import { Buffer } from "node:buffer";
 
 import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";

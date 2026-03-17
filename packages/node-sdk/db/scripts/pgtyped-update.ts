@@ -1,10 +1,10 @@
-#!/usr/bin/env -S deno run -A
+#!/usr/bin/env bun
 /**
  * Runs database startup and pgtyped generation concurrently
  */
 
 import { spawn } from "node:child_process";
-import { dirname, join } from "jsr:@std/path@1.1.3";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(import.meta.url?.startsWith("file:") ? fileURLToPath(import.meta.url) : import.meta.url.replace("file://", ""));
@@ -77,20 +77,20 @@ async function main() {
   const processes: ProcessInfo[] = [
     {
       name: "db:up",
-      command: "deno",
-      args: ["run", "-A", join(__dirname, "start-pglite.ts")],
+      command: "bun",
+      args: ["run", join(__dirname, "start-pglite.ts")],
       wait: false,
     },
     {
       name: "db:wait",
-      command: "deno",
-      args: ["run", "-A", join(__dirname, "wait-for-db.ts")],
+      command: "bun",
+      args: ["run", join(__dirname, "wait-for-db.ts")],
       wait: true,
     },
     {
       name: "apply-migrations",
-      command: "deno",
-      args: ["run", "-A", join(__dirname, "apply-migrations.ts")],
+      command: "bun",
+      args: ["run", join(__dirname, "apply-migrations.ts")],
       wait: true,
     },
     {

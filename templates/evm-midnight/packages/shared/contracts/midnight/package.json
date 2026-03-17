@@ -1,0 +1,23 @@
+{
+  "name": "@example-evm-midnight/midnight-contracts",
+  "version": "0.3.22",
+  "exports": {},
+  "scripts": {
+    "midnight-node:start": "CFG_PRESET=dev bunx @paimaexample/npm-midnight-node --dev --rpc-port 9944 --state-pruning archive --blocks-pruning archive --public-addr /ip4/127.0.0.1 --unsafe-rpc-external",
+    "midnight-node:wait": "wait-on tcp:9944",
+    "midnight-indexer:start": "CONFIG_FILE=`pwd`/indexer-standalone/config.yaml LEDGER_NETWORK_ID=\"Undeployed\" SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" APP__INFRA__SECRET=$(openssl rand -hex 32 | tr 'a-f' 'A-F') FEATURES_WALLET_ENABLED=\"true\" APP__INFRA__NODE__URL=\"ws://localhost:9944\" bunx @paimaexample/npm-midnight-indexer --binary --clean",
+    "midnight-indexer:wait": "wait-on tcp:8088",
+    "midnight-proof-server:start": "LEDGER_NETWORK_ID=\"Undeployed\" RUST_BACKTRACE=full SUBSTRATE_NODE_WS_URL=\"ws://localhost:9944\" bunx @paimaexample/npm-midnight-proof-server",
+    "midnight-proof-server:wait": "wait-on tcp:6300",
+    "midnight-contract:clean": "rm -rf midnight-level-db && rm -f contract.json contract-round-value.undeployed.json",
+    "midnight-contract:deploy": "bun run midnight-contract:clean && bun run deploy.ts"
+  },
+  "dependencies": {
+    "@paimaexample/npm-midnight-indexer": "0.3.129",
+    "@paimaexample/npm-midnight-node": "0.3.129",
+    "@paimaexample/npm-midnight-proof-server": "0.3.129",
+    "@midnight-ntwrk/ledger": "4.0.0",
+    "@midnight-ntwrk/compact-runtime": "0.11.0-rc.1",
+    "@midnight-ntwrk/zswap": "4.0.0"
+  }
+}

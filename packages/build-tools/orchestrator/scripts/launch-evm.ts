@@ -28,7 +28,7 @@ export const launchEvm = (packageName: string): {
     {
       stopProcessAtPort: [8545, 8546],
       name: ComponentNames.HARDHAT,
-      args: ["task", "-f", packageName, "chain:start"],
+      args: ["run", "--filter", packageName, "chain:start"],
       waitToExit: false,
       logs: "tsLogOrchestratorAdapter",
       logsStartDisabled: true,
@@ -38,12 +38,12 @@ export const launchEvm = (packageName: string): {
     },
     {
       name: ComponentNames.HARDHAT_WAIT,
-      args: ["task", "-f", packageName, "chain:wait"],
+      args: ["run", "--filter", packageName, "chain:wait"],
       dependsOn: [ComponentNames.HARDHAT],
     },
     {
       name: ComponentNames.DEPLOY_EVM_CONTRACTS,
-      args: ["task", "-f", packageName, "deploy"],
+      args: ["run", "--filter", packageName, "deploy"],
       type: "system-dependency",
       dependsOn: [ComponentNames.HARDHAT_WAIT],
     },

@@ -1,9 +1,0 @@
-{
-  "name": "@effectstream/precompile",
-  "version": "0.3.0",
-  "license": "MIT",
-  "exports": "./src/mod.ts",
-  "imports": {
-    "js-sha3": "npm:js-sha3@^0.9.3"
-  }
-}

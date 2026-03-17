@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import fastify from "fastify";
 import { type Static, Type } from "@sinclair/typebox";
 import { main, suspend, spawn, call } from "effection";
@@ -20,7 +21,7 @@ const ECPair = ecpair.ECPairFactory(tinysecp);
 const BIP32 = bip32.BIP32Factory(tinysecp);
 const NETWORK = bitcoin.networks.regtest;
 
-const args = Deno.args;
+const args = process.argv.slice(2);
 const FILLER_NAME = args[0];
 const PORT = parseInt(args[1], 10);
 const BITCOIN_WALLET_PATH = args[2];
@@ -32,7 +33,7 @@ if (!FILLER_NAME || !PORT || !BITCOIN_WALLET_PATH || !MIDNIGHT_WALLET_PATH) {
 
 // Load Bitcoin wallet
 console.log(`📁 Loading Bitcoin wallet JSON from: ${BITCOIN_WALLET_PATH}`);
-const bitcoinWalletData = JSON.parse(Deno.readTextFileSync(BITCOIN_WALLET_PATH));
+const bitcoinWalletData = JSON.parse(readFileSync(BITCOIN_WALLET_PATH, "utf-8"));
 const seedHex = bitcoinWalletData.seed.replace("0x", "");
 const bitcoinSeed = Buffer.from(seedHex, "hex");
 const masterNode = BIP32.fromSeed(bitcoinSeed, NETWORK);
@@ -46,7 +47,7 @@ const bitcoinAddress = bitcoin.payments.p2wpkh({
 console.log(`🔑 Loaded Bitcoin wallet: ${bitcoinAddress}`);
 
 // Load Midnight wallet
-const midnightWalletData = JSON.parse(Deno.readTextFileSync(MIDNIGHT_WALLET_PATH));
+const midnightWalletData = JSON.parse(readFileSync(MIDNIGHT_WALLET_PATH, "utf-8"));
 const midnightSeed = midnightWalletData.seed;
 
 console.log(`🔑 Loaded Midnight wallet: ${midnightWalletData.address}`);
@@ -278,7 +279,7 @@ main(function* () {
   } catch (error) {
     console.error("❌ Batcher initialization failed:", error);
     console.error("💡 Ensure the Midnight wallet is funded before starting the filler");
-    Deno.exit(1);
+    process.exit(1);
   }
 
   // Start batcher polling loop (batcher is already initialized)
@@ -287,7 +288,7 @@ main(function* () {
       yield* batcher.runPollingLoop();
     } catch (error) {
       console.error("❌ Batcher polling error:", error);
-      Deno.exit(1);
+      process.exit(1);
     }
   });
 
@@ -300,7 +301,7 @@ main(function* () {
         yield* suspend();
     } catch (err) {
         server.log.error(err);
-        Deno.exit(1);
+        process.exit(1);
     } finally {
         yield* call(() => server.close());
     }

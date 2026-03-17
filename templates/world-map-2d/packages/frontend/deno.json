@@ -1,8 +1,0 @@
-{
-  "tasks": {
-    "build": "node esbuild.js",
-    "serve": "npx http-server . -p 8080",
-    "dev": "npm install && node esbuild.js && npx http-server . -p 8080"
-  },
-  "workspace": []
-}

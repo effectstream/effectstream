@@ -3,7 +3,7 @@ import { SimpleToken, witnesses } from "@e2e/midnight-contracts/eip-20";
 import { MidnightAdapter } from "@effectstream/batcher";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { buildWalletFacade } from "@effectstream/midnight-contracts/wallet-info";
-import { dirname, resolve } from "@std/path";
+import { dirname, resolve } from "node:path";
 import { ENV } from "@effectstream/utils/node-env";
 
 // Resolve the base directory for midnight contracts

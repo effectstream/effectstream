@@ -1,5 +1,20 @@
 {
-    "dependencies": {
-        "@electric-sql/pglite": "^0.3.14"
-    }
+  "private": true,
+  "workspaces": [
+    "packages/**/*"
+  ],
+  "scripts": {
+    "build:evm": "bun run --filter @example-evm-midnight/evm-contracts build:mod",
+    "build:midnight": "bun run --filter @example-evm-midnight/my-midnight-contract compact",
+    "dev": "bun run --filter @example-evm-midnight/node dev",
+    "testnet": "bun run --filter @example-evm-midnight/node dev:testnet",
+    "start:frontend": "bun run --filter @example-evm-midnight/frontend dev",
+    "check": "bun run --filter @example-evm-midnight/node check"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@paimaexample/tui": "0.3.129",
+    "@paimaexample/midnight-contracts": "0.3.129",
+    "@paimaexample/evm-contracts": "0.3.129"
+  }
 }

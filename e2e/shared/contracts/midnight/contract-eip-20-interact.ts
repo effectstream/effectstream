@@ -1,7 +1,7 @@
 import {
   type ContractAddress,
   NetworkId,
-} from "npm:@midnight-ntwrk/compact-runtime";
+} from "@midnight-ntwrk/compact-runtime";
 import {
   SimpleToken,
   witnesses,
@@ -11,19 +11,19 @@ import {
   nativeToken,
   Transaction,
   type TransactionId,
-} from "npm:@midnight-ntwrk/ledger";
+} from "@midnight-ntwrk/ledger";
 import {
   MidnightBech32m,
   ShieldedAddress,
-} from "npm:@midnight-ntwrk/wallet-sdk-address-format";
+} from "@midnight-ntwrk/wallet-sdk-address-format";
 import {
   type DeployedContract,
   findDeployedContract,
   type FoundContract,
-} from "npm:@midnight-ntwrk/midnight-js-contracts";
-import { httpClientProofProvider } from "npm:@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import { indexerPublicDataProvider } from "npm:@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { NodeZkConfigProvider } from "npm:@midnight-ntwrk/midnight-js-node-zk-config-provider";
+} from "@midnight-ntwrk/midnight-js-contracts";
+import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import {
   type BalancedTransaction,
   createBalancedTx,
@@ -33,22 +33,22 @@ import {
   type MidnightProviders,
   type UnbalancedTransaction,
   type WalletProvider,
-} from "npm:@midnight-ntwrk/midnight-js-types";
-import { type Resource, WalletBuilder } from "npm:@midnight-ntwrk/wallet";
-import { type Wallet } from "npm:@midnight-ntwrk/wallet-api";
-import { Transaction as ZswapTransaction } from "npm:@midnight-ntwrk/zswap";
-import { levelPrivateStateProvider } from "npm:@midnight-ntwrk/midnight-js-level-private-state-provider";
-import * as Rx from "npm:rxjs";
-import { assertIsContractAddress } from "npm:@midnight-ntwrk/midnight-js-utils";
+} from "@midnight-ntwrk/midnight-js-types";
+import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
+import { type Wallet } from "@midnight-ntwrk/wallet-api";
+import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
+import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
+import * as Rx from "rxjs";
+import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import {
   getLedgerNetworkId,
   getZswapNetworkId,
   setNetworkId,
-} from "npm:@midnight-ntwrk/midnight-js-network-id";
-import { dirname, resolve } from "@std/path";
-import { exists } from "@std/fs";
+} from "@midnight-ntwrk/midnight-js-network-id";
+import { dirname, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { getEnv, args, exit } from "@effectstream/utils/runtime";
-import { readFile, readTextFile } from "node:fs/promises";
 
 globalThis.WebSocket = WebSocket;
 
@@ -88,9 +88,7 @@ class StandaloneConfig implements Config {
 
 const config = new StandaloneConfig();
 
-const currentDir = resolve(
-  dirname(new URL(import.meta.url).pathname),
-);
+const currentDir = resolve(dirname(new URL(import.meta.url).pathname));
 
 const contractConfig = {
   privateStateStoreName: "counter-private-state",
@@ -114,10 +112,8 @@ const contractAddressFileName = `contract-eip-20.${contractNetworkId}.json`;
  */
 const DEFAULT_WALLET_SEED = midnightNetworkConfig.walletSeed!;
 
-const simpleTokenContractInstance: SimpleTokenContract = new SimpleToken
-  .Contract(
-  witnesses,
-);
+const simpleTokenContractInstance: SimpleTokenContract =
+  new SimpleToken.Contract(witnesses);
 
 const getSimpleTokenLedgerState = async (
   providers: SimpleTokenProviders,
@@ -127,17 +123,17 @@ const getSimpleTokenLedgerState = async (
   console.log("🔍 Checking contract ledger state...");
 
   try {
-    const contractState = await providers.publicDataProvider.queryContractState(
-      contractAddress,
-    );
-    const state = contractState != null
-      ? SimpleToken.ledger(contractState.data)
-      : null;
+    const contractState =
+      await providers.publicDataProvider.queryContractState(contractAddress);
+    const state =
+      contractState != null ? SimpleToken.ledger(contractState.data) : null;
     console.log(
       `📊 Ledger state: ${
-        state && JSON.stringify(
+        state &&
+        JSON.stringify(
           state,
-          (_key, value) => typeof value === "bigint" ? value.toString() : value,
+          (_key, value) =>
+            typeof value === "bigint" ? value.toString() : value,
           2,
         )
       }`,
@@ -230,7 +226,7 @@ const createWalletAndMidnightProvider = async (
           Transaction.deserialize(
             zswapTx.serialize(getZswapNetworkId()),
             getLedgerNetworkId(),
-          )
+          ),
         )
         .then(createBalancedTx);
     },
@@ -268,10 +264,8 @@ const buildWalletAndWaitForFunds = async (
   let wallet: Wallet & Resource;
   if (directoryPath !== undefined) {
     const fullPath = `${directoryPath}/${filename}`;
-    if (await exists(fullPath)) {
-      console.log(
-        `Attempting to restore state from ${fullPath}`,
-      );
+    if (existsSync(fullPath)) {
+      console.log(`Attempting to restore state from ${fullPath}`);
       try {
         const serialized = await readFile(fullPath);
         wallet = await WalletBuilder.restore(
@@ -350,9 +344,8 @@ const configureProviders = async (
   wallet: Wallet & Resource,
   config: Config,
 ) => {
-  const walletAndMidnightProvider = await createWalletAndMidnightProvider(
-    wallet,
-  );
+  const walletAndMidnightProvider =
+    await createWalletAndMidnightProvider(wallet);
   return {
     // Old SDK: Empty config works fine - avoids historical private state sync
     privateStateProvider: levelPrivateStateProvider({}),
@@ -384,9 +377,9 @@ const getContractAddress = async (): Promise<string> => {
   const contractAddressFile = resolve(currentDir, contractAddressFileName);
 
   try {
-    if (await exists(contractAddressFile)) {
+    if (existsSync(contractAddressFile)) {
       const contractAddressFromFile = JSON.parse(
-        await readTextFile(contractAddressFile, "utf-8"),
+        await readFile(contractAddressFile, "utf-8"),
       ).contractAddress;
 
       if (contractAddressFromFile) {
@@ -405,14 +398,12 @@ const getContractAddress = async (): Promise<string> => {
   } catch (error) {
     console.error(`❌ Error reading contract address from file: ${error}`);
     console.error("❌ Error: Contract address is required");
-    console.error(
-      "Usage: deno run --allow-all increment.ts <CONTRACT_ADDRESS>",
-    );
+    console.error("Usage: bun increment.ts <CONTRACT_ADDRESS>");
     console.error(
       "Or create a contract_address.txt file with the contract address",
     );
     console.error(
-      "Example: deno run --allow-all increment.ts 0x1234567890abcdef1234567890abcdef12345678",
+      "Example: bun increment.ts 0x1234567890abcdef1234567890abcdef12345678",
     );
     exit(1);
   }
@@ -469,9 +460,7 @@ async function joinAndMint(account: string, amount: bigint): Promise<void> {
     );
 
     const accountBalance = await balanceOf(simpleTokenContract, account);
-    console.log(
-      `Account balance: ${String(accountBalance)}`,
-    );
+    console.log(`Account balance: ${String(accountBalance)}`);
     // Display simple token value after increment
     await getSimpleTokenLedgerState(providers, contractAddress);
 

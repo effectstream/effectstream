@@ -1,0 +1,9 @@
+{
+  "name": "@effectstream/chain-types",
+  "version": "0.3.0",
+  "license": "MIT",
+  "exports": "./src/mod.ts",
+  "dependencies": {
+    "js-sha3": "^0.9.3"
+  }
+}

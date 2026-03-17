@@ -1,6 +1,5 @@
 import { AddressType } from "@effectstream/utils";
-import { test } from "@effectstream/utils/runtime";
-import { assertEquals } from "jsr:@std/assert";
+import { test, expect } from "bun:test";
 import { EvmContractAdapter } from "./evm-contract-adapter.ts";
 import type { HardhatArtifact } from "./evm-contract-adapter.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
@@ -54,18 +53,17 @@ test("EvmContractAdapter.validateInput accepts known method", async () => {
   const adapter = new EvmContractAdapter(TEST_CONFIG);
   const input = makeInput({ method: "incrementCounter", args: [] });
   const result = await adapter.validateInput(input);
-  assertEquals(result.valid, true);
+  expect(result.valid).toEqual(true);
 });
 
 test("EvmContractAdapter.validateInput rejects unknown method", async () => {
   const adapter = new EvmContractAdapter(TEST_CONFIG);
   const input = makeInput({ method: "doesNotExist", args: [] });
   const result = await adapter.validateInput(input);
-  assertEquals(result.valid, false);
-  assertEquals(
+  expect(result.valid).toEqual(false);
+  expect(
     result.error?.includes('Function "doesNotExist" not found in ABI'),
-    true,
-  );
+  ).toEqual(true);
 });
 
 test("EvmContractAdapter.validateInput enforces nonpayable value", async () => {
@@ -76,10 +74,8 @@ test("EvmContractAdapter.validateInput enforces nonpayable value", async () => {
     value: "1",
   });
   const result = await adapter.validateInput(input);
-  assertEquals(result.valid, false);
-  assertEquals(
+  expect(result.valid).toEqual(false);
+  expect(
     result.error?.includes("nonpayable"),
-    true,
-  );
+  ).toEqual(true);
 });
-

@@ -1,29 +1,28 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import deno from "@deno/vite-plugin";
 import nodePolyfills from "vite-plugin-node-stdlib-browser";
 import "react";
 import "react-dom";
-import { fromFileUrl } from "jsr:@std/path";
+import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import wasm from "vite-plugin-wasm";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
-const projectRoot = dirname(fromFileUrl(import.meta.url));
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 // This is a workaround to make the workspace imports work.
-const walletPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/wallets/");
-const cryptoPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/crypto/");
-const dataTypesPath = join(dirname(fromFileUrl(import.meta.url)), "../shared/data-types/");
-const concisePath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/concise/");
-const configPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/config/");
-const utilsPath = join(dirname(fromFileUrl(import.meta.url)), "../../packages/effectstream-sdk/utils/");
+const walletPath = join(dirname(fileURLToPath(import.meta.url)), "../../packages/effectstream-sdk/wallets/");
+const cryptoPath = join(dirname(fileURLToPath(import.meta.url)), "../../packages/effectstream-sdk/crypto/");
+const dataTypesPath = join(dirname(fileURLToPath(import.meta.url)), "../shared/data-types/");
+const concisePath = join(dirname(fileURLToPath(import.meta.url)), "../../packages/effectstream-sdk/concise/");
+const configPath = join(dirname(fileURLToPath(import.meta.url)), "../../packages/effectstream-sdk/config/");
+const utilsPath = join(dirname(fileURLToPath(import.meta.url)), "../../packages/effectstream-sdk/utils/");
 
-const midnightContractEip20Path = join(dirname(fromFileUrl(import.meta.url)), "../shared/contracts/midnight/contract-eip-20/src/managed/contract/");
-const midnightContractCounterBasicPath = join(dirname(fromFileUrl(import.meta.url)), "../shared/contracts/midnight/contract-counter/src/managed/contract/");
+const midnightContractEip20Path = join(dirname(fileURLToPath(import.meta.url)), "../shared/contracts/midnight/contract-eip-20/src/managed/contract/");
+const midnightContractCounterBasicPath = join(dirname(fileURLToPath(import.meta.url)), "../shared/contracts/midnight/contract-counter/src/managed/contract/");
 
 // This is a mock for @effectstream/db so it doesn't get loaded in the browser.
-const dbEmptyPath = join(dirname(fromFileUrl(import.meta.url)), "effectstream-db-empty.ts");
+const dbEmptyPath = join(dirname(fileURLToPath(import.meta.url)), "effectstream-db-empty.ts");
 
 export default defineConfig({
   define: {
@@ -45,7 +44,7 @@ export default defineConfig({
       "@e2e/data-types/config-testnet": dataTypesPath + "src/config.testnet.ts",
       // Link to NPM compiled package version
       // "@effectstream/wallets": walletPath + "npm/esm/wallets/src/mod.js",
-      // Link to Deno package version
+      // Link to source package version
       "@effectstream/wallets": walletPath + "src/mod.ts",
       "@e2e/data-types": dataTypesPath + "src/mod.ts",
       "@effectstream/db": dbEmptyPath,
@@ -64,7 +63,6 @@ export default defineConfig({
   plugins: [
     wasm(),
     react(),
-    deno(),
     nodePolyfills(),
     viteStaticCopy({
       targets: [

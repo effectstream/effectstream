@@ -1,15 +1,19 @@
-import { parseArgs } from "@std/cli/parse-args";
+import { parseArgs } from "node:util";
 import { writeFileSync } from "node:fs";
 import { args } from "@effectstream/utils/runtime";
 
 // The depth is the number of directories where the node_modules are located.
-const flags = parseArgs(args(), {
-  string: ['depth', "package"],
-  default: { depth: '4', package: '@effectstream' },
+const { values: flags } = parseArgs({
+  args: args(),
+  options: {
+    depth: { type: "string", default: "4" },
+    package: { type: "string", default: "@effectstream" },
+  },
+  strict: false,
 });
 
-const depth = parseInt(flags.depth, 10);
-const packageName = flags.package;
+const depth = parseInt(flags.depth!, 10);
+const packageName = flags.package!;
 
 if (isNaN(depth) || depth < 0) {
   console.error('Error: --depth must be a non-negative number.');

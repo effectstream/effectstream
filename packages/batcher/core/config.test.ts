@@ -1,5 +1,4 @@
-import { assertEquals, assertThrows } from "jsr:@std/assert";
-import { test } from "@effectstream/utils/runtime";
+import { test, expect } from "bun:test";
 import {
   validateBatchingCriteria,
   type BatchingCriteriaConfig,
@@ -17,11 +16,9 @@ test("validateBatchingCriteria - invalid time criteria", () => {
   const criteria: BatchingCriteriaConfig = {
     criteriaType: "time",
   };
-  assertThrows(
+  expect(
     () => validateBatchingCriteria(criteria),
-    Error,
-    "timeWindowMs is required"
-  );
+  ).toThrow("timeWindowMs is required");
 });
 
 test("validateBatchingCriteria - valid size criteria", () => {
@@ -36,11 +33,9 @@ test("validateBatchingCriteria - invalid size criteria", () => {
     const criteria: BatchingCriteriaConfig = {
       criteriaType: "size",
     };
-    assertThrows(
+    expect(
       () => validateBatchingCriteria(criteria),
-      Error,
-      "maxBatchSize is required"
-    );
+    ).toThrow("maxBatchSize is required");
 });
 
 test("validateBatchingCriteria - valid hybrid criteria", () => {
@@ -58,10 +53,7 @@ test("validateBatchingCriteria - invalid hybrid criteria", () => {
         timeWindowMs: 1000,
         // Missing maxBatchSize
     };
-    assertThrows(
+    expect(
         () => validateBatchingCriteria(criteria),
-        Error,
-        "maxBatchSize is required"
-    );
+    ).toThrow("maxBatchSize is required");
 });
-

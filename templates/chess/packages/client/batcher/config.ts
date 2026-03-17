@@ -14,7 +14,7 @@ const batcherPrivateKey =
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
 const paimaL2Fee = 0n; // Old batcher defaulted to 0 for local dev
-const port = Number(Deno.env.get("BATCHER_PORT") ?? "3334");
+const port = Number(process.env.BATCHER_PORT ?? "3334");
 
 const paimaL2 = new PaimaL2DefaultAdapter(
   paimaL2Address,

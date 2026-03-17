@@ -4,7 +4,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "install": "npm install",
+    "build": "node esbuild.js",
+    "serve": "bunx http-server@14.1.1 ./public -p 8080"
   },
   "author": "",
   "license": "ISC",

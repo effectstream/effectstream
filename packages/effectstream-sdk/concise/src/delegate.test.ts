@@ -1,5 +1,4 @@
-import { assertEquals } from "jsr:@std/assert";
-import { test } from "@effectstream/utils/runtime";
+import { test, expect } from "bun:test";
 import { accountMessages } from "./delegate.ts";
 import type { WalletAddress } from "@effectstream/utils";
 
@@ -8,21 +7,20 @@ const MOCK_ADDRESS_2 = "0x0987654321098765432109876543210987654321" as WalletAdd
 
 test("accountMessages.linkAccount - formats correctly", () => {
   const msg = accountMessages.linkAccount(1, MOCK_ADDRESS, true);
-  assertEquals(msg, `link:1:${MOCK_ADDRESS}:true`);
+  expect(msg).toEqual(`link:1:${MOCK_ADDRESS}:true`);
 });
 
 test("accountMessages.linkAccount - formats correctly with false", () => {
     const msg = accountMessages.linkAccount(1, MOCK_ADDRESS, false);
-    assertEquals(msg, `link:1:${MOCK_ADDRESS}:false`);
+    expect(msg).toEqual(`link:1:${MOCK_ADDRESS}:false`);
 });
 
 test("accountMessages.unlinkAccountWithPrimary - formats correctly without new primary", () => {
     const msg = accountMessages.unlinkAccountWithPrimary(1, MOCK_ADDRESS);
-    assertEquals(msg, `unlink:1:${MOCK_ADDRESS}:`);
+    expect(msg).toEqual(`unlink:1:${MOCK_ADDRESS}:`);
 });
 
 test("accountMessages.unlinkAccountWithPrimary - formats correctly with new primary", () => {
     const msg = accountMessages.unlinkAccountWithPrimary(1, MOCK_ADDRESS, MOCK_ADDRESS_2);
-    assertEquals(msg, `unlink:1:${MOCK_ADDRESS}:${MOCK_ADDRESS_2}`);
+    expect(msg).toEqual(`unlink:1:${MOCK_ADDRESS}:${MOCK_ADDRESS_2}`);
 });
-

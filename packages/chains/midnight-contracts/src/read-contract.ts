@@ -1,6 +1,6 @@
 // TODO Remove references to "src/managed" as this is not standard.
 
-import * as path from "@std/path";
+import * as path from "node:path";
 import { readdirSync, statSync, readFileSync } from "node:fs";
 import { getEnv, cwd, isNotFoundError, getRuntime } from "@effectstream/utils/runtime";
 

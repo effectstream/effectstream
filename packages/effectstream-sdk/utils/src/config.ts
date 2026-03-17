@@ -9,16 +9,16 @@
 
 // NOTE: To register a new config, we need to add it in the definitions, and then add the getter in the ENV class.
 // TODO: Is it possible to do this automatically, or just once?
-import { load } from "@std/dotenv";
+import dotenv from "dotenv";
 import { getEnv, setEnv } from "./runtime.ts";
 
 const MIDNIGHT_STORAGE_PASSWORD_DEFAULT = 'YourPasswordMy1!';
 
 const EFFECTSTREAM_ENV = getEnv("EFFECTSTREAM_ENV");
 if (EFFECTSTREAM_ENV) {
-  await load({
-    envPath: `.env.${EFFECTSTREAM_ENV}`, // Uses .env_<EFFECTSTREAM_ENV>
-    export: true, // Exports all variables to the environment
+  dotenv.config({
+    path: `.env.${EFFECTSTREAM_ENV}`,
+    override: true,
   });
 }
 

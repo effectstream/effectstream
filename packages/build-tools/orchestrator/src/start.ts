@@ -1,8 +1,13 @@
-#!/usr/bin/env -S deno run --allow-all
+#!/usr/bin/env bun
 import { ENV } from "@effectstream/utils/node-env";
 import type { ValueOf } from "@effectstream/utils";
 import "./http-server.ts";
-import { dkill } from "@sylc/dkill";
+import fkill from "fkill";
+
+/** Kill processes listening on the given ports (best-effort). */
+async function killPorts(ports: number[]): Promise<void> {
+  await fkill(ports.map(p => `:${p}`), { silent: true });
+}
 
 import {
   initTelemetry,
@@ -81,7 +86,7 @@ const ProcessLaunch = Type.Object({
     [Type.Literal('system-dependency'), Type.Literal('secondary')],
     { default: 'secondary' }
   ),
-  // If not provided, the default command is "deno"
+  // If not provided, the default command is "bun"
   command: Type.Optional(Type.String()),
   cwd: Type.Optional(Type.String()),
   env: Type.Optional(Type.Record(Type.String(), Type.String())),
@@ -125,10 +130,10 @@ export const OrchestratorConfig = Type.Object({
   processesToLaunch: Type.Array(Type.Union([ProcessLaunch, Type.Boolean()]), { default: [] }),
 
   // This can be customized for different locations of the packages.
-  // nightly: jsr:@paimaexample
-  // release: jsr:@paima
-  // local development: @paima
-  packageName: Type.String({ default: "jsr:@effectstream" }),
+  // nightly: @paimaexample
+  // release: @paima
+  // local development: @effectstream
+  packageName: Type.String({ default: "@effectstream" }),
   packageVersion: Type.String({ default: "" }),
 
   // Processes to start
@@ -290,7 +295,7 @@ export async function start(
           env,
         } = task.config
         if (stopProcessAtPort.length > 0) {
-          await dkill({ ports: stopProcessAtPort });
+          await killPorts(stopProcessAtPort);
         }
 
         // Prime the TUI log display state for this process and optionally
@@ -447,7 +452,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 > => ({
   [ComponentNames.TMUX]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.TUI_LOG_PORT] });
+      await killPorts([ENV.TUI_LOG_PORT]);
     }
 
     await Tmux.install();
@@ -470,10 +475,10 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.EXPLORER]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.EFFECTSTREAM_EXPLORER_PORT] });
+      await killPorts([ENV.EFFECTSTREAM_EXPLORER_PORT]);
     }
     const explorer = $({
-      args: ["task", "-f", config.packageName + "/explorer", "dev"],
+      args: ["run", "--filter", config.packageName + "/explorer", "dev"],
       component: ComponentNames.EXPLORER,
       log: logHandler(),
       abortController: abortControllers.developerUI,
@@ -485,12 +490,12 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.COLLECTOR]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.OTEL_COLLECTOR_PORT, 12345] }); // 12345 is the port for the Grafana Alloy web UI
+      await killPorts([ENV.OTEL_COLLECTOR_PORT, 12345]); // 12345 is the port for the Grafana Alloy web UI
     }
 
     // deno -A @effectstream/grafana-alloy grafana-alloy
     const otlpCollector = $({
-      args: ["-A", "@effectstream/grafana-alloy", "grafana-alloy"],
+      args: ["grafana-alloy", "grafana-alloy"],
       // collector always has to post logs directly to console
       // otherwise, it gets stuck in an infinite loop of sending to itself
       log: logHandler({
@@ -513,10 +518,10 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.LOKI]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [3100] });
+      await killPorts([3100]);
     }
     const loki = $({
-      args: ["-A", "@effectstream/grafana-loki", "grafana-loki"],
+      args: ["grafana-loki", "grafana-loki"],
       component: ComponentNames.LOKI,
       log: logHandler(
       {
@@ -536,7 +541,7 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.CHECKER]: async (): Promise<ProcessComponent> => {
     const checker = $({
-      args: ["task", "check"],
+      args: ["run", "check"],
       component: ComponentNames.CHECKER,
       stdout: "inherit",
       stderr: "inherit",
@@ -549,13 +554,13 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.EFFECTSTREAM_SYNC]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.EFFECTSTREAM_API_PORT] });
+      await killPorts([ENV.EFFECTSTREAM_API_PORT]);
     }
 
     // if EFFECTSTREAM_ENV is set, then launch the node:start:{EFFECTSTREAM_ENV}
     const effectstreamEnv = getEnv("EFFECTSTREAM_ENV");
     const node = $({
-      args: ["task", effectstreamEnv ? `node:start:${effectstreamEnv}` : "node:start"],
+      args: ["run", effectstreamEnv ? `node:start:${effectstreamEnv}` : "node:start"],
       log: logHandler({}, tsLogOrchestratorAdapter),
       component: ComponentNames.EFFECTSTREAM_SYNC,
       namespace: [], // these should get a "paima" namespace added to them automatically
@@ -569,15 +574,14 @@ export const processFactory = (config: OrchestratorConfigType): Record<
 
   [ComponentNames.EFFECTSTREAM_PGLITE]: async (): Promise<ProcessComponent> => {
     if (config.kill.auto) {
-      await dkill({ ports: [ENV.DB_PORT] });
+      await killPorts([ENV.DB_PORT]);
     }
 
     const paimaDb = $({
       // TODO: run pgtyped:up only depending on parameters?
       args: [
-        "run",
-        "-A",
-        config.packageName + "/db/start-pglite",
+        "-e",
+        `process.argv.splice(1, 0, '_'); await import('${config.packageName}/db/start-pglite')`,
         "--port",
         String(ENV.DB_PORT),
       ],
@@ -596,9 +600,8 @@ export const processFactory = (config: OrchestratorConfigType): Record<
   [ComponentNames.APPLY_MIGRATIONS]: async (): Promise<ProcessComponent> => {
     const externalPaimaDb = $({
       args: [
-        "run",
-        "-A",
-        config.packageName + "/db/apply-migrations",
+        "-e",
+        `await import('${config.packageName}/db/apply-migrations')`,
       ],
       component: ComponentNames.APPLY_MIGRATIONS,
       log: logHandler({}, tsLogOrchestratorAdapter),

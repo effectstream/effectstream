@@ -20,7 +20,9 @@ import {
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 import { transferFunds } from "@night-bitcoin/bitcoin-contracts/transfer-funds";
 import { transferFunds as transferFundsMidnight } from "@night-bitcoin/midnight-contracts/transfer-funds";
-import { dirname, fromFileUrl, resolve } from "@std/path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 
 const CHAIN_IDS = {
   BITCOIN: "1",
@@ -110,7 +112,7 @@ function getFillerPort(name: string): number {
 }
 
 // Preload all filler wallets at module initialization
-const currentDir = dirname(fromFileUrl(import.meta.url));
+const currentDir = dirname(fileURLToPath(import.meta.url));
 const walletBasePaths = {
   bitcoin: resolve(currentDir, "../../../shared/contracts/bitcoin-contracts/generated"),
   midnight: resolve(currentDir, "../../../shared/contracts/midnight-contracts/generated"),
@@ -130,8 +132,8 @@ try {
       const bitcoinWalletPath = `${walletBasePaths.bitcoin}/wallet-${filler.walletIndex}.json`;
       const midnightWalletPath = `${walletBasePaths.midnight}/wallet-${filler.walletIndex}.json`;
       
-      const bitcoinWalletData = JSON.parse(Deno.readTextFileSync(bitcoinWalletPath));
-      const midnightWalletData = JSON.parse(Deno.readTextFileSync(midnightWalletPath));
+      const bitcoinWalletData = JSON.parse(readFileSync(bitcoinWalletPath));
+      const midnightWalletData = JSON.parse(readFileSync(midnightWalletPath));
       
       preloadedFillerWallets.set(filler.name, {
         btc: bitcoinWalletData.derivedAddress,
