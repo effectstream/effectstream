@@ -30,6 +30,7 @@ import {
   type EvmBatchPayload,
   parseEvmBatcherInput,
 } from "../batch-data-builder/evm-builder-logic.ts";
+import { AdapterLogger } from "./adapter-logger.ts";
 
 export interface HardhatArtifact {
   contractName: string;
@@ -69,6 +70,7 @@ export class EvmContractAdapter
   private readonly maxBatchSize: number;
 
   private readonly builder = new EvmBatchBuilderLogic();
+  private readonly log = new AdapterLogger("evm-contract");
 
   constructor(config: EvmContractAdapterConfig) {
     this.contractAddress = config.contractAddress;
@@ -156,15 +158,14 @@ export class EvmContractAdapter
     }
 
     if (data.payloads.length > 1) {
-      console.warn(
-        `EvmContractAdapter received ${data.payloads.length} invocations. Only the first will be processed.`,
+      this.log.warn(
+        `Received ${data.payloads.length} invocations. Only the first will be processed.`,
       );
     }
 
     const payload = this.normalizePayload(data.payloads[0]);
-    console.log(
-      `[EvmAdapter] Submitting payload for ${this.contractAddress} ::`,
-      payload,
+    this.log.log(
+      `Submitting payload for ${this.contractAddress} :: ${JSON.stringify(payload)}`,
     );
     const fn = this.findMatchingFunction(payload.method, payload.args);
 
@@ -175,20 +176,14 @@ export class EvmContractAdapter
         functionName: payload.method,
         args: payload.args as any[],
       });
-      console.log(
-        `[EvmAdapter] Pure/view call result for ${payload.method}:`,
-        result,
+      this.log.log(
+        `Pure/view call result for ${payload.method}: ${JSON.stringify(result)}`,
       );
       return `query:${payload.method}:${JSON.stringify(result)}`;
     }
 
-    console.log(
-      "[EvmAdapter] Calling impure method",
-      payload.method,
-      "with args",
-      payload.args,
-      "value",
-      payload.value,
+    this.log.log(
+      `Calling impure method ${payload.method} with args ${JSON.stringify(payload.args)} value ${payload.value}`,
     );
     const hash = await this.walletClient.writeContract({
       account: this.account,
@@ -199,7 +194,7 @@ export class EvmContractAdapter
       value: payload.value,
       chain: this.walletClient.chain,
     });
-    console.log("[EvmAdapter] Submitted tx hash:", hash);
+    this.log.log(`Submitted tx hash: ${hash}`);
 
     return hash;
   }
@@ -208,16 +203,13 @@ export class EvmContractAdapter
     hash: BlockchainHash,
     timeout?: number,
   ): Promise<BlockchainTransactionReceipt> {
-    console.log(`[EvmAdapter] Waiting for receipt: ${hash}`);
+    this.log.log(`Waiting for receipt: ${hash}`);
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: hash as Hash,
       timeout,
     });
-    console.log(
-      `[EvmAdapter] Receipt confirmed for ${hash}:`,
-      receipt.status,
-      "block",
-      receipt.blockNumber,
+    this.log.log(
+      `Receipt confirmed for ${hash}: ${receipt.status} block ${receipt.blockNumber}`,
     );
 
     return {

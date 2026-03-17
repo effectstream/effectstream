@@ -12,6 +12,9 @@ export type {
   BatchBuildingResult,
 } from "./adapter.ts";
 
+// Shared adapter logger
+export { AdapterLogger } from "./adapter-logger.ts";
+
 // PaimaL2 adapter implementation
 export { PaimaL2DefaultAdapter } from "./paimal2-adapter.ts";
 
