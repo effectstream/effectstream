@@ -117,7 +117,7 @@ export function* start(config: StartConfig): Operation<void> {
       ),
     );
 
-    log.remote(
+    log.local(
       ComponentNames.EFFECTSTREAM_SYNC,
       "block-merge",
       SeverityNumber.INFO,
