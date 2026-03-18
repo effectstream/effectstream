@@ -5,6 +5,7 @@ import { toPattern } from './utils.ts';
 import { extract, matches } from 'mqtt-pattern';
 import { PaimaEventBrokerNames } from './types.ts';
 import type { Buffer } from "node:buffer";
+import { getRuntime } from '@effectstream/utils/runtime';
 
 // TODO This should come from @effectstream/utils/node-env ENV
 const ENV = { 
@@ -30,11 +31,23 @@ export class PaimaEventConnect {
     this.connectBatcher.bind(this);
   }
 
+  private static _bunMqttWarned = false;
+
   /**
    * Get client for broker
    * note: we lazy-load the client to avoid overhead if MQTT is never used
    */
-  public async getClient(broker: PaimaEventBrokerNames): Promise<mqtt.MqttClient> {
+  public async getClient(broker: PaimaEventBrokerNames): Promise<mqtt.MqttClient | null> {
+    if (getRuntime().runtime === 'bun') {
+      if (!PaimaEventConnect._bunMqttWarned) {
+        PaimaEventConnect._bunMqttWarned = true;
+        console.warn(
+          '[MQTT] WebSocket-based MQTT is not supported in Bun (ws.createWebSocketStream is unimplemented). ' +
+          'See: https://github.com/oven-sh/bun/pull/24304'
+        );
+      }
+      return null;
+    }
     switch (broker) {
       case PaimaEventBrokerNames.PaimaEngine: {
         return await this.connectPaimaEngine();

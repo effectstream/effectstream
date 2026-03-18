@@ -70,6 +70,22 @@ export class OrchestratorClient {
     return res.json() as Promise<{ success: boolean; queued?: string[]; error?: string }>;
   }
 
+  async silence(names: string[], unsilence = false): Promise<{ success: boolean; silenced?: string[]; error?: string }> {
+    const res = await fetch(`${this.baseUrl}/silence`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names, unsilence }),
+    });
+    return res.json() as Promise<{ success: boolean; silenced?: string[]; error?: string }>;
+  }
+
+  async getSilenced(): Promise<string[]> {
+    const res = await fetch(`${this.baseUrl}/silence`);
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const body = (await res.json()) as { silenced: string[] };
+    return body.silenced;
+  }
+
   async shutdown(): Promise<void> {
     await fetch(`${this.baseUrl}/shutdown`, { method: "POST" }).catch(() => {});
   }

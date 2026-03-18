@@ -342,6 +342,7 @@ export default {
       name: "serve-explorer",
       description: "Serve the Effectstream explorer",
       cwd: "packages/build-tools/explorer",
+      stopProcessAtPort: [10590],
       args: ["run", "server:start"],
       waitToExit: false,
       type: "system-dependency",

@@ -245,7 +245,7 @@ export async function runProcesses(
             options.onTaskRunning?.(name);
 
             waitForExit.then((code) => {
-              if (code !== 0 && config.critical !== false) {
+              if (code !== 0 && config.critical !== false && !manager.isStopping(name)) {
                 options.onTaskFailed?.(name, code);
                 shutdownRequested = true;
                 options.onShutdown?.(

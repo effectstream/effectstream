@@ -144,6 +144,31 @@ export function startApiServer({ port, manager, onShutdown, runCallbacks }: ApiS
         return json({ success: true, stopped: "all" });
       }
 
+      // ── Silence / Unsilence ──────────────────────────────────────────────
+      if (req.method === "POST" && url.pathname === "/silence") {
+        let body: { names: string[]; unsilence?: boolean };
+        try {
+          body = (await req.json()) as typeof body;
+        } catch {
+          return json({ error: "Invalid JSON body" }, 400);
+        }
+        if (!Array.isArray(body.names) || body.names.length === 0) {
+          return json({ error: "Missing or empty field: names" }, 400);
+        }
+        for (const name of body.names) {
+          if (body.unsilence) {
+            manager.unsilence(name);
+          } else {
+            manager.silence(name);
+          }
+        }
+        return json({ success: true, silenced: manager.getSilenced() });
+      }
+
+      if (req.method === "GET" && url.pathname === "/silence") {
+        return json({ silenced: manager.getSilenced() });
+      }
+
       // ── Shutdown ──────────────────────────────────────────────────────────
       if (req.method === "POST" && url.pathname === "/shutdown") {
         // Respond first, then shut down

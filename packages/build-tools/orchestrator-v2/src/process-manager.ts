@@ -27,6 +27,10 @@ export class ProcessManager {
   private processes = new Map<string, ManagedProcess>();
   private procs = new Map<string, BunProc>();
   private listeners: ChangeListener[] = [];
+  /** Processes currently being intentionally stopped/restarted — suppress exit handlers. */
+  private stopping = new Set<string>();
+  /** Processes whose terminal output is suppressed. */
+  private silenced = new Set<string>();
   /**
    * When set, each process's stdout+stderr are appended to
    * `<logDir>/<process-name>.log` instead of inheriting the terminal.
@@ -76,6 +80,10 @@ export class ProcessManager {
       outFd = fs.openSync(logFile, "a");
     }
 
+    // When logging to a file, write directly to the fd.
+    // Otherwise, pipe output so we can suppress silenced processes.
+    const usesPipe = typeof outFd !== "number";
+
     const proc = Bun.spawn([command, ...config.args], {
       env: {
         ...process.env,
@@ -83,13 +91,63 @@ export class ProcessManager {
         FORCE_COLOR: "true",
       },
       cwd: config.cwd ?? process.cwd(),
-      stdout: outFd,
-      stderr: outFd,
+      stdout: usesPipe ? "pipe" : outFd,
+      stderr: usesPipe ? "pipe" : outFd,
       stdin: "ignore",
     });
 
     // The child has inherited the fd — safe to close the parent's copy
     if (typeof outFd === "number") fs.closeSync(outFd);
+
+    // Forward piped output to the terminal unless silenced, prefixed with [name]
+    if (usesPipe) {
+      const prefix = `\x1b[36m[${config.name}]\x1b[0m `;
+      const prefixBytes = new TextEncoder().encode(prefix);
+      const newline = 0x0a; // '\n'
+
+      const forward = (stream: ReadableStream<Uint8Array> | null, dest: typeof process.stdout) => {
+        if (!stream) return;
+        const reader = stream.getReader();
+        let atLineStart = true;
+
+        const pump = (): void => {
+          reader.read().then(({ done, value }) => {
+            if (done) return;
+            if (this.silenced.has(config.name)) {
+              pump();
+              return;
+            }
+
+            // Prefix each line with [processName]
+            const chunks: Uint8Array[] = [];
+            let start = 0;
+            for (let i = 0; i < value.length; i++) {
+              if (atLineStart) {
+                chunks.push(prefixBytes);
+                atLineStart = false;
+              }
+              if (value[i] === newline) {
+                chunks.push(value.subarray(start, i + 1));
+                start = i + 1;
+                atLineStart = true;
+              }
+            }
+            // Remaining bytes after last newline
+            if (start < value.length) {
+              chunks.push(value.subarray(start));
+            }
+
+            for (const chunk of chunks) {
+              dest.write(chunk);
+            }
+            pump();
+          }).catch(() => {});
+        };
+        pump();
+      };
+      forward(proc.stdout as ReadableStream<Uint8Array>, process.stdout);
+      forward(proc.stderr as ReadableStream<Uint8Array>, process.stderr);
+    }
 
     const managed: ManagedProcess = {
       name: config.name,
@@ -128,6 +186,7 @@ export class ProcessManager {
     const managed = this.processes.get(name);
     if (!proc || !managed) return false;
 
+    this.stopping.add(name);
     proc.kill("SIGTERM");
 
     // Wait up to 5 s for graceful exit, then SIGKILL
@@ -144,6 +203,7 @@ export class ProcessManager {
     managed.status = "stopped";
     managed.endedAt = new Date();
     this.procs.delete(name);
+    this.stopping.delete(name);
     this.emit(managed);
     return true;
   }
@@ -163,5 +223,25 @@ export class ProcessManager {
 
   isRunning(name: string): boolean {
     return this.procs.has(name);
+  }
+
+  /** Returns true if the process is being intentionally stopped (via stop/restart). */
+  isStopping(name: string): boolean {
+    return this.stopping.has(name);
+  }
+
+  /** Suppress terminal output for the named process. */
+  silence(name: string): void {
+    this.silenced.add(name);
+  }
+
+  /** Resume terminal output for the named process. */
+  unsilence(name: string): void {
+    this.silenced.delete(name);
+  }
+
+  /** Returns the set of currently silenced process names. */
+  getSilenced(): string[] {
+    return [...this.silenced];
   }
 }

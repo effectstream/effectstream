@@ -8,6 +8,8 @@
  *   restart <name>    Restart a named process
  *   stop    [name]    Stop a named process, or all processes
  *   list    [config]  List processes defined in a config without starting them
+ *   silence [name...] Suppress terminal output for processes
+ *   unsilence <name...> Resume terminal output for processes
  *
  * Global options:
  *   --port <n>        Orchestrator API port (default: 4747)
@@ -19,6 +21,7 @@ import { runStatusCommand } from "./commands/status.ts";
 import { runRestartCommand } from "./commands/restart.ts";
 import { runStopCommand } from "./commands/stop.ts";
 import { runListCommand } from "./commands/list.ts";
+import { runSilenceCommand } from "./commands/silence.ts";
 
 // ── Minimal arg parser ────────────────────────────────────────────────────────
 
@@ -87,6 +90,14 @@ try {
       await runListCommand({ positionals, flags });
       break;
 
+    case "silence":
+      await runSilenceCommand({ positionals, flags, port });
+      break;
+
+    case "unsilence":
+      await runSilenceCommand({ positionals, flags: { ...flags, unsilence: true }, port });
+      break;
+
     default:
       console.error(`Unknown command: ${command}`);
       printHelp();
@@ -111,6 +122,8 @@ function printHelp() {
   restart <name>              Restart a specific process by name
   stop    [name]              Stop a specific process (or all if no name given)
   list    [config]            List processes in config without starting them
+  silence [name...]           Suppress terminal output for processes (no args = show list)
+  unsilence <name...>         Resume terminal output for processes
 
 \x1b[1mOptions for \`start\`:\x1b[0m
   --config     <path>         Config file to load (default: orchestrator.config.ts)
@@ -122,6 +135,7 @@ function printHelp() {
   --no-api                    Disable the HTTP API server
   --serial                    Launch processes one at a time instead of in parallel waves
   --no-deps                   Launch only named processes, skip dependency resolution
+  --silence    <p1,p2,...>    Suppress terminal output for these processes
 
 \x1b[1mOptions for status/restart/stop:\x1b[0m
   --port   <n>                Orchestrator API port (default: auto-detected)
@@ -135,6 +149,9 @@ function printHelp() {
   orchestrator-v2 status
   orchestrator-v2 restart midnight-node
   orchestrator-v2 stop batcher
+  orchestrator-v2 start --silence=midnight-node,bitcoin-core
+  orchestrator-v2 silence midnight-node bitcoin-core
+  orchestrator-v2 unsilence midnight-node
   orchestrator-v2 list orchestrator.config.ts
 `);
 }

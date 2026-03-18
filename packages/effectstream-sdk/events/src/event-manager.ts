@@ -4,7 +4,6 @@ import { PaimaEventConnect } from './event-connect.ts';
 import type { Static } from '@sinclair/typebox';
 import type { EventPathAndDef, ResolvedPath, UserFilledPath } from './types.ts';
 import { PaimaEventBrokerNames } from './types.ts';
-import { getRuntime } from '@effectstream/utils/runtime';
 
 export type CallbackArgs<Event extends EventPathAndDef> = {
   // schema of the content emitted
@@ -25,7 +24,6 @@ export type CallbackAndMetadata<Event extends EventPathAndDef> = {
  * This class subscribes to specific topics, and stores the callbacks for event processing.
  */
 export class PaimaEventManager {
-  static _bunMqttWarned = false;
   public callbacksForTopic: Record<
     PaimaEventBrokerNames,
     Record<
@@ -90,6 +88,7 @@ export class PaimaEventManager {
     callback: (args: CallbackArgs<Event>) => void
   ): Promise<symbol> {
     const client = await new PaimaEventConnect().getClient(args.topic.broker);
+    if (!client) return Symbol('noop');
     const topic = fillPath(args.topic.path, args.filter);
 
     const clientSubscribe = async (): Promise<void> => {
@@ -145,6 +144,7 @@ export class PaimaEventManager {
     if (numCallbacks === 0) {
       const client = await new PaimaEventConnect().getClient(broker);
       delete this.callbacksForTopic[broker][topic];
+      if (!client) return;
 
       const clientUnsubscribe = async (): Promise<void> => {
         try {
@@ -170,16 +170,6 @@ export class PaimaEventManager {
     topic: Event,
     event: ResolvedPath<Event['path']> & Static<Event['type']>
   ): Promise<void> {
-    if (getRuntime().runtime === 'bun') {
-      if (!PaimaEventManager._bunMqttWarned) {
-        PaimaEventManager._bunMqttWarned = true;
-        console.warn(
-          '[MQTT] WebSocket-based MQTT is not supported in Bun (ws.createWebSocketStream is unimplemented). ' +
-          'See: https://github.com/oven-sh/bun/pull/24304'
-        );
-      }
-      return;
-    }
     const filterKeys = new Set(keysForPath(topic.path));
 
     const filter = Object.fromEntries(
@@ -200,6 +190,7 @@ export class PaimaEventManager {
     message: Static<Event['type']>
   ): Promise<void> {
     const client = await new PaimaEventConnect().getClient(args.topic.broker);
+    if (!client) return;
     const topicPath = fillPath(args.topic.path, args.filter);
     await client.publishAsync(topicPath, JSON.stringify(message), { qos: 2 });
   }

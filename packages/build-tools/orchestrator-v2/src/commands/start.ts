@@ -93,6 +93,10 @@ export async function runStartCommand(opts: StartOptions): Promise<void> {
   const noApi = opts.flags["no-api"] === true;
   const serial = opts.flags["serial"] === true;
   const noDeps = opts.flags["no-deps"] === true;
+  const silenceFlag =
+    typeof opts.flags["silence"] === "string"
+      ? opts.flags["silence"].split(",").map((s) => s.trim()).filter(Boolean)
+      : undefined;
 
   // ── Check for existing daemon ──────────────────────────────────────────────
   // If an orchestrator daemon is already running, delegate to it via API.
@@ -121,6 +125,9 @@ export async function runStartCommand(opts: StartOptions): Promise<void> {
   // ── Process manager ────────────────────────────────────────────────────────
   const manager = new ProcessManager();
   if (logDirFlag) manager.logDir = logDirFlag;
+  if (silenceFlag) {
+    for (const name of silenceFlag) manager.silence(name);
+  }
 
   // ── Task event callbacks (shared between local runs and API-triggered runs)
   const runCallbacks = {
