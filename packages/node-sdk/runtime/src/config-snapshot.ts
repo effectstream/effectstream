@@ -1,6 +1,6 @@
 import type { Client } from "pg";
 import type { Operation } from "effection";
-import { until } from "npm:effection@3.5.0";
+import { until } from "effection";
 import {
   getSyncProtocolConfigSnapshot,
   upsertSyncProtocolConfigSnapshot,
@@ -8,6 +8,7 @@ import {
 import { ConfigNetworkType, ConfigSyncProtocolType } from "@effectstream/config";
 import type { SyncProtocolWithNetwork } from "@effectstream/config";
 import { log, ComponentNames, SeverityNumber } from "@effectstream/log";
+import { getEnv } from "@effectstream/utils/runtime";
 
 /**
  * Fields that must not change between restarts for each protocol type.
@@ -76,7 +77,7 @@ export function* validateAndSnapshotConfig(
   dbConn: Client,
 ): Operation<void> {
   console.log("validateAndSnapshotConfig");
-  const useDbStartHeight = Deno.env.get("USE_DB_STARTHEIGHT") !== undefined;
+  const useDbStartHeight = getEnv("USE_DB_STARTHEIGHT") !== undefined;
 
   for (const protocol of syncInfo) {
     const protocolName: string = (protocol.syncProtocol as { name: string }).name;

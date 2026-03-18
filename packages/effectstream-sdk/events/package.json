@@ -6,6 +6,7 @@
     ".": "./src/mod.ts"
   },
   "dependencies": {
+    "@effectstream/utils": "workspace:*",
     "@sinclair/typebox": "0.34.41",
     "abitype": "1.1.0",
     "assert-never": "^1.4.0",

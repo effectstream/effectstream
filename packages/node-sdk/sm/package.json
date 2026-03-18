@@ -8,6 +8,13 @@
     "./grammar": "./primitives/src/grammar.ts"
   },
   "dependencies": {
+    "@effectstream/concise": "workspace:*",
+    "@effectstream/config": "workspace:*",
+    "@effectstream/coroutine": "workspace:*",
+    "@effectstream/crypto": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@effectstream/log": "workspace:*",
+    "@effectstream/utils": "workspace:*",
     "pg": "8.17.2",
     "pg-tx": "^1.0.1",
     "@sinclair/typebox": "0.34.41",

@@ -4,6 +4,7 @@
   "license": "MIT",
   "exports": "./src/mod.ts",
   "dependencies": {
+    "@effectstream/utils": "workspace:*",
     "@dcspark/carp-client": "^3.3.0",
     "@dcspark/cip34-js": "3.0.1",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",

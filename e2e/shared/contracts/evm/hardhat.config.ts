@@ -18,7 +18,7 @@ import {
 const __dirname: any = import.meta.dirname;
 
 // Initialize telemetry
-initTelemetry("@paimaexample/log", "./deno.json");
+initTelemetry("@paimaexample/log", "0.9.0");
 
 // Create node tasks
 const nodeTasks = createNodeTasks({

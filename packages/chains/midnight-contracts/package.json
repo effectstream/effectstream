@@ -11,6 +11,7 @@
     "./types": "./src/types.ts"
   },
   "dependencies": {
+    "@effectstream/utils": "workspace:*",
     "@scure/bip39": "^2.0.1",
     "dotenv": "^16.4.7",
     "@midnight-ntwrk/wallet": "5.0.0",

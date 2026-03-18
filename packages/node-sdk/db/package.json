@@ -12,6 +12,12 @@
     "./version": "./migrations/system-version.ts"
   },
   "dependencies": {
+    "@effectstream/coroutine": "workspace:*",
+    "@effectstream/log": "workspace:*",
+    "@effectstream/runtime": "workspace:*",
+    "@effectstream/sync": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@electric-sql/pglite": "^0.3.14",
     "@pgtyped/runtime": "2.4.2",
     "@pgtyped/parser": "2.4.2",
     "pg": "8.17.2",
@@ -21,7 +27,6 @@
   },
   "devDependencies": {
     "@paima/pgtyped-cli": "^2.4.5",
-    "@electric-sql/pglite": "^0.3.14",
     "wait-on": "8.0.3",
     "concurrently": "9.1.2"
   }

@@ -4,6 +4,10 @@
   "license": "MIT",
   "exports": "./src/mod.ts",
   "dependencies": {
+    "@effectstream/concise": "workspace:*",
+    "@effectstream/crypto": "workspace:*",
+    "@effectstream/event-client": "workspace:*",
+    "@effectstream/utils": "workspace:*",
     "@aurowallet/mina-provider": "^1.0.12",
     "@metamask/providers": "^22.1.0",
     "@midnight-ntwrk/dapp-connector-api": "4.0.0",

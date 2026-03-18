@@ -4,6 +4,11 @@
   "license": "MIT",
   "exports": "./src/mod.ts",
   "dependencies": {
+    "@effectstream/config": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@effectstream/log": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@midnight-ntwrk/ledger-v7": "7.0.0",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "3.0.0",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
     "effection": "3.5.0",

@@ -8,6 +8,16 @@
     "./config-testnet": "./src/config.testnet.ts"
   },
   "dependencies": {
+    "@effectstream/concise": "workspace:*",
+    "@effectstream/config": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@effectstream/midnight-contracts": "workspace:*",
+    "@effectstream/sm": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@e2e/avail-contracts": "workspace:*",
+    "@e2e/evm-contracts": "workspace:*",
+    "@e2e/midnight-contract-counter-basic": "workspace:*",
+    "@e2e/midnight-contract-eip-20": "workspace:*",
     "viem": "2.37.3",
     "@sinclair/typebox": "0.34.41",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0"

@@ -4,6 +4,7 @@
   "license": "MIT",
   "exports": "./src/mod.ts",
   "dependencies": {
+    "@effectstream/utils": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "0.56.0",
     "@opentelemetry/exporter-logs-otlp-http": "0.56.0",

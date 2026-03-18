@@ -4,11 +4,11 @@
   "license": "MIT",
   "exports": {},
   "scripts": {
-    "dolos:exists": "test -f ./dolos",
+    "dolos:exists": "test -f ./node_modules/.bin/dolos",
     "devkit:start": "bunx @bloxbean/yaci-devkit up",
     "devkit:wait": "wait-on tcp:3001",
     "dolos:fill-template": "bun ./fill-template.ts",
-    "dolos:start": "rm -rf ./data ./dolos.socket && ./dolos bootstrap relay && ./dolos daemon",
+    "dolos:start": "rm -rf ./data ./dolos.socket && bun ./node_modules/.bin/dolos bootstrap relay && bun ./node_modules/.bin/dolos daemon",
     "dolos:wait": "wait-on tcp:50051"
   },
   "dependencies": {

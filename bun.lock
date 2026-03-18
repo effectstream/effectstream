@@ -5,14 +5,21 @@
     "": {
       "name": "paima-engine",
       "devDependencies": {
+        "@effectstream/db": "workspace:*",
+        "@effectstream/grafana-alloy": "workspace:*",
+        "@effectstream/grafana-loki": "workspace:*",
         "bun-types": "^1.3.9",
+        "wait-on": "8.0.3",
       },
     },
     "e2e/client/batcher": {
       "name": "@e2e/batcher",
       "version": "0.3.0",
       "dependencies": {
+        "@e2e/evm-contracts": "workspace:*",
+        "@e2e/midnight-contracts": "workspace:*",
         "@effectstream/batcher": "workspace:*",
+        "@effectstream/midnight-contracts": "workspace:*",
         "@effectstream/utils": "workspace:*",
         "bitcoinjs-lib": "^6.1.5",
         "bitcoinjs-message": "^2.2.0",
@@ -37,11 +44,18 @@
       "dependencies": {
         "@e2e/avail-contracts": "workspace:*",
         "@e2e/batcher": "workspace:*",
+        "@e2e/data-types": "workspace:*",
+        "@e2e/database": "workspace:*",
         "@e2e/engine": "workspace:*",
         "@e2e/midnight-contracts": "workspace:*",
         "@effectstream/concise": "workspace:*",
+        "@effectstream/config": "workspace:*",
+        "@effectstream/coroutine": "workspace:*",
+        "@effectstream/db": "workspace:*",
         "@effectstream/log": "workspace:*",
         "@effectstream/midnight-contracts": "workspace:*",
+        "@effectstream/runtime": "workspace:*",
+        "@effectstream/sm": "workspace:*",
         "@effectstream/utils": "workspace:*",
         "@fastify/cors": "^11.0.1",
         "@fastify/swagger": "^9.5.1",
@@ -165,6 +179,7 @@
       "name": "@e2e/bitcoin-contracts",
       "version": "0.3.0",
       "dependencies": {
+        "@effectstream/utils": "workspace:*",
         "bitcoinjs-lib": "6.1.5",
         "ecpair": "2.1.0",
         "tiny-secp256k1": "2.2.3",
@@ -191,8 +206,11 @@
       "version": "0.3.0",
       "dependencies": {
         "@effectstream/evm-contracts": "file:./../../../../packages/chains/evm-contracts",
+        "@effectstream/evm-hardhat": "workspace:*",
+        "@effectstream/log": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "@nomicfoundation/hardhat-errors": "3.0.1",
-        "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
+        "@nomicfoundation/hardhat-ignition": "3.0.2",
         "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
         "@nomicfoundation/hardhat-utils": "3.0.0",
         "@nomicfoundation/hardhat-viem": "3.0.0",
@@ -216,6 +234,7 @@
         "@e2e/midnight-contract-counter-basic": "workspace:*",
         "@e2e/midnight-contract-eip-20": "workspace:*",
         "@effectstream/midnight-contracts": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "@midnight-ntwrk/compact-js": "2.4.0",
         "@midnight-ntwrk/compact-runtime": "0.14.0",
         "@midnight-ntwrk/ledger": "*",
@@ -273,6 +292,16 @@
       "name": "@e2e/data-types",
       "version": "0.3.0",
       "dependencies": {
+        "@e2e/avail-contracts": "workspace:*",
+        "@e2e/evm-contracts": "workspace:*",
+        "@e2e/midnight-contract-counter-basic": "workspace:*",
+        "@e2e/midnight-contract-eip-20": "workspace:*",
+        "@effectstream/concise": "workspace:*",
+        "@effectstream/config": "workspace:*",
+        "@effectstream/db": "workspace:*",
+        "@effectstream/midnight-contracts": "workspace:*",
+        "@effectstream/sm": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
         "@sinclair/typebox": "0.34.41",
         "viem": "2.37.3",
@@ -425,6 +454,9 @@
         "explorer": "cli.cjs",
       },
       "dependencies": {
+        "@effectstream/concise": "workspace:*",
+        "@effectstream/event-client": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "@fastify/static": "^8.1.0",
         "fastify": "^5.4.0",
         "http-server": "^14.1.1",
@@ -454,6 +486,13 @@
         "wait-on": "8.0.3",
       },
     },
+    "packages/build-tools/orchestrator-v2": {
+      "name": "@effectstream/orchestrator-v2",
+      "version": "0.1.0",
+      "bin": {
+        "orchestrator-v2": "src/cli.ts",
+      },
+    },
     "packages/chains/avail-contracts": {
       "name": "@effectstream/avail-contracts",
       "version": "0.3.0",
@@ -475,7 +514,7 @@
       "name": "@effectstream/evm-contracts",
       "version": "0.3.0",
       "dependencies": {
-        "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
+        "@nomicfoundation/hardhat-ignition": "3.0.2",
         "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
         "@nomicfoundation/hardhat-viem": "3.0.0",
         "@opentelemetry/sdk-node": "0.56.0",
@@ -490,8 +529,10 @@
       "name": "@effectstream/evm-hardhat",
       "version": "0.3.0",
       "dependencies": {
+        "@effectstream/log": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "@nomicfoundation/hardhat-errors": "3.0.1",
-        "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
+        "@nomicfoundation/hardhat-ignition": "3.0.2",
         "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
         "@nomicfoundation/hardhat-utils": "3.0.0",
         "@nomicfoundation/hardhat-viem": "3.0.0",
@@ -505,6 +546,7 @@
       "name": "@effectstream/midnight-contracts",
       "version": "0.3.0",
       "dependencies": {
+        "@effectstream/utils": "workspace:*",
         "@midnight-ntwrk/compact-js": "2.4.0",
         "@midnight-ntwrk/ledger": "4.0.0",
         "@midnight-ntwrk/ledger-v7": "7.0.0",
@@ -543,6 +585,7 @@
       "version": "0.3.0",
       "dependencies": {
         "@effectstream/crypto": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "@sinclair/typebox": "0.34.41",
         "js-sha3": "^0.9.3",
         "viem": "2.37.3",
@@ -554,6 +597,7 @@
       "dependencies": {
         "@dcspark/carp-client": "^3.3.0",
         "@dcspark/cip34-js": "3.0.1",
+        "@effectstream/utils": "workspace:*",
         "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
         "@sinclair/typebox": "0.34.41",
         "@utxorpc/spec": "^0.18.1",
@@ -595,6 +639,7 @@
       "name": "@effectstream/event-client",
       "version": "0.3.0",
       "dependencies": {
+        "@effectstream/utils": "workspace:*",
         "@sinclair/typebox": "0.34.41",
         "abitype": "1.1.0",
         "assert-never": "^1.4.0",
@@ -607,6 +652,7 @@
       "name": "@effectstream/log",
       "version": "0.3.0",
       "dependencies": {
+        "@effectstream/utils": "workspace:*",
         "@opentelemetry/api": "^1.9.0",
         "@opentelemetry/api-logs": "0.56.0",
         "@opentelemetry/exporter-logs-otlp-http": "0.56.0",
@@ -657,6 +703,10 @@
       "version": "0.3.0",
       "dependencies": {
         "@aurowallet/mina-provider": "^1.0.12",
+        "@effectstream/concise": "workspace:*",
+        "@effectstream/crypto": "workspace:*",
+        "@effectstream/event-client": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "@metamask/providers": "^22.1.0",
         "@midnight-ntwrk/dapp-connector-api": "4.0.0",
         "@perawallet/connect": "^1.4.2",
@@ -694,6 +744,12 @@
       "name": "@effectstream/db",
       "version": "0.3.0",
       "dependencies": {
+        "@effectstream/coroutine": "workspace:*",
+        "@effectstream/log": "workspace:*",
+        "@effectstream/runtime": "workspace:*",
+        "@effectstream/sync": "workspace:*",
+        "@effectstream/utils": "workspace:*",
+        "@electric-sql/pglite": "^0.3.14",
         "@pgtyped/parser": "2.4.2",
         "@pgtyped/runtime": "2.4.2",
         "effection": "^3.5.0",
@@ -702,7 +758,6 @@
         "pg-tx": "^1.0.1",
       },
       "devDependencies": {
-        "@electric-sql/pglite": "^0.3.14",
         "@paima/pgtyped-cli": "^2.4.5",
         "concurrently": "9.1.2",
         "wait-on": "8.0.3",
@@ -721,6 +776,7 @@
       "name": "@effectstream/event-server",
       "version": "0.3.0",
       "dependencies": {
+        "@effectstream/utils": "workspace:*",
         "aedes": "^0.51.3",
         "aedes-server-factory": "^0.2.1",
         "ip": "^2.0.1",
@@ -730,6 +786,17 @@
       "name": "@effectstream/runtime",
       "version": "0.3.0",
       "dependencies": {
+        "@effectstream/concise": "workspace:*",
+        "@effectstream/config": "workspace:*",
+        "@effectstream/coroutine": "workspace:*",
+        "@effectstream/crypto": "workspace:*",
+        "@effectstream/db": "workspace:*",
+        "@effectstream/event-client": "workspace:*",
+        "@effectstream/event-server": "workspace:*",
+        "@effectstream/log": "workspace:*",
+        "@effectstream/sm": "workspace:*",
+        "@effectstream/sync": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "@fastify/cors": "^11.0.1",
         "@fastify/swagger": "^9.5.1",
         "@fastify/swagger-ui": "^5.2.3",
@@ -751,6 +818,13 @@
       "name": "@effectstream/sm",
       "version": "0.3.0",
       "dependencies": {
+        "@effectstream/concise": "workspace:*",
+        "@effectstream/config": "workspace:*",
+        "@effectstream/coroutine": "workspace:*",
+        "@effectstream/crypto": "workspace:*",
+        "@effectstream/db": "workspace:*",
+        "@effectstream/log": "workspace:*",
+        "@effectstream/utils": "workspace:*",
         "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
         "@pgtyped/runtime": "^2.4.2",
         "@sinclair/typebox": "0.34.41",
@@ -767,6 +841,11 @@
       "dependencies": {
         "@cardano-sdk/core": "^0.46.11",
         "@cardano-sdk/util": "^0.17.1",
+        "@effectstream/config": "workspace:*",
+        "@effectstream/db": "workspace:*",
+        "@effectstream/log": "workspace:*",
+        "@effectstream/utils": "workspace:*",
+        "@midnight-ntwrk/ledger-v7": "7.0.0",
         "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "3.0.0",
         "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
         "@sinclair/typebox": "0.34.41",
@@ -970,6 +1049,8 @@
     "@effectstream/npm-midnight-proof-server": ["@effectstream/npm-midnight-proof-server@workspace:packages/binaries/midnight-proof-server"],
 
     "@effectstream/orchestrator": ["@effectstream/orchestrator@workspace:packages/build-tools/orchestrator"],
+
+    "@effectstream/orchestrator-v2": ["@effectstream/orchestrator-v2@workspace:packages/build-tools/orchestrator-v2"],
 
     "@effectstream/ord": ["@effectstream/ord@workspace:packages/binaries/ord"],
 
@@ -1327,7 +1408,7 @@
 
     "@nomicfoundation/hardhat-errors": ["@nomicfoundation/hardhat-errors@3.0.1", "", { "dependencies": { "@nomicfoundation/hardhat-utils": "^3.0.0" } }, "sha512-qXzTDmND5aNSolxms6shuLlPK8+rugKjDsLb1BRVAYnZfPBCIc52v8nX2HEW+/qBRp3YMZVDyJVrhud+Uby2JQ=="],
 
-    "@nomicfoundation/hardhat-ignition": ["@nomicfoundation/hardhat-ignition-viem@3.0.2", "", { "dependencies": { "@nomicfoundation/hardhat-errors": "^3.0.1" }, "peerDependencies": { "@nomicfoundation/hardhat-ignition": "^3.0.2", "@nomicfoundation/hardhat-verify": "^3.0.0", "@nomicfoundation/hardhat-viem": "^3.0.0", "@nomicfoundation/ignition-core": "^3.0.2", "hardhat": "^3.0.0", "viem": "^2.30.0" } }, "sha512-SbKUzPPIqDIkZyqCIKeEomoRJHmjyJR4QCVGXfQLV2XsPsMnXlT92i/KfQSRB8TrxXoDnobRFynUKRPLgNalUA=="],
+    "@nomicfoundation/hardhat-ignition": ["@nomicfoundation/hardhat-ignition@3.0.2", "", { "dependencies": { "@nomicfoundation/hardhat-errors": "^3.0.1", "@nomicfoundation/hardhat-utils": "^3.0.0", "@nomicfoundation/ignition-core": "^3.0.2", "@nomicfoundation/ignition-ui": "^3.0.2", "chalk": "^5.3.0", "debug": "^4.3.2", "json5": "^2.2.3", "prompts": "^2.4.2" }, "peerDependencies": { "@nomicfoundation/hardhat-verify": "^3.0.0", "hardhat": "^3.0.0" } }, "sha512-7OcSzZf9bZUt2At6oJizjFF0lMQWaI5En0akTHOp3crkVB2cVmnqZwCn+NGm7gdB8lzWPCXA/MWrm06eFM2G1w=="],
 
     "@nomicfoundation/hardhat-ignition-viem": ["@nomicfoundation/hardhat-ignition-viem@3.0.2", "", { "dependencies": { "@nomicfoundation/hardhat-errors": "^3.0.1" }, "peerDependencies": { "@nomicfoundation/hardhat-ignition": "^3.0.2", "@nomicfoundation/hardhat-verify": "^3.0.0", "@nomicfoundation/hardhat-viem": "^3.0.0", "@nomicfoundation/ignition-core": "^3.0.2", "hardhat": "^3.0.0", "viem": "^2.30.0" } }, "sha512-SbKUzPPIqDIkZyqCIKeEomoRJHmjyJR4QCVGXfQLV2XsPsMnXlT92i/KfQSRB8TrxXoDnobRFynUKRPLgNalUA=="],
 
@@ -1340,6 +1421,8 @@
     "@nomicfoundation/hardhat-zod-utils": ["@nomicfoundation/hardhat-zod-utils@3.0.1", "", { "dependencies": { "@nomicfoundation/hardhat-errors": "^3.0.0", "@nomicfoundation/hardhat-utils": "^3.0.2" }, "peerDependencies": { "zod": "^3.23.8" } }, "sha512-I6/pyYiS9p2lLkzQuedr1ScMocH+ew8l233xTi+LP92gjEiviJDxselpkzgU01MUM0t6BPpfP8yMO958LDEJVg=="],
 
     "@nomicfoundation/ignition-core": ["@nomicfoundation/ignition-core@3.0.2", "", { "dependencies": { "@ethersproject/address": "5.6.1", "@nomicfoundation/hardhat-errors": "^3.0.1", "@nomicfoundation/hardhat-utils": "^3.0.0", "@nomicfoundation/solidity-analyzer": "^0.1.1", "cbor2": "^1.9.0", "debug": "^4.3.2", "ethers": "^6.14.0", "immer": "10.0.2", "lodash-es": "4.17.21", "ndjson": "2.0.0" } }, "sha512-Uwjgsc6RLp8Dfp5hJ8KHccfYyTpSdhn3uaYHzjSX83l/9JphZ4gyzZOYvnJk3wbXpOPjdCRQAHNkk20vv5Z/Jw=="],
+
+    "@nomicfoundation/ignition-ui": ["@nomicfoundation/ignition-ui@3.0.9", "", {}, "sha512-CulPbGKP7MPfYNETy2PDmyxOzZhb1FsY1rohmgD5H8Te7b4hsvBhbGFqRqrJs7W6RIVW9aMFeeNjxgPdhauncA=="],
 
     "@nomicfoundation/solidity-analyzer": ["@nomicfoundation/solidity-analyzer@0.1.2", "", { "optionalDependencies": { "@nomicfoundation/solidity-analyzer-darwin-arm64": "0.1.2", "@nomicfoundation/solidity-analyzer-darwin-x64": "0.1.2", "@nomicfoundation/solidity-analyzer-linux-arm64-gnu": "0.1.2", "@nomicfoundation/solidity-analyzer-linux-arm64-musl": "0.1.2", "@nomicfoundation/solidity-analyzer-linux-x64-gnu": "0.1.2", "@nomicfoundation/solidity-analyzer-linux-x64-musl": "0.1.2", "@nomicfoundation/solidity-analyzer-win32-x64-msvc": "0.1.2" } }, "sha512-q4n32/FNKIhQ3zQGGw5CvPF6GTvDCpYwIf7bEY/dZTZbgfDsHyjJwURxUJf3VQuuJj+fDIFl4+KkBVbw4Ef6jA=="],
 
@@ -2935,6 +3018,8 @@
 
     "kind-of": ["kind-of@6.0.3", "", {}, "sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw=="],
 
+    "kleur": ["kleur@3.0.3", "", {}, "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w=="],
+
     "klona": ["klona@2.0.6", "", {}, "sha512-dhG34DXATL5hSxJbIexCft8FChFXtmskoZYnoPWjXQuebWYCNkVeV3KkGegCK9CP1oswI/vQibS2GY7Em/sJJA=="],
 
     "lazystream": ["lazystream@1.0.1", "", { "dependencies": { "readable-stream": "^2.0.5" } }, "sha512-b94GiNHQNy6JNTrt5w6zNyffMrNkXZb3KTkCZJb2V1xaEGCk093vkZ2jk3tpaeP33/OiXC+WvK9AxUebnf5nbw=="],
@@ -3275,6 +3360,8 @@
 
     "progress-events": ["progress-events@1.0.1", "", {}, "sha512-MOzLIwhpt64KIVN64h1MwdKWiyKFNc/S6BoYKPIVUHFg0/eIEyBulhWCgn678v/4c0ri3FdGuzXymNCv02MUIw=="],
 
+    "prompts": ["prompts@2.4.2", "", { "dependencies": { "kleur": "^3.0.3", "sisteransi": "^1.0.5" } }, "sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q=="],
+
     "prop-types": ["prop-types@15.8.1", "", { "dependencies": { "loose-envify": "^1.4.0", "object-assign": "^4.1.1", "react-is": "^16.13.1" } }, "sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg=="],
 
     "propagate": ["propagate@2.0.1", "", {}, "sha512-vGrhOavPSTz4QVNuBNdcNXePNdNMaO1xj9yBeH1ScQPjk/rhg9sSlCXPhMkFuaNNW/syTvYqsnbIJxMBfRbbag=="],
@@ -3450,6 +3537,8 @@
     "siginfo": ["siginfo@2.0.0", "", {}, "sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g=="],
 
     "signal-exit": ["signal-exit@4.1.0", "", {}, "sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw=="],
+
+    "sisteransi": ["sisteransi@1.0.5", "", {}, "sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg=="],
 
     "smart-buffer": ["smart-buffer@4.2.0", "", {}, "sha512-94hK0Hh8rPqQl2xXc3HsaBoOXKV20MToPkcXvwbISWLEs+64sBq5kFgn2kJDHb1Pry9yrP0dxrCI9RRci7RXKg=="],
 
@@ -3871,9 +3960,13 @@
 
     "@e2e/engine/viem": ["viem@2.37.3", "", { "dependencies": { "@noble/curves": "1.9.1", "@noble/hashes": "1.8.0", "@scure/bip32": "1.7.0", "@scure/bip39": "1.6.0", "abitype": "1.1.0", "isows": "1.0.7", "ox": "0.9.3", "ws": "8.18.3" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-hwoZqkFSy13GCFzIftgfIH8hNENvdlcHIvtLt73w91tL6rKmZjQisXWTahi1Vn5of8/JQ1FBKfwUus3YkDXwbw=="],
 
+    "@e2e/evm-contracts/@effectstream/evm-contracts": ["@effectstream/evm-contracts@file:packages/chains/evm-contracts", { "dependencies": { "@nomicfoundation/hardhat-ignition": "3.0.2", "@nomicfoundation/hardhat-ignition-viem": "3.0.2", "@nomicfoundation/hardhat-viem": "3.0.0", "@opentelemetry/sdk-node": "0.56.0", "@openzeppelin/contracts": "5.1.0", "@openzeppelin/contracts-upgradeable": "^5.1.0", "@wagmi/cli": "2.3.1", "hardhat": "3.0.4", "jsonc-parser": "^3.3.1" } }],
+
     "@e2e/node/ecpair": ["ecpair@3.0.1", "", { "dependencies": { "uint8array-tools": "^0.0.8", "valibot": "^1.2.0", "wif": "^5.0.0" } }, "sha512-uz8wMFvtdr58TLrXnAesBsoMEyY8UudLOfApcyg40XfZjP+gt1xO4cuZSIkZ8hTMTQ8+ETgt7xSIV4eM7M6VNw=="],
 
     "@e2e/node/viem": ["viem@2.37.3", "", { "dependencies": { "@noble/curves": "1.9.1", "@noble/hashes": "1.8.0", "@scure/bip32": "1.7.0", "@scure/bip39": "1.6.0", "abitype": "1.1.0", "isows": "1.0.7", "ox": "0.9.3", "ws": "8.18.3" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-hwoZqkFSy13GCFzIftgfIH8hNENvdlcHIvtLt73w91tL6rKmZjQisXWTahi1Vn5of8/JQ1FBKfwUus3YkDXwbw=="],
+
+    "@e2e/node/ws": ["ws@8.19.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg=="],
 
     "@e2e/wallets-ui/viem": ["viem@2.37.3", "", { "dependencies": { "@noble/curves": "1.9.1", "@noble/hashes": "1.8.0", "@scure/bip32": "1.7.0", "@scure/bip39": "1.6.0", "abitype": "1.1.0", "isows": "1.0.7", "ox": "0.9.3", "ws": "8.18.3" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-hwoZqkFSy13GCFzIftgfIH8hNENvdlcHIvtLt73w91tL6rKmZjQisXWTahi1Vn5of8/JQ1FBKfwUus3YkDXwbw=="],
 
@@ -4012,6 +4105,12 @@
     "@midnight-ntwrk/wallet-sdk-shielded/ws": ["ws@8.19.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg=="],
 
     "@midnight-ntwrk/wallet-sdk-unshielded-wallet/@midnight-ntwrk/wallet-sdk-capabilities": ["@midnight-ntwrk/wallet-sdk-capabilities@3.0.0", "", { "dependencies": { "@midnight-ntwrk/wallet-sdk-address-format": "3.0.0", "@midnight-ntwrk/wallet-sdk-hd": "3.0.0", "effect": "^3.19.14" } }, "sha512-iVNIb7TTzEFdipHu37ppSSl1CZ4vXcJz5kwWxI3szwMJhPrRJp0ZTiD//mA4PdXNNO0CrarPo3hn5QOxCZir5Q=="],
+
+    "@nomicfoundation/hardhat-ignition/@nomicfoundation/hardhat-errors": ["@nomicfoundation/hardhat-errors@3.0.6", "", { "dependencies": { "@nomicfoundation/hardhat-utils": "^3.0.1" } }, "sha512-3x+OVdZv7Rgy3z6os9pB6kiHLxs6q0PCXHRu+WLZflr44PG9zW+7V9o+ehrUqmmivlHcIFr3Qh4M2wZVuoCYww=="],
+
+    "@nomicfoundation/hardhat-ignition/@nomicfoundation/hardhat-utils": ["@nomicfoundation/hardhat-utils@3.0.6", "", { "dependencies": { "@streamparser/json-node": "^0.0.22", "debug": "^4.3.2", "env-paths": "^2.2.0", "ethereum-cryptography": "^2.2.1", "fast-equals": "^5.4.0", "json-stream-stringify": "^3.1.6", "rfdc": "^1.3.1", "undici": "^6.16.1" } }, "sha512-AD/LPNdjXNFRrZcaAAewgJpdnHpPppZxo5p+x6wGMm5Hz4B3+oLf/LUzVn8qb4DDy9RE2c24l2F8vmL/w6ZuXg=="],
+
+    "@nomicfoundation/hardhat-ignition/chalk": ["chalk@5.6.2", "", {}, "sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA=="],
 
     "@nomicfoundation/hardhat-verify/@nomicfoundation/hardhat-errors": ["@nomicfoundation/hardhat-errors@3.0.6", "", { "dependencies": { "@nomicfoundation/hardhat-utils": "^3.0.1" } }, "sha512-3x+OVdZv7Rgy3z6os9pB6kiHLxs6q0PCXHRu+WLZflr44PG9zW+7V9o+ehrUqmmivlHcIFr3Qh4M2wZVuoCYww=="],
 

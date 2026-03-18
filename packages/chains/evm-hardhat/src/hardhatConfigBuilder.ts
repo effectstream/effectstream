@@ -314,21 +314,19 @@ export function createDefaultNetworks(
  * 
  * Note: This function executes asynchronously.
  * Errors are caught and logged as warnings to avoid breaking Hardhat initialization.
- * 
+ *
  * @param logPackage Package name for log utilities (kept for backward compatibility, but ignored)
- * @param denoJsonPath Path to deno.json file for version detection
+ * @param version Version string for telemetry (default: "0.9.0")
  */
 export function initTelemetry(
   logPackage: string,
-  denoJsonPath: string = "./deno.json",
+  version: string = "0.9.0",
 ): void {
-  // Use static imports - import map will handle @effectstream -> @paimaexample conversion when published
   // Execute asynchronously - errors won't break Hardhat initialization
   (async () => {
     try {
-      const DenoConfig = parse(fs.readFileSync(denoJsonPath, "utf8"));
       const sdk = new NodeSDK({
-        ...defaultOtelSetup("hardhat", DenoConfig.version),
+        ...defaultOtelSetup("hardhat", version),
       });
       sdk.start();
     } catch (error) {

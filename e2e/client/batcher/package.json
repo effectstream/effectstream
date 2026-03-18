@@ -17,6 +17,9 @@
     "bitcoinjs-message": "^2.2.0",
     "ecpair": "^2.1.0",
     "tiny-secp256k1": "^2.2.1",
+    "@e2e/evm-contracts": "workspace:*",
+    "@e2e/midnight-contracts": "workspace:*",
+    "@effectstream/midnight-contracts": "workspace:*",
     "@effectstream/utils": "workspace:*",
     "@effectstream/batcher": "workspace:*"
   }

@@ -18,21 +18,10 @@ if (isNaN(port)) {
   throw new Error(`Port argument ${portArgName} is not a number`);
 }
 
-// TODO: find nearest node_modules folder, as import { pg_ivm } is not working
-const extensionSubPath = "/node_modules/@electric-sql/pglite/dist/pg_ivm.tar.gz";
-let nodeModulesPath = cwd();
-while (true) {
-  try {
-    const st = statSync(nodeModulesPath + extensionSubPath);
-    if (st.isFile()) break;
-  } catch (_e) {
-    // not found
-  }
-  if (!nodeModulesPath || nodeModulesPath === "/") {
-    throw new Error("Could not find pglite pg_ivm extension in any parent node_modules");
-  }
-  nodeModulesPath = nodeModulesPath.split("/").slice(0, -1).join("/");
-}
+// Resolve pg_ivm extension path via import.meta.resolve (works with bun's hoisting)
+const pgliteEntry = import.meta.resolve("@electric-sql/pglite");
+const pgliteDir = pgliteEntry.replace(/\/dist\/[^/]+$/, "");
+const pgIvmUrl = new URL(`${pgliteDir}/dist/pg_ivm.tar.gz`);
 
 const db = new PGlite(
   ENV.PGLITE_DATA_DIR,
@@ -40,12 +29,7 @@ const db = new PGlite(
     username: ENV.DB_USER,
     database: ENV.DB_NAME,
     extensions: {
-      // pg_ivm: pg_ivm,
-      pg_ivm: new URL(
-        nodeModulesPath +
-          "/node_modules/@electric-sql/pglite/dist/pg_ivm.tar.gz",
-        "file://",
-      ),
+      pg_ivm: pgIvmUrl,
     },
     debug: (ENV.DEBUG_PGLITE as DebugLevel) || 0,
   },

@@ -10,9 +10,11 @@
     "./hardhat-config-builder": "./src/hardhatConfigBuilder.ts"
   },
   "dependencies": {
+    "@effectstream/log": "workspace:*",
+    "@effectstream/utils": "workspace:*",
     "ws": "8.18.1",
     "hardhat": "3.0.4",
-    "@nomicfoundation/hardhat-ignition": "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
+    "@nomicfoundation/hardhat-ignition": "3.0.2",
     "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
     "@nomicfoundation/hardhat-viem": "3.0.0",
     "@nomicfoundation/hardhat-errors": "3.0.1",

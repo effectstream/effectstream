@@ -3,7 +3,7 @@ import {
   type EvmContractAdapterConfig,
 } from "@effectstream/batcher";
 import { contractAddressesEvmMain } from "@e2e/evm-contracts";
-import CounterArtifact from "../../shared/contracts/evm/ignition/deployments/chain-31337/artifacts/CounterModule%23Counter.json" with { type: "json" };
+import CounterArtifact from "../../shared/contracts/evm/ignition/deployments/chain-31337/artifacts/CounterModule#Counter.json" with { type: "json" };
 
 const COUNTER_TARGET = "evmCounter";
 const COUNTER_SYNC_PROTOCOL = "parallelEvmRPC_fast";
