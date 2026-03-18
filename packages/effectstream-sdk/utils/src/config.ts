@@ -234,6 +234,14 @@ const definitions: Record<string, ConfigDefinition> = {
     defaultValue: MIDNIGHT_STORAGE_PASSWORD_DEFAULT,
     description: "Midnight Storage Password. Used to run the new node version or deploy contracts on Midnight. A random 16-character hex string is generated if not provided.",
   },
+  API_KEY_OPEN_ENDPOINTS_EXPLORER: {
+    key: "API_KEY_OPEN_ENDPOINTS_EXPLORER",
+    isSecret: true,
+    type: "string",
+    defaultValue: "effectstream_api_explorer_endpoints_password",
+    description:
+      "API key to access open explorer endpoints (tables, primitives, addresses, scheduled-data).",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -328,6 +336,9 @@ export class ENV {
   }
   static get MIDNIGHT_STORAGE_PASSWORD(): string {
     return ENV.getConfig(definitions.MIDNIGHT_STORAGE_PASSWORD);
+  }
+  static get API_KEY_OPEN_ENDPOINTS_EXPLORER(): string {
+    return ENV.getConfig(definitions.API_KEY_OPEN_ENDPOINTS_EXPLORER);
   }
 
   public static getConfig<T>(config: ConfigDefinition): T {
