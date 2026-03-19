@@ -25,6 +25,10 @@ export function anyError(): boolean {
   return testResults.count === 0 || testResults.failed > 0;
 }
 
+export function hasPassedTests(): boolean {
+  return testResults.passed > 0;
+}
+
 let isRunning = false;
 
 /** Increment the passed test count and print a success message. */

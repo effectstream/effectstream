@@ -25,6 +25,8 @@ import {
 } from "./shutdown-manager.ts";
 import type { BatcherGrammar, BatcherListener } from "./batcher-events.ts";
 import { BuiltinEvents, PaimaEventManager as EffectStreamEventManager } from "@effectstream/event-client";
+import { getRuntime } from "@effectstream/utils/runtime";
+import { ENV } from "@effectstream/utils/node-env";
 
 /**
  * Custom error class for input validation failures
@@ -588,8 +590,20 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     receipt: BlockchainTransactionReceipt,
     timeout: number = 120000,
   ): Promise<{ latestBlock: number; rollup: number } | null> {
-    // We need to get the chain name from the receipt
-    // Since receipt doesn't have chain info, we need to track which adapter submitted it
+    const { runtime } = getRuntime();
+    if (runtime === "bun") {
+      return this.waitForEffectStreamProcessedPolling(target, receipt, timeout);
+    }
+    return this.waitForEffectStreamProcessedMqtt(target, receipt, timeout);
+  }
+
+  // ── MQTT-based (Node.js / Deno) ────────────────────────────────────────────
+
+  private async waitForEffectStreamProcessedMqtt(
+    target: string,
+    receipt: BlockchainTransactionReceipt,
+    timeout: number,
+  ): Promise<{ latestBlock: number; rollup: number } | null> {
     const adapter = this.adapters[target];
     const chainName = adapter.getSyncProtocolName?.() ??
       adapter.getChainName();
@@ -634,6 +648,71 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         clearTimeout(timer);
       }
     }
+  }
+
+  // ── HTTP polling fallback (Bun — ws.createWebSocketStream unsupported) ────
+
+  private async waitForEffectStreamProcessedPolling(
+    target: string,
+    receipt: BlockchainTransactionReceipt,
+    timeout: number,
+  ): Promise<{ latestBlock: number; rollup: number } | null> {
+    const adapter = this.adapters[target];
+    const chainName = adapter.getSyncProtocolName?.() ??
+      adapter.getChainName();
+
+    const targetBlock = Number(receipt.blockNumber);
+    const deadline = Date.now() + timeout;
+
+    while (Date.now() < deadline) {
+      try {
+        const res = await fetch(
+          `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/block-heights`,
+        );
+        if (res.ok) {
+          const data: Array<{
+            protocol_name: string;
+            synced_page: number | null;
+          }> = await res.json();
+
+          const entry = data.find((e) => e.protocol_name === chainName);
+          if (entry && entry.synced_page != null && entry.synced_page > targetBlock) {
+            // Get rollup block height via RPC
+            let rollup = entry.synced_page;
+            try {
+              const rpcRes = await fetch(
+                `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/rpc/evm`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    jsonrpc: "2.0",
+                    id: 1,
+                    method: "eth_blockNumber",
+                    params: [],
+                  }),
+                },
+              );
+              if (rpcRes.ok) {
+                const json = await rpcRes.json();
+                if (json.result) {
+                  rollup = parseInt(json.result, 16);
+                }
+              }
+            } catch {
+              // use synced_page as fallback rollup value
+            }
+            return { latestBlock: entry.synced_page, rollup };
+          }
+        }
+      } catch {
+        // API not ready yet
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    console.error("Error waiting for EffectStream processing: Timeout (HTTP polling)");
+    return null;
   }
 
   /**

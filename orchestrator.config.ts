@@ -316,6 +316,7 @@ export default {
       type: "system-dependency",
       env: {
         BATCHER_EVM_SECRET_KEY: "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+        POLKADOTJS_DISABLE_ESM_CJS_WARNING: "1",
       },
       dependsOn: [
         ...(evm_enabled      ? ["deploy-evm-contracts"] : []),
@@ -359,6 +360,9 @@ export default {
       stopProcessAtPort: [9999],
       waitToExit: false,
       type: "system-dependency",
+      env: {
+        POLKADOTJS_DISABLE_ESM_CJS_WARNING: "1",
+      },
       dependsOn: [
         "batcher",
         "apply-migrations",

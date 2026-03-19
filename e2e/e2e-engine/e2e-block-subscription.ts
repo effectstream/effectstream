@@ -1,4 +1,6 @@
 import { BuiltinEvents, PaimaEventManager } from "@effectstream/event-client";
+import { ENV } from "@effectstream/utils/node-env";
+import { getRuntime } from "@effectstream/utils/runtime";
 
 // Singleton class to watch for block updates.
 class BlockWatcher {
@@ -8,6 +10,7 @@ class BlockWatcher {
   // 2. Private properties to hold the state.
   private readonly latestBlock: Record<string, number> = {};
   private initializationPromise: Promise<void> | null = null;
+  private polling = false;
 
   // 3. A private constructor prevents creating new instances with `new BlockWatcher()`.
   private constructor() {}
@@ -60,6 +63,18 @@ class BlockWatcher {
   }
 
   private async initBlockSubscription(): Promise<void> {
+    const { runtime } = getRuntime();
+
+    if (runtime === "bun") {
+      await this.initHttpPolling();
+    } else {
+      await this.initMqttSubscription();
+    }
+  }
+
+  // ── MQTT-based subscription (Node.js / Deno / browser) ────────────────────
+
+  private async initMqttSubscription(): Promise<void> {
     console.log("Initializing block subscriptions...");
     this.latestBlock["__main__"] = 0;
     this.latestBlock["__timestamp__"] = 0;
@@ -73,7 +88,7 @@ class BlockWatcher {
         (event) => {
           const currentBlock = this.latestBlock["__main__"];
           this.latestBlock["__main__"] = Math.max(Number(event.block), currentBlock);
-          
+
           const currentTimestamp = this.latestBlock["__timestamp__"];
           this.latestBlock["__timestamp__"] = Math.max(Number(event.timestamp), currentTimestamp);
         },
@@ -90,6 +105,95 @@ class BlockWatcher {
       ),
     ]);
     console.log("Block subscriptions initialized.");
+  }
+
+  // ── HTTP polling fallback (Bun — ws.createWebSocketStream unsupported) ────
+
+  private async initHttpPolling(): Promise<void> {
+    console.log("Initializing block subscriptions (HTTP polling — Bun runtime)...");
+    this.latestBlock["__main__"] = 0;
+    this.latestBlock["__timestamp__"] = 0;
+
+    // Do one initial fetch so callers know subscriptions are "ready"
+    await this.pollOnce();
+
+    this.polling = true;
+    this.pollLoop();
+    console.log("Block subscriptions initialized.");
+  }
+
+  private async pollLoop(): Promise<void> {
+    while (this.polling) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await this.pollOnce();
+    }
+  }
+
+  private async pollOnce(): Promise<void> {
+    await Promise.all([
+      this.pollBlockHeights(),
+      this.pollRollupBlock(),
+    ]);
+  }
+
+  /**
+   * Fetches GET /block-heights — updates per-protocol synced pages.
+   */
+  private async pollBlockHeights(): Promise<void> {
+    try {
+      const res = await fetch(
+        `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/block-heights`,
+      );
+      if (!res.ok) return;
+
+      const data: Array<{
+        protocol_name: string;
+        synced_page: number | null;
+        fetched_page: number | null;
+      }> = await res.json();
+
+      for (const entry of data) {
+        const synced = entry.synced_page ?? 0;
+        if (synced > (this.latestBlock[entry.protocol_name] ?? 0)) {
+          this.latestBlock[entry.protocol_name] = synced;
+        }
+      }
+    } catch {
+      // API not ready yet — will retry on next poll
+    }
+  }
+
+  /**
+   * Fetches the rollup block height via POST /rpc/evm eth_blockNumber.
+   * Updates __main__.
+   */
+  private async pollRollupBlock(): Promise<void> {
+    try {
+      const res = await fetch(
+        `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/rpc/evm`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "eth_blockNumber",
+            params: [],
+          }),
+        },
+      );
+      if (!res.ok) return;
+
+      const json = await res.json();
+      if (json.result) {
+        const blockHeight = parseInt(json.result, 16);
+        if (blockHeight > (this.latestBlock["__main__"] ?? 0)) {
+          this.latestBlock["__main__"] = blockHeight;
+        }
+      }
+    } catch {
+      // API not ready yet
+    }
   }
 }
 

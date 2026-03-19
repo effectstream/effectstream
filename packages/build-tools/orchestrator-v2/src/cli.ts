@@ -10,6 +10,7 @@
  *   list    [config]  List processes defined in a config without starting them
  *   silence [name...] Suppress terminal output for processes
  *   unsilence <name...> Resume terminal output for processes
+ *   logs    [name...] Follow background daemon log files
  *
  * Global options:
  *   --port <n>        Orchestrator API port (default: 4747)
@@ -22,6 +23,7 @@ import { runRestartCommand } from "./commands/restart.ts";
 import { runStopCommand } from "./commands/stop.ts";
 import { runListCommand } from "./commands/list.ts";
 import { runSilenceCommand } from "./commands/silence.ts";
+import { runLogsCommand } from "./commands/logs.ts";
 
 // ── Minimal arg parser ────────────────────────────────────────────────────────
 
@@ -98,6 +100,10 @@ try {
       await runSilenceCommand({ positionals, flags: { ...flags, unsilence: true }, port });
       break;
 
+    case "logs":
+      await runLogsCommand({ positionals, flags });
+      break;
+
     default:
       console.error(`Unknown command: ${command}`);
       printHelp();
@@ -124,6 +130,7 @@ function printHelp() {
   list    [config]            List processes in config without starting them
   silence [name...]           Suppress terminal output for processes (no args = show list)
   unsilence <name...>         Resume terminal output for processes
+  logs    [name...]           Follow background daemon log files (like tail -f)
 
 \x1b[1mOptions for \`start\`:\x1b[0m
   --config     <path>         Config file to load (default: orchestrator.config.ts)

@@ -15,6 +15,7 @@
     "clean_binaries": "cd ../../../packages/binaries/midnight-node && npm run clean && cd ../midnight-indexer && npm run clean && cd ../midnight-proof-server && npm run clean",
     "quickstart": "bun run --filter @effectstream/tui clean && EFFECTSTREAM_ENV=quickstart NODE_ENV=development bun scripts/start.quickstart.ts",
     "e2e": "EFFECTSTREAM_ENV=e2e bun --elide-lines=0 scripts/start.e2e.ts",
+    "run-e2e": "EFFECTSTREAM_ENV=e2e bun --elide-lines=0 scripts/run-e2e.ts",
     "testnet": "EFFECTSTREAM_ENV=testnet bun scripts/start.testnet.ts"
   },
   "dependencies": {
