@@ -17,7 +17,21 @@ export function* startSync(
   // spawn polling task
   yield* spawn(function* () {
     while (true) {
-      const input = yield* iState.stateToInput();
+      const inputResult = yield* tryYield(iState.stateToInput());
+      if (inputResult.error != null) {
+        log.remote(
+          ComponentNames.EFFECTSTREAM_SYNC,
+          [...state.getNamespace(), "stateToInput"],
+          SeverityNumber.ERROR,
+          (log) => log(inputResult.error),
+        );
+        const { config } = state.fetcher;
+        if ("pollingInterval" in config.syncProtocol) {
+          yield* sleep(config.syncProtocol.pollingInterval);
+        }
+        continue;
+      }
+      const input = inputResult.data;
       const { config } = state.fetcher;
       if (input == null) {
         if ("pollingInterval" in config.syncProtocol) {
