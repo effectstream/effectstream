@@ -71,6 +71,8 @@ async function waitForSyncProcess(): Promise<void> {
 
 async function waitForSyncHealthy(): Promise<void> {
   console.log("⌛ Waiting for sync health endpoint...");
+  const timeout = 120_000; // 2 minutes
+  const start = Date.now();
   while (true) {
     try {
       const res = await fetch(`http://localhost:${ENV.EFFECTSTREAM_API_PORT}/health`);
@@ -78,6 +80,21 @@ async function waitForSyncHealthy(): Promise<void> {
       if (data.status === "ok") break;
     } catch {
       // not ready
+    }
+
+    if (Date.now() - start > timeout) {
+      // Dump sync log before failing
+      try {
+        const { readFileSync } = await import("fs");
+        const log = readFileSync(".orchestrator-logs/sync.log", "utf-8");
+        console.error("=== sync.log ===\n" + log + "\n=== end sync.log ===");
+      } catch { /* no log file */ }
+      try {
+        const procRes = await fetch(`http://localhost:${ORCHESTRATOR_PORT}/processes`);
+        const procData = await procRes.json();
+        console.error("=== orchestrator processes ===\n" + JSON.stringify(procData, null, 2) + "\n=== end ===");
+      } catch { /* orchestrator unreachable */ }
+      throw new Error(`Timed out waiting for sync health endpoint after ${timeout / 1000}s`);
     }
     await delay(200);
   }
