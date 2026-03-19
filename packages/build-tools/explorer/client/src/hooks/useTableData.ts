@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CONFIG_ENDPOINT,
+  explorerFetch,
   PRIMITIVES_ENDPOINT,
   PRIMITIVES_SCHEMA_ENDPOINT,
   SCHEDULED_DATA_ENDPOINT,
@@ -205,7 +206,7 @@ export function useTableData() {
           return cached;
         }
 
-        const response = await fetch(
+        const response = await explorerFetch(
           `${PRIMITIVES_SCHEMA_ENDPOINT}/${primitiveName}`,
         );
         if (!response.ok) {
@@ -237,7 +238,7 @@ export function useTableData() {
   const fetchTableSchema = useCallback(
     async (tableName: string): Promise<SchemaColumn[] | null> => {
       try {
-        const response = await fetch(`${TABLE_SCHEMA_ENDPOINT}/${tableName}`);
+        const response = await explorerFetch(`${TABLE_SCHEMA_ENDPOINT}/${tableName}`);
         if (!response.ok) {
           if (response.status === 404) {
             console.log(`🚫 Schema for table ${tableName} not found (404)`);
@@ -275,7 +276,7 @@ export function useTableData() {
   // Fetch all user table names
   const fetchAllUserTableNames = useCallback(async (): Promise<string[]> => {
     try {
-      const response = await fetch(TABLES_ENDPOINT);
+      const response = await explorerFetch(TABLES_ENDPOINT);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -342,7 +343,7 @@ export function useTableData() {
           url.searchParams.set("after", cursor);
         }
 
-        const response = await fetch(url.toString());
+        const response = await explorerFetch(url.toString());
         if (!response.ok) {
           if (response.status === 404) {
             console.log(`🚫 Primitive ${primitiveName} not found (404)`);
@@ -410,7 +411,7 @@ export function useTableData() {
           url.searchParams.set("after", cursor);
         }
 
-        const response = await fetch(url.toString());
+        const response = await explorerFetch(url.toString());
         if (!response.ok) {
           if (response.status === 404) {
             console.log(`🚫 Table ${tableName} not found (404)`);
@@ -455,7 +456,7 @@ export function useTableData() {
   const fetchScheduledData = useCallback(
     async (): Promise<TableData | null> => {
       try {
-        const response = await fetch(SCHEDULED_DATA_ENDPOINT);
+        const response = await explorerFetch(SCHEDULED_DATA_ENDPOINT);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

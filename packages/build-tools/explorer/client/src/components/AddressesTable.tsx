@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, http } from "viem";
 import { hardhat } from "viem/chains";
-import { ADDRESSES_ENDPOINT, BATCHER_ENDPOINT } from "../config.ts";
+import { ADDRESSES_ENDPOINT, BATCHER_ENDPOINT, explorerFetch } from "../config.ts";
 import { createMessageForBatcher } from "@effectstream/concise";
 
 interface AddressRow {
@@ -422,7 +422,7 @@ export function AddressesTable() {
         url.searchParams.set("after", cursor);
       }
 
-      const response = await fetch(url.toString());
+      const response = await explorerFetch(url.toString());
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

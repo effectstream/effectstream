@@ -1,4 +1,4 @@
-import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { evmRpcEngine } from "./rpc-evm/eip1193.ts";
 import type { Pool } from "pg";
 import cors from "@fastify/cors";
@@ -177,6 +177,22 @@ export const startHttpServer = function* (
     }),
   );
 
+  // Explorer API key preHandler for protecting data exploration endpoints
+  const explorerApiKeyPreHandler = async <
+    T extends FastifyRequest,
+    Q extends FastifyReply,
+  >(request: T, reply: Q) => {
+    const apiKey =
+      (request.headers["x-api-key"] as string) ||
+      (request.query as Record<string, string>)?.apiKey;
+
+    if (apiKey !== ENV.API_KEY_OPEN_ENDPOINTS_EXPLORER) {
+      return reply.status(401).send({
+        error: "Unauthorized. Provide a valid API key via x-api-key header or apiKey query parameter.",
+      });
+    }
+  };
+
   // Fetch raw blocks for a given sync protocol and page/range
   server.get(
     "/sync-protocols/:protocolName/blocks",
@@ -345,6 +361,10 @@ export const startHttpServer = function* (
   });
 
   server.get("/addresses", {
+    preHandler: explorerApiKeyPreHandler<
+      FastifyRequest<{ Querystring: TypePaginationQuerySchema }>,
+      FastifyReply
+    >,
     schema: {
       tags: ["status"],
       querystring: Type.Object({
@@ -485,6 +505,10 @@ export const startHttpServer = function* (
   });
 
   server.get("/scheduled-data", {
+    preHandler: explorerApiKeyPreHandler<
+      FastifyRequest<{ Querystring: TypePaginationQuerySchema }>,
+      FastifyReply
+    >,
     schema: {
       tags: ["status"],
       querystring: Type.Object({
@@ -556,6 +580,10 @@ export const startHttpServer = function* (
   });
 
   server.get("/tables", {
+    preHandler: explorerApiKeyPreHandler<
+      FastifyRequest<{ Querystring: TypePaginationQuerySchema }>,
+      FastifyReply
+    >,
     schema: {
       tags: ["developer"],
       response: {
@@ -564,7 +592,10 @@ export const startHttpServer = function* (
         })),
       },
     },
-  }, async () => {
+  }, async (
+    request: FastifyRequest<{ Querystring: TypePaginationQuerySchema }>,
+    reply: FastifyReply,
+  ) => {
     const tables = (await runPreparedQuery(
       getAllTableNames.run(undefined, dbConn),
       "tables",
@@ -576,6 +607,10 @@ export const startHttpServer = function* (
 
   // TODO How to only select user defined tables?
   server.get("/table-schema/:tableName", {
+    preHandler: explorerApiKeyPreHandler<
+      FastifyRequest<{ Params: { tableName: string } }>,
+      FastifyReply
+    >,
     schema: {
       tags: ["developer"],
       response: {
@@ -605,6 +640,10 @@ export const startHttpServer = function* (
   server.get(
     "/tables/:tableName",
     {
+      preHandler: explorerApiKeyPreHandler<
+        FastifyRequest<{ Querystring: TypePaginationQuerySchema }>,
+        FastifyReply
+      >,
       schema: {
         tags: ["developer"],
         querystring: Type.Object({
@@ -689,6 +728,10 @@ export const startHttpServer = function* (
   }
 
   server.get("/primitives-schema/:primitiveName", {
+    preHandler: explorerApiKeyPreHandler<
+      FastifyRequest<{ Params: { primitiveName: string } }>,
+      FastifyReply
+    >,
     schema: {
       tags: ["developer"],
       response: {
@@ -724,6 +767,7 @@ export const startHttpServer = function* (
   server.get(
     "/primitives/:primitiveName",
     {
+      preHandler: explorerApiKeyPreHandler,
       schema: {
         tags: ["developer"],
         querystring: Type.Object({
