@@ -19,6 +19,7 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import * as chains from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import type { EvmAddress, EvmPrivateKey } from "@effectstream/utils";
+import { AdapterLogger } from "./adapter-logger.ts";
 
 // Type conversion utilities
 function viemReceiptToGenericReceipt(
@@ -52,6 +53,7 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
   private readonly paimaL2Fee: bigint;
   private readonly effectstreamSyncProtocolName: string;
   public readonly maxBatchSize: number;
+  private readonly log = new AdapterLogger("paimal2");
 
   // Private helper for building batch data
   private readonly batchBuilderLogic = new DefaultBatchBuilderLogic();
@@ -137,7 +139,7 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
       value: actualFee,
     });
 
-    console.log(`🚀 Submitted batch transaction: ${hash}`);
+    this.log.log(`Submitted batch transaction: ${hash}`);
     return hash;
   }
 
@@ -153,8 +155,8 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
       timeout,
     });
 
-    console.log(
-      `✅ Transaction confirmed! Block: ${receipt.blockNumber}, Hash: ${hash}, Status: ${receipt.status}`,
+    this.log.log(
+      `Transaction confirmed! Block: ${receipt.blockNumber}, Hash: ${hash}, Status: ${receipt.status}`,
     );
 
     return viemReceiptToGenericReceipt(receipt);
