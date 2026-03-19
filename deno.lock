@@ -131,6 +131,7 @@
     "npm:@polkadot/extension-inject@~0.58.10": "0.58.10_@polkadot+api@15.10.2__@polkadot+util@13.5.9__@polkadot+util-crypto@13.5.9___@polkadot+util@13.5.9___@polkadot+x-randomvalues@13.5.9____@polkadot+util@13.5.9____@polkadot+wasm-util@7.5.4_____@polkadot+util@13.5.9___@polkadot+wasm-util@7.5.4____@polkadot+util@13.5.9_@polkadot+util@13.5.9",
     "npm:@polkadot/util-crypto@^13.4.3": "13.5.9_@polkadot+util@13.5.9_@polkadot+x-randomvalues@13.5.9__@polkadot+util@13.5.9__@polkadot+wasm-util@7.5.4___@polkadot+util@13.5.9_@polkadot+wasm-util@7.5.4__@polkadot+util@13.5.9",
     "npm:@polkadot/util@^13.4.3": "13.5.9",
+    "npm:@scure/bip39@1": "1.6.0",
     "npm:@scure/bip39@^2.0.1": "2.0.1",
     "npm:@sinclair/typebox@*": "0.34.41",
     "npm:@sinclair/typebox@0.34.41": "0.34.41",
