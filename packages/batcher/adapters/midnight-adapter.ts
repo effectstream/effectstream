@@ -29,7 +29,7 @@ import type {
   TransactionId,
   UnprovenTransaction,
   ZswapSecretKeys,
-} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
+} from "@midnight-ntwrk/ledger-v8";
 import {
   type DeployedContract,
   findDeployedContract,

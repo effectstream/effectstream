@@ -17,7 +17,7 @@ import {
   EncPublicKey,
   FinalizedTransaction,
   Transaction as LedgerV6Transaction,
-} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
+} from "@midnight-ntwrk/ledger-v8";
 
 import { Contract } from '@midnight-ntwrk/compact-js';
 import {
@@ -32,7 +32,7 @@ import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 import { NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
-
+import { type TransactionId } from "@midnight-ntwrk/ledger-v8";
 const BASE_URL_MIDNIGHT_INDEXER = `http://127.0.0.1:8088`;
 const BASE_WS_MIDNIGHT_INDEXER = `ws://127.0.0.1:8088`;
 const BASE_URL_PROOF_SERVER = `http://127.0.0.1:6300`;
@@ -89,7 +89,7 @@ export type CounterChainContract = Contract<
 
 type CounterContract = Counter.Contract;
 
-type CounterCircuits = Contract.ImpureCircuitId<CounterContract>;
+type CounterCircuits = Contract.ProvableCircuitId<CounterContract>;
 
 export type CounterProviders = MidnightProviders<
   CounterCircuits,

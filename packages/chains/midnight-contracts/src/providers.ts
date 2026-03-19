@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { Buffer } from "node:buffer";
-import type { ZswapSecretKeys, DustSecretKey, CoinPublicKey, EncPublicKey, FinalizedTransaction, TransactionId } from "@midnight-ntwrk/ledger-v7";
+import type { ZswapSecretKeys, DustSecretKey, CoinPublicKey, EncPublicKey, FinalizedTransaction, TransactionId } from "@midnight-ntwrk/ledger-v8";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
