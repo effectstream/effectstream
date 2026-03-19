@@ -1,5 +1,5 @@
-# Use Ubuntu as base image
-FROM oven/bun:1-ubuntu
+# Use Debian as base image (oven/bun no longer publishes ubuntu tags)
+FROM oven/bun:1-debian
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -53,6 +53,7 @@ WORKDIR /app
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 RUN which compact
+RUN compact update 0.28.0
 RUN compact update 0.29.0
 RUN compact --version
 RUN compact compile --version
@@ -76,12 +77,22 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
-RUN bun run --filter '*' contract:compile
+# Compile contracts needed for imports (uses orchestrator's --only + --no-deps to skip chain dependencies)
+RUN bun packages/build-tools/orchestrator-v2/src/cli.ts start \
+    --only=build-evm-contracts,compile-evm,compile-midnight-eip20,compile-midnight-counter \
+    --no-deps --no-api
 
 # START E2E TESTS
-# Launching processes en parallel generates issues on linux
-ENV EFFECTSTREAM_ORCHESTRATOR_SERIAL=true
 ENV DISABLE_CARDANO=true
-# Show Effectstream logs
+ENV DISABLE_BITCOIN=true
+ENV DISABLE_AVAIL=true
+ENV DISABLE_MIDNIGHT=true
+ENV EFFECTSTREAM_ENV=e2e
 ENV EFFECTSTREAM_STDOUT=true
-CMD ["bun", "run", "--filter", "@e2e/node", "e2e"]
+ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
+
+CMD bun packages/build-tools/orchestrator-v2/src/cli.ts start --serial --background \
+    && bun --elide-lines=0 e2e/client/node/scripts/run-e2e.ts; \
+    EXIT=$?; \
+    cat .orchestrator-logs/*.log 2>/dev/null; \
+    exit $EXIT
