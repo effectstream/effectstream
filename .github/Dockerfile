@@ -56,7 +56,7 @@ WORKDIR /app
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 RUN which compact
-RUN compact update 0.29.0
+RUN compact update 0.30.0
 RUN compact --version
 RUN compact compile --version
 
