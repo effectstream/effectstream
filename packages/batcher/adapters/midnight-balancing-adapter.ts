@@ -33,7 +33,7 @@ import type {
   PublicDataProvider,
   UnboundTransaction,
 } from "@midnight-ntwrk/midnight-js-types";
-import type { BalancingRecipe } from "@midnight-ntwrk/wallet-sdk-facade";
+import type { BalancingRecipe, ShieldedTokenTransfer } from "@midnight-ntwrk/wallet-sdk-facade";
 import {
   buildWalletFacade,
   type NetworkUrls,
@@ -63,7 +63,10 @@ export interface MidnightBalancingAdapterConfig {
   walletResult?: WalletResult | Promise<WalletResult>;
   syncProtocolName?: string;
   addShieldedPadding?: boolean;
-  /** Maximum number of transactions to include in a single batch. Defaults to unlimited. */
+  // Token type ID used for the shielded self-transfer padding. Required when addShieldedPadding is true.
+  // **NOTE for development:** "0000000000000000000000000000000000000000000000000000000000000000" can be used for undeployed + genesis wallet.
+  shieldedPaddingTokenID?: string;
+  // Maximum number of transactions to include in a single batch. Defaults to unlimited.
   maxBatchSize?: number;
 }
 
@@ -132,13 +135,9 @@ export class MidnightBalancingAdapter
   ) {
     this.walletSeed = walletSeed;
     this.config = config;
-    this.walletNetworkId = config.walletNetworkId ??
-      ("undeployed" as WalletNetworkId.NetworkId);
-    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) *
-      1000;
-    this.syncProtocolName = config.syncProtocolName ??
-      `Midnight-Balancing (${this.walletNetworkId})`;
-
+    this.walletNetworkId = config.walletNetworkId ?? ("undeployed" as WalletNetworkId.NetworkId);
+    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
+    this.syncProtocolName = config.syncProtocolName ?? `Midnight-Balancing (${this.walletNetworkId})`;
     this.initializationPromise = this.initialize(walletSeed);
   }
 
@@ -148,7 +147,6 @@ export class MidnightBalancingAdapter
 
   private async reconnect(): Promise<void> {
     this.log.log(" Reconnecting wallet...");
-    this.log.log("[balancing] Reconnecting wallet...");
     this.isInitialized = false;
     this.walletResult = null;
     this.config.walletResult = undefined; // Force rebuild instead of using shared
@@ -158,6 +156,7 @@ export class MidnightBalancingAdapter
 
   private async initialize(walletSeed: string): Promise<void> {
     try {
+      this.log.log("Initializing Midnight Balancing Adapter...");
       setNetworkId(this.walletNetworkId as any);
 
       if (this.config.walletResult) {
@@ -231,9 +230,17 @@ export class MidnightBalancingAdapter
         // deno-lint-ignore no-explicit-any
         (this.walletResult.wallet as any).dust,
       );
+
+      const bigintSerializer = (_: string, value: unknown) => {
+        if (typeof value === 'bigint') {
+          return value.toString();
+        }
+        return value;
+      };
+
       // deno-lint-ignore no-explicit-any
       this.availableDustUtxoCount = dustState.availableCoins?.length ?? null;
-      this.log.log(`Dust state: ${JSON.stringify(dustState.availableCoins)}`);
+      this.log.log(`Dust state: ${JSON.stringify(dustState.availableCoins, bigintSerializer)}`);
       this.log.log(`Available dust UTXOs: ${this.availableDustUtxoCount ?? "unknown"}`);
     } catch (e) {
       this.log.warn(" Could not read dust UTXO count:", e);
@@ -425,6 +432,12 @@ export class MidnightBalancingAdapter
   private async balanceEntry(
     entry: DelegatedTxEntry,
   ): Promise<BalancingRecipe> {
+    // Ensure dust wallet has up-to-date state (including generationInfo for coins)
+    // before attempting to balance. Without this, balanceTransactions may read stale
+    // state where generationInfo hasn't been populated, causing "No dust found".
+    // deno-lint-ignore no-explicit-any
+    await (this.walletResult!.wallet as any).dust.waitForSyncedState();
+
     const keys = {
       shieldedSecretKeys: this.walletResult!.walletZswapSecretKeys,
       dustSecretKey: this.walletResult!.walletDustSecretKey,
@@ -519,26 +532,32 @@ export class MidnightBalancingAdapter
     // deno-lint-ignore no-explicit-any
     const initialState = await getInitialShieldedState((this.walletResult.wallet as any).shielded);
     const receiverAddress = initialState.address;
-    const type = '0000000000000000000000000000000000000000000000000000000000000000';
+    if (!this.config.shieldedPaddingTokenID) {
+      throw new Error("shieldedPaddingTokenID must be set when addShieldedPadding is true");
+    }
+    const type = this.config.shieldedPaddingTokenID;
     // Build a self-transfer: send 1 unit of shielded NIGHT back to ourselves.
     // payFees: false — dust fees are already in the balancingTx.
-    const paddingRecipe = await this.walletResult.wallet.transferTransaction(
-      [
-        {
-          type: "shielded",
-          outputs: [{
-            type,
-            receiverAddress,
-            amount: 1n
-          }]
-        }
-      ],
+    const outputs: ShieldedTokenTransfer[] =  [
       {
-        shieldedSecretKeys: keys,
-        dustSecretKey: this.walletResult.walletDustSecretKey,
-      },
-      { ttl: createTtl(), payFees },
-    );
+        type: "shielded",
+        outputs: [{
+          type,
+          receiverAddress,
+          amount: 1n
+        }]
+      }
+    ];
+    const conf  = {
+      shieldedSecretKeys: keys,
+      dustSecretKey: this.walletResult.walletDustSecretKey,
+    };
+    const opt = { 
+      ttl: createTtl(),
+      payFees: payFees,
+    }
+    // console.log('PADDING', outputs, conf, opt);
+    const paddingRecipe = await this.walletResult.wallet.transferTransaction(outputs, conf, opt);
 
     // Merge: dust fee inputs stay, shielded input+output are added.
     // Both are UnprovenTransaction so merge is type-safe.
