@@ -2,7 +2,7 @@ import * as log from "@std/log";
 import { Buffer } from "node:buffer";
 
 import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import { shieldedToken }from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
+import { shieldedToken } from "@midnight-ntwrk/ledger-v8";
 import type { WalletFacade } from "@midnight-ntwrk/wallet-sdk-facade";
 
 import { 

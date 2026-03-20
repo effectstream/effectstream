@@ -27,7 +27,7 @@ import {
   type FinalizedTransaction,
   Transaction as LedgerV6Transaction,
   type UnprovenTransaction,
-} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
+} from "@midnight-ntwrk/ledger-v8";
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
 import type {
   PublicDataProvider,

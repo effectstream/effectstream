@@ -8,7 +8,7 @@ import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { deployContract } from "@midnight-ntwrk/midnight-js-contracts";
 import type { PrivateStateId } from '@midnight-ntwrk/midnight-js-types';
 import { CompiledContract, type Witnesses, type Contract } from '@midnight-ntwrk/compact-js';
-import type { SigningKey } from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8"; from "@midnight-ntwrk/ledger-v8";
+import type { SigningKey } from "@midnight-ntwrk/ledger-v8";
 import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 
 import { findContractDirectoryForDeploy } from "./read-contract.ts";

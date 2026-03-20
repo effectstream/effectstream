@@ -6,11 +6,11 @@
     "./contract": "./src/managed/contract/index.js"
   },
   "tasks": {
-    "compact": "compact compile +0.29.0 src/simpletoken.compact src/managed",
+    "compact": "compact compile +0.30.0 src/simpletoken.compact src/managed",
     "contract:compile": "deno task compact"
   },
   "imports": {
     "vitest": "npm:vitest@^3.2.4",
-    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.14.0"
+    "@midnight-ntwrk/compact-runtime": "npm:@midnight-ntwrk/compact-runtime@0.15.0"
   }
 }

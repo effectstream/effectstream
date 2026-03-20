@@ -19,7 +19,7 @@ import {
   shieldedToken,
   UnprovenTransaction,
   ZswapSecretKeys,
-} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
+} from "@midnight-ntwrk/ledger-v8";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { makeServerProvingService } from "@midnight-ntwrk/wallet-sdk-capabilities/proving";
 import { MidnightBech32m, UnshieldedAddress } from "@midnight-ntwrk/wallet-sdk-address-format";
