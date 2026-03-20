@@ -123,7 +123,7 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
       // Create a set of keys for the processed inputs for fast lookup
       const processedKeys = new Set(processedInputs.map((input) => {
         const key = this.createInputKey(input, target);
-        debugLog(`[Storage] Key to remove: ${key}`);
+        debugLog(`[Storage] Key to remove: ${key.substring(0, 100)}...`);
         return key;
       }));
 
@@ -136,7 +136,7 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
         const key = this.createInputKey(input, target);
         const shouldRemove = processedKeys.has(key);
         if (shouldRemove) {
-          debugLog(`[Storage] Found match to remove: ${key}`);
+          debugLog(`[Storage] Found match to remove: ${key.substring(0, 100)}...`);
         }
         return !shouldRemove;
       });
@@ -222,7 +222,7 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
         const newRetryCount = (input.retryCount ?? 0) + 1;
         if (newRetryCount >= maxRetries) {
           debugLog(
-            `[Storage] Dropping input after ${newRetryCount} failed retries: ${key}`,
+            `[Storage] Dropping input after ${newRetryCount} failed retries: ${key.substring(0, 100)}...`,
           );
           continue; // drop it from storage
         }

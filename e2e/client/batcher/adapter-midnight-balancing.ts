@@ -38,6 +38,7 @@ const balancingAdapterConfig = midnight_enabled ? {
   zkConfigPath: counterZkConfigPath,
   syncProtocolName: "parallelMidnight",
   addShieldedPadding: ENV.getBoolean("MIDNIGHT_ADD_SHIELDED_PADDING", false),
+  shieldedPaddingTokenID: ENV.getString("MIDNIGHT_SHIELDED_PADDING_TOKEN_ID", "0000000000000000000000000000000000000000000000000000000000000000"),
   maxBatchSize: 1,
 } : undefined;
 

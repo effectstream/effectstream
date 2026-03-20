@@ -1,5 +1,5 @@
 {
-  "version": "0.8.4",
+  "version": "0.9.1",
   "workspace": [
     "./packages/**/*",
     "./e2e/**/*",
@@ -25,5 +25,6 @@
         "no-slow-types" // would be nice to have, but this is a lot of work
       ]
     }
-  }
+  },
+  "allowScripts": ["npm:@scarf/scarf@1.4.0", "npm:@swc/core@1.15.18", "npm:@txpipe/dolos@1.0.0-rc.10", "npm:bufferutil@4.1.0", "npm:classic-level@3.0.0", "npm:core-js-pure@3.49.0", "npm:core-js@3.49.0", "npm:esbuild@0.25.12", "npm:esbuild@0.27.4", "npm:fsevents@2.3.3", "npm:keccak@3.0.4", "npm:msgpackr-extract@3.0.3", "npm:protobufjs@7.5.4", "npm:secp256k1@3.8.1", "npm:utf-8-validate@5.0.10", "npm:utf-8-validate@6.0.6"]
 }

@@ -12,6 +12,7 @@ import type {
   BatchBuildingResult,
 } from "./adapter.ts";
 import type { DefaultBatcherInput } from "../core/types.ts";
+import { AdapterLogger } from "./adapter-logger.ts";
 
 const ECPair = ecpair.ECPairFactory(tinysecp);
 
@@ -54,6 +55,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   private reservedSatFunds: number = 0;
   private addressChecked = false;
   private readonly syncProtocolName: string;
+  private readonly log = new AdapterLogger("bitcoin");
 
   constructor(config: BitcoinAdapterConfig) {
     this.rpcUrl = config.rpcUrl;
@@ -79,7 +81,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
       pubkey: this.keyPair.publicKey, 
       network: this.network 
     });
-    console.log("BitcoinAdapter: Batcher address:", address);
+    this.log.log(" Batcher address:", address);
     this.batcherAddress = address!;
   }
   getSyncProtocolName(): string {
@@ -122,7 +124,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
         true // checkSegwitAlways
       );
     } catch (e) {
-      console.error("Sig verification failed:", e);
+      this.log.error(`Sig verification failed: ${e}`);
       return false;
     }
   }
@@ -136,11 +138,11 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
         const payload: BitcoinRequest = JSON.parse(input.input);
         this.reservedSatFunds += payload.amountSats;
       } catch (e) {
-        console.warn(`BitcoinAdapter: Failed to parse input during state recovery:`, e);
+        this.log.warn(`Failed to parse input during state recovery: ${e}`);
       }
     }
     
-    console.log(`BitcoinAdapter: Recovered state - ${this.reservedSatFunds} sats reserved across ${pendingInputs.length} pending inputs`);
+    this.log.log(`Recovered state - ${this.reservedSatFunds} sats reserved across ${pendingInputs.length} pending inputs`);
   }
 
   async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
@@ -295,7 +297,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
       });
     } else {
       // If change is dust, add it to fee (miners take it)
-      console.log(`Dust change (${change} sats) added to fee`);
+      this.log.log(`Dust change (${change} sats) added to fee`);
     }
 
     // 3. Sign
@@ -307,9 +309,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     const txHex = tx.toHex();
     const txId = await this.rpcCall("sendrawtransaction", [txHex]);
     this.reservedSatFunds -= liberatedSatFunds;
-    console.log(`🚀 Submitted Bitcoin Batch: ${txId}
-    - liberated funds: ${liberatedSatFunds} sats
-    - reserved funds: ${this.reservedSatFunds} sats`);
+    this.log.log(`Submitted Bitcoin Batch: ${txId} - liberated funds: ${liberatedSatFunds} sats - reserved funds: ${this.reservedSatFunds} sats`);
     return txId;
   }
 
@@ -359,14 +359,14 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
       
       // If address is not mine and not watchonly, we need to import it
       if (!info.ismine && !info.iswatchonly) {
-        console.log(`BitcoinAdapter: Address ${this.batcherAddress} not tracked. Importing...`);
+        this.log.log(`Address ${this.batcherAddress} not tracked. Importing...`);
         
         try {
           // Try legacy importaddress first
           await this.rpcCall("importaddress", [this.batcherAddress, "batcher", true]);
         } catch (e: any) {
           const errorString = e.toString();
-          console.warn(`BitcoinAdapter: importaddress failed (${errorString}). Attempting importdescriptors fallback...`);
+          this.log.warn(`importaddress failed (${errorString}). Attempting importdescriptors fallback...`);
 
           // Fallback for descriptor wallets (default in newer Bitcoin Core)
           // 1. Get public key hex
@@ -387,11 +387,11 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
             label: "batcher"
           }]]);
         }
-        console.log("BitcoinAdapter: Address imported and rescanned.");
+        this.log.log(" Address imported and rescanned.");
       }
       this.addressChecked = true;
     } catch (e) {
-      console.error("BitcoinAdapter: Error ensuring address is watched:", e);
+      this.log.error(" Error ensuring address is watched:", e);
       // Don't set addressChecked to true if it failed, so we retry next time
       // But we shouldn't block everything forever if it's a different issue
     }
@@ -403,19 +403,19 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
       if (utxos.length > 0) {
         return utxos;
       }
-      console.warn("BitcoinAdapter: listunspent returned no UTXOs for batcher address, attempting scantxoutset fallback.");
+      this.log.warn(" listunspent returned no UTXOs for batcher address, attempting scantxoutset fallback.");
     } catch (error) {
-      console.warn("BitcoinAdapter: listunspent failed, attempting scantxoutset fallback.", error);
+      this.log.warn(" listunspent failed, attempting scantxoutset fallback.", error);
     }
 
     const scanResult = await this.rpcCall("scantxoutset", ["start", [`addr(${this.batcherAddress})`]]);
     const unspents = scanResult?.unspents;
     if (!scanResult?.success || !Array.isArray(unspents) || unspents.length === 0) {
-      console.warn("BitcoinAdapter: scantxoutset did not return any spendable outputs for the batcher address.");
+      this.log.warn(" scantxoutset did not return any spendable outputs for the batcher address.");
       return [];
     }
 
-    console.log(`BitcoinAdapter: scantxoutset found ${unspents.length} outputs totaling ${scanResult.total_amount ?? 0} BTC for the batcher.`);
+    this.log.log(`scantxoutset found ${unspents.length} outputs totaling ${scanResult.total_amount ?? 0} BTC for the batcher.`);
 
     return unspents.map((entry: any) => ({
       txid: entry.txid,
@@ -446,7 +446,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
       const feeSats = Math.ceil(estVBytes * feeRateSatsPerByte * 1.2); // 20% buffer
       return BigInt(Math.max(feeSats, 1000)); // Minimum 1000 sats fee
     } catch (error) {
-      console.warn("BitcoinAdapter: Fee estimation failed, using conservative default", error);
+      this.log.warn(" Fee estimation failed, using conservative default", error);
       // Conservative default: 1000 sats for regtest
       return BigInt(1000);
     }

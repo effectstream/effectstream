@@ -5,7 +5,20 @@ const ENV = {
   BATCHER_PORT: import.meta.env.VITE_BATCHER_PORT,
   DOCS_PORT: import.meta.env.VITE_DOCS_PORT,
   EFFECTSTREAM_EXPLORER_PORT: import.meta.env.VITE_EFFECTSTREAM_EXPLORER_PORT,
+  API_KEY_OPEN_ENDPOINTS_EXPLORER: import.meta.env.VITE_API_KEY_OPEN_ENDPOINTS_EXPLORER,
 } as const;
+
+/**
+ * Fetch wrapper that attaches the explorer API key as x-api-key header.
+ * Use this for all requests to protected explorer endpoints.
+ */
+export function explorerFetch(url: string | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (ENV.API_KEY_OPEN_ENDPOINTS_EXPLORER) {
+    headers.set("x-api-key", ENV.API_KEY_OPEN_ENDPOINTS_EXPLORER);
+  }
+  return fetch(url instanceof URL ? url.toString() : url, { ...init, headers });
+}
 
 
 // Define the structure of the config endpoint response

@@ -11,6 +11,7 @@ interface ViteTypeOptions {
     readonly VITE_BATCHER_PORT: string
     readonly VITE_DOCS_PORT: string
     readonly VITE_EFFECTSTREAM_EXPLORER_PORT: string
+    readonly VITE_API_KEY_OPEN_ENDPOINTS_EXPLORER: string
   }
   
   interface ImportMeta {
