@@ -1,0 +1,3 @@
+build/
+ignition/deployments/chain-*
+mod.ts

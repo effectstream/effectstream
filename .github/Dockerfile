@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install Node.js
 # Initialize core-js running 'postinstall' script requires node, or fails.
-RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
@@ -76,12 +76,8 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
-# Pre-compile EVM Solidity contracts to warm the Hardhat cache.
-# Each e2e-v2 test suite compiles as part of its launcher, but
-# pre-compiling saves time when running multiple suites.
-RUN cd e2e-v2/shared/contracts/evm \
-    && bun run swap:remappings:hardhat \
-    && bun ./node_modules/.bin/hardhat compile
+# No pre-compilation needed: each e2e-v2 suite compiles contracts
+# as part of its launcher (compile-evm-contracts step).
 
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
