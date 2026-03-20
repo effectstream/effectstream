@@ -202,6 +202,14 @@ export async function runStartCommand(opts: StartOptions): Promise<void> {
     return;
   }
 
+  // If no background processes remain (all were waitToExit) and no API server,
+  // exit cleanly instead of hanging forever.
+  const hasBackground = manager.getAll().some(p => p.status === "running");
+  if (!hasBackground && noApi) {
+    logInfo("All processes completed. Exiting.");
+    process.exit(0);
+  }
+
   logInfo("All processes launched. Orchestrator is running. Press Ctrl+C to stop.");
 }
 

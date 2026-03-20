@@ -15,6 +15,7 @@ midnight-proof-server/proof-server/midnight-proof-server-*
 
 e2e/contracts/midnight/compactc
 **/midnight-level-db
+*.undeployed.json
 **/src/managed
 **/evm/build
 **/evm/ignition/deployments
