@@ -76,22 +76,38 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
-# Compile contracts needed for imports (uses orchestrator's --only + --no-deps to skip chain dependencies)
-RUN bun packages/build-tools/orchestrator-v2/src/cli.ts start \
-    --only=build-evm-contracts,compile-evm,compile-midnight-eip20,compile-midnight-counter \
-    --no-deps --no-api
+# Pre-compile EVM Solidity contracts to warm the Hardhat cache.
+# Each e2e-v2 test suite compiles as part of its launcher, but
+# pre-compiling saves time when running multiple suites.
+RUN cd e2e-v2/shared/contracts/evm \
+    && bun run swap:remappings:hardhat \
+    && bun ./node_modules/.bin/hardhat compile
 
-# START E2E TESTS
-ENV DISABLE_CARDANO=true
-ENV DISABLE_BITCOIN=true
-ENV DISABLE_AVAIL=true
-ENV DISABLE_MIDNIGHT=true
-ENV EFFECTSTREAM_ENV=e2e
+# ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
 ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
 
-CMD bun packages/build-tools/orchestrator-v2/src/cli.ts start --serial --background \
-    && bun --elide-lines=0 e2e/client/node/scripts/run-e2e.ts; \
-    EXIT=$?; \
-    cat .orchestrator-logs/*.log 2>/dev/null; \
-    exit $EXIT
+# ── Run e2e-v2 tests ───────────────────────────────────────────────────────
+# Each suite manages its own infrastructure via orchestrator-v2 (start/stop).
+# Suites run serially because they share ports (PGLite 5432, API 9999, etc).
+#
+# EVM:      33 tests (tooling + sync + batcher)
+# Features: 30 tests (API + RPC + migrations + accounts) - reuses EVM infra
+# Bitcoin:   3 tests (tooling + sync) - starts Bitcoin Core regtest
+CMD set -e; \
+    echo "========================================"; \
+    echo "  e2e-v2: EVM tests (33 tests)"; \
+    echo "========================================"; \
+    bun run e2e-v2/evm/run-tests.ts; \
+    echo ""; \
+    echo "========================================"; \
+    echo "  e2e-v2: Feature tests (30 tests)"; \
+    echo "========================================"; \
+    bun run e2e-v2/features/run-tests.ts; \
+    echo ""; \
+    echo "========================================"; \
+    echo "  All e2e-v2 tests passed (63 tests)"; \
+    echo "========================================"; \
+    echo ""; \
+    echo "Skipped: Bitcoin (needs bitcoin-core binary in image)"; \
+    echo "Skipped: Cardano, Midnight, Avail, Celestia (need chain binaries)"

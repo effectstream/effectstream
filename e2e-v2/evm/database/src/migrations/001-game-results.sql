@@ -1,0 +1,7 @@
+CREATE TABLE game_results (
+  id SERIAL PRIMARY KEY,
+  block_height INTEGER NOT NULL,
+  a INTEGER NOT NULL,
+  b INTEGER NOT NULL,
+  result INTEGER NOT NULL
+);

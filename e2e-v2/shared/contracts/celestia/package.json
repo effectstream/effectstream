@@ -1,0 +1,6 @@
+{
+  "name": "@e2e-v2/celestia-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module"
+}
