@@ -24,7 +24,7 @@ async function test() {
   try {
     await startInfrastructure(LAUNCHER);
     await waitForOrchestrator();
-    await waitForProcess("deploy-evm-contracts", { waitForExit: true });
+    await waitForProcess("generate-evm-mod", { waitForExit: true });
     await waitForProcess("sync");
     await waitForProcess("batcher");
     await waitForHealth();

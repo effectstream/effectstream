@@ -172,8 +172,8 @@ async function test() {
     await startInfrastructure();
     await waitForOrchestrator();
 
-    // 2. Wait for hardhat + contracts deployed (infrastructure ready)
-    await waitForProcess("deploy-evm-contracts", { waitForExit: true });
+    // 2. Wait for hardhat + contracts deployed + mod.ts generated
+    await waitForProcess("generate-evm-mod", { waitForExit: true });
     console.log("EVM contracts deployed.\n");
 
     // 3. Run tooling tests (verify infra BEFORE sync)

@@ -69,6 +69,15 @@ export default {
       critical: true,
       dependsOn: ["hardhat-wait", "compile-evm-contracts"],
     },
+    {
+      name: "generate-evm-mod",
+      description: "Generate mod.ts for @e2e-v2/evm-contracts",
+      cwd: "e2e-v2/shared/contracts/evm",
+      args: ["-e", "const fs=await import('node:fs');await fs.promises.mkdir('./build',{recursive:true});await fs.promises.writeFile('./build/mod.ts','export {};\\n');await import('@effectstream/evm-hardhat/builder')"],
+      waitToExit: true,
+      critical: true,
+      dependsOn: ["deploy-evm-contracts"],
+    },
 
     // ── User tables (created before sync to avoid PGLite PREPARE issues) ────
     {
@@ -90,7 +99,7 @@ export default {
       env: { PGLITE: "true" },
       dependsOn: [
         "create-user-tables",
-        "deploy-evm-contracts",
+        "generate-evm-mod",
       ],
     },
 
@@ -102,7 +111,7 @@ export default {
       args: ["run", "e2e-v2/evm/batcher/main.ts"],
       waitToExit: false,
       type: "system-dependency",
-      dependsOn: ["deploy-evm-contracts"],
+      dependsOn: ["generate-evm-mod"],
     },
   ],
 } satisfies OrchestratorConfig;
