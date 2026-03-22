@@ -11,6 +11,9 @@
   "dependencies": {
     "@e2e-v2/engine": "workspace:*",
     "@effectstream/midnight-contracts": "workspace:*",
+    "@e2e-v2/midnight-contracts": "workspace:*",
+    "@e2e-v2/midnight-contract-counter-basic": "workspace:*",
+    "@e2e-v2/midnight-contract-eip-20": "workspace:*",
     "@effectstream/concise": "workspace:*",
     "@effectstream/config": "workspace:*",
     "@effectstream/coroutine": "workspace:*",

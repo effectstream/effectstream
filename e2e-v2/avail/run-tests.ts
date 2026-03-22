@@ -21,7 +21,7 @@ import {
 } from "@e2e-v2/engine";
 import type { Client } from "pg";
 import path from "path";
-import { readAvailApplication } from "@e2e/avail-contracts";
+import { readAvailApplication } from "@e2e-v2/avail-contracts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 
@@ -57,6 +57,8 @@ async function runToolingTests(): Promise<void> {
 
 async function runSyncTests(db: Client): Promise<void> {
   console.log("\n--- Phase 2: Sync Tests (STM value validation) ---\n");
+  // Avail sync has delayMs=60000, need longer assertSQL timeout
+  process.env["E2E_MAX_TIMEOUT"] = "180000";
 
   // Read the deployed Avail application info
   const availApp = readAvailApplication();

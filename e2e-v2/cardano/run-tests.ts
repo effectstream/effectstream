@@ -76,6 +76,8 @@ async function runToolingTests(): Promise<void> {
 
 async function runSyncTests(db: Client): Promise<void> {
   console.log("\n--- Phase 2: Sync Tests (STM value validation) ---\n");
+  // Cardano UTXORpc sync needs time to catch up with YACI blocks
+  process.env["E2E_MAX_TIMEOUT"] = "120000";
 
   // Wait for the sync node to index at least some cardano transactions
   await assertSQL<{ tx_hash: string; bytes_hex: string; block_height: number }>(
@@ -118,7 +120,7 @@ async function test() {
     await waitForOrchestrator();
 
     // 2. Wait for Cardano infrastructure to be ready
-    await waitForProcess("dolos-wait", { waitForExit: true });
+    await waitForProcess("dolos-minibf-wait", { waitForExit: true, timeoutMs: 180_000 });
     console.log("Cardano infrastructure ready.\n");
 
     // 3. Run tooling tests (verify infra BEFORE sync)

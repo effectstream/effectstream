@@ -2,5 +2,21 @@
   "name": "@e2e-v2/bitcoin-contracts",
   "version": "0.1.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "chain:start": "bun ./node_modules/.bin/bitcoin-core",
+    "chain:wait": "bun ./node_modules/.bin/wait-on tcp:18443",
+    "generate:blocks": "bun ./generate-blocks.ts",
+    "wait-for-block": "bun ./wait-for-block.ts"
+  },
+  "dependencies": {
+    "@effectstream/utils": "workspace:*",
+    "bitcoinjs-lib": "6.1.5",
+    "ecpair": "2.1.0",
+    "tiny-secp256k1": "2.2.3"
+  },
+  "devDependencies": {
+    "@effectstream/bitcoin-core": "workspace:*",
+    "wait-on": "8.0.3"
+  }
 }

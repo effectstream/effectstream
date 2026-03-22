@@ -1,0 +1,27 @@
+pragma language_version >= 0.18.0;
+
+import CompactStandardLibrary;
+
+// public state
+export ledger round: Counter;
+export ledger round_: Uint<64>;
+export ledger entries: Map<Bytes<32>, Uint<128>>;
+export ledger map_of_map: Map<Bytes<32>, Map<Bytes<32>, Uint<128>>>;
+
+// transition function changing public state
+export circuit increment(): [] {
+  round.increment(1);
+}
+
+export circuit increment_manual(): Uint<64> {
+  round_ = round_ + 1 as Uint<64>;
+  return round_;
+}
+
+export circuit add_entry(_id: Bytes<32>, _value: Uint<128>): [] {
+  const id = disclose(_id);
+  const value = disclose(_value);
+  entries.insert(id, value);
+  map_of_map.insert(id, default<Map<Bytes<32>, Uint<128>>>);
+  map_of_map.lookup(id).insert(id, value);
+}

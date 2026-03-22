@@ -47,7 +47,7 @@ export default {
     {
       name: "bitcoin-core",
       description: "Bitcoin Core regtest node",
-      cwd: "e2e/shared/contracts/bitcoin",
+      cwd: "e2e-v2/shared/contracts/bitcoin",
       stopProcessAtPort: [18334, 18443],
       args: ["./node_modules/.bin/bitcoin-core"],
       waitToExit: false,
@@ -55,7 +55,7 @@ export default {
     },
     {
       name: "bitcoin-core-wait",
-      cwd: "e2e/shared/contracts/bitcoin",
+      cwd: "e2e-v2/shared/contracts/bitcoin",
       args: ["./node_modules/.bin/wait-on", "tcp:18443"],
       waitToExit: true,
       dependsOn: ["bitcoin-core"],
@@ -63,7 +63,7 @@ export default {
     {
       name: "bitcoin-mine-blocks",
       description: "Generate blocks continuously",
-      cwd: "e2e/shared/contracts/bitcoin",
+      cwd: "e2e-v2/shared/contracts/bitcoin",
       args: ["run", "generate:blocks"],
       waitToExit: false,
       type: "system-dependency",
@@ -72,7 +72,7 @@ export default {
     {
       name: "bitcoin-wait-for-block",
       description: "Wait for block height > 100",
-      cwd: "e2e/shared/contracts/bitcoin",
+      cwd: "e2e-v2/shared/contracts/bitcoin",
       args: ["run", "wait-for-block"],
       waitToExit: true,
       dependsOn: ["bitcoin-mine-blocks"],
@@ -90,6 +90,17 @@ export default {
         "create-user-tables",
         "bitcoin-wait-for-block",
       ],
+    },
+
+    // ── Batcher ─────────────────────────────────────────────────────────────
+    {
+      name: "batcher",
+      description: "E2E-V2 Bitcoin Batcher",
+      stopProcessAtPort: [3334],
+      args: ["run", "e2e-v2/bitcoin/batcher/main.ts"],
+      waitToExit: false,
+      type: "system-dependency",
+      dependsOn: ["bitcoin-wait-for-block"],
     },
   ],
 } satisfies OrchestratorConfig;

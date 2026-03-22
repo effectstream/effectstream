@@ -12,8 +12,8 @@ import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeMidnightNullifier,
 } from "@effectstream/sm/builtin";
-import * as CounterContract from "@e2e/midnight-contract-counter-basic/contract";
-import * as SimpleTokenContract from "@e2e/midnight-contract-eip-20/contract";
+import * as CounterContract from "@e2e-v2/midnight-contract-counter-basic/contract";
+import * as SimpleTokenContract from "@e2e-v2/midnight-contract-eip-20/contract";
 
 /**
  * Recover NTP start time from DB if this is a restart,

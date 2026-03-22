@@ -98,15 +98,7 @@ export const config = new ConfigBuilder()
           type: PrimitiveTypeUtxorpcGeneric,
           startBlockHeight: 1,
           stateMachinePrefix: "cardano-utxo-rpc-generic",
-          predicate: {
-            match: {
-              cardano: {
-                has_address: {
-                  exact_address: "cD0ktC/NQ3j7hUmyY1iMF3lu2gFFPU+MCRxVFYw=",
-                },
-              },
-            },
-          },
+          predicate: {},
         }),
       )
   )

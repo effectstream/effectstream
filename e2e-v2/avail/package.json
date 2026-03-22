@@ -19,7 +19,9 @@
     "@effectstream/sm": "workspace:*",
     "@effectstream/utils": "workspace:*",
     "@effectstream/db": "workspace:*",
+    "@e2e-v2/avail-contracts": "workspace:*",
     "@sinclair/typebox": "^0.34.30",
+    "@polkadot/util-crypto": "*",
     "avail-js-sdk": "^0.4.2",
     "effection": "^3.5.0",
     "pg": "^8.14.0"

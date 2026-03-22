@@ -46,47 +46,12 @@ export default {
     },
 
     // ── Cardano (YACI DevKit + Dolos) ─────────────────────────────────────────
-    {
-      name: "yaci-devkit",
-      description: "Cardano YACI DevKit node",
-      cwd: "e2e/shared/contracts/cardano",
-      stopProcessAtPort: [8090, 10000, 3001],
-      args: ["run", "devkit:start"],
-      waitToExit: false,
-      type: "system-dependency",
-    },
-    {
-      name: "yaci-devkit-wait",
-      cwd: "e2e/shared/contracts/cardano",
-      args: ["run", "devkit:wait"],
-      waitToExit: true,
-      dependsOn: ["yaci-devkit"],
-    },
-    {
-      name: "dolos-fill-template",
-      description: "Fetch genesis files and generate Dolos config",
-      cwd: "e2e/shared/contracts/cardano",
-      args: ["run", "dolos:fill-template"],
-      waitToExit: true,
-      dependsOn: ["yaci-devkit-wait"],
-    },
-    {
-      name: "dolos",
-      description: "Cardano Dolos relay node",
-      cwd: "e2e/shared/contracts/cardano",
-      stopProcessAtPort: [3000, 50051],
-      args: ["run", "dolos:start"],
-      waitToExit: false,
-      type: "system-dependency",
-      dependsOn: ["dolos-fill-template"],
-    },
-    {
-      name: "dolos-wait",
-      cwd: "e2e/shared/contracts/cardano",
-      args: ["run", "dolos:wait"],
-      waitToExit: true,
-      dependsOn: ["dolos"],
-    },
+    { name: "yaci-devkit", stopProcessAtPort: [8090, 10000, 3001], cwd: "e2e-v2/shared/contracts/cardano", args: ["run", "devkit:start"], waitToExit: false, type: "system-dependency" as const },
+    { name: "yaci-devkit-wait", cwd: "e2e-v2/shared/contracts/cardano", args: ["run", "devkit:wait"], waitToExit: true, dependsOn: ["yaci-devkit"] },
+    { name: "dolos-fill-template", cwd: "e2e-v2/shared/contracts/cardano", args: ["run", "dolos:fill-template"], waitToExit: true, dependsOn: ["yaci-devkit-wait"] },
+    { name: "dolos", cwd: "e2e-v2/shared/contracts/cardano", args: ["run", "dolos:start"], waitToExit: false, type: "system-dependency" as const, dependsOn: ["dolos-fill-template"] },
+    { name: "dolos-wait", cwd: "e2e-v2/shared/contracts/cardano", args: ["run", "dolos:wait"], waitToExit: true, dependsOn: ["dolos"] },
+    { name: "dolos-minibf-wait", description: "Wait for Dolos blockfrost API on port 3000", args: ["./node_modules/.bin/wait-on", "http://localhost:3000/blocks/latest", "--timeout", "60000"], waitToExit: true, dependsOn: ["dolos-wait"] },
 
     // ── Sync (the node) ───────────────────────────────────────────────────────
     {
@@ -98,7 +63,7 @@ export default {
       env: { PGLITE: "true" },
       dependsOn: [
         "create-user-tables",
-        "dolos-wait",
+        "dolos-minibf-wait",
       ],
     },
   ],

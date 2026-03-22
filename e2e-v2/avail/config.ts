@@ -1,4 +1,4 @@
-import { readAvailApplication } from "@e2e/avail-contracts";
+import { readAvailApplication } from "@e2e-v2/avail-contracts";
 import { getConnection } from "@effectstream/db";
 import {
   ConfigBuilder,

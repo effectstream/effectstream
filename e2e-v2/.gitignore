@@ -1,0 +1,12 @@
+# Runtime artifacts (generated during test runs)
+*.undeployed.json
+**/avail_app.json
+**/avail_path/
+**/identity.toml
+**/dolos.toml
+**/dolos.socket
+**/data/
+**/temp/
+**/evm/build
+**/evm/ignition/deployments
+*-batcher-data/
