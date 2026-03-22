@@ -1,0 +1,17 @@
+{
+  "name": "@effectstream/celestia",
+  "version": "0.3.0",
+  "type": "module",
+  "main": "./index.js",
+  "bin": {
+    "celestia": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "start-node": "node index.js start-node --verbose",
+    "start-bridge": "node index.js start-bridge --verbose"
+  },
+  "dependencies": {
+    "@xhmikosr/bin-wrapper": "^5.0.0"
+  }
+}
