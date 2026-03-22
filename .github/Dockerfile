@@ -1,8 +1,16 @@
-# Use Debian as base image (oven/bun no longer publishes ubuntu tags)
-FROM oven/bun:1-debian
+# Use Debian 12 (bookworm) — avail-node binary doesn't support Debian 13 yet.
+# Install bun manually since oven/bun:1-debian moved to Debian 13.
+FROM debian:bookworm-slim
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Install bun
+RUN apt-get update && apt-get install -y curl unzip && \
+    curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.10" && \
+    ln -s /root/.bun/bin/bun /usr/local/bin/bun && \
+    ln -s /root/.bun/bin/bunx /usr/local/bin/bunx && \
+    rm -rf /var/lib/apt/lists/*
 
 # Update package list and install required dependencies
 RUN apt-get update && apt-get install -y \
@@ -26,7 +34,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install Node.js
 # Initialize core-js running 'postinstall' script requires node, or fails.
-RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
@@ -76,22 +84,14 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
-# Compile contracts needed for imports (uses orchestrator's --only + --no-deps to skip chain dependencies)
-RUN bun packages/build-tools/orchestrator-v2/src/cli.ts start \
-    --only=build-evm-contracts,compile-evm,compile-midnight-eip20,compile-midnight-counter \
-    --no-deps --no-api
+# NOTE: EVM contract pre-compilation moved to runtime (run-e2e.sh)
+# to avoid solc WASM download failures during Docker build.
 
-# START E2E TESTS
-ENV DISABLE_CARDANO=true
-ENV DISABLE_BITCOIN=true
-ENV DISABLE_AVAIL=true
-ENV DISABLE_MIDNIGHT=true
-ENV EFFECTSTREAM_ENV=e2e
+# ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
 ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
 
-CMD bun packages/build-tools/orchestrator-v2/src/cli.ts start --serial --background \
-    && bun --elide-lines=0 e2e/client/node/scripts/run-e2e.ts; \
-    EXIT=$?; \
-    cat .orchestrator-logs/*.log 2>/dev/null; \
-    exit $EXIT
+# ── Run e2e-v2 tests ───────────────────────────────────────────────────────
+# Each suite manages its own infrastructure via orchestrator-v2 (start/stop).
+# Suites run serially because they share ports (PGLite 5432, API 9999, etc).
+CMD ["/bin/bash", "/app/.github/run-e2e.sh"]

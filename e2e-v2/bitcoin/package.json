@@ -1,0 +1,29 @@
+{
+  "name": "@e2e-v2/bitcoin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun run run-tests.ts",
+    "launcher": "bun run launcher.cli.ts",
+    "node:start": "bun run node.ts"
+  },
+  "dependencies": {
+    "@e2e-v2/engine": "workspace:*",
+    "@effectstream/batcher": "workspace:*",
+    "@effectstream/concise": "workspace:*",
+    "@effectstream/config": "workspace:*",
+    "@effectstream/coroutine": "workspace:*",
+    "@effectstream/runtime": "workspace:*",
+    "@effectstream/sm": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@sinclair/typebox": "^0.34.30",
+    "bitcoinjs-lib": "^6.1.5",
+    "bitcoinjs-message": "^2.2.0",
+    "ecpair": "^2.1.0",
+    "effection": "^3.5.0",
+    "pg": "^8.14.0",
+    "tiny-secp256k1": "^2.2.1"
+  }
+}

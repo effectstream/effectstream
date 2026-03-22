@@ -1,0 +1,28 @@
+{
+  "name": "@e2e-v2/evm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun run run-tests.ts",
+    "launcher": "bun run launcher.cli.ts",
+    "node:start": "bun run node.ts"
+  },
+  "dependencies": {
+    "@e2e-v2/engine": "workspace:*",
+    "@e2e-v2/evm-contracts": "workspace:*",
+    "@e2e-v2/evm-database": "workspace:*",
+    "@e2e-v2/data-types": "workspace:*",
+    "@effectstream/concise": "workspace:*",
+    "@effectstream/config": "workspace:*",
+    "@effectstream/coroutine": "workspace:*",
+    "@effectstream/runtime": "workspace:*",
+    "@effectstream/sm": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@sinclair/typebox": "^0.34.30",
+    "effection": "^3.5.0",
+    "pg": "^8.14.0",
+    "viem": "2.37.3"
+  }
+}
