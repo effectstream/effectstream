@@ -76,9 +76,10 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
-# Pre-compile EVM contracts at build time to cache solc download
-# and avoid bun webstreams_adapters race condition at runtime.
-RUN cd e2e-v2/shared/contracts/evm && bun run build:hardhat
+# Pre-compile EVM contracts at build time to cache solc download.
+# Bun's webstreams polyfill may crash on first solc WASM download,
+# but solc gets cached regardless — retry handles this.
+RUN cd e2e-v2/shared/contracts/evm && bun run build:hardhat || bun run build:hardhat
 
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
