@@ -8,6 +8,10 @@ export default {
     { name: "apply-migrations", args: ["-e", "await import('@effectstream/db/apply-migrations')"], waitToExit: true, critical: true, dependsOn: ["pglite-wait"] },
     { name: "create-user-tables", args: ["run", "e2e-v2/midnight/database/create-tables.ts"], waitToExit: true, critical: true, dependsOn: ["apply-migrations"] },
 
+    // ── Compile Midnight contracts (Compact) ───────────────────────────────────
+    { name: "compile-midnight-counter", description: "Compile counter contract with Compact", cwd: "e2e-v2/shared/contracts/midnight/contract-counter", args: ["run", "compact"], waitToExit: true, critical: true },
+    { name: "compile-midnight-eip20", description: "Compile EIP-20 contract with Compact", cwd: "e2e-v2/shared/contracts/midnight/contract-eip-20", args: ["run", "compact"], waitToExit: true, critical: true },
+
     // ── Midnight infrastructure ───────────────────────────────────────────────
     { name: "midnight-node", cwd: "e2e-v2/shared/contracts/midnight", stopProcessAtPort: [9944, 30333], args: ["run", "midnight-node:start"], waitToExit: false, critical: true },
     { name: "midnight-indexer", cwd: "e2e-v2/shared/contracts/midnight", stopProcessAtPort: [8088], args: ["run", "midnight-indexer:start"], waitToExit: false, critical: true, dependsOn: ["midnight-node"] },
@@ -15,7 +19,7 @@ export default {
     { name: "midnight-node-wait", cwd: "e2e-v2/shared/contracts/midnight", args: ["run", "midnight-node:wait"], waitToExit: true, dependsOn: ["midnight-node"] },
     { name: "midnight-indexer-wait", cwd: "e2e-v2/shared/contracts/midnight", args: ["run", "midnight-indexer:wait"], waitToExit: true, dependsOn: ["midnight-indexer"] },
     { name: "midnight-proof-server-wait", cwd: "e2e-v2/shared/contracts/midnight", args: ["run", "midnight-proof-server:wait"], waitToExit: true, dependsOn: ["midnight-proof-server"] },
-    { name: "midnight-contract", cwd: "e2e-v2/shared/contracts/midnight", args: ["run", "midnight-contract:deploy"], waitToExit: true, env: { MIDNIGHT_STORAGE_PASSWORD: process.env["MIDNIGHT_STORAGE_PASSWORD"] ?? "YourPasswordMy1!" }, dependsOn: ["midnight-node-wait", "midnight-indexer-wait", "midnight-proof-server-wait"] },
+    { name: "midnight-contract", cwd: "e2e-v2/shared/contracts/midnight", args: ["run", "midnight-contract:deploy"], waitToExit: true, env: { MIDNIGHT_STORAGE_PASSWORD: process.env["MIDNIGHT_STORAGE_PASSWORD"] ?? "YourPasswordMy1!" }, dependsOn: ["midnight-node-wait", "midnight-indexer-wait", "midnight-proof-server-wait", "compile-midnight-counter", "compile-midnight-eip20"] },
 
     // ── Sync ──────────────────────────────────────────────────────────────────
     { name: "sync", args: ["run", "e2e-v2/midnight/node.ts"], waitToExit: false, type: "system-dependency" as const, env: { PGLITE: "true" }, dependsOn: ["create-user-tables", "midnight-contract"] },

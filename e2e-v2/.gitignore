@@ -10,3 +10,4 @@
 **/evm/build
 **/evm/ignition/deployments
 *-batcher-data/
+shared/contracts/cardano/yaci-cli.history

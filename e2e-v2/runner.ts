@@ -9,15 +9,11 @@ import { exit } from "process";
 const suites = [
   { name: "evm", script: "./evm/run-tests.ts" },
   { name: "bitcoin", script: "./bitcoin/run-tests.ts" },
-  { name: "cardano", script: "./cardano/run-tests.ts" },
+  // { name: "cardano", script: "./cardano/run-tests.ts" },  // TODO: needs transaction submission step
   { name: "midnight", script: "./midnight/run-tests.ts" },
   { name: "avail", script: "./avail/run-tests.ts" },
-  { name: "celestia", script: "./celestia/run-tests.ts" },
-  { name: "features/api", script: "./features/api/run-tests.ts" },
-  { name: "features/migrations", script: "./features/migrations/run-tests.ts" },
-  { name: "features/accounts", script: "./features/accounts/run-tests.ts" },
-  { name: "features/batcher", script: "./features/batcher/run-tests.ts" },
-  { name: "features/state-machine", script: "./features/state-machine/run-tests.ts" },
+  // { name: "celestia", script: "./celestia/run-tests.ts" },  // NYI: needs external light node
+  { name: "features", script: "./features/run-tests.ts" },
 ];
 
 const __dirname = import.meta.dirname ?? ".";

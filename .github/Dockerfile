@@ -76,8 +76,9 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
-# No pre-compilation needed: each e2e-v2 suite compiles contracts
-# as part of its launcher (compile-evm-contracts step).
+# Pre-compile EVM contracts at build time to cache solc download
+# and avoid bun webstreams_adapters race condition at runtime.
+RUN cd e2e-v2/shared/contracts/evm && bun run build:hardhat
 
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
@@ -86,24 +87,4 @@ ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
 # ── Run e2e-v2 tests ───────────────────────────────────────────────────────
 # Each suite manages its own infrastructure via orchestrator-v2 (start/stop).
 # Suites run serially because they share ports (PGLite 5432, API 9999, etc).
-#
-# EVM:      33 tests (tooling + sync + batcher)
-# Features: 30 tests (API + RPC + migrations + accounts) - reuses EVM infra
-# Bitcoin:   3 tests (tooling + sync) - starts Bitcoin Core regtest
-CMD set -e; \
-    echo "========================================"; \
-    echo "  e2e-v2: EVM tests (33 tests)"; \
-    echo "========================================"; \
-    bun run e2e-v2/evm/run-tests.ts; \
-    echo ""; \
-    echo "========================================"; \
-    echo "  e2e-v2: Feature tests (30 tests)"; \
-    echo "========================================"; \
-    bun run e2e-v2/features/run-tests.ts; \
-    echo ""; \
-    echo "========================================"; \
-    echo "  All e2e-v2 tests passed (63 tests)"; \
-    echo "========================================"; \
-    echo ""; \
-    echo "Skipped: Bitcoin (needs bitcoin-core binary in image)"; \
-    echo "Skipped: Cardano, Midnight, Avail, Celestia (need chain binaries)"
+CMD ["/bin/bash", "/app/.github/run-e2e.sh"]

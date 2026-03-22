@@ -24,12 +24,11 @@ import path from "path";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 
-// -- Tooling Tests (infrastructure validation) --------------------------------
+// -- Infrastructure Tests (run before contract deployment) ---------------------
 
-async function runToolingTests(): Promise<void> {
-  console.log("\n--- Phase 1: Tooling Tests (infrastructure validation) ---\n");
+async function runInfraTests(): Promise<void> {
+  console.log("\n--- Phase 1: Infrastructure Tests ---\n");
 
-  // Midnight node is responding on port 9944
   await assert("Midnight node is responding on port 9944", async () => {
     try {
       const response = await fetch("http://localhost:9944", {
@@ -49,7 +48,6 @@ async function runToolingTests(): Promise<void> {
     }
   });
 
-  // Midnight indexer is responding on port 8088
   await assert("Midnight indexer is responding on port 8088", async () => {
     try {
       const response = await fetch("http://localhost:8088/api/v3/graphql", {
@@ -64,8 +62,13 @@ async function runToolingTests(): Promise<void> {
       return false;
     }
   });
+}
 
-  // Midnight contracts deployed (readMidnightContract files exist)
+// -- Contract Tests (run after deployment) ------------------------------------
+
+async function runContractTests(): Promise<void> {
+  console.log("\n--- Phase 2: Contract Tests ---\n");
+
   await assert("Midnight counter contract deployed", async () => {
     try {
       const { readMidnightContract } = await import("@effectstream/midnight-contracts/read-contract");
@@ -90,11 +93,8 @@ async function runToolingTests(): Promise<void> {
 // -- Sync Tests (STM value validation) ----------------------------------------
 
 async function runSyncTests(db: Client): Promise<void> {
-  console.log("\n--- Phase 2: Sync Tests (STM value validation) ---\n");
+  console.log("\n--- Phase 3: Sync Tests (STM value validation) ---\n");
 
-  // Check that midnight_state has entries from the counter contract.
-  // Contract deployment itself triggers an initial state write, so we expect
-  // at least one row with primitive_name = 'midnightContractState'.
   await assertSQL<{ id: number; primitive_name: string; payload_json: string }>(
     "Midnight: midnight_state has counter contract entries",
     db,
@@ -104,18 +104,15 @@ async function runSyncTests(db: Client): Promise<void> {
     (res) => res.rows.length >= 1,
     (res) => {
       const first = res.rows[0];
-      // The payload should be valid JSON containing at least the round field
       try {
         const payload = JSON.parse(first.payload_json);
         return payload !== null && typeof payload === "object";
       } catch {
-        // payload_json might already be a plain string representation
         return first.payload_json.length > 0;
       }
     },
   );
 
-  // Check that primitive_accounting has MidnightContractState entries
   await assertSQL<{ primitive_name: string; payload: any }>(
     "Midnight: primitive_accounting has MidnightContractState entries",
     db,
@@ -139,12 +136,15 @@ async function test() {
     await startInfrastructure(LAUNCHER_PATH);
     await waitForOrchestrator();
 
-    // 2. Wait for Midnight contracts deployed (infrastructure ready)
+    // 2. Wait for node + indexer to be up, then run infra tests
+    await waitForProcess("midnight-node-wait", { waitForExit: true });
+    await waitForProcess("midnight-indexer-wait", { waitForExit: true });
+    await runInfraTests();
+
+    // 3. Wait for contract deployment, then run contract tests
     await waitForProcess("midnight-contract", { waitForExit: true, timeoutMs: 300_000 });
     console.log("Midnight contracts deployed.\n");
-
-    // 3. Run tooling tests (verify infra BEFORE sync)
-    await runToolingTests();
+    await runContractTests();
 
     // 4. Wait for sync node to be healthy
     await waitForProcess("sync");

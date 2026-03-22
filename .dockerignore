@@ -19,4 +19,14 @@ e2e/contracts/midnight/compactc
 **/src/managed
 **/evm/build
 **/evm/ignition/deployments
+**/evm/mod.ts
 **/client/dist
+
+# e2e-v2 runtime artifacts
+**/avail_app.json
+**/avail_path/
+**/identity.toml
+**/dolos.toml
+**/dolos.socket
+e2e-v2/**/data/
+*-batcher-data/
