@@ -57,8 +57,8 @@ async function runToolingTests(): Promise<void> {
 
 async function runSyncTests(db: Client): Promise<void> {
   console.log("\n--- Phase 2: Sync Tests (STM value validation) ---\n");
-  // Avail sync has delayMs=60000, need longer assertSQL timeout
-  process.env["E2E_MAX_TIMEOUT"] = "180000";
+  // Avail sync has delayMs=60000, need longer assertSQL timeout (extra slack for CI)
+  process.env["E2E_MAX_TIMEOUT"] = "240000";
 
   // Read the deployed Avail application info
   const availApp = readAvailApplication();
@@ -107,7 +107,8 @@ async function test() {
     await waitForOrchestrator();
 
     // 2. Wait for Avail light client to be deployed and ready
-    await waitForProcess("avail-light-client-wait", { waitForExit: true });
+    //    CI runners can be slow — avail node needs time to produce & finalize blocks
+    await waitForProcess("avail-light-client-wait", { waitForExit: true, timeoutMs: 240_000 });
     console.log("Avail light client deployed and ready.\n");
 
     // 3. Run tooling tests (verify infra BEFORE sync)
