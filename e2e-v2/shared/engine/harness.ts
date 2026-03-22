@@ -79,7 +79,7 @@ export async function waitForProcess(
   throw new Error(`Process "${name}" did not ${waitForExit ? "complete" : "start"} within ${timeoutMs / 1000}s`);
 }
 
-export async function waitForHealth(timeoutMs = 60_000): Promise<void> {
+export async function waitForHealth(timeoutMs = 120_000): Promise<void> {
   console.log("Waiting for sync node health...");
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {

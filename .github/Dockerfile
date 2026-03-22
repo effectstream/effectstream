@@ -1,8 +1,16 @@
-# Use Debian as base image (oven/bun no longer publishes ubuntu tags)
-FROM oven/bun:1-debian
+# Use Debian 12 (bookworm) — avail-node binary doesn't support Debian 13 yet.
+# Install bun manually since oven/bun:1-debian moved to Debian 13.
+FROM debian:bookworm-slim
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Install bun
+RUN apt-get update && apt-get install -y curl unzip && \
+    curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.10" && \
+    ln -s /root/.bun/bin/bun /usr/local/bin/bun && \
+    ln -s /root/.bun/bin/bunx /usr/local/bin/bunx && \
+    rm -rf /var/lib/apt/lists/*
 
 # Update package list and install required dependencies
 RUN apt-get update && apt-get install -y \
@@ -76,10 +84,8 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
-# Pre-compile EVM contracts at build time to cache solc download.
-# Bun's webstreams polyfill may crash on first solc WASM download,
-# but solc gets cached regardless — retry handles this.
-RUN cd e2e-v2/shared/contracts/evm && bun run build:hardhat || bun run build:hardhat
+# NOTE: EVM contract pre-compilation moved to runtime (run-e2e.sh)
+# to avoid solc WASM download failures during Docker build.
 
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
