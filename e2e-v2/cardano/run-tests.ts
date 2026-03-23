@@ -126,6 +126,10 @@ async function test() {
     // 3. Run tooling tests (verify infra BEFORE sync)
     await runToolingTests();
 
+    // 3b. Wait for contract deployment & interaction
+    await waitForProcess("cardano-submit-tx", { waitForExit: true, timeoutMs: 120_000 });
+    console.log("Aiken contract deployed and called.\n");
+
     // 4. Wait for sync node to be healthy
     await waitForProcess("sync");
     await waitForHealth();

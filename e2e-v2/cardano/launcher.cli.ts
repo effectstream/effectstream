@@ -53,6 +53,9 @@ export default {
     { name: "dolos-wait", cwd: "e2e-v2/shared/contracts/cardano", args: ["run", "dolos:wait"], waitToExit: true, dependsOn: ["dolos"] },
     { name: "dolos-minibf-wait", description: "Wait for Dolos blockfrost API on port 3000", args: ["./node_modules/.bin/wait-on", "http://localhost:3000/blocks/latest", "--timeout", "60000"], waitToExit: true, dependsOn: ["dolos-wait"] },
 
+    // ── Submit transactions (deploy & call Aiken contract) ──────────────────
+    { name: "cardano-submit-tx", description: "Submit test transactions via YACI topup", cwd: "e2e-v2/shared/contracts/cardano", args: ["run", "cardano-submit-tx"], waitToExit: true, critical: true, dependsOn: ["yaci-devkit-wait"] },
+
     // ── Sync (the node) ───────────────────────────────────────────────────────
     {
       name: "sync",
@@ -63,6 +66,7 @@ export default {
       env: { PGLITE: "true" },
       dependsOn: [
         "create-user-tables",
+        "cardano-submit-tx",
         "dolos-minibf-wait",
       ],
     },

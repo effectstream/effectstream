@@ -9,7 +9,7 @@ import { exit } from "process";
 const suites = [
   { name: "evm", script: "./evm/run-tests.ts" },
   { name: "bitcoin", script: "./bitcoin/run-tests.ts" },
-  // { name: "cardano", script: "./cardano/run-tests.ts" },  // TODO: needs transaction submission step
+  { name: "cardano", script: "./cardano/run-tests.ts" },
   { name: "midnight", script: "./midnight/run-tests.ts" },
   { name: "avail", script: "./avail/run-tests.ts" },
   { name: "celestia", script: "./celestia/run-tests.ts" },
