@@ -35,11 +35,24 @@ export async function startInfrastructure(launcherPath: string): Promise<void> {
 
 export async function stopInfrastructure(): Promise<void> {
   console.log("\nStopping infrastructure...");
+  // Ignore SIGTERM during shutdown — child process cleanup propagates signals
+  const origHandler = process.listeners("SIGTERM");
+  process.removeAllListeners("SIGTERM");
+  process.on("SIGTERM", () => {});
   try {
     await fetch(`http://localhost:${ORCHESTRATOR_PORT}/shutdown`, { method: "POST" });
   } catch { /* already down */ }
-  await delay(2000);
-  orchestratorProc?.kill();
+  if (orchestratorProc) {
+    const timeout = setTimeout(() => orchestratorProc?.kill(), 15_000);
+    await orchestratorProc.exited;
+    clearTimeout(timeout);
+    orchestratorProc = null;
+  }
+  // Restore original SIGTERM handlers
+  process.removeAllListeners("SIGTERM");
+  for (const handler of origHandler) {
+    process.on("SIGTERM", handler as (...args: any[]) => void);
+  }
 }
 
 export async function waitForOrchestrator(timeoutMs = 120_000): Promise<void> {
