@@ -3,6 +3,7 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { writeFileSync } from "node:fs";
 import { args } from "@effectstream/utils/runtime";
+import * as remappings from "./assets.ts";
 
 // The depth is the number of directories where the node_modules are located.
 const flags = parseArgs(args(), {
@@ -12,8 +13,7 @@ const flags = parseArgs(args(), {
 
 const packageName = flags.package;
 
-import * as remappings from "./assets.ts";
-const hardhatRemappings = new TextDecoder().decode(remappings.default.files["remappings.hardhat"].content)
-  .replace(/@effectstream/g, packageName);
+const hardhatRemappingsContent = new TextDecoder().decode(remappings.default.files["remappings.hardhat"].content);
+const hardhatRemappings = hardhatRemappingsContent.replace(/@effectstream/g, packageName);
 
 writeFileSync("./remappings.txt", hardhatRemappings);
