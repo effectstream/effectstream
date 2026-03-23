@@ -84,12 +84,21 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
-# Pre-download solc 0.8.30 natively so hardhat never triggers Bun's
-# broken webstreams polyfill during the WASM/binary download.
-RUN mkdir -p /root/.local/share/svm/0.8.30 && \
-    curl -fsSL "https://github.com/ethereum/solidity/releases/download/v0.8.30/solc-static-linux" \
-      -o /root/.local/share/svm/0.8.30/solc-0.8.30 && \
-    chmod +x /root/.local/share/svm/0.8.30/solc-0.8.30
+# Pre-download solc 0.8.30 (native + WASM + list indexes) into Hardhat's
+# cache so it never triggers Bun's broken webstreams polyfill during download.
+# Hardhat downloads list.json (compiler index) first, then the binary/wasm.
+# The webstreams crash can happen on ANY of these downloads.
+RUN mkdir -p /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64 \
+             /root/.cache/hardhat-nodejs/compilers-v3/wasm && \
+    curl -fsSL "https://binaries.soliditylang.org/linux-amd64/list.json" \
+      -o /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64/list.json && \
+    curl -fsSL "https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01" \
+      -o /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01 && \
+    chmod +x /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01 && \
+    curl -fsSL "https://binaries.soliditylang.org/wasm/list.json" \
+      -o /root/.cache/hardhat-nodejs/compilers-v3/wasm/list.json && \
+    curl -fsSL "https://binaries.soliditylang.org/wasm/soljson-v0.8.30+commit.73712a01.js" \
+      -o /root/.cache/hardhat-nodejs/compilers-v3/wasm/soljson-v0.8.30+commit.73712a01.js
 
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
