@@ -1,14 +1,18 @@
 import type { OrchestratorConfig } from "../../packages/build-tools/orchestrator-v2/src/config.ts";
 
+const CELESTIA_HOME = "/tmp/celestia-e2e-home";
+
 /**
- * Celestia-only orchestrator config (orchestrator-v2 format).
+ * Celestia orchestrator config (orchestrator-v2 format).
  *
  * Infrastructure:
  *   1. PGLite DB -> wait -> apply migrations
- *   2. (Celestia Light Node must be running externally on port 26658)
+ *   2. Celestia devnet (consensus node on 26657 + bridge on 26658)
+ *   3. Wait for bridge RPC
+ *   4. Fund bridge node wallet with tokens
  * Node:
- *   3. Create user tables
- *   4. Sync node (e2e-v2/celestia/node.ts) - depends on DB
+ *   5. Create user tables
+ *   6. Sync node (e2e-v2/celestia/node.ts) - depends on DB + funded bridge
  */
 export default {
   processes: [
@@ -36,6 +40,36 @@ export default {
       dependsOn: ["pglite-wait"],
     },
 
+    // ── Celestia Infrastructure ───────────────────────────────────────────────
+    {
+      name: "celestia-devnet",
+      description: "Celestia consensus node + bridge (ports 26657, 26658)",
+      cwd: "e2e-v2/shared/contracts/celestia",
+      stopProcessAtPort: [26657, 26658],
+      args: ["run", "celestia-bridge:start"],
+      env: { CELESTIA_HOME },
+      waitToExit: false,
+      critical: true,
+    },
+    {
+      name: "celestia-bridge-wait",
+      description: "Wait for Celestia bridge RPC on port 26658",
+      cwd: "e2e-v2/shared/contracts/celestia",
+      args: ["run", "celestia-bridge:wait"],
+      waitToExit: true,
+      dependsOn: ["celestia-devnet"],
+    },
+    {
+      name: "celestia-fund-bridge",
+      description: "Fund the bridge node wallet with tokens",
+      cwd: "e2e-v2/shared/contracts/celestia",
+      args: ["run", "celestia-fund:bridge"],
+      env: { CELESTIA_HOME },
+      waitToExit: true,
+      critical: true,
+      dependsOn: ["celestia-bridge-wait"],
+    },
+
     // ── User tables ──────────────────────────────────────────────────────────
     {
       name: "create-user-tables",
@@ -56,6 +90,7 @@ export default {
       env: { PGLITE: "true" },
       dependsOn: [
         "create-user-tables",
+        "celestia-fund-bridge",
       ],
     },
   ],

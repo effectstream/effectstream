@@ -12,7 +12,7 @@ const suites = [
   // { name: "cardano", script: "./cardano/run-tests.ts" },  // TODO: needs transaction submission step
   { name: "midnight", script: "./midnight/run-tests.ts" },
   { name: "avail", script: "./avail/run-tests.ts" },
-  // { name: "celestia", script: "./celestia/run-tests.ts" },  // NYI: needs external light node
+  { name: "celestia", script: "./celestia/run-tests.ts" },
   { name: "features", script: "./features/run-tests.ts" },
 ];
 
@@ -59,11 +59,14 @@ async function runSuite(suite: { name: string; script: string }): Promise<SuiteR
 }
 
 async function main() {
-  // Filter suites by CLI args if provided
+  // Filter suites: CLI args to include, DISABLE_<NAME> env vars to exclude
+  // Examples:
+  //   bun run runner.ts celestia           # run only celestia
+  //   DISABLE_EVM=1 DISABLE_AVAIL=1 bun run runner.ts  # run all except evm and avail
   const args = process.argv.slice(2);
-  const selectedSuites = args.length > 0
-    ? suites.filter((s) => args.includes(s.name))
-    : suites;
+  const selectedSuites = suites
+    .filter((s) => args.length === 0 || args.includes(s.name))
+    .filter((s) => !process.env[`DISABLE_${s.name.toUpperCase()}`]);
 
   if (selectedSuites.length === 0) {
     console.error("No matching suites found. Available:", suites.map((s) => s.name).join(", "));

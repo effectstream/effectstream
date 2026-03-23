@@ -110,6 +110,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@e2e-v2/engine": "workspace:*",
+        "@effectstream/celestia": "workspace:*",
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
         "@effectstream/coroutine": "workspace:*",
@@ -122,6 +123,7 @@
         "@sinclair/typebox": "^0.34.30",
         "effection": "^3.5.0",
         "pg": "^8.14.0",
+        "wait-on": "8.0.3",
       },
     },
     "e2e-v2/evm": {
@@ -248,6 +250,12 @@
     "e2e-v2/shared/contracts/celestia": {
       "name": "@e2e-v2/celestia-contracts",
       "version": "0.1.0",
+      "dependencies": {
+        "@effectstream/celestia": "workspace:*",
+      },
+      "devDependencies": {
+        "wait-on": "8.0.3",
+      },
     },
     "e2e-v2/shared/contracts/evm": {
       "name": "@e2e-v2/evm-contracts",

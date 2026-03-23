@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@e2e-v2/engine": "workspace:*",
+    "@effectstream/celestia": "workspace:*",
     "@effectstream/concise": "workspace:*",
     "@effectstream/config": "workspace:*",
     "@effectstream/coroutine": "workspace:*",
@@ -21,6 +22,7 @@
     "@effectstream/db": "workspace:*",
     "@sinclair/typebox": "^0.34.30",
     "effection": "^3.5.0",
-    "pg": "^8.14.0"
+    "pg": "^8.14.0",
+    "wait-on": "8.0.3"
   }
 }

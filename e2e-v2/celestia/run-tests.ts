@@ -1,8 +1,7 @@
 /**
  * Celestia E2E Test Runner
  *
- * 1. Starts infrastructure via orchestrator-v2/cli.ts (DB + sync node)
- *    NOTE: Celestia Light Node must be running externally on port 26658
+ * 1. Starts infrastructure via orchestrator-v2/cli.ts (DB + Celestia node + bridge + fund + sync node)
  * 2. Waits for services to be ready
  * 3. Runs tooling tests (verify Celestia node is responding)
  * 4. Runs sync tests (submit blob via RPC, verify primitive_accounting has entry)
@@ -70,8 +69,13 @@ async function celestiaSubmitBlob(data: string): Promise<number> {
 async function runToolingTests(): Promise<void> {
   console.log("\n--- Phase 1: Tooling Tests (infrastructure validation) ---\n");
 
-  // Verify Celestia light node is responding on port 26658
-  await assert("Celestia light node is responding on http://localhost:26658", async () => {
+  await assert("Celestia consensus node is responding on port 26657", async () => {
+    const res = await fetch("http://localhost:26657/status");
+    const json = await res.json() as any;
+    return json.result?.node_info != null;
+  });
+
+  await assert("Celestia bridge node is responding on port 26658", async () => {
     const response = await fetch("http://localhost:26658", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -83,7 +87,6 @@ async function runToolingTests(): Promise<void> {
       }),
     });
     const json = await response.json() as any;
-    // NetworkHead returns a header result on success
     return json.result !== undefined || json.error === undefined;
   });
 }
@@ -110,6 +113,18 @@ async function runSyncTests(db: Client): Promise<void> {
       return row != null;
     },
   );
+
+  // Verify the STM wrote the blob content into celestia_blobs table
+  await assertSQL<{ content: string }>(
+    "Celestia: celestia_blobs table has submitted blob content",
+    db,
+    `SELECT content FROM celestia_blobs LIMIT 1;`,
+    (res) => res.rows.length >= 1,
+    (res) => {
+      const row = res.rows[0] as any;
+      return row?.content === testData;
+    },
+  );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -117,15 +132,16 @@ async function runSyncTests(db: Client): Promise<void> {
 async function test() {
   let db: Client | null = null;
   try {
-    // 1. Start infrastructure (Celestia node must already be running externally)
+    // 1. Start infrastructure
     await startInfrastructure(LAUNCHER_PATH);
     await waitForOrchestrator();
 
-    // 2. Wait for user tables to be created
-    await waitForProcess("create-user-tables", { waitForExit: true });
-    console.log("User tables created.\n");
+    // 2. Wait for celestia infrastructure to be ready
+    await waitForProcess("celestia-bridge-wait", { waitForExit: true, timeoutMs: 180_000 });
+    await waitForProcess("celestia-fund-bridge", { waitForExit: true, timeoutMs: 60_000 });
+    console.log("Celestia infrastructure ready.\n");
 
-    // 3. Run tooling tests (verify Celestia node responding)
+    // 3. Run tooling tests
     await runToolingTests();
 
     // 4. Wait for sync node to be healthy

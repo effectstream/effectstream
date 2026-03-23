@@ -276,19 +276,20 @@ if (import.meta.main) {
   const cliArgs = process.argv.slice(2);
   const command = cliArgs[0];
   const verbose = cliArgs.includes('--verbose');
+  const dataDir = process.env.CELESTIA_HOME || undefined;
 
   (async () => {
     try {
       switch (command) {
         case 'start-node': {
           console.log('Starting Celestia consensus node...');
-          const { appHome } = await run({ verbose, bridgeEnabled: false });
+          const { appHome } = await run({ verbose, bridgeEnabled: false, dataDir });
           console.log(`Celestia node running. Data dir: ${appHome}`);
           break;
         }
         case 'start-bridge': {
           console.log('Starting Celestia devnet (node + bridge)...');
-          const result = await run({ verbose, bridgeEnabled: true });
+          const result = await run({ verbose, bridgeEnabled: true, dataDir });
           console.log(`Celestia devnet running. Data dir: ${result.appHome}`);
           console.log(`Bridge home: ${result.bridgeHome}`);
           if (result.bridgeAddress) {
@@ -300,7 +301,7 @@ if (import.meta.main) {
         }
         default: {
           console.log('Starting Celestia devnet (node + bridge)...');
-          const res = await run({ verbose, bridgeEnabled: !cliArgs.includes('--no-bridge') });
+          const res = await run({ verbose, bridgeEnabled: !cliArgs.includes('--no-bridge'), dataDir });
           console.log(`Celestia devnet running. Data dir: ${res.appHome}`);
           if (res.bridgeAddress) {
             console.log(`Bridge wallet address: ${res.bridgeAddress}`);

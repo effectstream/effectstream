@@ -2,5 +2,18 @@
   "name": "@e2e-v2/celestia-contracts",
   "version": "0.1.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "celestia-node:start": "bun ./node_modules/.bin/celestia start-node --verbose",
+    "celestia-node:wait": "wait-on http://localhost:26657/status",
+    "celestia-bridge:start": "bun ./node_modules/.bin/celestia start-bridge --verbose",
+    "celestia-bridge:wait": "wait-on tcp:26658",
+    "celestia-fund:bridge": "bun ./fund-bridge.ts"
+  },
+  "dependencies": {
+    "@effectstream/celestia": "workspace:*"
+  },
+  "devDependencies": {
+    "wait-on": "8.0.3"
+  }
 }
