@@ -84,8 +84,12 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
-# NOTE: EVM contract pre-compilation moved to runtime (run-e2e.sh)
-# to avoid solc WASM download failures during Docker build.
+# Pre-download solc 0.8.30 natively so hardhat never triggers Bun's
+# broken webstreams polyfill during the WASM/binary download.
+RUN mkdir -p /root/.local/share/svm/0.8.30 && \
+    curl -fsSL "https://github.com/ethereum/solidity/releases/download/v0.8.30/solc-static-linux" \
+      -o /root/.local/share/svm/0.8.30/solc-0.8.30 && \
+    chmod +x /root/.local/share/svm/0.8.30/solc-0.8.30
 
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
