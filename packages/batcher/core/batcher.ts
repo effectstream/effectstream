@@ -1011,6 +1011,10 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
     };
   }
 
+  getAdapter(target: string): BlockchainAdapter<any> | undefined {
+    return this.adapters[target];
+  }
+
   /**
    * Graceful shutdown - stop accepting new batches and wait for current processing to finish
    * Effection-compatible version that can be used with yield*

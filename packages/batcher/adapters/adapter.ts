@@ -1,6 +1,7 @@
 // Implements a adapter interface for the batcher responsible for handling blockchain interactions
 
 import type { DefaultBatcherInput } from "../core/types.ts";
+import type { RateLimitKeyStrategy } from "../core/rate-limiter.ts";
 
 /**
  * Generic blockchain transaction hash type
@@ -153,4 +154,12 @@ export interface BlockchainAdapter<TOutput> {
    * @param pendingInputs - All pending inputs for this adapter from storage.
    */
   recoverState?(pendingInputs: DefaultBatcherInput[]): Promise<void> | void;
+
+  /**
+   * (Optional) Declare the rate limit key strategy for this adapter.
+   * - "ip": Rate limit by IP only (default if not implemented)
+   * - "ip-and-address": Independent limits on IP and wallet address
+   * - "composite": Single combined IP+address key
+   */
+  getRateLimitKeyStrategy?(): RateLimitKeyStrategy;
 }
