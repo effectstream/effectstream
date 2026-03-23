@@ -27,13 +27,13 @@ import {
   type FinalizedTransaction,
   Transaction as LedgerV6Transaction,
   type UnprovenTransaction,
-} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
+} from "@midnight-ntwrk/ledger-v8";
 import { fromHex } from "@midnight-ntwrk/midnight-js-utils";
 import type {
   PublicDataProvider,
   UnboundTransaction,
 } from "@midnight-ntwrk/midnight-js-types";
-import type { BalancingRecipe } from "@midnight-ntwrk/wallet-sdk-facade";
+import type { BalancingRecipe, ShieldedTokenTransfer } from "@midnight-ntwrk/wallet-sdk-facade";
 import {
   buildWalletFacade,
   type NetworkUrls,
@@ -47,19 +47,7 @@ import {
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
-import * as fs from "node:fs";
-
-// Custom logger for debugging
-function debugLog(message: string) {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${message}\n`;
-  try {
-    fs.appendFileSync("batcher-debug.log", logMessage);
-  } catch (e) {
-    // Ignore if we can't write
-  }
-  console.log(message);
-}
+import { AdapterLogger } from "./adapter-logger.ts";
 
 // ---------------------------------------------------------------------------
 // Config & types
@@ -75,7 +63,10 @@ export interface MidnightBalancingAdapterConfig {
   walletResult?: WalletResult | Promise<WalletResult>;
   syncProtocolName?: string;
   addShieldedPadding?: boolean;
-  /** Maximum number of transactions to include in a single batch. Defaults to unlimited. */
+  // Token type ID used for the shielded self-transfer padding. Required when addShieldedPadding is true.
+  // **NOTE for development:** "0000000000000000000000000000000000000000000000000000000000000000" can be used for undeployed + genesis wallet.
+  shieldedPaddingTokenID?: string;
+  // Maximum number of transactions to include in a single batch. Defaults to unlimited.
   maxBatchSize?: number;
 }
 
@@ -128,6 +119,7 @@ export class MidnightBalancingAdapter
   private readonly walletFundingTimeoutMs: number;
   private readonly syncProtocolName: string;
   private readonly walletSeed: string;
+  private readonly log = new AdapterLogger("balancing");
 
   private walletResult: WalletResult | null = null;
   private isInitialized = false;
@@ -143,13 +135,9 @@ export class MidnightBalancingAdapter
   ) {
     this.walletSeed = walletSeed;
     this.config = config;
-    this.walletNetworkId = config.walletNetworkId ??
-      ("undeployed" as WalletNetworkId.NetworkId);
-    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) *
-      1000;
-    this.syncProtocolName = config.syncProtocolName ??
-      `Midnight-Balancing (${this.walletNetworkId})`;
-
+    this.walletNetworkId = config.walletNetworkId ?? ("undeployed" as WalletNetworkId.NetworkId);
+    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
+    this.syncProtocolName = config.syncProtocolName ?? `Midnight-Balancing (${this.walletNetworkId})`;
     this.initializationPromise = this.initialize(walletSeed);
   }
 
@@ -158,8 +146,7 @@ export class MidnightBalancingAdapter
   // -----------------------------------------------------------------------
 
   private async reconnect(): Promise<void> {
-    console.log("[balancing] Reconnecting wallet...");
-    debugLog("[balancing] Reconnecting wallet...");
+    this.log.log(" Reconnecting wallet...");
     this.isInitialized = false;
     this.walletResult = null;
     this.config.walletResult = undefined; // Force rebuild instead of using shared
@@ -169,13 +156,14 @@ export class MidnightBalancingAdapter
 
   private async initialize(walletSeed: string): Promise<void> {
     try {
+      this.log.log("Initializing Midnight Balancing Adapter...");
       setNetworkId(this.walletNetworkId as any);
 
       if (this.config.walletResult) {
-        console.log("[balancing] Using shared wallet");
+        this.log.log(" Using shared wallet");
         this.walletResult = await this.config.walletResult;
       } else {
-        console.log("[balancing] Building wallet...");
+        this.log.log(" Building wallet...");
         const networkUrls: Required<NetworkUrls> = {
           id: this.walletNetworkId,
           indexer: this.config.indexer,
@@ -198,12 +186,12 @@ export class MidnightBalancingAdapter
         this.config.indexerWS,
       );
 
-      console.log("[balancing] Wallet built, waiting for funds...");
+      this.log.log(" Wallet built, waiting for funds...");
       await this.ensureFunds();
       this.isInitialized = true;
-      console.log("[balancing] Adapter ready");
+      this.log.log(" Adapter ready");
     } catch (error) {
-      console.error("[balancing] Initialization failed:", error);
+      this.log.error(" Initialization failed:", error);
       throw error;
     }
   }
@@ -217,11 +205,11 @@ export class MidnightBalancingAdapter
     });
 
     if (balances.dustBalance === 0n && balances.unshieldedBalance > 0n) {
-      console.log("[balancing] Registering NIGHT for dust generation...");
+      this.log.log(" Registering NIGHT for dust generation...");
       try {
         await registerNightForDust(this.walletResult);
       } catch (error) {
-        console.warn("[balancing] Dust registration failed:", error);
+        this.log.warn(" Dust registration failed:", error);
       }
     }
 
@@ -230,11 +218,9 @@ export class MidnightBalancingAdapter
       waitNonZero: true,
     });
 
-    console.log(`[balancing] Dust balance: ${dustBalance}`);
+    this.log.log(`Dust balance: ${dustBalance}`);
     if (dustBalance === 0n) {
-      console.warn(
-        "[balancing] WARNING: 0 dust balance, submissions will fail",
-      );
+      this.log.warn("WARNING: 0 dust balance, submissions will fail");
     }
 
     // Query available dust UTXOs so we know how many concurrent balance calls
@@ -244,12 +230,20 @@ export class MidnightBalancingAdapter
         // deno-lint-ignore no-explicit-any
         (this.walletResult.wallet as any).dust,
       );
+
+      const bigintSerializer = (_: string, value: unknown) => {
+        if (typeof value === 'bigint') {
+          return value.toString();
+        }
+        return value;
+      };
+
       // deno-lint-ignore no-explicit-any
       this.availableDustUtxoCount = dustState.availableCoins?.length ?? null;
-      console.log('Dust state:', dustState.availableCoins);
-      console.log(`[balancing] Available dust UTXOs: ${this.availableDustUtxoCount ?? "unknown"}`);
+      this.log.log(`Dust state: ${JSON.stringify(dustState.availableCoins, bigintSerializer)}`);
+      this.log.log(`Available dust UTXOs: ${this.availableDustUtxoCount ?? "unknown"}`);
     } catch (e) {
-      console.warn("[balancing] Could not read dust UTXO count:", e);
+      this.log.warn(" Could not read dust UTXO count:", e);
     }
   }
 
@@ -402,23 +396,15 @@ export class MidnightBalancingAdapter
       this.config.maxBatchSize ?? Infinity,
       this.availableDustUtxoCount ?? Infinity,
     );
-    console.log('Limit:', { 
-      config: this.config.maxBatchSize, 
-      dust: this.availableDustUtxoCount,
-      limit,
-    });
+    this.log.log(`Limit: config=${this.config.maxBatchSize}, dust=${this.availableDustUtxoCount}, limit=${limit}`);
     for (const input of inputs) {
       if (txs.length >= limit) break;
       try {
         txs.push(this.deserializeTxEntry(input));
         selectedInputs.push(input);
       } catch (error) {
-        console.error(
-          `[balancing] Deserialize failed for ${input.target}:`,
-          error,
-        );
-        debugLog(
-          `[balancing] Deserialize failed for ${input.target}: ${error}`,
+        this.log.error(
+          `Deserialize failed for ${input.target}: ${error}`,
         );
         // Stop at first bad input to keep accounting sequential
         break;
@@ -427,7 +413,7 @@ export class MidnightBalancingAdapter
 
     if (txs.length === 0) return null;
 
-    debugLog(`[balancing] Built batch of ${txs.length} tx(s)`);
+    this.log.log(`Built batch of ${txs.length} tx(s)`);
     return { selectedInputs, data: { txs, selectedInputs } };
   }
 
@@ -446,6 +432,12 @@ export class MidnightBalancingAdapter
   private async balanceEntry(
     entry: DelegatedTxEntry,
   ): Promise<BalancingRecipe> {
+    // Ensure dust wallet has up-to-date state (including generationInfo for coins)
+    // before attempting to balance. Without this, balanceTransactions may read stale
+    // state where generationInfo hasn't been populated, causing "No dust found".
+    // deno-lint-ignore no-explicit-any
+    await (this.walletResult!.wallet as any).dust.waitForSyncedState();
+
     const keys = {
       shieldedSecretKeys: this.walletResult!.walletZswapSecretKeys,
       dustSecretKey: this.walletResult!.walletDustSecretKey,
@@ -462,12 +454,10 @@ export class MidnightBalancingAdapter
         const paddedTx = await this.applyShieldedPadding(entry.tx as UnprovenTransaction, true);
         entry = { tx: paddedTx, txStage: "unproven" };
       } catch (e) {
-        console.warn(
-          "[balancing] Shielded padding unavailable, submitting without padding. " +
-          "Ensure the batcher wallet has shielded NIGHT tokens.",
-          e,
+        this.log.warn(
+          "Shielded padding unavailable, submitting without padding. " +
+          `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
         );
-        debugLog(`[balancing] Shielded padding failed: ${e}`);
       }
     }
 
@@ -487,12 +477,10 @@ export class MidnightBalancingAdapter
           try {
             recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true);
           } catch (e) {
-            console.warn(
-              "[balancing] Shielded padding unavailable, submitting without padding. " +
-              "Ensure the batcher wallet has shielded NIGHT tokens.",
-              e,
+            this.log.warn(
+              "Shielded padding unavailable, submitting without padding. " +
+              `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
             );
-            debugLog(`[balancing] Shielded padding failed: ${e}`);
           }
         }
         break;
@@ -506,12 +494,10 @@ export class MidnightBalancingAdapter
           try {
             recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true);
           } catch (e) {
-            console.warn(
-              "[balancing] Shielded padding unavailable, submitting without padding. " +
-              "Ensure the batcher wallet has shielded NIGHT tokens.",
-              e,
+            this.log.warn(
+              "Shielded padding unavailable, submitting without padding. " +
+              `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
             );
-            debugLog(`[balancing] Shielded padding failed: ${e}`);
           }
         }
         break;
@@ -539,33 +525,39 @@ export class MidnightBalancingAdapter
   ): Promise<UnprovenTransaction> {
     if (!this.walletResult) throw new Error("Wallet not initialized");
 
-    debugLog("[balancing] Adding shielded padding...");
+    this.log.log("[balancing] Adding shielded padding...");
     const keys = this.walletResult.walletZswapSecretKeys;
     
     // Get the shielded address as a ShieldedAddress object (required by transferTransaction)
     // deno-lint-ignore no-explicit-any
     const initialState = await getInitialShieldedState((this.walletResult.wallet as any).shielded);
     const receiverAddress = initialState.address;
-    const type = '0000000000000000000000000000000000000000000000000000000000000000';
+    if (!this.config.shieldedPaddingTokenID) {
+      throw new Error("shieldedPaddingTokenID must be set when addShieldedPadding is true");
+    }
+    const type = this.config.shieldedPaddingTokenID;
     // Build a self-transfer: send 1 unit of shielded NIGHT back to ourselves.
     // payFees: false — dust fees are already in the balancingTx.
-    const paddingRecipe = await this.walletResult.wallet.transferTransaction(
-      [
-        {
-          type: "shielded",
-          outputs: [{
-            type,
-            receiverAddress,
-            amount: 1n
-          }]
-        }
-      ],
+    const outputs: ShieldedTokenTransfer[] =  [
       {
-        shieldedSecretKeys: keys,
-        dustSecretKey: this.walletResult.walletDustSecretKey,
-      },
-      { ttl: createTtl(), payFees },
-    );
+        type: "shielded",
+        outputs: [{
+          type,
+          receiverAddress,
+          amount: 1n
+        }]
+      }
+    ];
+    const conf  = {
+      shieldedSecretKeys: keys,
+      dustSecretKey: this.walletResult.walletDustSecretKey,
+    };
+    const opt = { 
+      ttl: createTtl(),
+      payFees: payFees,
+    }
+    // console.log('PADDING', outputs, conf, opt);
+    const paddingRecipe = await this.walletResult.wallet.transferTransaction(outputs, conf, opt);
 
     // Merge: dust fee inputs stay, shielded input+output are added.
     // Both are UnprovenTransaction so merge is type-safe.
@@ -602,15 +594,15 @@ export class MidnightBalancingAdapter
     const { txs } = batchData;
     const pipeline: TxPipelineEntry[] = txs.map((entry) => ({ entry }));
 
-    debugLog(`[balancing] Processing batch of ${txs.length} tx(s)`);
+    this.log.log(`Processing batch of ${txs.length} tx(s)`);
 
     // --- Phase 1: Balance all txs (speculative chaining) ---
     for (let i = 0; i < pipeline.length; i++) {
       const p = pipeline[i];
       const label = `${i + 1}/${pipeline.length}`;
       try {
-        debugLog(
-          `[balancing] Phase 1 — balance tx ${label} (${p.entry.txStage})`,
+        this.log.log(
+          `Phase 1 — balance tx ${label} (${p.entry.txStage})`,
         );
         p.recipe = await this.balanceEntry(p.entry);
         // Log the dust fee for this transaction.
@@ -625,15 +617,15 @@ export class MidnightBalancingAdapter
         if (feeTx) {
           try {
             const fee = await this.walletResult!.wallet.calculateTransactionFee(feeTx);
-            debugLog(`[balancing] Phase 1 — tx ${label} dust fee: ${fee} SPECKs`);
+            this.log.log(`Phase 1 — tx ${label} dust fee: ${fee} SPECKs`);
           } catch {
             // non-critical — skip if fee calculation fails
           }
         }
       } catch (error) {
         p.error = error instanceof Error ? error : new Error(String(error));
-        debugLog(
-          `[balancing] Balance failed for tx ${label}: ${p.error.message}`,
+        this.log.log(
+          `Balance failed for tx ${label}: ${p.error.message}`,
         );
         // If balance fails (e.g. out of dust), skip remaining txs in batch
         // because the wallet state may be inconsistent for further balancing.
@@ -653,7 +645,7 @@ export class MidnightBalancingAdapter
 
       const label = `${i + 1}/${pipeline.length}`;
       try {
-        debugLog(`[balancing] Phase 2 — finalize tx ${label}`);
+        this.log.log(`Phase 2 — finalize tx ${label}`);
 
         const signedRecipe = await this.walletResult.wallet.signRecipe(
           p.recipe,
@@ -669,8 +661,8 @@ export class MidnightBalancingAdapter
         );
       } catch (error) {
         p.error = error instanceof Error ? error : new Error(String(error));
-        debugLog(
-          `[balancing] Finalize failed for tx ${label}: ${p.error.message}`,
+        this.log.log(
+          `Finalize failed for tx ${label}: ${p.error.message}`,
         );
         // Don't cascade — later txs may still finalize independently.
       }
@@ -687,7 +679,7 @@ export class MidnightBalancingAdapter
       const label = `${i + 1}/${pipeline.length}`;
       let txHashStr = "";
       
-      debugLog(`[balancing] Submitting tx ${label} to node...`);
+      this.log.log(`Submitting tx ${label} to node...`);
 
       txHashStr = p.finalized.transactionHash().toString();
       p.hash = txHashStr;
@@ -705,9 +697,9 @@ export class MidnightBalancingAdapter
         ),
       ])
         .then((data) => {
-          debugLog(`[balancing] Submission data: ${JSON.stringify(data)}`);
-          debugLog(`[balancing] Submission successful for tx ${label}`);
-          debugLog(`[balancing] Submitted tx ${label}: ${p.hash}`);
+          this.log.log(`Submission data: ${JSON.stringify(data)}`);
+          this.log.log(`Submission successful for tx ${label}`);
+          this.log.log(`Submitted tx ${label}: ${p.hash}`);
         })
         .catch((error) => {
           const err = error instanceof Error ? error : new Error(String(error));
@@ -720,15 +712,15 @@ export class MidnightBalancingAdapter
               "Transaction got dropped, the mempool likely is full and network congested"
           ) {
             if (!hasDroppedFirst) {
-              debugLog(
-                `[balancing] Submit failed for tx ${label} due to expected dropped error. Marking as dropped to remove from queue (first in batch).`,
+              this.log.log(
+                `Submit failed for tx ${label} due to expected dropped error. Marking as dropped to remove from queue (first in batch).`,
               );
               p.hash = "dropped_" + (txHashStr || Date.now() + "_" + i);
               p.error = undefined;
               hasDroppedFirst = true;
             } else {
-              debugLog(
-                `[balancing] Submit failed for tx ${label} with dropped error, but keeping in queue since a prior tx was already dropped.`,
+              this.log.log(
+                `Submit failed for tx ${label} with dropped error, but keeping in queue since a prior tx was already dropped.`,
               );
               p.error = err;
               p.hash = undefined;
@@ -737,8 +729,8 @@ export class MidnightBalancingAdapter
             // The transaction is already in the mempool (submitted in a prior attempt whose
             // response was lost). Treat as success so the input is removed from the queue
             // and receipt polling proceeds with the hash we already computed.
-            debugLog(
-              `[balancing] Submit for tx ${label} got IntentAlreadyExists — tx already in mempool, treating as success.`,
+            this.log.log(
+              `Submit for tx ${label} got IntentAlreadyExists — tx already in mempool, treating as success.`,
             );
             p.error = undefined;
             // p.hash is already set to txHashStr above
@@ -747,16 +739,16 @@ export class MidnightBalancingAdapter
             errMsg === "Transaction submission failed" ||
             errMsg.includes("Invalid Transaction")
           ) {
-            debugLog(
-              `[balancing] Submit failed for tx ${label} due to unprocessable error. Marking as dropped to remove from queue.`,
+            this.log.log(
+              `Submit failed for tx ${label} due to unprocessable error. Marking as dropped to remove from queue.`,
             );
             p.hash = "dropped_" + (txHashStr || Date.now() + "_" + i);
             p.error = undefined;
           } else {
             p.error = err;
             p.hash = undefined; // clear hash if it failed
-            debugLog(
-              `[balancing] Submit failed for tx ${label}: ${p.error.message}`,
+            this.log.log(
+              `Submit failed for tx ${label}: ${p.error.message}`,
             );
           }
         });
@@ -776,23 +768,23 @@ export class MidnightBalancingAdapter
     const succeeded = pipeline.filter((p) => p.hash != null);
     const failed = pipeline.filter((p) => p.error != null);
 
-    debugLog(
-      `[balancing] Batch results: ${succeeded.length} succeeded, ${failed.length} failed`,
+    this.log.log(
+      `Batch results: ${succeeded.length} succeeded, ${failed.length} failed`,
     );
 
     if (failed.length > 0) {
-      console.warn(
-        `[balancing] Batch: ${succeeded.length} succeeded, ${failed.length} failed`,
+      this.log.warn(
+        `Batch: ${succeeded.length} succeeded, ${failed.length} failed`,
       );
       for (const p of failed) {
-        console.warn(`  - ${p.entry.txStage}: ${p.error!.message}`);
+        this.log.warn(`  - ${p.entry.txStage}: ${p.error!.message}`);
       }
 
       // Remove failed inputs from selectedInputs so the batcher doesn't mark them as processed
       for (let i = pipeline.length - 1; i >= 0; i--) {
         if (pipeline[i].error != null) {
-          debugLog(
-            `[balancing] Removing failed input at index ${i} from selectedInputs`,
+          this.log.log(
+            `Removing failed input at index ${i} from selectedInputs`,
           );
           batchData.selectedInputs.splice(i, 1);
         }
@@ -800,17 +792,17 @@ export class MidnightBalancingAdapter
     }
 
     if (succeeded.length === 0) {
-      debugLog(`[balancing] All transactions failed`);
+      this.log.log(`All transactions failed`);
       const firstErrorMsg = pipeline[0].error?.message ?? "unknown";
 
       if (firstErrorMsg.includes("No dust tokens found in the wallet state")) {
-        debugLog(
-          `[balancing] Wallet entered bad state. Triggering reconnect...`,
+        this.log.log(
+          `Wallet entered bad state. Triggering reconnect...`,
         );
         try {
           await this.reconnect();
         } catch (reconnectError) {
-          debugLog(`[balancing] Reconnect failed: ${reconnectError}`);
+          this.log.log(`Reconnect failed: ${reconnectError}`);
         }
       }
 
@@ -823,7 +815,7 @@ export class MidnightBalancingAdapter
     // Return a comma-separated list of successful hashes.
     // The batcher framework treats this as an opaque string and passes it to waitForTransactionReceipt.
     const finalHashes = succeeded.map((p) => p.hash!).join(",");
-    debugLog(`[balancing] Returning hashes: ${finalHashes}`);
+    this.log.log(`Returning hashes: ${finalHashes}`);
     return finalHashes;
   }
 
@@ -845,8 +837,8 @@ export class MidnightBalancingAdapter
     const hashes = hash.split(",");
     let lastReceipt: BlockchainTransactionReceipt | null = null;
 
-    debugLog(
-      `[balancing] waitForTransactionReceipt called with hashes: ${hash}, effective timeout: ${effectiveTimeout}`,
+    this.log.log(
+      `waitForTransactionReceipt called with hashes: ${hash}, effective timeout: ${effectiveTimeout}`,
     );
 
     for (const h of hashes) {
@@ -867,7 +859,7 @@ export class MidnightBalancingAdapter
     timeout: number,
   ): Promise<BlockchainTransactionReceipt> {
     if (hash.startsWith("dropped_")) {
-      debugLog(`[balancing] Skipping receipt wait for dropped tx: ${hash}`);
+      this.log.log(`Skipping receipt wait for dropped tx: ${hash}`);
       return {
         hash,
         blockNumber: 0n,
@@ -875,8 +867,8 @@ export class MidnightBalancingAdapter
       };
     }
 
-    debugLog(
-      `[balancing] Waiting for receipt for ${hash} (timeout: ${timeout}ms)...`,
+    this.log.log(
+      `Waiting for receipt for ${hash} (timeout: ${timeout}ms)...`,
     );
     const startTime = Date.now();
     let normalizedHash = hash.toLowerCase().replace(/^0x/, "");
@@ -897,8 +889,8 @@ export class MidnightBalancingAdapter
     while (Date.now() - startTime < timeout) {
       const now = Date.now();
       if (now - lastLogTime > 10000) { // Log every 10 seconds
-        debugLog(
-          `[balancing] Still waiting for ${hash} (${
+        this.log.log(
+          `Still waiting for ${hash} (${
             Math.round((now - startTime) / 1000)
           }s elapsed)...`,
         );
@@ -919,8 +911,8 @@ export class MidnightBalancingAdapter
 
         // Log the raw response if it's not what we expect
         if (!body || !body.data || !body.data.transactions) {
-          debugLog(
-            `[balancing] Unexpected indexer response for ${hash}: ${
+          this.log.log(
+            `Unexpected indexer response for ${hash}: ${
               JSON.stringify(body)
             }`,
           );
@@ -929,8 +921,8 @@ export class MidnightBalancingAdapter
         const tx = body.data?.transactions?.[0];
 
         if (tx?.block) {
-          debugLog(
-            `[balancing] Found receipt for ${hash} at block ${tx.block.height}`,
+          this.log.log(
+            `Found receipt for ${hash} at block ${tx.block.height}`,
           );
           return {
             hash,
@@ -939,13 +931,13 @@ export class MidnightBalancingAdapter
           };
         }
       } catch (err) {
-        debugLog(`[balancing] Receipt query error for ${hash}: ${err}`);
+        this.log.log(`Receipt query error for ${hash}: ${err}`);
       }
       await new Promise((r) => setTimeout(r, 1000));
     }
 
-    debugLog(
-      `[balancing] Transaction confirmation timeout for ${hash} after ${timeout}ms`,
+    this.log.log(
+      `Transaction confirmation timeout for ${hash} after ${timeout}ms`,
     );
     throw new Error(`Transaction confirmation timeout: ${hash}`);
   }

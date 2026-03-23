@@ -33,7 +33,7 @@ import {
 import {
   type FinalizedTransaction,
   Transaction as LedgerTransaction,
-} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
+} from "@midnight-ntwrk/ledger-v8";
 import { fromHex, toHex } from "@midnight-ntwrk/midnight-js-utils";
 import { dirname, resolve } from "node:path";
 import { AddressType } from "@effectstream/utils";
@@ -47,7 +47,7 @@ const BATCHER_URL = "http://localhost:3334";
 globalThis.WebSocket = WebSocket;
 
 // Inlined common types for standalone script
-type CounterCircuits = Contract.ImpureCircuitId<Counter.Contract<CounterPrivateState>>;
+type CounterCircuits = Contract.ProvableCircuitId<Counter.Contract>;
 
 const CounterPrivateStateId = "counterPrivateState";
 

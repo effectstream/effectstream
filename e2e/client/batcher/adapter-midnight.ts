@@ -31,6 +31,7 @@ const midnightNetworkUrls = {
 const midnightAdapterConfig = midnight_enabled ? {
   ...midnightNetworkUrls,
   zkConfigPath,
+  contractName: "contract-eip-20", // Must match readMidnightContract name above
   privateStateStoreName: "simpletoken-private-state", // Local LevelDB store
   // Keep in sync with deploy + interact scripts
   privateStateId: "simpleTokenPrivateState", // On-chain contract ID (must match deploy.ts)

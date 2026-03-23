@@ -694,6 +694,7 @@ export async function generalTest(db: Client, sharedState: SharedState) {
   await assert("Check System API Table Schema", async () => {
     const response = await fetch(
       `http://localhost:${ENV.EFFECTSTREAM_API_PORT}/table-schema/user_state_machine`,
+      { headers: { "x-api-key": ENV.API_KEY_OPEN_ENDPOINTS_EXPLORER } },
     );
     const data = await response.json();
     return data.every((row: any) =>
@@ -714,7 +715,9 @@ export async function generalTest(db: Client, sharedState: SharedState) {
         url += `&after=${nextCursor}`;
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { "x-api-key": ENV.API_KEY_OPEN_ENDPOINTS_EXPLORER },
+      });
       const { data, pagination } = await response.json();
       allData.push(...data);
       nextCursor = pagination.nextCursor;

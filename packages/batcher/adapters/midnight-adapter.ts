@@ -29,7 +29,7 @@ import type {
   TransactionId,
   UnprovenTransaction,
   ZswapSecretKeys,
-} from "@midnight-ntwrk/ledger-v7"; // "@midnight-ntwrk/ledger-v8";
+} from "@midnight-ntwrk/ledger-v8";
 import {
   type DeployedContract,
   findDeployedContract,
@@ -54,6 +54,7 @@ import {
 import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { Buffer } from "node:buffer";
+import { AdapterLogger } from "./adapter-logger.ts";
 
 export interface MidnightAdapterConfig {
   indexer: string;
@@ -61,6 +62,7 @@ export interface MidnightAdapterConfig {
   node: string;
   proofServer: string;
   zkConfigPath: string;
+  contractName: string; // Compact contract name used in CompiledContract.make (e.g. 'contract-eip-20')
   privateStateStoreName: string; // LevelDB store name (local)
   privateStateId?: string; // Contract private state ID (on-chain), defaults to privateStateStoreName if not provided
   contractJoinTimeoutSeconds?: number; // Defaults to 120 seconds
@@ -83,6 +85,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private readonly syncProtocolName: string;
   public readonly maxBatchSize?: number;
   private readonly contractClass: TContract;
+  private readonly log: AdapterLogger;
   
   // Private helper for building batch data
   private readonly batchBuilderLogic = new MidnightBatchBuilderLogic();
@@ -118,11 +121,11 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
             0n,
           )
         : undefined;
-      console.log(
+      this.log.log(
         `🧪 [${context}] Dust wallet state: walletBalance=${walletBalance ?? "unknown"} balancesTotal=${balances ?? "unknown"}`,
       );
     } catch (error) {
-      console.warn(`⚠️ [${context}] Failed to read dust wallet state:`, error);
+      this.log.warn(`⚠️ [${context}] Failed to read dust wallet state:`, error);
     }
   }
 
@@ -142,6 +145,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.syncProtocolName = syncProtocolName;
     this.maxBatchSize = maxBatchSize;
     this.contractClass = contractClass;
+    this.log = new AdapterLogger("midnight");
     this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
     this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
     this.walletNetworkId = config.walletNetworkId ?? "undeployed" as WalletNetworkId.NetworkId;
@@ -164,10 +168,10 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       setNetworkId(this.walletNetworkId as any);
 
       if (this.config.walletResult) {
-        console.log("🔗 Using shared Midnight wallet (modular SDK)...");
+        this.log.log(`🔗 Using shared Midnight wallet...`);
         this.walletResult = await this.config.walletResult;
       } else {
-        console.log("🔗 Building Midnight wallet (modular SDK)...");
+        this.log.log(`🔗 Building Midnight wallet...`);
 
         const networkUrls: Required<NetworkUrls> = {
           id: this.walletNetworkId,
@@ -188,13 +192,11 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         this.walletResult.wallet.shielded,
       );
       this.walletAddress = initialState.address.coinPublicKeyString();
-      console.log("✅ Wallet built and sync started");
-      console.log(`📍 Batcher wallet address: ${this.walletAddress}`);
-      console.log(`📍 Batcher dust address: ${this.walletResult.dustAddress}`);
-      console.log(`🔑 Coin public key: ${initialState.address.coinPublicKeyString()}`);
-      console.log(
-        `🛡️ Encryption public key: ${initialState.address.encryptionPublicKeyString()}`,
-      );
+      this.log.log(`✅ Wallet built and sync started`);
+      this.log.log(`📍 Wallet address: ${this.walletAddress}`);
+      this.log.log(`📍 Dust address: ${this.walletResult.dustAddress}`);
+      this.log.log(`🔑 Coin public key: ${initialState.address.coinPublicKeyString()}`);
+      this.log.log(`🛡️ Encryption public key: ${initialState.address.encryptionPublicKeyString()}`);
 
       this.walletProvider = this.createWalletAndMidnightProvider(
         this.walletResult,
@@ -206,21 +208,19 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       );
 
       // Wait for wallet to be funded and synced before starting batcher
-      console.log(
-        "💰 Waiting for wallet to be funded and synced before starting batcher...",
-      );
+      this.log.log(`💰 Waiting for wallet to be funded and synced...`);
       await this.ensureFunds();
       await this.logDustState("initialize");
 
       // NOTE: We skip joining the contract during initialization to avoid long startup times
       // The contract will be joined lazily when the first transaction is submitted
-      console.log("⚠️ Contract join deferred until first transaction (lazy join)");
+      this.log.log(`⚠️ Contract join deferred until first transaction (lazy join)`);
 
-      console.log("✅ Midnight adapter fully initialized and ready!");
+      this.log.log(`✅ Midnight adapter fully initialized and ready!`);
 
       this.isInitialized = true;
     } catch (error) {
-      console.error("❌ Failed to initialize Midnight adapter:", error);
+      this.log.error(`❌ Failed to initialize Midnight adapter:`, error);
       throw error;
     }
   }
@@ -237,7 +237,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
 
     // If already joining, wait for existing join to complete
     if (this.contractJoiningPromise) {
-      console.log("⏳ Contract join already in progress, waiting...");
+      this.log.log(`⏳ Contract join already in progress, waiting...`);
       await this.contractJoiningPromise;
       return;
     }
@@ -250,7 +250,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     // Start the join process
     this.contractJoiningPromise = (async () => {
       try {
-        console.log("⚙️ Configuring providers for contract join...");
+        this.log.log(`⚙️ Configuring providers for contract join...`);
 
         const walletAndMidnightProvider = this.walletProvider!;
 
@@ -273,11 +273,11 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           midnightProvider: walletAndMidnightProvider,
         };
 
-        console.log("🔗 Joining contract at address:", this.contractAddress);
+        this.log.log(`🔗 Joining contract at address: ${this.contractAddress}`);
 
         // Check if indexer is responding before attempting to join
         try {
-          console.log("🔍 Checking indexer health...");
+          this.log.log(`🔍 Checking indexer health...`);
           const blockQuery = `query { block { height } }`;
           const healthResponse = await fetch(this.config.indexer, {
             method: "POST",
@@ -288,23 +288,23 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
             throw new Error(`Indexer returned ${healthResponse.status}`);
           }
           const healthData = await healthResponse.json();
-          console.log(`✅ Indexer is responding. Current block: ${healthData.data?.block?.height || "unknown"}`);
+          this.log.log(`✅ Indexer is responding. Current block: ${healthData.data?.block?.height || "unknown"}`);
         } catch (error) {
-          console.error("❌ Indexer health check failed:", error);
+          this.log.error(`❌ Indexer health check failed:`, error);
           throw new Error(`Cannot join contract: Midnight indexer is not responding at ${this.config.indexer}`);
         }
 
         // Use privateStateId if provided, otherwise fall back to privateStateStoreName
         const privateStateId = this.config.privateStateId ??
           this.config.privateStateStoreName;
-        console.log(`🔑 Using privateStateId: ${privateStateId}`);
+        this.log.log(`🔑 Using privateStateId: ${privateStateId}`);
 
         // With minimal private state config, joining should be fast (no historical sync needed)
         // But we still keep a timeout as a safety measure
         const contractJoinTimeoutSeconds = Math.round(this.contractJoinTimeoutMs / 1000);
-        console.log(`⏱️ Contract join timeout: ${contractJoinTimeoutSeconds}s`);
-        console.log("🔍 Starting findDeployedContract...");
-        const MyCompiledContract = CompiledContract.make('contract-counter', this.contractClass as any).pipe(
+        this.log.log(`⏱️ Contract join timeout: ${contractJoinTimeoutSeconds}s`);
+        this.log.log(`🔍 Starting findDeployedContract (${this.config.contractName})...`);
+        const MyCompiledContract = CompiledContract.make(this.config.contractName, this.contractClass as any).pipe(
           CompiledContract.withWitnesses(this.witnesses as never),
           CompiledContract.withCompiledFileAssets('./')
         );
@@ -318,7 +318,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
               initialPrivateState: {},
             });
             const joinDuration = Math.round((Date.now() - joinStartTime) / 1000);
-            console.log(`✅ findDeployedContract completed in ${joinDuration}s`);
+            this.log.log(`✅ findDeployedContract completed in ${joinDuration}s`);
             return result;
           })(),
           new Promise((_, reject) => 
@@ -333,12 +333,12 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           )
         ]);
 
-        console.log("✅ Contract joined successfully");
+        this.log.log(`✅ Contract joined successfully`);
 
         // With empty private state config, no sync is needed - ready immediately
         this.contractJoined = true;
       } catch (error) {
-        console.error("❌ Failed to join contract:", error);
+        this.log.error(`❌ Failed to join contract:`, error);
         this.contractJoiningPromise = null; // Reset so it can be retried
         throw error;
       }
@@ -423,7 +423,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       return;
     }
 
-    console.log("💰 Checking wallet sync and balance with modular SDK...");
+    this.log.log(`💰 Checking wallet sync and balance...`);
 
     try {
       const balances = await syncAndWaitForFunds(this.walletResult.wallet, {
@@ -433,7 +433,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       // If dust is missing but we have unshielded funds, try to sync dust explicitly
       if (balances.dustBalance === 0n && balances.unshieldedBalance > 0n) {
         try {
-          console.log("🪙 Registering unshielded NIGHT for dust generation...");
+          this.log.log(`🪙 Registering unshielded NIGHT for dust generation...`);
           await registerNightForDust(this.walletResult);
           const dust = await waitForDustFunds(
             this.walletResult.wallet,
@@ -450,7 +450,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         // fallback to 0n if older syncAndWaitForFunds doesn't return dustBalance
         dustBalance: balances.dustBalance ?? 0n,
       };
-      console.log("✅ Wallet fully synced and funded");
+      this.log.log(`✅ Wallet fully synced and funded`);
       this.hasFunds = true;
     } catch (error) {
       throw new Error(
@@ -477,24 +477,24 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
    * Should be called when the adapter is being destroyed/shutdown
    */
   public async cleanup(): Promise<void> {
-    console.log("🧹 Cleaning up Midnight adapter resources...");
-    
+    this.log.log(`🧹 Cleaning up resources...`);
+
     // Close wallet
     if (this.walletResult?.wallet) {
       try {
         await this.walletResult.wallet.stop();
-        console.log("✅ Wallet stopped");
+        this.log.log(`✅ Wallet stopped`);
       } catch (error) {
-        console.warn("⚠️ Error stopping wallet:", error);
+        this.log.warn(`⚠️ Error stopping wallet:`, error);
       }
     }
-    
+
     // Note: The deployedContract and privateStateProvider don't have explicit close methods
     // The LevelDB connections are managed per-operation by levelPrivateStateProvider
     // However, we should allow a small delay for any pending async operations
-    console.log("⏳ Waiting for pending operations to complete...");
+    this.log.log(`⏳ Waiting for pending operations to complete...`);
     await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log("✅ Midnight adapter cleanup complete");
+    this.log.log(`✅ Cleanup complete`);
   }
 
   /**
@@ -530,8 +530,8 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       }
 
       if (data.payloads.length > 1) {
-        console.warn(
-          `⚠️ Midnight adapter received ${data.payloads.length} invocations in a single batch. ` +
+        this.log.warn(
+          `⚠️ Received ${data.payloads.length} invocations in a single batch. ` +
             "Currently only the first invocation will be processed.",
         );
       }
@@ -550,7 +550,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         );
       }
 
-      console.log(
+      this.log.log(
         `🔄 Invoking circuit "${circuit}" with ${args.length} arguments`,
       );
 
@@ -560,42 +560,42 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         this.contractInfo,
       );
 
-      console.log(
+      this.log.log(
         `🔍 Circuit "${circuit}" is ${
           circuitDef.pure ? "PURE (query)" : "IMPURE (transaction)"
         }`,
       );
-      console.log("🔄 Parsed arguments:", parsedArgs);
+      this.log.log(`🔄 Parsed arguments:`, parsedArgs);
 
       let result;
 
       if (circuitDef.pure) {
         // Pure circuit - use call (local query, no transaction)
-        console.log("📖 Calling pure circuit (read-only query)...");
+        this.log.log(`📖 Calling pure circuit (read-only query)...`);
         try {
           const queryResult = await this.deployedContract.call[circuit](
             ...parsedArgs,
           );
-          console.log("✅ Pure circuit query succeeded! Result:", queryResult);
+          this.log.log(`✅ Pure circuit query succeeded! Result:`, queryResult);
 
           // For pure circuits, we return a fake transaction ID with the result encoded
           // Since the batcher expects a hash, we'll return a special format
           return `query:${circuit}:${JSON.stringify(queryResult)}`;
         } catch (callError) {
-          console.error("❌ Pure circuit call threw an error:");
-          console.error(
-            "  Error message:",
+          this.log.error(`❌ Pure circuit call threw an error:`);
+          this.log.error(
+            `  Error message:`,
             callError instanceof Error ? callError.message : String(callError),
           );
           throw callError;
         }
       } else {
         // Impure circuit - use callTx (submit transaction)
-        console.log("📝 Calling impure circuit (transaction)...");
-        console.log("🔄 deployedContract type:", typeof this.deployedContract);
-        console.log("🔄 callTx available?:", !!this.deployedContract?.callTx);
-        console.log(
-          "🔄 circuit method available?:",
+        this.log.log(`📝 Calling impure circuit (transaction)...`);
+        this.log.log(`🔄 deployedContract type:`, typeof this.deployedContract);
+        this.log.log(`🔄 callTx available?:`, !!this.deployedContract?.callTx);
+        this.log.log(
+          ` 🔄 circuit method available?:`,
           !!this.deployedContract?.callTx?.[circuit],
         );
         await this.logDustState(`callTx:${String(circuit)}`);
@@ -605,24 +605,24 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
             ...parsedArgs,
           );
         } catch (callTxError) {
-          console.error("❌ callTx threw an error:");
-          console.error("  Error type:", typeof callTxError);
-          console.error(
-            "  Error message:",
+          this.log.error(`❌ callTx threw an error:`);
+          this.log.error(`  Error type:`, typeof callTxError);
+          this.log.error(
+            `  Error message:`,
             callTxError instanceof Error
               ? callTxError.message
               : String(callTxError),
           );
-          console.error(
-            "  Error stack:",
+          this.log.error(
+            `  Error stack:`,
             callTxError instanceof Error ? callTxError.stack : "N/A",
           );
           if (this.lastFundingBalances) {
-            console.error(
+            this.log.error(
               `  Last synced balances -> shielded: ${this.lastFundingBalances.shieldedBalance.toString()}, unshielded: ${this.lastFundingBalances.unshieldedBalance.toString()}, dust: ${this.lastFundingBalances.dustBalance.toString()}`,
             );
           } else {
-            console.error("  Last synced balances: unavailable (ensureFunds did not complete)");
+            this.log.error(`  Last synced balances: unavailable (ensureFunds did not complete)`);
           }
           throw callTxError; // Re-throw to be caught by outer catch
         }
@@ -630,14 +630,12 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         // Check if result has public.txHash (FinalizedTxData) or needs balancing
         if (result && result.public && result.public.txHash) {
           const txHash = result.public.txHash;
-          console.log(
-            `🚀 Circuit invoked successfully! Transaction Hash: ${txHash}`,
-          );
+          this.log.log(`🚀 Circuit invoked successfully! Transaction Hash: ${txHash}`);
           return txHash;
         } else {
           // Maybe it's an UnbalancedTransaction that needs balancing
-          console.log(
-            "🔄 Result doesn't have public.txHash, might need balancing:",
+          this.log.log(
+            ` 🔄 Result doesn't have public.txHash, might need balancing:`,
             result,
           );
           throw new Error(
@@ -646,7 +644,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         }
       }
     } catch (error) {
-      console.error("❌ Failed to submit batch:", error);
+      this.log.error(`❌ Failed to submit batch:`, error);
       throw new Error(
         `Failed to submit batch: ${
           error instanceof Error ? error.message : String(error)
@@ -666,7 +664,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       throw new Error("Public data provider not initialized");
     }
 
-    console.log(`⏳ Waiting for transaction confirmation: ${hash}`);
+    this.log.log(`⏳ Waiting for transaction confirmation: ${hash}`);
 
     const startTime = Date.now();
 
@@ -675,8 +673,8 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         const txInfo = await this.queryTransactionStatus(hash);
 
         if (txInfo && txInfo.confirmed) {
-          console.log(
-            `✅ Transaction confirmed! Block: ${txInfo.blockNumber}, Hash: ${hash}`,
+          this.log.log(
+            ` ✅ Transaction confirmed! Block: ${txInfo.blockNumber}, Hash: ${hash}`,
           );
 
           return {
@@ -687,7 +685,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           };
         }
       } catch (error) {
-        console.warn(`Failed to query transaction status: ${error}`);
+        this.log.warn(`Failed to query transaction status: ${error}`);
       }
 
       // Wait before next poll
@@ -723,7 +721,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         normalizedHash = normalizedHash.padStart(64, "0");
       }
 
-      console.log(
+      this.log.log(
         `Querying transaction: original=${txId}, normalized=${normalizedHash}`,
       );
 
@@ -765,7 +763,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         blockNumber: BigInt(tx.block.height),
       };
     } catch (error) {
-      console.warn(`Failed to query transaction ${txId}:`, error);
+      this.log.warn(`Failed to query transaction ${txId}:`, error);
       return null;
     }
   }
