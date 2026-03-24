@@ -1,14 +1,17 @@
 /**
- * Deploys the test_event_contract to the NEAR sandbox and calls emit_event.
+ * Deploys the test_event_contract to the NEAR sandbox and calls emit_event
+ * with a unique timestamped message so the E2E test can verify exact data.
+ *
  * Uses near-api-js v7 for transaction signing and submission.
  */
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { Account, JsonRpcProvider, KeyPair, KeyPairSigner } from "near-api-js";
 
 const RPC_URL = "http://localhost:3030";
 const CONTRACT_ACCOUNT = "test.near";
 const WASM_PATH = join(import.meta.dirname!, "test_event_contract.wasm");
+const MESSAGE_FILE = join(import.meta.dirname!, "build", "test-message.txt");
 
 // Read sandbox validator key
 const sandboxDirs = (await import("fs")).readdirSync("/tmp")
@@ -30,30 +33,23 @@ const MESSAGE = "effectstream-near-e2e-" + Date.now();
 // Step 1: Deploy contract
 console.log(`Deploying contract to ${CONTRACT_ACCOUNT}...`);
 const wasmBytes = readFileSync(WASM_PATH);
-const deployResult = await account.deployContract(wasmBytes);
-console.log(`Contract deployed. TX: ${deployResult.transaction.hash}`);
+await account.deployContract(wasmBytes);
+console.log("Contract deployed.");
 
-// Wait a block
+// Wait for deploy to finalize
 await new Promise(r => setTimeout(r, 2000));
 
-// Step 2: Call emit_event
-console.log(`Calling emit_event...`);
+// Step 2: Call emit_event with the unique message
+console.log(`Calling emit_event("${MESSAGE}")...`);
 await account.callFunction({
   contractId: CONTRACT_ACCOUNT,
   methodName: "emit_event",
-  args: {},
+  args: { message: MESSAGE },
 });
-console.log("emit_event call completed (event emitted on-chain)");
+console.log("emit_event completed.");
 
-// Verify the event by checking the latest block's execution outcomes
-await new Promise(r => setTimeout(r, 2000));
-const rpcResult = await fetch(RPC_URL, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    jsonrpc: "2.0", id: 1, method: "block", params: { finality: "final" },
-  }),
-}).then(r => r.json()) as any;
-const height = rpcResult.result.header.height;
-console.log(`Current block height: ${height}`);
-console.log(`\nTEST_MESSAGE=${MESSAGE}`);
+// Write the message to a file so the test runner can read it
+const { mkdirSync } = await import("fs");
+mkdirSync(join(import.meta.dirname!, "build"), { recursive: true });
+writeFileSync(MESSAGE_FILE, MESSAGE);
+console.log(`Unique test message written to ${MESSAGE_FILE}: ${MESSAGE}`);

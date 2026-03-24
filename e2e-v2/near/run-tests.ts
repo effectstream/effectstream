@@ -74,19 +74,26 @@ async function runSyncTests(db: Client): Promise<void> {
     },
   );
 
-  // Verify that the NEP-297 event from our contract was captured in primitive_accounting
+  // Read the unique message that was written by the deploy script
+  const fs = await import("fs");
+  const messagePath = path.resolve(import.meta.dirname!, "../shared/contracts/near/build/test-message.txt");
+  const expectedMessage = fs.readFileSync(messagePath, "utf-8").trim();
+  console.log(`  Expected message: "${expectedMessage}"`);
+
+  // Verify that the NEP-297 event from our contract was captured with the exact unique message
   await assertSQL<{ primitive_name: string; payload: any }>(
-    "NEAR: primitive_accounting has NearGenericEvent with 'hello-from-effectstream' message",
+    `NEAR: primitive_accounting has NearGenericEvent with unique message "${expectedMessage}"`,
     db,
-    `SELECT primitive_name, payload FROM effectstream.primitive_accounting WHERE primitive_name = 'NearGenericEvent' LIMIT 5;`,
+    `SELECT primitive_name, payload FROM effectstream.primitive_accounting WHERE primitive_name = 'NearGenericEvent' LIMIT 10;`,
     (res) => res.rows.length >= 1,
     (res) => {
       const row = res.rows.find((r: any) => {
         const payload = typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload;
-        return payload?.payload?.message === "hello-from-effectstream";
+        return payload?.payload?.message === expectedMessage;
       });
       if (row) {
-        console.log("  Found event payload:", JSON.stringify(typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload));
+        const p = typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload;
+        console.log("  Found event payload:", JSON.stringify(p));
       }
       return row != null;
     },
@@ -102,9 +109,11 @@ async function test() {
     await startInfrastructure(LAUNCHER_PATH);
     await waitForOrchestrator();
 
-    // 2. Wait for NEAR sandbox to be ready
+    // 2. Wait for NEAR sandbox + contract deploy
     await waitForProcess("near-sandbox-wait", { waitForExit: true, timeoutMs: 120_000 });
-    console.log("NEAR sandbox ready.\n");
+    console.log("NEAR sandbox ready.");
+    await waitForProcess("deploy-near-contract", { waitForExit: true, timeoutMs: 60_000 });
+    console.log("Contract deployed.\n");
 
     // 3. Run tooling tests
     await runToolingTests();
