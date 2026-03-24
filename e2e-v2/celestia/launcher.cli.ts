@@ -47,7 +47,7 @@ export default {
       cwd: "e2e-v2/shared/contracts/celestia",
       stopProcessAtPort: [26657, 26658],
       args: ["run", "celestia-bridge:start"],
-      env: { CELESTIA_HOME },
+      env: { CELESTIA_HOME, CELESTIA_FORCE_NO_BBR: process.env.CELESTIA_FORCE_NO_BBR || "" },
       waitToExit: false,
       critical: true,
     },

@@ -103,6 +103,7 @@ RUN mkdir -p /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64 \
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
 ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
+ENV CELESTIA_FORCE_NO_BBR=1
 
 # ── Run e2e-v2 tests ───────────────────────────────────────────────────────
 # Each suite manages its own infrastructure via orchestrator-v2 (start/stop).

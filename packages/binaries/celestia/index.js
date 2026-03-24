@@ -127,7 +127,7 @@ async function waitForGenesisBlock(rpcUrl = 'http://localhost:26657', timeout = 
 }
 
 export async function run(options = {}) {
-  const { dataDir, verbose = false, bridgeEnabled = true } = options;
+  const { dataDir, verbose = false, bridgeEnabled = true, forceNoBbr = false } = options;
 
   // Ensure both binaries are available
   await appBin.run(['version']);
@@ -145,7 +145,7 @@ export async function run(options = {}) {
 
   // Start celestia-appd
   if (verbose) console.log('Starting celestia-appd...');
-  const appChild = spawn(appBin.path(), [
+  const appArgs = [
     'start',
     '--home', appHome,
     '--api.enable',
@@ -153,7 +153,9 @@ export async function run(options = {}) {
     '--rpc.unsafe',
     '--grpc-web.enable',
     '--delayed-precommit-timeout', '1s',
-  ], { stdio: verbose ? 'inherit' : 'pipe' });
+    ...(forceNoBbr ? ['--force-no-bbr'] : []),
+  ];
+  const appChild = spawn(appBin.path(), appArgs, { stdio: verbose ? 'inherit' : 'pipe' });
 
   if (!verbose) {
     appChild.stderr.on('data', (data) => {
@@ -277,19 +279,20 @@ if (import.meta.main) {
   const command = cliArgs[0];
   const verbose = cliArgs.includes('--verbose');
   const dataDir = process.env.CELESTIA_HOME || undefined;
+  const forceNoBbr = cliArgs.includes('--force-no-bbr') || !!process.env.CELESTIA_FORCE_NO_BBR;
 
   (async () => {
     try {
       switch (command) {
         case 'start-node': {
           console.log('Starting Celestia consensus node...');
-          const { appHome } = await run({ verbose, bridgeEnabled: false, dataDir });
+          const { appHome } = await run({ verbose, bridgeEnabled: false, dataDir, forceNoBbr });
           console.log(`Celestia node running. Data dir: ${appHome}`);
           break;
         }
         case 'start-bridge': {
           console.log('Starting Celestia devnet (node + bridge)...');
-          const result = await run({ verbose, bridgeEnabled: true, dataDir });
+          const result = await run({ verbose, bridgeEnabled: true, dataDir, forceNoBbr });
           console.log(`Celestia devnet running. Data dir: ${result.appHome}`);
           console.log(`Bridge home: ${result.bridgeHome}`);
           if (result.bridgeAddress) {
@@ -301,7 +304,7 @@ if (import.meta.main) {
         }
         default: {
           console.log('Starting Celestia devnet (node + bridge)...');
-          const res = await run({ verbose, bridgeEnabled: !cliArgs.includes('--no-bridge'), dataDir });
+          const res = await run({ verbose, bridgeEnabled: !cliArgs.includes('--no-bridge'), dataDir, forceNoBbr });
           console.log(`Celestia devnet running. Data dir: ${res.appHome}`);
           if (res.bridgeAddress) {
             console.log(`Bridge wallet address: ${res.bridgeAddress}`);
