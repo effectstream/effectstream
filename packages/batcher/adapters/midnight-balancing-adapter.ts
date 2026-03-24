@@ -86,6 +86,8 @@ type DelegatedTx =
 interface DelegatedTxEntry {
   tx: DelegatedTx;
   txStage: DelegatedTxStage;
+  /** Per-input override: true/false overrides the config default, undefined uses config. */
+  addShieldedPadding?: boolean;
 }
 
 // Each batch contains multiple transactions balanced speculatively
@@ -325,12 +327,14 @@ export class MidnightBalancingAdapter
   private parseHexInput(input: string): {
     hex: string;
     txStage?: DelegatedTxStage;
+    addShieldedPadding?: boolean;
   } {
     const trimmed = input.trim();
     if (trimmed.startsWith("{")) {
       const parsed = JSON.parse(trimmed) as {
         tx?: string;
         txStage?: DelegatedTxStage;
+        addShieldedPadding?: boolean | null;
       };
       if (!parsed.tx) throw new Error("Missing tx field in JSON input");
       if (
@@ -344,7 +348,9 @@ export class MidnightBalancingAdapter
         );
       }
       const hex = parsed.tx.startsWith("0x") ? parsed.tx.slice(2) : parsed.tx;
-      return { hex, txStage: parsed.txStage };
+      // null/undefined → use system default; true/false → per-input override
+      const addShieldedPadding = parsed.addShieldedPadding ?? undefined;
+      return { hex, txStage: parsed.txStage, addShieldedPadding };
     }
     const hex = trimmed.startsWith("0x") ? trimmed.slice(2) : trimmed;
     return { hex };
@@ -354,7 +360,7 @@ export class MidnightBalancingAdapter
    * Deserialize one input into a DelegatedTxEntry.
    */
   private deserializeTxEntry(input: DefaultBatcherInput): DelegatedTxEntry {
-    const { hex, txStage } = this.parseHexInput(input.input);
+    const { hex, txStage, addShieldedPadding } = this.parseHexInput(input.input);
     const bytes = fromHex(hex);
 
     if (txStage === "unbound") {
@@ -366,6 +372,7 @@ export class MidnightBalancingAdapter
           bytes,
         ) as UnboundTransaction,
         txStage: "unbound",
+        addShieldedPadding,
       };
     }
 
@@ -378,6 +385,7 @@ export class MidnightBalancingAdapter
           bytes,
         ) as FinalizedTransaction,
         txStage: "finalized",
+        addShieldedPadding,
       };
     }
 
@@ -390,6 +398,7 @@ export class MidnightBalancingAdapter
           bytes,
         ) as UnprovenTransaction,
         txStage: "unproven",
+        addShieldedPadding,
       };
     }
 
@@ -403,6 +412,7 @@ export class MidnightBalancingAdapter
           bytes,
         ) as UnboundTransaction,
         txStage: "unbound",
+        addShieldedPadding,
       };
     } catch {
       return {
@@ -413,6 +423,7 @@ export class MidnightBalancingAdapter
           bytes,
         ) as UnprovenTransaction,
         txStage: "unproven",
+        addShieldedPadding,
       };
     }
   }
@@ -424,10 +435,9 @@ export class MidnightBalancingAdapter
   /**
    * Deserialize inputs into a batch, distributing across wallets round-robin.
    *
-   * Each wallet has a per-wallet limit of min(config.maxBatchSize, effectiveDustCapacity).
-   * When addShieldedPadding is enabled, each tx consumes 2 dust UTXOs (1 for balance,
-   * 1 for the padding self-transfer), so effective capacity = floor(dustUtxos / 2)
-   * and wallets with fewer than 2 UTXOs are excluded.
+   * Each wallet has a per-wallet limit based on config.maxBatchSize and available
+   * dust UTXOs. Shielded padding (2 UTXOs/tx vs 1) is determined per-input:
+   * the input's `addShieldedPadding` field overrides the config default.
    * Total batch capacity = sum of per-wallet limits.
    */
   buildBatchData(
@@ -440,53 +450,67 @@ export class MidnightBalancingAdapter
     const selectedInputs: DefaultBatcherInput[] = [];
     const walletAssignments: number[] = [];
 
-    // When shielded padding is on, each tx consumes 2 dust UTXOs instead of 1.
-    const utxosPerTx = this.config.addShieldedPadding ? 2 : 1;
-
-    // Identify ready wallets and their capacities
+    // Identify ready wallets and their capacities.
+    // Since per-input addShieldedPadding overrides are possible, we track actual
+    // UTXO usage per wallet rather than a fixed utxosPerTx multiplier.
     const readyWallets = this.walletSeeds
       .map((_, i) => i)
       .filter((i) => {
         if (!this.walletInitialized[i] || this.walletResults[i] === null) return false;
-        // With padding, wallet needs at least 2 UTXOs to handle any tx
+        // Wallet needs at least 1 UTXO to handle any tx
         const utxos = this.availableDustUtxoCounts[i];
-        if (utxos !== null && utxos < utxosPerTx) return false;
+        if (utxos !== null && utxos < 1) return false;
         return true;
       });
 
     if (readyWallets.length === 0) return null;
 
     const perWalletConfigLimit = this.config.maxBatchSize ?? Infinity;
-    const walletCapacities = new Map<number, number>();
+    const walletDustBudgets = new Map<number, number>();
     for (const i of readyWallets) {
-      const dustUtxos = this.availableDustUtxoCounts[i];
-      const dustCapacity = dustUtxos != null ? Math.floor(dustUtxos / utxosPerTx) : Infinity;
-      walletCapacities.set(
-        i,
-        Math.min(perWalletConfigLimit, dustCapacity),
-      );
+      walletDustBudgets.set(i, this.availableDustUtxoCounts[i] ?? Infinity);
     }
 
     const walletCounts = new Map<number, number>();
-    for (const i of readyWallets) walletCounts.set(i, 0);
-
-    this.log.log(
-      `Limit per wallet: config=${this.config.maxBatchSize}, wallets=${readyWallets.length}, utxos/tx=${utxosPerTx}`,
-    );
-    for (const [i, cap] of walletCapacities) {
-      this.log.log(`  wallet ${i + 1}: dust=${this.availableDustUtxoCounts[i]}, effective_cap=${cap}`);
+    const walletUtxoUsed = new Map<number, number>();
+    for (const i of readyWallets) {
+      walletCounts.set(i, 0);
+      walletUtxoUsed.set(i, 0);
     }
 
-    // Round-robin assignment respecting per-wallet capacity
+    const defaultPadding = this.config.addShieldedPadding ?? false;
+    this.log.log(
+      `Limit per wallet: config=${this.config.maxBatchSize}, wallets=${readyWallets.length}, defaultPadding=${defaultPadding}`,
+    );
+    for (const i of readyWallets) {
+      this.log.log(`  wallet ${i + 1}: dust=${this.availableDustUtxoCounts[i]}`);
+    }
+
+    // Round-robin assignment respecting per-wallet capacity (count + UTXO budget)
     let rrIndex = this.nextWalletIndex % readyWallets.length;
     for (const input of inputs) {
+      // Deserialize first so we know the per-input padding override
+      let entry: DelegatedTxEntry;
+      try {
+        entry = this.deserializeTxEntry(input);
+      } catch (error) {
+        this.log.error(
+          `Deserialize failed for ${input.target}: ${error}`,
+        );
+        break;
+      }
+
+      const usesPadding = entry.addShieldedPadding ?? defaultPadding;
+      const utxoCost = usesPadding ? 2 : 1;
+
       // Find next wallet with remaining capacity
       let walletIdx = -1;
       for (let attempt = 0; attempt < readyWallets.length; attempt++) {
         const candidate = readyWallets[(rrIndex + attempt) % readyWallets.length];
         const count = walletCounts.get(candidate) ?? 0;
-        const cap = walletCapacities.get(candidate) ?? 0;
-        if (count < cap) {
+        const used = walletUtxoUsed.get(candidate) ?? 0;
+        const budget = walletDustBudgets.get(candidate) ?? 0;
+        if (count < perWalletConfigLimit && used + utxoCost <= budget) {
           walletIdx = candidate;
           rrIndex = (readyWallets.indexOf(candidate) + 1) % readyWallets.length;
           break;
@@ -495,10 +519,11 @@ export class MidnightBalancingAdapter
       if (walletIdx === -1) break; // All wallets at capacity
 
       try {
-        txs.push(this.deserializeTxEntry(input));
+        txs.push(entry);
         selectedInputs.push(input);
         walletAssignments.push(walletIdx);
         walletCounts.set(walletIdx, (walletCounts.get(walletIdx) ?? 0) + 1);
+        walletUtxoUsed.set(walletIdx, (walletUtxoUsed.get(walletIdx) ?? 0) + utxoCost);
       } catch (error) {
         this.log.error(
           `Deserialize failed for ${input.target}: ${error}`,
@@ -521,6 +546,14 @@ export class MidnightBalancingAdapter
   // -----------------------------------------------------------------------
   // Core pipeline helpers
   // -----------------------------------------------------------------------
+
+  /**
+   * Resolve whether shielded padding should be applied for a given entry.
+   * Per-input override (true/false) takes precedence; undefined falls back to config.
+   */
+  private shouldAddShieldedPadding(entry: DelegatedTxEntry): boolean {
+    return entry.addShieldedPadding ?? this.config.addShieldedPadding ?? false;
+  }
 
   /**
    * Balance a single entry against a specific wallet's dust.
@@ -553,7 +586,7 @@ export class MidnightBalancingAdapter
     // Only applicable for unproven transactions, which can be merged with the
     // self-transfer before balance. payFees: false ensures the self-transfer
     // brings no dust of its own — the subsequent balance call covers everything.
-    if (this.config.addShieldedPadding && entry.txStage === "unproven") {
+    if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
       try {
         const paddedTx = await this.applyShieldedPadding(entry.tx as UnprovenTransaction, true, walletIndex);
         entry = { tx: paddedTx, txStage: "unproven" };
@@ -573,7 +606,7 @@ export class MidnightBalancingAdapter
           keys,
           opts,
         );
-        if (this.config.addShieldedPadding && recipe.balancingTransaction) {
+        if (this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction) {
           try {
             recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true, walletIndex);
           } catch (e) {
@@ -590,7 +623,7 @@ export class MidnightBalancingAdapter
           keys,
           opts,
         );
-        if (this.config.addShieldedPadding && recipe.balancingTransaction) {
+        if (this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction) {
           try {
             recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true, walletIndex);
           } catch (e) {
