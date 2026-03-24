@@ -18,5 +18,5 @@ jobs:
       - name: Build testing image
         run: docker build -t testing_image:${{ github.sha }} -f .github/Dockerfile .
 
-      - name: Run e2e-v2 tests (EVM + Features + Bitcoin)
+      - name: Run e2e-v2 tests
         run: docker run --rm --name e2e_v2_${{ github.run_number }} testing_image:${{ github.sha }}

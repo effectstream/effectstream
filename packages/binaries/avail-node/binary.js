@@ -56,7 +56,11 @@ const getBinaryKey = () => {
           // ubuntu binaries work for popos
           name = 'ubuntu'
         }
-        const distroKey = `${arch}-${name.toLowerCase()}-${version.replace('.', '')}`
+        let distroKey = `${arch}-${name.toLowerCase()}-${version.replace('.', '')}`
+        // Debian 13 (trixie) uses ubuntu-2404 binary (compatible glibc)
+        if (!downloadLinks[distroKey] && name.toLowerCase() === 'debian') {
+          distroKey = `${arch}-ubuntu-2404`
+        }
         resolve(distroKey)
       })
     })

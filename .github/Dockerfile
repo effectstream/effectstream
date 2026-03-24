@@ -1,6 +1,6 @@
-# Use Debian 12 (bookworm) — avail-node binary doesn't support Debian 13 yet.
-# Install bun manually since oven/bun:1-debian moved to Debian 13.
-FROM debian:bookworm-slim
+# Use Debian 13 (trixie) — celestia-appd requires glibc 2.38+.
+# Avail-node uses ubuntu-2404 binary on trixie (compatible glibc).
+FROM debian:trixie-slim
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -25,6 +25,8 @@ RUN apt-get update && apt-get install -y \
     lsof \
     # iproute2 is required for ss command - for fkill.
     iproute2 \
+    # procps provides kill - required by orchestrator-v2 port cleanup between suites.
+    procps \
     # xz is required for compactc
     xz-utils \
     clang \
@@ -84,12 +86,26 @@ ENV NODE_ENV=development
 RUN bun install
 RUN /app/patch.sh
 
-# NOTE: EVM contract pre-compilation moved to runtime (run-e2e.sh)
-# to avoid solc WASM download failures during Docker build.
+# Pre-download solc 0.8.30 (native + WASM + list indexes) into Hardhat's
+# cache so it never triggers Bun's broken webstreams polyfill during download.
+# Hardhat downloads list.json (compiler index) first, then the binary/wasm.
+# The webstreams crash can happen on ANY of these downloads.
+RUN mkdir -p /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64 \
+             /root/.cache/hardhat-nodejs/compilers-v3/wasm && \
+    curl -fsSL "https://binaries.soliditylang.org/linux-amd64/list.json" \
+      -o /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64/list.json && \
+    curl -fsSL "https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01" \
+      -o /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01 && \
+    chmod +x /root/.cache/hardhat-nodejs/compilers-v3/linux-amd64/solc-linux-amd64-v0.8.30+commit.73712a01 && \
+    curl -fsSL "https://binaries.soliditylang.org/wasm/list.json" \
+      -o /root/.cache/hardhat-nodejs/compilers-v3/wasm/list.json && \
+    curl -fsSL "https://binaries.soliditylang.org/wasm/soljson-v0.8.30+commit.73712a01.js" \
+      -o /root/.cache/hardhat-nodejs/compilers-v3/wasm/soljson-v0.8.30+commit.73712a01.js
 
 # ── Common environment ──────────────────────────────────────────────────────
 ENV EFFECTSTREAM_STDOUT=true
 ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
+ENV CELESTIA_FORCE_NO_BBR=1
 
 # ── Run e2e-v2 tests ───────────────────────────────────────────────────────
 # Each suite manages its own infrastructure via orchestrator-v2 (start/stop).

@@ -44,12 +44,13 @@ export async function erc721SyncTest(db: Client, sharedState: SharedState) {
   sharedState.primitive_accounting_counter += 1;
 
   // Check IVM: token#501 owned by wallet1
+  // Wait until the transfer is indexed (not just the mint) by checking the owner
   await assertSQL<{ token_id: string; current_owner: string }>(
     "ERC721: IVM shows token#501 owned by wallet1",
     db,
     `SELECT token_id, current_owner FROM primitives.erc721_ownership_view_arbitrum_erc721
      WHERE token_id = '501';`,
-    (res) => res.rows.length >= 1,
+    (res) => res.rows.length >= 1 && res.rows[0].current_owner.toLowerCase() === wallets[1].address.toLowerCase(),
     (res) => res.rows[0].current_owner.toLowerCase() === wallets[1].address.toLowerCase(),
   );
 
