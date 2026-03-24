@@ -25,6 +25,8 @@ RUN apt-get update && apt-get install -y \
     lsof \
     # iproute2 is required for ss command - for fkill.
     iproute2 \
+    # procps provides kill - required by orchestrator-v2 port cleanup between suites.
+    procps \
     # xz is required for compactc
     xz-utils \
     clang \
