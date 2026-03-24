@@ -1,6 +1,6 @@
-# Use Debian 12 (bookworm) — avail-node binary doesn't support Debian 13 yet.
-# Install bun manually since oven/bun:1-debian moved to Debian 13.
-FROM debian:bookworm-slim
+# Use Debian 13 (trixie) — celestia-appd requires glibc 2.38+.
+# Avail-node uses ubuntu-2404 binary on trixie (compatible glibc).
+FROM debian:trixie-slim
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
