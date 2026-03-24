@@ -40,6 +40,10 @@ import {
   CommonResponseCelestiaRpcParallel,
   ConfigSyncProtocolSchemaCelestiaParallel,
 } from "./celestia/rpc.ts";
+import {
+  CommonResponseNearRpcParallel,
+  ConfigSyncProtocolSchemaNearParallel,
+} from "./near/rpc.ts";
 import type { ToMapping } from "../utils.ts";
 import { ConfigSyncProtocolDecorator } from "./decorators/all.ts";
 import {
@@ -72,6 +76,8 @@ export const parallelSyncProtocolTypes = {
     ConfigSyncProtocolSchemaBitcoinParallel,
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]:
     ConfigSyncProtocolSchemaCelestiaParallel,
+  [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]:
+    ConfigSyncProtocolSchemaNearParallel,
 } as const;
 
 export const syncProtocolCommonResponse = {
@@ -89,6 +95,8 @@ export const syncProtocolCommonResponse = {
     CommonResponseBitcoinRpcParallel,
   [ConfigSyncProtocolType.CELESTIA_PARALLEL]:
     CommonResponseCelestiaRpcParallel,
+  [ConfigSyncProtocolType.NEAR_RPC_PARALLEL]:
+    CommonResponseNearRpcParallel,
 } as const satisfies Record<ConfigSyncProtocolType, TSchema>;
 export type ConfigSyncProtocolCommonAll = typeof syncProtocolCommonResponse;
 

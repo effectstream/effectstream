@@ -26,6 +26,8 @@ import {
 import { BitcoinSyncState } from "./sync-protocols/bitcoin/state.ts";
 import { CelestiaFetcher } from "./sync-protocols/celestia/fetcher.ts";
 import { CelestiaSyncState } from "./sync-protocols/celestia/state.ts";
+import { NearFetcher } from "./sync-protocols/near/fetcher.ts";
+import { NearSyncState } from "./sync-protocols/near/state.ts";
 
 export function* genSyncProtocols(
   dbConn: PoolClient,
@@ -123,6 +125,16 @@ export function* genSyncProtocols(
     ) {
       const fetcher = new CelestiaFetcher(entry);
       const state = yield* CelestiaSyncState.restoreState(
+        dbConn,
+        entry,
+        fetcher,
+      );
+      result.push(state);
+    } else if (
+      entry.networkType === ConfigNetworkType.NEAR
+    ) {
+      const fetcher = new NearFetcher(entry);
+      const state = yield* NearSyncState.restoreState(
         dbConn,
         entry,
         fetcher,

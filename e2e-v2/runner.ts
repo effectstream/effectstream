@@ -13,6 +13,7 @@ const suites = [
   { name: "midnight", script: "./midnight/run-tests.ts" },
   { name: "avail", script: "./avail/run-tests.ts" },
   { name: "celestia", script: "./celestia/run-tests.ts" },
+  { name: "near", script: "./near/run-tests.ts" },
   { name: "features", script: "./features/run-tests.ts" },
 ];
 

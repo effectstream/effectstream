@@ -1,0 +1,13 @@
+{
+  "name": "@e2e-v2/near-contracts",
+  "private": true,
+  "scripts": {
+    "chain:start": "bun run @effectstream/near-sandbox",
+    "chain:wait": "wait-on tcp:3030"
+  },
+  "dependencies": {
+    "@effectstream/near-sandbox": "workspace:*",
+    "near-api-js": "^7.2.0",
+    "wait-on": "*"
+  }
+}

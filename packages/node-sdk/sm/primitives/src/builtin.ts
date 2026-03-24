@@ -17,6 +17,13 @@ export const PrimitiveTypeAvailGeneric = "AVAIL:Generic" as const;
 export const PrimitiveTypeBitcoinAddress = "BITCOIN:Address" as const;
 export const PrimitiveTypeCelestiaGeneric = "CELESTIA:Generic" as const;
 
+export const PrimitiveTypeNEARNEP141 = "NEAR:NEP141" as const;
+export const PrimitiveTypeNEARNEP171 = "NEAR:NEP171" as const;
+export const PrimitiveTypeNEARNEP245 = "NEAR:NEP245" as const;
+export const PrimitiveTypeNEARIntent = "NEAR:Intent" as const;
+export const PrimitiveTypeNEARGeneric = "NEAR:Generic" as const;
+export const PrimitiveTypeNEARAccountWatch = "NEAR:AccountWatch" as const;
+
 type BuiltInPrimitives =
     typeof PrimitiveTypeMidnightGeneric |
     typeof PrimitiveTypeMidnightNullifier |
@@ -27,7 +34,13 @@ type BuiltInPrimitives =
     typeof PrimitiveTypeEVMERC1155 |
     typeof PrimitiveTypeUtxorpcGeneric |
     typeof PrimitiveTypeBitcoinAddress |
-    typeof PrimitiveTypeCelestiaGeneric // |
+    typeof PrimitiveTypeCelestiaGeneric |
+    typeof PrimitiveTypeNEARNEP141 |
+    typeof PrimitiveTypeNEARNEP171 |
+    typeof PrimitiveTypeNEARNEP245 |
+    typeof PrimitiveTypeNEARIntent |
+    typeof PrimitiveTypeNEARGeneric |
+    typeof PrimitiveTypeNEARAccountWatch // |
     // typeof PrimitiveTypeEVMGeneric
 ;
 
