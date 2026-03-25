@@ -37,9 +37,10 @@ import type { StateUpdateStream } from "@effectstream/coroutine";
 import { getEvmEvent } from "@effectstream/config";
 
 import { migrationTable } from "@e2e-v2/evm-database";
-import { getConnection } from "@effectstream/db";
+import { getConnection, createScheduledData } from "@effectstream/db";
 import { config } from "./config.ts";
 import { grammar } from "./grammar.ts";
+import { AddressType as AddressTypeUtil } from "@effectstream/utils";
 
 // ── Custom Counter Primitive ─────────────────────────────────────────────────
 
@@ -222,6 +223,39 @@ stm.addStateTransition("counter-stm", function* (data) {
     "INSERT INTO counter_results (counter_value, block_height) VALUES ($1, $2)",
     [counter, data.blockHeight],
   ));
+});
+
+// attack: writes to user_state_machine table
+stm.addStateTransition("attack", function* (data) {
+  const { playerId, moveId } = data.parsedInput;
+  const msg = `attack playerId: ${playerId} with moveId: ${moveId}`;
+  console.log(`[STM] ${msg}`);
+  yield* World.promise(pool.query(
+    "INSERT INTO user_state_machine (inputs, block_height) VALUES ($1, $2)",
+    [msg, data.blockHeight],
+  ));
+});
+
+// schedule: creates scheduled data for a future block or timestamp
+stm.addStateTransition("schedule", function* (data) {
+  const { tick, message, type } = data.parsedInput;
+  const playerId = parseInt(message);
+  const inputData = JSON.stringify(["attack", playerId, 1]);
+
+  if (type === "block") {
+    yield* createScheduledData(inputData, { blockHeight: data.blockHeight + tick }, {
+      precompile: "0x0" as any,
+    });
+  } else {
+    yield* createScheduledData(inputData, { timestamp: (data.blockTimestamp + tick) as any }, {
+      precompile: "0x0" as any,
+    });
+  }
+});
+
+// throw_error: intentionally throws to test error resilience
+stm.addStateTransition("throw_error", function* (_data) {
+  throw new Error("This is a test error");
 });
 
 const gameStateTransitions: StartConfigGameStateTransitions = function* (

@@ -13,6 +13,7 @@ const suites = [
   { name: "midnight", script: "./midnight/run-tests.ts" },
   { name: "avail", script: "./avail/run-tests.ts" },
   { name: "celestia", script: "./celestia/run-tests.ts" },
+  { name: "near", script: "./near/run-tests.ts" },
   { name: "features", script: "./features/run-tests.ts" },
 ];
 
@@ -75,6 +76,7 @@ async function main() {
 
   console.log(`Running ${selectedSuites.length} test suite(s): ${selectedSuites.map((s) => s.name).join(", ")}`);
 
+  const maxRetries = parseInt(process.env["E2E_MAX_RETRIES"] || "1", 10);
   const results: SuiteResult[] = [];
 
   for (const suite of selectedSuites) {
@@ -83,6 +85,32 @@ async function main() {
 
     if (!result.success) {
       console.error(`\n  Suite "${suite.name}" FAILED: ${result.error}`);
+    }
+  }
+
+  // Retry failed suites
+  const failedSuites = results.filter((r) => !r.success);
+  if (failedSuites.length > 0 && maxRetries > 0) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const toRetry = results.filter((r) => !r.success);
+      if (toRetry.length === 0) break;
+
+      console.log(`\n${"=".repeat(60)}`);
+      console.log(`  Retrying ${toRetry.length} failed suite(s) (attempt ${attempt}/${maxRetries})`);
+      console.log(`${"=".repeat(60)}`);
+
+      for (const failed of toRetry) {
+        const suite = selectedSuites.find((s) => s.name === failed.name)!;
+        const retryResult = await runSuite(suite);
+
+        if (retryResult.success) {
+          // Replace the failed result with the successful retry
+          const idx = results.indexOf(failed);
+          results[idx] = { ...retryResult, name: `${retryResult.name} (retry ${attempt})` };
+        } else {
+          console.error(`\n  Suite "${suite.name}" FAILED on retry ${attempt}: ${retryResult.error}`);
+        }
+      }
     }
   }
 

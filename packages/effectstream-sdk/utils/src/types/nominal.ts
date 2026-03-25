@@ -109,6 +109,8 @@ export type PolkadotTxHash = FastFlavor<UnknownFormat, "PolkadotTxHash">;
 // TODO: close to the regex /^[1-9A-HJ-NP-Za-km-z]{47,48}$/
 export type SubstrateAddress = FastFlavor<string, "SubstrateAddress">;
 
+export type NearAddress = FastFlavor<string, "NearAddress">;
+
 export type BitcoinBlockHash = FastFlavor<string, "BitcoinBlockHash">;
 export type BitcoinTxId = FastFlavor<string, "BitcoinTxId">;
 export type BitcoinAddress = FastFlavor<string, "BitcoinAddress">;

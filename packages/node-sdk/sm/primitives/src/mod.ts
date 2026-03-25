@@ -9,6 +9,12 @@ import {
   PrimitiveTypeBitcoinAddress,
   PrimitiveTypeUtxorpcGeneric,
   PrimitiveTypeCelestiaGeneric,
+  PrimitiveTypeNEARNEP141,
+  PrimitiveTypeNEARNEP171,
+  PrimitiveTypeNEARNEP245,
+  PrimitiveTypeNEARIntent,
+  PrimitiveTypeNEARGeneric,
+  PrimitiveTypeNEARAccountWatch,
 //   PrimitiveTypeEVMGeneric,
 } from "./builtin.ts";
 
@@ -22,6 +28,12 @@ import { Erc1155Primitive } from "./evm-erc1155/erc1155-primitive.ts";
 import { BitcoinAddressPrimitive } from "./bitcoin-address/bitcoin-primitive.ts";
 import { UtxorpcGenericPrimitive } from "./utxorpc-generic/utxorpc-generic.ts";
 import { CelestiaGenericPrimitive } from "./celestia-generic/celestia-primitive.ts";
+import { Nep141Primitive } from "./near-nep141/nep141-primitive.ts";
+import { Nep171Primitive } from "./near-nep171/nep171-primitive.ts";
+import { Nep245Primitive } from "./near-nep245/nep245-primitive.ts";
+import { NearIntentPrimitive } from "./near-intent/near-intent-primitive.ts";
+import { NearGenericPrimitive } from "./near-generic/near-generic-primitive.ts";
+import { NearAccountWatchPrimitive } from "./near-account-watch/near-account-watch-primitive.ts";
 // import { EvmGenericPrimitive } from "./evm-generic/evm-generic-primitive.ts";
 
 const builtInPrimitivesMap = {
@@ -35,6 +47,12 @@ const builtInPrimitivesMap = {
   [PrimitiveTypeBitcoinAddress]: BitcoinAddressPrimitive,
   [PrimitiveTypeUtxorpcGeneric]: UtxorpcGenericPrimitive,
   [PrimitiveTypeCelestiaGeneric]: CelestiaGenericPrimitive,
+  [PrimitiveTypeNEARNEP141]: Nep141Primitive,
+  [PrimitiveTypeNEARNEP171]: Nep171Primitive,
+  [PrimitiveTypeNEARNEP245]: Nep245Primitive,
+  [PrimitiveTypeNEARIntent]: NearIntentPrimitive,
+  [PrimitiveTypeNEARGeneric]: NearGenericPrimitive,
+  [PrimitiveTypeNEARAccountWatch]: NearAccountWatchPrimitive,
 //   [PrimitiveTypeEVMGeneric]: EvmGenericPrimitive,
 } as const;
 
@@ -53,5 +71,11 @@ export {
   BitcoinAddressPrimitive,
   UtxorpcGenericPrimitive,
   CelestiaGenericPrimitive,
+  Nep141Primitive,
+  Nep171Primitive,
+  Nep245Primitive,
+  NearIntentPrimitive,
+  NearGenericPrimitive,
+  NearAccountWatchPrimitive,
   // EvmGenericPrimitive,
 };

@@ -110,6 +110,9 @@ For maximum consistency and to decouple your application's tick-rate from the va
 | **`MINA_PARALLEL`** | Mina | Connects to the Mina Protocol to sync data from zkApps. |
 | **`AVAIL_PARALLEL`** | Avail | Connects to the Avail Data Availability (DA) layer to fetch application-specific data blobs. |
 | **`MIDNIGHT_PARALLEL`** | Midnight | Connects to the Midnight network to sync state from its ZK-powered smart contracts. |
+| **`BITCOIN_RPC_PARALLEL`** | Bitcoin | Connects to Bitcoin Core via JSON-RPC to track UTXO-based transactions. |
+| **`CELESTIA_PARALLEL`** | Celestia | Connects to a Celestia light node to fetch data blobs from specific namespaces. |
+| **`NEAR_RPC_PARALLEL`** | NEAR | Connects to NEAR Protocol via JSON-RPC to sync blocks, extract NEP-297 events, and track NEAR Intents settlements. |
 
 ### Configuration Example
 

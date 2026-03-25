@@ -92,4 +92,17 @@ export async function paimaL2SyncTest(db: Client, sharedState: SharedState) {
           && res.rows[1].a === 7  && res.rows[1].b === 3  && res.rows[1].result === 10;
     },
   );
+
+  // Check that wallet0's address was tracked after submitting game inputs
+  await assertSQL<{ address: string }>(
+    "PaimaL2: wallet0 address tracked in effectstream.addresses",
+    db,
+    `SELECT address FROM effectstream.addresses;`,
+    (res) => res.rows.length >= 1,
+    (res) => {
+      return res.rows.some(
+        (r: any) => r.address === wallet0.address.toLowerCase()
+      );
+    },
+  );
 }

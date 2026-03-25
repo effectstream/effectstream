@@ -7,6 +7,16 @@ export const paimaL2Grammar = {
     ["a", Type.Integer()],
     ["b", Type.Integer()],
   ],
+  attack: [
+    ["playerId", Type.Integer()],
+    ["moveId", Type.Integer()],
+  ],
+  schedule: [
+    ["tick", Type.Integer()],
+    ["type", Type.Union([Type.Literal("block"), Type.Literal("timestamp")])],
+    ["message", Type.String()],
+  ],
+  throw_error: [],
 } as const satisfies GrammarDefinition;
 
 export const grammar = {

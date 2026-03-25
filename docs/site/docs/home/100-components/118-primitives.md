@@ -50,6 +50,14 @@ A key advantage of built-in primitives is that many come with automatic database
 | **`PrimitiveTypeEVMERC1155`**| EVM | Tracks `TransferSingle` and `TransferBatch` events for an ERC1155 token. |
 | **`PrimitiveTypeMidnightGeneric`**| Midnight | Monitors the public `ledger` state of a Midnight ZK contract for changes. |
 | **`PrimitiveTypeAvailGeneric`** | Avail | Listens for generic data blobs submitted to a specific application ID on the Avail DA layer. |
+| **`PrimitiveTypeBitcoinAddress`** | Bitcoin | Watches a specific Bitcoin address for UTXO inputs and outputs. |
+| **`PrimitiveTypeCelestiaGeneric`** | Celestia | Listens for data blobs in a specific Celestia namespace. |
+| **`PrimitiveTypeNEARNEP141`** | NEAR | Tracks NEP-141 fungible token `ft_transfer` events and maintains balance tables. |
+| **`PrimitiveTypeNEARNEP171`** | NEAR | Tracks NEP-171 NFT `nft_transfer` events and maintains ownership tables. |
+| **`PrimitiveTypeNEARNEP245`** | NEAR | Tracks NEP-245 multi-token `mt_transfer` events and maintains balance tables. |
+| **`PrimitiveTypeNEARIntent`** | NEAR | Monitors the NEAR Intents Verifier (`intents.near`) for DIP-4 `token_diff` settlement events. Supports filtering by token ID and account ID patterns. |
+| **`PrimitiveTypeNEARGeneric`** | NEAR | Monitors any contract for arbitrary NEP-297 structured events. |
+| **`PrimitiveTypeNEARAccountWatch`** | NEAR | Monitors all transactions targeting a specific NEAR account. |
 
 ## Custom Primitives
 

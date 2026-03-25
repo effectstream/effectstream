@@ -9,6 +9,12 @@ import { erc1155Grammar } from "./evm-erc1155/erc1155-grammar.ts";
 import { bitcoinAddressGrammar } from "./bitcoin-address/bitcoin-grammar.ts";
 import { utxorpcGenericGrammar } from "./utxorpc-generic/utxorpc-generic-grammar.ts";
 import { celestiaGenericGrammar } from "./celestia-generic/celestia-generic-grammar.ts";
+import { nep141Grammar } from "./near-nep141/nep141-grammar.ts";
+import { nep171Grammar } from "./near-nep171/nep171-grammar.ts";
+import { nep245Grammar } from "./near-nep245/nep245-grammar.ts";
+import { nearIntentGrammar } from "./near-intent/near-intent-grammar.ts";
+import { nearGenericGrammar } from "./near-generic/near-generic-grammar.ts";
+import { nearAccountWatchGrammar } from "./near-account-watch/near-account-watch-grammar.ts";
 
 export const builtinGrammars = {
   midnightGeneric: midnightGenericGrammar,
@@ -19,4 +25,10 @@ export const builtinGrammars = {
   bitcoinAddress: bitcoinAddressGrammar,
   utxorpcGeneric: utxorpcGenericGrammar,
   celestiaGeneric: celestiaGenericGrammar,
+  nearNep141: nep141Grammar,
+  nearNep171: nep171Grammar,
+  nearNep245: nep245Grammar,
+  nearIntent: nearIntentGrammar,
+  nearGeneric: nearGenericGrammar,
+  nearAccountWatch: nearAccountWatchGrammar,
 } as const;

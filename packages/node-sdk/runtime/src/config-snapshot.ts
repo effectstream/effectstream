@@ -49,6 +49,7 @@ function extractImmutableConfig(protocol: SyncProtocolWithNetwork): Record<strin
     ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
     ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL,
     ConfigSyncProtocolType.CELESTIA_PARALLEL,
+    ConfigSyncProtocolType.NEAR_RPC_PARALLEL,
   ];
   if (!knownBlockHeightProtocols.includes(protocol.syncProtocolType)) {
     throw new Error(

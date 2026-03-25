@@ -38,3 +38,9 @@ export {
 export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./bitcoin-adapter.ts";
 export type { BitcoinAdapterConfig } from "./bitcoin-adapter.ts";
 
+// NEAR adapter implementations
+export { NearAdapter } from "./near-adapter.ts";
+export type { NearAdapterConfig, NearBatchPayload } from "./near-adapter.ts";
+export { NearIntentAdapter } from "./near-intent-adapter.ts";
+export type { NearIntentAdapterConfig, NearIntentBatch } from "./near-intent-adapter.ts";
+
