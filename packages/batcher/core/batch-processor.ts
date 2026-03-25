@@ -64,28 +64,13 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
 
     const { selectedInputs, data } = batchResult; // data is 'unknown'
 
-    try {
-      await this.submitAndConfirmTransaction(
-        adapter,
-        target,
-        data,
-        selectedInputs as T[],
-        timeout,
-      );
-    } catch (error) {
-      // If the adapter reserved resources in buildBatchData (concurrent mode),
-      // release them so the next batch can use those wallets/inputs.
-      if (typeof adapter.releaseBatchResources === "function") {
-        try {
-          adapter.releaseBatchResources(data);
-        } catch (releaseError) {
-          debugLog(
-            `[BatchProcessor] releaseBatchResources failed: ${releaseError}`,
-          );
-        }
-      }
-      throw error;
-    }
+    await this.submitAndConfirmTransaction(
+      adapter,
+      target,
+      data,
+      selectedInputs as T[],
+      timeout,
+    );
   }
 
   private async submitAndConfirmTransaction(
@@ -98,6 +83,8 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     debugLog(
       `[BatchProcessor] Starting submitAndConfirmTransaction for target ${target} with ${selectedInputs.length} inputs`,
     );
+
+    try {
     const estimatedFee = await adapter.estimateBatchFee(data);
 
     this.batcher.emitStateTransition("batch:fee-estimate", {
@@ -182,6 +169,22 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       finalSelectedInputs,
       adapterTimeout,
     );
+
+    } finally {
+      // Release all batch resources (workers + input reservations).
+      // This runs AFTER all storage operations (removeProcessedInputs on
+      // success, incrementRetryCount on failure), preventing the race where
+      // a poll tick re-picks an input that is still in storage.
+      if (typeof adapter.releaseBatchResources === "function") {
+        try {
+          adapter.releaseBatchResources(data);
+        } catch (releaseError) {
+          debugLog(
+            `[BatchProcessor] releaseBatchResources failed: ${releaseError}`,
+          );
+        }
+      }
+    }
   }
 
   private async handleTransactionConfirmation(

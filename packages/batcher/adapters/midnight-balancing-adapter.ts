@@ -689,16 +689,17 @@ export class MidnightBalancingAdapter
     const { txs, workerAssignments } = batchData;
     // Snapshot workers to release in finally (even if batchData is mutated).
     const reservedWorkers = [...workerAssignments];
-    const reservedInputKeys = batchData.selectedInputs.map((i) => this.getInputKey(i));
 
     try {
       return await this._executeWorkerPipelines(batchData);
     } finally {
+      // Release workers so the pool can accept new batches.
+      // Input keys (inFlightInputKeys) are NOT cleared here — they stay
+      // reserved until BatchProcessor calls releaseBatchResources after
+      // all storage operations, preventing the race where a poll tick
+      // re-picks an input that is still in storage.
       for (const wa of reservedWorkers) {
         this.pool.releaseWorker(wa.walletIdx, wa.slotIdx);
-      }
-      for (const key of reservedInputKeys) {
-        this.inFlightInputKeys.delete(key);
       }
       this.log.log(
         `Released ${reservedWorkers.length} worker(s) [pool: ${this.pool.getStatus()}]`,
