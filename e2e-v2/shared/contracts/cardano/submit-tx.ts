@@ -7,17 +7,22 @@
 
 const YACI_ADMIN = "http://localhost:10000";
 
-async function topup(address: string, adaAmount: number): Promise<any> {
-  const res = await fetch(`${YACI_ADMIN}/local-cluster/api/addresses/topup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address, adaAmount }),
-  });
-  if (!res.ok) {
+async function topup(address: string, adaAmount: number, retries = 10, delayMs = 3000): Promise<any> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const res = await fetch(`${YACI_ADMIN}/local-cluster/api/addresses/topup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, adaAmount }),
+    });
+    if (res.ok) return res.json();
     const text = await res.text();
-    throw new Error(`Topup failed (${res.status}): ${text}`);
+    if (attempt < retries) {
+      console.log(`Topup attempt ${attempt}/${retries} failed (${res.status}), retrying in ${delayMs}ms...`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    } else {
+      throw new Error(`Topup failed after ${retries} attempts (${res.status}): ${text}`);
+    }
   }
-  return res.json();
 }
 
 async function waitForYaci(timeoutMs = 60_000): Promise<void> {
