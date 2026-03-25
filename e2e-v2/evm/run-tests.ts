@@ -149,6 +149,8 @@ async function runSyncTests(db: Client, sharedState: SharedState): Promise<void>
   const { paimaL2SyncTest } = await import("./sync/paima-l2.test.ts");
   const { customCounterSyncTest } = await import("./sync/custom-counter.test.ts");
   const { multiChainSyncTest } = await import("./sync/multi-chain.test.ts");
+  const { scheduledDataTest } = await import("./sync/scheduled-data.test.ts");
+  const { errorProcessingTest } = await import("./sync/error-processing.test.ts");
 
   await paimaL2SyncTest(db, sharedState);
   await erc20SyncTest(db, sharedState);
@@ -156,6 +158,8 @@ async function runSyncTests(db: Client, sharedState: SharedState): Promise<void>
   await erc1155SyncTest(db, sharedState);
   await customCounterSyncTest(db, sharedState);
   await multiChainSyncTest(db, sharedState);
+  await scheduledDataTest(db, sharedState);
+  await errorProcessingTest(db, sharedState);
 
   // Phase 3: Batcher tests (require sync + batcher running)
   console.log("\n--- Phase 3: Batcher Tests ---\n");
