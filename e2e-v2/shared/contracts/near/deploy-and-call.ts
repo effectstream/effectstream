@@ -1,17 +1,20 @@
 /**
- * Deploys the test_event_contract to the NEAR sandbox and calls emit_event
- * with a unique timestamped message so the E2E test can verify exact data.
+ * Deploys the test_event_contract to the NEAR sandbox and calls:
+ *   - emit_event(message)       — for NEAR:Generic primitive testing
+ *   - settle_intent(...)        — for NEAR:Intent primitive testing
+ *
+ * Writes unique per-run identifiers to build/ so E2E tests can verify exact data.
  *
  * Uses near-api-js v7 for transaction signing and submission.
  */
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { Account, JsonRpcProvider, KeyPair, KeyPairSigner } from "near-api-js";
 
 const RPC_URL = "http://localhost:3030";
 const CONTRACT_ACCOUNT = "test.near";
 const WASM_PATH = join(import.meta.dirname!, "test_event_contract.wasm");
-const MESSAGE_FILE = join(import.meta.dirname!, "build", "test-message.txt");
+const BUILD_DIR = join(import.meta.dirname!, "build");
 
 // Read sandbox validator key
 const sandboxDirs = (await import("fs")).readdirSync("/tmp")
@@ -26,20 +29,26 @@ const keyPair = KeyPair.fromString(validatorKey.secret_key);
 const signer = new KeyPairSigner(keyPair);
 const account = new Account(CONTRACT_ACCOUNT, provider, signer);
 
-// ── Main ──────────────────────────────────────────────────────────────────
+mkdirSync(BUILD_DIR, { recursive: true });
 
-const MESSAGE = "effectstream-near-e2e-" + Date.now();
+// ── Unique per-run identifiers ───────────────────────────────────────────
 
-// Step 1: Deploy contract
+const ts = Date.now();
+const MESSAGE = `effectstream-near-e2e-${ts}`;
+const INTENT_HASH = `intent-${ts}`;
+const INTENT_ACCOUNT = "alice.test.near";
+
+// ── Step 1: Deploy contract ──────────────────────────────────────────────
+
 console.log(`Deploying contract to ${CONTRACT_ACCOUNT}...`);
 const wasmBytes = readFileSync(WASM_PATH);
 await account.deployContract(wasmBytes);
 console.log("Contract deployed.");
 
-// Wait for deploy to finalize
 await new Promise(r => setTimeout(r, 2000));
 
-// Step 2: Call emit_event with the unique message
+// ── Step 2: Call emit_event (NEAR:Generic test) ──────────────────────────
+
 console.log(`Calling emit_event("${MESSAGE}")...`);
 await account.callFunction({
   contractId: CONTRACT_ACCOUNT,
@@ -48,8 +57,26 @@ await account.callFunction({
 });
 console.log("emit_event completed.");
 
-// Write the message to a file so the test runner can read it
-const { mkdirSync } = await import("fs");
-mkdirSync(join(import.meta.dirname!, "build"), { recursive: true });
-writeFileSync(MESSAGE_FILE, MESSAGE);
-console.log(`Unique test message written to ${MESSAGE_FILE}: ${MESSAGE}`);
+// ── Step 3: Call settle_intent (NEAR:Intent test) ────────────────────────
+
+console.log(`Calling settle_intent(account=${INTENT_ACCOUNT}, hash=${INTENT_HASH})...`);
+await account.callFunction({
+  contractId: CONTRACT_ACCOUNT,
+  methodName: "settle_intent",
+  args: {
+    account_id: INTENT_ACCOUNT,
+    intent_hash: INTENT_HASH,
+    token_a_id: "nep141:wrap.near",
+    token_a_amount: "-5000000000000000000000000",
+    token_b_id: "nep245:game.near:legendary-sword",
+    token_b_amount: "1",
+  },
+});
+console.log("settle_intent completed.");
+
+// ── Write test data for E2E verification ─────────────────────────────────
+
+writeFileSync(join(BUILD_DIR, "test-message.txt"), MESSAGE);
+writeFileSync(join(BUILD_DIR, "intent-hash.txt"), INTENT_HASH);
+writeFileSync(join(BUILD_DIR, "intent-account.txt"), INTENT_ACCOUNT);
+console.log(`Test data written to ${BUILD_DIR}`);

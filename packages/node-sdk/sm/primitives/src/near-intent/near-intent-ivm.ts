@@ -26,15 +26,15 @@ export function nearIntentIvm(name: string) {
     BEGIN
         IF NEW.payload_type = '${PrimitiveTypeNEARIntent}'
            AND NEW.primitive_name = '${name}'
-           AND NEW.payload->'token_diffs' IS NOT NULL THEN
+           AND (NEW.payload::jsonb)->'token_diffs' IS NOT NULL THEN
 
-         FOR diff_item IN SELECT * FROM jsonb_array_elements(NEW.payload->'token_diffs')
+         FOR diff_item IN SELECT * FROM jsonb_array_elements((NEW.payload::jsonb)->'token_diffs')
          LOOP
              INSERT INTO ${settlementTable} (primitive_name, intent_hash, account_id, token_id, amount, block_height)
              VALUES (
                  NEW.primitive_name,
-                 NEW.payload->>'intent_hash',
-                 NEW.payload->>'account_id',
+                 (NEW.payload::jsonb)->>'intent_hash',
+                 (NEW.payload::jsonb)->>'account_id',
                  diff_item->>'token_id',
                  (diff_item->>'amount')::numeric(78,0),
                  NEW.effectstream_block_height

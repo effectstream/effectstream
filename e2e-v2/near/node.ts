@@ -34,6 +34,17 @@ stm.addStateTransition("near-generic", function* (data) {
   ));
 });
 
+// NearIntent: DIP-4 token_diff settlement event
+stm.addStateTransition("intent-settled", function* (data) {
+  const { account_id, intent_hash, token_diffs } = data.parsedInput;
+  console.log(`[STM] intent-settled: account=${account_id} hash=${intent_hash} diffs=${JSON.stringify(token_diffs)}`);
+
+  yield* World.promise(pool.query(
+    "INSERT INTO near_intent_events (block_height, account_id, intent_hash, token_diffs) VALUES ($1, $2, $3, $4)",
+    [data.blockHeight, account_id, intent_hash, JSON.stringify(token_diffs)],
+  ));
+});
+
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,

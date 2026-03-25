@@ -6,6 +6,7 @@ import {
 } from "@effectstream/config";
 import {
   PrimitiveTypeNEARGeneric,
+  PrimitiveTypeNEARIntent,
 } from "@effectstream/sm/builtin";
 
 const mainSyncProtocolName = "mainNtp";
@@ -86,6 +87,18 @@ export const config = new ConfigBuilder()
           eventStandard: "test",
           eventType: "test_event",
           scheduledPrefix: "near-generic",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelNearRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "NearIntentSettlement",
+          type: PrimitiveTypeNEARIntent,
+          startBlockHeight: 0,
+          contractId: "test.near",
+          eventStandard: "dip4",
+          eventType: "token_diff",
+          scheduledPrefix: "intent-settled",
         }),
       )
   )
