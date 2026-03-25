@@ -27,6 +27,9 @@ export type { MidnightBalancingAdapterConfig } from "./midnight-balancing-adapte
 // Midnight helper utilities
 export { parseCircuitArgs } from "./midnight-arg-parser.ts";
 
+// Worker pool for Midnight adapters
+export { WorkerPool } from "./worker-pool.ts";
+
 // Generic EVM adapter implementation
 export {
   EvmContractAdapter,

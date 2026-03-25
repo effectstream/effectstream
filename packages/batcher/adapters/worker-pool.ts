@@ -1,0 +1,237 @@
+/**
+ * Worker Pool for Midnight batcher adapters.
+ *
+ * A "worker" is a {wallet, UTXO-slot} pair that can independently process
+ * one transaction at a time. The pool tracks busy/free state and usage
+ * counts, and exposes a selection algorithm that:
+ *   1. Prefers wallets with the fewest busy workers (maximize wallet spread)
+ *   2. Breaks ties by lowest usage count (balance load over time)
+ *
+ * Each wallet also has a balance mutex: the balance phase of a transaction
+ * must be serialized within a single wallet (speculative chaining requires
+ * sequential balance calls so each sees the prior call's pending dust
+ * state). The prove/submit/confirm phases are independent and can overlap.
+ */
+
+// ---------------------------------------------------------------------------
+// Per-wallet balance mutex
+// ---------------------------------------------------------------------------
+
+/**
+ * Simple async mutex. At most one holder at a time; additional callers
+ * queue in FIFO order and receive a release function when it is their turn.
+ */
+export class BalanceMutex {
+  private locked = false;
+  private queue: ((release: () => void) => void)[] = [];
+
+  acquire(): Promise<() => void> {
+    return new Promise<() => void>((resolve) => {
+      const release = (): void => {
+        const next = this.queue.shift();
+        if (next) {
+          next(release);
+        } else {
+          this.locked = false;
+        }
+      };
+
+      if (!this.locked) {
+        this.locked = true;
+        resolve(release);
+      } else {
+        // Park until the current holder (or a predecessor) releases.
+        this.queue.push((rel) => {
+          // `rel` is the *same* release function — re-arm it for this holder.
+          // We create a fresh one-shot wrapper so the holder can only call it once.
+          let called = false;
+          resolve(() => {
+            if (!called) {
+              called = true;
+              rel();
+            }
+          });
+        });
+      }
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Worker slot
+// ---------------------------------------------------------------------------
+
+export interface WorkerSlot {
+  readonly walletIdx: number;
+  readonly slotIdx: number;
+  busy: boolean;
+  /** Lifetime usage counter — how many txs this worker has processed. */
+  usageCount: number;
+}
+
+// ---------------------------------------------------------------------------
+// Worker pool
+// ---------------------------------------------------------------------------
+
+export class WorkerPool {
+  private readonly workers: WorkerSlot[] = [];
+  private readonly mutexes = new Map<number, BalanceMutex>();
+
+  /**
+   * @param slotsPerWallet Array indexed by wallet index. `slotsPerWallet[i]`
+   *   is the number of independent UTXO slots for wallet `i`.
+   *   Pass `0` for wallets that are not yet initialized; call `setSlots`
+   *   later when the UTXO count becomes known.
+   */
+  constructor(slotsPerWallet: number[]) {
+    for (let w = 0; w < slotsPerWallet.length; w++) {
+      this.mutexes.set(w, new BalanceMutex());
+      for (let s = 0; s < slotsPerWallet[w]; s++) {
+        this.workers.push({ walletIdx: w, slotIdx: s, busy: false, usageCount: 0 });
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Dynamic slot management
+  // -----------------------------------------------------------------------
+
+  /**
+   * Update the number of slots for a wallet.  Adds or removes slots as
+   * needed.  Busy workers are never removed; if the new count is lower
+   * than the number of currently-busy workers the extra busy workers are
+   * left in place and will be cleaned up on release.
+   */
+  setSlots(walletIdx: number, count: number): void {
+    if (!this.mutexes.has(walletIdx)) {
+      this.mutexes.set(walletIdx, new BalanceMutex());
+    }
+
+    const existing = this.workers.filter((w) => w.walletIdx === walletIdx);
+    const currentCount = existing.length;
+
+    if (count > currentCount) {
+      // Add new slots
+      for (let s = currentCount; s < count; s++) {
+        this.workers.push({ walletIdx, slotIdx: s, busy: false, usageCount: 0 });
+      }
+    } else if (count < currentCount) {
+      // Remove free slots from the end
+      let toRemove = currentCount - count;
+      for (let i = this.workers.length - 1; i >= 0 && toRemove > 0; i--) {
+        if (this.workers[i].walletIdx === walletIdx && !this.workers[i].busy) {
+          this.workers.splice(i, 1);
+          toRemove--;
+        }
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Worker lifecycle
+  // -----------------------------------------------------------------------
+
+  /** Returns `true` when at least one worker is free. */
+  hasAvailableWorker(): boolean {
+    return this.workers.some((w) => !w.busy);
+  }
+
+  /**
+   * Select the best free worker using the two-level heuristic:
+   *   1. Prefer wallets with the fewest busy workers (spread across wallets)
+   *   2. Among equally-preferred wallets, pick the worker with the lowest
+   *      usage count (balance load over time)
+   *
+   * The selected worker is marked busy and its usage counter incremented.
+   * Returns `null` if no worker is free.
+   */
+  acquireWorker(): WorkerSlot | null {
+    const free = this.workers.filter((w) => !w.busy);
+    if (free.length === 0) return null;
+
+    // Count busy workers per wallet (across ALL workers, not just free ones)
+    const busyPerWallet = new Map<number, number>();
+    for (const w of this.workers) {
+      if (w.busy) {
+        busyPerWallet.set(w.walletIdx, (busyPerWallet.get(w.walletIdx) ?? 0) + 1);
+      }
+    }
+
+    // Sort free workers: first by wallet busy count (ascending), then by usage count (ascending)
+    free.sort((a, b) => {
+      const busyA = busyPerWallet.get(a.walletIdx) ?? 0;
+      const busyB = busyPerWallet.get(b.walletIdx) ?? 0;
+      if (busyA !== busyB) return busyA - busyB;
+      return a.usageCount - b.usageCount;
+    });
+
+    const selected = free[0];
+    selected.busy = true;
+    selected.usageCount++;
+    return selected;
+  }
+
+  /**
+   * Release a worker, marking it as free for reuse.
+   */
+  releaseWorker(walletIdx: number, slotIdx: number): void {
+    const w = this.workers.find(
+      (w) => w.walletIdx === walletIdx && w.slotIdx === slotIdx,
+    );
+    if (w) {
+      w.busy = false;
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Balance lock
+  // -----------------------------------------------------------------------
+
+  /**
+   * Acquire the per-wallet balance mutex.  Returns a release function.
+   *
+   * Only one balance operation may run at a time per wallet (speculative
+   * chaining requires sequential balance calls).  The prove/submit/confirm
+   * phases do NOT hold this lock and can overlap freely.
+   */
+  acquireBalanceLock(walletIdx: number): Promise<() => void> {
+    let mutex = this.mutexes.get(walletIdx);
+    if (!mutex) {
+      mutex = new BalanceMutex();
+      this.mutexes.set(walletIdx, mutex);
+    }
+    return mutex.acquire();
+  }
+
+  // -----------------------------------------------------------------------
+  // Diagnostics
+  // -----------------------------------------------------------------------
+
+  /** Returns `true` when NO worker is busy (all work is complete). */
+  isFullyIdle(): boolean {
+    return this.workers.every((w) => !w.busy);
+  }
+
+  getFreeWorkerCount(): number {
+    return this.workers.filter((w) => !w.busy).length;
+  }
+
+  getTotalWorkerCount(): number {
+    return this.workers.length;
+  }
+
+  getStatus(): string {
+    const byWallet = new Map<number, { total: number; busy: number }>();
+    for (const w of this.workers) {
+      const entry = byWallet.get(w.walletIdx) ?? { total: 0, busy: 0 };
+      entry.total++;
+      if (w.busy) entry.busy++;
+      byWallet.set(w.walletIdx, entry);
+    }
+    const parts: string[] = [];
+    for (const [wi, { total, busy }] of [...byWallet.entries()].sort((a, b) => a[0] - b[0])) {
+      parts.push(`W${wi + 1}:${busy}/${total}`);
+    }
+    return parts.join(" ");
+  }
+}

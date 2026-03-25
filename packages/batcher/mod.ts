@@ -13,6 +13,7 @@ export { Batcher, createNewBatcher } from "./core/batcher.ts";
 export type {
   BatchingCriteriaConfig,
   BatcherConfig,
+  RateLimitConfig,
   ValidAdapterKey,
 } from "./core/config.ts";
 export {
@@ -45,6 +46,14 @@ export {
 export type { BitcoinAdapterConfig } from "./adapters/bitcoin-adapter.ts";
 export type { MidnightAdapterConfig } from "./adapters/midnight-adapter.ts";
 export type { MidnightBalancingAdapterConfig } from "./adapters/midnight-balancing-adapter.ts";
+
+// Rate limiting
+export type {
+  RateLimitStore,
+  RateLimitKeyStrategy,
+  RateLimitCheckResult,
+} from "./core/rate-limiter.ts";
+export { RateLimiter, InMemoryRateLimitStore } from "./core/rate-limiter.ts";
 
 // HTTP server
 export { startBatcherHttpServer } from "./server/batcher-server.ts";

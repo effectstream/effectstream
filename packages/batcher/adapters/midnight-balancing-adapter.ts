@@ -2,17 +2,21 @@
 // Handles delegated balancing (Party B) where unproven transactions are received,
 // balanced with filler funds, proved, and submitted.
 //
-// Architecture: speculative chaining via the wallet SDK's pendingDustTokens mechanism.
+// Architecture: worker pool with per-wallet balance mutex.
 //
-//   Phase 1 — Balance all txs sequentially (each call marks spent dust as pending
-//             in CoreWallet via spendCoins, so the next call picks different UTXOs)
-//   Phase 2 — Sign and finalize all txs (proof server calls, done sequentially
-//             because proofs may depend on prior tx's contract state mutations)
-//   Phase 3 — Submit all finalized txs to the mempool sequentially (await each
-//             before sending the next so mempool ordering is deterministic)
+// Each worker = {wallet, UTXO-slot} — an independent processing unit.
+// Workers run their tx pipeline in parallel:
 //
-// This eliminates the need to wait for block confirmation between txs while still
-// producing valid proofs and respecting mempool ordering constraints.
+//   acquire balance lock → balance → release lock → prove/finalize → submit
+//
+// The balance lock serializes balance calls within the same wallet
+// (speculative chaining requires sequential dust allocation). Prove,
+// finalize, and submit overlap freely — including with other workers'
+// balance phase on the same wallet, enabling deep pipelining.
+//
+// Worker selection:
+//   1. Prefer wallets with the fewest busy workers (maximize wallet spread)
+//   2. Tiebreak: lowest usage count (balance load)
 
 import type {
   BatchBuildingOptions,
@@ -48,6 +52,7 @@ import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { AdapterLogger } from "./adapter-logger.ts";
+import { WorkerPool } from "./worker-pool.ts";
 
 // ---------------------------------------------------------------------------
 // Config & types
@@ -66,12 +71,13 @@ export interface MidnightBalancingAdapterConfig {
   // Token type ID used for the shielded self-transfer padding. Required when addShieldedPadding is true.
   // **NOTE for development:** "0000000000000000000000000000000000000000000000000000000000000000" can be used for undeployed + genesis wallet.
   shieldedPaddingTokenID?: string;
-  // Maximum number of transactions to include in a single batch. Defaults to unlimited.
-  maxBatchSize?: number;
+  // Maximum number of worker slots (concurrent txs) per wallet. Defaults to 1.
+  // Regardless of how many dust UTXOs a wallet has, at most this many will be used in parallel.
+  maxSlotsPerWallet?: number;
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
-const SUBMIT_TX_TIMEOUT_MS = 90 * 1000; // 1 minute
+const SUBMIT_TX_TIMEOUT_MS = 90 * 1000;
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
 type DelegatedTxStage = "unproven" | "unbound" | "finalized";
@@ -83,22 +89,15 @@ type DelegatedTx =
 interface DelegatedTxEntry {
   tx: DelegatedTx;
   txStage: DelegatedTxStage;
+  /** Per-input override: true/false overrides the config default, undefined uses config. */
+  addShieldedPadding?: boolean;
 }
 
-// Each batch contains multiple transactions balanced speculatively
-// (no block confirmation needed between them) via pendingDustTokens.
 interface DelegatedBatchData {
   txs: DelegatedTxEntry[];
   selectedInputs: DefaultBatcherInput[];
-}
-
-// Per-tx result tracked through the three-phase pipeline.
-interface TxPipelineEntry {
-  entry: DelegatedTxEntry;
-  recipe?: BalancingRecipe;
-  finalized?: FinalizedTransaction;
-  hash?: string;
-  error?: Error;
+  /** Each tx maps to the worker that will process it. */
+  workerAssignments: { walletIdx: number; slotIdx: number }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -109,8 +108,11 @@ interface TxPipelineEntry {
  * Midnight Balancing Adapter (Party B)
  *
  * Receives serialized delegated transactions (hex), balances them with local
- * dust funds using the wallet SDK's speculative chaining, generates proofs,
- * and submits them to the blockchain.
+ * dust funds, generates proofs, and submits them to the blockchain.
+ *
+ * Uses a worker pool where each worker = {wallet, UTXO-slot}. Workers run
+ * their tx pipeline independently with a per-wallet balance mutex for
+ * speculative chaining correctness.
  */
 export class MidnightBalancingAdapter
   implements BlockchainAdapter<DelegatedBatchData> {
@@ -118,52 +120,100 @@ export class MidnightBalancingAdapter
   private readonly walletNetworkId: WalletNetworkId.NetworkId;
   private readonly walletFundingTimeoutMs: number;
   private readonly syncProtocolName: string;
-  private readonly walletSeed: string;
+  private readonly walletSeeds: string[];
   private readonly log = new AdapterLogger("balancing");
 
-  private walletResult: WalletResult | null = null;
+  private walletResults: (WalletResult | null)[];
+  private walletAddresses: (string | null)[];
+  private walletInitialized: boolean[];
+  private availableDustUtxoCounts: (number | null)[];
+
+  /** Worker pool — initialized with 0 slots, updated per wallet after init. */
+  private readonly pool: WorkerPool;
+  /** Input keys currently being processed in a concurrent batch. */
+  private readonly inFlightInputKeys = new Set<string>();
+
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
-  private walletAddress: string | null = null;
   private publicDataProvider: PublicDataProvider | null = null;
-  /** Number of available dust UTXOs at last wallet sync. Used to auto-cap batch size. */
-  private availableDustUtxoCount: number | null = null;
 
   constructor(
-    walletSeed: string,
+    walletSeed: string | string[],
     config: MidnightBalancingAdapterConfig,
   ) {
-    this.walletSeed = walletSeed;
+    const seeds = Array.isArray(walletSeed) ? walletSeed : [walletSeed];
+    this.walletSeeds = seeds;
     this.config = config;
     this.walletNetworkId = config.walletNetworkId ?? ("undeployed" as WalletNetworkId.NetworkId);
     this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
     this.syncProtocolName = config.syncProtocolName ?? `Midnight-Balancing (${this.walletNetworkId})`;
-    this.initializationPromise = this.initialize(walletSeed);
+
+    this.walletResults = new Array(seeds.length).fill(null);
+    this.walletAddresses = new Array(seeds.length).fill(null);
+    this.walletInitialized = new Array(seeds.length).fill(false);
+    this.availableDustUtxoCounts = new Array(seeds.length).fill(null);
+
+    // Start with 0 slots per wallet; updated in ensureWalletFunds once UTXO counts are known.
+    this.pool = new WorkerPool(new Array(seeds.length).fill(0));
+
+    this.initializationPromise = this.initialize();
   }
 
   // -----------------------------------------------------------------------
   // Initialization
   // -----------------------------------------------------------------------
 
-  private async reconnect(): Promise<void> {
-    this.log.log(" Reconnecting wallet...");
-    this.isInitialized = false;
-    this.walletResult = null;
-    this.config.walletResult = undefined; // Force rebuild instead of using shared
-    this.initializationPromise = this.initialize(this.walletSeed);
-    await this.initializationPromise;
+  private async reconnectWallet(walletIndex: number): Promise<void> {
+    const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
+    this.log.log(`Reconnecting wallet ${label}...`);
+    this.walletInitialized[walletIndex] = false;
+    this.walletResults[walletIndex] = null;
+    this.pool.setSlots(walletIndex, 0);
+    if (walletIndex === 0) {
+      this.config.walletResult = undefined;
+    }
+    await this.initializeWallet(walletIndex, this.walletSeeds[walletIndex]);
+    this.isInitialized = this.walletInitialized.some(Boolean);
   }
 
-  private async initialize(walletSeed: string): Promise<void> {
+  private async initialize(): Promise<void> {
     try {
-      this.log.log("Initializing Midnight Balancing Adapter...");
+      this.log.log(`Initializing Midnight Balancing Adapter (${this.walletSeeds.length} wallet(s))...`);
       setNetworkId(this.walletNetworkId as any);
 
-      if (this.config.walletResult) {
-        this.log.log(" Using shared wallet");
-        this.walletResult = await this.config.walletResult;
+      this.publicDataProvider = indexerPublicDataProvider(
+        this.config.indexer,
+        this.config.indexerWS,
+      );
+
+      await Promise.all(
+        this.walletSeeds.map((seed, i) => this.initializeWallet(i, seed)),
+      );
+
+      const readyCount = this.walletInitialized.filter(Boolean).length;
+      if (readyCount === 0) {
+        throw new Error("All wallets failed to initialize");
+      }
+
+      this.isInitialized = true;
+      this.log.log(
+        `Adapter ready (${readyCount}/${this.walletSeeds.length} wallets, ` +
+          `${this.pool.getTotalWorkerCount()} workers: ${this.pool.getStatus()})`,
+      );
+    } catch (error) {
+      this.log.error("Initialization failed:", error);
+      throw error;
+    }
+  }
+
+  private async initializeWallet(index: number, seed: string): Promise<void> {
+    const label = `${index + 1}/${this.walletSeeds.length}`;
+    try {
+      if (index === 0 && this.config.walletResult) {
+        this.log.log(`Wallet ${label}: using shared wallet`);
+        this.walletResults[index] = await this.config.walletResult;
       } else {
-        this.log.log(" Building wallet...");
+        this.log.log(`Wallet ${label}: building...`);
         const networkUrls: Required<NetworkUrls> = {
           id: this.walletNetworkId,
           indexer: this.config.indexer,
@@ -171,64 +221,60 @@ export class MidnightBalancingAdapter
           node: this.config.node,
           proofServer: this.config.proofServer,
         };
-        this.walletResult = await buildWalletFacade(
+        this.walletResults[index] = await buildWalletFacade(
           networkUrls,
-          walletSeed,
+          seed,
           this.walletNetworkId,
         );
       }
 
-      this.walletAddress = this.walletResult.zswapSecretKeys.coinPublicKey
-        .toString();
+      this.walletAddresses[index] = this.walletResults[index]!
+        .zswapSecretKeys.coinPublicKey.toString();
 
-      this.publicDataProvider = indexerPublicDataProvider(
-        this.config.indexer,
-        this.config.indexerWS,
-      );
-
-      this.log.log(" Wallet built, waiting for funds...");
-      await this.ensureFunds();
-      this.isInitialized = true;
-      this.log.log(" Adapter ready");
+      this.log.log(`Wallet ${label}: built, waiting for funds...`);
+      await this.ensureWalletFunds(index);
+      this.walletInitialized[index] = true;
+      this.log.log(`Wallet ${label}: ready`);
     } catch (error) {
-      this.log.error(" Initialization failed:", error);
-      throw error;
+      this.log.error(`Wallet ${label}: initialization failed:`, error);
     }
   }
 
-  private async ensureFunds(): Promise<void> {
-    if (!this.walletResult) return;
+  private async ensureWalletFunds(walletIndex: number): Promise<void> {
+    const walletResult = this.walletResults[walletIndex];
+    if (!walletResult) return;
+    const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
 
-    const balances = await syncAndWaitForFunds(this.walletResult.wallet, {
+    const balances = await syncAndWaitForFunds(walletResult.wallet, {
       timeoutMs: this.walletFundingTimeoutMs,
       waitNonZero: false,
     });
 
     if (balances.dustBalance === 0n && balances.unshieldedBalance > 0n) {
-      this.log.log(" Registering NIGHT for dust generation...");
+      this.log.log(`Wallet ${label}: registering NIGHT for dust...`);
       try {
-        await registerNightForDust(this.walletResult);
+        await registerNightForDust(walletResult);
       } catch (error) {
-        this.log.warn(" Dust registration failed:", error);
+        this.log.warn(`Wallet ${label}: dust registration failed:`, error);
       }
     }
 
-    const dustBalance = await waitForDustFunds(this.walletResult.wallet, {
+    const dustBalance = await waitForDustFunds(walletResult.wallet, {
       timeoutMs: this.walletFundingTimeoutMs,
       waitNonZero: true,
     });
 
-    this.log.log(`Dust balance: ${dustBalance}`);
+    this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
     if (dustBalance === 0n) {
-      this.log.warn("WARNING: 0 dust balance, submissions will fail");
+      this.log.warn(`Wallet ${label}: WARNING: 0 dust balance, submissions will fail`);
+    } else if (this.config.addShieldedPadding) {
+      this.log.log(`Wallet ${label}: shielded padding enabled, each tx will consume 2 dust UTXOs`);
     }
 
-    // Query available dust UTXOs so we know how many concurrent balance calls
-    // we can safely make (one UTXO is spent per balancing call).
     try {
       const dustState = await getInitialDustState(
         // deno-lint-ignore no-explicit-any
-        (this.walletResult.wallet as any).dust,
+        (walletResult.wallet as any).dust,
       );
 
       const bigintSerializer = (_: string, value: unknown) => {
@@ -239,11 +285,23 @@ export class MidnightBalancingAdapter
       };
 
       // deno-lint-ignore no-explicit-any
-      this.availableDustUtxoCount = dustState.availableCoins?.length ?? null;
-      this.log.log(`Dust state: ${JSON.stringify(dustState.availableCoins, bigintSerializer)}`);
-      this.log.log(`Available dust UTXOs: ${this.availableDustUtxoCount ?? "unknown"}`);
+      this.availableDustUtxoCounts[walletIndex] = dustState.availableCoins?.length ?? null;
+      this.log.log(`Wallet ${label}: dust coins: ${JSON.stringify(dustState.availableCoins, bigintSerializer)}`);
+      this.log.log(`Wallet ${label}: available dust UTXOs: ${this.availableDustUtxoCounts[walletIndex] ?? "unknown"}`);
+
+      // Update worker pool: 1 worker per UTXO (2 UTXOs per worker if padding).
+      // When shieldedPaddingTokenID is configured, per-input overrides can
+      // enable padding even if the config default is off, so budget for the
+      // worst case (2 UTXOs/slot) to avoid over-committing.
+      const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
+      const paddingPossible = !!(this.config.addShieldedPadding || this.config.shieldedPaddingTokenID);
+      const costPerTx = paddingPossible ? 2 : 1;
+      const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
+      const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
+      this.pool.setSlots(walletIndex, slots);
+      this.log.log(`Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`);
     } catch (e) {
-      this.log.warn(" Could not read dust UTXO count:", e);
+      this.log.warn(`Wallet ${label}: could not read dust UTXO count:`, e);
     }
   }
 
@@ -252,7 +310,8 @@ export class MidnightBalancingAdapter
   // -----------------------------------------------------------------------
 
   getAccountAddress(): string {
-    return this.walletAddress ?? "unknown";
+    const first = this.walletAddresses.find((a) => a !== null);
+    return first ?? "unknown";
   }
 
   getChainName(): string {
@@ -264,25 +323,54 @@ export class MidnightBalancingAdapter
   }
 
   isReady(): boolean {
-    return this.isInitialized && this.walletResult !== null;
+    return this.isInitialized && this.walletInitialized.some(Boolean);
+  }
+
+  // -----------------------------------------------------------------------
+  // Concurrent capacity
+  // -----------------------------------------------------------------------
+
+  private getInputKey(input: DefaultBatcherInput): string {
+    return `${input.address}|${input.timestamp}|${input.input}`;
+  }
+
+  hasAvailableCapacity(): boolean {
+    if (!this.isReady()) return false;
+    return this.pool.hasAvailableWorker();
+  }
+
+  isFullyIdle(): boolean {
+    return this.pool.isFullyIdle();
+  }
+
+  releaseBatchResources(batchData: DelegatedBatchData): void {
+    for (const wa of batchData.workerAssignments) {
+      this.pool.releaseWorker(wa.walletIdx, wa.slotIdx);
+    }
+    for (const input of batchData.selectedInputs) {
+      this.inFlightInputKeys.delete(this.getInputKey(input));
+    }
+    this.log.log(
+      `Released batch resources: ${batchData.workerAssignments.length} worker(s), ` +
+        `${batchData.selectedInputs.length} input(s)`,
+    );
   }
 
   // -----------------------------------------------------------------------
   // Deserialization helpers
   // -----------------------------------------------------------------------
 
-  /**
-   * Parse input, handling both plain hex and JSON `{ tx, txStage }` format.
-   */
   private parseHexInput(input: string): {
     hex: string;
     txStage?: DelegatedTxStage;
+    addShieldedPadding?: boolean;
   } {
     const trimmed = input.trim();
     if (trimmed.startsWith("{")) {
       const parsed = JSON.parse(trimmed) as {
         tx?: string;
         txStage?: DelegatedTxStage;
+        addShieldedPadding?: boolean | null;
       };
       if (!parsed.tx) throw new Error("Missing tx field in JSON input");
       if (
@@ -296,90 +384,57 @@ export class MidnightBalancingAdapter
         );
       }
       const hex = parsed.tx.startsWith("0x") ? parsed.tx.slice(2) : parsed.tx;
-      return { hex, txStage: parsed.txStage };
+      const addShieldedPadding = parsed.addShieldedPadding ?? undefined;
+      return { hex, txStage: parsed.txStage, addShieldedPadding };
     }
     const hex = trimmed.startsWith("0x") ? trimmed.slice(2) : trimmed;
     return { hex };
   }
 
-  /**
-   * Deserialize one input into a DelegatedTxEntry.
-   */
   private deserializeTxEntry(input: DefaultBatcherInput): DelegatedTxEntry {
-    const { hex, txStage } = this.parseHexInput(input.input);
+    const { hex, txStage, addShieldedPadding } = this.parseHexInput(input.input);
     const bytes = fromHex(hex);
 
     if (txStage === "unbound") {
       return {
-        tx: LedgerV6Transaction.deserialize(
-          "signature" as const,
-          "proof" as const,
-          "pre-binding" as const,
-          bytes,
-        ) as UnboundTransaction,
-        txStage: "unbound",
+        tx: LedgerV6Transaction.deserialize("signature" as const, "proof" as const, "pre-binding" as const, bytes) as UnboundTransaction,
+        txStage: "unbound", addShieldedPadding,
       };
     }
-
     if (txStage === "finalized") {
       return {
-        tx: LedgerV6Transaction.deserialize(
-          "signature" as const,
-          "proof" as const,
-          "binding" as const,
-          bytes,
-        ) as FinalizedTransaction,
-        txStage: "finalized",
+        tx: LedgerV6Transaction.deserialize("signature" as const, "proof" as const, "binding" as const, bytes) as FinalizedTransaction,
+        txStage: "finalized", addShieldedPadding,
       };
     }
-
     if (txStage === "unproven") {
       return {
-        tx: LedgerV6Transaction.deserialize(
-          "signature" as const,
-          "pre-proof" as const,
-          "pre-binding" as const,
-          bytes,
-        ) as UnprovenTransaction,
-        txStage: "unproven",
+        tx: LedgerV6Transaction.deserialize("signature" as const, "pre-proof" as const, "pre-binding" as const, bytes) as UnprovenTransaction,
+        txStage: "unproven", addShieldedPadding,
       };
     }
-
     // Auto-detect: try unbound first, fall back to unproven
     try {
       return {
-        tx: LedgerV6Transaction.deserialize(
-          "signature" as const,
-          "proof" as const,
-          "pre-binding" as const,
-          bytes,
-        ) as UnboundTransaction,
-        txStage: "unbound",
+        tx: LedgerV6Transaction.deserialize("signature" as const, "proof" as const, "pre-binding" as const, bytes) as UnboundTransaction,
+        txStage: "unbound", addShieldedPadding,
       };
     } catch {
       return {
-        tx: LedgerV6Transaction.deserialize(
-          "signature" as const,
-          "pre-proof" as const,
-          "pre-binding" as const,
-          bytes,
-        ) as UnprovenTransaction,
-        txStage: "unproven",
+        tx: LedgerV6Transaction.deserialize("signature" as const, "pre-proof" as const, "pre-binding" as const, bytes) as UnprovenTransaction,
+        txStage: "unproven", addShieldedPadding,
       };
     }
   }
 
   // -----------------------------------------------------------------------
-  // Batch building
+  // Batch building — worker pool assignment
   // -----------------------------------------------------------------------
 
   /**
-   * Deserialize inputs into a batch.
-   *
-   * Unlike the previous implementation this does NOT try to cap the batch to
-   * a cached dust UTXO count. The wallet SDK's `getAvailableCoinsWithGeneratedDust`
-   * and `pendingDustTokens` already handle coin availability — if a balance call
-   * runs out of dust it will throw, which `submitBatch` handles per-entry.
+   * Assign each available input to a free worker via the pool's selection
+   * algorithm. Each worker handles exactly 1 tx. Workers and input keys
+   * are marked as reserved synchronously (no race possible).
    */
   buildBatchData(
     inputs: DefaultBatcherInput[],
@@ -387,71 +442,76 @@ export class MidnightBalancingAdapter
   ): BatchBuildingResult<DelegatedBatchData> | null {
     if (inputs.length === 0) return null;
 
+    const availableInputs = inputs.filter(
+      (input) => !this.inFlightInputKeys.has(this.getInputKey(input)),
+    );
+    if (availableInputs.length === 0) return null;
+
     const txs: DelegatedTxEntry[] = [];
     const selectedInputs: DefaultBatcherInput[] = [];
+    const workerAssignments: { walletIdx: number; slotIdx: number }[] = [];
 
-    // Cap batch to explicit maxBatchSize, or to the number of available dust UTXOs
-    // (one UTXO is consumed per balance call), whichever is smaller.
-    const limit = Math.min(
-      this.config.maxBatchSize ?? Infinity,
-      this.availableDustUtxoCount ?? Infinity,
-    );
-    this.log.log(`Limit: config=${this.config.maxBatchSize}, dust=${this.availableDustUtxoCount}, limit=${limit}`);
-    for (const input of inputs) {
-      if (txs.length >= limit) break;
+    for (const input of availableInputs) {
+      const worker = this.pool.acquireWorker();
+      if (!worker) break; // no free workers
+
+      let entry: DelegatedTxEntry;
       try {
-        txs.push(this.deserializeTxEntry(input));
-        selectedInputs.push(input);
+        entry = this.deserializeTxEntry(input);
       } catch (error) {
-        this.log.error(
-          `Deserialize failed for ${input.target}: ${error}`,
-        );
-        // Stop at first bad input to keep accounting sequential
-        break;
+        this.pool.releaseWorker(worker.walletIdx, worker.slotIdx);
+        this.log.error(`Deserialize failed for ${input.target}: ${error}`);
+        continue; // skip bad input, try next
       }
+
+      txs.push(entry);
+      selectedInputs.push(input);
+      workerAssignments.push({ walletIdx: worker.walletIdx, slotIdx: worker.slotIdx });
     }
 
     if (txs.length === 0) return null;
 
-    this.log.log(`Built batch of ${txs.length} tx(s)`);
-    return { selectedInputs, data: { txs, selectedInputs } };
+    // Mark inputs as in-flight (synchronous)
+    for (const input of selectedInputs) {
+      this.inFlightInputKeys.add(this.getInputKey(input));
+    }
+
+    this.log.log(
+      `Built batch: ${txs.length} tx(s) assigned to workers [pool: ${this.pool.getStatus()}]`,
+    );
+    return { selectedInputs, data: { txs, selectedInputs, workerAssignments } };
   }
 
   // -----------------------------------------------------------------------
-  // Core pipeline
+  // Core pipeline helpers
   // -----------------------------------------------------------------------
 
+  private shouldAddShieldedPadding(entry: DelegatedTxEntry): boolean {
+    return entry.addShieldedPadding ?? this.config.addShieldedPadding ?? false;
+  }
+
   /**
-   * Balance a single entry against the dust wallet.
-   *
-   * Each call speculatively marks consumed dust UTXOs as pending via
-   * `CoreWallet.spendCoins` / `pendingDustTokens`, so the next call in the
-   * same batch automatically picks different UTXOs — no on-chain confirmation
-   * needed between calls.
+   * Balance a single entry against a specific wallet's dust.
+   * CALLER MUST hold the wallet's balance lock.
    */
   private async balanceEntry(
     entry: DelegatedTxEntry,
+    walletIndex: number,
   ): Promise<BalancingRecipe> {
-    // Ensure dust wallet has up-to-date state (including generationInfo for coins)
-    // before attempting to balance. Without this, balanceTransactions may read stale
-    // state where generationInfo hasn't been populated, causing "No dust found".
+    const walletResult = this.walletResults[walletIndex]!;
+
     // deno-lint-ignore no-explicit-any
-    await (this.walletResult!.wallet as any).dust.waitForSyncedState();
+    await (walletResult.wallet as any).dust.waitForSyncedState();
 
     const keys = {
-      shieldedSecretKeys: this.walletResult!.walletZswapSecretKeys,
-      dustSecretKey: this.walletResult!.walletDustSecretKey,
+      shieldedSecretKeys: walletResult.walletZswapSecretKeys,
+      dustSecretKey: walletResult.walletDustSecretKey,
     };
     const opts = { ttl: createTtl() };
 
-    // Apply shielded padding BEFORE dust balancing so the balance call accounts
-    // for the full padded transaction size (including padding proof costs).
-    // Only applicable for unproven transactions, which can be merged with the
-    // self-transfer before balance. payFees: false ensures the self-transfer
-    // brings no dust of its own — the subsequent balance call covers everything.
-    if (this.config.addShieldedPadding && entry.txStage === "unproven") {
+    if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
       try {
-        const paddedTx = await this.applyShieldedPadding(entry.tx as UnprovenTransaction, true);
+        const paddedTx = await this.applyShieldedPadding(entry.tx as UnprovenTransaction, true, walletIndex);
         entry = { tx: paddedTx, txStage: "unproven" };
       } catch (e) {
         this.log.warn(
@@ -462,50 +522,34 @@ export class MidnightBalancingAdapter
     }
 
     let recipe: BalancingRecipe;
-    // console.log('> BALANCING', entry.txStage, entry.tx);
     switch (entry.txStage) {
       case "unbound":
-        recipe = await this.walletResult!.wallet.balanceUnboundTransaction(
-          entry.tx as UnboundTransaction,
-          keys,
-          opts,
+        recipe = await walletResult.wallet.balanceUnboundTransaction(
+          entry.tx as UnboundTransaction, keys, opts,
         );
-        // For unbound/finalized the balance step produces a separate balancingTransaction.
-        // Padding must be applied after balance since there is no UnprovenTransaction
-        // to merge into beforehand. payFees: false so no extra dust is added.
-        if (this.config.addShieldedPadding && recipe.balancingTransaction) {
+        if (this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction) {
           try {
-            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true);
+            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true, walletIndex);
           } catch (e) {
-            this.log.warn(
-              "Shielded padding unavailable, submitting without padding. " +
-              `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
-            );
+            this.log.warn("Shielded padding unavailable: " + e);
           }
         }
         break;
       case "finalized":
-        recipe = await this.walletResult!.wallet.balanceFinalizedTransaction(
-          entry.tx as FinalizedTransaction,
-          keys,
-          opts,
+        recipe = await walletResult.wallet.balanceFinalizedTransaction(
+          entry.tx as FinalizedTransaction, keys, opts,
         );
-        if (this.config.addShieldedPadding && recipe.balancingTransaction) {
+        if (this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction) {
           try {
-            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true);
+            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true, walletIndex);
           } catch (e) {
-            this.log.warn(
-              "Shielded padding unavailable, submitting without padding. " +
-              `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
-            );
+            this.log.warn("Shielded padding unavailable: " + e);
           }
         }
         break;
       case "unproven":
-        recipe = await this.walletResult!.wallet.balanceUnprovenTransaction(
-          entry.tx as UnprovenTransaction,
-          keys,
-          opts,
+        recipe = await walletResult.wallet.balanceUnprovenTransaction(
+          entry.tx as UnprovenTransaction, keys, opts,
         );
         break;
     }
@@ -513,72 +557,123 @@ export class MidnightBalancingAdapter
     return recipe;
   }
 
-  /**
-   * Merges a shielded NIGHT self-transfer into the balancing transaction.
-   * The transfer is zero-sum (spend 1 unit, receive 1 unit back to self),
-   * so it adds no token imbalance. After proveTx, the INPUT_PROOF_SIZE +
-   * OUTPUT_PROOF_SIZE bytes appear in the finalized transaction's est_size().
-   */
   private async applyShieldedPadding(
     balancingTx: UnprovenTransaction,
-    payFees: boolean
+    payFees: boolean,
+    walletIndex: number,
   ): Promise<UnprovenTransaction> {
-    if (!this.walletResult) throw new Error("Wallet not initialized");
+    const walletResult = this.walletResults[walletIndex];
+    if (!walletResult) throw new Error("Wallet not initialized");
 
     this.log.log("[balancing] Adding shielded padding...");
-    const keys = this.walletResult.walletZswapSecretKeys;
-    
-    // Get the shielded address as a ShieldedAddress object (required by transferTransaction)
+    const keys = walletResult.walletZswapSecretKeys;
+
     // deno-lint-ignore no-explicit-any
-    const initialState = await getInitialShieldedState((this.walletResult.wallet as any).shielded);
+    const initialState = await getInitialShieldedState((walletResult.wallet as any).shielded);
     const receiverAddress = initialState.address;
     if (!this.config.shieldedPaddingTokenID) {
       throw new Error("shieldedPaddingTokenID must be set when addShieldedPadding is true");
     }
     const type = this.config.shieldedPaddingTokenID;
-    // Build a self-transfer: send 1 unit of shielded NIGHT back to ourselves.
-    // payFees: false — dust fees are already in the balancingTx.
-    const outputs: ShieldedTokenTransfer[] =  [
-      {
-        type: "shielded",
-        outputs: [{
-          type,
-          receiverAddress,
-          amount: 1n
-        }]
-      }
+    const outputs: ShieldedTokenTransfer[] = [
+      { type: "shielded", outputs: [{ type, receiverAddress, amount: 1n }] },
     ];
-    const conf  = {
+    const conf = {
       shieldedSecretKeys: keys,
-      dustSecretKey: this.walletResult.walletDustSecretKey,
+      dustSecretKey: walletResult.walletDustSecretKey,
     };
-    const opt = { 
-      ttl: createTtl(),
-      payFees: payFees,
-    }
-    // console.log('PADDING', outputs, conf, opt);
-    const paddingRecipe = await this.walletResult.wallet.transferTransaction(outputs, conf, opt);
-
-    // Merge: dust fee inputs stay, shielded input+output are added.
-    // Both are UnprovenTransaction so merge is type-safe.
+    const opt = { ttl: createTtl(), payFees };
+    const paddingRecipe = await walletResult.wallet.transferTransaction(outputs, conf, opt);
     return balancingTx.merge(paddingRecipe.transaction);
   }
 
+  // -----------------------------------------------------------------------
+  // Per-worker tx pipeline
+  // -----------------------------------------------------------------------
+
   /**
-   * Three-phase pipeline: balance → finalize → submit.
+   * Process a single tx through the full pipeline on its assigned worker:
+   *   1. Acquire wallet balance lock
+   *   2. Balance (speculative chaining — serialized within wallet)
+   *   3. Release balance lock
+   *   4. Sign + Finalize / Prove (concurrent — proof server is multi-threaded)
+   *   5. Submit to mempool
    *
-   * Phase 1 (balance): Sequential. Each balance call updates the wallet's
-   * pending dust state so the next call sees different available UTXOs.
-   * This is the speculative chaining that eliminates the wait-for-block
-   * bottleneck.
+   * Returns the tx hash on success, throws on failure.
+   */
+  private async processWorkerTx(
+    entry: DelegatedTxEntry,
+    walletIdx: number,
+    txLabel: string,
+  ): Promise<string> {
+    const walletResult = this.walletResults[walletIdx]!;
+
+    // --- Phase 1: Balance (under wallet lock) ---
+    this.log.log(`[${txLabel}] Acquiring balance lock for wallet ${walletIdx + 1}...`);
+    const releaseBalanceLock = await this.pool.acquireBalanceLock(walletIdx);
+    let recipe: BalancingRecipe;
+    try {
+      this.log.log(`[${txLabel}] Balancing (${entry.txStage})...`);
+      recipe = await this.balanceEntry(entry, walletIdx);
+    } finally {
+      releaseBalanceLock();
+      this.log.log(`[${txLabel}] Balance lock released for wallet ${walletIdx + 1}`);
+    }
+
+    // --- Phase 2: Sign + Finalize (no lock — concurrent safe) ---
+    this.log.log(`[${txLabel}] Signing and proving...`);
+    const signedRecipe = await walletResult.wallet.signRecipe(
+      recipe,
+      (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
+    );
+    const finalized = await walletResult.wallet.finalizeRecipe(signedRecipe);
+
+    // --- Phase 3: Submit ---
+    const txHash = finalized.transactionHash().toString();
+    this.log.log(`[${txLabel}] Submitting to node (hash: ${txHash})...`);
+
+    try {
+      const data = await Promise.race([
+        walletResult.wallet.submitTransaction(finalized),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("submitTransaction timed out")), SUBMIT_TX_TIMEOUT_MS)
+        ),
+      ]);
+      this.log.log(`[${txLabel}] Submitted successfully: ${JSON.stringify(data)}`);
+    } catch (error) {
+      const errMsg = (error instanceof Error ? error.message : String(error)).trim();
+      if (errMsg.includes("IntentAlreadyExists")) {
+        this.log.log(`[${txLabel}] IntentAlreadyExists — already in mempool, treating as success`);
+      } else if (
+        errMsg === "Transaction submission error: Transaction got dropped, the mempool likely is full and network congested" ||
+        errMsg === "Transaction got dropped, the mempool likely is full and network congested"
+      ) {
+        this.log.log(`[${txLabel}] Dropped (mempool full), returning dropped marker`);
+        return "dropped_" + txHash;
+      } else if (
+        errMsg === "Transaction submission error: Transaction submission failed" ||
+        errMsg === "Transaction submission failed" ||
+        errMsg.includes("Invalid Transaction")
+      ) {
+        this.log.log(`[${txLabel}] Unprocessable tx, returning dropped marker`);
+        return "dropped_" + txHash;
+      } else {
+        throw error;
+      }
+    }
+
+    return txHash;
+  }
+
+  // -----------------------------------------------------------------------
+  // Submit batch
+  // -----------------------------------------------------------------------
+
+  /**
+   * Run per-worker pipelines in parallel. Each worker independently:
+   * balance (locked) → prove (unlocked) → submit.
    *
-   * Phase 2 (sign + finalize): Sequential. Uses `finalizeRecipe` which
-   * handles all three recipe types and internally adds the finalized tx
-   * to the wallet's pending transaction set. Sequential because proofs
-   * may depend on prior tx contract state.
-   *
-   * Phase 3 (submit): Sequential with await. Ensures deterministic mempool
-   * ordering and lets the wallet observe each submission for state tracking.
+   * Workers are released in the finally block of submitBatch.
    */
   async submitBatch(
     batchData: DelegatedBatchData,
@@ -587,234 +682,98 @@ export class MidnightBalancingAdapter
     if (this.initializationPromise) {
       await this.initializationPromise;
     }
-    if (!this.walletResult) {
+    if (!this.isInitialized) {
       throw new Error("Adapter not initialized");
     }
 
-    const { txs } = batchData;
-    const pipeline: TxPipelineEntry[] = txs.map((entry) => ({ entry }));
+    const { txs, workerAssignments } = batchData;
+    // Snapshot workers to release in finally (even if batchData is mutated).
+    const reservedWorkers = [...workerAssignments];
+    const reservedInputKeys = batchData.selectedInputs.map((i) => this.getInputKey(i));
 
-    this.log.log(`Processing batch of ${txs.length} tx(s)`);
-
-    // --- Phase 1: Balance all txs (speculative chaining) ---
-    for (let i = 0; i < pipeline.length; i++) {
-      const p = pipeline[i];
-      const label = `${i + 1}/${pipeline.length}`;
-      try {
-        this.log.log(
-          `Phase 1 — balance tx ${label} (${p.entry.txStage})`,
-        );
-        p.recipe = await this.balanceEntry(p.entry);
-        // Log the dust fee for this transaction.
-        // For unbound/finalized recipes the fee lives in the separate balancingTransaction;
-        // for unproven recipes it is merged into the single transaction field.
-        const feeTx =
-          "balancingTransaction" in p.recipe && p.recipe.balancingTransaction
-            ? p.recipe.balancingTransaction
-            : "transaction" in p.recipe
-              ? p.recipe.transaction
-              : null;
-        if (feeTx) {
-          try {
-            const fee = await this.walletResult!.wallet.calculateTransactionFee(feeTx);
-            this.log.log(`Phase 1 — tx ${label} dust fee: ${fee} SPECKs`);
-          } catch {
-            // non-critical — skip if fee calculation fails
-          }
-        }
-      } catch (error) {
-        p.error = error instanceof Error ? error : new Error(String(error));
-        this.log.log(
-          `Balance failed for tx ${label}: ${p.error.message}`,
-        );
-        // If balance fails (e.g. out of dust), skip remaining txs in batch
-        // because the wallet state may be inconsistent for further balancing.
-        for (let j = i + 1; j < pipeline.length; j++) {
-          pipeline[j].error = new Error(
-            `Skipped: prior tx ${label} failed to balance`,
-          );
-        }
-        break;
+    try {
+      return await this._executeWorkerPipelines(batchData);
+    } finally {
+      for (const wa of reservedWorkers) {
+        this.pool.releaseWorker(wa.walletIdx, wa.slotIdx);
       }
-    }
-
-    // --- Phase 2: Sign and finalize ---
-    for (let i = 0; i < pipeline.length; i++) {
-      const p = pipeline[i];
-      if (p.error || !p.recipe) continue;
-
-      const label = `${i + 1}/${pipeline.length}`;
-      try {
-        this.log.log(`Phase 2 — finalize tx ${label}`);
-
-        const signedRecipe = await this.walletResult.wallet.signRecipe(
-          p.recipe,
-          (payload: Uint8Array) =>
-            this.walletResult!.unshieldedKeystore.signData(payload),
-        );
-
-        // finalizeRecipe handles all three recipe types (FINALIZED_TRANSACTION,
-        // UNBOUND_TRANSACTION, UNPROVEN_TRANSACTION) and adds the result to
-        // the wallet's pending transaction tracking.
-        p.finalized = await this.walletResult.wallet.finalizeRecipe(
-          signedRecipe,
-        );
-      } catch (error) {
-        p.error = error instanceof Error ? error : new Error(String(error));
-        this.log.log(
-          `Finalize failed for tx ${label}: ${p.error.message}`,
-        );
-        // Don't cascade — later txs may still finalize independently.
+      for (const key of reservedInputKeys) {
+        this.inFlightInputKeys.delete(key);
       }
+      this.log.log(
+        `Released ${reservedWorkers.length} worker(s) [pool: ${this.pool.getStatus()}]`,
+      );
     }
+  }
 
-    // --- Phase 3: Submit sequentially ---
-    let hasDroppedFirst = false;
-    const submitPromises: Promise<void>[] = [];
-
-    for (let i = 0; i < pipeline.length; i++) {
-      const p = pipeline[i];
-      if (p.error || !p.finalized) continue;
-
-      const label = `${i + 1}/${pipeline.length}`;
-      let txHashStr = "";
-      
-      this.log.log(`Submitting tx ${label} to node...`);
-
-      txHashStr = p.finalized.transactionHash().toString();
-      p.hash = txHashStr;
-
-      const submitPromise = Promise.race([
-        this.walletResult!.wallet.submitTransaction(p.finalized),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error("submitTransaction timed out after 60 seconds"),
-              ),
-            SUBMIT_TX_TIMEOUT_MS,
-          )
-        ),
-      ])
-        .then((data) => {
-          this.log.log(`Submission data: ${JSON.stringify(data)}`);
-          this.log.log(`Submission successful for tx ${label}`);
-          this.log.log(`Submitted tx ${label}: ${p.hash}`);
-        })
-        .catch((error) => {
-          const err = error instanceof Error ? error : new Error(String(error));
-          const errMsg = err.message.trim();
-          // Only drop if it's EXACTLY the mempool full error. Any other details mean it should stay in the queue.
-          if (
-            errMsg ===
-              "Transaction submission error: Transaction got dropped, the mempool likely is full and network congested" ||
-            errMsg ===
-              "Transaction got dropped, the mempool likely is full and network congested"
-          ) {
-            if (!hasDroppedFirst) {
-              this.log.log(
-                `Submit failed for tx ${label} due to expected dropped error. Marking as dropped to remove from queue (first in batch).`,
-              );
-              p.hash = "dropped_" + (txHashStr || Date.now() + "_" + i);
-              p.error = undefined;
-              hasDroppedFirst = true;
-            } else {
-              this.log.log(
-                `Submit failed for tx ${label} with dropped error, but keeping in queue since a prior tx was already dropped.`,
-              );
-              p.error = err;
-              p.hash = undefined;
-            }
-          } else if (errMsg.includes("IntentAlreadyExists")) {
-            // The transaction is already in the mempool (submitted in a prior attempt whose
-            // response was lost). Treat as success so the input is removed from the queue
-            // and receipt polling proceeds with the hash we already computed.
-            this.log.log(
-              `Submit for tx ${label} got IntentAlreadyExists — tx already in mempool, treating as success.`,
-            );
-            p.error = undefined;
-            // p.hash is already set to txHashStr above
-          } else if (
-            errMsg === "Transaction submission error: Transaction submission failed" ||
-            errMsg === "Transaction submission failed" ||
-            errMsg.includes("Invalid Transaction")
-          ) {
-            this.log.log(
-              `Submit failed for tx ${label} due to unprocessable error. Marking as dropped to remove from queue.`,
-            );
-            p.hash = "dropped_" + (txHashStr || Date.now() + "_" + i);
-            p.error = undefined;
-          } else {
-            p.error = err;
-            p.hash = undefined; // clear hash if it failed
-            this.log.log(
-              `Submit failed for tx ${label}: ${p.error.message}`,
-            );
-          }
-        });
-
-      submitPromises.push(submitPromise);
-
-      // Wait 100ms before submitting the next element in the pipeline
-      if (i < pipeline.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-    }
-
-    // Wait for all submissions to finish
-    await Promise.all(submitPromises);
-
-    // --- Collect results ---
-    const succeeded = pipeline.filter((p) => p.hash != null);
-    const failed = pipeline.filter((p) => p.error != null);
+  private async _executeWorkerPipelines(
+    batchData: DelegatedBatchData,
+  ): Promise<BlockchainHash> {
+    const { txs, workerAssignments } = batchData;
 
     this.log.log(
-      `Batch results: ${succeeded.length} succeeded, ${failed.length} failed`,
+      `Processing ${txs.length} tx(s) via worker pipelines [pool: ${this.pool.getStatus()}]`,
     );
 
-    if (failed.length > 0) {
-      this.log.warn(
-        `Batch: ${succeeded.length} succeeded, ${failed.length} failed`,
-      );
-      for (const p of failed) {
-        this.log.warn(`  - ${p.entry.txStage}: ${p.error!.message}`);
-      }
+    // Run all worker pipelines in parallel
+    const results = await Promise.allSettled(
+      txs.map((entry, i) => {
+        const wa = workerAssignments[i];
+        const label = `tx${i + 1}/W${wa.walletIdx + 1}:s${wa.slotIdx}`;
+        return this.processWorkerTx(entry, wa.walletIdx, label);
+      }),
+    );
 
-      // Remove failed inputs from selectedInputs so the batcher doesn't mark them as processed
-      for (let i = pipeline.length - 1; i >= 0; i--) {
-        if (pipeline[i].error != null) {
-          this.log.log(
-            `Removing failed input at index ${i} from selectedInputs`,
-          );
+    // Collect successes and failures
+    const hashes: string[] = [];
+    const errors: { index: number; error: Error }[] = [];
+
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === "fulfilled") {
+        hashes.push(r.value);
+      } else {
+        errors.push({
+          index: i,
+          error: r.reason instanceof Error ? r.reason : new Error(String(r.reason)),
+        });
+      }
+    }
+
+    this.log.log(`Pipeline results: ${hashes.length} succeeded, ${errors.length} failed`);
+
+    if (errors.length > 0) {
+      for (const { index, error } of errors) {
+        this.log.warn(`  tx${index + 1}: ${error.message}`);
+      }
+      // Remove failed inputs from selectedInputs so the batcher retries them
+      const failedIndices = new Set(errors.map((e) => e.index));
+      for (let i = batchData.selectedInputs.length - 1; i >= 0; i--) {
+        if (failedIndices.has(i)) {
           batchData.selectedInputs.splice(i, 1);
         }
       }
     }
 
-    if (succeeded.length === 0) {
-      this.log.log(`All transactions failed`);
-      const firstErrorMsg = pipeline[0].error?.message ?? "unknown";
+    if (hashes.length === 0) {
+      const firstError = errors[0]?.error.message ?? "unknown";
 
-      if (firstErrorMsg.includes("No dust tokens found in the wallet state")) {
-        this.log.log(
-          `Wallet entered bad state. Triggering reconnect...`,
-        );
-        try {
-          await this.reconnect();
-        } catch (reconnectError) {
-          this.log.log(`Reconnect failed: ${reconnectError}`);
+      if (firstError.includes("No dust tokens found in the wallet state")) {
+        this.log.log("Wallet entered bad state. Triggering reconnect...");
+        const affectedWallets = new Set(workerAssignments.map((wa) => wa.walletIdx));
+        for (const wi of affectedWallets) {
+          try { await this.reconnectWallet(wi); } catch (e) {
+            this.log.log(`Reconnect wallet ${wi + 1} failed: ${e}`);
+          }
         }
       }
 
       throw new Error(
-        `All ${pipeline.length} transactions in batch failed. ` +
-          `First error: ${firstErrorMsg}`,
+        `All ${txs.length} transactions failed. First error: ${firstError}`,
       );
     }
 
-    // Return a comma-separated list of successful hashes.
-    // The batcher framework treats this as an opaque string and passes it to waitForTransactionReceipt.
-    const finalHashes = succeeded.map((p) => p.hash!).join(",");
+    const finalHashes = hashes.join(",");
     this.log.log(`Returning hashes: ${finalHashes}`);
     return finalHashes;
   }
@@ -825,21 +784,17 @@ export class MidnightBalancingAdapter
 
   async waitForTransactionReceipt(
     hash: BlockchainHash,
-    timeout: number = 300000, // 5 minutes default
+    timeout: number = 300000,
   ): Promise<BlockchainTransactionReceipt> {
     if (!this.publicDataProvider) {
       throw new Error("Public data provider not initialized");
     }
 
-    // Ensure we use a sufficiently long timeout for Midnight (at least 5 minutes)
     const effectiveTimeout = Math.max(timeout, 300000);
-
     const hashes = hash.split(",");
     let lastReceipt: BlockchainTransactionReceipt | null = null;
 
-    this.log.log(
-      `waitForTransactionReceipt called with hashes: ${hash}, effective timeout: ${effectiveTimeout}`,
-    );
+    this.log.log(`waitForTransactionReceipt: ${hashes.length} hash(es), timeout: ${effectiveTimeout}ms`);
 
     for (const h of hashes) {
       const receipt = await this.waitForSingleReceipt(h, effectiveTimeout);
@@ -848,10 +803,7 @@ export class MidnightBalancingAdapter
       }
     }
 
-    return {
-      ...lastReceipt!,
-      hash, // Return the original comma-separated hash string so the batcher can split it
-    };
+    return { ...lastReceipt!, hash };
   }
 
   private async waitForSingleReceipt(
@@ -860,16 +812,10 @@ export class MidnightBalancingAdapter
   ): Promise<BlockchainTransactionReceipt> {
     if (hash.startsWith("dropped_")) {
       this.log.log(`Skipping receipt wait for dropped tx: ${hash}`);
-      return {
-        hash,
-        blockNumber: 0n,
-        status: 0,
-      };
+      return { hash, blockNumber: 0n, status: 0 };
     }
 
-    this.log.log(
-      `Waiting for receipt for ${hash} (timeout: ${timeout}ms)...`,
-    );
+    this.log.log(`Waiting for receipt for ${hash} (timeout: ${timeout}ms)...`);
     const startTime = Date.now();
     let normalizedHash = hash.toLowerCase().replace(/^0x/, "");
     if (normalizedHash.length > 64) {
@@ -888,47 +834,27 @@ export class MidnightBalancingAdapter
     let lastLogTime = startTime;
     while (Date.now() - startTime < timeout) {
       const now = Date.now();
-      if (now - lastLogTime > 10000) { // Log every 10 seconds
-        this.log.log(
-          `Still waiting for ${hash} (${
-            Math.round((now - startTime) / 1000)
-          }s elapsed)...`,
-        );
+      if (now - lastLogTime > 10000) {
+        this.log.log(`Still waiting for ${hash} (${Math.round((now - startTime) / 1000)}s elapsed)...`);
         lastLogTime = now;
       }
 
       try {
         const response = await fetch(this.config.indexer, {
           method: "POST",
-          body: JSON.stringify({
-            query,
-            variables: { hash: normalizedHash },
-          }),
+          body: JSON.stringify({ query, variables: { hash: normalizedHash } }),
           headers: { "Content-Type": "application/json" },
         });
-
         const body = await response.json();
 
-        // Log the raw response if it's not what we expect
-        if (!body || !body.data || !body.data.transactions) {
-          this.log.log(
-            `Unexpected indexer response for ${hash}: ${
-              JSON.stringify(body)
-            }`,
-          );
+        if (!body?.data?.transactions) {
+          this.log.log(`Unexpected indexer response for ${hash}: ${JSON.stringify(body)}`);
         }
 
         const tx = body.data?.transactions?.[0];
-
         if (tx?.block) {
-          this.log.log(
-            `Found receipt for ${hash} at block ${tx.block.height}`,
-          );
-          return {
-            hash,
-            blockNumber: BigInt(tx.block.height),
-            status: 1,
-          };
+          this.log.log(`Found receipt for ${hash} at block ${tx.block.height}`);
+          return { hash, blockNumber: BigInt(tx.block.height), status: 1 };
         }
       } catch (err) {
         this.log.log(`Receipt query error for ${hash}: ${err}`);
@@ -936,9 +862,7 @@ export class MidnightBalancingAdapter
       await new Promise((r) => setTimeout(r, 1000));
     }
 
-    this.log.log(
-      `Transaction confirmation timeout for ${hash} after ${timeout}ms`,
-    );
+    this.log.log(`Transaction confirmation timeout for ${hash} after ${timeout}ms`);
     throw new Error(`Transaction confirmation timeout: ${hash}`);
   }
 
@@ -947,11 +871,11 @@ export class MidnightBalancingAdapter
   // -----------------------------------------------------------------------
 
   estimateBatchFee(_data: DelegatedBatchData): bigint {
-    return 0n; // Dust fees are handled internally by the wallet SDK
+    return 0n;
   }
 
   verifySignature(_input: DefaultBatcherInput): boolean {
-    return true; // Signature lives inside the Midnight tx, validated by ledger
+    return true;
   }
 
   validateInput(input: DefaultBatcherInput): ValidationResult {
@@ -962,10 +886,7 @@ export class MidnightBalancingAdapter
       }
       return { valid: true };
     } catch (e) {
-      return {
-        valid: false,
-        error: e instanceof Error ? e.message : String(e),
-      };
+      return { valid: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
 

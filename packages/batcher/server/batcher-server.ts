@@ -9,6 +9,12 @@ import fastifySwagger, {
 import fastifySwaggerUi, {
   type FastifySwaggerUiOptions,
 } from "@fastify/swagger-ui";
+import {
+  type RateLimitKeyStrategy,
+  RateLimiter,
+  InMemoryRateLimitStore,
+} from "../core/rate-limiter.ts";
+import { DEFAULT_CONFIG_VALUES } from "../core/config.ts";
 
 // TypeBox schema for DefaultBatcherInput (adapted for new batcher input format)
 const BatcherInputSchema = Type.Object({
@@ -141,6 +147,28 @@ async function registerOpenApiDocumentation(
   });
 }
 
+function buildRateLimitKeys(
+  strategy: RateLimitKeyStrategy,
+  ip: string,
+  address?: string,
+): string[] {
+  switch (strategy) {
+    case "ip":
+      return [`ip:${ip}`];
+    case "ip-and-address": {
+      const keys = [`ip:${ip}`];
+      if (address) {
+        keys.push(`addr:${address}`);
+      }
+      return keys;
+    }
+    case "composite":
+      return [`composite:${ip}:${address ?? "unknown"}`];
+    default:
+      return [`ip:${ip}`];
+  }
+}
+
 /**
  * Start the batcher HTTP server.
  * @param batcher - Batcher instance.
@@ -155,6 +183,21 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
   await registerOpenApiDocumentation(server, port);
 
   await server.register(cors as any, { origin: "*" });
+
+  // Initialize rate limiter (enabled by default with defaults from config)
+  const { maxRequests, windowMs } = batcher.config.rateLimit ?? DEFAULT_CONFIG_VALUES.rateLimit;
+  const rateLimitStore = batcher.config.rateLimit?.store ?? new InMemoryRateLimitStore();
+  const rateLimiter = new RateLimiter(
+    rateLimitStore,
+    maxRequests,
+    windowMs,
+  );
+
+  // Periodic cleanup of expired rate limit entries to prevent unbounded memory growth
+  const cleanupInterval = setInterval(() => {
+    rateLimitStore.cleanup(Date.now(), windowMs);
+  }, Math.min(windowMs, 3600000)); // Clean up at least every hour
+  server.addHook("onClose", () => clearInterval(cleanupInterval));
 
   server.get("/health", {
     schema: {
@@ -253,6 +296,12 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
           transactionHash: Type.Optional(Type.String()),
           rollup: Type.Optional(Type.Number()),
         }),
+        429: Type.Object({
+          success: Type.Boolean(),
+          error: Type.String(),
+          message: Type.String(),
+          retryAfter: Type.Optional(Type.Number()),
+        }),
       },
     },
   }, async (
@@ -261,6 +310,24 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
   ) => {
     try {
       const body = request.body as any;
+
+      // Rate limiting check
+      const target = body.data?.target || batcher.getPublicConfig().defaultTarget;
+      const adapter = target ? batcher.getAdapter(target) : undefined;
+      const strategy = adapter?.getRateLimitKeyStrategy?.() ?? "ip";
+      const keys = buildRateLimitKeys(strategy, request.ip, body.data?.address);
+      const rateLimitResult = await rateLimiter.check(keys);
+
+      if (!rateLimitResult.allowed) {
+        reply.header("Retry-After", String(rateLimitResult.retryAfterSeconds ?? 60));
+        return reply.status(429).send({
+          success: false,
+          error: "Rate limit exceeded",
+          message: `Too many requests. Please retry after ${rateLimitResult.retryAfterSeconds} seconds.`,
+          retryAfter: rateLimitResult.retryAfterSeconds,
+        });
+      }
+
       const batcherInput = body.data;
       let confirmationLevel = body.confirmationLevel as any;
       if (!confirmationLevel) {

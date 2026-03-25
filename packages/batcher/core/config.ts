@@ -6,6 +6,7 @@
 import type { DefaultBatcherInput } from "./types.ts";
 import type { BlockchainAdapter } from "../adapters/adapter.ts";
 import type { ShutdownHooks } from "./shutdown-manager.ts";
+import type { RateLimitStore } from "./rate-limiter.ts";
 import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 
@@ -119,6 +120,21 @@ export type ConfirmationLevel =
   | "wait-receipt"
   | "wait-effectstream-processed";
 
+export interface RateLimitConfig {
+  /** Maximum number of requests per window. Default: 100 */
+  maxRequests: number;
+  /** Window size in milliseconds. Default: 60000 (1 minute) */
+  windowMs: number;
+  /** Custom store implementation (in-memory by default) */
+  store?: RateLimitStore;
+}
+
+const RateLimitConfigSchema = Type.Object({
+  maxRequests: Type.Number({ minimum: 1, default: 100 }),
+  windowMs: Type.Number({ minimum: 1000, default: 60000 }),
+  store: Type.Optional(Type.Any()),
+}, { additionalProperties: false });
+
 export interface BatcherConfig<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
   TAdapters extends Record<string, BlockchainAdapter<any>> = Record<
@@ -147,6 +163,9 @@ export interface BatcherConfig<
   maxRetries?: number;
   retryDelayMs?: number;
 
+  // Rate limiting for /send-input endpoint
+  rateLimit?: RateLimitConfig;
+
   // Shutdown configuration
   shutdown?: {
     hooks?: ShutdownHooks<TInput>;
@@ -169,6 +188,10 @@ export const DEFAULT_CONFIG_VALUES = {
   enableEventSystem: false,
   maxRetries: 3,
   retryDelayMs: 1000,
+  rateLimit: {
+    maxRequests: 1000,
+    windowMs: 86400000,
+  },
   shutdown: {
     timeoutMs: 30000,
     signalHandling: {
@@ -235,6 +258,8 @@ export const BatcherConfigSchema = Type.Object({
   enableEventSystem: Type.Optional(
     Type.Boolean({ default: DEFAULT_CONFIG_VALUES.enableEventSystem }),
   ),
+
+  rateLimit: Type.Optional(RateLimitConfigSchema),
 
   shutdown: Type.Optional(Type.Object({
     hooks: Type.Optional(Type.Object({
@@ -306,6 +331,16 @@ export function validateBatcherConfig<
         Object.keys(adapters).join(", ")
       }`,
     );
+  }
+
+  // Validate rate limit configuration
+  if (config.rateLimit) {
+    if (config.rateLimit.maxRequests < 1) {
+      throw new Error("rateLimit.maxRequests must be at least 1");
+    }
+    if (config.rateLimit.windowMs < 1000) {
+      throw new Error("rateLimit.windowMs must be at least 1000ms");
+    }
   }
 
   // Validate batching criteria configuration for each adapter
