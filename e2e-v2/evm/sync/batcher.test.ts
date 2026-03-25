@@ -174,4 +174,21 @@ export async function batcherSyncTest(db: Client, sharedState: SharedState) {
       return typeof counter === "number" && counter > 0;
     },
   );
+
+  // ── Test 4: Nonce tracking ───────────────────────────────────────────────
+  // The batcher wallet sent valid batched messages.
+  // Nonce entries are stored as "address-timestamp" in the nonce column.
+  await assertSQL<{ nonce: string; block_height: number }>(
+    "Batcher: nonces tracked for batched messages",
+    db,
+    `SELECT * FROM effectstream.nonces;`,
+    (res) => res.rows.length >= 1,
+    (res) => {
+      // At least one nonce entry should contain the batcher wallet address
+      const addr = account.address.toLowerCase();
+      return res.rows.some(
+        (r: any) => r.nonce.startsWith(addr)
+      );
+    },
+  );
 }

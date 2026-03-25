@@ -127,4 +127,50 @@ export async function rpcTest(apiPort: number) {
     const json = await rawRpc("eth_getUncleByBlockNumberAndIndex", ["0x1", "0x0"]);
     return json.result === null;
   });
+
+  // ── Methods ported from old e2e ──────────────────────────────────────────
+
+  await assert("RPC: eth_getTransactionByHash", async () => {
+    const json = await rawRpc("eth_getTransactionByHash", ["0x0000000000000000000000000000000000000000000000000000000000000000"]);
+    // Either null (tx not found) or an object - both are valid responses
+    return json.result === null || typeof json.result === "object";
+  });
+
+  await assert("RPC: eth_getTransactionReceipt", async () => {
+    const json = await rawRpc("eth_getTransactionReceipt", ["0x0000000000000000000000000000000000000000000000000000000000000000"]);
+    return json.result === null || typeof json.result === "object";
+  });
+
+  await assert("RPC: eth_getBlockTransactionCountByHash", async () => {
+    const block1 = await rpc.getBlock({ blockNumber: 1n });
+    if (!block1?.hash) return true;
+    const json = await rawRpc("eth_getBlockTransactionCountByHash", [block1.hash]);
+    return json.result === "0x0" || typeof json.result === "string";
+  });
+
+  await assert("RPC: eth_getTransactionByBlockHashAndIndex", async () => {
+    const block1 = await rpc.getBlock({ blockNumber: 1n });
+    if (!block1?.hash) return true;
+    const json = await rawRpc("eth_getTransactionByBlockHashAndIndex", [block1.hash, "0x0"]);
+    return json.result === null || typeof json.result === "object";
+  });
+
+  await assert("RPC: eth_getTransactionByBlockNumberAndIndex", async () => {
+    const json = await rawRpc("eth_getTransactionByBlockNumberAndIndex", ["0x1", "0x0"]);
+    return json.result === null || typeof json.result === "object";
+  });
+
+  await assert("RPC: eth_getUncleCountByBlockHash", async () => {
+    const block1 = await rpc.getBlock({ blockNumber: 1n });
+    if (!block1?.hash) return true;
+    const json = await rawRpc("eth_getUncleCountByBlockHash", [block1.hash]);
+    return json.result === "0x0";
+  });
+
+  await assert("RPC: eth_getUncleByBlockHashAndIndex", async () => {
+    const block1 = await rpc.getBlock({ blockNumber: 1n });
+    if (!block1?.hash) return true;
+    const json = await rawRpc("eth_getUncleByBlockHashAndIndex", [block1.hash, "0x0"]);
+    return json.result === null;
+  });
 }
