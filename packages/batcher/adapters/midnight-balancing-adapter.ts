@@ -98,6 +98,10 @@ interface DelegatedBatchData {
   selectedInputs: DefaultBatcherInput[];
   /** Each tx maps to the worker that will process it. */
   workerAssignments: { walletIdx: number; slotIdx: number }[];
+  /** Snapshot of reserved input keys, taken at buildBatchData time.
+   *  Used by releaseBatchResources to clear inFlightInputKeys even
+   *  when submitBatch has mutated selectedInputs (e.g. spliced out failures). */
+  reservedInputKeys: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -347,12 +351,14 @@ export class MidnightBalancingAdapter
     for (const wa of batchData.workerAssignments) {
       this.pool.releaseWorker(wa.walletIdx, wa.slotIdx);
     }
-    for (const input of batchData.selectedInputs) {
-      this.inFlightInputKeys.delete(this.getInputKey(input));
+    // Use the snapshot taken at buildBatchData time, not the possibly-mutated
+    // selectedInputs array (submitBatch splices out failed inputs).
+    for (const key of batchData.reservedInputKeys) {
+      this.inFlightInputKeys.delete(key);
     }
     this.log.log(
       `Released batch resources: ${batchData.workerAssignments.length} worker(s), ` +
-        `${batchData.selectedInputs.length} input(s)`,
+        `${batchData.reservedInputKeys.length} input(s)`,
     );
   }
 
@@ -471,15 +477,18 @@ export class MidnightBalancingAdapter
 
     if (txs.length === 0) return null;
 
-    // Mark inputs as in-flight (synchronous)
+    // Mark inputs as in-flight and snapshot the keys (synchronous)
+    const reservedInputKeys: string[] = [];
     for (const input of selectedInputs) {
-      this.inFlightInputKeys.add(this.getInputKey(input));
+      const key = this.getInputKey(input);
+      this.inFlightInputKeys.add(key);
+      reservedInputKeys.push(key);
     }
 
     this.log.log(
       `Built batch: ${txs.length} tx(s) assigned to workers [pool: ${this.pool.getStatus()}]`,
     );
-    return { selectedInputs, data: { txs, selectedInputs, workerAssignments } };
+    return { selectedInputs, data: { txs, selectedInputs, workerAssignments, reservedInputKeys } };
   }
 
   // -----------------------------------------------------------------------
