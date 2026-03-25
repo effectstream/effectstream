@@ -59,6 +59,7 @@ import type { NetworkId as WalletNetworkId } from "@midnight-ntwrk/wallet-sdk-ab
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { Buffer } from "node:buffer";
 import { AdapterLogger } from "./adapter-logger.ts";
+import { WorkerPool } from "./worker-pool.ts";
 
 export interface MidnightAdapterConfig {
   indexer: string;
@@ -110,7 +111,9 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private walletInitialized: boolean[];
   private contractsJoined: boolean[];
   private contractJoiningPromises: (Promise<void> | null)[];
-  private nextWalletIndex = 0;
+
+  /** Worker pool — 1 slot per wallet (callTx is atomic, no intra-wallet parallelism). */
+  private readonly pool: WorkerPool;
 
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
@@ -177,6 +180,10 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.lastFundingBalancesPerWallet = new Array(seeds.length).fill(null);
     this.contractsJoined = new Array(seeds.length).fill(false);
     this.contractJoiningPromises = new Array(seeds.length).fill(null);
+
+    // 1 worker per wallet — callTx is atomic (balance+prove+submit),
+    // so no intra-wallet parallelism is possible.
+    this.pool = new WorkerPool(new Array(seeds.length).fill(1));
 
     // Start async initialization but don't await
     this.initializationPromise = this.initialize();
@@ -536,22 +543,27 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   }
 
   /**
-   * Pick the next ready wallet via round-robin.
+   * Pick the next ready wallet via the worker pool's selection algorithm.
    * Returns the wallet index, or -1 if no wallet is ready.
+   * The worker is marked busy in the pool.
    */
-  private pickNextWallet(): number {
-    for (let attempt = 0; attempt < this.walletSeeds.length; attempt++) {
-      const candidate = (this.nextWalletIndex + attempt) % this.walletSeeds.length;
-      if (this.walletInitialized[candidate] && this.walletResults[candidate] !== null) {
-        this.nextWalletIndex = (candidate + 1) % this.walletSeeds.length;
-        return candidate;
-      }
+  private pickNextWallet(): { walletIdx: number; slotIdx: number } | null {
+    const worker = this.pool.acquireWorker();
+    if (!worker) return null;
+    // Verify the wallet is actually initialized (pool might have stale slots)
+    if (!this.walletInitialized[worker.walletIdx] || !this.walletResults[worker.walletIdx]) {
+      this.pool.releaseWorker(worker.walletIdx, worker.slotIdx);
+      return null;
     }
-    return -1;
+    return worker;
   }
 
   /**
-   * Submit a batch transaction to the Midnight contract
+   * Submit a batch transaction to the Midnight contract.
+   *
+   * A worker is acquired from the pool, used for the entire callTx
+   * (balance + prove + submit is atomic in the SDK), and released
+   * in the finally block.
    */
   async submitBatch(
     data: MidnightBatchPayload | null,
@@ -566,23 +578,25 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       throw new Error("Midnight adapter not initialized");
     }
 
-    // Pick next ready wallet
-    const walletIndex = this.pickNextWallet();
-    if (walletIndex === -1) {
+    const worker = this.pickNextWallet();
+    if (!worker) {
       throw new Error("No ready wallet available");
     }
-    const walletResult = this.walletResults[walletIndex]!;
-    const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
+    const walletIndex = worker.walletIdx;
 
-    // Ensure wallet has funds (lazy check)
-    await this.ensureWalletFunds(walletIndex);
+    try {
+      const walletResult = this.walletResults[walletIndex]!;
+      const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
 
-    // Join contract AFTER wallet is ready (lazy join)
-    await this.ensureContractJoined(walletIndex);
+      // Ensure wallet has funds (lazy check)
+      await this.ensureWalletFunds(walletIndex);
 
-    if (!this.deployedContracts[walletIndex]) {
-      throw new Error(`Failed to join contract for wallet ${label}`);
-    }
+      // Join contract AFTER wallet is ready (lazy join)
+      await this.ensureContractJoined(walletIndex);
+
+      if (!this.deployedContracts[walletIndex]) {
+        throw new Error(`Failed to join contract for wallet ${label}`);
+      }
 
     try {
 
@@ -712,6 +726,9 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           error instanceof Error ? error.message : String(error)
         }`,
       );
+    }
+    } finally {
+      this.pool.releaseWorker(worker.walletIdx, worker.slotIdx);
     }
   }
 
@@ -898,6 +915,24 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
    */
   isReady(): boolean {
     return this.isInitialized && this.walletInitialized.some(Boolean);
+  }
+
+  // -----------------------------------------------------------------------
+  // Concurrent capacity
+  // -----------------------------------------------------------------------
+
+  hasAvailableCapacity(): boolean {
+    if (!this.isReady()) return false;
+    return this.pool.hasAvailableWorker();
+  }
+
+  isFullyIdle(): boolean {
+    return this.pool.isFullyIdle();
+  }
+
+  releaseBatchResources(_batchData: MidnightBatchPayload | null): void {
+    // Worker is acquired in submitBatch and released in its finally block.
+    // Nothing to release from buildBatchData for this adapter.
   }
 
   /**

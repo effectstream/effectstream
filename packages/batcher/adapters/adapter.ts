@@ -162,4 +162,42 @@ export interface BlockchainAdapter<TOutput> {
    * - "composite": Single combined IP+address key
    */
   getRateLimitKeyStrategy?(): RateLimitKeyStrategy;
+
+  /**
+   * (Optional) Check if the adapter can accept more concurrent batch work.
+   *
+   * Adapters with multiple independent signers/wallets can process several
+   * batches in parallel. When this method is implemented and returns `true`,
+   * the batcher will spawn concurrent batch processing instead of blocking
+   * on a single batch at a time.
+   *
+   * Adapters that do NOT implement this method retain the default sequential
+   * (one-batch-at-a-time) behavior.
+   *
+   * @returns `true` if the adapter has at least one free processing slot.
+   */
+  hasAvailableCapacity?(): boolean;
+
+  /**
+   * (Optional) Returns `true` when NO workers are busy — all concurrent
+   * batches have completed. Used by the batcher to know when it is safe
+   * to clear the `processingAdapters` flag during shutdown tracking.
+   *
+   * Adapters that implement `hasAvailableCapacity` should also implement
+   * this. If omitted, the batcher falls back to `hasAvailableCapacity`.
+   */
+  isFullyIdle?(): boolean;
+
+  /**
+   * (Optional) Release resources reserved by `buildBatchData` when batch
+   * processing fails before `submitBatch` completes.
+   *
+   * When `hasAvailableCapacity` is implemented, `buildBatchData` may
+   * eagerly mark internal resources (e.g. wallets, in-flight inputs) as
+   * reserved. If the downstream pipeline throws before `submitBatch` can
+   * clean up, this method is called to release those resources.
+   *
+   * @param batchData - The same data object returned by `buildBatchData`.
+   */
+  releaseBatchResources?(batchData: TOutput): void;
 }

@@ -64,13 +64,28 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
 
     const { selectedInputs, data } = batchResult; // data is 'unknown'
 
-    await this.submitAndConfirmTransaction(
-      adapter,
-      target,
-      data,
-      selectedInputs as T[],
-      timeout,
-    );
+    try {
+      await this.submitAndConfirmTransaction(
+        adapter,
+        target,
+        data,
+        selectedInputs as T[],
+        timeout,
+      );
+    } catch (error) {
+      // If the adapter reserved resources in buildBatchData (concurrent mode),
+      // release them so the next batch can use those wallets/inputs.
+      if (typeof adapter.releaseBatchResources === "function") {
+        try {
+          adapter.releaseBatchResources(data);
+        } catch (releaseError) {
+          debugLog(
+            `[BatchProcessor] releaseBatchResources failed: ${releaseError}`,
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   private async submitAndConfirmTransaction(

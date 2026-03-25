@@ -731,10 +731,18 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       return false;
     }
 
-    // Skip targets that are currently being processed to prevent concurrent batches
-    // for the same target, which can cause UTXO/nonce conflicts.
-    if (this.shutdownState.processingAdapters.has(target)) {
-      return false;
+    const adapter = this.adapters[target];
+
+    // Adapters with per-wallet concurrency manage their own capacity.
+    // As long as at least one wallet is free we should attempt a batch.
+    if (adapter && typeof adapter.hasAvailableCapacity === "function") {
+      if (!adapter.hasAvailableCapacity()) return false;
+    } else {
+      // Skip targets that are currently being processed to prevent concurrent batches
+      // for the same target, which can cause UTXO/nonce conflicts.
+      if (this.shutdownState.processingAdapters.has(target)) {
+        return false;
+      }
     }
 
     const targetInputs = await this.storage.getInputsByTarget(
@@ -1120,7 +1128,13 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   }
 
   /**
-   * Process batches for specific targets
+   * Process batches for specific targets.
+   *
+   * For adapters with `hasAvailableCapacity`, batch processing is launched
+   * concurrently (via Promise, not awaited in the loop) so the polling
+   * interval can immediately start the next batch on a free wallet.
+   * Other adapters keep the original sequential behavior.
+   *
    * @param targetsToProcess - Array of target names to process batches for
    */
   async processBatchesForTargets(targetsToProcess: string[]): Promise<void> {
@@ -1130,17 +1144,19 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       return;
     }
 
+    const concurrentPromises: Promise<void>[] = [];
+
     for (const target of targetsToProcess) {
       const adapter = this.adapters[target];
       if (!adapter) {
-        console.error(`❌ No adapter available for target: ${target}`);
+        console.error(`No adapter available for target: ${target}`);
         continue;
       }
 
       // Get inputs for this specific target
       if (!this.defaultTarget) {
         console.error(
-          `❌ Cannot process batches: no default target configured.`,
+          `Cannot process batches: no default target configured.`,
         );
         continue;
       }
@@ -1153,35 +1169,77 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         continue;
       }
 
-      // Mark target as processing when it enters
-      this.shutdownState.processingAdapters.add(target);
-      try {
-        await this.emitStateTransition("batch:process:start", {
-          target,
-          inputCount: targetInputs.length,
-          time: Date.now(),
-        });
-        await this.batchProcessor.processBatchForTarget(
-          adapter,
-          target,
-          targetInputs,
-        );
-      } catch (error) {
-        console.error(
-          `❌ Error processing batch for target ${target}:`,
-          error,
-        );
-        await this.emitStateTransition("error", {
-          phase: "batch",
-          target,
-          error,
-          time: Date.now(),
-        });
-        // Continue processing other targets even if one fails
-      } finally {
-        // Remove target from processing when it finishes
-        this.shutdownState.processingAdapters.delete(target);
+      const supportsConcurrent =
+        typeof adapter.hasAvailableCapacity === "function";
+
+      if (supportsConcurrent) {
+        // Fire-and-forget: the adapter manages wallet/input reservations.
+        this.shutdownState.processingAdapters.add(target);
+        const promise = this.batchProcessor
+          .processBatchForTarget(adapter, target, targetInputs)
+          .then(() => {
+            this.lastProcessTime.set(target, Date.now());
+          })
+          .catch(async (error) => {
+            console.error(
+              `Error processing concurrent batch for target ${target}:`,
+              error,
+            );
+            await this.emitStateTransition("error", {
+              phase: "batch",
+              target,
+              error,
+              time: Date.now(),
+            });
+          })
+          .finally(() => {
+            const idle = typeof adapter.isFullyIdle === "function"
+              ? adapter.isFullyIdle()
+              : adapter.hasAvailableCapacity!();
+            if (idle) {
+              this.shutdownState.processingAdapters.delete(target);
+            }
+          });
+        concurrentPromises.push(promise);
+      } else {
+        // Sequential path (original)
+        this.shutdownState.processingAdapters.add(target);
+        try {
+          await this.emitStateTransition("batch:process:start", {
+            target,
+            inputCount: targetInputs.length,
+            time: Date.now(),
+          });
+          await this.batchProcessor.processBatchForTarget(
+            adapter,
+            target,
+            targetInputs,
+          );
+        } catch (error) {
+          console.error(
+            `Error processing batch for target ${target}:`,
+            error,
+          );
+          await this.emitStateTransition("error", {
+            phase: "batch",
+            target,
+            error,
+            time: Date.now(),
+          });
+          // Continue processing other targets even if one fails
+        } finally {
+          // Remove target from processing when it finishes
+          this.shutdownState.processingAdapters.delete(target);
+        }
       }
+    }
+
+    // Don't block the caller on concurrent batches — they run in the background.
+    // Errors are already handled per-promise above.
+    if (concurrentPromises.length > 0) {
+      Promise.all(concurrentPromises).catch(() => {
+        // Errors handled individually above
+      });
     }
   }
 
@@ -1216,10 +1274,18 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
   /**
    * An Effection operation that runs the polling loop for a specific adapter target.
    * Each adapter gets its own independent polling loop, eliminating cross-adapter blocking.
-   * 
+   *
+   * When the adapter implements `hasAvailableCapacity`, batch processing is
+   * spawned concurrently (fire-and-forget) so the poll loop can immediately
+   * start the next batch on a different wallet. Without this method the
+   * original sequential (one-batch-at-a-time) behavior is preserved.
+   *
    * @param target - The adapter target name to poll for
    */
   *runAdapterPollingLoop(target: string): Operation<void> {
+    const adapter = this.adapters[target];
+    const supportsConcurrent = typeof adapter.hasAvailableCapacity === "function";
+
     while (true) {
       yield* sleep(this.config.pollingIntervalMs);
 
@@ -1228,21 +1294,64 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       const isReady = yield* call(() => this.isTargetReadyForBatching(target));
       if (!isReady) continue;
 
-      this.shutdownState.processingAdapters.add(target);
+      const targetInputs = yield* call(() =>
+        this.storage.getInputsByTarget(target, this.defaultTarget!)
+      );
+      if (targetInputs.length === 0) continue;
 
-      try {
-        const targetInputs = yield* call(() =>
-          this.storage.getInputsByTarget(target, this.defaultTarget!)
-        );
+      if (supportsConcurrent) {
+        // ---- Concurrent path ----
+        // The adapter's buildBatchData handles wallet/input reservation
+        // internally, so we can spawn and immediately loop back to poll.
+        yield* this.emitStateTransition("batch:process:start", {
+          target,
+          inputCount: targetInputs.length,
+          time: Date.now(),
+        });
 
-        if (targetInputs.length > 0) {
+        this.shutdownState.processingAdapters.add(target);
+        const batcher = this; // capture for the spawned generator
+        yield* spawn(function* () {
+          try {
+            yield* call(() =>
+              batcher.batchProcessor.processBatchForTarget(
+                adapter,
+                target,
+                targetInputs
+              )
+            );
+            batcher.lastProcessTime.set(target, Date.now());
+          } catch (error) {
+            console.error(`Error processing concurrent batch for target ${target}:`, error);
+            yield* batcher.emitStateTransition("error", {
+              phase: "batch",
+              target,
+              error,
+              time: Date.now(),
+            });
+          } finally {
+            // Clear the processingAdapters flag only when ALL concurrent
+            // batches are done (fully idle). If another spawned batch is
+            // still running, keep the flag so shutdown waits.
+            const idle = typeof adapter.isFullyIdle === "function"
+              ? adapter.isFullyIdle()
+              : adapter.hasAvailableCapacity!();
+            if (idle) {
+              batcher.shutdownState.processingAdapters.delete(target);
+            }
+          }
+        });
+      } else {
+        // ---- Sequential path (original behavior) ----
+        this.shutdownState.processingAdapters.add(target);
+
+        try {
           yield* this.emitStateTransition("batch:process:start", {
             target,
             inputCount: targetInputs.length,
             time: Date.now(),
           });
 
-          const adapter = this.adapters[target];
           yield* call(() =>
             this.batchProcessor.processBatchForTarget(
               adapter,
@@ -1250,19 +1359,19 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
               targetInputs
             )
           );
-        }
 
-        this.lastProcessTime.set(target, Date.now());
-      } catch (error) {
-        console.error(`❌ Error processing batch for target ${target}:`, error);
-        yield* this.emitStateTransition("error", {
-          phase: "batch",
-          target,
-          error,
-          time: Date.now(),
-        });
-      } finally {
-        this.shutdownState.processingAdapters.delete(target);
+          this.lastProcessTime.set(target, Date.now());
+        } catch (error) {
+          console.error(`Error processing batch for target ${target}:`, error);
+          yield* this.emitStateTransition("error", {
+            phase: "batch",
+            target,
+            error,
+            time: Date.now(),
+          });
+        } finally {
+          this.shutdownState.processingAdapters.delete(target);
+        }
       }
     }
   }
