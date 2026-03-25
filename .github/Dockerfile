@@ -120,6 +120,7 @@ RUN /app/patch.sh
 ENV EFFECTSTREAM_STDOUT=true
 ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
 ENV CELESTIA_FORCE_NO_BBR=1
+ENV E2E_MAX_RETRIES=3
 
 # ── Run e2e-v2 tests ───────────────────────────────────────────────────────
 # Each suite manages its own infrastructure via orchestrator-v2 (start/stop).
