@@ -286,9 +286,13 @@ export class MidnightBalancingAdapter
       this.log.log(`Wallet ${label}: dust coins: ${JSON.stringify(dustState.availableCoins, bigintSerializer)}`);
       this.log.log(`Wallet ${label}: available dust UTXOs: ${this.availableDustUtxoCounts[walletIndex] ?? "unknown"}`);
 
-      // Update worker pool: 1 worker per UTXO (2 UTXOs per worker if padding)
+      // Update worker pool: 1 worker per UTXO (2 UTXOs per worker if padding).
+      // When shieldedPaddingTokenID is configured, per-input overrides can
+      // enable padding even if the config default is off, so budget for the
+      // worst case (2 UTXOs/slot) to avoid over-committing.
       const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
-      const costPerTx = (this.config.addShieldedPadding ?? false) ? 2 : 1;
+      const paddingPossible = !!(this.config.addShieldedPadding || this.config.shieldedPaddingTokenID);
+      const costPerTx = paddingPossible ? 2 : 1;
       const slots = Math.floor(utxoCount / costPerTx);
       this.pool.setSlots(walletIndex, slots);
       this.log.log(`Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx)`);
