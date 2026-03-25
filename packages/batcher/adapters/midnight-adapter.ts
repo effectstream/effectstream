@@ -74,6 +74,9 @@ export interface MidnightAdapterConfig {
   walletFundingTimeoutSeconds?: number; // Defaults to 180 seconds
   walletNetworkId?: WalletNetworkId.NetworkId; // Optional override for modular wallet network id
   walletResult?: WalletResult | Promise<WalletResult>;
+  // Maximum number of worker slots (concurrent txs) per wallet. Defaults to 1.
+  // Regardless of how many dust UTXOs a wallet has, at most this many will be used in parallel.
+  maxSlotsPerWallet?: number;
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
@@ -181,9 +184,10 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.contractsJoined = new Array(seeds.length).fill(false);
     this.contractJoiningPromises = new Array(seeds.length).fill(null);
 
-    // 1 worker per wallet — callTx is atomic (balance+prove+submit),
-    // so no intra-wallet parallelism is possible.
-    this.pool = new WorkerPool(new Array(seeds.length).fill(1));
+    // Default 1 worker per wallet — callTx is atomic (balance+prove+submit),
+    // so intra-wallet parallelism is limited.
+    const slotsPerWallet = config.maxSlotsPerWallet ?? 1;
+    this.pool = new WorkerPool(new Array(seeds.length).fill(slotsPerWallet));
 
     // Start async initialization but don't await
     this.initializationPromise = this.initialize();

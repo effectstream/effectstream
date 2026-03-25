@@ -71,6 +71,9 @@ export interface MidnightBalancingAdapterConfig {
   // Token type ID used for the shielded self-transfer padding. Required when addShieldedPadding is true.
   // **NOTE for development:** "0000000000000000000000000000000000000000000000000000000000000000" can be used for undeployed + genesis wallet.
   shieldedPaddingTokenID?: string;
+  // Maximum number of worker slots (concurrent txs) per wallet. Defaults to 1.
+  // Regardless of how many dust UTXOs a wallet has, at most this many will be used in parallel.
+  maxSlotsPerWallet?: number;
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
@@ -293,9 +296,10 @@ export class MidnightBalancingAdapter
       const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
       const paddingPossible = !!(this.config.addShieldedPadding || this.config.shieldedPaddingTokenID);
       const costPerTx = paddingPossible ? 2 : 1;
-      const slots = Math.floor(utxoCount / costPerTx);
+      const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
+      const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
       this.pool.setSlots(walletIndex, slots);
-      this.log.log(`Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx)`);
+      this.log.log(`Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`);
     } catch (e) {
       this.log.warn(`Wallet ${label}: could not read dust UTXO count:`, e);
     }
