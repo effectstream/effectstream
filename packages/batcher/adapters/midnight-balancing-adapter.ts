@@ -37,16 +37,19 @@ import type {
   PublicDataProvider,
   UnboundTransaction,
 } from "@midnight-ntwrk/midnight-js-types";
-import type { BalancingRecipe, ShieldedTokenTransfer } from "@midnight-ntwrk/wallet-sdk-facade";
+import type {
+  BalancingRecipe,
+  ShieldedTokenTransfer,
+} from "@midnight-ntwrk/wallet-sdk-facade";
 import {
   buildWalletFacade,
+  getInitialDustState,
+  getInitialShieldedState,
   type NetworkUrls,
   registerNightForDust,
   syncAndWaitForFunds,
   waitForDustFunds,
   type WalletResult,
-  getInitialShieldedState,
-  getInitialDustState,
 } from "@effectstream/midnight-contracts";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
@@ -148,9 +151,12 @@ export class MidnightBalancingAdapter
     const seeds = Array.isArray(walletSeed) ? walletSeed : [walletSeed];
     this.walletSeeds = seeds;
     this.config = config;
-    this.walletNetworkId = config.walletNetworkId ?? ("undeployed" as WalletNetworkId.NetworkId);
-    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
-    this.syncProtocolName = config.syncProtocolName ?? `Midnight-Balancing (${this.walletNetworkId})`;
+    this.walletNetworkId = config.walletNetworkId ??
+      ("undeployed" as WalletNetworkId.NetworkId);
+    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) *
+      1000;
+    this.syncProtocolName = config.syncProtocolName ??
+      `Midnight-Balancing (${this.walletNetworkId})`;
 
     this.walletResults = new Array(seeds.length).fill(null);
     this.walletAddresses = new Array(seeds.length).fill(null);
@@ -182,7 +188,9 @@ export class MidnightBalancingAdapter
 
   private async initialize(): Promise<void> {
     try {
-      this.log.log(`Initializing Midnight Balancing Adapter (${this.walletSeeds.length} wallet(s))...`);
+      this.log.log(
+        `Initializing Midnight Balancing Adapter (${this.walletSeeds.length} wallet(s))...`,
+      );
       setNetworkId(this.walletNetworkId as any);
 
       this.publicDataProvider = indexerPublicDataProvider(
@@ -270,9 +278,13 @@ export class MidnightBalancingAdapter
 
     this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
     if (dustBalance === 0n) {
-      this.log.warn(`Wallet ${label}: WARNING: 0 dust balance, submissions will fail`);
+      this.log.warn(
+        `Wallet ${label}: WARNING: 0 dust balance, submissions will fail`,
+      );
     } else if (this.config.addShieldedPadding) {
-      this.log.log(`Wallet ${label}: shielded padding enabled, each tx will consume 2 dust UTXOs`);
+      this.log.log(
+        `Wallet ${label}: shielded padding enabled, each tx will consume 2 dust UTXOs`,
+      );
     }
 
     try {
@@ -282,28 +294,40 @@ export class MidnightBalancingAdapter
       );
 
       const bigintSerializer = (_: string, value: unknown) => {
-        if (typeof value === 'bigint') {
+        if (typeof value === "bigint") {
           return value.toString();
         }
         return value;
       };
 
       // deno-lint-ignore no-explicit-any
-      this.availableDustUtxoCounts[walletIndex] = dustState.availableCoins?.length ?? null;
-      this.log.log(`Wallet ${label}: dust coins: ${JSON.stringify(dustState.availableCoins, bigintSerializer)}`);
-      this.log.log(`Wallet ${label}: available dust UTXOs: ${this.availableDustUtxoCounts[walletIndex] ?? "unknown"}`);
+      this.availableDustUtxoCounts[walletIndex] =
+        dustState.availableCoins?.length ?? null;
+      this.log.log(
+        `Wallet ${label}: dust coins: ${
+          JSON.stringify(dustState.availableCoins, bigintSerializer)
+        }`,
+      );
+      this.log.log(
+        `Wallet ${label}: available dust UTXOs: ${
+          this.availableDustUtxoCounts[walletIndex] ?? "unknown"
+        }`,
+      );
 
       // Update worker pool: 1 worker per UTXO (2 UTXOs per worker if padding).
       // When shieldedPaddingTokenID is configured, per-input overrides can
       // enable padding even if the config default is off, so budget for the
       // worst case (2 UTXOs/slot) to avoid over-committing.
       const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
-      const paddingPossible = !!(this.config.addShieldedPadding || this.config.shieldedPaddingTokenID);
+      const paddingPossible = !!(this.config.addShieldedPadding ||
+        this.config.shieldedPaddingTokenID);
       const costPerTx = paddingPossible ? 2 : 1;
       const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
       const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
       this.pool.setSlots(walletIndex, slots);
-      this.log.log(`Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`);
+      this.log.log(
+        `Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
+      );
     } catch (e) {
       this.log.warn(`Wallet ${label}: could not read dust UTXO count:`, e);
     }
@@ -398,37 +422,69 @@ export class MidnightBalancingAdapter
   }
 
   private deserializeTxEntry(input: DefaultBatcherInput): DelegatedTxEntry {
-    const { hex, txStage, addShieldedPadding } = this.parseHexInput(input.input);
+    const { hex, txStage, addShieldedPadding } = this.parseHexInput(
+      input.input,
+    );
     const bytes = fromHex(hex);
 
     if (txStage === "unbound") {
       return {
-        tx: LedgerV6Transaction.deserialize("signature" as const, "proof" as const, "pre-binding" as const, bytes) as UnboundTransaction,
-        txStage: "unbound", addShieldedPadding,
+        tx: LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "proof" as const,
+          "pre-binding" as const,
+          bytes,
+        ) as UnboundTransaction,
+        txStage: "unbound",
+        addShieldedPadding,
       };
     }
     if (txStage === "finalized") {
       return {
-        tx: LedgerV6Transaction.deserialize("signature" as const, "proof" as const, "binding" as const, bytes) as FinalizedTransaction,
-        txStage: "finalized", addShieldedPadding,
+        tx: LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "proof" as const,
+          "binding" as const,
+          bytes,
+        ) as FinalizedTransaction,
+        txStage: "finalized",
+        addShieldedPadding,
       };
     }
     if (txStage === "unproven") {
       return {
-        tx: LedgerV6Transaction.deserialize("signature" as const, "pre-proof" as const, "pre-binding" as const, bytes) as UnprovenTransaction,
-        txStage: "unproven", addShieldedPadding,
+        tx: LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "pre-proof" as const,
+          "pre-binding" as const,
+          bytes,
+        ) as UnprovenTransaction,
+        txStage: "unproven",
+        addShieldedPadding,
       };
     }
     // Auto-detect: try unbound first, fall back to unproven
     try {
       return {
-        tx: LedgerV6Transaction.deserialize("signature" as const, "proof" as const, "pre-binding" as const, bytes) as UnboundTransaction,
-        txStage: "unbound", addShieldedPadding,
+        tx: LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "proof" as const,
+          "pre-binding" as const,
+          bytes,
+        ) as UnboundTransaction,
+        txStage: "unbound",
+        addShieldedPadding,
       };
     } catch {
       return {
-        tx: LedgerV6Transaction.deserialize("signature" as const, "pre-proof" as const, "pre-binding" as const, bytes) as UnprovenTransaction,
-        txStage: "unproven", addShieldedPadding,
+        tx: LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "pre-proof" as const,
+          "pre-binding" as const,
+          bytes,
+        ) as UnprovenTransaction,
+        txStage: "unproven",
+        addShieldedPadding,
       };
     }
   }
@@ -472,7 +528,10 @@ export class MidnightBalancingAdapter
 
       txs.push(entry);
       selectedInputs.push(input);
-      workerAssignments.push({ walletIdx: worker.walletIdx, slotIdx: worker.slotIdx });
+      workerAssignments.push({
+        walletIdx: worker.walletIdx,
+        slotIdx: worker.slotIdx,
+      });
     }
 
     if (txs.length === 0) return null;
@@ -488,7 +547,10 @@ export class MidnightBalancingAdapter
     this.log.log(
       `Built batch: ${txs.length} tx(s) assigned to workers [pool: ${this.pool.getStatus()}]`,
     );
-    return { selectedInputs, data: { txs, selectedInputs, workerAssignments, reservedInputKeys } };
+    return {
+      selectedInputs,
+      data: { txs, selectedInputs, workerAssignments, reservedInputKeys },
+    };
   }
 
   // -----------------------------------------------------------------------
@@ -520,12 +582,16 @@ export class MidnightBalancingAdapter
 
     if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
       try {
-        const paddedTx = await this.applyShieldedPadding(entry.tx as UnprovenTransaction, true, walletIndex);
+        const paddedTx = await this.applyShieldedPadding(
+          entry.tx as UnprovenTransaction,
+          true,
+          walletIndex,
+        );
         entry = { tx: paddedTx, txStage: "unproven" };
       } catch (e) {
         this.log.warn(
           "Shielded padding unavailable, submitting without padding. " +
-          `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
+            `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
         );
       }
     }
@@ -534,11 +600,19 @@ export class MidnightBalancingAdapter
     switch (entry.txStage) {
       case "unbound":
         recipe = await walletResult.wallet.balanceUnboundTransaction(
-          entry.tx as UnboundTransaction, keys, opts,
+          entry.tx as UnboundTransaction,
+          keys,
+          opts,
         );
-        if (this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction) {
+        if (
+          this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction
+        ) {
           try {
-            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true, walletIndex);
+            recipe.balancingTransaction = await this.applyShieldedPadding(
+              recipe.balancingTransaction,
+              true,
+              walletIndex,
+            );
           } catch (e) {
             this.log.warn("Shielded padding unavailable: " + e);
           }
@@ -546,11 +620,19 @@ export class MidnightBalancingAdapter
         break;
       case "finalized":
         recipe = await walletResult.wallet.balanceFinalizedTransaction(
-          entry.tx as FinalizedTransaction, keys, opts,
+          entry.tx as FinalizedTransaction,
+          keys,
+          opts,
         );
-        if (this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction) {
+        if (
+          this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction
+        ) {
           try {
-            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true, walletIndex);
+            recipe.balancingTransaction = await this.applyShieldedPadding(
+              recipe.balancingTransaction,
+              true,
+              walletIndex,
+            );
           } catch (e) {
             this.log.warn("Shielded padding unavailable: " + e);
           }
@@ -558,7 +640,9 @@ export class MidnightBalancingAdapter
         break;
       case "unproven":
         recipe = await walletResult.wallet.balanceUnprovenTransaction(
-          entry.tx as UnprovenTransaction, keys, opts,
+          entry.tx as UnprovenTransaction,
+          keys,
+          opts,
         );
         break;
     }
@@ -578,10 +662,14 @@ export class MidnightBalancingAdapter
     const keys = walletResult.walletZswapSecretKeys;
 
     // deno-lint-ignore no-explicit-any
-    const initialState = await getInitialShieldedState((walletResult.wallet as any).shielded);
+    const initialState = await getInitialShieldedState(
+      (walletResult.wallet as any).shielded,
+    );
     const receiverAddress = initialState.address;
     if (!this.config.shieldedPaddingTokenID) {
-      throw new Error("shieldedPaddingTokenID must be set when addShieldedPadding is true");
+      throw new Error(
+        "shieldedPaddingTokenID must be set when addShieldedPadding is true",
+      );
     }
     const type = this.config.shieldedPaddingTokenID;
     const outputs: ShieldedTokenTransfer[] = [
@@ -592,7 +680,11 @@ export class MidnightBalancingAdapter
       dustSecretKey: walletResult.walletDustSecretKey,
     };
     const opt = { ttl: createTtl(), payFees };
-    const paddingRecipe = await walletResult.wallet.transferTransaction(outputs, conf, opt);
+    const paddingRecipe = await walletResult.wallet.transferTransaction(
+      outputs,
+      conf,
+      opt,
+    );
     return balancingTx.merge(paddingRecipe.transaction);
   }
 
@@ -618,7 +710,9 @@ export class MidnightBalancingAdapter
     const walletResult = this.walletResults[walletIdx]!;
 
     // --- Phase 1: Balance (under wallet lock) ---
-    this.log.log(`[${txLabel}] Acquiring balance lock for wallet ${walletIdx + 1}...`);
+    this.log.log(
+      `[${txLabel}] Acquiring balance lock for wallet ${walletIdx + 1}...`,
+    );
     const releaseBalanceLock = await this.pool.acquireBalanceLock(walletIdx);
     let recipe: BalancingRecipe;
     try {
@@ -626,14 +720,17 @@ export class MidnightBalancingAdapter
       recipe = await this.balanceEntry(entry, walletIdx);
     } finally {
       releaseBalanceLock();
-      this.log.log(`[${txLabel}] Balance lock released for wallet ${walletIdx + 1}`);
+      this.log.log(
+        `[${txLabel}] Balance lock released for wallet ${walletIdx + 1}`,
+      );
     }
 
     // --- Phase 2: Sign + Finalize (no lock — concurrent safe) ---
     this.log.log(`[${txLabel}] Signing and proving...`);
     const signedRecipe = await walletResult.wallet.signRecipe(
       recipe,
-      (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
+      (payload: Uint8Array) =>
+        walletResult.unshieldedKeystore.signData(payload),
     );
     const finalized = await walletResult.wallet.finalizeRecipe(signedRecipe);
 
@@ -645,27 +742,22 @@ export class MidnightBalancingAdapter
       const data = await Promise.race([
         walletResult.wallet.submitTransaction(finalized),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("submitTransaction timed out")), SUBMIT_TX_TIMEOUT_MS)
+          setTimeout(
+            () => reject(new Error("submitTransaction timed out")),
+            SUBMIT_TX_TIMEOUT_MS,
+          )
         ),
       ]);
-      this.log.log(`[${txLabel}] Submitted successfully: ${JSON.stringify(data)}`);
+      this.log.log(
+        `[${txLabel}] Submitted successfully: ${JSON.stringify(data)}`,
+      );
     } catch (error) {
-      const errMsg = (error instanceof Error ? error.message : String(error)).trim();
+      const errMsg = (error instanceof Error ? error.message : String(error))
+        .trim();
       if (errMsg.includes("IntentAlreadyExists")) {
-        this.log.log(`[${txLabel}] IntentAlreadyExists — already in mempool, treating as success`);
-      } else if (
-        errMsg === "Transaction submission error: Transaction got dropped, the mempool likely is full and network congested" ||
-        errMsg === "Transaction got dropped, the mempool likely is full and network congested"
-      ) {
-        this.log.log(`[${txLabel}] Dropped (mempool full), returning dropped marker`);
-        return "dropped_" + txHash;
-      } else if (
-        errMsg === "Transaction submission error: Transaction submission failed" ||
-        errMsg === "Transaction submission failed" ||
-        errMsg.includes("Invalid Transaction")
-      ) {
-        this.log.log(`[${txLabel}] Unprocessable tx, returning dropped marker`);
-        return "dropped_" + txHash;
+        this.log.log(
+          `[${txLabel}] IntentAlreadyExists — already in mempool, treating as success`,
+        );
       } else {
         throw error;
       }
@@ -745,12 +837,16 @@ export class MidnightBalancingAdapter
       } else {
         errors.push({
           index: i,
-          error: r.reason instanceof Error ? r.reason : new Error(String(r.reason)),
+          error: r.reason instanceof Error
+            ? r.reason
+            : new Error(String(r.reason)),
         });
       }
     }
 
-    this.log.log(`Pipeline results: ${hashes.length} succeeded, ${errors.length} failed`);
+    this.log.log(
+      `Pipeline results: ${hashes.length} succeeded, ${errors.length} failed`,
+    );
 
     if (errors.length > 0) {
       for (const { index, error } of errors) {
@@ -770,9 +866,13 @@ export class MidnightBalancingAdapter
 
       if (firstError.includes("No dust tokens found in the wallet state")) {
         this.log.log("Wallet entered bad state. Triggering reconnect...");
-        const affectedWallets = new Set(workerAssignments.map((wa) => wa.walletIdx));
+        const affectedWallets = new Set(
+          workerAssignments.map((wa) => wa.walletIdx),
+        );
         for (const wi of affectedWallets) {
-          try { await this.reconnectWallet(wi); } catch (e) {
+          try {
+            await this.reconnectWallet(wi);
+          } catch (e) {
             this.log.log(`Reconnect wallet ${wi + 1} failed: ${e}`);
           }
         }
@@ -804,13 +904,13 @@ export class MidnightBalancingAdapter
     const hashes = hash.split(",");
     let lastReceipt: BlockchainTransactionReceipt | null = null;
 
-    this.log.log(`waitForTransactionReceipt: ${hashes.length} hash(es), timeout: ${effectiveTimeout}ms`);
+    this.log.log(
+      `waitForTransactionReceipt: ${hashes.length} hash(es), timeout: ${effectiveTimeout}ms`,
+    );
 
     for (const h of hashes) {
       const receipt = await this.waitForSingleReceipt(h, effectiveTimeout);
-      if (!h.startsWith("dropped_") || !lastReceipt) {
-        lastReceipt = receipt;
-      }
+      lastReceipt = receipt;
     }
 
     return { ...lastReceipt!, hash };
@@ -820,11 +920,6 @@ export class MidnightBalancingAdapter
     hash: string,
     timeout: number,
   ): Promise<BlockchainTransactionReceipt> {
-    if (hash.startsWith("dropped_")) {
-      this.log.log(`Skipping receipt wait for dropped tx: ${hash}`);
-      return { hash, blockNumber: 0n, status: 0 };
-    }
-
     this.log.log(`Waiting for receipt for ${hash} (timeout: ${timeout}ms)...`);
     const startTime = Date.now();
     let normalizedHash = hash.toLowerCase().replace(/^0x/, "");
@@ -845,7 +940,11 @@ export class MidnightBalancingAdapter
     while (Date.now() - startTime < timeout) {
       const now = Date.now();
       if (now - lastLogTime > 10000) {
-        this.log.log(`Still waiting for ${hash} (${Math.round((now - startTime) / 1000)}s elapsed)...`);
+        this.log.log(
+          `Still waiting for ${hash} (${
+            Math.round((now - startTime) / 1000)
+          }s elapsed)...`,
+        );
         lastLogTime = now;
       }
 
@@ -858,7 +957,9 @@ export class MidnightBalancingAdapter
         const body = await response.json();
 
         if (!body?.data?.transactions) {
-          this.log.log(`Unexpected indexer response for ${hash}: ${JSON.stringify(body)}`);
+          this.log.log(
+            `Unexpected indexer response for ${hash}: ${JSON.stringify(body)}`,
+          );
         }
 
         const tx = body.data?.transactions?.[0];
@@ -872,7 +973,9 @@ export class MidnightBalancingAdapter
       await new Promise((r) => setTimeout(r, 1000));
     }
 
-    this.log.log(`Transaction confirmation timeout for ${hash} after ${timeout}ms`);
+    this.log.log(
+      `Transaction confirmation timeout for ${hash} after ${timeout}ms`,
+    );
     throw new Error(`Transaction confirmation timeout: ${hash}`);
   }
 
@@ -896,7 +999,10 @@ export class MidnightBalancingAdapter
       }
       return { valid: true };
     } catch (e) {
-      return { valid: false, error: e instanceof Error ? e.message : String(e) };
+      return {
+        valid: false,
+        error: e instanceof Error ? e.message : String(e),
+      };
     }
   }
 

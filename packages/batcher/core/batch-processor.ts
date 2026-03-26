@@ -27,7 +27,11 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       emitStateTransition: (prefix: string, payload: any) => Promise<void>;
       storage: {
         removeProcessedInputs: (inputs: T[], target: string) => Promise<void>;
-        incrementRetryCount: (inputs: T[], target: string, maxRetries: number) => Promise<void>;
+        incrementRetryCount: (
+          inputs: T[],
+          target: string,
+          maxRetries: number,
+        ) => Promise<void>;
       };
       submissionCallbacks: Map<
         string,
@@ -85,91 +89,93 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
     );
 
     try {
-    const estimatedFee = await adapter.estimateBatchFee(data);
+      const estimatedFee = await adapter.estimateBatchFee(data);
 
-    this.batcher.emitStateTransition("batch:fee-estimate", {
-      target,
-      estimatedFee,
-      time: Date.now(),
-    });
+      this.batcher.emitStateTransition("batch:fee-estimate", {
+        target,
+        estimatedFee,
+        time: Date.now(),
+      });
 
-    debugLog(
-      `[BatchProcessor] Calling adapter.submitBatch for target ${target}`,
-    );
-    // Snapshot before submitBatch: the adapter may splice elements from the
-    // same array (batchData.selectedInputs === selectedInputs) before throwing,
-    // so we need the original list to know which inputs actually failed.
-    const inputsSnapshot = [...selectedInputs];
-
-    let hash: string;
-    try {
-      hash = await adapter.submitBatch(data, estimatedFee);
-    } catch (error) {
-      // All inputs failed — increment retry counts; storage drops those that hit the limit
       debugLog(
-        `[BatchProcessor] submitBatch threw for target ${target}, incrementing retry counts for ${inputsSnapshot.length} inputs`,
+        `[BatchProcessor] Calling adapter.submitBatch for target ${target}`,
       );
-      await this.batcher.storage
-        .incrementRetryCount(inputsSnapshot, target, 3)
-        .catch((e) =>
-          debugLog(`[BatchProcessor] Failed to increment retry counts: ${e}`)
-        );
-      throw error;
-    }
-    debugLog(`[BatchProcessor] adapter.submitBatch returned hash: ${hash}`);
+      // Snapshot before submitBatch: the adapter may splice elements from the
+      // same array (batchData.selectedInputs === selectedInputs) before throwing,
+      // so we need the original list to know which inputs actually failed.
+      const inputsSnapshot = [...selectedInputs];
 
-    this.batcher.emitStateTransition("batch:submit", {
-      target,
-      estimatedFee,
-      txHash: hash,
-      time: Date.now(),
-    });
-
-    // Check if the adapter mutated selectedInputs in the data object
-    // This is a pattern used by some adapters (like midnight-balancing) to handle partial failures
-    let finalSelectedInputs = selectedInputs;
-    if (
-      data && typeof data === "object" && "selectedInputs" in data &&
-      Array.isArray((data as any).selectedInputs)
-    ) {
-      finalSelectedInputs = (data as any).selectedInputs as T[];
-      debugLog(
-        `[BatchProcessor] Adapter mutated selectedInputs. New length: ${finalSelectedInputs.length}`,
-      );
-      // Diff against the snapshot (not the mutated selectedInputs) to find failed inputs
-      const finalSet = new Set(finalSelectedInputs);
-      const failedInputs = inputsSnapshot.filter((i) => !finalSet.has(i));
-      if (failedInputs.length > 0) {
+      let hash: string;
+      try {
+        hash = await adapter.submitBatch(data, estimatedFee);
+      } catch (error) {
+        // All inputs failed — increment retry counts; storage drops those that hit the limit
         debugLog(
-          `[BatchProcessor] Incrementing retry count for ${failedInputs.length} failed inputs`,
+          `[BatchProcessor] submitBatch threw for target ${target}, incrementing retry counts for ${inputsSnapshot.length} inputs`,
         );
         await this.batcher.storage
-          .incrementRetryCount(failedInputs, target, 3)
+          .incrementRetryCount(inputsSnapshot, target, 3)
           .catch((e) =>
             debugLog(`[BatchProcessor] Failed to increment retry counts: ${e}`)
           );
+        throw error;
       }
-    }
+      debugLog(`[BatchProcessor] adapter.submitBatch returned hash: ${hash}`);
 
-    debugLog(
-      `[BatchProcessor] Submitting ${finalSelectedInputs.length} inputs for target ${target} with hash ${hash}`,
-    );
+      this.batcher.emitStateTransition("batch:submit", {
+        target,
+        estimatedFee,
+        txHash: hash,
+        time: Date.now(),
+      });
 
-    // Wait for confirmation and EffectStream processing
-    // Use the adapter's specific timeout if available, otherwise fallback to the default
-    const adapterTimeout = (adapter as any).config?.receiptTimeoutMs || timeout;
+      // Check if the adapter mutated selectedInputs in the data object
+      // This is a pattern used by some adapters (like midnight-balancing) to handle partial failures
+      let finalSelectedInputs = selectedInputs;
+      if (
+        data && typeof data === "object" && "selectedInputs" in data &&
+        Array.isArray((data as any).selectedInputs)
+      ) {
+        finalSelectedInputs = (data as any).selectedInputs as T[];
+        debugLog(
+          `[BatchProcessor] Adapter mutated selectedInputs. New length: ${finalSelectedInputs.length}`,
+        );
+        // Diff against the snapshot (not the mutated selectedInputs) to find failed inputs
+        const finalSet = new Set(finalSelectedInputs);
+        const failedInputs = inputsSnapshot.filter((i) => !finalSet.has(i));
+        if (failedInputs.length > 0) {
+          debugLog(
+            `[BatchProcessor] Incrementing retry count for ${failedInputs.length} failed inputs`,
+          );
+          await this.batcher.storage
+            .incrementRetryCount(failedInputs, target, 3)
+            .catch((e) =>
+              debugLog(
+                `[BatchProcessor] Failed to increment retry counts: ${e}`,
+              )
+            );
+        }
+      }
 
-    debugLog(
-      `[BatchProcessor] Calling handleTransactionConfirmation for hash ${hash} with timeout ${adapterTimeout}`,
-    );
-    await this.handleTransactionConfirmation(
-      adapter,
-      target,
-      hash,
-      finalSelectedInputs,
-      adapterTimeout,
-    );
+      debugLog(
+        `[BatchProcessor] Submitting ${finalSelectedInputs.length} inputs for target ${target} with hash ${hash}`,
+      );
 
+      // Wait for confirmation and EffectStream processing
+      // Use the adapter's specific timeout if available, otherwise fallback to the default
+      const adapterTimeout = (adapter as any).config?.receiptTimeoutMs ||
+        timeout;
+
+      debugLog(
+        `[BatchProcessor] Calling handleTransactionConfirmation for hash ${hash} with timeout ${adapterTimeout}`,
+      );
+      await this.handleTransactionConfirmation(
+        adapter,
+        target,
+        hash,
+        finalSelectedInputs,
+        adapterTimeout,
+      );
     } finally {
       // Release all batch resources (workers + input reservations).
       // This runs AFTER all storage operations (removeProcessedInputs on
@@ -292,9 +298,7 @@ export class BatchProcessor<T extends DefaultBatcherInput> {
       if (callbacks) {
         const inputHash = isMultiHash ? hashes[i] : receipt.hash;
 
-        if (inputHash.startsWith("dropped_")) {
-          callbacks.reject(new Error(`Transaction dropped: ${inputHash}`));
-        } else if (receipt.status === 0 && !isMultiHash) {
+        if (receipt.status === 0 && !isMultiHash) {
           callbacks.reject(
             new Error(`Transaction failed on-chain: ${inputHash}`),
           );
