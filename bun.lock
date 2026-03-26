@@ -800,7 +800,7 @@
         "@effectstream/event-client": "workspace:*",
         "@effectstream/utils": "workspace:*",
         "@metamask/providers": "^22.1.0",
-        "@midnight-ntwrk/dapp-connector-api": "4.0.0",
+        "@midnight-ntwrk/dapp-connector-api": "4.0.1",
         "@perawallet/connect": "^1.4.2",
         "@polkadot/api": "15.10.2",
         "@polkadot/extension-dapp": "^0.58.10",
@@ -954,6 +954,9 @@
         "viem": "2.37.3",
       },
     },
+  },
+  "overrides": {
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
   },
   "packages": {
     "@adraffy/ens-normalize": ["@adraffy/ens-normalize@1.10.1", "", {}, "sha512-96Z2IP3mYmF1Xg2cDm8f1gWGf/HUVedQ3FMifV4kG/PQ4yEP51xDtRAEfhVNt5f/uzpNkZHwWQuUcu6D6K+Ekw=="],
@@ -1414,7 +1417,7 @@
 
     "@midnight-ntwrk/compact-runtime": ["@midnight-ntwrk/compact-runtime@0.15.0", "", { "dependencies": { "@midnight-ntwrk/onchain-runtime-v3": "^3.0.0", "@types/object-inspect": "^1.8.1", "object-inspect": "^1.12.3" } }, "sha512-6+odrxb83ZZwF29SqNBBgaOR3hf5ej4KZVGibDwdXta9+uiv6qYW0fMrsKP9S+c2AqvY+vEb5NEFFI54lA7G5A=="],
 
-    "@midnight-ntwrk/dapp-connector-api": ["@midnight-ntwrk/dapp-connector-api@4.0.0", "", {}, "sha512-XiAesY32uPPDYOk6MXquO1lDsUhe7J/CMbMOIfEgjwDgXfkLvvKFMfNz672O1aSJYkqm1I65o2XjPXNnwloQtA=="],
+    "@midnight-ntwrk/dapp-connector-api": ["@midnight-ntwrk/dapp-connector-api@4.0.1", "", {}, "sha512-IstRo8xfmlJlGgUcAJeRzPUmGCp0/xZR3/bfTOk33MHrzbGmB79r/zYziGavcclo1pkkoBHAodX4vz3xgFxczw=="],
 
     "@midnight-ntwrk/ledger": ["@midnight-ntwrk/ledger@4.0.0", "", {}, "sha512-cnJisY8uQ4NO54miDnjs/ov6n102ZPfKEPxtiDKVEdlKijcc70jz/CI2yBCc0itlwwaqma7FM2Ou5N4pWpbwbg=="],
 
@@ -1532,7 +1535,7 @@
 
     "@noble/ciphers": ["@noble/ciphers@1.3.0", "", {}, "sha512-2I0gnIVPtfnMw9ee9h1dJG7tp81+8Ob3OJb3Mv37rx5L40/b0i7djjCVvGOVqc9AEIQyvyu1i6ypKdFw8R8gQw=="],
 
-    "@noble/curves": ["@noble/curves@1.9.1", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-k11yZxZg+t+gWvBbIswW0yoJlu8cHOC7dhunwOzoWH/mXGBiYyR4YY6hAEK/3EUs4UpB8la1RfdRpeGsFHkWsA=="],
+    "@noble/curves": ["@noble/curves@1.9.7", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw=="],
 
     "@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
 
@@ -3656,6 +3659,8 @@
 
     "@e2e-v2/engine/@sinclair/typebox": ["@sinclair/typebox@0.34.41", "", {}, "sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g=="],
 
+    "@e2e-v2/evm-contracts/@effectstream/evm-contracts": ["@effectstream/evm-contracts@file:packages/chains/evm-contracts", { "dependencies": { "@nomicfoundation/hardhat-ignition": "3.0.2", "@nomicfoundation/hardhat-ignition-viem": "3.0.2", "@nomicfoundation/hardhat-viem": "3.0.0", "@opentelemetry/sdk-node": "0.56.0", "@openzeppelin/contracts": "5.1.0", "@openzeppelin/contracts-upgradeable": "^5.1.0", "@wagmi/cli": "2.3.1", "hardhat": "3.0.4", "jsonc-parser": "^3.3.1" } }],
+
     "@effectstream/batcher/@sinclair/typebox": ["@sinclair/typebox@0.34.41", "", {}, "sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g=="],
 
     "@effectstream/batcher-old/@sinclair/typebox": ["@sinclair/typebox@0.34.41", "", {}, "sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g=="],
@@ -3821,8 +3826,6 @@
     "@scure/bip39/@noble/hashes": ["@noble/hashes@2.0.1", "", {}, "sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw=="],
 
     "@scure/bip39/@scure/base": ["@scure/base@2.0.0", "", {}, "sha512-3E1kpuZginKkek01ovG8krQ0Z44E3DHPjc5S2rjJw9lZn3KSQOs8S7wqikF/AH7iRanHypj85uGyxk0XAyC37w=="],
-
-    "@scure/sr25519/@noble/curves": ["@noble/curves@1.9.7", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw=="],
 
     "@stricahq/typhonjs/@stricahq/cbors": ["@stricahq/cbors@1.0.2", "", { "dependencies": { "bignumber.js": "^9.0.2", "buffer": "^6.0.3" } }, "sha512-6ePsEiq7EGHA5IiPn9poA7sF5iXPqt30kKw3pjR/BhP7S+XHZNu/OPumESWnVl4AM+IEYC2x9eL+4qRPsTPVww=="],
 
@@ -4448,6 +4451,8 @@
 
     "ox/@adraffy/ens-normalize": ["@adraffy/ens-normalize@1.11.1", "", {}, "sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ=="],
 
+    "ox/@noble/curves": ["@noble/curves@1.9.1", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-k11yZxZg+t+gWvBbIswW0yoJlu8cHOC7dhunwOzoWH/mXGBiYyR4YY6hAEK/3EUs4UpB8la1RfdRpeGsFHkWsA=="],
+
     "ox/@scure/bip39": ["@scure/bip39@1.6.0", "", { "dependencies": { "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A=="],
 
     "ox/eventemitter3": ["eventemitter3@5.0.1", "", {}, "sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA=="],
@@ -4497,6 +4502,8 @@
     "tweetnacl-ts/tslib": ["tslib@1.14.1", "", {}, "sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg=="],
 
     "unbzip2-stream/buffer": ["buffer@5.7.1", "", { "dependencies": { "base64-js": "^1.3.1", "ieee754": "^1.1.13" } }, "sha512-EHcyIPBQ4BSGlvjB16k5KgAJ27CIsHY/2JBmCRReo48y9rQ3MaUzWX3KVlBa4U7MyX02HdVj0K7C3WaB3ju7FQ=="],
+
+    "viem/@noble/curves": ["@noble/curves@1.9.1", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-k11yZxZg+t+gWvBbIswW0yoJlu8cHOC7dhunwOzoWH/mXGBiYyR4YY6hAEK/3EUs4UpB8la1RfdRpeGsFHkWsA=="],
 
     "viem/@scure/bip39": ["@scure/bip39@1.6.0", "", { "dependencies": { "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A=="],
 
