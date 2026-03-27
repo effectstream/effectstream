@@ -83,6 +83,15 @@ const TTL_DURATION_MS = 60 * 60 * 1000;
 const SUBMIT_TX_TIMEOUT_MS = 90 * 1000;
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
+/** Short 8-char hex hash of the input payload for tracing duplicates from the app. */
+function inputContentHash(input: string): string {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) {
+    h = Math.imul(31, h) + input.charCodeAt(i) | 0;
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
 type DelegatedTxStage = "unproven" | "unbound" | "finalized";
 type DelegatedTx =
   | UnprovenTransaction
@@ -96,6 +105,16 @@ interface DelegatedTxEntry {
   addShieldedPadding?: boolean;
 }
 
+/** Per-tx tracing metadata assigned at buildBatchData time. */
+interface TxTraceInfo {
+  /** e.g. "B04:1" — batch 4, tx index 1 */
+  label: string;
+  /** 8-char hex hash of the raw input payload (for tracing duplicates from the app) */
+  contentHash: string;
+  /** Retry attempt (0 = first try) */
+  retry: number;
+}
+
 interface DelegatedBatchData {
   txs: DelegatedTxEntry[];
   selectedInputs: DefaultBatcherInput[];
@@ -105,6 +124,10 @@ interface DelegatedBatchData {
    *  Used by releaseBatchResources to clear inFlightInputKeys even
    *  when submitBatch has mutated selectedInputs (e.g. spliced out failures). */
   reservedInputKeys: string[];
+  /** Per-tx tracing metadata. */
+  traceInfos: TxTraceInfo[];
+  /** Batch sequence number. */
+  batchId: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,6 +166,7 @@ export class MidnightBalancingAdapter
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
   private publicDataProvider: PublicDataProvider | null = null;
+  private batchCounter = 0;
 
   constructor(
     walletSeed: string | string[],
@@ -367,9 +391,10 @@ export class MidnightBalancingAdapter
     for (const key of batchData.reservedInputKeys) {
       this.inFlightInputKeys.delete(key);
     }
+    const bTag = `B${String(batchData.batchId).padStart(2, "0")}`;
     this.log.log(
-      `Released batch resources: ${batchData.workerAssignments.length} worker(s), ` +
-        `${batchData.reservedInputKeys.length} input(s)`,
+      `[${bTag}] Released ${batchData.workerAssignments.length} worker(s), ` +
+        `${batchData.reservedInputKeys.length} input(s) [pool: ${this.pool.getStatus()}]`,
     );
   }
 
@@ -496,9 +521,11 @@ export class MidnightBalancingAdapter
     );
     if (availableInputs.length === 0) return null;
 
+    const batchId = ++this.batchCounter;
     const txs: DelegatedTxEntry[] = [];
     const selectedInputs: DefaultBatcherInput[] = [];
     const workerAssignments: { walletIdx: number; slotIdx: number }[] = [];
+    const traceInfos: TxTraceInfo[] = [];
 
     for (const input of availableInputs) {
       const worker = this.pool.acquireWorker();
@@ -513,11 +540,17 @@ export class MidnightBalancingAdapter
         continue; // skip bad input, try next
       }
 
+      const txIdx = txs.length + 1;
       txs.push(entry);
       selectedInputs.push(input);
       workerAssignments.push({
         walletIdx: worker.walletIdx,
         slotIdx: worker.slotIdx,
+      });
+      traceInfos.push({
+        label: `B${String(batchId).padStart(2, "0")}:${txIdx}`,
+        contentHash: inputContentHash(input.input),
+        retry: input.retryCount ?? 0,
       });
     }
 
@@ -531,12 +564,17 @@ export class MidnightBalancingAdapter
       reservedInputKeys.push(key);
     }
 
+    const assignments = traceInfos.map((t, i) => {
+      const wa = workerAssignments[i];
+      const retry = t.retry > 0 ? ` retry=${t.retry}` : "";
+      return `${t.label}/W${wa.walletIdx + 1}:s${wa.slotIdx} #${t.contentHash}${retry}`;
+    }).join(", ");
     this.log.log(
-      `Built batch: ${txs.length} tx(s) assigned to workers [pool: ${this.pool.getStatus()}]`,
+      `Built batch B${String(batchId).padStart(2, "0")}: ${txs.length} tx(s) [${assignments}] [pool: ${this.pool.getStatus()}]`,
     );
     return {
       selectedInputs,
-      data: { txs, selectedInputs, workerAssignments, reservedInputKeys },
+      data: { txs, selectedInputs, workerAssignments, reservedInputKeys, traceInfos, batchId },
     };
   }
 
@@ -746,41 +784,47 @@ export class MidnightBalancingAdapter
   private async processWorkerTx(
     entry: DelegatedTxEntry,
     walletIdx: number,
-    txLabel: string,
+    slotIdx: number,
+    trace: TxTraceInfo,
   ): Promise<string> {
     const walletResult = this.walletResults[walletIdx]!;
+    const w = `W${walletIdx + 1}:s${slotIdx}`;
+    const tag = `${trace.label}/${w} #${trace.contentHash}`;
+    const retryTag = trace.retry > 0 ? ` [retry ${trace.retry}/3]` : "";
+    const pipelineStart = performance.now();
 
     // --- Phase 1: Balance (under wallet lock) ---
-    this.log.log(
-      `[${txLabel}] Acquiring balance lock for wallet ${walletIdx + 1}...`,
-    );
+    this.log.log(`[${tag}] Acquiring balance lock${retryTag}...`);
     const releaseBalanceLock = await this.pool.acquireBalanceLock(walletIdx);
     let recipe: BalancingRecipe;
+    const balanceStart = performance.now();
     try {
-      this.log.log(`[${txLabel}] Balancing (${entry.txStage})...`);
+      this.log.log(`[${tag}] Balancing (${entry.txStage})...`);
       recipe = await this.balanceEntry(entry, walletIdx);
     } finally {
       releaseBalanceLock();
-      this.log.log(
-        `[${txLabel}] Balance lock released for wallet ${walletIdx + 1}`,
-      );
     }
+    const balanceMs = Math.round(performance.now() - balanceStart);
+    this.log.log(`[${tag}] Balanced (${balanceMs}ms)`);
 
     // --- Phase 2: Sign + Finalize (no lock — concurrent safe) ---
-    this.log.log(`[${txLabel}] Signing and proving...`);
+    const proveStart = performance.now();
     const signedRecipe = await walletResult.wallet.signRecipe(
       recipe,
       (payload: Uint8Array) =>
         walletResult.unshieldedKeystore.signData(payload),
     );
     const finalized = await walletResult.wallet.finalizeRecipe(signedRecipe);
+    const proveMs = Math.round(performance.now() - proveStart);
+    this.log.log(`[${tag}] Proved (${proveMs}ms)`);
 
     // --- Phase 3: Submit ---
     const txHash = finalized.transactionHash().toString();
-    this.log.log(`[${txLabel}] Submitting to node (hash: ${txHash})...`);
+    this.log.log(`[${tag}] Submitting (hash: ${txHash})...`);
+    const submitStart = performance.now();
 
     try {
-      const data = await Promise.race([
+      await Promise.race([
         walletResult.wallet.submitTransaction(finalized),
         new Promise<never>((_, reject) =>
           setTimeout(
@@ -789,17 +833,23 @@ export class MidnightBalancingAdapter
           )
         ),
       ]);
+      const submitMs = Math.round(performance.now() - submitStart);
+      const totalMs = Math.round(performance.now() - pipelineStart);
       this.log.log(
-        `[${txLabel}] Submitted successfully: ${JSON.stringify(data)}`,
+        `[${tag}] ✅ Submitted (balance=${balanceMs}ms prove=${proveMs}ms submit=${submitMs}ms total=${totalMs}ms)`,
       );
     } catch (error) {
       const errMsg = (error instanceof Error ? error.message : String(error))
         .trim();
       if (errMsg.includes("IntentAlreadyExists")) {
         this.log.log(
-          `[${txLabel}] IntentAlreadyExists — already in mempool, treating as success`,
+          `[${tag}] IntentAlreadyExists — already in mempool, treating as success`,
         );
       } else {
+        const submitMs = Math.round(performance.now() - submitStart);
+        this.log.error(
+          `[${tag}] ❌ Submit failed after ${submitMs}ms: ${errMsg}`,
+        );
         throw error;
       }
     }
@@ -838,18 +888,18 @@ export class MidnightBalancingAdapter
   private async _executeWorkerPipelines(
     batchData: DelegatedBatchData,
   ): Promise<BlockchainHash> {
-    const { txs, workerAssignments } = batchData;
+    const { txs, workerAssignments, traceInfos, batchId } = batchData;
+    const bTag = `B${String(batchId).padStart(2, "0")}`;
 
     this.log.log(
-      `Processing ${txs.length} tx(s) via worker pipelines [pool: ${this.pool.getStatus()}]`,
+      `[${bTag}] Processing ${txs.length} tx(s) [pool: ${this.pool.getStatus()}]`,
     );
 
     // Run all worker pipelines in parallel
     const results = await Promise.allSettled(
       txs.map((entry, i) => {
         const wa = workerAssignments[i];
-        const label = `tx${i + 1}/W${wa.walletIdx + 1}:s${wa.slotIdx}`;
-        return this.processWorkerTx(entry, wa.walletIdx, label);
+        return this.processWorkerTx(entry, wa.walletIdx, wa.slotIdx, traceInfos[i]);
       }),
     );
 
@@ -872,12 +922,13 @@ export class MidnightBalancingAdapter
     }
 
     this.log.log(
-      `Pipeline results: ${hashes.length} succeeded, ${errors.length} failed`,
+      `[${bTag}] Results: ${hashes.length} succeeded, ${errors.length} failed`,
     );
 
     if (errors.length > 0) {
       for (const { index, error } of errors) {
-        this.log.warn(`  tx${index + 1}: ${error.message}`);
+        const t = traceInfos[index];
+        this.log.warn(`  ${t.label} #${t.contentHash}: ${error.message}`);
       }
       // Remove failed inputs from selectedInputs so the batcher retries them
       const failedIndices = new Set(errors.map((e) => e.index));
@@ -896,7 +947,7 @@ export class MidnightBalancingAdapter
     }
 
     const finalHashes = hashes.join(",");
-    this.log.log(`Returning hashes: ${finalHashes}`);
+    this.log.log(`[${bTag}] Hashes: ${finalHashes}`);
     return finalHashes;
   }
 
