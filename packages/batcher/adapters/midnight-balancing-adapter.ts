@@ -815,7 +815,11 @@ export class MidnightBalancingAdapter
    * Run per-worker pipelines in parallel. Each worker independently:
    * balance (locked) → prove (unlocked) → submit.
    *
-   * Workers are released in the finally block of submitBatch.
+   * Workers are released by releaseBatchResources (called by BatchProcessor
+   * in its finally block after all storage operations complete). Workers
+   * must NOT be released here — doing so causes a double-release race where
+   * a subsequent batch acquires the worker, then releaseBatchResources frees
+   * it while the new batch is still using it.
    */
   async submitBatch(
     batchData: DelegatedBatchData,
@@ -828,25 +832,7 @@ export class MidnightBalancingAdapter
       throw new Error("Adapter not initialized");
     }
 
-    const { workerAssignments } = batchData;
-    // Snapshot workers to release in finally (even if batchData is mutated).
-    const reservedWorkers = [...workerAssignments];
-
-    try {
-      return await this._executeWorkerPipelines(batchData);
-    } finally {
-      // Release workers so the pool can accept new batches.
-      // Input keys (inFlightInputKeys) are NOT cleared here — they stay
-      // reserved until BatchProcessor calls releaseBatchResources after
-      // all storage operations, preventing the race where a poll tick
-      // re-picks an input that is still in storage.
-      for (const wa of reservedWorkers) {
-        this.pool.releaseWorker(wa.walletIdx, wa.slotIdx);
-      }
-      this.log.log(
-        `Released ${reservedWorkers.length} worker(s) [pool: ${this.pool.getStatus()}]`,
-      );
-    }
+    return await this._executeWorkerPipelines(batchData);
   }
 
   private async _executeWorkerPipelines(
