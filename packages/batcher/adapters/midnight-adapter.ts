@@ -125,6 +125,51 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private readonly walletFundingTimeoutMs: number;
   private readonly walletNetworkId: WalletNetworkId.NetworkId;
 
+  /**
+   * Wait for at least one dust UTXO to become available.
+   * Handles the UTXO regeneration race where a worker is reused right after
+   * its previous tx confirms but the change output hasn't been indexed yet.
+   * Does not throw — if dust remains unavailable the subsequent callTx
+   * will fail and the input goes back to the retry queue.
+   */
+  private async waitForDustAvailability(
+    walletIndex: number,
+    timeoutMs: number = 10_000,
+  ): Promise<void> {
+    const walletResult = this.walletResults[walletIndex];
+    if (!walletResult) return;
+    const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
+
+    try {
+      const dustState = await getInitialDustState(walletResult.wallet.dust);
+      if ((dustState.availableCoins?.length ?? 0) > 0) return;
+    } catch {
+      return;
+    }
+
+    this.log.log(
+      `Wallet ${label}: no dust UTXOs yet, waiting up to ${timeoutMs}ms for regeneration...`,
+    );
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      await new Promise((r) => setTimeout(r, 1_000));
+      try {
+        const dustState = await getInitialDustState(walletResult.wallet.dust);
+        if ((dustState.availableCoins?.length ?? 0) > 0) {
+          this.log.log(
+            `Wallet ${label}: dust available after ${Date.now() - start}ms`,
+          );
+          return;
+        }
+      } catch {
+        // Keep polling
+      }
+    }
+    this.log.warn(
+      `Wallet ${label}: dust still unavailable after ${timeoutMs}ms, proceeding to callTx (will likely fail and re-queue)`,
+    );
+  }
+
   private async logDustState(context: string, walletIndex: number): Promise<void> {
     const walletResult = this.walletResults[walletIndex];
     if (!walletResult) return;
@@ -678,6 +723,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           !!this.deployedContracts[walletIndex]?.callTx?.[circuit],
         );
         await this.logDustState(`callTx:${String(circuit)}`, walletIndex);
+        await this.waitForDustAvailability(walletIndex);
 
         try {
           result = await this.deployedContracts[walletIndex].callTx[circuit](

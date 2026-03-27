@@ -173,19 +173,6 @@ export class MidnightBalancingAdapter
   // Initialization
   // -----------------------------------------------------------------------
 
-  private async reconnectWallet(walletIndex: number): Promise<void> {
-    const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
-    this.log.log(`Reconnecting wallet ${label}...`);
-    this.walletInitialized[walletIndex] = false;
-    this.walletResults[walletIndex] = null;
-    this.pool.setSlots(walletIndex, 0);
-    if (walletIndex === 0) {
-      this.config.walletResult = undefined;
-    }
-    await this.initializeWallet(walletIndex, this.walletSeeds[walletIndex]);
-    this.isInitialized = this.walletInitialized.some(Boolean);
-  }
-
   private async initialize(): Promise<void> {
     try {
       this.log.log(
@@ -562,6 +549,59 @@ export class MidnightBalancingAdapter
   }
 
   /**
+   * Wait for at least one dust UTXO to become available.
+   * Handles the UTXO regeneration race where a worker is reused right after
+   * its previous tx confirms but the change output hasn't been indexed yet.
+   * Does not throw — if dust remains unavailable the subsequent balance call
+   * will fail and the input goes back to the retry queue.
+   */
+  private async waitForDustAvailability(
+    walletIndex: number,
+    timeoutMs: number = 10_000,
+  ): Promise<void> {
+    const walletResult = this.walletResults[walletIndex];
+    if (!walletResult) return;
+    const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
+
+    try {
+      // deno-lint-ignore no-explicit-any
+      const dustState = await getInitialDustState(
+        (walletResult.wallet as any).dust,
+      );
+      if ((dustState.availableCoins?.length ?? 0) > 0) return;
+    } catch {
+      return;
+    }
+
+    this.log.log(
+      `Wallet ${label}: no dust UTXOs yet, waiting up to ${timeoutMs}ms for regeneration...`,
+    );
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      await new Promise((r) => setTimeout(r, 1_000));
+      try {
+        // deno-lint-ignore no-explicit-any
+        await (walletResult.wallet as any).dust.waitForSyncedState();
+        // deno-lint-ignore no-explicit-any
+        const dustState = await getInitialDustState(
+          (walletResult.wallet as any).dust,
+        );
+        if ((dustState.availableCoins?.length ?? 0) > 0) {
+          this.log.log(
+            `Wallet ${label}: dust available after ${Date.now() - start}ms`,
+          );
+          return;
+        }
+      } catch {
+        // Keep polling
+      }
+    }
+    this.log.warn(
+      `Wallet ${label}: dust still unavailable after ${timeoutMs}ms, proceeding to balance (will likely fail and re-queue)`,
+    );
+  }
+
+  /**
    * Balance a single entry against a specific wallet's dust.
    * CALLER MUST hold the wallet's balance lock.
    */
@@ -573,6 +613,7 @@ export class MidnightBalancingAdapter
 
     // deno-lint-ignore no-explicit-any
     await (walletResult.wallet as any).dust.waitForSyncedState();
+    await this.waitForDustAvailability(walletIndex);
 
     const keys = {
       shieldedSecretKeys: walletResult.walletZswapSecretKeys,
@@ -787,7 +828,7 @@ export class MidnightBalancingAdapter
       throw new Error("Adapter not initialized");
     }
 
-    const { txs, workerAssignments } = batchData;
+    const { workerAssignments } = batchData;
     // Snapshot workers to release in finally (even if batchData is mutated).
     const reservedWorkers = [...workerAssignments];
 
@@ -863,21 +904,6 @@ export class MidnightBalancingAdapter
 
     if (hashes.length === 0) {
       const firstError = errors[0]?.error.message ?? "unknown";
-
-      if (firstError.includes("No dust tokens found in the wallet state")) {
-        this.log.log("Wallet entered bad state. Triggering reconnect...");
-        const affectedWallets = new Set(
-          workerAssignments.map((wa) => wa.walletIdx),
-        );
-        for (const wi of affectedWallets) {
-          try {
-            await this.reconnectWallet(wi);
-          } catch (e) {
-            this.log.log(`Reconnect wallet ${wi + 1} failed: ${e}`);
-          }
-        }
-      }
-
       throw new Error(
         `All ${txs.length} transactions failed. First error: ${firstError}`,
       );
