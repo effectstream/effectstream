@@ -71,7 +71,7 @@ export interface MidnightAdapterConfig {
   privateStateStoreName: string; // LevelDB store name (local)
   privateStateId?: string; // Contract private state ID (on-chain), defaults to privateStateStoreName if not provided
   contractJoinTimeoutSeconds?: number; // Defaults to 120 seconds
-  walletFundingTimeoutSeconds?: number; // Defaults to 180 seconds
+  walletFundingTimeoutSeconds?: number; // Defaults to 600 seconds
   walletNetworkId?: WalletNetworkId.NetworkId; // Optional override for modular wallet network id
   walletResult?: WalletResult | Promise<WalletResult>;
   // Maximum number of worker slots (concurrent txs) per wallet. Defaults to 1.
@@ -212,7 +212,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.contractClass = contractClass;
     this.log = new AdapterLogger("midnight");
     this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
-    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
+    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 600) * 1000;
     this.walletNetworkId = config.walletNetworkId ?? "undeployed" as WalletNetworkId.NetworkId;
 
     // Store contract info for lazy joining

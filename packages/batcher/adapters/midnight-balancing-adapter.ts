@@ -177,7 +177,7 @@ export class MidnightBalancingAdapter
     this.config = config;
     this.walletNetworkId = config.walletNetworkId ??
       ("undeployed" as WalletNetworkId.NetworkId);
-    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) *
+    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 600) *
       1000;
     this.syncProtocolName = config.syncProtocolName ??
       `Midnight-Balancing (${this.walletNetworkId})`;

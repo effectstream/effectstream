@@ -21,6 +21,7 @@ import {
   createChannel,
   each,
   type Operation,
+  sleep,
   spawn,
   until,
 } from "effection";
@@ -32,7 +33,7 @@ import type { Client } from "pg";
 import type { PaimaBlockHash } from "@effectstream/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
-import type { SyncProtocolWithNetwork } from "@effectstream/config";
+import { type SyncProtocolWithNetwork, ConfigNetworkType } from "@effectstream/config";
 import { builtInPrimitivesMap } from "@effectstream/sm";
 import { validateAndSnapshotConfig } from "./config-snapshot.ts";
 
@@ -79,9 +80,32 @@ export function* start(config: StartConfig): Operation<void> {
     );
   });
 
+  const ntpConfig = syncInfo.find(s => s.networkType === ConfigNetworkType.NTP);
+  const ntpBlockTimeMS = (ntpConfig?.network as { blockTimeMS: number } | undefined)?.blockTimeMS;
+  const lagThresholdMs = ntpBlockTimeMS != null ? ntpBlockTimeMS * 10 : undefined;
+
   const finalizedBlockStream = createChannel<ChainBlock>();
 
   yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
+
+  const heartbeatIntervalMs = 60_000;
+  yield* spawn(function* () {
+    while (true) {
+      yield* sleep(heartbeatIntervalMs);
+      const status = syncProtocols.map((p) => {
+        const page = p.lastPage;
+        if (page == null) return `${p.name}: waiting for first sync`;
+        const ageMs = Date.now() - (page.root as number);
+        return `${p.name}: block ${page.ownBlockNumber} | buf ${p.bufferedData.size()} | age ${(ageMs / 1000).toFixed(1)}s`;
+      });
+      log.local(
+        ComponentNames.EFFECTSTREAM_SYNC,
+        "heartbeat",
+        SeverityNumber.INFO,
+        (l) => l(status.join(" | ")),
+      );
+    }
+  });
 
   let blockHash: PaimaBlockHash | null = null;
   for (const value of yield* each(finalizedBlockStream)) {
@@ -117,7 +141,11 @@ export function* start(config: StartConfig): Operation<void> {
       ),
     );
 
-    log.remote(
+    const lagMs = Date.now() - value.timestamp;
+    const lagSuffix = lagThresholdMs != null && lagMs > lagThresholdMs
+      ? ` | lag: ${(lagMs / 1000).toFixed(1)}s`
+      : "";
+    log.local(
       ComponentNames.EFFECTSTREAM_SYNC,
       "block-merge",
       SeverityNumber.INFO,
@@ -125,7 +153,7 @@ export function* start(config: StartConfig): Operation<void> {
         log(
           `finalized block ${value.blockNumber} @ ${
             blockHash?.slice(0, 8)
-          }... | ${JSON.stringify(contentBlocksForProtocol)}`,
+          }...${lagSuffix} | ${JSON.stringify(contentBlocksForProtocol)}`,
         ),
     );
     yield* each.next();
