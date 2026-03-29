@@ -12,7 +12,6 @@
     "jsr:@deno/dnt@~0.42.3": "0.42.3",
     "jsr:@oak/commons@1": "1.0.1",
     "jsr:@oak/oak@^17.1.4": "17.2.0",
-    "jsr:@paimaexample/log@0.3.126": "0.3.126",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/assert@^1.0.12": "1.0.19",
     "jsr:@std/assert@~1.0.6": "1.0.19",
@@ -26,6 +25,7 @@
     "jsr:@std/encoding@1": "1.0.10",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/encoding@~1.0.5": "1.0.10",
+    "jsr:@std/encoding@~1.0.8": "1.0.10",
     "jsr:@std/fmt@1": "1.0.9",
     "jsr:@std/fmt@^1.0.5": "1.0.9",
     "jsr:@std/fmt@^1.0.9": "1.0.9",
@@ -100,7 +100,7 @@
     "npm:@midnight-ntwrk/wallet@5.0.0": "5.0.0",
     "npm:@midnight-ntwrk/zswap@4.0.0": "4.0.0",
     "npm:@nomicfoundation/hardhat-errors@3.0.1": "3.0.1",
-    "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2": "3.0.2_@nomicfoundation+hardhat-viem@3.0.0__hardhat@3.0.4__viem@2.47.6___typescript@5.6.3___zod@3.25.76__typescript@5.6.3__zod@3.25.76_@nomicfoundation+ignition-core@3.0.2_hardhat@3.0.4_viem@2.47.6__typescript@5.6.3__zod@4.3.6",
+    "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2": "3.0.2_@nomicfoundation+hardhat-viem@3.0.0__hardhat@3.0.4__viem@2.47.6___typescript@5.6.3___zod@3.25.76__typescript@5.6.3__zod@3.25.76_@nomicfoundation+ignition-core@3.0.2_hardhat@3.0.4_viem@2.47.6__typescript@5.6.3__zod@3.25.76",
     "npm:@nomicfoundation/hardhat-utils@3.0.0": "3.0.0",
     "npm:@nomicfoundation/hardhat-viem@3.0.0": "3.0.0_hardhat@3.0.4_viem@2.47.6__typescript@5.6.3__zod@3.25.76_typescript@5.6.3_zod@3.25.76",
     "npm:@nomicfoundation/ignition-core@3.0.2": "3.0.2",
@@ -225,13 +225,15 @@
     "npm:tslog@^4.9.3": "4.10.2",
     "npm:typescript@~5.6.2": "5.6.3",
     "npm:varuint-bitcoin@^1.1.2": "1.1.2",
-    "npm:viem@*": "2.47.6_typescript@5.6.3_zod@4.3.6",
+    "npm:viem@*": "2.47.6_typescript@5.6.3_zod@3.25.76",
+    "npm:viem@2.23.10": "2.23.10_typescript@5.6.3",
     "npm:viem@2.37.3": "2.37.3_typescript@5.6.3_zod@3.25.76",
-    "npm:viem@^2.21.3": "2.47.6_typescript@5.6.3_zod@4.3.6",
+    "npm:viem@^2.21.3": "2.47.6_typescript@5.6.3_zod@3.25.76",
     "npm:vite-plugin-node-stdlib-browser@*": "0.2.1_node-stdlib-browser@1.3.1_vite@7.1.3",
     "npm:vite-plugin-static-copy@^3.1.1": "3.4.0_vite@7.1.3",
     "npm:vite-plugin-top-level-await@^1.6.0": "1.6.0_vite@7.1.3",
     "npm:vite-plugin-wasm@^3.5.0": "3.6.0_vite@7.1.3",
+    "npm:vite@*": "7.1.3",
     "npm:vite@7.1.3": "7.1.3",
     "npm:vitest@^3.2.4": "3.2.4",
     "npm:wagmi@^2.16.9": "2.19.5_@tanstack+react-query@5.95.2__react@19.2.4_react@19.2.4_typescript@5.6.3_viem@2.47.6__typescript@5.6.3__zod@3.25.76_@types+react@19.1.2_zod@3.25.76",
@@ -326,26 +328,6 @@
         "jsr:@std/media-types",
         "jsr:@std/path@1",
         "npm:path-to-regexp"
-      ]
-    },
-    "@paimaexample/log@0.3.126": {
-      "integrity": "177a6bc772b6ebff7d0cea0507e59994fe742fb9c8e570906fb43f7805459c68",
-      "dependencies": [
-        "npm:@opentelemetry/api",
-        "npm:@opentelemetry/api-logs",
-        "npm:@opentelemetry/exporter-logs-otlp-http",
-        "npm:@opentelemetry/exporter-metrics-otlp-http",
-        "npm:@opentelemetry/exporter-trace-otlp-http",
-        "npm:@opentelemetry/resources",
-        "npm:@opentelemetry/sdk-logs",
-        "npm:@opentelemetry/sdk-metrics",
-        "npm:@opentelemetry/sdk-trace-base",
-        "npm:@opentelemetry/semantic-conventions",
-        "npm:chalk",
-        "npm:effection@3.5.0",
-        "npm:material-chalk",
-        "npm:superjson",
-        "npm:tslog"
       ]
     },
     "@std/assert@1.0.19": {
@@ -4516,7 +4498,7 @@
         "@nomicfoundation/hardhat-utils@4.0.1"
       ]
     },
-    "@nomicfoundation/hardhat-ignition-viem@3.0.2_@nomicfoundation+hardhat-viem@3.0.0__hardhat@3.0.4__viem@2.47.6___typescript@5.6.3___zod@3.25.76__typescript@5.6.3__zod@3.25.76_@nomicfoundation+ignition-core@3.0.2_hardhat@3.0.4_viem@2.47.6__typescript@5.6.3__zod@4.3.6": {
+    "@nomicfoundation/hardhat-ignition-viem@3.0.2_@nomicfoundation+hardhat-viem@3.0.0__hardhat@3.0.4__viem@2.47.6___typescript@5.6.3___zod@3.25.76__typescript@5.6.3__zod@3.25.76_@nomicfoundation+ignition-core@3.0.2_hardhat@3.0.4_viem@2.47.6__typescript@5.6.3__zod@3.25.76": {
       "integrity": "sha512-SbKUzPPIqDIkZyqCIKeEomoRJHmjyJR4QCVGXfQLV2XsPsMnXlT92i/KfQSRB8TrxXoDnobRFynUKRPLgNalUA==",
       "dependencies": [
         "@nomicfoundation/hardhat-errors@3.0.9",
@@ -4525,7 +4507,7 @@
         "@nomicfoundation/hardhat-viem",
         "@nomicfoundation/ignition-core@3.0.2",
         "hardhat",
-        "viem@2.47.6_typescript@5.6.3_zod@4.3.6"
+        "viem@2.47.6_typescript@5.6.3_zod@3.25.76"
       ]
     },
     "@nomicfoundation/hardhat-ignition@3.1.0_@nomicfoundation+hardhat-verify@3.0.12__hardhat@3.0.4_hardhat@3.0.4": {
@@ -13679,6 +13661,12 @@
         "ws@8.18.0"
       ]
     },
+    "isows@1.0.6_ws@8.18.1": {
+      "integrity": "sha512-lPHCayd40oW98/I0uvgaHKWCSvkzY27LjWLbtzOm64yQ+G3Q5npjjbdppU65iZXkK1Zt+kH9pfegli0AYfwYYw==",
+      "dependencies": [
+        "ws@8.18.1"
+      ]
+    },
     "isows@1.0.7_ws@8.18.3__bufferutil@4.1.0__utf-8-validate@5.0.10": {
       "integrity": "sha512-I1fSfDCZL5P0v33sVqeTDSpcstAg/N+wF5HS033mogOVIp4B+oHC7oOCsA3axAbBSGTJ8QubbNmnIRN/h8U7hg==",
       "dependencies": [
@@ -19017,6 +19005,23 @@
         "vfile-message"
       ]
     },
+    "viem@2.23.10_typescript@5.6.3": {
+      "integrity": "sha512-va6Wde+v96PdfzdPEspCML1MjAqe+88O8BD+R9Kun/4s5KMUNcqfHbXdZP0ZZ2Zms80styvH2pDRAqCho6TqkA==",
+      "dependencies": [
+        "@noble/curves@1.8.1",
+        "@noble/hashes@1.7.1",
+        "@scure/bip32@1.6.2",
+        "@scure/bip39@1.5.4",
+        "abitype@1.0.8_typescript@5.6.3_zod@3.25.76",
+        "isows@1.0.6_ws@8.18.1",
+        "ox@0.6.9_typescript@5.6.3_zod@3.25.76",
+        "typescript",
+        "ws@8.18.1"
+      ],
+      "optionalPeers": [
+        "typescript"
+      ]
+    },
     "viem@2.23.2_typescript@5.6.3_zod@3.25.76": {
       "integrity": "sha512-NVmW/E0c5crMOtbEAqMF0e3NmvQykFXhLOc/CkLIXOlzHSA6KXVz3CYVmaKqBF8/xtjsjHAGjdJN3Ru1kFJLaA==",
       "dependencies": [
@@ -20451,7 +20456,7 @@
       },
       "packages/chains/evm-hardhat": {
         "dependencies": [
-          "jsr:@paimaexample/log@0.3.126",
+          "jsr:@paimaexample/log@0.10.12",
           "jsr:@std/cli@^1.0.24",
           "jsr:@std/path@^1.1.3",
           "npm:@nomicfoundation/hardhat-errors@3.0.1",
