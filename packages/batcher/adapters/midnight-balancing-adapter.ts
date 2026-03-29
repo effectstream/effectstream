@@ -37,16 +37,19 @@ import type {
   PublicDataProvider,
   UnboundTransaction,
 } from "@midnight-ntwrk/midnight-js-types";
-import type { BalancingRecipe, ShieldedTokenTransfer } from "@midnight-ntwrk/wallet-sdk-facade";
+import type {
+  BalancingRecipe,
+  ShieldedTokenTransfer,
+} from "@midnight-ntwrk/wallet-sdk-facade";
 import {
   buildWalletFacade,
+  getInitialDustState,
+  getInitialShieldedState,
   type NetworkUrls,
   registerNightForDust,
   syncAndWaitForFunds,
   waitForDustFunds,
   type WalletResult,
-  getInitialShieldedState,
-  getInitialDustState,
 } from "@effectstream/midnight-contracts";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
@@ -80,6 +83,15 @@ const TTL_DURATION_MS = 60 * 60 * 1000;
 const SUBMIT_TX_TIMEOUT_MS = 90 * 1000;
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
 
+/** Short 8-char hex hash of the input payload for tracing duplicates from the app. */
+function inputContentHash(input: string): string {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) {
+    h = Math.imul(31, h) + input.charCodeAt(i) | 0;
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
 type DelegatedTxStage = "unproven" | "unbound" | "finalized";
 type DelegatedTx =
   | UnprovenTransaction
@@ -93,11 +105,29 @@ interface DelegatedTxEntry {
   addShieldedPadding?: boolean;
 }
 
+/** Per-tx tracing metadata assigned at buildBatchData time. */
+interface TxTraceInfo {
+  /** e.g. "B04:1" — batch 4, tx index 1 */
+  label: string;
+  /** 8-char hex hash of the raw input payload (for tracing duplicates from the app) */
+  contentHash: string;
+  /** Retry attempt (0 = first try) */
+  retry: number;
+}
+
 interface DelegatedBatchData {
   txs: DelegatedTxEntry[];
   selectedInputs: DefaultBatcherInput[];
   /** Each tx maps to the worker that will process it. */
   workerAssignments: { walletIdx: number; slotIdx: number }[];
+  /** Snapshot of reserved input keys, taken at buildBatchData time.
+   *  Used by releaseBatchResources to clear inFlightInputKeys even
+   *  when submitBatch has mutated selectedInputs (e.g. spliced out failures). */
+  reservedInputKeys: string[];
+  /** Per-tx tracing metadata. */
+  traceInfos: TxTraceInfo[];
+  /** Batch sequence number. */
+  batchId: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +166,7 @@ export class MidnightBalancingAdapter
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
   private publicDataProvider: PublicDataProvider | null = null;
+  private batchCounter = 0;
 
   constructor(
     walletSeed: string | string[],
@@ -144,9 +175,12 @@ export class MidnightBalancingAdapter
     const seeds = Array.isArray(walletSeed) ? walletSeed : [walletSeed];
     this.walletSeeds = seeds;
     this.config = config;
-    this.walletNetworkId = config.walletNetworkId ?? ("undeployed" as WalletNetworkId.NetworkId);
-    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 180) * 1000;
-    this.syncProtocolName = config.syncProtocolName ?? `Midnight-Balancing (${this.walletNetworkId})`;
+    this.walletNetworkId = config.walletNetworkId ??
+      ("undeployed" as WalletNetworkId.NetworkId);
+    this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 600) *
+      1000;
+    this.syncProtocolName = config.syncProtocolName ??
+      `Midnight-Balancing (${this.walletNetworkId})`;
 
     this.walletResults = new Array(seeds.length).fill(null);
     this.walletAddresses = new Array(seeds.length).fill(null);
@@ -163,22 +197,11 @@ export class MidnightBalancingAdapter
   // Initialization
   // -----------------------------------------------------------------------
 
-  private async reconnectWallet(walletIndex: number): Promise<void> {
-    const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
-    this.log.log(`Reconnecting wallet ${label}...`);
-    this.walletInitialized[walletIndex] = false;
-    this.walletResults[walletIndex] = null;
-    this.pool.setSlots(walletIndex, 0);
-    if (walletIndex === 0) {
-      this.config.walletResult = undefined;
-    }
-    await this.initializeWallet(walletIndex, this.walletSeeds[walletIndex]);
-    this.isInitialized = this.walletInitialized.some(Boolean);
-  }
-
   private async initialize(): Promise<void> {
     try {
-      this.log.log(`Initializing Midnight Balancing Adapter (${this.walletSeeds.length} wallet(s))...`);
+      this.log.log(
+        `Initializing Midnight Balancing Adapter (${this.walletSeeds.length} wallet(s))...`,
+      );
       setNetworkId(this.walletNetworkId as any);
 
       this.publicDataProvider = indexerPublicDataProvider(
@@ -266,9 +289,13 @@ export class MidnightBalancingAdapter
 
     this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
     if (dustBalance === 0n) {
-      this.log.warn(`Wallet ${label}: WARNING: 0 dust balance, submissions will fail`);
+      this.log.warn(
+        `Wallet ${label}: WARNING: 0 dust balance, submissions will fail`,
+      );
     } else if (this.config.addShieldedPadding) {
-      this.log.log(`Wallet ${label}: shielded padding enabled, each tx will consume 2 dust UTXOs`);
+      this.log.log(
+        `Wallet ${label}: shielded padding enabled, each tx will consume 2 dust UTXOs`,
+      );
     }
 
     try {
@@ -278,28 +305,40 @@ export class MidnightBalancingAdapter
       );
 
       const bigintSerializer = (_: string, value: unknown) => {
-        if (typeof value === 'bigint') {
+        if (typeof value === "bigint") {
           return value.toString();
         }
         return value;
       };
 
       // deno-lint-ignore no-explicit-any
-      this.availableDustUtxoCounts[walletIndex] = dustState.availableCoins?.length ?? null;
-      this.log.log(`Wallet ${label}: dust coins: ${JSON.stringify(dustState.availableCoins, bigintSerializer)}`);
-      this.log.log(`Wallet ${label}: available dust UTXOs: ${this.availableDustUtxoCounts[walletIndex] ?? "unknown"}`);
+      this.availableDustUtxoCounts[walletIndex] =
+        dustState.availableCoins?.length ?? null;
+      this.log.log(
+        `Wallet ${label}: dust coins: ${
+          JSON.stringify(dustState.availableCoins, bigintSerializer)
+        }`,
+      );
+      this.log.log(
+        `Wallet ${label}: available dust UTXOs: ${
+          this.availableDustUtxoCounts[walletIndex] ?? "unknown"
+        }`,
+      );
 
       // Update worker pool: 1 worker per UTXO (2 UTXOs per worker if padding).
       // When shieldedPaddingTokenID is configured, per-input overrides can
       // enable padding even if the config default is off, so budget for the
       // worst case (2 UTXOs/slot) to avoid over-committing.
       const utxoCount = this.availableDustUtxoCounts[walletIndex] ?? 0;
-      const paddingPossible = !!(this.config.addShieldedPadding || this.config.shieldedPaddingTokenID);
+      const paddingPossible = !!(this.config.addShieldedPadding ||
+        this.config.shieldedPaddingTokenID);
       const costPerTx = paddingPossible ? 2 : 1;
       const maxPerWallet = this.config.maxSlotsPerWallet ?? 1;
       const slots = Math.min(Math.floor(utxoCount / costPerTx), maxPerWallet);
       this.pool.setSlots(walletIndex, slots);
-      this.log.log(`Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`);
+      this.log.log(
+        `Wallet ${label}: worker slots: ${slots} (${utxoCount} UTXOs, cost=${costPerTx}/tx, cap=${maxPerWallet})`,
+      );
     } catch (e) {
       this.log.warn(`Wallet ${label}: could not read dust UTXO count:`, e);
     }
@@ -347,12 +386,15 @@ export class MidnightBalancingAdapter
     for (const wa of batchData.workerAssignments) {
       this.pool.releaseWorker(wa.walletIdx, wa.slotIdx);
     }
-    for (const input of batchData.selectedInputs) {
-      this.inFlightInputKeys.delete(this.getInputKey(input));
+    // Use the snapshot taken at buildBatchData time, not the possibly-mutated
+    // selectedInputs array (submitBatch splices out failed inputs).
+    for (const key of batchData.reservedInputKeys) {
+      this.inFlightInputKeys.delete(key);
     }
+    const bTag = `B${String(batchData.batchId).padStart(2, "0")}`;
     this.log.log(
-      `Released batch resources: ${batchData.workerAssignments.length} worker(s), ` +
-        `${batchData.selectedInputs.length} input(s)`,
+      `[${bTag}] Released ${batchData.workerAssignments.length} worker(s), ` +
+        `${batchData.reservedInputKeys.length} input(s) [pool: ${this.pool.getStatus()}]`,
     );
   }
 
@@ -392,37 +434,69 @@ export class MidnightBalancingAdapter
   }
 
   private deserializeTxEntry(input: DefaultBatcherInput): DelegatedTxEntry {
-    const { hex, txStage, addShieldedPadding } = this.parseHexInput(input.input);
+    const { hex, txStage, addShieldedPadding } = this.parseHexInput(
+      input.input,
+    );
     const bytes = fromHex(hex);
 
     if (txStage === "unbound") {
       return {
-        tx: LedgerV6Transaction.deserialize("signature" as const, "proof" as const, "pre-binding" as const, bytes) as UnboundTransaction,
-        txStage: "unbound", addShieldedPadding,
+        tx: LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "proof" as const,
+          "pre-binding" as const,
+          bytes,
+        ) as UnboundTransaction,
+        txStage: "unbound",
+        addShieldedPadding,
       };
     }
     if (txStage === "finalized") {
       return {
-        tx: LedgerV6Transaction.deserialize("signature" as const, "proof" as const, "binding" as const, bytes) as FinalizedTransaction,
-        txStage: "finalized", addShieldedPadding,
+        tx: LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "proof" as const,
+          "binding" as const,
+          bytes,
+        ) as FinalizedTransaction,
+        txStage: "finalized",
+        addShieldedPadding,
       };
     }
     if (txStage === "unproven") {
       return {
-        tx: LedgerV6Transaction.deserialize("signature" as const, "pre-proof" as const, "pre-binding" as const, bytes) as UnprovenTransaction,
-        txStage: "unproven", addShieldedPadding,
+        tx: LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "pre-proof" as const,
+          "pre-binding" as const,
+          bytes,
+        ) as UnprovenTransaction,
+        txStage: "unproven",
+        addShieldedPadding,
       };
     }
     // Auto-detect: try unbound first, fall back to unproven
     try {
       return {
-        tx: LedgerV6Transaction.deserialize("signature" as const, "proof" as const, "pre-binding" as const, bytes) as UnboundTransaction,
-        txStage: "unbound", addShieldedPadding,
+        tx: LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "proof" as const,
+          "pre-binding" as const,
+          bytes,
+        ) as UnboundTransaction,
+        txStage: "unbound",
+        addShieldedPadding,
       };
     } catch {
       return {
-        tx: LedgerV6Transaction.deserialize("signature" as const, "pre-proof" as const, "pre-binding" as const, bytes) as UnprovenTransaction,
-        txStage: "unproven", addShieldedPadding,
+        tx: LedgerV6Transaction.deserialize(
+          "signature" as const,
+          "pre-proof" as const,
+          "pre-binding" as const,
+          bytes,
+        ) as UnprovenTransaction,
+        txStage: "unproven",
+        addShieldedPadding,
       };
     }
   }
@@ -447,9 +521,11 @@ export class MidnightBalancingAdapter
     );
     if (availableInputs.length === 0) return null;
 
+    const batchId = ++this.batchCounter;
     const txs: DelegatedTxEntry[] = [];
     const selectedInputs: DefaultBatcherInput[] = [];
     const workerAssignments: { walletIdx: number; slotIdx: number }[] = [];
+    const traceInfos: TxTraceInfo[] = [];
 
     for (const input of availableInputs) {
       const worker = this.pool.acquireWorker();
@@ -464,22 +540,42 @@ export class MidnightBalancingAdapter
         continue; // skip bad input, try next
       }
 
+      const txIdx = txs.length + 1;
       txs.push(entry);
       selectedInputs.push(input);
-      workerAssignments.push({ walletIdx: worker.walletIdx, slotIdx: worker.slotIdx });
+      workerAssignments.push({
+        walletIdx: worker.walletIdx,
+        slotIdx: worker.slotIdx,
+      });
+      traceInfos.push({
+        label: `B${String(batchId).padStart(2, "0")}:${txIdx}`,
+        contentHash: inputContentHash(input.input),
+        retry: input.retryCount ?? 0,
+      });
     }
 
     if (txs.length === 0) return null;
 
-    // Mark inputs as in-flight (synchronous)
+    // Mark inputs as in-flight and snapshot the keys (synchronous)
+    const reservedInputKeys: string[] = [];
     for (const input of selectedInputs) {
-      this.inFlightInputKeys.add(this.getInputKey(input));
+      const key = this.getInputKey(input);
+      this.inFlightInputKeys.add(key);
+      reservedInputKeys.push(key);
     }
 
+    const assignments = traceInfos.map((t, i) => {
+      const wa = workerAssignments[i];
+      const retry = t.retry > 0 ? ` retry=${t.retry}` : "";
+      return `${t.label}/W${wa.walletIdx + 1}:s${wa.slotIdx} #${t.contentHash}${retry}`;
+    }).join(", ");
     this.log.log(
-      `Built batch: ${txs.length} tx(s) assigned to workers [pool: ${this.pool.getStatus()}]`,
+      `Built batch B${String(batchId).padStart(2, "0")}: ${txs.length} tx(s) [${assignments}] [pool: ${this.pool.getStatus()}]`,
     );
-    return { selectedInputs, data: { txs, selectedInputs, workerAssignments } };
+    return {
+      selectedInputs,
+      data: { txs, selectedInputs, workerAssignments, reservedInputKeys, traceInfos, batchId },
+    };
   }
 
   // -----------------------------------------------------------------------
@@ -488,6 +584,59 @@ export class MidnightBalancingAdapter
 
   private shouldAddShieldedPadding(entry: DelegatedTxEntry): boolean {
     return entry.addShieldedPadding ?? this.config.addShieldedPadding ?? false;
+  }
+
+  /**
+   * Wait for at least one dust UTXO to become available.
+   * Handles the UTXO regeneration race where a worker is reused right after
+   * its previous tx confirms but the change output hasn't been indexed yet.
+   * Does not throw — if dust remains unavailable the subsequent balance call
+   * will fail and the input goes back to the retry queue.
+   */
+  private async waitForDustAvailability(
+    walletIndex: number,
+    timeoutMs: number = 10_000,
+  ): Promise<void> {
+    const walletResult = this.walletResults[walletIndex];
+    if (!walletResult) return;
+    const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
+
+    try {
+      // deno-lint-ignore no-explicit-any
+      const dustState = await getInitialDustState(
+        (walletResult.wallet as any).dust,
+      );
+      if ((dustState.availableCoins?.length ?? 0) > 0) return;
+    } catch {
+      return;
+    }
+
+    this.log.log(
+      `Wallet ${label}: no dust UTXOs yet, waiting up to ${timeoutMs}ms for regeneration...`,
+    );
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      await new Promise((r) => setTimeout(r, 1_000));
+      try {
+        // deno-lint-ignore no-explicit-any
+        await (walletResult.wallet as any).dust.waitForSyncedState();
+        // deno-lint-ignore no-explicit-any
+        const dustState = await getInitialDustState(
+          (walletResult.wallet as any).dust,
+        );
+        if ((dustState.availableCoins?.length ?? 0) > 0) {
+          this.log.log(
+            `Wallet ${label}: dust available after ${Date.now() - start}ms`,
+          );
+          return;
+        }
+      } catch {
+        // Keep polling
+      }
+    }
+    this.log.warn(
+      `Wallet ${label}: dust still unavailable after ${timeoutMs}ms, proceeding to balance (will likely fail and re-queue)`,
+    );
   }
 
   /**
@@ -502,6 +651,7 @@ export class MidnightBalancingAdapter
 
     // deno-lint-ignore no-explicit-any
     await (walletResult.wallet as any).dust.waitForSyncedState();
+    await this.waitForDustAvailability(walletIndex);
 
     const keys = {
       shieldedSecretKeys: walletResult.walletZswapSecretKeys,
@@ -511,12 +661,16 @@ export class MidnightBalancingAdapter
 
     if (this.shouldAddShieldedPadding(entry) && entry.txStage === "unproven") {
       try {
-        const paddedTx = await this.applyShieldedPadding(entry.tx as UnprovenTransaction, true, walletIndex);
+        const paddedTx = await this.applyShieldedPadding(
+          entry.tx as UnprovenTransaction,
+          true,
+          walletIndex,
+        );
         entry = { tx: paddedTx, txStage: "unproven" };
       } catch (e) {
         this.log.warn(
           "Shielded padding unavailable, submitting without padding. " +
-          `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
+            `Ensure the batcher wallet has shielded NIGHT tokens. ${e}`,
         );
       }
     }
@@ -525,11 +679,19 @@ export class MidnightBalancingAdapter
     switch (entry.txStage) {
       case "unbound":
         recipe = await walletResult.wallet.balanceUnboundTransaction(
-          entry.tx as UnboundTransaction, keys, opts,
+          entry.tx as UnboundTransaction,
+          keys,
+          opts,
         );
-        if (this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction) {
+        if (
+          this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction
+        ) {
           try {
-            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true, walletIndex);
+            recipe.balancingTransaction = await this.applyShieldedPadding(
+              recipe.balancingTransaction,
+              true,
+              walletIndex,
+            );
           } catch (e) {
             this.log.warn("Shielded padding unavailable: " + e);
           }
@@ -537,11 +699,19 @@ export class MidnightBalancingAdapter
         break;
       case "finalized":
         recipe = await walletResult.wallet.balanceFinalizedTransaction(
-          entry.tx as FinalizedTransaction, keys, opts,
+          entry.tx as FinalizedTransaction,
+          keys,
+          opts,
         );
-        if (this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction) {
+        if (
+          this.shouldAddShieldedPadding(entry) && recipe.balancingTransaction
+        ) {
           try {
-            recipe.balancingTransaction = await this.applyShieldedPadding(recipe.balancingTransaction, true, walletIndex);
+            recipe.balancingTransaction = await this.applyShieldedPadding(
+              recipe.balancingTransaction,
+              true,
+              walletIndex,
+            );
           } catch (e) {
             this.log.warn("Shielded padding unavailable: " + e);
           }
@@ -549,7 +719,9 @@ export class MidnightBalancingAdapter
         break;
       case "unproven":
         recipe = await walletResult.wallet.balanceUnprovenTransaction(
-          entry.tx as UnprovenTransaction, keys, opts,
+          entry.tx as UnprovenTransaction,
+          keys,
+          opts,
         );
         break;
     }
@@ -569,10 +741,14 @@ export class MidnightBalancingAdapter
     const keys = walletResult.walletZswapSecretKeys;
 
     // deno-lint-ignore no-explicit-any
-    const initialState = await getInitialShieldedState((walletResult.wallet as any).shielded);
+    const initialState = await getInitialShieldedState(
+      (walletResult.wallet as any).shielded,
+    );
     const receiverAddress = initialState.address;
     if (!this.config.shieldedPaddingTokenID) {
-      throw new Error("shieldedPaddingTokenID must be set when addShieldedPadding is true");
+      throw new Error(
+        "shieldedPaddingTokenID must be set when addShieldedPadding is true",
+      );
     }
     const type = this.config.shieldedPaddingTokenID;
     const outputs: ShieldedTokenTransfer[] = [
@@ -583,7 +759,11 @@ export class MidnightBalancingAdapter
       dustSecretKey: walletResult.walletDustSecretKey,
     };
     const opt = { ttl: createTtl(), payFees };
-    const paddingRecipe = await walletResult.wallet.transferTransaction(outputs, conf, opt);
+    const paddingRecipe = await walletResult.wallet.transferTransaction(
+      outputs,
+      conf,
+      opt,
+    );
     return balancingTx.merge(paddingRecipe.transaction);
   }
 
@@ -604,60 +784,72 @@ export class MidnightBalancingAdapter
   private async processWorkerTx(
     entry: DelegatedTxEntry,
     walletIdx: number,
-    txLabel: string,
+    slotIdx: number,
+    trace: TxTraceInfo,
   ): Promise<string> {
     const walletResult = this.walletResults[walletIdx]!;
+    const w = `W${walletIdx + 1}:s${slotIdx}`;
+    const tag = `${trace.label}/${w} #${trace.contentHash}`;
+    const retryTag = trace.retry > 0 ? ` [retry ${trace.retry}/3]` : "";
+    const pipelineStart = performance.now();
 
     // --- Phase 1: Balance (under wallet lock) ---
-    this.log.log(`[${txLabel}] Acquiring balance lock for wallet ${walletIdx + 1}...`);
+    this.log.log(`[${tag}] Acquiring balance lock${retryTag}...`);
     const releaseBalanceLock = await this.pool.acquireBalanceLock(walletIdx);
     let recipe: BalancingRecipe;
+    const balanceStart = performance.now();
     try {
-      this.log.log(`[${txLabel}] Balancing (${entry.txStage})...`);
+      this.log.log(`[${tag}] Balancing (${entry.txStage})...`);
       recipe = await this.balanceEntry(entry, walletIdx);
     } finally {
       releaseBalanceLock();
-      this.log.log(`[${txLabel}] Balance lock released for wallet ${walletIdx + 1}`);
     }
+    const balanceMs = Math.round(performance.now() - balanceStart);
+    this.log.log(`[${tag}] Balanced (${balanceMs}ms)`);
 
     // --- Phase 2: Sign + Finalize (no lock — concurrent safe) ---
-    this.log.log(`[${txLabel}] Signing and proving...`);
+    const proveStart = performance.now();
     const signedRecipe = await walletResult.wallet.signRecipe(
       recipe,
-      (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
+      (payload: Uint8Array) =>
+        walletResult.unshieldedKeystore.signData(payload),
     );
     const finalized = await walletResult.wallet.finalizeRecipe(signedRecipe);
+    const proveMs = Math.round(performance.now() - proveStart);
+    this.log.log(`[${tag}] Proved (${proveMs}ms)`);
 
     // --- Phase 3: Submit ---
     const txHash = finalized.transactionHash().toString();
-    this.log.log(`[${txLabel}] Submitting to node (hash: ${txHash})...`);
+    this.log.log(`[${tag}] Submitting (hash: ${txHash})...`);
+    const submitStart = performance.now();
 
     try {
-      const data = await Promise.race([
+      await Promise.race([
         walletResult.wallet.submitTransaction(finalized),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("submitTransaction timed out")), SUBMIT_TX_TIMEOUT_MS)
+          setTimeout(
+            () => reject(new Error("submitTransaction timed out")),
+            SUBMIT_TX_TIMEOUT_MS,
+          )
         ),
       ]);
-      this.log.log(`[${txLabel}] Submitted successfully: ${JSON.stringify(data)}`);
+      const submitMs = Math.round(performance.now() - submitStart);
+      const totalMs = Math.round(performance.now() - pipelineStart);
+      this.log.log(
+        `[${tag}] ✅ Submitted (balance=${balanceMs}ms prove=${proveMs}ms submit=${submitMs}ms total=${totalMs}ms)`,
+      );
     } catch (error) {
-      const errMsg = (error instanceof Error ? error.message : String(error)).trim();
+      const errMsg = (error instanceof Error ? error.message : String(error))
+        .trim();
       if (errMsg.includes("IntentAlreadyExists")) {
-        this.log.log(`[${txLabel}] IntentAlreadyExists — already in mempool, treating as success`);
-      } else if (
-        errMsg === "Transaction submission error: Transaction got dropped, the mempool likely is full and network congested" ||
-        errMsg === "Transaction got dropped, the mempool likely is full and network congested"
-      ) {
-        this.log.log(`[${txLabel}] Dropped (mempool full), returning dropped marker`);
-        return "dropped_" + txHash;
-      } else if (
-        errMsg === "Transaction submission error: Transaction submission failed" ||
-        errMsg === "Transaction submission failed" ||
-        errMsg.includes("Invalid Transaction")
-      ) {
-        this.log.log(`[${txLabel}] Unprocessable tx, returning dropped marker`);
-        return "dropped_" + txHash;
+        this.log.log(
+          `[${tag}] IntentAlreadyExists — already in mempool, treating as success`,
+        );
       } else {
+        const submitMs = Math.round(performance.now() - submitStart);
+        this.log.error(
+          `[${tag}] ❌ Submit failed after ${submitMs}ms: ${errMsg}`,
+        );
         throw error;
       }
     }
@@ -673,7 +865,11 @@ export class MidnightBalancingAdapter
    * Run per-worker pipelines in parallel. Each worker independently:
    * balance (locked) → prove (unlocked) → submit.
    *
-   * Workers are released in the finally block of submitBatch.
+   * Workers are released by releaseBatchResources (called by BatchProcessor
+   * in its finally block after all storage operations complete). Workers
+   * must NOT be released here — doing so causes a double-release race where
+   * a subsequent batch acquires the worker, then releaseBatchResources frees
+   * it while the new batch is still using it.
    */
   async submitBatch(
     batchData: DelegatedBatchData,
@@ -686,41 +882,24 @@ export class MidnightBalancingAdapter
       throw new Error("Adapter not initialized");
     }
 
-    const { txs, workerAssignments } = batchData;
-    // Snapshot workers to release in finally (even if batchData is mutated).
-    const reservedWorkers = [...workerAssignments];
-    const reservedInputKeys = batchData.selectedInputs.map((i) => this.getInputKey(i));
-
-    try {
-      return await this._executeWorkerPipelines(batchData);
-    } finally {
-      for (const wa of reservedWorkers) {
-        this.pool.releaseWorker(wa.walletIdx, wa.slotIdx);
-      }
-      for (const key of reservedInputKeys) {
-        this.inFlightInputKeys.delete(key);
-      }
-      this.log.log(
-        `Released ${reservedWorkers.length} worker(s) [pool: ${this.pool.getStatus()}]`,
-      );
-    }
+    return await this._executeWorkerPipelines(batchData);
   }
 
   private async _executeWorkerPipelines(
     batchData: DelegatedBatchData,
   ): Promise<BlockchainHash> {
-    const { txs, workerAssignments } = batchData;
+    const { txs, workerAssignments, traceInfos, batchId } = batchData;
+    const bTag = `B${String(batchId).padStart(2, "0")}`;
 
     this.log.log(
-      `Processing ${txs.length} tx(s) via worker pipelines [pool: ${this.pool.getStatus()}]`,
+      `[${bTag}] Processing ${txs.length} tx(s) [pool: ${this.pool.getStatus()}]`,
     );
 
     // Run all worker pipelines in parallel
     const results = await Promise.allSettled(
       txs.map((entry, i) => {
         const wa = workerAssignments[i];
-        const label = `tx${i + 1}/W${wa.walletIdx + 1}:s${wa.slotIdx}`;
-        return this.processWorkerTx(entry, wa.walletIdx, label);
+        return this.processWorkerTx(entry, wa.walletIdx, wa.slotIdx, traceInfos[i]);
       }),
     );
 
@@ -735,16 +914,21 @@ export class MidnightBalancingAdapter
       } else {
         errors.push({
           index: i,
-          error: r.reason instanceof Error ? r.reason : new Error(String(r.reason)),
+          error: r.reason instanceof Error
+            ? r.reason
+            : new Error(String(r.reason)),
         });
       }
     }
 
-    this.log.log(`Pipeline results: ${hashes.length} succeeded, ${errors.length} failed`);
+    this.log.log(
+      `[${bTag}] Results: ${hashes.length} succeeded, ${errors.length} failed`,
+    );
 
     if (errors.length > 0) {
       for (const { index, error } of errors) {
-        this.log.warn(`  tx${index + 1}: ${error.message}`);
+        const t = traceInfos[index];
+        this.log.warn(`  ${t.label} #${t.contentHash}: ${error.message}`);
       }
       // Remove failed inputs from selectedInputs so the batcher retries them
       const failedIndices = new Set(errors.map((e) => e.index));
@@ -757,24 +941,13 @@ export class MidnightBalancingAdapter
 
     if (hashes.length === 0) {
       const firstError = errors[0]?.error.message ?? "unknown";
-
-      if (firstError.includes("No dust tokens found in the wallet state")) {
-        this.log.log("Wallet entered bad state. Triggering reconnect...");
-        const affectedWallets = new Set(workerAssignments.map((wa) => wa.walletIdx));
-        for (const wi of affectedWallets) {
-          try { await this.reconnectWallet(wi); } catch (e) {
-            this.log.log(`Reconnect wallet ${wi + 1} failed: ${e}`);
-          }
-        }
-      }
-
       throw new Error(
         `All ${txs.length} transactions failed. First error: ${firstError}`,
       );
     }
 
     const finalHashes = hashes.join(",");
-    this.log.log(`Returning hashes: ${finalHashes}`);
+    this.log.log(`[${bTag}] Hashes: ${finalHashes}`);
     return finalHashes;
   }
 
@@ -794,13 +967,13 @@ export class MidnightBalancingAdapter
     const hashes = hash.split(",");
     let lastReceipt: BlockchainTransactionReceipt | null = null;
 
-    this.log.log(`waitForTransactionReceipt: ${hashes.length} hash(es), timeout: ${effectiveTimeout}ms`);
+    this.log.log(
+      `waitForTransactionReceipt: ${hashes.length} hash(es), timeout: ${effectiveTimeout}ms`,
+    );
 
     for (const h of hashes) {
       const receipt = await this.waitForSingleReceipt(h, effectiveTimeout);
-      if (!h.startsWith("dropped_") || !lastReceipt) {
-        lastReceipt = receipt;
-      }
+      lastReceipt = receipt;
     }
 
     return { ...lastReceipt!, hash };
@@ -810,11 +983,6 @@ export class MidnightBalancingAdapter
     hash: string,
     timeout: number,
   ): Promise<BlockchainTransactionReceipt> {
-    if (hash.startsWith("dropped_")) {
-      this.log.log(`Skipping receipt wait for dropped tx: ${hash}`);
-      return { hash, blockNumber: 0n, status: 0 };
-    }
-
     this.log.log(`Waiting for receipt for ${hash} (timeout: ${timeout}ms)...`);
     const startTime = Date.now();
     let normalizedHash = hash.toLowerCase().replace(/^0x/, "");
@@ -835,7 +1003,11 @@ export class MidnightBalancingAdapter
     while (Date.now() - startTime < timeout) {
       const now = Date.now();
       if (now - lastLogTime > 10000) {
-        this.log.log(`Still waiting for ${hash} (${Math.round((now - startTime) / 1000)}s elapsed)...`);
+        this.log.log(
+          `Still waiting for ${hash} (${
+            Math.round((now - startTime) / 1000)
+          }s elapsed)...`,
+        );
         lastLogTime = now;
       }
 
@@ -848,7 +1020,9 @@ export class MidnightBalancingAdapter
         const body = await response.json();
 
         if (!body?.data?.transactions) {
-          this.log.log(`Unexpected indexer response for ${hash}: ${JSON.stringify(body)}`);
+          this.log.log(
+            `Unexpected indexer response for ${hash}: ${JSON.stringify(body)}`,
+          );
         }
 
         const tx = body.data?.transactions?.[0];
@@ -862,7 +1036,9 @@ export class MidnightBalancingAdapter
       await new Promise((r) => setTimeout(r, 1000));
     }
 
-    this.log.log(`Transaction confirmation timeout for ${hash} after ${timeout}ms`);
+    this.log.log(
+      `Transaction confirmation timeout for ${hash} after ${timeout}ms`,
+    );
     throw new Error(`Transaction confirmation timeout: ${hash}`);
   }
 
@@ -886,7 +1062,10 @@ export class MidnightBalancingAdapter
       }
       return { valid: true };
     } catch (e) {
-      return { valid: false, error: e instanceof Error ? e.message : String(e) };
+      return {
+        valid: false,
+        error: e instanceof Error ? e.message : String(e),
+      };
     }
   }
 
