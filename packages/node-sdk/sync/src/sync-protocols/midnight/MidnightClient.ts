@@ -44,11 +44,14 @@ export class MidnightClient {
   private readonly subscriptionURL: string;
   private readonly publicDataProvider: PublicDataProvider;
   private readonly networkId?: string;
+  /** Timeout in milliseconds for individual HTTP requests to the indexer. */
+  private readonly requestTimeoutMs: number;
 
-  constructor(queryURL: string, subscriptionURL: string, networkId?: string) {
+  constructor(queryURL: string, subscriptionURL: string, networkId?: string, requestTimeoutMs = 60_000) {
     this.queryURL = queryURL;
     this.subscriptionURL = subscriptionURL;
     this.networkId = networkId;
+    this.requestTimeoutMs = requestTimeoutMs;
     this.publicDataProvider = indexerPublicDataProvider(
       queryURL,
       subscriptionURL,
@@ -61,24 +64,36 @@ export class MidnightClient {
   }
 
   async fetchContractState(contractAddress: string, blockHeight: number) {
-    const state = await this.publicDataProvider.queryContractState(
-      contractAddress,
-      {
-        type: "blockHeight",
-        blockHeight,
-      },
-    );
+    const state = await Promise.race([
+      this.publicDataProvider.queryContractState(
+        contractAddress,
+        {
+          type: "blockHeight",
+          blockHeight,
+        },
+      ),
+      new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error(`fetchContractState timed out after ${this.requestTimeoutMs}ms (contract=${contractAddress}, height=${blockHeight})`)),
+          this.requestTimeoutMs,
+        );
+      }),
+    ]);
     return state;
   }
 
   async gqlQuery(query: string, signal?: AbortSignal): Promise<any> {
+    const timeoutSignal = AbortSignal.timeout(this.requestTimeoutMs);
+    const combinedSignal = signal
+      ? AbortSignal.any([signal, timeoutSignal])
+      : timeoutSignal;
     const response = await fetch(this.queryURL, {
       method: "POST",
       body: JSON.stringify({ query }),
       headers: {
         "Content-Type": "application/json",
       },
-      signal,
+      signal: combinedSignal,
     });
 
     if (!response.ok) {

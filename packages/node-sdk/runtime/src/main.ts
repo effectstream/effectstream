@@ -105,11 +105,24 @@ export function* start(config: StartConfig): Operation<void> {
   yield* spawn(function* () {
     while (true) {
       yield* sleep(heartbeatIntervalMs);
+      const now = Date.now();
       const status = syncProtocols.map((p) => {
         const page = p.lastPage;
         if (page == null) return `${p.name}: waiting for first sync`;
-        const ageMs = Date.now() - (page.root as number);
-        return `${p.name}: block ${page.ownBlockNumber} | buf ${p.bufferedData.size()} | age ${(ageMs / 1000).toFixed(1)}s`;
+        const ageMs = now - (page.root as number);
+        let line = `${p.name}: block ${page.ownBlockNumber} | buf ${p.bufferedData.size()} | age ${(ageMs / 1000).toFixed(1)}s`;
+        if (p.consecutiveErrors > 0) {
+          const sinceLast = p.lastErrorTimestamp > 0
+            ? ` ${((now - p.lastErrorTimestamp) / 1000).toFixed(0)}s ago`
+            : "";
+          line += ` | ERRORS: ${p.consecutiveErrors}${sinceLast}`;
+        } else if (p.lastSuccessfulFetchMs > 0) {
+          const idleMs = now - p.lastSuccessfulFetchMs;
+          if (idleMs > heartbeatIntervalMs * 2) {
+            line += ` | IDLE: ${(idleMs / 1000).toFixed(0)}s`;
+          }
+        }
+        return line;
       });
       log.local(
         ComponentNames.EFFECTSTREAM_SYNC,
