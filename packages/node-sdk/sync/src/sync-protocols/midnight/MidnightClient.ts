@@ -42,12 +42,12 @@ type PublicDataProvider = ReturnType<typeof indexerPublicDataProvider>;
 export class MidnightClient {
   private readonly queryURL: string;
   private readonly subscriptionURL: string;
-  private readonly publicDataProvider: PublicDataProvider;
+  private publicDataProvider: PublicDataProvider;
   private readonly networkId?: string;
   /** Timeout in milliseconds for individual HTTP requests to the indexer. */
   private readonly requestTimeoutMs: number;
 
-  constructor(queryURL: string, subscriptionURL: string, networkId?: string, requestTimeoutMs = 60_000) {
+  constructor(queryURL: string, subscriptionURL: string, networkId?: string, requestTimeoutMs = 30_000) {
     this.queryURL = queryURL;
     this.subscriptionURL = subscriptionURL;
     this.networkId = networkId;
@@ -63,23 +63,46 @@ export class MidnightClient {
     );
   }
 
+  /**
+   * Recreate the publicDataProvider to recover from stale internal state.
+   * The Midnight JS library can get into a state where all queryContractState
+   * calls fail with {"json":{}} until the provider is recreated.
+   */
+  resetProvider(): void {
+    console.log(
+      `[MidnightClient] Resetting publicDataProvider for ${this.queryURL}`,
+    );
+    this.publicDataProvider = indexerPublicDataProvider(
+      this.queryURL,
+      this.subscriptionURL,
+    );
+  }
+
   async fetchContractState(contractAddress: string, blockHeight: number) {
-    const state = await Promise.race([
-      this.publicDataProvider.queryContractState(
-        contractAddress,
-        {
-          type: "blockHeight",
-          blockHeight,
-        },
-      ),
-      new Promise<never>((_, reject) => {
-        setTimeout(
-          () => reject(new Error(`fetchContractState timed out after ${this.requestTimeoutMs}ms (contract=${contractAddress}, height=${blockHeight})`)),
-          this.requestTimeoutMs,
-        );
-      }),
-    ]);
-    return state;
+    try {
+      const state = await Promise.race([
+        this.publicDataProvider.queryContractState(
+          contractAddress,
+          {
+            type: "blockHeight",
+            blockHeight,
+          },
+        ),
+        new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`fetchContractState timed out after ${this.requestTimeoutMs}ms (contract=${contractAddress}, height=${blockHeight})`)),
+            this.requestTimeoutMs,
+          );
+        }),
+      ]);
+      return state;
+    } catch (error) {
+      // The Midnight JS publicDataProvider can enter a broken state where all
+      // subsequent calls fail (e.g. {"json":{}}).  Recreate it so the next
+      // retry starts with a fresh connection.
+      this.resetProvider();
+      throw error;
+    }
   }
 
   async gqlQuery(query: string, signal?: AbortSignal): Promise<any> {
