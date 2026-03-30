@@ -8,7 +8,7 @@ import type {
   PrimitiveEntryType,
   PrimitiveType,
 } from "./types.ts";
-import { all, call, type Operation } from "effection";
+import { all, call, type Operation, useAbortSignal } from "effection";
 import type { DataFetched } from "../base/fetcher.ts";
 import type {
   OutputAndCleanup,
@@ -88,23 +88,36 @@ export class MidnightFetcher extends BaseDataFetcher<
         (p) => p.primitive.type === "Midnight:Nullifier",
       ),
     };
-    for (let height = data.from; height <= data.to; height++) {
-      const result: MidnightGqlBlockState = yield* call(() =>
-        this.client.fetchBlock(height, blockFetchOptions)
-      );
-      const primitives = yield* this.readPrimitives(
-        height,
-        result,
-        this.config.primitives,
-      );
-      outputs.push({
-        output: {
-          raw: result.block as unknown as Block,
-          primitives,
-        },
-        cleanup: () => {},
-      });
-    }
+    const self = this;
+    const heights = Array.from(
+      { length: data.to - data.from + 1 },
+      (_, i) => i + data.from,
+    );
+    const fetched = yield* all(
+      // The endpoint does not support range requests,
+      // so we fetch each block individually in parallel.
+      // useAbortSignal() ties each fetch's lifetime to its Effection scope,
+      // so cancellation by all() cleanly aborts the underlying HTTP request.
+      heights.map(function* (height) {
+        const signal = yield* useAbortSignal();
+        const result: MidnightGqlBlockState = yield* call(() =>
+          self.client.fetchBlock(height, blockFetchOptions, signal)
+        );
+        const primitives = yield* self.readPrimitives(
+          height,
+          result,
+          self.config.primitives,
+        );
+        return {
+          output: {
+            raw: result.block as unknown as Block,
+            primitives,
+          },
+          cleanup: () => {},
+        };
+      }),
+    );
+    outputs.push(...fetched);
 
     const lastOutput = outputs[outputs.length - 1].output;
     return {

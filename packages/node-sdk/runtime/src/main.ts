@@ -38,6 +38,19 @@ import { builtInPrimitivesMap } from "@effectstream/sm";
 import { validateAndSnapshotConfig } from "./config-snapshot.ts";
 
 export function* init() {
+  // Prevent transient network errors (broken pipes, closed connections) from
+  // crashing the process via unhandled promise rejections. The sync loop's
+  // tryYield already retries on error — this just keeps the process alive.
+  globalThis.addEventListener("unhandledrejection", (event) => {
+    log.local(
+      ComponentNames.EFFECTSTREAM_RUNTIME,
+      "unhandled-rejection",
+      SeverityNumber.WARN,
+      (l) => l("Suppressed unhandled rejection:", event.reason),
+    );
+    event.preventDefault();
+  });
+
   // initialize OpenTelemetry
   yield* initTelemetry();
 }
