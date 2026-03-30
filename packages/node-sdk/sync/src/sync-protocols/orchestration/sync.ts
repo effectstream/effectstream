@@ -48,6 +48,9 @@ export function* startSync(
           `${self.name}`,
           result.error,
         );
+        if ("pollingInterval" in config.syncProtocol) {
+          yield* sleep(config.syncProtocol.pollingInterval);
+        }
         continue;
       }
       log.remote(

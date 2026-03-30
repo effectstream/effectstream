@@ -71,13 +71,14 @@ export class MidnightClient {
     return state;
   }
 
-  async gqlQuery(query: string): Promise<any> {
+  async gqlQuery(query: string, signal?: AbortSignal): Promise<any> {
     const response = await fetch(this.queryURL, {
       method: "POST",
       body: JSON.stringify({ query }),
       headers: {
         "Content-Type": "application/json",
       },
+      signal,
     });
 
     if (!response.ok) {
@@ -116,6 +117,7 @@ export class MidnightClient {
   async fetchBlock(
     blockHeight: number,
     options: BlockFetchOptions = {},
+    signal?: AbortSignal,
   ): Promise<MidnightGqlBlockState> {
     const { contractActions = true, zswapLedgerEvents = true } = options;
     const contractActionsField = contractActions
@@ -140,7 +142,7 @@ export class MidnightClient {
         }
       }
     }`;
-    return await this.gqlQuery(query);
+    return await this.gqlQuery(query, signal);
   }
 
   async fetchLatestBlock() {

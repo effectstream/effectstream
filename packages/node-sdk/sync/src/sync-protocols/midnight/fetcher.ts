@@ -8,7 +8,7 @@ import type {
   PrimitiveEntryType,
   PrimitiveType,
 } from "./types.ts";
-import { all, call, type Operation } from "effection";
+import { all, call, type Operation, useAbortSignal } from "effection";
 import type { DataFetched } from "../base/fetcher.ts";
 import type {
   OutputAndCleanup,
@@ -94,11 +94,14 @@ export class MidnightFetcher extends BaseDataFetcher<
       (_, i) => i + data.from,
     );
     const fetched = yield* all(
-      // The endpoint does not support range requests, 
+      // The endpoint does not support range requests,
       // so we fetch each block individually in parallel.
+      // useAbortSignal() ties each fetch's lifetime to its Effection scope,
+      // so cancellation by all() cleanly aborts the underlying HTTP request.
       heights.map(function* (height) {
+        const signal = yield* useAbortSignal();
         const result: MidnightGqlBlockState = yield* call(() =>
-          self.client.fetchBlock(height, blockFetchOptions)
+          self.client.fetchBlock(height, blockFetchOptions, signal)
         );
         const primitives = yield* self.readPrimitives(
           height,
