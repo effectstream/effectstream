@@ -156,6 +156,8 @@ export class MidnightBalancingAdapter
   private walletAddresses: (string | null)[];
   private walletInitialized: boolean[];
   private availableDustUtxoCounts: (number | null)[];
+  /** Tracks wallets that recently failed due to missing dust. Cleared when dust is confirmed available. */
+  private walletDustExhausted: boolean[];
 
   /** Worker pool — initialized with 0 slots, updated per wallet after init. */
   private readonly pool: WorkerPool;
@@ -185,6 +187,7 @@ export class MidnightBalancingAdapter
     this.walletAddresses = new Array(seeds.length).fill(null);
     this.walletInitialized = new Array(seeds.length).fill(false);
     this.availableDustUtxoCounts = new Array(seeds.length).fill(null);
+    this.walletDustExhausted = new Array(seeds.length).fill(false);
 
     // Start with 0 slots per wallet; updated in ensureWalletFunds once UTXO counts are known.
     this.pool = new WorkerPool(new Array(seeds.length).fill(0));
@@ -232,8 +235,13 @@ export class MidnightBalancingAdapter
     const label = `${index + 1}/${this.walletSeeds.length}`;
     try {
       if (index === 0 && this.config.walletResult) {
-        this.log.log(`Wallet ${label}: using shared wallet`);
+        this.log.log(`Wallet ${label}: using shared wallet (stopping shielded/unshielded sync)`);
         this.walletResults[index] = await this.config.walletResult;
+        const wallet = this.walletResults[index]!.wallet;
+        await Promise.all([
+          (wallet.shielded as any).stop?.().catch(() => {}),
+          (wallet.unshielded as any).stop?.().catch(() => {}),
+        ]);
       } else {
         this.log.log(`Wallet ${label}: building...`);
         const networkUrls: Required<NetworkUrls> = {
@@ -251,10 +259,14 @@ export class MidnightBalancingAdapter
         );
       }
 
-      this.walletAddresses[index] = this.walletResults[index]!
-        .zswapSecretKeys.coinPublicKey.toString();
+      const wr = this.walletResults[index]!;
+      this.walletAddresses[index] = wr.zswapSecretKeys.coinPublicKey.toString();
+      this.log.log(`Wallet ${label} addresses:`);
+      this.log.log(`  shielded:   ${this.walletAddresses[index]}`);
+      this.log.log(`  unshielded: ${wr.unshieldedAddress}`);
+      this.log.log(`  dust:       ${wr.dustAddress}`);
 
-      this.log.log(`Wallet ${label}: built, waiting for funds...`);
+      this.log.log(`Wallet ${label}: waiting for funds...`);
       await this.ensureWalletFunds(index);
       this.walletInitialized[index] = true;
       this.log.log(`Wallet ${label}: ready`);
@@ -527,8 +539,13 @@ export class MidnightBalancingAdapter
     const workerAssignments: { walletIdx: number; slotIdx: number }[] = [];
     const traceInfos: TxTraceInfo[] = [];
 
+    // Prefer wallets that are known to have dust. Falls back to exhausted
+    // wallets if all are exhausted (the pipeline will wait for regeneration).
+    const dustFilter = (walletIdx: number): boolean =>
+      !this.walletDustExhausted[walletIdx];
+
     for (const input of availableInputs) {
-      const worker = this.pool.acquireWorker();
+      const worker = this.pool.acquireWorker(dustFilter);
       if (!worker) break; // no free workers
 
       let entry: DelegatedTxEntry;
@@ -595,7 +612,7 @@ export class MidnightBalancingAdapter
    */
   private async waitForDustAvailability(
     walletIndex: number,
-    timeoutMs: number = 10_000,
+    timeoutMs: number = 60_000,
   ): Promise<void> {
     const walletResult = this.walletResults[walletIndex];
     if (!walletResult) return;
@@ -606,7 +623,10 @@ export class MidnightBalancingAdapter
       const dustState = await getInitialDustState(
         (walletResult.wallet as any).dust,
       );
-      if ((dustState.availableCoins?.length ?? 0) > 0) return;
+      if ((dustState.availableCoins?.length ?? 0) > 0) {
+        this.walletDustExhausted[walletIndex] = false;
+        return;
+      }
     } catch {
       return;
     }
@@ -628,12 +648,14 @@ export class MidnightBalancingAdapter
           this.log.log(
             `Wallet ${label}: dust available after ${Date.now() - start}ms`,
           );
+          this.walletDustExhausted[walletIndex] = false;
           return;
         }
       } catch {
         // Keep polling
       }
     }
+    this.walletDustExhausted[walletIndex] = true;
     this.log.warn(
       `Wallet ${label}: dust still unavailable after ${timeoutMs}ms, proceeding to balance (will likely fail and re-queue)`,
     );

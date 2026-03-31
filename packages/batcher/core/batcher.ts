@@ -443,14 +443,14 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * Add a user input to the batch queue after validating the signature
    * @param input - The input to add to the batch queue
    * @param confirmationLevel - The level of confirmation to wait for
-   * @param timeoutMs - Timeout in milliseconds for confirmation (default: 60000)
+   * @param timeoutMs - Timeout in milliseconds for confirmation (default: 300000)
    * @returns Promise resolving to transaction receipt or null based on confirmation level
    */
   async batchInput(
     input: T,
     confirmationLevel: "no-wait" | "wait-receipt" | "wait-effectstream-processed" =
       "wait-receipt",
-    timeoutMs: number = 60000,
+    timeoutMs: number = 300_000,
   ): Promise<BlockchainTransactionReceipt & { rollup?: number } | null> {
     if (this.shutdownState.isShuttingDown) {
       // 503 Service Unavailable

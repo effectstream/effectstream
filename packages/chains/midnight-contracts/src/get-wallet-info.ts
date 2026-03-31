@@ -25,6 +25,7 @@ import {
 } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
 import { type ShieldedWalletState } from "@midnight-ntwrk/wallet-sdk-shielded";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 import { CONSTANTS } from "./constants.ts";
 import type { NetworkUrls, WalletResult } from "./types.ts";
 import { midnightNetworkConfig } from "./midnight-env.ts";
@@ -352,6 +353,7 @@ export async function buildWalletFacade(
 
   const unshieldedAddress = unshieldedKeystore.getBech32Address().asString();
   const dustState = await getInitialDustState(wallet.dust);
+  const dustAddress = MidnightBech32m.encode(networkId, dustState.address).asString();
 
   return {
     wallet,
@@ -359,7 +361,7 @@ export async function buildWalletFacade(
     walletZswapSecretKeys: zswapSecretKeys,
     dustSecretKey,
     walletDustSecretKey: dustSecretKey,
-    dustAddress: dustState.dustAddress,
+    dustAddress,
     unshieldedAddress,
     unshieldedKeystore,
   };

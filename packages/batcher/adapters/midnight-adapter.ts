@@ -47,10 +47,8 @@ import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
   buildWalletFacade,
   getInitialDustState,
-  getInitialShieldedState,
   type NetworkUrls,
   registerNightForDust,
-  syncAndWaitForFunds,
   waitForDustFunds,
   type NetworkUrls as MidnightNetworkUrls,
   type WalletResult,
@@ -117,6 +115,8 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
 
   /** Worker pool — 1 slot per wallet (callTx is atomic, no intra-wallet parallelism). */
   private readonly pool: WorkerPool;
+  /** Tracks wallets that recently failed due to missing dust. Cleared when dust is confirmed available. */
+  private walletDustExhausted: boolean[];
 
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
@@ -134,7 +134,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
    */
   private async waitForDustAvailability(
     walletIndex: number,
-    timeoutMs: number = 10_000,
+    timeoutMs: number = 60_000,
   ): Promise<void> {
     const walletResult = this.walletResults[walletIndex];
     if (!walletResult) return;
@@ -142,7 +142,10 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
 
     try {
       const dustState = await getInitialDustState(walletResult.wallet.dust);
-      if ((dustState.availableCoins?.length ?? 0) > 0) return;
+      if ((dustState.availableCoins?.length ?? 0) > 0) {
+        this.walletDustExhausted[walletIndex] = false;
+        return;
+      }
     } catch {
       return;
     }
@@ -159,12 +162,14 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           this.log.log(
             `Wallet ${label}: dust available after ${Date.now() - start}ms`,
           );
+          this.walletDustExhausted[walletIndex] = false;
           return;
         }
       } catch {
         // Keep polling
       }
     }
+    this.walletDustExhausted[walletIndex] = true;
     this.log.warn(
       `Wallet ${label}: dust still unavailable after ${timeoutMs}ms, proceeding to callTx (will likely fail and re-queue)`,
     );
@@ -228,6 +233,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.lastFundingBalancesPerWallet = new Array(seeds.length).fill(null);
     this.contractsJoined = new Array(seeds.length).fill(false);
     this.contractJoiningPromises = new Array(seeds.length).fill(null);
+    this.walletDustExhausted = new Array(seeds.length).fill(false);
 
     // Default 1 worker per wallet — callTx is atomic (balance+prove+submit),
     // so intra-wallet parallelism is limited.
@@ -295,19 +301,26 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           networkUrls,
           seed,
           this.walletNetworkId,
+          'dust-only',
         );
       }
 
-      const initialState = await getInitialShieldedState(
-        this.walletResults[index]!.wallet.shielded,
-      );
-      this.walletAddresses[index] = initialState.address.coinPublicKeyString();
-      this.log.log(`Wallet ${label}: address: ${this.walletAddresses[index]}`);
-      this.log.log(`Wallet ${label}: dust address: ${this.walletResults[index]!.dustAddress}`);
+      const wr = this.walletResults[index]!;
+      // Use zswapSecretKeys directly — shielded wallet may already be stopped by another adapter sharing this wallet
+      this.walletAddresses[index] = wr.zswapSecretKeys.coinPublicKey.toString();
+      this.log.log(`Wallet ${label} addresses:`);
+      this.log.log(`  shielded:   ${this.walletAddresses[index]}`);
+      this.log.log(`  unshielded: ${wr.unshieldedAddress}`);
+      this.log.log(`  dust:       ${wr.dustAddress}`);
 
-      this.walletProviders[index] = this.createWalletAndMidnightProvider(
-        this.walletResults[index]!,
-      );
+      // Stop shielded/unshielded sync — batcher only needs dust for tx fees
+      // Safe to call even if already stopped by another adapter sharing this wallet
+      await Promise.all([
+        (wr.wallet.shielded as any).stop?.().catch(() => {}),
+        (wr.wallet.unshielded as any).stop?.().catch(() => {}),
+      ]);
+
+      this.walletProviders[index] = this.createWalletAndMidnightProvider(wr);
 
       // Wait for wallet to be funded and synced before starting batcher
       this.log.log(`Wallet ${label}: waiting for funds...`);
@@ -520,32 +533,31 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.log.log(`Wallet ${label}: checking sync and balance...`);
 
     try {
-      const balances = await syncAndWaitForFunds(walletResult.wallet, {
+      // Only wait for dust sync — shielded/unshielded are already stopped
+      let dustBalance = await waitForDustFunds(walletResult.wallet, {
         timeoutMs: this.walletFundingTimeoutMs,
-        waitNonZero: false, // We want to proceed even if 0, and check dust specifically after
-        skipShielded: true, // Batcher only needs dust+unshielded; shielded sync can be very slow
+        waitNonZero: false,
       });
-      // If dust is missing but we have unshielded funds, try to sync dust explicitly
-      if (balances.dustBalance === 0n && balances.unshieldedBalance > 0n) {
+
+      if (dustBalance === 0n) {
+        this.log.log(`Wallet ${label}: no dust yet, trying unshielded→dust registration...`);
         try {
-          this.log.log(`Wallet ${label}: registering unshielded NIGHT for dust generation...`);
           await registerNightForDust(walletResult);
-          const dust = await waitForDustFunds(
+          dustBalance = await waitForDustFunds(
             walletResult.wallet,
             { timeoutMs: this.walletFundingTimeoutMs, waitNonZero: true }
           );
-          balances.dustBalance = dust;
         } catch (_err) {
-          // keep dustBalance as-is; will be logged on failure
+          this.log.warn(`Wallet ${label}: dust registration failed (wallet must be pre-funded with dust)`);
         }
       }
+
       this.lastFundingBalancesPerWallet[walletIndex] = {
-        shieldedBalance: balances.shieldedBalance,
-        unshieldedBalance: balances.unshieldedBalance,
-        // fallback to 0n if older syncAndWaitForFunds doesn't return dustBalance
-        dustBalance: balances.dustBalance ?? 0n,
+        shieldedBalance: 0n,
+        unshieldedBalance: 0n,
+        dustBalance,
       };
-      this.log.log(`Wallet ${label}: fully synced and funded`);
+      this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
       this.hasFundsPerWallet[walletIndex] = true;
     } catch (error) {
       throw new Error(
@@ -598,7 +610,9 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
    * The worker is marked busy in the pool.
    */
   private pickNextWallet(): { walletIdx: number; slotIdx: number } | null {
-    const worker = this.pool.acquireWorker();
+    const dustFilter = (walletIdx: number): boolean =>
+      !this.walletDustExhausted[walletIdx];
+    const worker = this.pool.acquireWorker(dustFilter);
     if (!worker) return null;
     // Verify the wallet is actually initialized (pool might have stale slots)
     if (!this.walletInitialized[worker.walletIdx] || !this.walletResults[worker.walletIdx]) {
