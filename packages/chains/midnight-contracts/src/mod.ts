@@ -5,7 +5,7 @@ export type {
     WalletResult,
     InitialOwner,
 } from "./types.ts";
-export { 
+export {
     resolveWalletSyncTimeoutMs,
     safeStringifyProgress,
     syncAndWaitForFunds,
@@ -15,6 +15,7 @@ export {
     getInitialDustState,
     waitForDustFunds,
 } from "./get-wallet-info.ts";
+export type { WalletSyncMode } from "./get-wallet-info.ts";
 export { CONSTANTS } from "./constants.ts";
 export { 
     buildWalletAndWaitForFunds, 

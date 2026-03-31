@@ -93,25 +93,17 @@ export function safeStringifyProgress(value: unknown): string {
  */
 export async function syncAndWaitForFunds(
   wallet: WalletFacade,
-  options?: { timeoutMs?: number; waitNonZero?: boolean },
+  options?: { timeoutMs?: number; waitNonZero?: boolean; skipShielded?: boolean },
 ): Promise<{ shieldedBalance: bigint; unshieldedBalance: bigint; dustBalance: bigint }> {
+  const skipShielded = options?.skipShielded ?? false;
+  const syncLabel = skipShielded ? "unshielded/dust" : "shielded/unshielded/dust";
   log.info(
-    "Waiting for wallet to sync and receive funds (shielded/unshielded/dust)..."
+    `Waiting for wallet to sync and receive funds (${syncLabel})...`
   );
 
   const syncTimeoutMs = options?.timeoutMs ?? resolveWalletSyncTimeoutMs();
   const waitNonZero = options?.waitNonZero ?? false;
-  // deno-lint-ignore no-explicit-any
-  let latestState: any = null;
-  const periodicLogger = setInterval(() => {
-    if (!latestState) return;
-    const shieldedSynced = latestState.shielded.state.progress.isStrictlyComplete();
-    const dustSynced = latestState.dust.state.progress.isStrictlyComplete();
-    const unshieldedSynced = latestState.unshielded?.progress?.isStrictlyComplete() ?? false;
-    log.info(
-      `[wait] shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
-    );
-  }, CONSTANTS.WALLET_SYNC_THROTTLE_MS);
+  const syncStartedAt = Date.now();
 
   // deno-lint-ignore no-explicit-any
   const state = await Rx.firstValueFrom(
@@ -119,23 +111,23 @@ export async function syncAndWaitForFunds(
       Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS),
       // deno-lint-ignore no-explicit-any
       Rx.tap((state: any) => {
-        latestState = state;
+        const elapsedSec = ((Date.now() - syncStartedAt) / 1000).toFixed(0);
         const shieldedSynced = state.shielded.state.progress.isStrictlyComplete();
         const dustSynced = state.dust.state.progress.isStrictlyComplete();
         const unshieldedSynced = state.unshielded?.progress?.isStrictlyComplete() ?? false;
         log.info(
-          `Wallet sync progress: shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
+          `Wallet sync progress (${elapsedSec}s): shielded=${shieldedSynced}, unshielded=${unshieldedSynced}, dust=${dustSynced}`
         );
       }),
       // deno-lint-ignore no-explicit-any
       Rx.filter((state: any) => {
-        const shieldedSynced = state.shielded.state.progress.isStrictlyComplete();
+        const shieldedSynced = skipShielded || state.shielded.state.progress.isStrictlyComplete();
         const dustSynced = state.dust.state.progress.isStrictlyComplete();
         const unshieldedSynced = state.unshielded?.progress?.isStrictlyComplete() ?? false;
 
         if (!shieldedSynced || !dustSynced || !unshieldedSynced) return false;
 
-        if (waitNonZero) {
+        if (waitNonZero && !skipShielded) {
           const tokenId = shieldedToken().tag;
           const shieldedBalance = state.shielded.balances[tokenId] ?? 0n;
           return shieldedBalance > 0n;
@@ -153,8 +145,6 @@ export async function syncAndWaitForFunds(
       })
     )
   );
-
-  clearInterval(periodicLogger);
 
   const tokenId = shieldedToken().tag;
 
@@ -197,6 +187,7 @@ export async function waitForDustFunds(
 
   const syncTimeoutMs = options?.timeoutMs ?? resolveWalletSyncTimeoutMs();
   const waitNonZero = options?.waitNonZero ?? false;
+  const dustSyncStartedAt = Date.now();
 
   // deno-lint-ignore no-explicit-any
   const dustWallet = (wallet as any).dust;
@@ -212,8 +203,9 @@ export async function waitForDustFunds(
       // deno-lint-ignore no-explicit-any
       Rx.tap((state: any) => {
         try {
+          const elapsedSec = ((Date.now() - dustSyncStartedAt) / 1000).toFixed(0);
           const complete = state.state?.progress?.isStrictlyComplete();
-          log.info(`Dust wallet sync progress: complete=${complete ?? "unknown"}`);
+          log.info(`Dust wallet sync progress (${elapsedSec}s): complete=${complete ?? "unknown"}`);
         } catch (_err) {
           // ignore logging errors
         }
@@ -312,13 +304,19 @@ function buildUnshieldedWallet(
   } as any).startWithPublicKey(PublicKey.fromKeyStore(keystore));
 }
 
+export type WalletSyncMode = 'all' | 'dust-only';
+
 /**
- * Build a complete wallet facade with shielded, unshielded, and dust wallets
+ * Build a wallet facade. When `syncMode` is `'dust-only'`, the shielded and
+ * unshielded wallets are stopped immediately after startup so they don't
+ * consume indexer connections or CPU.  The facade still requires all three
+ * at init time (SDK constraint), but the unused ones are torn down.
  */
 export async function buildWalletFacade(
   networkUrls: Required<NetworkUrls>,
   seed: string,
   networkId: NetworkId.NetworkId,
+  syncMode: WalletSyncMode = 'all',
 ): Promise<WalletResult> {
   const shieldedSeed = deriveSeedForRole(seed, Roles.Zswap);
   const dustSeed = deriveSeedForRole(seed, Roles.Dust);
@@ -343,6 +341,14 @@ export async function buildWalletFacade(
   });
 
   await wallet.start(zswapSecretKeys, dustSecretKey);
+
+  if (syncMode === 'dust-only') {
+    log.info("Stopping shielded and unshielded wallet sync (dust-only mode)");
+    await Promise.all([
+      (wallet.shielded as any).stop?.(),
+      (wallet.unshielded as any).stop?.(),
+    ]);
+  }
 
   const unshieldedAddress = unshieldedKeystore.getBech32Address().asString();
   const dustState = await getInitialDustState(wallet.dust);
@@ -394,7 +400,16 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
   const state = await Rx.firstValueFrom(
     walletResult.wallet.state().pipe(
       // deno-lint-ignore no-explicit-any
-      Rx.filter((s: any) => s.isSynced)
+      Rx.filter((s: any) => {
+        // Only require unshielded+dust sync for dust registration (shielded is not needed)
+        const dustSynced = s.dust?.state?.progress?.isStrictlyComplete() ?? false;
+        const unshieldedSynced = s.unshielded?.progress?.isStrictlyComplete() ?? false;
+        return dustSynced && unshieldedSynced;
+      }),
+      Rx.timeout({
+        each: resolveWalletSyncTimeoutMs(),
+        with: () => Rx.throwError(() => new Error("Timeout waiting for unshielded+dust sync for dust registration")),
+      })
     )
   );
 

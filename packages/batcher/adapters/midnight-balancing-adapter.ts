@@ -47,7 +47,6 @@ import {
   getInitialShieldedState,
   type NetworkUrls,
   registerNightForDust,
-  syncAndWaitForFunds,
   waitForDustFunds,
   type WalletResult,
 } from "@effectstream/midnight-contracts";
@@ -248,6 +247,7 @@ export class MidnightBalancingAdapter
           networkUrls,
           seed,
           this.walletNetworkId,
+          'dust-only',
         );
       }
 
@@ -268,24 +268,24 @@ export class MidnightBalancingAdapter
     if (!walletResult) return;
     const label = `${walletIndex + 1}/${this.walletSeeds.length}`;
 
-    const balances = await syncAndWaitForFunds(walletResult.wallet, {
+    // Balancer only needs dust — wait for dust sync first, try unshielded registration as fallback
+    let dustBalance = await waitForDustFunds(walletResult.wallet, {
       timeoutMs: this.walletFundingTimeoutMs,
       waitNonZero: false,
     });
 
-    if (balances.dustBalance === 0n && balances.unshieldedBalance > 0n) {
-      this.log.log(`Wallet ${label}: registering NIGHT for dust...`);
+    if (dustBalance === 0n) {
+      this.log.log(`Wallet ${label}: no dust yet, trying unshielded→dust registration (requires unshielded wallet to be running)...`);
       try {
         await registerNightForDust(walletResult);
+        dustBalance = await waitForDustFunds(walletResult.wallet, {
+          timeoutMs: this.walletFundingTimeoutMs,
+          waitNonZero: true,
+        });
       } catch (error) {
-        this.log.warn(`Wallet ${label}: dust registration failed:`, error);
+        this.log.warn(`Wallet ${label}: dust registration failed (in dust-only mode, wallet must be pre-funded with dust):`, error);
       }
     }
-
-    const dustBalance = await waitForDustFunds(walletResult.wallet, {
-      timeoutMs: this.walletFundingTimeoutMs,
-      waitNonZero: true,
-    });
 
     this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
     if (dustBalance === 0n) {

@@ -523,6 +523,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       const balances = await syncAndWaitForFunds(walletResult.wallet, {
         timeoutMs: this.walletFundingTimeoutMs,
         waitNonZero: false, // We want to proceed even if 0, and check dust specifically after
+        skipShielded: true, // Batcher only needs dust+unshielded; shielded sync can be very slow
       });
       // If dust is missing but we have unshielded funds, try to sync dust explicitly
       if (balances.dustBalance === 0n && balances.unshieldedBalance > 0n) {
