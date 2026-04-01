@@ -1396,6 +1396,18 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
    * @returns An Effection operation that runs the batcher.
    */
   *runBatcher(): Operation<void> {
+    // Install a global handler so that transient network errors (e.g.
+    // "Failed to fetch: request body stream errored") do not crash the
+    // process.  These originate from internal HTTP stream promises in
+    // viem / midnight-sdk that are not chained to the outer `await`.
+    globalThis.addEventListener("unhandledrejection", (event) => {
+      event.preventDefault();
+      console.error(
+        "⚠️ [Batcher] Caught unhandled promise rejection (non-fatal):",
+        event.reason,
+      );
+    });
+
     // 1. Validate adapters before initialization
     validatePreInit(this.adapters, this.defaultTarget);
 

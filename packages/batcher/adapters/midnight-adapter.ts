@@ -117,6 +117,9 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private readonly pool: WorkerPool;
   /** Tracks wallets that recently failed due to missing dust. Cleared when dust is confirmed available. */
   private walletDustExhausted: boolean[];
+  /** Input keys currently being processed in a concurrent batch.
+   *  Prevents the same input from being picked up by multiple poll ticks. */
+  private readonly inFlightInputKeys = new Set<string>();
 
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
@@ -568,15 +571,36 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     }
   }
 
+  private getInputKey(input: DefaultBatcherInput): string {
+    return `${input.address}|${input.timestamp}|${input.input}`;
+  }
+
   public buildBatchData(
     inputs: DefaultBatcherInput[],
     _options?: BatchBuildingOptions,
   ): BatchBuildingResult<MidnightBatchPayload | null> | null {
+    // Filter out inputs that are already being processed by another concurrent batch
+    const availableInputs = inputs.filter(
+      (input) => !this.inFlightInputKeys.has(this.getInputKey(input)),
+    );
+    if (availableInputs.length === 0) return null;
+
     const options = {
       maxSize: this.maxBatchSize,
     };
-    // Cast is safe because we know our helper returns this type
-    return this.batchBuilderLogic.buildBatchData(inputs, options) as BatchBuildingResult<MidnightBatchPayload | null> | null;
+    const result = this.batchBuilderLogic.buildBatchData(availableInputs, options) as BatchBuildingResult<MidnightBatchPayload | null> | null;
+    if (!result || !result.data) return result;
+
+    // Mark selected inputs as in-flight and snapshot the keys
+    const reservedInputKeys: string[] = [];
+    for (const input of result.selectedInputs) {
+      const key = this.getInputKey(input);
+      this.inFlightInputKeys.add(key);
+      reservedInputKeys.push(key);
+    }
+    result.data.reservedInputKeys = reservedInputKeys;
+
+    return result;
   }
 
   /**
@@ -995,9 +1019,14 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     return this.pool.isFullyIdle();
   }
 
-  releaseBatchResources(_batchData: MidnightBatchPayload | null): void {
+  releaseBatchResources(batchData: MidnightBatchPayload | null): void {
     // Worker is acquired in submitBatch and released in its finally block.
-    // Nothing to release from buildBatchData for this adapter.
+    // Clear in-flight input keys so they can be picked up again if needed.
+    if (batchData?.reservedInputKeys) {
+      for (const key of batchData.reservedInputKeys) {
+        this.inFlightInputKeys.delete(key);
+      }
+    }
   }
 
   /**
