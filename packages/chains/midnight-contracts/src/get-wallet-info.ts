@@ -26,11 +26,76 @@ import {
 import { type ShieldedWalletState } from "@midnight-ntwrk/wallet-sdk-shielded";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
+import * as path from "@std/path";
 import { CONSTANTS } from "./constants.ts";
 import type { NetworkUrls, WalletResult } from "./types.ts";
 import { midnightNetworkConfig } from "./midnight-env.ts";
 import { exit } from "node:process";
 import { getEnv, args, isNotFoundError } from "@effectstream/utils/runtime";
+
+// ============================================================================
+// Dust State Persistence
+// ============================================================================
+
+const DEFAULT_DUST_STATE_DIR = "dust-state";
+
+/**
+ * Build the dust state file path from network + seed.
+ * Uses first 16 hex chars of the seed as a stable identifier — the seed
+ * deterministically maps to a dust address, so this is a unique key per wallet
+ * that is available before building the facade.
+ */
+function getDustStatePath(baseDir: string, networkId: string, seed: string): string {
+  const seedKey = seed.slice(0, 16);
+  return path.join(baseDir, `${networkId}-${seedKey}.json`);
+}
+
+function isUndeployedNetwork(networkId: string): boolean {
+  return networkId.toLowerCase() === "undeployed";
+}
+
+/**
+ * Save serialized dust wallet state to disk.
+ * No-ops for "undeployed" networks (chain resets make cached state invalid).
+ * @param seed - Wallet seed hex string (used to derive stable file path)
+ */
+export function saveDustState(
+  baseDir: string,
+  networkId: string,
+  seed: string,
+  serializedState: string,
+): string | null {
+  if (isUndeployedNetwork(networkId)) return null;
+  const filePath = getDustStatePath(baseDir, networkId, seed);
+  try {
+    Deno.mkdirSync(path.dirname(filePath), { recursive: true });
+    Deno.writeTextFileSync(filePath, serializedState);
+    log.info(`Dust state saved to ${filePath}`);
+    return filePath;
+  } catch (e) {
+    log.warn(`Failed to save dust state to ${filePath}: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
+/**
+ * Load previously saved dust wallet state from disk.
+ * Always returns null for "undeployed" networks.
+ * @param seed - Wallet seed hex string (used to derive stable file path)
+ */
+export function loadDustState(
+  baseDir: string,
+  networkId: string,
+  seed: string,
+): string | null {
+  if (isUndeployedNetwork(networkId)) return null;
+  const filePath = getDustStatePath(baseDir, networkId, seed);
+  try {
+    return Deno.readTextFileSync(filePath);
+  } catch {
+    return null;
+  }
+}
 
 // ============================================================================
 // Key Derivation
@@ -247,6 +312,240 @@ export async function waitForDustFunds(
   return dustBalance;
 }
 
+// ============================================================================
+// Dust Sync with Retry
+// ============================================================================
+
+const DUST_STALL_TIMEOUT_MS = 60_000;
+const DUST_MAX_RETRIES = 5;
+const DUST_COMPLETION_GAP = 50n;
+
+export interface DustSyncWithRetryOptions {
+  networkUrls: Required<NetworkUrls>;
+  seed: string;
+  networkId: NetworkId.NetworkId;
+  /** Per-emission stall timeout in ms. Default: 60_000 (1 minute). */
+  stallTimeoutMs?: number;
+  /** Maximum retry attempts on stall. Default: 5. */
+  maxRetries?: number;
+  /** Throttle interval for state emissions in ms. Default: 10_000 (10s). */
+  throttleMs?: number;
+  syncMode?: WalletSyncMode;
+  /** Base directory for dust state files (relative to CWD). Default: "dust-state". */
+  dustStateDir?: string;
+}
+
+/**
+ * Build a wallet facade and wait for dust sync with stall-detection retry.
+ *
+ * On each stall (no new state emission within `stallTimeoutMs`):
+ * 1. Serialize the current dust state
+ * 2. Stop the wallet facade
+ * 3. Rebuild from the saved state (skips already-synced blocks)
+ * 4. Resume sync
+ *
+ * For non-undeployed networks, state is also persisted to disk so subsequent
+ * process startups can resume from the last checkpoint.
+ */
+export async function waitForDustFundsWithRetry(
+  options: DustSyncWithRetryOptions,
+  existingWalletResult?: WalletResult,
+): Promise<{ walletResult: WalletResult; dustBalance: bigint }> {
+  const {
+    networkUrls,
+    seed,
+    networkId,
+    stallTimeoutMs = DUST_STALL_TIMEOUT_MS,
+    maxRetries = DUST_MAX_RETRIES,
+    throttleMs = CONSTANTS.WALLET_SYNC_THROTTLE_MS,
+    syncMode = 'dust-only',
+    dustStateDir = DEFAULT_DUST_STATE_DIR,
+  } = options;
+
+  const networkIdStr = String(networkId);
+
+  // Pre-load cached state from disk before building any wallet.
+  // Uses seed-based path so we don't need the dust address yet.
+  const cachedState: string | null = loadDustState(dustStateDir, networkIdStr, seed);
+  if (cachedState) {
+    log.info(`Loaded cached dust state from disk (${getDustStatePath(dustStateDir, networkIdStr, seed)})`);
+  }
+  let inMemoryState: string | null = null;
+
+  // Helper to serialize and save dust state
+  async function serializeAndSave(wr: WalletResult): Promise<string | null> {
+    try {
+      // deno-lint-ignore no-explicit-any
+      const serialized: string = await (wr.wallet as any).dust.serializeState();
+      inMemoryState = serialized;
+      saveDustState(dustStateDir, networkIdStr, seed, serialized);
+      return serialized;
+    } catch (e) {
+      log.warn(`Failed to serialize dust state: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    }
+  }
+
+  // Helper to stop a wallet safely
+  async function stopWallet(wr: WalletResult | null): Promise<void> {
+    if (!wr) return;
+    try {
+      await wr.wallet.stop();
+    } catch {
+      // ignore stop errors
+    }
+  }
+
+  // Build or reuse wallet
+  let walletResult = existingWalletResult ?? null;
+  // deno-lint-ignore no-explicit-any
+  let dustSyncedState: any = null;
+  let lastAppliedIndex = 0n;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    lastAppliedIndex = 0n;
+    try {
+      if (!walletResult) {
+        const stateToRestore = inMemoryState ?? cachedState;
+        if (attempt > 1) {
+          if (stateToRestore) {
+            log.info(`Retry ${attempt}/${maxRetries}: rebuilding wallet from ${inMemoryState ? 'in-memory' : 'cached'} state...`);
+          } else {
+            log.info(`Retry ${attempt}/${maxRetries}: rebuilding wallet from scratch...`);
+          }
+        } else if (stateToRestore) {
+          log.info("Building wallet from cached dust state...");
+        }
+        walletResult = await buildWalletFacade(
+          networkUrls,
+          seed,
+          networkId,
+          syncMode,
+          stateToRestore,
+        );
+      }
+
+      // Subscribe to dust state with stall detection
+      const syncStartedAt = Date.now();
+
+      // deno-lint-ignore no-explicit-any
+      const dustWallet = (walletResult.wallet as any).dust;
+      if (!dustWallet || !dustWallet.state) {
+        log.warn("Dust wallet state not available; skipping dust sync.");
+        return { walletResult, dustBalance: 0n };
+      }
+
+      // deno-lint-ignore no-explicit-any
+      dustSyncedState = await Rx.firstValueFrom(
+        // deno-lint-ignore no-explicit-any
+        (dustWallet.state as Rx.Observable<any>).pipe(
+          Rx.throttleTime(throttleMs),
+          Rx.timeout({
+            each: stallTimeoutMs,
+            with: () => Rx.throwError(() => new Error("stall")),
+          }),
+          // deno-lint-ignore no-explicit-any
+          Rx.tap((ds: any) => {
+            try {
+              const elapsedSec = ((Date.now() - syncStartedAt) / 1000).toFixed(0);
+              const progress = ds.state?.progress;
+              const applied = progress?.appliedIndex ?? 0n;
+              const target = progress?.highestRelevantWalletIndex ?? 0n;
+              log.info(
+                `Dust sync attempt ${attempt}/${maxRetries} (${elapsedSec}s): ${applied}/${target} connected=${progress?.isConnected ?? "?"}`,
+              );
+            } catch {
+              // ignore logging errors
+            }
+          }),
+          // deno-lint-ignore no-explicit-any
+          Rx.filter((ds: any) => {
+            const progress = ds.state?.progress;
+            if (!progress) return false;
+
+            // Relaxed completion: within DUST_COMPLETION_GAP blocks
+            if (typeof progress.isCompleteWithin === "function") {
+              if (progress.isCompleteWithin(DUST_COMPLETION_GAP)) return true;
+            } else if (typeof progress.isStrictlyComplete === "function") {
+              // Fallback for SDK versions without isCompleteWithin
+              if (progress.isStrictlyComplete()) return true;
+            }
+
+            // Also complete if connected, target is known (>0), and appliedIndex
+            // hasn't advanced since last emission (stalled at the chain tip).
+            // Guard: require target > 0 to avoid false positives when the indexer
+            // hasn't provided the target yet (seen in production as e.g. 87752/0).
+            const applied = progress.appliedIndex ?? 0n;
+            const target = progress.highestRelevantWalletIndex ?? 0n;
+            if (
+              applied > 0n &&
+              target > 0n &&
+              progress.isConnected &&
+              applied === lastAppliedIndex
+            ) {
+              return true;
+            }
+            lastAppliedIndex = applied;
+            return false;
+          }),
+        ),
+      );
+
+      // Sync complete — extract balance and save state
+      let dustBalance = 0n;
+      try {
+        if (typeof dustSyncedState.balance === "function") {
+          dustBalance = dustSyncedState.balance(new Date()) as bigint;
+        } else if (typeof dustSyncedState.walletBalance === "function") {
+          dustBalance = dustSyncedState.walletBalance(new Date()) as bigint;
+        }
+      } catch {
+        // ignore balance extraction errors
+      }
+
+      log.info(`Dust sync complete (attempt ${attempt}). Balance: ${dustBalance}`);
+
+      // Save final state to disk
+      await serializeAndSave(walletResult);
+
+      return { walletResult, dustBalance };
+    } catch (e) {
+      const isStall = e instanceof Error && e.message === "stall";
+
+      if (isStall && attempt < maxRetries) {
+        log.warn(`Dust sync stalled on attempt ${attempt}/${maxRetries}. Stopping wallet and rebuilding from state...`);
+        if (walletResult) {
+          await serializeAndSave(walletResult);
+          await stopWallet(walletResult);
+          walletResult = null;
+        }
+        // If target was 0 on this attempt, the state is likely invalid — don't restore it
+        if (lastAppliedIndex === 0n) {
+          log.warn("No sync progress was made (appliedIndex=0), discarding in-memory state for clean rebuild");
+          inMemoryState = null;
+        }
+        continue;
+      }
+
+      // Non-stall error or final attempt — save what we have and throw
+      if (walletResult) {
+        await serializeAndSave(walletResult);
+      }
+
+      if (isStall) {
+        throw new Error(
+          `Dust wallet sync stalled after ${maxRetries} attempts. ` +
+          `Each attempt waited ${stallTimeoutMs}ms for new state emissions.`,
+        );
+      }
+      throw e;
+    }
+  }
+
+  // Should not reach here, but just in case
+  throw new Error("waitForDustFundsWithRetry: exhausted all retries");
+}
+
 export function getInitialDustState(
   // deno-lint-ignore no-explicit-any
   dustWallet: any
@@ -282,7 +581,11 @@ function buildShieldedWallet(config: DefaultConfiguration, seed: Uint8Array) {
   return ShieldedWallet(config as any).startWithSeed(seed);
 }
 
-function buildDustWallet(config: DefaultConfiguration, seed: Uint8Array) {
+function buildDustWallet(
+  config: DefaultConfiguration,
+  seed: Uint8Array,
+  serializedState?: string | null,
+) {
   const dustConfig = {
     ...config,
     costParameters: {
@@ -291,6 +594,10 @@ function buildDustWallet(config: DefaultConfiguration, seed: Uint8Array) {
       feeBlocksMargin: CONSTANTS.DUST_FEE_BLOCKS_MARGIN,
     },
   };
+  if (serializedState) {
+    log.info("Restoring dust wallet from cached state");
+    return DustWallet(dustConfig as any).restore(serializedState);
+  }
   const dustParameters = LedgerParameters.initialParameters().dust;
   return DustWallet(dustConfig as any).startWithSeed(seed, dustParameters);
 }
@@ -318,6 +625,7 @@ export async function buildWalletFacade(
   seed: string,
   networkId: NetworkId.NetworkId,
   syncMode: WalletSyncMode = 'all',
+  dustSerializedState?: string | null,
 ): Promise<WalletResult> {
   const shieldedSeed = deriveSeedForRole(seed, Roles.Zswap);
   const dustSeed = deriveSeedForRole(seed, Roles.Dust);
@@ -328,7 +636,7 @@ export async function buildWalletFacade(
   const unshieldedKeystore = createKeystore(unshieldedSeed, networkId);
 
   const shieldedWallet = buildShieldedWallet(config, shieldedSeed);
-  const dustWallet = buildDustWallet(config, dustSeed);
+  const dustWallet = buildDustWallet(config, dustSeed, dustSerializedState);
   const unshieldedWallet = buildUnshieldedWallet(config, unshieldedKeystore);
 
   const zswapSecretKeys = ZswapSecretKeys.fromSeed(shieldedSeed);

@@ -14,8 +14,11 @@ export {
     registerNightForDust,
     getInitialDustState,
     waitForDustFunds,
+    waitForDustFundsWithRetry,
+    saveDustState,
+    loadDustState,
 } from "./get-wallet-info.ts";
-export type { WalletSyncMode } from "./get-wallet-info.ts";
+export type { WalletSyncMode, DustSyncWithRetryOptions } from "./get-wallet-info.ts";
 export { CONSTANTS } from "./constants.ts";
 export { 
     buildWalletAndWaitForFunds, 

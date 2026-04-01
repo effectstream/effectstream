@@ -45,11 +45,11 @@ import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
-  buildWalletFacade,
   getInitialDustState,
   type NetworkUrls,
   registerNightForDust,
   waitForDustFunds,
+  waitForDustFundsWithRetry,
   type NetworkUrls as MidnightNetworkUrls,
   type WalletResult,
 } from "@effectstream/midnight-contracts";
@@ -78,7 +78,17 @@ export interface MidnightAdapterConfig {
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
+const SPECKS_PER_DUST = 1_000_000_000_000_000n; // 1 DUST = 10^15 Specks
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
+
+function formatDust(specks: bigint): string {
+  const abs = specks < 0n ? -specks : specks;
+  const sign = specks < 0n ? "-" : "";
+  const whole = abs / SPECKS_PER_DUST;
+  const frac = abs % SPECKS_PER_DUST;
+  const fracStr = frac.toString().padStart(15, "0").replace(/0+$/, "");
+  return fracStr ? `${sign}${whole}.${fracStr}` : `${sign}${whole}`;
+}
 
 /**
  * Midnight blockchain adapter implementing BlockchainAdapter interface
@@ -291,8 +301,22 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       if (index === 0 && this.config.walletResult) {
         this.log.log(`Wallet ${label}: using shared wallet...`);
         this.walletResults[index] = await this.config.walletResult;
+
+        // Stop shielded/unshielded sync — batcher only needs dust for tx fees
+        const wr = this.walletResults[index]!;
+        await Promise.all([
+          (wr.wallet.shielded as any).stop?.().catch(() => {}),
+          (wr.wallet.unshielded as any).stop?.().catch(() => {}),
+        ]);
+
+        this.walletAddresses[index] = wr.zswapSecretKeys.coinPublicKey.toString();
+        this.walletProviders[index] = this.createWalletAndMidnightProvider(wr);
+
+        // For shared wallets, use the existing ensureWalletFunds flow
+        this.log.log(`Wallet ${label}: waiting for funds...`);
+        await this.ensureWalletFunds(index);
       } else {
-        this.log.log(`Wallet ${label}: building...`);
+        this.log.log(`Wallet ${label}: building with retry-aware dust sync...`);
         const networkUrls: Required<NetworkUrls> = {
           id: this.walletNetworkId,
           indexer: this.config.indexer,
@@ -300,34 +324,51 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           node: this.config.node,
           proofServer: this.config.proofServer,
         };
-        this.walletResults[index] = await buildWalletFacade(
+
+        // Use waitForDustFundsWithRetry: builds wallet, restores cached state,
+        // syncs with stall detection + retry, saves state to disk
+        const { walletResult, dustBalance } = await waitForDustFundsWithRetry({
           networkUrls,
           seed,
-          this.walletNetworkId,
-          'dust-only',
-        );
+          networkId: this.walletNetworkId,
+          syncMode: 'dust-only',
+        });
+
+        this.walletResults[index] = walletResult;
+        this.lastFundingBalancesPerWallet[index] = {
+          shieldedBalance: 0n,
+          unshieldedBalance: 0n,
+          dustBalance,
+        };
+        this.hasFundsPerWallet[index] = dustBalance > 0n;
+
+        const wr = walletResult;
+        this.walletAddresses[index] = wr.zswapSecretKeys.coinPublicKey.toString();
+        this.walletProviders[index] = this.createWalletAndMidnightProvider(wr);
+
+        if (dustBalance === 0n) {
+          this.log.log(`Wallet ${label}: no dust yet, trying unshielded→dust registration...`);
+          try {
+            await registerNightForDust(walletResult);
+            const dust = await waitForDustFunds(walletResult.wallet, {
+              timeoutMs: this.walletFundingTimeoutMs,
+              waitNonZero: true,
+            });
+            this.lastFundingBalancesPerWallet[index]!.dustBalance = dust;
+            this.hasFundsPerWallet[index] = dust > 0n;
+          } catch (_err) {
+            this.log.warn(`Wallet ${label}: dust registration failed (wallet must be pre-funded with dust)`);
+          }
+        }
       }
 
       const wr = this.walletResults[index]!;
-      // Use zswapSecretKeys directly — shielded wallet may already be stopped by another adapter sharing this wallet
-      this.walletAddresses[index] = wr.zswapSecretKeys.coinPublicKey.toString();
       this.log.log(`Wallet ${label} addresses:`);
       this.log.log(`  shielded:   ${this.walletAddresses[index]}`);
       this.log.log(`  unshielded: ${wr.unshieldedAddress}`);
       this.log.log(`  dust:       ${wr.dustAddress}`);
+      this.log.log(`Wallet ${label}: dust balance: ${this.lastFundingBalancesPerWallet[index]?.dustBalance ?? "unknown"}`);
 
-      // Stop shielded/unshielded sync — batcher only needs dust for tx fees
-      // Safe to call even if already stopped by another adapter sharing this wallet
-      await Promise.all([
-        (wr.wallet.shielded as any).stop?.().catch(() => {}),
-        (wr.wallet.unshielded as any).stop?.().catch(() => {}),
-      ]);
-
-      this.walletProviders[index] = this.createWalletAndMidnightProvider(wr);
-
-      // Wait for wallet to be funded and synced before starting batcher
-      this.log.log(`Wallet ${label}: waiting for funds...`);
-      await this.ensureWalletFunds(index);
       await this.logDustState("initialize", index);
 
       this.walletInitialized[index] = true;
@@ -466,6 +507,17 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       walletDustSecretKey,
       unshieldedKeystore,
     } = walletResult;
+    const log = this.log;
+
+    const getDustBalanceFromWallet = async (): Promise<bigint> => {
+      try {
+        // deno-lint-ignore no-explicit-any
+        const state = await getInitialDustState((wallet as any).dust);
+        return typeof state.balance === "function" ? state.balance(new Date()) as bigint : 0n;
+      } catch {
+        return 0n;
+      }
+    };
 
     return {
       getCoinPublicKey(): CoinPublicKey {
@@ -479,6 +531,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         tx: UnboundTransaction,
         ttl?: Date,
       ): Promise<FinalizedTransaction> {
+        const dustBefore = await getDustBalanceFromWallet();
         const bound = tx.bind();
         const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(
           bound, {
@@ -489,7 +542,11 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           }
         );
         const x = await wallet.signRecipe(finalizedTransactionRecipe, (payload) => unshieldedKeystore.signData(payload));
-        return wallet.finalizeRecipe(x);
+        const result = await wallet.finalizeRecipe(x);
+        const dustAfter = await getDustBalanceFromWallet();
+        const dustCost = dustBefore - dustAfter;
+        log.log(`[balanceTx] dust cost: ${formatDust(dustCost)} DUST (${formatDust(dustAfter)} DUST remaining)`);
+        return result;
       },
       submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
         return wallet.submitTransaction(tx);
