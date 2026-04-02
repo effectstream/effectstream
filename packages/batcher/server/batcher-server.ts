@@ -15,6 +15,7 @@ import {
   InMemoryRateLimitStore,
 } from "../core/rate-limiter.ts";
 import { DEFAULT_CONFIG_VALUES } from "../core/config.ts";
+import { ENV } from "@effectstream/utils/node-env";
 
 // TypeBox schema for DefaultBatcherInput (adapted for new batcher input format)
 const BatcherInputSchema = Type.Object({
@@ -225,9 +226,14 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
         200: Type.Object({
           batcher: Type.Object({
             isInitialized: Type.Boolean(),
-            pendingInputs: Type.Number(),
-            criteriaType: Type.String(),
-            timeSinceLastProcess: Type.Number(),
+            totalPendingInputs: Type.Number(),
+            targets: Type.Array(Type.Object({
+              target: Type.String(),
+              pendingInputs: Type.Number(),
+              isReady: Type.Boolean(),
+              criteriaType: Type.String(),
+              timeSinceLastProcess: Type.Number(),
+            })),
             adapterTargets: Type.Array(Type.String()),
           }),
           config: Type.Object({
@@ -409,69 +415,71 @@ export async function startBatcherHttpServer<T extends DefaultBatcherInput>(
     }
   });
 
-  // Force process current batch (useful for testing/debugging)
-  server.post("/force-batch", {
-    schema: {
-      tags: ["developer"],
-      response: {
-        200: Type.Object({
-          success: Type.Boolean(),
-          message: Type.String(),
-          remainingInputs: Type.Number(),
-        }),
-        500: Type.Object({
-          success: Type.Boolean(),
-          error: Type.String(),
-          message: Type.String(),
-        }),
+  if (ENV.ENABLE_DEV_AND_DEBUG_ENDPOINTS) {
+    // Force process current batch (useful for testing/debugging)
+    server.post("/force-batch", {
+      schema: {
+        tags: ["developer"],
+        response: {
+          200: Type.Object({
+            success: Type.Boolean(),
+            message: Type.String(),
+            remainingInputs: Type.Number(),
+          }),
+          500: Type.Object({
+            success: Type.Boolean(),
+            error: Type.String(),
+            message: Type.String(),
+          }),
+        },
       },
-    },
-  }, async (_, reply) => {
-    try {
-      await batcher.forceProcessBatches();
-      const status = await batcher.getBatchingStatus();
-      return {
-        success: true,
-        message: "Batch processing forced",
-        remainingInputs: status.totalPendingInputs,
-      };
-    } catch (error) {
-      console.error("Error forcing batch:", error);
-      return reply.status(500).send({
-        success: false,
-        error: "Failed to force batch processing",
-        message: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  });
+    }, async (_, reply) => {
+      try {
+        await batcher.forceProcessBatches();
+        const status = await batcher.getBatchingStatus();
+        return {
+          success: true,
+          message: "Batch processing forced",
+          remainingInputs: status.totalPendingInputs,
+        };
+      } catch (error) {
+        console.error("Error forcing batch:", error);
+        return reply.status(500).send({
+          success: false,
+          error: "Failed to force batch processing",
+          message: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    });
 
-  // Clear all pending inputs (administrative endpoint)
-  server.delete("/clear-inputs", {
-    schema: {
-      tags: ["developer"],
-      response: {
-        200: Type.Object({
-          success: Type.Boolean(),
-          message: Type.String(),
-        }),
+    // Clear all pending inputs (administrative endpoint)
+    server.delete("/clear-inputs", {
+      schema: {
+        tags: ["developer"],
+        response: {
+          200: Type.Object({
+            success: Type.Boolean(),
+            message: Type.String(),
+          }),
+        },
       },
-    },
-  }, async () => {
-    try {
-      await batcher.clearPendingInputs();
-      return {
-        success: true,
-        message: "All pending inputs cleared",
-      };
-    } catch (error) {
-      console.error("Error clearing inputs:", error);
-      return {
-        success: false,
-        error: "Failed to clear inputs",
-        message: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
-  });
+    }, async () => {
+      try {
+        await batcher.clearPendingInputs();
+        return {
+          success: true,
+          message: "All pending inputs cleared",
+        };
+      } catch (error) {
+        console.error("Error clearing inputs:", error);
+        return {
+          success: false,
+          error: "Failed to clear inputs",
+          message: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    });
+  }
 
   // Start the server
   server.listen(
