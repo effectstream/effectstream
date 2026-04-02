@@ -425,9 +425,6 @@ export async function waitForDustFundsWithRetry(
         );
       }
 
-      // Subscribe to dust state with stall detection
-      const syncStartedAt = Date.now();
-
       // deno-lint-ignore no-explicit-any
       const dustWallet = (walletResult.wallet as any).dust;
       if (!dustWallet || !dustWallet.state) {
@@ -435,60 +432,85 @@ export async function waitForDustFundsWithRetry(
         return { walletResult, dustBalance: 0n };
       }
 
-      // deno-lint-ignore no-explicit-any
-      dustSyncedState = await Rx.firstValueFrom(
+      // First, try the SDK's built-in waitForSyncedState with DUST_COMPLETION_GAP.
+      // This handles the common case (mainnet/testnet with blocks to sync).
+      // If it throws (timeout or no sync events), fall back to reading the
+      // current state directly — on fresh chains with no dust activity,
+      // the wallet has nothing to sync and waitForSyncedState would hang forever.
+      const syncStartedAt = Date.now();
+      try {
+        if (typeof dustWallet.waitForSyncedState === "function") {
+          dustSyncedState = await Promise.race([
+            dustWallet.waitForSyncedState(DUST_COMPLETION_GAP),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("stall")), stallTimeoutMs)
+            ),
+          ]);
+        } else {
+          // Fallback: RxJS pipeline for SDK versions without waitForSyncedState
+          // deno-lint-ignore no-explicit-any
+          dustSyncedState = await Rx.firstValueFrom(
+            // deno-lint-ignore no-explicit-any
+            (dustWallet.state as Rx.Observable<any>).pipe(
+              Rx.throttleTime(throttleMs),
+              Rx.timeout({
+                each: stallTimeoutMs,
+                with: () => Rx.throwError(() => new Error("stall")),
+              }),
+              // deno-lint-ignore no-explicit-any
+              Rx.filter((ds: any) => {
+                const progress = ds.state?.progress;
+                if (!progress) return false;
+                if (typeof progress.isCompleteWithin === "function") {
+                  if (progress.isCompleteWithin(DUST_COMPLETION_GAP)) return true;
+                } else if (typeof progress.isStrictlyComplete === "function") {
+                  if (progress.isStrictlyComplete()) return true;
+                }
+                const applied = progress.appliedIndex ?? 0n;
+                const target = progress.highestRelevantWalletIndex ?? 0n;
+                if (applied > 0n && target > 0n && progress.isConnected && applied === lastAppliedIndex) {
+                  return true;
+                }
+                lastAppliedIndex = applied;
+                return false;
+              }),
+            ),
+          );
+        }
+      } catch (syncErr) {
+        // Sync timed out or stalled. Read the current state to check progress.
         // deno-lint-ignore no-explicit-any
-        (dustWallet.state as Rx.Observable<any>).pipe(
-          Rx.throttleTime(throttleMs),
-          Rx.timeout({
-            each: stallTimeoutMs,
-            with: () => Rx.throwError(() => new Error("stall")),
-          }),
-          // deno-lint-ignore no-explicit-any
-          Rx.tap((ds: any) => {
-            try {
-              const elapsedSec = ((Date.now() - syncStartedAt) / 1000).toFixed(0);
-              const progress = ds.state?.progress;
-              const applied = progress?.appliedIndex ?? 0n;
-              const target = progress?.highestRelevantWalletIndex ?? 0n;
-              log.info(
-                `Dust sync attempt ${attempt}/${maxRetries} (${elapsedSec}s): ${applied}/${target} connected=${progress?.isConnected ?? "?"}`,
-              );
-            } catch {
-              // ignore logging errors
-            }
-          }),
-          // deno-lint-ignore no-explicit-any
-          Rx.filter((ds: any) => {
-            const progress = ds.state?.progress;
-            if (!progress) return false;
+        const currentState = await Rx.firstValueFrom(dustWallet.state as Rx.Observable<any>);
+        const progress = currentState?.state?.progress;
+        const applied = progress?.appliedIndex ?? 0n;
+        const target = progress?.highestRelevantWalletIndex ?? 0n;
+        const elapsedSec = ((Date.now() - syncStartedAt) / 1000).toFixed(0);
 
-            // Relaxed completion: within DUST_COMPLETION_GAP blocks
-            if (typeof progress.isCompleteWithin === "function") {
-              if (progress.isCompleteWithin(DUST_COMPLETION_GAP)) return true;
-            } else if (typeof progress.isStrictlyComplete === "function") {
-              // Fallback for SDK versions without isCompleteWithin
-              if (progress.isStrictlyComplete()) return true;
-            }
+        // Update lastAppliedIndex so the stall handler knows progress was made
+        // and preserves the in-memory state for the next retry.
+        lastAppliedIndex = applied;
 
-            // Also complete if connected, target is known (>0), and appliedIndex
-            // hasn't advanced since last emission (stalled at the chain tip).
-            // Guard: require target > 0 to avoid false positives when the indexer
-            // hasn't provided the target yet (seen in production as e.g. 87752/0).
-            const applied = progress.appliedIndex ?? 0n;
-            const target = progress.highestRelevantWalletIndex ?? 0n;
-            if (
-              applied > 0n &&
-              target > 0n &&
-              progress.isConnected &&
-              applied === lastAppliedIndex
-            ) {
-              return true;
-            }
-            lastAppliedIndex = applied;
-            return false;
-          }),
-        ),
+        log.info(
+          `Dust sync attempt ${attempt}/${maxRetries} (${elapsedSec}s): ${applied}/${target} connected=${progress?.isConnected ?? "?"}`,
+        );
+
+        if (applied === 0n && target === 0n) {
+          // Nothing to sync — the wallet has no dust history on this chain.
+          // Accept the current state as "complete".
+          log.info("Dust wallet has no events to sync (0/0). Accepting current state.");
+          dustSyncedState = currentState;
+        } else {
+          // There IS data to sync but the wallet stalled. Re-throw for retry.
+          throw syncErr;
+        }
+      }
+
+      const elapsedSec = ((Date.now() - syncStartedAt) / 1000).toFixed(0);
+      const syncProgress = dustSyncedState?.state?.progress;
+      log.info(
+        `Dust sync attempt ${attempt}/${maxRetries} (${elapsedSec}s): ` +
+        `${syncProgress?.appliedIndex ?? "?"}/${syncProgress?.highestRelevantWalletIndex ?? "?"} ` +
+        `connected=${syncProgress?.isConnected ?? "?"}`,
       );
 
       // Sync complete — extract balance and save state

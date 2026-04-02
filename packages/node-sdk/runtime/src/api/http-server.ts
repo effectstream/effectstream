@@ -161,7 +161,7 @@ export const startHttpServer = function* (
   // Use dbConn directly; queries are executed via pgtyped PreparedQuery.run
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.
-  const server = fastify();
+  const server = fastify({ maxParamLength: 300 });
   // OpenAPI Docs
   yield* registerOpenApiDocumentation(server, ENV.EFFECTSTREAM_API_PORT);
 
@@ -449,49 +449,49 @@ export const startHttpServer = function* (
     return blockHeights;
   });
 
-  // TODO This is dev only endpoint to monitor sync protocols.
-  server.get("/debug/sync-protocols", {
-    schema: {
-      tags: ["developer"],
-      response: {
-        200: Type.Array(Type.Object({
-          fetcher: Type.Object({}, { additionalProperties: true }),
-          pageRelation: Type.Object({}, { additionalProperties: true }),
-          bufferedData: Type.Object({}, { additionalProperties: true }),
-          newDataCondVar: Type.Object({}, { additionalProperties: true }),
-          newPageCondVar: Type.Object({}, { additionalProperties: true }),
-          lastPage: Type.Object({}, { additionalProperties: true }),
-          config: Type.Object({}, { additionalProperties: true }),
-        }, { additionalProperties: true })),
+  if (ENV.ENABLE_DEV_AND_DEBUG_ENDPOINTS) {
+    server.get("/debug/sync-protocols", {
+      schema: {
+        tags: ["developer"],
+        response: {
+          200: Type.Array(Type.Object({
+            fetcher: Type.Object({}, { additionalProperties: true }),
+            pageRelation: Type.Object({}, { additionalProperties: true }),
+            bufferedData: Type.Object({}, { additionalProperties: true }),
+            newDataCondVar: Type.Object({}, { additionalProperties: true }),
+            newPageCondVar: Type.Object({}, { additionalProperties: true }),
+            lastPage: Type.Object({}, { additionalProperties: true }),
+            config: Type.Object({}, { additionalProperties: true }),
+          }, { additionalProperties: true })),
+        },
       },
-    },
-  }, () => {
-    const cleanedProtocols = clearBigInts(syncProtocols);
-    return cleanedProtocols;
-  });
+    }, () => {
+      const cleanedProtocols = clearBigInts(syncProtocols);
+      return cleanedProtocols;
+    });
 
-  // TODO This is dev only endpoint to monitor sync protocols.
-  server.get("/config", {
-    schema: {
-      tags: ["status"],
-      response: {
-        200: Type.Array(Type.Object({
-          networkType: Type.String(),
-          syncProtocolType: Type.String(),
-          syncProtocol: Type.Object({}, { additionalProperties: true }),
-          network: Type.Object({}, { additionalProperties: true }),
-          primitives: Type.Array(
-            Type.Object({}, { additionalProperties: true }),
-          ),
-        }, { additionalProperties: true })),
+    server.get("/config", {
+      schema: {
+        tags: ["developer"],
+        response: {
+          200: Type.Array(Type.Object({
+            networkType: Type.String(),
+            syncProtocolType: Type.String(),
+            syncProtocol: Type.Object({}, { additionalProperties: true }),
+            network: Type.Object({}, { additionalProperties: true }),
+            primitives: Type.Array(
+              Type.Object({}, { additionalProperties: true }),
+            ),
+          }, { additionalProperties: true })),
+        },
       },
-    },
-  }, () => {
-    const config = syncProtocols.map((syncProtocol) => syncProtocol.config)
-      .flat();
-    const cleanedConfig = clearBigInts(config);
-    return cleanedConfig;
-  });
+    }, () => {
+      const config = syncProtocols.map((syncProtocol) => syncProtocol.config)
+        .flat();
+      const cleanedConfig = clearBigInts(config);
+      return cleanedConfig;
+    });
+  }
 
   server.get("/grammar", {
     schema: {
@@ -839,15 +839,32 @@ export const startHttpServer = function* (
   server.get("/db_status", () => {
     return waitUntilFree();
   });
-  // These endpoints:
-  // * /db_acquire_lock
-  // * /db_release_lock
-  // Are only used by the e2e tests to ensure that only one query is executed at a time.
-  // They are not used by the main application.
-  // TODO Disable this totally for production.
-  server.get(
-    "/db_acquire_lock",
-    {
+  // These endpoints are only used by the e2e tests to ensure that only one query is executed at a time.
+  if (ENV.ENABLE_DEV_AND_DEBUG_ENDPOINTS) {
+    server.get(
+      "/db_acquire_lock",
+      {
+        schema: {
+          tags: ["developer"],
+          response: {
+            200: Type.String(),
+          },
+          querystring: Type.Object({
+            name: Type.String(),
+          }),
+        },
+      },
+      async (
+        request: FastifyRequest<{ Querystring: { name: string } }>,
+        reply,
+      ) => {
+        const { name } = request.query;
+        await run(() => acquireDBMutex(`http-server:${name}`));
+        return "ok";
+      },
+    );
+
+    server.get("/db_release_lock", {
       schema: {
         tags: ["developer"],
         response: {
@@ -857,35 +874,15 @@ export const startHttpServer = function* (
           name: Type.String(),
         }),
       },
-    },
-    async (
+    }, (
       request: FastifyRequest<{ Querystring: { name: string } }>,
       reply,
     ) => {
       const { name } = request.query;
-      await run(() => acquireDBMutex(`http-server:${name}`));
+      releaseDBMutex(`http-server:${name}`);
       return "ok";
-    },
-  );
-
-  server.get("/db_release_lock", {
-    schema: {
-      tags: ["developer"],
-      response: {
-        200: Type.String(),
-      },
-      querystring: Type.Object({
-        name: Type.String(),
-      }),
-    },
-  }, (
-    request: FastifyRequest<{ Querystring: { name: string } }>,
-    reply,
-  ) => {
-    const { name } = request.query;
-    releaseDBMutex(`http-server:${name}`);
-    return "ok";
-  });
+    });
+  }
 
   const rpcEngine = evmRpcEngine(dbConn);
   server.post(`/${RpcPaths.Root}/${RpcPaths.EVM}`, {
