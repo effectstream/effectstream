@@ -45,13 +45,11 @@ import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
-  buildWalletFacade,
   getInitialDustState,
-  getInitialShieldedState,
   type NetworkUrls,
   registerNightForDust,
-  syncAndWaitForFunds,
   waitForDustFunds,
+  waitForDustFundsWithRetry,
   type NetworkUrls as MidnightNetworkUrls,
   type WalletResult,
 } from "@effectstream/midnight-contracts";
@@ -80,7 +78,17 @@ export interface MidnightAdapterConfig {
 }
 
 const TTL_DURATION_MS = 60 * 60 * 1000;
+const SPECKS_PER_DUST = 1_000_000_000_000_000n; // 1 DUST = 10^15 Specks
 const createTtl = (): Date => new Date(Date.now() + TTL_DURATION_MS);
+
+function formatDust(specks: bigint): string {
+  const abs = specks < 0n ? -specks : specks;
+  const sign = specks < 0n ? "-" : "";
+  const whole = abs / SPECKS_PER_DUST;
+  const frac = abs % SPECKS_PER_DUST;
+  const fracStr = frac.toString().padStart(15, "0").replace(/0+$/, "");
+  return fracStr ? `${sign}${whole}.${fracStr}` : `${sign}${whole}`;
+}
 
 /**
  * Midnight blockchain adapter implementing BlockchainAdapter interface
@@ -117,6 +125,11 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
 
   /** Worker pool — 1 slot per wallet (callTx is atomic, no intra-wallet parallelism). */
   private readonly pool: WorkerPool;
+  /** Tracks wallets that recently failed due to missing dust. Cleared when dust is confirmed available. */
+  private walletDustExhausted: boolean[];
+  /** Input keys currently being processed in a concurrent batch.
+   *  Prevents the same input from being picked up by multiple poll ticks. */
+  private readonly inFlightInputKeys = new Set<string>();
 
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
@@ -134,7 +147,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
    */
   private async waitForDustAvailability(
     walletIndex: number,
-    timeoutMs: number = 10_000,
+    timeoutMs: number = 60_000,
   ): Promise<void> {
     const walletResult = this.walletResults[walletIndex];
     if (!walletResult) return;
@@ -142,7 +155,10 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
 
     try {
       const dustState = await getInitialDustState(walletResult.wallet.dust);
-      if ((dustState.availableCoins?.length ?? 0) > 0) return;
+      if ((dustState.availableCoins?.length ?? 0) > 0) {
+        this.walletDustExhausted[walletIndex] = false;
+        return;
+      }
     } catch {
       return;
     }
@@ -159,12 +175,14 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           this.log.log(
             `Wallet ${label}: dust available after ${Date.now() - start}ms`,
           );
+          this.walletDustExhausted[walletIndex] = false;
           return;
         }
       } catch {
         // Keep polling
       }
     }
+    this.walletDustExhausted[walletIndex] = true;
     this.log.warn(
       `Wallet ${label}: dust still unavailable after ${timeoutMs}ms, proceeding to callTx (will likely fail and re-queue)`,
     );
@@ -228,6 +246,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.lastFundingBalancesPerWallet = new Array(seeds.length).fill(null);
     this.contractsJoined = new Array(seeds.length).fill(false);
     this.contractJoiningPromises = new Array(seeds.length).fill(null);
+    this.walletDustExhausted = new Array(seeds.length).fill(false);
 
     // Default 1 worker per wallet — callTx is atomic (balance+prove+submit),
     // so intra-wallet parallelism is limited.
@@ -282,8 +301,22 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       if (index === 0 && this.config.walletResult) {
         this.log.log(`Wallet ${label}: using shared wallet...`);
         this.walletResults[index] = await this.config.walletResult;
+
+        // Stop shielded/unshielded sync — batcher only needs dust for tx fees
+        const wr = this.walletResults[index]!;
+        await Promise.all([
+          (wr.wallet.shielded as any).stop?.().catch(() => {}),
+          (wr.wallet.unshielded as any).stop?.().catch(() => {}),
+        ]);
+
+        this.walletAddresses[index] = wr.zswapSecretKeys.coinPublicKey.toString();
+        this.walletProviders[index] = this.createWalletAndMidnightProvider(wr);
+
+        // For shared wallets, use the existing ensureWalletFunds flow
+        this.log.log(`Wallet ${label}: waiting for funds...`);
+        await this.ensureWalletFunds(index);
       } else {
-        this.log.log(`Wallet ${label}: building...`);
+        this.log.log(`Wallet ${label}: building with retry-aware dust sync...`);
         const networkUrls: Required<NetworkUrls> = {
           id: this.walletNetworkId,
           indexer: this.config.indexer,
@@ -291,27 +324,51 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           node: this.config.node,
           proofServer: this.config.proofServer,
         };
-        this.walletResults[index] = await buildWalletFacade(
+
+        // Use waitForDustFundsWithRetry: builds wallet, restores cached state,
+        // syncs with stall detection + retry, saves state to disk
+        const { walletResult, dustBalance } = await waitForDustFundsWithRetry({
           networkUrls,
           seed,
-          this.walletNetworkId,
-        );
+          networkId: this.walletNetworkId,
+          syncMode: 'dust-only',
+        });
+
+        this.walletResults[index] = walletResult;
+        this.lastFundingBalancesPerWallet[index] = {
+          shieldedBalance: 0n,
+          unshieldedBalance: 0n,
+          dustBalance,
+        };
+        this.hasFundsPerWallet[index] = dustBalance > 0n;
+
+        const wr = walletResult;
+        this.walletAddresses[index] = wr.zswapSecretKeys.coinPublicKey.toString();
+        this.walletProviders[index] = this.createWalletAndMidnightProvider(wr);
+
+        if (dustBalance === 0n) {
+          this.log.log(`Wallet ${label}: no dust yet, trying unshielded→dust registration...`);
+          try {
+            await registerNightForDust(walletResult);
+            const dust = await waitForDustFunds(walletResult.wallet, {
+              timeoutMs: this.walletFundingTimeoutMs,
+              waitNonZero: true,
+            });
+            this.lastFundingBalancesPerWallet[index]!.dustBalance = dust;
+            this.hasFundsPerWallet[index] = dust > 0n;
+          } catch (_err) {
+            this.log.warn(`Wallet ${label}: dust registration failed (wallet must be pre-funded with dust)`);
+          }
+        }
       }
 
-      const initialState = await getInitialShieldedState(
-        this.walletResults[index]!.wallet.shielded,
-      );
-      this.walletAddresses[index] = initialState.address.coinPublicKeyString();
-      this.log.log(`Wallet ${label}: address: ${this.walletAddresses[index]}`);
-      this.log.log(`Wallet ${label}: dust address: ${this.walletResults[index]!.dustAddress}`);
+      const wr = this.walletResults[index]!;
+      this.log.log(`Wallet ${label} addresses:`);
+      this.log.log(`  shielded:   ${this.walletAddresses[index]}`);
+      this.log.log(`  unshielded: ${wr.unshieldedAddress}`);
+      this.log.log(`  dust:       ${wr.dustAddress}`);
+      this.log.log(`Wallet ${label}: dust balance: ${this.lastFundingBalancesPerWallet[index]?.dustBalance ?? "unknown"}`);
 
-      this.walletProviders[index] = this.createWalletAndMidnightProvider(
-        this.walletResults[index]!,
-      );
-
-      // Wait for wallet to be funded and synced before starting batcher
-      this.log.log(`Wallet ${label}: waiting for funds...`);
-      await this.ensureWalletFunds(index);
       await this.logDustState("initialize", index);
 
       this.walletInitialized[index] = true;
@@ -450,6 +507,17 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
       walletDustSecretKey,
       unshieldedKeystore,
     } = walletResult;
+    const log = this.log;
+
+    const getDustBalanceFromWallet = async (): Promise<bigint> => {
+      try {
+        // deno-lint-ignore no-explicit-any
+        const state = await getInitialDustState((wallet as any).dust);
+        return typeof state.balance === "function" ? state.balance(new Date()) as bigint : 0n;
+      } catch {
+        return 0n;
+      }
+    };
 
     return {
       getCoinPublicKey(): CoinPublicKey {
@@ -463,6 +531,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         tx: UnboundTransaction,
         ttl?: Date,
       ): Promise<FinalizedTransaction> {
+        const dustBefore = await getDustBalanceFromWallet();
         const bound = tx.bind();
         const finalizedTransactionRecipe = await wallet.balanceFinalizedTransaction(
           bound, {
@@ -473,7 +542,11 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
           }
         );
         const x = await wallet.signRecipe(finalizedTransactionRecipe, (payload) => unshieldedKeystore.signData(payload));
-        return wallet.finalizeRecipe(x);
+        const result = await wallet.finalizeRecipe(x);
+        const dustAfter = await getDustBalanceFromWallet();
+        const dustCost = dustBefore - dustAfter;
+        log.log(`[balanceTx] dust cost: ${formatDust(dustCost)} DUST (${formatDust(dustAfter)} DUST remaining)`);
+        return result;
       },
       submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
         return wallet.submitTransaction(tx);
@@ -520,31 +593,31 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.log.log(`Wallet ${label}: checking sync and balance...`);
 
     try {
-      const balances = await syncAndWaitForFunds(walletResult.wallet, {
+      // Only wait for dust sync — shielded/unshielded are already stopped
+      let dustBalance = await waitForDustFunds(walletResult.wallet, {
         timeoutMs: this.walletFundingTimeoutMs,
-        waitNonZero: false, // We want to proceed even if 0, and check dust specifically after
+        waitNonZero: false,
       });
-      // If dust is missing but we have unshielded funds, try to sync dust explicitly
-      if (balances.dustBalance === 0n && balances.unshieldedBalance > 0n) {
+
+      if (dustBalance === 0n) {
+        this.log.log(`Wallet ${label}: no dust yet, trying unshielded→dust registration...`);
         try {
-          this.log.log(`Wallet ${label}: registering unshielded NIGHT for dust generation...`);
           await registerNightForDust(walletResult);
-          const dust = await waitForDustFunds(
+          dustBalance = await waitForDustFunds(
             walletResult.wallet,
             { timeoutMs: this.walletFundingTimeoutMs, waitNonZero: true }
           );
-          balances.dustBalance = dust;
         } catch (_err) {
-          // keep dustBalance as-is; will be logged on failure
+          this.log.warn(`Wallet ${label}: dust registration failed (wallet must be pre-funded with dust)`);
         }
       }
+
       this.lastFundingBalancesPerWallet[walletIndex] = {
-        shieldedBalance: balances.shieldedBalance,
-        unshieldedBalance: balances.unshieldedBalance,
-        // fallback to 0n if older syncAndWaitForFunds doesn't return dustBalance
-        dustBalance: balances.dustBalance ?? 0n,
+        shieldedBalance: 0n,
+        unshieldedBalance: 0n,
+        dustBalance,
       };
-      this.log.log(`Wallet ${label}: fully synced and funded`);
+      this.log.log(`Wallet ${label}: dust balance: ${dustBalance}`);
       this.hasFundsPerWallet[walletIndex] = true;
     } catch (error) {
       throw new Error(
@@ -555,15 +628,36 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     }
   }
 
+  private getInputKey(input: DefaultBatcherInput): string {
+    return `${input.address}|${input.timestamp}|${input.input}`;
+  }
+
   public buildBatchData(
     inputs: DefaultBatcherInput[],
     _options?: BatchBuildingOptions,
   ): BatchBuildingResult<MidnightBatchPayload | null> | null {
+    // Filter out inputs that are already being processed by another concurrent batch
+    const availableInputs = inputs.filter(
+      (input) => !this.inFlightInputKeys.has(this.getInputKey(input)),
+    );
+    if (availableInputs.length === 0) return null;
+
     const options = {
       maxSize: this.maxBatchSize,
     };
-    // Cast is safe because we know our helper returns this type
-    return this.batchBuilderLogic.buildBatchData(inputs, options) as BatchBuildingResult<MidnightBatchPayload | null> | null;
+    const result = this.batchBuilderLogic.buildBatchData(availableInputs, options) as BatchBuildingResult<MidnightBatchPayload | null> | null;
+    if (!result || !result.data) return result;
+
+    // Mark selected inputs as in-flight and snapshot the keys
+    const reservedInputKeys: string[] = [];
+    for (const input of result.selectedInputs) {
+      const key = this.getInputKey(input);
+      this.inFlightInputKeys.add(key);
+      reservedInputKeys.push(key);
+    }
+    result.data.reservedInputKeys = reservedInputKeys;
+
+    return result;
   }
 
   /**
@@ -597,7 +691,9 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
    * The worker is marked busy in the pool.
    */
   private pickNextWallet(): { walletIdx: number; slotIdx: number } | null {
-    const worker = this.pool.acquireWorker();
+    const dustFilter = (walletIdx: number): boolean =>
+      !this.walletDustExhausted[walletIdx];
+    const worker = this.pool.acquireWorker(dustFilter);
     if (!worker) return null;
     // Verify the wallet is actually initialized (pool might have stale slots)
     if (!this.walletInitialized[worker.walletIdx] || !this.walletResults[worker.walletIdx]) {
@@ -980,9 +1076,14 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     return this.pool.isFullyIdle();
   }
 
-  releaseBatchResources(_batchData: MidnightBatchPayload | null): void {
+  releaseBatchResources(batchData: MidnightBatchPayload | null): void {
     // Worker is acquired in submitBatch and released in its finally block.
-    // Nothing to release from buildBatchData for this adapter.
+    // Clear in-flight input keys so they can be picked up again if needed.
+    if (batchData?.reservedInputKeys) {
+      for (const key of batchData.reservedInputKeys) {
+        this.inFlightInputKeys.delete(key);
+      }
+    }
   }
 
   /**

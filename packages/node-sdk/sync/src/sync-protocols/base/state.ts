@@ -68,6 +68,12 @@ export abstract class SyncState<
    *     so you don't have to re-query [0,100] which you know is empty
    */
   public lastPage: undefined | LastPage<Page, RootPage>;
+  /** Timestamp of the last successful fetch (readData completed without error). */
+  public lastSuccessfulFetchMs: number = 0;
+  /** Number of consecutive errors since the last successful fetch. */
+  public consecutiveErrors: number = 0;
+  /** Timestamp of the most recent error, or 0 if no error has occurred. */
+  public lastErrorTimestamp: number = 0;
 
   constructor(
     public readonly name: string,

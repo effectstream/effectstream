@@ -806,6 +806,7 @@ async function testDelegatedBalancing(
         timestamp: Date.now(),
       },
       confirmationLevel: "wait-effectstream-processed", // Wait for it to be processed
+      timeoutMs: 300_000, // Midnight receipt confirmation can take several minutes
     };
 
     const response = await fetch(`${BATCHER_URL}/send-input`, {

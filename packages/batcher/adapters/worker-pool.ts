@@ -144,10 +144,21 @@ export class WorkerPool {
    *
    * The selected worker is marked busy and its usage counter incremented.
    * Returns `null` if no worker is free.
+   *
+   * @param walletFilter Optional predicate to exclude wallets (e.g. those
+   *   without available dust). Workers whose wallet is rejected by the filter
+   *   are skipped. If all free workers are filtered out, falls back to the
+   *   unfiltered set so callers never stall permanently.
    */
-  acquireWorker(): WorkerSlot | null {
+  acquireWorker(walletFilter?: (walletIdx: number) => boolean): WorkerSlot | null {
     const free = this.workers.filter((w) => !w.busy);
     if (free.length === 0) return null;
+
+    // Apply wallet filter if provided, but fall back to unfiltered set to avoid stalling.
+    let candidates = walletFilter
+      ? free.filter((w) => walletFilter(w.walletIdx))
+      : free;
+    if (candidates.length === 0) candidates = free;
 
     // Count busy workers per wallet (across ALL workers, not just free ones)
     const busyPerWallet = new Map<number, number>();
@@ -158,14 +169,14 @@ export class WorkerPool {
     }
 
     // Sort free workers: first by wallet busy count (ascending), then by usage count (ascending)
-    free.sort((a, b) => {
+    candidates.sort((a, b) => {
       const busyA = busyPerWallet.get(a.walletIdx) ?? 0;
       const busyB = busyPerWallet.get(b.walletIdx) ?? 0;
       if (busyA !== busyB) return busyA - busyB;
       return a.usageCount - b.usageCount;
     });
 
-    const selected = free[0];
+    const selected = candidates[0];
     selected.busy = true;
     selected.usageCount++;
     return selected;
