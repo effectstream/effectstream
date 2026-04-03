@@ -1,7 +1,7 @@
 import BinWrapper from '@xhmikosr/bin-wrapper';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 
@@ -55,7 +55,9 @@ export async function run(options = {}) {
   }
 
   const args = [`-datadir=${dataDirPath}`, `-conf=${configPath}`];
-  const child = execFile(bin.path(), args);
+  // Bitcoin Core casts RLIMIT_NOFILE to int — RLIM_INFINITY overflows to negative,
+  // causing "Not enough file descriptors available". Set a finite limit via shell.
+  const child = spawn('/bin/sh', ['-c', 'ulimit -n 10240; exec "$@"', '_', bin.path(), ...args]);
 
   if (verbose) {
     child.stdout.on('data', (data) => {
