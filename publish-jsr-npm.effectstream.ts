@@ -109,7 +109,7 @@ const jsrPackagesToPublish: { path: string; prepublish?: string[] }[] = [
   { path: "./packages/chains/evm-hardhat" },
   { path: "./packages/chains/evm-contracts" }, // [@evm-hardhat]
   { path: "./packages/chains/bitcoin-contracts" },
-  { path: "./packages/batcher" },
+  { path: "./packages/batcher" }, // [@utils, @crypto, @midnight-contracts, @events]
 ];
 
 const npmPackagesToPublish: { path: string; prepublish?: string[], build?: string }[] = [

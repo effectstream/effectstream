@@ -13,6 +13,9 @@ export interface MidnightBatchPayload {
     signature: string;
     timestamp: string;
   }>;
+  /** Snapshot of reserved input keys for in-flight tracking.
+   *  Set by the adapter's buildBatchData, cleared by releaseBatchResources. */
+  reservedInputKeys?: string[];
 }
 
 function decodeHexIfNeeded(value: string): string {

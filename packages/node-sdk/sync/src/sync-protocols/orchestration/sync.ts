@@ -19,6 +19,8 @@ export function* startSync(
     while (true) {
       const inputResult = yield* tryYield(iState.stateToInput());
       if (inputResult.error != null) {
+        state.consecutiveErrors++;
+        state.lastErrorTimestamp = Date.now();
         log.remote(
           ComponentNames.EFFECTSTREAM_SYNC,
           [...state.getNamespace(), "stateToInput"],
@@ -36,20 +38,27 @@ export function* startSync(
       if (input == null) {
         if ("pollingInterval" in config.syncProtocol) {
           yield* sleep(config.syncProtocol.pollingInterval);
-        } else {
-          console.error(`${self.name} has no polling interval?`);
         }
         continue;
       }
 
       const result = yield* tryYield(iState.fetcher.readData(input, iState));
       if (result.error != null) {
-        console.error(
-          `${self.name}`,
-          result.error,
+        state.consecutiveErrors++;
+        state.lastErrorTimestamp = Date.now();
+        log.remote(
+          ComponentNames.EFFECTSTREAM_SYNC,
+          [...state.getNamespace(), "readData"],
+          SeverityNumber.ERROR,
+          (l) => l(result.error),
         );
+        if ("pollingInterval" in config.syncProtocol) {
+          yield* sleep(config.syncProtocol.pollingInterval);
+        }
         continue;
       }
+      state.consecutiveErrors = 0;
+      state.lastSuccessfulFetchMs = Date.now();
       log.remote(
         ComponentNames.EFFECTSTREAM_SYNC,
         [...state.getNamespace(), "data"],

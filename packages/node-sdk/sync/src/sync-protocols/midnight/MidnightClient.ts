@@ -42,13 +42,16 @@ type PublicDataProvider = ReturnType<typeof indexerPublicDataProvider>;
 export class MidnightClient {
   private readonly queryURL: string;
   private readonly subscriptionURL: string;
-  private readonly publicDataProvider: PublicDataProvider;
+  private publicDataProvider: PublicDataProvider;
   private readonly networkId?: string;
+  /** Timeout in milliseconds for individual HTTP requests to the indexer. */
+  private readonly requestTimeoutMs: number;
 
-  constructor(queryURL: string, subscriptionURL: string, networkId?: string) {
+  constructor(queryURL: string, subscriptionURL: string, networkId?: string, requestTimeoutMs = 30_000) {
     this.queryURL = queryURL;
     this.subscriptionURL = subscriptionURL;
     this.networkId = networkId;
+    this.requestTimeoutMs = requestTimeoutMs;
     this.publicDataProvider = indexerPublicDataProvider(
       queryURL,
       subscriptionURL,
@@ -60,24 +63,60 @@ export class MidnightClient {
     );
   }
 
-  async fetchContractState(contractAddress: string, blockHeight: number) {
-    const state = await this.publicDataProvider.queryContractState(
-      contractAddress,
-      {
-        type: "blockHeight",
-        blockHeight,
-      },
+  /**
+   * Recreate the publicDataProvider to recover from stale internal state.
+   * The Midnight JS library can get into a state where all queryContractState
+   * calls fail with {"json":{}} until the provider is recreated.
+   */
+  resetProvider(): void {
+    console.log(
+      `[MidnightClient] Resetting publicDataProvider for ${this.queryURL}`,
     );
-    return state;
+    this.publicDataProvider = indexerPublicDataProvider(
+      this.queryURL,
+      this.subscriptionURL,
+    );
   }
 
-  async gqlQuery(query: string): Promise<any> {
+  async fetchContractState(contractAddress: string, blockHeight: number) {
+    try {
+      const state = await Promise.race([
+        this.publicDataProvider.queryContractState(
+          contractAddress,
+          {
+            type: "blockHeight",
+            blockHeight,
+          },
+        ),
+        new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`fetchContractState timed out after ${this.requestTimeoutMs}ms (contract=${contractAddress}, height=${blockHeight})`)),
+            this.requestTimeoutMs,
+          );
+        }),
+      ]);
+      return state;
+    } catch (error) {
+      // The Midnight JS publicDataProvider can enter a broken state where all
+      // subsequent calls fail (e.g. {"json":{}}).  Recreate it so the next
+      // retry starts with a fresh connection.
+      this.resetProvider();
+      throw error;
+    }
+  }
+
+  async gqlQuery(query: string, signal?: AbortSignal): Promise<any> {
+    const timeoutSignal = AbortSignal.timeout(this.requestTimeoutMs);
+    const combinedSignal = signal
+      ? AbortSignal.any([signal, timeoutSignal])
+      : timeoutSignal;
     const response = await fetch(this.queryURL, {
       method: "POST",
       body: JSON.stringify({ query }),
       headers: {
         "Content-Type": "application/json",
       },
+      signal: combinedSignal,
     });
 
     if (!response.ok) {
@@ -116,6 +155,7 @@ export class MidnightClient {
   async fetchBlock(
     blockHeight: number,
     options: BlockFetchOptions = {},
+    signal?: AbortSignal,
   ): Promise<MidnightGqlBlockState> {
     const { contractActions = true, zswapLedgerEvents = true } = options;
     const contractActionsField = contractActions
@@ -140,7 +180,7 @@ export class MidnightClient {
         }
       }
     }`;
-    return await this.gqlQuery(query);
+    return await this.gqlQuery(query, signal);
   }
 
   async fetchLatestBlock() {

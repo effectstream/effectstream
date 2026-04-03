@@ -21,6 +21,7 @@ import {
   createChannel,
   each,
   type Operation,
+  sleep,
   spawn,
   until,
 } from "effection";
@@ -32,11 +33,24 @@ import type { Client } from "pg";
 import type { PaimaBlockHash } from "@effectstream/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
-import type { SyncProtocolWithNetwork } from "@effectstream/config";
+import { type SyncProtocolWithNetwork, ConfigNetworkType } from "@effectstream/config";
 import { builtInPrimitivesMap } from "@effectstream/sm";
 import { validateAndSnapshotConfig } from "./config-snapshot.ts";
 
 export function* init() {
+  // Prevent transient network errors (broken pipes, closed connections) from
+  // crashing the process via unhandled promise rejections. The sync loop's
+  // tryYield already retries on error — this just keeps the process alive.
+  globalThis.addEventListener("unhandledrejection", (event) => {
+    log.local(
+      ComponentNames.EFFECTSTREAM_RUNTIME,
+      "unhandled-rejection",
+      SeverityNumber.WARN,
+      (l) => l("Suppressed unhandled rejection:", event.reason),
+    );
+    event.preventDefault();
+  });
+
   // initialize OpenTelemetry
   yield* initTelemetry();
 }
@@ -79,9 +93,45 @@ export function* start(config: StartConfig): Operation<void> {
     );
   });
 
+  const ntpConfig = syncInfo.find(s => s.networkType === ConfigNetworkType.NTP);
+  const ntpBlockTimeMS = (ntpConfig?.network as { blockTimeMS: number } | undefined)?.blockTimeMS;
+  const lagThresholdMs = ntpBlockTimeMS != null ? ntpBlockTimeMS * 10 : undefined;
+
   const finalizedBlockStream = createChannel<ChainBlock>();
 
   yield* spawn(() => startMerge(syncProtocols, finalizedBlockStream));
+
+  const heartbeatIntervalMs = 60_000;
+  yield* spawn(function* () {
+    while (true) {
+      yield* sleep(heartbeatIntervalMs);
+      const now = Date.now();
+      const status = syncProtocols.map((p) => {
+        const page = p.lastPage;
+        if (page == null) return `${p.name}: waiting for first sync`;
+        const ageMs = now - (page.root as number);
+        let line = `${p.name}: block ${page.ownBlockNumber} | buf ${p.bufferedData.size()} | age ${(ageMs / 1000).toFixed(1)}s`;
+        if (p.consecutiveErrors > 0) {
+          const sinceLast = p.lastErrorTimestamp > 0
+            ? ` ${((now - p.lastErrorTimestamp) / 1000).toFixed(0)}s ago`
+            : "";
+          line += ` | ERRORS: ${p.consecutiveErrors}${sinceLast}`;
+        } else if (p.lastSuccessfulFetchMs > 0) {
+          const idleMs = now - p.lastSuccessfulFetchMs;
+          if (idleMs > heartbeatIntervalMs * 2) {
+            line += ` | IDLE: ${(idleMs / 1000).toFixed(0)}s`;
+          }
+        }
+        return line;
+      });
+      log.local(
+        ComponentNames.EFFECTSTREAM_SYNC,
+        "heartbeat",
+        SeverityNumber.INFO,
+        (l) => l(status.join(" | ")),
+      );
+    }
+  });
 
   let blockHash: PaimaBlockHash | null = null;
   for (const value of yield* each(finalizedBlockStream)) {
@@ -117,6 +167,10 @@ export function* start(config: StartConfig): Operation<void> {
       ),
     );
 
+    const lagMs = Date.now() - value.timestamp;
+    const lagSuffix = lagThresholdMs != null && lagMs > lagThresholdMs
+      ? ` | lag: ${(lagMs / 1000).toFixed(1)}s`
+      : "";
     log.local(
       ComponentNames.EFFECTSTREAM_SYNC,
       "block-merge",
@@ -125,7 +179,7 @@ export function* start(config: StartConfig): Operation<void> {
         log(
           `finalized block ${value.blockNumber} @ ${
             blockHash?.slice(0, 8)
-          }... | ${JSON.stringify(contentBlocksForProtocol)}`,
+          }...${lagSuffix} | ${JSON.stringify(contentBlocksForProtocol)}`,
         ),
     );
     yield* each.next();

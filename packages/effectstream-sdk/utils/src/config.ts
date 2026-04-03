@@ -242,6 +242,13 @@ const definitions: Record<string, ConfigDefinition> = {
     description:
       "API key to access open explorer endpoints (tables, primitives, addresses, scheduled-data).",
   },
+  ENABLE_DEV_AND_DEBUG_ENDPOINTS: {
+    key: "ENABLE_DEV_AND_DEBUG_ENDPOINTS",
+    type: "boolean",
+    defaultValue: false,
+    description:
+      "Enable developer and debug endpoints (/debug/sync-protocols, /config, /db_acquire_lock, /db_release_lock, /force-batch, /clear-inputs). Should be disabled in production.",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -339,6 +346,9 @@ export class ENV {
   }
   static get API_KEY_OPEN_ENDPOINTS_EXPLORER(): string {
     return ENV.getConfig(definitions.API_KEY_OPEN_ENDPOINTS_EXPLORER);
+  }
+  static get ENABLE_DEV_AND_DEBUG_ENDPOINTS(): boolean {
+    return ENV.getConfig(definitions.ENABLE_DEV_AND_DEBUG_ENDPOINTS);
   }
 
   public static getConfig<T>(config: ConfigDefinition): T {
