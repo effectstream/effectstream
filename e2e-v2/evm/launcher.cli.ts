@@ -96,7 +96,7 @@ export default {
       args: ["run", "e2e-v2/evm/node.ts"],
       waitToExit: false,
       type: "system-dependency",
-      env: { PGLITE: "true" },
+      env: { PGLITE: "true", ENABLE_DEV_AND_DEBUG_ENDPOINTS: "true" },
       dependsOn: [
         "create-user-tables",
         "generate-evm-mod",

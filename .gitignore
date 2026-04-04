@@ -12,6 +12,7 @@ journal.jsonl
 
 # Batcher file storage
 batcher-data/
+e2e-v2-batcher-data/
 
 # Docusaurus
 .docusaurus/

@@ -26,7 +26,8 @@ import {
 import { type ShieldedWalletState } from "@midnight-ntwrk/wallet-sdk-shielded";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
-import * as path from "@std/path";
+import * as path from "node:path";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { CONSTANTS } from "./constants.ts";
 import type { NetworkUrls, WalletResult } from "./types.ts";
 import { midnightNetworkConfig } from "./midnight-env.ts";
@@ -67,8 +68,8 @@ export function saveDustState(
   if (isUndeployedNetwork(networkId)) return null;
   const filePath = getDustStatePath(baseDir, networkId, seed);
   try {
-    Deno.mkdirSync(path.dirname(filePath), { recursive: true });
-    Deno.writeTextFileSync(filePath, serializedState);
+    mkdirSync(path.dirname(filePath), { recursive: true });
+    writeFileSync(filePath, serializedState, "utf-8");
     log.info(`Dust state saved to ${filePath}`);
     return filePath;
   } catch (e) {
@@ -90,7 +91,7 @@ export function loadDustState(
   if (isUndeployedNetwork(networkId)) return null;
   const filePath = getDustStatePath(baseDir, networkId, seed);
   try {
-    return Deno.readTextFileSync(filePath);
+    return readFileSync(filePath, "utf-8");
   } catch {
     return null;
   }
@@ -377,7 +378,7 @@ export async function waitForDustFundsWithRetry(
   // Helper to serialize and save dust state
   async function serializeAndSave(wr: WalletResult): Promise<string | null> {
     try {
-      // deno-lint-ignore no-explicit-any
+
       const serialized: string = await (wr.wallet as any).dust.serializeState();
       inMemoryState = serialized;
       saveDustState(dustStateDir, networkIdStr, seed, serialized);
@@ -400,7 +401,7 @@ export async function waitForDustFundsWithRetry(
 
   // Build or reuse wallet
   let walletResult = existingWalletResult ?? null;
-  // deno-lint-ignore no-explicit-any
+
   let dustSyncedState: any = null;
   let lastAppliedIndex = 0n;
 
@@ -427,7 +428,7 @@ export async function waitForDustFundsWithRetry(
         );
       }
 
-      // deno-lint-ignore no-explicit-any
+
       const dustWallet = (walletResult.wallet as any).dust;
       if (!dustWallet || !dustWallet.state) {
         log.warn("Dust wallet state not available; skipping dust sync.");
@@ -450,16 +451,16 @@ export async function waitForDustFundsWithRetry(
           ]);
         } else {
           // Fallback: RxJS pipeline for SDK versions without waitForSyncedState
-          // deno-lint-ignore no-explicit-any
+    
           dustSyncedState = await Rx.firstValueFrom(
-            // deno-lint-ignore no-explicit-any
+      
             (dustWallet.state as Rx.Observable<any>).pipe(
               Rx.throttleTime(throttleMs),
               Rx.timeout({
                 each: stallTimeoutMs,
                 with: () => Rx.throwError(() => new Error("stall")),
               }),
-              // deno-lint-ignore no-explicit-any
+        
               Rx.filter((ds: any) => {
                 const progress = ds.state?.progress;
                 if (!progress) return false;
@@ -481,7 +482,7 @@ export async function waitForDustFundsWithRetry(
         }
       } catch (syncErr) {
         // Sync timed out or stalled. Read the current state to check progress.
-        // deno-lint-ignore no-explicit-any
+  
         const currentState = await Rx.firstValueFrom(dustWallet.state as Rx.Observable<any>);
         const progress = currentState?.state?.progress;
         const applied = progress?.appliedIndex ?? 0n;
@@ -728,7 +729,7 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
 
   const state = await Rx.firstValueFrom(
     walletResult.wallet.state().pipe(
-      // deno-lint-ignore no-explicit-any
+
       Rx.filter((s: any) => {
         // Only require unshielded+dust sync for dust registration (shielded is not needed)
         const dustSynced = s.dust?.state?.progress?.isStrictlyComplete() ?? false;
