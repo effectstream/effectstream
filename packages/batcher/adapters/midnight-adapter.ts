@@ -70,6 +70,7 @@ export interface MidnightAdapterConfig {
   privateStateId?: string; // Contract private state ID (on-chain), defaults to privateStateStoreName if not provided
   contractJoinTimeoutSeconds?: number; // Defaults to 120 seconds
   walletFundingTimeoutSeconds?: number; // Defaults to 600 seconds
+  callTxTimeoutSeconds?: number; // Defaults to 120 seconds — prevents hung callTx from blocking the batch queue forever
   walletNetworkId?: WalletNetworkId.NetworkId; // Optional override for modular wallet network id
   walletResult?: WalletResult | Promise<WalletResult>;
   // Maximum number of worker slots (concurrent txs) per wallet. Defaults to 1.
@@ -136,6 +137,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
   private witnesses: any = null;
   private readonly contractJoinTimeoutMs: number;
   private readonly walletFundingTimeoutMs: number;
+  private readonly callTxTimeoutMs: number;
   private readonly walletNetworkId: WalletNetworkId.NetworkId;
 
   /**
@@ -231,6 +233,7 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
     this.log = new AdapterLogger("midnight");
     this.contractJoinTimeoutMs = (config.contractJoinTimeoutSeconds ?? 120) * 1000;
     this.walletFundingTimeoutMs = (config.walletFundingTimeoutSeconds ?? 600) * 1000;
+    this.callTxTimeoutMs = (config.callTxTimeoutSeconds ?? 120) * 1000;
     this.walletNetworkId = config.walletNetworkId ?? "undeployed" as WalletNetworkId.NetworkId;
 
     // Store contract info for lazy joining
@@ -793,9 +796,17 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         // Pure circuit - use call (local query, no transaction)
         this.log.log(`[wallet ${label}] Calling pure circuit (read-only query)...`);
         try {
-          const queryResult = await this.deployedContracts[walletIndex].call[circuit](
+          const callPromise = this.deployedContracts[walletIndex].call[circuit](
             ...parsedArgs,
           );
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+              reject(new Error(
+                `Pure circuit call timed out after ${this.callTxTimeoutMs}ms`
+              ));
+            }, this.callTxTimeoutMs);
+          });
+          const queryResult = await Promise.race([callPromise, timeoutPromise]);
           this.log.log(`Pure circuit query succeeded! Result:`, queryResult);
 
           // For pure circuits, we return a fake transaction ID with the result encoded
@@ -822,9 +833,19 @@ export class MidnightAdapter<TContract> implements BlockchainAdapter<MidnightBat
         await this.waitForDustAvailability(walletIndex);
 
         try {
-          result = await this.deployedContracts[walletIndex].callTx[circuit](
+          const callTxPromise = this.deployedContracts[walletIndex].callTx[circuit](
             ...parsedArgs,
           );
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+              reject(new Error(
+                `callTx timed out after ${this.callTxTimeoutMs}ms — the Midnight SDK ` +
+                `promise likely hung (e.g. "request body stream errored"). ` +
+                `The input will be retried.`
+              ));
+            }, this.callTxTimeoutMs);
+          });
+          result = await Promise.race([callTxPromise, timeoutPromise]);
         } catch (callTxError) {
           this.log.error(`callTx threw an error:`);
           this.log.error(`  Error type:`, typeof callTxError);

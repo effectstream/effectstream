@@ -1,8 +1,47 @@
 import type { DefaultBatcherInput } from "./types.ts";
 import { mkdirSync } from "node:fs";
-import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rm, rename } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { isNotFoundError } from "@effectstream/utils/runtime";
 import * as fs from "node:fs";
+
+/**
+ * Simple async mutex. At most one holder at a time; additional callers
+ * queue in FIFO order.
+ */
+class Mutex {
+  private locked = false;
+  private queue: (() => void)[] = [];
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    await this.acquire();
+    try {
+      return await fn();
+    } finally {
+      this.release();
+    }
+  }
+
+  private acquire(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (!this.locked) {
+        this.locked = true;
+        resolve();
+      } else {
+        this.queue.push(resolve);
+      }
+    });
+  }
+
+  private release(): void {
+    const next = this.queue.shift();
+    if (next) {
+      next();
+    } else {
+      this.locked = false;
+    }
+  }
+}
 
 // Custom logger for debugging
 function debugLog(message: string) {
@@ -74,11 +113,22 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
   implements BatcherStorage<T> {
   private readonly filePath: string;
   private readonly dataDirectory: string;
+  private readonly mutex = new Mutex();
 
   constructor(dataDirectory: string = "./batcher-data") {
     mkdirSync(dataDirectory, { recursive: true });
     this.dataDirectory = dataDirectory;
     this.filePath = `${dataDirectory}/pending-inputs.jsonl`;
+  }
+
+  /**
+   * Write content to the storage file atomically.
+   * Writes to a temp file first, then renames (atomic on POSIX).
+   */
+  private async atomicWrite(content: string): Promise<void> {
+    const tmpPath = `${this.filePath}.${randomUUID()}.tmp`;
+    await writeFile(tmpPath, content);
+    await rename(tmpPath, this.filePath);
   }
 
   async init(): Promise<void> {
@@ -91,19 +141,29 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
   }
 
   async addInput(input: T): Promise<void> {
-    try {
-      await writeFile(this.filePath, JSON.stringify(input) + "\n", { flag: "a" });
-    } catch (error) {
-      console.error("Error adding input to storage:", error);
-      throw new Error(`Failed to add input: ${error}`);
-    }
+    await this.mutex.run(async () => {
+      try {
+        const existing = await this.readFileContent();
+        await this.atomicWrite(existing + JSON.stringify(input) + "\n");
+      } catch (error) {
+        console.error("Error adding input to storage:", error);
+        throw new Error(`Failed to add input: ${error}`);
+      }
+    });
   }
 
   async getAllInputs(): Promise<T[]> {
     try {
       const content = await readFile(this.filePath, "utf-8");
       const lines = content.trim().split("\n").filter((line) => line.trim());
-      return lines.map((line) => JSON.parse(line));
+      return lines.flatMap((line) => {
+        try {
+          return [JSON.parse(line) as T];
+        } catch {
+          console.warn("⚠️ Skipping corrupt line in storage:", line);
+          return [];
+        }
+      });
     } catch (error) {
       if (isNotFoundError(error)) {
         // File doesn't exist yet, return empty array
@@ -114,61 +174,74 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
     }
   }
 
+  /**
+   * Read the raw file content, returning empty string if file doesn't exist.
+   */
+  private async readFileContent(): Promise<string> {
+    try {
+      return await readFile(this.filePath, "utf-8");
+    } catch (error) {
+      if (isNotFoundError(error)) return "";
+      throw error;
+    }
+  }
+
   async removeProcessedInputs(
     processedInputs: T[],
     target: string,
   ): Promise<void> {
-    try {
-      debugLog(`[Storage] Removing ${processedInputs.length} inputs for target ${target}`);
-      // Create a set of keys for the processed inputs for fast lookup
-      const processedKeys = new Set(processedInputs.map((input) => {
-        const key = this.createInputKey(input, target);
-        debugLog(`[Storage] Key to remove: ${key.substring(0, 100)}...`);
-        return key;
-      }));
+    await this.mutex.run(async () => {
+      try {
+        debugLog(`[Storage] Removing ${processedInputs.length} inputs for target ${target}`);
+        // Create a set of keys for the processed inputs for fast lookup
+        const processedKeys = new Set(processedInputs.map((input) => {
+          const key = this.createInputKey(input, target);
+          debugLog(`[Storage] Key to remove: ${key.substring(0, 100)}...`);
+          return key;
+        }));
 
-      // Read all current inputs
-      const allInputs = await this.getAllInputs();
-      debugLog(`[Storage] Total inputs in storage: ${allInputs.length}`);
+        // Read all current inputs
+        const allInputs = await this.getAllInputs();
+        debugLog(`[Storage] Total inputs in storage: ${allInputs.length}`);
 
-      // Filter out the processed inputs
-      const remainingInputs = allInputs.filter((input) => {
-        const key = this.createInputKey(input, target);
-        const shouldRemove = processedKeys.has(key);
-        if (shouldRemove) {
-          debugLog(`[Storage] Found match to remove: ${key.substring(0, 100)}...`);
+        // Filter out the processed inputs
+        const remainingInputs = allInputs.filter((input) => {
+          const key = this.createInputKey(input, target);
+          const shouldRemove = processedKeys.has(key);
+          if (shouldRemove) {
+            debugLog(`[Storage] Found match to remove: ${key.substring(0, 100)}...`);
+          }
+          return !shouldRemove;
+        });
+
+        debugLog(`[Storage] Remaining inputs: ${remainingInputs.length}`);
+
+        // Write the remaining inputs back to the file atomically
+        const content = remainingInputs.map((input) => JSON.stringify(input))
+          .join("\n");
+        await this.atomicWrite(
+          content + (remainingInputs.length > 0 ? "\n" : ""),
+        );
+
+        const removedCount = allInputs.length - remainingInputs.length;
+        if (removedCount !== processedInputs.length) {
+          // When storage is empty this is normal for concurrent adapters:
+          // a parallel batch already removed these inputs.
+          if (allInputs.length === 0) {
+            debugLog(
+              `[Storage] Inputs already removed (concurrent batch). Expected ${processedInputs.length}, storage was empty.`,
+            );
+          } else {
+            console.warn(
+              `⚠️ Expected to remove ${processedInputs.length} inputs, but removed ${removedCount}. Some inputs may have been processed already.`,
+            );
+          }
         }
-        return !shouldRemove;
-      });
-
-      debugLog(`[Storage] Remaining inputs: ${remainingInputs.length}`);
-
-      // Write the remaining inputs back to the file
-      const content = remainingInputs.map((input) => JSON.stringify(input))
-        .join("\n");
-      await writeFile(
-        this.filePath,
-        content + (remainingInputs.length > 0 ? "\n" : ""),
-      );
-
-      const removedCount = allInputs.length - remainingInputs.length;
-      if (removedCount !== processedInputs.length) {
-        // When storage is empty this is normal for concurrent adapters:
-        // a parallel batch already removed these inputs.
-        if (allInputs.length === 0) {
-          debugLog(
-            `[Storage] Inputs already removed (concurrent batch). Expected ${processedInputs.length}, storage was empty.`,
-          );
-        } else {
-          console.warn(
-            `⚠️ Expected to remove ${processedInputs.length} inputs, but removed ${removedCount}. Some inputs may have been processed already.`,
-          );
-        }
+      } catch (error) {
+        console.error("Error removing processed inputs:", error);
+        throw new Error(`Failed to remove processed inputs: ${error}`);
       }
-    } catch (error) {
-      console.error("Error removing processed inputs:", error);
-      throw new Error(`Failed to remove processed inputs: ${error}`);
-    }
+    });
   }
 
   /**
@@ -217,34 +290,35 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
     maxRetries: number,
   ): Promise<void> {
     if (inputs.length === 0) return;
-    try {
-      const allInputs = await this.getAllInputs();
-      const keySet = new Set(inputs.map((i) => this.createInputKey(i, target)));
-      const updated: T[] = [];
-      for (const input of allInputs) {
-        const key = this.createInputKey(input, target);
-        if (!keySet.has(key)) {
-          updated.push(input);
-          continue;
+    await this.mutex.run(async () => {
+      try {
+        const allInputs = await this.getAllInputs();
+        const keySet = new Set(inputs.map((i) => this.createInputKey(i, target)));
+        const updated: T[] = [];
+        for (const input of allInputs) {
+          const key = this.createInputKey(input, target);
+          if (!keySet.has(key)) {
+            updated.push(input);
+            continue;
+          }
+          const newRetryCount = (input.retryCount ?? 0) + 1;
+          if (newRetryCount >= maxRetries) {
+            debugLog(
+              `[Storage] Dropping input after ${newRetryCount} failed retries: ${key.substring(0, 100)}...`,
+            );
+            continue; // drop it from storage
+          }
+          updated.push({ ...input, retryCount: newRetryCount });
         }
-        const newRetryCount = (input.retryCount ?? 0) + 1;
-        if (newRetryCount >= maxRetries) {
-          debugLog(
-            `[Storage] Dropping input after ${newRetryCount} failed retries: ${key.substring(0, 100)}...`,
-          );
-          continue; // drop it from storage
-        }
-        updated.push({ ...input, retryCount: newRetryCount });
+        const content = updated.map((i) => JSON.stringify(i)).join("\n");
+        await this.atomicWrite(
+          content + (updated.length > 0 ? "\n" : ""),
+        );
+      } catch (error) {
+        console.error("Error incrementing retry counts:", error);
+        throw new Error(`Failed to increment retry counts: ${error}`);
       }
-      const content = updated.map((i) => JSON.stringify(i)).join("\n");
-      await writeFile(
-        this.filePath,
-        content + (updated.length > 0 ? "\n" : ""),
-      );
-    } catch (error) {
-      console.error("Error incrementing retry counts:", error);
-      throw new Error(`Failed to increment retry counts: ${error}`);
-    }
+    });
   }
 
   async clearAllInputs(): Promise<void> {
