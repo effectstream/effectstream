@@ -22,6 +22,6 @@ export default {
     { name: "midnight-contract", cwd: "e2e-v2/shared/contracts/midnight", args: ["run", "midnight-contract:deploy"], waitToExit: true, env: { MIDNIGHT_STORAGE_PASSWORD: process.env["MIDNIGHT_STORAGE_PASSWORD"] ?? "YourPasswordMy1!" }, dependsOn: ["midnight-node-wait", "midnight-indexer-wait", "midnight-proof-server-wait", "compile-midnight-counter", "compile-midnight-eip20"] },
 
     // ── Sync ──────────────────────────────────────────────────────────────────
-    { name: "sync", args: ["run", "e2e-v2/midnight/node.ts"], waitToExit: false, type: "system-dependency" as const, env: { PGLITE: "true" }, dependsOn: ["create-user-tables", "midnight-contract"] },
+    { name: "sync", args: ["run", "e2e-v2/midnight/node.ts"], waitToExit: false, type: "system-dependency" as const, env: { PGLITE: "true", MQTT_BROKER: "false" }, dependsOn: ["create-user-tables", "midnight-contract"] },
   ],
 } satisfies OrchestratorConfig;

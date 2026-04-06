@@ -45,6 +45,18 @@ stm.addStateTransition("eip20ContractState", function* (data) {
   ));
 });
 
+// MidnightNullifier: writes nullifier events to midnight_nullifiers
+stm.addStateTransition("midnightNullifierState", function* (data) {
+  const { payload } = data.parsedInput;
+  const nullifier = payload?.nullifier ?? JSON.stringify(payload);
+  const txHash = payload?.txHash ?? "";
+  console.log(`[STM] midnightNullifierState: nullifier=${nullifier} txHash=${txHash}`);
+  yield* World.promise(pool.query(
+    "INSERT INTO midnight_nullifiers (block_height, nullifier, tx_hash) VALUES ($1, $2, $3) ON CONFLICT (nullifier) DO NOTHING",
+    [data.blockHeight, nullifier, txHash],
+  ));
+});
+
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,

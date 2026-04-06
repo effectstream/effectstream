@@ -1,0 +1,34 @@
+{
+  "name": "@zswap-da/node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./main.ts",
+    "./config": "./config.ts"
+  },
+  "scripts": {
+    "dev": "bun run main.ts"
+  },
+  "dependencies": {
+    "@effectstream/config": "workspace:*",
+    "@effectstream/concise": "workspace:*",
+    "@effectstream/coroutine": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@effectstream/log": "workspace:*",
+    "@effectstream/midnight-contracts": "workspace:*",
+    "@effectstream/runtime": "workspace:*",
+    "@effectstream/sm": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@zswap-da/database": "workspace:*",
+    "@zswap-da/contract-offer-files": "workspace:*",
+    "@midnight-ntwrk/compact-js": "2.5.0",
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "@midnight-ntwrk/midnight-js-contracts": "4.0.2",
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.2",
+    "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "@sinclair/typebox": "^0.34.30",
+    "effection": "^3.5.0"
+  }
+}

@@ -3,7 +3,8 @@ import type { GrammarDefinition } from "@effectstream/concise";
 import { Type } from "@sinclair/typebox";
 
 export const grammar = {
-  "midnightContractState": builtinGrammars.midnightGeneric,
-  "eip20ContractState": builtinGrammars.midnightGeneric,
-  "midnightNullifierState": [["payload", Type.Any()]],
+  "celestia-zswap": builtinGrammars.celestiaGeneric,
+  "midnight-zswap": builtinGrammars.midnightGeneric,
+  "midnight-nullifier": [["payload", Type.Any()]],
+  "zswap-ttl-cleanup": [["offerId", Type.Integer()]],
 } as const satisfies GrammarDefinition;

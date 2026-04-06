@@ -1,0 +1,13 @@
+{
+  "name": "bun-zswap-da",
+  "private": true,
+  "workspaces": [
+    "packages/**/*",
+    "e2e"
+  ],
+  "scripts": {
+    "dev": "bun run --filter @zswap-da/node dev",
+    "frontend": "bun run --filter @zswap-da/frontend dev",
+    "e2e": "bun run e2e/run-tests.ts"
+  }
+}

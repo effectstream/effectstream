@@ -11,6 +11,7 @@ import {
   resetPublicTables,
 } from "@effectstream/db";
 import { PaimaEventBroker } from "@effectstream/event-server";
+import { getRuntime } from "@effectstream/utils/runtime";
 import {
   BuiltinEvents,
   PaimaEventManager,
@@ -81,8 +82,10 @@ export function* start(config: StartConfig): Operation<void> {
     yield* startSync(syncProtocol);
   }
 
-  // Create MQTT Broker
-  new PaimaEventBroker("effectstream-engine").createServer();
+  // Create MQTT Broker (skip on Bun — ws.createWebSocketStream unsupported)
+  if (getRuntime().runtime !== 'bun') {
+    new PaimaEventBroker("effectstream-engine").createServer();
+  }
 
   yield* spawn(function* () {
     yield* startHttpServer(
