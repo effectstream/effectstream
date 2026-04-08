@@ -179,7 +179,7 @@ export function* start(config: StartConfig): Operation<void> {
         log(
           `finalized block ${value.blockNumber} @ ${
             blockHash?.slice(0, 8)
-          }... [${new Date().toISOString()}]${lagSuffix} | ${JSON.stringify(contentBlocksForProtocol)}`,
+          }...${lagSuffix} | ${JSON.stringify(contentBlocksForProtocol)}`,
         ),
     );
     yield* each.next();
