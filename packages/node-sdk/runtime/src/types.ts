@@ -58,65 +58,35 @@ export type StartConfig = {
   grammar?: GrammarDefinition;
   userDefinedPrimitives?: Record<string, PaimaPrimitiveConstructor<any>>;
   /**
-   * Automated database snapshot configuration via pg_dump.
+   * Automated database snapshot configuration via `pg_dump`.
+   * An empty object `{}` enables snapshots with all defaults.
    *
-   * Setting this field (even as an empty object `{}`) enables snapshots
-   * with sensible defaults — no further configuration is required.
-   *
-   * Snapshots are created in **pg_dump custom format** (`-F c`).
-   * They do NOT block normal DML operations (INSERT/UPDATE/DELETE/SELECT)
-   * because pg_dump uses PostgreSQL's MVCC to take a consistent snapshot.
-   * Only DDL operations (DROP TABLE, ALTER TABLE, TRUNCATE) are blocked
-   * while the dump runs.
-   *
-   * Works for both PGlite (via its pg-gateway TCP server) and real PostgreSQL.
-   *
-   * ## How to restore a snapshot
-   * ```bash
-   * pg_restore -h localhost -p 5432 -U postgres -d postgres --clean snapshot-N.dump
-   * ```
-   *
-   * ## Environment variable overrides
-   * - `EFFECTSTREAM_SNAPSHOT_INTERVAL`              – block interval (overrides `interval`)
-   * - `EFFECTSTREAM_SNAPSHOT_PATH`                  – output directory (overrides `path`)
-   * - `EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY`       – "false" to disable hourly tier
-   * - `EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY` – "false" to disable 6-hour tier
-   * - `EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS`           – override daily retention window
+   * Env overrides: `EFFECTSTREAM_SNAPSHOT_INTERVAL`, `EFFECTSTREAM_SNAPSHOT_PATH`,
+   * `EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY`, `EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY`,
+   * `EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS`.
+   * @see docs/home/1000-effectstream-engine/1003-database-snapshots.md
    */
   snapshotConfig?: {
-    /** Block interval between snapshots. Default: 100 */
+    /** Rollup blocks between snapshots. Default: `100` */
     interval?: number;
-    /** Directory path for snapshot `.dump` files. Default: `"./snapshots"` */
+    /** Output directory for `.dump` files. Default: `"./snapshots"` */
     path?: string;
     /**
-     * Time-based tiered retention policy.
-     * File age is determined by `mtime`.
-     *
-     * | Age            | Granularity kept         |
-     * |----------------|--------------------------|
-     * | ≤ 24 h         | One per **hour**         |
-     * | 24 h – 3 days  | One per **6-hour window**|
-     * | 3 days – N days| One per **day**          |
-     * | > N days       | Deleted                  |
+     * Time-based tiered retention (uses file `mtime`).
+     * See the Database Snapshots doc for the full tier table.
      */
     retention?: {
-      /** Keep one snapshot per hour for the last 24 h. Default: `true` */
+      /** One per hour for last 24 h. Default: `true` */
       lastDayHourly?: boolean;
-      /** Keep one snapshot per 6 h for the last 3 days. Default: `true` */
+      /** One per 6 h for last 3 days. Default: `true` */
       last3DaysSixHourly?: boolean;
-      /** How many days of daily snapshots to keep. Default: `7` */
+      /** Days of daily snapshots to keep. Default: `7` */
       lastNDaysDaily?: number;
     };
   };
-  /**
-   * Development-only configuration.
-   * These settings should not be used in production.
-   */
+  /** Development-only options. Do not use in production. */
   dev?: {
-    /**
-     * When `true`, the public schema tables data will be reset each time the
-     * sync process resets. Useful for local testing.
-     */
+    /** Reset public-schema tables on each sync reset. For local testing only. */
     resetPublicData?: boolean;
   };
 };
