@@ -1,4 +1,4 @@
-import { ENV } from "@paima/utils/node-env";
+import { ENV } from "@effectstream/utils/node-env";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,6 +105,16 @@ export async function createSnapshot(
   blockHeight: number,
   config?: SnapshotConfig,
 ): Promise<void> {
+  // pg_dump connects via the PostgreSQL wire protocol and queries pg_catalog
+  // tables directly. PGlite emulates a specific PostgreSQL version whose
+  // catalog schema may not exactly match the locally-installed pg_dump binary,
+  // leading to errors like "column daticulocale does not exist". Skip snapshot
+  // creation entirely when running under PGlite.
+  if (ENV.PGLITE) {
+    console.log(`[Snapshot] Skipping snapshot at block ${blockHeight}: pg_dump is not compatible with PGlite.`);
+    return;
+  }
+
   const snapshotDir = config?.path ?? "./snapshots";
   const snapshotPath = `${snapshotDir}/snapshot-${blockHeight}.dump`;
 

@@ -33,7 +33,7 @@ async function pollCondition(
 // Tests
 // ---------------------------------------------------------------------------
 
-const isSnapshotEnabled = Deno.env.get("PAIMA_SNAPSHOT_INTERVAL") !== undefined;
+const isSnapshotEnabled = Deno.env.get("EFFECTSTREAM_SNAPSHOT_INTERVAL") !== undefined;
 
 /**
  * Waits for the next snapshot interval to elapse, then asserts that a
@@ -44,12 +44,12 @@ const isSnapshotEnabled = Deno.env.get("PAIMA_SNAPSHOT_INTERVAL") !== undefined;
  */
 export async function snapshotTest(_db: Client) {
   if (!isSnapshotEnabled) {
-    console.log("Skipping snapshotTest (PAIMA_SNAPSHOT_INTERVAL not set)");
+    console.log("Skipping snapshotTest (EFFECTSTREAM_SNAPSHOT_INTERVAL not set)");
     return;
   }
 
-  const interval   = parseInt(Deno.env.get("PAIMA_SNAPSHOT_INTERVAL")!);
-  const snapshotDir = Deno.env.get("PAIMA_SNAPSHOT_PATH") ?? "./snapshots";
+  const interval   = parseInt(Deno.env.get("EFFECTSTREAM_SNAPSHOT_INTERVAL")!);
+  const snapshotDir = Deno.env.get("EFFECTSTREAM_SNAPSHOT_PATH") ?? "./snapshots";
 
   const currentBlock  = blockWatcher.getLatestBlock();
   // Round up to the next multiple of interval.
@@ -90,12 +90,12 @@ export async function snapshotTest(_db: Client) {
  */
 export async function snapshotRetentionTest(_db: Client) {
   if (!isSnapshotEnabled) {
-    console.log("Skipping snapshotRetentionTest (PAIMA_SNAPSHOT_INTERVAL not set)");
+    console.log("Skipping snapshotRetentionTest (EFFECTSTREAM_SNAPSHOT_INTERVAL not set)");
     return;
   }
 
-  const interval    = parseInt(Deno.env.get("PAIMA_SNAPSHOT_INTERVAL")!);
-  const snapshotDir = Deno.env.get("PAIMA_SNAPSHOT_PATH") ?? "./snapshots";
+  const interval    = parseInt(Deno.env.get("EFFECTSTREAM_SNAPSHOT_INTERVAL")!);
+  const snapshotDir = Deno.env.get("EFFECTSTREAM_SNAPSHOT_PATH") ?? "./snapshots";
 
   // Ensure at least two snapshots have been created so the retention policy
   // has had a chance to run.

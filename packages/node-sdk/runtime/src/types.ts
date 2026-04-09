@@ -77,11 +77,11 @@ export type StartConfig = {
    * ```
    *
    * ## Environment variable overrides
-   * - `PAIMA_SNAPSHOT_INTERVAL`              – block interval (overrides `interval`)
-   * - `PAIMA_SNAPSHOT_PATH`                  – output directory (overrides `path`)
-   * - `PAIMA_SNAPSHOT_LAST_DAY_HOURLY`       – "false" to disable hourly tier
-   * - `PAIMA_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY` – "false" to disable 6-hour tier
-   * - `PAIMA_SNAPSHOT_LAST_N_DAYS`           – override daily retention window
+   * - `EFFECTSTREAM_SNAPSHOT_INTERVAL`              – block interval (overrides `interval`)
+   * - `EFFECTSTREAM_SNAPSHOT_PATH`                  – output directory (overrides `path`)
+   * - `EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY`       – "false" to disable hourly tier
+   * - `EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY` – "false" to disable 6-hour tier
+   * - `EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS`           – override daily retention window
    */
   snapshotConfig?: {
     /** Block interval between snapshots. Default: 100 */

@@ -45,26 +45,26 @@ main(function* () {
       //   retention → tiered time-based policy (1h/6h/daily)
       //
       // Override via environment variables:
-      //   PAIMA_SNAPSHOT_INTERVAL               – block interval
-      //   PAIMA_SNAPSHOT_PATH                   – output directory
-      //   PAIMA_SNAPSHOT_LAST_DAY_HOURLY        – "false" to disable hourly tier
-      //   PAIMA_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY – "false" to disable 6-hour tier
-      //   PAIMA_SNAPSHOT_LAST_N_DAYS            – number of daily-retention days
+      //   EFFECTSTREAM_SNAPSHOT_INTERVAL               – block interval
+      //   EFFECTSTREAM_SNAPSHOT_PATH                   – output directory
+      //   EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY        – "false" to disable hourly tier
+      //   EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY – "false" to disable 6-hour tier
+      //   EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS            – number of daily-retention days
       //
       // Restore a snapshot:
       //   pg_restore -h localhost -p 5432 -U postgres -d postgres --clean snapshot-N.dump
       // -----------------------------------------------------------------------
-      snapshotConfig: Deno.env.get("PAIMA_SNAPSHOT_INTERVAL")
+      snapshotConfig: Deno.env.get("EFFECTSTREAM_SNAPSHOT_INTERVAL")
         ? {
-            interval: parseInt(Deno.env.get("PAIMA_SNAPSHOT_INTERVAL")!),
-            path: Deno.env.get("PAIMA_SNAPSHOT_PATH") ?? "./snapshots",
+            interval: parseInt(Deno.env.get("EFFECTSTREAM_SNAPSHOT_INTERVAL")!),
+            path: Deno.env.get("EFFECTSTREAM_SNAPSHOT_PATH") ?? "./snapshots",
             retention: {
               lastDayHourly:
-                Deno.env.get("PAIMA_SNAPSHOT_LAST_DAY_HOURLY") !== "false",
+                Deno.env.get("EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY") !== "false",
               last3DaysSixHourly:
-                Deno.env.get("PAIMA_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY") !== "false",
-              lastNDaysDaily: Deno.env.get("PAIMA_SNAPSHOT_LAST_N_DAYS")
-                ? parseInt(Deno.env.get("PAIMA_SNAPSHOT_LAST_N_DAYS")!)
+                Deno.env.get("EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY") !== "false",
+              lastNDaysDaily: Deno.env.get("EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS")
+                ? parseInt(Deno.env.get("EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS")!)
                 : undefined, // undefined → default of 7 inside snapshot-handler
             },
           }
