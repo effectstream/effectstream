@@ -8,9 +8,25 @@ Snapshots are triggered automatically after every N rollup blocks. At each trigg
 
 Because `pg_dump` uses PostgreSQL's **MVCC**, it takes a consistent snapshot at the moment it starts. Normal operations — `SELECT`, `INSERT`, `UPDATE`, `DELETE` — continue uninterrupted while the dump runs. Only DDL statements (`DROP TABLE`, `ALTER TABLE`, `TRUNCATE`) are briefly blocked.
 
-This approach works identically for both **PGlite** (which exposes a pg-gateway TCP server) and a **real PostgreSQL** instance.
+This feature requires a **real PostgreSQL** instance — snapshots are skipped when running under PGlite (`PGLITE=true`), because PGlite's internal catalog schema may not match the locally-installed `pg_dump` version.
 
-> **Note:** When running under PGlite, snapshots are skipped. PGlite's internal catalog schema may not match the version of the locally-installed `pg_dump` binary. Use a real PostgreSQL instance if you need snapshots in production.
+## Prerequisites
+
+`pg_dump` connects to the database using the same connection variables your node already uses. Make sure these are set correctly in your environment:
+
+| Variable | Description | Example |
+|---|---|---|
+| `DB_HOST` | PostgreSQL host | `localhost` |
+| `DB_PORT` | PostgreSQL port | `5432` |
+| `DB_USER` | PostgreSQL user | `postgres` |
+| `DB_PW` | PostgreSQL password | `mysecretpassword` |
+| `DB_NAME` | Database to snapshot | `effectstream` |
+
+These are the same variables used by the node's database connection — no extra configuration needed. The password is passed to `pg_dump` via the `PGPASSWORD` environment variable (the standard `libpq` mechanism).
+
+Additionally, `pg_dump` must be installed and on the `PATH` of the process running the node:
+- **Debian/Ubuntu:** `apt install postgresql-client`
+- **macOS:** `brew install libpq`
 
 ## Setup
 
@@ -107,7 +123,3 @@ Each snapshot is named after the rollup block height at which it was taken:
 
 The block height in the filename is for human readability only. The retention policy uses `mtime`, not block height, to determine which files to keep.
 
-## Requirements
-
-- `pg_dump` must be installed and on the `PATH` of the process running the node. On Debian/Ubuntu: `apt install postgresql-client`. On macOS: `brew install libpq`.
-- Snapshots require a real PostgreSQL connection. They are skipped automatically when `PGLITE=true`.

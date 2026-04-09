@@ -50,7 +50,7 @@ export async function createSnapshot(
       "-F", "c",
       "-f", snapshotPath,
     ],
-    env: { PGPASSWORD: ENV.DB_PW ?? "" },
+    env: { ...Deno.env.toObject(), PGPASSWORD: ENV.DB_PW ?? "" },
     stdout: "inherit",
     stderr: "inherit",
   });
