@@ -60,3 +60,6 @@ export {
 // export { startPGlite } from "./start-pglite.ts";
 
 export { getMigrationsForBlockHeight } from "./migrations.ts";
+
+export { createSnapshot } from "./snapshot-handler.ts";
+export type { SnapshotConfig, SnapshotRetentionConfig } from "./snapshot-handler.ts";

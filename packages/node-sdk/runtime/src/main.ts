@@ -6,6 +6,7 @@ import {
 import {
   acquireDBMutex,
   createDynamicTables,
+  createSnapshot,
   getConnection,
   releaseDBMutex,
   resetPublicTables,
@@ -139,6 +140,8 @@ export function* start(config: StartConfig): Operation<void> {
     // For PGLite, this is not enough, as the can only be one connection at a time.
     // So we request a DBMutex as well.
     let dbClient: Client | undefined;
+    // Flag set inside the mutex-protected block; snapshot runs after release.
+    let shouldSnapshot = false;
     try {
       yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
       dbClient = yield* until((dbConn as any).connect()); // Client,
@@ -149,11 +152,27 @@ export function* start(config: StartConfig): Operation<void> {
         dbClient as any, // Client,
         blockHash,
       );
+
+      // Decide whether to snapshot this block.
+      // An empty snapshotConfig ({}) triggers with the default interval (100).
+      if (
+        config.snapshotConfig !== undefined &&
+        value.blockNumber % (config.snapshotConfig.interval ?? 100) === 0
+      ) {
+        shouldSnapshot = true;
+      }
     } finally {
       releaseDBMutex(`processing-blocks:${value.blockNumber}`);
       if (dbClient) {
         (dbClient as any).release(); // Client,
       }
+    }
+
+    // Create snapshot AFTER releasing the DB mutex.
+    // For PGlite, pg_dump opens its own TCP connection to the pg-gateway server.
+    // If the mutex were still held here, PGlite would deadlock waiting for it.
+    if (shouldSnapshot) {
+      yield* until(createSnapshot(value.blockNumber, config.snapshotConfig));
     }
 
     // Used to emit & log the block range for each protocol.
