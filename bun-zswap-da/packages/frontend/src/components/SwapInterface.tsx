@@ -62,10 +62,18 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
     try {
       const dataCreate = await api.createSwapOffer(validGives, validWants);
       const transaction = dataCreate.transaction;
-      
+
       setResult({ type: 'success', message: 'Submitting blob to Celestia…' });
-      
-      const dataSubmit = await api.submitSwapOffer(transaction, validGives, validWants);
+
+      // Enrich entries with token names so other nodes can display them
+      const enrichWithName = (entry: import('../types').TokenEntry) => {
+        const known = knownTokens.find(k => k.token_color === entry.token);
+        return known ? { ...entry, name: known.name } : entry;
+      };
+      const enrichedGives = validGives.map(enrichWithName);
+      const enrichedWants = validWants.map(enrichWithName);
+
+      const dataSubmit = await api.submitSwapOffer(transaction, enrichedGives, enrichedWants);
       setResult({ type: 'success', message: "Transaction created and submitted successfully!\n\n" + JSON.stringify(dataSubmit, null, 2) });
       
       setTimeout(() => {

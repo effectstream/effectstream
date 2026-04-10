@@ -15,6 +15,7 @@ import {
   insertOfferFile,
   insertOfferFileNullifier,
   insertOfferFileToken,
+  insertKnownToken,
   archiveOfferByNullifier,
   archiveOfferByIdTtl,
 } from "@zswap-da/database";
@@ -132,6 +133,13 @@ stm.addStateTransition("celestia-zswap", function* (data) {
         amount: want.amount.toString(),
         direction: "WANTING",
       });
+      // Register token name if provided in the blob (ON CONFLICT DO NOTHING)
+      if (want.token && want.name) {
+        yield* World.resolve(insertKnownToken, {
+          token_color: want.token,
+          name: want.name,
+        });
+      }
     }
 
     for (const give of parsed.gives) {
@@ -141,6 +149,12 @@ stm.addStateTransition("celestia-zswap", function* (data) {
         amount: give.amount.toString(),
         direction: "GIVING",
       });
+      if (give.token && give.name) {
+        yield* World.resolve(insertKnownToken, {
+          token_color: give.token,
+          name: give.name,
+        });
+      }
     }
 
     // Schedule a follow-up STM input to run after the TTL expires.
