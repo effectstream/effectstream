@@ -1,15 +1,27 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-export const Logo3D: React.FC = () => {
+interface Logo3DProps {
+  size?: number;
+  rotationSpeed?: number;
+  interactive?: boolean;
+}
+
+export const Logo3D: React.FC<Logo3DProps> = ({
+  size = 80,
+  rotationSpeed = 0.005,
+  interactive = true,
+}) => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const rotationSpeedRef = useRef(rotationSpeed);
+  rotationSpeedRef.current = rotationSpeed;
 
   useEffect(() => {
     if (!mountRef.current) return;
 
     const container = mountRef.current;
-    const width = 80;
-    const height = 80;
+    const width = size;
+    const height = size;
 
     const scene = new THREE.Scene();
     scene.background = null;
@@ -138,22 +150,24 @@ export const Logo3D: React.FC = () => {
       e.preventDefault();
     };
 
-    container.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mouseup', onMouseUp);
-    window.addEventListener('mousemove', onMouseMove);
+    if (interactive) {
+      container.addEventListener('mousedown', onMouseDown);
+      window.addEventListener('mouseup', onMouseUp);
+      window.addEventListener('mousemove', onMouseMove);
 
-    container.addEventListener('touchstart', onTouchStart, { passive: false });
-    window.addEventListener('touchend', onTouchEnd);
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
+      container.addEventListener('touchstart', onTouchStart, { passive: false });
+      window.addEventListener('touchend', onTouchEnd);
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
 
-    container.style.cursor = 'grab';
-    container.addEventListener('mousedown', () => container.style.cursor = 'grabbing');
-    window.addEventListener('mouseup', () => container.style.cursor = 'grab');
+      container.style.cursor = 'grab';
+      container.addEventListener('mousedown', () => container.style.cursor = 'grabbing');
+      window.addEventListener('mouseup', () => container.style.cursor = 'grab');
+    }
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
       if (!isDragging) {
-        logoGroup.rotation.y += 0.005;
+        logoGroup.rotation.y += rotationSpeedRef.current;
       }
       renderer.render(scene, camera);
     };
@@ -162,12 +176,14 @@ export const Logo3D: React.FC = () => {
 
     return () => {
       cancelAnimationFrame(animationFrameId);
-      container.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mouseup', onMouseUp);
-      window.removeEventListener('mousemove', onMouseMove);
-      container.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchend', onTouchEnd);
-      window.removeEventListener('touchmove', onTouchMove);
+      if (interactive) {
+        container.removeEventListener('mousedown', onMouseDown);
+        window.removeEventListener('mouseup', onMouseUp);
+        window.removeEventListener('mousemove', onMouseMove);
+        container.removeEventListener('touchstart', onTouchStart);
+        window.removeEventListener('touchend', onTouchEnd);
+        window.removeEventListener('touchmove', onTouchMove);
+      }
 
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -179,12 +195,12 @@ export const Logo3D: React.FC = () => {
       cubeGeo.dispose();
       material.dispose();
     };
-  }, []);
+  }, [size, interactive]);
 
   return (
-    <div 
-      ref={mountRef} 
-      style={{ width: '80px', height: '80px', flexShrink: 0, position: 'relative', zIndex: 10 }}
+    <div
+      ref={mountRef}
+      style={{ width: `${size}px`, height: `${size}px`, flexShrink: 0, position: 'relative', zIndex: 10 }}
     />
   );
 };

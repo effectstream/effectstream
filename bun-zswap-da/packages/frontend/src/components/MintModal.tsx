@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useContract } from '../hooks/useContract';
 import { api } from '../services/api';
+import { Logo3D } from './Logo3D';
 
 interface MintModalProps {
   isOpen: boolean;
@@ -132,105 +133,116 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
 
-        <div style={{ marginBottom: '10px' }}>
-          <label>Mint Type</label>
-          <select
-            value={mintType}
-            onChange={(e) => setMintType(e.target.value as 'shielded' | 'unshielded')}
-          >
-            <option value="shielded">Shielded (mint_shielded)</option>
-            <option value="unshielded">Unshielded (mint_unshielded)</option>
-          </select>
+        <div style={{ display: loading ? 'flex' : 'none', flexDirection: 'column', alignItems: 'center', padding: '32px 20px 24px' }}>
+          <Logo3D size={140} rotationSpeed={0.025} interactive={false} />
+          <p style={{ marginTop: '24px', marginBottom: '4px', color: '#e2e8f0', fontSize: '0.95rem', textAlign: 'center' }}>
+            Minting token <strong>{tokenName}</strong>
+          </p>
+          <p style={{ marginTop: 0, color: '#64748b', fontSize: '0.8rem', textAlign: 'center' }}>
+            This may take a moment...
+          </p>
         </div>
 
-        <div style={{ marginBottom: '10px' }}>
-          <label>Token Name</label>
-          <input
-            type="text"
-            placeholder="e.g. FIZZ, BUZZ, COOL"
-            value={tokenName}
-            onChange={handleNameChange}
-            maxLength={MAX_NAME_LENGTH}
-            style={{ textTransform: 'uppercase' }}
-          />
-          <span style={{ fontSize: '0.7rem', color: '#94a3b8', float: 'right', marginTop: '2px' }}>
-            {tokenName.length}/{MAX_NAME_LENGTH}
-          </span>
-        </div>
+        <div style={{ display: loading ? 'none' : 'block' }}>
+            <div style={{ marginBottom: '10px' }}>
+              <label>Mint Type</label>
+              <select
+                value={mintType}
+                onChange={(e) => setMintType(e.target.value as 'shielded' | 'unshielded')}
+              >
+                <option value="shielded">Shielded (mint_shielded)</option>
+                <option value="unshielded">Unshielded (mint_unshielded)</option>
+              </select>
+            </div>
 
-        <div style={{ marginBottom: '10px' }}>
-          <label>Amount</label>
-          <input
-            type="number"
-            min="1"
-            placeholder="100"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </div>
-
-        <div style={{ marginBottom: '10px' }}>
-          <label>
-            Domain Separator (hex, 32 bytes)
-            <Tooltip text="Unique identifier that determines the token type. Different separator = different token. Auto-generated for convenience." />
-          </label>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <input
-              type="text"
-              placeholder="64 hex characters"
-              value={domainSep}
-              onChange={(e) => setDomainSep(e.target.value)}
-              style={{ flex: 1, fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}
-            />
-            <button
-              type="button"
-              onClick={() => setDomainSep(generateDomainSep())}
-              style={{ margin: 0, padding: '6px 10px', fontSize: '0.75rem', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flexShrink: 0 }}
-              title="Generate new random domain separator"
-            >
-              Regenerate
-            </button>
-          </div>
-        </div>
-
-        {mintType === 'shielded' && (
-          <div style={{ marginBottom: '10px' }}>
-            <label>
-              Nonce
-              <Tooltip text="Ensures each shielded coin is unique on the UTXO set. Must be different for every mint of the same token type. Auto-generated from timestamp." />
-            </label>
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <div style={{ marginBottom: '10px' }}>
+              <label>Token Name</label>
               <input
                 type="text"
-                value={nonce}
-                onChange={(e) => setNonce(e.target.value)}
-                style={{ flex: 1, fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}
+                placeholder="e.g. FIZZ, BUZZ, COOL"
+                value={tokenName}
+                onChange={handleNameChange}
+                maxLength={MAX_NAME_LENGTH}
+                style={{ textTransform: 'uppercase' }}
               />
-              <button
-                type="button"
-                onClick={() => setNonce(generateNonce())}
-                style={{ margin: 0, padding: '6px 10px', fontSize: '0.75rem', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flexShrink: 0 }}
-                title="Generate new nonce from current timestamp"
-              >
-                Regenerate
-              </button>
+              <span style={{ fontSize: '0.7rem', color: '#94a3b8', float: 'right', marginTop: '2px' }}>
+                {tokenName.length}/{MAX_NAME_LENGTH}
+              </span>
             </div>
-          </div>
-        )}
 
-        <button
-          onClick={handleMint}
-          disabled={loading}
-          style={{ width: '100%', marginTop: '20px' }}
-        >
-          {loading ? 'Minting...' : 'Mint on Midnight'}
-        </button>
+            <div style={{ marginBottom: '10px' }}>
+              <label>Amount</label>
+              <input
+                type="number"
+                min="1"
+                placeholder="100"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
 
-        {result && (
-          <div className="result" style={{ display: 'block', color: result.type === 'error' ? '#dc2626' : undefined }}>
-            {result.message}
-          </div>
-        )}
+            <div style={{ marginBottom: '10px' }}>
+              <label>
+                Domain Separator (hex, 32 bytes)
+                <Tooltip text="Unique identifier that determines the token type. Different separator = different token. Auto-generated for convenience." />
+              </label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  placeholder="64 hex characters"
+                  value={domainSep}
+                  onChange={(e) => setDomainSep(e.target.value)}
+                  style={{ flex: 1, fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setDomainSep(generateDomainSep())}
+                  style={{ margin: 0, padding: '6px 10px', fontSize: '0.75rem', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flexShrink: 0 }}
+                  title="Generate new random domain separator"
+                >
+                  Regenerate
+                </button>
+              </div>
+            </div>
+
+            {mintType === 'shielded' && (
+              <div style={{ marginBottom: '10px' }}>
+                <label>
+                  Nonce
+                  <Tooltip text="Ensures each shielded coin is unique on the UTXO set. Must be different for every mint of the same token type. Auto-generated from timestamp." />
+                </label>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="text"
+                    value={nonce}
+                    onChange={(e) => setNonce(e.target.value)}
+                    style={{ flex: 1, fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setNonce(generateNonce())}
+                    style={{ margin: 0, padding: '6px 10px', fontSize: '0.75rem', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flexShrink: 0 }}
+                    title="Generate new nonce from current timestamp"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={handleMint}
+              style={{ width: '100%', marginTop: '20px' }}
+            >
+              Mint on Midnight
+            </button>
+
+            {result && (
+              <div className="result" style={{ display: 'block', color: result.type === 'error' ? '#dc2626' : undefined }}>
+                {result.message}
+              </div>
+            )}
+        </div>
       </div>
     </div>
   );
