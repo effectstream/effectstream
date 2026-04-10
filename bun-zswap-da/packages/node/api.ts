@@ -22,6 +22,7 @@ import { normalizeHex32 } from "./zswap-logic.ts";
 import { submitToCelestia } from "./celestia-api.ts";
 import { getContractInstance, getWalletInstance } from "./midnight-api.ts";
 import { OfferFilesContract } from "../midnight-contracts/contract-offer-files/src/index.ts";
+import { eventBus } from "./event-bus.ts";
 
 // ─── Midnight Contract Helper ─────────────────────────────────────────────────
 
@@ -304,6 +305,39 @@ export const apiRouter: StartConfigApiRouter = async function (
       return { success: true, blob, result: result };
     },
   );
+
+  // GET /api/events — Server-Sent Events stream for real-time offer lifecycle updates
+  server.get("/api/events", async (request: any, reply: any) => {
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    });
+
+    const send = (data: object) => {
+      try {
+        reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch { /* client disconnected */ }
+    };
+
+    send({ type: "connected", timestamp: Date.now() });
+
+    const listener = (event: object) => send({ ...event, timestamp: Date.now() });
+    eventBus.on("app_event", listener);
+
+    const heartbeat = setInterval(() => {
+      try { reply.raw.write(": heartbeat\n\n"); } catch { /* noop */ }
+    }, 30_000);
+
+    request.raw.on("close", () => {
+      eventBus.off("app_event", listener);
+      clearInterval(heartbeat);
+    });
+
+    // Keep connection open — never resolve
+    await new Promise(() => {});
+  });
 
   // POST /api/zswap/:id/complete — mark a ZSWAP as done on Midnight.
   server.post("/api/zswap/:id/complete", async (request: any) => {

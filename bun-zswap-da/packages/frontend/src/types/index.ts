@@ -17,3 +17,13 @@ export interface ZSwapOffer {
   celestia_height?: number;
   transaction_hex?: string;
 }
+
+export interface AppEvent {
+  type: 'connected' | 'offer_indexed' | 'offer_consumed' | 'offer_expired';
+  timestamp: number;
+  offerId?: number;
+  celestiaHeight?: number | string;
+  gives?: unknown[];
+  wants?: unknown[];
+  nullifier?: string;
+}

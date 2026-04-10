@@ -20,6 +20,7 @@ import {
 } from "@zswap-da/database";
 
 import { extractMidnightLedgerSnapshot } from "./zswap-logic.ts";
+import { emitAppEvent } from "./event-bus.ts";
 
 export const grammar = {
   // Primitives
@@ -46,6 +47,7 @@ stm.addStateTransition("midnight-nullifier", function* (data) {
       return;
     }
     console.log("[MIDNIGHT] Archived offer(s) for nullifier", nullifier, archived);
+    emitAppEvent({ type: "offer_consumed", offerId: archived[0].id, nullifier });
   } catch (e) {
     console.error("[MIDNIGHT] Failed to archive offer for nullifier", nullifier, e);
   }
@@ -150,6 +152,7 @@ stm.addStateTransition("celestia-zswap", function* (data) {
     });
 
     console.log(`[ZSWAP] Saved at Celestia block ${data.blockHeight}`);
+    emitAppEvent({ type: "offer_indexed", offerId: offerFileId, celestiaHeight: data.blockHeight, gives: parsed.gives, wants: parsed.wants });
   } catch (e) {
     console.error("[ZSWAP] Failed to save offer file", e);
   }
@@ -188,6 +191,7 @@ stm.addStateTransition("zswap-ttl-cleanup", function* (data) {
       offerId,
       archived,
     );
+    emitAppEvent({ type: "offer_expired", offerId });
   } catch (e) {
     console.error(
       "[ZSWAP] Failed to archive offer by TTL",

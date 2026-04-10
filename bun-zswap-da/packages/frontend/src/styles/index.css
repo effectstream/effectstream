@@ -71,3 +71,30 @@ tr:hover td { background: #f1f5f9; }
 .mint-btn-top { margin: 0; background: #ffffff; color: #3b82f6; border: 1px solid #3b82f6; font-weight: 600; padding: 8px 16px; }
 .mint-btn-top:hover { background: #eff6ff; }
 .hidden { display: none !important; }
+
+/* SSE Status Indicator */
+.sse-status { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 8px; vertical-align: middle; }
+.sse-status-connected { background: #22c55e; box-shadow: 0 0 4px #22c55e; }
+.sse-status-disconnected { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
+
+/* Event Feed */
+.event-feed { max-height: 280px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+.event-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; }
+.event-item:last-child { border-bottom: none; }
+.event-time { color: #94a3b8; font-family: ui-monospace, monospace; font-size: 0.75rem; flex-shrink: 0; }
+.event-badge { padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; color: #fff; }
+.event-badge-indexed { background: #3b82f6; }
+.event-badge-consumed { background: #059669; }
+.event-badge-expired { background: #d97706; }
+.event-desc { color: #475569; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Wallet Display */
+.wallet-info { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; }
+.wallet-icon { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; }
+.wallet-details { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.wallet-name-row { display: flex; align-items: center; gap: 4px; }
+.wallet-name { font-size: 0.75rem; font-weight: 600; color: #0f172a; }
+.wallet-address { font-size: 0.7rem; color: #64748b; font-family: ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wallet-balance { font-size: 0.65rem; color: #94a3b8; }
+.wallet-unavailable { background: #e2e8f0 !important; color: #94a3b8 !important; border-color: #cbd5e1 !important; cursor: not-allowed; }
+.wallet-unavailable:hover { background: #e2e8f0 !important; }

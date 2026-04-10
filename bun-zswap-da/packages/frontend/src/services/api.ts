@@ -57,5 +57,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/api/zswaps?${searchParams.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch ZSwaps');
     return res.json();
-  }
+  },
+
+  getEventsUrl: () => `${API_BASE}/api/events`,
 };

@@ -6,9 +6,10 @@ import { api } from '../services/api';
 interface ZSwapListProps {
   knownTokens: KnownToken[];
   refreshTrigger: number;
+  sseRefreshTrigger?: number;
 }
 
-export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigger }) => {
+export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigger, sseRefreshTrigger = 0 }) => {
   const {
     offers,
     loading,
@@ -34,7 +35,7 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
 
   useEffect(() => {
     fetchOffers();
-  }, [fetchOffers, refreshTrigger]);
+  }, [fetchOffers, refreshTrigger, sseRefreshTrigger]);
 
   const handleApplyFilters = () => {
     const token = tempFilterTokenSelect === 'custom' ? tempFilterTokenCustom : tempFilterTokenSelect;
