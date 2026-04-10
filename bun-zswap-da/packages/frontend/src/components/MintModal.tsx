@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useContract } from '../hooks/useContract';
 import { api } from '../services/api';
 
@@ -10,17 +11,63 @@ interface MintModalProps {
 
 const MAX_NAME_LENGTH = 16;
 
+function generateDomainSep(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateNonce(): string {
+  return Date.now().toString();
+}
+
+const Tooltip: React.FC<{ text: string }> = ({ text }) => {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const iconRef = React.useRef<HTMLSpanElement>(null);
+
+  const handleEnter = () => {
+    const el = iconRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setPos({ top: rect.top - 8, left: rect.left + rect.width / 2 });
+  };
+
+  return (
+    <span className="tooltip-wrap" onMouseEnter={handleEnter} onMouseLeave={() => setPos(null)}>
+      <span className="tooltip-icon" ref={iconRef}>?</span>
+      {pos && createPortal(
+        <span
+          className="tooltip-bubble"
+          style={{ top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)' }}
+        >
+          {text}
+        </span>,
+        document.body,
+      )}
+    </span>
+  );
+};
+
 export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuccess }) => {
   const { connectContract, submitMint: contractSubmitMint } = useContract();
 
   const [mintType, setMintType] = useState<'shielded' | 'unshielded'>('shielded');
   const [tokenName, setTokenName] = useState('');
-  const [domainSep, setDomainSep] = useState('');
   const [amount, setAmount] = useState('');
-  const [nonce, setNonce] = useState('');
+  const [domainSep, setDomainSep] = useState(generateDomainSep);
+  const [nonce, setNonce] = useState(generateNonce);
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -33,12 +80,16 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
   };
 
   const handleMint = async () => {
-    if (!domainSep || !amount) {
-      setResult({ type: 'error', message: 'Domain separator and amount are required.' });
-      return;
-    }
     if (!tokenName) {
       setResult({ type: 'error', message: 'Token name is required.' });
+      return;
+    }
+    if (!amount) {
+      setResult({ type: 'error', message: 'Amount is required.' });
+      return;
+    }
+    if (!domainSep) {
+      setResult({ type: 'error', message: 'Domain separator is required.' });
       return;
     }
 
@@ -49,7 +100,7 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
       await connectContract();
 
       const payload = mintType === 'shielded'
-        ? { domainSep, amount, nonce: nonce || '0', name: tokenName }
+        ? { domainSep, amount, nonce: nonce || generateNonce(), name: tokenName }
         : { domainSep, amount, name: tokenName };
 
       await contractSubmitMint(payload);
@@ -60,6 +111,10 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
         return;
       }
       setResult({ type: 'success', message: JSON.stringify(data, null, 2) });
+
+      // Regenerate for next mint
+      setDomainSep(generateDomainSep());
+      setNonce(generateNonce());
 
       if (onMintSuccess) onMintSuccess();
     } catch (e: any) {
@@ -76,6 +131,7 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
           <h2 className="modal-title">Mint New Token</h2>
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
+
         <div style={{ marginBottom: '10px' }}>
           <label>Mint Type</label>
           <select
@@ -86,11 +142,12 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
             <option value="unshielded">Unshielded (mint_unshielded)</option>
           </select>
         </div>
+
         <div style={{ marginBottom: '10px' }}>
           <label>Token Name</label>
           <input
             type="text"
-            placeholder="e.g. MIDNIGHT, TOKEN_A"
+            placeholder="e.g. FIZZ, BUZZ, COOL"
             value={tokenName}
             onChange={handleNameChange}
             maxLength={MAX_NAME_LENGTH}
@@ -100,38 +157,64 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
             {tokenName.length}/{MAX_NAME_LENGTH}
           </span>
         </div>
-        <div className="row">
-          <div>
-            <label>Domain Separator (hex, 32 bytes)</label>
+
+        <div style={{ marginBottom: '10px' }}>
+          <label>Amount</label>
+          <input
+            type="number"
+            min="1"
+            placeholder="100"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </div>
+
+        <div style={{ marginBottom: '10px' }}>
+          <label>
+            Domain Separator (hex, 32 bytes)
+            <Tooltip text="Unique identifier that determines the token type. Different separator = different token. Auto-generated for convenience." />
+          </label>
+          <div style={{ display: 'flex', gap: '6px' }}>
             <input
               type="text"
-              placeholder="0x01 or 64-hex chars"
+              placeholder="64 hex characters"
               value={domainSep}
               onChange={(e) => setDomainSep(e.target.value)}
+              style={{ flex: 1, fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}
             />
-          </div>
-          <div style={{ maxWidth: '180px' }}>
-            <label>Amount</label>
-            <input
-              type="number"
-              min="1"
-              placeholder="100"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
+            <button
+              type="button"
+              onClick={() => setDomainSep(generateDomainSep())}
+              style={{ margin: 0, padding: '6px 10px', fontSize: '0.75rem', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flexShrink: 0 }}
+              title="Generate new random domain separator"
+            >
+              Regenerate
+            </button>
           </div>
         </div>
 
         {mintType === 'shielded' && (
-          <div style={{ marginTop: '10px' }}>
-            <label>Nonce (Uint128)</label>
-            <input
-              type="text"
-              placeholder="0"
-              style={{ maxWidth: '220px' }}
-              value={nonce}
-              onChange={(e) => setNonce(e.target.value)}
-            />
+          <div style={{ marginBottom: '10px' }}>
+            <label>
+              Nonce
+              <Tooltip text="Ensures each shielded coin is unique on the UTXO set. Must be different for every mint of the same token type. Auto-generated from timestamp." />
+            </label>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                type="text"
+                value={nonce}
+                onChange={(e) => setNonce(e.target.value)}
+                style={{ flex: 1, fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}
+              />
+              <button
+                type="button"
+                onClick={() => setNonce(generateNonce())}
+                style={{ margin: 0, padding: '6px 10px', fontSize: '0.75rem', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', flexShrink: 0 }}
+                title="Generate new nonce from current timestamp"
+              >
+                Regenerate
+              </button>
+            </div>
           </div>
         )}
 
