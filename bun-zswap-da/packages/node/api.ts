@@ -123,12 +123,36 @@ export const apiRouter: StartConfigApiRouter = async function (
             domainSep: { type: "string" },
             amount: { type: "string" },
             nonce: { type: "string" },
+            name: { type: "string" },
           },
         },
       },
     },
     async (request: any) => {
-      const DOMAIN_SEPARATOR = new Uint8Array(32).fill(1);
+      const tokenName = request.body.name?.trim().toUpperCase().slice(0, 16) || `SHIELDED_${Date.now()}`;
+
+      const nameCheck = await dbConn.query(
+        `SELECT 1 FROM known_tokens WHERE name = $1 LIMIT 1`,
+        [tokenName],
+      );
+      if (nameCheck.rows.length > 0) {
+        return { success: false, error: `Token name "${tokenName}" is already taken` };
+      }
+
+      const domainSep = normalizeHex32(request.body.domainSep);
+      const tokenColor = domainSep.replace(/^0x/, "");
+
+      const colorCheck = await dbConn.query(
+        `SELECT name FROM known_tokens WHERE token_color = $1 LIMIT 1`,
+        [tokenColor],
+      );
+      if (colorCheck.rows.length > 0) {
+        return { success: false, error: `A token with this domain separator already exists ("${colorCheck.rows[0].name}")` };
+      }
+
+      const domainSepBytes = Uint8Array.from(
+        Buffer.from(tokenColor, "hex"),
+      );
 
       const amount = BigInt(request.body.amount);
       const nonce = BigInt(request.body.nonce);
@@ -138,7 +162,7 @@ export const apiRouter: StartConfigApiRouter = async function (
       if (!nonce) return { success: false, error: "Invalid nonce" };
 
       const txData = await (contract as any).callTx.mint_shielded(
-        DOMAIN_SEPARATOR,
+        domainSepBytes,
         amount,
         nonce,
       );
@@ -146,14 +170,11 @@ export const apiRouter: StartConfigApiRouter = async function (
       const txHash: string = txData.public?.txHash ?? "";
 
       await insertKnownToken.run(
-        {
-          token_color: Buffer.from(DOMAIN_SEPARATOR).toString("hex"),
-          name: `shielded_${Date.now()}`,
-        },
+        { token_color: tokenColor, name: tokenName },
         dbConn,
       );
 
-      return { success: true, txHash };
+      return { success: true, txHash, name: tokenName };
     },
   );
 
@@ -168,11 +189,22 @@ export const apiRouter: StartConfigApiRouter = async function (
           properties: {
             domainSep: { type: "string" },
             amount: { type: "string" },
+            name: { type: "string" },
           },
         },
       },
     },
     async (request: any) => {
+      const tokenName = request.body.name?.trim().toUpperCase().slice(0, 16) || `UNSHIELDED_${Date.now()}`;
+
+      const nameCheck = await dbConn.query(
+        `SELECT 1 FROM known_tokens WHERE name = $1 LIMIT 1`,
+        [tokenName],
+      );
+      if (nameCheck.rows.length > 0) {
+        return { success: false, error: `Token name "${tokenName}" is already taken` };
+      }
+
       const domainSep = normalizeHex32(request.body.domainSep);
       const amount = String(request.body.amount);
 
@@ -190,13 +222,10 @@ export const apiRouter: StartConfigApiRouter = async function (
       const txHash: string = txData.public?.txHash ?? "";
 
       await insertKnownToken.run(
-        {
-          token_color: colorHex,
-          name: `unshielded_${Date.now()}`,
-        },
+        { token_color: colorHex, name: tokenName },
         dbConn,
       );
-      return { success: true, txHash, color: colorHex };
+      return { success: true, txHash, color: colorHex, name: tokenName };
     },
   );
 
