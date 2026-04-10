@@ -61,14 +61,14 @@ export type StartConfig = {
    * Automated database snapshot configuration via `pg_dump`.
    * An empty object `{}` enables snapshots with all defaults.
    *
-   * Env overrides: `EFFECTSTREAM_SNAPSHOT_INTERVAL`, `EFFECTSTREAM_SNAPSHOT_PATH`,
+   * Env overrides: `EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS`, `EFFECTSTREAM_SNAPSHOT_PATH`,
    * `EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY`, `EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY`,
    * `EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS`.
    * @see docs/home/1000-effectstream-engine/1003-database-snapshots.md
    */
   snapshotConfig?: {
-    /** Rollup blocks between snapshots. Default: `100` */
-    interval?: number;
+    /** Wall-clock seconds between snapshots. Default: `3600` (1 hour) */
+    intervalSeconds?: number;
     /** Output directory for `.dump` files. Default: `"./snapshots"` */
     path?: string;
     /**

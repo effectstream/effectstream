@@ -10,8 +10,8 @@ export interface SnapshotRetentionConfig {
 }
 
 export interface SnapshotConfig {
-  /** Rollup blocks between snapshots. Default: `100` */
-  interval?: number;
+  /** Wall-clock seconds between snapshots. Default: `3600` (1 hour) */
+  intervalSeconds?: number;
   /** Output directory. Default: `"./snapshots"` */
   path?: string;
   /** Time-based tiered retention (uses file mtime). */
@@ -36,7 +36,8 @@ export async function createSnapshot(
   }
 
   const snapshotDir = config?.path ?? "./snapshots";
-  const snapshotPath = `${snapshotDir}/snapshot-${blockHeight}.dump`;
+  const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\.\d{3}/, "");
+  const snapshotPath = `${snapshotDir}/snapshot-${blockHeight}-${timestamp}.dump`;
 
   await Deno.mkdir(snapshotDir, { recursive: true });
   console.log(`[Snapshot] Creating snapshot at ${snapshotPath}...`);

@@ -36,27 +36,10 @@ main(function* () {
       apiRouter,
       grammar,
       userDefinedPrimitives,
-      // -----------------------------------------------------------------------
-      // Snapshot configuration (optional — only active when env vars are set).
-      //
-      // All fields are optional. An empty object {} uses all defaults:
-      //   interval  → 100 blocks
-      //   path      → ./snapshots
-      //   retention → tiered time-based policy (1h/6h/daily)
-      //
-      // Override via environment variables:
-      //   EFFECTSTREAM_SNAPSHOT_INTERVAL               – block interval
-      //   EFFECTSTREAM_SNAPSHOT_PATH                   – output directory
-      //   EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY        – "false" to disable hourly tier
-      //   EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY – "false" to disable 6-hour tier
-      //   EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS            – number of daily-retention days
-      //
-      // Restore a snapshot:
-      //   pg_restore -h localhost -p 5432 -U postgres -d postgres --clean snapshot-N.dump
-      // -----------------------------------------------------------------------
-      snapshotConfig: Deno.env.get("EFFECTSTREAM_SNAPSHOT_INTERVAL")
+      // Snapshot config — see docs/home/1000-effectstream-engine/1003-database-snapshots.md
+      snapshotConfig: Deno.env.get("EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS")
         ? {
-            interval: parseInt(Deno.env.get("EFFECTSTREAM_SNAPSHOT_INTERVAL")!),
+            intervalSeconds: parseInt(Deno.env.get("EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS")!),
             path: Deno.env.get("EFFECTSTREAM_SNAPSHOT_PATH") ?? "./snapshots",
             retention: {
               lastDayHourly:
@@ -65,7 +48,7 @@ main(function* () {
                 Deno.env.get("EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY") !== "false",
               lastNDaysDaily: Deno.env.get("EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS")
                 ? parseInt(Deno.env.get("EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS")!)
-                : undefined, // undefined → default of 7 inside snapshot-handler
+                : undefined,
             },
           }
         : undefined,

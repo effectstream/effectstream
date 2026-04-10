@@ -135,13 +135,14 @@ export function* start(config: StartConfig): Operation<void> {
   });
 
   let blockHash: PaimaBlockHash | null = null;
+  let lastSnapshotTime = 0;
+  let snapshotInProgress = false;
+
   for (const value of yield* each(finalizedBlockStream)) {
     // We request a dbClient for a non-shared dbConn object.
     // For PGLite, this is not enough, as the can only be one connection at a time.
     // So we request a DBMutex as well.
     let dbClient: Client | undefined;
-    // Flag set inside the mutex-protected block; snapshot runs after release.
-    let shouldSnapshot = false;
     try {
       yield* acquireDBMutex(`processing-blocks:${value.blockNumber}`);
       dbClient = yield* until((dbConn as any).connect()); // Client,
@@ -152,15 +153,6 @@ export function* start(config: StartConfig): Operation<void> {
         dbClient as any, // Client,
         blockHash,
       );
-
-      // Decide whether to snapshot this block.
-      // An empty snapshotConfig ({}) triggers with the default interval (100).
-      if (
-        config.snapshotConfig !== undefined &&
-        value.blockNumber % (config.snapshotConfig.interval ?? 100) === 0
-      ) {
-        shouldSnapshot = true;
-      }
     } finally {
       releaseDBMutex(`processing-blocks:${value.blockNumber}`);
       if (dbClient) {
@@ -168,11 +160,26 @@ export function* start(config: StartConfig): Operation<void> {
       }
     }
 
-    // Create snapshot AFTER releasing the DB mutex.
-    // For PGlite, pg_dump opens its own TCP connection to the pg-gateway server.
-    // If the mutex were still held here, PGlite would deadlock waiting for it.
-    if (shouldSnapshot) {
-      yield* until(createSnapshot(value.blockNumber, config.snapshotConfig));
+    // Time-based, non-blocking snapshot trigger.
+    // Spawned so pg_dump runs in the background without stalling the sync loop.
+    // The snapshotInProgress guard prevents overlapping dumps.
+    const snapshotIntervalMs = (config.snapshotConfig?.intervalSeconds ?? 3600) * 1000;
+    if (
+      config.snapshotConfig !== undefined &&
+      !snapshotInProgress &&
+      Date.now() - lastSnapshotTime >= snapshotIntervalMs
+    ) {
+      snapshotInProgress = true;
+      lastSnapshotTime = Date.now();
+      yield* spawn(function* () {
+        try {
+          yield* until(createSnapshot(value.blockNumber, config.snapshotConfig));
+        } catch (e) {
+          console.error("[Snapshot] Failed:", e);
+        } finally {
+          snapshotInProgress = false;
+        }
+      });
     }
 
     // Used to emit & log the block range for each protocol.
