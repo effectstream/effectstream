@@ -140,18 +140,9 @@ export const apiRouter: StartConfigApiRouter = async function (
       }
 
       const domainSep = normalizeHex32(request.body.domainSep);
-      const tokenColor = domainSep.replace(/^0x/, "");
-
-      const colorCheck = await dbConn.query(
-        `SELECT name FROM known_tokens WHERE token_color = $1 LIMIT 1`,
-        [tokenColor],
-      );
-      if (colorCheck.rows.length > 0) {
-        return { success: false, error: `A token with this domain separator already exists ("${colorCheck.rows[0].name}")` };
-      }
-
+      const domainSepHex = domainSep.replace(/^0x/, "");
       const domainSepBytes = Uint8Array.from(
-        Buffer.from(tokenColor, "hex"),
+        Buffer.from(domainSepHex, "hex"),
       );
 
       const amount = BigInt(request.body.amount);
@@ -168,13 +159,23 @@ export const apiRouter: StartConfigApiRouter = async function (
       );
 
       const txHash: string = txData.public?.txHash ?? "";
+      // mint_shielded returns { nonce, color, value } — color is the actual ledger token type
+      const tokenColor = Buffer.from(txData.private.result.color as Uint8Array).toString("hex");
+
+      const colorCheck = await dbConn.query(
+        `SELECT name FROM known_tokens WHERE token_color = $1 LIMIT 1`,
+        [tokenColor],
+      );
+      if (colorCheck.rows.length > 0) {
+        return { success: false, error: `This token color already exists as "${colorCheck.rows[0].name}"` };
+      }
 
       await insertKnownToken.run(
         { token_color: tokenColor, name: tokenName },
         dbConn,
       );
 
-      return { success: true, txHash, name: tokenName };
+      return { success: true, txHash, color: tokenColor, name: tokenName };
     },
   );
 
@@ -228,6 +229,24 @@ export const apiRouter: StartConfigApiRouter = async function (
       return { success: true, txHash, color: colorHex, name: tokenName };
     },
   );
+
+  // GET /api/wallet/balance — Query shielded and unshielded balances of the node wallet
+  server.get("/api/wallet/balance", async () => {
+    const { walletResult } = await getWalletInstance();
+
+    const [shieldedState, unshieldedState] = await Promise.all([
+      walletResult.wallet.shielded.waitForSyncedState(),
+      walletResult.wallet.unshielded.waitForSyncedState(),
+    ]);
+
+    const serializeBalances = (balances: Record<string, bigint>) =>
+      Object.fromEntries(Object.entries(balances).map(([k, v]) => [k, v.toString()]));
+
+    return {
+      shielded: serializeBalances(shieldedState.balances),
+      unshielded: serializeBalances(unshieldedState.balances),
+    };
+  });
 
   // POST /api/zswap/create — Create an offer transaction payload using Midnight wallet
   server.post(

@@ -22,7 +22,7 @@ export let _wallet2Bech32: string | null = null;
 
 export async function getWalletInstance() {
     if (!_walletResult) {
-        _walletResult = await getContractInstance();
+        await getContractInstance();
     }
     return { walletResult: _walletResult, wallet2Bech32: _wallet2Bech32 };
 }
