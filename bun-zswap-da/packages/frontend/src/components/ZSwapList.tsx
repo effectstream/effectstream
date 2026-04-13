@@ -7,9 +7,10 @@ interface ZSwapListProps {
   knownTokens: KnownToken[];
   refreshTrigger: number;
   sseRefreshTrigger?: number;
+  activeWallet?: string;
 }
 
-export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigger, sseRefreshTrigger = 0 }) => {
+export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigger, sseRefreshTrigger = 0, activeWallet }) => {
   const {
     offers,
     loading,
@@ -57,7 +58,7 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
     setCompletingId(id);
     setCompleteResult({ id, message: 'Submitting completion to Midnight…' });
     try {
-      const data = await api.completeOffer(id);
+      const data = await api.completeOffer(id, activeWallet);
       setCompleteResult({ id, message: JSON.stringify(data, null, 2) });
       fetchOffers();
     } catch (e: any) {

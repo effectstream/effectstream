@@ -11,6 +11,7 @@ const EVENT_BADGES: Record<string, { label: string; className: string }> = {
   offer_indexed: { label: 'INDEXED', className: 'event-badge-indexed' },
   offer_consumed: { label: 'CONSUMED', className: 'event-badge-consumed' },
   offer_expired: { label: 'EXPIRED', className: 'event-badge-expired' },
+  token_minted: { label: 'MINTED', className: 'event-badge-minted' },
 };
 
 function describeEvent(event: AppEvent): string {
@@ -21,6 +22,8 @@ function describeEvent(event: AppEvent): string {
       return `Offer #${event.offerId} consumed (nullifier: ${event.nullifier?.slice(0, 12)}...)`;
     case 'offer_expired':
       return `Offer #${event.offerId} expired (TTL)`;
+    case 'token_minted':
+      return `${event.wallet ?? '?'} minted token ${event.name ?? '?'}`;
     default:
       return event.type;
   }

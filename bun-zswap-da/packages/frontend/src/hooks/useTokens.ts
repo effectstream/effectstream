@@ -1,5 +1,5 @@
 // src/hooks/useTokens.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import type { KnownToken } from '../types';
 
@@ -7,7 +7,7 @@ export function useTokens() {
   const [knownTokens, setKnownTokens] = useState<KnownToken[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchTokens = async () => {
+  const fetchTokens = useCallback(async () => {
     try {
       setLoading(true);
       const tokens = await api.getKnownTokens();
@@ -17,11 +17,11 @@ export function useTokens() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchTokens();
-  }, []);
+  }, [fetchTokens]);
 
   return { knownTokens, loading, refetchTokens: fetchTokens };
 }

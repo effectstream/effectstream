@@ -4,6 +4,9 @@ import { useWallet } from '../hooks/useWallet';
 
 interface HeaderProps {
   onOpenMintModal: () => void;
+  wallets: string[];
+  activeWallet: string;
+  onWalletChange: (id: string) => void;
 }
 
 function truncateAddress(addr: string): string {
@@ -11,7 +14,7 @@ function truncateAddress(addr: string): string {
   return addr.slice(0, 10) + '...' + addr.slice(-6);
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenMintModal }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenMintModal, wallets, activeWallet, onWalletChange }) => {
   const { status, walletName, walletIcon, shieldedAddress, shieldedBalances, error, connectWallet, disconnectWallet } = useWallet();
 
   const renderWalletButton = () => {
@@ -92,6 +95,23 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMintModal }) => {
 
       {/* Right: Actions */}
       <div className="header-actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+        {/* Backend wallet selector */}
+        {wallets.length > 1 && (
+          <div className="wallet-selector">
+            <label className="wallet-selector-label">Acting as</label>
+            <div className="wallet-selector-buttons">
+              {wallets.map(w => (
+                <button
+                  key={w}
+                  className={`wallet-selector-btn ${w === activeWallet ? 'wallet-selector-btn-active' : ''}`}
+                  onClick={() => onWalletChange(w)}
+                >
+                  {w.charAt(0).toUpperCase() + w.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <button className="mint-btn-top" onClick={onOpenMintModal}>+ Mint New Token</button>
         {renderWalletButton()}
         {error && <span style={{ color: '#ef4444', fontSize: '0.7rem', textAlign: 'center' }}>{error}</span>}

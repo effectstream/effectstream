@@ -92,6 +92,7 @@ tr:hover td { background: #f1f5f9; }
 .event-badge-indexed { background: #3b82f6; }
 .event-badge-consumed { background: #059669; }
 .event-badge-expired { background: #d97706; }
+.event-badge-minted { background: #8b5cf6; }
 .event-desc { color: #475569; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Wallet Display */
@@ -104,3 +105,12 @@ tr:hover td { background: #f1f5f9; }
 .wallet-balance { font-size: 0.65rem; color: #94a3b8; }
 .wallet-unavailable { background: #e2e8f0 !important; color: #94a3b8 !important; border-color: #cbd5e1 !important; cursor: not-allowed; }
 .wallet-unavailable:hover { background: #e2e8f0 !important; }
+
+/* Wallet Selector */
+.wallet-selector { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.wallet-selector-label { display: inline; font-size: 0.75rem; color: #94a3b8; margin: 0; font-weight: 500; white-space: nowrap; }
+.wallet-selector-buttons { display: flex; gap: 4px; }
+.wallet-selector-btn { margin: 0; padding: 4px 12px; font-size: 0.75rem; font-weight: 600; border-radius: 4px; background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.15s; }
+.wallet-selector-btn:hover { background: #e2e8f0; color: #334155; }
+.wallet-selector-btn-active { background: #1e293b; color: #f8fafc; border-color: #0f172a; }
+.wallet-selector-btn-active:hover { background: #334155; color: #f8fafc; }

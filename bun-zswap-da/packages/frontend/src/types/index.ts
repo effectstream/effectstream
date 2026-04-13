@@ -19,11 +19,14 @@ export interface ZSwapOffer {
 }
 
 export interface AppEvent {
-  type: 'connected' | 'offer_indexed' | 'offer_consumed' | 'offer_expired';
+  type: 'connected' | 'offer_indexed' | 'offer_consumed' | 'offer_expired' | 'token_minted';
   timestamp: number;
   offerId?: number;
   celestiaHeight?: number | string;
   gives?: unknown[];
   wants?: unknown[];
   nullifier?: string;
+  name?: string;
+  color?: string;
+  wallet?: string;
 }

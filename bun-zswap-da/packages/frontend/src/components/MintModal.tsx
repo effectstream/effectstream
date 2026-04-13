@@ -8,6 +8,7 @@ interface MintModalProps {
   isOpen: boolean;
   onClose: () => void;
   onMintSuccess?: () => void;
+  activeWallet?: string;
 }
 
 const MAX_NAME_LENGTH = 16;
@@ -49,7 +50,7 @@ const Tooltip: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuccess }) => {
+export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuccess, activeWallet }) => {
   const { connectContract, submitMint: contractSubmitMint } = useContract();
 
   const [mintType, setMintType] = useState<'shielded' | 'unshielded'>('shielded');
@@ -106,7 +107,7 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
 
       await contractSubmitMint(payload);
 
-      const data = await api.mintToken(mintType, payload);
+      const data = await api.mintToken(mintType, payload, activeWallet);
       if (data.success === false) {
         setResult({ type: 'error', message: data.error || 'Mint failed' });
         return;

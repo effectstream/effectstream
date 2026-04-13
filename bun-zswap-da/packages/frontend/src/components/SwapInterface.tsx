@@ -6,9 +6,10 @@ import { api } from '../services/api';
 interface SwapInterfaceProps {
   knownTokens: KnownToken[];
   onSuccess: () => void;
+  activeWallet?: string;
 }
 
-export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuccess }) => {
+export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuccess, activeWallet }) => {
   const [gives, setGives] = useState<{ id: string; entry: TokenEntry }[]>([
     { id: 'gives-0', entry: { type: 'shielded', token: '', amount: '' } }
   ]);
@@ -60,7 +61,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
     setResult({ type: 'success', message: 'Generating Midnight swap transaction…' });
 
     try {
-      const dataCreate = await api.createSwapOffer(validGives, validWants);
+      const dataCreate = await api.createSwapOffer(validGives, validWants, activeWallet);
       const transaction = dataCreate.transaction;
 
       setResult({ type: 'success', message: 'Submitting blob to Celestia…' });
