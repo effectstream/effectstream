@@ -52,24 +52,32 @@ function App() {
         activeWallet={activeWallet}
       />
 
-      <SwapInterface
-        knownTokens={knownTokens}
-        onSuccess={handleSwapSuccess}
-        activeWallet={activeWallet}
-      />
+      <div className="main-columns">
+        <div className="column column-side">
+          <ZSwapList
+            knownTokens={knownTokens}
+            refreshTrigger={refreshTrigger}
+            sseRefreshTrigger={sseRefreshTrigger}
+            activeWallet={activeWallet}
+          />
+        </div>
 
-      <ZSwapList
-        knownTokens={knownTokens}
-        refreshTrigger={refreshTrigger}
-        sseRefreshTrigger={sseRefreshTrigger}
-        activeWallet={activeWallet}
-      />
+        <div className="column column-center">
+          <SwapInterface
+            knownTokens={knownTokens}
+            onSuccess={handleSwapSuccess}
+            activeWallet={activeWallet}
+          />
+        </div>
 
-      <EventFeed
-        events={events}
-        isConnected={isConnected}
-        onClear={clearEvents}
-      />
+        <div className="column column-side">
+          <EventFeed
+            events={events}
+            isConnected={isConnected}
+            onClear={clearEvents}
+          />
+        </div>
+      </div>
     </>
   );
 }
