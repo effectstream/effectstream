@@ -20,17 +20,21 @@ import {
 } from "./config.ts";
 import { normalizeHex32 } from "./zswap-logic.ts";
 import { submitToCelestia } from "./celestia-api.ts";
-import { getContractInstance, getWalletInstance } from "./midnight-api.ts";
+import { getContractInstance, getWalletInstance, getAvailableWallets, resolveWalletId } from "./midnight-api.ts";
 import { OfferFilesContract } from "../midnight-contracts/contract-offer-files/src/index.ts";
-import { eventBus } from "./event-bus.ts";
+import { eventBus, emitAppEvent } from "./event-bus.ts";
 
-// ─── Midnight Contract Helper ─────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function getContract() {
+async function getContract(walletId?: string) {
   if (!midnightContract) {
     throw new Error("Midnight contract metadata is not available");
   }
-  return await getContractInstance();
+  return await getContractInstance(walletId);
+}
+
+function getWalletParam(request: any): string {
+  return resolveWalletId((request.query as any)?.wallet);
 }
 
 // ─── API Router ───────────────────────────────────────────────────────────────
@@ -39,6 +43,11 @@ export const apiRouter: StartConfigApiRouter = async function (
   server: any,
   dbConn: any,
 ): Promise<void> {
+  // GET /api/wallets — list available wallet profiles
+  server.get("/api/wallets", async () => {
+    return { wallets: getAvailableWallets() };
+  });
+
   // GET /api/zswaps — list ZSWAPs ordered by newest first, with optional filtering & pagination
   server.get("/api/zswaps", async (request: any) => {
     const query = request?.query ?? {};
@@ -129,6 +138,7 @@ export const apiRouter: StartConfigApiRouter = async function (
       },
     },
     async (request: any) => {
+      const walletId = getWalletParam(request);
       const tokenName = request.body.name?.trim().toUpperCase().slice(0, 16) || `SHIELDED_${Date.now()}`;
 
       const nameCheck = await dbConn.query(
@@ -147,7 +157,7 @@ export const apiRouter: StartConfigApiRouter = async function (
 
       const amount = BigInt(request.body.amount);
       const nonce = BigInt(request.body.nonce);
-      const contract = await getContract();
+      const contract = await getContract(walletId);
 
       if (!amount) return { success: false, error: "Invalid amount" };
       if (!nonce) return { success: false, error: "Invalid nonce" };
@@ -175,6 +185,7 @@ export const apiRouter: StartConfigApiRouter = async function (
         dbConn,
       );
 
+      emitAppEvent({ type: "token_minted", name: tokenName, color: tokenColor, wallet: walletId });
       return { success: true, txHash, color: tokenColor, name: tokenName };
     },
   );
@@ -196,6 +207,7 @@ export const apiRouter: StartConfigApiRouter = async function (
       },
     },
     async (request: any) => {
+      const walletId = getWalletParam(request);
       const tokenName = request.body.name?.trim().toUpperCase().slice(0, 16) || `UNSHIELDED_${Date.now()}`;
 
       const nameCheck = await dbConn.query(
@@ -209,7 +221,7 @@ export const apiRouter: StartConfigApiRouter = async function (
       const domainSep = normalizeHex32(request.body.domainSep);
       const amount = String(request.body.amount);
 
-      const contract = await getContract();
+      const contract = await getContract(walletId);
       const domainSepBytes = Uint8Array.from(
         Buffer.from(domainSep.replace(/^0x/, ""), "hex"),
       );
@@ -226,13 +238,15 @@ export const apiRouter: StartConfigApiRouter = async function (
         { token_color: colorHex, name: tokenName },
         dbConn,
       );
+      emitAppEvent({ type: "token_minted", name: tokenName, color: colorHex, wallet: walletId });
       return { success: true, txHash, color: colorHex, name: tokenName };
     },
   );
 
   // GET /api/wallet/balance — Query shielded and unshielded balances of the node wallet
-  server.get("/api/wallet/balance", async () => {
-    const { walletResult } = await getWalletInstance();
+  server.get("/api/wallet/balance", async (request: any) => {
+    const walletId = getWalletParam(request);
+    const { walletResult } = await getWalletInstance(walletId);
 
     const [shieldedState, unshieldedState] = await Promise.all([
       walletResult.wallet.shielded.waitForSyncedState(),
@@ -264,9 +278,10 @@ export const apiRouter: StartConfigApiRouter = async function (
       },
     },
     async (request: any) => {
+      const walletId = getWalletParam(request);
       const { gives, wants } = request.body;
 
-      await getContract(); // ensure _walletResult is initialized
+      await getContract(walletId); // ensure _walletResult is initialized
 
       const shieldedInputs: Record<string, bigint> = {};
       const unshieldedInputs: Record<string, bigint> = {};
@@ -286,7 +301,7 @@ export const apiRouter: StartConfigApiRouter = async function (
         inputMap.unshielded = unshieldedInputs;
       }
 
-      const { walletResult } = await getWalletInstance();
+      const { walletResult } = await getWalletInstance(walletId);
 
       // For shielded outputs, use the shielded address (has coinPublicKey), not bech32
       const shieldedAddr = await walletResult.wallet.shielded.getAddress();
@@ -389,12 +404,13 @@ export const apiRouter: StartConfigApiRouter = async function (
 
   // POST /api/zswap/:id/complete — mark a ZSWAP as done on Midnight.
   server.post("/api/zswap/:id/complete", async (request: any) => {
+    const walletId = getWalletParam(request);
     const id = Number(request.params.id);
     if (!Number.isInteger(id) || id <= 0) {
       throw new Error("Invalid zswap id");
     }
 
-    await getContract(); // ensure _walletResult is initialized
+    await getContract(walletId); // ensure _walletResult is initialized
 
     const offerRes = await dbConn.query(
       `SELECT * FROM offer_file WHERE id = $1`,
@@ -420,7 +436,7 @@ export const apiRouter: StartConfigApiRouter = async function (
       raw,
     ) as UnprovenTransaction;
 
-    const { walletResult } = await getWalletInstance();
+    const { walletResult } = await getWalletInstance(walletId);
     const balancedRecipe = await walletResult.wallet
       .balanceUnprovenTransaction(
         offerTx,

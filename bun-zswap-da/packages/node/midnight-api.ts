@@ -15,22 +15,72 @@ import {
 
 import { midnightContract } from "./config.ts";
 
-export let _contractInstance: any;
-export let _walletResult: any;
-export let _wallet2Bech32: string | null = null;
+// ─── Pre-configured wallet seeds ────────────────────────────────────────────
 
+const WALLET_SEEDS: Record<string, string> = {
+    alice:
+        midnightNetworkConfig.walletSeed ??
+        "0000000000000000000000000000000000000000000000000000000000000001",
+    bob: "0000000000000000000000000000000000000000000000000000000000000002",
+};
 
-export async function getWalletInstance() {
-    if (!_walletResult) {
-        await getContractInstance();
-    }
-    return { walletResult: _walletResult, wallet2Bech32: _wallet2Bech32 };
+// ─── Per-wallet instances ───────────────────────────────────────────────────
+
+interface WalletEntry {
+    walletResult: any;
+    bech32: string;
+    contract: any;
 }
 
-export async function getContractInstance() {
-    if (_contractInstance) {
-        return _contractInstance;
+const _wallets = new Map<string, WalletEntry>();
+const _initPromises = new Map<string, Promise<WalletEntry>>();
+
+export function getAvailableWallets(): string[] {
+    return Object.keys(WALLET_SEEDS);
+}
+
+export function resolveWalletId(raw?: string): string {
+    const id = (raw ?? "alice").toLowerCase();
+    if (!WALLET_SEEDS[id]) {
+        throw new Error(`Unknown wallet "${id}". Available: ${getAvailableWallets().join(", ")}`);
     }
+    return id;
+}
+
+export async function getWalletInstance(walletId = "alice") {
+    const id = resolveWalletId(walletId);
+    const entry = await getOrInitWallet(id);
+    return { walletResult: entry.walletResult, wallet2Bech32: entry.bech32 };
+}
+
+export async function getContractInstance(walletId = "alice") {
+    const id = resolveWalletId(walletId);
+    const entry = await getOrInitWallet(id);
+    return entry.contract;
+}
+
+// ─── Lazy per-wallet initialization ─────────────────────────────────────────
+
+async function getOrInitWallet(id: string): Promise<WalletEntry> {
+    const existing = _wallets.get(id);
+    if (existing) return existing;
+
+    // Deduplicate concurrent init calls for the same wallet
+    let pending = _initPromises.get(id);
+    if (!pending) {
+        pending = initWallet(id);
+        _initPromises.set(id, pending);
+    }
+
+    const entry = await pending;
+    _wallets.set(id, entry);
+    _initPromises.delete(id);
+    return entry;
+}
+
+async function initWallet(id: string): Promise<WalletEntry> {
+    const seed = WALLET_SEEDS[id];
+    console.log(`[WALLET] Initializing wallet "${id}"...`);
 
     setNetworkId(midnightNetworkConfig.id);
 
@@ -44,14 +94,14 @@ export async function getContractInstance() {
 
     const walletResult = await buildWalletAndWaitForFunds(
         networkUrls,
-        midnightNetworkConfig.walletSeed ??
-        "0000000000000000000000000000000000000000000000000000000000000001",
+        seed,
         midnightNetworkConfig.id,
     );
-    _walletResult = walletResult;
+
     const addr = await walletResult.wallet.shielded.getAddress();
-    _wallet2Bech32 = MidnightBech32m.encode(midnightNetworkConfig.id, addr)
-        .asString();
+    const bech32 = MidnightBech32m.encode(midnightNetworkConfig.id, addr).asString();
+
+    const privateStateId = `offerFilesPrivateState_${id}`;
 
     const providers = configureMidnightNodeProviders(
         walletResult.wallet,
@@ -60,7 +110,7 @@ export async function getContractInstance() {
         walletResult.dustSecretKey,
         walletResult.walletDustSecretKey,
         networkUrls,
-        "offerFilesPrivateState",
+        privateStateId,
         midnightContract!.zkConfigPath,
         walletResult.unshieldedKeystore,
     );
@@ -71,20 +121,21 @@ export async function getContractInstance() {
     ).pipe(
         CompiledContract.withWitnesses(witnesses as unknown as never),
         CompiledContract.withCompiledFileAssets(
-        dirname(midnightContract!.zkConfigPath),
+            dirname(midnightContract!.zkConfigPath),
         ),
     );
 
     const contract = await findDeployedContract(
         providers,
         {
-        contractAddress: midnightContract!.contractAddress,
-        compiledContract: compiledContract as any,
-        privateStateId: "offerFilesPrivateState",
-        initialPrivateState: {},
+            contractAddress: midnightContract!.contractAddress,
+            compiledContract: compiledContract as any,
+            privateStateId,
+            initialPrivateState: {},
         },
     ) as any;
-    console.log("Contract joined successfully");
-    _contractInstance = contract;
-    return _contractInstance;
+
+    console.log(`[WALLET] Wallet "${id}" ready (${bech32.slice(0, 20)}...)`);
+
+    return { walletResult, bech32, contract };
 }
