@@ -36,6 +36,8 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const [completeResult, setCompleteResult] = useState<{ data?: any, message: string, error?: boolean } | null>(null);
 
+  const [detailOffer, setDetailOffer] = useState<typeof offers[0] | null>(null);
+
   useEffect(() => {
     fetchOffers();
   }, [fetchOffers, refreshTrigger, sseRefreshTrigger]);
@@ -71,11 +73,6 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
     }
   };
 
-  const handleCloseCompleteModal = () => {
-    setCompleteModalOpen(false);
-    setCompleteResult(null);
-  };
-
   const renderTokens = (arr?: TokenEntry[]) => {
     if (!arr?.length) return '—';
     return arr.map((t, idx) => {
@@ -94,14 +91,25 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
     return t.slice(0, 6) + '…' + t.slice(-4);
   };
 
+  const handleCloseDetailModal = () => {
+    if (!completingId) {
+      setDetailOffer(null);
+      setCompleteModalOpen(false);
+      setCompleteResult(null);
+    }
+  };
+
   return (
     <section>
-      {completeModalOpen && (
-        <div className="modal-overlay active" onClick={(e) => { if (e.target === e.currentTarget && !completingId) handleCloseCompleteModal(); }}>
+      {/* Detail / Complete Modal */}
+      {(detailOffer || completeModalOpen) && (
+        <div className="modal-overlay active" onClick={(e) => { if (e.target === e.currentTarget) handleCloseDetailModal(); }}>
           <div className="modal-content">
             <div className="modal-header">
-              <h2 className="modal-title">Complete Offer {completingId !== null ? `#${completingId}` : ''}</h2>
-              {!completingId && <button className="modal-close" onClick={handleCloseCompleteModal}>&times;</button>}
+              <h2 className="modal-title">
+                {completeModalOpen ? 'Completing Offer' : 'Offer Detail'} {detailOffer ? `#${detailOffer.id}` : ''}
+              </h2>
+              {!completingId && <button className="modal-close" onClick={handleCloseDetailModal}>&times;</button>}
             </div>
 
             {completingId !== null ? (
@@ -114,7 +122,7 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
                   This may take a moment...
                 </p>
               </div>
-            ) : completeResult && (
+            ) : completeResult ? (
               <div style={{ padding: '8px 0' }}>
                 <p style={{ color: completeResult.error ? '#dc2626' : '#22c55e', fontWeight: 600, marginBottom: '16px' }}>
                   {completeResult.message}
@@ -133,8 +141,43 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
                     </tbody>
                   </table>
                 )}
-                <button onClick={handleCloseCompleteModal} style={{ width: '100%', marginTop: '20px' }}>
+                <button onClick={handleCloseDetailModal} style={{ width: '100%', marginTop: '20px' }}>
                   Close
+                </button>
+              </div>
+            ) : detailOffer && (
+              <div style={{ padding: '8px 0' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <tbody>
+                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '8px 8px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top' }}>ID</td>
+                      <td style={{ padding: '8px 8px', color: '#0f172a' }}>#{detailOffer.id}</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '8px 8px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top' }}>Giving</td>
+                      <td style={{ padding: '8px 8px', color: '#0f172a' }}>{renderTokens(detailOffer.gives)}</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '8px 8px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top' }}>Wanting</td>
+                      <td style={{ padding: '8px 8px', color: '#0f172a' }}>{renderTokens(detailOffer.wants)}</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '8px 8px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top' }}>Celestia Height</td>
+                      <td style={{ padding: '8px 8px', color: '#0f172a' }}>{detailOffer.celestia_height ?? '—'}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '8px 8px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top' }}>Transaction</td>
+                      <td style={{ padding: '8px 8px', color: '#0f172a', wordBreak: 'break-all', fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}>{detailOffer.transaction_hex || '—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <button
+                  className="btn-success"
+                  style={{ width: '100%', marginTop: '20px' }}
+                  onClick={() => handleComplete(detailOffer.id)}
+                  disabled={completingId !== null}
+                >
+                  Complete Offer
                 </button>
               </div>
             )}
@@ -250,9 +293,7 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
                 <th>ID</th>
                 <th>Giving</th>
                 <th>Wanting</th>
-                <th>Celestia Height</th>
-                <th>Transaction</th>
-                <th>Action</th>
+                <th style={{ width: '1%' }}></th>
               </tr>
             </thead>
             <tbody>
@@ -261,16 +302,14 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
                   <td>#{z.id}</td>
                   <td>{renderTokens(z.gives)}</td>
                   <td>{renderTokens(z.wants)}</td>
-                  <td>{z.celestia_height ?? '—'}</td>
-                  <td title={z.transaction_hex}>{z.transaction_hex ? shortToken(z.transaction_hex) : '—'}</td>
                   <td>
                     <button
-                      className="btn-small"
-                      style={{ margin: 0 }}
-                      onClick={() => handleComplete(z.id)}
-                      disabled={completingId !== null}
+                      className="btn-small btn-view"
+                      style={{ margin: 0, background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', padding: '4px 8px', lineHeight: 1 }}
+                      onClick={() => setDetailOffer(z)}
+                      title="View details"
                     >
-                      Complete
+                      &#128065;
                     </button>
                   </td>
                 </tr>
