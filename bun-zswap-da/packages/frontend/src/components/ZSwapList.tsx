@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useZSwapAPI } from '../hooks/useZSwapAPI';
 import type { KnownToken, TokenEntry } from '../types';
 import { api } from '../services/api';
+import { Logo3D } from './Logo3D';
 
 interface ZSwapListProps {
   knownTokens: KnownToken[];
@@ -32,7 +33,8 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
   const [tempLimit, setTempLimit] = useState(100);
 
   const [completingId, setCompletingId] = useState<number | null>(null);
-  const [completeResult, setCompleteResult] = useState<{ id: number, message: string, error?: boolean } | null>(null);
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [completeResult, setCompleteResult] = useState<{ data?: any, message: string, error?: boolean } | null>(null);
 
   useEffect(() => {
     fetchOffers();
@@ -56,16 +58,22 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
 
   const handleComplete = async (id: number) => {
     setCompletingId(id);
-    setCompleteResult({ id, message: 'Submitting completion to Midnight…' });
+    setCompleteResult(null);
+    setCompleteModalOpen(true);
     try {
       const data = await api.completeOffer(id, activeWallet);
-      setCompleteResult({ id, message: JSON.stringify(data, null, 2) });
+      setCompleteResult({ data, message: 'Offer completed successfully!' });
       fetchOffers();
     } catch (e: any) {
-      setCompleteResult({ id, message: e.message || 'Complete failed', error: true });
+      setCompleteResult({ message: e.message || 'Complete failed', error: true });
     } finally {
       setCompletingId(null);
     }
+  };
+
+  const handleCloseCompleteModal = () => {
+    setCompleteModalOpen(false);
+    setCompleteResult(null);
   };
 
   const renderTokens = (arr?: TokenEntry[]) => {
@@ -88,6 +96,51 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
 
   return (
     <section>
+      {completeModalOpen && (
+        <div className="modal-overlay active" onClick={(e) => { if (e.target === e.currentTarget && !completingId) handleCloseCompleteModal(); }}>
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2 className="modal-title">Complete Offer {completingId !== null ? `#${completingId}` : ''}</h2>
+              {!completingId && <button className="modal-close" onClick={handleCloseCompleteModal}>&times;</button>}
+            </div>
+
+            {completingId !== null ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 20px 24px' }}>
+                <Logo3D size={140} rotationSpeed={0.025} interactive={false} />
+                <p style={{ marginTop: '24px', marginBottom: '4px', color: '#e2e8f0', fontSize: '0.95rem', textAlign: 'center' }}>
+                  Submitting completion to Midnight…
+                </p>
+                <p style={{ marginTop: 0, color: '#64748b', fontSize: '0.8rem', textAlign: 'center' }}>
+                  This may take a moment...
+                </p>
+              </div>
+            ) : completeResult && (
+              <div style={{ padding: '8px 0' }}>
+                <p style={{ color: completeResult.error ? '#dc2626' : '#22c55e', fontWeight: 600, marginBottom: '16px' }}>
+                  {completeResult.message}
+                </p>
+                {completeResult.data && (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', fontFamily: 'ui-monospace, monospace' }}>
+                    <tbody>
+                      {Object.entries(completeResult.data).map(([key, value]) => (
+                        <tr key={key} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '6px 8px', color: '#64748b', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{key}</td>
+                          <td style={{ padding: '6px 8px', color: '#e2e8f0', wordBreak: 'break-all' }}>
+                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                <button onClick={handleCloseCompleteModal} style={{ width: '100%', marginTop: '20px' }}>
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ margin: 0, border: 'none', padding: 0 }}>
           ZSwap Offers <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'normal' }}>({offers.length})</span>
@@ -211,19 +264,14 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
                   <td>{z.celestia_height ?? '—'}</td>
                   <td title={z.transaction_hex}>{z.transaction_hex ? shortToken(z.transaction_hex) : '—'}</td>
                   <td>
-                    <button 
-                      className="btn-small" 
-                      style={{ margin: 0 }} 
+                    <button
+                      className="btn-small"
+                      style={{ margin: 0 }}
                       onClick={() => handleComplete(z.id)}
-                      disabled={completingId === z.id}
+                      disabled={completingId !== null}
                     >
-                      {completingId === z.id ? 'Completing...' : 'Complete'}
+                      Complete
                     </button>
-                    {completeResult && completeResult.id === z.id && (
-                      <div className="result" style={{ marginTop: '6px', position: 'absolute', zIndex: 10, color: completeResult.error ? '#dc2626' : undefined }}>
-                        {completeResult.message}
-                      </div>
-                    )}
                   </td>
                 </tr>
               ))}

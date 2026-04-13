@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TokenInput } from './TokenInput';
 import type { KnownToken, TokenEntry } from '../types';
 import { api } from '../services/api';
+import { Logo3D } from './Logo3D';
 
 interface SwapInterfaceProps {
   knownTokens: KnownToken[];
@@ -90,7 +91,20 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
   return (
     <section className="dex-container">
       <h2 style={{ textAlign: 'center', border: 'none', fontSize: '1.25rem', fontWeight: 600, color: '#0f172a', marginBottom: '20px' }}>Swap</h2>
-      
+
+      {loading && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 20px 24px' }}>
+          <Logo3D size={140} rotationSpeed={0.025} interactive={false} />
+          <p style={{ marginTop: '24px', marginBottom: '4px', color: '#e2e8f0', fontSize: '0.95rem', textAlign: 'center' }}>
+            {result?.message ?? 'Processing…'}
+          </p>
+          <p style={{ marginTop: 0, color: '#64748b', fontSize: '0.8rem', textAlign: 'center' }}>
+            This may take a moment...
+          </p>
+        </div>
+      )}
+
+      <div style={{ display: loading ? 'none' : 'block' }}>
       <div className="info-box" style={{ textAlign: 'center', marginBottom: '24px', fontSize: '0.8rem', justifyContent: 'center' }}>
         Offers are submitted as JSON blobs to the Celestia DA layer.
       </div>
@@ -158,19 +172,20 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
         </div>
       </div>
 
-      <button 
-        className="dex-submit-btn" 
+      <button
+        className="dex-submit-btn"
         onClick={handleSubmit}
         disabled={loading}
       >
-        {loading ? 'Processing...' : 'Create Transaction'}
+        Create Transaction
       </button>
-      
+
       {result && (
         <div className="result" style={{ display: 'block', marginTop: '16px', color: result.type === 'error' ? '#dc2626' : undefined }}>
           {result.message}
         </div>
       )}
+      </div>
     </section>
   );
 };
