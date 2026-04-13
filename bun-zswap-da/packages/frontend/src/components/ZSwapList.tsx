@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useZSwapAPI } from '../hooks/useZSwapAPI';
 import type { KnownToken, TokenEntry } from '../types';
-import { api } from '../services/api';
-import { Logo3D } from './Logo3D';
+import { shortToken } from '../utils';
+import { OfferDetailModal } from './OfferDetailModal';
+import { FILTER_DIRECTION, DEFAULT_PAGE_SIZE } from '../constants';
 
 interface ZSwapListProps {
   knownTokens: KnownToken[];
@@ -11,36 +12,34 @@ interface ZSwapListProps {
   activeWallet?: string;
 }
 
+function renderTokens(arr: TokenEntry[] | undefined, knownTokens: KnownToken[]) {
+  if (!arr?.length) return '—';
+  return arr.map((t, idx) => {
+    if (!t.token) return <span key={idx}>? × {t.amount ?? '?'}</span>;
+    const known = knownTokens.find(k => k.token_color === t.token);
+    if (known) {
+      return <span key={idx}><span className="badge badge-token" title={t.token}>{known.name}</span> × {t.amount ?? '?'}</span>;
+    }
+    return <span key={idx}>{shortToken(t.token)} × {t.amount ?? '?'}</span>;
+  }).reduce((prev, curr) => [prev, ', ', curr] as any);
+}
+
 export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigger, sseRefreshTrigger = 0, activeWallet }) => {
   const {
-    offers,
-    loading,
-    error,
-    limit, setLimit,
-    offset, setOffset,
-    setFilterToken,
-    setFilterSide,
-    fetchOffers,
-    nextPage,
-    prevPage,
-    resetFilters
+    offers, loading, error,
+    limit, setLimit, offset, setOffset,
+    setFilterToken, setFilterSide,
+    fetchOffers, nextPage, prevPage, resetFilters,
   } = useZSwapAPI();
 
   const [showFilters, setShowFilters] = useState(false);
-  const [tempFilterTokenSelect, setTempFilterTokenSelect] = useState("");
-  const [tempFilterTokenCustom, setTempFilterTokenCustom] = useState("");
-  const [tempFilterSide, setTempFilterSide] = useState("any");
-  const [tempLimit, setTempLimit] = useState(100);
-
-  const [completingId, setCompletingId] = useState<number | null>(null);
-  const [completeModalOpen, setCompleteModalOpen] = useState(false);
-  const [completeResult, setCompleteResult] = useState<{ data?: any, message: string, error?: boolean } | null>(null);
-
+  const [tempFilterTokenSelect, setTempFilterTokenSelect] = useState('');
+  const [tempFilterTokenCustom, setTempFilterTokenCustom] = useState('');
+  const [tempFilterSide, setTempFilterSide] = useState<string>(FILTER_DIRECTION.ANY);
+  const [tempLimit, setTempLimit] = useState(DEFAULT_PAGE_SIZE);
   const [detailOffer, setDetailOffer] = useState<typeof offers[0] | null>(null);
 
-  useEffect(() => {
-    fetchOffers();
-  }, [fetchOffers, refreshTrigger, sseRefreshTrigger]);
+  useEffect(() => { fetchOffers(); }, [fetchOffers, refreshTrigger, sseRefreshTrigger]);
 
   const handleApplyFilters = () => {
     const token = tempFilterTokenSelect === 'custom' ? tempFilterTokenCustom : tempFilterTokenSelect;
@@ -51,166 +50,41 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
   };
 
   const handleResetFilters = () => {
-    setTempFilterTokenSelect("");
-    setTempFilterTokenCustom("");
-    setTempFilterSide("any");
-    setTempLimit(100);
+    setTempFilterTokenSelect('');
+    setTempFilterTokenCustom('');
+    setTempFilterSide(FILTER_DIRECTION.ANY);
+    setTempLimit(DEFAULT_PAGE_SIZE);
     resetFilters();
-  };
-
-  const handleComplete = async (id: number) => {
-    setCompletingId(id);
-    setCompleteResult(null);
-    setCompleteModalOpen(true);
-    try {
-      const data = await api.completeOffer(id, activeWallet);
-      setCompleteResult({ data, message: 'Offer completed successfully!' });
-      fetchOffers();
-    } catch (e: any) {
-      setCompleteResult({ message: e.message || 'Complete failed', error: true });
-    } finally {
-      setCompletingId(null);
-    }
-  };
-
-  const renderTokens = (arr?: TokenEntry[]) => {
-    if (!arr?.length) return '—';
-    return arr.map((t, idx) => {
-      if (!t.token) return `? × ${t.amount ?? '?'}`;
-      const known = knownTokens.find(k => k.token_color === t.token);
-      if (known) {
-        return <span key={idx}><span className="badge badge-token" title={t.token}>{known.name}</span> × {t.amount ?? '?'}</span>;
-      }
-      return <span key={idx}>{shortToken(t.token)} × {t.amount ?? '?'}</span>;
-    }).reduce((prev, curr) => [prev, ', ', curr] as any);
-  };
-
-  const shortToken = (t?: string) => {
-    if (!t) return '?';
-    if (t.length <= 12) return t;
-    return t.slice(0, 6) + '…' + t.slice(-4);
-  };
-
-  const handleCloseDetailModal = () => {
-    if (!completingId) {
-      setDetailOffer(null);
-      setCompleteModalOpen(false);
-      setCompleteResult(null);
-    }
   };
 
   return (
     <section>
-      {/* Detail / Complete Modal */}
-      {(detailOffer || completeModalOpen) && (
-        <div className="modal-overlay active" onClick={(e) => { if (e.target === e.currentTarget) handleCloseDetailModal(); }}>
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2 className="modal-title">
-                {completeModalOpen ? 'Completing Offer' : 'Offer Detail'} {detailOffer ? `#${detailOffer.id}` : ''}
-              </h2>
-              {!completingId && <button className="modal-close" onClick={handleCloseDetailModal}>&times;</button>}
-            </div>
+      <OfferDetailModal
+        offer={detailOffer}
+        knownTokens={knownTokens}
+        activeWallet={activeWallet}
+        onClose={() => setDetailOffer(null)}
+        onCompleted={fetchOffers}
+      />
 
-            {completingId !== null ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 20px 24px' }}>
-                <Logo3D size={140} rotationSpeed={0.025} interactive={false} />
-                <p style={{ marginTop: '24px', marginBottom: '4px', color: '#e2e8f0', fontSize: '0.95rem', textAlign: 'center' }}>
-                  Submitting completion to Midnight…
-                </p>
-                <p style={{ marginTop: 0, color: '#64748b', fontSize: '0.8rem', textAlign: 'center' }}>
-                  This may take a moment...
-                </p>
-              </div>
-            ) : completeResult ? (
-              <div style={{ padding: '8px 0' }}>
-                <p style={{ color: completeResult.error ? '#dc2626' : '#22c55e', fontWeight: 600, marginBottom: '16px' }}>
-                  {completeResult.message}
-                </p>
-                {completeResult.data && (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', fontFamily: 'ui-monospace, monospace' }}>
-                    <tbody>
-                      {Object.entries(completeResult.data).map(([key, value]) => (
-                        <tr key={key} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '6px 8px', color: '#64748b', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{key}</td>
-                          <td style={{ padding: '6px 8px', color: '#e2e8f0', wordBreak: 'break-all' }}>
-                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-                <button onClick={handleCloseDetailModal} style={{ width: '100%', marginTop: '20px' }}>
-                  Close
-                </button>
-              </div>
-            ) : detailOffer && (
-              <div style={{ padding: '8px 0' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                  <tbody>
-                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '8px 8px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top' }}>ID</td>
-                      <td style={{ padding: '8px 8px', color: '#0f172a' }}>#{detailOffer.id}</td>
-                    </tr>
-                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '8px 8px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top' }}>Giving</td>
-                      <td style={{ padding: '8px 8px', color: '#0f172a' }}>{renderTokens(detailOffer.gives)}</td>
-                    </tr>
-                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '8px 8px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top' }}>Wanting</td>
-                      <td style={{ padding: '8px 8px', color: '#0f172a' }}>{renderTokens(detailOffer.wants)}</td>
-                    </tr>
-                    <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '8px 8px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top' }}>Celestia Height</td>
-                      <td style={{ padding: '8px 8px', color: '#0f172a' }}>{detailOffer.celestia_height ?? '—'}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ padding: '8px 8px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'top' }}>Transaction</td>
-                      <td style={{ padding: '8px 8px', color: '#0f172a', wordBreak: 'break-all', fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}>{detailOffer.transaction_hex || '—'}</td>
-                    </tr>
-                  </tbody>
-                </table>
-                <button
-                  className="btn-success"
-                  style={{ width: '100%', marginTop: '20px' }}
-                  onClick={() => handleComplete(detailOffer.id)}
-                  disabled={completingId !== null}
-                >
-                  Complete Offer
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <div className="section-header">
         <h2 style={{ margin: 0, border: 'none', padding: 0 }}>
-          ZSwap Offers <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'normal' }}>({offers.length})</span>
+          ZSwap Offers <span className="text-muted" style={{ fontWeight: 'normal' }}>({offers.length})</span>
         </h2>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button 
-            onClick={fetchOffers} 
-            style={{ margin: 0, padding: '6px 12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}
-          >
-            ↻ Refresh
-          </button>
-          <button 
-            className="btn-small" 
-            style={{ margin: 0 }} 
-            onClick={() => setShowFilters(!showFilters)}
-          >
+        <div className="flex-row">
+          <button onClick={fetchOffers} className="btn-ghost btn-small">↻ Refresh</button>
+          <button className="btn-small" style={{ margin: 0 }} onClick={() => setShowFilters(!showFilters)}>
             {showFilters ? 'Hide Filters' : 'Filter'}
           </button>
         </div>
       </div>
 
       {showFilters && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '10px', alignItems: 'flex-end' }}>
+        <div className="filter-bar">
           <div style={{ flex: 1, minWidth: '220px' }}>
             <label>Filter by token</label>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <select 
+            <div className="flex-row" style={{ alignItems: 'center' }}>
+              <select
                 style={{ flex: '0 0 180px' }}
                 value={tempFilterTokenSelect}
                 onChange={(e) => setTempFilterTokenSelect(e.target.value)}
@@ -235,9 +109,9 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
           <div style={{ width: '140px' }}>
             <label>Side</label>
             <select value={tempFilterSide} onChange={(e) => setTempFilterSide(e.target.value)}>
-              <option value="any">Any</option>
-              <option value="GIVING">Giving</option>
-              <option value="WANTING">Wanting</option>
+              <option value={FILTER_DIRECTION.ANY}>Any</option>
+              <option value={FILTER_DIRECTION.GIVING}>Giving</option>
+              <option value={FILTER_DIRECTION.WANTING}>Wanting</option>
             </select>
           </div>
           <div style={{ width: '140px' }}>
@@ -249,43 +123,29 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
               <option value="100">100</option>
             </select>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="flex-row">
             <button className="btn-small" style={{ marginTop: 0 }} onClick={handleApplyFilters}>Apply</button>
-            <button className="btn-small" style={{ marginTop: 0, background: '#e5e7eb', color: '#374151' }} onClick={handleResetFilters}>Clear</button>
+            <button className="btn-small btn-secondary" style={{ marginTop: 0 }} onClick={handleResetFilters}>Clear</button>
           </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+      <div className="pagination-bar">
+        <span className="text-muted" style={{ fontSize: '0.8rem' }}>
           {offers.length > 0 ? `Showing ${offset + 1}–${offset + offers.length}` : ''}
-        </div>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button 
-            className="btn-small" 
-            style={{ margin: 0, background: '#e5e7eb', color: '#374151' }} 
-            onClick={prevPage} 
-            disabled={offset <= 0}
-          >
-            Prev
-          </button>
-          <button 
-            className="btn-small" 
-            style={{ margin: 0, background: '#e5e7eb', color: '#374151' }} 
-            onClick={nextPage} 
-            disabled={offers.length < limit}
-          >
-            Next
-          </button>
+        </span>
+        <div className="flex-row-sm">
+          <button className="btn-small btn-secondary" onClick={prevPage} disabled={offset <= 0}>Prev</button>
+          <button className="btn-small btn-secondary" onClick={nextPage} disabled={offers.length < limit}>Next</button>
         </div>
       </div>
 
       <div className="table-responsive">
         {error && <div className="error">{error}</div>}
         {loading && !offers.length ? (
-          <span style={{ color: '#64748b', fontSize: '0.85rem' }}>Loading...</span>
+          <span className="text-muted">Loading...</span>
         ) : !offers.length ? (
-          <span style={{ color: '#64748b', fontSize: '0.85rem' }}>No ZSwap offers indexed yet. Submit one above and wait for the node to pick it up from Celestia.</span>
+          <span className="text-muted">No ZSwap offers indexed yet. Submit one above and wait for the node to pick it up from Celestia.</span>
         ) : (
           <table>
             <thead>
@@ -300,12 +160,12 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
               {offers.map(z => (
                 <tr key={z.id}>
                   <td>#{z.id}</td>
-                  <td>{renderTokens(z.gives)}</td>
-                  <td>{renderTokens(z.wants)}</td>
+                  <td>{renderTokens(z.gives, knownTokens)}</td>
+                  <td>{renderTokens(z.wants, knownTokens)}</td>
                   <td>
                     <button
-                      className="btn-small btn-view"
-                      style={{ margin: 0, background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', padding: '4px 8px', lineHeight: 1 }}
+                      className="btn-small btn-ghost"
+                      style={{ padding: '4px 8px', lineHeight: 1 }}
                       onClick={() => setDetailOffer(z)}
                       title="View details"
                     >

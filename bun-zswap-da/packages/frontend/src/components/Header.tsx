@@ -1,17 +1,13 @@
 import React from 'react';
 import { Logo3D } from './Logo3D';
 import { useWallet } from '../hooks/useWallet';
+import { truncateAddress } from '../utils';
 
 interface HeaderProps {
   onOpenMintModal: () => void;
   wallets: string[];
   activeWallet: string;
   onWalletChange: (id: string) => void;
-}
-
-function truncateAddress(addr: string): string {
-  if (addr.length <= 16) return addr;
-  return addr.slice(0, 10) + '...' + addr.slice(-6);
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMintModal, wallets, activeWallet, onWalletChange }) => {

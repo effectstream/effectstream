@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { TokenInput } from './TokenInput';
 import type { KnownToken, TokenEntry } from '../types';
 import { api } from '../services/api';
-import { Logo3D } from './Logo3D';
+import { useAsyncAction } from '../hooks/useAsyncAction';
+import { LoadingOverlay } from './ui/LoadingOverlay';
+import { TOKEN_TYPE } from '../constants';
 
 interface SwapInterfaceProps {
   knownTokens: KnownToken[];
@@ -10,20 +12,21 @@ interface SwapInterfaceProps {
   activeWallet?: string;
 }
 
+const emptyEntry = (): TokenEntry => ({ type: TOKEN_TYPE.SHIELDED, token: '', amount: '' });
+
 export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuccess, activeWallet }) => {
   const [gives, setGives] = useState<{ id: string; entry: TokenEntry }[]>([
-    { id: 'gives-0', entry: { type: 'shielded', token: '', amount: '' } }
+    { id: 'gives-0', entry: emptyEntry() }
   ]);
   const [wants, setWants] = useState<{ id: string; entry: TokenEntry }[]>([
-    { id: 'wants-0', entry: { type: 'shielded', token: '', amount: '' } }
+    { id: 'wants-0', entry: emptyEntry() }
   ]);
 
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const { loading, result, execute } = useAsyncAction();
 
   const addEntry = (side: 'gives' | 'wants') => {
     const id = `${side}-${Date.now()}`;
-    const newEntry = { id, entry: { type: 'shielded', token: '', amount: '' } };
+    const newEntry = { id, entry: emptyEntry() };
     if (side === 'gives') setGives([...gives, newEntry]);
     else setWants([...wants, newEntry]);
   };
@@ -49,43 +52,38 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
     setWants(tempGives.map((g, i) => ({ ...g, id: `wants-swapped-${i}-${Date.now()}` })));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     const validGives = gives.map(g => g.entry).filter(e => e.token && e.amount && Number(e.amount) > 0);
     const validWants = wants.map(w => w.entry).filter(e => e.token && e.amount && Number(e.amount) > 0);
 
     if (!validGives.length || !validWants.length) {
-      setResult({ type: 'error', message: 'Add at least one token entry for both Giving and Wanting.' });
+      execute(async () => { throw new Error('Add at least one token entry for both Giving and Wanting.'); });
       return;
     }
 
-    setLoading(true);
-    setResult({ type: 'success', message: 'Generating Midnight swap transaction…' });
+    execute(async (setMessage) => {
+      setMessage('Generating Midnight swap transaction…');
 
-    try {
       const dataCreate = await api.createSwapOffer(validGives, validWants, activeWallet);
       const transaction = dataCreate.transaction;
 
-      setResult({ type: 'success', message: 'Submitting blob to Celestia…' });
+      setMessage('Submitting blob to Celestia…');
 
       // Enrich entries with token names so other nodes can display them
-      const enrichWithName = (entry: import('../types').TokenEntry) => {
+      const enrichWithName = (entry: TokenEntry) => {
         const known = knownTokens.find(k => k.token_color === entry.token);
         return known ? { ...entry, name: known.name } : entry;
       };
-      const enrichedGives = validGives.map(enrichWithName);
-      const enrichedWants = validWants.map(enrichWithName);
 
-      const dataSubmit = await api.submitSwapOffer(transaction, enrichedGives, enrichedWants);
-      setResult({ type: 'success', message: "Transaction created and submitted successfully!\n\n" + JSON.stringify(dataSubmit, null, 2) });
-      
-      setTimeout(() => {
-        onSuccess();
-      }, 2000);
-    } catch (e: any) {
-      setResult({ type: 'error', message: e.message || 'Failed to submit offer' });
-    } finally {
-      setLoading(false);
-    }
+      const dataSubmit = await api.submitSwapOffer(
+        transaction,
+        validGives.map(enrichWithName),
+        validWants.map(enrichWithName),
+      );
+      setMessage("Transaction created and submitted successfully!\n\n" + JSON.stringify(dataSubmit, null, 2));
+
+      setTimeout(() => onSuccess(), 2000);
+    });
   };
 
   return (
@@ -93,98 +91,66 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
       <h2 style={{ textAlign: 'center', border: 'none', fontSize: '1.25rem', fontWeight: 600, color: '#0f172a', marginBottom: '20px' }}>Swap</h2>
 
       {loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 20px 24px' }}>
-          <Logo3D size={140} rotationSpeed={0.025} interactive={false} />
-          <p style={{ marginTop: '24px', marginBottom: '4px', color: '#e2e8f0', fontSize: '0.95rem', textAlign: 'center' }}>
-            {result?.message ?? 'Processing…'}
-          </p>
-          <p style={{ marginTop: 0, color: '#64748b', fontSize: '0.8rem', textAlign: 'center' }}>
-            This may take a moment...
-          </p>
-        </div>
+        <LoadingOverlay message={result?.message ?? 'Processing…'} />
       )}
 
       <div style={{ display: loading ? 'none' : 'block' }}>
-      <div className="info-box" style={{ textAlign: 'center', marginBottom: '24px', fontSize: '0.8rem', justifyContent: 'center' }}>
-        Offers are submitted as JSON blobs to the Celestia DA layer.
-      </div>
+        <div className="info-box" style={{ textAlign: 'center', marginBottom: '24px', fontSize: '0.8rem', justifyContent: 'center' }}>
+          Offers are submitted as JSON blobs to the Celestia DA layer.
+        </div>
 
-      {/* Giving Panel */}
-      <div className="token-panel">
-        <div className="token-panel-header">
-          <span>You pay</span>
+        {/* Giving Panel */}
+        <div className="token-panel">
+          <div className="token-panel-header"><span>You pay</span></div>
+          <div>
+            {gives.map((g) => (
+              <TokenInput
+                key={g.id} id={g.id} entry={g.entry} knownTokens={knownTokens}
+                onChange={(id, e) => updateEntry('gives', id, e)}
+                onRemove={(id) => removeEntry('gives', id)}
+                showRemove={gives.length > 1}
+              />
+            ))}
+          </div>
+          <div style={{ marginTop: '8px', textAlign: 'center' }}>
+            <button onClick={() => addEntry('gives')} className="btn-link">+ Add another token</button>
+          </div>
         </div>
-        <div>
-          {gives.map((g) => (
-            <TokenInput 
-              key={g.id} 
-              id={g.id} 
-              entry={g.entry} 
-              knownTokens={knownTokens} 
-              onChange={(id, e) => updateEntry('gives', id, e)} 
-              onRemove={(id) => removeEntry('gives', id)} 
-              showRemove={gives.length > 1} 
-            />
-          ))}
-        </div>
-        <div style={{ marginTop: '8px', textAlign: 'center' }}>
-          <button 
-            onClick={() => addEntry('gives')} 
-            style={{ background: 'transparent', color: '#94a3b8', border: 'none', fontSize: '0.8rem', padding: '4px', cursor: 'pointer' }}
-          >
-            + Add another token
+
+        {/* Swap Icon */}
+        <div className="dex-swap-icon">
+          <button className="dex-swap-btn" onClick={swapSides} title="Swap Give and Want">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
           </button>
         </div>
-      </div>
-      
-      {/* Swap Icon */}
-      <div className="dex-swap-icon">
-        <button className="dex-swap-btn" onClick={swapSides} title="Swap Give and Want">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+
+        {/* Wanting Panel */}
+        <div className="token-panel">
+          <div className="token-panel-header"><span>You receive</span></div>
+          <div>
+            {wants.map((w) => (
+              <TokenInput
+                key={w.id} id={w.id} entry={w.entry} knownTokens={knownTokens}
+                onChange={(id, e) => updateEntry('wants', id, e)}
+                onRemove={(id) => removeEntry('wants', id)}
+                showRemove={wants.length > 1}
+              />
+            ))}
+          </div>
+          <div style={{ marginTop: '8px', textAlign: 'center' }}>
+            <button onClick={() => addEntry('wants')} className="btn-link">+ Add another token</button>
+          </div>
+        </div>
+
+        <button className="dex-submit-btn" onClick={handleSubmit} disabled={loading}>
+          Create Transaction
         </button>
-      </div>
-      
-      {/* Wanting Panel */}
-      <div className="token-panel">
-        <div className="token-panel-header">
-          <span>You receive</span>
-        </div>
-        <div>
-          {wants.map((w) => (
-            <TokenInput 
-              key={w.id} 
-              id={w.id} 
-              entry={w.entry} 
-              knownTokens={knownTokens} 
-              onChange={(id, e) => updateEntry('wants', id, e)} 
-              onRemove={(id) => removeEntry('wants', id)} 
-              showRemove={wants.length > 1} 
-            />
-          ))}
-        </div>
-        <div style={{ marginTop: '8px', textAlign: 'center' }}>
-          <button 
-            onClick={() => addEntry('wants')} 
-            style={{ background: 'transparent', color: '#94a3b8', border: 'none', fontSize: '0.8rem', padding: '4px', cursor: 'pointer' }}
-          >
-            + Add another token
-          </button>
-        </div>
-      </div>
 
-      <button
-        className="dex-submit-btn"
-        onClick={handleSubmit}
-        disabled={loading}
-      >
-        Create Transaction
-      </button>
-
-      {result && (
-        <div className="result" style={{ display: 'block', marginTop: '16px', color: result.type === 'error' ? '#dc2626' : undefined }}>
-          {result.message}
-        </div>
-      )}
+        {result && (
+          <div className="result" style={{ display: 'block', marginTop: '16px', color: result.type === 'error' ? '#dc2626' : undefined }}>
+            {result.message}
+          </div>
+        )}
       </div>
     </section>
   );
