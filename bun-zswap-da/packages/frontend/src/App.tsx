@@ -4,6 +4,7 @@ import { MintModal } from './components/MintModal';
 import { SwapInterface } from './components/SwapInterface';
 import { ZSwapList } from './components/ZSwapList';
 import { EventFeed } from './components/EventFeed';
+import { WalletBalances } from './components/WalletBalances';
 import { useTokens } from './hooks/useTokens';
 import { useEventStream } from './hooks/useEventStream';
 import { useActiveWallet } from './hooks/useActiveWallet';
@@ -15,6 +16,7 @@ function App() {
   const { knownTokens, refetchTokens } = useTokens();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [sseRefreshTrigger, setSseRefreshTrigger] = useState(0);
+  const [balanceRefreshTrigger, setBalanceRefreshTrigger] = useState(0);
   const { wallets, activeWallet, setActiveWallet } = useActiveWallet();
 
   const handleSSEEvent = useCallback((event: AppEvent) => {
@@ -23,6 +25,9 @@ function App() {
     }
     if (event.type === 'token_minted') {
       refetchTokens();
+    }
+    if (event.type === 'token_minted' || event.type === 'offer_consumed') {
+      setBalanceRefreshTrigger(prev => prev + 1);
     }
   }, [refetchTokens]);
 
@@ -75,6 +80,11 @@ function App() {
             events={events}
             isConnected={isConnected}
             onClear={clearEvents}
+          />
+          <WalletBalances
+            activeWallet={activeWallet}
+            knownTokens={knownTokens}
+            balanceRefreshTrigger={balanceRefreshTrigger}
           />
         </div>
       </div>

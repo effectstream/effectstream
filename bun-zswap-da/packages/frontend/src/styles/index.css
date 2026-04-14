@@ -36,6 +36,7 @@ tr:hover td { background: #f1f5f9; }
 .column-side { flex: 1; }
 .column-center { flex: 0 0 480px; }
 .column section { margin-bottom: 0; }
+.column section + section { margin-top: 24px; }
 
 /* Dex/Swap Interface Styles */
 .dex-container { max-width: 480px; margin: 0 auto; }
@@ -102,6 +103,14 @@ tr:hover td { background: #f1f5f9; }
 .event-badge-minted { background: #8b5cf6; }
 .event-desc { color: #475569; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Wallet Balances */
+.balance-section-label { font-size: 0.8rem; font-weight: 600; color: #64748b; margin: 12px 0 6px; }
+.balance-section-label:first-of-type { margin-top: 0; }
+.balance-list { max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+.balance-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; font-size: 0.85rem; border-bottom: 1px solid #f1f5f9; }
+.balance-row:last-child { border-bottom: none; }
+.balance-amount { font-family: ui-monospace, monospace; font-weight: 600; color: #0f172a; }
+
 /* Wallet Display */
 .wallet-info { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; }
 .wallet-icon { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; }
@@ -144,13 +153,13 @@ tr:hover td { background: #f1f5f9; }
 .kv-table tr:last-child td { border-bottom: none; }
 .kv-table tr:hover td { background: transparent; }
 .kv-label { color: #64748b; white-space: nowrap; vertical-align: top; font-weight: 500; }
-.kv-value { color: #e2e8f0; word-break: break-all; }
+.kv-value { color: #a1a6ac; word-break: break-all; }
 .kv-value-dark { color: #0f172a; }
 .kv-table-detail { font-family: inherit; }
 
 /* Loading overlay */
 .loading-overlay { display: flex; flex-direction: column; align-items: center; padding: 32px 20px 24px; }
-.loading-message { margin-top: 24px; margin-bottom: 4px; color: #e2e8f0; font-size: 0.95rem; text-align: center; }
+.loading-message { margin-top: 24px; margin-bottom: 4px; color: #a1a6ac;; font-size: 0.95rem; text-align: center; }
 .loading-sub { margin-top: 0; color: #64748b; font-size: 0.8rem; text-align: center; }
 
 /* Filter bar */
