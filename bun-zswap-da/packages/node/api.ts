@@ -20,6 +20,11 @@ import {
 } from "./config.ts";
 import { normalizeHex32 } from "./zswap-logic.ts";
 import { submitToCelestia } from "./celestia-api.ts";
+import {
+  decodeOffer,
+  deserializeOffer,
+  validateOfferAsync,
+} from "mip-zswap-offer";
 import { getContractInstance, getWalletInstance, getAvailableWallets, resolveWalletId } from "./midnight-api.ts";
 import { OfferFilesContract } from "../midnight-contracts/contract-offer-files/src/index.ts";
 import { eventBus, emitAppEvent } from "./event-bus.ts";
@@ -325,47 +330,55 @@ export const apiRouter: StartConfigApiRouter = async function (
         { ttl: new Date(Date.now() + 1000 * 60 * 60) },
       );
 
-      const serializedOffer = offerRecipe.transaction.serialize().toBase64();
-      return { success: true, transaction: serializedOffer };
+      // Return raw bytes as Base64 for HTTP transport; the frontend decodes and
+      // applies bech32m encoding via mip-zswap-offer.buildOffer() before submitting.
+      const rawBytes = offerRecipe.transaction.serialize().toBytes();
+      const transactionBytes = Buffer.from(rawBytes).toString("base64");
+      return { success: true, transactionBytes };
     },
   );
 
-  // POST /api/zswap/submit — write a ZSWAP blob to Celestia DA
+  // POST /api/zswap/submit — validate a pre-built MIP-compliant offer payload
+  // and forward it to Celestia DA. The frontend assembles `payload` via
+  // mip-zswap-offer.{buildOffer, serializeOffer}.
   server.post(
     "/api/zswap/submit",
     {
       schema: {
         body: {
           type: "object",
-          required: ["transaction", "gives", "wants"],
+          required: ["payload"],
           properties: {
-            transaction: { type: "string" },
-            gives: { type: "array" },
-            wants: { type: "array" },
-            metadata: { type: "object" },
-            auth: { type: "object" },
+            payload: { type: "string" },
           },
         },
       },
     },
     async (request: any) => {
-      const { transaction, gives, wants, metadata, auth } = request.body;
+      const { payload } = request.body;
 
-      const blob = JSON.stringify({
-        version: 1,
-        transaction,
-        gives,
-        wants,
-        metadata,
-        auth,
-      });
+      let offer;
+      try {
+        offer = deserializeOffer(payload);
+      } catch (e: any) {
+        throw new Error(`Invalid offer JSON: ${e.message ?? String(e)}`);
+      }
 
-      const result = await submitToCelestia(blob);
+      // Skip auth check here — the MIP makes auth optional and its verification
+      // is idempotent with the state-machine's post-index pass.
+      const validation = await validateOfferAsync(offer, { skipAuthCheck: true });
+      if (!validation.valid) {
+        throw new Error(
+          `Offer validation failed: ${validation.errors.join("; ")}`,
+        );
+      }
+
+      const result = await submitToCelestia(payload);
       if (!result) {
         throw new Error("Failed to submit blob to Celestia");
       }
 
-      return { success: true, blob, result: result };
+      return { success: true, blob: payload, result };
     },
   );
 
@@ -421,10 +434,11 @@ export const apiRouter: StartConfigApiRouter = async function (
     }
     const offerData = offerRes.rows[0];
 
-    const base64Str = offerData.transaction_hex;
+    // transaction_hex now holds the bech32m `zswapoffer1...` string written by
+    // the state machine. Decode it via mip-zswap-offer.decodeOffer().
     let raw: Uint8Array;
     try {
-      raw = Uint8Array.from(atob(base64Str), (c) => c.charCodeAt(0));
+      raw = decodeOffer(offerData.transaction_hex);
     } catch (e: any) {
       throw new Error("Failed to decode transaction string: " + e.message);
     }

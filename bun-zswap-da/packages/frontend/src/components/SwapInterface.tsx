@@ -5,6 +5,16 @@ import { api } from '../services/api';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import { LoadingOverlay } from './ui/LoadingOverlay';
 import { TOKEN_TYPE } from '../constants';
+import { buildOffer, expiresAtFromTtl, serializeOffer } from 'mip-zswap-offer';
+
+const OFFER_TTL_MS = 60 * 60 * 1_000; // 1 hour; must match wallet.initSwap TTL in the node.
+
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
 
 interface SwapInterfaceProps {
   knownTokens: KnownToken[];
@@ -65,21 +75,33 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
       setMessage('Generating Midnight swap transaction…');
 
       const dataCreate = await api.createSwapOffer(validGives, validWants, activeWallet);
-      const transaction = dataCreate.transaction;
+      const transactionBytes = base64ToBytes(dataCreate.transactionBytes);
+
+      setMessage('Building MIP-compliant offer payload…');
+
+      // Attach known-token names so other nodes can render them in UI.
+      // `name` is UI-only and is stripped by serializeOffer before transport.
+      const enrichWithName = (entry: TokenEntry) => {
+        const known = knownTokens.find(k => k.token_color === entry.token);
+        return known
+          ? { token: entry.token, amount: entry.amount, name: known.name }
+          : { token: entry.token, amount: entry.amount };
+      };
+
+      const offer = buildOffer({
+        transactionBytes,
+        gives: validGives.map(enrichWithName),
+        wants: validWants.map(enrichWithName),
+        metadata: {
+          expiresAt: expiresAtFromTtl(OFFER_TTL_MS),
+        },
+      });
+
+      const payload = serializeOffer(offer);
 
       setMessage('Submitting blob to Celestia…');
 
-      // Enrich entries with token names so other nodes can display them
-      const enrichWithName = (entry: TokenEntry) => {
-        const known = knownTokens.find(k => k.token_color === entry.token);
-        return known ? { ...entry, name: known.name } : entry;
-      };
-
-      const dataSubmit = await api.submitSwapOffer(
-        transaction,
-        validGives.map(enrichWithName),
-        validWants.map(enrichWithName),
-      );
+      const dataSubmit = await api.submitSwapOffer(payload);
       setMessage("Transaction created and submitted successfully!\n\n" + JSON.stringify(dataSubmit, null, 2));
 
       setTimeout(() => onSuccess(), 2000);

@@ -10,6 +10,7 @@ import { Buffer } from "node:buffer";
 import { newScheduledTimestampData } from "@effectstream/db";
 import { AddressType } from "@effectstream/utils";
 import { Type } from "@sinclair/typebox";
+import { decodeOffer, deserializeOffer, validateOffer } from "mip-zswap-offer";
 
 import {
   insertOfferFile,
@@ -58,27 +59,26 @@ stm.addStateTransition("celestia-zswap", function* (data) {
   const { payload } = data.parsedInput;
   const raw = payload.suppliedValue;
 
-  let parsed: any;
+  // Parse + structurally validate via mip-zswap-offer. The sync validator runs
+  // Level 1 (structure + bech32m decode); the async imbalance check ran in the
+  // submit endpoint before the blob hit Celestia.
+  let offer;
   try {
-    parsed = JSON.parse(raw);
-  } catch {
-    console.error("[ZSWAP] Failed to parse payload", raw);
+    offer = deserializeOffer(raw);
+  } catch (e) {
+    console.error("[ZSWAP] Failed to parse offer payload", e, raw);
     return;
   }
 
-  if (
-    parsed.version !== 1 ||
-    typeof parsed.transaction !== "string" ||
-    !Array.isArray(parsed.wants) ||
-    !Array.isArray(parsed.gives)
-  ) {
-    console.error("[ZSWAP] Invalid payload", parsed);
+  const validation = validateOffer(offer);
+  if (!validation.valid) {
+    console.error("[ZSWAP] Offer failed validation", validation.errors);
     return;
   }
 
   try {
     const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
-    const ttlSecondsRaw = parsed.metadata?.ttlSeconds;
+    const ttlSecondsRaw = (offer.metadata as { ttlSeconds?: unknown } | undefined)?.ttlSeconds;
     const ttlSeconds =
       typeof ttlSecondsRaw === "number" && Number.isFinite(ttlSecondsRaw) && ttlSecondsRaw > 0
         ? Math.floor(ttlSecondsRaw)
@@ -86,21 +86,20 @@ stm.addStateTransition("celestia-zswap", function* (data) {
 
     const offerFileRes = yield* World.resolve(insertOfferFile, {
       celestia_height: data.blockHeight,
-      transaction_hex: parsed.transaction,
-      metadata_created_at: parsed.metadata?.createdAt,
-      metadata_expires_at: parsed.metadata?.expiresAt,
-      metadata_maker_note: parsed.metadata?.makerNote,
-      auth_signer_public_key: parsed.auth?.signerPublicKey,
-      auth_signature: parsed.auth?.signature,
-      auth_scheme: parsed.auth?.scheme,
+      transaction_hex: offer.transaction, // bech32m `zswapoffer1...` string
+      metadata_created_at: offer.metadata?.createdAt,
+      metadata_expires_at: offer.metadata?.expiresAt,
+      metadata_maker_note: offer.metadata?.makerNote,
+      auth_signer_public_key: offer.auth?.signerPublicKey,
+      auth_signature: offer.auth?.signature,
+      auth_scheme: offer.auth?.scheme,
       ttl_seconds: ttlSeconds,
     });
 
     const offerFileId = offerFileRes[0].id;
 
-    let rawTx: Uint8Array;
     try {
-      rawTx = Uint8Array.from(atob(parsed.transaction), (c) => c.charCodeAt(0));
+      const rawTx = decodeOffer(offer.transaction);
       const offerTx = Transaction.deserialize(
         "signature" as const,
         "pre-proof" as const,
@@ -126,14 +125,16 @@ stm.addStateTransition("celestia-zswap", function* (data) {
       );
     }
 
-    for (const want of parsed.wants) {
+    for (const want of offer.wants) {
       yield* World.resolve(insertOfferFileToken, {
         offer_file_id: offerFileId,
         token_color: want.token,
         amount: want.amount.toString(),
         direction: "WANTING",
       });
-      // Register token name if provided in the blob (ON CONFLICT DO NOTHING)
+      // Register token name if provided in the blob (ON CONFLICT DO NOTHING).
+      // Note: serializeOffer() on the producer strips `name` from wire form;
+      // this branch is a no-op unless a legacy producer included it.
       if (want.token && want.name) {
         yield* World.resolve(insertKnownToken, {
           token_color: want.token,
@@ -142,7 +143,7 @@ stm.addStateTransition("celestia-zswap", function* (data) {
       }
     }
 
-    for (const give of parsed.gives) {
+    for (const give of offer.gives) {
       yield* World.resolve(insertOfferFileToken, {
         offer_file_id: offerFileId,
         token_color: give.token,
@@ -166,7 +167,7 @@ stm.addStateTransition("celestia-zswap", function* (data) {
     });
 
     console.log(`[ZSWAP] Saved at Celestia block ${data.blockHeight}`);
-    emitAppEvent({ type: "offer_indexed", offerId: offerFileId, celestiaHeight: data.blockHeight, gives: parsed.gives, wants: parsed.wants });
+    emitAppEvent({ type: "offer_indexed", offerId: offerFileId, celestiaHeight: data.blockHeight, gives: offer.gives, wants: offer.wants });
   } catch (e) {
     console.error("[ZSWAP] Failed to save offer file", e);
   }

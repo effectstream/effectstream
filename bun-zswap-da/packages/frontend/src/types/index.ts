@@ -1,13 +1,18 @@
 // src/types/index.ts
+import type { TokenLeg } from 'mip-zswap-offer';
+export type { OfferPayload, TokenLeg } from 'mip-zswap-offer';
+
 export interface KnownToken {
   token_color: string;
   name: string;
 }
 
-export interface TokenEntry {
+// UI-layer entry: extends the MIP TokenLeg with a local `type`
+// field distinguishing shielded vs unshielded at the wallet layer.
+// (The `type` field is not part of the MIP schema and is dropped
+//  when an offer is built via buildOffer().)
+export interface TokenEntry extends TokenLeg {
   type: string;
-  token: string;
-  amount: string;
 }
 
 export interface ZSwapOffer {

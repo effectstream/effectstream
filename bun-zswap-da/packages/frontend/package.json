@@ -11,7 +11,8 @@
   "dependencies": {
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "three": "^0.183.2"
+    "three": "^0.183.2",
+    "mip-zswap-offer": "link:mip-zswap-offer"
   },
   "devDependencies": {
     "@types/react": "^19.2.7",

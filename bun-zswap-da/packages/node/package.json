@@ -29,6 +29,7 @@
     "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
     "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
     "@sinclair/typebox": "^0.34.30",
-    "effection": "^3.5.0"
+    "effection": "^3.5.0",
+    "mip-zswap-offer": "link:mip-zswap-offer"
   }
 }

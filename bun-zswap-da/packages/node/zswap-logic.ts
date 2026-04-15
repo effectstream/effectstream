@@ -1,10 +1,3 @@
-export type ZswapBlob = {
-  _kind: "zswap";
-  gives: Array<Record<string, unknown>>;
-  wants: Array<Record<string, unknown>>;
-  createdAt?: string;
-};
-
 export type MidnightLedgerSnapshot = {
   tokenMintCount: bigint;
   swapCompletionCount: bigint;
@@ -14,29 +7,8 @@ export type MidnightLedgerSnapshot = {
   lastMintAmount: bigint;
 };
 
-export function parseZswapBlob(raw: string): ZswapBlob | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (!parsed || typeof parsed !== "object") return null;
-  const value = parsed as Record<string, unknown>;
-  if (
-    value._kind !== "zswap" ||
-    !Array.isArray(value.gives) ||
-    !Array.isArray(value.wants)
-  ) {
-    return null;
-  }
-  return {
-    _kind: "zswap",
-    gives: value.gives as Array<Record<string, unknown>>,
-    wants: value.wants as Array<Record<string, unknown>>,
-    createdAt: typeof value.createdAt === "string" ? value.createdAt : undefined,
-  };
-}
+// Note: offer-blob parsing lives in mip-zswap-offer now.
+// Use deserializeOffer() / validateOffer() from that package.
 
 export function normalizeHex32(value: string): string {
   const clean = value.trim().toLowerCase().replace(/^0x/, "");

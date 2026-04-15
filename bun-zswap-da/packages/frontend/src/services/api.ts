@@ -27,7 +27,11 @@ export const api = {
     return data;
   },
 
-  createSwapOffer: async (gives: TokenEntry[], wants: TokenEntry[], wallet?: string) => {
+  createSwapOffer: async (
+    gives: TokenEntry[],
+    wants: TokenEntry[],
+    wallet?: string,
+  ): Promise<{ success: boolean; transactionBytes: string }> => {
     const res = await fetch(`${API_BASE}/api/zswap/create${walletQuery(wallet)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -38,11 +42,12 @@ export const api = {
     return data;
   },
 
-  submitSwapOffer: async (transaction: any, gives: TokenEntry[], wants: TokenEntry[]) => {
+  // payload is the canonical JSON string produced by mip-zswap-offer.serializeOffer().
+  submitSwapOffer: async (payload: string) => {
     const res = await fetch(`${API_BASE}/api/zswap/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transaction, gives, wants }),
+      body: JSON.stringify({ payload }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
