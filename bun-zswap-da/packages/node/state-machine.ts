@@ -88,27 +88,30 @@ stm.addStateTransition("celestia-zswap", function* (data) {
 
   try {
     // ── Derive gives/wants from imbalances ──
-    // ledger-v8 API: imbalances(segment: number) where 0 = guaranteed,
-    // and fallible segment IDs come from offerTx.fallibleOffer.keys()
-    const segmentIds: number[] = [0];
-    const fallibleOfferMap = offerTx.fallibleOffer;
-    if (fallibleOfferMap) {
-      for (const segId of fallibleOfferMap.keys()) {
-        segmentIds.push(segId);
-      }
-    }
+    // 0 = guaranteed segment; fallibleOffer keys are the fallible segment IDs.
+    const segmentIds: number[] = [0, ...(offerTx.fallibleOffer?.keys() ?? [])];
 
     const mergedImbalances = new Map<string, bigint>();
     for (const segId of segmentIds) {
+      let entries: Iterable<[TokenType, bigint]>;
       try {
-        for (const [tokenType, delta] of offerTx.imbalances(segId)) {
-          const tt = tokenType as TokenType;
-          if (tt.tag === 'dust') continue; // skip fee token
-          const token = tt.raw.toLowerCase();
-          mergedImbalances.set(token, (mergedImbalances.get(token) ?? 0n) + delta);
+        entries = offerTx.imbalances(segId);
+      } catch (e) {
+        // Segment IDs came from the tx itself — this shouldn't happen.
+        // Partial imbalance data would produce a wrong offer, so drop it entirely.
+        console.error(`[ZSWAP] imbalances(${segId}) threw at height ${data.blockHeight}`, e);
+        return;
+      }
+
+      for (const [tokenType, delta] of entries) {
+        const tt = tokenType as TokenType;
+        if (tt.tag === 'dust') continue;
+        if (tt.tag !== 'shielded' && tt.tag !== 'unshielded') {
+          console.warn(`[ZSWAP] Unknown token tag "${tt.tag}" in segment ${segId}, skipping`);
+          continue;
         }
-      } catch {
-        // segment doesn't exist for this transaction, skip
+        const token = tt.raw.toLowerCase();
+        mergedImbalances.set(token, (mergedImbalances.get(token) ?? 0n) + delta);
       }
     }
 
