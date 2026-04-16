@@ -10,13 +10,12 @@ import { Buffer } from "node:buffer";
 import { newScheduledTimestampData } from "@effectstream/db";
 import { AddressType } from "@effectstream/utils";
 import { Type } from "@sinclair/typebox";
-import { decodeOffer, deserializeOffer, validateOffer } from "mip-zswap-offer";
+import { decodeOffer, OFFER_HRP } from "mip-zswap-offer";
 
 import {
   insertOfferFile,
   insertOfferFileNullifier,
   insertOfferFileToken,
-  insertKnownToken,
   archiveOfferByNullifier,
   archiveOfferByIdTtl,
 } from "@zswap-da/database";
@@ -59,115 +58,106 @@ stm.addStateTransition("celestia-zswap", function* (data) {
   const { payload } = data.parsedInput;
   const raw = payload.suppliedValue;
 
-  // Parse + structurally validate via mip-zswap-offer. The sync validator runs
-  // Level 1 (structure + bech32m decode); the async imbalance check ran in the
-  // submit endpoint before the blob hit Celestia.
-  let offer;
+  // Blob must be a bech32m `zswapoffer1…` string — no JSON envelope.
+  if (typeof raw !== "string" || !raw.startsWith(`${OFFER_HRP}1`)) {
+    console.error("[ZSWAP] Invalid blob: not a zswapoffer bech32m string, skipping");
+    return;
+  }
+
+  // Decode bech32m → raw bytes → deserialized transaction.
+  let rawTx: Uint8Array;
   try {
-    offer = deserializeOffer(raw);
+    rawTx = decodeOffer(raw);
   } catch (e) {
-    console.error("[ZSWAP] Failed to parse offer payload", e, raw);
+    console.error("[ZSWAP] Invalid bech32m blob, skipping", e);
     return;
   }
 
-  const validation = validateOffer(offer);
-  if (!validation.valid) {
-    console.error("[ZSWAP] Offer failed validation", validation.errors);
+  let offerTx: UnprovenTransaction;
+  try {
+    offerTx = Transaction.deserialize(
+      "signature" as const,
+      "pre-proof" as const,
+      "pre-binding" as const,
+      rawTx,
+    ) as UnprovenTransaction;
+  } catch (e) {
+    console.error("[ZSWAP] Failed to deserialize transaction", e);
     return;
   }
 
   try {
-    const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
-    const ttlSecondsRaw = (offer.metadata as { ttlSeconds?: unknown } | undefined)?.ttlSeconds;
-    const ttlSeconds =
-      typeof ttlSecondsRaw === "number" && Number.isFinite(ttlSecondsRaw) && ttlSecondsRaw > 0
-        ? Math.floor(ttlSecondsRaw)
-        : DEFAULT_TTL_SECONDS;
+    // ── Derive gives/wants from imbalances ──
+    const imbalances = offerTx.imbalances(true);
+    const gives: { token: string; amount: string }[] = [];
+    const wants: { token: string; amount: string }[] = [];
 
+    for (const [tokenType, delta] of imbalances) {
+      const token = tokenType.toLowerCase();
+      if (delta > 0n) {
+        gives.push({ token, amount: delta.toString() });
+      } else if (delta < 0n) {
+        wants.push({ token, amount: (-delta).toString() });
+      }
+    }
+
+    const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+    // ── Insert offer ──
     const offerFileRes = yield* World.resolve(insertOfferFile, {
       celestia_height: data.blockHeight,
-      transaction_hex: offer.transaction, // bech32m `zswapoffer1...` string
-      metadata_created_at: offer.metadata?.createdAt,
-      metadata_expires_at: offer.metadata?.expiresAt,
-      metadata_maker_note: offer.metadata?.makerNote,
-      auth_signer_public_key: offer.auth?.signerPublicKey,
-      auth_signature: offer.auth?.signature,
-      auth_scheme: offer.auth?.scheme,
-      ttl_seconds: ttlSeconds,
+      transaction_hex: raw,
+      metadata_created_at: new Date(data.blockTimestamp).toISOString(),
+      metadata_expires_at: null,
+      metadata_maker_note: null,
+      auth_signer_public_key: null,
+      auth_signature: null,
+      auth_scheme: null,
+      ttl_seconds: DEFAULT_TTL_SECONDS,
     });
 
     const offerFileId = offerFileRes[0].id;
 
-    try {
-      const rawTx = decodeOffer(offer.transaction);
-      const offerTx = Transaction.deserialize(
-        "signature" as const,
-        "pre-proof" as const,
-        "pre-binding" as const,
-        rawTx,
-      ) as UnprovenTransaction;
-
-      const nullifiers: string[] = offerTx.guaranteedOffer
-        ? offerTx.guaranteedOffer.inputs.map((input: any) => input.nullifier)
-        : [];
-      for (const nullifier of nullifiers) {
-        // nullifier is already a hex string from the deserialized transaction
-        const nullifierStr = typeof nullifier === "string" ? nullifier : Buffer.from(nullifier).toString("hex");
-        yield* World.resolve(insertOfferFileNullifier, {
-          offer_file_id: offerFileId,
-          nullifier: nullifierStr,
-        });
-      }
-    } catch (e) {
-      console.error(
-        "[ZSWAP] Failed to parse transaction to extract nullifiers",
-        e,
-      );
-    }
-
-    for (const want of offer.wants) {
-      yield* World.resolve(insertOfferFileToken, {
+    // ── Extract nullifiers ──
+    const nullifiers: string[] = offerTx.guaranteedOffer
+      ? offerTx.guaranteedOffer.inputs.map((input: any) => input.nullifier)
+      : [];
+    for (const nullifier of nullifiers) {
+      const nullifierStr = typeof nullifier === "string" ? nullifier : Buffer.from(nullifier).toString("hex");
+      yield* World.resolve(insertOfferFileNullifier, {
         offer_file_id: offerFileId,
-        token_color: want.token,
-        amount: want.amount.toString(),
-        direction: "WANTING",
+        nullifier: nullifierStr,
       });
-      // Register token name if provided in the blob (ON CONFLICT DO NOTHING).
-      // Note: serializeOffer() on the producer strips `name` from wire form;
-      // this branch is a no-op unless a legacy producer included it.
-      if (want.token && want.name) {
-        yield* World.resolve(insertKnownToken, {
-          token_color: want.token,
-          name: want.name,
-        });
-      }
     }
 
-    for (const give of offer.gives) {
+    // ── Insert derived gives/wants ──
+    for (const g of gives) {
       yield* World.resolve(insertOfferFileToken, {
         offer_file_id: offerFileId,
-        token_color: give.token,
-        amount: give.amount.toString(),
+        token_color: g.token,
+        amount: g.amount,
         direction: "GIVING",
       });
-      if (give.token && give.name) {
-        yield* World.resolve(insertKnownToken, {
-          token_color: give.token,
-          name: give.name,
-        });
-      }
+    }
+    for (const w of wants) {
+      yield* World.resolve(insertOfferFileToken, {
+        offer_file_id: offerFileId,
+        token_color: w.token,
+        amount: w.amount,
+        direction: "WANTING",
+      });
     }
 
     // Schedule a follow-up STM input to run after the TTL expires.
     yield* World.resolve(newScheduledTimestampData, {
       from_address: "0x0",
       from_address_type: AddressType.NONE,
-      future_ms_timestamp: new Date(data.blockTimestamp + ttlSeconds * 1000),
+      future_ms_timestamp: new Date(data.blockTimestamp + DEFAULT_TTL_SECONDS * 1000),
       input_data: JSON.stringify(["zswap-ttl-cleanup", offerFileId]),
     });
 
     console.log(`[ZSWAP] Saved at Celestia block ${data.blockHeight}`);
-    emitAppEvent({ type: "offer_indexed", offerId: offerFileId, celestiaHeight: data.blockHeight, gives: offer.gives, wants: offer.wants });
+    emitAppEvent({ type: "offer_indexed", offerId: offerFileId, celestiaHeight: data.blockHeight, gives, wants });
   } catch (e) {
     console.error("[ZSWAP] Failed to save offer file", e);
   }

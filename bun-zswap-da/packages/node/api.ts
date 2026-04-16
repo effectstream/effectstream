@@ -22,8 +22,7 @@ import { normalizeHex32 } from "./zswap-logic.ts";
 import { submitToCelestia } from "./celestia-api.ts";
 import {
   decodeOffer,
-  deserializeOffer,
-  validateOfferAsync,
+  OFFER_HRP,
 } from "mip-zswap-offer";
 import { getContractInstance, getWalletInstance, getAvailableWallets, resolveWalletId } from "./midnight-api.ts";
 import { OfferFilesContract } from "../midnight-contracts/contract-offer-files/src/index.ts";
@@ -338,47 +337,41 @@ export const apiRouter: StartConfigApiRouter = async function (
     },
   );
 
-  // POST /api/zswap/submit — validate a pre-built MIP-compliant offer payload
-  // and forward it to Celestia DA. The frontend assembles `payload` via
-  // mip-zswap-offer.{buildOffer, serializeOffer}.
+  // POST /api/zswap/submit — validate a bech32m `zswapoffer1…` blob and forward
+  // it to Celestia DA. The frontend produces the blob via encodeOffer().
   server.post(
     "/api/zswap/submit",
     {
       schema: {
         body: {
           type: "object",
-          required: ["payload"],
+          required: ["blob"],
           properties: {
-            payload: { type: "string" },
+            blob: { type: "string" },
           },
         },
       },
     },
     async (request: any) => {
-      const { payload } = request.body;
+      const { blob } = request.body;
 
-      let offer;
+      if (typeof blob !== "string" || !blob.startsWith(`${OFFER_HRP}1`)) {
+        throw new Error("Invalid blob: not a zswapoffer bech32m string");
+      }
+
+      // Verify it decodes without error (checksum + HRP check).
       try {
-        offer = deserializeOffer(payload);
+        decodeOffer(blob);
       } catch (e: any) {
-        throw new Error(`Invalid offer JSON: ${e.message ?? String(e)}`);
+        throw new Error(`Invalid bech32m: ${e.message ?? String(e)}`);
       }
 
-      // Skip auth check here — the MIP makes auth optional and its verification
-      // is idempotent with the state-machine's post-index pass.
-      const validation = await validateOfferAsync(offer, { skipAuthCheck: true });
-      if (!validation.valid) {
-        throw new Error(
-          `Offer validation failed: ${validation.errors.join("; ")}`,
-        );
-      }
-
-      const result = await submitToCelestia(payload);
+      const result = await submitToCelestia(blob);
       if (!result) {
         throw new Error("Failed to submit blob to Celestia");
       }
 
-      return { success: true, blob: payload, result };
+      return { success: true, blob, result };
     },
   );
 

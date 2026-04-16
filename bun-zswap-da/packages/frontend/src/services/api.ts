@@ -42,12 +42,12 @@ export const api = {
     return data;
   },
 
-  // payload is the canonical JSON string produced by mip-zswap-offer.serializeOffer().
-  submitSwapOffer: async (payload: string) => {
+  // blob is the bech32m `zswapoffer1…` string produced by mip-zswap-offer.encodeOffer().
+  submitSwapOffer: async (blob: string) => {
     const res = await fetch(`${API_BASE}/api/zswap/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payload }),
+      body: JSON.stringify({ blob }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
