@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { KnownToken, TokenEntry, ZSwapOffer } from '../types';
 import { api } from '../services/api';
 import { shortToken } from '../utils';
+import { decodeOfferForDisplay, type DecodeResult } from '../decodeOffer';
 import { Modal } from './ui/Modal';
 import { LoadingOverlay } from './ui/LoadingOverlay';
 import { ResultTable } from './ui/ResultTable';
+import { OfferDecodedView } from './OfferDecodedView';
 
 interface OfferDetailModalProps {
   offer: ZSwapOffer | null;
@@ -29,6 +31,29 @@ function renderTokens(arr: TokenEntry[] | undefined, knownTokens: KnownToken[]) 
 export const OfferDetailModal: React.FC<OfferDetailModalProps> = ({ offer, knownTokens, activeWallet, onClose, onCompleted }) => {
   const [completingId, setCompletingId] = useState<number | null>(null);
   const [completeResult, setCompleteResult] = useState<{ data?: any; message: string; error?: boolean } | null>(null);
+  const [showDecoded, setShowDecoded] = useState(false);
+  const [decoded, setDecoded] = useState<DecodeResult | null>(null);
+  const [decoding, setDecoding] = useState(false);
+
+  // Reset decode state whenever the modal switches to a different offer.
+  useEffect(() => {
+    setShowDecoded(false);
+    setDecoded(null);
+    setDecoding(false);
+  }, [offer?.id]);
+
+  const toggleDecoded = async () => {
+    const next = !showDecoded;
+    setShowDecoded(next);
+    if (next && decoded === null && offer?.transaction_hex) {
+      setDecoding(true);
+      const bech32 = offer.transaction_hex;
+      const result = await decodeOfferForDisplay(bech32);
+      // Guard against stale async if the user switched offers mid-decode.
+      setDecoded((prev) => (prev === null ? result : prev));
+      setDecoding(false);
+    }
+  };
 
   const handleComplete = async (id: number) => {
     setCompletingId(id);
@@ -78,8 +103,33 @@ export const OfferDetailModal: React.FC<OfferDetailModalProps> = ({ offer, known
               <tr><td className="kv-label">Celestia Height</td><td className="kv-value-dark">{offer.celestia_height ?? '—'}</td></tr>
               <tr>
                 <td className="kv-label">Transaction</td>
-                <td className="kv-value-dark" style={{ wordBreak: 'break-all', fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}>
-                  {offer.transaction_hex || '—'}
+                <td className="kv-value-dark">
+                  <div className="transaction-cell-header">
+                    <span className="kv-label-muted">{showDecoded ? 'Decoded' : 'Raw'}</span>
+                    <button
+                      type="button"
+                      className="btn-small btn-ghost"
+                      onClick={toggleDecoded}
+                      disabled={!offer.transaction_hex || decoding}
+                      title={showDecoded ? 'Show raw bech32m' : 'Show decoded offer'}
+                      aria-label={showDecoded ? 'Show raw bech32m' : 'Show decoded offer'}
+                    >
+                      {String.fromCodePoint(0x1f441)}
+                    </button>
+                  </div>
+                  {showDecoded ? (
+                    decoding ? (
+                      <div className="kv-label-muted">Decoding…</div>
+                    ) : decoded?.ok === false ? (
+                      <div style={{ color: '#dc2626' }}>Could not decode: {decoded.error}</div>
+                    ) : decoded?.ok === true ? (
+                      <OfferDecodedView decoded={decoded.data} knownTokens={knownTokens} />
+                    ) : null
+                  ) : (
+                    <div style={{ wordBreak: 'break-all', fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}>
+                      {offer.transaction_hex || '—'}
+                    </div>
+                  )}
                 </td>
               </tr>
             </tbody>

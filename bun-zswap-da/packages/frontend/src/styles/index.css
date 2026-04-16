@@ -184,3 +184,17 @@ tr:hover td { background: #f1f5f9; }
 
 /* Char counter */
 .char-counter { font-size: 0.7rem; color: #94a3b8; float: right; margin-top: 2px; }
+
+/* Muted variant of kv-label */
+.kv-label-muted { color: #94a3b8; font-size: 0.75rem; font-weight: 500; }
+
+/* Offer decoded view (toggle in transaction cell) */
+.transaction-cell-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.transaction-cell-header .btn-small { padding: 2px 8px; font-size: 0.85rem; line-height: 1; margin-top: 0; }
+
+.offer-decoded-view { display: flex; flex-direction: column; gap: 14px; }
+.offer-decoded-section { display: flex; flex-direction: column; gap: 4px; }
+.offer-decoded-heading { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+.offer-decoded-segment { margin-top: 6px; padding-left: 8px; border-left: 2px solid #e2e8f0; }
+.offer-decoded-segment-label { font-size: 0.8rem; color: #475569; margin-bottom: 2px; }
+.offer-decoded-empty { padding-left: 12px; font-size: 0.8rem; }
