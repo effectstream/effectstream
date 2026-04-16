@@ -7,10 +7,10 @@ import {
   acquireDBMutex,
   createDynamicTables,
   getConnection,
-  maybeTriggerSnapshot,
   releaseDBMutex,
   resetPublicTables,
-  type SnapshotState,
+  runSnapshotLoop,
+  type BlockNumberRef,
 } from "@effectstream/db";
 import { PaimaEventBroker } from "@effectstream/event-server";
 import {
@@ -136,10 +136,10 @@ export function* start(config: StartConfig): Operation<void> {
   });
 
   let blockHash: PaimaBlockHash | null = null;
-  const snapshotState: SnapshotState = {
-    lastSnapshotTime: 0,
-    snapshotInProgress: false,
-  };
+  const latestBlockRef: BlockNumberRef = { value: 0 };
+  if (config.snapshotConfig) {
+    yield* spawn(() => runSnapshotLoop(config.snapshotConfig!, latestBlockRef));
+  }
 
   for (const value of yield* each(finalizedBlockStream)) {
     // We request a dbClient for a non-shared dbConn object.
@@ -156,14 +156,13 @@ export function* start(config: StartConfig): Operation<void> {
         dbClient as any, // Client,
         blockHash,
       );
+      latestBlockRef.value = value.blockNumber; // Update for snapshot loop
     } finally {
       releaseDBMutex(`processing-blocks:${value.blockNumber}`);
       if (dbClient) {
         (dbClient as any).release(); // Client,
       }
     }
-
-    yield* maybeTriggerSnapshot(value.blockNumber, config.snapshotConfig, snapshotState);
 
     // Used to emit & log the block range for each protocol.
     const contentBlocksForProtocol = getRangesForSyncProtocols(value);

@@ -61,5 +61,5 @@ export {
 
 export { getMigrationsForBlockHeight } from "./migrations.ts";
 
-export { createSnapshot, maybeTriggerSnapshot } from "./snapshot-handler.ts";
-export type { SnapshotConfig, SnapshotRetentionConfig, SnapshotState } from "./snapshot-handler.ts";
+export { createSnapshot, runSnapshotLoop } from "./snapshot-handler.ts";
+export type { BlockNumberRef, SnapshotConfig, SnapshotRetentionConfig } from "./snapshot-handler.ts";
