@@ -6,10 +6,11 @@ import {
 import {
   acquireDBMutex,
   createDynamicTables,
-  createSnapshot,
   getConnection,
+  maybeTriggerSnapshot,
   releaseDBMutex,
   resetPublicTables,
+  type SnapshotState,
 } from "@effectstream/db";
 import { PaimaEventBroker } from "@effectstream/event-server";
 import {
@@ -135,8 +136,10 @@ export function* start(config: StartConfig): Operation<void> {
   });
 
   let blockHash: PaimaBlockHash | null = null;
-  let lastSnapshotTime = 0;
-  let snapshotInProgress = false;
+  const snapshotState: SnapshotState = {
+    lastSnapshotTime: 0,
+    snapshotInProgress: false,
+  };
 
   for (const value of yield* each(finalizedBlockStream)) {
     // We request a dbClient for a non-shared dbConn object.
@@ -160,27 +163,7 @@ export function* start(config: StartConfig): Operation<void> {
       }
     }
 
-    // Time-based, non-blocking snapshot trigger.
-    // Spawned so pg_dump runs in the background without stalling the sync loop.
-    // The snapshotInProgress guard prevents overlapping dumps.
-    const snapshotIntervalMs = (config.snapshotConfig?.intervalSeconds ?? 3600) * 1000;
-    if (
-      config.snapshotConfig !== undefined &&
-      !snapshotInProgress &&
-      Date.now() - lastSnapshotTime >= snapshotIntervalMs
-    ) {
-      snapshotInProgress = true;
-      lastSnapshotTime = Date.now();
-      yield* spawn(function* () {
-        try {
-          yield* until(createSnapshot(value.blockNumber, config.snapshotConfig));
-        } catch (e) {
-          console.error("[Snapshot] Failed:", e);
-        } finally {
-          snapshotInProgress = false;
-        }
-      });
-    }
+    yield* maybeTriggerSnapshot(value.blockNumber, config.snapshotConfig, snapshotState);
 
     // Used to emit & log the block range for each protocol.
     const contentBlocksForProtocol = getRangesForSyncProtocols(value);

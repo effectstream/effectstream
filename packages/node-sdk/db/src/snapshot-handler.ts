@@ -1,4 +1,5 @@
 import { ENV } from "@effectstream/utils/node-env";
+import { spawn, until, type Operation } from "effection";
 
 export interface SnapshotRetentionConfig {
   /** One per hour for last 24 h. Default: `true` */
@@ -63,6 +64,48 @@ export async function createSnapshot(
 
   console.log(`[Snapshot] Snapshot created: ${snapshotPath}`);
   await applyRetentionPolicy(snapshotDir, config?.retention);
+}
+
+export interface SnapshotState {
+  lastSnapshotTime: number;
+  snapshotInProgress: boolean;
+}
+
+/**
+ * Time-based, non-blocking snapshot trigger.
+ * Spawned so pg_dump runs in the background without stalling the sync loop.
+ * The snapshotInProgress guard prevents overlapping dumps.
+ *
+ * @param blockNumber - Current block number to snapshot.
+ * @param snapshotConfig - Database snapshot configuration.
+ * @param state - Mutable state object to track timing and progress.
+ */
+export function* maybeTriggerSnapshot(
+  blockNumber: number,
+  snapshotConfig: SnapshotConfig | undefined,
+  state: SnapshotState,
+): Operation<void> {
+  if (snapshotConfig === undefined) {
+    return;
+  }
+
+  const snapshotIntervalMs = (snapshotConfig.intervalSeconds ?? 3600) * 1000;
+  const now = Date.now();
+
+  if (!state.snapshotInProgress && now - state.lastSnapshotTime >= snapshotIntervalMs) {
+    state.snapshotInProgress = true;
+    state.lastSnapshotTime = now;
+
+    yield* spawn(function* () {
+      try {
+        yield* until(createSnapshot(blockNumber, snapshotConfig));
+      } catch (e) {
+        console.error("[Snapshot] Failed:", e);
+      } finally {
+        state.snapshotInProgress = false;
+      }
+    });
+  }
 }
 
 /**

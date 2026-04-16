@@ -3,6 +3,7 @@ import type { SyncProtocolWithNetwork } from "@effectstream/config";
 import type { AppEvents, BaseStfInput, BaseStfOutput, PaimaPrimitive } from "@effectstream/sm";
 import type { FastifyInstance } from "fastify";
 import type { Pool } from "pg";
+import type { SnapshotConfig } from "@effectstream/db";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import type { GrammarDefinition } from "@effectstream/concise";
 // These are user type defined objects for launching Paima Engine Node.
@@ -66,24 +67,7 @@ export type StartConfig = {
    * `EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS`.
    * @see docs/home/1000-effectstream-engine/1003-database-snapshots.md
    */
-  snapshotConfig?: {
-    /** Wall-clock seconds between snapshots. Default: `3600` (1 hour) */
-    intervalSeconds?: number;
-    /** Output directory for `.dump` files. Default: `"./snapshots"` */
-    path?: string;
-    /**
-     * Time-based tiered retention (uses file `mtime`).
-     * See the Database Snapshots doc for the full tier table.
-     */
-    retention?: {
-      /** One per hour for last 24 h. Default: `true` */
-      lastDayHourly?: boolean;
-      /** One per 6 h for last 3 days. Default: `true` */
-      last3DaysSixHourly?: boolean;
-      /** Days of daily snapshots to keep. Default: `7` */
-      lastNDaysDaily?: number;
-    };
-  };
+  snapshotConfig?: SnapshotConfig;
   /** Development-only options. Do not use in production. */
   dev?: {
     /** Reset public-schema tables on each sync reset. For local testing only. */
