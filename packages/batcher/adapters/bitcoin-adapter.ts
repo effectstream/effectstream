@@ -1,8 +1,86 @@
 import * as bitcoin from "bitcoinjs-lib";
-import * as bitcoinMessage from "bitcoinjs-message";
 import * as ecpair from "ecpair";
 import * as tinysecp from "tiny-secp256k1";
+import * as secp from "@noble/secp256k1";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { hmac } from "@noble/hashes/hmac.js";
 import { createHash } from "node:crypto";
+
+// bitcoinjs-message pulls in the native `secp256k1` addon which segfaults on
+// dlopen under bun (missing node::Buffer::HasInstance — see bun#4290). We
+// reimplement sign/verify with pure-JS @noble/secp256k1. This must stay
+// wire-compatible with bitcoinjs-message so Node-side clients keep working.
+secp.hashes.sha256 = sha256;
+secp.hashes.hmacSha256 = (key, msg) => hmac(sha256, key, msg);
+
+function bitcoinMagicHash(message: string): Uint8Array {
+  const prefix = Buffer.from("\x18Bitcoin Signed Message:\n", "utf8");
+  const msg = Buffer.from(message, "utf8");
+  const len = msg.length;
+  let varint: Buffer;
+  if (len < 0xfd) varint = Buffer.from([len]);
+  else if (len <= 0xffff) { varint = Buffer.alloc(3); varint[0] = 0xfd; varint.writeUInt16LE(len, 1); }
+  else { varint = Buffer.alloc(5); varint[0] = 0xfe; varint.writeUInt32LE(len, 1); }
+  const buf = Buffer.concat([prefix, varint, msg]);
+  return sha256(sha256(buf));
+}
+
+function hash160(buf: Uint8Array): Buffer {
+  return createHash("ripemd160").update(createHash("sha256").update(buf).digest()).digest();
+}
+
+function segwitRedeemHash(publicKeyHash: Uint8Array): Buffer {
+  return hash160(Buffer.concat([Buffer.from([0x00, 0x14]), publicKeyHash]));
+}
+
+// Reimplementation of bitcoinjs-message.verify(msg, addr, sig, undefined, true).
+function verifyBitcoinMessage(message: string, address: string, signature: string | Buffer): boolean {
+  const sig = typeof signature === "string" ? Buffer.from(signature, "base64") : signature;
+  if (sig.length !== 65) return false;
+
+  const flagByte = sig[0]! - 27;
+  if (flagByte < 0 || flagByte > 15) return false;
+  const compressed = !!(flagByte & 12);
+  // checkSegwitAlways requires a compressed flag — matches bitcoinjs-message behavior.
+  if (!compressed) return false;
+  const segwitType: "p2sh-p2wpkh" | "p2wpkh" | null =
+    !(flagByte & 8) ? null : !(flagByte & 4) ? "p2sh-p2wpkh" : "p2wpkh";
+  const recovery = flagByte & 3;
+  const rs = sig.subarray(1);
+
+  const hash = bitcoinMagicHash(message);
+  const recoveredSig = Buffer.concat([Buffer.from([recovery]), rs]);
+  let pubkey: Uint8Array;
+  try {
+    pubkey = secp.recoverPublicKey(recoveredSig, hash, { prehash: false });
+  } catch {
+    return false;
+  }
+  const pubkeyHash = hash160(pubkey);
+
+  const tryBech32 = () => {
+    try { return Buffer.from(bitcoin.address.fromBech32(address).data); } catch { return null; }
+  };
+  const tryBase58 = () => {
+    try { return bitcoin.address.fromBase58Check(address).hash; } catch { return null; }
+  };
+
+  if (segwitType === "p2wpkh") {
+    const expected = tryBech32();
+    return !!expected && pubkeyHash.equals(expected);
+  }
+  if (segwitType === "p2sh-p2wpkh") {
+    const expected = tryBase58();
+    return !!expected && segwitRedeemHash(pubkeyHash).equals(expected);
+  }
+  // No segwit flag — checkSegwitAlways=true path: accept bech32 P2WPKH, or
+  // base58 P2PKH / P2SH-P2WPKH.
+  const bech = tryBech32();
+  if (bech) return pubkeyHash.equals(bech);
+  const b58 = tryBase58();
+  if (!b58) return false;
+  return pubkeyHash.equals(b58) || segwitRedeemHash(pubkeyHash).equals(b58);
+}
 import type {
   BlockchainAdapter,
   BlockchainHash,
@@ -114,15 +192,9 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
       // This format must match exactly what your frontend generates
       const message = buildBitcoinSignatureMessage(payload, input.timestamp);
 
-      // 3. Verify signature using bitcoinjs-message
-      // Note: input.address is the User's Bitcoin Address
-      return bitcoinMessage.verify(
-        message, 
-        input.address, 
-        input.signature!, 
-        undefined, 
-        true // checkSegwitAlways
-      );
+      // 3. Verify signature (pure-JS; wire-compatible with bitcoinjs-message
+      //    invoked as verify(msg, addr, sig, undefined, /* checkSegwitAlways */ true)).
+      return verifyBitcoinMessage(message, input.address, input.signature!);
     } catch (e) {
       this.log.error(`Sig verification failed: ${e}`);
       return false;

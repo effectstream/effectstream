@@ -23,10 +23,12 @@ import { assert, assertSQL } from "@e2e-v2/engine";
 import path from "path";
 import type { Client } from "pg";
 
-import * as bitcoinMessage from "bitcoinjs-message";
 import * as bitcoin from "bitcoinjs-lib";
 import * as ecpair from "ecpair";
 import * as tinysecp from "tiny-secp256k1";
+import * as secp from "@noble/secp256k1";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { hmac } from "@noble/hashes/hmac.js";
 import { buildBitcoinSignatureMessage } from "@effectstream/batcher";
 
 const LAUNCHER = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
@@ -34,6 +36,36 @@ const BTC_RPC = "http://127.0.0.1:18443";
 const BTC_AUTH = "Basic " + btoa("dev:devpassword");
 
 const ECPair = ecpair.ECPairFactory(tinysecp);
+
+// bitcoinjs-message pulls in the `secp256k1` native addon, which segfaults on
+// dlopen under bun (missing node::Buffer::HasInstance — see bun#4290). We only
+// need the sign side here, so we reimplement it with pure-JS @noble/secp256k1.
+secp.hashes.sha256 = sha256;
+secp.hashes.hmacSha256 = (key, msg) => hmac(sha256, key, msg);
+
+function bitcoinSignedMessageHash(message: string): Uint8Array {
+  const prefix = Buffer.from("\x18Bitcoin Signed Message:\n", "utf8");
+  const msg = Buffer.from(message, "utf8");
+  const len = msg.length;
+  let varint: Buffer;
+  if (len < 0xfd) varint = Buffer.from([len]);
+  else if (len <= 0xffff) { varint = Buffer.alloc(3); varint[0] = 0xfd; varint.writeUInt16LE(len, 1); }
+  else { varint = Buffer.alloc(5); varint[0] = 0xfe; varint.writeUInt32LE(len, 1); }
+  return sha256(sha256(Buffer.concat([prefix, varint, msg])));
+}
+
+function signBitcoinMessage(message: string, privateKey: Uint8Array, compressed: boolean): Buffer {
+  // @noble/secp256k1 v3 'recovered' layout: [rec(1) r(32) s(32)].
+  const rec = secp.sign(bitcoinSignedMessageHash(message), privateKey, {
+    lowS: true,
+    prehash: false,
+    format: "recovered",
+  });
+  // bitcoinjs-message wire format: [flag(1) r(32) s(32)], flag = 27 + rec + (compressed ? 4 : 0).
+  // Verifier is invoked with checkSegwitAlways=true, so the legacy flag is accepted for P2WPKH.
+  const flag = 27 + rec[0]! + (compressed ? 4 : 0);
+  return Buffer.concat([Buffer.from([flag]), Buffer.from(rec.slice(1, 65))]);
+}
 
 // ── Bitcoin RPC helper ────────────────────────────────────────────────────────
 
@@ -80,7 +112,7 @@ async function sendBitcoin(
   const message = buildBitcoinSignatureMessage(payload, timestamp);
 
   // Sign the message
-  const signature = bitcoinMessage.sign(message, keyPair.privateKey! as any, keyPair.compressed).toString('base64');
+  const signature = signBitcoinMessage(message, keyPair.privateKey!, keyPair.compressed).toString("base64");
 
   const body = {
     address,
@@ -154,32 +186,42 @@ async function syncTests(db: Client) {
 
 // ── Phase 3: Batcher Tests ──────────────────────────────────────────────────
 
-async function batcherTests() {
+async function batcherTests(db: Client) {
   console.log("\n--- Phase 3: Batcher Tests (Bitcoin batcher submission) ---\n");
+
+  // Send to the same watched address (see config.ts:86) so the output flows
+  // through the sync node's STM and lands in the bitcoin_transactions table —
+  // gives us a visible end-to-end round-trip: sign → batcher → broadcast →
+  // mined → sync node → STM → DB.
+  const WATCHED = "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03";
+  const BATCHER_AMOUNT = 10000;
 
   await assert("Bitcoin batcher submits transaction successfully", async () => {
     const payload: BitcoinRequest = {
-      toAddress: "bcrt1qa94dntprzqdkk8aygc9takzsn8shn5fzu5vqh7",
-      amountSats: 10000,
+      toAddress: WATCHED,
+      amountSats: BATCHER_AMOUNT,
     };
 
-    try {
-      const result = await sendBitcoin(
-        "cPNCP9RTgYu6aqw4cTFQgrrTKkz6oJPUnxuYeaDrWR5wAkDqwHjc",
-        payload,
-        "no-wait"
-      );
-      console.log("Batcher result:", result);
-      return result.success === true;
-    } catch (e: any) {
-      // secp256k1 native addon crashes in bun - skip gracefully
-      if (e.message?.includes("secp256k1") || e.message?.includes("symbol lookup")) {
-        console.log("SKIP: bitcoinjs-message requires secp256k1 native addon (not compatible with bun)");
-        return true; // Skip - the batcher itself works, just the signing is incompatible
-      }
-      throw e;
-    }
+    const result = await sendBitcoin(
+      "cPNCP9RTgYu6aqw4cTFQgrrTKkz6oJPUnxuYeaDrWR5wAkDqwHjc",
+      payload,
+      "wait-effectstream-processed"
+    );
+    console.log("Batcher result:", result);
+    return result.success === true;
   });
+
+  await assertSQL<{ value_sats: string }>(
+    `Bitcoin: batcher output (${BATCHER_AMOUNT} sats → ${WATCHED}) indexed by STM`,
+    db,
+    `SELECT value_sats
+     FROM bitcoin_transactions
+     WHERE address = '${WATCHED}'
+       AND direction = 'output'
+       AND value_sats = ${BATCHER_AMOUNT};`,
+    (res) => res.rows.length > 0,
+    (res) => BigInt(res.rows[0]!.value_sats) === BigInt(BATCHER_AMOUNT),
+  );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -208,10 +250,8 @@ async function test() {
     db = getDBConnection();
     await syncTests(db);
 
-    // 6. Batcher tests skipped: bitcoinjs-message requires secp256k1 native addon
-    //    which is incompatible with bun (symbol lookup error crashes the process).
-    //    The batcher service itself starts correctly - only the test-side signing fails.
-    console.log("\nSkipped: Bitcoin batcher test (secp256k1 native addon incompatible with bun)\n");
+    // 6. Run batcher tests
+    await batcherTests(db);
 
     // 7. Summary
     printSummary();
