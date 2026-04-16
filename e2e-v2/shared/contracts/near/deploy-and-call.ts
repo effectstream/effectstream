@@ -19,10 +19,10 @@ const BUILD_DIR = join(import.meta.dirname!, "build");
 
 // Read sandbox validator key — pick the most recently created sandbox dir
 const tmp = tmpdir();
-const sandboxDirs = fs.readdirSync(tmp)
+const sandboxDirs = readdirSync(tmp)
   .filter((d: string) => d.startsWith("near-sandbox-"))
   .map((d: string) => join(tmp, d))
-  .sort((a: string, b: string) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+  .sort((a: string, b: string) => statSync(b).mtimeMs - statSync(a).mtimeMs);
 const sandboxHome = sandboxDirs[0];
 const validatorKey = JSON.parse(readFileSync(join(sandboxHome, "validator_key.json"), "utf-8"));
 
