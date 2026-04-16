@@ -4,7 +4,7 @@ import type { OrchestratorConfig } from "../../packages/build-tools/orchestrator
  * Cardano-only orchestrator config (orchestrator-v2 format).
  *
  * Infrastructure:
- *   1. PGLite DB -> wait -> apply migrations -> create user tables
+ *   1. PGLite DB -> wait
  *   2. YACI DevKit -> wait -> Dolos fill-template -> Dolos -> wait
  * Node:
  *   3. Sync node (e2e-v2/cardano/node.ts) - depends on both DB and Dolos
@@ -25,24 +25,6 @@ export default {
       args: ["./node_modules/.bin/wait-on", "tcp:5432"],
       waitToExit: true,
       dependsOn: ["pglite"],
-    },
-    {
-      name: "apply-migrations",
-      description: "Apply database migrations",
-      args: ["-e", "await import('@effectstream/db/apply-migrations')"],
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["pglite-wait"],
-    },
-
-    // ── User tables (created before sync to avoid PGLite PREPARE issues) ────
-    {
-      name: "create-user-tables",
-      description: "Create user-defined DB tables for STM",
-      args: ["run", "e2e-v2/cardano/database/create-tables.ts"],
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["apply-migrations"],
     },
 
     // ── Cardano (YACI DevKit + Dolos) ─────────────────────────────────────────
@@ -65,7 +47,7 @@ export default {
       type: "system-dependency",
       env: { PGLITE: "true" },
       dependsOn: [
-        "create-user-tables",
+        "pglite-wait",
         "cardano-submit-tx",
         "dolos-minibf-wait",
       ],

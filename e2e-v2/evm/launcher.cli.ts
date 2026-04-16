@@ -4,7 +4,7 @@ import type { OrchestratorConfig } from "../../packages/build-tools/orchestrator
  * EVM-only orchestrator config (orchestrator-v2 format).
  *
  * Infrastructure:
- *   1. PGLite DB -> wait -> apply migrations
+ *   1. PGLite DB -> wait
  *   2. Hardhat node (chain 31337 + 31338) -> wait -> deploy contracts
  * Node:
  *   3. Sync node (e2e-v2/evm/node.ts) - depends on both DB and contracts
@@ -25,14 +25,6 @@ export default {
       args: ["./node_modules/.bin/wait-on", "tcp:5432"],
       waitToExit: true,
       dependsOn: ["pglite"],
-    },
-    {
-      name: "apply-migrations",
-      description: "Apply database migrations",
-      args: ["-e", "await import('@effectstream/db/apply-migrations')"],
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["pglite-wait"],
     },
 
     // ── EVM Chains (Hardhat) ──────────────────────────────────────────────────
@@ -79,16 +71,6 @@ export default {
       dependsOn: ["deploy-evm-contracts"],
     },
 
-    // ── User tables (created before sync to avoid PGLite PREPARE issues) ────
-    {
-      name: "create-user-tables",
-      description: "Create user-defined DB tables for STM",
-      args: ["run", "e2e-v2/evm/database/src/create-tables.ts"],
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["apply-migrations"],
-    },
-
     // ── Sync (the node) ───────────────────────────────────────────────────────
     {
       name: "sync",
@@ -98,7 +80,7 @@ export default {
       type: "system-dependency",
       env: { PGLITE: "true" },
       dependsOn: [
-        "create-user-tables",
+        "pglite-wait",
         "generate-evm-mod",
       ],
     },

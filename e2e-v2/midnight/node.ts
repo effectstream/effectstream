@@ -52,9 +52,13 @@ const gameStateTransitions: StartConfigGameStateTransitions = function* (
   yield* stm.processInput(input);
 };
 
-// -- Migrations (tables are pre-created by orchestrator) ----------------------
+// -- Migrations ---------------------------------------------------------------
 
-const migrationTable: any[] = [];
+import createUserTables from "./database/migrations/create-user-tables.sql" with { type: "text" };
+
+const migrationTable: any[] = [
+  { name: "create-user-tables", sql: createUserTables },
+];
 
 // -- Main ---------------------------------------------------------------------
 

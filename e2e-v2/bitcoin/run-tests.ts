@@ -17,6 +17,7 @@ import {
   waitForProcess,
   waitForHealth,
   getDBConnection,
+  waitForBlock,
 } from "@e2e-v2/engine";
 import { assert, assertSQL } from "@e2e-v2/engine";
 import path from "path";
@@ -200,6 +201,7 @@ async function test() {
     // 4. Wait for sync node to be healthy
     await waitForProcess("sync");
     await waitForHealth();
+    await waitForBlock(1);
     console.log("Sync node healthy.\n");
 
     // 5. Connect to DB and run sync tests

@@ -25,6 +25,7 @@ import {
   waitForOrchestrator,
   waitForProcess,
   waitForHealth,
+  waitForBlock,
   getDBConnection,
 } from "@e2e-v2/engine";
 import type { Client } from "pg";
@@ -97,6 +98,7 @@ async function test() {
     // 4. Wait for sync node to be healthy
     await waitForProcess("sync");
     await waitForHealth();
+    await waitForBlock(1);
     console.log("Sync node is healthy.\n");
 
     // 5. Connect to DB and run sync tests

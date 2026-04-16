@@ -12,6 +12,7 @@ import {
   waitForOrchestrator,
   waitForProcess,
   waitForHealth,
+  waitForBlock,
   getDBConnection,
   API_PORT,
 } from "@e2e-v2/engine";
@@ -28,6 +29,7 @@ async function test() {
     await waitForProcess("sync");
     await waitForProcess("batcher");
     await waitForHealth();
+    await waitForBlock(1);
     console.log("Infrastructure ready.\n");
 
     db = getDBConnection();

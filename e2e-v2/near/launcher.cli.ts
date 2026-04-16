@@ -4,12 +4,11 @@ import type { OrchestratorConfig } from "../../packages/build-tools/orchestrator
  * NEAR orchestrator config (orchestrator-v2 format).
  *
  * Infrastructure:
- *   1. PGLite DB -> wait -> apply migrations
+ *   1. PGLite DB -> wait
  *   2. NEAR sandbox (neard on port 3030)
  *   3. Wait for RPC
  * Node:
- *   4. Create user tables
- *   5. Sync node (e2e-v2/near/node.ts) - depends on DB + sandbox ready
+ *   4. Sync node (e2e-v2/near/node.ts) - depends on DB + sandbox ready
  */
 export default {
   processes: [
@@ -27,14 +26,6 @@ export default {
       args: ["./node_modules/.bin/wait-on", "tcp:5432"],
       waitToExit: true,
       dependsOn: ["pglite"],
-    },
-    {
-      name: "apply-migrations",
-      description: "Apply database migrations",
-      args: ["-e", "await import('@effectstream/db/apply-migrations')"],
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["pglite-wait"],
     },
 
     // ── NEAR Sandbox ──────────────────────────────────────────────────────────
@@ -64,16 +55,6 @@ export default {
       dependsOn: ["near-sandbox-wait"],
     },
 
-    // ── User tables ──────────────────────────────────────────────────────────
-    {
-      name: "create-user-tables",
-      description: "Create user-defined DB tables for STM",
-      args: ["run", "e2e-v2/near/database/create-tables.ts"],
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["apply-migrations"],
-    },
-
     // ── Sync (the node) ──────────────────────────────────────────────────────
     {
       name: "sync",
@@ -83,7 +64,7 @@ export default {
       type: "system-dependency",
       env: { PGLITE: "true" },
       dependsOn: [
-        "create-user-tables",
+        "pglite-wait",
         "near-sandbox-wait",
       ],
     },

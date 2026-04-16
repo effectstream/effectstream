@@ -16,6 +16,7 @@ import { getConnection } from "@effectstream/db";
 
 import { config } from "./config.ts";
 import { grammar } from "./grammar.ts";
+import createUserTables from "./database/migrations/create-user-tables.sql" with { type: "text" };
 
 // ── State Machine ────────────────────────────────────────────────────────────
 
@@ -54,7 +55,9 @@ main(function* () {
       appVersion: "1.0.0",
       syncInfo: toSyncProtocolWithNetwork(config),
       gameStateTransitions,
-      migrations: [],
+      migrations: [
+        { name: "create-user-tables", sql: createUserTables },
+      ],
       grammar,
     });
   });

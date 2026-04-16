@@ -11,6 +11,7 @@ import {
   anyError,
   newSharedState,
   printSummary,
+  waitForBlock,
   type SharedState,
 } from "@e2e-v2/engine";
 import type { Client, PoolConfig } from "pg";
@@ -187,6 +188,7 @@ async function test() {
     await waitForProcess("sync");
     await waitForProcess("batcher");
     await waitForHealth();
+    await waitForBlock(1);
     console.log("Sync node + batcher are healthy.\n");
 
     // 5. Connect to DB and run sync tests (includes batcher tests)

@@ -7,7 +7,7 @@
  *
  * Uses near-api-js v7 for transaction signing and submission.
  */
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { Account, JsonRpcProvider, KeyPair, KeyPairSigner } from "near-api-js";
 
@@ -16,11 +16,12 @@ const CONTRACT_ACCOUNT = "test.near";
 const WASM_PATH = join(import.meta.dirname!, "test_event_contract.wasm");
 const BUILD_DIR = join(import.meta.dirname!, "build");
 
-// Read sandbox validator key
-const sandboxDirs = (await import("fs")).readdirSync("/tmp")
-  .filter((d: string) => d.startsWith("near-sandbox-"))
-  .map((d: string) => `/tmp/${d}`);
-const sandboxHome = sandboxDirs[sandboxDirs.length - 1];
+// Read sandbox validator key (pick the most recently created sandbox dir)
+const sandboxDirs = readdirSync("/tmp")
+  .filter((d) => d.startsWith("near-sandbox-"))
+  .map((d) => `/tmp/${d}`)
+  .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+const sandboxHome = sandboxDirs[0];
 const validatorKey = JSON.parse(readFileSync(join(sandboxHome, "validator_key.json"), "utf-8"));
 
 // Set up v7 provider + signer
