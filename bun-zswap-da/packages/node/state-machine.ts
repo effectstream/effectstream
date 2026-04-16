@@ -5,7 +5,7 @@ import { PaimaSTM } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
 import { builtinGrammars } from "@effectstream/sm/grammar";
 import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
-import { Transaction, type UnprovenTransaction } from "@midnight-ntwrk/ledger-v8";
+import { Transaction, type UnprovenTransaction, type TokenType } from "@midnight-ntwrk/ledger-v8";
 import { Buffer } from "node:buffer";
 import { newScheduledTimestampData } from "@effectstream/db";
 import { AddressType } from "@effectstream/utils";
@@ -88,12 +88,34 @@ stm.addStateTransition("celestia-zswap", function* (data) {
 
   try {
     // ── Derive gives/wants from imbalances ──
-    const imbalances = offerTx.imbalances(true);
+    // ledger-v8 API: imbalances(segment: number) where 0 = guaranteed,
+    // and fallible segment IDs come from offerTx.fallibleOffer.keys()
+    const segmentIds: number[] = [0];
+    const fallibleOfferMap = offerTx.fallibleOffer;
+    if (fallibleOfferMap) {
+      for (const segId of fallibleOfferMap.keys()) {
+        segmentIds.push(segId);
+      }
+    }
+
+    const mergedImbalances = new Map<string, bigint>();
+    for (const segId of segmentIds) {
+      try {
+        for (const [tokenType, delta] of offerTx.imbalances(segId)) {
+          const tt = tokenType as TokenType;
+          if (tt.tag === 'dust') continue; // skip fee token
+          const token = tt.raw.toLowerCase();
+          mergedImbalances.set(token, (mergedImbalances.get(token) ?? 0n) + delta);
+        }
+      } catch {
+        // segment doesn't exist for this transaction, skip
+      }
+    }
+
     const gives: { token: string; amount: string }[] = [];
     const wants: { token: string; amount: string }[] = [];
 
-    for (const [tokenType, delta] of imbalances) {
-      const token = tokenType.toLowerCase();
+    for (const [token, delta] of mergedImbalances) {
       if (delta > 0n) {
         gives.push({ token, amount: delta.toString() });
       } else if (delta < 0n) {

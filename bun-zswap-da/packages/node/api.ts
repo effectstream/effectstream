@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import * as Rx from "rxjs";
 import type { StartConfigApiRouter } from "@effectstream/runtime";
 import {
   type FoundContract,
@@ -39,6 +40,35 @@ async function getContract(walletId?: string) {
 
 function getWalletParam(request: any): string {
   return resolveWalletId((request.query as any)?.wallet);
+}
+
+/**
+ * Waits until `tokenColor` appears with a non-zero balance in the wallet's
+ * shielded state.  The wallet SDK emits a new state for every processed block,
+ * so this resolves as soon as the mint tx is included on-chain.
+ */
+async function waitForTokenBalance(
+  wallet: any,
+  tokenColor: string,
+  timeoutMs = 120_000,
+): Promise<void> {
+  await Rx.firstValueFrom(
+    (wallet.state() as Rx.Observable<any>).pipe(
+      Rx.filter((s: any) => {
+        const bal = (s.shielded?.balances ?? {})[tokenColor];
+        return typeof bal === "bigint" && bal > 0n;
+      }),
+      Rx.timeout({
+        first: timeoutMs,
+        with: () =>
+          Rx.throwError(
+            () => new Error(
+              `Mint tx not confirmed after ${timeoutMs / 1000}s — transaction may have failed on-chain`,
+            ),
+          ),
+      }),
+    ),
+  );
 }
 
 // ─── API Router ───────────────────────────────────────────────────────────────
@@ -175,6 +205,13 @@ export const apiRouter: StartConfigApiRouter = async function (
       const txHash: string = txData.public?.txHash ?? "";
       // mint_shielded returns { nonce, color, value } — color is the actual ledger token type
       const tokenColor = Buffer.from(txData.private.result.color as Uint8Array).toString("hex");
+
+      // Wait for the token to appear in the wallet's shielded balance.
+      // This confirms the transaction was included in a block before we register
+      // the token or fire the SSE event — prevents phantom known_tokens entries
+      // when a tx fails after submission (e.g. insufficient dust for fees).
+      const { walletResult } = await getWalletInstance(walletId);
+      await waitForTokenBalance(walletResult.wallet, tokenColor);
 
       const colorCheck = await dbConn.query(
         `SELECT name FROM known_tokens WHERE token_color = $1 LIMIT 1`,
@@ -319,20 +356,28 @@ export const apiRouter: StartConfigApiRouter = async function (
         }],
       }));
 
-      const offerRecipe = await walletResult.wallet.initSwap(
-        inputMap,
-        outputs,
-        {
-          shieldedSecretKeys: walletResult.zswapSecretKeys,
-          dustSecretKey: walletResult.dustSecretKey,
-        },
-        { ttl: new Date(Date.now() + 1000 * 60 * 60) },
-      );
+      let offerRecipe: any;
+      try {
+        offerRecipe = await walletResult.wallet.initSwap(
+          inputMap,
+          outputs,
+          {
+            shieldedSecretKeys: walletResult.zswapSecretKeys,
+            dustSecretKey: walletResult.dustSecretKey,
+          },
+          { ttl: new Date(Date.now() + 1000 * 60 * 60) },
+        );
+      } catch (e: any) {
+        console.error(`[ZSWAP-CREATE] initSwap failed:`, e);
+        const detail = e?.cause?.message ?? e?.message ?? String(e);
+        throw new Error(
+          `initSwap failed: ${detail} (wallet=${walletId})`,
+        );
+      }
 
       // Return raw bytes as Base64 for HTTP transport; the frontend decodes and
       // applies bech32m encoding via mip-zswap-offer.buildOffer() before submitting.
-      const rawBytes = offerRecipe.transaction.serialize().toBytes();
-      const transactionBytes = Buffer.from(rawBytes).toString("base64");
+      const transactionBytes = offerRecipe.transaction.serialize().toBase64();
       return { success: true, transactionBytes };
     },
   );
