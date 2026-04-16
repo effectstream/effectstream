@@ -1,6 +1,0 @@
-{
-  "name": "@effectstream/near-sandbox",
-  "version": "0.3.0",
-  "exports": "./index.js",
-  "nodeModulesDir": "manual"
-}

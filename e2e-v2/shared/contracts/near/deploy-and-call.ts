@@ -9,6 +9,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { join } from "path";
+import { tmpdir } from "os";
 import { Account, JsonRpcProvider, KeyPair, KeyPairSigner } from "near-api-js";
 
 const RPC_URL = "http://localhost:3030";
@@ -16,11 +17,12 @@ const CONTRACT_ACCOUNT = "test.near";
 const WASM_PATH = join(import.meta.dirname!, "test_event_contract.wasm");
 const BUILD_DIR = join(import.meta.dirname!, "build");
 
-// Read sandbox validator key (pick the most recently created sandbox dir)
-const sandboxDirs = readdirSync("/tmp")
-  .filter((d) => d.startsWith("near-sandbox-"))
-  .map((d) => `/tmp/${d}`)
-  .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+// Read sandbox validator key — pick the most recently created sandbox dir
+const tmp = tmpdir();
+const sandboxDirs = fs.readdirSync(tmp)
+  .filter((d: string) => d.startsWith("near-sandbox-"))
+  .map((d: string) => join(tmp, d))
+  .sort((a: string, b: string) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
 const sandboxHome = sandboxDirs[0];
 const validatorKey = JSON.parse(readFileSync(join(sandboxHome, "validator_key.json"), "utf-8"));
 

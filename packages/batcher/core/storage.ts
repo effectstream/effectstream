@@ -153,9 +153,17 @@ export class FileStorage<T extends DefaultBatcherInput = DefaultBatcherInput>
 
       const removedCount = allInputs.length - remainingInputs.length;
       if (removedCount !== processedInputs.length) {
-        console.warn(
-          `⚠️ Expected to remove ${processedInputs.length} inputs, but removed ${removedCount}. Some inputs may have been processed already.`,
-        );
+        // When storage is empty this is normal for concurrent adapters:
+        // a parallel batch already removed these inputs.
+        if (allInputs.length === 0) {
+          debugLog(
+            `[Storage] Inputs already removed (concurrent batch). Expected ${processedInputs.length}, storage was empty.`,
+          );
+        } else {
+          console.warn(
+            `⚠️ Expected to remove ${processedInputs.length} inputs, but removed ${removedCount}. Some inputs may have been processed already.`,
+          );
+        }
       }
     } catch (error) {
       console.error("Error removing processed inputs:", error);

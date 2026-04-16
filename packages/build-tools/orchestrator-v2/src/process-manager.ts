@@ -20,12 +20,15 @@ export type ManagedProcess = {
 };
 
 type BunProc = ReturnType<typeof Bun.spawn>;
+type StreamReader = ReadableStreamDefaultReader<Uint8Array>;
 
 export type ChangeListener = (p: ManagedProcess) => void;
 
 export class ProcessManager {
   private processes = new Map<string, ManagedProcess>();
   private procs = new Map<string, BunProc>();
+  /** Active stream readers per process — cancelled on stop to release file descriptors. */
+  private readers = new Map<string, StreamReader[]>();
   private listeners: ChangeListener[] = [];
   /** Processes currently being intentionally stopped/restarted — suppress exit handlers. */
   private stopping = new Set<string>();
@@ -104,15 +107,20 @@ export class ProcessManager {
       const prefix = `\x1b[36m[${config.name}]\x1b[0m `;
       const prefixBytes = new TextEncoder().encode(prefix);
       const newline = 0x0a; // '\n'
+      const activeReaders: StreamReader[] = [];
 
       const forward = (stream: ReadableStream<Uint8Array> | null, dest: typeof process.stdout) => {
         if (!stream) return;
         const reader = stream.getReader();
+        activeReaders.push(reader);
         let atLineStart = true;
 
         const pump = (): void => {
           reader.read().then(({ done, value }) => {
-            if (done) return;
+            if (done) {
+              reader.releaseLock();
+              return;
+            }
             if (this.silenced.has(config.name)) {
               pump();
               return;
@@ -147,6 +155,7 @@ export class ProcessManager {
       };
       forward(proc.stdout as ReadableStream<Uint8Array>, process.stdout);
       forward(proc.stderr as ReadableStream<Uint8Array>, process.stderr);
+      this.readers.set(config.name, activeReaders);
     }
 
     const managed: ManagedProcess = {
@@ -187,6 +196,16 @@ export class ProcessManager {
     if (!proc || !managed) return false;
 
     this.stopping.add(name);
+
+    // Cancel active stream readers to release file descriptors
+    const readers = this.readers.get(name);
+    if (readers) {
+      for (const reader of readers) {
+        reader.cancel().catch(() => {});
+      }
+      this.readers.delete(name);
+    }
+
     proc.kill("SIGTERM");
 
     // Wait up to 5 s for graceful exit, then SIGKILL

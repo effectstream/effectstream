@@ -11,10 +11,25 @@ const nearcoreVersion = '2.10.7';
 const s3Base = 'https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore';
 const dest = path.join(__dirname, 'vendor');
 
+// BinWrapper uses the `arch` npm package for architecture detection, which
+// misreports arm64 as x64 under Bun. Map platform/arch using process.arch
+// directly to get the correct download URL.
+const archMap = {
+  'linux-x64': 'Linux-x86_64',
+  'linux-arm64': 'Linux-aarch64',
+  'darwin-x64': 'Darwin-x86_64',
+  'darwin-arm64': 'Darwin-arm64',
+};
+
+const platformKey = `${process.platform}-${process.arch}`;
+const archDir = archMap[platformKey];
+if (!archDir) {
+  throw new Error(`Unsupported platform: ${platformKey}`);
+}
+
 const bin = new BinWrapper()
-  .src(`${s3Base}/Linux-x86_64/${nearcoreVersion}/near-sandbox.tar.gz`, 'linux', 'x64')
-  .src(`${s3Base}/Linux-aarch64/${nearcoreVersion}/near-sandbox.tar.gz`, 'linux', 'arm64')
-  .src(`${s3Base}/Darwin-arm64/${nearcoreVersion}/near-sandbox.tar.gz`, 'darwin', 'arm64')
+  // Provide the correct URL for this platform first so BinWrapper picks it up
+  .src(`${s3Base}/${archDir}/${nearcoreVersion}/near-sandbox.tar.gz`, process.platform, process.arch)
   .dest(dest)
   .use('near-sandbox');
 
@@ -23,7 +38,28 @@ export default bin;
 export async function run(options = {}) {
   const { dataDir, verbose = false, rpcPort = 3030 } = options;
 
-  await bin.run(['--version']);
+  // Ensure binary is downloaded. BinWrapper.run() triggers the download.
+  // If arch detection is broken, the download() call inside may fail with
+  // "No binary found" because os-filter-obj uses the same broken `arch` package.
+  // Work around this by downloading manually when the binary is missing.
+  const binPath = bin.path();
+  if (!fs.existsSync(binPath)) {
+    const url = `${s3Base}/${archDir}/${nearcoreVersion}/near-sandbox.tar.gz`;
+    fs.mkdirSync(dest, { recursive: true });
+    const tarPath = path.join(dest, 'near-sandbox.tar.gz');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to download NEAR sandbox: ${res.status}`);
+    fs.writeFileSync(tarPath, new Uint8Array(await res.arrayBuffer()));
+    const { execFileSync } = await import('node:child_process');
+    // Archive contains <archDir>/near-sandbox — strip the leading directory
+    execFileSync('tar', ['xzf', tarPath, '-C', dest, '--strip-components=1']);
+    fs.unlinkSync(tarPath);
+    fs.chmodSync(binPath, 0o755);
+  }
+
+  // Verify the binary works
+  const { execFileSync } = await import('node:child_process');
+  execFileSync(binPath, ['--version']);
 
   const dataDirPath = dataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'near-sandbox-'));
 
