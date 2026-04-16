@@ -10,7 +10,6 @@ import {
   releaseDBMutex,
   resetPublicTables,
   runSnapshotLoop,
-  type BlockNumberRef,
 } from "@effectstream/db";
 import { PaimaEventBroker } from "@effectstream/event-server";
 import {
@@ -136,9 +135,8 @@ export function* start(config: StartConfig): Operation<void> {
   });
 
   let blockHash: PaimaBlockHash | null = null;
-  const latestBlockRef: BlockNumberRef = { value: 0 };
   if (config.snapshotConfig) {
-    yield* spawn(() => runSnapshotLoop(config.snapshotConfig!, latestBlockRef));
+    yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
   }
 
   for (const value of yield* each(finalizedBlockStream)) {
@@ -156,7 +154,6 @@ export function* start(config: StartConfig): Operation<void> {
         dbClient as any, // Client,
         blockHash,
       );
-      latestBlockRef.value = value.blockNumber; // Update for snapshot loop
     } finally {
       releaseDBMutex(`processing-blocks:${value.blockNumber}`);
       if (dbClient) {

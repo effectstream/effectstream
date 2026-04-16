@@ -52,7 +52,7 @@ export async function snapshotTest(_db: Client) {
   console.log(`[snapshotTest] Waiting for first snapshot (interval: ${intervalSec}s)...`);
 
   // Wait for at least one .dump file to appear.
-  // The first snapshot fires immediately on the first block, so this should be fast.
+  // The snapshot loop sleeps `intervalSec` before its first fire, then pg_dump runs.
   const timeoutMs = (intervalSec + 15) * 1000;
 
   await assert("Snapshot .dump file created", async () => {

@@ -26,19 +26,18 @@ export interface SnapshotConfig {
  * @see docs/home/1000-effectstream-engine/1003-database-snapshots.md
  */
 export async function createSnapshot(
-  blockHeight: number,
   config?: SnapshotConfig,
 ): Promise<void> {
   // pg_dump queries pg_catalog directly; PGlite's catalog may not match the
   // locally-installed pg_dump version, so skip snapshots under PGlite.
   if (ENV.PGLITE) {
-    console.log(`[Snapshot] Skipping at block ${blockHeight}: pg_dump is not compatible with PGlite.`);
+    console.log(`[Snapshot] Skipping: pg_dump is not compatible with PGlite.`);
     return;
   }
 
   const snapshotDir = config?.path ?? "./snapshots";
   const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\.\d{3}/, "");
-  const snapshotPath = `${snapshotDir}/snapshot-${blockHeight}-${timestamp}.dump`;
+  const snapshotPath = `${snapshotDir}/snapshot-${timestamp}.dump`;
 
   await Deno.mkdir(snapshotDir, { recursive: true });
   console.log(`[Snapshot] Creating snapshot at ${snapshotPath}...`);
@@ -66,10 +65,6 @@ export async function createSnapshot(
   await applyRetentionPolicy(snapshotDir, config?.retention);
 }
 
-export interface BlockNumberRef {
-  value: number;
-}
-
 /**
  * Long-lived fiber that fires snapshots on a fixed cadence, independent of
  * block production. Spawn once at startup; cadence is `intervalSeconds`.
@@ -77,16 +72,18 @@ export interface BlockNumberRef {
  */
 export function* runSnapshotLoop(
   snapshotConfig: SnapshotConfig,
-  blockRef: BlockNumberRef,
 ): Operation<void> {
   const intervalMs = (snapshotConfig.intervalSeconds ?? 3600) * 1000;
+  console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${snapshotConfig.path ?? "./snapshots"}, cwd ${Deno.cwd()})`);
   while (true) {
-    yield* sleep(intervalMs);
+    console.log(`[Snapshot] Firing`);
     try {
-      yield* until(createSnapshot(blockRef.value, snapshotConfig));
+      yield* until(createSnapshot(snapshotConfig));
+      console.log(`[Snapshot] Done; sleeping ${intervalMs / 1000}s`);
     } catch (e) {
       console.error("[Snapshot] Failed:", e);
     }
+    yield* sleep(intervalMs);
   }
 }
 
