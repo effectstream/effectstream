@@ -21365,6 +21365,13 @@
           "npm:ws@^8.18.3"
         ]
       },
+      "e2e/performance": {
+        "dependencies": [
+          "npm:effection@^3.5.0",
+          "npm:pg@^8.14.0",
+          "npm:viem@2.37.3"
+        ]
+      },
       "e2e/shared/contracts/avail": {
         "dependencies": [
           "npm:avail-js-sdk@~0.4.2"
@@ -21628,7 +21635,7 @@
       },
       "packages/chains/evm-contracts": {
         "dependencies": [
-          "jsr:@effectstream/log@0.6.0",
+          "jsr:@paimaexample/log@0.6.0",
           "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
           "npm:@nomicfoundation/hardhat-viem@3.0.0",
           "npm:@opentelemetry/sdk-node@0.56.0",
