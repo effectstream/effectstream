@@ -19,6 +19,39 @@ export interface SnapshotConfig {
   retention?: SnapshotRetentionConfig;
 }
 
+interface ResolvedSnapshotConfig {
+  intervalSeconds: number;
+  path: string;
+  retention: Required<SnapshotRetentionConfig>;
+}
+
+/**
+ * Precedence: explicit config field > env var > hardcoded default.
+ * Env vars other than INTERVAL_SECONDS carry their hardcoded defaults inside
+ * `ENV.getConfig`, so `??` here only needs to cover INTERVAL_SECONDS (whose
+ * env `defaultValue` is intentionally `undefined`).
+ */
+function resolveSnapshotConfig(config?: SnapshotConfig): ResolvedSnapshotConfig {
+  return {
+    intervalSeconds:
+      config?.intervalSeconds
+      ?? ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS
+      ?? 3600,
+    path: config?.path ?? ENV.EFFECTSTREAM_SNAPSHOT_PATH,
+    retention: {
+      lastDayHourly:
+        config?.retention?.lastDayHourly
+        ?? ENV.EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY,
+      last3DaysSixHourly:
+        config?.retention?.last3DaysSixHourly
+        ?? ENV.EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY,
+      lastNDaysDaily:
+        config?.retention?.lastNDaysDaily
+        ?? ENV.EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS,
+    },
+  };
+}
+
 /**
  * Creates a database snapshot using `pg_dump` in custom format (`-F c`).
  * Must be called AFTER releasing the DB mutex (pg_dump opens its own connection).
@@ -35,7 +68,8 @@ export async function createSnapshot(
     return;
   }
 
-  const snapshotDir = config?.path ?? "./snapshots";
+  const resolved = resolveSnapshotConfig(config);
+  const snapshotDir = resolved.path;
   const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\.\d{3}/, "");
   const snapshotPath = `${snapshotDir}/snapshot-${timestamp}.dump`;
 
@@ -62,7 +96,7 @@ export async function createSnapshot(
   }
 
   console.log(`[Snapshot] Snapshot created: ${snapshotPath}`);
-  await applyRetentionPolicy(snapshotDir, config?.retention);
+  await applyRetentionPolicy(snapshotDir, resolved.retention);
 }
 
 /**
@@ -73,12 +107,13 @@ export async function createSnapshot(
 export function* runSnapshotLoop(
   snapshotConfig: SnapshotConfig,
 ): Operation<void> {
-  const intervalMs = (snapshotConfig.intervalSeconds ?? 3600) * 1000;
-  console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${snapshotConfig.path ?? "./snapshots"}, cwd ${Deno.cwd()})`);
+  const resolved = resolveSnapshotConfig(snapshotConfig);
+  const intervalMs = resolved.intervalSeconds * 1000;
+  console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${resolved.path}, cwd ${Deno.cwd()})`);
   while (true) {
     console.log(`[Snapshot] Firing`);
     try {
-      yield* until(createSnapshot(snapshotConfig));
+      yield* until(createSnapshot(resolved));
       console.log(`[Snapshot] Done; sleeping ${intervalMs / 1000}s`);
     } catch (e) {
       console.error("[Snapshot] Failed:", e);
@@ -93,11 +128,9 @@ export function* runSnapshotLoop(
  */
 async function applyRetentionPolicy(
   snapshotDir: string,
-  retention?: SnapshotRetentionConfig,
+  retention: Required<SnapshotRetentionConfig>,
 ): Promise<void> {
-  const lastDayHourly      = retention?.lastDayHourly      ?? true;
-  const last3DaysSixHourly = retention?.last3DaysSixHourly ?? true;
-  const lastNDaysDaily     = retention?.lastNDaysDaily      ?? 7;
+  const { lastDayHourly, last3DaysSixHourly, lastNDaysDaily } = retention;
 
   const now    = Date.now();
   const MS_1H  = 3_600_000;
