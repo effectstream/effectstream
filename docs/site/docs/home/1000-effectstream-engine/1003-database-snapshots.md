@@ -99,28 +99,28 @@ Snapshot files use `pg_dump` custom format. Use `pg_restore` to apply them.
 
 **Restore into an existing database (drops and recreates all objects):**
 ```bash
-pg_restore -h localhost -p 5432 -U postgres -d postgres --clean snapshot-1000-2026-04-09T14-30-00Z.dump
+pg_restore -h localhost -p 5432 -U postgres -d postgres --clean snapshot-2026-04-09T14-30-00Z.dump
 ```
 
 **List the contents of a dump without restoring:**
 ```bash
-pg_restore --list snapshot-1000-2026-04-09T14-30-00Z.dump
+pg_restore --list snapshot-2026-04-09T14-30-00Z.dump
 ```
 
 **Restore only a specific table:**
 ```bash
-pg_restore -h localhost -p 5432 -U postgres -d postgres -t my_table snapshot-1000-2026-04-09T14-30-00Z.dump
+pg_restore -h localhost -p 5432 -U postgres -d postgres -t my_table snapshot-2026-04-09T14-30-00Z.dump
 ```
 
 ## File naming
 
-Each snapshot includes the rollup block height and a UTC timestamp:
+Each snapshot is named with a UTC timestamp:
 
 ```
 ./snapshots/
-  snapshot-100-2026-04-09T10-00-00Z.dump
-  snapshot-460-2026-04-09T11-00-00Z.dump
-  snapshot-820-2026-04-09T12-00-00Z.dump
+  snapshot-2026-04-09T10-00-00Z.dump
+  snapshot-2026-04-09T11-00-00Z.dump
+  snapshot-2026-04-09T12-00-00Z.dump
 ```
 
-Both the block height and timestamp are for human readability only. The retention policy uses file `mtime`, not the filename, to determine which files to keep.
+The timestamp is for human readability only. The retention policy uses file `mtime`, not the filename, to determine which files to keep.
