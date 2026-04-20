@@ -95,13 +95,21 @@ export function setExitCode(code: number): void {
 }
 
 /**
- * Register a test.
+ * Register a test with the ambient test runner.
+ * - Under `deno test`, registers with `Deno.test`.
+ * - Under `node --test` / `bun test`, registers with `node:test`.
  * Use: import { test } from "@effectstream/utils/runtime";
  */
 export function test(
   name: string,
   fn: () => void | Promise<void>,
 ): void {
+  // @ts-ignore: Deno is added to global scope in Deno environments
+  if (typeof Deno !== "undefined" && typeof Deno.test === "function") {
+    // @ts-ignore
+    Deno.test(name, fn);
+    return;
+  }
   if (typeof process !== "undefined") {
     try {
       // dynamic import for ESM; require for CJS
@@ -125,4 +133,80 @@ export function isNotFoundError(err: unknown): boolean {
     if (e.name === "NotFound" || (e as any).constructor?.name === "NotFound") return true;
   }
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// Filesystem primitives
+//
+// Thin wrappers over `node:fs/promises`, which works identically under Deno,
+// Node, and Bun — so there is no runtime branching here. The surface area is
+// intentionally small: only what the codebase actually uses.
+// ---------------------------------------------------------------------------
+
+import { mkdir, mkdtemp, readdir, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+/** Create a unique temp directory and return its absolute path. */
+export async function makeTempDir(opts: { prefix?: string } = {}): Promise<string> {
+  return await mkdtemp(join(tmpdir(), opts.prefix ?? "tmp-"));
+}
+
+/** Create a directory (and parents) if missing. */
+export async function mkdirRecursive(path: string): Promise<void> {
+  await mkdir(path, { recursive: true });
+}
+
+/** Write a UTF-8 string to `path`, overwriting any existing file. */
+export async function writeTextFile(path: string, data: string): Promise<void> {
+  await writeFile(path, data, "utf8");
+}
+
+/** Set access and modification times on `path` (accepts Date or ms). */
+export async function setFileTimes(
+  path: string,
+  atime: Date | number,
+  mtime: Date | number,
+): Promise<void> {
+  await utimes(
+    path,
+    atime instanceof Date ? atime : new Date(atime),
+    mtime instanceof Date ? mtime : new Date(mtime),
+  );
+}
+
+/**
+ * Remove a file or directory. Pass `recursive` to delete non-empty dirs,
+ * and `ignoreMissing` to swallow ENOENT.
+ */
+export async function remove(
+  path: string,
+  opts: { recursive?: boolean; ignoreMissing?: boolean } = {},
+): Promise<void> {
+  try {
+    await rm(path, { recursive: opts.recursive ?? false, force: false });
+  } catch (e) {
+    if (opts.ignoreMissing && isNotFoundError(e)) return;
+    throw e;
+  }
+}
+
+export interface DirEntry {
+  name: string;
+  isFile: boolean;
+  isDirectory: boolean;
+}
+
+/** List entries in a directory. Throws (with a NotFound-shaped error) if missing. */
+export async function* readDir(path: string): AsyncIterable<DirEntry> {
+  const entries = await readdir(path, { withFileTypes: true });
+  for (const e of entries) {
+    yield { name: e.name, isFile: e.isFile(), isDirectory: e.isDirectory() };
+  }
+}
+
+/** Stat a file; returns mtime as ms since epoch (0 if unavailable). */
+export async function statMtime(path: string): Promise<number> {
+  const s = await stat(path);
+  return s.mtimeMs ?? s.mtime?.getTime() ?? 0;
 }
