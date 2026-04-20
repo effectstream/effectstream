@@ -21635,7 +21635,7 @@
       },
       "packages/chains/evm-contracts": {
         "dependencies": [
-          "jsr:@paimaexample/log@0.6.0",
+          "jsr:@effectstream/log@0.6.0",
           "npm:@nomicfoundation/hardhat-ignition-viem@3.0.2",
           "npm:@nomicfoundation/hardhat-viem@3.0.0",
           "npm:@opentelemetry/sdk-node@0.56.0",
