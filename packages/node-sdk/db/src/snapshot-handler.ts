@@ -125,14 +125,20 @@ export function* runSnapshotLoop(
 /**
  * Time-based tiered retention: keeps one file per bucket (newest wins),
  * deletes everything beyond `lastNDaysDaily` days.
+ *
+ * Bucket keys are derived from the file's wall-clock mtime, not from its
+ * age relative to `now`. A file's bucket is therefore fixed at write time
+ * and does not slide forward every tick, which is what lets files actually
+ * age into the 6-hourly and daily tiers.
  */
-async function applyRetentionPolicy(
+export async function applyRetentionPolicy(
   snapshotDir: string,
   retention: Required<SnapshotRetentionConfig>,
+  nowMs: number = Date.now(),
 ): Promise<void> {
   const { lastDayHourly, last3DaysSixHourly, lastNDaysDaily } = retention;
 
-  const now    = Date.now();
+  const now    = nowMs;
   const MS_1H  = 3_600_000;
   const MS_24H = 24 * MS_1H;
   const MS_3D  = 3  * MS_24H;
@@ -170,12 +176,12 @@ async function applyRetentionPolicy(
 
     if (age <= MS_24H) {
       if (!lastDayHourly) { keepers.add(entry.path); continue; }
-      bucketKey = `h:${Math.floor(age / MS_1H)}`;
+      bucketKey = `h:${Math.floor(entry.mtime / MS_1H)}`;
     } else if (age <= MS_3D) {
       if (!last3DaysSixHourly) { keepers.add(entry.path); continue; }
-      bucketKey = `6h:${Math.floor(age / (6 * MS_1H))}`;
+      bucketKey = `6h:${Math.floor(entry.mtime / (6 * MS_1H))}`;
     } else {
-      bucketKey = `d:${Math.floor(age / MS_24H)}`;
+      bucketKey = `d:${Math.floor(entry.mtime / MS_24H)}`;
     }
 
     if (!seenBuckets.has(bucketKey)) {

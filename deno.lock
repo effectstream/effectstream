@@ -12,6 +12,7 @@
     "jsr:@deno/dnt@~0.42.3": "0.42.3",
     "jsr:@oak/commons@1": "1.0.1",
     "jsr:@oak/oak@^17.1.4": "17.2.0",
+    "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/assert@^1.0.12": "1.0.19",
     "jsr:@std/assert@~1.0.6": "1.0.19",
@@ -21820,45 +21821,6 @@
           "npm:web3-utils@^4.3.3",
           "npm:web3@^4.16.0"
         ]
-      },
-      "packages/effectstream-sdk/wallets/npm": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@aurowallet/mina-provider@^1.0.12",
-            "npm:@cardano-foundation/cardano-verify-datasignature@1.0.11",
-            "npm:@coderspirit/nominal@^4.1.1",
-            "npm:@foxglove/crc@^1.0.1",
-            "npm:@metamask/providers@^22.1.0",
-            "npm:@midnight-ntwrk/dapp-connector-api@4.0.1",
-            "npm:@perawallet/connect@^1.4.2",
-            "npm:@polkadot/extension-dapp@~0.58.10",
-            "npm:@polkadot/extension-inject@~0.58.10",
-            "npm:@polkadot/util-crypto@^13.4.3",
-            "npm:@polkadot/util@^13.4.3",
-            "npm:@sinclair/typebox@0.34.41",
-            "npm:@subsquid/ss58-codec@^1.2.3",
-            "npm:abitype@1.1.0",
-            "npm:algosdk@^3.4.0",
-            "npm:assert-never@^1.4.0",
-            "npm:avail-js-sdk@~0.4.2",
-            "npm:bech32@2",
-            "npm:bs58@6",
-            "npm:bs58check@4",
-            "npm:effection@^3.5.0",
-            "npm:ethers@^6.15.0",
-            "npm:hi-base32@~0.5.1",
-            "npm:js-base64@^3.7.7",
-            "npm:js-sha3@~0.9.3",
-            "npm:js-sha512@0.9",
-            "npm:mina-signer@^3.0.7",
-            "npm:mqtt-pattern@^2.1.0",
-            "npm:mqtt@^5.14.0",
-            "npm:semver@^7.7.3",
-            "npm:viem@2.37.3",
-            "npm:web3-utils@^4.3.3",
-            "npm:web3@^4.16.0"
-          ]
-        }
       },
       "packages/node-sdk/db": {
         "dependencies": [
