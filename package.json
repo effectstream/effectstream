@@ -7,7 +7,8 @@
     "e2e-v2/**"
   ],
   "scripts": {
-    "test:code": "bun test ./packages/effectstream-sdk/crypto/ ./packages/effectstream-sdk/utils/ ./packages/effectstream-sdk/config/ ./packages/effectstream-sdk/concise/ ./packages/effectstream-sdk/wallets/ ./packages/batcher/ ./packages/node-sdk/db/src/pg-connection.test.ts ./packages/node-sdk/sm/"
+    "test:code": "bun test ./packages",
+    "test:e2e": "cd e2e-v2 && bun run runner.ts"
   },
   "devDependencies": {
     "@effectstream/db": "workspace:*",
