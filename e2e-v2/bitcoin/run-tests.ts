@@ -96,6 +96,52 @@ interface BitcoinRequest {
   amountSats: number;
 }
 
+function buildBitcoinRequest(
+  privateKeyWIF: string,
+  payload: BitcoinRequest,
+  network: bitcoin.Network,
+  target: string,
+  mutateSignature?: (sig: Buffer) => Buffer,
+): { data: Record<string, unknown> } {
+  const keyPair = ECPair.fromWIF(privateKeyWIF, network);
+  const { address } = bitcoin.payments.p2wpkh({ pubkey: keyPair.publicKey, network });
+  if (!address) throw new Error("Could not derive address from private key");
+
+  const timestamp = new Date().toISOString();
+  const message = buildBitcoinSignatureMessage(payload, timestamp);
+  let sigBuf = signBitcoinMessage(message, keyPair.privateKey!, keyPair.compressed);
+  if (mutateSignature) sigBuf = mutateSignature(sigBuf);
+
+  return {
+    data: {
+      address,
+      input: JSON.stringify(payload),
+      signature: sigBuf.toString("base64"),
+      timestamp,
+      target,
+      addressType: -1,
+    },
+  };
+}
+
+async function sendBitcoinRaw(
+  privateKeyWIF: string,
+  payload: BitcoinRequest,
+  confirmationLevel: "no-wait" | "wait-receipt" | "wait-effectstream-processed" = "no-wait",
+  network: bitcoin.Network = bitcoin.networks.regtest,
+  target: string = "bitcoin",
+  mutateSignature?: (sig: Buffer) => Buffer,
+): Promise<{ status: number; body: any }> {
+  const req = buildBitcoinRequest(privateKeyWIF, payload, network, target, mutateSignature);
+  const response = await fetch("http://localhost:3334/send-input", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...req, confirmationLevel }),
+  });
+  const body = await response.json().catch(() => ({}));
+  return { status: response.status, body };
+}
+
 async function sendBitcoin(
   privateKeyWIF: string,
   payload: BitcoinRequest,
@@ -103,42 +149,11 @@ async function sendBitcoin(
   network: bitcoin.Network = bitcoin.networks.regtest,
   target: string = "bitcoin"
 ): Promise<BatcherResponse> {
-  const keyPair = ECPair.fromWIF(privateKeyWIF, network);
-  const { address } = bitcoin.payments.p2wpkh({ pubkey: keyPair.publicKey, network });
-
-  if (!address) throw new Error("Could not derive address from private key");
-
-  const timestamp = new Date().toISOString();
-  const message = buildBitcoinSignatureMessage(payload, timestamp);
-
-  // Sign the message
-  const signature = signBitcoinMessage(message, keyPair.privateKey!, keyPair.compressed).toString("base64");
-
-  const body = {
-    address,
-    input: JSON.stringify(payload),
-    signature,
-    timestamp,
-    target,
-    addressType: -1,
-  };
-
-  const response = await fetch("http://localhost:3334/send-input", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      data: body,
-      confirmationLevel,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to send Bitcoin transaction: ${response.statusText}`);
+  const { status, body } = await sendBitcoinRaw(privateKeyWIF, payload, confirmationLevel, network, target);
+  if (status < 200 || status >= 300) {
+    throw new Error(`Failed to send Bitcoin transaction: ${status} ${JSON.stringify(body)}`);
   }
-
-  return response.json();
+  return body as BatcherResponse;
 }
 
 // ── Phase 1: Tooling Tests ────────────────────────────────────────────────────
@@ -224,6 +239,115 @@ async function batcherTests(db: Client) {
   );
 }
 
+// ── Phase 4: Batcher Feature Tests ───────────────────────────────────────────
+
+async function batcherFeatureTests(db: Client) {
+  console.log("\n--- Phase 4: Batcher Feature Tests (behavioral correctness) ---\n");
+
+  const WATCHED = "bcrt1qfv6m6l5s6cgda09yr5nd8rnufkaz59d3aquq03";
+  const WIF = "cPNCP9RTgYu6aqw4cTFQgrrTKkz6oJPUnxuYeaDrWR5wAkDqwHjc";
+
+  // Test: Batching coalescence. The batcher's hybrid criteria flushes whenever
+  // `timeSinceLastBatch >= timeWindowMs (1s)` AND the queue is non-empty, so a
+  // single queued input will flush alone on the next tick. To observe batching,
+  // we fire N inputs sequentially (parallel calls race on scantxoutset) and
+  // assert that at least ONE pair ended up in the same Bitcoin tx.
+  //
+  // Sequential is required because BitcoinAdapter.validateInput awaits
+  // scantxoutset, which Bitcoin Core serializes — concurrent calls fail.
+  const COALESCE_AMOUNTS = [40001, 40002, 40003, 40004];
+
+  await assert(
+    `Bitcoin batcher: ${COALESCE_AMOUNTS.length} PARALLEL inputs all accepted`,
+    async () => {
+      const results = await Promise.all(
+        COALESCE_AMOUNTS.map((amountSats) =>
+          sendBitcoin(WIF, { toAddress: WATCHED, amountSats }, "no-wait"),
+        ),
+      );
+      return results.every((r) => r.success === true);
+    },
+  );
+
+  await assertSQL<{ transaction_id: string; count: string }>(
+    `Bitcoin batcher: at least one pair among {${COALESCE_AMOUNTS.join(", ")}} coalesced into a single tx`,
+    db,
+    `SELECT transaction_id, COUNT(*)::text AS count
+     FROM bitcoin_transactions
+     WHERE address = '${WATCHED}'
+       AND direction = 'output'
+       AND value_sats IN (${COALESCE_AMOUNTS.join(", ")})
+     GROUP BY transaction_id
+     HAVING COUNT(*) >= 2
+     ORDER BY COUNT(*) DESC;`,
+    (res) => res.rows.length >= 1,
+    (res) => Number(res.rows[0]!.count) >= 2,
+  );
+
+  // Test: Time-window flush — a single input (below maxBatchSize of 5) must still
+  // be flushed by the 1s time window, proving the scheduler fires on timer alone.
+  // Uses `no-wait` so the server returns immediately without blocking on receipt,
+  // then we observe the DB for the row.
+  const FLUSH_AMOUNT = 12345;
+
+  await assert("Bitcoin batcher: no-wait returns immediately for single input", async () => {
+    const start = Date.now();
+    const res = await sendBitcoin(WIF, { toAddress: WATCHED, amountSats: FLUSH_AMOUNT }, "no-wait");
+    const elapsed = Date.now() - start;
+    return res.success === true && elapsed < 5_000;
+  });
+
+  await assertSQL<{ value_sats: string }>(
+    `Bitcoin batcher: single input (${FLUSH_AMOUNT} sats) flushed by time-window and indexed`,
+    db,
+    `SELECT value_sats
+     FROM bitcoin_transactions
+     WHERE address = '${WATCHED}'
+       AND direction = 'output'
+       AND value_sats = ${FLUSH_AMOUNT};`,
+    (res) => res.rows.length > 0,
+    (res) => BigInt(res.rows[0]!.value_sats) === BigInt(FLUSH_AMOUNT),
+  );
+
+  // Test: Signature rejection — a request with a tampered signature must be rejected
+  // at the HTTP boundary (no row in DB with this amount, no storage growth).
+  const REJECT_AMOUNT = 33333;
+
+  await assert("Bitcoin batcher: tampered signature rejected at HTTP boundary", async () => {
+    const { status, body } = await sendBitcoinRaw(
+      WIF,
+      { toAddress: WATCHED, amountSats: REJECT_AMOUNT },
+      "no-wait",
+      bitcoin.networks.regtest,
+      "bitcoin",
+      // Flip the last byte of the signature — ECDSA s-component altered.
+      (sig) => {
+        const tampered = Buffer.from(sig);
+        tampered[tampered.length - 1] = tampered[tampered.length - 1]! ^ 0xff;
+        return tampered;
+      },
+    );
+    const rejected = status >= 400 || body?.success === false;
+    if (!rejected) console.error("[UNEXPECTED]", status, body);
+    return rejected;
+  });
+
+  // Allow time for a poll cycle — if the input were wrongly accepted it would
+  // have been submitted by now. Then assert the DB has no row with that amount.
+  await new Promise((r) => setTimeout(r, 3000));
+  await assertSQL<{ count: string }>(
+    `Bitcoin batcher: no tx with tampered amount (${REJECT_AMOUNT}) reached the chain`,
+    db,
+    `SELECT COUNT(*)::text AS count
+     FROM bitcoin_transactions
+     WHERE address = '${WATCHED}'
+       AND direction = 'output'
+       AND value_sats = ${REJECT_AMOUNT};`,
+    (res) => res.rows.length > 0,
+    (res) => res.rows[0]!.count === "0",
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function test() {
@@ -253,7 +377,10 @@ async function test() {
     // 6. Run batcher tests
     await batcherTests(db);
 
-    // 7. Summary
+    // 7. Run batcher feature tests (behavioral correctness)
+    await batcherFeatureTests(db);
+
+    // 8. Summary
     printSummary();
   } catch (e) {
     printSummary();

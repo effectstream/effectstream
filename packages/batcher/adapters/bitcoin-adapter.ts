@@ -130,7 +130,6 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   private readonly network: bitcoin.Network;
   public readonly maxBatchSize: number;
   private readonly batcherAddress: string;
-  private reservedSatFunds: number = 0;
   private addressChecked = false;
   private readonly syncProtocolName: string;
   private readonly log = new AdapterLogger("bitcoin");
@@ -202,58 +201,37 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   }
 
   async recoverState(pendingInputs: DefaultBatcherInput[]): Promise<void> {
-    // Rebuild reserved funds from pending inputs in storage
-    this.reservedSatFunds = 0;
-    
-    for (const input of pendingInputs) {
-      try {
-        const payload: BitcoinRequest = JSON.parse(input.input);
-        this.reservedSatFunds += payload.amountSats;
-      } catch (e) {
-        this.log.warn(`Failed to parse input during state recovery: ${e}`);
-      }
-    }
-    
-    this.log.log(`Recovered state - ${this.reservedSatFunds} sats reserved across ${pendingInputs.length} pending inputs`);
+    this.log.log(`Recovered state - ${pendingInputs.length} pending inputs carried over`);
   }
 
+  // Only pure, local checks run on the parallel HTTP accept path. Any RPC work
+  // (balance, fee, UTXO scan) must live on the serial batch-processing path in
+  // submitBatch — Bitcoin Core's scantxoutset is a node-wide singleton and
+  // concurrent calls fail with error -8. Funds sufficiency is re-checked in
+  // submitBatch, which runs one batch at a time per target.
   async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
+    let payload: BitcoinRequest;
     try {
-      const payload: BitcoinRequest = JSON.parse(input.input);
-
-      // Check Dust Limit (approx 546 sats)
-      if (payload.amountSats < 546) {
-        return { valid: false, error: "Amount below dust limit (546 sats)" };
-      }
-
-      // Basic address validation
-      try {
-        bitcoin.address.toOutputScript(payload.toAddress, this.network);
-      } catch {
-        return { valid: false, error: "Invalid Regtest address" };
-      }
-
-      // Check if batcher has sufficient funds
-      const balance = await this.getBatcherBalance();
-      const availableFunds = balance - this.reservedSatFunds;
-      const estimatedFee = await this.estimateSingleTransactionFee(payload.amountSats);
-
-      if (availableFunds < payload.amountSats + Number(estimatedFee)) {
-        return {
-          valid: false,
-          error: `Insufficient batcher funds.
-          Available funds: ${availableFunds} sats:
-          - wallet balance: ${balance} sats,
-          - reserved funds: ${this.reservedSatFunds} sats,
-          Required funds: ${payload.amountSats + Number(estimatedFee)} sats`
-        };
-      }
-      // Reserve funds for the transaction
-      this.reservedSatFunds += payload.amountSats;
-      return { valid: true };
+      payload = JSON.parse(input.input);
     } catch (e) {
-      return { valid: false, error: "Malformed JSON input" };
+      const msg = e instanceof Error ? e.message : String(e);
+      return { valid: false, error: `Malformed JSON input: ${msg}` };
     }
+
+    if (typeof payload.amountSats !== "number" || !Number.isFinite(payload.amountSats)) {
+      return { valid: false, error: "amountSats must be a finite number" };
+    }
+    if (payload.amountSats < 546) {
+      return { valid: false, error: "Amount below dust limit (546 sats)" };
+    }
+
+    try {
+      bitcoin.address.toOutputScript(payload.toAddress, this.network);
+    } catch {
+      return { valid: false, error: "Invalid address for configured network" };
+    }
+
+    return { valid: true };
   }
 
   buildBatchData(
@@ -380,8 +358,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     const tx = psbt.extractTransaction();
     const txHex = tx.toHex();
     const txId = await this.rpcCall("sendrawtransaction", [txHex]);
-    this.reservedSatFunds -= liberatedSatFunds;
-    this.log.log(`Submitted Bitcoin Batch: ${txId} - liberated funds: ${liberatedSatFunds} sats - reserved funds: ${this.reservedSatFunds} sats`);
+    this.log.log(`Submitted Bitcoin Batch: ${txId} - liberated funds: ${liberatedSatFunds} sats`);
     return txId;
   }
 
@@ -524,6 +501,15 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     }
   }
 
+  // TODO: wallet scoping. All RPCs target the root URL instead of
+  // `${rpcUrl}/wallet/<name>`, so `listunspent` and `importdescriptors` land on
+  // whichever wallet Bitcoin Core auto-routes to — not one this adapter owns.
+  // Consequence: `listunspent` returns empty for the batcher address and
+  // `fetchBatcherUtxos` falls back to `scantxoutset` on every submitBatch call,
+  // which is an expensive node-wide scan. Fix: create/load a dedicated
+  // descriptor wallet on startup, import the batcher descriptor once, and
+  // route every RPC through `/wallet/<batcher>`. That removes `scantxoutset`
+  // from the hot path entirely.
   private async rpcCall(method: string, params: any[]): Promise<any> {
     const response = await fetch(this.rpcUrl, {
       method: "POST",
