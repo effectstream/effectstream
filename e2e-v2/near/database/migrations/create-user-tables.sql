@@ -30,3 +30,12 @@ CREATE TABLE IF NOT EXISTS near_nep141_transfers (
   new_owner_id TEXT NOT NULL,
   amount TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS near_nep171_transfers (
+  id SERIAL PRIMARY KEY,
+  block_height INTEGER NOT NULL,
+  old_owner_id TEXT NOT NULL,
+  new_owner_id TEXT NOT NULL,
+  token_id TEXT NOT NULL,
+  is_burn BOOLEAN NOT NULL
+);

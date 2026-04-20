@@ -9,6 +9,7 @@ import {
   PrimitiveTypeNEARGeneric,
   PrimitiveTypeNEARIntent,
   PrimitiveTypeNEARNEP141,
+  PrimitiveTypeNEARNEP171,
 } from "@effectstream/sm/builtin";
 
 const mainSyncProtocolName = "mainNtp";
@@ -123,6 +124,18 @@ export const config = new ConfigBuilder()
           eventStandard: "nep141",
           eventType: "ft_transfer",
           scheduledPrefix: "nep141-transfer",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelNearRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "NearNep171Transfer",
+          type: PrimitiveTypeNEARNEP171,
+          startBlockHeight: 0,
+          contractId: "test.near",
+          eventStandard: "nep171",
+          eventType: "nft_transfer",
+          scheduledPrefix: "nep171-transfer",
         }),
       )
   )

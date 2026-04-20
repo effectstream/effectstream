@@ -45,6 +45,10 @@ const INTENT_ACCOUNT = "alice.test.near";
 const NEP141_FROM = `alice-${ts}.test.near`;
 const NEP141_TO = `bob-${ts}.test.near`;
 const NEP141_AMOUNT = `${ts}`;
+// NEP-171: a unique NFT id owned by owner_from, transferred to owner_to.
+const NEP171_FROM = `alice-${ts}.test.near`;
+const NEP171_TO = `carol-${ts}.test.near`;
+const NEP171_TOKEN_ID = `nft-${ts}`;
 
 // ── Step 1: Deploy contract ──────────────────────────────────────────────
 
@@ -98,6 +102,22 @@ await account.callFunction({
 });
 console.log("emit_nep141_transfer completed.");
 
+// ── Step 5: Call emit_nep171_transfer (NEAR:NEP171 test) ─────────────────
+
+console.log(
+  `Calling emit_nep171_transfer(from=${NEP171_FROM}, to=${NEP171_TO}, token_id=${NEP171_TOKEN_ID})...`,
+);
+await account.callFunction({
+  contractId: CONTRACT_ACCOUNT,
+  methodName: "emit_nep171_transfer",
+  args: {
+    old_owner_id: NEP171_FROM,
+    new_owner_id: NEP171_TO,
+    token_id: NEP171_TOKEN_ID,
+  },
+});
+console.log("emit_nep171_transfer completed.");
+
 // ── Write test data for E2E verification ─────────────────────────────────
 
 writeFileSync(join(BUILD_DIR, "test-message.txt"), MESSAGE);
@@ -106,4 +126,7 @@ writeFileSync(join(BUILD_DIR, "intent-account.txt"), INTENT_ACCOUNT);
 writeFileSync(join(BUILD_DIR, "nep141-from.txt"), NEP141_FROM);
 writeFileSync(join(BUILD_DIR, "nep141-to.txt"), NEP141_TO);
 writeFileSync(join(BUILD_DIR, "nep141-amount.txt"), NEP141_AMOUNT);
+writeFileSync(join(BUILD_DIR, "nep171-from.txt"), NEP171_FROM);
+writeFileSync(join(BUILD_DIR, "nep171-to.txt"), NEP171_TO);
+writeFileSync(join(BUILD_DIR, "nep171-token-id.txt"), NEP171_TOKEN_ID);
 console.log(`Test data written to ${BUILD_DIR}`);

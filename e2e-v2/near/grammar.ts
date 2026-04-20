@@ -6,4 +6,5 @@ export const grammar = {
   "intent-settled": builtinGrammars.nearIntent,
   "near-account-watch": builtinGrammars.nearAccountWatch,
   "nep141-transfer": builtinGrammars.nearNep141,
+  "nep171-transfer": builtinGrammars.nearNep171,
 } as const satisfies GrammarDefinition;

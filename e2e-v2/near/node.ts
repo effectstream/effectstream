@@ -68,6 +68,17 @@ stm.addStateTransition("nep141-transfer", function* (data) {
   ));
 });
 
+// NearNep171: non-fungible-token nft_transfer event (one row per token_id)
+stm.addStateTransition("nep171-transfer", function* (data) {
+  const { old_owner_id, new_owner_id, token_id, isBurn } = data.parsedInput;
+  console.log(`[STM] nep171-transfer: ${old_owner_id} -> ${new_owner_id} token=${token_id} burn=${isBurn}`);
+
+  yield* World.promise(pool.query(
+    "INSERT INTO near_nep171_transfers (block_height, old_owner_id, new_owner_id, token_id, is_burn) VALUES ($1,$2,$3,$4,$5)",
+    [data.blockHeight, old_owner_id, new_owner_id, token_id, isBurn],
+  ));
+});
+
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,

@@ -50,4 +50,19 @@ impl Contract {
         );
         env::log_str(&event);
     }
+
+    /// Emits a NEP-171 nft_transfer event for NEAR:NEP171 primitive testing.
+    /// Wraps a single token_id in the token_ids array as per the spec.
+    pub fn emit_nep171_transfer(
+        &self,
+        old_owner_id: String,
+        new_owner_id: String,
+        token_id: String,
+    ) {
+        let event = format!(
+            r#"EVENT_JSON:{{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{{"old_owner_id":"{}","new_owner_id":"{}","token_ids":["{}"]}}]}}"#,
+            old_owner_id, new_owner_id, token_id
+        );
+        env::log_str(&event);
+    }
 }
