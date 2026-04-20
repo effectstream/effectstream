@@ -39,3 +39,15 @@ CREATE TABLE IF NOT EXISTS near_nep171_transfers (
   token_id TEXT NOT NULL,
   is_burn BOOLEAN NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS near_nep245_transfers (
+  id SERIAL PRIMARY KEY,
+  block_height INTEGER NOT NULL,
+  event_type TEXT NOT NULL,
+  old_owner_id TEXT NOT NULL,
+  new_owner_id TEXT NOT NULL,
+  token_id TEXT NOT NULL,
+  amount TEXT NOT NULL,
+  is_mint BOOLEAN NOT NULL,
+  is_burn BOOLEAN NOT NULL
+);

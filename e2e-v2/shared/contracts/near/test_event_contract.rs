@@ -65,4 +65,20 @@ impl Contract {
         );
         env::log_str(&event);
     }
+
+    /// Emits a NEP-245 mt_transfer event for NEAR:NEP245 primitive testing.
+    /// Uses parallel token_ids / amounts arrays (single entry here) per the spec.
+    pub fn emit_nep245_transfer(
+        &self,
+        old_owner_id: String,
+        new_owner_id: String,
+        token_id: String,
+        amount: String,
+    ) {
+        let event = format!(
+            r#"EVENT_JSON:{{"standard":"nep245","version":"1.0.0","event":"mt_transfer","data":[{{"old_owner_id":"{}","new_owner_id":"{}","token_ids":["{}"],"amounts":["{}"]}}]}}"#,
+            old_owner_id, new_owner_id, token_id, amount
+        );
+        env::log_str(&event);
+    }
 }

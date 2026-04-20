@@ -49,6 +49,11 @@ const NEP141_AMOUNT = `${ts}`;
 const NEP171_FROM = `alice-${ts}.test.near`;
 const NEP171_TO = `carol-${ts}.test.near`;
 const NEP171_TOKEN_ID = `nft-${ts}`;
+// NEP-245: a multi-token with a fungible amount.
+const NEP245_FROM = `alice-${ts}.test.near`;
+const NEP245_TO = `dave-${ts}.test.near`;
+const NEP245_TOKEN_ID = `mt-${ts}`;
+const NEP245_AMOUNT = `${ts}`;
 
 // ── Step 1: Deploy contract ──────────────────────────────────────────────
 
@@ -118,6 +123,23 @@ await account.callFunction({
 });
 console.log("emit_nep171_transfer completed.");
 
+// ── Step 6: Call emit_nep245_transfer (NEAR:NEP245 test) ─────────────────
+
+console.log(
+  `Calling emit_nep245_transfer(from=${NEP245_FROM}, to=${NEP245_TO}, token_id=${NEP245_TOKEN_ID}, amount=${NEP245_AMOUNT})...`,
+);
+await account.callFunction({
+  contractId: CONTRACT_ACCOUNT,
+  methodName: "emit_nep245_transfer",
+  args: {
+    old_owner_id: NEP245_FROM,
+    new_owner_id: NEP245_TO,
+    token_id: NEP245_TOKEN_ID,
+    amount: NEP245_AMOUNT,
+  },
+});
+console.log("emit_nep245_transfer completed.");
+
 // ── Write test data for E2E verification ─────────────────────────────────
 
 writeFileSync(join(BUILD_DIR, "test-message.txt"), MESSAGE);
@@ -129,4 +151,8 @@ writeFileSync(join(BUILD_DIR, "nep141-amount.txt"), NEP141_AMOUNT);
 writeFileSync(join(BUILD_DIR, "nep171-from.txt"), NEP171_FROM);
 writeFileSync(join(BUILD_DIR, "nep171-to.txt"), NEP171_TO);
 writeFileSync(join(BUILD_DIR, "nep171-token-id.txt"), NEP171_TOKEN_ID);
+writeFileSync(join(BUILD_DIR, "nep245-from.txt"), NEP245_FROM);
+writeFileSync(join(BUILD_DIR, "nep245-to.txt"), NEP245_TO);
+writeFileSync(join(BUILD_DIR, "nep245-token-id.txt"), NEP245_TOKEN_ID);
+writeFileSync(join(BUILD_DIR, "nep245-amount.txt"), NEP245_AMOUNT);
 console.log(`Test data written to ${BUILD_DIR}`);

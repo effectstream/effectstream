@@ -79,6 +79,17 @@ stm.addStateTransition("nep171-transfer", function* (data) {
   ));
 });
 
+// NearNep245: multi-token mt_transfer event (one row per (token_id, amount) pair)
+stm.addStateTransition("nep245-transfer", function* (data) {
+  const { type, old_owner_id, new_owner_id, token_id, amount, isMint, isBurn } = data.parsedInput;
+  console.log(`[STM] nep245-transfer: ${type} ${old_owner_id} -> ${new_owner_id} token=${token_id} amount=${amount} mint=${isMint} burn=${isBurn}`);
+
+  yield* World.promise(pool.query(
+    "INSERT INTO near_nep245_transfers (block_height, event_type, old_owner_id, new_owner_id, token_id, amount, is_mint, is_burn) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+    [data.blockHeight, type, old_owner_id, new_owner_id, token_id, amount, isMint, isBurn],
+  ));
+});
+
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,

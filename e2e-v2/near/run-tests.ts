@@ -13,7 +13,7 @@
  *   [x] NEAR:AccountWatch — Execution outcome capture for FunctionCalls to watched contract
  *   [x] NEAR:NEP141       — FT ft_transfer event + IVM balance tracking
  *   [x] NEAR:NEP171       — NFT nft_transfer event + IVM ownership tracking
- *   [ ] NEAR:NEP245       — Multi-token transfers + balance tracking (stub)
+ *   [x] NEAR:NEP245       — MT mt_transfer event + IVM per-token-balance tracking
  *   [ ] Batcher           — Transaction submission via NearAdapter (stub)
  */
 import {
@@ -38,8 +38,8 @@ import { runIntentTest } from "./sync/intent.test.ts";
 import { runAccountWatchTest } from "./sync/account-watch.test.ts";
 import { runNep141Test } from "./sync/nep141.test.ts";
 import { runNep171Test } from "./sync/nep171.test.ts";
+import { runNep245Test } from "./sync/nep245.test.ts";
 // Stubs — uncomment as contracts are deployed and config is wired up
-// import { runNep245Test } from "./sync/nep245.test.ts";
 // import { runBatcherTest } from "./sync/batcher.test.ts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
@@ -64,12 +64,9 @@ async function runSyncTests(db: Client): Promise<void> {
   await runAccountWatchTest(db);
   await runNep141Test(db);
   await runNep171Test(db);
-
-  // Stubs — uncomment as implemented
-  // await runNep245Test(db);
+  await runNep245Test(db);
 
   console.log("\n  Stubs (not yet wired up):");
-  console.log("    [ ] NEAR:NEP245       — needs MT event emitter in test contract");
   console.log("    [ ] Batcher           — needs batcher service integration");
 }
 

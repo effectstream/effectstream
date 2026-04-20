@@ -7,4 +7,5 @@ export const grammar = {
   "near-account-watch": builtinGrammars.nearAccountWatch,
   "nep141-transfer": builtinGrammars.nearNep141,
   "nep171-transfer": builtinGrammars.nearNep171,
+  "nep245-transfer": builtinGrammars.nearNep245,
 } as const satisfies GrammarDefinition;
