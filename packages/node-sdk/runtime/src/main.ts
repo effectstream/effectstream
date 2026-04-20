@@ -9,6 +9,7 @@ import {
   getConnection,
   releaseDBMutex,
   resetPublicTables,
+  runSnapshotLoop,
 } from "@effectstream/db";
 import { PaimaEventBroker } from "@effectstream/event-server";
 import {
@@ -134,6 +135,10 @@ export function* start(config: StartConfig): Operation<void> {
   });
 
   let blockHash: PaimaBlockHash | null = null;
+  if (config.snapshotConfig) {
+    yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
+  }
+
   for (const value of yield* each(finalizedBlockStream)) {
     // We request a dbClient for a non-shared dbConn object.
     // For PGLite, this is not enough, as the can only be one connection at a time.

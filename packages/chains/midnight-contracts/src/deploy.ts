@@ -45,6 +45,13 @@ function hasManagedArtifacts(dir: string): boolean {
 }
 
 function findCompilerSubdirectory(managedDir: string): string {
+  // Check the managed directory itself first before looking at subdirectories.
+  // This prevents accidentally picking a nested sub-contract (e.g. counter/)
+  // that only contains a subset of the circuit keys.
+  if (hasManagedArtifacts(managedDir)) {
+    return "";
+  }
+
   try {
     for (const entry of readdirSync(managedDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
@@ -55,10 +62,6 @@ function findCompilerSubdirectory(managedDir: string): string {
     }
   } catch (_error) {
     throw new Error(`Managed directory not found: ${managedDir}`);
-  }
-
-  if (hasManagedArtifacts(managedDir)) {
-    return "";
   }
 
   throw new Error(
