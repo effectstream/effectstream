@@ -57,6 +57,17 @@ stm.addStateTransition("near-account-watch", function* (data) {
   ));
 });
 
+// NearNep141: fungible-token ft_transfer event
+stm.addStateTransition("nep141-transfer", function* (data) {
+  const { old_owner_id, new_owner_id, amount } = data.parsedInput;
+  console.log(`[STM] nep141-transfer: ${old_owner_id} -> ${new_owner_id} amount=${amount}`);
+
+  yield* World.promise(pool.query(
+    "INSERT INTO near_nep141_transfers (block_height, old_owner_id, new_owner_id, amount) VALUES ($1,$2,$3,$4)",
+    [data.blockHeight, old_owner_id, new_owner_id, amount],
+  ));
+});
+
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,

@@ -22,3 +22,11 @@ CREATE TABLE IF NOT EXISTS near_account_watches (
   deposit TEXT NOT NULL,
   status TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS near_nep141_transfers (
+  id SERIAL PRIMARY KEY,
+  block_height INTEGER NOT NULL,
+  old_owner_id TEXT NOT NULL,
+  new_owner_id TEXT NOT NULL,
+  amount TEXT NOT NULL
+);

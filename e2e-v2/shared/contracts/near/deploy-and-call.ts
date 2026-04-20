@@ -40,6 +40,11 @@ const ts = Date.now();
 const MESSAGE = `effectstream-near-e2e-${ts}`;
 const INTENT_HASH = `intent-${ts}`;
 const INTENT_ACCOUNT = "alice.test.near";
+// NEP-141 unique-per-run identifiers so the nep141 test can locate its row
+// without colliding with other primitives' events.
+const NEP141_FROM = `alice-${ts}.test.near`;
+const NEP141_TO = `bob-${ts}.test.near`;
+const NEP141_AMOUNT = `${ts}`;
 
 // ── Step 1: Deploy contract ──────────────────────────────────────────────
 
@@ -77,9 +82,28 @@ await account.callFunction({
 });
 console.log("settle_intent completed.");
 
+// ── Step 4: Call emit_nep141_transfer (NEAR:NEP141 test) ─────────────────
+
+console.log(
+  `Calling emit_nep141_transfer(from=${NEP141_FROM}, to=${NEP141_TO}, amount=${NEP141_AMOUNT})...`,
+);
+await account.callFunction({
+  contractId: CONTRACT_ACCOUNT,
+  methodName: "emit_nep141_transfer",
+  args: {
+    old_owner_id: NEP141_FROM,
+    new_owner_id: NEP141_TO,
+    amount: NEP141_AMOUNT,
+  },
+});
+console.log("emit_nep141_transfer completed.");
+
 // ── Write test data for E2E verification ─────────────────────────────────
 
 writeFileSync(join(BUILD_DIR, "test-message.txt"), MESSAGE);
 writeFileSync(join(BUILD_DIR, "intent-hash.txt"), INTENT_HASH);
 writeFileSync(join(BUILD_DIR, "intent-account.txt"), INTENT_ACCOUNT);
+writeFileSync(join(BUILD_DIR, "nep141-from.txt"), NEP141_FROM);
+writeFileSync(join(BUILD_DIR, "nep141-to.txt"), NEP141_TO);
+writeFileSync(join(BUILD_DIR, "nep141-amount.txt"), NEP141_AMOUNT);
 console.log(`Test data written to ${BUILD_DIR}`);

@@ -35,4 +35,19 @@ impl Contract {
         );
         env::log_str(&event);
     }
+
+    /// Emits a NEP-141 ft_transfer event for NEAR:NEP141 primitive testing.
+    /// Shape matches the spec: fields old_owner_id, new_owner_id, amount (all strings).
+    pub fn emit_nep141_transfer(
+        &self,
+        old_owner_id: String,
+        new_owner_id: String,
+        amount: String,
+    ) {
+        let event = format!(
+            r#"EVENT_JSON:{{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{{"old_owner_id":"{}","new_owner_id":"{}","amount":"{}"}}]}}"#,
+            old_owner_id, new_owner_id, amount
+        );
+        env::log_str(&event);
+    }
 }
