@@ -10,10 +10,10 @@
  * Test coverage:
  *   [x] NEAR:Generic      — NEP-297 custom event with unique message verification
  *   [x] NEAR:Intent       — DIP-4 intent settlement with token diffs + STM processing
+ *   [x] NEAR:AccountWatch — Execution outcome capture for FunctionCalls to watched contract
  *   [ ] NEAR:NEP141       — FT transfers + balance tracking (stub)
  *   [ ] NEAR:NEP171       — NFT transfers + ownership tracking (stub)
  *   [ ] NEAR:NEP245       — Multi-token transfers + balance tracking (stub)
- *   [ ] NEAR:AccountWatch — Execution outcome capture (stub — needs fetcher work)
  *   [ ] Batcher           — Transaction submission via NearAdapter (stub)
  */
 import {
@@ -35,11 +35,11 @@ import path from "path";
 import { runToolingTests } from "./tooling/sandbox-launch.test.ts";
 import { runGenericTest } from "./sync/generic.test.ts";
 import { runIntentTest } from "./sync/intent.test.ts";
+import { runAccountWatchTest } from "./sync/account-watch.test.ts";
 // Stubs — uncomment as contracts are deployed and config is wired up
 // import { runNep141Test } from "./sync/nep141.test.ts";
 // import { runNep171Test } from "./sync/nep171.test.ts";
 // import { runNep245Test } from "./sync/nep245.test.ts";
-// import { runAccountWatchTest } from "./sync/account-watch.test.ts";
 // import { runBatcherTest } from "./sync/batcher.test.ts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
@@ -61,19 +61,17 @@ async function runSyncTests(db: Client): Promise<void> {
   // Implemented tests
   await runGenericTest(db);
   await runIntentTest(db);
+  await runAccountWatchTest(db);
 
   // Stubs — uncomment as implemented
   // await runNep141Test(db);
   // await runNep171Test(db);
   // await runNep245Test(db);
-  // await runAccountWatchTest(db);
 
-  // Print stub status
   console.log("\n  Stubs (not yet wired up):");
   console.log("    [ ] NEAR:NEP141       — needs FT contract deployed");
   console.log("    [ ] NEAR:NEP171       — needs NFT contract deployed");
   console.log("    [ ] NEAR:NEP245       — needs MT contract deployed");
-  console.log("    [ ] NEAR:AccountWatch — needs fetcher enhancement");
   console.log("    [ ] Batcher           — needs batcher service integration");
 }
 

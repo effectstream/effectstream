@@ -46,6 +46,17 @@ stm.addStateTransition("intent-settled", function* (data) {
   ));
 });
 
+// NearAccountWatch: raw FunctionCall outcome captured for the watched contractId
+stm.addStateTransition("near-account-watch", function* (data) {
+  const { signer_id, receiver_id, method_name, args, deposit, status } = data.parsedInput;
+  console.log(`[STM] near-account-watch: ${signer_id} -> ${receiver_id}.${method_name}(${args}) deposit=${deposit} status=${status}`);
+
+  yield* World.promise(pool.query(
+    "INSERT INTO near_account_watches (block_height, signer_id, receiver_id, method_name, args, deposit, status) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+    [data.blockHeight, signer_id, receiver_id, method_name, args, deposit, status],
+  ));
+});
+
 const gameStateTransitions: StartConfigGameStateTransitions = function* (
   blockHeight: number,
   input: BaseStfInput,

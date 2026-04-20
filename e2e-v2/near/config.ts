@@ -5,6 +5,7 @@ import {
   ConfigSyncProtocolType,
 } from "@effectstream/config";
 import {
+  PrimitiveTypeNEARAccountWatch,
   PrimitiveTypeNEARGeneric,
   PrimitiveTypeNEARIntent,
 } from "@effectstream/sm/builtin";
@@ -99,6 +100,16 @@ export const config = new ConfigBuilder()
           eventStandard: "dip4",
           eventType: "token_diff",
           scheduledPrefix: "intent-settled",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelNearRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "NearAccountWatch",
+          type: PrimitiveTypeNEARAccountWatch,
+          startBlockHeight: 0,
+          contractId: "test.near",
+          scheduledPrefix: "near-account-watch",
         }),
       )
   )
