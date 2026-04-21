@@ -1,14 +1,18 @@
 {
-  "name": "paima-engine",
+  "name": "effectstream",
   "version": "0.6.1",
   "private": true,
   "workspaces": [
     "packages/**",
-    "e2e-v2/**"
+    "e2e-v2/**",
+    "example"
   ],
   "scripts": {
     "test:code": "bun test ./packages",
     "test:e2e": "cd e2e-v2 && bun run runner.ts"
+  },
+  "overrides": {
+    "@midnight-ntwrk/ledger-v8": "8.0.3"
   },
   "devDependencies": {
     "@effectstream/db": "workspace:*",
