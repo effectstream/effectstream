@@ -1,5 +1,16 @@
 import { ENV } from "@effectstream/utils/node-env";
+import {
+  cwd,
+  mkdirRecursive,
+  readDir,
+  remove,
+  statMtime,
+} from "@effectstream/utils/runtime";
+import { spawnOutput } from "@effectstream/utils/runtime-spawn";
 import { sleep, until, type Operation } from "effection";
+
+/** `process.env` works under Node, Bun, and Deno (via node: compat). */
+declare const process: { env: Record<string, string | undefined> };
 
 export interface SnapshotRetentionConfig {
   /** One per hour for last 24 h. Default: `true` */
@@ -73,10 +84,17 @@ export async function createSnapshot(
   const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\.\d{3}/, "");
   const snapshotPath = `${snapshotDir}/snapshot-${timestamp}.dump`;
 
-  await Deno.mkdir(snapshotDir, { recursive: true });
+  await mkdirRecursive(snapshotDir);
   console.log(`[Snapshot] Creating snapshot at ${snapshotPath}...`);
 
-  const cmd = new Deno.Command("pg_dump", {
+  // Inherit the ambient env and add PGPASSWORD. `process.env` is populated on
+  // Node/Bun natively and on Deno via node:compat when --allow-env is set.
+  const ambientEnv: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v !== undefined) ambientEnv[k] = v;
+  }
+
+  const result = await spawnOutput("pg_dump", {
     args: [
       "-h", ENV.DB_HOST,
       "-p", String(ENV.DB_PORT),
@@ -85,14 +103,12 @@ export async function createSnapshot(
       "-F", "c",
       "-f", snapshotPath,
     ],
-    env: { ...Deno.env.toObject(), PGPASSWORD: ENV.DB_PW ?? "" },
+    env: { ...ambientEnv, PGPASSWORD: ENV.DB_PW ?? "" },
     stdout: "inherit",
     stderr: "inherit",
   });
-
-  const status = await cmd.output();
-  if (!status.success) {
-    throw new Error(`[Snapshot] pg_dump failed with exit code ${status.code}`);
+  if (!result.success) {
+    throw new Error(`[Snapshot] pg_dump failed with exit code ${result.code}`);
   }
 
   console.log(`[Snapshot] Snapshot created: ${snapshotPath}`);
@@ -109,7 +125,7 @@ export function* runSnapshotLoop(
 ): Operation<void> {
   const resolved = resolveSnapshotConfig(snapshotConfig);
   const intervalMs = resolved.intervalSeconds * 1000;
-  console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${resolved.path}, cwd ${Deno.cwd()})`);
+  console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${resolved.path}, cwd ${cwd()})`);
   while (true) {
     console.log(`[Snapshot] Firing`);
     try {
@@ -147,12 +163,12 @@ export async function applyRetentionPolicy(
   const entries: { path: string; mtime: number }[] = [];
 
   try {
-    for await (const entry of Deno.readDir(snapshotDir)) {
+    for await (const entry of readDir(snapshotDir)) {
       if (!entry.isFile || !entry.name.startsWith("snapshot-") || !entry.name.endsWith(".dump")) continue;
       const filePath = `${snapshotDir}/${entry.name}`;
       try {
-        const stat = await Deno.stat(filePath);
-        entries.push({ path: filePath, mtime: stat.mtime?.getTime() ?? 0 });
+        const mtime = await statMtime(filePath);
+        entries.push({ path: filePath, mtime });
       } catch { /* file vanished between readDir and stat */ }
     }
   } catch (e) {
@@ -193,7 +209,7 @@ export async function applyRetentionPolicy(
   for (const entry of entries) {
     if (!keepers.has(entry.path)) {
       try {
-        await Deno.remove(entry.path);
+        await remove(entry.path);
         console.log(`[Snapshot] Retention: deleted ${entry.path}`);
       } catch (e) {
         console.warn(`[Snapshot] Failed to delete ${entry.path}:`, e);
