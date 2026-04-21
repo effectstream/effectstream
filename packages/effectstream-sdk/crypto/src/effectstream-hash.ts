@@ -2,10 +2,10 @@ import type { BlockHash, EffectstreamBlockHash } from "@effectstream/utils";
 import crypto from "node:crypto";
 
 /**
- * Calculates the Paima block hash based on the captured blocks, and previous block hash.
+ * Calculates the Effectstream block hash based on the captured blocks, and previous block hash.
  * @param chainBlock - The chain block to hash.
  * @param previousBlockHash - The previous block hash.
- * @returns The Paima block hash.
+ * @returns The Effectstream block hash.
  */
 export function generateEffectstreamBlockHash(
   chainBlock: { blockInfo: { blockHash: BlockHash }[] }, // ChainBlock,

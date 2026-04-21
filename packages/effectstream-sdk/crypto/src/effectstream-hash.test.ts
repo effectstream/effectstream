@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { generateEffectstreamBlockHash } from "./paima-hash.ts";
+import { generateEffectstreamBlockHash } from "./effectstream-hash.ts";
 import type { BlockHash, EffectstreamBlockHash } from "@effectstream/utils";
 
 test("generateEffectstreamBlockHash - generates hash correctly", () => {
