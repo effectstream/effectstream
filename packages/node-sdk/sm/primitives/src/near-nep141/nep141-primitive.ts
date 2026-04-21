@@ -7,7 +7,7 @@ import {
 import {
   type AddressAndType,
   AddressType,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
 } from "@effectstream/utils";
 import { type JsonObject, Primitive } from "@effectstream/sm";
 import {
@@ -51,7 +51,7 @@ export class Nep141Primitive extends Primitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.NEAR_RPC_PARALLEL
     >,

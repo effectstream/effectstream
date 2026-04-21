@@ -31,7 +31,7 @@ import { processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
-import type { PaimaBlockHash } from "@effectstream/utils";
+import type { EffectstreamBlockHash } from "@effectstream/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
 import { type SyncProtocolWithNetwork, ConfigNetworkType } from "@effectstream/config";
@@ -134,7 +134,7 @@ export function* start(config: StartConfig): Operation<void> {
     }
   });
 
-  let blockHash: PaimaBlockHash | null = null;
+  let blockHash: EffectstreamBlockHash | null = null;
   if (config.snapshotConfig) {
     yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
   }

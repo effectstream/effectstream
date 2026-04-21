@@ -45,21 +45,21 @@ function encodeHexFromString(value: string): `0x${string}` {
  * EVM-specific implementation of the blockchain adapter interface
  * Handles all EVM blockchain interactions including transaction submission and confirmation
  */
-export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
+export class EffectstreamL2DefaultAdapter implements BlockchainAdapter<string> {
   private readonly walletClient: WalletClient;
   private readonly publicClient: PublicClient;
   private readonly account: Account;
-  private readonly paimaL2Address: EvmAddress;
-  private readonly paimaL2Fee: bigint;
+  private readonly effectstreamL2Address: EvmAddress;
+  private readonly effectstreamL2Fee: bigint;
   private readonly effectstreamSyncProtocolName: string;
   public readonly maxBatchSize: number;
-  private readonly log = new AdapterLogger("paimal2");
+  private readonly log = new AdapterLogger("effectstream-l2");
 
   // Private helper for building batch data
   private readonly batchBuilderLogic = new DefaultBatchBuilderLogic();
 
   // TODO: Import this from the actual ABI package when available
-  private readonly paimaL2Abi = [
+  private readonly effectstreamL2Abi = [
     {
       inputs: [{ name: "data", type: "bytes" }],
       name: "paimaSubmitGameInput",
@@ -70,15 +70,15 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
   ] as const;
 
   constructor(
-    paimaL2Address: EvmAddress,
+    effectstreamL2Address: EvmAddress,
     batcherPrivateKey: EvmPrivateKey,
-    paimaL2Fee: bigint,
+    effectstreamL2Fee: bigint,
     effectstreamSyncProtocolName: string,
     chain: Chain = chains.hardhat,
     maxBatchSize: number = 10000,
   ) {
-    this.paimaL2Address = paimaL2Address;
-    this.paimaL2Fee = paimaL2Fee;
+    this.effectstreamL2Address = effectstreamL2Address;
+    this.effectstreamL2Fee = effectstreamL2Fee;
     this.effectstreamSyncProtocolName = effectstreamSyncProtocolName;
     this.maxBatchSize = maxBatchSize;
 
@@ -118,13 +118,13 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
   }
 
   /**
-   * Submit a batch transaction to the PaimaL2 contract
+   * Submit a batch transaction to the EffectstreamL2 contract
    */
   async submitBatch(
     data: string,
     fee?: string | bigint,
   ): Promise<BlockchainHash> {
-    let actualFee = this.paimaL2Fee;
+    let actualFee = this.effectstreamL2Fee;
     if (fee) {
       actualFee = typeof fee === "string" ? BigInt(fee) : fee;
     }
@@ -132,8 +132,8 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
     const hash = await this.walletClient.writeContract({
       account: this.account,
       chain: this.walletClient.chain,
-      address: this.paimaL2Address,
-      abi: this.paimaL2Abi,
+      address: this.effectstreamL2Address,
+      abi: this.effectstreamL2Abi,
       functionName: "paimaSubmitGameInput",
       args: [hexData],
       value: actualFee,
@@ -177,13 +177,13 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
   }
 
   /**
-   * Estimate the fee for submitting a batch (returns the configured PaimaL2 fee)
+   * Estimate the fee for submitting a batch (returns the configured EffectstreamL2 fee)
    * This matches the approach used in the old batcher implementation which
    * simply used the pre-configured fee rather than performing complex estimation.
    */
   estimateBatchFee(data: string): bigint {
     // Note: Fee estimation doesn't need hex encoding since it just returns the configured fee
-    return this.paimaL2Fee;
+    return this.effectstreamL2Fee;
   }
 
   /**
@@ -215,9 +215,9 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
   }
 
   /**
-   * Get the PaimaL2 contract address
+   * Get the EffectstreamL2 contract address
    */
   getContractAddress(): EvmAddress {
-    return this.paimaL2Address;
+    return this.effectstreamL2Address;
   }
 }

@@ -10,7 +10,7 @@ import {
   type AddressAndType,
   AddressType,
   type EvmAddress,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
   TypeboxHelpers,
 } from "@effectstream/utils";
 import { type JsonObject, Primitive } from "@effectstream/sm";
@@ -65,7 +65,7 @@ import { PrimitiveTypeEVMERC721 } from "../builtin.ts";
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,

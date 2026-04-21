@@ -9,7 +9,7 @@ import {
   type AddressAndType,
   AddressType,
   type EvmAddress,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
   TypeboxHelpers,
 } from "@effectstream/utils";
 import { type JsonObject, Primitive } from "@effectstream/sm";
@@ -71,7 +71,7 @@ export class Erc20Primitive extends Primitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,

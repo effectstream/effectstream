@@ -10,7 +10,7 @@ import {
   type AddressAndType,
   AddressType,
   type EvmAddress,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
   TypeboxHelpers,
 } from "@effectstream/utils";
 import { type JsonObject, Primitive } from "@effectstream/sm";
@@ -73,7 +73,7 @@ export class Erc1155Primitive extends Primitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<ConfigSyncProtocolType.EVM_RPC_PARALLEL>
   ): StateUpdateStream<{
     isBatched: boolean;

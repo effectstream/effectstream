@@ -1,4 +1,4 @@
-import type { AddressAndType, PaimaBlockNumber } from "@effectstream/utils";
+import type { AddressAndType, EffectstreamBlockNumber } from "@effectstream/utils";
 import type { StaticDecode, TSchema } from "@sinclair/typebox";
 import type { CommandTuple } from "@effectstream/concise";
 import { PrimitiveRegistry } from "./PrimitiveRegistry.ts";
@@ -63,7 +63,7 @@ export abstract class Primitive<
   // This returns the payload in the state machine format.
   // e.g., [stateMachinePrefix, v1, v2, v3]
   abstract getPayload(
-    effectstream_block_height: PaimaBlockNumber,
+    effectstream_block_height: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<SyncProtocol>,
   ): StateUpdateStream<{
     isBatched: boolean;

@@ -23,7 +23,7 @@ import {
   type AddressAndType,
   AddressType,
   type EvmAddress,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
   TypeboxHelpers,
   type StaticDecode,
 } from "@effectstream/utils";
@@ -87,7 +87,7 @@ class EvmCounterPrimitive extends Primitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,

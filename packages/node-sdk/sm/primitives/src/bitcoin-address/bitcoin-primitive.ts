@@ -7,7 +7,7 @@ import type {
 import {
   type AddressAndType,
   AddressType,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
 } from "@effectstream/utils";
 import { type JsonObject, Primitive } from "@effectstream/sm";
 import {
@@ -46,7 +46,7 @@ export class BitcoinAddressPrimitive extends Primitive<
   }
 
   override *getPayload(
-    _blockNumber: PaimaBlockNumber,
+    _blockNumber: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL
     >,

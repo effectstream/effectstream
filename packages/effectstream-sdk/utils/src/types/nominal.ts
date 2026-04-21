@@ -25,7 +25,7 @@ export type VersionString = `${number}.${number}.${number}`;
 
 // TODO: should probably differentiate between block numbers of different networks
 //       and maybe even Paima block number / emulated block number
-export type PaimaBlockNumber = FastFlavor<number, "PaimaBlockNumber">;
+export type EffectstreamBlockNumber = FastFlavor<number, "EffectstreamBlockNumber">;
 export type EvmBlockNumber = FastFlavor<number, "EvmBlockNumber">;
 export type NtpBlockNumber = FastFlavor<number, "NtpBlockNumber">;
 export type MidnightBlockNumber = FastFlavor<number, "MidnightBlockNumber">;
@@ -33,7 +33,7 @@ export type CardanoBlockNumber = FastFlavor<number, "CardanoBlockNumber">;
 export type BitcoinBlockNumber = FastFlavor<number, "BitcoinBlockNumber">;
 
 export type BlockNumber =
-  | PaimaBlockNumber
+  | EffectstreamBlockNumber
   | EvmBlockNumber
   | NtpBlockNumber
   | MidnightBlockNumber
@@ -134,7 +134,7 @@ export type PrivateKey =
   | EvmPrivateKey
   | GenericPrivateKey;
 
-export type PaimaTxHash = FastFlavor<HexString0x, "PaimaTxHash">;
+export type EffectstreamTxHash = FastFlavor<HexString0x, "EffectstreamTxHash">;
 export type TxHash =
   | AlgorandTxHash
   | AvailTxHash
@@ -142,11 +142,11 @@ export type TxHash =
   | EvmTxHash
   | MidnightTxHash
   | MinaTxHash
-  | PaimaTxHash
+  | EffectstreamTxHash
   | NtpTxHash;
 // | SubstrateTxHash;
 
-export type PaimaBlockHash = FastFlavor<HexString0x, "PaimaBlockHash">;
+export type EffectstreamBlockHash = FastFlavor<HexString0x, "EffectstreamBlockHash">;
 export type BlockHash =
   | AlgorandBlockHash
   | AvailBlockHash
@@ -154,7 +154,7 @@ export type BlockHash =
   | EvmBlockHash
   | MidnightBlockHash
   | MinaBlockHash
-  | PaimaBlockHash
+  | EffectstreamBlockHash
   | NtpBlockHash
   | BitcoinBlockHash;
 // | SubstrateBlockHash;

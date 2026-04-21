@@ -10,7 +10,7 @@ import type { StateUpdateStream } from "@effectstream/coroutine";
 import {
   type AddressAndType,
   AddressType,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
 } from "@effectstream/utils";
 import { availGenericGrammar } from "./avail-generic-grammar.ts";
 import { PrimitiveTypeAvailGeneric } from "../builtin.ts";
@@ -47,7 +47,7 @@ export class AvailGenericPrimitive extends Primitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.AVAIL_PARALLEL
     >,

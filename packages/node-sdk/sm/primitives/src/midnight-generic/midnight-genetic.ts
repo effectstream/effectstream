@@ -3,7 +3,7 @@ import {
   type AddressAndType,
   AddressType,
   type MidnightAddress,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
   uint8ArrayToHexString,
 } from "@effectstream/utils";
 import type { StaticDecode } from "@sinclair/typebox";
@@ -89,7 +89,7 @@ export class MidnightGenericPrimitive extends Primitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.MIDNIGHT_PARALLEL
     >,

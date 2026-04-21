@@ -10,7 +10,7 @@ import type { StateUpdateStream } from "@effectstream/coroutine";
 import {
   type AddressAndType,
   AddressType,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
 } from "@effectstream/utils";
 import { celestiaGenericGrammar } from "./celestia-generic-grammar.ts";
 import { PrimitiveTypeCelestiaGeneric } from "../builtin.ts";
@@ -43,7 +43,7 @@ export class CelestiaGenericPrimitive extends Primitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.CELESTIA_PARALLEL
     >,

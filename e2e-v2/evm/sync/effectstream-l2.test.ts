@@ -1,5 +1,5 @@
 /**
- * PaimaL2 Sync Test
+ * EffectstreamL2 Sync Test
  *
  * Flow: submit ["add", "100", "50"] on-chain via paimaSubmitGameInput
  *       -> sync picks up the event
@@ -24,7 +24,7 @@ const wallet0 = {
   privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as `0x${string}`,
 };
 
-const paimaL2Abi = [
+const effectstreamL2Abi = [
   {
     inputs: [{ name: "data", type: "bytes" }],
     name: "paimaSubmitGameInput",
@@ -34,9 +34,9 @@ const paimaL2Abi = [
   },
 ] as const;
 
-export async function paimaL2SyncTest(db: Client, sharedState: SharedState) {
+export async function effectstreamL2SyncTest(db: Client, sharedState: SharedState) {
   const addresses = contractAddressesEvmMain();
-  const paimaL2Address = addresses.chain31337["PaimaL2ContractModule#MyPaimaL2Contract"];
+  const effectstreamL2Address = addresses.chain31337["PaimaL2ContractModule#MyPaimaL2Contract"];
 
   const account = privateKeyToAccount(wallet0.privateKey);
   const walletClient = createWalletClient({ account, chain: hardhat, transport: http() });
@@ -44,8 +44,8 @@ export async function paimaL2SyncTest(db: Client, sharedState: SharedState) {
 
   // Submit ["add", "100", "50"]
   const hash1 = await walletClient.writeContract({
-    address: paimaL2Address,
-    abi: paimaL2Abi,
+    address: effectstreamL2Address,
+    abi: effectstreamL2Abi,
     functionName: "paimaSubmitGameInput",
     args: [toHex(JSON.stringify(["add", "100", "50"]))],
     value: parseEther("0.0000000001"),
@@ -55,8 +55,8 @@ export async function paimaL2SyncTest(db: Client, sharedState: SharedState) {
 
   // Submit ["add", "7", "3"]
   const hash2 = await walletClient.writeContract({
-    address: paimaL2Address,
-    abi: paimaL2Abi,
+    address: effectstreamL2Address,
+    abi: effectstreamL2Abi,
     functionName: "paimaSubmitGameInput",
     args: [toHex(JSON.stringify(["add", "7", "3"]))],
     value: parseEther("0.0000000001"),
@@ -64,12 +64,12 @@ export async function paimaL2SyncTest(db: Client, sharedState: SharedState) {
   await publicClient.waitForTransactionReceipt({ hash: hash2 });
   sharedState.primitive_accounting_counter += 1;
 
-  // Check primitive_accounting: 2 PaimaGameInteraction entries with parsed data
+  // Check primitive_accounting: 2 EffectstreamGameInteraction entries with parsed data
   await assertSQL<{ primitive_name: string; payload: any }>(
-    "PaimaL2: add(100,50) and add(7,3) parsed in primitive_accounting",
+    "EffectstreamL2: add(100,50) and add(7,3) parsed in primitive_accounting",
     db,
     `SELECT primitive_name, payload FROM effectstream.primitive_accounting
-     WHERE primitive_name = 'PaimaGameInteraction' ORDER BY id ASC;`,
+     WHERE primitive_name = 'EffectstreamGameInteraction' ORDER BY id ASC;`,
     (res) => res.rows.length >= 2,
     (res) => {
       const p1 = res.rows[0].payload;
@@ -83,7 +83,7 @@ export async function paimaL2SyncTest(db: Client, sharedState: SharedState) {
 
   // Check STM custom table: game_results has computed values
   await assertSQL<{ a: number; b: number; result: number }>(
-    "PaimaL2: STM wrote game_results: 100+50=150, 7+3=10",
+    "EffectstreamL2: STM wrote game_results: 100+50=150, 7+3=10",
     db,
     `SELECT a, b, result FROM game_results ORDER BY id ASC;`,
     (res) => res.rows.length >= 2,
@@ -95,7 +95,7 @@ export async function paimaL2SyncTest(db: Client, sharedState: SharedState) {
 
   // Check that wallet0's address was tracked after submitting game inputs
   await assertSQL<{ address: string }>(
-    "PaimaL2: wallet0 address tracked in effectstream.addresses",
+    "EffectstreamL2: wallet0 address tracked in effectstream.addresses",
     db,
     `SELECT address FROM effectstream.addresses;`,
     (res) => res.rows.length >= 1,

@@ -4,7 +4,7 @@ import {
   AddressType,
   type BlockNumber,
   type EvmAddress,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
   type TxHash,
   TypeboxHelpers,
   type WalletAddress,
@@ -40,43 +40,43 @@ import {
 } from "@effectstream/sm";
 import { BuiltinGrammarPrefix } from "@effectstream/concise";
 
-import { paimal2 } from "./paimal2-abi.ts";
+import { effectstreamL2 } from "./effectstream-l2-abi.ts";
 import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
 import { type JsonObject, Primitive } from "@effectstream/sm";
 import { Value } from "@sinclair/typebox/value";
 import type { CommandTuple } from "@effectstream/concise";
-import { PrimitiveTypeEVMPaimaL2 } from "../builtin.ts";
+import { PrimitiveTypeEVMEffectstreamL2 } from "../builtin.ts";
 
-export class PaimaL2Primitive extends Primitive<
+export class EffectstreamL2Primitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   readonly [string, TSchema][]
 > {
   // Primitive defined
-  readonly internalTypeName = PrimitiveTypeEVMPaimaL2;
+  readonly internalTypeName = PrimitiveTypeEVMEffectstreamL2;
   readonly abi = getEvmEvent(
-    paimal2.abi,
+    effectstreamL2.abi,
     "PaimaGameInteraction(address,bytes,uint256)",
   );
   readonly contractAddress: EvmAddress;
   override grammar = [];
-  readonly paimaL2Grammar: GrammarDefinition;
+  readonly effectstreamL2Grammar: GrammarDefinition;
 
   constructor(config: {
     instanceName: string;
     startBlockHeight: number;
     contractAddress: EvmAddress;
-    paimaL2Grammar: GrammarDefinition;
+    effectstreamL2Grammar: GrammarDefinition;
   }) {
     super({ ...config, stateMachinePrefix: undefined });
     this.contractAddress = Value.Decode(
       TypeboxHelpers.Evm.Address,
       config.contractAddress,
     );
-    this.paimaL2Grammar = config.paimaL2Grammar;
+    this.effectstreamL2Grammar = config.effectstreamL2Grammar;
   }
 
   override *getPayload(
-    effectstream_block_height: PaimaBlockNumber,
+    effectstream_block_height: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,
@@ -92,7 +92,7 @@ export class PaimaL2Primitive extends Primitive<
       accountingPayload: JsonObject;
     }[];
   }> {
-    const { data, isBatched } = yield* this.processPaimaL2SyncProtocolResponse(
+    const { data, isBatched } = yield* this.processEffectstreamL2SyncProtocolResponse(
       effectstream_block_height,
       primitiveTransactionData,
     );
@@ -157,13 +157,13 @@ export class PaimaL2Primitive extends Primitive<
     return true;
   }
 
-  private readonly PrimitiveEvmRpcPaimaL2Payload = Type.Object({
+  private readonly PrimitiveEvmRpcEffectstreamL2Payload = Type.Object({
     userAddress: TypeboxHelpers.Evm.Address,
     data: TypeboxHelpers.HexString0x(),
     value: TypeboxHelpers.Uint256,
   });
 
-  private readonly PaimaL2Payload = Type.Object({
+  private readonly EffectstreamL2Payload = Type.Object({
     userAddress: Type.String(),
     data: Type.String(),
     value: Type.String({ default: "0" }),
@@ -173,8 +173,8 @@ export class PaimaL2Primitive extends Primitive<
    * NOTE: if "command" is undefined, it means the input is invalid and must be skipped as it does not exist.
    *       if "callSTM" is false, it means the input is valid, but the contents are invalid, and it will be stored in the accounting, but not processed in the STF.
    */
-  private *executePaimaL2Input(input: {
-    effectstream_block_height: PaimaBlockNumber;
+  private *executeEffectstreamL2Input(input: {
+    effectstream_block_height: EffectstreamBlockNumber;
     nonce: string | undefined;
     ownChain: {
       blockNumber: BlockNumber;
@@ -201,7 +201,7 @@ export class PaimaL2Primitive extends Primitive<
     }
 
     try {
-      Value.Decode(this.PaimaL2Payload, input.payload);
+      Value.Decode(this.EffectstreamL2Payload, input.payload);
     } catch (e) {
       log.remote(
         ComponentNames.EFFECTSTREAM_SYNC,
@@ -312,7 +312,7 @@ export class PaimaL2Primitive extends Primitive<
     }
 
     console.log(
-      "Creating scheduled data for Paima L2 input",
+      "Creating scheduled data for Effectstream L2 input",
       inputData,
       input.effectstream_block_height,
       input.primitiveName,
@@ -327,8 +327,8 @@ export class PaimaL2Primitive extends Primitive<
     };
   }
 
-  private *processPaimaL2SyncProtocolResponse(
-    effectstream_block_height: PaimaBlockNumber,
+  private *processEffectstreamL2SyncProtocolResponse(
+    effectstream_block_height: EffectstreamBlockNumber,
     response: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,
@@ -347,7 +347,7 @@ export class PaimaL2Primitive extends Primitive<
       fromAddressAndType: AddressAndType;
     }[] = [];
     const outerLayerData = Value.Decode(
-      this.PrimitiveEvmRpcPaimaL2Payload,
+      this.PrimitiveEvmRpcEffectstreamL2Payload,
       response.output.payload,
     );
     let isBatched = false;
@@ -393,7 +393,7 @@ export class PaimaL2Primitive extends Primitive<
 
         if (validSignature) {
           commands.push(
-            yield* this.executePaimaL2Input({
+            yield* this.executeEffectstreamL2Input({
               effectstream_block_height,
               nonce: batchedMessage.parsed.address +
                 "-" +
@@ -436,7 +436,7 @@ export class PaimaL2Primitive extends Primitive<
       // This is a EVM contract, so the signer is always EVM.
       const signerAddress: EvmAddress = CryptoManager.getCryptoManager(AddressType.EVM).decodeAddress(outerLayerData.userAddress) as EvmAddress;
       commands.push(
-        yield* this.executePaimaL2Input({
+        yield* this.executeEffectstreamL2Input({
           effectstream_block_height,
           // TODO: where do we get the nonce from?
           nonce: undefined,
@@ -479,6 +479,6 @@ function* verifySignature(
 
 // declare module "@effectstream/sm" {
 //   interface PrimitiveGlobalDefinitions {
-//     PaimaL2Primitive: typeof PaimaL2Primitive;
+//     EffectstreamL2Primitive: typeof EffectstreamL2Primitive;
 //   }
 // }

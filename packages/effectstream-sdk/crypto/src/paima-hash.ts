@@ -1,4 +1,4 @@
-import type { BlockHash, PaimaBlockHash } from "@effectstream/utils";
+import type { BlockHash, EffectstreamBlockHash } from "@effectstream/utils";
 import crypto from "node:crypto";
 
 /**
@@ -7,11 +7,11 @@ import crypto from "node:crypto";
  * @param previousBlockHash - The previous block hash.
  * @returns The Paima block hash.
  */
-export function generatePaimaBlockHash(
+export function generateEffectstreamBlockHash(
   chainBlock: { blockInfo: { blockHash: BlockHash }[] }, // ChainBlock,
-  previousBlockHash: PaimaBlockHash | null,
-): PaimaBlockHash {
+  previousBlockHash: EffectstreamBlockHash | null,
+): EffectstreamBlockHash {
   const hashes: BlockHash[] = chainBlock.blockInfo.map((h) => h.blockHash);
   const hashString: string = [previousBlockHash ?? "0x0", ...hashes].join("");
-  return `0x${crypto.hash("sha512", hashString, "hex")}` as PaimaBlockHash;
+  return `0x${crypto.hash("sha512", hashString, "hex")}` as EffectstreamBlockHash;
 }

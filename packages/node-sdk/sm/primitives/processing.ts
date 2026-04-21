@@ -3,7 +3,7 @@ import type {
   FlattenSyncProtocolIOFor,
 } from "@effectstream/config";
 import { type StateUpdateStream, World } from "@effectstream/coroutine";
-import type { PaimaBlockNumber } from "@effectstream/utils";
+import type { EffectstreamBlockNumber } from "@effectstream/utils";
 import { PrimitiveRegistry } from "./PrimitiveRegistry.ts";
 import {
   createScheduledData,
@@ -12,7 +12,7 @@ import {
 } from "@effectstream/db";
 
 export function* primitiveTransitionFunction(
-  effectstream_block_height: PaimaBlockNumber,
+  effectstream_block_height: EffectstreamBlockNumber,
   primitiveData: FlattenSyncProtocolIOFor<
     ConfigSyncProtocolType
   >,

@@ -2,7 +2,7 @@ import { Primitive } from "@effectstream/sm";
 import {
   type AddressAndType,
   AddressType,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
 } from "@effectstream/utils";
 import type { StaticDecode } from "@sinclair/typebox";
 import {
@@ -56,7 +56,7 @@ export class MidnightNullifierPrimitive extends Primitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.MIDNIGHT_PARALLEL
     >,
