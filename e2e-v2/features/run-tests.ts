@@ -56,6 +56,14 @@ async function test() {
     const { accountTest } = await import("./accounts/account.test.ts");
     await accountTest(db, sharedState, API_PORT);
 
+    // ── Snapshot tests (opt-in via EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS) ───
+    console.log("\n--- Snapshot Tests ---\n");
+    const { snapshotTest, snapshotRetentionTest } = await import(
+      "./snapshots/snapshot.test.ts"
+    );
+    await snapshotTest(db);
+    await snapshotRetentionTest(db);
+
     printSummary();
   } catch (e) {
     printSummary();

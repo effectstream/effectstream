@@ -3,6 +3,7 @@ import {
   start,
   type StartConfigGameStateTransitions,
 } from "@effectstream/runtime";
+import { ENV } from "@effectstream/utils/node-env";
 import { main, suspend } from "effection";
 import {
   toSyncProtocolWithNetwork,
@@ -280,6 +281,18 @@ main(function* () {
       migrations: migrationTable,
       grammar,
       userDefinedPrimitives,
+      // Snapshots are opt-in: only enabled when EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS is set.
+      snapshotConfig: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS != null
+        ? {
+            intervalSeconds: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS,
+            path: ENV.EFFECTSTREAM_SNAPSHOT_PATH,
+            retention: {
+              lastDayHourly: ENV.EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY,
+              last3DaysSixHourly: ENV.EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY,
+              lastNDaysDaily: ENV.EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS,
+            },
+          }
+        : undefined,
     });
   });
 
