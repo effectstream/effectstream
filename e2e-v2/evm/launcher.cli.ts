@@ -88,7 +88,7 @@ export default {
     // ── Batcher ─────────────────────────────────────────────────────────────
     {
       name: "batcher",
-      description: "E2E-V2 EVM Batcher (PaimaL2 + Counter adapters)",
+      description: "E2E-V2 EVM Batcher (EffectstreamL2 + Counter adapters)",
       stopProcessAtPort: [3334],
       args: ["run", "e2e-v2/evm/batcher/main.ts"],
       waitToExit: false,

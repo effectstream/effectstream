@@ -147,13 +147,13 @@ async function runSyncTests(db: Client, sharedState: SharedState): Promise<void>
   const { erc20SyncTest } = await import("./sync/erc20.test.ts");
   const { erc721SyncTest } = await import("./sync/erc721.test.ts");
   const { erc1155SyncTest } = await import("./sync/erc1155.test.ts");
-  const { paimaL2SyncTest } = await import("./sync/paima-l2.test.ts");
+  const { effectstreamL2SyncTest } = await import("./sync/effectstream-l2.test.ts");
   const { customCounterSyncTest } = await import("./sync/custom-counter.test.ts");
   const { multiChainSyncTest } = await import("./sync/multi-chain.test.ts");
   const { scheduledDataTest } = await import("./sync/scheduled-data.test.ts");
   const { errorProcessingTest } = await import("./sync/error-processing.test.ts");
 
-  await paimaL2SyncTest(db, sharedState);
+  await effectstreamL2SyncTest(db, sharedState);
   await erc20SyncTest(db, sharedState);
   await erc721SyncTest(db, sharedState);
   await erc1155SyncTest(db, sharedState);

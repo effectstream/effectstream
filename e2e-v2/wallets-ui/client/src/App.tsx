@@ -77,7 +77,7 @@ interface PrimitiveInfo {
   networkType: string;
 }
 
-// localhostConfig.primitives['evm-rpc-effectstream-l2'].primitive.abi = paimaL2Abi;
+// localhostConfig.primitives['evm-rpc-effectstream-l2'].primitive.abi = effectstreamL2Abi;
 /** Convert Viem to Ether Signer */
 /** Hook to convert a viem Wallet Client to an ethers.js Signer. */
 function clientToSigner(client: any) { // Client<Transport, Chain, Account>) {
@@ -953,7 +953,7 @@ function App() {
                 className="info-box-large info-box"
                 style={{ marginTop: "1rem" }}
               >
-                {selectedPrimitive.type === "EVM:PaimaL2"
+                {selectedPrimitive.type === "EVM:EffectstreamL2"
                   ? (selectedFunction ? renderForm() : (
                     <div>
                       <h2>Select a function</h2>

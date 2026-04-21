@@ -2,7 +2,7 @@ import { builtinGrammars } from "@effectstream/sm/grammar";
 import { Type } from "@sinclair/typebox";
 import type { GrammarDefinition } from "@effectstream/concise";
 
-export const paimaL2Grammar = {
+export const effectstreamL2Grammar = {
   schedule: [
     ["tick", Type.Integer()],
     [
@@ -23,7 +23,7 @@ export const paimaL2Grammar = {
 } as const satisfies GrammarDefinition;
 
 export const grammar = {
-  ...paimaL2Grammar,
+  ...effectstreamL2Grammar,
 
   "counter-stm": [["counter", Type.Number()]],
 

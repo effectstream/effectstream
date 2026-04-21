@@ -175,7 +175,7 @@ const stm = new Stm<typeof grammar, {}>(grammar);
 
 const pool = getConnection();
 
-// PaimaL2: ["add", "a", "b"] -> STM computes a+b and writes to game_results
+// EffectstreamL2: ["add", "a", "b"] -> STM computes a+b and writes to game_results
 stm.addStateTransition("add", function* (data) {
   const { a, b } = data.parsedInput;
   const result = a + b;

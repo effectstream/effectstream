@@ -14,7 +14,7 @@ export async function deployTest() {
     return addr !== undefined && addr.startsWith("0x");
   });
 
-  await assert("PaimaL2 contract deployed on chain 31337", async () => {
+  await assert("EffectstreamL2 contract deployed on chain 31337", async () => {
     const addresses = contractAddressesEvmMain();
     const addr = addresses.chain31337["PaimaL2ContractModule#MyPaimaL2Contract"];
     return addr !== undefined && addr.startsWith("0x");

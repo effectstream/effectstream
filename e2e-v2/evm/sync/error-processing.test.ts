@@ -23,7 +23,7 @@ const wallet0 = {
   privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as `0x${string}`,
 };
 
-const paimaL2Abi = [
+const effectstreamL2Abi = [
   {
     inputs: [{ name: "data", type: "bytes" }],
     name: "paimaSubmitGameInput",
@@ -35,14 +35,14 @@ const paimaL2Abi = [
 
 async function submitInput(input: (string | number)[]): Promise<void> {
   const addresses = contractAddressesEvmMain();
-  const paimaL2Address = addresses.chain31337["PaimaL2ContractModule#MyPaimaL2Contract"];
+  const effectstreamL2Address = addresses.chain31337["PaimaL2ContractModule#MyPaimaL2Contract"];
   const account = privateKeyToAccount(wallet0.privateKey);
   const walletClient = createWalletClient({ account, chain: hardhat, transport: http() });
   const publicClient = createPublicClient({ chain: hardhat, transport: http() });
 
   const hash = await walletClient.writeContract({
-    address: paimaL2Address,
-    abi: paimaL2Abi,
+    address: effectstreamL2Address,
+    abi: effectstreamL2Abi,
     functionName: "paimaSubmitGameInput",
     args: [toHex(JSON.stringify(input.map(String)))],
     value: parseEther("0.0000000001"),

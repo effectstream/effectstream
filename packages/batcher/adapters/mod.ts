@@ -15,8 +15,8 @@ export type {
 // Shared adapter logger
 export { AdapterLogger } from "./adapter-logger.ts";
 
-// PaimaL2 adapter implementation
-export { PaimaL2DefaultAdapter } from "./paimal2-adapter.ts";
+// EffectstreamL2 adapter implementation
+export { EffectstreamL2DefaultAdapter } from "./effectstream-l2-adapter.ts";
 
 // Midnight adapter implementation
 export { MidnightAdapter } from "./midnight-adapter.ts";

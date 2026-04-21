@@ -2,7 +2,7 @@ import { main, suspend } from "effection";
 import { createNewBatcher, FileStorage, type BatcherConfig, type DefaultBatcherInput } from "@effectstream/batcher";
 import { ENV } from "@effectstream/utils/node-env";
 
-import { paimal2Adapter } from "./adapter-paimal2.ts";
+import { effectstreamL2Adapter } from "./adapter-effectstream-l2.ts";
 import { counterAdapter, counterAdapterTarget } from "./adapter-counter.ts";
 
 const batchIntervalMs = 1000;
@@ -22,9 +22,9 @@ const storage = new FileStorage("./e2e-v2-batcher-data");
 const batcher = createNewBatcher(config, storage);
 
 batcher
-  .addBlockchainAdapter("paimal2", paimal2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
+  .addBlockchainAdapter("effectstream-l2", effectstreamL2Adapter, { criteriaType: "time", timeWindowMs: batchIntervalMs })
   .addBlockchainAdapter(counterAdapterTarget, counterAdapter, { criteriaType: "size", maxBatchSize: 1 })
-  .setDefaultTarget("paimal2");
+  .setDefaultTarget("effectstream-l2");
 
 main(function* () {
   console.log("Starting E2E-V2 EVM Batcher...");

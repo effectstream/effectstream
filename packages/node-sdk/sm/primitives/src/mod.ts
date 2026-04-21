@@ -1,7 +1,7 @@
 import {
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeMidnightNullifier,
-  PrimitiveTypeEVMPaimaL2,
+  PrimitiveTypeEVMEffectstreamL2,
   PrimitiveTypeEVMERC721,
   PrimitiveTypeEVMERC20,
   PrimitiveTypeAvailGeneric,
@@ -20,7 +20,7 @@ import {
 
 import { MidnightGenericPrimitive } from "./midnight-generic/midnight-genetic.ts";
 import { MidnightNullifierPrimitive } from "./midnight-nullifier/midnight-nullifier.ts";
-import { PaimaL2Primitive } from "./evm-paimal2/paimal2-primitive.ts";
+import { EffectstreamL2Primitive } from "./evm-effectstream-l2/effectstream-l2-primitive.ts";
 import { Erc721Primitive } from "./evm-erc721/erc721-primitive.ts";
 import { Erc20Primitive } from "./evm-erc20/erc20-primitive.ts";
 import { AvailGenericPrimitive } from "./avail-generic/avail-primitive.ts";
@@ -39,7 +39,7 @@ import { NearAccountWatchPrimitive } from "./near-account-watch/near-account-wat
 const builtInPrimitivesMap = {
   [PrimitiveTypeMidnightGeneric]: MidnightGenericPrimitive,
   [PrimitiveTypeMidnightNullifier]: MidnightNullifierPrimitive,
-  [PrimitiveTypeEVMPaimaL2]: PaimaL2Primitive,
+  [PrimitiveTypeEVMEffectstreamL2]: EffectstreamL2Primitive,
   [PrimitiveTypeEVMERC721]: Erc721Primitive,
   [PrimitiveTypeEVMERC20]: Erc20Primitive,
   [PrimitiveTypeAvailGeneric]: AvailGenericPrimitive,
@@ -63,7 +63,7 @@ export {
   // Built-in Primitives
   MidnightGenericPrimitive,
   MidnightNullifierPrimitive,
-  PaimaL2Primitive,
+  EffectstreamL2Primitive,
   Erc721Primitive,
   Erc20Primitive,
   AvailGenericPrimitive,
