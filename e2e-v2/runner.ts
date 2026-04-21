@@ -15,6 +15,7 @@ const suites = [
   { name: "celestia", script: "./celestia/run-tests.ts" },
   { name: "near", script: "./near/run-tests.ts" },
   { name: "features", script: "./features/run-tests.ts" },
+  { name: "wallets", script: "./wallets-ui/run-tests.ts" },
 ];
 
 const __dirname = import.meta.dirname ?? ".";
