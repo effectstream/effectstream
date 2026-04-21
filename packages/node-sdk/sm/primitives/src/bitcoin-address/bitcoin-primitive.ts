@@ -9,7 +9,7 @@ import {
   AddressType,
   type PaimaBlockNumber,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import {
   type CommandTuple,
   type ParamToData,
@@ -21,7 +21,7 @@ import { PrimitiveTypeBitcoinAddress } from "../builtin.ts";
 
 type BitcoinDirection = "inputs" | "outputs" | "both";
 
-export class BitcoinAddressPrimitive extends PaimaPrimitive<
+export class BitcoinAddressPrimitive extends Primitive<
   ConfigSyncProtocolType.BITCOIN_RPC_PARALLEL,
   typeof bitcoinAddressGrammar
 > {

@@ -9,7 +9,7 @@ import {
   AddressType,
   type PaimaBlockNumber,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import {
   type CommandTuple,
   generateRawStmInput,
@@ -24,7 +24,7 @@ import {
 } from "./nep141-ivm.ts";
 import { PrimitiveTypeNEARNEP141 } from "../builtin.ts";
 
-export class Nep141Primitive extends PaimaPrimitive<
+export class Nep141Primitive extends Primitive<
   ConfigSyncProtocolType.NEAR_RPC_PARALLEL,
   typeof nep141Grammar
 > {

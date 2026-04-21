@@ -4,7 +4,7 @@ import type {
 } from "@effectstream/config";
 import { type StateUpdateStream, World } from "@effectstream/coroutine";
 import type { PaimaBlockNumber } from "@effectstream/utils";
-import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
+import { PrimitiveRegistry } from "./PrimitiveRegistry.ts";
 import {
   createScheduledData,
   type IInsertPrimitiveAccountingParams,
@@ -18,13 +18,13 @@ export function* primitiveTransitionFunction(
   >,
 ): StateUpdateStream<void> {
   const primitiveName = primitiveData.primitive;
-  const paimaPrimitive = PaimaPrimitiveRegistry.getPrimitive(primitiveName);
-  if (!paimaPrimitive) {
-    console.error("No Paima Primitive found for", primitiveName);
+  const primitive = PrimitiveRegistry.getPrimitive(primitiveName);
+  if (!primitive) {
+    console.error("No Primitive found for", primitiveName);
     return;
   }
   // TODO We don't need to pass the `primitive' rather the primitive.output
-  const { isBatched, data } = yield* paimaPrimitive
+  const { isBatched, data } = yield* primitive
     .getPayload(
       effectstream_block_height,
       primitiveData,
@@ -42,9 +42,9 @@ export function* primitiveTransitionFunction(
       accountingPayload = { data: accountingPayload };
     }
     const insertPrimitiveAccountingParams: IInsertPrimitiveAccountingParams = {
-      primitive_name: paimaPrimitive.instanceName,
+      primitive_name: primitive.instanceName,
       effectstream_block_height: effectstream_block_height,
-      payload_type: paimaPrimitive.internalTypeName,
+      payload_type: primitive.internalTypeName,
       payload: accountingPayload,
     };
     yield* World.resolve(

@@ -1,7 +1,7 @@
 import type { AddressAndType, PaimaBlockNumber } from "@effectstream/utils";
 import type { StaticDecode, TSchema } from "@sinclair/typebox";
 import type { CommandTuple } from "@effectstream/concise";
-import { PaimaPrimitiveRegistry } from "./PrimitiveRegistry.ts";
+import { PrimitiveRegistry } from "./PrimitiveRegistry.ts";
 import type { StateUpdateStream } from "@effectstream/coroutine";
 import type { JsonObject } from "./types.ts";
 import type {
@@ -11,12 +11,12 @@ import type {
 import type { AnyPrimitiveType } from "./src/builtin.ts";
 
 /**
- * Abstract Class for Paima Primitives
+ * Abstract Class for Effectstream Primitives
  *
  * This is the interface that needs to be implemented to register a new primitive.
  * E.g., ERC721, ERC1155, etc,
  */
-export abstract class PaimaPrimitive<
+export abstract class Primitive<
   SyncProtocol extends keyof ProtocolPrimitiveMap,
   TGrammar extends readonly Readonly<[string, TSchema]>[],
 > {
@@ -35,7 +35,7 @@ export abstract class PaimaPrimitive<
     this.instanceName = config.instanceName;
     this.startBlockHeight = config.startBlockHeight;
     this.stateMachinePrefix = config.stateMachinePrefix;
-    PaimaPrimitiveRegistry.addPrimitive(this);
+    PrimitiveRegistry.addPrimitive(this);
   }
   // Primitive defined
   // unique name for primitive definition as chain:protocol

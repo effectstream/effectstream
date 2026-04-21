@@ -9,7 +9,7 @@ import {
   AddressType,
   type PaimaBlockNumber,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import {
   type CommandTuple,
   generateRawStmInput,
@@ -26,7 +26,7 @@ import { PrimitiveTypeNEARNEP245 } from "../builtin.ts";
 
 const ZERO_ACCOUNT = "";
 
-export class Nep245Primitive extends PaimaPrimitive<
+export class Nep245Primitive extends Primitive<
   ConfigSyncProtocolType.NEAR_RPC_PARALLEL,
   typeof nep245Grammar
 > {

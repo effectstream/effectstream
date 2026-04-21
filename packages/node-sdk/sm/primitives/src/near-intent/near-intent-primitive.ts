@@ -9,7 +9,7 @@ import {
   AddressType,
   type PaimaBlockNumber,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import {
   type CommandTuple,
   generateRawStmInput,
@@ -25,7 +25,7 @@ import {
 import { PrimitiveTypeNEARIntent } from "../builtin.ts";
 import { matchesGlob } from "./near-intent-token-id-parser.ts";
 
-export class NearIntentPrimitive extends PaimaPrimitive<
+export class NearIntentPrimitive extends Primitive<
   ConfigSyncProtocolType.NEAR_RPC_PARALLEL,
   typeof nearIntentGrammar
 > {

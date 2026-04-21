@@ -1,4 +1,4 @@
-import { PaimaPrimitive } from "@effectstream/sm";
+import { Primitive } from "@effectstream/sm";
 import {
   type AddressAndType,
   AddressType,
@@ -25,7 +25,7 @@ import { PrimitiveTypeMidnightGeneric } from "../builtin.ts";
 import { midnightGenericGrammar } from "./midnight-genetic-grammar.ts"
 
 
-export class MidnightGenericPrimitive extends PaimaPrimitive<
+export class MidnightGenericPrimitive extends Primitive<
   ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
   typeof midnightGenericGrammar
 > {

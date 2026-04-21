@@ -42,12 +42,12 @@ import { BuiltinGrammarPrefix } from "@effectstream/concise";
 
 import { paimal2 } from "./paimal2-abi.ts";
 import { type StaticDecode, type TSchema, Type } from "@sinclair/typebox";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import { Value } from "@sinclair/typebox/value";
 import type { CommandTuple } from "@effectstream/concise";
 import { PrimitiveTypeEVMPaimaL2 } from "../builtin.ts";
 
-export class PaimaL2Primitive extends PaimaPrimitive<
+export class PaimaL2Primitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   readonly [string, TSchema][]
 > {

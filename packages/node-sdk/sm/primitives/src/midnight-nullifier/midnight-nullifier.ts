@@ -1,4 +1,4 @@
-import { PaimaPrimitive } from "@effectstream/sm";
+import { Primitive } from "@effectstream/sm";
 import {
   type AddressAndType,
   AddressType,
@@ -32,7 +32,7 @@ import { midnightNullifierGrammar } from "./midnight-nullifier-grammar.ts";
  *     // payload = { nullifier, txHash, eventId, logicalSegment }
  *   });
  */
-export class MidnightNullifierPrimitive extends PaimaPrimitive<
+export class MidnightNullifierPrimitive extends Primitive<
   ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
   typeof midnightNullifierGrammar
 > {

@@ -8,7 +8,7 @@ import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
-import { PaimaSTM } from "@effectstream/sm";
+import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { World } from "@effectstream/coroutine";
@@ -20,7 +20,7 @@ import createUserTables from "./database/migrations/create-user-tables.sql" with
 // ── State Machine ────────────────────────────────────────────────────────────
 
 const pool = getConnection();
-const stm = new PaimaSTM<typeof grammar, {}>(grammar);
+const stm = new Stm<typeof grammar, {}>(grammar);
 
 // BitcoinAddress primitive -> writes to bitcoin_transactions
 stm.addStateTransition("bitcoin-transaction", function* (data) {

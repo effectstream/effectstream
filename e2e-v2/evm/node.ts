@@ -9,7 +9,7 @@ import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
-import { PaimaSTM } from "@effectstream/sm";
+import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { World } from "@effectstream/coroutine";
@@ -27,7 +27,7 @@ import {
   TypeboxHelpers,
   type StaticDecode,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import { Value } from "@sinclair/typebox/value";
 import {
   type CommandTuple,
@@ -61,7 +61,7 @@ const counterGrammar = [
   ["counter", Type.Number()],
 ] as const;
 
-class EvmCounterPrimitive extends PaimaPrimitive<
+class EvmCounterPrimitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   typeof counterGrammar
 > {
@@ -171,7 +171,7 @@ const userDefinedPrimitives = {
 
 // ── State Machine ────────────────────────────────────────────────────────────
 
-const stm = new PaimaSTM<typeof grammar, {}>(grammar);
+const stm = new Stm<typeof grammar, {}>(grammar);
 
 const pool = getConnection();
 

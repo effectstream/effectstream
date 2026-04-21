@@ -13,7 +13,7 @@ import {
   type PaimaBlockNumber,
   TypeboxHelpers,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import {
   type CommandTuple,
   generateRawStmInput,
@@ -29,11 +29,11 @@ import { PrimitiveTypeEVMERC721 } from "../builtin.ts";
 /**
  * Erc721 Primitive
  *
- * This is a concrete implementation of the PaimaPrimitive class for ERC721.
+ * This is a concrete implementation of the Primitive class for ERC721.
  */
 
 
-  export class Erc721Primitive extends PaimaPrimitive<
+  export class Erc721Primitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   typeof erc721Grammar
 > {

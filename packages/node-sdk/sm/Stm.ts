@@ -21,7 +21,7 @@ export type MessageListener<
   input: BaseStfInput & { parsedInput: ParamToData<Params> },
 ) => SyncStateUpdateStream<void>;
 
-export class PaimaSTM<
+export class Stm<
   Grammar extends GrammarDefinition,
   Events extends AppEvents,
 > {

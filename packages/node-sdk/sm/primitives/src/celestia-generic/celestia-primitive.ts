@@ -1,4 +1,4 @@
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import type { StaticDecode } from "@sinclair/typebox";
 import { type CommandTuple, generateRawStmInput } from "@effectstream/concise";
 import type {
@@ -21,7 +21,7 @@ import { PrimitiveTypeCelestiaGeneric } from "../builtin.ts";
  * Watches a Celestia namespace for Data Availability blobs and feeds
  * the decoded blob content into the state machine as a scheduled input.
  */
-export class CelestiaGenericPrimitive extends PaimaPrimitive<
+export class CelestiaGenericPrimitive extends Primitive<
   ConfigSyncProtocolType.CELESTIA_PARALLEL,
   typeof celestiaGenericGrammar
 > {

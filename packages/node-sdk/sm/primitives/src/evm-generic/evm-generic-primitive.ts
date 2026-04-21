@@ -12,7 +12,7 @@ import {
   type PaimaBlockNumber,
   TypeboxHelpers,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import { Value } from "@sinclair/typebox/value";
 import {
   type CommandTuple,
@@ -25,10 +25,10 @@ import { PrimitiveTypeEVMGeneric } from "../builtin.ts";
 /**
  * Erc20 Primitive
  *
- * This is a concrete implementation of the PaimaPrimitive class for ERC20.
+ * This is a concrete implementation of the Primitive class for ERC20.
  */
 
-export class EvmGenericPrimitive extends PaimaPrimitive<
+export class EvmGenericPrimitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   readonly [string, TSchema][]
 > {

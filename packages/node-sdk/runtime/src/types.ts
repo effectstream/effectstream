@@ -1,12 +1,12 @@
 import type { Operation } from "effection";
 import type { SyncProtocolWithNetwork } from "@effectstream/config";
-import type { AppEvents, BaseStfInput, BaseStfOutput, PaimaPrimitive } from "@effectstream/sm";
+import type { AppEvents, BaseStfInput, BaseStfOutput, Primitive } from "@effectstream/sm";
 import type { FastifyInstance } from "fastify";
 import type { Pool } from "pg";
 import type { SnapshotConfig } from "@effectstream/db";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import type { GrammarDefinition } from "@effectstream/concise";
-// These are user type defined objects for launching Paima Engine Node.
+// These are user type defined objects for launching the Effectstream Node.
 
 export type VERSION = `${number}.${number}.${number}`;
 
@@ -35,10 +35,10 @@ export type StartConfigApiRouter = (
   dbConn: Pool,
 ) => Promise<void>;
 
-export type PaimaPrimitiveConstructor<T extends PaimaPrimitive<any, any>> = new (config: any) => T;
+export type PrimitiveConstructor<T extends Primitive<any, any>> = new (config: any) => T;
 
 /**
- * Main configuration object for the Paima Engine Node.
+ * Main configuration object for the Effectstream Node.
  *
  * @param syncInfo - The Networks/Primitives Sync information.
  * @param gameStateTransitions - (optional) Game State Transition Router.
@@ -57,7 +57,7 @@ export type StartConfig = {
   migrations?: DBMigrations[];
   apiRouter?: StartConfigApiRouter;
   grammar?: GrammarDefinition;
-  userDefinedPrimitives?: Record<string, PaimaPrimitiveConstructor<any>>;
+  userDefinedPrimitives?: Record<string, PrimitiveConstructor<any>>;
   /**
    * Automated database snapshot configuration via `pg_dump`.
    * An empty object `{}` enables snapshots with all defaults.
