@@ -42,7 +42,7 @@ For Effectstream, the inputs are stored on-chain (which guarantees determinism),
 
 You may sometimes hear this referred to as a "pessimistic rollup" because nodes need to re-execute transactions to check the validity of the chain instead of optimistically being able to assume correctness. This mirrors many ideas of [replicated state machines](https://en.wikipedia.org/wiki/State_machine_replication).
 
-![](./paima-sm-docs.png)
+![](./effectstream-sm-docs.png)
 
 ## Data Projections (co-processing)
 
@@ -123,7 +123,7 @@ To help visualize how these components help build a game, we will show an exampl
 
 Similarly, to give additional liquidity for NFTs for the game, it natively supports minting NFTs on the two of the largest ecosystems in crypto by marketcap (Ethereum through Arbitrum One and Cardano). Since there are many EVM ecosystems and we cannot possibly monitor them all, we use a projected NFT contract connected to a message relayer to support NFTs on the other chains (more on this topic in a later section).
 
-![](./paima-tarochi-docs.png)
+![](./effectstream-tarochi-docs.png)
 
 ### Data availability (DA) layer support
 
@@ -151,7 +151,7 @@ Effectstream already comes with ZK layer support, and we are working with [Midni
 
 This game is a team battle game that leverages recursive SNARKs provided by the Mina blockchain for private state and state-channel-like scalability. However, Mina has very few users. To get around this issue, it allows users to deposit funds into the game from Ethereum and unlocks winnings using a ZK proof of victory. However, since ZK proofs only settle to Ethereum once a match is over (plus a few minutes of overhead). To allow writing a smooth UX where the whole game logic is a unified experience, the game is written using Effectstream that monitors both Mina for the gameplay and Ethereum for the deposits and payouts.
 
-![](./paima-mina-docs.png)
+![](./effectstream-mina-docs.png)
 
 ## Ongoing work
 

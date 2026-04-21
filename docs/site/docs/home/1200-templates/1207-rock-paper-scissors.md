@@ -541,10 +541,10 @@ The frontend uses **Phaser.js** for game rendering and UI, with wallet integrati
 The middleware layer (`paimaMiddleware.src.js`) bridges Phaser to the Effectstream wallet API:
 
 ```javascript
-import { PaimaEngineConfig, sendTransaction, walletLogin, WalletMode } from "@paimaexample/wallets";
+import { EffectstreamConfig, sendTransaction, walletLogin, WalletMode } from "@paimaexample/wallets";
 import { hardhat } from "viem/chains";
 
-const paimaEngineConfig = new PaimaEngineConfig(
+const effectstreamConfig = new EffectstreamConfig(
   "rock-paper-scissors",
   "mainEvmRPC",
   "0x5FbDB2315678afecb367f032d93F642f64180aa3",
@@ -558,7 +558,7 @@ window.paimaMiddleware = {
   async userWalletLogin({ mode, preferBatchedMode }) {
     const result = await walletLogin({
       mode: mode || WalletMode.EvmInjected,
-      chain: paimaEngineConfig.paimaL2Chain,
+      chain: effectstreamConfig.effectstreamL2Chain,
       preferBatchedMode: preferBatchedMode ?? false,
     });
     if (!result.success) throw new Error("Wallet login failed");
@@ -569,19 +569,19 @@ window.paimaMiddleware = {
     return await sendTransaction(
       wallet,
       ["createdLobby", numOfRounds, roundLength, isHidden, isPractice],
-      paimaEngineConfig
+      effectstreamConfig
     );
   },
 
   async joinLobby(lobbyId) {
-    return await sendTransaction(wallet, ["joinedLobby", lobbyId], paimaEngineConfig);
+    return await sendTransaction(wallet, ["joinedLobby", lobbyId], effectstreamConfig);
   },
 
   async submitMove(lobbyId, roundNumber, move) {
     return await sendTransaction(
       wallet,
       ["submittedMoves", lobbyId, roundNumber, move],
-      paimaEngineConfig
+      effectstreamConfig
     );
   },
 };

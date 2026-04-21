@@ -49,7 +49,7 @@ Now you should see the dApp running in your browser!
 When you run `deno task dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
 *   **Hardhat EVM Node**: A local EVM blockchain.
 *   **Midnight Stack**: The full local Midnight environment, including the node, indexer, and proof server.
-*   **Paima Services**: The development database, log collector, TUI, and the Paima Explorer.
+*   **Effectstream Services**: The development database, log collector, TUI, and the Effectstream Explorer.
 *   **Effectstream**: Node to sync the chains.
 *   **Frontend**: A simple web interface to interact with the contracts.
 
@@ -85,7 +85,7 @@ pragma language_version >= 0.17;
 
 import CompactStandardLibrary;
 
-// These are the public state variables Paima will monitor.
+// These are the public state variables Effectstream will monitor.
 export ledger round: Counter;
 export ledger contract_address: Bytes<64>;
 export ledger token_id: Bytes<64>;

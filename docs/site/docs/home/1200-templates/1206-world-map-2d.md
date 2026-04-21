@@ -453,10 +453,10 @@ The frontend uses a simple HTML/JavaScript approach with wallet integration via 
 The frontend includes a middleware layer (`paimaMiddleware.src.js`) that bridges the HTML interface to the Effectstream wallet API:
 
 ```javascript
-import { PaimaEngineConfig, sendTransaction, walletLogin, WalletMode } from "@paimaexample/wallets";
+import { EffectstreamConfig, sendTransaction, walletLogin, WalletMode } from "@paimaexample/wallets";
 import { hardhat } from "viem/chains";
 
-const paimaEngineConfig = new PaimaEngineConfig(
+const effectstreamConfig = new EffectstreamConfig(
   "world-map-2d",
   "mainEvmRPC",
   "0x5FbDB2315678afecb367f032d93F642f64180aa3",
@@ -470,7 +470,7 @@ const endpoints = {
   async userWalletLogin({ mode, preferBatchedMode }) {
     const result = await walletLogin({
       mode: mode || WalletMode.EvmInjected,
-      chain: paimaEngineConfig.paimaL2Chain,
+      chain: effectstreamConfig.effectstreamL2Chain,
       preferBatchedMode: preferBatchedMode ?? false,
     });
     if (!result.success) throw new Error("Wallet login failed");
@@ -479,17 +479,17 @@ const endpoints = {
   },
 
   async joinWorld() {
-    const result = await sendTransaction(wallet, ["joinWorld"], paimaEngineConfig);
+    const result = await sendTransaction(wallet, ["joinWorld"], effectstreamConfig);
     return result;
   },
 
   async submitMoves(x, y) {
-    const result = await sendTransaction(wallet, ["submitMove", x, y], paimaEngineConfig);
+    const result = await sendTransaction(wallet, ["submitMove", x, y], effectstreamConfig);
     return result;
   },
 
   async submitIncrement(x, y) {
-    const result = await sendTransaction(wallet, ["submitIncrement", x, y], paimaEngineConfig);
+    const result = await sendTransaction(wallet, ["submitIncrement", x, y], effectstreamConfig);
     return result;
   },
 };

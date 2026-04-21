@@ -259,7 +259,7 @@ The template includes a standalone service that simulates a market of Liquidity 
     *   `POST /api/notify-filler-intent-payment`: Used by the Effectstream Node (State Machine) to notify the Filler that a user's payment has been verified. Upon receiving this webhook, the Filler automatically queues a transaction via its internal Batcher to pay the user the requested tokens (M20 or BTC).
 
 #### Embedded Batcher Setup
-Each filler initializes its own Paima Batcher instance. This allows the filler to programmatically execute transactions on both Bitcoin and Midnight using its own unique wallet seeds.
+Each filler initializes its own Effectstream Batcher instance. This allows the filler to programmatically execute transactions on both Bitcoin and Midnight using its own unique wallet seeds.
 
 ```typescript
 // packages/filler/index.ts
@@ -395,7 +395,7 @@ The database acts as the central clearinghouse state for the application. It per
 | `token` | `TEXT` | The asset symbol (e.g., "btc", "m20"). |
 | `amount` | `NUMERIC` | The raw value transferred. |
 | `created_at` | `TIMESTAMP` | Timestamp of when the transfer was created. |
-| `to_address` | `TEXT` | The recipient address. For valid swaps, this must match the System/Escrow address monitored by Paima. |
+| `to_address` | `TEXT` | The recipient address. For valid swaps, this must match the System/Escrow address monitored by Effectstream. |
 | `from_address` | `TEXT` | The sender's address. |
 | `used` | `BOOLEAN` | **Critical Field**. Acts as a semaphore. When the State Machine matches a transfer to an intent, it sets this to `TRUE` to prevent the same deposit from satisfying multiple orders. |
 

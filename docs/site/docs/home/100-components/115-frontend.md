@@ -85,7 +85,7 @@ await fetch(`${ENV.BATCHER_URL}/send-input`, {
 ```
 
 ## Reading Data from the Effectstream (Reads)
-While you can read data directly from the blockchain, it is often slow, inefficient, and doesn't provide the rich, aggregated state of your Paima application.
+While you can read data directly from the blockchain, it is often slow, inefficient, and doesn't provide the rich, aggregated state of your Effectstream application.
 
 The recommended way for a frontend to read data is by querying the powerful **API** exposed by the Effectstream Node. This API provides access to both built-in system data and your own custom application state.
 

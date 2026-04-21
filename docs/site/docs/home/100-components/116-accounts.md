@@ -3,7 +3,7 @@
 Beyond simple wallet addresses, Effectstream provides a flexible, L2-native **Account System**. This system acts as a form of L2 Account Abstraction, allowing you to create a persistent user identity that is more robust and user-friendly than a single private key.
 
 The primary goal of the Account System is to decouple a user's in-game identity from a single wallet. This enables powerful features like:
-*   **Multi-Wallet Control**: A single Paima Account can be controlled by multiple addresses. For example, a user could link a secure hardware wallet (a "cold wallet") and a more convenient browser extension (a "hot wallet") to the same game account.
+*   **Multi-Wallet Control**: A single Effectstream Account can be controlled by multiple addresses. For example, a user could link a secure hardware wallet (a "cold wallet") and a more convenient browser extension (a "hot wallet") to the same game account.
 *   **Account Recovery**: If a user loses access to their primary wallet, they can use a previously linked secondary wallet to regain control of their account by assigning a new primary address.
 *   **Seamless Wallet Migration**: Users can switch their primary wallet without losing their in-game progress, assets, or identity.
 
@@ -33,7 +33,7 @@ erDiagram
 You do not need to write any custom STFs to manage accounts. Effectstream provides a suite of built-in [Grammar](./111-grammar.md) commands that you can call directly through the `PaimaL2Contract`. All administrative actions are secured by cryptographic signatures.
 
 #### `&createAccount`
-This is the entry point for creating a new Paima Account.
+This is the entry point for creating a new Effectstream Account.
 
 *   **Purpose**: Creates a new, empty account.
 *   **Logic**: When a wallet sends this command, the engine creates a new `account` row. The sender's address is automatically set as the first linked address and the **Primary Address** for the new account.

@@ -30,7 +30,7 @@ const appVersion = "0.3.21";
 
 // 2. Define the main() execution block
 main(function* () {
-  // Initialize the Paima runtime environment
+  // Initialize the Effectstream runtime environment
   yield* init();
   console.log("Starting Effectstream Node");
 
@@ -56,7 +56,7 @@ main(function* () {
 
 ### The `start()` Configuration Object
 
-The `start()` function is the most important call. It accepts a single configuration object that tells the Paima Runtime exactly how to build and run your dApp.
+The `start()` function is the most important call. It accepts a single configuration object that tells the Effectstream Runtime exactly how to build and run your dApp.
 
 | Property | Description | Related Documentation |
 | :--- | :--- | :--- |
@@ -103,7 +103,7 @@ graph TD
         G{fa:fa-hourglass-half Wait for Dependencies to be Ready...}
     end
 
-    subgraph "Phase 2: Paima Node Execution"
+    subgraph "Phase 2: Effectstream Node Execution"
         H(Effectstream Node)
         subgraph "Node Initializes Internal Services"
             I[fa:fa-sync Chain & Primitives Sync Service]
@@ -135,5 +135,5 @@ graph TD
 1.  The [Process Orchestrator](./106-processes.md) first sets up the entire external environment (local chains, etc.).
 2.  Its final step is to execute your node's `start(...)`.
 3.  Your `main.ts` gathers all your application-specific configurations and logic.
-4.  It passes this complete "blueprint" to the Paima Runtime's `start()` function.
-5.  The Paima Runtime then uses this blueprint to initialize and run all of its internal services, creating a fully operational Effectstream node tailored to your dApp.
+4.  It passes this complete "blueprint" to the Effectstream Runtime's `start()` function.
+5.  The Effectstream Runtime then uses this blueprint to initialize and run all of its internal services, creating a fully operational Effectstream node tailored to your dApp.

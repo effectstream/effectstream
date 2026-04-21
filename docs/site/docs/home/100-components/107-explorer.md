@@ -1,12 +1,12 @@
-# Paima Explorer
+# Effectstream Explorer
 
-The Paima Explorer is a powerful, locally-run web application that serves as an essential companion for developing with Effectstream. It provides a real-time, interactive window into your running Effectstream node, allowing you to monitor its health, inspect its state, and explore its data without needing to write a single line of SQL.
+The Effectstream Explorer is a powerful, locally-run web application that serves as an essential companion for developing with Effectstream. It provides a real-time, interactive window into your running Effectstream node, allowing you to monitor its health, inspect its state, and explore its data without needing to write a single line of SQL.
 
-Think of it as a block explorer and a database admin panel rolled into one, specifically designed for your Paima dApp.
+Think of it as a block explorer and a database admin panel rolled into one, specifically designed for your Effectstream dApp.
 
 ### Running the Explorer
 
-The Paima Explorer is typically launched automatically as part of the local development environment when you run `deno task dev`. It is configured within the `processesToLaunch` section of your `orchestrator.ts` file.
+The Effectstream Explorer is typically launched automatically as part of the local development environment when you run `deno task dev`. It is configured within the `processesToLaunch` section of your `orchestrator.ts` file.
 
 ```ts
 // In your orchestrator.ts
@@ -46,8 +46,8 @@ This is the most powerful feature of the Explorer. It gives you a direct, read-o
 
 #### 3. Accounts and Addresses
 
-This section provides a user-friendly interface to view the state of the Paima L2 [Account System](./116-accounts.md). You can:
-*   See a list of all created Paima Accounts.
+This section provides a user-friendly interface to view the state of the Effectstream L2 [Account System](./116-accounts.md). You can:
+*   See a list of all created Effectstream Accounts.
 *   View which wallet addresses are linked to each account.
 *   Identify which address is the current primary (controlling) wallet for an account.
 

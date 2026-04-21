@@ -1,7 +1,7 @@
-# Paima Engine DB Management
+# Effectstream DB Management
 
 `System Migrations` create and update the DB structure to run with specific
-versions of Paima Engine.\
+versions of Effectstream.\
 All migrations are applied that are <= than the current version.
 
 > Note v0.0.0 is a special migration that gets applied once before the chain

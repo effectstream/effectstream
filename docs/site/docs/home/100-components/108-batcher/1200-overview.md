@@ -119,10 +119,10 @@ batcher.addBlockchainAdapter("nft", nftAdapter, {
 
 ```typescript
 import { main, suspend } from "effection";
-import { PaimaBatcher, FileStorage, PaimaL2DefaultAdapter } from "@effectstream/batcher";
+import { Batcher, FileStorage, EffectstreamL2DefaultAdapter } from "@effectstream/batcher";
 
 // 1. Create adapter
-const adapter = new PaimaL2DefaultAdapter(
+const adapter = new EffectstreamL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",  // Contract address
   process.env.PRIVATE_KEY!,                       // Private key
   0n,                                              // Fee
@@ -130,7 +130,7 @@ const adapter = new PaimaL2DefaultAdapter(
 );
 
 // 2. Create batcher
-const batcher = new PaimaBatcher({
+const batcher = new Batcher({
   pollingIntervalMs: 1000,
   port: 3334,
   enableHttpServer: true,

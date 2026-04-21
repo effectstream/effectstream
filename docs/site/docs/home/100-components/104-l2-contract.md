@@ -1,6 +1,6 @@
-# Paima L2 Contract
+# Effectstream L2 Contract
 
-The `PaimaL2Contract` is a specialized, gas-efficient smart contract that serves as the primary "mailbox" or data entry point for your Effectstream application. While Paima can monitor any contract, the `PaimaL2Contract` is optimized for submitting user actions and game moves directly to your state machine.
+The `PaimaL2Contract` is a specialized, gas-efficient smart contract that serves as the primary "mailbox" or data entry point for your Effectstream application. While Effectstream can monitor any contract, the `PaimaL2Contract` is optimized for submitting user actions and game moves directly to your state machine.
 
 Its design is intentionally simple: its main job is to accept arbitrary data from a user, wrap it in an event, and securely log that event on the blockchain for the Effectstream to process.
 
@@ -84,7 +84,7 @@ These commands are processed directly by the Effectstream before your custom Sta
 
 #### Batched Inputs: `&B`
 
-Submitting one on-chain transaction for every single user action can be slow and expensive, leading to a poor user experience. To solve this, Paima provides a batching mechanism, primarily used by the [Batcher service](../100-components/108-batcher/1200-overview.md).
+Submitting one on-chain transaction for every single user action can be slow and expensive, leading to a poor user experience. To solve this, Effectstream provides a batching mechanism, primarily used by the [Batcher service](../100-components/108-batcher/1200-overview.md).
 
 The `&B` command allows multiple individual user inputs to be bundled together and submitted in a single on-chain transaction, significantly reducing costs and improving throughput.
 
@@ -107,22 +107,22 @@ The `&B` command allows multiple individual user inputs to be bundled together a
 
 A key feature of this system is its robustness & security features. Each input within the batch is a string. If one of the inputs is malformed or invalid according to your grammar, the Effectstream will simply skip that single input and continue processing the rest of the batch. This prevents a single bad actor or a frontend bug from causing an entire batch of valid transactions to fail.
 
-Typically, you will not construct this `&B` string manually. The Batcher service and the Paima frontend SDKs handle the creation and submission of batched inputs automatically.
+Typically, you will not construct this `&B` string manually. The Batcher service and the Effectstream frontend SDKs handle the creation and submission of batched inputs automatically.
 
 #### Account Management Commands
 
-Effectstream includes a flexible, L2-native account system that goes beyond simple wallet addresses. A single "Paima Account" can be controlled by multiple wallets (e.g., a hot wallet on a mobile device and a hardware wallet for security), and the primary controlling wallet can be changed. This provides a form of L2 Account Abstraction.
+Effectstream includes a flexible, L2-native account system that goes beyond simple wallet addresses. A single "Effectstream Account" can be controlled by multiple wallets (e.g., a hot wallet on a mobile device and a hardware wallet for security), and the primary controlling wallet can be changed. This provides a form of L2 Account Abstraction.
 
-These commands allow users to manage their Paima Account directly through the `PaimaL2Contract`.
+These commands allow users to manage their Effectstream Account directly through the `PaimaL2Contract`.
 
 *   **`&createAccount`**
-    *   **Description**: Creates a new, empty Paima Account. The wallet that sends this transaction (`msg.sender`) automatically becomes the first and primary address for this new account.
+    *   **Description**: Creates a new, empty Effectstream Account. The wallet that sends this transaction (`msg.sender`) automatically becomes the first and primary address for this new account.
 
 *   **`&linkAddress`**
-    *   **Description**: Links a new wallet address to an existing Paima Account. This process is secured by requiring signatures from both the current primary wallet (proving control over the account) and the new wallet being linked (proving its ownership).
+    *   **Description**: Links a new wallet address to an existing Effectstream Account. This process is secured by requiring signatures from both the current primary wallet (proving control over the account) and the new wallet being linked (proving its ownership).
 
 *   **`&unlinkAddress`**
-    *   **Description**: Removes a wallet address from a Paima Account. This can be initiated either by the user themselves to leave an account, or by the primary wallet holder to remove another linked address.
+    *   **Description**: Removes a wallet address from a Effectstream Account. This can be initiated either by the user themselves to leave an account, or by the primary wallet holder to remove another linked address.
   
  
 More in [accounts](../100-components/116-accounts.md)

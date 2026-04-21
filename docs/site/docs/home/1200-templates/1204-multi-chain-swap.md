@@ -402,7 +402,7 @@ The Batcher is configured to be multi-chain aware by using two distinct adapters
 
 ```ts
 // In packages/client/batcher/config.ts
-export const config: PaimaBatcherConfig = {
+export const config: BatcherConfig = {
   // ...
   adapters: { 
     midnight: midnightAdapter,
@@ -510,7 +510,7 @@ The primitive is configured to listen exclusively for the `TransferToMidnight` e
 
 ```ts
 // In packages/shared/custom-primitive-mct-erc1155/erc1155-primitive.ts
-export class MCTErc1155Primitive extends PaimaPrimitive<
+export class MCTErc1155Primitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   typeof mctErc1155Grammar
 > {

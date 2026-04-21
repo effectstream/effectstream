@@ -1,13 +1,13 @@
 # Grammar
 
-The **Grammar** is the formal "language" of your Paima application. It acts as a crucial bridge, defining a strict, type-safe structure for all on-chain inputs and connecting them directly to your [State Machine](./102-state-machine.md).
+The **Grammar** is the formal "language" of your Effectstream application. It acts as a crucial bridge, defining a strict, type-safe structure for all on-chain inputs and connecting them directly to your [State Machine](./102-state-machine.md).
 
 Its primary responsibilities are:
 *   **Defining Structure**: It specifies the exact format for every valid command your application can receive.
 *   **Validation**: It ensures that incoming data is well-formed before it ever reaches your application logic.
 *   **Parsing**: It transforms raw on-chain data into type-safe, structured JavaScript objects for your State Transition Functions (STFs).
 
-Paima v2 uses a structured **JSON array format** for all inputs.
+Effectstream v2 uses a structured **JSON array format** for all inputs.
 
 ## Defining Your Grammar 
 
@@ -92,13 +92,13 @@ Effectstream reserves the `&` prefix for a suite of powerful, built-in system co
 This command allows multiple user inputs to be bundled into a single on-chain transaction. This is the primary mechanism used by the **Batcher** service to provide a gas-efficient and cross-chain experience.
 
 *   **Logical Structure**: `["&B", [input1, input2, ...]]`
-*   **Parameters**: The second element is an array of other valid Paima inputs.
+*   **Parameters**: The second element is an array of other valid Effectstream inputs.
 *   **Robustness**: If any individual input within the batch is malformed, the engine will skip it and continue processing the rest, preventing a single error from halting the entire batch.
 
 ### Account Management Commands
-These commands provide a flexible L2 Account Abstraction system, allowing multiple wallets to control a single Paima account.
+These commands provide a flexible L2 Account Abstraction system, allowing multiple wallets to control a single Effectstream account.
 
-*   **`&createAccount`**: Creates a new Paima Account, with the sender becoming the primary wallet.
+*   **`&createAccount`**: Creates a new Effectstream Account, with the sender becoming the primary wallet.
     *   **Structure**: `["&createAccount"]`
 *   **`&linkAddress`**: Links a new wallet to an existing account, requiring signatures from both the primary and new wallets.
     *   **Structure**: `["&linkAddress", account_id, signature_from_primary, primary_address_type, new_address, signature_from_new_address, signature_from_new_address, is_new_primary]`

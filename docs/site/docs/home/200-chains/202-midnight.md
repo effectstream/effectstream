@@ -27,7 +27,7 @@ This allows you to build complex dApps that combine the privacy of Midnight with
 ```mermaid
 graph TD
     subgraph Effectstream
-        PaimaSync[Sync Service] --> PaimaSM[State Machine]
+        EffectstreamSync[Sync Service] --> EffectstreamSM[State Machine]
     end
 
     subgraph User's Machine
@@ -41,7 +41,7 @@ graph TD
 
     C -- ZK Proof --> B;
     B -- Signed TX with Proof --> D;
-    E -- Fetches Public State --> PaimaSync;
+    E -- Fetches Public State --> EffectstreamSync;
 
    
 ```
@@ -97,7 +97,7 @@ import CompactStandardLibrary;
 export ledger round: Counter;
 
 // This is a private state transition. When executed, it generates a ZK proof.
-// Its effect is made visible to Paima by the change it causes to the public `round` state.
+// Its effect is made visible to Effectstream by the change it causes to the public `round` state.
 export circuit increment(): [] {
   round.increment(1);
 }
