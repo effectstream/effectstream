@@ -1,13 +1,13 @@
 import { equal as assertEquals, ok as assert } from "node:assert/strict";
+import { test } from "@effectstream/utils/runtime";
 import {
   makeTempDir,
   mkdirRecursive,
   readDir,
   remove,
   setFileTimes,
-  test,
   writeTextFile,
-} from "@effectstream/utils/runtime";
+} from "@effectstream/utils/fs";
 import { applyRetentionPolicy } from "./snapshot-handler.ts";
 
 const MS_1H = 3_600_000;
