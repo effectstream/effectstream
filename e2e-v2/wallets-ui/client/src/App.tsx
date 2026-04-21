@@ -4,7 +4,7 @@ import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 
 import {
   allInjectedWallets,
-  PaimaEngineConfig,
+  EffectstreamConfig,
   type Wallet,
   walletLogin,
   WalletMode,
@@ -45,7 +45,7 @@ const batcherUrl = "http://localhost:3334";
 const syncProtocolName = "parallelEvmRPC_fast";
 // END LOCAL CONFIG
 
-const paimaEngineConfig = new PaimaEngineConfig(
+const effectstreamConfig = new EffectstreamConfig(
   undefined, // no app name
   syncProtocolName, // paima l2 sync protocol name
   contractAddressOnNetwork, // paima l2 contract address
@@ -494,7 +494,7 @@ function App() {
             preference: { name: "No wallet" },
             preferBatchedMode: false,
             checkChainId: true,
-            chain: paimaEngineConfig.paimaL2Chain,
+            chain: effectstreamConfig.effectstreamL2Chain,
           }),
           WalletMode.EvmInjected,
         ),
@@ -599,7 +599,7 @@ function App() {
       const result = await sendBatcherTransaction(
         wallet,
         JSON.parse(messageToBatch),
-        paimaEngineConfig,
+        effectstreamConfig,
         "wait-effectstream-processed",
       );
       console.log(result);
@@ -679,7 +679,7 @@ function App() {
           const result = await sendTransaction(
             wallet,
             conciseData,
-            paimaEngineConfig,
+            effectstreamConfig,
             "wait-effectstream-processed",
           );
           console.log(result);
@@ -692,7 +692,7 @@ function App() {
           const result = await sendBatcherTransaction(
             wallet,
             conciseData,
-            paimaEngineConfig,
+            effectstreamConfig,
             "wait-effectstream-processed",
           );
           console.log(result);

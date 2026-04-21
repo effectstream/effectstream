@@ -11,35 +11,35 @@ import { createMessageForBatcher } from "@effectstream/concise";
 import { BuiltinEvents, EventManager } from "@effectstream/event-client";
 
 /**
- * This is main class used for setting up the Paima Engine
- * communication. It sets up the location of the Paima L2 Contact.
+ * This is main class used for setting up the Effectstream
+ * communication. It sets up the location of the Effectstream L2 Contact.
  */
-export class PaimaEngineConfig {
+export class EffectstreamConfig {
   public appName: string;
-  public paimaL2SyncProtocolName: string;
-  public paimaL2ContractAddress: EvmAddress;
-  public paimaL2Abi: AbiItem[];
-  public paimaL2Chain: Chain;
-  public paimaL2CurrentFee: bigint = 0n;
+  public effectstreamL2SyncProtocolName: string;
+  public effectstreamL2ContractAddress: EvmAddress;
+  public effectstreamL2Abi: AbiItem[];
+  public effectstreamL2Chain: Chain;
+  public effectstreamL2CurrentFee: bigint = 0n;
   public web3: Web3 | undefined = undefined;
   public batcherURL: string | undefined = undefined;
   public preferBatchedMode: boolean = false;
 
   constructor(
     appName: string | undefined,
-    paimaL2SyncProtocolName: string,
-    paimaL2ContractAddress: EvmAddress,
-    paimaL2Chain: Chain,
-    paimaL2Abi: AbiItem[] | undefined,
+    effectstreamL2SyncProtocolName: string,
+    effectstreamL2ContractAddress: EvmAddress,
+    effectstreamL2Chain: Chain,
+    effectstreamL2Abi: AbiItem[] | undefined,
     batcherURL: string | undefined,
     preferBatchedMode: boolean = false,
   ) {
     this.appName = appName ?? "";
 
-    this.paimaL2SyncProtocolName = paimaL2SyncProtocolName;
-    this.paimaL2ContractAddress = paimaL2ContractAddress;
-    this.paimaL2Abi = paimaL2Abi ?? this.fallbackABI();
-    this.paimaL2Chain = paimaL2Chain;
+    this.effectstreamL2SyncProtocolName = effectstreamL2SyncProtocolName;
+    this.effectstreamL2ContractAddress = effectstreamL2ContractAddress;
+    this.effectstreamL2Abi = effectstreamL2Abi ?? this.fallbackABI();
+    this.effectstreamL2Chain = effectstreamL2Chain;
 
     this.batcherURL = batcherURL;
     if (!this.batcherURL && preferBatchedMode) {
@@ -48,20 +48,20 @@ export class PaimaEngineConfig {
     this.preferBatchedMode = preferBatchedMode;
   }
 
-  /** Return a Web3 client for the PaimaL2 chain. */
+  /** Return a Web3 client for the EffectstreamL2 chain. */
   public async getWeb3Client(): Promise<Web3> {
     if (this.web3) {
       return this.web3;
     }
-    this.web3 = new Web3(this.paimaL2Chain.rpcUrls.default.http[0]);
+    this.web3 = new Web3(this.effectstreamL2Chain.rpcUrls.default.http[0]);
     await this.web3.eth.getNodeInfo();
     return this.web3;
   }
 
-  /** Return a Paima L2 Contract Instance for the PaimaL2. */
-  public async getPaimaL2Contract() {
+  /** Return a Effectstream L2 Contract Instance for the EffectstreamL2. */
+  public async getEffectstreamL2Contract() {
     const web3 = await this.getWeb3Client();
-    return new web3.eth.Contract(this.paimaL2Abi, this.paimaL2ContractAddress);
+    return new web3.eth.Contract(this.effectstreamL2Abi, this.effectstreamL2ContractAddress);
   }
 
   private fallbackABI(): AbiItem[] {
@@ -78,7 +78,7 @@ export class PaimaEngineConfig {
 }
 
 /**
- * Paima Wallet Interface - Sign a message with a wallet.
+ * Effectstream Wallet Interface - Sign a message with a wallet.
  * @param wallet - The wallet to sign the message with.
  * @param message - The message to sign.
  * @returns
@@ -89,22 +89,22 @@ export async function signMessage(wallet: Wallet, message: string) {
 }
 
 /**
- * Main function to send a transaction to a Paima L2 contract.
+ * Main function to send a transaction to a Effectstream L2 contract.
  * It will decide whether to use the batcher or the self-sequenced transaction based on the preferBatchedMode flag.
  *
  * @param wallet - The wallet to send the transaction with.
  * @param conciseData - The concise data to send.
- * @param paimaEngineConfig - The Paima Engine configuration.
+ * @param effectstreamConfig - The Effectstream configuration.
  * @param waitForConfirmation - The confirmation mode to use:
  *   no-wait: Do not wait for any confirmation.
  *   wait-receipt: Wait only for the chain transaction receipt.
- *   wait-effectstream-processed: Wait for the transaction to be processed by the Paima Engine.
+ *   wait-effectstream-processed: Wait for the transaction to be processed by the Effectstream.
  * @returns
  */
 export async function sendTransaction(
   wallet: Wallet,
   conciseData: any[],
-  paimaEngineConfig: PaimaEngineConfig,
+  effectstreamConfig: EffectstreamConfig,
   waitForConfirmation: "wait-effectstream-processed" | "wait-receipt" | "no-wait" =
     "wait-effectstream-processed",
   batcherTarget: string | undefined = undefined,
@@ -112,11 +112,11 @@ export async function sendTransaction(
   | ReturnType<typeof sendBatcherTransaction>
   | ReturnType<typeof sendSelfSequencedTransaction>
 > {
-  if (paimaEngineConfig.preferBatchedMode) {
+  if (effectstreamConfig.preferBatchedMode) {
     return await sendBatcherTransaction(
       wallet,
       conciseData,
-      paimaEngineConfig,
+      effectstreamConfig,
       waitForConfirmation,
       batcherTarget,
     );
@@ -124,28 +124,28 @@ export async function sendTransaction(
   return await sendSelfSequencedTransaction(
     wallet,
     conciseData,
-    paimaEngineConfig,
+    effectstreamConfig,
     waitForConfirmation,
   );
 }
 
 /**
- * Paima Wallet Interface - Send a transaction to a Paima L2 contract with a wallet.
- * The concise data must match the grammar; if not the input will be rejected by Paima Engine.
+ * Effectstream Wallet Interface - Send a transaction to a Effectstream L2 contract with a wallet.
+ * The concise data must match the grammar; if not the input will be rejected by Effectstream.
  * @param wallet - The wallet to send the transaction with.
  * @param conciseData - The concise data to send.
- * @param paimaEngineConfig - The Paima Engine configuration.
+ * @param effectstreamConfig - The Effectstream configuration.
  * @param waitForConfirmation - The confirmation mode to use:
  *   no-wait: Do not wait for any confirmation.
  *   wait-receipt: Wait only for the chain transaction receipt.
- *   wait-effectstream-processed: Wait for the transaction to be processed by the Paima Engine.
+ *   wait-effectstream-processed: Wait for the transaction to be processed by the Effectstream.
  ** @returns
  */
 export async function sendSelfSequencedTransaction(
   wallet: Wallet,
   // TODO this should be any type of grammar.
   conciseData: any[],
-  paimaEngineConfig: PaimaEngineConfig,
+  effectstreamConfig: EffectstreamConfig,
   waitForConfirmation: "wait-effectstream-processed" | "wait-receipt" | "no-wait" =
     "wait-effectstream-processed",
 ): Promise<
@@ -172,10 +172,10 @@ export async function sendSelfSequencedTransaction(
   const provider: IProvider<unknown> = wallet.provider;
   const addressAndType = provider.getAddress();
 
-  // NOTE: If the Paima L2 contract interface is implemented in other chains,
-  //       we need to add support for them here. Paima L2 is EVM only for now.
+  // NOTE: If the Effectstream L2 contract interface is implemented in other chains,
+  //       we need to add support for them here. Effectstream L2 is EVM only for now.
   if (addressAndType.type !== AddressType.EVM) {
-    throw new Error("Paima L2 is EVM contract.");
+    throw new Error("Effectstream L2 is EVM contract.");
   }
 
   const evmProvider = wallet.provider as
@@ -183,16 +183,16 @@ export async function sendSelfSequencedTransaction(
     | EvmInjectedProvider;
 
   const hexData = utf8ToHex(JSON.stringify(conciseData));
-  const paimaL2Contract = await paimaEngineConfig.getPaimaL2Contract();
+  const effectstreamL2Contract = await effectstreamConfig.getEffectstreamL2Contract();
 
-  const txData = paimaL2Contract.methods["paimaSubmitGameInput"](hexData)
+  const txData = effectstreamL2Contract.methods["paimaSubmitGameInput"](hexData)
     .encodeABI();
   const tx = {
     from: addressAndType.address,
     data: txData,
-    to: paimaEngineConfig.paimaL2ContractAddress,
+    to: effectstreamConfig.effectstreamL2ContractAddress,
     gasPrice: numberToHex(DEFAULT_GAS_PRICE),
-    value: numberToHex(paimaEngineConfig.paimaL2CurrentFee),
+    value: numberToHex(effectstreamConfig.effectstreamL2CurrentFee),
   };
   const tx_result = await evmProvider.sendTransaction(tx);
 
@@ -208,11 +208,11 @@ export async function sendSelfSequencedTransaction(
   }
 
   // Wait for paima engine to process the transaction
-  const receipt = await getTxReceipt(tx_result.txHash, paimaEngineConfig);
+  const receipt = await getTxReceipt(tx_result.txHash, effectstreamConfig);
 
-  const response = await waitForPaimaEngineBlockProcessed(
+  const response = await waitForEffectstreamBlockProcessed(
     Number(receipt.blockNumber),
-    paimaEngineConfig,
+    effectstreamConfig,
   );
 
   const rollup = response ? response.rollup : 0;
@@ -240,23 +240,23 @@ function serializeBigInts<T>(value: T): T {
 // Wait for the transaction receipt for a given transaction hash.
 async function getTxReceipt(
   txHash: string,
-  paimaEngineConfig: PaimaEngineConfig,
+  effectstreamConfig: EffectstreamConfig,
 ): Promise<TransactionReceipt> {
-  const web3 = await paimaEngineConfig.getWeb3Client();
+  const web3 = await effectstreamConfig.getWeb3Client();
   return await web3.eth.getTransactionReceipt(txHash);
 }
 
 /**
- * Wait for specific block number to be processed by the Paima Engine.
- * This guarantees that the block number is processed by the Paima Engine.
+ * Wait for specific block number to be processed by the Effectstream.
+ * This guarantees that the block number is processed by the Effectstream.
  * @param blockNumber - The block number to wait for.
- * @param paimaEngineConfig - The Paima Engine configuration.
+ * @param effectstreamConfig - The Effectstream configuration.
  * @param timeout (optional) - The timeout in milliseconds.
  * @returns
  */
-export function waitForPaimaEngineBlockProcessed(
+export function waitForEffectstreamBlockProcessed(
   blockNumber: number,
-  paimaEngineConfig: PaimaEngineConfig,
+  effectstreamConfig: EffectstreamConfig,
   timeout: number = 60000,
 ): Promise<{ latestBlock: number; rollup: number } | void> {
   let subscriptionReference: symbol | undefined = undefined;
@@ -268,8 +268,8 @@ export function waitForPaimaEngineBlockProcessed(
       timer = setTimeout(() => reject(new Error("Timeout")), timeout);
     }),
     new Promise<{ latestBlock: number; rollup: number }>((resolve, reject) => {
-      if (!paimaEngineConfig.paimaL2SyncProtocolName) {
-        reject(new Error("Paima L2 Sync Protocol Name is not set"));
+      if (!effectstreamConfig.effectstreamL2SyncProtocolName) {
+        reject(new Error("Effectstream L2 Sync Protocol Name is not set"));
         return;
       }
 
@@ -277,7 +277,7 @@ export function waitForPaimaEngineBlockProcessed(
         {
           topic: BuiltinEvents.SyncChains,
           filter: {
-            chain: paimaEngineConfig.paimaL2SyncProtocolName,
+            chain: effectstreamConfig.effectstreamL2SyncProtocolName,
             block: undefined,
           },
         },
@@ -302,22 +302,22 @@ export function waitForPaimaEngineBlockProcessed(
 }
 
 /**
- * Paima Wallet Interface - Standard batcher communication for a Paima L2 contract.
+ * Effectstream Wallet Interface - Standard batcher communication for a Effectstream L2 contract.
  * This is only a default implementation, your own batcher might have different requirements.
  * @param wallet - The wallet to send the batched transaction with.
- * @param paimaL2Address - The address of the Paima L2 contract.
+ * @param effectstreamL2Address - The address of the Effectstream L2 contract.
  * @param conciseData - The concise data to send.
  * @param waitForConfirmation - The confirmation mode to use:
  *   no-wait: Do not wait for any confirmation.
  *   wait-receipt: Wait only for the chain transaction receipt.
- *   wait-effectstream-processed: Wait for the transaction to be processed by the Paima Engine.
+ *   wait-effectstream-processed: Wait for the transaction to be processed by the Effectstream.
  * @returns
  */
 export async function sendBatcherTransaction(
   wallet: Wallet,
   // TODO we need to pass the batcher address here.
   conciseData: any[],
-  paimaEngineConfig: PaimaEngineConfig,
+  effectstreamConfig: EffectstreamConfig,
   waitForConfirmation: "wait-effectstream-processed" | "wait-receipt" | "no-wait" =
     "wait-effectstream-processed",
   batcherTarget: string | undefined = undefined,
@@ -329,7 +329,7 @@ export async function sendBatcherTransaction(
   blockHash: string;
   rollup: number;
 }> {
-  if (!paimaEngineConfig.batcherURL) {
+  if (!effectstreamConfig.batcherURL) {
     throw new Error("Batcher URL is not set");
   }
 
@@ -338,7 +338,7 @@ export async function sendBatcherTransaction(
   const timestamp = Date.now().toString();
   const signature = await wallet.provider.signMessage(
     createMessageForBatcher(
-      paimaEngineConfig.appName,
+      effectstreamConfig.appName,
       timestamp,
       wallet.provider.getAddress().address,
       wallet.provider.getAddress().type,
@@ -348,7 +348,7 @@ export async function sendBatcherTransaction(
   );
 
   const response = await fetch(
-    `${paimaEngineConfig.batcherURL}/send-input`,
+    `${effectstreamConfig.batcherURL}/send-input`,
     {
       method: "POST",
       headers: {
