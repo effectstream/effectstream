@@ -5,14 +5,14 @@
 // import { stringToBytes } from 'viem';
 
 // paimaScope
-//   .task('PaimaL2Contract:setFee', `Sets the fee of a Paima L2 contract`)
+//   .task('EffectstreamL2Contract:setFee', `Sets the fee of a Paima L2 contract`)
 //   .addOptionalParam('contract', `The contracts's address`, undefined, types.string)
 //   .addOptionalParam('fee', `The new fee (wei)`, undefined, types.string)
 //   .setAction(async (taskArgs, hre) => {
 //     const publicClient = await hre.viem.getPublicClient();
 //     // Connect to the deployed contract
 //     const { signer, account } = await getContract(hre, taskArgs.contract);
-//     const contract = await hre.viem.getContractAt('PaimaL2Contract', account);
+//     const contract = await hre.viem.getContractAt('EffectstreamL2Contract', account);
 
 //     ownerCheck((await contract.read.owner()) as string, await signer.account!.address);
 
@@ -27,14 +27,14 @@
 //     console.log(`The updated value of "fee" is: ${updatedValue}`);
 //   });
 // paimaScope
-//   .task('PaimaL2Contract:setOwner', `Sets the owner of a Paima L2 contract`)
+//   .task('EffectstreamL2Contract:setOwner', `Sets the owner of a Paima L2 contract`)
 //   .addOptionalParam('contract', `The contracts's address`, undefined, types.string)
 //   .addOptionalParam('owner', `The new owner address`, undefined, types.string)
 //   .setAction(async (taskArgs, hre) => {
 //     const publicClient = await hre.viem.getPublicClient();
 //     // Connect to the deployed contract
 //     const { signer, account } = await getContract(hre, taskArgs.contract);
-//     const contract = await hre.viem.getContractAt('PaimaL2Contract', account);
+//     const contract = await hre.viem.getContractAt('EffectstreamL2Contract', account);
 
 //     ownerCheck((await contract.read.owner()) as string, await signer.account!.address);
 
@@ -49,13 +49,13 @@
 //   });
 
 // paimaScope
-//   .task('PaimaL2Contract:withdrawFunds', `Withdraws funds out of the Paima L2 contract`)
+//   .task('EffectstreamL2Contract:withdrawFunds', `Withdraws funds out of the Paima L2 contract`)
 //   .addOptionalParam('contract', `The contracts's address`, undefined, types.string)
 //   .setAction(async (taskArgs, hre) => {
 //     const publicClient = await hre.viem.getPublicClient();
 //     // Connect to the deployed contract
 //     const { signer, account } = await getContract(hre, taskArgs.contract);
-//     const contract = await hre.viem.getContractAt('PaimaL2Contract', account);
+//     const contract = await hre.viem.getContractAt('EffectstreamL2Contract', account);
 
 //     ownerCheck((await contract.read.owner()) as string, await signer.account!.address);
 
@@ -72,7 +72,7 @@
 //   });
 
 // paimaScope
-//   .task('PaimaL2Contract:submitGameInput', `Submit data to the Paima L2 contract`)
+//   .task('EffectstreamL2Contract:submitGameInput', `Submit data to the Paima L2 contract`)
 //   .addOptionalParam('contract', `The contracts's address`, undefined, types.string)
 //   .addOptionalParam(
 //     'data',
@@ -84,20 +84,20 @@
 //     const publicClient = await hre.viem.getPublicClient();
 //     // Connect to the deployed contract
 //     const { signer, account } = await getContract(hre, taskArgs.contract);
-//     const contract = await hre.viem.getContractAt('PaimaL2Contract', account);
+//     const contract = await hre.viem.getContractAt('EffectstreamL2Contract', account);
 
 //     const providedData = await getOrAskString(taskArgs.data, 'data? ');
 //     const data = providedData.startsWith('0x') ? providedData : stringToBytes(providedData);
 
 //     const fee = await contract.read.fee();
 //     console.log(fee);
-//     const hash = await contract.write.paimaSubmitGameInput([data], { value: fee });
+//     const hash = await contract.write.effectstreamSubmitGameInput([data], { value: fee });
 //     await publicClient.waitForTransactionReceipt({ hash });
 //     console.log(`Submitted data to the contract successfully at ${hash}`);
 //   });
 
 // paimaScope
-//   .task('PaimaL2Contract:recentInputs', `Gets data recently submitted to the Paima L2 contract`)
+//   .task('EffectstreamL2Contract:recentInputs', `Gets data recently submitted to the Paima L2 contract`)
 //   .addOptionalParam('contract', `The contracts's address`, undefined, types.string)
 //   .addOptionalParam(
 //     'data',
@@ -117,13 +117,13 @@
 
 //     const publicClient = await hre.viem.getPublicClient();
 
-//     const contract = await hre.viem.getContractAt('PaimaL2Contract', account);
+//     const contract = await hre.viem.getContractAt('EffectstreamL2Contract', account);
 
 //     const toBlock = await publicClient.getBlockNumber();
 //     const maxRange = taskArgs.range ?? 10000n;
 //     const fromBlock = maxRange > toBlock ? 0n : toBlock - maxRange;
 
-//     const eventFilter = await contract.createEventFilter.PaimaGameInteraction({
+//     const eventFilter = await contract.createEventFilter.EffectstreamGameInteraction({
 //       fromBlock,
 //       toBlock,
 //     });

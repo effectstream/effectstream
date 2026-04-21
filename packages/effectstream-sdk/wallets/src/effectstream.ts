@@ -68,7 +68,7 @@ export class EffectstreamConfig {
     return [
       {
         inputs: [{ name: "data", type: "bytes" }],
-        name: "paimaSubmitGameInput",
+        name: "effectstreamSubmitGameInput",
         outputs: [],
         stateMutability: "payable",
         type: "function",
@@ -185,7 +185,7 @@ export async function sendSelfSequencedTransaction(
   const hexData = utf8ToHex(JSON.stringify(conciseData));
   const effectstreamL2Contract = await effectstreamConfig.getEffectstreamL2Contract();
 
-  const txData = effectstreamL2Contract.methods["paimaSubmitGameInput"](hexData)
+  const txData = effectstreamL2Contract.methods["effectstreamSubmitGameInput"](hexData)
     .encodeABI();
   const tx = {
     from: addressAndType.address,

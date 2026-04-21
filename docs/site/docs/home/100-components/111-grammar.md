@@ -72,7 +72,7 @@ export const grammar = {
 
 The grammar is the central piece that links an on-chain event to your application logic. Here’s the flow:
 
-1.  **On-Chain Input**: A transaction is sent to the `PaimaL2Contract` with a payload that is a JSON-stringified array, e.g., `"[\"attack\",1,42]"`.
+1.  **On-Chain Input**: A transaction is sent to the `EffectstreamL2Contract` with a payload that is a JSON-stringified array, e.g., `"[\"attack\",1,42]"`.
 2.  **Prefix Matching**: The Effectstream parses the JSON and inspects the first element (`"attack"`) to find the matching rule in your `grammar.ts` file.
 3.  **Parsing & Validation**: It then uses the TypeBox schemas defined in that rule (`Type.Integer()`, `Type.Integer()`) to validate and parse the remaining elements (`1`, `42`).
 4.  **STF Execution**: Finally, the engine calls the STF registered with the prefix `"attack"`, passing it a `data` object containing the fully typed and parsed input:
@@ -116,7 +116,7 @@ const move = ["attack", 1, 42];
 // 2. Stringify it to create the payload
 const payload = JSON.stringify(move);
 
-// 3. Submit the payload to the PaimaL2Contract
+// 3. Submit the payload to the EffectstreamL2Contract
 // (The frontend SDKs will handle this for you)
-await paimaL2Contract.submitInput(payload);
+await effectstreamL2Contract.submitInput(payload);
 ```

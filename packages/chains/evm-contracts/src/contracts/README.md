@@ -5,7 +5,7 @@ Solidity contracts provided as part of Effectstream.
 Core contracts
 
 <ul>
-  <li>[PaimaL2Contract](#PaimaL2Contract): The main L2 contract for a Effectstream L2.</li>
+  <li>[EffectstreamL2Contract](#EffectstreamL2Contract): The main L2 contract for an Effectstream L2.</li>
 </ul>
 State-annotated contracts
 <ul>
@@ -27,7 +27,7 @@ Facilitating monetization
 
 ## Core contracts
 
-{{PaimaL2Contract}}
+{{EffectstreamL2Contract}}
 
 ## State-annotated contracts
 

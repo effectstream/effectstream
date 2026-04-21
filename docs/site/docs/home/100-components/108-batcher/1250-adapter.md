@@ -426,13 +426,13 @@ async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> 
   // Convert JSON string to hex bytes
   const hexData = encodeHexFromString(data);
   
-  // Submit to PaimaL2 contract
+  // Submit to EffectstreamL2 contract
   const hash = await this.walletClient.writeContract({
     account: this.account,
     chain: this.walletClient.chain,
     address: this.effectstreamL2Address,
     abi: this.effectstreamL2Abi,
-    functionName: "paimaSubmitGameInput",
+    functionName: "effectstreamSubmitGameInput",
     args: [hexData],
     value: actualFee,
   });
@@ -684,7 +684,7 @@ async estimateBatchFee(data: string): Promise<bigint> {
   const gasEstimate = await this.publicClient.estimateContractGas({
     address: this.contractAddress,
     abi: this.contractAbi,
-    functionName: "paimaSubmitGameInput",
+    functionName: "effectstreamSubmitGameInput",
     args: [hexData],
     account: this.account,
   });
@@ -911,7 +911,7 @@ The batcher provides two helper classes for common serialization patterns. These
 
 ### `DefaultBatchBuilderLogic`
 
-**Purpose:** Create the standard Effectstream JSON batch format used by the PaimaL2 contract.
+**Purpose:** Create the standard Effectstream JSON batch format used by the EffectstreamL2 contract.
 
 **Output Format:**
 ```json

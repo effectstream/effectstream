@@ -37,7 +37,7 @@ export default [
         type: "uint256",
       },
     ],
-    name: "PaimaGameInteraction",
+    name: "EffectstreamGameInteraction",
     type: "event",
   },
   {
@@ -93,7 +93,7 @@ export default [
         type: "bytes",
       },
     ],
-    name: "paimaSubmitGameInput",
+    name: "effectstreamSubmitGameInput",
     outputs: [],
     stateMutability: "payable",
     type: "function",

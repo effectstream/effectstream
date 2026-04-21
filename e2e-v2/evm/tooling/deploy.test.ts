@@ -4,7 +4,7 @@ import { contractAddressesEvmMain } from "@e2e-v2/evm-contracts";
 export async function deployTest() {
   await assert("ERC20 contract deployed on chain 31337", async () => {
     const addresses = contractAddressesEvmMain();
-    const addr = addresses.chain31337["PaimaErc20DevModule#PaimaErc20Dev"];
+    const addr = addresses.chain31337["EffectstreamErc20DevModule#EffectstreamErc20Dev"];
     return addr !== undefined && addr.startsWith("0x");
   });
 
@@ -16,7 +16,7 @@ export async function deployTest() {
 
   await assert("EffectstreamL2 contract deployed on chain 31337", async () => {
     const addresses = contractAddressesEvmMain();
-    const addr = addresses.chain31337["PaimaL2ContractModule#MyPaimaL2Contract"];
+    const addr = addresses.chain31337["EffectstreamL2ContractModule#MyEffectstreamL2Contract"];
     return addr !== undefined && addr.startsWith("0x");
   });
 
@@ -34,7 +34,7 @@ export async function deployTest() {
 
   await assert("ERC20 contract deployed on chain 31338", async () => {
     const addresses = contractAddressesEvmMain();
-    const addr = addresses.chain31338["PaimaErc20DevModule#PaimaErc20Dev"];
+    const addr = addresses.chain31338["EffectstreamErc20DevModule#EffectstreamErc20Dev"];
     return addr !== undefined && addr.startsWith("0x");
   });
 

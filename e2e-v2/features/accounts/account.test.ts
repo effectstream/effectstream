@@ -26,16 +26,16 @@ const w9 = { address: "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720" as `0x${strin
 const w10 = { address: "0xBcd4042DE499D14e55001CcbB24a551F3b954096" as `0x${string}`, privateKey: "0xf214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897" as `0x${string}` };
 
 const effectstreamL2Abi = [
-  { inputs: [{ name: "data", type: "bytes" }], name: "paimaSubmitGameInput", outputs: [], stateMutability: "payable", type: "function" },
+  { inputs: [{ name: "data", type: "bytes" }], name: "effectstreamSubmitGameInput", outputs: [], stateMutability: "payable", type: "function" },
 ] as const;
 
 async function submit(input: (string | number | boolean)[], pk: `0x${string}`) {
-  const addr = contractAddressesEvmMain().chain31337["PaimaL2ContractModule#MyPaimaL2Contract"];
+  const addr = contractAddressesEvmMain().chain31337["EffectstreamL2ContractModule#MyEffectstreamL2Contract"];
   const account = privateKeyToAccount(pk);
   const wc = createWalletClient({ account, chain: hardhat, transport: http() });
   const pc = createPublicClient({ chain: hardhat, transport: http() });
   const hash = await wc.writeContract({
-    address: addr, abi: effectstreamL2Abi, functionName: "paimaSubmitGameInput",
+    address: addr, abi: effectstreamL2Abi, functionName: "effectstreamSubmitGameInput",
     args: [toHex(JSON.stringify(input.map(String)))],
     value: parseEther("0.0000000001"),
   });

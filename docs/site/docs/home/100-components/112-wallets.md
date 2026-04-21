@@ -120,7 +120,7 @@ const result = await sendBatcherTransaction(walletClient, conciseInput, effectst
 
 For specific, high-stakes actions, or if your dApp doesn't use a Batcher, you can use the wallet to send traditional on-chain transactions.
 
-*   **Direct Effectstream L2 Contract Interaction**: Call the `submitInput` function on the `PaimaL2Contract` to send a game move directly.
+*   **Direct Effectstream L2 Contract Interaction**: Call the `submitInput` function on the `EffectstreamL2Contract` to send a game move directly.
 This can be done using the `sendSelfSequencedTransaction` function.
 ```ts
 const result = await sendSelfSequencedTransaction(walletClient, conciseInput, effectstreamConfig);
@@ -148,6 +148,6 @@ This allows for an "account abstraction" experience where:
 *   A single Effectstream Account can be controlled by multiple wallet addresses.
 *   The primary (controlling) wallet of an account can be changed.
 
-A user manages their account by sending built-in system commands (like `&linkAddress`) to the `PaimaL2Contract`, using their connected wallet to authorize the action with a signature.
+A user manages their account by sending built-in system commands (like `&linkAddress`) to the `EffectstreamL2Contract`, using their connected wallet to authorize the action with a signature.
 
 **[Learn more about the Effectstream Account System](./116-accounts.md)**

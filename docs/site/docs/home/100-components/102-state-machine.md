@@ -112,7 +112,7 @@ To do so, we can follow these steps:
             type: ConfigPrimitiveType.EvmRpcERC20,
             startBlockHeight: 0,
             contractAddress: contractAddressesEvmMain()
-              .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
+              .chain31337["EffectstreamErc20DevModule#EffectstreamErc20Dev"],
             abi: getEvmEvent(erc20dev.abi, "Transfer(address,address,uint256)"),
             scheduledPrefix: 'transfer_merc', // <- SCHEDULED PREFIX 
           }),

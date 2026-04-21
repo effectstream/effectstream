@@ -1,6 +1,6 @@
 # Effectstream L2 Contract
 
-The `PaimaL2Contract` is a specialized, gas-efficient smart contract that serves as the primary "mailbox" or data entry point for your Effectstream application. While Effectstream can monitor any contract, the `PaimaL2Contract` is optimized for submitting user actions and game moves directly to your state machine.
+The `EffectstreamL2Contract` is a specialized, gas-efficient smart contract that serves as the primary "mailbox" or data entry point for your Effectstream application. While Effectstream can monitor any contract, the `EffectstreamL2Contract` is optimized for submitting user actions and game moves directly to your state machine.
 
 Its design is intentionally simple: its main job is to accept arbitrary data from a user, wrap it in an event, and securely log that event on the blockchain for the Effectstream to process.
 
@@ -10,15 +10,15 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 
-/// @dev The main L2 contract for a Paima L2.
-contract PaimaL2Contract {
+/// @dev The main L2 contract for an Effectstream L2.
+contract EffectstreamL2Contract {
     // ... (events and state variables)
 
-    /// @dev Emits the `PaimaGameInteraction` event, logging the `msg.sender`, `data`, and `msg.value`.
+    /// @dev Emits the `EffectstreamGameInteraction` event, logging the `msg.sender`, `data`, and `msg.value`.
     /// Revert if `msg.value` is less than set `fee`.
-    function paimaSubmitGameInput(bytes calldata data) public payable {
+    function effectstreamSubmitGameInput(bytes calldata data) public payable {
         require(msg.value >= fee, "Sufficient funds required to submit game input");
-        emit PaimaGameInteraction(msg.sender, data, msg.value);
+        emit EffectstreamGameInteraction(msg.sender, data, msg.value);
     }
 
     // ... (owner-only administrative functions)
@@ -29,20 +29,20 @@ contract PaimaL2Contract {
 
 The contract's logic centers around a single function and a single event.
 
-*   **`paimaSubmitGameInput(bytes calldata data)`**: This is the function your frontend will call. It accepts a single `bytes` argument, which allows you to send any kind of data, but it's designed to carry a concise grammar formatted according to your application's [Grammar](./111-grammar.md) (e.g., `["attack","player1","monster7"]`).
+*   **`effectstreamSubmitGameInput(bytes calldata data)`**: This is the function your frontend will call. It accepts a single `bytes` argument, which allows you to send any kind of data, but it's designed to carry a concise grammar formatted according to your application's [Grammar](./111-grammar.md) (e.g., `["attack","player1","monster7"]`).
 
-*   **`PaimaGameInteraction` Event**: When `paimaSubmitGameInput` is called, the contract does not perform any complex logic. It simply emits the `PaimaGameInteraction` event, logging three crucial pieces of information onto the blockchain:
+*   **`EffectstreamGameInteraction` Event**: When `effectstreamSubmitGameInput` is called, the contract does not perform any complex logic. It simply emits the `EffectstreamGameInteraction` event, logging three crucial pieces of information onto the blockchain:
     *   `userAddress`: The wallet address of the user who called the function (`msg.sender`).
     *   `data`: The raw `bytes` payload that was submitted.
     *   `value`: The amount of cryptocurrency sent with the transaction (`msg.value`), used for the optional fee.
 
 ### How it Connects to the Grammar and State Machine
 
-The `PaimaL2Contract` is the critical on-chain starting point that triggers your off-chain logic. The connection happens through a precise sequence of steps orchestrated by the Effectstream:
+The `EffectstreamL2Contract` is the critical on-chain starting point that triggers your off-chain logic. The connection happens through a precise sequence of steps orchestrated by the Effectstream:
 
-1.  **User Action**: A user on your frontend initiates an action, which calls `paimaSubmitGameInput` on the deployed `PaimaL2Contract` with a formatted string (e.g., `["attack","player1","monster7"]`).
-2.  **Event Emission**: The contract executes and emits the `PaimaGameInteraction` event onto the blockchain.
-3.  **Sync Service Detection**: The Effectstream's **Sync Service**, which is constantly monitoring the blockchain, has a **Primitive** configured to listen specifically for the `PaimaGameInteraction` event from your contract's address.
+1.  **User Action**: A user on your frontend initiates an action, which calls `effectstreamSubmitGameInput` on the deployed `EffectstreamL2Contract` with a formatted string (e.g., `["attack","player1","monster7"]`).
+2.  **Event Emission**: The contract executes and emits the `EffectstreamGameInteraction` event onto the blockchain.
+3.  **Sync Service Detection**: The Effectstream's **Sync Service**, which is constantly monitoring the blockchain, has a **Primitive** configured to listen specifically for the `EffectstreamGameInteraction` event from your contract's address.
 4.  **Grammar Parsing**: When the Sync Service detects a new event, it takes the `data` payload and passes it to the **Grammar Parser**. The parser checks the prefix (`["attack",...`) to identify which rule to apply. It then validates and parses the rest of the string into a structured, type-safe object.
 5.  **STF Execution**: The engine uses the parsed prefix to identify and execute the corresponding **State Transition Function (STF)** in your state machine (e.g., the function registered for `"attack"`). The parsed data object is passed as an argument to your STF, where your game logic runs.
 
@@ -51,14 +51,14 @@ This flow creates a secure and deterministic bridge from an on-chain event to yo
 ```mermaid
 sequenceDiagram
     participant User/Frontend
-    participant EVM Blockchain (PaimaL2Contract)
+    participant EVM Blockchain (EffectstreamL2Contract)
     participant Effectstream (Sync Service)
     participant Effectstream (Grammar Parser)
     participant Effectstream (State Machine)
 
-    User/Frontend->>EVM Blockchain (PaimaL2Contract): Calls `paimaSubmitGameInput("attack|p1|m7")`
-    EVM Blockchain (PaimaL2Contract)->>EVM Blockchain (PaimaL2Contract): Emits `PaimaGameInteraction` event
-    Effectstream (Sync Service)->>EVM Blockchain (PaimaL2Contract): [Primitive] Detects Event
+    User/Frontend->>EVM Blockchain (EffectstreamL2Contract): Calls `effectstreamSubmitGameInput("attack|p1|m7")`
+    EVM Blockchain (EffectstreamL2Contract)->>EVM Blockchain (EffectstreamL2Contract): Emits `EffectstreamGameInteraction` event
+    Effectstream (Sync Service)->>EVM Blockchain (EffectstreamL2Contract): [Primitive] Detects Event
     Effectstream (Sync Service)->>Effectstream (Grammar Parser): Passes raw data: ["attack","p1","m7"]
     Effectstream (Grammar Parser)->>Effectstream (State Machine): Parses input and identifies 'attack' prefix
     Effectstream (State Machine)->>Effectstream (State Machine): Executes 'attack' STF with parsed data
@@ -66,10 +66,10 @@ sequenceDiagram
 
 ### Ownership and Monetization
 
-The `PaimaL2Contract` also includes administrative functions that allow the contract owner to manage it and optionally generate revenue.
+The `EffectstreamL2Contract` also includes administrative functions that allow the contract owner to manage it and optionally generate revenue.
 
 *   **`setOwner(address newOwner)`**: Transfers ownership of the contract to a new address.
-*   **`setFee(uint256 newFee)`**: Sets a fee (in wei) that users must pay to call `paimaSubmitGameInput`. This is a simple way to monetize your dApp, as every action can contribute to a fee pool.
+*   **`setFee(uint256 newFee)`**: Sets a fee (in wei) that users must pay to call `effectstreamSubmitGameInput`. This is a simple way to monetize your dApp, as every action can contribute to a fee pool.
 *   **`withdrawFunds()`**: Allows the owner to withdraw the accumulated fees from the contract.
 
 
@@ -113,7 +113,7 @@ Typically, you will not construct this `&B` string manually. The Batcher service
 
 Effectstream includes a flexible, L2-native account system that goes beyond simple wallet addresses. A single "Effectstream Account" can be controlled by multiple wallets (e.g., a hot wallet on a mobile device and a hardware wallet for security), and the primary controlling wallet can be changed. This provides a form of L2 Account Abstraction.
 
-These commands allow users to manage their Effectstream Account directly through the `PaimaL2Contract`.
+These commands allow users to manage their Effectstream Account directly through the `EffectstreamL2Contract`.
 
 *   **`&createAccount`**
     *   **Description**: Creates a new, empty Effectstream Account. The wallet that sends this transaction (`msg.sender`) automatically becomes the first and primary address for this new account.

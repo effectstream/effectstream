@@ -110,17 +110,17 @@ When you run `deno task dev`, the [Process Orchestrator](../100-components/106-p
 The template uses a `Effectstream L2 Contract` deployed on the local EVM chain at `0x5FbDB2315678afecb367f032d93F642f64180aa3`. Players submit formatted input strings, and Effectstream processes them to update game state.
 
 ```solidity
-// The PaimaL2Contract acts as an input mailbox
-contract PaimaL2 {
-    event PaimaGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
+// The EffectstreamL2Contract acts as an input mailbox
+contract EffectstreamL2 {
+    event EffectstreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
 
     function submitInput(bytes calldata input) external payable {
-        emit PaimaGameInteraction(msg.sender, input, nonce);
+        emit EffectstreamGameInteraction(msg.sender, input, nonce);
     }
 }
 ```
 
-Effectstream monitors the `PaimaGameInteraction` event to receive and process player inputs.
+Effectstream monitors the `EffectstreamGameInteraction` event to receive and process player inputs.
 
 ## The State Machine (`state-machine.ts`)
 

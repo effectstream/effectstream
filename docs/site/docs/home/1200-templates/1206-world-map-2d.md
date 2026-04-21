@@ -139,18 +139,18 @@ The world-map-2d template uses a `Effectstream L2 Contract` deployed on the loca
 The contract is deployed at `0x5FbDB2315678afecb367f032d93F642f64180aa3` (local Hardhat deployment).
 
 ```solidity
-// Simplified example of what the PaimaL2Contract does
-contract PaimaL2 {
-    event PaimaGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
+// Simplified example of what the EffectstreamL2Contract does
+contract EffectstreamL2 {
+    event EffectstreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
 
     function submitInput(bytes calldata input) external payable {
         // Validates and stores the input
-        emit PaimaGameInteraction(msg.sender, input, nonce);
+        emit EffectstreamGameInteraction(msg.sender, input, nonce);
     }
 }
 ```
 
-Effectstream monitors the `PaimaGameInteraction` event to receive player inputs.
+Effectstream monitors the `EffectstreamGameInteraction` event to receive player inputs.
 
 ## The State Machine (`state-machine.ts`)
 

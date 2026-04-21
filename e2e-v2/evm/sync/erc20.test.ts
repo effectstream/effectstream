@@ -30,7 +30,7 @@ function getClients(pk: `0x${string}`) {
 
 export async function erc20SyncTest(db: Client, sharedState: SharedState) {
   const addresses = contractAddressesEvmMain();
-  const erc20Address = addresses.chain31337["PaimaErc20DevModule#PaimaErc20Dev"];
+  const erc20Address = addresses.chain31337["EffectstreamErc20DevModule#EffectstreamErc20Dev"];
   const { walletClient, publicClient } = getClients(wallets[0].privateKey);
   const m = 10n ** 18n;
 

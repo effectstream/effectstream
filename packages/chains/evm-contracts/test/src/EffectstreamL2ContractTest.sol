@@ -5,13 +5,13 @@ import "../lib/cheatcodes.sol";
 import "../lib/console.sol";
 import "../lib/ctest.sol";
 
-import "../../src/contracts/PaimaL2Contract.sol";
+import "../../src/contracts/EffectstreamL2Contract.sol";
 
-contract PaimaL2ContractTest is CTest {
-    event PaimaGameInteraction(address indexed userAddress, bytes data, uint256 value);
+contract EffectstreamL2ContractTest is CTest {
+    event EffectstreamGameInteraction(address indexed userAddress, bytes data, uint256 value);
 
     CheatCodes cheats = CheatCodes(HEVM_ADDRESS);
-    PaimaL2Contract strg;
+    EffectstreamL2Contract strg;
 
     address account1 = 0x766FCe3d50d795Fe6DcB1020AB58bccddd5C5c77;
     address account2 = 0x078D888E40faAe0f32594342c85940AF3949E666;
@@ -20,7 +20,7 @@ contract PaimaL2ContractTest is CTest {
     uint256 constant FEE = 1e16;
 
     function setUp() public {
-        strg = new PaimaL2Contract(address(account1), FEE);
+        strg = new EffectstreamL2Contract(address(account1), FEE);
         cheats.deal(account1, 100 ether);
         cheats.deal(account2, 100 ether);
     }
@@ -40,9 +40,9 @@ contract PaimaL2ContractTest is CTest {
     function testCannotStoreWithoutFee() public {
         cheats.startPrank(account2);
         cheats.expectRevert("Sufficient funds required to submit game input");
-        strg.paimaSubmitGameInput("0x123456");
+        strg.effectstreamSubmitGameInput("0x123456");
         cheats.expectRevert("Sufficient funds required to submit game input");
-        strg.paimaSubmitGameInput{value: FEE - 1}("0x123456");
+        strg.effectstreamSubmitGameInput{value: FEE - 1}("0x123456");
         cheats.stopPrank();
     }
 
@@ -50,17 +50,17 @@ contract PaimaL2ContractTest is CTest {
         cheats.prank(account2);
         bytes memory data = "0x123456";
         cheats.expectEmit(true, true, true, true);
-        emit PaimaGameInteraction(account2, data, FEE);
-        strg.paimaSubmitGameInput{value: FEE}(data);
+        emit EffectstreamGameInteraction(account2, data, FEE);
+        strg.effectstreamSubmitGameInput{value: FEE}(data);
         assertEq(address(strg).balance, FEE);
     }
 
     function testStoreAndWithdraw() public {
         cheats.startPrank(account2);
         bytes memory data = "0x123456";
-        strg.paimaSubmitGameInput{value: FEE}(data);
-        strg.paimaSubmitGameInput{value: FEE}(data);
-        strg.paimaSubmitGameInput{value: FEE}(data);
+        strg.effectstreamSubmitGameInput{value: FEE}(data);
+        strg.effectstreamSubmitGameInput{value: FEE}(data);
+        strg.effectstreamSubmitGameInput{value: FEE}(data);
         cheats.stopPrank();
         assertEq(address(strg).balance, FEE * 3);
         cheats.prank(account1);
@@ -96,12 +96,12 @@ contract PaimaL2ContractTest is CTest {
         bytes memory data = "0x123456";
         cheats.prank(account2);
         cheats.expectRevert("Sufficient funds required to submit game input");
-        strg.paimaSubmitGameInput{value: newFee - 1}(data);
+        strg.effectstreamSubmitGameInput{value: newFee - 1}(data);
 
         cheats.prank(account2);
         cheats.expectEmit(true, true, true, true);
-        emit PaimaGameInteraction(account2, data, newFee);
-        strg.paimaSubmitGameInput{value: newFee}(data);
+        emit EffectstreamGameInteraction(account2, data, newFee);
+        strg.effectstreamSubmitGameInput{value: newFee}(data);
         assertEq(address(strg).balance, newFee);
     }
 

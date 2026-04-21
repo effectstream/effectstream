@@ -51,16 +51,16 @@ When you run `deno task dev` for this template, the [Process Orchestrator](../10
 
 The chess template uses a `Effectstream L2 Contract` on the EVM chain. This contract acts as a "mailbox" for player inputs. Instead of implementing complex game logic on-chain, which would be expensive and slow, players submit simple, formatted strings representing their actions to the contract's `submitInput` function.
 
-Effectstream monitors the `PaimaGameInteraction` event from this contract to receive and process player inputs.
+Effectstream monitors the `EffectstreamGameInteraction` event from this contract to receive and process player inputs.
 
 ```solidity
-// Simplified example of what the PaimaL2Contract does
-contract PaimaL2 {
-    event PaimaGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
+// Simplified example of what the EffectstreamL2Contract does
+contract EffectstreamL2 {
+    event EffectstreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
 
     function submitInput(bytes calldata input) external payable {
         // ... logic to handle input submission ...
-        emit PaimaGameInteraction(msg.sender, input, nonce);
+        emit EffectstreamGameInteraction(msg.sender, input, nonce);
     }
 }
 ```

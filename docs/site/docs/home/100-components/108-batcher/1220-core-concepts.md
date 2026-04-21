@@ -358,12 +358,12 @@ export class EffectstreamL2DefaultAdapter implements BlockchainAdapter<string> {
   }
 
   async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> {
-    // Submits to PaimaL2 contract via viem
+    // Submits to EffectstreamL2 contract via viem
     const hexData = encodeHexFromString(data);
     const hash = await this.walletClient.writeContract({
       address: this.effectstreamL2Address,
       abi: this.effectstreamL2Abi,
-      functionName: "paimaSubmitGameInput",
+      functionName: "effectstreamSubmitGameInput",
       args: [hexData],
       value: actualFee,
     });
@@ -559,7 +559,7 @@ const batcher = createNewBatcher<GameBatcherInput>(config, new FileStorage("./da
 // 4. Create and add blockchain adapter dynamically
 // This must be done BEFORE init() or runBatcher()
 const ethereumAdapter = new EffectstreamL2DefaultAdapter(
-  "0x1234...",  // PaimaL2 contract address
+  "0x1234...",  // EffectstreamL2 contract address
   "0xabcd...",  // Batcher private key
   0n,           // Transaction fee
   "eth-mainnet" // Sync protocol name (target can differ from this)

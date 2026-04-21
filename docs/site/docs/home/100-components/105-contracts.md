@@ -70,15 +70,15 @@ deno task build:midnight
 ```
 The templates also include scripts for deploying these contracts to local development chains or public testnets/mainnets.
 
-## The `PaimaL2Contract`
+## The `EffectstreamL2Contract`
 
-While Effectstream can listen to any contract, it also provides a specialized contract called `PaimaL2Contract`. This contract serves as a highly efficient, generic "mailbox" for submitting game-specific inputs directly to the state machine.
+While Effectstream can listen to any contract, it also provides a specialized contract called `EffectstreamL2Contract`. This contract serves as a highly efficient, generic "mailbox" for submitting game-specific inputs directly to the state machine.
 
-Instead of defining dozens of specific functions on-chain (e.g., `attack(uint monsterId)`, `useItem(uint itemId)`), you send a single transaction to the `PaimaL2Contract`'s `submitInput` function with a concise, string-based payload.
+Instead of defining dozens of specific functions on-chain (e.g., `attack(uint monsterId)`, `useItem(uint itemId)`), you send a single transaction to the `EffectstreamL2Contract`'s `submitInput` function with a concise, string-based payload.
 
 **Example:**
 *   **Without L2 Contract:** `myGameContract.attack(123)`
-*   **With L2 Contract:** `paimaL2Contract.submitInput("attack|123")`
+*   **With L2 Contract:** `effectstreamL2Contract.submitInput("attack|123")`
 
 This approach has significant advantages:
 *   **Gas Efficiency**: It reduces on-chain logic to a minimum, saving gas.
@@ -88,11 +88,11 @@ This approach has significant advantages:
 More in the [Effectstream L2 Contract Section](./104-l2-contract.md)
 
 ### Effectstream-Provided Contracts
-The `@effectstream/evm-contracts` package includes a variety of useful contracts, including implementations of common standards and the core `PaimaL2Contract`.
+The `@effectstream/evm-contracts` package includes a variety of useful contracts, including implementations of common standards and the core `EffectstreamL2Contract`.
 
 | Contract | Description |
 | :--- | :--- |
-| **`PaimaL2Contract`** | The core contract for submitting game inputs. |
+| **`EffectstreamL2Contract`** | The core contract for submitting game inputs. |
 | `erc20`, `erc721` | Standard OpenZeppelin implementations. |
 | `Erc20Dev`, `Erc721Dev`| Simple mintable versions for development and testing. |
 | *Interfaces* | `IERC20`, `IERC721`, etc., for interacting with other contracts. |
@@ -129,7 +129,7 @@ This is the most important contract for interacting with the Effectstream's stat
 
 | Contract | Description |
 | :--- | :--- |
-| **`PaimaL2Contract`** | The central "mailbox" for your application. This contract provides the `submitInput` function, which is the most gas-efficient and flexible way to send game moves and actions from the on-chain world to your state machine. It serves as the primary entry point for user interactions and the Batcher service. |
+| **`EffectstreamL2Contract`** | The central "mailbox" for your application. This contract provides the `submitInput` function, which is the most gas-efficient and flexible way to send game moves and actions from the on-chain world to your state machine. It serves as the primary entry point for user interactions and the Batcher service. |
 
 #### Standard Token Contracts
 These are standard implementations of the most common token types, based on the battle-tested OpenZeppelin library.

@@ -4,7 +4,7 @@ import { getEnv } from "@effectstream/utils/runtime";
 import * as chains from "viem/chains";
 
 const effectstreamL2Address = contractAddressesEvmMain()["chain31337"][
-  "PaimaL2ContractModule#MyPaimaL2Contract"
+  "EffectstreamL2ContractModule#MyEffectstreamL2Contract"
 ] as `0x${string}`;
 
 // Use hardhat wallet #2 as the batcher signing key (wallet #0 and #1 are used by tests)

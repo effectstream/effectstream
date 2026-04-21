@@ -1,7 +1,7 @@
 /**
  * EffectstreamL2 Sync Test
  *
- * Flow: submit ["add", "100", "50"] on-chain via paimaSubmitGameInput
+ * Flow: submit ["add", "100", "50"] on-chain via effectstreamSubmitGameInput
  *       -> sync picks up the event
  *       -> STM parses the grammar and logs: "add: 100 + 50 = 150"
  *       -> test checks primitive_accounting for the parsed payload data
@@ -27,7 +27,7 @@ const wallet0 = {
 const effectstreamL2Abi = [
   {
     inputs: [{ name: "data", type: "bytes" }],
-    name: "paimaSubmitGameInput",
+    name: "effectstreamSubmitGameInput",
     outputs: [],
     stateMutability: "payable",
     type: "function",
@@ -36,7 +36,7 @@ const effectstreamL2Abi = [
 
 export async function effectstreamL2SyncTest(db: Client, sharedState: SharedState) {
   const addresses = contractAddressesEvmMain();
-  const effectstreamL2Address = addresses.chain31337["PaimaL2ContractModule#MyPaimaL2Contract"];
+  const effectstreamL2Address = addresses.chain31337["EffectstreamL2ContractModule#MyEffectstreamL2Contract"];
 
   const account = privateKeyToAccount(wallet0.privateKey);
   const walletClient = createWalletClient({ account, chain: hardhat, transport: http() });
@@ -46,7 +46,7 @@ export async function effectstreamL2SyncTest(db: Client, sharedState: SharedStat
   const hash1 = await walletClient.writeContract({
     address: effectstreamL2Address,
     abi: effectstreamL2Abi,
-    functionName: "paimaSubmitGameInput",
+    functionName: "effectstreamSubmitGameInput",
     args: [toHex(JSON.stringify(["add", "100", "50"]))],
     value: parseEther("0.0000000001"),
   });
@@ -57,7 +57,7 @@ export async function effectstreamL2SyncTest(db: Client, sharedState: SharedStat
   const hash2 = await walletClient.writeContract({
     address: effectstreamL2Address,
     abi: effectstreamL2Abi,
-    functionName: "paimaSubmitGameInput",
+    functionName: "effectstreamSubmitGameInput",
     args: [toHex(JSON.stringify(["add", "7", "3"]))],
     value: parseEther("0.0000000001"),
   });

@@ -66,7 +66,7 @@ This optional but highly recommended step allows you to register the addresses o
       .addDeployment(
         (networks) => networks.evmParallel_fast, // Target the network
         (_network) => ({
-          name: "PaimaErc20DevModule#PaimaErc20Dev", // A unique name for this contract
+          name: "EffectstreamErc20DevModule#EffectstreamErc20Dev", // A unique name for this contract
           address: "0x...", // The contract's address. Generated and available in the @example-evm-midnight/contract-evm package
         }),
       )
@@ -179,7 +179,7 @@ import { PrimitiveTypeEVMERC20 } from "@effectstream/sm/builtin";
           name: "My_ERC20_Token",
           type: PrimitiveTypeEVMERC20, // Use the built-in ERC20 primitive type
           startBlockHeight: 0,
-          contractAddress: deployments["PaimaErc20DevModule#PaimaErc20Dev"].address,
+          contractAddress: deployments["EffectstreamErc20DevModule#EffectstreamErc20Dev"].address,
           // 3. The link to the State Machine.
           // This will trigger the STF registered with the name "transfer".
           scheduledPrefix: "transfer",

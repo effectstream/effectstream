@@ -55,7 +55,7 @@ export class EffectstreamL2Primitive extends Primitive<
   readonly internalTypeName = PrimitiveTypeEVMEffectstreamL2;
   readonly abi = getEvmEvent(
     effectstreamL2.abi,
-    "PaimaGameInteraction(address,bytes,uint256)",
+    "EffectstreamGameInteraction(address,bytes,uint256)",
   );
   readonly contractAddress: EvmAddress;
   override grammar = [];

@@ -109,7 +109,7 @@ export const config = new ConfigBuilder()
           type: PrimitiveTypeEVMERC20,
           startBlockHeight: 0,
           contractAddress: contractAddressesEvmMain()
-            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
+            .chain31337["EffectstreamErc20DevModule#EffectstreamErc20Dev"],
           stateMachinePrefix: "transfer-erc20",
         }),
       )
@@ -131,7 +131,7 @@ export const config = new ConfigBuilder()
           type: PrimitiveTypeEVMEffectstreamL2,
           startBlockHeight: 0,
           contractAddress: contractAddressesEvmMain()["chain31337"][
-            "PaimaL2ContractModule#MyPaimaL2Contract"
+            "EffectstreamL2ContractModule#MyEffectstreamL2Contract"
           ],
           effectstreamL2Grammar: effectstreamL2Grammar,
         }),
@@ -165,7 +165,7 @@ export const config = new ConfigBuilder()
           type: PrimitiveTypeEVMERC20,
           startBlockHeight: 0,
           contractAddress: contractAddressesEvmMain()
-            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
+            .chain31338["EffectstreamErc20DevModule#EffectstreamErc20Dev"],
           stateMachinePrefix: "transfer-erc20",
         }),
       )

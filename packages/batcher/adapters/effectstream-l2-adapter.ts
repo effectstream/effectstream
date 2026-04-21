@@ -62,7 +62,7 @@ export class EffectstreamL2DefaultAdapter implements BlockchainAdapter<string> {
   private readonly effectstreamL2Abi = [
     {
       inputs: [{ name: "data", type: "bytes" }],
-      name: "paimaSubmitGameInput",
+      name: "effectstreamSubmitGameInput",
       outputs: [],
       stateMutability: "payable",
       type: "function",
@@ -134,7 +134,7 @@ export class EffectstreamL2DefaultAdapter implements BlockchainAdapter<string> {
       chain: this.walletClient.chain,
       address: this.effectstreamL2Address,
       abi: this.effectstreamL2Abi,
-      functionName: "paimaSubmitGameInput",
+      functionName: "effectstreamSubmitGameInput",
       args: [hexData],
       value: actualFee,
     });
