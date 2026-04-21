@@ -8,7 +8,7 @@ import type { EvmInjectedProvider } from "./evm/injected.ts";
 import type { AbiItem } from "web3-utils";
 import { type TransactionReceipt, Web3 } from "web3";
 import { createMessageForBatcher } from "@effectstream/concise";
-import { BuiltinEvents, PaimaEventManager } from "@effectstream/event-client";
+import { BuiltinEvents, EventManager } from "@effectstream/event-client";
 
 /**
  * This is main class used for setting up the Paima Engine
@@ -273,7 +273,7 @@ export function waitForPaimaEngineBlockProcessed(
         return;
       }
 
-      PaimaEventManager.Instance.subscribe(
+      EventManager.Instance.subscribe(
         {
           topic: BuiltinEvents.SyncChains,
           filter: {
@@ -293,7 +293,7 @@ export function waitForPaimaEngineBlockProcessed(
     }),
   ]).finally(() => {
     if (subscriptionReference) {
-      PaimaEventManager.Instance.unsubscribe(subscriptionReference);
+      EventManager.Instance.unsubscribe(subscriptionReference);
     }
     if (timer) {
       clearTimeout(timer);

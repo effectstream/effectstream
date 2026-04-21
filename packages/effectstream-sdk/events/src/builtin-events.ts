@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import type { EventAddHashFields, EventPathAndDef, LogEvent, LogEventFields } from './types.ts';
-import { addHashes, genEvent, PaimaEventBrokerNames, toPath, TopicPrefix } from './types.ts';
+import { addHashes, genEvent, EventBrokerNames, toPath, TopicPrefix } from './types.ts';
 import type {
   Operations,
   Channels,
@@ -133,7 +133,7 @@ type HostInfo = {
 export function toAsyncApi(info: HostInfo, events: [string, EventPathAndDef][]): AsyncAPI300Schema {
   const parsedUrl = new URL(info.backendUri);
   const servers: NonNullable<AsyncAPI300Schema['servers']> = {
-    [PaimaEventBrokerNames.PaimaEngine]: {
+    [EventBrokerNames.Engine]: {
       host: parsedUrl.host,
       // cut off trailing `:`
       protocol: parsedUrl.protocol.substring(0, parsedUrl.protocol.length - 1),
@@ -142,7 +142,7 @@ export function toAsyncApi(info: HostInfo, events: [string, EventPathAndDef][]):
   };
   if (info.batcherUri != null) {
     const parsedBatcherUrl = new URL(info.batcherUri);
-    servers[PaimaEventBrokerNames.Batcher] = {
+    servers[EventBrokerNames.Batcher] = {
       host: parsedBatcherUrl.host,
       // cut off trailing `:`
       protocol: parsedBatcherUrl.protocol.substring(0, parsedUrl.protocol.length - 1),
@@ -152,7 +152,7 @@ export function toAsyncApi(info: HostInfo, events: [string, EventPathAndDef][]):
 
   const channels: Channels = {};
   for (const [k, v] of events) {
-    if (v.broker === PaimaEventBrokerNames.Batcher && info.batcherUri == null) {
+    if (v.broker === EventBrokerNames.Batcher && info.batcherUri == null) {
       continue;
     }
     const parameters: Parameters = {};
@@ -189,7 +189,7 @@ export function toAsyncApi(info: HostInfo, events: [string, EventPathAndDef][]):
 
   const operations: Operations = {};
   for (const [k, v] of events) {
-    if (v.broker === PaimaEventBrokerNames.Batcher && info.batcherUri == null) {
+    if (v.broker === EventBrokerNames.Batcher && info.batcherUri == null) {
       continue;
     }
     operations[`receive${k}`] = {

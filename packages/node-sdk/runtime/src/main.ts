@@ -11,10 +11,10 @@ import {
   resetPublicTables,
   runSnapshotLoop,
 } from "@effectstream/db";
-import { PaimaEventBroker } from "@effectstream/event-server";
+import { EventBroker } from "@effectstream/event-server";
 import {
   BuiltinEvents,
-  PaimaEventManager,
+  EventManager,
 } from "@effectstream/event-client";
 import { startMerge, startSync } from "@effectstream/sync";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
@@ -83,7 +83,7 @@ export function* start(config: StartConfig): Operation<void> {
   }
 
   // Create MQTT Broker
-  new PaimaEventBroker("effectstream-engine").createServer();
+  new EventBroker("effectstream-engine").createServer();
 
   yield* spawn(function* () {
     yield* startHttpServer(
@@ -211,12 +211,12 @@ async function emitLatestBlocks(
   syncChains: Record<string, [number, number]>,
 ) {
   return await Promise.all([
-    PaimaEventManager.Instance.sendMessage(BuiltinEvents.RollupBlock, {
+    EventManager.Instance.sendMessage(BuiltinEvents.RollupBlock, {
       block: rollUpBlockHeight,
       timestamp: rollUpBlockTimestamp,
     }),
     ...Object.entries(syncChains).map(([chainName, [_, toBlock]]) =>
-      PaimaEventManager.Instance.sendMessage(BuiltinEvents.SyncChains, {
+      EventManager.Instance.sendMessage(BuiltinEvents.SyncChains, {
         chain: chainName,
         block: toBlock,
         rollup: rollUpBlockHeight
