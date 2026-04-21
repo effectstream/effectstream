@@ -157,7 +157,13 @@ async function test() {
     db = getDBConnection();
     await runSyncTests(db);
 
-    // 6. Summary
+    // 6. Wait for batcher + run batcher tests
+    await waitForProcess("batcher-wait", { waitForExit: true, timeoutMs: 120_000 });
+    console.log("\n--- Phase 4: Batcher Tests ---\n");
+    const { batcherTest } = await import("./sync/batcher.test.ts");
+    await batcherTest();
+
+    // 7. Summary
     printSummary();
   } catch (e) {
     printSummary();

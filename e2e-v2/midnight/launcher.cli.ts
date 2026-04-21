@@ -21,5 +21,10 @@ export default {
 
     // ── Sync ──────────────────────────────────────────────────────────────────
     { name: "sync", args: ["run", "e2e-v2/midnight/node.ts"], waitToExit: false, type: "system-dependency" as const, env: { PGLITE: "true" }, dependsOn: ["pglite-wait", "midnight-contract"] },
+
+    // ── Batcher ───────────────────────────────────────────────────────────────
+    // Needs the eip-20 contract's *.undeployed.json file written by midnight-contract.
+    { name: "batcher", args: ["run", "e2e-v2/midnight/batcher/main.ts"], stopProcessAtPort: [3334], waitToExit: false, dependsOn: ["midnight-contract"] },
+    { name: "batcher-wait", args: ["./node_modules/.bin/wait-on", "tcp:3334"], waitToExit: true, dependsOn: ["batcher"] },
   ],
 } satisfies OrchestratorConfig;
