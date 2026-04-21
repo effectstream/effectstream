@@ -3,7 +3,7 @@
 NPM package for EVM contracts for EffectStream and related utilities.
 
 See
-[the Effectstream documentation](https://docs.paimastudios.com/home/libraries/evm-contracts/introduction)
+[the Effectstream documentation](https://effectstream.github.io/docs/home/libraries/evm-contracts/introduction)
 for full documentation.
 
 # Hardhat Config Builder
@@ -266,4 +266,4 @@ See the examples in `e2e/shared/contracts/evm/hardhat.config.ts` and the templat
 ## See Also
 
 - [Hardhat Documentation](https://hardhat.org/docs)
-- [Effectstream Documentation](https://docs.paimastudios.com)
+- [Effectstream Documentation](https://effectstream.github.io/docs)

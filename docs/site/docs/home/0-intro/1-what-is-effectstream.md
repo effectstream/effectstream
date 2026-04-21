@@ -145,7 +145,7 @@ ZK cryptography is often used in Web3 for two different properties:
 
 Both these use-cases are of interest in games, as being able to prove world state helps with composability of worlds, and private inputs allow games with private state (ex: fog of war) and can also help with compliance (ex: being able to prove you know information without revealing the sensitive information publicly)
 
-Effectstream already comes with ZK layer support, and we are working with [Midnight](https://midnight.network/) to enable app-specific ZK rollups as well. You can learn more about the architecture of our ZK layer [here](https://blog.paimastudios.com/paima-zk-layer/).
+Effectstream already comes with ZK layer support, and we are working with [Midnight](https://midnight.network/) to enable app-specific ZK rollups as well. You can learn more about the architecture of our ZK layer [here](https://effectstream.github.io/home/).
 
 #### Example game
 
@@ -219,11 +219,11 @@ If ZK is enforced or if the whole application needs to be written as one giant Z
 
 ## Sovereign Rollup disadvantages
 
-Unfortunately there is no "free lunch", and so usage of sovereign rollups comes with some disadvantages as well. Keep in mind while reading this that Effectstream overcome these deficiencies by combining its sovereign rollup layer with its native support for L1 smart contracts and its ZK layer. You can learn more about this in our blog posts [here](https://blog.paimastudios.com/self-sovereign-rollup/).
+Unfortunately there is no "free lunch", and so usage of sovereign rollups comes with some disadvantages as well. Keep in mind while reading this that Effectstream overcome these deficiencies by combining its sovereign rollup layer with its native support for L1 smart contracts and its ZK layer. You can learn more about this in our blog posts [here](https://effectstream.github.io/home/).
 
 ### Extra work for trading L2 assets on the L1
 
-Although assets that stay on the L1 are supported, if assets are stored on the L2, extra work is required to make these assets from the L2 available on the L1 (that is to say, supporting the ability to put \$5 into the L2, make some money, then take \$10 out require extra work). Effectstream supports this through its concept of *inverse projections* which supports both [NFT](../400-paima-standards/prc3.md) and [fungible tokens](../400-paima-standards/prc4.md). You can learn more about this in our [blogpost](https://blog.paimastudios.com/self-sovereign-rollup/).
+Although assets that stay on the L1 are supported, if assets are stored on the L2, extra work is required to make these assets from the L2 available on the L1 (that is to say, supporting the ability to put \$5 into the L2, make some money, then take \$10 out require extra work). Effectstream supports this through its concept of *inverse projections* which supports both [NFT](../400-paima-standards/prc3.md) and [fungible tokens](../400-paima-standards/prc4.md). You can learn more about this in our [blogpost](https://effectstream.github.io/home/).
 
 ### Optional compatibility with other L1 dApps
 

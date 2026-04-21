@@ -212,7 +212,7 @@ export function toAsyncApi(info: HostInfo, events: [string, EventPathAndDef][]):
       description: 'Documentation for the MQTT channels for this Paima node',
       externalDocs: {
         description: 'Official Paima Engine documentation',
-        url: 'https://docs.paimastudios.com',
+        url: 'https://effectstream.github.io/docs',
       },
     },
     defaultContentType: 'application/json',
