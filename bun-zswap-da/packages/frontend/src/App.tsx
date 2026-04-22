@@ -7,7 +7,8 @@ import { EventFeed } from './components/EventFeed';
 import { WalletBalances } from './components/WalletBalances';
 import { useTokens } from './hooks/useTokens';
 import { useEventStream } from './hooks/useEventStream';
-import { useActiveWallet } from './hooks/useActiveWallet';
+import { useActiveWallet, BROWSER_WALLET_ID } from './hooks/useActiveWallet';
+import { useWallet } from './hooks/useWallet';
 import type { AppEvent } from './types';
 import './styles/index.css';
 
@@ -17,7 +18,10 @@ function App() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [sseRefreshTrigger, setSseRefreshTrigger] = useState(0);
   const [balanceRefreshTrigger, setBalanceRefreshTrigger] = useState(0);
-  const { wallets, activeWallet, setActiveWallet } = useActiveWallet();
+
+  const wallet = useWallet();
+  const browserAvailable = wallet.status === 'connected';
+  const { wallets, activeWallet, setActiveWallet } = useActiveWallet(browserAvailable);
 
   const handleSSEEvent = useCallback((event: AppEvent) => {
     if (event.type === 'offer_indexed' || event.type === 'offer_consumed') {
@@ -26,7 +30,7 @@ function App() {
     if (event.type === 'token_minted') {
       refetchTokens();
     }
-    if (event.type === 'token_minted' || event.type === 'offer_consumed') {
+    if (event.type === 'token_minted' || event.type === 'offer_consumed' || event.type === 'faucet_sent') {
       setBalanceRefreshTrigger(prev => prev + 1);
     }
   }, [refetchTokens]);
@@ -41,6 +45,8 @@ function App() {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  const isBrowserActive = activeWallet === BROWSER_WALLET_ID;
+
   return (
     <>
       <Header
@@ -48,6 +54,7 @@ function App() {
         wallets={wallets}
         activeWallet={activeWallet}
         onWalletChange={setActiveWallet}
+        wallet={wallet}
       />
 
       <MintModal
@@ -55,6 +62,7 @@ function App() {
         onClose={() => setIsMintModalOpen(false)}
         onMintSuccess={handleMintSuccess}
         activeWallet={activeWallet}
+        connectedApi={isBrowserActive ? wallet.connectedApi : null}
       />
 
       <div className="main-columns">
@@ -64,6 +72,7 @@ function App() {
             refreshTrigger={refreshTrigger}
             sseRefreshTrigger={sseRefreshTrigger}
             activeWallet={activeWallet}
+            connectedApi={isBrowserActive ? wallet.connectedApi : null}
           />
         </div>
 
@@ -72,6 +81,8 @@ function App() {
             knownTokens={knownTokens}
             onSuccess={handleSwapSuccess}
             activeWallet={activeWallet}
+            connectedApi={isBrowserActive ? wallet.connectedApi : null}
+            browserShieldedAddress={isBrowserActive ? wallet.shieldedAddress : null}
           />
         </div>
 
@@ -85,6 +96,7 @@ function App() {
             activeWallet={activeWallet}
             knownTokens={knownTokens}
             balanceRefreshTrigger={balanceRefreshTrigger}
+            browserBalances={isBrowserActive ? wallet.shieldedBalances : null}
           />
         </div>
       </div>

@@ -74,4 +74,15 @@ export const api = {
   },
 
   getEventsUrl: () => `${API_BASE}/api/events`,
+
+  requestFaucet: async (recipientAddress: string): Promise<{ success: boolean; txId: string; amount: string; recipient: string }> => {
+    const res = await fetch(`${API_BASE}/api/faucet/night`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipientAddress }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
+    return data;
+  },
 };

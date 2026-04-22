@@ -22,7 +22,7 @@ export interface ZSwapOffer {
 }
 
 export interface AppEvent {
-  type: 'connected' | 'offer_indexed' | 'offer_consumed' | 'offer_expired' | 'token_minted';
+  type: 'connected' | 'offer_indexed' | 'offer_consumed' | 'offer_expired' | 'token_minted' | 'faucet_sent';
   timestamp: number;
   offerId?: number;
   celestiaHeight?: number | string;
@@ -32,4 +32,7 @@ export interface AppEvent {
   name?: string;
   color?: string;
   wallet?: string;
+  recipient?: string;
+  amount?: string;
+  txId?: string;
 }

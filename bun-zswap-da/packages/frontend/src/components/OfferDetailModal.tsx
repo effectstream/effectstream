@@ -3,17 +3,24 @@ import type { KnownToken, TokenEntry, ZSwapOffer } from '../types';
 import { api } from '../services/api';
 import { shortToken } from '../utils';
 import { decodeOfferForDisplay, type DecodeResult } from '../decodeOffer';
+import { decodeOffer } from 'mip-zswap-offer';
 import { Modal } from './ui/Modal';
 import { LoadingOverlay } from './ui/LoadingOverlay';
 import { ResultTable } from './ui/ResultTable';
 import { OfferDecodedView } from './OfferDecodedView';
+import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 
 interface OfferDetailModalProps {
   offer: ZSwapOffer | null;
   knownTokens: KnownToken[];
   activeWallet?: string;
+  connectedApi?: ConnectedAPI | null;
   onClose: () => void;
   onCompleted: () => void;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function renderTokens(arr: TokenEntry[] | undefined, knownTokens: KnownToken[]) {
@@ -28,7 +35,7 @@ function renderTokens(arr: TokenEntry[] | undefined, knownTokens: KnownToken[]) 
   }).reduce((prev, curr) => [prev, ', ', curr] as any);
 }
 
-export const OfferDetailModal: React.FC<OfferDetailModalProps> = ({ offer, knownTokens, activeWallet, onClose, onCompleted }) => {
+export const OfferDetailModal: React.FC<OfferDetailModalProps> = ({ offer, knownTokens, activeWallet, connectedApi, onClose, onCompleted }) => {
   const [completingId, setCompletingId] = useState<number | null>(null);
   const [completeResult, setCompleteResult] = useState<{ data?: any; message: string; error?: boolean } | null>(null);
   const [showDecoded, setShowDecoded] = useState(false);
@@ -59,8 +66,20 @@ export const OfferDetailModal: React.FC<OfferDetailModalProps> = ({ offer, known
     setCompletingId(id);
     setCompleteResult(null);
     try {
-      const data = await api.completeOffer(id, activeWallet);
-      setCompleteResult({ data, message: 'Offer completed successfully!' });
+      if (connectedApi && offer?.transaction_hex) {
+        // Browser-wallet path: decode the maker's bech32m offer, ask the
+        // wallet to balance+seal it, then submit to Midnight via the wallet.
+        // Celestia indexing of consumption is handled server-side through
+        // nullifier observation — no backend call required.
+        const rawBytes = decodeOffer(offer.transaction_hex);
+        const hex = bytesToHex(rawBytes);
+        const { tx: balanced } = await connectedApi.balanceSealedTransaction(hex, { payFees: true });
+        await connectedApi.submitTransaction(balanced);
+        setCompleteResult({ data: { via: 'browser-wallet' }, message: 'Offer completed via browser wallet!' });
+      } else {
+        const data = await api.completeOffer(id, activeWallet);
+        setCompleteResult({ data, message: 'Offer completed successfully!' });
+      }
       onCompleted();
     } catch (e: any) {
       setCompleteResult({ message: e.message || 'Complete failed', error: true });

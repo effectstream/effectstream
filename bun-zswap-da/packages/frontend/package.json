@@ -13,7 +13,8 @@
     "react-dom": "^19.2.0",
     "three": "^0.183.2",
     "mip-zswap-offer": "link:mip-zswap-offer",
-    "@midnight-ntwrk/ledger-v8": "8.0.3"
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "@midnight-ntwrk/dapp-connector-api": "4.0.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.7",

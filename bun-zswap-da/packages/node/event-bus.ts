@@ -4,7 +4,8 @@ export type AppEvent =
   | { type: "offer_indexed"; offerId: number; celestiaHeight: number | string; gives: unknown[]; wants: unknown[] }
   | { type: "offer_consumed"; offerId: number; nullifier: string }
   | { type: "offer_expired"; offerId: number }
-  | { type: "token_minted"; name: string; color: string; wallet: string };
+  | { type: "token_minted"; name: string; color: string; wallet: string }
+  | { type: "faucet_sent"; recipient: string; amount: string; txId: string };
 
 export const eventBus = new EventEmitter();
 eventBus.setMaxListeners(50);

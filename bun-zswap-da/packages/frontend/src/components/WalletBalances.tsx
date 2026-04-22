@@ -7,6 +7,7 @@ interface WalletBalancesProps {
   activeWallet?: string;
   knownTokens: KnownToken[];
   balanceRefreshTrigger: number;
+  browserBalances?: Record<string, string> | null;
 }
 
 function BalanceList({
@@ -41,8 +42,18 @@ export const WalletBalances: React.FC<WalletBalancesProps> = ({
   activeWallet,
   knownTokens,
   balanceRefreshTrigger,
+  browserBalances,
 }) => {
-  const { balances, loading, error } = useWalletBalances(activeWallet, balanceRefreshTrigger);
+  const isBrowser = browserBalances != null;
+  // Skip backend fetch for the browser wallet — it has no backend presence.
+  const { balances: backendBalances, loading, error } = useWalletBalances(
+    isBrowser ? undefined : activeWallet,
+    balanceRefreshTrigger,
+  );
+
+  const balances = isBrowser
+    ? { shielded: browserBalances ?? {}, unshielded: {} as Record<string, string> }
+    : backendBalances;
 
   return (
     <section>

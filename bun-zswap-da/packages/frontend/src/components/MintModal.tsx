@@ -7,12 +7,14 @@ import { Modal } from './ui/Modal';
 import { LoadingOverlay } from './ui/LoadingOverlay';
 import { ResultTable } from './ui/ResultTable';
 import { Tooltip } from './ui/Tooltip';
+import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 
 interface MintModalProps {
   isOpen: boolean;
   onClose: () => void;
   onMintSuccess?: () => void;
   activeWallet?: string;
+  connectedApi?: ConnectedAPI | null;
 }
 
 function generateDomainSep(): string {
@@ -25,7 +27,7 @@ function generateNonce(): string {
   return Date.now().toString();
 }
 
-export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuccess, activeWallet }) => {
+export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuccess, activeWallet, connectedApi }) => {
   const { connectContract, submitMint: contractSubmitMint } = useContract();
   const { loading, result, execute, clearResult } = useAsyncAction();
 
@@ -79,7 +81,13 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
 
       await contractSubmitMint(payload);
 
-      const data = await api.mintToken(mintType, payload, activeWallet);
+      // Minting a contract-defined token requires proving the OfferFiles
+      // circuits. In the browser-wallet mode this would need ZK key material
+      // shipped to the client and wired through getProvingProvider — tracked
+      // as a follow-up. For now, minting always goes through the backend
+      // `alice` wallet, even when the UI is toggled to the browser wallet.
+      const mintingWallet = connectedApi != null ? 'alice' : activeWallet;
+      const data = await api.mintToken(mintType, payload, mintingWallet);
       if (data.success === false) {
         throw new Error(data.error || 'Mint failed');
       }

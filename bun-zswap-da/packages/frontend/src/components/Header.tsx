@@ -1,17 +1,35 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Logo3D } from './Logo3D';
-import { useWallet } from '../hooks/useWallet';
+import type { useWallet } from '../hooks/useWallet';
+import { BROWSER_WALLET_ID } from '../hooks/useActiveWallet';
 import { truncateAddress } from '../utils';
+import { api } from '../services/api';
 
 interface HeaderProps {
   onOpenMintModal: () => void;
   wallets: string[];
   activeWallet: string;
   onWalletChange: (id: string) => void;
+  wallet: ReturnType<typeof useWallet>;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenMintModal, wallets, activeWallet, onWalletChange }) => {
-  const { status, walletName, walletIcon, shieldedAddress, shieldedBalances, error, connectWallet, disconnectWallet } = useWallet();
+export const Header: React.FC<HeaderProps> = ({ onOpenMintModal, wallets, activeWallet, onWalletChange, wallet }) => {
+  const { status, walletName, walletIcon, shieldedAddress, unshieldedAddress, shieldedBalances, error, connectWallet, disconnectWallet } = wallet;
+  const [faucetStatus, setFaucetStatus] = useState<'idle' | 'pending' | 'error'>('idle');
+  const [faucetError, setFaucetError] = useState<string | null>(null);
+
+  const handleFaucet = async () => {
+    if (!unshieldedAddress) return;
+    setFaucetStatus('pending');
+    setFaucetError(null);
+    try {
+      await api.requestFaucet(unshieldedAddress);
+      setFaucetStatus('idle');
+    } catch (e: any) {
+      setFaucetStatus('error');
+      setFaucetError(e.message ?? String(e));
+    }
+  };
 
   const renderWalletButton = () => {
     switch (status) {
@@ -74,12 +92,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMintModal, wallets, active
     }
   };
 
+  const isBrowserActive = activeWallet === BROWSER_WALLET_ID;
+  const walletLabel = (w: string) =>
+    w === BROWSER_WALLET_ID ? (walletName ?? 'Browser') : (w.charAt(0).toUpperCase() + w.slice(1));
+
   return (
     <div className="header-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
-      {/* Left: 3D Logo */}
       <Logo3D />
 
-      {/* Center: Title */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '0 20px' }}>
         <h1 style={{ justifyContent: 'center', width: '100%', marginBottom: '4px' }}>
           ZSwap DA <span className="badge badge-midnight">MIDNIGHT</span><span className="badge badge-da">CELESTIA</span>
@@ -89,9 +109,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMintModal, wallets, active
         </p>
       </div>
 
-      {/* Right: Actions */}
       <div className="header-actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-        {/* Backend wallet selector */}
         {wallets.length > 1 && (
           <div className="wallet-selector">
             <label className="wallet-selector-label">Acting as</label>
@@ -101,14 +119,27 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMintModal, wallets, active
                   key={w}
                   className={`wallet-selector-btn ${w === activeWallet ? 'wallet-selector-btn-active' : ''}`}
                   onClick={() => onWalletChange(w)}
+                  title={w === BROWSER_WALLET_ID ? 'Use the connected browser wallet (Lace) to sign' : undefined}
                 >
-                  {w.charAt(0).toUpperCase() + w.slice(1)}
+                  {walletLabel(w)}
                 </button>
               ))}
             </div>
           </div>
         )}
         <button className="mint-btn-top" onClick={onOpenMintModal}>+ Mint New Token</button>
+        {isBrowserActive && unshieldedAddress && (
+          <button
+            className="mint-btn-top"
+            style={{ background: '#10b981', color: 'white', borderColor: '#10b981' }}
+            onClick={handleFaucet}
+            disabled={faucetStatus === 'pending'}
+            title={`Send 1000 NIGHT to ${unshieldedAddress}`}
+          >
+            {faucetStatus === 'pending' ? 'Sending…' : 'Request 1000 NIGHT'}
+          </button>
+        )}
+        {faucetError && <span style={{ color: '#ef4444', fontSize: '0.7rem', textAlign: 'center' }}>{faucetError}</span>}
         {renderWalletButton()}
         {error && <span style={{ color: '#ef4444', fontSize: '0.7rem', textAlign: 'center' }}>{error}</span>}
       </div>

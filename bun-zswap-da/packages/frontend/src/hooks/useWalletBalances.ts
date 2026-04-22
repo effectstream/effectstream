@@ -13,6 +13,12 @@ export function useWalletBalances(activeWallet: string | undefined, refreshTrigg
   const requestId = useRef(0);
 
   const fetchBalances = useCallback(async () => {
+    if (!activeWallet) {
+      setBalances(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     const id = ++requestId.current;
     setLoading(true);
     setError(null);

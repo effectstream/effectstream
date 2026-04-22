@@ -4,12 +4,14 @@ import type { KnownToken, TokenEntry } from '../types';
 import { shortToken } from '../utils';
 import { OfferDetailModal } from './OfferDetailModal';
 import { FILTER_DIRECTION, DEFAULT_PAGE_SIZE } from '../constants';
+import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 
 interface ZSwapListProps {
   knownTokens: KnownToken[];
   refreshTrigger: number;
   sseRefreshTrigger?: number;
   activeWallet?: string;
+  connectedApi?: ConnectedAPI | null;
 }
 
 function renderTokens(arr: TokenEntry[] | undefined, knownTokens: KnownToken[]) {
@@ -24,7 +26,7 @@ function renderTokens(arr: TokenEntry[] | undefined, knownTokens: KnownToken[]) 
   }).reduce((prev, curr) => [prev, ', ', curr] as any);
 }
 
-export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigger, sseRefreshTrigger = 0, activeWallet }) => {
+export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigger, sseRefreshTrigger = 0, activeWallet, connectedApi }) => {
   const {
     offers, loading, error,
     limit, setLimit, offset, setOffset,
@@ -63,6 +65,7 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
         offer={detailOffer}
         knownTokens={knownTokens}
         activeWallet={activeWallet}
+        connectedApi={connectedApi}
         onClose={() => setDetailOffer(null)}
         onCompleted={fetchOffers}
       />

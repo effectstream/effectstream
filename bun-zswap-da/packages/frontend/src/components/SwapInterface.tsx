@@ -6,6 +6,7 @@ import { useAsyncAction } from '../hooks/useAsyncAction';
 import { LoadingOverlay } from './ui/LoadingOverlay';
 import { TOKEN_TYPE } from '../constants';
 import { encodeOffer } from 'mip-zswap-offer';
+import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 
 function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -14,15 +15,36 @@ function base64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
+function hexToBytes(hex: string): Uint8Array {
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const out = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+// The wallet's makeIntent/balance methods return an opaque serialized
+// transaction string. The connector spec doesn't fix the encoding, but
+// midnight-js and Lace use hex. Fall back to base64 if the string doesn't
+// look like hex.
+function decodeConnectorTx(tx: string): Uint8Array {
+  const isHex = /^(0x)?[0-9a-fA-F]+$/.test(tx) && tx.replace(/^0x/, '').length % 2 === 0;
+  if (isHex) return hexToBytes(tx);
+  return base64ToBytes(tx);
+}
+
 interface SwapInterfaceProps {
   knownTokens: KnownToken[];
   onSuccess: () => void;
   activeWallet?: string;
+  connectedApi?: ConnectedAPI | null;
+  browserShieldedAddress?: string | null;
 }
 
 const emptyEntry = (): TokenEntry => ({ type: TOKEN_TYPE.SHIELDED, token: '', amount: '' });
 
-export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuccess, activeWallet }) => {
+export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuccess, activeWallet, connectedApi, browserShieldedAddress }) => {
   const [gives, setGives] = useState<{ id: string; entry: TokenEntry }[]>([
     { id: 'gives-0', entry: emptyEntry() }
   ]);
@@ -70,10 +92,39 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
     }
 
     execute(async (setMessage) => {
-      setMessage('Generating Midnight swap transaction…');
+      let transactionBytes: Uint8Array;
 
-      const dataCreate = await api.createSwapOffer(validGives, validWants, activeWallet);
-      const transactionBytes = base64ToBytes(dataCreate.transactionBytes);
+      if (connectedApi) {
+        setMessage('Building swap intent via browser wallet…');
+
+        if (!browserShieldedAddress) {
+          throw new Error('Browser wallet connected but no shielded address available.');
+        }
+
+        const inputs = validGives.map((g) => ({
+          kind: g.type as 'shielded' | 'unshielded',
+          type: g.token,
+          value: BigInt(g.amount),
+        }));
+
+        // Route all wanted outputs back to the browser wallet itself.
+        const outputs = validWants.map((w) => ({
+          kind: w.type as 'shielded' | 'unshielded',
+          type: w.token,
+          value: BigInt(w.amount),
+          recipient: browserShieldedAddress,
+        }));
+
+        const { tx } = await connectedApi.makeIntent(inputs, outputs, {
+          intentId: 'random',
+          payFees: true,
+        });
+        transactionBytes = decodeConnectorTx(tx);
+      } else {
+        setMessage('Generating Midnight swap transaction…');
+        const dataCreate = await api.createSwapOffer(validGives, validWants, activeWallet);
+        transactionBytes = base64ToBytes(dataCreate.transactionBytes);
+      }
 
       setMessage('Encoding bech32m offer blob…');
 

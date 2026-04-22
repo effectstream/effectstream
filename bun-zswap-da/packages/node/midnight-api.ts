@@ -1,4 +1,5 @@
-import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
+import { MidnightBech32m, UnshieldedAddress } from "@midnight-ntwrk/wallet-sdk-address-format";
+import type { UnprovenTransaction } from "@midnight-ntwrk/ledger-v8";
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { OfferFilesContract, witnesses } from "../midnight-contracts/contract-offer-files/src/index.ts";
@@ -138,4 +139,54 @@ async function initWallet(id: string): Promise<WalletEntry> {
     console.log(`[WALLET] Wallet "${id}" ready (${bech32.slice(0, 20)}...)`);
 
     return { walletResult, bech32, contract };
+}
+
+// ─── Native NIGHT transfer (faucet) ─────────────────────────────────────────
+
+/** Native unshielded token identifier (NIGHT) — 32 zero bytes encoded as hex. */
+export const NIGHT_TOKEN_ID = "0".repeat(64);
+
+/**
+ * Transfer `amount` of unshielded `tokenId` from `walletId` to `recipientBech32`.
+ * Pattern mirrors e2e/shared/contracts/midnight/faucet.ts — build unsigned
+ * transfer recipe, sign with the unshielded keystore, finalize, submit.
+ */
+export async function transferUnshielded(
+    walletId: string,
+    recipientBech32: string,
+    tokenId: string,
+    amount: bigint,
+): Promise<string> {
+    const { walletResult } = await getWalletInstance(walletId);
+
+    const receiverAddress = MidnightBech32m.parse(recipientBech32).decode(
+        UnshieldedAddress,
+        midnightNetworkConfig.id,
+    );
+
+    const ttl = new Date(Date.now() + 60 * 60 * 1000);
+    const recipe = await walletResult.wallet.transferTransaction(
+        [{
+            type: "unshielded",
+            outputs: [{
+                amount,
+                type: tokenId,
+                receiverAddress,
+            }],
+        }],
+        {
+            shieldedSecretKeys: walletResult.walletZswapSecretKeys,
+            dustSecretKey: walletResult.walletDustSecretKey,
+        },
+        { ttl },
+    );
+
+    const signedTx: UnprovenTransaction = await walletResult.wallet.signUnprovenTransaction(
+        recipe.transaction,
+        (payload: Uint8Array) => walletResult.unshieldedKeystore.signData(payload),
+    );
+
+    const finalizedTx = await walletResult.wallet.finalizeTransaction(signedTx);
+    const txId: string = await walletResult.wallet.submitTransaction(finalizedTx);
+    return String(txId);
 }

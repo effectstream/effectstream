@@ -25,7 +25,7 @@ import {
   decodeOffer,
   OFFER_HRP,
 } from "mip-zswap-offer";
-import { getContractInstance, getWalletInstance, getAvailableWallets, resolveWalletId } from "./midnight-api.ts";
+import { getContractInstance, getWalletInstance, getAvailableWallets, resolveWalletId, transferUnshielded, NIGHT_TOKEN_ID } from "./midnight-api.ts";
 import { OfferFilesContract } from "../midnight-contracts/contract-offer-files/src/index.ts";
 import { eventBus, emitAppEvent } from "./event-bus.ts";
 
@@ -428,6 +428,45 @@ export const apiRouter: StartConfigApiRouter = async function (
       }
 
       return { success: true, blob, result };
+    },
+  );
+
+  // POST /api/faucet/night — send 1000 NIGHT from backend `alice` wallet to a
+  // browser wallet's unshielded address so it can pay DUST fees.
+  server.post(
+    "/api/faucet/night",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["recipientAddress"],
+          properties: {
+            recipientAddress: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request: any) => {
+      const { recipientAddress } = request.body;
+      // 1000 NIGHT expressed in smallest units (NIGHT has 6 decimals in the
+      // wallet-sdk conventions — see e2e/shared/contracts/midnight/faucet.ts).
+      const amount = 1000n * 1_000_000n;
+
+      const txId = await transferUnshielded(
+        "alice",
+        recipientAddress,
+        NIGHT_TOKEN_ID,
+        amount,
+      );
+
+      emitAppEvent({
+        type: "faucet_sent",
+        recipient: recipientAddress,
+        amount: amount.toString(),
+        txId,
+      });
+
+      return { success: true, txId, amount: amount.toString(), recipient: recipientAddress };
     },
   );
 
