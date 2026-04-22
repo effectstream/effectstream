@@ -58,7 +58,25 @@ for (const { name, dir, pkg } of packageDirs) {
   console.log(`  ${name} — ${oldVersion} → ${version}`);
 }
 
-// --- Step 3: Check for uncommitted changes ---
+// --- Step 3: Build packages that need it ---
+
+const BUILD_PACKAGES = new Set(["@effectstream/frontend-sdk"]);
+
+for (const { name, dir } of packageDirs) {
+  if (!BUILD_PACKAGES.has(name)) continue;
+
+  console.log(`\nBuilding ${name}...`);
+  try {
+    await $`cd ${dir} && bun run build`.quiet();
+    console.log(`  ${name} built ✓`);
+  } catch (e: any) {
+    console.error(`  ${name} build failed ✗`);
+    console.error(`    ${e.stderr?.toString().trim() || e.message}`);
+    process.exit(1);
+  }
+}
+
+// --- Step 4: Check for uncommitted changes (ignoring build artifacts) ---
 
 console.log("\nChecking git status...");
 
@@ -72,7 +90,7 @@ if (status.trim().length > 0) {
 
 console.log("  Working tree clean ✓\n");
 
-// --- Step 4: Dry-run publish ---
+// --- Step 5: Dry-run publish ---
 
 console.log("Running dry-run publish:\n");
 
