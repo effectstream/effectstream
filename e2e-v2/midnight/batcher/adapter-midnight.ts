@@ -1,6 +1,6 @@
 import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import { SimpleToken, witnesses } from "@e2e-v2/midnight-contracts/eip-20";
-import { MidnightAdapter } from "@effectstream/batcher";
+import { MidnightAdapter } from "@effectstream/batcher-sdk";
 // SimpleToken.Contract is used below as a runtime value (passed to MidnightAdapter).
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { buildWalletFacade } from "@effectstream/midnight-contracts/wallet-info";

@@ -29,7 +29,7 @@ import * as tinysecp from "tiny-secp256k1";
 import * as secp from "@noble/secp256k1";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { hmac } from "@noble/hashes/hmac.js";
-import { buildBitcoinSignatureMessage } from "@effectstream/batcher";
+import { buildBitcoinSignatureMessage } from "@effectstream/batcher-sdk";
 
 const LAUNCHER = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 const BTC_RPC = "http://127.0.0.1:18443";

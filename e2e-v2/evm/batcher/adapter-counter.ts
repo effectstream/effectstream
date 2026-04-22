@@ -1,7 +1,7 @@
 import {
   EvmContractAdapter,
   type EvmContractAdapterConfig,
-} from "@effectstream/batcher";
+} from "@effectstream/batcher-sdk";
 import { contractAddressesEvmMain } from "@e2e-v2/evm-contracts";
 import CounterArtifact from "../../shared/contracts/evm/ignition/deployments/chain-31337/artifacts/CounterModule#Counter.json" with { type: "json" };
 import { getEnv } from "@effectstream/utils/runtime";

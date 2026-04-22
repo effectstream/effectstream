@@ -1,4 +1,4 @@
-import { EffectstreamL2DefaultAdapter } from "@effectstream/batcher";
+import { EffectstreamL2DefaultAdapter } from "@effectstream/batcher-sdk";
 import { contractAddressesEvmMain } from "@e2e-v2/evm-contracts";
 import { getEnv } from "@effectstream/utils/runtime";
 import * as chains from "viem/chains";

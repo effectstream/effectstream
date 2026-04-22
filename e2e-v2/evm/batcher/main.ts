@@ -1,5 +1,5 @@
 import { main, suspend } from "effection";
-import { createNewBatcher, FileStorage, type BatcherConfig, type DefaultBatcherInput } from "@effectstream/batcher";
+import { createNewBatcher, FileStorage, type BatcherConfig, type DefaultBatcherInput } from "@effectstream/batcher-sdk";
 import { ENV } from "@effectstream/utils/node-env";
 
 import { effectstreamL2Adapter } from "./adapter-effectstream-l2.ts";
