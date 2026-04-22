@@ -80,19 +80,27 @@ for (const { name, dir } of packageDirs) {
 
 console.log("\nChecking git status...");
 
+const allowUncommitted = process.argv.includes("--allow-uncommitted");
 const status = await $`git status --porcelain`.text();
 if (status.trim().length > 0) {
-  console.error("\n❌ Uncommitted changes detected:\n");
-  console.error(status);
-  console.error("Commit or stash changes before publishing.");
-  process.exit(1);
+  if (allowUncommitted) {
+    console.log("  ⚠ Uncommitted changes (--allow-uncommitted)\n");
+  } else {
+    console.error("\n❌ Uncommitted changes detected:\n");
+    console.error(status);
+    console.error("Commit or stash changes before publishing.");
+    process.exit(1);
+  }
+} else {
+  console.log("  Working tree clean ✓\n");
 }
 
-console.log("  Working tree clean ✓\n");
+// --- Step 5: Publish ---
 
-// --- Step 5: Dry-run publish ---
+const isPublish = process.argv.includes("--publish");
+const dryRunFlag = isPublish ? "" : "--dry-run";
 
-console.log("Running dry-run publish:\n");
+console.log(`Running ${isPublish ? "LIVE" : "dry-run"} publish:\n`);
 
 let failed = 0;
 
@@ -101,7 +109,7 @@ for (const { name, dir } of packageDirs) {
   process.stdout.write(`  ${name} (${rel}) ... `);
 
   try {
-    await $`cd ${dir} && bun publish --dry-run --access public 2>&1`.quiet();
+    await $`cd ${dir} && bun publish ${dryRunFlag} --access public 2>&1`.quiet();
     console.log("✓");
   } catch (e: any) {
     console.log("✗");
