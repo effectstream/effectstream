@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/orchestrator-v2",
-  "version": "0.1.0",
+  "version": "0.100.0",
   "license": "MIT",
   "bin": {
     "orchestrator-v2": "src/cli.ts"

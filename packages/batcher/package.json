@@ -1,8 +1,10 @@
 {
-  "name": "@effectstream/batcher",
-  "version": "0.3.0",
+  "name": "@effectstream/batcher-sdk",
+  "version": "0.100.0",
   "license": "MIT",
-  "exports": "./mod.ts",
+  "exports": {
+    "bun": "./mod.ts"
+  },
   "dependencies": {
     "@sinclair/typebox": "0.34.41",
     "viem": "^2.21.3",

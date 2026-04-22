@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@e2e-v2/engine": "workspace:*",
-    "@effectstream/batcher": "workspace:*",
+    "@effectstream/batcher-sdk": "workspace:*",
     "@effectstream/concise": "workspace:*",
     "@effectstream/config": "workspace:*",
     "@effectstream/coroutine": "workspace:*",
