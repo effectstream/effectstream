@@ -8,7 +8,7 @@ import { args } from "@effectstream/utils/runtime";
 const { values: flags } = parseArgs({
   args: args(),
   options: {
-    package: { type: "string", default: "@paima" },
+    package: { type: "string", default: "@effectstream" },
   },
   strict: false,
 });
