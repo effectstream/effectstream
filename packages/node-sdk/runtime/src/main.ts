@@ -12,6 +12,7 @@ import {
   runSnapshotLoop,
 } from "@effectstream/db";
 import { EventBroker } from "@effectstream/event-server";
+import { ENV } from "@effectstream/utils/node-env";
 import {
   BuiltinEvents,
   EventManager,
@@ -83,7 +84,9 @@ export function* start(config: StartConfig): Operation<void> {
   }
 
   // Create MQTT Broker
-  new EventBroker("effectstream-engine").createServer();
+  if (ENV.MQTT_BROKER) {
+    new EventBroker("effectstream-engine").createServer();
+  }
 
   yield* spawn(function* () {
     yield* startHttpServer(

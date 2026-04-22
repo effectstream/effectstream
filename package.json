@@ -19,7 +19,8 @@
     "test:e2e": "cd e2e-v2 && bun run runner.ts"
   },
   "overrides": {
-    "@midnight-ntwrk/ledger-v8": "8.0.3"
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "effect": "3.21.1"
   },
   "devDependencies": {
     "@effectstream/db": "workspace:*",
