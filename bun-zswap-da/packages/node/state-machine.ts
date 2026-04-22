@@ -1,7 +1,7 @@
 import type { GrammarDefinition } from "@effectstream/concise";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { World } from "@effectstream/coroutine";
-import { PaimaSTM } from "@effectstream/sm";
+import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
 import { builtinGrammars } from "@effectstream/sm/grammar";
 import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
@@ -34,7 +34,7 @@ export const grammar = {
   "zswap-ttl-cleanup": [["offerId", Type.Integer()]],
 } as const satisfies GrammarDefinition;
 
-const stm = new PaimaSTM<typeof grammar, {}>(grammar);
+const stm = new Stm<typeof grammar, {}>(grammar);
 
 stm.addStateTransition("midnight-nullifier", function* (data) {
   const { payload } = data.parsedInput;

@@ -6,7 +6,7 @@ import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
-import { PaimaSTM } from "@effectstream/sm";
+import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { World } from "@effectstream/coroutine";
@@ -19,7 +19,7 @@ import { Transaction, type UnprovenTransaction } from "@midnight-ntwrk/ledger-v8
 import { config } from "./config.ts";
 import { grammar } from "./grammar.ts";
 
-const stm = new PaimaSTM<typeof grammar, {}>(grammar);
+const stm = new Stm<typeof grammar, {}>(grammar);
 const pool = getConnection();
 
 // ── Celestia ZSwap blob handler ───────────────────────────────────────────────
