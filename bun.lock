@@ -19,11 +19,13 @@
         "@e2e-v2/data-types": "workspace:*",
         "@e2e-v2/engine": "workspace:*",
         "@e2e-v2/evm-contracts": "workspace:*",
+        "@e2e-v2/near-contracts": "workspace:*",
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
         "@effectstream/coroutine": "workspace:*",
         "@effectstream/log": "workspace:*",
         "@effectstream/orchestrator": "workspace:*",
+        "@effectstream/orchestrator-v2": "workspace:*",
         "@effectstream/runtime": "workspace:*",
         "@effectstream/sm": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -45,6 +47,7 @@
         "@effectstream/db": "workspace:*",
         "@effectstream/log": "workspace:*",
         "@effectstream/orchestrator": "workspace:*",
+        "@effectstream/orchestrator-v2": "workspace:*",
         "@effectstream/runtime": "workspace:*",
         "@effectstream/sm": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -59,12 +62,14 @@
       "name": "@e2e-v2/bitcoin",
       "version": "0.1.0",
       "dependencies": {
+        "@e2e-v2/bitcoin-contracts": "workspace:*",
         "@e2e-v2/engine": "workspace:*",
         "@effectstream/batcher-sdk": "workspace:*",
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
         "@effectstream/coroutine": "workspace:*",
         "@effectstream/db": "workspace:*",
+        "@effectstream/orchestrator-v2": "workspace:*",
         "@effectstream/runtime": "workspace:*",
         "@effectstream/sm": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -91,6 +96,7 @@
       "name": "@e2e-v2/cardano",
       "version": "0.1.0",
       "dependencies": {
+        "@e2e-v2/cardano-contracts": "workspace:*",
         "@e2e-v2/engine": "workspace:*",
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",
@@ -98,6 +104,7 @@
         "@effectstream/db": "workspace:*",
         "@effectstream/log": "workspace:*",
         "@effectstream/orchestrator": "workspace:*",
+        "@effectstream/orchestrator-v2": "workspace:*",
         "@effectstream/runtime": "workspace:*",
         "@effectstream/sm": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -118,6 +125,7 @@
         "@effectstream/db": "workspace:*",
         "@effectstream/log": "workspace:*",
         "@effectstream/orchestrator": "workspace:*",
+        "@effectstream/orchestrator-v2": "workspace:*",
         "@effectstream/runtime": "workspace:*",
         "@effectstream/sm": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -139,6 +147,7 @@
         "@effectstream/config": "workspace:*",
         "@effectstream/coroutine": "workspace:*",
         "@effectstream/db": "workspace:*",
+        "@effectstream/orchestrator-v2": "workspace:*",
         "@effectstream/runtime": "workspace:*",
         "@effectstream/sm": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -202,6 +211,7 @@
         "@effectstream/db": "workspace:*",
         "@effectstream/log": "workspace:*",
         "@effectstream/midnight-contracts": "workspace:*",
+        "@effectstream/orchestrator-v2": "workspace:*",
         "@effectstream/runtime": "workspace:*",
         "@effectstream/sm": "workspace:*",
         "@effectstream/utils": "workspace:*",
@@ -4142,6 +4152,8 @@
 
     "@effectstream/batcher-sdk/@sinclair/typebox": ["@sinclair/typebox@0.34.41", "", {}, "sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g=="],
 
+    "@effectstream/batcher-sdk/viem": ["viem@2.48.4", "", { "dependencies": { "@noble/curves": "1.9.1", "@noble/hashes": "1.8.0", "@scure/bip32": "1.7.0", "@scure/bip39": "1.6.0", "abitype": "1.2.3", "isows": "1.0.7", "ox": "0.14.20", "ws": "8.18.3" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-mReP/rgY2P+WeeRSG4sUvccCLKfyAW1C73Y3KkobAqgzYmVna9qyUMNE44xIUkDtfvRuC33r24UhF4baBYovsg=="],
+
     "@effectstream/bitcoin-contracts/bitcoinjs-lib": ["bitcoinjs-lib@7.0.1", "", { "dependencies": { "@noble/hashes": "^1.2.0", "bech32": "^2.0.0", "bip174": "^3.0.0", "bs58check": "^4.0.0", "uint8array-tools": "^0.0.9", "valibot": "^1.2.0", "varuint-bitcoin": "^2.0.0" } }, "sha512-vwEmpL5Tpj0I0RBdNkcDMXePoaYSTeKY6mL6/l5esbnTs+jGdPDuLp4NY1hSh6Zk5wSgePygZ4Wx5JJao30Pww=="],
 
     "@effectstream/bitcoin-contracts/ecpair": ["ecpair@3.0.1", "", { "dependencies": { "uint8array-tools": "^0.0.8", "valibot": "^1.2.0", "wif": "^5.0.0" } }, "sha512-uz8wMFvtdr58TLrXnAesBsoMEyY8UudLOfApcyg40XfZjP+gt1xO4cuZSIkZ8hTMTQ8+ETgt7xSIV4eM7M6VNw=="],
@@ -5194,6 +5206,18 @@
 
     "@e2e-v2/bitcoin-contracts/bitcoinjs-lib/bs58check": ["bs58check@3.0.1", "", { "dependencies": { "@noble/hashes": "^1.2.0", "bs58": "^5.0.0" } }, "sha512-hjuuJvoWEybo7Hn/0xOrczQKKEKD63WguEjlhLExYs2wUBcebDC1jDNK17eEAD2lYfw82d5ASC1d7K3SWszjaQ=="],
 
+    "@effectstream/batcher-sdk/viem/@noble/curves": ["@noble/curves@1.9.1", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-k11yZxZg+t+gWvBbIswW0yoJlu8cHOC7dhunwOzoWH/mXGBiYyR4YY6hAEK/3EUs4UpB8la1RfdRpeGsFHkWsA=="],
+
+    "@effectstream/batcher-sdk/viem/@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
+
+    "@effectstream/batcher-sdk/viem/@scure/bip39": ["@scure/bip39@1.6.0", "", { "dependencies": { "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A=="],
+
+    "@effectstream/batcher-sdk/viem/abitype": ["abitype@1.2.3", "", { "peerDependencies": { "typescript": ">=5.0.4", "zod": "^3.22.0 || ^4.0.0" }, "optionalPeers": ["typescript", "zod"] }, "sha512-Ofer5QUnuUdTFsBRwARMoWKOH1ND5ehwYhJ3OJ/BQO+StkwQjHw0XyVh4vDttzHB7QOFhPHa/o413PJ82gU/Tg=="],
+
+    "@effectstream/batcher-sdk/viem/ox": ["ox@0.14.20", "", { "dependencies": { "@adraffy/ens-normalize": "^1.11.0", "@noble/ciphers": "^1.3.0", "@noble/curves": "1.9.1", "@noble/hashes": "^1.8.0", "@scure/bip32": "^1.7.0", "@scure/bip39": "^1.6.0", "abitype": "^1.2.3", "eventemitter3": "5.0.1" }, "peerDependencies": { "typescript": ">=5.4.0" }, "optionalPeers": ["typescript"] }, "sha512-rby38C3nDn8eQkf29Zgw4hkCZJ64Qqi0zRPWL8ENUQ7JVuoITqrVtwWQgM/He19SCMUEc7hS/Sjw0jIOSLJhOw=="],
+
+    "@effectstream/batcher-sdk/viem/ws": ["ws@8.18.3", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg=="],
+
     "@effectstream/bitcoin-contracts/bitcoinjs-lib/@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
 
     "@effectstream/bitcoin-contracts/bitcoinjs-lib/bip174": ["bip174@3.0.0", "", { "dependencies": { "uint8array-tools": "^0.0.9", "varuint-bitcoin": "^2.0.0" } }, "sha512-N3vz3rqikLEu0d6yQL8GTrSkpYb35NQKWMR7Hlza0lOj6ZOlvQ3Xr7N9Y+JPebaCVoEUHdBeBSuLxcHr71r+Lw=="],
@@ -5719,6 +5743,10 @@
     "@coinbase/cdp-sdk/viem/ox/eventemitter3": ["eventemitter3@5.0.1", "", {}, "sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA=="],
 
     "@e2e-v2/bitcoin-contracts/bitcoinjs-lib/bs58check/bs58": ["bs58@5.0.0", "", { "dependencies": { "base-x": "^4.0.0" } }, "sha512-r+ihvQJvahgYT50JD05dyJNKlmmSlMoOGwn1lCcEzanPglg7TxYjioQUYehQ9mAR/+hOSd2jRc/Z2y5UxBymvQ=="],
+
+    "@effectstream/batcher-sdk/viem/ox/@adraffy/ens-normalize": ["@adraffy/ens-normalize@1.11.1", "", {}, "sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ=="],
+
+    "@effectstream/batcher-sdk/viem/ox/eventemitter3": ["eventemitter3@5.0.1", "", {}, "sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA=="],
 
     "@effectstream/bitcoin-contracts/bitcoinjs-lib/varuint-bitcoin/uint8array-tools": ["uint8array-tools@0.0.8", "", {}, "sha512-xS6+s8e0Xbx++5/0L+yyexukU7pz//Yg6IHg3BKhXotg1JcYtgxVcUctQ0HxLByiJzpAkNFawz1Nz5Xadzo82g=="],
 

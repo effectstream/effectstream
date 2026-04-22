@@ -2,8 +2,8 @@
   "name": "@e2e-v2/near-contracts",
   "private": true,
   "scripts": {
-    "chain:start": "bun run @effectstream/near-sandbox",
-    "chain:wait": "wait-on tcp:3030"
+    "chain:start": "bun ./node_modules/.bin/near-sandbox",
+    "chain:wait": "bun ./node_modules/.bin/wait-on tcp:3030"
   },
   "dependencies": {
     "@effectstream/near-sandbox": "workspace:*",

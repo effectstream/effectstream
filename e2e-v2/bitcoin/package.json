@@ -9,11 +9,13 @@
     "node:start": "bun run node.ts"
   },
   "dependencies": {
+    "@e2e-v2/bitcoin-contracts": "workspace:*",
     "@e2e-v2/engine": "workspace:*",
     "@effectstream/batcher-sdk": "workspace:*",
     "@effectstream/concise": "workspace:*",
     "@effectstream/config": "workspace:*",
     "@effectstream/coroutine": "workspace:*",
+    "@effectstream/orchestrator-v2": "workspace:*",
     "@effectstream/runtime": "workspace:*",
     "@effectstream/sm": "workspace:*",
     "@effectstream/utils": "workspace:*",
