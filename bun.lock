@@ -444,31 +444,6 @@
         "ws": "^8.18.3",
       },
     },
-    "example": {
-      "name": "@example/bridge",
-      "version": "0.0.1",
-      "dependencies": {
-        "@e2e-v2/midnight-contract-eip-20": "workspace:*",
-        "@effectstream/concise": "workspace:*",
-        "@effectstream/config": "workspace:*",
-        "@effectstream/coroutine": "workspace:*",
-        "@effectstream/db": "workspace:*",
-        "@effectstream/log": "workspace:*",
-        "@effectstream/midnight-contracts": "workspace:*",
-        "@effectstream/orchestrator": "workspace:*",
-        "@effectstream/runtime": "workspace:*",
-        "@effectstream/sm": "workspace:*",
-        "@effectstream/utils": "workspace:*",
-        "@midnight-ntwrk/compact-js": "2.5.0",
-        "@midnight-ntwrk/midnight-js-contracts": "4.0.2",
-        "@midnight-ntwrk/midnight-js-network-id": "4.0.2",
-        "@midnight-ntwrk/midnight-js-types": "4.0.2",
-        "@midnight-ntwrk/wallet-sdk-abstractions": "2.0.0",
-        "@sinclair/typebox": "^0.34.30",
-        "effection": "^3.5.0",
-        "pg": "^8.14.0",
-      },
-    },
     "packages/batcher": {
       "name": "@effectstream/batcher-sdk",
       "version": "0.100.0",
@@ -1410,8 +1385,6 @@
     "@ethersproject/web": ["@ethersproject/web@5.8.0", "", { "dependencies": { "@ethersproject/base64": "^5.8.0", "@ethersproject/bytes": "^5.8.0", "@ethersproject/logger": "^5.8.0", "@ethersproject/properties": "^5.8.0", "@ethersproject/strings": "^5.8.0" } }, "sha512-j7+Ksi/9KfGviws6Qtf9Q7KCqRhpwrYKQPs+JBA/rKVFF/yaWLHJEH3zfVP2plVu+eys0d2DlFmhoQJayFewcw=="],
 
     "@evanhahn/lottie-web-light": ["@evanhahn/lottie-web-light@5.8.1", "", {}, "sha512-U0G1tt3/UEYnyCNNslWPi1dB7X1xQ9aoSip+B3GTKO/Bns8yz/p39vBkRSN9d25nkbHuCsbjky2coQftj5YVKw=="],
-
-    "@example/bridge": ["@example/bridge@workspace:example"],
 
     "@fastify/accept-negotiator": ["@fastify/accept-negotiator@2.0.1", "", {}, "sha512-/c/TW2bO/v9JeEgoD/g1G5GxGeCF1Hafdf79WPmUlgYiBXummY0oX3VVq4yFkKKVBKDNlaDUYoab7g38RpPqCQ=="],
 
@@ -4162,6 +4135,8 @@
     "@e2e-v2/data-types/@sinclair/typebox": ["@sinclair/typebox@0.34.41", "", {}, "sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g=="],
 
     "@e2e-v2/engine/@sinclair/typebox": ["@sinclair/typebox@0.34.41", "", {}, "sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g=="],
+
+    "@e2e-v2/evm-contracts/@effectstream/evm-contracts": ["@effectstream/evm-contracts@file:packages/chains/evm-contracts", { "dependencies": { "@nomicfoundation/hardhat-ignition": "3.0.2", "@nomicfoundation/hardhat-ignition-viem": "3.0.2", "@nomicfoundation/hardhat-viem": "3.0.0", "@opentelemetry/sdk-node": "0.56.0", "@openzeppelin/contracts": "5.1.0", "@openzeppelin/contracts-upgradeable": "^5.1.0", "@wagmi/cli": "2.3.1", "hardhat": "3.0.4", "jsonc-parser": "^3.3.1" } }],
 
     "@e2e-v2/wallets-ui/ws": ["ws@8.20.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA=="],
 
