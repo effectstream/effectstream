@@ -8,18 +8,19 @@ import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
-import { PaimaSTM } from "@effectstream/sm";
+import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { World } from "@effectstream/coroutine";
 import { getConnection } from "@effectstream/db";
 import { config } from "./config.ts";
 import { grammar } from "./grammar.ts";
+import createUserTables from "./database/migrations/create-user-tables.sql" with { type: "text" };
 
 // ── State Machine ────────────────────────────────────────────────────────────
 
 const pool = getConnection();
-const stm = new PaimaSTM<typeof grammar, {}>(grammar);
+const stm = new Stm<typeof grammar, {}>(grammar);
 
 // UTXORpc Generic: indexes Cardano transactions matching the address predicate
 stm.addStateTransition("cardano-utxo-rpc-generic", function* (data) {
@@ -51,6 +52,9 @@ main(function* () {
       syncInfo: toSyncProtocolWithNetwork(config),
       gameStateTransitions,
       grammar,
+      migrations: [
+        { name: "create-user-tables", sql: createUserTables },
+      ],
     });
   });
 

@@ -10,10 +10,10 @@
  * Test coverage:
  *   [x] NEAR:Generic      — NEP-297 custom event with unique message verification
  *   [x] NEAR:Intent       — DIP-4 intent settlement with token diffs + STM processing
- *   [ ] NEAR:NEP141       — FT transfers + balance tracking (stub)
- *   [ ] NEAR:NEP171       — NFT transfers + ownership tracking (stub)
- *   [ ] NEAR:NEP245       — Multi-token transfers + balance tracking (stub)
- *   [ ] NEAR:AccountWatch — Execution outcome capture (stub — needs fetcher work)
+ *   [x] NEAR:AccountWatch — Execution outcome capture for FunctionCalls to watched contract
+ *   [x] NEAR:NEP141       — FT ft_transfer event + IVM balance tracking
+ *   [x] NEAR:NEP171       — NFT nft_transfer event + IVM ownership tracking
+ *   [x] NEAR:NEP245       — MT mt_transfer event + IVM per-token-balance tracking
  *   [ ] Batcher           — Transaction submission via NearAdapter (stub)
  */
 import {
@@ -25,6 +25,7 @@ import {
   waitForOrchestrator,
   waitForProcess,
   waitForHealth,
+  waitForBlock,
   getDBConnection,
 } from "@e2e-v2/engine";
 import type { Client } from "pg";
@@ -34,12 +35,10 @@ import path from "path";
 import { runToolingTests } from "./tooling/sandbox-launch.test.ts";
 import { runGenericTest } from "./sync/generic.test.ts";
 import { runIntentTest } from "./sync/intent.test.ts";
-// Stubs — uncomment as contracts are deployed and config is wired up
-// import { runNep141Test } from "./sync/nep141.test.ts";
-// import { runNep171Test } from "./sync/nep171.test.ts";
-// import { runNep245Test } from "./sync/nep245.test.ts";
-// import { runAccountWatchTest } from "./sync/account-watch.test.ts";
-// import { runBatcherTest } from "./sync/batcher.test.ts";
+import { runAccountWatchTest } from "./sync/account-watch.test.ts";
+import { runNep141Test } from "./sync/nep141.test.ts";
+import { runNep171Test } from "./sync/nep171.test.ts";
+import { runNep245Test } from "./sync/nep245.test.ts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 
@@ -60,20 +59,10 @@ async function runSyncTests(db: Client): Promise<void> {
   // Implemented tests
   await runGenericTest(db);
   await runIntentTest(db);
-
-  // Stubs — uncomment as implemented
-  // await runNep141Test(db);
-  // await runNep171Test(db);
-  // await runNep245Test(db);
-  // await runAccountWatchTest(db);
-
-  // Print stub status
-  console.log("\n  Stubs (not yet wired up):");
-  console.log("    [ ] NEAR:NEP141       — needs FT contract deployed");
-  console.log("    [ ] NEAR:NEP171       — needs NFT contract deployed");
-  console.log("    [ ] NEAR:NEP245       — needs MT contract deployed");
-  console.log("    [ ] NEAR:AccountWatch — needs fetcher enhancement");
-  console.log("    [ ] Batcher           — needs batcher service integration");
+  await runAccountWatchTest(db);
+  await runNep141Test(db);
+  await runNep171Test(db);
+  await runNep245Test(db);
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -97,6 +86,7 @@ async function test() {
     // 4. Wait for sync node to be healthy
     await waitForProcess("sync");
     await waitForHealth();
+    await waitForBlock(1);
     console.log("Sync node is healthy.\n");
 
     // 5. Connect to DB and run sync tests

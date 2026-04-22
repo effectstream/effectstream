@@ -1,7 +1,7 @@
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import * as config from "./hardhat.config.ts";
 import Erc20DevModule from "./ignition/modules/erc20dev.ts";
-import PaimaL2ContractModule from "./ignition/modules/paimaL2.ts";
+import EffectstreamL2ContractModule from "./ignition/modules/effectstreamL2.ts";
 import Erc721DevModule from "./ignition/modules/erc721dev.ts";
 import type { buildModule } from "@nomicfoundation/ignition-core";
 import CounterModule from "./ignition/modules/counter.ts";
@@ -21,10 +21,10 @@ const myDeployments: Deployment[] = [
     network: "evmMainHttp",
   },
   {
-    module: PaimaL2ContractModule,
+    module: EffectstreamL2ContractModule,
     network: "evmMainHttp",
     parameters: {
-      PaimaL2ContractModule: {
+      EffectstreamL2ContractModule: {
         owner: "0xEFfE522D441d971dDC7153439a7d10235Ae6301f",
         fee: 0,
       },

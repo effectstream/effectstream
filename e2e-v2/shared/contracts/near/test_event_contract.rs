@@ -35,4 +35,50 @@ impl Contract {
         );
         env::log_str(&event);
     }
+
+    /// Emits a NEP-141 ft_transfer event for NEAR:NEP141 primitive testing.
+    /// Shape matches the spec: fields old_owner_id, new_owner_id, amount (all strings).
+    pub fn emit_nep141_transfer(
+        &self,
+        old_owner_id: String,
+        new_owner_id: String,
+        amount: String,
+    ) {
+        let event = format!(
+            r#"EVENT_JSON:{{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{{"old_owner_id":"{}","new_owner_id":"{}","amount":"{}"}}]}}"#,
+            old_owner_id, new_owner_id, amount
+        );
+        env::log_str(&event);
+    }
+
+    /// Emits a NEP-171 nft_transfer event for NEAR:NEP171 primitive testing.
+    /// Wraps a single token_id in the token_ids array as per the spec.
+    pub fn emit_nep171_transfer(
+        &self,
+        old_owner_id: String,
+        new_owner_id: String,
+        token_id: String,
+    ) {
+        let event = format!(
+            r#"EVENT_JSON:{{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{{"old_owner_id":"{}","new_owner_id":"{}","token_ids":["{}"]}}]}}"#,
+            old_owner_id, new_owner_id, token_id
+        );
+        env::log_str(&event);
+    }
+
+    /// Emits a NEP-245 mt_transfer event for NEAR:NEP245 primitive testing.
+    /// Uses parallel token_ids / amounts arrays (single entry here) per the spec.
+    pub fn emit_nep245_transfer(
+        &self,
+        old_owner_id: String,
+        new_owner_id: String,
+        token_id: String,
+        amount: String,
+    ) {
+        let event = format!(
+            r#"EVENT_JSON:{{"standard":"nep245","version":"1.0.0","event":"mt_transfer","data":[{{"old_owner_id":"{}","new_owner_id":"{}","token_ids":["{}"],"amounts":["{}"]}}]}}"#,
+            old_owner_id, new_owner_id, token_id, amount
+        );
+        env::log_str(&event);
+    }
 }

@@ -116,7 +116,7 @@
 
 #### Web App Template Examples
 - [x] **Migrate Open World** ( Renamed to world-map-2d ) (
-- [ ] **Migrate Paima Dice**
+- [ ] **Migrate Dice**
 - [ ] **Migrate Trading Cards** 
 - [ ] **Migrate NFT LvLUP**
 - [ ] **Migrate Hex Battle** ( Integrates with custom typescript engine )
@@ -136,11 +136,11 @@
 
 ### [Cardano NFTS](https://milestones.projectcatalyst.io/projects/1000009)
 - [ ] **M4** Write the full dApp to easily project NFTs and manage which NFTs you have projected 
-- [ ] **M5** Leverage work done in the “Powering onchain game functionality using Cardano stakepools” Catalyst proposal to connect the Carp task to Paima (Done/no-report)
+- [ ] **M5** Leverage work done in the “Powering onchain game functionality using Cardano stakepools” Catalyst proposal to connect the Carp task to Effectstream (Done/no-report)
 - [ ] **MF** Project Close Report: pdf/video (?)
 
 ### [Core integrations](https://milestones.projectcatalyst.io/projects/1000055)
-- [ ] **M2** An open-source game template built with Paima Engine that leverages Shinkai Visor
+- [ ] **M2** An open-source game template built with Effectstream that leverages Shinkai Visor
 - [ ] **M3** Implement ability for wallets to delegate non-financial txs to be creatable by a local key-pair for their device (Done/no-report)
 - [ ] **M4** Implement ability for wallets to delegate non-financial txs to be created by a key-pair generated from social login credentials
 - [ ] **M5** Implement ability for wallets to delegate non-financial txs to be created by a key-pair generated from user biometric data
@@ -164,7 +164,7 @@
 
 ### [Extend NFT sale & drop tools to support](https://milestones.projectcatalyst.io/projects/1000085)
 - [ ] **M1** Develop the core smart contract for the pre-order NFT with clear steps on how to deploy it and a simple UI (Done/no-report)
-- [ ] **M2** Paima app that interacts with the contract integrating core stateful functionality like creating and ending campaigns
+- [ ] **M2** Effectstream app that interacts with the contract integrating core stateful functionality like creating and ending campaigns
 - [ ] **M3** Implement a fuller UI/UX for an MVP (Done/no-report)
 - [ ] **M4** wrapped smart contract support. verify you own an NFT.
 - [ ] **M5** Integration with an existing marketplace (Done/no-report)
@@ -180,7 +180,7 @@
 ### [Powering onchain game + Cardano stakepools](https://milestones.projectcatalyst.io/projects/1000153)
 - [ ] **M2** Connecting Carp stake delegation task (Done/no-report)
 - [ ] **M3** Allow games to easily react to delegation updates
-- [ ] **M4** Paima Batchers pools checks
+- [ ] **M4** Effectstream Batchers pools checks
 - [ ] **M5** Game Integration
 - [ ] **MF** PDF + Video Report
 
@@ -272,10 +272,6 @@
 - [ ] **Main Loop Traces** Trace the Main Loop.
 
 ---
-## Non functional requirements
-
-- [ ] **New Name** Update Name to TBD (paima/effectstream)
-
 ---
 ## Documentation
 

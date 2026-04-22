@@ -1,0 +1,17 @@
+{
+  "name": "@effectstream/frontend-sdk",
+  "version": "0.100.0",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "bun": "./src/mod.ts",
+      "import": "./dist/mod.js"
+    }
+  },
+  "scripts": {
+    "build": "bun run build.ts"
+  },
+  "dependencies": {
+    "@effectstream/wallets": "workspace:*"
+  }
+}

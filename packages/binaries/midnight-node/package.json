@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/npm-midnight-node",
-  "version": "0.3.0",
+  "version": "0.100.0",
   "description": "Downloads and starts the binary for Midnight Node",
   "main": "index.js",
   "scripts": {

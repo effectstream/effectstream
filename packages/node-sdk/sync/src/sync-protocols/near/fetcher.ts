@@ -159,6 +159,8 @@ export class NearFetcher extends BaseDataFetcher<
           ...txStatus.receipts_outcome,
         ];
 
+        // Event-based primitives (Generic, Intent, NEP-141/171/245) match
+        // NEP-297 logs emitted during execution.
         for (const outcomeWithId of allOutcomes) {
           const { outcome } = outcomeWithId;
 
@@ -166,14 +168,14 @@ export class NearFetcher extends BaseDataFetcher<
             const event = parseNep297Log(log);
             if (!event) continue;
 
-            // Match event against each primitive
             for (const entry of primitiveEntries) {
               const prim = entry.primitive;
+              // AccountWatch primitives have no event metadata; skip them here.
+              if (prim.eventStandard == null) continue;
               if (!this.matchesPrimitive(outcome.executor_id, event, prim)) {
                 continue;
               }
 
-              // Emit one PrimitiveType per matching data item
               for (let i = 0; i < event.data.length; i++) {
                 allPrimitives.push({
                   syncProtocol: {
@@ -196,6 +198,57 @@ export class NearFetcher extends BaseDataFetcher<
                 });
               }
             }
+          }
+        }
+
+        // AccountWatch primitives capture raw execution-outcome data for any
+        // FunctionCall whose receiver matches the watched contractId, whether
+        // or not a NEP-297 event was logged. This is the non-event path.
+        const txStatusKind = txStatus.transaction_outcome.outcome.status;
+        const txSucceeded =
+          (txStatusKind as { SuccessValue?: string }).SuccessValue !== undefined ||
+          (txStatusKind as { SuccessReceiptId?: string }).SuccessReceiptId !== undefined;
+        const txStatusStr = txSucceeded ? "success" : "failure";
+
+        for (const entry of primitiveEntries) {
+          const prim = entry.primitive;
+          // Identify outcome-based primitives by the absence of event metadata.
+          if (prim.eventStandard != null) continue;
+          if (prim.contractId !== tx.receiver_id) continue;
+
+          for (let actionIndex = 0; actionIndex < tx.actions.length; actionIndex++) {
+            const action = tx.actions[actionIndex];
+            const fc = action.FunctionCall;
+            if (!fc) continue;
+
+            let argsDecoded = "";
+            try {
+              argsDecoded = Buffer.from(fc.args, "base64").toString("utf8");
+            } catch {
+              argsDecoded = fc.args;
+            }
+
+            allPrimitives.push({
+              syncProtocol: {
+                name: entry.syncProtocol,
+                blockNumber: height,
+                transactionHash: tx.hash,
+                contractAddress: tx.receiver_id,
+                logIndex: actionIndex,
+              },
+              primitive: prim.name,
+              output: {
+                payloadType: "account-watch:function-call",
+                payload: {
+                  signer_id: tx.signer_id,
+                  receiver_id: tx.receiver_id,
+                  method_name: fc.method_name,
+                  args: argsDecoded,
+                  deposit: fc.deposit,
+                  status: txStatusStr,
+                },
+              },
+            });
           }
         }
       }

@@ -1,6 +1,6 @@
 {
-  "name": "paima-engine",
-  "version": "0.6.1",
+  "name": "effectstream",
+  "version": "0.100.0",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -15,7 +15,11 @@
     "bun-zswap-da/e2e"
   ],
   "scripts": {
-    "test:code": "bun test ./packages/effectstream-sdk/crypto/ ./packages/effectstream-sdk/utils/ ./packages/effectstream-sdk/config/ ./packages/effectstream-sdk/concise/ ./packages/effectstream-sdk/wallets/ ./packages/batcher/ ./packages/node-sdk/db/src/pg-connection.test.ts ./packages/node-sdk/sm/"
+    "test:code": "bun test ./packages",
+    "test:e2e": "cd e2e-v2 && bun run runner.ts"
+  },
+  "overrides": {
+    "@midnight-ntwrk/ledger-v8": "8.0.3"
   },
   "devDependencies": {
     "@effectstream/db": "workspace:*",

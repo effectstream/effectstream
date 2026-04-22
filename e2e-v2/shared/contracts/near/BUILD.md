@@ -37,24 +37,9 @@ opt-level = "s"
 ```
 
 **src/lib.rs**
-```rust
-use near_sdk::{env, near};
 
-#[near(contract_state)]
-#[derive(Default)]
-pub struct Contract {}
-
-#[near]
-impl Contract {
-    pub fn emit_event(&self, message: String) {
-        let event = format!(
-            r#"EVENT_JSON:{{"standard":"test","version":"1.0.0","event":"test_event","data":[{{"message":"{}"}}]}}"#,
-            message
-        );
-        env::log_str(&event);
-    }
-}
-```
+See `test_event_contract.rs` in this directory for the current source — the
+file is copied verbatim to `src/lib.rs` by `build-contract.sh`.
 
 ## Build
 

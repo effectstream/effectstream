@@ -1,9 +1,9 @@
-import { PaimaPrimitive } from "@effectstream/sm";
+import { Primitive } from "@effectstream/sm";
 import {
   type AddressAndType,
   AddressType,
   type MidnightAddress,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
   uint8ArrayToHexString,
 } from "@effectstream/utils";
 import type { StaticDecode } from "@sinclair/typebox";
@@ -25,7 +25,7 @@ import { PrimitiveTypeMidnightGeneric } from "../builtin.ts";
 import { midnightGenericGrammar } from "./midnight-genetic-grammar.ts"
 
 
-export class MidnightGenericPrimitive extends PaimaPrimitive<
+export class MidnightGenericPrimitive extends Primitive<
   ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
   typeof midnightGenericGrammar
 > {
@@ -89,7 +89,7 @@ export class MidnightGenericPrimitive extends PaimaPrimitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.MIDNIGHT_PARALLEL
     >,

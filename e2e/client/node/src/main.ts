@@ -17,6 +17,7 @@ import { gameStateTransitions } from "./state-machine.ts";
 import { apiRouter } from "./api.ts";
 import { grammar } from "@e2e/data-types";
 import { EvmCounterPrimitive } from "./custom-primitive.ts";
+import { ENV } from "@effectstream/utils/node-env";
 
 const userDefinedPrimitives = {
   'EVM:CUSTOM-COUNTER': EvmCounterPrimitive
@@ -36,6 +37,19 @@ main(function* () {
       apiRouter,
       grammar,
       userDefinedPrimitives,
+      // Snapshot config — see docs/home/1000-effectstream-engine/1003-database-snapshots.md
+      // Snapshots are opt-in: only enabled when EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS is set.
+      snapshotConfig: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS != null
+        ? {
+            intervalSeconds: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS,
+            path: ENV.EFFECTSTREAM_SNAPSHOT_PATH,
+            retention: {
+              lastDayHourly: ENV.EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY,
+              last3DaysSixHourly: ENV.EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY,
+              lastNDaysDaily: ENV.EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS,
+            },
+          }
+        : undefined,
     });
   });
 

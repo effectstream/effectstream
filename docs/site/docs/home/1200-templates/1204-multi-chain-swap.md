@@ -402,7 +402,7 @@ The Batcher is configured to be multi-chain aware by using two distinct adapters
 
 ```ts
 // In packages/client/batcher/config.ts
-export const config: PaimaBatcherConfig = {
+export const config: BatcherConfig = {
   // ...
   adapters: { 
     midnight: midnightAdapter,
@@ -420,7 +420,7 @@ The `batchingCriteria` is set to `size` with a `maxBatchSize` of 1. This means t
 
 #### Custom EVM Adapter (`erc1155-adapter.ts`)
 
-A custom adapter is required because the Batcher isn't submitting generic inputs to a `PaimaL2Contract`. Instead, it needs to call specific functions (`mint` or `transferToMidnight`) on the `MCT_ERC1155` contract. The custom adapter parses a JSON payload from the State Machine's request to determine which function to call and with what arguments.
+A custom adapter is required because the Batcher isn't submitting generic inputs to a `EffectstreamL2Contract`. Instead, it needs to call specific functions (`mint` or `transferToMidnight`) on the `MCT_ERC1155` contract. The custom adapter parses a JSON payload from the State Machine's request to determine which function to call and with what arguments.
 
 ```ts
 // In packages/client/batcher/erc1155-adapter.ts
@@ -510,7 +510,7 @@ The primitive is configured to listen exclusively for the `TransferToMidnight` e
 
 ```ts
 // In packages/shared/custom-primitive-mct-erc1155/erc1155-primitive.ts
-export class MCTErc1155Primitive extends PaimaPrimitive<
+export class MCTErc1155Primitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   typeof mctErc1155Grammar
 > {

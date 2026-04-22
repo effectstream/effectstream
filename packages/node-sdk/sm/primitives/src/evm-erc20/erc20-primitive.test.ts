@@ -3,7 +3,7 @@ import type { EvmAddress } from "@effectstream/utils";
 import { run } from "effection";
 import type { ConfigSyncProtocolType, FlattenSyncProtocolIOFor } from "@effectstream/config";
 import { Erc20Primitive } from "./../mod.ts";
-import { PaimaPrimitiveRegistry } from "../../PrimitiveRegistry.ts";
+import { PrimitiveRegistry } from "../../PrimitiveRegistry.ts";
 
 // Mock data
 const MOCK_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890" as EvmAddress;
@@ -15,7 +15,7 @@ const PrimitiveTypeEVMERC20 = "EVM:ERC20";
 
 function cleanup() {
     // Reset registry between tests
-    PaimaPrimitiveRegistry.primitives = {};
+    PrimitiveRegistry.primitives = {};
 }
 
 test("Erc20Primitive - initializes correctly", () => {

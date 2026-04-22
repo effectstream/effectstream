@@ -12,7 +12,7 @@ This knowledge helps you:
 
 ## Target Audience
 
-Developers building on or integrating with the Paima platform who need to batch transactions, especially those who want to:
+Developers building on or integrating with the Effectstream platform who need to batch transactions, especially those who want to:
 - Customize adapter behavior for different blockchains
 - Understand validation and security guarantees
 - Configure confirmation levels appropriately
@@ -44,7 +44,7 @@ The API accepts the request and begins processing it through the pipeline.
 
 ### Step 2: Targeting
 
-The batcher examines the `input.target` field to determine which blockchain adapter should handle this input. If `target` is not provided, it falls back to the `defaultTarget` specified in the `PaimaBatcherConfig`.
+The batcher examines the `input.target` field to determine which blockchain adapter should handle this input. If `target` is not provided, it falls back to the `defaultTarget` specified in the `BatcherConfig`.
 
 For example, if your configuration has:
 ```typescript
@@ -129,7 +129,7 @@ The caller doesn't wait for the batch to be submitted or confirmed.
 
 ### Step 5: Polling & Criteria Check
 
-The `PaimaBatcher` runs independent polling loops for each adapter target at intervals defined by `pollingIntervalMs` (e.g., every 1000ms). On each iteration for a specific target:
+The `Batcher` runs independent polling loops for each adapter target at intervals defined by `pollingIntervalMs` (e.g., every 1000ms). On each iteration for a specific target:
 
 1. The batcher checks the batching criteria for that target
 2. The criteria determine if enough inputs have accumulated or enough time has passed
@@ -266,7 +266,7 @@ All waiting callers whose inputs were included in this batch are resolved simult
 
 If `confirmationLevel` is not explicitly provided in the API call, the batcher uses this fallback hierarchy:
 
-1. **Target-specific configuration**: Check if `PaimaBatcherConfig.confirmationLevel` is an object with a key matching the target:
+1. **Target-specific configuration**: Check if `BatcherConfig.confirmationLevel` is an object with a key matching the target:
    ```typescript
    confirmationLevel: { 
      evm: "no-wait", 
@@ -339,8 +339,8 @@ If `confirmationLevel` is not explicitly provided in the API call, the batcher u
                   │
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  9. Wait for Paima Processing (Optional)                    │
-│     Monitor Paima Sync events                               │
+│  9. Wait for Effectstream Processing (Optional)             │
+│     Monitor Effectstream Sync events                        │
 │     Wait for rollup block processing                        │
 │                                                              │
 │  🔹 confirmationLevel: "wait-effectstream-processed" → returns here│
@@ -358,7 +358,7 @@ If `confirmationLevel` is not explicitly provided in the API call, the batcher u
 1. **Validation happens before queuing**: Invalid inputs never reach storage
 2. **Storage is crash-safe**: Inputs persist through restarts
 3. **Adapters control key operations**: Signature verification, validation, building, and submission are all adapter-specific
-4. **Confirmation levels offer flexibility**: Choose between immediate return, blockchain confirmation, or full Paima processing
+4. **Confirmation levels offer flexibility**: Choose between immediate return, blockchain confirmation, or full Effectstream processing
 5. **Per-target configuration**: Different blockchain targets can have different criteria and confirmation levels
 6. **Event-driven observability**: State transitions emit events throughout the pipeline for monitoring and logging
 

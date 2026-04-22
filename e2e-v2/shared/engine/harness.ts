@@ -108,6 +108,34 @@ export async function waitForHealth(timeoutMs = 120_000): Promise<void> {
   throw new Error(`Sync node health check failed within ${timeoutMs / 1000}s`);
 }
 
+export async function waitForBlock(
+  blockHeight: number,
+  timeoutMs = 120_000,
+): Promise<void> {
+  console.log(`Waiting for block ${blockHeight} to be finalized...`);
+  const start = Date.now();
+  const client = getDBConnection();
+  try {
+    while (Date.now() - start < timeoutMs) {
+      try {
+        const res = await client.query(
+          `SELECT block_height FROM effectstream.effectstream_blocks
+           WHERE effectstream_block_hash IS NOT NULL
+           ORDER BY block_height DESC LIMIT 1`,
+        );
+        if (res.rows.length > 0 && res.rows[0].block_height >= blockHeight) {
+          console.log(`Block ${res.rows[0].block_height} finalized.`);
+          return;
+        }
+      } catch { /* table may not exist yet */ }
+      await delay(500);
+    }
+    throw new Error(`Block ${blockHeight} not finalized within ${timeoutMs / 1000}s`);
+  } finally {
+    await client.end();
+  }
+}
+
 export function getDBConnection(): Client {
   const client = new pg.Client({
     host: DB_HOST, user: DB_USER, password: DB_PW,

@@ -1,44 +1,11 @@
-import type { OrchestratorConfig } from "../../packages/build-tools/orchestrator-v2/src/config.ts";
+import type { OrchestratorConfig } from "@effectstream/orchestrator-v2/config";
+import { launchPglite, DbNames } from "@effectstream/orchestrator-v2/launch-pglite";
 
 const CELESTIA_HOME = "/tmp/celestia-e2e-home";
 
-/**
- * Celestia orchestrator config (orchestrator-v2 format).
- *
- * Infrastructure:
- *   1. PGLite DB -> wait -> apply migrations
- *   2. Celestia devnet (consensus node on 26657 + bridge on 26658)
- *   3. Wait for bridge RPC
- *   4. Fund bridge node wallet with tokens
- * Node:
- *   5. Create user tables
- *   6. Sync node (e2e-v2/celestia/node.ts) - depends on DB + funded bridge
- */
 export default {
   processes: [
-    // ── Database ──────────────────────────────────────────────────────────────
-    {
-      name: "pglite",
-      description: "PGLite embedded database",
-      args: ["-e", "process.argv.splice(1, 0, '_'); await import('@effectstream/db/start-pglite')", "--port", "5432"],
-      stopProcessAtPort: [5432],
-      waitToExit: false,
-      critical: true,
-    },
-    {
-      name: "pglite-wait",
-      args: ["./node_modules/.bin/wait-on", "tcp:5432"],
-      waitToExit: true,
-      dependsOn: ["pglite"],
-    },
-    {
-      name: "apply-migrations",
-      description: "Apply database migrations",
-      args: ["-e", "await import('@effectstream/db/apply-migrations')"],
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["pglite-wait"],
-    },
+    ...launchPglite(),
 
     // ── Celestia Infrastructure ───────────────────────────────────────────────
     {
@@ -70,16 +37,6 @@ export default {
       dependsOn: ["celestia-bridge-wait"],
     },
 
-    // ── User tables ──────────────────────────────────────────────────────────
-    {
-      name: "create-user-tables",
-      description: "Create user-defined DB tables for STM",
-      args: ["run", "e2e-v2/celestia/database/create-tables.ts"],
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["apply-migrations"],
-    },
-
     // ── Sync (the node) ──────────────────────────────────────────────────────
     {
       name: "sync",
@@ -89,7 +46,7 @@ export default {
       type: "system-dependency",
       env: { PGLITE: "true" },
       dependsOn: [
-        "create-user-tables",
+        DbNames.PGLITE_WAIT,
         "celestia-fund-bridge",
       ],
     },

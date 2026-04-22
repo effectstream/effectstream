@@ -6,7 +6,11 @@ logs/
 /cache
 /out
 journal.jsonl
-
+e2e-v2-bitcoin-batcher-data/
+e2e-v2-midnight-batcher-data/
+midnight-level-db*
+batcher-debug.log
+.orchestrator-logs/
 # Frontend
 .vite
 
@@ -21,6 +25,4 @@ tmp/
 # System files
 .DS_Store
 .cursor
-midnight-level-db*
-batcher-debug.log
-.orchestrator-logs/
+/example/

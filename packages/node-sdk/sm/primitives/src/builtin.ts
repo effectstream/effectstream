@@ -5,7 +5,7 @@ export const PrimitiveTypeMidnightNullifier = "Midnight:Nullifier" as const;
 
 export const PrimitiveTypeUtxorpcGeneric = "Utxorpc:Generic" as const;
 
-export const PrimitiveTypeEVMPaimaL2 = "EVM:PaimaL2" as const;
+export const PrimitiveTypeEVMEffectstreamL2 = "EVM:EffectstreamL2" as const;
 export const PrimitiveTypeEVMERC721 = "EVM:ERC721" as const;
 export const PrimitiveTypeEVMERC20 = "EVM:ERC20" as const;
 export const PrimitiveTypeEVMERC1155 = "EVM:ERC1155" as const;
@@ -27,7 +27,7 @@ export const PrimitiveTypeNEARAccountWatch = "NEAR:AccountWatch" as const;
 type BuiltInPrimitives =
     typeof PrimitiveTypeMidnightGeneric |
     typeof PrimitiveTypeMidnightNullifier |
-    typeof PrimitiveTypeEVMPaimaL2 |
+    typeof PrimitiveTypeEVMEffectstreamL2 |
     typeof PrimitiveTypeEVMERC721 |
     typeof PrimitiveTypeEVMERC20 |
     typeof PrimitiveTypeAvailGeneric |

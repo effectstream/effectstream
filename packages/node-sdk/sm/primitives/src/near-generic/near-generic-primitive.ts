@@ -7,9 +7,9 @@ import {
 import {
   type AddressAndType,
   AddressType,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import {
   type CommandTuple,
   generateRawStmInput,
@@ -19,7 +19,7 @@ import type { StateUpdateStream } from "@effectstream/coroutine";
 import { nearGenericGrammar } from "./near-generic-grammar.ts";
 import { PrimitiveTypeNEARGeneric } from "../builtin.ts";
 
-export class NearGenericPrimitive extends PaimaPrimitive<
+export class NearGenericPrimitive extends Primitive<
   ConfigSyncProtocolType.NEAR_RPC_PARALLEL,
   typeof nearGenericGrammar
 > {
@@ -44,7 +44,7 @@ export class NearGenericPrimitive extends PaimaPrimitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.NEAR_RPC_PARALLEL
     >,

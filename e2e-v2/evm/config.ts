@@ -11,10 +11,10 @@ import {
   PrimitiveTypeEVMERC1155,
   PrimitiveTypeEVMERC20,
   PrimitiveTypeEVMERC721,
-  PrimitiveTypeEVMPaimaL2,
+  PrimitiveTypeEVMEffectstreamL2,
 } from "@effectstream/sm/builtin";
 
-import { paimaL2Grammar } from "./grammar.ts";
+import { effectstreamL2Grammar } from "./grammar.ts";
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
@@ -109,7 +109,7 @@ export const config = new ConfigBuilder()
           type: PrimitiveTypeEVMERC20,
           startBlockHeight: 0,
           contractAddress: contractAddressesEvmMain()
-            .chain31337["PaimaErc20DevModule#PaimaErc20Dev"],
+            .chain31337["EffectstreamErc20DevModule#EffectstreamErc20Dev"],
           stateMachinePrefix: "transfer-erc20",
         }),
       )
@@ -127,13 +127,13 @@ export const config = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => (syncProtocols as any).parallelEvmRPC_fast,
         (network, deployments, syncProtocol) => ({
-          name: "PaimaGameInteraction",
-          type: PrimitiveTypeEVMPaimaL2,
+          name: "EffectstreamGameInteraction",
+          type: PrimitiveTypeEVMEffectstreamL2,
           startBlockHeight: 0,
           contractAddress: contractAddressesEvmMain()["chain31337"][
-            "PaimaL2ContractModule#MyPaimaL2Contract"
+            "EffectstreamL2ContractModule#MyEffectstreamL2Contract"
           ],
-          paimaL2Grammar: paimaL2Grammar,
+          effectstreamL2Grammar: effectstreamL2Grammar,
         }),
       )
       .addPrimitive(
@@ -165,7 +165,7 @@ export const config = new ConfigBuilder()
           type: PrimitiveTypeEVMERC20,
           startBlockHeight: 0,
           contractAddress: contractAddressesEvmMain()
-            .chain31338["PaimaErc20DevModule#PaimaErc20Dev"],
+            .chain31338["EffectstreamErc20DevModule#EffectstreamErc20Dev"],
           stateMachinePrefix: "transfer-erc20",
         }),
       )

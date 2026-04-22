@@ -7,6 +7,7 @@ export {
   waitForOrchestrator,
   waitForProcess,
   waitForHealth,
+  waitForBlock,
   getDBConnection,
   ORCHESTRATOR_PORT,
   API_PORT,

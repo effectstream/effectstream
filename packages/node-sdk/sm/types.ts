@@ -3,7 +3,7 @@
 import type { PreparedQuery } from "@pgtyped/runtime";
 import type {
   AddressType,
-  PaimaBlockNumber,
+  EffectstreamBlockNumber,
   TimestampMs,
   WalletAddress,
 } from "@effectstream/utils";
@@ -14,7 +14,7 @@ export type AppEvents = any;
 
 // TODO: replace any
 export type BaseStfInput = {
-  blockHeight: PaimaBlockNumber;
+  blockHeight: EffectstreamBlockNumber;
   blockTimestamp: TimestampMs;
   conciseInput: string;
   accountId?: number;

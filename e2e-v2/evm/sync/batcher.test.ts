@@ -3,8 +3,8 @@
  *
  * Tests the full batcher flow:
  *
- * 1. PaimaL2 batcher: sign message with EVM wallet -> POST /send-input
- *    -> batcher batches it -> submits to PaimaL2 contract on-chain
+ * 1. EffectstreamL2 batcher: sign message with EVM wallet -> POST /send-input
+ *    -> batcher batches it -> submits to EffectstreamL2 contract on-chain
  *    -> sync picks up -> verify in primitive_accounting
  *
  * 2. Counter batcher: POST /send-input with target=evmCounter
@@ -39,7 +39,7 @@ export async function batcherSyncTest(db: Client, sharedState: SharedState) {
     transport: http(),
   });
 
-  // ── Test 1: PaimaL2 batcher (default target) ────────────────────────────
+  // ── Test 1: EffectstreamL2 batcher (default target) ────────────────────────────
 
   const timestamp = Date.now().toString();
   const conciseInput = JSON.stringify(["add", "200", "55"]);
@@ -72,16 +72,16 @@ export async function batcherSyncTest(db: Client, sharedState: SharedState) {
 
   sharedState.primitive_accounting_counter += 1;
 
-  await assert("Batcher: PaimaL2 send-input returns OK", async () => {
+  await assert("Batcher: EffectstreamL2 send-input returns OK", async () => {
     return batcherResponse.ok;
   });
 
   // Verify the batched input arrived in primitive_accounting with parsed data ["add","200","55"]
   await assertSQL<{ primitive_name: string; payload: any }>(
-    "Batcher: PaimaL2 input ['add','200','55'] indexed via batcher",
+    "Batcher: EffectstreamL2 input ['add','200','55'] indexed via batcher",
     db,
     `SELECT primitive_name, payload FROM effectstream.primitive_accounting
-     WHERE primitive_name = 'PaimaGameInteraction'
+     WHERE primitive_name = 'EffectstreamGameInteraction'
      ORDER BY id DESC LIMIT 1;`,
     (res) => res.rows.length >= 1,
     (res) => {

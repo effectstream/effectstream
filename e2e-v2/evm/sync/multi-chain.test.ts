@@ -36,7 +36,7 @@ export async function multiChainSyncTest(db: Client, sharedState: SharedState) {
   const pc = createPublicClient({ chain: chain31338, transport: http() });
 
   // Mint 750 ERC20 on chain 31338
-  const h1 = await wc.writeContract({ address: addresses.chain31338["PaimaErc20DevModule#PaimaErc20Dev"], abi: erc20Abi, functionName: "mint", args: [wallets[0].address, 750n * 10n ** 18n] });
+  const h1 = await wc.writeContract({ address: addresses.chain31338["EffectstreamErc20DevModule#EffectstreamErc20Dev"], abi: erc20Abi, functionName: "mint", args: [wallets[0].address, 750n * 10n ** 18n] });
   await pc.waitForTransactionReceipt({ hash: h1 });
   sharedState.primitive_accounting_counter += 1;
 

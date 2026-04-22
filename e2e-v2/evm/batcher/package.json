@@ -12,6 +12,6 @@
     "effection": "^3.5.0",
     "@e2e-v2/evm-contracts": "workspace:*",
     "@effectstream/utils": "workspace:*",
-    "@effectstream/batcher": "workspace:*"
+    "@effectstream/batcher-sdk": "workspace:*"
   }
 }

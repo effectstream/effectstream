@@ -1,15 +1,15 @@
 {
-    "name": "@effectstream/grafana-loki",
-    "version": "0.3.0",
-    "description": "A wrapper for the Grafana Loki binary",
-    "main": "index.js",
-    "bin": {
-        "grafana-loki": "index.js"
-    },
-    "scripts": {
-        "start": "node index.js"
-    },
-    "dependencies": {
-        "@xhmikosr/bin-wrapper": "^13.2.0"
-    }
+  "name": "@effectstream/grafana-loki",
+  "version": "0.100.0",
+  "description": "A wrapper for the Grafana Loki binary",
+  "main": "index.js",
+  "bin": {
+    "grafana-loki": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@xhmikosr/bin-wrapper": "^13.2.0"
+  }
 }

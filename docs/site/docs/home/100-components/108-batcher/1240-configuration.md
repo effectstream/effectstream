@@ -58,7 +58,7 @@ This approach offers maximum flexibility—adapters can be added progressively b
 Define everything in a single configuration object:
 
 ```typescript
-const config: PaimaBatcherConfig = {
+const config: BatcherConfig = {
   pollingIntervalMs: 1000,
   port: 3334,
   enableHttpServer: true,
@@ -117,9 +117,9 @@ The dynamic configuration approach follows these steps:
 Create the base configuration object with global settings. **Adapters are not included here**—they'll be added dynamically in Step 3:
 
 ```typescript
-import { type PaimaBatcherConfig } from "@effectstream/batcher";
+import { type BatcherConfig } from "@effectstream/batcher";
 
-const baseConfig: PaimaBatcherConfig = {
+const baseConfig: BatcherConfig = {
   // Polling frequency (how often to check if batching criteria are met)
   pollingIntervalMs: 1000,  // Check every 1 second
   
@@ -131,7 +131,7 @@ const baseConfig: PaimaBatcherConfig = {
   enableEventSystem: true,  // Enable state transition events
   
   // Signature verification namespace
-  namespace: "paima_batcher",  // Used for signature message construction
+  namespace: "effectstream_batcher",  // Used for signature message construction
   
   // Start with empty adapters - we'll add them dynamically
   adapters: {}
@@ -146,7 +146,7 @@ const baseConfig: PaimaBatcherConfig = {
 | `port` | `number` | `3000` | HTTP server port |
 | `enableHttpServer` | `boolean` | `true` | Whether to start the HTTP REST API |
 | `enableEventSystem` | `boolean` | `false` | Whether to enable state transition events |
-| `namespace` | `string` | `"paima_batcher"` | Namespace for signature verification |
+| `namespace` | `string` | `"effectstream_batcher"` | Namespace for signature verification |
 | `maxRetries` | `number` | `3` | Maximum retry attempts for failed transactions |
 | `retryDelayMs` | `number` | `1000` | Delay between retry attempts (milliseconds) |
 
@@ -159,9 +159,9 @@ Set `pollingIntervalMs` to match your shortest batching time window. For example
 Instantiate each blockchain adapter you want to use:
 
 ```typescript
-import { PaimaL2DefaultAdapter } from "@effectstream/batcher";
+import { EffectstreamL2DefaultAdapter } from "@effectstream/batcher";
 
-const evmAdapter = new PaimaL2DefaultAdapter(
+const evmAdapter = new EffectstreamL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
   0n,
@@ -219,9 +219,9 @@ batcher
 
 ```typescript
 createNewBatcher<T>(
-  config: PaimaBatcherConfig<T>,
+  config: BatcherConfig<T>,
   storage?: BatcherStorage<T>
-): PaimaBatcher<T>
+): Batcher<T>
 ```
 
 This factory function is the **recommended way** to create a batcher instance. It provides a cleaner API than using the constructor directly.
@@ -233,7 +233,7 @@ addBlockchainAdapter(
   name: string,                          // Target name for routing
   adapter: BlockchainAdapter<any>,       // Adapter instance
   criteria: BatchingCriteriaConfig       // When to submit batches
-): PaimaBatcher
+): Batcher
 ```
 
 This method:
@@ -259,7 +259,7 @@ Now inputs without a `target` field will automatically route to the `evmAdapter`
 #### The `setDefaultTarget()` Method
 
 ```typescript
-setDefaultTarget(target: string): PaimaBatcher
+setDefaultTarget(target: string): Batcher
 ```
 
 This method:
@@ -344,12 +344,12 @@ Here's a complete example using the dynamic approach:
 import {
   createNewBatcher,
   FileStorage,
-  PaimaL2DefaultAdapter,
+  EffectstreamL2DefaultAdapter,
   MidnightAdapter
 } from "@effectstream/batcher";
 
 // 1. Instantiate adapters
-const evmAdapter = new PaimaL2DefaultAdapter(
+const evmAdapter = new EffectstreamL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
   Deno.env.get("EVM_PRIVATE_KEY")!,
   0n,
@@ -417,16 +417,16 @@ If you prefer defining everything upfront, you can use the unified configuration
 import {
   createNewBatcher,
   FileStorage,
-  type PaimaBatcherConfig,
-  PaimaL2DefaultAdapter
+  type BatcherConfig,
+  EffectstreamL2DefaultAdapter
 } from "@effectstream/batcher";
 
 // Instantiate adapters first
-const evmAdapter = new PaimaL2DefaultAdapter(/* ... */);
+const evmAdapter = new EffectstreamL2DefaultAdapter(/* ... */);
 const midnightAdapter = new MidnightAdapter(/* ... */);
 
 // Create unified configuration
-const config: PaimaBatcherConfig = {
+const config: BatcherConfig = {
   pollingIntervalMs: 1000,
   port: 3334,
   enableHttpServer: true,
@@ -566,7 +566,7 @@ The shutdown process executes in **5 distinct phases**, each with an optional ho
 
 **Signature:**
 ```typescript
-preShutdown?: (batcher: PaimaBatcher<T>) => Promise<void> | void
+preShutdown?: (batcher: Batcher<T>) => Promise<void> | void
 ```
 
 **Use Cases:**
@@ -590,7 +590,7 @@ preShutdown: async (batcher) => {
 
 **Signature:**
 ```typescript
-stopAcceptingInputs?: (batcher: PaimaBatcher<T>) => Promise<void> | void
+stopAcceptingInputs?: (batcher: Batcher<T>) => Promise<void> | void
 ```
 
 **What Happens Before This Hook:**
@@ -618,7 +618,7 @@ stopAcceptingInputs: async (batcher) => {
 
 **Signature:**
 ```typescript
-waitForProcessing?: (batcher: PaimaBatcher<T>) => Promise<void> | void
+waitForProcessing?: (batcher: Batcher<T>) => Promise<void> | void
 ```
 
 **What Happens Before This Hook:**
@@ -647,7 +647,7 @@ waitForProcessing: async (batcher) => {
 
 **Signature:**
 ```typescript
-cleanup?: (batcher: PaimaBatcher<T>) => Promise<void> | void
+cleanup?: (batcher: Batcher<T>) => Promise<void> | void
 ```
 
 **What Happens Before This Hook:**
@@ -678,7 +678,7 @@ cleanup: async (batcher) => {
 
 **Signature:**
 ```typescript
-postShutdown?: (batcher: PaimaBatcher<T>) => Promise<void> | void
+postShutdown?: (batcher: Batcher<T>) => Promise<void> | void
 ```
 
 **Use Cases:**

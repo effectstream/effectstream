@@ -5,8 +5,12 @@ import {
   ConfigSyncProtocolType,
 } from "@effectstream/config";
 import {
+  PrimitiveTypeNEARAccountWatch,
   PrimitiveTypeNEARGeneric,
   PrimitiveTypeNEARIntent,
+  PrimitiveTypeNEARNEP141,
+  PrimitiveTypeNEARNEP171,
+  PrimitiveTypeNEARNEP245,
 } from "@effectstream/sm/builtin";
 
 const mainSyncProtocolName = "mainNtp";
@@ -99,6 +103,52 @@ export const config = new ConfigBuilder()
           eventStandard: "dip4",
           eventType: "token_diff",
           scheduledPrefix: "intent-settled",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelNearRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "NearAccountWatch",
+          type: PrimitiveTypeNEARAccountWatch,
+          startBlockHeight: 0,
+          contractId: "test.near",
+          scheduledPrefix: "near-account-watch",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelNearRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "NearNep141Transfer",
+          type: PrimitiveTypeNEARNEP141,
+          startBlockHeight: 0,
+          contractId: "test.near",
+          eventStandard: "nep141",
+          eventType: "ft_transfer",
+          scheduledPrefix: "nep141-transfer",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelNearRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "NearNep171Transfer",
+          type: PrimitiveTypeNEARNEP171,
+          startBlockHeight: 0,
+          contractId: "test.near",
+          eventStandard: "nep171",
+          eventType: "nft_transfer",
+          scheduledPrefix: "nep171-transfer",
+        }),
+      )
+      .addPrimitive(
+        (syncProtocols) => (syncProtocols as any).parallelNearRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "NearNep245Transfer",
+          type: PrimitiveTypeNEARNEP245,
+          startBlockHeight: 0,
+          contractId: "test.near",
+          eventStandard: "nep245",
+          eventType: "mt_transfer",
+          scheduledPrefix: "nep245-transfer",
         }),
       )
   )

@@ -18,8 +18,8 @@ The application demonstrates three key user flows:
 1.  **Connecting Wallets**: Shows how to initiate connections with a wide variety of wallets, from browser extensions like MetaMask to local, programmatic wallets for testing.
 2.  **Signing Messages**: A standard way to verify ownership of an address without submitting an on-chain transaction.
 3.  **Submitting Transactions**: Illustrates the different ways a user can send data to your Effectstream application:
-    *   **Direct On-Chain**: A standard transaction sent to a specific Paima L2 contract.
-    *   **Via the Batcher**: A gasless, user-friendly alternative where transactions are submitted through a Paima service.
+    *   **Direct On-Chain**: A standard transaction sent to a specific Effectstream L2 contract.
+    *   **Via the Batcher**: A gasless, user-friendly alternative where transactions are submitted through a Effectstream service.
 
 This demo is an essential resource for any developer looking to build a multi-chain dApp on Effectstream.
 
@@ -44,7 +44,7 @@ The demo is a standalone React + Vite application. Its interface is divided into
 
 1.  **Select a Primitive**: A "primitive" is a pre-configured listener for on-chain events. In this demo, you select which on-chain contract or event you want to interact with. The list is dynamically loaded from the engine's configuration.
 2.  **Connect Wallet**: Based on the selected primitive, a list of compatible wallets is displayed. For example, selecting an EVM-based primitive will show EVM wallets like MetaMask and Phantom. This section allows you to connect and disconnect from your chosen wallet.
-3.  **Perform an Action**: Once connected, you can interact with the application. For primitives linked to a **Paima L2 contract**, a form is dynamically generated based on the contract's `grammar`, allowing you to send valid inputs.
+3.  **Perform an Action**: Once connected, you can interact with the application. For primitives linked to a **Effectstream L2 contract**, a form is dynamically generated based on the contract's `grammar`, allowing you to send valid inputs.
 
 ## Code Deep Dive: `App.tsx`
 
@@ -54,18 +54,18 @@ The entire logic is contained within `/e2e/e2e-wallets/client/src/App.tsx`. Let'
 
 The application first sets up the necessary configuration to communicate with Effectstream and its related services.
 
-*   **`paimaEngineConfig`**: This object tells the wallet library where to find key services, such as the Batcher and the Paima L2 contract. This normally is declared once per application globally.
+*   **`effectstreamConfig`**: This object tells the wallet library where to find key services, such as the Batcher and the Effectstream L2 contract. This normally is declared once per application globally.
 
     ```tsx
     import { hardhat } from "viem/chains";
-    import { PaimaEngineConfig } from "@effectstream/wallets";
+    import { EffectstreamConfig } from "@effectstream/wallets";
 
-    const paimaEngineConfig = new PaimaEngineConfig(
+    const effectstreamConfig = new EffectstreamConfig(
       "my-app-name",
-      "parallelEvmRPC_fast", // paima l2 sync protocol name
-      "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", // paima l2 contract address
-      hardhat, // paima l2 chain
-      undefined, // use default paima l2 abi
+      "parallelEvmRPC_fast", // effectstream l2 sync protocol name
+      "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", // effectstream l2 contract address
+      hardhat, // effectstream l2 chain
+      undefined, // use default effectstream l2 abi
       "http://localhost:3334", // batcher url
     );
     ```
@@ -148,12 +148,12 @@ const handleSubmit = async () => {
       setActionResult(JSON.stringify(signedMessage, null, 2));
       break;
     }
-    // Automatically selects the appropriate submission method based on the paimaEngineConfig
+    // Automatically selects the appropriate submission method based on the effectstreamConfig
     case "automatic": {
       const result = await sendTransaction(
         wallet,
         conciseData,
-        paimaEngineConfig,
+        effectstreamConfig,
       );
       const str = JSON.stringify(result, null, 2);
       setActionResult(`Transaction sent. Result: ${str}`);
@@ -165,7 +165,7 @@ const handleSubmit = async () => {
       const result = await sendSelfSequencedTransaction(
         wallet,
         conciseData,
-        paimaEngineConfig,
+        effectstreamConfig,
       );
       const str = JSON.stringify(result, null, 2);
       setActionResult(`Transaction sent. Result: ${str}`);
@@ -176,7 +176,7 @@ const handleSubmit = async () => {
       const result = await sendBatcherTransaction(
         wallet,
         conciseData,
-        paimaEngineConfig,
+        effectstreamConfig,
       );
       const str = JSON.stringify(result, null, 2);
       setActionResult(`Batcher transaction sent. Result: ${str}`);

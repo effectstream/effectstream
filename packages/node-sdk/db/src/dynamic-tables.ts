@@ -43,7 +43,7 @@ function* createDynamicTableForPrimitive(
   const type = p.primitive.type;
   const name = p.primitive.name;
 
-  // const primitive = PaimaPrimitiveRegistry.getPrimitive(name);
+  // const primitive = PrimitiveRegistry.getPrimitive(name);
   const primitive = (globalThis as any).EFFECTSTREAM_REGISTRY[name];
   if (!primitive) {
     // This should never happen.

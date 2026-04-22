@@ -22,6 +22,7 @@ import { RPCTest } from "../e2e-tests/e2e.rpc.test.ts";
 import { tokenTests } from "../e2e-tests/e2e.tokens.ts";
 import { bitcoinTest, bitcoinBatcherTest } from "../e2e-tests/e2e.bitcoin.test.ts";
 import { submitBlobCelestiaTest } from "../e2e-tests/e2e.celestia.test.ts";
+import { snapshotTest, snapshotRetentionTest } from "../e2e-tests/e2e.snapshot.test.ts";
 import { getEffectstreamEVMPublicClient } from "@e2e/engine";
 import { getEnv, exit } from "@effectstream/utils/runtime";
 import type { Client, PoolConfig } from "pg";
@@ -354,7 +355,9 @@ export async function getDBConnection(): Promise<Client> {
       }
 
       await testMigrations(db);
-      
+      await snapshotTest(db);
+      await snapshotRetentionTest(db);
+
       // Done testing.
       printSummary();
       await cleanup(db);

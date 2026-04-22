@@ -1,49 +1,69 @@
 /**
  * NEAR:AccountWatch primitive test.
  *
- * STATUS: STUB — requires fetcher changes to capture non-event execution outcomes
+ * Verifies that a FunctionCall made to the watched contract is captured by the
+ * NEAR:AccountWatch primitive even when no NEP-297 event is emitted — that is,
+ * the fetcher's outcome-capture branch reaches `effectstream.primitive_accounting`
+ * with the expected shape.
  *
- * Should verify:
- * 1. Configure an AccountWatch primitive for a specific NEAR account (e.g., test.near)
- * 2. Send a transaction to that account (function call or transfer)
- * 3. Verify primitive_accounting captures the execution outcome
- * 4. Verify payload contains signer_id, receiver_id, method_name, args, deposit, status
+ * The test relies on `deploy-and-call.ts` calling `emit_event(message=MESSAGE)`
+ * on `test.near` during sandbox init. The fetcher emits a row whose `args`
+ * field contains the unique MESSAGE literal (because args is the base64-decoded
+ * JSON of the FunctionCall arguments).
  *
- * Note: The current fetcher only extracts NEP-297 events from logs. AccountWatch
- * needs the fetcher to also emit raw execution outcome data for transactions
- * targeting the watched account, even when no NEP-297 event is logged.
- * This requires extending NearFetcher.readPrimitives to handle AccountWatch
- * primitives separately from event-based primitives.
- *
- * Requires:
- * - Fetcher enhancement to capture raw execution outcomes (not just NEP-297 events)
- * - Config must include a NEAR:AccountWatch primitive
+ * Scope note: this test asserts against `primitive_accounting` only, matching
+ * the existing pattern for NEAR:Generic and NEAR:Intent. User-side STM handler
+ * invocation for NEAR primitives is an existing concern not addressed here.
  */
 import { assertSQL } from "@e2e-v2/engine";
+import { readFileSync } from "fs";
+import path from "path";
 import type { Client } from "pg";
 
 export async function runAccountWatchTest(db: Client): Promise<void> {
-  // TODO: Extend NearFetcher to handle AccountWatch primitives
-  // TODO: Send a transaction to the watched account
-  // TODO: Verify the execution outcome is captured
+  const messagePath = path.resolve(
+    import.meta.dirname!,
+    "../../shared/contracts/near/build/test-message.txt",
+  );
+  const expectedMessage = readFileSync(messagePath, "utf-8").trim();
 
-  await assertSQL<{ primitive_name: string }>(
-    "NEAR:AccountWatch — primitive_accounting has execution outcome for watched account",
+  await assertSQL<{ primitive_name: string; payload: any }>(
+    `NEAR:AccountWatch — primitive_accounting has an emit_event FunctionCall with args containing "${expectedMessage}"`,
     db,
-    `SELECT primitive_name FROM effectstream.primitive_accounting WHERE primitive_name = 'NearAccountWatch' LIMIT 1;`,
+    `SELECT primitive_name, payload FROM effectstream.primitive_accounting WHERE primitive_name = 'NearAccountWatch' LIMIT 20;`,
     (res) => res.rows.length >= 1,
-    (res) => res.rows[0]?.primitive_name === "NearAccountWatch",
+    (res) => {
+      const row = res.rows.find((r: any) => {
+        const outer = typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload;
+        const p = outer?.payload ?? outer;
+        return (
+          p?.method_name === "emit_event" &&
+          typeof p?.args === "string" &&
+          p.args.includes(expectedMessage)
+        );
+      });
+      return row != null;
+    },
   );
 
-  // TODO: Verify payload fields
-  // await assertSQL(
-  //   "NEAR:AccountWatch — payload contains transaction details",
-  //   db,
-  //   `SELECT payload FROM effectstream.primitive_accounting WHERE primitive_name = 'NearAccountWatch' LIMIT 1;`,
-  //   (res) => res.rows.length >= 1,
-  //   (res) => {
-  //     const p = typeof res.rows[0]?.payload === "string" ? JSON.parse(res.rows[0].payload) : res.rows[0]?.payload;
-  //     return p?.signer_id != null && p?.receiver_id != null && p?.method_name != null;
-  //   },
-  // );
+  await assertSQL<{ primitive_name: string; payload: any }>(
+    `NEAR:AccountWatch — primitive_accounting row has expected fields (signer_id, receiver_id, status)`,
+    db,
+    `SELECT primitive_name, payload FROM effectstream.primitive_accounting WHERE primitive_name = 'NearAccountWatch' LIMIT 20;`,
+    (res) => res.rows.length >= 1,
+    (res) => {
+      const row = res.rows.find((r: any) => {
+        const outer = typeof r.payload === "string" ? JSON.parse(r.payload) : r.payload;
+        const p = outer?.payload ?? outer;
+        return (
+          p?.signer_id === "test.near" &&
+          p?.receiver_id === "test.near" &&
+          p?.status === "success" &&
+          typeof p?.method_name === "string" &&
+          typeof p?.deposit === "string"
+        );
+      });
+      return row != null;
+    },
+  );
 }

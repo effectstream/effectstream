@@ -12,7 +12,7 @@ This creates a deterministic and reliable pipeline from raw blockchain events to
 
 ## Built-in Primitives
 
-Effectstream provides a suite of pre-built primitives for the most common blockchain standards, such as ERC20, ERC721, and the `PaimaL2Contract`. Using these is the quickest and easiest way to integrate standard on-chain assets and actions into your application.
+Effectstream provides a suite of pre-built primitives for the most common blockchain standards, such as ERC20, ERC721, and the `EffectstreamL2Contract`. Using these is the quickest and easiest way to integrate standard on-chain assets and actions into your application.
 
 ### How to Use
 You configure built-in primitives within your `localhostConfig.ts` file using the `.buildPrimitives()` step of the `ConfigBuilder`. You simply need to provide the primitive's type, the contract address to monitor, and the `stateMachinePrefix` that will trigger the corresponding State Transition Function (STF).
@@ -44,7 +44,7 @@ A key advantage of built-in primitives is that many come with automatic database
 
 | Primitive Type | Chain | Description |
 | :--- | :--- | :--- |
-| **`PrimitiveTypeEVMPaimaL2`** | EVM | Listens for inputs submitted to a standard `PaimaL2Contract`. |
+| **`PrimitiveTypeEVMEffectstreamL2`** | EVM | Listens for inputs submitted to a standard `EffectstreamL2Contract`. |
 | **`PrimitiveTypeEVMERC20`** | EVM | Tracks `Transfer` events for an ERC20 token and maintains balance tables. |
 | **`PrimitiveTypeEVMERC721`** | EVM | Tracks `Transfer` events for an ERC721 NFT and maintains ownership tables. |
 | **`PrimitiveTypeEVMERC1155`**| EVM | Tracks `TransferSingle` and `TransferBatch` events for an ERC1155 token. |
@@ -65,7 +65,7 @@ For dApps that interact with unique, non-standard smart contracts or require cus
 
 ### How it Works
 
-A custom primitive is a class that extends the abstract `PaimaPrimitive` class. It requires you to implement the logic for parsing the on-chain event and generating the appropriate payload for the state machine.
+A custom primitive is a class that extends the abstract `Primitive` class. It requires you to implement the logic for parsing the on-chain event and generating the appropriate payload for the state machine.
 
 Here's a breakdown of the key parts of the `MCTErc1155Primitive` implementation:
 
@@ -83,7 +83,7 @@ import { mctErc1155Grammar } from "./erc1155-grammar.ts";
 
 const PrimitiveTypeEVMMCTERC1155 = "EVM:MCT_ERC1155" as const;
 
-export class MCTErc1155Primitive extends PaimaPrimitive<
+export class MCTErc1155Primitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   typeof mctErc1155Grammar
 > {
@@ -111,7 +111,7 @@ This function is expected to return two different payloads:
 ```ts
 // In packages/shared/custom-primitive-mct-erc1155/erc1155-primitive.ts
 override *getPayload(
-  _: PaimaBlockNumber,
+  _: EffectstreamBlockNumber,
   primitiveTransactionData: FlattenSyncProtocolIOFor<ConfigSyncProtocolType.EVM_RPC_PARALLEL>,
 ): StateUpdateStream<{ /* ... */ }> {
   // 1. Destructure the raw event data

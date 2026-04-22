@@ -7,9 +7,9 @@ import {
 import {
   type AddressAndType,
   AddressType,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import {
   type CommandTuple,
   generateRawStmInput,
@@ -26,7 +26,7 @@ import { PrimitiveTypeNEARNEP171 } from "../builtin.ts";
 
 const BURN_RECEIVER = "system";
 
-export class Nep171Primitive extends PaimaPrimitive<
+export class Nep171Primitive extends Primitive<
   ConfigSyncProtocolType.NEAR_RPC_PARALLEL,
   typeof nep171Grammar
 > {
@@ -53,7 +53,7 @@ export class Nep171Primitive extends PaimaPrimitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.NEAR_RPC_PARALLEL
     >,

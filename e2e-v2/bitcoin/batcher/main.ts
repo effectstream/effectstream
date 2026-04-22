@@ -1,5 +1,5 @@
 import { main, suspend } from "effection";
-import { createNewBatcher, FileStorage, type BatcherConfig, type DefaultBatcherInput, BitcoinAdapter } from "@effectstream/batcher";
+import { createNewBatcher, FileStorage, type BatcherConfig, type DefaultBatcherInput, BitcoinAdapter } from "@effectstream/batcher-sdk";
 
 const batchIntervalMs = 1000;
 const port = parseInt(process.env["BATCHER_PORT"] || "3334", 10);

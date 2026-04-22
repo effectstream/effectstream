@@ -1,6 +1,6 @@
 # @effectstream/db-emulator
 
-Database emulation utilities for Paima Engine development and testing.
+Database emulation utilities for Effectstream development and testing.
 
 ## Purpose
 

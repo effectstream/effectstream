@@ -1,5 +1,17 @@
 import dotenv from "dotenv";
 import { parseArgs } from "node:util";
+// graphql-ws has a dangling promise in its subscribe flow: when a subscription ends,
+// the socket closes normally (code 1000) but the internal throwOnClose promise rejects
+// with no handler. In Bun, unhandled rejections crash the process (exit 1).
+if (globalThis.process?.versions?.bun) {
+  process.on('unhandledRejection', (reason: unknown) => {
+    if (reason && typeof reason === 'object' && 'type' in reason && (reason as any).type === 'close') {
+      return;
+    }
+    console.error('Unhandled rejection:', reason);
+    process.exit(1);
+  });
+}
 import { ShieldedWallet } from "@midnight-ntwrk/wallet-sdk-shielded";
 import {
   DustSecretKey,

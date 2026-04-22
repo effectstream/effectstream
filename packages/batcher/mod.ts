@@ -32,7 +32,7 @@ export { DatabaseStorage, FileStorage } from "./core/storage.ts";
 
 // Chain adapter interface and implementations
 export type { BlockchainAdapter, BatchBuildingOptions, BatchBuildingResult } from "./adapters/adapter.ts";
-export { PaimaL2DefaultAdapter } from "./adapters/paimal2-adapter.ts";
+export { EffectstreamL2DefaultAdapter } from "./adapters/effectstream-l2-adapter.ts";
 export { MidnightAdapter } from "./adapters/midnight-adapter.ts";
 export { MidnightBalancingAdapter } from "./adapters/midnight-balancing-adapter.ts";
 export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./adapters/bitcoin-adapter.ts";

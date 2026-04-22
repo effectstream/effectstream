@@ -13,16 +13,16 @@ The orchestrator is the main entry point for your development environment. When 
 1.  **Reads `start.{env}.ts`**: It loads your configuration, which defines all the processes to run.
 2.  **Launches Dependencies**: It starts foundational services like local blockchains (EVM, Midnight, etc.) and the development database. It can be configured to wait for each process to be ready before proceeding to the next step.
 3.  **Deploys Contracts**: Once the chains are running, it executes your deployment scripts.
-4.  **Starts Paima Services**: It launches core Paima services like the Batcher and the log collector.
-5.  **Starts the Sync Service**: Once the entire environment is successfully set up, the orchestrator starts the main **Paima Sync Service**. The Sync Service then loads its own configuration (`config.{env}.ts`) and begins the actual process of syncing blockchain data and running your state machine.
+4.  **Starts Effectstream Services**: It launches core Effectstream services like the Batcher and the log collector.
+5.  **Starts the Sync Service**: Once the entire environment is successfully set up, the orchestrator starts the main **Effectstream Sync Service**. The Sync Service then loads its own configuration (`config.{env}.ts`) and begins the actual process of syncing blockchain data and running your state machine.
 
 ### Configuring the Orchestrator (`start.{env}.ts`)
 
 Your entire development environment is defined in a single configuration object. Let's break down its main components.
 
-#### 1. Built-in Paima Services (`processes`)
+#### 1. Built-in Effectstream Services (`processes`)
 
-This section is a set of boolean flags to enable or disable core Paima development services.
+This section is a set of boolean flags to enable or disable core Effectstream development services.
 
 ```ts
 const config = Value.Parse(OrchestratorConfig, {

@@ -1,7 +1,18 @@
 {
   "name": "@effectstream/orchestrator-v2",
-  "version": "0.1.0",
+  "version": "0.100.0",
   "license": "MIT",
+  "exports": {
+    "./config": "./src/config.ts",
+    "./resolve-package": "./scripts/resolve-package.ts",
+    "./launch-pglite": "./scripts/launch-pglite.ts",
+    "./launch-evm": "./scripts/launch-evm.ts",
+    "./launch-bitcoin": "./scripts/launch-bitcoin.ts",
+    "./launch-cardano": "./scripts/launch-cardano.ts",
+    "./launch-midnight": "./scripts/launch-midnight.ts",
+    "./launch-avail": "./scripts/launch-avail.ts",
+    "./launch-near": "./scripts/launch-near.ts"
+  },
   "bin": {
     "orchestrator-v2": "src/cli.ts"
   },

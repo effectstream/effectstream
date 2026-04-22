@@ -3,12 +3,13 @@ import {
   start,
   type StartConfigGameStateTransitions,
 } from "@effectstream/runtime";
+import { ENV } from "@effectstream/utils/node-env";
 import { main, suspend } from "effection";
 import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
-import { PaimaSTM } from "@effectstream/sm";
+import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { World } from "@effectstream/coroutine";
@@ -22,11 +23,11 @@ import {
   type AddressAndType,
   AddressType,
   type EvmAddress,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
   TypeboxHelpers,
   type StaticDecode,
 } from "@effectstream/utils";
-import { type JsonObject, PaimaPrimitive } from "@effectstream/sm";
+import { type JsonObject, Primitive } from "@effectstream/sm";
 import { Value } from "@sinclair/typebox/value";
 import {
   type CommandTuple,
@@ -60,7 +61,7 @@ const counterGrammar = [
   ["counter", Type.Number()],
 ] as const;
 
-class EvmCounterPrimitive extends PaimaPrimitive<
+class EvmCounterPrimitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   typeof counterGrammar
 > {
@@ -86,7 +87,7 @@ class EvmCounterPrimitive extends PaimaPrimitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.EVM_RPC_PARALLEL
     >,
@@ -170,11 +171,11 @@ const userDefinedPrimitives = {
 
 // ── State Machine ────────────────────────────────────────────────────────────
 
-const stm = new PaimaSTM<typeof grammar, {}>(grammar);
+const stm = new Stm<typeof grammar, {}>(grammar);
 
 const pool = getConnection();
 
-// PaimaL2: ["add", "a", "b"] -> STM computes a+b and writes to game_results
+// EffectstreamL2: ["add", "a", "b"] -> STM computes a+b and writes to game_results
 stm.addStateTransition("add", function* (data) {
   const { a, b } = data.parsedInput;
   const result = a + b;
@@ -280,6 +281,18 @@ main(function* () {
       migrations: migrationTable,
       grammar,
       userDefinedPrimitives,
+      // Snapshots are opt-in: only enabled when EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS is set.
+      snapshotConfig: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS != null
+        ? {
+            intervalSeconds: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS,
+            path: ENV.EFFECTSTREAM_SNAPSHOT_PATH,
+            retention: {
+              lastDayHourly: ENV.EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY,
+              last3DaysSixHourly: ENV.EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY,
+              lastNDaysDaily: ENV.EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS,
+            },
+          }
+        : undefined,
     });
   });
 

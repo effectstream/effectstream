@@ -8,7 +8,7 @@ import {
   toSyncProtocolWithNetwork,
   withEffectstreamStaticConfig,
 } from "@effectstream/config";
-import { PaimaSTM } from "@effectstream/sm";
+import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
 import type { SyncStateUpdateStream } from "@effectstream/coroutine";
 import { World } from "@effectstream/coroutine";
@@ -19,7 +19,7 @@ import { grammar } from "./grammar.ts";
 
 // -- State Machine ------------------------------------------------------------
 
-const stm = new PaimaSTM<typeof grammar, {}>(grammar);
+const stm = new Stm<typeof grammar, {}>(grammar);
 
 const pool = getConnection();
 
@@ -64,9 +64,13 @@ const gameStateTransitions: StartConfigGameStateTransitions = function* (
   yield* stm.processInput(input);
 };
 
-// -- Migrations (tables are pre-created by orchestrator) ----------------------
+// -- Migrations ---------------------------------------------------------------
 
-const migrationTable: any[] = [];
+import createUserTables from "./database/migrations/create-user-tables.sql" with { type: "text" };
+
+const migrationTable: any[] = [
+  { name: "create-user-tables", sql: createUserTables },
+];
 
 // -- Main ---------------------------------------------------------------------
 

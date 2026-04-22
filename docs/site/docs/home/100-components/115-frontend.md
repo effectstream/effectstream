@@ -47,7 +47,7 @@ Supported wallet modes include `EvmInjected`, `Cardano`, `Mina`, `AvailJs`, and 
 
 ### Submission Methods
 1.  **Direct Contract Interaction**: The standard Web3 approach where your frontend calls a function on a smart contract directly (e.g., minting an NFT).
-2.  **Direct Effectstream L2 Contract Interaction**: A specific direct interaction where your frontend calls the `submitInput` method on your game's `PaimaL2Contract` with a grammar-formatted payload. The user pays the gas for this transaction.
+2.  **Direct Effectstream L2 Contract Interaction**: A specific direct interaction where your frontend calls the `submitInput` method on your game's `EffectstreamL2Contract` with a grammar-formatted payload. The user pays the gas for this transaction.
 3.  **Batcher Interaction**: The recommended approach for the best UX. The user signs a message, and the frontend sends it to a **Batcher** service via an HTTP request. The Batcher then submits the input on-chain, often covering the gas fee and allowing users from different chains to interact.
 
 Here is an example of a frontend submitting an input to the batcher:
@@ -85,7 +85,7 @@ await fetch(`${ENV.BATCHER_URL}/send-input`, {
 ```
 
 ## Reading Data from the Effectstream (Reads)
-While you can read data directly from the blockchain, it is often slow, inefficient, and doesn't provide the rich, aggregated state of your Paima application.
+While you can read data directly from the blockchain, it is often slow, inefficient, and doesn't provide the rich, aggregated state of your Effectstream application.
 
 The recommended way for a frontend to read data is by querying the powerful **API** exposed by the Effectstream Node. This API provides access to both built-in system data and your own custom application state.
 

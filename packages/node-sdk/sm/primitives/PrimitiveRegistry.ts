@@ -1,8 +1,8 @@
 import type { ProtocolPrimitiveMap } from "@effectstream/config";
-import type { PaimaPrimitive } from "./PaimaPrimitive.ts";
+import type { Primitive } from "./Primitive.ts";
 
 /**
- * Registry for Paima Primitives
+ * Registry for Effectstream Primitives
  *
  * This is a singleton that stores all the primitives that have been registered.
  * They can be retrieved by their instance-name.
@@ -15,21 +15,21 @@ type UnknownSyncProtocol = any;
   (globalThis as any).EFFECTSTREAM_REGISTRY ??
   ({} as Record<
     string,
-    PaimaPrimitive<UnknownSyncProtocol, UnknownPrimitive>
+    Primitive<UnknownSyncProtocol, UnknownPrimitive>
   >);
 
-export class PaimaPrimitiveRegistry {
+export class PrimitiveRegistry {
   // Singleton to manage the primitives
   static primitives: Record<
     string,
-    PaimaPrimitive<UnknownSyncProtocol, UnknownPrimitive>
+    Primitive<UnknownSyncProtocol, UnknownPrimitive>
   > = (globalThis as any).EFFECTSTREAM_REGISTRY;
 
   static getPrimitive<
     SyncProtocol extends keyof ProtocolPrimitiveMap = UnknownSyncProtocol,
   >(
     instanceName: string,
-  ): PaimaPrimitive<SyncProtocol, UnknownPrimitive> {
+  ): Primitive<SyncProtocol, UnknownPrimitive> {
     const primitive = this.primitives[instanceName];
     if (!primitive) {
       // This should never happen.
@@ -42,14 +42,14 @@ export class PaimaPrimitiveRegistry {
     SyncProtocol extends keyof ProtocolPrimitiveMap = UnknownSyncProtocol,
   >(
     type: string,
-  ): PaimaPrimitive<SyncProtocol, UnknownPrimitive> | undefined {
+  ): Primitive<SyncProtocol, UnknownPrimitive> | undefined {
     return Object.values(this.primitives).find((primitive) =>
       primitive.internalTypeName === type
     );
   }
 
   static addPrimitive(
-    primitive: PaimaPrimitive<UnknownSyncProtocol, UnknownPrimitive>,
+    primitive: Primitive<UnknownSyncProtocol, UnknownPrimitive>,
   ) {
     if (this.primitives[primitive.instanceName]) {
       throw new Error(`Primitive ${primitive.instanceName} already exists`);

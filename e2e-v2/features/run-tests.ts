@@ -12,6 +12,7 @@ import {
   waitForOrchestrator,
   waitForProcess,
   waitForHealth,
+  waitForBlock,
   getDBConnection,
   API_PORT,
 } from "@e2e-v2/engine";
@@ -28,6 +29,7 @@ async function test() {
     await waitForProcess("sync");
     await waitForProcess("batcher");
     await waitForHealth();
+    await waitForBlock(1);
     console.log("Infrastructure ready.\n");
 
     db = getDBConnection();
@@ -53,6 +55,14 @@ async function test() {
     console.log("\n--- Account Tests ---\n");
     const { accountTest } = await import("./accounts/account.test.ts");
     await accountTest(db, sharedState, API_PORT);
+
+    // ── Snapshot tests (opt-in via EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS) ───
+    console.log("\n--- Snapshot Tests ---\n");
+    const { snapshotTest, snapshotRetentionTest } = await import(
+      "./snapshots/snapshot.test.ts"
+    );
+    await snapshotTest(db);
+    await snapshotRetentionTest(db);
 
     printSummary();
   } catch (e) {

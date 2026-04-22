@@ -24,7 +24,7 @@ import {
   ShutdownManager,
 } from "./shutdown-manager.ts";
 import type { BatcherGrammar, BatcherListener } from "./batcher-events.ts";
-import { BuiltinEvents, PaimaEventManager as EffectStreamEventManager } from "@effectstream/event-client";
+import { BuiltinEvents, EventManager } from "@effectstream/event-client";
 import { getRuntime } from "@effectstream/utils/runtime";
 import { ENV } from "@effectstream/utils/node-env";
 
@@ -619,7 +619,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
         }),
         new Promise<{ latestBlock: number; rollup: number }>(
           (resolve, reject) => {
-            EffectStreamEventManager.Instance.subscribe(
+            EventManager.Instance.subscribe(
               {
                 topic: BuiltinEvents.SyncChains,
                 filter: { chain: chainName, block: undefined },
@@ -642,7 +642,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
       return null;
     } finally {
       if (subscriptionReference) {
-        EffectStreamEventManager.Instance.unsubscribe(subscriptionReference);
+        EventManager.Instance.unsubscribe(subscriptionReference);
       }
       if (timer) {
         clearTimeout(timer);

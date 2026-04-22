@@ -1,0 +1,17 @@
+{
+  "name": "@e2e-v2/midnight-batcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./main.ts",
+  "scripts": {
+    "start": "bun main.ts"
+  },
+  "dependencies": {
+    "effection": "^3.5.0",
+    "@effectstream/batcher-sdk": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@effectstream/midnight-contracts": "workspace:*",
+    "@e2e-v2/midnight-contracts": "workspace:*"
+  }
+}
