@@ -1,4 +1,5 @@
-import type { OrchestratorConfig } from "../../packages/build-tools/orchestrator-v2/src/config.ts";
+import type { OrchestratorConfig } from "@effectstream/orchestrator-v2/config";
+import { launchPglite, DbNames } from "@effectstream/orchestrator-v2/launch-pglite";
 
 const CELESTIA_HOME = "/tmp/celestia-e2e-zswap-home";
 
@@ -14,27 +15,14 @@ const CELESTIA_HOME = "/tmp/celestia-e2e-zswap-home";
 export default {
   processes: [
     // ── Database ──────────────────────────────────────────────────────────────
-    {
-      name: "pglite",
-      description: "PGLite embedded database",
-      args: ["-e", "process.argv.splice(1, 0, '_'); await import('@effectstream/db/start-pglite')", "--port", "5432"],
-      stopProcessAtPort: [5432],
-      waitToExit: false,
-      critical: true,
-    },
-    {
-      name: "pglite-wait",
-      args: ["./node_modules/.bin/wait-on", "tcp:5432"],
-      waitToExit: true,
-      dependsOn: ["pglite"],
-    },
+    ...launchPglite(),
     {
       name: "apply-migrations",
       description: "Apply database migrations",
       args: ["-e", "await import('@effectstream/db/apply-migrations')"],
       waitToExit: true,
       critical: true,
-      dependsOn: ["pglite-wait"],
+      dependsOn: [DbNames.PGLITE_WAIT],
     },
     // Note: when using the full node (packages/node/main.ts), user tables are
     // created by the node's migration system. When using e2e/node.ts, uncomment
