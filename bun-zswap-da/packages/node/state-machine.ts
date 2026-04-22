@@ -22,6 +22,7 @@ import {
 
 import { extractMidnightLedgerSnapshot } from "./zswap-logic.ts";
 import { emitAppEvent } from "./event-bus.ts";
+import { OFFER_TTL_SECONDS } from "./config.ts";
 
 export const grammar = {
   // Primitives
@@ -126,8 +127,6 @@ stm.addStateTransition("celestia-zswap", function* (data) {
       }
     }
 
-    const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
-
     // ── Insert offer ──
     const offerFileRes = yield* World.resolve(insertOfferFile, {
       celestia_height: data.blockHeight,
@@ -138,7 +137,7 @@ stm.addStateTransition("celestia-zswap", function* (data) {
       auth_signer_public_key: null,
       auth_signature: null,
       auth_scheme: null,
-      ttl_seconds: DEFAULT_TTL_SECONDS,
+      ttl_seconds: OFFER_TTL_SECONDS,
     });
 
     const offerFileId = offerFileRes[0].id;
@@ -177,7 +176,7 @@ stm.addStateTransition("celestia-zswap", function* (data) {
     yield* World.resolve(newScheduledTimestampData, {
       from_address: "0x0",
       from_address_type: AddressType.NONE,
-      future_ms_timestamp: new Date(data.blockTimestamp + DEFAULT_TTL_SECONDS * 1000),
+      future_ms_timestamp: new Date(data.blockTimestamp + OFFER_TTL_SECONDS * 1000),
       input_data: JSON.stringify(["zswap-ttl-cleanup", offerFileId]),
     });
 

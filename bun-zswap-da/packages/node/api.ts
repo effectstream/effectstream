@@ -154,6 +154,81 @@ export const apiRouter: StartConfigApiRouter = async function (
     return result;
   });
 
+  type MintOk = { success: true; txHash: string; color: string; name: string };
+  type MintErr = { success: false; error: string };
+
+  // Shared pipeline for shielded + unshielded mint endpoints.
+  // The two flows differ only in the contract call, how the color is
+  // extracted from its result, and whether we wait for on-chain confirmation
+  // before registering the token. Everything else — wallet resolution,
+  // name/domainSep/amount validation, known_tokens insert, and the SSE event
+  // — is identical, so it lives here.
+  async function mintToken(
+    request: any,
+    kind: "shielded" | "unshielded",
+    invoke: (
+      contract: any,
+      domainSepBytes: Uint8Array,
+      amount: bigint,
+      body: any,
+    ) => Promise<{ color: string; txHash: string } | MintErr>,
+  ): Promise<MintOk | MintErr> {
+    const walletId = getWalletParam(request);
+    const defaultPrefix = kind === "shielded" ? "SHIELDED" : "UNSHIELDED";
+    const tokenName =
+      request.body.name?.trim().toUpperCase().slice(0, 16) ||
+      `${defaultPrefix}_${Date.now()}`;
+
+    const nameCheck = await dbConn.query(
+      `SELECT 1 FROM known_tokens WHERE name = $1 LIMIT 1`,
+      [tokenName],
+    );
+    if (nameCheck.rows.length > 0) {
+      return { success: false, error: `Token name "${tokenName}" is already taken` };
+    }
+
+    const amount = BigInt(request.body.amount);
+    if (!amount) return { success: false, error: "Invalid amount" };
+
+    const domainSep = normalizeHex32(request.body.domainSep);
+    const domainSepBytes = Uint8Array.from(
+      Buffer.from(domainSep.replace(/^0x/, ""), "hex"),
+    );
+
+    const contract = await getContract(walletId);
+    const invokeResult = await invoke(contract, domainSepBytes, amount, request.body);
+    if ("success" in invokeResult) return invokeResult;
+    const { color: tokenColor, txHash } = invokeResult;
+
+    if (kind === "shielded") {
+      // Wait for the token to appear in the wallet's shielded balance.
+      // This confirms the transaction was included in a block before we register
+      // the token or fire the SSE event — prevents phantom known_tokens entries
+      // when a tx fails after submission (e.g. insufficient dust for fees).
+      const { walletResult } = await getWalletInstance(walletId);
+      await waitForTokenBalance(walletResult.wallet, tokenColor);
+
+      const colorCheck = await dbConn.query(
+        `SELECT name FROM known_tokens WHERE token_color = $1 LIMIT 1`,
+        [tokenColor],
+      );
+      if (colorCheck.rows.length > 0) {
+        return {
+          success: false,
+          error: `This token color already exists as "${colorCheck.rows[0].name}"`,
+        };
+      }
+    }
+
+    await insertKnownToken.run(
+      { token_color: tokenColor, name: tokenName },
+      dbConn,
+    );
+
+    emitAppEvent({ type: "token_minted", name: tokenName, color: tokenColor, wallet: walletId });
+    return { success: true, txHash, color: tokenColor, name: tokenName };
+  }
+
   // POST /api/token/mint-shielded
   server.post(
     "/api/token/mint-shielded",
@@ -171,64 +246,23 @@ export const apiRouter: StartConfigApiRouter = async function (
         },
       },
     },
-    async (request: any) => {
-      const walletId = getWalletParam(request);
-      const tokenName = request.body.name?.trim().toUpperCase().slice(0, 16) || `SHIELDED_${Date.now()}`;
+    async (request: any) =>
+      mintToken(request, "shielded", async (contract, domainSepBytes, amount, body) => {
+        const nonce = BigInt(body.nonce);
+        if (!nonce) return { success: false, error: "Invalid nonce" };
 
-      const nameCheck = await dbConn.query(
-        `SELECT 1 FROM known_tokens WHERE name = $1 LIMIT 1`,
-        [tokenName],
-      );
-      if (nameCheck.rows.length > 0) {
-        return { success: false, error: `Token name "${tokenName}" is already taken` };
-      }
-
-      const domainSep = normalizeHex32(request.body.domainSep);
-      const domainSepHex = domainSep.replace(/^0x/, "");
-      const domainSepBytes = Uint8Array.from(
-        Buffer.from(domainSepHex, "hex"),
-      );
-
-      const amount = BigInt(request.body.amount);
-      const nonce = BigInt(request.body.nonce);
-      const contract = await getContract(walletId);
-
-      if (!amount) return { success: false, error: "Invalid amount" };
-      if (!nonce) return { success: false, error: "Invalid nonce" };
-
-      const txData = await (contract as any).callTx.mint_shielded(
-        domainSepBytes,
-        amount,
-        nonce,
-      );
-
-      const txHash: string = txData.public?.txHash ?? "";
-      // mint_shielded returns { nonce, color, value } — color is the actual ledger token type
-      const tokenColor = Buffer.from(txData.private.result.color as Uint8Array).toString("hex");
-
-      // Wait for the token to appear in the wallet's shielded balance.
-      // This confirms the transaction was included in a block before we register
-      // the token or fire the SSE event — prevents phantom known_tokens entries
-      // when a tx fails after submission (e.g. insufficient dust for fees).
-      const { walletResult } = await getWalletInstance(walletId);
-      await waitForTokenBalance(walletResult.wallet, tokenColor);
-
-      const colorCheck = await dbConn.query(
-        `SELECT name FROM known_tokens WHERE token_color = $1 LIMIT 1`,
-        [tokenColor],
-      );
-      if (colorCheck.rows.length > 0) {
-        return { success: false, error: `This token color already exists as "${colorCheck.rows[0].name}"` };
-      }
-
-      await insertKnownToken.run(
-        { token_color: tokenColor, name: tokenName },
-        dbConn,
-      );
-
-      emitAppEvent({ type: "token_minted", name: tokenName, color: tokenColor, wallet: walletId });
-      return { success: true, txHash, color: tokenColor, name: tokenName };
-    },
+        const txData = await (contract as any).callTx.mint_shielded(
+          domainSepBytes,
+          amount,
+          nonce,
+        );
+        // mint_shielded returns { nonce, color, value } — color is the actual ledger token type
+        const color = Buffer.from(
+          txData.private.result.color as Uint8Array,
+        ).toString("hex");
+        const txHash: string = txData.public?.txHash ?? "";
+        return { color, txHash };
+      }),
   );
 
   // POST /api/token/mint-unshielded
@@ -247,41 +281,18 @@ export const apiRouter: StartConfigApiRouter = async function (
         },
       },
     },
-    async (request: any) => {
-      const walletId = getWalletParam(request);
-      const tokenName = request.body.name?.trim().toUpperCase().slice(0, 16) || `UNSHIELDED_${Date.now()}`;
-
-      const nameCheck = await dbConn.query(
-        `SELECT 1 FROM known_tokens WHERE name = $1 LIMIT 1`,
-        [tokenName],
-      );
-      if (nameCheck.rows.length > 0) {
-        return { success: false, error: `Token name "${tokenName}" is already taken` };
-      }
-
-      const domainSep = normalizeHex32(request.body.domainSep);
-      const amount = String(request.body.amount);
-
-      const contract = await getContract(walletId);
-      const domainSepBytes = Uint8Array.from(
-        Buffer.from(domainSep.replace(/^0x/, ""), "hex"),
-      );
-      const txData = await (contract as any).callTx.mint_unshielded(
-        domainSepBytes,
-        BigInt(amount),
-      );
-      const colorHex = Buffer.from(
-        txData.private.result as Uint8Array,
-      ).toString("hex");
-      const txHash: string = txData.public?.txHash ?? "";
-
-      await insertKnownToken.run(
-        { token_color: colorHex, name: tokenName },
-        dbConn,
-      );
-      emitAppEvent({ type: "token_minted", name: tokenName, color: colorHex, wallet: walletId });
-      return { success: true, txHash, color: colorHex, name: tokenName };
-    },
+    async (request: any) =>
+      mintToken(request, "unshielded", async (contract, domainSepBytes, amount) => {
+        const txData = await (contract as any).callTx.mint_unshielded(
+          domainSepBytes,
+          amount,
+        );
+        const color = Buffer.from(
+          txData.private.result as Uint8Array,
+        ).toString("hex");
+        const txHash: string = txData.public?.txHash ?? "";
+        return { color, txHash };
+      }),
   );
 
   // GET /api/wallet/balance — Query shielded and unshielded balances of the node wallet

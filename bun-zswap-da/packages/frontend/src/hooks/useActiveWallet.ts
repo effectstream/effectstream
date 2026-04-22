@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE } from '../config';
 
 const STORAGE_KEY = 'zswap-active-wallet';
 
@@ -9,7 +10,6 @@ export function useActiveWallet() {
   });
 
   useEffect(() => {
-    const API_BASE = (window as any).API_BASE ?? `http://${location.hostname}:9999`;
     fetch(`${API_BASE}/api/wallets`)
       .then(res => res.json())
       .then(data => {

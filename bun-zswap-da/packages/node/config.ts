@@ -22,6 +22,12 @@ export const CELESTIA_NAMESPACE = getEnv("CELESTIA_NAMESPACE") ?? "000000000000d
 export const CELESTIA_FEE = parseInt(getEnv("CELESTIA_FEE") ?? "2000");
 export const CELESTIA_GAS_LIMIT = parseInt(getEnv("CELESTIA_GAS_LIMIT") ?? "100000");
 
+// Offer lifetime before the TTL-cleanup scheduled input archives it.
+// Defaults to 7 days.
+export const OFFER_TTL_SECONDS = parseInt(
+  getEnv("OFFER_TTL_SECONDS") ?? String(7 * 24 * 60 * 60),
+);
+
 export const midnightContract = (() => {
   try {
     return readMidnightContract("contract-offer-files", {

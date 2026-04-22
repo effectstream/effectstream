@@ -1,8 +1,6 @@
 // src/services/api.ts
 import type { KnownToken, ZSwapOffer, TokenEntry } from '../types';
-
-// Set window.API_BASE before this script to override (e.g. for production).
-const API_BASE = (window as any).API_BASE ?? `http://${location.hostname}:9999`;
+import { API_BASE } from '../config';
 
 function walletQuery(wallet?: string): string {
   return wallet ? `?wallet=${encodeURIComponent(wallet)}` : '';
