@@ -71,9 +71,6 @@
     },
     "./concise": {
       "bun": "./src/concise.ts"
-    },
-    "./batcher": {
-      "bun": "./src/batcher.ts"
     }
   },
   "dependencies": {
@@ -88,7 +85,6 @@
     "@effectstream/chain-types": "workspace:*",
     "@effectstream/precompile": "workspace:*",
     "@effectstream/utils": "workspace:*",
-    "@effectstream/concise": "workspace:*",
-    "@effectstream/batcher-sdk": "workspace:*"
+    "@effectstream/concise": "workspace:*"
   }
 }
