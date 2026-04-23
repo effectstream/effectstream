@@ -4,16 +4,6 @@ import {
   createNodeTasks,
   initTelemetry,
 } from "@effectstream/evm-hardhat/hardhat-config-builder";
-import {
-  JsonRpcServerImplementation,
-} from "@effectstream/evm-hardhat/json-rpc-server";
-import fs from "node:fs";
-import waitOn from "wait-on";
-import {
-  ComponentNames,
-  log,
-  SeverityNumber,
-} from "@effectstream/log";
 
 const __dirname: any = import.meta.dirname;
 
@@ -21,15 +11,7 @@ const __dirname: any = import.meta.dirname;
 initTelemetry("@paimaexample/log", "0.9.0");
 
 // Create node tasks
-const nodeTasks = createNodeTasks({
-  JsonRpcServer: {} as unknown as never, // Type placeholder, not used
-  JsonRpcServerImplementation,
-  ComponentNames,
-  log,
-  SeverityNumber,
-  waitOn,
-  fs,
-});
+const nodeTasks = createNodeTasks();
 
 const evmMainPort = 8545;
 const evmParallelPort = 8546;
