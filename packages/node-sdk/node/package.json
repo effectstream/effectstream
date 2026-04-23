@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/node-sdk",
-  "version": "0.100.0",
+  "version": "0.100.6",
   "license": "MIT",
   "exports": {
     ".": {
@@ -59,6 +59,21 @@
     },
     "./precompile": {
       "bun": "./src/precompile.ts"
+    },
+    "./utils": {
+      "bun": "./src/utils.ts"
+    },
+    "./utils/node-env": {
+      "bun": "./src/utils-node-env.ts"
+    },
+    "./utils/runtime": {
+      "bun": "./src/utils-runtime.ts"
+    },
+    "./concise": {
+      "bun": "./src/concise.ts"
+    },
+    "./batcher": {
+      "bun": "./src/batcher.ts"
     }
   },
   "dependencies": {
@@ -71,6 +86,9 @@
     "@effectstream/event-server": "workspace:*",
     "@effectstream/config": "workspace:*",
     "@effectstream/chain-types": "workspace:*",
-    "@effectstream/precompile": "workspace:*"
+    "@effectstream/precompile": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@effectstream/concise": "workspace:*",
+    "@effectstream/batcher-sdk": "workspace:*"
   }
 }
