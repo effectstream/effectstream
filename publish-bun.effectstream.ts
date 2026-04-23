@@ -58,6 +58,50 @@ for (const { name, dir, pkg } of packageDirs) {
   console.log(`  ${name} — ${oldVersion} → ${version}`);
 }
 
+// --- Step 2b: Replace workspace:* with concrete version ---
+// `bun publish` resolves `workspace:*` from the lockfile, which may still
+// point at the previous version. We replace `workspace:*` with the target
+// version in every package.json before publishing, then restore afterwards.
+
+console.log(`\nReplacing workspace:* with v${version}...`);
+
+const workspacePackageNames = new Set(packageDirs.map((p) => p.name));
+const restoreList: { path: string; original: string }[] = [];
+
+for (const { dir, pkg } of packageDirs) {
+  const fullPath = join(dir, "package.json");
+  const original = readFileSync(fullPath, "utf-8");
+  let changed = false;
+
+  for (const depField of ["dependencies", "devDependencies", "peerDependencies"]) {
+    const deps = pkg[depField];
+    if (!deps) continue;
+    for (const [name, ver] of Object.entries(deps)) {
+      if (typeof ver === "string" && ver.startsWith("workspace:") && workspacePackageNames.has(name)) {
+        deps[name] = version;
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + "\n");
+    restoreList.push({ path: fullPath, original });
+  }
+}
+
+console.log(`  Patched ${restoreList.length} package.json files\n`);
+
+// Register cleanup to restore workspace:* after publish
+function restoreWorkspaceDeps() {
+  for (const { path, original } of restoreList) {
+    writeFileSync(path, original);
+  }
+  if (restoreList.length > 0) {
+    console.log(`\nRestored workspace:* in ${restoreList.length} package.json files`);
+  }
+}
+
 // --- Step 3: Build packages that need it ---
 
 const BUILD_PACKAGES = new Set(["@effectstream/frontend-sdk"]);
@@ -117,6 +161,8 @@ for (const { name, dir } of packageDirs) {
     failed++;
   }
 }
+
+restoreWorkspaceDeps();
 
 console.log(
   `\nDone: ${packageDirs.length - failed} ok, ${failed} failed out of ${packageDirs.length} packages.`
