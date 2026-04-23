@@ -94,32 +94,50 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
     execute(async (setMessage) => {
       let transactionBytes: Uint8Array;
 
-      if (connectedApi) {
-        setMessage('Building swap intent via browser wallet…');
-
+      const tryBrowserIntent = async (): Promise<Uint8Array | null> => {
+        if (!connectedApi) return null;
         if (!browserShieldedAddress) {
           throw new Error('Browser wallet connected but no shielded address available.');
         }
-
         const inputs = validGives.map((g) => ({
           kind: g.type as 'shielded' | 'unshielded',
           type: g.token,
           value: BigInt(g.amount),
         }));
-
-        // Route all wanted outputs back to the browser wallet itself.
         const outputs = validWants.map((w) => ({
           kind: w.type as 'shielded' | 'unshielded',
           type: w.token,
           value: BigInt(w.amount),
           recipient: browserShieldedAddress,
         }));
+        try {
+          const { tx } = await connectedApi.makeIntent(inputs, outputs, {
+            intentId: 'random',
+            payFees: true,
+          });
+          return decodeConnectorTx(tx);
+        } catch (e: any) {
+          const msg: string = e?.message ?? String(e);
+          // Lace < some-future-version doesn't implement makeIntent. Fall
+          // through to the backend path instead of failing the whole flow.
+          if (/not implemented/i.test(msg) || /unsupported/i.test(msg)) {
+            console.warn('[swap] makeIntent not implemented by wallet, falling back to backend create', msg);
+            return null;
+          }
+          throw e;
+        }
+      };
 
-        const { tx } = await connectedApi.makeIntent(inputs, outputs, {
-          intentId: 'random',
-          payFees: true,
-        });
-        transactionBytes = decodeConnectorTx(tx);
+      if (connectedApi) {
+        setMessage('Building swap intent via browser wallet…');
+        const browserBytes = await tryBrowserIntent();
+        if (browserBytes) {
+          transactionBytes = browserBytes;
+        } else {
+          setMessage('Wallet does not support makeIntent — using backend maker (alice)…');
+          const dataCreate = await api.createSwapOffer(validGives, validWants, 'alice');
+          transactionBytes = base64ToBytes(dataCreate.transactionBytes);
+        }
       } else {
         setMessage('Generating Midnight swap transaction…');
         const dataCreate = await api.createSwapOffer(validGives, validWants, activeWallet);

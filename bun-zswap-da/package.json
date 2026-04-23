@@ -6,7 +6,8 @@
     "e2e"
   ],
   "scripts": {
-    "dev": "bun run --filter @zswap-da/node dev",
+    "dev": "bun run --filter @zswap-da/e2e dev",
+    "node:dev": "bun run --filter @zswap-da/node dev",
     "frontend": "bun run --filter @zswap-da/frontend dev",
     "e2e": "bun run e2e/run-tests.ts"
   }

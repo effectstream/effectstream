@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "copy-zk-assets": "rm -rf public/keys public/zkir && cp -R ../midnight-contracts/contract-offer-files/src/managed/keys public/keys && cp -R ../midnight-contracts/contract-offer-files/src/managed/zkir public/zkir",
+    "predev": "bun run copy-zk-assets",
+    "prebuild": "bun run copy-zk-assets",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
@@ -14,7 +17,17 @@
     "three": "^0.183.2",
     "mip-zswap-offer": "link:mip-zswap-offer",
     "@midnight-ntwrk/ledger-v8": "8.0.3",
-    "@midnight-ntwrk/dapp-connector-api": "4.0.1"
+    "@midnight-ntwrk/dapp-connector-api": "4.0.1",
+    "@midnight-ntwrk/compact-js": "2.5.0",
+    "@midnight-ntwrk/midnight-js-contracts": "4.0.2",
+    "@midnight-ntwrk/midnight-js-types": "4.0.2",
+    "@midnight-ntwrk/midnight-js-utils": "4.0.2",
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.2",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "4.0.2",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.0.2",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.2",
+    "@zswap-da/contract-offer-files": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.2.7",
@@ -23,6 +36,9 @@
     "@vitejs/plugin-react": "^5.1.1",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
+    "vite-plugin-node-stdlib-browser": "0.2.1",
+    "node-stdlib-browser": "^1.2.0",
+    "crypto-browserify": "^3.12.1",
     "vite-plugin-top-level-await": "^1.4.4",
     "vite-plugin-wasm": "^3.4.1"
   }

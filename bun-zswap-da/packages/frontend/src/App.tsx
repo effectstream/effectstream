@@ -9,6 +9,8 @@ import { useTokens } from './hooks/useTokens';
 import { useEventStream } from './hooks/useEventStream';
 import { useActiveWallet, BROWSER_WALLET_ID } from './hooks/useActiveWallet';
 import { useWallet } from './hooks/useWallet';
+import { useContract } from './hooks/useContract';
+import { useMintReconciler } from './hooks/useMintReconciler';
 import type { AppEvent } from './types';
 import './styles/index.css';
 
@@ -22,6 +24,9 @@ function App() {
   const wallet = useWallet();
   const browserAvailable = wallet.status === 'connected';
   const { wallets, activeWallet, setActiveWallet } = useActiveWallet(browserAvailable);
+  const browserContract = useContract(wallet.connectedApi);
+
+  useMintReconciler(wallet.connectedApi, knownTokens, balanceRefreshTrigger, refetchTokens);
 
   const handleSSEEvent = useCallback((event: AppEvent) => {
     if (event.type === 'offer_indexed' || event.type === 'offer_consumed') {
@@ -63,6 +68,7 @@ function App() {
         onMintSuccess={handleMintSuccess}
         activeWallet={activeWallet}
         connectedApi={isBrowserActive ? wallet.connectedApi : null}
+        browserContract={isBrowserActive ? browserContract : null}
       />
 
       <div className="main-columns">

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useContract } from '../hooks/useContract';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import { api } from '../services/api';
 import { MAX_TOKEN_NAME_LENGTH, TOKEN_TYPE } from '../constants';
@@ -8,6 +7,16 @@ import { LoadingOverlay } from './ui/LoadingOverlay';
 import { ResultTable } from './ui/ResultTable';
 import { Tooltip } from './ui/Tooltip';
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
+import type { useContract } from '../hooks/useContract';
+
+function hexToBytes(hex: string): Uint8Array {
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const out = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
 
 interface MintModalProps {
   isOpen: boolean;
@@ -15,6 +24,7 @@ interface MintModalProps {
   onMintSuccess?: () => void;
   activeWallet?: string;
   connectedApi?: ConnectedAPI | null;
+  browserContract?: ReturnType<typeof useContract> | null;
 }
 
 function generateDomainSep(): string {
@@ -27,8 +37,7 @@ function generateNonce(): string {
   return Date.now().toString();
 }
 
-export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuccess, activeWallet, connectedApi }) => {
-  const { connectContract, submitMint: contractSubmitMint } = useContract();
+export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuccess, activeWallet, connectedApi, browserContract }) => {
   const { loading, result, execute, clearResult } = useAsyncAction();
 
   const [mintType, setMintType] = useState<'shielded' | 'unshielded'>(TOKEN_TYPE.SHIELDED);
@@ -71,25 +80,31 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
     }
 
     execute(async (setMessage) => {
-      setMessage('Submitting token mint to Midnight...');
-
-      await connectContract();
-
       const payload = mintType === TOKEN_TYPE.SHIELDED
         ? { domainSep, amount, nonce: nonce || generateNonce(), name: tokenName }
         : { domainSep, amount, name: tokenName };
 
-      await contractSubmitMint(payload);
+      let data: any;
+      if (connectedApi && browserContract) {
+        setMessage('Preparing browser-wallet contract client…');
+        const domainSepBytes = hexToBytes(payload.domainSep);
+        const amountBig = BigInt(payload.amount);
 
-      // Minting a contract-defined token requires proving the OfferFiles
-      // circuits. In the browser-wallet mode this would need ZK key material
-      // shipped to the client and wired through getProvingProvider — tracked
-      // as a follow-up. For now, minting always goes through the backend
-      // `alice` wallet, even when the UI is toggled to the browser wallet.
-      const mintingWallet = connectedApi != null ? 'alice' : activeWallet;
-      const data = await api.mintToken(mintType, payload, mintingWallet);
-      if (data.success === false) {
-        throw new Error(data.error || 'Mint failed');
+        setMessage('Building + proving Midnight transaction…');
+        if (mintType === TOKEN_TYPE.SHIELDED) {
+          const nonceBig = BigInt(payload.nonce ?? generateNonce());
+          const res = await browserContract.mintShielded(domainSepBytes, amountBig, nonceBig, tokenName);
+          data = { success: true, color: res.color, name: tokenName, txHash: res.txHash, via: 'browser-wallet' };
+        } else {
+          const res = await browserContract.mintUnshielded(domainSepBytes, amountBig, tokenName);
+          data = { success: true, color: res.color, name: tokenName, txHash: res.txHash, via: 'browser-wallet' };
+        }
+      } else {
+        setMessage('Submitting token mint to Midnight...');
+        data = await api.mintToken(mintType, payload, activeWallet);
+        if (data.success === false) {
+          throw new Error(data.error || 'Mint failed');
+        }
       }
 
       setMintedToken(data);

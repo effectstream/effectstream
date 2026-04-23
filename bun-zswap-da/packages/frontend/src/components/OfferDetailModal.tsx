@@ -3,12 +3,12 @@ import type { KnownToken, TokenEntry, ZSwapOffer } from '../types';
 import { api } from '../services/api';
 import { shortToken } from '../utils';
 import { decodeOfferForDisplay, type DecodeResult } from '../decodeOffer';
-import { decodeOffer } from 'mip-zswap-offer';
 import { Modal } from './ui/Modal';
 import { LoadingOverlay } from './ui/LoadingOverlay';
 import { ResultTable } from './ui/ResultTable';
 import { OfferDecodedView } from './OfferDecodedView';
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
+import { proveAndSubmitOffer } from '../services/browserContract';
 
 interface OfferDetailModalProps {
   offer: ZSwapOffer | null;
@@ -17,10 +17,6 @@ interface OfferDetailModalProps {
   connectedApi?: ConnectedAPI | null;
   onClose: () => void;
   onCompleted: () => void;
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function renderTokens(arr: TokenEntry[] | undefined, knownTokens: KnownToken[]) {
@@ -67,15 +63,18 @@ export const OfferDetailModal: React.FC<OfferDetailModalProps> = ({ offer, known
     setCompleteResult(null);
     try {
       if (connectedApi && offer?.transaction_hex) {
-        // Browser-wallet path: decode the maker's bech32m offer, ask the
-        // wallet to balance+seal it, then submit to Midnight via the wallet.
-        // Celestia indexing of consumption is handled server-side through
-        // nullifier observation — no backend call required.
-        const rawBytes = decodeOffer(offer.transaction_hex);
-        const hex = bytesToHex(rawBytes);
-        const { tx: balanced } = await connectedApi.balanceSealedTransaction(hex, { payFees: true });
-        await connectedApi.submitTransaction(balanced);
-        setCompleteResult({ data: { via: 'browser-wallet' }, message: 'Offer completed via browser wallet!' });
+        // Browser-wallet taker flow:
+        //   1. decode maker's bech32m offer (pre-proof, pre-binding)
+        //   2. prove via the proof server configured by the backend
+        //   3. hand the proven tx to Lace to balance with the taker's coins + seal
+        //   4. Lace submits to Midnight; backend state-machine picks up the
+        //      nullifier consumption via the indexer — no /complete call needed.
+        const config = await api.getMidnightConfig();
+        const { txHash } = await proveAndSubmitOffer(connectedApi, config, offer.transaction_hex);
+        setCompleteResult({
+          data: { via: 'browser-wallet', txHash },
+          message: 'Offer completed via browser wallet!',
+        });
       } else {
         const data = await api.completeOffer(id, activeWallet);
         setCompleteResult({ data, message: 'Offer completed successfully!' });

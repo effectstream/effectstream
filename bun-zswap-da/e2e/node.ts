@@ -14,7 +14,8 @@ import { getConnection } from "@effectstream/db";
 import { newScheduledTimestampData } from "@effectstream/db";
 import { AddressType } from "@effectstream/utils";
 import { Buffer } from "node:buffer";
-import { Transaction, type UnprovenTransaction } from "@midnight-ntwrk/ledger-v8";
+import { Transaction, type UnprovenTransaction, type TokenType } from "@midnight-ntwrk/ledger-v8";
+import { decodeOffer, OFFER_HRP } from "mip-zswap-offer";
 
 import { config } from "./config.ts";
 import { grammar } from "./grammar.ts";
@@ -28,80 +29,104 @@ stm.addStateTransition("celestia-zswap", function* (data) {
   const { payload } = data.parsedInput;
   const raw = payload.suppliedValue;
 
-  let parsed: any;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    console.error("[STM] celestia-zswap: Failed to parse payload");
+  if (typeof raw !== "string" || !raw.startsWith(`${OFFER_HRP}1`)) {
+    console.error("[STM] celestia-zswap: Invalid blob — expected bech32m zswapoffer string");
     return;
   }
 
-  if (
-    parsed.version !== 1 ||
-    typeof parsed.transaction !== "string" ||
-    !Array.isArray(parsed.wants) ||
-    !Array.isArray(parsed.gives)
-  ) {
-    console.error("[STM] celestia-zswap: Invalid payload structure");
+  let rawTx: Uint8Array;
+  try {
+    rawTx = decodeOffer(raw);
+  } catch (e) {
+    console.error("[STM] celestia-zswap: Invalid bech32m blob, skipping", e);
+    return;
+  }
+
+  let offerTx: UnprovenTransaction;
+  try {
+    offerTx = Transaction.deserialize(
+      "signature" as const,
+      "pre-proof" as const,
+      "pre-binding" as const,
+      rawTx,
+    ) as UnprovenTransaction;
+  } catch (e) {
+    console.error("[STM] celestia-zswap: Failed to deserialize transaction", e);
     return;
   }
 
   try {
+    // Derive gives/wants from tx imbalances across guaranteed (0) + fallible segments.
+    const segmentIds: number[] = [0, ...(offerTx.fallibleOffer?.keys() ?? [])];
+    const mergedImbalances = new Map<string, bigint>();
+    for (const segId of segmentIds) {
+      let entries: Iterable<[TokenType, bigint]>;
+      try {
+        entries = offerTx.imbalances(segId);
+      } catch (e) {
+        console.error(`[STM] celestia-zswap: imbalances(${segId}) threw at height ${data.blockHeight}`, e);
+        return;
+      }
+      for (const [tokenType, delta] of entries) {
+        const tt = tokenType as TokenType;
+        if (tt.tag === 'dust') continue;
+        if (tt.tag !== 'shielded' && tt.tag !== 'unshielded') {
+          console.warn(`[STM] celestia-zswap: Unknown token tag "${tt.tag}" in segment ${segId}, skipping`);
+          continue;
+        }
+        const token = tt.raw.toLowerCase();
+        mergedImbalances.set(token, (mergedImbalances.get(token) ?? 0n) + delta);
+      }
+    }
+
+    const gives: { token: string; amount: string }[] = [];
+    const wants: { token: string; amount: string }[] = [];
+    for (const [token, delta] of mergedImbalances) {
+      if (delta > 0n) gives.push({ token, amount: delta.toString() });
+      else if (delta < 0n) wants.push({ token, amount: (-delta).toString() });
+    }
+
     const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
-    const ttlSeconds = parsed.metadata?.ttlSeconds ?? DEFAULT_TTL_SECONDS;
+    const ttlSeconds = DEFAULT_TTL_SECONDS;
 
     const offerRes = yield* World.promise(pool.query(
       `INSERT INTO offer_file (celestia_height, transaction_hex, metadata_created_at, metadata_expires_at, metadata_maker_note, ttl_seconds)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
       [
         data.blockHeight,
-        parsed.transaction,
-        parsed.metadata?.createdAt ?? null,
-        parsed.metadata?.expiresAt ?? null,
-        parsed.metadata?.makerNote ?? null,
+        raw,
+        new Date(data.blockTimestamp).toISOString(),
+        null,
+        null,
         ttlSeconds,
       ],
     ));
     const offerFileId = offerRes.rows[0].id;
 
-    // Extract nullifiers from the serialized transaction so we can match them later
-    try {
-      const rawTx = Uint8Array.from(atob(parsed.transaction), (c) => c.charCodeAt(0));
-      const offerTx = Transaction.deserialize(
-        "signature" as const,
-        "pre-proof" as const,
-        "pre-binding" as const,
-        rawTx,
-      ) as UnprovenTransaction;
-
-      const nullifiers: string[] = offerTx.guaranteedOffer
-        ? offerTx.guaranteedOffer.inputs.map((input: any) => input.nullifier)
-        : [];
-      for (const nullifier of nullifiers) {
-        const nullifierStr = typeof nullifier === "string"
-          ? nullifier
-          : Buffer.from(nullifier).toString("hex");
-        yield* World.promise(pool.query(
-          `INSERT INTO offer_file_nullifiers (offer_file_id, nullifier) VALUES ($1, $2) ON CONFLICT (nullifier) DO NOTHING`,
-          [offerFileId, nullifierStr],
-        ));
-        console.log(`[STM] celestia-zswap: Stored nullifier ${nullifierStr} for offer ${offerFileId}`);
-      }
-    } catch (e) {
-      console.error("[STM] celestia-zswap: Failed to extract nullifiers from transaction", e);
+    const nullifiers: unknown[] = offerTx.guaranteedOffer
+      ? offerTx.guaranteedOffer.inputs.map((input: any) => input.nullifier)
+      : [];
+    for (const nullifier of nullifiers) {
+      const nullifierStr = typeof nullifier === "string"
+        ? nullifier
+        : Buffer.from(nullifier as Uint8Array).toString("hex");
+      yield* World.promise(pool.query(
+        `INSERT INTO offer_file_nullifiers (offer_file_id, nullifier) VALUES ($1, $2) ON CONFLICT (nullifier) DO NOTHING`,
+        [offerFileId, nullifierStr],
+      ));
+      console.log(`[STM] celestia-zswap: Stored nullifier ${nullifierStr} for offer ${offerFileId}`);
     }
 
-    for (const want of parsed.wants) {
+    for (const g of gives) {
       yield* World.promise(pool.query(
         `INSERT INTO offer_file_tokens (offer_file_id, token_color, amount, direction) VALUES ($1, $2, $3, $4)`,
-        [offerFileId, want.token, want.amount.toString(), "WANTING"],
+        [offerFileId, g.token, g.amount, "GIVING"],
       ));
     }
-
-    for (const give of parsed.gives) {
+    for (const w of wants) {
       yield* World.promise(pool.query(
         `INSERT INTO offer_file_tokens (offer_file_id, token_color, amount, direction) VALUES ($1, $2, $3, $4)`,
-        [offerFileId, give.token, give.amount.toString(), "GIVING"],
+        [offerFileId, w.token, w.amount, "WANTING"],
       ));
     }
 
@@ -135,11 +160,20 @@ stm.addStateTransition("midnight-nullifier", function* (data) {
     if (matchRes.rows.length > 0) {
       const offerId = matchRes.rows[0].offer_file_id;
 
-      // Archive to history
       yield* World.promise(pool.query(
         `INSERT INTO offer_file_history (id, celestia_height, transaction_hex, metadata_created_at, metadata_expires_at, metadata_maker_note, created_at, ttl_seconds, archive_reason)
          SELECT id, celestia_height, transaction_hex, metadata_created_at, metadata_expires_at, metadata_maker_note, created_at, ttl_seconds, 'CONSUMED'
          FROM offer_file WHERE id = $1`,
+        [offerId],
+      ));
+      yield* World.promise(pool.query(
+        `INSERT INTO offer_file_tokens_history (offer_file_id, token_color, amount, direction)
+         SELECT offer_file_id, token_color, amount, direction FROM offer_file_tokens WHERE offer_file_id = $1`,
+        [offerId],
+      ));
+      yield* World.promise(pool.query(
+        `INSERT INTO offer_file_nullifiers_history (offer_file_id, nullifier)
+         SELECT offer_file_id, nullifier FROM offer_file_nullifiers WHERE offer_file_id = $1`,
         [offerId],
       ));
       yield* World.promise(pool.query(
@@ -185,6 +219,16 @@ stm.addStateTransition("zswap-ttl-cleanup", function* (data) {
     ));
 
     if (res.rows.length > 0) {
+      yield* World.promise(pool.query(
+        `INSERT INTO offer_file_tokens_history (offer_file_id, token_color, amount, direction)
+         SELECT offer_file_id, token_color, amount, direction FROM offer_file_tokens WHERE offer_file_id = $1`,
+        [offerId],
+      ));
+      yield* World.promise(pool.query(
+        `INSERT INTO offer_file_nullifiers_history (offer_file_id, nullifier)
+         SELECT offer_file_id, nullifier FROM offer_file_nullifiers WHERE offer_file_id = $1`,
+        [offerId],
+      ));
       yield* World.promise(pool.query(`DELETE FROM offer_file WHERE id = $1`, [offerId]));
       console.log(`[STM] zswap-ttl-cleanup: Archived expired offer ${offerId}`);
     }

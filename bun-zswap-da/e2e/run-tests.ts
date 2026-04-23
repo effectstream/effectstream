@@ -40,6 +40,7 @@ import {
   faucet,
   type WalletResult,
 } from "../../e2e-v2/shared/contracts/midnight/faucet.ts";
+import { encodeOffer, decodeOffer } from "mip-zswap-offer";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 const CELESTIA_NAMESPACE = "000000000000deadbeef";
@@ -53,9 +54,6 @@ if (!process.env["E2E_MAX_TIMEOUT"]) {
 const WALLET_SEED_1 = "0000000000000000000000000000000000000000000000000000000000000002";
 const WALLET_SEED_2 = "0000000000000000000000000000000000000000000000000000000000000003";
 
-// Unique marker per run so old Celestia blobs from previous runs don't pollute assertions
-const RUN_ID = `e2e-${Date.now()}`;
-
 // ── Celestia blob helpers ─────────────────────────────────────────────────────
 
 function celestiaNamespaceBase64(hex: string): string {
@@ -68,6 +66,9 @@ function celestiaNamespaceBase64(hex: string): string {
 async function celestiaSubmitBlob(data: string): Promise<number> {
   const b64 = Buffer.from(data).toString("base64");
   const ns = celestiaNamespaceBase64(CELESTIA_NAMESPACE);
+  // gasLimit scales with blob size; bech32m offer blobs are ~3–5 KB, so allow headroom.
+  const gasLimit = Math.max(200_000, 50 * b64.length);
+  const fee = Math.max(5_000, Math.ceil(gasLimit / 50));
   const res = await fetch("http://localhost:26658", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -77,7 +78,7 @@ async function celestiaSubmitBlob(data: string): Promise<number> {
       method: "blob.Submit",
       params: [
         [{ namespace: ns, data: b64, share_version: 0 }],
-        { fee: 2000, gasLimit: 100000 },
+        { fee, gasLimit },
       ],
     }),
   });
@@ -85,7 +86,11 @@ async function celestiaSubmitBlob(data: string): Promise<number> {
   if (json.error) {
     throw new Error(`blob.Submit error: ${JSON.stringify(json.error)}`);
   }
-  return json.result;
+  const height = typeof json.result === "number" ? json.result : Number(json.result);
+  if (!Number.isFinite(height)) {
+    throw new Error(`blob.Submit returned unexpected result: ${JSON.stringify(json.result)}`);
+  }
+  return height;
 }
 
 // ── Contract helper ───────────────────────────────────────────────────────────
@@ -310,23 +315,12 @@ async function runZswapTests(db: Client): Promise<void> {
     { ttl: new Date(Date.now() + 1000 * 60 * 60) },
   );
 
-  const serializedOffer = offerRecipe.transaction.serialize().toBase64();
-  console.log(`Offer created, serialized length: ${serializedOffer.length}`);
+  const rawTxBytes = offerRecipe.transaction.serialize();
+  const blob = encodeOffer(rawTxBytes);
+  console.log(`Offer encoded to bech32m, length: ${blob.length}`);
 
   // ── 2f. Submit offer to Celestia ───────────────────────────────────────────
   console.log("Submitting offer blob to Celestia...");
-  const blob = JSON.stringify({
-    version: 1,
-    transaction: serializedOffer,
-    gives: [{ token: tokenAColor, amount: "50" }],
-    wants: [{ token: tokenBColor, amount: "50" }],
-    metadata: {
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      makerNote: RUN_ID,
-      ttlSeconds: 604800,
-    },
-  });
   const blobHeight = await celestiaSubmitBlob(blob);
   console.log(`Blob submitted at Celestia height: ${blobHeight}`);
 
@@ -334,7 +328,7 @@ async function runZswapTests(db: Client): Promise<void> {
   await assertSQL<{ id: number }>(
     "ZSwap: offer_file has been indexed from Celestia blob",
     db,
-    `SELECT id FROM offer_file WHERE metadata_maker_note = '${RUN_ID}' LIMIT 1;`,
+    `SELECT id FROM offer_file WHERE celestia_height = ${blobHeight} LIMIT 1;`,
     (res) => res.rows.length >= 1,
     (res) => res.rows[0]?.id > 0,
   );
@@ -344,7 +338,7 @@ async function runZswapTests(db: Client): Promise<void> {
     db,
     `SELECT oft.token_color FROM offer_file_tokens oft
      JOIN offer_file of ON of.id = oft.offer_file_id
-     WHERE oft.direction = 'GIVING' AND of.metadata_maker_note = '${RUN_ID}'
+     WHERE oft.direction = 'GIVING' AND of.celestia_height = ${blobHeight}
      ORDER BY oft.id DESC LIMIT 1;`,
     (res) => res.rows.length >= 1,
     (res) => res.rows[0]?.token_color === tokenAColor,
@@ -355,7 +349,7 @@ async function runZswapTests(db: Client): Promise<void> {
     db,
     `SELECT oft.token_color FROM offer_file_tokens oft
      JOIN offer_file of ON of.id = oft.offer_file_id
-     WHERE oft.direction = 'WANTING' AND of.metadata_maker_note = '${RUN_ID}'
+     WHERE oft.direction = 'WANTING' AND of.celestia_height = ${blobHeight}
      ORDER BY oft.id DESC LIMIT 1;`,
     (res) => res.rows.length >= 1,
     (res) => res.rows[0]?.token_color === tokenBColor,
@@ -366,12 +360,18 @@ async function runZswapTests(db: Client): Promise<void> {
   // ── 2h. Wallet 2 completes the swap ────────────────────────────────────────
   console.log("Wallet 2: Reading offer from DB and completing swap...");
 
-  const offerRow = await db.query(`SELECT * FROM offer_file WHERE metadata_maker_note = '${RUN_ID}' ORDER BY id DESC LIMIT 1`);
+  const offerRow = await db.query(`SELECT * FROM offer_file WHERE celestia_height = ${blobHeight} ORDER BY id DESC LIMIT 1`);
   const offer = offerRow.rows[0];
+  if (!offer) {
+    const peek = await db.query(`SELECT id, celestia_height, LEFT(transaction_hex, 24) AS tx_prefix FROM offer_file ORDER BY id DESC LIMIT 5`);
+    throw new Error(
+      `No offer_file row for celestia_height=${blobHeight}. Latest rows: ${JSON.stringify(peek.rows)}`,
+    );
+  }
 
-  // Deserialize the offer transaction
+  // Deserialize the offer transaction (transaction_hex column holds the bech32m zswapoffer1… string)
   const ledger = await import("@midnight-ntwrk/ledger-v8");
-  const rawTx = Uint8Array.from(atob(offer.transaction_hex), (c) => c.charCodeAt(0));
+  const rawTx = decodeOffer(offer.transaction_hex);
   const offerTx = ledger.Transaction.deserialize(
     "signature" as const,
     "pre-proof" as const,
@@ -402,10 +402,15 @@ async function runZswapTests(db: Client): Promise<void> {
   await assertSQL<{ nullifier: string }>(
     "ZSwap: offer_file_nullifiers has entries extracted from the offer transaction",
     db,
-    `SELECT ofn.nullifier FROM offer_file_nullifiers ofn
-     JOIN offer_file of ON of.id = ofn.offer_file_id
-     WHERE of.metadata_maker_note = '${RUN_ID}'
-     LIMIT 1;`,
+    `SELECT nullifier FROM (
+       SELECT ofn.nullifier, of.celestia_height
+       FROM offer_file_nullifiers ofn
+       JOIN offer_file of ON of.id = ofn.offer_file_id
+       UNION ALL
+       SELECT ofnh.nullifier, ofh.celestia_height
+       FROM offer_file_nullifiers_history ofnh
+       JOIN offer_file_history ofh ON ofh.id = ofnh.offer_file_id
+     ) combined WHERE celestia_height = ${blobHeight} LIMIT 1;`,
     (res) => res.rows.length >= 1,
     (res) => typeof res.rows[0]?.nullifier === "string" && res.rows[0].nullifier.length > 0,
   );
@@ -416,7 +421,7 @@ async function runZswapTests(db: Client): Promise<void> {
   await assertSQL<{ archive_reason: string }>(
     "ZSwap: offer archived with CONSUMED reason after swap completion",
     db,
-    `SELECT archive_reason FROM offer_file_history WHERE archive_reason = 'CONSUMED' LIMIT 1;`,
+    `SELECT archive_reason FROM offer_file_history WHERE archive_reason = 'CONSUMED' AND celestia_height = ${blobHeight} LIMIT 1;`,
     (res) => res.rows.length >= 1,
     (res) => res.rows[0]?.archive_reason === "CONSUMED",
   );
@@ -425,7 +430,7 @@ async function runZswapTests(db: Client): Promise<void> {
   await assertSQL<{ count: string }>(
     "ZSwap: offer_file is empty (offer moved to history)",
     db,
-    `SELECT COUNT(*)::text as count FROM offer_file WHERE metadata_maker_note = '${RUN_ID}';`,
+    `SELECT COUNT(*)::text as count FROM offer_file WHERE celestia_height = ${blobHeight};`,
     (res) => res.rows.length >= 1,
     (res) => res.rows[0]?.count === "0",
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { useWalletBalances } from '../hooks/useWalletBalances';
 import { findTokenName, shortToken } from '../utils';
 import type { KnownToken } from '../types';
+import { BROWSER_WALLET_ID } from '../hooks/useActiveWallet';
 
 interface WalletBalancesProps {
   activeWallet?: string;
@@ -44,7 +45,7 @@ export const WalletBalances: React.FC<WalletBalancesProps> = ({
   balanceRefreshTrigger,
   browserBalances,
 }) => {
-  const isBrowser = browserBalances != null;
+  const isBrowser = activeWallet === BROWSER_WALLET_ID;
   // Skip backend fetch for the browser wallet — it has no backend presence.
   const { balances: backendBalances, loading, error } = useWalletBalances(
     isBrowser ? undefined : activeWallet,

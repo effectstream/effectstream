@@ -85,4 +85,28 @@ export const api = {
     if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
     return data;
   },
+
+  getMidnightConfig: async (): Promise<{
+    contractAddress: string;
+    indexerUri: string;
+    indexerWsUri: string;
+    proofServerUri: string;
+    networkId: string;
+  }> => {
+    const res = await fetch(`${API_BASE}/api/midnight/config`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
+    return data;
+  },
+
+  registerKnownToken: async (color: string, name: string) => {
+    const res = await fetch(`${API_BASE}/api/known-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ color, name }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));
+    return data;
+  },
 };

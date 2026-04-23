@@ -19,6 +19,7 @@ import {
 import {
   midnightContract,
 } from "./config.ts";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { normalizeHex32 } from "./zswap-logic.ts";
 import { submitToCelestia } from "./celestia-api.ts";
 import {
@@ -152,6 +153,68 @@ export const apiRouter: StartConfigApiRouter = async function (
   server.get("/api/known-tokens", async () => {
     const result = await getKnownTokens.run(undefined, dbConn);
     return result;
+  });
+
+  // POST /api/known-tokens — register a token name/color pair. Used by the
+  // browser-wallet mint path, which submits the contract call client-side and
+  // still needs the backend DB to know the token name for indexing/display.
+  server.post(
+    "/api/known-tokens",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["color", "name"],
+          properties: {
+            color: { type: "string" },
+            name: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request: any) => {
+      const color = String(request.body.color).toLowerCase().replace(/^0x/, "");
+      const name = String(request.body.name).trim().toUpperCase().slice(0, 16);
+      if (!/^[0-9a-f]{64}$/.test(color)) {
+        throw new Error("Invalid token color (expected 64 hex chars)");
+      }
+      if (!name) throw new Error("Invalid token name");
+
+      const nameCheck = await dbConn.query(
+        `SELECT 1 FROM known_tokens WHERE name = $1 LIMIT 1`,
+        [name],
+      );
+      if (nameCheck.rows.length > 0) {
+        throw new Error(`Token name "${name}" is already taken`);
+      }
+      const colorCheck = await dbConn.query(
+        `SELECT name FROM known_tokens WHERE token_color = $1 LIMIT 1`,
+        [color],
+      );
+      if (colorCheck.rows.length > 0) {
+        throw new Error(`Token color already registered as "${colorCheck.rows[0].name}"`);
+      }
+
+      await insertKnownToken.run({ token_color: color, name }, dbConn);
+      emitAppEvent({ type: "token_minted", name, color, wallet: "browser" });
+      return { success: true, color, name };
+    },
+  );
+
+  // GET /api/midnight/config — expose enough of the backend's Midnight config
+  // for the browser-side contract client (contract address, indexer, proof
+  // server). Never include secrets.
+  server.get("/api/midnight/config", async () => {
+    if (!midnightContract) {
+      throw new Error("Midnight contract metadata is not available");
+    }
+    return {
+      contractAddress: midnightContract.contractAddress,
+      indexerUri: midnightNetworkConfig.indexer,
+      indexerWsUri: midnightNetworkConfig.indexerWS,
+      proofServerUri: midnightNetworkConfig.proofServer,
+      networkId: midnightNetworkConfig.id,
+    };
   });
 
   type MintOk = { success: true; txHash: string; color: string; name: string };
