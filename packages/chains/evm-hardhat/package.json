@@ -1,13 +1,15 @@
 {
   "name": "@effectstream/evm-hardhat",
-  "version": "0.100.0",
+  "version": "0.100.6",
   "license": "MIT",
   "exports": {
     "./json-rpc-server": "./src/json-rpc-server/json-rpc/server.ts",
     "./builder": "./src/builder/build.mod.ts",
     "./remappings-hardhat": "./src/remappings/remappings-hardhat.ts",
     "./remappings-forge": "./src/remappings/remappings-forge.ts",
-    "./hardhat-config-builder": "./src/hardhatConfigBuilder.ts"
+    "./hardhat-config-builder": "./src/hardhatConfigBuilder.ts",
+    "./deploy": "./src/deploy.ts",
+    "./addresses": "./src/addresses.ts"
   },
   "dependencies": {
     "@effectstream/log": "workspace:*",
