@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/batcher-sdk",
-  "version": "0.100.0",
+  "version": "0.100.6",
   "license": "MIT",
   "exports": {
     "bun": "./mod.ts"
