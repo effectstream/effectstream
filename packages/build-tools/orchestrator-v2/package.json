@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/orchestrator-v2",
-  "version": "0.100.0",
+  "version": "0.100.6",
   "license": "MIT",
   "exports": {
     "./config": "./src/config.ts",
@@ -11,7 +11,9 @@
     "./launch-cardano": "./scripts/launch-cardano.ts",
     "./launch-midnight": "./scripts/launch-midnight.ts",
     "./launch-avail": "./scripts/launch-avail.ts",
-    "./launch-near": "./scripts/launch-near.ts"
+    "./launch-near": "./scripts/launch-near.ts",
+    "./wait-tcp": "./scripts/wait-tcp.ts",
+    "./wait-http": "./scripts/wait-http.ts"
   },
   "bin": {
     "orchestrator-v2": "src/cli.ts"
@@ -19,5 +21,7 @@
   "scripts": {
     "start": "bun src/cli.ts start"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@effectstream/db": "workspace:*"
+  }
 }

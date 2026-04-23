@@ -1,6 +1,8 @@
 import type { ProcessConfig } from "../src/config.ts";
 import { resolvePackageDir } from "./resolve-package.ts";
 
+const waitHttpScript = new URL("./wait-http.ts", import.meta.url).pathname;
+
 export const CardanoNames = {
   YACI_DEVKIT: "yaci-devkit",
   YACI_DEVKIT_WAIT: "yaci-devkit-wait",
@@ -74,7 +76,7 @@ export function launchCardano(
     {
       name: CardanoNames.DOLOS_MINIBF_WAIT,
       description: "Wait for Dolos blockfrost API on port 3000",
-      args: ["./node_modules/.bin/wait-on", "http://localhost:3000/blocks/latest", "--timeout", "60000"],
+      args: [waitHttpScript, "--timeout", "60000", "http://localhost:3000/blocks/latest"],
       waitToExit: true,
       dependsOn: [CardanoNames.DOLOS_WAIT],
     },

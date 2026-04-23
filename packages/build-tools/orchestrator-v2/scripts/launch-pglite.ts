@@ -1,5 +1,8 @@
 import type { ProcessConfig } from "../src/config.ts";
 
+const waitTcpScript = new URL("./wait-tcp.ts", import.meta.url).pathname;
+const startPgliteScript = import.meta.resolve("@effectstream/db/start-pglite").replace("file://", "");
+
 export const DbNames = {
   PGLITE: "pglite",
   PGLITE_WAIT: "pglite-wait",
@@ -11,7 +14,7 @@ export function launchPglite(opts?: { port?: number }): ProcessConfig[] {
     {
       name: DbNames.PGLITE,
       description: `PGLite embedded database (port ${port})`,
-      args: ["-e", "process.argv.splice(1, 0, '_'); await import('@effectstream/db/start-pglite')", "--port", String(port)],
+      args: [startPgliteScript, "--port", String(port)],
       stopProcessAtPort: [port],
       waitToExit: false,
       critical: true,
@@ -19,7 +22,7 @@ export function launchPglite(opts?: { port?: number }): ProcessConfig[] {
     {
       name: DbNames.PGLITE_WAIT,
       description: `Wait for PGLite on port ${port}`,
-      args: ["./node_modules/.bin/wait-on", `tcp:${port}`],
+      args: [waitTcpScript, String(port)],
       waitToExit: true,
       dependsOn: [DbNames.PGLITE],
     },
