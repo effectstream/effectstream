@@ -1,7 +1,13 @@
 {
   "name": "@effectstream/frontend-sdk",
-  "version": "0.100.0",
+  "version": "0.100.6",
   "license": "MIT",
+  "files": [
+    "dist",
+    "src",
+    "build.ts",
+    "tsconfig.build.json"
+  ],
   "exports": {
     ".": {
       "bun": "./src/mod.ts",
