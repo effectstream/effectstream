@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { MintModal } from './components/MintModal';
 import { SwapInterface } from './components/SwapInterface';
@@ -25,6 +25,14 @@ function App() {
   const browserAvailable = wallet.status === 'connected';
   const { wallets, activeWallet, setActiveWallet } = useActiveWallet(browserAvailable);
   const browserContract = useContract(wallet.connectedApi);
+
+  const prevWalletStatus = useRef(wallet.status);
+  useEffect(() => {
+    if (prevWalletStatus.current !== 'connected' && wallet.status === 'connected') {
+      setActiveWallet(BROWSER_WALLET_ID);
+    }
+    prevWalletStatus.current = wallet.status;
+  }, [wallet.status, setActiveWallet]);
 
   useMintReconciler(wallet.connectedApi, knownTokens, balanceRefreshTrigger, refetchTokens);
 

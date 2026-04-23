@@ -1,7 +1,14 @@
-import { useState, useCallback } from 'react';
-import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
+import { useState, useCallback, useRef } from 'react';
+import type { ConnectedAPI, DAppConnectorAPI } from '@midnight-ntwrk/dapp-connector-api';
 
 type WalletStatus = 'disconnected' | 'connecting' | 'connected' | 'unavailable';
+
+const NETWORK_ID = 'undeployed';
+
+function isChannelShutdownError(e: unknown): boolean {
+  const msg = String((e as any)?.message ?? e ?? '');
+  return /shutdown|can no longer be used/i.test(msg);
+}
 
 export function useWallet() {
   const [status, setStatus] = useState<WalletStatus>(() =>
@@ -15,6 +22,36 @@ export function useWallet() {
   const [shieldedBalances, setShieldedBalances] = useState<Record<string, string> | null>(null);
   const [networkId, setNetworkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Live ConnectedAPI + its pre-connect factory. Stored in refs so the proxy
+  // exposed to the app can transparently re-connect when the wallet channel
+  // is torn down ("Remote API … was shutdown: object can no longer be used").
+  const apiRef = useRef<ConnectedAPI | null>(null);
+  const connectorRef = useRef<DAppConnectorAPI | null>(null);
+  const proxyRef = useRef<ConnectedAPI | null>(null);
+
+  const ensureProxy = useCallback((): ConnectedAPI => {
+    if (proxyRef.current) return proxyRef.current;
+    const proxy = new Proxy({} as ConnectedAPI, {
+      get: (_t, prop) => {
+        return async (...args: any[]) => {
+          const current = apiRef.current;
+          if (!current) throw new Error('Wallet not connected');
+          try {
+            return await (current as any)[prop](...args);
+          } catch (e) {
+            if (!isChannelShutdownError(e) || !connectorRef.current) throw e;
+            console.warn(`[wallet] channel shutdown while calling ${String(prop)} — reconnecting and retrying once…`);
+            const fresh = await connectorRef.current.connect(NETWORK_ID);
+            apiRef.current = fresh;
+            return await (fresh as any)[prop](...args);
+          }
+        };
+      },
+    });
+    proxyRef.current = proxy;
+    return proxy;
+  }, []);
 
   const connectWallet = useCallback(async () => {
     console.log('[wallet] connect: start');
@@ -43,18 +80,22 @@ export function useWallet() {
 
     try {
       console.log('[wallet] connect: calling initialApi.connect("undeployed")…');
-      const api = await initialApi.connect('undeployed');
+      const api = await initialApi.connect(NETWORK_ID);
       console.log('[wallet] connect: got ConnectedAPI');
 
-      const config = await api.getConfiguration();
+      connectorRef.current = initialApi;
+      apiRef.current = api;
+      const wrapped = ensureProxy();
+
+      const config = await wrapped.getConfiguration();
       console.log('[wallet] connect: configuration', config);
       setNetworkId(config.networkId);
 
       console.log('[wallet] connect: fetching addresses + balances in parallel…');
       const [shielded, unshielded, shBalances] = await Promise.all([
-        api.getShieldedAddresses(),
-        api.getUnshieldedAddress(),
-        api.getShieldedBalances(),
+        wrapped.getShieldedAddresses(),
+        wrapped.getUnshieldedAddress(),
+        wrapped.getShieldedBalances(),
       ]);
       console.log('[wallet] connect: shielded address', shielded.shieldedAddress);
       console.log('[wallet] connect: unshielded address', unshielded.unshieldedAddress);
@@ -69,9 +110,12 @@ export function useWallet() {
       }
       setShieldedBalances(balancesStr);
 
+      console.log('[wallet] probe: apiVersion reported by connector =', initialApi.apiVersion);
+      console.log('[wallet] probe: typeof api.makeIntent =', typeof (api as any).makeIntent);
+
       setWalletName(initialApi.name);
       setWalletIcon(initialApi.icon);
-      setConnectedApi(api);
+      setConnectedApi(wrapped);
       setStatus('connected');
       console.log('[wallet] connect: done — status=connected');
     } catch (e: any) {
@@ -79,10 +123,13 @@ export function useWallet() {
       setStatus('disconnected');
       setError(e.message || 'Failed to connect wallet');
     }
-  }, []);
+  }, [ensureProxy]);
 
   const disconnectWallet = useCallback(() => {
     console.log('[wallet] disconnect: clearing state');
+    apiRef.current = null;
+    connectorRef.current = null;
+    proxyRef.current = null;
     setStatus(window.midnight ? 'disconnected' : 'unavailable');
     setConnectedApi(null);
     setWalletName(null);
