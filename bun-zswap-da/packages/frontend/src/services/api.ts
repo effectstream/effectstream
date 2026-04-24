@@ -1,6 +1,34 @@
 // src/services/api.ts
 import type { KnownToken, ZSwapOffer, TokenEntry } from '../types';
-import { API_BASE } from '../config';
+import { API_BASE, BATCHER_URL, BATCHER_TARGET } from '../config';
+
+const MIDNIGHT_ADDRESS_TYPE = 5;
+
+export async function submitToBatcher(
+  serializedTxHex: string,
+  txStage: 'unproven' | 'unbound' | 'finalized',
+  address: string,
+): Promise<{ txHash: string }> {
+  const res = await fetch(`${BATCHER_URL}/send-input`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      data: {
+        address,
+        addressType: MIDNIGHT_ADDRESS_TYPE,
+        input: JSON.stringify({ tx: serializedTxHex, txStage }),
+        timestamp: new Date().toISOString(),
+        target: BATCHER_TARGET,
+      },
+      confirmationLevel: 'wait-receipt',
+    }),
+  });
+  const body = await res.json();
+  if (!res.ok || !body.success) {
+    throw new Error(`Batcher error: ${body.message ?? res.statusText}`);
+  }
+  return { txHash: body.transactionHash ?? '' };
+}
 
 function walletQuery(wallet?: string): string {
   return wallet ? `?wallet=${encodeURIComponent(wallet)}` : '';

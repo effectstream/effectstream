@@ -11,3 +11,12 @@ const envBase = import.meta.env.VITE_API_BASE as string | undefined;
 
 export const API_BASE =
   windowBase ?? envBase ?? `http://${location.hostname}:9999`;
+
+const windowBatcher = (window as unknown as { BATCHER_URL?: string }).BATCHER_URL;
+const envBatcher = import.meta.env.VITE_BATCHER_URL as string | undefined;
+
+export const BATCHER_URL =
+  windowBatcher ?? envBatcher ?? `http://${location.hostname}:3334`;
+
+export const BATCHER_TARGET =
+  (import.meta.env.VITE_BATCHER_TARGET as string | undefined) ?? 'midnight-balancer';

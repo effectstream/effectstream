@@ -13,6 +13,7 @@ const CELESTIA_HOME = "/tmp/celestia-e2e-zswap-home";
  * 5. Sync node (reads from both chains)
  */
 export default {
+  logDir: "bun-zswap-da/logs",
   processes: [
     // ── Database ──────────────────────────────────────────────────────────────
     ...launchPglite(),
@@ -64,6 +65,7 @@ export default {
       env: { CELESTIA_HOME, CELESTIA_FORCE_NO_BBR: process.env.CELESTIA_FORCE_NO_BBR || "" },
       waitToExit: false,
       critical: true,
+      silent: true,
       dependsOn: ["celestia-clean"],
     },
     {
@@ -93,6 +95,7 @@ export default {
       args: ["run", "midnight-node:start"],
       waitToExit: false,
       critical: true,
+      silent: true,
     },
     {
       name: "midnight-indexer",
@@ -101,6 +104,7 @@ export default {
       args: ["run", "midnight-indexer:start"],
       waitToExit: false,
       critical: true,
+      silent: true,
       dependsOn: ["midnight-node"],
     },
     {
@@ -110,6 +114,7 @@ export default {
       args: ["run", "midnight-proof-server:start"],
       waitToExit: false,
       critical: true,
+      silent: true,
       dependsOn: ["midnight-node"],
     },
     {
@@ -164,6 +169,24 @@ export default {
         "apply-migrations",
         "celestia-fund-bridge",
         "midnight-contract-deploy",
+      ],
+    },
+
+    // ── Balancing batcher ─────────────────────────────────────────────────────
+    // Pays Midnight fees on behalf of browser-wallet flows (mint + offer
+    // completion). Uses a dedicated seed (not alice) to avoid colliding with
+    // the sync node's wallet subscription.
+    {
+      name: "batcher",
+      description: "ZSwap-DA balancing batcher (port 3334)",
+      stopProcessAtPort: [3334],
+      args: ["run", "bun-zswap-da/packages/batcher/src/main.ts"],
+      waitToExit: false,
+      type: "system-dependency" as const,
+      dependsOn: [
+        "midnight-node-wait",
+        "midnight-indexer-wait",
+        "midnight-proof-server-wait",
       ],
     },
   ],

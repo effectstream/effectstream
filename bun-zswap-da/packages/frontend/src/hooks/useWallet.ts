@@ -125,6 +125,21 @@ export function useWallet() {
     }
   }, [ensureProxy]);
 
+  const refreshBalances = useCallback(async () => {
+    const api = apiRef.current;
+    if (!api) return;
+    try {
+      const shBalances = await (proxyRef.current ?? api).getShieldedBalances();
+      const balancesStr: Record<string, string> = {};
+      for (const [token, amount] of Object.entries(shBalances)) {
+        balancesStr[token] = String(amount);
+      }
+      setShieldedBalances(balancesStr);
+    } catch (e) {
+      console.warn('[wallet] refreshBalances failed', e);
+    }
+  }, []);
+
   const disconnectWallet = useCallback(() => {
     console.log('[wallet] disconnect: clearing state');
     apiRef.current = null;
@@ -153,5 +168,6 @@ export function useWallet() {
     error,
     connectWallet,
     disconnectWallet,
+    refreshBalances,
   };
 }

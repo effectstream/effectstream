@@ -45,13 +45,15 @@ function App() {
     }
     if (event.type === 'token_minted' || event.type === 'offer_consumed' || event.type === 'faucet_sent') {
       setBalanceRefreshTrigger(prev => prev + 1);
+      wallet.refreshBalances();
     }
-  }, [refetchTokens]);
+  }, [refetchTokens, wallet]);
 
   const { events, isConnected, clearEvents } = useEventStream(handleSSEEvent);
 
   const handleMintSuccess = () => {
     refetchTokens();
+    wallet.refreshBalances();
   };
 
   const handleSwapSuccess = () => {

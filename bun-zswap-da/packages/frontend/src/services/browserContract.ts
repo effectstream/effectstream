@@ -31,6 +31,7 @@ import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 
 import { OfferFilesContract, witnesses } from '@zswap-da/contract-offer-files';
 import { decodeOffer } from 'mip-zswap-offer';
+import { submitToBatcher } from './api';
 
 export interface MidnightBrowserConfig {
   contractAddress: string;
@@ -115,29 +116,62 @@ function createWalletAndMidnightProvider(
       return encryptionPublicKey;
     },
     async balanceTx(tx: UnboundTransaction, _ttl?: Date): Promise<FinalizedTransaction> {
-      console.log('[browserContract] balanceTx: serializing + asking wallet to balance');
+      // payFees:false → wallet seals the tx without adding its own Dust.
+      // The batcher balances + submits, so the browser wallet pays no fees.
+      console.log('[browserContract] balanceTx: asking wallet to seal (payFees:false)');
       const serialized = toHex(tx.serialize());
-      const { tx: balancedHex } = await connectedApi.balanceUnsealedTransaction(serialized);
-      return LedgerV8Transaction.deserialize(
-        'signature',
-        'proof',
-        'binding',
-        fromHex(balancedHex),
-      ) as FinalizedTransaction;
+      try {
+        const { tx: balancedHex } = await connectedApi.balanceUnsealedTransaction(
+          serialized,
+          { payFees: false },
+        );
+        return LedgerV8Transaction.deserialize(
+          'signature',
+          'proof',
+          'binding',
+          fromHex(balancedHex),
+        ) as FinalizedTransaction;
+      } catch (e: any) {
+        console.error('[browserContract] balanceTx: wallet rejected', {
+          name: e?.name,
+          message: e?.message,
+          raw: e,
+        });
+        throw new Error(
+          `balanceUnsealedTransaction failed: ${e?.message ?? e?.name ?? JSON.stringify(e) ?? 'unknown'}`,
+          { cause: e },
+        );
+      }
     },
     async submitTx(tx: FinalizedTransaction): Promise<TransactionId> {
-      // Compute the tx hash locally from the finalized transaction before
-      // handing it off to the wallet. dapp-connector's submitTransaction
-      // returns void, but midnight-js uses the returned TransactionId to
-      // poll the indexer for confirmation — if we return an empty string
-      // those lookups hit the indexer with no id and never resolve.
-      const txHash = (tx as any).transactionHash?.() as string | undefined;
-      console.log('[browserContract] submitTx: forwarding to wallet', { txHash });
-      await connectedApi.submitTransaction(toHex(tx.serialize()));
-      if (!txHash) {
-        throw new Error('submitTx: ledger Transaction has no transactionHash()');
+      const serializedHex = toHex(tx.serialize());
+      // midnight-js polls the indexer by `identifier`, not by tx hash
+      // (TX_ID_QUERY uses `offset: { identifier }`). Compute the identifier
+      // from the finalized tx itself — the batcher only returns a hash, which
+      // would never match and cause watchForTxData to hang.
+      const identifiers = (tx as any).identifiers?.() as string[] | undefined;
+      const localHash = (tx as any).transactionHash?.() as string | undefined;
+      console.log('[browserContract] submitTx: routing to batcher', {
+        localHash,
+        identifiers,
+      });
+      try {
+        await submitToBatcher(serializedHex, 'finalized', coinPublicKey as unknown as string);
+        const identifier = identifiers?.[0];
+        if (!identifier) {
+          throw new Error('ledger tx returned no identifiers — cannot track finalization');
+        }
+        return identifier as TransactionId;
+      } catch (e: any) {
+        console.error('[browserContract] submitTx: batcher submit failed', {
+          message: e?.message,
+          raw: e,
+        });
+        throw new Error(
+          `batcher submit failed: ${e?.message ?? JSON.stringify(e) ?? 'unknown'}`,
+          { cause: e },
+        );
       }
-      return txHash as TransactionId;
     },
   };
 }
