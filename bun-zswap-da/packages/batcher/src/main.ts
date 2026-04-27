@@ -7,11 +7,11 @@ import {
   type DefaultBatcherInput,
 } from "@effectstream/batcher-sdk";
 
-import { batcherConfig } from "./config.ts";
+import { batcherConfig, walletSeed } from "./config.ts";
 
 const BALANCER_TARGET = "midnight-balancer";
 
-const adapter = new MidnightBalancingAdapter(batcherConfig.walletSeed, {
+const adapter = new MidnightBalancingAdapter(walletSeed, {
   indexer: batcherConfig.midnight.indexer,
   indexerWS: batcherConfig.midnight.indexerWS,
   node: batcherConfig.midnight.node,

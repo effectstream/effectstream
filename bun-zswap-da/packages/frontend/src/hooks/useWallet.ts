@@ -20,8 +20,10 @@ export function useWallet() {
   const [shieldedAddress, setShieldedAddress] = useState<string | null>(null);
   const [unshieldedAddress, setUnshieldedAddress] = useState<string | null>(null);
   const [shieldedBalances, setShieldedBalances] = useState<Record<string, string> | null>(null);
+  const [unshieldedBalances, setUnshieldedBalances] = useState<Record<string, string> | null>(null);
   const [networkId, setNetworkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Live ConnectedAPI + its pre-connect factory. Stored in refs so the proxy
   // exposed to the app can transparently re-connect when the wallet channel
@@ -92,23 +94,27 @@ export function useWallet() {
       setNetworkId(config.networkId);
 
       console.log('[wallet] connect: fetching addresses + balances in parallel…');
-      const [shielded, unshielded, shBalances] = await Promise.all([
+      const [shielded, unshielded, shBalances, unshBalances] = await Promise.all([
         wrapped.getShieldedAddresses(),
         wrapped.getUnshieldedAddress(),
         wrapped.getShieldedBalances(),
+        wrapped.getUnshieldedBalances(),
       ]);
       console.log('[wallet] connect: shielded address', shielded.shieldedAddress);
       console.log('[wallet] connect: unshielded address', unshielded.unshieldedAddress);
       console.log('[wallet] connect: shielded balances', shBalances);
+      console.log('[wallet] connect: unshielded balances', unshBalances);
 
       setShieldedAddress(shielded.shieldedAddress);
       setUnshieldedAddress(unshielded.unshieldedAddress);
 
-      const balancesStr: Record<string, string> = {};
-      for (const [token, amount] of Object.entries(shBalances)) {
-        balancesStr[token] = String(amount);
-      }
-      setShieldedBalances(balancesStr);
+      const stringify = (m: Record<string, bigint>): Record<string, string> => {
+        const out: Record<string, string> = {};
+        for (const [token, amount] of Object.entries(m)) out[token] = String(amount);
+        return out;
+      };
+      setShieldedBalances(stringify(shBalances));
+      setUnshieldedBalances(stringify(unshBalances));
 
       console.log('[wallet] probe: apiVersion reported by connector =', initialApi.apiVersion);
       console.log('[wallet] probe: typeof api.makeIntent =', typeof (api as any).makeIntent);
@@ -126,17 +132,43 @@ export function useWallet() {
   }, [ensureProxy]);
 
   const refreshBalances = useCallback(async () => {
-    const api = apiRef.current;
+    const api = proxyRef.current ?? apiRef.current;
     if (!api) return;
+    setRefreshing(true);
     try {
-      const shBalances = await (proxyRef.current ?? api).getShieldedBalances();
-      const balancesStr: Record<string, string> = {};
-      for (const [token, amount] of Object.entries(shBalances)) {
-        balancesStr[token] = String(amount);
-      }
-      setShieldedBalances(balancesStr);
+      // Pull the full picture — balances + dust + recent tx history + addresses —
+      // so we can see at a glance whether (a) the wallet has synced past the
+      // mint's block (dust > 0 or any history entries), (b) Lace registered
+      // the mint tx as relevant to it (tx in history), and (c) the keys we're
+      // using on the dapp side match what Lace reports.
+      const [shBalances, unshBalances, dust, shielded, unshielded, history] = await Promise.all([
+        api.getShieldedBalances(),
+        api.getUnshieldedBalances(),
+        api.getDustBalance().catch((e) => ({ error: String(e?.message ?? e) })),
+        api.getShieldedAddresses().catch((e) => ({ error: String(e?.message ?? e) })),
+        api.getUnshieldedAddress().catch((e) => ({ error: String(e?.message ?? e) })),
+        api.getTxHistory(0, 10).catch((e) => ({ error: String(e?.message ?? e) })),
+      ]);
+      const stringify = (m: Record<string, bigint>): Record<string, string> => {
+        const out: Record<string, string> = {};
+        for (const [token, amount] of Object.entries(m)) out[token] = String(amount);
+        return out;
+      };
+      setShieldedBalances(stringify(shBalances));
+      setUnshieldedBalances(stringify(unshBalances));
+      // Single grouped dump so it's easy to copy-paste back when debugging.
+      console.groupCollapsed('[wallet] refreshBalances: full diagnostic');
+      console.log('shielded balances:', shBalances);
+      console.log('unshielded balances:', unshBalances);
+      console.log('dust:', dust);
+      console.log('shielded addresses:', shielded);
+      console.log('unshielded address:', unshielded);
+      console.log('tx history (latest 10):', history);
+      console.groupEnd();
     } catch (e) {
       console.warn('[wallet] refreshBalances failed', e);
+    } finally {
+      setRefreshing(false);
     }
   }, []);
 
@@ -152,8 +184,10 @@ export function useWallet() {
     setShieldedAddress(null);
     setUnshieldedAddress(null);
     setShieldedBalances(null);
+    setUnshieldedBalances(null);
     setNetworkId(null);
     setError(null);
+    setRefreshing(false);
   }, []);
 
   return {
@@ -164,8 +198,10 @@ export function useWallet() {
     shieldedAddress,
     unshieldedAddress,
     shieldedBalances,
+    unshieldedBalances,
     networkId,
     error,
+    refreshing,
     connectWallet,
     disconnectWallet,
     refreshBalances,

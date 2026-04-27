@@ -27,7 +27,11 @@ import {
   type WalletProvider,
 } from '@midnight-ntwrk/midnight-js-types';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
-import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import {
+  parseCoinPublicKeyToHex,
+  parseEncPublicKeyToHex,
+} from '@midnight-ntwrk/midnight-js-utils';
 
 import { OfferFilesContract, witnesses } from '@zswap-da/contract-offer-files';
 import { decodeOffer } from 'mip-zswap-offer';
@@ -182,10 +186,43 @@ async function buildProviders(
 ): Promise<OfferFilesProviders> {
   const [shieldedAddresses] = await Promise.all([connectedApi.getShieldedAddresses()]);
 
+  // Lace returns shielded keys in bech32m form, but ledger-v8's CoinPublicKey /
+  // EncPublicKey are documented as "hex-encoded 35-byte string". Passing
+  // bech32m straight through means mint_shielded creates a zswap output whose
+  // recipient bytes are the bech32m string interpreted as hex — i.e. addressed
+  // to a key nobody holds, so the wallet never finds the coin. Normalize here.
+  const coinPublicKeyHex = parseCoinPublicKeyToHex(
+    shieldedAddresses.shieldedCoinPublicKey,
+    config.networkId as NetworkId,
+  );
+  const encPublicKeyHex = parseEncPublicKeyToHex(
+    shieldedAddresses.shieldedEncryptionPublicKey,
+    config.networkId as NetworkId,
+  );
+
+  // Diagnostic dump — the coin public key here is the recipient that will be
+  // baked into the mint output's coin commitment AND the encryption ciphertext
+  // is keyed off encPublicKeyHex. If either of these doesn't match what Lace
+  // actually scans for, the wallet will never claim the mint.
+  console.log('[browserContract] keys for mint output recipient + ciphertext', {
+    networkId: config.networkId,
+    raw: {
+      shieldedAddress: shieldedAddresses.shieldedAddress,
+      shieldedCoinPublicKey: shieldedAddresses.shieldedCoinPublicKey,
+      shieldedEncryptionPublicKey: shieldedAddresses.shieldedEncryptionPublicKey,
+    },
+    parsed: {
+      coinPublicKeyHex,
+      coinPublicKeyHexLen: coinPublicKeyHex.length,
+      encPublicKeyHex,
+      encPublicKeyHexLen: encPublicKeyHex.length,
+    },
+  });
+
   const walletAndMidnightProvider = createWalletAndMidnightProvider(
     connectedApi,
-    shieldedAddresses.shieldedCoinPublicKey as unknown as CoinPublicKey,
-    shieldedAddresses.shieldedEncryptionPublicKey as unknown as EncPublicKey,
+    coinPublicKeyHex as unknown as CoinPublicKey,
+    encPublicKeyHex as unknown as EncPublicKey,
   );
 
   // Dev-server hazard: when FetchZkConfigProvider asks for a circuit we don't
@@ -216,8 +253,10 @@ async function buildProviders(
     privateStateProvider: levelPrivateStateProvider({
       privateStoragePasswordProvider: async () => 'ZSWAP_DA_STORAGE_PASSWORD_16+',
       // Account-scope storage to the connected wallet so switching wallets
-      // doesn't leak or collide private state across accounts.
-      accountId: shieldedAddresses.shieldedCoinPublicKey,
+      // doesn't leak or collide private state across accounts. Use the hex
+      // form so the storage key matches the canonical CoinPublicKey shape
+      // and stays stable across any Lace bech32-prefix changes.
+      accountId: coinPublicKeyHex,
     } as any),
     zkConfigProvider,
     proofProvider: httpClientProofProvider(config.proofServerUri, zkConfigProvider),

@@ -9,6 +9,9 @@ interface WalletBalancesProps {
   knownTokens: KnownToken[];
   balanceRefreshTrigger: number;
   browserBalances?: Record<string, string> | null;
+  browserUnshieldedBalances?: Record<string, string> | null;
+  onRefresh?: () => void | Promise<void>;
+  refreshing?: boolean;
 }
 
 function BalanceList({
@@ -44,6 +47,9 @@ export const WalletBalances: React.FC<WalletBalancesProps> = ({
   knownTokens,
   balanceRefreshTrigger,
   browserBalances,
+  browserUnshieldedBalances,
+  onRefresh,
+  refreshing,
 }) => {
   const isBrowser = activeWallet === BROWSER_WALLET_ID;
   // Skip backend fetch for the browser wallet — it has no backend presence.
@@ -53,16 +59,35 @@ export const WalletBalances: React.FC<WalletBalancesProps> = ({
   );
 
   const balances = isBrowser
-    ? { shielded: browserBalances ?? {}, unshielded: {} as Record<string, string> }
+    ? {
+        shielded: browserBalances ?? {},
+        unshielded: browserUnshieldedBalances ?? {},
+      }
     : backendBalances;
+
+  const isBusy = (loading && !balances) || refreshing;
 
   return (
     <section>
-      <h2 style={{ marginBottom: '12px' }}>
-        Wallet Balances{' '}
-        <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 400 }}>
-          ({activeWallet ?? '—'})
+      <h2 style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span>
+          Wallet Balances{' '}
+          <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 400 }}>
+            ({activeWallet ?? '—'})
+          </span>
         </span>
+        {onRefresh && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            onClick={() => { void onRefresh(); }}
+            disabled={isBusy}
+            title="Re-fetch balances from the wallet"
+            style={{ marginLeft: 'auto' }}
+          >
+            {isBusy ? 'Refreshing…' : 'Refresh'}
+          </button>
+        )}
       </h2>
 
       {loading && !balances && (

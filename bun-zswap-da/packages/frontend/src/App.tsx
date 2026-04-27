@@ -62,6 +62,13 @@ function App() {
 
   const isBrowserActive = activeWallet === BROWSER_WALLET_ID;
 
+  const handleRefreshBalances = useCallback(async () => {
+    setBalanceRefreshTrigger(prev => prev + 1);
+    if (wallet.status === 'connected') {
+      await wallet.refreshBalances();
+    }
+  }, [wallet]);
+
   return (
     <>
       <Header
@@ -113,6 +120,9 @@ function App() {
             knownTokens={knownTokens}
             balanceRefreshTrigger={balanceRefreshTrigger}
             browserBalances={isBrowserActive ? wallet.shieldedBalances : null}
+            browserUnshieldedBalances={isBrowserActive ? wallet.unshieldedBalances : null}
+            onRefresh={handleRefreshBalances}
+            refreshing={isBrowserActive && wallet.refreshing}
           />
         </div>
       </div>
