@@ -10,7 +10,6 @@ const rootPkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8"));
 const version = rootPkg.version;
 
 const DEPRECATED = new Set([
-  "@effectstream/orchestrator",
   "@effectstream/explorer",
 ]);
 
