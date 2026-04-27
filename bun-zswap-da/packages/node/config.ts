@@ -21,6 +21,27 @@ export const CELESTIA_RPC_URL = getEnv("CELESTIA_RPC_URL") ?? "http://127.0.0.1:
 export const CELESTIA_NAMESPACE = getEnv("CELESTIA_NAMESPACE") ?? "000000000000deadbeef";
 export const CELESTIA_FEE = parseInt(getEnv("CELESTIA_FEE") ?? "2000");
 export const CELESTIA_GAS_LIMIT = parseInt(getEnv("CELESTIA_GAS_LIMIT") ?? "100000");
+export const CELESTIA_AUTH_TOKEN = getEnv("CELESTIA_AUTH_TOKEN") ?? "";
+export const CELESTIA_NETWORK = getEnv("CELESTIA_NETWORK") ?? "devnet";
+export const CELESTIA_START_HEIGHT = getEnv("CELESTIA_START_HEIGHT");
+// Sync poll cadence. Mainnet public gRPC endpoints rate-limit aggressively;
+// 30s (≈2.5 blocks) is safe and cuts call volume ~5x vs the 6s devnet default.
+export const CELESTIA_POLLING_INTERVAL_MS = parseInt(
+  getEnv("CELESTIA_POLLING_INTERVAL_MS") ??
+    (CELESTIA_NETWORK === "mainnet" ? "30000" : "6000"),
+);
+
+// celestia-node v0.30+ TxConfig. Each explicit field removes one consensus-gRPC
+// call from the submit path (gas estimator / min-gas-price query).
+// Leave unset to let the node auto-estimate.
+const _gasPrice = getEnv("CELESTIA_GAS_PRICE");
+const _gas = getEnv("CELESTIA_GAS");
+const _maxGasPrice = getEnv("CELESTIA_MAX_GAS_PRICE");
+const _txPriority = getEnv("CELESTIA_TX_PRIORITY");
+export const CELESTIA_GAS_PRICE = _gasPrice ? parseFloat(_gasPrice) : undefined;
+export const CELESTIA_GAS = _gas ? parseInt(_gas) : undefined;
+export const CELESTIA_MAX_GAS_PRICE = _maxGasPrice ? parseFloat(_maxGasPrice) : undefined;
+export const CELESTIA_TX_PRIORITY = _txPriority ? parseInt(_txPriority) : undefined;
 
 // Offer lifetime before the TTL-cleanup scheduled input archives it.
 // Defaults to 7 days.
@@ -42,6 +63,29 @@ export const midnightContract = (() => {
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
+
+let celestiaStartHeight: number = 1;
+if (typeof process !== "undefined") {
+  if (CELESTIA_START_HEIGHT) {
+    celestiaStartHeight = parseInt(CELESTIA_START_HEIGHT);
+  } else if (CELESTIA_NETWORK === "mainnet") {
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (CELESTIA_AUTH_TOKEN) headers["Authorization"] = `Bearer ${CELESTIA_AUTH_TOKEN}`;
+      const res = await fetch(CELESTIA_RPC_URL, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "header.NetworkHead", params: [] }),
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(JSON.stringify(json.error));
+      celestiaStartHeight = parseInt(json.result.header.height, 10);
+      console.log(`[Celestia] Starting mainnet sync at head height ${celestiaStartHeight}`);
+    } catch (e) {
+      console.error("[Celestia] Failed to fetch mainnet head, falling back to height 1:", e);
+    }
+  }
+}
 
 if (typeof process !== "undefined") {
   const dbConn = getConnection();
@@ -117,9 +161,10 @@ export const localhostConfig = new ConfigBuilder()
         (_network, _deployments) => ({
           name: "parallelCelestia",
           type: ConfigSyncProtocolType.CELESTIA_PARALLEL,
-          startBlockHeight: 1 as BlockNumber,
-          // Celestia block time is ~12s; poll every 6s and wait 1 block for safety
-          pollingInterval: 6_000,
+          startBlockHeight: celestiaStartHeight as BlockNumber,
+          // Celestia block time is ~12s. Mainnet defaults to 30s polling to
+          // stay under public gRPC rate limits; devnet keeps the tight 6s.
+          pollingInterval: CELESTIA_POLLING_INTERVAL_MS,
           delayMs: 12_000,
           confirmationDepth: 1,
         }),
@@ -131,7 +176,7 @@ export const localhostConfig = new ConfigBuilder()
       (_network, _deployments, _syncProtocol) => ({
         name: "ZswapBlob",
         type: PrimitiveTypeCelestiaGeneric,
-        startBlockHeight: 1,
+        startBlockHeight: celestiaStartHeight,
         namespace: CELESTIA_NAMESPACE,
         stateMachinePrefix: "celestia-zswap",
       }),

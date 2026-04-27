@@ -2,6 +2,7 @@ import type { OrchestratorConfig } from "@effectstream/orchestrator-v2/config";
 import { launchPglite, DbNames } from "@effectstream/orchestrator-v2/launch-pglite";
 
 const CELESTIA_HOME = "/tmp/celestia-e2e-zswap-home";
+const USE_CELESTIA_MAINNET = process.env["CELESTIA_NETWORK"] === "mainnet";
 
 /**
  * ZSwap-DA e2e orchestrator: combined Celestia + Midnight infrastructure.
@@ -47,45 +48,45 @@ export default {
       critical: true,
     },
 
-    // ── Clean Celestia data from previous runs ──────────────────────────────
-    {
-      name: "celestia-clean",
-      description: "Remove stale Celestia devnet data",
-      args: ["-e", `await import('fs').then(fs => { try { fs.rmSync('${CELESTIA_HOME}', { recursive: true, force: true }); } catch {} }); console.log('Celestia home cleaned');`],
-      waitToExit: true,
-    },
-
-    // ── Celestia Infrastructure ───────────────────────────────────────────────
-    {
-      name: "celestia-devnet",
-      description: "Celestia consensus node + bridge (ports 26657, 26658)",
-      cwd: "e2e-v2/shared/contracts/celestia",
-      stopProcessAtPort: [26657, 26658],
-      args: ["run", "celestia-bridge:start"],
-      env: { CELESTIA_HOME, CELESTIA_FORCE_NO_BBR: process.env.CELESTIA_FORCE_NO_BBR || "" },
-      waitToExit: false,
-      critical: true,
-      silent: true,
-      dependsOn: ["celestia-clean"],
-    },
-    {
-      name: "celestia-bridge-wait",
-      description: "Wait for Celestia bridge RPC on port 26658",
-      cwd: "e2e-v2/shared/contracts/celestia",
-      args: ["run", "celestia-bridge:wait"],
-      waitToExit: true,
-      dependsOn: ["celestia-devnet"],
-    },
-    {
-      name: "celestia-fund-bridge",
-      description: "Fund the bridge node wallet with tokens",
-      cwd: "e2e-v2/shared/contracts/celestia",
-      args: ["run", "celestia-fund:bridge"],
-      env: { CELESTIA_HOME },
-      waitToExit: true,
-      critical: true,
-      dependsOn: ["celestia-bridge-wait"],
-    },
+    // ── Celestia Infrastructure (devnet only; skipped in --celestia-mainnet) ─
+    ...(USE_CELESTIA_MAINNET ? [] : [
+      {
+        name: "celestia-clean",
+        description: "Remove stale Celestia devnet data",
+        args: ["-e", `await import('fs').then(fs => { try { fs.rmSync('${CELESTIA_HOME}', { recursive: true, force: true }); } catch {} }); console.log('Celestia home cleaned');`],
+        waitToExit: true,
+      },
+      {
+        name: "celestia-devnet",
+        description: "Celestia consensus node + bridge (ports 26657, 26658)",
+        cwd: "e2e-v2/shared/contracts/celestia",
+        stopProcessAtPort: [26657, 26658],
+        args: ["run", "celestia-bridge:start"],
+        env: { CELESTIA_HOME, CELESTIA_FORCE_NO_BBR: process.env.CELESTIA_FORCE_NO_BBR || "" },
+        waitToExit: false,
+        critical: true,
+        silent: true,
+        dependsOn: ["celestia-clean"],
+      },
+      {
+        name: "celestia-bridge-wait",
+        description: "Wait for Celestia bridge RPC on port 26658",
+        cwd: "e2e-v2/shared/contracts/celestia",
+        args: ["run", "celestia-bridge:wait"],
+        waitToExit: true,
+        dependsOn: ["celestia-devnet"],
+      },
+      {
+        name: "celestia-fund-bridge",
+        description: "Fund the bridge node wallet with tokens",
+        cwd: "e2e-v2/shared/contracts/celestia",
+        args: ["run", "celestia-fund:bridge"],
+        env: { CELESTIA_HOME },
+        waitToExit: true,
+        critical: true,
+        dependsOn: ["celestia-bridge-wait"],
+      },
+    ] as const),
 
     // ── Midnight Infrastructure ───────────────────────────────────────────────
     {
@@ -167,7 +168,7 @@ export default {
       env: { PGLITE: "true" },
       dependsOn: [
         "apply-migrations",
-        "celestia-fund-bridge",
+        ...(USE_CELESTIA_MAINNET ? [] : ["celestia-fund-bridge"]),
         "midnight-contract-deploy",
       ],
     },
