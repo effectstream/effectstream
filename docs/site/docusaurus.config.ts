@@ -129,6 +129,9 @@ const config = {
         // },          
         blog: {
           showReadingTime: true,
+          blogSidebarCount: 'ALL',
+          blogSidebarTitle: 'All posts',
+          postsPerPage: 'ALL',
         },
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
