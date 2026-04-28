@@ -65,7 +65,7 @@ Submit a new input to the batching queue.
 |-------|-------------|-------------------|
 | `"no-wait"` | Immediately after queuing | `{ success, message, inputsProcessed }` |
 | `"wait-receipt"` | After blockchain confirmation | `{ success, message, transactionHash, inputsProcessed }` |
-| `"wait-effectstream-processed"` | After Effectstream processes | `{ success, message, transactionHash, rollup, inputsProcessed }` |
+| `"wait-effectstream-processed"` | After EffectStream processes | `{ success, message, transactionHash, rollup, inputsProcessed }` |
 
 **Response Example (`wait-receipt`):**
 ```json
@@ -776,9 +776,9 @@ batcher.addStateTransition("batch:receipt", ({ target, blockNumber }) => {
 
 ---
 
-#### 9. `batch:effectstream-processed` – Effectstream Processed
+#### 9. `batch:effectstream-processed` – EffectStream Processed
 
-**When:** Effectstream has processed the batch (only if waiting for `wait-effectstream-processed`).
+**When:** EffectStream has processed the batch (only if waiting for `wait-effectstream-processed`).
 
 **Payload:**
 ```typescript
@@ -793,7 +793,7 @@ batcher.addStateTransition("batch:receipt", ({ target, blockNumber }) => {
 **Example:**
 ```typescript
 batcher.addStateTransition("batch:effectstream-processed", ({ target, rollup }) => {
-  console.log(`🎯 Effectstream processed ${target} batch in rollup block ${rollup}`);
+  console.log(`🎯 EffectStream processed ${target} batch in rollup block ${rollup}`);
 });
 ```
 

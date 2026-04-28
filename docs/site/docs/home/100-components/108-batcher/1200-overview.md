@@ -119,10 +119,10 @@ batcher.addBlockchainAdapter("nft", nftAdapter, {
 
 ```typescript
 import { main, suspend } from "effection";
-import { Batcher, FileStorage, EffectstreamL2DefaultAdapter } from "@effectstream/batcher";
+import { Batcher, FileStorage, EffectStreamL2DefaultAdapter } from "@effectstream/batcher";
 
 // 1. Create adapter
-const adapter = new EffectstreamL2DefaultAdapter(
+const adapter = new EffectStreamL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",  // Contract address
   process.env.PRIVATE_KEY!,                       // Private key
   0n,                                              // Fee

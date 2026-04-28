@@ -1,9 +1,9 @@
 # Rock Paper Scissors Wars (Turn-Based Multiplayer)
 
 * **Path**: `/templates/rock-paper-scissors`
-* **Highlights**: A turn-based multiplayer Rock Paper Scissors game showcasing lobby systems, round-based gameplay, and competitive match mechanics using Effectstream's L2.
+* **Highlights**: A turn-based multiplayer Rock Paper Scissors game showcasing lobby systems, round-based gameplay, and competitive match mechanics using EffectStream's L2.
 
-The `rock-paper-scissors` template demonstrates how to build a competitive multiplayer game with lobby management, turn-based rounds, and player statistics. It's an excellent example for games requiring matchmaking, simultaneous hidden moves, and game state progression, all processed deterministically through an Effectstream L2 contract on an EVM chain.
+The `rock-paper-scissors` template demonstrates how to build a competitive multiplayer game with lobby management, turn-based rounds, and player statistics. It's an excellent example for games requiring matchmaking, simultaneous hidden moves, and game state progression, all processed deterministically through an EffectStream L2 contract on an EVM chain.
 
 ![Rock Paper Scissors Lobby System](./1207-rock-paper-scissors.md)
 
@@ -41,7 +41,7 @@ npm install
 node esbuild.js
 cd ../..
 
-# Start the Effectstream Node
+# Start the EffectStream Node
 deno task dev
 ```
 
@@ -95,32 +95,32 @@ docker run -p 8080:8080 -p 8545:8545 -p 9999:9999 rock-paper-scissors
 The container exposes:
 - **Port 8080**: Frontend
 - **Port 8545**: Local EVM node (Hardhat)
-- **Port 9999**: Effectstream backend API
+- **Port 9999**: EffectStream backend API
 
 ## The Components in Action
 
 When you run `deno task dev`, the [Process Orchestrator](../100-components/106-processes.md) sets up:
 *   **Hardhat EVM Node**: Local blockchain on port 8545
 *   **Development Services**: Database, log collector, TUI, and Explorer
-*   **Effectstream Node**: Backend service on port 9999
+*   **EffectStream Node**: Backend service on port 9999
 *   **Frontend**: Phaser.js game interface on port 8080
 
 ## On-Chain Logic
 
-The template uses a `Effectstream L2 Contract` deployed on the local EVM chain at `0x5FbDB2315678afecb367f032d93F642f64180aa3`. Players submit formatted input strings, and Effectstream processes them to update game state.
+The template uses a `EffectStream L2 Contract` deployed on the local EVM chain at `0x5FbDB2315678afecb367f032d93F642f64180aa3`. Players submit formatted input strings, and EffectStream processes them to update game state.
 
 ```solidity
-// The EffectstreamL2Contract acts as an input mailbox
-contract EffectstreamL2 {
-    event EffectstreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
+// The EffectStreamL2Contract acts as an input mailbox
+contract EffectStreamL2 {
+    event EffectStreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
 
     function submitInput(bytes calldata input) external payable {
-        emit EffectstreamGameInteraction(msg.sender, input, nonce);
+        emit EffectStreamGameInteraction(msg.sender, input, nonce);
     }
 }
 ```
 
-Effectstream monitors the `EffectstreamGameInteraction` event to receive and process player inputs.
+EffectStream monitors the `EffectStreamGameInteraction` event to receive and process player inputs.
 
 ## The State Machine (`state-machine.ts`)
 
@@ -538,13 +538,13 @@ The frontend uses **Phaser.js** for game rendering and UI, with wallet integrati
 
 ### Wallet Middleware
 
-The middleware layer (`paimaMiddleware.src.js`) bridges Phaser to the Effectstream wallet API:
+The middleware layer (`paimaMiddleware.src.js`) bridges Phaser to the EffectStream wallet API:
 
 ```javascript
-import { EffectstreamConfig, sendTransaction, walletLogin, WalletMode } from "@paimaexample/wallets";
+import { EffectStreamConfig, sendTransaction, walletLogin, WalletMode } from "@paimaexample/wallets";
 import { hardhat } from "viem/chains";
 
-const effectstreamConfig = new EffectstreamConfig(
+const effectstreamConfig = new EffectStreamConfig(
   "rock-paper-scissors",
   "mainEvmRPC",
   "0x5FbDB2315678afecb367f032d93F642f64180aa3",
@@ -622,7 +622,7 @@ export async function transitionFunction(...): Promise<SQLUpdate> {
 ```
 
 This pattern ensures:
-- **Deterministic execution**: Effectstream manages all side effects
+- **Deterministic execution**: EffectStream manages all side effects
 - **Testability**: Transition functions return SQL descriptions
 - **Type safety**: pgtyped generates types for all queries
 - **Async support**: Transition functions can be async for flexibility
@@ -687,5 +687,5 @@ deno task pgtyped:update
 Check that:
 1. MetaMask is connected to Localhost 8545
 2. You have test ETH in your account
-3. The Effectstream node is running (`deno task dev`)
+3. The EffectStream node is running (`deno task dev`)
 4. Check browser console for errors

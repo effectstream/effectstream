@@ -1,6 +1,6 @@
 # Logs
 
-Effectstream sends logs by default to a Open Telemetry Collector. 
+EffectStream sends logs by default to a Open Telemetry Collector. 
 
 ## Local Viewer Storage
 

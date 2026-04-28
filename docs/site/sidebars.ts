@@ -11,7 +11,7 @@ const sidebars = {
     },
     {
       type: 'link',
-      label: 'Effectstream Github',
+      label: 'EffectStream Github',
       href: 'https://github.com/PaimaStudios/paima-engine/',
     },
   ],

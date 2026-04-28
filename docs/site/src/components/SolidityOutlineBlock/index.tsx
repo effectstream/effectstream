@@ -18,19 +18,19 @@ const SolidityOutlineBlock = (
     }
 ) => {
     return (
-      <div style={{ fontFamily: "'Roboto Mono', monospace" }} className="bg-[#151B1B] p-4 rounded-lg mb-8">
-        <h2 className="text-xl text-[#1cc489] font-bold mb-4">{type}</h2>
+      <div style={{ fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }} className="bg-es-bg-subtle p-4 rounded-es-md mb-8 border border-es-border">
+        <h2 className="text-xl text-es-cyan font-bold mb-4">{type}</h2>
         {lists.filter(list => list.lines.length > 0).map((list, index, filteredList) => (
           <div key={index} className="relative">
             {list.category && (
-              <h3 className="text-[0.7rem] text-[#688787] font-semibold absolute top-0 right-0 px-2">
+              <h3 className="text-[0.7rem] text-es-text-tertiary font-semibold absolute top-0 right-0 px-2">
                 {list.category}
               </h3>
             )}
             <ul className="list-none pl-0 mt-8">
               {list.lines.map((line, lineIndex) => (
                 <li key={lineIndex} className="my-1">
-                  <a href={`#${line.anchor}`} className={`hover:underline ${index !== 0 ? "text-[#a9bcbc]" : "text-[#e2e9e9]"}`}>
+                  <a href={`#${line.anchor}`} className={`hover:underline ${index !== 0 ? "text-es-text-secondary" : "text-es-text"}`}>
                     {line.text}
                   </a>
                 </li>

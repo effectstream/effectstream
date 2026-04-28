@@ -1,6 +1,6 @@
 # Polkadot & Substrate
 
-Effectstream provides wallet connection and cryptographic verification support for the Polkadot ecosystem and Substrate-based chains.
+EffectStream provides wallet connection and cryptographic verification support for the Polkadot ecosystem and Substrate-based chains.
 
 > **Note**: Full Read (Sync) and Write (Batcher) support for generic Polkadot chains is currently in development.
 

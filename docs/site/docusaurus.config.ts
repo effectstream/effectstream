@@ -46,17 +46,17 @@ async function getMarkdownFiles() {
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Effectstream",
+  title: "EffectStream",
   //  tagline: 'Getting started',
   url: "https://effectstream.github.io",
   baseUrl: "/docs/",
   onBrokenLinks: "warn",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/favicon.ico",
+  favicon: "img/favicon.svg",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: "Effectstream", // Usually your GitHub org/user name.
+  organizationName: "EffectStream", // Usually your GitHub org/user name.
   projectName: "effectstream-engine-docs", // Usually your repo name.
 
   // Even if you don't use internalization, you can use this field to set useful
@@ -127,13 +127,9 @@ const config = {
         //   beforeDefaultRemarkPlugins: [],
         //   beforeDefaultRehypePlugins: [],
         // },          
-        //blog: false,
-        // blog: {
-        //   showReadingTime: true,
-        //   // Please change this to your repo.
-        //   // Remove this to remove the "edit this page" links.
-        //   // editUrl: "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
-        // },
+        blog: {
+          showReadingTime: true,
+        },
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
         },
@@ -203,18 +199,6 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      announcementBar: {
-        id: 'v2-announcement',
-        content: `
-      <div class="custom-banner">
-        <p><strong>You are looking at Effectstream v2 docs</strong></p>
-        <p>Effectstream v2 is still under construction🚧</p>
-      </div>
-    `,
-        backgroundColor: '#fffcf9', 
-        textColor: '#ef476f',
-        isCloseable: false,
-      },
       colorMode: {
         defaultMode: 'dark',
         disableSwitch: true,
@@ -224,39 +208,34 @@ const config = {
         theme: { light: 'base', dark: 'base' },
         options: {
           themeVariables: {
-            'primaryColor': '#12271F',
-            'primaryTextColor': '#fff',
-            'lineColor': '#aaa',
-            'edgeLabelBackground': '#030909',
-            'tertiaryColor': '#fff',
-            'clusterBkg': '#00130C',
-            'clusterBorder': '000',
-            'titleColor': '#aaa',
-            'activationBkgColor': '#003320',
+            'primaryColor': '#13131a',
+            'primaryTextColor': '#f0f0f5',
+            'lineColor': '#666',
+            'edgeLabelBackground': '#0D0D12',
+            'tertiaryColor': '#f0f0f5',
+            'clusterBkg': '#131319',
+            'clusterBorder': '#1f1f27',
+            'titleColor': '#999',
+            'activationBkgColor': '#0f2d22',
           }
         }
       },
       image: 'img/no-image.png',
       navbar: {
-        title: "Effectstream",
+        title: "",
         logo: {
-          alt: "Effectstream logo",
-          src: "img/favicon.ico",
+          alt: "EffectStream logo",
+          src: "img/favicon.svg",
           href: "/",
-          target: '_self',          
+          target: '_self',
         },
         items: [
+          { to: "/", label: "Docs", position: "left" },
+          { to: "/blog", label: "Blog", position: "left" },
           {
             type: "localeDropdown",
             position: "right",
-          },      
-          // {
-          //   type: "doc",
-          //   docId: "intro",
-          //   position: "left",
-          //   label: "Tutorial",
-          // },
-          // { to: "/blog", label: "Blog", position: "left" },
+          },
           // {
           //   href: "https://github.com/facebook/docusaurus",
           //   label: "GitHub",

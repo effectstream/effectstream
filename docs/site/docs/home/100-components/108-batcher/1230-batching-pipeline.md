@@ -12,7 +12,7 @@ This knowledge helps you:
 
 ## Target Audience
 
-Developers building on or integrating with the Effectstream platform who need to batch transactions, especially those who want to:
+Developers building on or integrating with the EffectStream platform who need to batch transactions, especially those who want to:
 - Customize adapter behavior for different blockchains
 - Understand validation and security guarantees
 - Configure confirmation levels appropriately
@@ -232,12 +232,12 @@ If `confirmationLevel` is `"wait-receipt"`, the API call **returns at this point
 }
 ```
 
-### Step 9: Effectstream Processing (Optional)
+### Step 9: EffectStream Processing (Optional)
 
-After blockchain confirmation, the batcher optionally waits for the Effectstream to process the batch. This step:
+After blockchain confirmation, the batcher optionally waits for the EffectStream to process the batch. This step:
 
-1. Monitors Effectstream Sync events for the specific transaction
-2. Waits until the Effectstream has parsed and validated the inputs
+1. Monitors EffectStream Sync events for the specific transaction
+2. Waits until the EffectStream has parsed and validated the inputs
 3. Returns the rollup block number where processing occurred
 
 #### Confirmation Level: "wait-effectstream-processed"
@@ -247,7 +247,7 @@ If `confirmationLevel` is `"wait-effectstream-processed"`, the API call **waits 
 ```json
 {
   "success": true,
-  "message": "Input processed and validated by Effectstream",
+  "message": "Input processed and validated by EffectStream",
   "transactionHash": "0xabc...",
   "rollup": 12345,
   "inputsProcessed": 1
@@ -339,8 +339,8 @@ If `confirmationLevel` is not explicitly provided in the API call, the batcher u
                   │
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  9. Wait for Effectstream Processing (Optional)             │
-│     Monitor Effectstream Sync events                        │
+│  9. Wait for EffectStream Processing (Optional)             │
+│     Monitor EffectStream Sync events                        │
 │     Wait for rollup block processing                        │
 │                                                              │
 │  🔹 confirmationLevel: "wait-effectstream-processed" → returns here│
@@ -358,7 +358,7 @@ If `confirmationLevel` is not explicitly provided in the API call, the batcher u
 1. **Validation happens before queuing**: Invalid inputs never reach storage
 2. **Storage is crash-safe**: Inputs persist through restarts
 3. **Adapters control key operations**: Signature verification, validation, building, and submission are all adapter-specific
-4. **Confirmation levels offer flexibility**: Choose between immediate return, blockchain confirmation, or full Effectstream processing
+4. **Confirmation levels offer flexibility**: Choose between immediate return, blockchain confirmation, or full EffectStream processing
 5. **Per-target configuration**: Different blockchain targets can have different criteria and confirmation levels
 6. **Event-driven observability**: State transitions emit events throughout the pipeline for monitoring and logging
 

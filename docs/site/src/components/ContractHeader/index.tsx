@@ -13,7 +13,7 @@ const ContractHeader = (
 ) => {
     return (
         <div id={anchor} className="flex justify-between">
-            <h3 style={{ fontFamily: "'Roboto Mono', monospace" }}>{children}</h3>
+            <h3 style={{ fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}>{children}</h3>
             <span>
                 <a href={githubLink}>
                     <img className="-mb-0.5 mr-2" width="16`" height="16" src="https://github.githubassets.com/favicons/favicon-dark.png" />

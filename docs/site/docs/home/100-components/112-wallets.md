@@ -5,7 +5,7 @@
 
 In any decentralized application, the user's wallet is their identity, their key, and their signature. It's the fundamental tool that allows them to interact with the blockchain and prove ownership of their assets and actions.
 
-A major challenge in building multi-chain dApps is that every blockchain ecosystem has its own wallet standards and connection methods. Effectstream solves this problem by providing a single, unified interface that handles the complexity for you.
+A major challenge in building multi-chain dApps is that every blockchain ecosystem has its own wallet standards and connection methods. EffectStream solves this problem by providing a single, unified interface that handles the complexity for you.
 
 ## The `@effectstream/wallet` Package
 
@@ -13,7 +13,7 @@ The `@effectstream/wallet` package is the core frontend library for managing use
 
 ## AddressType
 
-This table is a Effectstream numeric representation of wallet address type. Normally addresses will be used with it's corresponding address type, so the correct cryptographic signer/verifiers can be selected.
+This table is a EffectStream numeric representation of wallet address type. Normally addresses will be used with it's corresponding address type, so the correct cryptographic signer/verifiers can be selected.
 
 | Address Type | Number |
 | ------------ | ------ |
@@ -33,7 +33,7 @@ Integrating wallet connectivity into your dApp is streamlined with a single `log
 ```ts
 import { WalletMode, login } from '@effectstream/wallet';
 
-const effectstreamConfig = new EffectstreamConfig(...); // see EffectstreamConfig in the @effectstream/wallets package
+const effectstreamConfig = new EffectStreamConfig(...); // see EffectStreamConfig in the @effectstream/wallets package
 
 async function connectWallet() {
   try {
@@ -64,23 +64,23 @@ The `WalletMode` enum allows you to support a broad range of ecosystems, enablin
 | **`AvailJs`** | Avail | Connects to wallets for the Avail network. |
 | **`Midnight`** | Midnight | Connects to Lace Wallet |
 
-## EffectstreamConfig
+## EffectStreamConfig
 
-The `EffectstreamConfig` is used to configure the Effectstream.
+The `EffectStreamConfig` is used to configure the EffectStream.
 
 Settings:
 * **App Name**: The name of the app, used to internally sign messages.
-* **Effectstream L2 Sync Protocol Name**: The name of the effectstream l2 sync protocol defined in your config.
-* **Effectstream L2 Contract Address**: The address of the effectstream l2 contract to target.
-* **Effectstream L2 Chain**: The chain of the effectstream l2 contract.
-* **Effectstream L2 ABI**: (Optional) The abi of the effectstream l2 contract.
+* **EffectStream L2 Sync Protocol Name**: The name of the effectstream l2 sync protocol defined in your config.
+* **EffectStream L2 Contract Address**: The address of the effectstream l2 contract to target.
+* **EffectStream L2 Chain**: The chain of the effectstream l2 contract.
+* **EffectStream L2 ABI**: (Optional) The abi of the effectstream l2 contract.
 * **Batcher URL**: The url of the batcher to use.
 * **Prefer Batched Mode**: If true use batcher by default, otherwise use self-sequenced transaction.
 
-See the `EffectstreamConfig` in the `@effectstream/wallets` package for more details.
+See the `EffectStreamConfig` in the `@effectstream/wallets` package for more details.
 
 ```ts
-const effectstreamConfig = new EffectstreamConfig(
+const effectstreamConfig = new EffectStreamConfig(
   "my-app",                       // app name
   "effectstream-l2-sync-protocol-name",  // effectstream l2 sync protocol name
   "0x1234567890abcdef",           // effectstream l2 contract address
@@ -95,9 +95,9 @@ const effectstreamConfig = new EffectstreamConfig(
 
 Once a user has connected their wallet, your frontend can use the returned `walletClient` for different uses.
 
-### 1. Sending Concise Inputs to Effectstream L2 Contract
+### 1. Sending Concise Inputs to EffectStream L2 Contract
 
-Send a transaction to the Effectstream L2 contract.
+Send a transaction to the EffectStream L2 contract.
 This will automatically decide whether to use the batcher or the self-sequenced transaction based on the `preferBatchedMode` flag.
 
 ```ts
@@ -120,7 +120,7 @@ const result = await sendBatcherTransaction(walletClient, conciseInput, effectst
 
 For specific, high-stakes actions, or if your dApp doesn't use a Batcher, you can use the wallet to send traditional on-chain transactions.
 
-*   **Direct Effectstream L2 Contract Interaction**: Call the `submitInput` function on the `EffectstreamL2Contract` to send a game move directly.
+*   **Direct EffectStream L2 Contract Interaction**: Call the `submitInput` function on the `EffectStreamL2Contract` to send a game move directly.
 This can be done using the `sendSelfSequencedTransaction` function.
 ```ts
 const result = await sendSelfSequencedTransaction(walletClient, conciseInput, effectstreamConfig);
@@ -130,7 +130,7 @@ const result = await sendSelfSequencedTransaction(walletClient, conciseInput, ef
 
 ### 4. User Identification
 
-The user's `walletAddress` is their primary identifier within the Effectstream. When your State Machine receives an input, it knows which user performed the action based on the `signerAddress`. This address is used to query the database for the user's state, inventory, and other relevant information.
+The user's `walletAddress` is their primary identifier within the EffectStream. When your State Machine receives an input, it knows which user performed the action based on the `signerAddress`. This address is used to query the database for the user's state, inventory, and other relevant information.
 
 ### 4. Signing Messages
 
@@ -140,14 +140,14 @@ const message = "my-message";
 const signature = await walletClient.signMessage({ message });
 ```
 
-## Wallets and the Effectstream Account System
+## Wallets and the EffectStream Account System
 
-A wallet address is not just an identifier; it's also the key to Effectstream's flexible L2 **Account System**. While a wallet can act as a standalone identity, it can also be linked to a higher-level Effectstream Account.
+A wallet address is not just an identifier; it's also the key to EffectStream's flexible L2 **Account System**. While a wallet can act as a standalone identity, it can also be linked to a higher-level EffectStream Account.
 
 This allows for an "account abstraction" experience where:
-*   A single Effectstream Account can be controlled by multiple wallet addresses.
+*   A single EffectStream Account can be controlled by multiple wallet addresses.
 *   The primary (controlling) wallet of an account can be changed.
 
-A user manages their account by sending built-in system commands (like `&linkAddress`) to the `EffectstreamL2Contract`, using their connected wallet to authorize the action with a signature.
+A user manages their account by sending built-in system commands (like `&linkAddress`) to the `EffectStreamL2Contract`, using their connected wallet to authorize the action with a signature.
 
-**[Learn more about the Effectstream Account System](./116-accounts.md)**
+**[Learn more about the EffectStream Account System](./116-accounts.md)**

@@ -2,7 +2,7 @@
 
 Developing a multi-chain dApp is complex. It often requires running multiple local blockchains, indexers, deploying contracts, and managing various services simultaneously. Doing this manually is tedious, error-prone, and slows down development.
 
-The **Process Orchestrator** is a powerful tool built into Effectstream that solves this problem. It automates the setup of your entire local development environment. When you run `deno task dev` in the `/templates/evm-midnight/` example, the orchestrator reads a configuration file (`start.{env}.ts`) and launches all the necessary processes—from blockchains and databases to the batcher and frontend server—in the correct order.
+The **Process Orchestrator** is a powerful tool built into EffectStream that solves this problem. It automates the setup of your entire local development environment. When you run `deno task dev` in the `/templates/evm-midnight/` example, the orchestrator reads a configuration file (`start.{env}.ts`) and launches all the necessary processes—from blockchains and databases to the batcher and frontend server—in the correct order.
 
 Its main goal is to create a complete, "mini-production" environment on your machine, so you can focus on building your dApp, not on managing infrastructure.
 
@@ -13,16 +13,16 @@ The orchestrator is the main entry point for your development environment. When 
 1.  **Reads `start.{env}.ts`**: It loads your configuration, which defines all the processes to run.
 2.  **Launches Dependencies**: It starts foundational services like local blockchains (EVM, Midnight, etc.) and the development database. It can be configured to wait for each process to be ready before proceeding to the next step.
 3.  **Deploys Contracts**: Once the chains are running, it executes your deployment scripts.
-4.  **Starts Effectstream Services**: It launches core Effectstream services like the Batcher and the log collector.
-5.  **Starts the Sync Service**: Once the entire environment is successfully set up, the orchestrator starts the main **Effectstream Sync Service**. The Sync Service then loads its own configuration (`config.{env}.ts`) and begins the actual process of syncing blockchain data and running your state machine.
+4.  **Starts EffectStream Services**: It launches core EffectStream services like the Batcher and the log collector.
+5.  **Starts the Sync Service**: Once the entire environment is successfully set up, the orchestrator starts the main **EffectStream Sync Service**. The Sync Service then loads its own configuration (`config.{env}.ts`) and begins the actual process of syncing blockchain data and running your state machine.
 
 ### Configuring the Orchestrator (`start.{env}.ts`)
 
 Your entire development environment is defined in a single configuration object. Let's break down its main components.
 
-#### 1. Built-in Effectstream Services (`processes`)
+#### 1. Built-in EffectStream Services (`processes`)
 
-This section is a set of boolean flags to enable or disable core Effectstream development services.
+This section is a set of boolean flags to enable or disable core EffectStream development services.
 
 ```ts
 const config = Value.Parse(OrchestratorConfig, {

@@ -1,12 +1,12 @@
 # Node Startup
 
-Once configured your [chains](./101-sync-service.md), defined your [grammar](./111-grammar.md), and written your [state machine](./102-state-machine.md) logic. The final step is to bring all these pieces together and hand them off to the Effectstream to be executed.
+Once configured your [chains](./101-sync-service.md), defined your [grammar](./111-grammar.md), and written your [state machine](./102-state-machine.md) logic. The final step is to bring all these pieces together and hand them off to the EffectStream to be executed.
 
 > We will be using the /templates/evm-midnight as example
 
-`start(...)` Is the main entry point, located at `/packages/client/node/src/main.ts` in the template project. This file acts as the central launch system of your Effectstream Node, importing all the different components of your application and passing them to the Effectstream Runtime.
+`start(...)` Is the main entry point, located at `/packages/client/node/src/main.ts` in the template project. This file acts as the central launch system of your EffectStream Node, importing all the different components of your application and passing them to the EffectStream Runtime.
 
-### Effectstream `start(...)`
+### EffectStream `start(...)`
 
 The entry point file is concise but powerful. It uses the `effection` library for structured concurrency to manage the node's lifecycle and the `@effectstream/runtime` package to start the engine.
 
@@ -15,7 +15,7 @@ Let's break down a typical `main.ts` or `main.{env}.ts` file:
 ```ts
 import { main, suspend } from "effection";
 import { init, start } from "@effectstream/runtime";
-import { toSyncProtocolWithNetwork, withEffectstreamStaticConfig } from "@effectstream/config";
+import { toSyncProtocolWithNetwork, withEffectStreamStaticConfig } from "@effectstream/config";
 
 // 1. Import all the core pieces of your application
 // Project Defined Components
@@ -30,14 +30,14 @@ const appVersion = "0.3.21";
 
 // 2. Define the main() execution block
 main(function* () {
-  // Initialize the Effectstream runtime environment
+  // Initialize the EffectStream runtime environment
   yield* init();
-  console.log("Starting Effectstream Node");
+  console.log("Starting EffectStream Node");
 
   // 3. Load your static configuration into the runtime's context
-  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
+  yield* withEffectStreamStaticConfig(localhostConfig, function* () {
 
-    // 4. Start the Effectstream with all your application's components
+    // 4. Start the EffectStream with all your application's components
     yield* start({
       appName,
       appVersion,
@@ -56,7 +56,7 @@ main(function* () {
 
 ### The `start()` Configuration Object
 
-The `start()` function is the most important call. It accepts a single configuration object that tells the Effectstream Runtime exactly how to build and run your dApp.
+The `start()` function is the most important call. It accepts a single configuration object that tells the EffectStream Runtime exactly how to build and run your dApp.
 
 | Property | Description | Related Documentation |
 | :--- | :--- | :--- |
@@ -103,8 +103,8 @@ graph TD
         G{fa:fa-hourglass-half Wait for Dependencies to be Ready...}
     end
 
-    subgraph "Phase 2: Effectstream Node Execution"
-        H(Effectstream Node)
+    subgraph "Phase 2: EffectStream Node Execution"
+        H(EffectStream Node)
         subgraph "Node Initializes Internal Services"
             I[fa:fa-sync Chain & Primitives Sync Service]
             J[fa:fa-cogs State Machine & State]
@@ -135,5 +135,5 @@ graph TD
 1.  The [Process Orchestrator](./106-processes.md) first sets up the entire external environment (local chains, etc.).
 2.  Its final step is to execute your node's `start(...)`.
 3.  Your `main.ts` gathers all your application-specific configurations and logic.
-4.  It passes this complete "blueprint" to the Effectstream Runtime's `start()` function.
-5.  The Effectstream Runtime then uses this blueprint to initialize and run all of its internal services, creating a fully operational Effectstream node tailored to your dApp.
+4.  It passes this complete "blueprint" to the EffectStream Runtime's `start()` function.
+5.  The EffectStream Runtime then uses this blueprint to initialize and run all of its internal services, creating a fully operational EffectStream node tailored to your dApp.
