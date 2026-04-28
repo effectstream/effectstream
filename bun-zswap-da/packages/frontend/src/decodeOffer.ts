@@ -27,18 +27,36 @@ export async function decodeOfferForDisplay(bech32: string): Promise<DecodeResul
     const { Transaction } = await ledgerModulePromise;
 
     const rawTx = decodeOffer(bech32);
-    const tx: any = Transaction.deserialize(
-      'signature' as const,
-      'pre-proof' as const,
-      'pre-binding' as const,
-      rawTx,
-    );
 
-    // Segments: 0 = guaranteed, plus fallibleOffer keys
+    // Sniff proof state — backend-made offers are <Sig, PreProof, PreBinding>;
+    // Lace-made offers are <Sig, Proof, Binding>.
+    const candidates = [
+      ['signature', 'proof', 'binding'],
+      ['signature', 'proof', 'pre-binding'],
+      ['signature', 'pre-proof', 'pre-binding'],
+    ] as const;
+    let tx: any = null;
+    let lastErr: unknown = null;
+    for (const [s, p, b] of candidates) {
+      try {
+        tx = (Transaction.deserialize as any)(s, p, b, rawTx);
+        break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    if (!tx) {
+      return { ok: false, error: `Could not decode: ${(lastErr as any)?.message ?? String(lastErr)}` };
+    }
+
+    // Segments: 0 = guaranteed, plus union of intents.keys() (Lace makeIntent
+    // populates these) and fallibleOffer.keys() (backend initSwap populates these).
+    const intentKeys = [...(tx.intents?.keys() ?? [])] as number[];
     const fallibleKeys = [...(tx.fallibleOffer?.keys() ?? [])] as number[];
+    const otherSegs = Array.from(new Set<number>([...intentKeys, ...fallibleKeys]));
     const segments: Array<{ segId: number; label: 'guaranteed' | 'fallible' }> = [
       { segId: 0, label: 'guaranteed' },
-      ...fallibleKeys.map((k) => ({ segId: k, label: 'fallible' as const })),
+      ...otherSegs.map((k) => ({ segId: k, label: 'fallible' as const })),
     ];
 
     const balance: DecodedOffer['balance'] = [];

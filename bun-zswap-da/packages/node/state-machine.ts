@@ -110,8 +110,19 @@ stm.addStateTransition("celestia-zswap", function* (data) {
 
   try {
     // ── Derive gives/wants from imbalances ──
-    // 0 = guaranteed segment; fallibleOffer keys are the fallible segment IDs.
-    const segmentIds: number[] = [0, ...(offerTx.fallibleOffer?.keys() ?? [])];
+    // 0 = guaranteed segment. Other segment ids live either in `intents` (Lace
+    // makeIntent populates these) or `fallibleOffer` (backend initSwap), so
+    // union both so the offer list shows the right gives/wants regardless of
+    // which producer made it.
+    const intentKeys = (offerTx as any).intents
+      ? Array.from((offerTx as any).intents.keys() as Iterable<number>)
+      : [];
+    const fallibleKeys = offerTx.fallibleOffer
+      ? Array.from(offerTx.fallibleOffer.keys() as Iterable<number>)
+      : [];
+    const segmentIds: number[] = Array.from(
+      new Set<number>([0, ...intentKeys, ...fallibleKeys]),
+    );
 
     const mergedImbalances = new Map<string, bigint>();
     for (const segId of segmentIds) {

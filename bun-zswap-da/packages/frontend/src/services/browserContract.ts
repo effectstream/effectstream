@@ -11,7 +11,6 @@ import {
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
-import { ZKConfigProvider } from '@midnight-ntwrk/midnight-js-types';
 import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-private-state-provider';
 import {
   type CoinPublicKey,
@@ -46,47 +45,6 @@ export interface MidnightBrowserConfig {
 }
 
 export type OfferFilesCircuits = 'mint_shielded' | 'mint_unshielded' | 'incrementNoun';
-const KNOWN_CIRCUITS: ReadonlySet<string> = new Set<OfferFilesCircuits>([
-  'mint_shielded',
-  'mint_unshielded',
-  'incrementNoun',
-]);
-
-/**
- * Wraps FetchZkConfigProvider so that requests for circuit ids we don't host
- * (ledger primitives: spend/output/sign/dust; anything Lace-internal) throw
- * immediately without making an HTTP call.
- *
- * httpClientProofProvider treats a thrown `.get()` as "don't bundle key
- * material — let the proof server use its own cache". Shortcutting the fetch
- * here avoids both (a) a handful of 404 roundtrips per proof and (b) the
- * cliff we previously fell off when Vite's SPA fallback served HTML for
- * missing artifact paths.
- */
-class KnownCircuitZkConfigProvider extends ZKConfigProvider<string> {
-  private readonly inner: FetchZkConfigProvider<string>;
-  constructor(baseURL: string, fetchFn: typeof fetch) {
-    super();
-    this.inner = new FetchZkConfigProvider<string>(baseURL, fetchFn);
-  }
-  private guard(circuitId: string): void {
-    if (!KNOWN_CIRCUITS.has(circuitId)) {
-      throw new Error(`ZK artifact not hosted by dapp: ${circuitId}`);
-    }
-  }
-  getProverKey(circuitId: string) {
-    this.guard(circuitId);
-    return this.inner.getProverKey(circuitId);
-  }
-  getVerifierKey(circuitId: string) {
-    this.guard(circuitId);
-    return this.inner.getVerifierKey(circuitId);
-  }
-  getZKIR(circuitId: string) {
-    this.guard(circuitId);
-    return this.inner.getZKIR(circuitId);
-  }
-}
 export const OFFER_FILES_PRIVATE_STATE_ID = 'offerFilesPrivateState';
 export type OfferFilesProviders = MidnightProviders<
   OfferFilesCircuits,
@@ -339,93 +297,218 @@ export function detectOfferProofState(rawBytes: Uint8Array): OfferProofState {
 }
 
 /**
- * Take a maker's bech32m offer blob and complete it as the connected browser
- * wallet, then let the wallet submit it to Midnight.
+ * Complete a maker's bech32m offer blob as the connected browser wallet.
  *
- * Branches on the maker's proof state:
- *  - <Sig, PreProof, PreBinding>: prove via the external proof server, then
- *    `balanceUnsealedTransaction(payFees:true)`.
- *  - <Sig, Proof, PreBinding>: skip proving, `balanceUnsealedTransaction(payFees:true)`.
- *  - <Sig, Proof, Binding>: skip proving, `balanceSealedTransaction(payFees:true)` —
- *    the taker contributes a new sealed segment that fixes the imbalance.
+ * The connector's `balance{Un,}sealedTransaction` methods can only balance
+ * intents the wallet itself created — passing in a counterparty's tx fails
+ * with "No segments found in the provided transaction". The cross-party swap
+ * pattern the connector spec describes is:
  *
- * In every case the taker's wallet ends up paying the full tx fees with `payFees:true`.
+ *   1. Maker calls makeIntent({inputs: gives, outputs: wants→maker_addr},
+ *                              { intentId: R, payFees: false })
+ *   2. Taker reads R + imbalances out of the maker's tx, then calls
+ *      makeIntent({inputs: maker_wants, outputs: maker_gives→taker_addr},
+ *                  { intentId: R, payFees: false })   ← same R
+ *   3. Dapp merges the two <Sig, Proof, Binding> txs at the ledger level.
+ *   4. Merged tx is asset-balanced + fee-imbalanced. Hand to the batcher
+ *      ('finalized'); batcher adds DUST and submits.
+ *
+ * Only `proven-bound` (Lace makeIntent) maker offers are supported. Backend-made
+ * `<Sig, PreProof, PreBinding>` offers can't be merged with a Lace `makeIntent`
+ * (different proof states; merge requires identical S/P/B). Those should be
+ * completed via the legacy backend `/api/zswap/:id/complete` endpoint.
  */
 export async function proveAndSubmitOffer(
   connectedApi: ConnectedAPI,
   config: MidnightBrowserConfig,
   offerBech32m: string,
 ): Promise<{ txHash: string }> {
+  // ledger-v8 deserialize is network-scoped; set the global before any parse.
+  setNetworkId(config.networkId as NetworkId);
+
   console.log('[browserContract] complete: decoding offer bytes');
   const rawBytes = decodeOffer(offerBech32m);
   const proofState = detectOfferProofState(rawBytes);
   console.log(`[browserContract] complete: detected proof state = ${proofState}`);
 
-  let toBalanceHex: string;
-
-  if (proofState === 'unproven') {
-    const unprovenTx = LedgerV8Transaction.deserialize(
-      'signature',
-      'pre-proof',
-      'pre-binding',
-      rawBytes,
+  if (proofState !== 'proven-bound') {
+    throw new Error(
+      `This offer was created by a backend wallet (proof state: ${proofState}) and ` +
+        `cannot be completed by a browser wallet — the connector can't merge ` +
+        `<Sig, PreProof, PreBinding> with Lace's <Sig, Proof, Binding>. Use the ` +
+        `backend complete endpoint, or recreate the offer from a browser wallet.`,
     );
-
-    console.log('[browserContract] complete: building proofProvider');
-    const zkConfigProvider = new KnownCircuitZkConfigProvider(
-      window.location.origin,
-      fetch.bind(window),
-    );
-    const proofProvider = httpClientProofProvider(config.proofServerUri, zkConfigProvider);
-
-    console.log('[browserContract] complete: proving offer via proof server');
-    const provenTx = await proofProvider.proveTx(unprovenTx as any);
-    const provenBytes = provenTx.serialize();
-    toBalanceHex = toHex(provenBytes);
-
-    const nonZero = provenBytes.reduce((n, b) => n + (b !== 0 ? 1 : 0), 0);
-    if (nonZero === 0) {
-      throw new Error('Proven tx bytes are all zeros — proof server returned empty payload');
-    }
-
-    try {
-      LedgerV8Transaction.deserialize('signature', 'proof', 'pre-binding', provenBytes);
-    } catch (e) {
-      throw new Error(
-        'Proven transaction is not Transaction<Signature, Proof, PreBinding>: ' +
-          ((e as Error).message ?? String(e)),
-      );
-    }
-  } else {
-    // Already proven by the maker's wallet — pass bytes through untouched.
-    toBalanceHex = toHex(rawBytes);
   }
 
-  const useSealed = proofState === 'proven-bound';
-  console.log('[browserContract] complete: balancing via wallet', {
-    method: useSealed ? 'balanceSealedTransaction' : 'balanceUnsealedTransaction',
-    bytes: toBalanceHex.length / 2,
-  });
-  const { tx: balancedHex } = useSealed
-    ? await connectedApi.balanceSealedTransaction(toBalanceHex, { payFees: true })
-    : await connectedApi.balanceUnsealedTransaction(toBalanceHex, { payFees: true });
+  // Deserialize maker's <Sig, Proof, Binding> tx.
+  const makerTx = LedgerV8Transaction.deserialize(
+    'signature',
+    'proof',
+    'binding',
+    rawBytes,
+  );
 
-  // Derive the tx hash from the balanced+sealed bytes before submission so we
-  // can surface it in the UI.
+  // Find the swap segment. Lace's makeIntent typically populates the `intents`
+  // map (Intent objects, keyed by intentId) and may or may not also touch
+  // `fallibleOffer` (ZswapOffer, also keyed by segment id) — depends on the
+  // wallet's implementation and what kinds (shielded/unshielded) the swap
+  // involves. Union both, plus segment 0 (guaranteed), then keep only segments
+  // with non-empty asset imbalances.
+  const intentIds = makerTx.intents ? Array.from(makerTx.intents.keys()) : [];
+  const fallibleIds = makerTx.fallibleOffer ? Array.from(makerTx.fallibleOffer.keys()) : [];
+  const candidateSegs = Array.from(new Set<number>([0, ...intentIds, ...fallibleIds]));
+  console.log('[browserContract] complete: candidate segment ids', {
+    intents: intentIds, fallible: fallibleIds, considered: candidateSegs,
+  });
+
+  // Pick the segment(s) with shielded/unshielded asset imbalances. Skip dust
+  // and skip segments whose imbalances are entirely zero.
+  const swapSegs: Array<{ segId: number; imbalances: Map<any, bigint> }> = [];
+  for (const segId of candidateSegs) {
+    let imb: Map<any, bigint>;
+    try {
+      imb = makerTx.imbalances(segId) as Map<any, bigint>;
+    } catch (e) {
+      console.log(`[browserContract] complete: imbalances(${segId}) threw, skipping`, e);
+      continue;
+    }
+    const hasAssets = Array.from(imb.entries()).some(([tt, v]) => {
+      const tag = (tt as any).tag;
+      return (tag === 'shielded' || tag === 'unshielded') && v !== 0n;
+    });
+    if (hasAssets) swapSegs.push({ segId, imbalances: imb });
+  }
+
+  if (swapSegs.length === 0) {
+    throw new Error(
+      'Maker offer has no segments with shielded/unshielded asset imbalances — ' +
+        `nothing to mirror. (intent ids: ${JSON.stringify(intentIds)}, fallible ids: ${JSON.stringify(fallibleIds)})`,
+    );
+  }
+  if (swapSegs.length > 1) {
+    throw new Error(
+      `Multi-segment offers are not supported (found asset imbalances in segments ${
+        swapSegs.map(s => s.segId).join(', ')
+      }).`,
+    );
+  }
+  const { segId, imbalances } = swapSegs[0];
+  console.log(`[browserContract] complete: using segment id ${segId}`);
+
+  // Compute taker's mirror inputs/outputs from the segment's imbalances.
+  //  +N for token T  →  maker spent N of T, taker should receive N of T   (taker output)
+  //  -N for token T  →  maker outputs N of T, taker should provide N of T (taker input)
+  console.log('[browserContract] complete: maker segment imbalances',
+    Array.from(imbalances.entries()).map(([tt, v]) =>
+      ({ tag: (tt as any).tag, raw: (tt as any).raw, delta: v.toString() })));
+
+  const { shieldedAddress } = await connectedApi.getShieldedAddresses();
+  const { unshieldedAddress } = await connectedApi.getUnshieldedAddress();
+
+  type DesiredInput = { kind: 'shielded' | 'unshielded'; type: string; value: bigint };
+  type DesiredOutput = DesiredInput & { recipient: string };
+  const takerInputs: DesiredInput[] = [];
+  const takerOutputs: DesiredOutput[] = [];
+
+  for (const [tt, delta] of imbalances) {
+    const tag = (tt as any).tag as 'shielded' | 'unshielded' | 'dust';
+    if (tag === 'dust') continue; // batcher pays
+    if (tag !== 'shielded' && tag !== 'unshielded') {
+      console.warn(`[browserContract] complete: skipping unknown token tag "${tag}"`);
+      continue;
+    }
+    const type = (tt as any).raw as string;
+    if (delta > 0n) {
+      takerOutputs.push({
+        kind: tag,
+        type,
+        value: delta,
+        recipient: tag === 'shielded' ? shieldedAddress : unshieldedAddress,
+      });
+    } else if (delta < 0n) {
+      takerInputs.push({ kind: tag, type, value: -delta });
+    }
+  }
+
+  if (takerInputs.length === 0 && takerOutputs.length === 0) {
+    throw new Error('Maker offer has no asset imbalances to mirror — nothing to complete.');
+  }
+  console.log('[browserContract] complete: taker mirror', {
+    inputs: takerInputs.map(i => ({ ...i, value: i.value.toString() })),
+    outputs: takerOutputs.map(o => ({ ...o, value: o.value.toString() })),
+  });
+
+  // Build the taker's matching intent at the SAME segment id so the merge
+  // collapses the two halves into one balanced segment.
+  let takerTxHex: string;
+  try {
+    const result = await connectedApi.makeIntent(takerInputs, takerOutputs, {
+      intentId: segId,
+      payFees: false,
+    });
+    takerTxHex = result.tx;
+    console.log('[browserContract] complete: taker makeIntent returned', {
+      bytes: takerTxHex.length / 2,
+    });
+  } catch (e: any) {
+    console.error('[browserContract] complete: taker makeIntent failed', {
+      name: e?.name,
+      message: e?.message,
+      raw: e,
+    });
+    throw new Error(
+      `Taker makeIntent failed: ${e?.message ?? e?.name ?? 'unknown'}`,
+      { cause: e },
+    );
+  }
+
+  const takerTx = LedgerV8Transaction.deserialize(
+    'signature',
+    'proof',
+    'binding',
+    fromHex(takerTxHex),
+  );
+
+  // Merge maker + taker → fully asset-balanced <Sig, Proof, Binding>.
+  let mergedHex: string;
   let txHash = '';
   try {
-    const balancedTx = LedgerV8Transaction.deserialize(
-      'signature',
-      'proof',
-      'binding',
-      fromHex(balancedHex),
+    const merged = makerTx.merge(takerTx);
+    mergedHex = toHex(merged.serialize());
+    txHash = (merged as any).transactionHash?.() ?? '';
+    console.log('[browserContract] complete: merged maker + taker', {
+      bytes: mergedHex.length / 2,
+      txHash,
+    });
+  } catch (e: any) {
+    console.error('[browserContract] complete: merge failed', e);
+    throw new Error(
+      `Failed to merge maker + taker transactions: ${e?.message ?? String(e)}`,
+      { cause: e },
     );
-    txHash = (balancedTx as any).transactionHash?.() ?? '';
-  } catch (e) {
-    console.warn('[browserContract] complete: failed to derive txHash from balanced tx', e);
   }
 
-  console.log('[browserContract] complete: submitTransaction', { txHash });
-  await connectedApi.submitTransaction(balancedHex);
+  // Send to the batcher with 'finalized' stage; the batcher's seed wallet
+  // adds the DUST segment and submits. Same flow as mint_shielded.
+  const coinPublicKeyHex = parseCoinPublicKeyToHex(
+    (await connectedApi.getShieldedAddresses()).shieldedCoinPublicKey,
+    config.networkId as NetworkId,
+  );
+
+  console.log('[browserContract] complete: submitting to batcher', { txHash });
+  try {
+    await submitToBatcher(mergedHex, 'finalized', coinPublicKeyHex);
+  } catch (e: any) {
+    console.error('[browserContract] complete: batcher submit failed', {
+      message: e?.message,
+      raw: e,
+    });
+    throw new Error(
+      `Batcher submit failed: ${e?.message ?? JSON.stringify(e) ?? 'unknown'}`,
+      { cause: e },
+    );
+  }
+
+  console.log('[browserContract] complete: done', { txHash });
   return { txHash };
 }
