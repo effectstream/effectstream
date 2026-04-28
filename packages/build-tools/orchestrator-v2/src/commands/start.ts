@@ -216,6 +216,23 @@ export async function runStartCommand(opts: StartOptions): Promise<void> {
 // ── Background helper ─────────────────────────────────────────────────────────
 
 async function spawnBackground(opts: StartOptions): Promise<void> {
+  const apiPort =
+    opts.port ??
+    (typeof opts.flags["port"] === "string" ? Number(opts.flags["port"]) : undefined) ??
+    DEFAULT_API_PORT;
+
+  const client = new OrchestratorClient(apiPort);
+  if (await client.isRunning()) {
+    const col = { reset: "\x1b[0m", bold: "\x1b[1m", red: "\x1b[31m", dim: "\x1b[2m", cyan: "\x1b[36m" };
+    const cliPath = path.resolve(import.meta.dir, "../cli.ts");
+    console.error(`\n${col.red}${col.bold}An orchestrator daemon is already running on port ${apiPort}.${col.reset}\n`);
+    console.error(`${col.dim}Check status:${col.reset}    bun ${cliPath} status`);
+    console.error(`${col.dim}View logs:${col.reset}       bun ${cliPath} logs`);
+    console.error(`${col.dim}Stop it:${col.reset}         bun ${cliPath} stop`);
+    console.error();
+    process.exit(1);
+  }
+
   const configPath =
     (opts.flags["config"] as string | undefined) ??
     opts.positionals[0] ??
