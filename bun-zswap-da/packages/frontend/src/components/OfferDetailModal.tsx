@@ -13,7 +13,6 @@ import { proveAndSubmitOffer } from '../services/browserContract';
 interface OfferDetailModalProps {
   offer: ZSwapOffer | null;
   knownTokens: KnownToken[];
-  activeWallet?: string;
   connectedApi?: ConnectedAPI | null;
   onClose: () => void;
   onCompleted: () => void;
@@ -31,7 +30,7 @@ function renderTokens(arr: TokenEntry[] | undefined, knownTokens: KnownToken[]) 
   }).reduce((prev, curr) => [prev, ', ', curr] as any);
 }
 
-export const OfferDetailModal: React.FC<OfferDetailModalProps> = ({ offer, knownTokens, activeWallet, connectedApi, onClose, onCompleted }) => {
+export const OfferDetailModal: React.FC<OfferDetailModalProps> = ({ offer, knownTokens, connectedApi, onClose, onCompleted }) => {
   const [completingId, setCompletingId] = useState<number | null>(null);
   const [completeResult, setCompleteResult] = useState<{ data?: any; message: string; error?: boolean } | null>(null);
   const [showDecoded, setShowDecoded] = useState(false);
@@ -62,23 +61,27 @@ export const OfferDetailModal: React.FC<OfferDetailModalProps> = ({ offer, known
     setCompletingId(id);
     setCompleteResult(null);
     try {
-      if (connectedApi && offer?.transaction_hex) {
-        // Browser-wallet taker flow:
-        //   1. decode maker's bech32m offer (pre-proof, pre-binding)
-        //   2. prove via the proof server configured by the backend
-        //   3. hand the proven tx to Lace to balance with the taker's coins + seal
-        //   4. Lace submits to Midnight; backend state-machine picks up the
-        //      nullifier consumption via the indexer — no /complete call needed.
-        const config = await api.getMidnightConfig();
-        const { txHash } = await proveAndSubmitOffer(connectedApi, config, offer.transaction_hex);
-        setCompleteResult({
-          data: { via: 'browser-wallet', txHash },
-          message: 'Offer completed via browser wallet!',
-        });
-      } else {
-        const data = await api.completeOffer(id, activeWallet);
-        setCompleteResult({ data, message: 'Offer completed successfully!' });
+      if (!connectedApi) {
+        throw new Error('Connect a browser wallet (Lace) to complete an offer.');
       }
+      if (!offer?.transaction_hex) {
+        throw new Error('Offer is missing its transaction blob — cannot complete.');
+      }
+      // Browser-wallet taker flow:
+      //   1. decode maker's bech32m <Sig, Proof, Binding> offer
+      //   2. mirror the maker's imbalances via Lace's makeIntent at the same
+      //      intent/segment id
+      //   3. merge maker + taker txs at the ledger level
+      //   4. hand merged tx to the batcher with txStage='finalized'; the batcher
+      //      adds the DUST segment, signs, and submits — no /complete call needed.
+      const config = await api.getMidnightConfig();
+      const { txHash } = await proveAndSubmitOffer(connectedApi, config, offer.transaction_hex);
+      // `id` is unused: completion is observed via the indexer's nullifier feed.
+      void id;
+      setCompleteResult({
+        data: { txHash },
+        message: 'Offer completed via browser wallet!',
+      });
       onCompleted();
     } catch (e: any) {
       setCompleteResult({ message: e.message || 'Complete failed', error: true });
@@ -156,7 +159,8 @@ export const OfferDetailModal: React.FC<OfferDetailModalProps> = ({ offer, known
             className="btn-success"
             style={{ width: '100%', marginTop: '20px' }}
             onClick={() => handleComplete(offer.id)}
-            disabled={completingId !== null}
+            disabled={completingId !== null || !connectedApi}
+            title={!connectedApi ? 'Connect a browser wallet (Lace) to complete an offer' : undefined}
           >
             Complete Offer
           </button>

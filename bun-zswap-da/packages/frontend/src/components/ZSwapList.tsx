@@ -1,17 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useZSwapAPI } from '../hooks/useZSwapAPI';
 import type { KnownToken, TokenEntry } from '../types';
 import { shortToken } from '../utils';
 import { OfferDetailModal } from './OfferDetailModal';
 import { FILTER_DIRECTION, DEFAULT_PAGE_SIZE } from '../constants';
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
+import type { NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import type { AliceBobName } from '../hooks/useAliceBobIdentity';
+import { isOwnOffer, parseOfferSender } from '../services/offerSender';
 
 interface ZSwapListProps {
   knownTokens: KnownToken[];
   refreshTrigger: number;
   sseRefreshTrigger?: number;
-  activeWallet?: string;
   connectedApi?: ConnectedAPI | null;
+  selfName: AliceBobName;
+  otherName: AliceBobName;
+  // Lower-cased hex of the connected wallet's unshielded UserAddress.
+  // Undefined when no wallet is connected.
+  selfUnshieldedHex?: string;
+  networkId: string | null;
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function renderTokens(arr: TokenEntry[] | undefined, knownTokens: KnownToken[]) {
@@ -26,7 +38,7 @@ function renderTokens(arr: TokenEntry[] | undefined, knownTokens: KnownToken[]) 
   }).reduce((prev, curr) => [prev, ', ', curr] as any);
 }
 
-export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigger, sseRefreshTrigger = 0, activeWallet, connectedApi }) => {
+export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigger, sseRefreshTrigger = 0, connectedApi, selfName, otherName, selfUnshieldedHex, networkId }) => {
   const {
     offers, loading, error,
     limit, setLimit, offset, setOffset,
@@ -42,6 +54,21 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
   const [detailOffer, setDetailOffer] = useState<typeof offers[0] | null>(null);
 
   useEffect(() => { fetchOffers(); }, [fetchOffers, refreshTrigger, sseRefreshTrigger]);
+
+  // Per-offer Alice/Bob label, derived from the unshielded UserAddress(es)
+  // baked into the offer's Intent. Undefined when the offer is shielded-only
+  // and we can't tell — the UI falls back to a neutral dash.
+  const offerLabels = useMemo<Record<number, AliceBobName | undefined>>(() => {
+    if (!networkId) return {};
+    const map: Record<number, AliceBobName | undefined> = {};
+    for (const o of offers) {
+      if (!o.transaction_hex) continue;
+      const info = parseOfferSender(o.transaction_hex, networkId as NetworkId);
+      if (!info) continue;
+      map[o.id] = isOwnOffer(info, selfUnshieldedHex) ? selfName : otherName;
+    }
+    return map;
+  }, [offers, networkId, selfUnshieldedHex, selfName, otherName]);
 
   const handleApplyFilters = () => {
     const token = tempFilterTokenSelect === 'custom' ? tempFilterTokenCustom : tempFilterTokenSelect;
@@ -64,7 +91,6 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
       <OfferDetailModal
         offer={detailOffer}
         knownTokens={knownTokens}
-        activeWallet={activeWallet}
         connectedApi={connectedApi}
         onClose={() => setDetailOffer(null)}
         onCompleted={fetchOffers}
@@ -154,29 +180,45 @@ export const ZSwapList: React.FC<ZSwapListProps> = ({ knownTokens, refreshTrigge
             <thead>
               <tr>
                 <th>ID</th>
+                <th>By</th>
                 <th>Giving</th>
                 <th>Wanting</th>
                 <th style={{ width: '1%' }}></th>
               </tr>
             </thead>
             <tbody>
-              {offers.map(z => (
-                <tr key={z.id}>
-                  <td>#{z.id}</td>
-                  <td>{renderTokens(z.gives, knownTokens)}</td>
-                  <td>{renderTokens(z.wants, knownTokens)}</td>
-                  <td>
-                    <button
-                      className="btn-small btn-ghost"
-                      style={{ padding: '4px 8px', lineHeight: 1 }}
-                      onClick={() => setDetailOffer(z)}
-                      title="View details"
-                    >
-                      &#128065;
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {offers.map(z => {
+                const label = offerLabels[z.id];
+                return (
+                  <tr key={z.id}>
+                    <td>#{z.id}</td>
+                    <td>
+                      {label ? (
+                        <span
+                          className={`badge ${label === selfName ? 'badge-token' : 'badge-da'}`}
+                          title={label === selfName ? 'Submitted by your wallet' : 'Submitted by another wallet'}
+                        >
+                          {capitalize(label)}
+                        </span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+                    <td>{renderTokens(z.gives, knownTokens)}</td>
+                    <td>{renderTokens(z.wants, knownTokens)}</td>
+                    <td>
+                      <button
+                        className="btn-small btn-ghost"
+                        style={{ padding: '4px 8px', lineHeight: 1 }}
+                        onClick={() => setDetailOffer(z)}
+                        title="View details"
+                      >
+                        &#128065;
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

@@ -259,43 +259,6 @@ export async function connectBrowserContract(
   return contract;
 }
 
-export type OfferProofState = 'unproven' | 'proven-unbound' | 'proven-bound';
-
-/**
- * Detect what proof/binding state a serialized maker offer is in. Backend-made
- * offers (wallet-sdk `initSwap`) are <Sig, PreProof, PreBinding>; Lace-made
- * offers (`makeIntent`) are <Sig, Proof, Binding> because Lace can't expose
- * the proof preimage without leaking witness material derived from the
- * shielded spending key. We sniff by trying each in order — the bytes
- * deserialize cleanly in exactly one shape.
- */
-export function detectOfferProofState(rawBytes: Uint8Array): OfferProofState {
-  const candidates: ReadonlyArray<readonly [
-    'signature',
-    'pre-proof' | 'proof',
-    'pre-binding' | 'binding',
-    OfferProofState,
-  ]> = [
-    ['signature', 'proof', 'binding', 'proven-bound'],
-    ['signature', 'proof', 'pre-binding', 'proven-unbound'],
-    ['signature', 'pre-proof', 'pre-binding', 'unproven'],
-  ];
-  let lastError: unknown = null;
-  for (const [s, p, b, name] of candidates) {
-    try {
-      LedgerV8Transaction.deserialize(s, p, b, rawBytes);
-      return name;
-    } catch (e) {
-      lastError = e;
-    }
-  }
-  throw new Error(
-    `Offer bytes don't deserialize as any known Transaction shape: ${
-      (lastError as any)?.message ?? String(lastError)
-    }`,
-  );
-}
-
 /**
  * Complete a maker's bech32m offer blob as the connected browser wallet.
  *
@@ -313,10 +276,8 @@ export function detectOfferProofState(rawBytes: Uint8Array): OfferProofState {
  *   4. Merged tx is asset-balanced + fee-imbalanced. Hand to the batcher
  *      ('finalized'); batcher adds DUST and submits.
  *
- * Only `proven-bound` (Lace makeIntent) maker offers are supported. Backend-made
- * `<Sig, PreProof, PreBinding>` offers can't be merged with a Lace `makeIntent`
- * (different proof states; merge requires identical S/P/B). Those should be
- * completed via the legacy backend `/api/zswap/:id/complete` endpoint.
+ * Only Lace's `makeIntent` shape (<Sig, Proof, Binding>) is supported — the
+ * demo no longer creates offers any other way.
  */
 export async function proveAndSubmitOffer(
   connectedApi: ConnectedAPI,
@@ -328,25 +289,22 @@ export async function proveAndSubmitOffer(
 
   console.log('[browserContract] complete: decoding offer bytes');
   const rawBytes = decodeOffer(offerBech32m);
-  const proofState = detectOfferProofState(rawBytes);
-  console.log(`[browserContract] complete: detected proof state = ${proofState}`);
 
-  if (proofState !== 'proven-bound') {
+  // Lace's makeIntent produces <Sig, Proof, Binding>.
+  let makerTx;
+  try {
+    makerTx = LedgerV8Transaction.deserialize(
+      'signature',
+      'proof',
+      'binding',
+      rawBytes,
+    );
+  } catch (e: any) {
     throw new Error(
-      `This offer was created by a backend wallet (proof state: ${proofState}) and ` +
-        `cannot be completed by a browser wallet — the connector can't merge ` +
-        `<Sig, PreProof, PreBinding> with Lace's <Sig, Proof, Binding>. Use the ` +
-        `backend complete endpoint, or recreate the offer from a browser wallet.`,
+      `Offer bytes don't deserialize as <signature, proof, binding>: ${e?.message ?? String(e)}`,
+      { cause: e },
     );
   }
-
-  // Deserialize maker's <Sig, Proof, Binding> tx.
-  const makerTx = LedgerV8Transaction.deserialize(
-    'signature',
-    'proof',
-    'binding',
-    rawBytes,
-  );
 
   // Find the swap segment. Lace's makeIntent typically populates the `intents`
   // map (Intent objects, keyed by intentId) and may or may not also touch

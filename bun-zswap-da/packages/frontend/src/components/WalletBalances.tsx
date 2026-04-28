@@ -1,11 +1,8 @@
 import React from 'react';
-import { useWalletBalances } from '../hooks/useWalletBalances';
 import { findTokenName, shortToken } from '../utils';
 import type { KnownToken } from '../types';
-import { BROWSER_WALLET_ID } from '../hooks/useActiveWallet';
 
 interface WalletBalancesProps {
-  activeWallet?: string;
   knownTokens: KnownToken[];
   balanceRefreshTrigger: number;
   browserBalances?: Record<string, string> | null;
@@ -43,7 +40,6 @@ function BalanceList({
 }
 
 export const WalletBalances: React.FC<WalletBalancesProps> = ({
-  activeWallet,
   knownTokens,
   balanceRefreshTrigger,
   browserBalances,
@@ -51,58 +47,42 @@ export const WalletBalances: React.FC<WalletBalancesProps> = ({
   onRefresh,
   refreshing,
 }) => {
-  const isBrowser = activeWallet === BROWSER_WALLET_ID;
-  // Skip backend fetch for the browser wallet — it has no backend presence.
-  const { balances: backendBalances, loading, error } = useWalletBalances(
-    isBrowser ? undefined : activeWallet,
-    balanceRefreshTrigger,
-  );
+  // `balanceRefreshTrigger` is here so callers can trigger a re-render when
+  // upstream events (mint, swap consumption) suggest the wallet's view is
+  // stale. The actual fetch happens inside useWallet → connectedApi.
+  void balanceRefreshTrigger;
 
-  const balances = isBrowser
-    ? {
-        shielded: browserBalances ?? {},
-        unshielded: browserUnshieldedBalances ?? {},
-      }
-    : backendBalances;
-
-  const isBusy = (loading && !balances) || refreshing;
+  const hasWallet = browserBalances !== null && browserBalances !== undefined;
 
   return (
     <section>
       <h2 style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span>
-          Wallet Balances{' '}
-          <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 400 }}>
-            ({activeWallet ?? '—'})
-          </span>
-        </span>
+        <span>Wallet Balances</span>
         {onRefresh && (
           <button
             type="button"
             className="btn btn-ghost btn-small"
             onClick={() => { void onRefresh(); }}
-            disabled={isBusy}
+            disabled={!hasWallet || !!refreshing}
             title="Re-fetch balances from the wallet"
             style={{ marginLeft: 'auto' }}
           >
-            {isBusy ? 'Refreshing…' : 'Refresh'}
+            {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
         )}
       </h2>
 
-      {loading && !balances && (
-        <div className="text-muted" style={{ fontSize: '0.85rem' }}>Loading balances...</div>
-      )}
-
-      {error && <div style={{ color: '#ef4444', fontSize: '0.85rem' }}>{error}</div>}
-
-      {balances && (
+      {!hasWallet ? (
+        <div className="text-muted" style={{ fontSize: '0.85rem' }}>
+          Connect a browser wallet (Lace) to see your balances.
+        </div>
+      ) : (
         <>
           <div className="balance-section-label">Shielded</div>
-          <BalanceList entries={balances.shielded} knownTokens={knownTokens} />
+          <BalanceList entries={browserBalances ?? {}} knownTokens={knownTokens} />
 
           <div className="balance-section-label">Unshielded</div>
-          <BalanceList entries={balances.unshielded} knownTokens={knownTokens} />
+          <BalanceList entries={browserUnshieldedBalances ?? {}} knownTokens={knownTokens} />
         </>
       )}
     </section>

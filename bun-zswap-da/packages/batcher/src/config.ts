@@ -2,9 +2,9 @@ import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight
 import { ENV } from "@effectstream/utils/node-env";
 import { BatcherConfig } from "@effectstream/batcher-sdk";
 
-// Dedicated seed for the zswap-da batcher wallet. NOT the genesis seed
-// (which is already in use by alice in the sync node — running two wallets
-// on the same seed against a single Midnight node forces one to disconnect).
+// Dedicated seed for the zswap-da batcher wallet. Distinct from any wallet
+// the rest of the stack uses — running two wallets on the same seed against
+// a single Midnight node forces one to disconnect.
 const BATCHER_SEED = [
   "0000000000000000000000000000000000000000000000000000000000000003",
   "0000000000000000000000000000000000000000000000000000000000000004",

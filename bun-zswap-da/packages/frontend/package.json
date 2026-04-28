@@ -27,6 +27,7 @@
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.0.2",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
     "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.2",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
     "@zswap-da/contract-offer-files": "workspace:*"
   },
   "devDependencies": {

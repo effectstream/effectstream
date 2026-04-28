@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAsyncAction } from '../hooks/useAsyncAction';
-import { api } from '../services/api';
 import { MAX_TOKEN_NAME_LENGTH, TOKEN_TYPE } from '../constants';
 import { Modal } from './ui/Modal';
 import { LoadingOverlay } from './ui/LoadingOverlay';
@@ -22,7 +21,6 @@ interface MintModalProps {
   isOpen: boolean;
   onClose: () => void;
   onMintSuccess?: () => void;
-  activeWallet?: string;
   connectedApi?: ConnectedAPI | null;
   browserContract?: ReturnType<typeof useContract> | null;
 }
@@ -37,7 +35,7 @@ function generateNonce(): string {
   return Date.now().toString();
 }
 
-export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuccess, activeWallet, connectedApi, browserContract }) => {
+export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuccess, connectedApi, browserContract }) => {
   const { loading, result, execute, clearResult } = useAsyncAction();
 
   const [mintType, setMintType] = useState<'shielded' | 'unshielded'>(TOKEN_TYPE.SHIELDED);
@@ -84,27 +82,23 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
         ? { domainSep, amount, nonce: nonce || generateNonce(), name: tokenName }
         : { domainSep, amount, name: tokenName };
 
-      let data: any;
-      if (connectedApi && browserContract) {
-        setMessage('Preparing browser-wallet contract client…');
-        const domainSepBytes = hexToBytes(payload.domainSep);
-        const amountBig = BigInt(payload.amount);
+      if (!connectedApi || !browserContract) {
+        throw new Error('Connect a browser wallet (Lace) to mint a token.');
+      }
 
-        setMessage('Building + proving Midnight transaction…');
-        if (mintType === TOKEN_TYPE.SHIELDED) {
-          const nonceBig = BigInt(payload.nonce ?? generateNonce());
-          const res = await browserContract.mintShielded(domainSepBytes, amountBig, nonceBig, tokenName);
-          data = { success: true, color: res.color, name: tokenName, txHash: res.txHash, via: 'browser-wallet' };
-        } else {
-          const res = await browserContract.mintUnshielded(domainSepBytes, amountBig, tokenName);
-          data = { success: true, color: res.color, name: tokenName, txHash: res.txHash, via: 'browser-wallet' };
-        }
+      setMessage('Preparing browser-wallet contract client…');
+      const domainSepBytes = hexToBytes(payload.domainSep);
+      const amountBig = BigInt(payload.amount);
+
+      setMessage('Building + proving Midnight transaction…');
+      let data: { success: true; color: string; name: string; txHash: string };
+      if (mintType === TOKEN_TYPE.SHIELDED) {
+        const nonceBig = BigInt(payload.nonce ?? generateNonce());
+        const res = await browserContract.mintShielded(domainSepBytes, amountBig, nonceBig, tokenName);
+        data = { success: true, color: res.color, name: tokenName, txHash: res.txHash };
       } else {
-        setMessage('Submitting token mint to Midnight...');
-        data = await api.mintToken(mintType, payload, activeWallet);
-        if (data.success === false) {
-          throw new Error(data.error || 'Mint failed');
-        }
+        const res = await browserContract.mintUnshielded(domainSepBytes, amountBig, tokenName);
+        data = { success: true, color: res.color, name: tokenName, txHash: res.txHash };
       }
 
       setMintedToken(data);
@@ -218,7 +212,12 @@ export const MintModal: React.FC<MintModalProps> = ({ isOpen, onClose, onMintSuc
               </div>
             )}
 
-            <button onClick={handleMint} style={{ width: '100%', marginTop: '20px' }}>
+            <button
+              onClick={handleMint}
+              disabled={!connectedApi || !browserContract}
+              title={!connectedApi || !browserContract ? 'Connect a browser wallet (Lace) to mint' : undefined}
+              style={{ width: '100%', marginTop: '20px' }}
+            >
               Mint on Midnight
             </button>
 

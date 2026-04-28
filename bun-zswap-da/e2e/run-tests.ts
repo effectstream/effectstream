@@ -9,6 +9,15 @@
  *   5. Wait for Celestia sync to index the offer in DB
  *   6. Wallet 2 reads offer, balances, signs, and completes swap on Midnight
  *   7. Verify nullifier consumption and offer archival
+ *
+ * NOTE: This file historically drove the backend-wallet pipeline via
+ * `initSwap` (offers as <Sig, PreProof, PreBinding>). The demo now requires
+ * Lace-shaped <Sig, Proof, Binding> offers end-to-end — the state machine
+ * only deserializes that shape, and there's no backend-wallet completion
+ * endpoint anymore. The deserialize triple below is updated for shape
+ * consistency, but the offer-creation + completion steps still exercise
+ * removed backend-wallet code paths and need to be rewritten on top of the
+ * browser/batcher flow before this runner is green again.
  */
 import {
   anyError,
@@ -374,8 +383,8 @@ async function runZswapTests(db: Client): Promise<void> {
   const rawTx = decodeOffer(offer.transaction_hex);
   const offerTx = ledger.Transaction.deserialize(
     "signature" as const,
-    "pre-proof" as const,
-    "pre-binding" as const,
+    "proof" as const,
+    "binding" as const,
     rawTx,
   ) as any;
 

@@ -23,7 +23,7 @@ function describeEvent(event: AppEvent): string {
     case 'offer_expired':
       return `Offer #${event.offerId} expired (TTL)`;
     case 'token_minted':
-      return `${event.wallet ?? '?'} minted token ${event.name ?? '?'}`;
+      return `Token ${event.name ?? '?'} minted`;
     default:
       return event.type;
   }

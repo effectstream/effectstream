@@ -74,46 +74,27 @@ stm.addStateTransition("celestia-zswap", function* (data) {
     return;
   }
 
-  // Backend-made offers (wallet-sdk `initSwap`) arrive as <Sig, PreProof, PreBinding>;
-  // Lace-made offers (`makeIntent`) arrive as <Sig, Proof, Binding> because the wallet
-  // proves+binds inside its secure context. Sniff which by trying each in order — the
-  // bytes deserialize cleanly in exactly one shape. The downstream methods we use
-  // (`imbalances`, `guaranteedOffer.inputs[].nullifier`, `fallibleOffer`) live on
-  // Transaction<S, P, B> regardless of the proof state, so the rest of this handler
-  // is shape-agnostic.
-  const candidates: ReadonlyArray<readonly [
-    "signature",
-    "pre-proof" | "proof",
-    "pre-binding" | "binding",
-  ]> = [
-    ["signature", "proof", "binding"],
-    ["signature", "proof", "pre-binding"],
-    ["signature", "pre-proof", "pre-binding"],
-  ];
-  let offerTx: UnprovenTransaction | undefined;
-  let lastError: unknown = null;
-  for (const [s, p, b] of candidates) {
-    try {
-      // Markers are runtime-discriminated; the deserialize overloads want narrow
-      // literal types. Cast to `any` so we can iterate.
-      offerTx = (Transaction.deserialize as any)(s, p, b, rawTx) as UnprovenTransaction;
-      console.log(`[ZSWAP] Deserialized offer at height ${data.blockHeight} as <${s}, ${p}, ${b}>`);
-      break;
-    } catch (e) {
-      lastError = e;
-    }
-  }
-  if (!offerTx) {
-    console.error("[ZSWAP] Failed to deserialize transaction in any known shape", lastError);
+  // Lace-made offers (`makeIntent`) arrive as <Sig, Proof, Binding> — the wallet
+  // proves+binds inside its secure context.
+  let offerTx: UnprovenTransaction;
+  try {
+    offerTx = Transaction.deserialize(
+      "signature" as const,
+      "proof" as const,
+      "binding" as const,
+      rawTx,
+    ) as UnprovenTransaction;
+    console.log(`[ZSWAP] Deserialized offer at height ${data.blockHeight}`);
+  } catch (e) {
+    console.error("[ZSWAP] Failed to deserialize transaction as <signature, proof, binding>", e);
     return;
   }
 
   try {
     // ── Derive gives/wants from imbalances ──
-    // 0 = guaranteed segment. Other segment ids live either in `intents` (Lace
-    // makeIntent populates these) or `fallibleOffer` (backend initSwap), so
-    // union both so the offer list shows the right gives/wants regardless of
-    // which producer made it.
+    // 0 = guaranteed segment. Lace's makeIntent populates `intents` and may also
+    // touch `fallibleOffer` depending on the kinds (shielded/unshielded) involved.
+    // Union both so we capture every segment with imbalances.
     const intentKeys = (offerTx as any).intents
       ? Array.from((offerTx as any).intents.keys() as Iterable<number>)
       : [];

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
 import { MintModal } from './components/MintModal';
 import { SwapInterface } from './components/SwapInterface';
@@ -7,11 +7,13 @@ import { EventFeed } from './components/EventFeed';
 import { WalletBalances } from './components/WalletBalances';
 import { useTokens } from './hooks/useTokens';
 import { useEventStream } from './hooks/useEventStream';
-import { useActiveWallet, BROWSER_WALLET_ID } from './hooks/useActiveWallet';
+import { useAliceBobIdentity } from './hooks/useAliceBobIdentity';
 import { useWallet } from './hooks/useWallet';
 import { useContract } from './hooks/useContract';
 import { useMintReconciler } from './hooks/useMintReconciler';
 import type { AppEvent } from './types';
+import { unshieldedAddressToHex } from './services/offerSender';
+import type { NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import './styles/index.css';
 
 function App() {
@@ -22,17 +24,17 @@ function App() {
   const [balanceRefreshTrigger, setBalanceRefreshTrigger] = useState(0);
 
   const wallet = useWallet();
-  const browserAvailable = wallet.status === 'connected';
-  const { wallets, activeWallet, setActiveWallet } = useActiveWallet(browserAvailable);
   const browserContract = useContract(wallet.connectedApi);
+  const { selfName, otherName, setSelfName } = useAliceBobIdentity();
 
-  const prevWalletStatus = useRef(wallet.status);
-  useEffect(() => {
-    if (prevWalletStatus.current !== 'connected' && wallet.status === 'connected') {
-      setActiveWallet(BROWSER_WALLET_ID);
-    }
-    prevWalletStatus.current = wallet.status;
-  }, [wallet.status, setActiveWallet]);
+  // Hex form of the connected wallet's unshielded UserAddress, used to decide
+  // whether an indexed offer was made by us (→ render `selfName`) or by
+  // someone else (→ render `otherName`). Recomputed only when address or
+  // network id change.
+  const selfUnshieldedHex = useMemo(() => {
+    if (!wallet.unshieldedAddress || !wallet.networkId) return undefined;
+    return unshieldedAddressToHex(wallet.unshieldedAddress, wallet.networkId as NetworkId);
+  }, [wallet.unshieldedAddress, wallet.networkId]);
 
   useMintReconciler(wallet.connectedApi, knownTokens, balanceRefreshTrigger, refetchTokens);
 
@@ -43,7 +45,7 @@ function App() {
     if (event.type === 'token_minted') {
       refetchTokens();
     }
-    if (event.type === 'token_minted' || event.type === 'offer_consumed' || event.type === 'faucet_sent') {
+    if (event.type === 'token_minted' || event.type === 'offer_consumed') {
       setBalanceRefreshTrigger(prev => prev + 1);
       wallet.refreshBalances();
     }
@@ -60,8 +62,6 @@ function App() {
     setRefreshTrigger(prev => prev + 1);
   };
 
-  const isBrowserActive = activeWallet === BROWSER_WALLET_ID;
-
   const handleRefreshBalances = useCallback(async () => {
     setBalanceRefreshTrigger(prev => prev + 1);
     if (wallet.status === 'connected') {
@@ -69,13 +69,14 @@ function App() {
     }
   }, [wallet]);
 
+  const browserAvailable = wallet.status === 'connected';
+
   return (
     <>
       <Header
         onOpenMintModal={() => setIsMintModalOpen(true)}
-        wallets={wallets}
-        activeWallet={activeWallet}
-        onWalletChange={setActiveWallet}
+        selfName={selfName}
+        onSelfNameChange={setSelfName}
         wallet={wallet}
       />
 
@@ -83,9 +84,8 @@ function App() {
         isOpen={isMintModalOpen}
         onClose={() => setIsMintModalOpen(false)}
         onMintSuccess={handleMintSuccess}
-        activeWallet={activeWallet}
-        connectedApi={isBrowserActive ? wallet.connectedApi : null}
-        browserContract={isBrowserActive ? browserContract : null}
+        connectedApi={browserAvailable ? wallet.connectedApi : null}
+        browserContract={browserAvailable ? browserContract : null}
       />
 
       <div className="main-columns">
@@ -94,8 +94,11 @@ function App() {
             knownTokens={knownTokens}
             refreshTrigger={refreshTrigger}
             sseRefreshTrigger={sseRefreshTrigger}
-            activeWallet={activeWallet}
-            connectedApi={isBrowserActive ? wallet.connectedApi : null}
+            connectedApi={browserAvailable ? wallet.connectedApi : null}
+            selfName={selfName}
+            otherName={otherName}
+            selfUnshieldedHex={selfUnshieldedHex}
+            networkId={wallet.networkId ?? null}
           />
         </div>
 
@@ -103,11 +106,10 @@ function App() {
           <SwapInterface
             knownTokens={knownTokens}
             onSuccess={handleSwapSuccess}
-            activeWallet={activeWallet}
-            connectedApi={isBrowserActive ? wallet.connectedApi : null}
-            browserShieldedAddress={isBrowserActive ? wallet.shieldedAddress : null}
-            browserUnshieldedAddress={isBrowserActive ? wallet.unshieldedAddress : null}
-            browserNetworkId={isBrowserActive ? wallet.networkId : null}
+            connectedApi={browserAvailable ? wallet.connectedApi : null}
+            browserShieldedAddress={browserAvailable ? wallet.shieldedAddress : null}
+            browserUnshieldedAddress={browserAvailable ? wallet.unshieldedAddress : null}
+            browserNetworkId={browserAvailable ? wallet.networkId : null}
           />
         </div>
 
@@ -118,13 +120,12 @@ function App() {
             onClear={clearEvents}
           />
           <WalletBalances
-            activeWallet={activeWallet}
             knownTokens={knownTokens}
             balanceRefreshTrigger={balanceRefreshTrigger}
-            browserBalances={isBrowserActive ? wallet.shieldedBalances : null}
-            browserUnshieldedBalances={isBrowserActive ? wallet.unshieldedBalances : null}
+            browserBalances={browserAvailable ? wallet.shieldedBalances : null}
+            browserUnshieldedBalances={browserAvailable ? wallet.unshieldedBalances : null}
             onRefresh={handleRefreshBalances}
-            refreshing={isBrowserActive && wallet.refreshing}
+            refreshing={browserAvailable && wallet.refreshing}
           />
         </div>
       </div>

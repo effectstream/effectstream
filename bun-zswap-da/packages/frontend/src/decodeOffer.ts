@@ -28,29 +28,16 @@ export async function decodeOfferForDisplay(bech32: string): Promise<DecodeResul
 
     const rawTx = decodeOffer(bech32);
 
-    // Sniff proof state — backend-made offers are <Sig, PreProof, PreBinding>;
     // Lace-made offers are <Sig, Proof, Binding>.
-    const candidates = [
-      ['signature', 'proof', 'binding'],
-      ['signature', 'proof', 'pre-binding'],
-      ['signature', 'pre-proof', 'pre-binding'],
-    ] as const;
-    let tx: any = null;
-    let lastErr: unknown = null;
-    for (const [s, p, b] of candidates) {
-      try {
-        tx = (Transaction.deserialize as any)(s, p, b, rawTx);
-        break;
-      } catch (e) {
-        lastErr = e;
-      }
-    }
-    if (!tx) {
-      return { ok: false, error: `Could not decode: ${(lastErr as any)?.message ?? String(lastErr)}` };
+    let tx: any;
+    try {
+      tx = Transaction.deserialize('signature', 'proof', 'binding', rawTx);
+    } catch (e: any) {
+      return { ok: false, error: `Could not decode: ${e?.message ?? String(e)}` };
     }
 
-    // Segments: 0 = guaranteed, plus union of intents.keys() (Lace makeIntent
-    // populates these) and fallibleOffer.keys() (backend initSwap populates these).
+    // Segments: 0 = guaranteed, plus union of intents.keys() and
+    // fallibleOffer.keys() (Lace's makeIntent may populate either).
     const intentKeys = [...(tx.intents?.keys() ?? [])] as number[];
     const fallibleKeys = [...(tx.fallibleOffer?.keys() ?? [])] as number[];
     const otherSegs = Array.from(new Set<number>([...intentKeys, ...fallibleKeys]));
