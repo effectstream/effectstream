@@ -7,6 +7,8 @@ import { LoadingOverlay } from './ui/LoadingOverlay';
 import { TOKEN_TYPE } from '../constants';
 import { encodeOffer } from 'mip-zswap-offer';
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
+import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { detectOfferProofState } from '../services/browserContract';
 
 function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -40,11 +42,13 @@ interface SwapInterfaceProps {
   activeWallet?: string;
   connectedApi?: ConnectedAPI | null;
   browserShieldedAddress?: string | null;
+  browserUnshieldedAddress?: string | null;
+  browserNetworkId?: string | null;
 }
 
 const emptyEntry = (): TokenEntry => ({ type: TOKEN_TYPE.SHIELDED, token: '', amount: '' });
 
-export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuccess, activeWallet, connectedApi, browserShieldedAddress }) => {
+export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuccess, activeWallet, connectedApi, browserShieldedAddress, browserUnshieldedAddress, browserNetworkId }) => {
   const [gives, setGives] = useState<{ id: string; entry: TokenEntry }[]>([
     { id: 'gives-0', entry: emptyEntry() }
   ]);
@@ -83,8 +87,9 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
   };
 
   const handleSubmit = () => {
-    const validGives = gives.map(g => g.entry).filter(e => e.token && e.amount && Number(e.amount) > 0);
-    const validWants = wants.map(w => w.entry).filter(e => e.token && e.amount && Number(e.amount) > 0);
+    const isBlank = (e: TokenEntry) => !e.token && !e.amount.trim();
+    const validGives = gives.map(g => g.entry).filter(e => !isBlank(e));
+    const validWants = wants.map(w => w.entry).filter(e => !isBlank(e));
 
     if (!validGives.length || !validWants.length) {
       execute(async () => { throw new Error('Add at least one token entry for both Giving and Wanting.'); });
@@ -92,52 +97,93 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
     }
 
     execute(async (setMessage) => {
+      // Token amounts are ledger-side base units — non-negative integers, no
+      // decimals, no scientific notation. `Number(amount) > 0` would have let
+      // "0.5" and "1.5e10" through and BigInt() would then SyntaxError with no
+      // user-actionable message. Validate up front instead.
+      const POSITIVE_INT = /^[0-9]+$/;
+      const parseAmount = (side: 'gives' | 'wants', e: TokenEntry): bigint => {
+        if (!e.token) {
+          throw new Error(`A ${side} entry is missing a token selection.`);
+        }
+        const raw = e.amount.trim();
+        if (!POSITIVE_INT.test(raw)) {
+          throw new Error(
+            `Invalid ${side} amount "${e.amount}" — must be a non-negative integer (no decimals, no scientific notation).`,
+          );
+        }
+        const v = BigInt(raw);
+        if (v <= 0n) {
+          throw new Error(`Invalid ${side} amount "${e.amount}" — must be greater than 0.`);
+        }
+        return v;
+      };
+
+      const giveAmounts = validGives.map(g => parseAmount('gives', g));
+      const wantAmounts = validWants.map(w => parseAmount('wants', w));
+
       let transactionBytes: Uint8Array;
 
-      const tryBrowserIntent = async (): Promise<Uint8Array | null> => {
-        if (!connectedApi) return null;
-        if (!browserShieldedAddress) {
-          throw new Error('Browser wallet connected but no shielded address available.');
+      if (connectedApi) {
+        if (typeof (connectedApi as any).makeIntent !== 'function') {
+          throw new Error(
+            'This wallet does not support makeIntent. Please update Lace to a version that implements the Midnight dapp-connector swap-intent API.',
+          );
         }
-        const inputs = validGives.map((g) => ({
+        if (!browserShieldedAddress || !browserUnshieldedAddress) {
+          throw new Error('Browser wallet connected but addresses are not available yet — try again in a moment.');
+        }
+        if (!browserNetworkId) {
+          throw new Error('Browser wallet connected but network id is not available yet — try again in a moment.');
+        }
+
+        const inputs = validGives.map((g, i) => ({
           kind: g.type as 'shielded' | 'unshielded',
           type: g.token,
-          value: BigInt(g.amount),
+          value: giveAmounts[i],
         }));
-        const outputs = validWants.map((w) => ({
-          kind: w.type as 'shielded' | 'unshielded',
-          type: w.token,
-          value: BigInt(w.amount),
-          recipient: browserShieldedAddress,
-        }));
+        const outputs = validWants.map((w, i) => {
+          const kind = w.type as 'shielded' | 'unshielded';
+          return {
+            kind,
+            type: w.token,
+            value: wantAmounts[i],
+            recipient: kind === 'shielded' ? browserShieldedAddress : browserUnshieldedAddress,
+          };
+        });
+
+        setMessage('Building swap intent via browser wallet…');
+        let tx: string;
         try {
-          const { tx } = await connectedApi.makeIntent(inputs, outputs, {
+          // payFees:false: a maker offer is intentionally imbalanced (gives ≠ wants).
+          // The taker's wallet pays fees when balancing the completed offer; asking
+          // the maker to pay here would either no-op or pull DUST the user didn't
+          // intend to commit.
+          const result = await connectedApi.makeIntent(inputs, outputs, {
             intentId: 'random',
-            payFees: true,
+            payFees: false,
           });
-          return decodeConnectorTx(tx);
+          tx = result.tx;
         } catch (e: any) {
           const msg: string = e?.message ?? String(e);
-          // Lace < some-future-version doesn't implement makeIntent. Fall
-          // through to the backend path instead of failing the whole flow.
           if (/not implemented/i.test(msg) || /unsupported/i.test(msg)) {
-            console.warn('[swap] makeIntent not implemented by wallet, falling back to backend create', msg);
-            return null;
+            throw new Error(
+              'This wallet does not support makeIntent. Please update Lace to a version that implements the Midnight dapp-connector swap-intent API.',
+            );
           }
           throw e;
         }
-      };
 
-      if (connectedApi) {
-        setMessage('Building swap intent via browser wallet…');
-        const browserBytes = await tryBrowserIntent();
-        if (browserBytes) {
-          transactionBytes = browserBytes;
-        } else {
-          setMessage('Wallet does not support makeIntent — using backend maker (alice)…');
-          const dataCreate = await api.createSwapOffer(validGives, validWants, 'alice');
-          transactionBytes = base64ToBytes(dataCreate.transactionBytes);
-        }
+        transactionBytes = decodeConnectorTx(tx);
+
+        // Shape check before publishing to Celestia. The taker side
+        // (`proveAndSubmitOffer`) sniffs the same set of states and routes to the
+        // right balance method; this just makes sure the bytes parse before we
+        // publish them.
+        setMessage('Validating wallet response…');
+        setNetworkId(browserNetworkId as NetworkId);
+        const matchedState = detectOfferProofState(transactionBytes);
+        console.log(`[swap] wallet returned tx in proof state = ${matchedState}`);
       } else {
         setMessage('Generating Midnight swap transaction…');
         const dataCreate = await api.createSwapOffer(validGives, validWants, activeWallet);

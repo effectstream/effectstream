@@ -301,14 +301,55 @@ export async function connectBrowserContract(
   return contract;
 }
 
+export type OfferProofState = 'unproven' | 'proven-unbound' | 'proven-bound';
+
+/**
+ * Detect what proof/binding state a serialized maker offer is in. Backend-made
+ * offers (wallet-sdk `initSwap`) are <Sig, PreProof, PreBinding>; Lace-made
+ * offers (`makeIntent`) are <Sig, Proof, Binding> because Lace can't expose
+ * the proof preimage without leaking witness material derived from the
+ * shielded spending key. We sniff by trying each in order — the bytes
+ * deserialize cleanly in exactly one shape.
+ */
+export function detectOfferProofState(rawBytes: Uint8Array): OfferProofState {
+  const candidates: ReadonlyArray<readonly [
+    'signature',
+    'pre-proof' | 'proof',
+    'pre-binding' | 'binding',
+    OfferProofState,
+  ]> = [
+    ['signature', 'proof', 'binding', 'proven-bound'],
+    ['signature', 'proof', 'pre-binding', 'proven-unbound'],
+    ['signature', 'pre-proof', 'pre-binding', 'unproven'],
+  ];
+  let lastError: unknown = null;
+  for (const [s, p, b, name] of candidates) {
+    try {
+      LedgerV8Transaction.deserialize(s, p, b, rawBytes);
+      return name;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw new Error(
+    `Offer bytes don't deserialize as any known Transaction shape: ${
+      (lastError as any)?.message ?? String(lastError)
+    }`,
+  );
+}
+
 /**
  * Take a maker's bech32m offer blob and complete it as the connected browser
- * wallet: prove it via the external proof server, hand the proven tx to the
- * wallet for balancing + sealing, then let the wallet submit it to Midnight.
+ * wallet, then let the wallet submit it to Midnight.
  *
- * Uses the same proofProvider + zkConfigProvider infra as the contract client
- * (the OfferFiles ZK artifacts are already served at window.location.origin
- * under /keys and /zkir).
+ * Branches on the maker's proof state:
+ *  - <Sig, PreProof, PreBinding>: prove via the external proof server, then
+ *    `balanceUnsealedTransaction(payFees:true)`.
+ *  - <Sig, Proof, PreBinding>: skip proving, `balanceUnsealedTransaction(payFees:true)`.
+ *  - <Sig, Proof, Binding>: skip proving, `balanceSealedTransaction(payFees:true)` —
+ *    the taker contributes a new sealed segment that fixes the imbalance.
+ *
+ * In every case the taker's wallet ends up paying the full tx fees with `payFees:true`.
  */
 export async function proveAndSubmitOffer(
   connectedApi: ConnectedAPI,
@@ -317,65 +358,57 @@ export async function proveAndSubmitOffer(
 ): Promise<{ txHash: string }> {
   console.log('[browserContract] complete: decoding offer bytes');
   const rawBytes = decodeOffer(offerBech32m);
+  const proofState = detectOfferProofState(rawBytes);
+  console.log(`[browserContract] complete: detected proof state = ${proofState}`);
 
-  const unprovenTx = LedgerV8Transaction.deserialize(
-    'signature',
-    'pre-proof',
-    'pre-binding',
-    rawBytes,
-  );
+  let toBalanceHex: string;
 
-  console.log('[browserContract] complete: building proofProvider');
-  const zkConfigProvider = new KnownCircuitZkConfigProvider(
-    window.location.origin,
-    fetch.bind(window),
-  );
-  const proofProvider = httpClientProofProvider(config.proofServerUri, zkConfigProvider);
-
-  console.log('[browserContract] complete: unproven tx bytes', {
-    bytes: rawBytes.length,
-    headHex: toHex(rawBytes.slice(0, 48)),
-    headAscii: new TextDecoder('ascii', { fatal: false })
-      .decode(rawBytes.slice(0, 48))
-      .replace(/[^\x20-\x7e]/g, '.'),
-  });
-
-  console.log('[browserContract] complete: proving offer via proof server');
-  const provenTx = await proofProvider.proveTx(unprovenTx as any);
-
-  const provenBytes = provenTx.serialize();
-  const provenHex = toHex(provenBytes);
-
-  const nonZero = provenBytes.reduce((n, b) => n + (b !== 0 ? 1 : 0), 0);
-  console.log('[browserContract] complete: proven tx bytes', {
-    bytes: provenBytes.length,
-    nonZeroBytes: nonZero,
-    headHex: provenHex.slice(0, 96),
-    headAscii: new TextDecoder('ascii', { fatal: false })
-      .decode(provenBytes.slice(0, 48))
-      .replace(/[^\x20-\x7e]/g, '.'),
-  });
-
-  if (nonZero === 0) {
-    throw new Error('Proven tx bytes are all zeros — proof server returned empty payload');
-  }
-
-  // Sanity check the shape markers before handing off to Lace.
-  try {
-    LedgerV8Transaction.deserialize('signature', 'proof', 'pre-binding', provenBytes);
-  } catch (e) {
-    console.error('[browserContract] complete: proven tx failed shape check', e);
-    throw new Error(
-      'Proven transaction is not Transaction<Signature, Proof, PreBinding>: ' +
-        ((e as Error).message ?? String(e)),
+  if (proofState === 'unproven') {
+    const unprovenTx = LedgerV8Transaction.deserialize(
+      'signature',
+      'pre-proof',
+      'pre-binding',
+      rawBytes,
     );
+
+    console.log('[browserContract] complete: building proofProvider');
+    const zkConfigProvider = new KnownCircuitZkConfigProvider(
+      window.location.origin,
+      fetch.bind(window),
+    );
+    const proofProvider = httpClientProofProvider(config.proofServerUri, zkConfigProvider);
+
+    console.log('[browserContract] complete: proving offer via proof server');
+    const provenTx = await proofProvider.proveTx(unprovenTx as any);
+    const provenBytes = provenTx.serialize();
+    toBalanceHex = toHex(provenBytes);
+
+    const nonZero = provenBytes.reduce((n, b) => n + (b !== 0 ? 1 : 0), 0);
+    if (nonZero === 0) {
+      throw new Error('Proven tx bytes are all zeros — proof server returned empty payload');
+    }
+
+    try {
+      LedgerV8Transaction.deserialize('signature', 'proof', 'pre-binding', provenBytes);
+    } catch (e) {
+      throw new Error(
+        'Proven transaction is not Transaction<Signature, Proof, PreBinding>: ' +
+          ((e as Error).message ?? String(e)),
+      );
+    }
+  } else {
+    // Already proven by the maker's wallet — pass bytes through untouched.
+    toBalanceHex = toHex(rawBytes);
   }
-  console.log('[browserContract] complete: wallet.balanceUnsealedTransaction', {
-    bytes: provenHex.length / 2,
+
+  const useSealed = proofState === 'proven-bound';
+  console.log('[browserContract] complete: balancing via wallet', {
+    method: useSealed ? 'balanceSealedTransaction' : 'balanceUnsealedTransaction',
+    bytes: toBalanceHex.length / 2,
   });
-  const { tx: balancedHex } = await connectedApi.balanceUnsealedTransaction(provenHex, {
-    payFees: true,
-  });
+  const { tx: balancedHex } = useSealed
+    ? await connectedApi.balanceSealedTransaction(toBalanceHex, { payFees: true })
+    : await connectedApi.balanceUnsealedTransaction(toBalanceHex, { payFees: true });
 
   // Derive the tx hash from the balanced+sealed bytes before submission so we
   // can surface it in the UI.

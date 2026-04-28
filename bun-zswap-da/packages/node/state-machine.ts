@@ -74,16 +74,37 @@ stm.addStateTransition("celestia-zswap", function* (data) {
     return;
   }
 
-  let offerTx: UnprovenTransaction;
-  try {
-    offerTx = Transaction.deserialize(
-      "signature" as const,
-      "pre-proof" as const,
-      "pre-binding" as const,
-      rawTx,
-    ) as UnprovenTransaction;
-  } catch (e) {
-    console.error("[ZSWAP] Failed to deserialize transaction", e);
+  // Backend-made offers (wallet-sdk `initSwap`) arrive as <Sig, PreProof, PreBinding>;
+  // Lace-made offers (`makeIntent`) arrive as <Sig, Proof, Binding> because the wallet
+  // proves+binds inside its secure context. Sniff which by trying each in order — the
+  // bytes deserialize cleanly in exactly one shape. The downstream methods we use
+  // (`imbalances`, `guaranteedOffer.inputs[].nullifier`, `fallibleOffer`) live on
+  // Transaction<S, P, B> regardless of the proof state, so the rest of this handler
+  // is shape-agnostic.
+  const candidates: ReadonlyArray<readonly [
+    "signature",
+    "pre-proof" | "proof",
+    "pre-binding" | "binding",
+  ]> = [
+    ["signature", "proof", "binding"],
+    ["signature", "proof", "pre-binding"],
+    ["signature", "pre-proof", "pre-binding"],
+  ];
+  let offerTx: UnprovenTransaction | undefined;
+  let lastError: unknown = null;
+  for (const [s, p, b] of candidates) {
+    try {
+      // Markers are runtime-discriminated; the deserialize overloads want narrow
+      // literal types. Cast to `any` so we can iterate.
+      offerTx = (Transaction.deserialize as any)(s, p, b, rawTx) as UnprovenTransaction;
+      console.log(`[ZSWAP] Deserialized offer at height ${data.blockHeight} as <${s}, ${p}, ${b}>`);
+      break;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  if (!offerTx) {
+    console.error("[ZSWAP] Failed to deserialize transaction in any known shape", lastError);
     return;
   }
 

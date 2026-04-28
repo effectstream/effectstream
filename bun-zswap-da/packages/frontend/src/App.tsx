@@ -106,6 +106,8 @@ function App() {
             activeWallet={activeWallet}
             connectedApi={isBrowserActive ? wallet.connectedApi : null}
             browserShieldedAddress={isBrowserActive ? wallet.shieldedAddress : null}
+            browserUnshieldedAddress={isBrowserActive ? wallet.unshieldedAddress : null}
+            browserNetworkId={isBrowserActive ? wallet.networkId : null}
           />
         </div>
 
