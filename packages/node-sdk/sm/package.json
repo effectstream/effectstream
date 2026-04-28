@@ -1,7 +1,16 @@
 {
   "name": "@effectstream/sm",
-  "version": "0.100.6",
+  "version": "0.100.8",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/node-sdk/sm"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "exports": {
     ".": "./mod.ts",
     "./builtin": "./primitives/src/builtin.ts",
@@ -23,5 +32,6 @@
     "@pgtyped/runtime": "^2.4.2",
     "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v2@2.0.0",
     "effection": "^3.5.0"
-  }
+  },
+  "description": "State machine DSL for EffectStream"
 }

@@ -1,7 +1,16 @@
 {
   "name": "@effectstream/db-emulator",
-  "version": "0.100.6",
+  "version": "0.100.8",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/node-sdk/db-emulator"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "exports": {
     ".": "./mod.ts"
   },
@@ -9,5 +18,6 @@
     "@pgtyped/runtime": "2.4.2",
     "pg": "^8.14.0",
     "effection": "^3.5.0"
-  }
+  },
+  "description": "In-memory test database for EffectStream"
 }

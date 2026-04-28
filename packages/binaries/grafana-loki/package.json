@@ -1,7 +1,7 @@
 {
   "name": "@effectstream/grafana-loki",
-  "version": "0.100.6",
-  "description": "A wrapper for the Grafana Loki binary",
+  "version": "0.100.8",
+  "description": "Grafana Loki binary wrapper for EffectStream",
   "main": "index.js",
   "bin": {
     "grafana-loki": "index.js"
@@ -11,5 +11,14 @@
   },
   "dependencies": {
     "@xhmikosr/bin-wrapper": "^13.2.0"
+  },
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/binaries/grafana-loki"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
   }
 }

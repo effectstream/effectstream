@@ -13,6 +13,60 @@ const DEPRECATED = new Set([
   "@effectstream/explorer",
 ]);
 
+const PACKAGE_META = {
+  homepage: "https://effectstream.github.io/docs/",
+  repository: {
+    type: "git",
+    url: "https://github.com/PaimaStudios/paima-engine",
+  },
+  bugs: {
+    url: "https://github.com/PaimaStudios/paima-engine/issues",
+  },
+} as const;
+
+const PACKAGE_DESCRIPTIONS: Record<string, string> = {
+  "@effectstream/utils": "Shared utilities for the EffectStream framework",
+  "@effectstream/log": "OpenTelemetry observability for EffectStream",
+  "@effectstream/config": "Chain and runtime configuration for EffectStream",
+  "@effectstream/precompile": "Precompile utilities for EffectStream",
+  "@effectstream/chain-types": "Chain-specific type definitions for EffectStream",
+  "@effectstream/crypto": "Multi-chain signature verification for EffectStream",
+  "@effectstream/concise": "Type-safe schemas for EffectStream",
+  "@effectstream/event-client": "MQTT-based event client for EffectStream",
+  "@effectstream/wallets": "Wallet connector integrations for EffectStream",
+  "@effectstream/coroutine": "Async control flow for EffectStream",
+  "@effectstream/db": "PostgreSQL and PgLite database layer for EffectStream",
+  "@effectstream/sync": "Blockchain sync service for EffectStream",
+  "@effectstream/sm": "State machine DSL for EffectStream",
+  "@effectstream/db-emulator": "In-memory test database for EffectStream",
+  "@effectstream/event-server": "Event server for EffectStream",
+  "@effectstream/runtime": "State machine runtime for EffectStream",
+  "@effectstream/node-sdk": "Main application node SDK for EffectStream",
+  "@effectstream/midnight-contracts": "Midnight network contract interfaces for EffectStream",
+  "@effectstream/evm-hardhat": "Hardhat deployment and JSON-RPC utilities for EffectStream",
+  "@effectstream/evm-contracts": "EVM smart contract interfaces for EffectStream",
+  "@effectstream/bitcoin-contracts": "Bitcoin script utilities for EffectStream",
+  "@effectstream/cardano-contracts": "Cardano contract interfaces for EffectStream",
+  "@effectstream/avail-contracts": "Avail DA contract interfaces for EffectStream",
+  "@effectstream/batcher-sdk": "Cross-chain transaction batching SDK for EffectStream",
+  "@effectstream/batcher": "Cross-chain transaction batching for EffectStream",
+  "@effectstream/explorer": "Block explorer for EffectStream",
+  "@effectstream/tui": "Terminal UI for EffectStream",
+  "@effectstream/orchestrator-v2": "Multi-chain local development environment for EffectStream",
+  "@effectstream/frontend-sdk": "React frontend SDK for EffectStream",
+  "@effectstream/bitcoin-core": "Bitcoin Core binary wrapper for EffectStream",
+  "@effectstream/ord": "Ord binary wrapper for EffectStream",
+  "@effectstream/avail-light-client": "Avail light client binary wrapper for EffectStream",
+  "@effectstream/avail-node": "Avail node binary wrapper for EffectStream",
+  "@effectstream/midnight-indexer": "Midnight indexer binary wrapper for EffectStream",
+  "@effectstream/midnight-node": "Midnight node binary wrapper for EffectStream",
+  "@effectstream/midnight-proof-server": "Midnight proof server binary wrapper for EffectStream",
+  "@effectstream/grafana-alloy": "Grafana Alloy binary wrapper for EffectStream",
+  "@effectstream/grafana-loki": "Grafana Loki binary wrapper for EffectStream",
+  "@effectstream/near-sandbox": "NEAR sandbox binary wrapper for EffectStream",
+  "@effectstream/celestia": "Celestia binary wrapper for EffectStream",
+};
+
 // --- Step 1: Find all publishable packages ---
 
 console.log(`\n📦 Publishing version: ${version}\n`);
@@ -57,7 +111,27 @@ for (const { name, dir, pkg } of packageDirs) {
   console.log(`  ${name} — ${oldVersion} → ${version}`);
 }
 
-// --- Step 2b: Replace workspace:* with concrete version ---
+// --- Step 2b: Inject package metadata ---
+
+console.log(`Injecting package metadata...\n`);
+
+for (const { name, dir, pkg } of packageDirs) {
+  const fullPath = join(dir, "package.json");
+  const relDir = relative(ROOT, dir);
+
+  pkg.homepage = PACKAGE_META.homepage;
+  pkg.repository = { ...PACKAGE_META.repository, directory: relDir };
+  pkg.bugs = { ...PACKAGE_META.bugs };
+  if (PACKAGE_DESCRIPTIONS[name]) {
+    pkg.description = PACKAGE_DESCRIPTIONS[name];
+  }
+
+  writeFileSync(fullPath, JSON.stringify(pkg, null, 2) + "\n");
+}
+
+console.log(`  Updated ${packageDirs.length} packages\n`);
+
+// --- Step 2c: Replace workspace:* with concrete version ---
 // `bun publish` resolves `workspace:*` from the lockfile, which may still
 // point at the previous version. We replace `workspace:*` with the target
 // version in every package.json before publishing, then restore afterwards.

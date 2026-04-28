@@ -1,7 +1,16 @@
 {
   "name": "@effectstream/evm-hardhat",
-  "version": "0.100.6",
+  "version": "0.100.8",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/chains/evm-hardhat"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "exports": {
     "./json-rpc-server": "./src/json-rpc-server/json-rpc/server.ts",
     "./builder": "./src/builder/build.mod.ts",
@@ -23,5 +32,6 @@
     "@nomicfoundation/hardhat-utils": "3.0.0",
     "jsonc-parser": "^3.3.1",
     "@opentelemetry/sdk-node": "0.56.0"
-  }
+  },
+  "description": "Hardhat deployment and JSON-RPC utilities for EffectStream"
 }

@@ -1,7 +1,16 @@
 {
   "name": "@effectstream/node-sdk",
-  "version": "0.100.6",
+  "version": "0.100.8",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/node-sdk/node"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "exports": {
     ".": {
       "bun": "./src/mod.ts"
@@ -86,5 +95,6 @@
     "@effectstream/precompile": "workspace:*",
     "@effectstream/utils": "workspace:*",
     "@effectstream/concise": "workspace:*"
-  }
+  },
+  "description": "Main application node SDK for EffectStream"
 }

@@ -1,7 +1,16 @@
 {
   "name": "@effectstream/frontend-sdk",
-  "version": "0.100.6",
+  "version": "0.100.8",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/frontend"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "files": [
     "dist",
     "src",
@@ -19,5 +28,6 @@
   },
   "dependencies": {
     "@effectstream/wallets": "workspace:*"
-  }
+  },
+  "description": "React frontend SDK for EffectStream"
 }

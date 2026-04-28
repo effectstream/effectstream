@@ -1,8 +1,17 @@
 {
   "name": "@effectstream/evm-contracts",
-  "version": "0.100.6",
-  "description": "Effectstream EVM default contracts.",
+  "version": "0.100.8",
+  "description": "EVM smart contract interfaces for EffectStream",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/chains/evm-contracts"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "type": "module",
   "exports": {
     ".": "./mod.ts",

@@ -1,7 +1,16 @@
 {
   "name": "@effectstream/orchestrator-v2",
-  "version": "0.100.6",
+  "version": "0.100.8",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/build-tools/orchestrator-v2"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "exports": {
     "./config": "./src/config.ts",
     "./resolve-package": "./scripts/resolve-package.ts",
@@ -23,5 +32,6 @@
   },
   "dependencies": {
     "@effectstream/db": "workspace:*"
-  }
+  },
+  "description": "Multi-chain local development environment for EffectStream"
 }

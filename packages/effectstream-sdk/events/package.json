@@ -1,7 +1,16 @@
 {
   "name": "@effectstream/event-client",
-  "version": "0.100.6",
+  "version": "0.100.8",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/effectstream-sdk/events"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "exports": {
     ".": "./src/mod.ts"
   },
@@ -13,5 +22,6 @@
     "js-sha3": "^0.9.3",
     "mqtt": "^5.14.0",
     "mqtt-pattern": "^2.1.0"
-  }
+  },
+  "description": "MQTT-based event client for EffectStream"
 }
