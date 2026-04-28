@@ -1,9 +1,10 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ConnectedAPI, DAppConnectorAPI } from '@midnight-ntwrk/dapp-connector-api';
 
 type WalletStatus = 'disconnected' | 'connecting' | 'connected' | 'unavailable';
 
 const NETWORK_ID = 'undeployed';
+const POLL_INTERVAL_MS = 10_000; // detect silent Lace disconnects
 
 function isChannelShutdownError(e: unknown): boolean {
   const msg = String((e as any)?.message ?? e ?? '');
@@ -189,6 +190,33 @@ export function useWallet() {
     setError(null);
     setRefreshing(false);
   }, []);
+
+  // Poll wallet availability so we can auto-reconnect after Lace silently drops
+  // its connection (no channel-shutdown error — getConnectionStatus just returns
+  // something other than 'connected').
+  useEffect(() => {
+    if (status !== 'connected') return;
+
+    const id = setInterval(async () => {
+      const api = apiRef.current;
+      if (!api) return; // wallet was explicitly disconnected — stop
+      try {
+        const cs = await api.getConnectionStatus();
+        if (cs.status !== 'connected') {
+          console.warn(
+            '[wallet] poll: wallet status="%s" — reconnecting transparently…',
+            cs.status,
+          );
+          connectWallet();
+        }
+      } catch (e) {
+        console.warn('[wallet] poll: getConnectionStatus threw — reconnecting transparently…', e);
+        connectWallet();
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(id);
+  }, [status, connectWallet]);
 
   return {
     status,
