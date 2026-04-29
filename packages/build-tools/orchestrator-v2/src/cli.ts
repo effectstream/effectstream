@@ -33,6 +33,17 @@ export type ParsedArgs = {
   flags: Record<string, string | boolean>;
 };
 
+const SHORT_TO_LONG: Record<string, string> = {
+  b: "background",
+  c: "config",
+  e: "except",
+  f: "follow",
+  h: "help",
+  o: "only",
+  p: "port",
+  s: "serial",
+};
+
 function parseArgs(argv: string[]): ParsedArgs {
   const positionals: string[] = [];
   const flags: Record<string, string | boolean> = {};
@@ -49,7 +60,12 @@ function parseArgs(argv: string[]): ParsedArgs {
         flags[arg.slice(2)] = true;
       }
     } else if (arg.startsWith("-") && arg.length === 2) {
-      flags[arg.slice(1)] = true;
+      const key = SHORT_TO_LONG[arg.slice(1)] ?? arg.slice(1);
+      if (i + 1 < argv.length && !argv[i + 1].startsWith("-")) {
+        flags[key] = argv[++i];
+      } else {
+        flags[key] = true;
+      }
     } else {
       positionals.push(arg);
     }
@@ -63,7 +79,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
 const { command, positionals, flags } = parseArgs(process.argv.slice(2));
 
-if (!command || flags["help"] || flags["h"]) {
+if (!command || flags["help"]) {
   printHelp();
   process.exit(0);
 }
@@ -132,20 +148,23 @@ function printHelp() {
   unsilence <name...>         Resume terminal output for processes
   logs    [name...]           Follow background daemon log files (like tail -f)
 
-\x1b[1mOptions for \`start\`:\x1b[0m
-  --config     <path>         Config file to load (default: orchestrator.config.ts)
-  --only       <p1,p2,...>    Run only these processes (+ their dependencies)
-  --except     <p1,p2,...>    Skip these processes
-  --port       <n>            Orchestrator API port (default: 4747)
-  --background                Run as a detached background daemon; logs go to files
-  --log-dir    <path>         Log directory when using --background (default: .orchestrator-logs)
-  --no-api                    Disable the HTTP API server
-  --serial                    Launch processes one at a time instead of in parallel waves
-  --no-deps                   Launch only named processes, skip dependency resolution
-  --silence    <p1,p2,...>    Suppress terminal output for these processes
+\x1b[1mGlobal options:\x1b[0m
+  -c, --config  <path>        Config file (default: auto-detected from daemon, package.json, or orchestrator.config.ts)
+  -h, --help                  Print help
 
-\x1b[1mOptions for status/restart/stop:\x1b[0m
-  --port   <n>                Orchestrator API port (default: auto-detected)
+\x1b[1mOptions for \`start\`:\x1b[0m
+  -b, --background            Run as a detached background daemon; logs go to files
+  -p, --port    <n>           Orchestrator API port (default: 4747)
+  -o, --only    <p1,p2,...>   Run only these processes (+ their dependencies)
+  -e, --except  <p1,p2,...>   Skip these processes
+  -s, --serial                Launch processes one at a time instead of in parallel waves
+  --no-deps                   Launch only named processes, skip dependency resolution
+  --log-dir     <path>        Log directory when using -b (default: .orchestrator-logs)
+  --no-api                    Disable the HTTP API server
+  --silence     <p1,p2,...>   Suppress terminal output for these processes
+
+\x1b[1mOptions for \`status\`:\x1b[0m
+  -f, --follow                Continuously refresh the status table (1s interval)
 
 \x1b[1mExamples:\x1b[0m
   orchestrator-v2 start orchestrator.config.ts

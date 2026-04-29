@@ -1,8 +1,8 @@
 import type { ParsedArgs } from "../cli.ts";
 import type { ProcessConfig } from "../config.ts";
 import { OrchestratorClient } from "../api-client.ts";
-import { loadConfig, findDefaultConfig } from "../load-config.ts";
-import { pidsByPort, freePort } from "../port-check.ts";
+import { loadConfig, findDefaultConfig, findPackageJsonConfig } from "../load-config.ts";
+import { pidsByPort, freePort, readStateConfigPath } from "../port-check.ts";
 import { logInfo, logError, logWarn } from "../display.ts";
 
 type StopOptions = Pick<ParsedArgs, "positionals" | "flags"> & {
@@ -38,6 +38,8 @@ export async function runStopCommand(opts: StopOptions): Promise<void> {
   const configPath =
     (opts.flags["config"] as string | undefined) ??
     opts.positionals[1] ??
+    readStateConfigPath() ??
+    (await findPackageJsonConfig()) ??
     (await findDefaultConfig());
 
   if (!configPath) {

@@ -46,3 +46,19 @@ export async function findDefaultConfig(): Promise<string | null> {
   }
   return null;
 }
+
+/** Checks package.json in cwd for an `effectstream.default` config path. */
+export async function findPackageJsonConfig(): Promise<string | null> {
+  try {
+    const pkgPath = path.join(process.cwd(), "package.json");
+    const content = await Bun.file(pkgPath).text();
+    const pkg = JSON.parse(content);
+    const configRel = pkg?.effectstream?.default;
+    if (typeof configRel === "string") {
+      return path.resolve(process.cwd(), configRel);
+    }
+  } catch {
+    // no package.json or invalid JSON
+  }
+  return null;
+}

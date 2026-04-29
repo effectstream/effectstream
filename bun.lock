@@ -933,7 +933,6 @@
       "name": "@effectstream/node-sdk",
       "version": "0.100.6",
       "dependencies": {
-        "@effectstream/batcher-sdk": "workspace:*",
         "@effectstream/chain-types": "workspace:*",
         "@effectstream/concise": "workspace:*",
         "@effectstream/config": "workspace:*",

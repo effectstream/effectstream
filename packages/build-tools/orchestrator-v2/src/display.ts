@@ -1,3 +1,4 @@
+import * as path from "path";
 import type { RemoteProcess } from "./api-client.ts";
 import type { ProcessConfig } from "./config.ts";
 
@@ -97,8 +98,9 @@ export function printStatusTable(rows: StatusRow[], daemonRunning: boolean): voi
       const { daemon: d } = row;
       const pidVal = row.actualPid ?? d.pid;
       const pid = pidVal != null ? String(pidVal) : c.gray + "—" + c.reset;
+      const relLog = d.logFile ? path.relative(process.cwd(), d.logFile) || "." : null;
       const tail = hasLogFiles
-        ? d.logFile ? `${c.dim}${d.logFile}${c.reset}` : ""
+        ? relLog ? `${c.dim}${relLog}${c.reset}` : ""
         : d.link ? `${c.cyan}${d.link}${c.reset}` : "";
 
       console.log(

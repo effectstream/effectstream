@@ -86,15 +86,32 @@ const STATE_FILE = path.join(os.tmpdir(), ".orchestrator-v2.port");
 
 export const DEFAULT_API_PORT = 4747;
 
-export function writeStatePort(port: number): void {
-  fs.writeFileSync(STATE_FILE, String(port), "utf8");
+export function writeState(port: number, configPath: string): void {
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ port, configPath }), "utf8");
 }
 
 export function readStatePort(): number | null {
   try {
     const text = fs.readFileSync(STATE_FILE, "utf8").trim();
+    if (text.startsWith("{")) {
+      const data = JSON.parse(text);
+      return typeof data.port === "number" ? data.port : null;
+    }
     const n = parseInt(text, 10);
     return isNaN(n) ? null : n;
+  } catch {
+    return null;
+  }
+}
+
+export function readStateConfigPath(): string | null {
+  try {
+    const text = fs.readFileSync(STATE_FILE, "utf8").trim();
+    if (text.startsWith("{")) {
+      const data = JSON.parse(text);
+      return typeof data.configPath === "string" ? data.configPath : null;
+    }
+    return null;
   } catch {
     return null;
   }
