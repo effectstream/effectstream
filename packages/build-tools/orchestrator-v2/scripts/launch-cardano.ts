@@ -28,7 +28,13 @@ export function launchCardano(
   opts?: { ports?: number[] },
 ): ProcessConfig[] {
   const cwd = resolvePackageDir("launchCardano", packageName, resolveFrom, REQUIRED_SCRIPTS);
-  const ports = opts?.ports ?? [8090, 10000, 3001];
+  const ports = opts?.ports ?? [
+    8090,  // CARDANO_SUBMIT_TX: cardano-submit-api
+    10000, // YACI_DEVKIT: admin port
+    3001,  // YACI_DEVKIT: cardano-node
+    3000,  // DOLOS: minibf (blockfrost API)
+    50051, // DOLOS: gRPC
+  ];
 
   return [
     {

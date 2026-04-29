@@ -23,6 +23,17 @@ import {
 import type { Client } from "pg";
 import path from "path";
 
+// ── Preflight: verify celestia-appd binary is runnable on this system ────────
+
+const celestiaAppd = path.resolve(import.meta.dirname!, "../../packages/binaries/celestia/vendor/celestia-appd");
+{
+  const check = Bun.spawnSync([celestiaAppd, "version"], { stdout: "pipe", stderr: "pipe" });
+  if (check.exitCode !== 0) {
+    console.log(`[SKIP] Celestia tests skipped: celestia-appd binary is not runnable on this system\n  ${check.stderr.toString().trim()}`);
+    process.exit(0);
+  }
+}
+
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 const CELESTIA_NAMESPACE = "000000000000deadbeef";
 
