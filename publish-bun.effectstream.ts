@@ -52,7 +52,7 @@ const PACKAGE_DESCRIPTIONS: Record<string, string> = {
   "@effectstream/batcher": "Cross-chain transaction batching for EffectStream",
   "@effectstream/explorer": "Block explorer for EffectStream",
   "@effectstream/tui": "Terminal UI for EffectStream",
-  "@effectstream/orchestrator-v2": "Multi-chain local development environment for EffectStream",
+  "@effectstream/orchestrator": "Multi-chain local development environment for EffectStream",
   "@effectstream/frontend-sdk": "React frontend SDK for EffectStream",
   "@effectstream/bitcoin-core": "Bitcoin Core binary wrapper for EffectStream",
   "@effectstream/ord": "Ord binary wrapper for EffectStream",

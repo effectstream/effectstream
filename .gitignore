@@ -6,8 +6,8 @@ logs/
 /cache
 /out
 journal.jsonl
-e2e-v2-bitcoin-batcher-data/
-e2e-v2-midnight-batcher-data/
+e2e-bitcoin-batcher-data/
+e2e-midnight-batcher-data/
 midnight-level-db*
 batcher-debug.log
 .orchestrator-logs/
@@ -16,7 +16,7 @@ batcher-debug.log
 
 # Batcher file storage
 batcher-data/
-e2e-v2-batcher-data/
+e2e-batcher-data/
 
 # Docusaurus
 .docusaurus/

@@ -1,0 +1,15 @@
+{
+  "name": "@e2e/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./mod.ts",
+  "dependencies": {
+    "pg": "^8.14.0",
+    "viem": "2.37.3",
+    "@sinclair/typebox": "0.34.41",
+    "effection": "^3.5.0",
+    "@effectstream/utils": "workspace:*",
+    "@effectstream/event-client": "workspace:*"
+  }
+}

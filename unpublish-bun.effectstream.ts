@@ -49,7 +49,7 @@ const DEPENDENCY_TREE: Record<string, string[]> = {
   "node-sdk": ["chain-types", "config", "coroutine", "db", "db-emulator", "event-server", "precompile", "runtime", "sm", "sync"],
   "frontend-sdk": ["wallets"],
   "batcher-sdk": ["utils", "crypto", "event-client", "midnight-contracts"],
-  "orchestrator-v2": ["db"],
+  "orchestrator": ["db"],
   "evm-hardhat": ["log", "utils"],
 
   // Leaves — no internal deps at all
