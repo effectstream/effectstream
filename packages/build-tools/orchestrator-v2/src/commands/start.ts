@@ -6,7 +6,8 @@ import { ProcessManager } from "../process-manager.ts";
 import { runProcesses } from "../task-runner.ts";
 import { startApiServer } from "../api-server.ts";
 import {
-  writeStatePort,
+  writeState,
+  readStateConfigPath,
   clearStatePort,
   freePort,
   DEFAULT_API_PORT,
@@ -20,7 +21,7 @@ import {
   logWarn,
   logError,
 } from "../display.ts";
-import { loadConfig, findDefaultConfig } from "../load-config.ts";
+import { loadConfig, findDefaultConfig, findPackageJsonConfig } from "../load-config.ts";
 
 type StartOptions = Pick<ParsedArgs, "positionals" | "flags"> & {
   port?: number;
@@ -36,10 +37,12 @@ async function resolveConfig(opts: StartOptions) {
   const configPath =
     (opts.flags["config"] as string | undefined) ??
     positionalConfig ??
+    readStateConfigPath() ??
+    (await findPackageJsonConfig()) ??
     (await findDefaultConfig()) ??
     (() => {
       throw new Error(
-        "No config file found. Pass one as an argument or create orchestrator.config.ts.",
+        "(1) No config file found. Pass one as an argument or create orchestrator.config.ts.",
       );
     })();
 
@@ -70,7 +73,7 @@ export async function runStartCommand(opts: StartOptions): Promise<void> {
   }
 
   // ── Resolve config ─────────────────────────────────────────────────────────
-  const { config } = await resolveConfig(opts);
+  const { configPath, config } = await resolveConfig(opts);
   let { only, except } = parseFilters(opts.flags);
 
   // Treat positional args as process names (shorthand for --only)
@@ -116,6 +119,16 @@ export async function runStartCommand(opts: StartOptions): Promise<void> {
       }
       return;
     }
+  }
+
+  // ── Foreground mode hint ───────────────────────────────────────────────────
+  // Skip when this is a re-spawned child from --background (has --log-dir)
+  if (!opts.flags["log-dir"]) {
+    const col = { reset: "\x1b[0m", dim: "\x1b[2m", cyan: "\x1b[36m" };
+    console.log(
+      `\n${col.dim}Tip: Run with ${col.cyan}--background${col.dim} to daemonize and view status/logs separately.${col.reset}\n`
+    );
+    await Bun.sleep(250);
   }
 
   // ── Per-process log directory (set by --background re-spawn) ──────────────
@@ -175,7 +188,7 @@ export async function runStartCommand(opts: StartOptions): Promise<void> {
         onShutdown: () => shutdown("shutdown API request"),
         runCallbacks,
       });
-      writeStatePort(apiPort);
+      writeState(apiPort, path.resolve(configPath));
       logInfo(`API server listening on http://localhost:${apiPort}`);
     } catch (err: any) {
       logWarn(`Could not start API server on port ${apiPort}: ${err.message}`);
@@ -224,11 +237,11 @@ async function spawnBackground(opts: StartOptions): Promise<void> {
   const client = new OrchestratorClient(apiPort);
   if (await client.isRunning()) {
     const col = { reset: "\x1b[0m", bold: "\x1b[1m", red: "\x1b[31m", dim: "\x1b[2m", cyan: "\x1b[36m" };
-    const cliPath = path.resolve(import.meta.dir, "../cli.ts");
+    const relCliPath = path.relative(process.cwd(), path.resolve(import.meta.dir, "../cli.ts")) || ".";
     console.error(`\n${col.red}${col.bold}An orchestrator daemon is already running on port ${apiPort}.${col.reset}\n`);
-    console.error(`${col.dim}Check status:${col.reset}    bun ${cliPath} status`);
-    console.error(`${col.dim}View logs:${col.reset}       bun ${cliPath} logs`);
-    console.error(`${col.dim}Stop it:${col.reset}         bun ${cliPath} stop`);
+    console.error(`${col.dim}Check status:${col.reset}    bun ${relCliPath} status`);
+    console.error(`${col.dim}View logs:${col.reset}       bun ${relCliPath} logs`);
+    console.error(`${col.dim}Stop it:${col.reset}         bun ${relCliPath} stop`);
     console.error();
     process.exit(1);
   }
@@ -236,10 +249,12 @@ async function spawnBackground(opts: StartOptions): Promise<void> {
   const configPath =
     (opts.flags["config"] as string | undefined) ??
     opts.positionals[0] ??
+    readStateConfigPath() ??
+    (await findPackageJsonConfig()) ??
     (await findDefaultConfig()) ??
     (() => {
       throw new Error(
-        "No config file found. Pass one as an argument or create orchestrator.config.ts.",
+        "(2) No config file found. Pass one as an argument or create orchestrator.config.ts.",
       );
     })();
 
@@ -274,13 +289,16 @@ async function spawnBackground(opts: StartOptions): Promise<void> {
   fs.closeSync(orchFd);
   daemon.unref();
 
-  // Print summary
+  // Print summary with relative paths for easy copy-paste
   const col = { reset: "\x1b[0m", bold: "\x1b[1m", cyan: "\x1b[36m", green: "\x1b[32m", dim: "\x1b[2m" };
+  const relLogDir = path.relative(process.cwd(), logDir) || ".";
+  const relOrchLog = path.relative(process.cwd(), orchLogPath) || ".";
+  const relCliPath = path.relative(process.cwd(), cliPath) || ".";
   console.log(`\n${col.bold}Orchestrator started in background${col.reset}  (PID ${daemon.pid})\n`);
-  console.log(`${col.bold}Log directory:${col.reset}  ${col.cyan}${logDir}${col.reset}`);
-  console.log(`  ${col.dim}orchestrator:${col.reset}  ${orchLogPath}`);
-  console.log(`  ${col.dim}processes:${col.reset}     ${logDir}/<process-name>.log\n`);
-  console.log(`${col.dim}Tail all logs:${col.reset}   tail -f ${logDir}/*.log`);
-  console.log(`${col.dim}Check status:${col.reset}    bun ${cliPath} status`);
-  console.log(`${col.dim}Stop all:${col.reset}        bun ${cliPath} stop\n`);
+  console.log(`${col.bold}Log directory:${col.reset}  ${col.cyan}${relLogDir}${col.reset}`);
+  console.log(`  ${col.dim}orchestrator:${col.reset}  ${relOrchLog}`);
+  console.log(`  ${col.dim}processes:${col.reset}     ${relLogDir}/<process-name>.log\n`);
+  console.log(`${col.dim}Tail all logs:${col.reset}   tail -f ${relLogDir}/*.log`);
+  console.log(`${col.dim}Check status:${col.reset}    bun ${relCliPath} status`);
+  console.log(`${col.dim}Stop all:${col.reset}        bun ${relCliPath} stop\n`);
 }

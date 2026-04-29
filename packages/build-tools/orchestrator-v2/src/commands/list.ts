@@ -1,6 +1,7 @@
 import type { ParsedArgs } from "../cli.ts";
 import { logError } from "../display.ts";
-import { loadConfig, findDefaultConfig } from "../load-config.ts";
+import { loadConfig, findDefaultConfig, findPackageJsonConfig } from "../load-config.ts";
+import { readStateConfigPath } from "../port-check.ts";
 
 type ListOptions = Pick<ParsedArgs, "positionals" | "flags">;
 
@@ -8,10 +9,12 @@ export async function runListCommand(opts: ListOptions): Promise<void> {
   const configPath =
     (opts.flags["config"] as string | undefined) ??
     opts.positionals[0] ??
+    readStateConfigPath() ??
+    (await findPackageJsonConfig()) ??
     (await findDefaultConfig());
 
   if (!configPath) {
-    logError("No config file found. Pass one as an argument or create orchestrator.config.ts.");
+    logError("(3) No config file found. Pass one as an argument or create orchestrator.config.ts.");
     process.exit(1);
   }
 
