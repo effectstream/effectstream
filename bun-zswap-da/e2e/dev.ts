@@ -72,7 +72,6 @@ async function probeMainnetLightNode(): Promise<void> {
     let balanceTia = "unknown";
     try {
       const bal = await rpc("state.Balance");
-      // Balance is returned in utia (1 TIA = 1_000_000 utia).
       const utia = BigInt(bal.amount ?? bal.Amount ?? "0");
       balanceTia = (Number(utia) / 1_000_000).toFixed(6);
     } catch { /* optional */ }
@@ -107,25 +106,21 @@ async function main() {
     await waitForOrchestrator();
 
     if (!useCelestiaMainnet) {
-      await waitForProcess("celestia-bridge-wait", { waitForExit: true, timeoutMs: 180_000 });
-      await waitForProcess("celestia-fund-bridge", { waitForExit: true, timeoutMs: 60_000 });
+      await waitForProcess("celestia-fund-bridge", { waitForExit: true, timeoutMs: 240_000 });
       console.log("Celestia infrastructure ready.");
     }
 
-    await waitForProcess("midnight-node-wait", { waitForExit: true, timeoutMs: 120_000 });
-    await waitForProcess("midnight-indexer-wait", { waitForExit: true, timeoutMs: 120_000 });
-    await waitForProcess("midnight-proof-server-wait", { waitForExit: true, timeoutMs: 120_000 });
+    await waitForProcess("midnight-proof-server-wait", { waitForExit: true, timeoutMs: 180_000 });
     console.log("Midnight infrastructure ready.");
 
     await waitForProcess("midnight-contract-deploy", { waitForExit: true, timeoutMs: 300_000 });
     console.log("Offer-files contract deployed.");
 
-    await waitForProcess("sync");
+    await waitForProcess("sync", { timeoutMs: 60_000 });
     await waitForHealth();
     console.log("\nDev stack is up. Sync node API: http://localhost:9999");
     console.log("Press Ctrl+C to stop.\n");
 
-    // Keep the process alive until a signal triggers shutdown.
     await new Promise<void>(() => {});
   } catch (e) {
     console.error(e);

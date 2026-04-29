@@ -1,6 +1,14 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 import { ENV } from "@effectstream/utils/node-env";
 import { BatcherConfig } from "@effectstream/batcher-sdk";
+
+const DEFAULT_STORAGE_DIR = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../batcher-data",
+);
 
 // Dedicated seed for the zswap-da batcher wallet. Distinct from any wallet
 // the rest of the stack uses — running two wallets on the same seed against
@@ -15,7 +23,7 @@ export const walletSeed = ENV.getString("BATCHER_WALLET_SEED") || BATCHER_SEED;
 export const batcherConfig: BatcherConfig = {
   port: ENV.getNumber("BATCHER_PORT", 3334),
   pollingIntervalMs: ENV.getNumber("BATCHER_POLLING_INTERVAL_MS", 250),
-  storageDir: ENV.getString("BATCHER_STORAGE_DIR", "./zswap-da-batcher-data"),
+  storageDir: ENV.getString("BATCHER_STORAGE_DIR", DEFAULT_STORAGE_DIR),
   midnight: {
     id: midnightNetworkConfig.id,
     indexer: midnightNetworkConfig.indexer,

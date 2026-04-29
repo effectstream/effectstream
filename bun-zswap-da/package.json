@@ -6,8 +6,8 @@
     "e2e"
   ],
   "scripts": {
-    "dev": "bun run --filter @zswap-da/e2e dev",
-    "dev:celestia-mainnet": "bun --env-file=../.env.mainnet run --filter @zswap-da/e2e dev -- --celestia-mainnet",
+    "dev": "bun run e2e/dev.ts",
+    "dev:celestia-mainnet": "bun --env-file=../.env.mainnet run e2e/dev.ts -- --celestia-mainnet",
     "node:dev": "bun run --filter @zswap-da/node dev",
     "frontend": "bun run --filter @zswap-da/frontend dev",
     "e2e": "bun run e2e/run-tests.ts"
