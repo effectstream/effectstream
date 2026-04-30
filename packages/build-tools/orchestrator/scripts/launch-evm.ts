@@ -1,5 +1,5 @@
 import type { ProcessConfig } from "../src/config.ts";
-import { resolvePackageDir } from "./resolve-package.ts";
+import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
 
 export const EvmNames = {
   HARDHAT: "hardhat",
@@ -18,10 +18,10 @@ const REQUIRED_SCRIPTS = {
 
 export function launchEvm(
   packageName: string,
-  resolveFrom: string,
+  location: ResolveLocation,
   opts?: { ports?: number[] },
 ): ProcessConfig[] {
-  const cwd = resolvePackageDir("launchEvm", packageName, resolveFrom, REQUIRED_SCRIPTS);
+  const cwd = resolvePackageDir("launchEvm", packageName, location, REQUIRED_SCRIPTS);
   const ports = opts?.ports ?? [8545, 8546];
 
   return [

@@ -11,7 +11,7 @@ export default {
     { name: "compile-midnight-eip20", description: "Compile EIP-20 contract with Compact", cwd: "e2e/shared/contracts/midnight/contract-eip-20", args: ["run", "compact"], waitToExit: true, critical: true },
 
     // ── Midnight infrastructure ───────────────────────────────────────────────
-    ...launchMidnight("@e2e/midnight-contracts", import.meta.dirname!, {
+    ...launchMidnight("@e2e/midnight-contracts", { resolveFrom: import.meta.dirname! }, {
       env: { MIDNIGHT_STORAGE_PASSWORD: process.env["MIDNIGHT_STORAGE_PASSWORD"] ?? "YourPasswordMy1!" },
       dependsOn: ["compile-midnight-counter", "compile-midnight-eip20"],
     }),

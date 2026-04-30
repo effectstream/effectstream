@@ -1,5 +1,5 @@
 import type { ProcessConfig } from "../src/config.ts";
-import { resolvePackageDir } from "./resolve-package.ts";
+import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
 
 const waitHttpScript = new URL("./wait-http.ts", import.meta.url).pathname;
 
@@ -24,10 +24,10 @@ const REQUIRED_SCRIPTS = {
 
 export function launchCardano(
   packageName: string,
-  resolveFrom: string,
+  location: ResolveLocation,
   opts?: { ports?: number[] },
 ): ProcessConfig[] {
-  const cwd = resolvePackageDir("launchCardano", packageName, resolveFrom, REQUIRED_SCRIPTS);
+  const cwd = resolvePackageDir("launchCardano", packageName, location, REQUIRED_SCRIPTS);
   const ports = opts?.ports ?? [
     8090,  // CARDANO_SUBMIT_TX: cardano-submit-api
     10000, // YACI_DEVKIT: admin port

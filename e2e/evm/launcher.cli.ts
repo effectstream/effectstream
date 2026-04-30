@@ -5,7 +5,7 @@ import { launchEvm, EvmNames } from "@effectstream/orchestrator/launch-evm";
 export default {
   processes: [
     ...launchPglite(),
-    ...launchEvm("@e2e/evm-contracts", import.meta.dirname!),
+    ...launchEvm("@e2e/evm-contracts", { resolveFrom: import.meta.dirname! }),
 
     // ── Sync (the node) ───────────────────────────────────────────────────────
     {

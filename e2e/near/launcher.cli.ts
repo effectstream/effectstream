@@ -5,7 +5,7 @@ import { launchNear, NearNames } from "@effectstream/orchestrator/launch-near";
 export default {
   processes: [
     ...launchPglite(),
-    ...launchNear("@e2e/near-contracts", import.meta.dirname!),
+    ...launchNear("@e2e/near-contracts", { resolveFrom: import.meta.dirname! }),
 
     // ── Deploy Contract ────────────────────────────────────────────────────
     {

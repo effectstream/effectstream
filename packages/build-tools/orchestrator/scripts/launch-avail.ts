@@ -1,5 +1,5 @@
 import type { ProcessConfig } from "../src/config.ts";
-import { resolvePackageDir } from "./resolve-package.ts";
+import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
 
 export const AvailNames = {
   NODE: "avail-node",
@@ -17,10 +17,10 @@ const REQUIRED_SCRIPTS = {
 
 export function launchAvail(
   packageName: string,
-  resolveFrom: string,
+  location: ResolveLocation,
   opts?: { nodePorts?: number[]; clientPorts?: number[] },
 ): ProcessConfig[] {
-  const cwd = resolvePackageDir("launchAvail", packageName, resolveFrom, REQUIRED_SCRIPTS);
+  const cwd = resolvePackageDir("launchAvail", packageName, location, REQUIRED_SCRIPTS);
   const nodePorts = opts?.nodePorts ?? [9955, 30334];
   const clientPorts = opts?.clientPorts ?? [7007];
 

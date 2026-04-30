@@ -5,7 +5,7 @@ import { launchCardano, CardanoNames } from "@effectstream/orchestrator/launch-c
 export default {
   processes: [
     ...launchPglite(),
-    ...launchCardano("@e2e/cardano-contracts", import.meta.dirname!),
+    ...launchCardano("@e2e/cardano-contracts", { resolveFrom: import.meta.dirname! }),
 
     // ── Sync (the node) ───────────────────────────────────────────────────────
     {

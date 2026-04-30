@@ -1,5 +1,5 @@
 import type { ProcessConfig } from "../src/config.ts";
-import { resolvePackageDir } from "./resolve-package.ts";
+import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
 
 export const BitcoinNames = {
   BITCOIN_CORE: "bitcoin-core",
@@ -17,10 +17,10 @@ const REQUIRED_SCRIPTS = {
 
 export function launchBitcoin(
   packageName: string,
-  resolveFrom: string,
+  location: ResolveLocation,
   opts?: { ports?: number[] },
 ): ProcessConfig[] {
-  const cwd = resolvePackageDir("launchBitcoin", packageName, resolveFrom, REQUIRED_SCRIPTS);
+  const cwd = resolvePackageDir("launchBitcoin", packageName, location, REQUIRED_SCRIPTS);
   const ports = opts?.ports ?? [18334, 18443];
 
   return [

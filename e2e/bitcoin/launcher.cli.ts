@@ -5,7 +5,7 @@ import { launchBitcoin, BitcoinNames } from "@effectstream/orchestrator/launch-b
 export default {
   processes: [
     ...launchPglite(),
-    ...launchBitcoin("@e2e/bitcoin-contracts", import.meta.dirname!),
+    ...launchBitcoin("@e2e/bitcoin-contracts", { resolveFrom: import.meta.dirname! }),
 
     // ── Sync (the node) ───────────────────────────────────────────────────────
     {

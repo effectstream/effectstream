@@ -1,5 +1,5 @@
 import type { ProcessConfig } from "../src/config.ts";
-import { resolvePackageDir } from "./resolve-package.ts";
+import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
 
 export const MidnightNames = {
   NODE: "midnight-node",
@@ -23,13 +23,13 @@ const REQUIRED_SCRIPTS = {
 
 export function launchMidnight(
   packageName: string,
-  resolveFrom: string,
+  location: ResolveLocation,
   opts?: {
     env?: { MIDNIGHT_STORAGE_PASSWORD?: string };
     dependsOn?: string[];
   },
 ): ProcessConfig[] {
-  const cwd = resolvePackageDir("launchMidnight", packageName, resolveFrom, REQUIRED_SCRIPTS);
+  const cwd = resolvePackageDir("launchMidnight", packageName, location, REQUIRED_SCRIPTS);
   const deployEnv: Record<string, string> = {};
   if (opts?.env?.MIDNIGHT_STORAGE_PASSWORD) {
     deployEnv.MIDNIGHT_STORAGE_PASSWORD = opts.env.MIDNIGHT_STORAGE_PASSWORD;
