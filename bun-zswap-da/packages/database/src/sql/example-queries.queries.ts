@@ -7,6 +7,7 @@ export type NumberOrString = number | string;
 
 /** 'InsertKnownToken' parameters type */
 export interface IInsertKnownTokenParams {
+  kind: string;
   name: string;
   token_color: string;
 }
@@ -20,13 +21,13 @@ export interface IInsertKnownTokenQuery {
   result: IInsertKnownTokenResult;
 }
 
-const insertKnownTokenIR: any = {"usedParamSet":{"token_color":true,"name":true},"params":[{"name":"token_color","required":true,"transform":{"type":"scalar"},"locs":[{"a":53,"b":65}]},{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":68,"b":73}]}],"statement":"INSERT INTO known_tokens (token_color, name)\nVALUES (:token_color!, :name!)\nON CONFLICT (token_color) DO NOTHING"};
+const insertKnownTokenIR: any = {"usedParamSet":{"token_color":true,"name":true,"kind":true},"params":[{"name":"token_color","required":true,"transform":{"type":"scalar"},"locs":[{"a":59,"b":71}]},{"name":"name","required":true,"transform":{"type":"scalar"},"locs":[{"a":74,"b":79}]},{"name":"kind","required":true,"transform":{"type":"scalar"},"locs":[{"a":82,"b":87}]}],"statement":"INSERT INTO known_tokens (token_color, name, kind)\nVALUES (:token_color!, :name!, :kind!)\nON CONFLICT (token_color) DO NOTHING"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO known_tokens (token_color, name)
- * VALUES (:token_color!, :name!)
+ * INSERT INTO known_tokens (token_color, name, kind)
+ * VALUES (:token_color!, :name!, :kind!)
  * ON CONFLICT (token_color) DO NOTHING
  * ```
  */
@@ -39,6 +40,7 @@ export type IGetKnownTokensParams = void;
 /** 'GetKnownTokens' return type */
 export interface IGetKnownTokensResult {
   id: number;
+  kind: string;
   name: string;
   token_color: string;
 }

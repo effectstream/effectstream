@@ -1,6 +1,6 @@
 /* @name InsertKnownToken */
-INSERT INTO known_tokens (token_color, name)
-VALUES (:token_color!, :name!)
+INSERT INTO known_tokens (token_color, name, kind)
+VALUES (:token_color!, :name!, :kind!)
 ON CONFLICT (token_color) DO NOTHING;
 
 /* @name GetKnownTokens */

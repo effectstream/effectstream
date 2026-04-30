@@ -71,11 +71,11 @@ export const api = {
     return data;
   },
 
-  registerKnownToken: async (color: string, name: string) => {
+  registerKnownToken: async (color: string, name: string, kind: 'shielded' | 'unshielded') => {
     const res = await fetch(`${API_BASE}/api/known-tokens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ color, name }),
+      body: JSON.stringify({ color, name, kind }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message ?? JSON.stringify(data));

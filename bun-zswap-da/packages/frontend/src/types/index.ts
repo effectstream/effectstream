@@ -5,6 +5,7 @@ export type { TokenLeg } from 'mip-zswap-offer';
 export interface KnownToken {
   token_color: string;
   name: string;
+  kind: 'shielded' | 'unshielded';
 }
 
 // UI-layer entry: extends the MIP TokenLeg with a local `type`
@@ -31,4 +32,5 @@ export interface AppEvent {
   nullifier?: string;
   name?: string;
   color?: string;
+  kind?: 'shielded' | 'unshielded';
 }

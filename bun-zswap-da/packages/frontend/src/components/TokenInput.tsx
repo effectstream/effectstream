@@ -27,14 +27,15 @@ export const TokenInput: React.FC<TokenInputProps> = ({ id, entry, knownTokens, 
         />
 
         <div className="token-selector">
-          <select 
+          <select
             value={tokenSelectValue}
             onChange={(e) => {
               const val = e.target.value;
               if (val === 'custom') {
                 onChange(id, { ...entry, token: '', type: 'shielded' });
               } else {
-                onChange(id, { ...entry, token: val, type: 'shielded' });
+                const picked = knownTokens.find(t => t.token_color === val);
+                onChange(id, { ...entry, token: val, type: picked?.kind ?? 'shielded' });
               }
             }}
           >
@@ -51,13 +52,13 @@ export const TokenInput: React.FC<TokenInputProps> = ({ id, entry, knownTokens, 
         <div style={{ marginTop: '12px' }}>
           <input 
             type="text" 
-            placeholder="Token hex address..." 
+            placeholder="Token hex address..."
             style={{ marginBottom: '8px' }}
             value={entry.token}
             onChange={(e) => onChange(id, { ...entry, token: e.target.value })}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <select 
+            <select
               style={{ width: 'auto', padding: '4px 8px' }}
               value={entry.type}
               onChange={(e) => onChange(id, { ...entry, type: e.target.value })}

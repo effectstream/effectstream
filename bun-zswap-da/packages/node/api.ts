@@ -100,10 +100,11 @@ export const apiRouter: StartConfigApiRouter = async function (
       schema: {
         body: {
           type: "object",
-          required: ["color", "name"],
+          required: ["color", "name", "kind"],
           properties: {
             color: { type: "string" },
             name: { type: "string" },
+            kind: { type: "string", enum: ["shielded", "unshielded"] },
           },
         },
       },
@@ -111,10 +112,14 @@ export const apiRouter: StartConfigApiRouter = async function (
     async (request: any) => {
       const color = String(request.body.color).toLowerCase().replace(/^0x/, "");
       const name = String(request.body.name).trim().toUpperCase().slice(0, 16);
+      const kind = String(request.body.kind);
       if (!/^[0-9a-f]{64}$/.test(color)) {
         throw new Error("Invalid token color (expected 64 hex chars)");
       }
       if (!name) throw new Error("Invalid token name");
+      if (kind !== "shielded" && kind !== "unshielded") {
+        throw new Error('Invalid kind (expected "shielded" or "unshielded")');
+      }
 
       const nameCheck = await dbConn.query(
         `SELECT 1 FROM known_tokens WHERE name = $1 LIMIT 1`,
@@ -131,9 +136,9 @@ export const apiRouter: StartConfigApiRouter = async function (
         throw new Error(`Token color already registered as "${colorCheck.rows[0].name}"`);
       }
 
-      await insertKnownToken.run({ token_color: color, name }, dbConn);
-      emitAppEvent({ type: "token_minted", name, color });
-      return { success: true, color, name };
+      await insertKnownToken.run({ token_color: color, name, kind }, dbConn);
+      emitAppEvent({ type: "token_minted", name, color, kind });
+      return { success: true, color, name, kind };
     },
   );
 

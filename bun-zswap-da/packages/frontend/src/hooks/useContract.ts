@@ -73,9 +73,14 @@ export function useContract(connectedApi: ConnectedAPI | null) {
     return (await ensureConnected()).contract;
   }, [ensureConnected]);
 
-  const tryRegister = useCallback(async (color: string, name: string, queuedId: string) => {
+  const tryRegister = useCallback(async (
+    color: string,
+    name: string,
+    kind: 'shielded' | 'unshielded',
+    queuedId: string,
+  ) => {
     try {
-      await api.registerKnownToken(color, name);
+      await api.registerKnownToken(color, name, kind);
       removeMintName(queuedId);
     } catch (e: any) {
       // Leave the entry in the queue — the reconciler will retry when it
@@ -99,7 +104,7 @@ export function useContract(connectedApi: ConnectedAPI | null) {
       if (!colorBytes) throw new Error('mint_shielded: missing color in result');
       const color = Array.from(colorBytes, (b) => b.toString(16).padStart(2, '0')).join('');
       const txHash: string = txData.public?.txHash ?? '';
-      await tryRegister(color, name, queued.id);
+      await tryRegister(color, name, 'shielded', queued.id);
       return { color, txHash };
     },
     [ensureContract, tryRegister],
@@ -135,7 +140,7 @@ export function useContract(connectedApi: ConnectedAPI | null) {
       if (!colorBytes) throw new Error('mint_unshielded: missing color in result');
       const color = Array.from(colorBytes, (b) => b.toString(16).padStart(2, '0')).join('');
       const txHash: string = txData.public?.txHash ?? '';
-      await tryRegister(color, name, queued.id);
+      await tryRegister(color, name, 'unshielded', queued.id);
       return { color, txHash };
     },
     [ensureContract, resolveRecipientBytes, tryRegister],

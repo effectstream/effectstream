@@ -49,9 +49,9 @@ export function useMintReconciler(
         if (cancelled) return;
 
         const knownSet = new Set(knownTokens.map((t) => t.token_color.toLowerCase()));
-        const allColors = new Set<string>();
-        for (const c of Object.keys(shielded)) allColors.add(c.toLowerCase());
-        for (const c of Object.keys(unshielded)) allColors.add(c.toLowerCase());
+        const shieldedColors = new Set(Object.keys(shielded).map((c) => c.toLowerCase()));
+        const unshieldedColors = new Set(Object.keys(unshielded).map((c) => c.toLowerCase()));
+        const allColors = new Set<string>([...shieldedColors, ...unshieldedColors]);
         allColors.delete(NIGHT_TOKEN_ID);
 
         const unknown = Array.from(allColors).filter((c) => !knownSet.has(c));
@@ -61,9 +61,16 @@ export function useMintReconciler(
         for (const color of unknown) {
           const next = peekOldest();
           if (!next) break;
-          console.log('[mintReconciler] registering', { color, name: next.name });
+          // A freshly minted color appears in exactly one balance set — that
+          // set tells us its kind. Prefer unshielded if it somehow shows in
+          // both (shouldn't happen, but a deterministic tiebreaker beats a
+          // crash).
+          const kind: 'shielded' | 'unshielded' = unshieldedColors.has(color)
+            ? 'unshielded'
+            : 'shielded';
+          console.log('[mintReconciler] registering', { color, name: next.name, kind });
           try {
-            await api.registerKnownToken(color, next.name);
+            await api.registerKnownToken(color, next.name, kind);
             removeMintName(next.id);
             progressed = true;
           } catch (e: any) {
