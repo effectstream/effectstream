@@ -1,0 +1,32 @@
+{
+  "name": "@evm-midnight/node",
+  "version": "1.0.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./main.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit main.dev.ts",
+    "node:start": "bun --inspect run main.dev.ts",
+    "node:start:mainnet": "bun --inspect run main.mainnet.ts"
+  },
+  "dependencies": {
+    "@effectstream/concise": "0.100.8",
+    "@effectstream/config": "0.100.8",
+    "@effectstream/log": "0.100.8",
+    "@effectstream/orchestrator-v2": "0.100.8",
+    "@effectstream/runtime": "0.100.8",
+    "@effectstream/utils": "0.100.8",
+    "@effectstream/sm": "0.100.8",
+    "@effectstream/coroutine": "0.100.8",
+    "@effectstream/db": "0.100.8",
+    "@effectstream/explorer": "*",
+    "@effectstream/midnight-contracts": "0.100.8",
+    "@sinclair/typebox": "0.34.41",
+    "effection": "^3.5.0",
+    "fastify": "^5.4.0",
+    "pg": "^8.14.0",
+    "viem": "2.37.3",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v3@3.0.0"
+  }
+}

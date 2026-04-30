@@ -1,0 +1,12 @@
+{
+  "name": "@evm-midnight/batcher",
+  "version": "1.0.0",
+  "exports": "./main.ts",
+  "scripts": {
+    "start": "bun run main.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.100.8",
+    "effection": "^3.5.0"
+  }
+}

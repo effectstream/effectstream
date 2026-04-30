@@ -1,0 +1,23 @@
+{
+  "name": "@evm-midnight/database",
+  "version": "1.0.0",
+  "license": "MIT",
+  "exports": "./mod.ts",
+  "scripts": {
+    "_pgtyped:my-sql": "bunx @effectstream/db/db-wait && bunx @effectstream/db/apply-migrations && bun run sql-to-ts.ts && pgtyped -c ./pgtypedconfig.json",
+    "pgtyped:update": "concurrently --raw --kill-others \"bunx @effectstream/db/db-up\" \"bun run _pgtyped:my-sql\""
+  },
+  "dependencies": {
+    "@effectstream/config": "0.100.8",
+    "@effectstream/runtime": "0.100.8",
+    "@effectstream/sm": "0.100.8",
+    "@pgtyped/runtime": "2.4.2",
+    "@effectstream/db": "0.100.8",
+    "pg": "^8.14.0",
+    "effection": "3.5.0"
+  },
+  "devDependencies": {
+    "@paima/pgtyped-cli": "^2.4.5",
+    "concurrently": "9.1.2"
+  }
+}
