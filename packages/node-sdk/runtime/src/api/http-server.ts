@@ -161,7 +161,7 @@ export const startHttpServer = function* (
   // Use dbConn directly; queries are executed via pgtyped PreparedQuery.run
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.
-  const server = fastify({ maxParamLength: 300 });
+  const server = fastify({ routerOptions: { maxParamLength: 300 } });
   // OpenAPI Docs
   yield* registerOpenApiDocumentation(server, ENV.EFFECTSTREAM_API_PORT);
 
