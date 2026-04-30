@@ -26,11 +26,10 @@ export circuit mint_shielded(
 
 export circuit mint_unshielded(
   domainSep: Bytes<32>,
-  amount: Uint<64>
+  amount: Uint<64>,
+  recipient: UserAddress
 ): Bytes<32> {
-  const color = mintUnshieldedToken(disclose(domainSep), disclose(amount), left<ContractAddress, UserAddress>(kernel.self()));
-  receiveUnshielded(color, disclose(amount) as Uint<128>);
-  return color;
+  return mintUnshieldedToken(disclose(domainSep), disclose(amount), right<ContractAddress, UserAddress>(disclose(recipient)));
 }
 
 export circuit incrementNoun(): [] {

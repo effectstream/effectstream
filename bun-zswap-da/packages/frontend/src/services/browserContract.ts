@@ -53,6 +53,13 @@ export type OfferFilesProviders = MidnightProviders<
 >;
 export type FoundOfferFilesContract = FoundContract<OfferFilesContract.Contract>;
 
+export interface ConnectedOfferFilesContract {
+  readonly contract: FoundOfferFilesContract;
+  readonly providers: OfferFilesProviders;
+  readonly compiledContract: any;
+  readonly config: MidnightBrowserConfig;
+}
+
 const toHex = (data: Uint8Array): string =>
   Array.from(data, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -227,7 +234,7 @@ async function buildProviders(
 export async function connectBrowserContract(
   connectedApi: ConnectedAPI,
   config: MidnightBrowserConfig,
-): Promise<FoundOfferFilesContract> {
+): Promise<ConnectedOfferFilesContract> {
   // midnight-js reads a module-global network id; must be set before any
   // wallet/contract/serialization call or the ledger throws.
   console.log(`[browserContract] setNetworkId("${config.networkId}")`);
@@ -256,7 +263,7 @@ export async function connectBrowserContract(
   })) as FoundOfferFilesContract;
 
   console.log('[browserContract] connect: ready');
-  return contract;
+  return { contract, providers, compiledContract, config };
 }
 
 /**

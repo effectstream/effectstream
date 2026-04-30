@@ -13,7 +13,8 @@ export type ImpureCircuits<PS> = {
                                                                       }>;
   mint_unshielded(context: __compactRuntime.CircuitContext<PS>,
                   domainSep_0: Uint8Array,
-                  amount_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
+                  amount_0: bigint,
+                  recipient_0: { bytes: Uint8Array }): __compactRuntime.CircuitResults<PS, Uint8Array>;
   incrementNoun(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
 }
 
@@ -27,7 +28,8 @@ export type ProvableCircuits<PS> = {
                                                                       }>;
   mint_unshielded(context: __compactRuntime.CircuitContext<PS>,
                   domainSep_0: Uint8Array,
-                  amount_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
+                  amount_0: bigint,
+                  recipient_0: { bytes: Uint8Array }): __compactRuntime.CircuitResults<PS, Uint8Array>;
   incrementNoun(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
 }
 
@@ -44,7 +46,8 @@ export type Circuits<PS> = {
                                                                       }>;
   mint_unshielded(context: __compactRuntime.CircuitContext<PS>,
                   domainSep_0: Uint8Array,
-                  amount_0: bigint): __compactRuntime.CircuitResults<PS, Uint8Array>;
+                  amount_0: bigint,
+                  recipient_0: { bytes: Uint8Array }): __compactRuntime.CircuitResults<PS, Uint8Array>;
   incrementNoun(context: __compactRuntime.CircuitContext<PS>): __compactRuntime.CircuitResults<PS, []>;
 }
 
