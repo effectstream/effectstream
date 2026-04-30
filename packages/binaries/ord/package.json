@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/ord",
-  "version": "0.100.9",
+  "version": "0.100.10",
   "type": "module",
   "main": "./index.js",
   "bin": {
