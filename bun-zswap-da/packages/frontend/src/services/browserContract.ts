@@ -269,192 +269,62 @@ export async function connectBrowserContract(
 /**
  * Complete a maker's bech32m offer blob as the connected browser wallet.
  *
- * The connector's `balance{Un,}sealedTransaction` methods can only balance
- * intents the wallet itself created — passing in a counterparty's tx fails
- * with "No segments found in the provided transaction". The cross-party swap
- * pattern the connector spec describes is:
- *
- *   1. Maker calls makeIntent({inputs: gives, outputs: wants→maker_addr},
- *                              { intentId: R, payFees: false })
- *   2. Taker reads R + imbalances out of the maker's tx, then calls
- *      makeIntent({inputs: maker_wants, outputs: maker_gives→taker_addr},
- *                  { intentId: R, payFees: false })   ← same R
- *   3. Dapp merges the two <Sig, Proof, Binding> txs at the ledger level.
- *   4. Merged tx is asset-balanced + fee-imbalanced. Hand to the batcher
- *      ('finalized'); batcher adds DUST and submits.
- *
- * Only Lace's `makeIntent` shape (<Sig, Proof, Binding>) is supported — the
- * demo no longer creates offers any other way.
+ * Hands the maker's sealed `<Sig, Proof, Binding>` tx to the wallet's
+ * `balanceSealedTransaction` (with `payFees: false` — the batcher's seed
+ * wallet adds DUST). The wallet adds a NEW intent at a fresh segment id
+ * with the matching counterparty inputs/outputs and seals it. This is the
+ * canonical pattern documented in the dapp-connector spec; the previous
+ * "decode → mirror → makeIntent at same segId → merge" approach worked for
+ * shielded swaps (where imbalances live in segment 0 and merge collapses
+ * guaranteed offers) but blows up on unshielded swaps with
+ * "key (segment_id) collision during intents merge" because two `Intent`
+ * objects can't share a segment id.
  */
 export async function proveAndSubmitOffer(
   connectedApi: ConnectedAPI,
   config: MidnightBrowserConfig,
   offerBech32m: string,
 ): Promise<{ txHash: string }> {
-  // ledger-v8 deserialize is network-scoped; set the global before any parse.
   setNetworkId(config.networkId as NetworkId);
 
   console.log('[browserContract] complete: decoding offer bytes');
   const rawBytes = decodeOffer(offerBech32m);
+  const makerTxHex = toHex(rawBytes);
 
-  // Lace's makeIntent produces <Sig, Proof, Binding>.
-  let makerTx;
+  let balancedHex: string;
   try {
-    makerTx = LedgerV8Transaction.deserialize(
-      'signature',
-      'proof',
-      'binding',
-      rawBytes,
-    );
-  } catch (e: any) {
-    throw new Error(
-      `Offer bytes don't deserialize as <signature, proof, binding>: ${e?.message ?? String(e)}`,
-      { cause: e },
-    );
-  }
-
-  // Find the swap segment. Lace's makeIntent typically populates the `intents`
-  // map (Intent objects, keyed by intentId) and may or may not also touch
-  // `fallibleOffer` (ZswapOffer, also keyed by segment id) — depends on the
-  // wallet's implementation and what kinds (shielded/unshielded) the swap
-  // involves. Union both, plus segment 0 (guaranteed), then keep only segments
-  // with non-empty asset imbalances.
-  const intentIds = makerTx.intents ? Array.from(makerTx.intents.keys()) : [];
-  const fallibleIds = makerTx.fallibleOffer ? Array.from(makerTx.fallibleOffer.keys()) : [];
-  const candidateSegs = Array.from(new Set<number>([0, ...intentIds, ...fallibleIds]));
-  console.log('[browserContract] complete: candidate segment ids', {
-    intents: intentIds, fallible: fallibleIds, considered: candidateSegs,
-  });
-
-  // Pick the segment(s) with shielded/unshielded asset imbalances. Skip dust
-  // and skip segments whose imbalances are entirely zero.
-  const swapSegs: Array<{ segId: number; imbalances: Map<any, bigint> }> = [];
-  for (const segId of candidateSegs) {
-    let imb: Map<any, bigint>;
-    try {
-      imb = makerTx.imbalances(segId) as Map<any, bigint>;
-    } catch (e) {
-      console.log(`[browserContract] complete: imbalances(${segId}) threw, skipping`, e);
-      continue;
-    }
-    const hasAssets = Array.from(imb.entries()).some(([tt, v]) => {
-      const tag = (tt as any).tag;
-      return (tag === 'shielded' || tag === 'unshielded') && v !== 0n;
-    });
-    if (hasAssets) swapSegs.push({ segId, imbalances: imb });
-  }
-
-  if (swapSegs.length === 0) {
-    throw new Error(
-      'Maker offer has no segments with shielded/unshielded asset imbalances — ' +
-        `nothing to mirror. (intent ids: ${JSON.stringify(intentIds)}, fallible ids: ${JSON.stringify(fallibleIds)})`,
-    );
-  }
-  if (swapSegs.length > 1) {
-    throw new Error(
-      `Multi-segment offers are not supported (found asset imbalances in segments ${
-        swapSegs.map(s => s.segId).join(', ')
-      }).`,
-    );
-  }
-  const { segId, imbalances } = swapSegs[0];
-  console.log(`[browserContract] complete: using segment id ${segId}`);
-
-  // Compute taker's mirror inputs/outputs from the segment's imbalances.
-  //  +N for token T  →  maker spent N of T, taker should receive N of T   (taker output)
-  //  -N for token T  →  maker outputs N of T, taker should provide N of T (taker input)
-  console.log('[browserContract] complete: maker segment imbalances',
-    Array.from(imbalances.entries()).map(([tt, v]) =>
-      ({ tag: (tt as any).tag, raw: (tt as any).raw, delta: v.toString() })));
-
-  const { shieldedAddress } = await connectedApi.getShieldedAddresses();
-  const { unshieldedAddress } = await connectedApi.getUnshieldedAddress();
-
-  type DesiredInput = { kind: 'shielded' | 'unshielded'; type: string; value: bigint };
-  type DesiredOutput = DesiredInput & { recipient: string };
-  const takerInputs: DesiredInput[] = [];
-  const takerOutputs: DesiredOutput[] = [];
-
-  for (const [tt, delta] of imbalances) {
-    const tag = (tt as any).tag as 'shielded' | 'unshielded' | 'dust';
-    if (tag === 'dust') continue; // batcher pays
-    if (tag !== 'shielded' && tag !== 'unshielded') {
-      console.warn(`[browserContract] complete: skipping unknown token tag "${tag}"`);
-      continue;
-    }
-    const type = (tt as any).raw as string;
-    if (delta > 0n) {
-      takerOutputs.push({
-        kind: tag,
-        type,
-        value: delta,
-        recipient: tag === 'shielded' ? shieldedAddress : unshieldedAddress,
-      });
-    } else if (delta < 0n) {
-      takerInputs.push({ kind: tag, type, value: -delta });
-    }
-  }
-
-  if (takerInputs.length === 0 && takerOutputs.length === 0) {
-    throw new Error('Maker offer has no asset imbalances to mirror — nothing to complete.');
-  }
-  console.log('[browserContract] complete: taker mirror', {
-    inputs: takerInputs.map(i => ({ ...i, value: i.value.toString() })),
-    outputs: takerOutputs.map(o => ({ ...o, value: o.value.toString() })),
-  });
-
-  // Build the taker's matching intent at the SAME segment id so the merge
-  // collapses the two halves into one balanced segment.
-  let takerTxHex: string;
-  try {
-    const result = await connectedApi.makeIntent(takerInputs, takerOutputs, {
-      intentId: segId,
+    const result = await connectedApi.balanceSealedTransaction(makerTxHex, {
       payFees: false,
     });
-    takerTxHex = result.tx;
-    console.log('[browserContract] complete: taker makeIntent returned', {
-      bytes: takerTxHex.length / 2,
+    balancedHex = result.tx;
+    console.log('[browserContract] complete: balanceSealedTransaction returned', {
+      bytes: balancedHex.length / 2,
     });
   } catch (e: any) {
-    console.error('[browserContract] complete: taker makeIntent failed', {
+    console.error('[browserContract] complete: balanceSealedTransaction failed', {
       name: e?.name,
       message: e?.message,
       raw: e,
     });
     throw new Error(
-      `Taker makeIntent failed: ${e?.message ?? e?.name ?? 'unknown'}`,
+      `Wallet failed to balance the maker offer: ${e?.message ?? e?.name ?? 'unknown'}`,
       { cause: e },
     );
   }
 
-  const takerTx = LedgerV8Transaction.deserialize(
-    'signature',
-    'proof',
-    'binding',
-    fromHex(takerTxHex),
-  );
-
-  // Merge maker + taker → fully asset-balanced <Sig, Proof, Binding>.
-  let mergedHex: string;
   let txHash = '';
   try {
-    const merged = makerTx.merge(takerTx);
-    mergedHex = toHex(merged.serialize());
-    txHash = (merged as any).transactionHash?.() ?? '';
-    console.log('[browserContract] complete: merged maker + taker', {
-      bytes: mergedHex.length / 2,
-      txHash,
-    });
-  } catch (e: any) {
-    console.error('[browserContract] complete: merge failed', e);
-    throw new Error(
-      `Failed to merge maker + taker transactions: ${e?.message ?? String(e)}`,
-      { cause: e },
+    const balancedTx = LedgerV8Transaction.deserialize(
+      'signature',
+      'proof',
+      'binding',
+      fromHex(balancedHex),
     );
+    txHash = (balancedTx as any).transactionHash?.() ?? '';
+  } catch {
+    // Hash is best-effort for logging; missing it shouldn't block submission.
   }
 
-  // Send to the batcher with 'finalized' stage; the batcher's seed wallet
-  // adds the DUST segment and submits. Same flow as mint_shielded.
   const coinPublicKeyHex = parseCoinPublicKeyToHex(
     (await connectedApi.getShieldedAddresses()).shieldedCoinPublicKey,
     config.networkId as NetworkId,
@@ -462,7 +332,7 @@ export async function proveAndSubmitOffer(
 
   console.log('[browserContract] complete: submitting to batcher', { txHash });
   try {
-    await submitToBatcher(mergedHex, 'finalized', coinPublicKeyHex);
+    await submitToBatcher(balancedHex, 'finalized', coinPublicKeyHex);
   } catch (e: any) {
     console.error('[browserContract] complete: batcher submit failed', {
       message: e?.message,
