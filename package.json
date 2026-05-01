@@ -1,14 +1,14 @@
 {
   "name": "effectstream",
-  "version": "0.100.8",
+  "version": "0.100.10",
   "private": true,
   "workspaces": [
     "packages/**",
-    "e2e-v2/**"
+    "e2e/**"
   ],
   "scripts": {
     "test:code": "bun test ./packages",
-    "test:e2e": "cd e2e-v2 && bun run runner.ts"
+    "test:e2e": "cd e2e && bun run runner.ts"
   },
   "overrides": {
     "@midnight-ntwrk/ledger-v8": "8.0.3"

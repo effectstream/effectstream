@@ -2,19 +2,19 @@
 //       Each app, e2e, launcher should have it's own orchestrator.config.ts file.
 
 /**
- * orchestrator-v2 config for local quickstart development.
+ * orchestrator config for local quickstart development.
  *
  * Run with (from repo root):
- *   bun packages/build-tools/orchestrator-v2/src/cli.ts start
- *   bun packages/build-tools/orchestrator-v2/src/cli.ts start --only=hardhat,deploy-evm-contracts
- *   bun packages/build-tools/orchestrator-v2/src/cli.ts status
- *   bun packages/build-tools/orchestrator-v2/src/cli.ts restart midnight-node
+ *   bun packages/build-tools/orchestrator/src/cli.ts start
+ *   bun packages/build-tools/orchestrator/src/cli.ts start --only=hardhat,deploy-evm-contracts
+ *   bun packages/build-tools/orchestrator/src/cli.ts status
+ *   bun packages/build-tools/orchestrator/src/cli.ts restart midnight-node
  *
  * Feature flags (set env vars to disable optional chains):
  *   DISABLE_EVM=true  DISABLE_MIDNIGHT=true  DISABLE_BITCOIN=true  DISABLE_CARDANO=true  DISABLE_AVAIL=true
  */
 
-import type { OrchestratorConfig } from "./packages/build-tools/orchestrator-v2/src/config.ts";
+import type { OrchestratorConfig } from "./packages/build-tools/orchestrator/src/config.ts";
 
 const evm_enabled      = process.env["DISABLE_EVM"]      !== "true";
 const midnight_enabled = process.env["DISABLE_MIDNIGHT"] !== "true";

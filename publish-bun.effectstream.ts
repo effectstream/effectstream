@@ -52,7 +52,7 @@ const PACKAGE_DESCRIPTIONS: Record<string, string> = {
   "@effectstream/batcher": "Cross-chain transaction batching for EffectStream",
   "@effectstream/explorer": "Block explorer for EffectStream",
   "@effectstream/tui": "Terminal UI for EffectStream",
-  "@effectstream/orchestrator-v2": "Multi-chain local development environment for EffectStream",
+  "@effectstream/orchestrator": "Multi-chain local development environment for EffectStream",
   "@effectstream/frontend-sdk": "React frontend SDK for EffectStream",
   "@effectstream/bitcoin-core": "Bitcoin Core binary wrapper for EffectStream",
   "@effectstream/ord": "Ord binary wrapper for EffectStream",
@@ -92,6 +92,25 @@ for await (const path of glob.scan({ cwd: ROOT })) {
 }
 
 packageDirs.sort((a, b) => a.name.localeCompare(b.name));
+
+// --- Step 1b: Check for uncommitted changes early (before we modify files) ---
+
+console.log("Checking git status...");
+
+const allowUncommitted = process.argv.includes("--allow-uncommitted");
+const status = await $`git status --porcelain`.text();
+if (status.trim().length > 0) {
+  if (allowUncommitted) {
+    console.log("  ⚠ Uncommitted changes (--allow-uncommitted)\n");
+  } else {
+    console.error("\n❌ Uncommitted changes detected:\n");
+    console.error(status);
+    console.error("Commit or stash changes before publishing.");
+    process.exit(1);
+  }
+} else {
+  console.log("  Working tree clean ✓\n");
+}
 
 // --- Step 2: Bump versions ---
 
@@ -189,33 +208,15 @@ for (const { name, dir } of packageDirs) {
   } catch (e: any) {
     console.error(`  ${name} build failed ✗`);
     console.error(`    ${e.stderr?.toString().trim() || e.message}`);
+    restoreWorkspaceDeps();
     process.exit(1);
   }
 }
 
-// --- Step 4: Check for uncommitted changes (ignoring build artifacts) ---
-
-console.log("\nChecking git status...");
-
-const allowUncommitted = process.argv.includes("--allow-uncommitted");
-const status = await $`git status --porcelain`.text();
-if (status.trim().length > 0) {
-  if (allowUncommitted) {
-    console.log("  ⚠ Uncommitted changes (--allow-uncommitted)\n");
-  } else {
-    console.error("\n❌ Uncommitted changes detected:\n");
-    console.error(status);
-    console.error("Commit or stash changes before publishing.");
-    process.exit(1);
-  }
-} else {
-  console.log("  Working tree clean ✓\n");
-}
-
-// --- Step 5: Publish ---
+// --- Step 4: Publish ---
 
 const isPublish = process.argv.includes("--publish");
-const dryRunFlag = isPublish ? "" : "--dry-run";
+const dryRunArgs = isPublish ? [] : ["--dry-run"];
 
 console.log(`Running ${isPublish ? "LIVE" : "dry-run"} publish:\n`);
 
@@ -226,7 +227,7 @@ for (const { name, dir } of packageDirs) {
   process.stdout.write(`  ${name} (${rel}) ... `);
 
   try {
-    await $`cd ${dir} && bun publish ${dryRunFlag} --access public 2>&1`.quiet();
+    await $`cd ${dir} && bun publish ${dryRunArgs} --access public`.quiet();
     console.log("✓");
   } catch (e: any) {
     console.log("✗");

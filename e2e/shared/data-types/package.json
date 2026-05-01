@@ -1,0 +1,15 @@
+{
+  "name": "@e2e/data-types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./grammar": "./src/grammar.ts"
+  },
+  "dependencies": {
+    "@effectstream/concise": "workspace:*",
+    "@effectstream/sm": "workspace:*",
+    "@sinclair/typebox": "0.34.41"
+  }
+}

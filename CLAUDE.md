@@ -13,7 +13,7 @@ Effectstream (formerly Paima Engine) is a multi-chain blockchain application fra
 bun test ./packages
 
 # E2E tests (runs all chain suites serially)
-cd e2e-v2 && bun run runner.ts
+cd e2e && bun run runner.ts
 
 # Run a single test file
 bun test packages/path/to/file.test.ts
@@ -26,8 +26,8 @@ bun run publish-bun.effectstream.ts --publish --allow-uncommitted
 bun run unpublish-bun.effectstream.ts
 
 # Local multi-chain dev environment
-bun packages/build-tools/orchestrator-v2/src/cli.ts start
-bun packages/build-tools/orchestrator-v2/src/cli.ts status
+bun packages/build-tools/orchestrator/src/cli.ts start
+bun packages/build-tools/orchestrator/src/cli.ts status
 
 # Disable specific chains in orchestrator/e2e
 DISABLE_EVM=true DISABLE_BITCOIN=true bun run ...
@@ -47,9 +47,9 @@ npx docusaurus build         # production build
 - **`packages/chains/`** — Per-chain smart contract interfaces: evm-contracts, evm-hardhat, bitcoin-contracts, cardano-contracts, midnight-contracts, avail-contracts
 - **`packages/binaries/`** — NPM-wrapped blockchain node binaries (midnight-node, bitcoin-core, near-sandbox, etc.)
 - **`packages/batcher/`** — Cross-chain transaction batching: core SDK, adapters, batch-data-builder, Fastify server
-- **`packages/build-tools/`** — orchestrator-v2 (multi-chain local env), explorer, tui
+- **`packages/build-tools/`** — orchestrator (multi-chain local env), explorer, tui
 - **`packages/frontend/`** — React frontend SDK
-- **`e2e-v2/`** — Integration test suites per chain, run serially via `runner.ts`
+- **`e2e/`** — Integration test suites per chain, run serially via `runner.ts`
 - **`templates/`** — 8 starter project templates (minimal, chess, dice, evm-midnight, etc.)
 - **`docs/site/`** — Docusaurus 3 documentation site (built with Deno)
 
@@ -61,7 +61,7 @@ Packages use dual exports — `exports.bun` points to `.ts` source for developme
 
 - All packages share a coordinated version (currently 0.100.x), bumped together during publish
 - Only `@effectstream/frontend-sdk` requires a build step before publishing
-- The orchestrator-v2 manages local blockchain nodes with a dependency graph (e.g., deploy-contracts depends on hardhat being ready)
+- The orchestrator manages local blockchain nodes with a dependency graph (e.g., deploy-contracts depends on hardhat being ready)
 - E2E tests run serially because chain processes share ports
 - Chain support can be toggled via `DISABLE_*` env vars
 
