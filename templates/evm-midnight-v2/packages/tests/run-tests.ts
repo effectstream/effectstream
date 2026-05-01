@@ -13,7 +13,7 @@ const DB_USER = process.env["DB_USER"] || "postgres";
 const DB_PW = process.env["DB_PW"] || "postgres";
 const DB_NAME = process.env["DB_NAME"] || "postgres";
 
-const CLI_PATH = path.resolve(import.meta.dirname!, "../../node_modules/@effectstream/orchestrator-v2/src/cli.ts");
+const CLI_PATH = path.resolve(import.meta.dirname!, "../../node_modules/@effectstream/orchestrator/src/cli.ts");
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 
 let orchestratorProc: ReturnType<typeof Bun.spawn> | null = null;

@@ -1,13 +1,13 @@
-import type { OrchestratorConfig } from "@effectstream/orchestrator-v2/config";
-import { launchPglite, DbNames } from "@effectstream/orchestrator-v2/launch-pglite";
-import { launchEvm, EvmNames } from "@effectstream/orchestrator-v2/launch-evm";
-import { launchMidnight, MidnightNames } from "@effectstream/orchestrator-v2/launch-midnight";
+import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
+import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
+import { launchEvm, EvmNames } from "@effectstream/orchestrator/launch-evm";
+import { launchMidnight, MidnightNames } from "@effectstream/orchestrator/launch-midnight";
 
 export default {
   processes: [
     ...launchPglite(),
-    ...launchEvm("@evm-midnight/contracts-evm", import.meta.dirname!),
-    ...launchMidnight("@evm-midnight/contracts-midnight", import.meta.dirname!, {
+    ...launchEvm("@evm-midnight/contracts-evm", { resolveFrom: import.meta.dirname! }),
+    ...launchMidnight("@evm-midnight/contracts-midnight", { resolveFrom: import.meta.dirname! }, {
       env: { MIDNIGHT_STORAGE_PASSWORD: "YourPasswordMy1!" },
     }),
 

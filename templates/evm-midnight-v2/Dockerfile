@@ -92,4 +92,4 @@ EXPOSE 8545
 EXPOSE 6300
 
 ENV NODE_ENV=development
-CMD ["bunx", "orchestrator-v2", "start", "--config", "start.dev.ts"]
+CMD ["bunx", "orchestrator", "start", "--config", "start.dev.ts"]
