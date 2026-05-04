@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/grafana-alloy",
-  "version": "0.100.11",
+  "version": "0.100.12",
   "description": "Grafana Alloy binary wrapper for EffectStream",
   "main": "install.js",
   "bin": {

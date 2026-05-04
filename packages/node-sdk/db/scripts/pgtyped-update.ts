@@ -6,7 +6,7 @@
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+
 import pg from "pg";
 import { startPglite, type PgliteHandle } from "./start-pglite.ts";
 import { waitForDb } from "./wait-for-db.ts";
@@ -123,7 +123,7 @@ async function runPgtyped(pgtypedBin: string, pgtypedConfigPath: string): Promis
 export async function main(options?: PgtypedUpdateOptions) {
   const userMigrations = options?.userMigrations ?? await resolveUserMigrations();
   const pgtypedConfigPath = options?.pgtypedConfigPath ?? "./pgtypedconfig.json";
-  const pgtypedBin = options?.pgtypedBin ?? fileURLToPath(import.meta.resolve("@paima/pgtyped-cli"));
+  const pgtypedBin = options?.pgtypedBin ?? resolve(process.cwd(), "node_modules/@paima/pgtyped-cli/lib/index.js");
 
   console.log("🚀 Starting pgtyped-update...\n");
 

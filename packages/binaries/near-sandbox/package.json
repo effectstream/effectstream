@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/near-sandbox",
-  "version": "0.100.11",
+  "version": "0.100.12",
   "type": "module",
   "main": "./index.js",
   "bin": {
