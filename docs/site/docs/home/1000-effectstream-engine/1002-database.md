@@ -64,54 +64,17 @@ The `effectstream` schema contains a number of tables essential for the engine's
 
 ### Block-hash storage policy
 
-To keep the `effectstream.effectstream_blocks` table from growing linearly with the chain, the engine retains hash content for **only the most recently finalized block**. Older rows still exist (with all their other columns intact — `block_height`, `seed`, `ms_timestamp`, etc.) but their hash columns are flattened to empty bytea.
+`effectstream.effectstream_blocks` retains hash content for **only the most recently finalized block**. Older rows keep all their other columns (`block_height`, `seed`, `ms_timestamp`, etc.) but their hash columns are stored as empty bytea, so the table's hash overhead is constant rather than linear in chain length.
 
-What gets written for each new block:
+What's written for each new block:
 
-- `main_chain_block_hash` — always empty bytea. The column is `BYTEA NOT NULL`; an empty buffer satisfies the constraint. Its content was never used internally and the API endpoints that surfaced it are no longer meaningful.
-- `effectstream_block_hash` — written with the real hash for the block being finalized. As part of the same block-processing transaction, every previously populated row is flattened to empty bytea (see `pruneOldBlockHashes`). Only one row carries hash content at any time.
+- `main_chain_block_hash` — always empty bytea. The column is `BYTEA NOT NULL`; an empty buffer satisfies the constraint. Its content is not consumed by the engine.
+- `effectstream_block_hash` — written with the real hash for the block being finalized. In the same block-processing transaction, every previously populated row is flattened to empty bytea via `pruneOldBlockHashes`. After commit, exactly one row carries hash content.
 
 Why this is safe:
 
-- **Prando RNG determinism** is preserved across restarts. On startup, `start()` reads the latest finalized row's `effectstream_block_hash` and seeds the in-memory hash chain from it before processing the next block. `generatePaimaBlockHash` therefore receives the correct predecessor hash regardless of how many restarts have happened.
+- **Prando RNG determinism across restarts.** On startup, `start()` reads the latest finalized row's `effectstream_block_hash` and seeds the in-memory hash chain from it before processing the next block. `generatePaimaBlockHash` always receives the correct predecessor hash regardless of restart timing.
 - **Block-done sentinel.** Empty bytea is non-null in Postgres, so the `WHERE effectstream_block_hash IS NOT NULL` filters used by `getLatestProcessedBlockHeight` and `getBlockSeeds` continue to match every finalized row.
 - **In-flight blocks** (after `saveLastBlock` but before `blockHeightDone`) have `effectstream_block_hash = NULL`. The hydration query skips them via the same `IS NOT NULL` filter, so a crash mid-block resumes from the last fully-finalized predecessor.
 
-What stops working:
-
-- `getBlockByHash` and the rollup-input JOINs that read `effectstream_blocks.effectstream_block_hash` only resolve correctly for the most recently finalized block. Historical lookups by hash return empty/no results.
-
-#### Reclaiming disk for already-populated deployments
-
-Engine version `0.0.1` always wrote real hash content for every row. When upgrading a deployment that ran on an earlier version, run a one-off DBA script during a maintenance window — **not** as a versioned migration, because the engine's migration runner blocks startup. The script is idempotent on already-flattened rows, so it can be re-run safely.
-
-```sql
--- 1. Batched rewrite. Preserves the hash on the latest finalized row so that
---    on the next engine boot, hydration still finds a non-empty predecessor
---    and Prando seeding stays continuous.
-WITH latest AS (
-  SELECT block_height
-  FROM effectstream.effectstream_blocks
-  WHERE effectstream_block_hash IS NOT NULL
-  ORDER BY block_height DESC
-  LIMIT 1
-)
-UPDATE effectstream.effectstream_blocks AS b
-SET main_chain_block_hash = ''::bytea,
-    effectstream_block_hash = CASE
-      WHEN effectstream_block_hash IS NULL THEN NULL
-      ELSE ''::bytea
-    END
-WHERE octet_length(b.main_chain_block_hash) > 0
-   OR (
-     octet_length(b.effectstream_block_hash) > 0
-     AND b.block_height <> (SELECT block_height FROM latest)
-   );
-
--- 2. Reclaim space. Pick ONE of:
---    (a) VACUUM (effectstream.effectstream_blocks);          -- non-blocking; dead tuples reusable, file size unchanged
---    (b) VACUUM FULL effectstream.effectstream_blocks;        -- shrinks file; takes ACCESS EXCLUSIVE lock
---    (c) pg_repack -t effectstream.effectstream_blocks ...    -- shrinks file online; requires the pg_repack extension
-```
-
-Regular `VACUUM` (option a) is the safest default on a running service; avoid `VACUUM FULL` while sync is live. After this script runs once, the engine's per-block `pruneOldBlockHashes` keeps the table at constant hash overhead going forward.
+Trade-off: `getBlockByHash` and the rollup-input JOINs that read `effectstream_blocks.effectstream_block_hash` only resolve for the most recently finalized block. Historical lookups by hash return no rows.
