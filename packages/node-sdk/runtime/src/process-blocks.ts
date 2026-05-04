@@ -259,11 +259,17 @@ export function* processFinalizedBlock(
      * We retain the real hash on the just-finalized row so that on the next
      * process restart, `start()` can hydrate the in-memory blockHash chain
      * from disk and Prando seeding stays continuous across restarts.
-     * Older rows had their hash flattened to empty bytea by
-     * `pruneOldBlockHashes`, which keeps DB size bounded while preserving
-     * the IS-NOT-NULL "block-done" sentinel.
+     * The previous block's row is flattened to empty bytea by
+     * `pruneOldBlockHashes`, targeted by primary key so the operation is
+     * O(1). At genesis (block 1), block_height = 0 matches no rows and the
+     * UPDATE is a no-op.
      */
-    yield* call(() => pruneOldBlockHashes.run(undefined, dbConn));
+    yield* call(() =>
+      pruneOldBlockHashes.run(
+        { previous_block_height: value.blockNumber - 1 },
+        dbConn,
+      )
+    );
     yield* call(() =>
       blockHeightDone.run({
         block_hash: Buffer.from(blockHash),

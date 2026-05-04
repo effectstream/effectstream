@@ -41,14 +41,16 @@ effectstream_block_hash = EXCLUDED.effectstream_block_hash;
 /*
  @name pruneOldBlockHashes
 
- Flatten every populated effectstream_block_hash to empty bytea so that, after
- each finalized block, only the freshly-written row carries hash content. Empty
- bytea is non-null in Postgres, so the IS-NOT-NULL "block-done" sentinel used
- by getLatestProcessedBlockHeight and getBlockSeeds is preserved on older rows.
+ Flatten the previous block's hash content to empty bytea so that, after each
+ finalized block, only the freshly-written row carries hash content. Targets
+ the previous row by primary key, so the operation is an O(1) index lookup
+ and a single-row write (no scan, no auxiliary index needed). Empty bytea is
+ non-null in Postgres, so the IS-NOT-NULL "block-done" sentinel used by
+ getLatestProcessedBlockHeight and getBlockSeeds is preserved.
 */
 UPDATE effectstream.effectstream_blocks
 SET effectstream_block_hash = ''::bytea
-WHERE octet_length(effectstream_block_hash) > 0;
+WHERE block_height = :previous_block_height!;
 
 /* @name blockHeightDone */
 UPDATE effectstream.effectstream_blocks

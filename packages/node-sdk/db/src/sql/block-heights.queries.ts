@@ -175,7 +175,9 @@ export const saveLastBlock = new PreparedQuery<ISaveLastBlockParams,ISaveLastBlo
 
 
 /** 'PruneOldBlockHashes' parameters type */
-export type IPruneOldBlockHashesParams = void;
+export interface IPruneOldBlockHashesParams {
+  previous_block_height: number;
+}
 
 /** 'PruneOldBlockHashes' return type */
 export type IPruneOldBlockHashesResult = void;
@@ -186,14 +188,14 @@ export interface IPruneOldBlockHashesQuery {
   result: IPruneOldBlockHashesResult;
 }
 
-const pruneOldBlockHashesIR: any = {"usedParamSet":{},"params":[],"statement":"UPDATE effectstream.effectstream_blocks\nSET effectstream_block_hash = ''::bytea\nWHERE octet_length(effectstream_block_hash) > 0"};
+const pruneOldBlockHashesIR: any = {"usedParamSet":{"previous_block_height":true},"params":[{"name":"previous_block_height","required":true,"transform":{"type":"scalar"},"locs":[{"a":101,"b":124}]}],"statement":"UPDATE effectstream.effectstream_blocks\nSET effectstream_block_hash = ''::bytea\nWHERE block_height = :previous_block_height!"};
 
 /**
  * Query generated from SQL:
  * ```
  * UPDATE effectstream.effectstream_blocks
  * SET effectstream_block_hash = ''::bytea
- * WHERE octet_length(effectstream_block_hash) > 0
+ * WHERE block_height = :previous_block_height!
  * ```
  */
 export const pruneOldBlockHashes = new PreparedQuery<IPruneOldBlockHashesParams,IPruneOldBlockHashesResult>(pruneOldBlockHashesIR);

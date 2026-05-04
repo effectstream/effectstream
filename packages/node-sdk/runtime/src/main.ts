@@ -143,6 +143,7 @@ export function* start(config: StartConfig): Operation<void> {
     );
     const latestHash = latest?.effectstream_block_hash;
     if (latestHash && latestHash.length > 0) {
+      console.info("Hydrating block hash chain from latest finalized block", latestHash.toString("hex"));
       blockHash = `0x${latestHash.toString("hex")}` as PaimaBlockHash;
     }
   }
