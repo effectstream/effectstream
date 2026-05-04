@@ -6,7 +6,7 @@
     "start": "bun run main.ts"
   },
   "dependencies": {
-    "@effectstream/batcher-sdk": "0.100.10",
+    "@effectstream/batcher-sdk": "0.100.12",
     "effection": "^3.5.0"
   }
 }
