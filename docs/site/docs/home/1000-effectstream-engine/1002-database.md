@@ -8,7 +8,7 @@ Effectstream provides a sophisticated and developer-friendly toolkit for definin
 
 Your dApp's database is organized into three main schemas:
 
-*   **`paima`**: This schema is reserved for Effectstream's internal system tables. These tables manage the core operations of the node, such as block processing, input queuing, account management, and achievement tracking. You should generally not modify these tables directly.
+*   **`effectstream`**: This schema is reserved for Effectstream's internal system tables. These tables manage the core operations of the node, such as block processing, input queuing, account management, and achievement tracking. You should generally not modify these tables directly.
 *   **`primitives`**: This schema holds the **Dynamic Tables** that are automatically created and managed by the Effectstream to represent the state of your configured Primitives. For example, an `ERC20` primitive will create a table in this schema to track token balances.
 *   **`public`**: This is **your schema**. All of your dApp's custom tables, such as `players`, `games`, or `inventories`, should be created here.
 
@@ -51,13 +51,49 @@ This command introspects your SQL files and your database schema, then generates
 
 ### System Tables Overview
 
-The `paima` schema contains a number of tables essential for the engine's operation. Here are a few of the most important ones:
+The `effectstream` schema contains a number of tables essential for the engine's operation. Here are a few of the most important ones:
 
 | Table | Description |
 | :--- | :--- |
-| **`paima.effectstream_blocks`** | Records every L2 block processed by the engine, including its seed for randomness. |
-| **`paima.rollup_inputs`** | A queue for all incoming inputs from on-chain events. |
-| **`paima.rollup_input_future_block`** | Stores scheduled inputs that are set to execute at a future block height (for timers/ticks). |
-| **`paima.accounts` & `paima.addresses`** | Manages the L2 Account System, linking wallets to persistent accounts. |
-| **`paima.achievement_progress`** | Stores the dynamic per-player progress for the PRC-1 Achievement system. |
-| **`paima.primitive_config`** | Stores the configuration of all your defined Primitives. |
+| **`effectstream.effectstream_blocks`** | Records every L2 block processed by the engine, including its seed for randomness. |
+| **`effectstream.rollup_inputs`** | A queue for all incoming inputs from on-chain events. |
+| **`effectstream.rollup_input_future_block`** | Stores scheduled inputs that are set to execute at a future block height (for timers/ticks). |
+| **`effectstream.accounts` & `effectstream.addresses`** | Manages the L2 Account System, linking wallets to persistent accounts. |
+| **`effectstream.achievement_progress`** | Stores the dynamic per-player progress for the PRC-1 Achievement system. |
+| **`effectstream.primitive_config`** | Stores the configuration of all your defined Primitives. |
+
+### Skipping block-hash storage
+
+`StartConfig.skipBlockHashStorage` is a top-level boolean flag (production-safe) that reduces DB size by persisting empty buffers in place of the two hash columns of `effectstream.effectstream_blocks`:
+
+- `main_chain_block_hash` — written by `saveLastBlock` at the start of block processing. The column is `BYTEA NOT NULL`; an empty buffer satisfies the constraint.
+- `effectstream_block_hash` — written by `blockHeightDone` when the block finishes, and used elsewhere as the "block-done" sentinel via `IS NOT NULL`. An empty buffer is non-null in Postgres, so the sentinel semantics are preserved.
+
+Behavior when enabled:
+
+- The Prando RNG seed is computed in memory before the DB write, so randomness and STF determinism are unaffected.
+- Block-by-hash lookup APIs (`getBlockByHash`, related `rollup_inputs` JOINs) stop returning useful results — only enable the flag if your app does not depend on those lookups.
+- Sync continues to advance normally because `getLatestProcessedBlockHeight` and `getBlockSeeds` only check `IS NOT NULL`, not the hash content.
+
+#### Reclaiming disk for historical rows
+
+The flag only affects new writes. To shrink an already-populated DB (e.g. an existing production deployment), run a one-off DBA script during a maintenance window — **not** as a versioned migration, because the engine's migration runner blocks startup.
+
+```sql
+-- 1. Batched rewrite (idempotent; skips rows already empty)
+UPDATE effectstream.effectstream_blocks
+SET main_chain_block_hash = ''::bytea,
+    effectstream_block_hash = CASE
+      WHEN effectstream_block_hash IS NULL THEN NULL
+      ELSE ''::bytea
+    END
+WHERE octet_length(main_chain_block_hash) > 0
+   OR octet_length(effectstream_block_hash) > 0;
+
+-- 2. Reclaim space. Pick ONE of:
+--    (a) VACUUM (effectstream.effectstream_blocks);          -- non-blocking; dead tuples reusable, file size unchanged
+--    (b) VACUUM FULL effectstream.effectstream_blocks;        -- shrinks file; takes ACCESS EXCLUSIVE lock
+--    (c) pg_repack -t effectstream.effectstream_blocks ...    -- shrinks file online; requires the pg_repack extension
+```
+
+The `CASE` on `effectstream_block_hash` preserves the `NULL` "not yet finalized" state for any in-flight blocks. Regular `VACUUM` (option a) is the safest default on a running service; avoid `VACUUM FULL` while sync is live.
