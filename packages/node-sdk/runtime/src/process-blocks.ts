@@ -14,6 +14,7 @@ import {
   getFutureGameInputByBlockHeight,
   getFutureGameInputByMaxTimestamp,
   insertGameInputResult,
+  pruneOldBlockHashes,
   removePages,
   saveLastBlock,
 } from "@effectstream/db";
@@ -128,7 +129,7 @@ export function* processFinalizedBlock(
   dbConn: Pool,
   previousBlockHash: PaimaBlockHash | null,
 ): Operation<PaimaBlockHash> {
-  const { gameStateTransitions, migrations, skipBlockHashStorage } = config;
+  const { gameStateTransitions, migrations } = config;
   const blockHash: PaimaBlockHash = generatePaimaBlockHash(
     value,
     previousBlockHash,
@@ -144,9 +145,10 @@ export function* processFinalizedBlock(
         // TODO: Check these values
         block_height: value.blockNumber,
         ver: 0,
-        main_chain_block_hash: skipBlockHashStorage
-          ? Buffer.alloc(0)
-          : Buffer.from(value.blockNumber.toString()),
+        // main_chain_block_hash content is unused internally and pruned to
+        // empty bytea on every block to keep DB size bounded. The column
+        // remains BYTEA NOT NULL; an empty buffer satisfies the constraint.
+        main_chain_block_hash: Buffer.alloc(0),
         seed: randomGenerator.seed.toString(),
         ms_timestamp: new Date(value.timestamp),
       }, dbConn)
@@ -252,10 +254,19 @@ export function* processFinalizedBlock(
       }
     }
 
-    /* STEP 6: Mark the block as done. */
+    /* STEP 6: Mark the block as done.
+     *
+     * We retain the real hash on the just-finalized row so that on the next
+     * process restart, `start()` can hydrate the in-memory blockHash chain
+     * from disk and Prando seeding stays continuous across restarts.
+     * Older rows had their hash flattened to empty bytea by
+     * `pruneOldBlockHashes`, which keeps DB size bounded while preserving
+     * the IS-NOT-NULL "block-done" sentinel.
+     */
+    yield* call(() => pruneOldBlockHashes.run(undefined, dbConn));
     yield* call(() =>
       blockHeightDone.run({
-        block_hash: skipBlockHashStorage ? Buffer.alloc(0) : Buffer.from(blockHash),
+        block_hash: Buffer.from(blockHash),
         block_height: value.blockNumber,
       }, dbConn)
     );

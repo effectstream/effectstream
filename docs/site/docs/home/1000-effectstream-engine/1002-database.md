@@ -62,33 +62,51 @@ The `effectstream` schema contains a number of tables essential for the engine's
 | **`effectstream.achievement_progress`** | Stores the dynamic per-player progress for the PRC-1 Achievement system. |
 | **`effectstream.primitive_config`** | Stores the configuration of all your defined Primitives. |
 
-### Skipping block-hash storage
+### Block-hash storage policy
 
-`StartConfig.skipBlockHashStorage` is a top-level boolean flag (production-safe) that reduces DB size by persisting empty buffers in place of the two hash columns of `effectstream.effectstream_blocks`:
+To keep the `effectstream.effectstream_blocks` table from growing linearly with the chain, the engine retains hash content for **only the most recently finalized block**. Older rows still exist (with all their other columns intact — `block_height`, `seed`, `ms_timestamp`, etc.) but their hash columns are flattened to empty bytea.
 
-- `main_chain_block_hash` — written by `saveLastBlock` at the start of block processing. The column is `BYTEA NOT NULL`; an empty buffer satisfies the constraint.
-- `effectstream_block_hash` — written by `blockHeightDone` when the block finishes, and used elsewhere as the "block-done" sentinel via `IS NOT NULL`. An empty buffer is non-null in Postgres, so the sentinel semantics are preserved.
+What gets written for each new block:
 
-Behavior when enabled:
+- `main_chain_block_hash` — always empty bytea. The column is `BYTEA NOT NULL`; an empty buffer satisfies the constraint. Its content was never used internally and the API endpoints that surfaced it are no longer meaningful.
+- `effectstream_block_hash` — written with the real hash for the block being finalized. As part of the same block-processing transaction, every previously populated row is flattened to empty bytea (see `pruneOldBlockHashes`). Only one row carries hash content at any time.
 
-- The Prando RNG seed is computed in memory before the DB write, so randomness and STF determinism are unaffected.
-- Block-by-hash lookup APIs (`getBlockByHash`, related `rollup_inputs` JOINs) stop returning useful results — only enable the flag if your app does not depend on those lookups.
-- Sync continues to advance normally because `getLatestProcessedBlockHeight` and `getBlockSeeds` only check `IS NOT NULL`, not the hash content.
+Why this is safe:
 
-#### Reclaiming disk for historical rows
+- **Prando RNG determinism** is preserved across restarts. On startup, `start()` reads the latest finalized row's `effectstream_block_hash` and seeds the in-memory hash chain from it before processing the next block. `generatePaimaBlockHash` therefore receives the correct predecessor hash regardless of how many restarts have happened.
+- **Block-done sentinel.** Empty bytea is non-null in Postgres, so the `WHERE effectstream_block_hash IS NOT NULL` filters used by `getLatestProcessedBlockHeight` and `getBlockSeeds` continue to match every finalized row.
+- **In-flight blocks** (after `saveLastBlock` but before `blockHeightDone`) have `effectstream_block_hash = NULL`. The hydration query skips them via the same `IS NOT NULL` filter, so a crash mid-block resumes from the last fully-finalized predecessor.
 
-The flag only affects new writes. To shrink an already-populated DB (e.g. an existing production deployment), run a one-off DBA script during a maintenance window — **not** as a versioned migration, because the engine's migration runner blocks startup.
+What stops working:
+
+- `getBlockByHash` and the rollup-input JOINs that read `effectstream_blocks.effectstream_block_hash` only resolve correctly for the most recently finalized block. Historical lookups by hash return empty/no results.
+
+#### Reclaiming disk for already-populated deployments
+
+Engine version `0.0.1` always wrote real hash content for every row. When upgrading a deployment that ran on an earlier version, run a one-off DBA script during a maintenance window — **not** as a versioned migration, because the engine's migration runner blocks startup. The script is idempotent on already-flattened rows, so it can be re-run safely.
 
 ```sql
--- 1. Batched rewrite (idempotent; skips rows already empty)
-UPDATE effectstream.effectstream_blocks
+-- 1. Batched rewrite. Preserves the hash on the latest finalized row so that
+--    on the next engine boot, hydration still finds a non-empty predecessor
+--    and Prando seeding stays continuous.
+WITH latest AS (
+  SELECT block_height
+  FROM effectstream.effectstream_blocks
+  WHERE effectstream_block_hash IS NOT NULL
+  ORDER BY block_height DESC
+  LIMIT 1
+)
+UPDATE effectstream.effectstream_blocks AS b
 SET main_chain_block_hash = ''::bytea,
     effectstream_block_hash = CASE
       WHEN effectstream_block_hash IS NULL THEN NULL
       ELSE ''::bytea
     END
-WHERE octet_length(main_chain_block_hash) > 0
-   OR octet_length(effectstream_block_hash) > 0;
+WHERE octet_length(b.main_chain_block_hash) > 0
+   OR (
+     octet_length(b.effectstream_block_hash) > 0
+     AND b.block_height <> (SELECT block_height FROM latest)
+   );
 
 -- 2. Reclaim space. Pick ONE of:
 --    (a) VACUUM (effectstream.effectstream_blocks);          -- non-blocking; dead tuples reusable, file size unchanged
@@ -96,4 +114,4 @@ WHERE octet_length(main_chain_block_hash) > 0
 --    (c) pg_repack -t effectstream.effectstream_blocks ...    -- shrinks file online; requires the pg_repack extension
 ```
 
-The `CASE` on `effectstream_block_hash` preserves the `NULL` "not yet finalized" state for any in-flight blocks. Regular `VACUUM` (option a) is the safest default on a running service; avoid `VACUUM FULL` while sync is live.
+Regular `VACUUM` (option a) is the safest default on a running service; avoid `VACUUM FULL` while sync is live. After this script runs once, the engine's per-block `pruneOldBlockHashes` keeps the table at constant hash overhead going forward.

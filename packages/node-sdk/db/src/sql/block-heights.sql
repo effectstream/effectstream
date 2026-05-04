@@ -38,6 +38,18 @@ seed = EXCLUDED.seed,
 ms_timestamp = EXCLUDED.ms_timestamp,
 effectstream_block_hash = EXCLUDED.effectstream_block_hash;
 
+/*
+ @name pruneOldBlockHashes
+
+ Flatten every populated effectstream_block_hash to empty bytea so that, after
+ each finalized block, only the freshly-written row carries hash content. Empty
+ bytea is non-null in Postgres, so the IS-NOT-NULL "block-done" sentinel used
+ by getLatestProcessedBlockHeight and getBlockSeeds is preserved on older rows.
+*/
+UPDATE effectstream.effectstream_blocks
+SET effectstream_block_hash = ''::bytea
+WHERE octet_length(effectstream_block_hash) > 0;
+
 /* @name blockHeightDone */
 UPDATE effectstream.effectstream_blocks
 SET

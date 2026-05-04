@@ -283,13 +283,6 @@ const definitions: Record<string, ConfigDefinition> = {
     description:
       "Snapshot retention: keep one snapshot per day for this many days. Snapshots older than this are deleted. Default: 7.",
   },
-  SKIP_BLOCK_HASH_STORAGE: {
-    key: "SKIP_BLOCK_HASH_STORAGE",
-    type: "boolean",
-    defaultValue: false,
-    description:
-      "Persist empty buffers for block-hash columns of effectstream.effectstream_blocks to reduce DB size. Example: 'true' or 'false'.",
-  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -411,9 +404,6 @@ export class ENV {
   }
   static get EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS(): number {
     return ENV.getConfig(definitions.EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS);
-  }
-  static get SKIP_BLOCK_HASH_STORAGE(): boolean {
-    return ENV.getConfig(definitions.SKIP_BLOCK_HASH_STORAGE);
   }
 
   public static getConfig<T>(config: ConfigDefinition): T {

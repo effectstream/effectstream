@@ -174,6 +174,31 @@ const saveLastBlockIR: any = {"usedParamSet":{"block_height":true,"ver":true,"ma
 export const saveLastBlock = new PreparedQuery<ISaveLastBlockParams,ISaveLastBlockResult>(saveLastBlockIR);
 
 
+/** 'PruneOldBlockHashes' parameters type */
+export type IPruneOldBlockHashesParams = void;
+
+/** 'PruneOldBlockHashes' return type */
+export type IPruneOldBlockHashesResult = void;
+
+/** 'PruneOldBlockHashes' query type */
+export interface IPruneOldBlockHashesQuery {
+  params: IPruneOldBlockHashesParams;
+  result: IPruneOldBlockHashesResult;
+}
+
+const pruneOldBlockHashesIR: any = {"usedParamSet":{},"params":[],"statement":"UPDATE effectstream.effectstream_blocks\nSET effectstream_block_hash = ''::bytea\nWHERE octet_length(effectstream_block_hash) > 0"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * UPDATE effectstream.effectstream_blocks
+ * SET effectstream_block_hash = ''::bytea
+ * WHERE octet_length(effectstream_block_hash) > 0
+ * ```
+ */
+export const pruneOldBlockHashes = new PreparedQuery<IPruneOldBlockHashesParams,IPruneOldBlockHashesResult>(pruneOldBlockHashesIR);
+
+
 /** 'BlockHeightDone' parameters type */
 export interface IBlockHeightDoneParams {
   block_hash: Buffer;

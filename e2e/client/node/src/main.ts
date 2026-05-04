@@ -37,9 +37,6 @@ main(function* () {
       apiRouter,
       grammar,
       userDefinedPrimitives,
-      // Skip persisting block-hash columns when SKIP_BLOCK_HASH_STORAGE=true.
-      // See docs/home/1000-effectstream-engine/1002-database.md
-      skipBlockHashStorage: ENV.SKIP_BLOCK_HASH_STORAGE,
       // Snapshot config — see docs/home/1000-effectstream-engine/1003-database-snapshots.md
       // Snapshots are opt-in: only enabled when EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS is set.
       snapshotConfig: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS != null

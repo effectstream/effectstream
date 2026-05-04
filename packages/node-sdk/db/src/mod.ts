@@ -20,6 +20,7 @@ export {
   getBlockHeights,
   getBlockSeeds,
   getLatestProcessedBlockHeight,
+  pruneOldBlockHashes,
   saveLastBlock,
 } from "./sql/block-heights.queries.ts";
 export type {

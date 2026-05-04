@@ -7,6 +7,7 @@ import {
   acquireDBMutex,
   createDynamicTables,
   getConnection,
+  getLatestProcessedBlockHeight,
   releaseDBMutex,
   resetPublicTables,
   runSnapshotLoop,
@@ -135,6 +136,16 @@ export function* start(config: StartConfig): Operation<void> {
   });
 
   let blockHash: PaimaBlockHash | null = null;
+  {
+    // Hydrate the in-memory hash chain from the latest finalized block
+    const [latest] = yield* until(
+      getLatestProcessedBlockHeight.run(undefined, dbConn),
+    );
+    const latestHash = latest?.effectstream_block_hash;
+    if (latestHash && latestHash.length > 0) {
+      blockHash = `0x${latestHash.toString("hex")}` as PaimaBlockHash;
+    }
+  }
   if (config.snapshotConfig) {
     yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
   }
