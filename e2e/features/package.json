@@ -20,6 +20,7 @@
     "@sinclair/typebox": "^0.34.30",
     "effection": "^3.5.0",
     "pg": "^8.14.0",
-    "viem": "2.37.3"
+    "viem": "2.37.3",
+    "@paima/pgtyped-cli": "^2.4.5"
   }
 }

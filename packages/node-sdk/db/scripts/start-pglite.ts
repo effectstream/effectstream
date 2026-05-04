@@ -7,35 +7,30 @@ import { fromNodeSocket } from "pg-gateway/node";
 import { ENV } from "@effectstream/utils/node-env";
 import { args, cwd } from "@effectstream/utils/runtime";
 
-// TODO PORT be a ENV variable
-// Get port from arguments.
-const portArgName = "--port";
-const argv = args();
-const portArgIndex = argv.indexOf(portArgName);
-const portValue = portArgIndex !== -1 ? argv[portArgIndex + 1] : "5432";
-const port = parseInt(portValue);
-if (isNaN(port)) {
-  throw new Error(`Port argument ${portArgName} is not a number`);
+export interface PgliteHandle {
+  server: net.Server;
+  db: PGlite;
+  close: () => Promise<void>;
 }
 
-// Resolve pg_ivm extension path via import.meta.resolve (works with bun's hoisting)
-const pgliteEntry = import.meta.resolve("@electric-sql/pglite");
-const pgliteDir = pgliteEntry.replace(/\/dist\/[^/]+$/, "");
-const pgIvmUrl = new URL(`${pgliteDir}/dist/pg_ivm.tar.gz`);
+export async function startPglite(port = 5432): Promise<PgliteHandle> {
+  // Resolve pg_ivm extension path via import.meta.resolve (works with bun's hoisting)
+  const pgliteEntry = import.meta.resolve("@electric-sql/pglite");
+  const pgliteDir = pgliteEntry.replace(/\/dist\/[^/]+$/, "");
+  const pgIvmUrl = new URL(`${pgliteDir}/dist/pg_ivm.tar.gz`);
 
-const db = new PGlite(
-  ENV.PGLITE_DATA_DIR,
-  {
-    username: ENV.DB_USER,
-    database: ENV.DB_NAME,
-    extensions: {
-      pg_ivm: pgIvmUrl,
+  const db = new PGlite(
+    ENV.PGLITE_DATA_DIR,
+    {
+      username: ENV.DB_USER,
+      database: ENV.DB_NAME,
+      extensions: {
+        pg_ivm: pgIvmUrl,
+      },
+      debug: (ENV.DEBUG_PGLITE as DebugLevel) || 0,
     },
-    debug: (ENV.DEBUG_PGLITE as DebugLevel) || 0,
-  },
-);
+  );
 
-{
   // TODO: consider switching to pglite-socket once it works
   //       https://discord.com/channels/933657521581858818/1371976702674075780/1371992712076595250
   const server = net.createServer(async (socket) => {
@@ -65,7 +60,33 @@ const db = new PGlite(
     });
   });
 
-  server.listen(port, () => {
-    console.info(`database: server listening on port ${port}`);
+  await new Promise<void>((resolve) => {
+    server.listen(port, () => {
+      console.info(`database: server listening on port ${port}`);
+      resolve();
+    });
   });
+
+  return {
+    server,
+    db,
+    close: async () => {
+      server.close();
+      await db.close();
+    },
+  };
+}
+
+if (import.meta.main) {
+  // TODO PORT be a ENV variable
+  // Get port from arguments.
+  const portArgName = "--port";
+  const argv = args();
+  const portArgIndex = argv.indexOf(portArgName);
+  const portValue = portArgIndex !== -1 ? argv[portArgIndex + 1] : "5432";
+  const port = parseInt(portValue);
+  if (isNaN(port)) {
+    throw new Error(`Port argument ${portArgName} is not a number`);
+  }
+  await startPglite(port);
 }

@@ -12,7 +12,7 @@
     "test:avail": "bun run avail/run-tests.ts",
     "test:celestia": "bun run celestia/run-tests.ts",
     "test:near": "bun run near/run-tests.ts",
-    "test:features": "bun run features/api/run-tests.ts && bun run features/migrations/run-tests.ts && bun run features/accounts/run-tests.ts"
+    "test:features": "bun run features/run-tests.ts"
   },
   "dependencies": {
     "@e2e/engine": "workspace:*",

@@ -1,119 +1,150 @@
 #!/usr/bin/env bun
 /**
- * Runs database startup and pgtyped generation concurrently
+ * Starts PGLite, applies system + user migrations, runs pgtyped codegen.
  */
 
 import { spawn } from "node:child_process";
-import { dirname, join } from "node:path";
+import { resolve } from "node:path";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-
-const __dirname = dirname(import.meta.url?.startsWith("file:") ? fileURLToPath(import.meta.url) : import.meta.url.replace("file://", ""));
-
-interface ProcessInfo {
-  name: string;
-  command: string;
-  args: string[];
-  wait: boolean;
-}
+import pg from "pg";
+import { startPglite, type PgliteHandle } from "./start-pglite.ts";
+import { waitForDb } from "./wait-for-db.ts";
+import { applyMigrations } from "./apply-migrations.ts";
+import { getConnection } from "../src/pg-connection.ts";
+import { getMigrations } from "../migrations/system-version.ts";
 
 function createPrefix(name: string): string {
-  const colors = {
-    "db:up": "\x1b[36m", // cyan
-    "pgtyped:internal": "\x1b[33m", // yellow
+  const colors: Record<string, string> = {
+    "db:up": "\x1b[36m",
+    "user-migrations": "\x1b[35m",
+    "pgtyped": "\x1b[33m",
   };
   const reset = "\x1b[0m";
-  const color = colors[name as keyof typeof colors] || "\x1b[37m"; // white
+  const color = colors[name] || "\x1b[37m";
   return `${color}[${name}]${reset} `;
 }
 
-async function runProcess(processInfo: ProcessInfo): Promise<void> {
-  const prefix = createPrefix(processInfo.name);
+export interface UserMigration {
+  name: string;
+  sql: string;
+}
 
-  console.log(`${prefix}Starting...`);
+export interface PgtypedUpdateOptions {
+  userMigrations?: UserMigration[];
+  pgtypedConfigPath?: string;
+  pgtypedBin?: string;
+}
 
-  const child = spawn(processInfo.command, processInfo.args, {
-    stdio: ["inherit", "pipe", "pipe"],
-    shell: processInfo.command === "npx",
+async function resolveUserMigrations(): Promise<UserMigration[]> {
+  const candidates = [
+    resolve(process.cwd(), "migration-order.ts"),
+    resolve(process.cwd(), "src/migration-order.ts"),
+  ];
+
+  const migrationFile = candidates.find((p) => existsSync(p));
+  if (!migrationFile) return [];
+
+  const mod = await import(migrationFile);
+  return mod.migrationTable ?? [];
+}
+
+async function applyUserMigrations(migrations: UserMigration[]): Promise<void> {
+  const prefix = createPrefix("user-migrations");
+
+  if (migrations.length === 0) {
+    console.log(`${prefix}No user migrations to apply, skipping`);
+    return;
+  }
+
+  const client = new pg.Client({
+    host: "localhost",
+    port: 5432,
+    user: "postgres",
+    database: "postgres",
   });
+  await client.connect();
 
-  const stdoutPromise = new Promise<void>((resolve) => {
-    child.stdout?.on("data", (chunk: Buffer | string) => {
-      const text = chunk.toString();
-      text.split("\n").forEach((line) => {
-        if (line.trim()) console.log(`${prefix}${line}`);
-      });
-    });
-    child.stdout?.on("end", resolve);
-    if (!child.stdout) resolve();
-  });
-
-  const stderrPromise = new Promise<void>((resolve) => {
-    child.stderr?.on("data", (chunk: Buffer | string) => {
-      const text = chunk.toString();
-      text.split("\n").forEach((line) => {
-        if (line.trim()) console.error(`${prefix}${line}`);
-      });
-    });
-    child.stderr?.on("end", resolve);
-    if (!child.stderr) resolve();
-  });
-
-  const exitCode = new Promise<number | null>((resolve) => {
-    child.on("close", (code) => resolve(code));
-  });
-
-  if (processInfo.wait) {
-    const [code] = await Promise.all([exitCode, stdoutPromise, stderrPromise]);
-    if (code === 0) {
-      console.log(`${prefix}✅ Completed successfully`);
-    } else {
-      console.error(`${prefix}❌ Failed with exit code ${code}`);
-      throw new Error(`Process ${processInfo.name} failed`);
+  try {
+    for (const migration of migrations) {
+      console.log(`${prefix}Applying ${migration.name}`);
+      await client.query(migration.sql);
     }
+    console.log(`${prefix}✅ Applied ${migrations.length} user migration(s)`);
+  } finally {
+    await client.end();
   }
 }
 
-async function main() {
-  const processes: ProcessInfo[] = [
-    {
-      name: "db:up",
-      command: "bun",
-      args: ["run", join(__dirname, "start-pglite.ts")],
-      wait: false,
-    },
-    {
-      name: "db:wait",
-      command: "bun",
-      args: ["run", join(__dirname, "wait-for-db.ts")],
-      wait: true,
-    },
-    {
-      name: "apply-migrations",
-      command: "bun",
-      args: ["run", join(__dirname, "apply-migrations.ts")],
-      wait: true,
-    },
-    {
-      name: "pgtyped",
-      command: "npx",
-      args: ["pgtyped", "-c", "./pgtypedconfig.json"],
-      wait: true,
-    },
-  ];
+async function applySystemMigrations(): Promise<void> {
+  const prefix = createPrefix("apply-migrations");
+  const db = getConnection();
+  const migrations = await getMigrations();
+  for (const migration of migrations) {
+    await applyMigrations(db as any, 0, migration.version, migration.sql, true);
+  }
+  console.log(`${prefix}✅ System migrations applied`);
+  await db.end();
+}
 
-  console.log("🚀 Starting concurrent processes...\n");
+async function runPgtyped(pgtypedBin: string, pgtypedConfigPath: string): Promise<void> {
+  const prefix = createPrefix("pgtyped");
+  console.log(`${prefix}Starting...`);
 
+  return new Promise((resolve, reject) => {
+    const child = spawn("node", [pgtypedBin, "-c", pgtypedConfigPath], {
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: false,
+    });
+
+    child.stdout?.on("data", (chunk: Buffer | string) => {
+      chunk.toString().split("\n").forEach((line) => {
+        if (line.trim()) console.log(`${prefix}${line}`);
+      });
+    });
+
+    child.stderr?.on("data", (chunk: Buffer | string) => {
+      chunk.toString().split("\n").forEach((line) => {
+        if (line.trim()) console.error(`${prefix}${line}`);
+      });
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        console.log(`${prefix}✅ Completed successfully`);
+        resolve();
+      } else {
+        reject(new Error(`pgtyped failed with exit code ${code}`));
+      }
+    });
+  });
+}
+
+export async function main(options?: PgtypedUpdateOptions) {
+  const userMigrations = options?.userMigrations ?? await resolveUserMigrations();
+  const pgtypedConfigPath = options?.pgtypedConfigPath ?? "./pgtypedconfig.json";
+  const pgtypedBin = options?.pgtypedBin ?? fileURLToPath(import.meta.resolve("@paima/pgtyped-cli"));
+
+  console.log("🚀 Starting pgtyped-update...\n");
+
+  let pglite: PgliteHandle | undefined;
   try {
-    for (const process of processes) {
-      await runProcess(process);
-    }
-    console.log("\n✅ All processes completed successfully");
-  } catch (error) {
-    console.error("\n❌ One or more processes failed:", error);
-    process.exit(1);
+    pglite = await startPglite();
+    await waitForDb();
+    await applySystemMigrations();
+    await applyUserMigrations(userMigrations);
+    await runPgtyped(pgtypedBin, pgtypedConfigPath);
+    console.log("\n✅ All steps completed successfully");
+  } finally {
+    await pglite?.close();
   }
 }
 
 if (import.meta.main) {
-  await main();
+  try {
+    await main();
+  } catch (error) {
+    console.error("\n❌ One or more steps failed:", error);
+    process.exit(1);
+  }
 }
