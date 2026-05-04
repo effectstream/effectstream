@@ -128,7 +128,7 @@ export function* processFinalizedBlock(
   dbConn: Pool,
   previousBlockHash: PaimaBlockHash | null,
 ): Operation<PaimaBlockHash> {
-  const { gameStateTransitions, migrations } = config;
+  const { gameStateTransitions, migrations, skipBlockHashStorage } = config;
   const blockHash: PaimaBlockHash = generatePaimaBlockHash(
     value,
     previousBlockHash,
@@ -144,7 +144,9 @@ export function* processFinalizedBlock(
         // TODO: Check these values
         block_height: value.blockNumber,
         ver: 0,
-        main_chain_block_hash: Buffer.from(value.blockNumber.toString()),
+        main_chain_block_hash: skipBlockHashStorage
+          ? Buffer.alloc(0)
+          : Buffer.from(value.blockNumber.toString()),
         seed: randomGenerator.seed.toString(),
         ms_timestamp: new Date(value.timestamp),
       }, dbConn)
@@ -253,7 +255,7 @@ export function* processFinalizedBlock(
     /* STEP 6: Mark the block as done. */
     yield* call(() =>
       blockHeightDone.run({
-        block_hash: Buffer.from(blockHash),
+        block_hash: skipBlockHashStorage ? Buffer.alloc(0) : Buffer.from(blockHash),
         block_height: value.blockNumber,
       }, dbConn)
     );

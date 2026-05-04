@@ -68,6 +68,11 @@ export type StartConfig = {
    * @see docs/home/1000-effectstream-engine/1003-database-snapshots.md
    */
   snapshotConfig?: SnapshotConfig;
+  /**
+   * Persist empty buffers for block-hash columns to reduce DB size.
+   * @see docs/home/1000-effectstream-engine/1002-database.md
+   */
+  skipBlockHashStorage?: boolean;
   /** Development-only options. Do not use in production. */
   dev?: {
     /** Reset public-schema tables on each sync reset. For local testing only. */
