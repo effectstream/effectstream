@@ -7,7 +7,8 @@
     "test": "bun run packages/tests/run-tests.ts",
     "build:evm": "bun run --filter @evm-midnight/contracts-evm build:mod",
     "build:midnight": "bun run --filter @evm-midnight/midnight-contract compact",
-    "start:frontend": "bun run --filter @evm-midnight/frontend dev"
+    "start:frontend": "bun run --filter @evm-midnight/frontend dev",
+    "build:pgtypes": "bun run --filter @evm-midnight/database pgtyped:update"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
