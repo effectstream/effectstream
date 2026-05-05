@@ -1,0 +1,21 @@
+.lobby-card {
+  width: 252px;
+
+  &__content {
+    position: relative;
+
+    padding: 32px;
+    display: flex;
+    flex-flow: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  &__cta-button {
+    position: absolute;
+    top: -25px;
+    padding: 0 32px;
+    width: 100%;
+  }
+}

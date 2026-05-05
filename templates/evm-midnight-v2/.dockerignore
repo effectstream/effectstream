@@ -1,0 +1,11 @@
+node_modules
+.orchestrator-logs
+batcher-data
+batcher-debug.log
+*.log
+CLAUDE.md
+.git
+packages/contracts-evm/build
+packages/contracts-evm/ignition/deployments
+packages/contracts-evm/mod.ts
+packages/contracts-midnight/contract-round-value/src/managed

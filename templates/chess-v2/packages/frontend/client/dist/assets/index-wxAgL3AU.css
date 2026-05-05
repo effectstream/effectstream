@@ -1,0 +1,76 @@
+.card {
+  background: rgba(50, 52, 72, 0.5);
+  border: 1px solid rgba(87, 231, 251, 0.3);
+  box-shadow: 0px 32px 40px rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+}
+.card--blurred {
+  background: rgba(50, 52, 72, 0.3);
+  backdrop-filter: blur(24px);
+}.menu-card {
+  padding: 32px;
+  display: flex;
+  flex-flow: column;
+  gap: 40px;
+  position: relative;
+  width: 240px;
+  height: 440px;
+}
+.menu-card__image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.menu-card__content {
+  z-index: 1;
+  display: flex;
+  flex-flow: column;
+  flex: 1;
+  justify-content: space-between;
+}.lobby-card {
+  width: 252px;
+}
+.lobby-card__content {
+  position: relative;
+  padding: 32px;
+  display: flex;
+  flex-flow: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.lobby-card__cta-button {
+  position: absolute;
+  top: -25px;
+  padding: 0 32px;
+  width: 100%;
+}html,
+body {
+  height: 100%;
+  background-color: black;
+}
+
+#root {
+  background-image: url(/assets/background-D-GhGfyk.png);
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  height: 100%;
+}
+
+body {
+  color: white;
+  font-family: "Inter", "Arial", sans-serif;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+html * {
+  box-sizing: border-box;
+}
