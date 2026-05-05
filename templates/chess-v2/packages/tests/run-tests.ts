@@ -106,7 +106,6 @@ async function test() {
     await startInfrastructure();
     await waitForOrchestrator();
 
-    // ── Phase A: Infrastructure ─────────────────────────────────────────
     console.log("\n--- Phase A: Infrastructure Tests ---\n");
     await waitForProcess("generate-evm-mod", { waitForExit: true });
     console.log("EVM contracts deployed.");
@@ -117,60 +116,28 @@ async function test() {
     const { deployTest } = await import("./infra/deploy.test.ts");
     await deployTest();
 
-    await waitForProcess("midnight-contract", { waitForExit: true, timeoutMs: 600_000 });
-    console.log("Midnight contract deployed.");
-
-    const { midnightReadyTest } = await import("./infra/midnight-ready.test.ts");
-    await midnightReadyTest();
-
-    const { midnightDeployTest } = await import("./infra/midnight-deploy.test.ts");
-    await midnightDeployTest();
-
-    // Wait for sync node
     await waitForProcess("sync");
     await waitForHealth();
     console.log("Sync node is healthy.\n");
 
-    // ── Phase B: State Machine / DB / API ───────────────────────────────
-    console.log("\n--- Phase B: STM / DB / API Tests ---\n");
+    console.log("\n--- Phase B: STM / API Tests ---\n");
     db = getDBConnection();
 
-    const { erc721Test } = await import("./stm/erc721.test.ts");
-    await erc721Test(db);
+    const { createLobbyTest } = await import("./stm/create-lobby.test.ts");
+    await createLobbyTest(db);
+
+    const { joinLobbyTest } = await import("./stm/join-lobby.test.ts");
+    await joinLobbyTest(db);
+
+    const { submitMoveTest } = await import("./stm/submit-move.test.ts");
+    await submitMoveTest(db);
 
     const { apiTest } = await import("./stm/api.test.ts");
     await apiTest();
 
-    const { apiErc721DetailTest } = await import("./stm/api-erc721.test.ts");
-    await apiErc721DetailTest();
-
-    const { erc721PropertiesTest } = await import("./stm/erc721-properties.test.ts");
-    await erc721PropertiesTest(db);
-
-    // ── Phase C: Cross-chain (EVM mint + transfer + DB + API) ───────────
-    console.log("\n--- Phase C: Cross-Chain Tests ---\n");
-    const { crossChainTest } = await import("./stm/cross-chain.test.ts");
-    await crossChainTest(db);
-
-    // ── Phase D: Midnight property addition ────────────────────────────
-    console.log("\n--- Phase D: Midnight Property Tests ---\n");
-    try {
-      const { midnightPropertyTest } = await import("./stm/midnight-property.test.ts");
-      await midnightPropertyTest(db);
-    } catch (e) {
-      console.error("Midnight property test failed (non-fatal):", e);
-    }
-
-    // ── Phase E: Frontend ───────────────────────────────────────────────
-    console.log("\n--- Phase E: Frontend Tests ---\n");
+    console.log("\n--- Phase C: Frontend Tests ---\n");
     const { frontendBuildTest } = await import("./frontend/build-smoke.test.ts");
     await frontendBuildTest();
-
-    const { frontendRenderTest } = await import("./frontend/render.test.ts");
-    await frontendRenderTest();
-
-    const { walletConnectTest } = await import("./frontend/wallet-connect.test.ts");
-    await walletConnectTest();
 
     printSummary();
   } catch (e) {
