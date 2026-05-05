@@ -10,9 +10,9 @@
     "@effectstream/runtime": "0.100.12",
     "@effectstream/sm": "0.100.12",
     "@effectstream/log": "0.100.12",
-    "@sinclair/typebox": "^0.34.0",
+    "@sinclair/typebox": "0.34.41",
     "effection": "^3.5.0",
     "pg": "^8.14.0",
-    "viem": "^2.21.0"
+    "viem": "2.37.3"
   }
 }

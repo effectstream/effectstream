@@ -10,7 +10,7 @@ export default {
     ...launchPglite().map((p) =>
       p.name === "pglite" ? { ...p, env: { ...p.env, DEBUG_PGLITE: "0" } } : p
     ),
-    ...launchEvm("@shinkai-v2/contracts-evm", { resolveFrom: root }),
+    ...launchEvm("@shinkai-v2/contracts-evm", { cwd: path.join(root, "packages/contracts-evm") }),
 
     {
       name: "sync",

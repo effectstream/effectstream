@@ -32,19 +32,23 @@ export async function assertSQL<T>(
   process.stdout.write(`  [TEST] ${name}...`);
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const res = await db.query(query);
-    if (waitUntil(res)) {
-      if (check(res)) {
-        console.log(" PASS");
-        passCount++;
-        return;
-      } else {
-        console.log(" FAIL");
-        failCount++;
-        throw new Error(`Check failed: ${name}`);
+    try {
+      const res = await db.query(query);
+      if (waitUntil(res)) {
+        if (check(res)) {
+          console.log(" PASS");
+          passCount++;
+          return;
+        } else {
+          console.log(" FAIL");
+          failCount++;
+          throw new Error(`Check failed: ${name}`);
+        }
       }
+    } catch (e: any) {
+      if (e.message?.startsWith("Check failed")) throw e;
     }
-    await delay(200);
+    await delay(500);
   }
   console.log(" TIMEOUT");
   failCount++;

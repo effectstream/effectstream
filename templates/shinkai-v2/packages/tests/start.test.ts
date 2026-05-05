@@ -1,13 +1,14 @@
+import path from "node:path";
 import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
 import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
 import { launchEvm, EvmNames } from "@effectstream/orchestrator/launch-evm";
 
-const root = import.meta.dirname!;
+const root = path.resolve(import.meta.dirname!, "../..");
 
 export default {
   processes: [
     ...launchPglite(),
-    ...launchEvm("@shinkai-v2/contracts-evm", { resolveFrom: root }),
+    ...launchEvm("@shinkai-v2/contracts-evm", { cwd: path.join(root, "packages/contracts-evm") }),
     {
       name: "sync",
       description: "Sync node (test mode)",
