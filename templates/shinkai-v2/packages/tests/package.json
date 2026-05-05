@@ -1,0 +1,9 @@
+{
+  "name": "@shinkai-v2/tests",
+  "version": "1.0.0",
+  "exports": "./run-tests.ts",
+  "dependencies": {
+    "pg": "^8.14.0",
+    "viem": "^2.21.0"
+  }
+}

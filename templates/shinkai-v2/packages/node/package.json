@@ -1,0 +1,18 @@
+{
+  "name": "@shinkai-v2/node",
+  "version": "1.0.0",
+  "exports": "./main.dev.ts",
+  "dependencies": {
+    "@effectstream/config": "0.100.12",
+    "@effectstream/concise": "0.100.12",
+    "@effectstream/coroutine": "0.100.12",
+    "@effectstream/db": "0.100.12",
+    "@effectstream/runtime": "0.100.12",
+    "@effectstream/sm": "0.100.12",
+    "@effectstream/log": "0.100.12",
+    "@sinclair/typebox": "^0.34.0",
+    "effection": "^3.5.0",
+    "pg": "^8.14.0",
+    "viem": "^2.21.0"
+  }
+}
