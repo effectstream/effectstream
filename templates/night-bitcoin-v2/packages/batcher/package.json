@@ -1,0 +1,15 @@
+{
+  "name": "@night-bitcoin/batcher",
+  "private": true,
+  "version": "1.0.0",
+  "exports": "./batcher.dev.ts",
+  "scripts": {
+    "start": "bun run batcher.dev.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.100.12",
+    "@effectstream/midnight-contracts": "0.100.12",
+    "@effectstream/utils": "0.100.12",
+    "effection": "^3.5.0"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "packages/contracts-midnight/erc7683",
+    "packages/contracts-midnight/unshielded-erc20"
+  ],
+  "scripts": {
+    "dev": "NODE_ENV=development bunx orchestrator start",
+    "start:mainnet": "bun run packages/node/main.mainnet.ts",
+    "test": "bun run packages/tests/run-tests.ts",
+    "build:midnight": "bun run --filter @night-bitcoin/midnight-contract-erc7683 compact && bun run --filter @night-bitcoin/midnight-contract-unshielded-erc20 compact",
+    "build:bitcoin": "echo 'no compilation needed for bitcoin contracts'",
+    "start:frontend": "bun run --filter @night-bitcoin/frontend dev",
+    "build:pgtypes": "bun run --filter @night-bitcoin/database pgtyped:update"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@effectstream/midnight-contracts": "0.100.12",
+    "@effectstream/orchestrator": "0.100.12",
+    "wait-on": "8.0.3"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13"
+  }
+}
