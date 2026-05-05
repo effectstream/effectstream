@@ -38,9 +38,10 @@ function matchesPattern(tx: cardano.Tx, pattern: UtxorpcAnyChainTxPattern): bool
   const outputs = tx.outputs;
   const inputs = tx.inputs.map(input => input.asOutput!).filter(x => x);
   const matchHasAddress = !cardanoPattern.has_address || matchesAddress(outputs, cardanoPattern.has_address) || matchesAddress(inputs, cardanoPattern.has_address);
-  const matchMovesAsset = !cardanoPattern.moves_asset || matchesAsset(inputs, cardanoPattern.moves_asset);
+  const matchMovesAsset = !cardanoPattern.moves_asset || matchesAsset(outputs, cardanoPattern.moves_asset) || matchesAsset(inputs, cardanoPattern.moves_asset);
   const matchMintsAsset = !cardanoPattern.mints_asset || matchesAsset(outputs, cardanoPattern.mints_asset);
-  return matchHasAddress && matchMovesAsset && matchMintsAsset;
+  const matchHasCertificate = !cardanoPattern.has_certificate || tx.certificates.length > 0;
+  return matchHasAddress && matchMovesAsset && matchMintsAsset && matchHasCertificate;
 }
 
 function matchesOutputPattern(outputs: cardano.TxOutput[], pattern: UtxorpcTxOutputPattern): boolean {

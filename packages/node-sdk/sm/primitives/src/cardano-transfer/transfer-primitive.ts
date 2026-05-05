@@ -1,0 +1,131 @@
+import type { StaticDecode } from "@sinclair/typebox";
+import {
+  type CommandTuple,
+  generateRawStmInput,
+} from "@effectstream/concise";
+import type {
+  ConfigSyncProtocolType,
+  FlattenSyncProtocolIOFor,
+  ProtocolPrimitiveMap,
+  UtxorpcTxPredicate,
+} from "@effectstream/config";
+import type { StateUpdateStream } from "@effectstream/coroutine";
+import { type JsonObject, Primitive } from "@effectstream/sm";
+import {
+  type AddressAndType,
+  AddressType,
+  type EffectstreamBlockNumber,
+  uint8ArrayToHexString,
+} from "@effectstream/utils";
+import { transferGrammar } from "./transfer-grammar.ts";
+import { PrimitiveTypeCardanoTransfer } from "../builtin.ts";
+import {
+  addressToHex,
+  assetQuantityToString,
+  metadataToJson,
+} from "../cardano-utils/cardano-helpers.ts";
+
+export class CardanoTransferPrimitive extends Primitive<
+  ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL,
+  typeof transferGrammar
+> {
+  readonly internalTypeName = PrimitiveTypeCardanoTransfer;
+  readonly predicate: UtxorpcTxPredicate;
+  override grammar = transferGrammar;
+
+  constructor(config: {
+    instanceName: string;
+    startBlockHeight: number;
+    stateMachinePrefix: string | undefined;
+    predicate: UtxorpcTxPredicate;
+  }) {
+    super(config);
+    this.predicate = config.predicate;
+  }
+
+  override getConfig(): ProtocolPrimitiveMap[ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL] {
+    return {
+      name: this.instanceName,
+      type: this.internalTypeName,
+      startBlockHeight: this.startBlockHeight,
+      scheduledPrefix: this.stateMachinePrefix,
+      predicate: this.predicate,
+    } as const;
+  }
+
+  override *getPayload(
+    _: EffectstreamBlockNumber,
+    primitiveTransactionData: FlattenSyncProtocolIOFor<ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL>,
+  ): StateUpdateStream<{
+    isBatched: boolean;
+    data: {
+      fromAddressAndType: AddressAndType;
+      stateMachinePayload: StaticDecode<CommandTuple<string, typeof transferGrammar>> | null;
+      accountingPayload: JsonObject;
+    }[];
+  }> {
+    const tx = primitiveTransactionData.output.payload.tx;
+
+    const txId = uint8ArrayToHexString(tx.hash);
+
+    const outputs = tx.outputs.map((out, index) => {
+      const address = addressToHex(out.address);
+      const coin = out.coin?.bigInt.case === "int"
+        ? String(out.coin.bigInt.value)
+        : out.coin?.bigInt.case === "bigUInt"
+          ? uint8ArrayToHexString(out.coin.bigInt.value)
+          : "0";
+
+      const assets: { policyId: string; assetName: string; amount: string }[] = [];
+      for (const ma of out.assets) {
+        const policyId = uint8ArrayToHexString(ma.policyId);
+        for (const asset of ma.assets) {
+          assets.push({
+            policyId,
+            assetName: uint8ArrayToHexString(asset.name),
+            amount: assetQuantityToString(asset),
+          });
+        }
+      }
+
+      return { index, address, coin, assets };
+    });
+
+    const inputCredentials: string[] = [];
+    if (tx.witnesses) {
+      for (const w of tx.witnesses.vkeywitness) {
+        const hash = uint8ArrayToHexString(w.vkey);
+        if (!inputCredentials.includes(hash)) inputCredentials.push(hash);
+      }
+    }
+
+    const metadata = metadataToJson(tx.auxiliary?.metadata ?? []);
+
+    const accountingPayload = {
+      txId,
+      metadata: metadata ? JSON.stringify(metadata) : null,
+      inputCredentials,
+      outputs,
+    };
+
+    const stateMachinePayload: any = this.stateMachinePrefix
+      ? generateRawStmInput(this.grammar, this.stateMachinePrefix, {
+          txId,
+          metadata: metadata ? JSON.stringify(metadata) : "",
+          inputCredentials: JSON.stringify(inputCredentials),
+          outputs: JSON.stringify(outputs),
+        })
+      : null;
+
+    return {
+      isBatched: false,
+      data: [
+        {
+          fromAddressAndType: { type: AddressType.NONE, address: "0x0" },
+          accountingPayload,
+          stateMachinePayload,
+        },
+      ],
+    };
+  }
+}

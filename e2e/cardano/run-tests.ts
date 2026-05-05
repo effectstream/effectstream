@@ -111,6 +111,28 @@ async function runSyncTests(db: Client): Promise<void> {
   );
 }
 
+// ── Primitive Tests (Phase 3) ───────────────────────────────────────────────
+
+async function runPrimitiveTests(db: Client): Promise<void> {
+  console.log("\n--- Phase 3: Primitive Tests (Cardano domain primitives) ---\n");
+  process.env["E2E_MAX_TIMEOUT"] = "120000";
+
+  const { mintBurnTest } = await import("./sync/mint-burn.test.ts");
+  await mintBurnTest(db);
+
+  const { transferTest } = await import("./sync/transfer.test.ts");
+  await transferTest(db);
+
+  const { poolDelegationTest } = await import("./sync/pool-delegation.test.ts");
+  await poolDelegationTest(db);
+
+  const { delayedAssetTest } = await import("./sync/delayed-asset.test.ts");
+  await delayedAssetTest(db);
+
+  const { projectedNftTest } = await import("./sync/projected-nft.test.ts");
+  await projectedNftTest(db);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function test() {
@@ -141,7 +163,10 @@ async function test() {
     db = getDBConnection();
     await runSyncTests(db);
 
-    // 6. Summary
+    // 6. Run primitive tests (Cardano domain primitives)
+    await runPrimitiveTests(db);
+
+    // 7. Summary
     printSummary();
   } catch (e) {
     printSummary();

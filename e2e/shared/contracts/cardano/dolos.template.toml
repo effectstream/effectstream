@@ -6,7 +6,8 @@ path = "data"
 version = "v3"
 
 [genesis]
-# note: filled programmatically
+# note: paths filled programmatically
+force_protocol = 10
 
 [sync]
 pull_batch_size = 100

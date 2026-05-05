@@ -95,6 +95,7 @@ export class UtxoRpcFetcher
             transactionIndex,
             contractAddress: '',
             logIndex,
+            absoluteSlot: Number(block.header!.slot),
           },
           primitive: primitveEntry.primitive.name,
           output: {
