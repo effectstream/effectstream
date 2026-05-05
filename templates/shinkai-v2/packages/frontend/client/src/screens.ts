@@ -14,6 +14,7 @@ import { GameState } from "./game-state.ts";
 import { sendTransaction } from "@effectstream/wallets";
 import { paimaConfig } from "./config.ts";
 import { getGame, getGameRound, getNewGame, getTokens } from "./api.ts";
+import { connectWallet } from "./main.ts";
 
 export abstract class QFTScreen {
   public abstract assets: (Sprite | Text | Input | Graphics)[];
@@ -82,18 +83,22 @@ export class MainScreen extends QFTScreen {
       const l = loader(GameState.app);
       GameState.isLoading = true;
 
-      await sendTransaction(null as any, ["newGame"], paimaConfig, "wait-effectstream-processed");
+      try {
+        if (!GameState.wallet) await connectWallet();
+        await sendTransaction(null as any, ["newGame"], paimaConfig, "wait-effectstream-processed");
 
-      const game = await getNewGame(GameState.wallet);
-      const tokens = await getTokens(GameState.wallet);
-      GameState.isLoading = false;
-      l.forEach((o) => o.destroy());
+        const game = await getNewGame(GameState.wallet);
+        const tokens = await getTokens(GameState.wallet);
 
-      if (game) {
-        GameState.gameId = game.id;
-        showTokens(GameState.app, tokens?.tokens ?? 0);
-        showKingTokens(GameState.app, tokens?.global ?? 10000);
-        this.updateScreen(() => new TigerScreen());
+        if (game) {
+          GameState.gameId = game.id;
+          showTokens(GameState.app, tokens?.tokens ?? 0);
+          showKingTokens(GameState.app, tokens?.global ?? 10000);
+          this.updateScreen(() => new TigerScreen());
+        }
+      } finally {
+        GameState.isLoading = false;
+        l.forEach((o) => o.destroy());
       }
     });
 

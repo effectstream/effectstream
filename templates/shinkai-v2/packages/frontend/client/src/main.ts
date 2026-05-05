@@ -24,6 +24,12 @@ const postAssets = [
   "/assets/img/button/b2.png",
 ];
 
+export async function connectWallet(): Promise<string> {
+  const wallet = await walletLogin(paimaConfig, WalletMode.EvmInjected);
+  GameState.wallet = wallet.walletAddress;
+  return wallet.walletAddress;
+}
+
 (async () => {
   GameState.app = new Application();
   await GameState.app.init({ width: 1024, height: 1024 });
@@ -31,9 +37,6 @@ const postAssets = [
 
   Assets.addBundle("fonts", fontAssets);
   await Promise.all([Assets.loadBundle("fonts"), ...preAssets.map((a) => Assets.load(a))]);
-
-  const wallet = await walletLogin(paimaConfig, WalletMode.EvmInjected);
-  GameState.wallet = wallet.walletAddress;
 
   const start = new MainScreen();
   start.assets.forEach((d) => GameState.app.stage.addChild(d));
