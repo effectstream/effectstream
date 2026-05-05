@@ -35,7 +35,7 @@ The template ships with two environments: **dev** (local Hardhat + local Midnigh
 | EVM chain | Hardhat (31337) | Arbitrum One (42161) |
 | Midnight | Local (undeployed) | Mainnet |
 | Node entry | `packages/node/main.dev.ts` | `packages/node/main.mainnet.ts` |
-| Batcher entry | `packages/batcher/main.dev.ts` | `packages/batcher/main.mainnet.ts` |
+| Batcher entry | `packages/batcher/batcher.dev.ts` | `packages/batcher/batcher.mainnet.ts` |
 | Frontend env | `packages/frontend/.env.dev` | `packages/frontend/.env.mainnet` |
 | Start command | `bun run dev` | `bun run start:mainnet` |
 
