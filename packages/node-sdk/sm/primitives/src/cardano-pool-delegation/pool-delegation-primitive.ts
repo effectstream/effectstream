@@ -1,3 +1,26 @@
+/**
+ * Cardano Pool Delegation Primitive
+ *
+ * Tracks stake pool delegation events from Dolos UTxORPC block data.
+ *
+ * Data source: Dolos streams raw Cardano blocks via gRPC. Each transaction contains
+ * a `certificates` array — delegation certificates include `stakeDelegation` (pre-Conway)
+ * and `stakeRegDelegCert`/`stakeVoteDelegCert` (Conway era). Each certificate carries
+ * a `stakeCredential` (key or script hash) and a `poolKeyhash` (target pool).
+ *
+ * Extraction: `getPayload()` iterates `tx.certificates`, filters for delegation-type
+ * certificates, extracts the staking credential hash and pool keyhash. The epoch is
+ * computed from `absoluteSlot` (passed from the fetcher via block headers) using
+ * network-specific era parameters (e.g., YACI: 600 slots/epoch, mainnet: 432000).
+ * Optionally filters by configured pool hashes.
+ *
+ * Predicate: uses `has_certificate: true` so Dolos only sends transactions containing
+ * certificates, filtering out the vast majority of transfer-only transactions.
+ *
+ * IVM: maintains a materialized view of current delegations per staking credential,
+ * using PostgreSQL triggers to UPSERT on each new delegation event.
+ */
+
 import type { StaticDecode } from "@sinclair/typebox";
 import {
   type CommandTuple,

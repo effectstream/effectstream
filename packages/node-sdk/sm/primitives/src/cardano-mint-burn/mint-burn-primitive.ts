@@ -1,3 +1,22 @@
+/**
+ * Cardano MintBurn Primitive
+ *
+ * Detects native token minting and burning events from Dolos UTxORPC block data.
+ *
+ * Data source: Dolos streams raw Cardano blocks via gRPC (UTxORPC protocol). Each
+ * block contains transactions, and each transaction has a `mint` field — a list of
+ * `Multiasset` entries, each with a `policyId` and a list of `Asset` entries (name +
+ * quantity). Positive quantities = mints, negative = burns.
+ *
+ * Extraction: for each transaction matched by the predicate, `getPayload()` iterates
+ * `tx.mint`, filters by configured `policyIds`, and collects `{policyId, assetName, amount}`.
+ * It also extracts input addresses from `tx.inputs[].asOutput.address` (resolved UTxOs
+ * provided by Dolos) and output addresses from `tx.outputs[].address`.
+ *
+ * Predicate: uses `mints_asset` with the configured policy IDs, so Dolos only sends
+ * transactions that actually mint/burn tokens under those policies.
+ */
+
 import type { StaticDecode } from "@sinclair/typebox";
 import {
   type CommandTuple,

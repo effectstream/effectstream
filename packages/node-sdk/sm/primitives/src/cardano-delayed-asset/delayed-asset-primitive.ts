@@ -1,3 +1,28 @@
+/**
+ * Cardano Delayed Asset Primitive
+ *
+ * Tracks the lifecycle of native asset UTxOs — creation and spending — from Dolos
+ * UTxORPC block data. "Delayed" because asset ownership only becomes final after the
+ * UTxO is confirmed on-chain (unlike account-model chains where balances update instantly).
+ *
+ * Data source: Dolos streams raw Cardano blocks via gRPC. Dolos resolves input UTxO
+ * references via its ledger state (Pallas `LedgerContext` trait), so `tx.inputs[].asOutput`
+ * contains the full resolved output including address and native assets.
+ *
+ * Extraction: `getPayload()` performs two scans per transaction:
+ *   1. **Creations**: iterates `tx.outputs` — for each output containing native assets
+ *      matching configured `policyIds`, emits an entry with `amount = quantity`.
+ *   2. **Spendings**: iterates `tx.inputs` — for each resolved input (`asOutput`) with
+ *      matching assets, emits an entry with `amount = null` (signals UTxO consumed).
+ *
+ * Predicate: uses `moves_asset` with configured policy IDs, so Dolos only sends
+ * transactions that create or spend UTxOs containing those assets.
+ *
+ * IVM: maintains a materialized view of live (unspent) asset UTxOs. The trigger INSERTs
+ * on creation events (amount != null) and DELETEs the matching UTxO on spending events
+ * (amount = null), giving a real-time view of current asset holdings.
+ */
+
 import type { StaticDecode } from "@sinclair/typebox";
 import {
   type CommandTuple,

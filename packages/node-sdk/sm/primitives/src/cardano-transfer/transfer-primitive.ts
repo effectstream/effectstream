@@ -1,3 +1,22 @@
+/**
+ * Cardano Transfer Primitive
+ *
+ * Captures ADA and native asset transfers from Dolos UTxORPC block data.
+ *
+ * Data source: Dolos streams raw Cardano blocks via gRPC. Each transaction contains
+ * `outputs` (destination UTxOs with address, lovelace coin, and native assets) and
+ * `witnesses.vkeywitness` (verification key witnesses proving input authorization).
+ *
+ * Extraction: for each matched transaction, `getPayload()` maps `tx.outputs` into
+ * structured objects with `{index, address, coin, assets[]}`. Coin values are extracted
+ * from the protobuf BigInt (either `int` for small values or `bigUInt` for large).
+ * Input credentials are extracted from `tx.witnesses.vkeywitness[].vkey` — these are
+ * the public key hashes that signed the transaction, identifying who authorized the spend.
+ * Transaction metadata is extracted from `tx.auxiliary.metadata`.
+ *
+ * Predicate: user-provided (typically `has_address` to watch specific addresses).
+ */
+
 import type { StaticDecode } from "@sinclair/typebox";
 import {
   type CommandTuple,

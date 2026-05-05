@@ -1,3 +1,37 @@
+/**
+ * Cardano Projected NFT Primitive
+ *
+ * Tracks the Lock → Unlock → Claim lifecycle of NFTs locked at a Plutus script
+ * (the "hololocker" from projected-nft-whirlpool). This enables "projecting" on-chain
+ * NFTs into off-chain game state while the NFT remains provably locked on Cardano.
+ *
+ * Data source: Dolos streams raw Cardano blocks via gRPC. Dolos resolves spent input
+ * references, so `tx.inputs[].asOutput` contains the full resolved UTxO including its
+ * inline datum (the hololocker State datum).
+ *
+ * Extraction: `getPayload()` performs three detection steps:
+ *   1. **Script inputs**: collects all `tx.inputs` whose resolved address contains the
+ *      configured `scriptHash`. These are UTxOs being consumed from the hololocker.
+ *   2. **Script outputs** (Lock / Unlocking): iterates `tx.outputs` at the script address,
+ *      parses the inline datum via `parseProjectedNftDatum()` to extract owner, status,
+ *      and forHowLong. Matches each output to a consumed input (state transition) or
+ *      treats it as a fresh Lock if no matching input exists.
+ *   3. **Claims**: any script inputs NOT matched to an output are Claims — the NFT left
+ *      the script and returned to the owner's wallet.
+ *
+ * Datum parsing: the hololocker State datum is CBOR-encoded PlutusData with structure:
+ *   State { owner: Owner(PKH|NFT|Receipt), status: Locked | Unlocking(out_ref, for_how_long) }
+ * The datum parser (`projected-nft-datum.ts`) walks the Constr tree to extract owner hash,
+ * status, and the time-lock expiry (forHowLong) for Unlocking states.
+ *
+ * Predicate: uses `has_address` with `payment_part: scriptHash`, so Dolos only sends
+ * transactions that interact with the hololocker script address.
+ *
+ * IVM: maintains a materialized view of NFT states at the script. The trigger UPSERTs
+ * on Lock/Unlocking events and DELETEs on Claim events, providing a real-time view of
+ * which NFTs are currently locked or unlocking.
+ */
+
 import type { StaticDecode } from "@sinclair/typebox";
 import {
   type CommandTuple,
