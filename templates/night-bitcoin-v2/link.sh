@@ -58,7 +58,8 @@ link_pkg "effectstream" "db"                        "$P/node-sdk/db"
 link_pkg "effectstream" "event-client"              "$P/effectstream-sdk/events"
 link_pkg "effectstream" "explorer"                  "$P/build-tools/explorer"
 link_pkg "effectstream" "log"                       "$P/effectstream-sdk/log"
-link_pkg "effectstream" "midnight-contracts"        "$P/chains/midnight-contracts"
+# midnight-contracts: NOT linked — the monorepo source has unbundled deps (@scure/bip39, etc.)
+# that aren't installed in the worktree. Use the npm-published version from the template's .bun cache.
 link_pkg "effectstream" "bitcoin-core"              "$P/binaries/bitcoin-core"
 link_pkg "effectstream" "npm-midnight-indexer"      "$P/binaries/midnight-indexer"
 link_pkg "effectstream" "npm-midnight-node"         "$P/binaries/midnight-node"

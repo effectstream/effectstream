@@ -3,6 +3,8 @@ import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 
 import * as unshielded_erc20 from "./contracts/erc20.ts";
 import * as erc7683 from "./contracts/intents.ts";
+import { extractPublicCoinAddress } from "./contracts/midnight-utils.ts";
+import { balanceOf as balanceOfFromLedger } from "./contracts/balanceOf.ts";
 
 enum AddressType {
   MIDNIGHT = 5,
@@ -123,20 +125,23 @@ export async function loginMidnight() {
   return response;
 }
 
-export async function midnight_balanceOf(contract: any, addr: string) {
+export async function midnight_balanceOf(_contract: any, addr: string) {
   try {
-    console.log("Balance of", contract, addr);
-    return await contract.callTx.balanceOf(wrapAddress(addr));
+    return await balanceOfFromLedger(addr);
   } catch (error) {
-    console.error(0, { error });
+    console.error("midnight_balanceOf failed:", { error });
     throw error;
   }
 }
 
 const wrapAddress = (address: string) => {
+  // Midnight bech32m addresses (`mn_shield-cpk_*`) need to be decoded to the
+  // raw 32-byte ZswapCoinPublicKey before being wrapped in the Either struct.
+  // Plain hex strings are accepted as-is.
+  const hex = address.startsWith("mn_") ? extractPublicCoinAddress(address) : address;
   return {
     is_left: true,
-    left: { bytes: new Uint8Array(Buffer.from(address, "hex")) },
+    left: { bytes: new Uint8Array(Buffer.from(hex, "hex")) },
     right: { bytes: new Uint8Array(32) },
   };
 };

@@ -3,6 +3,14 @@
 // the node entry points and the evm-midnight-v2 template.
 import "@midnight-ntwrk/onchain-runtime";
 
+import { setNetworkId, type NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+
+// Configure the Midnight network ID once, before any wallet or contract
+// operation. Without this, SDK calls throw "Network ID has not been configured".
+setNetworkId(
+  (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as NetworkId) || "undeployed",
+);
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
