@@ -10,6 +10,15 @@ CREATE TABLE effectstream.effectstream_blocks (
   effectstream_block_hash BYTEA
 );
 
+-- Tighten autovacuum on effectstream_blocks: every finalized block produces
+-- two dead tuples (one from pruneOldBlockHashes, one from blockHeightDone),
+-- so the default 20% scale factor lets autovacuum fall behind on a long-
+-- running node. Smaller, more frequent vacuums keep the heap compact.
+ALTER TABLE effectstream.effectstream_blocks SET (
+  autovacuum_vacuum_scale_factor = 0.05,
+  autovacuum_vacuum_threshold = 1000
+);
+
 CREATE TABLE effectstream.rollup_inputs (
   id SERIAL PRIMARY KEY,
   from_address TEXT NOT NULL,
