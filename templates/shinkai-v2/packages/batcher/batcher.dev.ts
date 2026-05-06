@@ -18,7 +18,7 @@ const config: BatcherConfig = {
   pollingIntervalMs: batchIntervalMs,
   adapters: { paimaL2 },
   defaultTarget: "paimaL2",
-  namespace: "shinkai-v2",
+  namespace: "",
   batchingCriteria: {
     paimaL2: { criteriaType: "time", timeWindowMs: batchIntervalMs },
   },

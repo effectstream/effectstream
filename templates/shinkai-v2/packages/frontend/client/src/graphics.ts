@@ -1,6 +1,7 @@
 import { Input } from "@pixi/ui";
 import type { Application, FederatedPointerEvent } from "pixi.js";
 import { Sprite, Text, Graphics } from "pixi.js";
+import { GameState } from "./game-state.ts";
 
 export const wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
@@ -47,6 +48,7 @@ export const animalQuestion = async (app: Application, text: string) => {
 export const animalTalk = async (app: Application, text: string) => {
   const words = text.split(/\s+/);
   const wordWrapWidth = 500;
+  let last: Text | null = null;
   for (let i = 0; i < words.length; i += 1) {
     const wx = words.slice(0, i + 1);
     const t = new Text({
@@ -64,7 +66,9 @@ export const animalTalk = async (app: Application, text: string) => {
     t.anchor.set(0, 0);
     t.x = (1024 - wordWrapWidth) / 2;
     t.y = 300;
+    if (last) last.destroy();
     app.stage.addChild(t);
+    last = t;
     if (wx[wx.length - 1].match(/^\*.*\*$/)) await wait(1000);
     await wait(200);
   }
@@ -72,13 +76,14 @@ export const animalTalk = async (app: Application, text: string) => {
 
 export const showKingTokens = (app: Application, tokens: number) => {
   const t = new Text({
-    text: `The Panda King is Giving away\n${tokens} Tokens!`,
+    text: `Giving away\n${tokens} Tokens`,
     style: { fontSize: 40, fontFamily: "oswald", dropShadow: true, fill: "#f1c40f", align: "right" },
   });
   t.anchor.set(1, 0);
   t.x = 1000;
   t.y = 40;
   app.stage.addChild(t);
+  GameState.persistentUI.push(t);
 };
 
 export const showTokens = (app: Application, tokens: number) => {
@@ -95,6 +100,7 @@ export const showTokens = (app: Application, tokens: number) => {
   t.x = 240;
   t.y = 810;
   app.stage.addChild(t);
+  GameState.persistentUI.push(wow, t);
 };
 
 export const createButton = (

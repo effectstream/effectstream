@@ -25,7 +25,9 @@ export abstract class QFTScreen {
 
   public updateScreen = (next: () => QFTScreen) => {
     const data = next();
+    GameState.app.stage.removeChildren();
     data.assets.forEach((d) => GameState.app.stage.addChild(d));
+    GameState.persistentUI.forEach((d) => GameState.app.stage.addChild(d));
     GameState.elapsed = 0.0;
     GameState.currentScreen = data;
   };
@@ -42,7 +44,7 @@ export abstract class QFTScreen {
       GameState.isLoading = true;
 
       await sendTransaction(
-        null as any,
+        GameState.walletObj!,
         ["ai", animal, GameState.gameId, value],
         paimaConfig,
         "wait-effectstream-processed",
@@ -85,7 +87,7 @@ export class MainScreen extends QFTScreen {
 
       try {
         if (!GameState.wallet) await connectWallet();
-        await sendTransaction(null as any, ["newGame"], paimaConfig, "wait-effectstream-processed");
+        await sendTransaction(GameState.walletObj!, ["newGame"], paimaConfig, "wait-effectstream-processed");
 
         const game = await getNewGame(GameState.wallet);
         const tokens = await getTokens(GameState.wallet);
@@ -119,13 +121,14 @@ export class TigerScreen extends QFTScreen {
 
   constructor() {
     super();
+    const bg = Sprite.from("/assets/img/castle.png");
     const animal = Sprite.from("/assets/img/tiger.png");
     animal.x = 0;
     animal.y = 200;
 
     const input = createInput(320, 550);
     this.inputText = input;
-    const [btn, btnText] = createButton(320, 400, "Speak", () => {});
+    const [btn, btnText] = createButton(320, 760, "Speak", () => {});
     this.submitTalk = btn;
 
     const cleanup = () => {
@@ -135,7 +138,7 @@ export class TigerScreen extends QFTScreen {
     btn.on("pointerdown", this.clickCallback(input, cleanup, "tiger", () => new MonkeyScreen()));
 
     animalQuestion(GameState.app, "Which is the best Animal of the Entire Kingdom?");
-    this.assets = [animal, input, btn, btnText];
+    this.assets = [bg, animal, input, btn, btnText];
   }
 
   public tick(): void {}
@@ -150,13 +153,14 @@ export class MonkeyScreen extends QFTScreen {
 
   constructor() {
     super();
+    const bg = Sprite.from("/assets/img/castle.png");
     const animal = Sprite.from("/assets/img/monkey.png");
     animal.x = 0;
     animal.y = 200;
 
     const input = createInput(320, 550);
     this.inputText = input;
-    const [btn, btnText] = createButton(320, 400, "Speak", () => {});
+    const [btn, btnText] = createButton(320, 760, "Speak", () => {});
     this.submitTalk = btn;
 
     const cleanup = () => {
@@ -166,7 +170,7 @@ export class MonkeyScreen extends QFTScreen {
     btn.on("pointerdown", this.clickCallback(input, cleanup, "monkey", () => new BisonScreen()));
 
     animalQuestion(GameState.app, "What is most holy of all?");
-    this.assets = [animal, input, btn, btnText];
+    this.assets = [bg, animal, input, btn, btnText];
   }
 
   public tick(): void {}
@@ -181,13 +185,14 @@ export class BisonScreen extends QFTScreen {
 
   constructor() {
     super();
+    const bg = Sprite.from("/assets/img/castle.png");
     const animal = Sprite.from("/assets/img/bison.png");
     animal.x = 0;
     animal.y = 200;
 
     const input = createInput(320, 550);
     this.inputText = input;
-    const [btn, btnText] = createButton(320, 400, "Speak", () => {});
+    const [btn, btnText] = createButton(320, 760, "Speak", () => {});
     this.submitTalk = btn;
 
     const cleanup = () => {
@@ -197,7 +202,7 @@ export class BisonScreen extends QFTScreen {
     btn.on("pointerdown", this.clickCallback(input, cleanup, "bison", () => new PandaScreen()));
 
     animalQuestion(GameState.app, "What should the Kingdom do in case of war?");
-    this.assets = [animal, input, btn, btnText];
+    this.assets = [bg, animal, input, btn, btnText];
   }
 
   public tick(): void {}
@@ -212,13 +217,14 @@ export class PandaScreen extends QFTScreen {
 
   constructor() {
     super();
+    const bg = Sprite.from("/assets/img/castle.png");
     const animal = Sprite.from("/assets/img/panda.png");
     animal.x = 0;
     animal.y = 200;
 
     const input = createInput(320, 550);
     this.inputText = input;
-    const [btn, btnText] = createButton(320, 400, "Speak", () => {});
+    const [btn, btnText] = createButton(320, 760, "Speak", () => {});
     this.submitTalk = btn;
 
     const cleanup = () => {
@@ -228,7 +234,7 @@ export class PandaScreen extends QFTScreen {
     btn.on("pointerdown", this.clickCallback(input, cleanup, "panda", () => new EndScreen()));
 
     animalQuestion(GameState.app, "Why should I give you Tokens?");
-    this.assets = [animal, input, btn, btnText];
+    this.assets = [bg, animal, input, btn, btnText];
   }
 
   public tick(): void {}

@@ -40,7 +40,6 @@ export default {
       args: ["run", "build"],
       waitToExit: true,
       type: "system-dependency",
-      critical: true,
       dependsOn: [EvmNames.GENERATE_MOD],
     },
 
@@ -51,7 +50,6 @@ export default {
       args: ["run", "serve"],
       waitToExit: false,
       type: "system-dependency",
-      critical: true,
       link: "http://localhost:10599",
       stopProcessAtPort: [10599],
       dependsOn: ["frontend-build"],

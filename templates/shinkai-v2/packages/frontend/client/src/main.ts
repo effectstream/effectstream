@@ -1,6 +1,5 @@
 import { Application, Assets } from "pixi.js";
 import { walletLogin, WalletMode } from "@effectstream/wallets";
-import { hardhat } from "viem/chains";
 import { paimaConfig } from "./config.ts";
 import { MainScreen } from "./screens.ts";
 import { GameState } from "./game-state.ts";
@@ -29,9 +28,10 @@ export async function connectWallet(): Promise<string> {
   const result = await walletLogin({
     mode: WalletMode.EvmInjected,
     preferBatchedMode: true,
-    chain: hardhat,
+    checkChainId: false,
   });
-  if (!result.success) throw new Error("Wallet connection failed");
+  if (!result.success) throw new Error(`Wallet connection failed: ${result.errorMessage}`);
+  GameState.walletObj = result.result;
   GameState.wallet = result.result.walletAddress;
   return result.result.walletAddress;
 }
