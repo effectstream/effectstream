@@ -92,8 +92,12 @@ export async function snapshotRetentionTest(_db: Client) {
     return files.length >= 1; // at least 1 survived after retention ran
   }, waitMs);
 
-  // During a short E2E run all snapshots fall in the same 1-hour bucket,
-  // so retention keeps at most 1 per bucket. Allow up to 3 for hour-boundary races.
+  // Bucket keys are mtime-absolute (wall-clock), so during a short E2E run
+  // all snapshots typically fall in the same wall-clock hour bucket and
+  // retention keeps at most 1 per bucket. Allow up to 3 to cover hour-
+  // boundary crossings mid-run. Multi-tier promotion is covered by the
+  // snapshot-handler unit test — the real loop can't be exercised across
+  // days from an E2E.
   const MAX_EXPECTED = 3;
 
   await assert(
