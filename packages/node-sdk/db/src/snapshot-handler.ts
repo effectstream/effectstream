@@ -1,5 +1,16 @@
 import { ENV } from "@effectstream/utils/node-env";
+import { cwd } from "@effectstream/utils/runtime";
+import {
+  mkdirRecursive,
+  readDir,
+  remove,
+  statMtime,
+} from "@effectstream/utils/fs";
+import { spawnOutput } from "@effectstream/utils/runtime-spawn";
 import { sleep, until, type Operation } from "effection";
+
+/** `process.env` works under Node, Bun, and Deno (via node: compat). */
+declare const process: { env: Record<string, string | undefined> };
 
 export interface SnapshotRetentionConfig {
   /** One per hour for last 24 h. Default: `true` */
@@ -19,6 +30,39 @@ export interface SnapshotConfig {
   retention?: SnapshotRetentionConfig;
 }
 
+interface ResolvedSnapshotConfig {
+  intervalSeconds: number;
+  path: string;
+  retention: Required<SnapshotRetentionConfig>;
+}
+
+/**
+ * Precedence: explicit config field > env var > hardcoded default.
+ * Env vars other than INTERVAL_SECONDS carry their hardcoded defaults inside
+ * `ENV.getConfig`, so `??` here only needs to cover INTERVAL_SECONDS (whose
+ * env `defaultValue` is intentionally `undefined`).
+ */
+function resolveSnapshotConfig(config?: SnapshotConfig): ResolvedSnapshotConfig {
+  return {
+    intervalSeconds:
+      config?.intervalSeconds
+      ?? ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS
+      ?? 3600,
+    path: config?.path ?? ENV.EFFECTSTREAM_SNAPSHOT_PATH,
+    retention: {
+      lastDayHourly:
+        config?.retention?.lastDayHourly
+        ?? ENV.EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY,
+      last3DaysSixHourly:
+        config?.retention?.last3DaysSixHourly
+        ?? ENV.EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY,
+      lastNDaysDaily:
+        config?.retention?.lastNDaysDaily
+        ?? ENV.EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS,
+    },
+  };
+}
+
 /**
  * Creates a database snapshot using `pg_dump` in custom format (`-F c`).
  * Must be called AFTER releasing the DB mutex (pg_dump opens its own connection).
@@ -35,14 +79,22 @@ export async function createSnapshot(
     return;
   }
 
-  const snapshotDir = config?.path ?? "./snapshots";
+  const resolved = resolveSnapshotConfig(config);
+  const snapshotDir = resolved.path;
   const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\.\d{3}/, "");
   const snapshotPath = `${snapshotDir}/snapshot-${timestamp}.dump`;
 
-  await Deno.mkdir(snapshotDir, { recursive: true });
+  await mkdirRecursive(snapshotDir);
   console.log(`[Snapshot] Creating snapshot at ${snapshotPath}...`);
 
-  const cmd = new Deno.Command("pg_dump", {
+  // Inherit the ambient env and add PGPASSWORD. `process.env` is populated on
+  // Node/Bun natively and on Deno via node:compat when --allow-env is set.
+  const ambientEnv: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v !== undefined) ambientEnv[k] = v;
+  }
+
+  const result = await spawnOutput("pg_dump", {
     args: [
       "-h", ENV.DB_HOST,
       "-p", String(ENV.DB_PORT),
@@ -51,18 +103,16 @@ export async function createSnapshot(
       "-F", "c",
       "-f", snapshotPath,
     ],
-    env: { ...Deno.env.toObject(), PGPASSWORD: ENV.DB_PW ?? "" },
+    env: { ...ambientEnv, PGPASSWORD: ENV.DB_PW ?? "" },
     stdout: "inherit",
     stderr: "inherit",
   });
-
-  const status = await cmd.output();
-  if (!status.success) {
-    throw new Error(`[Snapshot] pg_dump failed with exit code ${status.code}`);
+  if (!result.success) {
+    throw new Error(`[Snapshot] pg_dump failed with exit code ${result.code}`);
   }
 
   console.log(`[Snapshot] Snapshot created: ${snapshotPath}`);
-  await applyRetentionPolicy(snapshotDir, config?.retention);
+  await applyRetentionPolicy(snapshotDir, resolved.retention);
 }
 
 /**
@@ -73,14 +123,15 @@ export async function createSnapshot(
 export function* runSnapshotLoop(
   snapshotConfig: SnapshotConfig,
 ): Operation<void> {
-  const intervalMs = (snapshotConfig.intervalSeconds ?? 3600) * 1000;
-  console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${snapshotConfig.path ?? "./snapshots"}, cwd ${Deno.cwd()}); first snapshot in ${intervalMs / 1000}s`);
+  const resolved = resolveSnapshotConfig(snapshotConfig);
+  const intervalMs = resolved.intervalSeconds * 1000;
+  console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${resolved.path}, cwd ${cwd()})`);
   while (true) {
     yield* sleep(intervalMs);
     console.log(`[Snapshot] Firing`);
     try {
-      yield* until(createSnapshot(snapshotConfig));
-      console.log(`[Snapshot] Done`);
+      yield* until(createSnapshot(resolved));
+      console.log(`[Snapshot] Done; sleeping ${intervalMs / 1000}s`);
     } catch (e) {
       console.error("[Snapshot] Failed:", e);
     }
@@ -90,16 +141,20 @@ export function* runSnapshotLoop(
 /**
  * Time-based tiered retention: keeps one file per bucket (newest wins),
  * deletes everything beyond `lastNDaysDaily` days.
+ *
+ * Bucket keys are derived from the file's wall-clock mtime, not from its
+ * age relative to `now`. A file's bucket is therefore fixed at write time
+ * and does not slide forward every tick, which is what lets files actually
+ * age into the 6-hourly and daily tiers.
  */
-async function applyRetentionPolicy(
+export async function applyRetentionPolicy(
   snapshotDir: string,
-  retention?: SnapshotRetentionConfig,
+  retention: Required<SnapshotRetentionConfig>,
+  nowMs: number = Date.now(),
 ): Promise<void> {
-  const lastDayHourly      = retention?.lastDayHourly      ?? true;
-  const last3DaysSixHourly = retention?.last3DaysSixHourly ?? true;
-  const lastNDaysDaily     = retention?.lastNDaysDaily      ?? 7;
+  const { lastDayHourly, last3DaysSixHourly, lastNDaysDaily } = retention;
 
-  const now    = Date.now();
+  const now    = nowMs;
   const MS_1H  = 3_600_000;
   const MS_24H = 24 * MS_1H;
   const MS_3D  = 3  * MS_24H;
@@ -108,12 +163,12 @@ async function applyRetentionPolicy(
   const entries: { path: string; mtime: number }[] = [];
 
   try {
-    for await (const entry of Deno.readDir(snapshotDir)) {
+    for await (const entry of readDir(snapshotDir)) {
       if (!entry.isFile || !entry.name.startsWith("snapshot-") || !entry.name.endsWith(".dump")) continue;
       const filePath = `${snapshotDir}/${entry.name}`;
       try {
-        const stat = await Deno.stat(filePath);
-        entries.push({ path: filePath, mtime: stat.mtime?.getTime() ?? 0 });
+        const mtime = await statMtime(filePath);
+        entries.push({ path: filePath, mtime });
       } catch { /* file vanished between readDir and stat */ }
     }
   } catch (e) {
@@ -137,12 +192,12 @@ async function applyRetentionPolicy(
 
     if (age <= MS_24H) {
       if (!lastDayHourly) { keepers.add(entry.path); continue; }
-      bucketKey = `h:${Math.floor(age / MS_1H)}`;
+      bucketKey = `h:${Math.floor(entry.mtime / MS_1H)}`;
     } else if (age <= MS_3D) {
       if (!last3DaysSixHourly) { keepers.add(entry.path); continue; }
-      bucketKey = `6h:${Math.floor(age / (6 * MS_1H))}`;
+      bucketKey = `6h:${Math.floor(entry.mtime / (6 * MS_1H))}`;
     } else {
-      bucketKey = `d:${Math.floor(age / MS_24H)}`;
+      bucketKey = `d:${Math.floor(entry.mtime / MS_24H)}`;
     }
 
     if (!seenBuckets.has(bucketKey)) {
@@ -154,7 +209,7 @@ async function applyRetentionPolicy(
   for (const entry of entries) {
     if (!keepers.has(entry.path)) {
       try {
-        await Deno.remove(entry.path);
+        await remove(entry.path);
         console.log(`[Snapshot] Retention: deleted ${entry.path}`);
       } catch (e) {
         console.warn(`[Snapshot] Failed to delete ${entry.path}:`, e);

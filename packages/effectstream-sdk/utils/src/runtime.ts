@@ -95,13 +95,21 @@ export function setExitCode(code: number): void {
 }
 
 /**
- * Register a test.
+ * Register a test with the ambient test runner.
+ * - Under `deno test`, registers with `Deno.test`.
+ * - Under `node --test` / `bun test`, registers with `node:test`.
  * Use: import { test } from "@effectstream/utils/runtime";
  */
 export function test(
   name: string,
   fn: () => void | Promise<void>,
 ): void {
+  // @ts-ignore: Deno is added to global scope in Deno environments
+  if (typeof Deno !== "undefined" && typeof Deno.test === "function") {
+    // @ts-ignore
+    Deno.test(name, fn);
+    return;
+  }
   if (typeof process !== "undefined") {
     try {
       // dynamic import for ESM; require for CJS
@@ -126,3 +134,8 @@ export function isNotFoundError(err: unknown): boolean {
   }
   return false;
 }
+
+// Filesystem helpers (makeTempDir, readDir, etc.) live in `./fs.ts` under
+// the `@effectstream/utils/fs` subpath export. They intentionally do NOT
+// re-export from this file, because this file is re-exported by the package
+// barrel (`mod.ts`) — dragging `node:fs/promises` into browser bundles.

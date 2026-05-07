@@ -38,18 +38,9 @@ main(function* () {
       grammar,
       userDefinedPrimitives,
       // Snapshot config — see docs/home/1000-effectstream-engine/1003-database-snapshots.md
-      // Snapshots are opt-in: only enabled when EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS is set.
-      snapshotConfig: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS != null
-        ? {
-            intervalSeconds: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS,
-            path: ENV.EFFECTSTREAM_SNAPSHOT_PATH,
-            retention: {
-              lastDayHourly: ENV.EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY,
-              last3DaysSixHourly: ENV.EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY,
-              lastNDaysDaily: ENV.EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS,
-            },
-          }
-        : undefined,
+      // Opt in via EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS; the runtime merges
+      // the rest of the EFFECTSTREAM_SNAPSHOT_* env vars into the config.
+      snapshotConfig: ENV.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS != null ? {} : undefined,
     });
   });
 
