@@ -267,51 +267,151 @@ export async function connectBrowserContract(
 }
 
 /**
- * Complete a maker's bech32m offer blob as the connected browser wallet.
- *
- * Hands the maker's sealed `<Sig, Proof, Binding>` tx to the wallet's
- * `balanceSealedTransaction` (with `payFees: false` — the batcher's seed
- * wallet adds DUST). The wallet adds a NEW intent at a fresh segment id
- * with the matching counterparty inputs/outputs and seals it. This is the
- * canonical pattern documented in the dapp-connector spec; the previous
- * "decode → mirror → makeIntent at same segId → merge" approach worked for
- * shielded swaps (where imbalances live in segment 0 and merge collapses
- * guaranteed offers) but blows up on unshielded swaps with
- * "key (segment_id) collision during intents merge" because two `Intent`
- * objects can't share a segment id.
+ * Inspect the maker tx and pick the single segment that carries the swap's
+ * shielded/unshielded asset imbalances. Used to decide which balancing
+ * strategy `proveAndSubmitOffer` will use.
  */
-export async function proveAndSubmitOffer(
-  connectedApi: ConnectedAPI,
-  config: MidnightBrowserConfig,
-  offerBech32m: string,
-): Promise<{ txHash: string }> {
-  setNetworkId(config.networkId as NetworkId);
+function pickSwapSegment(makerTx: any): { segId: number; imbalances: Map<any, bigint> } {
+  // Lace's makeIntent populates `intents` (Intent objects) and may also touch
+  // `fallibleOffer` (ZswapOffer). Union them with segment 0 (guaranteed),
+  // then keep only segments with non-empty asset imbalances.
+  const intentIds = makerTx.intents ? Array.from(makerTx.intents.keys()) : [];
+  const fallibleIds = makerTx.fallibleOffer ? Array.from(makerTx.fallibleOffer.keys()) : [];
+  const candidates = Array.from(new Set<number>([0, ...intentIds, ...fallibleIds]));
 
-  console.log('[browserContract] complete: decoding offer bytes');
-  const rawBytes = decodeOffer(offerBech32m);
-  const makerTxHex = toHex(rawBytes);
-
-  let balancedHex: string;
-  try {
-    const result = await connectedApi.balanceSealedTransaction(makerTxHex, {
-      payFees: false,
+  const swaps: Array<{ segId: number; imbalances: Map<any, bigint> }> = [];
+  for (const segId of candidates) {
+    let imb: Map<any, bigint>;
+    try {
+      imb = makerTx.imbalances(segId) as Map<any, bigint>;
+    } catch {
+      continue;
+    }
+    const hasAssets = Array.from(imb.entries()).some(([tt, v]) => {
+      const tag = (tt as any).tag;
+      return (tag === 'shielded' || tag === 'unshielded') && v !== 0n;
     });
-    balancedHex = result.tx;
-    console.log('[browserContract] complete: balanceSealedTransaction returned', {
-      bytes: balancedHex.length / 2,
-    });
-  } catch (e: any) {
-    console.error('[browserContract] complete: balanceSealedTransaction failed', {
-      name: e?.name,
-      message: e?.message,
-      raw: e,
-    });
-    throw new Error(
-      `Wallet failed to balance the maker offer: ${e?.message ?? e?.name ?? 'unknown'}`,
-      { cause: e },
-    );
+    if (hasAssets) swaps.push({ segId, imbalances: imb });
   }
 
+  if (swaps.length === 0) {
+    throw new Error(
+      `Maker offer has no shielded/unshielded asset imbalances — nothing to mirror. ` +
+        `(intent ids: ${JSON.stringify(intentIds)}, fallible ids: ${JSON.stringify(fallibleIds)})`,
+    );
+  }
+  if (swaps.length > 1) {
+    throw new Error(
+      `Multi-segment offers are not supported (asset imbalances in segments ${
+        swaps.map(s => s.segId).join(', ')
+      }).`,
+    );
+  }
+  return swaps[0]!;
+}
+
+/**
+ * Shielded-only path. Lace's `makeIntent` for an all-shielded swap puts
+ * everything in segment 0 (the guaranteed Zswap offer) with no `Intent`
+ * objects, so `balanceSealedTransaction` (which walks Intents) throws
+ * "No segments found in the provided transaction". Mirror taker side at
+ * segment 0 and merge — segment-0 offers compose cleanly.
+ */
+async function balanceShieldedViaMirrorMerge(
+  connectedApi: ConnectedAPI,
+  makerTx: any,
+  swap: { segId: number; imbalances: Map<any, bigint> },
+): Promise<{ balancedHex: string; txHash: string }> {
+  const { shieldedAddress } = await connectedApi.getShieldedAddresses();
+  const { unshieldedAddress } = await connectedApi.getUnshieldedAddress();
+
+  type DesiredInput = { kind: 'shielded' | 'unshielded'; type: string; value: bigint };
+  type DesiredOutput = DesiredInput & { recipient: string };
+  const takerInputs: DesiredInput[] = [];
+  const takerOutputs: DesiredOutput[] = [];
+
+  // +N for token T → maker spent N, taker should receive N (taker output).
+  // -N for token T → maker outputs N, taker should provide N (taker input).
+  for (const [tt, delta] of swap.imbalances) {
+    const tag = (tt as any).tag as 'shielded' | 'unshielded' | 'dust';
+    if (tag === 'dust') continue; // batcher pays
+    if (tag !== 'shielded' && tag !== 'unshielded') continue;
+    const type = (tt as any).raw as string;
+    if (delta > 0n) {
+      takerOutputs.push({
+        kind: tag,
+        type,
+        value: delta,
+        recipient: tag === 'shielded' ? shieldedAddress : unshieldedAddress,
+      });
+    } else if (delta < 0n) {
+      takerInputs.push({ kind: tag, type, value: -delta });
+    }
+  }
+
+  // Pick a taker intentId that won't collide with any of the maker's existing
+  // Intent slots. For shielded-only offers the maker tx has no Intents and
+  // any value works; for offers whose imbalances live in segment 0 but Lace
+  // also tacked on a structural Intent (commonly at segId 1 for unshielded),
+  // we need to land somewhere outside `makerIntentIds` or the merge throws
+  // "key (segment_id) collision during intents merge: <id>".
+  const makerIntentIds: number[] = makerTx.intents
+    ? Array.from(makerTx.intents.keys() as Iterable<number>)
+    : [];
+  const usedIds = new Set<number>(makerIntentIds);
+  let takerIntentId = 2;
+  while (usedIds.has(takerIntentId)) takerIntentId++;
+
+  console.log('[browserContract] complete (mirror+merge): taker mirror', {
+    segId: swap.segId,
+    makerIntentIds,
+    takerIntentId,
+    inputs: takerInputs.map(i => ({ ...i, value: i.value.toString() })),
+    outputs: takerOutputs.map(o => ({ ...o, value: o.value.toString() })),
+  });
+
+  const { tx: takerTxHex } = await connectedApi.makeIntent(takerInputs, takerOutputs, {
+    intentId: takerIntentId,
+    payFees: false,
+  });
+  const takerTx = LedgerV8Transaction.deserialize(
+    'signature',
+    'proof',
+    'binding',
+    fromHex(takerTxHex),
+  );
+
+  const takerIntentIds: number[] = takerTx.intents
+    ? Array.from(takerTx.intents.keys() as Iterable<number>)
+    : [];
+  console.log('[browserContract] complete (mirror+merge): taker tx shape', {
+    requestedTakerIntentId: takerIntentId,
+    actualTakerIntentIds: takerIntentIds,
+  });
+
+  const merged = makerTx.merge(takerTx);
+  const balancedHex = toHex(merged.serialize());
+  const txHash = (merged as any).transactionHash?.() ?? '';
+  console.log('[browserContract] complete (mirror+merge): merged maker + taker', {
+    bytes: balancedHex.length / 2,
+    txHash,
+  });
+  return { balancedHex, txHash };
+}
+
+/**
+ * Unshielded / mixed path. Maker's `Intent` objects already carry the swap
+ * at numbered segment ids; mirror+merge would collide ("key (segment_id)
+ * collision during intents merge"). Hand the sealed tx to Lace and let it
+ * add a separate Intent for the taker side.
+ */
+async function balanceMixedViaSealedBalance(
+  connectedApi: ConnectedAPI,
+  makerTxHex: string,
+): Promise<{ balancedHex: string; txHash: string }> {
+  const { tx: balancedHex } = await connectedApi.balanceSealedTransaction(makerTxHex, {
+    payFees: false,
+  });
   let txHash = '';
   try {
     const balancedTx = LedgerV8Transaction.deserialize(
@@ -323,6 +423,105 @@ export async function proveAndSubmitOffer(
     txHash = (balancedTx as any).transactionHash?.() ?? '';
   } catch {
     // Hash is best-effort for logging; missing it shouldn't block submission.
+  }
+  console.log('[browserContract] complete (sealed balance): returned', {
+    bytes: balancedHex.length / 2,
+    txHash,
+  });
+  return { balancedHex, txHash };
+}
+
+/**
+ * Complete a maker's bech32m offer blob as the connected browser wallet.
+ *
+ * Two strategies, dispatched on segment shape:
+ *   - segment 0 only (all-shielded offer)        → mirror+merge
+ *   - numbered Intent segment (unshielded/mixed) → balanceSealedTransaction
+ *
+ * Neither strategy works for both cases: `balanceSealedTransaction` walks
+ * `Intent` objects (so it throws "No segments found" on segment-0-only
+ * shielded offers); mirror+merge collides on intent segment ids.
+ */
+export async function proveAndSubmitOffer(
+  connectedApi: ConnectedAPI,
+  config: MidnightBrowserConfig,
+  offerBech32m: string,
+): Promise<{ txHash: string }> {
+  setNetworkId(config.networkId as NetworkId);
+
+  console.log('[browserContract] complete: decoding offer bytes');
+  const rawBytes = decodeOffer(offerBech32m);
+  const makerTx = LedgerV8Transaction.deserialize(
+    'signature',
+    'proof',
+    'binding',
+    rawBytes,
+  );
+
+  // Diagnostic: full segment shape of the maker tx. Fast triage when
+  // `balanceSealedTransaction` errors with "intents merge: N" — the colliding
+  // segment id should match one of these.
+  const intentIds = makerTx.intents ? Array.from(makerTx.intents.keys()) : [];
+  const fallibleIds = makerTx.fallibleOffer ? Array.from(makerTx.fallibleOffer.keys()) : [];
+  console.log('[browserContract] complete: maker tx segments', {
+    intentIds,
+    fallibleIds,
+    segmentImbalances: Object.fromEntries(
+      Array.from(new Set<number>([0, ...intentIds, ...fallibleIds])).map((segId) => {
+        try {
+          const imb = makerTx.imbalances(segId) as Map<any, bigint>;
+          return [
+            segId,
+            Array.from(imb.entries()).map(([tt, v]) => ({
+              tag: (tt as any).tag,
+              raw: (tt as any).raw,
+              delta: v.toString(),
+            })),
+          ];
+        } catch {
+          return [segId, 'imbalances() threw'];
+        }
+      }),
+    ),
+  });
+
+  const swap = pickSwapSegment(makerTx);
+
+  const useMirrorMerge = swap.segId === 0;
+  const strategy = useMirrorMerge
+    ? 'mirror+merge (shielded)'
+    : 'balanceSealedTransaction (unshielded/mixed)';
+  console.log('[browserContract] complete: chose strategy', {
+    segId: swap.segId,
+    strategy,
+  });
+
+  let balancedHex: string;
+  let txHash: string;
+  try {
+    if (useMirrorMerge) {
+      ({ balancedHex, txHash } = await balanceShieldedViaMirrorMerge(
+        connectedApi,
+        makerTx,
+        swap,
+      ));
+    } else {
+      ({ balancedHex, txHash } = await balanceMixedViaSealedBalance(
+        connectedApi,
+        toHex(rawBytes),
+      ));
+    }
+  } catch (e: any) {
+    console.error('[browserContract] complete: balancing failed', {
+      strategy,
+      name: e?.name,
+      message: e?.message,
+      raw: e,
+    });
+    throw new Error(
+      `Wallet failed to balance the maker offer: ${e?.message ?? e?.name ?? 'unknown'}`,
+      { cause: e },
+    );
   }
 
   const coinPublicKeyHex = parseCoinPublicKeyToHex(

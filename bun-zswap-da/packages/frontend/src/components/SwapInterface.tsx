@@ -51,6 +51,25 @@ const isBlank = (e: TokenEntry) => !e.token && !e.amount.trim();
 const MIXED_KIND_MESSAGE =
   'Mixed offers are not allowed. All tokens on both sides must be the same kind — either all shielded, or all unshielded.';
 
+/**
+ * Pick a segment id for the maker's swap intent.
+ *
+ * Lace's `balanceSealedTransaction` places its balancing Intent at segment 1
+ * (per the dapp-connector "use 1 to ensure no actions execute before this
+ * intent" guidance). The connector's own `intentId: 'random'` lands on 1
+ * often enough that every cross-party unshielded swap collides during merge.
+ *
+ * Picking from a wide range (avoiding 0 = guaranteed offer slot, and 1 =
+ * Lace's balancing slot) eliminates the collision.
+ */
+function pickMakerIntentId(): number {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  // Mask to 31 bits to stay safely within signed-int boundaries on the
+  // ledger side; ensure ≥ 2 to skip the reserved low ids.
+  return Math.max(2, buf[0]! & 0x7fffffff);
+}
+
 export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuccess, connectedApi, browserShieldedAddress, browserUnshieldedAddress, browserNetworkId }) => {
   const [gives, setGives] = useState<{ id: string; entry: TokenEntry }[]>([
     { id: 'gives-0', entry: emptyEntry() }
@@ -167,6 +186,8 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
       });
 
       setMessage('Building swap intent via browser wallet…');
+      const intentId = pickMakerIntentId();
+      console.log('[swap] maker intentId =', intentId);
       let tx: string;
       try {
         // payFees:false: a maker offer is intentionally imbalanced (gives ≠ wants).
@@ -174,7 +195,7 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
         // the maker to pay here would either no-op or pull DUST the user didn't
         // intend to commit.
         const result = await connectedApi.makeIntent(inputs, outputs, {
-          intentId: 'random',
+          intentId,
           payFees: false,
         });
         tx = result.tx;
