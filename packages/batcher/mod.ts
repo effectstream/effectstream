@@ -47,6 +47,14 @@ export type { BitcoinAdapterConfig } from "./adapters/bitcoin-adapter.ts";
 export type { MidnightAdapterConfig } from "./adapters/midnight-adapter.ts";
 export type { MidnightBalancingAdapterConfig } from "./adapters/midnight-balancing-adapter.ts";
 
+export { CelestiaAdapter } from "./adapters/celestia-adapter.ts";
+export type {
+  CelestiaAdapterConfig,
+  CelestiaBatchPayload,
+  CelestiaBlob,
+  CelestiaNetwork,
+} from "./adapters/celestia-adapter.ts";
+
 // Rate limiting
 export type {
   RateLimitStore,
