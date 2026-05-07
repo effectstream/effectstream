@@ -39,39 +39,51 @@ export class UtxoRpcFetcher
         data.isPresync ? "[presync]" : ""
       }`,
     );
+    const fetchAllBlocks = this.config.primitives.some(
+      (p) => p.primitive.getAllBlockHeaders,
+    );
+
     const outputs: OutputAndCleanup<Output>[] = [];
     const blocks = this.client.fetchBlocks(data.from, data.to);
+    let lastBlock: typeof blocks[number] | undefined;
     for (const block of blocks) {
+      lastBlock = block;
+      const primitives = this.findPrimitives(block.output);
+      if (fetchAllBlocks || primitives.length > 0) {
+        outputs.push({
+          output: {
+            blockHashes: [String(block.output.header?.hash)],
+            raw: block.output,
+            primitives,
+          },
+          cleanup: block.cleanup,
+        });
+      }
+    }
+    if (lastBlock && (outputs.length === 0 || outputs[outputs.length - 1].output.raw !== lastBlock.output)) {
       outputs.push({
         output: {
-          // TODO: What is the correct block hash?
-          blockHashes: [String(block.output.header?.hash)],
-          raw: block.output,
-          primitives: this.findPrimitives(block.output),
+          blockHashes: [String(lastBlock.output.header?.hash)],
+          raw: lastBlock.output,
+          primitives: [],
         },
-        cleanup: block.cleanup,
+        cleanup: lastBlock.cleanup,
       });
     }
+    const lastRaw = lastBlock!.output;
     return {
       output: outputs,
       lastPage: {
         ownBlockNumber: Number(data.to),
         own: {
-          slot: Number(
-            outputs[outputs.length - 1].output.raw.header!.slot,
-          ),
-          height: Number(
-            outputs[outputs.length - 1].output.raw.header!.height,
-          ),
-          hash: Buffer.from(
-            outputs[outputs.length - 1].output.raw.header!.hash,
-          )
-            .toString("hex"),
+          slot: Number(lastRaw.header!.slot),
+          height: Number(lastRaw.header!.height),
+          hash: Buffer.from(lastRaw.header!.hash).toString("hex"),
         },
         root: rootConversion.toRootPage({
           blockHashes: [],
-          primitives: [], // TODO: I think this can be left empty here
-          raw: outputs[outputs.length - 1].output.raw,
+          primitives: [],
+          raw: lastRaw,
         }),
       },
     };
