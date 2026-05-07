@@ -74,16 +74,16 @@ export function* runSnapshotLoop(
   snapshotConfig: SnapshotConfig,
 ): Operation<void> {
   const intervalMs = (snapshotConfig.intervalSeconds ?? 3600) * 1000;
-  console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${snapshotConfig.path ?? "./snapshots"}, cwd ${Deno.cwd()})`);
+  console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${snapshotConfig.path ?? "./snapshots"}, cwd ${Deno.cwd()}); first snapshot in ${intervalMs / 1000}s`);
   while (true) {
+    yield* sleep(intervalMs);
     console.log(`[Snapshot] Firing`);
     try {
       yield* until(createSnapshot(snapshotConfig));
-      console.log(`[Snapshot] Done; sleeping ${intervalMs / 1000}s`);
+      console.log(`[Snapshot] Done`);
     } catch (e) {
       console.error("[Snapshot] Failed:", e);
     }
-    yield* sleep(intervalMs);
   }
 }
 
