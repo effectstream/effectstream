@@ -1,0 +1,60 @@
+{
+  "name": "@zk-cardano/frontend",
+  "version": "1.0.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./server/main.ts"
+  },
+  "scripts": {
+    "dev": "bunx vite --port 10598 --mode dev",
+    "build": "bunx vite build --mode dev",
+    "build:dev": "bunx vite build --mode dev",
+    "server:start": "bun --watch run ./server/main.ts",
+    "serve": "bun run build && bun run server:start",
+    "test:e2e": "bunx playwright test"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.15.0",
+    "@midnight-ntwrk/compact-js": "2.5.0",
+    "@midnight-ntwrk/dapp-connector-api": "4.0.1",
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "@midnight-ntwrk/midnight-js-contracts": "4.0.4",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "4.0.4",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.0.4",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.4",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.4",
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.4",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "4.0.4",
+    "@midnight-ntwrk/midnight-js-types": "4.0.4",
+    "@midnight-ntwrk/midnight-js-utils": "4.0.4",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v3@3.0.0",
+    "@midnight-ntwrk/wallet": "5.0.0",
+    "@midnight-ntwrk/wallet-api": "5.0.0",
+    "@midnight-ntwrk/wallet-sdk-abstractions": "2.0.0",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "@midnight-ntwrk/wallet-sdk-dust-wallet": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk-facade": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk-hd": "3.0.1",
+    "@midnight-ntwrk/wallet-sdk-shielded": "2.1.0",
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "2.1.0",
+    "@midnight-ntwrk/zswap": "4.0.0",
+    "@zk-cardano/midnight-contract": "workspace:*",
+    "@effect/platform": "0.95.0",
+    "effect": "3.21.0",
+    "fastify": "^5.0.0",
+    "@fastify/static": "^8.0.0",
+    "@types/react": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "rxjs": "^7.8.2",
+    "stream-browserify": "3.0.0",
+    "vite": "7.1.3",
+    "vite-plugin-node-stdlib-browser": "*",
+    "vite-plugin-static-copy": "^3.1.1",
+    "vite-plugin-wasm": "^3.5.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}

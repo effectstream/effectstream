@@ -1,0 +1,34 @@
+[upstream]
+peer_address = "localhost:3001"
+
+[storage]
+path = "data"
+version = "v3"
+
+[genesis]
+# note: paths filled programmatically
+force_protocol = 10
+
+[sync]
+pull_batch_size = 100
+
+[submit]
+
+[serve.grpc]
+listen_address = "[::]:50051"
+permissive_cors = true
+
+[serve.ouroboros]
+listen_path = "./dolos.socket"
+
+[serve.minibf]
+listen_address = "[::]:3000"
+permissive_cors = true
+
+[chain]
+type = "cardano"
+magic = 42
+is_testnet = true
+
+[logging]
+max_level = "INFO"
