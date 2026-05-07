@@ -24,6 +24,10 @@ export const CELESTIA_GAS_LIMIT = parseInt(getEnv("CELESTIA_GAS_LIMIT") ?? "1000
 export const CELESTIA_AUTH_TOKEN = getEnv("CELESTIA_AUTH_TOKEN") ?? "";
 export const CELESTIA_NETWORK = getEnv("CELESTIA_NETWORK") ?? "devnet";
 export const CELESTIA_START_HEIGHT = getEnv("CELESTIA_START_HEIGHT");
+
+// Local batcher endpoint for forwarding zswap blob submissions.
+export const BATCHER_SUBMIT_URL = getEnv("BATCHER_SUBMIT_URL") ??
+  `http://127.0.0.1:${getEnv("BATCHER_PORT") ?? "3334"}`;
 // Sync poll cadence. Mainnet public gRPC endpoints rate-limit aggressively;
 // 30s (≈2.5 blocks) is safe and cuts call volume ~5x vs the 6s devnet default.
 export const CELESTIA_POLLING_INTERVAL_MS = parseInt(

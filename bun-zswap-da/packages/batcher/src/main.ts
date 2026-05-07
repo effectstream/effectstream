@@ -1,5 +1,6 @@
 import { main, suspend } from "effection";
 import {
+  CelestiaAdapter,
   createNewBatcher,
   FileStorage,
   MidnightBalancingAdapter,
@@ -10,6 +11,7 @@ import {
 import { batcherConfig, walletSeed } from "./config.ts";
 
 const BALANCER_TARGET = "midnight-balancer";
+const CELESTIA_TARGET = "celestia";
 
 const adapter = new MidnightBalancingAdapter(walletSeed, {
   indexer: batcherConfig.midnight.indexer,
@@ -18,6 +20,20 @@ const adapter = new MidnightBalancingAdapter(walletSeed, {
   proofServer: batcherConfig.midnight.proofServer,
   walletNetworkId: batcherConfig.midnight.id,
   syncProtocolName: "parallelMidnight",
+});
+
+const celestiaAdapter = new CelestiaAdapter({
+  rpcUrl: batcherConfig.celestia.rpcUrl,
+  namespace: batcherConfig.celestia.namespace,
+  authToken: batcherConfig.celestia.authToken,
+  network: batcherConfig.celestia.network,
+  fee: batcherConfig.celestia.fee,
+  gasLimit: batcherConfig.celestia.gasLimit,
+  gasPrice: batcherConfig.celestia.gasPrice,
+  gas: batcherConfig.celestia.gas,
+  maxGasPrice: batcherConfig.celestia.maxGasPrice,
+  txPriority: batcherConfig.celestia.txPriority,
+  syncProtocolName: "parallelCelestia",
 });
 
 const config: BatcherConfig<DefaultBatcherInput> = {
@@ -37,9 +53,14 @@ batcher.addBlockchainAdapter(BALANCER_TARGET, adapter, {
   maxBatchSize: 1,
 });
 
+batcher.addBlockchainAdapter(CELESTIA_TARGET, celestiaAdapter, {
+  criteriaType: "size",
+  maxBatchSize: 1,
+});
+
 main(function* () {
   console.log(
-    `[zswap-da-batcher] starting on :${batcherConfig.port} (target=${BALANCER_TARGET})`,
+    `[zswap-da-batcher] starting on :${batcherConfig.port} (targets=${BALANCER_TARGET}, ${CELESTIA_TARGET})`,
   );
   try {
     yield* batcher.runBatcher();

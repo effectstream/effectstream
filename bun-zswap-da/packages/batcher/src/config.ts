@@ -20,6 +20,17 @@ const BATCHER_SEED = [
 
 export const walletSeed = ENV.getString("BATCHER_WALLET_SEED") || BATCHER_SEED;
 
+const CELESTIA_NETWORK = (ENV.getString("CELESTIA_NETWORK", "devnet") as
+  | "devnet"
+  | "mainnet");
+
+const optionalNumber = (key: string): number | undefined => {
+  const raw = ENV.getString(key, "");
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 export const batcherConfig: BatcherConfig = {
   port: ENV.getNumber("BATCHER_PORT", 3334),
   pollingIntervalMs: ENV.getNumber("BATCHER_POLLING_INTERVAL_MS", 250),
@@ -30,5 +41,17 @@ export const batcherConfig: BatcherConfig = {
     indexerWS: midnightNetworkConfig.indexerWS,
     node: midnightNetworkConfig.node,
     proofServer: midnightNetworkConfig.proofServer,
+  },
+  celestia: {
+    rpcUrl: ENV.getString("CELESTIA_RPC_URL", "http://127.0.0.1:26658"),
+    namespace: ENV.getString("CELESTIA_NAMESPACE", "000000000000deadbeef"),
+    authToken: ENV.getString("CELESTIA_AUTH_TOKEN", "") || undefined,
+    network: CELESTIA_NETWORK,
+    fee: ENV.getNumber("CELESTIA_FEE", 2000),
+    gasLimit: ENV.getNumber("CELESTIA_GAS_LIMIT", 100000),
+    gasPrice: optionalNumber("CELESTIA_GAS_PRICE"),
+    gas: optionalNumber("CELESTIA_GAS"),
+    maxGasPrice: optionalNumber("CELESTIA_MAX_GAS_PRICE"),
+    txPriority: optionalNumber("CELESTIA_TX_PRIORITY"),
   },
 };
