@@ -612,7 +612,7 @@ export class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput> {
               },
               (event) => {
                 latestBlock = Math.max(event.block, latestBlock);
-                if (latestBlock > Number(receipt.blockNumber)) {
+                if (latestBlock >= Number(receipt.blockNumber)) {
                   resolve({ latestBlock, rollup: event.rollup });
                 }
               },

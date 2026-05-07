@@ -95,7 +95,7 @@ export function* applyUserMigrations(
   currentBlockHeight: number,
   dbConn: Client,
   migrationOrder: DBMigrations[] | undefined,
-): Operation<void> {
+): Operation<boolean> {
   const migrations = yield* getAllUserMigrations(
     EFFECTSTREAM_ENGINE_VERSION,
     migrationOrder,
@@ -114,6 +114,7 @@ export function* applyUserMigrations(
       ),
     );
   }
+  return migrations.length > 0;
 }
 
 function* getAllUserMigrations(
