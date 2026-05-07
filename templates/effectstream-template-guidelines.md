@@ -312,6 +312,11 @@ export const grammar = {
 | `midnightGeneric` | Midnight | Generic ledger contract state (`{ payload }`) |
 | `bitcoinAddress` | Bitcoin | Address transaction events |
 | `utxorpcGeneric` | Cardano | Generic UTXO events |
+| `cardanoMintBurn` | Cardano | Mint/burn events (`{ policy, asset, quantity }`) |
+| `cardanoTransfer` | Cardano | ADA/token transfer events (`{ address, amount, ... }`) |
+| `cardanoPoolDelegation` | Cardano | Stake delegation certificates (`{ address, pool, epoch }`) |
+| `cardanoDelayedAsset` | Cardano | Delayed asset claims |
+| `cardanoProjectedNft` | Cardano | Projected NFT state |
 | `availGeneric` | Avail | Application data submissions |
 | `celestiaGeneric` | Celestia | Blob data events |
 | `nearNep141` | NEAR | NEP-141 fungible token events |
@@ -990,6 +995,11 @@ Every app requires exactly one `addMain` (the NTP clock) and one or more `addPar
 | `PrimitiveTypeMidnightNullifier` | — | Midnight | Nullifier tracking |
 | `PrimitiveTypeBitcoinAddress` | `builtinGrammars.bitcoinAddress` | Bitcoin | Watch address transactions |
 | `PrimitiveTypeUtxorpcGeneric` | `builtinGrammars.utxorpcGeneric` | Cardano | Generic UTXO events |
+| `PrimitiveTypeCardanoMintBurn` | `builtinGrammars.cardanoMintBurn` | Cardano | Mint/burn certificate events |
+| `PrimitiveTypeCardanoTransfer` | `builtinGrammars.cardanoTransfer` | Cardano | ADA/token transfers |
+| `PrimitiveTypeCardanoPoolDelegation` | `builtinGrammars.cardanoPoolDelegation` | Cardano | Stake pool delegation certificates |
+| `PrimitiveTypeCardanoDelayedAsset` | `builtinGrammars.cardanoDelayedAsset` | Cardano | Delayed asset claims |
+| `PrimitiveTypeCardanoProjectedNFT` | `builtinGrammars.cardanoProjectedNft` | Cardano | Projected NFT state |
 | `PrimitiveTypeAvailGeneric` | `builtinGrammars.availGeneric` | Avail | Application data |
 | `PrimitiveTypeCelestiaGeneric` | `builtinGrammars.celestiaGeneric` | Celestia | Blob data |
 | `PrimitiveTypeNEARNEP141` | `builtinGrammars.nearNep141` | NEAR | Fungible tokens |
@@ -2006,6 +2016,12 @@ launchMidnight("@my-template/contracts-midnight", { resolveFrom: root }, {
 
 Note: the old `@midnight-ntwrk/ledger` and `@midnight-ntwrk/ledger-v6` packages are deprecated. Use `@midnight-ntwrk/ledger-v8`. Similarly, `onchain-runtime-v1` is replaced by `onchain-runtime-v3`.
 
+**Compact runtime Map objects require iterator access**: Midnight Compact's `Map<K, V>` type compiles to JavaScript objects that have `member()`, `lookup()`, `isEmpty()`, `size()`, and `[Symbol.iterator]()` methods — but `Object.entries()` and `Object.keys()` return the method names as keys, not the map data. When accessing Map data in STM handlers, always iterate via `[Symbol.iterator]()` or use `member(key)` + `lookup(key)`. If you serialize Compact state to JSON (e.g., the `MidnightGenericPrimitive`'s `makeJsonSafe()` pipeline), you must detect and iterate these Maps explicitly — `JSON.stringify` will drop function values silently, producing empty `{}`.
+
+**`MidnightGenericPrimitive` `ledgerSchema` option**: The `MidnightGenericPrimitive` accepts an optional `ledgerSchema` that maps Compact ledger field names to types (`uint8`–`uint128`, `bytes`, `boolean`, `option`, `map`). When provided, the primitive parses raw `StateValue` arrays into named fields. Schema keys must be in Compact declaration order — the parser maps each key to the corresponding positional index. Without `ledgerSchema`, the raw `payload` object is passed through (after `makeJsonSafe` serialization).
+
+**Cardano pool delegation certificates carry no ADA amount**: The `cardanoPoolDelegation` primitive emits `{ address, pool, epoch }` — the staking credential hash, pool keyhash, and epoch number. Delegation certificates on Cardano do not include the delegated ADA amount. To determine how much ADA is delegated, query the wallet's UTxO balance separately (e.g., via Lucid's `utxosAt(address)` or Blockfrost API).
+
 **Deploy script import path**: The `@effectstream/midnight-contracts` package exports `./deploy` (not `./deploy-ledger6` or other legacy names). `DeployConfig` is exported from `./types`:
 ```ts
 import { deployMidnightContract } from "@effectstream/midnight-contracts/deploy";
@@ -2056,6 +2072,24 @@ import {PaimaL2Contract} from "@effectstream/evm-contracts/src/contracts/PaimaL2
 // New
 import {EffectstreamL2Contract} from "@effectstream/evm-contracts/src/contracts/EffectstreamL2Contract.sol";
 ```
+
+### Cardano Templates (YACI DevKit + Dolos)
+
+**Local Cardano dev stack**: `launchCardano` starts three services: (1) **YACI DevKit** — a local Cardano devnet with a faucet at `localhost:10000` and a web UI at `localhost:8090`, (2) **Dolos** — a lightweight Cardano node that exposes UTxO-RPC (gRPC at `localhost:50051`) and a Blockfrost-compatible API at `localhost:3000`, (3) **cardano-submit-tx** — a one-shot process that submits initial transactions (e.g., stake delegation to bootstrap the pool).
+
+**Lucid Evolution for Cardano wallets**: Use `@lucid-evolution/lucid` + `@lucid-evolution/provider` for wallet creation, transaction building, and delegation. `Lucid.new()` connects to the Dolos Blockfrost provider at `http://localhost:3000`. For dev wallets, `generateSeedPhrase()` creates a new wallet; fund it via the YACI faucet (`POST http://localhost:10000/local-cluster/api/addresses/topup`). YACI faucet topups take ~5 seconds to produce UTxOs.
+
+**YACI genesis pool**: YACI DevKit creates one genesis stake pool. Its pool hash is `7301761068762f5900bde9eb7c1c15b09840285130f5b0f53606cc57` (bech32: `pool1wvqhvyrgwch4jq9aa84hc8q4kzvyq2z3xr6mpafkqmx9wce39zy`). Use this for delegation tests. The `cardanoPoolDelegation` primitive detects delegations to this pool via UTxO-RPC certificate scanning.
+
+**Five Cardano primitives**: The SDK provides five Cardano-specific primitives beyond `utxorpcGeneric`. All use the `CARDANO_UTXORPC_PARALLEL` sync protocol via Dolos:
+
+| Primitive | Grammar fields | Use case |
+|-----------|---------------|----------|
+| `CardanoPoolDelegation` | `address` (staking cred hash), `pool` (pool keyhash), `epoch` | Detect stake delegations — useful for eligibility/governance |
+| `CardanoMintBurn` | `policy`, `asset`, `quantity` | Track native token minting and burning |
+| `CardanoTransfer` | `address`, `amount`, ... | Track ADA/token transfers |
+| `CardanoDelayedAsset` | ... | Delayed asset claim tracking |
+| `CardanoProjectedNFT` | ... | Projected NFT state changes |
 
 ### Orchestrator Migration
 
