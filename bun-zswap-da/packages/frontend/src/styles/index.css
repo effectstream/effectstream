@@ -52,10 +52,20 @@ tr:hover td { background: #f1f5f9; }
 .token-amount-input { flex: 1; font-size: 1.5rem; background: transparent; border: none; padding: 0; color: #0f172a; }
 .token-amount-input:focus { outline: none; box-shadow: none; border: none; }
 .token-amount-input::placeholder { color: #cbd5e1; }
-.token-selector { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 20px; padding: 6px 12px 6px 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05); }
+.token-selector { position: relative; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 20px; padding: 6px 12px 6px 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05); }
 .token-selector:hover { background: #f8fafc; }
 .token-selector select { border: none; background: transparent; padding: 0; font-weight: 600; width: auto; font-size: 1rem; color: #0f172a; appearance: none; cursor: pointer; }
 .token-selector select:focus { box-shadow: none; }
+.token-select-trigger { display: flex; align-items: center; gap: 6px; width: 100%; background: transparent; border: none; padding: 0; margin: 0; font: inherit; font-weight: 600; color: #0f172a; cursor: pointer; }
+.token-select-trigger:hover { background: transparent; }
+.token-select-caret { margin-left: auto; font-size: 0.75em; opacity: 0.6; }
+.token-select-popup { position: absolute; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px 0; list-style: none; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; box-shadow: 0 4px 12px rgb(0 0 0 / 0.08); z-index: 20; max-height: 280px; overflow-y: auto; }
+.token-select-option { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-weight: 600; color: #0f172a; }
+.token-select-option:hover { background: #f8fafc; }
+.token-select-option[aria-selected="true"] { background: #f1f5f9; }
+.token-select-option-placeholder { color: #64748b; font-weight: 500; }
+.token-select-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.token-select-shield { margin-left: auto; }
 .dex-submit-btn { width: 100%; padding: 14px; font-size: 1.1rem; border-radius: 12px; margin-top: 16px; font-weight: 600; }
 
 .btn-small  { padding: 6px 12px; font-size: 0.85rem; margin-top: 4px; border-radius: 4px; }

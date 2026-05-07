@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { KnownToken, TokenEntry } from '../types';
+import { TokenSelect } from './TokenSelect';
 
 interface TokenInputProps {
   id: string;
@@ -14,6 +15,13 @@ export const TokenInput: React.FC<TokenInputProps> = ({ id, entry, knownTokens, 
   const isCustom = !knownTokens.find(t => t.token_color === entry.token) && entry.token !== '';
   const tokenSelectValue = isCustom ? 'custom' : entry.token;
 
+  // Shielded tokens sort first; preserve relative order within each group.
+  const sortedTokens = useMemo(() => {
+    const shielded = knownTokens.filter(t => t.kind === 'shielded');
+    const unshielded = knownTokens.filter(t => t.kind !== 'shielded');
+    return [...shielded, ...unshielded];
+  }, [knownTokens]);
+
   return (
     <div className="token-entry-dex">
       <div className="token-input-row">
@@ -26,26 +34,18 @@ export const TokenInput: React.FC<TokenInputProps> = ({ id, entry, knownTokens, 
           onChange={(e) => onChange(id, { ...entry, amount: e.target.value })}
         />
 
-        <div className="token-selector">
-          <select
-            value={tokenSelectValue}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val === 'custom') {
-                onChange(id, { ...entry, token: '', type: 'shielded' });
-              } else {
-                const picked = knownTokens.find(t => t.token_color === val);
-                onChange(id, { ...entry, token: val, type: picked?.kind ?? 'shielded' });
-              }
-            }}
-          >
-            <option value="">Select Token</option>
-            {knownTokens.map(t => (
-              <option key={t.token_color} value={t.token_color}>{t.name}</option>
-            ))}
-            <option value="custom">Custom Token...</option>
-          </select>
-        </div>
+        <TokenSelect
+          value={tokenSelectValue}
+          tokens={sortedTokens}
+          onSelect={(val) => {
+            if (val === '') {
+              onChange(id, { ...entry, token: '', type: 'shielded' });
+            } else {
+              const picked = knownTokens.find(t => t.token_color === val);
+              onChange(id, { ...entry, token: val, type: picked?.kind ?? 'shielded' });
+            }
+          }}
+        />
       </div>
 
       {isCustom && (
@@ -72,8 +72,8 @@ export const TokenInput: React.FC<TokenInputProps> = ({ id, entry, knownTokens, 
 
       {showRemove && onRemove && (
         <div style={{ textAlign: 'right', marginTop: '8px' }}>
-          <button 
-            className="btn-small btn-danger" 
+          <button
+            className="btn-small btn-danger"
             onClick={() => onRemove(id)}
             style={{ margin: 0, padding: '2px 8px', fontSize: '0.75rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444' }}
           >
@@ -84,3 +84,4 @@ export const TokenInput: React.FC<TokenInputProps> = ({ id, entry, knownTokens, 
     </div>
   );
 };
+
