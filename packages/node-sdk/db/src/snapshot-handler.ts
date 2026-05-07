@@ -127,6 +127,7 @@ export function* runSnapshotLoop(
   const intervalMs = resolved.intervalSeconds * 1000;
   console.log(`[Snapshot] Loop started (interval ${intervalMs / 1000}s, path ${resolved.path}, cwd ${cwd()})`);
   while (true) {
+    yield* sleep(intervalMs);
     console.log(`[Snapshot] Firing`);
     try {
       yield* until(createSnapshot(resolved));
@@ -134,7 +135,6 @@ export function* runSnapshotLoop(
     } catch (e) {
       console.error("[Snapshot] Failed:", e);
     }
-    yield* sleep(intervalMs);
   }
 }
 
