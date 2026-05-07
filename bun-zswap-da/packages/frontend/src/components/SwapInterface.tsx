@@ -46,6 +46,11 @@ interface SwapInterfaceProps {
 
 const emptyEntry = (): TokenEntry => ({ type: TOKEN_TYPE.SHIELDED, token: '', amount: '' });
 
+const isBlank = (e: TokenEntry) => !e.token && !e.amount.trim();
+
+const MIXED_KIND_MESSAGE =
+  'Mixed offers are not allowed. All tokens on both sides must be the same kind — either all shielded, or all unshielded.';
+
 export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuccess, connectedApi, browserShieldedAddress, browserUnshieldedAddress, browserNetworkId }) => {
   const [gives, setGives] = useState<{ id: string; entry: TokenEntry }[]>([
     { id: 'gives-0', entry: emptyEntry() }
@@ -84,13 +89,24 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
     setWants(tempGives.map((g, i) => ({ ...g, id: `wants-swapped-${i}-${Date.now()}` })));
   };
 
+  const activeEntries = [
+    ...gives.map(g => g.entry),
+    ...wants.map(w => w.entry),
+  ].filter(e => !isBlank(e));
+  const mixedKindError =
+    new Set(activeEntries.map(e => e.type)).size > 1 ? MIXED_KIND_MESSAGE : null;
+
   const handleSubmit = () => {
-    const isBlank = (e: TokenEntry) => !e.token && !e.amount.trim();
     const validGives = gives.map(g => g.entry).filter(e => !isBlank(e));
     const validWants = wants.map(w => w.entry).filter(e => !isBlank(e));
 
     if (!validGives.length || !validWants.length) {
       execute(async () => { throw new Error('Add at least one token entry for both Giving and Wanting.'); });
+      return;
+    }
+
+    if (new Set([...validGives, ...validWants].map(e => e.type)).size > 1) {
+      execute(async () => { throw new Error(MIXED_KIND_MESSAGE); });
       return;
     }
 
@@ -245,7 +261,18 @@ export const SwapInterface: React.FC<SwapInterfaceProps> = ({ knownTokens, onSuc
           </div>
         </div>
 
-        <button className="dex-submit-btn" onClick={handleSubmit} disabled={loading}>
+        {mixedKindError && (
+          <div className="result" style={{ display: 'block', marginBottom: '8px', color: '#dc2626' }}>
+            {mixedKindError}
+          </div>
+        )}
+
+        <button
+          className="dex-submit-btn"
+          onClick={handleSubmit}
+          disabled={loading || !!mixedKindError}
+          title={mixedKindError ?? undefined}
+        >
           Create Transaction
         </button>
 

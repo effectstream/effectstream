@@ -109,7 +109,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMintModal, selfName, onSel
             ))}
           </div>
         </div>
-        <button className="mint-btn-top" onClick={onOpenMintModal}>+ Mint New Token</button>
+        <button
+          className="mint-btn-top"
+          onClick={onOpenMintModal}
+          disabled={status !== 'connected'}
+          title={status !== 'connected' ? 'Connect a wallet to mint a new token' : undefined}
+        >
+          + Mint New Token
+        </button>
         {renderWalletButton()}
         {error && <span style={{ color: '#ef4444', fontSize: '0.7rem', textAlign: 'center' }}>{error}</span>}
       </div>
