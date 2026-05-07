@@ -7,11 +7,10 @@ import {
   insertKnownToken,
 } from "@zswap-da/database";
 
-import { BATCHER_SUBMIT_URL, midnightContract } from "./config.ts";
+import { midnightContract } from "./config.ts";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
+import { submitBlobViaBatcher } from "./batcher-client.ts";
 import { decodeOffer, OFFER_HRP } from "mip-zswap-offer";
-
-const CELESTIA_BATCHER_TARGET = "celestia";
 import { eventBus, emitAppEvent } from "./event-bus.ts";
 
 // ─── API Router ───────────────────────────────────────────────────────────────
@@ -188,45 +187,8 @@ export const apiRouter: StartConfigApiRouter = async function (
         throw new Error(`Invalid bech32m: ${e.message ?? String(e)}`);
       }
 
-      const body = {
-        data: {
-          address: "celestia",
-          // AddressType.NONE = -1 — Celestia submission has no user signer.
-          addressType: -1,
-          input: blob,
-          signature: "",
-          timestamp: String(Date.now()),
-          target: CELESTIA_BATCHER_TARGET,
-        },
-        confirmationLevel: "wait-receipt",
-      };
-
-      const resp = await fetch(`${BATCHER_SUBMIT_URL}/send-input`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const json = (await resp.json()) as {
-        success?: boolean;
-        message?: string;
-        error?: string;
-        transactionHash?: string;
-        rollup?: number;
-      };
-      if (!resp.ok || !json.success) {
-        const reason = json.error ?? json.message ?? `HTTP ${resp.status}`;
-        throw new Error(`Failed to submit blob to Celestia via batcher: ${reason}`);
-      }
-
-      return {
-        success: true,
-        blob,
-        result: {
-          txhash: json.transactionHash ?? "",
-          height: json.rollup !== undefined ? String(json.rollup) : "",
-        },
-      };
+      const result = await submitBlobViaBatcher(blob);
+      return { success: true, blob, result };
     },
   );
 
