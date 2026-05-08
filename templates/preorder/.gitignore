@@ -16,7 +16,8 @@ packages/contracts-evm/ignition/deployments/
 
 # Cardano / Dolos runtime data
 packages/contracts-cardano/data/
-packages/contracts-cardano/temp/
+packages/contracts-cardano/temp/*
+!packages/contracts-cardano/temp/alonzo-genesis2.json
 packages/contracts-cardano/yaci-cli.history
 
 # Vite
