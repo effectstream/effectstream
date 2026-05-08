@@ -16,7 +16,7 @@ import {
   waitForOrchestrator,
   waitForProcess,
   waitForHealth,
-} from "@e2e/engine";
+} from "../../e2e/shared/engine/mod.ts";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 
@@ -100,9 +100,11 @@ async function main() {
       await probeMainnetLightNode();
     }
 
-    const extraEnv = useCelestiaMainnet ? { CELESTIA_NETWORK: "mainnet" } : {};
+    if (useCelestiaMainnet) {
+      process.env["CELESTIA_NETWORK"] = "mainnet";
+    }
 
-    await startInfrastructure(LAUNCHER_PATH, [], extraEnv);
+    await startInfrastructure(LAUNCHER_PATH);
     await waitForOrchestrator();
 
     if (!useCelestiaMainnet) {

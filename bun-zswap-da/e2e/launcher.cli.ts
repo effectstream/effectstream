@@ -1,5 +1,5 @@
-import type { OrchestratorConfig } from "@effectstream/orchestrator-v2/config";
-import { launchPglite, DbNames } from "@effectstream/orchestrator-v2/launch-pglite";
+import type { OrchestratorConfig } from "@effectstream/orchestrator/config";
+import { launchPglite, DbNames } from "@effectstream/orchestrator/launch-pglite";
 
 const CELESTIA_HOME = "/tmp/celestia-e2e-zswap-home";
 const USE_CELESTIA_MAINNET = process.env["CELESTIA_NETWORK"] === "mainnet";

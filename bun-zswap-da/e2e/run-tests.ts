@@ -30,7 +30,7 @@ import {
   waitForProcess,
   waitForHealth,
   getDBConnection,
-} from "@e2e/engine";
+} from "../../e2e/shared/engine/mod.ts";
 import type { Client } from "pg";
 import path from "path";
 import { Buffer } from "node:buffer";
