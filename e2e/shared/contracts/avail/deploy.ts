@@ -1,10 +1,9 @@
 import { Account, Pallets, SDK } from "avail-js-sdk";
-import { getEnv } from "@effectstream/utils/runtime";
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 
 const sdk = await SDK.New("ws://localhost:9955/ws");
-const seed: string = getEnv("SEED") ?? "//Alice";
+const seed: string = process.env["SEED"] ?? "//Alice";
 if (!seed) {
   throw new Error("SEED environment variable is not set");
 }
@@ -57,8 +56,8 @@ const fileName = process.cwd() + "/avail_app.json";
 console.log("Writing to file: ", fileName);
 await writeFile(fileName, data, "utf-8");
 
-const child = spawn("bun", ["run", "--filter", "@e2e/avail-contracts", "avail-light-client:start"], {
-  env: { ...process.env, AVAIL_APP_ID: appId.toString() },
+const child = spawn("bun", ["./node_modules/.bin/npm-avail-light-client", "--config", "./config.yml", "--app-id", appId.toString()], {
+  env: { ...process.env },
   stdio: "inherit",
 });
 

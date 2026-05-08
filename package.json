@@ -1,22 +1,15 @@
 {
   "name": "effectstream",
-  "version": "0.100.0",
+  "version": "0.100.12",
   "private": true,
   "workspaces": [
-    "packages/*",
-    "packages/*/*",
-    "e2e-v2",
-    "e2e-v2/*",
-    "e2e-v2/*/*",
-    "e2e-v2/shared/contracts/*",
-    "e2e-v2/shared/contracts/*/*",
-    "bun-zswap-da/packages/*",
-    "bun-zswap-da/packages/*/*",
-    "bun-zswap-da/e2e"
+    "packages/**",
+    "bun-zswap-da/packages/**",
+    "e2e/**"
   ],
   "scripts": {
     "test:code": "bun test ./packages",
-    "test:e2e": "cd e2e-v2 && bun run runner.ts"
+    "test:e2e": "cd e2e && bun run runner.ts"
   },
   "overrides": {
     "@midnight-ntwrk/ledger-v8": "8.0.3",

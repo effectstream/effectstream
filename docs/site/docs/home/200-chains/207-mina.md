@@ -1,6 +1,6 @@
 # Mina Protocol
 
-Effectstream supports wallet connections and cryptographic verification for the Mina Protocol.
+EffectStream supports wallet connections and cryptographic verification for the Mina Protocol.
 
 > **Note**: Full Read (Sync) and Write (Batcher) support for Mina is currently in development.
 

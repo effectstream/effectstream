@@ -1,6 +1,6 @@
 # Bitcoin
 
-Effectstream supports connecting directly to the Bitcoin network (including Regtest for development). This allows you to build dApps that react to native Bitcoin transactions, such as ordinals, runes, or standard payments.
+EffectStream supports connecting directly to the Bitcoin network (including Regtest for development). This allows you to build dApps that react to native Bitcoin transactions, such as ordinals, runes, or standard payments.
 
 ## 1. Configuration (Read)
 

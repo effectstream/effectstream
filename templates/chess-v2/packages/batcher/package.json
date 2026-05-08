@@ -1,0 +1,13 @@
+{
+  "name": "@chess-v2/batcher",
+  "version": "1.0.0",
+  "exports": "./batcher.dev.ts",
+  "scripts": {
+    "start": "bun run batcher.dev.ts",
+    "start:mainnet": "bun run batcher.mainnet.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.100.12",
+    "effection": "^3.5.0"
+  }
+}

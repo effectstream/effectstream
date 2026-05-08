@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y \
     lsof \
     # iproute2 is required for ss command - for fkill.
     iproute2 \
-    # procps provides kill - required by orchestrator-v2 port cleanup between suites.
+    # procps provides kill - required by orchestrator port cleanup between suites.
     procps \
     # xz is required for compactc
     xz-utils \
@@ -122,7 +122,7 @@ ENV POLKADOTJS_DISABLE_ESM_CJS_WARNING=1
 ENV CELESTIA_FORCE_NO_BBR=1
 ENV E2E_MAX_RETRIES=3
 
-# ── Run e2e-v2 tests ───────────────────────────────────────────────────────
-# Each suite manages its own infrastructure via orchestrator-v2 (start/stop).
+# ── Run e2e tests ─────────────────────────────────────────────────────────
+# Each suite manages its own infrastructure via orchestrator (start/stop).
 # Suites run serially because they share ports (PGLite 5432, API 9999, etc).
 CMD ["/bin/bash", "/app/.github/run-e2e.sh"]

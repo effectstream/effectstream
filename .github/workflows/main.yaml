@@ -7,7 +7,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e-v2:
+  e2e:
     runs-on: ubuntu-22.04
     if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
     timeout-minutes: 30
@@ -18,5 +18,5 @@ jobs:
       - name: Build testing image
         run: docker build -t testing_image:${{ github.sha }} -f .github/Dockerfile .
 
-      - name: Run e2e-v2 tests
-        run: docker run --rm --name e2e_v2_${{ github.run_number }} testing_image:${{ github.sha }}
+      - name: Run e2e tests
+        run: docker run --rm --name e2e_${{ github.run_number }} testing_image:${{ github.sha }}

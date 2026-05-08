@@ -159,9 +159,9 @@ Set `pollingIntervalMs` to match your shortest batching time window. For example
 Instantiate each blockchain adapter you want to use:
 
 ```typescript
-import { EffectstreamL2DefaultAdapter } from "@effectstream/batcher";
+import { EffectStreamL2DefaultAdapter } from "@effectstream/batcher";
 
-const evmAdapter = new EffectstreamL2DefaultAdapter(
+const evmAdapter = new EffectStreamL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
   0n,
@@ -344,12 +344,12 @@ Here's a complete example using the dynamic approach:
 import {
   createNewBatcher,
   FileStorage,
-  EffectstreamL2DefaultAdapter,
+  EffectStreamL2DefaultAdapter,
   MidnightAdapter
 } from "@effectstream/batcher";
 
 // 1. Instantiate adapters
-const evmAdapter = new EffectstreamL2DefaultAdapter(
+const evmAdapter = new EffectStreamL2DefaultAdapter(
   "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
   Deno.env.get("EVM_PRIVATE_KEY")!,
   0n,
@@ -418,11 +418,11 @@ import {
   createNewBatcher,
   FileStorage,
   type BatcherConfig,
-  EffectstreamL2DefaultAdapter
+  EffectStreamL2DefaultAdapter
 } from "@effectstream/batcher";
 
 // Instantiate adapters first
-const evmAdapter = new EffectstreamL2DefaultAdapter(/* ... */);
+const evmAdapter = new EffectStreamL2DefaultAdapter(/* ... */);
 const midnightAdapter = new MidnightAdapter(/* ... */);
 
 // Create unified configuration

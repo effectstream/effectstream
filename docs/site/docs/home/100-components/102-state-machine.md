@@ -2,13 +2,13 @@
 
 ## Overview 
 
-A State Machine (SM) is the core of your Effectstream application, defining its logic and rules. Let's break down the concept:
+A State Machine (SM) is the core of your EffectStream application, defining its logic and rules. Let's break down the concept:
 
-1. It has a State, which is the complete record of the Effectstream Node at any given moment (e.g., user assets, statuses, etc.), stored in a database.
+1. It has a State, which is the complete record of the EffectStream Node at any given moment (e.g., user assets, statuses, etc.), stored in a database.
 2. The SM is defined by a series of State Transition Functions (STFs). These are the functions that change the State in response to an Input.
 3. The Inputs are blockchain events that your application is configured to monitor. The STFs process these on-chain events and transform them into updates for your application's state.
-4. The SM is deterministic, meaning multiple instances of a Effectstream Node processing the same inputs in the same order will always generate the exact same final State.
-5. The entire process runs within the Effectstream Node.
+4. The SM is deterministic, meaning multiple instances of a EffectStream Node processing the same inputs in the same order will always generate the exact same final State.
+5. The entire process runs within the EffectStream Node.
 
 ```
                      State Machine
@@ -17,7 +17,7 @@ Events         STF-2 (e.g., handle transfer)   (database)
                STF-N (...)
 ```
 
-Let's start with a practical example where calls to a `Effectstream L2` contract are converted into actions.
+Let's start with a practical example where calls to a `EffectStream L2` contract are converted into actions.
 
 For example, this STF:
 ```ts
@@ -33,7 +33,7 @@ stm.addStateTransition(
   },
 );
 ```
-If the contract [Effectstream L2 Event](../100-components/104-l2-contract.md) function `submitGameInput` is called with payload `["create", "0x1234"]`, this creates a row in your `games` table, with id = `0x1234`
+If the contract [EffectStream L2 Event](../100-components/104-l2-contract.md) function `submitGameInput` is called with payload `["create", "0x1234"]`, this creates a row in your `games` table, with id = `0x1234`
 
 Now your application can read the database and use the created "game" from the table.
 
@@ -44,7 +44,7 @@ Now your application can read the database and use the created "game" from the t
 
 In the example template the state-machine file is named `./packages/client/node/src/state-machine.ts` and contains `state-transition functions` or "STF" that are executed each time the corresponding [event prefix](../100-components/101-sync-service.md) defined in the [grammar](../100-components/111-grammar.md) is called. 
 
-For example: each time a `ERC721 Token es Minted`, or a [Effectstream L2 Event](../100-components/104-l2-contract.md) is sent a `STF` is executed, if defined.
+For example: each time a `ERC721 Token es Minted`, or a [EffectStream L2 Event](../100-components/104-l2-contract.md) is sent a `STF` is executed, if defined.
 
 In this example, the prefix `transfer_erc721` we execute a write into the [database](../100-components/109-database.md) calling `insertStateMachineInput`.
 This function is called when an ERC721 token is either minted or transferred.
@@ -68,7 +68,7 @@ stm.addStateTransition(
 **IMPORTANT** 
 These STF functions MUST be deterministic. 
 
-Effectstream applications are designed to be Replicated State Machines, which means that anyone running a Effectstream node can independently process all the inputs in the exact same order and arrive at the identical, correct game state. This deterministic nature is what makes decentralized apps possible without a central server.
+EffectStream applications are designed to be Replicated State Machines, which means that anyone running a EffectStream node can independently process all the inputs in the exact same order and arrive at the identical, correct game state. This deterministic nature is what makes decentralized apps possible without a central server.
 
 > Therefore STF MUST NOT use `Math.random()`, `new Date()`, do external API calls, or any function that might give different results on different times or machines.   
 
@@ -112,7 +112,7 @@ To do so, we can follow these steps:
             type: ConfigPrimitiveType.EvmRpcERC20,
             startBlockHeight: 0,
             contractAddress: contractAddressesEvmMain()
-              .chain31337["EffectstreamErc20DevModule#EffectstreamErc20Dev"],
+              .chain31337["EffectStreamErc20DevModule#EffectStreamErc20Dev"],
             abi: getEvmEvent(erc20dev.abi, "Transfer(address,address,uint256)"),
             scheduledPrefix: 'transfer_merc', // <- SCHEDULED PREFIX 
           }),
@@ -219,7 +219,7 @@ For example, if the contract was called 4 times:
 
 A State Transition Function (STF) has a unique challenge: it must be a pure, deterministic function, but it also needs to interact with the "outside world" by reading from and writing to the database.
 
-To solve this, Effectstream STFs are written as Coroutines (specifically, JavaScript Generator Functions) instead of standard async functions. This allows the STF to pause its execution and request that the Effectstream perform a side effect (like a database query) on its behalf. This pattern ensures that all interactions with the outside world are controlled, deterministic, and replayable.
+To solve this, EffectStream STFs are written as Coroutines (specifically, JavaScript Generator Functions) instead of standard async functions. This allows the STF to pause its execution and request that the EffectStream perform a side effect (like a database query) on its behalf. This pattern ensures that all interactions with the outside world are controlled, deterministic, and replayable.
 
 Instead of await, you will use the yield* keyword to perform these controlled, asynchronous operations.
 
@@ -240,10 +240,10 @@ The `data` object contains all the context for the current input being processed
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `blockHeight` | `EffectstreamBlockNumber` | The Effectstream L2 block number for this input. |
-| `blockTimestamp` | `TimestampMs` | The Effectstream L2 block timestamp. |
+| `blockHeight` | `EffectStreamBlockNumber` | The EffectStream L2 block number for this input. |
+| `blockTimestamp` | `TimestampMs` | The EffectStream L2 block timestamp. |
 | `conciseInput` | `string` | The raw, unparsed input string. Useful for debugging. |
-| `accountId` | `number \| undefined` | The Effectstream Account ID the signer's wallet belongs to, if any. |
+| `accountId` | `number \| undefined` | The EffectStream Account ID the signer's wallet belongs to, if any. |
 | `signerAddress` | `WalletAddress \| undefined`| The on-chain wallet address that signed/initiated the transaction. |
 | `randomGenerator` | `Prando` | A deterministic, seeded pseudo-random number generator. |
 | `parsedInput` | `GrammarType` | The parsed and type-safe input, according to your defined grammar. |

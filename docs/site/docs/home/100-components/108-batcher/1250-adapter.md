@@ -55,7 +55,7 @@ The `TOutput` parameter defines what `buildBatchData()` produces and what `submi
 
 | Blockchain Type | `TOutput` Example | Description |
 |----------------|-------------------|-------------|
-| **EVM (EffectstreamL2)** | `string` | JSON string like `["&B", [...]]` |
+| **EVM (EffectStreamL2)** | `string` | JSON string like `["&B", [...]]` |
 | **Midnight** | `MidnightBatchPayload` | Structured object with circuit args |
 | **Custom Chain** | `Uint8Array` | Raw bytes for binary protocols |
 | **Solana** | `Transaction` | Native transaction object |
@@ -274,12 +274,12 @@ interface BatchBuildingResult<TOutput> {
 
 #### Approach A: Use a Helper Class (Recommended for Standard Formats)
 
-If your blockchain uses a standard format (like Effectstream's JSON batching format), use a helper class:
+If your blockchain uses a standard format (like EffectStream's JSON batching format), use a helper class:
 
-**Example: EffectstreamL2DefaultAdapter (EVM)**
+**Example: EffectStreamL2DefaultAdapter (EVM)**
 
 ```typescript
-export class EffectstreamL2DefaultAdapter implements BlockchainAdapter<string> {
+export class EffectStreamL2DefaultAdapter implements BlockchainAdapter<string> {
   private readonly batchBuilderLogic = new DefaultBatchBuilderLogic();
   
   buildBatchData(
@@ -414,7 +414,7 @@ submitBatch(data: TOutput, fee: string | bigint): Promise<BlockchainHash>
 3. **Sign and submit** the transaction
 4. **Return** the transaction hash
 
-**Example: EffectstreamL2DefaultAdapter (EVM)**
+**Example: EffectStreamL2DefaultAdapter (EVM)**
 
 ```typescript
 async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> {
@@ -426,7 +426,7 @@ async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> 
   // Convert JSON string to hex bytes
   const hexData = encodeHexFromString(data);
   
-  // Submit to EffectstreamL2 contract
+  // Submit to EffectStreamL2 contract
   const hash = await this.walletClient.writeContract({
     account: this.account,
     chain: this.walletClient.chain,
@@ -731,7 +731,7 @@ getChainName(): string {
 
 #### `getSyncProtocolName()` (Optional)
 
-Return the Effectstream Sync protocol name for event filtering and `wait-effectstream-processed` queries:
+Return the EffectStream Sync protocol name for event filtering and `wait-effectstream-processed` queries:
 
 ```typescript
 getSyncProtocolName(): string {
@@ -911,7 +911,7 @@ The batcher provides two helper classes for common serialization patterns. These
 
 ### `DefaultBatchBuilderLogic`
 
-**Purpose:** Create the standard Effectstream JSON batch format used by the EffectstreamL2 contract.
+**Purpose:** Create the standard EffectStream JSON batch format used by the EffectStreamL2 contract.
 
 **Output Format:**
 ```json

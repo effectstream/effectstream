@@ -1,7 +1,7 @@
 {
   "name": "@e2e/evm-contracts",
-  "version": "0.3.0",
-  "license": "MIT",
+  "version": "0.1.0",
+  "private": true,
   "type": "module",
   "exports": "./mod.ts",
   "scripts": {
@@ -16,7 +16,6 @@
     "contract:compile": "bun run build:mod",
     "deploy:clean": "((rm -rf ignition/deployments/chain-31337); (rm -rf ignition/deployments/chain-31338)) || true",
     "deploy:standalone": "bun run build && (((bun run chain:start) &) && (bun run chain:wait) && (bun run deploy) && bun run chain:stop) || true",
-    "deploy:testnet": "bun run build && bun deploy.testnet.ts",
     "deploy": "bun run deploy:clean && bun deploy.ts",
     "chain:start": "bun ./node_modules/.bin/hardhat node",
     "chain:stop": "kill -9 $(lsof -ti tcp:8545) || true",

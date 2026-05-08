@@ -1,8 +1,18 @@
 {
   "name": "@effectstream/cardano-contracts",
-  "version": "0.100.0",
+  "version": "0.100.12",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/chains/cardano-contracts"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "exports": {
     ".": "./mod.ts"
-  }
+  },
+  "description": "Cardano contract interfaces for EffectStream"
 }

@@ -1,7 +1,16 @@
 {
   "name": "@effectstream/batcher-sdk",
-  "version": "0.100.0",
+  "version": "0.100.12",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/batcher"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "exports": {
     "bun": "./mod.ts"
   },
@@ -43,5 +52,6 @@
     "@effectstream/crypto": "workspace:*",
     "@effectstream/midnight-contracts": "workspace:*",
     "@effectstream/event-client": "workspace:*"
-  }
+  },
+  "description": "Cross-chain transaction batching SDK for EffectStream"
 }

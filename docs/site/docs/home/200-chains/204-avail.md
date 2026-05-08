@@ -1,6 +1,6 @@
 # Avail
 
-Avail is a Data Availability (DA) layer. In Effectstream, it is often used to store the raw input data of the application cheaply and securely.
+Avail is a Data Availability (DA) layer. In EffectStream, it is often used to store the raw input data of the application cheaply and securely.
 
 ## 1. Configuration (Read)
 

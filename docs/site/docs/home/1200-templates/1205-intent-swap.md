@@ -3,7 +3,7 @@
 -   **Location**: `/templates/night-bitcoin`
 -   **Highlights**: Bitcoin & Midnight Interoperability, ERC-7683 Cross-Chain Intents, Solver/Filler Architecture.
 
-The `night-bitcoin` template demonstrates a cutting-edge pattern in Web3: **Intent-Based Cross-Chain Swaps**. It utilizes Effectstream to orchestrate trades between a UTXO-based chain (Bitcoin) and a ZK-privacy chain (Midnight) without a traditional bridge, relying instead on a network of "Fillers" (Solvers) and an intent standard.
+The `night-bitcoin` template demonstrates a cutting-edge pattern in Web3: **Intent-Based Cross-Chain Swaps**. It utilizes EffectStream to orchestrate trades between a UTXO-based chain (Bitcoin) and a ZK-privacy chain (Midnight) without a traditional bridge, relying instead on a network of "Fillers" (Solvers) and an intent standard.
 
 ![Night Bitcoin UI](./1205-ui.png)
 
@@ -32,7 +32,7 @@ deno install --allow-scripts && ./patch.sh
 deno task build:midnight
 deno task build:bitcoin
 
-# Launch Effectstream Node
+# Launch EffectStream Node
 deno task dev
 ```
 
@@ -57,10 +57,10 @@ Instead of executing a direct transaction to swap tokens, users sign an **Intent
 5.  **Filler Execution**: The Fillers read the Intent and provides the liquidity, sending the funds to the user.
 6.  **Resolution**: The Verifier Nodes validates the trade and triggers the release of funds to the user and the Fillers.
 
-### Core Concepts: Effectstream Mapping
+### Core Concepts: EffectStream Mapping
 
-* The Verifier Nodes -> is implemented an Effectstream State Machine.
-* The Fillers -> is implemented as a Effectstream Batcher.
+* The Verifier Nodes -> is implemented an EffectStream State Machine.
+* The Fillers -> is implemented as a EffectStream Batcher.
 * ERC-7683 Contract -> Midnight Contract
 
 
@@ -87,7 +87,7 @@ sequenceDiagram
     participant Fillers
     participant Midnight (ERC-7683)
     participant Bitcoin
-    participant Effectstream Node
+    participant EffectStream Node
 
     User->>Fillers: Request Quote (BTC -> M20)
     Fillers->>User: Return Quotes (Price + Fee)
@@ -95,22 +95,22 @@ sequenceDiagram
     User->>Bitcoin: Send BTC Payment (Lock in Escrow)
     
     par Sync & Match
-        Bitcoin-->>Effectstream Node: Detect Transaction
-        Midnight (ERC-7683)-->>Effectstream Node: Detect Intent Created
+        Bitcoin-->>EffectStream Node: Detect Transaction
+        Midnight (ERC-7683)-->>EffectStream Node: Detect Intent Created
     end
 
-    Effectstream Node->>Effectstream Node: Match Payment to Intent
-    Effectstream Node--)Fillers: Broadcast Verification (BTC Secured)
+    EffectStream Node->>EffectStream Node: Match Payment to Intent
+    EffectStream Node--)Fillers: Broadcast Verification (BTC Secured)
     
     par Fulfillment
         Fillers->>User: Payout M20 (on Midnight)
         Fillers->>Midnight (ERC-7683): Call Resolve (Submit Proof)
     end
 
-    Midnight (ERC-7683)-->>Effectstream Node: Detect Resolve Event
+    Midnight (ERC-7683)-->>EffectStream Node: Detect Resolve Event
     
-    Note over Effectstream Node, Bitcoin: Settlement
-    Effectstream Node->>Fillers: Release BTC (on Bitcoin)
+    Note over EffectStream Node, Bitcoin: Settlement
+    EffectStream Node->>Fillers: Release BTC (on Bitcoin)
 ```
 
 ## The Components in Action
@@ -256,10 +256,10 @@ The template includes a standalone service that simulates a market of Liquidity 
 *   **Embedded Batcher**: Each Filler initializes its own Batcher instance connected to both Bitcoin and Midnight adapters. This allows the Filler to programmatically sign and submit transactions to either chain without manual intervention.
 *   **API Endpoints**:
     *   `POST /api/quote`: Used by the Frontend to request competitive exchange rates and fees before creating an Intent.
-    *   `POST /api/notify-filler-intent-payment`: Used by the Effectstream Node (State Machine) to notify the Filler that a user's payment has been verified. Upon receiving this webhook, the Filler automatically queues a transaction via its internal Batcher to pay the user the requested tokens (M20 or BTC).
+    *   `POST /api/notify-filler-intent-payment`: Used by the EffectStream Node (State Machine) to notify the Filler that a user's payment has been verified. Upon receiving this webhook, the Filler automatically queues a transaction via its internal Batcher to pay the user the requested tokens (M20 or BTC).
 
 #### Embedded Batcher Setup
-Each filler initializes its own Effectstream Batcher instance. This allows the filler to programmatically execute transactions on both Bitcoin and Midnight using its own unique wallet seeds.
+Each filler initializes its own EffectStream Batcher instance. This allows the filler to programmatically execute transactions on both Bitcoin and Midnight using its own unique wallet seeds.
 
 ```typescript
 // packages/filler/index.ts
@@ -310,7 +310,7 @@ server.post("/api/quote", async (request, reply) => {
 ```
 
 #### Automated Settlement Execution
-When the Effectstream Node verifies the user's payment, it notifies the filler that provided the quote. The filler then uses its embedded batcher to automatically send the counter-assets to the user.
+When the EffectStream Node verifies the user's payment, it notifies the filler that provided the quote. The filler then uses its embedded batcher to automatically send the counter-assets to the user.
 
 ```typescript
 // packages/filler/index.ts
@@ -395,7 +395,7 @@ The database acts as the central clearinghouse state for the application. It per
 | `token` | `TEXT` | The asset symbol (e.g., "btc", "m20"). |
 | `amount` | `NUMERIC` | The raw value transferred. |
 | `created_at` | `TIMESTAMP` | Timestamp of when the transfer was created. |
-| `to_address` | `TEXT` | The recipient address. For valid swaps, this must match the System/Escrow address monitored by Effectstream. |
+| `to_address` | `TEXT` | The recipient address. For valid swaps, this must match the System/Escrow address monitored by EffectStream. |
 | `from_address` | `TEXT` | The sender's address. |
 | `used` | `BOOLEAN` | **Critical Field**. Acts as a semaphore. When the State Machine matches a transfer to an intent, it sets this to `TRUE` to prevent the same deposit from satisfying multiple orders. |
 
@@ -447,7 +447,7 @@ The frontend (`packages/frontend/dApp`) is a React application that:
 1.  Connects to a **Midnight Wallet** (Lace) to sign Intents.
 2.  Connects to a **Bitcoin Wallet** (via manual address entry for this demo) to send payments.
 3.  Interacts with the **Fillers** to fetch quotes.
-4.  Monitors the **Effectstream API** to track the status of the swap.
+4.  Monitors the **EffectStream API** to track the status of the swap.
 
 ```tsx
 // Example: Creating an intent on Midnight

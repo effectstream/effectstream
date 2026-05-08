@@ -1,6 +1,6 @@
 # Cardano
 
-Effectstream connects to Cardano to leverage its UTXO model and native assets. Syncing is typically handled via high-performance indexers.
+EffectStream connects to Cardano to leverage its UTXO model and native assets. Syncing is typically handled via high-performance indexers.
 
 ## 1. Configuration (Read)
 
@@ -17,7 +17,7 @@ Effectstream connects to Cardano to leverage its UTXO model and native assets. S
 ```
 
 ### Sync Protocol
-Effectstream supports syncing via **UTXO-RPC** (using Dolos/Yaci) or **Carp**.
+EffectStream supports syncing via **UTXO-RPC** (using Dolos/Yaci) or **Carp**.
 
 ```ts
 // Example using UTXO-RPC (Dolos)
@@ -33,7 +33,7 @@ Effectstream supports syncing via **UTXO-RPC** (using Dolos/Yaci) or **Carp**.
 ```
 
 ### Primitives
-Effectstream provides primitives to track specific UTXO patterns, policy IDs (Native Assets), or metadata labels.
+EffectStream provides primitives to track specific UTXO patterns, policy IDs (Native Assets), or metadata labels.
 *(Note: Check `@effectstream/sm/builtin` for the latest list of available Cardano primitives)*.
 
 ## 2. Batcher Adapters (Write)
@@ -77,7 +77,7 @@ if (result.success) {
 
 ## 4. Cryptography (Verify)
 
-Effectstream includes the logic to verify **CIP-30/CIP-8 Data Signatures**. This allows you to authenticate user actions signed by Cardano wallets.
+EffectStream includes the logic to verify **CIP-30/CIP-8 Data Signatures**. This allows you to authenticate user actions signed by Cardano wallets.
 
 ### Signing Messages
 ```typescript

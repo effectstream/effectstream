@@ -1,9 +1,9 @@
 # World Map 2D (Open World Game)
 
 * **Path**: `/templates/world-map-2d`
-* **Highlights**: A 2D open-world exploration game showcasing spatial game state, movement mechanics, and world interaction using Effectstream's L2.
+* **Highlights**: A 2D open-world exploration game showcasing spatial game state, movement mechanics, and world interaction using EffectStream's L2.
 
-The `world-map-2d` template demonstrates how to build an open-world game where players can explore a 2D grid-based world. It's an excellent example for games requiring spatial state management, player movement, and location-based interactions, all processed deterministically through an Effectstream L2 contract on an EVM chain.
+The `world-map-2d` template demonstrates how to build an open-world game where players can explore a 2D grid-based world. It's an excellent example for games requiring spatial state management, player movement, and location-based interactions, all processed deterministically through an EffectStream L2 contract on an EVM chain.
 
 Screenshot of running application:
 
@@ -15,7 +15,7 @@ The goal of this template is to demonstrate an open-world game where players mov
 
 *   **Player State**: Each player has an (x, y) position on the grid that updates as they move.
 *   **World State**: A 10×10 grid where each cell tracks how many times it has been visited.
-*   **Player Actions**: All actions (joining the world, moving, incrementing counters) are submitted to a `Effectstream L2 Contract` on an EVM chain.
+*   **Player Actions**: All actions (joining the world, moving, incrementing counters) are submitted to a `EffectStream L2 Contract` on an EVM chain.
 *   **Backend Logic**: The state machine processes these inputs to update positions, validate movements, and maintain world statistics.
 
 This template serves as a foundation for:
@@ -33,7 +33,7 @@ deno install --allow-scripts && ./patch.sh
 # Build EVM contracts
 deno task build:evm
 
-# Start the Effectstream Node
+# Start the EffectStream Node
 deno task dev
 ```
 
@@ -71,7 +71,7 @@ For development, import Hardhat's test account into MetaMask:
 
 ## Docker Setup
 
-You can run the entire stack (EVM node, Effectstream backend, and frontend) in a single Docker container:
+You can run the entire stack (EVM node, EffectStream backend, and frontend) in a single Docker container:
 
 ### Building the Docker Image
 
@@ -102,10 +102,10 @@ docker run -p 8080:8080 -p 8545:8545 -p 9999:9999 -p 3334:3334 world-map-2d-samp
 The container exposes:
 - **Port 8080**: Frontend (http://localhost:8080)
 - **Port 8545**: Local EVM node (Hardhat)
-- **Port 9999**: Effectstream backend API
+- **Port 9999**: EffectStream backend API
 - **Port 3334**: Explorer
 
-Once the container is running, you'll see the Effectstream node start up and the frontend will be available at http://localhost:8080.
+Once the container is running, you'll see the EffectStream node start up and the frontend will be available at http://localhost:8080.
 
 ![Docker Setup Running](./1206-docker.png)
 
@@ -129,32 +129,32 @@ docker run --rm world-map-2d-sample ls -la /app/packages/frontend/
 When you run `deno task dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
 *   **Hardhat EVM Node**: A local EVM blockchain running on port 8545.
 *   **Development Services**: The development database, log collector, TUI, and the Explorer.
-*   **Effectstream Node**: Backend service on port 9999 to sync the chain and process game logic.
+*   **EffectStream Node**: Backend service on port 9999 to sync the chain and process game logic.
 *   **Frontend**: A simple HTML/JavaScript interface on port 8080 for player interaction.
 
 ## On-Chain Logic
 
-The world-map-2d template uses a `Effectstream L2 Contract` deployed on the local EVM chain. This contract acts as an input mailbox - players submit formatted strings representing their actions, and Effectstream processes these inputs to update game state.
+The world-map-2d template uses a `EffectStream L2 Contract` deployed on the local EVM chain. This contract acts as an input mailbox - players submit formatted strings representing their actions, and EffectStream processes these inputs to update game state.
 
 The contract is deployed at `0x5FbDB2315678afecb367f032d93F642f64180aa3` (local Hardhat deployment).
 
 ```solidity
-// Simplified example of what the EffectstreamL2Contract does
-contract EffectstreamL2 {
-    event EffectstreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
+// Simplified example of what the EffectStreamL2Contract does
+contract EffectStreamL2 {
+    event EffectStreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
 
     function submitInput(bytes calldata input) external payable {
         // Validates and stores the input
-        emit EffectstreamGameInteraction(msg.sender, input, nonce);
+        emit EffectStreamGameInteraction(msg.sender, input, nonce);
     }
 }
 ```
 
-Effectstream monitors the `EffectstreamGameInteraction` event to receive player inputs.
+EffectStream monitors the `EffectStreamGameInteraction` event to receive player inputs.
 
 ## The State Machine (`state-machine.ts`)
 
-The State Machine contains the core game logic. It uses **generator functions** with `yield*` for structured effects, following the new Effectstream architecture pattern.
+The State Machine contains the core game logic. It uses **generator functions** with `yield*` for structured effects, following the new EffectStream architecture pattern.
 
 ### Grammar Definition
 
@@ -450,13 +450,13 @@ The frontend uses a simple HTML/JavaScript approach with wallet integration via 
 
 ### Wallet Middleware
 
-The frontend includes a middleware layer (`paimaMiddleware.src.js`) that bridges the HTML interface to the Effectstream wallet API:
+The frontend includes a middleware layer (`paimaMiddleware.src.js`) that bridges the HTML interface to the EffectStream wallet API:
 
 ```javascript
-import { EffectstreamConfig, sendTransaction, walletLogin, WalletMode } from "@paimaexample/wallets";
+import { EffectStreamConfig, sendTransaction, walletLogin, WalletMode } from "@paimaexample/wallets";
 import { hardhat } from "viem/chains";
 
-const effectstreamConfig = new EffectstreamConfig(
+const effectstreamConfig = new EffectStreamConfig(
   "world-map-2d",
   "mainEvmRPC",
   "0x5FbDB2315678afecb367f032d93F642f64180aa3",
@@ -524,7 +524,7 @@ build({
 
 ### Generator Function Pattern
 
-State transitions use **generator functions** with `yield*` for structured effects, following Effectstream's coroutine-based architecture:
+State transitions use **generator functions** with `yield*` for structured effects, following EffectStream's coroutine-based architecture:
 
 ```typescript
 function* (data) {
@@ -539,7 +539,7 @@ function* (data) {
 ```
 
 This pattern ensures:
-- **Deterministic execution**: All side effects are managed by the Effectstream runtime
+- **Deterministic execution**: All side effects are managed by the EffectStream runtime
 - **Testability**: Transition functions return SQL update descriptions rather than executing queries directly
 - **Simplicity**: Each transition returns a single update operation
 
@@ -549,7 +549,7 @@ The template follows a clean architecture:
 
 1. **Grammar** (`packages/shared/data-types`): Input validation using TypeBox
 2. **Transition Functions** (`packages/client/node/src/state-machine/v1/transition.ts`): Async functions that return SQL updates
-3. **State Machine** (`packages/client/node/src/state-machine.ts`): Orchestrates transitions with Effectstream using generator functions
+3. **State Machine** (`packages/client/node/src/state-machine.ts`): Orchestrates transitions with EffectStream using generator functions
 4. **Database** (`packages/client/database`): Type-safe queries with pgtyped
 5. **API** (`packages/client/node/src/api.ts`): REST endpoints for the frontend
 6. **Frontend** (`packages/frontend`): Simple HTML/JS interface
@@ -609,7 +609,7 @@ npx pgtyped -c ./pgtypedconfig.json
 
 ## Learn More
 
-- [Effectstream State Machine Guide](../200-state-machine/index.md)
+- [EffectStream State Machine Guide](../200-state-machine/index.md)
 - [Multi-Chain Primitives](../300-primitives/index.md)
 - [Process Orchestrator](../100-components/106-processes.md)
 - [Chess Template](./1203-chess.md) - For turn-based game patterns

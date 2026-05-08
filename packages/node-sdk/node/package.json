@@ -1,7 +1,16 @@
 {
   "name": "@effectstream/node-sdk",
-  "version": "0.100.0",
+  "version": "0.100.12",
   "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/node-sdk/node"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
   "exports": {
     ".": {
       "bun": "./src/mod.ts"
@@ -59,6 +68,18 @@
     },
     "./precompile": {
       "bun": "./src/precompile.ts"
+    },
+    "./utils": {
+      "bun": "./src/utils.ts"
+    },
+    "./utils/node-env": {
+      "bun": "./src/utils-node-env.ts"
+    },
+    "./utils/runtime": {
+      "bun": "./src/utils-runtime.ts"
+    },
+    "./concise": {
+      "bun": "./src/concise.ts"
     }
   },
   "dependencies": {
@@ -71,6 +92,9 @@
     "@effectstream/event-server": "workspace:*",
     "@effectstream/config": "workspace:*",
     "@effectstream/chain-types": "workspace:*",
-    "@effectstream/precompile": "workspace:*"
-  }
+    "@effectstream/precompile": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "@effectstream/concise": "workspace:*"
+  },
+  "description": "Main application node SDK for EffectStream"
 }

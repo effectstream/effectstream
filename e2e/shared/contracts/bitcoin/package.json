@@ -1,10 +1,8 @@
 {
   "name": "@e2e/bitcoin-contracts",
-  "version": "0.3.0",
-  "license": "MIT",
-  "exports": {
-    ".": "./generate-blocks.ts"
-  },
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
   "scripts": {
     "chain:start": "bun ./node_modules/.bin/bitcoin-core",
     "chain:wait": "bun ./node_modules/.bin/wait-on tcp:18443",

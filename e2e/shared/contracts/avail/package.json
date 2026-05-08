@@ -1,7 +1,8 @@
 {
   "name": "@e2e/avail-contracts",
-  "version": "0.3.0",
-  "license": "MIT",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
   "exports": {
     ".": "./read-app.ts"
   },

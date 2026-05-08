@@ -5,7 +5,6 @@ export {
   initTelemetry,
   type HardhatConfigOptions,
   type DefaultNetworkOptions,
-  type NodeTaskDependencies,
 } from "@effectstream/evm-hardhat/hardhat-config-builder";
 
 export { defaultHardhatConfig } from "./src/recommendedHardhat.ts";

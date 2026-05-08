@@ -1,6 +1,6 @@
 # Algorand
 
-Effectstream supports wallet connections and cryptographic verification for Algorand.
+EffectStream supports wallet connections and cryptographic verification for Algorand.
 
 > **Note**: Full Read (Sync) and Write (Batcher) support for Algorand is currently in development.
 

@@ -1,15 +1,15 @@
 # Database
 
-At the heart of every Effectstream node is a powerful PostgreSQL database. This database is the single source of truth for your application's state, storing everything from raw on-chain inputs to the processed, real-time state of your game world.
+At the heart of every EffectStream node is a powerful PostgreSQL database. This database is the single source of truth for your application's state, storing everything from raw on-chain inputs to the processed, real-time state of your game world.
 
-Effectstream provides a sophisticated and developer-friendly toolkit for defining your database schema, managing its evolution over time, and interacting with it in a type-safe manner.
+EffectStream provides a sophisticated and developer-friendly toolkit for defining your database schema, managing its evolution over time, and interacting with it in a type-safe manner.
 
 ### Database Schema
 
 Your dApp's database is organized into three main schemas:
 
-*   **`effectstream`**: This schema is reserved for Effectstream's internal system tables. These tables manage the core operations of the node, such as block processing, input queuing, account management, and achievement tracking. You should generally not modify these tables directly.
-*   **`primitives`**: This schema holds the **Dynamic Tables** that are automatically created and managed by the Effectstream to represent the state of your configured Primitives. For example, an `ERC20` primitive will create a table in this schema to track token balances.
+*   **`effectstream`**: This schema is reserved for EffectStream's internal system tables. These tables manage the core operations of the node, such as block processing, input queuing, account management, and achievement tracking. You should generally not modify these tables directly.
+*   **`primitives`**: This schema holds the **Dynamic Tables** that are automatically created and managed by the EffectStream to represent the state of your configured Primitives. For example, an `ERC20` primitive will create a table in this schema to track token balances.
 *   **`public`**: This is **your schema**. All of your dApp's custom tables, such as `players`, `games`, or `inventories`, should be created here.
 
 In development, you can opt into `config.dev.resetPublicData` to truncate every table in `public` (sequences reset) right after the startup DB mutex is acquired and before migrations or sync run. **Only use this on development**. See [Node Startup](../100-components/117-node-startup.md#development-reset-option-configdevresetpublicdata) for details.
@@ -32,7 +32,7 @@ CREATE TABLE effectstream.system_table (
 ```
 ### Type-Safe Queries with `pgtyped`
 
-Effectstream uses `pgtyped` to bridge the gap between your SQL database and your TypeScript code. It automatically generates fully type-safe TypeScript functions directly from your raw SQL queries, eliminating an entire class of bugs and providing excellent editor autocompletion.
+EffectStream uses `pgtyped` to bridge the gap between your SQL database and your TypeScript code. It automatically generates fully type-safe TypeScript functions directly from your raw SQL queries, eliminating an entire class of bugs and providing excellent editor autocompletion.
 
 ### Writing Named Queries
 You write your SQL queries in files within the `/TODO` directory. To make a query available to `pgtyped`, you must give it a special named comment.

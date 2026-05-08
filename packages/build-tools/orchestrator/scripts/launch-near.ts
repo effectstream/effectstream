@@ -1,37 +1,41 @@
-import { ComponentNames } from "@effectstream/log";
+import type { ProcessConfig } from "../src/config.ts";
+import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
 
-// Start NEAR sandbox node.
-//
-// This launcher expects the @effectstream/near-sandbox package to provide an entry
-// point that bootstraps neard in sandbox mode.
-//
-// packageName: the npm package that should be launched through bun.
-//
-export const launchNear = (packageName: string): {
-  stopProcessAtPort?: number[];
-  name: string;
-  args: string[];
-  waitToExit?: boolean;
-  logs?: string;
-  logsStartDisabled?: boolean;
-  disableStderr?: boolean;
-  type?: string;
-  dependsOn?: string[];
-}[] => [
-  {
-    stopProcessAtPort: [3030],
-    name: ComponentNames.NEAR_SANDBOX,
-    args: ["run", "--filter", packageName, "chain:start"],
-    waitToExit: false,
-    logs: "raw",
-    logsStartDisabled: true,
-    type: "system-dependency",
-  },
-  {
-    name: ComponentNames.NEAR_SANDBOX_WAIT,
-    args: ["run", "--filter", packageName, "chain:wait"],
-    waitToExit: true,
-    type: "system-dependency",
-    dependsOn: [ComponentNames.NEAR_SANDBOX],
-  },
-];
+export const NearNames = {
+  SANDBOX: "near-sandbox",
+  SANDBOX_WAIT: "near-sandbox-wait",
+} as const;
+
+const REQUIRED_SCRIPTS = {
+  "chain:start": "Start the NEAR sandbox node",
+  "chain:wait": "Wait for the NEAR sandbox RPC to be ready (e.g. tcp:3030)",
+} as const;
+
+export function launchNear(
+  packageName: string,
+  location: ResolveLocation,
+  opts?: { ports?: number[] },
+): ProcessConfig[] {
+  const cwd = resolvePackageDir("launchNear", packageName, location, REQUIRED_SCRIPTS);
+  const ports = opts?.ports ?? [3030];
+
+  return [
+    {
+      stopProcessAtPort: ports,
+      name: NearNames.SANDBOX,
+      description: `Start NEAR sandbox node (${packageName} chain:start)`,
+      cwd,
+      args: ["run", "chain:start"],
+      waitToExit: false,
+      critical: true,
+    },
+    {
+      name: NearNames.SANDBOX_WAIT,
+      description: `Wait for NEAR sandbox RPC (${packageName} chain:wait)`,
+      cwd,
+      args: ["run", "chain:wait"],
+      waitToExit: true,
+      dependsOn: [NearNames.SANDBOX],
+    },
+  ];
+}

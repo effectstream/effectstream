@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "0.15.0",
-    "@midnight-ntwrk/compact-js": "2.5.0-rc.3"
+    "@midnight-ntwrk/compact-js": "2.5.0"
   },
   "devDependencies": {
     "vitest": "^3.2.4"

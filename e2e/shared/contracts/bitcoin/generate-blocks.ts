@@ -5,13 +5,13 @@ import { createHash } from "node:crypto";
 import { args, exit } from "@effectstream/utils/runtime";
 
 /**
- * 
+ *
  * This script generates blocks continuously, so the blockchain is always progressing.
  * As a side effect this script will seed some addresses with funds.
- * 
+ *
  * Usage:
  *  deno run -A generate-blocks.ts --block-interval 5000
- * 
+ *
  * Arguments:
  *  - 1. Block interval in milliseconds
  */
@@ -60,10 +60,10 @@ console.log(`Generated mock address: ${MOCK_ADDRESS}`);
 
 // Helper function to make Bitcoin RPC calls
 const bitcoinRpcCall = async (method: string, params: any[] = [], walletName?: string) => {
-  const url = walletName 
+  const url = walletName
     ? `http://127.0.0.1:18443/wallet/${walletName}`
     : 'http://127.0.0.1:18443';
-  
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -77,12 +77,12 @@ const bitcoinRpcCall = async (method: string, params: any[] = [], walletName?: s
       params: params,
     }),
   });
-  
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`RPC call failed: ${response.status} ${errorText}`);
   }
-  
+
   const data = await response.json();
   if (data.error) {
     throw new Error(`RPC error: ${JSON.stringify(data.error)}`);
@@ -111,7 +111,7 @@ async function generateTXHex(address: string, amountSats: number, inputUTXO: { t
     pubkey: keyPair.publicKey,
     network: NETWORK,
   });
-  
+
   const oldTX = await bitcoinRpcCall('getrawtransaction', [inputUTXO.txid, 1]);
   const utxo = oldTX.vout[inputUTXO.vout];
   if (!utxo) {
@@ -150,7 +150,7 @@ async function main() {
   await delay(10000);
   console.log('Block generator starting...');
   console.log('Assumes Bitcoin Core is already running at http://127.0.0.1:18443');
-  
+
   // Try to get or create a wallet and address
   let address: string;
   let walletName: string | undefined;
@@ -197,7 +197,7 @@ async function main() {
       // Assuming P2WPKH
       const descBase = `wpkh(${pubKeyHex})`;
       const descInfo = await bitcoinRpcCall('getdescriptorinfo', [descBase], walletName);
-      
+
       await bitcoinRpcCall('importdescriptors', [[{
         desc: descInfo.descriptor,
         timestamp: 0,
@@ -211,7 +211,7 @@ async function main() {
   }
 
   console.log('\n=== Initialization Phase ===');
-  
+
   // Step 1: Generate 105 blocks to mining wallet to get funds
   console.log(`Step 1: Generating 105 blocks to mining wallet...`);
 
@@ -263,18 +263,18 @@ async function main() {
   console.log('Step 5: Generating 1 block to consolidate transfer...');
   const consolidateBlocks = await bitcoinRpcCall('generatetoaddress', [1, address!], walletName);
   console.log(`Consolidation block: ${consolidateBlocks[0]}`);
-  
+
   // Step 6: Find a UTXO from target.address and build transaction to MOCK_ADDRESS
   console.log(`Step 6: Building transaction to send 3 BTC to ${MOCK_ADDRESS}...`);
 
   // Get the transaction details from step 4 to find the UTXO
   console.log(`Fetching transaction details for ${sendTxId}...`);
   const txDetails = await bitcoinRpcCall('getrawtransaction', [sendTxId, true]);
-  
+
   if (!txDetails || !txDetails.vout) {
     throw new Error(`Could not get transaction details for ${sendTxId}`);
   }
-  
+
   // Find the output that goes to target.address
   let utxoVout = -1;
   let utxoValue = 0;
@@ -290,39 +290,39 @@ async function main() {
       }
     }
   }
-  
+
   if (utxoVout === -1) {
     throw new Error(`Could not find output to ${target.address} in transaction ${sendTxId}`);
   }
-  
+
   const requiredAmount = 3 * SATS_PER_BTC;
   const feeSats = 10_000;
-  
+
   if (utxoValue < requiredAmount + feeSats) {
     throw new Error(`UTXO value too low: ${utxoValue} sats < ${requiredAmount + feeSats} sats`);
   }
-  
+
   console.log(`Using UTXO: ${sendTxId}:${utxoVout} (${utxoValue} sats = ${utxoValue / SATS_PER_BTC} BTC)`);
-  
+
   // Build the transaction
   const txHex = await generateTXHex(MOCK_ADDRESS, requiredAmount, {
     txid: sendTxId,
     vout: utxoVout,
   });
   console.log(`Transaction built: ${txHex.substring(0, 64)}...`);
-  
+
   // Step 5: Broadcast the transaction
   console.log('Step 5: Broadcasting transaction...');
   const broadcastTxId = await bitcoinRpcCall('sendrawtransaction', [txHex]);
   console.log(`Transaction broadcasted. TXID: ${broadcastTxId}`);
-  
+
   console.log('=== Initialization Complete ===\n');
 
   let blockCount = 102;
-  
+
   console.log(`Starting block generation (every ${DEFAULT_BLOCK_INTERVAL}ms)...`);
   console.log('Press Ctrl+C to stop\n');
-  
+
   while (running) {
     try {
       const blocks = await bitcoinRpcCall('generatetoaddress', [1, address!], walletName);
@@ -341,4 +341,3 @@ main().catch((error) => {
   console.error('Fatal error:', error);
   exit(1);
 });
-
