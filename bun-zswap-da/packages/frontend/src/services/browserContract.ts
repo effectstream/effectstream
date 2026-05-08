@@ -311,11 +311,17 @@ function pickSwapSegment(makerTx: any): { segId: number; imbalances: Map<any, bi
 }
 
 /**
- * Shielded-only path. Lace's `makeIntent` for an all-shielded swap puts
- * everything in segment 0 (the guaranteed Zswap offer) with no `Intent`
- * objects, so `balanceSealedTransaction` (which walks Intents) throws
- * "No segments found in the provided transaction". Mirror taker side at
- * segment 0 and merge — segment-0 offers compose cleanly.
+ * Shielded-only path: maker tx has no Intent slots and asset deltas live in
+ * segment 0's guaranteed Zswap offer. `balanceSealedTransaction` can't be
+ * used here — it walks `tx.intents` and throws "No segments found in the
+ * provided transaction" when the map is empty. Mirror the taker side via
+ * `makeIntent` and merge: segment-0 offers compose because they aren't
+ * keyed Intents.
+ *
+ * Unshielded offers are dispatched away from this function in
+ * `proveAndSubmitOffer` because Lace's unshielded `makeIntent` adds an
+ * empty structural Intent[1] to *both* maker and taker txs, which collides
+ * on merge with "key (segment_id) collision during intents merge: 1".
  */
 async function balanceShieldedViaMirrorMerge(
   connectedApi: ConnectedAPI,
@@ -349,31 +355,30 @@ async function balanceShieldedViaMirrorMerge(
     }
   }
 
-  // Pick a taker intentId that won't collide with any of the maker's existing
-  // Intent slots. For shielded-only offers the maker tx has no Intents and
-  // any value works; for offers whose imbalances live in segment 0 but Lace
-  // also tacked on a structural Intent (commonly at segId 1 for unshielded),
-  // we need to land somewhere outside `makerIntentIds` or the merge throws
-  // "key (segment_id) collision during intents merge: <id>".
   const makerIntentIds: number[] = makerTx.intents
     ? Array.from(makerTx.intents.keys() as Iterable<number>)
     : [];
-  const usedIds = new Set<number>(makerIntentIds);
-  let takerIntentId = 2;
-  while (usedIds.has(takerIntentId)) takerIntentId++;
+
+  // Shielded `makeIntent` doesn't populate an Intent slot, so the requested
+  // id is moot — the resulting taker tx will have intents.size === 0
+  // regardless. Pass a non-1 value defensively in case Lace ever changes
+  // shielded `makeIntent` to add a structural Intent[1].
+  const requestedTakerIntentId: number | 'random' = 1000;
 
   console.log('[browserContract] complete (mirror+merge): taker mirror', {
     segId: swap.segId,
     makerIntentIds,
-    takerIntentId,
+    requestedTakerIntentId,
     inputs: takerInputs.map(i => ({ ...i, value: i.value.toString() })),
     outputs: takerOutputs.map(o => ({ ...o, value: o.value.toString() })),
   });
 
   const { tx: takerTxHex } = await connectedApi.makeIntent(takerInputs, takerOutputs, {
-    intentId: takerIntentId,
+    intentId: requestedTakerIntentId,
     payFees: false,
   });
+  console.log('[browserContract] complete (mirror+merge): taker tx hex bytes', takerTxHex.length / 2);
+
   const takerTx = LedgerV8Transaction.deserialize(
     'signature',
     'proof',
@@ -381,29 +386,75 @@ async function balanceShieldedViaMirrorMerge(
     fromHex(takerTxHex),
   );
 
+  // Full taker tx shape (mirror of the maker tx segment log earlier in
+  // proveAndSubmitOffer). Tells us which segIds Lace actually populated and
+  // what's in each segment — enough to diagnose any "intents merge: N"
+  // collision or zswap-offer composition error.
   const takerIntentIds: number[] = takerTx.intents
     ? Array.from(takerTx.intents.keys() as Iterable<number>)
     : [];
+  const takerFallibleIds: number[] = takerTx.fallibleOffer
+    ? Array.from(takerTx.fallibleOffer.keys() as Iterable<number>)
+    : [];
   console.log('[browserContract] complete (mirror+merge): taker tx shape', {
-    requestedTakerIntentId: takerIntentId,
+    requestedTakerIntentId,
     actualTakerIntentIds: takerIntentIds,
+    actualTakerFallibleIds: takerFallibleIds,
+    segmentImbalances: Object.fromEntries(
+      Array.from(new Set<number>([0, ...takerIntentIds, ...takerFallibleIds])).map((segId) => {
+        try {
+          const imb = takerTx.imbalances(segId) as Map<any, bigint>;
+          return [
+            segId,
+            Array.from(imb.entries()).map(([tt, v]) => ({
+              tag: (tt as any).tag,
+              raw: (tt as any).raw,
+              delta: v.toString(),
+            })),
+          ];
+        } catch {
+          return [segId, 'imbalances() threw'];
+        }
+      }),
+    ),
+  });
+
+  // Sanity check: under the shielded-only dispatch, neither maker nor taker
+  // should have any Intent slots, so `overlapping` is expected to be empty.
+  // A non-empty list here means the dispatch in `proveAndSubmitOffer` is
+  // mis-routing an offer that has Intents into mirror+merge.
+  const overlap = makerIntentIds.filter((id) => takerIntentIds.includes(id));
+  console.log('[browserContract] complete (mirror+merge): about to merge', {
+    makerIntentIds,
+    takerIntentIds,
+    overlapping: overlap,
+    expectsCollision: overlap.length > 0,
   });
 
   const merged = makerTx.merge(takerTx);
   const balancedHex = toHex(merged.serialize());
   const txHash = (merged as any).transactionHash?.() ?? '';
+  const mergedIntentIds: number[] = (merged as any).intents
+    ? Array.from((merged as any).intents.keys() as Iterable<number>)
+    : [];
   console.log('[browserContract] complete (mirror+merge): merged maker + taker', {
     bytes: balancedHex.length / 2,
     txHash,
+    mergedIntentIds,
   });
   return { balancedHex, txHash };
 }
 
 /**
- * Unshielded / mixed path. Maker's `Intent` objects already carry the swap
- * at numbered segment ids; mirror+merge would collide ("key (segment_id)
- * collision during intents merge"). Hand the sealed tx to Lace and let it
- * add a separate Intent for the taker side.
+ * Sealed-balance path: maker tx has at least one Intent slot. Hand the
+ * sealed tx to Lace's `balanceSealedTransaction(payFees: false)` — Lace
+ * adds the counterparty side, the batcher pays fees in DUST.
+ *
+ * Reached for unshielded4unshielded (segment-0 deltas + empty Intent[1])
+ * and any future numbered-Intent offers. Mirror+merge can't be used here
+ * because Lace's unshielded `makeIntent` would put a colliding Intent[1]
+ * on the taker side; sealed-balance has no such issue because it doesn't
+ * go through `makeIntent` on the taker side.
  */
 async function balanceMixedViaSealedBalance(
   connectedApi: ConnectedAPI,
@@ -434,13 +485,17 @@ async function balanceMixedViaSealedBalance(
 /**
  * Complete a maker's bech32m offer blob as the connected browser wallet.
  *
- * Two strategies, dispatched on segment shape:
- *   - segment 0 only (all-shielded offer)        → mirror+merge
- *   - numbered Intent segment (unshielded/mixed) → balanceSealedTransaction
+ * Two strategies, dispatched on the maker tx shape:
+ *   - segment-0 deltas, no Intent slots (shielded-only) → mirror+merge
+ *   - any Intent slot present (unshielded or numbered)  → balanceSealedTransaction
  *
- * Neither strategy works for both cases: `balanceSealedTransaction` walks
- * `Intent` objects (so it throws "No segments found" on segment-0-only
- * shielded offers); mirror+merge collides on intent segment ids.
+ * Neither strategy works for both cases:
+ *   - `balanceSealedTransaction` throws "No segments found in the provided
+ *     transaction" on shielded-only offers (it walks `tx.intents`, which is
+ *     empty there).
+ *   - mirror+merge collides with "key (segment_id) collision during intents
+ *     merge: 1" on unshielded offers — Lace's unshielded `makeIntent` always
+ *     lands its Intent at segId 1, so maker and taker would both carry it.
  */
 export async function proveAndSubmitOffer(
   connectedApi: ConnectedAPI,
@@ -458,9 +513,9 @@ export async function proveAndSubmitOffer(
     rawBytes,
   );
 
-  // Diagnostic: full segment shape of the maker tx. Fast triage when
-  // `balanceSealedTransaction` errors with "intents merge: N" — the colliding
-  // segment id should match one of these.
+  // Diagnostic: full segment shape of the maker tx. Drives the dispatch
+  // decision below (Intent slot present? → sealed balance; else →
+  // mirror+merge) and gives fast triage on any balance/merge error.
   const intentIds = makerTx.intents ? Array.from(makerTx.intents.keys()) : [];
   const fallibleIds = makerTx.fallibleOffer ? Array.from(makerTx.fallibleOffer.keys()) : [];
   console.log('[browserContract] complete: maker tx segments', {
@@ -487,10 +542,16 @@ export async function proveAndSubmitOffer(
 
   const swap = pickSwapSegment(makerTx);
 
-  const useMirrorMerge = swap.segId === 0;
+  // Mirror+merge requires both halves to have no Intent slots (see function
+  // docstring). Unshielded makeIntent puts asset deltas in segment 0 but
+  // also tacks on an empty Intent[1] — that empty Intent doesn't move
+  // `swap.segId` away from 0, so the segId test alone is insufficient.
+  const makerHasIntents = !!makerTx.intents
+    && Array.from(makerTx.intents.keys() as Iterable<number>).length > 0;
+  const useMirrorMerge = swap.segId === 0 && !makerHasIntents;
   const strategy = useMirrorMerge
-    ? 'mirror+merge (shielded)'
-    : 'balanceSealedTransaction (unshielded/mixed)';
+    ? 'mirror+merge (segment 0 / guaranteed offer)'
+    : 'balanceSealedTransaction (numbered Intent)';
   console.log('[browserContract] complete: chose strategy', {
     segId: swap.segId,
     strategy,
