@@ -9,7 +9,7 @@
     "node:start": "bun run node.ts"
   },
   "dependencies": {
-    "@e2e-v2/engine": "workspace:*",
+    "@e2e/engine": "workspace:*",
     "@effectstream/concise": "workspace:*",
     "@effectstream/config": "workspace:*",
     "@effectstream/coroutine": "workspace:*",

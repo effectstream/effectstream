@@ -51,7 +51,7 @@ const offerFilesContract = (() => {
 
 export const config = new ConfigBuilder()
   .setNamespace(
-    (builder) => builder.setSecurityNamespace("e2e-v2-zswap-da"),
+    (builder) => builder.setSecurityNamespace("e2e-zswap-da"),
   )
   .buildNetworks((builder) =>
     builder

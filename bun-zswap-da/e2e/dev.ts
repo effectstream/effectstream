@@ -16,7 +16,7 @@ import {
   waitForOrchestrator,
   waitForProcess,
   waitForHealth,
-} from "@e2e-v2/engine";
+} from "@e2e/engine";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");
 

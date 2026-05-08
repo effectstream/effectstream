@@ -30,7 +30,7 @@ import {
   waitForProcess,
   waitForHealth,
   getDBConnection,
-} from "@e2e-v2/engine";
+} from "@e2e/engine";
 import type { Client } from "pg";
 import path from "path";
 import { Buffer } from "node:buffer";
@@ -48,7 +48,7 @@ import {
   syncAndWaitForFunds,
   faucet,
   type WalletResult,
-} from "../../e2e-v2/shared/contracts/midnight/faucet.ts";
+} from "../../e2e/shared/contracts/midnight/faucet.ts";
 import { encodeOffer, decodeOffer } from "mip-zswap-offer";
 
 const LAUNCHER_PATH = path.resolve(import.meta.dirname!, "./launcher.cli.ts");

@@ -59,7 +59,7 @@ export default {
       {
         name: "celestia-devnet",
         description: "Celestia consensus node + bridge (ports 26657, 26658)",
-        cwd: "e2e-v2/shared/contracts/celestia",
+        cwd: "e2e/shared/contracts/celestia",
         stopProcessAtPort: [26657, 26658],
         args: ["run", "celestia-bridge:start"],
         env: { CELESTIA_HOME, CELESTIA_FORCE_NO_BBR: process.env.CELESTIA_FORCE_NO_BBR || "" },
@@ -71,7 +71,7 @@ export default {
       {
         name: "celestia-bridge-wait",
         description: "Wait for Celestia bridge RPC on port 26658",
-        cwd: "e2e-v2/shared/contracts/celestia",
+        cwd: "e2e/shared/contracts/celestia",
         args: ["run", "celestia-bridge:wait"],
         waitToExit: true,
         dependsOn: ["celestia-devnet"],
@@ -79,7 +79,7 @@ export default {
       {
         name: "celestia-fund-bridge",
         description: "Fund the bridge node wallet with tokens",
-        cwd: "e2e-v2/shared/contracts/celestia",
+        cwd: "e2e/shared/contracts/celestia",
         args: ["run", "celestia-fund:bridge"],
         env: { CELESTIA_HOME },
         waitToExit: true,
@@ -91,7 +91,7 @@ export default {
     // ── Midnight Infrastructure ───────────────────────────────────────────────
     {
       name: "midnight-node",
-      cwd: "e2e-v2/shared/contracts/midnight",
+      cwd: "e2e/shared/contracts/midnight",
       stopProcessAtPort: [9944, 30333],
       args: ["run", "midnight-node:start"],
       waitToExit: false,
@@ -100,7 +100,7 @@ export default {
     },
     {
       name: "midnight-indexer",
-      cwd: "e2e-v2/shared/contracts/midnight",
+      cwd: "e2e/shared/contracts/midnight",
       stopProcessAtPort: [8088],
       args: ["run", "midnight-indexer:start"],
       waitToExit: false,
@@ -110,7 +110,7 @@ export default {
     },
     {
       name: "midnight-proof-server",
-      cwd: "e2e-v2/shared/contracts/midnight",
+      cwd: "e2e/shared/contracts/midnight",
       stopProcessAtPort: [6300],
       args: ["run", "midnight-proof-server:start"],
       waitToExit: false,
@@ -120,21 +120,21 @@ export default {
     },
     {
       name: "midnight-node-wait",
-      cwd: "e2e-v2/shared/contracts/midnight",
+      cwd: "e2e/shared/contracts/midnight",
       args: ["run", "midnight-node:wait"],
       waitToExit: true,
       dependsOn: ["midnight-node"],
     },
     {
       name: "midnight-indexer-wait",
-      cwd: "e2e-v2/shared/contracts/midnight",
+      cwd: "e2e/shared/contracts/midnight",
       args: ["run", "midnight-indexer:wait"],
       waitToExit: true,
       dependsOn: ["midnight-indexer"],
     },
     {
       name: "midnight-proof-server-wait",
-      cwd: "e2e-v2/shared/contracts/midnight",
+      cwd: "e2e/shared/contracts/midnight",
       args: ["run", "midnight-proof-server:wait"],
       waitToExit: true,
       dependsOn: ["midnight-proof-server"],

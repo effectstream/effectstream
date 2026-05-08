@@ -1,5 +1,5 @@
 // Browser-side Midnight contract client for the OfferFiles contract.
-// Modeled on e2e-v2/wallets-ui/client/src/contracts/counter.ts — the same
+// Modeled on e2e/wallets-ui/client/src/contracts/counter.ts — the same
 // provider stack, with OfferFilesContract in place of Counter and the demo's
 // three circuits (mint_shielded, mint_unshielded, incrementNoun) exposed.
 
