@@ -129,6 +129,28 @@ await sendTransaction(
 );
 ```
 
+**Browser-side wallet pattern (no batcher)**: (FOR DEVELOPMENT ONLY) For Cardano templates that build and submit transactions directly in the browser (e.g., using Lucid Evolution), there is no batcher. The frontend uses Lucid to construct, sign, and submit transactions to the YACI devkit. The node API is GET-only — it serves indexed data from the EffectStream database but never receives write requests from the frontend. This pattern requires:
+- Lucid Evolution packages: `@lucid-evolution/lucid`, `@lucid-evolution/provider`, `@lucid-evolution/utils`, `@lucid-evolution/core-types`
+- A Fastify static server with proxies to YACI (`/yaci/*`) and Dolos (`/dolos/*`) in addition to the API (`/api/*`)
+- Browser-side seed phrase storage in `localStorage` for dev wallet persistence
+
+**Fastify proxy path-rewriting pitfall**: When proxying `/api/*` to the upstream node (e.g., `http://localhost:9999`), do NOT strip the `/api` prefix if the upstream expects it. Use an empty string as the prefix to forward the path as-is:
+```ts
+// WRONG — forwards /api/locks as /locks → 404
+await proxyRequest(API_URL, "/api", request, reply);
+
+// CORRECT — forwards /api/locks as /api/locks
+await proxyRequest(API_URL, "", request, reply);
+```
+For proxies where the prefix IS artificial (e.g., `/yaci/*` → YACI at localhost:10000), strip it: `proxyRequest(YACI_URL, "/yaci", request, reply)`.
+
+**Fastify proxy with CBOR support**: If the frontend proxies to a Cardano submit endpoint that expects `application/cbor`, register a content type parser for CBOR in Fastify:
+```ts
+server.addContentTypeParser("application/cbor", { parseAs: "buffer" }, (_req, body, done) => {
+  done(null, body);
+});
+```
+
 ### 8. Tests
 
 - [ ] Create `packages/tests/start.test.ts` (test orchestrator config) — [Test Launcher](#test-launcher-starttestts)
@@ -677,6 +699,33 @@ export default {
 ```
 
 The `pgtyped:update` script uses `@effectstream/db/scripts/pgtyped-update.ts` which handles everything in one shot: starts PGLite, applies system migrations, applies user migrations (from `migration-order.ts`), runs pgtyped codegen, then shuts down. No need for `concurrently` or manual DB orchestration.
+
+**How to run pgtyped generation correctly**:
+
+The script **must** be run from `packages/database/` as the working directory. It resolves three things relative to `process.cwd()`:
+1. `migration-order.ts` (or `src/migration-order.ts`) — your user migrations
+2. `pgtypedconfig.json` — pgtyped configuration
+3. `node_modules/@paima/pgtyped-cli/lib/index.js` — the pgtyped CLI binary
+
+There are two ways to invoke it:
+
+```bash
+# Option A: from the monorepo root using --filter (RECOMMENDED)
+bun run --filter @my-template/database pgtyped:update
+
+# Option B: cd into the database package and run the script directly
+cd packages/database && bun run pgtyped:update
+```
+
+**Common mistakes that waste hours:**
+
+1. **Running from the wrong directory**: If you run the script from the monorepo root without `--filter`, it looks for `migration-order.ts` and `pgtypedconfig.json` in the root directory (not in `packages/database/`), silently finds nothing, and generates empty `.queries.ts` files — or fails with cryptic errors.
+
+2. **Port 5432 already in use**: The script starts its own PGLite server on port 5432. If another PGLite or PostgreSQL instance is already running on that port (e.g., from the orchestrator or a previous run), it will fail. Kill the existing process first: `lsof -ti :5432 | xargs kill -9`.
+
+3. **Missing `@paima/pgtyped-cli` in devDependencies**: The script shells out to `node_modules/@paima/pgtyped-cli/lib/index.js`. If the package isn't installed (it's a devDependency), the script will fail. Run `bun install` first.
+
+4. **Forgetting to add the root convenience script**: Add `"build:pgtypes": "bun run --filter @my-template/database pgtyped:update"` to the root `package.json` so it can be invoked as `bun run build:pgtypes` from anywhere in the monorepo.
 
 **`packages/database/pgtypedconfig.json`**:
 
@@ -1371,6 +1420,23 @@ export async function frontendRenderTest() {
 ```
 
 Add `playwright-core` to `packages/tests/package.json`. The test uses `playwright-core` (not `@playwright/test`) to avoid bundling browsers -- it finds Chrome/Chromium on the host via `findChrome()` or the `CHROME_PATH` env var.
+
+**Full lifecycle E2E tests with `@playwright/test`**: For templates with browser-side wallet interactions (e.g., Cardano templates using Lucid), use `@playwright/test` in `packages/frontend/e2e/` instead of `playwright-core` in `packages/tests/`. This provides a proper test runner, assertions, and parallel test execution. Structure tests in groups: (1) **App structure** — verify layout, elements, dark theme, that the frontend makes no POST/PATCH/DELETE to the API; (2) **API health** — verify GET endpoints return expected shapes; (3) **Browser wallet lifecycle** — connect wallet → mint → lock → unlock → claim through the UI. Use `data-testid` attributes on all interactive elements. Key patterns:
+- Clear `localStorage` at test start to prevent auto-reconnect interference
+- Use `page.getByText("Locked", { exact: true })` to avoid matching substrings (e.g., "Unlocked" also contains "Locked")
+- Set generous timeouts for blockchain operations (60s for TX confirmation, 30s for time-lock expiry)
+- Use `test.setTimeout(300_000)` for the full lifecycle test
+```ts
+// packages/frontend/playwright.config.ts
+import { defineConfig } from "@playwright/test";
+export default defineConfig({
+  testDir: "./e2e",
+  timeout: 300_000,
+  retries: 0,
+  use: { baseURL: "http://localhost:10599", headless: true },
+  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+});
+```
 
 ### Test Runner (`run-tests.ts`)
 
@@ -2079,6 +2145,32 @@ import {EffectstreamL2Contract} from "@effectstream/evm-contracts/src/contracts/
 
 **Lucid Evolution for Cardano wallets**: Use `@lucid-evolution/lucid` + `@lucid-evolution/provider` for wallet creation, transaction building, and delegation. `Lucid.new()` connects to the Dolos Blockfrost provider at `http://localhost:3000`. For dev wallets, `generateSeedPhrase()` creates a new wallet; fund it via the YACI faucet (`POST http://localhost:10000/local-cluster/api/addresses/topup`). YACI faucet topups take ~5 seconds to produce UTxOs.
 
+**YACI faucet field name is `adaAmount`**: The topup endpoint expects `{ address, adaAmount }`, NOT `{ address, amount }`. Using the wrong field name returns HTTP 400.
+
+**Lucid provider overrides for YACI+Dolos**: Dolos does not support tx evaluation (`evaluateTx`), and YACI's submit endpoint requires `application/cbor` content type. Override both on the Blockfrost provider:
+```ts
+const provider = new Blockfrost(DOLOS_URL, "dev");
+provider.evaluateTx = async () => {
+  return [{ redeemer_tag: "spend", redeemer_index: 0, ex_units: { mem: 10_000_000, steps: 5_000_000_000 } }];
+};
+provider.submitTx = async (tx: string): Promise<string> => {
+  const res = await fetch(`${YACI_URL}/local-cluster/api/tx/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/cbor" },
+    body: hexToBytes(tx),
+  });
+  if (!res.ok) throw new Error(`TX submit failed (${res.status}): ${await res.text()}`);
+  return (await res.text()).replace(/^"|"$/g, "");
+};
+```
+
+**YACI POSIX vs wall-clock time mismatch**: On YACI devnet, `genesis.systemStart` (used for on-chain POSIX time via the Shelley genesis) differs from `devnet.startTime` (used for Lucid's `SLOT_CONFIG_NETWORK["Custom"].zeroTime`). The offset between them (typically several hours) must be accounted for when comparing on-chain timestamps (e.g., `for_how_long` from the Hololocker) against `Date.now()`. Compute the offset as `systemStartMs - slotConfig.zeroTime` and subtract it from on-chain POSIX values to get wall-clock time:
+```ts
+const epochOffset = systemStartMs - SLOT_CONFIG_NETWORK["Custom"].zeroTime;
+const wallClockMs = cardanoPosixMs - epochOffset;
+```
+Failing to account for this offset causes time-lock comparisons to fail — e.g., `canClaim` will never be true because the on-chain timestamp appears hours in the future.
+
 **YACI genesis pool**: YACI DevKit creates one genesis stake pool. Its pool hash is `7301761068762f5900bde9eb7c1c15b09840285130f5b0f53606cc57` (bech32: `pool1wvqhvyrgwch4jq9aa84hc8q4kzvyq2z3xr6mpafkqmx9wce39zy`). Use this for delegation tests. The `cardanoPoolDelegation` primitive detects delegations to this pool via UTxO-RPC certificate scanning.
 
 **Five Cardano primitives**: The SDK provides five Cardano-specific primitives beyond `utxorpcGeneric`. All use the `CARDANO_UTXORPC_PARALLEL` sync protocol via Dolos:
@@ -2090,6 +2182,8 @@ import {EffectstreamL2Contract} from "@effectstream/evm-contracts/src/contracts/
 | `CardanoTransfer` | `address`, `amount`, ... | Track ADA/token transfers |
 | `CardanoDelayedAsset` | ... | Delayed asset claim tracking |
 | `CardanoProjectedNFT` | ... | Projected NFT state changes |
+
+**ProjectedNFT primitive emits duplicate entries**: The `CardanoProjectedNFT` primitive inserts each lock event twice (once for the UTxO consumed, once for the UTxO produced). Frontends querying the `cardano_projected_nft` table must deduplicate by `(current_tx_id, current_output_index, status)` to avoid showing each lock card twice.
 
 ### Orchestrator Migration
 
