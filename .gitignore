@@ -1,6 +1,6 @@
 **/node_modules
 forge-std
-logs/
+/logs/
 
 # e2e tests
 /cache
