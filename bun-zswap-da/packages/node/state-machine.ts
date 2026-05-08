@@ -5,7 +5,13 @@ import { Stm } from "@effectstream/sm";
 import type { BaseStfInput } from "@effectstream/sm";
 import { builtinGrammars } from "@effectstream/sm/grammar";
 import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
-import { Transaction, type UnprovenTransaction, type TokenType } from "@midnight-ntwrk/ledger-v8";
+import {
+  addressFromKey,
+  Transaction,
+  type UnprovenTransaction,
+  type TokenType,
+} from "@midnight-ntwrk/ledger-v8";
+import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 import { Buffer } from "node:buffer";
 import { newScheduledTimestampData } from "@effectstream/db";
 import { AddressType } from "@effectstream/utils";
@@ -15,8 +21,10 @@ import { decodeOffer, OFFER_HRP } from "mip-zswap-offer";
 import {
   insertOfferFile,
   insertOfferFileNullifier,
+  insertOfferFileUnshieldedSpend,
   insertOfferFileToken,
   archiveOfferByNullifier,
+  archiveOfferByUnshieldedSpend,
   archiveOfferByIdTtl,
 } from "@zswap-da/database";
 
@@ -24,11 +32,51 @@ import { extractMidnightLedgerSnapshot } from "./zswap-logic.ts";
 import { emitAppEvent } from "./event-bus.ts";
 import { OFFER_TTL_SECONDS } from "./config.ts";
 
+// Normalize a value that may be a Uint8Array or a hex string into lowercase
+// hex (no `0x` prefix). Used at offer-indexing for nullifiers, owner keys,
+// and intent hashes — ledger-v8 returns these as either form depending on
+// the field.
+function bytesOrStringToHex(value: unknown): string {
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value).toString("hex").toLowerCase();
+  }
+  if (typeof value === "string") {
+    const clean = value.startsWith("0x") || value.startsWith("0X")
+      ? value.slice(2)
+      : value;
+    return clean.toLowerCase();
+  }
+  return String(value).toLowerCase();
+}
+
+// The Midnight indexer returns unshielded `owner` as a Bech32m-encoded
+// `UnshieldedAddress` string (e.g. `mn_addr_undeployed1...`). Decode it to
+// the canonical 32-byte hex form so it matches the indexing-side
+// `UtxoSpend.owner` (already hex). Pass-through for already-hex inputs.
+function unshieldedOwnerToCanonicalHex(value: unknown): string {
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value).toString("hex").toLowerCase();
+  }
+  if (typeof value === "string") {
+    if (value.includes("1")) {
+      try {
+        const parsed = MidnightBech32m.parse(value);
+        return parsed.data.toString("hex").toLowerCase();
+      } catch {
+        // Not bech32m; fall through to plain hex normalization.
+      }
+    }
+    return bytesOrStringToHex(value);
+  }
+  return bytesOrStringToHex(value);
+}
+
 export const grammar = {
   // Primitives
   "celestia-zswap": builtinGrammars.celestiaGeneric,
   "midnight-zswap": builtinGrammars.midnightGeneric,
   "midnight-nullifier": [["payload", Type.Any()]],
+  "midnight-unshielded-spend": [["payload", Type.Any()]],
 
   // Scheduled game input used for TTL cleanup.
   "zswap-ttl-cleanup": [["offerId", Type.Integer()]],
@@ -52,6 +100,59 @@ stm.addStateTransition("midnight-nullifier", function* (data) {
     emitAppEvent({ type: "offer_consumed", offerId: archived[0].id, nullifier });
   } catch (e) {
     console.error("[MIDNIGHT] Failed to archive offer for nullifier", nullifier, e);
+  }
+});
+
+// Fires once per unshielded UTXO spend observed on chain (sourced from the
+// indexer's per-tx `unshieldedSpentOutputs`). Match against the
+// (owner, intent_hash, output_no) triples captured at offer-publication
+// time and archive any matched offer.
+stm.addStateTransition("midnight-unshielded-spend", function* (data) {
+  const { payload } = data.parsedInput;
+  const owner = unshieldedOwnerToCanonicalHex(payload?.owner);
+  const intentHash = bytesOrStringToHex(payload?.intentHash);
+  const outputNoRaw = payload?.outputIndex ?? payload?.outputNo;
+  const outputNo = typeof outputNoRaw === "number"
+    ? outputNoRaw
+    : Number(outputNoRaw);
+
+  if (!owner || !intentHash || !Number.isFinite(outputNo)) {
+    console.warn(
+      "[MIDNIGHT] Skipping malformed unshielded-spend payload",
+      payload,
+    );
+    return;
+  }
+
+  try {
+    const archived = yield* World.resolve(archiveOfferByUnshieldedSpend, {
+      owner,
+      intent_hash: intentHash,
+      output_no: outputNo,
+    });
+    if (archived.length === 0) {
+      console.log(
+        "[MIDNIGHT] Unshielded spend not matched in offer_file_unshielded_spends",
+        { owner, intentHash, outputNo },
+      );
+      return;
+    }
+    console.log(
+      "[MIDNIGHT] Archived offer(s) for unshielded spend",
+      { owner, intentHash, outputNo },
+      archived,
+    );
+    emitAppEvent({
+      type: "offer_consumed",
+      offerId: archived[0].id,
+      unshieldedSpend: { owner, intentHash, outputNo },
+    });
+  } catch (e) {
+    console.error(
+      "[MIDNIGHT] Failed to archive offer for unshielded spend",
+      { owner, intentHash, outputNo },
+      e,
+    );
   }
 });
 
@@ -155,16 +256,50 @@ stm.addStateTransition("celestia-zswap", function* (data) {
 
     const offerFileId = offerFileRes[0].id;
 
-    // ── Extract nullifiers ──
+    // ── Extract nullifiers (shielded path) ──
+    // Shielded inputs at segment 0 carry a cryptographic nullifier; the
+    // chain emits a `midnight-nullifier` STM event when one is consumed.
     const nullifiers: string[] = offerTx.guaranteedOffer
       ? offerTx.guaranteedOffer.inputs.map((input: any) => input.nullifier)
       : [];
     for (const nullifier of nullifiers) {
-      const nullifierStr = typeof nullifier === "string" ? nullifier : Buffer.from(nullifier).toString("hex");
+      const nullifierStr = bytesOrStringToHex(nullifier);
       yield* World.resolve(insertOfferFileNullifier, {
         offer_file_id: offerFileId,
         nullifier: nullifierStr,
       });
+    }
+
+    // ── Extract unshielded UTXO refs (unshielded path) ──
+    // Unshielded inputs have no nullifier; they're identified by the
+    // (owner, intentHash, outputNo) triple of `UtxoSpend` records on each
+    // Intent's guaranteed/fallible UnshieldedOffer. Capture them so the
+    // `midnight-unshielded-spend` STM event can match-and-archive when the
+    // chain consumes one of these UTXOs.
+    //
+    // `UtxoSpend.owner` is a raw SignatureVerifyingKey — distinct from the
+    // 32-byte address that the indexer reports on consumption. Apply
+    // `addressFromKey` so both sides of the lookup store the same address.
+    const intents = (offerTx as any).intents;
+    if (intents && typeof intents.values === "function") {
+      for (const intent of intents.values() as Iterable<any>) {
+        const unshieldedOffers = [
+          intent.guaranteedUnshieldedOffer,
+          intent.fallibleUnshieldedOffer,
+        ].filter(Boolean);
+        for (const offer of unshieldedOffers) {
+          for (const spend of offer.inputs ?? []) {
+            const ownerSvk = bytesOrStringToHex(spend.owner);
+            const ownerAddr = addressFromKey(ownerSvk).toLowerCase();
+            yield* World.resolve(insertOfferFileUnshieldedSpend, {
+              offer_file_id: offerFileId,
+              owner: ownerAddr,
+              intent_hash: bytesOrStringToHex(spend.intentHash).toLowerCase(),
+              output_no: Number(spend.outputNo),
+            });
+          }
+        }
+      }
     }
 
     // ── Insert derived gives/wants ──

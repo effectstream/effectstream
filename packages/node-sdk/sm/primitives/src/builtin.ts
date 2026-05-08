@@ -2,6 +2,7 @@
 // this list is exposed to the effectstream-sdk modules via the @effectstream/sm/builtin module
 export const PrimitiveTypeMidnightGeneric = "Midnight:Generic" as const;
 export const PrimitiveTypeMidnightNullifier = "Midnight:Nullifier" as const;
+export const PrimitiveTypeMidnightUnshieldedSpend = "Midnight:UnshieldedSpend" as const;
 
 export const PrimitiveTypeUtxorpcGeneric = "Utxorpc:Generic" as const;
 
@@ -27,6 +28,7 @@ export const PrimitiveTypeNEARAccountWatch = "NEAR:AccountWatch" as const;
 type BuiltInPrimitives =
     typeof PrimitiveTypeMidnightGeneric |
     typeof PrimitiveTypeMidnightNullifier |
+    typeof PrimitiveTypeMidnightUnshieldedSpend |
     typeof PrimitiveTypeEVMEffectstreamL2 |
     typeof PrimitiveTypeEVMERC721 |
     typeof PrimitiveTypeEVMERC20 |

@@ -7,6 +7,7 @@ import {
   PrimitiveTypeCelestiaGeneric,
   PrimitiveTypeMidnightGeneric,
   PrimitiveTypeMidnightNullifier,
+  PrimitiveTypeMidnightUnshieldedSpend,
 } from "@effectstream/sm/builtin";
 import type { BlockNumber } from "@effectstream/utils";
 import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
@@ -202,6 +203,15 @@ export const localhostConfig = new ConfigBuilder()
         type: PrimitiveTypeMidnightNullifier,
         startBlockHeight: 1,
         stateMachinePrefix: "midnight-nullifier",
+        networkId: midnightNetworkConfig.id,
+      }),
+    ).addPrimitive(
+      (syncProtocols) => (syncProtocols as any).parallelMidnight,
+      (_network, _deployments, _syncProtocol) => ({
+        name: "Midnight-UnshieldedSpend",
+        type: PrimitiveTypeMidnightUnshieldedSpend,
+        startBlockHeight: 1,
+        stateMachinePrefix: "midnight-unshielded-spend",
         networkId: midnightNetworkConfig.id,
       }),
     );

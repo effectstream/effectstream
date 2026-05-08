@@ -53,6 +53,7 @@ const CELESTIA_NODE_URL = ENV.getString(
   "CELESTIA_NODE_URL",
   "http://localhost:26658",
 );
+const CELESTIA_AUTH_TOKEN = ENV.getString("CELESTIA_AUTH_TOKEN", "");
 
 /**
  * Converts a hex-encoded Celestia namespace to a base64-encoded 29-byte array.
@@ -81,9 +82,11 @@ export class CelestiaClient {
   private async rpc<T>(method: string, params: unknown[]): Promise<T | null> {
     let res: Response;
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (CELESTIA_AUTH_TOKEN) headers["Authorization"] = `Bearer ${CELESTIA_AUTH_TOKEN}`;
       res = await fetch(this.rpcUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
       });
     } catch (err: unknown) {

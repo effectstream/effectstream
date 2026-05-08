@@ -52,6 +52,18 @@ CREATE TABLE offer_file_nullifiers (
     nullifier TEXT NOT NULL UNIQUE
 );
 
+CREATE TABLE offer_file_unshielded_spends (
+    id SERIAL PRIMARY KEY,
+    offer_file_id INTEGER NOT NULL REFERENCES offer_file(id) ON DELETE CASCADE,
+    owner TEXT NOT NULL,
+    intent_hash TEXT NOT NULL,
+    output_no INTEGER NOT NULL,
+    UNIQUE (owner, intent_hash, output_no)
+);
+
+CREATE INDEX IF NOT EXISTS idx_offer_file_unshielded_spends_lookup
+    ON offer_file_unshielded_spends (owner, intent_hash, output_no);
+
 CREATE TABLE offer_file_history (
     id INTEGER PRIMARY KEY,
     celestia_height BIGINT NOT NULL,
@@ -84,5 +96,14 @@ CREATE TABLE offer_file_nullifiers_history (
     id SERIAL PRIMARY KEY,
     offer_file_id INTEGER NOT NULL,
     nullifier TEXT NOT NULL,
+    archived_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE offer_file_unshielded_spends_history (
+    id SERIAL PRIMARY KEY,
+    offer_file_id INTEGER NOT NULL,
+    owner TEXT NOT NULL,
+    intent_hash TEXT NOT NULL,
+    output_no INTEGER NOT NULL,
     archived_at TIMESTAMPTZ DEFAULT NOW()
 );

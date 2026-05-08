@@ -311,7 +311,7 @@ export interface IArchiveOfferByNullifierQuery {
   result: IArchiveOfferByNullifierResult;
 }
 
-const archiveOfferByNullifierIR: any = {"usedParamSet":{"nullifier":true},"params":[{"name":"nullifier","required":true,"transform":{"type":"scalar"},"locs":[{"a":96,"b":106}]}],"statement":"WITH matched AS (\n    SELECT offer_file_id\n    FROM offer_file_nullifiers\n    WHERE nullifier = :nullifier!\n    LIMIT 1\n),\narchived_offer AS (\n    INSERT INTO offer_file_history (\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at,\n        ttl_seconds,\n        archive_reason\n    )\n    SELECT\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at,\n        ttl_seconds,\n        'CONSUMED'\n    FROM offer_file\n    WHERE id IN (SELECT offer_file_id FROM matched)\n    RETURNING id\n),\narchived_tokens AS (\n    INSERT INTO offer_file_tokens_history (\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    )\n    SELECT\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    FROM offer_file_tokens\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n),\narchived_nullifiers AS (\n    INSERT INTO offer_file_nullifiers_history (\n        offer_file_id,\n        nullifier\n    )\n    SELECT\n        offer_file_id,\n        nullifier\n    FROM offer_file_nullifiers\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n)\nDELETE FROM offer_file\nWHERE id IN (SELECT offer_file_id FROM matched)\nRETURNING id"};
+const archiveOfferByNullifierIR: any = {"usedParamSet":{"nullifier":true},"params":[{"name":"nullifier","required":true,"transform":{"type":"scalar"},"locs":[{"a":96,"b":106}]}],"statement":"WITH matched AS (\n    SELECT offer_file_id\n    FROM offer_file_nullifiers\n    WHERE nullifier = :nullifier!\n    LIMIT 1\n),\narchived_offer AS (\n    INSERT INTO offer_file_history (\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at,\n        ttl_seconds,\n        archive_reason\n    )\n    SELECT\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at,\n        ttl_seconds,\n        'CONSUMED'\n    FROM offer_file\n    WHERE id IN (SELECT offer_file_id FROM matched)\n    RETURNING id\n),\narchived_tokens AS (\n    INSERT INTO offer_file_tokens_history (\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    )\n    SELECT\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    FROM offer_file_tokens\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n),\narchived_nullifiers AS (\n    INSERT INTO offer_file_nullifiers_history (\n        offer_file_id,\n        nullifier\n    )\n    SELECT\n        offer_file_id,\n        nullifier\n    FROM offer_file_nullifiers\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n),\narchived_unshielded_spends AS (\n    INSERT INTO offer_file_unshielded_spends_history (\n        offer_file_id,\n        owner,\n        intent_hash,\n        output_no\n    )\n    SELECT\n        offer_file_id,\n        owner,\n        intent_hash,\n        output_no\n    FROM offer_file_unshielded_spends\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n)\nDELETE FROM offer_file\nWHERE id IN (SELECT offer_file_id FROM matched)\nRETURNING id"};
 
 /**
  * Query generated from SQL:
@@ -404,7 +404,7 @@ export interface IArchiveOfferByIdTtlQuery {
   result: IArchiveOfferByIdTtlResult;
 }
 
-const archiveOfferByIdTtlIR: any = {"usedParamSet":{"offer_file_id":true},"params":[{"name":"offer_file_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":84,"b":98}]}],"statement":"WITH matched AS (\n    SELECT id AS offer_file_id\n    FROM offer_file\n    WHERE id = :offer_file_id!\n    LIMIT 1\n),\narchived_offer AS (\n    INSERT INTO offer_file_history (\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at,\n        ttl_seconds,\n        archive_reason\n    )\n    SELECT\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at,\n        ttl_seconds,\n        'TTL'\n    FROM offer_file\n    WHERE id IN (SELECT offer_file_id FROM matched)\n    RETURNING id\n),\narchived_tokens AS (\n    INSERT INTO offer_file_tokens_history (\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    )\n    SELECT\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    FROM offer_file_tokens\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n),\narchived_nullifiers AS (\n    INSERT INTO offer_file_nullifiers_history (\n        offer_file_id,\n        nullifier\n    )\n    SELECT\n        offer_file_id,\n        nullifier\n    FROM offer_file_nullifiers\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n)\nDELETE FROM offer_file\nWHERE id IN (SELECT offer_file_id FROM matched)\nRETURNING id"};
+const archiveOfferByIdTtlIR: any = {"usedParamSet":{"offer_file_id":true},"params":[{"name":"offer_file_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":84,"b":98}]}],"statement":"WITH matched AS (\n    SELECT id AS offer_file_id\n    FROM offer_file\n    WHERE id = :offer_file_id!\n    LIMIT 1\n),\narchived_offer AS (\n    INSERT INTO offer_file_history (\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at,\n        ttl_seconds,\n        archive_reason\n    )\n    SELECT\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at,\n        ttl_seconds,\n        'TTL'\n    FROM offer_file\n    WHERE id IN (SELECT offer_file_id FROM matched)\n    RETURNING id\n),\narchived_tokens AS (\n    INSERT INTO offer_file_tokens_history (\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    )\n    SELECT\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    FROM offer_file_tokens\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n),\narchived_nullifiers AS (\n    INSERT INTO offer_file_nullifiers_history (\n        offer_file_id,\n        nullifier\n    )\n    SELECT\n        offer_file_id,\n        nullifier\n    FROM offer_file_nullifiers\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n),\narchived_unshielded_spends AS (\n    INSERT INTO offer_file_unshielded_spends_history (\n        offer_file_id,\n        owner,\n        intent_hash,\n        output_no\n    )\n    SELECT\n        offer_file_id,\n        owner,\n        intent_hash,\n        output_no\n    FROM offer_file_unshielded_spends\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n)\nDELETE FROM offer_file\nWHERE id IN (SELECT offer_file_id FROM matched)\nRETURNING id"};
 
 /**
  * Query generated from SQL:
@@ -480,4 +480,101 @@ const archiveOfferByIdTtlIR: any = {"usedParamSet":{"offer_file_id":true},"param
  */
 export const archiveOfferByIdTtl = new PreparedQuery<IArchiveOfferByIdTtlParams,IArchiveOfferByIdTtlResult>(archiveOfferByIdTtlIR);
 
+
+/** 'InsertOfferFileUnshieldedSpend' parameters type */
+export interface IInsertOfferFileUnshieldedSpendParams {
+  intent_hash: string;
+  offer_file_id: number;
+  output_no: number;
+  owner: string;
+}
+
+/** 'InsertOfferFileUnshieldedSpend' return type */
+export type IInsertOfferFileUnshieldedSpendResult = void;
+
+/** 'InsertOfferFileUnshieldedSpend' query type */
+export interface IInsertOfferFileUnshieldedSpendQuery {
+  params: IInsertOfferFileUnshieldedSpendParams;
+  result: IInsertOfferFileUnshieldedSpendResult;
+}
+
+const insertOfferFileUnshieldedSpendIR: any = {"usedParamSet":{"offer_file_id":true,"owner":true,"intent_hash":true,"output_no":true},"params":[{"name":"offer_file_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":119,"b":133}]},{"name":"owner","required":true,"transform":{"type":"scalar"},"locs":[{"a":140,"b":146}]},{"name":"intent_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":153,"b":165}]},{"name":"output_no","required":true,"transform":{"type":"scalar"},"locs":[{"a":172,"b":182}]}],"statement":"INSERT INTO offer_file_unshielded_spends (\n    offer_file_id,\n    owner,\n    intent_hash,\n    output_no\n) VALUES (\n    :offer_file_id!,\n    :owner!,\n    :intent_hash!,\n    :output_no!\n) ON CONFLICT (owner, intent_hash, output_no) DO NOTHING"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * INSERT INTO offer_file_unshielded_spends (
+ *     offer_file_id,
+ *     owner,
+ *     intent_hash,
+ *     output_no
+ * ) VALUES (
+ *     :offer_file_id!,
+ *     :owner!,
+ *     :intent_hash!,
+ *     :output_no!
+ * ) ON CONFLICT (owner, intent_hash, output_no) DO NOTHING
+ * ```
+ */
+export const insertOfferFileUnshieldedSpend = new PreparedQuery<IInsertOfferFileUnshieldedSpendParams,IInsertOfferFileUnshieldedSpendResult>(insertOfferFileUnshieldedSpendIR);
+
+
+/** 'GetOfferFileUnshieldedSpends' parameters type */
+export interface IGetOfferFileUnshieldedSpendsParams {
+  offer_file_id: number;
+}
+
+/** 'GetOfferFileUnshieldedSpends' return type */
+export interface IGetOfferFileUnshieldedSpendsResult {
+  id: number;
+  intent_hash: string;
+  offer_file_id: number;
+  output_no: number;
+  owner: string;
+}
+
+/** 'GetOfferFileUnshieldedSpends' query type */
+export interface IGetOfferFileUnshieldedSpendsQuery {
+  params: IGetOfferFileUnshieldedSpendsParams;
+  result: IGetOfferFileUnshieldedSpendsResult;
+}
+
+const getOfferFileUnshieldedSpendsIR: any = {"usedParamSet":{"offer_file_id":true},"params":[{"name":"offer_file_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":65,"b":79}]}],"statement":"SELECT * FROM offer_file_unshielded_spends WHERE offer_file_id = :offer_file_id!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT * FROM offer_file_unshielded_spends WHERE offer_file_id = :offer_file_id!
+ * ```
+ */
+export const getOfferFileUnshieldedSpends = new PreparedQuery<IGetOfferFileUnshieldedSpendsParams,IGetOfferFileUnshieldedSpendsResult>(getOfferFileUnshieldedSpendsIR);
+
+
+/** 'ArchiveOfferByUnshieldedSpend' parameters type */
+export interface IArchiveOfferByUnshieldedSpendParams {
+  intent_hash: string;
+  output_no: number;
+  owner: string;
+}
+
+/** 'ArchiveOfferByUnshieldedSpend' return type */
+export interface IArchiveOfferByUnshieldedSpendResult {
+  id: number;
+}
+
+/** 'ArchiveOfferByUnshieldedSpend' query type */
+export interface IArchiveOfferByUnshieldedSpendQuery {
+  params: IArchiveOfferByUnshieldedSpendParams;
+  result: IArchiveOfferByUnshieldedSpendResult;
+}
+
+const archiveOfferByUnshieldedSpendIR: any = {"usedParamSet":{"owner":true,"intent_hash":true,"output_no":true},"params":[{"name":"owner","required":true,"transform":{"type":"scalar"},"locs":[{"a":99,"b":105}]},{"name":"intent_hash","required":true,"transform":{"type":"scalar"},"locs":[{"a":131,"b":143}]},{"name":"output_no","required":true,"transform":{"type":"scalar"},"locs":[{"a":167,"b":177}]}],"statement":"WITH matched AS (\n    SELECT offer_file_id\n    FROM offer_file_unshielded_spends\n    WHERE owner = :owner!\n      AND intent_hash = :intent_hash!\n      AND output_no = :output_no!\n    LIMIT 1\n),\narchived_offer AS (\n    INSERT INTO offer_file_history (\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at,\n        ttl_seconds,\n        archive_reason\n    )\n    SELECT\n        id,\n        celestia_height,\n        transaction_hex,\n        metadata_created_at,\n        metadata_expires_at,\n        metadata_maker_note,\n        auth_signer_public_key,\n        auth_signature,\n        auth_scheme,\n        created_at,\n        ttl_seconds,\n        'CONSUMED'\n    FROM offer_file\n    WHERE id IN (SELECT offer_file_id FROM matched)\n    RETURNING id\n),\narchived_tokens AS (\n    INSERT INTO offer_file_tokens_history (\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    )\n    SELECT\n        offer_file_id,\n        token_color,\n        amount,\n        direction\n    FROM offer_file_tokens\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n),\narchived_nullifiers AS (\n    INSERT INTO offer_file_nullifiers_history (\n        offer_file_id,\n        nullifier\n    )\n    SELECT\n        offer_file_id,\n        nullifier\n    FROM offer_file_nullifiers\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n),\narchived_unshielded_spends AS (\n    INSERT INTO offer_file_unshielded_spends_history (\n        offer_file_id,\n        owner,\n        intent_hash,\n        output_no\n    )\n    SELECT\n        offer_file_id,\n        owner,\n        intent_hash,\n        output_no\n    FROM offer_file_unshielded_spends\n    WHERE offer_file_id IN (SELECT offer_file_id FROM matched)\n)\nDELETE FROM offer_file\nWHERE id IN (SELECT offer_file_id FROM matched)\nRETURNING id"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * Archive an offer when one of its unshielded UTXO refs is observed spent on chain.
+ * ```
+ */
+export const archiveOfferByUnshieldedSpend = new PreparedQuery<IArchiveOfferByUnshieldedSpendParams,IArchiveOfferByUnshieldedSpendResult>(archiveOfferByUnshieldedSpendIR);
 
