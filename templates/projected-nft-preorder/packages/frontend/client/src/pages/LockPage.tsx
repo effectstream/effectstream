@@ -25,13 +25,25 @@ interface Props {
 }
 
 function deduplicateLocks(locks: NftLock[]): NftLock[] {
+  // Step 1: remove exact row duplicates (primitive emits each event twice)
   const seen = new Set<string>();
-  return locks.filter((l) => {
+  const unique = locks.filter((l) => {
     const key = `${l.current_tx_id}:${l.current_output_index ?? ""}:${l.status}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+
+  // Step 2: keep only the latest state per NFT (highest block_height wins)
+  const latest = new Map<string, NftLock>();
+  for (const l of unique) {
+    const nftKey = `${l.policy_id}:${l.asset_name}:${l.owner_address}`;
+    const existing = latest.get(nftKey);
+    if (!existing || l.block_height > existing.block_height) {
+      latest.set(nftKey, l);
+    }
+  }
+  return Array.from(latest.values());
 }
 
 export default function LockPage({ wallet, addLog, requestTx }: Props) {

@@ -12,7 +12,11 @@ export default {
     ),
     ...launchCardano("@projected-nft-preorder/contracts-cardano", {
       cwd: path.join(root, "packages/contracts-cardano"),
-    }),
+    }).map(p =>
+      p.name === CardanoNames.CARDANO_SUBMIT_TX
+        ? { ...p, env: { ...p.env, RUN_LIFECYCLE_TEST: "1" } }
+        : p
+    ),
 
     {
       name: "sync",

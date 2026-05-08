@@ -82,6 +82,8 @@ async function main() {
   fs.writeFileSync(path.join(TEMP_DIR, "hololocker-script-hash.txt"), scriptHash, "utf-8");
   console.log(`Wrote script hash to ${TEMP_DIR}/hololocker-script-hash.txt: ${scriptHash}`);
 
+  if (!process.env.RUN_LIFECYCLE_TEST) return;
+
   console.log("\n--- Phase 3: Lock NFT at Hololocker ---\n");
   await new Promise((r) => setTimeout(r, 2000));
 
