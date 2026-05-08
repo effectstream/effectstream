@@ -5,8 +5,8 @@ import { getScriptAddress } from "../cardano/hololocker.ts";
 import { cardanoPosixToWallClock } from "../cardano/wallet.ts";
 import { decodeAssetName, truncateAddress, truncateHash, statusLabel, formatTimestamp, relativeTime, toHex } from "../utils.ts";
 import { randomNftName } from "../name-generator.ts";
-import { colors, badge, btn as btnStyle, input as inputStyle, sectionHeader, sectionDesc } from "../styles.ts";
-import NewCard from "../components/NewCard.tsx";
+import { colors, glass, badge, btn as btnStyle, input as inputStyle, sectionHeader, sectionDesc } from "../styles.ts";
+import NftCard from "../components/NftCard.tsx";
 import type { WalletState } from "../App.tsx";
 import type { LogEntry } from "../components/LogPanel.tsx";
 import type { TxRequest } from "../components/TxConfirmModal.tsx";
@@ -52,6 +52,12 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
   const [assetName, setAssetName] = useState(randomNftName);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<"all" | "my">("all");
+  const [cardSeeds, setCardSeeds] = useState<[string, string]>(() => [
+    Math.random().toString(16).slice(2, 18),
+    Math.random().toString(16).slice(2, 18),
+  ]);
+  const [activeSeed, setActiveSeed] = useState(0);
+  const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
 
   const locks = deduplicateLocks(rawLocks);
 
@@ -107,6 +113,27 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
     return () => clearInterval(interval);
   }, [wallet.walletInfo]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveSeed(prev => {
+        const next = prev === 0 ? 1 : 0;
+        setCardSeeds(seeds => {
+          const copy: [string, string] = [seeds[0], seeds[1]];
+          copy[prev] = Math.random().toString(16).slice(2, 18);
+          return copy;
+        });
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const addToast = (msg: string) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, msg }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 8000);
+  };
+
   const atScript = locks.filter((l) => l.status === "Lock" || l.status === "Unlocking");
 
   const isOwner = (lock: NftLock) =>
@@ -122,14 +149,17 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
     if (!wallet.walletInfo || busy) return;
     setBusy(true);
     try {
+      const mintName = assetName;
+      setAssetName(randomNftName());
       await requestTx({
         operation: "Mint Test NFT",
-        details: { "Asset Name": assetName, "Amount": "1" },
+        details: { "Asset Name": mintName, "Amount": "1" },
         onConfirm: async () => {
-          addLog(`Minting "${assetName}"...`);
-          const { txHash, policyId } = await mintTokens(wallet.walletInfo!.lucid, assetName);
+          addLog(`Minting "${mintName}"...`);
+          const { txHash, policyId } = await mintTokens(wallet.walletInfo!.lucid, mintName);
           addLog(`Minted! TX: ${truncateHash(txHash, 20)}`, "success");
           addLog(`Policy: ${truncateHash(policyId, 20)}`);
+          addToast("Minted! Card arriving shortly…");
           await fetchWalletNfts();
         },
       });
@@ -156,6 +186,7 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
           const { txHash, scriptAddress } = await lockNftAtScript(wallet.walletInfo!.lucid, nft.unit);
           addLog(`Locked! TX: ${truncateHash(txHash, 20)}`, "success");
           addLog(`Script address: ${truncateAddress(scriptAddress)}`);
+          addToast("Locked! Moving to vault…");
           await fetchWalletNfts();
           setTimeout(fetchLocks, 3000);
         },
@@ -189,6 +220,7 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
           );
           addLog(`Unlock TX: ${truncateHash(txHash, 20)}`, "success");
           addLog(`Claimable after: ${formatTimestamp(forHowLong.toString())}`);
+          addToast("Unlock requested! Updating…");
           await fetchWalletNfts();
           setTimeout(fetchLocks, 3000);
         },
@@ -220,6 +252,7 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
             BigInt(lock.for_how_long!),
           );
           addLog(`Claimed! TX: ${truncateHash(txHash, 20)}`, "success");
+          addToast("Claimed! Returning to wallet…");
           await fetchWalletNfts();
           setTimeout(fetchLocks, 3000);
         },
@@ -237,98 +270,157 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
     return Date.now() > cardanoPosixToWallClock(ms);
   };
 
+  const renderMintCard = () => {
+    if (!wallet.connected || !wallet.walletInfo) return null;
+    return (
+      <div data-testid="mint-card" style={{ position: "relative", width: 180 }}>
+        <div style={{
+          position: "relative",
+          width: 180,
+          height: 252,
+          overflow: "hidden",
+          borderRadius: 12,
+          filter: "blur(4px) brightness(0.5)",
+          pointerEvents: "none",
+        }}>
+          {[0, 1].map(i => (
+            <div key={i} style={{
+              position: "absolute",
+              inset: 0,
+              opacity: activeSeed === i ? 1 : 0,
+              transition: "opacity 2s ease-in-out",
+            }}>
+              <NftCard assetHex={cardSeeds[i]} name="" />
+            </div>
+          ))}
+        </div>
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 252,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0.75rem",
+          gap: "0.5rem",
+          zIndex: 10,
+          borderRadius: 12,
+          background: "rgba(6,8,15,0.35)",
+        }}>
+          <div style={{ fontSize: "0.82rem", fontWeight: 600, color: colors.text }}>
+            Mint NFT
+          </div>
+          <p style={{ fontSize: "0.68rem", color: colors.muted, margin: 0, textAlign: "center", lineHeight: 1.4 }}>
+            Create a native asset on devnet
+          </p>
+          <div style={{ display: "flex", gap: "0.25rem", width: "100%" }}>
+            <input
+              data-testid="asset-name-input"
+              value={assetName}
+              onChange={(e) => setAssetName(e.target.value)}
+              style={{ ...inputStyle, flex: 1, fontSize: "0.72rem", padding: "0.35rem 0.5rem" }}
+              placeholder="AssetName"
+            />
+            <button
+              data-testid="randomize-btn"
+              onClick={() => setAssetName(randomNftName())}
+              title="Random name"
+              style={{
+                background: "transparent",
+                border: `1px solid ${colors.glassBorder}`,
+                color: colors.muted,
+                borderRadius: 6,
+                padding: "0.35rem 0.4rem",
+                cursor: "pointer",
+                fontSize: "0.8rem",
+                lineHeight: 1,
+              }}
+            >
+              ↻
+            </button>
+          </div>
+          <button
+            data-testid="mint-btn"
+            onClick={handleMint}
+            disabled={busy || !assetName}
+            style={{
+              ...btnStyle(colors.primary),
+              fontSize: "0.72rem",
+              padding: "0.35rem 0.75rem",
+              opacity: busy ? 0.5 : 1,
+              width: "100%",
+            }}
+          >
+            Mint NFT
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderWalletNftCard = (nft: WalletNft) => {
     const name = decodeAssetName(nft.assetNameHex);
-    const showDecoded = name !== nft.assetNameHex;
 
     return (
-      <NewCard key={nft.unit} id={`wallet-${nft.unit}`}>
-        <div data-testid="wallet-nft-card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-            <span style={{ fontWeight: 600, fontSize: "0.95rem" }}>
-              {showDecoded ? name : truncateHash(nft.assetNameHex, 20)}
-            </span>
-            <span style={{ fontSize: "0.72rem", color: colors.muted }}>
-              qty: {nft.quantity.toString()}
-            </span>
-          </div>
-          <div style={{ fontSize: "0.82rem", color: colors.textDim, display: "grid", gridTemplateColumns: "auto 1fr", gap: "0.2rem 0.75rem", marginBottom: "0.6rem" }}>
+      <NftCard key={nft.unit} assetHex={nft.unit} name={name}>
+        <div data-testid="wallet-nft-card" style={{ fontSize: "0.78rem", color: colors.textDim }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.35rem" }}>
             <span style={{ color: colors.muted }}>Policy</span>
-            <span>{truncateHash(nft.policyId, 24)}</span>
-            {showDecoded && (
-              <>
-                <span style={{ color: colors.muted }}>Asset (hex)</span>
-                <span>{truncateHash(nft.assetNameHex, 24)}</span>
-              </>
-            )}
+            <span>{truncateHash(nft.policyId, 18)}</span>
           </div>
           <button
             data-testid="lock-btn"
             onClick={() => handleLock(nft)}
             disabled={busy}
-            style={{ ...btnStyle(colors.success), fontSize: "0.78rem", padding: "0.35rem 0.75rem", opacity: busy ? 0.5 : 1 }}
+            style={{ ...btnStyle(colors.success), fontSize: "0.72rem", padding: "0.3rem 0.65rem", opacity: busy ? 0.5 : 1, width: "100%", marginTop: "0.3rem" }}
           >
             Lock at Hololocker
           </button>
         </div>
-      </NewCard>
+      </NftCard>
     );
   };
 
   const renderScriptCard = (lock: NftLock) => {
     const st = statusLabel(lock.status);
     const name = decodeAssetName(lock.asset_name);
-    const showDecoded = name !== lock.asset_name;
     const owned = isOwner(lock);
+    const unit = `${lock.policy_id}${lock.asset_name}`;
 
     return (
-      <NewCard key={lock.id} id={`script-${lock.id}`}>
-        <div data-testid="lock-card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-              <span style={{ fontWeight: 600, fontSize: "0.95rem" }}>
-                {showDecoded ? name : truncateHash(lock.asset_name, 20)}
-              </span>
-              <span style={badge(st.color, st.bg)}>{st.label}</span>
-            </div>
-            <span style={{ fontSize: "0.75rem", color: colors.mutedLight }}>Block #{lock.block_height}</span>
+      <NftCard key={lock.id} assetHex={unit} name={name}>
+        <div data-testid="lock-card" style={{ fontSize: "0.75rem", color: colors.textDim }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
+            <span style={badge(st.color, st.bg)}>{st.label}</span>
+            <span style={{ color: colors.mutedLight, fontSize: "0.68rem" }}>#{lock.block_height}</span>
           </div>
-
-          <div style={{ fontSize: "0.82rem", color: colors.textDim, display: "grid", gridTemplateColumns: "auto 1fr", gap: "0.2rem 0.75rem" }}>
-            <span style={{ color: colors.muted }}>Owner</span>
-            <span>
+          <div style={{ marginBottom: "0.15rem" }}>
+            <span style={{ color: colors.muted }}>Owner </span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {truncateAddress(lock.owner_address)}
-              {owned && <span style={{ color: colors.primary, fontWeight: 600, marginLeft: "0.4rem" }}>(YOU)</span>}
             </span>
-            <span style={{ color: colors.muted }}>Policy</span>
-            <span>{truncateHash(lock.policy_id, 24)}</span>
-            <span style={{ color: colors.muted }}>TX</span>
-            <span>{truncateHash(lock.current_tx_id, 24)}</span>
-            {showDecoded && (
-              <>
-                <span style={{ color: colors.muted }}>Asset (hex)</span>
-                <span>{truncateHash(lock.asset_name, 24)}</span>
-              </>
-            )}
-            {lock.for_how_long && (
-              <>
-                <span style={{ color: colors.muted }}>Claimable</span>
-                <span>
-                  {formatTimestamp(cardanoPosixToWallClock(parseInt(lock.for_how_long, 10)))}{" "}
-                  <span style={{ color: colors.mutedLight }}>({relativeTime(cardanoPosixToWallClock(parseInt(lock.for_how_long, 10)))})</span>
-                </span>
-              </>
-            )}
+            {owned && <span style={{ color: colors.primary, fontWeight: 600, fontSize: "0.68rem" }}> YOU</span>}
           </div>
+          {lock.for_how_long && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.15rem" }}>
+              <span style={{ color: colors.muted }}>Claim</span>
+              <span style={{ fontSize: "0.7rem" }}>
+                {relativeTime(cardanoPosixToWallClock(parseInt(lock.for_how_long, 10)))}
+              </span>
+            </div>
+          )}
 
           {owned && wallet.connected && (
-            <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
+            <div style={{ marginTop: "0.35rem" }}>
               {lock.status === "Lock" && (
                 <button
                   data-testid="unlock-btn"
                   onClick={() => handleUnlock(lock)}
                   disabled={busy}
-                  style={{ ...btnStyle(colors.warning), fontSize: "0.78rem", padding: "0.35rem 0.75rem", opacity: busy ? 0.5 : 1 }}
+                  style={{ ...btnStyle(colors.warning), fontSize: "0.72rem", padding: "0.3rem 0.65rem", opacity: busy ? 0.5 : 1, width: "100%" }}
                 >
                   Request Unlock
                 </button>
@@ -340,9 +432,10 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
                   disabled={busy || !canClaim(lock)}
                   style={{
                     ...btnStyle(canClaim(lock) ? colors.success : colors.muted),
-                    fontSize: "0.78rem", padding: "0.35rem 0.75rem",
+                    fontSize: "0.72rem", padding: "0.3rem 0.65rem",
                     opacity: busy || !canClaim(lock) ? 0.5 : 1,
                     cursor: canClaim(lock) ? "pointer" : "not-allowed",
+                    width: "100%",
                   }}
                 >
                   {canClaim(lock) ? "Claim NFT" : "Time Lock Active"}
@@ -351,7 +444,7 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
             </div>
           )}
         </div>
-      </NewCard>
+      </NftCard>
     );
   };
 
@@ -366,57 +459,6 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
         </p>
       </div>
 
-      {/* Mint — global action */}
-      {wallet.connected && wallet.walletInfo && (
-        <div data-testid="mint-section" style={{
-          background: colors.cardBg, border: `1px solid ${colors.cardBorder}`,
-          borderRadius: 8, padding: "1rem", marginBottom: "1.5rem",
-        }}>
-          <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.25rem", color: colors.textDim }}>
-            Mint Test NFT
-          </div>
-          <p style={{ fontSize: "0.78rem", color: colors.muted, margin: "0 0 0.75rem" }}>
-            Create a native asset on the devnet. The asset name is the on-chain token identifier (e.g. "PreOrderNFT").
-          </p>
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
-            <div>
-              <label style={{ fontSize: "0.75rem", color: colors.muted, display: "block", marginBottom: "0.3rem" }}>
-                Asset Name
-              </label>
-              <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
-                <input
-                  data-testid="asset-name-input"
-                  value={assetName}
-                  onChange={(e) => setAssetName(e.target.value)}
-                  style={{ ...inputStyle, width: 180 }}
-                  placeholder="AssetName"
-                />
-                <button
-                  data-testid="randomize-btn"
-                  onClick={() => setAssetName(randomNftName())}
-                  title="Random name"
-                  style={{
-                    background: "transparent", border: `1px solid ${colors.cardBorder}`,
-                    color: colors.muted, borderRadius: 6, padding: "0.45rem 0.5rem",
-                    cursor: "pointer", fontSize: "0.85rem", lineHeight: 1,
-                  }}
-                >
-                  ↻
-                </button>
-              </div>
-            </div>
-            <button
-              data-testid="mint-btn"
-              onClick={handleMint}
-              disabled={busy || !assetName}
-              style={{ ...btnStyle(colors.primary), opacity: busy ? 0.5 : 1 }}
-            >
-              Mint NFT
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Two-column layout: Unlocked | Locked */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", alignItems: "start" }}>
         {/* Unlocked — NFTs from wallet UTxOs */}
@@ -427,10 +469,9 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
           </div>
           {!wallet.connected ? (
             <p style={emptyCol}>Connect a wallet to see your NFTs.</p>
-          ) : walletNfts.length === 0 ? (
-            <p style={emptyCol}>No unlocked NFTs in your wallet. Mint one above to get started.</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+              {renderMintCard()}
               {walletNfts.map(renderWalletNftCard)}
             </div>
           )}
@@ -468,12 +509,41 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
               {filter === "my" ? "You have no locked NFTs." : "No locked NFTs yet."}
             </p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
               {filteredAtScript.map(renderScriptCard)}
             </div>
           )}
         </div>
       </div>
+
+      {toasts.length > 0 && (
+        <div style={{
+          position: "fixed",
+          bottom: "1.5rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 900,
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.5rem",
+          alignItems: "center",
+        }}>
+          {toasts.map(t => (
+            <div key={t.id} style={{
+              ...glass,
+              padding: "0.6rem 1.25rem",
+              fontSize: "0.82rem",
+              color: colors.primary,
+              fontWeight: 500,
+              whiteSpace: "nowrap",
+              animation: "toast-in 300ms ease-out",
+            }}>
+              {t.msg}
+            </div>
+          ))}
+          <style>{`@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+        </div>
+      )}
     </div>
   );
 }
@@ -481,7 +551,7 @@ export default function LockPage({ wallet, addLog, requestTx }: Props) {
 const columnHeader: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: "0.5rem",
   fontSize: "0.9rem", fontWeight: 600, marginBottom: "0.75rem",
-  paddingBottom: "0.5rem", borderBottom: `1px solid ${colors.cardBorder}`,
+  paddingBottom: "0.5rem", borderBottom: `1px solid ${colors.glassBorder}`,
 };
 
 const columnCount: React.CSSProperties = {
@@ -495,7 +565,7 @@ const emptyCol: React.CSSProperties = {
 const filterBtn = (active: boolean): React.CSSProperties => ({
   background: active ? "rgba(59,130,246,0.15)" : "transparent",
   color: active ? colors.primary : colors.muted,
-  border: `1px solid ${active ? colors.primary : colors.cardBorder}`,
+  border: `1px solid ${active ? "rgba(59,130,246,0.35)" : colors.glassBorder}`,
   borderRadius: 4,
   padding: "0.2rem 0.5rem",
   fontSize: "0.72rem",

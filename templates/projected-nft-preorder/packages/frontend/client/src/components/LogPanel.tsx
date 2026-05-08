@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { colors, fonts } from "../styles.ts";
+import { colors, fonts, glass } from "../styles.ts";
 
 export interface LogEntry {
   time: string;
@@ -13,9 +13,9 @@ interface LogPanelProps {
 
 const typeColor: Record<string, string> = {
   info: colors.logText,
-  success: "#16a34a",
-  error: "#dc2626",
-  warn: "#d97706",
+  success: "#4ade80",
+  error: "#f87171",
+  warn: "#fbbf24",
 };
 
 export function createLogEntry(
@@ -38,8 +38,10 @@ export default function LogPanel({ entries }: LogPanelProps) {
     <div
       data-testid="log-panel"
       style={{
-        background: colors.logBg,
-        borderLeft: `1px solid ${colors.logBorder}`,
+        ...glass,
+        borderRadius: 0,
+        borderTop: "none", borderRight: "none", borderBottom: "none",
+        borderLeft: `1px solid ${colors.glassBorder}`,
         height: "100%",
         display: "flex",
         flexDirection: "column",
@@ -49,7 +51,7 @@ export default function LogPanel({ entries }: LogPanelProps) {
       <div
         style={{
           padding: "0.75rem 1rem",
-          borderBottom: `1px solid ${colors.logBorder}`,
+          borderBottom: `1px solid ${colors.glassBorder}`,
           fontFamily: fonts.mono,
           fontSize: "0.7rem",
           fontWeight: 600,

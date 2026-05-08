@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { colors, fonts, btn as btnStyle } from "../styles.ts";
+import { colors, fonts, glass, btn as btnStyle } from "../styles.ts";
 import { detectWallets } from "../cip30.ts";
 
 type WalletMode = "choose" | "lucid-connecting" | "cip30-list";
@@ -43,11 +43,11 @@ export default function WalletConnectModal({ onConnectLucid, onConnectCIP30, onC
     <div style={{
       position: "fixed", inset: 0, zIndex: 1000,
       display: "flex", alignItems: "center", justifyContent: "center",
-      background: colors.modalOverlay, backdropFilter: "blur(4px)",
+      background: colors.modalOverlay, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
     }}>
       <div style={{
-        background: colors.cardBg, border: `1px solid ${colors.cardBorder}`,
-        borderTop: `3px solid ${colors.primary}`, borderRadius: 10,
+        ...glass,
+        borderTop: `2px solid rgba(59,130,246,0.4)`,
         padding: "1.5rem", width: 440, maxWidth: "90vw", fontFamily: fonts.sans,
       }}>
         <div style={{ fontSize: "1.05rem", fontWeight: 600, marginBottom: "1rem" }}>

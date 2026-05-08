@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { colors, fonts, btn as btnStyle } from "../styles.ts";
+import { colors, fonts, glass, btn as btnStyle } from "../styles.ts";
 
 export interface TxRequest {
   operation: string;
@@ -36,15 +36,14 @@ export default function TxConfirmModal({ request }: Props) {
         alignItems: "center",
         justifyContent: "center",
         background: colors.modalOverlay,
-        backdropFilter: "blur(4px)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
       }}
     >
       <div
         style={{
-          background: colors.cardBg,
-          border: `1px solid ${colors.cardBorder}`,
-          borderTop: `3px solid ${colors.primary}`,
-          borderRadius: 10,
+          ...glass,
+          borderTop: `2px solid rgba(59,130,246,0.4)`,
           padding: "1.5rem",
           width: 400,
           maxWidth: "90vw",
@@ -64,8 +63,9 @@ export default function TxConfirmModal({ request }: Props) {
 
         <div
           style={{
-            background: "#0c1021",
-            borderRadius: 6,
+            background: "rgba(6,8,18,0.5)",
+            border: `1px solid ${colors.glassBorder}`,
+            borderRadius: 8,
             padding: "0.75rem 1rem",
             marginBottom: "1.25rem",
             fontSize: "0.85rem",

@@ -14,7 +14,7 @@ import {
   type WalletInfo,
 } from "./cardano/wallet.ts";
 import { truncateAddress } from "./utils.ts";
-import { colors, fonts, btn as btnStyle } from "./styles.ts";
+import { colors, fonts, glass, btn as btnStyle } from "./styles.ts";
 
 export interface WalletState {
   connected: boolean;
@@ -115,8 +115,12 @@ export default function App() {
         <header
           data-testid="header"
           style={{
+            ...glass,
             display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "1rem 1.5rem", borderBottom: `1px solid ${colors.cardBorder}`, flexShrink: 0,
+            padding: "0.85rem 1.5rem", borderRadius: 0,
+            borderTop: "none", borderLeft: "none", borderRight: "none",
+            borderBottom: `1px solid ${colors.glassBorder}`,
+            flexShrink: 0,
           }}
         >
           <h1 style={{ fontSize: "1.15rem", fontWeight: 700, margin: 0 }}>Projected NFT Pre-Order</h1>

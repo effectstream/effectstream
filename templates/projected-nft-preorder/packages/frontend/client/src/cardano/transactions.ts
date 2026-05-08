@@ -105,6 +105,15 @@ export async function unlockNftFromScript(
   );
   const redeemer = makeFullWithdrawRedeemer();
 
+  // Pre-select wallet UTxOs to reduce CML WASM coin-selection pressure
+  // (browser CML build has a known WASM memory bug during coin selection)
+  const walletUtxos = await lucid.wallet().getUtxos();
+  const adaOnly = walletUtxos
+    .filter((u) => Object.keys(u.assets).length === 1 && u.assets.lovelace)
+    .sort((a, b) => Number(b.assets.lovelace - a.assets.lovelace));
+  const collateralUtxo = adaOnly[0];
+  const feeUtxo = adaOnly.length > 1 ? adaOnly[1] : adaOnly[0];
+
   const tx = lucid
     .newTx()
     .collectFrom([lockUtxo], redeemer)
@@ -113,7 +122,11 @@ export async function unlockNftFromScript(
     .validTo(validityUpperMs)
     .addSigner(walletAddr);
 
-  const signed = await (await tx.complete({ localUPLCEval: false })).sign.withWallet().complete();
+  const signed = await (await tx.complete({
+    localUPLCEval: false,
+    setCollateral: 5_000_000n,
+    presetWalletInputs: feeUtxo ? [feeUtxo] : undefined,
+  })).sign.withWallet().complete();
   const txHash = await signed.submit();
   await lucid.awaitTx(txHash);
 
@@ -143,6 +156,12 @@ export async function claimNftFromScript(
   const epochOffset = systemStartMs - slotConfig.zeroTime;
   const validFromMs = Number(forHowLong) - epochOffset + 1000;
 
+  const walletUtxos = await lucid.wallet().getUtxos();
+  const adaOnly = walletUtxos
+    .filter((u) => Object.keys(u.assets).length === 1 && u.assets.lovelace)
+    .sort((a, b) => Number(b.assets.lovelace - a.assets.lovelace));
+  const feeUtxo = adaOnly[0];
+
   const tx = lucid
     .newTx()
     .collectFrom([unlockingUtxo], redeemer)
@@ -150,7 +169,11 @@ export async function claimNftFromScript(
     .validFrom(validFromMs)
     .addSigner(walletAddr);
 
-  const signed = await (await tx.complete({ localUPLCEval: false })).sign.withWallet().complete();
+  const signed = await (await tx.complete({
+    localUPLCEval: false,
+    setCollateral: 5_000_000n,
+    presetWalletInputs: feeUtxo ? [feeUtxo] : undefined,
+  })).sign.withWallet().complete();
   const txHash = await signed.submit();
   await lucid.awaitTx(txHash);
 
