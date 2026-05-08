@@ -9,7 +9,6 @@
         "@effectstream/grafana-alloy": "workspace:*",
         "@effectstream/grafana-loki": "workspace:*",
         "bun-types": "^1.3.11",
-        "pg": "^8.14.0",
         "wait-on": "8.0.3",
       },
     },

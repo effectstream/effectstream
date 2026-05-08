@@ -10,10 +10,7 @@
   ],
   "scripts": {
     "test:code": "bun test ./packages",
-    "test:e2e": "cd e2e && bun run runner.ts",
-    "zswap:dev": "bun ./bun-zswap-da/e2e/dev.ts",
-    "zswap:e2e": "bun ./bun-zswap-da/e2e/run-tests.ts",
-    "zswap:celestia-mainnet": "bun --env-file=.env.mainnet ./bun-zswap-da/e2e/dev.ts -- --celestia-mainnet"
+    "test:e2e": "cd e2e && bun run runner.ts"
   },
   "overrides": {
     "@midnight-ntwrk/ledger-v8": "8.0.3",
@@ -24,7 +21,6 @@
     "@effectstream/grafana-alloy": "workspace:*",
     "@effectstream/grafana-loki": "workspace:*",
     "bun-types": "^1.3.11",
-    "pg": "^8.14.0",
     "wait-on": "8.0.3"
   }
 }
