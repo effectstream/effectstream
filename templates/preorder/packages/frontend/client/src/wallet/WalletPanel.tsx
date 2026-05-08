@@ -3,6 +3,7 @@ import { useWallet } from "./WalletContext.tsx";
 import { buyItemsNative, buyItemsErc20, getErc20Balance } from "./evm-wallet.ts";
 import { sendPayment, getBalance } from "./cardano-wallet.ts";
 import { WalletConfirmModal } from "./WalletConfirmModal.tsx";
+import { PurchaseSuccessPopup } from "./PurchaseSuccessPopup.tsx";
 import { useLog } from "../logs/LogContext.tsx";
 import { ETH_TO_ADA_RATE, ZERO_ADDRESS, MOCK_USDC_ADDRESS } from "../config.ts";
 import type { Address } from "viem";
@@ -213,21 +214,12 @@ export function WalletPanel({
             </button>
           )
         )}
-        {txStatus && (
-          <div data-testid="purchase-status" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {!txStatus.startsWith("Error") && (
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#3fb950" }}>Purchase successful!</span>
-            )}
-            <span style={{
-              fontSize: 12, fontFamily: "monospace", wordBreak: "break-all",
-              color: txStatus.startsWith("Error") ? "#f85149" : "#8b949e",
-            }}>
-              {txStatus}
-            </span>
-            {!txStatus.startsWith("Error") && (
-              <span style={{ fontSize: 11, color: "#6e7681" }}>Save the TX for your records</span>
-            )}
-          </div>
+        {txStatus && txStatus.startsWith("Error") && (
+          <span data-testid="purchase-status" style={{
+            fontSize: 12, fontFamily: "monospace", color: "#f85149",
+          }}>
+            {txStatus}
+          </span>
         )}
       </div>
 
@@ -241,6 +233,14 @@ export function WalletPanel({
           currencySymbol={currencySymbol}
           onConfirm={handleModalConfirm}
           onReject={handleModalReject}
+        />
+      )}
+
+      {txStatus && !txStatus.startsWith("Error") && (
+        <PurchaseSuccessPopup
+          txHash={txStatus.replace("TX: ", "")}
+          chain={isEvm ? "evm" : "cardano"}
+          onClose={() => { setTxStatus(null); onClearCart?.(); }}
         />
       )}
     </div>

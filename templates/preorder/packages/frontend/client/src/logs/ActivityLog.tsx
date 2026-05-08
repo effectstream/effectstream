@@ -22,26 +22,26 @@ export function ActivityLog() {
 
   return (
     <div style={{
-      height: "100%", background: "#0d1117", borderLeft: "1px solid #21262d",
+      height: "100%", background: "#ffffff", borderLeft: "1px solid #e0e0e0",
       display: "flex", flexDirection: "column",
     }}>
       <div style={{
-        padding: "12px 16px", borderBottom: "1px solid #21262d",
-        fontSize: 11, fontWeight: 700, color: "#6e7681",
+        padding: "12px 16px", borderBottom: "1px solid #e0e0e0",
+        fontSize: 11, fontWeight: 700, color: "#666",
         textTransform: "uppercase", letterSpacing: "0.5px",
       }}>
         Activity Log
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
         {logs.length === 0 && (
-          <div style={{ padding: "24px 16px", color: "#484f58", fontSize: 12, textAlign: "center" }}>
+          <div style={{ padding: "24px 16px", color: "#999", fontSize: 12, textAlign: "center" }}>
             No activity yet
           </div>
         )}
         {logs.map((entry) => (
           <div key={entry.id} style={{
             padding: "6px 16px", fontSize: 11, lineHeight: 1.5,
-            borderBottom: "1px solid #161b22",
+            borderBottom: "1px solid #f0f0f0",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{
@@ -52,16 +52,16 @@ export function ActivityLog() {
               }}>
                 {TYPE_LABELS[entry.type]}
               </span>
-              <span style={{ color: "#c9d1d9", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ color: "#333", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {entry.title}
               </span>
-              <span style={{ color: "#484f58", fontSize: 9, fontFamily: "monospace", flexShrink: 0 }}>
+              <span style={{ color: "#999", fontSize: 9, fontFamily: "monospace", flexShrink: 0 }}>
                 {new Date(entry.ts).toLocaleTimeString()}
               </span>
             </div>
             {entry.detail && (
               <div style={{
-                color: "#484f58", fontSize: 10, marginTop: 2, fontFamily: "monospace",
+                color: "#888", fontSize: 10, marginTop: 2, fontFamily: "monospace",
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}>
                 {entry.detail}

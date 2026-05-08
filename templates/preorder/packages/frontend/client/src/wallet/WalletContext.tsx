@@ -83,8 +83,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       addLog("info", "WalletClient created", "transport: http://localhost:8545 | chain: Hardhat (31337)");
       const [addr] = await wallet.getAddresses();
       try {
-        await mintMockUsdc(wallet, pub, MOCK_USDC_ADDRESS as `0x${string}`, addr, 100_000_000_000n);
-        addLog("info", "Minted 100,000 MUSDC to dev wallet");
+        await mintMockUsdc(wallet, pub, MOCK_USDC_ADDRESS as `0x${string}`, addr, 500_000_000_000n);
+        addLog("info", "Minted 500,000 MUSDC to dev wallet");
       } catch { /* mint may fail if not deployer, non-critical */ }
       setEvmWalletClient(wallet);
       setEvmPublicClient(pub);
