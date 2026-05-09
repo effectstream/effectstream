@@ -275,8 +275,12 @@ function pickSwapSegment(makerTx: any): { segId: number; imbalances: Map<any, bi
   // Lace's makeIntent populates `intents` (Intent objects) and may also touch
   // `fallibleOffer` (ZswapOffer). Union them with segment 0 (guaranteed),
   // then keep only segments with non-empty asset imbalances.
-  const intentIds = makerTx.intents ? Array.from(makerTx.intents.keys()) : [];
-  const fallibleIds = makerTx.fallibleOffer ? Array.from(makerTx.fallibleOffer.keys()) : [];
+  const intentIds: number[] = makerTx.intents
+    ? (Array.from(makerTx.intents.keys()) as number[])
+    : [];
+  const fallibleIds: number[] = makerTx.fallibleOffer
+    ? (Array.from(makerTx.fallibleOffer.keys()) as number[])
+    : [];
   const candidates = Array.from(new Set<number>([0, ...intentIds, ...fallibleIds]));
 
   const swaps: Array<{ segId: number; imbalances: Map<any, bigint> }> = [];
@@ -516,8 +520,12 @@ export async function proveAndSubmitOffer(
   // Diagnostic: full segment shape of the maker tx. Drives the dispatch
   // decision below (Intent slot present? → sealed balance; else →
   // mirror+merge) and gives fast triage on any balance/merge error.
-  const intentIds = makerTx.intents ? Array.from(makerTx.intents.keys()) : [];
-  const fallibleIds = makerTx.fallibleOffer ? Array.from(makerTx.fallibleOffer.keys()) : [];
+  const intentIds: number[] = makerTx.intents
+    ? (Array.from(makerTx.intents.keys()) as number[])
+    : [];
+  const fallibleIds: number[] = makerTx.fallibleOffer
+    ? (Array.from(makerTx.fallibleOffer.keys()) as number[])
+    : [];
   console.log('[browserContract] complete: maker tx segments', {
     intentIds,
     fallibleIds,

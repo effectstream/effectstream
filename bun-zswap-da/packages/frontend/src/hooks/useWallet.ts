@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { ConnectedAPI, DAppConnectorAPI } from '@midnight-ntwrk/dapp-connector-api';
+import type { ConnectedAPI, InitialAPI } from '@midnight-ntwrk/dapp-connector-api';
 
 type WalletStatus = 'disconnected' | 'connecting' | 'connected' | 'unavailable';
 
@@ -30,7 +30,7 @@ export function useWallet() {
   // exposed to the app can transparently re-connect when the wallet channel
   // is torn down ("Remote API … was shutdown: object can no longer be used").
   const apiRef = useRef<ConnectedAPI | null>(null);
-  const connectorRef = useRef<DAppConnectorAPI | null>(null);
+  const connectorRef = useRef<InitialAPI | null>(null);
   const proxyRef = useRef<ConnectedAPI | null>(null);
 
   const ensureProxy = useCallback((): ConnectedAPI => {

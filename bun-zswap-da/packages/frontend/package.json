@@ -15,7 +15,10 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.183.2",
-    "mip-zswap-offer": "link:mip-zswap-offer",
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0",
+    "@scure/base": "^2.0.0",
+    "mip-zswap-offer": "github:effectstream/mip-zswap-offer#main",
     "@midnight-ntwrk/ledger-v8": "8.0.3",
     "@midnight-ntwrk/dapp-connector-api": "4.0.1",
     "@midnight-ntwrk/compact-js": "2.5.0",
@@ -31,6 +34,7 @@
     "@zswap-da/contract-offer-files": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^22.19.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.183.1",
