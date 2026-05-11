@@ -146,6 +146,23 @@ const wrapAddress = (address: string) => {
   };
 };
 
+// Extracts the 32-byte ZswapCoinPublicKey from any of:
+//   - a Midnight bech32m address (e.g. `mn_shield_addr_undeployed1...`)
+//   - a 64-character hex string (the CPK already in hex)
+// Throws on anything else so callers can't accidentally pass an unshielded
+// address or an empty string.
+const cpkBytes = (address: string): Uint8Array => {
+  const hex = address.startsWith("mn_")
+    ? extractPublicCoinAddress(address)
+    : address;
+  if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
+    throw new Error(
+      `Invalid coin public key: expected 64 hex chars, got ${hex.length}`,
+    );
+  }
+  return new Uint8Array(Buffer.from(hex, "hex"));
+};
+
 export async function createIntent(
   contract: any,
   addr: string,
@@ -194,8 +211,13 @@ export async function m20_mint(
   account: string,
   amount: bigint,
 ) {
+  // Despite the package name "unshielded-erc20", the contract's mint circuit
+  // is keyed by ZswapCoinPublicKey (Either<ZswapCoinPublicKey, ContractAddress>).
+  // Decode the caller's bech32m shielded address to its 32-byte CPK before
+  // handing it to the contract layer.
+  const accountBytes = cpkBytes(account);
   try {
-    return await unshielded_erc20.mint(contract, account, amount);
+    return await unshielded_erc20.mint(contract, accountBytes, amount);
   } catch (error) {
     if (error instanceof unshielded_erc20.DelegatedBalancingSentError) {
       const tx = unshielded_erc20.getLastCapturedTx();
@@ -217,11 +239,12 @@ export async function m20_transferFrom(
   toAccount: string,
   amount: bigint,
 ) {
+  const toAccountBytes = cpkBytes(toAccount);
   try {
     return await unshielded_erc20.transferFrom(
       contract,
       fromAccount,
-      toAccount,
+      toAccountBytes,
       amount,
     );
   } catch (error) {

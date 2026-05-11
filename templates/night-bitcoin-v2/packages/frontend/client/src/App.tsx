@@ -238,14 +238,32 @@ function App() {
 
   const handleCheckBalance = async () => {
     setShowActionsPopup(false);
+    if (!midnightWallet) {
+      setPopup({
+        show: true,
+        title: "Wallet Not Connected",
+        message: "Connect the Midnight wallet first.",
+      });
+      return;
+    }
     setLoading(true);
-    const balance = await updateM20Balance(midnightWallet);
-    setLoading(false);
-    setPopup({
-      show: true,
-      title: "M20 Balance",
-      message: `Your M20 token balance is: ${balance}`,
-    });
+    try {
+      const balance = await updateM20Balance(midnightWallet);
+      setPopup({
+        show: true,
+        title: "M20 Balance",
+        message: `Your M20 token balance is: ${balance}`,
+      });
+    } catch (error: any) {
+      console.error("handleCheckBalance failed:", error);
+      setPopup({
+        show: true,
+        title: "Error",
+        message: error?.message || "Failed to check M20 balance.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSearchIntent = async () => {
@@ -292,14 +310,19 @@ function App() {
   };
 
   const getNightsFromFaucet = async () => {
+    setShowActionsPopup(false);
     if (!unshieldedAddress) {
-      alert("Please connect Midnight wallet first.");
+      setPopup({
+        show: true,
+        title: "Wallet Not Connected",
+        message: "Connect the Midnight wallet first.",
+      });
       return;
     }
     setLoading(true);
     try {
       const response = await fetch(
-        `${API_URL}/api/faucet/nights?address=${unshieldedAddress}`,
+        `${API_URL}/api/faucet/nights?address=${encodeURIComponent(unshieldedAddress)}`,
       );
       if (!response.ok) {
         const errorText = await response.text();
@@ -313,24 +336,32 @@ function App() {
         message:
           "Successfully received NIGHTs from faucet! Your balance will update shortly.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to get NIGHTs from faucet:", error);
-      alert(`Failed to get NIGHTs from faucet. Check the console for details.`);
+      setPopup({
+        show: true,
+        title: "Faucet Failed",
+        message: error?.message || "Failed to get NIGHTs from faucet.",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleGetBtcFromFaucet = async () => {
+    setShowActionsPopup(false);
     if (!btcFaucetAddress) {
-      alert("Please enter a BTC address.");
+      setPopup({
+        show: true,
+        title: "Missing BTC Address",
+        message: "Enter a BTC address before requesting from the faucet.",
+      });
       return;
     }
-    setShowActionsPopup(false);
     setLoading(true);
     try {
       const response = await fetch(
-        `${API_URL}/api/faucet/btc?address=${btcFaucetAddress}`,
+        `${API_URL}/api/faucet/btc?address=${encodeURIComponent(btcFaucetAddress)}`,
       );
       if (!response.ok) {
         const errorText = await response.text();
@@ -344,9 +375,13 @@ function App() {
         message:
           "Successfully received BTC from faucet! Your balance will update shortly.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to get BTC from faucet:", error);
-      alert(`Failed to get BTC from faucet. Check the console for details.`);
+      setPopup({
+        show: true,
+        title: "Faucet Failed",
+        message: error?.message || "Failed to get BTC from faucet.",
+      });
     } finally {
       setLoading(false);
     }
@@ -455,8 +490,13 @@ function App() {
   };
 
   const handleMintM20 = async () => {
+    setShowActionsPopup(false);
     if (!midnightAddress) {
-      alert("Please connect Midnight wallet first.");
+      setPopup({
+        show: true,
+        title: "Wallet Not Connected",
+        message: "Connect the Midnight wallet first.",
+      });
       return;
     }
     setLoading(true);
@@ -473,9 +513,13 @@ function App() {
         message:
           "Successfully minted 1000 M20 tokens. Your balance will update shortly.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to mint M20:", error);
-      alert(`Failed to mint M20. Check the console for details.`);
+      setPopup({
+        show: true,
+        title: "M20 Mint Failed",
+        message: error?.message || "Failed to mint M20 tokens.",
+      });
     } finally {
       setLoading(false);
     }
@@ -955,10 +999,7 @@ function App() {
                 <button
                   type="button"
                   className="dropdown-item"
-                  onClick={() => {
-                    getNightsFromFaucet();
-                    setShowActionsPopup(false);
-                  }}
+                  onClick={getNightsFromFaucet}
                   style={{ marginBottom: "10px" }}
                   disabled={!unshieldedAddress}
                 >
@@ -967,10 +1008,7 @@ function App() {
                 <button
                   type="button"
                   className="dropdown-item"
-                  onClick={() => {
-                    handleMintM20();
-                    setShowActionsPopup(false);
-                  }}
+                  onClick={handleMintM20}
                   style={{ marginBottom: "10px" }}
                   disabled={!midnightAddress}
                 >

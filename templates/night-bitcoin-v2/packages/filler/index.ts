@@ -273,6 +273,10 @@ const getConversion = (
   return rate * fromAmount;
 };
 
+server.get("/api/health", async (_request, reply) => {
+  reply.send({ ok: true, filler: FILLER_NAME });
+});
+
 server.post<{
   Body: Static<typeof QuoteParamsSchema>;
   Reply: Static<typeof QuoteResponseSchema>;

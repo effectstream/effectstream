@@ -90,7 +90,7 @@ export default {
       args: ["run", "packages/node/main.dev.ts"],
       waitToExit: false,
       type: "system-dependency",
-      env: { PGLITE: "true" },
+      env: { PGLITE: "true", ORCHESTRATOR_PORT: "4747" },
       dependsOn: [
         DbNames.PGLITE_WAIT,
         MidnightNames.CONTRACT_DEPLOY,

@@ -183,54 +183,62 @@ const joinContract = async (
   return simpleTokenContract;
 };
 
-const wrapAddress = (address: string) => {
+const wrapAddress = (bytes: Uint8Array) => {
+  if (bytes.length !== 32) {
+    throw new Error(
+      `wrapAddress: expected a 32-byte ZswapCoinPublicKey, got ${bytes.length} bytes`,
+    );
+  }
   return {
     is_left: true,
-    left: { bytes: new Uint8Array(Buffer.from(address, "hex")) },
+    left: { bytes },
     right: { bytes: new Uint8Array(32) },
   };
 };
 
 const mint = async (
   simpleTokenContract: DeployedSimpleTokenContract,
-  account: string,
+  accountBytes: Uint8Array,
   value: bigint,
 ): Promise<any> => {
   console.log("Minting...");
-  console.log("account", account);
+  console.log(
+    "accountBytes",
+    Array.from(accountBytes, (b) => b.toString(16).padStart(2, "0")).join(""),
+  );
   const finalizedTxData = await (simpleTokenContract.callTx as any).mint(
-    wrapAddress(account),
+    wrapAddress(accountBytes),
     value,
   );
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
-  console.log(`Minted ${value} tokens to ${account}`);
+  console.log(`Minted ${value} tokens`);
   return finalizedTxData.public;
 };
 
 const transferFrom = async (
   simpleTokenContract: DeployedSimpleTokenContract,
   fromAccount: string,
-  toAccount: string,
+  toAccountBytes: Uint8Array,
   amount: bigint,
 ): Promise<any> => {
   console.log("[TRANSFER FROM]", {
     fromAccount,
-    toAccount,
+    toAccountBytes: Array.from(toAccountBytes, (b) =>
+      b.toString(16).padStart(2, "0"),
+    ).join(""),
     amount,
   });
   const finalizedTxData = await (simpleTokenContract.callTx as any).transfer(
-    wrapAddress(toAccount),
+    wrapAddress(toAccountBytes),
     amount,
   );
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
   console.log(finalizedTxData);
-  console.log(
-    `Transferred ${amount} tokens from ${fromAccount} to ${toAccount}`,
-  );
+  console.log(`Transferred ${amount} tokens from ${fromAccount}`);
   return finalizedTxData.public;
 };
 

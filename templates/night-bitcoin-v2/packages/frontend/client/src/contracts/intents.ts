@@ -87,10 +87,8 @@ type ShieldedAddresses = Awaited<
 >;
 
 type WalletAddresses = ShieldedAddresses & {
-  unshieldedAddress: Awaited<
-    ReturnType<ConnectedAPI["getUnshieldedAddress"]>
-  >;
-  dustAddress: Awaited<ReturnType<ConnectedAPI["getDustAddress"]>>;
+  unshieldedAddress: string;
+  dustAddress: string;
 };
 
 type PrivateState = {};
@@ -248,7 +246,7 @@ const getContractAddress = async (): Promise<string> => {
 const fetchWalletAddresses = async (
   connectedAPI: ConnectedAPI,
 ): Promise<WalletAddresses> => {
-  const [shieldedAddresses, unshieldedAddress, dustAddress] = await Promise.all([
+  const [shieldedAddresses, unshielded, dust] = await Promise.all([
     connectedAPI.getShieldedAddresses(),
     connectedAPI.getUnshieldedAddress(),
     connectedAPI.getDustAddress(),
@@ -256,8 +254,8 @@ const fetchWalletAddresses = async (
 
   return {
     ...shieldedAddresses,
-    unshieldedAddress,
-    dustAddress,
+    unshieldedAddress: unshielded.unshieldedAddress,
+    dustAddress: dust.dustAddress,
   };
 };
 

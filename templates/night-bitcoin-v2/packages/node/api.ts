@@ -199,6 +199,20 @@ export const apiRouter: StartConfigApiRouter = function (
     reply.send(quotes);
   });
 
+  // Midnight bech32m unshielded address — `mn_addr_<network>1<bech32-data>`.
+  // Bech32 data charset excludes `b`, `i`, `o`, `1` (already the separator).
+  // Real addresses for the demo's networks are ~120 chars; we accept a wide
+  // range with a hard cap so a malformed/empty input is rejected with a
+  // clean 400 before reaching the spawned faucet process.
+  const MidnightAddressSchema = Type.String({
+    minLength: 50,
+    maxLength: 256,
+    pattern:
+      "^mn_addr_(undeployed|devnet|testnet|mainnet)1[02-9ac-hj-np-z]+$",
+  });
+  const MidnightFaucetQueryParamsSchema = Type.Object({
+    address: MidnightAddressSchema,
+  });
   const FaucetQueryParamsSchema = Type.Object({
     address: Type.String(),
   });
@@ -211,67 +225,87 @@ export const apiRouter: StartConfigApiRouter = function (
   let isFaucetDustRunning = false;
 
   server.get<{
-    Querystring: Static<typeof FaucetQueryParamsSchema>;
+    Querystring: Static<typeof MidnightFaucetQueryParamsSchema>;
     Reply: Static<typeof FaucetResponseSchema>;
-  }>("/api/faucet/nights", async (request) => {
-    if (isFaucetDustRunning) {
-      return {
-        status: "error",
-        message: "Faucet is already running",
-      };
-    }
-    const { address } = request.query;
-    let status = "success";
-    let message = "";
-    try {
+  }>(
+    "/api/faucet/nights",
+    {
+      schema: { querystring: MidnightFaucetQueryParamsSchema },
+    },
+    async (request, reply) => {
+      // Claim the single-flight lock synchronously, before any await/spawn —
+      // otherwise two concurrent requests both pass the check above and both
+      // spawn the faucet.
+      if (isFaucetDustRunning) {
+        // 409 Conflict so callers using `if (!response.ok)` correctly
+        // distinguish a busy faucet from a successful one.
+        return reply.status(409).send({
+          status: "error",
+          message: "Faucet is already running",
+        });
+      }
       isFaucetDustRunning = true;
-      const proc = Bun.spawn(
-        [
-          "bun",
-          "run",
-          "--filter",
-          "@night-bitcoin/contracts-midnight",
-          "midnight-faucet:start",
-        ],
-        {
-          env: { ...process.env, MIDNIGHT_ADDRESS: address },
-          stdout: "pipe",
-          stderr: "pipe",
-        },
-      );
-      await proc.exited;
-      status = "done";
-      message = "Faucet successfully completed";
-    } catch (error: any) {
-      status = "error";
-      message = String(error);
-    } finally {
-      isFaucetDustRunning = false;
-    }
-
-    return {
-      status,
-      message,
-    };
-  });
+      const { address } = request.query;
+      try {
+        const proc = Bun.spawn(
+          [
+            "bun",
+            "run",
+            "--filter",
+            "@night-bitcoin/contracts-midnight",
+            "midnight-faucet:start",
+          ],
+          {
+            env: { ...process.env, MIDNIGHT_ADDRESS: address },
+            // `pipe` allocates an OS pipe that nothing reads. The spawned
+            // faucet eventually fills the buffer (~64 KB), blocks on write,
+            // and `proc.exited` never resolves — hanging the request and
+            // permanently sticking `isFaucetDustRunning = true`. Inheriting
+            // streams forwards them to the server's stdout/stderr instead.
+            stdout: "inherit",
+            stderr: "inherit",
+          },
+        );
+        // `await proc.exited` resolves regardless of exit code. Inspect the
+        // exit code so a non-zero process surfaces as a real error rather
+        // than "Faucet successfully completed".
+        const exitCode = await proc.exited;
+        if (exitCode !== 0) {
+          return reply.status(500).send({
+            status: "error",
+            message: `Faucet process exited with code ${exitCode}`,
+          });
+        }
+        return {
+          status: "done",
+          message: "Faucet successfully completed",
+        };
+      } catch (error: any) {
+        return reply.status(500).send({
+          status: "error",
+          message: error?.message ?? String(error),
+        });
+      } finally {
+        isFaucetDustRunning = false;
+      }
+    },
+  );
 
   let isFaucetBtcRunning = false;
 
   server.get<{
     Querystring: Static<typeof FaucetQueryParamsSchema>;
     Reply: Static<typeof FaucetResponseSchema>;
-  }>("/api/faucet/btc", async (request) => {
+  }>("/api/faucet/btc", async (request, reply) => {
     if (isFaucetBtcRunning) {
-      return {
+      return reply.status(409).send({
         status: "error",
         message: "Faucet is already running",
-      };
+      });
     }
+    isFaucetBtcRunning = true;
     const { address } = request.query;
-    let status = "success";
-    let message = "";
     try {
-      isFaucetBtcRunning = true;
       const proc = Bun.spawn(
         [
           "bun",
@@ -282,59 +316,79 @@ export const apiRouter: StartConfigApiRouter = function (
         ],
         {
           env: { ...process.env, BTC_ADDRESS: address },
-          stdout: "pipe",
-          stderr: "pipe",
+          // See /api/faucet/nights for why these are `inherit` not `pipe`.
+          stdout: "inherit",
+          stderr: "inherit",
         },
       );
-      await proc.exited;
-      status = "done";
-      message = "Faucet successfully completed";
+      const exitCode = await proc.exited;
+      if (exitCode !== 0) {
+        return reply.status(500).send({
+          status: "error",
+          message: `Faucet process exited with code ${exitCode}`,
+        });
+      }
+      return {
+        status: "done",
+        message: "Faucet successfully completed",
+      };
     } catch (error: any) {
-      status = "error";
-      message = String(error);
+      return reply.status(500).send({
+        status: "error",
+        message: error?.message ?? String(error),
+      });
     } finally {
       isFaucetBtcRunning = false;
     }
-
-    return {
-      status,
-      message,
-    };
   });
 
   server.get("/api/check-processes", async (_request, _reply) => {
+    // 1. Sync node must be alive (otherwise we can't even read state).
+    let processes: any[] = [];
     try {
       const response = await fetch(
         `http://localhost:${ENV.ORCHESTRATOR_PORT}/processes`,
       );
-      if (!response.ok) {
-        return "LOADING";
-      }
+      if (!response.ok) return "LOADING";
       const data = await response.json();
-      const processes: any[] = data.processes || [];
-
-      const syncProcess = processes.find((p: any) => p.name === "sync");
-      const mintProcess = processes.find(
-        (p: any) => p.name === "mint-wallets-midnight",
-      );
-
-      // We consider the process "there" if it is alive
-      const isSyncRunning = syncProcess?.alive === true;
-      const isMintRunning = mintProcess?.alive === true;
-
-      if (!isSyncRunning) {
-        return "LOADING";
-      }
-
-      if (isMintRunning) {
-        return "FILLERS-NOT-READY";
-      }
-
-      return "READY";
+      processes = data.processes ?? [];
     } catch (error) {
       console.error("Error in /api/check-processes:", error);
       return "LOADING";
     }
+
+    const isAlive = (p: any) => p?.status === "running";
+
+    const syncProcess = processes.find((p: any) => p.name === "sync");
+    if (!isAlive(syncProcess)) return "LOADING";
+
+    // 2. Every filler process must be running in the orchestrator. If any of
+    //    them hasn't been spawned yet (e.g. mint-wallets-midnight is still
+    //    running) or has crashed, we are not ready.
+    const fillerProcs = processes.filter((p: any) =>
+      typeof p.name === "string" && p.name.startsWith("filler:")
+    );
+    if (fillerProcs.length === 0 || !fillerProcs.every(isAlive)) {
+      return "FILLERS-NOT-READY";
+    }
+
+    // 3. Each filler's HTTP server must actually answer. Process-alive does
+    //    not imply the Fastify listen() has resolved — there's a startup
+    //    window where the wallet is syncing and the port isn't bound yet.
+    const probes = await Promise.allSettled(
+      fillers.map((f) =>
+        fetch(`http://localhost:${f.port}/api/health`, {
+          signal: AbortSignal.timeout(1000),
+        }).then((r) => r.ok),
+      ),
+    );
+    if (
+      !probes.every((p) => p.status === "fulfilled" && p.value === true)
+    ) {
+      return "FILLERS-NOT-READY";
+    }
+
+    return "READY";
   });
 
   return Promise.resolve();
