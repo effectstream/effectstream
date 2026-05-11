@@ -7,6 +7,7 @@
 **/dolos.socket
 **/data/
 **/temp/
+**/dist/
 **/evm/build
 **/evm/ignition/deployments
 *-batcher-data/

@@ -250,7 +250,10 @@ export async function syncAndWaitForFunds(
 
   let dustBalance = 0n;
   try {
-    dustBalance = state.dust?.balance?.(new Date()) ?? 0n;
+    // Current SDK exposes walletBalance(time); older versions used balance(time).
+    // Try both so this stays portable across SDK upgrades.
+    const now = new Date();
+    dustBalance = state.dust?.walletBalance?.(now) ?? state.dust?.balance?.(now) ?? 0n;
   } catch (_err) {
     log.warn("Could not read dust balance from synced state; continuing with dustBalance=0");
   }
@@ -732,11 +735,26 @@ function getInitialUnshieldedState(
   return Promise.resolve(null);
 }
 
+export interface RegisterNightForDustOptions {
+  /**
+   * Override for the wait-for-sync precheck timeout. The default
+   * (`resolveWalletSyncTimeoutMs()`, 10 min) is correct when the wallet has
+   * an active unshielded subscription. Callers that built the wallet with
+   * `syncMode: 'dust-only'` should pass a small value (e.g. 30s) — the
+   * unshielded sync is stopped, so this wait can never succeed and the
+   * full timeout is wasted.
+   */
+  precheckSyncTimeoutMs?: number;
+}
+
 /**
  * Register unshielded Night UTXOs for dust generation
  * This is required before the wallet can pay transaction fees
  */
-export async function registerNightForDust(walletResult: WalletResult): Promise<boolean> {
+export async function registerNightForDust(
+  walletResult: WalletResult,
+  options?: RegisterNightForDustOptions,
+): Promise<boolean> {
   log.info("Checking for unshielded Night UTXOs to register for dust generation...");
 
   const state = await Rx.firstValueFrom(
@@ -749,7 +767,7 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
         return dustSynced && unshieldedSynced;
       }),
       Rx.timeout({
-        each: resolveWalletSyncTimeoutMs(),
+        each: options?.precheckSyncTimeoutMs ?? resolveWalletSyncTimeoutMs(),
         with: () => Rx.throwError(() => new Error("Timeout waiting for unshielded+dust sync for dust registration")),
       })
     )
@@ -785,14 +803,19 @@ export async function registerNightForDust(walletResult: WalletResult): Promise<
     log.info(`Dust registration submitted with tx id: ${txId}`);
 
     log.info("Waiting for dust to be generated...");
+    // Current SDK exposes walletBalance(time); older versions used balance(time).
+    // Try both so this stays portable across SDK upgrades.
+    const readDustBalance = (s: any): bigint => {
+      const now = new Date();
+      return s.dust?.walletBalance?.(now) ?? s.dust?.balance?.(now) ?? 0n;
+    };
     await Rx.firstValueFrom(
       walletResult.wallet.state().pipe(
         Rx.throttleTime(CONSTANTS.WALLET_SYNC_THROTTLE_MS),
         Rx.tap((s: any) => {
-          const dustBalance = s.dust?.balance?.(new Date()) ?? 0n;
-          log.info(`Current dust balance: ${dustBalance}`);
+          log.info(`Current dust balance: ${readDustBalance(s)}`);
         }),
-        Rx.filter((s: any) => (s.dust?.balance?.(new Date()) ?? 0n) > 0n),
+        Rx.filter((s: any) => readDustBalance(s) > 0n),
         Rx.timeout({
           each: resolveWalletSyncTimeoutMs(),
           with: () => Rx.throwError(() => new Error("Timeout waiting for dust generation"))
@@ -950,7 +973,9 @@ async function main() {
 
         try {
           const state = await Rx.firstValueFrom(walletResult.wallet.state());
-          dustBalance = (state as any).dust?.balance?.(new Date()) ?? 0n;
+          // Current SDK exposes walletBalance(time); older versions used balance(time).
+          const now = new Date();
+          dustBalance = (state as any).dust?.walletBalance?.(now) ?? (state as any).dust?.balance?.(now) ?? 0n;
 
           if (dustBalance === 0n) {
             log.info("Dust balance is 0. Attempting to sync dust wallet...");

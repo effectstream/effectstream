@@ -4,6 +4,8 @@
   "private": true,
   "workspaces": [
     "packages/**",
+    "bun-zswap-da/packages/**",
+    "bun-zswap-da/e2e",
     "e2e/**"
   ],
   "scripts": {
@@ -11,7 +13,8 @@
     "test:e2e": "cd e2e && bun run runner.ts"
   },
   "overrides": {
-    "@midnight-ntwrk/ledger-v8": "8.0.3"
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "effect": "3.21.1"
   },
   "devDependencies": {
     "@effectstream/db": "workspace:*",

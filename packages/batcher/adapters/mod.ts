@@ -47,3 +47,12 @@ export type { NearAdapterConfig, NearBatchPayload } from "./near-adapter.ts";
 export { NearIntentAdapter } from "./near-intent-adapter.ts";
 export type { NearIntentAdapterConfig, NearIntentBatch } from "./near-intent-adapter.ts";
 
+// Celestia adapter implementation
+export { CelestiaAdapter } from "./celestia-adapter.ts";
+export type {
+  CelestiaAdapterConfig,
+  CelestiaBatchPayload,
+  CelestiaBlob,
+  CelestiaNetwork,
+} from "./celestia-adapter.ts";
+
