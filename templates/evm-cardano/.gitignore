@@ -1,0 +1,27 @@
+node_modules/
+
+# Orchestrator logs
+.orchestrator-logs/
+
+# Contracts-EVM build artifacts
+packages/contracts-evm/build/
+packages/contracts-evm/mod.ts
+packages/contracts-evm/ignition/deployments/
+packages/contracts-evm/remappings.txt
+
+# Contracts-Cardano runtime data
+packages/contracts-cardano/data/
+packages/contracts-cardano/temp/*
+!packages/contracts-cardano/temp/alonzo-genesis2.json
+packages/contracts-cardano/dolos.toml
+packages/contracts-cardano/dolos.socket
+packages/contracts-cardano/yaci-cli.history
+packages/contracts-cardano/logs/
+
+# Frontend build
+packages/frontend/client/dist/
+
+# Misc
+.vite/
+test-results/
+playwright-report/

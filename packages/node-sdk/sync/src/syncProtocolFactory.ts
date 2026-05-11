@@ -11,9 +11,12 @@ import {
   getViemNetwork,
 } from "@effectstream/config";
 import { CardanoSyncClient } from "@utxorpc/sdk";
-import { BufferedRpc } from "./sync-protocols/utxorpc/BufferedRpc.ts";
+import { WatchMultiplexer } from "./sync-protocols/utxorpc/WatchMultiplexer.ts";
 import { UtxoRpcFetcher } from "./sync-protocols/utxorpc/fetcher.ts";
 import { UtxoRpcSyncState } from "./sync-protocols/utxorpc/state.ts";
+import { isEffectiveServerPredicate, predicateKey } from "./sync-protocols/utxorpc/utils.ts";
+import type { UtxorpcTxPredicate } from "@effectstream/config";
+import type { PrimitiveEntryType } from "./sync-protocols/utxorpc/types.ts";
 import { MidnightFetcher, MidnightSyncState } from "@effectstream/sync";
 import { AvailFetcher } from "./sync-protocols/avail/fetcher.ts";
 import { AvailSyncState } from "./sync-protocols/avail/state.ts";
@@ -67,17 +70,23 @@ export function* genSyncProtocols(
       ) {
         throw new Error("CARP not supported yet");
       }
-      const syncClient = new CardanoSyncClient({
+      const clientOptions = {
         uri: entry.syncProtocol.rpcUrl,
         headers: entry.syncProtocol.headers,
-      });
-      const bufferedRpc = new BufferedRpc(
-        syncClient,
+      };
+      const syncClient = new CardanoSyncClient(clientOptions);
+      const primitivesByPredicate = groupPrimitivesByPredicate(
+        entry.primitives as PrimitiveEntryType[],
+      );
+      const multiplexer = new WatchMultiplexer(
+        clientOptions,
+        primitivesByPredicate,
         entry.syncProtocol.confirmationDepth,
+        syncClient,
       );
       const fetcher = new UtxoRpcFetcher(
         entry,
-        bufferedRpc,
+        multiplexer,
       );
       const state = yield* UtxoRpcSyncState.restoreState(
         dbConn,
@@ -146,4 +155,28 @@ export function* genSyncProtocols(
   }
 
   return result;
+}
+
+function groupPrimitivesByPredicate(
+  primitives: PrimitiveEntryType[],
+): Map<string, { predicate: UtxorpcTxPredicate; primitiveEntries: PrimitiveEntryType[] }> {
+  const groups = new Map<string, { predicate: UtxorpcTxPredicate; primitiveEntries: PrimitiveEntryType[] }>();
+  const emptyKey = predicateKey({});
+
+  for (const entry of primitives) {
+    const predicate = entry.primitive.predicate;
+    // TODO(dolos): when Dolos implements has_certificate, remove this fallback to empty predicate
+    const effective = isEffectiveServerPredicate(predicate);
+    const key = effective ? predicateKey(predicate) : emptyKey;
+    const effectivePredicate = effective ? predicate : {};
+
+    let group = groups.get(key);
+    if (!group) {
+      group = { predicate: effectivePredicate, primitiveEntries: [] };
+      groups.set(key, group);
+    }
+    group.primitiveEntries.push(entry);
+  }
+
+  return groups;
 }

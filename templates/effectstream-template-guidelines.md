@@ -129,6 +129,28 @@ await sendTransaction(
 );
 ```
 
+**Browser-side wallet pattern (no batcher)**: (FOR DEVELOPMENT ONLY) For Cardano templates that build and submit transactions directly in the browser (e.g., using Lucid Evolution), there is no batcher. The frontend uses Lucid to construct, sign, and submit transactions to the YACI devkit. The node API is GET-only — it serves indexed data from the EffectStream database but never receives write requests from the frontend. This pattern requires:
+- Lucid Evolution packages: `@lucid-evolution/lucid`, `@lucid-evolution/provider`, `@lucid-evolution/utils`, `@lucid-evolution/core-types`
+- A Fastify static server with proxies to YACI (`/yaci/*`) and Dolos (`/dolos/*`) in addition to the API (`/api/*`)
+- Browser-side seed phrase storage in `localStorage` for dev wallet persistence
+
+**Fastify proxy path-rewriting pitfall**: When proxying `/api/*` to the upstream node (e.g., `http://localhost:9999`), do NOT strip the `/api` prefix if the upstream expects it. Use an empty string as the prefix to forward the path as-is:
+```ts
+// WRONG — forwards /api/locks as /locks → 404
+await proxyRequest(API_URL, "/api", request, reply);
+
+// CORRECT — forwards /api/locks as /api/locks
+await proxyRequest(API_URL, "", request, reply);
+```
+For proxies where the prefix IS artificial (e.g., `/yaci/*` → YACI at localhost:10000), strip it: `proxyRequest(YACI_URL, "/yaci", request, reply)`.
+
+**Fastify proxy with CBOR support**: If the frontend proxies to a Cardano submit endpoint that expects `application/cbor`, register a content type parser for CBOR in Fastify:
+```ts
+server.addContentTypeParser("application/cbor", { parseAs: "buffer" }, (_req, body, done) => {
+  done(null, body);
+});
+```
+
 ### 8. Tests
 
 - [ ] Create `packages/tests/start.test.ts` (test orchestrator config) — [Test Launcher](#test-launcher-starttestts)
@@ -312,6 +334,11 @@ export const grammar = {
 | `midnightGeneric` | Midnight | Generic ledger contract state (`{ payload }`) |
 | `bitcoinAddress` | Bitcoin | Address transaction events |
 | `utxorpcGeneric` | Cardano | Generic UTXO events |
+| `cardanoMintBurn` | Cardano | Mint/burn events (`{ policy, asset, quantity }`) |
+| `cardanoTransfer` | Cardano | ADA/token transfer events (`{ address, amount, ... }`) |
+| `cardanoPoolDelegation` | Cardano | Stake delegation certificates (`{ address, pool, epoch }`) |
+| `cardanoDelayedAsset` | Cardano | Delayed asset claims |
+| `cardanoProjectedNft` | Cardano | Projected NFT state |
 | `availGeneric` | Avail | Application data submissions |
 | `celestiaGeneric` | Celestia | Blob data events |
 | `nearNep141` | NEAR | NEP-141 fungible token events |
@@ -625,7 +652,7 @@ export default {
 | `launchNear(pkg, location)` | `@effectstream/orchestrator/launch-near` | `NearNames` | `chain:start`, `chain:wait` |
 | `launchAvail(pkg, location)` | `@effectstream/orchestrator/launch-avail` | `AvailNames` | `avail-node:start`, `avail-light-client:*` |
 
-**Location parameter**: Each launcher accepts a `ResolveLocation` -- either `{ resolveFrom: root }` (resolve the package name via `require.resolve` from the given directory) or `{ cwd: "/absolute/path" }` (use a known directory directly).
+**Location parameter**: Each launcher accepts a `ResolveLocation` -- either `{ resolveFrom: root }` (resolve the package name via `require.resolve` from the given directory) or `{ cwd: "/absolute/path" }` (use a known directory directly). **Use `{ cwd }` for Cardano** (and any chain whose packages are linked via `link.sh`) — Bun workspace resolution with `{ resolveFrom }` breaks because `require.resolve` runs from `.bun/` cache instead of the workspace root.
 
 **ProcessConfig fields**:
 
@@ -672,6 +699,33 @@ export default {
 ```
 
 The `pgtyped:update` script uses `@effectstream/db/scripts/pgtyped-update.ts` which handles everything in one shot: starts PGLite, applies system migrations, applies user migrations (from `migration-order.ts`), runs pgtyped codegen, then shuts down. No need for `concurrently` or manual DB orchestration.
+
+**How to run pgtyped generation correctly**:
+
+The script **must** be run from `packages/database/` as the working directory. It resolves three things relative to `process.cwd()`:
+1. `migration-order.ts` (or `src/migration-order.ts`) — your user migrations
+2. `pgtypedconfig.json` — pgtyped configuration
+3. `node_modules/@paima/pgtyped-cli/lib/index.js` — the pgtyped CLI binary
+
+There are two ways to invoke it:
+
+```bash
+# Option A: from the monorepo root using --filter (RECOMMENDED)
+bun run --filter @my-template/database pgtyped:update
+
+# Option B: cd into the database package and run the script directly
+cd packages/database && bun run pgtyped:update
+```
+
+**Common mistakes that waste hours:**
+
+1. **Running from the wrong directory**: If you run the script from the monorepo root without `--filter`, it looks for `migration-order.ts` and `pgtypedconfig.json` in the root directory (not in `packages/database/`), silently finds nothing, and generates empty `.queries.ts` files — or fails with cryptic errors.
+
+2. **Port 5432 already in use**: The script starts its own PGLite server on port 5432. If another PGLite or PostgreSQL instance is already running on that port (e.g., from the orchestrator or a previous run), it will fail. Kill the existing process first: `lsof -ti :5432 | xargs kill -9`.
+
+3. **Missing `@paima/pgtyped-cli` in devDependencies**: The script shells out to `node_modules/@paima/pgtyped-cli/lib/index.js`. If the package isn't installed (it's a devDependency), the script will fail. Run `bun install` first.
+
+4. **Forgetting to add the root convenience script**: Add `"build:pgtypes": "bun run --filter @my-template/database pgtyped:update"` to the root `package.json` so it can be invoked as `bun run build:pgtypes` from anywhere in the monorepo.
 
 **`packages/database/pgtypedconfig.json`**:
 
@@ -990,6 +1044,11 @@ Every app requires exactly one `addMain` (the NTP clock) and one or more `addPar
 | `PrimitiveTypeMidnightNullifier` | — | Midnight | Nullifier tracking |
 | `PrimitiveTypeBitcoinAddress` | `builtinGrammars.bitcoinAddress` | Bitcoin | Watch address transactions |
 | `PrimitiveTypeUtxorpcGeneric` | `builtinGrammars.utxorpcGeneric` | Cardano | Generic UTXO events |
+| `PrimitiveTypeCardanoMintBurn` | `builtinGrammars.cardanoMintBurn` | Cardano | Mint/burn certificate events |
+| `PrimitiveTypeCardanoTransfer` | `builtinGrammars.cardanoTransfer` | Cardano | ADA/token transfers |
+| `PrimitiveTypeCardanoPoolDelegation` | `builtinGrammars.cardanoPoolDelegation` | Cardano | Stake pool delegation certificates |
+| `PrimitiveTypeCardanoDelayedAsset` | `builtinGrammars.cardanoDelayedAsset` | Cardano | Delayed asset claims |
+| `PrimitiveTypeCardanoProjectedNFT` | `builtinGrammars.cardanoProjectedNft` | Cardano | Projected NFT state |
 | `PrimitiveTypeAvailGeneric` | `builtinGrammars.availGeneric` | Avail | Application data |
 | `PrimitiveTypeCelestiaGeneric` | `builtinGrammars.celestiaGeneric` | Celestia | Blob data |
 | `PrimitiveTypeNEARNEP141` | `builtinGrammars.nearNep141` | NEAR | Fungible tokens |
@@ -1176,6 +1235,34 @@ If the template includes sub-workspaces (e.g., Midnight compiled contracts), lis
 ```
 `packages/*` will NOT discover nested packages.
 
+### `link.sh` (for monorepo development)
+
+When a template depends on `@effectstream/*` packages that are not yet published to npm (e.g., Cardano primitives), or when you want to develop against local engine changes, add a `link.sh` script to the template root. This script symlinks workspace packages and monorepo `@effectstream/*` packages into the template's `node_modules/`:
+
+```bash
+#!/bin/bash
+# link.sh — run once after bun install, before bun run dev
+MONO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+
+# Link workspace packages
+for pkg in packages/*/; do
+  name=$(jq -r .name "$pkg/package.json" 2>/dev/null) || continue
+  scope="${name%/*}"; scope="${scope#@}"
+  mkdir -p "node_modules/@$scope"
+  ln -sfn "$(pwd)/$pkg" "node_modules/$name"
+done
+
+# Link monorepo @effectstream/* packages
+for pkg in "$MONO_ROOT"/packages/*/; do
+  name=$(jq -r .name "$pkg/package.json" 2>/dev/null) || continue
+  [[ "$name" == @effectstream/* ]] || continue
+  mkdir -p node_modules/@effectstream
+  ln -sfn "$pkg" "node_modules/$name"
+done
+```
+
+This is **not mandatory** — published templates work without it. It's useful for iterating on the engine and template together, or when using primitives that aren't yet on npm.
+
 ---
 
 ## Testing
@@ -1361,6 +1448,56 @@ export async function frontendRenderTest() {
 ```
 
 Add `playwright-core` to `packages/tests/package.json`. The test uses `playwright-core` (not `@playwright/test`) to avoid bundling browsers -- it finds Chrome/Chromium on the host via `findChrome()` or the `CHROME_PATH` env var.
+
+**Full lifecycle E2E tests with `@playwright/test`**: For templates with browser-side wallet interactions (e.g., Cardano templates using Lucid), use `@playwright/test` in `packages/frontend/e2e/` instead of `playwright-core` in `packages/tests/`. This provides a proper test runner, assertions, and parallel test execution. Structure tests in groups: (1) **App structure** — verify layout, elements, dark theme, that the frontend makes no POST/PATCH/DELETE to the API; (2) **API health** — verify GET endpoints return expected shapes; (3) **Browser wallet lifecycle** — connect wallet → mint → lock → unlock → claim through the UI. Use `data-testid` attributes on all interactive elements. Key patterns:
+- Clear `localStorage` at test start to prevent auto-reconnect interference
+- Use `page.getByText("Locked", { exact: true })` to avoid matching substrings (e.g., "Unlocked" also contains "Locked")
+- Set generous timeouts for blockchain operations (60s for TX confirmation, 30s for time-lock expiry)
+- Use `test.setTimeout(300_000)` for the full lifecycle test
+- Playwright E2E tests (alternative) -- for templates with richer UIs, use `@playwright/test` with a dedicated config in `packages/frontend/`. This gives proper test reporting, retries, and `data-testid` matchers out of the box:
+
+```ts
+// packages/frontend/playwright.config.ts
+import { defineConfig } from "@playwright/test";
+export default defineConfig({
+  testDir: "./e2e",
+  timeout: 300_000,
+  retries: 0,
+  use: { baseURL: "http://localhost:10599", headless: true },
+  projects: [    { name: "chromium", use: { browserName: "chromium", headless: true } } ],
+});
+```
+
+```ts
+// packages/frontend/e2e/app.spec.ts
+import { test, expect } from "@playwright/test";
+
+test("dashboard loads", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("dashboard-title")).toBeVisible();
+});
+
+test("mint NFT flow", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("connect-evm-btn").click();
+  await expect(page.getByTestId("evm-address")).toBeVisible({ timeout: 5_000 });
+  await page.getByTestId("mint-nft-btn").click();
+  await expect(page.getByText("NFT minted!")).toBeVisible({ timeout: 30_000 });
+});
+```
+
+Add `@playwright/test` to `packages/frontend/package.json`. The test runner (`run-tests.ts`) launches Playwright after Phase B:
+
+```ts
+// In run-tests.ts Phase C
+const frontendDir = path.resolve(import.meta.dirname!, "../frontend");
+await Bun.spawn(["bunx", "playwright", "install", "chromium"], { cwd: frontendDir }).exited;
+const exitCode = await Bun.spawn(
+  ["bunx", "playwright", "test", "--config", "playwright.config.ts"],
+  { cwd: frontendDir, stdout: "inherit", stderr: "inherit" },
+).exited;
+await assert("Playwright E2E tests pass", async () => exitCode === 0);
+```
 
 ### Test Runner (`run-tests.ts`)
 
@@ -2006,6 +2143,12 @@ launchMidnight("@my-template/contracts-midnight", { resolveFrom: root }, {
 
 Note: the old `@midnight-ntwrk/ledger` and `@midnight-ntwrk/ledger-v6` packages are deprecated. Use `@midnight-ntwrk/ledger-v8`. Similarly, `onchain-runtime-v1` is replaced by `onchain-runtime-v3`.
 
+**Compact runtime Map objects require iterator access**: Midnight Compact's `Map<K, V>` type compiles to JavaScript objects that have `member()`, `lookup()`, `isEmpty()`, `size()`, and `[Symbol.iterator]()` methods — but `Object.entries()` and `Object.keys()` return the method names as keys, not the map data. When accessing Map data in STM handlers, always iterate via `[Symbol.iterator]()` or use `member(key)` + `lookup(key)`. If you serialize Compact state to JSON (e.g., the `MidnightGenericPrimitive`'s `makeJsonSafe()` pipeline), you must detect and iterate these Maps explicitly — `JSON.stringify` will drop function values silently, producing empty `{}`.
+
+**`MidnightGenericPrimitive` `ledgerSchema` option**: The `MidnightGenericPrimitive` accepts an optional `ledgerSchema` that maps Compact ledger field names to types (`uint8`–`uint128`, `bytes`, `boolean`, `option`, `map`). When provided, the primitive parses raw `StateValue` arrays into named fields. Schema keys must be in Compact declaration order — the parser maps each key to the corresponding positional index. Without `ledgerSchema`, the raw `payload` object is passed through (after `makeJsonSafe` serialization).
+
+**Cardano pool delegation certificates carry no ADA amount**: The `cardanoPoolDelegation` primitive emits `{ address, pool, epoch }` — the staking credential hash, pool keyhash, and epoch number. Delegation certificates on Cardano do not include the delegated ADA amount. To determine how much ADA is delegated, query the wallet's UTxO balance separately (e.g., via Lucid's `utxosAt(address)` or Blockfrost API).
+
 **Deploy script import path**: The `@effectstream/midnight-contracts` package exports `./deploy` (not `./deploy-ledger6` or other legacy names). `DeployConfig` is exported from `./types`:
 ```ts
 import { deployMidnightContract } from "@effectstream/midnight-contracts/deploy";
@@ -2056,6 +2199,52 @@ import {PaimaL2Contract} from "@effectstream/evm-contracts/src/contracts/PaimaL2
 // New
 import {EffectstreamL2Contract} from "@effectstream/evm-contracts/src/contracts/EffectstreamL2Contract.sol";
 ```
+
+### Cardano Templates (YACI DevKit + Dolos)
+
+**Local Cardano dev stack**: `launchCardano` starts three services: (1) **YACI DevKit** — a local Cardano devnet with a faucet at `localhost:10000` and a web UI at `localhost:8090`, (2) **Dolos** — a lightweight Cardano node that exposes UTxO-RPC (gRPC at `localhost:50051`) and a Blockfrost-compatible API at `localhost:3000`, (3) **cardano-submit-tx** — a one-shot process that submits initial transactions (e.g., stake delegation to bootstrap the pool).
+
+**Lucid Evolution for Cardano wallets**: Use `@lucid-evolution/lucid` + `@lucid-evolution/provider` for wallet creation, transaction building, and delegation. `Lucid.new()` connects to the Dolos Blockfrost provider at `http://localhost:3000`. For dev wallets, `generateSeedPhrase()` creates a new wallet; fund it via the YACI faucet (`POST http://localhost:10000/local-cluster/api/addresses/topup`). YACI faucet topups take ~5 seconds to produce UTxOs.
+
+**YACI faucet field name is `adaAmount`**: The topup endpoint expects `{ address, adaAmount }`, NOT `{ address, amount }`. Using the wrong field name returns HTTP 400.
+
+**Lucid provider overrides for YACI+Dolos**: Dolos does not support tx evaluation (`evaluateTx`), and YACI's submit endpoint requires `application/cbor` content type. Override both on the Blockfrost provider:
+```ts
+const provider = new Blockfrost(DOLOS_URL, "dev");
+provider.evaluateTx = async () => {
+  return [{ redeemer_tag: "spend", redeemer_index: 0, ex_units: { mem: 10_000_000, steps: 5_000_000_000 } }];
+};
+provider.submitTx = async (tx: string): Promise<string> => {
+  const res = await fetch(`${YACI_URL}/local-cluster/api/tx/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/cbor" },
+    body: hexToBytes(tx),
+  });
+  if (!res.ok) throw new Error(`TX submit failed (${res.status}): ${await res.text()}`);
+  return (await res.text()).replace(/^"|"$/g, "");
+};
+```
+
+**YACI POSIX vs wall-clock time mismatch**: On YACI devnet, `genesis.systemStart` (used for on-chain POSIX time via the Shelley genesis) differs from `devnet.startTime` (used for Lucid's `SLOT_CONFIG_NETWORK["Custom"].zeroTime`). The offset between them (typically several hours) must be accounted for when comparing on-chain timestamps (e.g., `for_how_long` from the Hololocker) against `Date.now()`. Compute the offset as `systemStartMs - slotConfig.zeroTime` and subtract it from on-chain POSIX values to get wall-clock time:
+```ts
+const epochOffset = systemStartMs - SLOT_CONFIG_NETWORK["Custom"].zeroTime;
+const wallClockMs = cardanoPosixMs - epochOffset;
+```
+Failing to account for this offset causes time-lock comparisons to fail — e.g., `canClaim` will never be true because the on-chain timestamp appears hours in the future.
+
+**YACI genesis pool**: YACI DevKit creates one genesis stake pool. Its pool hash is `7301761068762f5900bde9eb7c1c15b09840285130f5b0f53606cc57` (bech32: `pool1wvqhvyrgwch4jq9aa84hc8q4kzvyq2z3xr6mpafkqmx9wce39zy`). Use this for delegation tests. The `cardanoPoolDelegation` primitive detects delegations to this pool via UTxO-RPC certificate scanning.
+
+**Five Cardano primitives**: The SDK provides five Cardano-specific primitives beyond `utxorpcGeneric`. All use the `CARDANO_UTXORPC_PARALLEL` sync protocol via Dolos:
+
+| Primitive | Grammar fields | Use case |
+|-----------|---------------|----------|
+| `CardanoPoolDelegation` | `address` (staking cred hash), `pool` (pool keyhash), `epoch` | Detect stake delegations — useful for eligibility/governance |
+| `CardanoMintBurn` | `policy`, `asset`, `quantity` | Track native token minting and burning |
+| `CardanoTransfer` | `address`, `amount`, ... | Track ADA/token transfers |
+| `CardanoDelayedAsset` | ... | Delayed asset claim tracking |
+| `CardanoProjectedNFT` | ... | Projected NFT state changes |
+
+**ProjectedNFT primitive emits duplicate entries**: The `CardanoProjectedNFT` primitive inserts each lock event twice (once for the UTxO consumed, once for the UTxO produced). Frontends querying the `cardano_projected_nft` table must deduplicate by `(current_tx_id, current_output_index, status)` to avoid showing each lock card twice.
 
 ### Orchestrator Migration
 
@@ -2169,3 +2358,233 @@ This applies to any `bunx` call with a `/` subpath when the package is symlinked
 ```ts
 const CLI_PATH = path.resolve(import.meta.dirname!, "../../node_modules/@effectstream/orchestrator/src/cli.ts");
 ```
+
+### Orchestrator Launchers
+
+**BUG: `launchCardano()` always includes `CARDANO_SUBMIT_TX`**: The `launchCardano()` helper returns a process that runs `submit-tx.ts` (initial ADA topup). In dev mode, if the frontend handles wallet funding (e.g., via a Faucet button calling YACI's topup API), these infrastructure transactions create unwanted events in the database. Filter out the process and remove it from `dependsOn`:
+
+```ts
+// start.dev.ts — exclude submit-tx from dev mode
+...launchCardano("@my-template/contracts-cardano", {
+  cwd: path.join(root, "packages/contracts-cardano"),
+}).filter((p) => p.name !== CardanoNames.CARDANO_SUBMIT_TX),
+
+{
+  name: "sync",
+  dependsOn: [
+    DbNames.PGLITE_WAIT,
+    EvmNames.GENERATE_MOD,
+    // CardanoNames.CARDANO_SUBMIT_TX,  // removed — not needed in dev
+    CardanoNames.DOLOS_MINIBF_WAIT,
+  ],
+},
+```
+
+Keep `CARDANO_SUBMIT_TX` in `start.test.ts` if tests need pre-funded wallets. Ideally `launchCardano()` should accept an option to exclude the submit-tx step.
+---
+
+## Migrating from `@paima/*` (paima-engine-v1) Templates
+
+The oldest template format uses `@paima/sdk` and `@paima/node-sdk` (Node.js runtime) with flat top-level workspaces (`api/`, `db/`, `middleware/`, `state-transition/`, etc.) and `@game/*` package prefixes. This section covers migration from this format to effectstream-v2.
+
+### Version lineage
+
+| Era | SDK prefix | Runtime | Workspace pattern | Package prefix |
+|-----|-----------|---------|-------------------|----------------|
+| paima-engine-v1 | `@paima/sdk`, `@paima/node-sdk` | Node.js | flat top-level (`api/`, `db/`, etc.) | `@game/*` |
+| effectstream-v1 | `@paimaexample/*` | Deno/Bun | nested (`packages/client/`, `packages/shared/`) | `@chess/*`, `@dice/*` |
+| effectstream-v2 | `@effectstream/*` | Bun | flat `packages/*` | `@my-template/*` |
+
+### Key differences from effectstream-v1 migration
+
+The existing "Migrating from `@paimaexample/*` Templates" section covers v1→v2 for the Deno/Bun era. Paima-engine-v1 templates have additional patterns that must be handled:
+
+| Aspect | paima-engine-v1 | effectstream-v1 |
+|--------|-----------------|-----------------|
+| Middleware | Full `@paima/sdk/mw-core` — bundled JS, `postConciseData`, `buildBackendQuery` | Thin wrapper (already being phased out) |
+| Frontend integration | `document.Paima` injected global | Import-based |
+| Parser | `PaimaParser` string grammar (`"ai = ai\|target\|id\|response"`) | Same but newer API |
+| API layer | TSOA controllers with generated routes | `@ts-rest` or plain routes |
+| Game logic | Varies (often a separate package with just helpers) | `round_executor` / `match_executor` |
+| Build | esbuild + tsc per workspace | Bun native |
+| STF | `gameStateTransitionRouter(blockHeight)` returning async functions | Same pattern |
+
+### Step 1: Eliminate Middleware
+
+The middleware package (`@game/middleware`) is entirely replaced by:
+
+1. **Write operations** → `sendTransaction` from `@effectstream/wallets` in the frontend:
+```ts
+// OLD: middleware/endpoints/write.ts
+const conciseBuilder = builder.initialize(undefined);
+conciseBuilder.setPrefix('ai');
+conciseBuilder.addValue({ value: String(target) });
+conciseBuilder.addValue({ value: String(id) });
+conciseBuilder.addValue({ value: String(response) });
+const result = await postConciseData(conciseBuilder.build(), errorFxn);
+
+// NEW: frontend direct call
+import { sendTransaction } from "@effectstream/wallets";
+await sendTransaction(wallet, ["ai", target, id, response], paimaConfig, "wait-effectstream-processed");
+```
+
+2. **Read operations** → Direct `fetch` to the sync node API:
+```ts
+// OLD: middleware/endpoints/queries.ts
+const query = buildBackendQuery('game/', { game_id: String(gameId) });
+const res = await fetch(query);
+
+// NEW: frontend direct call
+const res = await fetch(`http://localhost:9999/api/game?game_id=${gameId}`);
+```
+
+Delete the entire `middleware/` package. Its complexity (error handling, wallet mode switching, concise builder) is now handled by `@effectstream/wallets`.
+
+### Step 2: Remove TSOA API → Plain Fastify
+
+Old v1 templates use TSOA for type-safe API routes with code generation (`tsoa.json`, `RegisterRoutes`, `io-ts` validators). Replace with plain Fastify routes in `packages/node/api.ts`:
+
+```ts
+// OLD: api/src/index.ts
+import { RegisterRoutes } from './tsoa/routes.js';
+export default RegisterRoutes;
+
+// NEW: packages/node/api.ts
+export const apiRouter: StartConfigApiRouter = async (server, dbConn) => {
+  server.get("/api/game", async (request, reply) => {
+    const { game_id } = request.query as { game_id: string };
+    const result = await runPreparedQuery(getGameById.run({ id: parseInt(game_id, 10) }, dbConn), "/api/game");
+    reply.send({ stats: result[0] ?? null });
+  });
+};
+```
+
+Delete `api/`, `tsoa.json`, and any generated `routes.ts` files.
+
+### Step 3: Remove `document.Paima` Global
+
+Paima-engine-v1 frontends access the SDK through a global injected by the bundled middleware JS:
+```ts
+// OLD: frontend/src/paima.ts
+export const paima = (document as any).Paima as PaimaMW;
+```
+
+Replace with direct imports:
+```ts
+// NEW: frontend/src/config.ts
+import { EffectstreamConfig } from "@effectstream/wallets";
+export const paimaConfig = new EffectstreamConfig("my-app", "mainEvmRPC", contractAddr, chain, undefined, batcherUrl, true);
+
+// NEW: frontend/src/screens.ts
+import { walletLogin, sendTransaction, WalletMode } from "@effectstream/wallets";
+const wallet = await walletLogin(paimaConfig, WalletMode.EvmInjected);
+await sendTransaction(wallet, ["newGame"], paimaConfig, "wait-effectstream-processed");
+```
+
+### Step 4: PaimaParser Grammar → Typebox Grammar
+
+```ts
+// OLD: state-transition/src/stf/v1/parser.ts
+const myGrammar = `
+    newGame = g|*x
+    ai = ai|target|id|response
+    tick = tick|n
+`;
+const parserCommands = {
+  ai: { target: PaimaParser.NCharsParser(0, 100), id: PaimaParser.NumberParser(1, 100000), response: PaimaParser.NCharsParser(0, 1000) },
+};
+
+// NEW: packages/node/grammar.ts
+import { Type } from "@sinclair/typebox";
+export const grammar = {
+  newGame: [],
+  ai: [
+    ["target", Type.String({ maxLength: 100 })],
+    ["id", Type.Number({ minimum: 1 })],
+    ["response", Type.String({ maxLength: 1000 })],
+  ],
+  tick: [["n", Type.Number({ minimum: 0 })]],
+} as const satisfies GrammarDefinition;
+```
+
+Note: The old grammar uses prefix aliases (`g` for `newGame`) — in effectstream-v2, the JSON array uses the full grammar key name as the first element.
+
+### Step 5: STF → Stm Class
+
+```ts
+// OLD: state-transition/src/stf/v1/index.ts
+export default async function (inputData: SubmittedChainData, blockHeight: number, randomnessGenerator: Prando, dbConn: Pool): Promise<SQLUpdate[]> {
+  const input = parse(inputData.inputData);
+  switch (input.input) {
+    case 'newGame': return await newGameCommand(input, user, userData);
+    case 'ai': return await aiCommand(input, user, blockHeight, dbConn);
+  }
+}
+
+// NEW: packages/node/state-machine.ts
+const stm = new Stm<typeof grammar, {}>(grammar);
+stm.addStateTransition("newGame", function* (data) {
+  const { signerAddress: user } = data;
+  yield* World.resolve(createGlobalUserState, { wallet: user });
+  yield* World.resolve(newGame, { wallet: user });
+});
+```
+
+Key changes:
+- No `Pool` parameter — use `yield* World.resolve(query, params)` for all DB access
+- No `SQLUpdate[]` return — yield directly inside the generator
+- No `parse()` function — the Stm class handles parsing via the grammar definition
+- No `switch` statement — each grammar key gets its own `addStateTransition`
+- Async operations use `yield* World.promise()` instead of `await`
+
+### Step 6: Move Workspace Layout to `packages/*`
+
+```
+OLD:                          → NEW:
+api/                         → (deleted — merged into packages/node/api.ts)
+db/                          → packages/database/
+game-logic/                  → (deleted — inline into state-machine.ts)
+middleware/                  → (deleted — replaced by @effectstream/wallets)
+state-transition/            → packages/node/state-machine.ts
+utils/                       → (deleted — merge constants into packages/node/)
+frontend/                    → packages/frontend/
+contracts/evm/               → packages/contracts-evm/
+shinkai/ (or other helpers)  → packages/node/{helper-name}.ts
+```
+
+### Step 7: `@paima/sdk` Subpath → `@effectstream/*` Packages
+
+The `@paima/sdk` package used subpath exports that don't map 1:1:
+
+| Old (`@paima/sdk/*`) | New (`@effectstream/*`) |
+|---------------------|------------------------|
+| `@paima/sdk/concise` | `@effectstream/concise` |
+| `@paima/sdk/utils` | `@effectstream/utils` |
+| `@paima/sdk/mw-core` | `@effectstream/wallets` (frontend) |
+| `@paima/sdk/providers` | `@effectstream/wallets` |
+| `@paima/sdk/prando` | Built-in via `data.randomGenerator` in STM transitions |
+| `@paima/node-sdk/db` | `@effectstream/db` |
+| `@paima/node-sdk` | `@effectstream/runtime` + `@effectstream/sm` |
+
+### Migration Checklist (paima-engine-v1 specific)
+
+- [ ] Delete `middleware/` entirely — replaced by `@effectstream/wallets` in frontend
+- [ ] Delete `api/` + `tsoa.json` — replaced by `packages/node/api.ts` (plain Fastify)
+- [ ] Delete `game-logic/` — inline helpers into state machine or node package
+- [ ] Delete `utils/` — merge constants (`GAME_NAME`, version) into node package
+- [ ] Move `db/` → `packages/database/` (update pgtyped config, paths)
+- [ ] Move `state-transition/` logic → `packages/node/state-machine.ts`
+- [ ] Move `contracts/evm/` → `packages/contracts-evm/`
+- [ ] Move `frontend/` → `packages/frontend/` (modernize build to Vite)
+- [ ] Remove `document.Paima` global — use direct `@effectstream/wallets` imports
+- [ ] Convert PaimaParser string grammar → Typebox `GrammarDefinition`
+- [ ] Convert `gameStateTransitionRouter` + `switch` → `Stm.addStateTransition` per key
+- [ ] Convert `SQLUpdate[]` tuple returns → direct `yield* World.resolve()` calls
+- [ ] Convert `createScheduledData(string, block)` → `createScheduledData(JSON.stringify([...]), block)`
+- [ ] Replace `esbuild` + `tsc` build tooling with Bun native resolution
+- [ ] Replace `axios` / `node-fetch` / custom HTTP clients with native `fetch`
+- [ ] Add `packages/batcher/` with adapter factory pattern
+- [ ] Add `packages/tests/` with phases A + B
+- [ ] Create `start.dev.ts` at project root
+- [ ] Update root `package.json` (workspaces, `effectstream.default`, scripts)
+- [ ] Verify `bun run dev` + `bun run test`

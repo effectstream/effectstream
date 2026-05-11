@@ -15,6 +15,11 @@ import { nep245Grammar } from "./near-nep245/nep245-grammar.ts";
 import { nearIntentGrammar } from "./near-intent/near-intent-grammar.ts";
 import { nearGenericGrammar } from "./near-generic/near-generic-grammar.ts";
 import { nearAccountWatchGrammar } from "./near-account-watch/near-account-watch-grammar.ts";
+import { mintBurnGrammar } from "./cardano-mint-burn/mint-burn-grammar.ts";
+import { transferGrammar } from "./cardano-transfer/transfer-grammar.ts";
+import { poolDelegationGrammar } from "./cardano-pool-delegation/pool-delegation-grammar.ts";
+import { delayedAssetGrammar } from "./cardano-delayed-asset/delayed-asset-grammar.ts";
+import { projectedNftGrammar } from "./cardano-projected-nft/projected-nft-grammar.ts";
 
 export const builtinGrammars = {
   midnightGeneric: midnightGenericGrammar,
@@ -31,4 +36,9 @@ export const builtinGrammars = {
   nearIntent: nearIntentGrammar,
   nearGeneric: nearGenericGrammar,
   nearAccountWatch: nearAccountWatchGrammar,
+  cardanoMintBurn: mintBurnGrammar,
+  cardanoTransfer: transferGrammar,
+  cardanoPoolDelegation: poolDelegationGrammar,
+  cardanoDelayedAsset: delayedAssetGrammar,
+  cardanoProjectedNft: projectedNftGrammar,
 } as const;

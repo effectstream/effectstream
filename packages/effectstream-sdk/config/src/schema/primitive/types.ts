@@ -17,6 +17,7 @@ export type FlattenSyncProtocolIOFor<
     transactionIndex?: number;
     contractAddress: string;
     logIndex?: number;
+    absoluteSlot?: number;
   };
   primitive: string;
   output: {

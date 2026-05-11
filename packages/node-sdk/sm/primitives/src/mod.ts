@@ -16,6 +16,11 @@ import {
   PrimitiveTypeNEARIntent,
   PrimitiveTypeNEARGeneric,
   PrimitiveTypeNEARAccountWatch,
+  PrimitiveTypeCardanoMintBurn,
+  PrimitiveTypeCardanoTransfer,
+  PrimitiveTypeCardanoPoolDelegation,
+  PrimitiveTypeCardanoDelayedAsset,
+  PrimitiveTypeCardanoProjectedNFT,
 //   PrimitiveTypeEVMGeneric,
 } from "./builtin.ts";
 
@@ -36,6 +41,11 @@ import { Nep245Primitive } from "./near-nep245/nep245-primitive.ts";
 import { NearIntentPrimitive } from "./near-intent/near-intent-primitive.ts";
 import { NearGenericPrimitive } from "./near-generic/near-generic-primitive.ts";
 import { NearAccountWatchPrimitive } from "./near-account-watch/near-account-watch-primitive.ts";
+import { CardanoMintBurnPrimitive } from "./cardano-mint-burn/mint-burn-primitive.ts";
+import { CardanoTransferPrimitive } from "./cardano-transfer/transfer-primitive.ts";
+import { CardanoPoolDelegationPrimitive } from "./cardano-pool-delegation/pool-delegation-primitive.ts";
+import { CardanoDelayedAssetPrimitive } from "./cardano-delayed-asset/delayed-asset-primitive.ts";
+import { CardanoProjectedNftPrimitive } from "./cardano-projected-nft/projected-nft-primitive.ts";
 // import { EvmGenericPrimitive } from "./evm-generic/evm-generic-primitive.ts";
 
 const builtInPrimitivesMap = {
@@ -56,6 +66,11 @@ const builtInPrimitivesMap = {
   [PrimitiveTypeNEARIntent]: NearIntentPrimitive,
   [PrimitiveTypeNEARGeneric]: NearGenericPrimitive,
   [PrimitiveTypeNEARAccountWatch]: NearAccountWatchPrimitive,
+  [PrimitiveTypeCardanoMintBurn]: CardanoMintBurnPrimitive,
+  [PrimitiveTypeCardanoTransfer]: CardanoTransferPrimitive,
+  [PrimitiveTypeCardanoPoolDelegation]: CardanoPoolDelegationPrimitive,
+  [PrimitiveTypeCardanoDelayedAsset]: CardanoDelayedAssetPrimitive,
+  [PrimitiveTypeCardanoProjectedNFT]: CardanoProjectedNftPrimitive,
 //   [PrimitiveTypeEVMGeneric]: EvmGenericPrimitive,
 } as const;
 
@@ -81,5 +96,10 @@ export {
   NearIntentPrimitive,
   NearGenericPrimitive,
   NearAccountWatchPrimitive,
+  CardanoMintBurnPrimitive,
+  CardanoTransferPrimitive,
+  CardanoPoolDelegationPrimitive,
+  CardanoDelayedAssetPrimitive,
+  CardanoProjectedNftPrimitive,
   // EvmGenericPrimitive,
 };

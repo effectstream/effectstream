@@ -242,6 +242,14 @@ function parseLedgerField(sv: StateValue, type: LedgerFieldType): any {
   return null;
 }
 
+function isCompactMap(data: object): data is Iterable<[unknown, unknown]> {
+  return (
+    typeof (data as any).member === 'function' &&
+    typeof (data as any).lookup === 'function' &&
+    Symbol.iterator in data
+  );
+}
+
 function makeJsonSafe(data: unknown): any {
   if (typeof data === 'boolean' || typeof data === 'number' || typeof data === 'string') {
     return data;
@@ -259,6 +267,13 @@ function makeJsonSafe(data: unknown): any {
     return uint8ArrayToHexString(data);
   }
   if (typeof data === 'object') {
+    if (isCompactMap(data)) {
+      const entries: [string, any][] = [];
+      for (const [k, v] of data) {
+        entries.push([String(makeJsonSafe(k)), makeJsonSafe(v)]);
+      }
+      return Object.fromEntries(entries);
+    }
     return Object.fromEntries(Object.entries(data).map(([k, v]) => [k, makeJsonSafe(v)]));
   }
   return data;

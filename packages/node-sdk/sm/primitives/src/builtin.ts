@@ -5,6 +5,11 @@ export const PrimitiveTypeMidnightNullifier = "Midnight:Nullifier" as const;
 export const PrimitiveTypeMidnightUnshieldedSpend = "Midnight:UnshieldedSpend" as const;
 
 export const PrimitiveTypeUtxorpcGeneric = "Utxorpc:Generic" as const;
+export const PrimitiveTypeCardanoMintBurn = "Cardano:MintBurn" as const;
+export const PrimitiveTypeCardanoTransfer = "Cardano:Transfer" as const;
+export const PrimitiveTypeCardanoPoolDelegation = "Cardano:PoolDelegation" as const;
+export const PrimitiveTypeCardanoDelayedAsset = "Cardano:DelayedAsset" as const;
+export const PrimitiveTypeCardanoProjectedNFT = "Cardano:ProjectedNFT" as const;
 
 export const PrimitiveTypeEVMEffectstreamL2 = "EVM:EffectstreamL2" as const;
 export const PrimitiveTypeEVMERC721 = "EVM:ERC721" as const;
@@ -35,6 +40,11 @@ type BuiltInPrimitives =
     typeof PrimitiveTypeAvailGeneric |
     typeof PrimitiveTypeEVMERC1155 |
     typeof PrimitiveTypeUtxorpcGeneric |
+    typeof PrimitiveTypeCardanoMintBurn |
+    typeof PrimitiveTypeCardanoTransfer |
+    typeof PrimitiveTypeCardanoPoolDelegation |
+    typeof PrimitiveTypeCardanoDelayedAsset |
+    typeof PrimitiveTypeCardanoProjectedNFT |
     typeof PrimitiveTypeBitcoinAddress |
     typeof PrimitiveTypeCelestiaGeneric |
     typeof PrimitiveTypeNEARNEP141 |
