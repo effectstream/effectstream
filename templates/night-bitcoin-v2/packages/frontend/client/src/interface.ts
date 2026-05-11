@@ -2,9 +2,11 @@ import { walletLogin, WalletMode } from "@effectstream/wallets";
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 
 import * as unshielded_erc20 from "./contracts/erc20.ts";
+import { M20_DOMAIN_SEP } from "./contracts/erc20.ts";
 import * as erc7683 from "./contracts/intents.ts";
 import { extractPublicCoinAddress } from "./contracts/midnight-utils.ts";
-import { balanceOf as balanceOfFromLedger } from "./contracts/balanceOf.ts";
+import { rawTokenType } from "@midnight-ntwrk/ledger-v8";
+import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 
 enum AddressType {
   MIDNIGHT = 5,
@@ -84,10 +86,14 @@ export async function loginMidnight() {
       erc7683: null,
     },
     wallet: null,
+    // Connected Lace wallet API — needed for getUnshieldedBalances() reads
+    // since balances live in the wallet, not the contract ledger.
+    connectedApi: null as ConnectedAPI | null,
   } as any;
 
   {
     const connectedApi = paimaWallet.provider.getConnection().api as ConnectedAPI;
+    response.connectedApi = connectedApi;
     const { providers, addresses } =
       await unshielded_erc20.connectMidnightWallet(connectedApi);
 
@@ -125,9 +131,40 @@ export async function loginMidnight() {
   return response;
 }
 
-export async function midnight_balanceOf(_contract: any, addr: string) {
+// Computes the M20 unshielded token color (raw token type) for a given
+// contract address. The color is what `mint_unshielded` returns and what the
+// Lace wallet uses as the key in `getUnshieldedBalances()`.
+// `rawTokenType` from ledger-v8 takes (domain_sep: Uint8Array, contract: hex string)
+// and returns the token-type hex string directly.
+export function m20TokenColor(contractAddress: string): string {
+  const hex = contractAddress.startsWith("0x")
+    ? contractAddress.slice(2)
+    : contractAddress;
+  return rawTokenType(M20_DOMAIN_SEP, hex);
+}
+
+// Reads the user's M20 balance from the connected Lace wallet's unshielded
+// balances. The contract-ledger balanceOf reads from the old FungibleToken
+// contract no longer apply — balances are native unshielded coins keyed by
+// (contract address, M20 domain separator).
+export async function midnight_balanceOf(
+  connectedApi: ConnectedAPI | null | undefined,
+  contractAddress: string,
+): Promise<bigint> {
+  if (!connectedApi) {
+    throw new Error(
+      "midnight_balanceOf: not connected to a Midnight wallet. Connect first.",
+    );
+  }
+  if (!contractAddress) {
+    throw new Error(
+      "midnight_balanceOf: missing contract address. Is the contract deployed?",
+    );
+  }
   try {
-    return await balanceOfFromLedger(addr);
+    const balances = await connectedApi.getUnshieldedBalances();
+    const color = m20TokenColor(contractAddress);
+    return balances[color] ?? 0n;
   } catch (error) {
     console.error("midnight_balanceOf failed:", { error });
     throw error;
@@ -206,26 +243,41 @@ export async function createIntent(
   }
 }
 
+// Decodes the user's bech32m unshielded address (`mn_addr_<network>1...`)
+// to its 32-byte UserAddress bytes — that's what mint_unshielded expects.
+const userAddressBytes = (unshieldedAddress: string): Uint8Array => {
+  if (!unshieldedAddress.startsWith("mn_addr_")) {
+    throw new Error(
+      `userAddressBytes: expected bech32m unshielded address (mn_addr_...), got "${unshieldedAddress}"`,
+    );
+  }
+  const parsed = MidnightBech32m.parse(unshieldedAddress);
+  return Uint8Array.prototype.slice.call(parsed.data, 0, 32);
+};
+
+// Mints native unshielded M20 coins to the caller's own unshielded address.
+// The minted coin appears in the user's Lace wallet under the M20 token color
+// (see m20TokenColor() / midnight_balanceOf()).
 export async function m20_mint(
   contract: any,
-  account: string,
+  unshieldedAddress: string,
   amount: bigint,
 ) {
-  // Despite the package name "unshielded-erc20", the contract's mint circuit
-  // is keyed by ZswapCoinPublicKey (Either<ZswapCoinPublicKey, ContractAddress>).
-  // Decode the caller's bech32m shielded address to its 32-byte CPK before
-  // handing it to the contract layer.
-  const accountBytes = cpkBytes(account);
+  const recipientBytes = userAddressBytes(unshieldedAddress);
   try {
-    return await unshielded_erc20.mint(contract, accountBytes, amount);
+    return await unshielded_erc20.mintUnshielded(contract, recipientBytes, amount);
   } catch (error) {
     if (error instanceof unshielded_erc20.DelegatedBalancingSentError) {
       const tx = unshielded_erc20.getLastCapturedTx();
       if (!tx) throw new Error("No transaction captured for delegation");
-      await submitToBatcher(tx, "mint", account);
+      await submitToBatcher(tx, "mint_unshielded", unshieldedAddress);
       return { txId: "delegated", blockHeight: 0 };
     }
-    console.error(" interface.ts: m20_mint failed", { error, account, amount });
+    console.error(" interface.ts: m20_mint failed", {
+      error,
+      unshieldedAddress,
+      amount,
+    });
     if (error instanceof Error) {
       console.error(" interface.ts: error message", error.message);
     }

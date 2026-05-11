@@ -8,7 +8,7 @@ import {
   SegmentSuccess,
   SegmentFail,
 } from "@midnight-ntwrk/midnight-js-types";
-import { getPublicStates, PublicContractStates } from "@midnight-ntwrk/midnight-js-contracts";
+import { getPublicStates, type PublicContractStates } from "@midnight-ntwrk/midnight-js-contracts";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 

@@ -1,167 +1,54 @@
-// SimpleToken.compact
+// SPDX-License-Identifier: MIT
+//
+// Minting authority for the night-bitcoin "M20" token, implemented via
+// Midnight's native unshielded coin system (mintUnshieldedToken). Replaces
+// the previous FungibleToken-based ERC-20 — there is no contract-side
+// balance ledger; balances live in the recipient's wallet as native
+// unshielded coins, colored by (contract address, domain_sep).
+//
+// Action ledger fields (actionName / actionInitiator / actionTarget / actionValue)
+// are kept so the existing state-machine consumers can continue to observe
+// mint events via the midnight-generic primitive.
 pragma language_version >= 0.17.0;
 
 import CompactStandardLibrary;
-import "./base-contracts/src/token/FungibleToken"
-  prefix FungibleToken_;
-import "./base-contracts/src/access/Ownable"
-  prefix Ownable_;
 
-struct LastTransfer {
-  target_address: Opaque<'string'>;
-  amount: Uint<128>;
-}
+export ledger counter: Uint<128>;
 
-export ledger txHashes: Set<Bytes<16>>;
-export ledger lastTransfer: LastTransfer;
-
+// Action event ledger fields — written on every mint_unshielded call.
+// actionName 1001 = mint.
 export ledger actionName: Uint<128>;
 export ledger actionInitiator: Either<ZswapCoinPublicKey, ContractAddress>;
 export ledger actionTarget: Either<ZswapCoinPublicKey, ContractAddress>;
-export ledger actionTargetAddress: Opaque<'string'>;
 export ledger actionValue: Uint<128>;
+export ledger lastDomainSep: Bytes<32>;
+export ledger lastTokenColor: Bytes<32>;
 
-constructor(
-  name: Opaque<"string">,
-  symbol: Opaque<"string">,
-  decimals: Uint<8>,
-  initialOwner: Either<ZswapCoinPublicKey, ContractAddress>,
-) {
-  // Initialize the token
-  FungibleToken_initialize(name, symbol, decimals);
-  // Set the initial owner
-  // Ownable_initialize(initialOwner);
-}
-
-export circuit name(): Opaque<"string"> {
-  return FungibleToken_name();
-}
-
-// export circuit owner(): Either<ZswapCoinPublicKey, ContractAddress> {
-//   return Ownable_owner();
-// }
-
-export circuit symbol(): Opaque<"string"> {
-  return FungibleToken_symbol();
-}
-
-export circuit decimals(): Uint<8> {
-  return FungibleToken_decimals();
-}
-
-export circuit totalSupply(): Uint<128> {
-  return FungibleToken_totalSupply();
-}
-
-export circuit balanceOf(
-  account: Either<ZswapCoinPublicKey, ContractAddress>,
-): Uint<128> {
-  return FungibleToken_balanceOf(account);
-}
-
-export circuit mint(
-  account: Either<ZswapCoinPublicKey, ContractAddress>,
-  value: Uint<128>,
-): [] {
-  // This line protects the circuit - only the owner can continue past it
-  // Ownable_assertOnlyOwner();
-  // If we reach here, the caller is the owner
-  FungibleToken__mint(account, value);
-  actionName = 1001;
-  actionTarget = disclose(account);
-  actionValue = disclose(value);
-
-  const caller = ownPublicKey();
-  actionInitiator = left<ZswapCoinPublicKey, ContractAddress>(caller);
-}
-
-export circuit transfer(
-  to: Either<ZswapCoinPublicKey, ContractAddress>,
-  value: Uint<128>,
-): Boolean {
-  const result = FungibleToken_transfer(to, value);
-  actionName = 1002;
-  actionTarget = disclose(to);
-  actionValue = disclose(value);
-  const caller = ownPublicKey();
-  actionInitiator = left<ZswapCoinPublicKey, ContractAddress>(caller);
-  return result;
-}
-
-export circuit approve(
-  spender: Either<ZswapCoinPublicKey, ContractAddress>,
-  value: Uint<128>,
-): Boolean {
-  const result = FungibleToken_approve(spender, value);
-  actionName = 1003;
-  actionTarget = disclose(spender);
-  actionValue = disclose(value);
-  const caller = ownPublicKey();
-  actionInitiator = left<ZswapCoinPublicKey, ContractAddress>(caller);
-  return result;
-}
-
-export circuit allowance(
-  owner: Either<ZswapCoinPublicKey, ContractAddress>,
-  spender: Either<ZswapCoinPublicKey, ContractAddress>,
-): Uint<128> {
-  const result = FungibleToken_allowance(owner, spender);
-  actionName = 1004;
-  actionTarget = disclose(owner);
-  // actionTarget = disclose(spender);
-  actionValue = disclose(result);
-  const caller = ownPublicKey();
-  actionInitiator = left<ZswapCoinPublicKey, ContractAddress>(caller);
-  return result;
-}
-
-// Allows the owner to burn tokens from any account
-export circuit burnFrom(
-  account: Either<ZswapCoinPublicKey, ContractAddress>,
-  value: Uint<128>
-): [] {
-  // Ownable_assertOnlyOwner();
-  const result = FungibleToken__burn(account, value);
-  actionName = 1005;
-  actionTarget = disclose(account);
-  actionValue = disclose(value);
-  const caller = ownPublicKey();
-  actionInitiator = left<ZswapCoinPublicKey, ContractAddress>(caller);
-  return result;
-}
-
-export circuit transferFrom(
-  fromAddress: Either<ZswapCoinPublicKey, ContractAddress>,
-  to: Either<ZswapCoinPublicKey, ContractAddress>,
-  value: Uint<128>,
-): Boolean {
-  const result = FungibleToken_transferFrom(fromAddress, to, value);
-  actionName = 1006;
-  actionTarget = disclose(to);
-  actionValue = disclose(value);
-  const caller = ownPublicKey();
-  actionInitiator = left<ZswapCoinPublicKey, ContractAddress>(caller);
-  return result;
-}
-
-export circuit transferToEvm(
-  target_address: Opaque<'string'>,
-  amount: Uint<128>,
-  txHash: Bytes<16>,
-): [] {
-  const caller = ownPublicKey();
-  const callerEither = left<ZswapCoinPublicKey, ContractAddress>(caller);
-  const callerTokenBalance = FungibleToken_balanceOf(callerEither);
-  assert(!txHashes.member(disclose(txHash)), "Transaction already processed");
-  assert(callerTokenBalance >= amount, "Insufficient balance");
-  burnFrom(callerEither, amount);
-  txHashes.insert(disclose(txHash));
-  lastTransfer = LastTransfer{
-    disclose(target_address),
+export circuit mint_unshielded(
+  domainSep: Bytes<32>,
+  amount: Uint<64>,
+  recipient: UserAddress,
+): Bytes<32> {
+  const color = mintUnshieldedToken(
+    disclose(domainSep),
     disclose(amount),
-  };
-  actionName = 1007;
-  actionTargetAddress = disclose(target_address);
-  actionValue = disclose(amount);
-  actionInitiator = callerEither;
+    right<ContractAddress, UserAddress>(disclose(recipient)),
+  );
+
+  counter = counter + 1 as Uint<128>;
+
+  const caller = ownPublicKey();
+  actionName = 1001;
+  actionInitiator = left<ZswapCoinPublicKey, ContractAddress>(caller);
+  // Recipient is a UserAddress (not a ZswapCoinPublicKey); we encode it on the
+  // left side so downstream STM code that reads actionTarget.left.bytes keeps
+  // working. The bytes are the recipient's user-address public key.
+  actionTarget = left<ZswapCoinPublicKey, ContractAddress>(
+    ZswapCoinPublicKey { bytes: disclose(recipient).bytes },
+  );
+  actionValue = disclose(amount) as Uint<128>;
+  lastDomainSep = disclose(domainSep);
+  lastTokenColor = color;
+
+  return color;
 }

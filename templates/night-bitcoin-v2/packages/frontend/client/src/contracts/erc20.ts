@@ -1,70 +1,51 @@
-import {
-  SimpleToken,
-  witnesses as unshielded_erc20Witnesses,
-} from "@night-bitcoin/midnight-contract-unshielded-erc20";
-
-import { balanceOf as balanceOfQuery } from "./balanceOf.ts";
-
-import { type ContractAddress } from "@midnight-ntwrk/compact-runtime";
+// ── External SDK: ledger / runtime ────────────────────────────────────────
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
+import { type ContractAddress } from "@midnight-ntwrk/compact-runtime";
 
+// ── External SDK: Midnight JS ─────────────────────────────────────────────
 import {
-  Transaction,
-  type TransactionId,
-  type CoinPublicKey,
-  type EncPublicKey,
-  type ShieldedCoinInfo,
-  type UnprovenTransaction,
-  type FinalizedTransaction,
-  Transaction as LedgerV8Transaction,
-  SignatureEnabled,
-  PreProof,
-  PreBinding,
-} from "@midnight-ntwrk/ledger-v8";
-import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
-import { Buffer } from "buffer";
-import {
-  type DeployedContract,
   findDeployedContract,
+  type DeployedContract,
   type FoundContract,
 } from "@midnight-ntwrk/midnight-js-contracts";
+import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
-
+import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
+import { type NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
-  Contract,
+  type Contract,
   type ImpureCircuitId,
   type MidnightProvider,
   type MidnightProviders,
   type UnboundTransaction,
   type WalletProvider,
 } from "@midnight-ntwrk/midnight-js-types";
-import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
-import type { Wallet } from "@midnight-ntwrk/wallet-api";
-import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
-import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { dirname, resolve } from "node:path";
 
-import { wrapPublicDataProvider } from "./midnight-utils.ts";
+// ── External SDK: wallet ──────────────────────────────────────────────────
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
-import { NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import {
-  concatMap,
-  filter,
-  firstValueFrom,
-  interval,
-  map,
-  of,
-  take,
-  tap,
-  throwError,
-  timeout,
-  catchError,
-} from "rxjs";
-import { pipe as fnPipe } from "fp-ts/function";
+import type {
+  CoinPublicKey,
+  EncPublicKey,
+  FinalizedTransaction,
+  TransactionId,
+  UnprovenTransaction,
+} from "@midnight-ntwrk/ledger-v8";
+import { type Resource } from "@midnight-ntwrk/wallet";
+import type { Wallet } from "@midnight-ntwrk/wallet-api";
+
+// ── Misc third-party ──────────────────────────────────────────────────────
 import semver from "semver";
+
+// ── Workspace ─────────────────────────────────────────────────────────────
+import {
+  SimpleToken,
+  witnesses as unshielded_erc20Witnesses,
+} from "@night-bitcoin/midnight-contract-unshielded-erc20";
+
+// ── Local ─────────────────────────────────────────────────────────────────
+import { wrapPublicDataProvider } from "./midnight-utils.ts";
 
 const BASE_URL_MIDNIGHT_NODE_A =
   import.meta.env.VITE_MIDNIGHT_NODE_HTTP || "http://127.0.0.1:9944";
@@ -94,12 +75,6 @@ const toHex = (data: Uint8Array): string =>
   Array.from(data)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-
-const fromHex = (hex: string): Uint8Array => {
-  const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex;
-  const match = cleanHex.match(/.{1,2}/g);
-  return new Uint8Array(match ? match.map((byte) => parseInt(byte, 16)) : []);
-};
 
 const MIDNIGHT_NETWORK_ID: NetworkId =
   (import.meta.env.VITE_MIDNIGHT_NETWORK_ID as NetworkId) || "undeployed";
@@ -183,6 +158,10 @@ const joinContract = async (
   return simpleTokenContract;
 };
 
+// Static per-template domain separator for the M20 unshielded token color.
+// Must match the constant used by the filler (see packages/filler/index.ts).
+export const M20_DOMAIN_SEP = new Uint8Array(32).fill(0x20);
+
 const wrapAddress = (bytes: Uint8Array) => {
   if (bytes.length !== 32) {
     throw new Error(
@@ -196,54 +175,49 @@ const wrapAddress = (bytes: Uint8Array) => {
   };
 };
 
-const mint = async (
+// Mints native unshielded M20 coins to `recipientBytes` (the user's 32-byte
+// unshielded UserAddress). Returns the finalized tx data, which includes the
+// token color in `txData.result` (see mint_unshielded circuit return type).
+const mintUnshielded = async (
   simpleTokenContract: DeployedSimpleTokenContract,
-  accountBytes: Uint8Array,
-  value: bigint,
-): Promise<any> => {
-  console.log("Minting...");
-  console.log(
-    "accountBytes",
-    Array.from(accountBytes, (b) => b.toString(16).padStart(2, "0")).join(""),
-  );
-  const finalizedTxData = await (simpleTokenContract.callTx as any).mint(
-    wrapAddress(accountBytes),
-    value,
-  );
-  console.log(
-    `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
-  );
-  console.log(`Minted ${value} tokens`);
-  return finalizedTxData.public;
-};
-
-const transferFrom = async (
-  simpleTokenContract: DeployedSimpleTokenContract,
-  fromAccount: string,
-  toAccountBytes: Uint8Array,
+  recipientBytes: Uint8Array,
   amount: bigint,
 ): Promise<any> => {
-  console.log("[TRANSFER FROM]", {
-    fromAccount,
-    toAccountBytes: Array.from(toAccountBytes, (b) =>
-      b.toString(16).padStart(2, "0"),
-    ).join(""),
+  if (recipientBytes.length !== 32) {
+    throw new Error(
+      `mintUnshielded: expected a 32-byte UserAddress, got ${recipientBytes.length} bytes`,
+    );
+  }
+  console.log("Minting unshielded...", { amount });
+  // Compact runtime requires Bytes<N> as Uint8Array (not a plain JS number[]),
+  // and UserAddress.bytes likewise. Array.from() would coerce to plain array
+  // and trip a "type error" inside the circuit.
+  const finalizedTxData = await (simpleTokenContract.callTx as any).mint_unshielded(
+    M20_DOMAIN_SEP,
     amount,
-  });
-  const finalizedTxData = await (simpleTokenContract.callTx as any).transfer(
-    wrapAddress(toAccountBytes),
-    amount,
+    { bytes: recipientBytes },
   );
   console.log(
     `Transaction ${finalizedTxData.public.txId} added in block ${finalizedTxData.public.blockHeight}`,
   );
-  console.log(finalizedTxData);
-  console.log(`Transferred ${amount} tokens from ${fromAccount}`);
+  console.log(`Minted ${amount} unshielded M20 tokens`);
   return finalizedTxData.public;
 };
 
-const balanceOf = async (account: string): Promise<bigint> => {
-  return await balanceOfQuery(account);
+// Transfers of M20 between users are no longer contract operations — M20 is
+// a native Midnight unshielded coin. Senders should move the coin via the
+// connected Lace wallet's standard unshielded-send flow, not via this module.
+const transferFrom = async (
+  _simpleTokenContract: DeployedSimpleTokenContract,
+  _fromAccount: string,
+  _toAccountBytes: Uint8Array,
+  _amount: bigint,
+): Promise<any> => {
+  throw new Error(
+    "M20 transfers are no longer routed through the contract. " +
+      "The new unshielded-mint contract only exposes mint_unshielded; " +
+      "use the Lace wallet's unshielded-send to move M20 between users.",
+  );
 };
 
 const displaySimpleTokenValue = async (
@@ -333,13 +307,19 @@ const initializeProviders = async (
 
   const zkConfigPath = window.location.origin;
 
+  // httpClientProofProvider needs the zkConfigProvider as its 2nd argument so
+  // it can fetch prover key + zkir to build the /check and /prove payloads.
+  // Without it, getKeyMaterial silently returns undefined and the proof server
+  // rejects /check with a 400 (no IR in the payload).
+  const zkConfigProvider = new FetchZkConfigProvider(zkConfigPath, fetch.bind(window));
+
   return {
     privateStateProvider: levelPrivateStateProvider({
       privateStoragePasswordProvider: async () => "EffectstreamStorage1!",
       accountId: shieldedCoinPublicKey || "default-account",
     } as any),
-    zkConfigProvider: new FetchZkConfigProvider(zkConfigPath, fetch.bind(window)),
-    proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER),
+    zkConfigProvider,
+    proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER, zkConfigProvider),
     publicDataProvider: wrapPublicDataProvider(
       indexerPublicDataProvider(
         BASE_URL_MIDNIGHT_INDEXER_API,
@@ -421,8 +401,7 @@ const connectToContract = async (
 };
 
 export {
-  mint,
-  balanceOf,
+  mintUnshielded,
   transferFrom,
   connectMidnightWallet,
   connectToContract,

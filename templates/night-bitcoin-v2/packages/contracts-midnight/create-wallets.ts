@@ -102,15 +102,14 @@ if (import.meta.main) {
         }
     }
     if (mint) {
+        // Filler wallets only need NIGHTs (for dust gas fees) — they no longer
+        // need pre-minted M20. Under the new contract, M20 is created fresh
+        // per fill via mint_unshielded(domainSep, amount, userAddress); the
+        // filler holds no M20 balance of its own.
         const { faucet } = await import('./faucet.ts');
-        const { joinAndMint } = await import('./faucet-unshielded-erc20.ts');
-        const shieldedTargets = wallets.map(wallet => wallet.shieldedAddress);
         const unshieldedTargets = wallets.map(wallet => wallet.unshieldedAddress);
-        // ERC20 minting uses shielded address (contract extracts coinPublicKey)
-        await joinAndMint(shieldedTargets, 250000000000000n);
-        // NIGHT token transfer uses unshielded address (bech32m format)
         await faucet(unshieldedTargets);
-        console.log("✅ Minting and NIGHT transfers completed. Exiting.");
+        console.log("✅ NIGHT transfers completed. Exiting.");
         process.exit(0);
     }
 }

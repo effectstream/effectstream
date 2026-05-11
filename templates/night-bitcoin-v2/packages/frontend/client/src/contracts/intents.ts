@@ -1,52 +1,51 @@
-import {
-  erc7683,
-  witnesses as erc7683Witnesses,
-} from "@night-bitcoin/midnight-contract-erc7683";
-
-console.log(erc7683, erc7683Witnesses);
-
-import { type ContractAddress } from "@midnight-ntwrk/compact-runtime";
+// ── External SDK: ledger / runtime ────────────────────────────────────────
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
+import { type ContractAddress } from "@midnight-ntwrk/compact-runtime";
+
+// ── External SDK: Midnight JS ─────────────────────────────────────────────
 import {
-  type TransactionId,
-  type CoinPublicKey,
-  type EncPublicKey,
-  type FinalizedTransaction,
-  type ShieldedCoinInfo,
-  type UnprovenTransaction,
-  Transaction as LedgerV8Transaction,
-} from "@midnight-ntwrk/ledger-v8";
-import {
-  type DeployedContract,
   findDeployedContract,
+  type DeployedContract,
   type FoundContract,
 } from "@midnight-ntwrk/midnight-js-contracts";
+import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
-import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
+import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
+import { type NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import {
-  Contract,
+  type Contract,
   type FinalizedTxData,
   type ImpureCircuitId,
   type MidnightProvider,
   type MidnightProviders,
   type UnboundTransaction,
   type WalletProvider,
-  SucceedEntirely,
-  FailFallible,
-  FailEntirely,
-  SegmentSuccess,
-  SegmentFail,
 } from "@midnight-ntwrk/midnight-js-types";
-import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
-import { NetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+
+// ── External SDK: wallet / address ────────────────────────────────────────
+import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
+import type {
+  CoinPublicKey,
+  EncPublicKey,
+  FinalizedTransaction,
+  TransactionId,
+  UnprovenTransaction,
+} from "@midnight-ntwrk/ledger-v8";
 import {
   MidnightBech32m,
   ShieldedAddress,
 } from "@midnight-ntwrk/wallet-sdk-address-format";
+
+// ── Workspace ─────────────────────────────────────────────────────────────
+import {
+  erc7683,
+  witnesses as erc7683Witnesses,
+} from "@night-bitcoin/midnight-contract-erc7683";
+
+// ── Local ─────────────────────────────────────────────────────────────────
 import { wrapPublicDataProvider } from "./midnight-utils.ts";
-import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 
 const BASE_URL_MIDNIGHT_INDEXER =
   import.meta.env.VITE_MIDNIGHT_INDEXER_HTTP || "http://127.0.0.1:8088";
@@ -347,13 +346,17 @@ const initializeProviders = async (
 
   const zkConfigPath = window.location.origin;
 
+  // httpClientProofProvider needs the zkConfigProvider as its 2nd argument so
+  // it can fetch prover key + zkir to build the /check and /prove payloads.
+  const zkConfigProvider = new FetchZkConfigProvider(zkConfigPath, fetch.bind(window));
+
   return {
     privateStateProvider: levelPrivateStateProvider({
       privateStoragePasswordProvider: async () => "EffectstreamStorage1!",
       accountId: shieldedCoinPublicKey || "default-account",
     } as any),
-    zkConfigProvider: new FetchZkConfigProvider(zkConfigPath, fetch.bind(window)),
-    proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER),
+    zkConfigProvider,
+    proofProvider: httpClientProofProvider(BASE_URL_PROOF_SERVER, zkConfigProvider),
     publicDataProvider: wrapPublicDataProvider(
       indexerPublicDataProvider(
         BASE_URL_MIDNIGHT_INDEXER_API,

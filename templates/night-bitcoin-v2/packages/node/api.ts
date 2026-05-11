@@ -199,20 +199,8 @@ export const apiRouter: StartConfigApiRouter = function (
     reply.send(quotes);
   });
 
-  // Midnight bech32m unshielded address — `mn_addr_<network>1<bech32-data>`.
-  // Bech32 data charset excludes `b`, `i`, `o`, `1` (already the separator).
-  // Real addresses for the demo's networks are ~120 chars; we accept a wide
-  // range with a hard cap so a malformed/empty input is rejected with a
-  // clean 400 before reaching the spawned faucet process.
-  const MidnightAddressSchema = Type.String({
-    minLength: 50,
-    maxLength: 256,
-    pattern:
-      "^mn_addr_(undeployed|devnet|testnet|mainnet)1[02-9ac-hj-np-z]+$",
-  });
-  const MidnightFaucetQueryParamsSchema = Type.Object({
-    address: MidnightAddressSchema,
-  });
+  // BTC faucet still uses a permissive string schema. The NIGHTs faucet was
+  // removed — dust is now auto-balanced by the batcher's MidnightBalancingAdapter.
   const FaucetQueryParamsSchema = Type.Object({
     address: Type.String(),
   });
@@ -220,76 +208,6 @@ export const apiRouter: StartConfigApiRouter = function (
     status: Type.String(),
     message: Type.String(),
   });
-
-  /** Faucet endpoint to get funds in the midnight network (development only). */
-  let isFaucetDustRunning = false;
-
-  server.get<{
-    Querystring: Static<typeof MidnightFaucetQueryParamsSchema>;
-    Reply: Static<typeof FaucetResponseSchema>;
-  }>(
-    "/api/faucet/nights",
-    {
-      schema: { querystring: MidnightFaucetQueryParamsSchema },
-    },
-    async (request, reply) => {
-      // Claim the single-flight lock synchronously, before any await/spawn —
-      // otherwise two concurrent requests both pass the check above and both
-      // spawn the faucet.
-      if (isFaucetDustRunning) {
-        // 409 Conflict so callers using `if (!response.ok)` correctly
-        // distinguish a busy faucet from a successful one.
-        return reply.status(409).send({
-          status: "error",
-          message: "Faucet is already running",
-        });
-      }
-      isFaucetDustRunning = true;
-      const { address } = request.query;
-      try {
-        const proc = Bun.spawn(
-          [
-            "bun",
-            "run",
-            "--filter",
-            "@night-bitcoin/contracts-midnight",
-            "midnight-faucet:start",
-          ],
-          {
-            env: { ...process.env, MIDNIGHT_ADDRESS: address },
-            // `pipe` allocates an OS pipe that nothing reads. The spawned
-            // faucet eventually fills the buffer (~64 KB), blocks on write,
-            // and `proc.exited` never resolves — hanging the request and
-            // permanently sticking `isFaucetDustRunning = true`. Inheriting
-            // streams forwards them to the server's stdout/stderr instead.
-            stdout: "inherit",
-            stderr: "inherit",
-          },
-        );
-        // `await proc.exited` resolves regardless of exit code. Inspect the
-        // exit code so a non-zero process surfaces as a real error rather
-        // than "Faucet successfully completed".
-        const exitCode = await proc.exited;
-        if (exitCode !== 0) {
-          return reply.status(500).send({
-            status: "error",
-            message: `Faucet process exited with code ${exitCode}`,
-          });
-        }
-        return {
-          status: "done",
-          message: "Faucet successfully completed",
-        };
-      } catch (error: any) {
-        return reply.status(500).send({
-          status: "error",
-          message: error?.message ?? String(error),
-        });
-      } finally {
-        isFaucetDustRunning = false;
-      }
-    },
-  );
 
   let isFaucetBtcRunning = false;
 

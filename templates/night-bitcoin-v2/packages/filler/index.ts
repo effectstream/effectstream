@@ -34,6 +34,10 @@ import {
   SimpleToken,
   witnesses,
 } from "@night-bitcoin/midnight-contract-unshielded-erc20";
+
+// Static per-template domain separator for the M20 unshielded token color.
+// All mints share this color so the wallet shows a single "M20" balance.
+const M20_DOMAIN_SEP = new Uint8Array(32).fill(0x20);
 // Bitcoin signature dependencies
 import * as bitcoin from "bitcoinjs-lib";
 import * as bitcoinMessage from "bitcoinjs-message";
@@ -341,14 +345,20 @@ server.post<{
     } else if (token === "m20") {
       const timestamp = new Date().toISOString();
       const publicAddress = extractPublicAddress(toAddress);
-      // Queue the transaction via the embedded batcher.
+      // Mint native unshielded M20 coins directly to the recipient. The
+      // (contract address, M20_DOMAIN_SEP) pair fixes the token color so the
+      // recipient sees one "M20" balance entry in their Lace wallet.
       await batcher.batchInput(
         {
           address: "filler-midnight",
           addressType: AddressType.MIDNIGHT,
           input: JSON.stringify({
-            circuit: "transfer",
-            args: [wrapInEither({ bytes: publicAddress }), amount],
+            circuit: "mint_unshielded",
+            args: [
+              Array.from(M20_DOMAIN_SEP),
+              BigInt(amount),
+              { bytes: Array.from(publicAddress) },
+            ],
           }),
           signature: "0x",
           timestamp,

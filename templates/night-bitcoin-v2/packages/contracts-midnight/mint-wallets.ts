@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { readFile } from "node:fs/promises";
 import { faucet } from "./faucet.ts";
-import { joinAndMint } from "./faucet-unshielded-erc20.ts";
+import { mintM20ToFillers } from "./mint-m20-to-fillers.ts";
 
 interface WalletState {
   seed: string;
@@ -10,7 +10,9 @@ interface WalletState {
 }
 
 const NUMBER_OF_WALLETS = 3;
-const ERC20_MINT_AMOUNT = 250000000000000n;
+// Initial M20 inventory minted to each filler (in 1e-8 base units).
+// 2_500_000 M20 in human terms — enough to cover demo M20→BTC swaps.
+const FILLER_M20_INITIAL = 250_000_000_000_000n;
 
 async function loadWallets(): Promise<WalletState[]> {
   const currentDir = process.cwd();
@@ -30,15 +32,18 @@ async function loadWallets(): Promise<WalletState[]> {
 
 export async function mintWallets(): Promise<void> {
   const wallets = await loadWallets();
-  const shieldedTargets = wallets.map((w) => w.shieldedAddress);
   const unshieldedTargets = wallets.map((w) => w.unshieldedAddress);
 
-  // ERC20 minting uses shielded address (contract extracts coinPublicKey)
-  await joinAndMint(shieldedTargets, ERC20_MINT_AMOUNT);
-  // NIGHT token transfer uses unshielded address (bech32m format)
+  // Step 1: Send NIGHTs to filler wallets so they have dust for gas fees.
   await faucet(unshieldedTargets);
 
-  console.log("Minting and NIGHT transfers completed.");
+  // Step 2: Pre-mint M20 inventory to each filler via the new mint_unshielded
+  // circuit. Fillers need stock to satisfy BTC→M20 swaps where the demo
+  // pretends they're inventory-backed market makers; with the new model the
+  // M20 lands in their Lace wallet as native unshielded coins (color = M20).
+  await mintM20ToFillers(unshieldedTargets, FILLER_M20_INITIAL);
+
+  console.log("Filler NIGHT transfer + M20 pre-mint complete.");
 }
 
 if (import.meta.main) {

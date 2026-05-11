@@ -18,12 +18,8 @@ const configs: DeployConfig[] = [
     witnesses: unshielded_erc20Witnesses,
     privateStateId: "unshielded_erc20State",
     initialPrivateState: {},
-    deployArgs: [
-      "M20",
-      "M20",
-      8n,
-      null as any,
-    ],
+    // Native unshielded mint contract has no constructor.
+    deployArgs: [],
     privateStateStoreName: "unshielded-erc20-private-state",
     extractWalletAddress: true,
   },

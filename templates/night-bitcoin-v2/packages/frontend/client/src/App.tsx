@@ -216,8 +216,8 @@ function App() {
     if (!wallet) return;
     try {
       const balance = await apiInterface.midnight_balanceOf(
-        wallet.contract.unshielded_erc20,
-        wallet.addr,
+        wallet.connectedApi,
+        wallet.contractAddress.unshielded_erc20,
       );
       if (balance !== undefined && balance !== null) {
         // M20 has 8 decimal places
@@ -303,45 +303,6 @@ function App() {
         message:
           error.message ||
           "Failed to fetch intent. See console for details.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getNightsFromFaucet = async () => {
-    setShowActionsPopup(false);
-    if (!unshieldedAddress) {
-      setPopup({
-        show: true,
-        title: "Wallet Not Connected",
-        message: "Connect the Midnight wallet first.",
-      });
-      return;
-    }
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `${API_URL}/api/faucet/nights?address=${encodeURIComponent(unshieldedAddress)}`,
-      );
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Faucet request failed: ${response.status} ${response.statusText} - ${errorText}`,
-        );
-      }
-      setPopup({
-        show: true,
-        title: "Faucet Success!",
-        message:
-          "Successfully received NIGHTs from faucet! Your balance will update shortly.",
-      });
-    } catch (error: any) {
-      console.error("Failed to get NIGHTs from faucet:", error);
-      setPopup({
-        show: true,
-        title: "Faucet Failed",
-        message: error?.message || "Failed to get NIGHTs from faucet.",
       });
     } finally {
       setLoading(false);
@@ -501,9 +462,11 @@ function App() {
     }
     setLoading(true);
     try {
+      // Mint native unshielded M20 coins to the user's own unshielded address
+      // (mn_addr_*). The coins land in their Lace wallet under the M20 color.
       await apiInterface.m20_mint(
         midnightWallet.contract.unshielded_erc20,
-        midnightWallet.addr,
+        midnightWallet.unshieldedAddr,
         1000n * 100000000n,
       );
       setTimeout(() => updateM20Balance(midnightWallet), 2000); // optimistic refresh
@@ -996,15 +959,6 @@ function App() {
                 className="popup-buttons"
                 style={{ display: "flex", flexDirection: "column" }}
               >
-                <button
-                  type="button"
-                  className="dropdown-item"
-                  onClick={getNightsFromFaucet}
-                  style={{ marginBottom: "10px" }}
-                  disabled={!unshieldedAddress}
-                >
-                  Get NIGHTs from Faucet
-                </button>
                 <button
                   type="button"
                   className="dropdown-item"

@@ -150,6 +150,10 @@ export default defineConfig({
           dest: "zkir",
         },
         {
+          // Runtime artifact written by the contract deploy step. May be
+          // absent on a fresh build (deploy hasn't run yet); silent: true
+          // skips the validation error and the frontend will fetch it at
+          // runtime once it exists.
           src: normalizePath(
             path.resolve(
               "..",
@@ -158,6 +162,7 @@ export default defineConfig({
             ),
           ),
           dest: "contract_address",
+          silent: true,
         },
         {
           src: normalizePath(
@@ -188,6 +193,7 @@ export default defineConfig({
           dest: "zkir",
         },
         {
+          // Same as erc7683.undeployed.json above — runtime artifact.
           src: normalizePath(
             path.resolve(
               "..",
@@ -196,6 +202,7 @@ export default defineConfig({
             ),
           ),
           dest: "contract_address",
+          silent: true,
         },
       ],
     }),
