@@ -65,6 +65,10 @@ const BASE_URL_MIDNIGHT_INDEXER_WS = `${BASE_WS_MIDNIGHT_INDEXER}/api/v3/graphql
 export class DelegatedBalancingSentError extends Error {
   constructor() {
     super("Delegated balancing flow handed off to batcher");
+    // Set explicitly so `error.name === "DelegatedBalancingSentError"` is a
+    // reliable fallback when `instanceof` fails across module boundaries
+    // (e.g. after Vite HMR or when midnight-js re-wraps the error chain).
+    this.name = "DelegatedBalancingSentError";
   }
 }
 

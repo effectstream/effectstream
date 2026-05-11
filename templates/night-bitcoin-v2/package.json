@@ -6,7 +6,7 @@
     "packages/contracts-midnight/unshielded-erc20"
   ],
   "scripts": {
-    "dev": "NODE_ENV=development bunx orchestrator start",
+    "dev": "NODE_ENV=development bunx orchestrator start --log-dir=./logs",
     "start:mainnet": "bun run packages/node/main.mainnet.ts",
     "test": "bun run packages/tests/run-tests.ts",
     "build:midnight": "bun run --filter @night-bitcoin/midnight-contract-erc7683 compact && bun run --filter @night-bitcoin/midnight-contract-unshielded-erc20 compact",

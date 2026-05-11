@@ -228,7 +228,7 @@ export async function createIntent(
   try {
     return await erc7683.createIntent(contract, addr, config);
   } catch (error) {
-    if (error instanceof erc7683.DelegatedBalancingSentError) {
+    if (isDelegatedBalancingError(error)) {
       const tx = erc7683.getLastCapturedTx();
       if (!tx) throw new Error("No transaction captured for delegation");
       await submitToBatcher(tx, "initialize", addr);
@@ -242,6 +242,20 @@ export async function createIntent(
     throw error;
   }
 }
+
+// midnight-js's `scoped(...)` wrapper catches errors thrown inside `balanceTx`
+// and re-throws them as a generic "Unexpected error submitting scoped
+// transaction" Error with the original attached as `.cause`. Walk the cause
+// chain so we still recognize our delegation sentinel.
+const isDelegatedBalancingError = (error: unknown): boolean => {
+  let cur: unknown = error;
+  while (cur instanceof Error) {
+    if (cur instanceof unshielded_erc20.DelegatedBalancingSentError) return true;
+    if (cur.name === "DelegatedBalancingSentError") return true;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return false;
+};
 
 // Decodes the user's bech32m unshielded address (`mn_addr_<network>1...`)
 // to its 32-byte UserAddress bytes — that's what mint_unshielded expects.
@@ -267,7 +281,7 @@ export async function m20_mint(
   try {
     return await unshielded_erc20.mintUnshielded(contract, recipientBytes, amount);
   } catch (error) {
-    if (error instanceof unshielded_erc20.DelegatedBalancingSentError) {
+    if (isDelegatedBalancingError(error)) {
       const tx = unshielded_erc20.getLastCapturedTx();
       if (!tx) throw new Error("No transaction captured for delegation");
       await submitToBatcher(tx, "mint_unshielded", unshieldedAddress);
@@ -300,7 +314,7 @@ export async function m20_transferFrom(
       amount,
     );
   } catch (error) {
-    if (error instanceof unshielded_erc20.DelegatedBalancingSentError) {
+    if (isDelegatedBalancingError(error)) {
       const tx = unshielded_erc20.getLastCapturedTx();
       if (!tx) throw new Error("No transaction captured for delegation");
       await submitToBatcher(tx, "transfer", fromAccount);

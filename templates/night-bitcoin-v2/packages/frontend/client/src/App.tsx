@@ -562,33 +562,35 @@ function App() {
         intentConfig,
       );
 
-      const m20Amount = BigInt(parseFloat(amount) * Math.pow(10, 8));
-      const transferResult = await apiInterface.m20_transferFrom(
-        midnightWallet.contract.unshielded_erc20,
-        midnightWallet.addr,
-        "mn_shield-addr_undeployed1mjngjmnlutcq50trhcsk3hugvt9wyjnhq3c7prryd5nqmvtzva0sxqpvzkdy4k9u7eyffff53cge62tqylevq3wqps86tdjuahsquwvucsy9kffv",
-        m20Amount,
-      );
-
-      if (!intentResult || !transferResult) {
+      if (!intentResult) {
         setPopup({
           show: true,
           title: "Error",
-          message: "Failed to process the swap. See console for details.",
+          message: "Failed to submit the intent. See console for details.",
         });
         return;
       }
 
+      // v2 escrow note: in v1 the next step was an in-contract `transferFrom`
+      // to lock M20 with the filler. With the new native-unshielded M20, that
+      // contract method no longer exists — the user must move M20 to the
+      // filler's unshielded (`mn_addr_…`) address using Lace's send UI. For
+      // demo purposes we just submit the intent and let the filler observe
+      // the M20 arrival via the sync node. TODO: surface the filler's
+      // unshielded address in the quote so the user can copy/send via Lace.
       setTimeout(() => updateM20Balance(midnightWallet), 2000);
       setPopup({
         show: true,
-        title: "Swap Successful!",
-        message: `Your ${fromToken} to ${toToken} swap has been created.`,
+        title: "Intent submitted",
+        message:
+          `Your ${fromToken} → ${toToken} intent is in the batcher. ` +
+          "To complete the swap, send the M20 from your Lace wallet to the " +
+          "filler's unshielded address (mn_addr_*) using Lace's native " +
+          "unshielded-send. The filler will observe the M20 arrival and " +
+          "release the BTC.",
         details: {
           "Intent Tx ID": intentResult.txId,
           "Intent Block": intentResult.blockHeight,
-          "Transfer Tx ID": transferResult.txId,
-          "Transfer Block": transferResult.blockHeight,
           ...intentConfig,
         },
       });

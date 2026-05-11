@@ -492,8 +492,11 @@ export const faucet = async (
 ): Promise<void> => {
   let wallet: WalletFacade | null = null;
 
+  // Copy the input; the while/splice loop below mutates `targets`, and we
+  // don't want to drain the caller's array (mint-wallets.ts passes the same
+  // array into mintM20ToFillers right after this).
   const targets = Array.isArray(receiverAddresses)
-    ? receiverAddresses
+    ? [...receiverAddresses]
     : [receiverAddresses];
   const maxRetries = 5;
 

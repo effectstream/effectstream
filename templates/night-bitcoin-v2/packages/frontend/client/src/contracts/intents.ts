@@ -61,6 +61,12 @@ const BATCHER_URL =
 export class DelegatedBalancingSentError extends Error {
   constructor() {
     super("Delegated balancing flow handed off to batcher");
+    // Set explicitly so `error.name === "DelegatedBalancingSentError"` is a
+    // reliable fallback when `instanceof` fails — midnight-js's `scoped(...)`
+    // wraps balanceTx throws as `Error: "Unexpected error submitting scoped
+    // transaction..."` with the original at `.cause`, so the cause-chain
+    // walker in interface.ts depends on this name being set.
+    this.name = "DelegatedBalancingSentError";
   }
 }
 

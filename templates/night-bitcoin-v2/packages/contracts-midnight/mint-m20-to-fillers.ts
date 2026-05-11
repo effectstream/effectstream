@@ -7,16 +7,17 @@
 
 import { dirname, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
+import * as Rx from "rxjs";
 import {
   findDeployedContract,
 } from "@midnight-ntwrk/midnight-js-contracts";
+import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
 import { MidnightBech32m } from "@midnight-ntwrk/wallet-sdk-address-format";
 import {
   buildWalletFacade,
   getInitialShieldedState,
-  syncAndWaitForFunds,
   registerNightForDust,
   configureMidnightNodeProviders,
 } from "@effectstream/midnight-contracts";
@@ -24,6 +25,37 @@ import {
   SimpleToken,
   witnesses,
 } from "@night-bitcoin/midnight-contract-unshielded-erc20";
+
+const TAG = "[mint-m20-to-fillers]";
+const log = {
+  info: (...args: unknown[]) => console.log(TAG, ...args),
+  warn: (...args: unknown[]) => console.warn(TAG, ...args),
+  error: (...args: unknown[]) => console.error(TAG, ...args),
+};
+
+const sumBalances = (
+  balances: Map<string, bigint> | Record<string, bigint> | undefined,
+): bigint => {
+  if (!balances) return 0n;
+  if (balances instanceof Map) {
+    return Array.from(balances.values()).reduce(
+      (acc, v) => acc + (v ?? 0n),
+      0n,
+    );
+  }
+  return Object.values(balances).reduce<bigint>(
+    (acc, v) => acc + ((v as bigint) ?? 0n),
+    0n,
+  );
+};
+
+const balanceKeys = (
+  balances: Map<string, bigint> | Record<string, bigint> | undefined,
+): string[] => {
+  if (!balances) return [];
+  if (balances instanceof Map) return Array.from(balances.keys());
+  return Object.keys(balances);
+};
 
 globalThis.WebSocket = WebSocket;
 
@@ -33,21 +65,21 @@ globalThis.WebSocket = WebSocket;
 const M20_DOMAIN_SEP = new Uint8Array(32).fill(0x20);
 
 // Genesis seed used to fund the mint operations in standalone/undeployed mode.
-// Holds initial NIGHT/dust on a fresh local Midnight node.
+// Holds initial NIGHT/dust on a fresh local Midnight node. MUST be a 64-char
+// hex string (32 bytes) and MUST match faucet.ts's GENESIS_MINT_WALLET_SEED —
+// any drift derives a different (empty) wallet and stalls sync for 10 minutes.
 const GENESIS_MINT_WALLET_SEED =
-  "0000000000000000000000000000000000000000000000000000000000001";
+  "0000000000000000000000000000000000000000000000000000000000000001";
 
 const currentDir = resolve(dirname(new URL(import.meta.url).pathname));
 
+// Compact compiler emits artifacts into `<pkg>/src/managed/{keys,zkir}/`.
+// The provider then opens `${zkConfigPath}/keys/<circuit>.verifier` etc., so
+// zkConfigPath must point at the directory containing those folders (not one
+// level deeper).
 const contractConfig = {
   privateStateStoreName: "unshielded-erc20-private-state",
-  zkConfigPath: resolve(
-    currentDir,
-    "unshielded-erc20",
-    "src",
-    "managed",
-    "unshielded-erc20",
-  ),
+  zkConfigPath: resolve(currentDir, "unshielded-erc20", "src", "managed"),
 };
 
 const standaloneConfig = {
@@ -57,7 +89,16 @@ const standaloneConfig = {
   proofServer: "http://127.0.0.1:6300",
 };
 
-const contractInstance = new SimpleToken.Contract(witnesses);
+// The new midnight-js-contracts API expects a `CompiledContract` (with the
+// internal TypeId symbol attached), not a raw `new Contract(witnesses)`
+// instance. Build it once and reuse — same pattern as the frontend's erc20.ts.
+const compiledContract = CompiledContract.make(
+  "unshielded-erc20",
+  SimpleToken.Contract,
+).pipe(
+  CompiledContract.withWitnesses(witnesses as never),
+  CompiledContract.withCompiledFileAssets(contractConfig.zkConfigPath),
+);
 
 async function getContractAddress(): Promise<string> {
   const file = resolve(currentDir, "unshielded-erc20.undeployed.json");
@@ -87,11 +128,26 @@ export async function mintM20ToFillers(
   unshieldedAddresses: string[],
   amount: bigint,
 ): Promise<void> {
+  if (unshieldedAddresses.length === 0) {
+    log.info("No filler addresses to mint to — skipping M20 pre-mint.");
+    return;
+  }
+
   setNetworkId(NetworkId.NetworkId.Undeployed);
 
+  log.info("Step 1/5 — resolving deployed M20 contract address");
   const contractAddress = await getContractAddress();
-  console.log(`Starting M20 mint to ${unshieldedAddresses.length} filler(s)`);
+  log.info(
+    `Will mint ${amount} M20 to ${unshieldedAddresses.length} filler(s):`,
+  );
+  unshieldedAddresses.forEach((addr, i) => log.info(`  [${i + 1}] ${addr}`));
 
+  log.info("Step 2/5 — building genesis wallet facade", {
+    seed: `${GENESIS_MINT_WALLET_SEED.slice(0, 4)}…${GENESIS_MINT_WALLET_SEED.slice(-4)} (${GENESIS_MINT_WALLET_SEED.length} chars)`,
+    node: standaloneConfig.node,
+    indexer: standaloneConfig.indexer,
+    proofServer: standaloneConfig.proofServer,
+  });
   const walletResult = await buildWalletFacade(
     standaloneConfig,
     GENESIS_MINT_WALLET_SEED,
@@ -99,28 +155,103 @@ export async function mintM20ToFillers(
   );
   const wallet = walletResult.wallet;
 
+  // Independent wallet-state subscription — surfaces actual balances and
+  // sync flags every 5s so we can see if the wallet is being funded.
+  // `syncAndWaitForFunds` has its own throttled logger too, but its line
+  // doesn't include balance details for unshielded UTXOs by token id.
+  const stateSub = wallet.state().subscribe({
+    next: (state: any) => {
+      const isSynced = state.isSynced ?? false;
+      const shieldedDone =
+        state.shielded?.state?.progress?.isStrictlyComplete?.() ?? isSynced;
+      const unshieldedDone =
+        state.unshielded?.progress?.isStrictlyComplete?.() ?? isSynced;
+      const dustDone =
+        state.dust?.state?.progress?.isStrictlyComplete?.() ?? isSynced;
+      const shieldedKeys = balanceKeys(state.shielded?.balances);
+      const unshieldedKeys = balanceKeys(state.unshielded?.balances);
+      const shieldedSum = sumBalances(state.shielded?.balances);
+      const unshieldedSum = sumBalances(state.unshielded?.balances);
+      log.info("wallet-state", {
+        isSynced,
+        shieldedDone,
+        unshieldedDone,
+        dustDone,
+        shieldedSum: shieldedSum.toString(),
+        unshieldedSum: unshieldedSum.toString(),
+        shieldedKeys,
+        unshieldedKeys,
+      });
+    },
+    error: (err: unknown) =>
+      log.error("wallet.state() observable error:", err),
+  });
+  let observerSubs: Rx.Subscription[] = [stateSub];
+
   try {
     const initialState = await getInitialShieldedState(wallet.shielded);
-    console.log(
-      `Genesis wallet address: ${initialState.address.coinPublicKeyString()}`,
+    log.info("Genesis wallet derived addresses:", {
+      shieldedCoinPubKey: initialState.address.coinPublicKeyString(),
+      unshieldedAddress: walletResult.unshieldedAddress,
+      dustAddress: walletResult.dustAddress,
+    });
+
+    // Custom sync wait: shielded + unshielded only, with non-zero unshielded.
+    // We intentionally do NOT wait for `dust.progress.isStrictlyComplete()` —
+    // after the faucet step registers NIGHT UTXOs and transfers NIGHT, the
+    // dust subtree's progress tracker hangs in undeployed mode and never
+    // reports complete, even with a fully-funded wallet. registerNightForDust
+    // + the mint tx itself work fine without that flag flipping.
+    log.info(
+      "Step 3/5 — waiting for wallet sync (shielded + unshielded) and non-zero NIGHT balance",
+    );
+    const SYNC_TIMEOUT_MS = 120_000;
+    const t0 = Date.now();
+    const readyState: any = await Rx.firstValueFrom(
+      wallet.state().pipe(
+        Rx.filter((state: any) => {
+          const isSynced = state.isSynced ?? false;
+          const shieldedDone =
+            state.shielded?.state?.progress?.isStrictlyComplete?.() ??
+            isSynced;
+          const unshieldedDone =
+            state.unshielded?.progress?.isStrictlyComplete?.() ?? isSynced;
+          const unshieldedSum = sumBalances(state.unshielded?.balances);
+          return shieldedDone && unshieldedDone && unshieldedSum > 0n;
+        }),
+        Rx.timeout({
+          each: SYNC_TIMEOUT_MS,
+          with: () =>
+            Rx.throwError(
+              () =>
+                new Error(
+                  `mint-m20: shielded+unshielded sync timeout after ${SYNC_TIMEOUT_MS}ms`,
+                ),
+            ),
+        }),
+      ),
+    );
+    const unshieldedBalance = sumBalances(readyState.unshielded?.balances);
+    log.info(
+      `Sync ready in ${((Date.now() - t0) / 1000).toFixed(1)}s — unshielded NIGHT: ${unshieldedBalance}`,
     );
 
-    const { unshieldedBalance, dustBalance } = await syncAndWaitForFunds(
-      wallet,
-      { waitNonZero: true },
+    // Always try to register NIGHT for dust — this seeds the dust pool the
+    // wallet uses to pay tx fees. Safe to call even if some dust already
+    // exists from a prior faucet run (it just no-ops or re-registers).
+    log.info(
+      "Registering NIGHT UTXOs for dust generation (so we can pay tx fees)",
     );
-
-    // Make sure dust is available to pay tx fees: register Night UTXOs if needed.
-    if (dustBalance === 0n && unshieldedBalance > 0n) {
-      try {
-        await registerNightForDust(walletResult);
-      } catch (e) {
-        console.warn(
-          `registerNightForDust failed: ${e instanceof Error ? e.message : String(e)}`,
-        );
-      }
+    try {
+      await registerNightForDust(walletResult);
+      log.info("registerNightForDust completed");
+    } catch (e) {
+      log.warn(
+        `registerNightForDust failed (continuing — mint will surface real fee errors if any): ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
 
+    log.info("Step 4/5 — joining deployed M20 contract", { contractAddress });
     const providers = (await configureMidnightNodeProviders(
       walletResult.wallet,
       walletResult.zswapSecretKeys,
@@ -135,17 +266,21 @@ export async function mintM20ToFillers(
 
     const deployed = await findDeployedContract(providers, {
       contractAddress,
-      contract: contractInstance as any,
+      compiledContract: compiledContract as any,
       privateStateId: "simpleTokenPrivateState",
       initialPrivateState: {},
     });
-    console.log(
+    log.info(
       `Joined contract at ${deployed.deployTxData.public.contractAddress}`,
     );
 
+    log.info(
+      `Step 5/5 — minting ${amount} M20 to each of ${unshieldedAddresses.length} filler(s)`,
+    );
     let i = 1;
     for (const addr of unshieldedAddresses) {
-      console.log(
+      const mintStart = Date.now();
+      log.info(
         `[${i}/${unshieldedAddresses.length}] minting ${amount} M20 to ${addr}`,
       );
       const recipientBytes = unshieldedToUserAddressBytes(addr);
@@ -156,13 +291,22 @@ export async function mintM20ToFillers(
         amount,
         { bytes: recipientBytes },
       );
-      console.log(
-        `  ✅ tx ${finalized.public.txId} block ${finalized.public.blockHeight}`,
+      log.info(
+        `[${i}/${unshieldedAddresses.length}] ✅ tx ${finalized.public.txId} block ${finalized.public.blockHeight} (${((Date.now() - mintStart) / 1000).toFixed(1)}s)`,
       );
       i += 1;
     }
-    console.log("🎉 M20 pre-mint to fillers complete");
+    log.info("🎉 M20 pre-mint to fillers complete");
+  } catch (err) {
+    log.error(
+      "FAILED:",
+      err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+    );
+    if (err instanceof Error && err.stack) log.error(err.stack);
+    throw err;
   } finally {
+    for (const sub of observerSubs) sub.unsubscribe();
     await wallet.stop();
+    log.info("Wallet stopped");
   }
 }

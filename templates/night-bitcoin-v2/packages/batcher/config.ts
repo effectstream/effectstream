@@ -10,12 +10,9 @@ const DEFAULT_STORAGE_DIR = path.join(
   "../batcher-data",
 );
 
-// Dedicated seed pair for the night-bitcoin balancing batcher wallet.
-// Distinct from any wallet the rest of the stack uses — running two wallets on
-// the same seed against a single Midnight node forces one to disconnect.
 const BATCHER_SEED = [
+  "0000000000000000000000000000000000000000000000000000000000000002",
   "0000000000000000000000000000000000000000000000000000000000000003",
-  "0000000000000000000000000000000000000000000000000000000000000004",
 ];
 
 export const walletSeed = ENV.getString("BATCHER_WALLET_SEED") || BATCHER_SEED;
