@@ -1,6 +1,6 @@
 **/node_modules
 forge-std
-logs/
+/logs/
 
 # e2e tests
 /cache
@@ -13,6 +13,11 @@ batcher-debug.log
 .orchestrator-logs/
 # Frontend
 .vite
+dist/
+
+# Playwright
+test-results/
+playwright-report/
 
 # Batcher file storage
 batcher-data/
