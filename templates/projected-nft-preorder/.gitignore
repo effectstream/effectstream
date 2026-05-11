@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Dolos runtime data and generated config
+packages/contracts-cardano/data/
+packages/contracts-cardano/temp/
+packages/contracts-cardano/dolos.toml
+packages/contracts-cardano/yaci-cli.history
+
+# Orchestrator logs
+.orchestrator-logs/
+
+# Frontend build output
+packages/frontend/dist/
+
+# Playwright test results
+packages/frontend/test-results/
+
+# Batcher file storage
+batcher-data/
+
+# System files
+.DS_Store

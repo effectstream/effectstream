@@ -652,7 +652,7 @@ export default {
 | `launchNear(pkg, location)` | `@effectstream/orchestrator/launch-near` | `NearNames` | `chain:start`, `chain:wait` |
 | `launchAvail(pkg, location)` | `@effectstream/orchestrator/launch-avail` | `AvailNames` | `avail-node:start`, `avail-light-client:*` |
 
-**Location parameter**: Each launcher accepts a `ResolveLocation` -- either `{ resolveFrom: root }` (resolve the package name via `require.resolve` from the given directory) or `{ cwd: "/absolute/path" }` (use a known directory directly).
+**Location parameter**: Each launcher accepts a `ResolveLocation` -- either `{ resolveFrom: root }` (resolve the package name via `require.resolve` from the given directory) or `{ cwd: "/absolute/path" }` (use a known directory directly). **Use `{ cwd }` for Cardano** (and any chain whose packages are linked via `link.sh`) — Bun workspace resolution with `{ resolveFrom }` breaks because `require.resolve` runs from `.bun/` cache instead of the workspace root.
 
 **ProcessConfig fields**:
 
@@ -1235,6 +1235,34 @@ If the template includes sub-workspaces (e.g., Midnight compiled contracts), lis
 ```
 `packages/*` will NOT discover nested packages.
 
+### `link.sh` (for monorepo development)
+
+When a template depends on `@effectstream/*` packages that are not yet published to npm (e.g., Cardano primitives), or when you want to develop against local engine changes, add a `link.sh` script to the template root. This script symlinks workspace packages and monorepo `@effectstream/*` packages into the template's `node_modules/`:
+
+```bash
+#!/bin/bash
+# link.sh — run once after bun install, before bun run dev
+MONO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+
+# Link workspace packages
+for pkg in packages/*/; do
+  name=$(jq -r .name "$pkg/package.json" 2>/dev/null) || continue
+  scope="${name%/*}"; scope="${scope#@}"
+  mkdir -p "node_modules/@$scope"
+  ln -sfn "$(pwd)/$pkg" "node_modules/$name"
+done
+
+# Link monorepo @effectstream/* packages
+for pkg in "$MONO_ROOT"/packages/*/; do
+  name=$(jq -r .name "$pkg/package.json" 2>/dev/null) || continue
+  [[ "$name" == @effectstream/* ]] || continue
+  mkdir -p node_modules/@effectstream
+  ln -sfn "$pkg" "node_modules/$name"
+done
+```
+
+This is **not mandatory** — published templates work without it. It's useful for iterating on the engine and template together, or when using primitives that aren't yet on npm.
+
 ---
 
 ## Testing
@@ -1426,6 +1454,8 @@ Add `playwright-core` to `packages/tests/package.json`. The test uses `playwrigh
 - Use `page.getByText("Locked", { exact: true })` to avoid matching substrings (e.g., "Unlocked" also contains "Locked")
 - Set generous timeouts for blockchain operations (60s for TX confirmation, 30s for time-lock expiry)
 - Use `test.setTimeout(300_000)` for the full lifecycle test
+- Playwright E2E tests (alternative) -- for templates with richer UIs, use `@playwright/test` with a dedicated config in `packages/frontend/`. This gives proper test reporting, retries, and `data-testid` matchers out of the box:
+
 ```ts
 // packages/frontend/playwright.config.ts
 import { defineConfig } from "@playwright/test";
@@ -1434,8 +1464,39 @@ export default defineConfig({
   timeout: 300_000,
   retries: 0,
   use: { baseURL: "http://localhost:10599", headless: true },
-  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+  projects: [    { name: "chromium", use: { browserName: "chromium", headless: true } } ],
 });
+```
+
+```ts
+// packages/frontend/e2e/app.spec.ts
+import { test, expect } from "@playwright/test";
+
+test("dashboard loads", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("dashboard-title")).toBeVisible();
+});
+
+test("mint NFT flow", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("connect-evm-btn").click();
+  await expect(page.getByTestId("evm-address")).toBeVisible({ timeout: 5_000 });
+  await page.getByTestId("mint-nft-btn").click();
+  await expect(page.getByText("NFT minted!")).toBeVisible({ timeout: 30_000 });
+});
+```
+
+Add `@playwright/test` to `packages/frontend/package.json`. The test runner (`run-tests.ts`) launches Playwright after Phase B:
+
+```ts
+// In run-tests.ts Phase C
+const frontendDir = path.resolve(import.meta.dirname!, "../frontend");
+await Bun.spawn(["bunx", "playwright", "install", "chromium"], { cwd: frontendDir }).exited;
+const exitCode = await Bun.spawn(
+  ["bunx", "playwright", "test", "--config", "playwright.config.ts"],
+  { cwd: frontendDir, stdout: "inherit", stderr: "inherit" },
+).exited;
+await assert("Playwright E2E tests pass", async () => exitCode === 0);
 ```
 
 ### Test Runner (`run-tests.ts`)
@@ -2297,3 +2358,26 @@ This applies to any `bunx` call with a `/` subpath when the package is symlinked
 ```ts
 const CLI_PATH = path.resolve(import.meta.dirname!, "../../node_modules/@effectstream/orchestrator/src/cli.ts");
 ```
+
+### Orchestrator Launchers
+
+**BUG: `launchCardano()` always includes `CARDANO_SUBMIT_TX`**: The `launchCardano()` helper returns a process that runs `submit-tx.ts` (initial ADA topup). In dev mode, if the frontend handles wallet funding (e.g., via a Faucet button calling YACI's topup API), these infrastructure transactions create unwanted events in the database. Filter out the process and remove it from `dependsOn`:
+
+```ts
+// start.dev.ts — exclude submit-tx from dev mode
+...launchCardano("@my-template/contracts-cardano", {
+  cwd: path.join(root, "packages/contracts-cardano"),
+}).filter((p) => p.name !== CardanoNames.CARDANO_SUBMIT_TX),
+
+{
+  name: "sync",
+  dependsOn: [
+    DbNames.PGLITE_WAIT,
+    EvmNames.GENERATE_MOD,
+    // CardanoNames.CARDANO_SUBMIT_TX,  // removed — not needed in dev
+    CardanoNames.DOLOS_MINIBF_WAIT,
+  ],
+},
+```
+
+Keep `CARDANO_SUBMIT_TX` in `start.test.ts` if tests need pre-funded wallets. Ideally `launchCardano()` should accept an option to exclude the submit-tx step.
