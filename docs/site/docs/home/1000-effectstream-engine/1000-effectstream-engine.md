@@ -1,13 +1,13 @@
 # Architecture
 
-> This section is intended for developers who require advanced knowledge about the engine or plan to contribute to `Effectstream`
+> This section is intended for developers who require advanced knowledge about the engine or plan to contribute to `EffectStream`
 
-Effectstream is distributed for `deno` through `NPM` and `JSR` packages
+EffectStream is distributed for `deno` through `NPM` and `JSR` packages
 
 ## NPM Packages:
 
 *  @effectstream/evm-contracts  
-    Effectstream EVM default contracts (Forge/Hardhat/Ignition) and published artifacts/ABIs.
+    EffectStream EVM default contracts (Forge/Hardhat/Ignition) and published artifacts/ABIs.
     
 *  @effectstream/npm-avail-light-client  
     A wrapper for the Avail Light Client CLI.
@@ -26,7 +26,7 @@ Effectstream is distributed for `deno` through `NPM` and `JSR` packages
 
 ## JSR Packages:
 *  @effectstream/batcher  
-    HTTP service to collect and submit user inputs, replacing the need for manually sending input to the blockchain Effectstream L2 contract.
+    HTTP service to collect and submit user inputs, replacing the need for manually sending input to the blockchain EffectStream L2 contract.
 
 *  @effectstream/chain-types  
     Common chain types and hashing helpers shared across modules.
@@ -35,7 +35,7 @@ Effectstream is distributed for `deno` through `NPM` and `JSR` packages
     Lightweight OpenTelemetry collector gateway (Fastify) to receive and forward metrics/logs. Intended for development only.
 
 *  @effectstream/concise  
-    Client SDK for submitting moves and interacting with the batcher; includes v2 helpers and delegate wallet utilities.
+    Client SDK for submitting moves and interacting with the batcher; includes helpers and delegate wallet utilities.
 
 *  @effectstream/config  
     Central configuration schemas and loaders; parses env and provides type-safe config for multi-chain setups.

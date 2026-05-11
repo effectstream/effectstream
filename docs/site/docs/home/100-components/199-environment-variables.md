@@ -1,6 +1,6 @@
 # Environment Variables
 
-Environment variables are a powerful way to configure your Effectstream node.  
+Environment variables are a powerful way to configure your EffectStream node.  
 They are used to configure the different components of your node, such as the blockchains, databases, and services.
 Setting them allows to have different runtime scripts for different environments.
 
@@ -9,9 +9,9 @@ Setting them allows to have different runtime scripts for different environments
 > This is optional, but we recommend setting this pattern to allow for different runtime configurations for different environments.
 
 * `EFFECTSTREAM_ENV` sets the `system environment`.
-* `node:start:${EFFECTSTREAM_ENV}` should load the main.{env}.ts file.
+* `node:start:${EFFECTSTREAM_ENV}` should load the `main.{env}.ts` file.
 * `.env.${EFFECTSTREAM_ENV}` is loaded automatically.
-* Optionally `config.{env}.ts` can be created to load specific configuration for the environment, this file is imported by `main.{env}.ts`
+* Optionally `config.{env}.ts` can be created to load specific configuration for the environment, this file is imported by `main.{env}.ts`.
 
 The main entry point for the node is located at: `/packages/client/node/deno.json`.  
 For example, if you have 2 environments: `local` and `testnet`
@@ -53,8 +53,8 @@ const myCustomEnv=ENV.getString("MY_CUSTOM_ENV");
 
 | name | description |
 |------|-------------|
-| DB_HOST | Effectstream Engine Postgres Host URL. Default: 'localhost' |
-| DB_NAME | Effectstream Engine Postgres Database Name. Default: 'postgres' |
-| DB_PORT | Effectstream Engine Postgres Port. Default: '5432' |
-| DB_PW   | Effectstream Engine Postgres Password. Default: 'postgres' |
-| DB_USER | Effectstream Engine Postgres User. Default: 'postgres' |
+| DB_HOST | EffectStream Engine Postgres Host URL. Default: 'localhost' |
+| DB_NAME | EffectStream Engine Postgres Database Name. Default: 'postgres' |
+| DB_PORT | EffectStream Engine Postgres Port. Default: '5432' |
+| DB_PW   | EffectStream Engine Postgres Password. Default: 'postgres' |
+| DB_USER | EffectStream Engine Postgres User. Default: 'postgres' |

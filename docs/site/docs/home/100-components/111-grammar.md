@@ -1,13 +1,13 @@
 # Grammar
 
-The **Grammar** is the formal "language" of your Paima application. It acts as a crucial bridge, defining a strict, type-safe structure for all on-chain inputs and connecting them directly to your [State Machine](./102-state-machine.md).
+The **Grammar** is the formal "language" of your EffectStream application. It acts as a crucial bridge, defining a strict, type-safe structure for all on-chain inputs and connecting them directly to your [State Machine](./102-state-machine.md).
 
 Its primary responsibilities are:
 *   **Defining Structure**: It specifies the exact format for every valid command your application can receive.
 *   **Validation**: It ensures that incoming data is well-formed before it ever reaches your application logic.
 *   **Parsing**: It transforms raw on-chain data into type-safe, structured JavaScript objects for your State Transition Functions (STFs).
 
-Paima v2 uses a structured **JSON array format** for all inputs.
+EffectStream uses a structured **JSON array format** for all inputs.
 
 ## Defining Your Grammar 
 
@@ -47,7 +47,7 @@ Each argument is defined as a tuple `[name, type]`:
 
 ## Automating Grammar for Primitives
 
-You don't have to define grammar rules for every on-chain event manually. To save time, Effectstream provides the `mapPrimitivesToGrammar` helper function. This function automatically inspects the **Primitives** you've defined in your [Sync Service Config](./101-sync-service.md) and generates the corresponding grammar rules for you.
+You don't have to define grammar rules for every on-chain event manually. To save time, EffectStream provides the `mapPrimitivesToGrammar` helper function. This function automatically inspects the **Primitives** you've defined in your [Sync Service Config](./101-sync-service.md) and generates the corresponding grammar rules for you.
 
 For example, if you have a primitive tracking an ERC20 `Transfer(address from, address to, uint256 value)` event with the scheduled prefix `transfer`, this helper will create a `transfer` grammar rule that expects a payload object with `from`, `to`, and `value` fields.
 
@@ -72,8 +72,8 @@ export const grammar = {
 
 The grammar is the central piece that links an on-chain event to your application logic. Here’s the flow:
 
-1.  **On-Chain Input**: A transaction is sent to the `PaimaL2Contract` with a payload that is a JSON-stringified array, e.g., `"[\"attack\",1,42]"`.
-2.  **Prefix Matching**: The Effectstream parses the JSON and inspects the first element (`"attack"`) to find the matching rule in your `grammar.ts` file.
+1.  **On-Chain Input**: A transaction is sent to the `EffectStreamL2Contract` with a payload that is a JSON-stringified array, e.g., `"[\"attack\",1,42]"`.
+2.  **Prefix Matching**: The EffectStream parses the JSON and inspects the first element (`"attack"`) to find the matching rule in your `grammar.ts` file.
 3.  **Parsing & Validation**: It then uses the TypeBox schemas defined in that rule (`Type.Integer()`, `Type.Integer()`) to validate and parse the remaining elements (`1`, `42`).
 4.  **STF Execution**: Finally, the engine calls the STF registered with the prefix `"attack"`, passing it a `data` object containing the fully typed and parsed input:
     ```ts
@@ -86,19 +86,19 @@ The grammar is the central piece that links an on-chain event to your applicatio
 
 ## Built-in System Grammar (`&`)
 
-Effectstream reserves the `&` prefix for a suite of powerful, built-in system commands. You do not need to define these in your grammar file; the engine handles them automatically.
+EffectStream reserves the `&` prefix for a suite of powerful, built-in system commands. You do not need to define these in your grammar file; the engine handles them automatically.
 
 #### Batched Inputs: `&B`
 This command allows multiple user inputs to be bundled into a single on-chain transaction. This is the primary mechanism used by the **Batcher** service to provide a gas-efficient and cross-chain experience.
 
 *   **Logical Structure**: `["&B", [input1, input2, ...]]`
-*   **Parameters**: The second element is an array of other valid Paima inputs.
+*   **Parameters**: The second element is an array of other valid EffectStream inputs.
 *   **Robustness**: If any individual input within the batch is malformed, the engine will skip it and continue processing the rest, preventing a single error from halting the entire batch.
 
 ### Account Management Commands
-These commands provide a flexible L2 Account Abstraction system, allowing multiple wallets to control a single Paima account.
+These commands provide a flexible L2 Account Abstraction system, allowing multiple wallets to control a single EffectStream account.
 
-*   **`&createAccount`**: Creates a new Paima Account, with the sender becoming the primary wallet.
+*   **`&createAccount`**: Creates a new EffectStream Account, with the sender becoming the primary wallet.
     *   **Structure**: `["&createAccount"]`
 *   **`&linkAddress`**: Links a new wallet to an existing account, requiring signatures from both the primary and new wallets.
     *   **Structure**: `["&linkAddress", account_id, signature_from_primary, primary_address_type, new_address, signature_from_new_address, signature_from_new_address, is_new_primary]`
@@ -116,7 +116,7 @@ const move = ["attack", 1, 42];
 // 2. Stringify it to create the payload
 const payload = JSON.stringify(move);
 
-// 3. Submit the payload to the PaimaL2Contract
+// 3. Submit the payload to the EffectStreamL2Contract
 // (The frontend SDKs will handle this for you)
-await paimaL2Contract.submitInput(payload);
+await effectstreamL2Contract.submitInput(payload);
 ```

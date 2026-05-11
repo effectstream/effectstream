@@ -2,7 +2,7 @@
 
 > NOTE THIS IS A PREVIEW DOCUMENTATION. NYI.
 
-Effectstream includes a built-in implementation of the **Paima Request for Comments #1 (PRC-1)**, an open standard for exposing in-game achievements. By following this standard, your dApp can broadcast player accomplishments in a consistent, interoperable format.
+EffectStream includes a built-in implementation of the **Paima Request for Comments #1 (PRC-1)**, an open standard for exposing in-game achievements. By following this standard, your dApp can broadcast player accomplishments in a consistent, interoperable format.
 
 This allows third-party tools, community-run leaderboards, and other dApps to easily integrate with your game, creating a richer, more engaging ecosystem for your players.
 
@@ -12,7 +12,7 @@ The achievement system is split into two main parts:
 1.  **Static Metadata**: The list of all possible achievements in your game, including their names, descriptions, and icons. You define this once.
 2.  **Dynamic Progress**: The per-player data, tracking which achievements a player has unlocked and their progress towards others. You update this from within your State Transition Functions (STFs).
 
-Effectstream takes care of the rest, automatically exposing this information through a standardized, PRC-1 compliant API.
+EffectStream takes care of the rest, automatically exposing this information through a standardized, PRC-1 compliant API.
 
 ### 1. Defining Achievement Metadata
 
@@ -44,7 +44,7 @@ const metadata: AchievementMetadata = {
     list: achievementList,
 };
 
-// Export the metadata to enable the Effectstream's built-in achievement API.
+// Export the metadata to enable the EffectStream's built-in achievement API.
 export const achievements = Promise.resolve(metadata);
 ```
 
@@ -56,7 +56,7 @@ When a player performs an action that should affect an achievement, you:
 1.  **Get** their current progress for that achievement using `getAchievementProgress`.
 2.  **Set** their new progress using `setAchievementProgress`.
 
-This `set` operation generates a database update that the Effectstream will apply atomically with the rest of your STF's state changes.
+This `set` operation generates a database update that the EffectStream will apply atomically with the rest of your STF's state changes.
 
 **Example (inside an STF in `state-machine.ts`):**
 ```ts
@@ -100,7 +100,7 @@ async function handleBattleWin(walletId: number, blockTimestamp: Date, dbConn: P
 
 ### 3. Consuming the Achievement API
 
-Once enabled, your Effectstream node will automatically serve the PRC-1 compliant API endpoints. Other developers, services, or even your own frontend can then query this data.
+Once enabled, your EffectStream node will automatically serve the PRC-1 compliant API endpoints. Other developers, services, or even your own frontend can then query this data.
 
 *   **List All Achievements**:
     *   `GET /achievements/public/list`

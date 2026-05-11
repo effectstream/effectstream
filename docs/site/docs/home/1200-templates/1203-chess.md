@@ -1,18 +1,18 @@
 # Chess (Game)
 
 * Location: `/templates/chess`
-* Highlights: A fully-featured turn-based game (Chess) on an EVM chain using Effectstream's L2.
+* Highlights: A fully-featured turn-based game (Chess) on an EVM chain using EffectStream's L2.
 
-The `chess` template provides a complete implementation of a web-based chess game. It's an excellent example of how to build turn-based games using Effectstream, showcasing lobby creation, player matching, and in-game move submission, all handled through a Effectstream L2 contract on an EVM chain.
+The `chess` template provides a complete implementation of a web-based chess game. It's an excellent example of how to build turn-based games using EffectStream, showcasing lobby creation, player matching, and in-game move submission, all handled through a EffectStream L2 contract on an EVM chain.
 
 ![chess-web](./chess.png)
 
 ## Core Concept: On-chain Chess
 
-The goal of this template is to demonstrate a classic turn-based game where all game logic is processed deterministically by the Effectstream. Players interact with a simple frontend to play chess, and their moves are submitted to the blockchain.
+The goal of this template is to demonstrate a classic turn-based game where all game logic is processed deterministically by the EffectStream. Players interact with a simple frontend to play chess, and their moves are submitted to the blockchain.
 
-*   **Game State**: Managed entirely by Effectstream, ensuring a consistent and verifiable state.
-*   **Player Actions**: All actions, like creating a lobby or making a move, are sent as inputs to a `Effectstream L2 Contract` on an EVM chain.
+*   **Game State**: Managed entirely by EffectStream, ensuring a consistent and verifiable state.
+*   **Player Actions**: All actions, like creating a lobby or making a move, are sent as inputs to a `EffectStream L2 Contract` on an EVM chain.
 *   **Backend Logic**: The state machine processes these inputs to update the game state, such as moving pieces, ending games, and updating player stats.
 
 This template is a great starting point for any turn-based game, not just chess.
@@ -30,7 +30,7 @@ deno install --allow-scripts && ./patch.sh
 # TODO: Verify if there is a specific build command for chess contracts, assuming it is build:evm for now.
 deno task build:evm
 
-# Launch Effectstream Node
+# Launch EffectStream Node
 deno task dev
 ```
 
@@ -44,30 +44,30 @@ Now you should see the dApp running in your browser!
 When you run `deno task dev` for this template, the [Process Orchestrator](../100-components/106-processes.md) sets up a complete local environment:
 *   **Hardhat EVM Node**: A local EVM blockchain.
 *   **Development Services**: The development database, log collector, TUI, and the Explorer.
-*   **Effectstream**: Node to sync the chain and process game logic.
+*   **EffectStream**: Node to sync the chain and process game logic.
 *   **Frontend**: A web interface to play chess.
 
 ## On-Chain Logic
 
-The chess template uses a `Effectstream L2 Contract` on the EVM chain. This contract acts as a "mailbox" for player inputs. Instead of implementing complex game logic on-chain, which would be expensive and slow, players submit simple, formatted strings representing their actions to the contract's `submitInput` function.
+The chess template uses a `EffectStream L2 Contract` on the EVM chain. This contract acts as a "mailbox" for player inputs. Instead of implementing complex game logic on-chain, which would be expensive and slow, players submit simple, formatted strings representing their actions to the contract's `submitInput` function.
 
-Effectstream monitors the `PaimaGameInteraction` event from this contract to receive and process player inputs.
+EffectStream monitors the `EffectStreamGameInteraction` event from this contract to receive and process player inputs.
 
 ```solidity
-// Simplified example of what the PaimaL2Contract does
-contract PaimaL2 {
-    event PaimaGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
+// Simplified example of what the EffectStreamL2Contract does
+contract EffectStreamL2 {
+    event EffectStreamGameInteraction(address indexed user, bytes input, uint256 indexed nonce);
 
     function submitInput(bytes calldata input) external payable {
         // ... logic to handle input submission ...
-        emit PaimaGameInteraction(msg.sender, input, nonce);
+        emit EffectStreamGameInteraction(msg.sender, input, nonce);
     }
 }
 ```
 
 ## The State Machine (`state-machine.ts`)
 
-The State Machine contains the core game logic for chess. It listens for inputs from the `Effectstream L2 Contract` and updates the game state in the database accordingly.
+The State Machine contains the core game logic for chess. It listens for inputs from the `EffectStream L2 Contract` and updates the game state in the database accordingly.
 
 ### `createdLobby`
 Triggered when a player creates a new game lobby. It creates a new lobby in the database and waits for another player to join.

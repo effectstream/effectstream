@@ -4,9 +4,9 @@ Before diving into customization and advanced features, it's essential to unders
 
 ---
 
-## PaimaBatcher
+## Batcher
 
-The **`PaimaBatcher`** is the main service instance that orchestrates all batching operations. It's created using the `createNewBatcher()` factory function and manages the entire lifecycle of input collection, batch processing, and blockchain submission.
+The **`Batcher`** is the main service instance that orchestrates all batching operations. It's created using the `createNewBatcher()` factory function and manages the entire lifecycle of input collection, batch processing, and blockchain submission.
 
 **Key Responsibilities:**
 - Accepts user inputs via the `batchInput()` method or HTTP API
@@ -18,7 +18,7 @@ The **`PaimaBatcher`** is the main service instance that orchestrates all batchi
 
 **Type Signature:**
 ```typescript
-class PaimaBatcher<T extends DefaultBatcherInput = DefaultBatcherInput>
+class Batcher<T extends DefaultBatcherInput = DefaultBatcherInput>
 ```
 
 The generic type parameter `T` allows you to extend `DefaultBatcherInput` with custom fields for your specific use case.
@@ -62,7 +62,7 @@ A **target** is a string identifier that represents a specific blockchain destin
 - `"ethereum"` - For EVM-based chains like Ethereum mainnet
 - `"polygon"` - For Polygon network
 - `"midnight"` - For privacy-focused Midnight network
-- `"paimaL2"` - For the default Paima L2 contract
+- `"effectstreamL2"` - For the default EffectStream L2 contract
 
 **Usage in Input:**
 ```typescript
@@ -80,13 +80,13 @@ If `target` is not specified in the input, the batcher uses the `defaultTarget` 
 
 ---
 
-## PaimaBatcherConfig
+## BatcherConfig
 
-The **`PaimaBatcherConfig`** is the configuration object that defines global batcher settings and per-adapter behavior. It's provided when creating a new batcher instance.
+The **`BatcherConfig`** is the configuration object that defines global batcher settings and per-adapter behavior. It's provided when creating a new batcher instance.
 
 **Type Signature:**
 ```typescript
-interface PaimaBatcherConfig<
+interface BatcherConfig<
   TInput extends DefaultBatcherInput = DefaultBatcherInput,
   TAdapters extends Record<string, BlockchainAdapter<any>> = Record<string, BlockchainAdapter<any>>
 >
@@ -142,7 +142,7 @@ The `confirmationLevel` configuration defines the **default waiting behavior** w
 **Three Levels:**
 - **`"no-wait"`** - Returns immediately after input is queued
 - **`"wait-receipt"`** - Waits for blockchain transaction confirmation (default)
-- **`"wait-effectstream-processed"`** - Waits until Paima Engine processes the batch
+- **`"wait-effectstream-processed"`** - Waits until EffectStream processes the batch
 
 **Global vs Per-Adapter:**
 ```typescript
@@ -176,18 +176,18 @@ curl -X POST http://localhost:3334/batch-input \
 ### Example Configuration
 
 ```typescript
-const config: PaimaBatcherConfig = {
+const config: BatcherConfig = {
   pollingIntervalMs: 1000,
   
   // Configure multiple adapters for multi-chain support
   adapters: {
-    ethereum: new PaimaL2DefaultAdapter(
+    ethereum: new EffectStreamL2DefaultAdapter(
       "0x...", // Contract address
       "0x...", // Private key
       0n,      // Fee
       "eth-mainnet" // Sync protocol name
     ),
-    polygon: new PaimaL2DefaultAdapter(
+    polygon: new EffectStreamL2DefaultAdapter(
       "0x...",
       "0x...",
       0n,
@@ -233,7 +233,7 @@ There are **two different `maxBatchSize` settings** that serve different purpose
 
 **Example showing both:**
 ```typescript
-const ethereumAdapter = new PaimaL2DefaultAdapter(
+const ethereumAdapter = new EffectStreamL2DefaultAdapter(
   "0x...",
   "0x...",
   0n,
@@ -242,7 +242,7 @@ const ethereumAdapter = new PaimaL2DefaultAdapter(
   10000  // Adapter maxBatchSize: 10KB limit for serialized data
 );
 
-const config: PaimaBatcherConfig = {
+const config: BatcherConfig = {
   adapters: { ethereum: ethereumAdapter },
   batchingCriteria: {
     ethereum: {
@@ -266,7 +266,7 @@ The batcher applies sensible defaults for optional fields:
 - `enableHttpServer`: true
 - `enableEventSystem`: false
 - `confirmationLevel`: "wait-receipt"
-- `namespace`: "paima_batcher"
+- `namespace`: "effectstream_batcher"
 - `pollingIntervalMs`: 1000
 
 ---
@@ -332,17 +332,17 @@ interface BlockchainAdapter<TOutput> {
 }
 ```
 
-### Example: PaimaL2DefaultAdapter
+### Example: EffectStreamL2DefaultAdapter
 
-The built-in `PaimaL2DefaultAdapter` provides a complete EVM implementation:
+The built-in `EffectStreamL2DefaultAdapter` provides a complete EVM implementation:
 
 ```typescript
-export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
+export class EffectStreamL2DefaultAdapter implements BlockchainAdapter<string> {
   constructor(
-    paimaL2Address: EvmAddress,
+    effectstreamL2Address: EvmAddress,
     batcherPrivateKey: EvmPrivateKey,
-    paimaL2Fee: bigint,
-    paimaSyncProtocolName: string,
+    effectstreamL2Fee: bigint,
+    effectstreamSyncProtocolName: string,
     chain: Chain = chains.hardhat,
     maxBatchSize: number = 10000
   ) {
@@ -358,12 +358,12 @@ export class PaimaL2DefaultAdapter implements BlockchainAdapter<string> {
   }
 
   async submitBatch(data: string, fee?: string | bigint): Promise<BlockchainHash> {
-    // Submits to PaimaL2 contract via viem
+    // Submits to EffectStreamL2 contract via viem
     const hexData = encodeHexFromString(data);
     const hash = await this.walletClient.writeContract({
-      address: this.paimaL2Address,
-      abi: this.paimaL2Abi,
-      functionName: "paimaSubmitGameInput",
+      address: this.effectstreamL2Address,
+      abi: this.effectstreamL2Abi,
+      functionName: "effectstreamSubmitGameInput",
       args: [hexData],
       value: actualFee,
     });
@@ -457,7 +457,7 @@ interface MidnightBatcherInput extends DefaultBatcherInput {
 }
 
 // Create a batcher with custom input type
-const batcher = new PaimaBatcher<MidnightBatcherInput>(
+const batcher = new Batcher<MidnightBatcherInput>(
   {
     pollingIntervalMs: 1000,
     adapters: { midnight: midnightAdapter },
@@ -487,7 +487,7 @@ interface PriorityBatcherInput extends DefaultBatcherInput {
   maxFee?: bigint;
 }
 
-const batcher = new PaimaBatcher<PriorityBatcherInput>(config, storage);
+const batcher = new Batcher<PriorityBatcherInput>(config, storage);
 
 // Custom batching criteria using the priority field
 const criteria: BatchingCriteriaConfig<PriorityBatcherInput> = {
@@ -507,8 +507,8 @@ interface MyCustomInput extends DefaultBatcherInput {
   customField: string;
 }
 
-// 2. Pass generic to PaimaBatcher
-const batcher = new PaimaBatcher<MyCustomInput>(config, storage);
+// 2. Pass generic to Batcher
+const batcher = new Batcher<MyCustomInput>(config, storage);
 //                                ^^^^^^^^^^^^^
 
 // 3. Generic flows through the entire system:
@@ -529,8 +529,8 @@ Here's a complete flow showing how all core concepts interact, including **exten
 ```typescript
 import { 
   createNewBatcher, 
-  PaimaBatcherConfig,
-  PaimaL2DefaultAdapter,
+  BatcherConfig,
+  EffectStreamL2DefaultAdapter,
   FileStorage,
   DefaultBatcherInput,
   AddressType 
@@ -542,15 +542,15 @@ interface GameBatcherInput extends DefaultBatcherInput {
   gameSessionId?: string;                // Custom field for session tracking
 }
 
-// 2. Configure the PaimaBatcher with global settings
+// 2. Configure the Batcher with global settings
 // Note: Adapters can be added dynamically before initialization
-const config: PaimaBatcherConfig = {
+const config: BatcherConfig = {
   pollingIntervalMs: 1000,
   // No adapters in config - we'll add them dynamically
   port: 3334,
 };
 
-// 3. Create the PaimaBatcher instance with generic type parameter
+// 3. Create the Batcher instance with generic type parameter
 // This ensures type safety throughout the system
 const batcher = createNewBatcher<GameBatcherInput>(config, new FileStorage("./data"));
 //                                ^^^^^^^^^^^^^^^^
@@ -558,8 +558,8 @@ const batcher = createNewBatcher<GameBatcherInput>(config, new FileStorage("./da
 
 // 4. Create and add blockchain adapter dynamically
 // This must be done BEFORE init() or runBatcher()
-const ethereumAdapter = new PaimaL2DefaultAdapter(
-  "0x1234...",  // PaimaL2 contract address
+const ethereumAdapter = new EffectStreamL2DefaultAdapter(
+  "0x1234...",  // EffectStreamL2 contract address
   "0xabcd...",  // Batcher private key
   0n,           // Transaction fee
   "eth-mainnet" // Sync protocol name (target can differ from this)
@@ -619,9 +619,9 @@ console.log(`Transaction confirmed in block ${receipt.blockNumber}`);
 
 ## Summary
 
-- **`PaimaBatcher`**: The orchestrator managing the entire batching lifecycle
+- **`Batcher`**: The orchestrator managing the entire batching lifecycle
 - **`Target`**: String identifiers routing inputs to specific blockchains
-- **`PaimaBatcherConfig`**: Global configuration defining batcher behavior
+- **`BatcherConfig`**: Global configuration defining batcher behavior
 - **`BlockchainAdapter`**: Pluggable blockchain drivers implementing chain-specific logic
 - **`DefaultBatcherInput`**: Extensible input structure supporting custom fields via generics
 

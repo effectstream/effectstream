@@ -35,4 +35,4 @@ Instead, all chain-specific logic is delegated to a `BlockchainAdapter`. A `Bloc
 - Submitting the final transaction to the node.
 - Waiting for the transaction to be confirmed.
 
-This design (seen in `adapter.ts` and implemented in `paimal2-adapter.ts` and `midnight-adapter.ts`) means the core batcher simply orchestrates the flow, making the system incredibly flexible. To add support for a new chain, you simply write a new adapter—no need to modify the batcher's core logic.
+This design (seen in `adapter.ts` and implemented in `effectstream-l2-adapter.ts` and `midnight-adapter.ts`) means the core batcher simply orchestrates the flow, making the system incredibly flexible. To add support for a new chain, you simply write a new adapter—no need to modify the batcher's core logic.

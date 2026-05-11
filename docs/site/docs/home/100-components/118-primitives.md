@@ -1,18 +1,18 @@
 # Primitives
 
-Primitives are the fundamental building blocks of Effectstream's data-ingestion layer. They act as specialized, chain-aware listeners that connect the **Sync Service** to your **State Machine**.
+Primitives are the fundamental building blocks of EffectStream's data-ingestion layer. They act as specialized, chain-aware listeners that connect the **Sync Service** to your **State Machine**.
 
 Each primitive is configured to monitor a specific on-chain address (like a smart contract) for a particular type of event or state change. When a matching event occurs, the primitive's job is to:
 
 1.  **Parse** the raw on-chain data from the event.
 2.  **Transform** it into a structured, type-safe JSON object.
-3.  **Generate** an input that the Effectstream can schedule for execution by your State Machine.
+3.  **Generate** an input that the EffectStream can schedule for execution by your State Machine.
 
-This creates a deterministic and reliable pipeline from raw blockchain events to your dApp's business logic. Effectstream offers two types of primitives: built-in and custom.
+This creates a deterministic and reliable pipeline from raw blockchain events to your dApp's business logic. EffectStream offers two types of primitives: built-in and custom.
 
 ## Built-in Primitives
 
-Effectstream provides a suite of pre-built primitives for the most common blockchain standards, such as ERC20, ERC721, and the `PaimaL2Contract`. Using these is the quickest and easiest way to integrate standard on-chain assets and actions into your application.
+EffectStream provides a suite of pre-built primitives for the most common blockchain standards, such as ERC20, ERC721, and the `EffectStreamL2Contract`. Using these is the quickest and easiest way to integrate standard on-chain assets and actions into your application.
 
 ### How to Use
 You configure built-in primitives within your `localhostConfig.ts` file using the `.buildPrimitives()` step of the `ConfigBuilder`. You simply need to provide the primitive's type, the contract address to monitor, and the `stateMachinePrefix` that will trigger the corresponding State Transition Function (STF).
@@ -44,12 +44,20 @@ A key advantage of built-in primitives is that many come with automatic database
 
 | Primitive Type | Chain | Description |
 | :--- | :--- | :--- |
-| **`PrimitiveTypeEVMPaimaL2`** | EVM | Listens for inputs submitted to a standard `PaimaL2Contract`. |
+| **`PrimitiveTypeEVMEffectStreamL2`** | EVM | Listens for inputs submitted to a standard `EffectStreamL2Contract`. |
 | **`PrimitiveTypeEVMERC20`** | EVM | Tracks `Transfer` events for an ERC20 token and maintains balance tables. |
 | **`PrimitiveTypeEVMERC721`** | EVM | Tracks `Transfer` events for an ERC721 NFT and maintains ownership tables. |
 | **`PrimitiveTypeEVMERC1155`**| EVM | Tracks `TransferSingle` and `TransferBatch` events for an ERC1155 token. |
 | **`PrimitiveTypeMidnightGeneric`**| Midnight | Monitors the public `ledger` state of a Midnight ZK contract for changes. |
 | **`PrimitiveTypeAvailGeneric`** | Avail | Listens for generic data blobs submitted to a specific application ID on the Avail DA layer. |
+| **`PrimitiveTypeBitcoinAddress`** | Bitcoin | Watches a specific Bitcoin address for UTXO inputs and outputs. |
+| **`PrimitiveTypeCelestiaGeneric`** | Celestia | Listens for data blobs in a specific Celestia namespace. |
+| **`PrimitiveTypeNEARNEP141`** | NEAR | Tracks NEP-141 fungible token `ft_transfer` events and maintains balance tables. |
+| **`PrimitiveTypeNEARNEP171`** | NEAR | Tracks NEP-171 NFT `nft_transfer` events and maintains ownership tables. |
+| **`PrimitiveTypeNEARNEP245`** | NEAR | Tracks NEP-245 multi-token `mt_transfer` events and maintains balance tables. |
+| **`PrimitiveTypeNEARIntent`** | NEAR | Monitors the NEAR Intents Verifier (`intents.near`) for DIP-4 `token_diff` settlement events. Supports filtering by token ID and account ID patterns. |
+| **`PrimitiveTypeNEARGeneric`** | NEAR | Monitors any contract for arbitrary NEP-297 structured events. |
+| **`PrimitiveTypeNEARAccountWatch`** | NEAR | Monitors all transactions targeting a specific NEAR account. |
 
 ## Custom Primitives
 
@@ -57,7 +65,7 @@ For dApps that interact with unique, non-standard smart contracts or require cus
 
 ### How it Works
 
-A custom primitive is a class that extends the abstract `PaimaPrimitive` class. It requires you to implement the logic for parsing the on-chain event and generating the appropriate payload for the state machine.
+A custom primitive is a class that extends the abstract `Primitive` class. It requires you to implement the logic for parsing the on-chain event and generating the appropriate payload for the state machine.
 
 Here's a breakdown of the key parts of the `MCTErc1155Primitive` implementation:
 
@@ -75,7 +83,7 @@ import { mctErc1155Grammar } from "./erc1155-grammar.ts";
 
 const PrimitiveTypeEVMMCTERC1155 = "EVM:MCT_ERC1155" as const;
 
-export class MCTErc1155Primitive extends PaimaPrimitive<
+export class MCTErc1155Primitive extends Primitive<
   ConfigSyncProtocolType.EVM_RPC_PARALLEL,
   typeof mctErc1155Grammar
 > {
@@ -103,7 +111,7 @@ This function is expected to return two different payloads:
 ```ts
 // In packages/shared/custom-primitive-mct-erc1155/erc1155-primitive.ts
 override *getPayload(
-  _: PaimaBlockNumber,
+  _: EffectStreamBlockNumber,
   primitiveTransactionData: FlattenSyncProtocolIOFor<ConfigSyncProtocolType.EVM_RPC_PARALLEL>,
 ): StateUpdateStream<{ /* ... */ }> {
   // 1. Destructure the raw event data
@@ -160,7 +168,7 @@ override getConfig(): ProtocolPrimitiveMap[ConfigSyncProtocolType.EVM_RPC_PARALL
 
 #### 4. Register the Custom Primitive
 
-The final step is to register your custom primitive class in your `main.ts` file. This tells the Effectstream how to instantiate your primitive when it sees its `internalTypeName` in the configuration.
+The final step is to register your custom primitive class in your `main.ts` file. This tells the EffectStream how to instantiate your primitive when it sees its `internalTypeName` in the configuration.
 
 ```ts
 // In packages/client/node/src/main.ts
@@ -168,7 +176,7 @@ import { MCTErc1155Primitive } from "@multi-chain-transfer/custom-primitive-mct-
 
 main(function* () {
   // ...
-  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
+  yield* withEffectStreamStaticConfig(localhostConfig, function* () {
     yield* start({
       // ...
       userDefinedPrimitives: {
