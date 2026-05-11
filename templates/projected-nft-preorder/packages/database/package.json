@@ -1,0 +1,21 @@
+{
+  "name": "@projected-nft-preorder/database",
+  "version": "1.0.0",
+  "license": "MIT",
+  "exports": "./mod.ts",
+  "scripts": {
+    "pgtyped:update": "bun run ./node_modules/@effectstream/db/scripts/pgtyped-update.ts"
+  },
+  "dependencies": {
+    "@effectstream/config": "0.100.12",
+    "@effectstream/runtime": "0.100.12",
+    "@effectstream/sm": "0.100.12",
+    "@pgtyped/runtime": "2.4.2",
+    "@effectstream/db": "0.100.12",
+    "pg": "^8.14.0",
+    "effection": "3.5.0"
+  },
+  "devDependencies": {
+    "@paima/pgtyped-cli": "^2.4.5"
+  }
+}
