@@ -98,15 +98,27 @@ if [ -d "$LINKED_MC" ]; then
 fi
 
 # Fix WASM module duplication for @midnight-ntwrk/onchain-runtime
-# The monorepo's sync/sm packages have local node_modules/@midnight-ntwrk/onchain-runtime
-# pointing to the MONOREPO's .bun/ cache. The compiled Compact contract resolves
-# onchain-runtime-v3 through the TEMPLATE's .bun/ cache. Two separate WASM module
-# instantiations → instanceof checks fail ("expected instance of ChargedState").
-# Fix: redirect monorepo packages' onchain-runtime to the template's copy.
+# The monorepo's .bun/ cache has its own onchain-runtime-v3 WASM instantiation.
+# Packages like compact-js and midnight-js-contracts resolve onchain-runtime-v3
+# through the monorepo's hoisted .bun/node_modules/ — creating objects with the
+# MONOREPO's WASM classes. The template's code then checks instanceof against the
+# TEMPLATE's WASM classes. Two instantiations → instanceof fails
+# ("expected instance of ContractMaintenanceAuthority" / "ChargedState").
+# Fix: redirect ALL onchain-runtime-v3 references to the template's single copy.
 echo ""
 echo "Fixing WASM module duplication (onchain-runtime)..."
 TEMPLATE_ORT="$NM/.bun/@midnight-ntwrk+onchain-runtime-v3@3.0.0/node_modules/@midnight-ntwrk/onchain-runtime-v3"
 if [ -d "$TEMPLATE_ORT" ]; then
+  # 1. Redirect the monorepo root's hoisted onchain-runtime-v3 (used by compact-js,
+  #    midnight-js-contracts, midnight-js-types, etc.)
+  MONOREPO_HOISTED="$MONOREPO_ROOT/node_modules/.bun/node_modules/@midnight-ntwrk/onchain-runtime-v3"
+  if [ -L "$MONOREPO_HOISTED" ]; then
+    rm -f "$MONOREPO_HOISTED"
+    ln -sf "$TEMPLATE_ORT" "$MONOREPO_HOISTED"
+    echo "  RELINK monorepo .bun hoisted onchain-runtime-v3 → template"
+  fi
+
+  # 2. Redirect per-package copies in monorepo sync/sm
   for monorepo_pkg in "$P/node-sdk/sync" "$P/node-sdk/sm"; do
     ORT_LINK="$monorepo_pkg/node_modules/@midnight-ntwrk/onchain-runtime"
     if [ -L "$ORT_LINK" ]; then
@@ -114,7 +126,6 @@ if [ -d "$TEMPLATE_ORT" ]; then
       ln -sf "$TEMPLATE_ORT" "$ORT_LINK"
       echo "  RELINK $(basename "$monorepo_pkg")/@midnight-ntwrk/onchain-runtime → template"
     fi
-    # Also fix onchain-runtime-v3 if present
     ORT3_LINK="$monorepo_pkg/node_modules/@midnight-ntwrk/onchain-runtime-v3"
     if [ -L "$ORT3_LINK" ]; then
       rm -f "$ORT3_LINK"
