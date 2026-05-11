@@ -20,8 +20,8 @@ import {
 import { Buffer } from "node:buffer";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
 import type { StartConfig } from "./types.ts";
-import type { BlockNumber, PaimaBlockHash } from "@effectstream/utils";
-import { generatePaimaBlockHash, Prando } from "@effectstream/crypto";
+import type { BlockNumber, EffectstreamBlockHash } from "@effectstream/utils";
+import { generateEffectstreamBlockHash, Prando } from "@effectstream/crypto";
 import { applyUserMigrations } from "./version-migrations.ts";
 
 /** Helper to check if a SyncStateUpdateStream object is a WorldResolve */
@@ -126,10 +126,10 @@ export function* processFinalizedBlock(
   value: ChainBlock,
   config: StartConfig,
   dbConn: Pool,
-  previousBlockHash: PaimaBlockHash | null,
-): Operation<PaimaBlockHash> {
+  previousBlockHash: EffectstreamBlockHash | null,
+): Operation<EffectstreamBlockHash> {
   const { gameStateTransitions, migrations } = config;
-  const blockHash: PaimaBlockHash = generatePaimaBlockHash(
+  const blockHash: EffectstreamBlockHash = generateEffectstreamBlockHash(
     value,
     previousBlockHash,
   );

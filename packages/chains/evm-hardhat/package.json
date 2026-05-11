@@ -1,0 +1,37 @@
+{
+  "name": "@effectstream/evm-hardhat",
+  "version": "0.100.12",
+  "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/chains/evm-hardhat"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
+  "exports": {
+    "./json-rpc-server": "./src/json-rpc-server/json-rpc/server.ts",
+    "./builder": "./src/builder/build.mod.ts",
+    "./remappings-hardhat": "./src/remappings/remappings-hardhat.ts",
+    "./remappings-forge": "./src/remappings/remappings-forge.ts",
+    "./hardhat-config-builder": "./src/hardhatConfigBuilder.ts",
+    "./deploy": "./src/deploy.ts",
+    "./addresses": "./src/addresses.ts"
+  },
+  "dependencies": {
+    "@effectstream/log": "workspace:*",
+    "@effectstream/utils": "workspace:*",
+    "ws": "8.18.1",
+    "hardhat": "3.0.4",
+    "@nomicfoundation/hardhat-ignition": "3.0.2",
+    "@nomicfoundation/hardhat-ignition-viem": "3.0.2",
+    "@nomicfoundation/hardhat-viem": "3.0.0",
+    "@nomicfoundation/hardhat-errors": "3.0.1",
+    "@nomicfoundation/hardhat-utils": "3.0.0",
+    "jsonc-parser": "^3.3.1",
+    "@opentelemetry/sdk-node": "0.56.0"
+  },
+  "description": "Hardhat deployment and JSON-RPC utilities for EffectStream"
+}

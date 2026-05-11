@@ -1,32 +1,31 @@
 // TODO Remove references to "src/managed" as this is not standard.
 
-import * as log from "@std/log";
-import { Buffer } from "node:buffer";
-import * as path from "@std/path";
-
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+import { Buffer } from "node:buffer";
+import { statSync, readdirSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
+import { getEnv, cwd } from "@effectstream/utils/runtime";
 import { deployContract } from "@midnight-ntwrk/midnight-js-contracts";
-import type { PrivateStateId } from '@midnight-ntwrk/midnight-js-types';
-import { CompiledContract, type Witnesses, type Contract } from '@midnight-ntwrk/compact-js';
+import type { PrivateStateId } from "@midnight-ntwrk/midnight-js-types";
+import { CompiledContract, type Witnesses, type Contract } from "@midnight-ntwrk/compact-js";
 import type { SigningKey } from "@midnight-ntwrk/ledger-v8";
 import type { NetworkId } from "@midnight-ntwrk/wallet-sdk-abstractions";
+import * as path from "node:path";
+
+const log = console;
 
 import { findContractDirectoryForDeploy } from "./read-contract.ts";
 import { mnemonicToSeed } from "./mnemonicToSeed.ts";
-import type{  NetworkUrls, DeployConfig, WalletResult } from "./types.ts";
+import type { NetworkUrls, DeployConfig, WalletResult } from "./types.ts";
 import { buildWalletAndWaitForFunds, extractInitialOwnerFromWallet } from "./build-wallet.ts";
 import { configureMidnightNodeProviders } from "./providers.ts";
 import { midnightNetworkConfig } from "./midnight-env.ts";
-import { getEnv, cwd } from "@effectstream/utils/runtime";
-import { readdirSync, statSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
-
-// Declare Deno global for type-checking when not executed under Deno tooling.
-declare const Deno: typeof globalThis.Deno;
 
 function checkEnvVariables(): void {
   if (!getEnv("MIDNIGHT_STORAGE_PASSWORD")) {
-    throw new Error("MIDNIGHT_STORAGE_PASSWORD is not set (Use a 16 char string)");
+    throw new Error(
+      "MIDNIGHT_STORAGE_PASSWORD is not set (Use a 16 char string)",
+    );
   }
 }
 
@@ -46,6 +45,13 @@ function hasManagedArtifacts(dir: string): boolean {
 }
 
 function findCompilerSubdirectory(managedDir: string): string {
+  // Check the managed directory itself first before looking at subdirectories.
+  // This prevents accidentally picking a nested sub-contract (e.g. counter/)
+  // that only contains a subset of the circuit keys.
+  if (hasManagedArtifacts(managedDir)) {
+    return "";
+  }
+
   try {
     for (const entry of readdirSync(managedDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
@@ -58,13 +64,9 @@ function findCompilerSubdirectory(managedDir: string): string {
     throw new Error(`Managed directory not found: ${managedDir}`);
   }
 
-  if (hasManagedArtifacts(managedDir)) {
-    return "";
-  }
-
   throw new Error(
     `No compiler artifacts found in managed directory: ${managedDir}. ` +
-      `Ensure the directory contains compiler, contract, keys, and zkir assets.`
+      `Ensure the directory contains compiler, contract, keys, and zkir assets.`,
   );
 }
 
@@ -85,26 +87,14 @@ function findCompilerSubdirectory(managedDir: string): string {
 export async function deployMidnightContract(
   config: DeployConfig,
   networkUrls?: NetworkUrls,
-  seedOrMnemonic?: { seed: string, mnemonic: string },
-
+  seedOrMnemonic?: { seed: string; mnemonic: string },
 ): Promise<string> {
   checkEnvVariables();
-  await log.setup({
-    handlers: {
-      console: new log.ConsoleHandler("INFO"),
-    },
-    loggers: {
-      default: {
-        level: "INFO",
-        handlers: ["console"],
-      },
-    },
-  });
 
   // Find the contract directory
   const contractDir = findContractDirectoryForDeploy(
     config.contractName,
-    config.baseDir
+    config.baseDir,
   );
 
   if (!contractDir) {
@@ -112,20 +102,16 @@ export async function deployMidnightContract(
       `Could not find Midnight contract directory for "${config.contractName}". ` +
         `Searched starting from ${config.baseDir || cwd()}. ` +
         `Please ensure you're running from a directory that contains or is a parent of the Midnight contract directory, ` +
-        `or provide an explicit baseDir parameter.`
+        `or provide an explicit baseDir parameter.`,
     );
   }
 
   // Find the compiler subdirectory to determine zkConfigPath
-  const managedDir = path.join(
-    contractDir,
-    config.contractName,
-    "src/managed"
-  );
+  const managedDir = path.join(contractDir, config.contractName, "src/managed");
   const compilerSubdir = findCompilerSubdirectory(managedDir);
 
   const zkConfigPath = path.resolve(
-    path.join(contractDir, config.contractName, "src/managed", compilerSubdir)
+    path.join(contractDir, config.contractName, "src/managed", compilerSubdir),
   );
 
   // Default private state store name if not provided
@@ -142,10 +128,11 @@ export async function deployMidnightContract(
     node: endpoints.node ?? midnightNetworkConfig.node,
     proofServer: endpoints.proofServer ?? midnightNetworkConfig.proofServer,
   };
-  const resolvedNetworkId = (networkIdOverride ?? midnightNetworkConfig.id) as NetworkId.NetworkId;
+  const resolvedNetworkId = (networkIdOverride ??
+    midnightNetworkConfig.id) as NetworkId.NetworkId;
 
   log.info(
-    `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${resolvedNetworkId}`
+    `Preflight resolved endpoints -> indexerHttp=${resolvedNetworkUrls.indexer}, indexerWs=${resolvedNetworkUrls.indexerWS}, node=${resolvedNetworkUrls.node}, proofServer=${resolvedNetworkUrls.proofServer}, networkId=${resolvedNetworkId}`,
   );
 
   setNetworkId(resolvedNetworkId);
@@ -159,18 +146,20 @@ export async function deployMidnightContract(
     if (seedOrMnemonic?.seed) {
       seed = seedOrMnemonic.seed;
     } else if (seedOrMnemonic?.mnemonic) {
-      seed = Buffer.from(await mnemonicToSeed(seedOrMnemonic.mnemonic)).toString('hex');
+      seed = Buffer.from(
+        await mnemonicToSeed(seedOrMnemonic.mnemonic),
+      ).toString("hex");
     } else {
       seed = midnightNetworkConfig.walletSeed;
     }
     if (!seed) {
-      throw new Error('No seed or mnemonic provided');
+      throw new Error("No seed or mnemonic provided");
     }
 
     walletResult = await buildWalletAndWaitForFunds(
       resolvedNetworkUrls,
       seed,
-      resolvedNetworkId
+      resolvedNetworkId,
     );
 
     const {
@@ -188,7 +177,7 @@ export async function deployMidnightContract(
       log.info(`Using derived dust address: ${resolvedDustReceiverAddress}`);
     } else {
       log.info(
-        `Using dust receiver address from MIDNIGHT_DUST_RECEIVER_ADDRESS: ${resolvedDustReceiverAddress}`
+        `Using dust receiver address from MIDNIGHT_DUST_RECEIVER_ADDRESS: ${resolvedDustReceiverAddress}`,
       );
     }
 
@@ -204,7 +193,7 @@ export async function deployMidnightContract(
     log.info("Configuring providers...");
     // Use a separate LevelDB directory for deployment to avoid lock conflicts with batcher
     const deployPrivateStateStoreName = `${privateStateStoreName}-deploy`;
-    
+
     providers = configureMidnightNodeProviders(
       wallet,
       zswapSecretKeys,
@@ -214,43 +203,43 @@ export async function deployMidnightContract(
       resolvedNetworkUrls,
       deployPrivateStateStoreName,
       zkConfigPath,
-      unshieldedKeystore
+      unshieldedKeystore,
     );
     log.info("Providers configured.");
 
     log.info("Deploying contract...");
-    
-    // Find the compiler subdirectory to determine zkConfigPath
-    const managedDir = path.join(
-      contractDir,
-      config.contractName,
-      "src/managed"
-    );
 
     // First, create the compiled contract
-    const MyCompiledContract = CompiledContract.make(config.contractName, config.contractClass).pipe(
+    const MyCompiledContract = CompiledContract.make(
+      config.contractName,
+      config.contractClass,
+    ).pipe(
       CompiledContract.withWitnesses(config.witnesses as never),
-      CompiledContract.withCompiledFileAssets(managedDir)
+      CompiledContract.withCompiledFileAssets(managedDir),
     );
 
     const deployOptions: {
-      compiledContract: CompiledContract.CompiledContract<Contract<undefined, Witnesses<undefined>>, undefined, never>;
+      compiledContract: CompiledContract.CompiledContract<
+        Contract<undefined, Witnesses<undefined>>,
+        undefined,
+        never
+      >;
       privateStateId: PrivateStateId;
-      initialPrivateState: Contract.PrivateState<any>
+      initialPrivateState: Contract.PrivateState<any>;
       signingKey?: SigningKey;
       args: Contract.InitializeParameters<any>;
     } = {
       compiledContract: MyCompiledContract as any,
       privateStateId: config.privateStateId as PrivateStateId,
-      initialPrivateState: config.initialPrivateState as Contract.PrivateState<any>,
-      args: (deployArgs && deployArgs.length > 0 ? deployArgs : []) as Contract.InitializeParameters<any>,
+      initialPrivateState:
+        config.initialPrivateState as Contract.PrivateState<any>,
+      args: (deployArgs && deployArgs.length > 0
+        ? deployArgs
+        : []) as Contract.InitializeParameters<any>,
       signingKey: undefined,
     };
 
-    const deployedContract = await deployContract(
-      providers,
-      deployOptions
-    );
+    const deployedContract = await deployContract(providers, deployOptions);
     log.info("Contract deployed.");
 
     const contractAddress =
@@ -259,32 +248,29 @@ export async function deployMidnightContract(
 
     const baseContractFileName =
       config.contractFileName ?? `${config.contractName}.json`;
-    const { dir: contractFileDir, name: contractFileBaseName, ext: contractFileExt } =
-      path.parse(baseContractFileName);
+    const {
+      dir: contractFileDir,
+      name: contractFileBaseName,
+      ext: contractFileExt,
+    } = path.parse(baseContractFileName);
     const normalizedExt = contractFileExt || ".json";
     const networkSuffix = `.${resolvedNetworkId}`;
-    const fileBaseWithNetwork =
-      contractFileBaseName.endsWith(networkSuffix)
-        ? contractFileBaseName
-        : `${contractFileBaseName}${networkSuffix}`;
+    const fileBaseWithNetwork = contractFileBaseName.endsWith(networkSuffix)
+      ? contractFileBaseName
+      : `${contractFileBaseName}${networkSuffix}`;
     const outputFileName = `${fileBaseWithNetwork}${normalizedExt}`;
-    const outputPath = path.join(
-      contractDir,
-      contractFileDir,
-      outputFileName,
-    );
+    const outputPath = path.join(contractDir, contractFileDir, outputFileName);
 
-    await writeFile(
-      outputPath,
-      JSON.stringify({ contractAddress }, null, 2),
+    await writeFile(outputPath, JSON.stringify({ contractAddress }, null, 2));
+    log.info(
+      `Contract address saved to ${outputPath} (network: ${resolvedNetworkId})`,
     );
-    log.info(`Contract address saved to ${outputPath} (network: ${resolvedNetworkId})`);
 
     return contractAddress;
   } catch (e) {
     if (e instanceof Error) {
       log.error(`Deployment failed: ${e.message}`);
-      log.debug(e.stack);
+      log.error(e.stack);
     } else {
       log.error("An unknown error occurred during deployment.");
     }
@@ -300,11 +286,11 @@ export async function deployMidnightContract(
       }
       log.info("Wallet closed.");
     }
-    
+
     // Wait a moment for Level DB to finish any async close operations
     // The levelPrivateStateProvider opens/closes DB for each operation in withSubLevel
     // But there might be pending async operations
     log.info("Waiting for Level DB cleanup...");
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }

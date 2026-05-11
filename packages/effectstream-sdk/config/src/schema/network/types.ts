@@ -10,4 +10,5 @@ export enum ConfigNetworkType {
   MIDNIGHT = "midnight",
   BITCOIN = "bitcoin",
   CELESTIA = "celestia",
+  NEAR = "near",
 }

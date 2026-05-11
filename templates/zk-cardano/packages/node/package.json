@@ -1,0 +1,33 @@
+{
+  "name": "@zk-cardano/node",
+  "version": "1.0.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./main.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit main.dev.ts",
+    "node:start": "bun --inspect run main.dev.ts"
+  },
+  "dependencies": {
+    "@effectstream/concise": "0.100.12",
+    "@effectstream/config": "0.100.12",
+    "@effectstream/log": "0.100.12",
+    "@effectstream/orchestrator": "0.100.12",
+    "@effectstream/runtime": "0.100.12",
+    "@effectstream/utils": "0.100.12",
+    "@effectstream/sm": "0.100.12",
+    "@effectstream/coroutine": "0.100.12",
+    "@effectstream/db": "0.100.12",
+    "@effectstream/explorer": "*",
+    "@effectstream/midnight-contracts": "0.100.12",
+    "@sinclair/typebox": "0.34.41",
+    "effection": "^3.5.0",
+    "fastify": "^5.4.0",
+    "pg": "^8.14.0",
+    "@midnight-ntwrk/onchain-runtime": "npm:@midnight-ntwrk/onchain-runtime-v3@3.0.0",
+    "@zk-cardano/contracts-cardano": "workspace:*",
+    "@zk-cardano/database": "workspace:*",
+    "@zk-cardano/midnight-contract": "workspace:*"
+  }
+}

@@ -5,39 +5,11 @@ import HardhatViem from "@nomicfoundation/hardhat-viem";
 import { overrideTask, task } from "hardhat/config";
 import { ArgumentType } from "hardhat/types/arguments";
 import HardhatIgnitionViem from "@nomicfoundation/hardhat-ignition-viem";
-import { defaultOtelSetup } from "@effectstream/log";
+import { ComponentNames, defaultOtelSetup, log, SeverityNumber } from "@effectstream/log";
 import fs from "node:fs";
 import { parse } from "jsonc-parser";
 import { NodeSDK } from "@opentelemetry/sdk-node";
-
-/**
- * Dependencies required for creating node tasks.
- * These should be imported in the calling code and passed to createNodeTasks.
- */
-export interface NodeTaskDependencies {
-  /** JsonRpcServer type placeholder (not actually used, kept for type compatibility) */
-  JsonRpcServer?: unknown;
-  /** JsonRpcServerImplementation from evm-hardhat package */
-  JsonRpcServerImplementation: new (
-    options: { hostname: string; port: number; provider: any },
-    logCallback: (msg: string) => void,
-  ) => any;
-  /** Log utilities from log package */
-  ComponentNames: { HARDHAT: string };
-  log: {
-    remote: (
-      component: string,
-      tags: string[],
-      severity: number,
-      fn: (log: (...args: unknown[]) => void) => void,
-    ) => void;
-  };
-  SeverityNumber: { INFO: number };
-  /** wait-on module for waiting on ports */
-  waitOn: (options: { resources: string[] }) => Promise<void>;
-  /** fs module for checking Docker environment */
-  fs: { existsSync: (path: string) => boolean };
-}
+import { JsonRpcServerImplementation } from "./json-rpc-server/json-rpc/server.ts";
 
 /**
  * Options for creating default networks
@@ -82,21 +54,8 @@ export interface HardhatConfigOptions {
 /**
  * Creates node tasks for running local blockchain nodes.
  * These tasks allow starting JSON-RPC servers for configured networks.
- * 
- * @param deps Dependencies required for the tasks (imported in calling code)
- * @returns Array of Hardhat tasks (node and node:wait)
  */
-export function createNodeTasks(
-  deps: NodeTaskDependencies,
-): HardhatUserConfig["tasks"] {
-  const {
-    JsonRpcServerImplementation,
-    ComponentNames,
-    log,
-    SeverityNumber,
-    waitOn,
-    fs,
-  } = deps;
+export function createNodeTasks(): HardhatUserConfig["tasks"] {
 
   function logNetwork(networkName: string, ...msg: unknown[]) {
     log.remote(
@@ -237,9 +196,23 @@ export function createNodeTasks(
           port < (args.port as number) + networkEntries.length;
           port++
         ) {
-          await waitOn({
-            resources: [`tcp:${port}`],
-          });
+          for (let attempt = 0; attempt < 120; attempt++) {
+            const ok = await new Promise<boolean>((resolve) => {
+              Bun.connect({
+                hostname: "127.0.0.1",
+                port,
+                socket: {
+                  open(s) { s.end(); resolve(true); },
+                  data() {},
+                  error() { resolve(false); },
+                  close() {},
+                  connectError() { resolve(false); },
+                },
+              }).catch(() => resolve(false));
+            });
+            if (ok) break;
+            await Bun.sleep(500);
+          }
           port++;
         }
       },
@@ -314,21 +287,19 @@ export function createDefaultNetworks(
  * 
  * Note: This function executes asynchronously.
  * Errors are caught and logged as warnings to avoid breaking Hardhat initialization.
- * 
+ *
  * @param logPackage Package name for log utilities (kept for backward compatibility, but ignored)
- * @param denoJsonPath Path to deno.json file for version detection
+ * @param version Version string for telemetry (default: "0.9.0")
  */
 export function initTelemetry(
   logPackage: string,
-  denoJsonPath: string = "./deno.json",
+  version: string = "0.9.0",
 ): void {
-  // Use static imports - import map will handle @effectstream -> @paimaexample conversion when published
   // Execute asynchronously - errors won't break Hardhat initialization
   (async () => {
     try {
-      const DenoConfig = parse(fs.readFileSync(denoJsonPath, "utf8"));
       const sdk = new NodeSDK({
-        ...defaultOtelSetup("hardhat", DenoConfig.version),
+        ...defaultOtelSetup("hardhat", version),
       });
       sdk.start();
     } catch (error) {

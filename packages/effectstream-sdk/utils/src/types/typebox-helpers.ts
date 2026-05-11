@@ -53,6 +53,7 @@ export enum AddressType {
   MIDNIGHT = 5,
   AVAIL = 6,
   POLKADOT = 7,
+  NEAR = 8,
 }
 
 function tryDecode<T>(
@@ -236,6 +237,10 @@ export const TypeboxHelpers = {
     ),
     Address: Type.Unsafe<Nominal.PolkadotAddress>(Type.String({ format: "ss58" })),
   },
+  Near: {
+    // NEAR account IDs: named (a-z0-9._-) up to 64 chars, or implicit (64 hex chars)
+    Address: Type.Unsafe<Nominal.NearAddress>(Type.String()),
+  },
   Caip2: Type.Unsafe<Nominal.Caip2>(Type.String()),
   WalletAddress: () =>
     Type.Union(AddressTypebox as Mutable<typeof AddressTypebox>),
@@ -292,6 +297,7 @@ export const AddressValidator = {
   [AddressType.MINA]: TypeboxHelpers.Mina.Address,
   [AddressType.MIDNIGHT]: TypeboxHelpers.Midnight.Address,
   [AddressType.POLKADOT]: TypeboxHelpers.Polkadot.Address,
+  [AddressType.NEAR]: TypeboxHelpers.Near.Address,
 } as const satisfies Record<AddressType, TSchema>;
 
 export const AddressTypebox = [
@@ -330,6 +336,10 @@ export const AddressTypebox = [
   Type.Object({
     type: Type.Literal(AddressType.POLKADOT),
     address: TypeboxHelpers.Polkadot.Address,
+  }),
+  Type.Object({
+    type: Type.Literal(AddressType.NEAR),
+    address: TypeboxHelpers.Near.Address,
   }),
 ] as const;
 true satisfies Satisfies<

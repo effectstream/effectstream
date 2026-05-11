@@ -1,5 +1,5 @@
-import { parse as parseToml, stringify as stringifyToml } from "toml";
-import fs from "node:fs/promises";
+import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
+import * as fs from "node:fs/promises";
 
 const TEMP_DIR = "./temp";
 const TEMPLATE_FILE = "./dolos.template.toml";
@@ -42,8 +42,9 @@ async function updateDolosConfig() {
   const templateContent = await fs.readFile(TEMPLATE_FILE, "utf-8");
   const config = parseToml(templateContent);
 
-  // Update genesis paths
+  // Update genesis paths (preserve other fields like force_protocol)
   config.genesis = {
+    ...(config.genesis as Record<string, unknown>),
     byron_path: paths[0],
     shelley_path: paths[1],
     alonzo_path: "./temp/alonzo-genesis2.json", // https://github.com/txpipe/pallas/issues/296#issuecomment-2547962797

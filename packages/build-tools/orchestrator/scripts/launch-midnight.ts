@@ -1,137 +1,108 @@
-import { ComponentNames } from "@effectstream/log";
-import { getEnv } from "@effectstream/utils/runtime";
-import { ENV } from "@effectstream/utils/node-env";
+import type { ProcessConfig } from "../src/config.ts";
+import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
 
-// Substrate nodes (and many forks like Avail and Midnight) use the Rust tracing/log
-// stack wired through sc-cli/sc-service, which by default writes formatted log output to stderr.
-// This is intentional so stdout can remain a clean data channel (e.g., for RPC JSON),
-// while human-readable logs go to stderr. For E2E testing, we want to disable this,
-// unless the user explicitly wants to see the logs, so if EFFECTSTREAM_STDOUT is true,
-// we enable stderr for this as well.
+export const MidnightNames = {
+  NODE: "midnight-node",
+  NODE_WAIT: "midnight-node-wait",
+  INDEXER: "midnight-indexer",
+  INDEXER_WAIT: "midnight-indexer-wait",
+  PROOF_SERVER: "midnight-proof-server",
+  PROOF_SERVER_WAIT: "midnight-proof-server-wait",
+  CONTRACT_DEPLOY: "midnight-contract",
+} as const;
 
-const isTrue = (value: string | undefined) => value != null && ["true", "1", "yes", "y"].includes(value.toLowerCase());
-const disableStderr = !isTrue(getEnv("EFFECTSTREAM_STDOUT"));
+const REQUIRED_SCRIPTS = {
+  "midnight-node:start": "Start the Midnight substrate node",
+  "midnight-node:wait": "Wait for the Midnight node RPC (e.g. tcp:9944)",
+  "midnight-indexer:start": "Start the Midnight indexer",
+  "midnight-indexer:wait": "Wait for the Midnight indexer (e.g. tcp:8088)",
+  "midnight-proof-server:start": "Start the Midnight proof server",
+  "midnight-proof-server:wait": "Wait for the Midnight proof server (e.g. tcp:6300)",
+  "midnight-contract:deploy": "Deploy Midnight contracts (Compact-compiled)",
+} as const;
 
-// Start Midnight Node and Indexer.
-//
-// This is a example launcher for Midnight Chains and Contracts.
-// Working implementation examples are provided in the /templates/* folders.
-// Normally you would not need to modify this file.
-//
-// This file requires you to provide a workspace package with the following tasks:
-//
-// midnight-node:start: start the midnight node
-// midnight-indexer:start: start the midnight indexer
-// midnight-proof-server:start: start the midnight proof server
-// midnight-node:wait: wait for the midnight node to start
-// midnight-indexer:wait: wait for the midnight indexer to start
-// midnight-proof-server:wait: wait for the midnight proof server to start
-//
-// packageName: the name of the package that implements the tasks.
-//
-export const launchMidnight = (packageName: string): {
-  stopProcessAtPort?: number[];
-  name: string;
-  args: string[];
-  waitToExit?: boolean;
-  logs?: string;
-  logsStartDisabled?: boolean;
-  disableStderr?: boolean;
-  type?: string;
-  dependsOn?: string[];
-  env?: Record<string, string>;
-}[] => [
+export function launchMidnight(
+  packageName: string,
+  location: ResolveLocation,
+  opts?: {
+    env?: { MIDNIGHT_STORAGE_PASSWORD?: string };
+    dependsOn?: string[];
+  },
+): ProcessConfig[] {
+  const cwd = resolvePackageDir("launchMidnight", packageName, location, REQUIRED_SCRIPTS);
+  const deployEnv: Record<string, string> = {};
+  if (opts?.env?.MIDNIGHT_STORAGE_PASSWORD) {
+    deployEnv.MIDNIGHT_STORAGE_PASSWORD = opts.env.MIDNIGHT_STORAGE_PASSWORD;
+  }
+  const extraDeps = opts?.dependsOn ?? [];
+
+  return [
     {
-      stopProcessAtPort: [9944, 8088, 6300, 30333],
-      name: ComponentNames.MIDNIGHT_NODE,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-node:start",
-      ],
+      name: MidnightNames.NODE,
+      description: `Start Midnight node (${packageName} midnight-node:start)`,
+      cwd,
+      stopProcessAtPort: [9944, 30333],
+      args: ["run", "midnight-node:start"],
       waitToExit: false,
-      type: "system-dependency",
-      logsStartDisabled: true,
-      disableStderr,
-      logs: "raw",
-      dependsOn: [],
+      critical: true,
     },
     {
-      name: ComponentNames.MIDNIGHT_INDEXER,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-indexer:start",
-      ],
+      name: MidnightNames.INDEXER,
+      description: `Start Midnight indexer (${packageName} midnight-indexer:start)`,
+      cwd,
+      stopProcessAtPort: [8088],
+      args: ["run", "midnight-indexer:start"],
       waitToExit: false,
-      type: "system-dependency",
-      logsStartDisabled: true,
-      disableStderr,
-      logs: "raw",
-      dependsOn: [ComponentNames.MIDNIGHT_NODE],
+      critical: true,
+      dependsOn: [MidnightNames.NODE],
     },
     {
-      name: ComponentNames.MIDNIGHT_PROOF_SERVER,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-proof-server:start",
-      ],
-      logsStartDisabled: true,
+      name: MidnightNames.PROOF_SERVER,
+      description: `Start Midnight proof server (${packageName} midnight-proof-server:start)`,
+      cwd,
+      stopProcessAtPort: [6300],
+      args: ["run", "midnight-proof-server:start"],
       waitToExit: false,
-      type: "system-dependency",
-      dependsOn: [ComponentNames.MIDNIGHT_NODE]
+      critical: true,
+      dependsOn: [MidnightNames.NODE],
     },
     {
-      name: ComponentNames.MIDNIGHT_NODE_WAIT,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-node:wait",
-      ],
-      dependsOn: [ComponentNames.MIDNIGHT_NODE],
+      name: MidnightNames.NODE_WAIT,
+      description: `Wait for Midnight node (${packageName} midnight-node:wait)`,
+      cwd,
+      args: ["run", "midnight-node:wait"],
+      waitToExit: true,
+      dependsOn: [MidnightNames.NODE],
     },
     {
-      name: ComponentNames.MIDNIGHT_INDEXER_WAIT,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-indexer:wait",
-      ],
-      dependsOn: [ComponentNames.MIDNIGHT_INDEXER],
+      name: MidnightNames.INDEXER_WAIT,
+      description: `Wait for Midnight indexer (${packageName} midnight-indexer:wait)`,
+      cwd,
+      args: ["run", "midnight-indexer:wait"],
+      waitToExit: true,
+      dependsOn: [MidnightNames.INDEXER],
     },
     {
-      name: ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
-      logs: "raw",
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-proof-server:wait",
-      ],
-      dependsOn: [ComponentNames.MIDNIGHT_PROOF_SERVER],
+      name: MidnightNames.PROOF_SERVER_WAIT,
+      description: `Wait for Midnight proof server (${packageName} midnight-proof-server:wait)`,
+      cwd,
+      args: ["run", "midnight-proof-server:wait"],
+      waitToExit: true,
+      dependsOn: [MidnightNames.PROOF_SERVER],
     },
     {
-      name: ComponentNames.MIDNIGHT_CONTRACT,
-      // logs: "raw",
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "midnight-contract:deploy",
-      ],
-      env: {
-        MIDNIGHT_STORAGE_PASSWORD: ENV.MIDNIGHT_STORAGE_PASSWORD
-      },
+      name: MidnightNames.CONTRACT_DEPLOY,
+      description: `Deploy Midnight contracts (${packageName} midnight-contract:deploy)`,
+      cwd,
+      args: ["run", "midnight-contract:deploy"],
+      ...(Object.keys(deployEnv).length > 0 ? { env: deployEnv } : {}),
+      waitToExit: true,
       dependsOn: [
-        ComponentNames.MIDNIGHT_NODE_WAIT,
-        ComponentNames.MIDNIGHT_INDEXER_WAIT,
-        ComponentNames.MIDNIGHT_PROOF_SERVER_WAIT,
+        MidnightNames.NODE_WAIT,
+        MidnightNames.INDEXER_WAIT,
+        MidnightNames.PROOF_SERVER_WAIT,
+        ...extraDeps,
       ],
     },
   ];
+}

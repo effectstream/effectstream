@@ -24,6 +24,7 @@ export const ExternalComponents = {
   AVAIL_NODE: "avail-node",
   AVAIL_CLIENT: "avail-light-client",
   BITCOIN_CORE: "bitcoin-core",
+  NEAR_SANDBOX: "near-sandbox",
 };
 
 /**
@@ -58,6 +59,7 @@ export const SecondaryComponents = {
   BITCOIN_WAIT_FOR_BLOCK: "bitcoin-wait-for-block",
   AVAIL_NODE_WAIT: "avail-node-wait",
   AVAIL_CLIENT_WAIT: "avail-light-client-wait",
+  NEAR_SANDBOX_WAIT: "near-sandbox-wait",
   HARDHAT_WAIT: "hardhat-wait",
   COLLECTOR_WAIT: "collector-wait",
   EFFECTSTREAM_DB_WAIT: "db-wait",

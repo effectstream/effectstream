@@ -1,5 +1,5 @@
-import { ensureDirSync } from "@std/fs/ensure-dir";
-import { join } from "@std/path/join";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import {
   type BatcherConfig,
   BitcoinAdapter,
@@ -69,7 +69,7 @@ export function buildBatcherSetup(
   const storageRoot = options.storageRoot ??
     FILLER_BATCHER_DEFAULTS.storageRoot;
   const storagePath = join(storageRoot, namespace);
-  ensureDirSync(storagePath);
+  mkdirSync(storagePath, { recursive: true });
 
   const bitcoinRpcUrl = options.bitcoin.walletName
     ? `${options.bitcoin.rpcUrl.replace(/\/$/, "")}/wallet/${options.bitcoin.walletName}`

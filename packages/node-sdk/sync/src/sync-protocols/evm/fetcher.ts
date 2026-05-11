@@ -25,7 +25,7 @@ import type {
 import { PageSchema } from "./types.ts";
 import {
   fetchNewestPage,
-  genOnDemandPageRequests,
+  genImmediatePageRequests,
   type PageRange,
   type PageRequest,
 } from "../base/page.ts";
@@ -62,14 +62,12 @@ export class EvmFetcher
     data: Input,
     rootConversion: RootConversion<Output, RootOutput, RootPage>,
   ): Operation<DataFetched<Output, Page, RootPage>> {
-    const pageFetcher = (() => {
-      return genOnDemandPageRequests(
-        data.from,
-        data.to,
-        (page) => this.client.getBlock({ blockNumber: BigInt(page) }),
-        blockNumberRelation,
-      );
-    })();
+    const allPages: Page[] = [];
+    for (let p = data.from; p <= data.to; p++) allPages.push(p);
+    const pageFetcher = genImmediatePageRequests(
+      allPages,
+      (page) => this.client.getBlock({ blockNumber: BigInt(page) }),
+    );
 
     // TODO: if we expect multiple primitives per block
     //       it can, depending on the chain, be faster to just download the full block and parse it locally
@@ -101,6 +99,7 @@ export class EvmFetcher
     );
 
     // Build an output with all page info, as we need all the hashes to build the effectstream-block-hash
+    // All blocks are already pre-fetched in parallel by genImmediatePageRequests above
     const allOutputs: Output[] = [];
     for (let page = data.from; page <= data.to; page++) {
       const _output = output.find((o) => o.raw.number === BigInt(page));

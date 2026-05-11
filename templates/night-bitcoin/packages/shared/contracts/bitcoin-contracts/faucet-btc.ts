@@ -42,19 +42,17 @@ const bitcoinRpcCall = async (method: string, params: any[] = [], walletName?: s
 let running = true;
 
 // Handle process signals
-if (typeof Deno !== 'undefined') {
-  Deno.addSignalListener('SIGINT', () => {
-    console.log('\nReceived SIGINT, stopping block generation...');
-    running = false;
-    Deno.exit(130);
-  });
+process.on('SIGINT', () => {
+  console.log('\nReceived SIGINT, stopping block generation...');
+  running = false;
+  process.exit(130);
+});
 
-  Deno.addSignalListener('SIGTERM', () => {
-    console.log('\nReceived SIGTERM, stopping block generation...');
-    running = false;
-    Deno.exit(143);
-  });
-}
+process.on('SIGTERM', () => {
+  console.log('\nReceived SIGTERM, stopping block generation...');
+  running = false;
+  process.exit(143);
+});
 
 export async function faucetBtc(target: { address: string }, amount: number = 10): Promise<void> {
   
@@ -95,7 +93,7 @@ export async function faucetBtc(target: { address: string }, amount: number = 10
       address = await bitcoinRpcCall('getnewaddress', []);
     } catch (e) {
       console.error('Failed to get address. Make sure Bitcoin Core is running and accessible.');
-      Deno.exit(1);
+      process.exit(1);
     }
   }
   
@@ -105,10 +103,10 @@ export async function faucetBtc(target: { address: string }, amount: number = 10
 }
 
 if (import.meta.main) {
-  const address = Deno.env.get('BTC_ADDRESS');
+  const address = process.env.BTC_ADDRESS;
   if (!address) {
     console.error('BTC_ADDRESS is not set');
-    Deno.exit(1);
+    process.exit(1);
   }
 
   const target = {
@@ -117,7 +115,7 @@ if (import.meta.main) {
 
   faucetBtc(target, 10).catch((error) => {
     console.error('Fatal error:', error);
-    Deno.exit(1);
+    process.exit(1);
   });
 }
 

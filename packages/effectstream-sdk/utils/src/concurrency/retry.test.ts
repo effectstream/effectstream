@@ -1,7 +1,6 @@
-import { assertEquals, assertRejects } from "jsr:@std/assert";
-import { test } from "@effectstream/utils/runtime";
+import { test, expect } from "bun:test";
 import { retry, tryYield } from "./retry.ts";
-import { run, sleep } from "effection";
+import { run } from "effection";
 
 test("retry - succeeds immediately", async () => {
   await run(function* () {
@@ -9,7 +8,7 @@ test("retry - succeeds immediately", async () => {
       function* () { return "success"; },
       (res) => res === "success"
     );
-    assertEquals(result, "success");
+    expect(result).toEqual("success");
   });
 });
 
@@ -23,13 +22,13 @@ test("retry - retries until success", async () => {
       },
       (res) => res === "success"
     );
-    assertEquals(result, "success");
-    assertEquals(attempts, 3);
+    expect(result).toEqual("success");
+    expect(attempts).toEqual(3);
   });
 });
 
 test("retry - fails after max attempts", async () => {
-  await assertRejects(async () => {
+  await expect(async () => {
     await run(function* () {
       yield* retry(
         function* () { return "fail"; },
@@ -38,15 +37,15 @@ test("retry - fails after max attempts", async () => {
         2
       );
     });
-  }, Error, "Max attempts reached");
+  }).toThrow("Max attempts reached");
 });
 
 test("tryYield - success case", async () => {
     await run(function* () {
         const op = function* () { return 42; };
         const result = yield* tryYield(op());
-        assertEquals(result.data, 42);
-        assertEquals(result.error, null);
+        expect(result.data).toEqual(42);
+        expect(result.error).toEqual(null);
     });
 });
 
@@ -54,8 +53,7 @@ test("tryYield - failure case", async () => {
     await run(function* () {
         const op = function* () { throw new Error("fail"); };
         const result = yield* tryYield(op());
-        assertEquals(result.data, null);
-        assertEquals(result.error?.message, "fail");
+        expect(result.data).toEqual(null);
+        expect(result.error?.message).toEqual("fail");
     });
 });
-

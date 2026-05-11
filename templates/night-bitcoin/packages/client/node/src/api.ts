@@ -230,18 +230,12 @@ export const apiRouter: StartConfigApiRouter = function (
     let message = "";
     try {
       isFaucetDustRunning = true;
-      const command = new Deno.Command(Deno.execPath(), {
-        env: {
-          MIDNIGHT_ADDRESS: address,
-        },
-        args: [
-          "task",
-          "-f",
-          "@night-bitcoin/midnight-contracts",
-          "midnight-faucet:start",
-        ],
+      const proc = Bun.spawn(["bun", "run", "--filter", "@night-bitcoin/midnight-contracts", "midnight-faucet:start"], {
+        env: { ...process.env, MIDNIGHT_ADDRESS: address },
+        stdout: "pipe",
+        stderr: "pipe",
       });
-      const { code, stdout, stderr } = await command.output();
+      await proc.exited;
       status = "done";
       message = "Faucet successfully completed";
     } catch (error: any) {
@@ -276,18 +270,12 @@ export const apiRouter: StartConfigApiRouter = function (
     let message = "";
     try {
       isFaucetBtcRunning = true;
-      const command = new Deno.Command(Deno.execPath(), {
-        env: {
-          BTC_ADDRESS: address,
-        },
-        args: [
-          "task",
-          "-f",
-          "@night-bitcoin/bitcoin-contracts",
-          "faucet:btc",
-        ],
+      const proc = Bun.spawn(["bun", "run", "--filter", "@night-bitcoin/bitcoin-contracts", "faucet:btc"], {
+        env: { ...process.env, BTC_ADDRESS: address },
+        stdout: "pipe",
+        stderr: "pipe",
       });
-      const { code, stdout, stderr } = await command.output();
+      await proc.exited;
       status = "done";
       message = "Faucet successfully completed";
     } catch (error: any) {

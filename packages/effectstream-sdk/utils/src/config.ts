@@ -9,16 +9,16 @@
 
 // NOTE: To register a new config, we need to add it in the definitions, and then add the getter in the ENV class.
 // TODO: Is it possible to do this automatically, or just once?
-import { load } from "@std/dotenv";
+import dotenv from "dotenv";
 import { getEnv, setEnv } from "./runtime.ts";
 
 const MIDNIGHT_STORAGE_PASSWORD_DEFAULT = 'YourPasswordMy1!';
 
 const EFFECTSTREAM_ENV = getEnv("EFFECTSTREAM_ENV");
 if (EFFECTSTREAM_ENV) {
-  await load({
-    envPath: `.env.${EFFECTSTREAM_ENV}`, // Uses .env_<EFFECTSTREAM_ENV>
-    export: true, // Exports all variables to the environment
+  dotenv.config({
+    path: `.env.${EFFECTSTREAM_ENV}`,
+    override: true,
   });
 }
 
@@ -249,6 +249,40 @@ const definitions: Record<string, ConfigDefinition> = {
     description:
       "Enable developer and debug endpoints (/debug/sync-protocols, /config, /db_acquire_lock, /db_release_lock, /force-batch, /clear-inputs). Should be disabled in production.",
   },
+  EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS: {
+    key: "EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS",
+    type: "number",
+    defaultValue: undefined,
+    description:
+      "Wall-clock seconds between automated pg_dump snapshots. Leaving this unset disables snapshots entirely. Example: '3600' (1 hour).",
+  },
+  EFFECTSTREAM_SNAPSHOT_PATH: {
+    key: "EFFECTSTREAM_SNAPSHOT_PATH",
+    type: "string",
+    defaultValue: "./snapshots",
+    description: "Output directory for snapshot .dump files. Example: './backups'",
+  },
+  EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY: {
+    key: "EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY",
+    type: "boolean",
+    defaultValue: true,
+    description:
+      "Snapshot retention: keep one snapshot per hour for the last 24 hours. Set to 'false' to disable this tier.",
+  },
+  EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY: {
+    key: "EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY",
+    type: "boolean",
+    defaultValue: true,
+    description:
+      "Snapshot retention: keep one snapshot per 6-hour window for the last 3 days. Set to 'false' to disable this tier.",
+  },
+  EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS: {
+    key: "EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS",
+    type: "number",
+    defaultValue: 7,
+    description:
+      "Snapshot retention: keep one snapshot per day for this many days. Snapshots older than this are deleted. Default: 7.",
+  },
 } as const;
 
 type ENV_TYPES = string | number | boolean | undefined;
@@ -349,6 +383,27 @@ export class ENV {
   }
   static get ENABLE_DEV_AND_DEBUG_ENDPOINTS(): boolean {
     return ENV.getConfig(definitions.ENABLE_DEV_AND_DEBUG_ENDPOINTS);
+  }
+  /**
+   * Wall-clock seconds between automated snapshots.
+   * Returns `undefined` (env var not set) to signal that snapshots are disabled.
+   */
+  static get EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS(): number | undefined {
+    const raw = getEnv(definitions.EFFECTSTREAM_SNAPSHOT_INTERVAL_SECONDS.key);
+    if (raw == null || raw === "") return undefined;
+    return parseInt(raw, 10);
+  }
+  static get EFFECTSTREAM_SNAPSHOT_PATH(): string {
+    return ENV.getConfig(definitions.EFFECTSTREAM_SNAPSHOT_PATH);
+  }
+  static get EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY(): boolean {
+    return ENV.getConfig(definitions.EFFECTSTREAM_SNAPSHOT_LAST_DAY_HOURLY);
+  }
+  static get EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY(): boolean {
+    return ENV.getConfig(definitions.EFFECTSTREAM_SNAPSHOT_LAST_3_DAYS_SIX_HOURLY);
+  }
+  static get EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS(): number {
+    return ENV.getConfig(definitions.EFFECTSTREAM_SNAPSHOT_LAST_N_DAYS);
   }
 
   public static getConfig<T>(config: ConfigDefinition): T {

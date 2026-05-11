@@ -7,9 +7,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ERC1155Dev is ERC1155, Ownable {
 
-    constructor() 
-        ERC1155("http://localhost:9999/metadata/erc1155dev/{id}.json") 
-        Ownable(msg.sender) // Pass the initial owner to the Ownable constructor
+    constructor()
+        ERC1155("http://localhost:9999/metadata/erc1155dev/{id}.json")
+        Ownable(msg.sender)
    {
    }
 

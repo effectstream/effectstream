@@ -1,5 +1,17 @@
 {
-    "dependencies": {
-        "@electric-sql/pglite": "^0.3.10"
-    }
+  "private": true,
+  "workspaces": [
+    "packages/client/*",
+    "packages/shared/**/*",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "build:evm": "bun run --filter @world-map-2d/evm-contracts build:mod",
+    "dev": "bun run --filter @world-map-2d/node dev",
+    "check": "bun run --filter @world-map-2d/node check"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.10",
+    "@paimaexample/evm-contracts": "0.3.108"
+  }
 }

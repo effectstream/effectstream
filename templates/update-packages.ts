@@ -2,80 +2,97 @@
  * This script is used to update the version of @paimaexample/ packages in the templates.
  *
  *  usage:
- *  deno run -A update-packages.ts --version 1.0.0 --package <name> --dry-run
- *  deno run -A update-packages.ts --version 1.2.3 --all-packages --apply
+ *  bun run update-packages.ts --version 1.0.0 --package <name> --dry-run
+ *  bun run update-packages.ts --version 1.2.3 --all-packages --apply
  */
 
-import { parseArgs } from "jsr:@std/cli/parse-args";
-import {
-  dirname,
-  fromFileUrl,
-  join,
-} from "jsr:@std/path";
-import { walk } from "jsr:@std/fs";
+import { parseArgs } from "node:util";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { readdir, stat, readFile, writeFile, rm } from "node:fs/promises";
+
+async function* walkJsonFiles(dir: string, pattern: RegExp): AsyncGenerator<string> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory() && entry.name !== "node_modules" && entry.name !== ".git") {
+      yield* walkJsonFiles(fullPath, pattern);
+    } else if (entry.isFile() && entry.name.endsWith(".json") && pattern.test(entry.name)) {
+      yield fullPath;
+    }
+  }
+}
 
 // 1. Read args. Args should contain
 // --version x.y.z
 // --package <name> or --all-packages
 // --apply or --dry-run
 async function main(): Promise<void> {
-  const flags = parseArgs(Deno.args, {
-    string: ["version", "package"],
-    boolean: ["all-packages", "apply"],
-    default: { apply: false },
+  const { values: flags } = parseArgs({
+    args: process.argv.slice(2),
+    options: {
+      version: { type: "string" },
+      package: { type: "string" },
+      "all-packages": { type: "boolean", default: false },
+      apply: { type: "boolean", default: false },
+    },
+    strict: false,
   });
 
-  const { version, package: packageName, "all-packages": allPackages, apply } =
-    flags;
+  const version = flags.version;
+  const packageName = flags.package;
+  const allPackages = flags["all-packages"];
+  const apply = flags.apply;
 
   if (!version) {
     console.error("Error: --version is required.");
-    Deno.exit(1);
+    process.exit(1);
   }
   if (!/^\d+\.\d+\.\d+$/.test(version)) {
     console.error(
       `Error: Invalid version format "${version}". Please use x.y.z.`,
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 
-  if (!!packageName === allPackages) {
+  if (!!packageName === !!allPackages) {
     console.error(
       "Error: Either --package or --all-packages must be specified, but not both.",
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 
   const dryRun = !apply;
   console.log(`Running in ${dryRun ? "dry-run" : "apply"} mode.`);
 
-  // 2. if --package, the check if the folder exists (in the same folder of this file) and folder/deno.json exists
-  // 2.b if --all-packages, get the name of the folders that have a deno.json file.
-  const __dirname = dirname(fromFileUrl(import.meta.url));
+  // 2. if --package, the check if the folder exists (in the same folder of this file) and folder/package.json exists
+  // 2.b if --all-packages, get the name of the folders that have a package.json file.
+  const __dirname = dirname(fileURLToPath(import.meta.url));
   const packageDirs: string[] = [];
 
   if (packageName) {
     const packagePath = join(__dirname, packageName);
     try {
-      await Deno.stat(join(packagePath, "deno.json"));
+      await stat(join(packagePath, "package.json"));
       packageDirs.push(packagePath);
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
+    } catch (error: any) {
+      if (error.code === "ENOENT") {
         console.error(
-          `Error: Package "${packageName}" not found or does not contain a deno.json file.`,
+          `Error: Package "${packageName}" not found or does not contain a package.json file.`,
         );
-        Deno.exit(1);
+        process.exit(1);
       }
       throw error;
     }
   } else if (allPackages) {
-    for await (const dirEntry of Deno.readDir(__dirname)) {
-      if (dirEntry.isDirectory) {
+    const entries = await readdir(__dirname, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
         try {
-          await Deno.stat(join(__dirname, dirEntry.name, "deno.json"));
-          packageDirs.push(join(__dirname, dirEntry.name));
-        } catch (error) {
-          if (error instanceof Deno.errors.NotFound) {
+          await stat(join(__dirname, entry.name, "package.json"));
+          packageDirs.push(join(__dirname, entry.name));
+        } catch (error: any) {
+          if (error.code === "ENOENT") {
             // Not a package, ignore.
           } else {
             throw error;
@@ -95,25 +112,25 @@ async function main(): Promise<void> {
   const packageJsonRegex = /"@paimaexample\/([\w-]+)": "[\^~]?(\d+\.\d+\.\d+)"/g;
 
   for (const dir of packageDirs) {
-    // 4. now for each package delete deno.lock and node_modules folder.
+    // 4. now for each package delete bun.lock and node_modules folder.
     if (!dryRun) {
-      const denoLockPath = join(dir, "deno.lock");
+      const bunLockPath = join(dir, "bun.lock");
       const nodeModulesPath = join(dir, "node_modules");
 
       try {
-        await Deno.remove(denoLockPath);
-        console.log(`Removed ${denoLockPath}`);
-      } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) {
+        await rm(bunLockPath);
+        console.log(`Removed ${bunLockPath}`);
+      } catch (error: any) {
+        if (error.code !== "ENOENT") {
           throw error;
         }
       }
 
       try {
-        await Deno.remove(nodeModulesPath, { recursive: true });
+        await rm(nodeModulesPath, { recursive: true });
         console.log(`Removed ${nodeModulesPath}`);
-      } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) {
+      } catch (error: any) {
+        if (error.code !== "ENOENT") {
           throw error;
         }
       }
@@ -124,16 +141,8 @@ async function main(): Promise<void> {
     // if --dry-run, print all the replacements to be made.
     // if --apply, make the replacements with the new version
     //     $1:@paimaexample/$2@x.y.z
-    for await (
-      const entry of walk(dir, {
-        includeFiles: true,
-        includeDirs: false,
-        exts: [".json"],
-        match: [/deno\.json$/],
-      })
-    ) {
-      const filePath = entry.path;
-      const content = await Deno.readTextFile(filePath);
+    for await (const filePath of walkJsonFiles(dir, /deno\.json$/)) {
+      const content = await readFile(filePath, "utf-8");
       const matches = [...content.matchAll(denoJsonRegex)];
       const effectstreamLogMatches = [...content.matchAll(denoJsonEffectstreamLogRegex)];
 
@@ -158,22 +167,14 @@ async function main(): Promise<void> {
             denoJsonEffectstreamLogRegex,
             `$1:@effectstream/log@${version}`,
           );
-          await Deno.writeTextFile(filePath, newContent);
+          await writeFile(filePath, newContent);
           console.log(`Successfully updated ${filePath}`);
         }
       }
     }
 
-    for await (
-      const entry of walk(dir, {
-        includeFiles: true,
-        includeDirs: false,
-        exts: [".json"],
-        match: [/package\.json$/],
-      })
-    ) {
-      const filePath = entry.path;
-      const content = await Deno.readTextFile(filePath);
+    for await (const filePath of walkJsonFiles(dir, /package\.json$/)) {
+      const content = await readFile(filePath, "utf-8");
       const matches = [...content.matchAll(packageJsonRegex)];
 
       if (matches.length > 0) {
@@ -189,7 +190,7 @@ async function main(): Promise<void> {
             packageJsonRegex,
             `"@paimaexample/$1": "${version}"`,
           );
-          await Deno.writeTextFile(filePath, newContent);
+          await writeFile(filePath, newContent);
           console.log(`Successfully updated ${filePath}`);
         }
       }

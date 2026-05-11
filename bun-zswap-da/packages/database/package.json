@@ -1,0 +1,18 @@
+{
+  "name": "@zswap-da/database",
+  "version": "0.1.0",
+  "private": true,
+  "exports": "./src/mod.ts",
+  "dependencies": {
+    "@effectstream/runtime": "workspace:*",
+    "@effectstream/db": "workspace:*",
+    "@effectstream/config": "workspace:*",
+    "@effectstream/sm": "workspace:*",
+    "@pgtyped/runtime": "2.4.2",
+    "effection": "^3.5.0",
+    "pg": "^8.14.0"
+  },
+  "devDependencies": {
+    "@paima/pgtyped-cli": "^2.4.5"
+  }
+}

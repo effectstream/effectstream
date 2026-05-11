@@ -1,83 +1,64 @@
-import { ComponentNames } from "@effectstream/log";
-import { getEnv } from "@effectstream/utils/runtime";
+import type { ProcessConfig } from "../src/config.ts";
+import { resolvePackageDir, type ResolveLocation } from "./resolve-package.ts";
 
-// Substrate nodes (and many forks like Avail and Midnight) use the Rust tracing/log
-// stack wired through sc-cli/sc-service, which by default writes formatted log output to stderr.
-// This is intentional so stdout can remain a clean data channel (e.g., for RPC JSON),
-// while human-readable logs go to stderr. For E2E testing, we want to disable this,
-// unless the user explicitly wants to see the logs, so if EFFECTSTREAM_STDOUT is true,
-// we enable stderr for this as well.
+export const AvailNames = {
+  NODE: "avail-node",
+  NODE_WAIT: "avail-node-wait",
+  LIGHT_CLIENT_DEPLOY: "avail-light-client-deploy",
+  LIGHT_CLIENT_WAIT: "avail-light-client-wait",
+} as const;
 
-const isTrue = (value: string | undefined) => value != null && ["true", "1", "yes", "y"].includes(value.toLowerCase());
-const disableStderr = !isTrue(getEnv("EFFECTSTREAM_STDOUT"));
+const REQUIRED_SCRIPTS = {
+  "avail-node:start": "Start the Avail dev node",
+  "avail-node:wait": "Wait for the Avail node RPC to be ready",
+  "avail-light-client:deploy": "Create app key and start the Avail light client",
+  "avail-light-client:wait": "Wait for the Avail light client to be ready",
+} as const;
 
+export function launchAvail(
+  packageName: string,
+  location: ResolveLocation,
+  opts?: { nodePorts?: number[]; clientPorts?: number[] },
+): ProcessConfig[] {
+  const cwd = resolvePackageDir("launchAvail", packageName, location, REQUIRED_SCRIPTS);
+  const nodePorts = opts?.nodePorts ?? [9955, 30334];
+  const clientPorts = opts?.clientPorts ?? [7007];
 
-// Start Avail Node and Light Client.
-//
-// This is a example launcher for Avail Chains and Contracts.
-// Working implementation examples are provided in the /templates/* folders.
-// Normally you would not need to modify this file.
-//
-// Note: Check ports as 9944 is used by Midnight Node by default in the lace wallet
-//
-// This file requires you to provide a workspace package with the following tasks:
-//
-// avail-node:start: start the avail node
-// avail-light-client:start: start the avail light client
-// avail-node:wait: wait for the avail node to start
-// avail-light-client:wait: wait for the avail light client to start
-//
-// packageName: the name of the package that implements the tasks.
-//
-export const launchAvail = (packageName: string): {
-  stopProcessAtPort?: number[];
-  name: string;
-  args: string[];
-  waitToExit?: boolean;
-  logs?: string;
-  logsStartDisabled?: boolean;
-  disableStderr?: boolean;
-  type?: string;
-  dependsOn?: string[];
-}[] => [
+  return [
     {
-      stopProcessAtPort: [9955, 7007, 30334],
-      name: ComponentNames.AVAIL_NODE,
-      args: ["task", "-f", packageName, "avail-node:start"],
+      name: AvailNames.NODE,
+      description: `Start Avail dev node (${packageName} avail-node:start)`,
+      cwd,
+      stopProcessAtPort: nodePorts,
+      args: ["run", "avail-node:start"],
       waitToExit: false,
-      logs: "raw",
-      logsStartDisabled: true,
-      disableStderr,
-      type: "system-dependency",
+      critical: true,
     },
     {
-      name: ComponentNames.AVAIL_NODE_WAIT,
-      args: ["task", "-f", packageName, "avail-node:wait"],
-      dependsOn: [ComponentNames.AVAIL_NODE],
+      name: AvailNames.NODE_WAIT,
+      description: `Wait for Avail node (${packageName} avail-node:wait)`,
+      cwd,
+      args: ["run", "avail-node:wait"],
+      waitToExit: true,
+      dependsOn: [AvailNames.NODE],
     },
     {
-      name: ComponentNames.AVAIL_CLIENT,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "avail-light-client:deploy",
-      ],
+      name: AvailNames.LIGHT_CLIENT_DEPLOY,
+      description: `Deploy Avail light client (${packageName} avail-light-client:deploy)`,
+      cwd,
+      stopProcessAtPort: clientPorts,
+      args: ["run", "avail-light-client:deploy"],
       waitToExit: false,
-      disableStderr,
-      logsStartDisabled: true,
-      type: "system-dependency",  
-      dependsOn: [ComponentNames.AVAIL_NODE_WAIT],
-      logs: "raw",
+      critical: true,
+      dependsOn: [AvailNames.NODE_WAIT],
     },
     {
-      name: ComponentNames.AVAIL_CLIENT_WAIT,
-      args: [
-        "task",
-        "-f",
-        packageName,
-        "avail-light-client:wait",
-      ],
-      dependsOn: [ComponentNames.AVAIL_CLIENT],
+      name: AvailNames.LIGHT_CLIENT_WAIT,
+      description: `Wait for Avail light client (${packageName} avail-light-client:wait)`,
+      cwd,
+      args: ["run", "avail-light-client:wait"],
+      waitToExit: true,
+      dependsOn: [AvailNames.LIGHT_CLIENT_DEPLOY],
     },
   ];
+}

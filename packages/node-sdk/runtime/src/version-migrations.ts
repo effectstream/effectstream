@@ -7,7 +7,7 @@ import {
   type VersionInfo,
 } from "@effectstream/db/version";
 import type { Operation } from "effection";
-import { until } from "npm:effection@3.5.0";
+import { until } from "effection";
 import {
   getMigrationsForBlockHeight,
   insertPaimaEngineVersion,

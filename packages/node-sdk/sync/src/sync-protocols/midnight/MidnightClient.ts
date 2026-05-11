@@ -27,6 +27,11 @@ export interface MidnightGqlBlockState {
         raw:   string;
         maxId: number;
       }[];
+      unshieldedSpentOutputs?: {
+        intentHash:  string;
+        outputIndex: number;
+        owner:       string;
+      }[];
     }[];
   };
 };
@@ -36,6 +41,8 @@ export interface BlockFetchOptions {
   contractActions?: boolean;
   /** Include zswapLedgerEvents in the transaction fields (needed for MidnightNullifierPrimitive). Default: true */
   zswapLedgerEvents?: boolean;
+  /** Include unshieldedSpentOutputs (needed for MidnightUnshieldedSpendPrimitive). Default: false */
+  unshieldedSpentOutputs?: boolean;
 }
 
 type PublicDataProvider = ReturnType<typeof indexerPublicDataProvider>;
@@ -157,12 +164,19 @@ export class MidnightClient {
     options: BlockFetchOptions = {},
     signal?: AbortSignal,
   ): Promise<MidnightGqlBlockState> {
-    const { contractActions = true, zswapLedgerEvents = true } = options;
+    const {
+      contractActions = true,
+      zswapLedgerEvents = true,
+      unshieldedSpentOutputs = false,
+    } = options;
     const contractActionsField = contractActions
       ? `contractActions { address state }`
       : "";
     const zswapField = zswapLedgerEvents
       ? `zswapLedgerEvents { id raw maxId }`
+      : "";
+    const unshieldedSpentField = unshieldedSpentOutputs
+      ? `unshieldedSpentOutputs { intentHash outputIndex owner }`
       : "";
     const query = `query {
       block(offset: { height: ${blockHeight} }) {
@@ -177,6 +191,7 @@ export class MidnightClient {
           hash
           ${contractActionsField}
           ${zswapField}
+          ${unshieldedSpentField}
         }
       }
     }`;

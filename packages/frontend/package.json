@@ -1,0 +1,33 @@
+{
+  "name": "@effectstream/frontend-sdk",
+  "version": "0.100.12",
+  "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/frontend"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
+  "files": [
+    "dist",
+    "src",
+    "build.ts",
+    "tsconfig.build.json"
+  ],
+  "exports": {
+    ".": {
+      "bun": "./src/mod.ts",
+      "import": "./dist/mod.js"
+    }
+  },
+  "scripts": {
+    "build": "bun run build.ts"
+  },
+  "dependencies": {
+    "@effectstream/wallets": "workspace:*"
+  },
+  "description": "React frontend SDK for EffectStream"
+}

@@ -28,7 +28,7 @@ function isLocalhost(ipAddress: string | undefined): boolean {
 /*
  * This class implements a local MQTT Broker.
  */
-export class PaimaEventBroker {
+export class EventBroker {
   constructor(private broker: 'effectstream-engine' | 'Batcher') {}
   private static aedes: Aedes.default | null = null;
   private static server: Server | null = null;
@@ -37,10 +37,10 @@ export class PaimaEventBroker {
    */
   public createServer(): Server {
     this.checkEnabled();
-    if (PaimaEventBroker.server) return PaimaEventBroker.server;
+    if (EventBroker.server) return EventBroker.server;
 
-    PaimaEventBroker.aedes = Aedes.createBroker();
-    PaimaEventBroker.aedes.authorizePublish = (
+    EventBroker.aedes = Aedes.createBroker();
+    EventBroker.aedes.authorizePublish = (
       client,
       packet,
       callback
@@ -106,15 +106,15 @@ export class PaimaEventBroker {
       callback(new Error('Messages must come from localhost'));
     };
 
-    PaimaEventBroker.server = createServer(PaimaEventBroker.aedes, {
+    EventBroker.server = createServer(EventBroker.aedes, {
       ws: true,
     });
 
     // WEBSOCKET PROTOCOL SERVER
-    PaimaEventBroker.server.listen(this.getPort(), () =>
+    EventBroker.server.listen(this.getPort(), () =>
       console.log("MQTT-WS Server Started at PORT " + this.getPort())
     );
-    return PaimaEventBroker.server;
+    return EventBroker.server;
   }
 
   private checkEnabled(): void {

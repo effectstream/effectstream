@@ -1,9 +1,9 @@
 /* eslint-disable no-console */
 import { fillPath, keysForPath } from './utils.ts';
-import { PaimaEventConnect } from './event-connect.ts';
+import { EventConnect } from './event-connect.ts';
 import type { Static } from '@sinclair/typebox';
 import type { EventPathAndDef, ResolvedPath, UserFilledPath } from './types.ts';
-import { PaimaEventBrokerNames } from './types.ts';
+import { EventBrokerNames } from './types.ts';
 
 export type CallbackArgs<Event extends EventPathAndDef> = {
   // schema of the content emitted
@@ -23,20 +23,20 @@ export type CallbackAndMetadata<Event extends EventPathAndDef> = {
 /*
  * This class subscribes to specific topics, and stores the callbacks for event processing.
  */
-export class PaimaEventManager {
+export class EventManager {
   public callbacksForTopic: Record<
-    PaimaEventBrokerNames,
+    EventBrokerNames,
     Record<
       string, // topic
       Record<symbol, CallbackAndMetadata<EventPathAndDef>>
     >
   > = {
-    [PaimaEventBrokerNames.PaimaEngine]: {},
-    [PaimaEventBrokerNames.Batcher]: {},
+    [EventBrokerNames.Engine]: {},
+    [EventBrokerNames.Batcher]: {},
   };
-  public symbolToSubscription: Record<symbol, { broker: PaimaEventBrokerNames; topic: string }> =
+  public symbolToSubscription: Record<symbol, { broker: EventBrokerNames; topic: string }> =
     {};
-  static Instance: PaimaEventManager = new PaimaEventManager();
+  static Instance: EventManager = new EventManager();
 
   constructor() {
     // TODO: replace once TS5 decorators are better supported
@@ -87,7 +87,8 @@ export class PaimaEventManager {
     },
     callback: (args: CallbackArgs<Event>) => void
   ): Promise<symbol> {
-    const client = await new PaimaEventConnect().getClient(args.topic.broker);
+    const client = await new EventConnect().getClient(args.topic.broker);
+    if (!client) return Symbol('noop');
     const topic = fillPath(args.topic.path, args.filter);
 
     const clientSubscribe = async (): Promise<void> => {
@@ -141,8 +142,9 @@ export class PaimaEventManager {
 
     // if there are no references left to this topic, we can unsubscribe from it
     if (numCallbacks === 0) {
-      const client = await new PaimaEventConnect().getClient(broker);
+      const client = await new EventConnect().getClient(broker);
       delete this.callbacksForTopic[broker][topic];
+      if (!client) return;
 
       const clientUnsubscribe = async (): Promise<void> => {
         try {
@@ -187,7 +189,8 @@ export class PaimaEventManager {
     },
     message: Static<Event['type']>
   ): Promise<void> {
-    const client = await new PaimaEventConnect().getClient(args.topic.broker);
+    const client = await new EventConnect().getClient(args.topic.broker);
+    if (!client) return;
     const topicPath = fillPath(args.topic.path, args.filter);
     await client.publishAsync(topicPath, JSON.stringify(message), { qos: 2 });
   }

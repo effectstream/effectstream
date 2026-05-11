@@ -1,0 +1,19 @@
+{
+  "name": "@example-evm-midnight/data-types",
+  "version": "0.3.22",
+  "license": "MIT",
+  "exports": {
+    "./config": "./src/config.ts",
+    "./config.testnet": "./src/config.testnet.ts",
+    "./grammar": "./src/grammar.ts"
+  },
+  "dependencies": {
+    "@paimaexample/concise": "0.3.129",
+    "@paimaexample/config": "0.3.129",
+    "@paimaexample/utils": "0.3.129",
+    "@paimaexample/db": "0.3.129",
+    "@paimaexample/sm": "0.3.129",
+    "viem": "2.37.3",
+    "@sinclair/typebox": "0.34.41"
+  }
+}

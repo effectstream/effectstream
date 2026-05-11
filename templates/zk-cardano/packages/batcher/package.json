@@ -1,0 +1,13 @@
+{
+  "name": "@zk-cardano/batcher",
+  "version": "1.0.0",
+  "exports": "./batcher.dev.ts",
+  "scripts": {
+    "start": "bun run batcher.dev.ts"
+  },
+  "dependencies": {
+    "@effectstream/batcher-sdk": "0.100.12",
+    "@zk-cardano/midnight-contract": "workspace:*",
+    "effection": "^3.5.0"
+  }
+}

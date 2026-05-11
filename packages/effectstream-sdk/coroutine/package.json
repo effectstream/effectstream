@@ -1,0 +1,24 @@
+{
+  "name": "@effectstream/coroutine",
+  "version": "0.100.12",
+  "license": "MIT",
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/effectstream-sdk/coroutine"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  },
+  "exports": "./src/mod.ts",
+  "dependencies": {
+    "@coderspirit/nominal": "^4.1.1",
+    "@pgtyped/parser": "2.4.2",
+    "@pgtyped/runtime": "2.4.2",
+    "@sinclair/typebox": "0.34.41",
+    "pg": "^8.14.0",
+    "pg-tx": "^1.0.1"
+  },
+  "description": "Async control flow for EffectStream"
+}

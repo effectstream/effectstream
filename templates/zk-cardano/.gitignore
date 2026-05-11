@@ -1,0 +1,11 @@
+# Dolos runtime data
+packages/contracts-cardano/data/
+packages/contracts-cardano/temp/
+packages/contracts-cardano/yaci-cli.history
+
+# Orchestrator logs
+.orchestrator-logs/
+
+# Frontend build output
+packages/frontend/client/dist/
+packages/frontend/test-results/

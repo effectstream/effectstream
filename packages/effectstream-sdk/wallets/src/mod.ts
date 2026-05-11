@@ -7,4 +7,4 @@ export { WalletMode, WalletNameMap } from "./utils.ts";
 export { walletLogin } from "./wallets.ts";
 export { allInjectedWallets } from "./utils.ts";
 export { getAddressType } from "./wallet-modes.ts";
-export * from "./paima.ts";
+export * from "./effectstream.ts";

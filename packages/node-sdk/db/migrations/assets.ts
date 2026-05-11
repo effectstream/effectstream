@@ -1,5 +1,7 @@
 
-  import { decodeBase64 } from "jsr:@std/encoding@~1.0.8";
+  function decodeBase64(b64: string): Uint8Array {
+    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  }
   
   const bundledObject = {
     files:{

@@ -1,0 +1,34 @@
+{
+  "name": "@minimal/node",
+  "version": "0.3.23",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./main.ts"
+  },
+  "scripts": {
+    "check": "echo 'check'",
+    "node:start": "bun --inspect run main.ts",
+    "dev": "bun run --filter @paimaexample/tui clean && NODE_ENV=development bun run start-script.ts"
+  },
+  "dependencies": {
+    "@paimaexample/batcher": "0.3.116",
+    "@paimaexample/crypto": "0.3.116",
+    "@paimaexample/concise": "0.3.116",
+    "@paimaexample/config": "0.3.116",
+    "@paimaexample/explorer": "0.3.116",
+    "@paimaexample/log": "0.3.116",
+    "@paimaexample/orchestrator": "0.3.116",
+    "@paimaexample/runtime": "0.3.116",
+    "@paimaexample/utils": "0.3.116",
+    "@paimaexample/sm": "0.3.116",
+    "@paimaexample/coroutine": "0.3.116",
+    "@paimaexample/db": "0.3.116",
+    "@paimaexample/tui": "0.3.116",
+    "@paimaexample/wallets": "0.3.116",
+    "viem": "2.37.3",
+    "@sinclair/typebox": "^0.34.30",
+    "effection": "^3.5.0"
+  }
+}

@@ -1,4 +1,4 @@
-import { BuiltinEvents, PaimaEventManager } from "@effectstream/event-client";
+import { BuiltinEvents, EventManager } from "@effectstream/event-client";
 
 // Singleton class to watch for block updates.
 class BlockWatcher {
@@ -64,7 +64,7 @@ class BlockWatcher {
     this.latestBlock["__main__"] = 0;
 
     await Promise.all([
-      PaimaEventManager.Instance.subscribe(
+      EventManager.Instance.subscribe(
         {
           topic: BuiltinEvents.RollupBlock,
           filter: { block: undefined },
@@ -79,7 +79,7 @@ class BlockWatcher {
           );
         },
       ),
-      PaimaEventManager.Instance.subscribe(
+      EventManager.Instance.subscribe(
         {
           topic: BuiltinEvents.SyncChains,
           filter: { chain: undefined, block: undefined },

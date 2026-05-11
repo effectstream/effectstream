@@ -1,7 +1,7 @@
 import type {
   BlockHash,
   BlockNumber,
-  PaimaBlockNumber,
+  EffectstreamBlockNumber,
   TimestampMs,
 } from "@effectstream/utils";
 import type { PageRelation } from "../base/page.ts";
@@ -12,7 +12,7 @@ import type {
 
 export type ChainPage = TimestampMs;
 export type ChainBlock = {
-  blockNumber: PaimaBlockNumber;
+  blockNumber: EffectstreamBlockNumber;
   timestamp: TimestampMs;
   blockInfo: {
     protocol_name: string;

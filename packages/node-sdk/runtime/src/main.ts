@@ -9,11 +9,13 @@ import {
   getConnection,
   releaseDBMutex,
   resetPublicTables,
+  runSnapshotLoop,
 } from "@effectstream/db";
-import { PaimaEventBroker } from "@effectstream/event-server";
+import { EventBroker } from "@effectstream/event-server";
+import { ENV } from "@effectstream/utils/node-env";
 import {
   BuiltinEvents,
-  PaimaEventManager,
+  EventManager,
 } from "@effectstream/event-client";
 import { startMerge, startSync } from "@effectstream/sync";
 import { ComponentNames, log, SeverityNumber } from "@effectstream/log";
@@ -30,7 +32,7 @@ import { processFinalizedBlock } from "./process-blocks.ts";
 import { startHttpServer } from "./api/http-server.ts";
 import type { StartConfig } from "./types.ts";
 import type { Client } from "pg";
-import type { PaimaBlockHash } from "@effectstream/utils";
+import type { EffectstreamBlockHash } from "@effectstream/utils";
 import { applySystemMigrations } from "./version-migrations.ts";
 import { getLastBlockHeight, getVersionInfo } from "@effectstream/db/version";
 import { type SyncProtocolWithNetwork, ConfigNetworkType } from "@effectstream/config";
@@ -82,7 +84,9 @@ export function* start(config: StartConfig): Operation<void> {
   }
 
   // Create MQTT Broker
-  new PaimaEventBroker("effectstream-engine").createServer();
+  if (ENV.MQTT_BROKER) {
+    new EventBroker("effectstream-engine").createServer();
+  }
 
   yield* spawn(function* () {
     yield* startHttpServer(
@@ -133,7 +137,11 @@ export function* start(config: StartConfig): Operation<void> {
     }
   });
 
-  let blockHash: PaimaBlockHash | null = null;
+  let blockHash: EffectstreamBlockHash | null = null;
+  if (config.snapshotConfig) {
+    yield* spawn(() => runSnapshotLoop(config.snapshotConfig!));
+  }
+
   for (const value of yield* each(finalizedBlockStream)) {
     // We request a dbClient for a non-shared dbConn object.
     // For PGLite, this is not enough, as the can only be one connection at a time.
@@ -206,12 +214,12 @@ async function emitLatestBlocks(
   syncChains: Record<string, [number, number]>,
 ) {
   return await Promise.all([
-    PaimaEventManager.Instance.sendMessage(BuiltinEvents.RollupBlock, {
+    EventManager.Instance.sendMessage(BuiltinEvents.RollupBlock, {
       block: rollUpBlockHeight,
       timestamp: rollUpBlockTimestamp,
     }),
     ...Object.entries(syncChains).map(([chainName, [_, toBlock]]) =>
-      PaimaEventManager.Instance.sendMessage(BuiltinEvents.SyncChains, {
+      EventManager.Instance.sendMessage(BuiltinEvents.SyncChains, {
         chain: chainName,
         block: toBlock,
         rollup: rollUpBlockHeight

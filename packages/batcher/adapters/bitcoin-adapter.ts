@@ -1,8 +1,86 @@
 import * as bitcoin from "bitcoinjs-lib";
-import * as bitcoinMessage from "bitcoinjs-message";
 import * as ecpair from "ecpair";
 import * as tinysecp from "tiny-secp256k1";
+import * as secp from "@noble/secp256k1";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { hmac } from "@noble/hashes/hmac.js";
 import { createHash } from "node:crypto";
+
+// bitcoinjs-message pulls in the native `secp256k1` addon which segfaults on
+// dlopen under bun (missing node::Buffer::HasInstance — see bun#4290). We
+// reimplement sign/verify with pure-JS @noble/secp256k1. This must stay
+// wire-compatible with bitcoinjs-message so Node-side clients keep working.
+secp.hashes.sha256 = sha256;
+secp.hashes.hmacSha256 = (key, msg) => hmac(sha256, key, msg);
+
+function bitcoinMagicHash(message: string): Uint8Array {
+  const prefix = Buffer.from("\x18Bitcoin Signed Message:\n", "utf8");
+  const msg = Buffer.from(message, "utf8");
+  const len = msg.length;
+  let varint: Buffer;
+  if (len < 0xfd) varint = Buffer.from([len]);
+  else if (len <= 0xffff) { varint = Buffer.alloc(3); varint[0] = 0xfd; varint.writeUInt16LE(len, 1); }
+  else { varint = Buffer.alloc(5); varint[0] = 0xfe; varint.writeUInt32LE(len, 1); }
+  const buf = Buffer.concat([prefix, varint, msg]);
+  return sha256(sha256(buf));
+}
+
+function hash160(buf: Uint8Array): Buffer {
+  return createHash("ripemd160").update(createHash("sha256").update(buf).digest()).digest();
+}
+
+function segwitRedeemHash(publicKeyHash: Uint8Array): Buffer {
+  return hash160(Buffer.concat([Buffer.from([0x00, 0x14]), publicKeyHash]));
+}
+
+// Reimplementation of bitcoinjs-message.verify(msg, addr, sig, undefined, true).
+function verifyBitcoinMessage(message: string, address: string, signature: string | Buffer): boolean {
+  const sig = typeof signature === "string" ? Buffer.from(signature, "base64") : signature;
+  if (sig.length !== 65) return false;
+
+  const flagByte = sig[0]! - 27;
+  if (flagByte < 0 || flagByte > 15) return false;
+  const compressed = !!(flagByte & 12);
+  // checkSegwitAlways requires a compressed flag — matches bitcoinjs-message behavior.
+  if (!compressed) return false;
+  const segwitType: "p2sh-p2wpkh" | "p2wpkh" | null =
+    !(flagByte & 8) ? null : !(flagByte & 4) ? "p2sh-p2wpkh" : "p2wpkh";
+  const recovery = flagByte & 3;
+  const rs = sig.subarray(1);
+
+  const hash = bitcoinMagicHash(message);
+  const recoveredSig = Buffer.concat([Buffer.from([recovery]), rs]);
+  let pubkey: Uint8Array;
+  try {
+    pubkey = secp.recoverPublicKey(recoveredSig, hash, { prehash: false });
+  } catch {
+    return false;
+  }
+  const pubkeyHash = hash160(pubkey);
+
+  const tryBech32 = () => {
+    try { return Buffer.from(bitcoin.address.fromBech32(address).data); } catch { return null; }
+  };
+  const tryBase58 = () => {
+    try { return bitcoin.address.fromBase58Check(address).hash; } catch { return null; }
+  };
+
+  if (segwitType === "p2wpkh") {
+    const expected = tryBech32();
+    return !!expected && pubkeyHash.equals(expected);
+  }
+  if (segwitType === "p2sh-p2wpkh") {
+    const expected = tryBase58();
+    return !!expected && segwitRedeemHash(pubkeyHash).equals(expected);
+  }
+  // No segwit flag — checkSegwitAlways=true path: accept bech32 P2WPKH, or
+  // base58 P2PKH / P2SH-P2WPKH.
+  const bech = tryBech32();
+  if (bech) return pubkeyHash.equals(bech);
+  const b58 = tryBase58();
+  if (!b58) return false;
+  return pubkeyHash.equals(b58) || segwitRedeemHash(pubkeyHash).equals(b58);
+}
 import type {
   BlockchainAdapter,
   BlockchainHash,
@@ -52,7 +130,6 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   private readonly network: bitcoin.Network;
   public readonly maxBatchSize: number;
   private readonly batcherAddress: string;
-  private reservedSatFunds: number = 0;
   private addressChecked = false;
   private readonly syncProtocolName: string;
   private readonly log = new AdapterLogger("bitcoin");
@@ -114,15 +191,9 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
       // This format must match exactly what your frontend generates
       const message = buildBitcoinSignatureMessage(payload, input.timestamp);
 
-      // 3. Verify signature using bitcoinjs-message
-      // Note: input.address is the User's Bitcoin Address
-      return bitcoinMessage.verify(
-        message, 
-        input.address, 
-        input.signature!, 
-        undefined, 
-        true // checkSegwitAlways
-      );
+      // 3. Verify signature (pure-JS; wire-compatible with bitcoinjs-message
+      //    invoked as verify(msg, addr, sig, undefined, /* checkSegwitAlways */ true)).
+      return verifyBitcoinMessage(message, input.address, input.signature!);
     } catch (e) {
       this.log.error(`Sig verification failed: ${e}`);
       return false;
@@ -130,58 +201,37 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
   }
 
   async recoverState(pendingInputs: DefaultBatcherInput[]): Promise<void> {
-    // Rebuild reserved funds from pending inputs in storage
-    this.reservedSatFunds = 0;
-    
-    for (const input of pendingInputs) {
-      try {
-        const payload: BitcoinRequest = JSON.parse(input.input);
-        this.reservedSatFunds += payload.amountSats;
-      } catch (e) {
-        this.log.warn(`Failed to parse input during state recovery: ${e}`);
-      }
-    }
-    
-    this.log.log(`Recovered state - ${this.reservedSatFunds} sats reserved across ${pendingInputs.length} pending inputs`);
+    this.log.log(`Recovered state - ${pendingInputs.length} pending inputs carried over`);
   }
 
+  // Only pure, local checks run on the parallel HTTP accept path. Any RPC work
+  // (balance, fee, UTXO scan) must live on the serial batch-processing path in
+  // submitBatch — Bitcoin Core's scantxoutset is a node-wide singleton and
+  // concurrent calls fail with error -8. Funds sufficiency is re-checked in
+  // submitBatch, which runs one batch at a time per target.
   async validateInput(input: DefaultBatcherInput): Promise<ValidationResult> {
+    let payload: BitcoinRequest;
     try {
-      const payload: BitcoinRequest = JSON.parse(input.input);
-
-      // Check Dust Limit (approx 546 sats)
-      if (payload.amountSats < 546) {
-        return { valid: false, error: "Amount below dust limit (546 sats)" };
-      }
-
-      // Basic address validation
-      try {
-        bitcoin.address.toOutputScript(payload.toAddress, this.network);
-      } catch {
-        return { valid: false, error: "Invalid Regtest address" };
-      }
-
-      // Check if batcher has sufficient funds
-      const balance = await this.getBatcherBalance();
-      const availableFunds = balance - this.reservedSatFunds;
-      const estimatedFee = await this.estimateSingleTransactionFee(payload.amountSats);
-
-      if (availableFunds < payload.amountSats + Number(estimatedFee)) {
-        return {
-          valid: false,
-          error: `Insufficient batcher funds.
-          Available funds: ${availableFunds} sats:
-          - wallet balance: ${balance} sats,
-          - reserved funds: ${this.reservedSatFunds} sats,
-          Required funds: ${payload.amountSats + Number(estimatedFee)} sats`
-        };
-      }
-      // Reserve funds for the transaction
-      this.reservedSatFunds += payload.amountSats;
-      return { valid: true };
+      payload = JSON.parse(input.input);
     } catch (e) {
-      return { valid: false, error: "Malformed JSON input" };
+      const msg = e instanceof Error ? e.message : String(e);
+      return { valid: false, error: `Malformed JSON input: ${msg}` };
     }
+
+    if (typeof payload.amountSats !== "number" || !Number.isFinite(payload.amountSats)) {
+      return { valid: false, error: "amountSats must be a finite number" };
+    }
+    if (payload.amountSats < 546) {
+      return { valid: false, error: "Amount below dust limit (546 sats)" };
+    }
+
+    try {
+      bitcoin.address.toOutputScript(payload.toAddress, this.network);
+    } catch {
+      return { valid: false, error: "Invalid address for configured network" };
+    }
+
+    return { valid: true };
   }
 
   buildBatchData(
@@ -308,8 +358,7 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     const tx = psbt.extractTransaction();
     const txHex = tx.toHex();
     const txId = await this.rpcCall("sendrawtransaction", [txHex]);
-    this.reservedSatFunds -= liberatedSatFunds;
-    this.log.log(`Submitted Bitcoin Batch: ${txId} - liberated funds: ${liberatedSatFunds} sats - reserved funds: ${this.reservedSatFunds} sats`);
+    this.log.log(`Submitted Bitcoin Batch: ${txId} - liberated funds: ${liberatedSatFunds} sats`);
     return txId;
   }
 
@@ -452,6 +501,15 @@ export class BitcoinAdapter implements BlockchainAdapter<BitcoinBatchPayload> {
     }
   }
 
+  // TODO: wallet scoping. All RPCs target the root URL instead of
+  // `${rpcUrl}/wallet/<name>`, so `listunspent` and `importdescriptors` land on
+  // whichever wallet Bitcoin Core auto-routes to — not one this adapter owns.
+  // Consequence: `listunspent` returns empty for the batcher address and
+  // `fetchBatcherUtxos` falls back to `scantxoutset` on every submitBatch call,
+  // which is an expensive node-wide scan. Fix: create/load a dedicated
+  // descriptor wallet on startup, import the batcher descriptor once, and
+  // route every RPC through `/wallet/<batcher>`. That removes `scantxoutset`
+  // from the hot path entirely.
   private async rpcCall(method: string, params: any[]): Promise<any> {
     const response = await fetch(this.rpcUrl, {
       method: "POST",

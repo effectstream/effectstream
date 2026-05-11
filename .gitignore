@@ -1,17 +1,27 @@
 **/node_modules
 forge-std
-logs/
+/logs/
 
 # e2e tests
 /cache
 /out
 journal.jsonl
-
+e2e-bitcoin-batcher-data/
+e2e-midnight-batcher-data/
+midnight-level-db*
+batcher-debug.log
+.orchestrator-logs/
 # Frontend
 .vite
+dist/
+
+# Playwright
+test-results/
+playwright-report/
 
 # Batcher file storage
 batcher-data/
+e2e-batcher-data/
 
 # Docusaurus
 .docusaurus/
@@ -20,5 +30,4 @@ tmp/
 # System files
 .DS_Store
 .cursor
-midnight-level-db*
-batcher-debug.log
+/example/

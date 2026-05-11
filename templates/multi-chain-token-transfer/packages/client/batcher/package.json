@@ -1,0 +1,20 @@
+{
+  "name": "@multi-chain-transfer/batcher",
+  "exports": {
+    ".": "./main.ts",
+    "./calls": "./calls.ts"
+  },
+  "scripts": {
+    "start": "bun run main.ts"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.9.0",
+    "@midnight-ntwrk/wallet-sdk-address-format": "2.0.0",
+    "@paimaexample/batcher": "0.3.116",
+    "@paimaexample/utils": "0.3.116",
+    "@paimaexample/concise": "0.3.116",
+    "@paimaexample/coroutine": "0.3.116",
+    "effection": "^3.5.0",
+    "viem": "2.37.3"
+  }
+}

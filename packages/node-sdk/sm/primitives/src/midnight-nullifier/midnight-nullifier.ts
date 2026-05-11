@@ -1,8 +1,8 @@
-import { PaimaPrimitive } from "@effectstream/sm";
+import { Primitive } from "@effectstream/sm";
 import {
   type AddressAndType,
   AddressType,
-  type PaimaBlockNumber,
+  type EffectstreamBlockNumber,
 } from "@effectstream/utils";
 import type { StaticDecode } from "@sinclair/typebox";
 import {
@@ -32,7 +32,7 @@ import { midnightNullifierGrammar } from "./midnight-nullifier-grammar.ts";
  *     // payload = { nullifier, txHash, eventId, logicalSegment }
  *   });
  */
-export class MidnightNullifierPrimitive extends PaimaPrimitive<
+export class MidnightNullifierPrimitive extends Primitive<
   ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
   typeof midnightNullifierGrammar
 > {
@@ -56,7 +56,7 @@ export class MidnightNullifierPrimitive extends PaimaPrimitive<
   }
 
   override *getPayload(
-    _: PaimaBlockNumber,
+    _: EffectstreamBlockNumber,
     primitiveTransactionData: FlattenSyncProtocolIOFor<
       ConfigSyncProtocolType.MIDNIGHT_PARALLEL
     >,

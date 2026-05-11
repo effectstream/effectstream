@@ -1,10 +1,11 @@
 import mqtt from 'mqtt';
 import { setupInitialListeners } from './builtin-event-utils.ts';
-import { PaimaEventManager } from './event-manager.ts';
+import { EventManager } from './event-manager.ts';
 import { toPattern } from './utils.ts';
 import { extract, matches } from 'mqtt-pattern';
-import { PaimaEventBrokerNames } from './types.ts';
+import { EventBrokerNames } from './types.ts';
 import type { Buffer } from "node:buffer";
+import { getRuntime } from '@effectstream/utils/runtime';
 
 // TODO This should come from @effectstream/utils/node-env ENV
 const ENV = { 
@@ -15,7 +16,7 @@ const ENV = {
  * Paima Event Connector
  * Called automatically by listeners and published when needed.
  */
-export class PaimaEventConnect {
+export class EventConnect {
   // clients
   private static clients: {
     engine?: mqtt.MqttClient;
@@ -26,20 +27,32 @@ export class PaimaEventConnect {
     // TODO: replace once TS5 decorators are better supported
     this.getClient.bind(this);
     this.setupClient.bind(this);
-    this.connectPaimaEngine.bind(this);
+    this.connectEngine.bind(this);
     this.connectBatcher.bind(this);
   }
+
+  private static _bunMqttWarned = false;
 
   /**
    * Get client for broker
    * note: we lazy-load the client to avoid overhead if MQTT is never used
    */
-  public async getClient(broker: PaimaEventBrokerNames): Promise<mqtt.MqttClient> {
-    switch (broker) {
-      case PaimaEventBrokerNames.PaimaEngine: {
-        return await this.connectPaimaEngine();
+  public async getClient(broker: EventBrokerNames): Promise<mqtt.MqttClient | null> {
+    if (getRuntime().runtime === 'bun') {
+      if (!EventConnect._bunMqttWarned) {
+        EventConnect._bunMqttWarned = true;
+        console.warn(
+          '[MQTT] WebSocket-based MQTT is not supported in Bun (ws.createWebSocketStream is unimplemented). ' +
+          'See: https://github.com/oven-sh/bun/pull/24304'
+        );
       }
-      case PaimaEventBrokerNames.Batcher:
+      return null;
+    }
+    switch (broker) {
+      case EventBrokerNames.Engine: {
+        return await this.connectEngine();
+      }
+      case EventBrokerNames.Batcher:
         return await this.connectBatcher();
     }
   }
@@ -47,7 +60,7 @@ export class PaimaEventConnect {
   private async setupClient(url: string): Promise<mqtt.MqttClient> {
     const client = await mqtt.connectAsync(url);
     client.on('message', (topic: string, message: Buffer) => {
-      for (const [_broker, info] of Object.entries(PaimaEventManager.Instance.callbacksForTopic)) {
+      for (const [_broker, info] of Object.entries(EventManager.Instance.callbacksForTopic)) {
         for (const [pattern, callbacks] of Object.entries(info)) {
           if (matches(pattern, topic)) {
             for (const callbackInfo of Object.getOwnPropertySymbols(callbacks).map(
@@ -68,21 +81,21 @@ export class PaimaEventConnect {
     return client;
   }
 
-  private async connectPaimaEngine(): Promise<mqtt.MqttClient> {
-    if (!PaimaEventConnect.clients.engine) {
-      const broker = PaimaEventBrokerNames.PaimaEngine;
-      PaimaEventConnect.clients.engine = await this.setupClient(ENV.MQTT_ENGINE_BROKER_URL);
+  private async connectEngine(): Promise<mqtt.MqttClient> {
+    if (!EventConnect.clients.engine) {
+      const broker = EventBrokerNames.Engine;
+      EventConnect.clients.engine = await this.setupClient(ENV.MQTT_ENGINE_BROKER_URL);
       await setupInitialListeners(broker);
     }
-    return PaimaEventConnect.clients.engine;
+    return EventConnect.clients.engine;
   }
 
   private async connectBatcher(): Promise<mqtt.MqttClient> {
-    if (!PaimaEventConnect.clients.batcher) {
-      const broker = PaimaEventBrokerNames.Batcher;
-      PaimaEventConnect.clients.batcher = await this.setupClient(ENV.MQTT_BATCHER_BROKER_URL);
+    if (!EventConnect.clients.batcher) {
+      const broker = EventBrokerNames.Batcher;
+      EventConnect.clients.batcher = await this.setupClient(ENV.MQTT_BATCHER_BROKER_URL);
       await setupInitialListeners(broker);
     }
-    return PaimaEventConnect.clients.batcher;
+    return EventConnect.clients.batcher;
   }
 }

@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import deno from "@deno/vite-plugin";
 import nodePolyfills from "vite-plugin-node-stdlib-browser";
 import wasm from "vite-plugin-wasm";
 import "react";
@@ -64,7 +63,6 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    deno(),
     nodePolyfills({
       overrides: {
         // Since `fs` is not supported in browsers, we can use the `memfs` package to polyfill it.

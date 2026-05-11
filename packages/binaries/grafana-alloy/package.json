@@ -1,15 +1,24 @@
 {
-    "name": "@effectstream/grafana-alloy",
-    "version": "0.3.0",
-    "description": "A wrapper for the Grafana Alloy OTEL binary",
-    "main": "install.js",
-    "bin": {
-        "grafana-alloy": "index.js"
-    },
-    "scripts": {
-        "start": "node install.js"
-    },
-    "dependencies": {
-        "@xhmikosr/bin-wrapper": "^13.2.0"
-    }
+  "name": "@effectstream/grafana-alloy",
+  "version": "0.100.12",
+  "description": "Grafana Alloy binary wrapper for EffectStream",
+  "main": "install.js",
+  "bin": {
+    "grafana-alloy": "index.js"
+  },
+  "scripts": {
+    "start": "node install.js"
+  },
+  "dependencies": {
+    "@xhmikosr/bin-wrapper": "^13.2.0"
+  },
+  "homepage": "https://effectstream.github.io/docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaimaStudios/paima-engine",
+    "directory": "packages/binaries/grafana-alloy"
+  },
+  "bugs": {
+    "url": "https://github.com/PaimaStudios/paima-engine/issues"
+  }
 }

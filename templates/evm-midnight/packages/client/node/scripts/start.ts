@@ -7,14 +7,14 @@ import { launchMidnight } from "@paimaexample/orchestrator/start-midnight";
 const customProcesses = [
   {
     name: "frontend-build",
-    args: ["task", "-f", "@example-evm-midnight/frontend", "build"],
+    args: ["run", "--filter", "@example-evm-midnight/frontend", "build"],
     waitToExit: true,
     type: "system-dependency",
     dependsOn: [ComponentNames.DEPLOY_EVM_CONTRACTS, ComponentNames.MIDNIGHT_CONTRACT],
   },
   {
     name: "frontend-server",
-    args: ["task", "-f", "@example-evm-midnight/frontend", "serve"],
+    args: ["run", "--filter", "@example-evm-midnight/frontend", "serve"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10599",
@@ -23,7 +23,7 @@ const customProcesses = [
   },
   {
     name: "explorer",
-    args: ["run", "-A", "--unstable-detect-cjs", "@paimaexample/explorer"],
+    args: ["run", "@paimaexample/explorer"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:10590",
@@ -31,7 +31,7 @@ const customProcesses = [
   },
   {
     name: "batcher",
-    args: ["task", "-f", "@example-evm-midnight/batcher", "start"],
+    args: ["run", "--filter", "@example-evm-midnight/batcher", "start"],
     waitToExit: false,
     type: "system-dependency",
     link: "http://localhost:3334",
@@ -42,7 +42,7 @@ const customProcesses = [
 
 const config = Value.Parse(OrchestratorConfig, {
   // Launch system processes
-  packageName: "jsr:@paimaexample",
+  packageName: "@paimaexample",
   processes: {
     [ComponentNames.TMUX]: true,
     [ComponentNames.TUI]: true,
@@ -59,7 +59,7 @@ const config = Value.Parse(OrchestratorConfig, {
   ],
 });
 
-if (Deno.env.get("EFFECTSTREAM_STDOUT")) {
+if (process.env.EFFECTSTREAM_STDOUT) {
   config.logs = "stdout";
   config.processes[ComponentNames.TMUX] = false;
   config.processes[ComponentNames.TUI] = false;

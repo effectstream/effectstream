@@ -79,7 +79,7 @@ export class PrimitiveBuilder<
       name: string;
       type: string;
       startBlockHeight: number;
-    }, // TODO This is the format from PaimaPrimitive.getConfig()
+    }, // TODO This is the format from Primitive.getConfig()
   >(
     genSyncProtocol: (syncProtocol: SyncProtocols) => SyncProtocol,
     genPrimitive: (

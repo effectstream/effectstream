@@ -82,10 +82,15 @@ export class MidnightFetcher extends BaseDataFetcher<
     );
     const blockFetchOptions: BlockFetchOptions = {
       contractActions: this.config.primitives.some(
-        (p) => p.primitive.type !== "Midnight:Nullifier",
+        (p) =>
+          p.primitive.type !== "Midnight:Nullifier" &&
+          p.primitive.type !== "Midnight:UnshieldedSpend",
       ),
       zswapLedgerEvents: this.config.primitives.some(
         (p) => p.primitive.type === "Midnight:Nullifier",
+      ),
+      unshieldedSpentOutputs: this.config.primitives.some(
+        (p) => p.primitive.type === "Midnight:UnshieldedSpend",
       ),
     };
     const self = this;
@@ -146,6 +151,8 @@ export class MidnightFetcher extends BaseDataFetcher<
     for (const primitiveEntry of primitiveEntries) {
       if (primitiveEntry.primitive.type === "Midnight:Nullifier") {
         syncResults.push(...this.fetchNullifiers(height, primitiveEntry, block));
+      } else if (primitiveEntry.primitive.type === "Midnight:UnshieldedSpend") {
+        syncResults.push(...this.fetchUnshieldedSpends(height, primitiveEntry, block));
       } else {
         asyncOps.push(
           this.fetchContractState(height, client, primitiveEntry, block),
@@ -183,6 +190,38 @@ export class MidnightFetcher extends BaseDataFetcher<
               txHash: decoded.txHash,
               eventId: event.id,
               logicalSegment: decoded.logicalSegment,
+            },
+          },
+        });
+      }
+    }
+    return results;
+  }
+
+  @bound
+  fetchUnshieldedSpends(
+    height: number,
+    primitiveEntry: PrimitiveEntryType,
+    block: MidnightGqlBlockState,
+  ): PrimitiveType[] {
+    const results: PrimitiveType[] = [];
+    for (const tx of block.block.transactions) {
+      for (const spend of tx.unshieldedSpentOutputs ?? []) {
+        results.push({
+          syncProtocol: {
+            name: primitiveEntry.syncProtocol,
+            blockNumber: height,
+            transactionHash: tx.hash,
+            contractAddress: "",
+          },
+          primitive: primitiveEntry.primitive.name,
+          output: {
+            payloadType: "midnight-unshielded-spend",
+            payload: {
+              owner: spend.owner,
+              intentHash: spend.intentHash,
+              outputIndex: spend.outputIndex,
+              txHash: tx.hash,
             },
           },
         });

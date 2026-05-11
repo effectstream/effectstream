@@ -12,8 +12,8 @@ import type {
 } from '@sinclair/typebox';
 import { assertNever } from 'assert-never';
 
-export enum PaimaEventBrokerNames {
-  PaimaEngine = 'effectstream-engine',
+export enum EventBrokerNames {
+  Engine = 'effectstream-engine',
   Batcher = 'batcher',
 }
 
@@ -26,14 +26,14 @@ export enum TopicPrefix {
   App = 'app',
 }
 
-export function topicToBroker(topic: TopicPrefix): PaimaEventBrokerNames {
+export function topicToBroker(topic: TopicPrefix): EventBrokerNames {
   switch (topic) {
     case TopicPrefix.Batcher:
-      return PaimaEventBrokerNames.Batcher;
+      return EventBrokerNames.Batcher;
     case TopicPrefix.Node:
-      return PaimaEventBrokerNames.PaimaEngine;
+      return EventBrokerNames.Engine;
     case TopicPrefix.App:
-      return PaimaEventBrokerNames.PaimaEngine;
+      return EventBrokerNames.Engine;
     default:
       assertNever(topic);
   }
@@ -82,7 +82,7 @@ export type LogEvent<Fields extends LogEventFields<any>[]> = {
 
 export type EventPathAndDef = {
   path: EventPath;
-  broker: PaimaEventBrokerNames;
+  broker: EventBrokerNames;
   type: TObject;
 };
 
@@ -225,8 +225,8 @@ export type OutputKeypairToObj<T> = T extends { name: string; type: any }[]
 
 // 7) Map the prefix to the broker type
 export type BrokerName<T extends TopicPrefix> = T extends TopicPrefix.Batcher
-  ? PaimaEventBrokerNames.Batcher
-  : PaimaEventBrokerNames.PaimaEngine;
+  ? EventBrokerNames.Batcher
+  : EventBrokerNames.Engine;
 
 type IndexedFields<T extends LogEventFields<TSchema>[]> = ExcludeFromTuple<
   TransformAllEventInput<RemoveAllUnindexed<T>>,

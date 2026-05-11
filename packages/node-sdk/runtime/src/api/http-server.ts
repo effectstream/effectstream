@@ -45,7 +45,7 @@ import {
   PaginationQuerySchema,
   type TypePaginationQuerySchema,
 } from "./pagination.ts";
-import { PaimaPrimitiveRegistry } from "@effectstream/sm";
+import { PrimitiveRegistry } from "@effectstream/sm";
 import { ConfigNetworkType } from "@effectstream/config";
 
 function tableListContains(
@@ -161,7 +161,7 @@ export const startHttpServer = function* (
   // Use dbConn directly; queries are executed via pgtyped PreparedQuery.run
   // Allow any webpage to access the server.
   // This node is not specific for a specific website.
-  const server = fastify({ maxParamLength: 300 });
+  const server = fastify({ routerOptions: { maxParamLength: 300 } });
   // OpenAPI Docs
   yield* registerOpenApiDocumentation(server, ENV.EFFECTSTREAM_API_PORT);
 
@@ -708,7 +708,7 @@ export const startHttpServer = function* (
   function getPrimitivePrefixWrapper(
     primitiveName: string,
   ): string | undefined {
-    const primitiveTry = PaimaPrimitiveRegistry.getPrimitive(primitiveName);
+    const primitiveTry = PrimitiveRegistry.getPrimitive(primitiveName);
     // TODO map/find the results generated bad TS Types (too hard to represent)
     const findPrimitive = (syncProtocols: AllSyncProtocols[]) => {
       for (const syncProtocol of syncProtocols) {

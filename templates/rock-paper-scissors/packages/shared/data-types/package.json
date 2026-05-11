@@ -1,0 +1,20 @@
+{
+  "name": "@rock-paper-scissors/data-types",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": {
+    "./localhostConfig": "./src/localhostConfig.ts",
+    "./grammar": "./src/grammar.ts",
+    "./types": "./src/types.ts"
+  },
+  "dependencies": {
+    "@paimaexample/sm": "0.3.124",
+    "@paimaexample/concise": "0.3.124",
+    "@paimaexample/config": "0.3.124",
+    "@paimaexample/utils": "0.3.124",
+    "@sinclair/typemap": "^0.10.1",
+    "viem": "2.37.3",
+    "@sinclair/typebox": "^0.34.30",
+    "@rock-paper-scissors/evm-contracts": "workspace:*"
+  }
+}

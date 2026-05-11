@@ -15,8 +15,8 @@ export type {
 // Shared adapter logger
 export { AdapterLogger } from "./adapter-logger.ts";
 
-// PaimaL2 adapter implementation
-export { PaimaL2DefaultAdapter } from "./paimal2-adapter.ts";
+// EffectstreamL2 adapter implementation
+export { EffectstreamL2DefaultAdapter } from "./effectstream-l2-adapter.ts";
 
 // Midnight adapter implementation
 export { MidnightAdapter } from "./midnight-adapter.ts";
@@ -40,4 +40,19 @@ export {
 // Bitcoin adapter implementation
 export { BitcoinAdapter, buildBitcoinSignatureMessage } from "./bitcoin-adapter.ts";
 export type { BitcoinAdapterConfig } from "./bitcoin-adapter.ts";
+
+// NEAR adapter implementations
+export { NearAdapter } from "./near-adapter.ts";
+export type { NearAdapterConfig, NearBatchPayload } from "./near-adapter.ts";
+export { NearIntentAdapter } from "./near-intent-adapter.ts";
+export type { NearIntentAdapterConfig, NearIntentBatch } from "./near-intent-adapter.ts";
+
+// Celestia adapter implementation
+export { CelestiaAdapter } from "./celestia-adapter.ts";
+export type {
+  CelestiaAdapterConfig,
+  CelestiaBatchPayload,
+  CelestiaBlob,
+  CelestiaNetwork,
+} from "./celestia-adapter.ts";
 

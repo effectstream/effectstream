@@ -1,8 +1,7 @@
-// import hre from "hardhat";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import * as config from "./hardhat.config.ts";
 import Erc20DevModule from "./ignition/modules/erc20dev.ts";
-import PaimaL2ContractModule from "./ignition/modules/paimaL2.ts";
+import EffectstreamL2ContractModule from "./ignition/modules/effectstreamL2.ts";
 import Erc721DevModule from "./ignition/modules/erc721dev.ts";
 import type { buildModule } from "@nomicfoundation/ignition-core";
 import CounterModule from "./ignition/modules/counter.ts";
@@ -16,19 +15,16 @@ type Deployment = {
   parameters?: Record<string, Record<string, any>>;
 };
 
-// This is an example of how to deploy contracts.
-// This is the list of contracts to deploy.
-// Add or remove contracts as needed.
 const myDeployments: Deployment[] = [
   {
     module: Erc20DevModule,
     network: "evmMainHttp",
   },
   {
-    module: PaimaL2ContractModule,
+    module: EffectstreamL2ContractModule,
     network: "evmMainHttp",
     parameters: {
-      PaimaL2ContractModule: {
+      EffectstreamL2ContractModule: {
         owner: "0xEFfE522D441d971dDC7153439a7d10235Ae6301f",
         fee: 0,
       },
@@ -53,13 +49,9 @@ const myDeployments: Deployment[] = [
   {
     module: ERC1155DevModule,
     network: "evmMainHttp",
-  }
-
+  },
 ] as const;
 
-/**
- * Deploy the contracts to the network.
- */
 export async function deploy(): Promise<void> {
   const hre = await createHardhatRuntimeEnvironment(config.default, __dirname);
   const messages: string[] = [];
@@ -76,7 +68,6 @@ export async function deploy(): Promise<void> {
     );
   }
   console.log("Deployed contracts:\n", messages.join("\n"));
-  // Wait for a block to be minted on the slowest chain.
   await new Promise((r) => setTimeout(r, 1000 * 2));
 }
 
