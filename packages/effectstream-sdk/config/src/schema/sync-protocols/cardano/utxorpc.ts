@@ -43,6 +43,7 @@ export const UtxorpcTxPattern = Type.Object({
   has_address: Type.Optional(UtxorpcAddressPattern),
   moves_asset: Type.Optional(UtxorpcAssetPattern),
   mints_asset: Type.Optional(UtxorpcAssetPattern),
+  has_certificate: Type.Optional(Type.Boolean()),
 });
 export type UtxorpcTxPattern = Static<typeof UtxorpcTxPattern>;
 

@@ -1,0 +1,37 @@
+node_modules/
+dist/
+.orchestrator-logs/
+test-results/
+playwright-report/
+
+# Catalyst internal notes
+CATALYST.md
+
+# Hardhat / EVM contracts
+packages/contracts-evm/artifacts/
+packages/contracts-evm/cache/
+packages/contracts-evm/typechain-types/
+packages/contracts-evm/build/
+packages/contracts-evm/ignition/deployments/
+
+# Cardano / Dolos runtime data
+packages/contracts-cardano/data/
+packages/contracts-cardano/temp/*
+!packages/contracts-cardano/temp/alonzo-genesis2.json
+packages/contracts-cardano/yaci-cli.history
+
+# Vite
+.vite/
+
+# Env files
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Lock files are kept (bun.lock)

@@ -51,3 +51,11 @@ export type ConfigType = Extract<
   SyncProtocolWithNetwork,
   { syncProtocolType: ConfigSyncProtocolType.CARDANO_UTXORPC_PARALLEL }
 >;
+
+export type CompletedBlock = {
+  height: number;
+  slot: number;
+  hash: string;
+  block: cardano.Block;
+  matchedTxsByPredicate: Map<string, cardano.Tx[]>;
+};

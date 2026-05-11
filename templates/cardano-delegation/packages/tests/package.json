@@ -1,0 +1,9 @@
+{
+  "name": "@cardano-delegation/tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "pg": "^8.14.0"
+  }
+}
