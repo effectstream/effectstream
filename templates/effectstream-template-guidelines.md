@@ -2381,3 +2381,210 @@ const CLI_PATH = path.resolve(import.meta.dirname!, "../../node_modules/@effects
 ```
 
 Keep `CARDANO_SUBMIT_TX` in `start.test.ts` if tests need pre-funded wallets. Ideally `launchCardano()` should accept an option to exclude the submit-tx step.
+---
+
+## Migrating from `@paima/*` (paima-engine-v1) Templates
+
+The oldest template format uses `@paima/sdk` and `@paima/node-sdk` (Node.js runtime) with flat top-level workspaces (`api/`, `db/`, `middleware/`, `state-transition/`, etc.) and `@game/*` package prefixes. This section covers migration from this format to effectstream-v2.
+
+### Version lineage
+
+| Era | SDK prefix | Runtime | Workspace pattern | Package prefix |
+|-----|-----------|---------|-------------------|----------------|
+| paima-engine-v1 | `@paima/sdk`, `@paima/node-sdk` | Node.js | flat top-level (`api/`, `db/`, etc.) | `@game/*` |
+| effectstream-v1 | `@paimaexample/*` | Deno/Bun | nested (`packages/client/`, `packages/shared/`) | `@chess/*`, `@dice/*` |
+| effectstream-v2 | `@effectstream/*` | Bun | flat `packages/*` | `@my-template/*` |
+
+### Key differences from effectstream-v1 migration
+
+The existing "Migrating from `@paimaexample/*` Templates" section covers v1→v2 for the Deno/Bun era. Paima-engine-v1 templates have additional patterns that must be handled:
+
+| Aspect | paima-engine-v1 | effectstream-v1 |
+|--------|-----------------|-----------------|
+| Middleware | Full `@paima/sdk/mw-core` — bundled JS, `postConciseData`, `buildBackendQuery` | Thin wrapper (already being phased out) |
+| Frontend integration | `document.Paima` injected global | Import-based |
+| Parser | `PaimaParser` string grammar (`"ai = ai\|target\|id\|response"`) | Same but newer API |
+| API layer | TSOA controllers with generated routes | `@ts-rest` or plain routes |
+| Game logic | Varies (often a separate package with just helpers) | `round_executor` / `match_executor` |
+| Build | esbuild + tsc per workspace | Bun native |
+| STF | `gameStateTransitionRouter(blockHeight)` returning async functions | Same pattern |
+
+### Step 1: Eliminate Middleware
+
+The middleware package (`@game/middleware`) is entirely replaced by:
+
+1. **Write operations** → `sendTransaction` from `@effectstream/wallets` in the frontend:
+```ts
+// OLD: middleware/endpoints/write.ts
+const conciseBuilder = builder.initialize(undefined);
+conciseBuilder.setPrefix('ai');
+conciseBuilder.addValue({ value: String(target) });
+conciseBuilder.addValue({ value: String(id) });
+conciseBuilder.addValue({ value: String(response) });
+const result = await postConciseData(conciseBuilder.build(), errorFxn);
+
+// NEW: frontend direct call
+import { sendTransaction } from "@effectstream/wallets";
+await sendTransaction(wallet, ["ai", target, id, response], paimaConfig, "wait-effectstream-processed");
+```
+
+2. **Read operations** → Direct `fetch` to the sync node API:
+```ts
+// OLD: middleware/endpoints/queries.ts
+const query = buildBackendQuery('game/', { game_id: String(gameId) });
+const res = await fetch(query);
+
+// NEW: frontend direct call
+const res = await fetch(`http://localhost:9999/api/game?game_id=${gameId}`);
+```
+
+Delete the entire `middleware/` package. Its complexity (error handling, wallet mode switching, concise builder) is now handled by `@effectstream/wallets`.
+
+### Step 2: Remove TSOA API → Plain Fastify
+
+Old v1 templates use TSOA for type-safe API routes with code generation (`tsoa.json`, `RegisterRoutes`, `io-ts` validators). Replace with plain Fastify routes in `packages/node/api.ts`:
+
+```ts
+// OLD: api/src/index.ts
+import { RegisterRoutes } from './tsoa/routes.js';
+export default RegisterRoutes;
+
+// NEW: packages/node/api.ts
+export const apiRouter: StartConfigApiRouter = async (server, dbConn) => {
+  server.get("/api/game", async (request, reply) => {
+    const { game_id } = request.query as { game_id: string };
+    const result = await runPreparedQuery(getGameById.run({ id: parseInt(game_id, 10) }, dbConn), "/api/game");
+    reply.send({ stats: result[0] ?? null });
+  });
+};
+```
+
+Delete `api/`, `tsoa.json`, and any generated `routes.ts` files.
+
+### Step 3: Remove `document.Paima` Global
+
+Paima-engine-v1 frontends access the SDK through a global injected by the bundled middleware JS:
+```ts
+// OLD: frontend/src/paima.ts
+export const paima = (document as any).Paima as PaimaMW;
+```
+
+Replace with direct imports:
+```ts
+// NEW: frontend/src/config.ts
+import { EffectstreamConfig } from "@effectstream/wallets";
+export const paimaConfig = new EffectstreamConfig("my-app", "mainEvmRPC", contractAddr, chain, undefined, batcherUrl, true);
+
+// NEW: frontend/src/screens.ts
+import { walletLogin, sendTransaction, WalletMode } from "@effectstream/wallets";
+const wallet = await walletLogin(paimaConfig, WalletMode.EvmInjected);
+await sendTransaction(wallet, ["newGame"], paimaConfig, "wait-effectstream-processed");
+```
+
+### Step 4: PaimaParser Grammar → Typebox Grammar
+
+```ts
+// OLD: state-transition/src/stf/v1/parser.ts
+const myGrammar = `
+    newGame = g|*x
+    ai = ai|target|id|response
+    tick = tick|n
+`;
+const parserCommands = {
+  ai: { target: PaimaParser.NCharsParser(0, 100), id: PaimaParser.NumberParser(1, 100000), response: PaimaParser.NCharsParser(0, 1000) },
+};
+
+// NEW: packages/node/grammar.ts
+import { Type } from "@sinclair/typebox";
+export const grammar = {
+  newGame: [],
+  ai: [
+    ["target", Type.String({ maxLength: 100 })],
+    ["id", Type.Number({ minimum: 1 })],
+    ["response", Type.String({ maxLength: 1000 })],
+  ],
+  tick: [["n", Type.Number({ minimum: 0 })]],
+} as const satisfies GrammarDefinition;
+```
+
+Note: The old grammar uses prefix aliases (`g` for `newGame`) — in effectstream-v2, the JSON array uses the full grammar key name as the first element.
+
+### Step 5: STF → Stm Class
+
+```ts
+// OLD: state-transition/src/stf/v1/index.ts
+export default async function (inputData: SubmittedChainData, blockHeight: number, randomnessGenerator: Prando, dbConn: Pool): Promise<SQLUpdate[]> {
+  const input = parse(inputData.inputData);
+  switch (input.input) {
+    case 'newGame': return await newGameCommand(input, user, userData);
+    case 'ai': return await aiCommand(input, user, blockHeight, dbConn);
+  }
+}
+
+// NEW: packages/node/state-machine.ts
+const stm = new Stm<typeof grammar, {}>(grammar);
+stm.addStateTransition("newGame", function* (data) {
+  const { signerAddress: user } = data;
+  yield* World.resolve(createGlobalUserState, { wallet: user });
+  yield* World.resolve(newGame, { wallet: user });
+});
+```
+
+Key changes:
+- No `Pool` parameter — use `yield* World.resolve(query, params)` for all DB access
+- No `SQLUpdate[]` return — yield directly inside the generator
+- No `parse()` function — the Stm class handles parsing via the grammar definition
+- No `switch` statement — each grammar key gets its own `addStateTransition`
+- Async operations use `yield* World.promise()` instead of `await`
+
+### Step 6: Move Workspace Layout to `packages/*`
+
+```
+OLD:                          → NEW:
+api/                         → (deleted — merged into packages/node/api.ts)
+db/                          → packages/database/
+game-logic/                  → (deleted — inline into state-machine.ts)
+middleware/                  → (deleted — replaced by @effectstream/wallets)
+state-transition/            → packages/node/state-machine.ts
+utils/                       → (deleted — merge constants into packages/node/)
+frontend/                    → packages/frontend/
+contracts/evm/               → packages/contracts-evm/
+shinkai/ (or other helpers)  → packages/node/{helper-name}.ts
+```
+
+### Step 7: `@paima/sdk` Subpath → `@effectstream/*` Packages
+
+The `@paima/sdk` package used subpath exports that don't map 1:1:
+
+| Old (`@paima/sdk/*`) | New (`@effectstream/*`) |
+|---------------------|------------------------|
+| `@paima/sdk/concise` | `@effectstream/concise` |
+| `@paima/sdk/utils` | `@effectstream/utils` |
+| `@paima/sdk/mw-core` | `@effectstream/wallets` (frontend) |
+| `@paima/sdk/providers` | `@effectstream/wallets` |
+| `@paima/sdk/prando` | Built-in via `data.randomGenerator` in STM transitions |
+| `@paima/node-sdk/db` | `@effectstream/db` |
+| `@paima/node-sdk` | `@effectstream/runtime` + `@effectstream/sm` |
+
+### Migration Checklist (paima-engine-v1 specific)
+
+- [ ] Delete `middleware/` entirely — replaced by `@effectstream/wallets` in frontend
+- [ ] Delete `api/` + `tsoa.json` — replaced by `packages/node/api.ts` (plain Fastify)
+- [ ] Delete `game-logic/` — inline helpers into state machine or node package
+- [ ] Delete `utils/` — merge constants (`GAME_NAME`, version) into node package
+- [ ] Move `db/` → `packages/database/` (update pgtyped config, paths)
+- [ ] Move `state-transition/` logic → `packages/node/state-machine.ts`
+- [ ] Move `contracts/evm/` → `packages/contracts-evm/`
+- [ ] Move `frontend/` → `packages/frontend/` (modernize build to Vite)
+- [ ] Remove `document.Paima` global — use direct `@effectstream/wallets` imports
+- [ ] Convert PaimaParser string grammar → Typebox `GrammarDefinition`
+- [ ] Convert `gameStateTransitionRouter` + `switch` → `Stm.addStateTransition` per key
+- [ ] Convert `SQLUpdate[]` tuple returns → direct `yield* World.resolve()` calls
+- [ ] Convert `createScheduledData(string, block)` → `createScheduledData(JSON.stringify([...]), block)`
+- [ ] Replace `esbuild` + `tsc` build tooling with Bun native resolution
+- [ ] Replace `axios` / `node-fetch` / custom HTTP clients with native `fetch`
+- [ ] Add `packages/batcher/` with adapter factory pattern
+- [ ] Add `packages/tests/` with phases A + B
+- [ ] Create `start.dev.ts` at project root
+- [ ] Update root `package.json` (workspaces, `effectstream.default`, scripts)
+- [ ] Verify `bun run dev` + `bun run test`
