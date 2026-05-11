@@ -22,15 +22,20 @@ import {
 } from "@e2e/engine";
 import type { Client } from "pg";
 import path from "path";
+import fs from "fs";
 
 // ── Preflight: verify celestia-appd binary is runnable on this system ────────
+// If the binary doesn't exist (e.g. CI), skip the check and let tests run.
+// Only skip tests when the binary exists but isn't runnable (wrong arch, etc.).
 
 const celestiaAppd = path.resolve(import.meta.dirname!, "../../packages/binaries/celestia/vendor/celestia-appd");
 {
-  const check = Bun.spawnSync([celestiaAppd, "version"], { stdout: "pipe", stderr: "pipe" });
-  if (check.exitCode !== 0) {
-    console.log(`[SKIP] Celestia tests skipped: celestia-appd binary is not runnable on this system\n  ${check.stderr.toString().trim()}`);
-    process.exit(0);
+  if (fs.existsSync(celestiaAppd)) {
+    const check = Bun.spawnSync([celestiaAppd, "version"], { stdout: "pipe", stderr: "pipe" });
+    if (check.exitCode !== 0) {
+      console.log(`[SKIP] Celestia tests skipped: celestia-appd binary is not runnable on this system\n  ${check.stderr.toString().trim()}`);
+      process.exit(0);
+    }
   }
 }
 

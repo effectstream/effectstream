@@ -1,6 +1,6 @@
 {
   "name": "@effectstream/celestia",
-  "version": "0.100.10",
+  "version": "0.100.12",
   "type": "module",
   "main": "./index.js",
   "bin": {
